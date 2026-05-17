@@ -18,6 +18,8 @@
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
 // @connect      apiv2.immersionkit.com
+// @connect      api.nadeshiko.co
+// @connect      cdn.nadeshiko.co
 // @connect      us-southeast-1.linodeobjects.com
 // @connect      raw.githubusercontent.com
 // @connect      en.wiktionary.org
@@ -26,6 +28,10 @@
 // @connect      127.0.0.1
 // @connect      *.ts.net
 // @connect      *
+// @grant        GM.deleteValue
+// @grant        GM.getValue
+// @grant        GM.listValues
+// @grant        GM.setValue
 // @grant        GM.xmlHttpRequest
 // @grant        GM_addStyle
 // @grant        GM_addValueChangeListener
@@ -136,10 +142,12 @@
     "jpdb-reader-sheet-height-ratio",
     "jpdb-reader-transcript-panel-size",
     "yomu.grammarPreferences.v1",
-    "yomu.hanabiraGrammarIndex.v1",
     "yomu:enable-logs",
     FACTORY_RESET_SIGNAL_KEY
   ];
+  const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
+    FACTORY_RESET_SIGNAL_KEY
+  ]);
   async function gmStorageGet(key, fallback) {
     const getValue = asyncGmGetValue();
     if (getValue) {
@@ -227,20 +235,24 @@
     removeSessionStorageKey(key);
   }
   async function exportStoredValues(prefixes) {
-    const keys = await storageKeys(prefixes);
+    const keys = (await storageKeys(prefixes)).filter(isBackupStorageKey);
     const entries = await Promise.all(keys.map(async (key) => [key, await gmStorageGet(key, void 0)]));
     return Object.fromEntries(entries.filter(([, value]) => value !== void 0));
+  }
+  async function exportManagedStoredValues() {
+    return await exportStoredValues(MANAGED_STORAGE_KEY_PREFIXES);
   }
   async function importStoredValues(values) {
     let count = 0;
     for (const [key, value] of managedStoredValueEntries(values)) {
       await gmStorageSet(key, value);
+      localStorageSet(key, value);
       count++;
     }
     return count;
   }
   function managedStoredValueEntries(values) {
-    return isStorageImportRecord(values) ? Object.entries(values).filter(([key]) => isManagedStorageKey(key)) : [];
+    return isStorageImportRecord(values) ? Object.entries(values).filter(([key]) => isBackupStorageKey(key)) : [];
   }
   function isStorageImportRecord(values) {
     return Boolean(values && typeof values === "object" && !Array.isArray(values));
@@ -527,10 +539,13 @@
   function isManagedStorageKey(key) {
     return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
   }
+  function isBackupStorageKey(key) {
+    return isManagedStorageKey(key) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key);
+  }
   function debugStorageError(message, key, error) {
     if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
   }
-  const __vite_import_meta_env__ = { "MODE": "development" };
+  const __vite_import_meta_env__ = { "DEV": false };
   const LOG_PREFIX = "[Yomu]";
   const LOG_STYLE = "background: #247a58; color: white; border-radius: 3px; padding: 2px 5px; font-weight: 700;";
   const SCOPE_STYLE = "color: #247a58; font-weight: 700;";
@@ -541,7 +556,8 @@
   const REDACTED = "[redacted]";
   const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
   const env = __vite_import_meta_env__;
-  const BUILD_IS_DEV_MODE = Boolean((env == null ? void 0 : env.MODE) === "development");
+  const BUILD_IS_DEV_MODE = Boolean(env == null ? void 0 : env.DEV);
+  const BUILD_LOGGING_ENABLED = (env == null ? void 0 : env.VITE_YOMU_ENABLE_LOGS) === "1" || (env == null ? void 0 : env.VITE_YOMU_ENABLE_LOGS) === "true";
   class ScopedLogger {
     constructor(parent, scopeName) {
       this.parent = parent;
@@ -584,6 +600,7 @@
     }
     isEnabled() {
       var _a2;
+      if (BUILD_LOGGING_ENABLED) return true;
       if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
       try {
         return ((_a2 = this.settingsProvider) == null ? void 0 : _a2.call(this).enableLogging) === true;
@@ -703,7 +720,7 @@
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
-  const log$w = Logger.scope("Settings");
+  const log$v = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
   const DEFAULT_ACCENT_COLOR = "#5ea780";
@@ -841,7 +858,10 @@
     audioFallbackChimeEnabled: true,
     audioTimeoutMs: 6e3,
     audioSelectionMode: "random",
+    audioTtsMode: "fallback",
     immersionKitEnabled: true,
+    immersionKitExampleSource: "immersion-kit",
+    nadeshikoApiKey: "",
     immersionKitPriority: 80,
     immersionKitLimitEnabled: false,
     immersionKitLimit: 3,
@@ -885,7 +905,6 @@
     showFurigana: true,
     furiganaMode: "auto",
     showPitchAccent: true,
-    wordHighlightMode: "status",
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,
@@ -984,9 +1003,10 @@
   };
   function mergeSettings(value) {
     const audio = normalizeAudioSettings(value);
+    const settingsWithoutLegacyWordHighlightMode = stripLegacyWordHighlightMode(value);
     return {
       ...DEFAULT_SETTINGS,
-      ...value ?? {},
+      ...settingsWithoutLegacyWordHighlightMode ?? {},
       ...normalizeLookupSettings(value),
       ...normalizeNewTabSettings(value),
       ...normalizeReaderDisplaySettings(value),
@@ -1002,6 +1022,14 @@
       shortcuts: normalizeShortcutSettings(value)
     };
   }
+  function normalizeReaderSettings(value) {
+    return mergeSettings(value);
+  }
+  function stripLegacyWordHighlightMode(value) {
+    if (!value) return null;
+    const { wordHighlightMode: _legacyWordHighlightMode, ...settings } = value;
+    return settings;
+  }
   function normalizeAudioSettings(value) {
     var _a2;
     const hasSavedAudioSources = hasOwn(value, "audioSources");
@@ -1009,7 +1037,8 @@
     return {
       audioAutoPlayMode: normalizeAudioAutoPlayMode(value == null ? void 0 : value.audioAutoPlayMode),
       audioSources,
-      audioSourceUrl: ((_a2 = audioSources.find((source) => source.url)) == null ? void 0 : _a2.url) ?? (value == null ? void 0 : value.audioSourceUrl) ?? DEFAULT_AUDIO_URL
+      audioSourceUrl: ((_a2 = audioSources.find((source) => source.url)) == null ? void 0 : _a2.url) ?? (value == null ? void 0 : value.audioSourceUrl) ?? DEFAULT_AUDIO_URL,
+      audioTtsMode: normalizeAudioTtsMode(value == null ? void 0 : value.audioTtsMode)
     };
   }
   function normalizeShortcutSettings(value) {
@@ -1033,12 +1062,12 @@
   function normalizeLookupSettings(value) {
     return {
       interfaceLanguage: normalizeInterfaceLanguage(value == null ? void 0 : value.interfaceLanguage),
-      jpdbDefinitionsPriority: clampNumber$4(value == null ? void 0 : value.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
+      jpdbDefinitionsPriority: clampNumber$5(value == null ? void 0 : value.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
       lookupOnClick: typeof (value == null ? void 0 : value.lookupOnClick) === "boolean" ? value.lookupOnClick : true,
       lookupOnHover: typeof (value == null ? void 0 : value.lookupOnHover) === "boolean" ? value.lookupOnHover : (value == null ? void 0 : value.popupActivationMode) !== "click",
       lookupOnMiddleMouse: typeof (value == null ? void 0 : value.lookupOnMiddleMouse) === "boolean" ? value.lookupOnMiddleMouse : true,
-      hoverOpenDelayMs: clampNumber$4(value == null ? void 0 : value.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
-      hoverCloseDelayMs: clampNumber$4(value == null ? void 0 : value.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
+      hoverOpenDelayMs: clampNumber$5(value == null ? void 0 : value.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
+      hoverCloseDelayMs: clampNumber$5(value == null ? void 0 : value.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
     };
   }
   function normalizeNewTabSettings(value) {
@@ -1052,7 +1081,7 @@
       newTabParsingEnabled: booleanSetting(value, "newTabParsingEnabled"),
       newTabFrontSentenceEnabled: booleanSetting(value, "newTabFrontSentenceEnabled"),
       newTabOfflineEnabled: booleanSetting(value, "newTabOfflineEnabled"),
-      newTabOfflineLimit: clampNumber$4(value == null ? void 0 : value.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
+      newTabOfflineLimit: clampNumber$5(value == null ? void 0 : value.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
       newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
     };
@@ -1078,22 +1107,21 @@
       puckPositionY: normalizeOptionalCoordinate(value == null ? void 0 : value.puckPositionY),
       showFurigana: typeof (value == null ? void 0 : value.showFurigana) === "boolean" ? value.showFurigana : DEFAULT_SETTINGS.showFurigana,
       furiganaMode: normalizeFuriganaMode(value == null ? void 0 : value.furiganaMode, value),
-      hideKnownFurigana: typeof (value == null ? void 0 : value.hideKnownFurigana) === "boolean" ? value.hideKnownFurigana : DEFAULT_SETTINGS.hideKnownFurigana,
-      wordHighlightMode: normalizeWordHighlightMode(value == null ? void 0 : value.wordHighlightMode)
+      hideKnownFurigana: typeof (value == null ? void 0 : value.hideKnownFurigana) === "boolean" ? value.hideKnownFurigana : DEFAULT_SETTINGS.hideKnownFurigana
     };
   }
   function normalizeKanjiSettings(value) {
     return {
       jpdbKanjiEnabled: typeof (value == null ? void 0 : value.jpdbKanjiEnabled) === "boolean" ? value.jpdbKanjiEnabled : DEFAULT_SETTINGS.jpdbKanjiEnabled,
-      jpdbKanjiPriority: clampNumber$4(value == null ? void 0 : value.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
+      jpdbKanjiPriority: clampNumber$5(value == null ? void 0 : value.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
       uchisenEnabled: typeof (value == null ? void 0 : value.uchisenEnabled) === "boolean" ? value.uchisenEnabled : DEFAULT_SETTINGS.uchisenEnabled,
-      uchisenPriority: clampNumber$4(value == null ? void 0 : value.uchisenPriority, 0, 999, DEFAULT_SETTINGS.uchisenPriority),
-      rtkPriority: clampNumber$4(value == null ? void 0 : value.rtkPriority, 0, 999, DEFAULT_SETTINGS.rtkPriority),
-      kanjivgPriority: clampNumber$4(value == null ? void 0 : value.kanjivgPriority, 0, 999, DEFAULT_SETTINGS.kanjivgPriority),
-      kanjiOriginsPriority: clampNumber$4(value == null ? void 0 : value.kanjiOriginsPriority, 0, 999, DEFAULT_SETTINGS.kanjiOriginsPriority),
-      kanjiDictionariesPriority: clampNumber$4(value == null ? void 0 : value.kanjiDictionariesPriority, 0, 999, DEFAULT_SETTINGS.kanjiDictionariesPriority),
-      similarKanjiWordsPriority: clampNumber$4(value == null ? void 0 : value.similarKanjiWordsPriority, 0, 999, DEFAULT_SETTINGS.similarKanjiWordsPriority),
-      similarKanjiWordLimit: clampNumber$4(value == null ? void 0 : value.similarKanjiWordLimit, 2, 24, DEFAULT_SETTINGS.similarKanjiWordLimit)
+      uchisenPriority: clampNumber$5(value == null ? void 0 : value.uchisenPriority, 0, 999, DEFAULT_SETTINGS.uchisenPriority),
+      rtkPriority: clampNumber$5(value == null ? void 0 : value.rtkPriority, 0, 999, DEFAULT_SETTINGS.rtkPriority),
+      kanjivgPriority: clampNumber$5(value == null ? void 0 : value.kanjivgPriority, 0, 999, DEFAULT_SETTINGS.kanjivgPriority),
+      kanjiOriginsPriority: clampNumber$5(value == null ? void 0 : value.kanjiOriginsPriority, 0, 999, DEFAULT_SETTINGS.kanjiOriginsPriority),
+      kanjiDictionariesPriority: clampNumber$5(value == null ? void 0 : value.kanjiDictionariesPriority, 0, 999, DEFAULT_SETTINGS.kanjiDictionariesPriority),
+      similarKanjiWordsPriority: clampNumber$5(value == null ? void 0 : value.similarKanjiWordsPriority, 0, 999, DEFAULT_SETTINGS.similarKanjiWordsPriority),
+      similarKanjiWordLimit: clampNumber$5(value == null ? void 0 : value.similarKanjiWordLimit, 2, 24, DEFAULT_SETTINGS.similarKanjiWordLimit)
     };
   }
   function normalizeAnkiAndStudySettings(value) {
@@ -1107,9 +1135,9 @@
       ankiFrontImage: typeof (value == null ? void 0 : value.ankiFrontImage) === "boolean" ? value.ankiFrontImage : DEFAULT_SETTINGS.ankiFrontImage,
       ankiMobileHandoff: typeof (value == null ? void 0 : value.ankiMobileHandoff) === "boolean" ? value.ankiMobileHandoff : DEFAULT_SETTINGS.ankiMobileHandoff,
       studyTranslationEnabled: typeof (value == null ? void 0 : value.studyTranslationEnabled) === "boolean" ? value.studyTranslationEnabled : DEFAULT_SETTINGS.studyTranslationEnabled,
-      studyTranslationPriority: clampNumber$4(value == null ? void 0 : value.studyTranslationPriority, 0, 999, DEFAULT_SETTINGS.studyTranslationPriority),
+      studyTranslationPriority: clampNumber$5(value == null ? void 0 : value.studyTranslationPriority, 0, 999, DEFAULT_SETTINGS.studyTranslationPriority),
       studyGrammarEnabled: typeof (value == null ? void 0 : value.studyGrammarEnabled) === "boolean" ? value.studyGrammarEnabled : DEFAULT_SETTINGS.studyGrammarEnabled,
-      studyGrammarPriority: clampNumber$4(value == null ? void 0 : value.studyGrammarPriority, 0, 999, DEFAULT_SETTINGS.studyGrammarPriority),
+      studyGrammarPriority: clampNumber$5(value == null ? void 0 : value.studyGrammarPriority, 0, 999, DEFAULT_SETTINGS.studyGrammarPriority),
       enableLogging: typeof (value == null ? void 0 : value.enableLogging) === "boolean" ? value.enableLogging : DEFAULT_SETTINGS.enableLogging
     };
   }
@@ -1118,8 +1146,8 @@
       theme: normalizeTheme(value == null ? void 0 : value.theme),
       popupMode: normalizePopupMode(value == null ? void 0 : value.popupMode),
       stickyBottomSheet: booleanSetting(value, "stickyBottomSheet"),
-      popoverWidth: clampNumber$4(value == null ? void 0 : value.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
-      popoverHeight: clampNumber$4(value == null ? void 0 : value.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
+      popoverWidth: clampNumber$5(value == null ? void 0 : value.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
+      popoverHeight: clampNumber$5(value == null ? void 0 : value.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
       popoverHeightMode: normalizePopoverHeightMode(value == null ? void 0 : value.popoverHeightMode)
     };
   }
@@ -1137,14 +1165,16 @@
     return {
       audioViaBlob: booleanSetting(value, "audioViaBlob"),
       audioFallbackChimeEnabled: booleanSetting(value, "audioFallbackChimeEnabled"),
-      immersionKitPriority: clampNumber$4(value == null ? void 0 : value.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
+      immersionKitExampleSource: normalizeImmersionExampleSource(value == null ? void 0 : value.immersionKitExampleSource),
+      nadeshikoApiKey: typeof (value == null ? void 0 : value.nadeshikoApiKey) === "string" ? value.nadeshikoApiKey.trim() : DEFAULT_SETTINGS.nadeshikoApiKey,
+      immersionKitPriority: clampNumber$5(value == null ? void 0 : value.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
       immersionKitLimitEnabled: typeof (value == null ? void 0 : value.immersionKitLimitEnabled) === "boolean" ? value.immersionKitLimitEnabled : DEFAULT_SETTINGS.immersionKitLimitEnabled,
-      immersionKitLimit: clampNumber$4(value == null ? void 0 : value.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
-      immersionKitMinLength: clampNumber$4(value == null ? void 0 : value.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
-      immersionKitMaxLength: clampNumber$4(value == null ? void 0 : value.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
+      immersionKitLimit: clampNumber$5(value == null ? void 0 : value.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
+      immersionKitMinLength: clampNumber$5(value == null ? void 0 : value.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
+      immersionKitMaxLength: clampNumber$5(value == null ? void 0 : value.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
       immersionKitCategory: normalizeImmersionKitCategory(value == null ? void 0 : value.immersionKitCategory),
       immersionKitSort: normalizeImmersionKitSort(value == null ? void 0 : value.immersionKitSort),
-      immersionKitPlaybackRate: clampNumber$4(value == null ? void 0 : value.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
+      immersionKitPlaybackRate: clampNumber$5(value == null ? void 0 : value.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
       immersionKitRevealTranslationOnClick: booleanSetting(value, "immersionKitRevealTranslationOnClick"),
       immersionKitPlayOnHover: booleanSetting(value, "immersionKitPlayOnHover"),
       immersionKitPlayOnImageClick: booleanSetting(value, "immersionKitPlayOnImageClick"),
@@ -1154,8 +1184,8 @@
       ocrTextColor: sanitizeAccentColor(value == null ? void 0 : value.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
       ocrOutlineColor: sanitizeAccentColor(value == null ? void 0 : value.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor),
       ocrBackgroundColor: sanitizeAccentColor(value == null ? void 0 : value.ocrBackgroundColor, DEFAULT_SETTINGS.ocrBackgroundColor),
-      ocrBackgroundOpacity: clampNumber$4(value == null ? void 0 : value.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
-      ocrFontScale: clampNumber$4(value == null ? void 0 : value.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
+      ocrBackgroundOpacity: clampNumber$5(value == null ? void 0 : value.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
+      ocrFontScale: clampNumber$5(value == null ? void 0 : value.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
     };
   }
   function normalizeSubtitleSettings(value) {
@@ -1168,9 +1198,9 @@
       subtitleTextColor: sanitizeAccentColor(value == null ? void 0 : value.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
       subtitleOutlineColor: sanitizeAccentColor(value == null ? void 0 : value.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
       subtitleBackgroundColor: sanitizeAccentColor(value == null ? void 0 : value.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
-      subtitleBackgroundOpacity: clampNumber$4(value == null ? void 0 : value.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
+      subtitleBackgroundOpacity: clampNumber$5(value == null ? void 0 : value.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
       subtitleFontFamily: typeof (value == null ? void 0 : value.subtitleFontFamily) === "string" && value.subtitleFontFamily.trim() ? value.subtitleFontFamily.trim() : DEFAULT_SETTINGS.subtitleFontFamily,
-      subtitleFontWeight: clampNumber$4(value == null ? void 0 : value.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
+      subtitleFontWeight: clampNumber$5(value == null ? void 0 : value.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
     };
   }
   function normalizeOptionalCoordinate(value) {
@@ -1204,11 +1234,17 @@
   function normalizeAudioAutoPlayMode(value) {
     return value === "all" || value === "hover" || value === "tap" ? value : DEFAULT_SETTINGS.audioAutoPlayMode;
   }
+  function normalizeAudioTtsMode(value) {
+    return value === "source-order" || value === "fallback" ? value : DEFAULT_SETTINGS.audioTtsMode;
+  }
   function normalizeImmersionKitCategory(value) {
     return value === "anime" || value === "drama" || value === "games" || value === "all" ? value : DEFAULT_SETTINGS.immersionKitCategory;
   }
   function normalizeImmersionKitSort(value) {
     return value === "sentence_length:desc" || value === "sentence_length:asc" ? value : DEFAULT_SETTINGS.immersionKitSort;
+  }
+  function normalizeImmersionExampleSource(value) {
+    return value === "nadeshiko" || value === "combined" || value === "immersion-kit" ? value : DEFAULT_SETTINGS.immersionKitExampleSource;
   }
   function normalizeUrl(value, fallback) {
     if (typeof value !== "string" || !value.trim()) return fallback;
@@ -1224,7 +1260,7 @@
     if (value === "meta") return "Meta";
     return value === "shift" ? "Shift" : "";
   }
-  function clampNumber$4(value, min, max2, fallback) {
+  function clampNumber$5(value, min, max2, fallback) {
     const number = Number(value);
     return Number.isFinite(number) ? Math.max(min, Math.min(max2, number)) : fallback;
   }
@@ -1260,29 +1296,42 @@
   function normalizeNewTabKanjiKeywordSource(value) {
     return value === "auto" || value === "rtk" || value === "jpdb" || value === "local" ? value : DEFAULT_SETTINGS.newTabKanjiKeywordSource;
   }
-  function normalizeWordHighlightMode(value, _settings) {
-    if (value === "status" || value === "pitch" || value === "off") return value;
-    if (value === "auto") return DEFAULT_SETTINGS.wordHighlightMode;
-    return DEFAULT_SETTINGS.wordHighlightMode;
-  }
   function normalizeReaderColorChannelSettings(value) {
     if (isLegacyDefaultColorChannelSettings(value)) return { ...DEFAULT_COLOR_CHANNELS };
     return {
-      wordHighlightColorSource: normalizeReaderColorSource(value == null ? void 0 : value.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource),
-      wordUnderlineColorSource: normalizeReaderColorSource(value == null ? void 0 : value.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource),
-      wordTextColorSource: normalizeReaderColorSource(value == null ? void 0 : value.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource),
-      subtitleHighlightColorSource: normalizeReaderColorSource(value == null ? void 0 : value.subtitleHighlightColorSource, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource),
-      subtitleUnderlineColorSource: normalizeReaderColorSource(value == null ? void 0 : value.subtitleUnderlineColorSource, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource),
-      subtitleTextColorSource: normalizeReaderColorSource(value == null ? void 0 : value.subtitleTextColorSource, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource)
+      wordHighlightColorSource: normalizeReaderColorSource(value == null ? void 0 : value.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource)),
+      wordUnderlineColorSource: normalizeReaderColorSource(value == null ? void 0 : value.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource)),
+      wordTextColorSource: normalizeReaderColorSource(value == null ? void 0 : value.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordTextColorSource)),
+      subtitleHighlightColorSource: normalizeReaderColorSource(value == null ? void 0 : value.subtitleHighlightColorSource, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource)),
+      subtitleUnderlineColorSource: normalizeReaderColorSource(value == null ? void 0 : value.subtitleUnderlineColorSource, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource)),
+      subtitleTextColorSource: normalizeReaderColorSource(value == null ? void 0 : value.subtitleTextColorSource, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource))
     };
   }
   function isLegacyDefaultColorChannelSettings(value) {
     if (!value) return false;
     return Object.keys(LEGACY_COLOR_CHANNEL_DEFAULTS).every((key) => hasOwn(value, key) && value[key] === LEGACY_COLOR_CHANNEL_DEFAULTS[key]);
   }
-  function normalizeReaderColorSource(value, fallback) {
-    if (value === "auto") return fallback;
+  function normalizeReaderColorSource(value, fallback, autoFallback = fallback) {
+    if (value === "auto") return autoFallback;
     return READER_COLOR_SOURCES.has(value) ? value : fallback;
+  }
+  function legacyReaderColorSourceForAuto(settings, fallback) {
+    const mode = legacyEffectiveWordHighlightMode(settings);
+    return mode ?? fallback;
+  }
+  function legacySubtitleColorSourceForAuto(settings, fallback) {
+    const mode = legacyEffectiveWordHighlightMode(settings);
+    if (!mode) return fallback;
+    return mode === "status" ? "jpdb" : mode;
+  }
+  function legacyEffectiveWordHighlightMode(settings) {
+    if (!settings || !hasOwn(settings, "wordHighlightMode")) return null;
+    if (settings.wordHighlightMode === "status" || settings.wordHighlightMode === "pitch" || settings.wordHighlightMode === "off") return settings.wordHighlightMode;
+    return hasLegacyMiningStatusSource(settings) ? "status" : "pitch";
+  }
+  function hasLegacyMiningStatusSource(settings) {
+    var _a2;
+    return Boolean(settings.ankiEnabled || settings.jpdbMiningEnabled && ((_a2 = settings.apiKey) == null ? void 0 : _a2.trim()));
   }
   function normalizeFuriganaMode(value, settings) {
     if (isFuriganaMode(value)) return value;
@@ -1299,24 +1348,16 @@
   function normalizeDeckIdSetting(value, fallback) {
     return typeof value === "string" && value.trim() ? value.trim() : fallback;
   }
-  function hasMiningStatusSource(settings) {
-    return settings.ankiEnabled || settings.jpdbMiningEnabled && Boolean(settings.apiKey.trim());
-  }
   function hasPersonalizedFuriganaSource(settings) {
     return settings.ankiEnabled || Boolean(settings.apiKey.trim());
   }
-  function effectiveWordHighlightMode(settings) {
-    if (settings.wordHighlightMode === "status" || settings.wordHighlightMode === "pitch" || settings.wordHighlightMode === "off") return settings.wordHighlightMode;
-    return hasMiningStatusSource(settings) ? "status" : "pitch";
-  }
-  function effectiveReaderColorSource(settings, source) {
+  function effectiveReaderColorSource(settings, source, fallback = DEFAULT_COLOR_CHANNELS.wordHighlightColorSource) {
     if (source !== "auto") return source;
-    return effectiveWordHighlightMode(settings);
+    return legacyReaderColorSourceForAuto(settings, fallback);
   }
-  function effectiveSubtitleColorSource(settings, source) {
+  function effectiveSubtitleColorSource(settings, source, fallback = DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource) {
     if (source !== "auto") return source;
-    const mode = effectiveWordHighlightMode(settings);
-    return mode === "status" ? "jpdb" : mode;
+    return legacySubtitleColorSourceForAuto(settings, fallback);
   }
   function effectiveFuriganaMode(settings) {
     if (!settings.showFurigana || settings.furiganaMode === "off") return "off";
@@ -1345,7 +1386,7 @@
     const params = new URLSearchParams(search);
     const bootstrap = urlBootstrapSettings(params);
     if (!hasUrlBootstrapSettings(bootstrap)) return settings;
-    log$w.info("Applying URL bootstrap settings", {
+    log$v.info("Applying URL bootstrap settings", {
       hasApiKey: Boolean(bootstrap.apiKey),
       hasAudio: Boolean(bootstrap.audio),
       hasOcr: Boolean(bootstrap.ocr)
@@ -1408,19 +1449,19 @@
       const settings = mergeSettings(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
       return settings;
     } catch (error) {
-      log$w.warn("Settings load failed, using defaults", { error });
+      log$v.warn("Settings load failed, using defaults", { error });
       return mergeSettings(null);
     }
   }
   async function saveSettings(settings) {
     if (settingsResetInProgress) {
-      log$w.warn("Skipped settings save while factory reset is in progress");
+      log$v.warn("Skipped settings save while factory reset is in progress");
       return;
     }
     try {
-      await gmStorageSet(SETTINGS_STORAGE_KEY, settings);
+      await gmStorageSet(SETTINGS_STORAGE_KEY, stripLegacyWordHighlightMode(settings));
     } catch (error) {
-      log$w.warn("Settings save failed", { error });
+      log$v.warn("Settings save failed", { error });
       throw error;
     }
   }
@@ -2833,11 +2874,2864 @@
   const DONATE_URL = "https://paypal.me/HenryRussell163";
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
   const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
+  const NADESHIKO_URL = "https://nadeshiko.co/";
+  const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
   const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
   const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
   const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
   const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
   const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
+  const COPY = {
+    en: {
+      settingsTitle: `${APP_NAME} Settings`,
+      welcomeLabel: `${APP_NAME} welcome`,
+      onboardingEyebrow: "Japanese, wherever it appears",
+      onboardingCopy: "Turn Japanese text, subtitles, and image text into tappable dictionary cards. Mine useful words, play audio, and keep the page readable while you study.",
+      onboardingLanguage: "Settings language",
+      onboardingAddApiKey: "Add API key",
+      onboardingAddLocalDictionaries: "Add local dictionaries",
+      onboardingUseWithoutApiKey: "Use without API key",
+      closeOnboarding: "Close welcome",
+      featureText: "Text",
+      featureTextBody: "Hover or tap Japanese words once a page is scanned.",
+      featureImages: "Images",
+      featureImagesBody: "Readable image text can be detected quietly near the viewport.",
+      featureVideo: "Video",
+      featureVideoBody: "Subtitle words become tappable when subtitles are available.",
+      featureControl: "Control",
+      featureControlBody: "Open Settings any time to turn features off, change shortcuts, or tune the accent color.",
+      scanPage: "Scan page",
+      settings: "Settings",
+      settingsSections: "Settings sections",
+      save: "Save",
+      cancel: "Cancel",
+      basics: "Basics",
+      dictionaries: "Dictionaries",
+      media: "Media",
+      mining: "Mining",
+      shortcuts: "Shortcuts",
+      help: "Help",
+      interface: "Interface",
+      reader: "Reader",
+      kanji: "Kanji",
+      audio: "Audio",
+      images: "OCR",
+      video: "Video",
+      anki: "Anki",
+      jpdb: "JPDB",
+      apiKey: "API key",
+      jpdbSettings: "JPDB settings",
+      jpdbMiningEnabled: "Allow JPDB review/deck changes",
+      addToForq: "Also copy JPDB adds to forq",
+      enableReviews: "Show review buttons",
+      reviewRatingScale: "Review rating scale",
+      fivePoint: "Five point: NOTHING to EASY",
+      twoPoint: "Two point: FAIL / PASS",
+      settingsLanguage: "Settings language",
+      automatic: "Automatic",
+      english: "English",
+      japanese: "日本語",
+      theme: "Theme",
+      auto: "Auto",
+      dark: "Dark",
+      light: "Light",
+      switchToDarkTheme: "Switch to dark theme",
+      switchToLightTheme: "Switch to light theme",
+      popupMode: "Popup mode",
+      bottomSheet: "Bottom sheet",
+      popover: "Popover",
+      stickyBottomSheet: "Keep bottom sheet open until closed",
+      popoverWidth: "Popover width (px)",
+      popoverHeight: "Popover height (px)",
+      popoverHeightMode: "Popover height",
+      popoverHeightAvailable: "Grow to available space",
+      popoverHeightFixed: "Use height setting",
+      enableLogging: "Enable console logging",
+      accentColor: "Accent color",
+      newTab: "New tab",
+      newTabEnabled: "Use Yomu new tab study page",
+      newTabSource: "New tab review source",
+      newTabAuto: "Auto: JPDB + Anki",
+      dictionaryFallback: "Dictionary fallback",
+      newTabJpdbReviewMode: "JPDB review mode",
+      newTabJpdbReviewAuto: "Auto: live kanji + API vocabulary",
+      newTabLiveReview: "Live JPDB review session",
+      newTabApiVocabulary: "API vocabulary only",
+      corsProxyUrl: "Cross-origin proxy URL",
+      newTabKanjiKeywordSource: "Kanji keyword source",
+      newTabKanjiKeywordAuto: "Auto: RTK, then JPDB, then local",
+      newTabKanjiKeywordRtk: "RTK / Heisig",
+      newTabKanjiKeywordLocal: "Local card meaning",
+      newTabParsingEnabled: "Parse sentences on new tab",
+      newTabFrontSentenceEnabled: "Show sentence on word fronts",
+      newTabKanjiAutogradeEnabled: "Autograde kanji drawing",
+      newTabKanjiAutoSubmit: "Submit kanji grade after autograde",
+      newTabOfflineEnabled: "Cache new tab for offline use",
+      newTabOfflineLimit: "Offline review cache limit",
+      newTabUrl: "New tab address",
+      newTabOfflineHelp: "Use this page as your browser new-tab URL or add it to the iPad Home Screen. Offline caching is eventually consistent: よむ refreshes the next cached review list and card assets when the source is reachable, then uses the last good cache while offline. Grades are only submitted when JPDB or Anki is reachable.",
+      newTabJpdbDeck: "New tab JPDB deck",
+      openNewTabPage: "Open new tab page",
+      copyAddress: "Copy address",
+      wordColors: "Word colors",
+      wordColorNew: "New and suspended",
+      wordColorLearning: "Learning",
+      wordColorKnown: "Known and never forget",
+      wordColorDue: "Due",
+      wordColorFailed: "Failed",
+      wordColorIgnored: "Ignored and blacklisted",
+      pitchAccentColors: "Pitch accent colors",
+      pitchColorHeiban: "Heiban (flat)",
+      pitchColorAtamadaka: "Atamadaka (head-high)",
+      pitchColorNakadaka: "Nakadaka (middle-high)",
+      pitchColorOdaka: "Odaka (tail-high)",
+      pitchColorKifuku: "Kifuku (variable)",
+      pitchColorUnknown: "Unknown / inherited",
+      colorChannels: "Color channels",
+      wordHighlightColorSource: "Word highlight color",
+      wordUnderlineColorSource: "Word underline color",
+      wordTextColorSource: "Word text color",
+      subtitleHighlightColorSource: "Subtitle highlight color",
+      subtitleUnderlineColorSource: "Subtitle underline color",
+      subtitleTextColorSource: "Subtitle text color",
+      colorSourceStatus: "JPDB + Anki status",
+      colorSourceJpdb: "JPDB status",
+      colorSourceAnki: "Anki status",
+      colorSourcePitch: "Pitch accent",
+      colorChannelsHelp: "Each channel uses the source shown here. Defaults keep page text readable, show mining status in highlights, and keep subtitle status and pitch visible.",
+      interfaceHelp: "",
+      parseSelection: "Lookup selected text",
+      lookupOnClick: "Tap or click scanned words",
+      lookupOnHover: "Hover scanned words",
+      lookupOnMiddleMouse: "Hold middle mouse button to scan words",
+      autoScanJapanese: "Auto-scan when Japanese is detected",
+      scanVisiblePage: "Scan visible page on load",
+      showFloatingButton: "Toggle floating puck on pages",
+      showFurigana: "Enable furigana annotations",
+      furiganaMode: "Furigana",
+      furiganaDifficultKanji: "Difficult kanji only",
+      furiganaHideKnown: "Hide known words",
+      furiganaAllParsed: "All parsed words",
+      showPitchAccent: "Show pitch accent",
+      hideKnownFurigana: "Hide furigana for known cards only",
+      readerHelp: "Hover lookup uses the shortcut below. Leave it blank for plain hover. Middle-button scanning blocks browser autoscroll while held, but still leaves normal middle-clicks on links alone.",
+      kanjivgEnabled: "Show stroke order and drawing pad",
+      kanjiOriginsEnabled: "Show compact kanji facts and component map",
+      kanjiOriginKanjiMapEnabled: "Use Kanji Alive and Kanji Map facts",
+      kanjiOriginGraphEnabled: "Show component graph",
+      kanjiOriginRadicalImagesEnabled: "Show radical images",
+      rtkEnabled: "Show RTK information",
+      similarKanjiWords: "Show words using the same kanji",
+      similarKanjiWordLimit: "Similar word limit",
+      loadingSimilarWords: "Loading words...",
+      openToLoadSimilarWords: "Open to load words.",
+      noSimilarWords: "No additional words found.",
+      kanjiHelp: "Click a kanji inside the popup word to see RTK, local kanji dictionary meanings, component keywords, and related words.",
+      audioEnabled: "Enable audio playback for terms",
+      autoPlayAudio: "Auto-play when a word card opens",
+      audioAutoPlayMode: "Auto-play trigger",
+      audioEnableDefaultSources: "Use built-in audio sources",
+      audioFallbackChimeEnabled: "Play a soft chime when no audio is available",
+      audioSelectionMode: "When several sources or clips exist",
+      firstAudio: "First audio",
+      randomAudio: "Random audio",
+      audioTtsMode: "Text-to-speech handling",
+      audioTtsFallback: "Fallback after recorded audio",
+      audioTtsSourceOrder: "Follow source order / random",
+      audioTimeoutMs: "Audio timeout (ms)",
+      previewAudio: "Preview audio",
+      audioHelp: "Supports {term}, {reading}, and {language}. The proxy is shared by hosted-page audio and public lookup requests. In fallback mode, JPDB and browser text-to-speech rows are tried only after recorded audio misses. See the Yomitan audio guide.",
+      audioSource: "Audio source",
+      urlVoice: "URL / voice",
+      addAudioSource: "Add audio source",
+      audioAutoPlayAll: "Hover and tap/click",
+      audioAutoPlayHover: "Hover only",
+      audioAutoPlayTap: "Tap/click only",
+      automaticBrowserVoice: "Automatic browser voice",
+      savedVoice: "Saved voice",
+      audioSourceOrder: "Audio source order",
+      audioSourceNumber: "Audio source {number}",
+      textToSpeechVoiceNumber: "Text-to-speech voice {number}",
+      audioCustomJsonPlaceholder: "Yomitan or Ultimate audio source URL",
+      audioCustomUrlPlaceholder: "Direct audio file URL",
+      audioBuiltInPlaceholder: "Built-in source, no URL needed",
+      immersionKit: "Immersion Kit",
+      immersionKitEnabled: "Show Immersion Kit examples",
+      immersionKitExampleSource: "Example provider",
+      immersionKitAndNadeshiko: "Immersion Kit + Nadeshiko",
+      nadeshikoApiKey: "Nadeshiko API key",
+      getNadeshikoKey: "Get a key",
+      immersionKitShowTranslation: "Show example translations",
+      immersionKitRevealTranslationOnClick: "Blur example translations until clicked",
+      immersionKitShowImages: "Show example thumbnails",
+      immersionKitAutoPlayAudio: "Play example audio after reveal or next/previous",
+      immersionKitPlayOnHover: "Play example audio when hovering thumbnails",
+      immersionKitPlayOnImageClick: "Play example audio when clicking thumbnails",
+      immersionKitCategory: "Immersion Kit category",
+      immersionKitSort: "Example order",
+      immersionKitLimitEnabled: "Examples per word limit",
+      allExamples: "All examples",
+      limitExamples: "Limit examples",
+      immersionKitLimit: "Examples per word",
+      immersionKitMinLength: "Minimum sentence length",
+      immersionKitMaxLength: "Maximum sentence length",
+      immersionKitPlaybackRate: "Example audio speed",
+      immersionKitExactMatch: "Prefer exact matches",
+      immersionKitHelp: "Immersion examples appear inside word popups and on JPDB pages. Immersion Kit works without a key; Nadeshiko needs a free API key.",
+      loadingExamples: "Loading examples...",
+      noImmersionExamples: "No Immersion Kit examples found.",
+      noImmersionExamplesCompact: "No examples",
+      previousExample: "Previous example",
+      nextExample: "Next example",
+      playExampleAudio: "Play example audio",
+      allCategories: "All",
+      anime: "Anime",
+      drama: "Drama",
+      games: "Games",
+      shortestFirst: "Shortest first",
+      longestFirst: "Longest first",
+      randomOrder: "Random",
+      ocrEnabled: "Read text in images",
+      ocrAutoScanImages: "Read images automatically",
+      ocrShowTextOverlay: "Show recognized image text areas",
+      ocrProvider: "Image reading",
+      googleLens: "Google Lens (recommended)",
+      cloudVision: "Google Cloud Vision",
+      localOcr: "Local OCR engine",
+      off: "Off",
+      ocrMaxImagesPerPage: "Images to read per page",
+      ocrMinImageArea: "Smallest image to read",
+      ocrMaxImagePixels: "Image detail",
+      lightWork: "Light",
+      normal: "Normal",
+      more: "More",
+      largeOnly: "Large images only",
+      includeSmall: "Include small images",
+      faster: "Faster",
+      balanced: "Balanced",
+      sharper: "Sharper",
+      ocrTextColor: "Image text color",
+      ocrOutlineColor: "Image text outline",
+      ocrBackgroundColor: "Image highlight background",
+      ocrBackgroundOpacity: "Image highlight opacity",
+      ocrFontScale: "Image text scale",
+      ocrEndpointUrl: "Custom local OCR URL",
+      ocrCustomLocalServer: "Custom local OCR server",
+      ocrEngine: "Local OCR engine",
+      cloudVisionApiKey: "Cloud Vision API key",
+      ocrHelp: "Images are read quietly near the viewport. Google Lens is the default reader, Cloud Vision can be used with an API key, and embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.",
+      subtitlePlayerEnabled: "Enable video subtitle player",
+      subtitleAutoDetect: "Auto-detect page subtitles",
+      subtitleOverlayVisible: "Show subtitle overlay",
+      subtitleSecondaryVisible: "Show native subtitles when available",
+      subtitleNativeBlurred: "Blur native subtitles until hover",
+      subtitleKaraokeMode: "Karaoke word timing",
+      subtitleTranscriptVisible: "Open transcript panel by default",
+      subtitleTranscriptPlacement: "Transcript panel position",
+      subtitleTranscriptAutoScroll: "Scroll transcript with playback",
+      subtitleAutoCopyLine: "Auto-copy each subtitle line as it plays",
+      subtitleMiningPause: "Pause video when mining subtitle",
+      subtitleControlsMode: "Subtitle controls",
+      right: "Right",
+      left: "Left",
+      bottom: "Below",
+      showWhenNeeded: "Compact controls",
+      hideControls: "Hide controls",
+      alwaysVisible: "Always visible",
+      subtitleFontSize: "Subtitle font size",
+      subtitleBottomOffset: "Subtitle bottom offset (%)",
+      subtitleTextColor: "Subtitle color",
+      subtitleOutlineColor: "Subtitle outline",
+      subtitleBackgroundColor: "Subtitle background",
+      subtitleBackgroundOpacity: "Subtitle background opacity",
+      subtitleFontFamily: "Subtitle font family",
+      subtitleFontWeight: "Subtitle font weight",
+      subtitleSeekPadding: "Subtitle seek padding (seconds)",
+      subtitlePreview: "Live subtitle preview",
+      ankiEnabled: "Enable Anki mining",
+      ankiMineWithJpdb: "Also add to Anki when adding to JPDB",
+      ankiCaptureScreenshot: "Attach context image when possible",
+      ankiConnectUrl: "AnkiConnect URL",
+      ankiDeck: "Anki deck",
+      ankiModel: "Anki note type",
+      mobileAnkiHandoff: "Use mobile Anki handoff when AnkiConnect is unavailable",
+      ankiTemplateMode: "Anki card template",
+      ankiFrontReading: "Word-first front: show reading",
+      ankiFrontSentence: "Word-first front: show sentence",
+      ankiFrontImage: "Show image on front",
+      wordFirst: "Word first",
+      sentenceFirst: "Sentence first",
+      ankiTags: "Tags",
+      sentenceFirstPreset: "Sentence first preset",
+      wordFirstPreset: "Word first preset",
+      front: "Front",
+      back: "Back",
+      imageAbovePrompt: "Image appears above the prompt when available.",
+      recallHighlightedWord: "Recall the highlighted word from context.",
+      imageOnFront: "Image appears on the front when available.",
+      recallMeaning: "Recall the meaning first.",
+      ankiBackIncludes: "Includes dictionary, kanji, pitch, frequency, source, and image fields when available.",
+      exampleMeaning: "to read",
+      studyTranslationEnabled: "Show sentence translation tool",
+      studyGrammarEnabled: "Show grammar hint tool",
+      testAnki: "Test Anki",
+      ankiTesting: "Testing AnkiConnect...",
+      ankiUnreachable: "AnkiConnect is not reachable. Open Anki and confirm the AnkiConnect add-on is enabled.",
+      ankiHelp: "Anki uses AnkiConnect. The よむ note type includes JPDB meaning/status, imported dictionary entries, kanji cards, pitch/frequency data, source links, and optional context images from videos, OCR, or Immersion Kit.",
+      jpdbDefinitionsEnabled: "Show JPDB definitions",
+      localDictionariesEnabled: "Show imported dictionary definitions",
+      localDictionaryShowKanji: "Show kanji dictionary cards",
+      dictionarySourcesInitiallyExpanded: "Open popup sources by default",
+      localDictionaryMaxResults: "Dictionary result limit",
+      importSettings: "Import settings JSON",
+      exportSettings: "Export settings JSON",
+      importDictionaries: "Import dictionaries",
+      exportDictionaries: "Export dictionaries",
+      dictionaryImportHelp: "Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.",
+      lookupPills: "Lookup pills",
+      lookupPillsHelp: "These small buttons open the current word in an external dictionary. Use {query} for normal search URLs; it fills in the current word. {word} and {reading} are available for sites that need them separately.",
+      copiesCurrentWord: "Copies the current word",
+      lookupPillLabel: "Lookup pill label",
+      lookupPillLabelNumber: "Lookup pill {number} label",
+      lookupUrlTemplate: "Lookup URL template",
+      lookupUrlTemplateNumber: "Lookup pill {number} URL template",
+      lookupPillOrder: "Lookup pill order",
+      builtInAction: "Built-in action",
+      recommendedDownloads: "Recommended dictionaries",
+      termDictionaries: "Term dictionaries",
+      kanjiDictionaries: "Kanji dictionaries",
+      frequencyDictionaries: "Frequency dictionaries",
+      homepage: "Homepage",
+      install: "Install",
+      download: "Download",
+      downloadAndImport: "Download and import into よむ",
+      update: "Update",
+      noLocalDictionaries: "No local dictionary installed yet. Download JMdict or import a Yomitan ZIP in Settings when you want local study words.",
+      checkingDictionaries: "Checking imported dictionaries...",
+      dictionaryOnlyJpdb: "JPDB is the only definition source. Import Yomitan dictionaries to add local or native-language definitions.",
+      dictionaryDownloading: "Downloading",
+      dictionaryReadingZip: "Reading dictionary ZIP...",
+      dictionaryImporting: "Importing",
+      importingBundledDictionaries: "Importing bundled dictionaries...",
+      dictionaryImported: "Imported",
+      dictionaryPreparingImport: "Preparing to import",
+      dictionaryRecords: "dictionary records",
+      dictionaryEntries: "entries",
+      dictionaryTotal: "total",
+      dictionaryDownloadProgress: "Downloading dictionary",
+      dictionaryDownloadFailed: "Dictionary download failed.",
+      dictionaryDownloadTimedOut: "Dictionary download timed out.",
+      dictionaryDownloadNotZip: "Dictionary download did not return a ZIP file.",
+      dictionaryDownloadNeedsBridge: "Dictionary download needs the userscript request bridge on this page. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.",
+      dictionaryDownloadBlocked: "Dictionary download is blocked in this browser. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.",
+      dictionaryManualDownloadHint: "Enable the よむ userscript on this page, then tap Download again. You can also download the ZIP manually and use Import dictionary above.",
+      dictionaryRemoved: "Removed {dictionary}.",
+      dictionaryImportComplete: "Imported {records} records from {sources} dictionary source{plural}.",
+      dictionaryRecordsImported: "{dictionary}: {records} records imported.",
+      settingsImported: "Settings imported.",
+      settingsImportedWithDetails: "Settings imported; {details}.",
+      restoredStoredChoices: "restored {count} stored choice{plural}",
+      importedDictionaryRecordCount: "imported {count} dictionary record{plural}",
+      dictionaryNoSupportedBanks: "No supported Yomitan dictionary banks found.",
+      dictionaryUnsupportedJson: "Unsupported dictionary JSON. Import a Yomitan Dexie export, a Yomitan dictionary ZIP, or this reader export.",
+      dictionaryZipMissingIndex: "Yomitan dictionary ZIP is missing index.json.",
+      yomitanSettingsInvalid: "This does not look like a Yomitan settings export.",
+      localDictionaryText: "Dictionary text",
+      localSenseSingular: "meaning",
+      localSensePlural: "meanings",
+      localWordSingular: "entry",
+      localWordPlural: "entries",
+      decksLoaded: "Decks are loaded from your JPDB account.",
+      decksUnavailable: "Could not load decks yet; saved deck IDs will be kept.",
+      addApiKeyChooseDecks: "Add your JPDB API key to choose decks.",
+      miningDeck: "Mining deck",
+      neverForgetDeck: "Never forget deck",
+      blacklistDeck: "Blacklist deck",
+      allStudyDecks: "All study decks",
+      savedValue: "Saved: {value}",
+      holdWhileHovering: "Hold while hovering",
+      hoverOpenDelayMs: "Hover open delay (ms)",
+      hoverCloseDelayMs: "Hover close delay (ms)",
+      pressKeys: "Press keys",
+      blankPlainHover: "Blank means hover without a key",
+      hoverShortcutHelp: "This shortcut only opens hover lookups when Hover scanned words is enabled in Reader settings.",
+      openSettings: "Open settings",
+      playAudio: "Play audio",
+      audioPlaybackDisabled: "Audio playback is disabled",
+      audioPlaybackDisabledToast: "Audio playback is disabled.",
+      audioPlaybackFailed: "Audio playback failed.",
+      noSentenceToRead: "No sentence to read aloud.",
+      noTextToRead: "No text to read aloud.",
+      jpdbExampleAudioUnavailable: "No JPDB audio is available for this example.",
+      jpdbAudioPlayableFileMissing: "JPDB audio did not return a playable file.",
+      jpdbAudioResponseNotPlayable: "JPDB audio response was not a playable audio file.",
+      audioSourceReturnedNoAudio: "Audio source did not return audio.",
+      audioJsonMissingPlayableUrl: "Audio JSON did not include a playable URL.",
+      textToSpeechUnavailable: "Text-to-speech is not available in this browser.",
+      textToSpeechFailed: "Text-to-speech failed.",
+      audioRequest: "Audio request",
+      audioRequestTimedOut: "Audio request timed out.",
+      audioRequestReturnedNonAudio: "Audio request returned a non-audio response",
+      japanesePod101NoAudio: "JapanesePod101 has no audio for this term.",
+      invalidJpdbAudioId: "Invalid JPDB audio id.",
+      couldNotReadAudio: "Could not read audio.",
+      couldNotReadAudioBlob: "Could not read audio blob.",
+      closeDrawer: "Close drawer",
+      closePopup: "Close popup",
+      previousSubtitle: "Previous subtitle",
+      nextSubtitle: "Next subtitle",
+      copySubtitle: "Copy subtitle",
+      subtitleFallbackLabel: "Subtitle",
+      subtitlesTitle: "Subtitles",
+      subtitleOptions: "Options",
+      closeSubtitleOptions: "Close subtitle options",
+      openSubtitlePanel: "Open subtitle panel",
+      closeSubtitlePanel: "Close subtitle panel",
+      openSubtitleDrawer: "Open subtitle drawer",
+      closeSubtitleDrawer: "Close subtitle drawer",
+      loadJapaneseSubtitles: "Load Japanese subtitles",
+      loadNativeSubtitles: "Load native subtitles",
+      copyCurrentSubtitleLine: "Copy current line",
+      nativeSubtitlesOn: "Native subtitles on",
+      nativeSubtitlesOff: "Native subtitles off",
+      toggleNativeSubtitleBlur: "Toggle native subtitle blur",
+      subtitleTrackDetectedSingular: "1 subtitle track detected",
+      subtitleTracksDetected: "subtitle tracks detected",
+      noSubtitleTracksDetected: "No subtitle tracks detected yet.",
+      resizeTranscriptPanel: "Resize transcript panel",
+      resizeSubtitleTracksPanel: "Resize subtitle tracks panel",
+      subtitleNavigation: "Subtitle navigation",
+      subtitlePanelMode: "Subtitle panel mode",
+      subtitleLines: "Lines",
+      subtitleTracks: "Tracks",
+      copySubtitleLine: "Copy subtitle line",
+      loadingSubtitleLines: "Loading subtitle lines",
+      waitingForCaptionLines: "Waiting for caption lines",
+      subtitleCurrentLineWillAppear: "The current line will appear here as soon as captions are available.",
+      noAutoDetectedSubtitleTracks: "No auto-detected subtitle tracks yet. Load a file, open YouTube captions once, or play the video for a moment.",
+      autoDetectedTracksWillAppear: "Auto-detected YouTube/native tracks will appear here.",
+      autoDetectedOptionSingular: "1 auto-detected option",
+      autoDetectedOptions: "auto-detected options",
+      detected: "Detected",
+      japaneseOverlay: "Japanese overlay",
+      nativeOverlay: "native overlay",
+      unsetJapaneseSubtitles: "Unset Japanese",
+      japaneseSubtitles: "Japanese",
+      unsetNativeSubtitles: "Unset native",
+      nativeSubtitles: "Native",
+      chooseJapaneseSubtitles: "Choose Japanese subtitles",
+      transcript: "Transcript",
+      subtitleOptionSingular: "option",
+      subtitleOptionPlural: "options",
+      subtitleLineSingular: "line",
+      subtitleLinePlural: "lines",
+      trackKindPageTrack: "page track",
+      trackKindPageFile: "page file",
+      trackKindYouTubeCaptions: "YouTube captions",
+      youTubeSubtitles: "YouTube subtitles",
+      autoGeneratedSubtitle: "auto-generated",
+      trackKindLoadedFile: "loaded file",
+      trackStatusLoading: "loading",
+      trackStatusWaiting: "waiting for captions",
+      trackStatusFailed: "failed",
+      toggleImageReading: "Toggle image reading",
+      readImagesNow: "Read images now",
+      ocrReadingImage: "Reading image...",
+      ocrNoJapaneseText: "No Japanese text found",
+      ocrFailed: "OCR failed",
+      ocrEnabledToast: "Image reading enabled.",
+      ocrHiddenToast: "Image reading hidden.",
+      ocrNoReadableImages: "No readable images nearby.",
+      gradeNothing: "Grade NOTHING",
+      gradeSomething: "Grade SOMETHING",
+      gradeHard: "Grade HARD",
+      gradeOkay: "Grade OKAY",
+      gradeEasy: "Grade EASY",
+      gradeFail: "Pass/fail: FAIL",
+      gradePass: "Pass/fail: PASS",
+      helpLinksTitle: "Useful pages",
+      helpLinksCopy: "Open the hosted reader tools and docs from here.",
+      helpSupportTitle: "Support よむ",
+      helpSupportCopy: "よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as Migaku currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.",
+      helpSupportCopyExtra: "Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.",
+      videoPlayer: "Video Player",
+      newTabPage: "New Tab",
+      newTabMode: "New tab mode",
+      word: "Word",
+      search: "Search",
+      openYomuSettings: `Open ${APP_NAME} settings`,
+      searchWordsOrKanji: "Search words or kanji",
+      draw: "Draw",
+      drawKanji: "Draw kanji",
+      clearSearch: "Clear search",
+      searchSuggestions: "Search suggestions",
+      studyNavigation: "Study navigation",
+      previousWord: "Previous word",
+      nextWord: "Next word",
+      getYomu: `Get ${APP_NAME}`,
+      loading: "Loading...",
+      refreshing: "Refreshing...",
+      offlineCache: "Offline cache",
+      offlineSourceSuffix: "offline",
+      noWordsYet: "No words yet.",
+      noKanjiCardsYet: "No kanji cards yet.",
+      couldNotLoadWords: "Could not load words.",
+      offlineGradesDisabled: "Offline cache. Grades are disabled until the source reconnects.",
+      startWithDictionary: "Start with a dictionary",
+      addDictionaryStudyCards: "Add a dictionary to turn this page into study cards.",
+      dictionaryReadyNewTabs: "It stays in this browser and is ready whenever a new tab opens.",
+      addDictionary: "Add dictionary",
+      reveal: "Reveal",
+      hide: "Hide",
+      revealTranslation: "Reveal translation",
+      yourDrawing: "Your drawing",
+      immersionExampleControls: "Immersion Kit example controls",
+      loadingKanjiDetails: "Loading kanji details...",
+      loadingMnemonicImages: "Loading mnemonic images...",
+      lookupDialog: `${APP_NAME} lookup`,
+      resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
+      showMiningActions: "Show mining actions",
+      hideMiningActions: "Hide mining actions",
+      couldNotSubmitGrade: "Could not submit grade.",
+      updatingJpdbKanji: "Updating JPDB kanji...",
+      jpdbKanjiUpdated: "JPDB kanji updated.",
+      jpdbKanjiUpdateFailed: "Could not update JPDB kanji. Enable kanji reviews on JPDB first.",
+      jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check JPDB kanji reviews are enabled.",
+      grading: "Grading...",
+      offlineGradeReconnect: "Offline cache. Reconnect JPDB or Anki to submit grades.",
+      jpdbActionsDisabled: "JPDB actions are disabled in settings.",
+      addJpdbApiKeyReview: "Add a JPDB API key to review JPDB cards.",
+      missingAnkiCardId: "Missing Anki card id.",
+      actionFailed: "Action failed.",
+      noDefinitionsFound: "No definitions found.",
+      dictionary: "Dictionary",
+      local: "Local",
+      dict: "dict",
+      cachedReviews: "Cached reviews",
+      noSource: "No source",
+      liveReview: "live review",
+      searchRecognizing: "Recognizing...",
+      searchNoHandwritingMatch: "No handwriting match yet. Type or paste kanji instead.",
+      typeOrPasteKanji: "Type or paste kanji",
+      searching: "Searching...",
+      searchLocalDictionariesFailed: "Could not search local dictionaries.",
+      externalDictionarySearch: "External dictionary search",
+      words: "Words",
+      noLocalResults: "No local results.",
+      addDictionaryForLocalResults: "Add a dictionary for local results.",
+      filterStudy: "Study",
+      filterAll: "All",
+      sourceAuto: "Auto",
+      sortRandom: "Random",
+      sortFrequency: "Frequency",
+      sortState: "State",
+      stateNew: "New",
+      stateLearning: "Learning",
+      stateDue: "Due",
+      stateFailed: "Failed",
+      stateKnown: "Known",
+      stateNeverForget: "Never forget",
+      stateSuspended: "Suspended",
+      stateLocked: "Locked",
+      stateBlacklisted: "Blacklisted",
+      stateRedundant: "Redundant",
+      stateNotInDeck: "Not in deck",
+      gradeNothingLabel: "Nothing",
+      gradeSomethingLabel: "Something",
+      gradeHardLabel: "Hard",
+      gradeOkayLabel: "Okay",
+      gradeEasyLabel: "Easy",
+      gradeFailLabel: "Fail",
+      gradePassLabel: "Pass",
+      factKeyword: "Keyword",
+      factType: "Type",
+      factFrequency: "Frequency",
+      factReadings: "Readings",
+      factJpdbWords: "JPDB words",
+      factWordFrequency: "Word frequency",
+      factMeaning: "Meaning",
+      factGrade: "Grade",
+      factOldForms: "Old forms",
+      common: "common",
+      total: "total",
+      shown: "shown",
+      wordCountSingular: "word",
+      wordCountPlural: "words",
+      lookUp: "Look up",
+      looksRight: "Looks right",
+      checkStrokeCount: "Check stroke count",
+      checkStrokeShapeOrder: "Check stroke shape/order",
+      checkStrokeCountOrder: "Check stroke count/order",
+      docs: "Docs",
+      factoryReset: "Factory Reset",
+      issues: "Issues",
+      donate: "Donate",
+      discord: "Discord",
+      documentation: "Documentation",
+      openOnJpdb: "Open on JPDB",
+      openOnLookup: "Open on {label}",
+      copyWord: "Copy",
+      copyWordTitle: "Copy word",
+      copiedWord: "Copied word.",
+      backToWord: "Back to word",
+      backToKanji: "Back to kanji",
+      previousKanji: "Previous kanji",
+      nextKanji: "Next kanji",
+      openKanjiOnJpdb: "Open kanji on JPDB",
+      strokePractice: "Stroke order + practice",
+      practiceDrawing: "Practice drawing",
+      strokes: "strokes",
+      textTrace: "text trace",
+      hideTrace: "Hide trace",
+      showTrace: "Show trace",
+      clear: "Clear",
+      originStructure: "Component graph",
+      originMapLabel: "2D kanji origin and component map",
+      originShowSubcomponents: "Subcomponents",
+      originShowOutbound: "Outbounds",
+      kanjiMapData: "Kanji Map data",
+      kanjiAlive: "Kanji Alive",
+      wiktionary: "Wiktionary",
+      radical: "Radical",
+      readingsComponents: "Readings and components",
+      showKanji: "Show kanji",
+      jpdbMnemonic: "JPDB mnemonic",
+      rtkComponentKeywords: "RTK component keywords",
+      onReading: "On",
+      kunReading: "Kun",
+      heisigStory: "Heisig story",
+      heisigComment: "Heisig comment",
+      koohiiStories: "Koohii stories",
+      add: "Add",
+      addToMining: "Add to deck",
+      addToMiningHint: "Add this card to your selected JPDB deck.",
+      addToDeck: "Add to deck",
+      addToDeckHint: "Add this card to the selected JPDB deck without grading it.",
+      deck: "Deck",
+      deckActions: "Deck actions",
+      miningActions: "Mining actions",
+      reviewAddsToDeck: "Reviewing will add new words to",
+      reviewBlockedBlacklisted: "This word is blacklisted. Unlist it before reviewing.",
+      reviewBlockedNeverForget: "This word is marked never forget. Remove never-forget before reviewing.",
+      forget: "Forget",
+      never: "Never forget",
+      neverHint: "Move to your never-forget deck. Use this for words you know and still want counted as known.",
+      forgetHint: "Remove this word from your never-forget deck so it can be mined or reviewed again.",
+      unlist: "Unlist",
+      unlistHint: "Remove this word from your blacklist so it can be mined or reviewed again.",
+      blacklist: "Blacklist",
+      blacklistHint: "Ignore this exact word. Use this for particles, kana, or words you do not want to mine.",
+      addToAnki: "Add to Anki",
+      ankiAudioFileNotFound: "Anki audio file not found.",
+      ankiAudioPlaybackUnavailable: "Anki audio playback is not available here.",
+      ankiAudioUnavailablePreview: "Audio not available in preview",
+      ankiMergeNeedsDesktop: "Merging existing Anki notes needs AnkiConnect on desktop.",
+      ankiNoteNotFound: "Anki note not found.",
+      mergeYomu: "Merge Yomu",
+      mergeYomuTitle: "Update matching fields and add Yomu media to this note",
+      editInAnki: "Edit in Anki",
+      keepBothAudio: "Keep both",
+      keepAnkiAudio: "Keep Anki",
+      useYomuAudio: "Use Yomu",
+      lastSeen: "Last seen",
+      unavailable: "Unavailable",
+      openedInAnki: "Opened in Anki.",
+      addedToDeckAndReviewed: "Added to deck and reviewed.",
+      sentToAnki: "Sent to Anki.",
+      alreadyInAnki: "Already in Anki. Use Edit in Anki instead.",
+      removedFromDeck: "Removed from deck.",
+      addedToDeckToast: "Added to deck.",
+      sentToAnkiWithContextImageAndAudio: "Sent to Anki with context image and audio.",
+      sentToAnkiWithContextImage: "Sent to Anki with context image.",
+      sentToAnkiWithAudio: "Sent to Anki with audio.",
+      ankiMergeNoNewData: "Anki note already has the available Yomu data.",
+      ankiMergeFieldSingular: "field",
+      ankiMergeFieldPlural: "fields",
+      ankiMergeAudio: "audio",
+      ankiMergeImage: "image",
+      ankiMergeComplete: "Merged Yomu data into Anki ({parts}).",
+      ankiHandoffCancelled: "Anki handoff cancelled.",
+      ankiConnectActionFailed: "AnkiConnect action failed.",
+      ankiConnectRequestFailed: "AnkiConnect request failed.",
+      ankiConnectTimedOut: "AnkiConnect timed out.",
+      ankiConnectNeedsBridge: "AnkiConnect needs the userscript request bridge on content pages.",
+      mobileAnkiReady: "Mobile Anki handoff is ready. AnkiConnect is only needed for desktop bridge features on this device.",
+      ankiConnectedReady: 'Connected. Deck "{deck}" and note type "{model}" are ready.',
+      ankiPromptRecallWord: "Recall the highlighted word.",
+      ankiMeaningHeading: "Meaning",
+      ankiPitchHeading: "Pitch",
+      ankiPartOfSpeechHeading: "Part of speech",
+      ankiLinksHeading: "Links",
+      ankiSourceHeading: "Source",
+      ankiTemplateContext: "Context",
+      ankiTemplateRecognition: "Recognition",
+      ankiLocalDictionaryStatus: "local dictionary",
+      selection: "Selection",
+      parsedFrom: "Parsed from",
+      imageReadingEnabled: "Image reading enabled.",
+      imageReadingHidden: "Image reading hidden.",
+      reviewFailed: "Review failed.",
+      reviewActionsDisabled: "Review actions are disabled in settings.",
+      jpdbLookupFailed: "JPDB lookup failed.",
+      jpdbDeckStateApiKeyRequired: "Add a JPDB API key to change JPDB deck state.",
+      jpdbAddApiKeyRequired: "Add a JPDB API key to add cards to JPDB, or use Add to Anki.",
+      addedToJpdb: "Added to JPDB.",
+      kanjiDetailsUnavailable: "Kanji details are not available yet.",
+      loadingDictionaryDetails: "Loading dictionary details...",
+      sourceSingular: "source",
+      sourcePlural: "sources",
+      usedInVocabulary: "Used in vocabulary",
+      exampleSentences: "Example sentences",
+      playJpdbExampleAudio: "Play JPDB example audio",
+      wordsUsingKanji: "Words using {kanji}",
+      contextVideo: "Video",
+      contextImage: "Image",
+      contextCurrentPage: "Current page",
+      jpdbKanjiActionMine: "Add",
+      jpdbKanjiActionKnown: "Known",
+      jpdbKanjiActionNeverForget: "Never forget",
+      jpdbKanjiActionForget: "Forget",
+      jpdbKanjiActionBlacklist: "Blacklist",
+      jpdbKanjiActionReview: "Review",
+      noDefinitions: "No enabled definition source returned results.",
+      enabledHeader: "On",
+      labelHeader: "Label",
+      displayName: "Display name",
+      orderHeader: "Order",
+      removeHeader: "Remove",
+      definitionSource: "Definition source",
+      kanjiSection: "Kanji section",
+      dictionaryDisplayName: "Dictionary display name",
+      sourcePriority: "{source} priority",
+      dragToReorder: "Drag to reorder",
+      moveUp: "Move up",
+      moveDown: "Move down",
+      remove: "Remove",
+      removeImportedDictionary: "Remove imported dictionary",
+      customAdvanced: "{label} (advanced)",
+      importLocalDefinitionsHelp: "Import Yomitan dictionaries to add local or native-language definitions alongside JPDB and Immersion Kit examples.",
+      frequencyMetadataHelp: "Frequency, pitch, and kanji metadata dictionaries are detected automatically and shown as popup badges or kanji data instead of definition source cards.",
+      sourceHelpJpdb: "JPDB meanings shown directly from the current card.",
+      sourceHelpTranslation: "Automatic sentence translation for the current lookup context.",
+      sourceHelpGrammar: "Automatic local grammar hints for the current lookup context.",
+      sourceHelpImmersionKit: "Immersion Kit or Nadeshiko example sentences, images, and audio for the looked-up word.",
+      sourceNameTranslation: "Translation",
+      sourceNameGrammar: "Grammar",
+      sourceNameStrokePractice: "Stroke practice",
+      sourceNameImportedKanjiDictionaries: "Imported kanji dictionaries",
+      sourceNameWordsUsingKanji: "Words using this kanji",
+      sourceHelpImportedKanjiDictionary: "Imported Yomitan kanji dictionary.",
+      sourceHelpStrokePractice: "Stroke order preview and drawing pad.",
+      sourceHelpReadingsComponents: "JPDB readings, components, and mnemonic when available.",
+      sourceHelpRtk: "Remembering the Kanji keywords, elements, and stories.",
+      sourceHelpUchisen: "Uchisen mnemonic image carousel.",
+      sourceHelpImportedKanjiDictionaries: "Kanji entries from imported Yomitan dictionaries.",
+      sourceHelpWordsUsingKanji: "Related JPDB and imported-dictionary vocabulary.",
+      sourceHelpComponentGraph: "Compact facts, component graph, and radical images.",
+      recommendedJitendex: "Japanese to English dictionary with examples, usage notes, etymology, cross references, and definition notes.",
+      recommendedJmdict: "Japanese-English dictionary maintained by EDRDG and packaged for Yomitan. Add this when you want local dictionary-backed study words.",
+      recommendedJmnedict: "Japanese proper names maintained by the Electronic Dictionary Research and Development Group.",
+      recommendedKanjidic: "Kanji readings, meanings, stroke data, grade level, JLPT level, and frequency.",
+      recommendedJpdbv2Kana: "Frequency data based on the JPDB corpus. よむ shows this first when sorting local frequency chips.",
+      recommendedBccwj: "Frequency data from the Balanced Corpus of Contemporary Written Japanese.",
+      recommendedJiten: "Frequency data from the media stats database at jiten.moe.",
+      fallbackSetupTitle: "Start with a dictionary",
+      fallbackSetupCopy: "No JPDB key or local dictionary is connected yet. This setup card can still copy the term, play browser audio, open external lookup links, and inspect kanji.",
+      fallbackSetupDictionaries: "Add dictionaries",
+      fallbackSetupJpdb: "Add JPDB key",
+      getApp: `Get ${APP_NAME}`,
+      offlineCacheGradesDisabled: "Offline cache. Grades are disabled until the source reconnects.",
+      recognizing: "Recognizing...",
+      noHandwritingMatch: "No handwriting match yet. Type or paste kanji instead.",
+      yourKanjiDrawing: "Your kanji drawing",
+      jpdbKanjiActions: "JPDB kanji actions",
+      couldNotSearchLocalDictionaries: "Could not search local dictionaries.",
+      subtitlePanel: "Subtitles",
+      lines: "Lines",
+      tracks: "Tracks",
+      currentLineWillAppear: "The current line will appear here as soon as captions are available.",
+      native: "Native",
+      unsetJapanese: "Unset Japanese",
+      unsetNative: "Unset native",
+      options: "options",
+      option: "option",
+      line: "line",
+      subtitleTrackDetected: "subtitle track detected",
+      translation: "Translation",
+      grammar: "Grammar",
+      meaning: "Meaning",
+      japaneseLabel: "Japanese",
+      readSentenceAloud: "Read sentence aloud",
+      openSectionToTranslate: "Open this section to translate.",
+      translationUnavailable: "Translation unavailable.",
+      translating: "Translating...",
+      findingGrammar: "Finding grammar...",
+      grammarKnown: "Known",
+      grammarReview: "Review",
+      grammarDetails: "Details",
+      grammarFoundIn: "Found in",
+      grammarExample: "Example",
+      grammarGuide: "Guide",
+      grammarHideKnown: "Hide known",
+      grammarShowKnown: "Show known",
+      allDetectedGrammarKnown: "All detected grammar for this sentence is marked known.",
+      grammarShown: "shown",
+      grammarKnownHidden: "known hidden",
+      grammarGenericShort: "Grammar point: {name}",
+      grammarGenericDetail: "This sentence uses {name} in 「{match}」. Open the guide for a fuller explanation.",
+      grammarKindHanabira: "Hanabira grammar",
+      grammarLevelCore: "Core"
+    }
+  };
+  const JA_COPY = {
+    settingsTitle: `${APP_NAME} 設定`,
+    welcomeLabel: `${APP_NAME} ようこそ`,
+    onboardingEyebrow: "日本語がある場所ならどこでも",
+    onboardingCopy: "日本語の本文、字幕、画像内テキストをタップできる辞書カードにします。役立つ単語をマイニングし、音声を再生し、読みやすいページのまま学習できます。",
+    onboardingLanguage: "表示言語",
+    onboardingAddApiKey: "APIキーを追加",
+    onboardingAddLocalDictionaries: "ローカル辞書を追加",
+    onboardingUseWithoutApiKey: "APIキーなしで使う",
+    closeOnboarding: "ようこそ画面を閉じる",
+    featureText: "テキスト",
+    featureTextBody: "ページをスキャンすると、日本語の単語をホバーまたはタップできます。",
+    featureImages: "画像",
+    featureImagesBody: "読める画像内テキストを表示範囲の近くで静かに検出できます。",
+    featureVideo: "動画",
+    featureVideoBody: "字幕がある場合、字幕内の単語もタップできます。",
+    featureControl: "調整",
+    featureControlBody: "設定はいつでも開けます。機能のオン/オフ、ショートカット、アクセントカラーを調整できます。",
+    automatic: "自動",
+    english: "英語",
+    japanese: "日本語",
+    settings: "設定",
+    dictionaries: "辞書",
+    localWordSingular: "項目",
+    localWordPlural: "項目",
+    kanji: "漢字",
+    audio: "音声",
+    front: "表面",
+    back: "裏面",
+    newTabPage: "新しいタブ",
+    newTabMode: "新しいタブのモード",
+    word: "単語",
+    search: "検索",
+    switchToLightTheme: "ライトテーマに切り替え",
+    switchToDarkTheme: "ダークテーマに切り替え",
+    openYomuSettings: `${APP_NAME}の設定を開く`,
+    searchWordsOrKanji: "単語・漢字を検索",
+    draw: "手書き",
+    drawKanji: "漢字を書く",
+    clearSearch: "検索をクリア",
+    searchSuggestions: "検索候補",
+    studyNavigation: "学習ナビゲーション",
+    previousWord: "前の単語",
+    nextWord: "次の単語",
+    getYomu: `${APP_NAME}を入手`,
+    getApp: `${APP_NAME}を入手`,
+    loading: "読み込み中...",
+    refreshing: "更新中...",
+    offlineCache: "オフラインキャッシュ",
+    offlineSourceSuffix: "オフライン",
+    noWordsYet: "まだ単語がありません。",
+    noKanjiCardsYet: "まだ漢字カードがありません。",
+    couldNotLoadWords: "単語を読み込めませんでした。",
+    offlineGradesDisabled: "オフラインキャッシュです。接続元が復帰するまで採点は無効です。",
+    startWithDictionary: "辞書から始める",
+    addDictionaryStudyCards: "辞書を追加すると、このページを学習カードにできます。",
+    dictionaryReadyNewTabs: "このブラウザーに保存され、新しいタブを開くたびに使えます。",
+    addDictionary: "辞書を追加",
+    reveal: "表示",
+    hide: "隠す",
+    revealTranslation: "翻訳を表示",
+    yourDrawing: "あなたの手書き",
+    immersionExampleControls: "Immersion Kit例文の操作",
+    loadingKanjiDetails: "漢字情報を読み込み中...",
+    loadingMnemonicImages: "覚え方画像を読み込み中...",
+    lookupDialog: `${APP_NAME}検索`,
+    resizeLookupSheet: "検索シートのサイズ変更。タップで閉じます",
+    showMiningActions: "マイニング操作を表示",
+    hideMiningActions: "マイニング操作を隠す",
+    closeDrawer: "ドロワーを閉じる",
+    copiedWord: "単語をコピーしました。",
+    couldNotSubmitGrade: "採点を送信できませんでした。",
+    updatingJpdbKanji: "JPDB漢字を更新中...",
+    jpdbKanjiUpdated: "JPDB漢字を更新しました。",
+    jpdbKanjiUpdateFailed: "JPDB漢字を更新できませんでした。先にJPDBで漢字レビューを有効にしてください。",
+    jpdbKanjiUpdateFailedRuntime: "JPDB漢字を更新できませんでした。JPDBの漢字レビューが有効か確認してください。",
+    grading: "採点中...",
+    offlineGradeReconnect: "オフラインキャッシュです。JPDBまたはAnkiに再接続して採点を送信してください。",
+    jpdbActionsDisabled: "設定でJPDB操作が無効です。",
+    addJpdbApiKeyReview: "JPDBカードをレビューするにはJPDB APIキーを追加してください。",
+    missingAnkiCardId: "AnkiカードIDがありません。",
+    actionFailed: "操作に失敗しました。",
+    noDefinitionsFound: "定義が見つかりませんでした。",
+    noDefinitions: "有効な定義ソースから結果が返りませんでした。",
+    dictionary: "辞書",
+    dictionaryDownloading: "ダウンロード中",
+    dictionaryReadingZip: "辞書ZIPを読み取り中...",
+    dictionaryImporting: "インポート中",
+    importingBundledDictionaries: "同梱辞書をインポート中...",
+    dictionaryImported: "インポート済み",
+    dictionaryPreparingImport: "インポート準備中",
+    dictionaryRecords: "辞書レコード",
+    dictionaryEntries: "件",
+    dictionaryTotal: "合計",
+    dictionaryDownloadProgress: "辞書をダウンロード中",
+    dictionaryDownloadFailed: "辞書のダウンロードに失敗しました。",
+    dictionaryDownloadTimedOut: "辞書のダウンロードがタイムアウトしました。",
+    dictionaryDownloadNotZip: "辞書のダウンロード結果がZIPファイルではありません。",
+    dictionaryDownloadNeedsBridge: "このページで辞書をダウンロードするには、ユーザースクリプトのリクエストブリッジが必要です。自動ダウンロードに失敗する場合は、辞書URLを開いて設定からZIPをインポートしてください。",
+    dictionaryDownloadBlocked: "このブラウザーでは辞書のダウンロードがブロックされています。自動ダウンロードに失敗する場合は、辞書URLを開いて設定からZIPをインポートしてください。",
+    dictionaryManualDownloadHint: "このページでよむのユーザースクリプトを有効にしてから、もう一度ダウンロードを押してください。ZIPを手動でダウンロードして、上の辞書インポートから読み込むこともできます。",
+    dictionaryRemoved: "{dictionary}を削除しました。",
+    dictionaryImportComplete: "{sources}件の辞書ソースから{records}件のレコードをインポートしました。",
+    dictionaryRecordsImported: "{dictionary}: {records}件のレコードをインポートしました。",
+    settingsImported: "設定をインポートしました。",
+    settingsImportedWithDetails: "設定をインポートしました。{details}",
+    restoredStoredChoices: "保存済み選択肢を{count}件復元",
+    importedDictionaryRecordCount: "辞書レコードを{count}件インポート",
+    dictionaryNoSupportedBanks: "対応しているYomitan辞書バンクが見つかりません。",
+    dictionaryUnsupportedJson: "対応していない辞書JSONです。Yomitan Dexieエクスポート、Yomitan辞書ZIP、またはこのリーダーのエクスポートをインポートしてください。",
+    dictionaryZipMissingIndex: "Yomitan辞書ZIPにindex.jsonがありません。",
+    yomitanSettingsInvalid: "Yomitan設定エクスポートではないようです。",
+    local: "ローカル",
+    dict: "辞書",
+    cachedReviews: "キャッシュ済みレビュー",
+    noSource: "ソースなし",
+    liveReview: "ライブレビュー",
+    searchRecognizing: "認識中...",
+    searchNoHandwritingMatch: "手書き候補がまだありません。漢字を入力または貼り付けてください。",
+    typeOrPasteKanji: "漢字を入力または貼り付け",
+    searching: "検索中...",
+    searchLocalDictionariesFailed: "ローカル辞書を検索できませんでした。",
+    externalDictionarySearch: "外部辞書検索",
+    words: "単語",
+    noLocalResults: "ローカル結果がありません。",
+    addDictionaryForLocalResults: "ローカル結果には辞書を追加してください。",
+    scanPage: "ページをスキャン",
+    noImmersionExamples: "Immersion Kitの例文が見つかりません。",
+    noImmersionExamplesCompact: "例文なし",
+    noLocalDictionaries: "ローカル辞書はまだインストールされていません。JMdictをダウンロードするか、設定でYomitan ZIPをインポートしてください。",
+    kanjiMapData: "漢字マップデータ",
+    kanjiAlive: "カンジアライブ",
+    wiktionary: "ウィクショナリー",
+    fallbackSetupTitle: "辞書から始める",
+    fallbackSetupCopy: "JPDBキーやローカル辞書がまだ接続されていません。このセットアップカードでも、単語のコピー、ブラウザー音声、外部辞書リンク、漢字確認は使えます。",
+    fallbackSetupDictionaries: "辞書を追加",
+    fallbackSetupJpdb: "JPDBキーを追加",
+    offlineCacheGradesDisabled: "オフラインキャッシュです。接続元が復帰するまで採点は無効です。",
+    recognizing: "認識中...",
+    noHandwritingMatch: "手書き候補がまだありません。漢字を入力または貼り付けてください。",
+    yourKanjiDrawing: "あなたの手書き",
+    jpdbKanjiActions: "JPDB漢字操作",
+    couldNotSearchLocalDictionaries: "ローカル辞書を検索できませんでした。",
+    subtitlePanel: "字幕",
+    lines: "行",
+    tracks: "トラック",
+    currentLineWillAppear: "字幕が利用可能になると、現在の行がここに表示されます。",
+    native: "母語",
+    unsetJapanese: "日本語を解除",
+    unsetNative: "母語字幕を解除",
+    options: "件",
+    option: "件",
+    line: "行",
+    subtitleTrackDetected: "字幕トラックを検出",
+    filterStudy: "学習",
+    filterAll: "すべて",
+    sourceAuto: "自動",
+    sortRandom: "ランダム",
+    sortFrequency: "頻度",
+    sortState: "状態",
+    stateNew: "新規",
+    stateLearning: "学習中",
+    stateDue: "復習予定",
+    stateFailed: "失敗",
+    stateKnown: "既知",
+    stateNeverForget: "忘れない",
+    stateSuspended: "停止中",
+    stateLocked: "ロック中",
+    stateBlacklisted: "ブラックリスト",
+    stateRedundant: "重複",
+    stateNotInDeck: "デッキ外",
+    gradeNothingLabel: "全然",
+    gradeSomethingLabel: "少し",
+    gradeHardLabel: "難しい",
+    gradeOkayLabel: "OK",
+    gradeEasyLabel: "簡単",
+    gradeFailLabel: "失敗",
+    gradePassLabel: "合格",
+    gradeNothing: "採点: 全然",
+    gradeSomething: "採点: 少し",
+    gradeHard: "採点: 難しい",
+    gradeOkay: "採点: OK",
+    gradeEasy: "採点: 簡単",
+    gradeFail: "合否: 失敗",
+    gradePass: "合否: 合格",
+    factKeyword: "キーワード",
+    factType: "種類",
+    factFrequency: "頻度",
+    factReadings: "読み",
+    factJpdbWords: "JPDB単語",
+    factWordFrequency: "単語頻度",
+    factMeaning: "意味",
+    factGrade: "学年",
+    factOldForms: "旧字体",
+    common: "一般的",
+    total: "合計",
+    shown: "表示中",
+    wordCountSingular: "語",
+    wordCountPlural: "語",
+    lookUp: "検索",
+    looksRight: "いい感じです",
+    checkStrokeCount: "画数を確認",
+    checkStrokeShapeOrder: "字形・筆順を確認",
+    checkStrokeCountOrder: "画数・筆順を確認",
+    loadingSimilarWords: "単語を読み込み中...",
+    openToLoadSimilarWords: "開くと単語を読み込みます。",
+    noSimilarWords: "追加の単語は見つかりませんでした。",
+    loadingExamples: "例文を読み込み中...",
+    previousExample: "前の例文",
+    nextExample: "次の例文",
+    playExampleAudio: "例文音声を再生",
+    openOnJpdb: "JPDBで開く",
+    openOnLookup: "{label}で開く",
+    copyWord: "コピー",
+    copyWordTitle: "単語をコピー",
+    backToWord: "単語に戻る",
+    backToKanji: "漢字に戻る",
+    previousKanji: "前の漢字",
+    nextKanji: "次の漢字",
+    openKanjiOnJpdb: "JPDBで漢字を開く",
+    playAudio: "音声を再生",
+    audioPlaybackDisabled: "音声再生は無効です",
+    audioPlaybackDisabledToast: "音声再生は無効です。",
+    audioPlaybackFailed: "音声の再生に失敗しました。",
+    noSentenceToRead: "読み上げる例文がありません。",
+    noTextToRead: "読み上げるテキストがありません。",
+    jpdbExampleAudioUnavailable: "この例文で使えるJPDB音声がありません。",
+    jpdbAudioPlayableFileMissing: "JPDB音声から再生可能なファイルを取得できませんでした。",
+    jpdbAudioResponseNotPlayable: "JPDB音声の応答は再生可能な音声ファイルではありません。",
+    audioSourceReturnedNoAudio: "音声ソースから音声を取得できませんでした。",
+    audioJsonMissingPlayableUrl: "音声JSONに再生可能なURLがありません。",
+    textToSpeechUnavailable: "このブラウザーでは読み上げ機能を利用できません。",
+    textToSpeechFailed: "読み上げに失敗しました。",
+    audioRequest: "音声リクエスト",
+    audioRequestTimedOut: "音声リクエストがタイムアウトしました。",
+    audioRequestReturnedNonAudio: "音声リクエストが音声ではない応答を返しました",
+    japanesePod101NoAudio: "JapanesePod101にこの語の音声はありません。",
+    invalidJpdbAudioId: "JPDB音声IDが無効です。",
+    couldNotReadAudio: "音声を読み取れませんでした。",
+    couldNotReadAudioBlob: "音声データを読み取れませんでした。",
+    previousSubtitle: "前の字幕",
+    nextSubtitle: "次の字幕",
+    copySubtitle: "字幕をコピー",
+    subtitleFallbackLabel: "字幕",
+    subtitlesTitle: "字幕",
+    subtitleOptions: "オプション",
+    closeSubtitleOptions: "字幕オプションを閉じる",
+    openSubtitlePanel: "字幕パネルを開く",
+    closeSubtitlePanel: "字幕パネルを閉じる",
+    openSubtitleDrawer: "字幕ドロワーを開く",
+    closeSubtitleDrawer: "字幕ドロワーを閉じる",
+    loadJapaneseSubtitles: "日本語字幕を読み込む",
+    loadNativeSubtitles: "母語字幕を読み込む",
+    copyCurrentSubtitleLine: "現在の行をコピー",
+    nativeSubtitlesOn: "母語字幕オン",
+    nativeSubtitlesOff: "母語字幕オフ",
+    toggleNativeSubtitleBlur: "母語字幕のぼかしを切り替え",
+    subtitleTrackDetectedSingular: "字幕トラックを1件検出",
+    subtitleTracksDetected: "件の字幕トラックを検出",
+    noSubtitleTracksDetected: "字幕トラックはまだ検出されていません。",
+    resizeTranscriptPanel: "文字起こしパネルのサイズ変更",
+    resizeSubtitleTracksPanel: "字幕トラックパネルのサイズ変更",
+    subtitleNavigation: "字幕ナビゲーション",
+    subtitlePanelMode: "字幕パネル表示",
+    subtitleLines: "行",
+    subtitleTracks: "トラック",
+    copySubtitleLine: "字幕行をコピー",
+    loadingSubtitleLines: "字幕行を読み込み中",
+    waitingForCaptionLines: "字幕行を待機中",
+    subtitleCurrentLineWillAppear: "字幕が利用可能になり次第、現在の行がここに表示されます。",
+    noAutoDetectedSubtitleTracks: "自動検出された字幕トラックはまだありません。ファイルを読み込むか、YouTubeの字幕を一度開くか、動画を少し再生してください。",
+    autoDetectedTracksWillAppear: "自動検出されたYouTube/ページ字幕はここに表示されます。",
+    autoDetectedOptionSingular: "自動検出オプション1件",
+    autoDetectedOptions: "件の自動検出オプション",
+    detected: "検出済み",
+    japaneseOverlay: "日本語オーバーレイ",
+    nativeOverlay: "母語オーバーレイ",
+    unsetJapaneseSubtitles: "日本語を解除",
+    japaneseSubtitles: "日本語",
+    unsetNativeSubtitles: "母語を解除",
+    nativeSubtitles: "母語",
+    chooseJapaneseSubtitles: "日本語字幕を選択",
+    transcript: "文字起こし",
+    subtitleOptionSingular: "件",
+    subtitleOptionPlural: "件",
+    subtitleLineSingular: "行",
+    subtitleLinePlural: "行",
+    trackKindPageTrack: "ページ内トラック",
+    trackKindPageFile: "ページ内ファイル",
+    trackKindYouTubeCaptions: "YouTube字幕",
+    youTubeSubtitles: "YouTube字幕",
+    autoGeneratedSubtitle: "自動生成",
+    trackKindLoadedFile: "読み込んだファイル",
+    trackStatusLoading: "読み込み中",
+    trackStatusWaiting: "字幕待機中",
+    trackStatusFailed: "失敗",
+    ocrReadingImage: "画像を読み取り中...",
+    ocrNoJapaneseText: "日本語テキストが見つかりません",
+    ocrFailed: "画像文字認識に失敗しました",
+    ocrEnabledToast: "画像読み取りを有効にしました。",
+    ocrHiddenToast: "画像読み取りを非表示にしました。",
+    ocrNoReadableImages: "近くに読み取れる画像がありません。",
+    showKanji: "漢字を表示",
+    strokePractice: "筆順と練習",
+    practiceDrawing: "手書き練習",
+    strokes: "画",
+    textTrace: "筆順ガイド",
+    hideTrace: "ガイドを隠す",
+    showTrace: "ガイドを表示",
+    clear: "クリア",
+    originStructure: "部品グラフ",
+    originMapLabel: "2D漢字由来・部品マップ",
+    originShowSubcomponents: "下位部品",
+    originShowOutbound: "派生先",
+    radical: "部首",
+    readingsComponents: "読みと部品",
+    jpdbMnemonic: "JPDBの覚え方",
+    rtkComponentKeywords: "RTK部品キーワード",
+    onReading: "音",
+    kunReading: "訓",
+    heisigStory: "Heisigストーリー",
+    heisigComment: "Heisigコメント",
+    koohiiStories: "Koohiiストーリー",
+    add: "追加",
+    addToDeck: "デッキに追加",
+    addToDeckHint: "選択したJPDBデッキにこのカードを追加します。",
+    deck: "デッキ",
+    deckActions: "デッキ操作",
+    miningActions: "マイニング操作",
+    reviewAddsToDeck: "レビューすると新しい単語を追加します:",
+    reviewBlockedBlacklisted: "この単語はブラックリスト入りです。レビューする前に解除してください。",
+    reviewBlockedNeverForget: "この単語は「忘れない」に設定されています。レビューする前に解除してください。",
+    forget: "忘れる",
+    never: "忘れない",
+    neverHint: "忘れないデッキへ移動します。知っていて既知として数えたい単語に使います。",
+    forgetHint: "忘れないデッキから外し、再びマイニングやレビューできるようにします。",
+    unlist: "解除",
+    unlistHint: "ブラックリストから外し、再びマイニングやレビューできるようにします。",
+    blacklist: "ブラックリスト",
+    blacklistHint: "この単語を無視します。助詞、かな、マイニングしたくない単語に使います。",
+    addToAnki: "Ankiに追加",
+    ankiAudioFileNotFound: "Anki音声ファイルが見つかりません。",
+    ankiAudioPlaybackUnavailable: "ここではAnki音声を再生できません。",
+    ankiAudioUnavailablePreview: "プレビューで音声を利用できません",
+    ankiMergeNeedsDesktop: "既存のAnkiノート統合にはデスクトップのAnkiConnectが必要です。",
+    ankiNoteNotFound: "Ankiノートが見つかりません。",
+    ankiHandoffCancelled: "Ankiへの受け渡しがキャンセルされました。",
+    ankiConnectActionFailed: "AnkiConnectの操作に失敗しました。",
+    ankiConnectRequestFailed: "AnkiConnectリクエストに失敗しました。",
+    ankiConnectTimedOut: "AnkiConnectがタイムアウトしました。",
+    ankiConnectNeedsBridge: "コンテンツページでAnkiConnectを使うには、ユーザースクリプトのリクエストブリッジが必要です。",
+    mobileAnkiReady: "モバイルAnkiへの受け渡しを利用できます。この端末では、デスクトップ連携機能だけAnkiConnectが必要です。",
+    ankiConnectedReady: "接続しました。デッキ「{deck}」とノートタイプ「{model}」の準備ができています。",
+    ankiPromptRecallWord: "ハイライトされた単語を思い出してください。",
+    ankiMeaningHeading: "意味",
+    ankiPitchHeading: "ピッチ",
+    ankiPartOfSpeechHeading: "品詞",
+    ankiLinksHeading: "リンク",
+    ankiSourceHeading: "出典",
+    ankiTemplateContext: "文脈",
+    ankiTemplateRecognition: "認識",
+    ankiLocalDictionaryStatus: "ローカル辞書",
+    mergeYomu: "Yomuを統合",
+    mergeYomuTitle: "一致するフィールドを更新し、Yomuメディアをこのノートへ追加します",
+    editInAnki: "Ankiで編集",
+    keepBothAudio: "両方残す",
+    keepAnkiAudio: "Ankiを残す",
+    useYomuAudio: "Yomuを使う",
+    lastSeen: "最後に見た場所",
+    unavailable: "利用不可",
+    openedInAnki: "Ankiで開きました。",
+    addedToDeckAndReviewed: "デッキに追加してレビューしました。",
+    sentToAnki: "Ankiに送信しました。",
+    alreadyInAnki: "すでにAnkiにあります。代わりに「Ankiで編集」を使ってください。",
+    removedFromDeck: "デッキから削除しました。",
+    addedToDeckToast: "デッキに追加しました。",
+    sentToAnkiWithContextImageAndAudio: "文脈画像と音声付きでAnkiに送信しました。",
+    sentToAnkiWithContextImage: "文脈画像付きでAnkiに送信しました。",
+    sentToAnkiWithAudio: "音声付きでAnkiに送信しました。",
+    ankiMergeNoNewData: "Ankiノートには利用可能なYomuデータがすでにあります。",
+    ankiMergeFieldSingular: "フィールド",
+    ankiMergeFieldPlural: "フィールド",
+    ankiMergeAudio: "音声",
+    ankiMergeImage: "画像",
+    ankiMergeComplete: "YomuデータをAnkiに統合しました ({parts})。",
+    selection: "選択範囲",
+    parsedFrom: "解析元",
+    imageReadingEnabled: "画像読み取りを有効にしました。",
+    imageReadingHidden: "画像読み取りを非表示にしました。",
+    reviewFailed: "レビューに失敗しました。",
+    reviewActionsDisabled: "設定でレビュー操作が無効です。",
+    jpdbLookupFailed: "JPDB検索に失敗しました。",
+    jpdbDeckStateApiKeyRequired: "JPDBデッキ状態を変更するにはJPDB APIキーを追加してください。",
+    jpdbAddApiKeyRequired: "JPDBにカードを追加するにはJPDB APIキーを追加するか、「Ankiに追加」を使ってください。",
+    addedToJpdb: "JPDBに追加しました。",
+    kanjiDetailsUnavailable: "漢字情報はまだ利用できません。",
+    loadingDictionaryDetails: "辞書詳細を読み込み中...",
+    sourceSingular: "ソース",
+    sourcePlural: "ソース",
+    usedInVocabulary: "使われる単語",
+    exampleSentences: "例文",
+    playJpdbExampleAudio: "JPDB例文音声を再生",
+    wordsUsingKanji: "{kanji}を使う単語",
+    kanjiDictionaries: "漢字辞書",
+    sourceNameWordsUsingKanji: "この漢字を使う単語",
+    contextVideo: "動画",
+    contextImage: "画像",
+    contextCurrentPage: "現在のページ",
+    jpdbKanjiActionMine: "追加",
+    jpdbKanjiActionKnown: "既知",
+    jpdbKanjiActionNeverForget: "忘れない",
+    jpdbKanjiActionForget: "忘れる",
+    jpdbKanjiActionBlacklist: "ブラックリスト",
+    jpdbKanjiActionReview: "レビュー",
+    immersionKit: "Immersion Kit",
+    translation: "翻訳",
+    grammar: "文法",
+    meaning: "意味",
+    japaneseLabel: "日本語",
+    readSentenceAloud: "文を読み上げ",
+    openSectionToTranslate: "このセクションを開くと翻訳します。",
+    translationUnavailable: "翻訳を利用できません。",
+    translating: "翻訳中...",
+    findingGrammar: "文法を検索中...",
+    grammarKnown: "既知",
+    grammarReview: "復習",
+    grammarDetails: "詳細",
+    grammarFoundIn: "検出箇所",
+    grammarExample: "例",
+    grammarGuide: "ガイド",
+    grammarHideKnown: "既知を隠す",
+    grammarShowKnown: "既知を表示",
+    allDetectedGrammarKnown: "この文で検出された文法はすべて既知に設定されています。",
+    grammarShown: "件表示",
+    grammarKnownHidden: "件の既知を非表示",
+    grammarGenericShort: "文法項目: {name}",
+    grammarGenericDetail: "この文では「{match}」に「{name}」の文法が使われています。詳しい説明はガイドを開いて確認してください。",
+    grammarKindHanabira: "Hanabira文法",
+    grammarLevelCore: "基本"
+  };
+  const JA_SETTINGS_COPY = {
+    settingsTitle: `${APP_NAME} 設定`,
+    settingsSections: "設定セクション",
+    save: "保存",
+    cancel: "キャンセル",
+    basics: "基本",
+    media: "メディア",
+    mining: "採掘",
+    shortcuts: "ショートカット",
+    help: "ヘルプ",
+    interface: "インターフェイス",
+    reader: "リーダー",
+    images: "OCR",
+    video: "動画",
+    anki: "Anki",
+    jpdb: "JPDB",
+    apiKey: "APIキー",
+    jpdbSettings: "JPDB設定",
+    jpdbMiningEnabled: "JPDBの復習・デッキ変更を許可",
+    addToForq: "JPDB追加時にforqにもコピー",
+    enableReviews: "復習ボタンを表示",
+    reviewRatingScale: "復習評価の段階",
+    fivePoint: "5段階: 全く覚えていないから簡単まで",
+    twoPoint: "2段階: 失敗 / 合格",
+    settingsLanguage: "設定の表示言語",
+    theme: "テーマ",
+    auto: "自動",
+    dark: "ダーク",
+    light: "ライト",
+    popupMode: "ポップアップ表示",
+    bottomSheet: "下部シート",
+    popover: "ポップオーバー",
+    stickyBottomSheet: "閉じるまで下部シートを開いたままにする",
+    popoverWidth: "ポップオーバー幅 (px)",
+    popoverHeight: "ポップオーバー高さ (px)",
+    popoverHeightMode: "ポップオーバー高さ",
+    popoverHeightAvailable: "空き領域まで広げる",
+    popoverHeightFixed: "高さ設定を使う",
+    enableLogging: "コンソールログを有効にする",
+    accentColor: "アクセントカラー",
+    newTab: "新規タブ",
+    newTabEnabled: "よむの新規タブ学習ページを使う",
+    newTabSource: "新規タブの復習ソース",
+    newTabAuto: "自動: JPDB + Anki",
+    dictionaryFallback: "辞書フォールバック",
+    newTabJpdbReviewMode: "JPDB復習モード",
+    newTabJpdbReviewAuto: "自動: ライブ漢字 + API語彙",
+    newTabLiveReview: "ライブJPDB復習セッション",
+    newTabApiVocabulary: "API語彙のみ",
+    corsProxyUrl: "クロスオリジンプロキシURL",
+    newTabKanjiKeywordSource: "漢字キーワードのソース",
+    newTabKanjiKeywordAuto: "自動: RTK、JPDB、ローカルの順",
+    newTabKanjiKeywordRtk: "RTK / Heisig",
+    newTabKanjiKeywordLocal: "ローカルカードの意味",
+    newTabParsingEnabled: "新規タブで文を解析",
+    newTabFrontSentenceEnabled: "単語カード表面に文を表示",
+    newTabKanjiAutogradeEnabled: "漢字の書き取りを自動採点",
+    newTabKanjiAutoSubmit: "自動採点後に漢字評価を送信",
+    newTabOfflineEnabled: "新規タブをオフライン用にキャッシュ",
+    newTabOfflineLimit: "オフライン復習キャッシュ上限",
+    newTabUrl: "新規タブのアドレス",
+    newTabOfflineHelp: "このページをブラウザの新規タブURLとして使うか、iPadのホーム画面に追加できます。オフラインキャッシュは接続時に順次更新されます。ソースに到達できるときによむが次の復習リストとカード素材を更新し、オフライン中は最後に成功したキャッシュを使います。評価はJPDBまたはAnkiに到達できるときだけ送信されます。",
+    newTabJpdbDeck: "新規タブのJPDBデッキ",
+    openNewTabPage: "新規タブページを開く",
+    copyAddress: "アドレスをコピー",
+    wordColors: "単語の色",
+    wordColorNew: "新規・保留",
+    wordColorLearning: "学習中",
+    wordColorKnown: "既知・忘れない",
+    wordColorDue: "期限到来",
+    wordColorFailed: "失敗",
+    wordColorIgnored: "無視・ブラックリスト",
+    pitchAccentColors: "ピッチアクセントの色",
+    pitchColorHeiban: "平板",
+    pitchColorAtamadaka: "頭高",
+    pitchColorNakadaka: "中高",
+    pitchColorOdaka: "尾高",
+    pitchColorKifuku: "起伏",
+    pitchColorUnknown: "不明 / 継承",
+    colorChannels: "色チャンネル",
+    wordHighlightColorSource: "単語ハイライトの色",
+    wordUnderlineColorSource: "単語下線の色",
+    wordTextColorSource: "単語テキストの色",
+    subtitleHighlightColorSource: "字幕ハイライトの色",
+    subtitleUnderlineColorSource: "字幕下線の色",
+    subtitleTextColorSource: "字幕テキストの色",
+    colorSourceStatus: "JPDB + Anki の状態",
+    colorSourceJpdb: "JPDBの状態",
+    colorSourceAnki: "Ankiの状態",
+    colorSourcePitch: "ピッチアクセント",
+    colorChannelsHelp: "各チャンネルはここで選んだソースを使います。標準ではページ本文を読みやすく保ち、ハイライトに採掘状態を表示し、字幕の状態とピッチも見えるようにします。",
+    interfaceHelp: "",
+    parseSelection: "選択テキストを検索",
+    lookupOnClick: "スキャン済み単語をタップまたはクリック",
+    lookupOnHover: "スキャン済み単語をホバー",
+    lookupOnMiddleMouse: "中央ボタンを押している間だけ単語をスキャン",
+    autoScanJapanese: "日本語を検出したら自動スキャン",
+    scanVisiblePage: "読み込み時に表示中のページをスキャン",
+    showFloatingButton: "ページ上のフローティングボタンを表示",
+    showFurigana: "ふりがな注釈を有効にする",
+    furiganaMode: "ふりがな",
+    furiganaDifficultKanji: "難しい漢字のみ",
+    furiganaHideKnown: "既知語を非表示",
+    furiganaAllParsed: "解析済みの全単語",
+    showPitchAccent: "ピッチアクセントを表示",
+    hideKnownFurigana: "既知カードのみふりがなを非表示",
+    readerHelp: "ホバー検索は下のショートカットを使います。空欄にするとキーなしでホバー検索します。中央ボタンでのスキャン中はブラウザの自動スクロールを止めますが、リンクの通常の中央クリックはそのまま使えます。",
+    kanjivgEnabled: "筆順と書き取りパッドを表示",
+    kanjiOriginsEnabled: "コンパクトな漢字情報と部品マップを表示",
+    kanjiOriginKanjiMapEnabled: "Kanji AliveとKanji Mapの情報を使う",
+    kanjiOriginGraphEnabled: "部品グラフを表示",
+    kanjiOriginRadicalImagesEnabled: "部首画像を表示",
+    rtkEnabled: "RTK情報を表示",
+    similarKanjiWords: "同じ漢字を使う単語を表示",
+    similarKanjiWordLimit: "類似語の上限",
+    kanjiHelp: "ポップアップ内の単語の漢字をクリックすると、RTK、ローカル漢字辞書の意味、部品キーワード、関連語を確認できます。",
+    audioEnabled: "語句の音声再生を有効にする",
+    autoPlayAudio: "単語カードを開いたら自動再生",
+    audioAutoPlayMode: "自動再生のきっかけ",
+    audioEnableDefaultSources: "内蔵音声ソースを使う",
+    audioFallbackChimeEnabled: "音声がないときに小さなチャイムを鳴らす",
+    audioSelectionMode: "複数のソースやクリップがあるとき",
+    firstAudio: "最初の音声",
+    randomAudio: "ランダム音声",
+    audioTtsMode: "読み上げの扱い",
+    audioTtsFallback: "録音音声の後のフォールバック",
+    audioTtsSourceOrder: "ソース順/ランダムに含める",
+    audioTimeoutMs: "音声タイムアウト (ms)",
+    previewAudio: "音声を試聴",
+    audioHelp: "{term}、{reading}、{language}が使えます。プロキシはホスト版ページの音声と公開ルックアップリクエストで共有されます。フォールバックモードでは、JPDBとブラウザ読み上げの行は録音音声が見つからないときだけ試します。Yomitan音声ガイドも参照できます。",
+    audioSource: "音声ソース",
+    urlVoice: "URL / 音声",
+    addAudioSource: "音声ソースを追加",
+    audioAutoPlayAll: "ホバーとタップ/クリック",
+    audioAutoPlayHover: "ホバーのみ",
+    audioAutoPlayTap: "タップ/クリックのみ",
+    automaticBrowserVoice: "ブラウザの自動音声",
+    savedVoice: "保存済み音声",
+    audioSourceOrder: "音声ソースの順序",
+    audioSourceNumber: "音声ソース {number}",
+    textToSpeechVoiceNumber: "読み上げ音声 {number}",
+    audioCustomJsonPlaceholder: "YomitanまたはUltimateの音声ソースURL",
+    audioCustomUrlPlaceholder: "直接音声ファイルURL",
+    audioBuiltInPlaceholder: "内蔵ソースのためURL不要",
+    immersionKitEnabled: "Immersion Kit例文を表示",
+    immersionKitExampleSource: "例文プロバイダー",
+    immersionKitAndNadeshiko: "Immersion Kit + なでしこ",
+    nadeshikoApiKey: "なでしこAPIキー",
+    getNadeshikoKey: "キーを取得",
+    immersionKitShowTranslation: "例文の翻訳を表示",
+    immersionKitRevealTranslationOnClick: "クリックするまで例文の翻訳をぼかす",
+    immersionKitShowImages: "例文サムネイルを表示",
+    immersionKitAutoPlayAudio: "表示後または前後移動時に例文音声を再生",
+    immersionKitPlayOnHover: "サムネイルをホバーしたら例文音声を再生",
+    immersionKitPlayOnImageClick: "サムネイルをクリックしたら例文音声を再生",
+    immersionKitCategory: "例文ソース",
+    immersionKitSort: "例文の並び順",
+    immersionKitLimitEnabled: "単語ごとの例文数制限",
+    allExamples: "すべての例文",
+    limitExamples: "例文数を制限",
+    immersionKitLimit: "単語ごとの例文数",
+    immersionKitMinLength: "最小文長",
+    immersionKitMaxLength: "最大文長",
+    immersionKitPlaybackRate: "例文音声速度",
+    immersionKitExactMatch: "完全一致を優先",
+    immersionKitHelp: "Immersion Kitの例文は単語ポップアップ内とJPDBページに表示されます。ぼかされた翻訳は翻訳テキストをクリックまたはタップすると表示されます。",
+    allCategories: "すべて",
+    anime: "アニメ",
+    drama: "ドラマ",
+    games: "ゲーム",
+    shortestFirst: "短い順",
+    longestFirst: "長い順",
+    randomOrder: "ランダム",
+    ocrEnabled: "画像内テキストを読む",
+    ocrAutoScanImages: "画像を自動で読む",
+    ocrShowTextOverlay: "認識した画像テキスト領域を表示",
+    ocrProvider: "画像読み取り",
+    googleLens: "Google Lens (おすすめ)",
+    cloudVision: "Google Cloud Vision",
+    localOcr: "ローカルOCRエンジン",
+    off: "オフ",
+    ocrMaxImagesPerPage: "ページごとに読む画像数",
+    ocrMinImageArea: "読む画像の最小サイズ",
+    ocrMaxImagePixels: "画像の精細さ",
+    lightWork: "軽め",
+    normal: "標準",
+    more: "多め",
+    largeOnly: "大きい画像のみ",
+    includeSmall: "小さい画像も含める",
+    faster: "高速",
+    balanced: "バランス",
+    sharper: "高精細",
+    ocrTextColor: "画像テキストの色",
+    ocrOutlineColor: "画像テキストの縁取り",
+    ocrBackgroundColor: "画像ハイライト背景",
+    ocrBackgroundOpacity: "画像ハイライト不透明度",
+    ocrFontScale: "画像テキスト倍率",
+    ocrEndpointUrl: "カスタムローカルOCR URL",
+    ocrCustomLocalServer: "カスタムローカルOCRサーバー",
+    ocrEngine: "ローカルOCRエンジン",
+    cloudVisionApiKey: "Cloud Vision APIキー",
+    ocrHelp: "画像は表示範囲付近で静かに読み取られます。標準ではGoogle Lensを使い、APIキーがあればCloud Visionも使えます。埋め込みOCRメタデータは即座に使えます。認識領域はタップまたはホバーするまで透明のままです。",
+    subtitlePlayerEnabled: "動画字幕プレイヤーを有効にする",
+    subtitleAutoDetect: "ページの字幕を自動検出",
+    subtitleOverlayVisible: "字幕オーバーレイを表示",
+    subtitleSecondaryVisible: "利用可能ならネイティブ字幕を表示",
+    subtitleNativeBlurred: "ホバーするまでネイティブ字幕をぼかす",
+    subtitleKaraokeMode: "カラオケ風の単語タイミング",
+    subtitleTranscriptVisible: "文字起こしパネルを標準で開く",
+    subtitleTranscriptPlacement: "文字起こしパネル位置",
+    subtitleTranscriptAutoScroll: "再生に合わせて文字起こしをスクロール",
+    subtitleAutoCopyLine: "各字幕行を再生時に自動コピー",
+    subtitleMiningPause: "字幕を採掘するとき動画を一時停止",
+    subtitleControlsMode: "字幕コントロール",
+    right: "右",
+    left: "左",
+    bottom: "下",
+    showWhenNeeded: "コンパクト表示",
+    hideControls: "コントロールを隠す",
+    alwaysVisible: "常に表示",
+    subtitleFontSize: "字幕フォントサイズ",
+    subtitleBottomOffset: "字幕下端オフセット (%)",
+    subtitleTextColor: "字幕の色",
+    subtitleOutlineColor: "字幕の縁取り",
+    subtitleBackgroundColor: "字幕背景",
+    subtitleBackgroundOpacity: "字幕背景の不透明度",
+    subtitleFontFamily: "字幕フォントファミリー",
+    subtitleFontWeight: "字幕フォントの太さ",
+    subtitleSeekPadding: "字幕シーク余白 (秒)",
+    subtitlePreview: "字幕ライブプレビュー",
+    ankiEnabled: "Anki採掘を有効にする",
+    ankiMineWithJpdb: "JPDBへ追加するときAnkiにも追加",
+    ankiCaptureScreenshot: "可能なら文脈画像を添付",
+    ankiConnectUrl: "AnkiConnect URL",
+    ankiDeck: "Ankiデッキ",
+    ankiModel: "Ankiノートタイプ",
+    mobileAnkiHandoff: "AnkiConnectが使えないときモバイルAnki引き継ぎを使う",
+    ankiTemplateMode: "Ankiカードテンプレート",
+    ankiFrontReading: "単語先頭の表面: 読みを表示",
+    ankiFrontSentence: "単語先頭の表面: 文を表示",
+    ankiFrontImage: "表面に画像を表示",
+    wordFirst: "単語を先に表示",
+    sentenceFirst: "文を先に表示",
+    ankiTags: "タグ",
+    sentenceFirstPreset: "文を先に表示するプリセット",
+    wordFirstPreset: "単語を先に表示するプリセット",
+    imageAbovePrompt: "利用可能な場合、画像は問題文の上に表示されます。",
+    recallHighlightedWord: "文脈からハイライト語を思い出します。",
+    imageOnFront: "利用可能な場合、画像は表面に表示されます。",
+    recallMeaning: "まず意味を思い出します。",
+    ankiBackIncludes: "辞書、漢字、ピッチ、頻度、出典、利用可能な画像フィールドを含みます。",
+    exampleMeaning: "読む",
+    studyTranslationEnabled: "文の翻訳ツールを表示",
+    studyGrammarEnabled: "文法ヒントツールを表示",
+    testAnki: "Ankiをテスト",
+    ankiTesting: "AnkiConnectをテスト中...",
+    ankiUnreachable: "AnkiConnectに到達できません。Ankiを開き、AnkiConnectアドオンが有効か確認してください。",
+    ankiHelp: "AnkiはAnkiConnectを使います。よむノートタイプにはJPDBの意味/状態、インポート済み辞書項目、漢字カード、ピッチ/頻度データ、ソースリンク、動画・OCR・Immersion Kitからの任意の文脈画像が含まれます。",
+    jpdbDefinitionsEnabled: "JPDB定義を表示",
+    localDictionariesEnabled: "インポート済み辞書の定義を表示",
+    localDictionaryShowKanji: "漢字辞書カードを表示",
+    dictionarySourcesInitiallyExpanded: "ポップアップのソースを標準で開く",
+    localDictionaryMaxResults: "辞書結果の上限",
+    importSettings: "設定JSONをインポート",
+    exportSettings: "設定JSONをエクスポート",
+    importDictionaries: "辞書をインポート",
+    exportDictionaries: "辞書をエクスポート",
+    dictionaryImportHelp: "Yomitan設定エクスポート、Yomitan辞書ZIP、または辞書バックアップをインポートできます。",
+    lookupPills: "検索ピル",
+    lookupPillsHelp: "この小さなボタンは現在の単語を外部辞書で開きます。通常の検索URLには{query}を使います。現在の単語が入ります。別々に必要なサイト向けに{word}と{reading}も使えます。",
+    copiesCurrentWord: "現在の単語をコピーします",
+    lookupPillLabel: "検索ピルのラベル",
+    lookupPillLabelNumber: "検索ピル{number}のラベル",
+    lookupUrlTemplate: "検索URLテンプレート",
+    lookupUrlTemplateNumber: "検索ピル{number}のURLテンプレート",
+    lookupPillOrder: "検索ピルの順序",
+    builtInAction: "内蔵アクション",
+    recommendedDownloads: "おすすめ辞書",
+    termDictionaries: "語句辞書",
+    kanjiDictionaries: "漢字辞書",
+    frequencyDictionaries: "頻度辞書",
+    homepage: "ホームページ",
+    install: "インストール",
+    download: "ダウンロード",
+    downloadAndImport: "ダウンロードしてよむにインポート",
+    update: "更新",
+    checkingDictionaries: "インポート済み辞書を確認中...",
+    dictionaryOnlyJpdb: "定義ソースはJPDBのみです。ローカル定義や日本語定義を追加するにはYomitan辞書をインポートしてください。",
+    localDictionaryText: "辞書テキスト",
+    localSenseSingular: "意味",
+    localSensePlural: "意味",
+    decksLoaded: "JPDBアカウントからデッキを読み込みました。",
+    decksUnavailable: "まだデッキを読み込めません。保存済みデッキIDは保持されます。",
+    addApiKeyChooseDecks: "デッキを選ぶにはJPDB APIキーを追加してください。",
+    miningDeck: "採掘デッキ",
+    neverForgetDeck: "忘れないデッキ",
+    blacklistDeck: "ブラックリストデッキ",
+    allStudyDecks: "すべての学習デッキ",
+    savedValue: "保存済み: {value}",
+    holdWhileHovering: "ホバー中に押すキー",
+    hoverOpenDelayMs: "ホバーで開く遅延 (ms)",
+    hoverCloseDelayMs: "ホバーを閉じる遅延 (ms)",
+    pressKeys: "キーを押してください",
+    blankPlainHover: "空欄ならキーなしホバー",
+    hoverShortcutHelp: "このショートカットはリーダー設定で「スキャン済み単語をホバー」が有効なときだけ動作します。",
+    openSettings: "設定を開く",
+    closePopup: "ポップアップを閉じる",
+    previousSubtitle: "前の字幕",
+    nextSubtitle: "次の字幕",
+    copySubtitle: "字幕をコピー",
+    toggleImageReading: "画像読み取りを切り替え",
+    readImagesNow: "今すぐ画像を読む",
+    helpLinksTitle: "便利なページ",
+    helpLinksCopy: "ホストされたリーダーツールとドキュメントをここから開けます。",
+    helpSupportTitle: "よむをサポート",
+    helpSupportCopy: "よむはポップアップ検索、JPDB採掘、インポート辞書、字幕、画像読み取り、Ankiエクスポートを1つの無料ユーザースクリプトにまとめます。",
+    helpSupportCopyExtra: "寄付は任意です。リーダーを磨き続けるための時間、検証端末、サービス、保守、AIトークン費用の助けになります。",
+    videoPlayer: "動画プレイヤー",
+    docs: "ドキュメント",
+    factoryReset: "初期状態に戻す",
+    issues: "Issue",
+    donate: "寄付",
+    discord: "Discord",
+    documentation: "ドキュメント",
+    addToMining: "デッキに追加",
+    addToMiningHint: "このカードを選択中のJPDBデッキに追加します。",
+    enabledHeader: "有効",
+    labelHeader: "ラベル",
+    displayName: "表示名",
+    orderHeader: "順序",
+    removeHeader: "削除",
+    definitionSource: "定義ソース",
+    kanjiSection: "漢字セクション",
+    dictionaryDisplayName: "辞書表示名",
+    sourcePriority: "{source}の優先度",
+    dragToReorder: "ドラッグして並べ替え",
+    moveUp: "上へ移動",
+    moveDown: "下へ移動",
+    remove: "削除",
+    removeImportedDictionary: "インポート済み辞書を削除",
+    customAdvanced: "{label} (詳細)",
+    importLocalDefinitionsHelp: "JPDBやImmersion Kit例文に加えてローカル定義や日本語定義を追加するには、Yomitan辞書をインポートしてください。",
+    frequencyMetadataHelp: "頻度、ピッチ、漢字メタデータ辞書は自動検出され、定義ソースカードではなくポップアップバッジや漢字データとして表示されます。",
+    sourceHelpJpdb: "現在のカードからJPDBの意味を直接表示します。",
+    sourceHelpTranslation: "現在の検索文脈に対する自動文翻訳です。",
+    sourceHelpGrammar: "現在の検索文脈に対する自動ローカル文法ヒントです。",
+    sourceHelpImmersionKit: "検索した単語の例文、画像、音声です。",
+    sourceNameTranslation: "翻訳",
+    sourceNameGrammar: "文法",
+    sourceNameStrokePractice: "筆順練習",
+    sourceNameImportedKanjiDictionaries: "インポート済み漢字辞書",
+    sourceNameWordsUsingKanji: "この漢字を使う単語",
+    sourceHelpImportedKanjiDictionary: "インポート済みYomitan漢字辞書です。",
+    sourceHelpStrokePractice: "筆順プレビューと書き取りパッドです。",
+    sourceHelpReadingsComponents: "利用可能なJPDBの読み、部品、語呂合わせです。",
+    sourceHelpRtk: "Remembering the Kanjiのキーワード、要素、ストーリーです。",
+    sourceHelpUchisen: "Uchisen語呂合わせ画像カルーセルです。",
+    sourceHelpImportedKanjiDictionaries: "インポート済みYomitan辞書の漢字項目です。",
+    sourceHelpWordsUsingKanji: "関連するJPDB語彙とインポート辞書語彙です。",
+    sourceHelpComponentGraph: "コンパクトな情報、部品グラフ、部首画像です。",
+    recommendedJitendex: "例文、用法メモ、語源、相互参照、定義メモを含む日英辞書です。",
+    recommendedJmdict: "EDRDGが管理し、Yomitan向けにパッケージされた日英辞書です。ローカル辞書ベースの学習語を使いたいときに追加してください。",
+    recommendedJmnedict: "Electronic Dictionary Research and Development Groupが管理する日本語固有名詞辞書です。",
+    recommendedKanjidic: "漢字の読み、意味、画数データ、学年、JLPTレベル、頻度を含みます。",
+    recommendedJpdbv2Kana: "JPDBコーパスに基づく頻度データです。よむはローカル頻度チップを並べるとき、これを最初に表示します。",
+    recommendedBccwj: "現代日本語書き言葉均衡コーパスに基づく頻度データです。",
+    recommendedJiten: "jiten.moeのメディア統計データベースに基づく頻度データです。"
+  };
+  const JA_GRAMMAR_RULE_COPY = {
+    "potential-koto-ga-dekiru": {
+      kind: "可能表現",
+      short: "何かができる",
+      detail: "「こと」の前の動作を、能力や可能性として表します。"
+    },
+    "obligation-nakereba-naranai": {
+      kind: "義務",
+      short: "しなければならない、またはしなければならない",
+      detail: "アクションが必要である、または必要であると述べています。 「しなければならない」や「なくちゃ」のようなカジュアルな形も同じ基本的な考え方を持っています。"
+    },
+    "permission-not-required-nakutemo-ii": {
+      kind: "許可・義務なし",
+      short: "する必要はありません",
+      detail: "そのアクションは必要ない、またはしなくても大丈夫だと言います。"
+    },
+    "prohibition-tewa-ikenai": {
+      kind: "禁止事項",
+      short: "してはいけないこと",
+      detail: "アクションを許可されない、または受け入れられないものとしてマークします。カジュアルなちゃだめとじゃだめが入っています。"
+    },
+    "permission-temo-ii": {
+      kind: "許可",
+      short: "許可または承認",
+      detail: "いいえの前にアクションを実行しても大丈夫という意味です。否定的なバリアントは、それが大丈夫ではないかどうかを尋ねたり、言ったりすることができます。"
+    },
+    "request-te-kudasai": {
+      kind: "リクエスト",
+      short: "お願いします",
+      detail: "直接的かつ丁寧なリクエストを行います。 もっと柔らかいです。"
+    },
+    "polite-request-te-itadakemasen-ka": {
+      kind: "丁寧なお願い",
+      short: "していただけませんか",
+      detail: "誰かにあなたのために何かをしてほしいと丁寧に頼む、よりソフトな要求。"
+    },
+    "request-naide-kudasai": {
+      kind: "否定的なリクエスト",
+      short: "はしないでください",
+      detail: "誰かに行動を起こさないように丁寧に頼みます。"
+    },
+    "advice-hou-ga-ii": {
+      kind: "アドバイス",
+      short: "したほうがいいですよ",
+      detail: "アドバイスをしたり、どちらか 1 つの選択肢が良いと言ったりします。"
+    },
+    "command-nasai": {
+      kind: "コマンド",
+      short: "こうしてください",
+      detail: "大人が子供に対して、あるいは指示の際によく使う命令形。"
+    },
+    "experience-ta-koto-ga-aru": {
+      kind: "経験",
+      short: "が以前にやったことがある",
+      detail: "過去の動詞に「ことがある」を加えて、経験したことについて話します。"
+    },
+    "completion-te-shimau": {
+      kind: "完結・後悔",
+      short: "完全にまたは残念ながら実行します",
+      detail: "多くの場合、後悔、驚き、事故の感情を伴って、行動が完了したことを示すことができます。"
+    },
+    "attempt-te-miru": {
+      kind: "試み",
+      short: "やってみよう",
+      detail: "アクションを試して何が起こるかを確認することを意味します。"
+    },
+    "preparation-te-oku": {
+      kind: "準備",
+      short: "事前に行うか、そのままにしておきます",
+      detail: "多くの場合、事前に実行されたアクション、または意図的に放置された状態をマークします。さりげない「とく」「どく」が入ります。"
+    },
+    "desire-other-te-hoshii": {
+      kind: "希望・要望",
+      short: "誰かにやってほしい",
+      detail: "話者は他の人にそのアクションをしてもらいたいと言いました。"
+    },
+    "benefactive-te-kureru-morau": {
+      kind: "贈与と受領",
+      short: "誰かのために行われた好意",
+      detail: "て形と与えるまたは受け取る動詞を組み合わせて、アクションから誰が利益を受けるかを示します。"
+    },
+    "change-you-ni-naru": {
+      kind: "時間の経過とともに変化",
+      short: "するようになったり、そうなったりする",
+      detail: "時間の経過とともに発達する新しい能力、習慣、または状態を示します。"
+    },
+    "habit-you-ni-suru": {
+      kind: "努力・習慣",
+      short: "必ずしてください",
+      detail: "アクションを定期的または確実に実行するための意図的な努力を示します。"
+    },
+    "voice-causative-passive": {
+      kind: "使役-受動態",
+      short: "させられる",
+      detail: "使役的な意味と受動的な意味を組み合わせたもの: 誰かが、多くの場合不本意ながら、ある行動をとらされる。"
+    },
+    "voice-causative": {
+      kind: "使役",
+      short: "誰かに作ってもらうかさせて",
+      detail: "原因を追加します。誰かがそのアクションを作る、させる、またはさせる。"
+    },
+    "voice-passive-potential": {
+      kind: "受動的/潜在的",
+      short: "受動態、潜在的、または敬語形",
+      detail: "この語尾は受動態、能力、または尊敬語を示すことができます。どの読み方が当てはまるかは文脈によって決まります。"
+    },
+    "evidence-rashii-mitai": {
+      kind: "伝聞・肖像",
+      short: "のようです、またはどうやら",
+      detail: "形式や文脈に応じて、見た目、伝聞、傾向、類似性を表現します。"
+    },
+    "modality-kamoshirenai": {
+      kind: "可能性あり",
+      short: "かもしれないし、かもしれない",
+      detail: "発言を確固たる主張ではなく、可能性へと和らげます。"
+    },
+    "modality-deshou-darou": {
+      kind: "確率",
+      short: "たぶんそうだ / そうでしょう",
+      detail: "確率、予想、または相手に確認するような気持ちを加えます。"
+    },
+    "quotation-to-omou": {
+      kind: "名言・感想",
+      short: "だと思います...",
+      detail: "「考える」の前に、考えや発言の内容をマークします。"
+    },
+    "attempt-you-to-suru": {
+      kind: "しようとしています/しようとしています",
+      short: "しようとしている、またはしようとしている",
+      detail: "自発的な形式に加えて、試みられたアクションまたはこれから起こる何かに対して仮定を使用します。"
+    },
+    "plan-tsumori-yotei": {
+      kind: "計画・意図",
+      short: "するつもり、または計画している",
+      detail: "「つもり」は意図を指し、「予定」は計画やスケジュールを指します。"
+    },
+    "expectation-hazu": {
+      kind: "期待",
+      short: "はそうあるべき、またはそうすることが期待されています",
+      detail: "話し手が知っていることに基づいて、強い期待を示します。"
+    },
+    "reasoning-wake": {
+      kind: "推理",
+      short: "理由、結論、または必ずしもそうではない",
+      detail: "論理的な理由や結論を指します。多くの場合、否定形は必ずしも合理的ではない、または合理的ではないことを意味します。"
+    },
+    "reasoning-wake-dewa-nai": {
+      kind: "資格",
+      short: "必ずしもそうとは限りません",
+      detail: "発言が完全にまたは必ずしも真実ではないと述べています。"
+    },
+    "impossibility-wake-ga-nai": {
+      kind: "無理",
+      short: "無理です",
+      detail: "可能性や合理性を強く否定します。"
+    },
+    "constraint-wake-ni-wa-ikanai": {
+      kind: "社会的制約",
+      short: "は無理です",
+      detail: "義務、社会的圧力、または状況のために何かをすることができないと言います。"
+    },
+    "purpose-tame-ni": {
+      kind: "目的・メリット",
+      short: "のため、またはそのために",
+      detail: "行動や名詞を目的、目標、または受益者に結び付けます。"
+    },
+    "purpose-you-ni": {
+      kind: "目的・マナー",
+      short: "そう、あるいはその方法で",
+      detail: "目標、望ましい結果、または何かを行う方法に印を付けることができます。"
+    },
+    "timing-tokoro": {
+      kind: "タイミング・状況",
+      short: "ある時点または状況",
+      detail: "アクションを、これから起こる、今起こっている、起こったばかり、または状況として組み立てます。"
+    },
+    "simultaneous-nagara": {
+      kind: "同時動作",
+      short: "しながら",
+      detail: "同じ主体によって同時に行われた 2 つのアクションを接続します。"
+    },
+    "state-mama": {
+      kind: "状態は変わらない",
+      short: "そのまままたは静止したまま",
+      detail: "別のアクションまたは状況が継続している間、状態を変更しないでください。"
+    },
+    "list-tari": {
+      kind: "代表者一覧",
+      short: "のようなことをしています...",
+      detail: "リストが完全であるとは主張せずに、アクションの例をリストします。"
+    },
+    "limitation-bakari": {
+      kind: "制限事項 / 最近のアクション",
+      short: "だけ、しただけ、または何もしなかった",
+      detail: "コンテキストに応じて、最近完了したアクション、またはのみまたは何もないという意味をマークできます。"
+    },
+    "limitation-dake-shika": {
+      kind: "制限事項",
+      short: "のみ、またはそれ以外",
+      detail: "だけという意味です。 「しか」は通常、否定的な語尾と対になって、何も意味しません。"
+    },
+    "degree-hodo-kurai": {
+      kind: "程度・近似値",
+      short: "程度か",
+      detail: "何かが真実であるおおよその量または程度をマークします。"
+    },
+    "role-toshite": {
+      kind: "役割・立場",
+      short: "として、またはその役割を果たしています",
+      detail: "何かが真実である役割、能力、または立場をマークします。"
+    },
+    "relation-ni-yotte": {
+      kind: "意味 / 原因 / によって",
+      short: "によって、それに依存して、またはそのために",
+      detail: "文脈に応じて、受動的な文の手段、主体、原因、またはバリエーションをマークできます。"
+    },
+    "topic-ni-tsuite": {
+      kind: "トピック",
+      short: "についてまたはそれに関して",
+      detail: "議論、検討、または調査中のトピックをマークします。"
+    },
+    "target-ni-taishite": {
+      kind: "ターゲット/コントラスト",
+      short: "に対して、反対、または対照的に",
+      detail: "態度や行動の対象をマークしたり、コントラストを設定したりします。"
+    },
+    "concession-ni-mo-kakawarazu": {
+      kind: "譲歩",
+      short: "にもかかわらず、あるいはにもかかわらず",
+      detail: "最初の事実にもかかわらず 2 番目の事実が発生すると、2 つの事実が結びつきます。"
+    },
+    "concession-kuse-ni": {
+      kind: "非難/矛盾",
+      short: "批判はありますが",
+      detail: "矛盾を非難または批判的な口調でマークします。"
+    },
+    "suffix-tachi": {
+      kind: "複数形/グループ接尾辞",
+      short: "はグループまたは複数のセットを示します",
+      detail: "人、代名詞、または動物名詞に付いて、その人とそのグループ、または複数のグループを指します。"
+    },
+    "particle-wa": {
+      kind: "話題の助詞",
+      short: "はトピックまたはコントラストを設定します",
+      detail: "として読んで、新しい情報については文の残りの部分を見てください。"
+    },
+    "particle-ga": {
+      kind: "主語助詞",
+      short: "は実行者または焦点を示します",
+      detail: "多くの場合、その主題が新しい場合や重要な場合に、条項の主題を強調表示します。"
+    },
+    "particle-wo": {
+      kind: "オブジェクト粒子",
+      short: "はアクションを受け取るものをマークします",
+      detail: "通常、「を」の前の句は、次の動詞が作用するものです。"
+    },
+    "particle-de": {
+      kind: "文脈粒子",
+      short: "は、アクションが発生する場所または方法をマークします。",
+      detail: "多くの場合、アクションの設定、ツール、方法、条件を指します。"
+    },
+    "particle-ni": {
+      kind: "対象粒子",
+      short: "は、ターゲット、ポイント、時間、または副詞的な役割をマークします",
+      detail: "に は、アクションを目的地、時間、ターゲット、または方法に固定することだと考えてください。"
+    },
+    "particle-e": {
+      kind: "方向粒子",
+      short: "に向けて、またはに向けて",
+      detail: "移動方向または移動先をマークします。"
+    },
+    "particle-to": {
+      kind: "引用/相手助詞",
+      short: "は、および、または引用符で囲まれたコンテンツをマークします",
+      detail: "誰かが何かをした相手、正確な引用内容、比較、または完全なリストをマークできます。"
+    },
+    "particle-no": {
+      kind: "名詞リンカー",
+      short: "名詞を接続またはラベル付けします",
+      detail: "のの前の句は、後続の名詞を修飾するか、それに属します。"
+    },
+    "particle-mo": {
+      kind: "内包物粒子",
+      short: "も、または",
+      detail: "マークされた項目をセットに追加したり、数量で範囲を強調したりします。"
+    },
+    "particle-ya": {
+      kind: "オープンリスト助詞",
+      short: "など",
+      detail: "リストが完全であることを暗示することなく、例をリストします。"
+    },
+    "aspect-te-iru": {
+      kind: "動詞形",
+      short: "進行中のアクションまたは結果の状態",
+      detail: "進行中のアクション、または何かが変更された後に残っている状態を示します。"
+    },
+    "aspect-te-aru": {
+      kind: "結果の状態",
+      short: "は完了し、残ります",
+      detail: "アクションの後に意図的にその場に残された結果を示します。"
+    },
+    "aspect-te-kuru": {
+      kind: "動作・開発",
+      short: "これからに向けてやるか発展するか",
+      detail: "発言者に向けた動きや、これまでの変化を示します。"
+    },
+    "aspect-te-iku": {
+      kind: "動作・開発",
+      short: "やり続けるか、開発を続けるか",
+      detail: "話者から離れる動き、または未来に続く変化を示します。"
+    },
+    "desire-tai": {
+      kind: "動詞語尾",
+      short: "何かしたい",
+      detail: "動詞の語幹に付けて、話者がそのアクションを実行したいことを示します。"
+    },
+    "ease-yasui-nikui": {
+      kind: "簡単さ・難易度",
+      short: "簡単か難しいか",
+      detail: "アクションが簡単、難しい、または心理的に難しいことを示します。"
+    },
+    "excess-sugiru": {
+      kind: "過剰",
+      short: "多すぎる",
+      detail: "何かが適切な量や程度を超えていることを示します。"
+    },
+    "method-kata": {
+      kind: "メソッド",
+      short: "やり方",
+      detail: "動詞の語幹に付いて、その動作の方法を意味します。"
+    },
+    "negative-nai": {
+      kind: "動詞語尾",
+      short: "否定形",
+      detail: "動詞や表現を否定形にします。現在・過去どちらの否定にも使われます。"
+    },
+    "polite-past-mashita": {
+      kind: "丁寧な過去",
+      short: "丁寧な完了アクション",
+      detail: "ます形の丁寧な過去形です。動作や状態が過去のことだったことを表します。"
+    },
+    "polite-masu": {
+      kind: "丁寧な形式",
+      short: "丁寧な非過去動詞",
+      detail: "動詞を丁寧語に柔らかくします。時制は周囲の文によって異なります。"
+    },
+    "conditional-tara": {
+      kind: "句リンカー",
+      short: "条件付きまたは時系列",
+      detail: "前の節を条件や時点として示し、その後の内容につなげます。"
+    },
+    "conditional-ba": {
+      kind: "条件付き",
+      short: "条件を表す",
+      detail: "次の句が発生するために真である必要がある条件をマークします。"
+    },
+    "conditional-ba-ii": {
+      kind: "アドバイス/後悔",
+      short: "はやるべきだった、あるいはやるべきだった",
+      detail: "アドバイスをしたり、どうすればよいかを尋ねたり、起こるべきだったことについて後悔を表明したりできます。"
+    },
+    "reason-node": {
+      kind: "句リンカー",
+      short: "理由または原因",
+      detail: "次の発言の理由や原因を、通常は「から」よりも柔らかい口調で述べます。"
+    },
+    "reason-kara": {
+      kind: "パーティクル / リンカー",
+      short: "理由、ソース、または出発点",
+      detail: "周囲の内容に応じて、「から」、「から」、または「その後」を意味します。"
+    },
+    "appearance-sou": {
+      kind: "出演・伝聞",
+      short: "に似ているか、聞いたことがあります",
+      detail: "何かが見た目からどのように見えるかを説明するか、完全な句に付けて伝聞を報告します。"
+    },
+    "hearsay-sou-da": {
+      kind: "伝聞",
+      short: "そうですね。",
+      detail: "別の情報源から聞いた情報を報告します。"
+    },
+    "volitional-you": {
+      kind: "任意",
+      short: "自発、提案、または招待",
+      detail: "「一緒にしよう」「自分がしよう」という意志や提案を表します。"
+    },
+    "concession-noni": {
+      kind: "句リンカー",
+      short: "とはいえ、期待に反して、または期待を裏切られました",
+      detail: "2 つのアイデアを、最初のアイデアを考慮して 2 番目のアイデアが驚くべきか残念に思う場合に接続します。"
+    },
+    "nominalizer-koto": {
+      kind: "ノミナライザー",
+      short: "抽象的なものまたは名詞化子",
+      detail: "アクションやアイデアを、粒子が付加できる名詞のような概念に変換します。"
+    },
+    "plain-past-ta": {
+      kind: "ありふれた過去",
+      short: "単純な完了したアクションまたは過去の状態",
+      detail: "単純な過去形の動作または状態を示します。一般的な動詞の語尾には「した」、「った」、「いた」、「いだ」、「んだ」などがあります。"
+    },
+    "sequence-te-kara": {
+      kind: "シーケンス",
+      short: "した後",
+      detail: "あるアクションが完了した後に別のアクションが発生すると言います。"
+    },
+    "time-mae-ni": {
+      kind: "時間関係",
+      short: "する前に",
+      detail: "他のアクションまたはイベントの前に発生するアクションまたはイベントをマークします。"
+    },
+    "time-ato-de-ni": {
+      kind: "時間関係",
+      short: "した後",
+      detail: "次々に起こるアクションやイベントをマークします。"
+    },
+    "time-toki": {
+      kind: "時間関係",
+      short: "とき",
+      detail: "何かが起こった時間や機会を示します。"
+    },
+    "limit-made-made-ni": {
+      kind: "リミット",
+      short: "までまたはそれまでに",
+      detail: "まではエンドポイントをマークします。 までに期限を示します。"
+    },
+    "comparison-yori-nohou": {
+      kind: "比較",
+      short: "以上",
+      detail: "2 つのことを比較します。 「より」は比較されるものを示し、「のが」は優先またはより優れた側を示します。"
+    },
+    "superlative-ichiban": {
+      kind: "最上級",
+      short: "一番",
+      detail: "グループ内で最高の学位を示します。"
+    },
+    "question-ka-douka": {
+      kind: "埋め込み質問",
+      short: "かどうか",
+      detail: "大きな文の中に「はい」か「いいえ」で答える質問を埋め込みます。"
+    },
+    "quotation-to-iu": {
+      kind: "名言・ネーミング",
+      short: "に電話したり、そう言ったり",
+      detail: "名前、定義、引用、説明をマークします。"
+    },
+    "casual-tte": {
+      kind: "カジュアルな名言・話題",
+      short: "カジュアルな引用またはトピックマーカー",
+      detail: "引用したり、名前を付けたり、トピックを設定したりするためのカジュアルなマーカー。"
+    },
+    "explanation-n-desu": {
+      kind: "",
+      short: "説明口調",
+      detail: "説明的または文脈を求める口調を追加します。"
+    },
+    "permission-sasete-kudasai": {
+      kind: "許可リクエスト",
+      short: "させてください",
+      detail: "何かをする許可を求めます。"
+    },
+    "decision-koto-ni-suru": {
+      kind: "決定",
+      short: "することにしました",
+      detail: "誰かが行動や方針を決定することを示します。"
+    },
+    "arrangement-koto-ni-naru": {
+      kind: "決定・手配",
+      short: "決まりました",
+      detail: "状況や他人によって決まった取り決めや結果を表します。"
+    },
+    "honorific-o-go-ni-naru-suru": {
+      kind: "尊敬語・謙譲語",
+      short: "敬意を表すまたは謙虚な定型句",
+      detail: "尊敬語または謙譲語の場合、「お」または「ご」を動詞名詞または語幹とともに使用します。"
+    },
+    "polite-gozaimasu": {
+      kind: "丁寧なスピーチ",
+      short: "あるの丁寧な表現",
+      detail: "集合表現における「ある」または「です」に関連する非常に丁寧な形式。"
+    },
+    "advice-beki": {
+      kind: "規範・アドバイス",
+      short: "すればいいのに",
+      detail: "適切なこと、期待されること、または推奨されることを表現します。"
+    },
+    "time-aida-aida-ni": {
+      kind: "期間",
+      short: "しながら、または",
+      detail: "何かが起こる期間を示します。"
+    },
+    "time-uchi-ni": {
+      kind: "制限時間",
+      short: "静止中または変化前",
+      detail: "条件が成立している間に行動するように言います。"
+    },
+    "time-saichuu-ni": {
+      kind: "行動中",
+      short: "のど真ん中",
+      detail: "別のアクションの途中で何かが起こったことを示します。"
+    },
+    "repetition-tabi-ni": {
+      kind: "繰り返し",
+      short: "毎回",
+      detail: "何かが起こるたびに、その何かをマークします。"
+    },
+    "incidental-tsuide-ni": {
+      kind: "付帯行為",
+      short: "ついでに",
+      detail: "メインアクションと一緒に実行される追加のアクションを追加します。"
+    },
+    "cause-sei-okage-de": {
+      kind: "原因",
+      short: "のおかげで",
+      detail: "せいで否定的な原因が与えられます。 おかげで有益な原因が得られます。"
+    },
+    "manner-toori": {
+      kind: "マナー",
+      short: "として、あるいはそのまま",
+      detail: "モデルやステートメントと同じように何かが起こると言います。"
+    },
+    "certainty-ni-chigai-nai": {
+      kind: "確か",
+      short: "きっとそうだ",
+      detail: "証拠や推論に基づいて強い確信を示します。"
+    },
+    "certainty-ni-kimatte-iru": {
+      kind: "確か",
+      short: "は明らかにそうである必要があります",
+      detail: "強い、しばしば強調された確実性を表現します。"
+    },
+    "qualification-to-wa-kagiranai": {
+      kind: "資格",
+      short: "必ずしもそうとは限りません",
+      detail: "何かが常に真実であるとは限らない、または必ずしも真実であるとは限りません。"
+    },
+    "contrast-ippou-de": {
+      kind: "コントラスト / 片面",
+      short: "一方、または",
+      detail: "対照的な事実、並行する事実、または状況の一側面を示します。"
+    },
+    "contrast-hanmen": {
+      kind: "コントラスト",
+      short: "一方",
+      detail: "何かの一方の側面と別の側面を対比させます。"
+    },
+    "substitution-kawari-ni": {
+      kind: "置換 / トレードオフ",
+      short: "の代わりに、または代わりに",
+      detail: "代替アクションまたはトレードオフをマークします。"
+    },
+    "topic-ni-kanshite": {
+      kind: "トピック",
+      short: "についてまたはそれに関して",
+      detail: "議論または懸念事項のトピックをマークします。"
+    },
+    "comparison-ni-kurabete": {
+      kind: "比較",
+      short: "と比較",
+      detail: "比較の基準をマークします。"
+    },
+    "basis-ni-motozuite": {
+      kind: "根拠",
+      short: "に基づく",
+      detail: "行動や判断の根拠や証拠を示します。"
+    },
+    "following-ni-sotte": {
+      kind: "フォロー中",
+      short: "と一緒に、またはそれに沿って",
+      detail: "何かがルール、計画、またはパスに従っていることを示します。"
+    },
+    "following-change-ni-shitagatte": {
+      kind: "フォロー/変更",
+      short: "以下またはとして",
+      detail: "規則、人物、または徐々に変化するものに従うマーク。"
+    },
+    "change-ni-tsurete": {
+      kind: "徐々に変化",
+      short: "何かが変わると",
+      detail: "ある変化が別の変化とともに起こっていることを示します。"
+    },
+    "together-to-tomo-ni": {
+      kind: "一緒に/変わる",
+      short: "と一緒に、または",
+      detail: "一緒に何かをすること、または他のものと一緒に起こる変化をマークします。"
+    },
+    "context-ni-oite": {
+      kind: "コンテキスト",
+      short: "〜において",
+      detail: "場所、フィールド、時間、またはコンテキストの正式なマーカー。"
+    },
+    "means-wo-tsuujite-tooshite": {
+      kind: "意味 / スパン",
+      short: "ずっと",
+      detail: "手段、仲介者、または期間をマークします。"
+    },
+    "representative-wo-hajime": {
+      kind: "代表例",
+      short: "で始まる",
+      detail: "より大きなグループの主要な事例を紹介します。"
+    },
+    "limit-ni-kagiru-kagirazu": {
+      kind: "制限/推奨",
+      short: "に限定される、限定されない、または最高",
+      detail: "制限、非制限、特別な場合、または強い推奨を示します。"
+    },
+    "suffix-gachi": {
+      kind: "傾向",
+      short: "する傾向があります",
+      detail: "繰り返しの傾向を示し、多くの場合否定的です。"
+    },
+    "suffix-gimi": {
+      kind: "若干の傾向",
+      short: "少し、多少",
+      detail: "何かが少しある状態にあることを示します。"
+    },
+    "suffix-ge": {
+      kind: "出現接尾語",
+      short: "らしい",
+      detail: "誰かまたは何かが特定の方法で現れるという感覚を追加します。"
+    },
+    "suffix-ppoi": {
+      kind: "傾向・らしさ",
+      short: "っぽい、または傾向がある",
+      detail: "何かがそうである、その傾向がある、または性質があることを示します。"
+    },
+    "negative-youni-nai": {
+      kind: "無理",
+      short: "仕方ない",
+      detail: "何かをする方法や可能性がないと言っています。"
+    },
+    "impossible-kkonai": {
+      kind: "無理",
+      short: "できるはずがない",
+      detail: "何かが起こらない、または起こらないことを何気なく言います。"
+    },
+    "condition-kara-ni-wa": {
+      kind: "コミットメント条件",
+      short: "今は / それ以来",
+      detail: "義務、決意、期待を生み出す条件を設定します。"
+    },
+    "condition-ijou-wa": {
+      kind: "コミットメント条件",
+      short: "今では / 限り",
+      detail: "義務または結果を生み出す条件を設定します。"
+    },
+    "condition-ue-wa": {
+      kind: "コミットメント条件",
+      short: "さてさて",
+      detail: "何かが真実であれば、一定の責任が伴うという意味です。"
+    },
+    "sequence-ue-de": {
+      kind: "以降/基本",
+      short: "をした後、またはそれに基づいて",
+      detail: "何かをした後、または何かを基礎として検討した後を意味します。"
+    },
+    "addition-ue-ni": {
+      kind: "追記",
+      short: "その上",
+      detail: "別の事実が追加され、評価が強化されることがよくあります。"
+    },
+    "viewpoint-kara-miru-to": {
+      kind: "視点",
+      short: "の視点から",
+      detail: "判断の立場や根拠を示します。"
+    },
+    "starting-kara-shite": {
+      kind: "からでも",
+      short: "から判断すると、あるいは",
+      detail: "判断の代表的な出発点を示します。"
+    },
+    "only-ni-suginai": {
+      kind: "制限事項",
+      short: "以上のことは何もありません",
+      detail: "あるものはあくまであるもので過大評価すべきではないと言う。"
+    },
+    "essence-ni-hoka-naranai": {
+      kind: "本質・結論",
+      short: "以外の何ものでもありません",
+      detail: "何かの本当の正体や中心的な原因を述べます。"
+    },
+    "necessity-zaru-wo-enai": {
+      kind: "必要性",
+      short: "するしかない",
+      detail: "何とかするしかないという。"
+    },
+    "compulsion-zu-ni-wa-irarenai": {
+      kind: "強制",
+      short: "やらずにはいられない",
+      detail: "人は何かをしたり感じたりせずにはいられないと言います。"
+    },
+    "possibility-eru-enai": {
+      kind: "可能性あり",
+      short: "起こり得る / 起こり得ない",
+      detail: "多くの場合、正式な文書で、何かを可能または不可能としてマークします。"
+    },
+    "risk-kanenai": {
+      kind: "リスク",
+      short: "が起こる可能性がありますが、通常は悪いことです",
+      detail: "否定的な結果が発生する可能性があることを警告します。"
+    },
+    "difficulty-kaneru": {
+      kind: "困難・拒否",
+      short: "できません",
+      detail: "何かが難しい、または不可能であることを丁寧に言います。"
+    },
+    "emotion-te-naranai": {
+      kind: "強い気持ち",
+      short: "と感じずにはいられません。",
+      detail: "強い自発的な感情や状態を表します。"
+    },
+    "emotion-te-tamaranai": {
+      kind: "強い気持ち",
+      short: "たまらん",
+      detail: "激しい感情や感覚を表します。"
+    },
+    "emotion-te-shouganai": {
+      kind: "強い気持ち",
+      short: "どうしようもない / 非常に",
+      detail: "制御できない、または非常に強い感情を表します。"
+    },
+    "timing-shidai": {
+      kind: "タイミング/依存性",
+      short: "次第、または次第",
+      detail: "何かが起こるとすぐ、または何かに依存することを意味します。"
+    },
+    "time-sai-ni": {
+      kind: "行事",
+      short: "の際に",
+      detail: "何かをするとき、または何かが起こったときの正式な標識。"
+    },
+    "occasion-ni-atatte": {
+      kind: "行事・準備",
+      short: "するとき",
+      detail: "特別な機会のための正式なマーカー。多くの場合、準備が必要です。"
+    },
+    "occasion-ni-saishite": {
+      kind: "行事",
+      short: "の際に",
+      detail: "特別な時間やイベントのための正式なマーカー。"
+    },
+    "prior-ni-sakidatte": {
+      kind: "事前のアクション",
+      short: "前 / 前",
+      detail: "イベントの前に何かが完了したことをマークします。"
+    },
+    "trigger-wo-kikkake-ni": {
+      kind: "トリガー",
+      short: "によってトリガーされました",
+      detail: "変化のきっかけとなる出来事をマークします。"
+    },
+    "trigger-wo-keiki-ni": {
+      kind: "トリガー",
+      short: "チャンスと捉えて",
+      detail: "何かをターニングポイントやきっかけとして使うことの正式版。"
+    },
+    "span-ni-watatte": {
+      kind: "スパン",
+      short: "上/横",
+      detail: "時間、場所、範囲を示します。"
+    },
+    "accompany-ni-tomonatte": {
+      kind: "変化に伴う",
+      short: "と一緒に",
+      detail: "ある変更に伴う別の変更を示します。"
+    },
+    "response-ni-oujite": {
+      kind: "応答/バリエーション",
+      short: "による、またはそれに応じて",
+      detail: "条件に応じて何かが変化することを示します。"
+    },
+    "basis-wo-fumaete": {
+      kind: "根拠",
+      short: "に基づく / 考慮に入れる",
+      detail: "判断や行動の根拠となる情報をマークします。"
+    },
+    "merit-dake-atte": {
+      kind: "流石です",
+      short: "さすがです",
+      detail: "品質やステータスを考えれば、結果が出るのは当然だと言う。"
+    },
+    "because-dake-ni": {
+      kind: "だって / 尚更",
+      short: "まさに、",
+      detail: "理由があるため、結果が特に正しいことを示します。"
+    },
+    "concession-youga-maiga": {
+      kind: "無関心 / 譲歩",
+      short: "かどうか",
+      detail: "どの条件が発生しても結果は同じであると述べています。"
+    },
+    "concession-nagara-mo": {
+      kind: "譲歩",
+      short: "でも",
+      detail: "事実と対照的な結果を結びつけます。"
+    },
+    "continuation-tsutsu": {
+      kind: "続き・コントラスト",
+      short: "しながら、または徐々に",
+      detail: "つつあるとは、しながらも、徐々に発展していくという意味もあります。"
+    },
+    "cause-bakari-ni": {
+      kind: "残念な事です",
+      short: "ただの理由で",
+      detail: "不幸な結果をもたらした原因をマークします。"
+    },
+    "contrast-dokoro-ka": {
+      kind: "コントラストが強い",
+      short: "とは程遠い / それだけではない",
+      detail: "1 つの考えを拒否し、より強力な、または反対の事実を示します。"
+    },
+    "impossible-dokoro-dewa-nai": {
+      kind: "時間がない",
+      short: "そんな時間はありません",
+      detail: "状況が何かを不可能または不適切にしていると言います。"
+    },
+    "nonlimiting-dake-denaku": {
+      kind: "追記",
+      short: "だけじゃない",
+      detail: "最初の内容にさらにもう 1 つ追加します。"
+    },
+    "regardless-ni-kakawarazu": {
+      kind: "それはともかく",
+      short: "関係なく",
+      detail: "条件に関係なく結果は同じだと言います。"
+    },
+    "contrary-ni-hanshite": {
+      kind: "逆に",
+      short: "反対 / 反対",
+      detail: "期待、規則、意図に反する結果をマークします。"
+    },
+    "addition-ni-kuwaete": {
+      kind: "追記",
+      short: "に加えて",
+      detail: "別の項目または事実を追加します。"
+    },
+    "target-ni-kotaete": {
+      kind: "返信",
+      short: "への返信",
+      detail: "期待、要求、サポートに応じて行動します。"
+    },
+    "center-wo-chuushin-ni": {
+      kind: "センター",
+      short: "中心",
+      detail: "中心人物、場所、またはトピックをマークします。"
+    },
+    "regardless-wo-toyazu": {
+      kind: "それはともかく",
+      short: "関係なく",
+      detail: "区別は重要ではないと言います。"
+    },
+    "topic-wo-megutte": {
+      kind: "周囲の問題",
+      short: "以上/について",
+      detail: "議論、紛争、または運動が発生する問題をマークします。"
+    },
+    "direction-muke-muki": {
+      kind: "対象者/適合性",
+      short: "に適している、または適しています",
+      detail: "向けとは、「向けられる」という意味です。 向きは「に適している」という意味です。"
+    },
+    "relative-wari-ni": {
+      kind: "意外な比較",
+      short: "検討中 / のために",
+      detail: "標準に比べて何かが予想外であることを示します。"
+    },
+    "memory-kke": {
+      kind: "メモリチェック",
+      short: "何だったかな / 確認する",
+      detail: "思い出そうとしていることや、相手に軽く確認したいことを表します。"
+    },
+    "quote-to-iu-yori": {
+      kind: "訂正",
+      short: "ではなく",
+      detail: "前の説明を修正または再構成します。"
+    },
+    "example-to-itta": {
+      kind: "例",
+      short: "など",
+      detail: "代表的な事例を紹介します。"
+    },
+    "topic-to-ieba": {
+      kind: "そういえば",
+      short: "といえば",
+      detail: "トピックに関連したものを紹介します。"
+    },
+    "thing-mono-da": {
+      kind: "一般的な真実/感情",
+      short: "それは自然なことです / 慣れています",
+      detail: "一般的な真実、感情的な反映、または過去の習慣を表現できます。"
+    },
+    "cause-mono-dakara": {
+      kind: "言い訳・理由",
+      short: "なので",
+      detail: "多くの場合、言い訳や説明として理由を示します。"
+    },
+    "concession-mono-no": {
+      kind: "譲歩",
+      short: "でも",
+      detail: "は事実を述べていますが、それを予期せぬ結果と対比させています。"
+    },
+    "advice-koto-da": {
+      kind: "アドバイス/重要性",
+      short: "すればいいのに",
+      detail: "アドバイスをしたり、重要なことを述べたりします。"
+    },
+    "unnecessary-koto-wa-nai": {
+      kind: "必要ありません",
+      short: "その必要はありません",
+      detail: "何もする必要はないと言う。"
+    },
+    "double-negative-nai-koto-wa-nai": {
+      kind: "限定された可能性",
+      short: "不可能ではありません",
+      detail: "修飾された「はい」を与える二重否定。"
+    },
+    "explanation-to-iu-koto-da": {
+      kind: "解説・伝聞",
+      short: "という意味です / 聞いた",
+      detail: "結論の説明や情報の報告。"
+    },
+    "nature-to-iu-mono-da": {
+      kind: "評価",
+      short: "それが〜というものだ",
+      detail: "一般的な評価または結論を述べます。"
+    },
+    "not-nature-to-iu-mono-dewa-nai": {
+      kind: "資格",
+      short: "必ずしもそうとは限りません",
+      detail: "何かが単純に、または常に当てはまるわけではないと言います。"
+    },
+    "wish-nai-mono-ka": {
+      kind: "願い事",
+      short: "どうにかできないだろうか",
+      detail: "何かが実現してほしい、解決方法があってほしいという願望を表します。"
+    },
+    "instant-ga-hayai-ka": {
+      kind: "即時シーケンス",
+      short: "までに",
+      detail: "あるアクションが別のアクションの直後に発生することを示します。"
+    },
+    "instant-ya-inaya": {
+      kind: "即時シーケンス",
+      short: "すぐに",
+      detail: "アクションが別のアクションの直後に発生することを示します。"
+    },
+    "instant-nari": {
+      kind: "即時シーケンス",
+      short: "すぐに",
+      detail: "あるアクションがすぐに別のアクションに続くことを、多くの場合予期せずに示します。"
+    },
+    "repetition-soba-kara": {
+      kind: "挫折の繰り返し",
+      short: "すぐに、繰り返し",
+      detail: "別のアクションの直後に何かが繰り返し発生し、多くの場合イライラすることを示します。"
+    },
+    "unexpected-ka-to-omoi-kiya": {
+      kind: "予想外の展開",
+      short: "と思ったところ",
+      detail: "予想に反して予想外の結果を紹介します。"
+    },
+    "incidental-katagata": {
+      kind: "複合目的",
+      short: "としても",
+      detail: "別の目的（多くの場合、正式な訪問や感謝）のために行われたアクションをマークします。"
+    },
+    "incidental-gatera": {
+      kind: "しながら",
+      short: "しながら / 同じ機会に",
+      detail: "何かをしながら別のアクティビティを行っていることを示します。"
+    },
+    "starting-wo-kawakiri-ni": {
+      kind: "出発点",
+      short: "で始まる",
+      detail: "シリーズの最初の作品です。"
+    },
+    "endpoint-wo-kagiri-ni": {
+      kind: "最終点",
+      short: "現在 / で終わる",
+      detail: "最後の点または最後の出現をマークします。"
+    },
+    "means-wo-motte": {
+      kind: "正式な手段 / エンドポイント",
+      short: "による / 現在",
+      detail: "手段、理由、またはエンドポイントの正式なマーカー。"
+    },
+    "turning-wo-sakai-ni": {
+      kind: "転換点",
+      short: "から / 以来",
+      detail: "物事が変化する境界線を示します。"
+    },
+    "range-ni-itaru-made": {
+      kind: "範囲",
+      short: "までずっと",
+      detail: "点に至るまでの範囲を強調します。"
+    },
+    "stage-ni-itatte": {
+      kind: "ステージ",
+      short: "のときのみ / の段階で",
+      detail: "深刻な、または顕著な段階に達していることを示します。"
+    },
+    "context-ni-atte": {
+      kind: "ある状況では",
+      short: "内/下",
+      detail: "特別な状況や立場にあることを示す正式な標識。"
+    },
+    "standard-ni-sokushite": {
+      kind: "によると",
+      short: "に合わせて",
+      detail: "行動が事実、ルール、現実に厳密に従っていることを示します。"
+    },
+    "exclusive-wo-oite": {
+      kind: "独占",
+      short: "以外 / 誰もいない",
+      detail: "マークされた項目以外に優れた選択肢や選択肢はないと述べています。"
+    },
+    "defiance-wo-mono-to-mo-sezu": {
+      kind: "反抗",
+      short: "に反抗",
+      detail: "困難にもひるむことなく行動する人と言います。"
+    },
+    "forced-wo-yogi-naku-sareru": {
+      kind: "強制的な結果",
+      short: "強制される",
+      detail: "誰かが状況によって結果を強いられると言います。"
+    },
+    "force-wo-yogi-naku-saseru": {
+      kind: "強制結果",
+      short: "誰かに強制的に",
+      detail: "状況によって結果が強制されると言う。"
+    },
+    "emotion-ni-taenai": {
+      kind: "感慨深いです",
+      short: "耐えられない / 深く",
+      detail: "名詞に応じて、耐え難いネガティブな感情や深いポジティブな感情を表現できます。"
+    },
+    "reluctance-ni-shinobinai": {
+      kind: "不本意",
+      short: "耐えられない",
+      detail: "感情的に何かをする気になれないと言います。"
+    },
+    "easy-inference-ni-katagunai": {
+      kind: "簡単な推論",
+      short: "想像するのは難しくない",
+      detail: "想像しやすい、または理解しやすいことを言います。"
+    },
+    "worthy-ni-ataru": {
+      kind: "価値",
+      short: "に値する",
+      detail: "何かを評価またはアクションに値するものとしてマークします。"
+    },
+    "sufficient-ni-taru": {
+      kind: "十分",
+      short: "に十分 / 価値がある",
+      detail: "何かが判断に十分である、または価値があることを示します。"
+    },
+    "utmost-no-itari": {
+      kind: "最高",
+      short: "の高さ",
+      detail: "定型文で極端な程度を表現することが多い。"
+    },
+    "extreme-kiwamaru-kiwamarinai": {
+      kind: "極度",
+      short: "非常に",
+      detail: "極端な程度を表現し、多くの場合否定的または形式的です。"
+    },
+    "deep-wish-te-yamanai": {
+      kind: "深い願い・気持ち",
+      short: "よろしくお願いします",
+      detail: "継続する深い願いや感情を表現します。"
+    },
+    "since-te-kara-to-iu-mono": {
+      kind: "それ以来",
+      short: "以来",
+      detail: "ある出来事の後、その状態が続いていると言う。"
+    },
+    "consequence-zu-ni-wa-okanai": {
+      kind: "避けられない行為",
+      short: "きっとできる/できない",
+      detail: "何かが必然的に動作や反応を引き起こすと言います。"
+    },
+    "consequence-zu-ni-wa-sumanai": {
+      kind: "やむを得ない義務",
+      short: "は避けなければなりません/避けられません",
+      detail: "何かをしなければ逃げられないと言う。"
+    },
+    "prohibition-bekarazu": {
+      kind: "禁止事項",
+      short: "は禁止です",
+      detail: "標識や決まり文句でよく見られる古い/正式な禁止事項。"
+    },
+    "improper-majiki": {
+      kind: "不適切",
+      short: "ふさわしくない / してはならない",
+      detail: "役割またはステータスに不適切な行動としてマークを付けます。"
+    },
+    "role-taru-mono": {
+      kind: "役割基準",
+      short: "という人",
+      detail: "役割において誰かに期待されることを述べます。"
+    },
+    "surprise-tomo-arou-mono-ga": {
+      kind: "役割に失望 みんなの",
+      short: "",
+      detail: "地位のある人が何かをしたことに対する批判や驚きを表します。"
+    },
+    "stage-tomo-naru-to": {
+      kind: "ステージ/ステータス",
+      short: "に関しては",
+      detail: "あるレベルに到達すると、状況が変わると言います。"
+    },
+    "any-de-are": {
+      kind: "関係なく/たとえ",
+      short: "誰でも何でも",
+      detail: "たとえ、たとえ何であっても、という意味の正式なマーカー。"
+    },
+    "pair-to-ii-to-ii": {
+      kind: "ペア評価",
+      short: "両方...そして",
+      detail: "全体を評価するために 2 つの例を取り上げます。"
+    },
+    "concession-to-wa-ie": {
+      kind: "譲歩",
+      short: "でも / それはそうかもしれない",
+      detail: "事実は認めていますが、対照的な点を紹介しています。"
+    },
+    "without-nakushite": {
+      kind: "なし",
+      short: "なし / なし",
+      detail: "マークされたものなしでは何かが起こらないと言います。"
+    },
+    "basis-atte-no": {
+      kind: "に依存",
+      short: "により可能です",
+      detail: "何かのおかげで何かが存在すると言います。"
+    },
+    "unique-nara-dewa": {
+      kind: "独自の",
+      short: "ならでは",
+      detail: "何かをソースに固有のものとしてマークします。"
+    },
+    "covered-mamire": {
+      kind: "で取り上げられました",
+      short: "で覆われています",
+      detail: "何かが不快な物質に覆われていると言います。"
+    },
+    "full-zukume": {
+      kind: "いっぱい",
+      short: "すべて / それ以外は何もありません",
+      detail: "すべてのものは 1 種類であり、色や出来事が多いと言います。"
+    },
+    "depending-ikan": {
+      kind: "場合による/関係なく",
+      short: "に応じて / 関係なく",
+      detail: "物事の様子に依存する、またはそれに関係なくを表す形式的な表現。"
+    },
+    "result-shimatsu-da": {
+      kind: "悪い結果でした",
+      short: "終了",
+      detail: "一連のイベントの後の悪い最終結果について説明します。"
+    },
+    "rhetorical-denakute-nandarou": {
+      kind: "修辞の強調",
+      short: "これ以外に何だろうか",
+      detail: "「まさにそれだ」と強く断定する反語表現です。"
+    },
+    "extreme-to-ittara-nai": {
+      kind: "極度",
+      short: "なんとも言えない",
+      detail: "言葉では言い表せないほどの過激さを表現します。"
+    },
+    "extreme-tara-aryashinai": {
+      kind: "極度",
+      short: "非常に",
+      detail: "非常に意味のあるカジュアルな強調表現。"
+    },
+    "best-ni-koshita-koto-wa-nai": {
+      kind: "最良の選択肢",
+      short: "より良いものはありません",
+      detail: "可能であれば特定のオプションを選択するのが最善であると述べています。"
+    },
+    "excess-ni-mo-hodo-ga-aru": {
+      kind: "過剰な批判",
+      short: "限界があります",
+      detail: "行き過ぎであると批判します。"
+    },
+    "emphatic-no-nanno": {
+      kind: "極端な強調",
+      short: "非常に",
+      detail: "強い感情や状態をカジュアルに強調した表現。"
+    },
+    "minimal-tari-tomo": {
+      kind: "一つでも",
+      short: "さえない",
+      detail: "たとえわずかな量であっても強調し、しばしば否定的な表現を使用します。"
+    },
+    "minimal-dani": {
+      kind: "さえ/ただ",
+      short: "だけでも",
+      detail: "「想像だにしない」のような決まったフレーズによく使われる文学的なマーカー。"
+    },
+    "minimal-sura": {
+      kind: "さえ",
+      short: "でも",
+      detail: "極端な例または最小限の例を強調します。"
+    },
+    "comparison-gotoki": {
+      kind: "のような/など",
+      short: "のようなもの",
+      detail: "のような、または否定的な意味の形式的/文学的表現。"
+    },
+    "suffix-meku": {
+      kind: "のようになります",
+      short: "の空気を取り入れてください",
+      detail: "何かのようになったり、その兆候を示したりすることを意味します。"
+    },
+    "unnecessary-made-mo-nai": {
+      kind: "必要ありません",
+      short: "する必要はありません",
+      detail: "何かが非常に明白であるか不必要であるため、実行する必要がないと言います。"
+    },
+    "unnecessary-ni-wa-oyobanai": {
+      kind: "必要ありません/一致しません",
+      short: "必要ないか、等しくありません",
+      detail: "する必要がない、または何かのレベルに達していないことを意味します。"
+    },
+    "situation-tokoro-wo": {
+      kind: "とりあえず",
+      short: "のとき",
+      detail: "多くの場合、感謝や謝罪の形で、相手の状況を丁寧に認めます。"
+    }
+  };
+  function resolveUiLanguage(language) {
+    return language === "ja" ? "ja" : "en";
+  }
+  function grammarRuleText(language, ruleId) {
+    return resolveUiLanguage(language) === "ja" ? JA_GRAMMAR_RULE_COPY[ruleId] : void 0;
+  }
+  function uiText(language, key) {
+    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? "未翻訳" : COPY.en[key];
+  }
   class ObjectUrlCache {
     constructor(ttlMs) {
       __publicField(this, "entries", /* @__PURE__ */ new Map());
@@ -2905,7 +5799,8 @@
   const DEFAULT_YOMU_PUBLIC_PROXY_URL = "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev";
   const BUILT_IN_PROXY_BUILDERS = [
     (targetUrl) => configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? "",
-    (targetUrl) => `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
+    (targetUrl) => `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+    (targetUrl) => jishoMarkdownProxyUrl(targetUrl) ?? ""
   ];
   const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
   const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
@@ -2940,11 +5835,11 @@
     throw lastError instanceof Error ? lastError : new Error("Cross-origin request failed.");
   }
   function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
-    const direct = options.allowDirectCrossOrigin ? targetUrl : browserReadableUrl(targetUrl);
+    const direct = directFetchUrl(targetUrl, options);
     const proxySafe = isProxySafeRequest(targetUrl, options);
-    const configured = proxySafe && options.allowConfiguredProxy !== false ? configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) : null;
+    const configured = proxySafe && options.allowConfiguredProxy !== false && shouldUseConfiguredProxy(targetUrl, configuredProxyUrl, options) ? configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) : null;
     const publicProxySafe = proxySafe && options.allowPublicProxies !== false && isPublicProxyMethod(options.method);
-    const publicProxies = publicProxySafe ? BUILT_IN_PROXY_BUILDERS.map((builder) => builder(targetUrl)) : [];
+    const publicProxies = publicProxySafe ? builtInProxyUrls(targetUrl, options) : [];
     const directCandidate = direct ? { url: direct, kind: "direct" } : null;
     const proxyCandidates = [
       configured ? { url: configured, kind: "configured-proxy" } : null,
@@ -2954,6 +5849,15 @@
     return uniqueFetchCandidates([
       ...orderedCandidates
     ]);
+  }
+  function directFetchUrl(targetUrl, options) {
+    if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
+    if (shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
+    return targetUrl;
+  }
+  function shouldUseConfiguredProxy(targetUrl, configuredProxyUrl, options) {
+    if (!isDefaultPublicProxy(configuredProxyUrl)) return true;
+    return !defaultPublicProxyRouteIsKnownBroken(targetUrl, options);
   }
   function uniqueFetchCandidates(candidates) {
     const seen = /* @__PURE__ */ new Set();
@@ -3001,9 +5905,69 @@
     return !hasSensitiveRequestHeaders(options.headers) && !hasCredentialedRequest(options.credentials) && !isPrivateJpdbTarget(targetUrl, options) && !isPrivateNetworkTarget(targetUrl) && !hasSensitiveUrlParams(targetUrl);
   }
   function shouldPreferProxyFirst(targetUrl, direct, proxySafe) {
-    return Boolean(direct) && proxySafe && (isHostedGithubPagesApp$2() || isAppleTouchBrowser$1()) && isCrossOriginHttpUrl(targetUrl);
+    return Boolean(direct) && proxySafe && (isHostedGithubPagesApp$1() || isAppleTouchBrowser$1()) && isCrossOriginHttpUrl(targetUrl);
   }
-  function isHostedGithubPagesApp$2() {
+  function shouldSkipDirectCrossOriginFetch(targetUrl, options) {
+    if (!isCrossOriginHttpUrl(targetUrl)) return false;
+    try {
+      const target = new URL(targetUrl, location.href);
+      const method = String(options.method ?? "GET").toUpperCase();
+      if (target.hostname === "assets.languagepod101.com") {
+        return method === "GET" && target.pathname === "/dictionary/japanese/audiomp3.php";
+      }
+      if (target.hostname === "jisho.org") {
+        return method === "GET" && target.pathname.startsWith("/search/");
+      }
+      if (target.hostname === "www.japanesepod101.com") {
+        return method === "POST" && target.pathname === "/learningcenter/reference/dictionary_post";
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+  function builtInProxyUrls(targetUrl, options) {
+    const specialized = specializedProxyUrls(targetUrl, options);
+    const candidates = specialized ?? BUILT_IN_PROXY_BUILDERS.map((builder) => builder(targetUrl));
+    return candidates.filter(Boolean);
+  }
+  function specializedProxyUrls(targetUrl, options) {
+    try {
+      const target = new URL(targetUrl);
+      const method = String(options.method ?? "GET").toUpperCase();
+      if (method === "GET" && target.hostname === "jisho.org" && target.pathname.startsWith("/search/")) {
+        return [jishoMarkdownProxyUrl(targetUrl) ?? ""];
+      }
+      if (method === "GET" && target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php") {
+        return [configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""];
+      }
+      if (method === "POST" && target.hostname === "www.japanesepod101.com" && target.pathname === "/learningcenter/reference/dictionary_post") {
+        return [configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""];
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+  function isDefaultPublicProxy(configuredProxyUrl) {
+    const proxyUrl = configuredProxyUrl.trim();
+    if (!proxyUrl) return false;
+    try {
+      return new URL(proxyUrl).origin === DEFAULT_YOMU_PUBLIC_PROXY_URL;
+    } catch {
+      return false;
+    }
+  }
+  function defaultPublicProxyRouteIsKnownBroken(targetUrl, options) {
+    try {
+      const target = new URL(targetUrl);
+      const method = String(options.method ?? "GET").toUpperCase();
+      return method === "GET" && target.hostname === "jisho.org" && target.pathname.startsWith("/search/");
+    } catch {
+      return false;
+    }
+  }
+  function isHostedGithubPagesApp$1() {
     if (typeof location === "undefined") return false;
     try {
       const current = new URL(location.href);
@@ -3074,6 +6038,15 @@
   }
   function isPublicProxyMethod(method) {
     return PUBLIC_PROXY_METHODS.has(String(method ?? "GET").toUpperCase());
+  }
+  function jishoMarkdownProxyUrl(targetUrl) {
+    try {
+      const target = new URL(targetUrl);
+      if (target.hostname !== "jisho.org" || !target.pathname.startsWith("/search/")) return null;
+      return `https://r.jina.ai/http://r.jina.ai/http://${target.href}`;
+    } catch {
+      return null;
+    }
   }
   var _monkeyWindow = /* @__PURE__ */ (() => window)();
   const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
@@ -3237,7 +6210,7 @@
     if (value instanceof Blob) return value;
     throw new Error(`${options.failureLabel ?? "Request"} did not return a blob.`);
   }
-  async function requestJson$4(url, options = {}) {
+  async function requestJson$3(url, options = {}) {
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
@@ -3349,7 +6322,7 @@
   const JPDB_AUDIO_ID_RE$1 = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
   const AUDIO_PRECONNECT_RELS = ["preconnect", "dns-prefetch"];
   const preconnectedAudioOrigins = /* @__PURE__ */ new Set();
-  const log$v = Logger.scope("Audio");
+  const log$u = Logger.scope("Audio");
   class AudioPlayer {
     constructor(getSettings) {
       __publicField(this, "current");
@@ -3370,7 +6343,7 @@
       this.stopCurrent();
       const reservedAudio = this.reserveGestureAudioElement(request);
       if (!request.sources.length) return await this.playNoAudioSources(card, request);
-      const done = log$v.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
+      const done = log$u.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
       const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, reservedAudio);
       done();
       return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, result);
@@ -3393,21 +6366,25 @@
       return audio;
     }
     ensureAudioEnabled(settings) {
-      if (!settings.audioEnabled) throw new Error("Audio playback is disabled.");
+      if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
     }
     async playNoAudioSources(card, request) {
-      log$v.warn("No audio sources configured", { term: card.spelling });
+      log$u.warn("No audio sources configured", { term: card.spelling });
       return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent);
     }
     async finishPlaybackResult(card, settings, requestId, isCurrent, result) {
       if (result.state === "played") return true;
       if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$v.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+      log$u.warn("No playable audio found", { term: card.spelling, errors: result.errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent);
     }
     async playFromSources(sources, card, settings, requestId, isCurrent, reservedAudio) {
       const errors = [];
       const triedUrls = /* @__PURE__ */ new Set();
+      if (settings.audioTtsMode === "source-order") {
+        const result = await this.playOrderedSources(orderAudioSources(sources, settings.audioSelectionMode), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+        return { state: result, errors };
+      }
       const realAudioSources = sources.filter((source) => !isTtsFallbackSource(source));
       const realAudioResult = await this.playOrderedSources(orderAudioSources(realAudioSources, settings.audioSelectionMode), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
       if (realAudioResult !== "miss") return { state: realAudioResult, errors };
@@ -3444,7 +6421,7 @@
       const settings = this.getSettings();
       if (!settings.audioEnabled) return;
       const { sourceLimit, candidateLimit } = audioPreloadLimits$1(options);
-      const sources = getOrderedAudioSources(settings).filter((source) => !isTtsFallbackSource(source)).slice(0, sourceLimit);
+      const sources = preloadableAudioSources(getOrderedAudioSources(settings), settings).slice(0, sourceLimit);
       if (!sources.length) return;
       for (const source of sources) {
         void this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl).then((candidates) => {
@@ -3464,9 +6441,10 @@
       this.stopCurrent();
     }
     async playJapaneseText(text2, voiceName = "") {
+      const settings = this.getSettings();
       const requestId = ++this.playRequestId;
       const trimmed = text2.trim();
-      if (!trimmed) throw new Error("No text to read aloud.");
+      if (!trimmed) throw new Error(uiText(settings.interfaceLanguage, "noTextToRead"));
       this.stopCurrent();
       await this.playTextToSpeech(trimmed, voiceName);
       if (requestId !== this.playRequestId) this.stopCurrent();
@@ -3475,7 +6453,7 @@
       const settings = this.getSettings();
       this.ensureAudioEnabled(settings);
       const ids = normalizeJpdbAudioIds(audioIds);
-      if (!ids.length) throw new Error("No JPDB audio is available for this example.");
+      if (!ids.length) throw new Error(uiText(settings.interfaceLanguage, "jpdbExampleAudioUnavailable"));
       const requestId = ++this.playRequestId;
       this.stopCurrent();
       const reservedAudio = this.reserveJpdbGestureAudioElement(options.userGesture);
@@ -3491,6 +6469,14 @@
       }
       return await this.playMissingAudioFallback(settings, requestId, isCurrent);
     }
+    async playMediaUrl(audioUrl) {
+      const settings = this.getSettings();
+      this.ensureAudioEnabled(settings);
+      const requestId = ++this.playRequestId;
+      this.stopCurrent();
+      const audio = await this.createReadyAudio(audioUrl);
+      return await this.playPreparedAudio(audio, requestId, () => true);
+    }
     reserveJpdbGestureAudioElement(userGesture = false) {
       if (!userGesture || !isAppleMobileBrowser()) return void 0;
       const audio = this.createAudioElement(SILENT_AUDIO_DATA_URL);
@@ -3504,9 +6490,10 @@
         const response = await requestUrl(request.url, "blob", settings.audioTimeoutMs, {
           headers: request.headers,
           proxyUrl: settings.corsProxyUrl,
+          language: settings.interfaceLanguage,
           preferFetch: false
         });
-        if (!(response instanceof Blob)) throw new Error("JPDB audio did not return a playable file.");
+        if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, "jpdbAudioPlayableFileMissing"));
         return createPageMediaUrl(await decodeJpdbAudioBlob(response, request.encoded));
       });
     }
@@ -3524,13 +6511,13 @@
       }
     }
     async playFromSource(source, card, settings, requestId, triedUrls, isCurrent, reservedAudio) {
-      if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, requestId, isCurrent);
+      if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, settings, requestId, isCurrent);
       const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       const bagKey = getAudioBagKey(source, card);
       return await this.playFromAudioCandidates(candidates, source.type, settings, requestId, triedUrls, isCurrent, bagKey, reservedAudio);
     }
-    async playFromTextToSpeechSource(source, card, requestId, isCurrent) {
+    async playFromTextToSpeechSource(source, card, settings, requestId, isCurrent) {
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       await this.playTextToSpeech(source.type === "text-to-speech-reading" ? card.reading : card.spelling, source.voice);
       return this.isPlaybackCurrent(requestId, isCurrent);
@@ -3641,28 +6628,30 @@
       return promise.then(cloneAudioCandidates);
     }
     async fetchAudioAsBlobUrl(url, sourceUrl, timeoutMs, mode) {
-      const response = await requestUrl(url, "blob", timeoutMs, { proxyUrl: this.getSettings().corsProxyUrl });
-      if (isJsonAudioResponse(response)) return this.fetchNestedAudioBlobUrl(response, sourceUrl, timeoutMs, mode);
-      if (!(response instanceof Blob)) throw new Error("Audio source did not return audio.");
-      await assertPlayableAudioBlob(response, url, sourceUrl);
+      const settings = this.getSettings();
+      const response = await requestUrl(url, "blob", timeoutMs, { proxyUrl: settings.corsProxyUrl, language: settings.interfaceLanguage });
+      if (isJsonAudioResponse(response)) return this.fetchNestedAudioBlobUrl(response, sourceUrl, timeoutMs, mode, settings);
+      if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, "audioSourceReturnedNoAudio"));
+      await assertPlayableAudioBlob(response, url, sourceUrl, settings.interfaceLanguage);
       const blobUrl = await createPageMediaUrl(response);
       return blobUrl;
     }
-    async fetchNestedAudioBlobUrl(response, sourceUrl, timeoutMs, mode) {
+    async fetchNestedAudioBlobUrl(response, sourceUrl, timeoutMs, mode, settings) {
       const json = JSON.parse(await response.text());
       const nestedUrl = findAudioUrl(json, sourceUrl, mode);
-      if (!nestedUrl) throw new Error("Audio JSON did not include a playable URL.");
+      if (!nestedUrl) throw new Error(uiText(settings.interfaceLanguage, "audioJsonMissingPlayableUrl"));
       return this.fetchAudioAsBlobUrl(nestedUrl, sourceUrl, timeoutMs, mode);
     }
     playTextToSpeech(text2, voiceName) {
-      if (!("speechSynthesis" in window)) throw new Error("Text-to-speech is not available in this browser.");
+      const settings = this.getSettings();
+      if (!("speechSynthesis" in window)) throw new Error(uiText(settings.interfaceLanguage, "textToSpeechUnavailable"));
       return new Promise((resolve, reject) => {
         const utterance = new SpeechSynthesisUtterance(text2);
         utterance.lang = "ja-JP";
         const voices = speechSynthesis.getVoices();
         utterance.voice = (voiceName ? voices.find((voice) => voice.name === voiceName) : void 0) ?? voices.find((voice) => voice.lang.toLowerCase().startsWith("ja")) ?? null;
         utterance.onend = () => resolve();
-        utterance.onerror = () => reject(new Error("Text-to-speech failed."));
+        utterance.onerror = () => reject(new Error(uiText(settings.interfaceLanguage, "textToSpeechFailed")));
         this.utterance = utterance;
         speechSynthesis.speak(utterance);
       });
@@ -3827,44 +6816,56 @@
     const shuffled = new ShuffledAudioDeck();
     for (const { candidate } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, shuffled)) {
       if (!registerAudioAttempt(triedUrls, candidate)) continue;
-      const audio = await ankiAudioMediaFromCandidate(candidate, settings).catch(() => null);
+      const audio = await ankiAudioMediaFromCandidate(candidate, source.type, settings).catch(() => null);
       if (audio) return audio;
     }
     return null;
   }
-  async function ankiAudioMediaFromCandidate(candidate, settings) {
+  async function ankiAudioMediaFromCandidate(candidate, sourceType, settings) {
     if (candidate.url.startsWith("data:audio/")) return { dataUrl: candidate.url };
     if (candidate.jpdbAudioId) return { dataUrl: await jpdbAudioDataUrl(candidate.jpdbAudioId, settings) };
-    const dataUrl = await fetchAudioDataUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode, settings.corsProxyUrl).catch(() => "");
-    if (dataUrl) return { dataUrl };
+    try {
+      const dataUrl = await fetchAudioDataUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode, settings.corsProxyUrl, settings.interfaceLanguage);
+      if (dataUrl) return { dataUrl };
+    } catch (error) {
+      if (!canUseAnkiRemoteAudioFallback(candidate, sourceType, error)) return null;
+    }
     return /^https?:\/\//i.test(candidate.url) ? { url: candidate.url } : null;
   }
+  function canUseAnkiRemoteAudioFallback(candidate, sourceType, error) {
+    if (!/^https?:\/\//i.test(candidate.url)) return false;
+    if (sourceType === "jpod101" || isJapanesePod101Url(candidate.url) || isJapanesePod101Url(candidate.sourceUrl)) return false;
+    const message = error instanceof Error ? error.message : String(error);
+    if (/instead of audio|no audio|failed \(\d{3}\)/i.test(message)) return false;
+    return true;
+  }
   async function jpdbAudioDataUrl(audioId, settings) {
-    const request = jpdbAudioRequest(audioId);
+    const request = jpdbAudioRequest(audioId, settings.interfaceLanguage);
     const response = await requestUrl(request.url, "blob", settings.audioTimeoutMs, {
       headers: request.headers,
       proxyUrl: settings.corsProxyUrl,
+      language: settings.interfaceLanguage,
       preferFetch: false
     });
-    if (!(response instanceof Blob)) throw new Error("JPDB audio did not return a playable file.");
-    return blobToDataUrl$2(await decodeJpdbAudioBlob(response, request.encoded));
+    if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, "jpdbAudioPlayableFileMissing"));
+    return blobToDataUrl$2(await decodeJpdbAudioBlob(response, request.encoded, settings.interfaceLanguage), settings.interfaceLanguage);
   }
-  async function fetchAudioDataUrl(url, sourceUrl, timeoutMs, mode, proxyUrl) {
-    const response = await requestUrl(url, "blob", timeoutMs, { proxyUrl });
+  async function fetchAudioDataUrl(url, sourceUrl, timeoutMs, mode, proxyUrl, language) {
+    const response = await requestUrl(url, "blob", timeoutMs, { proxyUrl, language });
     if (isJsonAudioResponse(response)) {
       const nestedUrl = findAudioUrl(JSON.parse(await response.text()), sourceUrl, mode);
-      if (!nestedUrl) throw new Error("Audio JSON did not include a playable URL.");
-      return fetchAudioDataUrl(nestedUrl, sourceUrl, timeoutMs, mode, proxyUrl);
+      if (!nestedUrl) throw new Error(uiText(language, "audioJsonMissingPlayableUrl"));
+      return fetchAudioDataUrl(nestedUrl, sourceUrl, timeoutMs, mode, proxyUrl, language);
     }
-    if (!(response instanceof Blob)) throw new Error("Audio source did not return audio.");
-    await assertPlayableAudioBlob(response, url, sourceUrl);
-    return blobToDataUrl$2(response);
+    if (!(response instanceof Blob)) throw new Error(uiText(language, "audioSourceReturnedNoAudio"));
+    await assertPlayableAudioBlob(response, url, sourceUrl, language);
+    return blobToDataUrl$2(response, language);
   }
-  function blobToDataUrl$2(blob) {
+  function blobToDataUrl$2(blob, language = "en") {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(reader.error ?? new Error("Could not read audio."));
+      reader.onerror = () => reject(reader.error ?? new Error(uiText(language, "couldNotReadAudio")));
       reader.readAsDataURL(blob);
     });
   }
@@ -3888,7 +6889,7 @@
   function findAudioUrlsInString(value, sourceUrl) {
     if (value.startsWith("data:audio/")) return [value];
     if (/^https?:\/\//.test(value) && isLikelyAudioUrl(value)) return [normalizeAudioUrl(value, sourceUrl)];
-    return [];
+    return uniqueAudioUrls(Array.from(value.matchAll(/https?:\/\/[^\s)"'<>\]]+/gi)).map((match) => match[0]).filter(isLikelyAudioUrl).map((url) => normalizeAudioUrl(url, sourceUrl)));
   }
   function findAudioUrlsInRecord(record, sourceUrl) {
     const known = uniqueAudioUrls([...preferredAudioRecordUrls(record, sourceUrl), ...directAudioRecordUrls(record, sourceUrl)]);
@@ -3917,13 +6918,17 @@
   function isJsonAudioResponse(response) {
     return response instanceof Blob && response.type.includes("json");
   }
-  async function assertPlayableAudioBlob(response, url, sourceUrl) {
+  async function assertPlayableAudioBlob(response, url, sourceUrl, language = "en") {
     if (isErrorDocumentAudioBlob(response) || !isLikelyAudioBlob(response) && !isLikelyAudioUrl(url) && !isLikelyAudioUrl(sourceUrl)) {
-      throw new Error(`Audio request returned ${response.type || "an unknown content type"} instead of audio.`);
+      throw new Error(formatNonAudioResponseMessage(language, response.type));
     }
     if ((isJapanesePod101Url(url) || isJapanesePod101Url(sourceUrl)) && await isUnavailableJapanesePod101Audio(response)) {
-      throw new Error("JapanesePod101 has no audio for this term.");
+      throw new Error(uiText(language, "japanesePod101NoAudio"));
     }
+  }
+  function formatNonAudioResponseMessage(language, contentType) {
+    const label = contentType || (language === "ja" ? "不明なコンテンツ種別" : "an unknown content type");
+    return `${uiText(language, "audioRequestReturnedNonAudio")}: ${label}.`;
   }
   function isErrorDocumentAudioBlob(blob) {
     const type = blob.type.toLowerCase();
@@ -3943,6 +6948,9 @@
   }
   function shouldReserveGestureAudioElement(request) {
     return request.userGesture && isAppleMobileBrowser() && request.sources.some((source) => !isBrowserTextToSpeechSource(source));
+  }
+  function preloadableAudioSources(sources, settings) {
+    return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isTtsFallbackSource(source));
   }
   function audioPreloadLimits$1(options) {
     return {
@@ -4085,16 +7093,16 @@
   function jpdbVocabularyAudioLookupUrls(card) {
     const urls = [];
     if (card.vid > 0) urls.push(jpdbVocabularyUrl$1(card.vid, card.spelling, card.reading));
-    for (const query of uniqueStrings([card.spelling, card.reading].filter(Boolean))) {
+    for (const query of uniqueStrings$3([card.spelling, card.reading].filter(Boolean))) {
       urls.push(`${JPDB_SEARCH_URL$2}?q=${encodeURIComponent(query)}`);
     }
-    return uniqueStrings(urls);
+    return uniqueStrings$3(urls);
   }
   function jpdbVocabularyUrl$1(vid, spelling, reading) {
     return `${JPDB_VOCABULARY_BASE_URL$1}/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading || spelling)}`;
   }
   function extractJpdbVocabularyAudioIds(html, card) {
-    return uniqueStrings(jpdbVocabularyAudioHtmlBlocks(html, card).flatMap(extractJpdbVocabularyAudioIdsFromHtml));
+    return uniqueStrings$3(jpdbVocabularyAudioHtmlBlocks(html, card).flatMap(extractJpdbVocabularyAudioIdsFromHtml));
   }
   function jpdbVocabularyAudioHtmlBlocks(html, card) {
     const resultBlocks = findHtmlBlocksByClass(html, "result").filter((block) => htmlBlockHasClass(block, "vocabulary") && jpdbVocabularyBlockMatchesCard(block, card));
@@ -4177,7 +7185,7 @@
     const response = await requestUrl(url, "text", timeoutMs, { proxyUrl }).catch(() => "");
     if (typeof response !== "string") return [];
     const audioHtml = findHtmlElementById(response, "audio", `audio_${card.spelling}:${card.reading}`) ?? findHtmlElement(response, "audio");
-    return audioHtml ? extractAudioSourceUrls(audioHtml, url).slice(0, 1) : [];
+    return audioHtml ? extractAudioSourceUrls(audioHtml, url).slice(0, 1) : findAudioUrls(response, url).slice(0, 1);
   }
   async function getLanguagePod101AudioUrls(card, timeoutMs, proxyUrl = "") {
     const url = "https://www.japanesepod101.com/learningcenter/reference/dictionary_post";
@@ -4198,7 +7206,7 @@
     };
   }
   function languagePod101RequestBody(card) {
-    const searchQuery = card.reading.trim() || card.spelling;
+    const searchQuery = card.spelling.trim() || card.reading;
     return new URLSearchParams({
       post: "dictionary_reference",
       match_type: "exact",
@@ -4210,8 +7218,8 @@
     const values = Array.isArray(value) ? value : value.split(/[,+]/);
     return uniqueAudioUrls(values.map((item) => item.trim()).filter(isValidJpdbAudioId$1));
   }
-  function jpdbAudioRequest(audioId) {
-    if (!isValidJpdbAudioId$1(audioId)) throw new Error("Invalid JPDB audio id.");
+  function jpdbAudioRequest(audioId, language = "en") {
+    if (!isValidJpdbAudioId$1(audioId)) throw new Error(uiText(language, "invalidJpdbAudioId"));
     if (audioId.startsWith("/static/user/")) {
       return { url: new URL(audioId, "https://jpdb.io").toString(), encoded: false };
     }
@@ -4229,22 +7237,22 @@
       encoded: true
     };
   }
-  async function decodeJpdbAudioBlob(response, encoded) {
-    const bytes = new Uint8Array(await blobArrayBuffer(response));
+  async function decodeJpdbAudioBlob(response, encoded, language = "en") {
+    const bytes = new Uint8Array(await blobArrayBuffer(response, language));
     const decoded = encoded ? decodeJpdbAudioBytes(bytes) : bytes;
     const sniffedType = jpdbAudioMimeTypeForBytes(decoded);
     if (!sniffedType) {
       if (!encoded && isAudioBlobType(response.type)) return new Blob([blobPart(decoded)], { type: response.type });
-      throw new Error("JPDB audio response was not a playable audio file.");
+      throw new Error(uiText(language, "jpdbAudioResponseNotPlayable"));
     }
     return new Blob([blobPart(decoded)], { type: sniffedType });
   }
-  function blobArrayBuffer(blob) {
+  function blobArrayBuffer(blob, language = "en") {
     if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(reader.error ?? new Error("Could not read audio blob."));
+      reader.onerror = () => reject(reader.error ?? new Error(uiText(language, "couldNotReadAudioBlob")));
       reader.readAsArrayBuffer(blob);
     });
   }
@@ -4348,6 +7356,7 @@
     }).filter((image) => Boolean((image == null ? void 0 : image.url) && isValidCommonsAudioFilename(title, image.user ?? "", term, source))).map((image) => (image == null ? void 0 : image.url) ?? "");
   }
   function requestUrl(responseUrl, responseType, timeoutMs, options = {}) {
+    const language = options.language ?? "en";
     const requestOptions = {
       method: options.method ?? "GET",
       headers: options.headers,
@@ -4356,8 +7365,8 @@
       allowDirectCrossOrigin: options.allowDirectCrossOrigin ?? true,
       preferFetch: options.preferFetch ?? shouldPreferFetchForAudioRequests(),
       timeoutMs,
-      failureLabel: "Audio request",
-      timeoutLabel: "Audio request timed out."
+      failureLabel: uiText(language, "audioRequest"),
+      timeoutLabel: uiText(language, "audioRequestTimedOut")
     };
     return responseType === "blob" ? requestBlob$4(responseUrl, requestOptions) : requestText$8(responseUrl, requestOptions);
   }
@@ -4495,7 +7504,7 @@
       return true;
     });
   }
-  function uniqueStrings(values) {
+  function uniqueStrings$3(values) {
     return [...new Set(values)];
   }
   function shouldFetchCandidateAsBlob(candidate, audioViaBlob) {
@@ -6313,27 +9322,29 @@ ${scopedInner}
       reader.readAsArrayBuffer(blob);
     });
   }
-  const log$u = Logger.scope("YomitanSettingsImport");
-  function parseYomitanSettingsExport(value) {
+  const log$t = Logger.scope("YomitanSettingsImport");
+  function parseYomitanSettingsExport(value, language = "en") {
     var _a2;
-    const done = log$u.time("Yomitan settings export parse");
+    const done = log$t.time("Yomitan settings export parse");
     const profileOptions = getYomitanProfileOptions(value);
     if (!profileOptions) {
       done();
-      log$u.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
-      throw new Error("This does not look like a Yomitan settings export.");
+      log$t.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
+      throw new Error(uiText(language, "yomitanSettingsInvalid"));
     }
     const settings = {};
     const sections = readYomitanProfileSections(profileOptions);
     applyAudioSettings(settings, sections.audio);
     applyGeneralSettings(settings, sections.general);
     applyScanningSettings(settings, sections.scanning);
-    const dictionaryNames = readDictionaryNames(profileOptions);
-    applyDictionarySettings(settings, dictionaryNames);
+    applyAnkiSettings(settings, sections.anki);
+    const dictionaryPreferences = readDictionaryPreferences$1(profileOptions);
+    applyDictionarySettings(settings, dictionaryPreferences);
+    const dictionaryNames = dictionaryPreferences.filter((item) => item.enabled).map((item) => item.name);
     settings.yomitanSettingsBackup = value;
-    applyPlayAudioShortcut(settings, sections.inputs);
+    applyInputShortcuts(settings, sections.inputs);
     done();
-    log$u.info("Yomitan settings import parsed", {
+    log$t.info("Yomitan settings import parsed", {
       hasAudioSources: Boolean((_a2 = settings.audioSources) == null ? void 0 : _a2.length),
       parseSelection: settings.parseSelection,
       autoScanJapanese: settings.autoScanJapanese,
@@ -6346,6 +9357,7 @@ ${scopedInner}
       audio: profileOptions.audio,
       general: profileOptions.general,
       scanning: profileOptions.scanning,
+      anki: profileOptions.anki,
       inputs: profileOptions.inputs
     };
   }
@@ -6354,15 +9366,25 @@ ${scopedInner}
     if (typeof (audio == null ? void 0 : audio.enabled) === "boolean") settings.audioEnabled = audio.enabled;
     if (typeof (audio == null ? void 0 : audio.autoPlay) === "boolean") settings.autoPlayAudio = audio.autoPlay;
     if (typeof (audio == null ? void 0 : audio.enableDefaultAudioSources) === "boolean") settings.audioEnableDefaultSources = audio.enableDefaultAudioSources;
+    if (typeof (audio == null ? void 0 : audio.fallbackSoundType) === "string") settings.audioFallbackChimeEnabled = audio.fallbackSoundType !== "none";
     if (!Array.isArray(audio == null ? void 0 : audio.sources)) return;
     settings.audioSources = audio.sources.map(normalizeAudioSource).filter((source) => source !== null);
     settings.audioSourceUrl = (_a2 = settings.audioSources.find((source) => source.url)) == null ? void 0 : _a2.url;
   }
   function applyGeneralSettings(settings, general) {
+    const language = importedInterfaceLanguage(general == null ? void 0 : general.language);
+    if (language) settings.interfaceLanguage = language;
     const theme = importedPopupTheme(general);
     if (theme) settings.theme = theme;
-    if (hasPositiveNumber(general == null ? void 0 : general.popupHeight)) settings.subtitleBottomOffset = importedPopupVerticalOffset(general);
+    if (hasPositiveNumber(general == null ? void 0 : general.popupWidth)) settings.popoverWidth = clampNumber$4(general == null ? void 0 : general.popupWidth, 280, 900);
+    if (hasPositiveNumber(general == null ? void 0 : general.popupHeight)) settings.popoverHeight = clampNumber$4(general == null ? void 0 : general.popupHeight, 220, 900);
+    if (hasPositiveNumber(general == null ? void 0 : general.popupVerticalOffset)) settings.subtitleBottomOffset = importedPopupVerticalOffset(general);
     if (typeof (general == null ? void 0 : general.maxResults) === "number") settings.localDictionaryMaxResults = Math.max(1, Math.min(64, general.maxResults));
+    const pitchEnabled = importedPitchDisplayEnabled(general);
+    if (typeof pitchEnabled === "boolean") settings.showPitchAccent = pitchEnabled;
+  }
+  function importedInterfaceLanguage(value) {
+    return value === "en" || value === "ja" || value === "auto" ? value : "";
   }
   function importedPopupTheme(general) {
     return (general == null ? void 0 : general.popupTheme) === "dark" || (general == null ? void 0 : general.popupTheme) === "light" ? general.popupTheme : "";
@@ -6373,31 +9395,68 @@ ${scopedInner}
   function importedPopupVerticalOffset(general) {
     return Math.max(6, Math.min(24, Math.round(Number(general == null ? void 0 : general.popupVerticalOffset) || 12)));
   }
+  function importedPitchDisplayEnabled(general) {
+    const values = [
+      general == null ? void 0 : general.showPitchAccentDownstepNotation,
+      general == null ? void 0 : general.showPitchAccentPositionNotation,
+      general == null ? void 0 : general.showPitchAccentGraph
+    ].filter((value) => typeof value === "boolean");
+    return values.length ? values.some(Boolean) : void 0;
+  }
   function applyScanningSettings(settings, scanning) {
     if (typeof (scanning == null ? void 0 : scanning.selectText) === "boolean") settings.parseSelection = scanning.selectText;
     if (typeof (scanning == null ? void 0 : scanning.scanWithoutMousemove) === "boolean") settings.autoScanJapanese = scanning.scanWithoutMousemove;
+    if (typeof (scanning == null ? void 0 : scanning.delay) === "number") settings.hoverOpenDelayMs = clampNumber$4(scanning.delay, 0, 1500);
+    if (typeof (scanning == null ? void 0 : scanning.hideDelay) === "number") settings.hoverCloseDelayMs = clampNumber$4(scanning.hideDelay, 0, 3e3);
     applyScanInputSettings(settings, scanning);
   }
-  function applyDictionarySettings(settings, dictionaryNames) {
-    if (!dictionaryNames.length) return;
-    settings.dictionaryPreferences = normalizeDictionaryPreferences(dictionaryNames.map((name, index) => ({
-      name,
-      alias: name,
-      enabled: true,
-      priority: index
-    })));
+  function applyAnkiSettings(settings, anki) {
+    if (typeof (anki == null ? void 0 : anki.enable) === "boolean") settings.ankiEnabled = anki.enable;
+    if (typeof (anki == null ? void 0 : anki.server) === "string" && anki.server.trim()) settings.ankiConnectUrl = anki.server.trim();
+    if (Array.isArray(anki == null ? void 0 : anki.tags)) settings.ankiTags = anki.tags.map((tag) => String(tag).trim()).filter(Boolean).join(" ");
+    const cardFormat = firstYomitanTermCardFormat(anki == null ? void 0 : anki.cardFormats);
+    if (cardFormat) {
+      if (typeof cardFormat.deck === "string" && cardFormat.deck.trim()) settings.ankiDeck = cardFormat.deck.trim();
+      if (typeof cardFormat.model === "string" && cardFormat.model.trim()) settings.ankiModel = cardFormat.model.trim();
+    }
+    if (isObjectRecord(anki == null ? void 0 : anki.screenshot)) settings.ankiCaptureScreenshot = true;
   }
-  function applyPlayAudioShortcut(settings, inputs) {
+  function firstYomitanTermCardFormat(value) {
+    if (!Array.isArray(value)) return null;
+    return value.find((item) => isObjectRecord(item) && (item.type === "term" || item.type == null)) ?? null;
+  }
+  function applyDictionarySettings(settings, preferences) {
+    if (!preferences.length) return;
+    settings.dictionaryPreferences = normalizeDictionaryPreferences(preferences);
+  }
+  function applyInputShortcuts(settings, inputs) {
+    applyYomitanShortcut(settings, inputs, "playAudio", "playAudio");
+    applyYomitanShortcut(settings, inputs, "close", "closePopup");
+  }
+  function applyYomitanShortcut(settings, inputs, action, target) {
     var _a2;
-    const playAudio = (_a2 = inputs == null ? void 0 : inputs.hotkeys) == null ? void 0 : _a2.find((hotkey) => hotkey.action === "playAudio" && hotkey.enabled !== false);
-    if (!playAudio) return;
-    const key = String(playAudio.key || "").replace(/^Key/, "");
-    const modifiers = Array.isArray(playAudio.modifiers) ? playAudio.modifiers.map((v) => String(v)) : [];
-    settings.shortcuts = { ...settings.shortcuts, playAudio: [...modifiers.map(capitalize), key].filter(Boolean).join("+") };
+    const hotkey = (_a2 = inputs == null ? void 0 : inputs.hotkeys) == null ? void 0 : _a2.find((item) => item.action === action && item.enabled !== false);
+    if (!hotkey) return;
+    const key = String(hotkey.key || "").replace(/^Key/, "");
+    const modifiers = Array.isArray(hotkey.modifiers) ? hotkey.modifiers.map((v) => String(v)) : [];
+    settings.shortcuts = {
+      ...settings.shortcuts,
+      [target]: [...modifiers.map(capitalize), key].filter(Boolean).join("+")
+    };
   }
-  function readDictionaryNames(profileOptions) {
+  function readDictionaryPreferences$1(profileOptions) {
     const dictionaries = Array.isArray(profileOptions.dictionaries) ? profileOptions.dictionaries : [];
-    return dictionaries.filter((item) => item.enabled !== false).map((item) => typeof item.name === "string" ? item.name.trim() : "").filter(Boolean);
+    return dictionaries.map((item, index) => {
+      const name = typeof item.name === "string" ? item.name.trim() : "";
+      if (!name) return null;
+      return {
+        name,
+        alias: typeof item.alias === "string" && item.alias.trim() ? item.alias.trim() : name,
+        enabled: item.enabled !== false,
+        priority: index,
+        allowSecondarySearches: item.allowSecondarySearches === true
+      };
+    }).filter((item) => item !== null);
   }
   function applyScanInputSettings(settings, scanning) {
     const scanInput = firstScanInput(scanning);
@@ -6406,12 +9465,15 @@ ${scopedInner}
     const modifier = ["shift", "alt", "ctrl", "meta"].find((key) => include.includes(key));
     if (modifier) {
       settings.lookupOnHover = true;
+      settings.popupActivationMode = "modifier";
+      settings.scanModifierKey = modifier;
       settings.shortcuts = { ...settings.shortcuts, hoverLookup: capitalize(modifier) };
       return;
     }
     const options = scanInput.options;
     if (shouldEnablePlainHoverScan(options, include)) {
       settings.lookupOnHover = true;
+      settings.popupActivationMode = "hover";
       settings.shortcuts = { ...settings.shortcuts, hoverLookup: "" };
     }
   }
@@ -6421,6 +9483,9 @@ ${scopedInner}
   }
   function isRecordScanInput(input2) {
     return Boolean(input2 && typeof input2 === "object");
+  }
+  function isObjectRecord(value) {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
   function shouldEnablePlainHoverScan(options, include) {
     return (options == null ? void 0 : options.scanOnPenHover) === true || (options == null ? void 0 : options.scanOnTouchTap) === true || include === "";
@@ -6433,30 +9498,37 @@ ${scopedInner}
   function profileOptionsFromRoot(rootOptions) {
     if (!rootOptions || typeof rootOptions !== "object") return null;
     const rootOptionRecord = rootOptions;
-    return firstNestedProfileOptions(rootOptionRecord.profiles) ?? rootOptionRecord;
+    return nestedProfileOptions(rootOptionRecord.profiles, rootOptionRecord.profileCurrent) ?? rootOptionRecord;
   }
   function profileOptionsFromProfiles(profilesValue, fallback) {
-    const profile = firstProfileRecord(profilesValue) ?? fallback;
+    const profile = selectedProfileRecord(profilesValue, fallback.profileCurrent) ?? fallback;
     const options = profile.options;
     return options && typeof options === "object" ? options : null;
   }
-  function firstNestedProfileOptions(profilesValue) {
+  function nestedProfileOptions(profilesValue, profileCurrent) {
     var _a2;
-    const options = (_a2 = firstProfileRecord(profilesValue)) == null ? void 0 : _a2.options;
+    const options = (_a2 = selectedProfileRecord(profilesValue, profileCurrent)) == null ? void 0 : _a2.options;
     return options && typeof options === "object" ? options : null;
   }
-  function firstProfileRecord(value) {
+  function selectedProfileRecord(value, profileCurrent) {
     if (!Array.isArray(value)) return null;
-    const profile = value.find((item) => item && typeof item === "object");
+    const index = Number(profileCurrent);
+    const selected = Number.isInteger(index) && index >= 0 && index < value.length ? value[index] : null;
+    const profile = selected && typeof selected === "object" ? selected : value.find((item) => item && typeof item === "object");
     return profile ? profile : null;
   }
   function capitalize(value) {
     return value ? `${value[0].toUpperCase()}${value.slice(1).toLowerCase()}` : value;
   }
+  function clampNumber$4(value, min, max2) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.max(min, Math.min(max2, number)) : min;
+  }
   const DB_NAME = "jpdb-popup-reader-yomitan";
-  const DB_VERSION = 3;
+  const DB_VERSION = 4;
   const DEXIE_IMPORT_BATCH_SIZE = 5e3;
   const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
+  const HOT_LOOKUP_CACHE_TTL_MS = 2e3;
   const TOP_TERM_EXPRESSION_ENTRY_LIMIT = 500;
   const TERM_SEARCH_INDEX_BATCH_SIZE = 5e3;
   const TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM = 40;
@@ -6464,27 +9536,37 @@ ${scopedInner}
   const TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH = 3;
   const TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS = 12e3;
   const TERM_SEARCH_LEGACY_FALLBACK_MAX_MS = 140;
+  const TERM_KANJI_INDEX_BATCH_SIZE = 5e3;
+  const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12e3;
+  const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
   const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
   const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
   const JAPANESE_RE$3 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$t = Logger.scope("Yomitan");
+  const log$s = Logger.scope("Yomitan");
   class YomitanDictionaryStore {
-    constructor(getCorsProxyUrl = () => "") {
+    constructor(getCorsProxyUrl = () => "", getInterfaceLanguage = () => "en") {
       __publicField(this, "dbPromise");
       __publicField(this, "dictionaryInfoPromise");
       __publicField(this, "summaryPromise");
       __publicField(this, "dictionaryStyleCssCache", /* @__PURE__ */ new Map());
       __publicField(this, "termSearchIndexPromise");
+      __publicField(this, "termKanjiIndexPromise");
+      __publicField(this, "termKanjiIndexReady", false);
+      __publicField(this, "hotLookupCache", /* @__PURE__ */ new Map());
       this.getCorsProxyUrl = getCorsProxyUrl;
+      this.getInterfaceLanguage = getInterfaceLanguage;
+    }
+    text(key) {
+      return uiText(this.getInterfaceLanguage(), key);
     }
     async warm(preferences = []) {
-      const done = log$t.time("Dictionary store warmup", { dictionaries: preferences.length });
+      const done = log$s.time("Dictionary store warmup", { dictionaries: preferences.length });
       try {
         await this.summary();
         if (preferences.length) await this.dictionaryStyleCss(preferences);
       } catch (error) {
-        log$t.warn("Dictionary store warmup failed", { error });
+        log$s.warn("Dictionary store warmup failed", { error });
         throw error;
       } finally {
         done();
@@ -6493,45 +9575,73 @@ ${scopedInner}
     prepareTermSearchIndex() {
       if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
       const promise = this.db().then((db) => this.ensureTermSearchIndex(db)).catch((error) => {
-        log$t.warn("Term search index preparation failed", { error });
+        log$s.warn("Term search index preparation failed", { error });
       }).finally(() => {
         if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = void 0;
       });
       this.termSearchIndexPromise = promise;
       return this.termSearchIndexPromise;
     }
+    hotLookupCacheKey(kind, values, preferences) {
+      return JSON.stringify([kind, ...values, normalizeDictionaryPreferences(preferences)]);
+    }
+    getHotLookup(key, factory) {
+      const now = performance.now();
+      const cached = this.hotLookupCache.get(key);
+      if (cached && cached.expiresAt > now) return cached.promise;
+      const entry = {
+        expiresAt: Number.POSITIVE_INFINITY,
+        promise: Promise.resolve().then(factory).then(
+          (value) => {
+            entry.expiresAt = performance.now() + HOT_LOOKUP_CACHE_TTL_MS;
+            return value;
+          },
+          (error) => {
+            if (this.hotLookupCache.get(key) === entry) this.hotLookupCache.delete(key);
+            throw error;
+          }
+        )
+      };
+      this.hotLookupCache.set(key, entry);
+      return entry.promise;
+    }
     async lookup(expression, reading, limit, preferences = []) {
-      const done = log$t.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
-      try {
-        const db = await this.db();
-        const entries = await this.getTermLookupEntries(
-          db,
-          expression,
-          reading && reading !== expression ? reading : "",
-          Math.max(limit * 40, 500),
-          Math.max(limit * 20, 250)
-        );
-        const rank = dictionaryRank(preferences);
-        const seen = /* @__PURE__ */ new Set();
-        const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort(
-          (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || Number(b.expression === expression) - Number(a.expression === expression) || Number(b.reading === reading) - Number(a.reading === reading) || (b.score ?? 0) - (a.score ?? 0)
-        ).filter((entry) => {
-          const key = termLookupDedupKey(entry);
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        }).slice(0, limit);
-        return results;
-      } catch (error) {
-        log$t.warn("Term lookup failed", { expression, reading, error });
-        throw error;
-      } finally {
-        done();
-      }
+      return this.getHotLookup(
+        this.hotLookupCacheKey("lookup", [expression, reading, limit], preferences),
+        async () => {
+          const done = log$s.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
+          try {
+            const db = await this.db();
+            const entries = await this.getTermLookupEntries(
+              db,
+              expression,
+              reading && reading !== expression ? reading : "",
+              Math.max(limit * 40, 500),
+              Math.max(limit * 20, 250)
+            );
+            const rank = dictionaryRank(preferences);
+            const seen = /* @__PURE__ */ new Set();
+            const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort(
+              (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || Number(b.expression === expression) - Number(a.expression === expression) || Number(b.reading === reading) - Number(a.reading === reading) || (b.score ?? 0) - (a.score ?? 0)
+            ).filter((entry) => {
+              const key = termLookupDedupKey(entry);
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            }).slice(0, limit);
+            return results;
+          } catch (error) {
+            log$s.warn("Term lookup failed", { expression, reading, error });
+            throw error;
+          } finally {
+            done();
+          }
+        }
+      );
     }
     async searchTerms(query, limit, preferences = []) {
       const normalizedQuery = normalizeTermSearchQuery(query);
-      const done = log$t.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
+      const done = log$s.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
       if (!normalizedQuery) {
         done();
         return [];
@@ -6549,103 +9659,91 @@ ${scopedInner}
         ];
         return rankedTermSearchResults(candidates, normalizedQuery, limit, rank);
       } catch (error) {
-        log$t.warn("Term search failed", { query: normalizedQuery, error });
+        log$s.warn("Term search failed", { query: normalizedQuery, error });
         throw error;
       } finally {
         done();
       }
     }
     async lookupKanji(text2, limit, preferences = []) {
-      const done = log$t.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
-      try {
-        const db = await this.db();
-        const rank = dictionaryRank(preferences);
-        const characters = [...new Set(Array.from(text2).filter(isKanji))];
-        const entries = [];
-        for (const character of characters) {
-          entries.push(...await this.getByIndex(db, "kanji", "character", character, limit));
+      return this.getHotLookup(
+        this.hotLookupCacheKey("lookupKanji", [text2, limit], preferences),
+        async () => {
+          const done = log$s.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+          try {
+            const db = await this.db();
+            const rank = dictionaryRank(preferences);
+            const characters = [...new Set(Array.from(text2).filter(isKanji))];
+            const entries = await this.getManyByIndex(db, "kanji", "character", characters, limit);
+            const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)).slice(0, limit);
+            return results;
+          } catch (error) {
+            log$s.warn("Kanji lookup failed", { length: text2.length, error });
+            throw error;
+          } finally {
+            done();
+          }
         }
-        const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)).slice(0, limit);
-        return results;
-      } catch (error) {
-        log$t.warn("Kanji lookup failed", { length: text2.length, error });
-        throw error;
-      } finally {
-        done();
-      }
+      );
     }
     async listKanjiCharacters(limit, preferences = []) {
-      const done = log$t.time("Kanji character list", { limit, dictionaries: preferences.length });
+      const done = log$s.time("Kanji character list", { limit, dictionaries: preferences.length });
       try {
         if (limit <= 0) return [];
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.getKanjiCharacters(db, limit, rank);
       } catch (error) {
-        log$t.warn("Kanji character list failed", { error });
+        log$s.warn("Kanji character list failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async lookupTermMeta(expression, limit, preferences = []) {
-      const done = log$t.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
-      try {
-        const db = await this.db();
-        const rank = dictionaryRank(preferences);
-        const entries = await this.getByIndex(db, "termMeta", "expression", expression, Math.max(limit * 8, 80));
-        const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
-        return results;
-      } catch (error) {
-        log$t.warn("Term metadata lookup failed", { expression, error });
-        throw error;
-      } finally {
-        done();
-      }
+      return this.getHotLookup(
+        this.hotLookupCacheKey("lookupTermMeta", [expression, limit], preferences),
+        async () => {
+          const done = log$s.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
+          try {
+            const db = await this.db();
+            const rank = dictionaryRank(preferences);
+            const entries = await this.getByIndex(db, "termMeta", "expression", expression, Math.max(limit * 8, 80));
+            const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
+            return results;
+          } catch (error) {
+            log$s.warn("Term metadata lookup failed", { expression, error });
+            throw error;
+          } finally {
+            done();
+          }
+        }
+      );
     }
     async lookupSimilarTermsByKanji(character, limit, preferences = []) {
-      const done = log$t.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
-      try {
-        const db = await this.db();
-        const rank = dictionaryRank(preferences);
-        const entries = [];
-        const seen = /* @__PURE__ */ new Set();
-        await new Promise((resolve, reject) => {
-          const tx = db.transaction("terms", "readonly");
-          const request = tx.objectStore("terms").openCursor();
-          request.onerror = () => reject(request.error ?? new Error("Could not search local dictionaries."));
-          request.onsuccess = () => {
-            var _a2;
-            const cursor = request.result;
-            if (!cursor || entries.length >= Math.max(limit * 8, 80)) {
-              resolve();
-              return;
-            }
-            const entry = cursor.value;
-            if (((_a2 = entry.expression) == null ? void 0 : _a2.includes(character)) && dictionaryEnabled(entry.dictionary, rank)) {
-              const key = `${entry.expression}
-${entry.reading}`;
-              if (!seen.has(key)) {
-                seen.add(key);
-                entries.push(entry);
-              }
-            }
-            cursor.continue();
-          };
-        });
-        const results = entries.sort(
-          (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0) || a.expression.length - b.expression.length
-        ).slice(0, limit);
-        return results;
-      } catch (error) {
-        log$t.warn("Similar terms by kanji lookup failed", { character, error });
-        throw error;
-      } finally {
-        done();
-      }
+      return this.getHotLookup(
+        this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
+        async () => {
+          const done = log$s.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+          try {
+            const db = await this.db();
+            const rank = dictionaryRank(preferences);
+            const entries = await this.getSimilarTermEntriesByKanji(db, character, Math.max(limit * 8, 80), rank);
+            const results = entries.sort(
+              (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0) || a.expression.length - b.expression.length
+            ).slice(0, limit);
+            return results;
+          } catch (error) {
+            log$s.warn("Similar terms by kanji lookup failed", { character, error });
+            throw error;
+          } finally {
+            done();
+          }
+        }
+      );
     }
     async findTermMatches(text2, limit = 32, preferences = []) {
-      const done = log$t.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$s.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source = text2.slice(0, 240);
       if (!source.trim()) {
         done();
@@ -6661,7 +9759,7 @@ ${entry.reading}`;
         const results = nonOverlappingMatches(matches, limit);
         return results;
       } catch (error) {
-        log$t.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
+        log$s.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
         throw error;
       } finally {
         done();
@@ -6716,7 +9814,7 @@ ${entry.reading}`;
       });
     }
     async summary() {
-      const done = log$t.time("Dictionary summary");
+      const done = log$s.time("Dictionary summary");
       try {
         if (this.summaryPromise) {
           const summary2 = await this.summaryPromise;
@@ -6736,7 +9834,7 @@ ${entry.reading}`;
         const summary = await this.summaryPromise;
         return summary;
       } catch (error) {
-        log$t.warn("Dictionary summary failed", { error });
+        log$s.warn("Dictionary summary failed", { error });
         throw error;
       } finally {
         done();
@@ -6747,7 +9845,7 @@ ${entry.reading}`;
       return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
     }
     async listRandomTerms(limit, preferences = []) {
-      const done = log$t.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$s.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -6784,14 +9882,14 @@ ${entry.reading}`;
         });
         return reservoir;
       } catch (error) {
-        log$t.warn("Random term listing failed", { limit, error });
+        log$s.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = [], options = {}) {
-      const done = log$t.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$s.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -6802,7 +9900,7 @@ ${entry.reading}`;
         }
         return results;
       } catch (error) {
-        log$t.warn("Random top term listing failed", { limit, error });
+        log$s.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -6923,32 +10021,32 @@ ${entry.reading}`;
       return reservoir;
     }
     async importFile(file, onProgress, sourceUrl = "") {
-      const done = log$t.time("Dictionary file import", fileSummary(file, sourceUrl));
+      const done = log$s.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$t.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$s.info("Dictionary file import started", fileSummary(file, sourceUrl));
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
-        log$t.info("Dictionary file import completed", summary);
+        log$s.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$t.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$s.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
       }
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
-      log$t.info("Dictionary URL import started", { filename, host: safeHost$3(url) });
-      onProgress == null ? void 0 : onProgress(`Downloading ${filename}...`);
-      const blob = await requestBlob$3(url, this.getCorsProxyUrl(), onProgress);
+      log$s.info("Dictionary URL import started", { filename, host: safeHost$3(url) });
+      onProgress == null ? void 0 : onProgress(`${this.text("dictionaryDownloading")}: ${filename}...`);
+      const blob = await requestBlob$3(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
       const file = namedBlobFile(blob, filename, blob.type || "application/zip");
       const summary = await this.importFile(file, onProgress, url);
-      log$t.info("Dictionary URL import completed", { filename, host: safeHost$3(url), ...summary });
+      log$s.info("Dictionary URL import completed", { filename, host: safeHost$3(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "") {
-      onProgress == null ? void 0 : onProgress("Reading dictionary ZIP...");
+      onProgress == null ? void 0 : onProgress(this.text("dictionaryReadingZip"));
       const zip = await readZipArchive(file);
-      const index = await readYomitanZipIndex(zip);
+      const index = await readYomitanZipIndex(zip, this.getInterfaceLanguage());
       const dictionary = yomitanZipDictionaryName(index, file.name);
       const version = yomitanZipVersion(index);
       await this.deleteDictionary(dictionary);
@@ -6957,7 +10055,7 @@ ${entry.reading}`;
       const importBank = async (pattern, label, store, normalize) => {
         const files = zip.entries().filter((entry) => pattern.test(entry.name)).sort((a, b) => a.name.localeCompare(b.name, void 0, { numeric: true }));
         for (const bankFile of files) {
-          onProgress == null ? void 0 : onProgress(`Importing ${dictionary}: ${bankFile.name}`);
+          onProgress == null ? void 0 : onProgress(`${this.text("dictionaryImporting")} ${dictionary}: ${bankFile.name}`);
           const rows = JSON.parse(await zip.text(bankFile.name));
           const entries = rows.map(normalize).filter(Boolean);
           await this.addToStore(store, entries);
@@ -6969,12 +10067,12 @@ ${entry.reading}`;
       await importBank(/^kanji_bank_\d+\.json$/i, "kanji", "kanji", (row) => normalizeZipKanjiRow(row, dictionary, version));
       await importBank(/^term_meta_bank_\d+\.json$/i, "termMeta", "termMeta", (row) => normalizeZipTermMetaRow(row, dictionary));
       await importBank(/^kanji_meta_bank_\d+\.json$/i, "kanjiMeta", "kanjiMeta", (row) => normalizeZipKanjiMetaRow(row, dictionary));
-      if (summary.entries === 0) throw new Error("No supported Yomitan dictionary banks found.");
+      if (summary.entries === 0) throw new Error(this.text("dictionaryNoSupportedBanks"));
       info.counts = dictionaryCountsFromSummary(summary);
       info.type = dictionaryTypeFromCounts(info.counts);
       summary.dictionaryTypes = { [dictionary]: info.type };
       await this.putDictionaryInfo(info);
-      log$t.info("ZIP dictionary import parsed", summary);
+      log$s.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
@@ -6983,10 +10081,10 @@ ${entry.reading}`;
         return this.importDexieJson(file, onProgress);
       }
       const json = JSON.parse(await readBlobText(file));
-      if (isReaderDictionaryExport(json)) {
+      if (isReaderDictionaryExport$1(json)) {
         return this.importReaderJson(json);
       }
-      throw new Error("Unsupported dictionary JSON. Import a Yomitan Dexie export, a Yomitan dictionary ZIP, or this reader export.");
+      throw new Error(this.text("dictionaryUnsupportedJson"));
     }
     async importReaderJson(json) {
       await this.clear();
@@ -7002,7 +10100,7 @@ ${entry.reading}`;
         this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
       ]);
       const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
-      log$t.info("JSON dictionary import parsed", summary);
+      log$s.info("JSON dictionary import parsed", summary);
       return summary;
     }
     async importDexieJson(file, onProgress) {
@@ -7010,7 +10108,7 @@ ${entry.reading}`;
       await this.clear();
       const rowCounts = await readDexieTableRowCounts(file).catch(() => ({}));
       const totalRows = importEntryStores().reduce((total, store) => total + (rowCounts[store] ?? 0), 0);
-      if (totalRows > 0) onProgress == null ? void 0 : onProgress(`Preparing to import ${totalRows.toLocaleString()} dictionary records...`);
+      if (totalRows > 0) onProgress == null ? void 0 : onProgress(`${this.text("dictionaryPreparingImport")} ${totalRows.toLocaleString()} ${this.text("dictionaryRecords")}...`);
       const dictionaries = /* @__PURE__ */ new Set();
       const dictionaryInfo = /* @__PURE__ */ new Map();
       const dictionaryCounts = /* @__PURE__ */ new Map();
@@ -7019,8 +10117,8 @@ ${entry.reading}`;
       const progressAt = { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
       const reportProgress = (store, force = false) => {
         if (!store) {
-          if (totalRows > 0) onProgress == null ? void 0 : onProgress(`Imported ${summary.entries.toLocaleString()} / ${totalRows.toLocaleString()} dictionary records...`);
-          else onProgress == null ? void 0 : onProgress(`Imported ${summary.entries.toLocaleString()} dictionary records...`);
+          if (totalRows > 0) onProgress == null ? void 0 : onProgress(`${this.text("dictionaryImported")} ${summary.entries.toLocaleString()} / ${totalRows.toLocaleString()} ${this.text("dictionaryRecords")}...`);
+          else onProgress == null ? void 0 : onProgress(`${this.text("dictionaryImported")} ${summary.entries.toLocaleString()} ${this.text("dictionaryRecords")}...`);
           return;
         }
         const imported = summary[store];
@@ -7028,10 +10126,10 @@ ${entry.reading}`;
         if (!force && imported < progressAt[store]) return;
         progressAt[store] = imported + DEXIE_PROGRESS_INTERVAL;
         if (tableTotal > 0 && totalRows > 0) {
-          onProgress == null ? void 0 : onProgress(`Importing ${store}: ${imported.toLocaleString()} / ${tableTotal.toLocaleString()} entries (${summary.entries.toLocaleString()} / ${totalRows.toLocaleString()} total)...`);
+          onProgress == null ? void 0 : onProgress(`${this.text("dictionaryImporting")} ${store}: ${imported.toLocaleString()} / ${tableTotal.toLocaleString()} ${this.text("dictionaryEntries")} (${summary.entries.toLocaleString()} / ${totalRows.toLocaleString()} ${this.text("dictionaryTotal")})...`);
           return;
         }
-        onProgress == null ? void 0 : onProgress(`Importing ${store}: ${imported.toLocaleString()} entries...`);
+        onProgress == null ? void 0 : onProgress(`${this.text("dictionaryImporting")} ${store}: ${imported.toLocaleString()} ${this.text("dictionaryEntries")}...`);
       };
       const flush = async (store, forceProgress = false) => {
         const batch = batches[store];
@@ -7083,7 +10181,7 @@ ${entry.reading}`;
           reportProgress(table, true);
           return;
         }
-        onProgress == null ? void 0 : onProgress(`Importing Yomitan ${table}...`);
+        onProgress == null ? void 0 : onProgress(`${this.text("dictionaryImporting")} Yomitan ${table}...`);
       });
       await Promise.all(importEntryStores().map((store) => flush(store, true)));
       reportProgress(void 0, true);
@@ -7103,11 +10201,11 @@ ${entry.reading}`;
         summary.dictionaryTypes[dictionary] = info.type;
         return this.putDictionaryInfo(info);
       }));
-      log$t.info("Dexie dictionary import parsed", summary);
+      log$s.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     async exportJson() {
-      const done = log$t.time("Dictionary export");
+      const done = log$s.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -7117,7 +10215,7 @@ ${entry.reading}`;
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$t.info("Dictionary export prepared", {
+        log$s.info("Dictionary export prepared", {
           dictionaries: dictionaries.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -7135,7 +10233,7 @@ ${entry.reading}`;
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$t.warn("Dictionary export failed", { error });
+        log$s.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -7154,32 +10252,32 @@ ${entry.reading}`;
         this.dictionaryStyleCssCache.set(cacheKey, css);
         return css;
       } catch (error) {
-        log$t.warn("Dictionary stylesheet render failed", { error });
+        log$s.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
     async clear() {
-      const done = log$t.time("Dictionary store clear");
+      const done = log$s.time("Dictionary store clear");
       try {
         const db = await this.db();
         await new Promise((resolve, reject) => {
-          const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta", "dictionaryInfo", "termSearch"]);
+          const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta", "dictionaryInfo", "termSearch", "termKanji"]);
           const tx = db.transaction(stores, "readwrite");
           for (const store of stores) tx.objectStore(store).clear();
           tx.oncomplete = () => resolve();
           tx.onerror = () => reject(tx.error);
         });
         this.invalidateCaches();
-        log$t.info("Dictionary store cleared");
+        log$s.info("Dictionary store cleared");
       } catch (error) {
-        log$t.warn("Dictionary store clear failed", { error });
+        log$s.warn("Dictionary store clear failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async resetDatabase(options = {}) {
-      const done = log$t.time("Dictionary database factory reset");
+      const done = log$s.time("Dictionary database factory reset");
       let cleared = false;
       try {
         await this.clear();
@@ -7188,10 +10286,10 @@ ${entry.reading}`;
         return { cleared, deleted: true };
       } catch (error) {
         if (!cleared) {
-          log$t.warn("Dictionary database factory reset failed before clearing entries", { error });
+          log$s.warn("Dictionary database factory reset failed before clearing entries", { error });
           throw error;
         }
-        log$t.warn("Dictionary database delete did not complete after clearing entries; continuing reset with empty stores", { error });
+        log$s.warn("Dictionary database delete did not complete after clearing entries; continuing reset with empty stores", { error });
         return { cleared, deleted: false };
       } finally {
         done();
@@ -7205,12 +10303,12 @@ ${entry.reading}`;
       try {
         const db = await dbPromise;
         db.close();
-        log$t.info("Dictionary database connection closed for factory reset", { name: DB_NAME });
+        log$s.info("Dictionary database connection closed for factory reset", { name: DB_NAME });
       } catch {
       }
     }
     async deleteDatabase(options = {}) {
-      const done = log$t.time("Dictionary database delete");
+      const done = log$s.time("Dictionary database delete");
       try {
         const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
@@ -7236,22 +10334,22 @@ ${entry.reading}`;
           request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
           request.onblocked = () => {
             blocked = true;
-            log$t.warn("Dictionary database delete is blocked; waiting for other Yomu tabs to close their dictionary connection", { name: DB_NAME });
+            log$s.warn("Dictionary database delete is blocked; waiting for other Yomu tabs to close their dictionary connection", { name: DB_NAME });
           };
         });
-        log$t.info("Dictionary database deleted", { name: DB_NAME });
+        log$s.info("Dictionary database deleted", { name: DB_NAME });
       } catch (error) {
-        log$t.warn("Dictionary database delete failed", { error });
+        log$s.warn("Dictionary database delete failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async deleteDictionary(dictionary) {
-      const done = log$t.time("Dictionary delete", { dictionary });
+      const done = log$s.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
-        const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta", "termSearch"]);
+        const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta", "termSearch", "termKanji"]);
         await Promise.all(stores.map((store) => deleteByDictionary(db, store, dictionary)));
         await new Promise((resolve, reject) => {
           const tx = db.transaction("dictionaryInfo", "readwrite");
@@ -7260,9 +10358,9 @@ ${entry.reading}`;
           tx.onerror = () => reject(tx.error);
         });
         this.invalidateCaches();
-        log$t.info("Dictionary deleted", { dictionary });
+        log$s.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$t.warn("Dictionary delete failed", { dictionary, error });
+        log$s.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
@@ -7280,14 +10378,18 @@ ${entry.reading}`;
     }
     addStoreChunk(db, storeName, entries, put) {
       return new Promise((resolve, reject) => {
-        const stores = storeName === "terms" && hasStore(db, "termSearch") ? ["terms", "termSearch"] : [storeName];
+        const stores = storeName === "terms" ? existingStores(db, ["terms", "termSearch", "termKanji"]) : [storeName];
         const tx = db.transaction(stores, "readwrite");
         const store = tx.objectStore(storeName);
         const termSearchStore = storeName === "terms" && hasStore(db, "termSearch") ? tx.objectStore("termSearch") : null;
+        const termKanjiStore = storeName === "terms" && hasStore(db, "termKanji") ? tx.objectStore("termKanji") : null;
         for (const entry of entries) {
           put ? store.put(entry) : store.add(entry);
           if (termSearchStore) {
             for (const row of termSearchEntries(entry)) termSearchStore.add(row);
+          }
+          if (termKanjiStore) {
+            for (const row of termKanjiEntries(entry)) termKanjiStore.add(row);
           }
         }
         tx.oncomplete = () => {
@@ -7319,6 +10421,45 @@ ${entry.reading}`;
           cursor.continue();
         };
         request.onerror = () => reject(request.error);
+      });
+    }
+    async getManyByIndex(db, storeName, indexName, values, limit) {
+      if (!values.length) return [];
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, "readonly");
+        const index = tx.objectStore(storeName).index(indexName);
+        const results = [];
+        let pending = values.length;
+        const finish = () => {
+          if (--pending <= 0) resolve(results);
+        };
+        const fail = (error) => reject(error ?? new Error(`Could not read ${storeName} entries.`));
+        for (const value of values) {
+          const query = IDBKeyRange.only(value);
+          if (typeof index.getAll === "function") {
+            const request2 = index.getAll(query, limit);
+            request2.onsuccess = () => {
+              results.push(...request2.result);
+              finish();
+            };
+            request2.onerror = () => fail(request2.error);
+            continue;
+          }
+          let count = 0;
+          const request = index.openCursor(query);
+          request.onsuccess = () => {
+            const cursor = request.result;
+            if (!cursor || count >= limit) {
+              finish();
+              return;
+            }
+            results.push(cursor.value);
+            count++;
+            cursor.continue();
+          };
+          request.onerror = () => fail(request.error);
+        }
+        tx.onerror = () => fail(tx.error);
       });
     }
     async getTermLookupEntries(db, expression, reading, expressionLimit, readingLimit) {
@@ -7362,6 +10503,75 @@ ${entry.reading}`;
           request.onerror = () => fail(request.error);
         }
         tx.onerror = () => fail(tx.error);
+      });
+    }
+    async getSimilarTermEntriesByKanji(db, character, candidateLimit, rank) {
+      if (hasStore(db, "termKanji")) {
+        await this.ensureTermKanjiIndex(db);
+        return this.getTermKanjiIndexEntries(db, character, candidateLimit, rank);
+      }
+      return this.getSimilarTermCursorEntries(db, character, candidateLimit, rank, {
+        maxRows: TERM_KANJI_INDEX_FALLBACK_MAX_ROWS,
+        maxMs: TERM_KANJI_INDEX_FALLBACK_MAX_MS
+      });
+    }
+    async getTermKanjiIndexEntries(db, character, candidateLimit, rank) {
+      return new Promise((resolve, reject) => {
+        const entries = [];
+        const seen = /* @__PURE__ */ new Set();
+        const request = db.transaction("termKanji", "readonly").objectStore("termKanji").index("character").openCursor(IDBKeyRange.only(character));
+        request.onerror = () => reject(request.error ?? new Error("Could not search local dictionary kanji index."));
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor || entries.length >= candidateLimit) {
+            resolve(entries);
+            return;
+          }
+          const row = cursor.value;
+          if (dictionaryEnabled(row.dictionary, rank)) {
+            const entry = termEntryFromKanjiEntry(row);
+            const key = `${entry.expression}
+${entry.reading}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              entries.push(entry);
+            }
+          }
+          cursor.continue();
+        };
+      });
+    }
+    async getSimilarTermCursorEntries(db, character, candidateLimit, rank, options = {}) {
+      return new Promise((resolve, reject) => {
+        const entries = [];
+        const seen = /* @__PURE__ */ new Set();
+        const startedAt = performance.now();
+        let visited = 0;
+        const request = db.transaction("terms", "readonly").objectStore("terms").openCursor();
+        request.onerror = () => reject(request.error ?? new Error("Could not search local dictionaries."));
+        request.onsuccess = () => {
+          var _a2;
+          const cursor = request.result;
+          if (!cursor || entries.length >= candidateLimit) {
+            resolve(entries);
+            return;
+          }
+          if (options.maxRows && visited >= options.maxRows || options.maxMs && performance.now() - startedAt >= options.maxMs) {
+            resolve(entries);
+            return;
+          }
+          visited++;
+          const entry = cursor.value;
+          if (((_a2 = entry.expression) == null ? void 0 : _a2.includes(character)) && dictionaryEnabled(entry.dictionary, rank)) {
+            const key = `${entry.expression}
+${entry.reading}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              entries.push(entry);
+            }
+          }
+          cursor.continue();
+        };
       });
     }
     async getIndexedTermSearchEntries(db, query, limit) {
@@ -7524,8 +10734,27 @@ ${entry.reading}`;
       if (!terms || indexed) return;
       await this.rebuildTermSearchIndex(db);
     }
+    async ensureTermKanjiIndex(db) {
+      if (!hasStore(db, "termKanji") || this.termKanjiIndexReady) return;
+      const [terms, indexed] = await Promise.all([
+        this.countStore(db, "terms"),
+        this.countStore(db, "termKanji")
+      ]);
+      if (!terms || indexed) {
+        this.termKanjiIndexReady = true;
+        return;
+      }
+      if (!this.termKanjiIndexPromise) {
+        this.termKanjiIndexPromise = this.rebuildTermKanjiIndex(db).then(() => {
+          this.termKanjiIndexReady = true;
+        }).finally(() => {
+          this.termKanjiIndexPromise = void 0;
+        });
+      }
+      await this.termKanjiIndexPromise;
+    }
     async rebuildTermSearchIndex(db) {
-      const done = log$t.time("Term search index rebuild");
+      const done = log$s.time("Term search index rebuild");
       try {
         await this.clearTermSearchIndex(db);
         let indexedTerms = 0;
@@ -7538,7 +10767,26 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$t.info("Term search index rebuilt", { terms: indexedTerms });
+        log$s.info("Term search index rebuilt", { terms: indexedTerms });
+      } finally {
+        done();
+      }
+    }
+    async rebuildTermKanjiIndex(db) {
+      const done = log$s.time("Term kanji index rebuild");
+      try {
+        await this.clearTermKanjiIndex(db);
+        let indexedTerms = 0;
+        let lastKey;
+        for (; ; ) {
+          const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_KANJI_INDEX_BATCH_SIZE);
+          if (!chunk.terms.length) break;
+          await this.addTermKanjiIndexChunk(db, chunk.terms);
+          indexedTerms += chunk.terms.length;
+          if (chunk.done) break;
+          lastKey = chunk.lastKey;
+        }
+        log$s.info("Term kanji index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
@@ -7574,12 +10822,31 @@ ${entry.reading}`;
         tx.onerror = () => reject(tx.error);
       });
     }
+    clearTermKanjiIndex(db) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction("termKanji", "readwrite");
+        tx.objectStore("termKanji").clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
     addTermSearchIndexChunk(db, terms) {
       return new Promise((resolve, reject) => {
         const tx = db.transaction("termSearch", "readwrite");
         const store = tx.objectStore("termSearch");
         for (const term of terms) {
           for (const row of termSearchEntries(term)) store.add(row);
+        }
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+    addTermKanjiIndexChunk(db, terms) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction("termKanji", "readwrite");
+        const store = tx.objectStore("termKanji");
+        for (const term of terms) {
+          for (const row of termKanjiEntries(term)) store.add(row);
         }
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
@@ -7602,7 +10869,7 @@ ${entry.reading}`;
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
-          log$t.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$s.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -7622,6 +10889,9 @@ ${entry.reading}`;
           const termSearch = ensureStore(db, tx, "termSearch");
           ensureIndex(termSearch, "token", "token");
           ensureIndex(termSearch, "dictionary", "dictionary");
+          const termKanji = ensureStore(db, tx, "termKanji");
+          ensureIndex(termKanji, "character", "character");
+          ensureIndex(termKanji, "dictionary", "dictionary");
         };
         request.onsuccess = () => {
           const db = request.result;
@@ -7629,7 +10899,7 @@ ${entry.reading}`;
           resolve(db);
         };
         request.onerror = () => {
-          log$t.warn("Dictionary database open failed", { error: request.error });
+          log$s.warn("Dictionary database open failed", { error: request.error });
           reject(request.error);
         };
       }));
@@ -7637,7 +10907,7 @@ ${entry.reading}`;
     }
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
-        log$t.info("Dictionary database version change requested; closing open connection", {
+        log$s.info("Dictionary database version change requested; closing open connection", {
           name: DB_NAME,
           oldVersion: event.oldVersion,
           newVersion: event.newVersion
@@ -7651,6 +10921,8 @@ ${entry.reading}`;
       this.dictionaryInfoPromise = void 0;
       this.summaryPromise = void 0;
       this.dictionaryStyleCssCache.clear();
+      this.hotLookupCache.clear();
+      this.termKanjiIndexReady = false;
     }
   }
   function isSearchableJapaneseSurface(surface) {
@@ -7769,9 +11041,9 @@ ${item.sequence ?? ""}`;
   function observedReaderDictionaryTypes(counts) {
     return [...counts].map(([name, value]) => [name, dictionaryTypeFromCounts(value)]);
   }
-  async function readYomitanZipIndex(zip) {
+  async function readYomitanZipIndex(zip, language = "en") {
     return JSON.parse(await readZipText(zip, "index.json").catch(() => {
-      throw new Error("Yomitan dictionary ZIP is missing index.json.");
+      throw new Error(uiText(language, "dictionaryZipMissingIndex"));
     }));
   }
   function yomitanZipDictionaryName(index, filename) {
@@ -7975,6 +11247,25 @@ ${glossaryKey}`;
     const { id: _id, token: _token, ...term } = entry;
     return term;
   }
+  function termKanjiEntries(entry) {
+    const { id: _id, ...entryWithoutId } = entry;
+    return uniqueExpressionKanji(entry.expression).map((character) => ({
+      ...entryWithoutId,
+      character
+    }));
+  }
+  function termEntryFromKanjiEntry(entry) {
+    const { id: _id, character: _character, ...term } = entry;
+    return term;
+  }
+  function uniqueExpressionKanji(expression) {
+    const seen = /* @__PURE__ */ new Set();
+    return Array.from(expression).filter((character) => {
+      if (!isKanji(character) || seen.has(character)) return false;
+      seen.add(character);
+      return true;
+    });
+  }
   function glossarySearchTokens(glossary) {
     return uniqueSearchTokens(glossaryWords(normalizeGlossarySearchText(glossarySearchText(glossary))).flatMap(glossaryWordSearchTokens)).slice(0, TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM);
   }
@@ -8005,12 +11296,12 @@ ${glossaryKey}`;
     if (value == null) return "";
     if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
     if (Array.isArray(value)) return value.map(glossarySearchText).filter(Boolean).join(" ");
-    if (!isRecord(value)) return "";
+    if (!isRecord$2(value)) return "";
     if (typeof value.text === "string") return value.text;
     if ("content" in value) return glossarySearchText(value.content);
     return ["description", "alt", "title"].map((key) => glossarySearchText(value[key])).filter(Boolean).join(" ");
   }
-  function isRecord(value) {
+  function isRecord$2(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
   function trimTermSearchCandidates(candidates, candidateLimit, query, rank) {
@@ -8104,7 +11395,7 @@ ${glossaryKey}`;
     const candidate = unwrapDexieRow(row);
     return candidate && typeof candidate === "object" ? candidate : null;
   }
-  function isReaderDictionaryExport(value) {
+  function isReaderDictionaryExport$1(value) {
     const record = readerDictionaryExportRecord(value);
     return Boolean(record && isReaderDictionaryExportFormat(record) && hasReaderDictionaryExportRows(record));
   }
@@ -8147,30 +11438,30 @@ ${glossaryKey}`;
     Object.defineProperty(blob, "lastModified", { value: Date.now(), configurable: true });
     return blob;
   }
-  async function requestBlob$3(url, proxyUrl, onProgress) {
-    const done = log$t.time("Dictionary download", { host: safeHost$3(url) });
+  async function requestBlob$3(url, proxyUrl, onProgress, language = "en") {
+    const done = log$s.time("Dictionary download", { host: safeHost$3(url) });
     const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress);
-    return await requestBlobViaFetch(url, proxyUrl, done);
+    if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
+    return await requestBlobViaFetch(url, proxyUrl, done, language);
   }
-  function requestBlobViaUserscript(url, userscriptRequest, done, onProgress) {
+  function requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language = "en") {
     return new Promise((resolve, reject) => {
       const handleLoad = (response) => {
         if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-          log$t.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: response.response.size });
+          log$s.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: response.response.size });
           done();
           resolve(response.response);
           return;
         }
         if (response.status < 200 || response.status >= 300) {
-          log$t.warn("Dictionary download returned HTTP error", { host: safeHost$3(url), status: response.status });
+          log$s.warn("Dictionary download returned HTTP error", { host: safeHost$3(url), status: response.status });
           done();
-          reject(new Error(`Dictionary download failed (${response.status}).`));
+          reject(new Error(formatDictionaryDownloadFailed(language, response.status)));
           return;
         }
-        log$t.warn("Dictionary download returned unexpected payload", { host: safeHost$3(url), status: response.status });
+        log$s.warn("Dictionary download returned unexpected payload", { host: safeHost$3(url), status: response.status });
         done();
-        reject(new Error("Dictionary download did not return a ZIP file."));
+        reject(new Error(uiText(language, "dictionaryDownloadNotZip")));
       };
       const result = userscriptRequest({
         method: "GET",
@@ -8180,65 +11471,68 @@ ${glossaryKey}`;
         timeout: 12e4,
         onprogress: (event) => {
           if (event.lengthComputable && event.total > 0) {
-            onProgress == null ? void 0 : onProgress(`Downloading dictionary ${Math.round(event.loaded / event.total * 100)}%...`);
+            onProgress == null ? void 0 : onProgress(`${uiText(language, "dictionaryDownloadProgress")} ${Math.round(event.loaded / event.total * 100)}%...`);
           }
         },
         onload: handleLoad,
         onerror: () => {
-          log$t.warn("Dictionary download failed", { host: safeHost$3(url) });
+          log$s.warn("Dictionary download failed", { host: safeHost$3(url) });
           done();
-          reject(new Error("Dictionary download failed."));
+          reject(new Error(uiText(language, "dictionaryDownloadFailed")));
         },
         ontimeout: () => {
-          log$t.warn("Dictionary download timed out", { host: safeHost$3(url) });
+          log$s.warn("Dictionary download timed out", { host: safeHost$3(url) });
           done();
-          reject(new Error("Dictionary download timed out."));
+          reject(new Error(uiText(language, "dictionaryDownloadTimedOut")));
         }
       });
       if (result && typeof result.then === "function") {
         result.then(handleLoad, () => {
-          log$t.warn("Dictionary download failed", { host: safeHost$3(url) });
+          log$s.warn("Dictionary download failed", { host: safeHost$3(url) });
           done();
-          reject(new Error("Dictionary download failed."));
+          reject(new Error(uiText(language, "dictionaryDownloadFailed")));
         });
       }
     });
   }
-  async function requestBlobViaFetch(url, proxyUrl, done) {
+  async function requestBlobViaFetch(url, proxyUrl, done, language) {
     const downloadUrl = dictionaryDownloadUrl(url);
-    if (!downloadUrl) return throwMissingDictionaryDownloadBridge(done);
+    if (!downloadUrl) return throwMissingDictionaryDownloadBridge(done, language);
     try {
-      return await fetchDictionaryBlob(url, downloadUrl, proxyUrl, done);
+      return await fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, language);
     } catch (error) {
-      return handleDictionaryFetchError(url, downloadUrl, error, done);
+      return handleDictionaryFetchError(url, downloadUrl, error, done, language);
     }
   }
-  function throwMissingDictionaryDownloadBridge(done) {
+  function throwMissingDictionaryDownloadBridge(done, language) {
     done();
-    throw new Error("Dictionary download needs the userscript request bridge on this page. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.");
+    throw new Error(uiText(language, "dictionaryDownloadNeedsBridge"));
   }
-  async function fetchDictionaryBlob(url, downloadUrl, proxyUrl, done) {
+  async function fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, language) {
     const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
-    if (!response.ok) throwDictionaryHttpError(url, response.status);
+    if (!response.ok) throwDictionaryHttpError(url, response.status, language);
     const blob = await response.blob();
-    log$t.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: blob.size });
+    log$s.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: blob.size });
     done();
     return blob;
   }
-  function throwDictionaryHttpError(url, status) {
-    log$t.warn("Dictionary download returned HTTP error", { host: safeHost$3(url), status });
-    throw new Error(`Dictionary download failed (${status}).`);
+  function throwDictionaryHttpError(url, status, language) {
+    log$s.warn("Dictionary download returned HTTP error", { host: safeHost$3(url), status });
+    throw new Error(formatDictionaryDownloadFailed(language, status));
   }
-  function handleDictionaryFetchError(url, downloadUrl, error, done) {
+  function handleDictionaryFetchError(url, downloadUrl, error, done, language) {
     const host = safeHost$3(url);
     if (isDictionaryCorsError(error)) {
-      log$t.warn("Dictionary download failed due cross-origin restriction", { host, downloadUrl });
+      log$s.warn("Dictionary download failed due cross-origin restriction", { host, downloadUrl });
       done();
-      throw new Error("Dictionary download is blocked in this browser. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.");
+      throw new Error(uiText(language, "dictionaryDownloadBlocked"));
     }
-    log$t.warn("Dictionary download fetch failed", { host, error });
+    log$s.warn("Dictionary download fetch failed", { host, error });
     done();
-    throw error;
+    throw language === "ja" ? new Error(uiText(language, "dictionaryDownloadFailed")) : error;
+  }
+  function formatDictionaryDownloadFailed(language, status) {
+    return language === "ja" ? `${uiText(language, "dictionaryDownloadFailed")}（${status}）` : `Dictionary download failed (${status}).`;
   }
   function isDictionaryCorsError(error) {
     return error instanceof Error && error.name === "TypeError";
@@ -8319,7 +11613,7 @@ ${glossaryKey}`;
     });
   }
   const ANKI_VERSION = 6;
-  const log$s = Logger.scope("Anki");
+  const log$r = Logger.scope("Anki");
   const ANKI_EASE_BY_GRADE = {
     nothing: 1,
     fail: 1,
@@ -8357,7 +11651,7 @@ ${glossaryKey}`;
         await this.invoke("version");
         return true;
       } catch (error) {
-        log$s.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
+        log$r.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
         return false;
       }
     }
@@ -8388,7 +11682,7 @@ ${glossaryKey}`;
     }
     async findExistingCardsUncached(card, cacheKey, empty) {
       try {
-        const done = log$s.time("findExistingCards", { term: card.spelling });
+        const done = log$r.time("findExistingCards", { term: card.spelling });
         const noteIds = await this.findCandidateNoteIds(card);
         if (!noteIds.size) {
           this.writeLookupCache(cacheKey, empty);
@@ -8410,7 +11704,7 @@ ${glossaryKey}`;
         done();
         return result;
       } catch (error) {
-        log$s.warn("Anki lookup failed; entering cooldown", { term: card.spelling }, error);
+        log$r.warn("Anki lookup failed; entering cooldown", { term: card.spelling }, error);
         this.unavailableUntil = Date.now() + 3e4;
         return empty;
       }
@@ -8447,18 +11741,25 @@ ${glossaryKey}`;
     }
     async answerCard(cardId, grade) {
       const ease = ankiEaseFromGrade(grade);
-      log$s.info("Answering Anki card", { cardId, grade, ease });
+      log$r.info("Answering Anki card", { cardId, grade, ease });
       await this.invoke("answerCards", { answers: [{ cardId, ease }] });
     }
     async browseNote(noteId) {
-      log$s.info("Opening Anki note browser", { noteId });
+      log$r.info("Opening Anki note browser", { noteId });
       await this.invoke("guiBrowse", { query: `nid:${noteId}` });
+    }
+    async mediaFileDataUrl(filename) {
+      const cleanFilename = filename.trim();
+      if (!cleanFilename) throw new Error(this.text("ankiAudioFileNotFound"));
+      const data = await this.invoke("retrieveMediaFile", { filename: cleanFilename });
+      if (!data) throw new Error(this.text("ankiAudioFileNotFound"));
+      return `data:${ankiMediaMimeType(cleanFilename)};base64,${data}`;
     }
     async mergeYomuData(noteId, card, sentence = "", options = {}) {
       const settings = this.getSettings();
-      if (canUseMobileAnkiHandoff(settings)) throw new Error("Merging existing Anki notes needs AnkiConnect on desktop.");
+      if (canUseMobileAnkiHandoff(settings)) throw new Error(this.text("ankiMergeNeedsDesktop"));
       const [note] = await this.invoke("notesInfo", { notes: [noteId] });
-      if (!note) throw new Error("Anki note not found.");
+      if (!note) throw new Error(this.text("ankiNoteNotFound"));
       const merge = this.buildYomuNoteMerge(note, card, sentence, options);
       if (!merge.updatedFields.length && !merge.audioAdded && !merge.imageAdded) {
         return merge;
@@ -8529,7 +11830,8 @@ ${glossaryKey}`;
         ...options,
         sourceUrl: options.sourceUrl ?? safeLocationHref(),
         sourceTitle: options.sourceTitle ?? safeDocumentTitle(),
-        dictionaryPreferences: options.dictionaryPreferences ?? settings.dictionaryPreferences
+        dictionaryPreferences: options.dictionaryPreferences ?? settings.dictionaryPreferences,
+        interfaceLanguage: options.interfaceLanguage ?? settings.interfaceLanguage
       };
     }
     attachAnkiNoteImage(note, imageDataUrl, card) {
@@ -8542,7 +11844,7 @@ ${glossaryKey}`;
     }
     logAnkiNoteAdd(card, note) {
       var _a2, _b2;
-      log$s.info("Adding Anki note", {
+      log$r.info("Adding Anki note", {
         term: card.spelling,
         deck: note.deckName,
         model: note.modelName,
@@ -8553,14 +11855,14 @@ ${glossaryKey}`;
     }
     openMobileHandoffIfPreferred(settings, note, card) {
       if (!canUseMobileAnkiHandoff(settings)) return false;
-      log$s.info("Opening mobile Anki handoff", { term: card.spelling });
-      if (!openMobileAnkiHandoff(note)) throw new Error("Anki handoff cancelled.");
+      log$r.info("Opening mobile Anki handoff", { term: card.spelling });
+      if (!openMobileAnkiHandoff(note)) throw new Error(this.text("ankiHandoffCancelled"));
       return true;
     }
     async addNoteViaConnect(note, card) {
       await this.ensureDeckAndModel(note.deckName);
       const noteId = await this.invoke("addNote", { note });
-      log$s.info("Anki note added", { term: card.spelling, noteId });
+      log$r.info("Anki note added", { term: card.spelling, noteId });
       await this.refreshLookupCacheAfterAdd(card, noteId);
       return noteId;
     }
@@ -8579,14 +11881,14 @@ ${glossaryKey}`;
         };
         this.writeLookupCache(cacheKey, result);
       } catch (error) {
-        log$s.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
+        log$r.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
         this.lookupCache.delete(cacheKey);
       }
     }
     addCardWithFallback(error, settings, note, card) {
       if (!settings.ankiMobileHandoff || !isMobileUserAgent()) throw error;
-      log$s.warn("AnkiConnect add failed; trying mobile handoff", { term: card.spelling }, error);
-      if (!openMobileAnkiHandoff(note)) throw new Error("Anki handoff cancelled.");
+      log$r.warn("AnkiConnect add failed; trying mobile handoff", { term: card.spelling }, error);
+      if (!openMobileAnkiHandoff(note)) throw new Error(this.text("ankiHandoffCancelled"));
       return null;
     }
     async ensureDeckAndModel(deckOverride) {
@@ -8617,7 +11919,7 @@ ${glossaryKey}`;
         css: yomuCardCss(),
         cardTemplates: Object.entries(yomuCardTemplates(settings)).map(([Name, template]) => ({ Name, ...template }))
       });
-      log$s.info("Anki model created", { modelName });
+      log$r.info("Anki model created", { modelName });
     }
     async ensureModelFields(modelName) {
       const fieldNames = await this.invoke("modelFieldNames", { modelName }).catch(() => []);
@@ -8632,12 +11934,26 @@ ${glossaryKey}`;
       const settings = this.getSettings();
       const url = settings.ankiConnectUrl || "http://127.0.0.1:8765";
       const body = JSON.stringify({ action, version: ANKI_VERSION, params });
-      const response = await postJson$1(url, body);
+      const response = await postJson$1(url, body).catch((error) => {
+        throw this.localizedConnectError(error);
+      });
       if (response.error) {
-        log$s.warn("AnkiConnect action returned error", { action, error: response.error });
-        throw new Error(response.error);
+        log$r.warn("AnkiConnect action returned error", { action, error: response.error });
+        throw new Error(resolveUiLanguage(settings.interfaceLanguage) === "ja" ? this.text("ankiConnectActionFailed") : response.error);
       }
       return response.result;
+    }
+    text(key) {
+      return uiText(this.getSettings().interfaceLanguage, key);
+    }
+    localizedConnectError(error) {
+      var _a2;
+      const language = this.getSettings().interfaceLanguage;
+      if (resolveUiLanguage(language) !== "ja") return error instanceof Error ? error : new Error(this.text("ankiConnectRequestFailed"));
+      if (error instanceof Error && /timed out/i.test(error.message)) return new Error(this.text("ankiConnectTimedOut"));
+      const status = error instanceof Error ? (_a2 = error.message.match(/\((\d{3})\)/)) == null ? void 0 : _a2[1] : "";
+      const suffix = status ? `（${status}）` : "";
+      return new Error(`${this.text("ankiConnectRequestFailed")}${suffix}`);
     }
   }
   function captureActiveVideoFrame() {
@@ -8657,7 +11973,7 @@ ${glossaryKey}`;
       const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
       return dataUrl;
     } catch (error) {
-      log$s.warn("Active video frame capture failed", error);
+      log$r.warn("Active video frame capture failed", error);
       return void 0;
     }
   }
@@ -8725,11 +12041,11 @@ ${glossaryKey}`;
       PartOfSpeech: renderPartOfSpeech(card.partOfSpeech),
       Image: "",
       Audio: "",
-      JPDB: renderJpdbLink(jpdbUrl),
-      Status: renderCardStatus(card),
+      JPDB: renderJpdbLink(jpdbUrl, fieldContext.interfaceLanguage),
+      Status: renderCardStatus(card, fieldContext.interfaceLanguage),
       Pitch: renderPitchField(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
       DictionaryDefinitions: renderDictionaryDefinitions(fieldContext.localEntries, fieldContext.dictionaryPreferences),
-      Kanji: renderKanjiDefinitions$1(fieldContext.kanjiEntries, fieldContext.dictionaryPreferences),
+      Kanji: renderKanjiDefinitions$1(fieldContext.kanjiEntries, fieldContext.dictionaryPreferences, fieldContext.interfaceLanguage),
       Source: renderSource(fieldContext.sourceUrl, fieldContext.sourceTitle)
     };
   }
@@ -8739,8 +12055,8 @@ ${glossaryKey}`;
   function renderPartOfSpeech(partOfSpeech) {
     return escapeHtml$1(formatPartOfSpeech(partOfSpeech) || formatPartOfSpeechDetails(partOfSpeech));
   }
-  function renderJpdbLink(jpdbUrl) {
-    return jpdbUrl ? `<a href="${jpdbUrl}">Open on JPDB</a>` : "";
+  function renderJpdbLink(jpdbUrl, language) {
+    return jpdbUrl ? `<a href="${jpdbUrl}">${escapeHtml$1(uiText(language, "openOnJpdb"))}</a>` : "";
   }
   function ankiFieldContext(context) {
     return {
@@ -8749,7 +12065,8 @@ ${glossaryKey}`;
       metaEntries: fallbackArray(context.metaEntries),
       dictionaryPreferences: fallbackArray(context.dictionaryPreferences),
       sourceUrl: fallbackString(context.sourceUrl),
-      sourceTitle: fallbackString(context.sourceTitle)
+      sourceTitle: fallbackString(context.sourceTitle),
+      interfaceLanguage: context.interfaceLanguage ?? "en"
     };
   }
   function fallbackArray(value) {
@@ -8761,8 +12078,8 @@ ${glossaryKey}`;
   function jpdbVocabularyUrl(card) {
     return card.source === "local" || card.source === "anki" ? "" : `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
   }
-  function renderCardStatus(card) {
-    if (card.source === "local") return '<span class="yomu-chip">local dictionary</span>';
+  function renderCardStatus(card, language) {
+    if (card.source === "local") return `<span class="yomu-chip">${escapeHtml$1(uiText(language, "ankiLocalDictionaryStatus"))}</span>`;
     if (card.source === "anki") return '<span class="yomu-chip">Anki</span>';
     return card.cardState.map((state) => `<span class="yomu-chip">${escapeHtml$1(state)}</span>`).join(" ");
   }
@@ -8923,6 +12240,17 @@ ${glossaryKey}`;
     } catch {
     }
     return ".mp3";
+  }
+  function ankiMediaMimeType(filename) {
+    var _a2;
+    const extension = ((_a2 = filename.split(".").pop()) == null ? void 0 : _a2.toLowerCase()) ?? "";
+    if (extension === "mp3") return "audio/mpeg";
+    if (extension === "wav") return "audio/wav";
+    if (extension === "ogg" || extension === "oga" || extension === "opus") return "audio/ogg";
+    if (extension === "webm") return "audio/webm";
+    if (extension === "m4a" || extension === "mp4" || extension === "aac") return "audio/mp4";
+    if (extension === "flac") return "audio/flac";
+    return "audio/mpeg";
   }
   function safeAnkiMediaName(card) {
     return card.spelling.replace(/[^\p{L}\p{N}-]+/gu, "_").slice(0, 24) || "yomu";
@@ -9148,6 +12476,7 @@ ${glossaryKey}`;
     return ANKI_EASE_BY_GRADE[grade] ?? 3;
   }
   function yomuCardTemplates(settings) {
+    const language = settings.interfaceLanguage;
     const recognitionFront = `
 <main class="yomu-card yomu-front">
     <div class="yomu-expression">{{Expression}}</div>
@@ -9159,7 +12488,7 @@ ${glossaryKey}`;
 <main class="yomu-card yomu-front">
     {{#Sentence}}<div class="yomu-sentence yomu-sentence-front">{{Sentence}}</div>{{/Sentence}}
     ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ""}
-    <div class="yomu-prompt">Recall the highlighted word.</div>
+    <div class="yomu-prompt">${escapeHtml$1(uiText(language, "ankiPromptRecallWord"))}</div>
 </main>`;
     const back = `
 {{FrontSide}}
@@ -9169,19 +12498,19 @@ ${glossaryKey}`;
         {{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}
         {{#Audio}}<div class="yomu-audio">{{Audio}}</div>{{/Audio}}
     </section>
-    {{#Meaning}}<section class="yomu-section"><h2>Meaning</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
-    {{#DictionaryDefinitions}}<section class="yomu-section"><h2>Dictionaries</h2>{{DictionaryDefinitions}}</section>{{/DictionaryDefinitions}}
-    {{#Kanji}}<section class="yomu-section"><h2>Kanji</h2>{{Kanji}}</section>{{/Kanji}}
+    {{#Meaning}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "ankiMeaningHeading"))}</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
+    {{#DictionaryDefinitions}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "dictionaries"))}</h2>{{DictionaryDefinitions}}</section>{{/DictionaryDefinitions}}
+    {{#Kanji}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "kanji"))}</h2>{{Kanji}}</section>{{/Kanji}}
     <section class="yomu-section yomu-meta">
-        {{#Frequency}}<div><strong>Frequency</strong>{{Frequency}}</div>{{/Frequency}}
-        {{#Pitch}}<div><strong>Pitch</strong>{{Pitch}}</div>{{/Pitch}}
-        {{#PartOfSpeech}}<div><strong>Part of speech</strong><span>{{PartOfSpeech}}</span></div>{{/PartOfSpeech}}
-        {{#JPDB}}<div><strong>Links</strong><span>{{JPDB}}</span></div>{{/JPDB}}
-        {{#Source}}<div><strong>Source</strong><span>{{Source}}</span></div>{{/Source}}
+        {{#Frequency}}<div><strong>${escapeHtml$1(uiText(language, "factFrequency"))}</strong>{{Frequency}}</div>{{/Frequency}}
+        {{#Pitch}}<div><strong>${escapeHtml$1(uiText(language, "ankiPitchHeading"))}</strong>{{Pitch}}</div>{{/Pitch}}
+        {{#PartOfSpeech}}<div><strong>${escapeHtml$1(uiText(language, "ankiPartOfSpeechHeading"))}</strong><span>{{PartOfSpeech}}</span></div>{{/PartOfSpeech}}
+        {{#JPDB}}<div><strong>${escapeHtml$1(uiText(language, "ankiLinksHeading"))}</strong><span>{{JPDB}}</span></div>{{/JPDB}}
+        {{#Source}}<div><strong>${escapeHtml$1(uiText(language, "ankiSourceHeading"))}</strong><span>{{Source}}</span></div>{{/Source}}
     </section>
 </main>`;
     return {
-      [settings.ankiTemplateMode === "context" ? "Context" : "Recognition"]: {
+      [settings.ankiTemplateMode === "context" ? uiText(language, "ankiTemplateContext") : uiText(language, "ankiTemplateRecognition")]: {
         Front: settings.ankiTemplateMode === "context" ? contextFront : recognitionFront,
         Back: back
       }
@@ -9294,7 +12623,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         </div>
     `).join("");
   }
-  function renderKanjiDefinitions$1(entries, preferences) {
+  function renderKanjiDefinitions$1(entries, preferences, language) {
     const byCharacter = /* @__PURE__ */ new Map();
     for (const entry of entries) {
       const group = byCharacter.get(entry.character) ?? [];
@@ -9309,8 +12638,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
             </div>
             ${items.slice(0, 3).map((item) => `
                 <div>
-                    ${item.onyomi.length ? `<span class="yomu-kanji-reading">On ${escapeHtml$1(item.onyomi.join("、"))}</span>` : ""}
-                    ${item.kunyomi.length ? `<span class="yomu-kanji-reading"> Kun ${escapeHtml$1(item.kunyomi.join("、"))}</span>` : ""}
+                    ${item.onyomi.length ? `<span class="yomu-kanji-reading">${escapeHtml$1(uiText(language, "onReading"))} ${escapeHtml$1(item.onyomi.join("、"))}</span>` : ""}
+                    ${item.kunyomi.length ? `<span class="yomu-kanji-reading"> ${escapeHtml$1(uiText(language, "kunReading"))} ${escapeHtml$1(item.kunyomi.join("、"))}</span>` : ""}
                     <div>${item.meanings.slice(0, 8).map((meaning) => escapeHtml$1(meaning)).join("; ")}</div>
                     ${item.tags.length ? `<span class="yomu-tags">${escapeHtml$1(item.tags.join(" · "))}</span>` : ""}
                 </div>
@@ -9421,675 +12750,15 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function safeDocumentTitle() {
     return typeof document === "undefined" ? "" : document.title;
   }
-  const CONTEXT_PREFIX = "yomu-mining-context:";
-  const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
-  const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-  const log$r = Logger.scope("MiningContext");
-  function normalizeMiningSentence(sentence) {
-    return (sentence ?? "").replace(/\s+/g, " ").trim();
-  }
-  function inferMiningSourceKind({ isImageSource, hasVideo, hostname = location.hostname } = {}) {
-    if (isImageSource) return "image";
-    if (hasVideo) return "video";
-    if (hostname === "jpdb.io") return "jpdb";
-    return "page";
-  }
-  function createStoredMiningContext(term, context, updatedAt = Date.now()) {
-    const normalizedTerm = term.trim();
-    const sentence = context.sentence.trim();
-    if (!normalizedTerm || !sentence) return null;
-    return {
-      ...context,
-      term: normalizedTerm,
-      sentence,
-      sourceTitle: context.sourceTitle.trim(),
-      sourceUrl: context.sourceUrl.trim(),
-      imageUrl: optionalText(context.imageUrl),
-      audioUrls: optionalTextArray(context.audioUrls),
-      immersionIndex: optionalNumber(context.immersionIndex),
-      immersionTotal: optionalNumber(context.immersionTotal),
-      updatedAt
-    };
-  }
-  function createFallbackMiningContext(term, context, updatedAt = Date.now()) {
-    return createStoredMiningContext(term, context, updatedAt) ?? {
-      ...context,
-      term: term.trim(),
-      sentence: context.sentence.trim() || term.trim(),
-      sourceTitle: context.sourceTitle.trim(),
-      sourceUrl: context.sourceUrl.trim(),
-      imageUrl: optionalText(context.imageUrl),
-      audioUrls: optionalTextArray(context.audioUrls),
-      immersionIndex: optionalNumber(context.immersionIndex),
-      immersionTotal: optionalNumber(context.immersionTotal),
-      updatedAt
-    };
-  }
-  async function resolveMiningContext({
-    term,
-    sentence,
-    settings,
-    activeContext,
-    storedContext,
-    sourceKind,
-    imageDataUrl,
-    videoImageDataUrl,
-    fetchImageDataUrl,
-    fetchAudioDataUrl: fetchAudioDataUrl2
-  }) {
-    const done = log$r.time("Resolve mining context", {
-      term,
-      hasSentence: Boolean(sentence == null ? void 0 : sentence.trim()),
-      activeKind: activeContext == null ? void 0 : activeContext.sourceKind,
-      storedKind: storedContext == null ? void 0 : storedContext.sourceKind,
-      sourceKind,
-      hasImage: Boolean(imageDataUrl),
-      hasVideoImage: Boolean(videoImageDataUrl)
-    });
-    const cleanSentence = normalizeMiningSentence(sentence);
-    try {
-      const direct = resolveDirectImageMiningContext(term, cleanSentence, imageDataUrl, videoImageDataUrl);
-      if (direct) return direct;
-      const immersion = await resolveStoredImmersionMiningContext({
-        term,
-        settings,
-        activeContext,
-        storedContext,
-        fetchImageDataUrl,
-        fetchAudioDataUrl: fetchAudioDataUrl2
-      });
-      return immersion ?? resolvePageMiningContext(term, cleanSentence, sourceKind);
-    } finally {
-      done();
-    }
-  }
-  function resolveDirectImageMiningContext(term, sentence, imageDataUrl, videoImageDataUrl) {
-    if (imageDataUrl && sentence) {
-      return miningContextWithImage(term, sentence, "image", imageDataUrl);
-    }
-    if (videoImageDataUrl && sentence) {
-      return miningContextWithImage(term, sentence, "video", videoImageDataUrl);
-    }
-    return null;
-  }
-  async function resolveStoredImmersionMiningContext(options) {
-    const { term, settings, activeContext, storedContext, fetchImageDataUrl, fetchAudioDataUrl: fetchAudioDataUrl2 } = options;
-    const chosen = (activeContext == null ? void 0 : activeContext.term) === term ? activeContext : storedContext ?? void 0;
-    if (!chosen || !shouldUseImmersionContext(settings, chosen)) return null;
-    const [fetchedImageDataUrl, fetchedAudioDataUrl] = await Promise.all([
-      fetchMiningContextImage(chosen, settings, fetchImageDataUrl),
-      fetchMiningContextAudio(chosen, settings, fetchAudioDataUrl2)
-    ]);
-    return { ...chosen, imageDataUrl: fetchedImageDataUrl, audioDataUrl: fetchedAudioDataUrl };
-  }
-  function fetchMiningContextImage(context, settings, fetchImageDataUrl) {
-    if (!context.imageUrl || !settings.immersionKitShowImages || !fetchImageDataUrl) return Promise.resolve(void 0);
-    return fetchImageDataUrl(context.imageUrl, settings.audioTimeoutMs).catch(() => {
-      return void 0;
-    });
-  }
-  function fetchMiningContextAudio(context, settings, fetchAudioDataUrl2) {
-    var _a2;
-    if (!((_a2 = context.audioUrls) == null ? void 0 : _a2.length) || !fetchAudioDataUrl2) return Promise.resolve(void 0);
-    return fetchAudioDataUrl2(context.audioUrls, settings.audioTimeoutMs).catch(() => {
-      return void 0;
-    });
-  }
-  function resolvePageMiningContext(term, sentence, sourceKind) {
-    const context = pageMiningContext(sentence || term, sourceKind ?? inferMiningSourceKind());
-    const result = saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
-    return result;
-  }
-  function miningContextWithImage(term, sentence, sourceKind, imageDataUrl) {
-    const context = pageMiningContext(sentence, sourceKind);
-    return {
-      ...saveMiningContext(term, context) ?? createFallbackMiningContext(term, context),
-      imageDataUrl
-    };
-  }
-  function saveMiningContext(term, context) {
-    const stored = createStoredMiningContext(term, context);
-    if (!stored) {
-      return null;
-    }
-    try {
-      gmStorageSetSync(contextStorageKey(stored.term), stored);
-    } catch (error) {
-      log$r.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
-    }
-    return stored;
-  }
-  function loadMiningContext(term) {
-    const normalized = term.trim();
-    if (!normalized) return null;
-    try {
-      const stored = gmStorageGetSync(contextStorageKey(normalized), null);
-      if (!stored) {
-        return null;
-      }
-      const context = parseStoredMiningContext(stored, normalized);
-      return context;
-    } catch (error) {
-      log$r.warn("Mining context load failed", { term: normalized, error });
-      return null;
-    }
-  }
-  function immersionContextFromExample(term, example, index, total, imageUrl, audioUrls = []) {
-    return {
-      sentence: example.sentence,
-      sourceKind: "immersion-kit",
-      sourceTitle: example.sourceTitle || "Immersion Kit",
-      sourceUrl: immersionKitUrl(term, index),
-      imageUrl: imageUrl || void 0,
-      audioUrls: optionalTextArray(audioUrls),
-      immersionIndex: index,
-      immersionTotal: total
-    };
-  }
-  function immersionContextFromElement(sentence, element2, sourceUrl = location.href) {
-    return {
-      sentence,
-      sourceKind: "immersion-kit",
-      sourceTitle: element2.dataset.immersionSourceTitle || "Immersion Kit",
-      sourceUrl,
-      imageUrl: optionalText(element2.dataset.immersionImageUrl),
-      audioUrls: immersionAudioUrlsFromElement(element2),
-      immersionIndex: optionalNumber(Number(element2.dataset.immersionIndex ?? 0)),
-      immersionTotal: optionalNumber(Number(element2.dataset.immersionTotal ?? 0))
-    };
-  }
-  function pageMiningContext(sentence, sourceKind = "page") {
-    return {
-      sentence,
-      sourceKind,
-      sourceTitle: document.title || location.hostname,
-      sourceUrl: location.href
-    };
-  }
-  function contextLabel(context) {
-    const immersionLabel = immersionContextLabel(context);
-    if (immersionLabel) return immersionLabel;
-    const prefix = CONTEXT_LABEL_PREFIXES[context.sourceKind];
-    if (prefix) return `${prefix}: ${context.sourceTitle}`;
-    return context.sourceTitle || context.sourceUrl || "Current page";
-  }
-  const CONTEXT_LABEL_PREFIXES = {
-    video: "Video",
-    image: "Image",
-    jpdb: "JPDB"
-  };
-  function immersionContextLabel(context) {
-    return context.sourceKind === "immersion-kit" && context.immersionIndex !== void 0 && context.immersionTotal ? `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}` : "";
-  }
-  function shouldUseImmersionContext(settings, context) {
-    return Boolean(settings.immersionKitEnabled && (context == null ? void 0 : context.sourceKind) === "immersion-kit" && context.sentence.trim());
-  }
-  function contextStorageKey(term) {
-    return `${CONTEXT_PREFIX}${term}`;
-  }
-  function parseStoredMiningContext(value, expectedTerm, now = Date.now()) {
-    const record = storedMiningContextRecord(value, expectedTerm);
-    if (!record) return null;
-    const sourceKind = storedMiningSourceKind(record.sourceKind);
-    if (!sourceKind) return null;
-    const updatedAt = storedMiningContextUpdatedAt(record.updatedAt, now);
-    if (updatedAt === null) return null;
-    const context = createStoredMiningContext(expectedTerm, {
-      sentence: text$1(record.sentence),
-      sourceKind,
-      sourceTitle: text$1(record.sourceTitle),
-      sourceUrl: text$1(record.sourceUrl),
-      imageUrl: optionalText(record.imageUrl),
-      audioUrls: optionalTextArray(record.audioUrls),
-      immersionIndex: optionalNumber(record.immersionIndex),
-      immersionTotal: optionalNumber(record.immersionTotal)
-    }, updatedAt);
-    return context;
-  }
-  function storedMiningContextRecord(value, expectedTerm) {
-    if (!isRecord$2(value)) return null;
-    return text$1(value.term) === expectedTerm ? value : null;
-  }
-  function storedMiningSourceKind(value) {
-    return isMiningSourceKind(value) ? value : null;
-  }
-  function storedMiningContextUpdatedAt(value, now) {
-    const updatedAt = Number(value);
-    if (!isStoredMiningContextFresh(updatedAt, now)) {
-      return null;
-    }
-    return updatedAt;
-  }
-  function isStoredMiningContextFresh(updatedAt, now) {
-    return Number.isFinite(updatedAt) && now - updatedAt <= CONTEXT_MAX_AGE_MS;
-  }
-  function isMiningSourceKind(value) {
-    return typeof value === "string" && MINING_SOURCE_KINDS.includes(value);
-  }
-  function isRecord$2(value) {
-    return Boolean(value && typeof value === "object");
-  }
-  function optionalText(value) {
-    const normalized = text$1(value);
-    return normalized || void 0;
-  }
-  function optionalTextArray(value) {
-    if (!Array.isArray(value)) return void 0;
-    const values = uniqueTexts(value);
-    return values.length ? values : void 0;
-  }
-  function immersionAudioUrlsFromElement(element2) {
-    const parsed = parseTextArray(element2.dataset.immersionAudioUrls);
-    return optionalTextArray(parsed ?? [element2.dataset.immersionAudioUrl]);
-  }
-  function parseTextArray(value) {
-    if (typeof value !== "string" || !value.trim()) return null;
-    try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed : null;
-    } catch {
-      return null;
-    }
-  }
-  function uniqueTexts(values) {
-    return Array.from(new Set(values.map(text$1).filter(Boolean)));
-  }
-  function optionalNumber(value) {
-    const number = Number(value);
-    return Number.isFinite(number) && number >= 0 ? number : void 0;
-  }
-  function text$1(value) {
-    return typeof value === "string" ? value.trim() : "";
-  }
-  function immersionKitUrl(term, index) {
-    const url = new URL("https://www.immersionkit.com/dictionary");
-    url.searchParams.set("keyword", term);
-    url.searchParams.set("sort", "sentence_length:asc");
-    url.searchParams.set("page", String(index + 1));
-    return url.toString();
-  }
-  const COPY = {
-    en: {
-      settingsTitle: `${APP_NAME} Settings`,
-      welcomeLabel: `${APP_NAME} welcome`,
-      onboardingEyebrow: "Japanese, wherever it appears",
-      onboardingCopy: "Turn Japanese text, subtitles, and image text into tappable dictionary cards. Mine useful words, play audio, and keep the page readable while you study.",
-      onboardingLanguage: "Settings language",
-      onboardingAddApiKey: "Add API key",
-      onboardingAddLocalDictionaries: "Add local dictionaries",
-      onboardingUseWithoutApiKey: "Use without API key",
-      closeOnboarding: "Close welcome",
-      featureText: "Text",
-      featureTextBody: "Hover or tap Japanese words once a page is scanned.",
-      featureImages: "Images",
-      featureImagesBody: "Readable image text can be detected quietly near the viewport.",
-      featureVideo: "Video",
-      featureVideoBody: "Subtitle words become tappable when subtitles are available.",
-      featureControl: "Control",
-      featureControlBody: "Open Settings any time to turn features off, change shortcuts, or tune the accent color.",
-      scanPage: "Scan page",
-      settings: "Settings",
-      save: "Save",
-      cancel: "Cancel",
-      basics: "Basics",
-      dictionaries: "Dictionaries",
-      media: "Media",
-      mining: "Mining",
-      shortcuts: "Shortcuts",
-      help: "Help",
-      interface: "Interface",
-      reader: "Reader",
-      kanji: "Kanji",
-      audio: "Audio",
-      images: "OCR",
-      video: "Video",
-      anki: "Anki",
-      apiKey: "API key",
-      jpdbSettings: "JPDB settings",
-      jpdbMiningEnabled: "Allow JPDB review/deck changes",
-      addToForq: "Also copy JPDB adds to forq",
-      enableReviews: "Show review buttons",
-      reviewRatingScale: "Review rating scale",
-      fivePoint: "Five point: NOTHING to EASY",
-      twoPoint: "Two point: FAIL / PASS",
-      settingsLanguage: "Settings language",
-      automatic: "Automatic",
-      english: "English",
-      japanese: "日本語",
-      theme: "Theme",
-      auto: "Auto",
-      dark: "Dark",
-      light: "Light",
-      popupMode: "Popup mode",
-      bottomSheet: "Bottom sheet",
-      popover: "Popover",
-      stickyBottomSheet: "Keep bottom sheet open until closed",
-      popoverWidth: "Popover width (px)",
-      popoverHeight: "Popover height (px)",
-      popoverHeightMode: "Popover height",
-      popoverHeightAvailable: "Grow to available space",
-      popoverHeightFixed: "Use height setting",
-      enableLogging: "Enable console logging",
-      accentColor: "Accent color",
-      newTab: "New tab",
-      newTabEnabled: "Use Yomu new tab study page",
-      newTabSource: "New tab word source",
-      newTabAuto: "Auto: JPDB + Anki",
-      newTabUrl: "New tab address",
-      newTabJpdbDeck: "New tab JPDB deck",
-      openNewTabPage: "Open new tab page",
-      copyAddress: "Copy address",
-      wordColors: "Word colors",
-      wordColorNew: "New and suspended",
-      wordColorLearning: "Learning",
-      wordColorKnown: "Known and never forget",
-      wordColorDue: "Due",
-      wordColorFailed: "Failed",
-      wordColorIgnored: "Ignored and blacklisted",
-      pitchAccentColors: "Pitch accent colors",
-      pitchColorHeiban: "Heiban (flat)",
-      pitchColorAtamadaka: "Atamadaka (head-high)",
-      pitchColorNakadaka: "Nakadaka (middle-high)",
-      pitchColorOdaka: "Odaka (tail-high)",
-      pitchColorKifuku: "Kifuku (variable)",
-      pitchColorUnknown: "Unknown / inherited",
-      colorChannels: "Color channels",
-      wordHighlightColorSource: "Word highlight color",
-      wordUnderlineColorSource: "Word underline color",
-      wordTextColorSource: "Word text color",
-      subtitleHighlightColorSource: "Subtitle highlight color",
-      subtitleUnderlineColorSource: "Subtitle underline color",
-      subtitleTextColorSource: "Subtitle text color",
-      colorSourceStatus: "JPDB + Anki status",
-      colorSourceJpdb: "JPDB status",
-      colorSourceAnki: "Anki status",
-      colorSourcePitch: "Pitch accent",
-      colorChannelsHelp: "Each channel uses the source shown here. Defaults keep page text readable, show mining status in highlights, and keep subtitle status and pitch visible.",
-      interfaceHelp: "",
-      parseSelection: "Lookup selected text",
-      lookupOnClick: "Tap or click scanned words",
-      lookupOnHover: "Hover scanned words",
-      lookupOnMiddleMouse: "Hold middle mouse button to scan words",
-      autoScanJapanese: "Auto-scan when Japanese is detected",
-      scanVisiblePage: "Scan visible page on load",
-      showFloatingButton: "Toggle floating puck on pages",
-      showFurigana: "Enable furigana annotations",
-      furiganaMode: "Furigana",
-      furiganaDifficultKanji: "Difficult kanji only",
-      furiganaHideKnown: "Hide known words",
-      furiganaAllParsed: "All parsed words",
-      showPitchAccent: "Show pitch accent",
-      wordHighlightMode: "Word color mode",
-      highlightKnownStatus: "Known/mining status",
-      highlightPitchAccent: "Pitch accent",
-      hideKnownFurigana: "Hide furigana for known cards only",
-      readerHelp: "Hover lookup uses the shortcut below. Leave it blank for plain hover. Middle-button scanning blocks browser autoscroll while held, but still leaves normal middle-clicks on links alone.",
-      kanjivgEnabled: "Show stroke order and drawing pad",
-      kanjiOriginsEnabled: "Show compact kanji facts and component map",
-      kanjiOriginKanjiMapEnabled: "Use Kanji Alive and Kanji Map facts",
-      kanjiOriginGraphEnabled: "Show component graph",
-      kanjiOriginRadicalImagesEnabled: "Show radical images",
-      rtkEnabled: "Show RTK information",
-      similarKanjiWords: "Show words using the same kanji",
-      similarKanjiWordLimit: "Similar word limit",
-      loadingSimilarWords: "Loading words...",
-      openToLoadSimilarWords: "Open to load words.",
-      noSimilarWords: "No additional words found.",
-      kanjiHelp: "Click a kanji inside the popup word to see RTK, local kanji dictionary meanings, component keywords, and related words.",
-      audioEnabled: "Enable audio playback for terms",
-      autoPlayAudio: "Auto-play when a word card opens",
-      audioAutoPlayMode: "Auto-play trigger",
-      audioEnableDefaultSources: "Use built-in audio sources",
-      audioFallbackChimeEnabled: "Play a soft chime when no audio is available",
-      audioSelectionMode: "When several sources or clips exist",
-      firstAudio: "First audio",
-      randomAudio: "Random audio",
-      audioTimeoutMs: "Audio timeout (ms)",
-      previewAudio: "Preview audio",
-      audioHelp: "Supports {term}, {reading}, and {language}. See the Yomitan audio guide.",
-      audioSource: "Audio source",
-      urlVoice: "URL / voice",
-      addAudioSource: "Add audio source",
-      immersionKit: "Immersion Kit",
-      immersionKitEnabled: "Show Immersion Kit examples",
-      immersionKitShowTranslation: "Show example translations",
-      immersionKitRevealTranslationOnClick: "Blur example translations until clicked",
-      immersionKitShowImages: "Show example thumbnails",
-      immersionKitAutoPlayAudio: "Play example audio after reveal or next/previous",
-      immersionKitPlayOnHover: "Play example audio when hovering thumbnails",
-      immersionKitPlayOnImageClick: "Play example audio when clicking thumbnails",
-      immersionKitCategory: "Example source",
-      immersionKitSort: "Example order",
-      immersionKitLimit: "Examples per word",
-      immersionKitMinLength: "Minimum sentence length",
-      immersionKitMaxLength: "Maximum sentence length",
-      immersionKitPlaybackRate: "Example audio speed",
-      immersionKitExactMatch: "Prefer exact matches",
-      immersionKitHelp: "Immersion examples appear inside word popups and on JPDB pages. Blurred translations reveal when you click or tap the translation text.",
-      loadingExamples: "Loading examples...",
-      noImmersionExamples: "No Immersion Kit examples found.",
-      noImmersionExamplesCompact: "No examples",
-      previousExample: "Previous example",
-      nextExample: "Next example",
-      playExampleAudio: "Play example audio",
-      allCategories: "All",
-      anime: "Anime",
-      drama: "Drama",
-      games: "Games",
-      shortestFirst: "Shortest first",
-      longestFirst: "Longest first",
-      randomOrder: "Random",
-      ocrEnabled: "Read text in images",
-      ocrAutoScanImages: "Read images automatically",
-      ocrShowTextOverlay: "Show recognized image text areas",
-      ocrProvider: "Image reading",
-      googleLens: "Google Lens (recommended)",
-      cloudVision: "Google Cloud Vision",
-      localOcr: "Local OCR engine",
-      off: "Off",
-      ocrMaxImagesPerPage: "Images to read per page",
-      ocrMinImageArea: "Smallest image to read",
-      ocrMaxImagePixels: "Image detail",
-      lightWork: "Light",
-      normal: "Normal",
-      more: "More",
-      largeOnly: "Large images only",
-      includeSmall: "Include small images",
-      faster: "Faster",
-      balanced: "Balanced",
-      sharper: "Sharper",
-      ocrTextColor: "Image text color",
-      ocrOutlineColor: "Image text outline",
-      ocrBackgroundColor: "Image highlight background",
-      ocrBackgroundOpacity: "Image highlight opacity",
-      ocrFontScale: "Image text scale",
-      ocrEndpointUrl: "Custom local OCR URL",
-      ocrEngine: "Local OCR engine",
-      cloudVisionApiKey: "Cloud Vision API key",
-      ocrHelp: "Images are read quietly near the viewport. Google Lens is the default reader, Cloud Vision can be used with an API key, and embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.",
-      subtitlePlayerEnabled: "Enable video subtitle player",
-      subtitleAutoDetect: "Auto-detect page subtitles",
-      subtitleOverlayVisible: "Show subtitle overlay",
-      subtitleSecondaryVisible: "Show native subtitles when available",
-      subtitleNativeBlurred: "Blur native subtitles until hover",
-      subtitleKaraokeMode: "Karaoke word timing",
-      subtitleTranscriptVisible: "Open transcript panel by default",
-      subtitleTranscriptPlacement: "Transcript panel position",
-      subtitleTranscriptAutoScroll: "Scroll transcript with playback",
-      subtitleAutoCopyLine: "Auto-copy each subtitle line as it plays",
-      subtitleMiningPause: "Pause video when mining subtitle",
-      subtitleControlsMode: "Subtitle controls",
-      right: "Right",
-      left: "Left",
-      bottom: "Below",
-      showWhenNeeded: "Compact controls",
-      hideControls: "Hide controls",
-      alwaysVisible: "Always visible",
-      subtitleFontSize: "Subtitle font size",
-      subtitleBottomOffset: "Subtitle bottom offset (%)",
-      subtitleTextColor: "Subtitle color",
-      subtitleOutlineColor: "Subtitle outline",
-      subtitleBackgroundColor: "Subtitle background",
-      subtitleBackgroundOpacity: "Subtitle background opacity",
-      subtitleFontFamily: "Subtitle font family",
-      subtitleFontWeight: "Subtitle font weight",
-      subtitleSeekPadding: "Subtitle seek padding (seconds)",
-      subtitlePreview: "Live subtitle preview",
-      ankiEnabled: "Enable Anki mining",
-      ankiMineWithJpdb: "Also add to Anki when adding to JPDB",
-      ankiCaptureScreenshot: "Attach context image when possible",
-      ankiConnectUrl: "AnkiConnect URL",
-      ankiDeck: "Anki deck",
-      ankiModel: "Anki note type",
-      mobileAnkiHandoff: "Use mobile Anki handoff when AnkiConnect is unavailable",
-      ankiTemplateMode: "Anki card template",
-      ankiFrontReading: "Word-first front: show reading",
-      ankiFrontSentence: "Word-first front: show sentence",
-      ankiFrontImage: "Show image on front",
-      wordFirst: "Word first",
-      sentenceFirst: "Sentence first",
-      ankiTags: "Tags",
-      studyTranslationEnabled: "Show sentence translation tool",
-      studyGrammarEnabled: "Show grammar hint tool",
-      testAnki: "Test Anki",
-      ankiTesting: "Testing AnkiConnect...",
-      ankiUnreachable: "AnkiConnect is not reachable. Open Anki and confirm the AnkiConnect add-on is enabled.",
-      ankiHelp: "Anki uses AnkiConnect. The よむ note type includes JPDB meaning/status, imported dictionary entries, kanji cards, pitch/frequency data, source links, and optional context images from videos, OCR, or Immersion Kit.",
-      jpdbDefinitionsEnabled: "Show JPDB definitions",
-      localDictionariesEnabled: "Show imported dictionary definitions",
-      localDictionaryShowKanji: "Show kanji dictionary cards",
-      dictionarySourcesInitiallyExpanded: "Open popup sources by default",
-      localDictionaryMaxResults: "Dictionary result limit",
-      importSettings: "Import settings JSON",
-      exportSettings: "Export settings JSON",
-      importDictionaries: "Import dictionaries",
-      exportDictionaries: "Export dictionaries",
-      dictionaryImportHelp: "Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.",
-      recommendedDownloads: "Recommended dictionaries",
-      homepage: "Homepage",
-      download: "Download",
-      update: "Update",
-      noLocalDictionaries: "No local dictionary installed yet. Download JMdict or import a Yomitan ZIP in Settings when you want local study words.",
-      checkingDictionaries: "Checking imported dictionaries...",
-      dictionaryOnlyJpdb: "JPDB is the only definition source. Import Yomitan dictionaries to add local or native-language definitions.",
-      localDictionaryText: "Dictionary text",
-      localSenseSingular: "meaning",
-      localSensePlural: "meanings",
-      localWordSingular: "entry",
-      localWordPlural: "entries",
-      decksLoaded: "Decks are loaded from your JPDB account.",
-      decksUnavailable: "Could not load decks yet; saved deck IDs will be kept.",
-      addApiKeyChooseDecks: "Add your JPDB API key to choose decks.",
-      holdWhileHovering: "Hold while hovering",
-      hoverOpenDelayMs: "Hover open delay (ms)",
-      hoverCloseDelayMs: "Hover close delay (ms)",
-      pressKeys: "Press keys",
-      blankPlainHover: "Blank means hover without a key",
-      openSettings: "Open settings",
-      playAudio: "Play audio",
-      audioPlaybackDisabled: "Audio playback is disabled",
-      closeDrawer: "Close drawer",
-      closePopup: "Close popup",
-      previousSubtitle: "Previous subtitle",
-      nextSubtitle: "Next subtitle",
-      copySubtitle: "Copy subtitle",
-      toggleImageReading: "Toggle image reading",
-      readImagesNow: "Read images now",
-      gradeNothing: "Grade NOTHING",
-      gradeSomething: "Grade SOMETHING",
-      gradeHard: "Grade HARD",
-      gradeOkay: "Grade OKAY",
-      gradeEasy: "Grade EASY",
-      gradeFail: "Pass/fail: FAIL",
-      gradePass: "Pass/fail: PASS",
-      helpLinksTitle: "Useful pages",
-      helpLinksCopy: "Open the hosted reader tools and docs from here.",
-      helpSupportTitle: "Support よむ",
-      helpSupportCopy: "よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as Migaku currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.",
-      helpSupportCopyExtra: "Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.",
-      videoPlayer: "Video Player",
-      newTabPage: "New Tab",
-      docs: "Docs",
-      factoryReset: "Factory Reset",
-      issues: "Issues",
-      donate: "Donate",
-      discord: "Discord",
-      documentation: "Documentation",
-      openOnJpdb: "Open on JPDB",
-      copyWord: "Copy",
-      copyWordTitle: "Copy word",
-      copiedWord: "Copied word.",
-      backToWord: "Back to word",
-      backToKanji: "Back to kanji",
-      previousKanji: "Previous kanji",
-      nextKanji: "Next kanji",
-      openKanjiOnJpdb: "Open kanji on JPDB",
-      strokePractice: "Stroke order + practice",
-      practiceDrawing: "Practice drawing",
-      strokes: "strokes",
-      textTrace: "text trace",
-      hideTrace: "Hide trace",
-      showTrace: "Show trace",
-      clear: "Clear",
-      originStructure: "Component graph",
-      originMapLabel: "2D kanji origin and component map",
-      originShowSubcomponents: "Subcomponents",
-      originShowOutbound: "Outbounds",
-      kanjiMapData: "Kanji Map data",
-      kanjiAlive: "Kanji Alive",
-      wiktionary: "Wiktionary",
-      radical: "Radical",
-      readingsComponents: "Readings and components",
-      showKanji: "Show kanji",
-      jpdbMnemonic: "JPDB mnemonic",
-      rtkComponentKeywords: "RTK component keywords",
-      onReading: "On",
-      kunReading: "Kun",
-      heisigStory: "Heisig story",
-      heisigComment: "Heisig comment",
-      koohiiStories: "Koohii stories",
-      add: "Add",
-      addToMining: "Add to deck",
-      addToMiningHint: "Add this card to your selected JPDB deck.",
-      addToDeck: "Add to deck",
-      addToDeckHint: "Add this card to the selected JPDB deck without grading it.",
-      deck: "Deck",
-      deckActions: "Deck actions",
-      miningActions: "Mining actions",
-      reviewAddsToDeck: "Reviewing will add new words to",
-      reviewBlockedBlacklisted: "This word is blacklisted. Unlist it before reviewing.",
-      reviewBlockedNeverForget: "This word is marked never forget. Remove never-forget before reviewing.",
-      forget: "Forget",
-      never: "Never forget",
-      neverHint: "Move to your never-forget deck. Use this for words you know and still want counted as known.",
-      forgetHint: "Remove this word from your never-forget deck so it can be mined or reviewed again.",
-      unlist: "Unlist",
-      unlistHint: "Remove this word from your blacklist so it can be mined or reviewed again.",
-      blacklist: "Blacklist",
-      blacklistHint: "Ignore this exact word. Use this for particles, kana, or words you do not want to mine.",
-      addToAnki: "Add to Anki",
-      noDefinitions: "No enabled definition source returned results.",
-      fallbackSetupTitle: "Start with a dictionary",
-      fallbackSetupCopy: "No JPDB key or local dictionary is connected yet. This setup card can still copy the term, play browser audio, open external lookup links, and inspect kanji.",
-      fallbackSetupDictionaries: "Add dictionaries",
-      fallbackSetupJpdb: "Add JPDB key"
-    }
-  };
-  function resolveUiLanguage(_language) {
-    return "en";
-  }
-  function uiText(_language, key) {
-    return COPY.en[key];
-  }
   function renderAnkiActionRow(ankiLookup, settings) {
     if (!settings.ankiEnabled) return "";
     if (ankiLookup.primary) return "";
     return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${uiText(settings.interfaceLanguage, "addToAnki")}</button></div>`;
   }
-  function renderAnkiExistingSection(ankiLookup, storedContext) {
+  function renderAnkiExistingSection(ankiLookup, storedContext, language) {
     const note = ankiLookup.primary;
     if (!note) return "";
-    const preview = ankiExistingPreview(note, storedContext);
+    const preview = ankiExistingPreview(note, storedContext, language);
     return `
         <details class="jpdb-reader-anki-existing">
             <summary>
@@ -10100,24 +12769,25 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
                 ${preview.renderedCard}
                 ${preview.fields}
                 ${preview.context}
-                ${renderAnkiNoteActions(note)}
+                ${renderAnkiNoteActions(note, language)}
             </div>
         </details>
     `;
   }
-  function ankiExistingPreview(note, storedContext) {
+  function ankiExistingPreview(note, storedContext, language) {
     return {
       decks: note.deckNames.length ? note.deckNames.join(", ") : "Anki",
-      renderedCard: renderAnkiRenderedCard(note),
-      fields: renderAnkiFields(note),
-      context: storedContext ? renderLastMiningContext(storedContext) : ""
+      renderedCard: renderAnkiRenderedCard(note, language),
+      fields: renderAnkiFields(note, language),
+      context: storedContext ? renderLastMiningContext(storedContext, language) : ""
     };
   }
-  function renderAnkiRenderedCard(note) {
+  function renderAnkiRenderedCard(note, language) {
     const card = primaryRenderedCard(note);
     if (!card) return "";
-    const question = renderAnkiRenderedSide("Front", card.question);
-    const answer = renderAnkiRenderedSide("Back", card.answer);
+    const soundFilenames = ankiSoundFilenames(note);
+    const question = renderAnkiRenderedSide(uiText(language, "front"), card.question, soundFilenames, language);
+    const answer = renderAnkiRenderedSide(uiText(language, "back"), card.answer, soundFilenames, language);
     if (!question && !answer) return "";
     return `<div class="jpdb-reader-anki-rendered-card">${question}${answer}</div>`;
   }
@@ -10126,47 +12796,51 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     if (!cards.length) return null;
     return cards.find((card) => card.cardId === note.primaryCardId) ?? cards[0] ?? null;
   }
-  function renderAnkiRenderedSide(label, value) {
-    const html = sanitizeAnkiCardHtml(value);
+  function renderAnkiRenderedSide(label, value, soundFilenames, language) {
+    const html = sanitizeAnkiCardHtml(value, soundFilenames, language);
     if (!html) return "";
     return `<section class="jpdb-reader-anki-rendered-side">
         <strong>${label}</strong>
         <div class="jpdb-reader-anki-rendered-side-body">${html}</div>
     </section>`;
   }
-  function renderAnkiFields(note) {
+  function renderAnkiFields(note, language) {
     const fields = Object.entries(note.fields).map(([name, value]) => ({ name, value: value.trim() })).filter((field) => field.value).slice(0, 14);
     if (!fields.length) return "";
     return `<div class="jpdb-reader-anki-fields">
-        ${fields.map((field) => previewField(field.name, field.value)).join("")}
+        ${fields.map((field) => previewField(field.name, field.value, language)).join("")}
     </div>`;
   }
-  function previewField(label, value) {
-    return `<div class="jpdb-reader-anki-field"><strong>${escapeHtml$1(label)}</strong><span>${renderFieldText(value)}</span></div>`;
+  function previewField(label, value, language) {
+    return `<div class="jpdb-reader-anki-field"><strong>${escapeHtml$1(label)}</strong><span>${renderFieldText(value, language)}</span></div>`;
   }
-  function renderFieldText(value) {
+  function renderFieldText(value, language) {
     return escapeHtml$1(value).replace(
       /\[sound:([^\]]+)]/gi,
-      (_, filename) => `<span class="jpdb-reader-anki-sound">Audio ${escapeHtml$1(filename)}</span>`
+      (_, filename) => renderAnkiSoundChip(filename, language)
     );
   }
-  function renderAnkiNoteActions(note) {
+  function renderAnkiSoundChip(filename, language) {
+    const label = ankiAudioLabel(filename, language);
+    return `<button class="jpdb-reader-anki-sound" type="button" data-action="anki-media-audio" data-anki-media-name="${escapeHtml$1(filename)}" title="${escapeHtml$1(label)}">${escapeHtml$1(label)}</button>`;
+  }
+  function renderAnkiNoteActions(note, language) {
     return `<div class="jpdb-reader-anki-note-actions">
-        ${renderAnkiAudioMergeSelect(note)}
+        ${renderAnkiAudioMergeSelect(note, language)}
         <div class="jpdb-reader-anki-note-action-row">
-            <button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}" title="Update matching fields and add Yomu media to this note">Merge Yomu</button>
-            <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${note.noteId}">Edit in Anki</button>
+            <button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}" title="${escapeHtml$1(uiText(language, "mergeYomuTitle"))}">${escapeHtml$1(uiText(language, "mergeYomu"))}</button>
+            <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${note.noteId}">${escapeHtml$1(uiText(language, "editInAnki"))}</button>
         </div>
     </div>`;
   }
-  function renderAnkiAudioMergeSelect(note) {
+  function renderAnkiAudioMergeSelect(note, language) {
     if (!noteHasAudio(note)) return "";
     return `<label class="jpdb-reader-anki-audio-merge">
-        <span>Audio</span>
+        <span>${escapeHtml$1(uiText(language, "audio"))}</span>
         <select data-anki-audio-merge>
-            <option value="both">Keep both</option>
-            <option value="theirs">Keep Anki</option>
-            <option value="ours">Use Yomu</option>
+            <option value="both">${escapeHtml$1(uiText(language, "keepBothAudio"))}</option>
+            <option value="theirs">${escapeHtml$1(uiText(language, "keepAnkiAudio"))}</option>
+            <option value="ours">${escapeHtml$1(uiText(language, "useYomuAudio"))}</option>
         </select>
     </label>`;
   }
@@ -10175,13 +12849,14 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       ([name, value]) => /audio|sound|voice|pronunciation/i.test(name) || /\[sound:[^\]]+]/i.test(value)
     );
   }
-  function sanitizeAnkiCardHtml(value) {
+  function sanitizeAnkiCardHtml(value, soundFilenames, language) {
     const trimmed = value.trim();
     if (!trimmed) return "";
     if (typeof document === "undefined") return escapeHtml$1(trimmed);
     const template = document.createElement("template");
     template.innerHTML = trimmed;
     sanitizeAnkiCardFragment(template.content);
+    replaceAnkiPlaybackMarkers(template.content, soundFilenames, language);
     return template.innerHTML.trim();
   }
   function sanitizeAnkiCardFragment(fragment) {
@@ -10193,6 +12868,44 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (shouldRemoveAnkiCardAttribute(attr.name, attr.value)) element2.removeAttribute(attr.name);
     }
   }
+  function replaceAnkiPlaybackMarkers(root, soundFilenames, language) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+    textNodes.forEach((node) => replaceAnkiPlaybackMarkerText(node, soundFilenames, language));
+  }
+  function replaceAnkiPlaybackMarkerText(node, soundFilenames, language) {
+    var _a2;
+    const parts = ((_a2 = node.textContent) == null ? void 0 : _a2.split(/(\[anki:play:[^\]]+])/gi)) ?? [];
+    if (parts.length < 2) return;
+    const fragment = document.createDocumentFragment();
+    for (const part of parts) {
+      if (!part) continue;
+      fragment.append(ankiPlaybackMarkerNode(part, soundFilenames, language) ?? document.createTextNode(part));
+    }
+    node.replaceWith(fragment);
+  }
+  function ankiPlaybackMarkerNode(value, soundFilenames, language) {
+    const match = /^\[anki:play:[^:\]]+:(\d+)]$/i.exec(value);
+    if (!match) return null;
+    const filename = soundFilenames[Number(match[1])] ?? soundFilenames[0] ?? "";
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "jpdb-reader-anki-sound jpdb-reader-anki-playback-marker";
+    chip.dataset.action = "anki-media-audio";
+    if (filename) chip.dataset.ankiMediaName = filename;
+    chip.title = filename ? ankiAudioLabel(filename, language) : uiText(language, "ankiAudioUnavailablePreview");
+    chip.disabled = !filename;
+    chip.textContent = uiText(language, "audio");
+    return chip;
+  }
+  function ankiSoundFilenames(note) {
+    const filenames = Object.values(note.fields).flatMap((value) => Array.from(value.matchAll(/\[sound:([^\]]+)]/gi), (match) => {
+      var _a2;
+      return ((_a2 = match[1]) == null ? void 0 : _a2.trim()) ?? "";
+    })).filter(Boolean);
+    return [...new Set(filenames)];
+  }
   function shouldRemoveAnkiCardAttribute(name, value) {
     const lowerName = name.toLowerCase();
     if (lowerName.startsWith("on") || lowerName === "srcdoc") return true;
@@ -10203,12 +12916,21 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const trimmed = value.trim();
     return /^(javascript|vbscript):/i.test(trimmed) || /^data:text\/html/i.test(trimmed);
   }
-  function renderLastMiningContext(context) {
-    return `<div class="jpdb-reader-anki-context"><strong>Last seen</strong><span>${escapeHtml$1(contextLabel(context))}</span><small>${escapeHtml$1(context.sentence)}</small></div>`;
+  function renderLastMiningContext(context, language) {
+    return `<div class="jpdb-reader-anki-context"><strong>${escapeHtml$1(uiText(language, "lastSeen"))}</strong><span>${escapeHtml$1(localizedContextLabel(context, language))}</span><small>${escapeHtml$1(context.sentence)}</small></div>`;
+  }
+  function localizedContextLabel(context, language) {
+    if (context.sourceKind === "immersion-kit" && context.immersionIndex !== void 0 && context.immersionTotal) {
+      return `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}`;
+    }
+    if (context.sourceKind === "video" && context.sourceTitle) return `${uiText(language, "contextVideo")}: ${context.sourceTitle}`;
+    if (context.sourceKind === "image" && context.sourceTitle) return `${uiText(language, "contextImage")}: ${context.sourceTitle}`;
+    if (context.sourceKind === "jpdb" && context.sourceTitle) return `JPDB: ${context.sourceTitle}`;
+    return context.sourceTitle || context.sourceUrl || uiText(language, "contextCurrentPage");
   }
   function renderReviewButtons(settings, ankiNote = null, options = {}) {
     const ankiAttrs = (ankiNote == null ? void 0 : ankiNote.primaryCardId) ? ` data-anki-card-id="${ankiNote.primaryCardId}"` : "";
-    const disabledAttrs = reviewButtonDisabledAttrs(options);
+    const disabledAttrs = reviewButtonDisabledAttrs(options, settings.interfaceLanguage);
     const grades = reviewButtonGrades(settings);
     return `
         <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}">
@@ -10216,12 +12938,17 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         </div>
     `;
   }
-  function reviewButtonDisabledAttrs(options) {
-    if (options.disabled) return ` disabled title="${escapeHtml$1(options.title || "Unavailable")}"`;
+  function reviewButtonDisabledAttrs(options, language) {
+    if (options.disabled) return ` disabled title="${escapeHtml$1(options.title || uiText(language, "unavailable"))}"`;
     return options.title ? ` title="${escapeHtml$1(options.title)}"` : "";
   }
   function reviewButtonGrades(settings) {
-    return settings.twoButtonReviews ? [["fail", "Fail"], ["pass", "Pass"]] : [["nothing", "Nothing"], ["something", "Something"], ["hard", "Hard"], ["okay", "Okay"], ["easy", "Easy"]];
+    const language = settings.interfaceLanguage;
+    return settings.twoButtonReviews ? [["fail", uiText(language, "gradeFailLabel")], ["pass", uiText(language, "gradePassLabel")]] : [["nothing", uiText(language, "gradeNothingLabel")], ["something", uiText(language, "gradeSomethingLabel")], ["hard", uiText(language, "gradeHardLabel")], ["okay", uiText(language, "gradeOkayLabel")], ["easy", uiText(language, "gradeEasyLabel")]];
+  }
+  function ankiAudioLabel(filename, language) {
+    const audio = uiText(language, "audio");
+    return filename ? `${audio} ${filename}` : audio;
   }
   const DEFAULT_POPOVER_WRITING_MODE = "horizontal-tb";
   const SUPPORTED_POPOVER_WRITING_MODES = /* @__PURE__ */ new Set([
@@ -10529,6 +13256,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
   const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
   const MAX_LOCAL_GRAMMAR_HINTS = 12;
+  const ENGLISH_TEXT_RE = /[A-Za-z]{3,}/u;
+  const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
   function gp(ruleId, level, name, source, kind, short, detail, url, examples, confidence = "medium", priority = 30) {
     return { ruleId, level, pattern: new RegExp(source, "u"), name, kind, short, detail, url, confidence, priority, examples };
   }
@@ -10802,23 +13531,12 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       selected.push(item);
       if (selected.length >= MAX_LOCAL_GRAMMAR_HINTS) break;
     }
-    return selected.sort(compareGrammarHints$1).map(({ priority: _priority, ...hint }) => hint);
-  }
-  function mergeGrammarHints(primary, fallback, limit = MAX_LOCAL_GRAMMAR_HINTS) {
-    const seen = /* @__PURE__ */ new Set();
-    const merged = [];
-    for (const hint of [...primary].sort(compareGrammarHints$1).concat([...fallback].sort(compareGrammarHints$1))) {
-      const key = `${hint.ruleId}:${hint.match}`;
-      if (seen.has(key) || merged.some((existing) => isDuplicateGrammarHint(existing, hint))) continue;
-      seen.add(key);
-      merged.push(hint);
-    }
-    return merged.sort(compareGrammarHints$1).slice(0, limit);
+    return selected.sort(compareGrammarHints).map(({ priority: _priority, ...hint }) => hint);
   }
   function compareRankedGrammarHints(a, b) {
     return a.priority - b.priority || a.index - b.index || b.match.length - a.match.length || a.name.localeCompare(b.name);
   }
-  function compareGrammarHints$1(a, b) {
+  function compareGrammarHints(a, b) {
     return a.index - b.index || a.name.localeCompare(b.name);
   }
   function shouldSuppressOverlappingGrammarHint(existing, next) {
@@ -10832,36 +13550,13 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const nextInsideExisting = next.index >= existing.index && nextEnd <= existingEnd;
     return nextInsideExisting && existing.priority <= next.priority && existing.match.length > next.match.length;
   }
-  function isDuplicateGrammarHint(existing, next) {
-    if (sameGrammarHintLocation(existing, next)) return true;
-    const existingHanabira = existing.ruleId.startsWith("hanabira-");
-    const nextHanabira = next.ruleId.startsWith("hanabira-");
-    if (!differentGrammarSourcesOverlap(existing, next, existingHanabira, nextHanabira)) return false;
-    const { hanabira, local } = splitHanabiraLocalHints(existing, next, existingHanabira);
-    return hanabiraHintContainsLocalText(hanabira, local);
-  }
   function sameGrammarHintLocation(existing, next) {
     return existing.match === next.match && existing.index === next.index;
-  }
-  function differentGrammarSourcesOverlap(existing, next, existingHanabira, nextHanabira) {
-    return existingHanabira !== nextHanabira && grammarHintRangesOverlap(existing, next);
-  }
-  function splitHanabiraLocalHints(existing, next, existingHanabira) {
-    return existingHanabira ? { hanabira: existing, local: next } : { hanabira: next, local: existing };
-  }
-  function hanabiraHintContainsLocalText(hanabira, local) {
-    const hanabiraName = normalizeGrammarTextForDedupe(hanabira.name);
-    const localName = normalizeGrammarTextForDedupe(local.name);
-    const localMatch = normalizeGrammarTextForDedupe(local.match);
-    return Boolean(localName && hanabiraName.includes(localName)) || Boolean(localMatch && localMatch.length >= 3 && hanabiraName.includes(localMatch));
   }
   function grammarHintRangesOverlap(a, b) {
     const aEnd = a.index + a.match.length;
     const bEnd = b.index + b.match.length;
     return a.index < bEnd && b.index < aEnd;
-  }
-  function normalizeGrammarTextForDedupe(value) {
-    return value.normalize("NFKC").replace(/[^\p{Letter}\p{Number}ぁ-んァ-ン一-龯々〆ヵヶ]/gu, "").toLowerCase();
   }
   function readGrammarPreferences() {
     var _a2;
@@ -10905,25 +13600,27 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     writeGrammarPreferences(next);
     return next;
   }
-  async function translateJapaneseSentence(sentence) {
+  async function translateJapaneseSentence(sentence, language = "en") {
     const trimmed = sentence.trim();
     if (!trimmed) return "";
-    const cached = translationCache.get(trimmed);
+    const targetLanguage = translationTargetLanguage(language);
+    const cacheKey = `${targetLanguage}:${trimmed}`;
+    const cached = translationCache.get(cacheKey);
     if (cached) {
       return cached;
     }
-    const inFlight = translationInFlight.get(trimmed);
+    const inFlight = translationInFlight.get(cacheKey);
     if (inFlight) {
       return inFlight;
     }
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&dt=bd&dj=1&q=${encodeURIComponent(trimmed)}`;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(trimmed)}`;
     const promise = (async () => {
       const done = log$q.time("Translate sentence", { sentenceLength: trimmed.length });
       try {
-        const json = await requestJson$3(url);
+        const json = await requestJson$2(url);
         const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
         if (!translated) throw new Error("No translation returned.");
-        translationCache.set(trimmed, translated);
+        translationCache.set(cacheKey, translated);
         log$q.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
         return translated;
       } catch (error) {
@@ -10933,23 +13630,26 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         done();
       }
     })();
-    translationInFlight.set(trimmed, promise);
+    translationInFlight.set(cacheKey, promise);
     void promise.then(() => {
-      if (translationInFlight.get(trimmed) === promise) translationInFlight.delete(trimmed);
+      if (translationInFlight.get(cacheKey) === promise) translationInFlight.delete(cacheKey);
     }, () => {
-      if (translationInFlight.get(trimmed) === promise) translationInFlight.delete(trimmed);
+      if (translationInFlight.get(cacheKey) === promise) translationInFlight.delete(cacheKey);
     });
     return promise;
   }
-  function renderGrammarHints(hints, sentence, preferences = readGrammarPreferences()) {
+  function translationTargetLanguage(language) {
+    return language === "ja" ? "ja" : "en";
+  }
+  function renderGrammarHints(hints, sentence, preferences = readGrammarPreferences(), language = "en") {
     if (!hints.length) return "";
     const knownRuleIds = new Set(preferences.knownRuleIds);
     const visibleHints = visibleGrammarHints(hints, knownRuleIds, preferences.showKnown);
     const knownCount = countKnownGrammarHints(hints, knownRuleIds);
     return `
         ${renderGrammarSentence(sentence)}
-        ${renderGrammarToolbar(visibleHints.length, knownCount, preferences.showKnown)}
-        ${renderGrammarHintList(visibleHints, knownRuleIds)}`;
+        ${renderGrammarToolbar(visibleHints.length, knownCount, preferences.showKnown, language)}
+        ${renderGrammarHintList(visibleHints, knownRuleIds, language)}`;
   }
   function visibleGrammarHints(hints, knownRuleIds, showKnown) {
     return showKnown ? hints : hints.filter((hint) => !knownRuleIds.has(hint.ruleId));
@@ -10963,58 +13663,88 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
             <div class="jpdb-reader-study-original jpdb-reader-parseable">${escapeHtml$1(sentence)}</div>
         </div>`;
   }
-  function renderGrammarToolbar(visibleCount, knownCount, showKnown) {
+  function renderGrammarToolbar(visibleCount, knownCount, showKnown, language) {
     const hiddenKnownCount = showKnown ? 0 : knownCount;
     return `
         <div class="jpdb-reader-grammar-toolbar" data-grammar-toolbar>
-            <div class="jpdb-reader-grammar-summary">${escapeHtml$1(grammarSummary(visibleCount, hiddenKnownCount))}</div>
-            ${renderGrammarKnownVisibilityButton(knownCount, showKnown)}
+            <div class="jpdb-reader-grammar-summary">${escapeHtml$1(grammarSummary(visibleCount, hiddenKnownCount, language))}</div>
+            ${renderGrammarKnownVisibilityButton(knownCount, showKnown, language)}
         </div>`;
   }
-  function renderGrammarKnownVisibilityButton(knownCount, showKnown) {
+  function renderGrammarKnownVisibilityButton(knownCount, showKnown, language) {
     if (!knownCount) return "";
-    const label = showKnown ? "Hide known" : "Show known";
+    const label = showKnown ? uiText(language, "grammarHideKnown") : uiText(language, "grammarShowKnown");
     return `<button class="jpdb-reader-grammar-toggle" type="button" data-action="study-grammar-toggle-known-visibility" aria-pressed="${showKnown ? "true" : "false"}">${label}</button>`;
   }
-  function renderGrammarHintList(visibleHints, knownRuleIds) {
-    if (!visibleHints.length) return `<div class="jpdb-reader-study-empty">All detected grammar for this sentence is marked known.</div>`;
+  function renderGrammarHintList(visibleHints, knownRuleIds, language) {
+    if (!visibleHints.length) return `<div class="jpdb-reader-study-empty">${escapeHtml$1(uiText(language, "allDetectedGrammarKnown"))}</div>`;
     return `<ol class="jpdb-reader-study-list" data-grammar-list>
-        ${visibleHints.map((hint) => renderGrammarHintItem(hint, knownRuleIds.has(hint.ruleId))).join("")}
+        ${visibleHints.map((hint) => renderGrammarHintItem(hint, knownRuleIds.has(hint.ruleId), language)).join("")}
         </ol>`;
   }
-  function renderGrammarHintItem(hint, known) {
+  function renderGrammarHintItem(hint, known, language) {
+    const copy = grammarHintCopy(hint, language);
+    const displayName = grammarDisplayName(hint, language);
     return `
             <li class="jpdb-reader-study-item${known ? " known" : ""}" data-grammar-rule-id="${escapeHtml$1(hint.ruleId)}">
                 <div class="jpdb-reader-study-name">
-                    <span>${escapeHtml$1(hint.name)}</span>
-                    <span class="jpdb-reader-grammar-level">${escapeHtml$1(hint.level)}</span>
+                    <span>${escapeHtml$1(displayName)}</span>
+                    <span class="jpdb-reader-grammar-level">${escapeHtml$1(grammarLevelText(hint.level, language))}</span>
                 </div>
                 <div class="jpdb-reader-study-body">
                     <div class="jpdb-reader-study-item-head">
-                        <div class="jpdb-reader-study-kind">${escapeHtml$1(hint.kind)}</div>
-                        <button class="jpdb-reader-grammar-known" type="button" data-action="study-grammar-toggle-known" data-grammar-rule-id="${escapeHtml$1(hint.ruleId)}" data-grammar-known="${known ? "true" : "false"}" aria-pressed="${known ? "true" : "false"}">${known ? "Review" : "Known"}</button>
+                        <div class="jpdb-reader-study-kind">${escapeHtml$1(copy.kind)}</div>
+                        <button class="jpdb-reader-grammar-known" type="button" data-action="study-grammar-toggle-known" data-grammar-rule-id="${escapeHtml$1(hint.ruleId)}" data-grammar-known="${known ? "true" : "false"}" aria-pressed="${known ? "true" : "false"}">${known ? uiText(language, "grammarReview") : uiText(language, "grammarKnown")}</button>
                     </div>
-                    <div class="jpdb-reader-study-short">${escapeHtml$1(hint.short)}</div>
+                    <div class="jpdb-reader-study-short">${escapeHtml$1(copy.short)}</div>
                     <details class="jpdb-reader-grammar-more">
-                        <summary>Details</summary>
-                        <div class="jpdb-reader-study-detail">${escapeHtml$1(hint.detail)}</div>
-                        <div class="jpdb-reader-study-match"><span>Found in</span>${escapeHtml$1(hint.match)}</div>
-                        ${renderGrammarHintExamples(hint)}
-                        ${renderGrammarHintGuide(hint)}
+                        <summary>${escapeHtml$1(uiText(language, "grammarDetails"))}</summary>
+                        <div class="jpdb-reader-study-detail">${escapeHtml$1(copy.detail)}</div>
+                        <div class="jpdb-reader-study-match"><span>${escapeHtml$1(uiText(language, "grammarFoundIn"))}</span>${escapeHtml$1(hint.match)}</div>
+                        ${renderGrammarHintExamples(hint, language)}
+                        ${renderGrammarHintGuide(hint, language)}
                     </details>
                 </div>
             </li>`;
   }
-  function renderGrammarHintExamples(hint) {
+  function grammarHintCopy(hint, language) {
+    const fallback = { kind: hint.kind, short: hint.short, detail: hint.detail };
+    if (language !== "ja") return fallback;
+    const ruleCopy = grammarRuleText(language, hint.ruleId);
+    if (ruleCopy) return ruleCopy;
+    const name = grammarDisplayName(hint, language);
+    return {
+      kind: hint.kind === "Hanabira grammar" ? uiText(language, "grammarKindHanabira") : uiText(language, "grammar"),
+      short: interpolateUiText(language, "grammarGenericShort", { name, match: hint.match }),
+      detail: interpolateUiText(language, "grammarGenericDetail", { name, match: hint.match })
+    };
+  }
+  function grammarLevelText(level, language) {
+    return language === "ja" && level === "Core" ? uiText(language, "grammarLevelCore") : level;
+  }
+  function grammarDisplayName(hint, language) {
+    if (language !== "ja" || !ENGLISH_TEXT_RE.test(hint.name)) return hint.name;
+    if (JAPANESE_TEXT_RE.test(hint.match)) return hint.match;
+    return japaneseGrammarText(hint.name) || hint.name;
+  }
+  function japaneseGrammarText(value) {
+    return (value.match(/[ぁ-んァ-ヶ一-龯々〆ヵヶー〜]+/gu) ?? []).join(" / ");
+  }
+  function interpolateUiText(language, key, values) {
+    return uiText(language, key).replace(/\{(\w+)}/g, (_, name) => values[name] ?? "");
+  }
+  function renderGrammarHintExamples(hint, language) {
     const examples = (hint.examples ?? []).slice(0, 2);
     if (!examples.length) return "";
-    return `<div class="jpdb-reader-grammar-examples"><span>Example</span>${examples.map((example) => renderGrammarExample(example)).join("")}</div>`;
+    return `<div class="jpdb-reader-grammar-examples"><span>${escapeHtml$1(uiText(language, "grammarExample"))}</span>${examples.map((example) => renderGrammarExample(example, language)).join("")}</div>`;
   }
-  function renderGrammarExample(example) {
-    return `<div class="jpdb-reader-grammar-example jpdb-reader-parseable"><div>${escapeHtml$1(example.japanese)}</div><div>${escapeHtml$1(example.english)}</div>${example.note ? `<div>${escapeHtml$1(example.note)}</div>` : ""}</div>`;
+  function renderGrammarExample(example, language) {
+    const english = language === "ja" || !example.english ? "" : `<div>${escapeHtml$1(example.english)}</div>`;
+    const note = language === "ja" || !example.note || ENGLISH_TEXT_RE.test(example.note) ? "" : `<div>${escapeHtml$1(example.note)}</div>`;
+    return `<div class="jpdb-reader-grammar-example jpdb-reader-parseable"><div>${escapeHtml$1(example.japanese)}</div>${english}${note}</div>`;
   }
-  function renderGrammarHintGuide(hint) {
-    return hint.url ? `<a class="jpdb-reader-study-guide" href="${escapeHtml$1(hint.url)}" target="_blank" rel="noopener">Guide</a>` : "";
+  function renderGrammarHintGuide(hint, language) {
+    return hint.url ? `<a class="jpdb-reader-study-guide" href="${escapeHtml$1(hint.url)}" target="_blank" rel="noopener">${escapeHtml$1(uiText(language, "grammarGuide"))}</a>` : "";
   }
   function grammarMatches(item, sentence) {
     const flags = item.pattern.flags.includes("g") ? item.pattern.flags : `${item.pattern.flags}g`;
@@ -11040,9 +13770,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       };
     }).filter((hint) => hint.match.length > 0);
   }
-  function grammarSummary(visibleCount, hiddenKnownCount) {
-    if (hiddenKnownCount) return `${visibleCount} shown · ${hiddenKnownCount} known hidden`;
-    return `${visibleCount} shown`;
+  function grammarSummary(visibleCount, hiddenKnownCount, language) {
+    const shown = `${visibleCount} ${uiText(language, "grammarShown")}`;
+    if (hiddenKnownCount) return `${shown} · ${hiddenKnownCount} ${uiText(language, "grammarKnownHidden")}`;
+    return shown;
   }
   const LEARNER_MATCH_ENDING_NAMES = /* @__PURE__ */ new Set([
     "たい",
@@ -11090,7 +13821,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const afterLastParticle = match.replace(/^.*[はがをにへともやの]/u, "");
     return afterLastParticle || match;
   }
-  function requestJson$3(url) {
+  function requestJson$2(url) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
       return new Promise((resolve, reject) => {
@@ -11127,17 +13858,17 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     });
   }
   const log$p = Logger.scope("StudyRender");
-  async function renderStudyToolResult(button2, action, sentence, grammarHints) {
+  async function renderStudyToolResult(button2, action, sentence, grammarHints, language = "en") {
     var _a2;
     const panel = (_a2 = button2.closest(".jpdb-reader-study-tools")) == null ? void 0 : _a2.querySelector("[data-study-panel]");
     if (!panel || !sentence) return;
     panel.hidden = false;
-    panel.textContent = studyToolPendingText(action);
+    panel.textContent = studyToolPendingText(action, language);
     const done = log$p.time("studyTool", { action, sentenceLength: sentence.length });
     if (action === "study-translate") {
       try {
-        const translated = await translateJapaneseSentence(sentence);
-        setInnerHtml(panel, `<div class="jpdb-reader-study-block jpdb-reader-study-meaning-block"><div class="jpdb-reader-study-label">Meaning</div><div class="jpdb-reader-study-translation">${escapeHtml$1(translated)}</div></div>`);
+        const translated = await translateJapaneseSentence(sentence, language);
+        setInnerHtml(panel, `<div class="jpdb-reader-study-block jpdb-reader-study-meaning-block"><div class="jpdb-reader-study-label">${escapeHtml$1(uiText(language, "meaning"))}</div><div class="jpdb-reader-study-translation">${escapeHtml$1(translated)}</div></div>`);
         return;
       } finally {
         done();
@@ -11150,40 +13881,40 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       done();
       return;
     }
-    setInnerHtml(panel, renderGrammarHints(hints, sentence));
+    setInnerHtml(panel, renderGrammarHints(hints, sentence, void 0, language));
     done();
   }
-  function studyToolPendingText(action) {
-    return action === "study-translate" ? "Translating..." : "Finding grammar...";
+  function studyToolPendingText(action, language) {
+    return action === "study-translate" ? uiText(language, "translating") : uiText(language, "findingGrammar");
   }
   function resolvedGrammarHints(sentence, grammarHints) {
     return grammarHints ?? detectGrammarHints(sentence);
   }
-  function handleStudyGrammarAction(button2, sentence) {
+  function handleStudyGrammarAction(button2, sentence, language = "en") {
     if (!sentence) return false;
     if (button2.dataset.action === "study-grammar-toggle-known") {
       const ruleId = button2.dataset.grammarRuleId;
       if (!ruleId) return false;
       setGrammarRuleKnown(ruleId, button2.dataset.grammarKnown !== "true");
-      rerenderGrammarPanel(button2, sentence);
+      rerenderGrammarPanel(button2, sentence, language);
       return true;
     }
     if (button2.dataset.action === "study-grammar-toggle-known-visibility") {
       setKnownGrammarVisible(button2.getAttribute("aria-pressed") !== "true");
-      rerenderGrammarPanel(button2, sentence);
+      rerenderGrammarPanel(button2, sentence, language);
       return true;
     }
     return false;
   }
-  function rerenderGrammarPanel(button2, sentence) {
+  function rerenderGrammarPanel(button2, sentence, language) {
     const panel = button2.closest(".jpdb-reader-study-panel");
     if (!panel) return;
     const hints = detectGrammarHints(sentence);
-    setInnerHtml(panel, renderGrammarHints(hints, sentence));
+    setInnerHtml(panel, renderGrammarHints(hints, sentence, void 0, language));
   }
-  function assertReviewableJpdbCardState(states) {
-    if (states.includes("blacklisted")) throw new Error("This word is blacklisted. Unlist it before reviewing.");
-    if (states.includes("never-forget")) throw new Error("This word is marked never forget. Remove never-forget before reviewing.");
+  function assertReviewableJpdbCardState(states, settings) {
+    if (states.includes("blacklisted")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedBlacklisted"));
+    if (states.includes("never-forget")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedNeverForget"));
   }
   class CardActionController {
     constructor(options) {
@@ -11210,22 +13941,23 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         "study-translate": () => this.performStudyTool(button2, action, sentence),
         "study-grammar": () => this.performStudyGrammarTool(button2, sentence),
         "study-read-sentence": () => this.performStudyReadSentence(sentence),
-        "jpdb-example-audio": () => this.performJpdbExampleAudio(button2)
+        "jpdb-example-audio": () => this.performJpdbExampleAudio(button2),
+        "anki-media-audio": () => this.performAnkiMediaAudio(button2)
       };
       return handlers[action];
     }
     performStudyGrammarToggle(button2, sentence) {
-      handleStudyGrammarAction(button2, sentence);
+      handleStudyGrammarAction(button2, sentence, this.options.getSettings().interfaceLanguage);
       void this.reparsePopoverJapanese(button2);
       return false;
     }
     async performStudyTool(button2, action, sentence) {
-      await renderStudyToolResult(button2, action, sentence);
+      await renderStudyToolResult(button2, action, sentence, void 0, this.options.getSettings().interfaceLanguage);
       void this.reparsePopoverJapanese(button2);
       return false;
     }
     async performStudyGrammarTool(button2, sentence) {
-      await renderStudyToolResult(button2, "study-grammar", sentence, sentence ? await this.options.detectGrammarHints(sentence) : void 0);
+      await renderStudyToolResult(button2, "study-grammar", sentence, sentence ? await this.options.detectGrammarHints(sentence) : void 0, this.options.getSettings().interfaceLanguage);
       void this.reparsePopoverJapanese(button2);
       return false;
     }
@@ -11238,6 +13970,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       const fallbackSentence = button2.dataset.jpdbExampleSentence ?? "";
       if (!this.options.playJpdbExampleAudio) await this.options.playSentenceAudio(fallbackSentence);
       else await this.options.playJpdbExampleAudio(audioIds, fallbackSentence);
+      return false;
+    }
+    async performAnkiMediaAudio(button2) {
+      await this.playAnkiMediaAudio(button2);
       return false;
     }
     performReaderAction(action, card) {
@@ -11282,10 +14018,12 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     }
     async performJpdbDeckMiningAction(action, card) {
       if (action === "neverforget") {
-        return this.finishMiningAction(this.changeJpdbDeckState(card, "never-forget", this.options.getSettings().neverForgetDeck, "Add a JPDB API key to change JPDB deck state."));
+        const settings = this.options.getSettings();
+        return this.finishMiningAction(this.changeJpdbDeckState(card, "never-forget", settings.neverForgetDeck, uiText(settings.interfaceLanguage, "jpdbDeckStateApiKeyRequired")));
       }
       if (action === "blacklist") {
-        return this.finishMiningAction(this.changeJpdbDeckState(card, "blacklisted", this.options.getSettings().blacklistDeck, "Add a JPDB API key to change JPDB deck state."));
+        const settings = this.options.getSettings();
+        return this.finishMiningAction(this.changeJpdbDeckState(card, "blacklisted", settings.blacklistDeck, uiText(settings.interfaceLanguage, "jpdbDeckStateApiKeyRequired")));
       }
       return void 0;
     }
@@ -11301,14 +14039,15 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       await this.options.parsePopoverJapanese(popover);
     }
     assertJpdbActionAllowed(card, message) {
-      if (!this.options.getSettings().jpdbMiningEnabled) throw new Error("JPDB actions are disabled in settings.");
-      if (!this.options.getSettings().apiKey.trim()) throw new Error(message);
+      const settings = this.options.getSettings();
+      if (!settings.jpdbMiningEnabled) throw new Error(uiText(settings.interfaceLanguage, "jpdbActionsDisabled"));
+      if (!settings.apiKey.trim()) throw new Error(message);
       if (!this.options.isJpdbBackedCard(card)) throw new Error(message);
     }
     assertJpdbReviewAllowed(card, message) {
       const settings = this.options.getSettings();
-      if (!settings.enableReviews) throw new Error("Review actions are disabled in settings.");
-      if (!settings.jpdbMiningEnabled) throw new Error("JPDB actions are disabled in settings.");
+      if (!settings.enableReviews) throw new Error(uiText(settings.interfaceLanguage, "reviewActionsDisabled"));
+      if (!settings.jpdbMiningEnabled) throw new Error(uiText(settings.interfaceLanguage, "jpdbActionsDisabled"));
       if (!settings.apiKey.trim()) throw new Error(message);
       if (!this.options.isJpdbBackedCard(card)) throw new Error(message);
     }
@@ -11319,23 +14058,32 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         await this.addToAnki(card, sentence, deck.id);
         return;
       }
-      this.assertJpdbActionAllowed(card, "Add a JPDB API key to add cards to JPDB, or use Add to Anki.");
+      this.assertJpdbActionAllowed(card, uiText(settings.interfaceLanguage, "jpdbAddApiKeyRequired"));
       await this.addToSelectedJpdbDeck(card, sentence, deck.id);
       if (shouldMineAnkiAlongsideJpdb(settings)) await this.addToAnki(card, sentence, settings.ankiDeck);
-      this.options.toast(`${uiText(settings.interfaceLanguage, "add")} JPDB.`);
+      this.options.toast(uiText(settings.interfaceLanguage, "addedToJpdb"));
     }
     async openAnkiNote(button2) {
+      const settings = this.options.getSettings();
       const noteId = Number(button2.dataset.noteId);
-      if (!Number.isFinite(noteId)) throw new Error("Anki note not found.");
+      if (!Number.isFinite(noteId)) throw new Error(uiText(settings.interfaceLanguage, "ankiNoteNotFound"));
       await this.options.anki.browseNote(noteId);
-      this.options.toast("Opened in Anki.");
+      this.options.toast(uiText(settings.interfaceLanguage, "openedInAnki"));
+    }
+    async playAnkiMediaAudio(button2) {
+      var _a2;
+      const settings = this.options.getSettings();
+      const filename = (_a2 = button2.dataset.ankiMediaName) == null ? void 0 : _a2.trim();
+      if (!filename) throw new Error(uiText(settings.interfaceLanguage, "ankiAudioFileNotFound"));
+      if (!this.options.playMediaUrl) throw new Error(uiText(settings.interfaceLanguage, "ankiAudioPlaybackUnavailable"));
+      await this.options.playMediaUrl(await this.options.anki.mediaFileDataUrl(filename));
     }
     async mergeExistingAnkiCard(button2, card, sentence) {
       var _a2, _b2;
       const settings = this.options.getSettings();
-      if (canUseMobileAnkiHandoff(settings)) throw new Error("Merging existing Anki notes needs AnkiConnect on desktop.");
+      if (canUseMobileAnkiHandoff(settings)) throw new Error(uiText(settings.interfaceLanguage, "ankiMergeNeedsDesktop"));
       const noteId = Number(button2.dataset.noteId);
-      if (!Number.isFinite(noteId)) throw new Error("Anki note not found.");
+      if (!Number.isFinite(noteId)) throw new Error(uiText(settings.interfaceLanguage, "ankiNoteNotFound"));
       const [dictionaryContext, context, wordAudio] = await Promise.all([
         this.loadAnkiDictionaryContext(card, settings),
         this.options.resolveMiningContext(card, sentence),
@@ -11353,7 +14101,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         sourceUrl: ankiSourceUrl(context.sourceUrl)
       });
       (_b2 = (_a2 = this.options).invalidateCardData) == null ? void 0 : _b2.call(_a2);
-      this.options.toast(ankiMergeToast(result));
+      this.options.toast(ankiMergeToast(result, settings));
       await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
         autoPlay: false,
         trigger: this.options.getActivePopoverMode() === "hover" ? "hover" : "modal",
@@ -11374,15 +14122,16 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       });
     }
     async reviewGrade(grade, card, sentence, options = {}) {
-      if (!this.options.getSettings().enableReviews) throw new Error("Review actions are disabled in settings.");
+      const settings = this.options.getSettings();
+      if (!settings.enableReviews) throw new Error(uiText(settings.interfaceLanguage, "reviewActionsDisabled"));
       if (options.ankiCardId) return this.options.anki.answerCard(options.ankiCardId, grade);
-      this.assertJpdbReviewAllowed(card, "Add a JPDB API key to review JPDB cards.");
+      this.assertJpdbReviewAllowed(card, uiText(settings.interfaceLanguage, "addJpdbApiKeyReview"));
       const states = normalizeCardStates(card.cardState);
-      assertReviewableJpdbCardState(states);
+      assertReviewableJpdbCardState(states, settings);
       const wasNotInDeck = states.includes("not-in-deck");
       if (wasNotInDeck) await this.addToSelectedJpdbDeck(card, sentence, this.reviewDeckId(options));
       await this.options.jpdb.reviewCard(card, grade);
-      if (wasNotInDeck) this.options.toast("Added to deck and reviewed.");
+      if (wasNotInDeck) this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
     }
     reviewDeckId(options) {
       return options.deckId || this.options.getSettings().miningDeck || "forq";
@@ -11394,7 +14143,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
           deckName,
           dictionaryPreferences: settings.dictionaryPreferences
         });
-        this.options.toast("Sent to Anki.");
+        this.options.toast(uiText(settings.interfaceLanguage, "sentToAnki"));
         return;
       }
       const existing = await this.options.anki.findExistingCards(card);
@@ -11415,10 +14164,11 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         sourceTitle: ankiSourceTitle(context.sourceTitle),
         sourceUrl: ankiSourceUrl(context.sourceUrl)
       });
-      this.options.toast(ankiSentToast(context, Boolean((wordAudio == null ? void 0 : wordAudio.dataUrl) || (wordAudio == null ? void 0 : wordAudio.url))));
+      this.options.toast(ankiSentToast(context, settings, Boolean((wordAudio == null ? void 0 : wordAudio.dataUrl) || (wordAudio == null ? void 0 : wordAudio.url))));
     }
     async showExistingAnkiCard(card, sentence) {
-      this.options.toast("Already in Anki. Use Edit in Anki instead.");
+      const settings = this.options.getSettings();
+      this.options.toast(uiText(settings.interfaceLanguage, "alreadyInAnki"));
       await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
         autoPlay: false,
         trigger: this.options.getActivePopoverMode() === "hover" ? "hover" : "modal",
@@ -11446,10 +14196,10 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     async toggleDeck(card, state, deck) {
       if (normalizeCardStates(card.cardState).includes(state)) {
         await this.options.jpdb.removeFromDeck(deck, card);
-        this.options.toast("Removed from deck.");
+        this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "removedFromDeck"));
       } else {
         await this.options.jpdb.addToDeck(deck, card);
-        this.options.toast("Added to deck.");
+        this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "addedToDeckToast"));
       }
     }
     async addToSelectedJpdbDeck(card, sentence, deckId) {
@@ -11462,21 +14212,23 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function miningSentenceForAnki(contextSentence, fallbackSentence) {
     return contextSentence || fallbackSentence;
   }
-  function ankiSentToast(context, hasWordAudio = false) {
+  function ankiSentToast(context, settings, hasWordAudio = false) {
+    const language = settings.interfaceLanguage;
     const hasAudio = Boolean(context.audioDataUrl || hasWordAudio);
-    if (context.imageDataUrl && hasAudio) return "Sent to Anki with context image and audio.";
-    if (context.imageDataUrl) return "Sent to Anki with context image.";
-    if (hasAudio) return "Sent to Anki with audio.";
-    return "Sent to Anki.";
+    if (context.imageDataUrl && hasAudio) return uiText(language, "sentToAnkiWithContextImageAndAudio");
+    if (context.imageDataUrl) return uiText(language, "sentToAnkiWithContextImage");
+    if (hasAudio) return uiText(language, "sentToAnkiWithAudio");
+    return uiText(language, "sentToAnki");
   }
-  function ankiMergeToast(result) {
-    if (!result.updatedFields.length && !result.audioAdded && !result.imageAdded) return "Anki note already has the available Yomu data.";
+  function ankiMergeToast(result, settings) {
+    const language = settings.interfaceLanguage;
+    if (!result.updatedFields.length && !result.audioAdded && !result.imageAdded) return uiText(language, "ankiMergeNoNewData");
     const parts = [
-      result.updatedFields.length ? `${result.updatedFields.length} fields` : "",
-      result.audioAdded ? "audio" : "",
-      result.imageAdded ? "image" : ""
+      result.updatedFields.length ? `${result.updatedFields.length} ${uiText(language, result.updatedFields.length === 1 ? "ankiMergeFieldSingular" : "ankiMergeFieldPlural")}` : "",
+      result.audioAdded ? uiText(language, "ankiMergeAudio") : "",
+      result.imageAdded ? uiText(language, "ankiMergeImage") : ""
     ].filter(Boolean);
-    return `Merged Yomu data into Anki (${parts.join(", ")}).`;
+    return uiText(language, "ankiMergeComplete").replace("{parts}", parts.join(", "));
   }
   function selectedAnkiAudioMergeMode(button2) {
     var _a2, _b2;
@@ -11811,13 +14563,31 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     ["vi", "intransitive"],
     ["vt", "transitive"]
   ]);
-  function localTermTags(entries) {
-    const tags = entries.flatMap((entry) => [entry.definitionTags, entry.termTags, entry.rules]).flatMap((value) => typeof value === "string" ? value.split(LOCAL_TAG_SPLIT_RE) : []).map((value) => value.trim()).map(localTermTagLabel).filter(Boolean);
+  const LOCAL_TERM_TAG_LABELS_JA = /* @__PURE__ */ new Map([
+    ["n", "名詞"],
+    ["pn", "代名詞"],
+    ["r", "まれ"],
+    ["uk", "かな表記が多い"],
+    ["adj-i", "い形容詞"],
+    ["adj-na", "な形容詞"],
+    ["adv", "副詞"],
+    ["exp", "表現"],
+    ["int", "感動詞"],
+    ["prt", "助詞"],
+    ["suf", "接尾辞"],
+    ["pref", "接頭辞"],
+    ["vs", "する動詞"],
+    ["vi", "自動詞"],
+    ["vt", "他動詞"]
+  ]);
+  function localTermTags(entries, language = "en") {
+    const tags = entries.flatMap((entry) => [entry.definitionTags, entry.termTags, entry.rules]).flatMap((value) => typeof value === "string" ? value.split(LOCAL_TAG_SPLIT_RE) : []).map((value) => value.trim()).map((tag) => localTermTagLabel(tag, language)).filter(Boolean);
     return [...new Set(tags)].slice(0, 8);
   }
-  function localTermTagLabel(tag) {
+  function localTermTagLabel(tag, language) {
     const normalized = tag.toLowerCase();
     if (!normalized || HIDDEN_LOCAL_TERM_TAGS.has(normalized)) return "";
+    if (language === "ja") return LOCAL_TERM_TAG_LABELS_JA.get(normalized) ?? tag;
     return LOCAL_TERM_TAG_LABELS.get(normalized) ?? tag;
   }
   function hasRichStructuredGlossary(value) {
@@ -12004,11 +14774,11 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       const url = absoluteJpdbUrl$1(form.getAttribute("action") || `/kanji/${encodeURIComponent(kanji)}`);
       const submitters = Array.from(form.querySelectorAll('button, input[type="submit"], input[type="button"]')).filter((submitter) => {
         var _a2;
-        return cleanText$6(labelForControl(submitter)) && ((_a2 = submitter.getAttribute("type")) == null ? void 0 : _a2.toLowerCase()) !== "button";
+        return cleanText$5(labelForControl(submitter)) && ((_a2 = submitter.getAttribute("type")) == null ? void 0 : _a2.toLowerCase()) !== "button";
       });
       const controls = submitters.length ? submitters : [form];
       controls.forEach((control) => {
-        const label = cleanText$6(control instanceof HTMLFormElement ? form.textContent ?? "" : labelForControl(control));
+        const label = cleanText$5(control instanceof HTMLFormElement ? form.textContent ?? "" : labelForControl(control));
         if (!label) return;
         push({
           kanji,
@@ -12024,7 +14794,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     });
     menu.querySelectorAll("a[href]").forEach((link) => {
       if (link.closest("form")) return;
-      const label = cleanText$6(labelForControl(link));
+      const label = cleanText$5(labelForControl(link));
       if (!label) return;
       const url = absoluteJpdbUrl$1(link.getAttribute("href") ?? "");
       push({
@@ -12094,9 +14864,9 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   }
   function sectionText$1(doc, label) {
     var _a2;
-    const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element2) => cleanText$6(element2.textContent ?? "") === label);
+    const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element2) => cleanText$5(element2.textContent ?? "") === label);
     const section = ((_a2 = heading == null ? void 0 : heading.parentElement) == null ? void 0 : _a2.querySelector(".subsection")) ?? null;
-    const value = cleanText$6((section == null ? void 0 : section.textContent) ?? "");
+    const value = cleanText$5((section == null ? void 0 : section.textContent) ?? "");
     return isMissingSectionValue(value, section) ? "" : value;
   }
   function infoTableRows(doc) {
@@ -12104,7 +14874,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     doc.querySelectorAll(".cross-table tr").forEach((row) => {
       const cells = Array.from(row.querySelectorAll("td"));
       if (cells.length < 2) return;
-      const key = cleanText$6(cells[0].textContent ?? "");
+      const key = cleanText$5(cells[0].textContent ?? "");
       const value = cleanInfoTableValue(cells[1]);
       if (value) rows.set(key, value);
     });
@@ -12113,21 +14883,21 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function oldForms(doc) {
     const row = Array.from(doc.querySelectorAll(".cross-table tr")).find((item) => {
       var _a2;
-      return cleanText$6(((_a2 = item.querySelector("td")) == null ? void 0 : _a2.textContent) ?? "") === "Old form";
+      return cleanText$5(((_a2 = item.querySelector("td")) == null ? void 0 : _a2.textContent) ?? "") === "Old form";
     });
-    return Array.from((row == null ? void 0 : row.querySelectorAll('a[href^="/kanji/"]')) ?? []).map((link) => cleanText$6(link.textContent ?? "")).filter(Boolean);
+    return Array.from((row == null ? void 0 : row.querySelectorAll('a[href^="/kanji/"]')) ?? []).map((link) => cleanText$5(link.textContent ?? "")).filter(Boolean);
   }
   function readings(doc) {
     const seen = /* @__PURE__ */ new Set();
     const entries = [];
     doc.querySelectorAll(".kanji-reading-list-common > div, .kanji-reading-list > div").forEach((row) => {
       const link = row.querySelector("a");
-      const reading = cleanText$6((link == null ? void 0 : link.textContent) ?? "");
+      const reading = cleanText$5((link == null ? void 0 : link.textContent) ?? "");
       if (!reading || seen.has(reading)) return;
       seen.add(reading);
       entries.push({
         reading,
-        share: cleanText$6(row.textContent ?? "").replace(reading, "").trim(),
+        share: cleanText$5(row.textContent ?? "").replace(reading, "").trim(),
         common: row.closest(".kanji-reading-list-common") !== null
       });
     });
@@ -12142,12 +14912,12 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function kanjiSectionEntries(doc, matchesLabel) {
     return Array.from(doc.querySelectorAll(".subsection-composed-of-kanji")).filter((section) => {
       var _a2;
-      return matchesLabel(cleanText$6(((_a2 = section.querySelector(".subsection-label")) == null ? void 0 : _a2.textContent) ?? ""));
+      return matchesLabel(cleanText$5(((_a2 = section.querySelector(".subsection-label")) == null ? void 0 : _a2.textContent) ?? ""));
     }).flatMap((section) => Array.from(section.querySelectorAll(".subsection > div"))).map((element2) => {
       var _a2, _b2;
       return {
-        kanji: cleanText$6(((_a2 = element2.querySelector(".spelling")) == null ? void 0 : _a2.textContent) ?? ""),
-        keyword: cleanText$6(((_b2 = element2.querySelector(".description")) == null ? void 0 : _b2.textContent) ?? "")
+        kanji: cleanText$5(((_a2 = element2.querySelector(".spelling")) == null ? void 0 : _a2.textContent) ?? ""),
+        keyword: cleanText$5(((_b2 = element2.querySelector(".description")) == null ? void 0 : _b2.textContent) ?? "")
       };
     }).filter((component) => component.kanji && component.keyword);
   }
@@ -12159,7 +14929,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (!link) return;
       const { expression, reading } = vocabularyFromHref(link.getAttribute("href") ?? "");
       const fallbackExpression = expression || textWithoutRuby(link);
-      const meaning = cleanText$6(((_a2 = element2.querySelector(".en")) == null ? void 0 : _a2.textContent) ?? "");
+      const meaning = cleanText$5(((_a2 = element2.querySelector(".en")) == null ? void 0 : _a2.textContent) ?? "");
       if (!JAPANESE_RE$2.test(fallbackExpression) || !meaning) return;
       entries.push({
         expression: fallbackExpression,
@@ -12189,19 +14959,19 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function textWithoutRuby(element2) {
     const clone = element2.cloneNode(true);
     clone.querySelectorAll("rt, rp").forEach((node) => node.remove());
-    return cleanText$6(clone.textContent ?? "");
+    return cleanText$5(clone.textContent ?? "");
   }
   function metaKeyword(doc, kanji) {
     var _a2;
     const description = ((_a2 = doc.querySelector('meta[name="description"]')) == null ? void 0 : _a2.content) ?? "";
     const match = new RegExp(`${escapeRegExp(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
-    return cleanText$6((match == null ? void 0 : match[1]) ?? "");
+    return cleanText$5((match == null ? void 0 : match[1]) ?? "");
   }
-  function cleanText$6(value) {
+  function cleanText$5(value) {
     return value.replace(/\s+/g, " ").trim();
   }
   function cleanInfoTableValue(cell) {
-    return cleanText$6(cell.textContent ?? "").replace(/\s+\?$/, "");
+    return cleanText$5(cell.textContent ?? "").replace(/\s+\?$/, "");
   }
   function isMissingSectionValue(value, section) {
     const normalized = value.trim().toLowerCase();
@@ -12569,7 +15339,7 @@ ${entry.reading}`;
   function looksLikeGrammarTag(text2) {
     return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text2);
   }
-  function renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries) {
+  function renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries, language = "en") {
     const keywords = /* @__PURE__ */ new Map();
     const addKeyword = (text2, source) => {
       const normalized = text2 == null ? void 0 : text2.trim();
@@ -12581,9 +15351,9 @@ ${entry.reading}`;
     };
     addKeyword(jpdbInfo == null ? void 0 : jpdbInfo.keyword, "JPDB");
     addKeyword(rtkInfo == null ? void 0 : rtkInfo.keyword, "RTK");
-    entries.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).forEach((keyword) => addKeyword(keyword, "dict"));
+    entries.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).forEach((keyword) => addKeyword(keyword, uiText(language, "dict")));
     const chips = Array.from(keywords.values()).slice(0, 6).map((keyword) => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml$1(keyword.sources.join(" · "))}"><small>${escapeHtml$1(keyword.sources.join("/"))}</small><span>${escapeHtml$1(keyword.text)}</span></span>`).join("");
-    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : '<div class="jpdb-reader-help">Kanji details are not available yet.</div>';
+    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
   }
   function parseRtkElementChip(value) {
     var _a2;
@@ -12669,21 +15439,39 @@ ${entry.reading}`;
             <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
             ${renderKanjiOriginDetail(map, settings, language)}
             ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ""}
-            ${renderKanjiFactPills(facts, excludeFactLabels)}
+            ${renderKanjiFactPills(facts, language, excludeFactLabels)}
         </details>
     `;
   }
   function hasKanjiOriginContent(facts, graph, sourceInfo) {
     return Boolean(facts.length || graph && graph.nodes.length > 1 || (sourceInfo == null ? void 0 : sourceInfo.kanjiMap));
   }
-  function renderKanjiFactPills(facts, excludeFactLabels) {
+  function renderKanjiFactPills(facts, language, excludeFactLabels) {
     if (!facts.length) return "";
     const excludedFacts = excludeFactLabels ? new Set(excludeFactLabels) : null;
     const visibleFacts = excludedFacts ? facts.filter((fact) => !excludedFacts.has(fact.label)) : facts;
     if (!visibleFacts.length) return "";
     return `<div class="jpdb-reader-kanji-facts">
-        ${visibleFacts.map((fact) => `<span title="${escapeHtml$1(fact.source)}"><strong>${escapeHtml$1(fact.label)}</strong>${escapeHtml$1(fact.value)}</span>`).join("")}
+        ${visibleFacts.map((fact) => `<span title="${escapeHtml$1(fact.source)}"><strong>${escapeHtml$1(kanjiFactLabel(fact.label, language))}</strong>${escapeHtml$1(fact.value)}</span>`).join("")}
     </div>`;
+  }
+  function kanjiFactLabel(label, language) {
+    switch (label) {
+      case "Meaning":
+        return uiText(language, "factMeaning");
+      case "Type":
+        return uiText(language, "factType");
+      case "Frequency":
+        return uiText(language, "factFrequency");
+      case "Grade":
+        return uiText(language, "factGrade");
+      case "Strokes":
+        return uiText(language, "strokes");
+      case "Radical":
+        return uiText(language, "radical");
+      default:
+        return label;
+    }
   }
   function renderKanjiOriginDetail(map, settings, language) {
     if (!map) return "";
@@ -13459,12 +16247,12 @@ ${entry.reading}`;
   function renderJpdbKanjiInfo(info, language, initiallyExpanded = true, sourceStateKey, title = uiText(language, "readingsComponents")) {
     if (!info) return "";
     const facts = [
-      ["Name", info.keyword],
-      ["Type", info.type],
-      ["Frequency", info.frequency],
-      ["Kanken", info.kanken],
+      [uiText(language, "factKeyword"), info.keyword],
+      [uiText(language, "factType"), info.type],
+      [uiText(language, "factFrequency"), info.frequency],
+      [language === "ja" ? "漢検" : "Kanken", info.kanken],
       ["Heisig", info.heisig],
-      ["Old forms", info.oldForms.join(", ")]
+      [uiText(language, "factOldForms"), info.oldForms.join(", ")]
     ].filter(([, value]) => Boolean(value == null ? void 0 : value.trim()));
     const factSection = renderJpdbKanjiFactSection(facts);
     const readingsSection = renderJpdbKanjiReadings(info);
@@ -13520,10 +16308,28 @@ ${entry.reading}`;
                     type="button"
                     data-action="jpdb-kanji-action"
                     data-kanji-action-id="${escapeHtml$1(action.id)}"
-                    title="${escapeHtml$1(action.label)}">${escapeHtml$1(action.label)}</button>`).join("")}
+                    title="${escapeHtml$1(jpdbKanjiActionLabel(action, language))}">${escapeHtml$1(jpdbKanjiActionLabel(action, language))}</button>`).join("")}
             </div>
         </div>
     `;
+  }
+  function jpdbKanjiActionLabel(action, language) {
+    switch (action.role) {
+      case "mine":
+        return uiText(language, "jpdbKanjiActionMine");
+      case "known":
+        return uiText(language, "jpdbKanjiActionKnown");
+      case "neverforget":
+        return uiText(language, "jpdbKanjiActionNeverForget");
+      case "forget":
+        return uiText(language, "jpdbKanjiActionForget");
+      case "blacklist":
+        return uiText(language, "jpdbKanjiActionBlacklist");
+      case "review":
+        return uiText(language, "jpdbKanjiActionReview");
+      default:
+        return action.label;
+    }
   }
   function renderRtkInfo(info, components2, language, initiallyExpanded = true, sourceStateKey) {
     if (!info) return "";
@@ -13710,9 +16516,9 @@ ${entry.reading}`;
   function isPopupKifuku(profile) {
     return profile.rises > 1 || profile.drops > 1;
   }
-  function renderJpdbDefinitionSource(card, sourceAttributes, info = null) {
+  function renderJpdbDefinitionSource(card, sourceAttributes, info = null, language = "en") {
     const meanings = jpdbDefinitionMeanings(card, info).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning)}</div>`).join("");
-    const extras = renderJpdbVocabularyExtras(info, sourceAttributes);
+    const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language);
     if (!meanings && !extras) return "";
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID))}>
@@ -13726,9 +16532,9 @@ ${entry.reading}`;
     if (shouldPreferCardMeanings(card)) return cardDefinitionMeanings(card, info);
     return ((info == null ? void 0 : info.meanings) ?? []).slice(0, 6);
   }
-  function renderJpdbVocabularyExtras(info, sourceAttributes) {
+  function renderJpdbVocabularyExtras(info, sourceAttributes, language) {
     if (!hasJpdbVocabularyExtras(info)) return "";
-    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info)}${renderJpdbUsedInVocabulary(info, sourceAttributes)}${renderJpdbExamples(info, sourceAttributes)}</div>`;
+    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info)}${renderJpdbUsedInVocabulary(info, sourceAttributes, language)}${renderJpdbExamples(info, sourceAttributes, language)}</div>`;
   }
   function shouldPreferCardMeanings(card) {
     return card.source !== "local" && card.source !== "anki" && card.source !== "fallback";
@@ -13767,12 +16573,12 @@ ${entry.reading}`;
         </section>
     ` : "";
   }
-  function renderJpdbUsedInVocabulary(info, sourceAttributes) {
+  function renderJpdbUsedInVocabulary(info, sourceAttributes, language) {
     const entries = info.usedInVocabulary ?? [];
     return entries.length ? `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey(`${JPDB_DEFINITION_SOURCE_ID}:used-in-vocabulary`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">Used in vocabulary</span>
+                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "usedInVocabulary"))}</span>
                 <span class="jpdb-reader-source-status jpdb-reader-example-count">${entries.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
@@ -13799,11 +16605,11 @@ ${entry.reading}`;
         </details>
     ` : "";
   }
-  function renderJpdbExamples(info, sourceAttributes) {
+  function renderJpdbExamples(info, sourceAttributes, language) {
     return info.examples.length ? `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" ${sourceAttributes(definitionSourceStateKey(`${JPDB_DEFINITION_SOURCE_ID}:examples`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">Example sentences</span>
+                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "exampleSentences"))}</span>
                 <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.examples.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
@@ -13813,7 +16619,7 @@ ${entry.reading}`;
     return `
                     <li class="jpdb-reader-jpdb-example">
                         <div class="jpdb-reader-jpdb-example-row${((_a2 = example.audioIds) == null ? void 0 : _a2.length) ? " has-audio" : ""}">
-                            ${renderJpdbExampleAudioButton(example.audioIds, example.sentence)}
+                            ${renderJpdbExampleAudioButton(example.audioIds, example.sentence, language)}
                             <div class="jpdb-reader-jpdb-example-text">
                                 <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${escapeHtml$1(example.sentence)}</div>
                                 ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.translation)}</div>` : ""}
@@ -13827,8 +16633,9 @@ ${entry.reading}`;
         </details>
     ` : "";
   }
-  function renderJpdbExampleAudioButton(audioIds, sentence) {
+  function renderJpdbExampleAudioButton(audioIds, sentence, language) {
     const audio = (audioIds == null ? void 0 : audioIds.join(",")) ?? "";
+    const label = uiText(language, "playJpdbExampleAudio");
     return audio ? `
         <button
             class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio"
@@ -13836,18 +16643,21 @@ ${entry.reading}`;
             data-action="jpdb-example-audio"
             data-jpdb-audio="${escapeHtml$1(audio)}"
             data-jpdb-example-sentence="${escapeHtml$1(sentence)}"
-            title="Play JPDB example audio"
-            aria-label="Play JPDB example audio"
+            title="${escapeHtml$1(label)}"
+            aria-label="${escapeHtml$1(label)}"
         >${speakerIcon()}</button>
     ` : "";
   }
   function renderLocalDefinitionSourcesSection(dictionaries, grouped, settings, sourceAttributes, dictionaryLabel2, reference) {
     const groupsByDictionary = dictionaries.map((dictionary) => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) })).filter((source) => source.groups.length);
-    const dictionarySections = groupsByDictionary.map((source) => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel2, reference)).filter(Boolean);
+    const dictionarySections = groupsByDictionary.map((source) => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel2, settings.interfaceLanguage, reference)).filter(Boolean);
     if (!dictionarySections.length) return "";
     const sourceCount = groupsByDictionary.length;
     const termCount = groupsByDictionary.reduce((count, source) => count + source.groups.length, 0);
-    const status = [`${sourceCount} source${sourceCount === 1 ? "" : "s"}`, `${termCount} entr${termCount === 1 ? "y" : "ies"}`].join(" · ");
+    const status = [
+      `${sourceCount} ${uiText(settings.interfaceLanguage, sourceCount === 1 ? "sourceSingular" : "sourcePlural")}`,
+      `${termCount} ${uiText(settings.interfaceLanguage, termCount === 1 ? "localWordSingular" : "localWordPlural")}`
+    ].join(" · ");
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${sourceAttributes(definitionSourceStateKey("__local_dictionaries__"))}>
             <summary class="jpdb-reader-local-title">
@@ -13860,11 +16670,12 @@ ${entry.reading}`;
         </details>
     `;
   }
-  function renderKanjiDefinitions(entries, sourceAttributes, dictionaryLabel2, sourceId = KANJI_DICTIONARIES_SOURCE_ID, title = "Kanji dictionaries") {
+  function renderKanjiDefinitions(entries, sourceAttributes, dictionaryLabel2, sourceId = KANJI_DICTIONARIES_SOURCE_ID, title = void 0, language = "en") {
     if (!entries.length) return "";
+    const heading = title ?? uiText(language, "kanjiDictionaries");
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanji" ${sourceAttributes(kanjiSourceStateKey(sourceId))}>
-            <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
+            <summary class="jpdb-reader-local-title">${escapeHtml$1(heading)}</summary>
             ${entries.map((entry) => `
                 <div class="jpdb-reader-local-entry">
                     <div class="jpdb-reader-local-head">
@@ -13872,8 +16683,8 @@ ${entry.reading}`;
                         <span class="jpdb-reader-local-dict">${escapeHtml$1(dictionaryLabel2(entry.dictionary))}</span>
                     </div>
                     <div class="jpdb-reader-kanji-readings">
-                        ${entry.onyomi.length ? `<span>On ${escapeHtml$1(entry.onyomi.join("、"))}</span>` : ""}
-                        ${entry.kunyomi.length ? `<span>Kun ${escapeHtml$1(entry.kunyomi.join("、"))}</span>` : ""}
+                        ${entry.onyomi.length ? `<span>${escapeHtml$1(uiText(language, "onReading"))} ${escapeHtml$1(entry.onyomi.join("、"))}</span>` : ""}
+                        ${entry.kunyomi.length ? `<span>${escapeHtml$1(uiText(language, "kunReading"))} ${escapeHtml$1(entry.kunyomi.join("、"))}</span>` : ""}
                     </div>
                     <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$1(entry.dictionary)}">
                         ${entry.meanings.slice(0, 6).map((meaning) => `<div>${escapeHtml$1(meaning)}</div>`).join("")}
@@ -13883,7 +16694,7 @@ ${entry.reading}`;
         </details>
     `;
   }
-  function renderSimilarKanjiWordsShell(kanji, language, sourceStateKey, sourceOpen, sourceAttributes, title = `Words using ${kanji}`) {
+  function renderSimilarKanjiWordsShell(kanji, language, sourceStateKey, sourceOpen, sourceAttributes, title = uiText(language, "wordsUsingKanji").replace("{kanji}", kanji)) {
     const help = uiText(language, sourceOpen ? "loadingSimilarWords" : "openToLoadSimilarWords");
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-similar" data-kanji-similar-words ${sourceAttributes(sourceStateKey)}>
@@ -13928,25 +16739,25 @@ ${entry.reading}`;
   function kanjiSourceStateKey(sourceId) {
     return `kanji:${sourceId}`;
   }
-  function renderLocalDictionaryGroup(dictionary, groups, sourceAttributes, dictionaryLabel2, reference) {
+  function renderLocalDictionaryGroup(dictionary, groups, sourceAttributes, dictionaryLabel2, language, reference) {
     const entryCount = groups.length;
     return `
         <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml$1(dictionary)}" ${sourceAttributes(localDictionaryStateKey(dictionary))}>
             <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel2(dictionary))}">
                 <span>${escapeHtml$1(dictionaryLabel2(dictionary))}</span>
-                <span class="jpdb-reader-source-status">${entryCount} entr${entryCount === 1 ? "y" : "ies"}</span>
+                <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml$1(uiText(language, entryCount === 1 ? "localWordSingular" : "localWordPlural"))}</span>
             </summary>
             <div class="jpdb-reader-local-terms">
-                ${groups.map((group) => renderLocalTermGroup(dictionary, group, dictionaryLabel2, reference, { showDictionaryTag: false })).join("")}
+                ${groups.map((group) => renderLocalTermGroup(dictionary, group, dictionaryLabel2, language, reference, { showDictionaryTag: false })).join("")}
             </div>
         </details>
     `;
   }
-  function renderLocalTermGroup(dictionary, group, dictionaryLabel2, reference, options = {}) {
+  function renderLocalTermGroup(dictionary, group, dictionaryLabel2, language, reference, options = {}) {
     return `
         <article class="jpdb-reader-local-entry jpdb-reader-local-term">
             ${renderLocalTermHead(group, reference)}
-            ${renderLocalTermTags(dictionary, group, dictionaryLabel2, options.showDictionaryTag ?? true)}
+            ${renderLocalTermTags(dictionary, group, dictionaryLabel2, options.showDictionaryTag ?? true, language)}
             ${renderLocalTermMeaning(dictionary, group)}
         </article>
     `;
@@ -13975,10 +16786,10 @@ ${entry.reading}`;
   function renderLocalTermReading(group) {
     return group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$1(group.reading)}</span>` : "";
   }
-  function renderLocalTermTags(dictionary, group, dictionaryLabel2, showDictionaryTag) {
+  function renderLocalTermTags(dictionary, group, dictionaryLabel2, showDictionaryTag, language) {
     const tagItems = [
       showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml$1(dictionaryLabel2(dictionary))}</span>` : "",
-      ...localTermTags(group.entries).map((tag) => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml$1(tag)}">${escapeHtml$1(tag)}</span>`)
+      ...localTermTags(group.entries, language).map((tag) => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml$1(tag)}">${escapeHtml$1(tag)}</span>`)
     ].filter(Boolean);
     return tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join("")}</div>` : "";
   }
@@ -14036,6 +16847,278 @@ ${entry.reading}`;
     const value = normalizeFrequencyChipValue(label, formatMetaFrequency(entry.data));
     return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml$1(entry.dictionary)}" style="${pillStyle(`frequency:${entry.dictionary}`)}" title="${escapeHtml$1(label)}">${escapeHtml$1(label)} ${escapeHtml$1(value)}</span>` : "";
   }
+  const CONTEXT_PREFIX = "yomu-mining-context:";
+  const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
+  const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
+  const log$n = Logger.scope("MiningContext");
+  function normalizeMiningSentence(sentence) {
+    return (sentence ?? "").replace(/\s+/g, " ").trim();
+  }
+  function inferMiningSourceKind({ isImageSource, hasVideo, hostname = location.hostname } = {}) {
+    if (isImageSource) return "image";
+    if (hasVideo) return "video";
+    if (hostname === "jpdb.io") return "jpdb";
+    return "page";
+  }
+  function createStoredMiningContext(term, context, updatedAt = Date.now()) {
+    const normalizedTerm = term.trim();
+    const sentence = context.sentence.trim();
+    if (!normalizedTerm || !sentence) return null;
+    return {
+      ...context,
+      term: normalizedTerm,
+      sentence,
+      sourceTitle: context.sourceTitle.trim(),
+      sourceUrl: context.sourceUrl.trim(),
+      imageUrl: optionalText(context.imageUrl),
+      audioUrls: optionalTextArray(context.audioUrls),
+      immersionIndex: optionalNumber(context.immersionIndex),
+      immersionTotal: optionalNumber(context.immersionTotal),
+      updatedAt
+    };
+  }
+  function createFallbackMiningContext(term, context, updatedAt = Date.now()) {
+    return createStoredMiningContext(term, context, updatedAt) ?? {
+      ...context,
+      term: term.trim(),
+      sentence: context.sentence.trim() || term.trim(),
+      sourceTitle: context.sourceTitle.trim(),
+      sourceUrl: context.sourceUrl.trim(),
+      imageUrl: optionalText(context.imageUrl),
+      audioUrls: optionalTextArray(context.audioUrls),
+      immersionIndex: optionalNumber(context.immersionIndex),
+      immersionTotal: optionalNumber(context.immersionTotal),
+      updatedAt
+    };
+  }
+  async function resolveMiningContext({
+    term,
+    sentence,
+    settings,
+    activeContext,
+    storedContext,
+    sourceKind,
+    imageDataUrl,
+    videoImageDataUrl,
+    fetchImageDataUrl,
+    fetchAudioDataUrl: fetchAudioDataUrl2
+  }) {
+    const done = log$n.time("Resolve mining context", {
+      term,
+      hasSentence: Boolean(sentence == null ? void 0 : sentence.trim()),
+      activeKind: activeContext == null ? void 0 : activeContext.sourceKind,
+      storedKind: storedContext == null ? void 0 : storedContext.sourceKind,
+      sourceKind,
+      hasImage: Boolean(imageDataUrl),
+      hasVideoImage: Boolean(videoImageDataUrl)
+    });
+    const cleanSentence = normalizeMiningSentence(sentence);
+    try {
+      const direct = resolveDirectImageMiningContext(term, cleanSentence, imageDataUrl, videoImageDataUrl);
+      if (direct) return direct;
+      const immersion = await resolveStoredImmersionMiningContext({
+        term,
+        settings,
+        activeContext,
+        storedContext,
+        fetchImageDataUrl,
+        fetchAudioDataUrl: fetchAudioDataUrl2
+      });
+      return immersion ?? resolvePageMiningContext(term, cleanSentence, sourceKind);
+    } finally {
+      done();
+    }
+  }
+  function resolveDirectImageMiningContext(term, sentence, imageDataUrl, videoImageDataUrl) {
+    if (imageDataUrl && sentence) {
+      return miningContextWithImage(term, sentence, "image", imageDataUrl);
+    }
+    if (videoImageDataUrl && sentence) {
+      return miningContextWithImage(term, sentence, "video", videoImageDataUrl);
+    }
+    return null;
+  }
+  async function resolveStoredImmersionMiningContext(options) {
+    const { term, settings, activeContext, storedContext, fetchImageDataUrl, fetchAudioDataUrl: fetchAudioDataUrl2 } = options;
+    const chosen = (activeContext == null ? void 0 : activeContext.term) === term ? activeContext : storedContext ?? void 0;
+    if (!chosen || !shouldUseImmersionContext(settings, chosen)) return null;
+    const [fetchedImageDataUrl, fetchedAudioDataUrl] = await Promise.all([
+      fetchMiningContextImage(chosen, settings, fetchImageDataUrl),
+      fetchMiningContextAudio(chosen, settings, fetchAudioDataUrl2)
+    ]);
+    return { ...chosen, imageDataUrl: fetchedImageDataUrl, audioDataUrl: fetchedAudioDataUrl };
+  }
+  function fetchMiningContextImage(context, settings, fetchImageDataUrl) {
+    if (!context.imageUrl || !settings.immersionKitShowImages || !fetchImageDataUrl) return Promise.resolve(void 0);
+    return fetchImageDataUrl(context.imageUrl, settings.audioTimeoutMs).catch(() => {
+      return void 0;
+    });
+  }
+  function fetchMiningContextAudio(context, settings, fetchAudioDataUrl2) {
+    var _a2;
+    if (!((_a2 = context.audioUrls) == null ? void 0 : _a2.length) || !fetchAudioDataUrl2) return Promise.resolve(void 0);
+    return fetchAudioDataUrl2(context.audioUrls, settings.audioTimeoutMs).catch(() => {
+      return void 0;
+    });
+  }
+  function resolvePageMiningContext(term, sentence, sourceKind) {
+    const context = pageMiningContext(sentence || term, sourceKind ?? inferMiningSourceKind());
+    const result = saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
+    return result;
+  }
+  function miningContextWithImage(term, sentence, sourceKind, imageDataUrl) {
+    const context = pageMiningContext(sentence, sourceKind);
+    return {
+      ...saveMiningContext(term, context) ?? createFallbackMiningContext(term, context),
+      imageDataUrl
+    };
+  }
+  function saveMiningContext(term, context) {
+    const stored = createStoredMiningContext(term, context);
+    if (!stored) {
+      return null;
+    }
+    try {
+      gmStorageSetSync(contextStorageKey(stored.term), stored);
+    } catch (error) {
+      log$n.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+    }
+    return stored;
+  }
+  function loadMiningContext(term) {
+    const normalized = term.trim();
+    if (!normalized) return null;
+    try {
+      const stored = gmStorageGetSync(contextStorageKey(normalized), null);
+      if (!stored) {
+        return null;
+      }
+      const context = parseStoredMiningContext(stored, normalized);
+      return context;
+    } catch (error) {
+      log$n.warn("Mining context load failed", { term: normalized, error });
+      return null;
+    }
+  }
+  function immersionContextFromExample(term, example, index, total, imageUrl, audioUrls = []) {
+    return {
+      sentence: example.sentence,
+      sourceKind: "immersion-kit",
+      sourceTitle: example.sourceTitle || "Immersion Kit",
+      sourceUrl: immersionKitUrl(term, index),
+      imageUrl: imageUrl || void 0,
+      audioUrls: optionalTextArray(audioUrls),
+      immersionIndex: index,
+      immersionTotal: total
+    };
+  }
+  function immersionContextFromElement(sentence, element2, sourceUrl = location.href) {
+    return {
+      sentence,
+      sourceKind: "immersion-kit",
+      sourceTitle: element2.dataset.immersionSourceTitle || "Immersion Kit",
+      sourceUrl,
+      imageUrl: optionalText(element2.dataset.immersionImageUrl),
+      audioUrls: immersionAudioUrlsFromElement(element2),
+      immersionIndex: optionalNumber(Number(element2.dataset.immersionIndex ?? 0)),
+      immersionTotal: optionalNumber(Number(element2.dataset.immersionTotal ?? 0))
+    };
+  }
+  function pageMiningContext(sentence, sourceKind = "page") {
+    return {
+      sentence,
+      sourceKind,
+      sourceTitle: document.title || location.hostname,
+      sourceUrl: location.href
+    };
+  }
+  function shouldUseImmersionContext(settings, context) {
+    return Boolean(settings.immersionKitEnabled && (context == null ? void 0 : context.sourceKind) === "immersion-kit" && context.sentence.trim());
+  }
+  function contextStorageKey(term) {
+    return `${CONTEXT_PREFIX}${term}`;
+  }
+  function parseStoredMiningContext(value, expectedTerm, now = Date.now()) {
+    const record = storedMiningContextRecord(value, expectedTerm);
+    if (!record) return null;
+    const sourceKind = storedMiningSourceKind(record.sourceKind);
+    if (!sourceKind) return null;
+    const updatedAt = storedMiningContextUpdatedAt(record.updatedAt, now);
+    if (updatedAt === null) return null;
+    const context = createStoredMiningContext(expectedTerm, {
+      sentence: text$1(record.sentence),
+      sourceKind,
+      sourceTitle: text$1(record.sourceTitle),
+      sourceUrl: text$1(record.sourceUrl),
+      imageUrl: optionalText(record.imageUrl),
+      audioUrls: optionalTextArray(record.audioUrls),
+      immersionIndex: optionalNumber(record.immersionIndex),
+      immersionTotal: optionalNumber(record.immersionTotal)
+    }, updatedAt);
+    return context;
+  }
+  function storedMiningContextRecord(value, expectedTerm) {
+    if (!isRecord$1(value)) return null;
+    return text$1(value.term) === expectedTerm ? value : null;
+  }
+  function storedMiningSourceKind(value) {
+    return isMiningSourceKind(value) ? value : null;
+  }
+  function storedMiningContextUpdatedAt(value, now) {
+    const updatedAt = Number(value);
+    if (!isStoredMiningContextFresh(updatedAt, now)) {
+      return null;
+    }
+    return updatedAt;
+  }
+  function isStoredMiningContextFresh(updatedAt, now) {
+    return Number.isFinite(updatedAt) && now - updatedAt <= CONTEXT_MAX_AGE_MS;
+  }
+  function isMiningSourceKind(value) {
+    return typeof value === "string" && MINING_SOURCE_KINDS.includes(value);
+  }
+  function isRecord$1(value) {
+    return Boolean(value && typeof value === "object");
+  }
+  function optionalText(value) {
+    const normalized = text$1(value);
+    return normalized || void 0;
+  }
+  function optionalTextArray(value) {
+    if (!Array.isArray(value)) return void 0;
+    const values = uniqueTexts(value);
+    return values.length ? values : void 0;
+  }
+  function immersionAudioUrlsFromElement(element2) {
+    const parsed = parseTextArray(element2.dataset.immersionAudioUrls);
+    return optionalTextArray(parsed ?? [element2.dataset.immersionAudioUrl]);
+  }
+  function parseTextArray(value) {
+    if (typeof value !== "string" || !value.trim()) return null;
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  function uniqueTexts(values) {
+    return Array.from(new Set(values.map(text$1).filter(Boolean)));
+  }
+  function optionalNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : void 0;
+  }
+  function text$1(value) {
+    return typeof value === "string" ? value.trim() : "";
+  }
+  function immersionKitUrl(term, index) {
+    const url = new URL("https://www.immersionkit.com/dictionary");
+    url.searchParams.set("keyword", term);
+    url.searchParams.set("sort", "sentence_length:asc");
+    url.searchParams.set("page", String(index + 1));
+    return url.toString();
+  }
   class CardPopoverRenderer {
     constructor(dependencies) {
       this.dependencies = dependencies;
@@ -14051,7 +17134,7 @@ ${entry.reading}`;
                 ${this.dependencies.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo)}
                 ${view.loadingDetails}
                 ${this.renderAnkiExistingSection(data, view)}
-                ${renderKanjiDefinitions(data.kanjiEntries, (key, initiallyExpanded) => this.dependencies.dictionarySourceAttributes(key, initiallyExpanded), (name) => this.dependencies.dictionaryLabel(name))}
+                ${renderKanjiDefinitions(data.kanjiEntries, (key, initiallyExpanded) => this.dependencies.dictionarySourceAttributes(key, initiallyExpanded), (name) => this.dependencies.dictionaryLabel(name), void 0, uiText(view.language, "kanjiDictionaries"), view.language)}
             </div>
             ${this.renderActions(view)}
         `;
@@ -14078,7 +17161,7 @@ ${entry.reading}`;
         ankiActions: data.loading ? "" : renderAnkiActionRow(data.ankiLookup, settings),
         reviewButtons: this.renderReviewButtons(card, cardStates, data, hasJpdb, selectedDeckLabel, reviewBlockReason, language),
         metaItems: this.renderMetaItems(card, hasJpdb, state, data),
-        loadingDetails: this.renderLoadingDetails(data.loading),
+        loadingDetails: this.renderLoadingDetails(data.loading, language),
         audioButtonDisabled: !settings.audioEnabled,
         audioButtonTitle: uiText(language, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled")
       };
@@ -14091,7 +17174,7 @@ ${entry.reading}`;
             </div>
             <div class="jpdb-reader-card-tools">
                 ${this.renderPitch(card, data)}
-                ${view.audioButtonDisabled ? "" : `<button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}">${speakerIcon()}</button>`}
+                <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}"${view.audioButtonDisabled ? " disabled" : ""}>${speakerIcon()}</button>
             </div>
         </div>`;
     }
@@ -14109,13 +17192,13 @@ ${entry.reading}`;
       return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$1(view.cardPosDetails)}">${escapeHtml$1(view.cardPos)}</div>` : "";
     }
     renderAnkiExistingSection(data, view) {
-      return data.loading ? "" : renderAnkiExistingSection(data.ankiLookup, view.storedContext);
+      return data.loading ? "" : renderAnkiExistingSection(data.ankiLookup, view.storedContext, view.language);
     }
     renderActions(view) {
       const hasMiningPanel = Boolean(view.miningActions);
       const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : "";
       return `<div class="jpdb-reader-actions${hasMiningPanel ? " jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed" : ""}">
-            ${renderMiningGutter(miningPanel)}
+            ${renderMiningGutter(miningPanel, view.language)}
             ${miningPanel}
             ${hasMiningPanel ? "" : view.ankiActions}
             ${view.reviewButtons}
@@ -14176,12 +17259,12 @@ ${entry.reading}`;
     renderMetaItems(card, hasJpdb, state, data) {
       return [
         card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : "",
-        hasJpdb ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml$1(state)}</span>` : "",
-        data.ankiLookup.primary ? `<span><span class="jpdb-reader-state-dot jpdb-${data.ankiLookup.state}"></span>Anki ${escapeHtml$1(data.ankiLookup.state)}</span>` : ""
+        hasJpdb ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml$1(cardStateLabel$1(state, this.settings().interfaceLanguage))}</span>` : "",
+        data.ankiLookup.primary ? `<span><span class="jpdb-reader-state-dot jpdb-${data.ankiLookup.state}"></span>Anki ${escapeHtml$1(cardStateLabel$1(data.ankiLookup.state, this.settings().interfaceLanguage))}</span>` : ""
       ].filter(Boolean);
     }
-    renderLoadingDetails(loading) {
-      return loading ? '<div class="jpdb-reader-help" data-card-details-loading>Loading dictionary details...</div>' : "";
+    renderLoadingDetails(loading, language) {
+      return loading ? `<div class="jpdb-reader-help" data-card-details-loading>${escapeHtml$1(uiText(language, "loadingDictionaryDetails"))}</div>` : "";
     }
     reviewBlockReason(cardStates, language) {
       if (cardStates.includes("blacklisted")) return uiText(language, "reviewBlockedBlacklisted");
@@ -14210,20 +17293,28 @@ ${entry.reading}`;
   function renderMeta(metaItems) {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : "";
   }
-  function renderMiningGutter(miningActions) {
-    return miningActions ? '<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button></div>' : "";
+  function renderMiningGutter(miningActions, language) {
+    return miningActions ? `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$1(uiText(language, "showMiningActions"))}" aria-label="${escapeHtml$1(uiText(language, "showMiningActions"))}"></button></div>` : "";
   }
+  function cardStateLabel$1(state, language) {
+    const key = CARD_STATE_LABEL_KEYS$1[state];
+    return key ? uiText(language, key) : state;
+  }
+  const CARD_STATE_LABEL_KEYS$1 = {
+    new: "stateNew",
+    learning: "stateLearning",
+    known: "stateKnown",
+    due: "stateDue",
+    failed: "stateFailed",
+    locked: "stateLocked",
+    "never-forget": "stateNeverForget",
+    blacklisted: "stateBlacklisted",
+    suspended: "stateSuspended",
+    "not-in-deck": "stateNotInDeck",
+    redundant: "stateRedundant"
+  };
   function cardKey$1(card) {
     return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
-  }
-  async function waitForInstantData(promise, timeoutMs) {
-    let timeout = 0;
-    return Promise.race([
-      promise,
-      new Promise((resolve) => {
-        timeout = window.setTimeout(() => resolve(null), timeoutMs);
-      })
-    ]).finally(() => window.clearTimeout(timeout));
   }
   function createAudioPreviewCard() {
     return {
@@ -14241,7 +17332,7 @@ ${entry.reading}`;
       source: "fallback"
     };
   }
-  const log$n = Logger.scope("CardRenderData");
+  const log$m = Logger.scope("CardRenderData");
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
   const CARD_RENDER_DETAIL_TIMEOUT_MS = 9e3;
   function loadingCardRenderData(localEntries, ankiLookup) {
@@ -14293,7 +17384,7 @@ ${entry.reading}`;
       const settings = this.settings();
       if (!settings.localDictionariesEnabled) return Promise.resolve([]);
       return this.withFallback(card, timeoutMs, "local term dictionary", this.dependencies.dictionaries.lookup(card.spelling, card.reading, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
-        log$n.warn("Local term lookup failed while rendering card", { term: card.spelling }, error);
+        log$m.warn("Local term lookup failed while rendering card", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -14301,7 +17392,7 @@ ${entry.reading}`;
       const settings = this.settings();
       if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji) return Promise.resolve([]);
       return this.withFallback(card, timeoutMs, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
-        log$n.warn("Local kanji lookup failed while rendering card", { term: card.spelling }, error);
+        log$m.warn("Local kanji lookup failed while rendering card", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -14309,7 +17400,7 @@ ${entry.reading}`;
       const settings = this.settings();
       if (!settings.localDictionariesEnabled) return Promise.resolve([]);
       return this.withFallback(card, timeoutMs, "local metadata dictionary", this.dependencies.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch((error) => {
-        log$n.warn("Local metadata lookup failed while rendering card", { term: card.spelling }, error);
+        log$m.warn("Local metadata lookup failed while rendering card", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -14317,7 +17408,7 @@ ${entry.reading}`;
       const settings = this.settings();
       if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
       return this.withFallback(card, timeoutMs, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
-        log$n.warn("Public JPDB pitch lookup failed while rendering card", { term: card.spelling }, error);
+        log$m.warn("Public JPDB pitch lookup failed while rendering card", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -14325,7 +17416,7 @@ ${entry.reading}`;
       const settings = this.settings();
       if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
       return this.withFallback(card, timeoutMs, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
-        log$n.warn("JPDB vocabulary page lookup failed while rendering card", { term: card.spelling }, error);
+        log$m.warn("JPDB vocabulary page lookup failed while rendering card", { term: card.spelling }, error);
         return null;
       }), null);
     }
@@ -14333,7 +17424,7 @@ ${entry.reading}`;
       const fallback = { state: "not-in-deck", notes: [], primary: null };
       if (!this.settings().ankiEnabled || canUseMobileAnkiHandoff(this.settings())) return Promise.resolve(fallback);
       return this.withFallback(card, timeoutMs, "Anki existing cards", this.dependencies.anki.findExistingCards(card).catch((error) => {
-        log$n.warn("Anki lookup failed while rendering card", { term: card.spelling }, error);
+        log$m.warn("Anki lookup failed while rendering card", { term: card.spelling }, error);
         return fallback;
       }), fallback);
     }
@@ -14341,14 +17432,14 @@ ${entry.reading}`;
       const settings = this.settings();
       if (!settings.jpdbMiningEnabled || !settings.apiKey.trim() || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
       return this.withFallback(card, timeoutMs, "JPDB deck list", this.dependencies.jpdb.listDecks().catch((error) => {
-        log$n.warn("JPDB deck list failed while rendering card", { term: card.spelling }, error);
+        log$m.warn("JPDB deck list failed while rendering card", { term: card.spelling }, error);
         return [];
       }), []);
     }
     loadAnkiDecks(card, timeoutMs) {
       if (!this.settings().ankiEnabled || canUseMobileAnkiHandoff(this.settings())) return Promise.resolve([]);
       return this.withFallback(card, timeoutMs, "Anki deck list", this.dependencies.anki.deckNames().catch((error) => {
-        log$n.warn("Anki deck list failed while rendering card", { term: card.spelling }, error);
+        log$m.warn("Anki deck list failed while rendering card", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -14391,7 +17482,7 @@ ${entry.reading}`;
     return Promise.race([
       promise,
       delay$1(timeoutMs).then(() => {
-        log$n.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
+        log$m.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
         return fallback;
       })
     ]);
@@ -14498,7 +17589,7 @@ ${entry.reading}`;
       (_d = (_c = this.options).onRefreshed) == null ? void 0 : _d.call(_c, css.length);
     }
   }
-  const log$m = Logger.scope("FactoryReset");
+  const log$l = Logger.scope("FactoryReset");
   const FACTORY_RESET_PREPARE_DELAY_MS = 80;
   const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
   const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
@@ -14542,12 +17633,12 @@ ${entry.reading}`;
         const dictionaryReset = await this.resetDictionaryDatabaseBestEffort();
         await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id));
         await clearFactoryResetSignal();
-        log$m.info("All local data reset; reloading page", { deletedStorageValues, dictionaryReset });
+        log$l.info("All local data reset; reloading page", { deletedStorageValues, dictionaryReset });
         this.dependencies.reload();
       } catch (error) {
         this.activeResetId = "";
         endSettingsResetGuard();
-        log$m.warn("All-data reset failed", error);
+        log$l.warn("All-data reset failed", error);
         this.dependencies.toast(error instanceof Error ? error.message : "Reset failed.");
       }
     }
@@ -14555,7 +17646,7 @@ ${entry.reading}`;
       try {
         return await this.dependencies.resetDictionaryDatabase();
       } catch (error) {
-        log$m.warn("Dictionary database reset failed after settings storage was cleared", error);
+        log$l.warn("Dictionary database reset failed after settings storage was cleared", error);
         this.dependencies.toast("Settings were reset. Local dictionaries may need clearing after closing other よむ tabs.");
         return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
       }
@@ -14566,7 +17657,7 @@ ${entry.reading}`;
       if (this.handledSignals.has(handledKey)) return;
       this.handledSignals.add(handledKey);
       beginSettingsResetGuard();
-      log$m.info("Factory reset signal received", {
+      log$l.info("Factory reset signal received", {
         phase: signal.phase,
         href: signal.href,
         remote: source.remote,
@@ -14584,7 +17675,7 @@ ${entry.reading}`;
     async assertSettingsStorageDeleted() {
       const settingsKeysStillPresent = await settingsStorageKeysStillPresent();
       if (!settingsKeysStillPresent.length) return;
-      log$m.warn("Settings storage keys still present after factory reset deletion", { settingsKeysStillPresent });
+      log$l.warn("Settings storage keys still present after factory reset deletion", { settingsKeysStillPresent });
       throw new Error("Factory reset could not delete saved settings. Please close other よむ tabs and try again.");
     }
     scheduleRemoteGuardRelease() {
@@ -14606,13 +17697,15 @@ ${entry.reading}`;
   const API_BASE$1 = "https://apiv2express.immersionkit.com";
   const LEGACY_API_BASE = "https://apiv2.immersionkit.com";
   const API_BASES = [API_BASE$1, LEGACY_API_BASE];
+  const NADESHIKO_API_BASE = "https://api.nadeshiko.co/v1";
   const OBJECT_STORE_BASE = "https://us-southeast-1.linodeobjects.com/immersionkit";
   const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
   const MEDIA_CANDIDATE_LIMIT = 4;
   const SEARCH_EXAMPLE_LIMIT = 250;
+  const NADESHIKO_SEARCH_LIMIT = 25;
   const MIN_LEARNING_SENTENCE_LENGTH = 8;
   const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
-  const log$l = Logger.scope("ImmersionKit");
+  const log$k = Logger.scope("ImmersionKit");
   const IMMERSION_KIT_TITLES = {
     your_lie_in_april: "Your Lie in April",
     princess_mononoke: "Princess Mononoke",
@@ -14719,19 +17812,15 @@ ${entry.reading}`;
     }
     async search(term, settings) {
       const query = term.trim();
-      if (!canSearchImmersionKit(query, settings)) return [];
+      if (!canSearchImmersionExamples(query, settings)) return [];
       const cacheKey = this.searchCacheKey(query, settings);
       const cached = this.cache.get(cacheKey);
       if (cached) return cached;
       const inflight = this.inflight.get(cacheKey);
       if (inflight) return inflight;
-      const done = log$l.time("search", { query, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
-      const promise = requestJson$2(apiUrls(`/search?${this.searchParams(query, settings)}`), settings.audioTimeoutMs, settings.corsProxyUrl).then((data) => {
-        const examples = applySearchExampleLimit(
-          filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings)),
-          settings
-        );
-        const result = examples;
+      const done = log$k.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
+      const promise = this.searchEnabledSources(query, settings).then((examples) => {
+        const result = applySearchExampleLimit(examples, settings);
         this.cache.set(cacheKey, result);
         return result;
       }).finally(() => {
@@ -14741,15 +17830,63 @@ ${entry.reading}`;
       this.inflight.set(cacheKey, promise);
       return promise;
     }
+    async searchEnabledSources(query, settings) {
+      const sources = enabledImmersionExampleSources(settings);
+      const resultSets = await Promise.all(sources.map(
+        (source) => source === "nadeshiko" ? this.searchNadeshiko(query, settings).catch((error) => {
+          log$k.warn("Nadeshiko examples failed", { query }, error);
+          return [];
+        }) : this.searchImmersionKit(query, settings).catch((error) => {
+          log$k.warn("Immersion Kit examples failed", { query }, error);
+          return [];
+        })
+      ));
+      return settings.immersionKitExampleSource === "combined" ? deterministicMergedExamples(sources, resultSets, this.combinedShuffleSeed(query, settings)) : resultSets.flat();
+    }
+    searchImmersionKit(query, settings) {
+      return requestJson$1(apiUrls(`/search?${this.searchParams(query, settings)}`), settings.audioTimeoutMs, settings.corsProxyUrl).then((data) => filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), "immersion-kit"));
+    }
+    searchNadeshiko(query, settings) {
+      const apiKey = settings.nadeshikoApiKey.trim();
+      if (!apiKey) return Promise.resolve([]);
+      return requestJson$3(`${NADESHIKO_API_BASE}/search`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        data: JSON.stringify(nadeshikoSearchPayload(query, settings, this.minimumSentenceLength(settings))),
+        timeoutMs: settings.audioTimeoutMs,
+        allowDirectCrossOrigin: true,
+        allowPublicProxies: false,
+        allowConfiguredProxy: false,
+        preferFetch: shouldPreferFetchForImmersionKitRequests(),
+        failureLabel: "Nadeshiko request",
+        timeoutLabel: "Nadeshiko request timed out."
+      }).then((data) => filterNadeshikoExamples(data, query, settings, this.minimumSentenceLength(settings)));
+    }
     searchCacheKey(query, settings) {
       return JSON.stringify({
         query,
+        source: settings.immersionKitExampleSource,
+        nadeshikoKey: sensitiveFingerprint(settings.nadeshikoApiKey),
         limit: SEARCH_EXAMPLE_LIMIT,
         userLimit: settings.immersionKitLimitEnabled ? settings.immersionKitLimit : 0,
         min: this.minimumSentenceLength(settings),
         max: settings.immersionKitMaxLength,
         category: settings.immersionKitCategory,
         sort: this.effectiveSort(settings),
+        exact: settings.immersionKitExactMatch
+      });
+    }
+    combinedShuffleSeed(query, settings) {
+      return JSON.stringify({
+        query,
+        source: settings.immersionKitExampleSource,
+        key: sensitiveFingerprint(settings.nadeshikoApiKey),
+        min: this.minimumSentenceLength(settings),
+        max: settings.immersionKitMaxLength,
+        category: settings.immersionKitCategory,
         exact: settings.immersionKitExactMatch
       });
     }
@@ -14785,7 +17922,7 @@ ${entry.reading}`;
     }
     preload(term, settings) {
       const query = term.trim();
-      if (!canSearchImmersionKit(query, settings) || this.preloadKeys.has(query)) return;
+      if (!canSearchImmersionExamples(query, settings) || this.preloadKeys.has(query)) return;
       this.preloadKeys.add(query);
       void this.search(query, settings).then((examples) => {
         for (const example of examples.slice(0, 1)) {
@@ -14819,8 +17956,13 @@ ${entry.reading}`;
       return blobToDataUrl$1(blob);
     }
   }
-  function canSearchImmersionKit(query, settings) {
+  function canSearchImmersionExamples(query, settings) {
     return Boolean(query && settings.immersionKitEnabled);
+  }
+  function enabledImmersionExampleSources(settings) {
+    if (settings.immersionKitExampleSource === "nadeshiko") return ["nadeshiko"];
+    if (settings.immersionKitExampleSource === "combined") return ["immersion-kit", "nadeshiko"];
+    return ["immersion-kit"];
   }
   function collectExamples(value) {
     if (Array.isArray(value)) return value;
@@ -14831,8 +17973,14 @@ ${entry.reading}`;
   function firstArrayField(record, keys) {
     return keys.map((key) => record[key]).find(Array.isArray) ?? [];
   }
-  function filterSearchExamples(data, query, settings, minLength) {
-    return collectExamples(data).map(normalizeExample).filter((example) => Boolean(example)).filter((example) => isSearchExampleInRange(example, settings, minLength)).filter((example) => isSearchExampleSurfaceMatch(example, query));
+  function filterSearchExamples(data, query, settings, minLength, provider = "immersion-kit") {
+    return collectExamples(data).map((value) => normalizeExample(value, provider)).filter((example) => Boolean(example)).filter((example) => isSearchExampleInRange(example, settings, minLength)).filter((example) => isSearchExampleSurfaceMatch(example, query));
+  }
+  function filterNadeshikoExamples(data, query, settings, minLength) {
+    const response = nadeshikoResponseRecord(data);
+    if (!response) return [];
+    const media = nadeshikoMediaMap(response);
+    return nadeshikoSegments(response).map((value) => normalizeNadeshikoExample(value, media)).filter((example) => Boolean(example)).filter((example) => isSearchExampleInRange(example, settings, minLength)).filter((example) => isSearchExampleSurfaceMatch(example, query));
   }
   function applySearchExampleLimit(examples, settings) {
     return settings.immersionKitLimitEnabled ? examples.slice(0, Math.max(1, settings.immersionKitLimit)) : examples;
@@ -14844,10 +17992,10 @@ ${entry.reading}`;
   function isSearchExampleSurfaceMatch(example, query) {
     return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
   }
-  function normalizeExample(value) {
-    return isRecord$1(value) ? normalizeExampleRecord(value) : null;
+  function normalizeExample(value, provider = "immersion-kit") {
+    return isRecord(value) ? normalizeExampleRecord(value, provider) : null;
   }
-  function normalizeExampleRecord(record) {
+  function normalizeExampleRecord(record, provider = "immersion-kit") {
     const id = text(record.id);
     const sentence = firstText(record, ["sentence", "text"]);
     if (!sentence) return null;
@@ -14858,6 +18006,7 @@ ${entry.reading}`;
     const imageFile = firstText(record, ["image", "image_file", "imageFile"]);
     return {
       id,
+      provider,
       sentence,
       sentenceWithFurigana: firstText(record, ["sentence_with_furigana", "sentenceWithFurigana"]),
       translation: firstText(record, ["translation", "translation_en", "english"]),
@@ -14870,6 +18019,61 @@ ${entry.reading}`;
       imageUrl: absoluteMediaUrl(firstText(record, ["image_url", "imageUrl"]))
     };
   }
+  function nadeshikoSearchPayload(query, settings, minLength) {
+    const maxLength = settings.immersionKitMaxLength || 1e3;
+    return {
+      query: { search: query },
+      take: NADESHIKO_SEARCH_LIMIT,
+      filters: {
+        segmentLengthChars: {
+          min: minLength,
+          max: Math.max(minLength, maxLength)
+        }
+      }
+    };
+  }
+  function nadeshikoResponseRecord(data) {
+    if (Array.isArray(data)) return { segments: data };
+    return isRecord(data) ? data : null;
+  }
+  function nadeshikoSegments(response) {
+    return firstArrayField(response, ["segments", "examples", "results", "data"]);
+  }
+  function nadeshikoMediaMap(response) {
+    const includes = response.includes;
+    const media = isRecord(includes) ? includes.media : void 0;
+    return isRecord(media) ? media : {};
+  }
+  function normalizeNadeshikoExample(value, mediaById) {
+    if (!isRecord(value)) return null;
+    const sentence = nestedText(value, "textJa", ["content", "text"]) || firstText(value, ["sentence", "text", "textJa"]);
+    if (!sentence) return null;
+    const publicId = firstText(value, ["publicId", "public_id", "id"]);
+    const mediaPublicId = firstText(value, ["mediaPublicId", "media_public_id", "mediaId"]);
+    const media = isRecord(mediaById[mediaPublicId]) ? mediaById[mediaPublicId] : {};
+    const urls = isRecord(value.urls) ? value.urls : {};
+    const sourceTitle = firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(value, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
+    return {
+      id: `nadeshiko_${publicId || mediaPublicId || hashString(sentence).toString(36)}`,
+      provider: "nadeshiko",
+      sentence,
+      sentenceWithFurigana: firstText(value, ["furi_sentence", "sentenceWithFurigana", "sentence_with_furigana"]),
+      translation: nestedText(value, "textEn", ["content", "text"]) || firstText(value, ["translation", "translation_en", "english"]),
+      sourceTitle,
+      titleSlug: slugFromTitle(sourceTitle),
+      category: firstText(media, ["type", "category"]) || firstText(value, ["category"]) || "anime",
+      soundFile: "",
+      imageFile: "",
+      soundUrl: absoluteMediaUrl(firstText(urls, ["audioUrl", "soundUrl", "audio_url", "sound_url"]) || firstText(value, ["audioUrl", "soundUrl", "audio_url", "sound_url"])),
+      imageUrl: absoluteMediaUrl(firstText(urls, ["imageUrl", "image_url"]) || firstText(value, ["imageUrl", "image_url"])),
+      publicId,
+      mediaPublicId
+    };
+  }
+  function nestedText(record, key, fields) {
+    const value = record[key];
+    return isRecord(value) ? firstText(value, fields) : "";
+  }
   function directMediaUrl(example, kind) {
     return kind === "image" ? example.imageUrl : example.soundUrl;
   }
@@ -14878,7 +18082,7 @@ ${entry.reading}`;
   }
   function mediaFileUrls(example, file) {
     const category = example.category || categoryFromId(example.id);
-    return uniqueStrings$3(mediaTitleCandidates(example, file).flatMap((title) => mediaFileTitleUrls(category, title, file)));
+    return uniqueStrings$2(mediaTitleCandidates(example, file).flatMap((title) => mediaFileTitleUrls(category, title, file)));
   }
   function mediaFileTitleUrls(category, title, file) {
     const path = `media/${category}/${title}/media/${file}`;
@@ -14906,7 +18110,7 @@ ${entry.reading}`;
   function text(value) {
     return typeof value === "string" ? value.trim() : "";
   }
-  function isRecord$1(value) {
+  function isRecord(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function titleSlugFromId(id) {
@@ -14924,9 +18128,12 @@ ${entry.reading}`;
     if (override) return override;
     return slug.replace(/_+$/g, "").split("_").filter(Boolean).map((part) => part.length <= 3 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)).join(" ");
   }
+  function slugFromTitle(title) {
+    return title.trim().toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]+/gi, "_").replace(/^_+|_+$/g, "");
+  }
   function mediaTitleCandidates(example, file) {
     const slug = example.titleSlug || titleSlugFromId(example.id);
-    return uniqueStrings$3([
+    return uniqueStrings$2([
       titleFromSlug(slug),
       example.sourceTitle,
       titleFromMediaFile(file),
@@ -14940,7 +18147,7 @@ ${entry.reading}`;
     if (!title) return "";
     return title.replace(/\bKOn\b/u, "K-On!").replace(/\bDurarara\b/u, "Durarara!!").replace(/\bAngel Beats!?\b/u, "Angel Beats!");
   }
-  function uniqueStrings$3(values) {
+  function uniqueStrings$2(values) {
     const seen = /* @__PURE__ */ new Set();
     const result = [];
     for (const value of values.map((item) => item.trim()).filter(Boolean)) {
@@ -14949,6 +18156,45 @@ ${entry.reading}`;
       result.push(value);
     }
     return result;
+  }
+  function deterministicShuffle(values, seed) {
+    const result = [...values];
+    let state = hashString(seed) || 1;
+    for (let index = result.length - 1; index > 0; index--) {
+      state = nextRandomState(state);
+      const swapIndex = state % (index + 1);
+      [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+    }
+    return result;
+  }
+  function deterministicMergedExamples(sources, resultSets, seed) {
+    const groups = deterministicShuffle(sources.map((source, index) => ({
+      source,
+      examples: deterministicShuffle(resultSets[index] ?? [], `${seed}:${source}`)
+    })), `${seed}:providers`).filter((group) => group.examples.length);
+    const result = [];
+    while (groups.some((group) => group.examples.length)) {
+      for (const group of groups) {
+        const example = group.examples.shift();
+        if (example) result.push(example);
+      }
+    }
+    return result;
+  }
+  function nextRandomState(value) {
+    return Math.imul(value, 1664525) + 1013904223 >>> 0;
+  }
+  function sensitiveFingerprint(value) {
+    const trimmed = value.trim();
+    return trimmed ? hashString(trimmed).toString(36) : "";
+  }
+  function hashString(value) {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index++) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
   }
   function absoluteMediaUrl(value) {
     if (!value) return "";
@@ -14973,7 +18219,7 @@ ${entry.reading}`;
   function normalizeForSurfaceMatch(value) {
     return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
   }
-  async function requestJson$2(url, timeoutMs, proxyUrl = "") {
+  async function requestJson$1(url, timeoutMs, proxyUrl = "") {
     let lastError;
     for (const candidate of urlCandidates(url)) {
       try {
@@ -14991,7 +18237,7 @@ ${entry.reading}`;
     return error instanceof Error ? error : new Error(fallback);
   }
   function requestJsonCandidate(url, timeoutMs, proxyUrl = "") {
-    return requestJson$4(url, {
+    return requestJson$3(url, {
       proxyUrl,
       timeoutMs,
       allowDirectCrossOrigin: true,
@@ -15137,7 +18383,7 @@ ${entry.reading}`;
     return queryLength(b) - queryLength(a);
   }
   const IMMERSION_SEARCH_CACHE_TTL_MS = 3e4;
-  const log$k = Logger.scope("ImmersionPopover");
+  const log$j = Logger.scope("ImmersionPopover");
   class ImmersionPopoverController {
     constructor(options) {
       __publicField(this, "audioElement");
@@ -15184,7 +18430,7 @@ ${entry.reading}`;
         if (!isConnectedImmersionSurface(popover, container)) return;
         this.renderLoadedExamples(container, card, result);
       } catch (error) {
-        log$k.warn("Immersion Kit examples failed", { term: card.spelling }, error);
+        log$j.warn("Immersion Kit examples failed", { term: card.spelling }, error);
         this.renderEmptyIfConnected(popover, container);
       }
     }
@@ -15347,6 +18593,8 @@ ${entry.reading}`;
         spelling: card.spelling,
         reading: card.reading,
         enabled: settings.immersionKitEnabled,
+        source: settings.immersionKitExampleSource,
+        nadeshikoKey: Boolean(settings.nadeshikoApiKey.trim()),
         limit: settings.immersionKitLimit,
         limitEnabled: settings.immersionKitLimitEnabled,
         min: settings.immersionKitMinLength,
@@ -15433,7 +18681,7 @@ ${entry.reading}`;
       const image = renderExampleImageHtml(container, imageUrl, sentence);
       return `
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${uiText(language, "immersionKit")}</span>
+                <span class="jpdb-reader-example-source">${escapeHtml$1(immersionExampleProviderLabel(example))}</span>
             </summary>
             <div class="jpdb-reader-example-toolbar">
                 <div class="jpdb-reader-example-meta jpdb-reader-example-meta-compact">
@@ -15597,8 +18845,8 @@ ${entry.reading}`;
     }
     handleExampleAudioError(example, quiet, requestId, error) {
       if (this.shouldClearAudioAfterExampleError(requestId)) this.clearAudio();
-      log$k.warn("Immersion Kit audio failed", { sourceTitle: example.sourceTitle, quiet }, error);
-      if (!quiet) this.options.toast(error instanceof Error ? error.message : "Immersion Kit audio failed.");
+      log$j.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example), sourceTitle: example.sourceTitle, quiet }, error);
+      if (!quiet) this.options.toast(error instanceof Error ? error.message : "Example audio failed.");
     }
     shouldClearAudioAfterExampleError(requestId) {
       return !requestId || requestId === this.audioRequestId;
@@ -15607,7 +18855,7 @@ ${entry.reading}`;
       const urls = this.mediaUrls(example, "sound");
       const key = urls[0] ?? "";
       if (key) return { urls, key };
-      if (!quiet) this.options.toast("No Immersion Kit audio for this example.");
+      if (!quiet) this.options.toast(`No ${immersionExampleProviderLabel(example)} audio for this example.`);
       return null;
     }
     startExampleAudioRequest(key) {
@@ -15658,6 +18906,9 @@ ${entry.reading}`;
   }
   function immersionExampleSourceLabel(card, example, searchQuery) {
     return queryKey(searchQuery) !== queryKey(card.spelling) ? `${searchQuery} · ${example.sourceTitle}` : example.sourceTitle;
+  }
+  function immersionExampleProviderLabel(example) {
+    return example.provider === "nadeshiko" ? "Nadeshiko" : "Immersion Kit";
   }
   function accurateImmersionExamples(query, examples) {
     return shouldFilterImmersionExamplesBySurface(query) ? examples.filter((example) => immersionSentenceContainsQuery(example.sentence, query)) : examples;
@@ -15985,7 +19236,7 @@ ${entry.reading}`;
   const API_BASE = "https://jpdb.io/api/v1";
   const RATE_LIMIT_BACKOFF_MS = 3e4;
   const REQUEST_TIMEOUT_MS$1 = 3e4;
-  const log$j = Logger.scope("JpdbApi");
+  const log$i = Logger.scope("JpdbApi");
   class JpdbApiClient {
     constructor(getApiKey, getProxyUrl = () => "") {
       __publicField(this, "retryAfter", 0);
@@ -15999,7 +19250,7 @@ ${entry.reading}`;
       const token = this.getApiKey();
       const endpoint = endpointLabel(url);
       this.assertCanRequest(token, endpoint);
-      const done = log$j.time("request", { endpoint, hasBody: Boolean(body) });
+      const done = log$i.time("request", { endpoint, hasBody: Boolean(body) });
       const response = await postJson(url, token, body, this.getProxyUrl());
       done();
       this.assertSuccessfulResponse(response, endpoint);
@@ -16007,26 +19258,26 @@ ${entry.reading}`;
     }
     assertCanRequest(token, endpoint) {
       if (!token) {
-        log$j.warn("Request blocked; JPDB API key is missing", { endpoint });
+        log$i.warn("Request blocked; JPDB API key is missing", { endpoint });
         throw new Error("JPDB API key is not set.");
       }
       if (Date.now() < this.retryAfter) {
-        log$j.warn("Request blocked by JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
+        log$i.warn("Request blocked by JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
         throw new Error("JPDB is rate limited. Try again in a moment.");
       }
     }
     assertSuccessfulResponse(response, endpoint) {
       if (response.status === 429) {
         this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
-        log$j.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
+        log$i.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
         throw new Error("JPDB rate limit reached.");
       }
       if (response.status === 403) {
-        log$j.warn("JPDB rejected API key", { endpoint });
+        log$i.warn("JPDB rejected API key", { endpoint });
         throw new Error("JPDB rejected the API key.");
       }
       if (!response.ok) {
-        log$j.warn("JPDB request failed", { endpoint, status: response.status });
+        log$i.warn("JPDB request failed", { endpoint, status: response.status });
         throw new Error(`JPDB request failed (${response.status}).`);
       }
     }
@@ -16036,7 +19287,7 @@ ${entry.reading}`;
     const json = JSON.parse(response.text);
     const errorMessage = jpdbApplicationErrorMessage(json);
     if (errorMessage) {
-      log$j.warn("JPDB returned application error", { endpoint, message: errorMessage });
+      log$i.warn("JPDB returned application error", { endpoint, message: errorMessage });
       throw new Error(errorMessage);
     }
     return json;
@@ -16425,7 +19676,7 @@ ${entry.reading}`;
   ];
   const DECK_FIELDS = ["id", "name"];
   const PARSE_CACHE_SIZE = 250;
-  const log$i = Logger.scope("JpdbClient");
+  const log$h = Logger.scope("JpdbClient");
   class JpdbClient {
     constructor(getApiKey, getProxyUrl = () => "") {
       __publicField(this, "api");
@@ -16456,12 +19707,12 @@ ${entry.reading}`;
       return promise;
     }
     async reviewCard(card, grade) {
-      log$i.info("Reviewing card", { term: card.spelling, grade });
+      log$h.info("Reviewing card", { term: card.spelling, grade });
       await this.api.request("review", { vid: card.vid, sid: card.sid, grade });
       await this.refreshCard(card);
     }
     async addToDeck(deckId, card, sentence) {
-      log$i.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
+      log$h.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
       await this.addVocabularyToDeck(deckId, card);
       if (sentence) await this.setCardSentence(card, sentence);
       await this.refreshCard(card);
@@ -16473,7 +19724,7 @@ ${entry.reading}`;
     }
     async listDeckCards(deckId, limit = 80) {
       const id = normalizeDeckRequestId(deckId);
-      const done = log$i.time("listDeckCards", { deckId, limit });
+      const done = log$h.time("listDeckCards", { deckId, limit });
       const response = await this.api.request("deck/list-vocabulary", {
         id,
         fetch_occurences: false
@@ -16493,7 +19744,7 @@ ${entry.reading}`;
       return cards;
     }
     async removeFromDeck(deckId, card) {
-      log$i.info("Removing card from deck", { term: card.spelling, deckId });
+      log$h.info("Removing card from deck", { term: card.spelling, deckId });
       await this.api.request("deck/remove-vocabulary", {
         id: deckId,
         vocabulary: [[card.vid, card.sid]]
@@ -16527,7 +19778,7 @@ ${entry.reading}`;
         sid: card.sid,
         sentence
       }).catch((error) => {
-        log$i.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
+        log$h.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
       });
     }
     async refreshCard(card) {
@@ -16537,7 +19788,7 @@ ${entry.reading}`;
       });
       const fresh = jpdbVocabularyToCards(lookup.vocabulary_info ?? [])[0];
       if (!fresh) {
-        log$i.warn("Card refresh did not return updated card", { term: card.spelling, vid: card.vid, sid: card.sid });
+        log$h.warn("Card refresh did not return updated card", { term: card.spelling, vid: card.vid, sid: card.sid });
         return;
       }
       this.cardCache.set(cardKey(card.vid, card.sid), fresh);
@@ -16549,7 +19800,7 @@ ${entry.reading}`;
       }
     }
     async fetchParse(text2, cacheKey) {
-      const done = log$i.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
+      const done = log$h.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
       try {
         const raw = await this.api.request("parse", {
           text: text2,
@@ -16606,15 +19857,15 @@ ${entry.reading}`;
   const JPDB_SEARCH_URL$1 = "https://jpdb.io/search";
   const REQUEST_TIMEOUT_MS = 6e3;
   const SMALL_KANA = new Set("ゃゅょャュョァィゥェォ");
-  const log$h = Logger.scope("JpdbPublicPitch");
+  const log$g = Logger.scope("JpdbPublicPitch");
   class JpdbPublicPitchClient {
     constructor(getCorsProxyUrl = () => "") {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
       this.getCorsProxyUrl = getCorsProxyUrl;
     }
     lookup(spelling, reading) {
-      const normalizedSpelling = cleanText$5(spelling);
-      const normalizedReading = cleanText$5(reading);
+      const normalizedSpelling = cleanText$4(spelling);
+      const normalizedReading = cleanText$4(reading);
       if (!normalizedSpelling && !normalizedReading) return Promise.resolve([]);
       const key = `${normalizedSpelling}
 ${normalizedReading}`;
@@ -16629,7 +19880,7 @@ ${normalizedReading}`;
       for (const query of unique$1([spelling, reading].filter(Boolean))) {
         const url = `${JPDB_SEARCH_URL$1}?q=${encodeURIComponent(query)}`;
         const html = await requestText$6(url, this.getCorsProxyUrl()).catch((error) => {
-          log$h.warn("Public JPDB pitch request failed", { query }, error);
+          log$g.warn("Public JPDB pitch request failed", { query }, error);
           return "";
         });
         const pitch = html ? parseJpdbPublicPitchHtml(html, spelling, reading) : [];
@@ -16669,7 +19920,7 @@ ${normalizedReading}`;
   function pitchSegmentPattern(segment) {
     const level = pitchSegmentLevel(segment);
     if (!level) return "";
-    return level.repeat(splitMorae(cleanText$5(segment.textContent ?? "")).length);
+    return level.repeat(splitMorae(cleanText$4(segment.textContent ?? "")).length);
   }
   function pitchSegmentLevel(segment) {
     const style = segment.getAttribute("style") ?? "";
@@ -16706,10 +19957,10 @@ ${normalizedReading}`;
     };
   }
   function vocabularyIdentityMatches$1(identity, spelling, reading) {
-    const requestedSpelling = cleanText$5(spelling);
-    const requestedReading = cleanText$5(reading);
-    const expression = cleanText$5(identity.expression);
-    const canonicalReading = cleanText$5(identity.reading);
+    const requestedSpelling = cleanText$4(spelling);
+    const requestedReading = cleanText$4(reading);
+    const expression = cleanText$4(identity.expression);
+    const canonicalReading = cleanText$4(identity.reading);
     const requested = new Set([requestedSpelling, requestedReading].filter(Boolean));
     if (!requested.size) return true;
     if (!identityIntersectsRequest(requested, expression, canonicalReading)) return false;
@@ -16717,7 +19968,7 @@ ${normalizedReading}`;
     return identityMatchesRequestedReading(expression, canonicalReading, requestedSpelling, requestedReading);
   }
   function hasRequestedVocabularyIdentity(spelling, reading) {
-    return Boolean(cleanText$5(spelling) || cleanText$5(reading));
+    return Boolean(cleanText$4(spelling) || cleanText$4(reading));
   }
   function identityIntersectsRequest(requested, expression, canonicalReading) {
     return requested.has(expression) || requested.has(canonicalReading);
@@ -16740,7 +19991,7 @@ ${normalizedReading}`;
       return value;
     }
   }
-  function cleanText$5(value) {
+  function cleanText$4(value) {
     return value.replace(/\s+/g, "").trim();
   }
   function unique$1(values) {
@@ -16755,7 +20006,7 @@ ${normalizedReading}`;
     });
   }
   const KANJI_RE$1 = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
-  function cleanText$4(value) {
+  function cleanText$3(value) {
     return value.replace(/\s+/g, " ").trim();
   }
   function decodeEntities(value) {
@@ -16868,19 +20119,19 @@ ${normalizedReading}`;
     var _a2, _b2;
     const sentenceElement = doc.querySelector(".card-sentence .sentence, .sentence, .plain");
     return {
-      kindLabel: cleanText$3(((_a2 = doc.querySelector(".kind")) == null ? void 0 : _a2.textContent) ?? ""),
-      sentence: cleanText$3((sentenceElement == null ? void 0 : sentenceElement.textContent) ?? ""),
-      highlighted: cleanText$3(((_b2 = doc.querySelector(".highlight")) == null ? void 0 : _b2.textContent) ?? ""),
+      kindLabel: cleanText$2(((_a2 = doc.querySelector(".kind")) == null ? void 0 : _a2.textContent) ?? ""),
+      sentence: cleanText$2((sentenceElement == null ? void 0 : sentenceElement.textContent) ?? ""),
+      highlighted: cleanText$2(((_b2 = doc.querySelector(".highlight")) == null ? void 0 : _b2.textContent) ?? ""),
       keyword: reviewKeywordText(doc)
     };
   }
   function reviewKeywordText(doc) {
     var _a2;
-    return sectionText(doc, "Keyword") || cleanText$3(((_a2 = doc.querySelector(".keyword")) == null ? void 0 : _a2.textContent) ?? "");
+    return sectionText(doc, "Keyword") || cleanText$2(((_a2 = doc.querySelector(".keyword")) == null ? void 0 : _a2.textContent) ?? "");
   }
   function reviewCardTextFields(doc, isKanji2, sentence, highlighted, kanji, keyword) {
     var _a2;
-    const plain = cleanText$3(((_a2 = doc.querySelector(".plain")) == null ? void 0 : _a2.textContent) ?? "");
+    const plain = cleanText$2(((_a2 = doc.querySelector(".plain")) == null ? void 0 : _a2.textContent) ?? "");
     const spelling = reviewCardSpelling(isKanji2, kanji, highlighted, sentence, plain);
     const prompt = reviewCardPrompt(isKanji2, keyword, plain, kanji, sentence, spelling);
     return {
@@ -16986,7 +20237,7 @@ ${normalizedReading}`;
   };
   function formText(element2) {
     const input2 = element2;
-    return cleanText$3([
+    return cleanText$2([
       element2.textContent,
       input2.value,
       input2.name,
@@ -16998,15 +20249,15 @@ ${normalizedReading}`;
   }
   function sectionText(doc, label) {
     var _a2, _b2;
-    const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element2) => cleanText$3(element2.textContent ?? "").toLocaleLowerCase() === label.toLocaleLowerCase());
-    return cleanText$3(((_b2 = (_a2 = heading == null ? void 0 : heading.parentElement) == null ? void 0 : _a2.querySelector(".subsection")) == null ? void 0 : _b2.textContent) ?? "");
+    const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element2) => cleanText$2(element2.textContent ?? "").toLocaleLowerCase() === label.toLocaleLowerCase());
+    return cleanText$2(((_b2 = (_a2 = heading == null ? void 0 : heading.parentElement) == null ? void 0 : _a2.querySelector(".subsection")) == null ? void 0 : _b2.textContent) ?? "");
   }
   function readingFromDocument(doc) {
     var _a2;
-    return cleanText$3(((_a2 = doc.querySelector(".plain ruby rt, rt, .reading")) == null ? void 0 : _a2.textContent) ?? "");
+    return cleanText$2(((_a2 = doc.querySelector(".plain ruby rt, rt, .reading")) == null ? void 0 : _a2.textContent) ?? "");
   }
   function itemsLeft(doc) {
-    const text2 = cleanText$3(doc.body.textContent ?? "");
+    const text2 = cleanText$2(doc.body.textContent ?? "");
     const match = /items?\s+left\s*\((\d+)\)|items?\s+left\s+(\d+)/i.exec(text2);
     if (!match) return null;
     const value = Number(match[1] ?? match[2]);
@@ -17014,12 +20265,12 @@ ${normalizedReading}`;
   }
   function firstJapaneseRun(value) {
     var _a2;
-    return cleanText$3(((_a2 = value.match(/[\u3040-\u30ff\u3400-\u9fff々〆ー]+/u)) == null ? void 0 : _a2[0]) ?? "");
+    return cleanText$2(((_a2 = value.match(/[\u3040-\u30ff\u3400-\u9fff々〆ー]+/u)) == null ? void 0 : _a2[0]) ?? "");
   }
   function firstKanji(value) {
     return Array.from(value).find((character) => /[\u3400-\u9fff々〆]/u.test(character)) ?? "";
   }
-  function cleanText$3(value) {
+  function cleanText$2(value) {
     return value.replace(/\s+/g, " ").trim();
   }
   function safeUrl(value) {
@@ -17036,7 +20287,7 @@ ${normalizedReading}`;
       timer = window.setTimeout(callback, delay2);
     };
   }
-  const log$g = Logger.scope("JpdbVocabulary");
+  const log$f = Logger.scope("JpdbVocabulary");
   const JPDB_VOCABULARY_BASE_URL = "https://jpdb.io/vocabulary";
   const JPDB_SEARCH_URL = "https://jpdb.io/search";
   const JPDB_COMPOUND_LIMIT = 8;
@@ -17062,7 +20313,7 @@ ${normalizedReading}`;
     async fetchInfo(vid, spelling, reading) {
       for (const url of vocabularyLookupUrls(vid, spelling, reading)) {
         const html = await requestText$5(url, this.getCorsProxyUrl()).catch((error) => {
-          log$g.warn("Vocabulary page request failed", { vid, spelling, url }, error);
+          log$f.warn("Vocabulary page request failed", { vid, spelling, url }, error);
           return "";
         });
         const info = html ? parseJpdbVocabularyHtml(html, spelling, reading) : null;
@@ -17075,7 +20326,7 @@ ${normalizedReading}`;
       for (const supplement of vocabularySupplementUrls(html, spelling, reading, initialUrl)) {
         if (!needsSupplement(info, supplement.kind)) continue;
         const supplementHtml = await requestText$5(supplement.url, this.getCorsProxyUrl()).catch((error) => {
-          log$g.warn("Vocabulary supplement request failed", { vid, spelling, url: supplement.url }, error);
+          log$f.warn("Vocabulary supplement request failed", { vid, spelling, url: supplement.url }, error);
           return "";
         });
         const supplementalInfo = supplementHtml ? parseJpdbVocabularyHtml(supplementHtml, spelling, reading) : null;
@@ -17114,7 +20365,7 @@ ${normalizedReading}`;
     if (!doc.querySelector(".results.search")) return [];
     const root = vocabularyRoot(doc, spelling, reading);
     if (!root) return [];
-    return Array.from(root.querySelectorAll('a.view-conjugations-link[href*="/vocabulary/"]')).filter((link) => /more details/i.test(cleanText$2(link.textContent ?? ""))).map((link) => absoluteJpdbUrl(link.getAttribute("href") ?? link.href)).filter(Boolean).map((url) => ({ url, kind: "details" }));
+    return Array.from(root.querySelectorAll('a.view-conjugations-link[href*="/vocabulary/"]')).filter((link) => /more details/i.test(cleanText$1(link.textContent ?? ""))).map((link) => absoluteJpdbUrl(link.getAttribute("href") ?? link.href)).filter(Boolean).map((url) => ({ url, kind: "details" }));
   }
   function vocabularyExpandUrls(doc) {
     return Array.from(doc.querySelectorAll('a[href*="expand="]')).map((link) => vocabularyExpandSupplement(link.getAttribute("href") ?? link.href)).filter((supplement) => supplement !== null);
@@ -17163,7 +20414,7 @@ ${normalizedReading}`;
     return matches[0] ?? null;
   }
   function canUseGenericVocabularyRoot(roots, spelling, reading) {
-    const hasRequestedIdentity = Boolean(cleanText$2(spelling) || cleanText$2(reading));
+    const hasRequestedIdentity = Boolean(cleanText$1(spelling) || cleanText$1(reading));
     return !hasRequestedIdentity && roots.length <= 1;
   }
   function canUseFallbackVocabularyRoot(doc, roots, spelling, reading) {
@@ -17199,10 +20450,10 @@ ${normalizedReading}`;
     };
   }
   function vocabularyIdentityMatches(identity, spelling, reading) {
-    const requestedSpelling = cleanText$2(spelling);
-    const requestedReading = cleanText$2(reading);
-    const expression = cleanText$2(identity.expression);
-    const canonicalReading = cleanText$2(identity.reading);
+    const requestedSpelling = cleanText$1(spelling);
+    const requestedReading = cleanText$1(reading);
+    const expression = cleanText$1(identity.expression);
+    const canonicalReading = cleanText$1(identity.reading);
     const requested = new Set([requestedSpelling, requestedReading].filter(Boolean));
     if (!requested.size) return true;
     if (!vocabularyIdentityIntersectsRequest(requested, expression, canonicalReading)) return false;
@@ -17233,7 +20484,7 @@ ${normalizedReading}`;
     const entries = [];
     root.querySelectorAll(".subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji").forEach((section) => {
       var _a2;
-      const label = cleanText$2(((_a2 = section.querySelector(".subsection-label")) == null ? void 0 : _a2.textContent) ?? "").toLowerCase();
+      const label = cleanText$1(((_a2 = section.querySelector(".subsection-label")) == null ? void 0 : _a2.textContent) ?? "").toLowerCase();
       if (label && !label.startsWith("composed of")) return;
       section.querySelectorAll(".subsection > div, .subsection .used-in").forEach((row) => addCompoundEntry(entries, row));
     });
@@ -17244,13 +20495,13 @@ ${normalizedReading}`;
     var _a2;
     const link = row.querySelector('a[href^="/vocabulary/"], a[href^="/kanji/"]');
     const spelling = row.querySelector('.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]') ?? link;
-    const term = cleanText$2(spelling ? baseText(spelling) : "") || cleanText$2((spelling == null ? void 0 : spelling.textContent) ?? "");
-    const reading = cleanText$2(spelling ? readingText(spelling) : "") || term;
+    const term = cleanText$1(spelling ? baseText(spelling) : "") || cleanText$1((spelling == null ? void 0 : spelling.textContent) ?? "");
+    const reading = cleanText$1(spelling ? readingText(spelling) : "") || term;
     if (!term || !JAPANESE_RE$1.test(term) || entries.some((entry) => entry.term === term)) return;
     entries.push({
       term,
       reading,
-      meaning: cleanText$2(((_a2 = row.querySelector(".description, .en, .meaning")) == null ? void 0 : _a2.textContent) ?? ""),
+      meaning: cleanText$1(((_a2 = row.querySelector(".description, .en, .meaning")) == null ? void 0 : _a2.textContent) ?? ""),
       url: (link == null ? void 0 : link.getAttribute("href")) ?? ""
     });
   }
@@ -17258,20 +20509,20 @@ ${normalizedReading}`;
     const entries = [];
     root.querySelectorAll(".subsection-used-in, .subsection-used-in-vocabulary").forEach((section) => {
       var _a2;
-      const label = cleanText$2(((_a2 = section.querySelector(".subsection-label")) == null ? void 0 : _a2.textContent) ?? "").toLowerCase();
+      const label = cleanText$1(((_a2 = section.querySelector(".subsection-label")) == null ? void 0 : _a2.textContent) ?? "").toLowerCase();
       if (label && !label.startsWith("used in")) return;
       usedInRows(section).forEach((row) => {
         var _a3;
         const link = vocabularyLink(row);
         if (!link) return;
         const identity = vocabularyIdentityFromUrl(link.href || link.getAttribute("href") || "");
-        const term = cleanText$2((identity == null ? void 0 : identity.expression) ?? "") || cleanText$2(baseText(link)) || cleanText$2(link.textContent ?? "");
-        const reading = cleanText$2((identity == null ? void 0 : identity.reading) ?? "") || cleanText$2(readingText(link)) || term;
+        const term = cleanText$1((identity == null ? void 0 : identity.expression) ?? "") || cleanText$1(baseText(link)) || cleanText$1(link.textContent ?? "");
+        const reading = cleanText$1((identity == null ? void 0 : identity.reading) ?? "") || cleanText$1(readingText(link)) || term;
         if (!term || !JAPANESE_RE$1.test(term) || entries.some((entry) => entry.term === term && entry.reading === reading)) return;
         entries.push({
           term,
           reading,
-          meaning: cleanText$2(((_a3 = row.querySelector(".description, .en, .english, .meaning")) == null ? void 0 : _a3.textContent) ?? ""),
+          meaning: cleanText$1(((_a3 = row.querySelector(".description, .en, .english, .meaning")) == null ? void 0 : _a3.textContent) ?? ""),
           url: link.getAttribute("href") ?? ""
         });
       });
@@ -17297,12 +20548,12 @@ ${normalizedReading}`;
       section.querySelectorAll(".subsection > div, .example, li, p").forEach((row) => {
         var _a2;
         const sentenceNode = row.querySelector(".sentence, .jp, .japanese, .plain") ?? row;
-        const sentence = cleanText$2(baseText(sentenceNode)) || cleanText$2(sentenceNode.textContent ?? "");
+        const sentence = cleanText$1(baseText(sentenceNode)) || cleanText$1(sentenceNode.textContent ?? "");
         if (!sentence || !JAPANESE_RE$1.test(sentence) || seen.has(sentence)) return;
         seen.add(sentence);
         examples.push({
           sentence,
-          translation: cleanText$2(((_a2 = row.querySelector(".translation, .en, .english")) == null ? void 0 : _a2.textContent) ?? ""),
+          translation: cleanText$1(((_a2 = row.querySelector(".translation, .en, .english")) == null ? void 0 : _a2.textContent) ?? ""),
           audioIds: jpdbAudioIds(row)
         });
       });
@@ -17311,7 +20562,7 @@ ${normalizedReading}`;
   }
   function exampleSections(root) {
     const byClass = Array.from(root.querySelectorAll(".subsection-examples, .subsection-monolingual-examples"));
-    const byLabel = Array.from(root.querySelectorAll(".subsection-label")).filter((label) => cleanText$2(label.textContent ?? "").toLowerCase().includes("examples")).map(exampleSectionFromLabel).filter((section) => section !== null);
+    const byLabel = Array.from(root.querySelectorAll(".subsection-label")).filter((label) => cleanText$1(label.textContent ?? "").toLowerCase().includes("examples")).map(exampleSectionFromLabel).filter((section) => section !== null);
     return unique([...byClass, ...byLabel]);
   }
   function exampleSectionFromLabel(label) {
@@ -17357,11 +20608,11 @@ ${normalizedReading}`;
     var _a2;
     return ((_a2 = Array.from(element2.children).find((child) => child.tagName === "RT")) == null ? void 0 : _a2.textContent) || baseText(element2);
   }
-  function cleanText$2(value) {
+  function cleanText$1(value) {
     return value.replace(/\s+/g, " ").trim();
   }
   function cleanMeaning(value) {
-    return cleanText$2(value).replace(/^\d+\.\s*/, "");
+    return cleanText$1(value).replace(/^\d+\.\s*/, "");
   }
   function decodePathPart(value) {
     try {
@@ -17402,7 +20653,7 @@ ${normalizedReading}`;
   }
   const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
   const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$f = Logger.scope("KanjiOrigin");
+  const log$e = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -17421,9 +20672,9 @@ ${normalizedReading}`;
       return promise;
     }
     async fetchInfo(kanji, settings) {
-      const done = log$f.time("Kanji origin lookup", { kanji });
+      const done = log$e.time("Kanji origin lookup", { kanji });
       const kanjiMap = settings.kanjiOriginKanjiMapEnabled ? await fetchKanjiMapInfo(kanji).catch((error) => {
-        log$f.warn("Kanji Map origin lookup failed", { kanji, error });
+        log$e.warn("Kanji Map origin lookup failed", { kanji, error });
         return void 0;
       }) : void 0;
       const result = kanjiMap ? { kanjiMap } : null;
@@ -17438,7 +20689,7 @@ ${normalizedReading}`;
     ].join(":");
   }
   async function fetchKanjiMapInfo(kanji) {
-    const done = log$f.time("Fetch Kanji Map info", { kanji });
+    const done = log$e.time("Fetch Kanji Map info", { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
     const raw = parseJson(await requestText$4(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
@@ -17700,14 +20951,14 @@ ${normalizedReading}`;
   function kanjiVGPositionKeys(component) {
     const componentAliases = KANJIVG_COMPONENT_ALIASES.get(component.component) ?? [];
     const originalAliases = component.original ? KANJIVG_COMPONENT_ALIASES.get(component.original) ?? [] : [];
-    return uniqueStrings$2([
+    return uniqueStrings$1([
       component.component,
       component.original,
       ...componentAliases,
       ...originalAliases
     ]);
   }
-  function uniqueStrings$2(values) {
+  function uniqueStrings$1(values) {
     return Array.from(new Set(values.filter((value) => Boolean(value))));
   }
   function normalizeKanjiVGPosition(value) {
@@ -17959,7 +21210,7 @@ ${normalizedReading}`;
       failureLabel: "Kanji origin request",
       timeoutLabel: "Kanji origin request timed out."
     }).catch((error) => {
-      log$f.warn("Kanji origin request failed", { host: safeHost$2(url), error });
+      log$e.warn("Kanji origin request failed", { host: safeHost$2(url), error });
       throw error;
     });
   }
@@ -17974,7 +21225,7 @@ ${normalizedReading}`;
       return "";
     }
   }
-  const log$e = Logger.scope("KanjiDoodle");
+  const log$d = Logger.scope("KanjiDoodle");
   const PEN_MIN_DISTANCE = 8e-4;
   const POINTER_MIN_DISTANCE = 35e-4;
   const ACTIVE_DOODLE_CLASS = "jpdb-reader-doodle-active";
@@ -17992,7 +21243,7 @@ ${normalizedReading}`;
     const { stage, canvas, ghost } = elements;
     const context = canvas.getContext("2d");
     if (!context) {
-      log$e.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+      log$d.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
       return;
     }
     let dpr = 1;
@@ -18478,7 +21729,7 @@ ${normalizedReading}`;
     return expectedStrokes > 0 && strokes.filter((stroke) => stroke.length > 1).length < expectedStrokes;
   }
   const KANJIVG_RAW_BASE = "https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji";
-  const log$d = Logger.scope("KanjiVG");
+  const log$c = Logger.scope("KanjiVG");
   class KanjiVGClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -18496,7 +21747,7 @@ ${normalizedReading}`;
     async fetchSvg(kanji) {
       const url = kanjiVGUrl(kanji);
       const svgText = await requestText$3(url).catch((error) => {
-        log$d.warn("Stroke-order request failed", { kanji }, error);
+        log$c.warn("Stroke-order request failed", { kanji }, error);
         return "";
       });
       if (!svgText) return null;
@@ -18881,7 +22132,7 @@ ${normalizedReading}`;
   function nestedParseKey(targets) {
     return targets.map((target) => target.text).join("\n\n");
   }
-  const log$c = Logger.scope("Onboarding");
+  const log$b = Logger.scope("Onboarding");
   function selectedOnboardingLanguage(value, fallback) {
     return value === "en" || value === "ja" || value === "auto" ? value : fallback;
   }
@@ -18900,7 +22151,7 @@ ${normalizedReading}`;
       return true;
     }
     show() {
-      log$c.info("Showing onboarding", { language: this.options.getSettings().interfaceLanguage });
+      log$b.info("Showing onboarding", { language: this.options.getSettings().interfaceLanguage });
       this.close();
       this.backdrop = document.createElement("div");
       this.backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
@@ -18974,7 +22225,7 @@ ${normalizedReading}`;
       this.languageSelect.addEventListener("change", () => {
         var _a2;
         const language2 = normalizeLanguage((_a2 = this.languageSelect) == null ? void 0 : _a2.value, this.options.getSettings().interfaceLanguage);
-        log$c.info("Onboarding language changed", { language: language2 });
+        log$b.info("Onboarding language changed", { language: language2 });
         this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language2 });
         this.localize(language2);
       });
@@ -19021,16 +22272,16 @@ ${normalizedReading}`;
       closeButton == null ? void 0 : closeButton.setAttribute("title", uiText(language, "closeOnboarding"));
     }
     async complete(openSettings) {
-      const done = log$c.time("Onboarding complete", { openSettings });
+      const done = log$b.time("Onboarding complete", { openSettings });
       const settings = this.completedOnboardingSettings(openSettings);
       try {
         this.options.setSettings(settings);
         await saveSettings(settings);
         this.close();
         this.openPostOnboardingSettings(openSettings);
-        log$c.info("Onboarding completed", { openSettings, language: settings.interfaceLanguage });
+        log$b.info("Onboarding completed", { openSettings, language: settings.interfaceLanguage });
       } catch (error) {
-        log$c.warn("Onboarding completion failed", { openSettings, error });
+        log$b.warn("Onboarding completion failed", { openSettings, error });
         throw error;
       } finally {
         done();
@@ -19258,7 +22509,7 @@ ${normalizedReading}`;
   const LENS_SURFACE_CHROMIUM = 4;
   const LENS_AUTO_FILTER = 7;
   const LENS_WRITING_TOP_TO_BOTTOM = 2;
-  const log$b = Logger.scope("OCR");
+  const log$a = Logger.scope("OCR");
   const OCR_RECOGNIZERS = {
     "google-lens": recognizeViaGoogleLens,
     "cloud-vision": recognizeViaCloudVision,
@@ -19285,34 +22536,38 @@ ${normalizedReading}`;
   function isOcrImageStateIdle(state) {
     return !state.result && !state.loading && !state.autoSkipped;
   }
-  function showOcrReadingStatus(state) {
+  function showOcrReadingStatus(state, settings) {
     state.status.hidden = false;
-    state.status.textContent = "Reading image...";
+    state.status.textContent = uiText(settings.interfaceLanguage, "ocrReadingImage");
   }
   function beginOcrScan(state, image, settings, manualRequested) {
     state.loading = true;
     state.status.hidden = !state.overlayRequested;
-    state.status.textContent = "Reading image...";
+    state.status.textContent = uiText(settings.interfaceLanguage, "ocrReadingImage");
     const provider = inlineProviderLabel(settings);
     return {
       provider,
-      done: log$b.time("scanImage", { provider, image: imageSummary(image), manualRequested })
+      done: log$a.time("scanImage", { provider, image: imageSummary(image), manualRequested })
     };
   }
   function finishOcrScan(state) {
     state.loading = false;
     state.manualRequested = false;
   }
-  function renderNoOcrLines(state, manualRequested) {
+  function renderNoOcrLines(state, settings, manualRequested) {
     state.autoSkipped = !manualRequested;
-    state.status.textContent = "No Japanese text found";
+    state.status.textContent = uiText(settings.interfaceLanguage, "ocrNoJapaneseText");
     state.status.hidden = !state.overlayRequested || state.autoSkipped;
   }
-  function renderOcrErrorStatus(state, provider, manualRequested, error) {
-    state.status.textContent = error instanceof Error ? error.message : "OCR failed";
+  function renderOcrErrorStatus(state, settings, provider, manualRequested, error) {
+    state.status.textContent = ocrVisibleErrorMessage(settings, error);
     state.autoSkipped = !manualRequested;
     state.status.hidden = !state.overlayRequested || state.autoSkipped;
-    log$b.warn("OCR scan failed", { provider, manualRequested }, error);
+    log$a.warn("OCR scan failed", { provider, manualRequested }, error);
+  }
+  function ocrVisibleErrorMessage(settings, error) {
+    if (resolveUiLanguage(settings.interfaceLanguage) === "ja") return uiText(settings.interfaceLanguage, "ocrFailed");
+    return error instanceof Error ? error.message : uiText(settings.interfaceLanguage, "ocrFailed");
   }
   class ImageOcrController {
     constructor(options) {
@@ -19354,7 +22609,7 @@ ${normalizedReading}`;
         attributes: true,
         attributeFilter: ["class", "style", "hidden", "src", "srcset", "sizes", "loading", "poster"]
       });
-      log$b.info("OCR controller initialized");
+      log$a.info("OCR controller initialized");
     }
     refresh(options = {}) {
       const settings = this.options.getSettings();
@@ -19401,19 +22656,19 @@ ${normalizedReading}`;
     toggle() {
       const settings = this.options.getSettings();
       settings.ocrEnabled = !settings.ocrEnabled;
-      this.options.onToast(settings.ocrEnabled ? "Image reading enabled." : "Image reading hidden.");
+      this.options.onToast(uiText(settings.interfaceLanguage, settings.ocrEnabled ? "ocrEnabledToast" : "ocrHiddenToast"));
       this.refresh();
-      log$b.info("OCR toggled", { enabled: settings.ocrEnabled });
+      log$a.info("OCR toggled", { enabled: settings.ocrEnabled });
     }
     async scanVisible() {
       this.refresh({ userRequested: true });
       const images = [...this.states.keys()].filter((image) => isNearViewport(image, 120));
       if (!images.length) {
-        this.options.onToast("No readable images nearby.");
+        this.options.onToast(uiText(this.options.getSettings().interfaceLanguage, "ocrNoReadableImages"));
         return;
       }
       images.forEach((image) => this.enqueue(image, true));
-      log$b.info("Manual OCR scan queued images", { images: images.length });
+      log$a.info("Manual OCR scan queued images", { images: images.length });
     }
     captureSourceImageForElement(element2) {
       var _a2;
@@ -19473,7 +22728,7 @@ ${normalizedReading}`;
     }
     queueOcrRequest(image, state, userRequested) {
       this.queueImageForOcr(image);
-      if (userRequested) showOcrReadingStatus(state);
+      if (userRequested) showOcrReadingStatus(state, this.options.getSettings());
       this.drainQueue();
     }
     renderExistingOcrResult(state, userRequested) {
@@ -19526,22 +22781,22 @@ ${normalizedReading}`;
       const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
       const result = inlineFallback ?? providerResult;
       if (!(result == null ? void 0 : result.lines.length)) {
-        renderNoOcrLines(state, manualRequested);
+        renderNoOcrLines(state, settings, manualRequested);
         return;
       }
       this.remember(key, result);
       state.key = key;
       await this.renderResult(state, result);
-      log$b.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
+      log$a.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
     async renderOcrFailure(state, image, provider, manualRequested, error) {
       const fallback = readFallbackOcrResult(image, false);
       if (fallback == null ? void 0 : fallback.lines.length) {
-        log$b.warn("OCR provider failed; rendered fallback metadata", { provider }, error);
+        log$a.warn("OCR provider failed; rendered fallback metadata", { provider }, error);
         await this.renderResult(state, fallback);
         return;
       }
-      renderOcrErrorStatus(state, provider, manualRequested, error);
+      renderOcrErrorStatus(state, this.options.getSettings(), provider, manualRequested, error);
     }
     recognizeImage(image, settings) {
       const recognizer = ocrRecognizer(settings);
@@ -19924,7 +23179,7 @@ ${normalizedReading}`;
       ocr_adapter_name: engine,
       detection_only: false
     });
-    const response = await requestJson$1(localOcrEndpointUrl(settings), body, settings.audioTimeoutMs);
+    const response = await requestJson(localOcrEndpointUrl(settings), body, settings.audioTimeoutMs);
     return normalizeOcrResult(response, payload.width, payload.height);
   }
   async function recognizeViaCloudVision(image, settings) {
@@ -19939,7 +23194,7 @@ ${normalizedReading}`;
       }]
     });
     const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
-    const response = await requestJson$1(url, body, settings.audioTimeoutMs);
+    const response = await requestJson(url, body, settings.audioTimeoutMs);
     return normalizeOcrResult(response, payload.width, payload.height);
   }
   async function recognizeViaGoogleLens(image, settings) {
@@ -19950,7 +23205,7 @@ ${normalizedReading}`;
       const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
       return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
     } catch (error) {
-      log$b.warn("Google Lens protobuf endpoint failed; trying upload fallback", error);
+      log$a.warn("Google Lens protobuf endpoint failed; trying upload fallback", error);
       return recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs);
     }
   }
@@ -20623,7 +23878,7 @@ ${normalizedReading}`;
     crypto.getRandomValues(bytes);
     return bytes;
   }
-  function requestJson$1(url, data, timeout) {
+  function requestJson(url, data, timeout) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
       return new Promise((resolve, reject) => {
@@ -21947,7 +25202,7 @@ ${normalizedReading}`;
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
   const KANJI_RE = /[\u3400-\u9fff]/u;
-  const log$a = Logger.scope("RTK");
+  const log$9 = Logger.scope("RTK");
   class RtkClient {
     constructor() {
       __publicField(this, "cache", /* @__PURE__ */ new Map());
@@ -21965,7 +25220,7 @@ ${normalizedReading}`;
     }
     async fetchInfo(kanji) {
       const html = await requestText$2(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
-        log$a.warn("RTK request failed", { kanji }, error);
+        log$9.warn("RTK request failed", { kanji }, error);
         return "";
       });
       if (!html) return null;
@@ -22149,7 +25404,7 @@ ${normalizedReading}`;
       return (_a2 = element2.textContent) == null ? void 0 : _a2.includes(label);
     });
     const next = heading == null ? void 0 : heading.nextElementSibling;
-    return (next == null ? void 0 : next.tagName) === "P" ? cleanText$1(next.textContent ?? "") : "";
+    return (next == null ? void 0 : next.tagName) === "P" ? cleanText(next.textContent ?? "") : "";
   }
   function paragraphsAfterHeading(doc, label) {
     const heading = Array.from(doc.querySelectorAll("h2")).find((element2) => {
@@ -22159,13 +25414,13 @@ ${normalizedReading}`;
     const paragraphs = [];
     let next = heading == null ? void 0 : heading.nextElementSibling;
     while ((next == null ? void 0 : next.tagName) === "P") {
-      const text2 = cleanText$1(next.textContent ?? "");
+      const text2 = cleanText(next.textContent ?? "");
       if (text2) paragraphs.push(text2);
       next = next.nextElementSibling;
     }
     return paragraphs;
   }
-  function cleanText$1(value) {
+  function cleanText(value) {
     return value.replace(/\s+/g, " ").trim();
   }
   function requestText$2(url) {
@@ -22175,7 +25430,7 @@ ${normalizedReading}`;
       timeoutLabel: "RTK request timed out."
     });
   }
-  const log$9 = Logger.scope("ReaderAudioActions");
+  const log$8 = Logger.scope("ReaderAudioActions");
   class ReaderAudioActions {
     constructor(dependencies) {
       __publicField(this, "loadingRequest", 0);
@@ -22183,7 +25438,7 @@ ${normalizedReading}`;
     }
     async playTermAudio(card, options = {}) {
       if (!this.dependencies.getSettings().audioEnabled) {
-        this.dependencies.toast("Audio playback is disabled.");
+        this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "audioPlaybackDisabledToast"));
         return;
       }
       const isCurrent = options.hoverLookupGeneration === void 0 ? void 0 : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration;
@@ -22195,8 +25450,8 @@ ${normalizedReading}`;
         const played = await this.dependencies.audio.play(card, { isCurrent, userGesture: options.userGesture });
         if (!played) return;
       } catch (error) {
-        log$9.warn("Term audio playback failed", { term: card.spelling }, error);
-        this.dependencies.toast(error instanceof Error ? error.message : "Audio playback failed.");
+        log$8.warn("Term audio playback failed", { term: card.spelling }, error);
+        this.dependencies.toast(this.audioErrorMessage(error));
       } finally {
         this.clearLoading(loadingPopover, loadingRequest);
       }
@@ -22204,7 +25459,7 @@ ${normalizedReading}`;
     async playSentenceAudio(sentence) {
       var _a2;
       const text2 = sentence == null ? void 0 : sentence.trim();
-      if (!text2) throw new Error("No sentence to read aloud.");
+      if (!text2) throw new Error(uiText(this.dependencies.getSettings().interfaceLanguage, "noSentenceToRead"));
       const voice = ((_a2 = this.dependencies.getSettings().audioSources.find(
         (source) => source.enabled && (source.type === "text-to-speech" || source.type === "text-to-speech-reading") && source.voice.trim()
       )) == null ? void 0 : _a2.voice.trim()) ?? "";
@@ -22213,12 +25468,25 @@ ${normalizedReading}`;
     }
     async playJpdbExampleAudio(audioIds, fallbackSentence) {
       if (!this.dependencies.getSettings().audioEnabled) {
-        this.dependencies.toast("Audio playback is disabled.");
+        this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "audioPlaybackDisabledToast"));
         return;
       }
       this.dependencies.stopImmersionAudio();
       const played = await this.dependencies.audio.playJpdbAudio(audioIds, { userGesture: true });
       if (!played && fallbackSentence) await this.playSentenceAudio(fallbackSentence);
+    }
+    async playMediaUrl(audioUrl) {
+      if (!this.dependencies.getSettings().audioEnabled) {
+        this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "audioPlaybackDisabledToast"));
+        return;
+      }
+      this.dependencies.stopImmersionAudio();
+      await this.dependencies.audio.playMediaUrl(audioUrl);
+    }
+    audioErrorMessage(error) {
+      const language = this.dependencies.getSettings().interfaceLanguage;
+      if (resolveUiLanguage(language) === "ja") return uiText(language, "audioPlaybackFailed");
+      return error instanceof Error ? error.message : uiText(language, "audioPlaybackFailed");
     }
     setLoading(popover, requestId) {
       if (!(popover == null ? void 0 : popover.isConnected)) return;
@@ -22233,7 +25501,7 @@ ${normalizedReading}`;
   }
   const LOCAL_MATCH_LIMIT = 40;
   const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
-  const log$8 = Logger.scope("ReaderParser");
+  const log$7 = Logger.scope("ReaderParser");
   class ReaderParser {
     constructor(dependencies) {
       __publicField(this, "localCardCache", /* @__PURE__ */ new Map());
@@ -22242,7 +25510,7 @@ ${normalizedReading}`;
     async parse(paragraphs) {
       const { getSettings, jpdb } = this.dependencies;
       const settings = getSettings();
-      const done = log$8.time("parse", {
+      const done = log$7.time("parse", {
         paragraphs: paragraphs.length,
         hasApiKey: Boolean(settings.apiKey.trim()),
         localFallback: settings.localDictionariesEnabled
@@ -22254,11 +25522,11 @@ ${normalizedReading}`;
           return result;
         } catch (error) {
           if (!this.canUseLocalDictionaryFallback()) {
-            log$8.warn("JPDB parse failed without local fallback", error);
+            log$7.warn("JPDB parse failed without local fallback", error);
             done();
             throw error;
           }
-          log$8.warn("JPDB parse failed; using local dictionary fallback", error);
+          log$7.warn("JPDB parse failed; using local dictionary fallback", error);
         }
       }
       if (!this.canUseLocalDictionaryFallback()) {
@@ -22344,7 +25612,7 @@ ${spelling}`);
       const { dictionaries, getSettings } = this.dependencies;
       const settings = getSettings();
       const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
-        log$8.warn("Local dictionary parse failed", { length: text2.length }, error);
+        log$7.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
       return matches.map((match) => {
@@ -22399,9 +25667,7 @@ ${spelling}`);
     applyReaderAccentColor(settings.accentColor, root);
     applyReaderWordColors(settings, root);
     root.classList.toggle("jpdb-reader-hide-known", theme.furiganaMode === "known-status");
-    root.classList.toggle("jpdb-reader-highlight-status", theme.wordHighlightMode === "status");
-    root.classList.toggle("jpdb-reader-highlight-pitch", theme.wordHighlightMode === "pitch");
-    root.classList.toggle("jpdb-reader-highlight-off", theme.wordHighlightMode === "off");
+    root.classList.remove("jpdb-reader-highlight-status", "jpdb-reader-highlight-pitch", "jpdb-reader-highlight-off");
     applyReaderColorSourceClasses(root, "word", theme.wordColorSources);
     applyReaderColorSourceClasses(root, "subtitle", theme.subtitleColorSources);
     return theme;
@@ -22427,16 +25693,15 @@ ${spelling}`);
   function appliedReaderTheme(settings) {
     return {
       furiganaMode: effectiveFuriganaMode(settings),
-      wordHighlightMode: effectiveWordHighlightMode(settings),
       wordColorSources: {
-        highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource),
-        underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource),
-        text: effectiveReaderColorSource(settings, settings.wordTextColorSource)
+        highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource, "jpdb"),
+        underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, "pitch"),
+        text: effectiveReaderColorSource(settings, settings.wordTextColorSource, "off")
       },
       subtitleColorSources: {
-        highlight: effectiveSubtitleColorSource(settings, settings.subtitleHighlightColorSource),
-        underline: effectiveSubtitleColorSource(settings, settings.subtitleUnderlineColorSource),
-        text: effectiveSubtitleColorSource(settings, settings.subtitleTextColorSource)
+        highlight: effectiveSubtitleColorSource(settings, settings.subtitleHighlightColorSource, "jpdb"),
+        underline: effectiveSubtitleColorSource(settings, settings.subtitleUnderlineColorSource, "pitch"),
+        text: effectiveSubtitleColorSource(settings, settings.subtitleTextColorSource, "jpdb")
       }
     };
   }
@@ -22568,7 +25833,7 @@ ${spelling}`);
     var _a2;
     const images = [];
     const mainImage = mainUchisenImageUrl(doc);
-    const mainStory = cleanText$4(((_a2 = doc.querySelector("#mnemonic_story")) == null ? void 0 : _a2.textContent) ?? "");
+    const mainStory = cleanText$3(((_a2 = doc.querySelector("#mnemonic_story")) == null ? void 0 : _a2.textContent) ?? "");
     if (mainImage) {
       const url = canonicalUchisenUrl(mainImage);
       images.push({
@@ -22603,10 +25868,10 @@ ${spelling}`);
     return null;
   }
   function uchisenKanjiKeyword(value) {
-    const match = /^(.+?)\s*[-\u2013\u2014]\s*(.+)$/u.exec(cleanText$4(value));
+    const match = /^(.+?)\s*[-\u2013\u2014]\s*(.+)$/u.exec(cleanText$3(value));
     if (!match) return null;
-    const kanji = cleanText$4(match[1].replace(/[「」]/g, ""));
-    const keyword = cleanText$4(match[2]);
+    const kanji = cleanText$3(match[1].replace(/[「」]/g, ""));
+    const keyword = cleanText$3(match[2]);
     if (!kanji || !keyword) return null;
     return {
       kanji,
@@ -22626,13 +25891,13 @@ ${spelling}`);
     var _a2;
     if (group.querySelector(".prime_label")) return "Kanji Primes";
     if (group.querySelector(".compound_label")) return "Compound Kanji";
-    return cleanText$4(((_a2 = group.querySelector(".prime_label, .compound_label")) == null ? void 0 : _a2.textContent) ?? "") || "Components";
+    return cleanText$3(((_a2 = group.querySelector(".prime_label, .compound_label")) == null ? void 0 : _a2.textContent) ?? "") || "Components";
   }
   function uchisenComponent(item) {
     var _a2;
     const link = item.querySelector("a[href]");
     if (!link) return null;
-    const symbol = cleanText$4(((_a2 = link.querySelector(".component_symbol")) == null ? void 0 : _a2.textContent) ?? "");
+    const symbol = cleanText$3(((_a2 = link.querySelector(".component_symbol")) == null ? void 0 : _a2.textContent) ?? "");
     const name = uchisenComponentName(link, symbol);
     return {
       name,
@@ -22641,9 +25906,9 @@ ${spelling}`);
     };
   }
   function uchisenComponentName(link, symbol) {
-    const text2 = cleanText$4((link.textContent ?? "").replace(/\u00a0/g, " "));
-    const withoutSymbol = symbol ? cleanText$4(text2.replace(symbol, "")) : text2;
-    return cleanText$4(withoutSymbol.replace(/[：:].*$/u, "")) || symbol;
+    const text2 = cleanText$3((link.textContent ?? "").replace(/\u00a0/g, " "));
+    const withoutSymbol = symbol ? cleanText$3(text2.replace(symbol, "")) : text2;
+    return cleanText$3(withoutSymbol.replace(/[：:].*$/u, "")) || symbol;
   }
   function absoluteUchisenUrl(value) {
     try {
@@ -22688,7 +25953,7 @@ ${spelling}`);
   function uchisenCardStory(card, mainStory) {
     var _a2;
     const rawStory = ((_a2 = card.querySelector("input.story")) == null ? void 0 : _a2.value) ?? "";
-    const story = cleanText$4(decodeEntities(rawStory).replace(/<[^>]+>/g, " "));
+    const story = cleanText$3(decodeEntities(rawStory).replace(/<[^>]+>/g, " "));
     return story || mainStory || "No story available";
   }
   function isUchisenPaywallCard(card, url, story) {
@@ -22704,7 +25969,7 @@ ${spelling}`);
     }
   }
   function isUchisenPaywallStory(story) {
-    return UCHISEN_PAYWALL_STORY_RE.test(cleanText$4(story));
+    return UCHISEN_PAYWALL_STORY_RE.test(cleanText$3(story));
   }
   async function loadUchisenData(kanji, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL) {
     const html = await requestText$1(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9e3, proxyUrl);
@@ -22915,7 +26180,7 @@ ${spelling}`);
   function findRecommendedDictionary(id) {
     return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
   }
-  const log$7 = Logger.scope("SettingsForm");
+  const log$6 = Logger.scope("SettingsForm");
   const COLOR_SOURCE_VALUES = ["status", "jpdb", "anki", "pitch", "off"];
   const COLOR_SOURCE_OPTIONS = [
     ["status", "JPDB + Anki status"],
@@ -23022,7 +26287,7 @@ ${spelling}`);
                     ${select("interfaceLanguage", "Settings language", settings.interfaceLanguage, [["auto", "Automatic"], ["en", "English"], ["ja", "日本語"]])}
                     ${themeSegmentedControl(settings.theme)}
                     ${select("popupMode", "Popup mode", settings.popupMode, [["auto", "Auto"], ["sheet", "Bottom sheet"], ["popover", "Popover"]])}
-                    ${checkbox("stickyBottomSheet", "Keep bottom sheet open until closed", settings.stickyBottomSheet)}
+                    ${renderStickyBottomSheetControl(settings)}
                     ${input("popoverWidth", "Popover width (px)", String(settings.popoverWidth), "number", { min: 280, max: 900, step: 10 })}
                     ${input("popoverHeight", "Popover height (px)", String(settings.popoverHeight), "number", { min: 220, max: 900, step: 10 })}
                     ${select("popoverHeightMode", "Popover height", settings.popoverHeightMode, [["available", "Grow to available space"], ["fixed", "Use height setting"]])}
@@ -23036,6 +26301,13 @@ ${spelling}`);
             </fieldset>
     `;
   }
+  function renderStickyBottomSheetControl(settings) {
+    const unavailable = settings.popupMode === "popover";
+    return `
+                    <div data-sticky-bottom-sheet-field ${unavailable ? "hidden" : ""}>
+                        ${checkbox("stickyBottomSheet", "Keep bottom sheet open until closed", settings.stickyBottomSheet && !unavailable, { disabled: unavailable })}
+                    </div>`;
+  }
   function renderNewTabSettingsSubsection(settings) {
     return `
                 <div class="jpdb-reader-settings-subsection">
@@ -23044,7 +26316,6 @@ ${spelling}`);
                         ${checkbox("newTabEnabled", "Use Yomu new tab study page", settings.newTabEnabled)}
                         ${select("newTabSource", "New tab review source", settings.newTabSource, [["auto", "Auto: JPDB + Anki"], ["jpdb", "JPDB"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}
                         ${select("newTabJpdbReviewMode", "JPDB review mode", settings.newTabJpdbReviewMode, [["auto", "Auto: live kanji + API vocabulary"], ["live-review", "Live JPDB review session"], ["api-vocabulary", "API vocabulary only"]])}
-                        ${input("corsProxyUrl", "Cross-origin proxy URL", settings.corsProxyUrl, "url", { placeholder: "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev" })}
                         ${select("newTabKanjiKeywordSource", "Kanji keyword source", settings.newTabKanjiKeywordSource, [["auto", "Auto: RTK, then JPDB, then local"], ["rtk", "RTK / Heisig"], ["jpdb", "JPDB"], ["local", "Local card meaning"]])}
                         ${checkbox("newTabParsingEnabled", "Parse sentences on new tab", settings.newTabParsingEnabled)}
                         ${checkbox("newTabFrontSentenceEnabled", "Show sentence on word fronts", settings.newTabFrontSentenceEnabled)}
@@ -23123,12 +26394,14 @@ ${spelling}`);
                 <div class="grid">
                     ${select("audioAutoPlayMode", "Auto-play trigger", settings.audioAutoPlayMode, [["all", "Hover and tap/click"], ["hover", "Hover only"], ["tap", "Tap/click only"]])}
                     ${select("audioSelectionMode", "When several sources or clips exist", settings.audioSelectionMode, [["first", "First audio"], ["random", "Random audio"]])}
+                    ${select("audioTtsMode", "Text-to-speech handling", settings.audioTtsMode, [["fallback", "Fallback after recorded audio"], ["source-order", "Follow source order / random"]])}
                     ${input("audioTimeoutMs", "Audio timeout (ms)", String(settings.audioTimeoutMs), "number")}
+                    ${input("corsProxyUrl", "Cross-origin proxy URL", settings.corsProxyUrl, "url", { placeholder: "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev" })}
                 </div>
                 <div class="jpdb-reader-audio-sources" data-source-editor data-audio-source-editor>
                     ${renderAudioSourceEditor(settings.audioSources)}
                 </div>
-                <div class="jpdb-reader-help">Supports {term}, {reading}, and {language}. See the <a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">Yomitan audio guide</a>.</div>
+                <div class="jpdb-reader-help">Supports {term}, {reading}, and {language}. The proxy is shared by hosted-page audio and public lookup requests. In fallback mode, JPDB and browser text-to-speech rows are tried only after recorded audio misses. See the <a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">Yomitan audio guide</a>.</div>
             </fieldset>
     `;
   }
@@ -23138,13 +26411,15 @@ ${spelling}`);
                 <legend>Immersion Kit</legend>
                 <div class="grid">
                     ${checkbox("immersionKitEnabled", "Show Immersion Kit examples", settings.immersionKitEnabled)}
+                    ${select("immersionKitExampleSource", "Example provider", settings.immersionKitExampleSource, [["immersion-kit", "Immersion Kit"], ["nadeshiko", "Nadeshiko"], ["combined", "Immersion Kit + Nadeshiko"]])}
+                    ${renderNadeshikoApiKeyField(settings)}
                     ${checkbox("immersionKitShowTranslation", "Show example translations", settings.immersionKitShowTranslation)}
                     ${checkbox("immersionKitRevealTranslationOnClick", "Blur example translations until clicked", settings.immersionKitRevealTranslationOnClick, { disabled: !settings.immersionKitShowTranslation })}
                     ${checkbox("immersionKitShowImages", "Show example thumbnails", settings.immersionKitShowImages)}
                     ${checkbox("immersionKitAutoPlayAudio", "Play example audio after reveal or next/previous", settings.immersionKitAutoPlayAudio)}
                     ${checkbox("immersionKitPlayOnHover", "Play example audio when hovering thumbnails", settings.immersionKitPlayOnHover)}
                     ${checkbox("immersionKitPlayOnImageClick", "Play example audio when clicking thumbnails", settings.immersionKitPlayOnImageClick)}
-                    ${select("immersionKitCategory", "Example source", settings.immersionKitCategory, [["all", "All"], ["anime", "Anime"], ["drama", "Drama"], ["games", "Games"]])}
+                    ${select("immersionKitCategory", "Immersion Kit category", settings.immersionKitCategory, [["all", "All"], ["anime", "Anime"], ["drama", "Drama"], ["games", "Games"]])}
                     ${select("immersionKitSort", "Example order", settings.immersionKitSort, [["sentence_length:asc", "Shortest first"], ["sentence_length:desc", "Longest first"]])}
                     ${radioGroup("immersionKitLimitEnabled", "Examples per word limit", settings.immersionKitLimitEnabled ? "on" : "off", [["off", "All examples"], ["on", "Limit examples"]])}
                     ${input("immersionKitLimit", "Examples per word", String(settings.immersionKitLimit), "number", { min: 1, max: 12, step: 1 })}
@@ -23156,6 +26431,15 @@ ${spelling}`);
                 <div class="jpdb-reader-help">Immersion examples appear inside word popups and on JPDB pages. Blurred translations reveal when you click or tap the translation text.</div>
             </fieldset>
     `;
+  }
+  function renderNadeshikoApiKeyField(settings) {
+    return `
+                    <div data-nadeshiko-api-key-field ${usesNadeshikoExamples(settings.immersionKitExampleSource) ? "" : "hidden"}>
+                        ${input("nadeshikoApiKey", `Nadeshiko API key <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">Get a key</a>`, settings.nadeshikoApiKey, "password")}
+                    </div>`;
+  }
+  function usesNadeshikoExamples(source) {
+    return source === "nadeshiko" || source === "combined";
   }
   function renderReaderSettingsPanel(settings) {
     return `
@@ -23171,7 +26455,6 @@ ${spelling}`);
                     ${checkbox("showFloatingButton", "Toggle floating puck on pages", settings.showFloatingButton)}
                     ${select("furiganaMode", "Furigana", settings.furiganaMode, [["auto", "Automatic"], ["difficult-kanji", "Difficult kanji only"], ["known-status", "Hide known words"], ["all", "All parsed words"], ["off", "Off"]])}
                     ${checkbox("showPitchAccent", "Show pitch accent", settings.showPitchAccent)}
-                    ${select("wordHighlightMode", "Word color mode", effectiveWordHighlightMode(settings), [["status", "Known/mining status"], ["pitch", "Pitch accent"], ["off", "Off"]])}
                 </div>
                 <div class="jpdb-reader-help">Hover lookup uses the shortcut below. Leave it blank for plain hover; keep click enabled if you also want tap lookup.</div>
             </fieldset>
@@ -23352,6 +26635,7 @@ ${spelling}`);
                     ${shortcutInput("shortcuts.scanImages", "Read images now", settings.shortcuts.scanImages)}
                     ${renderReviewShortcutInputs(settings)}
                 </div>
+                <div class="jpdb-reader-help" data-hover-shortcut-help>This shortcut only opens hover lookups when Hover scanned words is enabled in Reader settings.</div>
             </fieldset>
     `;
   }
@@ -23429,12 +26713,22 @@ ${spelling}`);
     localizeHelpLinksPanel(form, language);
   }
   function localizeSettingsShell(form, language, text2) {
-    var _a2;
-    form.lang = resolveUiLanguage();
+    var _a2, _b2;
+    form.lang = resolveUiLanguage(language);
     form.setAttribute("aria-label", text2("settingsTitle"));
     (_a2 = form.querySelector("h2")) == null ? void 0 : _a2.replaceChildren(text2("settingsTitle"));
+    (_b2 = form.querySelector(".jpdb-reader-settings-tabs")) == null ? void 0 : _b2.setAttribute("aria-label", text2("settingsSections"));
+    localizeThemeSwitch(form, text2);
     localizeSettingsTabs(form, text2);
     localizeSettingsLegends(form, text2);
+  }
+  function localizeThemeSwitch(form, text2) {
+    const switchButton = form.querySelector("[data-theme-switch]");
+    if (!switchButton) return;
+    const isLight = switchButton.getAttribute("aria-checked") === "true";
+    const label = isLight ? text2("switchToDarkTheme") : text2("switchToLightTheme");
+    switchButton.setAttribute("aria-label", label);
+    switchButton.title = label;
   }
   function localizeSettingsTabs(form, text2) {
     const tabLabels = {
@@ -23474,6 +26768,8 @@ ${spelling}`);
     settingsControlLabelKeys().forEach(([name, key]) => setControlLabel(form, name, text2(key)));
     const jpdbSettings = form.querySelector('label a[href*="jpdb.io/settings"]');
     if (jpdbSettings) jpdbSettings.textContent = text2("jpdbSettings");
+    const nadeshikoKeyLink = form.querySelector('label a[href*="nadeshiko.co/user/developer"]');
+    if (nadeshikoKeyLink) nadeshikoKeyLink.textContent = text2("getNadeshikoKey");
     localizeBlockControlLabel(form, "ocrEndpointUrl", text2("ocrEndpointUrl"));
     localizeBlockControlLabel(form, "ocrCloudVisionApiKey", text2("cloudVisionApiKey"));
   }
@@ -23488,6 +26784,7 @@ ${spelling}`);
     replaceLocalTitle(form, /Pitch accent colors|ピッチアクセント/, text2("pitchAccentColors"));
     replaceLocalTitle(form, /Color channels|色チャンネル/, text2("colorChannels"));
     replaceLocalTitle(form, /New tab|新規タブ/, text2("newTab"));
+    replaceLocalTitle(form, /Lookup pills|検索ピル/, text2("lookupPills"));
     (_a2 = form.querySelector("[data-color-channels-help]")) == null ? void 0 : _a2.replaceChildren(text2("colorChannelsHelp"));
     (_b2 = form.querySelector("[data-subtitle-preview] .jpdb-subtitle-secondary")) == null ? void 0 : _b2.replaceChildren(text2("subtitlePreview"));
   }
@@ -23522,7 +26819,18 @@ ${spelling}`);
       ["auto", text2("newTabAuto")],
       ["jpdb", "JPDB"],
       ["anki", "Anki"],
-      ["dictionary", "Dictionary"]
+      ["dictionary", text2("dictionaryFallback")]
+    ]);
+    setSelectOptionLabels(form, "newTabJpdbReviewMode", [
+      ["auto", text2("newTabJpdbReviewAuto")],
+      ["live-review", text2("newTabLiveReview")],
+      ["api-vocabulary", text2("newTabApiVocabulary")]
+    ]);
+    setSelectOptionLabels(form, "newTabKanjiKeywordSource", [
+      ["auto", text2("newTabKanjiKeywordAuto")],
+      ["rtk", text2("newTabKanjiKeywordRtk")],
+      ["jpdb", "JPDB"],
+      ["local", text2("newTabKanjiKeywordLocal")]
     ]);
     setSelectOptionLabels(form, "twoButtonReviews", [
       ["false", text2("fivePoint")],
@@ -23530,11 +26838,6 @@ ${spelling}`);
     ]);
   }
   function localizeColorAndReaderSelects(form, text2) {
-    setSelectOptionLabels(form, "wordHighlightMode", [
-      ["status", text2("highlightKnownStatus")],
-      ["pitch", text2("highlightPitchAccent")],
-      ["off", text2("off")]
-    ]);
     localizeColorSourceSelects(form, text2);
     setSelectOptionLabels(form, "furiganaMode", [
       ["auto", text2("automatic")],
@@ -23561,15 +26864,29 @@ ${spelling}`);
     ]));
   }
   function localizeMediaSettingsSelects(form, text2) {
+    setSelectOptionLabels(form, "audioAutoPlayMode", [
+      ["all", text2("audioAutoPlayAll")],
+      ["hover", text2("audioAutoPlayHover")],
+      ["tap", text2("audioAutoPlayTap")]
+    ]);
     setSelectOptionLabels(form, "audioSelectionMode", [
       ["first", text2("firstAudio")],
       ["random", text2("randomAudio")]
+    ]);
+    setSelectOptionLabels(form, "audioTtsMode", [
+      ["fallback", text2("audioTtsFallback")],
+      ["source-order", text2("audioTtsSourceOrder")]
     ]);
     setSelectOptionLabels(form, "immersionKitCategory", [
       ["all", text2("allCategories")],
       ["anime", text2("anime")],
       ["drama", text2("drama")],
       ["games", text2("games")]
+    ]);
+    setSelectOptionLabels(form, "immersionKitExampleSource", [
+      ["immersion-kit", "Immersion Kit"],
+      ["nadeshiko", "Nadeshiko"],
+      ["combined", text2("immersionKitAndNadeshiko")]
     ]);
     setSelectOptionLabels(form, "immersionKitSort", [
       ["sentence_length:asc", text2("shortestFirst")],
@@ -23618,26 +26935,50 @@ ${spelling}`);
     ]);
   }
   function localizeSettingsShortcuts(form, text2) {
+    var _a2, _b2, _c;
     setShortcutPlaceholder(form, "shortcuts.hoverLookup", text2("blankPlainHover"));
+    (_a2 = form.querySelector("[data-hover-shortcut-help]")) == null ? void 0 : _a2.replaceChildren(text2("hoverShortcutHelp"));
     form.querySelectorAll("[data-shortcut-input]").forEach((inputEl) => {
       if (inputEl.name !== "shortcuts.hoverLookup") inputEl.placeholder = text2("pressKeys");
     });
+    const immersionLimitLegend = (_c = (_b2 = getNamedControl(form, "immersionKitLimitEnabled")) == null ? void 0 : _b2.closest(".jpdb-reader-radio-group")) == null ? void 0 : _c.querySelector("legend");
+    immersionLimitLegend == null ? void 0 : immersionLimitLegend.replaceChildren(text2("immersionKitLimitEnabled"));
+    setRadioLabel(form, "immersionKitLimitEnabled", "off", text2("allExamples"));
+    setRadioLabel(form, "immersionKitLimitEnabled", "on", text2("limitExamples"));
   }
   function localizeSettingsHelpText(form, text2) {
+    var _a2;
     setFieldsetHelp(form, 1, text2("interfaceHelp"));
     setFieldsetHelp(form, 3, text2("immersionKitHelp"));
     setFieldsetHelp(form, 4, text2("readerHelp"));
     setFieldsetHelp(form, 5, text2("kanjiHelp"));
     setFieldsetHelp(form, 6, text2("ocrHelp"));
     setFieldsetHelp(form, 8, text2("ankiHelp"));
+    localizeNewTabHelp(form, text2);
     localizeAudioHelp(form, text2);
     localizeDictionaryImportHelp(form, text2);
+    localizeLookupPillsHelp(form, text2);
+    (_a2 = form.querySelector("details[data-local-ocr] > summary")) == null ? void 0 : _a2.replaceChildren(text2("ocrCustomLocalServer"));
+  }
+  function localizeNewTabHelp(form, text2) {
+    var _a2, _b2;
+    const subsection = (_a2 = getNamedControl(form, "newTabUrl")) == null ? void 0 : _a2.closest(".jpdb-reader-settings-subsection");
+    (_b2 = subsection == null ? void 0 : subsection.querySelector(":scope > .jpdb-reader-help")) == null ? void 0 : _b2.replaceChildren(text2("newTabOfflineHelp"));
   }
   function localizeAudioHelp(form, text2) {
     const audioHelp = getFieldsetHelp(form, 2);
     if (!audioHelp) return;
     const copy = text2("audioHelp").replace("Yomitan audio guide.", "").replace("Yomitan音声ガイドも参照できます。", "");
-    setInnerHtml(audioHelp, `${escapeHtml$1(copy)}<a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">Yomitan audio guide</a>.`);
+    const linkLabel = resolveUiLanguageFromText(text2) === "ja" ? "Yomitan音声ガイド" : "Yomitan audio guide";
+    setInnerHtml(audioHelp, `${escapeHtml$1(copy)}<a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">${escapeHtml$1(linkLabel)}</a>.`);
+  }
+  function resolveUiLanguageFromText(text2) {
+    return text2("save") === "保存" ? "ja" : "en";
+  }
+  function localizeLookupPillsHelp(form, text2) {
+    var _a2, _b2;
+    const lookupLinks = form.querySelector(".jpdb-reader-lookup-links");
+    (_b2 = (_a2 = lookupLinks == null ? void 0 : lookupLinks.closest(".jpdb-reader-settings-subsection")) == null ? void 0 : _a2.querySelector(":scope > .jpdb-reader-help")) == null ? void 0 : _b2.replaceChildren(text2("lookupPillsHelp"));
   }
   function localizeDictionaryImportHelp(form, text2) {
     const importStatus = form.querySelector("[data-import-status]");
@@ -23664,22 +27005,204 @@ ${spelling}`);
     });
   }
   function localizeSettingsEditorChrome(form, text2) {
-    var _a2, _b2, _c;
+    var _a2, _b2, _c, _d, _e, _f, _g;
     const audioHead = form.querySelectorAll(".jpdb-reader-audio-source-head span");
-    (_a2 = audioHead[1]) == null ? void 0 : _a2.replaceChildren(text2("audioSource"));
-    (_b2 = audioHead[2]) == null ? void 0 : _b2.replaceChildren(text2("urlVoice"));
-    (_c = form.querySelector(".jpdb-reader-recommended-title")) == null ? void 0 : _c.replaceChildren(text2("recommendedDownloads"));
+    (_a2 = audioHead[0]) == null ? void 0 : _a2.replaceChildren(text2("enabledHeader"));
+    (_b2 = audioHead[1]) == null ? void 0 : _b2.replaceChildren(text2("audioSource"));
+    (_c = audioHead[2]) == null ? void 0 : _c.replaceChildren(text2("urlVoice"));
+    (_d = audioHead[3]) == null ? void 0 : _d.replaceChildren(text2("orderHeader"));
+    (_e = audioHead[4]) == null ? void 0 : _e.replaceChildren(text2("removeHeader"));
+    (_f = form.querySelector('[data-action="lookup-link-add"]')) == null ? void 0 : _f.replaceChildren(text2("add"));
+    (_g = form.querySelector(".jpdb-reader-recommended-title")) == null ? void 0 : _g.replaceChildren(text2("recommendedDownloads"));
     form.querySelectorAll(".jpdb-reader-recommended-name a").forEach((link) => {
       link.textContent = text2("homepage");
     });
+    localizeOrderButtons(form, text2);
+    localizeLookupLinkEditor(form, text2);
+    localizeDeckControls(form, text2);
+    localizeSourceRows(form, text2);
+    localizeRecommendedDictionaryGroups(form, text2);
+    localizeRecommendedDictionaryDescriptions(form, text2);
+    localizeAnkiTemplatePreview(form, text2);
+    localizeAudioSourceFields(form, text2);
     localizeRecommendedDictionaryButtons(form, text2);
     localizeDictionaryStatus(form, text2);
+  }
+  function localizeOrderButtons(form, text2) {
+    form.querySelectorAll("[data-source-drag-handle]").forEach((button2) => setButtonTitle(button2, text2("dragToReorder")));
+    form.querySelectorAll('[data-action$="-up"]').forEach((button2) => setButtonTitle(button2, text2("moveUp")));
+    form.querySelectorAll('[data-action$="-down"]').forEach((button2) => setButtonTitle(button2, text2("moveDown")));
+    form.querySelectorAll('[data-action$="-remove"]').forEach((button2) => setButtonTitle(button2, text2("remove")));
+    form.querySelectorAll('[data-action="delete-yomitan-dictionary"]').forEach((button2) => setButtonTitle(button2, text2("removeImportedDictionary")));
+  }
+  function setButtonTitle(button2, label) {
+    button2.title = label;
+    button2.setAttribute("aria-label", label);
+  }
+  function localizeLookupLinkEditor(form, text2) {
+    var _a2, _b2, _c, _d, _e;
+    const lookupHead = form.querySelectorAll(".jpdb-reader-lookup-link-head span");
+    (_a2 = lookupHead[0]) == null ? void 0 : _a2.replaceChildren(text2("enabledHeader"));
+    (_b2 = lookupHead[1]) == null ? void 0 : _b2.replaceChildren(text2("labelHeader"));
+    (_c = lookupHead[2]) == null ? void 0 : _c.replaceChildren(text2("lookupUrlTemplate"));
+    (_d = lookupHead[3]) == null ? void 0 : _d.replaceChildren(text2("orderHeader"));
+    (_e = lookupHead[4]) == null ? void 0 : _e.replaceChildren(text2("removeHeader"));
+    form.querySelectorAll(".jpdb-reader-lookup-link-note").forEach((note) => note.replaceChildren(text2("copiesCurrentWord")));
+    form.querySelectorAll(".jpdb-reader-lookup-link-fixed").forEach((note) => note.setAttribute("aria-label", text2("builtInAction")));
+    form.querySelectorAll('input[name^="dictionaryLookupLinks."][name$=".label"]').forEach((input2, index) => {
+      input2.setAttribute("aria-label", text2("lookupPillLabelNumber").replace("{number}", String(index + 1)));
+    });
+    form.querySelectorAll('input[name^="dictionaryLookupLinks."][name$=".urlTemplate"]').forEach((input2, index) => {
+      input2.setAttribute("aria-label", text2("lookupUrlTemplateNumber").replace("{number}", String(index + 1)));
+    });
+    form.querySelectorAll(".jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools").forEach((row) => {
+      row.setAttribute("aria-label", text2("lookupPillOrder"));
+    });
+  }
+  function localizeDeckControls(form, text2) {
+    setSelectOptionLabels(form, "newTabJpdbDeck", [
+      ["all", text2("allStudyDecks")],
+      ["never-forget", text2("never")]
+    ]);
+    const deckHelp = form.querySelector("[data-jpdb-decks] .jpdb-reader-help");
+    if (!deckHelp) return;
+    const content = deckHelp.textContent ?? "";
+    if (/Decks are loaded|JPDBアカウント/.test(content)) deckHelp.replaceChildren(text2("decksLoaded"));
+    else if (/Could not load decks|まだデッキ/.test(content)) deckHelp.replaceChildren(text2("decksUnavailable"));
+    else if (/Add your JPDB API key|JPDB APIキー/.test(content)) deckHelp.replaceChildren(text2("addApiKeyChooseDecks"));
+  }
+  function localizeSourceRows(form, text2) {
+    form.querySelectorAll(".jpdb-reader-dictionary-head").forEach((head) => localizeSourceHead(head, text2));
+    replaceSourceHelp(form, /Import Yomitan dictionaries|Yomitan辞書をインポート/, text2("importLocalDefinitionsHelp"));
+    replaceSourceHelp(form, /Frequency, pitch, and kanji metadata|頻度、ピッチ、漢字メタデータ/, text2("frequencyMetadataHelp"));
+    const rows = [
+      ["Translation", "sourceNameTranslation", "sourceHelpTranslation"],
+      ["Grammar", "sourceNameGrammar", "sourceHelpGrammar"],
+      ["Stroke practice", "sourceNameStrokePractice", "sourceHelpStrokePractice"],
+      ["Readings and components", "readingsComponents", "sourceHelpReadingsComponents"],
+      ["Imported kanji dictionaries", "sourceNameImportedKanjiDictionaries", "sourceHelpImportedKanjiDictionaries"],
+      ["Words using this kanji", "sourceNameWordsUsingKanji", "sourceHelpWordsUsingKanji"],
+      ["Component graph", "originStructure", "sourceHelpComponentGraph"]
+    ];
+    rows.forEach(([sourceName, nameKey, helpKey]) => {
+      form.querySelectorAll("[data-dictionary-source-row]").forEach((row) => {
+        const display = row.querySelector(".jpdb-reader-field-display");
+        if ((display == null ? void 0 : display.textContent) === sourceName) display.replaceChildren(text2(nameKey));
+        const help = row.querySelector(".jpdb-reader-dictionary-row-help");
+        if (help && sourceRowHelpMatches(help.textContent ?? "", sourceName)) help.replaceChildren(text2(helpKey));
+      });
+    });
+    replaceSourceHelp(form, /JPDB meanings shown/, text2("sourceHelpJpdb"));
+    replaceSourceHelp(form, /Example sentences, images, and audio/, text2("sourceHelpImmersionKit"));
+    replaceSourceHelp(form, /Remembering the Kanji/, text2("sourceHelpRtk"));
+    replaceSourceHelp(form, /Uchisen mnemonic/, text2("sourceHelpUchisen"));
+    replaceSourceHelp(form, /Imported Yomitan kanji dictionary/, text2("sourceHelpImportedKanjiDictionary"));
+  }
+  function localizeSourceHead(head, text2) {
+    var _a2, _b2, _c, _d, _e, _f, _g;
+    const spans = head.querySelectorAll("span");
+    (_a2 = spans[0]) == null ? void 0 : _a2.replaceChildren(text2("enabledHeader"));
+    const sourceLabel2 = ((_b2 = spans[1]) == null ? void 0 : _b2.textContent) === "Kanji section" ? text2("kanjiSection") : text2("definitionSource");
+    (_c = spans[1]) == null ? void 0 : _c.replaceChildren(sourceLabel2);
+    if (spans.length === 5) {
+      (_d = spans[2]) == null ? void 0 : _d.replaceChildren(text2("displayName"));
+      (_e = spans[3]) == null ? void 0 : _e.replaceChildren(text2("orderHeader"));
+      (_f = spans[4]) == null ? void 0 : _f.replaceChildren(text2("removeHeader"));
+    } else {
+      (_g = spans[2]) == null ? void 0 : _g.replaceChildren(text2("orderHeader"));
+    }
+  }
+  function replaceSourceHelp(form, pattern, value) {
+    form.querySelectorAll(".jpdb-reader-help, .jpdb-reader-dictionary-row-help").forEach((help) => {
+      if (pattern.test(help.textContent ?? "")) help.replaceChildren(value);
+    });
+  }
+  function sourceRowHelpMatches(value, sourceName) {
+    return value.includes(sourceName) || value.includes("Automatic") || value.includes("Stroke") || value.includes("Kanji entries") || value.includes("Related");
+  }
+  function localizeRecommendedDictionaryGroups(form, text2) {
+    const labels = [text2("termDictionaries"), text2("kanjiDictionaries"), text2("frequencyDictionaries")];
+    form.querySelectorAll(".jpdb-reader-recommended-group-title").forEach((title, index) => {
+      if (labels[index]) title.replaceChildren(labels[index]);
+    });
+  }
+  function localizeRecommendedDictionaryDescriptions(form, text2) {
+    const descriptions = {
+      jitendex: "recommendedJitendex",
+      jmdict: "recommendedJmdict",
+      jmnedict: "recommendedJmnedict",
+      kanjidic: "recommendedKanjidic",
+      "jpdbv2-kana": "recommendedJpdbv2Kana",
+      bccwj: "recommendedBccwj",
+      jiten: "recommendedJiten"
+    };
+    Object.entries(descriptions).forEach(([id, key]) => {
+      var _a2, _b2;
+      const button2 = form.querySelector(`[data-action="download-recommended-dictionary"][data-dictionary-id="${id}"]`);
+      (_b2 = (_a2 = button2 == null ? void 0 : button2.closest(".jpdb-reader-recommended-item")) == null ? void 0 : _a2.querySelector(".jpdb-reader-help")) == null ? void 0 : _b2.replaceChildren(text2(key));
+    });
+  }
+  function localizeAnkiTemplatePreview(form, text2) {
+    var _a2, _b2, _c, _d, _e;
+    const preview = form.querySelector(".jpdb-reader-template-preview");
+    if (!preview) return;
+    const contextMode = ((_a2 = getNamedControl(form, "ankiTemplateMode")) == null ? void 0 : _a2.value) === "context";
+    (_b2 = preview.querySelector(".jpdb-reader-template-preview-title")) == null ? void 0 : _b2.replaceChildren(text2(contextMode ? "sentenceFirstPreset" : "wordFirstPreset"));
+    const headings = preview.querySelectorAll("strong");
+    (_c = headings[0]) == null ? void 0 : _c.replaceChildren(text2("front"));
+    (_d = headings[1]) == null ? void 0 : _d.replaceChildren(text2("back"));
+    (_e = preview.querySelector(".jpdb-reader-template-meaning")) == null ? void 0 : _e.replaceChildren(text2("exampleMeaning"));
+    preview.querySelectorAll("small").forEach((small) => {
+      const value = small.textContent ?? "";
+      if (/above the prompt/.test(value)) small.replaceChildren(text2("imageAbovePrompt"));
+      else if (/highlighted word/.test(value)) small.replaceChildren(text2("recallHighlightedWord"));
+      else if (/front when available/.test(value)) small.replaceChildren(text2("imageOnFront"));
+      else if (/meaning first/.test(value)) small.replaceChildren(text2("recallMeaning"));
+      else if (/Includes dictionary/.test(value)) small.replaceChildren(text2("ankiBackIncludes"));
+    });
+  }
+  function localizeAudioSourceFields(form, text2) {
+    form.querySelectorAll('select[name^="audioSources."][name$=".type"]').forEach((select2, index) => {
+      select2.setAttribute("aria-label", text2("audioSourceNumber").replace("{number}", String(index + 1)));
+      localizeAudioSourceTypeOptions(select2, text2);
+    });
+    form.querySelectorAll("select[data-audio-voice-field]").forEach((select2, index) => {
+      select2.setAttribute("aria-label", text2("textToSpeechVoiceNumber").replace("{number}", String(index + 1)));
+    });
+    form.querySelectorAll("[data-audio-url-field]").forEach((input2) => {
+      input2.placeholder = localizedAudioUrlPlaceholder(input2, text2);
+    });
+  }
+  function localizeAudioSourceTypeOptions(select2, text2) {
+    if (resolveUiLanguageFromText(text2) !== "ja") return;
+    const labels = {
+      jpod101: "JapanesePod101",
+      "language-pod-101": "LanguagePod101",
+      jisho: "Jisho.org",
+      "lingua-libre": "(Commons) リングア・リブレ",
+      wiktionary: "(Commons) ウィクショナリー",
+      "jpdb-tts": "JPDB読み上げ",
+      "text-to-speech": "ブラウザ読み上げ",
+      "text-to-speech-reading": "ブラウザ読み上げ (かな読み)",
+      custom: "直接音声ファイルURL (詳細)",
+      "custom-json": "カスタムURL"
+    };
+    Array.from(select2.options).forEach((option) => {
+      option.textContent = labels[option.value] ?? option.textContent;
+    });
+  }
+  function localizedAudioUrlPlaceholder(input2, text2) {
+    var _a2, _b2;
+    const type = (_b2 = (_a2 = input2.closest("[data-audio-source-row]")) == null ? void 0 : _a2.querySelector('select[name$=".type"]')) == null ? void 0 : _b2.value;
+    if (type === "custom-json") return text2("audioCustomJsonPlaceholder");
+    if (type === "custom") return text2("audioCustomUrlPlaceholder");
+    return text2("audioBuiltInPlaceholder");
   }
   function localizeRecommendedDictionaryButtons(form, text2) {
     form.querySelectorAll('[data-action="download-recommended-dictionary"]').forEach((button2) => {
       const installed = button2.dataset.installed === "true";
-      button2.textContent = installed ? text2("update") : `${text2("download")} & import`;
-      button2.title = installed ? text2("update") : "Download and import into よむ";
+      button2.textContent = installed ? text2("update") : text2("install");
+      button2.title = installed ? text2("update") : text2("install");
       button2.setAttribute("aria-label", button2.title);
     });
   }
@@ -23692,7 +27215,10 @@ ${spelling}`);
   function settingsControlLabelKeys() {
     return [
       ["apiKey", "apiKey"],
+      ["miningDeck", "miningDeck"],
       ["newTabJpdbDeck", "newTabJpdbDeck"],
+      ["neverForgetDeck", "neverForgetDeck"],
+      ["blacklistDeck", "blacklistDeck"],
       ["jpdbMiningEnabled", "jpdbMiningEnabled"],
       ["addToForq", "addToForq"],
       ["enableReviews", "enableReviews"],
@@ -23707,6 +27233,15 @@ ${spelling}`);
       ["accentColor", "accentColor"],
       ["newTabEnabled", "newTabEnabled"],
       ["newTabSource", "newTabSource"],
+      ["newTabJpdbReviewMode", "newTabJpdbReviewMode"],
+      ["corsProxyUrl", "corsProxyUrl"],
+      ["newTabKanjiKeywordSource", "newTabKanjiKeywordSource"],
+      ["newTabParsingEnabled", "newTabParsingEnabled"],
+      ["newTabFrontSentenceEnabled", "newTabFrontSentenceEnabled"],
+      ["newTabKanjiAutogradeEnabled", "newTabKanjiAutogradeEnabled"],
+      ["newTabKanjiAutoSubmit", "newTabKanjiAutoSubmit"],
+      ["newTabOfflineEnabled", "newTabOfflineEnabled"],
+      ["newTabOfflineLimit", "newTabOfflineLimit"],
       ["newTabUrl", "newTabUrl"],
       ["wordColorNew", "wordColorNew"],
       ["wordColorLearning", "wordColorLearning"],
@@ -23735,7 +27270,6 @@ ${spelling}`);
       ["showFloatingButton", "showFloatingButton"],
       ["furiganaMode", "furiganaMode"],
       ["showPitchAccent", "showPitchAccent"],
-      ["wordHighlightMode", "wordHighlightMode"],
       ["kanjivgEnabled", "kanjivgEnabled"],
       ["kanjiOriginsEnabled", "kanjiOriginsEnabled"],
       ["kanjiOriginKanjiMapEnabled", "kanjiOriginKanjiMapEnabled"],
@@ -23750,8 +27284,11 @@ ${spelling}`);
       ["audioEnableDefaultSources", "audioEnableDefaultSources"],
       ["audioFallbackChimeEnabled", "audioFallbackChimeEnabled"],
       ["audioSelectionMode", "audioSelectionMode"],
+      ["audioTtsMode", "audioTtsMode"],
       ["audioTimeoutMs", "audioTimeoutMs"],
       ["immersionKitEnabled", "immersionKitEnabled"],
+      ["immersionKitExampleSource", "immersionKitExampleSource"],
+      ["nadeshikoApiKey", "nadeshikoApiKey"],
       ["immersionKitShowTranslation", "immersionKitShowTranslation"],
       ["immersionKitRevealTranslationOnClick", "immersionKitRevealTranslationOnClick"],
       ["immersionKitShowImages", "immersionKitShowImages"],
@@ -23861,6 +27398,13 @@ ${spelling}`);
     const textNode = Array.from(label.childNodes).find((node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim());
     if (textNode) textNode.textContent = text2;
     else label.append(document.createTextNode(text2));
+  }
+  function setRadioLabel(form, name, value, label) {
+    const radio = Array.from(form.elements).find(
+      (element2) => element2 instanceof HTMLInputElement && element2.type === "radio" && element2.name === name && element2.value === value
+    );
+    const labelElement = radio == null ? void 0 : radio.closest("label");
+    if (labelElement) setInlineLabelText(labelElement, label);
   }
   function setSelectOptionLabels(form, name, options) {
     const selectElement = getNamedControl(form, name);
@@ -24026,6 +27570,8 @@ ${spelling}`);
   }
   function syncBrowserTtsVoiceOptions(form) {
     const voices = "speechSynthesis" in window ? window.speechSynthesis.getVoices() : [];
+    const language = form.lang === "ja" ? "ja" : "en";
+    const text2 = (key) => uiText(language, key);
     const sortedVoices = voices.slice().sort((a, b) => {
       const aJapanese = a.lang.toLowerCase().startsWith("ja") ? 0 : 1;
       const bJapanese = b.lang.toLowerCase().startsWith("ja") ? 0 : 1;
@@ -24034,14 +27580,14 @@ ${spelling}`);
     form.querySelectorAll("select[data-audio-voice-field]").forEach((select2) => {
       const selected = select2.value || select2.dataset.selectedVoice || "";
       const options = [
-        `<option value="" ${selected ? "" : "selected"}>Automatic browser voice</option>`,
+        `<option value="" ${selected ? "" : "selected"}>${escapeHtml$1(text2("automaticBrowserVoice"))}</option>`,
         ...sortedVoices.map((voice) => {
-          const label = `${voice.name}${voice.lang ? ` (${voice.lang})` : ""}${voice.default ? " - default" : ""}`;
+          const label = `${voice.name}${voice.lang ? ` (${voice.lang})` : ""}${voice.default ? language === "ja" ? " - 標準" : " - default" : ""}`;
           return `<option value="${escapeHtml$1(voice.name)}" ${voice.name === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`;
         })
       ];
       if (selected && !sortedVoices.some((voice) => voice.name === selected)) {
-        options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(`Saved voice: ${selected}`)}</option>`);
+        options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(`${text2("savedVoice")}: ${selected}`)}</option>`);
       }
       setInnerHtml(select2, options.join(""));
     });
@@ -24350,6 +27896,17 @@ ${spelling}`);
       if (!jpdbDeckActionsEnabled) input2.checked = false;
     }
   }
+  function syncStickyBottomSheetAvailability(form) {
+    var _a2;
+    const popupMode = (_a2 = form.querySelector('select[name="popupMode"]')) == null ? void 0 : _a2.value;
+    const unavailable = popupMode === "popover";
+    const input2 = form.querySelector('input[name="stickyBottomSheet"]');
+    const field = (input2 == null ? void 0 : input2.closest("[data-sticky-bottom-sheet-field]")) ?? (input2 == null ? void 0 : input2.closest("label"));
+    if (field) field.hidden = unavailable;
+    if (!input2) return;
+    input2.disabled = unavailable;
+    if (unavailable) input2.checked = false;
+  }
   function syncSubtitlePreview(form) {
     const preview = form.querySelector("[data-subtitle-preview]");
     if (!preview) return;
@@ -24551,7 +28108,7 @@ ${spelling}`);
                 <div class="jpdb-reader-help">${escapeHtml$1(dictionary.description)}</div>
             </div>
             <button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-installed="${alreadyInstalled}">
-                ${alreadyInstalled ? "Update" : "Download & import"}
+                ${alreadyInstalled ? "Update" : "Install"}
             </button>
         </div>
     `;
@@ -24578,7 +28135,6 @@ ${spelling}`);
     const number = (key, fallback) => readNumber(get(key), fallback);
     const audioSources = readAudioSources(data);
     const furiganaMode = readOption(get("furiganaMode"), ["auto", "all", "difficult-kanji", "known-status", "off"], current.furiganaMode);
-    const wordHighlightMode = readOption(get("wordHighlightMode"), ["status", "pitch", "off"], current.wordHighlightMode === "auto" ? "status" : current.wordHighlightMode);
     const colorSource = (key, fallback) => readOption(get(key), COLOR_SOURCE_VALUES, colorSourceFallback(key, fallback));
     const reader = { get, has, number, colorSource };
     const jpdbDefinitionsRowPresent = hasJpdbDefinitionsRow(has);
@@ -24595,7 +28151,7 @@ ${spelling}`);
       ...readImmersionKitFormSettings(reader, current),
       ...readLookupBehaviorFormSettings(reader, current),
       ...readNewTabFormSettings(reader, current),
-      ...readReadingDisplayFormSettings(reader, furiganaMode, wordHighlightMode),
+      ...readReadingDisplayFormSettings(reader, furiganaMode),
       ...readOcrFormSettings(reader, current),
       ...readLocalDictionaryFormSettings(reader, current, kanjiDictionaryPreferences),
       dictionaryPreferences,
@@ -24608,7 +28164,7 @@ ${spelling}`);
       ...readMiningFormSettings(reader),
       shortcuts: readShortcutFormSettings(reader)
     };
-    log$7.info("Read settings form data", {
+    log$6.info("Read settings form data", {
       enableLogging: settings.enableLogging,
       dictionaries: settings.dictionaryPreferences.length,
       lookupLinks: settings.dictionaryLookupLinks.length,
@@ -24670,7 +28226,8 @@ ${spelling}`);
       audioViaBlob: current.audioViaBlob,
       audioFallbackChimeEnabled: has("audioFallbackChimeEnabled"),
       audioTimeoutMs: Math.max(1e3, number("audioTimeoutMs", current.audioTimeoutMs)),
-      audioSelectionMode: readOption(get("audioSelectionMode"), ["first", "random"], current.audioSelectionMode)
+      audioSelectionMode: readOption(get("audioSelectionMode"), ["first", "random"], current.audioSelectionMode),
+      audioTtsMode: readOption(get("audioTtsMode"), ["fallback", "source-order"], current.audioTtsMode)
     };
   }
   function readColorFormSettings(reader, current) {
@@ -24730,13 +28287,12 @@ ${spelling}`);
       newTabKanjiAutoSubmit: has("newTabKanjiAutoSubmit")
     };
   }
-  function readReadingDisplayFormSettings(reader, furiganaMode, wordHighlightMode) {
+  function readReadingDisplayFormSettings(reader, furiganaMode) {
     const { has } = reader;
     return {
       showFurigana: furiganaMode !== "off",
       furiganaMode,
       showPitchAccent: has("showPitchAccent"),
-      wordHighlightMode,
       hideKnownFurigana: furiganaMode === "known-status"
     };
   }
@@ -24778,10 +28334,11 @@ ${spelling}`);
   }
   function readPopupFormSettings(reader, current) {
     const { get, has, number } = reader;
+    const popupMode = readOption(get("popupMode"), ["auto", "sheet", "popover"], current.popupMode);
     return {
       theme: readOption(get("theme"), ["auto", "dark", "light"], current.theme),
-      popupMode: readOption(get("popupMode"), ["auto", "sheet", "popover"], current.popupMode),
-      stickyBottomSheet: has("stickyBottomSheet"),
+      popupMode,
+      stickyBottomSheet: popupMode !== "popover" && has("stickyBottomSheet"),
       popoverWidth: Math.max(280, Math.min(900, number("popoverWidth", current.popoverWidth))),
       popoverHeight: Math.max(220, Math.min(900, number("popoverHeight", current.popoverHeight))),
       popoverHeightMode: readOption(get("popoverHeightMode"), ["available", "fixed"], current.popoverHeightMode)
@@ -24854,6 +28411,8 @@ ${spelling}`);
     const sourceEnabled = sourceRowPresent ? has("immersionKit.enabled") : true;
     return {
       immersionKitEnabled: mediaEnabled && sourceEnabled,
+      immersionKitExampleSource: readOption(get("immersionKitExampleSource"), ["immersion-kit", "nadeshiko", "combined"], current.immersionKitExampleSource),
+      nadeshikoApiKey: get("nadeshikoApiKey").trim(),
       immersionKitPriority: Math.max(0, Math.min(999, number("immersionKit.priority", current.immersionKitPriority))),
       immersionKitLimitEnabled: get("immersionKitLimitEnabled") === "on",
       immersionKitLimit: Math.max(1, Math.min(12, number("immersionKitLimit", current.immersionKitLimit))),
@@ -24955,7 +28514,7 @@ ${spelling}`);
   function pickFile(root, type) {
     const inputEl = root.querySelector(`input[data-file="${type}"]`);
     if (!inputEl) {
-      log$7.warn("File picker input missing", { type });
+      log$6.warn("File picker input missing", { type });
       return Promise.resolve(null);
     }
     return new Promise((resolve) => {
@@ -24963,7 +28522,7 @@ ${spelling}`);
         var _a2;
         const file = ((_a2 = inputEl.files) == null ? void 0 : _a2[0]) ?? null;
         inputEl.value = "";
-        log$7.info("File picker completed", { type, name: (file == null ? void 0 : file.name) ?? "", size: (file == null ? void 0 : file.size) ?? 0 });
+        log$6.info("File picker completed", { type, name: (file == null ? void 0 : file.name) ?? "", size: (file == null ? void 0 : file.size) ?? 0 });
         resolve(file);
       };
       inputEl.click();
@@ -24976,12 +28535,12 @@ ${spelling}`);
     link.download = filename;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
-    log$7.info("Downloaded blob", { filename, size: blob.size, type: blob.type });
+    log$6.info("Downloaded blob", { filename, size: blob.size, type: blob.type });
   }
   function dateStamp() {
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
   }
-  const log$6 = Logger.scope("SettingsDialog");
+  const log$5 = Logger.scope("SettingsDialog");
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   function settingsStatusSetter(status) {
     return (message) => {
@@ -25017,7 +28576,7 @@ ${spelling}`);
     return (control == null ? void 0 : control.dataset.panel) ?? "basics";
   }
   function handleSettingsActionError(action, control, setStatus, error) {
-    log$6.warn("Settings action failed", { action }, error);
+    log$5.warn("Settings action failed", { action }, error);
     if (shouldReenableSettingsAction(action)) control == null ? void 0 : control.removeAttribute("disabled");
     setStatus(error instanceof Error ? error.message : "Import failed.");
   }
@@ -25047,7 +28606,7 @@ ${spelling}`);
       this.dependencies = dependencies;
     }
     open(panel) {
-      log$6.info("Opening settings", { panel: panel ?? "default" });
+      log$5.info("Opening settings", { panel: panel ?? "default" });
       const form = this.createSettingsForm(panel);
       const backdrop = this.dependencies.createBackdrop();
       this.bindFormSubmit(form);
@@ -25089,14 +28648,20 @@ ${spelling}`);
           this.dependencies.clearDictionarySourceOpenOverrides();
         }
         void saveSettings(this.settings).then(() => this.afterSettingsSaved()).catch((error) => {
-          log$6.error("Settings save failed", error);
+          log$5.error("Settings save failed", error);
           this.dependencies.toast(error instanceof Error ? error.message : "Settings save failed.");
         });
       });
       (_a2 = form.querySelector('[data-action="cancel"]')) == null ? void 0 : _a2.addEventListener("click", () => this.dependencies.dismiss());
+      form.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape" || event.isComposing) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.dependencies.dismiss();
+      });
     }
     async afterSettingsSaved() {
-      log$6.info("Settings saved", loggingSettingsSummary(this.settings));
+      log$5.info("Settings saved", loggingSettingsSummary(this.settings));
       this.dependencies.jpdb.clear();
       this.dependencies.applyTheme();
       await this.dependencies.refreshDictionaryStyles();
@@ -25110,7 +28675,7 @@ ${spelling}`);
       this.dependencies.toast("Settings saved.");
     }
     bindLivePreview(form) {
-      var _a2, _b2, _c, _d, _e;
+      var _a2, _b2, _c, _d, _e, _f, _g;
       const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form), this.settings));
       (_a2 = form.querySelector('input[name="accentColor"]')) == null ? void 0 : _a2.addEventListener("input", (event) => {
         this.dependencies.applyAccentColor(event.currentTarget.value);
@@ -25137,6 +28702,8 @@ ${spelling}`);
         if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
         if (this.isColorSourceControl(event.target) || this.isReaderDisplayControl(event.target)) applyThemePreview();
       });
+      (_c = form.querySelector('select[name="popupMode"]')) == null ? void 0 : _c.addEventListener("change", () => syncStickyBottomSheetAvailability(form));
+      syncStickyBottomSheetAvailability(form);
       const syncImmersionTranslationReveal = () => {
         const translations = form.querySelector('input[name="immersionKitShowTranslation"]');
         const reveal = form.querySelector('input[name="immersionKitRevealTranslationOnClick"]');
@@ -25144,7 +28711,7 @@ ${spelling}`);
         reveal.disabled = !translations.checked;
         if (!translations.checked) reveal.checked = false;
       };
-      (_c = form.querySelector('input[name="immersionKitShowTranslation"]')) == null ? void 0 : _c.addEventListener("change", syncImmersionTranslationReveal);
+      (_d = form.querySelector('input[name="immersionKitShowTranslation"]')) == null ? void 0 : _d.addEventListener("change", syncImmersionTranslationReveal);
       syncImmersionTranslationReveal();
       const syncImmersionEnabled = (source) => {
         form.querySelectorAll('input[name="immersionKitEnabled"], input[name="immersionKit.enabled"]').forEach((input2) => {
@@ -25154,6 +28721,16 @@ ${spelling}`);
       form.querySelectorAll('input[name="immersionKitEnabled"], input[name="immersionKit.enabled"]').forEach((input2) => {
         input2.addEventListener("change", () => syncImmersionEnabled(input2));
       });
+      const syncNadeshikoKeyField = () => {
+        var _a3;
+        const source = (_a3 = form.querySelector('select[name="immersionKitExampleSource"]')) == null ? void 0 : _a3.value;
+        const usesNadeshiko = source === "nadeshiko" || source === "combined";
+        form.querySelectorAll("[data-nadeshiko-api-key-field]").forEach((field) => {
+          field.hidden = !usesNadeshiko;
+        });
+      };
+      (_e = form.querySelector('select[name="immersionKitExampleSource"]')) == null ? void 0 : _e.addEventListener("change", syncNadeshikoKeyField);
+      syncNadeshikoKeyField();
       const syncImmersionLimit = () => {
         var _a3;
         const enabled = ((_a3 = form.querySelector('input[name="immersionKitLimitEnabled"][value="on"]')) == null ? void 0 : _a3.checked) ?? false;
@@ -25164,7 +28741,7 @@ ${spelling}`);
         input2.addEventListener("change", syncImmersionLimit);
       });
       syncImmersionLimit();
-      (_d = form.querySelector('select[name="interfaceLanguage"]')) == null ? void 0 : _d.addEventListener("change", (event) => {
+      (_f = form.querySelector('select[name="interfaceLanguage"]')) == null ? void 0 : _f.addEventListener("change", (event) => {
         const value = event.currentTarget.value;
         if (value !== "auto" && value !== "en" && value !== "ja") return;
         this.settings.interfaceLanguage = value;
@@ -25172,7 +28749,7 @@ ${spelling}`);
         syncSubtitlePreview(form);
         this.dependencies.installFab();
       });
-      (_e = form.querySelector('select[name="ocrProvider"]')) == null ? void 0 : _e.addEventListener("change", (event) => {
+      (_g = form.querySelector('select[name="ocrProvider"]')) == null ? void 0 : _g.addEventListener("change", (event) => {
         const value = event.currentTarget.value;
         form.querySelectorAll("[data-local-ocr]").forEach((node) => {
           node.hidden = value !== "local-service";
@@ -25265,7 +28842,7 @@ ${spelling}`);
     }
     isReaderDisplayControl(target) {
       const name = (target == null ? void 0 : target.name) ?? "";
-      return name === "wordHighlightMode" || name === "furiganaMode" || name === "theme";
+      return name === "furiganaMode" || name === "theme";
     }
     async refreshDeckControls(form) {
       var _a2;
@@ -25283,7 +28860,7 @@ ${spelling}`);
         const decks = await this.dependencies.jpdb.listDecks();
         setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), decks, true));
       } catch (error) {
-        log$6.warn("Deck controls failed to load", error);
+        log$5.warn("Deck controls failed to load", error);
         setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), [], true));
       } finally {
         this.settings.apiKey = originalKey;
@@ -25296,7 +28873,7 @@ ${spelling}`);
         const summary = await this.dependencies.dictionaries.summary();
         await this.applyDictionaryStatus(form, elements, summary);
       } catch (error) {
-        log$6.warn("Dictionary status unavailable", error);
+        log$5.warn("Dictionary status unavailable", error);
         setDictionaryStatusError(elements.status, error);
       }
     }
@@ -25365,9 +28942,9 @@ ${spelling}`);
       try {
         this.dependencies.toast("Playing よむ...");
         await this.dependencies.audio.play(createAudioPreviewCard(), { userGesture: true });
-        log$6.info("Audio settings preview started");
+        log$5.info("Audio settings preview started");
       } catch (error) {
-        log$6.warn("Audio settings preview failed", error);
+        log$5.warn("Audio settings preview failed", error);
         this.dependencies.toast(error instanceof Error ? error.message : "Audio preview failed.");
       } finally {
         this.settings = previous;
@@ -25392,7 +28969,7 @@ ${spelling}`);
         const blob = await this.dependencies.dictionaries.exportJson();
         downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
         setStatus("Dictionaries exported.");
-        log$6.info("Dictionaries exported");
+        log$5.info("Dictionaries exported");
         return true;
       }
       return false;
@@ -25403,24 +28980,27 @@ ${spelling}`);
         return true;
       }
       if (action === "export-reader-settings") {
+        const dictionaries = await this.exportReaderDictionaryBackup();
         downloadBlob(new Blob([JSON.stringify({
           formatName: "yomu-reader-settings",
-          formatVersion: 2,
+          formatVersion: 3,
           exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
           settings: this.settings,
-          storage: await exportStoredValues([
-            "yomu-mining-context:",
-            "yomu-jpdb-uchisen-star:",
-            "yomu-jpdb-uchisen-index:",
-            "jpdb-reader-newtab-ui",
-            "jpdb-reader-transcript-panel-size"
-          ])
+          storage: await exportManagedStoredValues(),
+          ...dictionaries ? { dictionaries } : {}
         }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
         setStatus("Settings exported.");
-        log$6.info("Settings exported");
+        log$5.info("Settings exported");
         return true;
       }
       return false;
+    }
+    async exportReaderDictionaryBackup() {
+      const summary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
+      if (!summary.dictionaries.length) return void 0;
+      const blob = await this.dependencies.dictionaries.exportJson();
+      const json = JSON.parse(await blob.text());
+      return readerDictionaryExportHasData(json) ? json : void 0;
     }
     async handleSettingsConnectionAction(form, action, control) {
       if (action !== "test-anki") return false;
@@ -25438,17 +29018,17 @@ ${spelling}`);
       setAnkiStatus(uiText(language, "ankiTesting"), "pending");
       try {
         if (canUseMobileAnkiHandoff(this.settings)) {
-          setAnkiStatus("Mobile Anki handoff is ready. AnkiConnect is only needed for desktop bridge features on this device.", "success");
+          setAnkiStatus(uiText(language, "mobileAnkiReady"), "success");
           return true;
         }
         const connected = await this.dependencies.anki.isConnected();
         if (!connected) throw new Error(uiText(language, "ankiUnreachable"));
         await this.dependencies.anki.ensureDeckAndModel();
         setAnkiStatus(this.ankiReadyMessage(language), "success");
-        log$6.info("Anki settings test succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
+        log$5.info("Anki settings test succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
       } catch (error) {
         const message = this.ankiConnectionErrorMessage(error, language);
-        log$6.warn("Anki settings test failed", error);
+        log$5.warn("Anki settings test failed", error);
         setAnkiStatus(message, "error");
         this.dependencies.toast(message);
       } finally {
@@ -25458,7 +29038,10 @@ ${spelling}`);
       return true;
     }
     ankiReadyMessage(language) {
-      return `Connected. Deck "${this.settings.ankiDeck}" and note type "${this.settings.ankiModel}" are ready.`;
+      return formatUiTemplate(uiText(language, "ankiConnectedReady"), {
+        deck: this.settings.ankiDeck,
+        model: this.settings.ankiModel
+      });
     }
     ankiConnectionErrorMessage(error, language) {
       return error instanceof Error ? error.message : uiText(language, "ankiUnreachable");
@@ -25496,16 +29079,20 @@ ${spelling}`);
       this.dependencies.scheduleDictionaryRescan();
       await this.refreshDictionaryStatus(form);
       this.dependencies.refreshNewTabIfCurrent();
-      setStatus(`Removed ${dictionary}.`);
-      log$6.info("Dictionary removed", { dictionary });
+      setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoved"), { dictionary }));
+      log$5.info("Dictionary removed", { dictionary });
     }
     async importDictionaryFromSettings(form, setStatus) {
       const file = await pickFile(form, "dictionary");
       if (!file) return;
       const summary = await this.dependencies.dictionaries.importFile(file, (message) => setStatus(message));
       await this.persistDictionaryImport(summary);
-      setStatus(`Imported ${summary.entries.toLocaleString()} records from ${summary.dictionaries.length} dictionary source${summary.dictionaries.length === 1 ? "" : "s"}.`);
-      log$6.info("Dictionary file imported", summary);
+      setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryImportComplete"), {
+        records: summary.entries.toLocaleString(),
+        sources: summary.dictionaries.length.toLocaleString(),
+        plural: summary.dictionaries.length === 1 ? "" : "s"
+      }));
+      log$5.info("Dictionary file imported", summary);
       await this.refreshDictionaryStatus(form);
       this.dependencies.refreshNewTabIfCurrent();
     }
@@ -25513,14 +29100,17 @@ ${spelling}`);
       const dictionary = recommendedDictionaryForControl(control);
       disableRecommendedDictionaryControl(control);
       setStatus(recommendedDictionaryDownloadStatus(control, dictionary.name));
-      log$6.info("Downloading selected dictionary", { dictionary: dictionary.name });
+      log$5.info("Downloading selected dictionary", { dictionary: dictionary.name });
       const summary = await this.downloadRecommendedDictionary(dictionary, control, setStatus);
       if (!summary) return;
       await this.persistDictionaryImport(summary);
-      setStatus(`${dictionary.name}: ${summary.entries.toLocaleString()} records imported.`);
+      setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRecordsImported"), {
+        dictionary: dictionary.name,
+        records: summary.entries.toLocaleString()
+      }));
       await this.refreshDictionaryStatus(form);
       this.dependencies.refreshNewTabIfCurrent();
-      log$6.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
+      log$5.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
     }
     async persistDictionaryImport(summary) {
       this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
@@ -25537,11 +29127,11 @@ ${spelling}`);
       }
     }
     handleRecommendedDictionaryDownloadError(dictionary, control, setStatus, error) {
-      const message = error instanceof Error ? error.message : "Dictionary download failed.";
+      const message = error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, "dictionaryDownloadFailed");
       control == null ? void 0 : control.removeAttribute("disabled");
       if (!this.shouldPromptManualDictionaryDownload(error, dictionary.downloadUrl)) throw error;
-      setStatus(`${message} Enable the よむ userscript on this page, then tap Download again. You can also download the ZIP manually and use Import dictionary above.`);
-      log$6.warn("Dictionary auto-download unavailable", { dictionary: dictionary.name, message });
+      setStatus(`${message} ${uiText(this.settings.interfaceLanguage, "dictionaryManualDownloadHint")}`);
+      log$5.warn("Dictionary auto-download unavailable", { dictionary: dictionary.name, message });
       return null;
     }
     shouldPromptManualDictionaryDownload(error, downloadUrl) {
@@ -25557,7 +29147,10 @@ ${spelling}`);
         "need the yomu userscript",
         "needs the userscript",
         "user script request",
-        "userscript request"
+        "userscript request",
+        "ブロック",
+        "リクエストブリッジ",
+        "ユーザースクリプト"
       ];
       return Boolean(downloadUrl.startsWith("http://") || downloadUrl.startsWith("https://")) && manualDownloadHints.some((hint) => message.includes(hint));
     }
@@ -25566,19 +29159,29 @@ ${spelling}`);
       if (!file) return;
       const json = JSON.parse(await file.text());
       const readerSettings = getReaderSettingsExport(json);
-      this.settings = readerSettings ? { ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } } : importedYomitanSettings(json, this.settings);
+      this.settings = readerSettings ? normalizeReaderSettings({ ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } }) : importedYomitanSettings(json, this.settings);
       const restoredValues = await importStoredValues(getReaderStorageExport(json));
+      const dictionarySummary = await this.importReaderDictionaryBackup(json, setStatus);
       await this.mergeImportedDictionaryPreferences();
       await saveSettings(this.settings);
-      setStatus(restoredValues ? `Settings imported. Restored ${restoredValues} stored choices.` : "Settings imported.");
+      setStatus(importSettingsStatus(restoredValues, dictionarySummary, this.settings.interfaceLanguage));
       this.dependencies.applyTheme();
       void this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
       this.dependencies.installFab();
       this.dependencies.subtitles.refresh();
       this.dependencies.clearSettingsPreview();
-      log$6.info("Settings imported", loggingSettingsSummary(this.settings));
+      log$5.info("Settings imported", loggingSettingsSummary(this.settings));
       this.open();
+    }
+    async importReaderDictionaryBackup(json, setStatus) {
+      const dictionaryExport = getReaderDictionaryExport(json);
+      if (!readerDictionaryExportHasData(dictionaryExport)) return null;
+      setStatus(uiText(this.settings.interfaceLanguage, "importingBundledDictionaries"));
+      const file = new File([JSON.stringify(dictionaryExport)], "yomu-dictionaries-from-settings.json", { type: "application/json" });
+      const summary = await this.dependencies.dictionaries.importFile(file, (message) => setStatus(message));
+      await this.persistDictionaryImport(summary);
+      return summary;
     }
     async mergeImportedDictionaryPreferences() {
       const importedSummary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
@@ -25601,16 +29204,52 @@ ${spelling}`);
     const record = value;
     return record.formatName === "yomu-reader-settings" || record.formatName === "jpdb-popup-reader-settings" ? record.storage : null;
   }
+  function getReaderDictionaryExport(value) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    if (record.formatName !== "yomu-reader-settings" && record.formatName !== "jpdb-popup-reader-settings") return null;
+    return isReaderDictionaryExport(record.dictionaries) ? record.dictionaries : record.dictionaryData;
+  }
+  function readerDictionaryExportHasData(value) {
+    if (!isReaderDictionaryExport(value)) return false;
+    const record = value;
+    return arrayHasItems(record.dictionaries) || arrayHasItems(record.terms) || arrayHasItems(record.kanji) || arrayHasItems(record.termMeta) || arrayHasItems(record.kanjiMeta);
+  }
+  function isReaderDictionaryExport(value) {
+    return Boolean(value && typeof value === "object" && value.formatName === "yomu-yomitan-dictionaries");
+  }
+  function arrayHasItems(value) {
+    return Array.isArray(value) && value.length > 0;
+  }
+  function importSettingsStatus(restoredValues, dictionarySummary, language) {
+    const details = [];
+    if (restoredValues) {
+      details.push(formatUiTemplate(uiText(language, "restoredStoredChoices"), {
+        count: restoredValues.toLocaleString(),
+        plural: restoredValues === 1 ? "" : "s"
+      }));
+    }
+    if (dictionarySummary) {
+      details.push(formatUiTemplate(uiText(language, "importedDictionaryRecordCount"), {
+        count: dictionarySummary.entries.toLocaleString(),
+        plural: dictionarySummary.entries === 1 ? "" : "s"
+      }));
+    }
+    return details.length ? formatUiTemplate(uiText(language, "settingsImportedWithDetails"), { details: details.join("; ") }) : uiText(language, "settingsImported");
+  }
+  function formatUiTemplate(template, values) {
+    return template.replace(/\{([a-z]+)\}/gi, (_, key) => values[key] ?? "");
+  }
   function importedYomitanSettings(json, current) {
-    const imported = parseYomitanSettingsExport(json);
-    return {
+    const imported = parseYomitanSettingsExport(json, current.interfaceLanguage);
+    return normalizeReaderSettings({
       ...current,
       ...imported.settings,
       shortcuts: {
         ...current.shortcuts,
         ...imported.settings.shortcuts ?? {}
       }
-    };
+    });
   }
   const COMMON_EXCLUDE = [
     '[role="dialog"]',
@@ -26037,186 +29676,8 @@ ${spelling}`);
     }
     return unique2;
   }
-  const readerCss = ':root{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent: #5ea780;--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-accent-soft: rgba(94,167,128,.18);--jpdb-reader-hover: rgba(255,255,255,.08);--jpdb-reader-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif}@media (prefers-color-scheme: light){:root{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}}.jpdb-reader-theme-dark{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-hover: rgba(255,255,255,.08)}.jpdb-reader-theme-light{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}.jpdb-reader-middle-scan-active{overscroll-behavior:none;cursor:crosshair}.jpdb-reader-middle-scan-active *{cursor:crosshair!important}[data-jpdb-reader-root],[data-jpdb-reader-root] *{box-sizing:border-box}[data-jpdb-reader-root] :where(a){border-bottom:0;color:inherit;outline:revert;text-decoration:none}[data-jpdb-reader-root] :where(button){-moz-appearance:none;appearance:none;-webkit-appearance:none;background:transparent;border:0;border-radius:0;box-shadow:none;color:inherit;cursor:pointer;display:inline-block;font:inherit;height:auto;line-height:normal;margin:0;padding:0;text-align:inherit;text-decoration:none;transform:none;transition:none;white-space:normal}[data-jpdb-reader-root] :where(input,select,textarea){-moz-appearance:auto;appearance:auto;-webkit-appearance:auto;background:revert;border:revert;border-radius:revert;box-shadow:none;color:inherit;font:inherit;height:auto;margin:0;padding:revert;transform:none;transition:none;width:auto}[data-jpdb-reader-root] :where(fieldset,legend,p,ul,ol,li,dl,dt,dd,blockquote,figure,form,table,th,td,hr,h1,h2,h3,h4,h5,h6){letter-spacing:normal;line-height:revert;margin:revert;padding:revert}[data-jpdb-reader-root] :where(table){border-collapse:revert;border-spacing:revert}[data-jpdb-reader-root] :where(th,td){border:revert;text-align:revert}[data-jpdb-reader-root] :where(rt){font-size:revert;opacity:revert}[data-jpdb-reader-root] button,[data-jpdb-reader-root] input,[data-jpdb-reader-root] select,[data-jpdb-reader-root] textarea{font-family:var(--jpdb-reader-font);letter-spacing:0;text-transform:none}.jpdb-reader-word{--jpdb-reader-word-underline: transparent;--jpdb-reader-source-status-color: var(--jpdb-reader-status-color, currentColor);--jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);--jpdb-reader-source-status-soft: var(--jpdb-reader-status-soft, transparent);--jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-color, currentColor);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-jpdb-color, transparent);--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-jpdb-soft, transparent);--jpdb-reader-source-anki-color: var(--jpdb-reader-anki-color, currentColor);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-anki-color, transparent);--jpdb-reader-source-anki-soft: var(--jpdb-reader-anki-soft, transparent);--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-color, currentColor);--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown, #94a3b8));--jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-soft, var(--jpdb-reader-pitch-unknown-soft, transparent));position:static;display:inline;white-space:nowrap;word-break:keep-all;overflow-wrap:normal!important;border-radius:3px;cursor:pointer;-webkit-tap-highlight-color:transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var( --jpdb-reader-word-underline, transparent )!important;text-decoration-thickness:2px!important;text-underline-offset:.16em!important;-webkit-box-decoration-break:clone;box-decoration-break:clone}.jpdb-reader-word:after{content:none}.jpdb-reader-word:hover,.jpdb-reader-word:focus{background:var(--jpdb-reader-hover)!important;outline:none}.jpdb-reader-word:is(.jpdb-new,.jpdb-suspended,.jpdb-not-in-deck){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, .16))}.jpdb-reader-word.jpdb-learning{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16))}.jpdb-reader-word:is(.jpdb-known,.jpdb-never-forget,.jpdb-redundant){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-jpdb-soft: transparent}.jpdb-reader-word.jpdb-due{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, .16))}.jpdb-reader-word.jpdb-failed{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16))}.jpdb-reader-word:is(.jpdb-blacklisted,.jpdb-locked){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-ignored-soft, rgba(184, 167, 255, .16));opacity:.82!important}.jpdb-reader-word:is(.anki-new,.anki-suspended){--jpdb-reader-anki-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-anki-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, .16))}.jpdb-reader-word.anki-learning{--jpdb-reader-anki-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-anki-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16))}.jpdb-reader-word.anki-known{--jpdb-reader-anki-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-anki-soft: transparent}.jpdb-reader-word.anki-due{--jpdb-reader-anki-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-anki-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, .16))}.jpdb-reader-word.anki-failed{--jpdb-reader-anki-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-anki-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16))}.jpdb-reader-word:is(.jpdb-new,.jpdb-suspended,.jpdb-not-in-deck,.anki-new,.anki-suspended){--jpdb-reader-status-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, .16))}.jpdb-reader-word:is(.jpdb-learning,.anki-learning){--jpdb-reader-status-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-status-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16))}.jpdb-reader-word:is(.jpdb-known,.jpdb-never-forget,.jpdb-redundant,.anki-known){--jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-status-soft: transparent}.jpdb-reader-word:is(.jpdb-due,.anki-due){--jpdb-reader-status-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-status-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, .16))}.jpdb-reader-word:is(.jpdb-failed,.anki-failed){--jpdb-reader-status-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-status-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16))}.jpdb-reader-word:is(.jpdb-blacklisted,.jpdb-locked){--jpdb-reader-status-color: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft, rgba(184, 167, 255, .16))}.jpdb-reader-word.jpdb-pitch-heiban{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-heiban-soft, rgba(53, 158, 255, .14))}.jpdb-reader-word.jpdb-pitch-atamadaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-atamadaka-soft, rgba(254, 75, 116, .14))}.jpdb-reader-word.jpdb-pitch-nakadaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-nakadaka-soft, rgba(251, 168, 64, .16))}.jpdb-reader-word.jpdb-pitch-odaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-odaka-soft, rgba(87, 204, 183, .14))}.jpdb-reader-word.jpdb-pitch-kifuku{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-kifuku, #9050f6);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-kifuku-soft, rgba(144, 80, 246, .14))}.jpdb-reader-word-highlight-status{--jpdb-reader-word-highlight: var(--jpdb-reader-source-status-soft, transparent)}.jpdb-reader-word-highlight-jpdb{--jpdb-reader-word-highlight: var(--jpdb-reader-source-jpdb-soft, transparent)}.jpdb-reader-word-highlight-anki{--jpdb-reader-word-highlight: var(--jpdb-reader-source-anki-soft, transparent)}.jpdb-reader-word-highlight-pitch{--jpdb-reader-word-highlight: var(--jpdb-reader-source-pitch-soft, transparent)}.jpdb-reader-word-underline-status{--jpdb-reader-word-decoration: var(--jpdb-reader-source-status-decoration, transparent)}.jpdb-reader-word-underline-jpdb{--jpdb-reader-word-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent)}.jpdb-reader-word-underline-anki{--jpdb-reader-word-decoration: var(--jpdb-reader-source-anki-decoration, transparent)}.jpdb-reader-word-underline-pitch{--jpdb-reader-word-decoration: var(--jpdb-reader-source-pitch-decoration, transparent)}.jpdb-reader-word-text-status{--jpdb-reader-word-color: var(--jpdb-reader-source-status-color, currentColor)}.jpdb-reader-word-text-jpdb{--jpdb-reader-word-color: var(--jpdb-reader-source-jpdb-color, currentColor)}.jpdb-reader-word-text-anki{--jpdb-reader-word-color: var(--jpdb-reader-source-anki-color, currentColor)}.jpdb-reader-word-text-pitch{--jpdb-reader-word-color: var(--jpdb-reader-source-pitch-color, currentColor)}.jpdb-reader-word-highlight-status .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-word-highlight-anki .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}.jpdb-reader-word-underline-status .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent)}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent)}.jpdb-reader-word-underline-anki .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent)}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent)}.jpdb-reader-word-text-status .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, currentColor)!important}.jpdb-reader-word-text-jpdb .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, currentColor)!important}.jpdb-reader-word-text-anki .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, currentColor)!important}.jpdb-reader-word-text-pitch .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, currentColor)!important}:is(.jpdb-reader-word-highlight-pitch,.jpdb-reader-word-underline-pitch,.jpdb-reader-word-text-pitch) .jpdb-reader-word{opacity:1!important}.jpdb-reader-word.jpdb-reader-has-furi{line-height:1.85}.jpdb-reader-furi{font-size:.52em;color:var(--jpdb-reader-muted);line-height:1;-webkit-user-select:none;user-select:none}.jpdb-reader-word ruby{position:static;display:ruby;ruby-align:center;ruby-position:over;line-height:1;vertical-align:baseline;text-decoration-line:inherit!important;text-decoration-style:inherit!important;text-decoration-color:inherit!important;text-decoration-thickness:inherit!important;text-underline-offset:inherit!important}.jpdb-reader-word rp{display:none}.jpdb-reader-word rt.jpdb-reader-furi{position:static;left:auto;bottom:auto;display:ruby-text;transform:none;white-space:nowrap;pointer-events:none;text-decoration:none!important;ruby-align:center;line-height:1;text-align:center}.jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-known,.jpdb-due,.jpdb-never-forget) .jpdb-reader-furi{display:none}.jpdb-ocr-layer{position:fixed;z-index:2147483643;pointer-events:none;box-sizing:border-box;contain:layout style}.jpdb-ocr-status,.jpdb-ocr-line{pointer-events:auto;box-sizing:border-box;font-family:var(--jpdb-reader-font);-webkit-tap-highlight-color:transparent}.jpdb-ocr-status{position:absolute;left:8px;right:8px;bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#181b20d1;color:#ffffffe0;box-shadow:0 8px 22px #0000003d;font-size:11px;font-weight:700}.jpdb-ocr-line{position:absolute;display:flex;align-items:flex-end;justify-content:center;overflow:visible;min-width:0;min-height:0;padding:var(--jpdb-ocr-pad-top, 3px) var(--jpdb-ocr-pad-x, 5px) var(--jpdb-ocr-pad-bottom, 3px);border:1px solid transparent;border-radius:6px;background:transparent;color:transparent;text-shadow:none;font-weight:800;line-height:1;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:none;opacity:1;-webkit-user-select:text;user-select:text;cursor:text}.jpdb-ocr-line-text{display:inline-flex;flex:none;justify-content:center;align-items:flex-end;align-content:flex-end;flex-wrap:nowrap;white-space:nowrap;max-width:none;overflow-wrap:normal}.jpdb-ocr-line[data-vertical=true]{align-items:center;justify-content:center;letter-spacing:0}.jpdb-ocr-line[data-vertical=true] .jpdb-ocr-line-text{white-space:normal;flex-wrap:wrap}.jpdb-ocr-line-visible{border-color:#ffffff1a;background:#181b2024;box-shadow:0 6px 16px #0003,inset 0 0 0 1px #ffffff0a}.jpdb-ocr-line:hover,.jpdb-ocr-line:focus,.jpdb-ocr-line.jpdb-ocr-line-active{color:var(--jpdb-ocr-text-color, #fff);text-shadow:0 2px 2px var(--jpdb-ocr-outline-color, #000),0 0 3px var(--jpdb-ocr-outline-color, #000),0 0 10px var(--jpdb-ocr-outline-color, #000);background:var(--jpdb-ocr-background-active-rgba, rgba(24, 27, 32, .48));border-color:#ffffff2e;box-shadow:0 10px 24px #0000003d,inset 0 0 0 1px #ffffff0d;outline:none;z-index:2}.jpdb-ocr-line .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration:none!important;color:inherit!important;pointer-events:none;cursor:pointer;line-height:1!important}.jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi{line-height:1!important}.jpdb-ocr-line[data-has-furi=true] .jpdb-reader-word{display:inline-flex;align-items:flex-end}.jpdb-ocr-line .jpdb-ocr-plain{display:inline-flex;align-items:flex-end;line-height:1;white-space:pre}.jpdb-ocr-line:hover .jpdb-reader-word,.jpdb-ocr-line:focus .jpdb-reader-word,.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-reader-word{pointer-events:auto}.jpdb-ocr-ruby{position:relative;display:inline-flex;align-items:flex-end;justify-content:center;padding-top:.5em;line-height:1;vertical-align:baseline}.jpdb-ocr-ruby-base{display:inline-flex;align-items:flex-end;line-height:1}.jpdb-ocr-furi{position:absolute;top:0;left:50%;color:currentColor;font-size:.42em;line-height:1;opacity:0;pointer-events:none;text-align:center;text-shadow:none;transform:translate(-50%);white-space:nowrap}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-new,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-suspended,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-not-in-deck{color:var(--jpdb-reader-state-new, #58a6ff)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-learning{color:var(--jpdb-reader-state-learning, #ffd166)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-known,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-never-forget,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-redundant{color:var(--jpdb-reader-state-known, #7bd88f)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-due{color:var(--jpdb-reader-state-due, #5fb3b3)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-failed{color:var(--jpdb-reader-state-failed, #ff6b6b)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-blacklisted,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-locked{color:var(--jpdb-reader-state-ignored, #b8a7ff)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-ocr-furi{opacity:.9;text-shadow:0 1px 1px var(--jpdb-ocr-outline-color, #000),0 0 5px var(--jpdb-ocr-outline-color, #000)}.asbplayer-subtitles-container-bottom{z-index:2147483644!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-subtitle-fallback: currentColor;background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var( --jpdb-reader-word-underline, transparent )!important;text-decoration-thickness:.08em!important;text-underline-offset:.15em!important;color:inherit!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word{color:inherit!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-heiban{color:var(--jpdb-reader-pitch-heiban, #359eff)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-atamadaka{color:var(--jpdb-reader-pitch-atamadaka, #fe4b74)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-nakadaka{color:var(--jpdb-reader-pitch-nakadaka, #fba840)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-odaka{color:var(--jpdb-reader-pitch-odaka, #57ccb7)!important}.jpdb-reader-highlight-pitch .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-pitch-kifuku{color:var(--jpdb-reader-pitch-kifuku, #9050f6)!important}.jpdb-reader-highlight-off .jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word{background:transparent!important;color:inherit!important;--jpdb-reader-word-underline: transparent;text-decoration-color:transparent!important}.jpdb-reader-fab{position:fixed;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));z-index:2147483645;min-width:52px;width:auto;height:52px;padding:0 13px;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);box-shadow:0 10px 28px #00000040;opacity:.78;font:700 14px/1 var(--jpdb-reader-font);cursor:pointer;touch-action:none;transform:translateZ(0)}.jpdb-reader-fab:hover,.jpdb-reader-fab:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);opacity:1;outline:none}.jpdb-reader-fab-over-video:not(:hover):not(:focus-visible){opacity:.28;transform:translate3d(0,6px,0) scale(.92)}.jpdb-reader-backdrop{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483646;background:#0c1016bd}.jpdb-reader-popover,.jpdb-reader-settings{position:fixed;z-index:2147483647;box-sizing:border-box;background:var(--jpdb-reader-bg);border:1px solid var(--jpdb-reader-border);border-radius:12px;box-shadow:0 16px 48px #00000057;color:var(--jpdb-reader-text);color-scheme:light dark;font:14px/1.45 var(--jpdb-reader-font)}.jpdb-reader-popover{width:min(520px,calc(100vw - 16px));max-height:min(580px,calc(100vh - 16px));overflow:auto;overflow-anchor:none;padding:14px;container-type:inline-size;scrollbar-gutter:stable}.jpdb-reader-popover.jpdb-reader-sheet{left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%;height:var(--jpdb-reader-sheet-height, var(--jpdb-reader-sheet-collapsed-height, 70dvh));min-height:var(--jpdb-reader-sheet-min-height, 180px);max-height:var(--jpdb-reader-sheet-viewport-height, 100dvh);border-radius:16px 16px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom));overscroll-behavior:contain;-webkit-overflow-scrolling:touch}.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-resizing{-webkit-user-select:none;user-select:none}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body){display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden;padding:0}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body{min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px 16px;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions{padding:6px 16px calc(18px + env(safe-area-inset-bottom))}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining{padding-top:37px}.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded{border-radius:0;padding-top:max(8px,env(safe-area-inset-top))}.jpdb-reader-sheet .jpdb-reader-sheet-handle{display:block}.jpdb-reader-popover.jpdb-reader-sheet>.jpdb-reader-sheet-handle{width:100%;margin:0}.jpdb-reader-sheet-close{position:absolute;top:8px;right:max(12px,env(safe-area-inset-right));z-index:2;display:inline-grid;place-items:center;width:32px;height:32px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 88%,transparent);color:var(--jpdb-reader-text);box-shadow:0 8px 20px #0000003d;cursor:pointer;-webkit-tap-highlight-color:transparent}.jpdb-reader-sheet-close:hover,.jpdb-reader-sheet-close:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-sheet-close svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}:root.jpdb-reader-theme-dark .jpdb-reader-popover,:root.jpdb-reader-theme-dark .jpdb-reader-settings,:root.jpdb-reader-theme-dark .jpdb-reader-onboarding{color-scheme:dark}:root.jpdb-reader-theme-light .jpdb-reader-popover,:root.jpdb-reader-theme-light .jpdb-reader-settings,:root.jpdb-reader-theme-light .jpdb-reader-onboarding{color-scheme:light}@media (prefers-color-scheme: dark){:root:not(.jpdb-reader-theme-light) .jpdb-reader-popover,:root:not(.jpdb-reader-theme-light) .jpdb-reader-settings,:root:not(.jpdb-reader-theme-light) .jpdb-reader-onboarding{color-scheme:dark}}@media (prefers-color-scheme: light){:root:not(.jpdb-reader-theme-dark) .jpdb-reader-popover,:root:not(.jpdb-reader-theme-dark) .jpdb-reader-settings,:root:not(.jpdb-reader-theme-dark) .jpdb-reader-onboarding{color-scheme:light}}.jpdb-reader-sheet-handle{display:none;position:relative;width:calc(100% + 32px);height:46px;border-bottom:1px solid var(--jpdb-reader-border);border-radius:16px 16px 0 0;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 72%,transparent);margin:-14px -16px 10px;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}.jpdb-reader-sheet-handle:before{content:"";position:absolute;top:50%;left:50%;width:46px;height:5px;border-radius:999px;background:var(--jpdb-reader-faint);transform:translate(-50%,-50%)}.jpdb-reader-sheet-handle:active{cursor:grabbing}.jpdb-reader-sheet-handle:hover:before,.jpdb-reader-sheet-handle:focus-visible:before{background:var(--jpdb-reader-accent)}.jpdb-reader-header{display:flex;align-items:flex-start;gap:10px}.jpdb-reader-heading{min-width:0;flex:1 1 auto}.jpdb-reader-card-tools{display:flex;align-items:flex-start;gap:8px;margin-left:auto}.jpdb-reader-icon-btn{position:relative;display:inline-grid;place-items:center;width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important;flex:0 0 auto;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);cursor:pointer;overflow:hidden;transform:translateY(-.01rem);-webkit-tap-highlight-color:transparent}.jpdb-reader-icon-btn:hover,.jpdb-reader-icon-btn:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 26%,transparent);color:var(--jpdb-reader-accent);transform:translateY(-.25rem);outline:none}.jpdb-reader-icon-btn:active{transform:scale(.98)}.jpdb-reader-onboarding{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;box-sizing:border-box;width:min(760px,calc(100vw - 24px));max-height:min(760px,calc(100vh - 24px));overflow:auto;padding:54px 32px 32px;border:1px solid var(--jpdb-reader-border);border-radius:16px;background:radial-gradient(circle at 18% 0%,var(--jpdb-reader-accent-soft),transparent 34%),var(--jpdb-reader-bg);color:var(--jpdb-reader-text);box-shadow:0 26px 70px #0006;color-scheme:light dark;font:15px/1.5 var(--jpdb-reader-font)}.jpdb-reader-onboarding-close{position:absolute;top:14px;right:14px}.jpdb-reader-onboarding h2{margin:4px 0 10px;color:var(--jpdb-reader-text);font-size:clamp(38px,8vw,72px);line-height:.95;letter-spacing:0}.jpdb-reader-onboarding p{max-width:620px;margin:0;color:var(--jpdb-reader-muted)}.jpdb-reader-onboarding-eyebrow{color:var(--jpdb-reader-accent);font-size:11px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.jpdb-reader-onboarding-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:24px 0}.jpdb-reader-onboarding-grid div{display:grid;gap:5px;min-height:96px;padding:14px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface)}.jpdb-reader-onboarding-grid strong{color:var(--jpdb-reader-text);font-size:16px}.jpdb-reader-onboarding-grid span{color:var(--jpdb-reader-muted);font-size:13px}.jpdb-reader-onboarding-language{display:grid;gap:6px;max-width:280px;margin:0 0 16px;color:var(--jpdb-reader-muted);font-weight:750;font-size:13px}.jpdb-reader-onboarding-language select{width:100%;box-sizing:border-box;min-height:42px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);padding:8px 10px;font:750 14px/1.2 var(--jpdb-reader-font)}.jpdb-reader-onboarding-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}.jpdb-reader-onboarding-actions .jpdb-reader-btn{min-width:150px;min-height:46px}.jpdb-reader-icon-btn svg{width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}@keyframes jpdb-reader-audio-loading-a{0%{left:0}25%{left:0}75%{left:100%}to{left:100%}}@keyframes jpdb-reader-audio-loading-b{0%{right:100%}50%{right:0}to{right:0}}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 62%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent);cursor:progress}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:before,.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:after{content:"";position:absolute;left:0;right:100%;bottom:0;height:3px;background:var(--jpdb-reader-accent);pointer-events:none}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:before{animation:jpdb-reader-audio-loading-a 1.65s infinite ease-in-out,jpdb-reader-audio-loading-b 1.65s infinite ease-in-out}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:after{animation:jpdb-reader-audio-loading-a 1.65s infinite ease-in-out .62s,jpdb-reader-audio-loading-b 1.65s infinite ease-in-out .62s}.jpdb-reader-spelling{color:var(--jpdb-reader-text);font-size:24px;font-weight:750;line-height:1.16;text-decoration:none;word-break:keep-all}.jpdb-reader-title-row{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;width:100%;min-width:0}.jpdb-reader-kanji-inline{display:inline!important;width:auto!important;min-width:0!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-bottom:2px solid transparent!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:inherit!important;cursor:pointer;font:inherit!important;line-height:inherit!important;text-align:inherit!important;vertical-align:baseline!important;-webkit-tap-highlight-color:transparent}.jpdb-reader-kanji-inline:hover,.jpdb-reader-kanji-inline:focus-visible{border-bottom-color:currentColor!important;outline:none!important}.jpdb-reader-pill{-moz-appearance:none;appearance:none;-webkit-appearance:none;display:inline-flex!important;align-items:center;align-self:center;gap:4px;box-sizing:border-box;width:auto!important;min-width:0!important;max-width:max-content!important;height:auto!important;min-height:24px!important;padding:3px 8px!important;margin:0!important;border:1px solid var(--chip-border, var(--jpdb-reader-border))!important;border-radius:999px!important;color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2))!important;box-shadow:0 1px 1px #0000002e!important;font-size:11px!important;font-weight:700!important;line-height:1!important;text-align:center!important;text-decoration:none!important;vertical-align:middle!important;white-space:nowrap!important;flex:0 0 auto!important}a.jpdb-reader-action-pill,button.jpdb-reader-action-pill{--chip-bg: color-mix( in srgb, var(--jpdb-reader-surface) 92%, var(--jpdb-reader-accent) 8% );--chip-border: color-mix( in srgb, var(--jpdb-reader-accent) 38%, var(--jpdb-reader-border) );--chip-text: var(--jpdb-reader-text);cursor:pointer;font-family:inherit;transform:translateY(-.01rem)!important;-webkit-tap-highlight-color:transparent}.jpdb-reader-action-pill:hover,.jpdb-reader-action-pill:focus-visible{color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2))!important;transform:translateY(-1px)!important;box-shadow:0 3px 8px color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 34%,transparent)!important;outline:2px solid color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 55%,transparent)!important;outline-offset:1px}.jpdb-reader-jpdb-pill{--chip-bg: color-mix( in srgb, var(--jpdb-reader-accent) 15%, var(--jpdb-reader-surface) );--chip-border: color-mix( in srgb, var(--jpdb-reader-accent) 58%, var(--jpdb-reader-border) );--chip-text: var(--jpdb-reader-accent-readable)}.jpdb-reader-action-pill:active{transform:scale(.98)!important}.jpdb-reader-pill svg{width:12px!important;height:12px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-word-pills{display:flex;align-items:center;flex-wrap:wrap;gap:5px;width:100%;margin-top:6px}@container (max-width: 340px){.jpdb-reader-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:0 8px}.jpdb-reader-heading{display:contents}.jpdb-reader-title-row{grid-column:1;grid-row:1}.jpdb-reader-card-tools{display:contents}.jpdb-reader-pitch{grid-column:1 / -1;grid-row:2;margin-top:-3px}.jpdb-reader-audio-control{grid-column:2;grid-row:1;margin-left:auto}.jpdb-reader-word-pills{grid-column:1 / -1;grid-row:3;width:auto;gap:4px;margin-top:5px}.jpdb-reader-pill{padding:3px 7px!important;font-size:10.5px!important}}.jpdb-reader-reading,.jpdb-reader-pos,.jpdb-reader-meta,.jpdb-reader-help{color:var(--jpdb-reader-muted)}.jpdb-reader-reading{margin-top:2px;font-size:15px}.jpdb-reader-title-row .jpdb-reader-reading{margin-top:0;line-height:1.2}.jpdb-reader-pos{margin-top:7px;font-size:11px;line-height:1.35}.jpdb-reader-status-line{min-height:22px}.jpdb-reader-status-line[data-status-tone]{margin-top:8px;padding:8px 10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)}.jpdb-reader-status-line[data-status-tone=pending]{color:var(--jpdb-reader-muted)}.jpdb-reader-status-line[data-status-tone=success]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 11%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent)}.jpdb-reader-status-line[data-status-tone=error]{border-color:color-mix(in srgb,#e55353 52%,var(--jpdb-reader-border));background:color-mix(in srgb,#e55353 11%,var(--jpdb-reader-surface-2));color:#ff8c8c}.jpdb-reader-meanings{margin:9px 0;display:grid;gap:5px}.jpdb-reader-meaning{color:var(--jpdb-reader-text);font-size:13px;line-height:1.32}.jpdb-reader-jpdb-extras{display:grid;gap:10px;margin:10px 0 0}.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-examples-group,.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-used-in-group{border:0;border-radius:0;background:transparent;padding:0}.jpdb-reader-jpdb-extras :is(.jpdb-reader-jpdb-examples-group,.jpdb-reader-jpdb-used-in-group)>.jpdb-reader-local-glossary{padding:0 8px 8px}.jpdb-reader-jpdb-extra{display:grid;gap:6px}.jpdb-reader-jpdb-extra h6{margin:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;text-transform:uppercase}.jpdb-reader-jpdb-compounds,.jpdb-reader-jpdb-used-in,.jpdb-reader-jpdb-examples{display:grid;gap:6px;margin:0;padding:0;list-style:none}.jpdb-reader-jpdb-example{padding:2px 0;color:var(--jpdb-reader-text);line-height:1.3}.jpdb-reader-jpdb-example-row.has-audio{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:start;gap:8px}.jpdb-reader-jpdb-example-text{min-width:0}button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important;margin-top:2px;border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 88%,transparent)}button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg{width:14px;height:14px;stroke-width:2.6}.jpdb-reader-jpdb-compounds li,.jpdb-reader-jpdb-used-in li{display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr);align-items:baseline;gap:8px;min-width:0}.jpdb-reader-jpdb-compound,.jpdb-reader-jpdb-used-in-link{display:inline-flex;align-items:flex-start;min-width:0;color:inherit!important;text-decoration:none}.jpdb-reader-jpdb-compound:hover,.jpdb-reader-jpdb-compound:focus-visible,.jpdb-reader-jpdb-used-in-link:hover,.jpdb-reader-jpdb-used-in-link:focus-visible{color:inherit!important;outline:none}.jpdb-reader-jpdb-compound-head{display:grid;gap:2px;max-width:100%}.jpdb-reader-jpdb-compound-term{display:inline-block;width:max-content;max-width:100%;font-size:17px;line-height:1.1;font-weight:850;white-space:nowrap}.jpdb-reader-jpdb-used-in-term{font-size:14.5px;font-weight:760;line-height:1.25}.jpdb-reader-jpdb-used-in-source-item{grid-template-columns:minmax(0,1fr)!important;align-items:start!important;gap:2px!important}.jpdb-reader-jpdb-used-in-source-link{display:block}.jpdb-reader-jpdb-used-in-source-title{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:760;line-height:1.25}.jpdb-reader-jpdb-compound-reading,.jpdb-reader-jpdb-compounds small,.jpdb-reader-jpdb-used-in small,.jpdb-reader-jpdb-example .jpdb-reader-example-translation{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}.jpdb-reader-jpdb-compound-reading{white-space:nowrap}.jpdb-reader-jpdb-compound:has(.jpdb-reader-word) .jpdb-reader-jpdb-compound-reading{display:none}.jpdb-reader-example-summary .jpdb-reader-example-count{flex:0 0 auto;margin-left:auto;text-align:right;white-space:nowrap}.jpdb-reader-jpdb-example .jpdb-reader-example-sentence,.jpdb-reader-jpdb-example .jpdb-reader-example-translation{justify-self:stretch;width:100%;text-align:left;text-wrap:pretty}.jpdb-reader-jpdb-example .jpdb-reader-example-sentence{line-height:1.35}.jpdb-reader-jpdb-example .jpdb-reader-example-translation{font-size:10.5px;line-height:1.3}.jpdb-reader-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:11px}.jpdb-reader-state-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--jpdb-reader-faint);margin-right:4px}.jpdb-reader-state-dot.jpdb-new,.jpdb-reader-state-dot.jpdb-suspended,.jpdb-reader-state-dot.jpdb-not-in-deck{background:var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-state-dot.jpdb-learning{background:var(--jpdb-reader-state-learning, #ffd166)}.jpdb-reader-state-dot.jpdb-known,.jpdb-reader-state-dot.jpdb-never-forget,.jpdb-reader-state-dot.jpdb-redundant{background:var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-state-dot.jpdb-due{background:var(--jpdb-reader-state-due, #5fb3b3)}.jpdb-reader-state-dot.jpdb-failed{background:var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-state-dot.jpdb-blacklisted,.jpdb-reader-state-dot.jpdb-locked{background:var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-local{border-top:1px solid var(--jpdb-reader-border);margin-top:12px;padding-top:12px;display:grid;gap:8px;font-size:13px;line-height:1.45}.jpdb-reader-definition-stack{display:grid;gap:0;margin-top:12px}.jpdb-reader-definition-stack .jpdb-reader-local{margin-top:0}.jpdb-reader-source-card,.jpdb-reader-study-source{gap:0;padding-top:0;position:relative}.jpdb-reader-source-card .jpdb-reader-meanings{margin:0}.jpdb-reader-source-card>summary.jpdb-reader-local-title,.jpdb-reader-study-source>summary.jpdb-reader-local-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:6px 0;cursor:pointer;list-style:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title::-webkit-details-marker,.jpdb-reader-study-source>summary.jpdb-reader-local-title::-webkit-details-marker{display:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source>summary.jpdb-reader-local-title:after{content:"+";flex:0 0 auto;margin-left:0;color:var(--jpdb-reader-muted);font-size:15px;line-height:1}.jpdb-reader-source-card[open]>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source[open]>summary.jpdb-reader-local-title:after{content:"-"}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title{cursor:default}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title:after{content:""}.jpdb-reader-source-card>:not(summary){margin-left:0;margin-right:0}.jpdb-reader-source-card[open]>:last-child{margin-bottom:7px}.jpdb-reader-dictionary-source-list,.jpdb-reader-dictionaries-section .jpdb-reader-local-terms{gap:0;margin-top:0;padding:0}.jpdb-reader-dictionary-source-list{display:grid}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group{border-top:1px solid var(--jpdb-reader-border);padding:0;overflow:visible}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child{border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px;padding:6px 0;color:var(--jpdb-reader-muted);cursor:pointer;list-style:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::-webkit-details-marker{display:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title:after{content:"+";flex:0 0 auto;color:var(--jpdb-reader-muted);font-size:14px;line-height:1}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group[open]>.jpdb-reader-dictionary-source-title:after{content:"-"}.jpdb-reader-dictionaries-section .jpdb-reader-local-term{border:0;border-radius:0;background:transparent;padding:7px 0 8px}.jpdb-reader-dictionaries-section .jpdb-reader-local-term+.jpdb-reader-local-term,.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title+.jpdb-reader-local-terms{border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-study-source>.jpdb-reader-study-panel{margin-top:4px;margin-bottom:12px}.jpdb-reader-local-title{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-source-status{margin-left:auto;color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:none}.jpdb-reader-local-entry{border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);padding:6px}.jpdb-reader-source-card>.jpdb-reader-local-entry{display:grid;gap:10px;padding:8px 0 0;border:0;border-radius:0;background:transparent;box-shadow:none}.jpdb-reader-kanji>.jpdb-reader-local-entry+.jpdb-reader-local-entry{margin-top:6px}.jpdb-reader-local-terms{display:grid;gap:5px}.jpdb-reader-local-term{padding:7px 32px 7px 8px;background:color-mix(in srgb,var(--jpdb-reader-surface) 88%,var(--jpdb-reader-surface-2))}.jpdb-reader-source-card .jpdb-reader-local-term{padding:7px 0 8px;border-top:1px solid color-mix(in srgb,var(--jpdb-reader-border) 52%,transparent);border-radius:0;background:transparent}.jpdb-reader-source-card .jpdb-reader-local-term:first-child{border-top:0}.jpdb-reader-local-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-weight:700}.jpdb-reader-local-expression{min-width:0;color:var(--jpdb-reader-text);font-size:16px;line-height:1.25;font-weight:850}.jpdb-reader-local-reading,.jpdb-reader-local-dict{color:var(--jpdb-reader-muted);font-size:11px;font-weight:650}.jpdb-reader-local-dict{margin-left:auto}.jpdb-reader-local-frequency{margin-left:auto;color:var(--jpdb-reader-accent-readable);font-size:11px;font-weight:800}.jpdb-reader-local-senses{display:grid;gap:2px;margin-top:4px}.jpdb-reader-local-tags{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px}.jpdb-reader-local-head+.jpdb-reader-local-tags{margin-top:5px}.jpdb-reader-local-tags:empty{display:none}.jpdb-reader-dict-tag{display:inline-flex;align-items:center;min-height:1.35em;padding:0 .38em;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 55%,var(--jpdb-reader-border));border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent) 24%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:800;line-height:1.2}.jpdb-reader-source-tag{border-color:var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted)}.jpdb-reader-local-sense,.jpdb-reader-local-glossary-entry{display:flex;align-items:baseline;gap:6px;min-width:0}.jpdb-reader-local-sense{color:var(--jpdb-reader-text);font-size:13px;line-height:1.3}.jpdb-reader-local-sense>span:last-child,.jpdb-reader-local-glossary-entry>div{min-width:0;flex:1 1 auto}.jpdb-reader-local-sense-index{flex:0 0 16px;color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-align:right}.jpdb-reader-local-glossary{margin-top:3px;color:var(--jpdb-reader-text);font-size:13px;line-height:1.45;white-space:normal;display:grid;gap:2px;min-width:0;max-width:100%;overflow-wrap:anywhere;--font-size-no-units: 13;--line-height: 1.45;--list-padding1: 1.1em;--list-padding2: 1.45em;--compact-list-separator: " / "}.jpdb-reader-local-glossary-entry.no-index{display:block}.jpdb-reader-local-glossary-entry.no-index>div{min-width:0}.jpdb-reader-local-glossary-entry.no-index>div>div:first-child>:first-child{margin-top:0!important}.jpdb-reader-local-glossary-entry.no-index>div>div:last-child>:last-child{margin-bottom:0!important}.jpdb-reader-local-glossary-entry.no-index .gloss-sc-div,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ul,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ol{margin-top:.12em!important;margin-bottom:.12em!important}.jpdb-reader-local-glossary ul,.jpdb-reader-local-glossary ol{padding:0}.jpdb-reader-local-glossary li{margin:1px 0}.jpdb-reader-local-glossary table{border-collapse:collapse;width:100%;white-space:normal;margin:4px 0}.jpdb-reader-local-glossary td,.jpdb-reader-local-glossary th{border:1px solid var(--jpdb-reader-border);padding:8px 6px 6px;line-height:1.45}.jpdb-reader-dictionary-group{padding:0;overflow:hidden}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary{align-items:center;cursor:pointer;display:flex;gap:8px;justify-content:space-between;list-style:none;min-height:38px;padding:8px 0}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head::-webkit-details-marker,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary::-webkit-details-marker{display:none}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head:after,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary:after{content:"+";margin-left:4px;color:var(--jpdb-reader-muted);font-size:16px;line-height:1}.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-head:after,.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-title.jpdb-reader-example-summary:after{content:"-"}.jpdb-reader-dictionary-group>.jpdb-reader-local-glossary{padding:0 8px 8px}.jpdb-reader-local-glossary .structured-content{display:inline;min-width:0;max-width:100%;white-space:normal;line-height:var(--line-height)}.jpdb-reader-local-glossary ruby{display:ruby;ruby-align:center;ruby-position:over;max-width:100%;margin:0 .03em;color:inherit;line-height:1;text-align:center;vertical-align:baseline;white-space:nowrap}.jpdb-reader-local-glossary rt{display:ruby-text;color:var(--jpdb-reader-muted);font-size:.52em;font-weight:600;line-height:1;text-align:center;white-space:nowrap}.jpdb-reader-local-glossary rp{display:none}.jpdb-reader-local-glossary :is(.gloss-sc-div,.gloss-sc-ul,.gloss-sc-ol,.gloss-sc-li,.gloss-sc-details){box-sizing:border-box;min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal}.jpdb-reader-local-glossary [data-sc-class=extra-box]{box-sizing:border-box;max-width:100%}.jpdb-reader-local-glossary .gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-ol{margin:.25em 0 .25em var(--list-padding1);padding:0}.jpdb-reader-local-glossary .gloss-sc-ul[data-sc-content=glossary],.jpdb-reader-local-glossary .gloss-sc-ol[data-sc-content=glossary]{display:grid;gap:.25em}.jpdb-reader-local-glossary .gloss-sc-li{margin:0;padding-left:.1em}.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ol{margin-left:var(--list-padding2)}.jpdb-reader-local-glossary .gloss-sc-details{margin:.35em 0;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 72%,transparent)}.jpdb-reader-local-glossary .gloss-sc-summary{padding:.35em .55em;cursor:pointer;font-weight:700}.jpdb-reader-local-glossary .gloss-sc-details>:not(.gloss-sc-summary){padding:0 .55em .45em}.jpdb-reader-local-glossary .gloss-sc-table-container{display:block;max-width:100%;margin:.35em 0;overflow-x:auto;white-space:normal}.jpdb-reader-local-glossary .gloss-sc-table{width:auto;min-width:min(100%,24rem);border-collapse:collapse;table-layout:auto}.jpdb-reader-local-glossary .gloss-sc-th,.jpdb-reader-local-glossary .gloss-sc-td{border:1px solid var(--jpdb-reader-border);padding:.35em .45em;vertical-align:top}.jpdb-reader-local-glossary .gloss-sc-th{background:var(--jpdb-reader-surface-2);font-weight:800}.jpdb-reader-local-glossary .gloss-sc-td[data-sc-class=form-valid]{text-align:center;vertical-align:middle}.jpdb-reader-local-glossary [data-sc-class=form-valid]{color:var(--jpdb-reader-accent-readable);font-weight:800}.jpdb-reader-local-glossary .gloss-link{color:var(--jpdb-reader-accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}.jpdb-reader-local-glossary .gloss-link-external-icon{display:none}.jpdb-reader-local-glossary [data-sc-content=part-of-speech-info],.jpdb-reader-local-glossary [data-sc-class=tag],.jpdb-reader-local-glossary [data-sc-class=pitch-accent-position]{display:inline-flex;align-items:center;min-height:1.4em;margin:0 .25em .15em 0;padding:.05em .35em;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:.88em;font-weight:700;white-space:nowrap}.jpdb-reader-local-glossary .gloss-image-link{display:inline-flex;align-items:center;gap:.35em;max-width:100%;margin:.15em 0;color:var(--jpdb-reader-muted);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-container{position:relative;display:inline-block;max-width:min(100%,20rem);min-width:3rem;overflow:hidden;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:var(--jpdb-reader-surface-2);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-sizer{display:block}.jpdb-reader-local-glossary .gloss-image-background,.jpdb-reader-local-glossary .gloss-image-container-overlay{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-local-glossary .gloss-image-background{background:linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%),linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%);background-position:0 0,6px 6px;background-size:12px 12px}.jpdb-reader-local-glossary .gloss-image-link-text,.jpdb-reader-local-glossary .gloss-image-description{color:var(--jpdb-reader-muted);font-size:.9em}.jpdb-reader-anki-existing{margin-top:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);overflow:hidden}.jpdb-reader-anki-existing summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;cursor:pointer;color:var(--jpdb-reader-text);font-size:11px;font-weight:800;list-style:none}.jpdb-reader-anki-existing summary::-webkit-details-marker{display:none}.jpdb-reader-anki-existing summary small{color:var(--jpdb-reader-muted);font-weight:600;text-align:right}.jpdb-reader-anki-card-preview{border-top:1px solid var(--jpdb-reader-border);padding:9px 10px 10px;display:grid;gap:8px;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}.jpdb-reader-anki-field,.jpdb-reader-anki-context{display:grid;gap:2px}.jpdb-reader-anki-field>strong,.jpdb-reader-anki-context>strong,.jpdb-reader-anki-rendered-side>strong{color:var(--jpdb-reader-text);font-size:11px;text-transform:uppercase}.jpdb-reader-anki-field>span,.jpdb-reader-anki-context>span,.jpdb-reader-anki-context>small{white-space:pre-wrap;overflow-wrap:anywhere}.jpdb-reader-anki-rendered-card,.jpdb-reader-anki-fields{display:grid;gap:8px}.jpdb-reader-anki-rendered-side{display:grid;gap:5px;min-width:0}.jpdb-reader-anki-rendered-side-body{max-height:220px;overflow:auto;overscroll-behavior:contain;contain:content;border:1px solid var(--jpdb-reader-border);border-radius:6px;padding:8px;background:#00000024;color:var(--jpdb-reader-text);font-size:13px;line-height:1.45}.jpdb-reader-anki-rendered-side-body *{max-width:100%}.jpdb-reader-anki-rendered-side-body img,.jpdb-reader-anki-rendered-side-body video,.jpdb-reader-anki-rendered-side-body audio{max-width:100%;height:auto}.jpdb-reader-anki-sound{display:inline-block;width:fit-content;max-width:100%;margin-top:2px;padding:2px 6px;border:1px solid var(--jpdb-reader-border);border-radius:999px;color:var(--jpdb-reader-text);background:#5ea78029;font-size:10px;font-weight:700}.jpdb-reader-anki-note-actions{display:grid;gap:8px}.jpdb-reader-anki-note-action-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.jpdb-reader-anki-audio-merge{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;min-width:0}.jpdb-reader-anki-audio-merge span{color:var(--jpdb-reader-text);font-size:11px;font-weight:800;text-transform:uppercase}.jpdb-reader-anki-audio-merge select{min-width:0;width:100%;border:1px solid var(--jpdb-reader-border);border-radius:6px;padding:5px 8px;color:var(--jpdb-reader-text);background:var(--jpdb-reader-bg);font:inherit}.jpdb-reader-settings-subsection{display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-immersion{container-type:inline-size;--jpdb-reader-example-media-max-height: clamp(150px, calc(100vh - 300px) , 260px)}.jpdb-reader-example-card{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:start;padding:0;border:0;border-radius:0;background:transparent}.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-image{display:block;max-width:100%;height:auto;max-height:var(--jpdb-reader-example-media-max-height);object-fit:contain}.jpdb-reader-example-media{position:relative;display:flex;align-items:center;justify-content:center;width:100%;min-height:0;overflow:visible;border:0;border-radius:0;background:transparent}.jpdb-reader-example-card.has-image .jpdb-reader-example-media{overflow:hidden}.jpdb-reader-example-body{display:grid;align-content:start;gap:9px;min-width:0}.jpdb-reader-example-source{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-example-summary{display:flex!important;align-items:center!important;justify-content:space-between;gap:8px!important;min-height:38px;padding:8px 0;width:100%}.jpdb-reader-example-summary .jpdb-reader-example-source{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;line-height:1.2;text-transform:uppercase}.jpdb-reader-example-summary .jpdb-reader-local-dict{display:block;max-width:100%;flex:1 1 auto;margin-left:0;min-width:0;text-align:left;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.jpdb-reader-example-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;width:100%;margin:3px 0 7px}.jpdb-reader-example-meta{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:7px;row-gap:2px}.jpdb-reader-example-meta .jpdb-reader-example-source{grid-column:1 / -1;flex:none;max-width:100%;color:var(--jpdb-reader-muted);font-size:10.5px;font-weight:850;line-height:1.15;text-transform:uppercase}.jpdb-reader-example-title{min-width:0;color:var(--jpdb-reader-text);font-size:11px;font-weight:780;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-example-count{color:var(--jpdb-reader-faint);font-size:10.5px;font-weight:850;line-height:1.2;white-space:nowrap}.jpdb-reader-example-sentence{justify-self:center;min-width:0;width:min(100%,38em);color:var(--jpdb-reader-text);font-size:13px;line-height:1.72;text-align:center;text-wrap:balance;overflow-wrap:anywhere;word-break:normal}.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence{position:absolute;left:50%;bottom:clamp(8px,5%,18px);z-index:1;width:min(calc(100% - 28px),34em);padding:2px 6px;transform:translate(-50%);color:#fff;font-size:13px;font-weight:750;line-height:1.45;text-shadow:0 1px 2px rgb(0 0 0 / 95%),0 0 5px rgb(0 0 0 / 90%),0 0 9px rgb(0 0 0 / 78%);pointer-events:auto}.jpdb-reader-example-sentence:has(rt.jpdb-reader-furi){padding-top:.25em;line-height:1.95}.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence:has(rt.jpdb-reader-furi){padding-top:2px;line-height:1.75}.jpdb-reader-example-sentence .jpdb-reader-word{display:inline;-webkit-box-decoration-break:clone;box-decoration-break:clone}.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-has-furi{line-height:2}.jpdb-reader-example-target{border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent);color:var(--jpdb-reader-text);box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone}mark.jpdb-reader-example-target{padding:0 .08em}.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent)!important}.jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target,.jpdb-reader-highlight-pitch .jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 22%,transparent)!important;box-shadow:none!important}.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target,.jpdb-reader-highlight-pitch .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{color:#fff!important;background:#00000070!important}.jpdb-reader-example-translation{justify-self:center;width:min(100%,38em);color:var(--jpdb-reader-muted);font-size:11px;line-height:1.45;text-align:center;text-wrap:balance}.jpdb-reader-example-translation[data-immersion-translation-blurred=true],.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]{filter:blur(4px);-webkit-user-select:none;user-select:none;cursor:pointer}.jpdb-reader-example-translation[data-immersion-translation-blurred=true]:hover,.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]:hover,.jpdb-reader-example-translation[data-immersion-translation-blurred=true]:focus-visible,.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]:focus-visible{filter:blur(3px);outline:none}.jpdb-reader-example-actions{flex:0 0 auto;display:inline-flex;align-items:center;justify-self:end;gap:3px;margin-top:0;padding:0;border:0;background:transparent}.jpdb-reader-example-toolbar .jpdb-reader-example-actions{margin-left:auto}.jpdb-reader-immersion>.jpdb-reader-example-actions{display:flex;justify-content:flex-end;margin:-2px 0 6px}.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:30px!important;min-width:30px!important;max-width:30px!important;height:30px!important;min-height:30px!important;max-height:30px!important;border-radius:5px;background:#ffffff06;font-size:13px}.jpdb-reader-example-actions svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}@container (min-width: 560px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}}@media (max-width: 520px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-media{--jpdb-reader-example-media-max-height: clamp(130px, calc(100vh - 300px) , 230px);max-height:var(--jpdb-reader-example-media-max-height)}.jpdb-reader-example-image{max-height:var(--jpdb-reader-example-media-max-height)}.jpdb-reader-example-actions{justify-self:start}.jpdb-reader-example-toolbar{flex-wrap:wrap}.jpdb-reader-example-meta{flex-basis:100%}.jpdb-reader-example-toolbar .jpdb-reader-example-actions{margin-left:0}.jpdb-reader-example-source{flex-basis:100%}}@media (pointer: coarse){.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important}}.jpdb-reader-study-tools{display:grid;gap:8px;margin:10px 0}.jpdb-reader-study-panel{display:grid;gap:10px;background:transparent;padding:0;color:var(--jpdb-reader-text);font-size:11px;line-height:1.4}.jpdb-reader-study-translation-panel{gap:12px}.jpdb-reader-study-block{display:grid;gap:4px;min-width:0}.jpdb-reader-study-sentence-block{gap:8px}.jpdb-reader-study-block+.jpdb-reader-study-block{border-top:1px solid var(--jpdb-reader-border);padding-top:10px}.jpdb-reader-study-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:800;letter-spacing:0;line-height:1.2;text-transform:uppercase}.jpdb-reader-study-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-study-label-row .jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important}.jpdb-reader-study-original{margin:0;font-size:13px;line-height:1.7}.jpdb-reader-study-original rt{color:var(--jpdb-reader-muted);font-size:.58em;line-height:1}.jpdb-reader-study-translation{color:var(--jpdb-reader-text);font-size:13px;line-height:1.45}.jpdb-reader-study-name{color:var(--jpdb-reader-text);font-weight:800}.jpdb-reader-study-list{border-top:1px solid var(--jpdb-reader-border);display:grid;gap:0;list-style:none;margin:0;padding:6px 0 0}.jpdb-reader-study-item{display:grid;grid-template-columns:minmax(54px,max-content) minmax(0,1fr);gap:10px;align-items:start;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:8px 0}.jpdb-reader-study-item.known{opacity:.72}.jpdb-reader-study-item:first-child{border-top:0;padding-top:2px}.jpdb-reader-study-name{display:grid;gap:4px;font-size:15px;line-height:1.25}.jpdb-reader-study-body{display:grid;gap:4px;min-width:0}.jpdb-reader-study-item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-study-kind{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;min-width:0}.jpdb-reader-study-short,.jpdb-reader-study-empty{color:var(--jpdb-reader-text)}.jpdb-reader-study-detail,.jpdb-reader-study-match{color:var(--jpdb-reader-muted)}.jpdb-reader-study-detail{font-size:11px;line-height:1.35}.jpdb-reader-study-match{display:flex;flex-wrap:wrap;gap:4px;align-items:baseline;font-size:11px}.jpdb-reader-study-match span{color:var(--jpdb-reader-muted)}.jpdb-reader-study-guide{display:inline-flex;align-items:center;min-height:24px;border-radius:3px;color:color-mix(in srgb,var(--jpdb-reader-accent-readable) 82%,var(--jpdb-reader-text));font-size:11px;font-weight:800;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--jpdb-reader-accent-readable) 64%,transparent);text-decoration-thickness:1px;text-underline-offset:3px;width:max-content}.jpdb-reader-study-guide:hover{color:var(--jpdb-reader-text);text-decoration-color:var(--jpdb-reader-accent-readable)}.jpdb-reader-study-guide:focus-visible{color:var(--jpdb-reader-text);outline:2px solid color-mix(in srgb,var(--jpdb-reader-accent-readable) 58%,transparent);outline-offset:2px;text-decoration-color:var(--jpdb-reader-accent-readable)}.jpdb-reader-grammar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-grammar-summary{min-width:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:700}.jpdb-reader-grammar-level{justify-self:start;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 42%,var(--jpdb-reader-border));border-radius:999px;padding:1px 5px;color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:850;line-height:1.2}.jpdb-reader-grammar-known,.jpdb-reader-grammar-toggle{border:1px solid var(--jpdb-reader-border);border-radius:5px;background:#ffffff06;color:var(--jpdb-reader-muted);cursor:pointer;font:inherit;font-size:11px;font-weight:800;line-height:1.1;min-height:24px;padding:0 7px;white-space:nowrap}.jpdb-reader-grammar-known:hover,.jpdb-reader-grammar-known:focus-visible,.jpdb-reader-grammar-toggle:hover,.jpdb-reader-grammar-toggle:focus-visible{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent-readable);outline:none}.jpdb-reader-grammar-known[aria-pressed=true],.jpdb-reader-grammar-toggle[aria-pressed=true]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 46%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent-readable)}.jpdb-reader-grammar-more{display:grid;gap:4px}.jpdb-reader-grammar-more[open]{row-gap:6px}.jpdb-reader-grammar-more>summary{width:max-content;color:var(--jpdb-reader-muted);cursor:pointer;font-size:11px;font-weight:750;list-style:none}.jpdb-reader-grammar-more>summary::-webkit-details-marker{display:none}.jpdb-reader-grammar-more>summary:after{content:"+";margin-left:5px}.jpdb-reader-grammar-more[open]>summary:after{content:"-"}.jpdb-reader-grammar-examples{display:grid;row-gap:6px;margin-top:4px}.jpdb-reader-grammar-examples>span{color:var(--jpdb-reader-text);font-size:11px;font-weight:750;line-height:1.25}.jpdb-reader-grammar-example{display:grid;row-gap:2px}@media (max-width: 420px){.jpdb-reader-study-item{grid-template-columns:minmax(0,1fr);gap:4px}.jpdb-reader-study-name{font-size:14px}}.jpdb-reader-template-preview{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px;margin-top:10px}.jpdb-reader-template-preview-title{color:var(--jpdb-reader-text);font-size:13px;font-weight:800;margin-bottom:8px}.jpdb-reader-template-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.jpdb-reader-template-preview-grid>div{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);padding:10px;min-height:118px}.jpdb-reader-template-preview strong,.jpdb-reader-template-preview small{display:block;color:var(--jpdb-reader-muted)}.jpdb-reader-template-expression{color:var(--jpdb-reader-text);font-size:24px;font-weight:850;line-height:1.1;margin-top:8px}.jpdb-reader-template-reading,.jpdb-reader-template-meaning{color:var(--jpdb-reader-muted);margin-top:4px}.jpdb-reader-template-sentence{color:var(--jpdb-reader-text);font-size:18px;line-height:1.35;margin:10px 0 8px}.jpdb-reader-template-sentence span{color:var(--jpdb-reader-accent);font-weight:850}.jpdb-reader-frequency-pill{border:1px solid var(--chip-border, var(--jpdb-reader-border));background:var(--chip-bg, var(--jpdb-reader-surface-2));color:var(--chip-text, var(--jpdb-reader-text))}.jpdb-reader-kanji-char{font-size:20px}.jpdb-reader-kanji-readings{display:flex;flex-wrap:wrap;gap:6px;color:var(--jpdb-reader-muted);font-size:11px;margin-top:6px}.jpdb-reader-modal-nav{display:flex;align-items:center;gap:7px;margin-bottom:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:750}.jpdb-reader-modal-nav span{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-kanji-display{color:var(--jpdb-reader-text);font-size:46px;font-weight:850;line-height:1}.jpdb-reader-kanji-title-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 12px;width:100%}.jpdb-reader-kanji-title-row [data-kanji-keyword-mount]{min-width:0}.jpdb-reader-kanji-title-row .jpdb-reader-word-pills{grid-column:2 / -1;justify-self:start;align-self:start;margin-top:1px}.jpdb-reader-kanji-title-row .jpdb-reader-action-pill{--chip-bg: var(--jpdb-reader-surface);--chip-border: var(--jpdb-reader-border);--chip-text: var(--jpdb-reader-muted)}.jpdb-reader-kanji-keywords{display:flex;flex-wrap:wrap;align-items:center;gap:7px;min-width:0}.jpdb-reader-kanji-keyword{display:inline-flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0;max-width:100%;min-height:24px;padding:3px 9px;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 34%,var(--jpdb-reader-border));border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 88%,var(--jpdb-reader-accent) 12%);color:var(--jpdb-reader-text);box-shadow:none;font-size:12px;font-weight:780;line-height:1.08;overflow:hidden;white-space:nowrap}.jpdb-reader-kanji-keyword small{display:inline;flex:0 0 auto;height:auto;padding:0;border-radius:0;background:transparent;color:var(--jpdb-reader-muted);font-size:9px;font-weight:800;line-height:1;letter-spacing:0;text-transform:uppercase}.jpdb-reader-kanji-keyword span{min-width:0;overflow:hidden;text-overflow:ellipsis}.jpdb-reader-kanji-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,148px),1fr));gap:8px;overflow:visible;padding-bottom:0}.jpdb-reader-kanji-facts span{display:grid;gap:3px;min-width:0;align-content:center;min-height:44px;padding:8px 10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-size:13px;font-weight:820;line-height:1.2;overflow-wrap:anywhere}.jpdb-reader-kanji-facts :is(strong,small){display:block;color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;line-height:1.1;text-transform:uppercase}.jpdb-reader-origin-detail{display:grid;gap:8px}.jpdb-reader-kanji-facts+.jpdb-reader-origin-detail{margin-top:8px}.jpdb-reader-origin-detail p{margin:0;color:var(--jpdb-reader-text);font-size:13px;line-height:1.35}.jpdb-reader-origin-detail p span{color:var(--jpdb-reader-muted)}.jpdb-reader-radical-card{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;padding:8px 0;border-top:1px solid color-mix(in srgb,var(--jpdb-reader-border) 52%,transparent);background:transparent}.jpdb-reader-radical-card:first-child{border-top:0}.jpdb-reader-radical-glyph{display:grid;place-items:center;width:42px;height:42px;border-radius:8px;background:var(--jpdb-reader-bg);font-size:28px!important;line-height:1}.jpdb-reader-radical-card img{width:48px;height:48px;object-fit:contain;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-text) 92%,white)}.jpdb-reader-radical-frames{display:flex!important;flex-flow:row wrap;gap:5px!important;margin-top:5px}.jpdb-reader-radical-card div{display:grid;gap:2px;min-width:0}.jpdb-reader-radical-card strong{color:var(--jpdb-reader-text);font-size:15px}.jpdb-reader-radical-card span{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.3}.jpdb-reader-origin-graph-wrap{--jpdb-reader-origin-graph-node-size: 60px;--jpdb-reader-origin-graph-bg: color-mix( in srgb, var(--jpdb-reader-surface, #20242b) 88%, var(--jpdb-reader-bg, #181b20) );--jpdb-reader-origin-graph-line: color-mix( in srgb, var(--jpdb-reader-text, #f2f4f8) 72%, transparent );--jpdb-reader-origin-graph-outbound-line: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 76%, var(--jpdb-reader-text, #f2f4f8) );--jpdb-reader-origin-graph-subcomponent-line: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 48%, var(--jpdb-reader-text, #f2f4f8) );--jpdb-reader-origin-graph-frame: color-mix( in srgb, var(--jpdb-reader-bg, #181b20) 84%, var(--jpdb-reader-text, #f2f4f8) );--jpdb-reader-origin-graph-node-fill: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 72%, var(--jpdb-reader-surface-2, #282e37) );--jpdb-reader-origin-graph-related-fill: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 18%, var(--jpdb-reader-surface, #20242b) );--jpdb-reader-origin-graph-accent-text: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 12%, #000 );position:relative;height:min(240px,58vw);min-height:190px;margin-top:8px;border:1px solid color-mix(in srgb,var(--jpdb-reader-border) 82%,var(--jpdb-reader-text, #f2f4f8));border-radius:8px;background:var(--jpdb-reader-origin-graph-bg);box-shadow:inset 0 1px color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 8%,transparent),inset 0 -18px 44px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 18%,transparent);isolation:isolate;overflow:hidden}.jpdb-reader-origin-graph-wrap[data-origin-has-subcomponents=true]{height:min(340px,72vw);min-height:240px}.jpdb-reader-origin-graph-lines{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.35;transition:opacity .12s ease}.jpdb-reader-origin-graph-wrap[data-graph-ready=true] .jpdb-reader-origin-graph-lines{opacity:1}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge{fill:none;stroke:var(--jpdb-reader-origin-graph-line);stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow{fill:var(--jpdb-reader-origin-graph-line)}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow-outbound .jpdb-reader-origin-edge-arrow{fill:var(--jpdb-reader-origin-graph-outbound-line)}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow-subcomponent .jpdb-reader-origin-edge-arrow{fill:var(--jpdb-reader-origin-graph-subcomponent-line)}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-group.outbound .jpdb-reader-origin-edge{stroke:var(--jpdb-reader-origin-graph-outbound-line);stroke-dasharray:2.6 3.2}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-group.subcomponent .jpdb-reader-origin-edge{stroke:var(--jpdb-reader-origin-graph-subcomponent-line);stroke-width:1.15;stroke-dasharray:1.6 4}.jpdb-reader-origin-graph-wrap:has([data-origin-outbound-toggle]:not(:checked)) [data-origin-outbound=true]{display:none}.jpdb-reader-origin-graph-wrap:has([data-origin-subcomponent-toggle]:not(:checked)) [data-origin-subcomponent=true]{display:none}.jpdb-reader-origin-graph-toggles{position:absolute;top:7px;right:7px;z-index:4;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:5px;max-width:calc(100% - 14px)}.jpdb-reader-origin-graph-toggle{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:4px 7px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 88%,transparent);color:var(--jpdb-reader-text, #f2f4f8);font-size:11px;font-weight:850;line-height:1.1;cursor:pointer;-webkit-user-select:none;user-select:none;box-shadow:0 8px 20px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 24%,transparent)}.jpdb-reader-origin-graph-toggle input{width:13px;height:13px;margin:0;accent-color:var(--jpdb-reader-accent, #5ea780)}.jpdb-reader-origin-graph-node{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:var(--jpdb-reader-origin-graph-node-size);min-width:var(--jpdb-reader-origin-graph-node-size);height:var(--jpdb-reader-origin-graph-node-size);padding:0;border:4px solid var(--jpdb-reader-origin-graph-frame);border-radius:999px;background:var(--jpdb-reader-origin-graph-node-fill);color:var(--jpdb-reader-text, #f2f4f8);font-family:"Hiragino Sans","Yu Gothic",var(--jpdb-reader-font);font-size:33px;font-weight:850;line-height:1;box-shadow:0 9px 26px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 34%,transparent);cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;z-index:2;transition:border-color .14s ease,box-shadow .14s ease,transform .14s ease}.jpdb-reader-origin-graph-node.current{border-color:var(--jpdb-reader-origin-graph-frame);background:var(--jpdb-reader-accent, #5ea780);color:var(--jpdb-reader-origin-graph-accent-text);font-size:35px;box-shadow:0 12px 32px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 40%,transparent)}.jpdb-reader-origin-graph-node.component{border-color:var(--jpdb-reader-origin-graph-frame)}.jpdb-reader-origin-graph-node.related{background:var(--jpdb-reader-origin-graph-related-fill);color:var(--jpdb-reader-text, #f2f4f8);font-size:29px}.jpdb-reader-origin-graph-node[data-label-length="2"]{font-size:27px}.jpdb-reader-origin-graph-node[data-label-length=many]{font-size:22px}.jpdb-reader-origin-graph-node:hover,.jpdb-reader-origin-graph-node:focus-visible{border-color:var(--jpdb-reader-origin-graph-frame);box-shadow:0 14px 34px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 44%,transparent),0 0 0 3px color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 24%,transparent);outline:none;transform:translate(-50%,-50%) scale(1.04)}.jpdb-reader-origin-graph-node.dragging{cursor:grabbing;z-index:3;transform:translate(-50%,-50%) scale(1.08);box-shadow:0 18px 40px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 50%,transparent),0 0 0 4px color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 28%,transparent)}.jpdb-reader-rtk-head{display:flex;align-items:baseline;gap:8px;color:var(--jpdb-reader-text)}.jpdb-reader-rtk-head span{color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-rtk details,.jpdb-reader-jpdb-kanji details{margin-top:8px;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk summary,.jpdb-reader-jpdb-kanji summary{cursor:pointer;color:var(--jpdb-reader-text);font-weight:750}.jpdb-reader-rtk p,.jpdb-reader-jpdb-kanji p{margin:6px 0 0;color:var(--jpdb-reader-muted);line-height:1.45}.jpdb-reader-rtk-elements{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}.jpdb-reader-rtk-elements>span,.jpdb-reader-rtk-elements>button{display:inline-flex;align-items:center;gap:5px;min-height:24px;padding:2px 8px;border:1px solid transparent;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font:inherit;font-size:11px;font-weight:750}.jpdb-reader-rtk-elements>span strong,.jpdb-reader-rtk-elements>button strong{color:var(--jpdb-reader-text);font-size:14px;line-height:1}.jpdb-reader-rtk-elements>span span,.jpdb-reader-rtk-elements>button span{all:unset;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk-elements>button{cursor:pointer}.jpdb-reader-rtk-elements>button:hover,.jpdb-reader-rtk-elements>button:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text);outline:none}.jpdb-reader-component-grid,.jpdb-reader-similar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:6px;margin-top:8px}.jpdb-reader-similar-grid{grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:8px}.jpdb-reader-component-card,.jpdb-reader-component-button,.jpdb-reader-similar-word{min-width:0;border:1px solid color-mix(in srgb,var(--jpdb-reader-border) 70%,transparent);border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 62%,transparent);color:var(--jpdb-reader-text);padding:7px}.jpdb-reader-component-card,.jpdb-reader-component-button{display:grid;gap:2px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-component-card strong,.jpdb-reader-component-button strong{font-size:18px}.jpdb-reader-component-card span,.jpdb-reader-component-card small,.jpdb-reader-component-button span,.jpdb-reader-component-button small,.jpdb-reader-similar-word small,.jpdb-reader-similar-word em{color:var(--jpdb-reader-muted);font-size:11px;font-style:normal}.jpdb-reader-similar-word{display:grid;gap:3px;align-content:start;min-height:86px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-similar-word-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-similar-word-head>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-similar-reading,.jpdb-reader-similar-meaning{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical}.jpdb-reader-similar-reading{-webkit-line-clamp:1;line-clamp:1}.jpdb-reader-similar-meaning{-webkit-line-clamp:2;line-clamp:2}.jpdb-reader-similar-word:hover,.jpdb-reader-similar-word:focus-visible,.jpdb-reader-component-card:hover,.jpdb-reader-component-card:focus-visible,.jpdb-reader-component-button:hover,.jpdb-reader-component-button:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-doodle-stage{position:relative;width:min(100%,240px);aspect-ratio:1 / 1;justify-self:center;margin:8px auto 0;--jpdb-reader-doodle-ink: #141820;border:1px solid var(--jpdb-reader-border);border-radius:8px;overflow:hidden;background:linear-gradient(90deg,rgba(0,0,0,.08) 1px,transparent 1px),linear-gradient(0deg,rgba(0,0,0,.08) 1px,transparent 1px),#f8f9fb;background-size:27.25px 27.25px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}.jpdb-reader-kanjivg>.jpdb-reader-doodle-stage{margin-inline:auto}.jpdb-reader-doodle-ghost,.jpdb-reader-doodle-canvas{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-doodle-ghost{display:grid;place-items:center;opacity:.3;pointer-events:none}.jpdb-reader-doodle-stage.trace-hidden .jpdb-reader-doodle-ghost,.jpdb-reader-doodle-ghost[hidden]{display:none!important}.jpdb-reader-doodle-canvas{width:100%;height:100%;cursor:crosshair;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}.jpdb-reader-doodle-tools,.jpdb-reader-doodle-tools *,.jpdb-reader-btn.jpdb-reader-doodle-control{touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}html.jpdb-reader-doodle-active,html.jpdb-reader-doodle-active body,html.jpdb-reader-doodle-active *{user-select:none!important;-webkit-user-select:none!important;-webkit-touch-callout:none!important;-webkit-tap-highlight-color:transparent!important}.jpdb-reader-kanjivg-svg{width:90%;max-height:90%}.jpdb-reader-kanjivg-strokes path{fill:none;stroke:#141820;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-kanjivg-numbers{fill:#6b7280;font-size:8px;font-family:var(--jpdb-reader-font)}.jpdb-reader-kanjivg .jpdb-reader-help{color:#3d4654}.jpdb-reader-doodle-text-ghost{color:#141820;font-family:Hiragino Sans,Hiragino Kaku Gothic ProN,Yu Gothic,Meiryo,sans-serif;font-size:180px;font-weight:500;line-height:1}.jpdb-reader-doodle-tools{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:7px}.jpdb-reader-kanjivg>.jpdb-reader-doodle-tools{margin-bottom:12px}.jpdb-reader-kanjivg>.jpdb-reader-newtab-doodle-result{margin:0 auto 12px}.jpdb-reader-kanjivg.jpdb-reader-doodle-pass .jpdb-reader-newtab-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 16%,var(--jpdb-reader-surface, #20242b))}.jpdb-reader-kanjivg.jpdb-reader-doodle-fail .jpdb-reader-newtab-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 16%,var(--jpdb-reader-surface, #20242b))}.jpdb-reader-btn.jpdb-reader-doodle-control{min-height:28px;max-height:30px;padding:4px 9px;border-radius:7px;font:800 12px/1 var(--jpdb-reader-font)}.jpdb-reader-popover:has(.jpdb-reader-popover-body){display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;padding:0}.jpdb-reader-popover-body{min-height:0;overflow:auto;overflow-anchor:none;padding:14px;overscroll-behavior:contain;scrollbar-gutter:stable}.jpdb-reader-actions{position:relative;z-index:4;container-type:inline-size;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:6px 14px 15px;display:grid;gap:6px;--jpdb-reader-actions-bg: color-mix(in srgb, var(--jpdb-reader-bg) 90%, black 10%);background:var(--jpdb-reader-actions-bg);box-shadow:0 -1px 0 var(--jpdb-reader-actions-bg)}.jpdb-reader-row{display:grid;grid-template-columns:repeat(var(--cols, 3),minmax(0,1fr));gap:10px}.jpdb-reader-mining-details{position:relative;display:grid;gap:0;min-width:0}.jpdb-reader-mining-panel{display:grid;gap:6px;min-width:0}.jpdb-reader-mining-title{position:static;justify-content:center;padding-inline:10px}.jpdb-reader-mining-title:hover,.jpdb-reader-mining-title:focus-visible{color:var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-actions-has-mining{position:relative;padding-top:31px}.jpdb-reader-actions-gutter{position:absolute;top:1px;right:10px;left:10px;height:30px;display:flex;justify-content:center;align-items:center;cursor:grab;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none}.jpdb-reader-actions-gutter[hidden]{display:none!important}.jpdb-reader-actions-gutter:active,.jpdb-reader-mining-drawer-dragging .jpdb-reader-actions-gutter{cursor:grabbing}.jpdb-reader-mining-collapse{display:inline-flex;align-items:center;justify-content:center;width:72px;height:30px;min-width:72px;min-height:30px;border:0;border-radius:999px;background:transparent;color:var(--jpdb-reader-muted);cursor:pointer;padding:0;pointer-events:auto;-webkit-tap-highlight-color:transparent}.jpdb-reader-mining-collapse:before{content:"";display:block;width:42px;height:5px;border-radius:999px;background:var(--jpdb-reader-faint)}.jpdb-reader-mining-collapse:hover,.jpdb-reader-mining-collapse:focus-visible{outline:none}.jpdb-reader-mining-collapse:hover:before,.jpdb-reader-mining-collapse:focus-visible:before{background:var(--jpdb-reader-accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--jpdb-reader-accent) 12%,transparent)}.jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse:before{width:48px;background:color-mix(in srgb,var(--jpdb-reader-accent) 74%,var(--jpdb-reader-faint))}.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-panel,.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-details{display:none}.jpdb-reader-mining-action-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:12px;padding:0}.jpdb-reader-kanji-mining-row{grid-template-columns:repeat(var(--cols, 3),minmax(0,1fr))}.jpdb-reader-add-deck-select{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.jpdb-reader-add-deck-select-open{position:static;width:100%;min-width:0;height:34px;margin-top:6px;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);opacity:1;pointer-events:auto;font:750 12px/1 var(--jpdb-reader-font)}.jpdb-reader-grades{grid-template-columns:repeat(5,minmax(24px,1fr))}.jpdb-reader-mining-action-row .jpdb-reader-btn{min-width:0;min-height:48px;padding-inline:clamp(6px,1.8cqi,10px);font-size:clamp(10.5px,3cqi,13px);letter-spacing:0;line-height:1.05;white-space:nowrap;overflow-wrap:normal}.jpdb-reader-grades .jpdb-reader-btn{min-width:0;min-height:48px;padding-inline:clamp(2px,1cqi,6px);font-size:clamp(9.3px,2.55cqi,11px);letter-spacing:0;line-height:1.05;white-space:nowrap;overflow-wrap:normal}.jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:color-mix(in srgb,var(--jpdb-reader-surface) 90%,currentColor 7%);color:var(--jpdb-reader-text);cursor:pointer;font:750 13px/1 var(--jpdb-reader-font);text-align:center;text-decoration:none;white-space:nowrap;box-shadow:inset 0 1px #ffffff08;transform:none;transition:background .14s ease,border-color .14s ease,box-shadow .14s ease,transform .12s ease;-webkit-tap-highlight-color:transparent}.jpdb-reader-btn:focus-visible:not(:disabled){border-color:color-mix(in srgb,var(--button-accent, var(--jpdb-reader-accent)) 70%,var(--jpdb-reader-border));outline:2px solid color-mix(in srgb,var(--button-accent, var(--jpdb-reader-accent)) 44%,transparent);outline-offset:2px}@media (hover: hover) and (pointer: fine){.jpdb-reader-btn:hover:not(:disabled){background:color-mix(in srgb,var(--jpdb-reader-surface) 84%,var(--button-accent, currentColor) 16%);box-shadow:inset 0 1px #ffffff0d,0 6px 14px #00000029;transform:translateY(-.12rem)}}.jpdb-reader-btn:active:not(:disabled){transform:scale(.98)}.jpdb-reader-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}.jpdb-reader-btn.primary{color:var(--jpdb-reader-accent-readable);border-color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--jpdb-reader-accent) 14%)}.jpdb-reader-btn.add{--button-accent: var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable)!important}.jpdb-reader-btn.nf{--button-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-btn.nf.danger{--button-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-btn.blacklist{--button-accent: var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-btn.anki{--button-accent: var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-btn.nothing,.jpdb-reader-btn.fail,.jpdb-reader-btn.something{--button-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-btn.hard{--button-accent: var(--jpdb-reader-state-due, #ffb454)}.jpdb-reader-btn.okay,.jpdb-reader-btn.pass{--button-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-btn.easy{--button-accent: var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-btn:is(.add,.nf,.blacklist,.anki,.nothing,.something,.hard,.okay,.easy,.fail,.pass){color:var(--jpdb-reader-text);border-color:color-mix(in srgb,var(--button-accent, var(--jpdb-reader-border)) 54%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-surface) 94%,var(--button-accent, var(--jpdb-reader-border)) 6%)}@container (max-width: 430px){.jpdb-reader-mining-action-row{gap:6px}.jpdb-reader-mining-action-row .jpdb-reader-btn,.jpdb-reader-grades .jpdb-reader-btn{min-height:44px}.jpdb-reader-mining-action-row .jpdb-reader-btn{font-size:clamp(10px,2.85cqi,11.5px)}.jpdb-reader-grades .jpdb-reader-btn{padding-inline:clamp(1px,.75cqi,4px);font-size:clamp(8.8px,2.4cqi,10.4px)}}@container (max-width: 340px){.jpdb-reader-actions{padding:6px 10px 15px;gap:6px}.jpdb-reader-actions-has-mining{padding-top:29px}.jpdb-reader-actions-gutter{top:1px;right:8px;left:8px;height:28px}.jpdb-reader-mining-collapse{width:64px;height:28px;min-width:64px;min-height:28px}.jpdb-reader-mining-collapse:before{width:38px}.jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse:before{width:44px}.jpdb-reader-row,.jpdb-reader-mining-action-row{gap:3px}.jpdb-reader-mining-action-row .jpdb-reader-btn{min-height:38px;padding-inline:3px;border-radius:8px;font-size:9.5px}.jpdb-reader-grades .jpdb-reader-btn{min-height:38px;padding-inline:1px;border-radius:8px;font-size:8.8px}}@container (max-width: 300px){.jpdb-reader-actions{padding-inline:8px}.jpdb-reader-row,.jpdb-reader-mining-action-row{gap:2px}.jpdb-reader-grades{grid-template-columns:repeat(3,minmax(24px,1fr))}.jpdb-reader-mining-action-row .jpdb-reader-btn{font-size:8.8px}.jpdb-reader-grades .jpdb-reader-btn{padding-inline:0;font-size:8.2px}}.jpdb-reader-pitch svg{display:block;height:42px;max-width:128px}.jpdb-reader-pitch text{fill:var(--jpdb-reader-text);font-size:11px}.jpdb-reader-pitch polyline{fill:none;stroke:currentColor;stroke-width:2}.jpdb-reader-pitch circle{fill:currentColor}.jpdb-reader-pitch .heiban{color:#359eff}.jpdb-reader-pitch .atamadaka{color:#fe4b74}.jpdb-reader-pitch .nakadaka{color:#fba840}.jpdb-reader-pitch .odaka{color:#57ccb7}.jpdb-reader-pitch .kifuku{color:#9050f6}.yomu-jpdb-uchisen-source[open]>:last-child{display:grid;gap:10px}.yomu-jpdb-uchisen-body{display:grid;gap:10px;justify-items:center;text-align:center}.yomu-jpdb-source-meta,.yomu-jpdb-counter{color:var(--jpdb-reader-muted);font-size:12px;font-weight:750}.yomu-jpdb-uchisen-summary-main,.yomu-jpdb-uchisen-summary-controls,.yomu-jpdb-uchisen-summary-link{display:inline-flex;align-items:center}.yomu-jpdb-uchisen-summary-main{gap:8px;min-width:0}.yomu-jpdb-uchisen-summary-controls{gap:7px;margin-left:auto}.yomu-jpdb-uchisen-summary-controls .jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important}.yomu-jpdb-uchisen-summary-link{gap:4px;color:var(--jpdb-reader-accent-readable);font-size:11px;font-weight:750;line-height:1.2;text-decoration:none;text-transform:none}.yomu-jpdb-uchisen-summary-link svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.yomu-jpdb-uchisen-summary-link:hover,.yomu-jpdb-uchisen-summary-link:focus-visible{color:var(--jpdb-reader-accent);outline:none}.yomu-jpdb-component-breakdown{display:grid;gap:8px;width:100%;text-align:left}.yomu-jpdb-component-group{display:grid;gap:5px}.yomu-jpdb-component-group-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;line-height:1.1;text-transform:uppercase}.yomu-jpdb-component-list{display:flex;flex-wrap:wrap;gap:6px}.yomu-jpdb-component-chip{display:inline-flex;align-items:baseline;gap:6px;min-width:0;padding:5px 7px;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 72%,transparent);color:var(--jpdb-reader-text);font-size:11px;font-weight:760;line-height:1.2;text-decoration:none}.yomu-jpdb-component-chip strong{font-size:16px;line-height:1}.yomu-jpdb-component-chip span{color:var(--jpdb-reader-muted)}.yomu-jpdb-component-chip:hover,.yomu-jpdb-component-chip:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text);outline:none}.yomu-jpdb-image-shell{display:grid;place-items:center;justify-self:center;width:min(100%,540px);min-height:120px;border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-bg) 72%,transparent);overflow:hidden}.yomu-jpdb-image-shell img{display:block;max-width:100%;max-height:min(260px,50vh);object-fit:contain}.yomu-jpdb-story{color:var(--jpdb-reader-text);font-size:13px;line-height:1.5}.jpdb-reader-toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483647;max-width:min(520px,calc(100vw - 24px));padding:10px 12px;border-radius:10px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);border:1px solid var(--jpdb-reader-border);box-shadow:0 10px 28px #00000040;font:13px/1.35 var(--jpdb-reader-font)}.jpdb-reader-settings{left:50%;top:50%;transform:translate(-50%,-50%);width:min(1040px,calc(100vw - 48px));max-height:min(820px,calc(100vh - 20px));max-height:min(820px,calc(100dvh - 20px));overflow:hidden;padding:0;display:flex;flex-direction:column}.jpdb-reader-settings button,.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-settings textarea,.jpdb-reader-settings fieldset,.jpdb-reader-settings legend{margin:0;letter-spacing:0}.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-settings textarea{box-shadow:none;transform:none}.jpdb-reader-settings input:hover,.jpdb-reader-settings input:focus,.jpdb-reader-settings input:active{transform:none}.jpdb-reader-settings input[type=checkbox]:before,.jpdb-reader-settings input[type=radio]:before{content:none!important}.jpdb-reader-settings-head{flex:0 0 auto;padding:18px 18px 0}.jpdb-reader-settings-drag-handle{display:none;width:min(160px,44vw);height:34px;border-radius:999px;margin:-6px auto 2px;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}.jpdb-reader-settings-drag-handle:before{content:"";display:block;width:48px;height:5px;border-radius:999px;margin:14px auto 0;background:var(--jpdb-reader-faint)}.jpdb-reader-settings-drag-handle:active{cursor:grabbing}.jpdb-reader-settings-drag-handle:focus-visible:before{background:var(--jpdb-reader-accent)}.jpdb-reader-settings-tabs{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:6px;overflow:visible;padding:0 18px 8px}.jpdb-reader-settings-tab{min-height:34px;padding:0 11px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-muted);font:800 12px/1 var(--jpdb-reader-font);cursor:pointer;white-space:nowrap;transform:translateY(-.01rem)}.jpdb-reader-settings-tab[aria-selected=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable);background:var(--jpdb-reader-accent-soft)}.jpdb-reader-settings-tab:focus-visible{border-color:var(--jpdb-reader-accent);outline:2px solid var(--jpdb-reader-accent-soft);outline-offset:2px}@media (hover: hover) and (pointer: fine){.jpdb-reader-settings-tab:hover{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent);color:var(--jpdb-reader-accent-readable);transform:translateY(-.16rem)}}@media (hover: none),(pointer: coarse){.jpdb-reader-settings-tab:hover{border-color:var(--jpdb-reader-border);background:var(--jpdb-reader-surface);color:var(--jpdb-reader-muted);box-shadow:none;transform:none}.jpdb-reader-settings-tab[aria-selected=true],.jpdb-reader-settings-tab[aria-selected=true]:hover{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable);background:var(--jpdb-reader-accent-soft)}}.jpdb-reader-settings-tab:active{transform:scale(.98)}.jpdb-reader-settings-scroll{min-height:0;overflow:auto;padding:0 18px 96px;-webkit-overflow-scrolling:touch}.jpdb-reader-settings h2{margin:0 0 12px;font-size:20px;line-height:1.45;color:var(--jpdb-reader-text)!important}.jpdb-reader-settings fieldset{border:1px solid var(--jpdb-reader-border);border-radius:8px;margin:12px 0;padding:12px}.jpdb-reader-settings legend{color:var(--jpdb-reader-muted);padding:0 6px}.jpdb-reader-settings label{display:grid;gap:5px;margin:10px 0;min-width:0;color:var(--jpdb-reader-muted)!important;font-size:11px;line-height:1.35}.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-field-display{width:100%;box-sizing:border-box;min-height:38px;border-radius:7px;border:1px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:700 12px/1.2 var(--jpdb-reader-font);height:38px;min-width:0;padding:8px}.jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:38px;padding:0 16px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:800 12px/1 var(--jpdb-reader-font);cursor:pointer;text-align:center;text-decoration:none!important}.jpdb-reader-btn:where(:link,:visited){color:var(--jpdb-reader-text)!important}.jpdb-reader-btn:hover,.jpdb-reader-btn:focus-visible{border-color:var(--button-accent, var(--jpdb-reader-accent));background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--button-accent, var(--jpdb-reader-accent)) 18%);outline:none}.jpdb-reader-btn:active{transform:scale(.98)}.jpdb-reader-btn.add{color:var(--jpdb-reader-accent-readable)!important;border-color:var(--jpdb-reader-accent)!important;background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--jpdb-reader-accent) 18%)!important}.jpdb-reader-btn.add:hover,.jpdb-reader-btn.add:focus-visible{background:color-mix(in srgb,var(--jpdb-reader-surface) 74%,var(--jpdb-reader-accent) 26%)!important;box-shadow:0 4px 12px color-mix(in srgb,var(--jpdb-reader-accent) 20%,transparent)}.jpdb-reader-field-display{min-width:0;display:flex;align-items:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;pointer-events:none}.jpdb-reader-settings input[type=color]{padding:3px;cursor:pointer}.jpdb-reader-settings input[type=checkbox],.jpdb-reader-settings input[type=radio]{-moz-appearance:none;appearance:none;-webkit-appearance:none;width:24px;height:24px;min-width:24px;min-height:24px;display:grid;place-content:center;margin:0;padding:0;border:1.5px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);box-shadow:inset 0 0 0 1px #0000000f}.jpdb-reader-settings input[type=checkbox]{border-radius:7px}.jpdb-reader-settings input[type=radio]{border-radius:999px}.jpdb-reader-settings input[type=checkbox]:checked,.jpdb-reader-settings input[type=radio]:checked{border-color:var(--jpdb-reader-accent);background:var(--jpdb-reader-accent);box-shadow:0 0 0 3px var(--jpdb-reader-accent-soft)}.jpdb-reader-settings input[type=checkbox]:checked:after{content:"";width:12px;height:7px;border-left:2.5px solid #11161d;border-bottom:2.5px solid #11161d;transform:rotate(-45deg) translate(1px,-1px)}.jpdb-reader-settings input[type=radio]:checked:after{content:"";width:10px;height:10px;border-radius:999px;background:#11161d}.jpdb-reader-settings input[type=checkbox]:focus-visible,.jpdb-reader-settings input[type=radio]:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:3px}.jpdb-reader-settings label:has(input:disabled),.jpdb-reader-settings label:has(select:disabled),.jpdb-reader-settings label:has(textarea:disabled){opacity:.55}.jpdb-reader-settings input:disabled,.jpdb-reader-settings select:disabled,.jpdb-reader-settings textarea:disabled{cursor:not-allowed}.jpdb-reader-settings input[type=file][data-file],.jpdb-reader-settings [hidden]{display:none!important}.jpdb-reader-settings .inline{display:flex;align-items:center;gap:12px;min-height:32px}.jpdb-reader-settings .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}.jpdb-reader-settings .jpdb-reader-radio-group{align-self:end;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin:10px 0;padding:0;border:0;min-width:0}.jpdb-reader-settings .jpdb-reader-radio-group legend{grid-column:1 / -1;padding:0;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}.jpdb-reader-settings .jpdb-reader-radio-group label{grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;margin:0;min-height:38px}.jpdb-reader-settings-subsection{margin:16px 0 0;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--jpdb-reader-border) 72%,transparent)}.jpdb-reader-theme-field{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-height:38px;gap:10px;margin:10px 0;color:var(--jpdb-reader-muted)!important;font-size:11px}.jpdb-reader-theme-title{min-width:0;font:750 12px/1.2 var(--jpdb-reader-font)}.jpdb-reader-settings .jpdb-reader-theme-appearance{display:flex;align-items:center;justify-content:flex-end;min-width:48px;height:22px;margin:0}.jpdb-reader-settings .jpdb-reader-theme-switch{position:relative;display:block;width:40px;min-width:40px;height:22px!important;min-height:22px!important;padding:0;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,transparent);cursor:pointer;transform:translateY(-1px)}.jpdb-reader-settings .jpdb-reader-theme-switch .check{position:absolute;top:1px;left:1px;display:grid;place-items:center;width:18px;height:18px;border-radius:999px;background:var(--jpdb-reader-bg);box-shadow:0 1px 3px #00000047}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .check{transform:translate(18px)}.jpdb-reader-settings .jpdb-reader-theme-switch .icon{position:relative;display:block;width:14px;height:14px;color:var(--jpdb-reader-muted)}.jpdb-reader-settings .jpdb-reader-theme-switch .sun,.jpdb-reader-settings .jpdb-reader-theme-switch .moon{position:absolute;top:0;right:0;bottom:0;left:0;display:grid;place-items:center;font-size:11px;line-height:1}.jpdb-reader-settings .jpdb-reader-theme-switch .sun:before{content:"☀"}.jpdb-reader-settings .jpdb-reader-theme-switch .moon:before{content:"☾"}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=false] .sun,.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .moon{opacity:0}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .sun,.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=false] .moon{opacity:1}.jpdb-reader-settings .jpdb-reader-theme-switch:hover,.jpdb-reader-settings .jpdb-reader-theme-switch:focus-visible{border-color:var(--jpdb-reader-accent);outline:2px solid var(--jpdb-reader-accent-soft);outline-offset:3px}.jpdb-reader-shortcut-group{display:contents}.jpdb-reader-settings .footer{flex:0 0 auto;display:flex;justify-content:flex-end;gap:10px;margin:0;background:var(--jpdb-reader-bg);border-top:1px solid var(--jpdb-reader-border);padding:12px 18px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -10px 24px #0000002e}.jpdb-reader-settings .footer .jpdb-reader-btn{min-width:92px;padding-inline:18px;font-size:13px}.jpdb-reader-settings .footer .jpdb-reader-btn[data-action=cancel]{color:var(--jpdb-reader-text);border-color:var(--jpdb-reader-border);background:color-mix(in srgb,var(--jpdb-reader-surface) 92%,var(--jpdb-reader-text) 5%)}.jpdb-reader-settings a:not(.jpdb-reader-btn){color:var(--jpdb-reader-accent-readable)!important;text-decoration:underline;text-underline-offset:3px}.jpdb-reader-settings-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.jpdb-reader-settings-actions-single{display:flex;justify-content:center}.jpdb-reader-settings-actions .jpdb-reader-btn{display:inline-flex;min-width:0}.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 45%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--jpdb-reader-accent) 14%);color:var(--jpdb-reader-text)!important}.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]:hover,.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]:focus-visible{border-color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-surface) 78%,var(--jpdb-reader-accent) 22%);box-shadow:0 6px 16px color-mix(in srgb,var(--jpdb-reader-accent) 18%,transparent)}.jpdb-reader-help-card{display:grid;gap:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:14px}.jpdb-reader-help-title{color:var(--jpdb-reader-text);font-size:15px;font-weight:850}.jpdb-reader-help-card p{margin:8px 0 0;color:var(--jpdb-reader-muted);font-size:13px;line-height:1.45}.jpdb-reader-help-actions{display:flex;flex-wrap:nowrap;gap:8px;min-width:0}.jpdb-reader-help-actions .jpdb-reader-btn{flex:1 1 auto;min-width:0;min-height:42px;padding-inline:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-help-actions .jpdb-reader-help-donate{border-color:var(--jpdb-reader-accent);background:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-text, #11161d)!important;box-shadow:0 6px 16px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent)}.jpdb-reader-help-actions .jpdb-reader-help-donate:hover,.jpdb-reader-help-actions .jpdb-reader-help-donate:focus-visible{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 86%,white);background:color-mix(in srgb,var(--jpdb-reader-accent) 90%,white);color:var(--jpdb-reader-accent-text, #11161d)!important;box-shadow:0 8px 20px color-mix(in srgb,var(--jpdb-reader-accent) 28%,transparent)}.jpdb-reader-help-actions .jpdb-reader-help-reset{border-color:color-mix(in srgb,#ef4444 70%,var(--jpdb-reader-border));color:color-mix(in srgb,#ef4444 78%,var(--jpdb-reader-text))!important}.jpdb-reader-help-actions .jpdb-reader-help-reset:hover,.jpdb-reader-help-actions .jpdb-reader-help-reset:focus-visible{background:color-mix(in srgb,#7f1d1d 42%,var(--jpdb-reader-surface));border-color:#ef4444;color:color-mix(in srgb,#ef4444 62%,var(--jpdb-reader-text))!important}.jpdb-reader-help-support{display:grid;gap:10px;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--jpdb-reader-border) 72%,transparent)}.jpdb-reader-help-discord{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:42px;min-width:0;padding:8px 10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;color:var(--jpdb-reader-text);background:color-mix(in srgb,var(--jpdb-reader-surface) 88%,var(--jpdb-reader-accent) 12%);font:800 12px/1.2 var(--jpdb-reader-font);text-align:center;overflow-wrap:anywhere}.jpdb-reader-dictionary-status{margin:10px 0;color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-dictionary-priorities,.jpdb-reader-kanji-priorities,.jpdb-reader-audio-sources,.jpdb-reader-lookup-links{display:grid;gap:9px;margin:12px 0}.jpdb-reader-recommended-dictionaries{display:grid;gap:10px;margin:12px 0}.jpdb-reader-recommended-title{color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-group{display:grid;gap:7px}.jpdb-reader-recommended-group-title{color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.jpdb-reader-recommended-item{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:10px;align-items:center;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px}.jpdb-reader-recommended-item .jpdb-reader-btn{width:100%;min-height:42px;padding-inline:10px}.jpdb-reader-recommended-name{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-name a{font-size:11px;font-weight:700}.jpdb-reader-order-head,.jpdb-reader-order-row{display:grid;gap:10px;align-items:center;box-sizing:border-box;min-width:0}.jpdb-reader-dictionary-head,.jpdb-reader-dictionary-row,.jpdb-reader-audio-source-head,.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-head,.jpdb-reader-lookup-link-row{grid-template-columns:50px minmax(0,1fr) minmax(0,.9fr) max-content 42px}.jpdb-reader-dictionary-head.no-remove,.jpdb-reader-dictionary-row.no-remove{grid-template-columns:50px minmax(0,1fr) minmax(0,.9fr) max-content}.jpdb-reader-dictionary-head.compact,.jpdb-reader-dictionary-row.compact{grid-template-columns:50px minmax(0,1fr) max-content 42px}.jpdb-reader-dictionary-head.compact.no-remove,.jpdb-reader-dictionary-row.compact.no-remove{grid-template-columns:50px minmax(0,1fr) max-content}.jpdb-reader-order-head{padding:0 10px;color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-order-row{position:relative;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px;min-height:56px;width:100%}.jpdb-reader-dictionary-row-help{grid-column:2 / -1;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}.jpdb-reader-settings .jpdb-reader-dictionary-toggle{margin:0;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-audio-source-choice select,.jpdb-reader-audio-source-fields input,.jpdb-reader-audio-source-fields select{min-width:0;width:100%}.jpdb-reader-lookup-link-row input{min-width:0}.jpdb-reader-lookup-link-note{color:var(--jpdb-reader-muted);min-height:38px;display:flex;align-items:center}.jpdb-reader-lookup-link-fixed{width:34px;height:34px}.jpdb-reader-lookup-link-actions{display:flex;justify-content:flex-start;margin-top:3px}.jpdb-reader-lookup-link-actions .jpdb-reader-btn{width:auto!important;min-width:86px!important;padding-inline:16px!important}.jpdb-reader-settings .jpdb-reader-audio-index{margin:0;min-height:38px;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-audio-source-choice{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center;min-width:0}.jpdb-reader-audio-source-fields{display:grid;gap:6px}.jpdb-reader-row-tools{display:flex;gap:5px;justify-content:flex-end;flex-wrap:nowrap;min-width:max-content}.jpdb-reader-drag-handle{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}.jpdb-reader-drag-handle:active,.jpdb-reader-order-row-dragging .jpdb-reader-drag-handle{cursor:grabbing}.jpdb-reader-order-row-drag-pending,.jpdb-reader-order-row-dragging{user-select:none;-webkit-user-select:none}.jpdb-reader-order-row-dragging{border-color:var(--jpdb-reader-accent);box-shadow:0 14px 30px color-mix(in srgb,var(--jpdb-reader-accent) 18%,transparent);z-index:2}.jpdb-reader-icon-mini{display:inline-grid!important;place-items:center!important;width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:transparent;color:var(--jpdb-reader-text);cursor:pointer;font:800 13px/1 var(--jpdb-reader-font);transform:translateY(-.01rem)}.jpdb-reader-icon-mini svg{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-icon-mini:hover,.jpdb-reader-icon-mini:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent);color:var(--jpdb-reader-accent);transform:translateY(-.25rem);outline:none}.jpdb-reader-icon-mini:active{transform:scale(.98)}@media (min-width: 700px) and (max-width: 1180px) and (hover: hover) and (pointer: fine){.jpdb-reader-settings{width:min(860px,calc(100vw - 44px));max-height:min(820px,calc(100vh - 44px));max-height:min(820px,calc(100dvh - 44px))}.jpdb-reader-settings-head{padding:20px 22px 0}.jpdb-reader-settings-tabs{padding-inline:22px}.jpdb-reader-settings-scroll{padding:0 22px 104px}.jpdb-reader-settings .grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}.jpdb-reader-dictionary-head,.jpdb-reader-dictionary-row,.jpdb-reader-audio-source-head,.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-head,.jpdb-reader-lookup-link-row{grid-template-columns:46px minmax(0,.95fr) minmax(0,1.1fr) max-content 42px}.jpdb-reader-dictionary-head.no-remove,.jpdb-reader-dictionary-row.no-remove{grid-template-columns:46px minmax(0,.95fr) minmax(0,1.1fr) max-content}.jpdb-reader-dictionary-head.compact,.jpdb-reader-dictionary-row.compact{grid-template-columns:46px minmax(0,1fr) max-content 42px}.jpdb-reader-dictionary-head.compact.no-remove,.jpdb-reader-dictionary-row.compact.no-remove{grid-template-columns:46px minmax(0,1fr) max-content}.jpdb-reader-recommended-item{grid-template-columns:minmax(0,1fr) minmax(112px,140px)}}@media (pointer: coarse) and (min-width: 700px){.jpdb-reader-settings{inset:auto 0 0 0;left:0;right:0;top:auto;bottom:0;transform:none;width:100%;height:var(--jpdb-reader-settings-drawer-height, 88svh);min-height:var(--jpdb-reader-settings-drawer-min-height, 280px);max-height:var(--jpdb-reader-settings-drawer-viewport-height, 100svh);border-radius:18px 18px 0 0}.jpdb-reader-settings.jpdb-reader-settings-drawer-resizing{-webkit-user-select:none;user-select:none}.jpdb-reader-settings.jpdb-reader-settings-drawer-expanded{border-radius:0}.jpdb-reader-settings-drag-handle{display:block}.jpdb-reader-settings-head{padding:8px 24px 0}.jpdb-reader-settings-tabs{padding:0 24px 10px}.jpdb-reader-settings-scroll{padding:0 24px 108px}.jpdb-reader-settings .grid{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}}@media (max-width: 699px){.jpdb-reader-settings{inset:auto 0 0 0;left:0;right:0;top:auto;bottom:0;transform:none;width:100%;height:var(--jpdb-reader-settings-drawer-height, 88svh);min-height:var(--jpdb-reader-settings-drawer-min-height, 280px);max-height:var(--jpdb-reader-settings-drawer-viewport-height, 100svh);border-radius:16px 16px 0 0}.jpdb-reader-settings.jpdb-reader-settings-drawer-resizing{-webkit-user-select:none;user-select:none}.jpdb-reader-settings.jpdb-reader-settings-drawer-expanded{border-radius:0}.jpdb-reader-settings-drag-handle{display:block}.jpdb-reader-settings-head{padding:8px 14px 0}.jpdb-reader-settings-tabs{padding:0 14px 8px}.jpdb-reader-settings-scroll{padding:0 14px 100px}.jpdb-reader-settings fieldset{margin:10px 0;padding:11px}.jpdb-reader-settings .grid,.jpdb-reader-settings-actions,.jpdb-reader-template-preview-grid,.jpdb-reader-recommended-item{grid-template-columns:1fr}.jpdb-reader-help-actions{gap:6px}.jpdb-reader-help-actions .jpdb-reader-btn{min-height:40px;padding-inline:6px;font-size:11px}.jpdb-reader-order-head{display:none}.jpdb-reader-dictionary-row,.jpdb-reader-dictionary-row.compact,.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-row{grid-template-columns:42px minmax(0,1fr) 42px;align-items:center;gap:8px}.jpdb-reader-dictionary-row>.jpdb-reader-order-toggle,.jpdb-reader-audio-source-row>.jpdb-reader-order-toggle,.jpdb-reader-lookup-link-row>.jpdb-reader-order-toggle{grid-column:1;grid-row:1}.jpdb-reader-dictionary-row>.jpdb-reader-field-display,.jpdb-reader-audio-source-choice,.jpdb-reader-lookup-link-row>input[name$=".label"]{grid-column:2 / -1;grid-row:1}.jpdb-reader-dictionary-row>input[name$=".alias"],.jpdb-reader-dictionary-row>.jpdb-reader-field-display[aria-label="Display name"],.jpdb-reader-audio-source-fields,.jpdb-reader-lookup-link-row>input[name$=".urlTemplate"],.jpdb-reader-lookup-link-note{grid-column:2 / -1;grid-row:2}.jpdb-reader-row-order-tools{grid-column:2;grid-row:3;justify-content:flex-start;min-width:0}.jpdb-reader-row-remove-tools{grid-column:3;grid-row:3;align-self:start;justify-content:flex-end}.jpdb-reader-audio-source-row .jpdb-reader-row-tools{grid-column:auto;justify-content:flex-start;flex-wrap:nowrap;min-width:0}.jpdb-reader-audio-source-row .jpdb-reader-row-order-tools,.jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools{grid-column:2;grid-row:3}.jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools,.jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools{grid-column:3;grid-row:3}.jpdb-reader-audio-source-row .jpdb-reader-icon-mini{width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important}.jpdb-reader-lookup-link-row .jpdb-reader-row-tools{justify-content:flex-start}.jpdb-reader-dictionary-row-help{grid-column:1 / -1}.jpdb-reader-settings .footer{justify-content:stretch;gap:12px;padding:12px 14px calc(14px + env(safe-area-inset-bottom))}.jpdb-reader-settings .footer .jpdb-reader-btn{flex:1 1 0;min-width:0}}.jpdb-reader-icon-mini[data-immersion-action=previous],.jpdb-reader-icon-mini[data-immersion-action=next],.jpdb-reader-icon-mini[data-yomu-immersion-action=previous],.jpdb-reader-icon-mini[data-yomu-immersion-action=next],.jpdb-reader-icon-mini[data-uchisen-action=previous],.jpdb-reader-icon-mini[data-uchisen-action=next],.jpdb-reader-icon-mini[data-action=kanji-prev],.jpdb-reader-icon-mini[data-action=kanji-next]{font-size:19px;line-height:0;padding-bottom:2px!important}.jpdb-subtitle-player{position:fixed;left:0;bottom:0;width:100%;height:100%;z-index:2147483644;pointer-events:none;--subtitle-font-size-target: 28px;--subtitle-font-size: var(--subtitle-font-size-target);--subtitle-bottom: 12%;--subtitle-color: #fff;--subtitle-outline: #000;--subtitle-background-rgba: transparent;--subtitle-family: var(--jpdb-reader-font);--subtitle-weight: 760}.jpdb-subtitle-text{position:absolute;left:14px;right:14px;bottom:var(--subtitle-bottom);color:var(--subtitle-color);text-align:center;font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);white-space:pre-wrap;overflow-wrap:anywhere;word-break:keep-all;max-height:min(45%,calc(100% - 24px));overflow:hidden;pointer-events:auto;-webkit-tap-highlight-color:transparent}.jpdb-subtitle-status{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.jpdb-subtitle-primary{display:inline;padding:0 .06em;border-radius:3px;background:var(--subtitle-background-rgba);box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone;line-height:1.58;overflow-wrap:normal;word-break:keep-all;-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-secondary{display:block;width:fit-content;max-width:100%;margin-top:8px;margin-left:auto;margin-right:auto;padding:0;border:0!important;background:transparent!important;color:#ffffffd1;font-size:.62em;font-family:inherit;font-weight:650;line-height:1.25;min-height:24px;text-shadow:0 2px 2px #000,0 0 7px rgba(0,0,0,.86);cursor:pointer;white-space:pre-wrap;overflow-wrap:anywhere}.jpdb-subtitle-secondary-blurred{filter:blur(5px);opacity:.8}.jpdb-subtitle-secondary-blurred:hover,.jpdb-subtitle-secondary-blurred:focus-visible{filter:none;opacity:1}.jpdb-subtitle-karaoke-word{display:inline;border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone}.jpdb-subtitle-word-pending{opacity:.42}.jpdb-subtitle-word-spoken,.jpdb-subtitle-word-current{opacity:1;color:var(--subtitle-color)}.jpdb-subtitle-word-spoken{color:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 58%,var(--subtitle-color));text-decoration-line:underline;text-decoration-color:var(--jpdb-reader-accent, #5ea780);text-decoration-thickness:.09em;text-underline-offset:.16em}.jpdb-subtitle-word-current{text-decoration-line:underline;text-decoration-color:var(--subtitle-color);text-decoration-thickness:.1em;text-underline-offset:.16em}.jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-subtitle-fallback: var(--subtitle-color);background:transparent!important;color:var(--subtitle-color)!important;--jpdb-reader-word-underline: transparent;text-decoration-line:none!important;text-decoration-style:solid!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important;text-decoration-thickness:.08em!important;text-underline-offset:.15em!important;white-space:nowrap;text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-primary .jpdb-reader-word:hover,.jpdb-subtitle-primary .jpdb-reader-word:focus-visible{background:#ffffff24!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-has-furi{line-height:1.48}.jpdb-reader-subtitle-highlight-status{--jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-status-soft, transparent)}.jpdb-reader-subtitle-highlight-jpdb{--jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-jpdb-soft, transparent)}.jpdb-reader-subtitle-highlight-anki{--jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-anki-soft, transparent)}.jpdb-reader-subtitle-highlight-pitch{--jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-pitch-soft, transparent)}.jpdb-reader-subtitle-underline-status{--jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-status-decoration, transparent)}.jpdb-reader-subtitle-underline-jpdb{--jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent)}.jpdb-reader-subtitle-underline-anki{--jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-anki-decoration, transparent)}.jpdb-reader-subtitle-underline-pitch{--jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-pitch-decoration, transparent)}.jpdb-reader-subtitle-text-status{--jpdb-reader-subtitle-text: var(--jpdb-reader-source-status-color, var(--jpdb-reader-subtitle-fallback, currentColor))}.jpdb-reader-subtitle-text-jpdb{--jpdb-reader-subtitle-text: var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-subtitle-fallback, currentColor))}.jpdb-reader-subtitle-text-anki{--jpdb-reader-subtitle-text: var(--jpdb-reader-source-anki-color, var(--jpdb-reader-subtitle-fallback, currentColor))}.jpdb-reader-subtitle-text-pitch{--jpdb-reader-subtitle-text: var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-subtitle-fallback, currentColor))}:is(.jpdb-reader-subtitle-highlight-status,.jpdb-reader-subtitle-highlight-jpdb,.jpdb-reader-subtitle-highlight-anki,.jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-subtitle-highlight, transparent)!important}:is(.jpdb-reader-subtitle-underline-status,.jpdb-reader-subtitle-underline-jpdb,.jpdb-reader-subtitle-underline-anki,.jpdb-reader-subtitle-underline-pitch) :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-subtitle-decoration, transparent);text-decoration-line:underline!important}:is(.jpdb-reader-subtitle-text-status,.jpdb-reader-subtitle-text-jpdb,.jpdb-reader-subtitle-text-anki,.jpdb-reader-subtitle-text-pitch) :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor))!important}.jpdb-reader-subtitle-highlight-status :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-subtitle-highlight-jpdb :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-subtitle-highlight-anki :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-anki :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-text-status :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, var(--jpdb-reader-subtitle-fallback, currentColor))!important}.jpdb-reader-subtitle-text-jpdb :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-subtitle-fallback, currentColor))!important}.jpdb-reader-subtitle-text-anki :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, var(--jpdb-reader-subtitle-fallback, currentColor))!important}.jpdb-reader-subtitle-text-pitch :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-subtitle-fallback, currentColor))!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending{opacity:.42}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken{opacity:1;--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, var(--jpdb-reader-accent, #5ea780));text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, var(--jpdb-reader-accent, #5ea780))!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-current{opacity:1;text-decoration-line:underline!important;text-decoration-color:var(--subtitle-color)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending{filter:saturate(.72)}.jpdb-subtitle-primary .jpdb-reader-furi{color:currentColor;opacity:.82;text-shadow:0 1px 1px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 7px rgba(0,0,0,.86)}.jpdb-subtitle-primary-loading{opacity:.78;color:currentColor}.jpdb-reader-subtitle-preview{min-height:94px;padding:18px 10px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:linear-gradient(135deg,rgba(255,255,255,.1) 25%,transparent 25% 50%,rgba(255,255,255,.1) 50% 75%,transparent 75%) 0 0 / 28px 28px,#1c222b;display:grid;place-items:center;text-align:center;overflow:hidden;color:var(--subtitle-color);font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.86)}.jpdb-reader-subtitle-preview .jpdb-subtitle-primary{display:inline}.jpdb-reader-subtitle-preview .jpdb-reader-word{--jpdb-reader-source-status-color: var(--jpdb-reader-status-color, var(--subtitle-color));--jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);--jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-color, var(--subtitle-color));--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-jpdb-color, transparent);--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-color, var(--subtitle-color));--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, transparent)}.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-new,.jpdb-suspended,.jpdb-not-in-deck){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-status-color: var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-learning{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-status-color: var(--jpdb-reader-state-learning, #ffd166)}.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-known,.jpdb-never-forget,.jpdb-redundant){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-due{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-status-color: var(--jpdb-reader-state-due, #5fb3b3)}.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-heiban{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff)}.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-atamadaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74)}.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-nakadaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840)}.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-odaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7)}.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-status .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-pitch .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-status .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important}.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important}.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important}.jpdb-subtitle-rail{position:absolute;right:max(10px,env(safe-area-inset-right));top:10px;display:flex;align-items:center;gap:4px;max-width:calc(100% - 20px);padding:4px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);box-shadow:0 12px 30px #00000038;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);pointer-events:auto;opacity:.78}.jpdb-subtitle-controls-hidden .jpdb-subtitle-menu,.jpdb-subtitle-controls-hidden .jpdb-subtitle-list{display:none!important}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail{opacity:0;pointer-events:none}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:hover,.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:focus-within{opacity:1}.jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:.72}.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:0;pointer-events:none}.jpdb-subtitle-controls-always .jpdb-subtitle-rail,.jpdb-subtitle-rail:hover,.jpdb-subtitle-menu-open .jpdb-subtitle-rail,.jpdb-subtitle-panel-open .jpdb-subtitle-rail{opacity:1}.jpdb-subtitle-rail button,.jpdb-subtitle-menu button,.jpdb-subtitle-list button{border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);color:var(--jpdb-reader-text, #fff);box-shadow:none;font:700 12px/1 var(--jpdb-reader-font);pointer-events:auto}.jpdb-subtitle-rail button{display:inline-grid;place-items:center;min-width:34px;width:34px;max-width:34px;min-height:34px;height:34px;max-height:34px;padding:0;flex:0 0 auto;white-space:nowrap}.jpdb-subtitle-rail button[data-action=previous],.jpdb-subtitle-rail button[data-action=next]{font-size:19px;line-height:0;padding-bottom:2px}.jpdb-subtitle-panel-toggle{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 50%,var(--jpdb-reader-border, rgba(255,255,255,.22)))!important;background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))!important}.jpdb-subtitle-icon{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.jpdb-subtitle-panel-toggle[aria-pressed=false]{color:var(--jpdb-reader-muted, rgba(255,255,255,.72));border-color:var(--jpdb-reader-border, rgba(255,255,255,.18))!important;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent)!important}.jpdb-subtitle-rail button[hidden],.jpdb-subtitle-menu button[hidden]{display:none!important}.jpdb-subtitle-rail button:disabled{opacity:.45}.jpdb-subtitle-compact-video .jpdb-subtitle-rail{top:8px;right:8px;gap:3px;padding:3px}.jpdb-subtitle-compact-video .jpdb-subtitle-rail button{min-width:32px;width:32px;max-width:32px;min-height:32px;height:32px;max-height:32px}.jpdb-subtitle-menu{position:absolute;right:max(10px,env(safe-area-inset-right));top:50px;display:grid;gap:6px;width:min(230px,calc(100vw - 24px));padding:8px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.18));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 92%,transparent);box-shadow:0 14px 34px #00000047;pointer-events:auto}.jpdb-subtitle-menu[hidden],.jpdb-subtitle-list[hidden]{display:none}.jpdb-subtitle-menu-head{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:30px;padding:0 0 2px;color:var(--jpdb-reader-muted, rgba(255,255,255,.78));font:800 12px/1 var(--jpdb-reader-font)}.jpdb-subtitle-menu button{min-height:36px;text-align:left;padding:0 10px;box-shadow:none}.jpdb-subtitle-menu button[aria-pressed=true],.jpdb-subtitle-track-row button[aria-pressed=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}.jpdb-subtitle-list{position:fixed;right:max(12px,env(safe-area-inset-right));top:72px;width:min(460px,calc(100vw - 24px));height:min(78vh,860px);max-height:calc(100vh - 24px);overflow:hidden;display:grid;grid-template-rows:auto minmax(0,1fr);border:1px solid color-mix(in srgb,var(--jpdb-reader-border, rgba(255,255,255,.18)) 88%,rgba(255,255,255,.1));border-radius:22px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 94%,rgba(255,255,255,.06));color:var(--jpdb-reader-text, #fff);box-shadow:0 24px 56px #00000052;pointer-events:auto;backdrop-filter:blur(18px) saturate(1.08);-webkit-backdrop-filter:blur(18px) saturate(1.08);transform:translateZ(0)}html.jpdb-subtitle-yomu-captions-active .ytp-caption-window-container,html.jpdb-subtitle-yomu-captions-active .caption-window,html.jpdb-subtitle-yomu-captions-active .ytp-caption-segment,html.jpdb-subtitle-fullscreen .jpdb-subtitle-list,html.jpdb-subtitle-fullscreen .jpdb-reader-fab{display:none!important}.jpdb-subtitle-resize{position:absolute;z-index:2;min-width:24px;min-height:24px;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;touch-action:none}.jpdb-subtitle-resize:after{content:"";position:absolute;border-radius:999px;background:#ffffff38;opacity:0}.jpdb-subtitle-resize:hover:after,.jpdb-subtitle-resize:focus-visible:after{background:var(--jpdb-reader-accent);opacity:.88}.jpdb-subtitle-transcript-right .jpdb-subtitle-resize{left:-12px;top:0;bottom:0;width:24px;cursor:ew-resize}.jpdb-subtitle-transcript-left .jpdb-subtitle-resize{right:-12px;top:0;bottom:0;width:24px;cursor:ew-resize}.jpdb-subtitle-transcript-right .jpdb-subtitle-resize:after,.jpdb-subtitle-transcript-left .jpdb-subtitle-resize:after{top:16px;bottom:16px;left:11px;width:2px}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize{left:0;right:0;top:-12px;height:24px;cursor:ns-resize}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize:after{left:16px;right:16px;top:11px;height:2px}.jpdb-subtitle-drawer-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:12px;padding:14px 14px 12px;border-bottom:1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 76%,transparent)}.jpdb-subtitle-drawer-brand{display:grid;gap:4px;min-width:0}.jpdb-subtitle-drawer-title{min-width:0;color:var(--jpdb-reader-text, #fff);font:800 15px/1.2 var(--jpdb-reader-font);letter-spacing:.01em}.jpdb-subtitle-drawer-meta{min-width:0;color:var(--jpdb-reader-muted, rgba(255,255,255,.78));font:700 11px/1.35 var(--jpdb-reader-font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.jpdb-subtitle-drawer-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}.jpdb-subtitle-drawer-close{display:inline-grid;place-items:center;min-width:34px;width:34px;min-height:34px;height:34px;padding:0!important;border-radius:12px!important}.jpdb-subtitle-drawer-close svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.jpdb-subtitle-panel-mode{justify-self:start;width:max-content;display:inline-flex;flex:0 0 auto;align-items:center;gap:2px;padding:2px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:12px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent)}.jpdb-subtitle-panel-mode button{min-height:30px;padding:0 11px;border:0;border-radius:10px;background:transparent;text-align:center;box-shadow:none;font-size:11px;font-weight:700}.jpdb-subtitle-panel-mode button[aria-pressed=true]{color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}.jpdb-subtitle-panel-mode button:disabled{opacity:.42}.jpdb-subtitle-panel-nav{justify-self:start;width:max-content;display:inline-flex;flex:0 0 auto;align-items:center;gap:2px;padding:2px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:12px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent)}.jpdb-subtitle-panel-nav button{display:inline-grid;place-items:center;min-width:32px;width:32px;min-height:32px;height:32px;padding:0 0 2px;border:0;border-radius:10px;background:transparent;text-align:center;box-shadow:none;font-size:19px;line-height:0}.jpdb-subtitle-panel-nav button:disabled{opacity:.38}.jpdb-subtitle-list-scroll{min-height:0;overflow-y:auto;overflow-x:hidden;display:grid;align-content:start;grid-auto-rows:max-content;gap:4px;padding:8px 10px 12px;overscroll-behavior:contain}.jpdb-subtitle-list-row{display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:start;gap:10px;min-height:76px;padding:16px 18px;border:0;border-bottom:1px solid var(--jpdb-reader-border, rgba(255,255,255,.15));border-radius:0;background:transparent;cursor:pointer}.jpdb-subtitle-row-body{min-width:0;display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:6px;width:100%;min-height:42px;padding:0;text-align:left;border:0!important;background:transparent!important;box-shadow:none!important}.jpdb-subtitle-row-tools{align-self:start;display:grid;grid-template-columns:30px auto;align-items:center;gap:12px;color:var(--jpdb-reader-muted, rgba(255,255,255,.82))}.jpdb-subtitle-row-copy{display:inline-grid;place-items:center;min-width:30px;width:30px;min-height:30px;height:30px;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--jpdb-reader-muted, rgba(255,255,255,.82))!important}.jpdb-subtitle-list-row.active{border-color:var(--jpdb-reader-border, rgba(255,255,255,.16));background:color-mix(in srgb,var(--jpdb-reader-accent) 14%,transparent);box-shadow:inset 2px 0 0 var(--jpdb-reader-accent)}.jpdb-subtitle-list .jpdb-reader-word{color:inherit!important}.jpdb-subtitle-row-time{color:var(--jpdb-reader-muted, rgba(255,255,255,.82));font-size:16px;line-height:1.2;font-weight:760;white-space:nowrap}.jpdb-subtitle-row-text{min-width:0;max-width:100%;grid-column:1;color:var(--jpdb-reader-text, #fff);overflow-wrap:anywhere;word-break:break-word;white-space:normal;font-weight:600;line-height:1.45;font-size:22px;letter-spacing:0;text-shadow:0 1px 1px rgba(0,0,0,.38)}.jpdb-subtitle-row-text .jpdb-reader-word{--jpdb-reader-subtitle-fallback: var(--jpdb-reader-text, #fff);color:inherit;background:transparent;text-decoration-color:var(--jpdb-reader-word-underline, currentColor);text-decoration-thickness:.08em;text-underline-offset:.16em;border-radius:4px;padding:0 1px;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;box-decoration-break:clone;-webkit-box-decoration-break:clone}.jpdb-subtitle-list .jpdb-subtitle-row-text .jpdb-reader-word,.jpdb-subtitle-list .jpdb-subtitle-row-text .jpdb-reader-word ruby{color:inherit!important}.jpdb-subtitle-row-text ruby,.jpdb-subtitle-row-text rt,.jpdb-subtitle-row-text .jpdb-reader-furi{white-space:normal!important}.jpdb-subtitle-row-text .jpdb-reader-word:hover,.jpdb-subtitle-row-text .jpdb-reader-word:focus-visible{background:var(--jpdb-reader-hover, rgba(255,255,255,.14));outline:1px solid var(--jpdb-reader-border, rgba(255,255,255,.28))}.jpdb-subtitle-row-translation{grid-column:1;min-width:0;margin-top:3px;color:var(--jpdb-reader-muted, rgba(255,255,255,.68));overflow-wrap:anywhere;font-style:normal;font-weight:650;line-height:1.4}.jpdb-subtitle-tracks-panel .jpdb-subtitle-list-scroll{align-content:start}.jpdb-subtitle-track-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;padding:7px 8px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:transparent}.jpdb-subtitle-track-row.active{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 68%,var(--jpdb-reader-border, rgba(255,255,255,.14)));background:color-mix(in srgb,var(--jpdb-reader-accent) 14%,transparent)}.jpdb-subtitle-track-row strong{min-width:0;overflow-wrap:anywhere;font-size:11px;line-height:1.2}.jpdb-subtitle-track-title{grid-column:1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}.jpdb-subtitle-track-title span{padding:1px 5px;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);color:var(--jpdb-reader-muted, rgba(255,255,255,.72));font-size:8px;text-transform:uppercase}.jpdb-subtitle-track-row span{grid-column:1;color:var(--jpdb-reader-faint, rgba(255,255,255,.62));font-size:9px;font-weight:700}.jpdb-subtitle-track-actions{grid-column:2;grid-row:1 / span 2;align-self:center;display:flex;gap:5px}.jpdb-subtitle-track-row button{min-height:26px;padding-inline:9px;text-align:center;box-shadow:none;font-size:10px}.jpdb-subtitle-track-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:8px;margin-bottom:4px}.jpdb-subtitle-track-tools button{display:inline-flex;align-items:center;justify-content:center;min-width:0;min-height:36px;padding:0 10px;text-align:center;line-height:1.2;white-space:normal;overflow-wrap:anywhere;box-shadow:none}.jpdb-subtitle-track-summary{margin:0 0 3px;padding:5px 7px;border:1px dashed var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:8px;color:var(--jpdb-reader-muted, rgba(255,255,255,.72));background:transparent;font:750 11px/1.3 var(--jpdb-reader-font)}.jpdb-subtitle-list-empty{padding:12px;color:var(--jpdb-reader-muted, rgba(255,255,255,.72));font:700 12px/1.35 var(--jpdb-reader-font)}.jpdb-subtitle-hidden .jpdb-subtitle-text{display:none}@media (max-width: 768px),(pointer: coarse){.jpdb-reader-btn{min-height:44px;font-size:13px}.jpdb-reader-onboarding{inset:auto 0 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0;padding:54px 20px calc(24px + env(safe-area-inset-bottom))}.jpdb-reader-onboarding-close{top:12px;right:16px}.jpdb-reader-onboarding-grid{grid-template-columns:1fr}.jpdb-reader-onboarding-actions{display:grid;grid-template-columns:1fr}.jpdb-ocr-line{min-width:0;min-height:0;border-radius:8px}.jpdb-subtitle-text{left:8px;right:8px;font-size:min(var(--subtitle-font-size),8vw)}.jpdb-subtitle-rail{top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));bottom:auto;gap:3px}.jpdb-subtitle-rail button{height:34px;min-height:34px;max-height:34px;min-width:34px;width:34px;max-width:34px;padding:0;font-size:11px}.jpdb-subtitle-menu{top:calc(52px + env(safe-area-inset-top));right:8px;bottom:auto}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-list{left:10px!important;right:auto!important;width:calc(100vw - 20px)!important;border-radius:20px 20px 16px 16px}}@media (max-width: 519px){.jpdb-subtitle-list{left:10px!important;right:auto!important;width:calc(100vw - 20px)!important;border-radius:20px 20px 16px 16px}}';
+  const readerCss = ':root{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent: #5ea780;--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-accent-soft: rgba(94,167,128,.18);--jpdb-reader-hover: rgba(255,255,255,.08);--jpdb-reader-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif}@media (prefers-color-scheme: light){:root{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}}.jpdb-reader-theme-dark{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-hover: rgba(255,255,255,.08)}.jpdb-reader-theme-light{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}.jpdb-reader-middle-scan-active{overscroll-behavior:none;cursor:crosshair}.jpdb-reader-middle-scan-active *{cursor:crosshair!important}[data-jpdb-reader-root],[data-jpdb-reader-root] *{box-sizing:border-box}[data-jpdb-reader-root] :where(a){border-bottom:0;color:inherit;outline:revert;text-decoration:none}[data-jpdb-reader-root] :where(button){-moz-appearance:none;appearance:none;-webkit-appearance:none;background:transparent;border:0;border-radius:0;box-shadow:none;color:inherit;cursor:pointer;display:inline-block;font:inherit;height:auto;line-height:normal;margin:0;padding:0;text-align:inherit;text-decoration:none;transform:none;transition:none;white-space:normal}[data-jpdb-reader-root] :where(input,select,textarea){-moz-appearance:auto;appearance:auto;-webkit-appearance:auto;background:revert;border:revert;border-radius:revert;box-shadow:none;color:inherit;font:inherit;height:auto;margin:0;padding:revert;transform:none;transition:none;width:auto}[data-jpdb-reader-root] :where(fieldset,legend,p,ul,ol,li,dl,dt,dd,blockquote,figure,form,table,th,td,hr,h1,h2,h3,h4,h5,h6){letter-spacing:normal;line-height:revert;margin:revert;padding:revert}[data-jpdb-reader-root] :where(table){border-collapse:revert;border-spacing:revert}[data-jpdb-reader-root] :where(th,td){border:revert;text-align:revert}[data-jpdb-reader-root] :where(rt){font-size:revert;opacity:revert}[data-jpdb-reader-root] button,[data-jpdb-reader-root] input,[data-jpdb-reader-root] select,[data-jpdb-reader-root] textarea{font-family:var(--jpdb-reader-font);letter-spacing:0;text-transform:none}.jpdb-reader-word{--jpdb-reader-word-underline: transparent;--jpdb-reader-source-status-color: var(--jpdb-reader-status-color, currentColor);--jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);--jpdb-reader-source-status-soft: var(--jpdb-reader-status-soft, transparent);--jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-color, currentColor);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-jpdb-color, transparent);--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-jpdb-soft, transparent);--jpdb-reader-source-anki-color: var(--jpdb-reader-anki-color, currentColor);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-anki-color, transparent);--jpdb-reader-source-anki-soft: var(--jpdb-reader-anki-soft, transparent);--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-color, currentColor);--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown, #94a3b8));--jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-soft, var(--jpdb-reader-pitch-unknown-soft, transparent));position:static;display:inline;white-space:nowrap;word-break:keep-all;overflow-wrap:normal!important;border-radius:3px;cursor:pointer;-webkit-tap-highlight-color:transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var( --jpdb-reader-word-underline, transparent )!important;text-decoration-thickness:2px!important;text-underline-offset:.16em!important;-webkit-box-decoration-break:clone;box-decoration-break:clone}.jpdb-reader-word:after{content:none}.jpdb-reader-word:hover,.jpdb-reader-word:focus{background:var(--jpdb-reader-hover)!important;outline:none}.jpdb-reader-word:is(.jpdb-new,.jpdb-suspended,.jpdb-not-in-deck){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, .16))}.jpdb-reader-word.jpdb-learning{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16))}.jpdb-reader-word:is(.jpdb-known,.jpdb-never-forget,.jpdb-redundant){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, .16))}.jpdb-reader-word.jpdb-due{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, .16))}.jpdb-reader-word.jpdb-failed{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16))}.jpdb-reader-word:is(.jpdb-blacklisted,.jpdb-locked){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-ignored-soft, rgba(184, 167, 255, .16));opacity:.82!important}.jpdb-reader-word:is(.anki-new,.anki-suspended){--jpdb-reader-anki-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-anki-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, .16))}.jpdb-reader-word.anki-learning{--jpdb-reader-anki-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-anki-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16))}.jpdb-reader-word.anki-known{--jpdb-reader-anki-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-anki-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, .16))}.jpdb-reader-word.anki-due{--jpdb-reader-anki-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-anki-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, .16))}.jpdb-reader-word.anki-failed{--jpdb-reader-anki-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-anki-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16))}.jpdb-reader-word:is(.jpdb-new,.jpdb-suspended,.jpdb-not-in-deck,.anki-new,.anki-suspended){--jpdb-reader-status-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, .16))}.jpdb-reader-word:is(.jpdb-learning,.anki-learning){--jpdb-reader-status-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-status-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16))}.jpdb-reader-word:is(.jpdb-known,.jpdb-never-forget,.jpdb-redundant,.anki-known){--jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, .16))}.jpdb-reader-word:is(.jpdb-due,.anki-due){--jpdb-reader-status-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-status-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, .16))}.jpdb-reader-word:is(.jpdb-failed,.anki-failed){--jpdb-reader-status-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-status-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16))}.jpdb-reader-word:is(.jpdb-blacklisted,.jpdb-locked){--jpdb-reader-status-color: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft, rgba(184, 167, 255, .16))}.jpdb-reader-word.jpdb-pitch-heiban{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-heiban-soft, rgba(53, 158, 255, .14))}.jpdb-reader-word.jpdb-pitch-atamadaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-atamadaka-soft, rgba(254, 75, 116, .14))}.jpdb-reader-word.jpdb-pitch-nakadaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-nakadaka-soft, rgba(251, 168, 64, .16))}.jpdb-reader-word.jpdb-pitch-odaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-odaka-soft, rgba(87, 204, 183, .14))}.jpdb-reader-word.jpdb-pitch-kifuku{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-kifuku, #9050f6);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-kifuku-soft, rgba(144, 80, 246, .14))}.jpdb-reader-word-highlight-status{--jpdb-reader-word-highlight: var(--jpdb-reader-source-status-soft, transparent)}.jpdb-reader-word-highlight-jpdb{--jpdb-reader-word-highlight: var(--jpdb-reader-source-jpdb-soft, transparent)}.jpdb-reader-word-highlight-anki{--jpdb-reader-word-highlight: var(--jpdb-reader-source-anki-soft, transparent)}.jpdb-reader-word-highlight-pitch{--jpdb-reader-word-highlight: var(--jpdb-reader-source-pitch-soft, transparent)}.jpdb-reader-word-underline-status{--jpdb-reader-word-decoration: var(--jpdb-reader-source-status-decoration, transparent)}.jpdb-reader-word-underline-jpdb{--jpdb-reader-word-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent)}.jpdb-reader-word-underline-anki{--jpdb-reader-word-decoration: var(--jpdb-reader-source-anki-decoration, transparent)}.jpdb-reader-word-underline-pitch{--jpdb-reader-word-decoration: var(--jpdb-reader-source-pitch-decoration, transparent)}.jpdb-reader-word-text-status{--jpdb-reader-word-color: var(--jpdb-reader-source-status-color, currentColor)}.jpdb-reader-word-text-jpdb{--jpdb-reader-word-color: var(--jpdb-reader-source-jpdb-color, currentColor)}.jpdb-reader-word-text-anki{--jpdb-reader-word-color: var(--jpdb-reader-source-anki-color, currentColor)}.jpdb-reader-word-text-pitch{--jpdb-reader-word-color: var(--jpdb-reader-source-pitch-color, currentColor)}.jpdb-reader-word-highlight-status .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-word-highlight-anki .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}.jpdb-reader-word-underline-status .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent)}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent)}.jpdb-reader-word-underline-anki .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent)}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent)}.jpdb-reader-word-text-status .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, currentColor)!important}.jpdb-reader-word-text-jpdb .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, currentColor)!important}.jpdb-reader-word-text-anki .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, currentColor)!important}.jpdb-reader-word-text-pitch .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, currentColor)!important}:is(.jpdb-reader-word-highlight-pitch,.jpdb-reader-word-underline-pitch,.jpdb-reader-word-text-pitch) .jpdb-reader-word{opacity:1!important}.jpdb-reader-word.jpdb-reader-has-furi{line-height:1.85}.jpdb-reader-furi{font-size:.52em;color:var(--jpdb-reader-muted);line-height:1;-webkit-user-select:none;user-select:none}.jpdb-reader-word ruby{position:static;display:ruby;ruby-align:center;ruby-position:over;line-height:1;vertical-align:baseline;text-decoration-line:inherit!important;text-decoration-style:inherit!important;text-decoration-color:inherit!important;text-decoration-thickness:inherit!important;text-underline-offset:inherit!important}.jpdb-reader-word rp{display:none}.jpdb-reader-word rt.jpdb-reader-furi{position:static;left:auto;bottom:auto;display:ruby-text;transform:none;white-space:nowrap;pointer-events:none;text-decoration:none!important;ruby-align:center;line-height:1;text-align:center}.jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-known,.jpdb-due,.jpdb-never-forget) .jpdb-reader-furi{display:none}.jpdb-ocr-layer{position:fixed;z-index:2147483643;pointer-events:none;box-sizing:border-box;contain:layout style}.jpdb-ocr-status,.jpdb-ocr-line{pointer-events:auto;box-sizing:border-box;font-family:var(--jpdb-reader-font);-webkit-tap-highlight-color:transparent}.jpdb-ocr-status{position:absolute;left:8px;right:8px;bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#181b20d1;color:#ffffffe0;box-shadow:0 8px 22px #0000003d;font-size:11px;font-weight:700}.jpdb-ocr-line{position:absolute;display:flex;align-items:flex-end;justify-content:center;overflow:visible;min-width:0;min-height:0;padding:var(--jpdb-ocr-pad-top, 3px) var(--jpdb-ocr-pad-x, 5px) var(--jpdb-ocr-pad-bottom, 3px);border:1px solid transparent;border-radius:6px;background:transparent;color:transparent;text-shadow:none;font-weight:800;line-height:1;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:none;opacity:1;-webkit-user-select:text;user-select:text;cursor:text}.jpdb-ocr-line-text{display:inline-flex;flex:none;justify-content:center;align-items:flex-end;align-content:flex-end;flex-wrap:nowrap;white-space:nowrap;max-width:none;overflow-wrap:normal}.jpdb-ocr-line[data-vertical=true]{align-items:center;justify-content:center;letter-spacing:0}.jpdb-ocr-line[data-vertical=true] .jpdb-ocr-line-text{white-space:normal;flex-wrap:wrap}.jpdb-ocr-line-visible{border-color:#ffffff1a;background:#181b2024;box-shadow:0 6px 16px #0003,inset 0 0 0 1px #ffffff0a}.jpdb-ocr-line:hover,.jpdb-ocr-line:focus,.jpdb-ocr-line.jpdb-ocr-line-active{color:var(--jpdb-ocr-text-color, #fff);text-shadow:0 2px 2px var(--jpdb-ocr-outline-color, #000),0 0 3px var(--jpdb-ocr-outline-color, #000),0 0 10px var(--jpdb-ocr-outline-color, #000);background:var(--jpdb-ocr-background-active-rgba, rgba(24, 27, 32, .48));border-color:#ffffff2e;box-shadow:0 10px 24px #0000003d,inset 0 0 0 1px #ffffff0d;outline:none;z-index:2}.jpdb-ocr-line .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration:none!important;color:inherit!important;pointer-events:none;cursor:pointer;line-height:1!important}.jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi{line-height:1!important}.jpdb-ocr-line[data-has-furi=true] .jpdb-reader-word{display:inline-flex;align-items:flex-end}.jpdb-ocr-line .jpdb-ocr-plain{display:inline-flex;align-items:flex-end;line-height:1;white-space:pre}.jpdb-ocr-line:hover .jpdb-reader-word,.jpdb-ocr-line:focus .jpdb-reader-word,.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-reader-word{pointer-events:auto}.jpdb-ocr-ruby{position:relative;display:inline-flex;align-items:flex-end;justify-content:center;padding-top:.5em;line-height:1;vertical-align:baseline}.jpdb-ocr-ruby-base{display:inline-flex;align-items:flex-end;line-height:1}.jpdb-ocr-furi{position:absolute;top:0;left:50%;color:currentColor;font-size:.42em;line-height:1;opacity:0;pointer-events:none;text-align:center;text-shadow:none;transform:translate(-50%);white-space:nowrap}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-new,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-suspended,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-not-in-deck{color:var(--jpdb-reader-state-new, #58a6ff)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-learning{color:var(--jpdb-reader-state-learning, #ffd166)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-known,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-never-forget,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-redundant{color:var(--jpdb-reader-state-known, #7bd88f)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-due{color:var(--jpdb-reader-state-due, #5fb3b3)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-failed{color:var(--jpdb-reader-state-failed, #ff6b6b)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-blacklisted,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-locked{color:var(--jpdb-reader-state-ignored, #b8a7ff)!important}.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-ocr-furi{opacity:.9;text-shadow:0 1px 1px var(--jpdb-ocr-outline-color, #000),0 0 5px var(--jpdb-ocr-outline-color, #000)}.asbplayer-subtitles-container-bottom{z-index:2147483644!important}.asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-subtitle-fallback: currentColor;background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var( --jpdb-reader-word-underline, transparent )!important;text-decoration-thickness:.08em!important;text-underline-offset:.15em!important;color:inherit!important}.jpdb-reader-fab{position:fixed;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));z-index:2147483645;min-width:52px;width:auto;height:52px;padding:0 13px;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);box-shadow:0 10px 28px #00000040;opacity:.78;font:700 14px/1 var(--jpdb-reader-font);cursor:pointer;touch-action:none;transform:translateZ(0)}.jpdb-reader-fab:hover,.jpdb-reader-fab:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);opacity:1;outline:none}.jpdb-reader-fab-over-video:not(:hover):not(:focus-visible){opacity:.28;transform:translate3d(0,6px,0) scale(.92)}.jpdb-reader-backdrop{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483646;background:#0c1016bd}.jpdb-reader-popover,.jpdb-reader-settings{position:fixed;z-index:2147483647;box-sizing:border-box;background:var(--jpdb-reader-bg);border:1px solid var(--jpdb-reader-border);border-radius:12px;box-shadow:0 16px 48px #00000057;color:var(--jpdb-reader-text);color-scheme:light dark;font:14px/1.45 var(--jpdb-reader-font)}.jpdb-reader-popover{width:min(520px,calc(100vw - 16px));max-height:min(580px,calc(100vh - 16px));overflow:auto;overflow-anchor:none;padding:14px;container-type:inline-size;scrollbar-gutter:stable}.jpdb-reader-popover.jpdb-reader-sheet{left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%;height:var(--jpdb-reader-sheet-height, var(--jpdb-reader-sheet-collapsed-height, 70dvh));min-height:var(--jpdb-reader-sheet-min-height, 180px);max-height:var(--jpdb-reader-sheet-viewport-height, 100dvh);border-radius:16px 16px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom));overscroll-behavior:contain;-webkit-overflow-scrolling:touch}.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-resizing{-webkit-user-select:none;user-select:none}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body){display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden;padding:0}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body{min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px 16px;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions{padding:6px 16px calc(18px + env(safe-area-inset-bottom))}.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining{padding-top:37px}.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded{border-radius:0;padding-top:max(8px,env(safe-area-inset-top))}.jpdb-reader-sheet .jpdb-reader-sheet-handle{display:block}.jpdb-reader-popover.jpdb-reader-sheet>.jpdb-reader-sheet-handle{width:100%;margin:0}.jpdb-reader-sheet-close{position:absolute;top:8px;right:max(12px,env(safe-area-inset-right));z-index:2;display:inline-grid;place-items:center;width:32px;height:32px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 88%,transparent);color:var(--jpdb-reader-text);box-shadow:0 8px 20px #0000003d;cursor:pointer;-webkit-tap-highlight-color:transparent}.jpdb-reader-sheet-close:hover,.jpdb-reader-sheet-close:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-sheet-close svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}:root.jpdb-reader-theme-dark .jpdb-reader-popover,:root.jpdb-reader-theme-dark .jpdb-reader-settings,:root.jpdb-reader-theme-dark .jpdb-reader-onboarding{color-scheme:dark}:root.jpdb-reader-theme-light .jpdb-reader-popover,:root.jpdb-reader-theme-light .jpdb-reader-settings,:root.jpdb-reader-theme-light .jpdb-reader-onboarding{color-scheme:light}@media (prefers-color-scheme: dark){:root:not(.jpdb-reader-theme-light) .jpdb-reader-popover,:root:not(.jpdb-reader-theme-light) .jpdb-reader-settings,:root:not(.jpdb-reader-theme-light) .jpdb-reader-onboarding{color-scheme:dark}}@media (prefers-color-scheme: light){:root:not(.jpdb-reader-theme-dark) .jpdb-reader-popover,:root:not(.jpdb-reader-theme-dark) .jpdb-reader-settings,:root:not(.jpdb-reader-theme-dark) .jpdb-reader-onboarding{color-scheme:light}}.jpdb-reader-sheet-handle{display:none;position:relative;width:calc(100% + 32px);height:46px;border-bottom:1px solid var(--jpdb-reader-border);border-radius:16px 16px 0 0;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 72%,transparent);margin:-14px -16px 10px;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}.jpdb-reader-sheet-handle:before{content:"";position:absolute;top:50%;left:50%;width:46px;height:5px;border-radius:999px;background:var(--jpdb-reader-faint);transform:translate(-50%,-50%)}.jpdb-reader-sheet-handle:active{cursor:grabbing}.jpdb-reader-sheet-handle:hover:before,.jpdb-reader-sheet-handle:focus-visible:before{background:var(--jpdb-reader-accent)}.jpdb-reader-header{display:flex;align-items:flex-start;gap:10px}.jpdb-reader-heading{min-width:0;flex:1 1 auto}.jpdb-reader-card-tools{display:flex;align-items:flex-start;gap:8px;margin-left:auto}.jpdb-reader-icon-btn{position:relative;display:inline-grid;place-items:center;width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important;flex:0 0 auto;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);cursor:pointer;overflow:hidden;transform:translateY(-.01rem);-webkit-tap-highlight-color:transparent}.jpdb-reader-icon-btn:hover,.jpdb-reader-icon-btn:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 26%,transparent);color:var(--jpdb-reader-accent);transform:translateY(-.25rem);outline:none}.jpdb-reader-icon-btn:active{transform:scale(.98)}.jpdb-reader-onboarding{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;box-sizing:border-box;width:min(760px,calc(100vw - 24px));max-height:min(760px,calc(100vh - 24px));overflow:auto;padding:54px 32px 32px;border:1px solid var(--jpdb-reader-border);border-radius:16px;background:radial-gradient(circle at 18% 0%,var(--jpdb-reader-accent-soft),transparent 34%),var(--jpdb-reader-bg);color:var(--jpdb-reader-text);box-shadow:0 26px 70px #0006;color-scheme:light dark;font:15px/1.5 var(--jpdb-reader-font)}.jpdb-reader-onboarding-close{position:absolute;top:14px;right:14px}.jpdb-reader-onboarding h2{margin:4px 0 10px;color:var(--jpdb-reader-text);font-size:clamp(38px,8vw,72px);line-height:.95;letter-spacing:0}.jpdb-reader-onboarding p{max-width:620px;margin:0;color:var(--jpdb-reader-muted)}.jpdb-reader-onboarding-eyebrow{color:var(--jpdb-reader-accent);font-size:11px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.jpdb-reader-onboarding-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:24px 0}.jpdb-reader-onboarding-grid div{display:grid;gap:5px;min-height:96px;padding:14px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface)}.jpdb-reader-onboarding-grid strong{color:var(--jpdb-reader-text);font-size:16px}.jpdb-reader-onboarding-grid span{color:var(--jpdb-reader-muted);font-size:13px}.jpdb-reader-onboarding-language{display:grid;gap:6px;max-width:280px;margin:0 0 16px;color:var(--jpdb-reader-muted);font-weight:750;font-size:13px}.jpdb-reader-onboarding-language select{width:100%;box-sizing:border-box;min-height:42px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);padding:8px 10px;font:750 14px/1.2 var(--jpdb-reader-font)}.jpdb-reader-onboarding-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}.jpdb-reader-onboarding-actions .jpdb-reader-btn{min-width:150px;min-height:46px}.jpdb-reader-icon-btn svg{width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}@keyframes jpdb-reader-audio-loading-a{0%{left:0}25%{left:0}75%{left:100%}to{left:100%}}@keyframes jpdb-reader-audio-loading-b{0%{right:100%}50%{right:0}to{right:0}}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 62%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent);cursor:progress}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:before,.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:after{content:"";position:absolute;left:0;right:100%;bottom:0;height:3px;background:var(--jpdb-reader-accent);pointer-events:none}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:before{animation:jpdb-reader-audio-loading-a 1.65s infinite ease-in-out,jpdb-reader-audio-loading-b 1.65s infinite ease-in-out}.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:after{animation:jpdb-reader-audio-loading-a 1.65s infinite ease-in-out .62s,jpdb-reader-audio-loading-b 1.65s infinite ease-in-out .62s}.jpdb-reader-spelling{color:var(--jpdb-reader-text);font-size:24px;font-weight:750;line-height:1.16;text-decoration:none;word-break:keep-all}.jpdb-reader-title-row{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;width:100%;min-width:0}.jpdb-reader-kanji-inline{display:inline!important;width:auto!important;min-width:0!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-bottom:2px solid transparent!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:inherit!important;cursor:pointer;font:inherit!important;line-height:inherit!important;text-align:inherit!important;vertical-align:baseline!important;-webkit-tap-highlight-color:transparent}.jpdb-reader-kanji-inline:hover,.jpdb-reader-kanji-inline:focus-visible{border-bottom-color:currentColor!important;outline:none!important}.jpdb-reader-pill{-moz-appearance:none;appearance:none;-webkit-appearance:none;display:inline-flex!important;align-items:center;align-self:center;gap:4px;box-sizing:border-box;width:auto!important;min-width:0!important;max-width:max-content!important;height:auto!important;min-height:24px!important;padding:3px 8px!important;margin:0!important;border:1px solid var(--chip-border, var(--jpdb-reader-border))!important;border-radius:999px!important;color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2))!important;box-shadow:0 1px 1px #0000002e!important;font-size:11px!important;font-weight:700!important;line-height:1!important;text-align:center!important;text-decoration:none!important;vertical-align:middle!important;white-space:nowrap!important;flex:0 0 auto!important}a.jpdb-reader-action-pill,button.jpdb-reader-action-pill{--chip-bg: color-mix( in srgb, var(--jpdb-reader-surface) 92%, var(--jpdb-reader-accent) 8% );--chip-border: color-mix( in srgb, var(--jpdb-reader-accent) 38%, var(--jpdb-reader-border) );--chip-text: var(--jpdb-reader-text);cursor:pointer;font-family:inherit;transform:translateY(-.01rem)!important;-webkit-tap-highlight-color:transparent}.jpdb-reader-action-pill:hover,.jpdb-reader-action-pill:focus-visible{color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2))!important;transform:translateY(-1px)!important;box-shadow:0 3px 8px color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 34%,transparent)!important;outline:2px solid color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 55%,transparent)!important;outline-offset:1px}.jpdb-reader-jpdb-pill{--chip-bg: color-mix( in srgb, var(--jpdb-reader-accent) 15%, var(--jpdb-reader-surface) );--chip-border: color-mix( in srgb, var(--jpdb-reader-accent) 58%, var(--jpdb-reader-border) );--chip-text: var(--jpdb-reader-accent-readable)}.jpdb-reader-action-pill:active{transform:scale(.98)!important}.jpdb-reader-pill svg{width:12px!important;height:12px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-word-pills{display:flex;align-items:center;flex-wrap:wrap;gap:5px;width:100%;margin-top:6px}@container (max-width: 340px){.jpdb-reader-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:0 8px}.jpdb-reader-heading{display:contents}.jpdb-reader-title-row{grid-column:1;grid-row:1}.jpdb-reader-card-tools{display:contents}.jpdb-reader-pitch{grid-column:1 / -1;grid-row:2;margin-top:-3px}.jpdb-reader-audio-control{grid-column:2;grid-row:1;margin-left:auto}.jpdb-reader-word-pills{grid-column:1 / -1;grid-row:3;width:auto;gap:4px;margin-top:5px}.jpdb-reader-pill{padding:3px 7px!important;font-size:10.5px!important}}.jpdb-reader-reading,.jpdb-reader-pos,.jpdb-reader-meta,.jpdb-reader-help{color:var(--jpdb-reader-muted)}.jpdb-reader-reading{margin-top:2px;font-size:15px}.jpdb-reader-title-row .jpdb-reader-reading{margin-top:0;line-height:1.2}.jpdb-reader-pos{margin-top:7px;font-size:11px;line-height:1.35}.jpdb-reader-status-line{min-height:22px}.jpdb-reader-status-line[data-status-tone]{margin-top:8px;padding:8px 10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)}.jpdb-reader-status-line[data-status-tone=pending]{color:var(--jpdb-reader-muted)}.jpdb-reader-status-line[data-status-tone=success]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 11%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent)}.jpdb-reader-status-line[data-status-tone=error]{border-color:color-mix(in srgb,#e55353 52%,var(--jpdb-reader-border));background:color-mix(in srgb,#e55353 11%,var(--jpdb-reader-surface-2));color:#ff8c8c}.jpdb-reader-meanings{margin:9px 0;display:grid;gap:5px}.jpdb-reader-meaning{color:var(--jpdb-reader-text);font-size:13px;line-height:1.32}.jpdb-reader-jpdb-extras{display:grid;gap:10px;margin:10px 0 0}.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-examples-group,.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-used-in-group{border:0;border-radius:0;background:transparent;padding:0}.jpdb-reader-jpdb-extras :is(.jpdb-reader-jpdb-examples-group,.jpdb-reader-jpdb-used-in-group)>.jpdb-reader-local-glossary{padding:0 8px 8px}.jpdb-reader-jpdb-extra{display:grid;gap:6px}.jpdb-reader-jpdb-extra h6{margin:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;text-transform:uppercase}.jpdb-reader-jpdb-compounds,.jpdb-reader-jpdb-used-in,.jpdb-reader-jpdb-examples{display:grid;gap:6px;margin:0;padding:0;list-style:none}.jpdb-reader-jpdb-example{padding:2px 0;color:var(--jpdb-reader-text);line-height:1.3}.jpdb-reader-jpdb-example-row.has-audio{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:start;gap:8px}.jpdb-reader-jpdb-example-text{min-width:0}button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important;margin-top:2px;border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 88%,transparent)}button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg{width:14px;height:14px;stroke-width:2.6}.jpdb-reader-jpdb-compounds li,.jpdb-reader-jpdb-used-in li{display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr);align-items:baseline;gap:8px;min-width:0}.jpdb-reader-jpdb-compound,.jpdb-reader-jpdb-used-in-link{display:inline-flex;align-items:flex-start;min-width:0;color:inherit!important;text-decoration:none}.jpdb-reader-jpdb-compound:hover,.jpdb-reader-jpdb-compound:focus-visible,.jpdb-reader-jpdb-used-in-link:hover,.jpdb-reader-jpdb-used-in-link:focus-visible{color:inherit!important;outline:none}.jpdb-reader-jpdb-compound-head{display:grid;gap:2px;max-width:100%}.jpdb-reader-jpdb-compound-term{display:inline-block;width:max-content;max-width:100%;font-size:17px;line-height:1.1;font-weight:850;white-space:nowrap}.jpdb-reader-jpdb-used-in-term{font-size:14.5px;font-weight:760;line-height:1.25}.jpdb-reader-jpdb-used-in-source-item{grid-template-columns:minmax(0,1fr)!important;align-items:start!important;gap:2px!important}.jpdb-reader-jpdb-used-in-source-link{display:block}.jpdb-reader-jpdb-used-in-source-title{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:760;line-height:1.25}.jpdb-reader-jpdb-compound-reading,.jpdb-reader-jpdb-compounds small,.jpdb-reader-jpdb-used-in small,.jpdb-reader-jpdb-example .jpdb-reader-example-translation{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}.jpdb-reader-jpdb-compound-reading{white-space:nowrap}.jpdb-reader-jpdb-compound:has(.jpdb-reader-word) .jpdb-reader-jpdb-compound-reading{display:none}.jpdb-reader-example-summary .jpdb-reader-example-count{flex:0 0 auto;margin-left:auto;text-align:right;white-space:nowrap}.jpdb-reader-jpdb-example .jpdb-reader-example-sentence,.jpdb-reader-jpdb-example .jpdb-reader-example-translation{justify-self:stretch;width:100%;text-align:left;text-wrap:pretty}.jpdb-reader-jpdb-example .jpdb-reader-example-sentence{line-height:1.35}.jpdb-reader-jpdb-example .jpdb-reader-example-translation{font-size:10.5px;line-height:1.3}.jpdb-reader-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:11px}.jpdb-reader-state-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--jpdb-reader-faint);margin-right:4px}.jpdb-reader-state-dot.jpdb-new,.jpdb-reader-state-dot.jpdb-suspended,.jpdb-reader-state-dot.jpdb-not-in-deck{background:var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-state-dot.jpdb-learning{background:var(--jpdb-reader-state-learning, #ffd166)}.jpdb-reader-state-dot.jpdb-known,.jpdb-reader-state-dot.jpdb-never-forget,.jpdb-reader-state-dot.jpdb-redundant{background:var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-state-dot.jpdb-due{background:var(--jpdb-reader-state-due, #5fb3b3)}.jpdb-reader-state-dot.jpdb-failed{background:var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-state-dot.jpdb-blacklisted,.jpdb-reader-state-dot.jpdb-locked{background:var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-local{border-top:1px solid var(--jpdb-reader-border);margin-top:12px;padding-top:12px;display:grid;gap:8px;font-size:13px;line-height:1.45}.jpdb-reader-definition-stack{display:grid;gap:0;margin-top:12px}.jpdb-reader-definition-stack .jpdb-reader-local{margin-top:0}.jpdb-reader-source-card,.jpdb-reader-study-source{gap:0;padding-top:0;position:relative}.jpdb-reader-source-card .jpdb-reader-meanings{margin:0}.jpdb-reader-source-card>summary.jpdb-reader-local-title,.jpdb-reader-study-source>summary.jpdb-reader-local-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:6px 0;cursor:pointer;list-style:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title::-webkit-details-marker,.jpdb-reader-study-source>summary.jpdb-reader-local-title::-webkit-details-marker{display:none}.jpdb-reader-source-card>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source>summary.jpdb-reader-local-title:after{content:"+";flex:0 0 auto;margin-left:0;color:var(--jpdb-reader-muted);font-size:15px;line-height:1}.jpdb-reader-source-card[open]>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source[open]>summary.jpdb-reader-local-title:after{content:"-"}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title{cursor:default}.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title:after{content:""}.jpdb-reader-source-card>:not(summary){margin-left:0;margin-right:0}.jpdb-reader-source-card[open]>:last-child{margin-bottom:7px}.jpdb-reader-dictionary-source-list,.jpdb-reader-dictionaries-section .jpdb-reader-local-terms{gap:0;margin-top:0;padding:0}.jpdb-reader-dictionary-source-list{display:grid}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group{border-top:1px solid var(--jpdb-reader-border);padding:0;overflow:visible}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child{border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px;padding:6px 0;color:var(--jpdb-reader-muted);cursor:pointer;list-style:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::-webkit-details-marker{display:none}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title:after{content:"+";flex:0 0 auto;color:var(--jpdb-reader-muted);font-size:14px;line-height:1}.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group[open]>.jpdb-reader-dictionary-source-title:after{content:"-"}.jpdb-reader-dictionaries-section .jpdb-reader-local-term{border:0;border-radius:0;background:transparent;padding:7px 0 8px}.jpdb-reader-dictionaries-section .jpdb-reader-local-term+.jpdb-reader-local-term,.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title+.jpdb-reader-local-terms{border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-study-source>.jpdb-reader-study-panel{margin-top:4px;margin-bottom:12px}.jpdb-reader-local-title{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-source-status{margin-left:auto;color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:none}.jpdb-reader-local-entry{border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);padding:6px}.jpdb-reader-source-card>.jpdb-reader-local-entry{display:grid;gap:10px;padding:8px 0 0;border:0;border-radius:0;background:transparent;box-shadow:none}.jpdb-reader-kanji>.jpdb-reader-local-entry+.jpdb-reader-local-entry{margin-top:6px}.jpdb-reader-local-terms{display:grid;gap:5px}.jpdb-reader-local-term{padding:7px 32px 7px 8px;background:color-mix(in srgb,var(--jpdb-reader-surface) 88%,var(--jpdb-reader-surface-2))}.jpdb-reader-source-card .jpdb-reader-local-term{padding:7px 0 8px;border-top:1px solid color-mix(in srgb,var(--jpdb-reader-border) 52%,transparent);border-radius:0;background:transparent}.jpdb-reader-source-card .jpdb-reader-local-term:first-child{border-top:0}.jpdb-reader-local-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-weight:700}.jpdb-reader-local-expression{min-width:0;color:var(--jpdb-reader-text);font-size:16px;line-height:1.25;font-weight:850}.jpdb-reader-local-reading,.jpdb-reader-local-dict{color:var(--jpdb-reader-muted);font-size:11px;font-weight:650}.jpdb-reader-local-dict{margin-left:auto}.jpdb-reader-local-frequency{margin-left:auto;color:var(--jpdb-reader-accent-readable);font-size:11px;font-weight:800}.jpdb-reader-local-senses{display:grid;gap:2px;margin-top:4px}.jpdb-reader-local-tags{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px}.jpdb-reader-local-head+.jpdb-reader-local-tags{margin-top:5px}.jpdb-reader-local-tags:empty{display:none}.jpdb-reader-dict-tag{display:inline-flex;align-items:center;min-height:1.35em;padding:0 .38em;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 55%,var(--jpdb-reader-border));border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent) 24%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:800;line-height:1.2}.jpdb-reader-source-tag{border-color:var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted)}.jpdb-reader-local-sense,.jpdb-reader-local-glossary-entry{display:flex;align-items:baseline;gap:6px;min-width:0}.jpdb-reader-local-sense{color:var(--jpdb-reader-text);font-size:13px;line-height:1.3}.jpdb-reader-local-sense>span:last-child,.jpdb-reader-local-glossary-entry>div{min-width:0;flex:1 1 auto}.jpdb-reader-local-sense-index{flex:0 0 16px;color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-align:right}.jpdb-reader-local-glossary{margin-top:3px;color:var(--jpdb-reader-text);font-size:13px;line-height:1.45;white-space:normal;display:grid;gap:2px;min-width:0;max-width:100%;overflow-wrap:anywhere;--font-size-no-units: 13;--line-height: 1.45;--list-padding1: 1.1em;--list-padding2: 1.45em;--compact-list-separator: " / "}.jpdb-reader-local-glossary-entry.no-index{display:block}.jpdb-reader-local-glossary-entry.no-index>div{min-width:0}.jpdb-reader-local-glossary-entry.no-index>div>div:first-child>:first-child{margin-top:0!important}.jpdb-reader-local-glossary-entry.no-index>div>div:last-child>:last-child{margin-bottom:0!important}.jpdb-reader-local-glossary-entry.no-index .gloss-sc-div,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ul,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ol{margin-top:.12em!important;margin-bottom:.12em!important}.jpdb-reader-local-glossary ul,.jpdb-reader-local-glossary ol{padding:0}.jpdb-reader-local-glossary li{margin:1px 0}.jpdb-reader-local-glossary table{border-collapse:collapse;width:100%;white-space:normal;margin:4px 0}.jpdb-reader-local-glossary td,.jpdb-reader-local-glossary th{border:1px solid var(--jpdb-reader-border);padding:8px 6px 6px;line-height:1.45}.jpdb-reader-dictionary-group{padding:0;overflow:hidden}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary{align-items:center;cursor:pointer;display:flex;gap:8px;justify-content:space-between;list-style:none;min-height:38px;padding:8px 0}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head::-webkit-details-marker,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary::-webkit-details-marker{display:none}.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head:after,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary:after{content:"+";margin-left:4px;color:var(--jpdb-reader-muted);font-size:16px;line-height:1}.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-head:after,.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-title.jpdb-reader-example-summary:after{content:"-"}.jpdb-reader-dictionary-group>.jpdb-reader-local-glossary{padding:0 8px 8px}.jpdb-reader-local-glossary .structured-content{display:inline;min-width:0;max-width:100%;white-space:normal;line-height:var(--line-height)}.jpdb-reader-local-glossary ruby{display:ruby;ruby-align:center;ruby-position:over;max-width:100%;margin:0 .03em;color:inherit;line-height:1;text-align:center;vertical-align:baseline;white-space:nowrap}.jpdb-reader-local-glossary rt{display:ruby-text;color:var(--jpdb-reader-muted);font-size:.52em;font-weight:600;line-height:1;text-align:center;white-space:nowrap}.jpdb-reader-local-glossary rp{display:none}.jpdb-reader-local-glossary :is(.gloss-sc-div,.gloss-sc-ul,.gloss-sc-ol,.gloss-sc-li,.gloss-sc-details){box-sizing:border-box;min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal}.jpdb-reader-local-glossary [data-sc-class=extra-box]{box-sizing:border-box;max-width:100%}.jpdb-reader-local-glossary .gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-ol{margin:.25em 0 .25em var(--list-padding1);padding:0}.jpdb-reader-local-glossary .gloss-sc-ul[data-sc-content=glossary],.jpdb-reader-local-glossary .gloss-sc-ol[data-sc-content=glossary]{display:grid;gap:.25em}.jpdb-reader-local-glossary .gloss-sc-li{margin:0;padding-left:.1em}.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ol{margin-left:var(--list-padding2)}.jpdb-reader-local-glossary .gloss-sc-details{margin:.35em 0;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 72%,transparent)}.jpdb-reader-local-glossary .gloss-sc-summary{padding:.35em .55em;cursor:pointer;font-weight:700}.jpdb-reader-local-glossary .gloss-sc-details>:not(.gloss-sc-summary){padding:0 .55em .45em}.jpdb-reader-local-glossary .gloss-sc-table-container{display:block;max-width:100%;margin:.35em 0;overflow-x:auto;white-space:normal}.jpdb-reader-local-glossary .gloss-sc-table{width:auto;min-width:min(100%,24rem);border-collapse:collapse;table-layout:auto}.jpdb-reader-local-glossary .gloss-sc-th,.jpdb-reader-local-glossary .gloss-sc-td{border:1px solid var(--jpdb-reader-border);padding:.35em .45em;vertical-align:top}.jpdb-reader-local-glossary .gloss-sc-th{background:var(--jpdb-reader-surface-2);font-weight:800}.jpdb-reader-local-glossary .gloss-sc-td[data-sc-class=form-valid]{text-align:center;vertical-align:middle}.jpdb-reader-local-glossary [data-sc-class=form-valid]{color:var(--jpdb-reader-accent-readable);font-weight:800}.jpdb-reader-local-glossary .gloss-link{color:var(--jpdb-reader-accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}.jpdb-reader-local-glossary .gloss-link-external-icon{display:none}.jpdb-reader-local-glossary [data-sc-content=part-of-speech-info],.jpdb-reader-local-glossary [data-sc-class=tag],.jpdb-reader-local-glossary [data-sc-class=pitch-accent-position]{display:inline-flex;align-items:center;min-height:1.4em;margin:0 .25em .15em 0;padding:.05em .35em;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:.88em;font-weight:700;white-space:nowrap}.jpdb-reader-local-glossary .gloss-image-link{display:inline-flex;align-items:center;gap:.35em;max-width:100%;margin:.15em 0;color:var(--jpdb-reader-muted);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-container{position:relative;display:inline-block;max-width:min(100%,20rem);min-width:3rem;overflow:hidden;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:var(--jpdb-reader-surface-2);vertical-align:middle}.jpdb-reader-local-glossary .gloss-image-sizer{display:block}.jpdb-reader-local-glossary .gloss-image-background,.jpdb-reader-local-glossary .gloss-image-container-overlay{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-local-glossary .gloss-image-background{background:linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%),linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%);background-position:0 0,6px 6px;background-size:12px 12px}.jpdb-reader-local-glossary .gloss-image-link-text,.jpdb-reader-local-glossary .gloss-image-description{color:var(--jpdb-reader-muted);font-size:.9em}.jpdb-reader-anki-existing{margin-top:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);overflow:hidden}.jpdb-reader-anki-existing summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;cursor:pointer;color:var(--jpdb-reader-text);font-size:11px;font-weight:800;list-style:none}.jpdb-reader-anki-existing summary::-webkit-details-marker{display:none}.jpdb-reader-anki-existing summary small{color:var(--jpdb-reader-muted);font-weight:600;text-align:right}.jpdb-reader-anki-card-preview{border-top:1px solid var(--jpdb-reader-border);padding:9px 10px 10px;display:grid;gap:8px;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}.jpdb-reader-anki-field,.jpdb-reader-anki-context{display:grid;gap:2px}.jpdb-reader-anki-field>strong,.jpdb-reader-anki-context>strong,.jpdb-reader-anki-rendered-side>strong{color:var(--jpdb-reader-text);font-size:11px;text-transform:uppercase}.jpdb-reader-anki-field>span,.jpdb-reader-anki-context>span,.jpdb-reader-anki-context>small{white-space:pre-wrap;overflow-wrap:anywhere}.jpdb-reader-anki-rendered-card,.jpdb-reader-anki-fields{display:grid;gap:8px}.jpdb-reader-anki-rendered-side{display:grid;gap:5px;min-width:0}.jpdb-reader-anki-rendered-side-body{max-height:220px;overflow:auto;overscroll-behavior:contain;contain:content;border:1px solid var(--jpdb-reader-border);border-radius:6px;padding:8px;background:#00000024;color:var(--jpdb-reader-text);font-size:13px;line-height:1.45}.jpdb-reader-anki-rendered-side-body *{max-width:100%}.jpdb-reader-anki-rendered-side-body img,.jpdb-reader-anki-rendered-side-body video,.jpdb-reader-anki-rendered-side-body audio{max-width:100%;height:auto}.jpdb-reader-anki-sound{display:inline-block;line-height:1.3;width:fit-content;max-width:100%;margin-top:2px;cursor:pointer;padding:2px 6px;border:1px solid var(--jpdb-reader-border);border-radius:999px;color:var(--jpdb-reader-text);background:#5ea78029;font-size:10px;font-weight:700}.jpdb-reader-anki-sound:disabled{cursor:default;opacity:.65}.jpdb-reader-anki-note-actions{display:grid;gap:8px}.jpdb-reader-anki-note-action-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.jpdb-reader-anki-audio-merge{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;min-width:0}.jpdb-reader-anki-audio-merge span{color:var(--jpdb-reader-text);font-size:11px;font-weight:800;text-transform:uppercase}.jpdb-reader-anki-audio-merge select{min-width:0;width:100%;border:1px solid var(--jpdb-reader-border);border-radius:6px;padding:5px 8px;color:var(--jpdb-reader-text);background:var(--jpdb-reader-bg);font:inherit}.jpdb-reader-settings-subsection{display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--jpdb-reader-border)}.jpdb-reader-immersion{container-type:inline-size;--jpdb-reader-example-media-max-height: clamp(150px, calc(100vh - 300px) , 260px)}.jpdb-reader-example-card{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:start;padding:0;border:0;border-radius:0;background:transparent}.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-image{display:block;max-width:100%;height:auto;max-height:var(--jpdb-reader-example-media-max-height);object-fit:contain}.jpdb-reader-example-media{position:relative;display:flex;align-items:center;justify-content:center;width:100%;min-height:0;overflow:visible;border:0;border-radius:0;background:transparent}.jpdb-reader-example-card.has-image .jpdb-reader-example-media{overflow:hidden}.jpdb-reader-example-body{display:grid;align-content:start;gap:9px;min-width:0}.jpdb-reader-example-source{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-example-summary{display:flex!important;align-items:center!important;justify-content:space-between;gap:8px!important;min-height:38px;padding:8px 0;width:100%}.jpdb-reader-example-summary .jpdb-reader-example-source{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;line-height:1.2;text-transform:uppercase}.jpdb-reader-example-summary .jpdb-reader-local-dict{display:block;max-width:100%;flex:1 1 auto;margin-left:0;min-width:0;text-align:left;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.jpdb-reader-example-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;width:100%;margin:3px 0 7px}.jpdb-reader-example-meta{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:7px;row-gap:2px}.jpdb-reader-example-meta .jpdb-reader-example-source{grid-column:1 / -1;flex:none;max-width:100%;color:var(--jpdb-reader-muted);font-size:10.5px;font-weight:850;line-height:1.15;text-transform:uppercase}.jpdb-reader-example-title{min-width:0;color:var(--jpdb-reader-text);font-size:11px;font-weight:780;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-example-count{color:var(--jpdb-reader-faint);font-size:10.5px;font-weight:850;line-height:1.2;white-space:nowrap}.jpdb-reader-example-sentence{justify-self:center;min-width:0;width:min(100%,38em);color:var(--jpdb-reader-text);font-size:13px;line-height:1.72;text-align:center;text-wrap:balance;overflow-wrap:anywhere;word-break:normal}.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence{position:absolute;left:50%;bottom:clamp(8px,5%,18px);z-index:1;width:min(calc(100% - 28px),34em);padding:2px 6px;transform:translate(-50%);color:#fff;font-size:13px;font-weight:750;line-height:1.45;text-shadow:0 1px 2px rgb(0 0 0 / 95%),0 0 5px rgb(0 0 0 / 90%),0 0 9px rgb(0 0 0 / 78%);pointer-events:auto}.jpdb-reader-example-sentence:has(rt.jpdb-reader-furi){padding-top:.25em;line-height:1.95}.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence:has(rt.jpdb-reader-furi){padding-top:2px;line-height:1.75}.jpdb-reader-example-sentence .jpdb-reader-word{display:inline;-webkit-box-decoration-break:clone;box-decoration-break:clone}.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-has-furi{line-height:2}.jpdb-reader-example-target{border-radius:4px;box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone}mark.jpdb-reader-example-target{padding:0 .08em}.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{box-shadow:inset 0 -.12em color-mix(in srgb,var(--jpdb-reader-accent-readable) 56%,transparent)}.jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{box-shadow:inset 0 -.12em color-mix(in srgb,var(--jpdb-reader-accent-readable) 56%,transparent)!important}.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{box-shadow:inset 0 -.12em color-mix(in srgb,var(--jpdb-reader-accent-readable) 64%,transparent)!important}.jpdb-reader-example-translation{justify-self:center;width:min(100%,38em);color:var(--jpdb-reader-muted);font-size:11px;line-height:1.45;text-align:center;text-wrap:balance}.jpdb-reader-example-translation[data-immersion-translation-blurred=true],.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]{filter:blur(4px);-webkit-user-select:none;user-select:none;cursor:pointer}.jpdb-reader-example-translation[data-immersion-translation-blurred=true]:hover,.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]:hover,.jpdb-reader-example-translation[data-immersion-translation-blurred=true]:focus-visible,.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]:focus-visible{filter:blur(3px);outline:none}.jpdb-reader-example-actions{flex:0 0 auto;display:inline-flex;align-items:center;justify-self:end;gap:3px;margin-top:0;padding:0;border:0;background:transparent}.jpdb-reader-example-toolbar .jpdb-reader-example-actions{margin-left:auto}.jpdb-reader-immersion>.jpdb-reader-example-actions{display:flex;justify-content:flex-end;margin:-2px 0 6px}.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:30px!important;min-width:30px!important;max-width:30px!important;height:30px!important;min-height:30px!important;max-height:30px!important;border-radius:5px;background:#ffffff06;font-size:13px}.jpdb-reader-example-actions svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}@container (min-width: 560px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}}@media (max-width: 520px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}.jpdb-reader-example-media{--jpdb-reader-example-media-max-height: clamp(130px, calc(100vh - 300px) , 230px);max-height:var(--jpdb-reader-example-media-max-height)}.jpdb-reader-example-image{max-height:var(--jpdb-reader-example-media-max-height)}.jpdb-reader-example-actions{justify-self:start}.jpdb-reader-example-toolbar{flex-wrap:wrap}.jpdb-reader-example-meta{flex-basis:100%}.jpdb-reader-example-toolbar .jpdb-reader-example-actions{margin-left:0}.jpdb-reader-example-source{flex-basis:100%}}@media (pointer: coarse){.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important}}.jpdb-reader-study-tools{display:grid;gap:8px;margin:10px 0}.jpdb-reader-study-panel{display:grid;gap:10px;background:transparent;padding:0;color:var(--jpdb-reader-text);font-size:11px;line-height:1.4}.jpdb-reader-study-translation-panel{gap:12px}.jpdb-reader-study-block{display:grid;gap:4px;min-width:0}.jpdb-reader-study-sentence-block{gap:8px}.jpdb-reader-study-block+.jpdb-reader-study-block{border-top:1px solid var(--jpdb-reader-border);padding-top:10px}.jpdb-reader-study-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:800;letter-spacing:0;line-height:1.2;text-transform:uppercase}.jpdb-reader-study-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-study-label-row .jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important}.jpdb-reader-study-original{margin:0;font-size:13px;line-height:1.7}.jpdb-reader-study-original rt{color:var(--jpdb-reader-muted);font-size:.58em;line-height:1}.jpdb-reader-study-translation{color:var(--jpdb-reader-text);font-size:13px;line-height:1.45}.jpdb-reader-study-name{color:var(--jpdb-reader-text);font-weight:800}.jpdb-reader-study-list{border-top:1px solid var(--jpdb-reader-border);display:grid;gap:0;list-style:none;margin:0;padding:6px 0 0}.jpdb-reader-study-item{display:grid;grid-template-columns:minmax(54px,max-content) minmax(0,1fr);gap:10px;align-items:start;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:8px 0}.jpdb-reader-study-item.known{opacity:.72}.jpdb-reader-study-item:first-child{border-top:0;padding-top:2px}.jpdb-reader-study-name{display:grid;gap:4px;font-size:15px;line-height:1.25}.jpdb-reader-study-body{display:grid;gap:4px;min-width:0}.jpdb-reader-study-item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-study-kind{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;min-width:0}.jpdb-reader-study-short,.jpdb-reader-study-empty{color:var(--jpdb-reader-text)}.jpdb-reader-study-detail,.jpdb-reader-study-match{color:var(--jpdb-reader-muted)}.jpdb-reader-study-detail{font-size:11px;line-height:1.35}.jpdb-reader-study-match{display:flex;flex-wrap:wrap;gap:4px;align-items:baseline;font-size:11px}.jpdb-reader-study-match span{color:var(--jpdb-reader-muted)}.jpdb-reader-study-guide{display:inline-flex;align-items:center;min-height:24px;border-radius:3px;color:color-mix(in srgb,var(--jpdb-reader-accent-readable) 82%,var(--jpdb-reader-text));font-size:11px;font-weight:800;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--jpdb-reader-accent-readable) 64%,transparent);text-decoration-thickness:1px;text-underline-offset:3px;width:max-content}.jpdb-reader-study-guide:hover{color:var(--jpdb-reader-text);text-decoration-color:var(--jpdb-reader-accent-readable)}.jpdb-reader-study-guide:focus-visible{color:var(--jpdb-reader-text);outline:2px solid color-mix(in srgb,var(--jpdb-reader-accent-readable) 58%,transparent);outline-offset:2px;text-decoration-color:var(--jpdb-reader-accent-readable)}.jpdb-reader-grammar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-grammar-summary{min-width:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:700}.jpdb-reader-grammar-level{justify-self:start;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 42%,var(--jpdb-reader-border));border-radius:999px;padding:1px 5px;color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:850;line-height:1.2}.jpdb-reader-grammar-known,.jpdb-reader-grammar-toggle{border:1px solid var(--jpdb-reader-border);border-radius:5px;background:#ffffff06;color:var(--jpdb-reader-muted);cursor:pointer;font:inherit;font-size:11px;font-weight:800;line-height:1.1;min-height:24px;padding:0 7px;white-space:nowrap}.jpdb-reader-grammar-known:hover,.jpdb-reader-grammar-known:focus-visible,.jpdb-reader-grammar-toggle:hover,.jpdb-reader-grammar-toggle:focus-visible{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent-readable);outline:none}.jpdb-reader-grammar-known[aria-pressed=true],.jpdb-reader-grammar-toggle[aria-pressed=true]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 46%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent-readable)}.jpdb-reader-grammar-more{display:grid;gap:4px}.jpdb-reader-grammar-more[open]{row-gap:6px}.jpdb-reader-grammar-more>summary{width:max-content;color:var(--jpdb-reader-muted);cursor:pointer;font-size:11px;font-weight:750;list-style:none}.jpdb-reader-grammar-more>summary::-webkit-details-marker{display:none}.jpdb-reader-grammar-more>summary:after{content:"+";margin-left:5px}.jpdb-reader-grammar-more[open]>summary:after{content:"-"}.jpdb-reader-grammar-examples{display:grid;row-gap:6px;margin-top:4px}.jpdb-reader-grammar-examples>span{color:var(--jpdb-reader-text);font-size:11px;font-weight:750;line-height:1.25}.jpdb-reader-grammar-example{display:grid;row-gap:2px}@media (max-width: 420px){.jpdb-reader-study-item{grid-template-columns:minmax(0,1fr);gap:4px}.jpdb-reader-study-name{font-size:14px}}.jpdb-reader-template-preview{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px;margin-top:10px}.jpdb-reader-template-preview-title{color:var(--jpdb-reader-text);font-size:13px;font-weight:800;margin-bottom:8px}.jpdb-reader-template-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.jpdb-reader-template-preview-grid>div{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);padding:10px;min-height:118px}.jpdb-reader-template-preview strong,.jpdb-reader-template-preview small{display:block;color:var(--jpdb-reader-muted)}.jpdb-reader-template-expression{color:var(--jpdb-reader-text);font-size:24px;font-weight:850;line-height:1.1;margin-top:8px}.jpdb-reader-template-reading,.jpdb-reader-template-meaning{color:var(--jpdb-reader-muted);margin-top:4px}.jpdb-reader-template-sentence{color:var(--jpdb-reader-text);font-size:18px;line-height:1.35;margin:10px 0 8px}.jpdb-reader-template-sentence span{color:var(--jpdb-reader-accent);font-weight:850}.jpdb-reader-frequency-pill{border:1px solid var(--chip-border, var(--jpdb-reader-border));background:var(--chip-bg, var(--jpdb-reader-surface-2));color:var(--chip-text, var(--jpdb-reader-text))}.jpdb-reader-kanji-char{font-size:20px}.jpdb-reader-kanji-readings{display:flex;flex-wrap:wrap;gap:6px;color:var(--jpdb-reader-muted);font-size:11px;margin-top:6px}.jpdb-reader-modal-nav{display:flex;align-items:center;gap:7px;margin-bottom:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:750}.jpdb-reader-modal-nav span{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-kanji-display{color:var(--jpdb-reader-text);font-size:46px;font-weight:850;line-height:1}.jpdb-reader-kanji-title-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 12px;width:100%}.jpdb-reader-kanji-title-row [data-kanji-keyword-mount]{min-width:0}.jpdb-reader-kanji-title-row .jpdb-reader-word-pills{grid-column:2 / -1;justify-self:start;align-self:start;margin-top:1px}.jpdb-reader-kanji-title-row .jpdb-reader-action-pill{--chip-bg: var(--jpdb-reader-surface);--chip-border: var(--jpdb-reader-border);--chip-text: var(--jpdb-reader-muted)}.jpdb-reader-kanji-keywords{display:flex;flex-wrap:wrap;align-items:center;gap:7px;min-width:0}.jpdb-reader-kanji-keyword{display:inline-flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0;max-width:100%;min-height:24px;padding:3px 9px;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 34%,var(--jpdb-reader-border));border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 88%,var(--jpdb-reader-accent) 12%);color:var(--jpdb-reader-text);box-shadow:none;font-size:12px;font-weight:780;line-height:1.08;overflow:hidden;white-space:nowrap}.jpdb-reader-kanji-keyword small{display:inline;flex:0 0 auto;height:auto;padding:0;border-radius:0;background:transparent;color:var(--jpdb-reader-muted);font-size:9px;font-weight:800;line-height:1;letter-spacing:0;text-transform:uppercase}.jpdb-reader-kanji-keyword span{min-width:0;overflow:hidden;text-overflow:ellipsis}.jpdb-reader-kanji-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,148px),1fr));gap:8px;overflow:visible;padding-bottom:0}.jpdb-reader-kanji-facts span{display:grid;gap:3px;min-width:0;align-content:center;min-height:44px;padding:8px 10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-size:13px;font-weight:820;line-height:1.2;overflow-wrap:anywhere}.jpdb-reader-kanji-facts :is(strong,small){display:block;color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;line-height:1.1;text-transform:uppercase}.jpdb-reader-origin-detail{display:grid;gap:8px}.jpdb-reader-kanji-facts+.jpdb-reader-origin-detail{margin-top:8px}.jpdb-reader-origin-detail p{margin:0;color:var(--jpdb-reader-text);font-size:13px;line-height:1.35}.jpdb-reader-origin-detail p span{color:var(--jpdb-reader-muted)}.jpdb-reader-radical-card{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;padding:8px 0;border-top:1px solid color-mix(in srgb,var(--jpdb-reader-border) 52%,transparent);background:transparent}.jpdb-reader-radical-card:first-child{border-top:0}.jpdb-reader-radical-glyph{display:grid;place-items:center;width:42px;height:42px;border-radius:8px;background:var(--jpdb-reader-bg);font-size:28px!important;line-height:1}.jpdb-reader-radical-card img{width:48px;height:48px;object-fit:contain;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-text) 92%,white)}.jpdb-reader-radical-frames{display:flex!important;flex-flow:row wrap;gap:5px!important;margin-top:5px}.jpdb-reader-radical-card div{display:grid;gap:2px;min-width:0}.jpdb-reader-radical-card strong{color:var(--jpdb-reader-text);font-size:15px}.jpdb-reader-radical-card span{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.3}.jpdb-reader-origin-graph-wrap{--jpdb-reader-origin-graph-node-size: 60px;--jpdb-reader-origin-graph-bg: color-mix( in srgb, var(--jpdb-reader-surface, #20242b) 88%, var(--jpdb-reader-bg, #181b20) );--jpdb-reader-origin-graph-line: color-mix( in srgb, var(--jpdb-reader-text, #f2f4f8) 72%, transparent );--jpdb-reader-origin-graph-outbound-line: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 76%, var(--jpdb-reader-text, #f2f4f8) );--jpdb-reader-origin-graph-subcomponent-line: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 48%, var(--jpdb-reader-text, #f2f4f8) );--jpdb-reader-origin-graph-frame: color-mix( in srgb, var(--jpdb-reader-bg, #181b20) 84%, var(--jpdb-reader-text, #f2f4f8) );--jpdb-reader-origin-graph-node-fill: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 72%, var(--jpdb-reader-surface-2, #282e37) );--jpdb-reader-origin-graph-related-fill: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 18%, var(--jpdb-reader-surface, #20242b) );--jpdb-reader-origin-graph-accent-text: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 12%, #000 );position:relative;height:min(240px,58vw);min-height:190px;margin-top:8px;border:1px solid color-mix(in srgb,var(--jpdb-reader-border) 82%,var(--jpdb-reader-text, #f2f4f8));border-radius:8px;background:var(--jpdb-reader-origin-graph-bg);box-shadow:inset 0 1px color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 8%,transparent),inset 0 -18px 44px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 18%,transparent);isolation:isolate;overflow:hidden}.jpdb-reader-origin-graph-wrap[data-origin-has-subcomponents=true]{height:min(340px,72vw);min-height:240px}.jpdb-reader-origin-graph-lines{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.35;transition:opacity .12s ease}.jpdb-reader-origin-graph-wrap[data-graph-ready=true] .jpdb-reader-origin-graph-lines{opacity:1}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge{fill:none;stroke:var(--jpdb-reader-origin-graph-line);stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow{fill:var(--jpdb-reader-origin-graph-line)}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow-outbound .jpdb-reader-origin-edge-arrow{fill:var(--jpdb-reader-origin-graph-outbound-line)}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow-subcomponent .jpdb-reader-origin-edge-arrow{fill:var(--jpdb-reader-origin-graph-subcomponent-line)}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-group.outbound .jpdb-reader-origin-edge{stroke:var(--jpdb-reader-origin-graph-outbound-line);stroke-dasharray:2.6 3.2}.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-group.subcomponent .jpdb-reader-origin-edge{stroke:var(--jpdb-reader-origin-graph-subcomponent-line);stroke-width:1.15;stroke-dasharray:1.6 4}.jpdb-reader-origin-graph-wrap:has([data-origin-outbound-toggle]:not(:checked)) [data-origin-outbound=true]{display:none}.jpdb-reader-origin-graph-wrap:has([data-origin-subcomponent-toggle]:not(:checked)) [data-origin-subcomponent=true]{display:none}.jpdb-reader-origin-graph-toggles{position:absolute;top:7px;right:7px;z-index:4;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:5px;max-width:calc(100% - 14px)}.jpdb-reader-origin-graph-toggle{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:4px 7px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 88%,transparent);color:var(--jpdb-reader-text, #f2f4f8);font-size:11px;font-weight:850;line-height:1.1;cursor:pointer;-webkit-user-select:none;user-select:none;box-shadow:0 8px 20px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 24%,transparent)}.jpdb-reader-origin-graph-toggle input{width:13px;height:13px;margin:0;accent-color:var(--jpdb-reader-accent, #5ea780)}.jpdb-reader-origin-graph-node{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:var(--jpdb-reader-origin-graph-node-size);min-width:var(--jpdb-reader-origin-graph-node-size);height:var(--jpdb-reader-origin-graph-node-size);padding:0;border:4px solid var(--jpdb-reader-origin-graph-frame);border-radius:999px;background:var(--jpdb-reader-origin-graph-node-fill);color:var(--jpdb-reader-text, #f2f4f8);font-family:"Hiragino Sans","Yu Gothic",var(--jpdb-reader-font);font-size:33px;font-weight:850;line-height:1;box-shadow:0 9px 26px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 34%,transparent);cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;z-index:2;transition:border-color .14s ease,box-shadow .14s ease,transform .14s ease}.jpdb-reader-origin-graph-node.current{border-color:var(--jpdb-reader-origin-graph-frame);background:var(--jpdb-reader-accent, #5ea780);color:var(--jpdb-reader-origin-graph-accent-text);font-size:35px;box-shadow:0 12px 32px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 40%,transparent)}.jpdb-reader-origin-graph-node.component{border-color:var(--jpdb-reader-origin-graph-frame)}.jpdb-reader-origin-graph-node.related{background:var(--jpdb-reader-origin-graph-related-fill);color:var(--jpdb-reader-text, #f2f4f8);font-size:29px}.jpdb-reader-origin-graph-node[data-label-length="2"]{font-size:27px}.jpdb-reader-origin-graph-node[data-label-length=many]{font-size:22px}.jpdb-reader-origin-graph-node:hover,.jpdb-reader-origin-graph-node:focus-visible{border-color:var(--jpdb-reader-origin-graph-frame);box-shadow:0 14px 34px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 44%,transparent),0 0 0 3px color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 24%,transparent);outline:none;transform:translate(-50%,-50%) scale(1.04)}.jpdb-reader-origin-graph-node.dragging{cursor:grabbing;z-index:3;transform:translate(-50%,-50%) scale(1.08);box-shadow:0 18px 40px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 50%,transparent),0 0 0 4px color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 28%,transparent)}.jpdb-reader-rtk-head{display:flex;align-items:baseline;gap:8px;color:var(--jpdb-reader-text)}.jpdb-reader-rtk-head span{color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-rtk details,.jpdb-reader-jpdb-kanji details{margin-top:8px;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk summary,.jpdb-reader-jpdb-kanji summary{cursor:pointer;color:var(--jpdb-reader-text);font-weight:750}.jpdb-reader-rtk p,.jpdb-reader-jpdb-kanji p{margin:6px 0 0;color:var(--jpdb-reader-muted);line-height:1.45}.jpdb-reader-rtk-elements{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}.jpdb-reader-rtk-elements>span,.jpdb-reader-rtk-elements>button{display:inline-flex;align-items:center;gap:5px;min-height:24px;padding:2px 8px;border:1px solid transparent;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font:inherit;font-size:11px;font-weight:750}.jpdb-reader-rtk-elements>span strong,.jpdb-reader-rtk-elements>button strong{color:var(--jpdb-reader-text);font-size:14px;line-height:1}.jpdb-reader-rtk-elements>span span,.jpdb-reader-rtk-elements>button span{all:unset;color:var(--jpdb-reader-muted)}.jpdb-reader-rtk-elements>button{cursor:pointer}.jpdb-reader-rtk-elements>button:hover,.jpdb-reader-rtk-elements>button:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text);outline:none}.jpdb-reader-component-grid,.jpdb-reader-similar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:6px;margin-top:8px}.jpdb-reader-similar-grid{grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:8px}.jpdb-reader-component-card,.jpdb-reader-component-button,.jpdb-reader-similar-word{min-width:0;border:1px solid color-mix(in srgb,var(--jpdb-reader-border) 70%,transparent);border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 62%,transparent);color:var(--jpdb-reader-text);padding:7px}.jpdb-reader-component-card,.jpdb-reader-component-button{display:grid;gap:2px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-component-card strong,.jpdb-reader-component-button strong{font-size:18px}.jpdb-reader-component-card span,.jpdb-reader-component-card small,.jpdb-reader-component-button span,.jpdb-reader-component-button small,.jpdb-reader-similar-word small,.jpdb-reader-similar-word em{color:var(--jpdb-reader-muted);font-size:11px;font-style:normal}.jpdb-reader-similar-word{display:grid;gap:3px;align-content:start;min-height:86px;text-align:left;cursor:pointer;font:inherit}.jpdb-reader-similar-word-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}.jpdb-reader-similar-word-head>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-similar-reading,.jpdb-reader-similar-meaning{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical}.jpdb-reader-similar-reading{-webkit-line-clamp:1;line-clamp:1}.jpdb-reader-similar-meaning{-webkit-line-clamp:2;line-clamp:2}.jpdb-reader-similar-word:hover,.jpdb-reader-similar-word:focus-visible,.jpdb-reader-component-card:hover,.jpdb-reader-component-card:focus-visible,.jpdb-reader-component-button:hover,.jpdb-reader-component-button:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}.jpdb-reader-doodle-stage{position:relative;width:min(100%,240px);aspect-ratio:1 / 1;justify-self:center;margin:8px auto 0;--jpdb-reader-doodle-ink: #141820;border:1px solid var(--jpdb-reader-border);border-radius:8px;overflow:hidden;background:linear-gradient(90deg,rgba(0,0,0,.08) 1px,transparent 1px),linear-gradient(0deg,rgba(0,0,0,.08) 1px,transparent 1px),#f8f9fb;background-size:27.25px 27.25px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}.jpdb-reader-kanjivg>.jpdb-reader-doodle-stage{margin-inline:auto}.jpdb-reader-doodle-ghost,.jpdb-reader-doodle-canvas{position:absolute;top:0;right:0;bottom:0;left:0}.jpdb-reader-doodle-ghost{display:grid;place-items:center;opacity:.3;pointer-events:none}.jpdb-reader-doodle-stage.trace-hidden .jpdb-reader-doodle-ghost,.jpdb-reader-doodle-ghost[hidden]{display:none!important}.jpdb-reader-doodle-canvas{width:100%;height:100%;cursor:crosshair;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}.jpdb-reader-doodle-tools,.jpdb-reader-doodle-tools *,.jpdb-reader-btn.jpdb-reader-doodle-control{touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}html.jpdb-reader-doodle-active,html.jpdb-reader-doodle-active body,html.jpdb-reader-doodle-active *{user-select:none!important;-webkit-user-select:none!important;-webkit-touch-callout:none!important;-webkit-tap-highlight-color:transparent!important}.jpdb-reader-kanjivg-svg{width:90%;max-height:90%}.jpdb-reader-kanjivg-strokes path{fill:none;stroke:#141820;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-kanjivg-numbers{fill:#6b7280;font-size:8px;font-family:var(--jpdb-reader-font)}.jpdb-reader-kanjivg .jpdb-reader-help{color:#3d4654}.jpdb-reader-doodle-text-ghost{color:#141820;font-family:Hiragino Sans,Hiragino Kaku Gothic ProN,Yu Gothic,Meiryo,sans-serif;font-size:180px;font-weight:500;line-height:1}.jpdb-reader-doodle-tools{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:7px}.jpdb-reader-kanjivg>.jpdb-reader-doodle-tools{margin-bottom:12px}.jpdb-reader-kanjivg>.jpdb-reader-newtab-doodle-result{margin:0 auto 12px}.jpdb-reader-kanjivg.jpdb-reader-doodle-pass .jpdb-reader-newtab-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 16%,var(--jpdb-reader-surface, #20242b))}.jpdb-reader-kanjivg.jpdb-reader-doodle-fail .jpdb-reader-newtab-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 16%,var(--jpdb-reader-surface, #20242b))}.jpdb-reader-btn.jpdb-reader-doodle-control{min-height:28px;max-height:30px;padding:4px 9px;border-radius:7px;font:800 12px/1 var(--jpdb-reader-font)}.jpdb-reader-popover:has(.jpdb-reader-popover-body){display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;padding:0}.jpdb-reader-popover-body{min-height:0;overflow:auto;overflow-anchor:none;padding:14px;overscroll-behavior:contain;scrollbar-gutter:stable}.jpdb-reader-actions{position:relative;z-index:4;container-type:inline-size;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:6px 14px 15px;display:grid;gap:6px;--jpdb-reader-actions-bg: color-mix(in srgb, var(--jpdb-reader-bg) 90%, black 10%);background:var(--jpdb-reader-actions-bg);box-shadow:0 -1px 0 var(--jpdb-reader-actions-bg)}.jpdb-reader-row{display:grid;grid-template-columns:repeat(var(--cols, 3),minmax(0,1fr));gap:10px}.jpdb-reader-mining-details{position:relative;display:grid;gap:0;min-width:0}.jpdb-reader-mining-panel{display:grid;gap:6px;min-width:0}.jpdb-reader-mining-title{position:static;justify-content:center;padding-inline:10px}.jpdb-reader-mining-title:hover,.jpdb-reader-mining-title:focus-visible{color:var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-actions-has-mining{position:relative;padding-top:31px}.jpdb-reader-actions-gutter{position:absolute;top:1px;right:10px;left:10px;height:30px;display:flex;justify-content:center;align-items:center;cursor:grab;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none}.jpdb-reader-actions-gutter[hidden]{display:none!important}.jpdb-reader-actions-gutter:active,.jpdb-reader-mining-drawer-dragging .jpdb-reader-actions-gutter{cursor:grabbing}.jpdb-reader-mining-collapse{display:inline-flex;align-items:center;justify-content:center;width:72px;height:30px;min-width:72px;min-height:30px;border:0;border-radius:999px;background:transparent;color:var(--jpdb-reader-muted);cursor:pointer;padding:0;pointer-events:auto;-webkit-tap-highlight-color:transparent}.jpdb-reader-mining-collapse:before{content:"";display:block;width:42px;height:5px;border-radius:999px;background:var(--jpdb-reader-faint)}.jpdb-reader-mining-collapse:hover,.jpdb-reader-mining-collapse:focus-visible{outline:none}.jpdb-reader-mining-collapse:hover:before,.jpdb-reader-mining-collapse:focus-visible:before{background:var(--jpdb-reader-accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--jpdb-reader-accent) 12%,transparent)}.jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse:before{width:48px;background:color-mix(in srgb,var(--jpdb-reader-accent) 74%,var(--jpdb-reader-faint))}.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-panel,.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-details{display:none}.jpdb-reader-mining-action-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:12px;padding:0}.jpdb-reader-kanji-mining-row{grid-template-columns:repeat(var(--cols, 3),minmax(0,1fr))}.jpdb-reader-add-deck-select{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.jpdb-reader-add-deck-select-open{position:static;width:100%;min-width:0;height:34px;margin-top:6px;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);opacity:1;pointer-events:auto;font:750 12px/1 var(--jpdb-reader-font)}.jpdb-reader-grades{grid-template-columns:repeat(5,minmax(24px,1fr))}.jpdb-reader-mining-action-row .jpdb-reader-btn{min-width:0;min-height:48px;padding-inline:clamp(6px,1.8cqi,10px);font-size:clamp(10.5px,3cqi,13px);letter-spacing:0;line-height:1.05;white-space:nowrap;overflow-wrap:normal}.jpdb-reader-grades .jpdb-reader-btn{min-width:0;min-height:48px;padding-inline:clamp(2px,1cqi,6px);font-size:clamp(9.3px,2.55cqi,11px);letter-spacing:0;line-height:1.05;white-space:nowrap;overflow-wrap:normal}.jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:color-mix(in srgb,var(--jpdb-reader-surface) 90%,currentColor 7%);color:var(--jpdb-reader-text);cursor:pointer;font:750 13px/1 var(--jpdb-reader-font);text-align:center;text-decoration:none;white-space:nowrap;box-shadow:inset 0 1px #ffffff08;transform:none;transition:background .14s ease,border-color .14s ease,box-shadow .14s ease,transform .12s ease;-webkit-tap-highlight-color:transparent}.jpdb-reader-btn:focus-visible:not(:disabled){border-color:color-mix(in srgb,var(--button-accent, var(--jpdb-reader-accent)) 70%,var(--jpdb-reader-border));outline:2px solid color-mix(in srgb,var(--button-accent, var(--jpdb-reader-accent)) 44%,transparent);outline-offset:2px}@media (hover: hover) and (pointer: fine){.jpdb-reader-btn:hover:not(:disabled){background:color-mix(in srgb,var(--jpdb-reader-surface) 84%,var(--button-accent, currentColor) 16%);box-shadow:inset 0 1px #ffffff0d,0 6px 14px #00000029;transform:translateY(-.12rem)}}.jpdb-reader-btn:active:not(:disabled){transform:scale(.98)}.jpdb-reader-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}.jpdb-reader-btn.primary{color:var(--jpdb-reader-accent-readable);border-color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--jpdb-reader-accent) 14%)}.jpdb-reader-btn.add{--button-accent: var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable)!important}.jpdb-reader-btn.nf{--button-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-btn.nf.danger{--button-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-btn.blacklist{--button-accent: var(--jpdb-reader-state-ignored, #b8a7ff)}.jpdb-reader-btn.anki{--button-accent: var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-btn.nothing,.jpdb-reader-btn.fail,.jpdb-reader-btn.something{--button-accent: var(--jpdb-reader-state-failed, #ff6b6b)}.jpdb-reader-btn.hard{--button-accent: var(--jpdb-reader-state-due, #ffb454)}.jpdb-reader-btn.okay,.jpdb-reader-btn.pass{--button-accent: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-btn.easy{--button-accent: var(--jpdb-reader-state-new, #5aa9ff)}.jpdb-reader-btn:is(.add,.nf,.blacklist,.anki,.nothing,.something,.hard,.okay,.easy,.fail,.pass){color:var(--jpdb-reader-text);border-color:color-mix(in srgb,var(--button-accent, var(--jpdb-reader-border)) 54%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-surface) 94%,var(--button-accent, var(--jpdb-reader-border)) 6%)}@container (max-width: 430px){.jpdb-reader-mining-action-row{gap:6px}.jpdb-reader-mining-action-row .jpdb-reader-btn,.jpdb-reader-grades .jpdb-reader-btn{min-height:44px}.jpdb-reader-mining-action-row .jpdb-reader-btn{font-size:clamp(10px,2.85cqi,11.5px)}.jpdb-reader-grades .jpdb-reader-btn{padding-inline:clamp(1px,.75cqi,4px);font-size:clamp(8.8px,2.4cqi,10.4px)}}@container (max-width: 340px){.jpdb-reader-actions{padding:6px 10px 15px;gap:6px}.jpdb-reader-actions-has-mining{padding-top:29px}.jpdb-reader-actions-gutter{top:1px;right:8px;left:8px;height:28px}.jpdb-reader-mining-collapse{width:64px;height:28px;min-width:64px;min-height:28px}.jpdb-reader-mining-collapse:before{width:38px}.jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse:before{width:44px}.jpdb-reader-row,.jpdb-reader-mining-action-row{gap:3px}.jpdb-reader-mining-action-row .jpdb-reader-btn{min-height:38px;padding-inline:3px;border-radius:8px;font-size:9.5px}.jpdb-reader-grades .jpdb-reader-btn{min-height:38px;padding-inline:1px;border-radius:8px;font-size:8.8px}}@container (max-width: 300px){.jpdb-reader-actions{padding-inline:8px}.jpdb-reader-row,.jpdb-reader-mining-action-row{gap:2px}.jpdb-reader-grades{grid-template-columns:repeat(3,minmax(24px,1fr))}.jpdb-reader-mining-action-row .jpdb-reader-btn{font-size:8.8px}.jpdb-reader-grades .jpdb-reader-btn{padding-inline:0;font-size:8.2px}}.jpdb-reader-pitch svg{display:block;height:42px;max-width:128px}.jpdb-reader-pitch text{fill:var(--jpdb-reader-text);font-size:11px}.jpdb-reader-pitch polyline{fill:none;stroke:currentColor;stroke-width:2}.jpdb-reader-pitch circle{fill:currentColor}.jpdb-reader-pitch .heiban{color:#359eff}.jpdb-reader-pitch .atamadaka{color:#fe4b74}.jpdb-reader-pitch .nakadaka{color:#fba840}.jpdb-reader-pitch .odaka{color:#57ccb7}.jpdb-reader-pitch .kifuku{color:#9050f6}.yomu-jpdb-uchisen-source[open]>:last-child{display:grid;gap:10px}.yomu-jpdb-uchisen-body{display:grid;gap:10px;justify-items:center;text-align:center}.yomu-jpdb-source-meta,.yomu-jpdb-counter{color:var(--jpdb-reader-muted);font-size:12px;font-weight:750}.yomu-jpdb-uchisen-summary-main,.yomu-jpdb-uchisen-summary-controls,.yomu-jpdb-uchisen-summary-link{display:inline-flex;align-items:center}.yomu-jpdb-uchisen-summary-main{gap:8px;min-width:0}.yomu-jpdb-uchisen-summary-controls{gap:7px;margin-left:auto}.yomu-jpdb-uchisen-summary-controls .jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important}.yomu-jpdb-uchisen-summary-link{gap:4px;color:var(--jpdb-reader-accent-readable);font-size:11px;font-weight:750;line-height:1.2;text-decoration:none;text-transform:none}.yomu-jpdb-uchisen-summary-link svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.yomu-jpdb-uchisen-summary-link:hover,.yomu-jpdb-uchisen-summary-link:focus-visible{color:var(--jpdb-reader-accent);outline:none}.yomu-jpdb-component-breakdown{display:grid;gap:8px;width:100%;text-align:left}.yomu-jpdb-component-group{display:grid;gap:5px}.yomu-jpdb-component-group-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;line-height:1.1;text-transform:uppercase}.yomu-jpdb-component-list{display:flex;flex-wrap:wrap;gap:6px}.yomu-jpdb-component-chip{display:inline-flex;align-items:baseline;gap:6px;min-width:0;padding:5px 7px;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 72%,transparent);color:var(--jpdb-reader-text);font-size:11px;font-weight:760;line-height:1.2;text-decoration:none}.yomu-jpdb-component-chip strong{font-size:16px;line-height:1}.yomu-jpdb-component-chip span{color:var(--jpdb-reader-muted)}.yomu-jpdb-component-chip:hover,.yomu-jpdb-component-chip:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text);outline:none}.yomu-jpdb-image-shell{display:grid;place-items:center;justify-self:center;width:min(100%,540px);min-height:120px;border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-bg) 72%,transparent);overflow:hidden}.yomu-jpdb-image-shell img{display:block;max-width:100%;max-height:min(260px,50vh);object-fit:contain}.yomu-jpdb-story{color:var(--jpdb-reader-text);font-size:13px;line-height:1.5}.jpdb-reader-toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483647;max-width:min(520px,calc(100vw - 24px));padding:10px 12px;border-radius:10px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);border:1px solid var(--jpdb-reader-border);box-shadow:0 10px 28px #00000040;font:13px/1.35 var(--jpdb-reader-font)}.jpdb-reader-settings{left:50%;top:50%;transform:translate(-50%,-50%);width:min(1040px,calc(100vw - 48px));max-height:min(820px,calc(100vh - 20px));max-height:min(820px,calc(100dvh - 20px));overflow:hidden;padding:0;display:flex;flex-direction:column}.jpdb-reader-settings button,.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-settings textarea,.jpdb-reader-settings fieldset,.jpdb-reader-settings legend{margin:0;letter-spacing:0}.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-settings textarea{box-shadow:none;transform:none}.jpdb-reader-settings input:hover,.jpdb-reader-settings input:focus,.jpdb-reader-settings input:active{transform:none}.jpdb-reader-settings input[type=checkbox]:before,.jpdb-reader-settings input[type=radio]:before{content:none!important}.jpdb-reader-settings-head{flex:0 0 auto;padding:18px 18px 0}.jpdb-reader-settings-drag-handle{display:none;width:min(160px,44vw);height:34px;border-radius:999px;margin:-6px auto 2px;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}.jpdb-reader-settings-drag-handle:before{content:"";display:block;width:48px;height:5px;border-radius:999px;margin:14px auto 0;background:var(--jpdb-reader-faint)}.jpdb-reader-settings-drag-handle:active{cursor:grabbing}.jpdb-reader-settings-drag-handle:focus-visible:before{background:var(--jpdb-reader-accent)}.jpdb-reader-settings-tabs{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:6px;overflow:visible;padding:0 18px 8px}.jpdb-reader-settings-tab{min-height:34px;padding:0 11px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-muted);font:800 12px/1 var(--jpdb-reader-font);cursor:pointer;white-space:nowrap;transform:translateY(-.01rem)}.jpdb-reader-settings-tab[aria-selected=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable);background:var(--jpdb-reader-accent-soft)}.jpdb-reader-settings-tab:focus-visible{border-color:var(--jpdb-reader-accent);outline:2px solid var(--jpdb-reader-accent-soft);outline-offset:2px}@media (hover: hover) and (pointer: fine){.jpdb-reader-settings-tab:hover{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent);color:var(--jpdb-reader-accent-readable);transform:translateY(-.16rem)}}@media (hover: none),(pointer: coarse){.jpdb-reader-settings-tab:hover{border-color:var(--jpdb-reader-border);background:var(--jpdb-reader-surface);color:var(--jpdb-reader-muted);box-shadow:none;transform:none}.jpdb-reader-settings-tab[aria-selected=true],.jpdb-reader-settings-tab[aria-selected=true]:hover{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable);background:var(--jpdb-reader-accent-soft)}}.jpdb-reader-settings-tab:active{transform:scale(.98)}.jpdb-reader-settings-scroll{min-height:0;overflow:auto;padding:0 18px 96px;-webkit-overflow-scrolling:touch}.jpdb-reader-settings h2{margin:0 0 12px;font-size:20px;line-height:1.45;color:var(--jpdb-reader-text)!important}.jpdb-reader-settings fieldset{border:1px solid var(--jpdb-reader-border);border-radius:8px;margin:12px 0;padding:12px}.jpdb-reader-settings legend{color:var(--jpdb-reader-muted);padding:0 6px}.jpdb-reader-settings label{display:grid;gap:5px;margin:10px 0;min-width:0;color:var(--jpdb-reader-muted)!important;font-size:11px;line-height:1.35}.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-field-display{width:100%;box-sizing:border-box;min-height:38px;border-radius:7px;border:1px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:700 12px/1.2 var(--jpdb-reader-font);height:38px;min-width:0;padding:8px}.jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:38px;padding:0 16px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:800 12px/1 var(--jpdb-reader-font);cursor:pointer;text-align:center;text-decoration:none!important}.jpdb-reader-btn:where(:link,:visited){color:var(--jpdb-reader-text)!important}.jpdb-reader-btn:hover,.jpdb-reader-btn:focus-visible{border-color:var(--button-accent, var(--jpdb-reader-accent));background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--button-accent, var(--jpdb-reader-accent)) 18%);outline:none}.jpdb-reader-btn:active{transform:scale(.98)}.jpdb-reader-btn.add{color:var(--jpdb-reader-accent-readable)!important;border-color:var(--jpdb-reader-accent)!important;background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--jpdb-reader-accent) 18%)!important}.jpdb-reader-btn.add:hover,.jpdb-reader-btn.add:focus-visible{background:color-mix(in srgb,var(--jpdb-reader-surface) 74%,var(--jpdb-reader-accent) 26%)!important;box-shadow:0 4px 12px color-mix(in srgb,var(--jpdb-reader-accent) 20%,transparent)}.jpdb-reader-field-display{min-width:0;display:flex;align-items:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;pointer-events:none}.jpdb-reader-settings input[type=color]{padding:3px;cursor:pointer}.jpdb-reader-settings input[type=checkbox],.jpdb-reader-settings input[type=radio]{-moz-appearance:none;appearance:none;-webkit-appearance:none;width:24px;height:24px;min-width:24px;min-height:24px;display:grid;place-content:center;margin:0;padding:0;border:1.5px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);box-shadow:inset 0 0 0 1px #0000000f}.jpdb-reader-settings input[type=checkbox]{border-radius:7px}.jpdb-reader-settings input[type=radio]{border-radius:999px}.jpdb-reader-settings input[type=checkbox]:checked,.jpdb-reader-settings input[type=radio]:checked{border-color:var(--jpdb-reader-accent);background:var(--jpdb-reader-accent);box-shadow:0 0 0 3px var(--jpdb-reader-accent-soft)}.jpdb-reader-settings input[type=checkbox]:checked:after{content:"";width:12px;height:7px;border-left:2.5px solid #11161d;border-bottom:2.5px solid #11161d;transform:rotate(-45deg) translate(1px,-1px)}.jpdb-reader-settings input[type=radio]:checked:after{content:"";width:10px;height:10px;border-radius:999px;background:#11161d}.jpdb-reader-settings input[type=checkbox]:focus-visible,.jpdb-reader-settings input[type=radio]:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:3px}.jpdb-reader-settings label:has(input:disabled),.jpdb-reader-settings label:has(select:disabled),.jpdb-reader-settings label:has(textarea:disabled){opacity:.55}.jpdb-reader-settings input:disabled,.jpdb-reader-settings select:disabled,.jpdb-reader-settings textarea:disabled{cursor:not-allowed}.jpdb-reader-settings input[type=file][data-file],.jpdb-reader-settings [hidden]{display:none!important}.jpdb-reader-settings .inline{display:flex;align-items:center;gap:12px;min-height:32px}.jpdb-reader-settings .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}.jpdb-reader-settings .jpdb-reader-radio-group{align-self:end;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin:10px 0;padding:0;border:0;min-width:0}.jpdb-reader-settings .jpdb-reader-radio-group legend{grid-column:1 / -1;padding:0;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}.jpdb-reader-settings .jpdb-reader-radio-group label{grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;margin:0;min-height:38px}.jpdb-reader-settings-subsection{margin:16px 0 0;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--jpdb-reader-border) 72%,transparent)}.jpdb-reader-theme-field{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-height:38px;gap:10px;margin:10px 0;color:var(--jpdb-reader-muted)!important;font-size:11px}.jpdb-reader-theme-title{min-width:0;font:750 12px/1.2 var(--jpdb-reader-font)}.jpdb-reader-settings .jpdb-reader-theme-appearance{display:flex;align-items:center;justify-content:flex-end;min-width:48px;height:22px;margin:0}.jpdb-reader-settings .jpdb-reader-theme-switch{position:relative;display:block;width:40px;min-width:40px;height:22px!important;min-height:22px!important;padding:0;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,transparent);cursor:pointer;transform:translateY(-1px)}.jpdb-reader-settings .jpdb-reader-theme-switch .check{position:absolute;top:1px;left:1px;display:grid;place-items:center;width:18px;height:18px;border-radius:999px;background:var(--jpdb-reader-bg);box-shadow:0 1px 3px #00000047}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .check{transform:translate(18px)}.jpdb-reader-settings .jpdb-reader-theme-switch .icon{position:relative;display:block;width:14px;height:14px;color:var(--jpdb-reader-muted)}.jpdb-reader-settings .jpdb-reader-theme-switch .sun,.jpdb-reader-settings .jpdb-reader-theme-switch .moon{position:absolute;top:0;right:0;bottom:0;left:0;display:grid;place-items:center;font-size:11px;line-height:1}.jpdb-reader-settings .jpdb-reader-theme-switch .sun:before{content:"☀"}.jpdb-reader-settings .jpdb-reader-theme-switch .moon:before{content:"☾"}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=false] .sun,.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .moon{opacity:0}.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .sun,.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=false] .moon{opacity:1}.jpdb-reader-settings .jpdb-reader-theme-switch:hover,.jpdb-reader-settings .jpdb-reader-theme-switch:focus-visible{border-color:var(--jpdb-reader-accent);outline:2px solid var(--jpdb-reader-accent-soft);outline-offset:3px}.jpdb-reader-shortcut-group{display:contents}.jpdb-reader-settings .footer{flex:0 0 auto;display:flex;justify-content:flex-end;gap:10px;margin:0;background:var(--jpdb-reader-bg);border-top:1px solid var(--jpdb-reader-border);padding:12px 18px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -10px 24px #0000002e}.jpdb-reader-settings .footer .jpdb-reader-btn{min-width:92px;padding-inline:18px;font-size:13px}.jpdb-reader-settings .footer .jpdb-reader-btn[data-action=cancel]{color:var(--jpdb-reader-text);border-color:var(--jpdb-reader-border);background:color-mix(in srgb,var(--jpdb-reader-surface) 92%,var(--jpdb-reader-text) 5%)}.jpdb-reader-settings a:not(.jpdb-reader-btn){color:var(--jpdb-reader-accent-readable)!important;text-decoration:underline;text-underline-offset:3px}.jpdb-reader-settings-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.jpdb-reader-settings-actions-single{display:flex;justify-content:center}.jpdb-reader-settings-actions .jpdb-reader-btn{display:inline-flex;min-width:0}.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 45%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--jpdb-reader-accent) 14%);color:var(--jpdb-reader-text)!important}.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]:hover,.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]:focus-visible{border-color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-surface) 78%,var(--jpdb-reader-accent) 22%);box-shadow:0 6px 16px color-mix(in srgb,var(--jpdb-reader-accent) 18%,transparent)}.jpdb-reader-help-card{display:grid;gap:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:14px}.jpdb-reader-help-title{color:var(--jpdb-reader-text);font-size:15px;font-weight:850}.jpdb-reader-help-card p{margin:8px 0 0;color:var(--jpdb-reader-muted);font-size:13px;line-height:1.45}.jpdb-reader-help-actions{display:flex;flex-wrap:nowrap;gap:8px;min-width:0}.jpdb-reader-help-actions .jpdb-reader-btn{flex:1 1 auto;min-width:0;min-height:42px;padding-inline:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jpdb-reader-help-actions .jpdb-reader-help-donate{border-color:var(--jpdb-reader-accent);background:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-text, #11161d)!important;box-shadow:0 6px 16px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent)}.jpdb-reader-help-actions .jpdb-reader-help-donate:hover,.jpdb-reader-help-actions .jpdb-reader-help-donate:focus-visible{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 86%,white);background:color-mix(in srgb,var(--jpdb-reader-accent) 90%,white);color:var(--jpdb-reader-accent-text, #11161d)!important;box-shadow:0 8px 20px color-mix(in srgb,var(--jpdb-reader-accent) 28%,transparent)}.jpdb-reader-help-actions .jpdb-reader-help-reset{border-color:color-mix(in srgb,#ef4444 70%,var(--jpdb-reader-border));color:color-mix(in srgb,#ef4444 78%,var(--jpdb-reader-text))!important}.jpdb-reader-help-actions .jpdb-reader-help-reset:hover,.jpdb-reader-help-actions .jpdb-reader-help-reset:focus-visible{background:color-mix(in srgb,#7f1d1d 42%,var(--jpdb-reader-surface));border-color:#ef4444;color:color-mix(in srgb,#ef4444 62%,var(--jpdb-reader-text))!important}.jpdb-reader-help-support{display:grid;gap:10px;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--jpdb-reader-border) 72%,transparent)}.jpdb-reader-help-discord{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:42px;min-width:0;padding:8px 10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;color:var(--jpdb-reader-text);background:color-mix(in srgb,var(--jpdb-reader-surface) 88%,var(--jpdb-reader-accent) 12%);font:800 12px/1.2 var(--jpdb-reader-font);text-align:center;overflow-wrap:anywhere}.jpdb-reader-dictionary-status{margin:10px 0;color:var(--jpdb-reader-muted);font-size:11px}.jpdb-reader-dictionary-priorities,.jpdb-reader-kanji-priorities,.jpdb-reader-audio-sources,.jpdb-reader-lookup-links{display:grid;gap:9px;margin:12px 0}.jpdb-reader-recommended-dictionaries{display:grid;gap:10px;margin:12px 0}.jpdb-reader-recommended-title{color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-group{display:grid;gap:7px}.jpdb-reader-recommended-group-title{color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.jpdb-reader-recommended-item{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:10px;align-items:center;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px}.jpdb-reader-recommended-item .jpdb-reader-btn{width:100%;min-height:42px;padding-inline:10px}.jpdb-reader-recommended-name{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;color:var(--jpdb-reader-text);font-weight:800;font-size:13px}.jpdb-reader-recommended-name a{font-size:11px;font-weight:700}.jpdb-reader-order-head,.jpdb-reader-order-row{display:grid;gap:10px;align-items:center;box-sizing:border-box;min-width:0}.jpdb-reader-dictionary-head,.jpdb-reader-dictionary-row,.jpdb-reader-audio-source-head,.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-head,.jpdb-reader-lookup-link-row{grid-template-columns:50px minmax(0,1fr) minmax(0,.9fr) max-content 42px}.jpdb-reader-dictionary-head.no-remove,.jpdb-reader-dictionary-row.no-remove{grid-template-columns:50px minmax(0,1fr) minmax(0,.9fr) max-content}.jpdb-reader-dictionary-head.compact,.jpdb-reader-dictionary-row.compact{grid-template-columns:50px minmax(0,1fr) max-content 42px}.jpdb-reader-dictionary-head.compact.no-remove,.jpdb-reader-dictionary-row.compact.no-remove{grid-template-columns:50px minmax(0,1fr) max-content}.jpdb-reader-order-head{padding:0 10px;color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:uppercase}.jpdb-reader-order-row{position:relative;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px;min-height:56px;width:100%}.jpdb-reader-dictionary-row-help{grid-column:2 / -1;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}.jpdb-reader-settings .jpdb-reader-dictionary-toggle{margin:0;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-audio-source-choice select,.jpdb-reader-audio-source-fields input,.jpdb-reader-audio-source-fields select{min-width:0;width:100%}.jpdb-reader-lookup-link-row input{min-width:0}.jpdb-reader-lookup-link-note{color:var(--jpdb-reader-muted);min-height:38px;display:flex;align-items:center}.jpdb-reader-lookup-link-fixed{width:34px;height:34px}.jpdb-reader-lookup-link-actions{display:flex;justify-content:flex-start;margin-top:3px}.jpdb-reader-lookup-link-actions .jpdb-reader-btn{width:auto!important;min-width:86px!important;padding-inline:16px!important}.jpdb-reader-settings .jpdb-reader-audio-index{margin:0;min-height:38px;justify-content:center;color:var(--jpdb-reader-text)}.jpdb-reader-audio-source-choice{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center;min-width:0}.jpdb-reader-audio-source-fields{display:grid;gap:6px}.jpdb-reader-row-tools{display:flex;gap:5px;justify-content:flex-end;flex-wrap:nowrap;min-width:max-content}.jpdb-reader-drag-handle{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}.jpdb-reader-drag-handle:active,.jpdb-reader-order-row-dragging .jpdb-reader-drag-handle{cursor:grabbing}.jpdb-reader-order-row-drag-pending,.jpdb-reader-order-row-dragging{user-select:none;-webkit-user-select:none}.jpdb-reader-order-row-dragging{border-color:var(--jpdb-reader-accent);box-shadow:0 14px 30px color-mix(in srgb,var(--jpdb-reader-accent) 18%,transparent);z-index:2}.jpdb-reader-icon-mini{display:inline-grid!important;place-items:center!important;width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:transparent;color:var(--jpdb-reader-text);cursor:pointer;font:800 13px/1 var(--jpdb-reader-font);transform:translateY(-.01rem)}.jpdb-reader-icon-mini svg{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.jpdb-reader-icon-mini:hover,.jpdb-reader-icon-mini:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent);color:var(--jpdb-reader-accent);transform:translateY(-.25rem);outline:none}.jpdb-reader-icon-mini:active{transform:scale(.98)}@media (min-width: 700px) and (max-width: 1180px) and (hover: hover) and (pointer: fine){.jpdb-reader-settings{width:min(860px,calc(100vw - 44px));max-height:min(820px,calc(100vh - 44px));max-height:min(820px,calc(100dvh - 44px))}.jpdb-reader-settings-head{padding:20px 22px 0}.jpdb-reader-settings-tabs{padding-inline:22px}.jpdb-reader-settings-scroll{padding:0 22px 104px}.jpdb-reader-dictionary-head,.jpdb-reader-dictionary-row,.jpdb-reader-audio-source-head,.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-head,.jpdb-reader-lookup-link-row{grid-template-columns:46px minmax(0,.95fr) minmax(0,1.1fr) max-content 42px}.jpdb-reader-dictionary-head.no-remove,.jpdb-reader-dictionary-row.no-remove{grid-template-columns:46px minmax(0,.95fr) minmax(0,1.1fr) max-content}.jpdb-reader-dictionary-head.compact,.jpdb-reader-dictionary-row.compact{grid-template-columns:46px minmax(0,1fr) max-content 42px}.jpdb-reader-dictionary-head.compact.no-remove,.jpdb-reader-dictionary-row.compact.no-remove{grid-template-columns:46px minmax(0,1fr) max-content}.jpdb-reader-recommended-item{grid-template-columns:minmax(0,1fr) minmax(112px,140px)}}@media (pointer: coarse) and (min-width: 700px){.jpdb-reader-settings{inset:auto 0 0 0;left:0;right:0;top:auto;bottom:0;transform:none;width:100%;height:var(--jpdb-reader-settings-drawer-height, 88svh);min-height:var(--jpdb-reader-settings-drawer-min-height, 280px);max-height:var(--jpdb-reader-settings-drawer-viewport-height, 100svh);border-radius:18px 18px 0 0}.jpdb-reader-settings.jpdb-reader-settings-drawer-resizing{-webkit-user-select:none;user-select:none}.jpdb-reader-settings.jpdb-reader-settings-drawer-expanded{border-radius:0}.jpdb-reader-settings-drag-handle{display:block}.jpdb-reader-settings-head{padding:8px 24px 0}.jpdb-reader-settings-tabs{padding:0 24px 10px}.jpdb-reader-settings-scroll{padding:0 24px 108px}}@media (max-width: 699px){.jpdb-reader-settings{inset:auto 0 0 0;left:0;right:0;top:auto;bottom:0;transform:none;width:100%;height:var(--jpdb-reader-settings-drawer-height, 88svh);min-height:var(--jpdb-reader-settings-drawer-min-height, 280px);max-height:var(--jpdb-reader-settings-drawer-viewport-height, 100svh);border-radius:16px 16px 0 0}.jpdb-reader-settings.jpdb-reader-settings-drawer-resizing{-webkit-user-select:none;user-select:none}.jpdb-reader-settings.jpdb-reader-settings-drawer-expanded{border-radius:0}.jpdb-reader-settings-drag-handle{display:block}.jpdb-reader-settings-head{padding:8px 14px 0}.jpdb-reader-settings-tabs{padding:0 14px 8px}.jpdb-reader-settings-scroll{padding:0 14px 100px}.jpdb-reader-settings fieldset{margin:10px 0;padding:11px}.jpdb-reader-settings .grid,.jpdb-reader-settings-actions,.jpdb-reader-template-preview-grid,.jpdb-reader-recommended-item{grid-template-columns:1fr}.jpdb-reader-help-actions{gap:6px}.jpdb-reader-help-actions .jpdb-reader-btn{min-height:40px;padding-inline:6px;font-size:11px}.jpdb-reader-order-head{display:none}.jpdb-reader-dictionary-row,.jpdb-reader-dictionary-row.compact,.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-row{grid-template-columns:42px minmax(0,1fr) 42px;align-items:center;gap:8px}.jpdb-reader-dictionary-row>.jpdb-reader-order-toggle,.jpdb-reader-audio-source-row>.jpdb-reader-order-toggle,.jpdb-reader-lookup-link-row>.jpdb-reader-order-toggle{grid-column:1;grid-row:1}.jpdb-reader-dictionary-row>.jpdb-reader-field-display,.jpdb-reader-audio-source-choice,.jpdb-reader-lookup-link-row>input[name$=".label"]{grid-column:2 / -1;grid-row:1}.jpdb-reader-dictionary-row>input[name$=".alias"],.jpdb-reader-dictionary-row>.jpdb-reader-field-display[aria-label="Display name"],.jpdb-reader-audio-source-fields,.jpdb-reader-lookup-link-row>input[name$=".urlTemplate"],.jpdb-reader-lookup-link-note{grid-column:2 / -1;grid-row:2}.jpdb-reader-row-order-tools{grid-column:2;grid-row:3;justify-content:flex-start;min-width:0}.jpdb-reader-row-remove-tools{grid-column:3;grid-row:3;align-self:start;justify-content:flex-end}.jpdb-reader-audio-source-row .jpdb-reader-row-tools{grid-column:auto;justify-content:flex-start;flex-wrap:nowrap;min-width:0}.jpdb-reader-audio-source-row .jpdb-reader-row-order-tools,.jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools{grid-column:2;grid-row:3}.jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools,.jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools{grid-column:3;grid-row:3}.jpdb-reader-audio-source-row .jpdb-reader-icon-mini{width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important}.jpdb-reader-lookup-link-row .jpdb-reader-row-tools{justify-content:flex-start}.jpdb-reader-dictionary-row-help{grid-column:1 / -1}.jpdb-reader-settings .footer{justify-content:stretch;gap:12px;padding:12px 14px calc(14px + env(safe-area-inset-bottom))}.jpdb-reader-settings .footer .jpdb-reader-btn{flex:1 1 0;min-width:0}}.jpdb-reader-icon-mini[data-immersion-action=previous],.jpdb-reader-icon-mini[data-immersion-action=next],.jpdb-reader-icon-mini[data-yomu-immersion-action=previous],.jpdb-reader-icon-mini[data-yomu-immersion-action=next],.jpdb-reader-icon-mini[data-uchisen-action=previous],.jpdb-reader-icon-mini[data-uchisen-action=next],.jpdb-reader-icon-mini[data-action=kanji-prev],.jpdb-reader-icon-mini[data-action=kanji-next]{font-size:19px;line-height:0;padding-bottom:2px!important}.jpdb-subtitle-player{position:fixed;left:0;bottom:0;width:100%;height:100%;z-index:2147483644;pointer-events:none;--subtitle-font-size-target: 28px;--subtitle-font-size: var(--subtitle-font-size-target);--subtitle-bottom: 12%;--subtitle-color: #fff;--subtitle-outline: #000;--subtitle-background-rgba: transparent;--subtitle-family: var(--jpdb-reader-font);--subtitle-weight: 760}.jpdb-subtitle-text{position:absolute;left:14px;right:14px;bottom:var(--subtitle-bottom);color:var(--subtitle-color);text-align:center;font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);white-space:pre-wrap;overflow-wrap:anywhere;word-break:keep-all;max-height:min(45%,calc(100% - 24px));overflow:hidden;pointer-events:auto;-webkit-tap-highlight-color:transparent}.jpdb-subtitle-status{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.jpdb-subtitle-primary{display:inline;padding:0 .06em;border-radius:3px;background:var(--subtitle-background-rgba);box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone;line-height:1.58;overflow-wrap:normal;word-break:keep-all;-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-secondary{display:block;width:fit-content;max-width:100%;margin-top:8px;margin-left:auto;margin-right:auto;padding:0;border:0!important;background:transparent!important;color:#ffffffd1;font-size:.62em;font-family:inherit;font-weight:650;line-height:1.25;min-height:24px;text-shadow:0 2px 2px #000,0 0 7px rgba(0,0,0,.86);cursor:pointer;white-space:pre-wrap;overflow-wrap:anywhere}.jpdb-subtitle-secondary-blurred{filter:blur(5px);opacity:.8}.jpdb-subtitle-secondary-blurred:hover,.jpdb-subtitle-secondary-blurred:focus-visible{filter:none;opacity:1}.jpdb-subtitle-karaoke-word{display:inline;border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone}.jpdb-subtitle-word-pending{opacity:.42}.jpdb-subtitle-word-spoken,.jpdb-subtitle-word-current{opacity:1;color:var(--subtitle-color)}.jpdb-subtitle-word-spoken{color:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 58%,var(--subtitle-color));text-decoration-line:underline;text-decoration-color:var(--jpdb-reader-accent, #5ea780);text-decoration-thickness:.09em;text-underline-offset:.16em}.jpdb-subtitle-word-current{text-decoration-line:underline;text-decoration-color:var(--subtitle-color);text-decoration-thickness:.1em;text-underline-offset:.16em}.jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-subtitle-fallback: var(--subtitle-color);background:transparent!important;color:var(--subtitle-color)!important;--jpdb-reader-word-underline: transparent;text-decoration-line:none!important;text-decoration-style:solid!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important;text-decoration-thickness:.08em!important;text-underline-offset:.15em!important;white-space:nowrap;text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}.jpdb-subtitle-primary .jpdb-reader-word:hover,.jpdb-subtitle-primary .jpdb-reader-word:focus-visible{background:#ffffff24!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-has-furi{line-height:1.48}.jpdb-reader-subtitle-highlight-status{--jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-status-soft, transparent)}.jpdb-reader-subtitle-highlight-jpdb{--jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-jpdb-soft, transparent)}.jpdb-reader-subtitle-highlight-anki{--jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-anki-soft, transparent)}.jpdb-reader-subtitle-highlight-pitch{--jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-pitch-soft, transparent)}.jpdb-reader-subtitle-underline-status{--jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-status-decoration, transparent)}.jpdb-reader-subtitle-underline-jpdb{--jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent)}.jpdb-reader-subtitle-underline-anki{--jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-anki-decoration, transparent)}.jpdb-reader-subtitle-underline-pitch{--jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-pitch-decoration, transparent)}.jpdb-reader-subtitle-text-status{--jpdb-reader-subtitle-text: var(--jpdb-reader-source-status-color, var(--jpdb-reader-subtitle-fallback, currentColor))}.jpdb-reader-subtitle-text-jpdb{--jpdb-reader-subtitle-text: var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-subtitle-fallback, currentColor))}.jpdb-reader-subtitle-text-anki{--jpdb-reader-subtitle-text: var(--jpdb-reader-source-anki-color, var(--jpdb-reader-subtitle-fallback, currentColor))}.jpdb-reader-subtitle-text-pitch{--jpdb-reader-subtitle-text: var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-subtitle-fallback, currentColor))}:is(.jpdb-reader-subtitle-highlight-status,.jpdb-reader-subtitle-highlight-jpdb,.jpdb-reader-subtitle-highlight-anki,.jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-subtitle-highlight, transparent)!important}:is(.jpdb-reader-subtitle-underline-status,.jpdb-reader-subtitle-underline-jpdb,.jpdb-reader-subtitle-underline-anki,.jpdb-reader-subtitle-underline-pitch) :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-subtitle-decoration, transparent);text-decoration-line:underline!important}:is(.jpdb-reader-subtitle-text-status,.jpdb-reader-subtitle-text-jpdb,.jpdb-reader-subtitle-text-anki,.jpdb-reader-subtitle-text-pitch) :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor))!important}.jpdb-reader-subtitle-highlight-status :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}.jpdb-reader-subtitle-highlight-jpdb :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}.jpdb-reader-subtitle-highlight-anki :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-anki :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);text-decoration-line:underline!important}.jpdb-reader-subtitle-text-status :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, var(--jpdb-reader-subtitle-fallback, currentColor))!important}.jpdb-reader-subtitle-text-jpdb :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-subtitle-fallback, currentColor))!important}.jpdb-reader-subtitle-text-anki :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, var(--jpdb-reader-subtitle-fallback, currentColor))!important}.jpdb-reader-subtitle-text-pitch :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-subtitle-fallback, currentColor))!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending{opacity:.42}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken{opacity:1;--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, var(--jpdb-reader-accent, #5ea780));text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, var(--jpdb-reader-accent, #5ea780))!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-current{opacity:1;text-decoration-line:underline!important;text-decoration-color:var(--subtitle-color)!important}.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending{filter:saturate(.72)}.jpdb-subtitle-primary .jpdb-reader-furi{color:currentColor;opacity:.82;text-shadow:0 1px 1px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 7px rgba(0,0,0,.86)}.jpdb-subtitle-primary-loading{opacity:.78;color:currentColor}.jpdb-reader-subtitle-preview{min-height:94px;padding:18px 10px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:linear-gradient(135deg,rgba(255,255,255,.1) 25%,transparent 25% 50%,rgba(255,255,255,.1) 50% 75%,transparent 75%) 0 0 / 28px 28px,#1c222b;display:grid;place-items:center;text-align:center;overflow:hidden;color:var(--subtitle-color);font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.86)}.jpdb-reader-subtitle-preview .jpdb-subtitle-primary{display:inline}.jpdb-reader-subtitle-preview .jpdb-reader-word{--jpdb-reader-source-status-color: var(--jpdb-reader-status-color, var(--subtitle-color));--jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);--jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-color, var(--subtitle-color));--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-jpdb-color, transparent);--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-color, var(--subtitle-color));--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, transparent)}.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-new,.jpdb-suspended,.jpdb-not-in-deck){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-status-color: var(--jpdb-reader-state-new, #58a6ff)}.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-learning{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-status-color: var(--jpdb-reader-state-learning, #ffd166)}.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-known,.jpdb-never-forget,.jpdb-redundant){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f)}.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-due{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-status-color: var(--jpdb-reader-state-due, #5fb3b3)}.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-heiban{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff)}.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-atamadaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74)}.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-nakadaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840)}.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-odaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7)}.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-status .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-pitch .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, var(--subtitle-color))!important}.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-status .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important}.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important}.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important}.jpdb-subtitle-rail{position:absolute;right:max(10px,env(safe-area-inset-right));top:10px;display:flex;align-items:center;gap:4px;max-width:calc(100% - 20px);padding:4px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);box-shadow:0 12px 30px #00000038;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);pointer-events:auto;opacity:.78}.jpdb-subtitle-controls-hidden .jpdb-subtitle-menu,.jpdb-subtitle-controls-hidden .jpdb-subtitle-list{display:none!important}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail{opacity:0;pointer-events:none}.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:hover,.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:focus-within{opacity:1}.jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:.72}.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:0;pointer-events:none}.jpdb-subtitle-controls-always .jpdb-subtitle-rail,.jpdb-subtitle-rail:hover,.jpdb-subtitle-menu-open .jpdb-subtitle-rail,.jpdb-subtitle-panel-open .jpdb-subtitle-rail{opacity:1}.jpdb-subtitle-rail button,.jpdb-subtitle-menu button,.jpdb-subtitle-list button{border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);color:var(--jpdb-reader-text, #fff);box-shadow:none;font:700 12px/1 var(--jpdb-reader-font);pointer-events:auto}.jpdb-subtitle-rail button{display:inline-grid;place-items:center;min-width:34px;width:34px;max-width:34px;min-height:34px;height:34px;max-height:34px;padding:0;flex:0 0 auto;white-space:nowrap}.jpdb-subtitle-rail button[data-action=previous],.jpdb-subtitle-rail button[data-action=next]{font-size:19px;line-height:0;padding-bottom:2px}.jpdb-subtitle-panel-toggle{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 50%,var(--jpdb-reader-border, rgba(255,255,255,.22)))!important;background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))!important}.jpdb-subtitle-icon{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.jpdb-subtitle-panel-toggle[aria-pressed=false]{color:var(--jpdb-reader-muted, rgba(255,255,255,.72));border-color:var(--jpdb-reader-border, rgba(255,255,255,.18))!important;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent)!important}.jpdb-subtitle-rail button[hidden],.jpdb-subtitle-menu button[hidden]{display:none!important}.jpdb-subtitle-rail button:disabled{opacity:.45}.jpdb-subtitle-compact-video .jpdb-subtitle-rail{top:8px;right:8px;gap:3px;padding:3px}.jpdb-subtitle-compact-video .jpdb-subtitle-rail button{min-width:32px;width:32px;max-width:32px;min-height:32px;height:32px;max-height:32px}.jpdb-subtitle-menu{position:absolute;right:max(10px,env(safe-area-inset-right));top:50px;display:grid;gap:6px;width:min(230px,calc(100vw - 24px));padding:8px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.18));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 92%,transparent);box-shadow:0 14px 34px #00000047;pointer-events:auto}.jpdb-subtitle-menu[hidden],.jpdb-subtitle-list[hidden]{display:none}.jpdb-subtitle-menu-head{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:30px;padding:0 0 2px;color:var(--jpdb-reader-muted, rgba(255,255,255,.78));font:800 12px/1 var(--jpdb-reader-font)}.jpdb-subtitle-menu button{min-height:36px;text-align:left;padding:0 10px;box-shadow:none}.jpdb-subtitle-menu button[aria-pressed=true],.jpdb-subtitle-track-row button[aria-pressed=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}.jpdb-subtitle-list{position:fixed;right:max(12px,env(safe-area-inset-right));top:72px;width:min(460px,calc(100vw - 24px));height:min(78vh,860px);max-height:calc(100vh - 24px);overflow:hidden;display:grid;grid-template-rows:auto minmax(0,1fr);border:1px solid color-mix(in srgb,var(--jpdb-reader-border, rgba(255,255,255,.18)) 88%,rgba(255,255,255,.1));border-radius:22px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 94%,rgba(255,255,255,.06));color:var(--jpdb-reader-text, #fff);box-shadow:0 24px 56px #00000052;pointer-events:auto;backdrop-filter:blur(18px) saturate(1.08);-webkit-backdrop-filter:blur(18px) saturate(1.08);transform:translateZ(0)}html.jpdb-subtitle-yomu-captions-active .ytp-caption-window-container,html.jpdb-subtitle-yomu-captions-active .caption-window,html.jpdb-subtitle-yomu-captions-active .ytp-caption-segment,html.jpdb-subtitle-fullscreen .jpdb-subtitle-list,html.jpdb-subtitle-fullscreen .jpdb-reader-fab{display:none!important}.jpdb-subtitle-resize{position:absolute;z-index:2;min-width:24px;min-height:24px;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;touch-action:none}.jpdb-subtitle-resize:after{content:"";position:absolute;border-radius:999px;background:#ffffff38;opacity:0}.jpdb-subtitle-resize:hover:after,.jpdb-subtitle-resize:focus-visible:after{background:var(--jpdb-reader-accent);opacity:.88}.jpdb-subtitle-transcript-right .jpdb-subtitle-resize{left:-12px;top:0;bottom:0;width:24px;cursor:ew-resize}.jpdb-subtitle-transcript-left .jpdb-subtitle-resize{right:-12px;top:0;bottom:0;width:24px;cursor:ew-resize}.jpdb-subtitle-transcript-right .jpdb-subtitle-resize:after,.jpdb-subtitle-transcript-left .jpdb-subtitle-resize:after{top:16px;bottom:16px;left:11px;width:2px}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize{left:0;right:0;top:-12px;height:24px;cursor:ns-resize}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize:after{left:16px;right:16px;top:11px;height:2px}.jpdb-subtitle-drawer-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:12px;padding:14px 14px 12px;border-bottom:1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 76%,transparent)}.jpdb-subtitle-drawer-brand{display:grid;gap:4px;min-width:0}.jpdb-subtitle-drawer-title{min-width:0;color:var(--jpdb-reader-text, #fff);font:800 15px/1.2 var(--jpdb-reader-font);letter-spacing:.01em}.jpdb-subtitle-drawer-meta{min-width:0;color:var(--jpdb-reader-muted, rgba(255,255,255,.78));font:700 11px/1.35 var(--jpdb-reader-font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.jpdb-subtitle-drawer-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}.jpdb-subtitle-drawer-close{display:inline-grid;place-items:center;min-width:34px;width:34px;min-height:34px;height:34px;padding:0!important;border-radius:12px!important}.jpdb-subtitle-drawer-close svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.jpdb-subtitle-panel-mode{justify-self:start;width:max-content;display:inline-flex;flex:0 0 auto;align-items:center;gap:2px;padding:2px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:12px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent)}.jpdb-subtitle-panel-mode button{min-height:30px;padding:0 11px;border:0;border-radius:10px;background:transparent;text-align:center;box-shadow:none;font-size:11px;font-weight:700}.jpdb-subtitle-panel-mode button[aria-pressed=true]{color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}.jpdb-subtitle-panel-mode button:disabled{opacity:.42}.jpdb-subtitle-panel-nav{justify-self:start;width:max-content;display:inline-flex;flex:0 0 auto;align-items:center;gap:2px;padding:2px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:12px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent)}.jpdb-subtitle-panel-nav button{display:inline-grid;place-items:center;min-width:32px;width:32px;min-height:32px;height:32px;padding:0 0 2px;border:0;border-radius:10px;background:transparent;text-align:center;box-shadow:none;font-size:19px;line-height:0}.jpdb-subtitle-panel-nav button:disabled{opacity:.38}.jpdb-subtitle-list-scroll{min-height:0;overflow-y:auto;overflow-x:hidden;display:grid;align-content:start;grid-auto-rows:max-content;gap:4px;padding:8px 10px 12px;overscroll-behavior:contain}.jpdb-subtitle-list-row{display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:start;gap:10px;min-height:76px;padding:16px 18px;border:0;border-bottom:1px solid var(--jpdb-reader-border, rgba(255,255,255,.15));border-radius:0;background:transparent;cursor:pointer}.jpdb-subtitle-row-body{min-width:0;display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:6px;width:100%;min-height:42px;padding:0;text-align:left;border:0!important;background:transparent!important;box-shadow:none!important}.jpdb-subtitle-row-tools{align-self:start;display:grid;grid-template-columns:30px auto;align-items:center;gap:12px;color:var(--jpdb-reader-muted, rgba(255,255,255,.82))}.jpdb-subtitle-row-copy{display:inline-grid;place-items:center;min-width:30px;width:30px;min-height:30px;height:30px;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--jpdb-reader-muted, rgba(255,255,255,.82))!important}.jpdb-subtitle-list-row.active{border-color:var(--jpdb-reader-border, rgba(255,255,255,.16));background:color-mix(in srgb,var(--jpdb-reader-accent) 14%,transparent);box-shadow:inset 2px 0 0 var(--jpdb-reader-accent)}.jpdb-subtitle-list .jpdb-reader-word{color:inherit!important}.jpdb-subtitle-row-time{color:var(--jpdb-reader-muted, rgba(255,255,255,.82));font-size:16px;line-height:1.2;font-weight:760;white-space:nowrap}.jpdb-subtitle-row-text{min-width:0;max-width:100%;grid-column:1;color:var(--jpdb-reader-text, #fff);overflow-wrap:anywhere;word-break:break-word;white-space:normal;font-weight:600;line-height:1.45;font-size:22px;letter-spacing:0;text-shadow:0 1px 1px rgba(0,0,0,.38)}.jpdb-subtitle-row-text .jpdb-reader-word{--jpdb-reader-subtitle-fallback: var(--jpdb-reader-text, #fff);color:inherit;background:transparent;text-decoration-color:var(--jpdb-reader-word-underline, currentColor);text-decoration-thickness:.08em;text-underline-offset:.16em;border-radius:4px;padding:0 1px;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;box-decoration-break:clone;-webkit-box-decoration-break:clone}.jpdb-subtitle-list .jpdb-subtitle-row-text .jpdb-reader-word,.jpdb-subtitle-list .jpdb-subtitle-row-text .jpdb-reader-word ruby{color:inherit!important}.jpdb-subtitle-row-text ruby,.jpdb-subtitle-row-text rt,.jpdb-subtitle-row-text .jpdb-reader-furi{white-space:normal!important}.jpdb-subtitle-row-text .jpdb-reader-word:hover,.jpdb-subtitle-row-text .jpdb-reader-word:focus-visible{background:var(--jpdb-reader-hover, rgba(255,255,255,.14));outline:1px solid var(--jpdb-reader-border, rgba(255,255,255,.28))}.jpdb-subtitle-row-translation{grid-column:1;min-width:0;margin-top:3px;color:var(--jpdb-reader-muted, rgba(255,255,255,.68));overflow-wrap:anywhere;font-style:normal;font-weight:650;line-height:1.4}.jpdb-subtitle-tracks-panel .jpdb-subtitle-list-scroll{align-content:start}.jpdb-subtitle-track-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;padding:7px 8px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:transparent}.jpdb-subtitle-track-row.active{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 68%,var(--jpdb-reader-border, rgba(255,255,255,.14)));background:color-mix(in srgb,var(--jpdb-reader-accent) 14%,transparent)}.jpdb-subtitle-track-row strong{min-width:0;overflow-wrap:anywhere;font-size:11px;line-height:1.2}.jpdb-subtitle-track-title{grid-column:1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}.jpdb-subtitle-track-title span{padding:1px 5px;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);color:var(--jpdb-reader-muted, rgba(255,255,255,.72));font-size:8px;text-transform:uppercase}.jpdb-subtitle-track-row span{grid-column:1;color:var(--jpdb-reader-faint, rgba(255,255,255,.62));font-size:9px;font-weight:700}.jpdb-subtitle-track-actions{grid-column:2;grid-row:1 / span 2;align-self:center;display:flex;gap:5px}.jpdb-subtitle-track-row button{min-height:26px;padding-inline:9px;text-align:center;box-shadow:none;font-size:10px}.jpdb-subtitle-track-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:8px;margin-bottom:4px}.jpdb-subtitle-track-tools button{display:inline-flex;align-items:center;justify-content:center;min-width:0;min-height:36px;padding:0 10px;text-align:center;line-height:1.2;white-space:normal;overflow-wrap:anywhere;box-shadow:none}.jpdb-subtitle-track-summary{margin:0 0 3px;padding:5px 7px;border:1px dashed var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:8px;color:var(--jpdb-reader-muted, rgba(255,255,255,.72));background:transparent;font:750 11px/1.3 var(--jpdb-reader-font)}.jpdb-subtitle-list-empty{padding:12px;color:var(--jpdb-reader-muted, rgba(255,255,255,.72));font:700 12px/1.35 var(--jpdb-reader-font)}.jpdb-subtitle-hidden .jpdb-subtitle-text{display:none}@media (max-width: 768px),(pointer: coarse){.jpdb-reader-btn{min-height:44px;font-size:13px}.jpdb-reader-onboarding{inset:auto 0 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0;padding:54px 20px calc(24px + env(safe-area-inset-bottom))}.jpdb-reader-onboarding-close{top:12px;right:16px}.jpdb-reader-onboarding-grid{grid-template-columns:1fr}.jpdb-reader-onboarding-actions{display:grid;grid-template-columns:1fr}.jpdb-ocr-line{min-width:0;min-height:0;border-radius:8px}.jpdb-subtitle-text{left:8px;right:8px;font-size:min(var(--subtitle-font-size),8vw)}.jpdb-subtitle-rail{top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));bottom:auto;gap:3px}.jpdb-subtitle-rail button{height:34px;min-height:34px;max-height:34px;min-width:34px;width:34px;max-width:34px;padding:0;font-size:11px}.jpdb-subtitle-menu{top:calc(52px + env(safe-area-inset-top));right:8px;bottom:auto}.jpdb-subtitle-transcript-bottom .jpdb-subtitle-list{left:10px!important;right:auto!important;width:calc(100vw - 20px)!important;border-radius:20px 20px 16px 16px}}@media (max-width: 519px){.jpdb-subtitle-list{left:10px!important;right:auto!important;width:calc(100vw - 20px)!important;border-radius:20px 20px 16px 16px}}';
   const READER_CSS = readerCss;
-  const log$5 = Logger.scope("HanabiraGrammar");
-  const HANABIRA_RAW_BASE = "https://raw.githubusercontent.com/tristcoil/hanabira.org/main/backend/express/json_data";
-  const HANABIRA_GRAMMAR_FILES = ["N5", "N4", "N3", "N2", "N1"].map((level) => `grammar_ja_JLPT_${level}_0001.json`);
-  const HANABIRA_CACHE_KEY = "yomu.hanabiraGrammarIndex.v1";
-  const HANABIRA_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1e3;
-  const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const ROMAN_PLACEHOLDER_RE = /\b(?:A|B|Noun\d*|Nouns?|Verb|Verbs?|Adjective|Adjectives?|い-Adjective|な-Adjective|i-Adjective|na-Adjective|casual|plain|dictionary|form|stem|te|ta|ru|negative|volitional)\b/gi;
-  let grammarIndexPromise;
-  async function detectHanabiraGrammarHints(sentence) {
-    const index = await loadHanabiraGrammarIndex();
-    return detectHanabiraGrammarHintsFromIndex(sentence, index);
-  }
-  async function loadHanabiraGrammarIndex() {
-    if (grammarIndexPromise) return grammarIndexPromise;
-    grammarIndexPromise = loadHanabiraGrammarIndexUncached().catch((error) => {
-      grammarIndexPromise = void 0;
-      throw error;
-    });
-    return grammarIndexPromise;
-  }
-  function detectHanabiraGrammarHintsFromIndex(sentence, index) {
-    const normalized = normalizeGrammarText(sentence);
-    if (!normalized) return [];
-    const ranked = [];
-    for (const item of index) {
-      const hint = grammarHintFromIndexItem(normalized, item);
-      if (hint) ranked.push(hint);
-    }
-    return ranked.sort(compareGrammarHints).slice(0, 10).map(({ candidateLength: _candidateLength, ...hint }) => hint);
-  }
-  function grammarHintFromIndexItem(normalizedSentence, item) {
-    const match = bestCandidateMatch(normalizedSentence, item.candidates);
-    if (!match) return null;
-    return grammarHintFromMatch(item, match);
-  }
-  function grammarHintFromMatch(item, match) {
-    const fallbackText = hanabiraFallbackText(item);
-    const text2 = hanabiraHintText(item, fallbackText);
-    return {
-      ruleId: hanabiraRuleId(item.title),
-      name: item.title,
-      level: item.level,
-      kind: "Hanabira grammar",
-      short: text2.short,
-      detail: text2.detail,
-      url: `https://hanabira.org/japanese/grammarpoint/${encodeURIComponent(item.title)}`,
-      match: match.candidate,
-      confidence: hanabiraMatchConfidence(match),
-      index: match.index,
-      candidateLength: match.candidate.length
-    };
-  }
-  function hanabiraHintText(item, fallbackText) {
-    const short = item.short || fallbackText;
-    return { short, detail: item.detail || short };
-  }
-  function hanabiraMatchConfidence(match) {
-    return match.candidate.length >= 4 ? "high" : "medium";
-  }
-  function hanabiraFallbackText(item) {
-    return item.formation || item.title;
-  }
-  function compareGrammarHints(a, b) {
-    return a.index - b.index || b.candidateLength - a.candidateLength || grammarLevelRank(a.level) - grammarLevelRank(b.level);
-  }
-  function buildHanabiraGrammarIndex(points) {
-    return points.map((point) => {
-      const title = cleanText(point.title ?? "");
-      const formation = cleanText(point.formation ?? "");
-      const candidates = grammarCandidatesForPoint(title, formation);
-      if (!title || !candidates.length) return null;
-      return {
-        title,
-        short: cleanText(point.short_explanation ?? ""),
-        detail: cleanText(point.long_explanation ?? ""),
-        formation,
-        level: grammarLevelFromTag(point.p_tag),
-        candidates
-      };
-    }).filter((item) => Boolean(item));
-  }
-  function grammarCandidatesForPoint(title, formation) {
-    const candidates = /* @__PURE__ */ new Set();
-    for (const source of [title, formation]) {
-      const withoutRomaji = source.replace(/\([^ぁ-んァ-ン一-龯々〆ヵヶ]*\)/gu, " ");
-      for (const piece of withoutRomaji.split(/[,\n;|]/u)) {
-        const normalized = normalizeGrammarCandidate(piece);
-        addCandidateVariants(candidates, normalized);
-      }
-    }
-    return Array.from(candidates).filter((candidate) => candidate.length >= 3 && JAPANESE_TEXT_RE.test(candidate)).sort((a, b) => b.length - a.length || a.localeCompare(b)).slice(0, 8);
-  }
-  function addCandidateVariants(candidates, candidate) {
-    if (!candidate) return;
-    candidates.add(candidate);
-    if (candidate.startsWith("る") && candidate.length > 3) candidates.add(candidate.slice(1));
-  }
-  function normalizeGrammarCandidate(value) {
-    return normalizeGrammarText(value.replace(ROMAN_PLACEHOLDER_RE, " ").replace(/[A-Za-z0-9_+\-=~～「」『』"'()[\]{}<>]/gu, " ").replace(/[、。！？!?]/gu, " "));
-  }
-  function normalizeGrammarText(value) {
-    return value.normalize("NFKC").replace(/\s+/gu, "").replace(/[+・]/gu, "").trim();
-  }
-  function bestCandidateMatch(sentence, candidates) {
-    let best = null;
-    for (const candidate of candidates) {
-      best = betterCandidateMatch(best, candidateMatch(sentence, candidate));
-    }
-    return best;
-  }
-  function candidateMatch(sentence, candidate) {
-    const index = sentence.indexOf(candidate);
-    return index < 0 ? null : { candidate, index };
-  }
-  function betterCandidateMatch(best, next) {
-    if (!next) return best;
-    if (!best) return next;
-    return isBetterCandidateMatch(next, best) ? next : best;
-  }
-  function isBetterCandidateMatch(next, best) {
-    return next.index < best.index || next.index === best.index && next.candidate.length > best.candidate.length;
-  }
-  async function loadHanabiraGrammarIndexUncached() {
-    const cached = await gmStorageGet(HANABIRA_CACHE_KEY, null);
-    if (cached && Date.now() - cached.fetchedAt < HANABIRA_CACHE_TTL_MS && Array.isArray(cached.items)) {
-      return cached.items;
-    }
-    const done = log$5.time("Load Hanabira grammar index");
-    try {
-      const files = await Promise.all(HANABIRA_GRAMMAR_FILES.map(async (file) => requestJson(`${HANABIRA_RAW_BASE}/${file}`)));
-      const items = buildHanabiraGrammarIndex(files.flat());
-      await gmStorageSet(HANABIRA_CACHE_KEY, { fetchedAt: Date.now(), items });
-      log$5.info("Hanabira grammar index loaded", { items: items.length });
-      return items;
-    } finally {
-      done();
-    }
-  }
-  function grammarLevelFromTag(tag) {
-    const match = tag == null ? void 0 : tag.match(/N([1-5])/i);
-    return match ? `N${match[1]}` : "Core";
-  }
-  function grammarLevelRank(level) {
-    return { Core: 0, N5: 1, N4: 2, N3: 3, N2: 4, N1: 5 }[level] ?? 9;
-  }
-  function hanabiraRuleId(title) {
-    const slug = title.normalize("NFKC").toLowerCase().replace(/[^\p{Letter}\p{Number}]+/gu, "-").replace(/^-+|-+$/g, "");
-    return slug ? `hanabira-${slug}` : "hanabira-grammar";
-  }
-  function cleanText(value) {
-    return value.replace(/\s+/g, " ").trim();
-  }
-  function requestJson(url) {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-      return new Promise((resolve, reject) => {
-        userscriptRequest({
-          method: "GET",
-          url,
-          responseType: "json",
-          timeout: 1e4,
-          onload: (response) => {
-            if (response.status >= 200 && response.status < 300) {
-              resolve(response.response ?? JSON.parse(String(response.responseText ?? "null")));
-            } else {
-              reject(new Error(`Hanabira grammar request failed (${response.status}).`));
-            }
-          },
-          onerror: reject,
-          ontimeout: () => reject(new Error("Hanabira grammar request timed out."))
-        });
-      });
-    }
-    return fetch(url).then(async (response) => {
-      if (!response.ok) throw new Error(`Hanabira grammar request failed (${response.status}).`);
-      return response.json();
-    });
-  }
   const log$4 = Logger.scope("StudySources");
   class StudySourceController {
     constructor(dependencies) {
@@ -26227,7 +29688,7 @@ ${spelling}`);
       if (!sentence || !settings.studyTranslationEnabled) return "";
       return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-translation ${this.sourceAttributes(STUDY_TRANSLATION_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title">Translation</summary>
+                <summary class="jpdb-reader-local-title">${escapeHtml$1(uiText(settings.interfaceLanguage, "translation"))}</summary>
                 ${this.renderTranslationPanel(sentence)}
             </details>
         `;
@@ -26238,7 +29699,7 @@ ${spelling}`);
       const hints = detectGrammarHints(sentence);
       return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-grammar ${this.sourceAttributes(STUDY_GRAMMAR_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title">Grammar</summary>
+                <summary class="jpdb-reader-local-title">${escapeHtml$1(uiText(settings.interfaceLanguage, "grammar"))}</summary>
                 ${this.renderGrammarPanel(sentence, hints)}
             </details>
         `;
@@ -26248,36 +29709,32 @@ ${spelling}`);
       this.installGrammarLoader(popover, sentence);
     }
     async detectGrammarHints(sentence) {
-      const fallback = detectGrammarHints(sentence);
-      try {
-        const hanabiraHints = await detectHanabiraGrammarHints(sentence);
-        return mergeGrammarHints(hanabiraHints, fallback);
-      } catch (error) {
-        log$4.warn("Hanabira grammar lookup failed; using fallback hints", { sentenceLength: sentence.length }, error);
-        return fallback;
-      }
+      return detectGrammarHints(sentence);
     }
     renderTranslationPanel(sentence) {
+      const language = this.settings().interfaceLanguage;
+      const readSentence = uiText(language, "readSentenceAloud");
       return `
             <div class="jpdb-reader-study-panel jpdb-reader-study-translation-panel">
                 <div class="jpdb-reader-study-block jpdb-reader-study-sentence-block">
                     <div class="jpdb-reader-study-label-row">
-                        <div class="jpdb-reader-study-label">Japanese</div>
-                        <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" type="button" title="Read sentence aloud" aria-label="Read sentence aloud">${speakerIcon()}</button>
+                        <div class="jpdb-reader-study-label">${escapeHtml$1(uiText(language, "japaneseLabel"))}</div>
+                        <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" type="button" title="${escapeHtml$1(readSentence)}" aria-label="${escapeHtml$1(readSentence)}">${speakerIcon()}</button>
                     </div>
                     <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml$1(sentence)}</div>
                 </div>
                 <div class="jpdb-reader-study-block jpdb-reader-study-meaning-block">
-                    <div class="jpdb-reader-study-label">Meaning</div>
-                    <div class="jpdb-reader-study-translation" data-study-translation-result>Open this section to translate.</div>
+                    <div class="jpdb-reader-study-label">${escapeHtml$1(uiText(language, "meaning"))}</div>
+                    <div class="jpdb-reader-study-translation" data-study-translation-result>${escapeHtml$1(uiText(language, "openSectionToTranslate"))}</div>
                 </div>
             </div>
         `;
     }
     renderGrammarPanel(sentence, hints = detectGrammarHints(sentence)) {
+      const language = this.settings().interfaceLanguage;
       return `
             <div class="jpdb-reader-study-panel" data-study-grammar-panel>
-                ${hints.length ? renderGrammarHints(hints, sentence) : '<div class="jpdb-reader-help">Finding grammar...</div>'}
+                ${hints.length ? renderGrammarHints(hints, sentence, void 0, language) : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "findingGrammar"))}</div>`}
             </div>
         `;
     }
@@ -26310,7 +29767,7 @@ ${spelling}`);
           container.remove();
           return;
         }
-        setInnerHtml(panel, renderGrammarHints(hints, sentence));
+        setInnerHtml(panel, renderGrammarHints(hints, sentence, void 0, this.settings().interfaceLanguage));
         delete popover.dataset.jpdbReaderParseKey;
         delete popover.dataset.jpdbReaderParseLoadingKey;
         void this.dependencies.parsePopoverJapanese(popover);
@@ -26330,7 +29787,7 @@ ${spelling}`);
           if (!isStudyDetailsOpen(container) || container.dataset.loaded === "true" || container.dataset.loading === "true") return;
           container.dataset.loading = "true";
           const result = container.querySelector("[data-study-translation-result]");
-          if (result) result.textContent = "Translating...";
+          if (result) result.textContent = uiText(this.settings().interfaceLanguage, "translating");
           void this.loadTranslation(popover, sentence, container).finally(() => {
             if (!container.isConnected) return;
             delete container.dataset.loading;
@@ -26358,7 +29815,7 @@ ${spelling}`);
     async loadTranslationContent(sentence) {
       const [tokens, translated] = await Promise.all([
         this.dependencies.parseJapanese([sentence]).then(([parsed]) => parsed ?? []),
-        translateJapaneseSentence(sentence)
+        translateJapaneseSentence(sentence, this.settings().interfaceLanguage)
       ]);
       return { tokens, translated };
     }
@@ -26374,7 +29831,7 @@ ${spelling}`);
       log$4.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
       if (!container.isConnected) return;
       const result = container.querySelector("[data-study-translation-result]");
-      if (result) result.textContent = "Translation unavailable.";
+      if (result) result.textContent = uiText(this.settings().interfaceLanguage, "translationUnavailable");
     }
     sourceAttributes(sourceId) {
       return this.dependencies.dictionarySourceAttributes(definitionSourceStateKey(sourceId));
@@ -28136,7 +31593,7 @@ ${spelling}`);
     if (char === '"') state.inString = false;
   }
   function youtubeSubtitleRequestUrls(url) {
-    return uniqueStrings$1([
+    return uniqueStrings([
       withYouTubeSubtitleFormat(url, "srv3"),
       withYouTubeSubtitleFormat(url, "json3"),
       withYouTubeSubtitleFormat(url, "vtt"),
@@ -28173,7 +31630,7 @@ ${spelling}`);
       params.has("kind") ? 1 : 0
     ].reduce((sum, item) => sum + item, 0);
   }
-  function uniqueStrings$1(values) {
+  function uniqueStrings(values) {
     return [...new Set(values)];
   }
   async function loadSubtitleTrackCues(track, options) {
@@ -28251,17 +31708,17 @@ ${spelling}`);
     }
     return [];
   }
-  function trackStatusText(track) {
-    if (track.loadingState === "loading") return " · loading";
-    if (track.loadingState === "waiting") return " · waiting for captions";
-    if (track.loadingState === "error") return " · failed";
+  function trackStatusText(track, language = "en") {
+    if (track.loadingState === "loading") return ` · ${uiText(language, "trackStatusLoading")}`;
+    if (track.loadingState === "waiting") return ` · ${uiText(language, "trackStatusWaiting")}`;
+    if (track.loadingState === "error") return ` · ${uiText(language, "trackStatusFailed")}`;
     return "";
   }
-  function formatTrackKind(kind) {
-    if (kind === "native") return "page track";
-    if (kind === "remote") return "page file";
-    if (kind === "youtube") return "YouTube captions";
-    return "loaded file";
+  function formatTrackKind(kind, language = "en") {
+    if (kind === "native") return uiText(language, "trackKindPageTrack");
+    if (kind === "remote") return uiText(language, "trackKindPageFile");
+    if (kind === "youtube") return uiText(language, "trackKindYouTubeCaptions");
+    return uiText(language, "trackKindLoadedFile");
   }
   function compareSubtitleTrackOptions(a, b) {
     return subtitleTrackRank(a) - subtitleTrackRank(b) || (a.language ?? "").localeCompare(b.language ?? "", void 0, { sensitivity: "base" }) || a.label.localeCompare(b.label, void 0, { sensitivity: "base" });
@@ -28393,9 +31850,10 @@ ${spelling}`);
     if (input2.parsedHtml) return { text: input2.text, html: input2.parsedHtml };
     return karaokeActive ? { text: input2.text, html: "" } : void 0;
   }
-  function renderSubtitleSecondary(text2, nativeBlurred) {
+  function renderSubtitleSecondary(text2, nativeBlurred, language = "en") {
     const blurClass = nativeBlurred ? "jpdb-subtitle-secondary-blurred" : "jpdb-subtitle-secondary-clear";
-    return `<button class="jpdb-subtitle-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="Toggle native subtitle blur" aria-label="Toggle native subtitle blur">${escapeWithBreaks(text2)}</button>`;
+    const label = uiText(language, "toggleNativeSubtitleBlur");
+    return `<button class="jpdb-subtitle-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${label}" aria-label="${label}">${escapeWithBreaks(text2)}</button>`;
   }
   function renderSubtitleKaraokeCue(cue, time) {
     if (!(cue == null ? void 0 : cue.text.trim())) return "";
@@ -28610,7 +32068,7 @@ ${spelling}`);
     return true;
   }
   function secondarySubtitleToggleLabel(settings) {
-    return settings.subtitleSecondaryVisible ? "Native subtitles on" : "Native subtitles off";
+    return uiText(settings.interfaceLanguage, settings.subtitleSecondaryVisible ? "nativeSubtitlesOn" : "nativeSubtitlesOff");
   }
   function canParseSubtitleTranscriptRows(settings) {
     return Boolean(settings.apiKey || settings.localDictionariesEnabled);
@@ -28656,9 +32114,12 @@ ${spelling}`);
   function pointInRect(x, y, rect) {
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
   }
-  function syncLineNavigationButton(button2, hasLines, hasVideo, hiddenByPanel) {
+  function syncLineNavigationButton(button2, action, hasLines, hasVideo, hiddenByPanel, language) {
     button2.hidden = !hasLines || hiddenByPanel;
     button2.disabled = !hasVideo || !hasLines;
+    const label = uiText(language, action === "previous" ? "previousSubtitle" : "nextSubtitle");
+    button2.title = label;
+    button2.setAttribute("aria-label", label);
   }
   const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 2;
   const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 7;
@@ -28696,8 +32157,8 @@ ${spelling}`);
     for (let index = start; index >= endInclusive; index--) indexes.push(index);
     return indexes;
   }
-  function trackPanelSummaryText(autoDetected) {
-    return autoDetected ? `${autoDetected} auto-detected option${autoDetected === 1 ? "" : "s"}` : "Auto-detected YouTube/native tracks will appear here.";
+  function trackPanelSummaryText(autoDetected, language) {
+    return autoDetected ? autoDetected === 1 ? uiText(language, "autoDetectedOptionSingular") : `${autoDetected} ${uiText(language, "autoDetectedOptions")}` : uiText(language, "autoDetectedTracksWillAppear");
   }
   function shouldReplaceLoadedCue(next, current) {
     return Boolean(next && next !== current);
@@ -28915,13 +32376,17 @@ ${spelling}`);
       const root = document.createElement("div");
       root.className = "jpdb-subtitle-player";
       root.dataset.jpdbReaderRoot = "true";
+      const settings = this.options.getSettings();
+      const previousLabel = uiText(settings.interfaceLanguage, "previousSubtitle");
+      const nextLabel = uiText(settings.interfaceLanguage, "nextSubtitle");
+      const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       setInnerHtml(root, `
             <div class="jpdb-subtitle-text" aria-live="polite"></div>
             <div class="jpdb-subtitle-status" aria-live="polite"></div>
             <div class="jpdb-subtitle-rail">
-                <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle">‹</button>
-                <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle">›</button>
-                <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="Open subtitle panel" aria-label="Open subtitle panel">${subtitleIcon("panel-right")}</button>
+                <button type="button" data-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">‹</button>
+                <button type="button" data-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">›</button>
+                <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml$1(panelLabel)}" aria-label="${escapeHtml$1(panelLabel)}">${subtitleIcon("panel-right")}</button>
             </div>
             <div class="jpdb-subtitle-menu" hidden></div>
             <div class="jpdb-subtitle-list" hidden></div>
@@ -29054,7 +32519,7 @@ ${spelling}`);
     addNativeTrack(track) {
       if (this.tracks.some((item) => item.track === track)) return;
       const id = `native-${this.tracks.length}`;
-      const label = track.label || track.language || `Subtitle ${this.tracks.length + 1}`;
+      const label = track.label || track.language || `${uiText(this.options.getSettings().interfaceLanguage, "subtitleFallbackLabel")} ${this.tracks.length + 1}`;
       const option = { id, label, kind: "native", language: track.language, track };
       this.tracks.push(option);
       track.addEventListener("cuechange", () => this.updateFromNativeTrack(track), this.eventOptions());
@@ -29368,7 +32833,7 @@ ${spelling}`);
     renderEmptySubtitle(settings) {
       var _a2;
       if (!this.subtitleEl) return;
-      setInnerHtml(this.subtitleEl, ((_a2 = this.secondaryCue) == null ? void 0 : _a2.text) ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred) : "");
+      setInnerHtml(this.subtitleEl, ((_a2 = this.secondaryCue) == null ? void 0 : _a2.text) ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred, settings.interfaceLanguage) : "");
     }
     renderActiveSubtitle(text2, settings) {
       if (!this.subtitleEl) return;
@@ -29392,7 +32857,7 @@ ${spelling}`);
     }
     renderSecondarySubtitle(settings) {
       var _a2;
-      return settings.subtitleSecondaryVisible && ((_a2 = this.secondaryCue) == null ? void 0 : _a2.text) ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred) : "";
+      return settings.subtitleSecondaryVisible && ((_a2 = this.secondaryCue) == null ? void 0 : _a2.text) ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred, settings.interfaceLanguage) : "";
     }
     applyRenderedPrimarySubtitle(primary, text2) {
       this.applyRenderedPrimaryKaraoke(primary);
@@ -29462,7 +32927,6 @@ ${spelling}`);
         settings.showFurigana,
         settings.furiganaMode,
         settings.hideKnownFurigana,
-        settings.wordHighlightMode,
         settings.wordHighlightColorSource,
         settings.wordUnderlineColorSource,
         settings.wordTextColorSource,
@@ -30007,19 +33471,21 @@ ${spelling}`);
       var _a2;
       const status = (_a2 = this.root) == null ? void 0 : _a2.querySelector(".jpdb-subtitle-status");
       if (!status) return;
+      const language = this.options.getSettings().interfaceLanguage;
       if (this.tracks.length) {
-        status.textContent = `${this.tracks.length} subtitle track${this.tracks.length === 1 ? "" : "s"} detected`;
+        status.textContent = this.tracks.length === 1 ? uiText(language, "subtitleTrackDetectedSingular") : `${this.tracks.length} ${uiText(language, "subtitleTracksDetected")}`;
       } else {
-        status.textContent = "No subtitle tracks detected yet.";
+        status.textContent = uiText(language, "noSubtitleTracksDetected");
       }
     }
     syncLineNavigationButtons(hasLines) {
       var _a2;
       const panelOpen = this.isTranscriptPanelDockedOpen();
+      const language = this.options.getSettings().interfaceLanguage;
       for (const action of ["previous", "next"]) {
         const railButton = (_a2 = this.root) == null ? void 0 : _a2.querySelector(`.jpdb-subtitle-rail [data-action="${action}"]`);
-        if (railButton) syncLineNavigationButton(railButton, hasLines, Boolean(this.video), panelOpen);
-        for (const button2 of this.panelLineNavigationButtons(action)) syncLineNavigationButton(button2, hasLines, Boolean(this.video), false);
+        if (railButton) syncLineNavigationButton(railButton, action, hasLines, Boolean(this.video), panelOpen, language);
+        for (const button2 of this.panelLineNavigationButtons(action)) syncLineNavigationButton(button2, action, hasLines, Boolean(this.video), false, language);
       }
     }
     isTranscriptPanelDockedOpen() {
@@ -30047,7 +33513,8 @@ ${spelling}`);
     syncDrawerButton(button2, disabled, pressed) {
       button2.hidden = false;
       button2.disabled = disabled;
-      button2.title = pressed ? "Close subtitle panel" : "Open subtitle panel";
+      const language = this.options.getSettings().interfaceLanguage;
+      button2.title = uiText(language, pressed ? "closeSubtitlePanel" : "openSubtitlePanel");
       button2.setAttribute("aria-label", button2.title);
       button2.setAttribute("aria-pressed", String(pressed));
       setInnerHtml(button2, subtitleIcon(transcriptPlacementIcon(this.effectiveTranscriptPlacement)));
@@ -30103,14 +33570,15 @@ ${spelling}`);
       const signature = subtitleMenuSignature(state);
       if (!this.menuEl.hidden && this.lastMenuSignature === signature) return;
       this.lastMenuSignature = signature;
+      const language = this.options.getSettings().interfaceLanguage;
       setInnerHtml(this.menuEl, `
             <div class="jpdb-subtitle-menu-head">
-                <span>Options</span>
-                <button class="jpdb-reader-icon-mini" type="button" data-action="menu" title="Close subtitle options" aria-label="Close subtitle options">${closeIcon()}</button>
+                <span>${escapeHtml$1(uiText(language, "subtitleOptions"))}</span>
+                <button class="jpdb-reader-icon-mini" type="button" data-action="menu" title="${escapeHtml$1(uiText(language, "closeSubtitleOptions"))}" aria-label="${escapeHtml$1(uiText(language, "closeSubtitleOptions"))}">${closeIcon()}</button>
             </div>
-            <button type="button" data-action="load">Load Japanese subtitles</button>
-            <button type="button" data-action="load-secondary">Load native subtitles</button>
-            ${this.renderSubtitleMenuButtons(state)}
+            <button type="button" data-action="load">${escapeHtml$1(uiText(language, "loadJapaneseSubtitles"))}</button>
+            <button type="button" data-action="load-secondary">${escapeHtml$1(uiText(language, "loadNativeSubtitles"))}</button>
+            ${this.renderSubtitleMenuButtons(state, language)}
         `);
     }
     subtitleMenuState() {
@@ -30125,23 +33593,23 @@ ${spelling}`);
         hasTracks: Boolean(this.tracks.length)
       };
     }
-    renderSubtitleMenuButtons(state) {
+    renderSubtitleMenuButtons(state, language) {
       return [
-        this.renderPanelMenuButton(state),
-        this.renderCopyLineMenuButton(state),
-        this.renderSecondaryMenuButton(state)
+        this.renderPanelMenuButton(state, language),
+        this.renderCopyLineMenuButton(state, language),
+        this.renderSecondaryMenuButton(state, language)
       ].join("");
     }
-    renderPanelMenuButton(state) {
+    renderPanelMenuButton(state, language) {
       if (!state.hasLines && !state.hasTracks) return "";
-      return `<button type="button" data-action="panel">${state.panelOpen ? "Close subtitle drawer" : "Open subtitle drawer"}</button>`;
+      return `<button type="button" data-action="panel">${escapeHtml$1(uiText(language, state.panelOpen ? "closeSubtitleDrawer" : "openSubtitleDrawer"))}</button>`;
     }
-    renderCopyLineMenuButton(state) {
-      return state.hasLines ? '<button type="button" data-action="copy">Copy current line</button>' : "";
+    renderCopyLineMenuButton(state, language) {
+      return state.hasLines ? `<button type="button" data-action="copy">${escapeHtml$1(uiText(language, "copyCurrentSubtitleLine"))}</button>` : "";
     }
-    renderSecondaryMenuButton(state) {
+    renderSecondaryMenuButton(state, language) {
       if (!state.hasSecondary) return "";
-      return `<button type="button" data-action="toggle-secondary" aria-pressed="${state.secondaryVisible}">${state.secondaryVisible ? "Native subtitles on" : "Native subtitles off"}</button>`;
+      return `<button type="button" data-action="toggle-secondary" aria-pressed="${state.secondaryVisible}">${escapeHtml$1(uiText(language, state.secondaryVisible ? "nativeSubtitlesOn" : "nativeSubtitlesOff"))}</button>`;
     }
     toggleMenu() {
       var _a2, _b2;
@@ -30274,22 +33742,24 @@ ${spelling}`);
       return true;
     }
     renderTranscriptPanelHtml(state) {
+      const language = this.options.getSettings().interfaceLanguage;
+      const closeLabel = uiText(language, "closeSubtitleDrawer");
       return `
             <div class="jpdb-subtitle-drawer-head">
                 <div class="jpdb-subtitle-drawer-brand">
-                    <strong class="jpdb-subtitle-drawer-title">Subtitles</strong>
+                    <strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(uiText(language, "subtitlesTitle"))}</strong>
                     <span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(this.drawerMetaText("lines", state.rows.length))}</span>
                 </div>
                 <div class="jpdb-subtitle-drawer-actions">
-                    ${renderPanelModeControls("lines", this.hasTranscriptSurface())}
-                    ${renderPanelNavigationControls(Boolean(this.video && state.rows.length))}
-                    <button class="jpdb-subtitle-drawer-close" type="button" data-action="close-panel" title="Close subtitle drawer" aria-label="Close subtitle drawer">${closeIcon()}</button>
+                    ${renderPanelModeControls("lines", this.hasTranscriptSurface(), language)}
+                    ${renderPanelNavigationControls(Boolean(this.video && state.rows.length), language)}
+                    <button class="jpdb-subtitle-drawer-close" type="button" data-action="close-panel" title="${escapeHtml$1(closeLabel)}" aria-label="${escapeHtml$1(closeLabel)}">${closeIcon()}</button>
                 </div>
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 ${state.rows.length ? state.rows.map((row, index) => this.renderTranscriptRow(row, index, state.currentRowIndex)).join("") : this.renderTranscriptWaitingState()}
             </div>
-            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="Resize transcript panel"></button>
+            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></button>
         `;
     }
     afterTranscriptPanelRender(state) {
@@ -30313,7 +33783,7 @@ ${spelling}`);
                     <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml$1(parsedKey)}"${parsedKeyAttribute}>${parsed ?? escapeWithBreaks(cue.text)}</strong>
                 </div>
                 <div class="jpdb-subtitle-row-tools">
-                    <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}" title="Copy subtitle line" aria-label="Copy subtitle line">${subtitleIcon("copy")}</button>
+                    <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}" title="${escapeHtml$1(uiText(settings.interfaceLanguage, "copySubtitleLine"))}" aria-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "copySubtitleLine"))}">${subtitleIcon("copy")}</button>
                     <span class="jpdb-subtitle-row-time">${formatSubtitleTime(cue.start)}</span>
                 </div>
             </div>
@@ -30327,9 +33797,10 @@ ${spelling}`);
     }
     renderTranscriptWaitingState() {
       const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
-      const label = (selected == null ? void 0 : selected.label) ? ` for ${escapeHtml$1(selected.label)}` : "";
-      const status = (selected == null ? void 0 : selected.loadingState) === "loading" ? "Loading subtitle lines" : "Waiting for caption lines";
-      return `<div class="jpdb-subtitle-list-empty">${status}${label}. The current line will appear here as soon as captions are available.</div>`;
+      const language = this.options.getSettings().interfaceLanguage;
+      const label = (selected == null ? void 0 : selected.label) ? `: ${escapeHtml$1(selected.label)}` : "";
+      const status = (selected == null ? void 0 : selected.loadingState) === "loading" ? uiText(language, "loadingSubtitleLines") : uiText(language, "waitingForCaptionLines");
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$1(status)}${label}. ${escapeHtml$1(uiText(language, "subtitleCurrentLineWillAppear"))}</div>`;
     }
     updateTranscriptActiveLine(currentIndex) {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== "lines") return;
@@ -30577,51 +34048,56 @@ ${spelling}`);
       return { tracks, autoDetected };
     }
     renderTrackPanelHtml(state) {
+      const language = this.options.getSettings().interfaceLanguage;
+      const closeLabel = uiText(language, "closeSubtitleDrawer");
       return `
             <div class="jpdb-subtitle-drawer-head">
                 <div class="jpdb-subtitle-drawer-brand">
-                    <strong class="jpdb-subtitle-drawer-title">Subtitles</strong>
+                    <strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(uiText(language, "subtitlesTitle"))}</strong>
                     <span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(this.drawerMetaText("tracks", state.tracks.length))}</span>
                 </div>
                 <div class="jpdb-subtitle-drawer-actions">
-                    ${renderPanelModeControls("tracks", this.hasTranscriptSurface())}
-                    ${this.video && this.cues.length ? renderPanelNavigationControls(true) : ""}
-                    <button class="jpdb-subtitle-drawer-close" type="button" data-action="close-panel" title="Close subtitle drawer" aria-label="Close subtitle drawer">${closeIcon()}</button>
+                    ${renderPanelModeControls("tracks", this.hasTranscriptSurface(), language)}
+                    ${this.video && this.cues.length ? renderPanelNavigationControls(true, language) : ""}
+                    <button class="jpdb-subtitle-drawer-close" type="button" data-action="close-panel" title="${escapeHtml$1(closeLabel)}" aria-label="${escapeHtml$1(closeLabel)}">${closeIcon()}</button>
                 </div>
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 <div class="jpdb-subtitle-track-tools">
-                    <button type="button" data-action="load">Load Japanese subtitles</button>
-                    <button type="button" data-action="load-secondary">Load native subtitles</button>
+                    <button type="button" data-action="load">${escapeHtml$1(uiText(language, "loadJapaneseSubtitles"))}</button>
+                    <button type="button" data-action="load-secondary">${escapeHtml$1(uiText(language, "loadNativeSubtitles"))}</button>
                 </div>
-                <div class="jpdb-subtitle-track-summary">${trackPanelSummaryText(state.autoDetected)}</div>
-                ${state.tracks.length ? state.tracks.map((track) => this.renderTrackRow(track)).join("") : '<div class="jpdb-subtitle-list-empty">No auto-detected subtitle tracks yet. Load a file, open YouTube captions once, or play the video for a moment.</div>'}
+                <div class="jpdb-subtitle-track-summary">${escapeHtml$1(trackPanelSummaryText(state.autoDetected, language))}</div>
+                ${state.tracks.length ? state.tracks.map((track) => this.renderTrackRow(track)).join("") : `<div class="jpdb-subtitle-list-empty">${escapeHtml$1(uiText(language, "noAutoDetectedSubtitleTracks"))}</div>`}
             </div>
-            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="Resize subtitle tracks panel"></button>
+            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="${escapeHtml$1(uiText(language, "resizeSubtitleTracksPanel"))}"></button>
         `;
     }
     renderTrackRow(track) {
       const isPrimary = track.id === this.selectedTrackId;
       const isSecondary = track.id === this.secondaryTrackId;
+      const language = this.options.getSettings().interfaceLanguage;
       return `
             <div class="jpdb-subtitle-track-row ${isPrimary || isSecondary ? "active" : ""}" data-track-id="${escapeHtml$1(track.id)}">
                 <div class="jpdb-subtitle-track-title">
-                        <strong>${escapeHtml$1(track.label)}</strong>
-                        <span>${escapeHtml$1(formatTrackKind(track.kind))}</span>
+                        <strong>${escapeHtml$1(localizedSubtitleTrackLabel(track, language))}</strong>
+                        <span>${escapeHtml$1(formatTrackKind(track.kind, language))}</span>
                     </div>
-                <span>${escapeHtml$1(trackLanguageLabel(track))}${trackRoleText(isPrimary, isSecondary)}${trackStatusText(track)}</span>
+                <span>${escapeHtml$1(trackLanguageLabel(track, language))}${trackRoleText(isPrimary, isSecondary, language)}${trackStatusText(track, language)}</span>
                 <div class="jpdb-subtitle-track-actions">
-                    <button type="button" data-action="primary-track" aria-pressed="${isPrimary}">${isPrimary ? "Unset Japanese" : "Japanese"}</button>
-                    <button type="button" data-action="secondary-track" aria-pressed="${isSecondary}">${isSecondary ? "Unset native" : "Native"}</button>
+                    <button type="button" data-action="primary-track" aria-pressed="${isPrimary}">${escapeHtml$1(uiText(language, isPrimary ? "unsetJapaneseSubtitles" : "japaneseSubtitles"))}</button>
+                    <button type="button" data-action="secondary-track" aria-pressed="${isSecondary}">${escapeHtml$1(uiText(language, isSecondary ? "unsetNativeSubtitles" : "nativeSubtitles"))}</button>
                 </div>
             </div>
         `;
     }
     drawerMetaText(mode, count) {
-      var _a2, _b2;
-      const primary = (_a2 = this.tracks.find((track) => track.id === this.selectedTrackId)) == null ? void 0 : _a2.label;
-      const secondary = (_b2 = this.tracks.find((track) => track.id === this.secondaryTrackId)) == null ? void 0 : _b2.label;
-      return drawerMetaParts(mode, count, primary, secondary).filter(Boolean).join(" · ");
+      const language = this.options.getSettings().interfaceLanguage;
+      const primaryTrack = this.tracks.find((track) => track.id === this.selectedTrackId);
+      const secondaryTrack = this.tracks.find((track) => track.id === this.secondaryTrackId);
+      const primary = primaryTrack ? localizedSubtitleTrackLabel(primaryTrack, language) : void 0;
+      const secondary = secondaryTrack ? localizedSubtitleTrackLabel(secondaryTrack, language) : void 0;
+      return drawerMetaParts(mode, count, primary, secondary, language).filter(Boolean).join(" · ");
     }
     beginTrackSelection(role) {
       if (role === "primary") {
@@ -30807,19 +34283,21 @@ ${spelling}`);
     if (delayMs <= 0) return Promise.resolve();
     return new Promise((resolve) => window.setTimeout(resolve, delayMs));
   }
-  function renderPanelNavigationControls(enabled) {
+  function renderPanelNavigationControls(enabled, language) {
+    const previous = uiText(language, "previousSubtitle");
+    const next = uiText(language, "nextSubtitle");
     return `
-        <div class="jpdb-subtitle-panel-nav" aria-label="Subtitle navigation">
-            <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle" ${enabled ? "" : "disabled"}>‹</button>
-            <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle" ${enabled ? "" : "disabled"}>›</button>
+        <div class="jpdb-subtitle-panel-nav" aria-label="${escapeHtml$1(uiText(language, "subtitleNavigation"))}">
+            <button type="button" data-action="previous" title="${escapeHtml$1(previous)}" aria-label="${escapeHtml$1(previous)}" ${enabled ? "" : "disabled"}>‹</button>
+            <button type="button" data-action="next" title="${escapeHtml$1(next)}" aria-label="${escapeHtml$1(next)}" ${enabled ? "" : "disabled"}>›</button>
         </div>
     `;
   }
-  function renderPanelModeControls(mode, canShowLines) {
+  function renderPanelModeControls(mode, canShowLines, language) {
     return `
-        <div class="jpdb-subtitle-panel-mode" aria-label="Subtitle panel mode">
-            <button type="button" data-action="panel-lines" aria-pressed="${mode === "lines"}" ${canShowLines ? "" : "disabled"}>Lines</button>
-            <button type="button" data-action="panel-tracks" aria-pressed="${mode === "tracks"}">Tracks</button>
+        <div class="jpdb-subtitle-panel-mode" aria-label="${escapeHtml$1(uiText(language, "subtitlePanelMode"))}">
+            <button type="button" data-action="panel-lines" aria-pressed="${mode === "lines"}" ${canShowLines ? "" : "disabled"}>${escapeHtml$1(uiText(language, "subtitleLines"))}</button>
+            <button type="button" data-action="panel-tracks" aria-pressed="${mode === "tracks"}">${escapeHtml$1(uiText(language, "subtitleTracks"))}</button>
         </div>
     `;
   }
@@ -30966,30 +34444,35 @@ ${spelling}`);
     var _a2;
     return ((_a2 = window.matchMedia) == null ? void 0 : _a2.call(window, "(pointer: coarse)").matches) ?? false;
   }
-  function trackLanguageLabel(track) {
-    return track.language ? track.language.toUpperCase() : "Detected";
+  function trackLanguageLabel(track, language) {
+    return track.language ? track.language.toUpperCase() : uiText(language, "detected");
   }
-  function trackRoleText(isPrimary, isSecondary) {
+  function localizedSubtitleTrackLabel(track, language) {
+    if (language !== "ja") return track.label;
+    if (track.label === "YouTube subtitles") return uiText(language, "youTubeSubtitles");
+    return track.label.replace(/ · auto-generated$/u, ` · ${uiText(language, "autoGeneratedSubtitle")}`);
+  }
+  function trackRoleText(isPrimary, isSecondary, language) {
     return [
-      isPrimary ? " · Japanese overlay" : "",
-      isSecondary ? " · native overlay" : ""
+      isPrimary ? ` · ${uiText(language, "japaneseOverlay")}` : "",
+      isSecondary ? ` · ${uiText(language, "nativeOverlay")}` : ""
     ].join("");
   }
-  function drawerMetaParts(mode, count, primary, secondary) {
-    return mode === "tracks" ? drawerTrackMetaParts(count, primary, secondary) : drawerLineMetaParts(count, primary, secondary);
+  function drawerMetaParts(mode, count, primary, secondary, language) {
+    return mode === "tracks" ? drawerTrackMetaParts(count, primary, secondary, language) : drawerLineMetaParts(count, primary, secondary, language);
   }
-  function drawerTrackMetaParts(count, primary, secondary) {
+  function drawerTrackMetaParts(count, primary, secondary, language) {
     return [
-      `${count} option${count === 1 ? "" : "s"}`,
-      primary ? `Japanese: ${primary}` : "Choose Japanese subtitles",
-      secondary ? `Native: ${secondary}` : ""
+      `${count} ${uiText(language, count === 1 ? "subtitleOptionSingular" : "subtitleOptionPlural")}`,
+      primary ? `${uiText(language, "japaneseSubtitles")}: ${primary}` : uiText(language, "chooseJapaneseSubtitles"),
+      secondary ? `${uiText(language, "nativeSubtitles")}: ${secondary}` : ""
     ];
   }
-  function drawerLineMetaParts(count, primary, secondary) {
+  function drawerLineMetaParts(count, primary, secondary, language) {
     return [
-      primary || "Transcript",
-      `${count} line${count === 1 ? "" : "s"}`,
-      secondary ? `Native: ${secondary}` : ""
+      primary || uiText(language, "transcript"),
+      `${count} ${uiText(language, count === 1 ? "subtitleLineSingular" : "subtitleLinePlural")}`,
+      secondary ? `${uiText(language, "nativeSubtitles")}: ${secondary}` : ""
     ];
   }
   function videoSummary(video) {
@@ -31110,11 +34593,11 @@ ${spelling}`);
       const style = pillStyle(`lookup:${link.id || link.label}`);
       if (link.action === "copy" || link.id === "copy") {
         const copyTitle = uiText(language, "copyWordTitle");
-        return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button" style="${style}" title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(link.label || uiText(language, "copyWord"))} ${copyIcon()}</button>`;
+        return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button" style="${style}" title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language, "copyWord"))} ${copyIcon()}</button>`;
       }
       const url = link.id === "jpdb" && (Boolean(options.overrideQuery) || options.isJpdbBackedCard(options.card)) ? options.jpdbUrl : formatLookupUrl(link.urlTemplate, context);
       if (!url) return "";
-      const title = link.id === "jpdb" ? options.overrideQuery ? uiText(language, "openKanjiOnJpdb") : uiText(language, "openOnJpdb") : `Open on ${link.label}`;
+      const title = link.id === "jpdb" ? options.overrideQuery ? uiText(language, "openKanjiOnJpdb") : uiText(language, "openOnJpdb") : uiText(language, "openOnLookup").replace("{label}", link.label);
       const classes = `jpdb-reader-pill jpdb-reader-action-pill${link.id === "jpdb" ? " jpdb-reader-jpdb-pill" : ""}`;
       return `<a class="${classes}" href="${escapeHtml$1(url)}" target="_blank" rel="noopener" style="${style}" title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(link.label)} ${externalLinkIcon()}</a>`;
     }).filter(Boolean);
@@ -31132,7 +34615,6 @@ ${spelling}`);
     };
   }
   const log$1 = Logger.scope("ReaderApp");
-  const INSTANT_DICTIONARY_RENDER_WAIT_MS = 120;
   const TERM_AUDIO_PRELOAD_LIMIT = 8;
   const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 6;
   const TWO_BUTTON_REVIEW_SHORTCUTS = [
@@ -31251,7 +34733,7 @@ ${spelling}`);
       __publicField(this, "audio", new AudioPlayer(() => this.settings));
       __publicField(this, "anki", new AnkiConnectClient(() => this.settings));
       __publicField(this, "rtk", new RtkClient());
-      __publicField(this, "dictionaries", new YomitanDictionaryStore(() => this.settings.corsProxyUrl));
+      __publicField(this, "dictionaries", new YomitanDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage));
       __publicField(this, "cardRenderData", new CardRenderDataLoader({
         getSettings: () => this.settings,
         dictionaries: this.dictionaries,
@@ -31315,6 +34797,7 @@ ${spelling}`);
         getActivePopoverMode: () => this.activePopoverMode,
         showSettings: (panel) => this.showSettings(panel),
         playAudio: (card, options) => this.audioActions.playTermAudio(card, options),
+        playMediaUrl: (audioUrl) => this.audioActions.playMediaUrl(audioUrl),
         playSentenceAudio: (sentence) => this.audioActions.playSentenceAudio(sentence),
         playJpdbExampleAudio: (audioIds, fallbackSentence) => this.audioActions.playJpdbExampleAudio(audioIds, fallbackSentence),
         detectGrammarHints: (sentence) => this.studySources.detectGrammarHints(sentence),
@@ -31820,7 +35303,7 @@ ${spelling}`);
           void saveSettings(this.settings);
           this.ocr.refresh();
           log$1.info("Shortcut toggled OCR", { enabled: this.settings.ocrEnabled });
-          this.toast(this.settings.ocrEnabled ? "Image reading enabled." : "Image reading hidden.");
+          this.toast(uiText(this.settings.interfaceLanguage, this.settings.ocrEnabled ? "imageReadingEnabled" : "imageReadingHidden"));
           return;
         }
         if (matchesShortcut(event, this.settings.shortcuts.scanImages)) {
@@ -31852,7 +35335,7 @@ ${spelling}`);
             preservePosition: true
           })).catch((error) => {
             log$1.warn("Shortcut review failed", { grade, ankiCardId: Number.isFinite(ankiCardId) ? ankiCardId : void 0 }, error);
-            this.toast(error instanceof Error ? error.message : "Review failed.");
+            this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, "reviewFailed"));
           });
         }
       });
@@ -32087,14 +35570,15 @@ ${spelling}`);
     }
     canHoverLookupReaderWord(word) {
       if (!word.closest("[data-jpdb-reader-root]")) return true;
-      return Boolean(word.closest(".jpdb-subtitle-player, .jpdb-ocr-layer"));
+      return Boolean(word.closest(".jpdb-subtitle-player, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .jpdb-reader-popover .jpdb-reader-example-sentence"));
     }
     handleHoverPointer(event) {
       if (this.shouldIgnoreHoverPointer(event)) return;
       this.lastPointerPosition = { x: event.clientX, y: event.clientY };
-      if (this.handleActivePopoverHover(event)) return;
+      const insideActivePopover = this.handleActivePopoverHover(event);
       const word = this.hoverReaderWordForEvent(event);
       if (!word) {
+        if (insideActivePopover) return;
         this.handlePointerTextHover(event);
         return;
       }
@@ -32314,7 +35798,14 @@ ${spelling}`);
     }
     resolveScheduledHoverWord(word) {
       if (word.isConnected) return word;
-      return this.lastPointerPosition ? this.wordFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y) ?? null : null;
+      return this.lastPointerPosition ? this.hoverWordFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y) ?? null : null;
+    }
+    hoverWordFromPoint(x, y) {
+      for (const element2 of document.elementsFromPoint(x, y)) {
+        const word = this.hoverReaderWordFromElement(element2);
+        if (word) return word;
+      }
+      return null;
     }
     canRunScheduledHoverLookup(activeWord, event) {
       const hoverLookupKey = this.hoverLookupKeyForWord(activeWord);
@@ -32550,7 +36041,7 @@ ${spelling}`);
         void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, context.anchor, this.textLookupCardOptions(context));
         return;
       }
-      if (error) this.toast(error instanceof Error ? error.message : "JPDB lookup failed.");
+      if (error) this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, "jpdbLookupFailed"));
       void this.showCard(this.parser.fallbackCardFromText(context.selected), sentence, context.anchor, this.textLookupCardOptions(context));
     }
     async localLookupEntries(selected) {
@@ -32824,11 +36315,11 @@ ${spelling}`);
       return `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body">
-                <div class="jpdb-reader-pos">Selection</div>
+                <div class="jpdb-reader-pos">${escapeHtml$1(uiText(this.settings.interfaceLanguage, "selection"))}</div>
                 <div class="jpdb-reader-meanings">
                     ${tokens.map((token) => this.renderTokenListButton(token)).join("")}
                 </div>
-                <div class="jpdb-reader-help">Parsed from: ${escapeHtml$1(selected)}</div>
+                <div class="jpdb-reader-help">${escapeHtml$1(uiText(this.settings.interfaceLanguage, "parsedFrom"))}: ${escapeHtml$1(selected)}</div>
             </div>
         `;
     }
@@ -32875,12 +36366,14 @@ ${spelling}`);
       const fallbackAnkiLookup = { state: "not-in-deck", notes: [], primary: null };
       this.lastAnkiLookup = fallbackAnkiLookup;
       const renderData = this.cardRenderData.load(card);
+      const requestId = ++this.cardRenderRequest;
       const mounted = await this.mountInitialCardShell(popover, card, sentence, anchor, {
         trigger,
         navigation,
         options,
         renderData,
         fallbackAnkiLookup,
+        requestId,
         isCurrentHoverCard,
         hoverLookupGeneration
       });
@@ -32905,7 +36398,6 @@ ${spelling}`);
       this.immersionPopover.rememberPageMiningContext(card, sentence, anchor);
     }
     async mountInitialCardShell(popover, card, sentence, anchor, context) {
-      const instantLocalEntries = await waitForInstantData(context.renderData.localEntries, INSTANT_DICTIONARY_RENDER_WAIT_MS);
       if (!context.isCurrentHoverCard()) {
         return null;
       }
@@ -32913,7 +36405,7 @@ ${spelling}`);
         card,
         sentence,
         context.trigger,
-        loadingCardRenderData(instantLocalEntries ?? [], context.fallbackAnkiLookup)
+        loadingCardRenderData([], context.fallbackAnkiLookup)
       ));
       this.installCardPopoverHandlers(popover, card, sentence, anchor, context.trigger);
       this.mountPopover(popover, anchor, {
@@ -32922,9 +36414,8 @@ ${spelling}`);
         hoverLookupKey: context.options.hoverLookupKey,
         pointerTextLookup: context.options.pointerTextLookup
       });
-      const requestId = ++this.cardRenderRequest;
-      this.installInitialCardBehaviors(popover, card, sentence, context, instantLocalEntries);
-      return { instantLocalEntries: instantLocalEntries ?? null, requestId };
+      this.installInitialCardBehaviors(popover, card, sentence, context, null);
+      return { instantLocalEntries: null, requestId: context.requestId };
     }
     initialCardPreservePosition(context) {
       return context.options.preservePosition ?? (context.trigger === "modal" && context.navigation !== "reset");
@@ -33022,7 +36513,7 @@ ${spelling}`);
       if (!actions) return;
       actions.classList.toggle("jpdb-reader-actions-mining-collapsed", !expanded);
       button2.setAttribute("aria-expanded", String(expanded));
-      const label = expanded ? "Hide mining actions" : "Show mining actions";
+      const label = uiText(this.settings.interfaceLanguage, expanded ? "hideMiningActions" : "showMiningActions");
       button2.setAttribute("aria-label", label);
       button2.title = label;
     }
@@ -33165,7 +36656,7 @@ ${spelling}`);
                     <div class="jpdb-reader-heading">
                         <div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
                             <div class="jpdb-reader-kanji-display">${escapeHtml$1(kanji)}</div>
-                            <div data-kanji-keyword-mount><div class="jpdb-reader-help">Loading kanji details...</div></div>
+                            <div data-kanji-keyword-mount><div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "loadingKanjiDetails"))}</div></div>
                             ${renderWordPills({
       card,
       jpdbUrl,
@@ -33244,11 +36735,11 @@ ${spelling}`);
       if (!actionId) return;
       try {
         await this.jpdbKanji.performAction(actionId);
-        this.toast("JPDB kanji updated.");
+        this.toast(uiText(this.settings.interfaceLanguage, "jpdbKanjiUpdated"));
         await this.showKanjiCard(card, kanji, sentence, anchor, { preservePosition: true });
       } catch (error) {
         log$1.warn("JPDB kanji action failed", { kanji }, error);
-        this.toast("Could not update JPDB kanji. Check JPDB kanji reviews are enabled.");
+        this.toast(uiText(this.settings.interfaceLanguage, "jpdbKanjiUpdateFailedRuntime"));
       }
     }
     renderKanjiSourceMounts(kanji, language) {
@@ -33289,7 +36780,7 @@ ${spelling}`);
       return `
             <div class="jpdb-reader-actions" data-kanji-actions data-kanji-has-review="${reviewButtons ? "true" : "false"}"${reviewButtons ? "" : " hidden"}>
                 <div class="jpdb-reader-actions-gutter" hidden>
-                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button>
+                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$1(uiText(this.settings.interfaceLanguage, "showMiningActions"))}" aria-label="${escapeHtml$1(uiText(this.settings.interfaceLanguage, "showMiningActions"))}"></button>
                 </div>
                 <div data-kanji-mining-mount hidden></div>
                 ${reviewButtons}
@@ -33336,7 +36827,7 @@ ${spelling}`);
       const definitionsMounts = Array.from(popover.querySelectorAll("[data-kanji-definitions-mount]"));
       const renderKeyword = () => {
         if (!popover.isConnected || !(keywordMount == null ? void 0 : keywordMount.isConnected)) return;
-        setInnerHtml(keywordMount, renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries));
+        setInnerHtml(keywordMount, renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries, language));
         this.repositionActivePopover();
       };
       const renderRtk = () => {
@@ -33370,7 +36861,8 @@ ${spelling}`);
             (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
             (name) => this.dictionaryLabel(name),
             sourceId,
-            dictionaryName ? this.dictionaryLabel(dictionaryName) : this.kanjiSourceTitle(KANJI_DICTIONARIES_SOURCE_ID)
+            dictionaryName ? this.dictionaryLabel(dictionaryName) : this.kanjiSourceTitle(KANJI_DICTIONARIES_SOURCE_ID),
+            language
           ));
         }
         renderRtk();
@@ -33405,7 +36897,7 @@ ${spelling}`);
       setInnerHtml(mount, `
             <details class="jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source" ${sourceAttributes()}>
                 <summary class="jpdb-reader-local-title">Uchisen</summary>
-                <div class="jpdb-reader-local-entry"><div class="jpdb-reader-help">Loading mnemonic images...</div></div>
+                <div class="jpdb-reader-local-entry"><div class="jpdb-reader-help">${escapeHtml$1(uiText(this.settings.interfaceLanguage, "loadingMnemonicImages"))}</div></div>
             </details>
         `);
       const data = await loadUchisenData(kanji).catch(() => {
@@ -33573,7 +37065,7 @@ ${spelling}`);
       const sections = [
         setup,
         ...sourceIds.map((sourceId) => {
-          if (sourceId === JPDB_DEFINITION_SOURCE_ID) return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded), jpdbVocabularyInfo);
+          if (sourceId === JPDB_DEFINITION_SOURCE_ID) return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded), jpdbVocabularyInfo, this.settings.interfaceLanguage);
           if (sourceId === STUDY_TRANSLATION_SOURCE_ID) return this.studySources.renderTranslationSource(sentence);
           if (sourceId === STUDY_GRAMMAR_SOURCE_ID) return this.studySources.renderGrammarSource(sentence);
           if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderImmersionKitMount();
@@ -33672,6 +37164,12 @@ ${spelling}`);
       return ((_a2 = this.settings.dictionaryPreferences.find((item) => item.name === name)) == null ? void 0 : _a2.alias) || name;
     }
     kanjiSourceTitle(sourceId) {
+      if (sourceId === KANJI_STROKE_SOURCE_ID) return uiText(this.settings.interfaceLanguage, "strokePractice");
+      if (sourceId === KANJI_JPDB_SOURCE_ID) return uiText(this.settings.interfaceLanguage, "readingsComponents");
+      if (sourceId === KANJI_RTK_SOURCE_ID) return "RTK";
+      if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return uiText(this.settings.interfaceLanguage, "kanjiDictionaries");
+      if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) return uiText(this.settings.interfaceLanguage, "sourceNameWordsUsingKanji");
+      if (sourceId === KANJI_ORIGINS_SOURCE_ID) return uiText(this.settings.interfaceLanguage, "originStructure");
       return kanjiSourceLabel(this.settings, sourceId);
     }
     applyAnkiLookupToRenderedWords(card, ankiLookup) {
@@ -33682,7 +37180,7 @@ ${spelling}`);
         word.classList.add(`anki-${ankiLookup.state}`);
         word.dataset.ankiState = ankiLookup.state;
         word.dataset.ankiDecks = ((_a2 = ankiLookup.primary) == null ? void 0 : _a2.deckNames.join(", ")) ?? "";
-        word.title = `Anki: ${ankiLookup.state}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ""}`;
+        word.title = `Anki: ${cardStateLabel(ankiLookup.state, this.settings.interfaceLanguage)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ""}`;
       });
     }
     async handleCardAction(button2, card, sentence) {
@@ -33698,7 +37196,7 @@ ${spelling}`);
         log$1.info("Card action completed", { action, term: card.spelling });
       } catch (error) {
         log$1.warn("Card action failed", { action, term: card.spelling }, error);
-        this.toast(error instanceof Error ? error.message : "Action failed.");
+        this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, "actionFailed"));
       } finally {
         done();
         button2.disabled = false;
@@ -34058,6 +37556,23 @@ ${spelling}`);
   function tokenContainsPointerOffset(token, offset) {
     return token.start <= offset && offset < token.end || token.start < offset && offset <= token.end;
   }
+  function cardStateLabel(state, language) {
+    const key = CARD_STATE_LABEL_KEYS[state];
+    return key ? uiText(language, key) : state;
+  }
+  const CARD_STATE_LABEL_KEYS = {
+    new: "stateNew",
+    learning: "stateLearning",
+    known: "stateKnown",
+    due: "stateDue",
+    failed: "stateFailed",
+    locked: "stateLocked",
+    "never-forget": "stateNeverForget",
+    blacklisted: "stateBlacklisted",
+    suspended: "stateSuspended",
+    "not-in-deck": "stateNotInDeck",
+    redundant: "stateRedundant"
+  };
   const log = Logger.scope("ReaderBoot");
   const RUNTIME_MARKER_ID = "jpdb-reader-runtime-owner";
   function bootReaderApp() {

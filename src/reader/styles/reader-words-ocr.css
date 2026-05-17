@@ -52,7 +52,7 @@
 }
 .jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);
-  --jpdb-reader-jpdb-soft: transparent;
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16));
 }
 .jpdb-reader-word.jpdb-due {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);
@@ -77,7 +77,7 @@
 }
 .jpdb-reader-word.anki-known {
   --jpdb-reader-anki-color: var(--jpdb-reader-state-known, #7bd88f);
-  --jpdb-reader-anki-soft: transparent;
+  --jpdb-reader-anki-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16));
 }
 .jpdb-reader-word.anki-due {
   --jpdb-reader-anki-color: var(--jpdb-reader-state-due, #5fb3b3);
@@ -97,7 +97,7 @@
 }
 .jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant, .anki-known) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f);
-  --jpdb-reader-status-soft: transparent;
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16));
 }
 .jpdb-reader-word:is(.jpdb-due, .anki-due) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-due, #5fb3b3);
@@ -410,45 +410,6 @@
   text-underline-offset: 0.15em !important;
   color: inherit !important;
 }
-.jpdb-reader-highlight-pitch
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word {
-  color: inherit !important;
-}
-.jpdb-reader-highlight-pitch
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-pitch-heiban {
-  color: var(--jpdb-reader-pitch-heiban, #359eff) !important;
-}
-.jpdb-reader-highlight-pitch
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-pitch-atamadaka {
-  color: var(--jpdb-reader-pitch-atamadaka, #fe4b74) !important;
-}
-.jpdb-reader-highlight-pitch
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-pitch-nakadaka {
-  color: var(--jpdb-reader-pitch-nakadaka, #fba840) !important;
-}
-.jpdb-reader-highlight-pitch
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-pitch-odaka {
-  color: var(--jpdb-reader-pitch-odaka, #57ccb7) !important;
-}
-.jpdb-reader-highlight-pitch
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-pitch-kifuku {
-  color: var(--jpdb-reader-pitch-kifuku, #9050f6) !important;
-}
-.jpdb-reader-highlight-off
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word {
-  background: transparent !important;
-  color: inherit !important;
-  --jpdb-reader-word-underline: transparent;
-  text-decoration-color: transparent !important;
-}
-
 .jpdb-reader-fab {
   position: fixed;
   right: max(14px, env(safe-area-inset-right));

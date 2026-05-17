@@ -1,4 +1,4 @@
-import type { ReaderSettings } from './types';
+import type { InterfaceLanguage, ReaderSettings } from './types';
 import type { YomitanMetaEntry, YomitanTermEntry } from './yomitan';
 
 const LOCAL_TAG_SPLIT_RE = /[\s,;|/]+/;
@@ -20,19 +20,37 @@ const LOCAL_TERM_TAG_LABELS = new Map<string, string>([
     ['vi', 'intransitive'],
     ['vt', 'transitive'],
 ]);
+const LOCAL_TERM_TAG_LABELS_JA = new Map<string, string>([
+    ['n', '名詞'],
+    ['pn', '代名詞'],
+    ['r', 'まれ'],
+    ['uk', 'かな表記が多い'],
+    ['adj-i', 'い形容詞'],
+    ['adj-na', 'な形容詞'],
+    ['adv', '副詞'],
+    ['exp', '表現'],
+    ['int', '感動詞'],
+    ['prt', '助詞'],
+    ['suf', '接尾辞'],
+    ['pref', '接頭辞'],
+    ['vs', 'する動詞'],
+    ['vi', '自動詞'],
+    ['vt', '他動詞'],
+]);
 
-export function localTermTags(entries: YomitanTermEntry[]): string[] {
+export function localTermTags(entries: YomitanTermEntry[], language: InterfaceLanguage = 'en'): string[] {
     const tags = entries.flatMap(entry => [entry.definitionTags, entry.termTags, entry.rules])
         .flatMap(value => typeof value === 'string' ? value.split(LOCAL_TAG_SPLIT_RE) : [])
         .map(value => value.trim())
-        .map(localTermTagLabel)
+        .map(tag => localTermTagLabel(tag, language))
         .filter(Boolean);
     return [...new Set(tags)].slice(0, 8);
 }
 
-function localTermTagLabel(tag: string): string {
+function localTermTagLabel(tag: string, language: InterfaceLanguage): string {
     const normalized = tag.toLowerCase();
     if (!normalized || HIDDEN_LOCAL_TERM_TAGS.has(normalized)) return '';
+    if (language === 'ja') return LOCAL_TERM_TAG_LABELS_JA.get(normalized) ?? tag;
     return LOCAL_TERM_TAG_LABELS.get(normalized) ?? tag;
 }
 

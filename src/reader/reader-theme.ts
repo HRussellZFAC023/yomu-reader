@@ -3,7 +3,6 @@ import {
     effectiveFuriganaMode,
     effectiveReaderColorSource,
     effectiveSubtitleColorSource,
-    effectiveWordHighlightMode,
     sanitizeAccentColor,
 } from './settings';
 import type { ReaderColorSource, ReaderSettings } from './types';
@@ -16,7 +15,6 @@ type ColorSourceMap = Record<ColorChannel, AppliedColorSource>;
 
 export interface AppliedReaderTheme {
     furiganaMode: ReturnType<typeof effectiveFuriganaMode>;
-    wordHighlightMode: ReturnType<typeof effectiveWordHighlightMode>;
     wordColorSources: ColorSourceMap;
     subtitleColorSources: ColorSourceMap;
 }
@@ -28,9 +26,7 @@ export function applyReaderTheme(settings: ReaderSettings, root = document.docum
     applyReaderAccentColor(settings.accentColor, root);
     applyReaderWordColors(settings, root);
     root.classList.toggle('jpdb-reader-hide-known', theme.furiganaMode === 'known-status');
-    root.classList.toggle('jpdb-reader-highlight-status', theme.wordHighlightMode === 'status');
-    root.classList.toggle('jpdb-reader-highlight-pitch', theme.wordHighlightMode === 'pitch');
-    root.classList.toggle('jpdb-reader-highlight-off', theme.wordHighlightMode === 'off');
+    root.classList.remove('jpdb-reader-highlight-status', 'jpdb-reader-highlight-pitch', 'jpdb-reader-highlight-off');
     applyReaderColorSourceClasses(root, 'word', theme.wordColorSources);
     applyReaderColorSourceClasses(root, 'subtitle', theme.subtitleColorSources);
     return theme;
@@ -59,16 +55,15 @@ export function applyReaderWordColors(settings: ReaderSettings, root = document.
 function appliedReaderTheme(settings: ReaderSettings): AppliedReaderTheme {
     return {
         furiganaMode: effectiveFuriganaMode(settings),
-        wordHighlightMode: effectiveWordHighlightMode(settings),
         wordColorSources: {
-            highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource),
-            underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource),
-            text: effectiveReaderColorSource(settings, settings.wordTextColorSource),
+            highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource, 'jpdb'),
+            underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, 'pitch'),
+            text: effectiveReaderColorSource(settings, settings.wordTextColorSource, 'off'),
         },
         subtitleColorSources: {
-            highlight: effectiveSubtitleColorSource(settings, settings.subtitleHighlightColorSource),
-            underline: effectiveSubtitleColorSource(settings, settings.subtitleUnderlineColorSource),
-            text: effectiveSubtitleColorSource(settings, settings.subtitleTextColorSource),
+            highlight: effectiveSubtitleColorSource(settings, settings.subtitleHighlightColorSource, 'jpdb'),
+            underline: effectiveSubtitleColorSource(settings, settings.subtitleUnderlineColorSource, 'pitch'),
+            text: effectiveSubtitleColorSource(settings, settings.subtitleTextColorSource, 'jpdb'),
         },
     };
 }

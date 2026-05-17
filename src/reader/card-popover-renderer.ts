@@ -4,7 +4,7 @@ import type { CardRenderData } from './card-render-data';
 import { renderDeckChoiceOptions, jpdbDeckLabel } from './deck-choice';
 import { escapeHtml } from './dom';
 import { renderKanjiDefinitions } from './definition-source-render';
-import { uiText } from './i18n';
+import { uiText, type UiCopyKey } from './i18n';
 import { loadMiningContext } from './mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
 import { renderPitch, speakerIcon } from './popup-render';
@@ -70,7 +70,7 @@ export class CardPopoverRenderer {
                 ${this.dependencies.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo)}
                 ${view.loadingDetails}
                 ${this.renderAnkiExistingSection(data, view)}
-                ${renderKanjiDefinitions(data.kanjiEntries, (key, initiallyExpanded) => this.dependencies.dictionarySourceAttributes(key, initiallyExpanded), name => this.dependencies.dictionaryLabel(name))}
+                ${renderKanjiDefinitions(data.kanjiEntries, (key, initiallyExpanded) => this.dependencies.dictionarySourceAttributes(key, initiallyExpanded), name => this.dependencies.dictionaryLabel(name), undefined, uiText(view.language, 'kanjiDictionaries'), view.language)}
             </div>
             ${this.renderActions(view)}
         `;
@@ -97,7 +97,7 @@ export class CardPopoverRenderer {
             ankiActions: data.loading ? '' : renderAnkiActionRow(data.ankiLookup, settings),
             reviewButtons: this.renderReviewButtons(card, cardStates, data, hasJpdb, selectedDeckLabel, reviewBlockReason, language),
             metaItems: this.renderMetaItems(card, hasJpdb, state, data),
-            loadingDetails: this.renderLoadingDetails(data.loading),
+            loadingDetails: this.renderLoadingDetails(data.loading, language),
             audioButtonDisabled: !settings.audioEnabled,
             audioButtonTitle: uiText(language, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled'),
         };
@@ -111,7 +111,7 @@ export class CardPopoverRenderer {
             </div>
             <div class="jpdb-reader-card-tools">
                 ${this.renderPitch(card, data)}
-                ${view.audioButtonDisabled ? '' : `<button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}">${speakerIcon()}</button>`}
+                <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}"${view.audioButtonDisabled ? ' disabled' : ''}>${speakerIcon()}</button>
             </div>
         </div>`;
     }
@@ -133,14 +133,14 @@ export class CardPopoverRenderer {
     }
 
     private renderAnkiExistingSection(data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
-        return data.loading ? '' : renderAnkiExistingSection(data.ankiLookup, view.storedContext);
+        return data.loading ? '' : renderAnkiExistingSection(data.ankiLookup, view.storedContext, view.language);
     }
 
     private renderActions(view: CardPopoverRenderView): string {
         const hasMiningPanel = Boolean(view.miningActions);
         const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : '';
         return `<div class="jpdb-reader-actions${hasMiningPanel ? ' jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed' : ''}">
-            ${renderMiningGutter(miningPanel)}
+            ${renderMiningGutter(miningPanel, view.language)}
             ${miningPanel}
             ${hasMiningPanel ? '' : view.ankiActions}
             ${view.reviewButtons}
@@ -221,13 +221,13 @@ export class CardPopoverRenderer {
     private renderMetaItems(card: JPDBCard, hasJpdb: boolean, state: string, data: CardRenderData & { loading: boolean }): string[] {
         return [
             card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : '',
-            hasJpdb ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(state)}</span>` : '',
-            data.ankiLookup.primary ? `<span><span class="jpdb-reader-state-dot jpdb-${data.ankiLookup.state}"></span>Anki ${escapeHtml(data.ankiLookup.state)}</span>` : '',
+            hasJpdb ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(cardStateLabel(state, this.settings().interfaceLanguage))}</span>` : '',
+            data.ankiLookup.primary ? `<span><span class="jpdb-reader-state-dot jpdb-${data.ankiLookup.state}"></span>Anki ${escapeHtml(cardStateLabel(data.ankiLookup.state, this.settings().interfaceLanguage))}</span>` : '',
         ].filter(Boolean);
     }
 
-    private renderLoadingDetails(loading: boolean): string {
-        return loading ? '<div class="jpdb-reader-help" data-card-details-loading>Loading dictionary details...</div>' : '';
+    private renderLoadingDetails(loading: boolean, language: InterfaceLanguage): string {
+        return loading ? `<div class="jpdb-reader-help" data-card-details-loading>${escapeHtml(uiText(language, 'loadingDictionaryDetails'))}</div>` : '';
     }
 
     private reviewBlockReason(cardStates: ReturnType<typeof normalizeCardStates>, language: InterfaceLanguage): string {
@@ -262,8 +262,27 @@ function renderMeta(metaItems: string[]): string {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : '';
 }
 
-function renderMiningGutter(miningActions: string): string {
+function renderMiningGutter(miningActions: string, language: InterfaceLanguage): string {
     return miningActions
-        ? '<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button></div>'
+        ? `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml(uiText(language, 'showMiningActions'))}" aria-label="${escapeHtml(uiText(language, 'showMiningActions'))}"></button></div>`
         : '';
 }
+
+function cardStateLabel(state: string, language: InterfaceLanguage): string {
+    const key = CARD_STATE_LABEL_KEYS[state];
+    return key ? uiText(language, key) : state;
+}
+
+const CARD_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
+    new: 'stateNew',
+    learning: 'stateLearning',
+    known: 'stateKnown',
+    due: 'stateDue',
+    failed: 'stateFailed',
+    locked: 'stateLocked',
+    'never-forget': 'stateNeverForget',
+    blacklisted: 'stateBlacklisted',
+    suspended: 'stateSuspended',
+    'not-in-deck': 'stateNotInDeck',
+    redundant: 'stateRedundant',
+};

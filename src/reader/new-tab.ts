@@ -1,8 +1,9 @@
 import { APP_REPOSITORY_NAME } from './constants';
+import { uiText, type UiCopyKey } from './i18n';
 import { Logger } from './logger';
 import { sanitizeAccentColor } from './settings';
 import { gmStorageGetSync, gmStorageSetSync } from './storage';
-import type { CardState, JPDBCard, NewTabWordSource } from './types';
+import type { CardState, InterfaceLanguage, JPDBCard, NewTabWordSource } from './types';
 
 const log = Logger.scope('NewTab');
 const STATE_STORAGE_KEY = 'jpdb-reader-newtab-ui';
@@ -41,33 +42,33 @@ export const DEFAULT_NEW_TAB_UI_STATE: NewTabUiState = {
     revealAnswer: false,
 };
 
-export const NEW_TAB_FILTERS: Array<{ value: NewTabFilter; label: string }> = [
-    { value: 'study', label: 'Study' },
-    { value: 'all', label: 'All' },
-    { value: 'new', label: 'New' },
-    { value: 'learning', label: 'Learning' },
-    { value: 'due', label: 'Due' },
-    { value: 'failed', label: 'Failed' },
-    { value: 'known', label: 'Known' },
-    { value: 'never-forget', label: 'Never forget' },
-    { value: 'suspended', label: 'Suspended' },
-    { value: 'locked', label: 'Locked' },
-    { value: 'blacklisted', label: 'Blacklisted' },
-    { value: 'redundant', label: 'Redundant' },
-    { value: 'local', label: 'Dictionary' },
+export const NEW_TAB_FILTERS: Array<{ value: NewTabFilter; labelKey: UiCopyKey }> = [
+    { value: 'study', labelKey: 'filterStudy' },
+    { value: 'all', labelKey: 'filterAll' },
+    { value: 'new', labelKey: 'stateNew' },
+    { value: 'learning', labelKey: 'stateLearning' },
+    { value: 'due', labelKey: 'stateDue' },
+    { value: 'failed', labelKey: 'stateFailed' },
+    { value: 'known', labelKey: 'stateKnown' },
+    { value: 'never-forget', labelKey: 'stateNeverForget' },
+    { value: 'suspended', labelKey: 'stateSuspended' },
+    { value: 'locked', labelKey: 'stateLocked' },
+    { value: 'blacklisted', labelKey: 'stateBlacklisted' },
+    { value: 'redundant', labelKey: 'stateRedundant' },
+    { value: 'local', labelKey: 'dictionary' },
 ];
 
-export const NEW_TAB_SOURCE_OPTIONS: Array<{ value: NewTabWordSource; label: string }> = [
-    { value: 'auto', label: 'Auto' },
-    { value: 'jpdb', label: 'JPDB' },
-    { value: 'anki', label: 'Anki' },
-    { value: 'dictionary', label: 'Dictionary' },
+export const NEW_TAB_SOURCE_OPTIONS: Array<{ value: NewTabWordSource; labelKey: UiCopyKey }> = [
+    { value: 'auto', labelKey: 'sourceAuto' },
+    { value: 'jpdb', labelKey: 'jpdb' },
+    { value: 'anki', labelKey: 'anki' },
+    { value: 'dictionary', labelKey: 'dictionary' },
 ];
 
-export const NEW_TAB_SORT_OPTIONS: Array<{ value: NewTabSort; label: string }> = [
-    { value: 'random', label: 'Random' },
-    { value: 'frequency', label: 'Frequency' },
-    { value: 'state', label: 'State' },
+export const NEW_TAB_SORT_OPTIONS: Array<{ value: NewTabSort; labelKey: UiCopyKey }> = [
+    { value: 'random', labelKey: 'sortRandom' },
+    { value: 'frequency', labelKey: 'sortFrequency' },
+    { value: 'state', labelKey: 'sortState' },
 ];
 
 export function isYomuNewTabUrl(value: string): boolean {
@@ -302,11 +303,29 @@ export function sortNewTabCards(cards: JPDBCard[], sort: NewTabSort): JPDBCard[]
     );
 }
 
-export function cardStateLabel(card: JPDBCard): string {
-    if (card.source === 'local') return 'Dictionary';
+export function cardStateLabel(card: JPDBCard, language: InterfaceLanguage = 'en'): string {
+    if (card.source === 'local') return uiText(language, 'dictionary');
     if (card.source === 'anki') return 'Anki';
     const state = card.cardState[0] ?? 'new';
-    return NEW_TAB_FILTERS.find(filter => filter.value === state)?.label ?? state.replace(/-/g, ' ');
+    return newTabStateLabel(state, language) ?? state.replace(/-/g, ' ');
+}
+
+function newTabStateLabel(state: CardState, language: InterfaceLanguage): string | undefined {
+    const keys: Partial<Record<CardState, UiCopyKey>> = {
+        new: 'stateNew',
+        learning: 'stateLearning',
+        due: 'stateDue',
+        failed: 'stateFailed',
+        known: 'stateKnown',
+        'never-forget': 'stateNeverForget',
+        suspended: 'stateSuspended',
+        locked: 'stateLocked',
+        blacklisted: 'stateBlacklisted',
+        redundant: 'stateRedundant',
+        'not-in-deck': 'stateNotInDeck',
+    };
+    const key = keys[state];
+    return key ? uiText(language, key) : undefined;
 }
 
 function matchesFilter(card: JPDBCard, filter: NewTabFilter): boolean {

@@ -522,6 +522,58 @@ describe('new tab review helpers', () => {
         expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['一番', '二番', '三番']);
     });
 
+    it('labels the current card origin in the mixed new-tab footer', () => {
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitEnabled: false }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        const cards = [
+            newTabTestCard({ spelling: '一番', source: 'jpdb', reviewSource: 'jpdb-api' }),
+            newTabTestCard({ spelling: '二番', source: 'anki', reviewSource: 'anki' }),
+            newTabTestCard({ spelling: '三番', source: 'local' }),
+        ];
+        Object.assign(controller as unknown as {
+            visibleWords: JPDBCard[];
+            index: number;
+            reviewCountMode: boolean;
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        }, {
+            visibleWords: cards,
+            index: 0,
+            reviewCountMode: false,
+            sourceLabel: 'JPDB + Anki',
+            state: { mode: 'word', sort: 'random', filter: 'study', source: 'auto', revealAnswer: false },
+        });
+
+        (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, cards[0]!);
+        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('1 / 3 · JPDB');
+
+        (controller as unknown as { index: number }).index = 1;
+        (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, cards[1]!);
+        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('2 / 3 · Anki');
+
+        (controller as unknown as { index: number }).index = 2;
+        (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, cards[2]!);
+        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
+    });
+
     it('keeps JPDB visible in the dictionary source rows when disabled', () => {
         const rows = definitionSourceRows({
             ...DEFAULT_SETTINGS,
@@ -1102,15 +1154,54 @@ describe('new tab review helpers', () => {
 
     it('renders the word front as a large keyword with the sentence below', () => {
         const sentence = '難波金満(なにわきんまん)高校 生徒会長 宝多金男(かねお)や';
-        const card = newTabTestCard({ spelling: '難波', reading: 'なにわ', sentence, source: 'anki' });
+        const card = newTabTestCard({ spelling: '難波', reading: 'なにわ', sentence, source: 'anki', pitchAccent: ['LHH'] });
         const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false });
 
         const root = renderNewTabWordFront(controller, card);
 
         const prompt = root.querySelector<HTMLElement>('[data-newtab-prompt]');
         expect(prompt?.querySelector('.jpdb-reader-newtab-term')?.textContent).toBe('難波');
+        expect(prompt?.querySelector('.jpdb-reader-newtab-term .jpdb-reader-word')?.classList.contains('jpdb-pitch-heiban')).toBe(true);
         expect(prompt?.querySelector('.jpdb-reader-newtab-sentence')?.textContent).toBe(sentence);
         expect(prompt?.querySelector('.jpdb-reader-newtab-sentence .jpdb-reader-word')?.textContent).toBe('難波');
+    });
+
+    it('parses the front sentence with the same content parser used by other card text', async () => {
+        const sentence = 'お母ちゃん中学生？';
+        const card = newTabTestCard({ vid: 88, sid: 44, spelling: '中学生', reading: 'ちゅうがくせい', sentence });
+        const parseContent = vi.fn(async (prompt: HTMLElement) => {
+            const sentenceNode = prompt.querySelector<HTMLElement>('[data-newtab-sentence-render]');
+            sentenceNode!.innerHTML = 'お母ちゃん<span class="jpdb-reader-word jpdb-new jpdb-pitch-heiban" data-vid="88" data-sid="44" data-sentence="お母ちゃん中学生？" tabindex="0">中学生</span>？';
+        });
+        const controller = newTabPromptController(DEFAULT_SETTINGS, { parseContent });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        document.body.append(root);
+        Object.assign(controller as unknown as {
+            visibleWords: JPDBCard[];
+            index: number;
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        }, {
+            visibleWords: [card],
+            index: 0,
+            sourceLabel: 'JPDB',
+            state: { mode: 'word', sort: 'frequency', filter: 'study', source: 'jpdb', revealAnswer: false },
+        });
+
+        try {
+            (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
+
+            await waitForExpect(() => {
+                expect(parseContent).toHaveBeenCalledWith(root.querySelector('[data-newtab-prompt]'));
+                expect(root.querySelector('.jpdb-reader-newtab-sentence .jpdb-reader-word')?.textContent).toBe('中学生');
+                expect(root.querySelector('.jpdb-reader-newtab-sentence .jpdb-reader-word')?.classList.contains('jpdb-reader-example-target')).toBe(true);
+            });
+        } finally {
+            root.remove();
+        }
     });
 
     it('omits front sentences when the new-tab sentence toggle is off', () => {
@@ -1687,6 +1778,8 @@ describe('new tab review helpers', () => {
             const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
             popover.style.setProperty('--jpdb-reader-sheet-height', '620px');
 
+            expect(document.querySelector('.jpdb-reader-backdrop')).toBeNull();
+            expect(popover.getAttribute('aria-modal')).toBe('false');
             expect(popover.querySelector<HTMLButtonElement>('[data-action="word-back"]')?.title).toBe('Back to word: 漢字');
 
             popover.insertAdjacentHTML('beforeend', '<button type="button" data-action="kanji" data-kanji="字">字</button>');
@@ -1708,6 +1801,48 @@ describe('new tab review helpers', () => {
                 expect(popover.querySelector('[data-action="kanji-history-back"]')).toBeNull();
                 expect(popover.style.getPropertyValue('--jpdb-reader-sheet-height')).toBe('620px');
             });
+        } finally {
+            runtime.destroy();
+            restoreCanvas();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('keeps hosted sticky bottom-sheet lookup modeless until explicitly closed', async () => {
+        const restoreCanvas = stubKanjiDoodleBrowserApis();
+        const runtime = new NewTabRuntime();
+        const card = newTabTestCard({ spelling: '大切', reading: 'たいせつ', sentence: '大切です。' });
+        const internals = runtime as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            showKanjiLookupCard(card: JPDBCard, kanji: string, sentence?: string): Promise<void>;
+        };
+
+        try {
+            internals.settings = {
+                ...DEFAULT_SETTINGS,
+                popupMode: 'sheet',
+                stickyBottomSheet: true,
+                jpdbKanjiEnabled: false,
+                localDictionariesEnabled: false,
+                localDictionaryShowKanji: false,
+                rtkEnabled: false,
+                kanjivgEnabled: false,
+                kanjiOriginsEnabled: false,
+                uchisenEnabled: false,
+            };
+
+            await internals.showKanjiLookupCard(card, '切', '大切です。');
+            const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+            const closeButton = popover.querySelector<HTMLButtonElement>('[data-jpdb-reader-sheet-close="true"]');
+
+            expect(document.querySelector('.jpdb-reader-backdrop')).toBeNull();
+            expect(popover.getAttribute('aria-modal')).toBe('false');
+            expect(popover.classList.contains('jpdb-reader-sheet-sticky')).toBe(true);
+            expect(closeButton?.title).toBe('Close drawer');
+
+            closeButton?.click();
+
+            expect(document.querySelector('.jpdb-reader-popover')).toBeNull();
         } finally {
             runtime.destroy();
             restoreCanvas();
@@ -2580,7 +2715,7 @@ describe('new tab review helpers', () => {
         expect(summary).toHaveBeenCalledTimes(2);
         expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, settings.dictionaryPreferences, { fallbackToRandom: false });
         expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
-        expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionaries');
+        expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
         document.body.replaceChildren();
     });
 
@@ -2655,7 +2790,7 @@ describe('new tab review helpers', () => {
         expect(invalidateCaches).toHaveBeenCalledTimes(1);
         expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, settings.dictionaryPreferences, { fallbackToRandom: false });
         expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
-        expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionaries');
+        expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
         document.body.replaceChildren();
     });
 
@@ -2932,7 +3067,7 @@ describe('new tab review helpers', () => {
             await render;
 
             expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
-            expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionaries');
+            expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
         } finally {
             document.body.replaceChildren();
             localStorage.removeItem('jpdb-reader-newtab-card-cache');

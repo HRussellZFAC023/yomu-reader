@@ -107,6 +107,8 @@ http://localhost:9393/?term={term}&reading={reading}
 
 `{term}` and `{reading}` are placeholders. Leave them exactly like that; よむ replaces them for each word.
 
+JPDB and browser text-to-speech rows are fallback-only by default, so random audio still prefers recorded clips first. In Settings > Audio, change **Text-to-speech handling** to **Follow source order / random** if you want TTS rows to be picked according to your source order or random audio setting.
+
 ## Run on Startup
 
 Use full paths in startup commands so the server can find the binary and audio folder after a reboot.

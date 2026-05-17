@@ -9,6 +9,9 @@ const LIVE = process.env.YOMU_PROFILE_LIVE === '1';
 const API_KEY = process.env.YOMU_PROFILE_API_KEY || process.env.YOMU_TEST_API_KEY || '';
 const USERSCRIPT_PATH = new URL('../dist/yomu.user.js', import.meta.url);
 const IMMERSION_API_HOSTS = new Set(['apiv2express.immersionkit.com', 'apiv2.immersionkit.com']);
+const PROFILE_FIXTURE_PATH = '/__yomu-profile-fixture/';
+const HOVER_WORD = '読みました';
+const CLICK_WORD = '今日';
 
 if (LIVE && !API_KEY) {
     console.error('Live profiling needs YOMU_PROFILE_API_KEY or YOMU_TEST_API_KEY so JPDB parse can run against the real API.');
@@ -248,6 +251,7 @@ async function profileRouteResponse(route, url) {
 }
 
 const PROFILE_ROUTE_HANDLERS = [
+    profileFixtureResponse,
     jpdbParseProfileResponse,
     jpdbKanjiProfileResponse,
     githubRawProfileResponseAdapter,
@@ -256,6 +260,17 @@ const PROFILE_ROUTE_HANDLERS = [
     immersionMediaProfileResponse,
     audioProfileResponseAdapter,
 ];
+
+function profileFixtureResponse(_route, url) {
+    if (url.origin === new URL(ORIGIN).origin && url.pathname === PROFILE_FIXTURE_PATH) {
+        return {
+            status: 200,
+            contentType: 'text/html; charset=utf-8',
+            body: profileFixtureHtml(),
+        };
+    }
+    return null;
+}
 
 async function jpdbParseProfileResponse(route, url) {
     if (url.hostname === 'jpdb.io' && url.pathname === '/api/v1/parse') {
@@ -326,54 +341,33 @@ async function audioProfileResponse(url) {
 const profileUrl = new URL(`${ORIGIN}/newtab/`);
 profileUrl.searchParams.set('apiKey', API_KEY || 'profile-key');
 if (!LIVE) profileUrl.searchParams.set('audio', 'https://audio.profile.test/source?term={term}&reading={reading}');
-await page.goto(profileUrl.toString(), { waitUntil: 'domcontentloaded' });
-await page.evaluate(settings => {
-    localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify(settings));
-}, settings);
-await seedProfileDictionaries(page);
-await page.waitForTimeout(100);
-if (!await page.evaluate(() => Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')))) {
-    await page.addScriptTag({ content: await readFile(USERSCRIPT_PATH, 'utf8') });
+const profileTarget = await openProfileTarget(page, profileUrl);
+if (profileTarget.skipped) {
+    console.log(JSON.stringify({
+        skipped: true,
+        reason: profileTarget.reason,
+        origin: ORIGIN,
+        live: LIVE,
+        attempts: profileTarget.attempts,
+        pageDebug: profileTarget.pageDebug,
+        actionable: LIVE
+            ? 'Start the configured YOMU_PROFILE_ORIGIN newtab page or run without YOMU_PROFILE_LIVE=1 so the harness can use its deterministic fixture.'
+            : 'Run npm run build first so dist/yomu.user.js exists, then rerun the profiler. The mock fixture is available at /__yomu-profile-fixture/.',
+    }, null, 2));
+    await browser.close();
+    process.exit(0);
 }
-await page.waitForSelector('.jpdb-reader-word', { timeout: 10000 });
 
-const firstWord = page.locator('.jpdb-reader-word').filter({ hasText: '読みました' }).first();
-const hoverAt = await page.evaluate(() => performance.now());
-await firstWord.hover();
-await page.waitForSelector('.jpdb-reader-popover', { timeout: 10000 });
-const hoverPopoverAt = await page.evaluate(() => performance.now());
-await page.waitForFunction(start => window.__yomuProfileEvents.some(event => event.t >= start && (event.name === 'audio.play' || event.name === 'audio.play.failed')), hoverAt, { timeout: 12000 }).catch(() => {});
-const hoverAudioAt = await page.evaluate(start => window.__yomuProfileEvents.find(event => event.t >= start && event.name.startsWith('audio.play'))?.t ?? null, hoverAt);
-const hoverAwayAt = await page.evaluate(() => performance.now());
-await page.mouse.move(1272, 892);
-await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover'), null, { timeout: 3000 }).catch(() => {});
-const hoverClosed = await page.locator('.jpdb-reader-popover').count().then(count => count === 0);
-const hoverCloseAt = hoverClosed ? await page.evaluate(() => performance.now()) : null;
-const hoverCloseDebug = hoverClosed ? null : await page.evaluate(() => {
-    const describe = element => element ? {
-        tag: element.tagName,
-        className: element.className,
-        text: element.textContent?.replace(/\s+/g, ' ').trim().slice(0, 80) ?? '',
-    } : null;
-    const popover = document.querySelector('.jpdb-reader-popover');
-    const word = document.querySelector('.jpdb-reader-word:hover');
-    return {
-        elementAtAwayPoint: describe(document.elementFromPoint(1272, 892)),
-        hovered: Array.from(document.querySelectorAll(':hover')).slice(-6).map(describe),
-        ariaModal: popover?.getAttribute('aria-modal') ?? null,
-        backdropCount: document.querySelectorAll('.jpdb-reader-backdrop').length,
-        popoverBox: popover?.getBoundingClientRect().toJSON?.() ?? null,
-        wordHover: describe(word),
-    };
-});
-if (!hoverClosed) await page.keyboard.press('Escape');
+const hoverProfile = await profileHoverPopover(page);
 
-const clickWord = page.locator('.jpdb-reader-word').filter({ hasText: '今日' }).first();
+const clickWord = page.locator('.jpdb-reader-word').filter({ hasText: CLICK_WORD }).first();
 await page.evaluate(() => { window.__yomuProfileEvents = []; });
 const clickAt = await page.evaluate(() => performance.now());
 await clickWord.click();
 await page.waitForSelector('.jpdb-reader-popover', { timeout: 10000 });
 const popoverAt = await page.evaluate(() => performance.now());
+const dictionaryShellDebug = await popoverDebugSnapshot(page);
+const dictionaryDetails = await waitForDictionaryDetails(page, clickAt, popoverAt);
 const localDictionaryLoaded = await page.waitForFunction(() => /profile local (?:today|to read|read politely)/.test(document.querySelector('.jpdb-reader-popover')?.textContent || ''), null, { timeout: 3000 })
     .then(() => true)
     .catch(() => false);
@@ -392,8 +386,7 @@ const kanjiClickAt = await page.evaluate(() => performance.now());
 await page.locator('.jpdb-reader-kanji-inline').first().click();
 await page.waitForSelector('.jpdb-reader-kanji-display', { timeout: 5000 });
 const kanjiShellAt = await page.evaluate(() => performance.now());
-await page.waitForFunction(() => !/Loading kanji details/.test(document.querySelector('[data-kanji-keyword-mount]')?.textContent || ''), null, { timeout: SLOW_MS + 6000 }).catch(() => {});
-const kanjiDetailsAt = await page.evaluate(() => performance.now());
+const kanjiDetails = await waitForKanjiDetails(page, kanjiClickAt);
 
 const yomuLogs = logs.filter(log => log.text.includes('[Yomu]'));
 const logCounts = yomuLogs.reduce((counts, log) => {
@@ -415,17 +408,21 @@ const pendingSlowRequests = requests
 
 console.log(JSON.stringify({
     origin: ORIGIN,
+    target: profileTarget,
     injectedDelayMs: SLOW_MS,
     timingsMs: {
-        hoverToPopover: Math.round(hoverPopoverAt - hoverAt),
-        hoverToAudioPlayAttempt: hoverAudioAt ? Math.round(hoverAudioAt - hoverAt) : null,
-        hoverAwayToClose: hoverCloseAt ? Math.round(hoverCloseAt - hoverAwayAt) : null,
-        clickToPopover: Math.round(popoverAt - clickAt),
+        hoverToPopover: hoverProfile.popoverAt ? Math.round(hoverProfile.popoverAt - hoverProfile.startedAt) : null,
+        hoverToAudioPlayAttempt: hoverProfile.audioAt ? Math.round(hoverProfile.audioAt - hoverProfile.startedAt) : null,
+        hoverAwayToClose: hoverProfile.closeAt && hoverProfile.awayAt ? Math.round(hoverProfile.closeAt - hoverProfile.awayAt) : null,
+        dictionaryClickToShellMounted: Math.round(popoverAt - clickAt),
+        dictionaryClickToDetailsComplete: dictionaryDetails.at ? Math.round(dictionaryDetails.at - clickAt) : null,
         clickToLocalDictionary: localDictionaryAt ? Math.round(localDictionaryAt - clickAt) : null,
         clickToAudioPlayAttempt: audioAt ? Math.round(audioAt - clickAt) : null,
         kanjiClickToShell: Math.round(kanjiShellAt - kanjiClickAt),
-        kanjiClickToDetailsNotLoading: Math.round(kanjiDetailsAt - kanjiClickAt),
+        kanjiClickToDetailsComplete: kanjiDetails.completeAt ? Math.round(kanjiDetails.completeAt - kanjiClickAt) : null,
+        kanjiMounts: kanjiDetails.mounts,
     },
+    dictionaryDetails,
     console: {
         total: logs.length,
         yomu: yomuLogs.length,
@@ -433,11 +430,247 @@ console.log(JSON.stringify({
     },
     slowRequests,
     pendingSlowRequests,
-    hoverCloseDebug,
+    hoverProfile,
+    dictionaryShellDebug,
+    hoverCloseDebug: hoverProfile.closeDebug,
     localDictionaryDebug,
 }, null, 2));
 
 await browser.close();
+
+async function profileHoverPopover(page) {
+    const startedAt = await page.evaluate(() => performance.now());
+    const profile = {
+        word: HOVER_WORD,
+        startedAt,
+        popoverAt: null,
+        audioAt: null,
+        awayAt: null,
+        closeAt: null,
+        closeDebug: null,
+        debug: null,
+        skipped: false,
+        reason: '',
+    };
+    const firstWord = page.locator('.jpdb-reader-word').filter({ hasText: HOVER_WORD }).first();
+    try {
+        await firstWord.hover({ timeout: 5000 });
+    } catch (error) {
+        profile.skipped = true;
+        profile.reason = `Could not hover the profile word: ${String(error?.message || error)}`;
+        profile.debug = await collectPageDebug(page).catch(debugError => ({ error: String(debugError?.message || debugError) }));
+        return profile;
+    }
+
+    const opened = await page.waitForSelector('.jpdb-reader-popover', { timeout: 3000 })
+        .then(() => true)
+        .catch(() => false);
+    if (!opened) {
+        profile.skipped = true;
+        profile.reason = 'Hover did not open a popover before the profiler timeout.';
+        profile.debug = await collectPageDebug(page).catch(error => ({ error: String(error?.message || error) }));
+        return profile;
+    }
+
+    profile.popoverAt = await page.evaluate(() => performance.now());
+    await page.waitForFunction(start => window.__yomuProfileEvents.some(event => event.t >= start && (event.name === 'audio.play' || event.name === 'audio.play.failed')), startedAt, { timeout: 12000 }).catch(() => {});
+    profile.audioAt = await page.evaluate(start => window.__yomuProfileEvents.find(event => event.t >= start && event.name.startsWith('audio.play'))?.t ?? null, startedAt);
+    profile.awayAt = await page.evaluate(() => performance.now());
+    await page.mouse.move(1272, 892);
+    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover'), null, { timeout: 3000 }).catch(() => {});
+    const hoverClosed = await page.locator('.jpdb-reader-popover').count().then(count => count === 0);
+    profile.closeAt = hoverClosed ? await page.evaluate(() => performance.now()) : null;
+    profile.closeDebug = hoverClosed ? null : await hoverCloseDebugSnapshot(page);
+    if (!hoverClosed) await page.keyboard.press('Escape');
+    return profile;
+}
+
+async function hoverCloseDebugSnapshot(page) {
+    return page.evaluate(() => {
+        const describe = element => element ? {
+            tag: element.tagName,
+            className: element.className,
+            text: element.textContent?.replace(/\s+/g, ' ').trim().slice(0, 80) ?? '',
+        } : null;
+        const popover = document.querySelector('.jpdb-reader-popover');
+        const word = document.querySelector('.jpdb-reader-word:hover');
+        return {
+            elementAtAwayPoint: describe(document.elementFromPoint(1272, 892)),
+            hovered: Array.from(document.querySelectorAll(':hover')).slice(-6).map(describe),
+            ariaModal: popover?.getAttribute('aria-modal') ?? null,
+            backdropCount: document.querySelectorAll('.jpdb-reader-backdrop').length,
+            popoverBox: popover?.getBoundingClientRect().toJSON?.() ?? null,
+            wordHover: describe(word),
+        };
+    });
+}
+
+async function openProfileTarget(page, url) {
+    const attempts = [];
+    const primary = await tryOpenAndPrepareProfilePage(page, url.toString(), 'newtab', attempts);
+    if (primary.ready) return { source: 'newtab', url: url.toString(), attempts };
+
+    if (!LIVE) {
+        const fixtureUrl = new URL(PROFILE_FIXTURE_PATH, ORIGIN);
+        const fixture = await tryOpenAndPrepareProfilePage(page, fixtureUrl.toString(), 'fixture', attempts);
+        if (fixture.ready) return { source: 'fixture', url: fixtureUrl.toString(), attempts };
+    }
+
+    return {
+        skipped: true,
+        reason: `Expected mock words "${HOVER_WORD}" and "${CLICK_WORD}" were not rendered before profiling could start.`,
+        attempts,
+        pageDebug: await collectPageDebug(page).catch(error => ({ error: String(error?.message || error) })),
+    };
+}
+
+async function tryOpenAndPrepareProfilePage(page, url, label, attempts) {
+    const attempt = { label, url };
+    attempts.push(attempt);
+    try {
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await prepareProfilePage(page);
+        attempt.ready = await waitForProfileWords(page, 5000);
+        if (!attempt.ready) attempt.debug = await collectPageDebug(page);
+    } catch (error) {
+        attempt.ready = false;
+        attempt.error = String(error?.message || error);
+    }
+    return attempt;
+}
+
+async function prepareProfilePage(page) {
+    await page.evaluate(settings => {
+        localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify(settings));
+    }, settings);
+    await seedProfileDictionaries(page);
+    await page.waitForTimeout(100);
+    await installReaderRuntimeIfNeeded(page);
+}
+
+async function installReaderRuntimeIfNeeded(page) {
+    const initialized = await page.evaluate(() => Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')));
+    if (!initialized) await page.addScriptTag({ content: await readFile(USERSCRIPT_PATH, 'utf8') });
+}
+
+async function waitForProfileWords(page, timeout) {
+    const deadline = Date.now() + timeout;
+    while (Date.now() < deadline) {
+        const found = await page.evaluate(({ hoverWord, clickWord }) => {
+            const words = Array.from(document.querySelectorAll('.jpdb-reader-word')).map(word => word.textContent?.trim() || '');
+            return words.some(word => word.includes(hoverWord)) && words.some(word => word.includes(clickWord));
+        }, { hoverWord: HOVER_WORD, clickWord: CLICK_WORD });
+        if (found) return true;
+        await page.waitForTimeout(150);
+    }
+    return false;
+}
+
+async function collectPageDebug(page) {
+    return await page.evaluate(() => ({
+        title: document.title,
+        url: location.href,
+        bodyText: document.body?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 500) ?? '',
+        wordCount: document.querySelectorAll('.jpdb-reader-word').length,
+        words: Array.from(document.querySelectorAll('.jpdb-reader-word')).slice(0, 12).map(word => word.textContent?.trim() || ''),
+        initialized: Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')),
+        runtime: window.__YOMU_READER_RUNTIME__ ?? null,
+    }));
+}
+
+async function waitForDictionaryDetails(page, clickAt, popoverAt) {
+    const loadingSelector = '.jpdb-reader-popover [data-card-details-loading]';
+    const observedLoading = await page.locator(loadingSelector).count().then(count => count > 0).catch(() => false);
+    const complete = await page.waitForFunction(selector => !document.querySelector(selector), loadingSelector, { timeout: SLOW_MS + 6000 })
+        .then(() => true)
+        .catch(() => false);
+    return {
+        shellMountedAt: popoverAt,
+        at: complete ? await page.evaluate(() => performance.now()) : null,
+        complete,
+        observedLoadingSelector: observedLoading,
+        loadingSelector,
+        debug: complete ? null : await popoverDebugSnapshot(page),
+    };
+}
+
+async function waitForKanjiDetails(page, startAt) {
+    const mountChecks = [
+        ['keyword', '[data-kanji-keyword-mount]', text => text && !/Loading kanji details/i.test(text)],
+        ['jpdb', '[data-kanji-jpdb-mount]', text => Boolean(text)],
+        ['rtk', '[data-kanji-rtk-mount]', text => Boolean(text)],
+        ['localKanjiDictionary', '[data-kanji-definitions-mount]', text => /Profile Kanji|now|read/i.test(text)],
+        ['kanjiVg', '.jpdb-reader-kanjivg', text => /Stroke order|Clear|Trace/i.test(text)],
+        ['origin', '[data-kanji-origin-mount]', text => Boolean(text)],
+        ['similarWords', '[data-kanji-similar-mount]', text => Boolean(text)],
+    ];
+    const mounts = {};
+    await Promise.all(mountChecks.map(async ([name, selector]) => {
+        const present = await page.locator(selector).count().then(count => count > 0).catch(() => false);
+        if (!present) {
+            mounts[name] = { selector, present: false, ms: null, complete: false };
+            return;
+        }
+        const complete = await page.waitForFunction(({ selector }) => {
+            const node = document.querySelector(selector);
+            const text = node?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+            if (!node) return false;
+            if (selector === '[data-kanji-keyword-mount]') return text && !/Loading kanji details/i.test(text);
+            if (selector === '[data-kanji-definitions-mount]') return /Profile Kanji|now|read/i.test(text);
+            if (selector === '.jpdb-reader-kanjivg') return Boolean(node.querySelector('.jpdb-reader-kanjivg-svg')) || /Stroke order|Clear|Trace/i.test(text);
+            return Boolean(text);
+        }, { selector }, { timeout: SLOW_MS + 7000 }).then(() => true).catch(() => false);
+        const at = complete ? await page.evaluate(() => performance.now()) : null;
+        mounts[name] = {
+            selector,
+            present,
+            complete,
+            ms: at ? Math.round(at - startAt) : null,
+            text: complete ? undefined : await page.locator(selector).first().textContent().then(text => text?.replace(/\s+/g, ' ').trim().slice(0, 160) ?? '').catch(() => ''),
+        };
+    }));
+    const completeTimes = Object.values(mounts)
+        .filter(mount => mount.present && mount.complete && mount.ms !== null)
+        .map(mount => startAt + mount.ms);
+    return {
+        mounts,
+        completeAt: completeTimes.length ? Math.max(...completeTimes) : null,
+        debug: Object.values(mounts).some(mount => mount.present && !mount.complete) ? await popoverDebugSnapshot(page) : null,
+    };
+}
+
+async function popoverDebugSnapshot(page) {
+    return await page.evaluate(() => {
+        const popover = document.querySelector('.jpdb-reader-popover');
+        return {
+            text: popover?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 500) ?? '',
+            loading: Array.from(popover?.querySelectorAll('[data-card-details-loading], [data-kanji-keyword-mount], [data-kanji-definitions-mount]') ?? []).map(node => ({
+                selector: node.matches('[data-card-details-loading]') ? '[data-card-details-loading]' : node.matches('[data-kanji-keyword-mount]') ? '[data-kanji-keyword-mount]' : '[data-kanji-definitions-mount]',
+                text: node.textContent?.replace(/\s+/g, ' ').trim().slice(0, 180) ?? '',
+            })),
+        };
+    });
+}
+
+function profileFixtureHtml() {
+    return `<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <title>Yomu profile fixture</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 48px; line-height: 2; }
+        main { max-width: 720px; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Yomu profile fixture</h1>
+        <p>今日は静かな喫茶店で新しい本を読みました。日本語を読む。</p>
+    </main>
+</body>
+</html>`;
+}
 
 async function seedProfileDictionaries(page) {
     await page.evaluate(async () => {

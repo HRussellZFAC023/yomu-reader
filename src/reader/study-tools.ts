@@ -1,5 +1,7 @@
 import { escapeHtml } from './dom';
+import { grammarRuleText, uiText, type UiCopyKey } from './i18n';
 import { Logger } from './logger';
+import type { InterfaceLanguage } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 
 const log = Logger.scope('StudyTools');
@@ -58,6 +60,8 @@ const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！�
 const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
 const GRAMMAR_PREFERENCES_KEY = 'yomu.grammarPreferences.v1';
 const MAX_LOCAL_GRAMMAR_HINTS = 12;
+const ENGLISH_TEXT_RE = /[A-Za-z]{3,}/u;
+const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 
 function gp(
     ruleId: string,
@@ -364,18 +368,6 @@ export function detectGrammarHints(sentence: string): GrammarHint[] {
         .map(({ priority: _priority, ...hint }) => hint);
 }
 
-export function mergeGrammarHints(primary: GrammarHint[], fallback: GrammarHint[], limit = MAX_LOCAL_GRAMMAR_HINTS): GrammarHint[] {
-    const seen = new Set<string>();
-    const merged: GrammarHint[] = [];
-    for (const hint of [...primary].sort(compareGrammarHints).concat([...fallback].sort(compareGrammarHints))) {
-        const key = `${hint.ruleId}:${hint.match}`;
-        if (seen.has(key) || merged.some(existing => isDuplicateGrammarHint(existing, hint))) continue;
-        seen.add(key);
-        merged.push(hint);
-    }
-    return merged.sort(compareGrammarHints).slice(0, limit);
-}
-
 function compareRankedGrammarHints(a: RankedGrammarHint, b: RankedGrammarHint): number {
     return a.priority - b.priority
         || a.index - b.index
@@ -399,47 +391,14 @@ function shouldSuppressOverlappingGrammarHint(existing: RankedGrammarHint, next:
     return nextInsideExisting && existing.priority <= next.priority && existing.match.length > next.match.length;
 }
 
-function isDuplicateGrammarHint(existing: GrammarHint, next: GrammarHint): boolean {
-    if (sameGrammarHintLocation(existing, next)) return true;
-    const existingHanabira = existing.ruleId.startsWith('hanabira-');
-    const nextHanabira = next.ruleId.startsWith('hanabira-');
-    if (!differentGrammarSourcesOverlap(existing, next, existingHanabira, nextHanabira)) return false;
-    const { hanabira, local } = splitHanabiraLocalHints(existing, next, existingHanabira);
-    return hanabiraHintContainsLocalText(hanabira, local);
-}
-
 function sameGrammarHintLocation(existing: GrammarHint, next: GrammarHint): boolean {
     return existing.match === next.match && existing.index === next.index;
-}
-
-function differentGrammarSourcesOverlap(existing: GrammarHint, next: GrammarHint, existingHanabira: boolean, nextHanabira: boolean): boolean {
-    return existingHanabira !== nextHanabira && grammarHintRangesOverlap(existing, next);
-}
-
-function splitHanabiraLocalHints(existing: GrammarHint, next: GrammarHint, existingHanabira: boolean): { hanabira: GrammarHint; local: GrammarHint } {
-    return existingHanabira
-        ? { hanabira: existing, local: next }
-        : { hanabira: next, local: existing };
-}
-
-function hanabiraHintContainsLocalText(hanabira: GrammarHint, local: GrammarHint): boolean {
-    const hanabiraName = normalizeGrammarTextForDedupe(hanabira.name);
-    const localName = normalizeGrammarTextForDedupe(local.name);
-    const localMatch = normalizeGrammarTextForDedupe(local.match);
-    return Boolean(localName && hanabiraName.includes(localName))
-        || Boolean(localMatch && localMatch.length >= 3 && hanabiraName.includes(localMatch));
 }
 
 function grammarHintRangesOverlap(a: GrammarHint, b: GrammarHint): boolean {
     const aEnd = a.index + a.match.length;
     const bEnd = b.index + b.match.length;
     return a.index < bEnd && b.index < aEnd;
-}
-
-function normalizeGrammarTextForDedupe(value: string): string {
-    return value.normalize('NFKC')
-        .replace(/[^\p{Letter}\p{Number}ぁ-んァ-ン一-龯々〆ヵヶ]/gu, '')
-        .toLowerCase();
 }
 
 export function readGrammarPreferences(): GrammarPreferences {
@@ -488,25 +447,27 @@ export function setKnownGrammarVisible(showKnown: boolean): GrammarPreferences {
     return next;
 }
 
-export async function translateJapaneseSentence(sentence: string): Promise<string> {
+export async function translateJapaneseSentence(sentence: string, language: InterfaceLanguage = 'en'): Promise<string> {
     const trimmed = sentence.trim();
     if (!trimmed) return '';
-    const cached = translationCache.get(trimmed);
+    const targetLanguage = translationTargetLanguage(language);
+    const cacheKey = `${targetLanguage}:${trimmed}`;
+    const cached = translationCache.get(cacheKey);
     if (cached) {
         return cached;
     }
-    const inFlight = translationInFlight.get(trimmed);
+    const inFlight = translationInFlight.get(cacheKey);
     if (inFlight) {
         return inFlight;
     }
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&dt=bd&dj=1&q=${encodeURIComponent(trimmed)}`;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(trimmed)}`;
     const promise = (async () => {
         const done = log.time('Translate sentence', { sentenceLength: trimmed.length });
         try {
             const json = await requestJson<GoogleTranslateResponse>(url);
             const translated = (json.sentences ?? []).map(item => item.trans ?? '').join('').trim();
             if (!translated) throw new Error('No translation returned.');
-            translationCache.set(trimmed, translated);
+            translationCache.set(cacheKey, translated);
             log.info('Translation completed', { sentenceLength: trimmed.length, translationLength: translated.length });
             return translated;
         } catch (error) {
@@ -516,24 +477,28 @@ export async function translateJapaneseSentence(sentence: string): Promise<strin
             done();
         }
     })();
-    translationInFlight.set(trimmed, promise);
+    translationInFlight.set(cacheKey, promise);
     void promise.then(() => {
-        if (translationInFlight.get(trimmed) === promise) translationInFlight.delete(trimmed);
+        if (translationInFlight.get(cacheKey) === promise) translationInFlight.delete(cacheKey);
     }, () => {
-        if (translationInFlight.get(trimmed) === promise) translationInFlight.delete(trimmed);
+        if (translationInFlight.get(cacheKey) === promise) translationInFlight.delete(cacheKey);
     });
     return promise;
 }
 
-export function renderGrammarHints(hints: GrammarHint[], sentence: string, preferences = readGrammarPreferences()): string {
+function translationTargetLanguage(language: InterfaceLanguage): string {
+    return language === 'ja' ? 'ja' : 'en';
+}
+
+export function renderGrammarHints(hints: GrammarHint[], sentence: string, preferences = readGrammarPreferences(), language: InterfaceLanguage = 'en'): string {
     if (!hints.length) return '';
     const knownRuleIds = new Set(preferences.knownRuleIds);
     const visibleHints = visibleGrammarHints(hints, knownRuleIds, preferences.showKnown);
     const knownCount = countKnownGrammarHints(hints, knownRuleIds);
     return `
         ${renderGrammarSentence(sentence)}
-        ${renderGrammarToolbar(visibleHints.length, knownCount, preferences.showKnown)}
-        ${renderGrammarHintList(visibleHints, knownRuleIds)}`;
+        ${renderGrammarToolbar(visibleHints.length, knownCount, preferences.showKnown, language)}
+        ${renderGrammarHintList(visibleHints, knownRuleIds, language)}`;
 }
 
 function visibleGrammarHints(hints: GrammarHint[], knownRuleIds: Set<string>, showKnown: boolean): GrammarHint[] {
@@ -551,64 +516,99 @@ function renderGrammarSentence(sentence: string): string {
         </div>`;
 }
 
-function renderGrammarToolbar(visibleCount: number, knownCount: number, showKnown: boolean): string {
+function renderGrammarToolbar(visibleCount: number, knownCount: number, showKnown: boolean, language: InterfaceLanguage): string {
     const hiddenKnownCount = showKnown ? 0 : knownCount;
     return `
         <div class="jpdb-reader-grammar-toolbar" data-grammar-toolbar>
-            <div class="jpdb-reader-grammar-summary">${escapeHtml(grammarSummary(visibleCount, hiddenKnownCount))}</div>
-            ${renderGrammarKnownVisibilityButton(knownCount, showKnown)}
+            <div class="jpdb-reader-grammar-summary">${escapeHtml(grammarSummary(visibleCount, hiddenKnownCount, language))}</div>
+            ${renderGrammarKnownVisibilityButton(knownCount, showKnown, language)}
         </div>`;
 }
 
-function renderGrammarKnownVisibilityButton(knownCount: number, showKnown: boolean): string {
+function renderGrammarKnownVisibilityButton(knownCount: number, showKnown: boolean, language: InterfaceLanguage): string {
     if (!knownCount) return '';
-    const label = showKnown ? 'Hide known' : 'Show known';
+    const label = showKnown ? uiText(language, 'grammarHideKnown') : uiText(language, 'grammarShowKnown');
     return `<button class="jpdb-reader-grammar-toggle" type="button" data-action="study-grammar-toggle-known-visibility" aria-pressed="${showKnown ? 'true' : 'false'}">${label}</button>`;
 }
 
-function renderGrammarHintList(visibleHints: GrammarHint[], knownRuleIds: Set<string>): string {
-    if (!visibleHints.length) return `<div class="jpdb-reader-study-empty">All detected grammar for this sentence is marked known.</div>`;
+function renderGrammarHintList(visibleHints: GrammarHint[], knownRuleIds: Set<string>, language: InterfaceLanguage): string {
+    if (!visibleHints.length) return `<div class="jpdb-reader-study-empty">${escapeHtml(uiText(language, 'allDetectedGrammarKnown'))}</div>`;
     return `<ol class="jpdb-reader-study-list" data-grammar-list>
-        ${visibleHints.map(hint => renderGrammarHintItem(hint, knownRuleIds.has(hint.ruleId))).join('')}
+        ${visibleHints.map(hint => renderGrammarHintItem(hint, knownRuleIds.has(hint.ruleId), language)).join('')}
         </ol>`;
 }
 
-function renderGrammarHintItem(hint: GrammarHint, known: boolean): string {
+function renderGrammarHintItem(hint: GrammarHint, known: boolean, language: InterfaceLanguage): string {
+    const copy = grammarHintCopy(hint, language);
+    const displayName = grammarDisplayName(hint, language);
     return `
             <li class="jpdb-reader-study-item${known ? ' known' : ''}" data-grammar-rule-id="${escapeHtml(hint.ruleId)}">
                 <div class="jpdb-reader-study-name">
-                    <span>${escapeHtml(hint.name)}</span>
-                    <span class="jpdb-reader-grammar-level">${escapeHtml(hint.level)}</span>
+                    <span>${escapeHtml(displayName)}</span>
+                    <span class="jpdb-reader-grammar-level">${escapeHtml(grammarLevelText(hint.level, language))}</span>
                 </div>
                 <div class="jpdb-reader-study-body">
                     <div class="jpdb-reader-study-item-head">
-                        <div class="jpdb-reader-study-kind">${escapeHtml(hint.kind)}</div>
-                        <button class="jpdb-reader-grammar-known" type="button" data-action="study-grammar-toggle-known" data-grammar-rule-id="${escapeHtml(hint.ruleId)}" data-grammar-known="${known ? 'true' : 'false'}" aria-pressed="${known ? 'true' : 'false'}">${known ? 'Review' : 'Known'}</button>
+                        <div class="jpdb-reader-study-kind">${escapeHtml(copy.kind)}</div>
+                        <button class="jpdb-reader-grammar-known" type="button" data-action="study-grammar-toggle-known" data-grammar-rule-id="${escapeHtml(hint.ruleId)}" data-grammar-known="${known ? 'true' : 'false'}" aria-pressed="${known ? 'true' : 'false'}">${known ? uiText(language, 'grammarReview') : uiText(language, 'grammarKnown')}</button>
                     </div>
-                    <div class="jpdb-reader-study-short">${escapeHtml(hint.short)}</div>
+                    <div class="jpdb-reader-study-short">${escapeHtml(copy.short)}</div>
                     <details class="jpdb-reader-grammar-more">
-                        <summary>Details</summary>
-                        <div class="jpdb-reader-study-detail">${escapeHtml(hint.detail)}</div>
-                        <div class="jpdb-reader-study-match"><span>Found in</span>${escapeHtml(hint.match)}</div>
-                        ${renderGrammarHintExamples(hint)}
-                        ${renderGrammarHintGuide(hint)}
+                        <summary>${escapeHtml(uiText(language, 'grammarDetails'))}</summary>
+                        <div class="jpdb-reader-study-detail">${escapeHtml(copy.detail)}</div>
+                        <div class="jpdb-reader-study-match"><span>${escapeHtml(uiText(language, 'grammarFoundIn'))}</span>${escapeHtml(hint.match)}</div>
+                        ${renderGrammarHintExamples(hint, language)}
+                        ${renderGrammarHintGuide(hint, language)}
                     </details>
                 </div>
             </li>`;
 }
 
-function renderGrammarHintExamples(hint: GrammarHint): string {
+function grammarHintCopy(hint: GrammarHint, language: InterfaceLanguage): { kind: string; short: string; detail: string } {
+    const fallback = { kind: hint.kind, short: hint.short, detail: hint.detail };
+    if (language !== 'ja') return fallback;
+    const ruleCopy = grammarRuleText(language, hint.ruleId);
+    if (ruleCopy) return ruleCopy;
+    const name = grammarDisplayName(hint, language);
+    return {
+        kind: hint.kind === 'Hanabira grammar' ? uiText(language, 'grammarKindHanabira') : uiText(language, 'grammar'),
+        short: interpolateUiText(language, 'grammarGenericShort', { name, match: hint.match }),
+        detail: interpolateUiText(language, 'grammarGenericDetail', { name, match: hint.match }),
+    };
+}
+
+function grammarLevelText(level: GrammarLevel, language: InterfaceLanguage): string {
+    return language === 'ja' && level === 'Core' ? uiText(language, 'grammarLevelCore') : level;
+}
+
+function grammarDisplayName(hint: GrammarHint, language: InterfaceLanguage): string {
+    if (language !== 'ja' || !ENGLISH_TEXT_RE.test(hint.name)) return hint.name;
+    if (JAPANESE_TEXT_RE.test(hint.match)) return hint.match;
+    return japaneseGrammarText(hint.name) || hint.name;
+}
+
+function japaneseGrammarText(value: string): string {
+    return (value.match(/[ぁ-んァ-ヶ一-龯々〆ヵヶー〜]+/gu) ?? []).join(' / ');
+}
+
+function interpolateUiText(language: InterfaceLanguage, key: UiCopyKey, values: Record<string, string>): string {
+    return uiText(language, key).replace(/\{(\w+)}/g, (_, name: string) => values[name] ?? '');
+}
+
+function renderGrammarHintExamples(hint: GrammarHint, language: InterfaceLanguage): string {
     const examples = (hint.examples ?? []).slice(0, 2);
     if (!examples.length) return '';
-    return `<div class="jpdb-reader-grammar-examples"><span>Example</span>${examples.map(example => renderGrammarExample(example)).join('')}</div>`;
+    return `<div class="jpdb-reader-grammar-examples"><span>${escapeHtml(uiText(language, 'grammarExample'))}</span>${examples.map(example => renderGrammarExample(example, language)).join('')}</div>`;
 }
 
-function renderGrammarExample(example: GrammarExample): string {
-    return `<div class="jpdb-reader-grammar-example jpdb-reader-parseable"><div>${escapeHtml(example.japanese)}</div><div>${escapeHtml(example.english)}</div>${example.note ? `<div>${escapeHtml(example.note)}</div>` : ''}</div>`;
+function renderGrammarExample(example: GrammarExample, language: InterfaceLanguage): string {
+    const english = language === 'ja' || !example.english ? '' : `<div>${escapeHtml(example.english)}</div>`;
+    const note = language === 'ja' || !example.note || ENGLISH_TEXT_RE.test(example.note) ? '' : `<div>${escapeHtml(example.note)}</div>`;
+    return `<div class="jpdb-reader-grammar-example jpdb-reader-parseable"><div>${escapeHtml(example.japanese)}</div>${english}${note}</div>`;
 }
 
-function renderGrammarHintGuide(hint: GrammarHint): string {
-    return hint.url ? `<a class="jpdb-reader-study-guide" href="${escapeHtml(hint.url)}" target="_blank" rel="noopener">Guide</a>` : '';
+function renderGrammarHintGuide(hint: GrammarHint, language: InterfaceLanguage): string {
+    return hint.url ? `<a class="jpdb-reader-study-guide" href="${escapeHtml(hint.url)}" target="_blank" rel="noopener">${escapeHtml(uiText(language, 'grammarGuide'))}</a>` : '';
 }
 
 function grammarMatches(item: GrammarPattern, sentence: string): RankedGrammarHint[] {
@@ -639,9 +639,10 @@ function grammarMatches(item: GrammarPattern, sentence: string): RankedGrammarHi
 }
 
 
-function grammarSummary(visibleCount: number, hiddenKnownCount: number): string {
-    if (hiddenKnownCount) return `${visibleCount} shown · ${hiddenKnownCount} known hidden`;
-    return `${visibleCount} shown`;
+function grammarSummary(visibleCount: number, hiddenKnownCount: number, language: InterfaceLanguage): string {
+    const shown = `${visibleCount} ${uiText(language, 'grammarShown')}`;
+    if (hiddenKnownCount) return `${shown} · ${hiddenKnownCount} ${uiText(language, 'grammarKnownHidden')}`;
+    return shown;
 }
 
 const LEARNER_MATCH_ENDING_NAMES = new Set([

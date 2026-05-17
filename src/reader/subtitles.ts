@@ -67,9 +67,10 @@ import { applySubtitleNativeTrackModes } from './subtitle-native-track-modes';
 import { renderSubtitleKaraokeCue, renderSubtitlePrimary, renderSubtitleSecondary } from './subtitle-rendering';
 import { planTranscriptHydrationIndexes } from './subtitle-transcript-hydration';
 import { readPageCaptionText } from './subtitle-dom-captions';
+import { uiText } from './i18n';
 import { Logger } from './logger';
 import { accentToRgba, matchesShortcut } from './settings';
-import type { JPDBToken, ReaderSettings } from './types';
+import type { InterfaceLanguage, JPDBToken, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 
 export { computeSubtitleDrawerLayout } from './subtitle-layout';
@@ -137,7 +138,7 @@ function updatePageSubtitleTrack(track: SubtitleTrackOption, source: PageSubtitl
 }
 
 function secondarySubtitleToggleLabel(settings: ReaderSettings): string {
-    return settings.subtitleSecondaryVisible ? 'Native subtitles on' : 'Native subtitles off';
+    return uiText(settings.interfaceLanguage, settings.subtitleSecondaryVisible ? 'nativeSubtitlesOn' : 'nativeSubtitlesOff');
 }
 
 function canParseSubtitleTranscriptRows(settings: ReaderSettings): boolean {
@@ -193,9 +194,12 @@ function pointInRect(x: number, y: number, rect: DOMRect): boolean {
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 }
 
-function syncLineNavigationButton(button: HTMLButtonElement, hasLines: boolean, hasVideo: boolean, hiddenByPanel: boolean): void {
+function syncLineNavigationButton(button: HTMLButtonElement, action: 'previous' | 'next', hasLines: boolean, hasVideo: boolean, hiddenByPanel: boolean, language: InterfaceLanguage): void {
     button.hidden = !hasLines || hiddenByPanel;
     button.disabled = !hasVideo || !hasLines;
+    const label = uiText(language, action === 'previous' ? 'previousSubtitle' : 'nextSubtitle');
+    button.title = label;
+    button.setAttribute('aria-label', label);
 }
 
 const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 2;
@@ -261,10 +265,12 @@ function backwardIndexes(start: number, endInclusive: number): number[] {
     return indexes;
 }
 
-function trackPanelSummaryText(autoDetected: number): string {
+function trackPanelSummaryText(autoDetected: number, language: InterfaceLanguage): string {
     return autoDetected
-        ? `${autoDetected} auto-detected option${autoDetected === 1 ? '' : 's'}`
-        : 'Auto-detected YouTube/native tracks will appear here.';
+        ? autoDetected === 1
+            ? uiText(language, 'autoDetectedOptionSingular')
+            : `${autoDetected} ${uiText(language, 'autoDetectedOptions')}`
+        : uiText(language, 'autoDetectedTracksWillAppear');
 }
 
 function shouldReplaceLoadedCue(next: SubtitleCue | undefined, current: SubtitleCue | undefined): next is SubtitleCue {
@@ -481,13 +487,17 @@ export class SubtitlePlayerController {
         const root = document.createElement('div');
         root.className = 'jpdb-subtitle-player';
         root.dataset.jpdbReaderRoot = 'true';
+        const settings = this.options.getSettings();
+        const previousLabel = uiText(settings.interfaceLanguage, 'previousSubtitle');
+        const nextLabel = uiText(settings.interfaceLanguage, 'nextSubtitle');
+        const panelLabel = uiText(settings.interfaceLanguage, 'openSubtitlePanel');
         setInnerHtml(root, `
             <div class="jpdb-subtitle-text" aria-live="polite"></div>
             <div class="jpdb-subtitle-status" aria-live="polite"></div>
             <div class="jpdb-subtitle-rail">
-                <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle">‹</button>
-                <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle">›</button>
-                <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="Open subtitle panel" aria-label="Open subtitle panel">${subtitleIcon('panel-right')}</button>
+                <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
+                <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
+                <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>
             </div>
             <div class="jpdb-subtitle-menu" hidden></div>
             <div class="jpdb-subtitle-list" hidden></div>
@@ -638,7 +648,7 @@ export class SubtitlePlayerController {
     private addNativeTrack(track: TextTrack): void {
         if (this.tracks.some(item => item.track === track)) return;
         const id = `native-${this.tracks.length}`;
-        const label = track.label || track.language || `Subtitle ${this.tracks.length + 1}`;
+        const label = track.label || track.language || `${uiText(this.options.getSettings().interfaceLanguage, 'subtitleFallbackLabel')} ${this.tracks.length + 1}`;
         const option: SubtitleTrackOption = { id, label, kind: 'native', language: track.language, track };
         this.tracks.push(option);
 
@@ -995,7 +1005,7 @@ export class SubtitlePlayerController {
 
     private renderEmptySubtitle(settings: ReaderSettings): void {
         if (!this.subtitleEl) return;
-        setInnerHtml(this.subtitleEl, this.secondaryCue?.text ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred) : '');
+        setInnerHtml(this.subtitleEl, this.secondaryCue?.text ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred, settings.interfaceLanguage) : '');
     }
 
     private renderActiveSubtitle(text: string, settings: ReaderSettings): void {
@@ -1021,7 +1031,7 @@ export class SubtitlePlayerController {
 
     private renderSecondarySubtitle(settings: ReaderSettings): string {
         return settings.subtitleSecondaryVisible && this.secondaryCue?.text
-            ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred)
+            ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred, settings.interfaceLanguage)
             : '';
     }
 
@@ -1106,7 +1116,6 @@ export class SubtitlePlayerController {
             settings.showFurigana,
             settings.furiganaMode,
             settings.hideKnownFurigana,
-            settings.wordHighlightMode,
             settings.wordHighlightColorSource,
             settings.wordUnderlineColorSource,
             settings.wordTextColorSource,
@@ -1727,19 +1736,23 @@ export class SubtitlePlayerController {
     private syncStatus(): void {
         const status = this.root?.querySelector<HTMLElement>('.jpdb-subtitle-status');
         if (!status) return;
+        const language = this.options.getSettings().interfaceLanguage;
         if (this.tracks.length) {
-            status.textContent = `${this.tracks.length} subtitle track${this.tracks.length === 1 ? '' : 's'} detected`;
+            status.textContent = this.tracks.length === 1
+                ? uiText(language, 'subtitleTrackDetectedSingular')
+                : `${this.tracks.length} ${uiText(language, 'subtitleTracksDetected')}`;
         } else {
-            status.textContent = 'No subtitle tracks detected yet.';
+            status.textContent = uiText(language, 'noSubtitleTracksDetected');
         }
     }
 
     private syncLineNavigationButtons(hasLines: boolean): void {
         const panelOpen = this.isTranscriptPanelDockedOpen();
+        const language = this.options.getSettings().interfaceLanguage;
         for (const action of ['previous', 'next'] as const) {
             const railButton = this.root?.querySelector<HTMLButtonElement>(`.jpdb-subtitle-rail [data-action="${action}"]`);
-            if (railButton) syncLineNavigationButton(railButton, hasLines, Boolean(this.video), panelOpen);
-            for (const button of this.panelLineNavigationButtons(action)) syncLineNavigationButton(button, hasLines, Boolean(this.video), false);
+            if (railButton) syncLineNavigationButton(railButton, action, hasLines, Boolean(this.video), panelOpen, language);
+            for (const button of this.panelLineNavigationButtons(action)) syncLineNavigationButton(button, action, hasLines, Boolean(this.video), false, language);
         }
     }
 
@@ -1770,7 +1783,8 @@ export class SubtitlePlayerController {
     private syncDrawerButton(button: HTMLButtonElement, disabled: boolean, pressed: boolean): void {
         button.hidden = false;
         button.disabled = disabled;
-        button.title = pressed ? 'Close subtitle panel' : 'Open subtitle panel';
+        const language = this.options.getSettings().interfaceLanguage;
+        button.title = uiText(language, pressed ? 'closeSubtitlePanel' : 'openSubtitlePanel');
         button.setAttribute('aria-label', button.title);
         button.setAttribute('aria-pressed', String(pressed));
         setInnerHtml(button, subtitleIcon(transcriptPlacementIcon(this.effectiveTranscriptPlacement)));
@@ -1831,14 +1845,15 @@ export class SubtitlePlayerController {
         const signature = subtitleMenuSignature(state);
         if (!this.menuEl.hidden && this.lastMenuSignature === signature) return;
         this.lastMenuSignature = signature;
+        const language = this.options.getSettings().interfaceLanguage;
         setInnerHtml(this.menuEl, `
             <div class="jpdb-subtitle-menu-head">
-                <span>Options</span>
-                <button class="jpdb-reader-icon-mini" type="button" data-action="menu" title="Close subtitle options" aria-label="Close subtitle options">${closeIcon()}</button>
+                <span>${escapeHtml(uiText(language, 'subtitleOptions'))}</span>
+                <button class="jpdb-reader-icon-mini" type="button" data-action="menu" title="${escapeHtml(uiText(language, 'closeSubtitleOptions'))}" aria-label="${escapeHtml(uiText(language, 'closeSubtitleOptions'))}">${closeIcon()}</button>
             </div>
-            <button type="button" data-action="load">Load Japanese subtitles</button>
-            <button type="button" data-action="load-secondary">Load native subtitles</button>
-            ${this.renderSubtitleMenuButtons(state)}
+            <button type="button" data-action="load">${escapeHtml(uiText(language, 'loadJapaneseSubtitles'))}</button>
+            <button type="button" data-action="load-secondary">${escapeHtml(uiText(language, 'loadNativeSubtitles'))}</button>
+            ${this.renderSubtitleMenuButtons(state, language)}
         `);
     }
 
@@ -1854,26 +1869,26 @@ export class SubtitlePlayerController {
         };
     }
 
-    private renderSubtitleMenuButtons(state: SubtitleMenuState): string {
+    private renderSubtitleMenuButtons(state: SubtitleMenuState, language: InterfaceLanguage): string {
         return [
-            this.renderPanelMenuButton(state),
-            this.renderCopyLineMenuButton(state),
-            this.renderSecondaryMenuButton(state),
+            this.renderPanelMenuButton(state, language),
+            this.renderCopyLineMenuButton(state, language),
+            this.renderSecondaryMenuButton(state, language),
         ].join('');
     }
 
-    private renderPanelMenuButton(state: SubtitleMenuState): string {
+    private renderPanelMenuButton(state: SubtitleMenuState, language: InterfaceLanguage): string {
         if (!state.hasLines && !state.hasTracks) return '';
-        return `<button type="button" data-action="panel">${state.panelOpen ? 'Close subtitle drawer' : 'Open subtitle drawer'}</button>`;
+        return `<button type="button" data-action="panel">${escapeHtml(uiText(language, state.panelOpen ? 'closeSubtitleDrawer' : 'openSubtitleDrawer'))}</button>`;
     }
 
-    private renderCopyLineMenuButton(state: SubtitleMenuState): string {
-        return state.hasLines ? '<button type="button" data-action="copy">Copy current line</button>' : '';
+    private renderCopyLineMenuButton(state: SubtitleMenuState, language: InterfaceLanguage): string {
+        return state.hasLines ? `<button type="button" data-action="copy">${escapeHtml(uiText(language, 'copyCurrentSubtitleLine'))}</button>` : '';
     }
 
-    private renderSecondaryMenuButton(state: SubtitleMenuState): string {
+    private renderSecondaryMenuButton(state: SubtitleMenuState, language: InterfaceLanguage): string {
         if (!state.hasSecondary) return '';
-        return `<button type="button" data-action="toggle-secondary" aria-pressed="${state.secondaryVisible}">${state.secondaryVisible ? 'Native subtitles on' : 'Native subtitles off'}</button>`;
+        return `<button type="button" data-action="toggle-secondary" aria-pressed="${state.secondaryVisible}">${escapeHtml(uiText(language, state.secondaryVisible ? 'nativeSubtitlesOn' : 'nativeSubtitlesOff'))}</button>`;
     }
 
     private toggleMenu(): void {
@@ -2021,16 +2036,18 @@ export class SubtitlePlayerController {
     }
 
     private renderTranscriptPanelHtml(state: TranscriptPanelRenderState): string {
+        const language = this.options.getSettings().interfaceLanguage;
+        const closeLabel = uiText(language, 'closeSubtitleDrawer');
         return `
             <div class="jpdb-subtitle-drawer-head">
                 <div class="jpdb-subtitle-drawer-brand">
-                    <strong class="jpdb-subtitle-drawer-title">Subtitles</strong>
+                    <strong class="jpdb-subtitle-drawer-title">${escapeHtml(uiText(language, 'subtitlesTitle'))}</strong>
                     <span class="jpdb-subtitle-drawer-meta">${escapeHtml(this.drawerMetaText('lines', state.rows.length))}</span>
                 </div>
                 <div class="jpdb-subtitle-drawer-actions">
-                    ${renderPanelModeControls('lines', this.hasTranscriptSurface())}
-                    ${renderPanelNavigationControls(Boolean(this.video && state.rows.length))}
-                    <button class="jpdb-subtitle-drawer-close" type="button" data-action="close-panel" title="Close subtitle drawer" aria-label="Close subtitle drawer">${closeIcon()}</button>
+                    ${renderPanelModeControls('lines', this.hasTranscriptSurface(), language)}
+                    ${renderPanelNavigationControls(Boolean(this.video && state.rows.length), language)}
+                    <button class="jpdb-subtitle-drawer-close" type="button" data-action="close-panel" title="${escapeHtml(closeLabel)}" aria-label="${escapeHtml(closeLabel)}">${closeIcon()}</button>
                 </div>
             </div>
             <div class="jpdb-subtitle-list-scroll">
@@ -2038,7 +2055,7 @@ export class SubtitlePlayerController {
                     ? state.rows.map((row, index) => this.renderTranscriptRow(row, index, state.currentRowIndex)).join('')
                     : this.renderTranscriptWaitingState()}
             </div>
-            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="Resize transcript panel"></button>
+            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="${escapeHtml(uiText(language, 'resizeTranscriptPanel'))}"></button>
         `;
     }
 
@@ -2064,7 +2081,7 @@ export class SubtitlePlayerController {
                     <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml(parsedKey)}"${parsedKeyAttribute}>${parsed ?? escapeWithBreaks(cue.text)}</strong>
                 </div>
                 <div class="jpdb-subtitle-row-tools">
-                    <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}" title="Copy subtitle line" aria-label="Copy subtitle line">${subtitleIcon('copy')}</button>
+                    <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}" title="${escapeHtml(uiText(settings.interfaceLanguage, 'copySubtitleLine'))}" aria-label="${escapeHtml(uiText(settings.interfaceLanguage, 'copySubtitleLine'))}">${subtitleIcon('copy')}</button>
                     <span class="jpdb-subtitle-row-time">${formatSubtitleTime(cue.start)}</span>
                 </div>
             </div>
@@ -2084,9 +2101,10 @@ export class SubtitlePlayerController {
 
     private renderTranscriptWaitingState(): string {
         const selected = this.tracks.find(track => track.id === this.selectedTrackId);
-        const label = selected?.label ? ` for ${escapeHtml(selected.label)}` : '';
-        const status = selected?.loadingState === 'loading' ? 'Loading subtitle lines' : 'Waiting for caption lines';
-        return `<div class="jpdb-subtitle-list-empty">${status}${label}. The current line will appear here as soon as captions are available.</div>`;
+        const language = this.options.getSettings().interfaceLanguage;
+        const label = selected?.label ? `: ${escapeHtml(selected.label)}` : '';
+        const status = selected?.loadingState === 'loading' ? uiText(language, 'loadingSubtitleLines') : uiText(language, 'waitingForCaptionLines');
+        return `<div class="jpdb-subtitle-list-empty">${escapeHtml(status)}${label}. ${escapeHtml(uiText(language, 'subtitleCurrentLineWillAppear'))}</div>`;
     }
 
     private updateTranscriptActiveLine(currentIndex: number): void {
@@ -2370,52 +2388,58 @@ export class SubtitlePlayerController {
     }
 
     private renderTrackPanelHtml(state: TrackPanelRenderState): string {
+        const language = this.options.getSettings().interfaceLanguage;
+        const closeLabel = uiText(language, 'closeSubtitleDrawer');
         return `
             <div class="jpdb-subtitle-drawer-head">
                 <div class="jpdb-subtitle-drawer-brand">
-                    <strong class="jpdb-subtitle-drawer-title">Subtitles</strong>
+                    <strong class="jpdb-subtitle-drawer-title">${escapeHtml(uiText(language, 'subtitlesTitle'))}</strong>
                     <span class="jpdb-subtitle-drawer-meta">${escapeHtml(this.drawerMetaText('tracks', state.tracks.length))}</span>
                 </div>
                 <div class="jpdb-subtitle-drawer-actions">
-                    ${renderPanelModeControls('tracks', this.hasTranscriptSurface())}
-                    ${this.video && this.cues.length ? renderPanelNavigationControls(true) : ''}
-                    <button class="jpdb-subtitle-drawer-close" type="button" data-action="close-panel" title="Close subtitle drawer" aria-label="Close subtitle drawer">${closeIcon()}</button>
+                    ${renderPanelModeControls('tracks', this.hasTranscriptSurface(), language)}
+                    ${this.video && this.cues.length ? renderPanelNavigationControls(true, language) : ''}
+                    <button class="jpdb-subtitle-drawer-close" type="button" data-action="close-panel" title="${escapeHtml(closeLabel)}" aria-label="${escapeHtml(closeLabel)}">${closeIcon()}</button>
                 </div>
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 <div class="jpdb-subtitle-track-tools">
-                    <button type="button" data-action="load">Load Japanese subtitles</button>
-                    <button type="button" data-action="load-secondary">Load native subtitles</button>
+                    <button type="button" data-action="load">${escapeHtml(uiText(language, 'loadJapaneseSubtitles'))}</button>
+                    <button type="button" data-action="load-secondary">${escapeHtml(uiText(language, 'loadNativeSubtitles'))}</button>
                 </div>
-                <div class="jpdb-subtitle-track-summary">${trackPanelSummaryText(state.autoDetected)}</div>
-                ${state.tracks.length ? state.tracks.map(track => this.renderTrackRow(track)).join('') : '<div class="jpdb-subtitle-list-empty">No auto-detected subtitle tracks yet. Load a file, open YouTube captions once, or play the video for a moment.</div>'}
+                <div class="jpdb-subtitle-track-summary">${escapeHtml(trackPanelSummaryText(state.autoDetected, language))}</div>
+                ${state.tracks.length ? state.tracks.map(track => this.renderTrackRow(track)).join('') : `<div class="jpdb-subtitle-list-empty">${escapeHtml(uiText(language, 'noAutoDetectedSubtitleTracks'))}</div>`}
             </div>
-            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="Resize subtitle tracks panel"></button>
+            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="${escapeHtml(uiText(language, 'resizeSubtitleTracksPanel'))}"></button>
         `;
     }
 
     private renderTrackRow(track: SubtitleTrackOption): string {
         const isPrimary = track.id === this.selectedTrackId;
         const isSecondary = track.id === this.secondaryTrackId;
+        const language = this.options.getSettings().interfaceLanguage;
         return `
             <div class="jpdb-subtitle-track-row ${isPrimary || isSecondary ? 'active' : ''}" data-track-id="${escapeHtml(track.id)}">
                 <div class="jpdb-subtitle-track-title">
-                        <strong>${escapeHtml(track.label)}</strong>
-                        <span>${escapeHtml(formatTrackKind(track.kind))}</span>
+                        <strong>${escapeHtml(localizedSubtitleTrackLabel(track, language))}</strong>
+                        <span>${escapeHtml(formatTrackKind(track.kind, language))}</span>
                     </div>
-                <span>${escapeHtml(trackLanguageLabel(track))}${trackRoleText(isPrimary, isSecondary)}${trackStatusText(track)}</span>
+                <span>${escapeHtml(trackLanguageLabel(track, language))}${trackRoleText(isPrimary, isSecondary, language)}${trackStatusText(track, language)}</span>
                 <div class="jpdb-subtitle-track-actions">
-                    <button type="button" data-action="primary-track" aria-pressed="${isPrimary}">${isPrimary ? 'Unset Japanese' : 'Japanese'}</button>
-                    <button type="button" data-action="secondary-track" aria-pressed="${isSecondary}">${isSecondary ? 'Unset native' : 'Native'}</button>
+                    <button type="button" data-action="primary-track" aria-pressed="${isPrimary}">${escapeHtml(uiText(language, isPrimary ? 'unsetJapaneseSubtitles' : 'japaneseSubtitles'))}</button>
+                    <button type="button" data-action="secondary-track" aria-pressed="${isSecondary}">${escapeHtml(uiText(language, isSecondary ? 'unsetNativeSubtitles' : 'nativeSubtitles'))}</button>
                 </div>
             </div>
         `;
     }
 
     private drawerMetaText(mode: 'lines' | 'tracks', count: number): string {
-        const primary = this.tracks.find(track => track.id === this.selectedTrackId)?.label;
-        const secondary = this.tracks.find(track => track.id === this.secondaryTrackId)?.label;
-        return drawerMetaParts(mode, count, primary, secondary).filter(Boolean).join(' · ');
+        const language = this.options.getSettings().interfaceLanguage;
+        const primaryTrack = this.tracks.find(track => track.id === this.selectedTrackId);
+        const secondaryTrack = this.tracks.find(track => track.id === this.secondaryTrackId);
+        const primary = primaryTrack ? localizedSubtitleTrackLabel(primaryTrack, language) : undefined;
+        const secondary = secondaryTrack ? localizedSubtitleTrackLabel(secondaryTrack, language) : undefined;
+        return drawerMetaParts(mode, count, primary, secondary, language).filter(Boolean).join(' · ');
     }
 
     private beginTrackSelection(role: 'primary' | 'secondary'): number {
@@ -2627,20 +2651,22 @@ function waitForBackgroundTranscriptParseTurn(delayMs: number): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, delayMs));
 }
 
-function renderPanelNavigationControls(enabled: boolean): string {
+function renderPanelNavigationControls(enabled: boolean, language: InterfaceLanguage): string {
+    const previous = uiText(language, 'previousSubtitle');
+    const next = uiText(language, 'nextSubtitle');
     return `
-        <div class="jpdb-subtitle-panel-nav" aria-label="Subtitle navigation">
-            <button type="button" data-action="previous" title="Previous subtitle" aria-label="Previous subtitle" ${enabled ? '' : 'disabled'}>‹</button>
-            <button type="button" data-action="next" title="Next subtitle" aria-label="Next subtitle" ${enabled ? '' : 'disabled'}>›</button>
+        <div class="jpdb-subtitle-panel-nav" aria-label="${escapeHtml(uiText(language, 'subtitleNavigation'))}">
+            <button type="button" data-action="previous" title="${escapeHtml(previous)}" aria-label="${escapeHtml(previous)}" ${enabled ? '' : 'disabled'}>‹</button>
+            <button type="button" data-action="next" title="${escapeHtml(next)}" aria-label="${escapeHtml(next)}" ${enabled ? '' : 'disabled'}>›</button>
         </div>
     `;
 }
 
-function renderPanelModeControls(mode: 'lines' | 'tracks', canShowLines: boolean): string {
+function renderPanelModeControls(mode: 'lines' | 'tracks', canShowLines: boolean, language: InterfaceLanguage): string {
     return `
-        <div class="jpdb-subtitle-panel-mode" aria-label="Subtitle panel mode">
-            <button type="button" data-action="panel-lines" aria-pressed="${mode === 'lines'}" ${canShowLines ? '' : 'disabled'}>Lines</button>
-            <button type="button" data-action="panel-tracks" aria-pressed="${mode === 'tracks'}">Tracks</button>
+        <div class="jpdb-subtitle-panel-mode" aria-label="${escapeHtml(uiText(language, 'subtitlePanelMode'))}">
+            <button type="button" data-action="panel-lines" aria-pressed="${mode === 'lines'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(uiText(language, 'subtitleLines'))}</button>
+            <button type="button" data-action="panel-tracks" aria-pressed="${mode === 'tracks'}">${escapeHtml(uiText(language, 'subtitleTracks'))}</button>
         </div>
     `;
 }
@@ -2809,14 +2835,20 @@ function isCoarsePointerDevice(): boolean {
     return window.matchMedia?.('(pointer: coarse)').matches ?? false;
 }
 
-function trackLanguageLabel(track: SubtitleTrackOption): string {
-    return track.language ? track.language.toUpperCase() : 'Detected';
+function trackLanguageLabel(track: SubtitleTrackOption, language: InterfaceLanguage): string {
+    return track.language ? track.language.toUpperCase() : uiText(language, 'detected');
 }
 
-function trackRoleText(isPrimary: boolean, isSecondary: boolean): string {
+function localizedSubtitleTrackLabel(track: SubtitleTrackOption, language: InterfaceLanguage): string {
+    if (language !== 'ja') return track.label;
+    if (track.label === 'YouTube subtitles') return uiText(language, 'youTubeSubtitles');
+    return track.label.replace(/ · auto-generated$/u, ` · ${uiText(language, 'autoGeneratedSubtitle')}`);
+}
+
+function trackRoleText(isPrimary: boolean, isSecondary: boolean, language: InterfaceLanguage): string {
     return [
-        isPrimary ? ' · Japanese overlay' : '',
-        isSecondary ? ' · native overlay' : '',
+        isPrimary ? ` · ${uiText(language, 'japaneseOverlay')}` : '',
+        isSecondary ? ` · ${uiText(language, 'nativeOverlay')}` : '',
     ].join('');
 }
 
@@ -2825,25 +2857,26 @@ function drawerMetaParts(
     count: number,
     primary: string | undefined,
     secondary: string | undefined,
+    language: InterfaceLanguage,
 ): string[] {
     return mode === 'tracks'
-        ? drawerTrackMetaParts(count, primary, secondary)
-        : drawerLineMetaParts(count, primary, secondary);
+        ? drawerTrackMetaParts(count, primary, secondary, language)
+        : drawerLineMetaParts(count, primary, secondary, language);
 }
 
-function drawerTrackMetaParts(count: number, primary: string | undefined, secondary: string | undefined): string[] {
+function drawerTrackMetaParts(count: number, primary: string | undefined, secondary: string | undefined, language: InterfaceLanguage): string[] {
     return [
-        `${count} option${count === 1 ? '' : 's'}`,
-        primary ? `Japanese: ${primary}` : 'Choose Japanese subtitles',
-        secondary ? `Native: ${secondary}` : '',
+        `${count} ${uiText(language, count === 1 ? 'subtitleOptionSingular' : 'subtitleOptionPlural')}`,
+        primary ? `${uiText(language, 'japaneseSubtitles')}: ${primary}` : uiText(language, 'chooseJapaneseSubtitles'),
+        secondary ? `${uiText(language, 'nativeSubtitles')}: ${secondary}` : '',
     ];
 }
 
-function drawerLineMetaParts(count: number, primary: string | undefined, secondary: string | undefined): string[] {
+function drawerLineMetaParts(count: number, primary: string | undefined, secondary: string | undefined, language: InterfaceLanguage): string[] {
     return [
-        primary || 'Transcript',
-        `${count} line${count === 1 ? '' : 's'}`,
-        secondary ? `Native: ${secondary}` : '',
+        primary || uiText(language, 'transcript'),
+        `${count} ${uiText(language, count === 1 ? 'subtitleLineSingular' : 'subtitleLinePlural')}`,
+        secondary ? `${uiText(language, 'nativeSubtitles')}: ${secondary}` : '',
     ];
 }
 

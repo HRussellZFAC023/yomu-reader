@@ -67,7 +67,7 @@ You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and m
 
 JPDB definition sources can also show a small capped set of public JPDB "used in vocabulary" rows and example sentences. When JPDB exposes audio for an example, the example keeps a compact speaker button inside the same popup section.
 
-Immersion Kit examples can appear directly inside word popups. On desktop, the first example can play its audio once when you hover the card; it will not keep replaying unless you press the speaker button. When you mine that example to Anki, よむ keeps the selected sentence, thumbnail, and audio clip together. Example sentences are tappable too, so you can jump from one unknown word to the next without leaving the flow.
+Immersion Kit examples can appear directly inside word popups, and Settings can switch the example provider to Nadeshiko or to Immersion Kit + Nadeshiko. Immersion Kit works without an API key; Nadeshiko modes show a Nadeshiko API key field with a link to the developer key page. Combined mode blends both sources with a deterministic shuffle so the order stays stable for the same word and settings.
 
 You can choose example categories, length limits, image visibility, translation visibility, playback speed, and whether that one-time hover audio is enabled. On iPhone and iPad, use the speaker button because touch screens do not have hover and Safari limits autoplay.
 

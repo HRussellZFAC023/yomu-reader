@@ -1,9 +1,9 @@
-import { DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, VIDEO_PLAYER_PAGE_URL } from './constants';
+import { DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, VIDEO_PLAYER_PAGE_URL } from './constants';
 import { escapeHtml, setInnerHtml } from './dom';
 import { resolveUiLanguage, uiText } from './i18n';
 import { Logger } from './logger';
-import { AUDIO_GUIDE_URL, AUDIO_SOURCE_LABELS, AUDIO_SOURCE_UI_OPTIONS, COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, accentToRgba, effectiveWordHighlightMode, formatShortcutEvent, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from './settings';
-import type { AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, InterfaceLanguage, JPDBDeck, ReaderColorSource, ReaderSettings } from './types';
+import { AUDIO_GUIDE_URL, AUDIO_SOURCE_LABELS, AUDIO_SOURCE_UI_OPTIONS, COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, accentToRgba, formatShortcutEvent, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from './settings';
+import type { AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, ImmersionExampleSource, InterfaceLanguage, JPDBDeck, ReaderColorSource, ReaderSettings } from './types';
 import type { RecommendedDictionary } from './recommended-dictionaries';
 import { RECOMMENDED_JAPANESE_DICTIONARIES } from './recommended-dictionaries';
 import { definitionSourceRows, kanjiSourceRows, type SettingsSourceRow } from './source-sections';
@@ -138,7 +138,7 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
                     ${select('interfaceLanguage', 'Settings language', settings.interfaceLanguage, [['auto', 'Automatic'], ['en', 'English'], ['ja', '日本語']])}
                     ${themeSegmentedControl(settings.theme)}
                     ${select('popupMode', 'Popup mode', settings.popupMode, [['auto', 'Auto'], ['sheet', 'Bottom sheet'], ['popover', 'Popover']])}
-                    ${checkbox('stickyBottomSheet', 'Keep bottom sheet open until closed', settings.stickyBottomSheet)}
+                    ${renderStickyBottomSheetControl(settings)}
                     ${input('popoverWidth', 'Popover width (px)', String(settings.popoverWidth), 'number', { min: 280, max: 900, step: 10 })}
                     ${input('popoverHeight', 'Popover height (px)', String(settings.popoverHeight), 'number', { min: 220, max: 900, step: 10 })}
                     ${select('popoverHeightMode', 'Popover height', settings.popoverHeightMode, [['available', 'Grow to available space'], ['fixed', 'Use height setting']])}
@@ -153,6 +153,14 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
     `;
 }
 
+function renderStickyBottomSheetControl(settings: ReaderSettings): string {
+    const unavailable = settings.popupMode === 'popover';
+    return `
+                    <div data-sticky-bottom-sheet-field ${unavailable ? 'hidden' : ''}>
+                        ${checkbox('stickyBottomSheet', 'Keep bottom sheet open until closed', settings.stickyBottomSheet && !unavailable, { disabled: unavailable })}
+                    </div>`;
+}
+
 function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
     return `
                 <div class="jpdb-reader-settings-subsection">
@@ -161,7 +169,6 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                         ${checkbox('newTabEnabled', 'Use Yomu new tab study page', settings.newTabEnabled)}
                         ${select('newTabSource', 'New tab review source', settings.newTabSource, [['auto', 'Auto: JPDB + Anki'], ['jpdb', 'JPDB'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
                         ${select('newTabJpdbReviewMode', 'JPDB review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
-                        ${input('corsProxyUrl', 'Cross-origin proxy URL', settings.corsProxyUrl, 'url', { placeholder: 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev' })}
                         ${select('newTabKanjiKeywordSource', 'Kanji keyword source', settings.newTabKanjiKeywordSource, [['auto', 'Auto: RTK, then JPDB, then local'], ['rtk', 'RTK / Heisig'], ['jpdb', 'JPDB'], ['local', 'Local card meaning']])}
                         ${checkbox('newTabParsingEnabled', 'Parse sentences on new tab', settings.newTabParsingEnabled)}
                         ${checkbox('newTabFrontSentenceEnabled', 'Show sentence on word fronts', settings.newTabFrontSentenceEnabled)}
@@ -245,12 +252,14 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
                 <div class="grid">
                     ${select('audioAutoPlayMode', 'Auto-play trigger', settings.audioAutoPlayMode, [['all', 'Hover and tap/click'], ['hover', 'Hover only'], ['tap', 'Tap/click only']])}
                     ${select('audioSelectionMode', 'When several sources or clips exist', settings.audioSelectionMode, [['first', 'First audio'], ['random', 'Random audio']])}
+                    ${select('audioTtsMode', 'Text-to-speech handling', settings.audioTtsMode, [['fallback', 'Fallback after recorded audio'], ['source-order', 'Follow source order / random']])}
                     ${input('audioTimeoutMs', 'Audio timeout (ms)', String(settings.audioTimeoutMs), 'number')}
+                    ${input('corsProxyUrl', 'Cross-origin proxy URL', settings.corsProxyUrl, 'url', { placeholder: 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev' })}
                 </div>
                 <div class="jpdb-reader-audio-sources" data-source-editor data-audio-source-editor>
                     ${renderAudioSourceEditor(settings.audioSources)}
                 </div>
-                <div class="jpdb-reader-help">Supports {term}, {reading}, and {language}. See the <a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">Yomitan audio guide</a>.</div>
+                <div class="jpdb-reader-help">Supports {term}, {reading}, and {language}. The proxy is shared by hosted-page audio and public lookup requests. In fallback mode, JPDB and browser text-to-speech rows are tried only after recorded audio misses. See the <a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">Yomitan audio guide</a>.</div>
             </fieldset>
     `;
 }
@@ -261,13 +270,15 @@ function renderImmersionKitSettingsPanel(settings: ReaderSettings): string {
                 <legend>Immersion Kit</legend>
                 <div class="grid">
                     ${checkbox('immersionKitEnabled', 'Show Immersion Kit examples', settings.immersionKitEnabled)}
+                    ${select('immersionKitExampleSource', 'Example provider', settings.immersionKitExampleSource, [['immersion-kit', 'Immersion Kit'], ['nadeshiko', 'Nadeshiko'], ['combined', 'Immersion Kit + Nadeshiko']])}
+                    ${renderNadeshikoApiKeyField(settings)}
                     ${checkbox('immersionKitShowTranslation', 'Show example translations', settings.immersionKitShowTranslation)}
                     ${checkbox('immersionKitRevealTranslationOnClick', 'Blur example translations until clicked', settings.immersionKitRevealTranslationOnClick, { disabled: !settings.immersionKitShowTranslation })}
                     ${checkbox('immersionKitShowImages', 'Show example thumbnails', settings.immersionKitShowImages)}
                     ${checkbox('immersionKitAutoPlayAudio', 'Play example audio after reveal or next/previous', settings.immersionKitAutoPlayAudio)}
                     ${checkbox('immersionKitPlayOnHover', 'Play example audio when hovering thumbnails', settings.immersionKitPlayOnHover)}
                     ${checkbox('immersionKitPlayOnImageClick', 'Play example audio when clicking thumbnails', settings.immersionKitPlayOnImageClick)}
-                    ${select('immersionKitCategory', 'Example source', settings.immersionKitCategory, [['all', 'All'], ['anime', 'Anime'], ['drama', 'Drama'], ['games', 'Games']])}
+                    ${select('immersionKitCategory', 'Immersion Kit category', settings.immersionKitCategory, [['all', 'All'], ['anime', 'Anime'], ['drama', 'Drama'], ['games', 'Games']])}
                     ${select('immersionKitSort', 'Example order', settings.immersionKitSort, [['sentence_length:asc', 'Shortest first'], ['sentence_length:desc', 'Longest first']])}
                     ${radioGroup('immersionKitLimitEnabled', 'Examples per word limit', settings.immersionKitLimitEnabled ? 'on' : 'off', [['off', 'All examples'], ['on', 'Limit examples']])}
                     ${input('immersionKitLimit', 'Examples per word', String(settings.immersionKitLimit), 'number', { min: 1, max: 12, step: 1 })}
@@ -279,6 +290,17 @@ function renderImmersionKitSettingsPanel(settings: ReaderSettings): string {
                 <div class="jpdb-reader-help">Immersion examples appear inside word popups and on JPDB pages. Blurred translations reveal when you click or tap the translation text.</div>
             </fieldset>
     `;
+}
+
+function renderNadeshikoApiKeyField(settings: ReaderSettings): string {
+    return `
+                    <div data-nadeshiko-api-key-field ${usesNadeshikoExamples(settings.immersionKitExampleSource) ? '' : 'hidden'}>
+                        ${input('nadeshikoApiKey', `Nadeshiko API key <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">Get a key</a>`, settings.nadeshikoApiKey, 'password')}
+                    </div>`;
+}
+
+function usesNadeshikoExamples(source: ImmersionExampleSource): boolean {
+    return source === 'nadeshiko' || source === 'combined';
 }
 
 function renderReaderSettingsPanel(settings: ReaderSettings): string {
@@ -295,7 +317,6 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('showFloatingButton', 'Toggle floating puck on pages', settings.showFloatingButton)}
                     ${select('furiganaMode', 'Furigana', settings.furiganaMode, [['auto', 'Automatic'], ['difficult-kanji', 'Difficult kanji only'], ['known-status', 'Hide known words'], ['all', 'All parsed words'], ['off', 'Off']])}
                     ${checkbox('showPitchAccent', 'Show pitch accent', settings.showPitchAccent)}
-                    ${select('wordHighlightMode', 'Word color mode', effectiveWordHighlightMode(settings), [['status', 'Known/mining status'], ['pitch', 'Pitch accent'], ['off', 'Off']])}
                 </div>
                 <div class="jpdb-reader-help">Hover lookup uses the shortcut below. Leave it blank for plain hover; keep click enabled if you also want tap lookup.</div>
             </fieldset>
@@ -483,6 +504,7 @@ function renderShortcutSettingsPanel(settings: ReaderSettings): string {
                     ${shortcutInput('shortcuts.scanImages', 'Read images now', settings.shortcuts.scanImages)}
                     ${renderReviewShortcutInputs(settings)}
                 </div>
+                <div class="jpdb-reader-help" data-hover-shortcut-help>This shortcut only opens hover lookups when Hover scanned words is enabled in Reader settings.</div>
             </fieldset>
     `;
 }
@@ -581,8 +603,19 @@ function localizeSettingsShell(form: HTMLFormElement, language: InterfaceLanguag
     form.lang = resolveUiLanguage(language);
     form.setAttribute('aria-label', text('settingsTitle'));
     form.querySelector('h2')?.replaceChildren(text('settingsTitle'));
+    form.querySelector<HTMLElement>('.jpdb-reader-settings-tabs')?.setAttribute('aria-label', text('settingsSections'));
+    localizeThemeSwitch(form, text);
     localizeSettingsTabs(form, text);
     localizeSettingsLegends(form, text);
+}
+
+function localizeThemeSwitch(form: HTMLFormElement, text: SettingsText): void {
+    const switchButton = form.querySelector<HTMLButtonElement>('[data-theme-switch]');
+    if (!switchButton) return;
+    const isLight = switchButton.getAttribute('aria-checked') === 'true';
+    const label = isLight ? text('switchToDarkTheme') : text('switchToLightTheme');
+    switchButton.setAttribute('aria-label', label);
+    switchButton.title = label;
 }
 
 function localizeSettingsTabs(form: HTMLFormElement, text: SettingsText): void {
@@ -624,6 +657,8 @@ function localizeSettingsLabels(form: HTMLFormElement, text: SettingsText): void
     settingsControlLabelKeys().forEach(([name, key]) => setControlLabel(form, name, text(key)));
     const jpdbSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jpdb.io/settings"]');
     if (jpdbSettings) jpdbSettings.textContent = text('jpdbSettings');
+    const nadeshikoKeyLink = form.querySelector<HTMLAnchorElement>('label a[href*="nadeshiko.co/user/developer"]');
+    if (nadeshikoKeyLink) nadeshikoKeyLink.textContent = text('getNadeshikoKey');
     localizeBlockControlLabel(form, 'ocrEndpointUrl', text('ocrEndpointUrl'));
     localizeBlockControlLabel(form, 'ocrCloudVisionApiKey', text('cloudVisionApiKey'));
 }
@@ -638,6 +673,7 @@ function localizeSettingsSectionTitles(form: HTMLFormElement, text: SettingsText
     replaceLocalTitle(form, /Pitch accent colors|ピッチアクセント/, text('pitchAccentColors'));
     replaceLocalTitle(form, /Color channels|色チャンネル/, text('colorChannels'));
     replaceLocalTitle(form, /New tab|新規タブ/, text('newTab'));
+    replaceLocalTitle(form, /Lookup pills|検索ピル/, text('lookupPills'));
     form.querySelector<HTMLElement>('[data-color-channels-help]')?.replaceChildren(text('colorChannelsHelp'));
     form.querySelector<HTMLElement>('[data-subtitle-preview] .jpdb-subtitle-secondary')?.replaceChildren(text('subtitlePreview'));
 }
@@ -675,7 +711,18 @@ function localizeBasicSettingsSelects(form: HTMLFormElement, text: SettingsText)
         ['auto', text('newTabAuto')],
         ['jpdb', 'JPDB'],
         ['anki', 'Anki'],
-        ['dictionary', 'Dictionary'],
+        ['dictionary', text('dictionaryFallback')],
+    ]);
+    setSelectOptionLabels(form, 'newTabJpdbReviewMode', [
+        ['auto', text('newTabJpdbReviewAuto')],
+        ['live-review', text('newTabLiveReview')],
+        ['api-vocabulary', text('newTabApiVocabulary')],
+    ]);
+    setSelectOptionLabels(form, 'newTabKanjiKeywordSource', [
+        ['auto', text('newTabKanjiKeywordAuto')],
+        ['rtk', text('newTabKanjiKeywordRtk')],
+        ['jpdb', 'JPDB'],
+        ['local', text('newTabKanjiKeywordLocal')],
     ]);
     setSelectOptionLabels(form, 'twoButtonReviews', [
         ['false', text('fivePoint')],
@@ -684,11 +731,6 @@ function localizeBasicSettingsSelects(form: HTMLFormElement, text: SettingsText)
 }
 
 function localizeColorAndReaderSelects(form: HTMLFormElement, text: SettingsText): void {
-    setSelectOptionLabels(form, 'wordHighlightMode', [
-        ['status', text('highlightKnownStatus')],
-        ['pitch', text('highlightPitchAccent')],
-        ['off', text('off')],
-    ]);
     localizeColorSourceSelects(form, text);
     setSelectOptionLabels(form, 'furiganaMode', [
         ['auto', text('automatic')],
@@ -717,15 +759,29 @@ function localizeColorSourceSelects(form: HTMLFormElement, text: SettingsText): 
 }
 
 function localizeMediaSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
+    setSelectOptionLabels(form, 'audioAutoPlayMode', [
+        ['all', text('audioAutoPlayAll')],
+        ['hover', text('audioAutoPlayHover')],
+        ['tap', text('audioAutoPlayTap')],
+    ]);
     setSelectOptionLabels(form, 'audioSelectionMode', [
         ['first', text('firstAudio')],
         ['random', text('randomAudio')],
+    ]);
+    setSelectOptionLabels(form, 'audioTtsMode', [
+        ['fallback', text('audioTtsFallback')],
+        ['source-order', text('audioTtsSourceOrder')],
     ]);
     setSelectOptionLabels(form, 'immersionKitCategory', [
         ['all', text('allCategories')],
         ['anime', text('anime')],
         ['drama', text('drama')],
         ['games', text('games')],
+    ]);
+    setSelectOptionLabels(form, 'immersionKitExampleSource', [
+        ['immersion-kit', 'Immersion Kit'],
+        ['nadeshiko', 'Nadeshiko'],
+        ['combined', text('immersionKitAndNadeshiko')],
     ]);
     setSelectOptionLabels(form, 'immersionKitSort', [
         ['sentence_length:asc', text('shortestFirst')],
@@ -778,9 +834,16 @@ function localizeMiningSettingsSelects(form: HTMLFormElement, text: SettingsText
 
 function localizeSettingsShortcuts(form: HTMLFormElement, text: SettingsText): void {
     setShortcutPlaceholder(form, 'shortcuts.hoverLookup', text('blankPlainHover'));
+    form.querySelector<HTMLElement>('[data-hover-shortcut-help]')?.replaceChildren(text('hoverShortcutHelp'));
     form.querySelectorAll<HTMLInputElement>('[data-shortcut-input]').forEach(inputEl => {
         if (inputEl.name !== 'shortcuts.hoverLookup') inputEl.placeholder = text('pressKeys');
     });
+    const immersionLimitLegend = getNamedControl<HTMLInputElement>(form, 'immersionKitLimitEnabled')
+        ?.closest<HTMLFieldSetElement>('.jpdb-reader-radio-group')
+        ?.querySelector('legend');
+    immersionLimitLegend?.replaceChildren(text('immersionKitLimitEnabled'));
+    setRadioLabel(form, 'immersionKitLimitEnabled', 'off', text('allExamples'));
+    setRadioLabel(form, 'immersionKitLimitEnabled', 'on', text('limitExamples'));
 }
 
 function localizeSettingsHelpText(form: HTMLFormElement, text: SettingsText): void {
@@ -790,8 +853,16 @@ function localizeSettingsHelpText(form: HTMLFormElement, text: SettingsText): vo
     setFieldsetHelp(form, 5, text('kanjiHelp'));
     setFieldsetHelp(form, 6, text('ocrHelp'));
     setFieldsetHelp(form, 8, text('ankiHelp'));
+    localizeNewTabHelp(form, text);
     localizeAudioHelp(form, text);
     localizeDictionaryImportHelp(form, text);
+    localizeLookupPillsHelp(form, text);
+    form.querySelector<HTMLElement>('details[data-local-ocr] > summary')?.replaceChildren(text('ocrCustomLocalServer'));
+}
+
+function localizeNewTabHelp(form: HTMLFormElement, text: SettingsText): void {
+    const subsection = getNamedControl<HTMLInputElement>(form, 'newTabUrl')?.closest<HTMLElement>('.jpdb-reader-settings-subsection');
+    subsection?.querySelector<HTMLElement>(':scope > .jpdb-reader-help')?.replaceChildren(text('newTabOfflineHelp'));
 }
 
 function localizeAudioHelp(form: HTMLFormElement, text: SettingsText): void {
@@ -800,7 +871,19 @@ function localizeAudioHelp(form: HTMLFormElement, text: SettingsText): void {
     const copy = text('audioHelp')
         .replace('Yomitan audio guide.', '')
         .replace('Yomitan音声ガイドも参照できます。', '');
-    setInnerHtml(audioHelp, `${escapeHtml(copy)}<a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">Yomitan audio guide</a>.`);
+    const linkLabel = resolveUiLanguageFromText(text) === 'ja' ? 'Yomitan音声ガイド' : 'Yomitan audio guide';
+    setInnerHtml(audioHelp, `${escapeHtml(copy)}<a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">${escapeHtml(linkLabel)}</a>.`);
+}
+
+function resolveUiLanguageFromText(text: SettingsText): 'en' | 'ja' {
+    return text('save') === '保存' ? 'ja' : 'en';
+}
+
+function localizeLookupPillsHelp(form: HTMLFormElement, text: SettingsText): void {
+    const lookupLinks = form.querySelector<HTMLElement>('.jpdb-reader-lookup-links');
+    lookupLinks?.closest<HTMLElement>('.jpdb-reader-settings-subsection')
+        ?.querySelector<HTMLElement>(':scope > .jpdb-reader-help')
+        ?.replaceChildren(text('lookupPillsHelp'));
 }
 
 function localizeDictionaryImportHelp(form: HTMLFormElement, text: SettingsText): void {
@@ -831,19 +914,212 @@ function localizePreviewAudioButtons(form: HTMLFormElement, text: SettingsText):
 
 function localizeSettingsEditorChrome(form: HTMLFormElement, text: SettingsText): void {
     const audioHead = form.querySelectorAll('.jpdb-reader-audio-source-head span');
+    audioHead[0]?.replaceChildren(text('enabledHeader'));
     audioHead[1]?.replaceChildren(text('audioSource'));
     audioHead[2]?.replaceChildren(text('urlVoice'));
+    audioHead[3]?.replaceChildren(text('orderHeader'));
+    audioHead[4]?.replaceChildren(text('removeHeader'));
+    form.querySelector<HTMLButtonElement>('[data-action="lookup-link-add"]')?.replaceChildren(text('add'));
     form.querySelector('.jpdb-reader-recommended-title')?.replaceChildren(text('recommendedDownloads'));
     form.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-recommended-name a').forEach(link => { link.textContent = text('homepage'); });
+    localizeOrderButtons(form, text);
+    localizeLookupLinkEditor(form, text);
+    localizeDeckControls(form, text);
+    localizeSourceRows(form, text);
+    localizeRecommendedDictionaryGroups(form, text);
+    localizeRecommendedDictionaryDescriptions(form, text);
+    localizeAnkiTemplatePreview(form, text);
+    localizeAudioSourceFields(form, text);
     localizeRecommendedDictionaryButtons(form, text);
     localizeDictionaryStatus(form, text);
+}
+
+function localizeOrderButtons(form: HTMLFormElement, text: SettingsText): void {
+    form.querySelectorAll<HTMLButtonElement>('[data-source-drag-handle]').forEach(button => setButtonTitle(button, text('dragToReorder')));
+    form.querySelectorAll<HTMLButtonElement>('[data-action$="-up"]').forEach(button => setButtonTitle(button, text('moveUp')));
+    form.querySelectorAll<HTMLButtonElement>('[data-action$="-down"]').forEach(button => setButtonTitle(button, text('moveDown')));
+    form.querySelectorAll<HTMLButtonElement>('[data-action$="-remove"]').forEach(button => setButtonTitle(button, text('remove')));
+    form.querySelectorAll<HTMLButtonElement>('[data-action="delete-yomitan-dictionary"]').forEach(button => setButtonTitle(button, text('removeImportedDictionary')));
+}
+
+function setButtonTitle(button: HTMLButtonElement, label: string): void {
+    button.title = label;
+    button.setAttribute('aria-label', label);
+}
+
+function localizeLookupLinkEditor(form: HTMLFormElement, text: SettingsText): void {
+    const lookupHead = form.querySelectorAll('.jpdb-reader-lookup-link-head span');
+    lookupHead[0]?.replaceChildren(text('enabledHeader'));
+    lookupHead[1]?.replaceChildren(text('labelHeader'));
+    lookupHead[2]?.replaceChildren(text('lookupUrlTemplate'));
+    lookupHead[3]?.replaceChildren(text('orderHeader'));
+    lookupHead[4]?.replaceChildren(text('removeHeader'));
+    form.querySelectorAll<HTMLElement>('.jpdb-reader-lookup-link-note').forEach(note => note.replaceChildren(text('copiesCurrentWord')));
+    form.querySelectorAll<HTMLElement>('.jpdb-reader-lookup-link-fixed').forEach(note => note.setAttribute('aria-label', text('builtInAction')));
+    form.querySelectorAll<HTMLInputElement>('input[name^="dictionaryLookupLinks."][name$=".label"]').forEach((input, index) => {
+        input.setAttribute('aria-label', text('lookupPillLabelNumber').replace('{number}', String(index + 1)));
+    });
+    form.querySelectorAll<HTMLInputElement>('input[name^="dictionaryLookupLinks."][name$=".urlTemplate"]').forEach((input, index) => {
+        input.setAttribute('aria-label', text('lookupUrlTemplateNumber').replace('{number}', String(index + 1)));
+    });
+    form.querySelectorAll<HTMLElement>('.jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools').forEach(row => {
+        row.setAttribute('aria-label', text('lookupPillOrder'));
+    });
+}
+
+function localizeDeckControls(form: HTMLFormElement, text: SettingsText): void {
+    setSelectOptionLabels(form, 'newTabJpdbDeck', [
+        ['all', text('allStudyDecks')],
+        ['never-forget', text('never')],
+    ]);
+    const deckHelp = form.querySelector<HTMLElement>('[data-jpdb-decks] .jpdb-reader-help');
+    if (!deckHelp) return;
+    const content = deckHelp.textContent ?? '';
+    if (/Decks are loaded|JPDBアカウント/.test(content)) deckHelp.replaceChildren(text('decksLoaded'));
+    else if (/Could not load decks|まだデッキ/.test(content)) deckHelp.replaceChildren(text('decksUnavailable'));
+    else if (/Add your JPDB API key|JPDB APIキー/.test(content)) deckHelp.replaceChildren(text('addApiKeyChooseDecks'));
+}
+
+function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
+    form.querySelectorAll('.jpdb-reader-dictionary-head').forEach(head => localizeSourceHead(head, text));
+    replaceSourceHelp(form, /Import Yomitan dictionaries|Yomitan辞書をインポート/, text('importLocalDefinitionsHelp'));
+    replaceSourceHelp(form, /Frequency, pitch, and kanji metadata|頻度、ピッチ、漢字メタデータ/, text('frequencyMetadataHelp'));
+    const rows: Array<[string, SettingsTextKey, SettingsTextKey]> = [
+        ['Translation', 'sourceNameTranslation', 'sourceHelpTranslation'],
+        ['Grammar', 'sourceNameGrammar', 'sourceHelpGrammar'],
+        ['Stroke practice', 'sourceNameStrokePractice', 'sourceHelpStrokePractice'],
+        ['Readings and components', 'readingsComponents', 'sourceHelpReadingsComponents'],
+        ['Imported kanji dictionaries', 'sourceNameImportedKanjiDictionaries', 'sourceHelpImportedKanjiDictionaries'],
+        ['Words using this kanji', 'sourceNameWordsUsingKanji', 'sourceHelpWordsUsingKanji'],
+        ['Component graph', 'originStructure', 'sourceHelpComponentGraph'],
+    ];
+    rows.forEach(([sourceName, nameKey, helpKey]) => {
+        form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]').forEach(row => {
+            const display = row.querySelector<HTMLElement>('.jpdb-reader-field-display');
+            if (display?.textContent === sourceName) display.replaceChildren(text(nameKey));
+            const help = row.querySelector<HTMLElement>('.jpdb-reader-dictionary-row-help');
+            if (help && sourceRowHelpMatches(help.textContent ?? '', sourceName)) help.replaceChildren(text(helpKey));
+        });
+    });
+    replaceSourceHelp(form, /JPDB meanings shown/, text('sourceHelpJpdb'));
+    replaceSourceHelp(form, /Example sentences, images, and audio/, text('sourceHelpImmersionKit'));
+    replaceSourceHelp(form, /Remembering the Kanji/, text('sourceHelpRtk'));
+    replaceSourceHelp(form, /Uchisen mnemonic/, text('sourceHelpUchisen'));
+    replaceSourceHelp(form, /Imported Yomitan kanji dictionary/, text('sourceHelpImportedKanjiDictionary'));
+}
+
+function localizeSourceHead(head: Element, text: SettingsText): void {
+    const spans = head.querySelectorAll('span');
+    spans[0]?.replaceChildren(text('enabledHeader'));
+    const sourceLabel = spans[1]?.textContent === 'Kanji section' ? text('kanjiSection') : text('definitionSource');
+    spans[1]?.replaceChildren(sourceLabel);
+    if (spans.length === 5) {
+        spans[2]?.replaceChildren(text('displayName'));
+        spans[3]?.replaceChildren(text('orderHeader'));
+        spans[4]?.replaceChildren(text('removeHeader'));
+    } else {
+        spans[2]?.replaceChildren(text('orderHeader'));
+    }
+}
+
+function replaceSourceHelp(form: HTMLFormElement, pattern: RegExp, value: string): void {
+    form.querySelectorAll<HTMLElement>('.jpdb-reader-help, .jpdb-reader-dictionary-row-help').forEach(help => {
+        if (pattern.test(help.textContent ?? '')) help.replaceChildren(value);
+    });
+}
+
+function sourceRowHelpMatches(value: string, sourceName: string): boolean {
+    return value.includes(sourceName) || value.includes('Automatic') || value.includes('Stroke') || value.includes('Kanji entries') || value.includes('Related');
+}
+
+function localizeRecommendedDictionaryGroups(form: HTMLFormElement, text: SettingsText): void {
+    const labels = [text('termDictionaries'), text('kanjiDictionaries'), text('frequencyDictionaries')];
+    form.querySelectorAll<HTMLElement>('.jpdb-reader-recommended-group-title').forEach((title, index) => {
+        if (labels[index]) title.replaceChildren(labels[index]);
+    });
+}
+
+function localizeRecommendedDictionaryDescriptions(form: HTMLFormElement, text: SettingsText): void {
+    const descriptions: Record<string, SettingsTextKey> = {
+        jitendex: 'recommendedJitendex',
+        jmdict: 'recommendedJmdict',
+        jmnedict: 'recommendedJmnedict',
+        kanjidic: 'recommendedKanjidic',
+        'jpdbv2-kana': 'recommendedJpdbv2Kana',
+        bccwj: 'recommendedBccwj',
+        jiten: 'recommendedJiten',
+    };
+    Object.entries(descriptions).forEach(([id, key]) => {
+        const button = form.querySelector<HTMLButtonElement>(`[data-action="download-recommended-dictionary"][data-dictionary-id="${id}"]`);
+        button?.closest<HTMLElement>('.jpdb-reader-recommended-item')
+            ?.querySelector<HTMLElement>('.jpdb-reader-help')
+            ?.replaceChildren(text(key));
+    });
+}
+
+function localizeAnkiTemplatePreview(form: HTMLFormElement, text: SettingsText): void {
+    const preview = form.querySelector<HTMLElement>('.jpdb-reader-template-preview');
+    if (!preview) return;
+    const contextMode = getNamedControl<HTMLSelectElement>(form, 'ankiTemplateMode')?.value === 'context';
+    preview.querySelector<HTMLElement>('.jpdb-reader-template-preview-title')?.replaceChildren(text(contextMode ? 'sentenceFirstPreset' : 'wordFirstPreset'));
+    const headings = preview.querySelectorAll('strong');
+    headings[0]?.replaceChildren(text('front'));
+    headings[1]?.replaceChildren(text('back'));
+    preview.querySelector<HTMLElement>('.jpdb-reader-template-meaning')?.replaceChildren(text('exampleMeaning'));
+    preview.querySelectorAll('small').forEach(small => {
+        const value = small.textContent ?? '';
+        if (/above the prompt/.test(value)) small.replaceChildren(text('imageAbovePrompt'));
+        else if (/highlighted word/.test(value)) small.replaceChildren(text('recallHighlightedWord'));
+        else if (/front when available/.test(value)) small.replaceChildren(text('imageOnFront'));
+        else if (/meaning first/.test(value)) small.replaceChildren(text('recallMeaning'));
+        else if (/Includes dictionary/.test(value)) small.replaceChildren(text('ankiBackIncludes'));
+    });
+}
+
+function localizeAudioSourceFields(form: HTMLFormElement, text: SettingsText): void {
+    form.querySelectorAll<HTMLSelectElement>('select[name^="audioSources."][name$=".type"]').forEach((select, index) => {
+        select.setAttribute('aria-label', text('audioSourceNumber').replace('{number}', String(index + 1)));
+        localizeAudioSourceTypeOptions(select, text);
+    });
+    form.querySelectorAll<HTMLSelectElement>('select[data-audio-voice-field]').forEach((select, index) => {
+        select.setAttribute('aria-label', text('textToSpeechVoiceNumber').replace('{number}', String(index + 1)));
+    });
+    form.querySelectorAll<HTMLInputElement>('[data-audio-url-field]').forEach(input => {
+        input.placeholder = localizedAudioUrlPlaceholder(input, text);
+    });
+}
+
+function localizeAudioSourceTypeOptions(select: HTMLSelectElement, text: SettingsText): void {
+    if (resolveUiLanguageFromText(text) !== 'ja') return;
+    const labels: Record<string, string> = {
+        jpod101: 'JapanesePod101',
+        'language-pod-101': 'LanguagePod101',
+        jisho: 'Jisho.org',
+        'lingua-libre': '(Commons) リングア・リブレ',
+        wiktionary: '(Commons) ウィクショナリー',
+        'jpdb-tts': 'JPDB読み上げ',
+        'text-to-speech': 'ブラウザ読み上げ',
+        'text-to-speech-reading': 'ブラウザ読み上げ (かな読み)',
+        custom: '直接音声ファイルURL (詳細)',
+        'custom-json': 'カスタムURL',
+    };
+    Array.from(select.options).forEach(option => {
+        option.textContent = labels[option.value] ?? option.textContent;
+    });
+}
+
+function localizedAudioUrlPlaceholder(input: HTMLInputElement, text: SettingsText): string {
+    const type = input.closest<HTMLElement>('[data-audio-source-row]')?.querySelector<HTMLSelectElement>('select[name$=".type"]')?.value;
+    if (type === 'custom-json') return text('audioCustomJsonPlaceholder');
+    if (type === 'custom') return text('audioCustomUrlPlaceholder');
+    return text('audioBuiltInPlaceholder');
 }
 
 function localizeRecommendedDictionaryButtons(form: HTMLFormElement, text: SettingsText): void {
     form.querySelectorAll<HTMLButtonElement>('[data-action="download-recommended-dictionary"]').forEach(button => {
         const installed = button.dataset.installed === 'true';
-        button.textContent = installed ? text('update') : `${text('download')} & import`;
-        button.title = installed ? text('update') : 'Download and import into よむ';
+        button.textContent = installed ? text('update') : text('install');
+        button.title = installed ? text('update') : text('install');
         button.setAttribute('aria-label', button.title);
     });
 }
@@ -858,7 +1134,10 @@ function localizeDictionaryStatus(form: HTMLFormElement, text: SettingsText): vo
 function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
     return [
         ['apiKey', 'apiKey'],
+        ['miningDeck', 'miningDeck'],
         ['newTabJpdbDeck', 'newTabJpdbDeck'],
+        ['neverForgetDeck', 'neverForgetDeck'],
+        ['blacklistDeck', 'blacklistDeck'],
         ['jpdbMiningEnabled', 'jpdbMiningEnabled'],
         ['addToForq', 'addToForq'],
         ['enableReviews', 'enableReviews'],
@@ -873,6 +1152,15 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['accentColor', 'accentColor'],
         ['newTabEnabled', 'newTabEnabled'],
         ['newTabSource', 'newTabSource'],
+        ['newTabJpdbReviewMode', 'newTabJpdbReviewMode'],
+        ['corsProxyUrl', 'corsProxyUrl'],
+        ['newTabKanjiKeywordSource', 'newTabKanjiKeywordSource'],
+        ['newTabParsingEnabled', 'newTabParsingEnabled'],
+        ['newTabFrontSentenceEnabled', 'newTabFrontSentenceEnabled'],
+        ['newTabKanjiAutogradeEnabled', 'newTabKanjiAutogradeEnabled'],
+        ['newTabKanjiAutoSubmit', 'newTabKanjiAutoSubmit'],
+        ['newTabOfflineEnabled', 'newTabOfflineEnabled'],
+        ['newTabOfflineLimit', 'newTabOfflineLimit'],
         ['newTabUrl', 'newTabUrl'],
         ['wordColorNew', 'wordColorNew'],
         ['wordColorLearning', 'wordColorLearning'],
@@ -901,7 +1189,6 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['showFloatingButton', 'showFloatingButton'],
         ['furiganaMode', 'furiganaMode'],
         ['showPitchAccent', 'showPitchAccent'],
-        ['wordHighlightMode', 'wordHighlightMode'],
         ['kanjivgEnabled', 'kanjivgEnabled'],
         ['kanjiOriginsEnabled', 'kanjiOriginsEnabled'],
         ['kanjiOriginKanjiMapEnabled', 'kanjiOriginKanjiMapEnabled'],
@@ -916,8 +1203,11 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['audioEnableDefaultSources', 'audioEnableDefaultSources'],
         ['audioFallbackChimeEnabled', 'audioFallbackChimeEnabled'],
         ['audioSelectionMode', 'audioSelectionMode'],
+        ['audioTtsMode', 'audioTtsMode'],
         ['audioTimeoutMs', 'audioTimeoutMs'],
         ['immersionKitEnabled', 'immersionKitEnabled'],
+        ['immersionKitExampleSource', 'immersionKitExampleSource'],
+        ['nadeshikoApiKey', 'nadeshikoApiKey'],
         ['immersionKitShowTranslation', 'immersionKitShowTranslation'],
         ['immersionKitRevealTranslationOnClick', 'immersionKitRevealTranslationOnClick'],
         ['immersionKitShowImages', 'immersionKitShowImages'],
@@ -1032,6 +1322,17 @@ function setInlineLabelText(label: Element, text: string): void {
     const textNode = Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim()) as Text | undefined;
     if (textNode) textNode.textContent = text;
     else label.append(document.createTextNode(text));
+}
+
+function setRadioLabel(form: HTMLFormElement, name: string, value: string, label: string): void {
+    const radio = Array.from(form.elements).find((element): element is HTMLInputElement =>
+        element instanceof HTMLInputElement
+        && element.type === 'radio'
+        && element.name === name
+        && element.value === value,
+    );
+    const labelElement = radio?.closest('label');
+    if (labelElement) setInlineLabelText(labelElement, label);
 }
 
 function setSelectOptionLabels(form: HTMLFormElement, name: string, options: Array<[string, string]>): void {
@@ -1212,6 +1513,8 @@ export function syncAudioSourceRow(row: Element | null, type: string): void {
 
 export function syncBrowserTtsVoiceOptions(form: HTMLFormElement): void {
     const voices = 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : [];
+    const language: InterfaceLanguage = form.lang === 'ja' ? 'ja' : 'en';
+    const text = (key: SettingsTextKey) => uiText(language, key);
     const sortedVoices = voices.slice().sort((a, b) => {
         const aJapanese = a.lang.toLowerCase().startsWith('ja') ? 0 : 1;
         const bJapanese = b.lang.toLowerCase().startsWith('ja') ? 0 : 1;
@@ -1223,14 +1526,14 @@ export function syncBrowserTtsVoiceOptions(form: HTMLFormElement): void {
     form.querySelectorAll<HTMLSelectElement>('select[data-audio-voice-field]').forEach(select => {
         const selected = select.value || select.dataset.selectedVoice || '';
         const options = [
-            `<option value="" ${selected ? '' : 'selected'}>Automatic browser voice</option>`,
+            `<option value="" ${selected ? '' : 'selected'}>${escapeHtml(text('automaticBrowserVoice'))}</option>`,
             ...sortedVoices.map(voice => {
-                const label = `${voice.name}${voice.lang ? ` (${voice.lang})` : ''}${voice.default ? ' - default' : ''}`;
+                const label = `${voice.name}${voice.lang ? ` (${voice.lang})` : ''}${voice.default ? (language === 'ja' ? ' - 標準' : ' - default') : ''}`;
                 return `<option value="${escapeHtml(voice.name)}" ${voice.name === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`;
             }),
         ];
         if (selected && !sortedVoices.some(voice => voice.name === selected)) {
-            options.push(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(`Saved voice: ${selected}`)}</option>`);
+            options.push(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(`${text('savedVoice')}: ${selected}`)}</option>`);
         }
         setInnerHtml(select, options.join(''));
     });
@@ -1592,6 +1895,17 @@ export function syncJpdbMiningDependentSettings(form: HTMLFormElement): void {
     }
 }
 
+export function syncStickyBottomSheetAvailability(form: HTMLFormElement): void {
+    const popupMode = form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.value;
+    const unavailable = popupMode === 'popover';
+    const input = form.querySelector<HTMLInputElement>('input[name="stickyBottomSheet"]');
+    const field = input?.closest<HTMLElement>('[data-sticky-bottom-sheet-field]') ?? input?.closest<HTMLElement>('label');
+    if (field) field.hidden = unavailable;
+    if (!input) return;
+    input.disabled = unavailable;
+    if (unavailable) input.checked = false;
+}
+
 export function syncSubtitlePreview(form: HTMLFormElement): void {
     const preview = form.querySelector<HTMLElement>('[data-subtitle-preview]');
     if (!preview) return;
@@ -1806,7 +2120,7 @@ function renderRecommendedDictionary(dictionary: RecommendedDictionary, installe
                 <div class="jpdb-reader-help">${escapeHtml(dictionary.description)}</div>
             </div>
             <button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">
-                ${alreadyInstalled ? 'Update' : 'Download & import'}
+                ${alreadyInstalled ? 'Update' : 'Install'}
             </button>
         </div>
     `;
@@ -1838,7 +2152,6 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const number = (key: string, fallback: number) => readNumber(get(key), fallback);
     const audioSources = readAudioSources(data);
     const furiganaMode = readOption(get('furiganaMode'), ['auto', 'all', 'difficult-kanji', 'known-status', 'off'] as const, current.furiganaMode);
-    const wordHighlightMode = readOption(get('wordHighlightMode'), ['status', 'pitch', 'off'] as const, current.wordHighlightMode === 'auto' ? 'status' : current.wordHighlightMode);
     const colorSource = (key: string, fallback: ReaderColorSource) =>
         readOption(get(key), COLOR_SOURCE_VALUES, colorSourceFallback(key, fallback));
     const reader: SettingsFormReader = { get, has, number, colorSource };
@@ -1856,7 +2169,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ...readImmersionKitFormSettings(reader, current),
         ...readLookupBehaviorFormSettings(reader, current),
         ...readNewTabFormSettings(reader, current),
-        ...readReadingDisplayFormSettings(reader, furiganaMode, wordHighlightMode),
+        ...readReadingDisplayFormSettings(reader, furiganaMode),
         ...readOcrFormSettings(reader, current),
         ...readLocalDictionaryFormSettings(reader, current, kanjiDictionaryPreferences),
         dictionaryPreferences,
@@ -1937,6 +2250,7 @@ function readAudioFormSettings(reader: SettingsFormReader, current: ReaderSettin
         audioFallbackChimeEnabled: has('audioFallbackChimeEnabled'),
         audioTimeoutMs: Math.max(1000, number('audioTimeoutMs', current.audioTimeoutMs)),
         audioSelectionMode: readOption(get('audioSelectionMode'), ['first', 'random'] as const, current.audioSelectionMode),
+        audioTtsMode: readOption(get('audioTtsMode'), ['fallback', 'source-order'] as const, current.audioTtsMode),
     };
 }
 
@@ -2003,14 +2317,12 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
 function readReadingDisplayFormSettings(
     reader: SettingsFormReader,
     furiganaMode: ReaderSettings['furiganaMode'],
-    wordHighlightMode: ReaderSettings['wordHighlightMode'],
 ): Partial<ReaderSettings> {
     const { has } = reader;
     return {
         showFurigana: furiganaMode !== 'off',
         furiganaMode,
         showPitchAccent: has('showPitchAccent'),
-        wordHighlightMode,
         hideKnownFurigana: furiganaMode === 'known-status',
     };
 }
@@ -2056,10 +2368,11 @@ function readStudyToolFormSettings(reader: SettingsFormReader, current: ReaderSe
 
 function readPopupFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, number } = reader;
+    const popupMode = readOption(get('popupMode'), ['auto', 'sheet', 'popover'] as const, current.popupMode);
     return {
         theme: readOption(get('theme'), ['auto', 'dark', 'light'] as const, current.theme),
-        popupMode: readOption(get('popupMode'), ['auto', 'sheet', 'popover'] as const, current.popupMode),
-        stickyBottomSheet: has('stickyBottomSheet'),
+        popupMode,
+        stickyBottomSheet: popupMode !== 'popover' && has('stickyBottomSheet'),
         popoverWidth: Math.max(280, Math.min(900, number('popoverWidth', current.popoverWidth))),
         popoverHeight: Math.max(220, Math.min(900, number('popoverHeight', current.popoverHeight))),
         popoverHeightMode: readOption(get('popoverHeightMode'), ['available', 'fixed'] as const, current.popoverHeightMode),
@@ -2136,6 +2449,8 @@ function readImmersionKitFormSettings(reader: SettingsFormReader, current: Reade
     const sourceEnabled = sourceRowPresent ? has('immersionKit.enabled') : true;
     return {
         immersionKitEnabled: mediaEnabled && sourceEnabled,
+        immersionKitExampleSource: readOption(get('immersionKitExampleSource'), ['immersion-kit', 'nadeshiko', 'combined'] as const, current.immersionKitExampleSource),
+        nadeshikoApiKey: get('nadeshikoApiKey').trim(),
         immersionKitPriority: Math.max(0, Math.min(999, number('immersionKit.priority', current.immersionKitPriority))),
         immersionKitLimitEnabled: get('immersionKitLimitEnabled') === 'on',
         immersionKitLimit: Math.max(1, Math.min(12, number('immersionKitLimit', current.immersionKitLimit))),

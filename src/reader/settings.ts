@@ -1,6 +1,6 @@
 import { Logger } from './logger';
 import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists } from './storage';
-import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, DictionaryLookupLink, DictionaryPreference, FuriganaMode, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings, WordHighlightMode } from './types';
+import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, DictionaryLookupLink, DictionaryPreference, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from './types';
 
 export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 export const LEGACY_SETTINGS_STORAGE_KEYS = [
@@ -112,8 +112,10 @@ type ReaderColorChannelKey =
     | 'subtitleHighlightColorSource'
     | 'subtitleUnderlineColorSource'
     | 'subtitleTextColorSource';
+type ConcreteReaderColorSource = Exclude<ReaderColorSource, 'auto'>;
+type LegacyWordHighlightMode = 'auto' | 'status' | 'pitch' | 'off';
 
-const DEFAULT_COLOR_CHANNELS: Record<ReaderColorChannelKey, ReaderColorSource> = {
+const DEFAULT_COLOR_CHANNELS: Record<ReaderColorChannelKey, ConcreteReaderColorSource> = {
     wordHighlightColorSource: 'jpdb',
     wordUnderlineColorSource: 'pitch',
     wordTextColorSource: 'off',
@@ -130,6 +132,8 @@ const LEGACY_COLOR_CHANNEL_DEFAULTS: Record<ReaderColorChannelKey, ReaderColorSo
     subtitleUnderlineColorSource: 'pitch',
     subtitleTextColorSource: 'auto',
 };
+
+type LegacyReaderSettings = Partial<ReaderSettings> & { wordHighlightMode?: LegacyWordHighlightMode };
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
     apiKey: '',
@@ -177,7 +181,10 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     audioFallbackChimeEnabled: true,
     audioTimeoutMs: 6000,
     audioSelectionMode: 'random',
+    audioTtsMode: 'fallback',
     immersionKitEnabled: true,
+    immersionKitExampleSource: 'immersion-kit',
+    nadeshikoApiKey: '',
     immersionKitPriority: 80,
     immersionKitLimitEnabled: false,
     immersionKitLimit: 3,
@@ -221,7 +228,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     showFurigana: true,
     furiganaMode: 'auto',
     showPitchAccent: true,
-    wordHighlightMode: 'status',
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,
@@ -319,11 +325,12 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     },
 };
 
-function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
+function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
     const audio = normalizeAudioSettings(value);
+    const settingsWithoutLegacyWordHighlightMode = stripLegacyWordHighlightMode(value);
     return {
         ...DEFAULT_SETTINGS,
-        ...(value ?? {}),
+        ...(settingsWithoutLegacyWordHighlightMode ?? {}),
         ...normalizeLookupSettings(value),
         ...normalizeNewTabSettings(value),
         ...normalizeReaderDisplaySettings(value),
@@ -340,7 +347,17 @@ function mergeSettings(value: Partial<ReaderSettings> | null): ReaderSettings {
     };
 }
 
-function normalizeAudioSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'audioAutoPlayMode' | 'audioSources' | 'audioSourceUrl'> {
+export function normalizeReaderSettings(value: Partial<ReaderSettings> | null | undefined): ReaderSettings {
+    return mergeSettings(value as LegacyReaderSettings | null);
+}
+
+function stripLegacyWordHighlightMode<T extends object>(value: T | null | undefined): Omit<T, 'wordHighlightMode'> | null {
+    if (!value) return null;
+    const { wordHighlightMode: _legacyWordHighlightMode, ...settings } = value as T & { wordHighlightMode?: unknown };
+    return settings;
+}
+
+function normalizeAudioSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'audioAutoPlayMode' | 'audioSources' | 'audioSourceUrl' | 'audioTtsMode'> {
     const hasSavedAudioSources = hasOwn(value, 'audioSources');
     const audioSources = hasSavedAudioSources || value?.audioSourceUrl
         ? normalizeAudioSources(value?.audioSources, value?.audioSourceUrl)
@@ -349,6 +366,7 @@ function normalizeAudioSettings(value: Partial<ReaderSettings> | null): Pick<Rea
         audioAutoPlayMode: normalizeAudioAutoPlayMode(value?.audioAutoPlayMode),
         audioSources,
         audioSourceUrl: audioSources.find(source => source.url)?.url ?? value?.audioSourceUrl ?? DEFAULT_AUDIO_URL,
+        audioTtsMode: normalizeAudioTtsMode(value?.audioTtsMode),
     };
 }
 
@@ -402,7 +420,7 @@ function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial
     };
 }
 
-function normalizeReaderDisplaySettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
+function normalizeReaderDisplaySettings(value: LegacyReaderSettings | null): Partial<ReaderSettings> {
     const colorChannels = normalizeReaderColorChannelSettings(value);
     return {
         accentColor: sanitizeAccentColor(value?.accentColor),
@@ -424,7 +442,6 @@ function normalizeReaderDisplaySettings(value: Partial<ReaderSettings> | null): 
         showFurigana: typeof value?.showFurigana === 'boolean' ? value.showFurigana : DEFAULT_SETTINGS.showFurigana,
         furiganaMode: normalizeFuriganaMode(value?.furiganaMode, value),
         hideKnownFurigana: typeof value?.hideKnownFurigana === 'boolean' ? value.hideKnownFurigana : DEFAULT_SETTINGS.hideKnownFurigana,
-        wordHighlightMode: normalizeWordHighlightMode(value?.wordHighlightMode, value),
     };
 }
 
@@ -489,6 +506,8 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
     return {
         audioViaBlob: booleanSetting(value, 'audioViaBlob'),
         audioFallbackChimeEnabled: booleanSetting(value, 'audioFallbackChimeEnabled'),
+        immersionKitExampleSource: normalizeImmersionExampleSource(value?.immersionKitExampleSource),
+        nadeshikoApiKey: typeof value?.nadeshikoApiKey === 'string' ? value.nadeshikoApiKey.trim() : DEFAULT_SETTINGS.nadeshikoApiKey,
         immersionKitPriority: clampNumber(value?.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
         immersionKitLimitEnabled: typeof value?.immersionKitLimitEnabled === 'boolean'
             ? value.immersionKitLimitEnabled
@@ -569,6 +588,10 @@ function normalizeAudioAutoPlayMode(value: unknown): AudioAutoPlayMode {
     return value === 'all' || value === 'hover' || value === 'tap' ? value : DEFAULT_SETTINGS.audioAutoPlayMode;
 }
 
+function normalizeAudioTtsMode(value: unknown): AudioTtsMode {
+    return value === 'source-order' || value === 'fallback' ? value : DEFAULT_SETTINGS.audioTtsMode;
+}
+
 function normalizeImmersionKitCategory(value: unknown): ImmersionKitCategory {
     return value === 'anime' || value === 'drama' || value === 'games' || value === 'all'
         ? value
@@ -579,6 +602,12 @@ function normalizeImmersionKitSort(value: unknown): ImmersionKitSort {
     return value === 'sentence_length:desc' || value === 'sentence_length:asc'
         ? value
         : DEFAULT_SETTINGS.immersionKitSort;
+}
+
+function normalizeImmersionExampleSource(value: unknown): ImmersionExampleSource {
+    return value === 'nadeshiko' || value === 'combined' || value === 'immersion-kit'
+        ? value
+        : DEFAULT_SETTINGS.immersionKitExampleSource;
 }
 
 function normalizeUrl(value: unknown, fallback: string): string {
@@ -645,33 +674,48 @@ function normalizeNewTabKanjiKeywordSource(value: unknown): ReaderSettings['newT
         : DEFAULT_SETTINGS.newTabKanjiKeywordSource;
 }
 
-function normalizeWordHighlightMode(value: unknown, _settings?: Partial<ReaderSettings> | null): WordHighlightMode {
-    if (value === 'status' || value === 'pitch' || value === 'off') return value;
-    if (value === 'auto') return DEFAULT_SETTINGS.wordHighlightMode;
-    return DEFAULT_SETTINGS.wordHighlightMode;
-}
-
-function normalizeReaderColorChannelSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, ReaderColorChannelKey> {
+function normalizeReaderColorChannelSettings(value: LegacyReaderSettings | null): Pick<ReaderSettings, ReaderColorChannelKey> {
     if (isLegacyDefaultColorChannelSettings(value)) return { ...DEFAULT_COLOR_CHANNELS };
     return {
-        wordHighlightColorSource: normalizeReaderColorSource(value?.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource),
-        wordUnderlineColorSource: normalizeReaderColorSource(value?.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource),
-        wordTextColorSource: normalizeReaderColorSource(value?.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource),
-        subtitleHighlightColorSource: normalizeReaderColorSource(value?.subtitleHighlightColorSource, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource),
-        subtitleUnderlineColorSource: normalizeReaderColorSource(value?.subtitleUnderlineColorSource, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource),
-        subtitleTextColorSource: normalizeReaderColorSource(value?.subtitleTextColorSource, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource),
+        wordHighlightColorSource: normalizeReaderColorSource(value?.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource)),
+        wordUnderlineColorSource: normalizeReaderColorSource(value?.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource)),
+        wordTextColorSource: normalizeReaderColorSource(value?.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordTextColorSource)),
+        subtitleHighlightColorSource: normalizeReaderColorSource(value?.subtitleHighlightColorSource, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource)),
+        subtitleUnderlineColorSource: normalizeReaderColorSource(value?.subtitleUnderlineColorSource, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource)),
+        subtitleTextColorSource: normalizeReaderColorSource(value?.subtitleTextColorSource, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource)),
     };
 }
 
-function isLegacyDefaultColorChannelSettings(value: Partial<ReaderSettings> | null | undefined): boolean {
+function isLegacyDefaultColorChannelSettings(value: LegacyReaderSettings | null | undefined): boolean {
     if (!value) return false;
     return (Object.keys(LEGACY_COLOR_CHANNEL_DEFAULTS) as ReaderColorChannelKey[])
         .every(key => hasOwn(value, key) && value[key] === LEGACY_COLOR_CHANNEL_DEFAULTS[key]);
 }
 
-function normalizeReaderColorSource(value: unknown, fallback: ReaderColorSource): ReaderColorSource {
-    if (value === 'auto') return fallback;
+function normalizeReaderColorSource(value: unknown, fallback: ReaderColorSource, autoFallback = fallback): ReaderColorSource {
+    if (value === 'auto') return autoFallback;
     return READER_COLOR_SOURCES.has(value as ReaderColorSource) ? value as ReaderColorSource : fallback;
+}
+
+function legacyReaderColorSourceForAuto(settings: LegacyReaderSettings | null | undefined, fallback: Exclude<ReaderColorSource, 'auto'>): Exclude<ReaderColorSource, 'auto'> {
+    const mode = legacyEffectiveWordHighlightMode(settings);
+    return mode ?? fallback;
+}
+
+function legacySubtitleColorSourceForAuto(settings: LegacyReaderSettings | null | undefined, fallback: Exclude<ReaderColorSource, 'auto'>): Exclude<ReaderColorSource, 'auto'> {
+    const mode = legacyEffectiveWordHighlightMode(settings);
+    if (!mode) return fallback;
+    return mode === 'status' ? 'jpdb' : mode;
+}
+
+function legacyEffectiveWordHighlightMode(settings: LegacyReaderSettings | null | undefined): Exclude<LegacyWordHighlightMode, 'auto'> | null {
+    if (!settings || !hasOwn(settings, 'wordHighlightMode')) return null;
+    if (settings.wordHighlightMode === 'status' || settings.wordHighlightMode === 'pitch' || settings.wordHighlightMode === 'off') return settings.wordHighlightMode;
+    return hasLegacyMiningStatusSource(settings) ? 'status' : 'pitch';
+}
+
+function hasLegacyMiningStatusSource(settings: LegacyReaderSettings): boolean {
+    return Boolean(settings.ankiEnabled || (settings.jpdbMiningEnabled && settings.apiKey?.trim()));
 }
 
 function normalizeFuriganaMode(value: unknown, settings: Partial<ReaderSettings> | null | undefined): FuriganaMode {
@@ -693,28 +737,26 @@ function normalizeDeckIdSetting(value: unknown, fallback: string): string {
     return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
-export function hasMiningStatusSource(settings: ReaderSettings): boolean {
-    return settings.ankiEnabled || (settings.jpdbMiningEnabled && Boolean(settings.apiKey.trim()));
-}
-
 export function hasPersonalizedFuriganaSource(settings: ReaderSettings): boolean {
     return settings.ankiEnabled || Boolean(settings.apiKey.trim());
 }
 
-export function effectiveWordHighlightMode(settings: ReaderSettings): Exclude<WordHighlightMode, 'auto'> {
-    if (settings.wordHighlightMode === 'status' || settings.wordHighlightMode === 'pitch' || settings.wordHighlightMode === 'off') return settings.wordHighlightMode;
-    return hasMiningStatusSource(settings) ? 'status' : 'pitch';
+export function effectiveReaderColorSource(
+    settings: LegacyReaderSettings,
+    source: ReaderColorSource,
+    fallback: ConcreteReaderColorSource = DEFAULT_COLOR_CHANNELS.wordHighlightColorSource,
+): ConcreteReaderColorSource {
+    if (source !== 'auto') return source;
+    return legacyReaderColorSourceForAuto(settings, fallback);
 }
 
-export function effectiveReaderColorSource(settings: ReaderSettings, source: ReaderColorSource): Exclude<ReaderColorSource, 'auto'> {
+export function effectiveSubtitleColorSource(
+    settings: LegacyReaderSettings,
+    source: ReaderColorSource,
+    fallback: ConcreteReaderColorSource = DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource,
+): ConcreteReaderColorSource {
     if (source !== 'auto') return source;
-    return effectiveWordHighlightMode(settings);
-}
-
-export function effectiveSubtitleColorSource(settings: ReaderSettings, source: ReaderColorSource): Exclude<ReaderColorSource, 'auto'> {
-    if (source !== 'auto') return source;
-    const mode = effectiveWordHighlightMode(settings);
-    return mode === 'status' ? 'jpdb' : mode;
+    return legacySubtitleColorSourceForAuto(settings, fallback);
 }
 
 export function effectiveFuriganaMode(settings: ReaderSettings): Exclude<FuriganaMode, 'auto'> {
@@ -836,7 +878,7 @@ export async function saveSettings(settings: ReaderSettings): Promise<void> {
         return;
     }
     try {
-        await gmStorageSet(SETTINGS_STORAGE_KEY, settings);
+        await gmStorageSet(SETTINGS_STORAGE_KEY, stripLegacyWordHighlightMode(settings));
     } catch (error) {
         log.warn('Settings save failed', { error });
         throw error;

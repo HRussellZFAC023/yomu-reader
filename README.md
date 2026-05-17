@@ -27,7 +27,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - Drag/drop dictionary source order, so JPDB definitions can be first, lower priority, or disabled while imported native-language dictionaries stay visible.
 - Furigana and word-color modes for all parsed text: difficult-kanji furigana, all parsed words, hide known-word furigana, status colors, pitch colors, or no highlight colors.
 - Bounded JPDB public-page extras in the JPDB source, including related "used in vocabulary" rows and example sentences with JPDB-provided audio buttons when available.
-- Immersion Kit example sentences inside word popups, with optional thumbnails, translations, length filters, source filters, one-time hover audio on desktop, manual replay, and tappable Japanese inside each example.
+- Immersion Kit or Nadeshiko example sentences inside word popups, with optional thumbnails, translations, length filters, source filters, one-time hover audio on desktop, manual replay, and tappable Japanese inside each example. Immersion Kit works without a key; Nadeshiko and combined mode use your Nadeshiko API key, and combined mode blends both sources with a deterministic shuffle.
 - Yomitan-compatible audio sources, including JapanesePod101, LanguagePod101, Jisho.org, JPDB word audio, browser text-to-speech, and custom URLs.
 - iOS-friendly Blob audio playback and optional audio autoplay.
 - Manga/image OCR from embedded page metadata or a local OCR app/server for MangaOCR, PaddleOCR, Apple Vision, and YomiNinja-style results.
@@ -49,11 +49,11 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 
 ## Privacy
 
-Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, mining, or opening kanji details. Immersion Kit searches send the looked-up term to Immersion Kit and fetch example media only when examples are enabled. RTK details are fetched from the configured static RTK data source when enabled. Kanji origin details can fetch public per-kanji data from The Kanji Map on GitHub when enabled. Custom audio sources receive the term, reading, and language placeholders you configure. Image text uses embedded OCR metadata first when a page provides it; local OCR app mode sends image pixels only to the endpoint you configure. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage. Anki mining talks only to your local AnkiConnect endpoint.
+Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, mining, or opening kanji details. Example searches send the looked-up term to the enabled example provider: Immersion Kit needs no key, while Nadeshiko requests include your saved Nadeshiko API key and do not use public proxy fallbacks. Example media is fetched only when examples are enabled. RTK details are fetched from the configured static RTK data source when enabled. Kanji origin details can fetch public per-kanji data from The Kanji Map on GitHub when enabled. Custom audio sources receive the term, reading, and language placeholders you configure. Image text uses embedded OCR metadata first when a page provides it; local OCR app mode sends image pixels only to the endpoint you configure. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage. Anki mining talks only to your local AnkiConnect endpoint.
 
 ## Audio
 
-Audio sources follow Yomitan’s source model and fallback order. Custom JSON sources should return an `audioSourceList` with `audioSources`, matching Yomitan’s format.
+Audio sources follow Yomitan’s source model and fallback order. Custom JSON sources should return an `audioSourceList` with `audioSources`, matching Yomitan’s format. The Audio settings include the shared cross-origin proxy URL used by hosted-page audio and public lookup requests. By default, JPDB and browser text-to-speech stay as fallbacks after recorded sources miss; switch **Text-to-speech handling** to **Follow source order / random** if you want those rows to participate in your configured order or random audio pool.
 
 Local setup guide: https://hrussellzfac023.github.io/yomu-reader/local-audio
 
@@ -247,12 +247,14 @@ Donation note: よむ has already cost more in AI/API tokens than donations are 
 - [NihongoTube](https://www.nihongotube.app/) for the Japanese-only YouTube immersion idea as a reference only; no NihongoTube code or data is copied.
 - [JPDB RTK Information Inserter](https://greasyfork.org/en/scripts/546314-jpdb-rtk-information-inserter) and the original [hanhpp/rtk search engine](https://github.com/hanhpp/rtk) for the RTK data source and presentation cues.
 - [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples) for copied/adapted JPDB-side Immersion Kit userscript behavior.
+- [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) for the Nadeshiko API request shape and JPDB-side examples behavior reference.
 - [Yomikiri](https://github.com/BlueGreenMagick/yomikiri) for mobile Anki handoff, card template, translation, and grammar workflow ideas.
 - [Tofugu grammar guides](https://www.tofugu.com/japanese-grammar/) for the grammar-hint reference links shown in study tools.
 - [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/) and [aramrw/yomichan_audio_server](https://github.com/aramrw/yomichan_audio_server) for local/hosted audio setup patterns.
 - [Immersion Kit](https://www.immersionkit.com/) for searchable example sentences, audio, and stills used at runtime in the examples section.
+- [Nadeshiko](https://nadeshiko.co/) for optional searchable Japanese sentence examples, audio, and stills used at runtime when enabled with a user API key.
 - [AnkiConnect](https://foosoft.net/projects/anki-connect/) for local Anki card creation.
-- [JPDB](https://jpdb.io), Immersion Kit, RTK, and user-configured local OCR/audio services for the external services users can connect to or use through the reader.
+- [JPDB](https://jpdb.io), Immersion Kit, Nadeshiko, RTK, and user-configured local OCR/audio services for the external services users can connect to or use through the reader.
 
 ## Source Licenses
 
@@ -270,10 +272,12 @@ Donation note: よむ has already cost more in AI/API tokens than donations are 
 | [asbplayer](https://github.com/asbplayer/asbplayer) | MIT; used as a subtitle-mining and video-reader UX reference |
 | [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader) | MIT; used as a JPDB reader behavior and parser-edge-case reference |
 | [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples) | MIT; copied/adapted JPDB-side Immersion Kit userscript behavior |
+| [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) | MIT; used as the Nadeshiko API and JPDB-side examples behavior reference |
 | [AnkiConnect](https://foosoft.net/projects/anki-connect/) / [source](https://github.com/FooSoft/anki-connect) | GPL-3.0-or-later; よむ talks to the local HTTP API and does not bundle AnkiConnect |
 | [YomiNinja](https://github.com/matt-m-o/YomiNinja) | GPL-3.0; used for OCR response-shape compatibility and UX reference only |
 | [NihongoTube](https://www.nihongotube.app/) | Reference only for Japanese-only YouTube filtering; no public project license found, and the website footer says all rights reserved |
 | [Immersion Kit](https://www.immersionkit.com/) | External runtime service for examples and media; よむ does not bundle its corpus |
+| [Nadeshiko](https://nadeshiko.co/) | Optional external runtime service for examples and media; よむ does not bundle its corpus |
 | [JPDB RTK Information Inserter](https://greasyfork.org/en/scripts/546314-jpdb-rtk-information-inserter) / [hanhpp/rtk](https://github.com/hanhpp/rtk) | RTK presentation/data-source references; the original search repo does not provide a clean redistributable data license, so よむ treats RTK data as an optional attributed runtime source |
 | [Yomikiri](https://github.com/BlueGreenMagick/yomikiri), [Tofugu grammar guides](https://www.tofugu.com/japanese-grammar/), Ultimate Yomitan Audio, and local audio server references | Reference/inspiration or user-configured external services only; よむ does not bundle their content |
 | [Genetic Kanji](http://www.genetickanji.com/query.asp?id=c22235), [Okjiten](https://okjiten.jp/index.html), [Outlier Dictionary](https://www.outlier-linguistics.com/products/outlier-dictionary-of-chinese-characters) | Reference/inspiration only unless the user supplies licensed data or a permissioned API |

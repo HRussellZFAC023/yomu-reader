@@ -1,4 +1,5 @@
 import type { AudioPlayer } from './audio';
+import { resolveUiLanguage, uiText } from './i18n';
 import { Logger } from './logger';
 import type { JPDBCard, ReaderSettings } from './types';
 
@@ -20,7 +21,7 @@ export class ReaderAudioActions {
 
     async playTermAudio(card: JPDBCard, options: { hoverLookupGeneration?: number; userGesture?: boolean } = {}): Promise<void> {
         if (!this.dependencies.getSettings().audioEnabled) {
-            this.dependencies.toast('Audio playback is disabled.');
+            this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, 'audioPlaybackDisabledToast'));
             return;
         }
         const isCurrent = options.hoverLookupGeneration === undefined
@@ -35,7 +36,7 @@ export class ReaderAudioActions {
             if (!played) return;
         } catch (error) {
             log.warn('Term audio playback failed', { term: card.spelling }, error);
-            this.dependencies.toast(error instanceof Error ? error.message : 'Audio playback failed.');
+            this.dependencies.toast(this.audioErrorMessage(error));
         } finally {
             this.clearLoading(loadingPopover, loadingRequest);
         }
@@ -43,7 +44,7 @@ export class ReaderAudioActions {
 
     async playSentenceAudio(sentence?: string): Promise<void> {
         const text = sentence?.trim();
-        if (!text) throw new Error('No sentence to read aloud.');
+        if (!text) throw new Error(uiText(this.dependencies.getSettings().interfaceLanguage, 'noSentenceToRead'));
         const voice = this.dependencies.getSettings().audioSources.find(source =>
             source.enabled && (source.type === 'text-to-speech' || source.type === 'text-to-speech-reading') && source.voice.trim()
         )?.voice.trim() ?? '';
@@ -53,12 +54,27 @@ export class ReaderAudioActions {
 
     async playJpdbExampleAudio(audioIds: string | string[], fallbackSentence?: string): Promise<void> {
         if (!this.dependencies.getSettings().audioEnabled) {
-            this.dependencies.toast('Audio playback is disabled.');
+            this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, 'audioPlaybackDisabledToast'));
             return;
         }
         this.dependencies.stopImmersionAudio();
         const played = await this.dependencies.audio.playJpdbAudio(audioIds, { userGesture: true });
         if (!played && fallbackSentence) await this.playSentenceAudio(fallbackSentence);
+    }
+
+    async playMediaUrl(audioUrl: string): Promise<void> {
+        if (!this.dependencies.getSettings().audioEnabled) {
+            this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, 'audioPlaybackDisabledToast'));
+            return;
+        }
+        this.dependencies.stopImmersionAudio();
+        await this.dependencies.audio.playMediaUrl(audioUrl);
+    }
+
+    private audioErrorMessage(error: unknown): string {
+        const language = this.dependencies.getSettings().interfaceLanguage;
+        if (resolveUiLanguage(language) === 'ja') return uiText(language, 'audioPlaybackFailed');
+        return error instanceof Error ? error.message : uiText(language, 'audioPlaybackFailed');
     }
 
     private setLoading(popover: HTMLElement | undefined, requestId: number): void {

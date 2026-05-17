@@ -841,10 +841,6 @@
     padding: 0 22px 104px;
   }
 
-  .jpdb-reader-settings .grid {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  }
-
   .jpdb-reader-dictionary-head,
   .jpdb-reader-dictionary-row,
   .jpdb-reader-audio-source-head,
@@ -913,9 +909,6 @@
     padding: 0 24px 108px;
   }
 
-  .jpdb-reader-settings .grid {
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  }
 }
 
 @media (max-width: 699px) {

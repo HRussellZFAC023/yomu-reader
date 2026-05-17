@@ -12,11 +12,11 @@ import type { JpdbVocabularyInfo } from './jpdb-vocabulary';
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 type DictionaryLabel = (name: string) => string;
 
-export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: SourceAttributes, info: JpdbVocabularyInfo | null = null): string {
+export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: SourceAttributes, info: JpdbVocabularyInfo | null = null, language: InterfaceLanguage = 'en'): string {
     const meanings = jpdbDefinitionMeanings(card, info)
         .map(meaning => `<div class="jpdb-reader-meaning">${escapeHtml(meaning)}</div>`)
         .join('');
-    const extras = renderJpdbVocabularyExtras(info, sourceAttributes);
+    const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language);
     if (!meanings && !extras) return '';
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID))}>
@@ -32,9 +32,9 @@ function jpdbDefinitionMeanings(card: JPDBCard, info: JpdbVocabularyInfo | null)
     return (info?.meanings ?? []).slice(0, 6);
 }
 
-function renderJpdbVocabularyExtras(info: JpdbVocabularyInfo | null, sourceAttributes: SourceAttributes): string {
+function renderJpdbVocabularyExtras(info: JpdbVocabularyInfo | null, sourceAttributes: SourceAttributes, language: InterfaceLanguage): string {
     if (!hasJpdbVocabularyExtras(info)) return '';
-    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info)}${renderJpdbUsedInVocabulary(info, sourceAttributes)}${renderJpdbExamples(info, sourceAttributes)}</div>`;
+    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info)}${renderJpdbUsedInVocabulary(info, sourceAttributes, language)}${renderJpdbExamples(info, sourceAttributes, language)}</div>`;
 }
 
 function shouldPreferCardMeanings(card: JPDBCard): boolean {
@@ -79,12 +79,12 @@ function renderJpdbCompounds(info: JpdbVocabularyInfo): string {
     ` : '';
 }
 
-function renderJpdbUsedInVocabulary(info: JpdbVocabularyInfo, sourceAttributes: SourceAttributes): string {
+function renderJpdbUsedInVocabulary(info: JpdbVocabularyInfo, sourceAttributes: SourceAttributes, language: InterfaceLanguage): string {
     const entries = info.usedInVocabulary ?? [];
     return entries.length ? `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey(`${JPDB_DEFINITION_SOURCE_ID}:used-in-vocabulary`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">Used in vocabulary</span>
+                <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'usedInVocabulary'))}</span>
                 <span class="jpdb-reader-source-status jpdb-reader-example-count">${entries.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
@@ -112,11 +112,11 @@ function renderJpdbUsedInVocabulary(info: JpdbVocabularyInfo, sourceAttributes: 
     ` : '';
 }
 
-function renderJpdbExamples(info: JpdbVocabularyInfo, sourceAttributes: SourceAttributes): string {
+function renderJpdbExamples(info: JpdbVocabularyInfo, sourceAttributes: SourceAttributes, language: InterfaceLanguage): string {
     return info.examples.length ? `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" ${sourceAttributes(definitionSourceStateKey(`${JPDB_DEFINITION_SOURCE_ID}:examples`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">Example sentences</span>
+                <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'exampleSentences'))}</span>
                 <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.examples.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
@@ -124,7 +124,7 @@ function renderJpdbExamples(info: JpdbVocabularyInfo, sourceAttributes: SourceAt
                 ${info.examples.map(example => `
                     <li class="jpdb-reader-jpdb-example">
                         <div class="jpdb-reader-jpdb-example-row${example.audioIds?.length ? ' has-audio' : ''}">
-                            ${renderJpdbExampleAudioButton(example.audioIds, example.sentence)}
+                            ${renderJpdbExampleAudioButton(example.audioIds, example.sentence, language)}
                             <div class="jpdb-reader-jpdb-example-text">
                                 <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${escapeHtml(example.sentence)}</div>
                                 ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml(example.translation)}</div>` : ''}
@@ -138,8 +138,9 @@ function renderJpdbExamples(info: JpdbVocabularyInfo, sourceAttributes: SourceAt
     ` : '';
 }
 
-function renderJpdbExampleAudioButton(audioIds: string[] | undefined, sentence: string): string {
+function renderJpdbExampleAudioButton(audioIds: string[] | undefined, sentence: string, language: InterfaceLanguage): string {
     const audio = audioIds?.join(',') ?? '';
+    const label = uiText(language, 'playJpdbExampleAudio');
     return audio ? `
         <button
             class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio"
@@ -147,8 +148,8 @@ function renderJpdbExampleAudioButton(audioIds: string[] | undefined, sentence: 
             data-action="jpdb-example-audio"
             data-jpdb-audio="${escapeHtml(audio)}"
             data-jpdb-example-sentence="${escapeHtml(sentence)}"
-            title="Play JPDB example audio"
-            aria-label="Play JPDB example audio"
+            title="${escapeHtml(label)}"
+            aria-label="${escapeHtml(label)}"
         >${speakerIcon()}</button>
     ` : '';
 }
@@ -165,12 +166,15 @@ export function renderLocalDefinitionSourcesSection(
         .map(dictionary => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) }))
         .filter(source => source.groups.length);
     const dictionarySections = groupsByDictionary
-        .map(source => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel, reference))
+        .map(source => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel, settings.interfaceLanguage, reference))
         .filter(Boolean);
     if (!dictionarySections.length) return '';
     const sourceCount = groupsByDictionary.length;
     const termCount = groupsByDictionary.reduce((count, source) => count + source.groups.length, 0);
-    const status = [`${sourceCount} source${sourceCount === 1 ? '' : 's'}`, `${termCount} entr${termCount === 1 ? 'y' : 'ies'}`].join(' · ');
+    const status = [
+        `${sourceCount} ${uiText(settings.interfaceLanguage, sourceCount === 1 ? 'sourceSingular' : 'sourcePlural')}`,
+        `${termCount} ${uiText(settings.interfaceLanguage, termCount === 1 ? 'localWordSingular' : 'localWordPlural')}`,
+    ].join(' · ');
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${sourceAttributes(definitionSourceStateKey('__local_dictionaries__'))}>
             <summary class="jpdb-reader-local-title">
@@ -189,12 +193,14 @@ export function renderKanjiDefinitions(
     sourceAttributes: SourceAttributes,
     dictionaryLabel: DictionaryLabel,
     sourceId = KANJI_DICTIONARIES_SOURCE_ID,
-    title = 'Kanji dictionaries',
+    title: string | undefined = undefined,
+    language: InterfaceLanguage = 'en',
 ): string {
     if (!entries.length) return '';
+    const heading = title ?? uiText(language, 'kanjiDictionaries');
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanji" ${sourceAttributes(kanjiSourceStateKey(sourceId))}>
-            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
+            <summary class="jpdb-reader-local-title">${escapeHtml(heading)}</summary>
             ${entries.map(entry => `
                 <div class="jpdb-reader-local-entry">
                     <div class="jpdb-reader-local-head">
@@ -202,8 +208,8 @@ export function renderKanjiDefinitions(
                         <span class="jpdb-reader-local-dict">${escapeHtml(dictionaryLabel(entry.dictionary))}</span>
                     </div>
                     <div class="jpdb-reader-kanji-readings">
-                        ${entry.onyomi.length ? `<span>On ${escapeHtml(entry.onyomi.join('、'))}</span>` : ''}
-                        ${entry.kunyomi.length ? `<span>Kun ${escapeHtml(entry.kunyomi.join('、'))}</span>` : ''}
+                        ${entry.onyomi.length ? `<span>${escapeHtml(uiText(language, 'onReading'))} ${escapeHtml(entry.onyomi.join('、'))}</span>` : ''}
+                        ${entry.kunyomi.length ? `<span>${escapeHtml(uiText(language, 'kunReading'))} ${escapeHtml(entry.kunyomi.join('、'))}</span>` : ''}
                     </div>
                     <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml(entry.dictionary)}">
                         ${entry.meanings.slice(0, 6).map(meaning => `<div>${escapeHtml(meaning)}</div>`).join('')}
@@ -220,7 +226,7 @@ export function renderSimilarKanjiWordsShell(
     sourceStateKey: string,
     sourceOpen: boolean,
     sourceAttributes: SourceAttributes,
-    title = `Words using ${kanji}`,
+    title = uiText(language, 'wordsUsingKanji').replace('{kanji}', kanji),
 ): string {
     const help = uiText(language, sourceOpen ? 'loadingSimilarWords' : 'openToLoadSimilarWords');
     return `
@@ -283,26 +289,26 @@ export function kanjiSourceStateKey(sourceId: string): string {
     return `kanji:${sourceId}`;
 }
 
-function renderLocalDictionaryGroup(dictionary: string, groups: LearnerTermGroup[], sourceAttributes: SourceAttributes, dictionaryLabel: DictionaryLabel, reference?: Pick<JPDBCard, 'spelling' | 'reading'>): string {
+function renderLocalDictionaryGroup(dictionary: string, groups: LearnerTermGroup[], sourceAttributes: SourceAttributes, dictionaryLabel: DictionaryLabel, language: InterfaceLanguage, reference?: Pick<JPDBCard, 'spelling' | 'reading'>): string {
     const entryCount = groups.length;
     return `
         <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml(dictionary)}" ${sourceAttributes(localDictionaryStateKey(dictionary))}>
             <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml(dictionaryLabel(dictionary))}">
                 <span>${escapeHtml(dictionaryLabel(dictionary))}</span>
-                <span class="jpdb-reader-source-status">${entryCount} entr${entryCount === 1 ? 'y' : 'ies'}</span>
+                <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml(uiText(language, entryCount === 1 ? 'localWordSingular' : 'localWordPlural'))}</span>
             </summary>
             <div class="jpdb-reader-local-terms">
-                ${groups.map(group => renderLocalTermGroup(dictionary, group, dictionaryLabel, reference, { showDictionaryTag: false })).join('')}
+                ${groups.map(group => renderLocalTermGroup(dictionary, group, dictionaryLabel, language, reference, { showDictionaryTag: false })).join('')}
             </div>
         </details>
     `;
 }
 
-function renderLocalTermGroup(dictionary: string, group: LearnerTermGroup, dictionaryLabel: DictionaryLabel, reference?: Pick<JPDBCard, 'spelling' | 'reading'>, options: { showDictionaryTag?: boolean } = {}): string {
+function renderLocalTermGroup(dictionary: string, group: LearnerTermGroup, dictionaryLabel: DictionaryLabel, language: InterfaceLanguage, reference?: Pick<JPDBCard, 'spelling' | 'reading'>, options: { showDictionaryTag?: boolean } = {}): string {
     return `
         <article class="jpdb-reader-local-entry jpdb-reader-local-term">
             ${renderLocalTermHead(group, reference)}
-            ${renderLocalTermTags(dictionary, group, dictionaryLabel, options.showDictionaryTag ?? true)}
+            ${renderLocalTermTags(dictionary, group, dictionaryLabel, options.showDictionaryTag ?? true, language)}
             ${renderLocalTermMeaning(dictionary, group)}
         </article>
     `;
@@ -339,10 +345,10 @@ function renderLocalTermReading(group: LearnerTermGroup): string {
         : '';
 }
 
-function renderLocalTermTags(dictionary: string, group: LearnerTermGroup, dictionaryLabel: DictionaryLabel, showDictionaryTag: boolean): string {
+function renderLocalTermTags(dictionary: string, group: LearnerTermGroup, dictionaryLabel: DictionaryLabel, showDictionaryTag: boolean, language: InterfaceLanguage): string {
     const tagItems = [
         showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml(dictionaryLabel(dictionary))}</span>` : '',
-        ...localTermTags(group.entries).map(tag => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</span>`),
+        ...localTermTags(group.entries, language).map(tag => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</span>`),
     ].filter(Boolean);
     return tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join('')}</div>` : '';
 }

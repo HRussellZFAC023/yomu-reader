@@ -1,10 +1,10 @@
 import { STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from './constants';
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
-import { detectHanabiraGrammarHints } from './hanabira-grammar';
+import { uiText } from './i18n';
 import { Logger } from './logger';
 import { speakerIcon } from './popup-render';
 import { definitionSourceStateKey } from './definition-source-render';
-import { detectGrammarHints as detectFallbackGrammarHints, mergeGrammarHints, renderGrammarHints, translateJapaneseSentence, type GrammarHint } from './study-tools';
+import { detectGrammarHints as detectLocalGrammarHints, renderGrammarHints, translateJapaneseSentence, type GrammarHint } from './study-tools';
 import type { JPDBToken, ReaderSettings } from './types';
 
 const log = Logger.scope('StudySources');
@@ -31,7 +31,7 @@ export class StudySourceController {
         if (!sentence || !settings.studyTranslationEnabled) return '';
         return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-translation ${this.sourceAttributes(STUDY_TRANSLATION_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title">Translation</summary>
+                <summary class="jpdb-reader-local-title">${escapeHtml(uiText(settings.interfaceLanguage, 'translation'))}</summary>
                 ${this.renderTranslationPanel(sentence)}
             </details>
         `;
@@ -40,10 +40,10 @@ export class StudySourceController {
     renderGrammarSource(sentence?: string): string {
         const settings = this.settings();
         if (!sentence || !settings.studyGrammarEnabled) return '';
-        const hints = detectFallbackGrammarHints(sentence);
+        const hints = detectLocalGrammarHints(sentence);
         return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-grammar ${this.sourceAttributes(STUDY_GRAMMAR_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title">Grammar</summary>
+                <summary class="jpdb-reader-local-title">${escapeHtml(uiText(settings.interfaceLanguage, 'grammar'))}</summary>
                 ${this.renderGrammarPanel(sentence, hints)}
             </details>
         `;
@@ -55,38 +55,34 @@ export class StudySourceController {
     }
 
     async detectGrammarHints(sentence: string): Promise<GrammarHint[]> {
-        const fallback = detectFallbackGrammarHints(sentence);
-        try {
-            const hanabiraHints = await detectHanabiraGrammarHints(sentence);
-            return mergeGrammarHints(hanabiraHints, fallback);
-        } catch (error) {
-            log.warn('Hanabira grammar lookup failed; using fallback hints', { sentenceLength: sentence.length }, error);
-            return fallback;
-        }
+        return detectLocalGrammarHints(sentence);
     }
 
     private renderTranslationPanel(sentence: string): string {
+        const language = this.settings().interfaceLanguage;
+        const readSentence = uiText(language, 'readSentenceAloud');
         return `
             <div class="jpdb-reader-study-panel jpdb-reader-study-translation-panel">
                 <div class="jpdb-reader-study-block jpdb-reader-study-sentence-block">
                     <div class="jpdb-reader-study-label-row">
-                        <div class="jpdb-reader-study-label">Japanese</div>
-                        <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" type="button" title="Read sentence aloud" aria-label="Read sentence aloud">${speakerIcon()}</button>
+                        <div class="jpdb-reader-study-label">${escapeHtml(uiText(language, 'japaneseLabel'))}</div>
+                        <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" type="button" title="${escapeHtml(readSentence)}" aria-label="${escapeHtml(readSentence)}">${speakerIcon()}</button>
                     </div>
                     <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml(sentence)}</div>
                 </div>
                 <div class="jpdb-reader-study-block jpdb-reader-study-meaning-block">
-                    <div class="jpdb-reader-study-label">Meaning</div>
-                    <div class="jpdb-reader-study-translation" data-study-translation-result>Open this section to translate.</div>
+                    <div class="jpdb-reader-study-label">${escapeHtml(uiText(language, 'meaning'))}</div>
+                    <div class="jpdb-reader-study-translation" data-study-translation-result>${escapeHtml(uiText(language, 'openSectionToTranslate'))}</div>
                 </div>
             </div>
         `;
     }
 
-    private renderGrammarPanel(sentence: string, hints = detectFallbackGrammarHints(sentence)): string {
+    private renderGrammarPanel(sentence: string, hints = detectLocalGrammarHints(sentence)): string {
+        const language = this.settings().interfaceLanguage;
         return `
             <div class="jpdb-reader-study-panel" data-study-grammar-panel>
-                ${hints.length ? renderGrammarHints(hints, sentence) : '<div class="jpdb-reader-help">Finding grammar...</div>'}
+                ${hints.length ? renderGrammarHints(hints, sentence, undefined, language) : `<div class="jpdb-reader-help">${escapeHtml(uiText(language, 'findingGrammar'))}</div>`}
             </div>
         `;
     }
@@ -120,7 +116,7 @@ export class StudySourceController {
                 container.remove();
                 return;
             }
-            setInnerHtml(panel, renderGrammarHints(hints, sentence));
+            setInnerHtml(panel, renderGrammarHints(hints, sentence, undefined, this.settings().interfaceLanguage));
             delete popover.dataset.jpdbReaderParseKey;
             delete popover.dataset.jpdbReaderParseLoadingKey;
             void this.dependencies.parsePopoverJapanese(popover);
@@ -141,7 +137,7 @@ export class StudySourceController {
                 if (!isStudyDetailsOpen(container) || container.dataset.loaded === 'true' || container.dataset.loading === 'true') return;
                 container.dataset.loading = 'true';
                 const result = container.querySelector<HTMLElement>('[data-study-translation-result]');
-                if (result) result.textContent = 'Translating...';
+                if (result) result.textContent = uiText(this.settings().interfaceLanguage, 'translating');
                 void this.loadTranslation(popover, sentence, container).finally(() => {
                     if (!container.isConnected) return;
                     delete container.dataset.loading;
@@ -172,7 +168,7 @@ export class StudySourceController {
     private async loadTranslationContent(sentence: string): Promise<StudyTranslationResult> {
         const [tokens, translated] = await Promise.all([
             this.dependencies.parseJapanese([sentence]).then(([parsed]) => parsed ?? []),
-            translateJapaneseSentence(sentence),
+            translateJapaneseSentence(sentence, this.settings().interfaceLanguage),
         ]);
         return { tokens, translated };
     }
@@ -195,7 +191,7 @@ export class StudySourceController {
         log.warn('Automatic sentence translation failed', { sentenceLength: sentence.length }, error);
         if (!container.isConnected) return;
         const result = container.querySelector<HTMLElement>('[data-study-translation-result]');
-        if (result) result.textContent = 'Translation unavailable.';
+        if (result) result.textContent = uiText(this.settings().interfaceLanguage, 'translationUnavailable');
     }
 
     private sourceAttributes(sourceId: string): string {

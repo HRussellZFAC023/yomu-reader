@@ -1,7 +1,7 @@
 import type { AnkiExistingNote, AnkiLookupResult, AnkiRenderedCard } from './anki';
 import { escapeHtml } from './dom';
-import { contextLabel, type StoredMiningContext } from './mining-context';
-import type { ReaderSettings } from './types';
+import type { StoredMiningContext } from './mining-context';
+import type { InterfaceLanguage, ReaderSettings } from './types';
 import { uiText } from './i18n';
 
 export function renderAnkiActionRow(ankiLookup: AnkiLookupResult, settings: ReaderSettings): string {
@@ -10,10 +10,10 @@ export function renderAnkiActionRow(ankiLookup: AnkiLookupResult, settings: Read
     return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${uiText(settings.interfaceLanguage, 'addToAnki')}</button></div>`;
 }
 
-export function renderAnkiExistingSection(ankiLookup: AnkiLookupResult, storedContext: StoredMiningContext | null): string {
+export function renderAnkiExistingSection(ankiLookup: AnkiLookupResult, storedContext: StoredMiningContext | null, language: InterfaceLanguage): string {
     const note = ankiLookup.primary;
     if (!note) return '';
-    const preview = ankiExistingPreview(note, storedContext);
+    const preview = ankiExistingPreview(note, storedContext, language);
     return `
         <details class="jpdb-reader-anki-existing">
             <summary>
@@ -24,26 +24,27 @@ export function renderAnkiExistingSection(ankiLookup: AnkiLookupResult, storedCo
                 ${preview.renderedCard}
                 ${preview.fields}
                 ${preview.context}
-                ${renderAnkiNoteActions(note)}
+                ${renderAnkiNoteActions(note, language)}
             </div>
         </details>
     `;
 }
 
-function ankiExistingPreview(note: AnkiExistingNote, storedContext: StoredMiningContext | null): { decks: string; renderedCard: string; fields: string; context: string } {
+function ankiExistingPreview(note: AnkiExistingNote, storedContext: StoredMiningContext | null, language: InterfaceLanguage): { decks: string; renderedCard: string; fields: string; context: string } {
     return {
         decks: note.deckNames.length ? note.deckNames.join(', ') : 'Anki',
-        renderedCard: renderAnkiRenderedCard(note),
-        fields: renderAnkiFields(note),
-        context: storedContext ? renderLastMiningContext(storedContext) : '',
+        renderedCard: renderAnkiRenderedCard(note, language),
+        fields: renderAnkiFields(note, language),
+        context: storedContext ? renderLastMiningContext(storedContext, language) : '',
     };
 }
 
-function renderAnkiRenderedCard(note: AnkiExistingNote): string {
+function renderAnkiRenderedCard(note: AnkiExistingNote, language: InterfaceLanguage): string {
     const card = primaryRenderedCard(note);
     if (!card) return '';
-    const question = renderAnkiRenderedSide('Front', card.question);
-    const answer = renderAnkiRenderedSide('Back', card.answer);
+    const soundFilenames = ankiSoundFilenames(note);
+    const question = renderAnkiRenderedSide(uiText(language, 'front'), card.question, soundFilenames, language);
+    const answer = renderAnkiRenderedSide(uiText(language, 'back'), card.answer, soundFilenames, language);
     if (!question && !answer) return '';
     return `<div class="jpdb-reader-anki-rendered-card">${question}${answer}</div>`;
 }
@@ -54,8 +55,8 @@ function primaryRenderedCard(note: AnkiExistingNote): AnkiRenderedCard | null {
     return cards.find(card => card.cardId === note.primaryCardId) ?? cards[0] ?? null;
 }
 
-function renderAnkiRenderedSide(label: string, value: string): string {
-    const html = sanitizeAnkiCardHtml(value);
+function renderAnkiRenderedSide(label: string, value: string, soundFilenames: string[], language: InterfaceLanguage): string {
+    const html = sanitizeAnkiCardHtml(value, soundFilenames, language);
     if (!html) return '';
     return `<section class="jpdb-reader-anki-rendered-side">
         <strong>${label}</strong>
@@ -63,45 +64,50 @@ function renderAnkiRenderedSide(label: string, value: string): string {
     </section>`;
 }
 
-function renderAnkiFields(note: AnkiExistingNote): string {
+function renderAnkiFields(note: AnkiExistingNote, language: InterfaceLanguage): string {
     const fields = Object.entries(note.fields)
         .map(([name, value]) => ({ name, value: value.trim() }))
         .filter(field => field.value)
         .slice(0, 14);
     if (!fields.length) return '';
     return `<div class="jpdb-reader-anki-fields">
-        ${fields.map(field => previewField(field.name, field.value)).join('')}
+        ${fields.map(field => previewField(field.name, field.value, language)).join('')}
     </div>`;
 }
 
-function previewField(label: string, value: string): string {
-    return `<div class="jpdb-reader-anki-field"><strong>${escapeHtml(label)}</strong><span>${renderFieldText(value)}</span></div>`;
+function previewField(label: string, value: string, language: InterfaceLanguage): string {
+    return `<div class="jpdb-reader-anki-field"><strong>${escapeHtml(label)}</strong><span>${renderFieldText(value, language)}</span></div>`;
 }
 
-function renderFieldText(value: string): string {
+function renderFieldText(value: string, language: InterfaceLanguage): string {
     return escapeHtml(value).replace(/\[sound:([^\]]+)]/gi, (_, filename: string) =>
-        `<span class="jpdb-reader-anki-sound">Audio ${escapeHtml(filename)}</span>`,
+        renderAnkiSoundChip(filename, language),
     );
 }
 
-function renderAnkiNoteActions(note: AnkiExistingNote): string {
+function renderAnkiSoundChip(filename: string, language: InterfaceLanguage): string {
+    const label = ankiAudioLabel(filename, language);
+    return `<button class="jpdb-reader-anki-sound" type="button" data-action="anki-media-audio" data-anki-media-name="${escapeHtml(filename)}" title="${escapeHtml(label)}">${escapeHtml(label)}</button>`;
+}
+
+function renderAnkiNoteActions(note: AnkiExistingNote, language: InterfaceLanguage): string {
     return `<div class="jpdb-reader-anki-note-actions">
-        ${renderAnkiAudioMergeSelect(note)}
+        ${renderAnkiAudioMergeSelect(note, language)}
         <div class="jpdb-reader-anki-note-action-row">
-            <button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}" title="Update matching fields and add Yomu media to this note">Merge Yomu</button>
-            <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${note.noteId}">Edit in Anki</button>
+            <button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}" title="${escapeHtml(uiText(language, 'mergeYomuTitle'))}">${escapeHtml(uiText(language, 'mergeYomu'))}</button>
+            <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${note.noteId}">${escapeHtml(uiText(language, 'editInAnki'))}</button>
         </div>
     </div>`;
 }
 
-function renderAnkiAudioMergeSelect(note: AnkiExistingNote): string {
+function renderAnkiAudioMergeSelect(note: AnkiExistingNote, language: InterfaceLanguage): string {
     if (!noteHasAudio(note)) return '';
     return `<label class="jpdb-reader-anki-audio-merge">
-        <span>Audio</span>
+        <span>${escapeHtml(uiText(language, 'audio'))}</span>
         <select data-anki-audio-merge>
-            <option value="both">Keep both</option>
-            <option value="theirs">Keep Anki</option>
-            <option value="ours">Use Yomu</option>
+            <option value="both">${escapeHtml(uiText(language, 'keepBothAudio'))}</option>
+            <option value="theirs">${escapeHtml(uiText(language, 'keepAnkiAudio'))}</option>
+            <option value="ours">${escapeHtml(uiText(language, 'useYomuAudio'))}</option>
         </select>
     </label>`;
 }
@@ -112,13 +118,14 @@ function noteHasAudio(note: AnkiExistingNote): boolean {
     );
 }
 
-function sanitizeAnkiCardHtml(value: string): string {
+function sanitizeAnkiCardHtml(value: string, soundFilenames: string[], language: InterfaceLanguage): string {
     const trimmed = value.trim();
     if (!trimmed) return '';
     if (typeof document === 'undefined') return escapeHtml(trimmed);
     const template = document.createElement('template');
     template.innerHTML = trimmed;
     sanitizeAnkiCardFragment(template.content);
+    replaceAnkiPlaybackMarkers(template.content, soundFilenames, language);
     return template.innerHTML.trim();
 }
 
@@ -133,6 +140,46 @@ function sanitizeAnkiCardElement(element: Element): void {
     }
 }
 
+function replaceAnkiPlaybackMarkers(root: ParentNode, soundFilenames: string[], language: InterfaceLanguage): void {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes: Text[] = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
+    textNodes.forEach(node => replaceAnkiPlaybackMarkerText(node, soundFilenames, language));
+}
+
+function replaceAnkiPlaybackMarkerText(node: Text, soundFilenames: string[], language: InterfaceLanguage): void {
+    const parts = node.textContent?.split(/(\[anki:play:[^\]]+])/gi) ?? [];
+    if (parts.length < 2) return;
+    const fragment = document.createDocumentFragment();
+    for (const part of parts) {
+        if (!part) continue;
+        fragment.append(ankiPlaybackMarkerNode(part, soundFilenames, language) ?? document.createTextNode(part));
+    }
+    node.replaceWith(fragment);
+}
+
+function ankiPlaybackMarkerNode(value: string, soundFilenames: string[], language: InterfaceLanguage): HTMLElement | null {
+    const match = /^\[anki:play:[^:\]]+:(\d+)]$/i.exec(value);
+    if (!match) return null;
+    const filename = soundFilenames[Number(match[1])] ?? soundFilenames[0] ?? '';
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'jpdb-reader-anki-sound jpdb-reader-anki-playback-marker';
+    chip.dataset.action = 'anki-media-audio';
+    if (filename) chip.dataset.ankiMediaName = filename;
+    chip.title = filename ? ankiAudioLabel(filename, language) : uiText(language, 'ankiAudioUnavailablePreview');
+    chip.disabled = !filename;
+    chip.textContent = uiText(language, 'audio');
+    return chip;
+}
+
+function ankiSoundFilenames(note: AnkiExistingNote): string[] {
+    const filenames = Object.values(note.fields)
+        .flatMap(value => Array.from(value.matchAll(/\[sound:([^\]]+)]/gi), match => match[1]?.trim() ?? ''))
+        .filter(Boolean);
+    return [...new Set(filenames)];
+}
+
 function shouldRemoveAnkiCardAttribute(name: string, value: string): boolean {
     const lowerName = name.toLowerCase();
     if (lowerName.startsWith('on') || lowerName === 'srcdoc') return true;
@@ -145,8 +192,18 @@ function isUnsafeAnkiCardUrl(value: string): boolean {
     return /^(javascript|vbscript):/i.test(trimmed) || /^data:text\/html/i.test(trimmed);
 }
 
-function renderLastMiningContext(context: StoredMiningContext): string {
-    return `<div class="jpdb-reader-anki-context"><strong>Last seen</strong><span>${escapeHtml(contextLabel(context))}</span><small>${escapeHtml(context.sentence)}</small></div>`;
+function renderLastMiningContext(context: StoredMiningContext, language: InterfaceLanguage): string {
+    return `<div class="jpdb-reader-anki-context"><strong>${escapeHtml(uiText(language, 'lastSeen'))}</strong><span>${escapeHtml(localizedContextLabel(context, language))}</span><small>${escapeHtml(context.sentence)}</small></div>`;
+}
+
+function localizedContextLabel(context: StoredMiningContext, language: InterfaceLanguage): string {
+    if (context.sourceKind === 'immersion-kit' && context.immersionIndex !== undefined && context.immersionTotal) {
+        return `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}`;
+    }
+    if (context.sourceKind === 'video' && context.sourceTitle) return `${uiText(language, 'contextVideo')}: ${context.sourceTitle}`;
+    if (context.sourceKind === 'image' && context.sourceTitle) return `${uiText(language, 'contextImage')}: ${context.sourceTitle}`;
+    if (context.sourceKind === 'jpdb' && context.sourceTitle) return `JPDB: ${context.sourceTitle}`;
+    return context.sourceTitle || context.sourceUrl || uiText(language, 'contextCurrentPage');
 }
 
 export function renderReviewButtons(
@@ -155,7 +212,7 @@ export function renderReviewButtons(
     options: { disabled?: boolean; title?: string } = {},
 ): string {
     const ankiAttrs = ankiNote?.primaryCardId ? ` data-anki-card-id="${ankiNote.primaryCardId}"` : '';
-    const disabledAttrs = reviewButtonDisabledAttrs(options);
+    const disabledAttrs = reviewButtonDisabledAttrs(options, settings.interfaceLanguage);
     const grades = reviewButtonGrades(settings);
     return `
         <div class="jpdb-reader-row${grades.length === 5 ? ' jpdb-reader-grades' : ''}" style="--cols: ${grades.length}">
@@ -164,13 +221,19 @@ export function renderReviewButtons(
     `;
 }
 
-function reviewButtonDisabledAttrs(options: { disabled?: boolean; title?: string }): string {
-    if (options.disabled) return ` disabled title="${escapeHtml(options.title || 'Unavailable')}"`;
+function reviewButtonDisabledAttrs(options: { disabled?: boolean; title?: string }, language: InterfaceLanguage): string {
+    if (options.disabled) return ` disabled title="${escapeHtml(options.title || uiText(language, 'unavailable'))}"`;
     return options.title ? ` title="${escapeHtml(options.title)}"` : '';
 }
 
 function reviewButtonGrades(settings: ReaderSettings): Array<[string, string]> {
+    const language = settings.interfaceLanguage;
     return settings.twoButtonReviews
-        ? [['fail', 'Fail'], ['pass', 'Pass']]
-        : [['nothing', 'Nothing'], ['something', 'Something'], ['hard', 'Hard'], ['okay', 'Okay'], ['easy', 'Easy']];
+        ? [['fail', uiText(language, 'gradeFailLabel')], ['pass', uiText(language, 'gradePassLabel')]]
+        : [['nothing', uiText(language, 'gradeNothingLabel')], ['something', uiText(language, 'gradeSomethingLabel')], ['hard', uiText(language, 'gradeHardLabel')], ['okay', uiText(language, 'gradeOkayLabel')], ['easy', uiText(language, 'gradeEasyLabel')]];
+}
+
+function ankiAudioLabel(filename: string, language: InterfaceLanguage): string {
+    const audio = uiText(language, 'audio');
+    return filename ? `${audio} ${filename}` : audio;
 }

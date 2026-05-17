@@ -34,7 +34,7 @@ export function renderWordPills(options: WordPillRenderOptions): string {
             const style = pillStyle(`lookup:${link.id || link.label}`);
             if (link.action === 'copy' || link.id === 'copy') {
                 const copyTitle = uiText(language, 'copyWordTitle');
-                return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button" style="${style}" title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(link.label || uiText(language, 'copyWord'))} ${copyIcon()}</button>`;
+                return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button" style="${style}" title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</button>`;
             }
             const url = link.id === 'jpdb' && (Boolean(options.overrideQuery) || options.isJpdbBackedCard(options.card))
                 ? options.jpdbUrl
@@ -42,7 +42,7 @@ export function renderWordPills(options: WordPillRenderOptions): string {
             if (!url) return '';
             const title = link.id === 'jpdb'
                 ? (options.overrideQuery ? uiText(language, 'openKanjiOnJpdb') : uiText(language, 'openOnJpdb'))
-                : `Open on ${link.label}`;
+                : uiText(language, 'openOnLookup').replace('{label}', link.label);
             const classes = `jpdb-reader-pill jpdb-reader-action-pill${link.id === 'jpdb' ? ' jpdb-reader-jpdb-pill' : ''}`;
             return `<a class="${classes}" href="${escapeHtml(url)}" target="_blank" rel="noopener" style="${style}" title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</a>`;
         })

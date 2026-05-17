@@ -29,6 +29,7 @@ interface CardActionControllerOptions {
     getActivePopoverMode: () => 'modal' | 'hover' | undefined;
     showSettings: (panel?: string) => void;
     playAudio: (card: JPDBCard, options?: { userGesture?: boolean }) => Promise<void>;
+    playMediaUrl?: (audioUrl: string) => Promise<void>;
     playSentenceAudio: (sentence?: string) => Promise<void>;
     playJpdbExampleAudio?: (audioIds: string | string[], fallbackSentence?: string) => Promise<void>;
     detectGrammarHints: (sentence: string) => Promise<GrammarHint[]>;
@@ -41,9 +42,9 @@ type StudyActionHandler = () => boolean | Promise<boolean>;
 type MiningActionHandler = () => Promise<void>;
 type JpdbDeckState = 'never-forget' | 'blacklisted';
 
-function assertReviewableJpdbCardState(states: string[]): void {
-    if (states.includes('blacklisted')) throw new Error('This word is blacklisted. Unlist it before reviewing.');
-    if (states.includes('never-forget')) throw new Error('This word is marked never forget. Remove never-forget before reviewing.');
+function assertReviewableJpdbCardState(states: string[], settings: ReaderSettings): void {
+    if (states.includes('blacklisted')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedBlacklisted'));
+    if (states.includes('never-forget')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedNeverForget'));
 }
 
 export class CardActionController {
@@ -75,24 +76,25 @@ export class CardActionController {
             'study-grammar': () => this.performStudyGrammarTool(button, sentence),
             'study-read-sentence': () => this.performStudyReadSentence(sentence),
             'jpdb-example-audio': () => this.performJpdbExampleAudio(button),
+            'anki-media-audio': () => this.performAnkiMediaAudio(button),
         };
         return handlers[action];
     }
 
     private performStudyGrammarToggle(button: HTMLButtonElement, sentence?: string): boolean {
-        handleStudyGrammarAction(button, sentence);
+        handleStudyGrammarAction(button, sentence, this.options.getSettings().interfaceLanguage);
         void this.reparsePopoverJapanese(button);
         return false;
     }
 
     private async performStudyTool(button: HTMLButtonElement, action: string, sentence?: string): Promise<boolean> {
-        await renderStudyToolResult(button, action, sentence);
+        await renderStudyToolResult(button, action, sentence, undefined, this.options.getSettings().interfaceLanguage);
         void this.reparsePopoverJapanese(button);
         return false;
     }
 
     private async performStudyGrammarTool(button: HTMLButtonElement, sentence?: string): Promise<boolean> {
-        await renderStudyToolResult(button, 'study-grammar', sentence, sentence ? await this.options.detectGrammarHints(sentence) : undefined);
+        await renderStudyToolResult(button, 'study-grammar', sentence, sentence ? await this.options.detectGrammarHints(sentence) : undefined, this.options.getSettings().interfaceLanguage);
         void this.reparsePopoverJapanese(button);
         return false;
     }
@@ -107,6 +109,11 @@ export class CardActionController {
         const fallbackSentence = button.dataset.jpdbExampleSentence ?? '';
         if (!this.options.playJpdbExampleAudio) await this.options.playSentenceAudio(fallbackSentence);
         else await this.options.playJpdbExampleAudio(audioIds, fallbackSentence);
+        return false;
+    }
+
+    private async performAnkiMediaAudio(button: HTMLButtonElement): Promise<boolean> {
+        await this.playAnkiMediaAudio(button);
         return false;
     }
 
@@ -157,10 +164,12 @@ export class CardActionController {
 
     private async performJpdbDeckMiningAction(action: string | undefined, card: JPDBCard): Promise<boolean | undefined> {
         if (action === 'neverforget') {
-            return this.finishMiningAction(this.changeJpdbDeckState(card, 'never-forget', this.options.getSettings().neverForgetDeck, 'Add a JPDB API key to change JPDB deck state.'));
+            const settings = this.options.getSettings();
+            return this.finishMiningAction(this.changeJpdbDeckState(card, 'never-forget', settings.neverForgetDeck, uiText(settings.interfaceLanguage, 'jpdbDeckStateApiKeyRequired')));
         }
         if (action === 'blacklist') {
-            return this.finishMiningAction(this.changeJpdbDeckState(card, 'blacklisted', this.options.getSettings().blacklistDeck, 'Add a JPDB API key to change JPDB deck state.'));
+            const settings = this.options.getSettings();
+            return this.finishMiningAction(this.changeJpdbDeckState(card, 'blacklisted', settings.blacklistDeck, uiText(settings.interfaceLanguage, 'jpdbDeckStateApiKeyRequired')));
         }
         return undefined;
     }
@@ -179,15 +188,16 @@ export class CardActionController {
     }
 
     private assertJpdbActionAllowed(card: JPDBCard, message: string): void {
-        if (!this.options.getSettings().jpdbMiningEnabled) throw new Error('JPDB actions are disabled in settings.');
-        if (!this.options.getSettings().apiKey.trim()) throw new Error(message);
+        const settings = this.options.getSettings();
+        if (!settings.jpdbMiningEnabled) throw new Error(uiText(settings.interfaceLanguage, 'jpdbActionsDisabled'));
+        if (!settings.apiKey.trim()) throw new Error(message);
         if (!this.options.isJpdbBackedCard(card)) throw new Error(message);
     }
 
     private assertJpdbReviewAllowed(card: JPDBCard, message: string): void {
         const settings = this.options.getSettings();
-        if (!settings.enableReviews) throw new Error('Review actions are disabled in settings.');
-        if (!settings.jpdbMiningEnabled) throw new Error('JPDB actions are disabled in settings.');
+        if (!settings.enableReviews) throw new Error(uiText(settings.interfaceLanguage, 'reviewActionsDisabled'));
+        if (!settings.jpdbMiningEnabled) throw new Error(uiText(settings.interfaceLanguage, 'jpdbActionsDisabled'));
         if (!settings.apiKey.trim()) throw new Error(message);
         if (!this.options.isJpdbBackedCard(card)) throw new Error(message);
     }
@@ -199,24 +209,33 @@ export class CardActionController {
             await this.addToAnki(card, sentence, deck.id);
             return;
         }
-        this.assertJpdbActionAllowed(card, 'Add a JPDB API key to add cards to JPDB, or use Add to Anki.');
+        this.assertJpdbActionAllowed(card, uiText(settings.interfaceLanguage, 'jpdbAddApiKeyRequired'));
         await this.addToSelectedJpdbDeck(card, sentence, deck.id);
         if (shouldMineAnkiAlongsideJpdb(settings)) await this.addToAnki(card, sentence, settings.ankiDeck);
-        this.options.toast(`${uiText(settings.interfaceLanguage, 'add')} JPDB.`);
+        this.options.toast(uiText(settings.interfaceLanguage, 'addedToJpdb'));
     }
 
     private async openAnkiNote(button: HTMLButtonElement): Promise<void> {
+        const settings = this.options.getSettings();
         const noteId = Number(button.dataset.noteId);
-        if (!Number.isFinite(noteId)) throw new Error('Anki note not found.');
+        if (!Number.isFinite(noteId)) throw new Error(uiText(settings.interfaceLanguage, 'ankiNoteNotFound'));
         await this.options.anki.browseNote(noteId);
-        this.options.toast('Opened in Anki.');
+        this.options.toast(uiText(settings.interfaceLanguage, 'openedInAnki'));
+    }
+
+    private async playAnkiMediaAudio(button: HTMLButtonElement): Promise<void> {
+        const settings = this.options.getSettings();
+        const filename = button.dataset.ankiMediaName?.trim();
+        if (!filename) throw new Error(uiText(settings.interfaceLanguage, 'ankiAudioFileNotFound'));
+        if (!this.options.playMediaUrl) throw new Error(uiText(settings.interfaceLanguage, 'ankiAudioPlaybackUnavailable'));
+        await this.options.playMediaUrl(await this.options.anki.mediaFileDataUrl(filename));
     }
 
     private async mergeExistingAnkiCard(button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {
         const settings = this.options.getSettings();
-        if (canUseMobileAnkiHandoff(settings)) throw new Error('Merging existing Anki notes needs AnkiConnect on desktop.');
+        if (canUseMobileAnkiHandoff(settings)) throw new Error(uiText(settings.interfaceLanguage, 'ankiMergeNeedsDesktop'));
         const noteId = Number(button.dataset.noteId);
-        if (!Number.isFinite(noteId)) throw new Error('Anki note not found.');
+        if (!Number.isFinite(noteId)) throw new Error(uiText(settings.interfaceLanguage, 'ankiNoteNotFound'));
 
         const [dictionaryContext, context, wordAudio] = await Promise.all([
             this.loadAnkiDictionaryContext(card, settings),
@@ -235,7 +254,7 @@ export class CardActionController {
             sourceUrl: ankiSourceUrl(context.sourceUrl),
         });
         this.options.invalidateCardData?.();
-        this.options.toast(ankiMergeToast(result));
+        this.options.toast(ankiMergeToast(result, settings));
         await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
             autoPlay: false,
             trigger: this.options.getActivePopoverMode() === 'hover' ? 'hover' : 'modal',
@@ -259,16 +278,17 @@ export class CardActionController {
     }
 
     async reviewGrade(grade: JPDBGrade, card: JPDBCard, sentence?: string, options: { ankiCardId?: number; deckId?: string } = {}): Promise<void> {
-        if (!this.options.getSettings().enableReviews) throw new Error('Review actions are disabled in settings.');
+        const settings = this.options.getSettings();
+        if (!settings.enableReviews) throw new Error(uiText(settings.interfaceLanguage, 'reviewActionsDisabled'));
         if (options.ankiCardId) return this.options.anki.answerCard(options.ankiCardId, grade);
 
-        this.assertJpdbReviewAllowed(card, 'Add a JPDB API key to review JPDB cards.');
+        this.assertJpdbReviewAllowed(card, uiText(settings.interfaceLanguage, 'addJpdbApiKeyReview'));
         const states = normalizeCardStates(card.cardState);
-        assertReviewableJpdbCardState(states);
+        assertReviewableJpdbCardState(states, settings);
         const wasNotInDeck = states.includes('not-in-deck');
         if (wasNotInDeck) await this.addToSelectedJpdbDeck(card, sentence, this.reviewDeckId(options));
         await this.options.jpdb.reviewCard(card, grade);
-        if (wasNotInDeck) this.options.toast('Added to deck and reviewed.');
+        if (wasNotInDeck) this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
     }
 
     private reviewDeckId(options: { deckId?: string }): string {
@@ -282,7 +302,7 @@ export class CardActionController {
                 deckName,
                 dictionaryPreferences: settings.dictionaryPreferences,
             });
-            this.options.toast('Sent to Anki.');
+            this.options.toast(uiText(settings.interfaceLanguage, 'sentToAnki'));
             return;
         }
 
@@ -305,11 +325,12 @@ export class CardActionController {
             sourceTitle: ankiSourceTitle(context.sourceTitle),
             sourceUrl: ankiSourceUrl(context.sourceUrl),
         });
-        this.options.toast(ankiSentToast(context, Boolean(wordAudio?.dataUrl || wordAudio?.url)));
+        this.options.toast(ankiSentToast(context, settings, Boolean(wordAudio?.dataUrl || wordAudio?.url)));
     }
 
     private async showExistingAnkiCard(card: JPDBCard, sentence?: string): Promise<void> {
-        this.options.toast('Already in Anki. Use Edit in Anki instead.');
+        const settings = this.options.getSettings();
+        this.options.toast(uiText(settings.interfaceLanguage, 'alreadyInAnki'));
         await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
             autoPlay: false,
             trigger: this.options.getActivePopoverMode() === 'hover' ? 'hover' : 'modal',
@@ -348,10 +369,10 @@ export class CardActionController {
     private async toggleDeck(card: JPDBCard, state: JpdbDeckState, deck: string): Promise<void> {
         if (normalizeCardStates(card.cardState).includes(state)) {
             await this.options.jpdb.removeFromDeck(deck, card);
-            this.options.toast('Removed from deck.');
+            this.options.toast(uiText(this.options.getSettings().interfaceLanguage, 'removedFromDeck'));
         } else {
             await this.options.jpdb.addToDeck(deck, card);
-            this.options.toast('Added to deck.');
+            this.options.toast(uiText(this.options.getSettings().interfaceLanguage, 'addedToDeckToast'));
         }
     }
 
@@ -372,22 +393,24 @@ function miningSentenceForAnki(contextSentence: string | undefined, fallbackSent
     return contextSentence || fallbackSentence;
 }
 
-function ankiSentToast(context: MiningContext, hasWordAudio = false): string {
+function ankiSentToast(context: MiningContext, settings: ReaderSettings, hasWordAudio = false): string {
+    const language = settings.interfaceLanguage;
     const hasAudio = Boolean(context.audioDataUrl || hasWordAudio);
-    if (context.imageDataUrl && hasAudio) return 'Sent to Anki with context image and audio.';
-    if (context.imageDataUrl) return 'Sent to Anki with context image.';
-    if (hasAudio) return 'Sent to Anki with audio.';
-    return 'Sent to Anki.';
+    if (context.imageDataUrl && hasAudio) return uiText(language, 'sentToAnkiWithContextImageAndAudio');
+    if (context.imageDataUrl) return uiText(language, 'sentToAnkiWithContextImage');
+    if (hasAudio) return uiText(language, 'sentToAnkiWithAudio');
+    return uiText(language, 'sentToAnki');
 }
 
-function ankiMergeToast(result: AnkiMergeYomuResult): string {
-    if (!result.updatedFields.length && !result.audioAdded && !result.imageAdded) return 'Anki note already has the available Yomu data.';
+function ankiMergeToast(result: AnkiMergeYomuResult, settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
+    if (!result.updatedFields.length && !result.audioAdded && !result.imageAdded) return uiText(language, 'ankiMergeNoNewData');
     const parts = [
-        result.updatedFields.length ? `${result.updatedFields.length} fields` : '',
-        result.audioAdded ? 'audio' : '',
-        result.imageAdded ? 'image' : '',
+        result.updatedFields.length ? `${result.updatedFields.length} ${uiText(language, result.updatedFields.length === 1 ? 'ankiMergeFieldSingular' : 'ankiMergeFieldPlural')}` : '',
+        result.audioAdded ? uiText(language, 'ankiMergeAudio') : '',
+        result.imageAdded ? uiText(language, 'ankiMergeImage') : '',
     ].filter(Boolean);
-    return `Merged Yomu data into Anki (${parts.join(', ')}).`;
+    return uiText(language, 'ankiMergeComplete').replace('{parts}', parts.join(', '));
 }
 
 function selectedAnkiAudioMergeMode(button: HTMLButtonElement): AnkiAudioMergeMode {

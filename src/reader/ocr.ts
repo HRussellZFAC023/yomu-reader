@@ -1,4 +1,5 @@
 import { HAS_JAPANESE, escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
+import { resolveUiLanguage, uiText } from './i18n';
 import { Logger } from './logger';
 import { accentToRgba } from './settings';
 import type { JPDBToken, ReaderSettings } from './types';
@@ -93,9 +94,9 @@ function isOcrImageStateIdle(state: ImageState): boolean {
     return !state.result && !state.loading && !state.autoSkipped;
 }
 
-function showOcrReadingStatus(state: ImageState): void {
+function showOcrReadingStatus(state: ImageState, settings: ReaderSettings): void {
     state.status.hidden = false;
-    state.status.textContent = 'Reading image...';
+    state.status.textContent = uiText(settings.interfaceLanguage, 'ocrReadingImage');
 }
 
 interface OcrScanContext {
@@ -111,7 +112,7 @@ function beginOcrScan(
 ): OcrScanContext {
     state.loading = true;
     state.status.hidden = !state.overlayRequested;
-    state.status.textContent = 'Reading image...';
+    state.status.textContent = uiText(settings.interfaceLanguage, 'ocrReadingImage');
     const provider = inlineProviderLabel(settings);
     return {
         provider,
@@ -124,17 +125,22 @@ function finishOcrScan(state: ImageState): void {
     state.manualRequested = false;
 }
 
-function renderNoOcrLines(state: ImageState, manualRequested: boolean): void {
+function renderNoOcrLines(state: ImageState, settings: ReaderSettings, manualRequested: boolean): void {
     state.autoSkipped = !manualRequested;
-    state.status.textContent = 'No Japanese text found';
+    state.status.textContent = uiText(settings.interfaceLanguage, 'ocrNoJapaneseText');
     state.status.hidden = !state.overlayRequested || state.autoSkipped;
 }
 
-function renderOcrErrorStatus(state: ImageState, provider: string, manualRequested: boolean, error: unknown): void {
-    state.status.textContent = error instanceof Error ? error.message : 'OCR failed';
+function renderOcrErrorStatus(state: ImageState, settings: ReaderSettings, provider: string, manualRequested: boolean, error: unknown): void {
+    state.status.textContent = ocrVisibleErrorMessage(settings, error);
     state.autoSkipped = !manualRequested;
     state.status.hidden = !state.overlayRequested || state.autoSkipped;
     log.warn('OCR scan failed', { provider, manualRequested }, error);
+}
+
+function ocrVisibleErrorMessage(settings: ReaderSettings, error: unknown): string {
+    if (resolveUiLanguage(settings.interfaceLanguage) === 'ja') return uiText(settings.interfaceLanguage, 'ocrFailed');
+    return error instanceof Error ? error.message : uiText(settings.interfaceLanguage, 'ocrFailed');
 }
 
 export class ImageOcrController {
@@ -237,7 +243,7 @@ export class ImageOcrController {
     toggle(): void {
         const settings = this.options.getSettings();
         settings.ocrEnabled = !settings.ocrEnabled;
-        this.options.onToast(settings.ocrEnabled ? 'Image reading enabled.' : 'Image reading hidden.');
+        this.options.onToast(uiText(settings.interfaceLanguage, settings.ocrEnabled ? 'ocrEnabledToast' : 'ocrHiddenToast'));
         this.refresh();
         log.info('OCR toggled', { enabled: settings.ocrEnabled });
     }
@@ -246,7 +252,7 @@ export class ImageOcrController {
         this.refresh({ userRequested: true });
         const images = [...this.states.keys()].filter(image => isNearViewport(image, 120));
         if (!images.length) {
-            this.options.onToast('No readable images nearby.');
+            this.options.onToast(uiText(this.options.getSettings().interfaceLanguage, 'ocrNoReadableImages'));
             return;
         }
         images.forEach(image => this.enqueue(image, true));
@@ -318,7 +324,7 @@ export class ImageOcrController {
 
     private queueOcrRequest(image: HTMLImageElement, state: ImageState, userRequested: boolean): void {
         this.queueImageForOcr(image);
-        if (userRequested) showOcrReadingStatus(state);
+        if (userRequested) showOcrReadingStatus(state, this.options.getSettings());
         this.drainQueue();
     }
 
@@ -387,7 +393,7 @@ export class ImageOcrController {
         const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
         const result = inlineFallback ?? providerResult;
         if (!result?.lines.length) {
-            renderNoOcrLines(state, manualRequested);
+            renderNoOcrLines(state, settings, manualRequested);
             return;
         }
 
@@ -410,7 +416,7 @@ export class ImageOcrController {
             await this.renderResult(state, fallback);
             return;
         }
-        renderOcrErrorStatus(state, provider, manualRequested, error);
+        renderOcrErrorStatus(state, this.options.getSettings(), provider, manualRequested, error);
     }
 
     private recognizeImage(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {

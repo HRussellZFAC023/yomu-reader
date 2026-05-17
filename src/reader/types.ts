@@ -27,6 +27,8 @@ export type AudioSourceType =
 
 export type AudioSelectionMode = 'first' | 'random';
 
+export type AudioTtsMode = 'fallback' | 'source-order';
+
 export type AudioAutoPlayMode = 'all' | 'hover' | 'tap';
 
 export type OcrProvider = 'google-lens' | 'cloud-vision' | 'local-service' | 'page-text' | 'off';
@@ -45,6 +47,8 @@ export type ImmersionKitCategory = 'all' | 'anime' | 'drama' | 'games';
 
 export type ImmersionKitSort = 'sentence_length:asc' | 'sentence_length:desc' | 'random';
 
+export type ImmersionExampleSource = 'immersion-kit' | 'nadeshiko' | 'combined';
+
 export type AnkiTemplateMode = 'recognition' | 'context';
 
 export type NewTabWordSource = 'auto' | 'jpdb' | 'anki' | 'dictionary';
@@ -52,8 +56,6 @@ export type NewTabWordSource = 'auto' | 'jpdb' | 'anki' | 'dictionary';
 export type NewTabJpdbReviewMode = 'auto' | 'api-vocabulary' | 'live-review';
 
 export type NewTabKanjiKeywordSource = 'auto' | 'rtk' | 'jpdb' | 'local';
-
-export type WordHighlightMode = 'auto' | 'status' | 'pitch' | 'off';
 
 export type ReaderColorSource = 'auto' | 'status' | 'jpdb' | 'anki' | 'pitch' | 'off';
 
@@ -207,7 +209,10 @@ export interface ReaderSettings {
     audioFallbackChimeEnabled: boolean;
     audioTimeoutMs: number;
     audioSelectionMode: AudioSelectionMode;
+    audioTtsMode: AudioTtsMode;
     immersionKitEnabled: boolean;
+    immersionKitExampleSource: ImmersionExampleSource;
+    nadeshikoApiKey: string;
     immersionKitPriority: number;
     immersionKitLimitEnabled: boolean;
     immersionKitLimit: number;
@@ -251,7 +256,6 @@ export interface ReaderSettings {
     showFurigana: boolean;
     furiganaMode: FuriganaMode;
     showPitchAccent: boolean;
-    wordHighlightMode: WordHighlightMode;
     hideKnownFurigana: boolean;
     ocrEnabled: boolean;
     ocrAutoScanImages: boolean;

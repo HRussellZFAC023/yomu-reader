@@ -177,12 +177,6 @@
 }
 .jpdb-reader-example-target {
   border-radius: 4px;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent-readable) 22%,
-    transparent
-  );
-  color: var(--jpdb-reader-text);
   box-shadow: none;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
@@ -191,35 +185,20 @@ mark.jpdb-reader-example-target {
   padding: 0 0.08em;
 }
 .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target {
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent-readable) 22%,
-    transparent
-  ) !important;
+  box-shadow: inset 0 -0.12em 0
+    color-mix(in srgb, var(--jpdb-reader-accent-readable) 56%, transparent);
 }
 .jpdb-reader-example-card
   .jpdb-reader-example-sentence
-  .jpdb-reader-word.jpdb-reader-example-target,
-.jpdb-reader-highlight-pitch
-  .jpdb-reader-example-card
-  .jpdb-reader-example-sentence
   .jpdb-reader-word.jpdb-reader-example-target {
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent-readable) 22%,
-    transparent
-  ) !important;
-  box-shadow: none !important;
+  box-shadow: inset 0 -0.12em 0
+    color-mix(in srgb, var(--jpdb-reader-accent-readable) 56%, transparent) !important;
 }
 .jpdb-reader-example-card.has-image
   .jpdb-reader-example-sentence
-  .jpdb-reader-word.jpdb-reader-example-target,
-.jpdb-reader-highlight-pitch
-  .jpdb-reader-example-card.has-image
-  .jpdb-reader-example-sentence
   .jpdb-reader-word.jpdb-reader-example-target {
-  color: #fff !important;
-  background: rgb(0 0 0 / 44%) !important;
+  box-shadow: inset 0 -0.12em 0
+    color-mix(in srgb, var(--jpdb-reader-accent-readable) 64%, transparent) !important;
 }
 .jpdb-reader-example-translation {
   justify-self: center;

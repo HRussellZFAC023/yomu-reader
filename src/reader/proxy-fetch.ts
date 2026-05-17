@@ -20,6 +20,7 @@ export const DEFAULT_YOMU_PUBLIC_PROXY_URL = 'https://yomu-jpdb-public-proxy.hen
 const BUILT_IN_PROXY_BUILDERS: ProxyUrlBuilder[] = [
     targetUrl => configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? '',
     targetUrl => `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+    targetUrl => jishoMarkdownProxyUrl(targetUrl) ?? '',
 ];
 
 const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
@@ -70,13 +71,15 @@ export async function fetchWithCorsFallbacks(
 }
 
 function fetchUrlCandidates(targetUrl: string, configuredProxyUrl: string, options: ProxyFetchOptions): FetchUrlCandidate[] {
-    const direct = options.allowDirectCrossOrigin ? targetUrl : browserReadableUrl(targetUrl);
+    const direct = directFetchUrl(targetUrl, options);
     const proxySafe = isProxySafeRequest(targetUrl, options);
-    const configured = proxySafe && options.allowConfiguredProxy !== false
+    const configured = proxySafe && options.allowConfiguredProxy !== false && shouldUseConfiguredProxy(targetUrl, configuredProxyUrl, options)
         ? configuredProxyFetchUrl(targetUrl, configuredProxyUrl)
         : null;
     const publicProxySafe = proxySafe && options.allowPublicProxies !== false && isPublicProxyMethod(options.method);
-    const publicProxies = publicProxySafe ? BUILT_IN_PROXY_BUILDERS.map(builder => builder(targetUrl)) : [];
+    const publicProxies = publicProxySafe
+        ? builtInProxyUrls(targetUrl, options)
+        : [];
     const directCandidate = direct ? { url: direct, kind: 'direct' as const } : null;
     const proxyCandidates = ([
         configured ? { url: configured, kind: 'configured-proxy' as const } : null,
@@ -88,6 +91,17 @@ function fetchUrlCandidates(targetUrl: string, configuredProxyUrl: string, optio
     return uniqueFetchCandidates([
         ...orderedCandidates,
     ]);
+}
+
+function directFetchUrl(targetUrl: string, options: ProxyFetchOptions): string | null {
+    if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
+    if (shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
+    return targetUrl;
+}
+
+function shouldUseConfiguredProxy(targetUrl: string, configuredProxyUrl: string, options: ProxyFetchOptions): boolean {
+    if (!isDefaultPublicProxy(configuredProxyUrl)) return true;
+    return !defaultPublicProxyRouteIsKnownBroken(targetUrl, options);
 }
 
 function uniqueFetchCandidates(candidates: Array<FetchUrlCandidate | null>): FetchUrlCandidate[] {
@@ -156,6 +170,71 @@ function shouldPreferProxyFirst(targetUrl: string, direct: FetchUrlCandidate | n
         && proxySafe
         && (isHostedGithubPagesApp() || isAppleTouchBrowser())
         && isCrossOriginHttpUrl(targetUrl);
+}
+
+function shouldSkipDirectCrossOriginFetch(targetUrl: string, options: ProxyFetchOptions): boolean {
+    if (!isCrossOriginHttpUrl(targetUrl)) return false;
+    try {
+        const target = new URL(targetUrl, location.href);
+        const method = String(options.method ?? 'GET').toUpperCase();
+        if (target.hostname === 'assets.languagepod101.com') {
+            return method === 'GET' && target.pathname === '/dictionary/japanese/audiomp3.php';
+        }
+        if (target.hostname === 'jisho.org') {
+            return method === 'GET' && target.pathname.startsWith('/search/');
+        }
+        if (target.hostname === 'www.japanesepod101.com') {
+            return method === 'POST' && target.pathname === '/learningcenter/reference/dictionary_post';
+        }
+        return false;
+    } catch {
+        return false;
+    }
+}
+
+function builtInProxyUrls(targetUrl: string, options: ProxyFetchOptions): string[] {
+    const specialized = specializedProxyUrls(targetUrl, options);
+    const candidates = specialized ?? BUILT_IN_PROXY_BUILDERS.map(builder => builder(targetUrl));
+    return candidates.filter(Boolean);
+}
+
+function specializedProxyUrls(targetUrl: string, options: ProxyFetchOptions): string[] | null {
+    try {
+        const target = new URL(targetUrl);
+        const method = String(options.method ?? 'GET').toUpperCase();
+        if (method === 'GET' && target.hostname === 'jisho.org' && target.pathname.startsWith('/search/')) {
+            return [jishoMarkdownProxyUrl(targetUrl) ?? ''];
+        }
+        if (method === 'GET' && target.hostname === 'assets.languagepod101.com' && target.pathname === '/dictionary/japanese/audiomp3.php') {
+            return [configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ''];
+        }
+        if (method === 'POST' && target.hostname === 'www.japanesepod101.com' && target.pathname === '/learningcenter/reference/dictionary_post') {
+            return [configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ''];
+        }
+    } catch {
+        return null;
+    }
+    return null;
+}
+
+function isDefaultPublicProxy(configuredProxyUrl: string): boolean {
+    const proxyUrl = configuredProxyUrl.trim();
+    if (!proxyUrl) return false;
+    try {
+        return new URL(proxyUrl).origin === DEFAULT_YOMU_PUBLIC_PROXY_URL;
+    } catch {
+        return false;
+    }
+}
+
+function defaultPublicProxyRouteIsKnownBroken(targetUrl: string, options: ProxyFetchOptions): boolean {
+    try {
+        const target = new URL(targetUrl);
+        const method = String(options.method ?? 'GET').toUpperCase();
+        return method === 'GET' && target.hostname === 'jisho.org' && target.pathname.startsWith('/search/');
+    } catch {
+        return false;
+    }
 }
 
 function isHostedGithubPagesApp(): boolean {
@@ -253,4 +332,14 @@ function isReadMethod(method: RequestInit['method'] | undefined): boolean {
 
 function isPublicProxyMethod(method: RequestInit['method'] | undefined): boolean {
     return PUBLIC_PROXY_METHODS.has(String(method ?? 'GET').toUpperCase());
+}
+
+function jishoMarkdownProxyUrl(targetUrl: string): string | null {
+    try {
+        const target = new URL(targetUrl);
+        if (target.hostname !== 'jisho.org' || !target.pathname.startsWith('/search/')) return null;
+        return `https://r.jina.ai/http://r.jina.ai/http://${target.href}`;
+    } catch {
+        return null;
+    }
 }

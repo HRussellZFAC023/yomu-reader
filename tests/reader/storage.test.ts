@@ -1,8 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     clearManagedStoredValues,
     createFactoryResetSignal,
+    exportManagedStoredValues,
     gmStorageDelete,
+    importStoredValues,
     publishFactoryResetSignal,
     subscribeToFactoryResetSignals,
     type FactoryResetSignal,
@@ -128,5 +130,38 @@ describe('storage reset', () => {
         await clearManagedStoredValues();
 
         expect(gmValues.size).toBe(0);
+    });
+});
+
+describe('managed storage backup', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        vi.unstubAllGlobals();
+    });
+
+    it('exports all Yomu-managed storage keys and excludes transient reset signals', async () => {
+        localStorage.setItem('yomu-mining-context:test', JSON.stringify({ term: 'test' }));
+        localStorage.setItem('jpdb-reader-newtab-ui', JSON.stringify({ mode: 'kanji' }));
+        localStorage.setItem('unrelated-key', JSON.stringify({ keep: false }));
+        localStorage.setItem('yomu:factory-reset-signal', JSON.stringify({ phase: 'prepare' }));
+
+        await expect(exportManagedStoredValues()).resolves.toEqual({
+            'jpdb-reader-newtab-ui': { mode: 'kanji' },
+            'yomu-mining-context:test': { term: 'test' },
+        });
+    });
+
+    it('imports only managed backup keys', async () => {
+        const count = await importStoredValues({
+            'jpdb-reader-transcript-panel-size': { width: 320 },
+            'yomu:factory-reset-signal': { phase: 'prepare' },
+            'unrelated-key': true,
+        });
+
+        expect(count).toBe(1);
+        expect(JSON.parse(localStorage.getItem('jpdb-reader-transcript-panel-size') ?? 'null')).toEqual({ width: 320 });
+        expect(localStorage.getItem('yomu:factory-reset-signal')).toBeNull();
+        expect(localStorage.getItem('unrelated-key')).toBeNull();
     });
 });
