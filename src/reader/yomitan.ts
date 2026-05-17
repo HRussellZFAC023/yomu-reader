@@ -31,7 +31,10 @@ import type {
 const DB_NAME = 'jpdb-popup-reader-yomitan';
 const DB_VERSION = 4;
 const DEXIE_IMPORT_BATCH_SIZE = 5000;
+const DICTIONARY_DELETE_BATCH_SIZE = 5000;
 const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
+const STORE_WRITE_BATCH_SIZE = 1000;
+const ZIP_IMPORT_FLUSH_ENTRY_LIMIT = 10000;
 const HOT_LOOKUP_CACHE_TTL_MS = 2000;
 const TOP_TERM_EXPRESSION_ENTRY_LIMIT = 500;
 const TERM_SEARCH_INDEX_BATCH_SIZE = 5000;
@@ -118,6 +121,7 @@ export class YomitanDictionaryStore {
     private termSearchIndexPromise?: Promise<void>;
     private termKanjiIndexPromise?: Promise<void>;
     private termKanjiIndexReady = false;
+    private termIndexGeneration = 0;
     private hotLookupCache = new Map<string, HotLookupCacheEntry<unknown>>();
 
     constructor(
@@ -687,24 +691,75 @@ export class YomitanDictionaryStore {
     }
 
     async importZip(file: File, onProgress?: (message: string) => void, sourceUrl = ''): Promise<ImportSummary> {
-        onProgress?.(this.text('dictionaryReadingZip'));
-        const zip = await readZipArchive(file);
+        const language = this.getInterfaceLanguage();
+        onProgress?.(`${this.text('dictionaryReadingZip')} ${formatBytes(file.size)}...`);
+        const zip = await readZipArchive(file, progress => {
+            if (progress.phase === 'read') {
+                onProgress?.(`${this.text('dictionaryReadingZip')} ${formatPercent(progress.loaded, progress.total)} (${formatBytes(progress.loaded)} / ${formatBytes(progress.total)})...`);
+                return;
+            }
+            onProgress?.(`${this.text('dictionaryReadingZip')} ${progress.entries?.toLocaleString() ?? '0'} files found. ${uiText(language, 'dictionaryCheckingIndex')}`);
+        });
+        const zipEntries = zip.entries();
+        onProgress?.(`${this.text('dictionaryReadingZip')} ${zipEntries.length.toLocaleString()} files found. ${uiText(language, 'dictionaryCheckingIndex')}`);
         const index = await readYomitanZipIndex(zip, this.getInterfaceLanguage());
         const dictionary = yomitanZipDictionaryName(index, file.name);
         const version = yomitanZipVersion(index);
+        const bankCount = countYomitanZipBanks(zipEntries);
+        onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: ${formatUiTemplate(uiText(language, 'dictionaryBanksFound'), {
+            count: bankCount.toLocaleString(),
+            plural: bankCount === 1 ? '' : 's',
+        })}`);
+        onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: ${uiText(language, 'dictionaryRemovingExisting')}...`);
         await this.deleteDictionary(dictionary);
+        onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: preparing storage...`);
+        const db = await this.db();
         const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
 
         const summary: ImportSummary = { dictionaries: [dictionary], dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+        let clearedTermIndexesForImport = false;
+        let importedTerms = false;
         const importBank = async <T>(pattern: RegExp, label: keyof Pick<ImportSummary, 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta'>, store: StoreName, normalize: (row: unknown) => T | null) => {
             const files = zip.entries().filter(entry => pattern.test(entry.name)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-            for (const bankFile of files) {
-                onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: ${bankFile.name}`);
-                const rows = JSON.parse(await zip.text(bankFile.name)) as unknown[];
-                const entries = rows.map(normalize).filter(Boolean) as T[];
-                await this.addToStore(store, entries);
-                summary[label] += entries.length;
-                summary.entries += entries.length;
+            let pending: T[] = [];
+            let saved = 0;
+            const flush = async () => {
+                if (!pending.length) return;
+                if (store === 'terms' && !clearedTermIndexesForImport) {
+                    await this.clearDerivedTermIndexes(db);
+                    clearedTermIndexesForImport = true;
+                }
+                const entries = pending;
+                const parsed = summary[label];
+                pending = [];
+                onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: ${uiText(language, 'dictionarySavingBank')} ${label} ${saved.toLocaleString()} / ${parsed.toLocaleString()} ${this.text('dictionaryEntries')}...`);
+                await this.addToStore(store, entries, false, store !== 'terms', written => {
+                    onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: ${uiText(language, 'dictionarySavingBank')} ${label} ${(saved + written).toLocaleString()} / ${parsed.toLocaleString()} ${this.text('dictionaryEntries')}...`);
+                });
+                saved += entries.length;
+                if (store === 'terms') importedTerms = true;
+            };
+            for (const [index, bankFile] of files.entries()) {
+                onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: ${uiText(language, 'dictionaryReadingBank')} ${bankFile.name} (${index + 1}/${files.length}, ${formatBytes(bankFile.uncompressedSize)})...`);
+                const bankText = await zip.text(bankFile.name, progress => {
+                    if (progress.loaded <= 0) return;
+                    onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: ${uiText(language, 'dictionaryReadingBank')} ${bankFile.name} (${index + 1}/${files.length}, ${formatBytes(progress.loaded)} / ${formatBytes(progress.total)})...`);
+                });
+                onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: ${uiText(language, 'dictionaryParsingBank')} ${bankFile.name} (${index + 1}/${files.length})...`);
+                const rows = JSON.parse(bankText) as unknown[];
+                for (const row of rows) {
+                    const entry = normalize(row);
+                    if (!entry) continue;
+                    pending.push(entry);
+                    summary[label]++;
+                    summary.entries++;
+                    if (pending.length >= ZIP_IMPORT_FLUSH_ENTRY_LIMIT) await flush();
+                }
+                await flush();
+            }
+            await flush();
+            if (files.length) {
+                onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: ${label} ${saved.toLocaleString()} ${this.text('dictionaryEntries')} saved...`);
             }
         };
 
@@ -714,6 +769,7 @@ export class YomitanDictionaryStore {
         await importBank(/^kanji_meta_bank_\d+\.json$/i, 'kanjiMeta', 'kanjiMeta', row => normalizeZipKanjiMetaRow(row, dictionary));
 
         if (summary.entries === 0) throw new Error(this.text('dictionaryNoSupportedBanks'));
+        if (importedTerms) await this.clearDerivedTermIndexes(db);
         info.counts = dictionaryCountsFromSummary(summary);
         info.type = dictionaryTypeFromCounts(info.counts);
         summary.dictionaryTypes = { [dictionary]: info.type };
@@ -744,7 +800,7 @@ export class YomitanDictionaryStore {
         const dictionaries = readerExportDictionaryInfo(json, dictionaryNames, dictionaryTypes);
         await Promise.all([
             this.addToStore('dictionaryInfo', dictionaries, true),
-            this.addToStore('terms', terms),
+            this.addToStore('terms', terms, false, false),
             this.addToStore('kanji', json.kanji ?? []),
             this.addToStore('termMeta', json.termMeta ?? []),
             this.addToStore('kanjiMeta', json.kanjiMeta ?? []),
@@ -788,7 +844,7 @@ export class YomitanDictionaryStore {
         const flush = async (store: EntryStoreName, forceProgress = false) => {
             const batch = batches[store];
             if (!batch.length) return;
-            await this.addToStore(store, batch);
+            await this.addToStore(store, batch, false, store !== 'terms');
             batches[store] = [];
             reportProgress(store, forceProgress);
         };
@@ -919,13 +975,7 @@ export class YomitanDictionaryStore {
         const done = log.time('Dictionary store clear');
         try {
             const db = await this.db();
-            await new Promise<void>((resolve, reject) => {
-                const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta', 'dictionaryInfo', 'termSearch', 'termKanji']);
-                const tx = db.transaction(stores, 'readwrite');
-                for (const store of stores) tx.objectStore(store).clear();
-                tx.oncomplete = () => resolve();
-                tx.onerror = () => reject(tx.error);
-            });
+            await this.clearDictionaryStores(db);
             this.invalidateCaches();
             log.info('Dictionary store cleared');
         } catch (error) {
@@ -1014,14 +1064,29 @@ export class YomitanDictionaryStore {
         const done = log.time('Dictionary delete', { dictionary });
         try {
             const db = await this.db();
-            const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta', 'termSearch', 'termKanji']);
-            await Promise.all(stores.map(store => deleteByDictionary(db, store, dictionary)));
+            const dictionaries = await this.getAllDictionaryInfo(db);
+            if (!dictionaries.some(item => item.title === dictionary)) {
+                log.info('Dictionary delete skipped; dictionary is not installed', { dictionary });
+                return;
+            }
+            if (dictionaries.length === 1) {
+                await this.clearDictionaryStores(db);
+                this.invalidateCaches();
+                log.info('Only installed dictionary cleared', { dictionary });
+                return;
+            }
+            const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta']);
+            for (const store of stores) {
+                await deleteByDictionary(db, store, dictionary);
+            }
             await new Promise<void>((resolve, reject) => {
                 const tx = db.transaction('dictionaryInfo', 'readwrite');
                 tx.objectStore('dictionaryInfo').delete(dictionary);
                 tx.oncomplete = () => resolve();
-                tx.onerror = () => reject(tx.error);
+                tx.onerror = () => reject(transactionError(tx, `Could not remove ${dictionary} from dictionary metadata.`));
+                tx.onabort = () => reject(transactionError(tx, `Could not remove ${dictionary} from dictionary metadata.`));
             });
+            await this.clearDerivedTermIndexes(db);
             this.invalidateCaches();
             log.info('Dictionary deleted', { dictionary });
         } catch (error) {
@@ -1036,35 +1101,46 @@ export class YomitanDictionaryStore {
         await this.addToStore('dictionaryInfo', [info], true);
     }
 
-    private async addToStore<T>(storeName: StoreName, entries: T[], put = false): Promise<void> {
+    private async clearDictionaryStores(db: IDBDatabase): Promise<void> {
+        this.termIndexGeneration++;
+        await clearStores(db, existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta', 'dictionaryInfo', 'termSearch', 'termKanji']));
+        this.termKanjiIndexReady = false;
+    }
+
+    private async addToStore<T>(
+        storeName: StoreName,
+        entries: T[],
+        put = false,
+        clearTermIndexes = true,
+        onChunk?: (written: number, total: number) => void,
+    ): Promise<void> {
         if (!entries.length) return;
         const db = await this.db();
-        for (let start = 0; start < entries.length; start += DEXIE_IMPORT_BATCH_SIZE) {
-            await this.addStoreChunk(db, storeName, entries.slice(start, start + DEXIE_IMPORT_BATCH_SIZE), put);
+        if (storeName === 'terms' && clearTermIndexes) await this.clearDerivedTermIndexes(db);
+        let written = 0;
+        for (let start = 0; start < entries.length; start += STORE_WRITE_BATCH_SIZE) {
+            const chunk = entries.slice(start, start + STORE_WRITE_BATCH_SIZE);
+            await this.addStoreChunk(db, storeName, chunk, put);
+            written += chunk.length;
+            onChunk?.(written, entries.length);
+            await nextTask();
         }
     }
 
     private addStoreChunk<T>(db: IDBDatabase, storeName: StoreName, entries: T[], put: boolean): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            const stores = storeName === 'terms' ? existingStores(db, ['terms', 'termSearch', 'termKanji']) : [storeName];
-            const tx = db.transaction(stores, 'readwrite');
+            const tx = readwriteTransaction(db, storeName);
             const store = tx.objectStore(storeName);
-            const termSearchStore = storeName === 'terms' && hasStore(db, 'termSearch') ? tx.objectStore('termSearch') : null;
-            const termKanjiStore = storeName === 'terms' && hasStore(db, 'termKanji') ? tx.objectStore('termKanji') : null;
             for (const entry of entries) {
                 put ? store.put(entry) : store.add(entry);
-                if (termSearchStore) {
-                    for (const row of termSearchEntries(entry as YomitanTermEntry)) termSearchStore.add(row);
-                }
-                if (termKanjiStore) {
-                    for (const row of termKanjiEntries(entry as YomitanTermEntry)) termKanjiStore.add(row);
-                }
             }
             tx.oncomplete = () => {
                 this.invalidateCaches();
                 resolve();
             };
-            tx.onerror = () => reject(tx.error);
+            tx.onerror = () => reject(transactionError(tx, `Could not add entries to ${storeName}.`));
+            tx.onabort = () => reject(transactionError(tx, `Could not add entries to ${storeName}.`));
+            commitTransaction(tx);
         });
     }
 
@@ -1485,13 +1561,16 @@ export class YomitanDictionaryStore {
 
     private async rebuildTermSearchIndex(db: IDBDatabase): Promise<void> {
         const done = log.time('Term search index rebuild');
+        const generation = this.termIndexGeneration;
         try {
             await this.clearTermSearchIndex(db);
             let indexedTerms = 0;
             let lastKey: IDBValidKey | undefined;
             for (;;) {
+                if (generation !== this.termIndexGeneration) return;
                 const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_SEARCH_INDEX_BATCH_SIZE);
                 if (!chunk.terms.length) break;
+                if (generation !== this.termIndexGeneration) return;
                 await this.addTermSearchIndexChunk(db, chunk.terms);
                 indexedTerms += chunk.terms.length;
                 if (chunk.done) break;
@@ -1505,13 +1584,16 @@ export class YomitanDictionaryStore {
 
     private async rebuildTermKanjiIndex(db: IDBDatabase): Promise<void> {
         const done = log.time('Term kanji index rebuild');
+        const generation = this.termIndexGeneration;
         try {
             await this.clearTermKanjiIndex(db);
             let indexedTerms = 0;
             let lastKey: IDBValidKey | undefined;
             for (;;) {
+                if (generation !== this.termIndexGeneration) return;
                 const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_KANJI_INDEX_BATCH_SIZE);
                 if (!chunk.terms.length) break;
+                if (generation !== this.termIndexGeneration) return;
                 await this.addTermKanjiIndexChunk(db, chunk.terms);
                 indexedTerms += chunk.terms.length;
                 if (chunk.done) break;
@@ -1567,6 +1649,14 @@ export class YomitanDictionaryStore {
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
         });
+    }
+
+    private async clearDerivedTermIndexes(db: IDBDatabase): Promise<void> {
+        this.termIndexGeneration++;
+        const stores = existingStores(db, ['termSearch', 'termKanji']);
+        if (!stores.length) return;
+        await clearStores(db, stores);
+        this.termKanjiIndexReady = false;
     }
 
     private addTermSearchIndexChunk(db: IDBDatabase, terms: YomitanTermEntry[]): Promise<void> {
@@ -1837,6 +1927,32 @@ async function readYomitanZipIndex(zip: ZipArchive, language: InterfaceLanguage 
     return JSON.parse(await readZipText(zip, 'index.json').catch(() => {
         throw new Error(uiText(language, 'dictionaryZipMissingIndex'));
     })) as YomitanZipIndex;
+}
+
+function countYomitanZipBanks(entries: ReturnType<ZipArchive['entries']>): number {
+    return entries.filter(entry => /^(term|kanji|term_meta|kanji_meta)_bank_\d+\.json$/i.test(entry.name)).length;
+}
+
+function formatPercent(loaded: number, total: number): string {
+    if (total <= 0) return '100%';
+    return `${Math.max(0, Math.min(100, Math.round((loaded / total) * 100)))}%`;
+}
+
+function formatBytes(value: number): string {
+    if (!Number.isFinite(value) || value <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'] as const;
+    let size = value;
+    let unit = 0;
+    while (size >= 1024 && unit < units.length - 1) {
+        size /= 1024;
+        unit++;
+    }
+    const precision = unit === 0 || size >= 10 ? 0 : 1;
+    return `${size.toFixed(precision)} ${units[unit]}`;
+}
+
+function formatUiTemplate(template: string, values: Record<string, string>): string {
+    return Object.entries(values).reduce((value, [key, replacement]) => value.replaceAll(`{${key}}`, replacement), template);
 }
 
 function yomitanZipDictionaryName(index: YomitanZipIndex, filename: string): string {
@@ -2362,7 +2478,7 @@ async function requestBlob(url: string, proxyUrl: string, onProgress?: (message:
     const done = log.time('Dictionary download', { host: safeHost(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
-    return await requestBlobViaFetch(url, proxyUrl, done, language);
+    return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language);
 }
 
 function requestBlobViaUserscript(
@@ -2423,11 +2539,17 @@ function requestBlobViaUserscript(
         });
 }
 
-async function requestBlobViaFetch(url: string, proxyUrl: string, done: () => void, language: InterfaceLanguage): Promise<Blob> {
+async function requestBlobViaFetch(
+    url: string,
+    proxyUrl: string,
+    done: () => void,
+    onProgress: ((message: string) => void) | undefined,
+    language: InterfaceLanguage,
+): Promise<Blob> {
     const downloadUrl = dictionaryDownloadUrl(url);
     if (!downloadUrl) return throwMissingDictionaryDownloadBridge(done, language);
     try {
-        return await fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, language);
+        return await fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress, language);
     } catch (error) {
         return handleDictionaryFetchError(url, downloadUrl, error, done, language);
     }
@@ -2438,13 +2560,49 @@ function throwMissingDictionaryDownloadBridge(done: () => void, language: Interf
     throw new Error(uiText(language, 'dictionaryDownloadNeedsBridge'));
 }
 
-async function fetchDictionaryBlob(url: string, downloadUrl: string, proxyUrl: string, done: () => void, language: InterfaceLanguage): Promise<Blob> {
+async function fetchDictionaryBlob(
+    url: string,
+    downloadUrl: string,
+    proxyUrl: string,
+    done: () => void,
+    onProgress: ((message: string) => void) | undefined,
+    language: InterfaceLanguage,
+): Promise<Blob> {
     const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer', timeoutMs: 120000 });
     if (!response.ok) throwDictionaryHttpError(url, response.status, language);
-    const blob = await response.blob();
+    const blob = await responseBlobWithProgress(response, onProgress, language);
     log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: blob.size });
     done();
     return blob;
+}
+
+async function responseBlobWithProgress(response: Response, onProgress: ((message: string) => void) | undefined, language: InterfaceLanguage): Promise<Blob> {
+    if (!response.body || !onProgress) return response.blob();
+    const total = Number(response.headers.get('content-length') ?? 0);
+    const type = response.headers.get('content-type') || 'application/zip';
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let loaded = 0;
+    for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        loaded += value.byteLength;
+        onProgress(formatDictionaryDownloadProgress(language, loaded, total));
+    }
+    const bytes = new Uint8Array(loaded);
+    let offset = 0;
+    for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.byteLength;
+    }
+    return new Blob([bytes.buffer.slice(0)], { type });
+}
+
+function formatDictionaryDownloadProgress(language: InterfaceLanguage, loaded: number, total: number): string {
+    const label = uiText(language, 'dictionaryDownloadProgress');
+    if (total > 0) return `${label} ${formatPercent(loaded, total)} (${formatBytes(loaded)} / ${formatBytes(total)})...`;
+    return `${label} ${formatBytes(loaded)}...`;
 }
 
 function throwDictionaryHttpError(url: string, status: number, language: InterfaceLanguage): never {
@@ -2553,18 +2711,65 @@ function existingStores<T extends InternalStoreName>(db: IDBDatabase, names: T[]
     return names.filter(name => db.objectStoreNames.contains(name));
 }
 
-function deleteByDictionary(db: IDBDatabase, storeName: InternalStoreName, dictionary: string): Promise<void> {
+function readwriteTransaction(db: IDBDatabase, storeNames: string | string[]): IDBTransaction {
+    try {
+        return db.transaction(storeNames, 'readwrite', { durability: 'relaxed' });
+    } catch {
+        return db.transaction(storeNames, 'readwrite');
+    }
+}
+
+function commitTransaction(tx: IDBTransaction): void {
+    try {
+        tx.commit?.();
+    } catch {
+        // Older browsers, Safari in particular, may not support explicit commits.
+    }
+}
+
+function clearStores(db: IDBDatabase, stores: InternalStoreName[]): Promise<void> {
+    if (!stores.length) return Promise.resolve();
+    return new Promise<void>((resolve, reject) => {
+        const tx = readwriteTransaction(db, stores);
+        for (const store of stores) tx.objectStore(store).clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(transactionError(tx, `Could not clear dictionary stores: ${stores.join(', ')}.`));
+        tx.onabort = () => reject(transactionError(tx, `Could not clear dictionary stores: ${stores.join(', ')}.`));
+        commitTransaction(tx);
+    });
+}
+
+async function deleteByDictionary(db: IDBDatabase, storeName: InternalStoreName, dictionary: string): Promise<void> {
+    while (await deleteDictionaryBatch(db, storeName, dictionary, DICTIONARY_DELETE_BATCH_SIZE) >= DICTIONARY_DELETE_BATCH_SIZE) {
+        await nextTask();
+    }
+}
+
+function deleteDictionaryBatch(db: IDBDatabase, storeName: InternalStoreName, dictionary: string, limit: number): Promise<number> {
     return new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, 'readwrite');
+        let deleted = 0;
+        const tx = readwriteTransaction(db, storeName);
         const index = tx.objectStore(storeName).index('dictionary');
         const request = index.openCursor(IDBKeyRange.only(dictionary));
         request.onsuccess = () => {
             const cursor = request.result;
-            if (!cursor) return;
+            if (!cursor || deleted >= limit) return;
             cursor.delete();
+            deleted++;
+            if (deleted >= limit) return;
             cursor.continue();
         };
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
+        request.onerror = () => reject(request.error ?? new Error(`Could not delete ${dictionary} entries from ${storeName}.`));
+        tx.oncomplete = () => resolve(deleted);
+        tx.onerror = () => reject(transactionError(tx, `Could not delete ${dictionary} entries from ${storeName}.`));
+        tx.onabort = () => reject(transactionError(tx, `Could not delete ${dictionary} entries from ${storeName}.`));
     });
+}
+
+function transactionError(tx: IDBTransaction, fallback: string): Error {
+    return tx.error ?? new Error(fallback);
+}
+
+function nextTask(): Promise<void> {
+    return new Promise(resolve => window.setTimeout(resolve, 0));
 }

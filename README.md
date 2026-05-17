@@ -166,9 +166,7 @@ Copy `.env.example` to `.env` for local secrets. `.env` is ignored by Git. Set `
 npm run qa:live
 ```
 
-The full product checklist and manual release scripts live in [`docs/verification-plan.md`](docs/verification-plan.md).
-
-Store and documentation screenshots must be captured from the real running product with Playwright. Use [`docs/screenshot-capture.md`](docs/screenshot-capture.md) before refreshing anything under `docs/public/screenshots/`.
+Store and documentation screenshots must be captured from the real running product with Playwright before refreshing anything under `docs/public/screenshots/`.
 
 List the maintained real-screenshot scenarios:
 
@@ -212,7 +210,7 @@ GitHub Actions cover CI, userscript bundling, docs deployment, and release publi
 
 - `CI` runs typecheck, tests, build, and userscript metadata verification.
 - `Build Userscript` builds `dist/yomu.user.js` and commits it back to `main` when the bundle changes.
-- `Build Extension Packages` builds Chrome, Firefox, and Safari extension artifacts and uploads them as a workflow artifact.
+- `Build Browser Extensions` builds Chrome, Firefox, and Safari extension artifacts and uploads them as a workflow artifact.
 - `Deploy Docs` builds the VitePress docs and publishes GitHub Pages when docs-related files change.
 - `Release` publishes `dist/yomu.user.js` to the GitHub Releases tab when a `v*` tag is pushed or the workflow is run manually.
 

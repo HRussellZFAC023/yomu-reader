@@ -63,7 +63,6 @@ export interface AnkiWordAudioMedia {
 }
 
 const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'jpdb-tts', 'text-to-speech'];
-const BUILT_IN_DIRECT_GESTURE_AUDIO_TYPES = new Set<AudioSourceType>(['jpod101', 'language-pod-101', 'jisho']);
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
 const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -244,7 +243,7 @@ export class AudioPlayer {
                         if (triedUrls.has(candidateKey)) continue;
                         triedUrls.add(candidateKey);
                         preconnectAudioUrl(candidate.url);
-                        void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob)
+                        void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, true)
                             .catch(() => undefined);
                     }
                 })
@@ -403,7 +402,7 @@ export class AudioPlayer {
         if (sourceType === 'jpdb-tts' && candidate.jpdbAudioId) {
             return this.preparePlayableJpdbAudio(candidate.jpdbAudioId, settings, reservedAudio);
         }
-        const audioViaBlob = (settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType)) && !shouldPreferDirectAudioPlayback(sourceType, settings);
+        const audioViaBlob = settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType);
         return audioViaBlob
             ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob, reservedAudio)
             : reservedAudio ? this.createReadyAudio(candidate.url, reservedAudio) : this.createAudioElement(candidate.url);
@@ -809,12 +808,6 @@ function shouldForceBlobAudioPlayback(sourceType: AudioSourceType): boolean {
     return sourceType === 'jpod101';
 }
 
-function shouldPreferDirectAudioPlayback(sourceType: AudioSourceType, _settings: ReaderSettings): boolean {
-    if (shouldForceBlobAudioPlayback(sourceType)) return false;
-    if (!BUILT_IN_DIRECT_GESTURE_AUDIO_TYPES.has(sourceType)) return false;
-    return true;
-}
-
 function isHostedGithubPagesApp(): boolean {
     if (typeof location === 'undefined') return false;
     try {
@@ -945,7 +938,7 @@ const AUDIO_CANDIDATE_LOADERS: Partial<Record<AudioSourceType, AudioCandidateLoa
     custom: loadCustomAudioCandidates,
     'custom-json': loadCustomJsonAudioCandidates,
     jpod101: loadJapanesePod101AudioCandidates,
-    'language-pod-101': async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getLanguagePod101AudioUrls(card, timeoutMs, proxyUrl)),
+    'language-pod-101': loadLanguagePod101AudioCandidates,
     jisho: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getJishoAudioUrls(card, timeoutMs, proxyUrl)),
     'lingua-libre': async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, 'lingua-libre', timeoutMs, proxyUrl)),
     wiktionary: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, 'wiktionary', timeoutMs, proxyUrl)),
@@ -973,6 +966,11 @@ async function loadCustomJsonAudioCandidates(source: AudioSourceSetting, card: J
 async function loadJapanesePod101AudioCandidates(_source: AudioSourceSetting, card: JPDBCard): Promise<AudioCandidate[]> {
     const url = getJapanesePod101Url(card);
     return [{ url, sourceUrl: url }];
+}
+
+async function loadLanguagePod101AudioCandidates(_source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<AudioCandidate[]> {
+    const urls = await getLanguagePod101AudioUrls(card, timeoutMs, proxyUrl);
+    return urlsToAudioCandidates(urls.length ? urls : [getJapanesePod101Url(card)]);
 }
 
 function urlsToAudioCandidates(urls: string[]): AudioCandidate[] {
@@ -1218,7 +1216,7 @@ async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = '
 
 async function getLanguagePod101AudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = ''): Promise<string[]> {
     const url = 'https://www.japanesepod101.com/learningcenter/reference/dictionary_post';
-    const response = await requestUrl(url, 'text', timeoutMs, { ...languagePod101RequestOptions(card), proxyUrl });
+    const response = await requestUrl(url, 'text', timeoutMs, { ...languagePod101RequestOptions(card), proxyUrl }).catch(() => '');
     if (typeof response !== 'string') return [];
 
     const urls: string[] = [];

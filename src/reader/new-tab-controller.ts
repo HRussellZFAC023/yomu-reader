@@ -2558,7 +2558,7 @@ export class NewTabController {
         setOptionalText(slots.answer, this.text('addDictionaryStudyCards'));
         setOptionalText(slots.meaning, this.text('dictionaryReadyNewTabs'));
         this.renderCount(slots.count, '');
-        setOptionalText(slots.status, '');
+        setOptionalText(slots.status, this.text('dictionaryInstallNewTabHelp'));
         this.renderDictionarySetupControls(slots.controls);
     }
 

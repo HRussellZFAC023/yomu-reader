@@ -135,10 +135,12 @@ function handleSettingsActionError(
     control: HTMLElement | null | undefined,
     setStatus: SettingsStatusSetter,
     error: unknown,
-): void {
+): string {
     log.warn('Settings action failed', { action }, error);
     if (shouldReenableSettingsAction(action)) control?.removeAttribute('disabled');
-    setStatus(error instanceof Error ? error.message : 'Import failed.');
+    const message = errorMessage(error, 'Import failed.');
+    setStatus(message);
+    return message;
 }
 
 function shouldReenableSettingsAction(action: string): boolean {
@@ -166,7 +168,13 @@ function dictionaryStatusText(summary: DictionarySummary): string {
 }
 
 function setDictionaryStatusError(status: HTMLElement | null, error: unknown): void {
-    if (status) status.textContent = error instanceof Error ? error.message : 'Dictionary status unavailable.';
+    if (status) status.textContent = errorMessage(error, 'Dictionary status unavailable.');
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+    if (error instanceof Error && error.message.trim()) return error.message;
+    if (typeof error === 'string' && error.trim()) return error;
+    return fallback;
 }
 
 export class SettingsDialogController {
@@ -326,6 +334,8 @@ export class SettingsDialogController {
             if (value !== 'auto' && value !== 'en' && value !== 'ja') return;
             this.settings.interfaceLanguage = value;
             localizeSettingsForm(form, value);
+            this.syncRecommendedDictionaryInstallControls(form);
+            this.syncDictionaryOperationState(form);
             syncSubtitlePreview(form);
             this.dependencies.installFab();
         });
@@ -496,18 +506,30 @@ export class SettingsDialogController {
         const save = form.querySelector<HTMLButtonElement>('button[type="submit"]');
         const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
         const busy = this.pendingDictionaryOperations > 0;
-        if (save) {
-            save.disabled = busy;
-            save.setAttribute('aria-disabled', String(busy));
-        }
-        if (!status) return;
-        status.hidden = !busy;
-        status.textContent = busy
+        const message = busy
             ? formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryImportQueueStatus'), {
                 count: this.pendingDictionaryOperations.toLocaleString(),
                 plural: this.pendingDictionaryOperations === 1 ? '' : 's',
             })
             : '';
+        if (save) {
+            save.setAttribute('aria-disabled', String(busy));
+            save.disabled = busy;
+            if (busy) {
+                save.dataset.saveBlocked = 'dictionary-import';
+                save.replaceChildren(uiText(this.settings.interfaceLanguage, 'saveAfterInstall'));
+                save.title = message;
+                save.setAttribute('aria-label', message);
+            } else {
+                delete save.dataset.saveBlocked;
+                save.replaceChildren(uiText(this.settings.interfaceLanguage, 'save'));
+                save.title = uiText(this.settings.interfaceLanguage, 'save');
+                save.setAttribute('aria-label', uiText(this.settings.interfaceLanguage, 'save'));
+            }
+        }
+        if (!status) return;
+        status.hidden = !busy;
+        status.textContent = message;
     }
 
     private showDictionarySaveBlocked(form: HTMLFormElement): void {
@@ -540,11 +562,18 @@ export class SettingsDialogController {
         form.querySelectorAll<HTMLButtonElement>('[data-action="download-recommended-dictionary"]').forEach(button => {
             const dictionaryId = button.dataset.dictionaryId ?? '';
             const operation = this.recommendedDictionaryOperations.get(dictionaryId);
+            const status = button.closest<HTMLElement>('.jpdb-reader-recommended-item')
+                ?.querySelector<HTMLElement>('[data-recommended-dictionary-status]');
             if (!operation) {
                 delete button.dataset.importState;
                 delete button.dataset.importMessage;
                 button.disabled = false;
                 button.removeAttribute('disabled');
+                if (status) {
+                    status.hidden = true;
+                    status.textContent = '';
+                    delete status.dataset.importState;
+                }
                 const installed = button.dataset.installed === 'true';
                 const label = installed ? uiText(this.settings.interfaceLanguage, 'update') : uiText(this.settings.interfaceLanguage, 'install');
                 button.replaceChildren(label);
@@ -559,6 +588,11 @@ export class SettingsDialogController {
             button.replaceChildren(label);
             button.title = operation.message;
             button.setAttribute('aria-label', operation.message);
+            if (status) {
+                status.hidden = false;
+                status.dataset.importState = operation.state;
+                status.textContent = operation.message;
+            }
         });
     }
 
@@ -569,7 +603,8 @@ export class SettingsDialogController {
         try {
             await this.runSettingsAction(form, action, control, setStatus);
         } catch (error) {
-            handleSettingsActionError(action, control, setStatus, error);
+            const message = handleSettingsActionError(action, control, setStatus, error);
+            this.dependencies.toast(message);
         }
     }
 
@@ -851,10 +886,12 @@ export class SettingsDialogController {
         setStatus: SettingsStatusSetter,
         error: unknown,
     ): null {
-        const message = error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, 'dictionaryDownloadFailed');
+        const message = errorMessage(error, uiText(this.settings.interfaceLanguage, 'dictionaryDownloadFailed'));
         control?.removeAttribute('disabled');
         if (!this.shouldPromptManualDictionaryDownload(error, dictionary.downloadUrl)) throw error;
-        setStatus(`${message} ${uiText(this.settings.interfaceLanguage, 'dictionaryManualDownloadHint')}`);
+        const status = `${message} ${uiText(this.settings.interfaceLanguage, 'dictionaryManualDownloadHint')}`;
+        setStatus(status);
+        this.dependencies.toast(status);
         log.warn('Dictionary auto-download unavailable', { dictionary: dictionary.name, message });
         return null;
     }

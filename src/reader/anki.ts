@@ -5,8 +5,10 @@ import { isYomuHostedAppUrl } from './app-pages';
 import { GITHUB_PAGES_ORIGIN } from './constants';
 import { resolveUiLanguage, uiText } from './i18n';
 import { Logger } from './logger';
+import { GITHUB_PAGES_ORIGIN } from './constants';
 import type { CardState, DictionaryPreference, JPDBCard, JPDBGrade, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
+import { isYomuHostedAppUrl } from './app-pages';
 import {
     glossaryToHtml,
     glossaryToText,
