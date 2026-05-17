@@ -44,10 +44,11 @@ function applyYouTubeNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
     yomuCaptionsActive: boolean,
 ): boolean {
     applyYouTubeTextTrackModes(state);
-    document.documentElement.classList.toggle('jpdb-subtitle-yomu-captions-active', yomuCaptionsActive);
-    if (shouldDisableYouTubeNativeCaptions(state, yomuCaptionsActive)) disableYouTubeNativeCaptions();
-    if (shouldRestoreYouTubeNativeCaptions(state, yomuCaptionsActive)) restoreYouTubeNativeCaptionTrack(state);
-    return yomuCaptionsActive;
+    const hideYouTubeNativeCaptions = yomuCaptionsActive && !needsYouTubeDomCaptionFallback(state);
+    document.documentElement.classList.toggle('jpdb-subtitle-yomu-captions-active', hideYouTubeNativeCaptions);
+    if (shouldDisableYouTubeNativeCaptions(state, hideYouTubeNativeCaptions)) disableYouTubeNativeCaptions();
+    if (shouldRestoreYouTubeNativeCaptions(state, hideYouTubeNativeCaptions)) restoreYouTubeNativeCaptionTrack(state);
+    return hideYouTubeNativeCaptions;
 }
 
 function applyYouTubeTextTrackModes<T extends SubtitleNativeTrackModeOption>(
@@ -60,18 +61,17 @@ function applyYouTubeTextTrackModes<T extends SubtitleNativeTrackModeOption>(
 
 function shouldDisableYouTubeNativeCaptions<T extends SubtitleNativeTrackModeOption>(
     state: SubtitleNativeTrackModeState<T>,
-    yomuCaptionsActive: boolean,
+    hideYouTubeNativeCaptions: boolean,
 ): boolean {
-    return yomuCaptionsActive
-        && !needsYouTubeDomCaptionFallback(state)
+    return hideYouTubeNativeCaptions
         && !state.lastYomuCaptionsActive;
 }
 
 function shouldRestoreYouTubeNativeCaptions<T extends SubtitleNativeTrackModeOption>(
     state: SubtitleNativeTrackModeState<T>,
-    yomuCaptionsActive: boolean,
+    hideYouTubeNativeCaptions: boolean,
 ): boolean {
-    return !yomuCaptionsActive && state.lastYomuCaptionsActive;
+    return !hideYouTubeNativeCaptions && state.lastYomuCaptionsActive;
 }
 
 function restoreYouTubeNativeCaptionTrack<T extends SubtitleNativeTrackModeOption>(

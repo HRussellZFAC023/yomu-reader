@@ -158,9 +158,9 @@ Check current bundle size evidence:
 npm run size:bundle
 ```
 
-The release budget is 2,000,000 raw bytes for `dist/yomu.user.js`. The current built userscript is below that limit at 1874.3 KiB raw, with JavaScript and CSS minification disabled.
+The release budget is 2,000,000 raw bytes for `dist/yomu.user.js`. The current built userscript is below that limit at 1905.2 KiB raw, with JavaScript and CSS minification disabled.
 
-Copy `.env.example` to `.env` for local secrets. `.env` is ignored by Git. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you want the secret-leak guard and live JPDB smoke path:
+Copy `.env.example` to `.env` for local secrets. `.env` is ignored by Git. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you want the secret-leak guard and live JPDB smoke path. Real screenshot capture also reads `.env`; set `YOMU_CAPTURE_API_KEY` when subtitle/store screenshots need JPDB mining status colors:
 
 ```bash
 npm run qa:live
@@ -180,14 +180,14 @@ Run the local development server:
 npm run dev
 ```
 
-Then install the CSP-safe local userscript or open the local app. If 5174 is busy, use the port printed by `npm run dev`:
+Then install the local userscript or open the local app. If 5174 is busy, use the port printed by Vite:
 
 ```text
-http://127.0.0.1:5174/yomu.user.js
+http://127.0.0.1:5174/
 http://127.0.0.1:5174/newtab/
 ```
 
-`npm run dev` rebuilds `dist/yomu.user.js` as files change and serves a local dev install named `よむ dev`. Install it once from `/yomu.user.js`; after that the installed script acts as a small bootstrap that fetches the latest local runtime bundle on every page load. Refresh the target page manually when you want to pick up the latest rebuild. Set `YOMU_DEV_AUTO_RELOAD=1 npm run dev` if you want open pages to poll the harness and reload after rebuilds. Console logging stays off by default, including local dev installs; use `YOMU_ENABLE_LOGS=1 npm run dev` when you want the dev server to enable console logs automatically. Chrome may require Tampermonkey's user scripts permission to be enabled before local dev installs can run. This avoids the Vite HMR userscript injection path, so strict site CSPs such as JPDB's do not block the dev build.
+`npm run dev` is the normal Vite dev server, like the ASMR.one harness. Vite handles reloads, the root page gives the vite-plugin-monkey install link, and `/newtab/` is served from the TypeScript entry. Dev builds enable console logging automatically; production builds still follow the Settings toggle. Chrome may require Tampermonkey's user scripts permission to be enabled before local dev installs can run.
 
 The production userscript is written to:
 

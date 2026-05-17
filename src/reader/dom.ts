@@ -149,7 +149,11 @@ const BLOCK_TAGS = new Set([
 ]);
 
 export function setInnerHtml(element: Element, html: string): void {
-    element.innerHTML = trustedHtml(html) as string;
+    try {
+        element.innerHTML = trustedHtml(html) as string;
+    } catch {
+        element.textContent = html;
+    }
 }
 
 export function appendToDocumentHead(element: Node): void {
@@ -1204,16 +1208,21 @@ export function escapeHtml(value: string): string {
 }
 
 function trustedHtml(value: string): string | unknown {
-    const factory = (globalThis as unknown as { trustedTypes?: TrustedTypesFactory }).trustedTypes;
-    if (!factory) return value;
-    if (trustedHtmlPolicy === undefined) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
-    return trustedHtmlPolicy ? trustedHtmlPolicy.createHTML(value) : value;
+    try {
+        const factory = (globalThis as unknown as { trustedTypes?: TrustedTypesFactory }).trustedTypes;
+        if (!factory) return value;
+        if (trustedHtmlPolicy === undefined) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
+        return trustedHtmlPolicy && typeof trustedHtmlPolicy.createHTML === 'function' ? trustedHtmlPolicy.createHTML(value) : value;
+    } catch {
+        trustedHtmlPolicy = null;
+        return value;
+    }
 }
 
 function createTrustedHtmlPolicy(factory: TrustedTypesFactory): { createHTML: (value: string) => unknown } | null {
-    const existing = factory.getPolicy?.('yomu-reader');
-    if (existing) return existing;
     try {
+        const existing = factory.getPolicy?.('yomu-reader');
+        if (existing && typeof existing.createHTML === 'function') return existing;
         return factory.createPolicy?.('yomu-reader', { createHTML: html => html }) ?? null;
     } catch {
         return null;
@@ -1266,9 +1275,14 @@ function isFragileUiText(element: HTMLElement, text: string): boolean {
 }
 
 function isFragileUiContext(element: HTMLElement, text: string): boolean {
-    if (UI_CLASS_RE.test(String(element.className))) return true;
+    if (UI_CLASS_RE.test(String(element.className)) && !isReadableProseUiClassText(element, text)) return true;
     if (text.length <= 4 && ancestorClassLooksLikeUi(element)) return true;
     return isInsideControlLikeLink(element, text);
+}
+
+function isReadableProseUiClassText(element: HTMLElement, text: string): boolean {
+    if (compactLength(text) < 8) return false;
+    return isLikelyProseElement(element) && Boolean(element.closest('article, main, [role="main"]'));
 }
 
 function fragileTextMetrics(element: HTMLElement, text: string): {

@@ -548,7 +548,7 @@
   const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
   const env = __vite_import_meta_env__;
   const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
-  const BUILD_LOGGING_ENABLED = env?.VITE_YOMU_ENABLE_LOGS === "1" || env?.VITE_YOMU_ENABLE_LOGS === "true";
+  const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
   class ScopedLogger {
     constructor(parent, scopeName) {
       this.parent = parent;
@@ -640,15 +640,13 @@
     };
   }
   function isDevMode() {
-    if (BUILD_IS_DEV_MODE) return true;
-    return typeof window !== "undefined" && typeof window.__YOMU_DEV_VERSION__ === "string";
+    return BUILD_IS_DEV_MODE;
   }
   function writeDebugToConsole(...args) {
     if (isDevMode()) console.log(...args);
     else console.debug(...args);
   }
   function getRuntimeLoggingOverride() {
-    if (typeof window !== "undefined" && Boolean(window.__YOMU_ENABLE_LOGS__)) return true;
     try {
       return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
     } catch {
@@ -1862,7 +1860,11 @@
     "UL"
   ]);
   function setInnerHtml(element2, html) {
-    element2.innerHTML = trustedHtml(html);
+    try {
+      element2.innerHTML = trustedHtml(html);
+    } catch {
+      element2.textContent = html;
+    }
   }
   function appendToDocumentHead(element2) {
     const target = document.head || document.documentElement || document.body;
@@ -2635,15 +2637,20 @@
     return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
   function trustedHtml(value) {
-    const factory = globalThis.trustedTypes;
-    if (!factory) return value;
-    if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
-    return trustedHtmlPolicy ? trustedHtmlPolicy.createHTML(value) : value;
+    try {
+      const factory = globalThis.trustedTypes;
+      if (!factory) return value;
+      if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
+      return trustedHtmlPolicy && typeof trustedHtmlPolicy.createHTML === "function" ? trustedHtmlPolicy.createHTML(value) : value;
+    } catch {
+      trustedHtmlPolicy = null;
+      return value;
+    }
   }
   function createTrustedHtmlPolicy(factory) {
-    const existing = factory.getPolicy?.("yomu-reader");
-    if (existing) return existing;
     try {
+      const existing = factory.getPolicy?.("yomu-reader");
+      if (existing && typeof existing.createHTML === "function") return existing;
       return factory.createPolicy?.("yomu-reader", { createHTML: (html) => html }) ?? null;
     } catch {
       return null;
@@ -2684,9 +2691,13 @@
     return fragileByInlineControl(text2, metrics.style, metrics.rect);
   }
   function isFragileUiContext(element2, text2) {
-    if (UI_CLASS_RE.test(String(element2.className))) return true;
+    if (UI_CLASS_RE.test(String(element2.className)) && !isReadableProseUiClassText(element2, text2)) return true;
     if (text2.length <= 4 && ancestorClassLooksLikeUi(element2)) return true;
     return isInsideControlLikeLink(element2, text2);
+  }
+  function isReadableProseUiClassText(element2, text2) {
+    if (compactLength(text2) < 8) return false;
+    return isLikelyProseElement(element2) && Boolean(element2.closest('article, main, [role="main"]'));
   }
   function fragileTextMetrics(element2, text2) {
     const style = getComputedStyle(element2);
@@ -5023,7 +5034,7 @@
     if (source === _monkeyWindow) return "monkeyWindow";
     return "mountedMonkeyWindow";
   }
-  async function requestText$8(url, options = {}) {
+  async function requestText$7(url, options = {}) {
     const value = await requestHttp(url, { ...options, responseType: "text" });
     return typeof value === "string" ? value : String(value ?? "");
   }
@@ -5209,10 +5220,10 @@
       const realAudioSources = sources.filter((source) => !isTtsFallbackSource(source));
       const realAudioResult = await this.playOrderedSources(orderAudioSources(realAudioSources, settings.audioSelectionMode), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
       if (realAudioResult !== "miss") return { state: realAudioResult, errors };
-      const jpdbTtsResult = await this.playOrderedSources(sources.filter(isJpdbTtsSource), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
-      if (jpdbTtsResult !== "miss") return { state: jpdbTtsResult, errors };
       const textToSpeechResult = await this.playOrderedSources(sources.filter(isBrowserTextToSpeechSource), card, settings, requestId, triedUrls, isCurrent, errors);
-      return { state: textToSpeechResult, errors };
+      if (textToSpeechResult !== "miss") return { state: textToSpeechResult, errors };
+      const jpdbTtsResult = await this.playOrderedSources(sources.filter(isJpdbTtsSource), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+      return { state: jpdbTtsResult, errors };
     }
     async playOrderedSources(sources, card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio) {
       for (const source of sources) {
@@ -5825,17 +5836,8 @@
     const byId = new Map(entries.map((entry) => [entry.id, entry]));
     return shuffledAudio.order(bagKey, entries.map((entry) => entry.id)).map((id) => byId.get(id)).filter((entry) => Boolean(entry));
   }
-  function orderAudioSources(sources, mode) {
-    if (mode !== "random" || sources.length < 2) return sources;
-    return shuffleAudioSources(sources);
-  }
-  function shuffleAudioSources(sources) {
-    const shuffled = [...sources];
-    for (let index = shuffled.length - 1; index > 0; index--) {
-      const swapIndex = Math.floor(Math.random() * (index + 1));
-      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-    }
-    return shuffled;
+  function orderAudioSources(sources, _mode) {
+    return sources;
   }
   function isTtsFallbackSource(source) {
     return isJpdbTtsSource(source) || isBrowserTextToSpeechSource(source);
@@ -6178,7 +6180,7 @@
       failureLabel: uiText(language, "audioRequest"),
       timeoutLabel: uiText(language, "audioRequestTimedOut")
     };
-    return responseType === "blob" ? requestBlob$4(responseUrl, requestOptions) : requestText$8(responseUrl, requestOptions);
+    return responseType === "blob" ? requestBlob$4(responseUrl, requestOptions) : requestText$7(responseUrl, requestOptions);
   }
   function shouldPreferFetchForAudioRequests() {
     return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
@@ -13697,7 +13699,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       if (!action) throw new Error("JPDB kanji action is no longer available.");
       if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
       log$o.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
-      await requestText$7(action.url, "", {
+      await requestText$6(action.url, "", {
         method: action.method,
         payload: action.payload,
         allowProxyFallback: false,
@@ -13708,7 +13710,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       return this.lookup(action.kanji);
     }
     async fetchInfo(kanji) {
-      const html = await requestText$7(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
+      const html = await requestText$6(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
         log$o.warn("Kanji page request failed", { kanji }, error);
         return "";
       });
@@ -13975,12 +13977,12 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function escapeRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  function requestText$7(url, proxyUrl = "", options = {}) {
+  function requestText$6(url, proxyUrl = "", options = {}) {
     const method = options.method ?? "GET";
     const body = requestTextBody(options.payload);
     const requestUrl2 = requestTextUrl(url, method, body);
     const headers = requestTextHeaders(method);
-    return requestText$8(requestUrl2, {
+    return requestText$7(requestUrl2, {
       method,
       headers,
       data: method === "POST" ? body : void 0,
@@ -18775,7 +18777,7 @@ ${normalizedReading}`;
     async fetchPitch(spelling, reading) {
       for (const query of unique$1([spelling, reading].filter(Boolean))) {
         const url = `${JPDB_SEARCH_URL$1}?q=${encodeURIComponent(query)}`;
-        const html = await requestText$6(url, this.getCorsProxyUrl()).catch((error) => {
+        const html = await requestText$5(url, this.getCorsProxyUrl()).catch((error) => {
           log$g.warn("Public JPDB pitch request failed", { query }, error);
           return "";
         });
@@ -18892,8 +18894,8 @@ ${normalizedReading}`;
   function unique$1(values) {
     return [...new Set(values)];
   }
-  function requestText$6(url, proxyUrl = "") {
-    return requestText$8(url, {
+  function requestText$5(url, proxyUrl = "") {
+    return requestText$7(url, {
       proxyUrl,
       timeoutMs: REQUEST_TIMEOUT_MS,
       failureLabel: "Public JPDB pitch request",
@@ -19196,7 +19198,7 @@ ${normalizedReading}`;
     }
     async fetchInfo(vid, spelling, reading) {
       for (const url of vocabularyLookupUrls(vid, spelling, reading)) {
-        const html = await requestText$5(url, this.getCorsProxyUrl()).catch((error) => {
+        const html = await requestText$4(url, this.getCorsProxyUrl()).catch((error) => {
           log$f.warn("Vocabulary page request failed", { vid, spelling, url }, error);
           return "";
         });
@@ -19209,7 +19211,7 @@ ${normalizedReading}`;
       let info = initialInfo;
       for (const supplement of vocabularySupplementUrls(html, spelling, reading, initialUrl)) {
         if (!needsSupplement(info, supplement.kind)) continue;
-        const supplementHtml = await requestText$5(supplement.url, this.getCorsProxyUrl()).catch((error) => {
+        const supplementHtml = await requestText$4(supplement.url, this.getCorsProxyUrl()).catch((error) => {
           log$f.warn("Vocabulary supplement request failed", { vid, spelling, url: supplement.url }, error);
           return "";
         });
@@ -19518,8 +19520,8 @@ ${normalizedReading}`;
   function mergeBy(primary, supplemental, key, limit) {
     return uniqueBy([...primary, ...supplemental], key).slice(0, limit);
   }
-  function requestText$5(url, proxyUrl = "") {
-    return requestText$8(url, {
+  function requestText$4(url, proxyUrl = "") {
+    return requestText$7(url, {
       proxyUrl,
       timeoutMs: 8e3,
       failureLabel: "JPDB vocabulary request",
@@ -19564,7 +19566,7 @@ ${normalizedReading}`;
   async function fetchKanjiMapInfo(kanji) {
     const done = log$e.time("Fetch Kanji Map info", { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
-    const raw = parseJson(await requestText$4(sourceUrl));
+    const raw = parseJson(await requestText$3(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
     done();
     return info;
@@ -20069,8 +20071,8 @@ ${normalizedReading}`;
       return null;
     }
   }
-  function requestText$4(url) {
-    return requestText$8(url, {
+  function requestText$3(url) {
+    return requestText$7(url, {
       timeoutMs: 1e4,
       failureLabel: "Kanji origin request",
       timeoutLabel: "Kanji origin request timed out."
@@ -20601,7 +20603,7 @@ ${normalizedReading}`;
     }
     async fetchSvg(kanji) {
       const url = kanjiVGUrl(kanji);
-      const svgText = await requestText$3(url).catch((error) => {
+      const svgText = await requestText$2(url).catch((error) => {
         log$c.warn("Stroke-order request failed", { kanji }, error);
         return "";
       });
@@ -20929,8 +20931,8 @@ ${normalizedReading}`;
   function cleanComponent(value) {
     return value.replace(/\s+/g, " ").trim();
   }
-  function requestText$3(url) {
-    return requestText$8(url, {
+  function requestText$2(url) {
+    return requestText$7(url, {
       timeoutMs: 8e3,
       failureLabel: "Stroke-order request",
       timeoutLabel: "Stroke-order request timed out."
@@ -24214,7 +24216,7 @@ ${normalizedReading}`;
       return promise;
     }
     async fetchInfo(kanji) {
-      const html = await requestText$2(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
+      const html = await requestText$1(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
         log$9.warn("RTK request failed", { kanji }, error);
         return "";
       });
@@ -24238,7 +24240,7 @@ ${normalizedReading}`;
     }
     lookupKeywordIndex() {
       if (!this.keywordIndex) {
-        this.keywordIndex = requestText$2(RTK_SEARCH_INDEX_URL).then(parseRtkSearchIndex).catch((error) => {
+        this.keywordIndex = requestText$1(RTK_SEARCH_INDEX_URL).then(parseRtkSearchIndex).catch((error) => {
           this.keywordIndex = void 0;
           throw error;
         });
@@ -24409,8 +24411,8 @@ ${normalizedReading}`;
   function cleanText(value) {
     return value.replace(/\s+/g, " ").trim();
   }
-  function requestText$2(url) {
-    return requestText$8(url, {
+  function requestText$1(url) {
+    return requestText$7(url, {
       timeoutMs: 8e3,
       failureLabel: "RTK request",
       timeoutLabel: "RTK request timed out."
@@ -24936,7 +24938,7 @@ ${spelling}`);
     return UCHISEN_PAYWALL_STORY_RE.test(cleanText$3(story));
   }
   async function loadUchisenData(kanji, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL) {
-    const html = await requestText$1(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9e3, proxyUrl);
+    const html = await requestText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9e3, proxyUrl);
     return parseUchisenData(html);
   }
   async function installUchisenCarousel(container, kanji, images, options = {}) {
@@ -25056,8 +25058,8 @@ ${spelling}`);
   function isUchisenPaywallItem(item) {
     return Boolean(item && (isUchisenPaywallImage(item.url) || isUchisenPaywallStory(item.story)));
   }
-  function requestText$1(url, timeout, proxyUrl) {
-    return requestText$8(url, {
+  function requestText(url, timeout, proxyUrl) {
+    return requestText$7(url, {
       proxyUrl,
       timeoutMs: timeout,
       failureLabel: "Uchisen request",
@@ -37202,9 +37204,26 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   async function loadYouTubeTrackCues(track, options) {
     if (!track.url) return [];
     applyPreferredYouTubeCaptionCandidate(track);
-    for (const url of youtubeSubtitleRequestUrls(track.url)) {
+    const tried = /* @__PURE__ */ new Set();
+    const primary = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(track.url), options, tried);
+    if (primary.length) return primary;
+    for (const candidate of await fallbackYouTubeCaptionCandidates(track)) {
+      const cues = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(candidate.url), options, tried);
+      if (!cues.length) continue;
+      track.url = candidate.url;
+      track.youtubeTrack = candidate.raw;
+      return cues;
+    }
+    return [];
+  }
+  async function loadYouTubeCueUrls(track, urls, options, tried) {
+    for (const url of urls) {
+      if (tried.has(url)) continue;
+      tried.add(url);
       try {
-        const cues = normalizeSubtitleCues(parseSubtitleText(await options.requestText(url), {
+        const text2 = await options.requestText(url);
+        if (!text2.trim()) throw new Error("YouTube timedtext response was empty.");
+        const cues = normalizeSubtitleCues(parseSubtitleText(text2, {
           smoothYouTubeFragments: true,
           youtubeAutoGenerated: isAutoGeneratedSubtitleTrack(track)
         }));
@@ -37240,6 +37259,14 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       ...playerTracks,
       ...Array.isArray(rawTracks) ? rawTracks : []
     ]);
+  }
+  async function fallbackYouTubeCaptionCandidates(track) {
+    if (track.kind !== "youtube") return [];
+    const candidates = await getAndroidYouTubeCaptionTracks();
+    return candidates.filter((candidate) => youtubeCaptionCandidateMatchesTrack(candidate, track)).sort((a, b) => youtubeTrackUrlScore(b.url) - youtubeTrackUrlScore(a.url));
+  }
+  function youtubeCaptionCandidateMatchesTrack(candidate, track) {
+    return youtubeCaptionTrackIdentity(candidate) === youtubeCaptionTrackIdentity(track) || Boolean(candidate.language && track.language && candidate.language.toLowerCase() === track.language.toLowerCase());
   }
   function disableYouTubeNativeCaptions() {
     if (!isYouTubePage()) return;
@@ -37291,17 +37318,15 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     return (!playerVideoId || !videoId || playerVideoId === videoId) && Array.isArray(tracks) ? tracks : [];
   }
   function uniqueYouTubeCaptionTracks(rawTracks) {
-    const tracks = [];
-    const seen = /* @__PURE__ */ new Set();
+    const tracks = /* @__PURE__ */ new Map();
     for (const track of rawTracks) {
       const parsed = parseYouTubeCaptionTrack(track);
       if (!parsed) continue;
       const key = youtubeCaptionTrackIdentity(parsed);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      tracks.push(parsed);
+      const existing = tracks.get(key);
+      if (!existing || shouldPreferYouTubeTrackUrl(parsed.url, existing.url)) tracks.set(key, parsed);
     }
-    return tracks;
+    return [...tracks.values()];
   }
   function parseYouTubeCaptionTrack(track) {
     const record = track;
@@ -37318,6 +37343,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     if (!rawUrl) return null;
     const url = new URL(rawUrl, location.href);
     url.searchParams.set("fmt", "srv3");
+    if (record.languageCode && !url.searchParams.has("lang")) url.searchParams.set("lang", record.languageCode);
     applyYouTubeCaptionClientName(url, readYouTubeClientName());
     return url;
   }
@@ -37326,6 +37352,35 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   function applyYouTubeCaptionClientName(url, clientName) {
     if (clientName && !url.searchParams.has("c")) url.searchParams.set("c", clientName);
+  }
+  async function getAndroidYouTubeCaptionTracks() {
+    const videoId = getYouTubeVideoId();
+    const apiKey = readYouTubeConfigString("INNERTUBE_API_KEY");
+    if (!videoId || !apiKey) return [];
+    try {
+      const response = await fetch(`${location.origin}/youtubei/v1/player?key=${encodeURIComponent(apiKey)}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          context: {
+            client: {
+              clientName: "ANDROID",
+              clientVersion: "20.10.38",
+              hl: readYouTubeConfigString("HL") || "en"
+            }
+          },
+          videoId
+        })
+      });
+      if (!response.ok) return [];
+      const payload = await response.json();
+      if (!isMatchingYouTubePlayerResponse(payload, videoId)) return [];
+      const rawTracks = payload.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+      return uniqueYouTubeCaptionTracks(Array.isArray(rawTracks) ? rawTracks : []);
+    } catch {
+      return [];
+    }
   }
   function youtubeCaptionTrackLabel(record, language) {
     return firstYouTubeCaptionTrackLabel(record, language) || "YouTube subtitles";
@@ -37531,8 +37586,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     return parsed.href;
   }
   function readYouTubeClientName() {
+    return readYouTubeConfigString("INNERTUBE_CLIENT_NAME");
+  }
+  function readYouTubeConfigString(key) {
     const ytcfg = window.ytcfg;
-    const value = ytcfg?.get?.("INNERTUBE_CLIENT_NAME");
+    const value = ytcfg?.get?.(key);
     return typeof value === "string" && value ? value : "";
   }
   function youtubeTrackUrlScore(value) {
@@ -37696,21 +37754,22 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   function applyYouTubeNativeTrackModes(state, yomuCaptionsActive) {
     applyYouTubeTextTrackModes(state);
-    document.documentElement.classList.toggle("jpdb-subtitle-yomu-captions-active", yomuCaptionsActive);
-    if (shouldDisableYouTubeNativeCaptions(state, yomuCaptionsActive)) disableYouTubeNativeCaptions();
-    if (shouldRestoreYouTubeNativeCaptions(state, yomuCaptionsActive)) restoreYouTubeNativeCaptionTrack(state);
-    return yomuCaptionsActive;
+    const hideYouTubeNativeCaptions = yomuCaptionsActive && !needsYouTubeDomCaptionFallback(state);
+    document.documentElement.classList.toggle("jpdb-subtitle-yomu-captions-active", hideYouTubeNativeCaptions);
+    if (shouldDisableYouTubeNativeCaptions(state, hideYouTubeNativeCaptions)) disableYouTubeNativeCaptions();
+    if (shouldRestoreYouTubeNativeCaptions(state, hideYouTubeNativeCaptions)) restoreYouTubeNativeCaptionTrack(state);
+    return hideYouTubeNativeCaptions;
   }
   function applyYouTubeTextTrackModes(state) {
     for (const option of state.tracks) {
       if (option.track) option.track.mode = isSelectedSubtitleTrack(option, state) ? "hidden" : "disabled";
     }
   }
-  function shouldDisableYouTubeNativeCaptions(state, yomuCaptionsActive) {
-    return yomuCaptionsActive && !needsYouTubeDomCaptionFallback(state) && !state.lastYomuCaptionsActive;
+  function shouldDisableYouTubeNativeCaptions(state, hideYouTubeNativeCaptions) {
+    return hideYouTubeNativeCaptions && !state.lastYomuCaptionsActive;
   }
-  function shouldRestoreYouTubeNativeCaptions(state, yomuCaptionsActive) {
-    return !yomuCaptionsActive && state.lastYomuCaptionsActive;
+  function shouldRestoreYouTubeNativeCaptions(state, hideYouTubeNativeCaptions) {
+    return !hideYouTubeNativeCaptions && state.lastYomuCaptionsActive;
   }
   function restoreYouTubeNativeCaptionTrack(state) {
     const selected = state.tracks.find((track) => track.id === state.selectedTrackId && track.kind === "youtube");
@@ -37988,10 +38047,41 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     return uiText(settings.interfaceLanguage, settings.subtitleSecondaryVisible ? "nativeSubtitlesOn" : "nativeSubtitlesOff");
   }
   function canParseSubtitleTranscriptRows(settings) {
-    return Boolean(settings.apiKey || settings.localDictionariesEnabled);
+    return hasSubtitleParserSource(settings);
   }
   function shouldApplyParsedTranscriptHtml(target, key) {
     return target.dataset.parseKey === key && target.dataset.parsedKey !== key;
+  }
+  function hasSubtitleParserSource(settings) {
+    return Boolean(settings.apiKey.trim() || settings.localDictionariesEnabled);
+  }
+  function hasAttemptedTranscriptParse(target, key) {
+    return target.dataset.parsedKey === key || hasRecentTranscriptParseAttempt(target.dataset.parseEmptyKey, target.dataset.parseEmptyAt, key) || hasRecentTranscriptParseAttempt(target.dataset.parseFailedKey, target.dataset.parseFailedAt, key);
+  }
+  function hasRecentTranscriptParseAttempt(markerKey, markerAt, key) {
+    if (markerKey !== key) return false;
+    const markedAt = Number(markerAt || 0);
+    return Number.isFinite(markedAt) && Date.now() - markedAt < SUBTITLE_EMPTY_PARSE_RETRY_MS;
+  }
+  function parsedSubtitleHtmlHasReaderWords(html) {
+    return html.includes("jpdb-reader-word");
+  }
+  function subtitleParseSourceSignature(settings) {
+    return [
+      settings.apiKey.trim() ? "api:on" : "api:off",
+      settings.localDictionariesEnabled ? "local:on" : "local:off",
+      settings.localDictionariesEnabled ? dictionaryPreferencesSignature(settings) : ""
+    ].join("|");
+  }
+  function dictionaryPreferencesSignature(settings) {
+    return settings.dictionaryPreferences.map((preference) => [
+      preference.name,
+      preference.alias,
+      preference.enabled ? "1" : "0",
+      preference.priority,
+      preference.allowSecondarySearches ? "1" : "0",
+      preference.type ?? ""
+    ].join(",")).join(";");
   }
   function subtitleMinimumFontSize(root) {
     const rootRect = root.getBoundingClientRect();
@@ -38049,9 +38139,17 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 40;
   const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
   const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
+  const SUBTITLE_EMPTY_PARSE_RETRY_MS = 2500;
+  const SUBTITLE_REQUEST_TIMEOUT_MS = 8e3;
+  const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
   const log$3 = Logger.scope("Subtitles");
   const TRACK_LOAD_OPTIONS = {
-    requestText
+    requestText: requestSubtitleText,
+    onYouTubeRequestError: (track, url, error) => log$3.debug("YouTube subtitle request failed", {
+      label: track.label,
+      ...subtitleRequestFailureDetails(url),
+      error
+    })
   };
   function normalizedSubtitleText(value) {
     return (value ?? "").replace(/\s+/g, " ").trim();
@@ -38128,6 +38226,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     lastDomCaption = "";
     pendingDomCaption;
     parsedHtmlCache = /* @__PURE__ */ new Map();
+    emptyParsedHtmlCache = /* @__PURE__ */ new Map();
     pendingParsedHtml = /* @__PURE__ */ new Map();
     renderSerial = 0;
     panelMode = "lines";
@@ -38145,12 +38244,14 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     fullscreen = false;
     lastRenderedPrimaryText = "";
     lastRenderedPrimaryHtml = "";
+    lastRenderedPrimaryKey = "";
     parseWarmupSerial = 0;
     transcriptHydrationCursor = 0;
     effectiveTranscriptPlacement = "right";
     lastAutoCopiedCueSignature = "";
     youtubeTrackDiscoveryInFlight = false;
     lastYouTubeTrackDiscoveryAt = 0;
+    lastYouTubeCaptionActivationAt = 0;
     primarySelectionRequest = 0;
     secondarySelectionRequest = 0;
     subtitleSourceContextKey = "";
@@ -38678,6 +38779,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       if (this.cues.length) return null;
       const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
       if (!this.shouldUseDomCaptionFallback(selected)) return null;
+      this.ensureYouTubeDomCaptionFallbackActive(selected);
       const text2 = readPageCaptionText(this.video, this.root);
       if (!text2) {
         this.clearDomCaptionFallbackIfExpired();
@@ -38685,6 +38787,14 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       }
       if (!this.isDomCaptionStable(text2, performance.now())) return null;
       return { text: text2, selected };
+    }
+    ensureYouTubeDomCaptionFallbackActive(selected) {
+      if (selected?.kind !== "youtube") return;
+      if (this.youtubeDomCaptionFallbackTrackId !== this.selectedTrackId) return;
+      const now = performance.now();
+      if (now - this.lastYouTubeCaptionActivationAt < YOUTUBE_CAPTION_ACTIVATION_RETRY_MS) return;
+      this.lastYouTubeCaptionActivationAt = now;
+      activateYouTubeCaptionTrack(selected);
     }
     shouldUseDomCaptionFallback(selected) {
       if (!this.canUseDomCaptionFallback(selected)) return false;
@@ -38743,13 +38853,16 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     }
     renderPrimarySubtitle(text2, settings) {
       const activeCue = this.currentCue;
+      const parseKey = this.parseCacheKey(text2, settings);
+      const lastRenderedHasReaderWords = parsedSubtitleHtmlHasReaderWords(this.lastRenderedPrimaryHtml);
+      const hasReusablePrimary = this.lastRenderedPrimaryKey === parseKey && (lastRenderedHasReaderWords || this.hasFreshEmptyParsedHtml(parseKey));
       return renderSubtitlePrimary({
         cue: activeCue,
         text: text2,
-        parsedHtml: this.parsedHtmlCache.get(this.parseCacheKey(text2, settings)),
+        parsedHtml: this.parsedHtmlCache.get(parseKey),
         hasParser: this.shouldParseSubtitles(settings),
-        lastRenderedText: this.lastRenderedPrimaryText,
-        lastRenderedHtml: this.lastRenderedPrimaryHtml,
+        lastRenderedText: hasReusablePrimary ? this.lastRenderedPrimaryText : "",
+        lastRenderedHtml: hasReusablePrimary ? this.lastRenderedPrimaryHtml : "",
         karaokeMode: settings.subtitleKaraokeMode,
         time: this.video?.currentTime ?? activeCue?.start ?? 0
       });
@@ -38787,6 +38900,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       try {
         const html = await this.parseCueHtml(text2, settings);
         this.replacePrimaryHtml(html, serial);
+        this.lastRenderedPrimaryKey = key;
         this.lastRenderedPrimaryText = text2;
         this.lastRenderedPrimaryHtml = html;
       } catch {
@@ -38814,10 +38928,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       this.applyKaraokeStateToPrimary(currentCue, this.video?.currentTime ?? currentCue.start);
     }
     shouldParseSubtitles(settings = this.options.getSettings()) {
-      return Boolean(settings.apiKey || settings.localDictionariesEnabled);
+      return hasSubtitleParserSource(settings);
     }
     parseCacheKey(text2, settings = this.options.getSettings()) {
       return [
+        subtitleParseSourceSignature(settings),
         settings.showFurigana,
         settings.furiganaMode,
         settings.hideKnownFurigana,
@@ -38834,13 +38949,21 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       const key = this.parseCacheKey(text2, settings);
       const cached = this.parsedHtmlCache.get(key);
       if (cached) return cached;
+      const emptyCached = this.freshEmptyParsedHtml(key);
+      if (emptyCached) return emptyCached;
       const pending = this.pendingParsedHtml.get(key);
       if (pending) return pending;
       const promise = (async () => {
         const tokens = await this.options.parseJapanese(text2);
         const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
-        this.parsedHtmlCache.set(key, html);
-        if (this.parsedHtmlCache.size > 180) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? "");
+        if (parsedSubtitleHtmlHasReaderWords(html)) {
+          this.parsedHtmlCache.set(key, html);
+          this.emptyParsedHtmlCache.delete(key);
+          if (this.parsedHtmlCache.size > 180) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? "");
+        } else {
+          this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
+          if (this.emptyParsedHtmlCache.size > 180) this.emptyParsedHtmlCache.delete(this.emptyParsedHtmlCache.keys().next().value ?? "");
+        }
         return html;
       })();
       this.pendingParsedHtml.set(key, promise);
@@ -38849,6 +38972,16 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       } finally {
         this.pendingParsedHtml.delete(key);
       }
+    }
+    hasFreshEmptyParsedHtml(key) {
+      return Boolean(this.freshEmptyParsedHtml(key));
+    }
+    freshEmptyParsedHtml(key) {
+      const cached = this.emptyParsedHtmlCache.get(key);
+      if (!cached) return void 0;
+      if (cached.expiresAt > Date.now()) return cached.html;
+      this.emptyParsedHtmlCache.delete(key);
+      return void 0;
     }
     warmParseAroundActiveCue() {
       if (!this.shouldParseSubtitles() || !this.cues.length) return;
@@ -39156,7 +39289,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         return;
       }
       this.youtubeDomCaptionFallbackTrackId = this.cues.length ? "" : trackId;
-      if (!this.cues.length) activateYouTubeCaptionTrack(track);
+      this.lastYouTubeCaptionActivationAt = 0;
+      if (!this.cues.length) this.ensureYouTubeDomCaptionFallbackActive(track);
     }
     finishPrimaryTrackSelection(id, selected) {
       this.setNativeTrackModes();
@@ -39799,7 +39933,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         const html = await this.parseCueHtml(hydration.cue.text, settings);
         this.updateTranscriptRowsForParseKey(hydration.key, html);
       } catch {
-        hydration.target.dataset.parsedKey = hydration.key;
+        hydration.target.dataset.parseFailedKey = hydration.key;
+        hydration.target.dataset.parseFailedAt = String(Date.now());
+        delete hydration.target.dataset.parsedKey;
       }
     }
     transcriptRowHydrationTarget(index, settings, rows) {
@@ -39807,10 +39943,14 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       const target = this.transcriptPanel?.querySelector(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
       if (!cue || !target) return null;
       const key = this.parseCacheKey(cue.text, settings);
-      return target.dataset.parsedKey === key ? null : { cue, target, key };
+      return hasAttemptedTranscriptParse(target, key) ? null : { cue, target, key };
     }
     applyCachedTranscriptRowHtml(hydration, html) {
       hydration.target.dataset.parsedKey = hydration.key;
+      delete hydration.target.dataset.parseEmptyKey;
+      delete hydration.target.dataset.parseEmptyAt;
+      delete hydration.target.dataset.parseFailedKey;
+      delete hydration.target.dataset.parseFailedAt;
       setInnerHtml(hydration.target, html);
     }
     scheduleTranscriptCacheWarmup(rows = this.transcriptRows(), preferredIndex = this.activeTranscriptRowIndex(rows)) {
@@ -39885,10 +40025,23 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     updateTranscriptRowsForParseKey(key, html) {
       const panel = this.updatableTranscriptPanel();
       if (!panel) return;
+      const hasReaderWords = parsedSubtitleHtmlHasReaderWords(html);
       for (const target of Array.from(panel.querySelectorAll("[data-transcript-text]"))) {
         if (!shouldApplyParsedTranscriptHtml(target, key)) continue;
-        target.dataset.parsedKey = key;
-        setInnerHtml(target, html);
+        if (hasReaderWords) {
+          target.dataset.parsedKey = key;
+          delete target.dataset.parseEmptyKey;
+          delete target.dataset.parseEmptyAt;
+          delete target.dataset.parseFailedKey;
+          delete target.dataset.parseFailedAt;
+          setInnerHtml(target, html);
+        } else {
+          target.dataset.parseEmptyKey = key;
+          target.dataset.parseEmptyAt = String(Date.now());
+          delete target.dataset.parsedKey;
+          delete target.dataset.parseFailedKey;
+          delete target.dataset.parseFailedAt;
+        }
       }
     }
     updatableTranscriptPanel() {
@@ -40254,13 +40407,16 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   function isCijVideoPage() {
     return /(^|\.)cijapanese\.com$/i.test(location.hostname) && /^\/video\//i.test(location.pathname);
   }
-  function requestText(url) {
+  function requestSubtitleText(url) {
     if (/^(blob|data):/i.test(url)) {
-      return fetch(url, { signal: AbortSignal.timeout(8e3) }).then((response) => {
-        if (!response.ok) throw new Error(`Subtitle request failed (${response.status}).`);
-        return response.text();
-      });
+      return fetchSubtitleText(url);
     }
+    if (shouldFetchSubtitleInPageContext(url)) {
+      return fetchSubtitleText(url).catch((error) => requestSubtitleTextWithUserscript(url, error));
+    }
+    return requestSubtitleTextWithUserscript(url);
+  }
+  function requestSubtitleTextWithUserscript(url, pageFetchError) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
       return new Promise((resolve, reject) => {
@@ -40275,10 +40431,39 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         });
       });
     }
-    return fetch(url, { signal: AbortSignal.timeout(8e3) }).then((response) => {
+    if (pageFetchError) return Promise.reject(pageFetchError);
+    return fetchSubtitleText(url);
+  }
+  function fetchSubtitleText(url) {
+    return fetch(url, { credentials: "include", signal: subtitleRequestSignal() }).then((response) => {
       if (!response.ok) throw new Error(`Subtitle request failed (${response.status}).`);
       return response.text();
     });
+  }
+  function subtitleRequestSignal() {
+    return typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(SUBTITLE_REQUEST_TIMEOUT_MS) : void 0;
+  }
+  function shouldFetchSubtitleInPageContext(url) {
+    try {
+      const parsed = new URL(url, location.href);
+      if (parsed.origin === location.origin) return true;
+      return isYouTubePage() && /(^|\.)youtube\.com$/i.test(parsed.hostname) && /\/api\/timedtext$/i.test(parsed.pathname);
+    } catch {
+      return false;
+    }
+  }
+  function subtitleRequestFailureDetails(url) {
+    try {
+      const parsed = new URL(url, location.href);
+      return {
+        host: parsed.hostname,
+        path: parsed.pathname,
+        format: parsed.searchParams.get("fmt") ?? "",
+        language: parsed.searchParams.get("lang") ?? ""
+      };
+    } catch {
+      return { url: "invalid" };
+    }
   }
   function subtitleMenuSignature(state) {
     return [

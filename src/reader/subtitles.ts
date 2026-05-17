@@ -142,11 +142,52 @@ function secondarySubtitleToggleLabel(settings: ReaderSettings): string {
 }
 
 function canParseSubtitleTranscriptRows(settings: ReaderSettings): boolean {
-    return Boolean(settings.apiKey || settings.localDictionariesEnabled);
+    return hasSubtitleParserSource(settings);
 }
 
 function shouldApplyParsedTranscriptHtml(target: HTMLElement, key: string): boolean {
     return target.dataset.parseKey === key && target.dataset.parsedKey !== key;
+}
+
+function hasSubtitleParserSource(settings: ReaderSettings): boolean {
+    return Boolean(settings.apiKey.trim() || settings.localDictionariesEnabled);
+}
+
+function hasAttemptedTranscriptParse(target: HTMLElement, key: string): boolean {
+    return target.dataset.parsedKey === key
+        || hasRecentTranscriptParseAttempt(target.dataset.parseEmptyKey, target.dataset.parseEmptyAt, key)
+        || hasRecentTranscriptParseAttempt(target.dataset.parseFailedKey, target.dataset.parseFailedAt, key);
+}
+
+function hasRecentTranscriptParseAttempt(markerKey: string | undefined, markerAt: string | undefined, key: string): boolean {
+    if (markerKey !== key) return false;
+    const markedAt = Number(markerAt || 0);
+    return Number.isFinite(markedAt) && Date.now() - markedAt < SUBTITLE_EMPTY_PARSE_RETRY_MS;
+}
+
+function parsedSubtitleHtmlHasReaderWords(html: string): boolean {
+    return html.includes('jpdb-reader-word');
+}
+
+function subtitleParseSourceSignature(settings: ReaderSettings): string {
+    return [
+        settings.apiKey.trim() ? 'api:on' : 'api:off',
+        settings.localDictionariesEnabled ? 'local:on' : 'local:off',
+        settings.localDictionariesEnabled ? dictionaryPreferencesSignature(settings) : '',
+    ].join('|');
+}
+
+function dictionaryPreferencesSignature(settings: ReaderSettings): string {
+    return settings.dictionaryPreferences
+        .map(preference => [
+            preference.name,
+            preference.alias,
+            preference.enabled ? '1' : '0',
+            preference.priority,
+            preference.allowSecondarySearches ? '1' : '0',
+            preference.type ?? '',
+        ].join(','))
+        .join(';');
 }
 
 function subtitleMinimumFontSize(root: HTMLElement): number {
@@ -214,9 +255,17 @@ const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
 const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 40;
 const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
 const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
+const SUBTITLE_EMPTY_PARSE_RETRY_MS = 2500;
+const SUBTITLE_REQUEST_TIMEOUT_MS = 8000;
+const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2000;
 const log = Logger.scope('Subtitles');
 const TRACK_LOAD_OPTIONS: Omit<SubtitleTrackLoadOptions<SubtitleTrackOption>, 'tracks' | 'transcriptEligible'> = {
-    requestText,
+    requestText: requestSubtitleText,
+    onYouTubeRequestError: (track, url, error) => log.debug('YouTube subtitle request failed', {
+        label: track.label,
+        ...subtitleRequestFailureDetails(url),
+        error,
+    }),
 };
 
 function normalizedSubtitleText(value: string | null | undefined): string {
@@ -327,6 +376,7 @@ export class SubtitlePlayerController {
     private lastDomCaption = '';
     private pendingDomCaption?: { text: string; firstSeenAt: number };
     private parsedHtmlCache = new Map<string, string>();
+    private emptyParsedHtmlCache = new Map<string, { html: string; expiresAt: number }>();
     private pendingParsedHtml = new Map<string, Promise<string>>();
     private renderSerial = 0;
     private panelMode: 'lines' | 'tracks' = 'lines';
@@ -344,12 +394,14 @@ export class SubtitlePlayerController {
     private fullscreen = false;
     private lastRenderedPrimaryText = '';
     private lastRenderedPrimaryHtml = '';
+    private lastRenderedPrimaryKey = '';
     private parseWarmupSerial = 0;
     private transcriptHydrationCursor = 0;
     private effectiveTranscriptPlacement: ReaderSettings['subtitleTranscriptPlacement'] = 'right';
     private lastAutoCopiedCueSignature = '';
     private youtubeTrackDiscoveryInFlight = false;
     private lastYouTubeTrackDiscoveryAt = 0;
+    private lastYouTubeCaptionActivationAt = 0;
     private primarySelectionRequest = 0;
     private secondarySelectionRequest = 0;
     private subtitleSourceContextKey = '';
@@ -942,6 +994,7 @@ export class SubtitlePlayerController {
         if (this.cues.length) return null;
         const selected = this.tracks.find(track => track.id === this.selectedTrackId);
         if (!this.shouldUseDomCaptionFallback(selected)) return null;
+        this.ensureYouTubeDomCaptionFallbackActive(selected);
         const text = readPageCaptionText(this.video, this.root);
         if (!text) {
             this.clearDomCaptionFallbackIfExpired();
@@ -950,6 +1003,15 @@ export class SubtitlePlayerController {
         if (!this.isDomCaptionStable(text, performance.now())) return null;
 
         return { text, selected };
+    }
+
+    private ensureYouTubeDomCaptionFallbackActive(selected: SubtitleTrackOption | undefined): void {
+        if (selected?.kind !== 'youtube') return;
+        if (this.youtubeDomCaptionFallbackTrackId !== this.selectedTrackId) return;
+        const now = performance.now();
+        if (now - this.lastYouTubeCaptionActivationAt < YOUTUBE_CAPTION_ACTIVATION_RETRY_MS) return;
+        this.lastYouTubeCaptionActivationAt = now;
+        activateYouTubeCaptionTrack(selected);
     }
 
     private shouldUseDomCaptionFallback(selected: SubtitleTrackOption | undefined): boolean {
@@ -1017,13 +1079,17 @@ export class SubtitlePlayerController {
 
     private renderPrimarySubtitle(text: string, settings: ReaderSettings): ReturnType<typeof renderSubtitlePrimary> {
         const activeCue = this.currentCue;
+        const parseKey = this.parseCacheKey(text, settings);
+        const lastRenderedHasReaderWords = parsedSubtitleHtmlHasReaderWords(this.lastRenderedPrimaryHtml);
+        const hasReusablePrimary = this.lastRenderedPrimaryKey === parseKey
+            && (lastRenderedHasReaderWords || this.hasFreshEmptyParsedHtml(parseKey));
         return renderSubtitlePrimary({
             cue: activeCue,
             text,
-            parsedHtml: this.parsedHtmlCache.get(this.parseCacheKey(text, settings)),
+            parsedHtml: this.parsedHtmlCache.get(parseKey),
             hasParser: this.shouldParseSubtitles(settings),
-            lastRenderedText: this.lastRenderedPrimaryText,
-            lastRenderedHtml: this.lastRenderedPrimaryHtml,
+            lastRenderedText: hasReusablePrimary ? this.lastRenderedPrimaryText : '',
+            lastRenderedHtml: hasReusablePrimary ? this.lastRenderedPrimaryHtml : '',
             karaokeMode: settings.subtitleKaraokeMode,
             time: this.video?.currentTime ?? activeCue?.start ?? 0,
         });
@@ -1070,6 +1136,7 @@ export class SubtitlePlayerController {
         try {
             const html = await this.parseCueHtml(text, settings);
             this.replacePrimaryHtml(html, serial);
+            this.lastRenderedPrimaryKey = key;
             this.lastRenderedPrimaryText = text;
             this.lastRenderedPrimaryHtml = html;
         } catch {
@@ -1108,11 +1175,12 @@ export class SubtitlePlayerController {
     }
 
     private shouldParseSubtitles(settings = this.options.getSettings()): boolean {
-        return Boolean(settings.apiKey || settings.localDictionariesEnabled);
+        return hasSubtitleParserSource(settings);
     }
 
     private parseCacheKey(text: string, settings = this.options.getSettings()): string {
         return [
+            subtitleParseSourceSignature(settings),
             settings.showFurigana,
             settings.furiganaMode,
             settings.hideKnownFurigana,
@@ -1130,13 +1198,21 @@ export class SubtitlePlayerController {
         const key = this.parseCacheKey(text, settings);
         const cached = this.parsedHtmlCache.get(key);
         if (cached) return cached;
+        const emptyCached = this.freshEmptyParsedHtml(key);
+        if (emptyCached) return emptyCached;
         const pending = this.pendingParsedHtml.get(key);
         if (pending) return pending;
         const promise = (async () => {
             const tokens = await this.options.parseJapanese(text);
             const html = withBreaks(renderTokensToHtml(text, tokens, settings));
-            this.parsedHtmlCache.set(key, html);
-            if (this.parsedHtmlCache.size > 180) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? '');
+            if (parsedSubtitleHtmlHasReaderWords(html)) {
+                this.parsedHtmlCache.set(key, html);
+                this.emptyParsedHtmlCache.delete(key);
+                if (this.parsedHtmlCache.size > 180) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? '');
+            } else {
+                this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
+                if (this.emptyParsedHtmlCache.size > 180) this.emptyParsedHtmlCache.delete(this.emptyParsedHtmlCache.keys().next().value ?? '');
+            }
             return html;
         })();
         this.pendingParsedHtml.set(key, promise);
@@ -1145,6 +1221,18 @@ export class SubtitlePlayerController {
         } finally {
             this.pendingParsedHtml.delete(key);
         }
+    }
+
+    private hasFreshEmptyParsedHtml(key: string): boolean {
+        return Boolean(this.freshEmptyParsedHtml(key));
+    }
+
+    private freshEmptyParsedHtml(key: string): string | undefined {
+        const cached = this.emptyParsedHtmlCache.get(key);
+        if (!cached) return undefined;
+        if (cached.expiresAt > Date.now()) return cached.html;
+        this.emptyParsedHtmlCache.delete(key);
+        return undefined;
     }
 
     private warmParseAroundActiveCue(): void {
@@ -1515,7 +1603,8 @@ export class SubtitlePlayerController {
             return;
         }
         this.youtubeDomCaptionFallbackTrackId = this.cues.length ? '' : trackId;
-        if (!this.cues.length) activateYouTubeCaptionTrack(track);
+        this.lastYouTubeCaptionActivationAt = 0;
+        if (!this.cues.length) this.ensureYouTubeDomCaptionFallbackActive(track);
     }
 
     private finishPrimaryTrackSelection(id: string, selected: SubtitleTrackOption | undefined): void {
@@ -2256,7 +2345,9 @@ export class SubtitlePlayerController {
             const html = await this.parseCueHtml(hydration.cue.text, settings);
             this.updateTranscriptRowsForParseKey(hydration.key, html);
         } catch {
-            hydration.target.dataset.parsedKey = hydration.key;
+            hydration.target.dataset.parseFailedKey = hydration.key;
+            hydration.target.dataset.parseFailedAt = String(Date.now());
+            delete hydration.target.dataset.parsedKey;
         }
     }
 
@@ -2265,11 +2356,15 @@ export class SubtitlePlayerController {
         const target = this.transcriptPanel?.querySelector<HTMLElement>(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
         if (!cue || !target) return null;
         const key = this.parseCacheKey(cue.text, settings);
-        return target.dataset.parsedKey === key ? null : { cue, target, key };
+        return hasAttemptedTranscriptParse(target, key) ? null : { cue, target, key };
     }
 
     private applyCachedTranscriptRowHtml(hydration: TranscriptRowHydrationTarget, html: string): void {
         hydration.target.dataset.parsedKey = hydration.key;
+        delete hydration.target.dataset.parseEmptyKey;
+        delete hydration.target.dataset.parseEmptyAt;
+        delete hydration.target.dataset.parseFailedKey;
+        delete hydration.target.dataset.parseFailedAt;
         setInnerHtml(hydration.target, html);
     }
 
@@ -2359,10 +2454,23 @@ export class SubtitlePlayerController {
     private updateTranscriptRowsForParseKey(key: string, html: string): void {
         const panel = this.updatableTranscriptPanel();
         if (!panel) return;
+        const hasReaderWords = parsedSubtitleHtmlHasReaderWords(html);
         for (const target of Array.from(panel.querySelectorAll<HTMLElement>('[data-transcript-text]'))) {
             if (!shouldApplyParsedTranscriptHtml(target, key)) continue;
-            target.dataset.parsedKey = key;
-            setInnerHtml(target, html);
+            if (hasReaderWords) {
+                target.dataset.parsedKey = key;
+                delete target.dataset.parseEmptyKey;
+                delete target.dataset.parseEmptyAt;
+                delete target.dataset.parseFailedKey;
+                delete target.dataset.parseFailedAt;
+                setInnerHtml(target, html);
+            } else {
+                target.dataset.parseEmptyKey = key;
+                target.dataset.parseEmptyAt = String(Date.now());
+                delete target.dataset.parsedKey;
+                delete target.dataset.parseFailedKey;
+                delete target.dataset.parseFailedAt;
+            }
         }
     }
 
@@ -2779,13 +2887,17 @@ function isCijVideoPage(): boolean {
     return /(^|\.)cijapanese\.com$/i.test(location.hostname) && /^\/video\//i.test(location.pathname);
 }
 
-function requestText(url: string): Promise<string> {
+export function requestSubtitleText(url: string): Promise<string> {
     if (/^(blob|data):/i.test(url)) {
-        return fetch(url, { signal: AbortSignal.timeout(8000) }).then(response => {
-            if (!response.ok) throw new Error(`Subtitle request failed (${response.status}).`);
-            return response.text();
-        });
+        return fetchSubtitleText(url);
     }
+    if (shouldFetchSubtitleInPageContext(url)) {
+        return fetchSubtitleText(url).catch(error => requestSubtitleTextWithUserscript(url, error));
+    }
+    return requestSubtitleTextWithUserscript(url);
+}
+
+function requestSubtitleTextWithUserscript(url: string, pageFetchError?: unknown): Promise<string> {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
         return new Promise((resolve, reject) => {
@@ -2802,10 +2914,47 @@ function requestText(url: string): Promise<string> {
             });
         });
     }
-    return fetch(url, { signal: AbortSignal.timeout(8000) }).then(response => {
+    if (pageFetchError) return Promise.reject(pageFetchError);
+    return fetchSubtitleText(url);
+}
+
+function fetchSubtitleText(url: string): Promise<string> {
+    return fetch(url, { credentials: 'include', signal: subtitleRequestSignal() }).then(response => {
         if (!response.ok) throw new Error(`Subtitle request failed (${response.status}).`);
         return response.text();
     });
+}
+
+function subtitleRequestSignal(): AbortSignal | undefined {
+    return typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+        ? AbortSignal.timeout(SUBTITLE_REQUEST_TIMEOUT_MS)
+        : undefined;
+}
+
+function shouldFetchSubtitleInPageContext(url: string): boolean {
+    try {
+        const parsed = new URL(url, location.href);
+        if (parsed.origin === location.origin) return true;
+        return isYouTubePage()
+            && /(^|\.)youtube\.com$/i.test(parsed.hostname)
+            && /\/api\/timedtext$/i.test(parsed.pathname);
+    } catch {
+        return false;
+    }
+}
+
+function subtitleRequestFailureDetails(url: string): Record<string, string> {
+    try {
+        const parsed = new URL(url, location.href);
+        return {
+            host: parsed.hostname,
+            path: parsed.pathname,
+            format: parsed.searchParams.get('fmt') ?? '',
+            language: parsed.searchParams.get('lang') ?? '',
+        };
+    } catch {
+        return { url: 'invalid' };
+    }
 }
 
 function subtitleMenuSignature(state: SubtitleMenuState): string {

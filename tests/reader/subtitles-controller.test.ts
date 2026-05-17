@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import { SubtitlePlayerController } from '../../src/reader/subtitles';
-import type { JPDBToken } from '../../src/reader/types';
+import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles';
+import type { JPDBToken, ReaderSettings } from '../../src/reader/types';
 
 describe('SubtitlePlayerController', () => {
     afterEach(() => {
@@ -30,6 +30,34 @@ describe('SubtitlePlayerController', () => {
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="toggle"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="list"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
+    });
+
+    it('requests YouTube timedtext in the page context before using the userscript bridge', async () => {
+        const originalLocation = window.location;
+        const originalFetch = globalThis.fetch;
+        const fetchMock = vi.fn(async () => new Response('<timedtext><body><p t="1000" d="1000">今日は</p></body></timedtext>', { status: 200 }));
+        const gmRequest = vi.fn();
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        Object.defineProperty(globalThis, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('GM_xmlhttpRequest', gmRequest);
+
+        try {
+            const text = await requestSubtitleText('https://www.youtube.com/api/timedtext?v=abc123&lang=ja&fmt=srv3');
+
+            expect(text).toContain('timedtext');
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(gmRequest).not.toHaveBeenCalled();
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
+            vi.unstubAllGlobals();
+        }
     });
 
     it('destroys the mounted subtitle runtime and stops its timer', async () => {
@@ -273,6 +301,94 @@ describe('SubtitlePlayerController', () => {
             window.requestAnimationFrame = originalRequestAnimationFrame;
             window.cancelAnimationFrame = originalCancelAnimationFrame;
         }
+    });
+
+    it('does not cache empty subtitle parse results as parsed word HTML', async () => {
+        vi.useFakeTimers();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+            localDictionariesEnabled: false,
+        };
+        const token: JPDBToken = {
+            card: {
+                vid: 1,
+                sid: 2,
+                rid: 3,
+                spelling: '読む',
+                reading: 'よむ',
+                frequencyRank: null,
+                partOfSpeech: [],
+                meanings: [],
+                cardState: ['known'],
+                pitchAccent: [],
+                wordWithReading: null,
+            },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: 'heiban',
+            sentence: '読む',
+        };
+        const parseJapanese = vi.fn()
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([token]);
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese,
+            onSettingsChange: () => undefined,
+        });
+        const internals = controller as unknown as {
+            parseCueHtml: (text: string, settings: ReaderSettings) => Promise<string>;
+            parseCacheKey: (text: string, settings: ReaderSettings) => string;
+            parsedHtmlCache: Map<string, string>;
+        };
+        const key = internals.parseCacheKey('読む', settings);
+
+        await expect(internals.parseCueHtml('読む', settings)).resolves.toBe('読む');
+        expect(internals.parsedHtmlCache.has(key)).toBe(false);
+        await expect(internals.parseCueHtml('読む', settings)).resolves.toBe('読む');
+        expect(parseJapanese).toHaveBeenCalledTimes(1);
+
+        await vi.advanceTimersByTimeAsync(2501);
+        const parsed = await internals.parseCueHtml('読む', settings);
+        expect(parsed).toContain('jpdb-reader-word jpdb-known jpdb-pitch-heiban');
+        expect(internals.parsedHtmlCache.get(key)).toContain('jpdb-reader-word');
+        expect(parseJapanese).toHaveBeenCalledTimes(2);
+    });
+
+    it('invalidates subtitle parse cache keys when the parser source changes', () => {
+        const controller = new SubtitlePlayerController({
+            getSettings: () => DEFAULT_SETTINGS,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+        const internals = controller as unknown as {
+            parseCacheKey: (text: string, settings: typeof DEFAULT_SETTINGS) => string;
+        };
+        const localEmpty = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: true,
+            dictionaryPreferences: [],
+        };
+        const withApi = {
+            ...localEmpty,
+            apiKey: 'test-key',
+        };
+        const withDictionary = {
+            ...localEmpty,
+            dictionaryPreferences: [{
+                name: 'Jitendex',
+                alias: '',
+                enabled: true,
+                priority: 0,
+            }],
+        };
+
+        expect(internals.parseCacheKey('読む', localEmpty)).not.toBe(internals.parseCacheKey('読む', withApi));
+        expect(internals.parseCacheKey('読む', localEmpty)).not.toBe(internals.parseCacheKey('読む', withDictionary));
     });
 
     it('continues parsing transcript rows beyond the visible hydration window', async () => {

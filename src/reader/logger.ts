@@ -19,9 +19,9 @@ const RUNTIME_LOG_KEY = 'yomu:enable-logs';
 const REDACTED = '[redacted]';
 const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
 
-const env = (import.meta as ImportMeta & { env?: { DEV?: boolean; MODE?: string; PROD?: boolean; VITE_YOMU_ENABLE_LOGS?: string } }).env;
+const env = (import.meta as ImportMeta & { env?: { DEV?: boolean; MODE?: string; PROD?: boolean } }).env;
 const BUILD_IS_DEV_MODE = Boolean(env?.MODE === 'development' || (env?.DEV && !env.PROD && env.MODE !== 'test'));
-const BUILD_LOGGING_ENABLED = env?.VITE_YOMU_ENABLE_LOGS === '1' || env?.VITE_YOMU_ENABLE_LOGS === 'true';
+const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
 
 class ScopedLogger {
     constructor(private readonly parent: LoggerImpl, private readonly scopeName: string) {}
@@ -131,8 +131,7 @@ export function loggingSettingsSummary(settings: ReaderSettings): Record<string,
 }
 
 function isDevMode(): boolean {
-    if (BUILD_IS_DEV_MODE) return true;
-    return typeof window !== 'undefined' && typeof (window as Window & { __YOMU_DEV_VERSION__?: unknown }).__YOMU_DEV_VERSION__ === 'string';
+    return BUILD_IS_DEV_MODE;
 }
 
 function writeDebugToConsole(...args: unknown[]): void {
@@ -141,7 +140,6 @@ function writeDebugToConsole(...args: unknown[]): void {
 }
 
 function getRuntimeLoggingOverride(): boolean {
-    if (typeof window !== 'undefined' && Boolean((window as Window & { __YOMU_ENABLE_LOGS__?: boolean }).__YOMU_ENABLE_LOGS__)) return true;
     try {
         return gmStorageGetSync<boolean>(RUNTIME_LOG_KEY, false) === true;
     } catch {
@@ -202,7 +200,6 @@ declare global {
     interface Window {
         __YOMU_LOGGER__?: LoggerImpl;
         YomuLogger?: LoggerImpl;
-        __YOMU_ENABLE_LOGS__?: boolean;
     }
 }
 

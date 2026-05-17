@@ -51,6 +51,7 @@ import { computeSubtitleDrawerLayout } from '../../src/reader/subtitle-layout';
 import { collectPageSubtitleSources } from '../../src/reader/subtitle-sources';
 import { createSubtitleVideoInsetAdapter } from '../../src/reader/subtitle-video-inset';
 import { getYouTubeCaptionTracks, loadYouTubeTrackCues } from '../../src/reader/subtitle-youtube';
+import { applySubtitleNativeTrackModes } from '../../src/reader/subtitle-native-track-modes';
 import { installUchisenCarousel, loadUchisenImages, parseUchisenComponents, parseUchisenImages, parseUchisenKanjiKeyword } from '../../src/reader/uchisen';
 import { readPageCaptionText } from '../../src/reader/subtitle-dom-captions';
 import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isJapaneseSubtitleTrack, shouldReplaceWaitingNativeTrack } from '../../src/reader/subtitle-track-metadata';
@@ -3841,7 +3842,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('randomizes real audio sources before trying text-to-speech', async () => {
+    it('tries configured real audio sources before text-to-speech and caches playable audio', async () => {
         const played: string[] = [];
         const spoken: string[] = [];
         const requested: string[] = [];
@@ -3901,7 +3902,7 @@ describe('reader helpers', () => {
             await expect(player.play(card)).resolves.toBe(true);
             await expect(player.play(card)).resolves.toBe(true);
 
-            expect(requested).toEqual(['http://x.test/missing.mp3', 'http://x.test/available.mp3', 'http://x.test/missing.mp3']);
+            expect(requested).toEqual(['http://x.test/available.mp3']);
             expect(played).toEqual(['blob:http://localhost/random-source-audio.mp3', 'blob:http://localhost/random-source-audio.mp3']);
             expect(spoken).toEqual([]);
         } finally {
@@ -3919,7 +3920,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('uses text-to-speech only after randomized real audio sources all miss', async () => {
+    it('uses text-to-speech only after configured real audio sources all miss', async () => {
         const spoken: string[] = [];
         const requested: string[] = [];
         const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
@@ -3962,7 +3963,7 @@ describe('reader helpers', () => {
 
             await expect(player.play(card)).resolves.toBe(true);
 
-            expect(requested).toEqual(['http://x.test/second-missing.mp3', 'http://x.test/first-missing.mp3']);
+            expect(requested).toEqual(['http://x.test/first-missing.mp3', 'http://x.test/second-missing.mp3']);
             expect(spoken).toEqual([card.spelling]);
         } finally {
             randomSpy.mockRestore();
@@ -4019,7 +4020,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('tries JPDB word audio after natural sources and before browser text-to-speech', async () => {
+    it('can let JPDB word audio follow real audio before browser text-to-speech', async () => {
         const played: string[] = [];
         const spoken: string[] = [];
         const requested: Array<{ url: string; responseType?: string; headers?: Record<string, string> }> = [];
@@ -4091,12 +4092,13 @@ describe('reader helpers', () => {
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
                 audioSelectionMode: 'first',
+                audioTtsMode: 'source-order',
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
                     { type: 'custom', url: 'http://x.test/missing.mp3', voice: '', enabled: true },
-                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
                     { type: 'jpdb-tts', url: '', voice: '', enabled: true },
+                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
                 ],
             }));
 
@@ -4124,7 +4126,56 @@ describe('reader helpers', () => {
         }
     });
 
-    it('falls back to browser text-to-speech when JPDB has no word audio', async () => {
+    it('uses browser text-to-speech before slow JPDB word audio in fallback mode', async () => {
+        const spoken: string[] = [];
+        const requested: string[] = [];
+        class FakeSpeechSynthesisUtterance {
+            lang = '';
+            voice: SpeechSynthesisVoice | null = null;
+            onend: (() => void) | null = null;
+            onerror: (() => void) | null = null;
+            constructor(public text: string) {}
+        }
+        vi.stubGlobal('SpeechSynthesisUtterance', FakeSpeechSynthesisUtterance);
+        vi.stubGlobal('speechSynthesis', {
+            cancel: vi.fn(),
+            getVoices: vi.fn(() => []),
+            speak: vi.fn((utterance: FakeSpeechSynthesisUtterance) => {
+                spoken.push(utterance.text);
+                utterance.onend?.();
+            }),
+        });
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                details.onload?.({ status: 200, response: new Blob(['missing'], { type: 'text/html' }) });
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'custom', url: 'http://x.test/missing.mp3', voice: '', enabled: true },
+                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                    { type: 'jpdb-tts', url: '', voice: '', enabled: true },
+                ],
+            }));
+
+            await expect(player.play(card)).resolves.toBe(true);
+
+            expect(requested).toEqual(['http://x.test/missing.mp3']);
+            expect(spoken).toEqual([card.spelling]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps slow JPDB word audio behind browser text-to-speech in fallback mode', async () => {
         const spoken: string[] = [];
         const requested: string[] = [];
         class FakeSpeechSynthesisUtterance {
@@ -4168,11 +4219,7 @@ describe('reader helpers', () => {
 
             await expect(player.play(card)).resolves.toBe(true);
 
-            expect(requested).toEqual([
-                'https://jpdb.io/vocabulary/1/%E9%A3%9F%E3%81%B9%E3%82%8B/%E3%81%9F%E3%81%B9%E3%82%8B',
-                'https://jpdb.io/search?q=%E9%A3%9F%E3%81%B9%E3%82%8B',
-                'https://jpdb.io/search?q=%E3%81%9F%E3%81%B9%E3%82%8B',
-            ]);
+            expect(requested).toEqual([]);
             expect(spoken).toEqual([card.spelling]);
         } finally {
             vi.unstubAllGlobals();
@@ -8594,6 +8641,7 @@ describe('reader helpers', () => {
 
     it('loads YouTube captions through ordered timedtext fallbacks', async () => {
         const requestedFormats: Array<string | null> = [];
+        const requestErrors: Array<{ format: string | null; message: string }> = [];
         const cues = await loadYouTubeTrackCues({
             kind: 'youtube',
             label: 'Japanese (ja)',
@@ -8603,13 +8651,143 @@ describe('reader helpers', () => {
             requestText: async url => {
                 const format = new URL(url).searchParams.get('fmt');
                 requestedFormats.push(format);
+                if (format === 'srv3') return '';
                 if (format !== 'json3') throw new Error('try the next format');
                 return '<timedtext><body><p t="1000" d="3000"><s t="0">今日</s><s t="1200">読む</s></p></body></timedtext>';
             },
+            onRequestError: (_track, url, error) => requestErrors.push({
+                format: new URL(url).searchParams.get('fmt'),
+                message: error instanceof Error ? error.message : String(error),
+            }),
         });
 
         expect(requestedFormats).toEqual(['srv3', 'json3']);
+        expect(requestErrors).toEqual([{ format: 'srv3', message: 'YouTube timedtext response was empty.' }]);
         expect(cues).toMatchObject([{ start: 1, end: 4, text: '今日読む' }]);
+    });
+
+    it('falls back to Android InnerTube tracks when YouTube web timedtext is empty', async () => {
+        const originalLocation = window.location;
+        const originalFetch = globalThis.fetch;
+        const originalYtcfg = (window as Window & { ytcfg?: unknown }).ytcfg;
+        const requestedUrls: string[] = [];
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        (window as Window & { ytcfg?: { get: (key: string) => string } }).ytcfg = {
+            get: key => ({
+                INNERTUBE_API_KEY: 'test-key',
+                INNERTUBE_CLIENT_NAME: 'WEB',
+                HL: 'en',
+            })[key] ?? '',
+        };
+        Object.defineProperty(globalThis, 'fetch', {
+            configurable: true,
+            value: vi.fn(async () => new Response(JSON.stringify({
+                videoDetails: { videoId: 'abc123' },
+                captions: {
+                    playerCaptionsTracklistRenderer: {
+                        captionTracks: [{
+                            baseUrl: 'https://www.youtube.com/api/timedtext?v=abc123&android=1',
+                            languageCode: 'ja',
+                            name: { simpleText: '日本語' },
+                        }],
+                    },
+                },
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } })),
+        });
+
+        try {
+            const cues = await loadYouTubeTrackCues({
+                kind: 'youtube',
+                label: 'Japanese (ja)',
+                language: 'ja',
+                url: 'https://www.youtube.com/api/timedtext?v=abc123&lang=ja',
+            }, {
+                requestText: async url => {
+                    requestedUrls.push(url);
+                    if (!url.includes('android=1')) return '';
+                    if (new URL(url).searchParams.get('fmt') !== 'json3') return '';
+                    return JSON.stringify({
+                        events: [
+                            { tStartMs: 1250, dDurationMs: 1750, segs: [{ utf8: '今日は' }, { utf8: '読む。' }] },
+                        ],
+                    });
+                },
+            });
+
+            expect(globalThis.fetch).toHaveBeenCalledWith('https://www.youtube.com/youtubei/v1/player?key=test-key', expect.objectContaining({ method: 'POST' }));
+            expect(requestedUrls.some(url => url.includes('android=1') && url.includes('lang=ja'))).toBe(true);
+            expect(cues).toMatchObject([{ start: 1.25, end: 3, text: '今日は読む。' }]);
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
+            (window as Window & { ytcfg?: unknown }).ytcfg = originalYtcfg;
+        }
+    });
+
+    it('keeps native YouTube captions visible while Yomu is using DOM caption fallback', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+
+        try {
+            const active = applySubtitleNativeTrackModes({
+                tracks: [{ id: 'youtube-0', label: 'Japanese', kind: 'youtube' }],
+                selectedTrackId: 'youtube-0',
+                secondaryTrackId: '',
+                overlayVisible: true,
+                hasPrimaryCues: false,
+                currentCueText: undefined,
+                youtubeDomCaptionFallbackTrackId: 'youtube-0',
+                lastYomuCaptionsActive: false,
+            });
+
+            expect(active).toBe(false);
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(false);
+        } finally {
+            document.documentElement.classList.remove('jpdb-subtitle-yomu-captions-active');
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('hides native YouTube captions after Yomu has loaded subtitle cues', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+
+        try {
+            const active = applySubtitleNativeTrackModes({
+                tracks: [{ id: 'youtube-0', label: 'Japanese', kind: 'youtube' }],
+                selectedTrackId: 'youtube-0',
+                secondaryTrackId: '',
+                overlayVisible: true,
+                hasPrimaryCues: true,
+                currentCueText: '今日は',
+                youtubeDomCaptionFallbackTrackId: '',
+                lastYomuCaptionsActive: false,
+            });
+
+            expect(active).toBe(true);
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(true);
+        } finally {
+            document.documentElement.classList.remove('jpdb-subtitle-yomu-captions-active');
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
     });
 
     it('renders subtitle primary states behind a small interface', () => {
@@ -8697,6 +8875,7 @@ describe('reader helpers', () => {
                     captionTracks: [
                         { baseUrl: 'https://www.youtube.com/api/timedtext?v=abc123&lang=ja', languageCode: 'ja', name: { simpleText: '日本語' } },
                         { baseUrl: 'https://www.youtube.com/api/timedtext?v=abc123&lang=ja', languageCode: 'ja', name: { simpleText: '日本語' } },
+                        { baseUrl: 'https://www.youtube.com/api/timedtext?v=abc123&lang=ja&pot=best&potc=1', languageCode: 'ja', name: { simpleText: '日本語' } },
                         { baseUrl: 'https://www.youtube.com/api/timedtext?v=abc123&lang=en', languageCode: 'en', kind: 'asr', name: { simpleText: 'English' } },
                     ],
                 },
@@ -8709,6 +8888,7 @@ describe('reader helpers', () => {
             expect(tracks).toHaveLength(2);
             expect(tracks[0]).toMatchObject({ label: '日本語 (ja)', language: 'ja', autoGenerated: false });
             expect(tracks[0].url).toContain('fmt=srv3');
+            expect(tracks[0].url).toContain('pot=best');
             expect(tracks[1]).toMatchObject({ label: 'English (en) · auto-generated', language: 'en', autoGenerated: true });
         } finally {
             (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = originalResponse;
@@ -9609,6 +9789,23 @@ describe('reader helpers', () => {
 
         const targets = collectTextTargetsIn(document.body, 10, false);
         expect(targets.map(target => target.text)).toEqual(['今日は本を読みます。']);
+    });
+
+    it('keeps prose parseable when content class names contain UI-ish words', () => {
+        document.body.innerHTML = `
+            <main>
+                <article>
+                    <p class="article-label">今日は静かな部屋で本を読みます。</p>
+                    <p class="story-tag">猫と暮らすための日本語を読みます。</p>
+                </article>
+            </main>
+        `;
+
+        const targets = collectTextTargetsIn(document.body, 10, false);
+        expect(targets.map(target => target.text)).toEqual([
+            '今日は静かな部屋で本を読みます。',
+            '猫と暮らすための日本語を読みます。',
+        ]);
     });
 
     it('does not rewrite short centered display headings that can break page layout', () => {
