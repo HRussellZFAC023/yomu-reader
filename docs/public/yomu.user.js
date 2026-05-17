@@ -3177,6 +3177,8 @@
       frequencyDictionaries: "Frequency dictionaries",
       homepage: "Homepage",
       install: "Install",
+      installing: "Installing",
+      queued: "Queued",
       download: "Download",
       downloadAndImport: "Download and import into よむ",
       update: "Update",
@@ -3199,6 +3201,9 @@
       dictionaryDownloadNeedsBridge: "Dictionary download needs the userscript request bridge on this page. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.",
       dictionaryDownloadBlocked: "Dictionary download is blocked in this browser. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.",
       dictionaryManualDownloadHint: "Enable the よむ userscript on this page, then tap Download again. You can also download the ZIP manually and use Import dictionary above.",
+      dictionaryInstallQueued: "{dictionary} queued. It will install after the current dictionary finishes.",
+      dictionaryInstallSaveBlocked: "Dictionary import is still running. Save will be available when it finishes.",
+      dictionaryImportQueueStatus: "{count} dictionary install{plural} in progress. Save will be available when finished.",
       dictionaryRemoved: "Removed {dictionary}.",
       dictionaryImportComplete: "Imported {records} records from {sources} dictionary source{plural}.",
       dictionaryRecordsImported: "{dictionary}: {records} records imported.",
@@ -3758,6 +3763,9 @@
     dictionaryDownloadNeedsBridge: "このページで辞書をダウンロードするには、ユーザースクリプトのリクエストブリッジが必要です。自動ダウンロードに失敗する場合は、辞書URLを開いて設定からZIPをインポートしてください。",
     dictionaryDownloadBlocked: "このブラウザーでは辞書のダウンロードがブロックされています。自動ダウンロードに失敗する場合は、辞書URLを開いて設定からZIPをインポートしてください。",
     dictionaryManualDownloadHint: "このページでよむのユーザースクリプトを有効にしてから、もう一度ダウンロードを押してください。ZIPを手動でダウンロードして、上の辞書インポートから読み込むこともできます。",
+    dictionaryInstallQueued: "{dictionary}を待機中です。現在の辞書が終わったらインストールします。",
+    dictionaryInstallSaveBlocked: "辞書インポートがまだ進行中です。完了すると保存できます。",
+    dictionaryImportQueueStatus: "{count}件の辞書インストールが進行中です。完了すると保存できます。",
     dictionaryRemoved: "{dictionary}を削除しました。",
     dictionaryImportComplete: "{sources}件の辞書ソースから{records}件のレコードをインポートしました。",
     dictionaryRecordsImported: "{dictionary}: {records}件のレコードをインポートしました。",
@@ -4380,6 +4388,8 @@
     frequencyDictionaries: "頻度辞書",
     homepage: "ホームページ",
     install: "インストール",
+    installing: "インストール中",
+    queued: "待機中",
     download: "ダウンロード",
     downloadAndImport: "ダウンロードしてよむにインポート",
     update: "更新",
@@ -25327,6 +25337,7 @@ ${spelling}`);
   function renderSettingsFooter() {
     return `
             <div class="footer">
+                <div class="jpdb-reader-settings-save-status" data-settings-save-status role="status" aria-live="polite" hidden></div>
                 <button class="jpdb-reader-btn" type="button" data-action="cancel">Cancel</button>
                 <button class="jpdb-reader-btn add" type="submit">Save</button>
             </div>
@@ -25852,8 +25863,10 @@ ${spelling}`);
   function localizeRecommendedDictionaryButtons(form, text2) {
     form.querySelectorAll('[data-action="download-recommended-dictionary"]').forEach((button2) => {
       const installed = button2.dataset.installed === "true";
-      button2.textContent = installed ? text2("update") : text2("install");
-      button2.title = installed ? text2("update") : text2("install");
+      const state = button2.dataset.importState;
+      const label = state === "installing" ? text2("installing") : state === "queued" ? text2("queued") : installed ? text2("update") : text2("install");
+      button2.textContent = label;
+      button2.title = button2.dataset.importMessage || label;
       button2.setAttribute("aria-label", button2.title);
     });
   }
@@ -27199,9 +27212,6 @@ ${spelling}`);
     if (!dictionary) throw new Error("Recommended dictionary not found.");
     return dictionary;
   }
-  function disableRecommendedDictionaryControl(control) {
-    control?.setAttribute("disabled", "true");
-  }
   function recommendedDictionaryDownloadStatus(control, dictionaryName) {
     return `${control?.dataset.installed === "true" ? "Updating" : "Downloading"} ${dictionaryName}...`;
   }
@@ -27241,6 +27251,9 @@ ${spelling}`);
     constructor(dependencies) {
       this.dependencies = dependencies;
     }
+    dictionaryOperationQueue = Promise.resolve();
+    pendingDictionaryOperations = 0;
+    recommendedDictionaryOperations = /* @__PURE__ */ new Map();
     open(panel) {
       log$5.info("Opening settings", { panel: panel ?? "default" });
       const form = this.createSettingsForm(panel);
@@ -27251,6 +27264,8 @@ ${spelling}`);
       this.dependencies.mountDialog(backdrop, form);
       installSettingsDrawerHandle(form);
       this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
+      this.syncRecommendedDictionaryInstallControls(form);
+      this.syncDictionaryOperationState(form);
       void this.refreshDictionaryStatus(form);
       void this.refreshDeckControls(form);
     }
@@ -27276,6 +27291,10 @@ ${spelling}`);
     bindFormSubmit(form) {
       form.addEventListener("submit", (event) => {
         event.preventDefault();
+        if (this.pendingDictionaryOperations > 0) {
+          this.showDictionarySaveBlocked(form);
+          return;
+        }
         const previousInitialOpen = this.settings.dictionarySourcesInitiallyExpanded;
         this.settings = readFormSettings(new FormData(form), this.settings);
         configureLogger({ forceEnabled: this.settings.enableLogging });
@@ -27510,6 +27529,8 @@ ${spelling}`);
       await this.dependencies.refreshDictionaryStyles();
       renderDictionaryStatusElements(elements, summary, this.settings);
       localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+      this.syncRecommendedDictionaryInstallControls(form);
+      this.syncDictionaryOperationState(form);
     }
     async mergeDictionaryPreferencesFromSummary(summary) {
       const names = summary.dictionaries.map((item) => item.title);
@@ -27518,6 +27539,76 @@ ${spelling}`);
       if (merged.length === this.settings.dictionaryPreferences.length) return;
       this.settings.dictionaryPreferences = merged;
       await saveSettings(this.settings);
+    }
+    async enqueueDictionaryOperation(form, task) {
+      this.pendingDictionaryOperations++;
+      this.syncDictionaryOperationState(form);
+      const operation = this.dictionaryOperationQueue.then(task);
+      this.dictionaryOperationQueue = operation.then(() => void 0, () => void 0);
+      try {
+        return await operation;
+      } finally {
+        this.pendingDictionaryOperations = Math.max(0, this.pendingDictionaryOperations - 1);
+        this.syncDictionaryOperationState(form);
+      }
+    }
+    syncDictionaryOperationState(form) {
+      const save = form.querySelector('button[type="submit"]');
+      const status = form.querySelector("[data-settings-save-status]");
+      const busy = this.pendingDictionaryOperations > 0;
+      if (save) {
+        save.disabled = busy;
+        save.setAttribute("aria-disabled", String(busy));
+      }
+      if (!status) return;
+      status.hidden = !busy;
+      status.textContent = busy ? formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryImportQueueStatus"), {
+        count: this.pendingDictionaryOperations.toLocaleString(),
+        plural: this.pendingDictionaryOperations === 1 ? "" : "s"
+      }) : "";
+    }
+    showDictionarySaveBlocked(form) {
+      this.syncDictionaryOperationState(form);
+      const message = uiText(this.settings.interfaceLanguage, "dictionaryInstallSaveBlocked");
+      const status = form.querySelector("[data-settings-save-status]");
+      if (status) {
+        status.hidden = false;
+        status.textContent = message;
+      }
+      this.dependencies.toast(message);
+    }
+    setRecommendedDictionaryInstallState(form, dictionaryId, state, message) {
+      this.recommendedDictionaryOperations.set(dictionaryId, { state, message });
+      this.syncRecommendedDictionaryInstallControls(form);
+    }
+    clearRecommendedDictionaryInstallState(form, dictionaryId) {
+      this.recommendedDictionaryOperations.delete(dictionaryId);
+      this.syncRecommendedDictionaryInstallControls(form);
+    }
+    syncRecommendedDictionaryInstallControls(form) {
+      form.querySelectorAll('[data-action="download-recommended-dictionary"]').forEach((button2) => {
+        const dictionaryId = button2.dataset.dictionaryId ?? "";
+        const operation = this.recommendedDictionaryOperations.get(dictionaryId);
+        if (!operation) {
+          delete button2.dataset.importState;
+          delete button2.dataset.importMessage;
+          button2.disabled = false;
+          button2.removeAttribute("disabled");
+          const installed = button2.dataset.installed === "true";
+          const label2 = installed ? uiText(this.settings.interfaceLanguage, "update") : uiText(this.settings.interfaceLanguage, "install");
+          button2.replaceChildren(label2);
+          button2.title = label2;
+          button2.setAttribute("aria-label", label2);
+          return;
+        }
+        const label = uiText(this.settings.interfaceLanguage, operation.state === "installing" ? "installing" : "queued");
+        button2.disabled = true;
+        button2.dataset.importState = operation.state;
+        button2.dataset.importMessage = operation.message;
+        button2.replaceChildren(label);
+        button2.title = operation.message;
+        button2.setAttribute("aria-label", operation.message);
+      });
     }
     async handleSettingsAction(form, action, control) {
       const status = form.querySelector("[data-import-status]");
@@ -27713,32 +27804,48 @@ ${spelling}`);
     async importDictionaryFromSettings(form, setStatus) {
       const file = await pickFile(form, "dictionary");
       if (!file) return;
-      const summary = await this.dependencies.dictionaries.importFile(file, (message) => setStatus(message));
-      await this.persistDictionaryImport(summary);
-      setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryImportComplete"), {
-        records: summary.entries.toLocaleString(),
-        sources: summary.dictionaries.length.toLocaleString(),
-        plural: summary.dictionaries.length === 1 ? "" : "s"
-      }));
-      log$5.info("Dictionary file imported", summary);
-      await this.refreshDictionaryStatus(form);
-      this.dependencies.refreshNewTabIfCurrent();
+      await this.enqueueDictionaryOperation(form, async () => {
+        const summary = await this.dependencies.dictionaries.importFile(file, (message) => setStatus(message));
+        await this.persistDictionaryImport(summary);
+        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryImportComplete"), {
+          records: summary.entries.toLocaleString(),
+          sources: summary.dictionaries.length.toLocaleString(),
+          plural: summary.dictionaries.length === 1 ? "" : "s"
+        }));
+        log$5.info("Dictionary file imported", summary);
+        await this.refreshDictionaryStatus(form);
+        this.dependencies.refreshNewTabIfCurrent();
+      });
     }
     async downloadRecommendedDictionaryFromSettings(form, control, setStatus) {
       const dictionary = recommendedDictionaryForControl(control);
-      disableRecommendedDictionaryControl(control);
-      setStatus(recommendedDictionaryDownloadStatus(control, dictionary.name));
-      log$5.info("Downloading selected dictionary", { dictionary: dictionary.name });
-      const summary = await this.downloadRecommendedDictionary(dictionary, control, setStatus);
-      if (!summary) return;
-      await this.persistDictionaryImport(summary);
-      setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRecordsImported"), {
-        dictionary: dictionary.name,
-        records: summary.entries.toLocaleString()
-      }));
-      await this.refreshDictionaryStatus(form);
-      this.dependencies.refreshNewTabIfCurrent();
-      log$5.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
+      if (this.recommendedDictionaryOperations.has(dictionary.id)) return;
+      const queuedMessage = formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryInstallQueued"), { dictionary: dictionary.name });
+      this.setRecommendedDictionaryInstallState(form, dictionary.id, "queued", queuedMessage);
+      setStatus(queuedMessage);
+      await this.enqueueDictionaryOperation(form, async () => {
+        try {
+          const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name);
+          this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", startedMessage);
+          setStatus(startedMessage);
+          log$5.info("Downloading selected dictionary", { dictionary: dictionary.name });
+          const summary = await this.downloadRecommendedDictionary(dictionary, control, (message) => {
+            setStatus(message);
+            this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", `${dictionary.name}: ${message}`);
+          });
+          if (!summary) return;
+          await this.persistDictionaryImport(summary);
+          setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRecordsImported"), {
+            dictionary: dictionary.name,
+            records: summary.entries.toLocaleString()
+          }));
+          await this.refreshDictionaryStatus(form);
+          this.dependencies.refreshNewTabIfCurrent();
+          log$5.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
+        } finally {
+          this.clearRecommendedDictionaryInstallState(form, dictionary.id);
+        }
+      });
     }
     async persistDictionaryImport(summary) {
       this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
@@ -33099,6 +33206,40 @@ html.jpdb-reader-doodle-active * {
   transform: scale(0.98);
 }
 
+.jpdb-reader-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.jpdb-reader-btn[data-import-state] {
+  gap: 7px;
+  cursor: progress;
+  opacity: 1;
+}
+
+.jpdb-reader-btn[data-import-state]::before {
+  content: "";
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.jpdb-reader-btn[data-import-state="installing"]::before {
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: jpdb-reader-spin 0.8s linear infinite;
+}
+
+.jpdb-reader-btn[data-import-state="queued"]::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.72;
+}
+
 .jpdb-reader-btn.add {
   color: var(--jpdb-reader-accent-readable) !important;
   border-color: var(--jpdb-reader-accent) !important;
@@ -33118,6 +33259,18 @@ html.jpdb-reader-doodle-active * {
   ) !important;
   box-shadow: 0 4px 12px
     color-mix(in srgb, var(--jpdb-reader-accent) 20%, transparent);
+}
+
+@keyframes jpdb-reader-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jpdb-reader-btn[data-import-state="installing"]::before {
+    animation-duration: 1.8s;
+  }
 }
 
 .jpdb-reader-field-display {
@@ -33363,6 +33516,8 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings .footer {
   flex: 0 0 auto;
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: 10px;
   margin: 0;
@@ -33370,6 +33525,13 @@ html.jpdb-reader-doodle-active * {
   border-top: 1px solid var(--jpdb-reader-border);
   padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
   box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.jpdb-reader-settings-save-status {
+  flex: 1 1 100%;
+  color: var(--jpdb-reader-accent-readable);
+  font: 760 11px/1.35 var(--jpdb-reader-font);
+  text-align: right;
 }
 
 .jpdb-reader-settings .footer .jpdb-reader-btn {

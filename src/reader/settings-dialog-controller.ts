@@ -82,6 +82,14 @@ interface DictionaryStatusElements {
     recommended: HTMLElement | null;
 }
 
+type RecommendedDictionary = (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number];
+type RecommendedDictionaryInstallState = 'queued' | 'installing';
+
+interface RecommendedDictionaryOperationState {
+    state: RecommendedDictionaryInstallState;
+    message: string;
+}
+
 const log = Logger.scope('SettingsDialog');
 const JPDB_SETTINGS_URL = 'https://jpdb.io/settings';
 
@@ -104,14 +112,10 @@ function sourceRowIndex(form: HTMLFormElement, row: HTMLElement): number {
     return Array.from(form.querySelectorAll('[data-audio-source-row]')).indexOf(row);
 }
 
-function recommendedDictionaryForControl(control: HTMLElement | null | undefined): (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number] {
+function recommendedDictionaryForControl(control: HTMLElement | null | undefined): RecommendedDictionary {
     const dictionary = control?.dataset.dictionaryId ? findRecommendedDictionary(control.dataset.dictionaryId) : undefined;
     if (!dictionary) throw new Error('Recommended dictionary not found.');
     return dictionary;
-}
-
-function disableRecommendedDictionaryControl(control: HTMLElement | null | undefined): void {
-    control?.setAttribute('disabled', 'true');
 }
 
 function recommendedDictionaryDownloadStatus(control: HTMLElement | null | undefined, dictionaryName: string): string {
@@ -166,6 +170,10 @@ function setDictionaryStatusError(status: HTMLElement | null, error: unknown): v
 }
 
 export class SettingsDialogController {
+    private dictionaryOperationQueue: Promise<void> = Promise.resolve();
+    private pendingDictionaryOperations = 0;
+    private recommendedDictionaryOperations = new Map<string, RecommendedDictionaryOperationState>();
+
     constructor(private readonly dependencies: SettingsDialogDependencies) {}
 
     open(panel?: string): void {
@@ -178,6 +186,8 @@ export class SettingsDialogController {
         this.dependencies.mountDialog(backdrop, form);
         installSettingsDrawerHandle(form);
         this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
+        this.syncRecommendedDictionaryInstallControls(form);
+        this.syncDictionaryOperationState(form);
         void this.refreshDictionaryStatus(form);
         void this.refreshDeckControls(form);
     }
@@ -207,6 +217,10 @@ export class SettingsDialogController {
     private bindFormSubmit(form: HTMLFormElement): void {
         form.addEventListener('submit', event => {
             event.preventDefault();
+            if (this.pendingDictionaryOperations > 0) {
+                this.showDictionarySaveBlocked(form);
+                return;
+            }
             const previousInitialOpen = this.settings.dictionarySourcesInitiallyExpanded;
             this.settings = readFormSettings(new FormData(form), this.settings);
             configureLogger({ forceEnabled: this.settings.enableLogging });
@@ -452,6 +466,8 @@ export class SettingsDialogController {
         await this.dependencies.refreshDictionaryStyles();
         renderDictionaryStatusElements(elements, summary, this.settings);
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+        this.syncRecommendedDictionaryInstallControls(form);
+        this.syncDictionaryOperationState(form);
     }
 
     private async mergeDictionaryPreferencesFromSummary(summary: DictionarySummary): Promise<void> {
@@ -461,6 +477,89 @@ export class SettingsDialogController {
         if (merged.length === this.settings.dictionaryPreferences.length) return;
         this.settings.dictionaryPreferences = merged;
         await saveSettings(this.settings);
+    }
+
+    private async enqueueDictionaryOperation<T>(form: HTMLFormElement, task: () => Promise<T>): Promise<T> {
+        this.pendingDictionaryOperations++;
+        this.syncDictionaryOperationState(form);
+        const operation = this.dictionaryOperationQueue.then(task);
+        this.dictionaryOperationQueue = operation.then(() => undefined, () => undefined);
+        try {
+            return await operation;
+        } finally {
+            this.pendingDictionaryOperations = Math.max(0, this.pendingDictionaryOperations - 1);
+            this.syncDictionaryOperationState(form);
+        }
+    }
+
+    private syncDictionaryOperationState(form: HTMLFormElement): void {
+        const save = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+        const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
+        const busy = this.pendingDictionaryOperations > 0;
+        if (save) {
+            save.disabled = busy;
+            save.setAttribute('aria-disabled', String(busy));
+        }
+        if (!status) return;
+        status.hidden = !busy;
+        status.textContent = busy
+            ? formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryImportQueueStatus'), {
+                count: this.pendingDictionaryOperations.toLocaleString(),
+                plural: this.pendingDictionaryOperations === 1 ? '' : 's',
+            })
+            : '';
+    }
+
+    private showDictionarySaveBlocked(form: HTMLFormElement): void {
+        this.syncDictionaryOperationState(form);
+        const message = uiText(this.settings.interfaceLanguage, 'dictionaryInstallSaveBlocked');
+        const status = form.querySelector<HTMLElement>('[data-settings-save-status]');
+        if (status) {
+            status.hidden = false;
+            status.textContent = message;
+        }
+        this.dependencies.toast(message);
+    }
+
+    private setRecommendedDictionaryInstallState(
+        form: HTMLFormElement,
+        dictionaryId: string,
+        state: RecommendedDictionaryInstallState,
+        message: string,
+    ): void {
+        this.recommendedDictionaryOperations.set(dictionaryId, { state, message });
+        this.syncRecommendedDictionaryInstallControls(form);
+    }
+
+    private clearRecommendedDictionaryInstallState(form: HTMLFormElement, dictionaryId: string): void {
+        this.recommendedDictionaryOperations.delete(dictionaryId);
+        this.syncRecommendedDictionaryInstallControls(form);
+    }
+
+    private syncRecommendedDictionaryInstallControls(form: HTMLFormElement): void {
+        form.querySelectorAll<HTMLButtonElement>('[data-action="download-recommended-dictionary"]').forEach(button => {
+            const dictionaryId = button.dataset.dictionaryId ?? '';
+            const operation = this.recommendedDictionaryOperations.get(dictionaryId);
+            if (!operation) {
+                delete button.dataset.importState;
+                delete button.dataset.importMessage;
+                button.disabled = false;
+                button.removeAttribute('disabled');
+                const installed = button.dataset.installed === 'true';
+                const label = installed ? uiText(this.settings.interfaceLanguage, 'update') : uiText(this.settings.interfaceLanguage, 'install');
+                button.replaceChildren(label);
+                button.title = label;
+                button.setAttribute('aria-label', label);
+                return;
+            }
+            const label = uiText(this.settings.interfaceLanguage, operation.state === 'installing' ? 'installing' : 'queued');
+            button.disabled = true;
+            button.dataset.importState = operation.state;
+            button.dataset.importMessage = operation.message;
+            button.replaceChildren(label);
+            button.title = operation.message;
+            button.setAttribute('aria-label', operation.message);
+        });
     }
 
     private async handleSettingsAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<void> {
@@ -675,33 +774,49 @@ export class SettingsDialogController {
     private async importDictionaryFromSettings(form: HTMLFormElement, setStatus: SettingsStatusSetter): Promise<void> {
         const file = await pickFile(form, 'dictionary');
         if (!file) return;
-        const summary = await this.dependencies.dictionaries.importFile(file, message => setStatus(message));
-        await this.persistDictionaryImport(summary);
-        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryImportComplete'), {
-            records: summary.entries.toLocaleString(),
-            sources: summary.dictionaries.length.toLocaleString(),
-            plural: summary.dictionaries.length === 1 ? '' : 's',
-        }));
-        log.info('Dictionary file imported', summary);
-        await this.refreshDictionaryStatus(form);
-        this.dependencies.refreshNewTabIfCurrent();
+        await this.enqueueDictionaryOperation(form, async () => {
+            const summary = await this.dependencies.dictionaries.importFile(file, message => setStatus(message));
+            await this.persistDictionaryImport(summary);
+            setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryImportComplete'), {
+                records: summary.entries.toLocaleString(),
+                sources: summary.dictionaries.length.toLocaleString(),
+                plural: summary.dictionaries.length === 1 ? '' : 's',
+            }));
+            log.info('Dictionary file imported', summary);
+            await this.refreshDictionaryStatus(form);
+            this.dependencies.refreshNewTabIfCurrent();
+        });
     }
 
     private async downloadRecommendedDictionaryFromSettings(form: HTMLFormElement, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<void> {
         const dictionary = recommendedDictionaryForControl(control);
-        disableRecommendedDictionaryControl(control);
-        setStatus(recommendedDictionaryDownloadStatus(control, dictionary.name));
-        log.info('Downloading selected dictionary', { dictionary: dictionary.name });
-        const summary = await this.downloadRecommendedDictionary(dictionary, control, setStatus);
-        if (!summary) return;
-        await this.persistDictionaryImport(summary);
-        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRecordsImported'), {
-            dictionary: dictionary.name,
-            records: summary.entries.toLocaleString(),
-        }));
-        await this.refreshDictionaryStatus(form);
-        this.dependencies.refreshNewTabIfCurrent();
-        log.info('Selected dictionary downloaded', { dictionary: dictionary.name, entries: summary.entries });
+        if (this.recommendedDictionaryOperations.has(dictionary.id)) return;
+        const queuedMessage = formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryInstallQueued'), { dictionary: dictionary.name });
+        this.setRecommendedDictionaryInstallState(form, dictionary.id, 'queued', queuedMessage);
+        setStatus(queuedMessage);
+        await this.enqueueDictionaryOperation(form, async () => {
+            try {
+                const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name);
+                this.setRecommendedDictionaryInstallState(form, dictionary.id, 'installing', startedMessage);
+                setStatus(startedMessage);
+                log.info('Downloading selected dictionary', { dictionary: dictionary.name });
+                const summary = await this.downloadRecommendedDictionary(dictionary, control, message => {
+                    setStatus(message);
+                    this.setRecommendedDictionaryInstallState(form, dictionary.id, 'installing', `${dictionary.name}: ${message}`);
+                });
+                if (!summary) return;
+                await this.persistDictionaryImport(summary);
+                setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRecordsImported'), {
+                    dictionary: dictionary.name,
+                    records: summary.entries.toLocaleString(),
+                }));
+                await this.refreshDictionaryStatus(form);
+                this.dependencies.refreshNewTabIfCurrent();
+                log.info('Selected dictionary downloaded', { dictionary: dictionary.name, entries: summary.entries });
+            } finally {
+                this.clearRecommendedDictionaryInstallState(form, dictionary.id);
+            }
+        });
     }
 
     private async persistDictionaryImport(summary: ImportSummary): Promise<void> {
@@ -713,7 +828,7 @@ export class SettingsDialogController {
     }
 
     private async downloadRecommendedDictionary(
-        dictionary: (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number],
+        dictionary: RecommendedDictionary,
         control: HTMLElement | null | undefined,
         setStatus: SettingsStatusSetter,
     ): Promise<ImportSummary | null> {
@@ -725,7 +840,7 @@ export class SettingsDialogController {
     }
 
     private handleRecommendedDictionaryDownloadError(
-        dictionary: (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number],
+        dictionary: RecommendedDictionary,
         control: HTMLElement | null | undefined,
         setStatus: SettingsStatusSetter,
         error: unknown,
