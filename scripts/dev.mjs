@@ -19,9 +19,10 @@ const metadataPath = '/yomu.meta.js';
 const installPath = '/yomu.user.js';
 const runtimePath = '/__yomu-dev-runtime.js';
 const versionPath = '/__yomu-dev-version.json';
+const newTabVersionPath = '/__yomu-newtab-dev-version.json';
 const jpdbAudioProxyPath = '/__yomu-jpdb-audio/';
 const jpdbAudioAccessHeader = "please don't steal these files";
-const autoReload = process.env.YOMU_DEV_AUTO_RELOAD === '1';
+const autoReload = !isDisabledEnv(process.env.YOMU_DEV_AUTO_RELOAD);
 const loggingEnabled = isEnabledEnv(process.env.YOMU_ENABLE_LOGS);
 const pageInjectionEnabled = isEnabledEnv(process.env.YOMU_DEV_PAGE_INJECTION);
 const devServerStartedAt = Date.now();
@@ -31,6 +32,7 @@ const buildFreshnessSkewMs = 2_000;
 
 let closing = false;
 let firstBuildReadyPromise;
+let firstNewTabBuildReadyPromise;
 const builders = [
     spawnViteBuilder(['build', '--watch', '--mode', 'development']),
     spawnViteBuilder(['build', '--watch', '--mode', 'development', '--config', 'vite.newtab.config.ts']),
@@ -84,6 +86,7 @@ const FIXED_ROUTES = new Map([
     [metadataPath, serveMetadata],
     [runtimePath, serveRuntime],
     [versionPath, serveVersion],
+    [newTabVersionPath, serveNewTabVersion],
     ['/favicon.ico', serveFavicon],
     ['/', serveIndex],
 ]);
@@ -93,8 +96,9 @@ function isUserscriptPath(pathname) {
 }
 
 async function serveStaticPath(pathname, res) {
+    if (isNewTabRequest(pathname)) await waitForFreshInitialNewTabBuild();
     const filePath = await resolveStatic(pathname);
-    send(res, 200, await readFile(filePath), contentType(filePath));
+    sendNoStore(res, 200, await staticResponseBody(filePath), contentType(filePath));
 }
 
 async function serveIndex(res) {
@@ -122,7 +126,7 @@ function devServerReadyLines() {
     return [
         `[dev] Install userscript: ${origin}/yomu.user.js`,
         `[dev] Runtime bundle:     ${origin}${runtimePath}`,
-        `[dev] Auto reload:        ${onOff(autoReload)}`,
+        `[dev] Auto reload:        ${autoReloadStatus()}`,
         `[dev] Console logging:    ${onOffWithHint(loggingEnabled, 'YOMU_ENABLE_LOGS=1')}`,
         `[dev] Page injection:     ${onOffWithHint(pageInjectionEnabled, 'YOMU_DEV_PAGE_INJECTION=1')}`,
         `[dev] Local app:          ${origin}/newtab/`,
@@ -135,6 +139,10 @@ function onOff(value) {
 
 function onOffWithHint(value, hint) {
     return value ? 'on' : `off (set ${hint} to enable)`;
+}
+
+function autoReloadStatus() {
+    return autoReload ? 'on (set YOMU_DEV_AUTO_RELOAD=0 to disable)' : 'off';
 }
 
 process.on('SIGINT', () => shutdown(0));
@@ -175,14 +183,27 @@ function waitForFreshInitialBuild() {
     return firstBuildReadyPromise;
 }
 
+function waitForFreshInitialNewTabBuild() {
+    firstNewTabBuildReadyPromise ??= waitForFreshNewTabBuild();
+    return firstNewTabBuildReadyPromise;
+}
+
 async function waitForFreshUserscriptBuild() {
+    await waitForFreshBuild(userscriptPath, 'Vite userscript build');
+}
+
+async function waitForFreshNewTabBuild() {
+    await waitForFreshBuild(path.join(distDir, 'newtab', 'app.js'), 'Vite new tab build');
+}
+
+async function waitForFreshBuild(filePath, label) {
     const deadline = Date.now() + firstBuildTimeoutMs;
     while (Date.now() < deadline) {
-        const info = await stat(userscriptPath).catch(() => null);
+        const info = await stat(filePath).catch(() => null);
         if (info?.isFile() && info.mtimeMs >= devServerStartedAt - buildFreshnessSkewMs) return;
         await delay(firstBuildPollMs);
     }
-    throw new Error(`Timed out waiting for a fresh Vite userscript build at ${userscriptPath}`);
+    throw new Error(`Timed out waiting for a fresh ${label} at ${filePath}`);
 }
 
 async function serveRuntime(res) {
@@ -193,6 +214,21 @@ async function serveRuntime(res) {
 async function serveVersion(res) {
     const { version, mtimeMs } = await readDevUserscript();
     sendNoStore(res, 200, JSON.stringify({ version, mtimeMs, autoReload }), 'application/json; charset=utf-8');
+}
+
+async function serveNewTabVersion(res) {
+    await waitForFreshInitialNewTabBuild();
+    const files = await Promise.all(['index.html', 'app.js', 'sw.js'].map(newTabVersionFile));
+    const version = files.join('|');
+    sendNoStore(res, 200, JSON.stringify({ version, files, autoReload }), 'application/json; charset=utf-8');
+}
+
+async function newTabVersionFile(name) {
+    const filePath = path.join(distDir, 'newtab', name);
+    const info = await stat(filePath).catch(() => null);
+    return info?.isFile()
+        ? `${name}:${Math.floor(info.mtimeMs)}:${info.size}`
+        : `${name}:missing`;
 }
 
 async function serveFavicon(res) {
@@ -491,11 +527,75 @@ async function resolveStatic(pathname) {
 }
 
 function staticCandidates(clean, includeIndex) {
-    return [publicDir, distDir].flatMap(base => {
+    return [distDir, publicDir].flatMap(base => {
         const candidates = [path.resolve(base, clean)];
         if (includeIndex) candidates.push(path.resolve(base, clean, 'index.html'));
         return candidates;
     });
+}
+
+async function staticResponseBody(filePath) {
+    if (!isNewTabIndex(filePath)) return readFile(filePath);
+    const html = await readFile(filePath, 'utf8');
+    const appPath = path.join(path.dirname(filePath), 'app.js');
+    const appInfo = await stat(appPath).catch(() => null);
+    const cacheBusted = appInfo?.isFile()
+        ? html.replace(
+            /(<script\s+src=["']\.\/app\.js)(?:\?[^"']*)?(["'][^>]*>\s*<\/script>)/,
+            `$1?v=${Math.floor(appInfo.mtimeMs).toString(36)}$2`,
+        )
+        : html;
+    return autoReload ? injectNewTabAutoReload(cacheBusted) : cacheBusted;
+}
+
+function isNewTabIndex(filePath) {
+    return path.basename(filePath) === 'index.html'
+        && path.basename(path.dirname(filePath)) === 'newtab';
+}
+
+function isNewTabRequest(pathname) {
+    return pathname === '/newtab' || pathname.startsWith('/newtab/');
+}
+
+function injectNewTabAutoReload(html) {
+    const script = `<script>${newTabAutoReloadSource()}</script>`;
+    return html.includes('</body>')
+        ? html.replace('</body>', `${script}</body>`)
+        : `${html}\n${script}`;
+}
+
+function newTabAutoReloadSource() {
+    return `\
+(function () {
+  'use strict';
+  const versionUrl = ${JSON.stringify(newTabVersionPath)};
+  const pollMs = 1500;
+  let currentVersion = '';
+  let reloadStarted = false;
+
+  readVersion().then(version => {
+    currentVersion = version;
+    window.setInterval(checkForUpdate, pollMs);
+  }).catch(error => {
+    console.warn('[yomu dev] New tab auto reload unavailable.', error);
+  });
+
+  async function checkForUpdate() {
+    if (reloadStarted) return;
+    const nextVersion = await readVersion().catch(() => '');
+    if (!nextVersion || !currentVersion || nextVersion === currentVersion) return;
+    reloadStarted = true;
+    console.debug('[yomu dev] New tab bundle changed; reloading page.', { from: currentVersion, to: nextVersion });
+    location.reload();
+  }
+
+  async function readVersion() {
+    const response = await fetch(versionUrl + '?t=' + Date.now(), { cache: 'no-store' });
+    if (!response.ok) throw new Error('Version check failed with HTTP ' + response.status);
+    const info = await response.json();
+    return String(info.version || '');
+  }
+})();`;
 }
 
 function isStaticCandidateSafe(candidate) {
@@ -566,6 +666,10 @@ function delay(ms) {
 
 function isEnabledEnv(value) {
     return /^(1|true|yes|on)$/i.test(String(value ?? '').trim());
+}
+
+function isDisabledEnv(value) {
+    return /^(0|false|no|off)$/i.test(String(value ?? '').trim());
 }
 
 function shutdown(code) {
