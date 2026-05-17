@@ -3151,6 +3151,7 @@
       testAnki: "Test Anki",
       ankiTesting: "Testing AnkiConnect...",
       ankiUnreachable: "AnkiConnect is not reachable. Open Anki and confirm the AnkiConnect add-on is enabled.",
+      ankiHostedCorsHint: "For the hosted new tab, enable the よむ userscript bridge. Browsers that allow direct local requests also need https://hrussellzfac023.github.io in AnkiConnect's webCorsOriginList.",
       ankiHelp: "Anki uses AnkiConnect. The よむ note type includes JPDB meaning/status, imported dictionary entries, kanji cards, pitch/frequency data, source links, and optional context images from videos, OCR, or Immersion Kit.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
       localDictionariesEnabled: "Show imported dictionary definitions",
@@ -4016,6 +4017,7 @@
     ankiConnectRequestFailed: "AnkiConnectリクエストに失敗しました。",
     ankiConnectTimedOut: "AnkiConnectがタイムアウトしました。",
     ankiConnectNeedsBridge: "コンテンツページでAnkiConnectを使うには、ユーザースクリプトのリクエストブリッジが必要です。",
+    ankiHostedCorsHint: "ホスト版の新規タブでは、よむユーザースクリプトブリッジを有効にしてください。直接ローカルリクエストを許可するブラウザでは、AnkiConnectのwebCorsOriginListに https://hrussellzfac023.github.io も追加してください。",
     mobileAnkiReady: "モバイルAnkiへの受け渡しを利用できます。この端末では、デスクトップ連携機能だけAnkiConnectが必要です。",
     ankiConnectedReady: "接続しました。デッキ「{deck}」とノートタイプ「{model}」の準備ができています。",
     ankiPromptRecallWord: "ハイライトされた単語を思い出してください。",
@@ -4647,7 +4649,7 @@
     return !response.ok && index < candidates.length - 1;
   }
   function browserReadableUrl(url) {
-    if (!isHttpUrl(url)) return url;
+    if (!isHttpUrl$1(url)) return url;
     try {
       const target = new URL(url, location.href);
       return target.origin === location.origin ? target.href : null;
@@ -4655,7 +4657,7 @@
       return null;
     }
   }
-  function isHttpUrl(url) {
+  function isHttpUrl$1(url) {
     return /^https?:\/\//i.test(url);
   }
   function fetchWithTimeout(url, options) {
@@ -10779,13 +10781,36 @@ ${glossaryKey}`;
     return settings.ankiModel || "よむ Japanese";
   }
   function canFetchAnkiConnect(url) {
+    return canFetchAnkiConnectFrom(url, safeLocationHref());
+  }
+  function canFetchAnkiConnectFrom(url, currentHref) {
+    const current = readAnkiUrl(currentHref);
+    if (!current) return false;
+    const target = readAnkiUrl(url, current.href);
+    if (!target) return false;
+    if (target.origin === current.origin) return true;
+    if (isLoopbackHostname(current.hostname)) return true;
+    return isYomuHostedAppUrl(current.href) && isHttpUrl(target);
+  }
+  function needsHostedAnkiConnectSetupHint(url, currentHref = safeLocationHref()) {
+    if (getUserscriptHttpRequest()) return false;
+    const current = readAnkiUrl(currentHref);
+    if (!current || current.origin !== GITHUB_PAGES_ORIGIN || !isYomuHostedAppUrl(current.href)) return false;
+    const target = readAnkiUrl(url, current.href);
+    return Boolean(target && target.origin !== current.origin && isHttpUrl(target));
+  }
+  function readAnkiUrl(value, base) {
     try {
-      const target = new URL(url, location.href);
-      if (target.origin === location.origin) return true;
-      return ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+      return new URL(value, base);
     } catch {
-      return false;
+      return null;
     }
+  }
+  function isHttpUrl(url) {
+    return url.protocol === "http:" || url.protocol === "https:";
+  }
+  function isLoopbackHostname(hostname) {
+    return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(hostname);
   }
   function buildYomuAnkiFields(card, sentence = "", context = {}) {
     const fieldContext = ankiFieldContext(context);
@@ -27741,7 +27766,7 @@ ${spelling}`);
           return true;
         }
         const connected = await this.dependencies.anki.isConnected();
-        if (!connected) throw new Error(uiText(language, "ankiUnreachable"));
+        if (!connected) throw new Error(this.ankiUnreachableMessage(language));
         await this.dependencies.anki.ensureDeckAndModel();
         setAnkiStatus(this.ankiReadyMessage(language), "success");
         log$5.info("Anki settings test succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
@@ -27761,6 +27786,11 @@ ${spelling}`);
         deck: this.settings.ankiDeck,
         model: this.settings.ankiModel
       });
+    }
+    ankiUnreachableMessage(language) {
+      const message = uiText(language, "ankiUnreachable");
+      if (!needsHostedAnkiConnectSetupHint(this.settings.ankiConnectUrl)) return message;
+      return `${message} ${uiText(language, "ankiHostedCorsHint")}`;
     }
     ankiConnectionErrorMessage(error, language) {
       return error instanceof Error ? error.message : uiText(language, "ankiUnreachable");

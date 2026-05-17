@@ -1,5 +1,5 @@
 import { AudioPlayer } from './audio';
-import { AnkiConnectClient, canUseMobileAnkiHandoff } from './anki';
+import { AnkiConnectClient, canUseMobileAnkiHandoff, needsHostedAnkiConnectSetupHint } from './anki';
 import { copyText } from './browser-ui';
 import { createAudioPreviewCard } from './card-utils';
 import { NEW_TAB_PAGE_URL, SETTINGS_TITLE } from './constants';
@@ -706,7 +706,7 @@ export class SettingsDialogController {
                 return true;
             }
             const connected = await this.dependencies.anki.isConnected();
-            if (!connected) throw new Error(uiText(language, 'ankiUnreachable'));
+            if (!connected) throw new Error(this.ankiUnreachableMessage(language));
             await this.dependencies.anki.ensureDeckAndModel();
             setAnkiStatus(this.ankiReadyMessage(language), 'success');
             log.info('Anki settings test succeeded', { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
@@ -727,6 +727,12 @@ export class SettingsDialogController {
             deck: this.settings.ankiDeck,
             model: this.settings.ankiModel,
         });
+    }
+
+    private ankiUnreachableMessage(language: InterfaceLanguage): string {
+        const message = uiText(language, 'ankiUnreachable');
+        if (!needsHostedAnkiConnectSetupHint(this.settings.ankiConnectUrl)) return message;
+        return `${message} ${uiText(language, 'ankiHostedCorsHint')}`;
     }
 
     private ankiConnectionErrorMessage(error: unknown, language: InterfaceLanguage): string {
