@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { createServer as createProbeServer } from 'node:net';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -19,7 +19,7 @@ const metadataPath = '/yomu.meta.js';
 const installPath = '/yomu.user.js';
 const runtimePath = '/__yomu-dev-runtime.js';
 const versionPath = '/__yomu-dev-version.json';
-const newTabVersionPath = '/__yomu-newtab-dev-version.json';
+const staticVersionPath = '/__yomu-static-dev-version.json';
 const jpdbAudioProxyPath = '/__yomu-jpdb-audio/';
 const jpdbAudioAccessHeader = "please don't steal these files";
 const autoReload = !isDisabledEnv(process.env.YOMU_DEV_AUTO_RELOAD);
@@ -32,7 +32,7 @@ const buildFreshnessSkewMs = 2_000;
 
 let closing = false;
 let firstBuildReadyPromise;
-let firstNewTabBuildReadyPromise;
+let firstStaticBuildReadyPromise;
 const builders = [
     spawnViteBuilder(['build', '--watch', '--mode', 'development']),
     spawnViteBuilder(['build', '--watch', '--mode', 'development', '--config', 'vite.newtab.config.ts']),
@@ -86,7 +86,7 @@ const FIXED_ROUTES = new Map([
     [metadataPath, serveMetadata],
     [runtimePath, serveRuntime],
     [versionPath, serveVersion],
-    [newTabVersionPath, serveNewTabVersion],
+    [staticVersionPath, serveStaticVersion],
     ['/favicon.ico', serveFavicon],
     ['/', serveIndex],
 ]);
@@ -96,13 +96,14 @@ function isUserscriptPath(pathname) {
 }
 
 async function serveStaticPath(pathname, res) {
-    if (isNewTabRequest(pathname)) await waitForFreshInitialNewTabBuild();
+    await waitForFreshInitialStaticBuild();
     const filePath = await resolveStatic(pathname);
     sendNoStore(res, 200, await staticResponseBody(filePath), contentType(filePath));
 }
 
 async function serveIndex(res) {
-    send(res, 200, devIndex(), 'text/html; charset=utf-8');
+    const html = autoReload ? injectStaticAutoReload(devIndex()) : devIndex();
+    sendNoStore(res, 200, html, 'text/html; charset=utf-8');
 }
 
 function sendRequestError(res, error) {
@@ -183,16 +184,16 @@ function waitForFreshInitialBuild() {
     return firstBuildReadyPromise;
 }
 
-function waitForFreshInitialNewTabBuild() {
-    firstNewTabBuildReadyPromise ??= waitForFreshNewTabBuild();
-    return firstNewTabBuildReadyPromise;
+function waitForFreshInitialStaticBuild() {
+    firstStaticBuildReadyPromise ??= waitForFreshStaticBuild();
+    return firstStaticBuildReadyPromise;
 }
 
 async function waitForFreshUserscriptBuild() {
     await waitForFreshBuild(userscriptPath, 'Vite userscript build');
 }
 
-async function waitForFreshNewTabBuild() {
+async function waitForFreshStaticBuild() {
     await waitForFreshBuild(path.join(distDir, 'newtab', 'app.js'), 'Vite new tab build');
 }
 
@@ -216,19 +217,29 @@ async function serveVersion(res) {
     sendNoStore(res, 200, JSON.stringify({ version, mtimeMs, autoReload }), 'application/json; charset=utf-8');
 }
 
-async function serveNewTabVersion(res) {
-    await waitForFreshInitialNewTabBuild();
-    const files = await Promise.all(['index.html', 'app.js', 'sw.js'].map(newTabVersionFile));
-    const version = files.join('|');
-    sendNoStore(res, 200, JSON.stringify({ version, files, autoReload }), 'application/json; charset=utf-8');
+async function serveStaticVersion(res) {
+    await waitForFreshInitialStaticBuild();
+    const version = String(Math.max(
+        await latestMtimeMs(distDir),
+        await latestMtimeMs(publicDir),
+    ));
+    sendNoStore(res, 200, JSON.stringify({ version, autoReload }), 'application/json; charset=utf-8');
 }
 
-async function newTabVersionFile(name) {
-    const filePath = path.join(distDir, 'newtab', name);
-    const info = await stat(filePath).catch(() => null);
-    return info?.isFile()
-        ? `${name}:${Math.floor(info.mtimeMs)}:${info.size}`
-        : `${name}:missing`;
+async function latestMtimeMs(directory) {
+    const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
+    let latest = 0;
+    for (const entry of entries) {
+        const filePath = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+            latest = Math.max(latest, await latestMtimeMs(filePath));
+            continue;
+        }
+        if (!entry.isFile()) continue;
+        const info = await stat(filePath).catch(() => null);
+        if (info?.isFile()) latest = Math.max(latest, Math.floor(info.mtimeMs));
+    }
+    return latest;
 }
 
 async function serveFavicon(res) {
@@ -535,40 +546,27 @@ function staticCandidates(clean, includeIndex) {
 }
 
 async function staticResponseBody(filePath) {
-    if (!isNewTabIndex(filePath)) return readFile(filePath);
+    if (!isHtmlFile(filePath)) return readFile(filePath);
     const html = await readFile(filePath, 'utf8');
-    const appPath = path.join(path.dirname(filePath), 'app.js');
-    const appInfo = await stat(appPath).catch(() => null);
-    const cacheBusted = appInfo?.isFile()
-        ? html.replace(
-            /(<script\s+src=["']\.\/app\.js)(?:\?[^"']*)?(["'][^>]*>\s*<\/script>)/,
-            `$1?v=${Math.floor(appInfo.mtimeMs).toString(36)}$2`,
-        )
-        : html;
-    return autoReload ? injectNewTabAutoReload(cacheBusted) : cacheBusted;
+    return autoReload ? injectStaticAutoReload(html) : html;
 }
 
-function isNewTabIndex(filePath) {
-    return path.basename(filePath) === 'index.html'
-        && path.basename(path.dirname(filePath)) === 'newtab';
+function isHtmlFile(filePath) {
+    return path.extname(filePath).toLowerCase() === '.html';
 }
 
-function isNewTabRequest(pathname) {
-    return pathname === '/newtab' || pathname.startsWith('/newtab/');
-}
-
-function injectNewTabAutoReload(html) {
-    const script = `<script>${newTabAutoReloadSource()}</script>`;
+function injectStaticAutoReload(html) {
+    const script = `<script>${staticAutoReloadSource()}</script>`;
     return html.includes('</body>')
         ? html.replace('</body>', `${script}</body>`)
         : `${html}\n${script}`;
 }
 
-function newTabAutoReloadSource() {
+function staticAutoReloadSource() {
     return `\
 (function () {
   'use strict';
-  const versionUrl = ${JSON.stringify(newTabVersionPath)};
+  const versionUrl = ${JSON.stringify(staticVersionPath)};
   const pollMs = 1500;
   let currentVersion = '';
   let reloadStarted = false;
@@ -577,7 +575,7 @@ function newTabAutoReloadSource() {
     currentVersion = version;
     window.setInterval(checkForUpdate, pollMs);
   }).catch(error => {
-    console.warn('[yomu dev] New tab auto reload unavailable.', error);
+    console.warn('[yomu dev] Static page auto reload unavailable.', error);
   });
 
   async function checkForUpdate() {
@@ -585,7 +583,7 @@ function newTabAutoReloadSource() {
     const nextVersion = await readVersion().catch(() => '');
     if (!nextVersion || !currentVersion || nextVersion === currentVersion) return;
     reloadStarted = true;
-    console.debug('[yomu dev] New tab bundle changed; reloading page.', { from: currentVersion, to: nextVersion });
+    console.debug('[yomu dev] Static files changed; reloading page.', { from: currentVersion, to: nextVersion });
     location.reload();
   }
 
