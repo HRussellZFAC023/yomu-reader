@@ -65,6 +65,8 @@
 .jpdb-reader-word:is(.jpdb-blacklisted, .jpdb-locked) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-ignored, #b8a7ff);
   --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-ignored-soft, rgba(184, 167, 255, 0.16));
+  --jpdb-reader-status-color: var(--jpdb-reader-state-ignored, #b8a7ff);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft, rgba(184, 167, 255, 0.16));
   opacity: 0.82 !important;
 }
 .jpdb-reader-word:is(.anki-new, .anki-suspended) {
@@ -106,10 +108,6 @@
 .jpdb-reader-word:is(.jpdb-failed, .anki-failed) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-failed, #ff6b6b);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, 0.16));
-}
-.jpdb-reader-word:is(.jpdb-blacklisted, .jpdb-locked) {
-  --jpdb-reader-status-color: var(--jpdb-reader-state-ignored, #b8a7ff);
-  --jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft, rgba(184, 167, 255, 0.16));
 }
 .jpdb-reader-word.jpdb-pitch-heiban {
   --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff);

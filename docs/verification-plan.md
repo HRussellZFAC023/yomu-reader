@@ -54,6 +54,18 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 
 ## Feature checklist
 
+### Current release state
+
+- [x] Built userscript size is under the Greasy Fork budget: `dist/yomu.user.js` is 1198.0 KiB raw, below the 2,000,000 byte hard limit in ADR 0002.
+- [x] Extension packages are generated with `npm run build:extension` from the same userscript and the real `/newtab` bundle.
+- [x] Compiler-generated review drafts are present under `dist/extension/review/`, including Chrome Web Store, Mozilla AMO, Safari App Store, Firefox Android, package validation, release artifacts, and troubleshooting notes.
+- [x] Compiler-generated audit evidence is present under `dist/extension/audit/`, including `compiler-audit.json` and `package-validation.json`.
+- [x] Real screenshot capture has a committed Playwright helper: `node scripts/capture-real-screenshots.mjs --list`.
+- [x] Beginner docs now explain userscript managers, JPDB, Yomitan dictionaries, mining, OCR, Anki/AnkiConnect, mobile `localhost`, and optional service fallbacks.
+- [ ] Store listings are not live yet; userscript install remains the public path, with GreasyFork planned.
+- [ ] Real store screenshot refresh remains manual and must follow `docs/screenshot-capture.md`.
+- [ ] Full release gate still needs `npm run check`, API-backed QA, live smoke, and touched-feature manual QA before publishing.
+
 ### Install, update, and publishing
 
 - [ ] `dist/yomu.user.js` is the only script users need; no old app naming remains in metadata,
@@ -65,6 +77,8 @@ manual journey that asks: "what would the user see, try, misunderstand, or want 
 - [ ] GreasyFork copy is current: summary, description, support links, privacy notes,
   and update instructions.
 - [ ] GitHub Actions run typecheck, unit tests, build, userscript verification, docs build, docs deployment, and release asset publishing.
+- [ ] Store screenshots follow `docs/screenshot-capture.md`: Playwright only, real contexts only,
+  no generated images, no fixtures, and no fake data.
 
 ### First-run onboarding
 
@@ -295,7 +309,23 @@ Keep this document as the source of truth. Any new feature must add:
 - Real smoke tests: current production userscript on Bloomee, NHK Easy, YouTube, CI Japanese, and one
   generic news/blog page.
 
-### 3. Manual QA scripts
+### 3. Beginner-friendly docs audit
+
+Run this whenever README or docs change:
+
+1. Open the docs from a beginner's point of view. The first screen should answer what よむ is, how to install it today, and what to try first.
+2. Confirm the current public install path is clear: userscript first, GreasyFork planned, extension packages for local testing and store-review prep until listings are ready.
+3. Define terms before relying on them: userscript manager, JPDB, Yomitan dictionaries, mining, OCR, Anki, AnkiConnect, local server, and localhost.
+4. Check that every optional service is labelled optional and has a no-service fallback where one exists.
+5. Check that mobile/iPad caveats are plain: tap instead of hover, `localhost` means the device itself, desktop bridges need a reachable computer, and protected media capture can fail.
+6. Keep support and donation copy intact unless the task explicitly asks to change it.
+7. Confirm screenshot guidance points to `docs/screenshot-capture.md` and forbids generated images, fixtures, fake data, and private media.
+8. Make sure every screenshot shown in docs has honest alt text and a real capture filename under `docs/public/screenshots/`.
+9. Follow internal links in the edited docs: Getting Started, Features, Extension Packages, Troubleshooting, Local Audio, Support, Changelog, Screenshot Capture, and Verification Plan.
+10. Confirm extension-package docs name the real build command, generated review drafts, generated audit files, and current store-review limitations.
+11. Run `npm run docs:build` after navigation, Markdown, or VitePress changes.
+
+### 4. Manual QA scripts
 
 For each release candidate, run these as written and save QA evidence:
 
@@ -319,8 +349,10 @@ For each release candidate, run these as written and save QA evidence:
    subtitle card with screenshot, update last card, confirm rendered card in Anki.
 10. YouTube filter: enable, inspect hidden cards, Show anyway, Turn off, shortcut toggle, navigation
     between Home/Search/Watch/Shorts.
+11. Screenshot set: refresh only the screenshots affected by the release, using the real-context
+    Playwright checklist in `docs/screenshot-capture.md`.
 
-### 4. Release gate
+### 5. Release gate
 
 A build should not be published until:
 
@@ -333,6 +365,8 @@ A build should not be published until:
 
 ## Likely unfinished or fragile areas
 
+- Store listings and GreasyFork publishing remain planned; userscript install from GitHub is still the current public path.
+- Real store screenshot refresh is still manual operator work, even though the Playwright helper now lists and validates the required scenarios.
 - Real Anki end-to-end needs stronger coverage than mocks, including note type creation and media.
 - OCR needs the strictest UX audit: word-level selection, overlay positioning, local OCR fallback,
   and mobile throttling are where regressions are most likely.

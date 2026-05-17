@@ -29,6 +29,8 @@ export default defineConfig({
             {
                 text: 'More',
                 items: [
+                    { text: 'Extension Packages', link: '/extension' },
+                    { text: 'Troubleshooting', link: '/troubleshooting' },
                     { text: 'Video Player', link: videoPlayerUrl, target: '_self' },
                     { text: 'Local Audio', link: '/local-audio' },
                     { text: 'Support', link: '/support' },
@@ -43,6 +45,8 @@ export default defineConfig({
                     { text: 'Overview', link: '/' },
                     { text: 'Getting Started', link: '/getting-started' },
                     { text: 'Features', link: '/features' },
+                    { text: 'Extension Packages', link: '/extension' },
+                    { text: 'Troubleshooting', link: '/troubleshooting' },
                     { text: 'Local Audio', link: '/local-audio' },
                     { text: 'Video Player', link: videoPlayerUrl, target: '_self' },
                 ],
@@ -50,6 +54,8 @@ export default defineConfig({
             {
                 text: 'Project',
                 items: [
+                    { text: 'Screenshot Capture', link: '/screenshot-capture' },
+                    { text: 'Verification Plan', link: '/verification-plan' },
                     { text: 'Support', link: '/support' },
                     { text: 'Changelog', link: '/changelog' },
                 ],
@@ -62,7 +68,7 @@ export default defineConfig({
             { icon: 'github', link: `https://github.com/HRussellZFAC023/${repositoryName}` },
         ],
         footer: {
-            message: 'Free userscript now. Chrome, Firefox, and Safari extensions are coming soon.',
+            message: 'Free userscript now. Chrome, Firefox, and Safari packages are in review prep.',
             copyright: 'Released under the GPL-3.0-or-later license.',
         },
     },

@@ -283,13 +283,13 @@ export async function installUchisenCarousel(
             <details class="${detailsClass}" ${sourceAttributes}>
                 <summary class="${summaryClass}">
                     ${summaryHtml}
+                </summary>
+                <div class="${bodyClass}">
                     <span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="Uchisen mnemonic images">
                         <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="Previous">&lsaquo;</button>
                         <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="Next">&rsaquo;</button>
                     </span>
                     <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(kanji)}" target="_blank" rel="noopener">View on Uchisen ${externalLinkIcon()}</a>
-                </summary>
-                <div class="${bodyClass}">
                     ${bodyMeta}
                     ${renderUchisenComponentGroups(options.kanjiKeyword, options.componentGroups ?? [])}
                     <div class="yomu-jpdb-image-shell"><img alt="Uchisen mnemonic for ${escapeHtml(kanji)}" data-uchisen-image></div>

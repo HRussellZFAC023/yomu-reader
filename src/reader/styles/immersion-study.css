@@ -340,7 +340,9 @@ mark.jpdb-reader-example-target {
   line-height: 1.2;
   text-transform: uppercase;
 }
-.jpdb-reader-study-label-row {
+.jpdb-reader-study-label-row,
+.jpdb-reader-study-item-head,
+.jpdb-reader-grammar-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -409,13 +411,6 @@ mark.jpdb-reader-example-target {
   gap: 4px;
   min-width: 0;
 }
-.jpdb-reader-study-item-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-}
 .jpdb-reader-study-kind {
   color: var(--jpdb-reader-muted);
   font-size: 11px;
@@ -476,13 +471,6 @@ mark.jpdb-reader-example-target {
     color-mix(in srgb, var(--jpdb-reader-accent-readable) 58%, transparent);
   outline-offset: 2px;
   text-decoration-color: var(--jpdb-reader-accent-readable);
-}
-.jpdb-reader-grammar-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
 }
 .jpdb-reader-grammar-summary {
   min-width: 0;

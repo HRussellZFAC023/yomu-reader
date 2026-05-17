@@ -76,6 +76,7 @@ export class ImmersionPopoverController {
     private audioLoadingKey = '';
     private audioRequestId = 0;
     private preloadedTerms = new Set<string>();
+    private hoverAudioPlayedKeys = new Set<string>();
     private activeMiningContext?: MiningContext;
     private contextByCardKey = new Map<string, StoredMiningContext>();
     private searchResultCache = new Map<string, { expiresAt: number; promise: Promise<ImmersionKitSearchResult> }>();
@@ -192,10 +193,11 @@ export class ImmersionPopoverController {
             const cannotHover = pointerType !== 'mouse' && (window.matchMedia?.('(hover: none)').matches ?? false);
             if (pointerType === 'touch' || cannotHover) return;
             if (media.contains(event.relatedTarget as Node | null)) return;
-            if (!hoverAudioCanPlay) {
-                hoverAudioCanPlay = !container.contains(event.relatedTarget as Node | null);
-                if (!hoverAudioCanPlay) return;
-            }
+            if (!hoverAudioCanPlay) return;
+            const audioKey = hoverAudioExampleKey(examples[index]);
+            if (this.hoverAudioPlayedKeys.has(audioKey)) return;
+            this.hoverAudioPlayedKeys.add(audioKey);
+            hoverAudioCanPlay = false;
             hoverAudioActive = true;
             void this.playExampleAudio(examples[index], true, () => hoverAudioActive && container.isConnected && media.isConnected && media.matches(':hover'));
         };
@@ -848,6 +850,11 @@ function heldExampleImageSource(image: HTMLImageElement | null): string {
 function heldExampleImageHeight(image: HTMLImageElement | null): number {
     const media = image?.closest<HTMLElement>('.jpdb-reader-example-media') ?? null;
     return Math.ceil(media?.getBoundingClientRect().height || image?.getBoundingClientRect().height || 0);
+}
+
+function hoverAudioExampleKey(example: ImmersionKitExample | undefined): string {
+    if (!example) return '';
+    return example.id || `${example.provider ?? 'immersion-kit'}:${example.sourceTitle}:${example.sentence}:${example.soundFile || example.soundUrl}`;
 }
 
 function renderExampleTranslation(translation: string, settings: ReaderSettings): string {

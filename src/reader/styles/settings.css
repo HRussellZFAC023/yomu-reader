@@ -120,19 +120,12 @@
   }
 }
 @media (hover: none), (pointer: coarse) {
-  .jpdb-reader-settings-tab:hover {
+  .jpdb-reader-settings-tab:not([aria-selected="true"]):hover {
     border-color: var(--jpdb-reader-border);
     background: var(--jpdb-reader-surface);
     color: var(--jpdb-reader-muted);
     box-shadow: none;
     transform: none;
-  }
-
-  .jpdb-reader-settings-tab[aria-selected="true"],
-  .jpdb-reader-settings-tab[aria-selected="true"]:hover {
-    border-color: var(--jpdb-reader-accent);
-    color: var(--jpdb-reader-accent-readable);
-    background: var(--jpdb-reader-accent-soft);
   }
 }
 .jpdb-reader-settings-tab:active {

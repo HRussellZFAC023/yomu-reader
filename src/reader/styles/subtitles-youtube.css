@@ -602,7 +602,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.jpdb-subtitle-panel-mode {
+.jpdb-subtitle-panel-mode,
+.jpdb-subtitle-panel-nav {
   justify-self: start;
   width: max-content;
   display: inline-flex;
@@ -631,18 +632,6 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 }
 .jpdb-subtitle-panel-mode button:disabled {
   opacity: .42;
-}
-.jpdb-subtitle-panel-nav {
-  justify-self: start;
-  width: max-content;
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 82%, transparent);
 }
 .jpdb-subtitle-panel-nav button {
   display: inline-grid;

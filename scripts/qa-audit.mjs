@@ -481,6 +481,9 @@ const qaRequestMocks = [
     url => url.hostname === 'jpdb.io' && url.pathname.startsWith('/kanji/')
         ? textQaResponse(mockJpdbKanjiHtml(decodeURIComponent(url.pathname.split('/').pop() ?? '')))
         : null,
+    url => url.hostname === 'jpdb.io' && (url.pathname.startsWith('/vocabulary/') || url.pathname === '/search')
+        ? textQaResponse(mockJpdbVocabularyHtml(url))
+        : null,
     url => url.hostname === 'hrussellzfac023.github.io' && url.pathname.startsWith('/rtk/')
         ? textQaResponse(mockRtkHtml(pathKanji(url)))
         : null,
@@ -554,6 +557,23 @@ async function waitForAudioPlaybackOrRequest(page, requests, requestCount, reque
         const playCount = await audioPlayCount(page);
         if (playCount > playCountBefore || requestCount(requests) > requestsBefore) return;
         await page.waitForTimeout(100);
+    }
+    throw new Error(message);
+}
+
+async function waitForRequestCountStable(requests, requestCount, idleMs, timeoutMs, message) {
+    const started = Date.now();
+    let lastCount = requestCount(requests);
+    let stableSince = Date.now();
+    while (Date.now() - started < timeoutMs) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const currentCount = requestCount(requests);
+        if (currentCount !== lastCount) {
+            lastCount = currentCount;
+            stableSince = Date.now();
+            continue;
+        }
+        if (Date.now() - stableSince >= idleMs) return;
     }
     throw new Error(message);
 }
@@ -715,12 +735,26 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
             return data;
         };
         window.GM_xmlhttpRequest = options => {
+            let settled = false;
+            const timeoutMs = Number(options.timeout) || 0;
+            const timer = timeoutMs > 0 ? window.setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                options.ontimeout?.({ status: 0, response: null, responseText: '' });
+            }, timeoutMs) : 0;
+            const settle = callback => value => {
+                if (settled) return;
+                settled = true;
+                if (timer) window.clearTimeout(timer);
+                callback(value);
+            };
             Promise.resolve(serializeBody(options.data)).then(data => window.__yomuQaRequest({
                 method: options.method || 'GET',
                 url: options.url,
                 headers: options.headers || {},
                 data,
             })).then(result => {
+                if (settled) return;
                 const bytes = new Uint8Array(result.bytes);
                 const response = options.responseType === 'arraybuffer'
                     ? bytes.buffer
@@ -729,12 +763,12 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
                         : options.responseType === 'json'
                             ? JSON.parse(result.responseText || 'null')
                         : result.responseText;
-                options.onload?.({
+                settle(options.onload ?? (() => undefined))({
                     status: result.status,
                     response,
                     responseText: result.responseText,
                 });
-            }).catch(error => options.onerror?.(error));
+            }).catch(settle(error => options.onerror?.(error)));
         };
     }, { settings, settingsKey: SETTINGS_KEY });
     return { page, requests };
@@ -1013,6 +1047,48 @@ function mockJpdbKanjiHtml(kanji) {
     </body></html>`;
 }
 
+function mockJpdbVocabularyHtml(url) {
+    const parts = url.pathname.split('/').filter(Boolean);
+    const query = url.searchParams.get('q') ?? '';
+    const expression = decodeURIComponent(parts[2] ?? query ?? '読む') || '読む';
+    const reading = decodeURIComponent(parts[3] ?? '') || qaVocabulary.find(item => item.spelling === expression || item.surface === expression)?.reading || expression;
+    const record = qaVocabulary.find(item => [item.surface, item.spelling, item.reading].includes(expression) || [item.surface, item.spelling, item.reading].includes(query))
+        ?? qaVocabulary.find(item => item.spelling === '読む')
+        ?? { spelling: expression, reading, gloss: 'example word' };
+    const spelling = record.spelling ?? expression;
+    const safeReading = record.reading ?? reading;
+    const meaning = record.gloss ?? 'example word';
+    return `<!doctype html><html lang="ja"><head>
+        <meta charset="utf-8">
+        <link rel="canonical" href="https://jpdb.io/vocabulary/1456360/${encodeURIComponent(spelling)}/${encodeURIComponent(safeReading)}">
+        <meta name="description" content="${htmlEscape(spelling)} - ${htmlEscape(meaning)}">
+    </head><body>
+        <div class="results search">
+            <div class="result vocabulary">
+                <div class="subsection-spelling"><a href="/vocabulary/1456360/${encodeURIComponent(spelling)}/${encodeURIComponent(safeReading)}">${htmlEscape(spelling)}</a></div>
+                <div class="subsection-meanings">
+                    <h6 class="subsection-label">Meanings</h6>
+                    <div class="subsection"><div class="description">${htmlEscape(meaning)}</div></div>
+                </div>
+                <div class="subsection-pitch-accent">
+                    <h6 class="subsection-label">Pitch accent</h6>
+                    <div class="subsection"><div>
+                        <div style="--pitch-low: 1">${htmlEscape(safeReading.slice(0, 1) || spelling.slice(0, 1))}</div>
+                        <div style="--pitch-high: 1">${htmlEscape(safeReading.slice(1) || spelling.slice(1) || spelling)}</div>
+                    </div></div>
+                </div>
+                <div class="subsection-used-in-vocabulary">
+                    <h6 class="subsection-label">Used in</h6>
+                    <div class="used-in">
+                        <div class="jp"><a href="/vocabulary/1456361/${encodeURIComponent('今日')}/${encodeURIComponent('きょう')}">今日</a></div>
+                        <div class="en">today</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body></html>`;
+}
+
 function mockRtkHtml(kanji) {
     const keyword = mockRtkKeyword(kanji);
     const elements = mockRtkElements(kanji);
@@ -1209,7 +1285,7 @@ function htmlEscape(value) {
 async function seedLocalKanjiDictionaries(page) {
     await page.evaluate(async () => {
         const db = await new Promise((resolve, reject) => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan', 2);
+            const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
             request.onupgradeneeded = () => {
                 const db = request.result;
                 const tx = request.transaction;
@@ -1233,12 +1309,22 @@ async function seedLocalKanjiDictionaries(page) {
                 ensureIndex(kanjiMeta, 'character', 'character');
                 ensureIndex(kanjiMeta, 'dictionary', 'dictionary');
                 if (!db.objectStoreNames.contains('dictionaryInfo')) db.createObjectStore('dictionaryInfo', { keyPath: 'title' });
+                const termSearch = ensureStore('termSearch');
+                ensureIndex(termSearch, 'token', 'token');
+                ensureIndex(termSearch, 'dictionary', 'dictionary');
+                const termKanji = ensureStore('termKanji');
+                ensureIndex(termKanji, 'character', 'character');
+                ensureIndex(termKanji, 'dictionary', 'dictionary');
             };
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject(request.error);
         });
         await new Promise((resolve, reject) => {
-            const tx = db.transaction(['dictionaryInfo', 'terms', 'kanji', 'termMeta'], 'readwrite');
+            const stores = [...db.objectStoreNames];
+            const txStores = ['dictionaryInfo', 'terms', 'kanji', 'termMeta', 'termSearch', 'termKanji'].filter(name => stores.includes(name));
+            const tx = db.transaction(txStores, 'readwrite');
+            const termSearch = txStores.includes('termSearch') ? tx.objectStore('termSearch') : null;
+            const termKanji = txStores.includes('termKanji') ? tx.objectStore('termKanji') : null;
             tx.objectStore('dictionaryInfo').put({ title: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 1, counts: { kanji: 4 } });
             tx.objectStore('dictionaryInfo').put({
                 title: 'Jitendex',
@@ -1263,7 +1349,17 @@ async function seedLocalKanjiDictionaries(page) {
                 { expression: '読む', reading: 'よむ', glossary: ['to read'], score: 10, dictionary: 'Jitendex' },
                 { expression: '母', reading: 'はは', glossary: [{ type: 'structured-content', content: { tag: 'ul', data: { content: 'glossary' }, content: [{ tag: 'li', content: [{ tag: 'span', data: { content: 'part-of-speech-info' }, content: 'n' }, ' mother; mama'] }] } }], score: 10, dictionary: 'Jitendex' },
                 { expression: '母', reading: 'はは', glossary: [{ tag: 'ul', data: { content: 'glossary' }, content: [{ tag: 'li', content: 'female parent name entry' }] }], score: 5, dictionary: 'JMnedict' },
-            ].forEach(entry => tx.objectStore('terms').add(entry));
+            ].forEach(entry => {
+                tx.objectStore('terms').add(entry);
+                if (termSearch) {
+                    for (const token of qaGlossaryTokens(entry.glossary)) termSearch.add({ ...entry, token });
+                }
+                if (termKanji) {
+                    for (const character of [...new Set([...entry.expression].filter(value => /[\u3400-\u9fff]/u.test(value)))]) {
+                        termKanji.add({ ...entry, character });
+                    }
+                }
+            });
             [
                 { expression: '今日', mode: 'freq', data: { frequency: 100, displayValue: 100 }, dictionary: 'JPDBv2㋕' },
                 { expression: '今朝', mode: 'freq', data: { frequency: 900, displayValue: 900 }, dictionary: 'JPDBv2㋕' },
@@ -1276,6 +1372,11 @@ async function seedLocalKanjiDictionaries(page) {
             };
             tx.onerror = () => reject(tx.error);
         });
+
+        function qaGlossaryTokens(glossary) {
+            const text = glossary.map(item => typeof item === 'string' ? item : JSON.stringify(item)).join(' ');
+            return [...new Set(text.toLowerCase().match(/[a-z0-9]+/g) ?? [])];
+        }
     });
 }
 
@@ -1332,8 +1433,8 @@ function settingsAuditSeed() {
 async function assertSettingsLocaleSwitch(page) {
     await page.selectOption('select[name="interfaceLanguage"]', 'ja');
     const localeSnapshot = await readSettingsLocaleSnapshot(page);
-    assertAudit(localeSnapshot.title === 'よむ Settings' && localeSnapshot.heading === 'よむ Settings', 'changing settings language changes the English-only dialog title');
-    assertAudit(localeSnapshot.save === 'Save' && localeSnapshot.cancel === 'Cancel' && localeSnapshot.firstTab === 'Basics', 'changing settings language changes English-only visible controls');
+    assertAudit(localeSnapshot.title === 'よむ 設定' && localeSnapshot.heading === 'よむ 設定', 'changing settings language did not localize the dialog title');
+    assertAudit(localeSnapshot.save === '保存' && localeSnapshot.cancel === 'キャンセル' && localeSnapshot.firstTab === '基本', 'changing settings language did not localize visible controls');
     await page.selectOption('select[name="interfaceLanguage"]', 'en');
 }
 
@@ -1549,7 +1650,7 @@ async function auditNewTabDictionaryFallback(browser, server) {
         const status = document.querySelector('[data-newtab-status]')?.textContent ?? '';
         const body = document.body.textContent ?? '';
         return card
-            && status.includes('Dictionaries')
+            && /Dictionaries|Dictionary/.test(status)
             && !body.includes('Loading...')
             && !body.includes('Loading words...')
             && !body.includes('No dictionary enabled')
@@ -1557,7 +1658,7 @@ async function auditNewTabDictionaryFallback(browser, server) {
     }, 8000, 'new-tab page stayed stuck in placeholder/loading state').catch(async error => {
         const detail = await page.evaluate(async () => {
             const dbSummary = await new Promise(resolve => {
-                const request = indexedDB.open('jpdb-popup-reader-yomitan', 2);
+                const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
                 request.onerror = () => resolve({ error: request.error?.message ?? 'open failed' });
                 request.onsuccess = () => {
                     const db = request.result;
@@ -1666,7 +1767,7 @@ function assertNewTabDictionarySnapshot(snapshot) {
     assertAudit(isDocsHomeHref(snapshot.brandHref), 'new-tab brand link does not open the docs home page');
     assertAudit(/今日|今朝|今週|読む/.test(snapshot.expression), `new-tab did not render a top dictionary word: ${JSON.stringify(snapshot)}`);
     assertAudit(/today|morning|week|read/i.test(snapshot.meaning), `new-tab dictionary meaning did not render: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.status.includes('Dictionaries'), `new-tab did not report dictionary fallback source: ${JSON.stringify(snapshot)}`);
+    assertAudit(/Dictionaries|Dictionary/.test(snapshot.status), `new-tab did not report dictionary fallback source: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.hasSettingsControl, 'new-tab settings control is missing');
     assertAudit(!/off|warning|No dictionary enabled|Add dictionary/i.test(snapshot.body), 'new-tab still shows setup or old warning copy after dictionaries are available');
 }
@@ -1860,11 +1961,22 @@ async function auditHoverLookup(browser, server) {
     assertAudit(hoverHasBackdrop === 0, 'hover lookup mounted a modal backdrop');
     const text = await page.locator('.jpdb-reader-popover').innerText();
     assertAudit(/JPDB|Add|Never|Blacklist/.test(text), 'hover popup did not render mining actions');
-    await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'hover popup kept showing dictionary loading details');
+    await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'hover popup kept showing dictionary loading details').catch(async error => {
+        const debug = await page.evaluate(() => ({
+            loadingText: document.querySelector('[data-card-details-loading]')?.textContent ?? '',
+            popoverText: document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 600) ?? '',
+            sources: [...document.querySelectorAll('.jpdb-reader-source-card')].map(node => ({
+                title: node.querySelector('summary')?.textContent?.trim() ?? '',
+                text: node.textContent?.replace(/\s+/g, ' ').trim().slice(0, 180) ?? '',
+            })),
+        }));
+        throw new Error(`hover popup kept showing dictionary loading details: ${JSON.stringify({ debug, requests: requests.slice(-20) })}: ${error instanceof Error ? error.message : String(error)}`);
+    });
     await waitForAudit(page, () => {
         const immersion = document.querySelector('[data-immersion-kit]');
         return !immersion || immersion.dataset.immersionEmpty === 'true' || immersion.querySelector('.jpdb-reader-example-card');
     }, 6000, 'hover popup Immersion Kit examples did not settle');
+    await waitForRequestCountStable(requests, jpdbParseRequestCount, 500, 6000, 'hover popup nested parsing did not settle');
     const stableBefore = await page.locator('.jpdb-reader-popover').boundingBox();
     const searchesBeforeMove = immersionSearchRequestCount(requests);
     const parsesBeforeMove = jpdbParseRequestCount(requests);
@@ -2065,7 +2177,14 @@ async function auditImmersionKitPopover(browser, server) {
         const image = document.querySelector('.jpdb-reader-example-image');
         return image && image.complete && image.naturalWidth > 0;
     }, 6000, 'Immersion Kit thumbnail did not render');
-    await waitForAudit(page, () => Boolean(document.querySelector('[data-action="anki-edit"], .jpdb-reader-anki-existing')), 6000, 'existing Anki card state did not settle');
+    await waitForAudit(page, () => Boolean(document.querySelector('[data-action="anki-edit"], .jpdb-reader-anki-existing')), 6000, 'existing Anki card state did not settle').catch(async error => {
+        const debug = await page.evaluate(() => ({
+            loadingText: document.querySelector('[data-card-details-loading]')?.textContent ?? '',
+            popoverText: document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 700) ?? '',
+            ankiActions: [...document.querySelectorAll('[data-action^="anki"], .jpdb-reader-anki-existing')].map(node => node.textContent?.trim() ?? ''),
+        }));
+        throw new Error(`existing Anki card state did not settle: ${JSON.stringify({ debug, requests: requests.slice(-24) })}: ${error instanceof Error ? error.message : String(error)}`);
+    });
     const firstSnapshot = await page.evaluate(() => ({
         sectionText: document.querySelector('[data-immersion-kit]')?.textContent ?? '',
         exampleWords: document.querySelectorAll('[data-immersion-kit] .jpdb-reader-word').length,
@@ -2103,6 +2222,7 @@ async function auditImmersionKitPopover(browser, server) {
         6000,
         'Immersion Kit hover did not request first example audio',
     );
+    await waitForRequestCountStable(requests, immersionAudioRequestCount, 350, 4000, 'Immersion Kit hover audio request did not settle');
     const audioRequestsAfterHover = immersionAudioRequestCount(requests);
     const audioPlaysAfterHover = await audioPlayCount(page);
     await page.dispatchEvent('.jpdb-reader-example-card', 'pointerover', { pointerType: 'mouse', bubbles: true });
@@ -2170,7 +2290,10 @@ async function auditImmersionKitPopover(browser, server) {
         }), selectedImmersion);
         throw new Error(`word inside Immersion Kit example did not open a nested popup lookup: ${JSON.stringify(detail)}: ${error instanceof Error ? error.message : String(error)}`);
     });
-    await page.locator('[data-action="anki"]').click();
+    await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'nested Immersion lookup kept showing dictionary loading details');
+    const miningDrawer = page.locator('.jpdb-reader-popover .jpdb-reader-actions-has-mining.jpdb-reader-actions-mining-collapsed [data-action="mining-collapse"]:visible');
+    if (await miningDrawer.count()) await miningDrawer.first().click();
+    await page.locator('.jpdb-reader-popover [data-action="anki"]:visible').click();
     await waitForNodeAudit(() => requests.some(request => request.action === 'addNote'), 6000, 'Add to Anki did not send AnkiConnect addNote');
     assertAudit(requests.some(request => /apiv2(?:express)?\.immersionkit\.com\/search/.test(request.url)), 'Immersion Kit API was not requested');
     assertAudit(requests.some(request => request.url.includes('127.0.0.1:8765')), 'AnkiConnect was not queried for existing card state');

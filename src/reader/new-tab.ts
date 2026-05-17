@@ -1,9 +1,9 @@
-import { APP_REPOSITORY_NAME } from './constants';
 import { uiText, type UiCopyKey } from './i18n';
 import { Logger } from './logger';
 import { sanitizeAccentColor } from './settings';
 import { gmStorageGetSync, gmStorageSetSync } from './storage';
 import type { CardState, InterfaceLanguage, JPDBCard, NewTabWordSource } from './types';
+export { isYomuNewTabUrl } from './new-tab-url';
 
 const log = Logger.scope('NewTab');
 const STATE_STORAGE_KEY = 'jpdb-reader-newtab-ui';
@@ -70,43 +70,6 @@ export const NEW_TAB_SORT_OPTIONS: Array<{ value: NewTabSort; labelKey: UiCopyKe
     { value: 'frequency', labelKey: 'sortFrequency' },
     { value: 'state', labelKey: 'sortState' },
 ];
-
-export function isYomuNewTabUrl(value: string): boolean {
-    const url = parseNewTabUrl(value);
-    return url ? isYomuNewTabUrlObject(url) : false;
-}
-
-function parseNewTabUrl(value: string): URL | null {
-    try {
-        return new URL(value);
-    } catch {
-        return null;
-    }
-}
-
-function isYomuNewTabUrlObject(url: URL): boolean {
-    const path = normalizedNewTabPath(url);
-    return url.searchParams.has('yomu-newtab')
-        || isHostedNewTabPath(url, path)
-        || isLocalNewTabPath(url, path)
-        || isRepositoryNewTabPath(path);
-}
-
-function normalizedNewTabPath(url: URL): string {
-    return url.pathname.replace(/\/index\.html$/, '/');
-}
-
-function isHostedNewTabPath(url: URL, path: string): boolean {
-    return url.hostname === 'hrussellzfac023.github.io' && path === `/${APP_REPOSITORY_NAME}/newtab/`;
-}
-
-function isLocalNewTabPath(url: URL, path: string): boolean {
-    return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname) && path.endsWith('/newtab/');
-}
-
-function isRepositoryNewTabPath(path: string): boolean {
-    return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith('/newtab/');
-}
 
 export function resolveNewTabBrandAssets(value: string): { homeHref: string; iconSrc: string } {
     try {
