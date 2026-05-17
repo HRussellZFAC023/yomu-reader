@@ -2613,7 +2613,7 @@ describe('new tab review helpers', () => {
         vi.advanceTimersByTime(30_000);
 
         expect(invalidateCaches).not.toHaveBeenCalled();
-        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('');
+        expect(root.querySelector('[data-newtab-status]')?.textContent).toContain('Install a dictionary');
     });
 
     it('does not reload dictionary setup on a later new-tab render', async () => {
@@ -2644,7 +2644,7 @@ describe('new tab review helpers', () => {
 
         expect(summary).toHaveBeenCalledTimes(1);
         expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
-        expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('');
+        expect(document.querySelector('[data-newtab-status]')?.textContent).toContain('Install a dictionary');
         document.body.replaceChildren();
     });
 

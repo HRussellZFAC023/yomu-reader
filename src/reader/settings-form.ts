@@ -922,6 +922,7 @@ function localizeSettingsEditorChrome(form: HTMLFormElement, text: SettingsText)
     audioHead[4]?.replaceChildren(text('removeHeader'));
     form.querySelector<HTMLButtonElement>('[data-action="lookup-link-add"]')?.replaceChildren(text('add'));
     form.querySelector('.jpdb-reader-recommended-title')?.replaceChildren(text('recommendedDownloads'));
+    form.querySelector('[data-recommended-dictionary-help]')?.replaceChildren(text('dictionaryInstallQueueHelp'));
     form.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-recommended-name a').forEach(link => { link.textContent = text('homepage'); });
     localizeOrderButtons(form, text);
     localizeLookupLinkEditor(form, text);
@@ -2093,6 +2094,7 @@ export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]
 
     return `
         <div class="jpdb-reader-recommended-title">Recommended dictionaries</div>
+        <div class="jpdb-reader-help jpdb-reader-recommended-note" data-recommended-dictionary-help>${escapeHtml(uiText('en', 'dictionaryInstallQueueHelp'))}</div>
         ${groups.map(([category, label]) => {
             const dictionaries = RECOMMENDED_JAPANESE_DICTIONARIES.filter(dictionary => dictionary.category === category);
             if (!dictionaries.length) return '';
@@ -2116,6 +2118,7 @@ function renderRecommendedDictionary(dictionary: RecommendedDictionary, installe
                     <a href="${dictionary.homepage}" target="_blank" rel="noopener">Homepage</a>
                 </div>
                 <div class="jpdb-reader-help">${escapeHtml(uiText('en', dictionary.descriptionKey))}</div>
+                <div class="jpdb-reader-recommended-status" data-recommended-dictionary-status role="status" aria-live="polite" hidden></div>
             </div>
             <button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">
                 ${alreadyInstalled ? 'Update' : 'Install'}

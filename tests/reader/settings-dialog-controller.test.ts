@@ -60,6 +60,12 @@ function recommendedButton(form: HTMLFormElement, id: string): HTMLButtonElement
     return form.querySelector<HTMLButtonElement>(`[data-action="download-recommended-dictionary"][data-dictionary-id="${id}"]`)!;
 }
 
+function recommendedStatus(form: HTMLFormElement, id: string): HTMLElement {
+    return recommendedButton(form, id)
+        .closest<HTMLElement>('.jpdb-reader-recommended-item')!
+        .querySelector<HTMLElement>('[data-recommended-dictionary-status]')!;
+}
+
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason?: unknown) => void } {
     let resolve!: (value: T) => void;
     let reject!: (reason?: unknown) => void;
@@ -157,8 +163,12 @@ describe('settings dialog dictionary imports', () => {
         await waitForCondition(() => importFromUrl.mock.calls.length === 1);
 
         expect(recommendedButton(form, 'jitendex').dataset.importState).toBe('installing');
+        expect(recommendedStatus(form, 'jitendex').textContent).toContain('Reading dictionary ZIP');
         expect(recommendedButton(form, 'jmdict').dataset.importState).toBe('queued');
+        expect(recommendedStatus(form, 'jmdict').textContent).toContain('queued');
         expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
+        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.dataset.saveBlocked).toBe('dictionary-import');
+        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.textContent).toBe('Save after install');
         expect(form.querySelector<HTMLElement>('[data-settings-save-status]')?.textContent).toContain('2 dictionary installs');
 
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
@@ -171,10 +181,49 @@ describe('settings dialog dictionary imports', () => {
 
         expect(recommendedButton(form, 'jmdict').dataset.importState).toBe('installing');
         expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
+        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.dataset.saveBlocked).toBe('dictionary-import');
 
         secondImport.resolve(importSummary('JMdict'));
-        await waitForCondition(() => form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled === false);
+        await waitForCondition(() => form.querySelector<HTMLButtonElement>('button[type="submit"]')?.dataset.saveBlocked == null);
 
+        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(false);
         expect(form.querySelector<HTMLElement>('[data-settings-save-status]')?.hidden).toBe(true);
+        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.textContent).toBe('Save');
+    });
+
+    it('shows a toast when a recommended dictionary install fails', async () => {
+        const importFromUrl = vi.fn().mockRejectedValue(new Error('Could not remove old dictionary entries.'));
+        const { dependencies, form } = createSettingsDialog({
+            dictionaries: {
+                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
+                importFromUrl,
+            },
+        });
+
+        recommendedButton(form, 'jitendex').click();
+        await waitForCondition(() => (dependencies.toast as ReturnType<typeof vi.fn>).mock.calls.length > 0);
+
+        expect(form.querySelector<HTMLElement>('[data-import-status]')?.textContent).toBe('Could not remove old dictionary entries.');
+        expect(dependencies.toast).toHaveBeenCalledWith('Could not remove old dictionary entries.');
+        expect(recommendedButton(form, 'jitendex').disabled).toBe(false);
+    });
+
+    it('shows a toast with the manual download hint when automatic dictionary download is blocked', async () => {
+        const importFromUrl = vi.fn().mockRejectedValue(new Error('Dictionary download is blocked in this browser.'));
+        const { dependencies, form } = createSettingsDialog({
+            dictionaries: {
+                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
+                importFromUrl,
+            },
+        });
+
+        recommendedButton(form, 'jitendex').click();
+        await waitForCondition(() => (dependencies.toast as ReturnType<typeof vi.fn>).mock.calls.length > 0);
+
+        const status = form.querySelector<HTMLElement>('[data-import-status]')?.textContent ?? '';
+        expect(status).toContain('Dictionary download is blocked in this browser.');
+        expect(status).toContain('download the ZIP manually');
+        expect(dependencies.toast).toHaveBeenCalledWith(status);
+        expect(recommendedButton(form, 'jitendex').disabled).toBe(false);
     });
 });

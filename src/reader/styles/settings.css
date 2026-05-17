@@ -213,6 +213,12 @@
   cursor: not-allowed;
   opacity: 0.62;
 }
+.jpdb-reader-btn[data-save-blocked] {
+  cursor: wait;
+  color: var(--jpdb-reader-accent-readable);
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 55%, var(--jpdb-reader-border));
+  background: var(--jpdb-reader-accent-soft);
+}
 .jpdb-reader-btn[data-import-state] {
   gap: 7px;
   cursor: progress;
@@ -654,6 +660,9 @@
   font-weight: 800;
   font-size: 13px;
 }
+.jpdb-reader-recommended-note {
+  margin: -4px 0 2px;
+}
 .jpdb-reader-recommended-group {
   display: grid;
   gap: 7px;
@@ -692,6 +701,15 @@
 .jpdb-reader-recommended-name a {
   font-size: 11px;
   font-weight: 700;
+}
+.jpdb-reader-recommended-status {
+  margin-top: 7px;
+  color: var(--jpdb-reader-accent-readable);
+  font: 760 11px/1.35 var(--jpdb-reader-font);
+  overflow-wrap: anywhere;
+}
+.jpdb-reader-recommended-status[data-import-state="queued"] {
+  color: var(--jpdb-reader-muted);
 }
 .jpdb-reader-order-head,
 .jpdb-reader-order-row {

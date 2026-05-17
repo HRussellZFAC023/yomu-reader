@@ -369,7 +369,7 @@ async function main() {
     const rl = args.auto ? null : createInterface({ input: process.stdin, output: process.stdout });
     const context = await chromium.launchPersistentContext(path.resolve(args.profile), {
         headless: args.headless,
-        viewport: null,
+        viewport: { width: 1280, height: 900 },
         deviceScaleFactor: 1,
     });
 
@@ -603,8 +603,8 @@ async function validateScenario(page, scenario, timeoutMs) {
             },
             settingsImages() {
                 const settings = firstVisible('.jpdb-reader-settings');
-                const panel = settings?.querySelector('fieldset[data-settings-panel="images"]:not([hidden])');
-                add('settings images panel visible', Boolean(settings && panel && visible(panel)), 'Expected Yomu settings on Images');
+                const panel = settings?.querySelector('fieldset[data-settings-panel="media"]:not([hidden])');
+                add('settings media panel visible', Boolean(settings && panel && visible(panel)), 'Expected Yomu settings on Media');
                 add('OCR controls visible', Boolean(panel?.querySelector('[name="ocrProvider"], [name="ocrShowTextOverlay"], [name="ocrAutoScanImages"]')), 'Expected OCR settings controls');
             },
             settingsHelp() {

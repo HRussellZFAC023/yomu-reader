@@ -42,7 +42,7 @@ Useful details make support much faster:
 5. What happened instead.
 6. A screenshot if the issue is visual.
 
-## Extension Packages
+## Browser Builds
 
 Chrome, Firefox, and Safari extension packages can be built from the same userscript bundle for local testing and store-review prep. The current public install path is still the userscript until the store listings are ready.
 

@@ -15,6 +15,11 @@ interface FetchUrlCandidate {
     kind: FetchCandidateKind;
 }
 
+interface FetchAttempt {
+    url: string;
+    options: ProxyFetchOptions;
+}
+
 export const DEFAULT_YOMU_PUBLIC_PROXY_URL = 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev';
 
 const BUILT_IN_PROXY_BUILDERS: ProxyUrlBuilder[] = [
@@ -25,7 +30,6 @@ const BUILT_IN_PROXY_BUILDERS: ProxyUrlBuilder[] = [
 
 const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
 const READ_METHODS = new Set(['GET', 'HEAD']);
-const PUBLIC_PROXY_METHODS = new Set(['GET', 'HEAD', 'POST']);
 
 export function proxyUrlCandidates(targetUrl: string, configuredProxyUrl = '', allowPublicProxies = true): string[] {
     const candidates = [
@@ -57,7 +61,8 @@ export async function fetchWithCorsFallbacks(
     let lastError: unknown;
     for (const [index, candidate] of candidates.entries()) {
         try {
-            const response = await fetchWithTimeout(candidate.url, options);
+            const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
+            const response = await fetchWithTimeout(attempt.url, attempt.options);
             if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
                 lastError = new Error(`Proxy request failed (${response.status}).`);
                 continue;
@@ -70,13 +75,54 @@ export async function fetchWithCorsFallbacks(
     throw lastError instanceof Error ? lastError : new Error('Cross-origin request failed.');
 }
 
+function fetchAttemptForCandidate(targetUrl: string, candidate: FetchUrlCandidate, options: ProxyFetchOptions): FetchAttempt {
+    if (candidate.kind === 'direct' || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
+        return { url: candidate.url, options };
+    }
+
+    return {
+        url: proxyControlUrl(candidate.url, options.headers),
+        options: {
+            ...options,
+            headers: stripProxyOnlyHeaders(options.headers, ['x-access', 'x-forcecaf']),
+        },
+    };
+}
+
+function proxyControlUrl(candidateUrl: string, headers: HeadersInit | undefined): string {
+    const forceCaf = headerValue(headers, 'x-forcecaf');
+    if (!forceCaf) return candidateUrl;
+    try {
+        const url = new URL(candidateUrl);
+        url.searchParams.set('x-forcecaf', forceCaf);
+        return url.href;
+    } catch {
+        return candidateUrl;
+    }
+}
+
+function stripProxyOnlyHeaders(headers: HeadersInit | undefined, names: string[]): HeadersInit | undefined {
+    if (!headers) return headers;
+    const excluded = new Set(names.map(name => name.toLowerCase()));
+    const sanitized: Record<string, string> = {};
+    new Headers(headers).forEach((value, key) => {
+        if (!excluded.has(key.toLowerCase())) sanitized[key] = value;
+    });
+    return Object.keys(sanitized).length ? sanitized : undefined;
+}
+
+function headerValue(headers: HeadersInit | undefined, name: string): string {
+    if (!headers) return '';
+    return new Headers(headers).get(name) ?? '';
+}
+
 function fetchUrlCandidates(targetUrl: string, configuredProxyUrl: string, options: ProxyFetchOptions): FetchUrlCandidate[] {
     const direct = directFetchUrl(targetUrl, options);
     const proxySafe = isProxySafeRequest(targetUrl, options);
-    const configured = proxySafe && options.allowConfiguredProxy !== false && shouldUseConfiguredProxy(targetUrl, configuredProxyUrl, options)
+    const configured = proxySafe && options.allowConfiguredProxy !== false
         ? configuredProxyFetchUrl(targetUrl, configuredProxyUrl)
         : null;
-    const publicProxySafe = proxySafe && options.allowPublicProxies !== false && isPublicProxyMethod(options.method);
+    const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
     const publicProxies = publicProxySafe
         ? builtInProxyUrls(targetUrl, options)
         : [];
@@ -97,11 +143,6 @@ function directFetchUrl(targetUrl: string, options: ProxyFetchOptions): string |
     if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
     if (shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
     return targetUrl;
-}
-
-function shouldUseConfiguredProxy(targetUrl: string, configuredProxyUrl: string, options: ProxyFetchOptions): boolean {
-    if (!isDefaultPublicProxy(configuredProxyUrl)) return true;
-    return !defaultPublicProxyRouteIsKnownBroken(targetUrl, options);
 }
 
 function uniqueFetchCandidates(candidates: Array<FetchUrlCandidate | null>): FetchUrlCandidate[] {
@@ -186,6 +227,9 @@ function shouldSkipDirectCrossOriginFetch(targetUrl: string, options: ProxyFetch
         if (target.hostname === 'www.japanesepod101.com') {
             return method === 'POST' && target.pathname === '/learningcenter/reference/dictionary_post';
         }
+        if (target.hostname === 'jpdb.io' && target.pathname.startsWith('/static/v/')) {
+            return method === 'GET';
+        }
         return false;
     } catch {
         return false;
@@ -202,39 +246,19 @@ function specializedProxyUrls(targetUrl: string, options: ProxyFetchOptions): st
     try {
         const target = new URL(targetUrl);
         const method = String(options.method ?? 'GET').toUpperCase();
-        if (method === 'GET' && target.hostname === 'jisho.org' && target.pathname.startsWith('/search/')) {
-            return [jishoMarkdownProxyUrl(targetUrl) ?? ''];
-        }
         if (method === 'GET' && target.hostname === 'assets.languagepod101.com' && target.pathname === '/dictionary/japanese/audiomp3.php') {
             return [configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ''];
         }
         if (method === 'POST' && target.hostname === 'www.japanesepod101.com' && target.pathname === '/learningcenter/reference/dictionary_post') {
             return [configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ''];
         }
+        if (method === 'GET' && target.hostname === 'jpdb.io' && target.pathname.startsWith('/static/v/')) {
+            return [configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ''];
+        }
     } catch {
         return null;
     }
     return null;
-}
-
-function isDefaultPublicProxy(configuredProxyUrl: string): boolean {
-    const proxyUrl = configuredProxyUrl.trim();
-    if (!proxyUrl) return false;
-    try {
-        return new URL(proxyUrl).origin === DEFAULT_YOMU_PUBLIC_PROXY_URL;
-    } catch {
-        return false;
-    }
-}
-
-function defaultPublicProxyRouteIsKnownBroken(targetUrl: string, options: ProxyFetchOptions): boolean {
-    try {
-        const target = new URL(targetUrl);
-        const method = String(options.method ?? 'GET').toUpperCase();
-        return method === 'GET' && target.hostname === 'jisho.org' && target.pathname.startsWith('/search/');
-    } catch {
-        return false;
-    }
 }
 
 function isHostedGithubPagesApp(): boolean {
@@ -261,6 +285,23 @@ function isCrossOriginHttpUrl(targetUrl: string): boolean {
     try {
         const target = new URL(targetUrl, location.href);
         return /^https?:$/i.test(target.protocol) && target.origin !== location.origin;
+    } catch {
+        return false;
+    }
+}
+
+function isJpdbPublicAudioUrl(targetUrl: string): boolean {
+    try {
+        const target = new URL(targetUrl, location.href);
+        return target.hostname === 'jpdb.io' && target.pathname.startsWith('/static/v/');
+    } catch {
+        return false;
+    }
+}
+
+function isYomuPublicProxyUrl(candidateUrl: string): boolean {
+    try {
+        return new URL(candidateUrl).origin === DEFAULT_YOMU_PUBLIC_PROXY_URL;
     } catch {
         return false;
     }
@@ -328,10 +369,6 @@ function hasSensitiveUrlParams(targetUrl: string): boolean {
 
 function isReadMethod(method: RequestInit['method'] | undefined): boolean {
     return READ_METHODS.has(String(method ?? 'GET').toUpperCase());
-}
-
-function isPublicProxyMethod(method: RequestInit['method'] | undefined): boolean {
-    return PUBLIC_PROXY_METHODS.has(String(method ?? 'GET').toUpperCase());
 }
 
 function jishoMarkdownProxyUrl(targetUrl: string): string | null {

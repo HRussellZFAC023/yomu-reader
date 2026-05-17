@@ -118,4 +118,4 @@ After setup, go to Settings > Dictionaries and use Export settings JSON. This gi
 
 ## If Something Does Not Work
 
-Start with [Troubleshooting](/troubleshooting). The most common fixes are enabling the userscript manager for the current site, refreshing the page after changing settings, checking that a JPDB key was pasted correctly, and remembering that `localhost` on an iPhone means the iPhone itself rather than your desktop computer.
+The most common fixes are enabling the userscript manager for the current site, refreshing the page after changing settings, checking that a JPDB key was pasted correctly, and remembering that `localhost` on an iPhone means the iPhone itself rather than your desktop computer. If the install link or hosted tools are down, check [Support](/support) for the current project links and issue tracker.

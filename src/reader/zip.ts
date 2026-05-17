@@ -6,6 +6,19 @@ export interface ZipFileEntry {
     uncompressedSize: number;
 }
 
+export interface ZipReadProgress {
+    phase: 'read' | 'directory';
+    loaded: number;
+    total: number;
+    entries?: number;
+}
+
+export interface ZipEntryProgress {
+    name: string;
+    loaded: number;
+    total: number;
+}
+
 interface ZipCentralEntry extends ZipFileEntry {
     compressionMethod: number;
     encrypted: boolean;
@@ -32,10 +45,12 @@ export class ZipArchive {
         return [...this.files.values()].map(({ name, compressedSize, uncompressedSize }) => ({ name, compressedSize, uncompressedSize }));
     }
 
-    async text(name: string): Promise<string> {
+    async text(name: string, onProgress?: (progress: ZipEntryProgress) => void): Promise<string> {
         const entry = this.files.get(name);
         if (!entry) throw new Error(`${name} not found.`);
+        onProgress?.({ name, loaded: 0, total: zipEntryProgressTotal(entry) });
         const bytes = await this.fileBytes(entry);
+        onProgress?.({ name, loaded: bytes.byteLength, total: zipEntryProgressTotal(entry) });
         return textDecoder.decode(bytes);
     }
 
@@ -48,9 +63,38 @@ export class ZipArchive {
     }
 }
 
-export async function readZipArchive(file: Blob): Promise<ZipArchive> {
-    const bytes = new Uint8Array(await readBlobArrayBuffer(file));
-    return new ZipArchive(bytes, readZipCentralDirectory(bytes));
+export async function readZipArchive(file: Blob, onProgress?: (progress: ZipReadProgress) => void): Promise<ZipArchive> {
+    const bytes = await readBlobBytes(file, onProgress);
+    const files = readZipCentralDirectory(bytes);
+    onProgress?.({ phase: 'directory', loaded: bytes.byteLength, total: file.size || bytes.byteLength, entries: files.size });
+    return new ZipArchive(bytes, files);
+}
+
+async function readBlobBytes(file: Blob, onProgress?: (progress: ZipReadProgress) => void): Promise<Uint8Array> {
+    const total = file.size;
+    if (!onProgress || typeof file.stream !== 'function') {
+        const bytes = new Uint8Array(await readBlobArrayBuffer(file));
+        onProgress?.({ phase: 'read', loaded: bytes.byteLength, total: total || bytes.byteLength });
+        return bytes;
+    }
+    const reader = file.stream().getReader();
+    const chunks: Uint8Array[] = [];
+    let loaded = 0;
+    onProgress({ phase: 'read', loaded, total });
+    for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        loaded += value.byteLength;
+        onProgress({ phase: 'read', loaded, total });
+    }
+    const bytes = new Uint8Array(loaded);
+    let offset = 0;
+    for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.byteLength;
+    }
+    return bytes;
 }
 
 function readZipCentralDirectory(bytes: Uint8Array): Map<string, ZipCentralEntry> {
@@ -112,6 +156,10 @@ function localFileBytes(bytes: Uint8Array, entry: ZipCentralEntry): Uint8Array {
     const end = start + entry.compressedSize;
     if (end > bytes.length) throw new Error(`Invalid ZIP entry bounds: ${entry.name}`);
     return bytes.subarray(start, end);
+}
+
+function zipEntryProgressTotal(entry: ZipCentralEntry): number {
+    return entry.uncompressedSize || entry.compressedSize;
 }
 
 async function inflateRaw(bytes: Uint8Array): Promise<Uint8Array> {

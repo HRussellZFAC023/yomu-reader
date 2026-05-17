@@ -1591,6 +1591,40 @@ describe('reader helpers', () => {
         }
     });
 
+    it('routes hosted JPDB static audio through the public proxy without custom browser headers', async () => {
+        const target = 'https://jpdb.io/static/v/m1/e9cac7e3d132';
+        const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('audio', { status: 200 })));
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/',
+            origin: 'https://hrussellzfac023.github.io',
+            hostname: 'hrussellzfac023.github.io',
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(fetchWithCorsFallbacks(target, DEFAULT_YOMU_PUBLIC_PROXY_URL, {
+                allowDirectCrossOrigin: true,
+                credentials: 'omit',
+                headers: {
+                    'X-Access': "please don't steal these files",
+                    'X-ForceCAF': '1',
+                },
+            })).resolves.toBeInstanceOf(Response);
+
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            const [input, init] = fetchMock.mock.calls[0] as [RequestInfo | URL, RequestInit | undefined];
+            const requestedUrl = new URL(String(input));
+            expect(requestedUrl.origin).toBe(DEFAULT_YOMU_PUBLIC_PROXY_URL);
+            expect(requestedUrl.searchParams.get('url')).toBe(target);
+            expect(requestedUrl.searchParams.get('x-forcecaf')).toBe('1');
+            const headers = new Headers(init?.headers);
+            expect(headers.has('x-access')).toBe(false);
+            expect(headers.has('x-forcecaf')).toBe(false);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('disables popover term audio controls when term audio is off', () => {
         const renderer = new CardPopoverRenderer({
             getSettings: () => ({ ...DEFAULT_SETTINGS, audioEnabled: false }),
@@ -2198,9 +2232,63 @@ describe('reader helpers', () => {
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
             expect(urls[0]).toContain('yomu-jpdb-public-proxy');
             expect(urls).toContain('https://r.jina.ai/http://r.jina.ai/http://https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B');
-            expect(urls).not.toContain(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`);
+            expect(urls).toContain(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`);
             expect(spoken).toEqual([card.spelling]);
         } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('falls back from blocked LanguagePod101 search to the direct audio asset URL', async () => {
+        const played: string[] = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:https://hrussellzfac023.github.io/yomu-reader/languagepod-fallback'),
+        });
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/',
+            origin: 'https://hrussellzfac023.github.io',
+            hostname: 'hrussellzfac023.github.io',
+        });
+        const fetchMock = vi.fn((input: RequestInfo | URL) => {
+            const url = String(input);
+            if (url.includes('www.japanesepod101.com')) {
+                return Promise.resolve(new Response('blocked', { status: 403 }));
+            }
+            if (url.includes('assets.languagepod101.com')) {
+                return Promise.resolve({
+                    ok: true,
+                    status: 200,
+                    blob: () => Promise.resolve(new Blob(['audio-data'], { type: 'audio/mpeg' })),
+                } as Response);
+            }
+            return Promise.reject(new Error(`unexpected fetch: ${url}`));
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioViaBlob: true,
+                audioEnableDefaultSources: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'language-pod-101', url: '', voice: '', enabled: true }],
+            }));
+
+            const result = await player.play({ ...card, spelling: '読む', reading: 'よむ' });
+            const urls = fetchMock.mock.calls.map(([url]) => String(url));
+            expect(result).toBe(true);
+            expect(urls[0]).toContain('www.japanesepod101.com');
+            expect(urls[1]).toContain('assets.languagepod101.com');
+            expect(played).toEqual(['blob:https://hrussellzfac023.github.io/yomu-reader/languagepod-fallback']);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            restoreMedia();
             vi.unstubAllGlobals();
         }
     });
@@ -2878,6 +2966,9 @@ describe('reader helpers', () => {
         const languagePodPostTarget = 'https://www.japanesepod101.com/learningcenter/reference/dictionary_post';
         const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
             const url = String(input);
+            if (url.startsWith('https://yomu-jpdb-public-proxy') && url.includes('jisho.org')) {
+                return Promise.resolve(new Response('ok', { status: 200 }));
+            }
             if (url.startsWith('https://yomu-jpdb-public-proxy') && url.includes('assets.languagepod101.com')) {
                 return Promise.resolve(new Response('audio', { status: 200 }));
             }
@@ -2895,7 +2986,7 @@ describe('reader helpers', () => {
 
             expect(await response.text()).toBe('ok');
             expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
-                `https://r.jina.ai/http://r.jina.ai/http://${target}`,
+                `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent(target)}`,
             ]);
 
             fetchMock.mockClear();
@@ -2962,7 +3053,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('allows public Worker GET fallbacks while blocking private and sensitive targets', () => {
+    it('allows public Worker proxying for arbitrary HTTP targets and methods', () => {
         expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/kanji/%E5%9B%B3'))).toBe(true);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/vocabulary/123/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80'))).toBe(true);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/static/v/m1/e9cac7e3d132'))).toBe(true);
@@ -2974,26 +3065,18 @@ describe('reader helpers', () => {
         expect(isAllowedPublicProxyTarget('GET', new URL('https://cdn.example.com/audio.mp3'))).toBe(true);
         expect(isAllowedPublicProxyTarget('POST', new URL('https://www.japanesepod101.com/learningcenter/reference/dictionary_post'))).toBe(true);
         expect(isAllowedPublicProxyTarget('POST', new URL('https://jpdb.io/api/v1/lookup-vocabulary'))).toBe(true);
-
-        expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/api/v1/lookup-vocabulary'))).toBe(false);
-        expect(isAllowedPublicProxyTarget('POST', new URL('https://jpdb.io/prioritize'))).toBe(false);
-        expect(isAllowedPublicProxyTarget('POST', new URL('https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip'))).toBe(false);
-        expect(isAllowedPublicProxyTarget('GET', new URL('https://localhost/audio.mp3'))).toBe(false);
-        expect(isAllowedPublicProxyTarget('GET', new URL('https://127.0.0.1/audio.mp3'))).toBe(false);
-        expect(isAllowedPublicProxyTarget('GET', new URL('https://192.168.1.2/audio.mp3'))).toBe(false);
-        expect(isAllowedPublicProxyTarget('GET', new URL('https://[::1]/audio.mp3'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/api/v1/lookup-vocabulary'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('POST', new URL('https://jpdb.io/prioritize'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('PUT', new URL('https://api.example.com/items/1'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('PATCH', new URL('https://api.example.com/items/1'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('DELETE', new URL('https://api.example.com/items/1'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('GET', new URL('http://127.0.0.1/audio.mp3'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('GET', new URL('file:///tmp/audio.mp3'))).toBe(false);
     });
 
     it('strips browser fetch metadata before forwarding public Worker requests', async () => {
         const upstreamFetch = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('ok', { status: 200 })));
-        const cachePut = vi.fn(() => Promise.resolve());
         vi.stubGlobal('fetch', upstreamFetch);
-        vi.stubGlobal('caches', {
-            default: {
-                match: vi.fn(() => Promise.resolve(undefined)),
-                put: cachePut,
-            },
-        });
 
         try {
             const response = await PublicProxyWorker.fetch(
@@ -3023,12 +3106,6 @@ describe('reader helpers', () => {
     it('forwards JPDB public audio access headers through the public Worker', async () => {
         const upstreamFetch = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('audio', { status: 200 })));
         vi.stubGlobal('fetch', upstreamFetch);
-        vi.stubGlobal('caches', {
-            default: {
-                match: vi.fn(() => Promise.resolve(undefined)),
-                put: vi.fn(() => Promise.resolve()),
-            },
-        });
 
         try {
             const preflight = await PublicProxyWorker.fetch(
@@ -3036,6 +3113,7 @@ describe('reader helpers', () => {
                     method: 'OPTIONS',
                     headers: {
                         Origin: 'http://127.0.0.1:5174',
+                        'Access-Control-Request-Method': 'GET',
                         'Access-Control-Request-Headers': 'x-access, x-forcecaf',
                     },
                 }),
@@ -3060,6 +3138,68 @@ describe('reader helpers', () => {
             expect(upstreamRequest.url).toBe('https://jpdb.io/static/v/m1/e9cac7e3d132');
             expect(upstreamRequest.headers.get('x-access')).toBe("please don't steal these files");
             expect(upstreamRequest.headers.get('x-forcecaf')).toBe('1');
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('adds JPDB public audio access headers in the public Worker when the browser request omits them', async () => {
+        const upstreamFetch = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('audio', { status: 200 })));
+        vi.stubGlobal('fetch', upstreamFetch);
+
+        try {
+            const response = await PublicProxyWorker.fetch(
+                new Request(`https://proxy.test/?url=${encodeURIComponent('https://jpdb.io/static/v/m1/e9cac7e3d132')}&x-forcecaf=1`),
+                {},
+                { waitUntil: vi.fn() },
+            );
+
+            const upstreamRequest = upstreamFetch.mock.calls[0]?.[0] as unknown as Request;
+            expect(response.status).toBe(200);
+            expect(upstreamRequest.url).toBe('https://jpdb.io/static/v/m1/e9cac7e3d132');
+            expect(upstreamRequest.headers.get('x-access')).toBe("please don't steal these files");
+            expect(upstreamRequest.headers.get('x-forcecaf')).toBe('1');
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('forwards arbitrary public Worker methods, bodies, and request headers', async () => {
+        const upstreamFetch = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('updated', {
+            status: 202,
+            headers: { 'X-Upstream-Trace': 'trace-1' },
+        })));
+        vi.stubGlobal('fetch', upstreamFetch);
+
+        try {
+            const response = await PublicProxyWorker.fetch(
+                new Request(`https://proxy.test/?url=${encodeURIComponent('https://api.example.com/items/1?debug=1')}`, {
+                    method: 'PATCH',
+                    headers: {
+                        Origin: 'https://hrussellzfac023.github.io',
+                        Authorization: 'Bearer token',
+                        'Content-Type': 'application/json',
+                        'X-Custom-Request': 'yes',
+                        'Sec-Fetch-Mode': 'cors',
+                    },
+                    body: JSON.stringify({ name: '読む' }),
+                }),
+                {},
+                { waitUntil: vi.fn() },
+            );
+
+            const upstreamRequest = upstreamFetch.mock.calls[0]?.[0] as unknown as Request;
+            expect(response.status).toBe(202);
+            expect(response.headers.get('access-control-allow-origin')).toBe('https://hrussellzfac023.github.io');
+            expect(response.headers.get('access-control-allow-credentials')).toBe('true');
+            expect(response.headers.get('access-control-expose-headers')).toContain('x-upstream-trace');
+            expect(upstreamRequest.url).toBe('https://api.example.com/items/1?debug=1');
+            expect(upstreamRequest.method).toBe('PATCH');
+            expect(upstreamRequest.headers.get('authorization')).toBe('Bearer token');
+            expect(upstreamRequest.headers.get('content-type')).toBe('application/json');
+            expect(upstreamRequest.headers.get('x-custom-request')).toBe('yes');
+            expect(upstreamRequest.headers.has('sec-fetch-mode')).toBe(false);
+            expect(await upstreamRequest.text()).toBe(JSON.stringify({ name: '読む' }));
         } finally {
             vi.unstubAllGlobals();
         }
@@ -4177,19 +4317,19 @@ describe('reader helpers', () => {
         }
     });
 
-    it('plays direct audio URLs when blob playback is disabled', async () => {
+    it('honors direct custom audio playback when blob playback is disabled in settings', async () => {
         const played: string[] = [];
         const restoreMedia = mockHtmlAudioPlayback(played);
-        class FakeAudio {
-            preload = '';
-            constructor(public src: string) {}
-            play(): Promise<void> {
-                played.push(this.src);
-                return Promise.resolve();
-            }
-            pause(): void {}
-        }
-        vi.stubGlobal('Audio', FakeAudio);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:http://localhost/forced-custom-audio'),
+        });
+        vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+            ok: true,
+            status: 200,
+            blob: () => Promise.resolve(new Blob(['audio'], { type: 'audio/mpeg' })),
+        } as Response)));
 
         try {
             const player = new AudioPlayer(() => ({
@@ -4206,6 +4346,10 @@ describe('reader helpers', () => {
 
             expect(played).toEqual(['https://audio.test/%E9%A3%9F%E3%81%B9%E3%82%8B.mp3']);
         } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
             restoreMedia();
             vi.unstubAllGlobals();
         }
@@ -6049,7 +6193,9 @@ describe('reader helpers', () => {
 
             await expect(store.importFromUrl('https://github.com/example/dict.zip', 'dict.zip'))
                 .rejects.toThrow(/blocked in this browser/i);
-            const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit]> } }).mock.calls.map(([url]) => String(url));
+            const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit]> } }).mock.calls
+                .map(([url]) => String(url))
+                .filter(url => url.includes('dict.zip'));
             expect(urls).toEqual([
                 `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://github.com/example/dict.zip')}`,
                 `https://api.allorigins.win/raw?url=${encodeURIComponent('https://github.com/example/dict.zip')}`,
@@ -9784,6 +9930,23 @@ describe('reader helpers', () => {
         })], 'yomitan-direct-dictionaries.json', { type: 'application/json' });
 
         await store.importFile(file);
+        const importTermSearchCount = await new Promise<number>((resolve, reject) => {
+            const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
+            request.onsuccess = () => {
+                const db = request.result;
+                const count = db.transaction('termSearch', 'readonly').objectStore('termSearch').count();
+                count.onsuccess = () => {
+                    db.close();
+                    resolve(count.result);
+                };
+                count.onerror = () => {
+                    db.close();
+                    reject(count.error);
+                };
+            };
+            request.onerror = () => reject(request.error);
+        });
+        expect(importTermSearchCount).toBe(0);
         const entries = await store.lookup('青空', 'あおぞら', 5);
         expect(entries).toMatchObject([{ dictionary: 'Jitendex.org [2025-12-02]', expression: '青空' }]);
         expect(glossaryToHtml(entries[0].glossary[0])).toContain('blue sky');
@@ -9792,6 +9955,7 @@ describe('reader helpers', () => {
         const kanjiSearchExpressions = (await store.searchTerms('女', 5)).map(entry => entry.expression);
         expect(kanjiSearchExpressions).toContain('女');
         expect(kanjiSearchExpressions).not.toContain('別語');
+        await store.prepareTermSearchIndex();
         const termSearchCount = await new Promise<number>((resolve, reject) => {
             const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
             request.onsuccess = () => {
@@ -9845,21 +10009,26 @@ describe('reader helpers', () => {
             };
             request.onerror = () => reject(request.error);
         });
-        expect(termKanjiCount).toBe(5);
+        expect(termKanjiCount).toBe(0);
+        expect((await store.lookupSimilarTermsByKanji('猫', 5)).map(entry => entry.expression)).toEqual(['猫舌', '山猫']);
 
-        const originalOpenCursor = IDBObjectStore.prototype.openCursor;
-        const openCursorSpy = vi
-            .spyOn(IDBObjectStore.prototype, 'openCursor')
-            .mockImplementation(function (this: IDBObjectStore, ...args: Parameters<IDBObjectStore['openCursor']>) {
-                if (this.name === 'terms') throw new Error('lookupSimilarTermsByKanji should use termKanji, not scan terms');
-                return originalOpenCursor.apply(this, args);
-            });
-
-        try {
-            expect((await store.lookupSimilarTermsByKanji('猫', 5)).map(entry => entry.expression)).toEqual(['猫舌', '山猫']);
-        } finally {
-            openCursorSpy.mockRestore();
-        }
+        const indexedTermKanjiCount = await new Promise<number>((resolve, reject) => {
+            const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
+            request.onsuccess = () => {
+                const db = request.result;
+                const count = db.transaction('termKanji', 'readonly').objectStore('termKanji').count();
+                count.onsuccess = () => {
+                    db.close();
+                    resolve(count.result);
+                };
+                count.onerror = () => {
+                    db.close();
+                    reject(count.error);
+                };
+            };
+            request.onerror = () => reject(request.error);
+        });
+        expect(indexedTermKanjiCount).toBe(5);
     });
 
     it('coalesces concurrent hot local dictionary lookups and keys them by normalized preferences', async () => {

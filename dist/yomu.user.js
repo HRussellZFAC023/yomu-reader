@@ -3180,6 +3180,7 @@
       install: "Install",
       installing: "Installing",
       queued: "Queued",
+      saveAfterInstall: "Save after install",
       download: "Download",
       downloadAndImport: "Download and import into よむ",
       update: "Update",
@@ -3188,6 +3189,12 @@
       dictionaryOnlyJpdb: "JPDB is the only definition source. Import Yomitan dictionaries to add local or native-language definitions.",
       dictionaryDownloading: "Downloading",
       dictionaryReadingZip: "Reading dictionary ZIP...",
+      dictionaryCheckingIndex: "Checking dictionary index...",
+      dictionaryBanksFound: "{count} dictionary bank{plural} found.",
+      dictionaryRemovingExisting: "removing old entries",
+      dictionaryReadingBank: "Reading",
+      dictionaryParsingBank: "Parsing",
+      dictionarySavingBank: "Saving",
       dictionaryImporting: "Importing",
       importingBundledDictionaries: "Importing bundled dictionaries...",
       dictionaryImported: "Imported",
@@ -3202,6 +3209,8 @@
       dictionaryDownloadNeedsBridge: "Dictionary download needs the userscript request bridge on this page. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.",
       dictionaryDownloadBlocked: "Dictionary download is blocked in this browser. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.",
       dictionaryManualDownloadHint: "Enable the よむ userscript on this page, then tap Download again. You can also download the ZIP manually and use Import dictionary above.",
+      dictionaryInstallQueueHelp: "Dictionary installs can take a few minutes. You can queue more than one; よむ installs them one at a time and keeps Save waiting until the active import finishes.",
+      dictionaryInstallNewTabHelp: "Install a dictionary in Settings and keep this tab open until the import finishes. Large dictionaries can take a few minutes.",
       dictionaryInstallQueued: "{dictionary} queued. It will install after the current dictionary finishes.",
       dictionaryInstallSaveBlocked: "Dictionary import is still running. Save will be available when it finishes.",
       dictionaryImportQueueStatus: "{count} dictionary install{plural} in progress. Save will be available when finished.",
@@ -3748,8 +3757,15 @@
     noDefinitionsFound: "定義が見つかりませんでした。",
     noDefinitions: "有効な定義ソースから結果が返りませんでした。",
     dictionary: "辞書",
+    saveAfterInstall: "インストール後に保存",
     dictionaryDownloading: "ダウンロード中",
     dictionaryReadingZip: "辞書ZIPを読み取り中...",
+    dictionaryCheckingIndex: "辞書インデックスを確認中...",
+    dictionaryBanksFound: "{count}件の辞書バンクが見つかりました。",
+    dictionaryRemovingExisting: "既存項目を削除中",
+    dictionaryReadingBank: "読み取り中",
+    dictionaryParsingBank: "解析中",
+    dictionarySavingBank: "保存中",
     dictionaryImporting: "インポート中",
     importingBundledDictionaries: "同梱辞書をインポート中...",
     dictionaryImported: "インポート済み",
@@ -3764,6 +3780,8 @@
     dictionaryDownloadNeedsBridge: "このページで辞書をダウンロードするには、ユーザースクリプトのリクエストブリッジが必要です。自動ダウンロードに失敗する場合は、辞書URLを開いて設定からZIPをインポートしてください。",
     dictionaryDownloadBlocked: "このブラウザーでは辞書のダウンロードがブロックされています。自動ダウンロードに失敗する場合は、辞書URLを開いて設定からZIPをインポートしてください。",
     dictionaryManualDownloadHint: "このページでよむのユーザースクリプトを有効にしてから、もう一度ダウンロードを押してください。ZIPを手動でダウンロードして、上の辞書インポートから読み込むこともできます。",
+    dictionaryInstallQueueHelp: "辞書のインストールには数分かかることがあります。複数キューに入れられますが、よむは1件ずつインストールし、インポート完了まで保存を待機します。",
+    dictionaryInstallNewTabHelp: "設定で辞書をインストールし、インポートが終わるまでこのタブを開いたままにしてください。大きい辞書は数分かかることがあります。",
     dictionaryInstallQueued: "{dictionary}を待機中です。現在の辞書が終わったらインストールします。",
     dictionaryInstallSaveBlocked: "辞書インポートがまだ進行中です。完了すると保存できます。",
     dictionaryImportQueueStatus: "{count}件の辞書インストールが進行中です。完了すると保存できます。",
@@ -4582,7 +4600,6 @@
   ];
   const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
   const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
-  const PUBLIC_PROXY_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD", "POST"]);
   function configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) {
     const proxyUrl = configuredProxyUrl.trim();
     if (!proxyUrl) return null;
@@ -4600,7 +4617,8 @@
     let lastError;
     for (const [index, candidate] of candidates.entries()) {
       try {
-        const response = await fetchWithTimeout(candidate.url, options);
+        const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
+        const response = await fetchWithTimeout(attempt.url, attempt.options);
         if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
           lastError = new Error(`Proxy request failed (${response.status}).`);
           continue;
@@ -4612,11 +4630,47 @@
     }
     throw lastError instanceof Error ? lastError : new Error("Cross-origin request failed.");
   }
+  function fetchAttemptForCandidate(targetUrl, candidate, options) {
+    if (candidate.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
+      return { url: candidate.url, options };
+    }
+    return {
+      url: proxyControlUrl(candidate.url, options.headers),
+      options: {
+        ...options,
+        headers: stripProxyOnlyHeaders(options.headers, ["x-access", "x-forcecaf"])
+      }
+    };
+  }
+  function proxyControlUrl(candidateUrl, headers) {
+    const forceCaf = headerValue(headers, "x-forcecaf");
+    if (!forceCaf) return candidateUrl;
+    try {
+      const url = new URL(candidateUrl);
+      url.searchParams.set("x-forcecaf", forceCaf);
+      return url.href;
+    } catch {
+      return candidateUrl;
+    }
+  }
+  function stripProxyOnlyHeaders(headers, names) {
+    if (!headers) return headers;
+    const excluded = new Set(names.map((name) => name.toLowerCase()));
+    const sanitized = {};
+    new Headers(headers).forEach((value, key) => {
+      if (!excluded.has(key.toLowerCase())) sanitized[key] = value;
+    });
+    return Object.keys(sanitized).length ? sanitized : void 0;
+  }
+  function headerValue(headers, name) {
+    if (!headers) return "";
+    return new Headers(headers).get(name) ?? "";
+  }
   function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
     const direct = directFetchUrl(targetUrl, options);
     const proxySafe = isProxySafeRequest(targetUrl, options);
-    const configured = proxySafe && options.allowConfiguredProxy !== false && shouldUseConfiguredProxy(targetUrl, configuredProxyUrl, options) ? configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) : null;
-    const publicProxySafe = proxySafe && options.allowPublicProxies !== false && isPublicProxyMethod(options.method);
+    const configured = proxySafe && options.allowConfiguredProxy !== false ? configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) : null;
+    const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
     const publicProxies = publicProxySafe ? builtInProxyUrls(targetUrl, options) : [];
     const directCandidate = direct ? { url: direct, kind: "direct" } : null;
     const proxyCandidates = [
@@ -4632,10 +4686,6 @@
     if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
     if (shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
     return targetUrl;
-  }
-  function shouldUseConfiguredProxy(targetUrl, configuredProxyUrl, options) {
-    if (!isDefaultPublicProxy(configuredProxyUrl)) return true;
-    return !defaultPublicProxyRouteIsKnownBroken(targetUrl, options);
   }
   function uniqueFetchCandidates(candidates) {
     const seen = /* @__PURE__ */ new Set();
@@ -4699,6 +4749,9 @@
       if (target.hostname === "www.japanesepod101.com") {
         return method === "POST" && target.pathname === "/learningcenter/reference/dictionary_post";
       }
+      if (target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/")) {
+        return method === "GET";
+      }
       return false;
     } catch {
       return false;
@@ -4713,37 +4766,19 @@
     try {
       const target = new URL(targetUrl);
       const method = String(options.method ?? "GET").toUpperCase();
-      if (method === "GET" && target.hostname === "jisho.org" && target.pathname.startsWith("/search/")) {
-        return [jishoMarkdownProxyUrl(targetUrl) ?? ""];
-      }
       if (method === "GET" && target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php") {
         return [configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""];
       }
       if (method === "POST" && target.hostname === "www.japanesepod101.com" && target.pathname === "/learningcenter/reference/dictionary_post") {
         return [configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""];
       }
+      if (method === "GET" && target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/")) {
+        return [configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""];
+      }
     } catch {
       return null;
     }
     return null;
-  }
-  function isDefaultPublicProxy(configuredProxyUrl) {
-    const proxyUrl = configuredProxyUrl.trim();
-    if (!proxyUrl) return false;
-    try {
-      return new URL(proxyUrl).origin === DEFAULT_YOMU_PUBLIC_PROXY_URL;
-    } catch {
-      return false;
-    }
-  }
-  function defaultPublicProxyRouteIsKnownBroken(targetUrl, options) {
-    try {
-      const target = new URL(targetUrl);
-      const method = String(options.method ?? "GET").toUpperCase();
-      return method === "GET" && target.hostname === "jisho.org" && target.pathname.startsWith("/search/");
-    } catch {
-      return false;
-    }
   }
   function isHostedGithubPagesApp$1() {
     if (typeof location === "undefined") return false;
@@ -4765,6 +4800,21 @@
     try {
       const target = new URL(targetUrl, location.href);
       return /^https?:$/i.test(target.protocol) && target.origin !== location.origin;
+    } catch {
+      return false;
+    }
+  }
+  function isJpdbPublicAudioUrl(targetUrl) {
+    try {
+      const target = new URL(targetUrl, location.href);
+      return target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/");
+    } catch {
+      return false;
+    }
+  }
+  function isYomuPublicProxyUrl(candidateUrl) {
+    try {
+      return new URL(candidateUrl).origin === DEFAULT_YOMU_PUBLIC_PROXY_URL;
     } catch {
       return false;
     }
@@ -4813,9 +4863,6 @@
   }
   function isReadMethod(method) {
     return READ_METHODS.has(String(method ?? "GET").toUpperCase());
-  }
-  function isPublicProxyMethod(method) {
-    return PUBLIC_PROXY_METHODS.has(String(method ?? "GET").toUpperCase());
   }
   function jishoMarkdownProxyUrl(targetUrl) {
     try {
@@ -5077,7 +5124,6 @@
     return headers;
   }
   const REQUIRED_JA_AUDIO_SOURCES = ["jpod101", "language-pod-101", "jisho", "jpdb-tts", "text-to-speech"];
-  const BUILT_IN_DIRECT_GESTURE_AUDIO_TYPES = /* @__PURE__ */ new Set(["jpod101", "language-pod-101", "jisho"]);
   const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
   const JAPANESE_POD_101_UNAVAILABLE_SHA256 = "ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906";
   const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1e3;
@@ -5206,7 +5252,7 @@
             if (triedUrls.has(candidateKey2)) continue;
             triedUrls.add(candidateKey2);
             preconnectAudioUrl(candidate.url);
-            void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, settings.audioViaBlob).catch(() => void 0);
+            void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, true).catch(() => void 0);
           }
         }).catch(() => void 0);
       }
@@ -5319,7 +5365,7 @@
       if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) {
         return this.preparePlayableJpdbAudio(candidate.jpdbAudioId, settings, reservedAudio);
       }
-      const audioViaBlob = (settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType)) && !shouldPreferDirectAudioPlayback(sourceType);
+      const audioViaBlob = settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType);
       return audioViaBlob ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob, reservedAudio) : reservedAudio ? this.createReadyAudio(candidate.url, reservedAudio) : this.createAudioElement(candidate.url);
     }
     async preparePlayableJpdbAudio(audioId, settings, reservedAudio) {
@@ -5648,11 +5694,6 @@
   function shouldForceBlobAudioPlayback(sourceType) {
     return sourceType === "jpod101";
   }
-  function shouldPreferDirectAudioPlayback(sourceType, _settings) {
-    if (shouldForceBlobAudioPlayback(sourceType)) return false;
-    if (!BUILT_IN_DIRECT_GESTURE_AUDIO_TYPES.has(sourceType)) return false;
-    return true;
-  }
   function structuredAudioUrlsForValue(value, sourceUrl) {
     if (Array.isArray(value)) return uniqueAudioUrls(value.flatMap((item) => findAudioUrls(item, sourceUrl)));
     return typeof value === "object" ? findAudioUrlsInRecord(value, sourceUrl) : null;
@@ -5736,7 +5777,7 @@
     custom: loadCustomAudioCandidates,
     "custom-json": loadCustomJsonAudioCandidates,
     jpod101: loadJapanesePod101AudioCandidates,
-    "language-pod-101": async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getLanguagePod101AudioUrls(card, timeoutMs, proxyUrl)),
+    "language-pod-101": loadLanguagePod101AudioCandidates,
     jisho: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getJishoAudioUrls(card, timeoutMs, proxyUrl)),
     "lingua-libre": async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, "lingua-libre", timeoutMs, proxyUrl)),
     wiktionary: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, "wiktionary", timeoutMs, proxyUrl)),
@@ -5760,6 +5801,10 @@
   async function loadJapanesePod101AudioCandidates(_source, card) {
     const url = getJapanesePod101Url(card);
     return [{ url, sourceUrl: url }];
+  }
+  async function loadLanguagePod101AudioCandidates(_source, card, timeoutMs, proxyUrl) {
+    const urls = await getLanguagePod101AudioUrls(card, timeoutMs, proxyUrl);
+    return urlsToAudioCandidates(urls.length ? urls : [getJapanesePod101Url(card)]);
   }
   function urlsToAudioCandidates(urls) {
     return urls.map((url) => ({ url, sourceUrl: url }));
@@ -5959,7 +6004,7 @@
   }
   async function getLanguagePod101AudioUrls(card, timeoutMs, proxyUrl = "") {
     const url = "https://www.japanesepod101.com/learningcenter/reference/dictionary_post";
-    const response = await requestUrl(url, "text", timeoutMs, { ...languagePod101RequestOptions(card), proxyUrl });
+    const response = await requestUrl(url, "text", timeoutMs, { ...languagePod101RequestOptions(card), proxyUrl }).catch(() => "");
     if (typeof response !== "string") return [];
     const urls = [];
     for (const row of findHtmlBlocksByClass(response, "dc-result-row")) {
@@ -7981,10 +8026,12 @@ ${scopedInner}
     entries() {
       return [...this.files.values()].map(({ name, compressedSize, uncompressedSize }) => ({ name, compressedSize, uncompressedSize }));
     }
-    async text(name) {
+    async text(name, onProgress) {
       const entry = this.files.get(name);
       if (!entry) throw new Error(`${name} not found.`);
+      onProgress?.({ name, loaded: 0, total: zipEntryProgressTotal(entry) });
       const bytes = await this.fileBytes(entry);
+      onProgress?.({ name, loaded: bytes.byteLength, total: zipEntryProgressTotal(entry) });
       return textDecoder.decode(bytes);
     }
     async fileBytes(entry) {
@@ -7995,9 +8042,37 @@ ${scopedInner}
       throw new Error(`Unsupported ZIP compression method ${entry.compressionMethod}: ${entry.name}`);
     }
   }
-  async function readZipArchive(file) {
-    const bytes = new Uint8Array(await readBlobArrayBuffer(file));
-    return new ZipArchive(bytes, readZipCentralDirectory(bytes));
+  async function readZipArchive(file, onProgress) {
+    const bytes = await readBlobBytes(file, onProgress);
+    const files = readZipCentralDirectory(bytes);
+    onProgress?.({ phase: "directory", loaded: bytes.byteLength, total: file.size || bytes.byteLength, entries: files.size });
+    return new ZipArchive(bytes, files);
+  }
+  async function readBlobBytes(file, onProgress) {
+    const total = file.size;
+    if (!onProgress || typeof file.stream !== "function") {
+      const bytes2 = new Uint8Array(await readBlobArrayBuffer(file));
+      onProgress?.({ phase: "read", loaded: bytes2.byteLength, total: total || bytes2.byteLength });
+      return bytes2;
+    }
+    const reader = file.stream().getReader();
+    const chunks = [];
+    let loaded = 0;
+    onProgress({ phase: "read", loaded, total });
+    for (; ; ) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      loaded += value.byteLength;
+      onProgress({ phase: "read", loaded, total });
+    }
+    const bytes = new Uint8Array(loaded);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return bytes;
   }
   function readZipCentralDirectory(bytes) {
     const view = dataView(bytes);
@@ -8054,6 +8129,9 @@ ${scopedInner}
     const end = start + entry.compressedSize;
     if (end > bytes.length) throw new Error(`Invalid ZIP entry bounds: ${entry.name}`);
     return bytes.subarray(start, end);
+  }
+  function zipEntryProgressTotal(entry) {
+    return entry.uncompressedSize || entry.compressedSize;
   }
   async function inflateRaw(bytes) {
     if (typeof DecompressionStream === "function") {
@@ -8296,7 +8374,10 @@ ${scopedInner}
   const DB_NAME = "jpdb-popup-reader-yomitan";
   const DB_VERSION = 4;
   const DEXIE_IMPORT_BATCH_SIZE = 5e3;
+  const DICTIONARY_DELETE_BATCH_SIZE = 5e3;
   const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
+  const STORE_WRITE_BATCH_SIZE = 1e3;
+  const ZIP_IMPORT_FLUSH_ENTRY_LIMIT = 1e4;
   const HOT_LOOKUP_CACHE_TTL_MS = 2e3;
   const TOP_TERM_EXPRESSION_ENTRY_LIMIT = 500;
   const TERM_SEARCH_INDEX_BATCH_SIZE = 5e3;
@@ -8325,6 +8406,7 @@ ${scopedInner}
     termSearchIndexPromise;
     termKanjiIndexPromise;
     termKanjiIndexReady = false;
+    termIndexGeneration = 0;
     hotLookupCache = /* @__PURE__ */ new Map();
     text(key) {
       return uiText(this.getInterfaceLanguage(), key);
@@ -8813,23 +8895,74 @@ ${entry.reading}`;
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "") {
-      onProgress?.(this.text("dictionaryReadingZip"));
-      const zip = await readZipArchive(file);
+      const language = this.getInterfaceLanguage();
+      onProgress?.(`${this.text("dictionaryReadingZip")} ${formatBytes(file.size)}...`);
+      const zip = await readZipArchive(file, (progress) => {
+        if (progress.phase === "read") {
+          onProgress?.(`${this.text("dictionaryReadingZip")} ${formatPercent(progress.loaded, progress.total)} (${formatBytes(progress.loaded)} / ${formatBytes(progress.total)})...`);
+          return;
+        }
+        onProgress?.(`${this.text("dictionaryReadingZip")} ${progress.entries?.toLocaleString() ?? "0"} files found. ${uiText(language, "dictionaryCheckingIndex")}`);
+      });
+      const zipEntries = zip.entries();
+      onProgress?.(`${this.text("dictionaryReadingZip")} ${zipEntries.length.toLocaleString()} files found. ${uiText(language, "dictionaryCheckingIndex")}`);
       const index = await readYomitanZipIndex(zip, this.getInterfaceLanguage());
       const dictionary = yomitanZipDictionaryName(index, file.name);
       const version = yomitanZipVersion(index);
+      const bankCount = countYomitanZipBanks(zipEntries);
+      onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${formatUiTemplate$1(uiText(language, "dictionaryBanksFound"), {
+      count: bankCount.toLocaleString(),
+      plural: bankCount === 1 ? "" : "s"
+    })}`);
+      onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryRemovingExisting")}...`);
       await this.deleteDictionary(dictionary);
+      onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: preparing storage...`);
+      const db = await this.db();
       const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
       const summary = { dictionaries: [dictionary], dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+      let clearedTermIndexesForImport = false;
+      let importedTerms = false;
       const importBank = async (pattern, label, store, normalize) => {
         const files = zip.entries().filter((entry) => pattern.test(entry.name)).sort((a, b) => a.name.localeCompare(b.name, void 0, { numeric: true }));
-        for (const bankFile of files) {
-          onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${bankFile.name}`);
-          const rows = JSON.parse(await zip.text(bankFile.name));
-          const entries = rows.map(normalize).filter(Boolean);
-          await this.addToStore(store, entries);
-          summary[label] += entries.length;
-          summary.entries += entries.length;
+        let pending = [];
+        let saved = 0;
+        const flush = async () => {
+          if (!pending.length) return;
+          if (store === "terms" && !clearedTermIndexesForImport) {
+            await this.clearDerivedTermIndexes(db);
+            clearedTermIndexesForImport = true;
+          }
+          const entries = pending;
+          const parsed = summary[label];
+          pending = [];
+          onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionarySavingBank")} ${label} ${saved.toLocaleString()} / ${parsed.toLocaleString()} ${this.text("dictionaryEntries")}...`);
+          await this.addToStore(store, entries, false, store !== "terms", (written) => {
+            onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionarySavingBank")} ${label} ${(saved + written).toLocaleString()} / ${parsed.toLocaleString()} ${this.text("dictionaryEntries")}...`);
+          });
+          saved += entries.length;
+          if (store === "terms") importedTerms = true;
+        };
+        for (const [index2, bankFile] of files.entries()) {
+          onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryReadingBank")} ${bankFile.name} (${index2 + 1}/${files.length}, ${formatBytes(bankFile.uncompressedSize)})...`);
+          const bankText = await zip.text(bankFile.name, (progress) => {
+            if (progress.loaded <= 0) return;
+            onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryReadingBank")} ${bankFile.name} (${index2 + 1}/${files.length}, ${formatBytes(progress.loaded)} / ${formatBytes(progress.total)})...`);
+          });
+          onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryParsingBank")} ${bankFile.name} (${index2 + 1}/${files.length})...`);
+          const rows = JSON.parse(bankText);
+          for (const row of rows) {
+            const entry = normalize(row);
+            if (!entry) continue;
+            pending.push(entry);
+            summary[label]++;
+            summary.entries++;
+            if (pending.length >= ZIP_IMPORT_FLUSH_ENTRY_LIMIT) await flush();
+          }
+          await flush();
+        }
+        await flush();
+        if (files.length) {
+          onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${label} ${saved.toLocaleString()} ${this.text("dictionaryEntries")} saved...`);
         }
       };
       await importBank(/^term_bank_\d+\.json$/i, "terms", "terms", (row) => normalizeZipTermRow(row, dictionary));
@@ -8837,6 +8970,7 @@ ${entry.reading}`;
       await importBank(/^term_meta_bank_\d+\.json$/i, "termMeta", "termMeta", (row) => normalizeZipTermMetaRow(row, dictionary));
       await importBank(/^kanji_meta_bank_\d+\.json$/i, "kanjiMeta", "kanjiMeta", (row) => normalizeZipKanjiMetaRow(row, dictionary));
       if (summary.entries === 0) throw new Error(this.text("dictionaryNoSupportedBanks"));
+      if (importedTerms) await this.clearDerivedTermIndexes(db);
       info.counts = dictionaryCountsFromSummary(summary);
       info.type = dictionaryTypeFromCounts(info.counts);
       summary.dictionaryTypes = { [dictionary]: info.type };
@@ -8863,7 +8997,7 @@ ${entry.reading}`;
       const dictionaries = readerExportDictionaryInfo(json, dictionaryNames, dictionaryTypes);
       await Promise.all([
         this.addToStore("dictionaryInfo", dictionaries, true),
-        this.addToStore("terms", terms),
+        this.addToStore("terms", terms, false, false),
         this.addToStore("kanji", json.kanji ?? []),
         this.addToStore("termMeta", json.termMeta ?? []),
         this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
@@ -8903,7 +9037,7 @@ ${entry.reading}`;
       const flush = async (store, forceProgress = false) => {
         const batch = batches[store];
         if (!batch.length) return;
-        await this.addToStore(store, batch);
+        await this.addToStore(store, batch, false, store !== "terms");
         batches[store] = [];
         reportProgress(store, forceProgress);
       };
@@ -9029,13 +9163,7 @@ ${entry.reading}`;
       const done = log$s.time("Dictionary store clear");
       try {
         const db = await this.db();
-        await new Promise((resolve, reject) => {
-          const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta", "dictionaryInfo", "termSearch", "termKanji"]);
-          const tx = db.transaction(stores, "readwrite");
-          for (const store of stores) tx.objectStore(store).clear();
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => reject(tx.error);
-        });
+        await this.clearDictionaryStores(db);
         this.invalidateCaches();
         log$s.info("Dictionary store cleared");
       } catch (error) {
@@ -9118,14 +9246,29 @@ ${entry.reading}`;
       const done = log$s.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
-        const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta", "termSearch", "termKanji"]);
-        await Promise.all(stores.map((store) => deleteByDictionary(db, store, dictionary)));
+        const dictionaries = await this.getAllDictionaryInfo(db);
+        if (!dictionaries.some((item) => item.title === dictionary)) {
+          log$s.info("Dictionary delete skipped; dictionary is not installed", { dictionary });
+          return;
+        }
+        if (dictionaries.length === 1) {
+          await this.clearDictionaryStores(db);
+          this.invalidateCaches();
+          log$s.info("Only installed dictionary cleared", { dictionary });
+          return;
+        }
+        const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
+        for (const store of stores) {
+          await deleteByDictionary(db, store, dictionary);
+        }
         await new Promise((resolve, reject) => {
           const tx = db.transaction("dictionaryInfo", "readwrite");
           tx.objectStore("dictionaryInfo").delete(dictionary);
           tx.oncomplete = () => resolve();
-          tx.onerror = () => reject(tx.error);
+          tx.onerror = () => reject(transactionError(tx, `Could not remove ${dictionary} from dictionary metadata.`));
+          tx.onabort = () => reject(transactionError(tx, `Could not remove ${dictionary} from dictionary metadata.`));
         });
+        await this.clearDerivedTermIndexes(db);
         this.invalidateCaches();
         log$s.info("Dictionary deleted", { dictionary });
       } catch (error) {
@@ -9138,34 +9281,38 @@ ${entry.reading}`;
     async putDictionaryInfo(info) {
       await this.addToStore("dictionaryInfo", [info], true);
     }
-    async addToStore(storeName, entries, put = false) {
+    async clearDictionaryStores(db) {
+      this.termIndexGeneration++;
+      await clearStores(db, existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta", "dictionaryInfo", "termSearch", "termKanji"]));
+      this.termKanjiIndexReady = false;
+    }
+    async addToStore(storeName, entries, put = false, clearTermIndexes = true, onChunk) {
       if (!entries.length) return;
       const db = await this.db();
-      for (let start = 0; start < entries.length; start += DEXIE_IMPORT_BATCH_SIZE) {
-        await this.addStoreChunk(db, storeName, entries.slice(start, start + DEXIE_IMPORT_BATCH_SIZE), put);
+      if (storeName === "terms" && clearTermIndexes) await this.clearDerivedTermIndexes(db);
+      let written = 0;
+      for (let start = 0; start < entries.length; start += STORE_WRITE_BATCH_SIZE) {
+        const chunk = entries.slice(start, start + STORE_WRITE_BATCH_SIZE);
+        await this.addStoreChunk(db, storeName, chunk, put);
+        written += chunk.length;
+        onChunk?.(written, entries.length);
+        await nextTask();
       }
     }
     addStoreChunk(db, storeName, entries, put) {
       return new Promise((resolve, reject) => {
-        const stores = storeName === "terms" ? existingStores(db, ["terms", "termSearch", "termKanji"]) : [storeName];
-        const tx = db.transaction(stores, "readwrite");
+        const tx = readwriteTransaction(db, storeName);
         const store = tx.objectStore(storeName);
-        const termSearchStore = storeName === "terms" && hasStore(db, "termSearch") ? tx.objectStore("termSearch") : null;
-        const termKanjiStore = storeName === "terms" && hasStore(db, "termKanji") ? tx.objectStore("termKanji") : null;
         for (const entry of entries) {
           put ? store.put(entry) : store.add(entry);
-          if (termSearchStore) {
-            for (const row of termSearchEntries(entry)) termSearchStore.add(row);
-          }
-          if (termKanjiStore) {
-            for (const row of termKanjiEntries(entry)) termKanjiStore.add(row);
-          }
         }
         tx.oncomplete = () => {
           this.invalidateCaches();
           resolve();
         };
-        tx.onerror = () => reject(tx.error);
+        tx.onerror = () => reject(transactionError(tx, `Could not add entries to ${storeName}.`));
+        tx.onabort = () => reject(transactionError(tx, `Could not add entries to ${storeName}.`));
+        commitTransaction(tx);
       });
     }
     async getByIndex(db, storeName, indexName, value, limit) {
@@ -9523,13 +9670,16 @@ ${entry.reading}`;
     }
     async rebuildTermSearchIndex(db) {
       const done = log$s.time("Term search index rebuild");
+      const generation = this.termIndexGeneration;
       try {
         await this.clearTermSearchIndex(db);
         let indexedTerms = 0;
         let lastKey;
         for (; ; ) {
+          if (generation !== this.termIndexGeneration) return;
           const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_SEARCH_INDEX_BATCH_SIZE);
           if (!chunk.terms.length) break;
+          if (generation !== this.termIndexGeneration) return;
           await this.addTermSearchIndexChunk(db, chunk.terms);
           indexedTerms += chunk.terms.length;
           if (chunk.done) break;
@@ -9542,13 +9692,16 @@ ${entry.reading}`;
     }
     async rebuildTermKanjiIndex(db) {
       const done = log$s.time("Term kanji index rebuild");
+      const generation = this.termIndexGeneration;
       try {
         await this.clearTermKanjiIndex(db);
         let indexedTerms = 0;
         let lastKey;
         for (; ; ) {
+          if (generation !== this.termIndexGeneration) return;
           const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_KANJI_INDEX_BATCH_SIZE);
           if (!chunk.terms.length) break;
+          if (generation !== this.termIndexGeneration) return;
           await this.addTermKanjiIndexChunk(db, chunk.terms);
           indexedTerms += chunk.terms.length;
           if (chunk.done) break;
@@ -9597,6 +9750,13 @@ ${entry.reading}`;
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
+    }
+    async clearDerivedTermIndexes(db) {
+      this.termIndexGeneration++;
+      const stores = existingStores(db, ["termSearch", "termKanji"]);
+      if (!stores.length) return;
+      await clearStores(db, stores);
+      this.termKanjiIndexReady = false;
     }
     addTermSearchIndexChunk(db, terms) {
       return new Promise((resolve, reject) => {
@@ -9810,6 +9970,28 @@ ${item.sequence ?? ""}`;
     return JSON.parse(await readZipText(zip, "index.json").catch(() => {
       throw new Error(uiText(language, "dictionaryZipMissingIndex"));
     }));
+  }
+  function countYomitanZipBanks(entries) {
+    return entries.filter((entry) => /^(term|kanji|term_meta|kanji_meta)_bank_\d+\.json$/i.test(entry.name)).length;
+  }
+  function formatPercent(loaded, total) {
+    if (total <= 0) return "100%";
+    return `${Math.max(0, Math.min(100, Math.round(loaded / total * 100)))}%`;
+  }
+  function formatBytes(value) {
+    if (!Number.isFinite(value) || value <= 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB"];
+    let size = value;
+    let unit = 0;
+    while (size >= 1024 && unit < units.length - 1) {
+      size /= 1024;
+      unit++;
+    }
+    const precision = unit === 0 || size >= 10 ? 0 : 1;
+    return `${size.toFixed(precision)} ${units[unit]}`;
+  }
+  function formatUiTemplate$1(template, values) {
+    return Object.entries(values).reduce((value, [key, replacement]) => value.replaceAll(`{${key}}`, replacement), template);
   }
   function yomitanZipDictionaryName(index, filename) {
     return index.title?.trim() || filename.replace(/\.zip$/i, "");
@@ -10206,7 +10388,7 @@ ${glossaryKey}`;
     const done = log$s.time("Dictionary download", { host: safeHost$3(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
-    return await requestBlobViaFetch(url, proxyUrl, done, language);
+    return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language);
   }
   function requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language = "en") {
     return new Promise((resolve, reject) => {
@@ -10259,11 +10441,11 @@ ${glossaryKey}`;
       }
     });
   }
-  async function requestBlobViaFetch(url, proxyUrl, done, language) {
+  async function requestBlobViaFetch(url, proxyUrl, done, onProgress, language) {
     const downloadUrl = dictionaryDownloadUrl(url);
     if (!downloadUrl) return throwMissingDictionaryDownloadBridge(done, language);
     try {
-      return await fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, language);
+      return await fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress, language);
     } catch (error) {
       return handleDictionaryFetchError(url, downloadUrl, error, done, language);
     }
@@ -10272,13 +10454,40 @@ ${glossaryKey}`;
     done();
     throw new Error(uiText(language, "dictionaryDownloadNeedsBridge"));
   }
-  async function fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, language) {
+  async function fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress, language) {
     const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
     if (!response.ok) throwDictionaryHttpError(url, response.status, language);
-    const blob = await response.blob();
+    const blob = await responseBlobWithProgress(response, onProgress, language);
     log$s.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: blob.size });
     done();
     return blob;
+  }
+  async function responseBlobWithProgress(response, onProgress, language) {
+    if (!response.body || !onProgress) return response.blob();
+    const total = Number(response.headers.get("content-length") ?? 0);
+    const type = response.headers.get("content-type") || "application/zip";
+    const reader = response.body.getReader();
+    const chunks = [];
+    let loaded = 0;
+    for (; ; ) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      loaded += value.byteLength;
+      onProgress(formatDictionaryDownloadProgress(language, loaded, total));
+    }
+    const bytes = new Uint8Array(loaded);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return new Blob([bytes.buffer.slice(0)], { type });
+  }
+  function formatDictionaryDownloadProgress(language, loaded, total) {
+    const label = uiText(language, "dictionaryDownloadProgress");
+    if (total > 0) return `${label} ${formatPercent(loaded, total)} (${formatBytes(loaded)} / ${formatBytes(total)})...`;
+    return `${label} ${formatBytes(loaded)}...`;
   }
   function throwDictionaryHttpError(url, status, language) {
     log$s.warn("Dictionary download returned HTTP error", { host: safeHost$3(url), status });
@@ -10361,20 +10570,60 @@ ${glossaryKey}`;
   function existingStores(db, names) {
     return names.filter((name) => db.objectStoreNames.contains(name));
   }
-  function deleteByDictionary(db, storeName, dictionary) {
+  function readwriteTransaction(db, storeNames) {
+    try {
+      return db.transaction(storeNames, "readwrite", { durability: "relaxed" });
+    } catch {
+      return db.transaction(storeNames, "readwrite");
+    }
+  }
+  function commitTransaction(tx) {
+    try {
+      tx.commit?.();
+    } catch {
+    }
+  }
+  function clearStores(db, stores) {
+    if (!stores.length) return Promise.resolve();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(storeName, "readwrite");
+      const tx = readwriteTransaction(db, stores);
+      for (const store of stores) tx.objectStore(store).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(transactionError(tx, `Could not clear dictionary stores: ${stores.join(", ")}.`));
+      tx.onabort = () => reject(transactionError(tx, `Could not clear dictionary stores: ${stores.join(", ")}.`));
+      commitTransaction(tx);
+    });
+  }
+  async function deleteByDictionary(db, storeName, dictionary) {
+    while (await deleteDictionaryBatch(db, storeName, dictionary, DICTIONARY_DELETE_BATCH_SIZE) >= DICTIONARY_DELETE_BATCH_SIZE) {
+      await nextTask();
+    }
+  }
+  function deleteDictionaryBatch(db, storeName, dictionary, limit) {
+    return new Promise((resolve, reject) => {
+      let deleted = 0;
+      const tx = readwriteTransaction(db, storeName);
       const index = tx.objectStore(storeName).index("dictionary");
       const request = index.openCursor(IDBKeyRange.only(dictionary));
       request.onsuccess = () => {
         const cursor = request.result;
-        if (!cursor) return;
+        if (!cursor || deleted >= limit) return;
         cursor.delete();
+        deleted++;
+        if (deleted >= limit) return;
         cursor.continue();
       };
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      request.onerror = () => reject(request.error ?? new Error(`Could not delete ${dictionary} entries from ${storeName}.`));
+      tx.oncomplete = () => resolve(deleted);
+      tx.onerror = () => reject(transactionError(tx, `Could not delete ${dictionary} entries from ${storeName}.`));
+      tx.onabort = () => reject(transactionError(tx, `Could not delete ${dictionary} entries from ${storeName}.`));
     });
+  }
+  function transactionError(tx, fallback) {
+    return tx.error ?? new Error(fallback);
+  }
+  function nextTask() {
+    return new Promise((resolve) => window.setTimeout(resolve, 0));
   }
   const ANKI_VERSION = 6;
   const log$r = Logger.scope("Anki");
@@ -17933,10 +18182,10 @@ ${entry.reading}`;
   function parseJpdbApiResponse(response, endpoint, responseMode) {
     if (responseMode === "none" || !response.text) return void 0;
     const json = JSON.parse(response.text);
-    const errorMessage = jpdbApplicationErrorMessage(json);
-    if (errorMessage) {
-      log$i.warn("JPDB returned application error", { endpoint, message: errorMessage });
-      throw new Error(errorMessage);
+    const errorMessage2 = jpdbApplicationErrorMessage(json);
+    if (errorMessage2) {
+      log$i.warn("JPDB returned application error", { endpoint, message: errorMessage2 });
+      throw new Error(errorMessage2);
     }
     return json;
   }
@@ -25715,6 +25964,7 @@ ${spelling}`);
     audioHead[4]?.replaceChildren(text2("removeHeader"));
     form.querySelector('[data-action="lookup-link-add"]')?.replaceChildren(text2("add"));
     form.querySelector(".jpdb-reader-recommended-title")?.replaceChildren(text2("recommendedDownloads"));
+    form.querySelector("[data-recommended-dictionary-help]")?.replaceChildren(text2("dictionaryInstallQueueHelp"));
     form.querySelectorAll(".jpdb-reader-recommended-name a").forEach((link) => {
       link.textContent = text2("homepage");
     });
@@ -26760,6 +27010,7 @@ ${spelling}`);
     ];
     return `
         <div class="jpdb-reader-recommended-title">Recommended dictionaries</div>
+        <div class="jpdb-reader-help jpdb-reader-recommended-note" data-recommended-dictionary-help>${escapeHtml$1(uiText("en", "dictionaryInstallQueueHelp"))}</div>
         ${groups.map(([category, label]) => {
     const dictionaries = RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => dictionary.category === category);
     if (!dictionaries.length) return "";
@@ -26782,6 +27033,7 @@ ${spelling}`);
                     <a href="${dictionary.homepage}" target="_blank" rel="noopener">Homepage</a>
                 </div>
                 <div class="jpdb-reader-help">${escapeHtml$1(uiText("en", dictionary.descriptionKey))}</div>
+                <div class="jpdb-reader-recommended-status" data-recommended-dictionary-status role="status" aria-live="polite" hidden></div>
             </div>
             <button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-installed="${alreadyInstalled}">
                 ${alreadyInstalled ? "Update" : "Install"}
@@ -27249,7 +27501,9 @@ ${spelling}`);
   function handleSettingsActionError(action, control, setStatus, error) {
     log$5.warn("Settings action failed", { action }, error);
     if (shouldReenableSettingsAction(action)) control?.removeAttribute("disabled");
-    setStatus(error instanceof Error ? error.message : "Import failed.");
+    const message = errorMessage(error, "Import failed.");
+    setStatus(message);
+    return message;
   }
   function shouldReenableSettingsAction(action) {
     return action === "download-recommended-dictionary" || action === "delete-yomitan-dictionary";
@@ -27270,7 +27524,12 @@ ${spelling}`);
     return summary.dictionaries.length ? `${summary.dictionaries.length} dictionaries, ${summary.terms.toLocaleString()} terms, ${summary.kanji.toLocaleString()} kanji, ${summary.termMeta.toLocaleString()} metadata rows.` : "No local dictionaries imported yet.";
   }
   function setDictionaryStatusError(status, error) {
-    if (status) status.textContent = error instanceof Error ? error.message : "Dictionary status unavailable.";
+    if (status) status.textContent = errorMessage(error, "Dictionary status unavailable.");
+  }
+  function errorMessage(error, fallback) {
+    if (error instanceof Error && error.message.trim()) return error.message;
+    if (typeof error === "string" && error.trim()) return error;
+    return fallback;
   }
   class SettingsDialogController {
     constructor(dependencies) {
@@ -27422,6 +27681,8 @@ ${spelling}`);
         if (value !== "auto" && value !== "en" && value !== "ja") return;
         this.settings.interfaceLanguage = value;
         localizeSettingsForm(form, value);
+        this.syncRecommendedDictionaryInstallControls(form);
+        this.syncDictionaryOperationState(form);
         syncSubtitlePreview(form);
         this.dependencies.installFab();
       });
@@ -27581,16 +27842,28 @@ ${spelling}`);
       const save = form.querySelector('button[type="submit"]');
       const status = form.querySelector("[data-settings-save-status]");
       const busy = this.pendingDictionaryOperations > 0;
-      if (save) {
-        save.disabled = busy;
-        save.setAttribute("aria-disabled", String(busy));
-      }
-      if (!status) return;
-      status.hidden = !busy;
-      status.textContent = busy ? formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryImportQueueStatus"), {
+      const message = busy ? formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryImportQueueStatus"), {
         count: this.pendingDictionaryOperations.toLocaleString(),
         plural: this.pendingDictionaryOperations === 1 ? "" : "s"
       }) : "";
+      if (save) {
+        save.setAttribute("aria-disabled", String(busy));
+        save.disabled = busy;
+        if (busy) {
+          save.dataset.saveBlocked = "dictionary-import";
+          save.replaceChildren(uiText(this.settings.interfaceLanguage, "saveAfterInstall"));
+          save.title = message;
+          save.setAttribute("aria-label", message);
+        } else {
+          delete save.dataset.saveBlocked;
+          save.replaceChildren(uiText(this.settings.interfaceLanguage, "save"));
+          save.title = uiText(this.settings.interfaceLanguage, "save");
+          save.setAttribute("aria-label", uiText(this.settings.interfaceLanguage, "save"));
+        }
+      }
+      if (!status) return;
+      status.hidden = !busy;
+      status.textContent = message;
     }
     showDictionarySaveBlocked(form) {
       this.syncDictionaryOperationState(form);
@@ -27614,11 +27887,17 @@ ${spelling}`);
       form.querySelectorAll('[data-action="download-recommended-dictionary"]').forEach((button2) => {
         const dictionaryId = button2.dataset.dictionaryId ?? "";
         const operation = this.recommendedDictionaryOperations.get(dictionaryId);
+        const status = button2.closest(".jpdb-reader-recommended-item")?.querySelector("[data-recommended-dictionary-status]");
         if (!operation) {
           delete button2.dataset.importState;
           delete button2.dataset.importMessage;
           button2.disabled = false;
           button2.removeAttribute("disabled");
+          if (status) {
+            status.hidden = true;
+            status.textContent = "";
+            delete status.dataset.importState;
+          }
           const installed = button2.dataset.installed === "true";
           const label2 = installed ? uiText(this.settings.interfaceLanguage, "update") : uiText(this.settings.interfaceLanguage, "install");
           button2.replaceChildren(label2);
@@ -27633,6 +27912,11 @@ ${spelling}`);
         button2.replaceChildren(label);
         button2.title = operation.message;
         button2.setAttribute("aria-label", operation.message);
+        if (status) {
+          status.hidden = false;
+          status.dataset.importState = operation.state;
+          status.textContent = operation.message;
+        }
       });
     }
     async handleSettingsAction(form, action, control) {
@@ -27641,7 +27925,8 @@ ${spelling}`);
       try {
         await this.runSettingsAction(form, action, control, setStatus);
       } catch (error) {
-        handleSettingsActionError(action, control, setStatus, error);
+        const message = handleSettingsActionError(action, control, setStatus, error);
+        this.dependencies.toast(message);
       }
     }
     async runSettingsAction(form, action, control, setStatus) {
@@ -27892,10 +28177,12 @@ ${spelling}`);
       }
     }
     handleRecommendedDictionaryDownloadError(dictionary, control, setStatus, error) {
-      const message = error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, "dictionaryDownloadFailed");
+      const message = errorMessage(error, uiText(this.settings.interfaceLanguage, "dictionaryDownloadFailed"));
       control?.removeAttribute("disabled");
       if (!this.shouldPromptManualDictionaryDownload(error, dictionary.downloadUrl)) throw error;
-      setStatus(`${message} ${uiText(this.settings.interfaceLanguage, "dictionaryManualDownloadHint")}`);
+      const status = `${message} ${uiText(this.settings.interfaceLanguage, "dictionaryManualDownloadHint")}`;
+      setStatus(status);
+      this.dependencies.toast(status);
       log$5.warn("Dictionary auto-download unavailable", { dictionary: dictionary.name, message });
       return null;
     }
@@ -33241,6 +33528,13 @@ html.jpdb-reader-doodle-active * {
   opacity: 0.62;
 }
 
+.jpdb-reader-btn[data-save-blocked] {
+  cursor: wait;
+  color: var(--jpdb-reader-accent-readable);
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 55%, var(--jpdb-reader-border));
+  background: var(--jpdb-reader-accent-soft);
+}
+
 .jpdb-reader-btn[data-import-state] {
   gap: 7px;
   cursor: progress;
@@ -33748,6 +34042,10 @@ html.jpdb-reader-doodle-active * {
   font-size: 13px;
 }
 
+.jpdb-reader-recommended-note {
+  margin: -4px 0 2px;
+}
+
 .jpdb-reader-recommended-group {
   display: grid;
   gap: 7px;
@@ -33791,6 +34089,17 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-recommended-name a {
   font-size: 11px;
   font-weight: 700;
+}
+
+.jpdb-reader-recommended-status {
+  margin-top: 7px;
+  color: var(--jpdb-reader-accent-readable);
+  font: 760 11px/1.35 var(--jpdb-reader-font);
+  overflow-wrap: anywhere;
+}
+
+.jpdb-reader-recommended-status[data-import-state="queued"] {
+  color: var(--jpdb-reader-muted);
 }
 
 .jpdb-reader-order-head,
