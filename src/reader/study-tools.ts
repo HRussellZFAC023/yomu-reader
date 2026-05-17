@@ -490,7 +490,7 @@ function translationTargetLanguage(language: InterfaceLanguage): string {
     return language === 'ja' ? 'ja' : 'en';
 }
 
-export function renderGrammarHints(hints: GrammarHint[], sentence: string, preferences = readGrammarPreferences(), language: InterfaceLanguage = 'en'): string {
+export async function renderGrammarHints(hints: GrammarHint[], sentence: string, preferences = readGrammarPreferences(), language: InterfaceLanguage = 'en'): Promise<string> {
     if (!hints.length) return '';
     const knownRuleIds = new Set(preferences.knownRuleIds);
     const visibleHints = visibleGrammarHints(hints, knownRuleIds, preferences.showKnown);
@@ -498,7 +498,7 @@ export function renderGrammarHints(hints: GrammarHint[], sentence: string, prefe
     return `
         ${renderGrammarSentence(sentence)}
         ${renderGrammarToolbar(visibleHints.length, knownCount, preferences.showKnown, language)}
-        ${renderGrammarHintList(visibleHints, knownRuleIds, language)}`;
+        ${await renderGrammarHintList(visibleHints, knownRuleIds, language)}`;
 }
 
 function visibleGrammarHints(hints: GrammarHint[], knownRuleIds: Set<string>, showKnown: boolean): GrammarHint[] {
@@ -531,15 +531,16 @@ function renderGrammarKnownVisibilityButton(knownCount: number, showKnown: boole
     return `<button class="jpdb-reader-grammar-toggle" type="button" data-action="study-grammar-toggle-known-visibility" aria-pressed="${showKnown ? 'true' : 'false'}">${label}</button>`;
 }
 
-function renderGrammarHintList(visibleHints: GrammarHint[], knownRuleIds: Set<string>, language: InterfaceLanguage): string {
+async function renderGrammarHintList(visibleHints: GrammarHint[], knownRuleIds: Set<string>, language: InterfaceLanguage): Promise<string> {
     if (!visibleHints.length) return `<div class="jpdb-reader-study-empty">${escapeHtml(uiText(language, 'allDetectedGrammarKnown'))}</div>`;
+    const items = await Promise.all(visibleHints.map(hint => renderGrammarHintItem(hint, knownRuleIds.has(hint.ruleId), language)));
     return `<ol class="jpdb-reader-study-list" data-grammar-list>
-        ${visibleHints.map(hint => renderGrammarHintItem(hint, knownRuleIds.has(hint.ruleId), language)).join('')}
+        ${items.join('')}
         </ol>`;
 }
 
-function renderGrammarHintItem(hint: GrammarHint, known: boolean, language: InterfaceLanguage): string {
-    const copy = grammarHintCopy(hint, language);
+async function renderGrammarHintItem(hint: GrammarHint, known: boolean, language: InterfaceLanguage): Promise<string> {
+    const copy = await grammarHintCopy(hint, language);
     const displayName = grammarDisplayName(hint, language);
     return `
             <li class="jpdb-reader-study-item${known ? ' known' : ''}" data-grammar-rule-id="${escapeHtml(hint.ruleId)}">
@@ -564,10 +565,10 @@ function renderGrammarHintItem(hint: GrammarHint, known: boolean, language: Inte
             </li>`;
 }
 
-function grammarHintCopy(hint: GrammarHint, language: InterfaceLanguage): { kind: string; short: string; detail: string } {
+async function grammarHintCopy(hint: GrammarHint, language: InterfaceLanguage): Promise<{ kind: string; short: string; detail: string }> {
     const fallback = { kind: hint.kind, short: hint.short, detail: hint.detail };
     if (language !== 'ja') return fallback;
-    const ruleCopy = grammarRuleText(language, hint.ruleId);
+    const ruleCopy = await grammarRuleText(language, hint.ruleId);
     if (ruleCopy) return ruleCopy;
     const name = grammarDisplayName(hint, language);
     return {

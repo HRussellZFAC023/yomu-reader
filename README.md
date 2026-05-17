@@ -158,7 +158,7 @@ Check current bundle size evidence:
 npm run size:bundle
 ```
 
-The release budget is 2,000,000 raw bytes for `dist/yomu.user.js`. The current built userscript is safely below that limit at 1198.0 KiB raw.
+The release budget is 2,000,000 raw bytes for `dist/yomu.user.js`. The current built userscript is below that limit at 1874.3 KiB raw, with JavaScript and CSS minification disabled.
 
 Copy `.env.example` to `.env` for local secrets. `.env` is ignored by Git. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you want the secret-leak guard and live JPDB smoke path:
 
@@ -223,6 +223,8 @@ https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.use
 ```
 
 After that, pushes to `main` rebuild the userscript and GreasyFork can pick up the new raw file through its sync/webhook flow.
+
+GreasyFork requires posted code to stay readable and non-minified. The release build disables JavaScript and CSS minification, formats the embedded CSS literal back into readable lines, and keeps the verifier checking for one-line/minified-looking output. Do not re-enable minifiers to fit the 2 MB limit; remove duplication or move non-code data out of the userscript instead. Official rule: https://greasyfork.org/en/help/code-rules
 
 For the first manual publish, this helper opens a local page that posts the current built script to GreasyFork's official prefill form:
 

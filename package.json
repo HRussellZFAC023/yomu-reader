@@ -24,7 +24,7 @@
   ],
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "build": "vite build && vite build --config vite.newtab.config.ts",
+    "build": "vite build && vite build --config vite.newtab.config.ts && node scripts/format-userscript-css.cjs",
     "build:extension": "npm run build && node scripts/build-extension.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
@@ -49,7 +49,6 @@
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^24.0.0",
     "playwright": "^1.56.1",
-    "terser": "^5.47.1",
     "typescript": "^5.3.3",
     "vite": "^5.1.4",
     "vite-plugin-monkey": "^3.5.1",
