@@ -521,6 +521,7 @@ function renderHelpSettingsPanel(): string {
 function renderSettingsFooter(): string {
     return `
             <div class="footer">
+                <div class="jpdb-reader-settings-save-status" data-settings-save-status role="status" aria-live="polite" hidden></div>
                 <button class="jpdb-reader-btn" type="button" data-action="cancel">Cancel</button>
                 <button class="jpdb-reader-btn add" type="submit">Save</button>
             </div>
@@ -1109,8 +1110,14 @@ function localizedAudioUrlPlaceholder(input: HTMLInputElement, text: SettingsTex
 function localizeRecommendedDictionaryButtons(form: HTMLFormElement, text: SettingsText): void {
     form.querySelectorAll<HTMLButtonElement>('[data-action="download-recommended-dictionary"]').forEach(button => {
         const installed = button.dataset.installed === 'true';
-        button.textContent = installed ? text('update') : text('install');
-        button.title = installed ? text('update') : text('install');
+        const state = button.dataset.importState;
+        const label = state === 'installing'
+            ? text('installing')
+            : state === 'queued'
+                ? text('queued')
+                : installed ? text('update') : text('install');
+        button.textContent = label;
+        button.title = button.dataset.importMessage || label;
         button.setAttribute('aria-label', button.title);
     });
 }

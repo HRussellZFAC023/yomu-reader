@@ -26,6 +26,7 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ### Fixed
 
+- Made recommended dictionary installs visibly queue/import on their buttons and kept Settings Save unavailable until dictionary imports finish, so new-tab setup no longer looks broken while dictionaries are still loading.
 - Restored LanguagePod101 lookups through the configured/public proxy path in browser-fetch contexts.
 - Made Escape close the Settings dialog even when focus is inside a normal settings field.
 - Made hosted new-tab bottom-sheet lookups modeless so sentence-mining taps can update the open drawer, and hid the sticky bottom-sheet option when Popover mode is forced.
