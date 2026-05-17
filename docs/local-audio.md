@@ -1,48 +1,82 @@
 # Local Audio
 
-よむ can use any Yomitan-compatible custom audio source. The friendly path is hosted Ultimate Yomitan Audio. The power-user path is running a small local audio server on your own computer.
+よむ can play audio from any Yomitan-compatible audio source. There are two good ways to set it up:
+
+| What you want | Best choice |
+| --- | --- |
+| The easiest setup | Use the hosted Ultimate Yomitan Audio URL |
+| Audio files stored on your own computer | Download and run the local audio server |
 
 <div class="yomu-callout">
-  <strong>Short version:</strong> use the hosted URL from Ultimate Yomitan Audio if you can. Only self-host if you are comfortable keeping a helper app running on your computer.
+  <strong>Short version:</strong> use the hosted option if you want the least fuss. Use the local server only if you are okay keeping a small helper app running on your computer.
 </div>
 
-## Hosted Option
+## Easiest: Hosted Audio
 
-The easiest high-quality option is [Ultimate Yomitan Audio Source](https://animecards.site/yomitan_audio/). Its hosted setup gives you a personal URL after you subscribe through Patreon and authenticate. The hosted URL already works as a Yomitan-style JSON audio source, so there is no local server to keep running.
+[Ultimate Yomitan Audio Source](https://animecards.site/yomitan_audio/) gives you a personal audio URL after you subscribe through Patreon and authenticate. That URL already works with よむ, so you do not need to download audio files or run anything on your computer.
 
-Use that hosted URL like this:
+Add it to よむ:
 
 1. Open よむ settings with the floating よむ button or `Alt+Shift+J`.
 2. Go to Audio.
 3. Press Add audio source.
 4. Set Type to Custom URL.
 5. Paste the personal URL you were given.
-6. Save and test a lookup.
+6. Save, look up a word, and press the speaker button.
 
-This is the most convenient route if you want good TTS fallback and do not want to manage audio files yourself.
+## Local Audio: What You Need
 
-## Self-Hosted Option
+Local audio means よむ asks a helper app on your computer for the sound file.
 
-Self-hosting means three things:
+You need:
 
-1. You download the audio files.
-2. You put them in one folder on a computer that stays awake.
-3. You run a small server app so よむ can ask that computer for word audio.
+1. A computer that stays awake while you study.
+2. The audio files.
+3. The local audio server download.
 
-Files for self-hosting: [nyaa.si/view/1957972](https://nyaa.si/view/1957972)
+The server download is here:
 
-Server app:
+[Yomichan/Yomitan Audio Server releases](https://github.com/HRussellZFAC023/yomichan_audio_server/releases/latest)
 
-[HRussellZFAC023/yomichan_audio_server](https://github.com/HRussellZFAC023/yomichan_audio_server)
+Do not use the green Code button on GitHub. That downloads developer source code. Normal users want the latest file from the Releases page.
 
-The original server is [aramrw/yomichan_audio_server](https://github.com/aramrw/yomichan_audio_server). We use our fork because large local audio folders should answer quickly, and the caching/lookup improvements used here were not merged upstream.
+## Step 1: Download the Server
 
-If the server page does not offer a normal app download for your computer, this path currently requires command-line setup. That means opening Terminal or PowerShell and keeping a helper program running. If that already sounds annoying, use the hosted option above; it is the friendlier route and it works fine with よむ.
+Open the release page and download the file that matches your computer:
 
-Put the downloaded folders inside one folder named `audio`. The finished folder should look roughly like this:
+| Computer | File to download |
+| --- | --- |
+| Windows | the file ending in `windows-x86_64.zip` |
+| Apple Silicon Mac | the file ending in `macos-aarch64.tar.gz` |
+| Intel Mac | the file ending in `macos-x86_64.tar.gz` |
+| Linux | the file ending in `linux-x86_64.tar.gz` |
+
+Unzip or open the download. Put the extracted folder somewhere easy to find, such as your Desktop, and rename it to `yomu-audio`.
+
+Inside that folder you should see a server file named either:
 
 ```text
-yomitan-audio/
+yomichan_audio_server
+```
+
+or, on Windows:
+
+```text
+yomichan_audio_server.exe
+```
+
+## Step 2: Add the Audio Files
+
+Download the audio files:
+
+[nyaa.si/view/1957972](https://nyaa.si/view/1957972)
+
+Create a folder named `audio` inside your `yomu-audio` folder. Put the downloaded audio source folders inside it.
+
+The folder should look like this:
+
+```text
+yomu-audio/
 ├── audio/
 │   ├── daijisen/media/
 │   ├── jpod/media/
@@ -53,197 +87,122 @@ yomitan-audio/
 └── yomichan_audio_server
 ```
 
-Keep the source folder names the same. The server should point at the parent `audio` folder, not at each individual source folder.
+On Windows, the server file will usually be `yomichan_audio_server.exe`.
 
-## Run the Server
+Keep the audio folder names the same. For example, do not rename `forvo_jp` or `nhk16`.
 
-Use port `9393` so it is less likely to clash with other apps.
+## Step 3: Start the Server
 
-On macOS or Linux, open Terminal in the folder with the server and run:
+The server must stay open while you use local audio. If you close the Terminal or PowerShell window, local audio stops until you start it again.
 
-```bash
-yomichan_audio_server --port 9393 --audio ./audio --log full
-```
+Use port `9393`. That avoids a common conflict with other local apps.
 
-On Windows, open PowerShell in that folder and run:
+### Windows
+
+1. Open the `yomu-audio` folder in File Explorer.
+2. Right-click an empty space in the folder.
+3. Choose Open in Terminal or Open PowerShell window here.
+4. Paste this command and press Enter:
 
 ```powershell
 .\yomichan_audio_server.exe --port 9393 --audio .\audio --log full
 ```
 
-Leave that window open. If you close it, local audio stops. Nothing is broken when that happens; よむ will just fall back to the next audio source.
+### macOS or Linux
 
-The URL you paste into よむ must use the same port:
+1. Open Terminal.
+2. Type `cd `, including the space after `cd`.
+3. Drag your `yomu-audio` folder into Terminal.
+4. Press Enter.
+5. Paste these commands and press Enter:
 
-```text
-http://localhost:9393/?term={term}&reading={reading}
+```bash
+chmod +x ./yomichan_audio_server
+./yomichan_audio_server --port 9393 --audio ./audio --log full
 ```
 
-Test it in your browser before adding it to よむ:
+If macOS blocks the app, open System Settings > Privacy & Security and allow it, or Control-click the server file in Finder and choose Open.
+
+## Step 4: Check That It Works
+
+Leave the server window open. Open this test link in your browser:
 
 ```text
 http://localhost:9393/?term=猫&reading=ねこ
 ```
 
-You should see JSON with `audioSources`.
+If it works, you will see text containing `audioSources`.
 
-## Paste the URL Into よむ
+If the browser says the page cannot be reached, the server is not running, the window was closed, or the command used a different port.
+
+## Step 5: Add It to よむ
 
 1. Open a page where よむ is running.
 2. Open settings with the floating よむ button or `Alt+Shift+J`.
-3. Open the Audio section.
-4. Make sure Enable audio playback for terms is on.
+3. Open Audio.
+4. Turn on Enable audio playback for terms.
 5. Press Add audio source.
 6. Set Type to Custom URL.
-7. Paste:
+7. Paste this exact URL:
 
 ```text
 http://localhost:9393/?term={term}&reading={reading}
 ```
 
-8. Move the source above the built-in sources if you want local audio tried first.
+8. Move the local audio source above the built-in sources if you want local audio tried first.
 9. Save settings.
 10. Look up a word and press the speaker button.
 
-`{term}` and `{reading}` are placeholders. Leave them exactly like that; よむ replaces them for each word.
+Leave `{term}` and `{reading}` exactly as written. よむ replaces those placeholders for each word you look up.
 
-JPDB and browser text-to-speech rows are fallback-only by default, so random audio still prefers recorded clips first. In Settings > Audio, change **Text-to-speech handling** to **Follow source order / random** if you want TTS rows to be picked according to your source order or random audio setting.
+JPDB and browser text-to-speech rows are fallback-only by default, so random audio still prefers recorded clips first. In Settings > Audio, change **Text-to-speech handling** to **Follow source order / random** if you want TTS rows to follow your source order or random audio setting.
 
-## Run on Startup
+## Using an iPad or Another Device
 
-Use full paths in startup commands so the server can find the binary and audio folder after a reboot.
+`localhost` means "this device."
 
-### Windows
+That means:
 
-Create a file named `start-yomu-audio.cmd` next to the server:
+- On your computer, `localhost:9393` means the computer running the audio server.
+- On your iPad, `localhost:9393` means the iPad, not your computer.
 
-```bat
-@echo off
-cd /d "C:\Tools\yomitan-audio"
-"C:\Tools\yomitan-audio\yomichan_audio_server.exe" --port 9393 --audio "C:\Tools\yomitan-audio\audio" --log headless
-```
+To use your computer's audio server from an iPad, phone, or second computer, use [Tailscale](https://tailscale.com/downloads).
 
-If you downloaded an upstream binary named `yas-x86_64-pc-windows.exe`, use that filename instead of `yomichan_audio_server.exe`.
-
-Register it to start when you log in:
-
-```powershell
-schtasks /Create /TN "Yomu Local Audio" /SC ONLOGON /TR "`"C:\Tools\yomitan-audio\start-yomu-audio.cmd`"" /F
-```
-
-Start it once without rebooting:
-
-```powershell
-schtasks /Run /TN "Yomu Local Audio"
-```
-
-Remove it later:
-
-```powershell
-schtasks /Delete /TN "Yomu Local Audio" /F
-```
-
-### macOS
-
-Put the server somewhere stable, for example:
-
-```text
-/Users/you/Tools/yomitan-audio/yomichan_audio_server
-```
-
-Create `~/Library/LaunchAgents/com.yomu.audio-server.plist`:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>com.yomu.audio-server</string>
-  <key>WorkingDirectory</key>
-  <string>/Users/you/Tools/yomitan-audio</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/Users/you/Tools/yomitan-audio/yomichan_audio_server</string>
-    <string>--port</string>
-    <string>9393</string>
-    <string>--audio</string>
-    <string>/Users/you/Tools/yomitan-audio/audio</string>
-    <string>--log</string>
-    <string>headless-instance</string>
-  </array>
-  <key>RunAtLoad</key>
-  <true/>
-  <key>KeepAlive</key>
-  <true/>
-  <key>StandardOutPath</key>
-  <string>/tmp/yomu-audio.log</string>
-  <key>StandardErrorPath</key>
-  <string>/tmp/yomu-audio.err</string>
-</dict>
-</plist>
-```
-
-Load it:
-
-```bash
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.yomu.audio-server.plist
-launchctl enable gui/$(id -u)/com.yomu.audio-server
-```
-
-Restart it after editing the plist:
-
-```bash
-launchctl kickstart -k gui/$(id -u)/com.yomu.audio-server
-```
-
-Remove it later:
-
-```bash
-launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.yomu.audio-server.plist
-```
-
-## Use It on iPad or Another Device
-
-`localhost` always means the device you are currently using. On your PC or Mac, `localhost:9393` means the computer running the audio server. On your iPad, `localhost:9393` means the iPad itself, so it will not reach the computer.
-
-[Tailscale](https://tailscale.com/downloads) solves this by putting your computer, phone, and tablet on one private network. You run the audio server on one always-on computer, then other signed-in devices can reach it.
-
-Set it up like this:
+Basic setup:
 
 1. Install Tailscale on the computer running the audio server.
-2. Install Tailscale on your iPad, phone, or second computer.
-3. Sign in with the same account on every device.
-4. Keep Tailscale connected on those devices.
+2. Install Tailscale on the iPad, phone, or other computer.
+3. Sign in with the same Tailscale account on every device.
+4. Keep Tailscale connected.
 5. Leave the audio-server computer awake.
 
-Because this Rust server binds to `localhost`, use Tailscale Serve on the computer:
+On the computer running the audio server, run:
 
 ```bash
 tailscale serve --bg --https=443 http://127.0.0.1:9393
 tailscale serve status
 ```
 
-`tailscale serve status` prints the private tailnet URL. It usually looks like this:
+`tailscale serve status` prints a private Tailscale URL that looks like this:
 
 ```text
 https://desktop.your-tailnet.ts.net
 ```
 
-Use that base URL in よむ:
+Use that URL in よむ on the other device:
 
 ```text
 https://desktop.your-tailnet.ts.net/?term={term}&reading={reading}
 ```
 
-Paste that Tailscale URL into Settings > Audio > Custom URL on every device that should use the computer's audio server.
+Tailscale Serve keeps the server private to your own Tailscale account. You do not need Tailscale Funnel.
 
-Tailscale Serve keeps the service private to your tailnet. You do not need Tailscale Funnel for this, because Funnel exposes services to the public internet.
+## If Audio Does Not Play
 
-## Troubleshooting
-
-- If nothing responds locally, make sure the server is still running and that the URL port matches `--port`.
-- If another app uses `8080`, restart the server with `--port 9393` and update the URL in よむ.
-- If the server responds but no audio plays, check the `audio` folder layout and source folder names.
-- If iPad playback fails, make sure Tailscale is connected on both devices and that you pasted the `https://desktop.your-tailnet.ts.net/?term={term}&reading={reading}` URL, not `localhost`.
-- If source builds fail, download `entries.db` into the server repo root before running `cargo build --release`.
+- Make sure the server window is still open.
+- Make sure the URL in よむ uses `9393`.
+- Make sure the audio folders are inside `yomu-audio/audio/`.
+- Make sure the audio folder names were not changed.
+- If the browser test does not load, start the server again.
+- If iPad playback fails, use the Tailscale URL, not `localhost`.
+- If this setup feels like too much, use the hosted audio option at the top of this page. It is much easier.
