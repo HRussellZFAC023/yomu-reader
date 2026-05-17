@@ -99,7 +99,13 @@ function applyReaderColorSourceClasses(root: HTMLElement, scope: 'word' | 'subti
 }
 
 function readableAccentOnSurface(accentColor: string, root: HTMLElement): string {
-    return readableOn(accentColor, readerSurfaceColor(root), 4.5);
+    const surface = readerSurfaceColor(root);
+    const safeAccent = sanitizeAccentColor(accentColor);
+    return readableOnAll(safeAccent, [
+        surface,
+        mixHex(surface, safeAccent, 0.18),
+        mixHex(surface, safeAccent, 0.26),
+    ], 4.5);
 }
 
 function readableTextOnAccent(accentColor: string): string {
@@ -130,6 +136,34 @@ function readableOn(color: string, background: string, targetContrast: number): 
         if (contrastRatio(mixed, background) >= targetContrast) return mixed;
     }
     return toward;
+}
+
+function readableOnAll(color: string, backgrounds: string[], targetContrast: number): string {
+    const safe = sanitizeAccentColor(color);
+    if (backgrounds.every(background => contrastRatio(safe, background) >= targetContrast)) return safe;
+
+    const candidates = ['#000000', '#ffffff']
+        .map(toward => closestReadableMix(safe, toward, backgrounds, targetContrast))
+        .filter((candidate): candidate is { color: string; amount: number; contrast: number } => Boolean(candidate))
+        .sort((a, b) => a.amount - b.amount || b.contrast - a.contrast);
+    if (candidates[0]) return candidates[0].color;
+
+    return ['#000000', '#ffffff']
+        .map(fallback => ({ color: fallback, contrast: minContrast(fallback, backgrounds) }))
+        .sort((a, b) => b.contrast - a.contrast)[0]?.color ?? '#000000';
+}
+
+function closestReadableMix(color: string, toward: string, backgrounds: string[], targetContrast: number): { color: string; amount: number; contrast: number } | null {
+    for (let amount = 0.04; amount <= 1; amount += 0.04) {
+        const mixed = mixHex(color, toward, amount);
+        const contrast = minContrast(mixed, backgrounds);
+        if (contrast >= targetContrast) return { color: mixed, amount, contrast };
+    }
+    return null;
+}
+
+function minContrast(color: string, backgrounds: string[]): number {
+    return Math.min(...backgrounds.map(background => contrastRatio(color, background)));
 }
 
 function contrastRatio(a: string, b: string): number {

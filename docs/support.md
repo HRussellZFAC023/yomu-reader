@@ -42,8 +42,8 @@ Useful details make support much faster:
 5. What happened instead.
 6. A screenshot if the issue is visual.
 
-## What Is Coming Soon
+## Extension Packages
 
-Native Chrome, Firefox, and Safari extensions are planned. The current supported release is the userscript.
+Chrome, Firefox, and Safari extension packages can be built from the same userscript bundle for local testing and store-review prep. The current public install path is still the userscript until the store listings are ready.
 
 GreasyFork publishing is also planned so non-technical users get a friendlier install and automatic update path.

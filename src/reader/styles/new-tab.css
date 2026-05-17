@@ -892,7 +892,7 @@
   display: grid;
   justify-items: center;
   gap: 12px;
-  color: var(--jpdb-reader-muted, #aab2c0);
+  color: var(--jpdb-reader-text, #f2f4f8);
   font-size: clamp(14px, 2.1vw, 18px);
   font-weight: 650;
   line-height: 1.42;

@@ -79,6 +79,15 @@ export default defineConfig(({ mode }) => ({
     build: {
         outDir: 'dist',
         emptyOutDir: mode !== 'development',
+        minify: 'terser',
+        terserOptions: {
+            compress: {
+                passes: 2,
+            },
+            format: {
+                comments: false,
+            },
+        },
     },
     test: {
         environment: 'jsdom',

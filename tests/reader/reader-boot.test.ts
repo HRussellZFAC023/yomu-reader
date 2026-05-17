@@ -53,6 +53,15 @@ describe('reader boot', () => {
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
 
+    it('prefers native extension detection before compiled GM shims', () => {
+        vi.stubGlobal('chrome', { runtime: { id: 'compiled-yomu-extension' } });
+
+        bootReaderApp();
+
+        expect(appMocks.init).toHaveBeenCalledWith({ isDemo: false, showWelcome: false });
+        expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('extension');
+    });
+
     it('registers runtime claim listeners when a page shadows window.addEventListener', () => {
         const prototypeAdd = vi.spyOn(window.EventTarget.prototype, 'addEventListener');
 

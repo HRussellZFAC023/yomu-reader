@@ -178,6 +178,18 @@ function parseSvgPathPoints(pathData: string): SvgPathPoint[] {
         lastCubicControl = null;
         lastQuadraticControl = null;
     };
+    const horizontalLineTo = (relative: boolean) => {
+        while (hasNumbers(1)) {
+            const x = read();
+            lineTo({ x: relative ? current.x + x : x, y: current.y });
+        }
+    };
+    const verticalLineTo = (relative: boolean) => {
+        while (hasNumbers(1)) {
+            const y = read();
+            lineTo({ x: current.x, y: relative ? current.y + y : y });
+        }
+    };
 
     while (index < tokens.length) {
         if (isCommand(tokens[index])) command = tokens[index++];
@@ -199,16 +211,10 @@ function parseSvgPathPoints(pathData: string): SvgPathPoint[] {
                 while (hasNumbers(2)) lineTo(absolute(read(), read(), relative));
                 break;
             case 'H':
-                while (hasNumbers(1)) {
-                    const x = read();
-                    lineTo({ x: relative ? current.x + x : x, y: current.y });
-                }
+                horizontalLineTo(relative);
                 break;
             case 'V':
-                while (hasNumbers(1)) {
-                    const y = read();
-                    lineTo({ x: current.x, y: relative ? current.y + y : y });
-                }
+                verticalLineTo(relative);
                 break;
             case 'C':
                 while (hasNumbers(6)) {

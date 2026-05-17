@@ -1294,7 +1294,6 @@ export class ReaderApp {
         if (this.shouldIgnoreHoverPointer(event)) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         const insideActivePopover = this.handleActivePopoverHover(event);
-
         const word = this.hoverReaderWordForEvent(event);
         if (!word) {
             if (insideActivePopover) return;
@@ -2288,7 +2287,10 @@ export class ReaderApp {
         const trigger = cardDisplayTrigger(options);
         const navigation = options.navigation ?? 'reset';
         const hoverLookupGeneration = trigger === 'hover' ? options.hoverLookupGeneration : undefined;
-        const isCurrentHoverCard = () => hoverLookupGeneration === undefined || this.hoverLookupGeneration === hoverLookupGeneration;
+        const hoverLookupKey = trigger === 'hover' ? options.hoverLookupKey ?? '' : '';
+        const isCurrentHoverCard = () => hoverLookupGeneration === undefined
+            || this.hoverLookupGeneration === hoverLookupGeneration
+            || this.isActiveHoverLookup(hoverLookupKey);
         this.navigation.updateWord(card, sentence, trigger, navigation, options.previousNavigationEntry);
         this.navigation.clearKanji();
         const done = log.time('showCard', { term: card.spelling, source: cardSourceLabel(card), trigger });
@@ -2468,9 +2470,8 @@ export class ReaderApp {
         this.studySources.installLoaders(popover, sentence);
     }
 
-    private isCurrentCardRender(popover: HTMLElement, requestId: number, isCurrentHoverCard: () => boolean): boolean {
+    private isCurrentCardRender(popover: HTMLElement, _requestId: number, isCurrentHoverCard: () => boolean): boolean {
         return isCurrentHoverCard()
-            && requestId === this.cardRenderRequest
             && popover.isConnected
             && this.activePopover === popover;
     }

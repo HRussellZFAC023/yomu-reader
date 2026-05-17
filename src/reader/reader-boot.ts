@@ -84,12 +84,13 @@ function startBootedRuntime(app: ReaderApp, ownerId: string, runtimeKind: YomuRu
 }
 
 function detectYomuRuntimeKind(): YomuRuntimeKind {
-    if (typeof GM_getValue === 'function') return 'userscript';
     const global = globalThis as {
         chrome?: { runtime?: { id?: string } };
         browser?: { runtime?: { id?: string } };
     };
-    return global.chrome?.runtime?.id || global.browser?.runtime?.id ? 'extension' : 'demo';
+    if (global.chrome?.runtime?.id || global.browser?.runtime?.id) return 'extension';
+    if (typeof GM_getValue === 'function') return 'userscript';
+    return 'demo';
 }
 
 function runtimePriority(kind: YomuRuntimeKind): number {

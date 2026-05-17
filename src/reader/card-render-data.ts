@@ -9,7 +9,7 @@ import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, Yomit
 
 const log = Logger.scope('CardRenderData');
 const CARD_RENDER_DATA_CACHE_TTL_MS = 30_000;
-const CARD_RENDER_DETAIL_TIMEOUT_MS = 9_000;
+const CARD_RENDER_DETAIL_TIMEOUT_MS = 4_500;
 
 export interface CardRenderData {
     localEntries: YomitanTermEntry[];
@@ -80,7 +80,7 @@ export class CardRenderDataLoader {
     }
 
     private detailTimeoutMs(): number {
-        return Math.max(CARD_RENDER_DETAIL_TIMEOUT_MS, this.settings().audioTimeoutMs + 1_000);
+        return CARD_RENDER_DETAIL_TIMEOUT_MS;
     }
 
     private withFallback<T>(card: JPDBCard, timeoutMs: number, detail: string, promise: Promise<T>, fallback: T): Promise<T> {

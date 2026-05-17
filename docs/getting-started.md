@@ -8,6 +8,17 @@ A userscript is a small helper that a browser extension runs for you. You instal
   <strong>Short version:</strong> install a userscript manager, install よむ, open any Japanese page, then tap or hover a word.
 </div>
 
+## Words You Will See
+
+- **Userscript manager:** the browser add-on that runs よむ for you. Tampermonkey and Userscripts are examples.
+- **JPDB:** an optional online study service for word status, review buttons, and mining.
+- **Yomitan dictionary:** a downloadable dictionary ZIP. よむ can import these so definitions stay local in your browser.
+- **Mining:** saving a useful word, sentence, subtitle, or image context for later study.
+- **OCR:** image text reading. This is what lets you tap Japanese inside manga panels or screenshots.
+- **Anki / AnkiConnect:** Anki is a flashcard app. AnkiConnect is the desktop add-on that lets よむ create Anki cards.
+- **Local server:** a helper app running on your own computer, often for audio, OCR, or Anki.
+- **localhost:** the device you are using right now. On an iPhone, `localhost` means the iPhone, not your desktop.
+
 ## 1. Choose Your Browser
 
 <div class="yomu-platform-list">
@@ -25,7 +36,8 @@ A userscript is a small helper that a browser extension runs for you. You instal
   </div>
 </div>
 
-Native Chrome, Firefox, and Safari extensions are coming soon. For now, install the userscript.
+Chrome, Firefox, and Safari extension packages are available for local testing and store-review prep. For normal installation today, use the userscript.
+Store listings are not live yet, so beginners should ignore extension-package instructions unless they are testing or reviewing よむ.
 
 ## 2. Install a Userscript Manager
 
@@ -60,9 +72,9 @@ What should happen:
 3. Press Install.
 4. Open a page with Japanese text.
 
-If your browser only shows code instead of an install screen, your userscript manager is not enabled for that page yet.
+If your browser only shows code instead of an install screen, your userscript manager is not enabled for that page yet. Do not paste the code anywhere manually. Go back to the userscript manager setup, make sure it is enabled, then open the install link again.
 
-## 4. Add JPDB
+## 4. Add JPDB, Or Skip It For Now
 
 JPDB is optional for basic local dictionary lookup, but it is the easiest way to get word status and mining.
 
@@ -103,3 +115,7 @@ If a setup step mentions leaving a terminal window or local server running, trea
 ## 8. Back Up Settings
 
 After setup, go to Settings > Dictionaries and use Export settings JSON. This gives you a small backup file you can import on another browser later.
+
+## If Something Does Not Work
+
+Start with [Troubleshooting](/troubleshooting). The most common fixes are enabling the userscript manager for the current site, refreshing the page after changing settings, checking that a JPDB key was pasted correctly, and remembering that `localhost` on an iPhone means the iPhone itself rather than your desktop computer.

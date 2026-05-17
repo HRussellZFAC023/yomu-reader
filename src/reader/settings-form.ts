@@ -1040,20 +1040,11 @@ function localizeRecommendedDictionaryGroups(form: HTMLFormElement, text: Settin
 }
 
 function localizeRecommendedDictionaryDescriptions(form: HTMLFormElement, text: SettingsText): void {
-    const descriptions: Record<string, SettingsTextKey> = {
-        jitendex: 'recommendedJitendex',
-        jmdict: 'recommendedJmdict',
-        jmnedict: 'recommendedJmnedict',
-        kanjidic: 'recommendedKanjidic',
-        'jpdbv2-kana': 'recommendedJpdbv2Kana',
-        bccwj: 'recommendedBccwj',
-        jiten: 'recommendedJiten',
-    };
-    Object.entries(descriptions).forEach(([id, key]) => {
-        const button = form.querySelector<HTMLButtonElement>(`[data-action="download-recommended-dictionary"][data-dictionary-id="${id}"]`);
+    RECOMMENDED_JAPANESE_DICTIONARIES.forEach(dictionary => {
+        const button = form.querySelector<HTMLButtonElement>(`[data-action="download-recommended-dictionary"][data-dictionary-id="${dictionary.id}"]`);
         button?.closest<HTMLElement>('.jpdb-reader-recommended-item')
             ?.querySelector<HTMLElement>('.jpdb-reader-help')
-            ?.replaceChildren(text(key));
+            ?.replaceChildren(text(dictionary.descriptionKey));
     });
 }
 
@@ -2117,7 +2108,7 @@ function renderRecommendedDictionary(dictionary: RecommendedDictionary, installe
                     <span>${escapeHtml(dictionary.name)}</span>
                     <a href="${dictionary.homepage}" target="_blank" rel="noopener">Homepage</a>
                 </div>
-                <div class="jpdb-reader-help">${escapeHtml(dictionary.description)}</div>
+                <div class="jpdb-reader-help">${escapeHtml(uiText('en', dictionary.descriptionKey))}</div>
             </div>
             <button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">
                 ${alreadyInstalled ? 'Update' : 'Install'}

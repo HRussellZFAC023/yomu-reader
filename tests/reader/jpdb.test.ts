@@ -30,7 +30,7 @@ import { AUTO_SCAN_OBSERVER_OPTIONS, mutationMayContainJapaneseText } from '../.
 import { buildNewTabPalette, isYomuNewTabUrl, resolveNewTabBrandAssets } from '../../src/reader/new-tab';
 import { ObjectUrlCache } from '../../src/reader/object-url-cache';
 import { createPageMediaUrl } from '../../src/reader/page-media-url';
-import { normalizeOcrResult, readFallbackOcrResult } from '../../src/reader/ocr';
+import { normalizeOcrResult, parseGoogleLensUploadHtml, readFallbackOcrResult } from '../../src/reader/ocr';
 import { createReaderPopover, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, SHEET_HEIGHT_STORAGE_KEY, shouldUseSheet } from '../../src/reader/popover-shell';
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { DEFAULT_YOMU_PUBLIC_PROXY_URL, fetchWithCorsFallbacks, proxyUrlCandidates } from '../../src/reader/proxy-fetch';
@@ -7624,7 +7624,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('renders the Uchisen controls and external link in the summary', async () => {
+    it('renders the Uchisen controls and external link outside the summary', async () => {
         vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(new Blob(['image'], { type: 'image/png' }), { status: 200 }))));
         const mount = document.createElement('div');
         let cleanup: (() => void) | null = null;
@@ -7637,15 +7637,15 @@ describe('reader helpers', () => {
 
             const summary = mount.querySelector<HTMLElement>('summary.jpdb-reader-local-head');
             const body = mount.querySelector<HTMLElement>('.yomu-jpdb-uchisen-body');
-            const controls = Array.from(summary?.querySelectorAll<HTMLElement>('[data-uchisen-action]') ?? []);
-            const link = summary?.querySelector<HTMLAnchorElement>('.yomu-jpdb-uchisen-summary-link');
+            const controls = Array.from(body?.querySelectorAll<HTMLElement>('[data-uchisen-action]') ?? []);
+            const link = body?.querySelector<HTMLAnchorElement>('.yomu-jpdb-uchisen-summary-link');
 
             expect(summary?.querySelector('.yomu-jpdb-counter')?.textContent).toBe('1/1');
+            expect(summary?.querySelector('[data-uchisen-action]')).toBeNull();
+            expect(summary?.querySelector('a[href*="uchisen.com/kanji"]')).toBeNull();
             expect(controls.map(control => control.dataset.uchisenAction)).toEqual(['previous', 'next']);
             expect(link?.textContent).toContain('View on Uchisen');
             expect(link?.querySelector('svg')).not.toBeNull();
-            expect(body?.querySelector('[data-uchisen-action]')).toBeNull();
-            expect(body?.querySelector('a[href*="uchisen.com/kanji"]')).toBeNull();
         } finally {
             cleanup?.();
             mount.remove();
@@ -9626,6 +9626,26 @@ describe('reader helpers', () => {
         expect(result?.lines[0]).toMatchObject({
             text: '学校',
             box: { left: 10, top: 20, width: 60, height: 38 },
+        });
+    });
+
+    it('parses Google Lens upload HTML without evaluating remote code', () => {
+        const lineItems = [[[[['学', null, null, '校']], [0.1, 0.2, 0.3, 0.4]]]];
+        const block = [null, null, [[null, null, null, null, null, [null, null, null, lineItems]]]];
+        const callback = {
+            key: 'ds:1',
+            data: [null, null, [null, null, null, [[block]]]],
+            sideChannel: {},
+        };
+        const literal = JSON.stringify(callback)
+            .replace('"key"', 'key')
+            .replace('"ds:1"', "'ds:1'");
+        const html = `<script>AF_initDataCallback({key:'unused',data:[]});AF_initDataCallback(${literal});</script>`;
+        const result = parseGoogleLensUploadHtml(html, 1000, 800);
+
+        expect(result?.lines[0]).toMatchObject({
+            text: '学校',
+            box: { top: 80, left: 200, width: 300, height: 320 },
         });
     });
 
