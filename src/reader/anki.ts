@@ -1,6 +1,8 @@
 import { escapeHtml } from './dom';
 import type { AnkiWordAudioMedia } from './audio';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
+import { isYomuHostedAppUrl } from './app-pages';
+import { GITHUB_PAGES_ORIGIN } from './constants';
 import { resolveUiLanguage, uiText } from './i18n';
 import { Logger } from './logger';
 import type { CardState, DictionaryPreference, JPDBCard, JPDBGrade, ReaderSettings } from './types';
@@ -607,13 +609,41 @@ function resolvedAnkiModelName(settings: ReaderSettings): string {
 }
 
 function canFetchAnkiConnect(url: string): boolean {
+    return canFetchAnkiConnectFrom(url, safeLocationHref());
+}
+
+export function canFetchAnkiConnectFrom(url: string, currentHref: string): boolean {
+    const current = readAnkiUrl(currentHref);
+    if (!current) return false;
+    const target = readAnkiUrl(url, current.href);
+    if (!target) return false;
+    if (target.origin === current.origin) return true;
+    if (isLoopbackHostname(current.hostname)) return true;
+    return isYomuHostedAppUrl(current.href) && isHttpUrl(target);
+}
+
+export function needsHostedAnkiConnectSetupHint(url: string, currentHref = safeLocationHref()): boolean {
+    if (getUserscriptHttpRequest()) return false;
+    const current = readAnkiUrl(currentHref);
+    if (!current || current.origin !== GITHUB_PAGES_ORIGIN || !isYomuHostedAppUrl(current.href)) return false;
+    const target = readAnkiUrl(url, current.href);
+    return Boolean(target && target.origin !== current.origin && isHttpUrl(target));
+}
+
+function readAnkiUrl(value: string, base?: string): URL | null {
     try {
-        const target = new URL(url, location.href);
-        if (target.origin === location.origin) return true;
-        return ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+        return new URL(value, base);
     } catch {
-        return false;
+        return null;
     }
+}
+
+function isHttpUrl(url: URL): boolean {
+    return url.protocol === 'http:' || url.protocol === 'https:';
+}
+
+function isLoopbackHostname(hostname: string): boolean {
+    return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(hostname);
 }
 
 export function buildYomuAnkiFields(card: JPDBCard, sentence = '', context: AnkiCardContext = {}): Record<string, string> {

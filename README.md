@@ -95,7 +95,7 @@ Use this address as a browser new-tab/home-page URL or add it to the iPad Home S
 https://hrussellzfac023.github.io/yomu-reader/newtab/
 ```
 
-The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect or mobile handoff is enabled, otherwise from the configured JPDB deck, otherwise from imported dictionary words. If no local dictionary exists yet, よむ sends you to Settings > Dictionaries to download JMdict or import a Yomitan ZIP into local browser storage. Tapping a word opens the same popup dictionary used on normal pages.
+The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect or mobile handoff is enabled, otherwise from the configured JPDB deck, otherwise from imported dictionary words. If no local dictionary exists yet, よむ sends you to Settings > Dictionaries to download JMdict or import a Yomitan ZIP into local browser storage. Tapping a word opens the same popup dictionary used on normal pages. On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests. Browsers that allow direct local requests without the bridge also need `https://hrussellzfac023.github.io` in AnkiConnect's `webCorsOriginList`.
 
 ## OCR
 

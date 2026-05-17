@@ -26,6 +26,7 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ### Fixed
 
+- Let the hosted new-tab page attempt direct AnkiConnect requests and show the CORS/userscript bridge setup hint when standalone Anki tests fail.
 - Made recommended dictionary installs visibly queue/import on their buttons and kept Settings Save unavailable until dictionary imports finish, so new-tab setup no longer looks broken while dictionaries are still loading.
 - Restored LanguagePod101 lookups through the configured/public proxy path in browser-fetch contexts.
 - Made Escape close the Settings dialog even when focus is inside a normal settings field.
