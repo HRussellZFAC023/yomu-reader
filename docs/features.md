@@ -78,8 +78,8 @@ For local files, open the [Yomu video player](https://hrussellzfac023.github.io/
 You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. The transcript panel is off by default and can be opened from the subtitle controls or overflow menu. On phones it becomes a bottom panel so the video stays usable.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-video-player.png'" alt="The よむ transcript panel open on a live Comprehensible Japanese YouTube video.">
-  <figcaption>Transcript controls on a live Comprehensible Japanese video.</figcaption>
+  <img :src="'/yomu-reader/screenshots/store-02-youtube-subtitles.png'" alt="The よむ subtitle overlay and transcript panel open on a live Comprehensible Japanese YouTube video.">
+  <figcaption>Subtitle overlay and transcript controls on a live Comprehensible Japanese video.</figcaption>
 </figure>
 
 ## YouTube Immersion Filter

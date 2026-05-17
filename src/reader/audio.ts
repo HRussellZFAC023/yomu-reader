@@ -171,11 +171,11 @@ export class AudioPlayer {
         const realAudioResult = await this.playOrderedSources(orderAudioSources(realAudioSources, settings.audioSelectionMode), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
         if (realAudioResult !== 'miss') return { state: realAudioResult, errors };
 
-        const jpdbTtsResult = await this.playOrderedSources(sources.filter(isJpdbTtsSource), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
-        if (jpdbTtsResult !== 'miss') return { state: jpdbTtsResult, errors };
-
         const textToSpeechResult = await this.playOrderedSources(sources.filter(isBrowserTextToSpeechSource), card, settings, requestId, triedUrls, isCurrent, errors);
-        return { state: textToSpeechResult, errors };
+        if (textToSpeechResult !== 'miss') return { state: textToSpeechResult, errors };
+
+        const jpdbTtsResult = await this.playOrderedSources(sources.filter(isJpdbTtsSource), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+        return { state: jpdbTtsResult, errors };
     }
 
     private async playOrderedSources(
@@ -1005,19 +1005,9 @@ function orderAudioCandidates(
 
 function orderAudioSources(
     sources: AudioSourceSetting[],
-    mode: AudioSelectionMode,
+    _mode: AudioSelectionMode,
 ): AudioSourceSetting[] {
-    if (mode !== 'random' || sources.length < 2) return sources;
-    return shuffleAudioSources(sources);
-}
-
-function shuffleAudioSources(sources: AudioSourceSetting[]): AudioSourceSetting[] {
-    const shuffled = [...sources];
-    for (let index = shuffled.length - 1; index > 0; index--) {
-        const swapIndex = Math.floor(Math.random() * (index + 1));
-        [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-    }
-    return shuffled;
+    return sources;
 }
 
 function isTtsFallbackSource(source: AudioSourceSetting): boolean {

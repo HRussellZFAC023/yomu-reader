@@ -67,7 +67,7 @@ export default defineConfig(({ mode }) => ({
     ],
     server: {
         origin: 'http://127.0.0.1:5174',
-        port: 5174,
+        port: Number(process.env.PORT || 5174),
         strictPort: false,
         cors: true,
         headers: {
