@@ -19,6 +19,7 @@ export type AudioSourceType =
     | 'jisho'
     | 'lingua-libre'
     | 'wiktionary'
+    | 'jpdb-tts'
     | 'text-to-speech'
     | 'text-to-speech-reading'
     | 'custom'
@@ -28,7 +29,7 @@ export type AudioSelectionMode = 'first' | 'random';
 
 export type AudioAutoPlayMode = 'all' | 'hover' | 'tap';
 
-export type OcrProvider = 'local-service' | 'off';
+export type OcrProvider = 'google-lens' | 'cloud-vision' | 'local-service' | 'page-text' | 'off';
 
 export type PopupActivationMode = 'click' | 'hover' | 'modifier';
 
@@ -208,6 +209,7 @@ export interface ReaderSettings {
     audioSelectionMode: AudioSelectionMode;
     immersionKitEnabled: boolean;
     immersionKitPriority: number;
+    immersionKitLimitEnabled: boolean;
     immersionKitLimit: number;
     immersionKitMinLength: number;
     immersionKitMaxLength: number;
@@ -239,6 +241,7 @@ export interface ReaderSettings {
     corsProxyUrl: string;
     newTabKanjiKeywordSource: NewTabKanjiKeywordSource;
     newTabParsingEnabled: boolean;
+    newTabFrontSentenceEnabled: boolean;
     newTabOfflineEnabled: boolean;
     newTabOfflineLimit: number;
     newTabKanjiAutogradeEnabled: boolean;
@@ -256,6 +259,7 @@ export interface ReaderSettings {
     ocrProvider: OcrProvider;
     ocrEndpointUrl: string;
     ocrEngine: string;
+    ocrCloudVisionApiKey: string;
     ocrLanguage: string;
     ocrMaxImagePixels: number;
     ocrMinImageArea: number;
@@ -303,6 +307,9 @@ export interface ReaderSettings {
     ankiMineWithJpdb: boolean;
     ankiCaptureScreenshot: boolean;
     ankiTemplateMode: AnkiTemplateMode;
+    ankiFrontReading: boolean;
+    ankiFrontSentence: boolean;
+    ankiFrontImage: boolean;
     ankiMobileHandoff: boolean;
     studyTranslationEnabled: boolean;
     studyTranslationPriority: number;
@@ -311,6 +318,7 @@ export interface ReaderSettings {
     enableLogging: boolean;
     theme: 'auto' | 'light' | 'dark';
     popupMode: 'auto' | 'sheet' | 'popover';
+    stickyBottomSheet: boolean;
     popoverWidth: number;
     popoverHeight: number;
     popoverHeightMode: 'available' | 'fixed';

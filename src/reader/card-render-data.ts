@@ -200,7 +200,7 @@ function cardRenderDetailWithFallback<T>(detail: string, card: JPDBCard, promise
     return Promise.race([
         promise,
         delay(timeoutMs).then(() => {
-            log.warn(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
+            log.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
             return fallback;
         }),
     ]);

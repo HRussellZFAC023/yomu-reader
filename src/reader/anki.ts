@@ -1,4 +1,5 @@
 import { escapeHtml } from './dom';
+import type { AnkiWordAudioMedia } from './audio';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
 import { Logger } from './logger';
 import type { CardState, DictionaryPreference, JPDBCard, JPDBGrade, ReaderSettings } from './types';
@@ -31,6 +32,7 @@ export const YOMU_MODEL_FIELDS = [
     'Frequency',
     'PartOfSpeech',
     'Image',
+    'Audio',
     'JPDB',
     'Status',
     'Pitch',
@@ -58,9 +60,18 @@ interface AnkiNote {
         data: string;
         fields: string[];
     }>;
+    audio?: AnkiMediaFile[];
 }
 
 type AnkiPicture = NonNullable<AnkiNote['picture']>[number];
+
+interface AnkiMediaFile {
+    filename: string;
+    fields: string[];
+    data?: string;
+    url?: string;
+    skipHash?: string;
+}
 
 interface AnkiNoteInfo {
     noteId: number;
@@ -75,11 +86,30 @@ interface AnkiCardInfo {
     deckName: string;
     queue: number;
     type: number;
+    question?: string;
+    answer?: string;
     due?: number;
     reps?: number;
     lapses?: number;
     interval?: number;
     note?: number;
+}
+
+export interface AnkiRenderedCard {
+    cardId: number;
+    deckName: string;
+    question: string;
+    answer: string;
+}
+
+export type AnkiAudioMergeMode = 'both' | 'theirs' | 'ours';
+
+export interface AnkiMergeYomuResult {
+    noteId: number;
+    modelName: string;
+    updatedFields: string[];
+    audioAdded: boolean;
+    imageAdded: boolean;
 }
 
 export interface AnkiExistingNote {
@@ -90,6 +120,7 @@ export interface AnkiExistingNote {
     primaryCardId: number | null;
     state: CardState;
     fields: Record<string, string>;
+    renderedCards?: AnkiRenderedCard[];
     tags: string[];
     reps: number;
     lapses: number;
@@ -104,6 +135,10 @@ export interface AnkiLookupResult {
 export interface AnkiCardContext {
     deckName?: string;
     imageDataUrl?: string;
+    audioDataUrl?: string;
+    audioUrl?: string;
+    wordAudioDataUrl?: string;
+    wordAudioUrl?: string;
     localEntries?: YomitanTermEntry[];
     kanjiEntries?: YomitanKanjiEntry[];
     metaEntries?: YomitanMetaEntry[];
@@ -124,6 +159,18 @@ interface AnkiFieldContext {
 interface ParsedAnkiImageDataUrl {
     extension: string;
     data: string;
+}
+
+interface ParsedAnkiAudioDataUrl {
+    extension: string;
+    data: string;
+}
+
+interface AnkiNoteUpdate {
+    id: number;
+    fields: Record<string, string>;
+    audio?: AnkiMediaFile[];
+    picture?: AnkiPicture[];
 }
 
 export class AnkiConnectClient {
@@ -157,10 +204,14 @@ export class AnkiConnectClient {
         const empty = emptyAnkiLookupResult();
         if (canUseMobileAnkiHandoff(this.getSettings())) return empty;
         if (this.isLookupCoolingDown()) return empty;
-        const cacheKey = `${card.spelling}|${card.reading}`;
+        const cacheKey = this.lookupCacheKey(card);
         const cached = this.readLookupCache(cacheKey);
         if (cached) return cached;
         return await this.findExistingCardsUncached(card, cacheKey, empty);
+    }
+
+    private lookupCacheKey(card: JPDBCard): string {
+        return `${card.spelling}|${card.reading}`;
     }
 
     private isLookupCoolingDown(): boolean {
@@ -248,6 +299,22 @@ export class AnkiConnectClient {
         await this.invoke<unknown>('guiBrowse', { query: `nid:${noteId}` });
     }
 
+    async mergeYomuData(noteId: number, card: JPDBCard, sentence = '', options: AnkiCardContext & { audioMergeMode?: AnkiAudioMergeMode } = {}): Promise<AnkiMergeYomuResult> {
+        const settings = this.getSettings();
+        if (canUseMobileAnkiHandoff(settings)) throw new Error('Merging existing Anki notes needs AnkiConnect on desktop.');
+        const [note] = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: [noteId] });
+        if (!note) throw new Error('Anki note not found.');
+
+        const merge = this.buildYomuNoteMerge(note, card, sentence, options);
+        if (!merge.updatedFields.length && !merge.audioAdded && !merge.imageAdded) {
+            return merge;
+        }
+
+        await this.invoke<null>('updateNoteFields', { note: merge.note });
+        this.lookupCache.delete(this.lookupCacheKey(card));
+        return merge;
+    }
+
     async addCard(card: JPDBCard, sentence = '', options: AnkiCardContext = {}): Promise<number | null> {
         const settings = this.getSettings();
         if (!settings.ankiEnabled) {
@@ -276,7 +343,33 @@ export class AnkiConnectClient {
             },
         };
         this.attachAnkiNoteImage(note, options.imageDataUrl, card);
+        this.attachAnkiNoteAudio(note, options, card);
         return note;
+    }
+
+    private buildYomuNoteMerge(note: AnkiNoteInfo, card: JPDBCard, sentence: string, options: AnkiCardContext & { audioMergeMode?: AnkiAudioMergeMode }): AnkiMergeYomuResult & { note: AnkiNoteUpdate } {
+        const settings = this.getSettings();
+        const fieldNames = Object.keys(note.fields ?? {});
+        const existingFields = flattenNoteFields(note.fields);
+        const yomuFields = buildYomuAnkiFields(card, sentence, this.ankiFieldContext(options, settings));
+        const canOwnYomuFields = noteLooksLikeYomuModel(note.modelName, settings, fieldNames);
+        const fields = mergedYomuFields(fieldNames, existingFields, yomuFields, canOwnYomuFields);
+        const audio = mergeAudioFilesForNote(fieldNames, options, card);
+        const picture = mergePictureFilesForNote(fieldNames, existingFields, options, card, canOwnYomuFields);
+        applyMediaFieldClears(fields, audio, picture, options.audioMergeMode, canOwnYomuFields);
+        return {
+            noteId: note.noteId,
+            modelName: note.modelName,
+            updatedFields: Object.keys(fields),
+            audioAdded: Boolean(audio.length),
+            imageAdded: Boolean(picture.length),
+            note: {
+                id: note.noteId,
+                fields,
+                ...(audio.length ? { audio } : {}),
+                ...(picture.length ? { picture } : {}),
+            },
+        };
     }
 
     private ankiDeckName(options: AnkiCardContext, settings: ReaderSettings): string {
@@ -297,12 +390,18 @@ export class AnkiConnectClient {
         if (image) note.picture = [image];
     }
 
+    private attachAnkiNoteAudio(note: AnkiNote, options: AnkiCardContext, card: JPDBCard): void {
+        const audio = audioFilesFromContext(options, card);
+        if (audio.length) note.audio = audio;
+    }
+
     private logAnkiNoteAdd(card: JPDBCard, note: AnkiNote): void {
         log.info('Adding Anki note', {
             term: card.spelling,
             deck: note.deckName,
             model: note.modelName,
             hasImage: Boolean(note.picture?.length),
+            hasAudio: Boolean(note.audio?.length),
             tags: note.tags,
         });
     }
@@ -318,7 +417,28 @@ export class AnkiConnectClient {
         await this.ensureDeckAndModel(note.deckName);
         const noteId = await this.invoke<number | null>('addNote', { note });
         log.info('Anki note added', { term: card.spelling, noteId });
+        await this.refreshLookupCacheAfterAdd(card, noteId);
         return noteId;
+    }
+
+    private async refreshLookupCacheAfterAdd(card: JPDBCard, noteId: number | null): Promise<void> {
+        const cacheKey = this.lookupCacheKey(card);
+        if (!noteId) {
+            this.lookupCache.delete(cacheKey);
+            return;
+        }
+        try {
+            const { existing } = await this.loadExistingNotes(card, new Set([noteId]));
+            const result: AnkiLookupResult = {
+                state: stateFromExistingNotes(existing),
+                notes: existing,
+                primary: pickPrimaryExistingNote(existing),
+            };
+            this.writeLookupCache(cacheKey, result);
+        } catch (error) {
+            log.warn('Anki lookup refresh after add failed', { term: card.spelling, noteId }, error);
+            this.lookupCache.delete(cacheKey);
+        }
     }
 
     private addCardWithFallback(error: unknown, settings: ReaderSettings, note: AnkiNote, card: JPDBCard): null {
@@ -345,7 +465,7 @@ export class AnkiConnectClient {
 
     private async updateExistingModel(modelName: string, settings: ReaderSettings): Promise<void> {
         await this.ensureModelFields(modelName);
-        await this.invoke<null>('updateModelTemplates', { model: { name: modelName, templates: yomuCardTemplates(settings.ankiTemplateMode) } });
+        await this.invoke<null>('updateModelTemplates', { model: { name: modelName, templates: yomuCardTemplates(settings) } });
         await this.invoke<null>('updateModelStyling', { model: { name: modelName, css: yomuCardCss() } });
     }
 
@@ -360,7 +480,7 @@ export class AnkiConnectClient {
             modelName,
             inOrderFields: YOMU_MODEL_FIELDS,
             css: yomuCardCss(),
-            cardTemplates: Object.entries(yomuCardTemplates(settings.ankiTemplateMode)).map(([Name, template]) => ({ Name, ...template })),
+            cardTemplates: Object.entries(yomuCardTemplates(settings)).map(([Name, template]) => ({ Name, ...template })),
         });
         log.info('Anki model created', { modelName });
     }
@@ -481,6 +601,7 @@ export function buildYomuAnkiFields(card: JPDBCard, sentence = '', context: Anki
         Frequency: renderFrequency(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
         PartOfSpeech: renderPartOfSpeech(card.partOfSpeech),
         Image: '',
+        Audio: '',
         JPDB: renderJpdbLink(jpdbUrl),
         Status: renderCardStatus(card),
         Pitch: renderPitchField(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
@@ -541,15 +662,162 @@ function imageFromDataUrl(dataUrl: string, card: JPDBCard): AnkiPicture | null {
     const parsed = parseAnkiImageDataUrl(dataUrl);
     if (!parsed) return null;
     return {
-        filename: `yomu_${safeAnkiImageName(card)}_${Date.now()}.${parsed.extension}`,
+        filename: `yomu_${safeAnkiMediaName(card)}_${Date.now()}.${parsed.extension}`,
         data: parsed.data,
         fields: ['Image'],
     };
 }
 
+function mergedYomuFields(fieldNames: string[], existingFields: Record<string, string>, yomuFields: Record<string, string>, canOwnYomuFields: boolean): Record<string, string> {
+    const fields: Record<string, string> = {};
+    for (const fieldName of fieldNames) {
+        const value = yomuValueForExistingField(fieldName, yomuFields);
+        if (!value) continue;
+        if (!canOwnYomuFields && existingFields[fieldName]) continue;
+        fields[fieldName] = value;
+    }
+    return fields;
+}
+
+function yomuValueForExistingField(fieldName: string, yomuFields: Record<string, string>): string {
+    return yomuFields[fieldName] ?? yomuFields[yomuFieldAlias(fieldName)] ?? '';
+}
+
+function yomuFieldAlias(fieldName: string): string {
+    const normalized = fieldName.replace(/[_\s-]+/g, '').toLowerCase();
+    return YOMU_FIELD_ALIASES[normalized] ?? '';
+}
+
+const YOMU_FIELD_ALIASES: Record<string, string> = {
+    word: 'Expression',
+    vocab: 'Expression',
+    vocabulary: 'Expression',
+    term: 'Expression',
+    front: 'Expression',
+    readings: 'Reading',
+    kana: 'Reading',
+    yomi: 'Reading',
+    definition: 'Meaning',
+    definitions: 'Meaning',
+    glossary: 'Meaning',
+    translation: 'Meaning',
+    translation1: 'Meaning',
+    back: 'Meaning',
+    example: 'Sentence',
+    sentenceexpression: 'Sentence',
+    sourceurl: 'Url',
+    url: 'Url',
+    pos: 'PartOfSpeech',
+    partofspeech: 'PartOfSpeech',
+    pitchaccent: 'Pitch',
+    dictionary: 'DictionaryDefinitions',
+    dictionaries: 'DictionaryDefinitions',
+    dictionarydefinition: 'DictionaryDefinitions',
+    dictionarydefinitions: 'DictionaryDefinitions',
+};
+
+function noteLooksLikeYomuModel(modelName: string, settings: ReaderSettings, fieldNames: string[]): boolean {
+    const configuredModel = resolvedAnkiModelName(settings);
+    if (modelName === configuredModel) return true;
+    const fieldSet = new Set(fieldNames);
+    return ['Expression', 'Meaning', 'Sentence', 'DictionaryDefinitions'].every(field => fieldSet.has(field));
+}
+
+function mergeAudioFilesForNote(fieldNames: string[], options: AnkiCardContext & { audioMergeMode?: AnkiAudioMergeMode }, card: JPDBCard): AnkiMediaFile[] {
+    if (options.audioMergeMode === 'theirs') return [];
+    const fieldName = mediaFieldName(fieldNames, ['Audio', 'audio', 'Sound', 'sound', 'Voice', 'Pronunciation']);
+    if (!fieldName) return [];
+    return retargetMediaFiles(audioFilesFromContext(options, card), fieldName);
+}
+
+function mergePictureFilesForNote(
+    fieldNames: string[],
+    existingFields: Record<string, string>,
+    options: AnkiCardContext,
+    card: JPDBCard,
+    canOwnYomuFields: boolean,
+): AnkiPicture[] {
+    const fieldName = mediaFieldName(fieldNames, ['Image', 'image', 'Picture', 'picture', 'Screenshot', 'screenshot']);
+    if (!fieldName || !options.imageDataUrl) return [];
+    if (!canOwnYomuFields && existingFields[fieldName]) return [];
+    const image = imageFromDataUrl(options.imageDataUrl, card);
+    return image ? [{ ...image, fields: [fieldName] }] : [];
+}
+
+function applyMediaFieldClears(
+    fields: Record<string, string>,
+    audio: AnkiMediaFile[],
+    picture: AnkiPicture[],
+    audioMergeMode: AnkiAudioMergeMode | undefined,
+    canOwnYomuFields: boolean,
+): void {
+    if (audio.length && audioMergeMode === 'ours') fields[audio[0].fields[0]] = '';
+    if (picture.length && canOwnYomuFields) fields[picture[0].fields[0]] = '';
+}
+
+function mediaFieldName(fieldNames: string[], preferredNames: string[]): string {
+    const exact = preferredNames.find(name => fieldNames.includes(name));
+    if (exact) return exact;
+    const preferredLower = new Set(preferredNames.map(name => name.toLowerCase()));
+    return fieldNames.find(name => preferredLower.has(name.toLowerCase())) ?? '';
+}
+
+function retargetMediaFiles<T extends AnkiMediaFile | AnkiPicture>(files: T[], fieldName: string): T[] {
+    return files.map(file => ({ ...file, fields: [fieldName] }));
+}
+
+function audioFilesFromContext(options: AnkiCardContext, card: JPDBCard): AnkiMediaFile[] {
+    const files = [
+        audioFromMedia({ dataUrl: options.wordAudioDataUrl, url: options.wordAudioUrl, kind: 'word' }, card),
+        audioFromMedia({ dataUrl: options.audioDataUrl, url: options.audioUrl, kind: 'context' }, card),
+    ].filter((file): file is AnkiMediaFile => Boolean(file));
+    return uniqueAnkiAudioFiles(files);
+}
+
+function audioFromMedia(media: AnkiWordAudioMedia & { kind: string }, card: JPDBCard): AnkiMediaFile | null {
+    const fromData = media.dataUrl ? audioFromDataUrl(media.dataUrl, card, media.kind) : null;
+    if (fromData) return fromData;
+    return media.url ? audioFromUrl(media.url, card, media.kind) : null;
+}
+
+function audioFromDataUrl(dataUrl: string, card: JPDBCard, kind: string): AnkiMediaFile | null {
+    const parsed = parseAnkiAudioDataUrl(dataUrl);
+    if (!parsed) return null;
+    return {
+        filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}.${parsed.extension}`,
+        data: parsed.data,
+        fields: ['Audio'],
+    };
+}
+
+function audioFromUrl(url: string, card: JPDBCard, kind: string): AnkiMediaFile | null {
+    const cleanUrl = url.trim();
+    if (!/^https?:\/\//i.test(cleanUrl)) return null;
+    return {
+        filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}${audioUrlExtension(cleanUrl)}`,
+        url: cleanUrl,
+        fields: ['Audio'],
+    };
+}
+
+function uniqueAnkiAudioFiles(files: AnkiMediaFile[]): AnkiMediaFile[] {
+    const seen = new Set<string>();
+    return files.filter(file => {
+        const key = file.data ? `data:${file.data}` : `url:${file.url ?? ''}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
 function parseAnkiImageDataUrl(dataUrl: string): ParsedAnkiImageDataUrl | null {
     const match = /^data:image\/(png|jpeg|jpg|webp|svg\+xml)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
     return match ? { extension: ankiImageExtension(match[1]), data: match[2] } : null;
+}
+
+function parseAnkiAudioDataUrl(dataUrl: string): ParsedAnkiAudioDataUrl | null {
+    const match = /^data:audio\/([a-z0-9.+-]+)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
+    return match ? { extension: ankiAudioExtension(match[1]), data: match[2] } : null;
 }
 
 function ankiImageExtension(rawExtension: string): string {
@@ -558,7 +826,28 @@ function ankiImageExtension(rawExtension: string): string {
     return extension === 'svg+xml' ? 'svg' : extension;
 }
 
-function safeAnkiImageName(card: JPDBCard): string {
+function ankiAudioExtension(rawExtension: string): string {
+    const extension = rawExtension.toLowerCase();
+    if (extension === 'mpeg' || extension === 'mp3') return 'mp3';
+    if (extension === 'wav' || extension === 'wave' || extension === 'x-wav') return 'wav';
+    if (extension === 'ogg' || extension === 'oga') return 'ogg';
+    if (extension === 'webm') return 'webm';
+    if (extension === 'mp4' || extension === 'aac' || extension === 'flac') return extension;
+    return 'mp3';
+}
+
+function audioUrlExtension(url: string): string {
+    try {
+        const pathname = new URL(url, location.href).pathname;
+        const match = /\.([a-z0-9]+)$/i.exec(pathname);
+        if (match) return `.${ankiAudioExtension(match[1])}`;
+    } catch {
+        // Fall through to the common Immersion Kit format.
+    }
+    return '.mp3';
+}
+
+function safeAnkiMediaName(card: JPDBCard): string {
     return card.spelling.replace(/[^\p{L}\p{N}-]+/gu, '_').slice(0, 24) || 'yomu';
 }
 
@@ -703,9 +992,21 @@ function ankiExistingNoteFromInfo(note: AnkiNoteInfo, noteCards: AnkiCardInfo[])
         primaryCardId: ankiNotePrimaryCardId(note, noteCards),
         state,
         fields: flattenNoteFields(note.fields),
+        renderedCards: ankiRenderedCards(noteCards),
         tags: note.tags ?? [],
         ...ankiNoteReviewMetrics(noteCards),
     };
+}
+
+function ankiRenderedCards(noteCards: AnkiCardInfo[]): AnkiRenderedCard[] {
+    return noteCards
+        .filter(card => card.question || card.answer)
+        .map(card => ({
+            cardId: card.cardId,
+            deckName: card.deckName,
+            question: String(card.question ?? ''),
+            answer: String(card.answer ?? ''),
+        }));
 }
 
 function ankiNoteDeckNames(noteCards: AnkiCardInfo[]): string[] {
@@ -824,18 +1125,18 @@ function ankiEaseFromGrade(grade: JPDBGrade): number {
     return ANKI_EASE_BY_GRADE[grade] ?? 3;
 }
 
-function yomuCardTemplates(mode: ReaderSettings['ankiTemplateMode'] = 'recognition'): Record<string, { Front: string; Back: string }> {
+function yomuCardTemplates(settings: ReaderSettings): Record<string, { Front: string; Back: string }> {
     const recognitionFront = `
 <main class="yomu-card yomu-front">
     <div class="yomu-expression">{{Expression}}</div>
-    {{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}
-    {{#Sentence}}<div class="yomu-sentence">{{Sentence}}</div>{{/Sentence}}
-    {{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}
+    ${settings.ankiFrontReading ? '{{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}' : ''}
+    ${settings.ankiFrontSentence ? '{{#Sentence}}<div class="yomu-sentence">{{Sentence}}</div>{{/Sentence}}' : ''}
+    ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ''}
 </main>`;
     const contextFront = `
 <main class="yomu-card yomu-front">
     {{#Sentence}}<div class="yomu-sentence yomu-sentence-front">{{Sentence}}</div>{{/Sentence}}
-    {{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}
+    ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ''}
     <div class="yomu-prompt">Recall the highlighted word.</div>
 </main>`;
     const back = `
@@ -844,6 +1145,7 @@ function yomuCardTemplates(mode: ReaderSettings['ankiTemplateMode'] = 'recogniti
     <section class="yomu-section yomu-answer">
         <div class="yomu-expression">{{Expression}}</div>
         {{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}
+        {{#Audio}}<div class="yomu-audio">{{Audio}}</div>{{/Audio}}
     </section>
     {{#Meaning}}<section class="yomu-section"><h2>Meaning</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
     {{#DictionaryDefinitions}}<section class="yomu-section"><h2>Dictionaries</h2>{{DictionaryDefinitions}}</section>{{/DictionaryDefinitions}}
@@ -852,14 +1154,13 @@ function yomuCardTemplates(mode: ReaderSettings['ankiTemplateMode'] = 'recogniti
         {{#Frequency}}<div><strong>Frequency</strong>{{Frequency}}</div>{{/Frequency}}
         {{#Pitch}}<div><strong>Pitch</strong>{{Pitch}}</div>{{/Pitch}}
         {{#PartOfSpeech}}<div><strong>Part of speech</strong><span>{{PartOfSpeech}}</span></div>{{/PartOfSpeech}}
-        {{#Status}}<div><strong>Status</strong><span>{{Status}}</span></div>{{/Status}}
         {{#JPDB}}<div><strong>Links</strong><span>{{JPDB}}</span></div>{{/JPDB}}
         {{#Source}}<div><strong>Source</strong><span>{{Source}}</span></div>{{/Source}}
     </section>
 </main>`;
     return {
-        [mode === 'context' ? 'Context' : 'Recognition']: {
-            Front: mode === 'context' ? contextFront : recognitionFront,
+        [settings.ankiTemplateMode === 'context' ? 'Context' : 'Recognition']: {
+            Front: settings.ankiTemplateMode === 'context' ? contextFront : recognitionFront,
             Back: back,
         },
     };
@@ -1020,12 +1321,19 @@ function appendFrequencyChip(chips: string[], entry: YomitanMetaEntry, preferenc
 }
 
 function renderPitchField(card: JPDBCard, entries: YomitanMetaEntry[], preferences: DictionaryPreference[]): string {
-    const chips = card.pitchAccent.slice(0, 4).map(pitch => `<span class="yomu-chip">JPDB ${escapeHtml(pitch)}</span>`);
+    const chips = firstJpdbPitchChip(card);
     for (const entry of entries) {
         appendPitchChip(chips, entry, preferences);
-        if (chips.length >= 8) break;
+        if (chips.length >= 4) break;
     }
     return chips.filter(uniqueValue).join(' ');
+}
+
+function firstJpdbPitchChip(card: JPDBCard): string[] {
+    const pitch = card.pitchAccent.find(Boolean);
+    if (!pitch) return [];
+    const reading = card.reading && card.reading !== card.spelling ? `${card.reading} ` : '';
+    return [`<span class="yomu-chip">JPDB ${escapeHtml(reading)}${escapeHtml(pitch)}</span>`];
 }
 
 function appendPitchChip(chips: string[], entry: YomitanMetaEntry, preferences: DictionaryPreference[]): void {

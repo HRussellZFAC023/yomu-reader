@@ -84,7 +84,8 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
             dictionaryType: preference.type === 'kanji' ? 'kanji' as const : 'terms' as const,
             help: '',
         })),
-    ].sort(compareSourceRows);
+    ].filter(row => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled)
+        .sort(compareSourceRows);
 }
 
 export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
@@ -113,8 +114,8 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
         },
         {
             id: KANJI_JPDB_SOURCE_ID,
-            name: 'JPDB kanji',
-            alias: 'JPDB kanji',
+            name: 'Readings and components',
+            alias: 'Readings and components',
             enabled: settings.jpdbKanjiEnabled,
             priority: settings.jpdbKanjiPriority,
             prefix: 'jpdbKanji',
@@ -164,8 +165,8 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
         },
         {
             id: KANJI_ORIGINS_SOURCE_ID,
-            name: 'Origin structure',
-            alias: 'Origin structure',
+            name: 'Component graph',
+            alias: 'Component graph',
             enabled: settings.kanjiOriginsEnabled,
             priority: settings.kanjiOriginsPriority,
             prefix: 'kanjiOrigins',
@@ -225,6 +226,11 @@ export function orderedKanjiSourceIds(settings: ReaderSettings): string[] {
         .filter(row => row.enabled)
         .filter(row => row.id !== KANJI_DICTIONARIES_SOURCE_ID || !settings.dictionaryPreferences.some(preference => preference.type === 'kanji'))
         .map(row => row.id);
+}
+
+export function kanjiSourceLabel(settings: ReaderSettings, sourceId: string, fallback = ''): string {
+    const row = kanjiSourceRows(settings).find(candidate => candidate.id === sourceId);
+    return row?.alias || row?.name || fallback;
 }
 
 export function kanjiDictionarySourceId(name: string): string {

@@ -153,6 +153,16 @@ function subtitleMinimumFontSize(root: HTMLElement): number {
     return rootRect.width < 420 || rootRect.height < 260 ? 11 : 14;
 }
 
+function subtitleFrameTargetFontSize(root: HTMLElement, settings: ReaderSettings): number {
+    const rootRect = root.getBoundingClientRect();
+    const width = Math.max(1, rootRect.width);
+    const height = Math.max(1, rootRect.height);
+    const baseline = Math.max(16, Math.min(64, settings.subtitleFontSize));
+    const frameScale = Math.sqrt(Math.min(width / 1280, height / 720));
+    const scaled = Math.round(baseline * Math.max(0.62, Math.min(1.45, frameScale)));
+    return Math.max(subtitleMinimumFontSize(root), Math.min(64, scaled));
+}
+
 function subtitleElementOverflows(element: HTMLElement): boolean {
     return element.scrollHeight > element.clientHeight + 1
         || element.scrollWidth > element.clientWidth + 1;
@@ -862,10 +872,12 @@ export class SubtitlePlayerController {
         if (rect.width < 120 || rect.height < 80) {
             applyElementLayout(this.root, { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight });
             this.positionTranscriptPanel();
+            this.fitSubtitleTextToVideo();
             return;
         }
         applyElementLayout(this.root, layout);
         this.positionTranscriptPanel();
+        this.fitSubtitleTextToVideo();
     }
 
     private updateFromLoadedCues(): void {
@@ -1155,8 +1167,9 @@ export class SubtitlePlayerController {
     private fitSubtitleTextToVideo(): void {
         if (!this.root || !this.subtitleEl) return;
         const settings = this.options.getSettings();
-        const target = settings.subtitleFontSize;
+        const target = subtitleFrameTargetFontSize(this.root, settings);
         let fitted = target;
+        this.root.style.setProperty('--subtitle-font-size-target', `${target}px`);
         this.root.style.setProperty('--subtitle-font-size', `${fitted}px`);
         const primary = this.subtitleEl.querySelector<HTMLElement>('.jpdb-subtitle-primary');
         if (!primary) return;

@@ -20,7 +20,6 @@ export const DEFAULT_YOMU_PUBLIC_PROXY_URL = 'https://yomu-jpdb-public-proxy.hen
 const BUILT_IN_PROXY_BUILDERS: ProxyUrlBuilder[] = [
     targetUrl => configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? '',
     targetUrl => `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-    targetUrl => `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`,
 ];
 
 const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
@@ -102,12 +101,11 @@ function uniqueFetchCandidates(candidates: Array<FetchUrlCandidate | null>): Fet
 
 function shouldTryNextFetchCandidate(
     response: Response,
-    candidate: FetchUrlCandidate,
+    _candidate: FetchUrlCandidate,
     index: number,
     candidates: FetchUrlCandidate[],
 ): boolean {
     return !response.ok
-        && candidate.kind !== 'direct'
         && index < candidates.length - 1;
 }
 

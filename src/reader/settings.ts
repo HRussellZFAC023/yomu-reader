@@ -1,9 +1,20 @@
 import { Logger } from './logger';
-import { gmStorageGet, gmStorageSet } from './storage';
+import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists } from './storage';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, DictionaryLookupLink, DictionaryPreference, FuriganaMode, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings, WordHighlightMode } from './types';
 
-const STORAGE_KEY = 'jpdb-popup-reader-settings';
+export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
+export const LEGACY_SETTINGS_STORAGE_KEYS = [
+    'jpdb-reader-settings',
+    'yomu-reader-settings',
+    'yomu-settings',
+] as const;
+export const SETTINGS_STORAGE_KEYS = [
+    SETTINGS_STORAGE_KEY,
+    ...LEGACY_SETTINGS_STORAGE_KEYS,
+] as const;
+
 const log = Logger.scope('Settings');
+let settingsResetInProgress = false;
 
 export const DEFAULT_AUDIO_URL =
     'http://localhost:9090/?term={term}&reading={reading}';
@@ -36,6 +47,7 @@ export const AUDIO_SOURCE_LABELS: Record<AudioSourceType, string> = {
     jisho: 'Jisho.org',
     'lingua-libre': '(Commons) Lingua Libre',
     wiktionary: '(Commons) Wiktionary',
+    'jpdb-tts': 'JPDB text-to-speech',
     'text-to-speech': 'Text-to-speech',
     'text-to-speech-reading': 'Text-to-speech (Kana reading)',
     custom: 'Custom direct audio file URL',
@@ -49,6 +61,7 @@ export const DEFAULT_AUDIO_SOURCES: AudioSourceSetting[] = [
     { type: 'jpod101', url: '', voice: '', enabled: true },
     { type: 'language-pod-101', url: '', voice: '', enabled: true },
     { type: 'jisho', url: '', voice: '', enabled: true },
+    { type: 'jpdb-tts', url: '', voice: '', enabled: true },
     { type: 'text-to-speech', url: '', voice: '', enabled: true },
 ];
 
@@ -83,6 +96,7 @@ export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
 ];
 
 const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_OPTIONS.map(([value]) => value));
+const LEGACY_DEFAULT_AUDIO_SOURCE_TYPES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'text-to-speech'];
 const READER_COLOR_SOURCES = new Set<ReaderColorSource>(['auto', 'status', 'jpdb', 'anki', 'pitch', 'off']);
 const EXPLICIT_FURIGANA_MODES = new Set<FuriganaMode>(['all', 'difficult-kanji', 'known-status']);
 const OCR_ENGINE_ALIASES = new Map<string, string>([
@@ -90,6 +104,32 @@ const OCR_ENGINE_ALIASES = new Map<string, string>([
     ['PpOcrAdapter', 'PaddleOCR'],
     ['AppleVisionAdapter', 'AppleVision'],
 ]);
+
+type ReaderColorChannelKey =
+    | 'wordHighlightColorSource'
+    | 'wordUnderlineColorSource'
+    | 'wordTextColorSource'
+    | 'subtitleHighlightColorSource'
+    | 'subtitleUnderlineColorSource'
+    | 'subtitleTextColorSource';
+
+const DEFAULT_COLOR_CHANNELS: Record<ReaderColorChannelKey, ReaderColorSource> = {
+    wordHighlightColorSource: 'jpdb',
+    wordUnderlineColorSource: 'pitch',
+    wordTextColorSource: 'off',
+    subtitleHighlightColorSource: 'jpdb',
+    subtitleUnderlineColorSource: 'pitch',
+    subtitleTextColorSource: 'jpdb',
+};
+
+const LEGACY_COLOR_CHANNEL_DEFAULTS: Record<ReaderColorChannelKey, ReaderColorSource> = {
+    wordHighlightColorSource: 'auto',
+    wordUnderlineColorSource: 'auto',
+    wordTextColorSource: 'off',
+    subtitleHighlightColorSource: 'off',
+    subtitleUnderlineColorSource: 'pitch',
+    subtitleTextColorSource: 'auto',
+};
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
     apiKey: '',
@@ -108,12 +148,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     pitchColorOdaka: DEFAULT_PITCH_COLORS.odaka,
     pitchColorKifuku: DEFAULT_PITCH_COLORS.kifuku,
     pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
-    wordHighlightColorSource: 'auto',
-    wordUnderlineColorSource: 'auto',
-    wordTextColorSource: 'off',
-    subtitleHighlightColorSource: 'off',
-    subtitleUnderlineColorSource: 'pitch',
-    subtitleTextColorSource: 'auto',
+    ...DEFAULT_COLOR_CHANNELS,
     jpdbDefinitionsEnabled: true,
     jpdbDefinitionsPriority: 0,
     jpdbKanjiEnabled: true,
@@ -144,6 +179,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     audioSelectionMode: 'random',
     immersionKitEnabled: true,
     immersionKitPriority: 80,
+    immersionKitLimitEnabled: false,
     immersionKitLimit: 3,
     immersionKitMinLength: 8,
     immersionKitMaxLength: 80,
@@ -175,6 +211,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     corsProxyUrl: 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev',
     newTabKanjiKeywordSource: 'auto',
     newTabParsingEnabled: true,
+    newTabFrontSentenceEnabled: true,
     newTabOfflineEnabled: true,
     newTabOfflineLimit: 50,
     newTabKanjiAutogradeEnabled: true,
@@ -184,14 +221,15 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     showFurigana: true,
     furiganaMode: 'auto',
     showPitchAccent: true,
-    wordHighlightMode: 'auto',
+    wordHighlightMode: 'status',
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,
     ocrShowTextOverlay: false,
-    ocrProvider: 'local-service',
+    ocrProvider: 'google-lens',
     ocrEndpointUrl: '',
     ocrEngine: 'auto',
+    ocrCloudVisionApiKey: '',
     ocrLanguage: 'ja-JP',
     ocrMaxImagePixels: 1200000,
     ocrMinImageArea: 45000,
@@ -235,6 +273,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ankiDeck: 'よむ',
     ankiModel: 'よむ Japanese',
     ankiTemplateMode: 'recognition',
+    ankiFrontReading: true,
+    ankiFrontSentence: true,
+    ankiFrontImage: true,
     ankiMobileHandoff: true,
     studyTranslationEnabled: true,
     studyGrammarEnabled: true,
@@ -244,6 +285,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ankiCaptureScreenshot: true,
     theme: 'auto',
     popupMode: 'auto',
+    stickyBottomSheet: false,
     popoverWidth: 520,
     popoverHeight: 540,
     popoverHeightMode: 'fixed',
@@ -352,6 +394,7 @@ function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial
         corsProxyUrl: normalizeCorsProxyUrl(value?.corsProxyUrl),
         newTabKanjiKeywordSource: normalizeNewTabKanjiKeywordSource(value?.newTabKanjiKeywordSource),
         newTabParsingEnabled: booleanSetting(value, 'newTabParsingEnabled'),
+        newTabFrontSentenceEnabled: booleanSetting(value, 'newTabFrontSentenceEnabled'),
         newTabOfflineEnabled: booleanSetting(value, 'newTabOfflineEnabled'),
         newTabOfflineLimit: clampNumber(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
         newTabKanjiAutogradeEnabled: booleanSetting(value, 'newTabKanjiAutogradeEnabled'),
@@ -360,6 +403,7 @@ function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial
 }
 
 function normalizeReaderDisplaySettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
+    const colorChannels = normalizeReaderColorChannelSettings(value);
     return {
         accentColor: sanitizeAccentColor(value?.accentColor),
         wordColorNew: sanitizeAccentColor(value?.wordColorNew, DEFAULT_SETTINGS.wordColorNew),
@@ -374,18 +418,13 @@ function normalizeReaderDisplaySettings(value: Partial<ReaderSettings> | null): 
         pitchColorOdaka: sanitizeAccentColor(value?.pitchColorOdaka, DEFAULT_SETTINGS.pitchColorOdaka),
         pitchColorKifuku: sanitizeAccentColor(value?.pitchColorKifuku, DEFAULT_SETTINGS.pitchColorKifuku),
         pitchColorUnknown: sanitizeAccentColor(value?.pitchColorUnknown, DEFAULT_SETTINGS.pitchColorUnknown),
-        wordHighlightColorSource: normalizeReaderColorSource(value?.wordHighlightColorSource, DEFAULT_SETTINGS.wordHighlightColorSource),
-        wordUnderlineColorSource: normalizeReaderColorSource(value?.wordUnderlineColorSource, DEFAULT_SETTINGS.wordUnderlineColorSource),
-        wordTextColorSource: normalizeReaderColorSource(value?.wordTextColorSource, DEFAULT_SETTINGS.wordTextColorSource),
-        subtitleHighlightColorSource: normalizeReaderColorSource(value?.subtitleHighlightColorSource, DEFAULT_SETTINGS.subtitleHighlightColorSource),
-        subtitleUnderlineColorSource: normalizeReaderColorSource(value?.subtitleUnderlineColorSource, DEFAULT_SETTINGS.subtitleUnderlineColorSource),
-        subtitleTextColorSource: normalizeReaderColorSource(value?.subtitleTextColorSource, DEFAULT_SETTINGS.subtitleTextColorSource),
+        ...colorChannels,
         puckPositionX: normalizeOptionalCoordinate(value?.puckPositionX),
         puckPositionY: normalizeOptionalCoordinate(value?.puckPositionY),
         showFurigana: typeof value?.showFurigana === 'boolean' ? value.showFurigana : DEFAULT_SETTINGS.showFurigana,
         furiganaMode: normalizeFuriganaMode(value?.furiganaMode, value),
         hideKnownFurigana: typeof value?.hideKnownFurigana === 'boolean' ? value.hideKnownFurigana : DEFAULT_SETTINGS.hideKnownFurigana,
-        wordHighlightMode: normalizeWordHighlightMode(value?.wordHighlightMode),
+        wordHighlightMode: normalizeWordHighlightMode(value?.wordHighlightMode, value),
     };
 }
 
@@ -410,6 +449,9 @@ function normalizeAnkiAndStudySettings(value: Partial<ReaderSettings> | null): P
         ankiDeck: normalizeAnkiName(value?.ankiDeck, DEFAULT_SETTINGS.ankiDeck, 'Yomu'),
         ankiModel: normalizeAnkiName(value?.ankiModel, DEFAULT_SETTINGS.ankiModel, 'Yomu Japanese'),
         ankiTemplateMode: normalizeAnkiTemplateMode(value?.ankiTemplateMode),
+        ankiFrontReading: typeof value?.ankiFrontReading === 'boolean' ? value.ankiFrontReading : DEFAULT_SETTINGS.ankiFrontReading,
+        ankiFrontSentence: typeof value?.ankiFrontSentence === 'boolean' ? value.ankiFrontSentence : DEFAULT_SETTINGS.ankiFrontSentence,
+        ankiFrontImage: typeof value?.ankiFrontImage === 'boolean' ? value.ankiFrontImage : DEFAULT_SETTINGS.ankiFrontImage,
         ankiMobileHandoff: typeof value?.ankiMobileHandoff === 'boolean' ? value.ankiMobileHandoff : DEFAULT_SETTINGS.ankiMobileHandoff,
         studyTranslationEnabled: typeof value?.studyTranslationEnabled === 'boolean' ? value.studyTranslationEnabled : DEFAULT_SETTINGS.studyTranslationEnabled,
         studyTranslationPriority: clampNumber(value?.studyTranslationPriority, 0, 999, DEFAULT_SETTINGS.studyTranslationPriority),
@@ -423,6 +465,7 @@ function normalizePresentationSettings(value: Partial<ReaderSettings> | null): P
     return {
         theme: normalizeTheme(value?.theme),
         popupMode: normalizePopupMode(value?.popupMode),
+        stickyBottomSheet: booleanSetting(value, 'stickyBottomSheet'),
         popoverWidth: clampNumber(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
         popoverHeight: clampNumber(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
         popoverHeightMode: normalizePopoverHeightMode(value?.popoverHeightMode),
@@ -447,6 +490,9 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
         audioViaBlob: booleanSetting(value, 'audioViaBlob'),
         audioFallbackChimeEnabled: booleanSetting(value, 'audioFallbackChimeEnabled'),
         immersionKitPriority: clampNumber(value?.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
+        immersionKitLimitEnabled: typeof value?.immersionKitLimitEnabled === 'boolean'
+            ? value.immersionKitLimitEnabled
+            : DEFAULT_SETTINGS.immersionKitLimitEnabled,
         immersionKitLimit: clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
         immersionKitMinLength: clampNumber(value?.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
         immersionKitMaxLength: clampNumber(value?.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
@@ -456,8 +502,9 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
         immersionKitRevealTranslationOnClick: booleanSetting(value, 'immersionKitRevealTranslationOnClick'),
         immersionKitPlayOnHover: booleanSetting(value, 'immersionKitPlayOnHover'),
         immersionKitPlayOnImageClick: booleanSetting(value, 'immersionKitPlayOnImageClick'),
-        ocrProvider: normalizeOcrProvider(value?.ocrProvider),
+        ocrProvider: normalizeOcrProvider(value?.ocrProvider, value),
         ocrEngine: normalizeOcrEngine(value?.ocrEngine),
+        ocrCloudVisionApiKey: normalizeCloudVisionApiKey(value?.ocrCloudVisionApiKey),
         ocrTextColor: sanitizeAccentColor(value?.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
         ocrOutlineColor: sanitizeAccentColor(value?.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor),
         ocrBackgroundColor: sanitizeAccentColor(value?.ocrBackgroundColor, DEFAULT_SETTINGS.ocrBackgroundColor),
@@ -598,13 +645,32 @@ function normalizeNewTabKanjiKeywordSource(value: unknown): ReaderSettings['newT
         : DEFAULT_SETTINGS.newTabKanjiKeywordSource;
 }
 
-function normalizeWordHighlightMode(value: unknown): WordHighlightMode {
-    return value === 'status' || value === 'pitch' || value === 'auto' || value === 'off'
-        ? value
-        : DEFAULT_SETTINGS.wordHighlightMode;
+function normalizeWordHighlightMode(value: unknown, _settings?: Partial<ReaderSettings> | null): WordHighlightMode {
+    if (value === 'status' || value === 'pitch' || value === 'off') return value;
+    if (value === 'auto') return DEFAULT_SETTINGS.wordHighlightMode;
+    return DEFAULT_SETTINGS.wordHighlightMode;
+}
+
+function normalizeReaderColorChannelSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, ReaderColorChannelKey> {
+    if (isLegacyDefaultColorChannelSettings(value)) return { ...DEFAULT_COLOR_CHANNELS };
+    return {
+        wordHighlightColorSource: normalizeReaderColorSource(value?.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource),
+        wordUnderlineColorSource: normalizeReaderColorSource(value?.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource),
+        wordTextColorSource: normalizeReaderColorSource(value?.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource),
+        subtitleHighlightColorSource: normalizeReaderColorSource(value?.subtitleHighlightColorSource, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource),
+        subtitleUnderlineColorSource: normalizeReaderColorSource(value?.subtitleUnderlineColorSource, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource),
+        subtitleTextColorSource: normalizeReaderColorSource(value?.subtitleTextColorSource, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource),
+    };
+}
+
+function isLegacyDefaultColorChannelSettings(value: Partial<ReaderSettings> | null | undefined): boolean {
+    if (!value) return false;
+    return (Object.keys(LEGACY_COLOR_CHANNEL_DEFAULTS) as ReaderColorChannelKey[])
+        .every(key => hasOwn(value, key) && value[key] === LEGACY_COLOR_CHANNEL_DEFAULTS[key]);
 }
 
 function normalizeReaderColorSource(value: unknown, fallback: ReaderColorSource): ReaderColorSource {
+    if (value === 'auto') return fallback;
     return READER_COLOR_SOURCES.has(value as ReaderColorSource) ? value as ReaderColorSource : fallback;
 }
 
@@ -719,12 +785,30 @@ function bootstrapAudioSources(settings: ReaderSettings, audio: string): AudioSo
         : settings.audioSources;
 }
 
-export function normalizeOcrProvider(value: unknown): OcrProvider {
+export function normalizeOcrProvider(value: unknown, settings?: Partial<ReaderSettings> | null): OcrProvider {
+    if (isBlankLegacyLocalOcrSetting(value, settings)) return DEFAULT_SETTINGS.ocrProvider;
     if (typeof value !== 'string') return DEFAULT_SETTINGS.ocrProvider;
-    return OCR_PROVIDERS.has(value as OcrProvider) ? value as OcrProvider : DEFAULT_SETTINGS.ocrProvider;
+    return OCR_PROVIDER_ALIASES[value] ?? (OCR_PROVIDERS.has(value as OcrProvider) ? value as OcrProvider : DEFAULT_SETTINGS.ocrProvider);
 }
 
-const OCR_PROVIDERS = new Set<OcrProvider>(['local-service', 'off']);
+const OCR_PROVIDER_ALIASES: Record<string, OcrProvider> = {
+    auto: 'google-lens',
+    fast: 'google-lens',
+    'page-text': 'google-lens',
+    'custom-json': 'local-service',
+};
+
+const OCR_PROVIDERS = new Set<OcrProvider>(['google-lens', 'cloud-vision', 'local-service', 'off']);
+
+function normalizeCloudVisionApiKey(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : DEFAULT_SETTINGS.ocrCloudVisionApiKey;
+}
+
+function isBlankLegacyLocalOcrSetting(value: unknown, settings: Partial<ReaderSettings> | null | undefined): boolean {
+    if (value !== 'local-service' || !settings) return false;
+    if (hasOwn(settings, 'ocrCloudVisionApiKey')) return false;
+    return !(typeof settings.ocrEndpointUrl === 'string' && settings.ocrEndpointUrl.trim());
+}
 
 export function normalizeOcrEngine(value: unknown): string {
     const normalized = normalizedOcrEngineInput(value);
@@ -736,8 +820,9 @@ function normalizedOcrEngineInput(value: unknown): string {
 }
 
 export async function loadSettings(): Promise<ReaderSettings> {
+    if (settingsResetInProgress) return mergeSettings(null);
     try {
-        const settings = mergeSettings(await gmStorageGet<Partial<ReaderSettings> | null>(STORAGE_KEY, null));
+        const settings = mergeSettings(await gmStorageGet<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
         return settings;
     } catch (error) {
         log.warn('Settings load failed, using defaults', { error });
@@ -746,12 +831,40 @@ export async function loadSettings(): Promise<ReaderSettings> {
 }
 
 export async function saveSettings(settings: ReaderSettings): Promise<void> {
+    if (settingsResetInProgress) {
+        log.warn('Skipped settings save while factory reset is in progress');
+        return;
+    }
     try {
-        await gmStorageSet(STORAGE_KEY, settings);
+        await gmStorageSet(SETTINGS_STORAGE_KEY, settings);
     } catch (error) {
         log.warn('Settings save failed', { error });
         throw error;
     }
+}
+
+export function beginSettingsResetGuard(): void {
+    settingsResetInProgress = true;
+}
+
+export function endSettingsResetGuard(): void {
+    settingsResetInProgress = false;
+}
+
+export function isSettingsResetInProgress(): boolean {
+    return settingsResetInProgress;
+}
+
+export async function deleteSettingsStorage(): Promise<void> {
+    for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
+}
+
+export async function settingsStorageKeysStillPresent(): Promise<string[]> {
+    const keys: string[] = [];
+    for (const key of SETTINGS_STORAGE_KEYS) {
+        if (await storedValueExists(key)) keys.push(key);
+    }
+    return keys;
 }
 
 export function matchesShortcut(event: KeyboardEvent, shortcut = ''): boolean {
@@ -893,12 +1006,25 @@ export function normalizeAudioSources(value: unknown, legacyUrl?: string): Audio
     const sources = Array.isArray(value)
         ? value.map(normalizeAudioSource).filter((source): source is AudioSourceSetting => source !== null)
         : [];
-    if (Array.isArray(value)) return sources;
+    if (Array.isArray(value)) return migrateLegacyDefaultAudioSources(sources);
 
     if (typeof legacyUrl === 'string' && legacyUrl.trim()) {
         return [{ type: 'custom-json', url: legacyUrl.trim(), voice: '', enabled: true }];
     }
     return DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
+}
+
+function migrateLegacyDefaultAudioSources(sources: AudioSourceSetting[]): AudioSourceSetting[] {
+    const types = new Set(sources.map(source => source.type));
+    if (types.has('jpdb-tts')) return sources;
+    if (!LEGACY_DEFAULT_AUDIO_SOURCE_TYPES.every(type => types.has(type))) return sources;
+
+    const migrated = sources.map(source => ({ ...source }));
+    const insertIndex = migrated.findIndex(source => source.type === 'text-to-speech');
+    const jpdbSource: AudioSourceSetting = { type: 'jpdb-tts', url: '', voice: '', enabled: true };
+    if (insertIndex < 0) migrated.push(jpdbSource);
+    else migrated.splice(insertIndex, 0, jpdbSource);
+    return migrated;
 }
 
 export function normalizeDictionaryPreferences(value: unknown): DictionaryPreference[] {

@@ -7,7 +7,7 @@ import { renderKanjiDefinitions } from './definition-source-render';
 import { uiText } from './i18n';
 import { loadMiningContext } from './mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
-import { renderPitch, renderSpellingForKanjiNavigation, speakerIcon } from './popup-render';
+import { renderPitch, speakerIcon } from './popup-render';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from './types';
 import type { JpdbVocabularyInfo } from './jpdb-vocabulary';
 import type { YomitanMetaEntry, YomitanTermEntry } from './yomitan';
@@ -35,6 +35,8 @@ interface CardPopoverRenderView {
     reviewButtons: string;
     metaItems: string[];
     loadingDetails: string;
+    audioButtonDisabled: boolean;
+    audioButtonTitle: string;
 }
 
 export interface CardPopoverRendererDependencies {
@@ -45,6 +47,7 @@ export interface CardPopoverRendererDependencies {
     renderDefinitionSources: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => string;
     dictionarySourceAttributes: (key: string, initiallyExpanded?: boolean) => string;
     dictionaryLabel: (name: string) => string;
+    renderReviewButtonsFallback?: (card: JPDBCard, data: CardRenderData & { loading: boolean }) => string;
 }
 
 export class CardPopoverRenderer {
@@ -59,8 +62,8 @@ export class CardPopoverRenderer {
         const view = this.renderView(card, data);
 
         return `
+            <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body">
-                <div class="jpdb-reader-sheet-handle"></div>
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
                 ${this.renderHeader(card, data, view)}
                 ${this.renderPartOfSpeech(view)}
@@ -92,9 +95,11 @@ export class CardPopoverRenderer {
             hasJpdb,
             miningActions: this.renderJpdbMiningActions(cardStates, language, data, hasJpdb),
             ankiActions: data.loading ? '' : renderAnkiActionRow(data.ankiLookup, settings),
-            reviewButtons: this.renderReviewButtons(cardStates, data, hasJpdb, selectedDeckLabel, reviewBlockReason, language),
+            reviewButtons: this.renderReviewButtons(card, cardStates, data, hasJpdb, selectedDeckLabel, reviewBlockReason, language),
             metaItems: this.renderMetaItems(card, hasJpdb, state, data),
             loadingDetails: this.renderLoadingDetails(data.loading),
+            audioButtonDisabled: !settings.audioEnabled,
+            audioButtonTitle: uiText(language, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled'),
         };
     }
 
@@ -106,14 +111,14 @@ export class CardPopoverRenderer {
             </div>
             <div class="jpdb-reader-card-tools">
                 ${this.renderPitch(card, data)}
-                <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="${uiText(view.language, 'playAudio')}" title="${uiText(view.language, 'playAudio')}">${speakerIcon()}</button>
+                ${view.audioButtonDisabled ? '' : `<button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}">${speakerIcon()}</button>`}
             </div>
         </div>`;
     }
 
     private renderTitleRow(card: JPDBCard, view: CardPopoverRenderView): string {
         return `<div class="jpdb-reader-title-row">
-            <div class="jpdb-reader-spelling jpdb-${view.state}">${renderSpellingForKanjiNavigation(card.spelling, view.language)}</div>
+            <div class="jpdb-reader-spelling jpdb-${view.state} jpdb-reader-parseable" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(uiText(view.language, 'showKanji'))}">${escapeHtml(card.spelling)}</div>
             ${renderReading(card)}
             ${renderMeta(view.metaItems)}
         </div>`;
@@ -132,11 +137,20 @@ export class CardPopoverRenderer {
     }
 
     private renderActions(view: CardPopoverRenderView): string {
-        return `<div class="jpdb-reader-actions${view.miningActions ? ' jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed' : ''}">
-            ${renderMiningGutter(view.miningActions)}
+        const hasMiningPanel = Boolean(view.miningActions);
+        const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : '';
+        return `<div class="jpdb-reader-actions${hasMiningPanel ? ' jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed' : ''}">
+            ${renderMiningGutter(miningPanel)}
+            ${miningPanel}
+            ${hasMiningPanel ? '' : view.ankiActions}
+            ${view.reviewButtons}
+        </div>`;
+    }
+
+    private renderMiningPanel(view: CardPopoverRenderView): string {
+        return `<div class="jpdb-reader-mining-panel">
             ${view.miningActions}
             ${view.ankiActions}
-            ${view.reviewButtons}
         </div>`;
     }
 
@@ -178,6 +192,7 @@ export class CardPopoverRenderer {
     }
 
     private renderReviewButtons(
+        card: JPDBCard,
         cardStates: ReturnType<typeof normalizeCardStates>,
         data: CardRenderData & { loading: boolean },
         hasJpdb: boolean,
@@ -185,7 +200,9 @@ export class CardPopoverRenderer {
         reviewBlockReason: string,
         language: InterfaceLanguage,
     ): string {
-        if (!this.shouldRenderReviewButtons(data, hasJpdb, reviewBlockReason)) return '';
+        if (!this.shouldRenderReviewButtons(data, hasJpdb, reviewBlockReason)) {
+            return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
+        }
         return renderReviewButtons(this.settings(), data.ankiLookup.primary, {
             title: cardStates.includes('not-in-deck') ? `${uiText(language, 'reviewAddsToDeck')} ${selectedDeckLabel}` : '',
         });

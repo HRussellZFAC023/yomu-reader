@@ -179,7 +179,11 @@ async function assertAccessibleSurface(page, name, selector = 'body') {
             id: violation.id,
             impact: violation.impact,
             help: violation.help,
-            nodes: violation.nodes.slice(0, 4).map(node => node.target.join(' ')),
+            nodes: violation.nodes.slice(0, 4).map(node => ({
+                target: node.target.join(' '),
+                html: node.html,
+                summary: node.failureSummary,
+            })),
         }));
     assertAudit(!violations.length, `${name} axe violations: ${JSON.stringify(violations)}`);
 
@@ -1758,7 +1762,7 @@ async function assertTodayKanjiDrilldown(page) {
         sourceLinks: document.querySelectorAll('.jpdb-reader-origins a[href*="kanjimap"], .jpdb-reader-origins a[href*="raw.githubusercontent"]').length,
         kanjiVGPaths: document.querySelectorAll('.jpdb-reader-kanjivg-svg path').length,
         doodleCanvas: Boolean(document.querySelector('.jpdb-reader-doodle-canvas')),
-        componentButtons: document.querySelectorAll('.jpdb-reader-component-card[data-action="kanji"]').length,
+        componentButtons: document.querySelectorAll('.jpdb-reader-component-button[data-action="kanji"]').length,
         backVisible: Boolean(document.querySelector('[data-action="word-back"]')),
         similarWords: document.querySelectorAll('.jpdb-reader-similar-word').length,
     }));
@@ -1776,6 +1780,10 @@ async function assertTodayKanjiDrilldown(page) {
     assertAudit(kanjiSnapshot.componentButtons > 0, 'kanji components are not clickable');
     assertAudit(/KANJIDIC|now|day|sun|book|read/.test(kanjiSnapshot.localKanjiText), 'local kanji dictionary section is missing');
     assertAudit(kanjiSnapshot.similarWords > 0, 'kanji drilldown did not show JPDB used-in words');
+    await page.screenshot({
+        path: path.join(ARTIFACTS, 'hover-lookup-before-a11y.png'),
+        clip: { x: 0, y: 0, width: 640, height: 660 },
+    });
     await assertAccessibleSurface(page, 'hover lookup kanji drilldown', '.jpdb-reader-popover');
     await page.evaluate(() => {
         const popover = document.querySelector('.jpdb-reader-popover');

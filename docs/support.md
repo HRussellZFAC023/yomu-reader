@@ -29,7 +29,7 @@ Donations are optional. They help cover the time, testing devices, services, mai
 - Source code: [GitHub repository](https://github.com/HRussellZFAC023/yomu-reader)
 - Bug reports and feature requests: [GitHub issues](https://github.com/HRussellZFAC023/yomu-reader/issues)
 - Donations: [PayPal](https://paypal.me/HenryRussell163)
-- Discord: `henry281199`
+- Discord: [Yomu server](https://discord.gg/WvDt57uk5)
 
 ## Before Asking For Help
 

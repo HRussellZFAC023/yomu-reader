@@ -1,7 +1,7 @@
 const ALLOWED_METHODS = new Set(['GET', 'HEAD', 'POST']);
 const READ_METHODS = new Set(['GET', 'HEAD']);
 const CACHEABLE_GET_HOSTS = new Set(['jpdb.io', 'jisho.org', 'commons.wikimedia.org', 'uchisen.com', 'ik.imagekit.io']);
-const CORS_HEADERS = 'accept, authorization, content-type, range';
+const CORS_HEADERS = 'accept, authorization, content-type, range, x-access, x-forcecaf';
 const MAX_REDIRECTS = 4;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const CREDENTIAL_REQUEST_HEADERS = ['authorization', 'cookie', 'proxy-authorization', 'x-api-key'];
@@ -76,8 +76,7 @@ function isAllowedPublicProxyRequest(request: Request, target: URL): boolean {
   if (isAllowedJpdbApiTarget(request.method, target)) return isAllowedJpdbApiRequest(request, target);
   if (request.method !== 'POST') return true;
   if (!isAllowedPostTarget(target)) return false;
-  const contentType = request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() ?? '';
-  return contentType === 'application/x-www-form-urlencoded';
+  return true;
 }
 
 function isAllowedGetTarget(target: URL): boolean {
@@ -130,8 +129,9 @@ function isPrivateHostname(hostname: string): boolean {
 }
 
 function isAllowedPostTarget(target: URL): boolean {
-  return isAllowedJpdbApiTarget('POST', target)
-    || target.hostname === 'www.japanesepod101.com'
+  if (isAllowedJpdbApiTarget('POST', target)) return true;
+  return target.protocol === 'https:'
+    && target.hostname === 'www.japanesepod101.com'
     && target.pathname === '/learningcenter/reference/dictionary_post';
 }
 
@@ -153,7 +153,8 @@ function isAllowedJpdbApiRequest(request: Request, target: URL): boolean {
 }
 
 function isPublicJpdbPath(pathname: string): boolean {
-  return pathname === '/search'
+    return pathname === '/search'
+    || pathname.startsWith('/static/v/')
     || /^\/(?:kanji|vocabulary)(?:\/|$)/.test(pathname);
 }
 
@@ -179,7 +180,7 @@ function isPublicMediaPath(pathname: string): boolean {
 }
 
 async function fetchAllowedTarget(request: Request, target: URL, env: Env, redirects = 0): Promise<Response> {
-  const upstream = await fetch(target.href, upstreamInit(request, target));
+  const upstream = await fetch(new Request(target.href, upstreamInit(request, target)));
   if (!shouldFollowRedirect(request, upstream)) return upstream;
   if (redirects >= MAX_REDIRECTS) return new Response('Too many redirects.', { status: 508 });
 
@@ -191,21 +192,36 @@ async function fetchAllowedTarget(request: Request, target: URL, env: Env, redir
 }
 
 function upstreamInit(request: Request, target: URL): RequestInit {
-  const isJpdbApi = isAllowedJpdbApiTarget(request.method, target);
-  const headers = new Headers(request.headers);
-  headers.delete('cookie');
-  if (!isJpdbApi) headers.delete('authorization');
-  headers.delete('proxy-authorization');
-  headers.delete('x-api-key');
-  headers.delete('origin');
-  headers.delete('referer');
-  headers.delete('host');
+  const headers = upstreamHeaders(request, target);
   return {
     method: request.method,
     headers,
     body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body,
     redirect: 'manual',
   };
+}
+
+function upstreamHeaders(request: Request, target: URL): Headers {
+  const headers = new Headers();
+  copyHeader(request, headers, 'accept');
+  copyHeader(request, headers, 'accept-language');
+  copyHeader(request, headers, 'content-type');
+  copyHeader(request, headers, 'range');
+  if (isAllowedJpdbApiTarget(request.method, target)) copyHeader(request, headers, 'authorization');
+  if (isJpdbAudioTarget(target)) {
+    copyHeader(request, headers, 'x-access');
+    copyHeader(request, headers, 'x-forcecaf');
+  }
+  return headers;
+}
+
+function isJpdbAudioTarget(target: URL): boolean {
+  return target.hostname === 'jpdb.io' && target.pathname.startsWith('/static/v/');
+}
+
+function copyHeader(request: Request, headers: Headers, name: string): void {
+  const value = request.headers.get(name);
+  if (value) headers.set(name, value);
 }
 
 function shouldFollowRedirect(request: Request, response: Response): boolean {
@@ -231,6 +247,9 @@ function cacheKeyUrl(request: Request, target: URL): string {
   const url = new URL(request.url);
   url.search = '';
   url.searchParams.set('url', target.href);
+  if (isJpdbAudioTarget(target) && request.headers.get('x-forcecaf')) {
+    url.searchParams.set('x-forcecaf', request.headers.get('x-forcecaf') ?? '');
+  }
   return url.href;
 }
 

@@ -183,6 +183,11 @@ export interface FragmentTextTarget {
 
 export type ScanTextTarget = TextTarget | FragmentTextTarget;
 
+interface KanjiNavigationRenderOptions {
+    enabled: boolean;
+    label: string;
+}
+
 interface TextTargetCollectionOptions {
     includeReaderRoot?: boolean;
 }
@@ -726,6 +731,7 @@ function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], se
         appendPlainTextBeforeToken(fragment, target.text, offset, token.start);
         fragment.append(renderToken(target.text.slice(token.start, token.end), token, settings, {
             allowRuby: !target.hasNativeRuby && !target.suppressRuby,
+            kanjiNavigation: kanjiNavigationForElement(target.parent),
         }));
         offset = token.end;
     }
@@ -821,7 +827,10 @@ function insertSingleFragmentToken(
 ): void {
     const allowRuby = !fragment.hasNativeRuby && !fragment.suppressRuby && !target.suppressRuby;
     range.deleteContents();
-    range.insertNode(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, { allowRuby }));
+    range.insertNode(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
+        allowRuby,
+        kanjiNavigation: kanjiNavigationForElement(target.parent),
+    }));
 }
 
 function insertMultiFragmentToken(range: Range, token: JPDBToken): void {
@@ -900,6 +909,7 @@ function appendFragmentToken(
     if (localStart > localOffset) replacement.append(document.createTextNode(nodeText.slice(localOffset, localStart)));
     replacement.append(renderToken(nodeText.slice(localStart, localEnd), { ...token, sentence: token.sentence ?? sentence }, settings, {
         allowRuby: fragmentTokenAllowsRuby(target, fragment, token, overlapStart, overlapEnd),
+        kanjiNavigation: kanjiNavigationForElement(target.parent),
     }));
     return localEnd;
 }
@@ -1074,7 +1084,7 @@ function renderToken(
     surface: string,
     token: JPDBToken,
     settings: ReaderSettings,
-    options: { allowRuby?: boolean } = {},
+    options: { allowRuby?: boolean; kanjiNavigation?: KanjiNavigationRenderOptions } = {},
 ): HTMLElement {
     const span = document.createElement('span');
     const state = primaryCardState(token.card.cardState);
@@ -1083,12 +1093,14 @@ function renderToken(
     span.dataset.sid = String(token.card.sid);
     span.dataset.pitchClass = safePitchClass(token.pitchClass);
     span.dataset.sentence = token.sentence ?? '';
-    span.tabIndex = 0;
+    if (!options.kanjiNavigation?.enabled) span.tabIndex = 0;
 
     const hasRuby = shouldRenderRuby(surface, token, settings, options.allowRuby);
     if (hasRuby) {
         span.classList.add('jpdb-reader-has-furi');
-        setInnerHtml(span, renderRuby(surface, token));
+        setInnerHtml(span, renderRuby(surface, token, options.kanjiNavigation));
+    } else if (options.kanjiNavigation?.enabled) {
+        setInnerHtml(span, renderKanjiNavigationText(surface, options.kanjiNavigation));
     } else {
         span.textContent = surface;
     }
@@ -1142,18 +1154,45 @@ function safePitchClass(value: string): string {
     return PITCH_CLASSES.has(value) ? value : 'unknown';
 }
 
-export function renderRuby(surface: string, token: JPDBToken): string {
+export function renderRuby(surface: string, token: JPDBToken, kanjiNavigation?: KanjiNavigationRenderOptions): string {
     let html = '';
     let localOffset = 0;
     for (const ruby of token.rubies) {
         const start = ruby.start - token.start;
         const end = ruby.end - token.start;
-        html += escapeHtml(surface.slice(localOffset, start));
-        html += `<ruby>${escapeHtml(surface.slice(start, end))}<rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
+        html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
+        html += `<ruby>${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}<rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
         localOffset = end;
     }
-    html += escapeHtml(surface.slice(localOffset));
+    html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
     return html;
+}
+
+function kanjiNavigationForElement(element: HTMLElement): KanjiNavigationRenderOptions | undefined {
+    const host = element.closest<HTMLElement>('[data-jpdb-reader-kanji-nav]');
+    if (!host) return undefined;
+    return {
+        enabled: true,
+        label: host.dataset.jpdbReaderKanjiNavLabel || 'Show kanji',
+    };
+}
+
+function renderKanjiNavigationText(value: string, options?: KanjiNavigationRenderOptions): string {
+    if (!options?.enabled) return escapeHtml(value);
+    return Array.from(value).map(character => isKanjiForInlineNavigation(character)
+        ? renderKanjiNavigationCharacter(character, options.label)
+        : escapeHtml(character),
+    ).join('');
+}
+
+function renderKanjiNavigationCharacter(character: string, label: string): string {
+    const safeCharacter = escapeHtml(character);
+    return `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${safeCharacter}" title="${escapeHtml(`${label}: ${character}`)}">${safeCharacter}</button>`;
+}
+
+function isKanjiForInlineNavigation(value: string): boolean {
+    const code = value.codePointAt(0) ?? 0;
+    return code >= 0x3400 && code <= 0x9fff;
 }
 
 export function escapeHtml(value: string): string {

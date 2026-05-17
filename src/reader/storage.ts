@@ -10,9 +10,13 @@ const MANAGED_STORAGE_KEY_PREFIXES = [
 ];
 const KNOWN_MANAGED_STORAGE_KEYS = [
     'jpdb-popup-reader-settings',
+    'jpdb-reader-settings',
+    'yomu-reader-settings',
+    'yomu-settings',
     'jpdb-reader-newtab-card-cache',
     'jpdb-reader-newtab-current-word',
     'jpdb-reader-newtab-ui',
+    'jpdb-reader-source-open-state',
     'jpdb-reader-settings-drawer-height-ratio',
     'jpdb-reader-sheet-height-ratio',
     'jpdb-reader-transcript-panel-size',
@@ -24,6 +28,9 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
 
 type SyncStorageRead<T> = { kind: 'found'; value: T } | { kind: 'fallback' };
 type GmGetValue = <T>(key: string, defaultValue: T) => T | Promise<T>;
+type GmSetValue = (key: string, value: unknown) => void | Promise<void>;
+type GmDeleteValue = (key: string) => void | Promise<void>;
+type GmListValues = () => string[] | Promise<string[]>;
 
 export type FactoryResetSignalPhase = 'prepare' | 'complete';
 
@@ -40,9 +47,10 @@ export interface FactoryResetSignalSource {
 }
 
 export async function gmStorageGet<T>(key: string, fallback: T): Promise<T> {
-    if (typeof GM_getValue === 'function') {
+    const getValue = asyncGmGetValue();
+    if (getValue) {
         try {
-            const value = await GM_getValue<T | typeof MISSING>(key, MISSING);
+            const value = await getValue<T | typeof MISSING>(key, MISSING);
             if (value !== MISSING) return value as T;
             const migrated = localStorageGet<T>(key, MISSING as T);
             if (migrated !== (MISSING as T)) {
@@ -86,8 +94,9 @@ function migratedLocalStorageSyncValue<T>(key: string): SyncStorageRead<T> {
 }
 
 export async function gmStorageSet(key: string, value: unknown): Promise<void> {
-    if (typeof GM_setValue === 'function') {
-        await GM_setValue(key, value);
+    const setValue = asyncGmSetValue();
+    if (setValue) {
+        await setValue(key, value);
         return;
     }
     localStorageSet(key, value);
@@ -106,9 +115,10 @@ export function gmStorageSetSync(key: string, value: unknown): void {
 }
 
 export async function gmStorageDelete(key: string): Promise<void> {
-    if (typeof GM_deleteValue === 'function') {
+    const deleteValue = asyncGmDeleteValue();
+    if (deleteValue) {
         try {
-            await GM_deleteValue(key);
+            await deleteValue(key);
         } catch (error) {
             debugStorageError('GM storage delete failed', key, error);
         }
@@ -165,6 +175,10 @@ export async function clearManagedStoredValues(): Promise<number> {
         count++;
     }
     return count;
+}
+
+export async function clearFactoryResetSignal(): Promise<void> {
+    await gmStorageDelete(FACTORY_RESET_SIGNAL_KEY);
 }
 
 export function createFactoryResetSignal(phase: FactoryResetSignalPhase, id = createFactoryResetId()): FactoryResetSignal {
@@ -249,8 +263,8 @@ async function storageKeys(prefixes: string[]): Promise<string[]> {
 }
 
 async function addPrefixedGmStorageKeys(keys: Set<string>, prefixes: string[]): Promise<void> {
-    const listValues = (globalThis as { GM_listValues?: () => string[] | Promise<string[]> }).GM_listValues;
-    if (typeof listValues !== 'function') return;
+    const listValues = asyncGmListValues();
+    if (!listValues) return;
     try {
         addMatchingStorageKeys(keys, await listValues(), prefixes);
     } catch (error) {
@@ -295,8 +309,8 @@ async function allStorageKeys(): Promise<string[]> {
 }
 
 async function addGmStorageKeys(keys: Set<string>): Promise<void> {
-    const listValues = (globalThis as { GM_listValues?: () => string[] | Promise<string[]> }).GM_listValues;
-    if (typeof listValues !== 'function') return;
+    const listValues = asyncGmListValues();
+    if (!listValues) return;
     try {
         for (const key of await listValues()) keys.add(key);
     } catch (error) {
@@ -354,10 +368,11 @@ function removeSessionStorageKey(key: string): void {
     }
 }
 
-async function storedValueExists(key: string): Promise<boolean> {
-    if (typeof GM_getValue === 'function') {
+export async function storedValueExists(key: string): Promise<boolean> {
+    const getValue = asyncGmGetValue();
+    if (getValue) {
         try {
-            if (await GM_getValue<unknown | typeof MISSING>(key, MISSING) !== MISSING) return true;
+            if (await getValue<unknown | typeof MISSING>(key, MISSING) !== MISSING) return true;
         } catch (error) {
             debugStorageError('GM storage existence check failed', key, error);
         }
@@ -375,6 +390,31 @@ function webStorageHasKey(storage: Storage, key: string): boolean {
 
 function isPromiseLike(value: unknown): value is Promise<unknown> {
     return Boolean(value) && typeof (value as Promise<unknown>).then === 'function';
+}
+
+function asyncGmGetValue(): GmGetValue | null {
+    if (typeof GM_getValue === 'function') return GM_getValue as GmGetValue;
+    const modern = (globalThis as { GM?: { getValue?: GmGetValue } }).GM?.getValue;
+    return typeof modern === 'function' ? modern.bind((globalThis as { GM?: unknown }).GM) : null;
+}
+
+function asyncGmSetValue(): GmSetValue | null {
+    if (typeof GM_setValue === 'function') return GM_setValue as GmSetValue;
+    const modern = (globalThis as { GM?: { setValue?: GmSetValue } }).GM?.setValue;
+    return typeof modern === 'function' ? modern.bind((globalThis as { GM?: unknown }).GM) : null;
+}
+
+function asyncGmDeleteValue(): GmDeleteValue | null {
+    if (typeof GM_deleteValue === 'function') return GM_deleteValue as GmDeleteValue;
+    const modern = (globalThis as { GM?: { deleteValue?: GmDeleteValue } }).GM?.deleteValue;
+    return typeof modern === 'function' ? modern.bind((globalThis as { GM?: unknown }).GM) : null;
+}
+
+function asyncGmListValues(): GmListValues | null {
+    const legacy = (globalThis as { GM_listValues?: GmListValues }).GM_listValues;
+    if (typeof legacy === 'function') return legacy;
+    const modern = (globalThis as { GM?: { listValues?: GmListValues } }).GM?.listValues;
+    return typeof modern === 'function' ? modern.bind((globalThis as { GM?: unknown }).GM) : null;
 }
 
 function normalizeFactoryResetSignal(signal: FactoryResetSignal): FactoryResetSignal {

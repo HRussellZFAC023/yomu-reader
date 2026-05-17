@@ -22,11 +22,11 @@ export interface AppliedReaderTheme {
 }
 
 export function applyReaderTheme(settings: ReaderSettings, root = document.documentElement): AppliedReaderTheme {
-    applyReaderAccentColor(settings.accentColor, root);
-    applyReaderWordColors(settings, root);
     const theme = appliedReaderTheme(settings);
     root.classList.toggle('jpdb-reader-theme-dark', settings.theme === 'dark');
     root.classList.toggle('jpdb-reader-theme-light', settings.theme === 'light');
+    applyReaderAccentColor(settings.accentColor, root);
+    applyReaderWordColors(settings, root);
     root.classList.toggle('jpdb-reader-hide-known', theme.furiganaMode === 'known-status');
     root.classList.toggle('jpdb-reader-highlight-status', theme.wordHighlightMode === 'status');
     root.classList.toggle('jpdb-reader-highlight-pitch', theme.wordHighlightMode === 'pitch');
@@ -40,6 +40,8 @@ export function applyReaderAccentColor(color: string, root = document.documentEl
     const accentColor = sanitizeAccentColor(color);
     root.style.setProperty('--jpdb-reader-accent', accentColor);
     root.style.setProperty('--jpdb-reader-accent-soft', accentToRgba(accentColor, 0.18));
+    root.style.setProperty('--jpdb-reader-accent-readable', readableAccentOnSurface(accentColor, root));
+    root.style.setProperty('--jpdb-reader-accent-text', readableTextOnAccent(accentColor));
 }
 
 export function applyReaderWordColors(settings: ReaderSettings, root = document.documentElement): void {
@@ -99,4 +101,73 @@ function applyReaderColorSourceClasses(root: HTMLElement, scope: 'word' | 'subti
             root.classList.toggle(`jpdb-reader-${scope}-${channel}-${source}`, sources[channel] === source);
         });
     });
+}
+
+function readableAccentOnSurface(accentColor: string, root: HTMLElement): string {
+    return readableOn(accentColor, readerSurfaceColor(root), 4.5);
+}
+
+function readableTextOnAccent(accentColor: string): string {
+    const darkText = '#11161d';
+    const lightText = '#ffffff';
+    return contrastRatio(accentColor, darkText) >= contrastRatio(accentColor, lightText) ? darkText : lightText;
+}
+
+function readerSurfaceColor(root: HTMLElement): string {
+    const computed = typeof getComputedStyle === 'function'
+        ? getComputedStyle(root).getPropertyValue('--jpdb-reader-surface').trim()
+        : '';
+    if (isHexColor(computed)) return sanitizeAccentColor(computed);
+    if (root.classList.contains('jpdb-reader-theme-light')) return '#f7f8fa';
+    return prefersLightMode() ? '#f7f8fa' : '#20242b';
+}
+
+function prefersLightMode(): boolean {
+    return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: light)').matches;
+}
+
+function readableOn(color: string, background: string, targetContrast: number): string {
+    const safe = sanitizeAccentColor(color);
+    if (contrastRatio(safe, background) >= targetContrast) return safe;
+    const toward = contrastRatio(background, '#000000') > contrastRatio(background, '#ffffff') ? '#000000' : '#ffffff';
+    for (let amount = 0.08; amount <= 1; amount += 0.08) {
+        const mixed = mixHex(safe, toward, amount);
+        if (contrastRatio(mixed, background) >= targetContrast) return mixed;
+    }
+    return toward;
+}
+
+function contrastRatio(a: string, b: string): number {
+    const l1 = relativeLuminance(a);
+    const l2 = relativeLuminance(b);
+    const light = Math.max(l1, l2);
+    const dark = Math.min(l1, l2);
+    return (light + 0.05) / (dark + 0.05);
+}
+
+function relativeLuminance(color: string): number {
+    const [red, green, blue] = hexToRgb(color).map(value => {
+        const channel = value / 255;
+        return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function mixHex(from: string, to: string, amount: number): string {
+    const a = hexToRgb(from);
+    const b = hexToRgb(to);
+    return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, '0')).join('')}`;
+}
+
+function hexToRgb(color: string): [number, number, number] {
+    const safe = sanitizeAccentColor(color);
+    return [
+        parseInt(safe.slice(1, 3), 16),
+        parseInt(safe.slice(3, 5), 16),
+        parseInt(safe.slice(5, 7), 16),
+    ];
+}
+
+function isHexColor(value: string): boolean {
+    return /^#[0-9a-f]{6}$/i.test(value);
 }

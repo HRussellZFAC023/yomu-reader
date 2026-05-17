@@ -1,7 +1,14 @@
 import { APP_NAME } from './constants';
 import { Logger } from './logger';
 import {
+    beginSettingsResetGuard,
+    deleteSettingsStorage,
+    endSettingsResetGuard,
+    settingsStorageKeysStillPresent,
+} from './settings';
+import {
     clearManagedStoredValues,
+    clearFactoryResetSignal,
     createFactoryResetSignal,
     publishFactoryResetSignal,
     subscribeToFactoryResetSignals,
@@ -11,6 +18,8 @@ import {
 
 const log = Logger.scope('FactoryReset');
 const FACTORY_RESET_PREPARE_DELAY_MS = 80;
+const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 30000;
+export const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
 
 export interface FactoryResetCoordinatorDependencies {
     isDestroyed: () => boolean;
@@ -24,6 +33,7 @@ export class FactoryResetCoordinator {
     private unsubscribe?: () => void;
     private activeResetId = '';
     private handledSignals = new Set<string>();
+    private remoteGuardReleaseTimer?: number;
 
     constructor(private readonly dependencies: FactoryResetCoordinatorDependencies) {}
 
@@ -37,31 +47,47 @@ export class FactoryResetCoordinator {
     destroy(): void {
         this.unsubscribe?.();
         this.unsubscribe = undefined;
+        this.clearRemoteGuardReleaseTimer();
     }
 
     async resetAllData(): Promise<void> {
         const confirmed = window.confirm([
             `Reset all ${APP_NAME} data?`,
             '',
-            'This deletes settings, cached cards, local dictionaries, and other local/GM storage for the userscript.',
+            'This deletes settings, API keys, preferences, cached cards, local dictionaries, and all other local/GM storage for the userscript.',
         ].join('\n'));
         if (!confirmed) return;
 
         const resetSignal = createFactoryResetSignal('prepare');
         this.activeResetId = resetSignal.id;
+        beginSettingsResetGuard();
         try {
             await publishFactoryResetSignal(resetSignal);
             await this.dependencies.invalidateRuntimeStores();
             await delay(FACTORY_RESET_PREPARE_DELAY_MS);
-            const dictionaryReset = await this.dependencies.resetDictionaryDatabase();
             const deletedStorageValues = await clearManagedStoredValues();
+            await deleteSettingsStorage();
+            await this.assertSettingsStorageDeleted();
+            const dictionaryReset = await this.resetDictionaryDatabaseBestEffort();
             await publishFactoryResetSignal(createFactoryResetSignal('complete', resetSignal.id));
-            log.info('All local data reset', { deletedStorageValues, dictionaryReset });
+            await clearFactoryResetSignal();
+            log.info('All local data reset; reloading page', { deletedStorageValues, dictionaryReset });
             this.dependencies.reload();
         } catch (error) {
             this.activeResetId = '';
+            endSettingsResetGuard();
             log.warn('All-data reset failed', error);
             this.dependencies.toast(error instanceof Error ? error.message : 'Reset failed.');
+        }
+    }
+
+    private async resetDictionaryDatabaseBestEffort(): Promise<unknown> {
+        try {
+            return await this.dependencies.resetDictionaryDatabase();
+        } catch (error) {
+            log.warn('Dictionary database reset failed after settings storage was cleared', error);
+            this.dependencies.toast('Settings were reset. Local dictionaries may need clearing after closing other よむ tabs.');
+            return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
         }
     }
 
@@ -70,6 +96,7 @@ export class FactoryResetCoordinator {
         const handledKey = `${signal.id}:${signal.phase}`;
         if (this.handledSignals.has(handledKey)) return;
         this.handledSignals.add(handledKey);
+        beginSettingsResetGuard();
 
         log.info('Factory reset signal received', {
             phase: signal.phase,
@@ -79,9 +106,33 @@ export class FactoryResetCoordinator {
         });
         await this.dependencies.invalidateRuntimeStores();
         if (signal.phase === 'complete') {
+            this.clearRemoteGuardReleaseTimer();
             this.dependencies.toast('よむ was reset in another tab. Reloading...');
             window.setTimeout(() => this.dependencies.reload(), 50);
+        } else {
+            this.scheduleRemoteGuardRelease();
         }
+    }
+
+    private async assertSettingsStorageDeleted(): Promise<void> {
+        const settingsKeysStillPresent = await settingsStorageKeysStillPresent();
+        if (!settingsKeysStillPresent.length) return;
+        log.warn('Settings storage keys still present after factory reset deletion', { settingsKeysStillPresent });
+        throw new Error('Factory reset could not delete saved settings. Please close other よむ tabs and try again.');
+    }
+
+    private scheduleRemoteGuardRelease(): void {
+        this.clearRemoteGuardReleaseTimer();
+        this.remoteGuardReleaseTimer = window.setTimeout(() => {
+            this.remoteGuardReleaseTimer = undefined;
+            endSettingsResetGuard();
+        }, FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS);
+    }
+
+    private clearRemoteGuardReleaseTimer(): void {
+        if (this.remoteGuardReleaseTimer === undefined) return;
+        window.clearTimeout(this.remoteGuardReleaseTimer);
+        this.remoteGuardReleaseTimer = undefined;
     }
 }
 

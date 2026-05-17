@@ -604,7 +604,7 @@ function renderGrammarHintExamples(hint: GrammarHint): string {
 }
 
 function renderGrammarExample(example: GrammarExample): string {
-    return `<div class="jpdb-reader-grammar-example"><div>${escapeHtml(example.japanese)}</div><div>${escapeHtml(example.english)}</div>${example.note ? `<div>${escapeHtml(example.note)}</div>` : ''}</div>`;
+    return `<div class="jpdb-reader-grammar-example jpdb-reader-parseable"><div>${escapeHtml(example.japanese)}</div><div>${escapeHtml(example.english)}</div>${example.note ? `<div>${escapeHtml(example.note)}</div>` : ''}</div>`;
 }
 
 function renderGrammarHintGuide(hint: GrammarHint): string {

@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     contextLabel,
     createFallbackMiningContext,
     inferMiningSourceKind,
     immersionContextFromElement,
+    immersionContextFromExample,
     loadMiningContext,
     normalizeMiningSentence,
     pageMiningContext,
@@ -65,6 +66,7 @@ describe('mining context helpers', () => {
         const element = document.createElement('article');
         element.dataset.immersionSourceTitle = 'Steins Gate';
         element.dataset.immersionImageUrl = 'https://images.test/frame.jpg';
+        element.dataset.immersionAudioUrls = JSON.stringify(['https://audio.test/clip.mp3', 'https://audio.test/fallback.mp3']);
         element.dataset.immersionIndex = '2';
         element.dataset.immersionTotal = '5';
 
@@ -78,11 +80,40 @@ describe('mining context helpers', () => {
             sourceTitle: 'Steins Gate',
             sourceUrl: 'https://example.test/popup',
             imageUrl: 'https://images.test/frame.jpg',
+            audioUrls: ['https://audio.test/clip.mp3', 'https://audio.test/fallback.mp3'],
             immersionIndex: 2,
             immersionTotal: 5,
             updatedAt: 1234,
         });
         expect(contextLabel(context)).toBe('Steins Gate 3/5');
+    });
+
+    it('builds immersion contexts from examples with audio URL fallbacks', () => {
+        const draft = immersionContextFromExample('読む', {
+            id: 'anime/steins_gate/1',
+            sentence: 'メールを読みました。',
+            sentenceWithFurigana: '',
+            translation: 'I read the email.',
+            sourceTitle: 'Steins Gate',
+            titleSlug: 'steins_gate',
+            category: 'anime',
+            soundFile: 'clip.mp3',
+            imageFile: 'frame.jpg',
+            soundUrl: '',
+            imageUrl: '',
+        }, 0, 2, 'https://images.test/frame.jpg', [
+            'https://audio.test/clip.mp3',
+            'https://audio.test/clip.mp3',
+            ' https://audio.test/fallback.mp3 ',
+        ]);
+
+        expect(createFallbackMiningContext('読む', draft, 1234)).toMatchObject({
+            sourceKind: 'immersion-kit',
+            imageUrl: 'https://images.test/frame.jpg',
+            audioUrls: ['https://audio.test/clip.mp3', 'https://audio.test/fallback.mp3'],
+            immersionIndex: 0,
+            immersionTotal: 2,
+        });
     });
 
     it('creates an in-memory fallback when storage input is incomplete', () => {
@@ -134,9 +165,11 @@ describe('mining context helpers', () => {
             sourceTitle: 'Steins Gate',
             sourceUrl: 'https://www.immersionkit.com/dictionary?keyword=読む',
             imageUrl: 'https://images.test/frame.jpg',
+            audioUrls: ['https://audio.test/clip.mp3', 'https://audio.test/fallback.mp3'],
             immersionIndex: 0,
             immersionTotal: 1,
         });
+        const fetchAudioDataUrl = vi.fn(async (audioUrls: string[], timeoutMs: number) => `${audioUrls.join('|')}?timeout=${timeoutMs}`);
 
         const context = await resolveMiningContext({
             term: '読む',
@@ -150,12 +183,45 @@ describe('mining context helpers', () => {
             storedContext: stored,
             sourceKind: 'page',
             fetchImageDataUrl: async (imageUrl, timeoutMs) => `${imageUrl}?timeout=${timeoutMs}`,
+            fetchAudioDataUrl,
         });
 
         expect(context).toMatchObject({
             sentence: 'メールを読みました。',
             sourceKind: 'immersion-kit',
             imageDataUrl: 'https://images.test/frame.jpg?timeout=123',
+            audioDataUrl: 'https://audio.test/clip.mp3|https://audio.test/fallback.mp3?timeout=123',
         });
+        expect(fetchAudioDataUrl).toHaveBeenCalledWith(['https://audio.test/clip.mp3', 'https://audio.test/fallback.mp3'], 123);
+    });
+
+    it('does not hydrate Immersion Kit audio when screenshot context wins', async () => {
+        const stored = saveMiningContext('読む', {
+            sentence: 'メールを読みました。',
+            sourceKind: 'immersion-kit',
+            sourceTitle: 'Steins Gate',
+            sourceUrl: 'https://www.immersionkit.com/dictionary?keyword=読む',
+            audioUrls: ['https://audio.test/clip.mp3'],
+            immersionIndex: 0,
+            immersionTotal: 1,
+        });
+        const fetchAudioDataUrl = vi.fn(async () => 'data:audio/mpeg;base64,audio');
+
+        const context = await resolveMiningContext({
+            term: '読む',
+            sentence: '  今日は本を読む。 ',
+            settings: { ...DEFAULT_SETTINGS, ankiCaptureScreenshot: true, immersionKitEnabled: true },
+            storedContext: stored,
+            sourceKind: 'page',
+            imageDataUrl: 'data:image/png;base64,ocr',
+            fetchAudioDataUrl,
+        });
+
+        expect(context).toMatchObject({
+            sentence: '今日は本を読む。',
+            sourceKind: 'image',
+        });
+        expect(context.audioDataUrl).toBeUndefined();
+        expect(fetchAudioDataUrl).not.toHaveBeenCalled();
     });
 });

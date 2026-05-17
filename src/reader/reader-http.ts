@@ -7,6 +7,7 @@ export interface ReaderHttpOptions extends Omit<ProxyFetchOptions, 'body'> {
     responseType?: 'text' | 'blob' | 'json' | 'arraybuffer';
     failureLabel?: string;
     timeoutLabel?: string;
+    preferFetch?: boolean;
 }
 
 export async function requestText(url: string, options: ReaderHttpOptions = {}): Promise<string> {
@@ -27,6 +28,14 @@ export async function requestJson(url: string, options: ReaderHttpOptions = {}):
 
 export async function requestHttp(url: string, options: ReaderHttpOptions = {}): Promise<unknown> {
     const userscriptRequest = getUserscriptHttpRequest();
+    if (options.preferFetch) {
+        try {
+            return await requestViaFetch(url, options);
+        } catch (error) {
+            if (!userscriptRequest) throw error;
+            return await requestViaUserscript(url, options, userscriptRequest);
+        }
+    }
     if (userscriptRequest) {
         try {
             return await requestViaUserscript(url, options, userscriptRequest);

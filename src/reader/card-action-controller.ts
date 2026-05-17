@@ -1,4 +1,5 @@
-import { AnkiConnectClient, canUseMobileAnkiHandoff, type AnkiLookupResult } from './anki';
+import { AnkiConnectClient, canUseMobileAnkiHandoff, type AnkiAudioMergeMode, type AnkiLookupResult, type AnkiMergeYomuResult } from './anki';
+import { resolveAnkiWordAudio } from './audio';
 import { copyText } from './browser-ui';
 import { normalizeCardStates } from './card-state';
 import { JpdbClient } from './jpdb';
@@ -29,9 +30,11 @@ interface CardActionControllerOptions {
     showSettings: (panel?: string) => void;
     playAudio: (card: JPDBCard, options?: { userGesture?: boolean }) => Promise<void>;
     playSentenceAudio: (sentence?: string) => Promise<void>;
+    playJpdbExampleAudio?: (audioIds: string | string[], fallbackSentence?: string) => Promise<void>;
     detectGrammarHints: (sentence: string) => Promise<GrammarHint[]>;
     parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
     toast: (message: string) => void;
+    invalidateCardData?: () => void;
 }
 
 type StudyActionHandler = () => boolean | Promise<boolean>;
@@ -71,6 +74,7 @@ export class CardActionController {
             'study-translate': () => this.performStudyTool(button, action, sentence),
             'study-grammar': () => this.performStudyGrammarTool(button, sentence),
             'study-read-sentence': () => this.performStudyReadSentence(sentence),
+            'jpdb-example-audio': () => this.performJpdbExampleAudio(button),
         };
         return handlers[action];
     }
@@ -95,6 +99,14 @@ export class CardActionController {
 
     private async performStudyReadSentence(sentence?: string): Promise<boolean> {
         await this.options.playSentenceAudio(sentence);
+        return false;
+    }
+
+    private async performJpdbExampleAudio(button: HTMLButtonElement): Promise<boolean> {
+        const audioIds = button.dataset.jpdbAudio ?? '';
+        const fallbackSentence = button.dataset.jpdbExampleSentence ?? '';
+        if (!this.options.playJpdbExampleAudio) await this.options.playSentenceAudio(fallbackSentence);
+        else await this.options.playJpdbExampleAudio(audioIds, fallbackSentence);
         return false;
     }
 
@@ -137,6 +149,7 @@ export class CardActionController {
             add: () => this.addToSelectedDeck(button, card, sentence),
             anki: () => this.addToAnki(card, sentence),
             'anki-edit': () => this.openAnkiNote(button),
+            'anki-merge': () => this.mergeExistingAnkiCard(button, card, sentence),
             grade: () => this.gradeCard(button, card, sentence),
         };
         return handlers[action];
@@ -199,6 +212,38 @@ export class CardActionController {
         this.options.toast('Opened in Anki.');
     }
 
+    private async mergeExistingAnkiCard(button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {
+        const settings = this.options.getSettings();
+        if (canUseMobileAnkiHandoff(settings)) throw new Error('Merging existing Anki notes needs AnkiConnect on desktop.');
+        const noteId = Number(button.dataset.noteId);
+        if (!Number.isFinite(noteId)) throw new Error('Anki note not found.');
+
+        const [dictionaryContext, context, wordAudio] = await Promise.all([
+            this.loadAnkiDictionaryContext(card, settings),
+            this.options.resolveMiningContext(card, sentence),
+            resolveAnkiWordAudio(card, settings).catch(() => null),
+        ]);
+        const result = await this.options.anki.mergeYomuData(noteId, card, miningSentenceForAnki(context.sentence, sentence), {
+            imageDataUrl: context.imageDataUrl,
+            audioDataUrl: context.audioDataUrl,
+            wordAudioDataUrl: wordAudio?.dataUrl,
+            wordAudioUrl: wordAudio?.url,
+            audioMergeMode: selectedAnkiAudioMergeMode(button),
+            ...dictionaryContext,
+            dictionaryPreferences: settings.dictionaryPreferences,
+            sourceTitle: ankiSourceTitle(context.sourceTitle),
+            sourceUrl: ankiSourceUrl(context.sourceUrl),
+        });
+        this.options.invalidateCardData?.();
+        this.options.toast(ankiMergeToast(result));
+        await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
+            autoPlay: false,
+            trigger: this.options.getActivePopoverMode() === 'hover' ? 'hover' : 'modal',
+            navigation: 'preserve',
+            preservePosition: true,
+        });
+    }
+
     private async changeJpdbDeckState(card: JPDBCard, state: JpdbDeckState, deck: string, message: string): Promise<void> {
         this.assertJpdbActionAllowed(card, message);
         await this.toggleDeck(card, state, deck);
@@ -244,17 +289,23 @@ export class CardActionController {
         const existing: AnkiLookupResult = await this.options.anki.findExistingCards(card);
         if (existing.primary) return this.showExistingAnkiCard(card, sentence);
 
-        const dictionaryContext = await this.loadAnkiDictionaryContext(card, settings);
-        const context = await this.options.resolveMiningContext(card, sentence);
+        const [dictionaryContext, context, wordAudio] = await Promise.all([
+            this.loadAnkiDictionaryContext(card, settings),
+            this.options.resolveMiningContext(card, sentence),
+            resolveAnkiWordAudio(card, settings).catch(() => null),
+        ]);
         await this.options.anki.addCard(card, miningSentenceForAnki(context.sentence, sentence), {
             deckName,
             imageDataUrl: context.imageDataUrl,
+            audioDataUrl: context.audioDataUrl,
+            wordAudioDataUrl: wordAudio?.dataUrl,
+            wordAudioUrl: wordAudio?.url,
             ...dictionaryContext,
             dictionaryPreferences: settings.dictionaryPreferences,
             sourceTitle: ankiSourceTitle(context.sourceTitle),
             sourceUrl: ankiSourceUrl(context.sourceUrl),
         });
-        this.options.toast(context.imageDataUrl ? 'Sent to Anki with context image.' : 'Sent to Anki.');
+        this.options.toast(ankiSentToast(context, Boolean(wordAudio?.dataUrl || wordAudio?.url)));
     }
 
     private async showExistingAnkiCard(card: JPDBCard, sentence?: string): Promise<void> {
@@ -319,6 +370,31 @@ interface SelectedDeckChoice {
 
 function miningSentenceForAnki(contextSentence: string | undefined, fallbackSentence: string | undefined): string | undefined {
     return contextSentence || fallbackSentence;
+}
+
+function ankiSentToast(context: MiningContext, hasWordAudio = false): string {
+    const hasAudio = Boolean(context.audioDataUrl || hasWordAudio);
+    if (context.imageDataUrl && hasAudio) return 'Sent to Anki with context image and audio.';
+    if (context.imageDataUrl) return 'Sent to Anki with context image.';
+    if (hasAudio) return 'Sent to Anki with audio.';
+    return 'Sent to Anki.';
+}
+
+function ankiMergeToast(result: AnkiMergeYomuResult): string {
+    if (!result.updatedFields.length && !result.audioAdded && !result.imageAdded) return 'Anki note already has the available Yomu data.';
+    const parts = [
+        result.updatedFields.length ? `${result.updatedFields.length} fields` : '',
+        result.audioAdded ? 'audio' : '',
+        result.imageAdded ? 'image' : '',
+    ].filter(Boolean);
+    return `Merged Yomu data into Anki (${parts.join(', ')}).`;
+}
+
+function selectedAnkiAudioMergeMode(button: HTMLButtonElement): AnkiAudioMergeMode {
+    const value = button.closest('.jpdb-reader-anki-card-preview')
+        ?.querySelector<HTMLSelectElement>('[data-anki-audio-merge]')
+        ?.value;
+    return value === 'theirs' || value === 'ours' ? value : 'both';
 }
 
 function ankiSourceTitle(sourceTitle: string | undefined): string {

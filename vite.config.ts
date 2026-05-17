@@ -8,7 +8,7 @@ const docsUrl = `https://${githubOwner.toLowerCase()}.github.io/${pkg.name}/`;
 const rawUserscriptUrl = `https://raw.githubusercontent.com/${githubOwner}/${pkg.name}/main/dist/yomu.user.js`;
 const userscriptIcon = `${docsUrl}yomu-icon.svg`;
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
     plugins: [
         monkey({
             entry: 'src/reader/userscript-entry.ts',
@@ -34,6 +34,10 @@ export default defineConfig({
                 ],
                 grant: [
                     'GM.xmlHttpRequest',
+                    'GM.setValue',
+                    'GM.getValue',
+                    'GM.deleteValue',
+                    'GM.listValues',
                     'GM_xmlhttpRequest',
                     'GM_setValue',
                     'GM_getValue',
@@ -72,11 +76,11 @@ export default defineConfig({
     },
     build: {
         outDir: 'dist',
-        emptyOutDir: true,
+        emptyOutDir: mode !== 'development',
     },
     test: {
         environment: 'jsdom',
         include: ['tests/reader/**/*.test.ts'],
         globals: true,
     },
-});
+}));

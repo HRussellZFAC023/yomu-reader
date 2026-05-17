@@ -10,6 +10,20 @@ describe('reader theme', () => {
         document.documentElement.removeAttribute('style');
     });
 
+    it('applies concrete default color channels', () => {
+        const applied = applyReaderTheme(DEFAULT_SETTINGS);
+        const root = document.documentElement;
+
+        expect(root.classList.contains('jpdb-reader-word-highlight-jpdb')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-word-underline-pitch')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-word-text-off')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-subtitle-highlight-jpdb')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-subtitle-underline-pitch')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-subtitle-text-jpdb')).toBe(true);
+        expect(applied.wordColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'off' });
+        expect(applied.subtitleColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'jpdb' });
+    });
+
     it('applies theme classes, color-source classes, and CSS variables from settings', () => {
         const settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
@@ -36,6 +50,10 @@ describe('reader theme', () => {
         expect(root.classList.contains('jpdb-reader-subtitle-highlight-anki')).toBe(true);
         expect(root.classList.contains('jpdb-reader-subtitle-underline-jpdb')).toBe(true);
         expect(root.style.getPropertyValue('--jpdb-reader-accent')).toBe('#336699');
+        expect(root.style.getPropertyValue('--jpdb-reader-accent-readable')).toMatch(/^#[0-9a-f]{6}$/);
+        expect(root.style.getPropertyValue('--jpdb-reader-accent-readable')).not.toBe('#76bd99');
+        expect(root.style.getPropertyValue('--jpdb-reader-accent-readable')).not.toBe('#25573d');
+        expect(root.style.getPropertyValue('--jpdb-reader-accent-text')).toBe('#ffffff');
         expect(root.style.getPropertyValue('--jpdb-reader-state-new')).toBe('#112233');
         expect(root.style.getPropertyValue('--jpdb-reader-pitch-heiban')).toBe('#445566');
         expect(root.style.getPropertyValue('--jpdb-reader-pitch-unknown-soft')).toBe('transparent');

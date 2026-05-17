@@ -11,6 +11,7 @@ export interface JpdbVocabularyCompound {
 export interface JpdbVocabularyExample {
     sentence: string;
     translation: string;
+    audioIds?: string[];
 }
 
 export interface JpdbVocabularyInfo {
@@ -23,7 +24,18 @@ export interface JpdbVocabularyInfo {
 const log = Logger.scope('JpdbVocabulary');
 const JPDB_VOCABULARY_BASE_URL = 'https://jpdb.io/vocabulary';
 const JPDB_SEARCH_URL = 'https://jpdb.io/search';
+const JPDB_COMPOUND_LIMIT = 8;
+const JPDB_USED_IN_VOCABULARY_LIMIT = 3;
+const JPDB_EXAMPLE_LIMIT = 3;
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
+
+type VocabularySupplementKind = 'details' | 'examples' | 'used-in-vocabulary';
+
+interface VocabularySupplementUrl {
+    url: string;
+    kind: VocabularySupplementKind;
+}
 
 export class JpdbVocabularyClient {
     private cache = new Map<string, Promise<JpdbVocabularyInfo | null>>();
@@ -48,9 +60,30 @@ export class JpdbVocabularyClient {
                 return '';
             });
             const info = html ? parseJpdbVocabularyHtml(html, spelling, reading) : null;
-            if (info) return info;
+            if (info) return await this.fetchSupplementaryInfo(info, html, url, vid, spelling, reading);
         }
         return null;
+    }
+
+    private async fetchSupplementaryInfo(
+        initialInfo: JpdbVocabularyInfo,
+        html: string,
+        initialUrl: string,
+        vid: number,
+        spelling: string,
+        reading: string,
+    ): Promise<JpdbVocabularyInfo> {
+        let info = initialInfo;
+        for (const supplement of vocabularySupplementUrls(html, spelling, reading, initialUrl)) {
+            if (!needsSupplement(info, supplement.kind)) continue;
+            const supplementHtml = await requestText(supplement.url, this.getCorsProxyUrl()).catch(error => {
+                log.warn('Vocabulary supplement request failed', { vid, spelling, url: supplement.url }, error);
+                return '';
+            });
+            const supplementalInfo = supplementHtml ? parseJpdbVocabularyHtml(supplementHtml, spelling, reading) : null;
+            if (supplementalInfo) info = mergeVocabularyInfo(info, supplementalInfo);
+        }
+        return info;
     }
 }
 
@@ -75,6 +108,69 @@ function vocabularyLookupUrls(vid: number, spelling: string, reading: string): s
     unique([spelling, reading].filter(Boolean))
         .forEach(query => urls.push(`${JPDB_SEARCH_URL}?q=${encodeURIComponent(query)}`));
     return unique(urls);
+}
+
+function vocabularySupplementUrls(html: string, spelling: string, reading: string, currentUrl = ''): VocabularySupplementUrl[] {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const current = absoluteJpdbUrl(currentUrl);
+    return uniqueBy([
+        ...vocabularyDetailUrls(doc, spelling, reading),
+        ...vocabularyExpandUrls(doc),
+    ], supplement => `${supplement.kind}:${supplement.url}`)
+        .filter(supplement => !current || supplement.url !== current);
+}
+
+function vocabularyDetailUrls(doc: Document, spelling: string, reading: string): VocabularySupplementUrl[] {
+    if (!doc.querySelector('.results.search')) return [];
+    const root = vocabularyRoot(doc, spelling, reading);
+    if (!root) return [];
+    return Array.from(root.querySelectorAll<HTMLAnchorElement>('a.view-conjugations-link[href*="/vocabulary/"]'))
+        .filter(link => /more details/i.test(cleanText(link.textContent ?? '')))
+        .map(link => absoluteJpdbUrl(link.getAttribute('href') ?? link.href))
+        .filter(Boolean)
+        .map(url => ({ url, kind: 'details' as const }));
+}
+
+function vocabularyExpandUrls(doc: Document): VocabularySupplementUrl[] {
+    return Array.from(doc.querySelectorAll<HTMLAnchorElement>('a[href*="expand="]'))
+        .map(link => vocabularyExpandSupplement(link.getAttribute('href') ?? link.href))
+        .filter((supplement): supplement is VocabularySupplementUrl => supplement !== null);
+}
+
+function vocabularyExpandSupplement(value: string): VocabularySupplementUrl | null {
+    try {
+        const url = new URL(value, 'https://jpdb.io');
+        const expand = url.searchParams.get('expand') ?? '';
+        if (expand.includes('e')) return { url: url.toString(), kind: 'examples' };
+        if (expand.includes('v')) return { url: url.toString(), kind: 'used-in-vocabulary' };
+    } catch {
+        return null;
+    }
+    return null;
+}
+
+function needsSupplement(info: JpdbVocabularyInfo, kind: VocabularySupplementKind): boolean {
+    if (kind === 'details') {
+        return info.examples.length < JPDB_EXAMPLE_LIMIT
+            || (info.usedInVocabulary?.length ?? 0) < JPDB_USED_IN_VOCABULARY_LIMIT
+            || info.compounds.length < JPDB_COMPOUND_LIMIT;
+    }
+    if (kind === 'examples') return info.examples.length < JPDB_EXAMPLE_LIMIT;
+    return (info.usedInVocabulary?.length ?? 0) < JPDB_USED_IN_VOCABULARY_LIMIT;
+}
+
+function mergeVocabularyInfo(primary: JpdbVocabularyInfo, supplemental: JpdbVocabularyInfo): JpdbVocabularyInfo {
+    return {
+        meanings: unique([...primary.meanings, ...supplemental.meanings]).slice(0, 8),
+        compounds: mergeBy(primary.compounds, supplemental.compounds, compound => `${compound.term}\t${compound.reading}`, JPDB_COMPOUND_LIMIT),
+        usedInVocabulary: mergeBy(
+            primary.usedInVocabulary ?? [],
+            supplemental.usedInVocabulary ?? [],
+            entry => `${entry.term}\t${entry.reading}`,
+            JPDB_USED_IN_VOCABULARY_LIMIT,
+        ),
+        examples: mergeBy(primary.examples, supplemental.examples, example => example.sentence, JPDB_EXAMPLE_LIMIT),
+    };
 }
 
 function vocabularyRoot(doc: Document, spelling: string, reading: string): ParentNode | null {
@@ -187,21 +283,25 @@ function extractCompounds(root: ParentNode): JpdbVocabularyCompound[] {
     root.querySelectorAll<HTMLElement>('.subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji').forEach(section => {
         const label = cleanText(section.querySelector<HTMLElement>('.subsection-label')?.textContent ?? '').toLowerCase();
         if (label && !label.startsWith('composed of')) return;
-        section.querySelectorAll<HTMLElement>('.subsection > div, .subsection .used-in').forEach(row => {
-            const link = row.querySelector<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href^="/kanji/"]');
-            const spelling = row.querySelector<HTMLElement>('.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]') ?? link;
-            const term = cleanText(spelling ? baseText(spelling) : '') || cleanText(spelling?.textContent ?? '');
-            const reading = cleanText(spelling ? readingText(spelling) : '') || term;
-            if (!term || !JAPANESE_RE.test(term) || entries.some(entry => entry.term === term)) return;
-            entries.push({
-                term,
-                reading,
-                meaning: cleanText(row.querySelector<HTMLElement>('.description, .en, .meaning')?.textContent ?? ''),
-                url: link?.getAttribute('href') ?? '',
-            });
-        });
+        section.querySelectorAll<HTMLElement>('.subsection > div, .subsection .used-in').forEach(row => addCompoundEntry(entries, row));
     });
-    return entries.slice(0, 8);
+    root.querySelectorAll<HTMLElement>('.subsection > .composed-of, .subsection .composed-of')
+        .forEach(row => addCompoundEntry(entries, row));
+    return entries.slice(0, JPDB_COMPOUND_LIMIT);
+}
+
+function addCompoundEntry(entries: JpdbVocabularyCompound[], row: HTMLElement): void {
+    const link = row.querySelector<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href^="/kanji/"]');
+    const spelling = row.querySelector<HTMLElement>('.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]') ?? link;
+    const term = cleanText(spelling ? baseText(spelling) : '') || cleanText(spelling?.textContent ?? '');
+    const reading = cleanText(spelling ? readingText(spelling) : '') || term;
+    if (!term || !JAPANESE_RE.test(term) || entries.some(entry => entry.term === term)) return;
+    entries.push({
+        term,
+        reading,
+        meaning: cleanText(row.querySelector<HTMLElement>('.description, .en, .meaning')?.textContent ?? ''),
+        url: link?.getAttribute('href') ?? '',
+    });
 }
 
 function extractUsedInVocabulary(root: ParentNode): JpdbVocabularyCompound[] {
@@ -224,7 +324,7 @@ function extractUsedInVocabulary(root: ParentNode): JpdbVocabularyCompound[] {
             });
         });
     });
-    return entries.slice(0, 8);
+    return entries.slice(0, JPDB_USED_IN_VOCABULARY_LIMIT);
 }
 
 function usedInRows(section: HTMLElement): HTMLElement[] {
@@ -247,7 +347,7 @@ function isVocabularyLink(link: HTMLAnchorElement): boolean {
 function extractExamples(root: ParentNode): JpdbVocabularyExample[] {
     const seen = new Set<string>();
     const examples: JpdbVocabularyExample[] = [];
-    root.querySelectorAll<HTMLElement>('.subsection-examples, .subsection-monolingual-examples').forEach(section => {
+    exampleSections(root).forEach(section => {
         section.querySelectorAll<HTMLElement>('.subsection > div, .example, li, p').forEach(row => {
             const sentenceNode = row.querySelector<HTMLElement>('.sentence, .jp, .japanese, .plain') ?? row;
             const sentence = cleanText(baseText(sentenceNode)) || cleanText(sentenceNode.textContent ?? '');
@@ -256,10 +356,45 @@ function extractExamples(root: ParentNode): JpdbVocabularyExample[] {
             examples.push({
                 sentence,
                 translation: cleanText(row.querySelector<HTMLElement>('.translation, .en, .english')?.textContent ?? ''),
+                audioIds: jpdbAudioIds(row),
             });
         });
     });
-    return examples.slice(0, 5);
+    return examples.slice(0, JPDB_EXAMPLE_LIMIT);
+}
+
+function exampleSections(root: ParentNode): HTMLElement[] {
+    const byClass = Array.from(root.querySelectorAll<HTMLElement>('.subsection-examples, .subsection-monolingual-examples'));
+    const byLabel = Array.from(root.querySelectorAll<HTMLElement>('.subsection-label'))
+        .filter(label => cleanText(label.textContent ?? '').toLowerCase().includes('examples'))
+        .map(exampleSectionFromLabel)
+        .filter((section): section is HTMLElement => section !== null);
+    return unique([...byClass, ...byLabel]);
+}
+
+function exampleSectionFromLabel(label: HTMLElement): HTMLElement | null {
+    let current = label.parentElement;
+    while (current) {
+        if (current.querySelector('.subsection')) return current;
+        current = current.parentElement;
+    }
+    return label.parentElement;
+}
+
+export function jpdbAudioIds(root: ParentNode): string[] {
+    return unique(Array.from(root.querySelectorAll<HTMLElement>('[data-audio]'))
+        .flatMap(element => parseJpdbAudioData(element.dataset.audio ?? '')));
+}
+
+export function parseJpdbAudioData(value: string): string[] {
+    return value
+        .split(/[,+]/)
+        .map(item => item.trim())
+        .filter(isValidJpdbAudioId);
+}
+
+function isValidJpdbAudioId(value: string): boolean {
+    return Boolean(value && JPDB_AUDIO_ID_RE.test(value) && !value.includes('..') && !value.startsWith('//'));
 }
 
 function baseText(root: Node): string {
@@ -309,8 +444,30 @@ function decodePathPart(value: string): string {
     }
 }
 
+function absoluteJpdbUrl(value: string): string {
+    try {
+        return new URL(value, 'https://jpdb.io').toString();
+    } catch {
+        return '';
+    }
+}
+
 function unique<T>(values: T[]): T[] {
     return [...new Set(values)];
+}
+
+function uniqueBy<T>(values: T[], key: (value: T) => string): T[] {
+    const seen = new Set<string>();
+    return values.filter(value => {
+        const current = key(value);
+        if (seen.has(current)) return false;
+        seen.add(current);
+        return true;
+    });
+}
+
+function mergeBy<T>(primary: T[], supplemental: T[], key: (value: T) => string, limit: number): T[] {
+    return uniqueBy([...primary, ...supplemental], key).slice(0, limit);
 }
 
 function requestText(url: string, proxyUrl = ''): Promise<string> {

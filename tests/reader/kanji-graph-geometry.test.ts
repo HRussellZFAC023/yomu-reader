@@ -8,7 +8,7 @@ describe('kanji graph geometry', () => {
             { x: 80, y: 50, rx: 5, ry: 10 },
         );
 
-        expect(path.d).toBe('M24.8 50 L75.35 50');
+        expect(path.d).toBe('M25 50 L75 50');
     });
 
     it('clips fixed-zone arrows at the target border', () => {
@@ -18,6 +18,6 @@ describe('kanji graph geometry', () => {
             'top',
         );
 
-        expect(path.d).toBe('M50 29.8 L50 70.35');
+        expect(path.d).toBe('M50 30 L50 70');
     });
 });

@@ -1,8 +1,8 @@
-import { DISCORD_HANDLE, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, VIDEO_PLAYER_PAGE_URL } from './constants';
+import { DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, VIDEO_PLAYER_PAGE_URL } from './constants';
 import { escapeHtml, setInnerHtml } from './dom';
 import { resolveUiLanguage, uiText } from './i18n';
 import { Logger } from './logger';
-import { AUDIO_GUIDE_URL, AUDIO_SOURCE_LABELS, AUDIO_SOURCE_UI_OPTIONS, COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, accentToRgba, formatShortcutEvent, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from './settings';
+import { AUDIO_GUIDE_URL, AUDIO_SOURCE_LABELS, AUDIO_SOURCE_UI_OPTIONS, COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, accentToRgba, effectiveWordHighlightMode, formatShortcutEvent, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from './settings';
 import type { AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, InterfaceLanguage, JPDBDeck, ReaderColorSource, ReaderSettings } from './types';
 import type { RecommendedDictionary } from './recommended-dictionaries';
 import { RECOMMENDED_JAPANESE_DICTIONARIES } from './recommended-dictionaries';
@@ -11,14 +11,32 @@ import type { YomitanDictionaryInfo } from './yomitan';
 import { speakerIcon } from './popup-render';
 
 const log = Logger.scope('SettingsForm');
-const COLOR_SOURCE_OPTIONS: [ReaderColorSource, string][] = [
-    ['auto', 'Automatic'],
-    ['off', 'Off'],
+type SelectableReaderColorSource = Exclude<ReaderColorSource, 'auto'>;
+type ColorSourceSettingName =
+    | 'wordHighlightColorSource'
+    | 'wordUnderlineColorSource'
+    | 'wordTextColorSource'
+    | 'subtitleHighlightColorSource'
+    | 'subtitleUnderlineColorSource'
+    | 'subtitleTextColorSource';
+
+const COLOR_SOURCE_VALUES: readonly SelectableReaderColorSource[] = ['status', 'jpdb', 'anki', 'pitch', 'off'];
+const COLOR_SOURCE_OPTIONS: [SelectableReaderColorSource, string][] = [
     ['status', 'JPDB + Anki status'],
     ['jpdb', 'JPDB status'],
     ['anki', 'Anki status'],
     ['pitch', 'Pitch accent'],
+    ['off', 'Off'],
 ];
+const DEFAULT_COLOR_SOURCE_VALUES: Record<ColorSourceSettingName, SelectableReaderColorSource> = {
+    wordHighlightColorSource: 'jpdb',
+    wordUnderlineColorSource: 'pitch',
+    wordTextColorSource: 'off',
+    subtitleHighlightColorSource: 'jpdb',
+    subtitleUnderlineColorSource: 'pitch',
+    subtitleTextColorSource: 'jpdb',
+};
+const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
 
 interface SettingsFormReader {
     get: (key: string) => string;
@@ -38,17 +56,18 @@ export function renderHelpLinksPanel(): string {
                 <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">Video Player</a>
                 <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">New Tab</a>
                 <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}" target="_blank" rel="noopener" data-help-link="docs">Docs</a>
-                <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}support" target="_blank" rel="noopener" data-help-link="support">Support</a>
+                <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="factory-reset" data-help-link="factory-reset">Factory Reset</button>
             </div>
             <div class="jpdb-reader-help-support">
                 <div>
                     <div class="jpdb-reader-help-title" data-help-support-title>Support よむ</div>
-                    <p data-help-support-copy>Report bugs on GitHub issues, use Discord for quick questions, or open the support page for donation and project links.</p>
+                    <p data-help-support-copy>よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as Migaku currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.</p>
+                    <p data-help-support-copy-extra>Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.</p>
                 </div>
                 <div class="jpdb-reader-help-actions">
+                    <a class="jpdb-reader-btn jpdb-reader-help-donate" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">Donate</a>
                     <a class="jpdb-reader-btn" href="${GITHUB_REPOSITORY_URL}/issues" target="_blank" rel="noopener" data-help-link="issues">Issues</a>
-                    <a class="jpdb-reader-btn" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">Donate</a>
-                    <button class="jpdb-reader-btn jpdb-reader-help-discord" type="button" data-action="copy-discord-handle" data-help-link="discord" data-discord-handle="${DISCORD_HANDLE}">Discord: ${DISCORD_HANDLE}</button>
+                    <a class="jpdb-reader-btn jpdb-reader-help-discord" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener" data-help-link="discord">Discord</a>
                 </div>
             </div>
         </div>
@@ -119,6 +138,7 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
                     ${select('interfaceLanguage', 'Settings language', settings.interfaceLanguage, [['auto', 'Automatic'], ['en', 'English'], ['ja', '日本語']])}
                     ${themeSegmentedControl(settings.theme)}
                     ${select('popupMode', 'Popup mode', settings.popupMode, [['auto', 'Auto'], ['sheet', 'Bottom sheet'], ['popover', 'Popover']])}
+                    ${checkbox('stickyBottomSheet', 'Keep bottom sheet open until closed', settings.stickyBottomSheet)}
                     ${input('popoverWidth', 'Popover width (px)', String(settings.popoverWidth), 'number', { min: 280, max: 900, step: 10 })}
                     ${input('popoverHeight', 'Popover height (px)', String(settings.popoverHeight), 'number', { min: 220, max: 900, step: 10 })}
                     ${select('popoverHeightMode', 'Popover height', settings.popoverHeightMode, [['available', 'Grow to available space'], ['fixed', 'Use height setting']])}
@@ -139,11 +159,12 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                     <div class="jpdb-reader-local-title">New tab</div>
                     <div class="grid">
                         ${checkbox('newTabEnabled', 'Use Yomu new tab study page', settings.newTabEnabled)}
-                        ${select('newTabSource', 'New tab review source', settings.newTabSource, [['auto', 'Auto: Anki + JPDB'], ['jpdb', 'JPDB'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
+                        ${select('newTabSource', 'New tab review source', settings.newTabSource, [['auto', 'Auto: JPDB + Anki'], ['jpdb', 'JPDB'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
                         ${select('newTabJpdbReviewMode', 'JPDB review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
                         ${input('corsProxyUrl', 'Cross-origin proxy URL', settings.corsProxyUrl, 'url', { placeholder: 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev' })}
                         ${select('newTabKanjiKeywordSource', 'Kanji keyword source', settings.newTabKanjiKeywordSource, [['auto', 'Auto: RTK, then JPDB, then local'], ['rtk', 'RTK / Heisig'], ['jpdb', 'JPDB'], ['local', 'Local card meaning']])}
                         ${checkbox('newTabParsingEnabled', 'Parse sentences on new tab', settings.newTabParsingEnabled)}
+                        ${checkbox('newTabFrontSentenceEnabled', 'Show sentence on word fronts', settings.newTabFrontSentenceEnabled)}
                         ${checkbox('newTabKanjiAutogradeEnabled', 'Autograde kanji drawing', settings.newTabKanjiAutogradeEnabled)}
                         ${checkbox('newTabKanjiAutoSubmit', 'Submit kanji grade after autograde', settings.newTabKanjiAutoSubmit)}
                         ${checkbox('newTabOfflineEnabled', 'Cache new tab for offline use', settings.newTabOfflineEnabled)}
@@ -196,16 +217,21 @@ function renderColorChannelSettingsSubsection(settings: ReaderSettings): string 
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Color channels</div>
                     <div class="grid">
-                        ${select('wordHighlightColorSource', 'Word highlight color', settings.wordHighlightColorSource, COLOR_SOURCE_OPTIONS)}
-                        ${select('wordUnderlineColorSource', 'Word underline color', settings.wordUnderlineColorSource, COLOR_SOURCE_OPTIONS)}
-                        ${select('wordTextColorSource', 'Word text color', settings.wordTextColorSource, COLOR_SOURCE_OPTIONS)}
-                        ${select('subtitleHighlightColorSource', 'Subtitle highlight color', settings.subtitleHighlightColorSource, COLOR_SOURCE_OPTIONS)}
-                        ${select('subtitleUnderlineColorSource', 'Subtitle underline color', settings.subtitleUnderlineColorSource, COLOR_SOURCE_OPTIONS)}
-                        ${select('subtitleTextColorSource', 'Subtitle text color', settings.subtitleTextColorSource, COLOR_SOURCE_OPTIONS)}
+                        ${select('wordHighlightColorSource', 'Word highlight color', settingsColorSourceValue(settings, 'wordHighlightColorSource'), COLOR_SOURCE_OPTIONS)}
+                        ${select('wordUnderlineColorSource', 'Word underline color', settingsColorSourceValue(settings, 'wordUnderlineColorSource'), COLOR_SOURCE_OPTIONS)}
+                        ${select('wordTextColorSource', 'Word text color', settingsColorSourceValue(settings, 'wordTextColorSource'), COLOR_SOURCE_OPTIONS)}
+                        ${select('subtitleHighlightColorSource', 'Subtitle highlight color', settingsColorSourceValue(settings, 'subtitleHighlightColorSource'), COLOR_SOURCE_OPTIONS)}
+                        ${select('subtitleUnderlineColorSource', 'Subtitle underline color', settingsColorSourceValue(settings, 'subtitleUnderlineColorSource'), COLOR_SOURCE_OPTIONS)}
+                        ${select('subtitleTextColorSource', 'Subtitle text color', settingsColorSourceValue(settings, 'subtitleTextColorSource'), COLOR_SOURCE_OPTIONS)}
                     </div>
-                    <div class="jpdb-reader-help" data-color-channels-help>Automatic follows the reader color mode below. You can point highlight, underline, and text at the same source or split JPDB, Anki, and pitch accent colors across them.</div>
+                    <div class="jpdb-reader-help" data-color-channels-help>Each channel uses the source shown here. Defaults keep page text readable, show mining status in highlights, and keep subtitle status and pitch visible.</div>
                 </div>
     `;
+}
+
+function settingsColorSourceValue(settings: ReaderSettings, name: ColorSourceSettingName): SelectableReaderColorSource {
+    const source = settings[name];
+    return source === 'auto' ? DEFAULT_COLOR_SOURCE_VALUES[name] : source;
 }
 
 function renderAudioSettingsPanel(settings: ReaderSettings): string {
@@ -218,7 +244,7 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
                 ${checkbox('audioFallbackChimeEnabled', 'Play a soft chime when no audio is available', settings.audioFallbackChimeEnabled)}
                 <div class="grid">
                     ${select('audioAutoPlayMode', 'Auto-play trigger', settings.audioAutoPlayMode, [['all', 'Hover and tap/click'], ['hover', 'Hover only'], ['tap', 'Tap/click only']])}
-                    ${select('audioSelectionMode', 'When a source has several clips', settings.audioSelectionMode, [['first', 'First audio'], ['random', 'Random audio']])}
+                    ${select('audioSelectionMode', 'When several sources or clips exist', settings.audioSelectionMode, [['first', 'First audio'], ['random', 'Random audio']])}
                     ${input('audioTimeoutMs', 'Audio timeout (ms)', String(settings.audioTimeoutMs), 'number')}
                 </div>
                 <div class="jpdb-reader-audio-sources" data-source-editor data-audio-source-editor>
@@ -238,11 +264,12 @@ function renderImmersionKitSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('immersionKitShowTranslation', 'Show example translations', settings.immersionKitShowTranslation)}
                     ${checkbox('immersionKitRevealTranslationOnClick', 'Blur example translations until clicked', settings.immersionKitRevealTranslationOnClick, { disabled: !settings.immersionKitShowTranslation })}
                     ${checkbox('immersionKitShowImages', 'Show example thumbnails', settings.immersionKitShowImages)}
-                    ${checkbox('immersionKitAutoPlayAudio', 'Play example audio after next/previous', settings.immersionKitAutoPlayAudio)}
+                    ${checkbox('immersionKitAutoPlayAudio', 'Play example audio after reveal or next/previous', settings.immersionKitAutoPlayAudio)}
                     ${checkbox('immersionKitPlayOnHover', 'Play example audio when hovering thumbnails', settings.immersionKitPlayOnHover)}
                     ${checkbox('immersionKitPlayOnImageClick', 'Play example audio when clicking thumbnails', settings.immersionKitPlayOnImageClick)}
                     ${select('immersionKitCategory', 'Example source', settings.immersionKitCategory, [['all', 'All'], ['anime', 'Anime'], ['drama', 'Drama'], ['games', 'Games']])}
                     ${select('immersionKitSort', 'Example order', settings.immersionKitSort, [['sentence_length:asc', 'Shortest first'], ['sentence_length:desc', 'Longest first']])}
+                    ${radioGroup('immersionKitLimitEnabled', 'Examples per word limit', settings.immersionKitLimitEnabled ? 'on' : 'off', [['off', 'All examples'], ['on', 'Limit examples']])}
                     ${input('immersionKitLimit', 'Examples per word', String(settings.immersionKitLimit), 'number', { min: 1, max: 12, step: 1 })}
                     ${input('immersionKitMinLength', 'Minimum sentence length', String(settings.immersionKitMinLength), 'number', { min: 0, max: 120, step: 1 })}
                     ${input('immersionKitMaxLength', 'Maximum sentence length', String(settings.immersionKitMaxLength), 'number', { min: 0, max: 240, step: 1 })}
@@ -268,7 +295,7 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('showFloatingButton', 'Toggle floating puck on pages', settings.showFloatingButton)}
                     ${select('furiganaMode', 'Furigana', settings.furiganaMode, [['auto', 'Automatic'], ['difficult-kanji', 'Difficult kanji only'], ['known-status', 'Hide known words'], ['all', 'All parsed words'], ['off', 'Off']])}
                     ${checkbox('showPitchAccent', 'Show pitch accent', settings.showPitchAccent)}
-                    ${select('wordHighlightMode', 'Word highlight colors', settings.wordHighlightMode, [['auto', 'Automatic'], ['status', 'Known/mining status'], ['pitch', 'Pitch accent'], ['off', 'Off']])}
+                    ${select('wordHighlightMode', 'Word color mode', effectiveWordHighlightMode(settings), [['status', 'Known/mining status'], ['pitch', 'Pitch accent'], ['off', 'Off']])}
                 </div>
                 <div class="jpdb-reader-help">Hover lookup uses the shortcut below. Leave it blank for plain hover; keep click enabled if you also want tap lookup.</div>
             </fieldset>
@@ -295,14 +322,15 @@ function renderKanjiSettingsPanel(settings: ReaderSettings): string {
 
 function renderImageSettingsPanel(settings: ReaderSettings): string {
     const localOcrHidden = settings.ocrProvider === 'local-service' ? '' : 'hidden';
+    const cloudOcrHidden = settings.ocrProvider === 'cloud-vision' ? '' : 'hidden';
     return `
             <fieldset data-settings-panel="media" hidden>
-                <legend>Images</legend>
+                <legend>OCR</legend>
                 <div class="grid">
                     ${checkbox('ocrEnabled', 'Read text in images', settings.ocrEnabled)}
                     ${checkbox('ocrAutoScanImages', 'Read images automatically', settings.ocrAutoScanImages)}
                     ${checkbox('ocrShowTextOverlay', 'Show recognized text on images', settings.ocrShowTextOverlay)}
-                    ${select('ocrProvider', 'Image reading', settings.ocrProvider, [['local-service', 'Local OCR app'], ['off', 'Off']])}
+                    ${select('ocrProvider', 'Image reading', settings.ocrProvider, [['google-lens', 'Google Lens (recommended)'], ['cloud-vision', 'Google Cloud Vision'], ['local-service', 'Local OCR engine'], ['off', 'Off']])}
                     ${select('ocrMaxImagesPerPage', 'Images to read per page', String(settings.ocrMaxImagesPerPage), [['3', 'Light'], ['8', 'Normal'], ['16', 'More']])}
                     ${select('ocrMinImageArea', 'Smallest image to read', String(settings.ocrMinImageArea), [['80000', 'Large images only'], ['45000', 'Normal'], ['15000', 'Include small images']])}
                     ${select('ocrMaxImagePixels', 'Image detail', String(settings.ocrMaxImagePixels), [['640000', 'Faster'], ['1200000', 'Balanced'], ['2000000', 'Sharper']])}
@@ -311,12 +339,16 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                     ${input('ocrBackgroundColor', 'Image highlight background', settings.ocrBackgroundColor, 'color')}
                     ${input('ocrBackgroundOpacity', 'Image highlight opacity', String(settings.ocrBackgroundOpacity), 'number')}
                     ${input('ocrFontScale', 'Image text scale', String(settings.ocrFontScale), 'number')}
-                    <label data-local-ocr ${localOcrHidden}>Local OCR app URL<input name="ocrEndpointUrl" type="text" value="${escapeHtml(settings.ocrEndpointUrl)}" autocomplete="off"></label>
                     <div data-local-ocr ${localOcrHidden}>${select('ocrEngine', 'Local OCR engine', settings.ocrEngine, [['auto', 'Automatic'], ['MangaOCR', 'MangaOCR'], ['PaddleOCR', 'PaddleOCR'], ['AppleVision', 'Apple Vision']])}</div>
+                    <details data-local-ocr ${localOcrHidden}>
+                        <summary>Custom local OCR server</summary>
+                        <label>Custom local OCR URL<input name="ocrEndpointUrl" type="url" value="${escapeHtml(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
+                    </details>
+                    <label data-cloud-ocr ${cloudOcrHidden}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="password" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"></label>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
                 </div>
-                <div class="jpdb-reader-help">Images are read quietly near the viewport when embedded OCR metadata or a local OCR app is available. Recognized areas stay transparent until you tap or hover.</div>
+                <div class="jpdb-reader-help">Images are read quietly near the viewport. Google Lens handles normal images by default; Cloud Vision can be used with an API key, and embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.</div>
             </fieldset>
     `;
 }
@@ -356,10 +388,10 @@ function renderSubtitlePreview(): string {
     return `
                 <div class="jpdb-reader-subtitle-preview" data-subtitle-preview>
                     <div class="jpdb-subtitle-primary">
-                        <span class="jpdb-reader-word jpdb-new">新しい</span>
-                        <span class="jpdb-reader-word jpdb-learning">言葉</span>
-                        <span class="jpdb-reader-word jpdb-known">を</span>
-                        <span class="jpdb-reader-word jpdb-due">読む</span>
+                        <span class="jpdb-reader-word jpdb-new jpdb-pitch-heiban" data-settings-preview-lookup="新しい" data-sentence="新しい言葉を読む" tabindex="0">新しい</span>
+                        <span class="jpdb-reader-word jpdb-learning jpdb-pitch-atamadaka" data-settings-preview-lookup="言葉" data-sentence="新しい言葉を読む" tabindex="0">言葉</span>
+                        <span class="jpdb-reader-word jpdb-known jpdb-pitch-nakadaka" data-settings-preview-lookup="を" data-sentence="新しい言葉を読む" tabindex="0">を</span>
+                        <span class="jpdb-reader-word jpdb-due jpdb-pitch-odaka" data-settings-preview-lookup="読む" data-sentence="新しい言葉を読む" tabindex="0">読む</span>
                     </div>
                     <div class="jpdb-subtitle-secondary">Live subtitle preview</div>
                 </div>
@@ -379,9 +411,12 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
                     ${input('ankiDeck', 'Anki deck', settings.ankiDeck)}
                     ${input('ankiModel', 'Anki note type', settings.ankiModel)}
                     ${select('ankiTemplateMode', 'Anki card template', settings.ankiTemplateMode, [['recognition', 'Word first'], ['context', 'Sentence first']])}
+                    ${checkbox('ankiFrontReading', 'Word-first front: show reading', settings.ankiFrontReading)}
+                    ${checkbox('ankiFrontSentence', 'Word-first front: show sentence', settings.ankiFrontSentence)}
+                    ${checkbox('ankiFrontImage', 'Show image on front', settings.ankiFrontImage)}
                     ${input('ankiTags', 'Tags', settings.ankiTags)}
                 </div>
-                <div class="jpdb-reader-settings-actions">
+                <div class="jpdb-reader-settings-actions jpdb-reader-settings-actions-single">
                     <button class="jpdb-reader-btn" type="button" data-action="test-anki">Test Anki</button>
                 </div>
                 <div class="jpdb-reader-help jpdb-reader-status-line" data-anki-status role="status" aria-live="polite">Anki uses AnkiConnect on this device. The default creates a small Yomu note type automatically.</div>
@@ -495,6 +530,12 @@ export function select(name: string, label: string, value: string, options: [str
     ).join('')}</select></label>`;
 }
 
+function radioGroup(name: string, label: string, value: string, options: [string, string][]): string {
+    return `<fieldset class="jpdb-reader-radio-group"><legend>${label}</legend>${options.map(([optionValue, text]) =>
+        `<label class="inline"><input name="${name}" type="radio" value="${escapeHtml(optionValue)}" ${optionValue === value ? 'checked' : ''}>${escapeHtml(text)}</label>`,
+    ).join('')}</fieldset>`;
+}
+
 function themeSegmentedControl(value: ReaderSettings['theme']): string {
     const isLight = value === 'light';
     return `
@@ -559,6 +600,7 @@ function localizeSettingsTabs(form: HTMLFormElement, text: SettingsText): void {
 }
 
 function localizeSettingsLegends(form: HTMLFormElement, text: SettingsText): void {
+    const fieldsets = getSettingsPanelFieldsets(form);
     [
         'JPDB',
         text('interface'),
@@ -573,7 +615,7 @@ function localizeSettingsLegends(form: HTMLFormElement, text: SettingsText): voi
         text('shortcuts'),
         text('help'),
     ].forEach((label, index) => {
-        const legend = form.querySelectorAll('fieldset > legend')[index];
+        const legend = directFieldsetLegend(fieldsets[index]);
         legend?.replaceChildren(label);
     });
 }
@@ -583,6 +625,7 @@ function localizeSettingsLabels(form: HTMLFormElement, text: SettingsText): void
     const jpdbSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jpdb.io/settings"]');
     if (jpdbSettings) jpdbSettings.textContent = text('jpdbSettings');
     localizeBlockControlLabel(form, 'ocrEndpointUrl', text('ocrEndpointUrl'));
+    localizeBlockControlLabel(form, 'ocrCloudVisionApiKey', text('cloudVisionApiKey'));
 }
 
 function localizeBlockControlLabel(form: HTMLFormElement, name: string, label: string): void {
@@ -642,7 +685,6 @@ function localizeBasicSettingsSelects(form: HTMLFormElement, text: SettingsText)
 
 function localizeColorAndReaderSelects(form: HTMLFormElement, text: SettingsText): void {
     setSelectOptionLabels(form, 'wordHighlightMode', [
-        ['auto', text('automatic')],
         ['status', text('highlightKnownStatus')],
         ['pitch', text('highlightPitchAccent')],
         ['off', text('off')],
@@ -666,12 +708,11 @@ function localizeColorSourceSelects(form: HTMLFormElement, text: SettingsText): 
         'subtitleUnderlineColorSource',
         'subtitleTextColorSource',
     ].forEach(name => setSelectOptionLabels(form, name, [
-        ['auto', text('automatic')],
-        ['off', text('off')],
         ['status', text('colorSourceStatus')],
         ['jpdb', text('colorSourceJpdb')],
         ['anki', text('colorSourceAnki')],
         ['pitch', text('colorSourcePitch')],
+        ['off', text('off')],
     ]));
 }
 
@@ -700,6 +741,8 @@ function localizeMediaSettingsSelects(form: HTMLFormElement, text: SettingsText)
 
 function localizeOcrSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
     setSelectOptionLabels(form, 'ocrProvider', [
+        ['google-lens', text('googleLens')],
+        ['cloud-vision', text('cloudVision')],
         ['local-service', text('localOcr')],
         ['off', text('off')],
     ]);
@@ -822,6 +865,7 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['twoButtonReviews', 'reviewRatingScale'],
         ['interfaceLanguage', 'settingsLanguage'],
         ['popupMode', 'popupMode'],
+        ['stickyBottomSheet', 'stickyBottomSheet'],
         ['popoverWidth', 'popoverWidth'],
         ['popoverHeight', 'popoverHeight'],
         ['popoverHeightMode', 'popoverHeightMode'],
@@ -901,6 +945,7 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['ocrFontScale', 'ocrFontScale'],
         ['ocrEndpointUrl', 'ocrEndpointUrl'],
         ['ocrEngine', 'ocrEngine'],
+        ['ocrCloudVisionApiKey', 'cloudVisionApiKey'],
         ['subtitlePlayerEnabled', 'subtitlePlayerEnabled'],
         ['subtitleAutoDetect', 'subtitleAutoDetect'],
         ['subtitleOverlayVisible', 'subtitleOverlayVisible'],
@@ -929,6 +974,9 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['ankiDeck', 'ankiDeck'],
         ['ankiModel', 'ankiModel'],
         ['ankiTemplateMode', 'ankiTemplateMode'],
+        ['ankiFrontReading', 'ankiFrontReading'],
+        ['ankiFrontSentence', 'ankiFrontSentence'],
+        ['ankiFrontImage', 'ankiFrontImage'],
         ['ankiTags', 'ankiTags'],
         ['studyTranslationEnabled', 'studyTranslationEnabled'],
         ['studyGrammarEnabled', 'studyGrammarEnabled'],
@@ -1001,9 +1049,19 @@ function setShortcutPlaceholder(form: HTMLFormElement, name: string, placeholder
 }
 
 function getFieldsetHelp(form: HTMLFormElement, index: number): HTMLElement | null {
-    const fieldset = form.querySelectorAll('fieldset')[index];
+    const fieldset = getSettingsPanelFieldsets(form)[index];
     return Array.from(fieldset?.children ?? []).find((child): child is HTMLElement =>
         child instanceof HTMLElement && child.classList.contains('jpdb-reader-help'),
+    ) ?? null;
+}
+
+function getSettingsPanelFieldsets(form: HTMLFormElement): HTMLFieldSetElement[] {
+    return Array.from(form.querySelectorAll<HTMLFieldSetElement>('fieldset[data-settings-panel]'));
+}
+
+function directFieldsetLegend(fieldset: HTMLFieldSetElement | undefined): HTMLLegendElement | null {
+    return Array.from(fieldset?.children ?? []).find((child): child is HTMLLegendElement =>
+        child instanceof HTMLLegendElement,
     ) ?? null;
 }
 
@@ -1020,13 +1078,14 @@ function localizeHelpLinksPanel(form: HTMLFormElement, language: InterfaceLangua
     panel.querySelector<HTMLElement>('[data-help-links-copy]')?.replaceChildren(text('helpLinksCopy'));
     panel.querySelector<HTMLElement>('[data-help-support-title]')?.replaceChildren(text('helpSupportTitle'));
     panel.querySelector<HTMLElement>('[data-help-support-copy]')?.replaceChildren(text('helpSupportCopy'));
+    panel.querySelector<HTMLElement>('[data-help-support-copy-extra]')?.replaceChildren(text('helpSupportCopyExtra'));
     panel.querySelector<HTMLElement>('[data-help-link="video-player"]')?.replaceChildren(text('videoPlayer'));
     panel.querySelector<HTMLElement>('[data-help-link="new-tab"]')?.replaceChildren(text('newTabPage'));
     panel.querySelector<HTMLElement>('[data-help-link="docs"]')?.replaceChildren(text('docs'));
-    panel.querySelector<HTMLElement>('[data-help-link="support"]')?.replaceChildren(text('help'));
+    panel.querySelector<HTMLElement>('[data-help-link="factory-reset"]')?.replaceChildren(text('factoryReset'));
     panel.querySelector<HTMLElement>('[data-help-link="issues"]')?.replaceChildren(text('issues'));
     panel.querySelector<HTMLElement>('[data-help-link="donate"]')?.replaceChildren(text('donate'));
-    panel.querySelector<HTMLElement>('[data-help-link="discord"]')?.replaceChildren(`Discord: ${DISCORD_HANDLE}`);
+    panel.querySelector<HTMLElement>('[data-help-link="discord"]')?.replaceChildren(text('discord'));
 }
 
 export function renderReviewShortcutInputs(settings: ReaderSettings): string {
@@ -1550,6 +1609,21 @@ export function syncSubtitlePreview(form: HTMLFormElement): void {
     );
     preview.style.setProperty('--subtitle-family', value('subtitleFontFamily', 'system-ui'));
     preview.style.setProperty('--subtitle-weight', String(Math.max(100, Math.min(900, numberValue('subtitleFontWeight', 760)))));
+    syncSubtitlePreviewColorClasses(form, preview);
+}
+
+function syncSubtitlePreviewColorClasses(form: HTMLFormElement, preview: HTMLElement): void {
+    const value = (name: string, fallback: string) => getNamedControl<HTMLInputElement | HTMLSelectElement>(form, name)?.value || fallback;
+    const classes = {
+        highlight: readOption(value('subtitleHighlightColorSource', 'jpdb'), COLOR_SOURCE_VALUES, 'jpdb'),
+        underline: readOption(value('subtitleUnderlineColorSource', 'pitch'), COLOR_SOURCE_VALUES, 'pitch'),
+        text: readOption(value('subtitleTextColorSource', 'jpdb'), COLOR_SOURCE_VALUES, 'jpdb'),
+    };
+    (Object.keys(classes) as Array<keyof typeof classes>).forEach(channel => {
+        COLOR_SOURCE_CLASS_VALUES.forEach(source => {
+            preview.classList.toggle(`jpdb-reader-subtitle-${channel}-${source}`, classes[channel] === source);
+        });
+    });
 }
 
 export function renderDeckControls(settings: ReaderSettings, decks: JPDBDeck[], hasApiKey: boolean): string {
@@ -1586,8 +1660,14 @@ export function settingsTabButton(panel: string, label: string, active = false):
 export function renderAnkiTemplatePreview(settings: ReaderSettings): string {
     const contextMode = settings.ankiTemplateMode === 'context';
     const front = contextMode
-        ? '<div class="jpdb-reader-template-sentence">今日は<span>本を読む</span>。</div><small>Recall the highlighted word from context.</small>'
-        : '<div class="jpdb-reader-template-expression">読む</div><div class="jpdb-reader-template-reading">よむ</div><small>Recall the meaning and reading first.</small>';
+        ? `${settings.ankiFrontImage ? '<small>Image appears above the prompt when available.</small>' : ''}<div class="jpdb-reader-template-sentence">今日は<span>本を読む</span>。</div><small>Recall the highlighted word from context.</small>`
+        : [
+            '<div class="jpdb-reader-template-expression">読む</div>',
+            settings.ankiFrontReading ? '<div class="jpdb-reader-template-reading">よむ</div>' : '',
+            settings.ankiFrontSentence ? '<div class="jpdb-reader-template-sentence">今日は<span>本を読む</span>。</div>' : '',
+            settings.ankiFrontImage ? '<small>Image appears on the front when available.</small>' : '',
+            '<small>Recall the meaning first.</small>',
+        ].filter(Boolean).join('');
     return `
         <div class="jpdb-reader-template-preview">
             <div class="jpdb-reader-template-preview-title">${contextMode ? 'Sentence first preset' : 'Word first preset'}</div>
@@ -1758,9 +1838,9 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const number = (key: string, fallback: number) => readNumber(get(key), fallback);
     const audioSources = readAudioSources(data);
     const furiganaMode = readOption(get('furiganaMode'), ['auto', 'all', 'difficult-kanji', 'known-status', 'off'] as const, current.furiganaMode);
-    const wordHighlightMode = readOption(get('wordHighlightMode'), ['auto', 'status', 'pitch', 'off'] as const, current.wordHighlightMode);
+    const wordHighlightMode = readOption(get('wordHighlightMode'), ['status', 'pitch', 'off'] as const, current.wordHighlightMode === 'auto' ? 'status' : current.wordHighlightMode);
     const colorSource = (key: string, fallback: ReaderColorSource) =>
-        readOption(get(key), ['auto', 'status', 'jpdb', 'anki', 'pitch', 'off'] as const, fallback);
+        readOption(get(key), COLOR_SOURCE_VALUES, colorSourceFallback(key, fallback));
     const reader: SettingsFormReader = { get, has, number, colorSource };
     const jpdbDefinitionsRowPresent = hasJpdbDefinitionsRow(has);
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences);
@@ -1799,6 +1879,15 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ankiEnabled: settings.ankiEnabled,
     });
     return settings;
+}
+
+function colorSourceFallback(key: string, fallback: ReaderColorSource): SelectableReaderColorSource {
+    if (fallback !== 'auto') return fallback;
+    return isColorSourceSettingName(key) ? DEFAULT_COLOR_SOURCE_VALUES[key] : 'jpdb';
+}
+
+function isColorSourceSettingName(value: string): value is ColorSourceSettingName {
+    return Object.prototype.hasOwnProperty.call(DEFAULT_COLOR_SOURCE_VALUES, value);
 }
 
 function hasJpdbDefinitionsRow(has: (key: string) => boolean): boolean {
@@ -1903,6 +1992,7 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
         corsProxyUrl: get('corsProxyUrl').trim(),
         newTabKanjiKeywordSource: readOption(get('newTabKanjiKeywordSource'), ['auto', 'rtk', 'jpdb', 'local'] as const, current.newTabKanjiKeywordSource),
         newTabParsingEnabled: has('newTabParsingEnabled'),
+        newTabFrontSentenceEnabled: has('newTabFrontSentenceEnabled'),
         newTabOfflineEnabled: has('newTabOfflineEnabled'),
         newTabOfflineLimit: Math.max(0, Math.min(500, number('newTabOfflineLimit', current.newTabOfflineLimit))),
         newTabKanjiAutogradeEnabled: has('newTabKanjiAutogradeEnabled'),
@@ -1944,6 +2034,9 @@ function readAnkiFormSettings(reader: SettingsFormReader, current: ReaderSetting
         ankiDeck: get('ankiDeck').trim() || current.ankiDeck,
         ankiModel: get('ankiModel').trim() || current.ankiModel,
         ankiTemplateMode: readOption(get('ankiTemplateMode'), ['recognition', 'context'] as const, current.ankiTemplateMode),
+        ankiFrontReading: has('ankiFrontReading'),
+        ankiFrontSentence: has('ankiFrontSentence'),
+        ankiFrontImage: has('ankiFrontImage'),
         ankiTags: get('ankiTags').trim(),
         ankiMineWithJpdb: has('ankiMineWithJpdb'),
         ankiCaptureScreenshot: has('ankiCaptureScreenshot'),
@@ -1962,10 +2055,11 @@ function readStudyToolFormSettings(reader: SettingsFormReader, current: ReaderSe
 }
 
 function readPopupFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
-    const { get, number } = reader;
+    const { get, has, number } = reader;
     return {
         theme: readOption(get('theme'), ['auto', 'dark', 'light'] as const, current.theme),
         popupMode: readOption(get('popupMode'), ['auto', 'sheet', 'popover'] as const, current.popupMode),
+        stickyBottomSheet: has('stickyBottomSheet'),
         popoverWidth: Math.max(280, Math.min(900, number('popoverWidth', current.popoverWidth))),
         popoverHeight: Math.max(220, Math.min(900, number('popoverHeight', current.popoverHeight))),
         popoverHeightMode: readOption(get('popoverHeightMode'), ['available', 'fixed'] as const, current.popoverHeightMode),
@@ -1994,6 +2088,7 @@ function readOcrFormSettings(reader: SettingsFormReader, current: ReaderSettings
         ocrProvider: normalizeOcrProvider(get('ocrProvider')),
         ocrEndpointUrl: get('ocrEndpointUrl').trim(),
         ocrEngine: get('ocrEngine').trim() || 'auto',
+        ocrCloudVisionApiKey: get('ocrCloudVisionApiKey').trim(),
         ocrLanguage: get('ocrLanguage').trim() || 'ja-JP',
         ocrMaxImagePixels: Math.max(160000, Math.min(2800000, number('ocrMaxImagePixels', current.ocrMaxImagePixels))),
         ocrMinImageArea: Math.max(10000, Math.min(800000, number('ocrMinImageArea', current.ocrMinImageArea))),
@@ -2036,9 +2131,13 @@ function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSet
 
 function readImmersionKitFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, number } = reader;
+    const mediaEnabled = has('immersionKitEnabled');
+    const sourceRowPresent = Boolean(get('immersionKit.name') || get('immersionKit.priority'));
+    const sourceEnabled = sourceRowPresent ? has('immersionKit.enabled') : true;
     return {
-        immersionKitEnabled: has('immersionKitEnabled') && has('immersionKit.enabled'),
+        immersionKitEnabled: mediaEnabled && sourceEnabled,
         immersionKitPriority: Math.max(0, Math.min(999, number('immersionKit.priority', current.immersionKitPriority))),
+        immersionKitLimitEnabled: get('immersionKitLimitEnabled') === 'on',
         immersionKitLimit: Math.max(1, Math.min(12, number('immersionKitLimit', current.immersionKitLimit))),
         immersionKitMinLength: Math.max(0, Math.min(120, number('immersionKitMinLength', current.immersionKitMinLength))),
         immersionKitMaxLength: Math.max(0, Math.min(240, number('immersionKitMaxLength', current.immersionKitMaxLength))),

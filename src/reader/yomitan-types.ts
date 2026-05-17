@@ -1,8 +1,8 @@
 import type { DeinflectedTerm } from './deinflect';
 import type { ReaderSettings } from './types';
 
-export type StoreName = 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta' | 'dictionaryInfo';
-export type EntryStoreName = Exclude<StoreName, 'dictionaryInfo'>;
+export type StoreName = 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta' | 'dictionaryInfo' | 'termSearch';
+export type EntryStoreName = Exclude<StoreName, 'dictionaryInfo' | 'termSearch'>;
 
 export interface YomitanTermEntry {
     id?: number;
