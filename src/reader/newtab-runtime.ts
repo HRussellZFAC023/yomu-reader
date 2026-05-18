@@ -338,6 +338,7 @@ export class NewTabRuntime {
             rtk: this.rtk,
             immersionKit: this.immersionKit,
             jpdbVocabulary: this.jpdbVocabulary,
+            jpdbPublicPitch: this.jpdbPublicPitch,
             jpdbReviewBridge: this.jpdbReviewBridge,
             parser: this.parser,
             dictionaries: this.dictionaries,

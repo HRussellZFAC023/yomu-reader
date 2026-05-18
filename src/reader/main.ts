@@ -858,6 +858,7 @@ export class ReaderApp {
         }, { capture: true });
 
         document.addEventListener('pointerdown', event => {
+            this.dismissModalPopoverForOutsidePointer(event);
             this.dismissHoverPopoverForOutsidePointer(event);
             this.beginPressLookup(event);
         }, { capture: true, passive: false });
@@ -886,17 +887,19 @@ export class ReaderApp {
             this.handleHoverPointerOut(event);
         }, { capture: true });
 
-        document.addEventListener('mouseover', event => {
-            this.handleHoverPointer(event as PointerEvent);
-        }, { capture: true });
+        if (!window.PointerEvent) {
+            document.addEventListener('mouseover', event => {
+                this.handleHoverPointer(event as PointerEvent);
+            }, { capture: true });
 
-        document.addEventListener('mousemove', event => {
-            this.handleHoverPointer(event as PointerEvent);
-        }, { capture: true });
+            document.addEventListener('mousemove', event => {
+                this.handleHoverPointer(event as PointerEvent);
+            }, { capture: true });
 
-        document.addEventListener('mouseout', event => {
-            this.handleHoverPointerOut(event as PointerEvent);
-        }, { capture: true });
+            document.addEventListener('mouseout', event => {
+                this.handleHoverPointerOut(event as PointerEvent);
+            }, { capture: true });
+        }
 
         document.addEventListener('keyup', () => {
             if (this.isDestroyed) return;
@@ -1261,6 +1264,7 @@ export class ReaderApp {
         if (this.shouldIgnoreHoverPointer(event)) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         const insideActivePopover = this.handleActivePopoverHover(event);
+        if (insideActivePopover && this.isPointerInsideActiveHoverWord(event)) return;
         const word = this.hoverReaderWordForEvent(event);
         if (!word) {
             if (insideActivePopover) return;
@@ -1280,6 +1284,15 @@ export class ReaderApp {
         if (!this.isInsideActivePopover(event.target as Node | null)) return false;
         this.cancelHoverClose();
         return true;
+    }
+
+    private isPointerInsideActiveHoverWord(event: PointerEvent): boolean {
+        if (this.activePopoverMode !== 'hover' || !this.activeHoverWord?.isConnected) return false;
+        const rect = this.activeHoverWord.getBoundingClientRect();
+        return event.clientX >= rect.left
+            && event.clientX <= rect.right
+            && event.clientY >= rect.top
+            && event.clientY <= rect.bottom;
     }
 
     private hoverReaderWordForEvent(event: PointerEvent): HTMLElement | null {
@@ -1418,6 +1431,12 @@ export class ReaderApp {
         if (candidate) this.schedulePointerTextLookup(candidate, event);
     }
 
+    private dismissModalPopoverForOutsidePointer(event: PointerEvent): void {
+        if (this.isDestroyed || this.activePopoverMode !== 'modal' || !this.activePopover) return;
+        if (this.isInsideActivePopover(event.target as Node | null)) return;
+        this.dismiss({ suppressHoverTarget: true });
+    }
+
     private dismissHoverPopoverForOutsidePointer(event: PointerEvent): void {
         if (this.isDestroyed || this.activePopoverMode !== 'hover') return;
         const target = event.target as Node | null;
@@ -1512,9 +1531,10 @@ export class ReaderApp {
         if (!activeWord || !this.canRunScheduledHoverLookup(activeWord, event)) return;
         const activeHoverLookupKey = this.hoverLookupKeyForWord(activeWord);
         if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
-        void this.showWord(activeWord, { trigger: 'hover', hoverLookupGeneration }).finally(() => {
+        void this.showWord(activeWord, { trigger: 'hover', hoverLookupGeneration }).finally(() => undefined);
+        window.setTimeout(() => {
             if (this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = '';
-        });
+        }, 0);
     }
 
     private resolveScheduledHoverWord(word: HTMLElement): HTMLElement | null {
@@ -1573,9 +1593,10 @@ export class ReaderApp {
             if (!candidate.anchor.isConnected || !this.settings.lookupOnHover) return;
             if (!shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys)) return;
             if (hoverLookupKey) this.hoverLookupInFlightKey = hoverLookupKey;
-            void this.showLookupCandidate(candidate, 'hover', { hoverLookupGeneration }).finally(() => {
+            void this.showLookupCandidate(candidate, 'hover', { hoverLookupGeneration }).finally(() => undefined);
+            window.setTimeout(() => {
                 if (this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = '';
-            });
+            }, 0);
         };
         const delay = Math.max(0, this.settings.hoverOpenDelayMs);
         if (delay === 0) {
@@ -2099,8 +2120,29 @@ export class ReaderApp {
         const vid = Number(word.dataset.vid);
         const sid = Number(word.dataset.sid);
         if (insideReaderPopup && await this.lookupUncachedPopupWord(word, options)) return;
+        if (!insideReaderPopup && await this.lookupUncachedPageWord(word, options)) {
+            this.scheduleVisiblePageReparse();
+            return;
+        }
         log.warn('Clicked word missing from cache; scheduling page reparse', { vid, sid });
         this.scheduleVisiblePageReparse();
+    }
+
+    private async lookupUncachedPageWord(
+        word: HTMLElement,
+        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry },
+    ): Promise<boolean> {
+        const expression = normalizedLookupText(readerWordSurfaceText(word));
+        if (!isLookupableJapaneseText(expression)) return false;
+        const trigger = this.renderedWordTrigger(options.trigger, false);
+        const navigation = options.navigation ?? renderedWordNavigationMode(false, trigger);
+        await this.lookupText(expression, this.renderedWordSentence(word) ?? expression, {
+            anchor: renderedWordAnchor(word, false, this.activePopoverAnchor),
+            navigation,
+            preservePosition: trigger === 'hover',
+            previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, false, trigger, navigation),
+        });
+        return true;
     }
 
     private async lookupUncachedPopupWord(

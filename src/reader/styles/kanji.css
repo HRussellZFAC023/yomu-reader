@@ -1094,19 +1094,19 @@ html.jpdb-reader-doodle-active * {
   fill: currentColor;
 }
 .jpdb-reader-pitch .heiban {
-  color: #359eff;
+  color: var(--jpdb-reader-pitch-heiban, #359eff);
 }
 .jpdb-reader-pitch .atamadaka {
-  color: #fe4b74;
+  color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);
 }
 .jpdb-reader-pitch .nakadaka {
-  color: #fba840;
+  color: var(--jpdb-reader-pitch-nakadaka, #fba840);
 }
 .jpdb-reader-pitch .odaka {
-  color: #57ccb7;
+  color: var(--jpdb-reader-pitch-odaka, #57ccb7);
 }
 .jpdb-reader-pitch .kifuku {
-  color: #9050f6;
+  color: var(--jpdb-reader-pitch-kifuku, #9050f6);
 }
 .yomu-jpdb-uchisen-source[open] > :last-child {
   display: grid;

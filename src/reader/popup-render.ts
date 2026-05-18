@@ -1578,12 +1578,12 @@ export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = []
     const cls = getPitchClassName(pitch, morae.length);
     return `<div class="jpdb-reader-pitch"><svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
         <polyline class="${cls}" points="${points}"></polyline>
-        ${highs.map((level, index) => `<circle cx="${9 + index * 24}" cy="${level === 'H' ? 10 : 29}" r="3"></circle>`).join('')}
+        ${highs.map((level, index) => `<circle class="${cls}" cx="${9 + index * 24}" cy="${level === 'H' ? 10 : 29}" r="3"></circle>`).join('')}
         ${morae.map((mora, index) => `<text x="${9 + index * 24}" y="44" text-anchor="middle">${escapeHtml(mora)}</text>`).join('')}
     </svg></div>`;
 }
 
-function localPitchPatternFromMeta(reading: string, entries: YomitanMetaEntry[]): string {
+export function localPitchPatternFromMeta(reading: string, entries: YomitanMetaEntry[]): string {
     for (const entry of entries) {
         if (entry.mode !== 'pitch') continue;
         const position = readPitchPosition(entry.data, reading);
