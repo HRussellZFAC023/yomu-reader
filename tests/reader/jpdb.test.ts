@@ -79,6 +79,7 @@ const READER_WORD_CSS = READER_CSS || readFileSync('src/reader/styles/reader-wor
 const IMMERSION_STUDY_CSS = readFileSync('src/reader/styles/immersion-study.css', 'utf8');
 const LOCAL_DICTIONARY_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
 const KANJI_CSS = readFileSync('src/reader/styles/kanji.css', 'utf8');
+const NEW_TAB_CSS = readFileSync('src/reader/styles/new-tab.css', 'utf8');
 const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf8');
 const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
 const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
@@ -420,6 +421,18 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { background: var(--jpdb-reader-source-pitch-soft, transparent) !important; }');
         expect(normalizedCss).toContain('.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); text-decoration-line: underline !important; }');
         expect(normalizedCss).toContain('.jpdb-reader-subtitle-text-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { color: var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-subtitle-fallback, currentColor)) !important; }');
+    });
+
+    it('uses configurable pitch colors in graphs and visible new-tab target highlights', () => {
+        const normalizedKanjiCss = KANJI_CSS.replace(/\s+/g, ' ');
+        const normalizedNewTabCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
+        const html = renderPitch({ ...card, spelling: '読む', reading: 'よむ', pitchAccent: ['HLL'] });
+
+        expect(normalizedKanjiCss).toContain('.jpdb-reader-pitch .atamadaka { color: var(--jpdb-reader-pitch-atamadaka, #fe4b74); }');
+        expect(html).toContain('<polyline class="atamadaka"');
+        expect(html).toContain('<circle class="atamadaka"');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-sentence .jpdb-reader-example-target { border-radius: 0.12em; box-shadow: inset 0 -0.16em 0 color-mix(in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 64%, transparent);');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-sentence mark.jpdb-reader-example-target { padding: 0 0.08em; background: transparent; color: inherit; }');
     });
 
     it('resizes sheet popovers continuously when dragging the handle', () => {
@@ -2094,6 +2107,71 @@ describe('reader helpers', () => {
             });
             restoreMedia();
             restoreBrowser();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not fall through to browser text-to-speech when an available JapanesePod101 clip cannot start playback', async () => {
+        const spoken: string[] = [];
+        const requested: string[] = [];
+        class FakeSpeechSynthesisUtterance {
+            lang = '';
+            voice: SpeechSynthesisVoice | null = null;
+            onend: (() => void) | null = null;
+            onerror: (() => void) | null = null;
+            constructor(public text: string) {}
+        }
+        const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockRejectedValue(new DOMException('Playback blocked', 'NotAllowedError'));
+        const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+        const loadSpy = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:http://localhost/jpod101-audio'),
+        });
+        vi.stubGlobal('SpeechSynthesisUtterance', FakeSpeechSynthesisUtterance);
+        vi.stubGlobal('speechSynthesis', {
+            cancel: vi.fn(),
+            getVoices: vi.fn(() => []),
+            speak: vi.fn((utterance: FakeSpeechSynthesisUtterance) => {
+                spoken.push(utterance.text);
+                utterance.onend?.();
+            }),
+        });
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                details.onload?.({
+                    status: 200,
+                    response: new Blob(['audio'], { type: 'audio/mpeg' }),
+                });
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'jpod101', url: '', voice: '', enabled: true },
+                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                ],
+            }));
+
+            await expect(player.play({ ...card, spelling: '月光', reading: 'げっこう' })).resolves.toBe(false);
+
+            expect(requested).toHaveLength(1);
+            expect(requested[0]).toContain('https://assets.languagepod101.com/dictionary/japanese/audiomp3.php');
+            expect(spoken).toEqual([]);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            playSpy.mockRestore();
+            pauseSpy.mockRestore();
+            loadSpy.mockRestore();
             vi.unstubAllGlobals();
         }
     });
@@ -5295,6 +5373,7 @@ describe('reader helpers', () => {
                 ankiEnabled: false,
                 localDictionariesEnabled: false,
                 localDictionaryShowKanji: false,
+                jpdbDefinitionsEnabled: false,
                 jpdbKanjiEnabled: false,
                 uchisenEnabled: false,
                 rtkEnabled: false,
@@ -9093,7 +9172,7 @@ describe('reader helpers', () => {
         expect(document.querySelector('[data-jpdb-reader-root] .jpdb-reader-word')?.textContent).toBe('設定');
     });
 
-    it('silently reparses the page when a clicked reader word has fallen out of cache', async () => {
+    it('falls back to text lookup and reparses when a clicked page word has fallen out of cache', async () => {
         vi.useFakeTimers();
         const app = new ReaderApp();
         const word = document.createElement('span');
@@ -9105,15 +9184,18 @@ describe('reader helpers', () => {
 
         const getCachedCard = vi.fn(() => undefined);
         const reparseVisiblePage = vi.fn(async () => undefined);
+        const lookupText = vi.fn(async () => undefined);
         const toast = vi.fn();
         const internals = app as unknown as {
             getCachedCard: typeof getCachedCard;
             reparseVisiblePage: typeof reparseVisiblePage;
+            lookupText: typeof lookupText;
             showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover' }): Promise<void>;
             toast: typeof toast;
         };
         internals.getCachedCard = getCachedCard;
         internals.reparseVisiblePage = reparseVisiblePage;
+        internals.lookupText = lookupText;
         internals.toast = toast;
 
         try {
@@ -9121,6 +9203,9 @@ describe('reader helpers', () => {
             await vi.runOnlyPendingTimersAsync();
 
             expect(toast).not.toHaveBeenCalled();
+            expect(lookupText).toHaveBeenCalledWith('読む', '読む', expect.objectContaining({
+                navigation: 'reset',
+            }));
             expect(reparseVisiblePage).toHaveBeenCalledTimes(1);
         } finally {
             app.destroy();

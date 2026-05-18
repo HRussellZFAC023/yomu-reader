@@ -5155,6 +5155,12 @@
   const AUDIO_PRECONNECT_RELS = ["preconnect", "dns-prefetch"];
   const preconnectedAudioOrigins = /* @__PURE__ */ new Set();
   const log$u = Logger.scope("Audio");
+  class AudioPlaybackAttemptError extends Error {
+    constructor(error) {
+      super(error instanceof Error ? error.message : String(error));
+      this.name = "AudioPlaybackAttemptError";
+    }
+  }
   class AudioPlayer {
     constructor(getSettings) {
       this.getSettings = getSettings;
@@ -5206,6 +5212,7 @@
     }
     async finishPlaybackResult(card, settings, requestId, isCurrent, result) {
       if (result.state === "played") return true;
+      if (result.state === "playback-error") return false;
       if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
       log$u.warn("No playable audio found", { term: card.spelling, errors: result.errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent);
@@ -5241,6 +5248,7 @@
         return this.audioSourceAttemptResult(played, requestId, isCurrent);
       } catch (error) {
         errors.push(error instanceof Error ? error.message : String(error));
+        if (error instanceof AudioPlaybackAttemptError) return "playback-error";
         return "miss";
       }
     }
@@ -5361,16 +5369,22 @@
       return false;
     }
     async playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, reservedAudio) {
+      let audio;
       try {
-        const audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
-        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-        const played = await this.playPreparedAudio(audio, requestId, isCurrent);
-        if (!played) return false;
-        this.shuffledAudio.markPlayed(bagKey, id);
-        return true;
+        audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
       } catch {
         return false;
       }
+      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+      let played = false;
+      try {
+        played = await this.playPreparedAudio(audio, requestId, isCurrent);
+      } catch (error) {
+        throw new AudioPlaybackAttemptError(error);
+      }
+      if (!played) return false;
+      this.shuffledAudio.markPlayed(bagKey, id);
+      return true;
     }
     createPlayableAudio(candidate, sourceType, settings, reservedAudio) {
       if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) {
@@ -15308,7 +15322,7 @@ ${entry.reading}`;
     const cls = getPitchClassName(pitch, morae.length);
     return `<div class="jpdb-reader-pitch"><svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
         <polyline class="${cls}" points="${points}"></polyline>
-        ${highs.map((level, index) => `<circle cx="${9 + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
+        ${highs.map((level, index) => `<circle class="${cls}" cx="${9 + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
         ${morae.map((mora, index) => `<text x="${9 + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
     </svg></div>`;
   }
@@ -33113,23 +33127,23 @@ html.jpdb-reader-doodle-active * {
 }
 
 .jpdb-reader-pitch .heiban {
-  color: #359eff;
+  color: var(--jpdb-reader-pitch-heiban, #359eff);
 }
 
 .jpdb-reader-pitch .atamadaka {
-  color: #fe4b74;
+  color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);
 }
 
 .jpdb-reader-pitch .nakadaka {
-  color: #fba840;
+  color: var(--jpdb-reader-pitch-nakadaka, #fba840);
 }
 
 .jpdb-reader-pitch .odaka {
-  color: #57ccb7;
+  color: var(--jpdb-reader-pitch-odaka, #57ccb7);
 }
 
 .jpdb-reader-pitch .kifuku {
-  color: #9050f6;
+  color: var(--jpdb-reader-pitch-kifuku, #9050f6);
 }
 
 .yomu-jpdb-uchisen-source[open] > :last-child {
@@ -41218,6 +41232,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         event.stopPropagation();
       }, { capture: true });
       document.addEventListener("pointerdown", (event) => {
+        this.dismissModalPopoverForOutsidePointer(event);
         this.dismissHoverPopoverForOutsidePointer(event);
         this.beginPressLookup(event);
       }, { capture: true, passive: false });
@@ -41239,15 +41254,17 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       document.addEventListener("pointerout", (event) => {
         this.handleHoverPointerOut(event);
       }, { capture: true });
-      document.addEventListener("mouseover", (event) => {
-        this.handleHoverPointer(event);
-      }, { capture: true });
-      document.addEventListener("mousemove", (event) => {
-        this.handleHoverPointer(event);
-      }, { capture: true });
-      document.addEventListener("mouseout", (event) => {
-        this.handleHoverPointerOut(event);
-      }, { capture: true });
+      if (!window.PointerEvent) {
+        document.addEventListener("mouseover", (event) => {
+          this.handleHoverPointer(event);
+        }, { capture: true });
+        document.addEventListener("mousemove", (event) => {
+          this.handleHoverPointer(event);
+        }, { capture: true });
+        document.addEventListener("mouseout", (event) => {
+          this.handleHoverPointerOut(event);
+        }, { capture: true });
+      }
       document.addEventListener("keyup", () => {
         if (this.isDestroyed) return;
         if (!this.settings.parseSelection) return;
@@ -41564,6 +41581,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       if (this.shouldIgnoreHoverPointer(event)) return;
       this.lastPointerPosition = { x: event.clientX, y: event.clientY };
       const insideActivePopover = this.handleActivePopoverHover(event);
+      if (insideActivePopover && this.isPointerInsideActiveHoverWord(event)) return;
       const word = this.hoverReaderWordForEvent(event);
       if (!word) {
         if (insideActivePopover) return;
@@ -41579,6 +41597,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       if (!this.isInsideActivePopover(event.target)) return false;
       this.cancelHoverClose();
       return true;
+    }
+    isPointerInsideActiveHoverWord(event) {
+      if (this.activePopoverMode !== "hover" || !this.activeHoverWord?.isConnected) return false;
+      const rect = this.activeHoverWord.getBoundingClientRect();
+      return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
     }
     hoverReaderWordForEvent(event) {
       const word = event.target.closest?.(".jpdb-reader-word");
@@ -41698,6 +41721,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       const candidate = this.lookupCandidateFromPoint(pointer.x, pointer.y, target);
       if (candidate) this.schedulePointerTextLookup(candidate, event);
     }
+    dismissModalPopoverForOutsidePointer(event) {
+      if (this.isDestroyed || this.activePopoverMode !== "modal" || !this.activePopover) return;
+      if (this.isInsideActivePopover(event.target)) return;
+      this.dismiss({ suppressHoverTarget: true });
+    }
     dismissHoverPopoverForOutsidePointer(event) {
       if (this.isDestroyed || this.activePopoverMode !== "hover") return;
       const target = event.target;
@@ -41776,9 +41804,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       if (!activeWord || !this.canRunScheduledHoverLookup(activeWord, event)) return;
       const activeHoverLookupKey = this.hoverLookupKeyForWord(activeWord);
       if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
-      void this.showWord(activeWord, { trigger: "hover", hoverLookupGeneration }).finally(() => {
+      void this.showWord(activeWord, { trigger: "hover", hoverLookupGeneration }).finally(() => void 0);
+      window.setTimeout(() => {
         if (this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = "";
-      });
+      }, 0);
     }
     resolveScheduledHoverWord(word) {
       if (word.isConnected) return word;
@@ -41827,9 +41856,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         if (!candidate.anchor.isConnected || !this.settings.lookupOnHover) return;
         if (!shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? "", event, this.pressedKeys)) return;
         if (hoverLookupKey) this.hoverLookupInFlightKey = hoverLookupKey;
-        void this.showLookupCandidate(candidate, "hover", { hoverLookupGeneration }).finally(() => {
+        void this.showLookupCandidate(candidate, "hover", { hoverLookupGeneration }).finally(() => void 0);
+        window.setTimeout(() => {
           if (this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = "";
-        });
+        }, 0);
       };
       const delay2 = Math.max(0, this.settings.hoverOpenDelayMs);
       if (delay2 === 0) {
@@ -42230,8 +42260,25 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       const vid = Number(word.dataset.vid);
       const sid = Number(word.dataset.sid);
       if (insideReaderPopup && await this.lookupUncachedPopupWord(word, options)) return;
+      if (!insideReaderPopup && await this.lookupUncachedPageWord(word, options)) {
+        this.scheduleVisiblePageReparse();
+        return;
+      }
       log$1.warn("Clicked word missing from cache; scheduling page reparse", { vid, sid });
       this.scheduleVisiblePageReparse();
+    }
+    async lookupUncachedPageWord(word, options) {
+      const expression = normalizedLookupText(readerWordSurfaceText(word));
+      if (!isLookupableJapaneseText(expression)) return false;
+      const trigger = this.renderedWordTrigger(options.trigger, false);
+      const navigation = options.navigation ?? renderedWordNavigationMode(false, trigger);
+      await this.lookupText(expression, this.renderedWordSentence(word) ?? expression, {
+        anchor: renderedWordAnchor(word, false, this.activePopoverAnchor),
+        navigation,
+        preservePosition: trigger === "hover",
+        previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, false, trigger, navigation)
+      });
+      return true;
     }
     async lookupUncachedPopupWord(word, options) {
       const expression = normalizedLookupText(readerWordSurfaceText(word));

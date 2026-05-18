@@ -1072,7 +1072,7 @@ describe('new tab review helpers', () => {
             immersionKit: {} as never,
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
             parser: {} as never,
-            dictionaries: { lookupKanji: vi.fn(async () => []), lookupSimilarTermsByKanji: vi.fn(async () => []) } as never,
+            dictionaries: { lookupKanji: vi.fn(async () => [{ character: '柔', onyomi: [], kunyomi: [], tags: [], meanings: ['soft', 'flexible', 'yielding'], dictionary: 'KANJIDIC' }]), lookupSimilarTermsByKanji: vi.fn(async () => []) } as never,
             onSettingsChange: vi.fn(),
             applyTheme: vi.fn(),
             showSettings: vi.fn(),
@@ -1164,6 +1164,28 @@ describe('new tab review helpers', () => {
         expect(prompt?.querySelector('.jpdb-reader-newtab-term .jpdb-reader-word')?.classList.contains('jpdb-pitch-heiban')).toBe(true);
         expect(prompt?.querySelector('.jpdb-reader-newtab-sentence')?.textContent).toBe(sentence);
         expect(prompt?.querySelector('.jpdb-reader-newtab-sentence .jpdb-reader-word')?.textContent).toBe('難波');
+    });
+
+    it('enriches new-tab word pitch from local dictionary metadata without a JPDB API key', async () => {
+        const card = newTabTestCard({ spelling: '計量', reading: 'けいりょう', source: 'local', pitchAccent: [] });
+        const lookupTermMeta = vi.fn(async () => [{
+            dictionary: 'Jitendex',
+            expression: '計量',
+            mode: 'pitch',
+            data: { reading: 'けいりょう', position: 0 },
+        }]);
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false, showPitchAccent: true }, {
+            dictionaries: { lookupTermMeta } as never,
+            jpdbPublicPitch: { lookup: vi.fn(async () => { throw new Error('public pitch should not be needed'); }) },
+        });
+        const root = renderNewTabWordFront(controller, card);
+        const word = root.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-word')!;
+
+        expect(word.classList.contains('jpdb-pitch-unknown')).toBe(true);
+        await waitForExpect(() => {
+            expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
+        });
+        expect(lookupTermMeta).toHaveBeenCalledWith('計量', 12, expect.any(Array));
     });
 
     it('parses the front sentence with the same content parser used by other card text', async () => {
@@ -2166,6 +2188,79 @@ describe('new tab review helpers', () => {
         expect(node.querySelector('[data-immersion-action="audio"]')).toBeNull();
         expect(node.querySelector('[data-immersion-action="previous"]')).not.toBeNull();
         expect(node.querySelector('[data-immersion-action="next"]')).not.toBeNull();
+    });
+
+    it('uses JPDB related vocabulary queries when new-tab Immersion Kit reveal has no direct examples', async () => {
+        const card = newTabTestCard({ vid: 44, sid: 44, spelling: '甘言', reading: 'かんげん' });
+        const example: ImmersionKitExample = {
+            id: 'ik-related',
+            sentence: '甘言蜜語に乗せられた。',
+            sentenceWithFurigana: '',
+            translation: 'I was taken in by sweet words.',
+            sourceTitle: 'Test Source',
+            titleSlug: 'test-source',
+            category: 'anime',
+            soundFile: '',
+            imageFile: '',
+            soundUrl: '',
+            imageUrl: '',
+        };
+        const search = vi.fn(async (query: string): Promise<ImmersionKitExample[]> => (
+            query === '甘言蜜語' ? [example] : []
+        ));
+        const lookup = vi.fn(async () => ({
+            meanings: [],
+            compounds: [{ term: '甘言蜜語', reading: 'かんげんみつご', meaning: 'honeyed words', url: 'https://jpdb.io/vocabulary/1' }],
+            examples: [],
+        }));
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {
+                search,
+                mediaUrls: vi.fn(() => []),
+            } as never,
+            jpdbVocabulary: { lookup },
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        document.body.append(root);
+        Object.assign(controller as unknown as {
+            visibleWords: JPDBCard[];
+            index: number;
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        }, {
+            visibleWords: [card],
+            index: 0,
+            sourceLabel: 'JPDB',
+            state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+        });
+
+        try {
+            (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
+
+            await waitForExpect(() => {
+                expect(root.querySelector('.jpdb-reader-newtab-immersion')?.textContent).toContain('甘言蜜語に乗せられた。');
+            });
+            expect(lookup).toHaveBeenCalledWith(44, '甘言', 'かんげん');
+            expect(search.mock.calls.map(([query]) => query)).toEqual(['甘言', 'かんげん', '甘言蜜語']);
+        } finally {
+            root.remove();
+        }
     });
 
     it('plays Immersion Kit audio by default when revealing a new-tab word card', async () => {

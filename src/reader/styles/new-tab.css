@@ -710,8 +710,8 @@
   .jpdb-reader-newtab-study {
   grid-template-rows: auto auto auto auto;
   align-content: start;
-  gap: clamp(20px, 3vh, 38px);
-  padding-top: clamp(68px, 8vh, 112px);
+  gap: clamp(14px, 2.2vh, 28px);
+  padding-top: clamp(32px, 5vh, 72px);
   padding-bottom: clamp(64px, 9vh, 120px);
 }
 
@@ -776,20 +776,21 @@
 }
 
 .jpdb-reader-newtab-kanji-front-keywords {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  max-width: min(100%, 520px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 12px;
+  max-width: min(100%, 680px);
 }
 
 .jpdb-reader-newtab-kanji-front-keyword {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: inline-flex;
+  max-width: min(100%, 20em);
   align-items: baseline;
   justify-content: center;
-  gap: 10px;
-  max-width: 100%;
-  font-size: clamp(1.6rem, 4.6vw, 3.2rem);
+  gap: 7px;
+  font-size: clamp(1.35rem, 3.7vw, 2.55rem);
   line-height: 1.04;
 }
 
@@ -830,6 +831,20 @@
   border-radius: 0.1em;
   color: inherit;
   text-underline-offset: 0.08em;
+}
+
+.jpdb-reader-newtab-sentence .jpdb-reader-example-target {
+  border-radius: 0.12em;
+  box-shadow: inset 0 -0.16em 0
+    color-mix(in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 64%, transparent);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.jpdb-reader-newtab-sentence mark.jpdb-reader-example-target {
+  padding: 0 0.08em;
+  background: transparent;
+  color: inherit;
 }
 
 .jpdb-reader-newtab-answer {

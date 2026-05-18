@@ -38,7 +38,7 @@ interface AudioRequestOptions {
 }
 
 interface AudioSourcePlayResult {
-    state: 'played' | 'superseded' | 'miss';
+    state: 'played' | 'superseded' | 'miss' | 'playback-error';
     errors: string[];
 }
 
@@ -83,6 +83,13 @@ const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
 const AUDIO_PRECONNECT_RELS = ['preconnect', 'dns-prefetch'] as const;
 const preconnectedAudioOrigins = new Set<string>();
 const log = Logger.scope('Audio');
+
+class AudioPlaybackAttemptError extends Error {
+    constructor(error: unknown) {
+        super(error instanceof Error ? error.message : String(error));
+        this.name = 'AudioPlaybackAttemptError';
+    }
+}
 
 export class AudioPlayer {
     private current?: HTMLAudioElement;
@@ -147,6 +154,7 @@ export class AudioPlayer {
         result: AudioSourcePlayResult,
     ): Promise<boolean> {
         if (result.state === 'played') return true;
+        if (result.state === 'playback-error') return false;
         if (result.state === 'superseded' || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
         log.warn('No playable audio found', { term: card.spelling, errors: result.errors });
         return await this.playMissingAudioFallback(settings, requestId, isCurrent);
@@ -213,6 +221,7 @@ export class AudioPlayer {
             return this.audioSourceAttemptResult(played, requestId, isCurrent);
         } catch (error) {
             errors.push(error instanceof Error ? error.message : String(error));
+            if (error instanceof AudioPlaybackAttemptError) return 'playback-error';
             return 'miss';
         }
     }
@@ -386,16 +395,22 @@ export class AudioPlayer {
         isCurrent: () => boolean,
         reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
+        let audio: HTMLAudioElement;
         try {
-            const audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
-            if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-            const played = await this.playPreparedAudio(audio, requestId, isCurrent);
-            if (!played) return false;
-            this.shuffledAudio.markPlayed(bagKey, id);
-            return true;
+            audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
         } catch {
             return false;
         }
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+        let played = false;
+        try {
+            played = await this.playPreparedAudio(audio, requestId, isCurrent);
+        } catch (error) {
+            throw new AudioPlaybackAttemptError(error);
+        }
+        if (!played) return false;
+        this.shuffledAudio.markPlayed(bagKey, id);
+        return true;
     }
 
     private createPlayableAudio(candidate: AudioCandidate, sourceType: AudioSourceType, settings: ReaderSettings, reservedAudio?: HTMLAudioElement): Promise<HTMLAudioElement> | HTMLAudioElement {

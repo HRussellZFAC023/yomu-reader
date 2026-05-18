@@ -4,9 +4,16 @@ import { APP_NAME, DOCS_BASE_URL } from './constants';
 import { escapeHtml, renderHighlightedTextHtml, setInnerHtml } from './dom';
 import { el, fragment, replaceChildrenWith, type DomAttrs } from './dom-builder';
 import type { ImmersionKitClient, ImmersionKitExample } from './immersion-kit';
+import {
+    IMMERSION_FALLBACK_QUERY_LIMIT,
+    immersionFallbackFragments,
+    isUsefulImmersionFallbackQuery,
+    uniqueImmersionQueries,
+} from './immersion-query';
 import type { JpdbClient } from './jpdb';
 import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiClient, type JpdbKanjiInfo } from './jpdb-kanji';
 import { getPitchClass } from './jpdb-parser';
+import type { JpdbPublicPitchClient } from './jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from './jpdb-vocabulary';
 import { buildKanjiFacts, buildKanjiOriginGraph } from './kanji-origin';
 import { installKanjiDoodle, KANJI_DOODLE_CLEAR_EVENT, type DoodleStroke } from './kanji-doodle';
@@ -18,6 +25,7 @@ import { Logger } from './logger';
 import { installOriginGraphInteractions } from './origin-graph-interactions';
 import {
     buildRtkComponentSummaries,
+    localPitchPatternFromMeta,
     renderKanjiKeywordLine,
     renderKanjiOrigins,
     renderRtkInfo,
@@ -70,6 +78,7 @@ export interface NewTabControllerDependencies {
     rtk: RtkClient;
     immersionKit: ImmersionKitClient;
     jpdbVocabulary?: Pick<JpdbVocabularyClient, 'lookup'>;
+    jpdbPublicPitch?: Pick<JpdbPublicPitchClient, 'lookup'>;
     jpdbReviewBridge: JpdbReviewBridgeClient;
     parser: ReaderParser;
     dictionaries: YomitanDictionaryStore;
@@ -338,6 +347,7 @@ const NEW_TAB_SEARCH_DEBOUNCE_MS = 220;
 const NEW_TAB_SEARCH_WORD_LIMIT = 10;
 const NEW_TAB_SEARCH_KANJI_LIMIT = 6;
 const NEW_TAB_SEARCH_SUGGESTION_LIMIT = 6;
+const NEW_TAB_KANJI_FRONT_KEYWORD_LIMIT = 3;
 const NEW_TAB_HANDWRITING_DEBOUNCE_MS = 360;
 const NEW_TAB_HANDWRITING_GEOMETRY_CANDIDATE_LIMIT = 240;
 const NEW_TAB_HANDWRITING_GOOGLE_URL = 'https://www.google.com/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8';
@@ -388,6 +398,7 @@ export class NewTabController {
     private immersionCache = new Map<string, Promise<ImmersionKitExample[]>>();
     private immersionExampleIndex = new Map<string, number>();
     private frontSentenceCache = new Map<string, Promise<string>>();
+    private wordPitchCache = new Map<string, Promise<string[]>>();
     private doodlePreviewCache = new Map<string, string>();
     private immersionAudio?: HTMLAudioElement;
     private immersionAudioKey = '';
@@ -1472,6 +1483,7 @@ export class NewTabController {
         if (slots.prompt) {
             const sentence = this.frontSentenceFromCard(card);
             this.renderWordPromptContent(slots.prompt, card, state, sentence);
+            void this.enrichWordPitch(slots.prompt, card);
             void this.enrichWordPromptSentence(slots.prompt, card, state, sentence);
         }
         this.renderWordAnswer(slots.answer, card);
@@ -1904,10 +1916,67 @@ export class NewTabController {
         const key = this.immersionCacheKey(card);
         const existing = this.immersionCache.get(key);
         if (existing) return existing;
-        const promise = this.dependencies.immersionKit.search(card.spelling.trim(), this.dependencies.getSettings())
-            .catch(() => []);
+        const promise = this.fetchNewTabImmersionExamples(card).catch(() => []);
         this.immersionCache.set(key, promise);
         return promise;
+    }
+
+    private async fetchNewTabImmersionExamples(card: JPDBCard): Promise<ImmersionKitExample[]> {
+        const exactQuery = card.spelling.trim();
+        const exactExamples = await this.searchNewTabImmersionQuery(exactQuery);
+        if (exactExamples.length) return exactExamples;
+
+        const fallbackQueries = await this.newTabImmersionFallbackQueries(card, exactQuery);
+        for (const query of fallbackQueries) {
+            const examples = await this.searchNewTabImmersionQuery(query);
+            if (examples.length) return examples;
+        }
+        return [];
+    }
+
+    private searchNewTabImmersionQuery(query: string): Promise<ImmersionKitExample[]> {
+        if (!query) return Promise.resolve([]);
+        return this.dependencies.immersionKit.search(query, this.dependencies.getSettings()).catch(() => []);
+    }
+
+    private async newTabImmersionFallbackQueries(card: JPDBCard, exactQuery: string): Promise<string[]> {
+        const candidates: string[] = [];
+        this.addNewTabImmersionFallbackQuery(candidates, card.reading !== card.spelling ? card.reading : '', exactQuery);
+        await this.addNewTabParsedImmersionFallbackQueries(candidates, card, exactQuery);
+        this.addNewTabImmersionFallbackQueries(candidates, immersionFallbackFragments(card.spelling), exactQuery);
+        await this.addNewTabJpdbImmersionFallbackQueries(candidates, card, exactQuery);
+        return uniqueImmersionQueries(candidates).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
+    }
+
+    private async addNewTabJpdbImmersionFallbackQueries(candidates: string[], card: JPDBCard, exactQuery: string): Promise<void> {
+        const settings = this.dependencies.getSettings();
+        const jpdbInfo = settings.jpdbDefinitionsEnabled && this.dependencies.jpdbVocabulary
+            ? await this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch(() => null)
+            : null;
+        this.addNewTabImmersionFallbackQueries(
+            candidates,
+            (jpdbInfo?.compounds ?? []).flatMap(compound => [compound.term, compound.reading]),
+            exactQuery,
+        );
+    }
+
+    private async addNewTabParsedImmersionFallbackQueries(candidates: string[], card: JPDBCard, exactQuery: string): Promise<void> {
+        if (typeof this.dependencies.parser.canParse !== 'function' || !this.dependencies.parser.canParse()) return;
+        const [tokens] = await this.dependencies.parser.parse([card.spelling]).catch(() => [[]]);
+        for (const token of tokens ?? []) {
+            this.addNewTabImmersionFallbackQuery(candidates, token.card.spelling, exactQuery);
+            this.addNewTabImmersionFallbackQuery(candidates, card.spelling.slice(token.start, token.end), exactQuery);
+            this.addNewTabImmersionFallbackQuery(candidates, token.card.reading !== token.card.spelling ? token.card.reading : '', exactQuery);
+        }
+    }
+
+    private addNewTabImmersionFallbackQueries(candidates: string[], values: Iterable<string>, exactQuery: string): void {
+        for (const value of values) this.addNewTabImmersionFallbackQuery(candidates, value, exactQuery);
+    }
+
+    private addNewTabImmersionFallbackQuery(candidates: string[], value: string, exactQuery: string): void {
+        const query = value.trim();
+        if (isUsefulImmersionFallbackQuery(query, exactQuery)) candidates.push(query);
     }
 
     private immersionCacheKey(card: JPDBCard): string {
@@ -1923,6 +1992,7 @@ export class NewTabController {
             category: settings.immersionKitCategory,
             sort: settings.immersionKitSort,
             exact: settings.immersionKitExactMatch,
+            jpdbDefinitionsEnabled: settings.jpdbDefinitionsEnabled,
         });
     }
 
@@ -1970,7 +2040,7 @@ export class NewTabController {
             if (seen.has(key)) continue;
             seen.add(key);
             unique.push({ ...keyword, text });
-            if (unique.length >= 6) break;
+            if (unique.length >= NEW_TAB_KANJI_FRONT_KEYWORD_LIMIT) break;
         }
         return unique;
     }
@@ -3481,6 +3551,77 @@ export class NewTabController {
             },
             tabIndex: 0,
         }, text);
+    }
+
+    private async enrichWordPitch(root: HTMLElement, card: JPDBCard): Promise<void> {
+        if (!this.shouldEnrichWordPitch(card)) return;
+        const key = this.wordPitchCacheKey(card);
+        const requestId = `${key}:${performance.now()}:${Math.random()}`;
+        root.dataset.newtabPitchRequest = requestId;
+        const pitchAccent = await this.loadWordPitch(card);
+        if (root.dataset.newtabPitchRequest !== requestId || !pitchAccent.length) return;
+        if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
+        this.updateRenderedWordPitch(root, card);
+    }
+
+    private shouldEnrichWordPitch(card: JPDBCard): boolean {
+        return this.dependencies.getSettings().showPitchAccent
+            && !card.pitchAccent.length
+            && Boolean(card.spelling.trim());
+    }
+
+    private loadWordPitch(card: JPDBCard): Promise<string[]> {
+        const key = this.wordPitchCacheKey(card);
+        const cached = this.wordPitchCache.get(key);
+        if (cached) return cached;
+        const promise = this.fetchWordPitch(card).catch(() => []);
+        this.wordPitchCache.set(key, promise);
+        return promise;
+    }
+
+    private async fetchWordPitch(card: JPDBCard): Promise<string[]> {
+        const localPitch = await this.fetchLocalWordPitch(card);
+        if (localPitch) return [localPitch];
+        return await this.dependencies.jpdbPublicPitch?.lookup(card.spelling, card.reading).catch(() => []) ?? [];
+    }
+
+    private async fetchLocalWordPitch(card: JPDBCard): Promise<string> {
+        const settings = this.dependencies.getSettings();
+        if (!settings.localDictionariesEnabled) return '';
+        if (typeof this.dependencies.dictionaries.lookupTermMeta !== 'function') return '';
+        const metaEntries = await this.dependencies.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch(() => []);
+        return localPitchPatternFromMeta(card.reading, metaEntries);
+    }
+
+    private wordPitchCacheKey(card: JPDBCard): string {
+        const settings = this.dependencies.getSettings();
+        return JSON.stringify({
+            spelling: card.spelling,
+            reading: card.reading,
+            local: settings.localDictionariesEnabled,
+            dictionaries: settings.dictionaryPreferences.map(preference => ({
+                name: preference.name,
+                enabled: preference.enabled,
+                priority: preference.priority,
+            })),
+        });
+    }
+
+    private updateRenderedWordPitch(root: HTMLElement, card: JPDBCard): void {
+        const pitchClass = newTabPitchClass(card);
+        root.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(word => {
+            if (!this.isRenderedWordForCard(word, card)) return;
+            for (const cls of Array.from(word.classList)) {
+                if (cls.startsWith('jpdb-pitch-')) word.classList.remove(cls);
+            }
+            word.classList.add(`jpdb-pitch-${pitchClass}`);
+            word.dataset.pitchClass = pitchClass;
+        });
+    }
+
+    private isRenderedWordForCard(word: HTMLElement, card: JPDBCard): boolean {
+        return (word.dataset.vid === String(card.vid) && word.dataset.sid === String(card.sid))
+            || (word.dataset.expression === card.spelling && (!word.dataset.reading || word.dataset.reading === card.reading));
     }
 
     private syncMode(root: HTMLElement): void {
