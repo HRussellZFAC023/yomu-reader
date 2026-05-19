@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.22
+// @version      0.4.23
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -1867,6 +1867,20 @@
       element2.textContent = html;
     }
   }
+  function parseHtmlDocument(html) {
+    try {
+      return new DOMParser().parseFromString(trustedHtml(html), "text/html");
+    } catch {
+      return document.implementation.createHTMLDocument("");
+    }
+  }
+  function parseXmlDocument(source, mimeType = "text/xml") {
+    try {
+      return new DOMParser().parseFromString(trustedHtml(source), mimeType);
+    } catch {
+      return document.implementation.createDocument(null, "");
+    }
+  }
   function appendToDocumentHead(element2) {
     const target = document.head || document.documentElement || document.body;
     target.appendChild(element2);
@@ -2639,7 +2653,7 @@
   }
   function trustedHtml(value) {
     try {
-      const factory = globalThis.trustedTypes;
+      const factory = trustedTypesFactory();
       if (!factory) return value;
       if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
       return trustedHtmlPolicy && typeof trustedHtmlPolicy.createHTML === "function" ? trustedHtmlPolicy.createHTML(value) : value;
@@ -2647,6 +2661,14 @@
       trustedHtmlPolicy = null;
       return value;
     }
+  }
+  function trustedTypesFactory() {
+    const root = globalThis;
+    return [
+      root.trustedTypes,
+      typeof window === "undefined" ? void 0 : window.trustedTypes,
+      root.unsafeWindow?.trustedTypes
+    ].find((factory) => Boolean(factory));
   }
   function createTrustedHtmlPolicy(factory) {
     try {
@@ -5065,7 +5087,7 @@
   }
   function callWithUnshadowedWindowDispatch(event) {
     const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
-    if (!descriptor || typeof descriptor.value === "function") return { called: false };
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
       if (!Reflect.deleteProperty(window, "dispatchEvent")) return { called: false };
       return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
@@ -5077,7 +5099,7 @@
   }
   function callWithUnshadowedWindowAddEventListener(type, listener, options) {
     const descriptor = safeWindowPropertyDescriptor("addEventListener");
-    if (!descriptor || typeof descriptor.value === "function") return { called: false };
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
       if (!Reflect.deleteProperty(window, "addEventListener")) return { called: false };
       return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
@@ -5089,7 +5111,7 @@
   }
   function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
     const descriptor = safeWindowPropertyDescriptor("removeEventListener");
-    if (!descriptor || typeof descriptor.value === "function") return { called: false };
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
       if (!Reflect.deleteProperty(window, "removeEventListener")) return { called: false };
       return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
@@ -5112,16 +5134,32 @@
       return void 0;
     }
   }
+  function shouldTemporarilyUnshadowWindowProperty(descriptor) {
+    if (!descriptor) return false;
+    try {
+      return typeof descriptor.value !== "function";
+    } catch {
+      return false;
+    }
+  }
   function normalizedPropertyDescriptor(descriptor) {
     const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
     const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
     if (!hasDataShape || !hasAccessorShape) return descriptor;
-    return {
-      configurable: descriptor.configurable,
-      enumerable: descriptor.enumerable,
-      value: descriptor.value,
-      writable: descriptor.writable
-    };
+    try {
+      return {
+        configurable: descriptor.configurable,
+        enumerable: descriptor.enumerable,
+        value: descriptor.value,
+        writable: descriptor.writable
+      };
+    } catch {
+      return {
+        configurable: true,
+        value: void 0,
+        writable: true
+      };
+    }
   }
   const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
   const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
@@ -12394,7 +12432,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     return selectionPopoverRects();
   }
   function pointPopoverRects(point) {
-    return [{ left: point.x, top: point.y, right: point.x + 1, bottom: point.y + 1 }];
+    const radius = 14;
+    return [{ left: point.x - radius, top: point.y - radius, right: point.x + radius, bottom: point.y + radius }];
   }
   function anchorPopoverRects(anchor) {
     if (!anchor) return [];
@@ -14041,7 +14080,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     }
   }
   function parseJpdbKanjiHtml(html, kanji) {
-    const doc = new DOMParser().parseFromString(html, "text/html");
+    const doc = parseHtmlDocument(html);
     const keyword = sectionText$1(doc, "Keyword") || metaKeyword(doc, kanji);
     if (!keyword) return null;
     const parsed = parsedJpdbKanjiPage(doc);
@@ -19124,7 +19163,7 @@ ${normalizedReading}`;
     }
   }
   function parseJpdbPublicPitchHtml(html, spelling = "", reading = "") {
-    const doc = new DOMParser().parseFromString(html, "text/html");
+    const doc = parseHtmlDocument(html);
     const roots = Array.from(doc.querySelectorAll(".result.vocabulary"));
     const matchingRoots = roots.filter((root) => vocabularyRootMatches$1(root, spelling, reading));
     const candidates = pitchCandidateRoots(doc, roots, matchingRoots, spelling, reading);
@@ -19556,7 +19595,7 @@ ${normalizedReading}`;
     }
   }
   function parseJpdbVocabularyHtml(html, spelling = "", reading = "") {
-    const doc = new DOMParser().parseFromString(html, "text/html");
+    const doc = parseHtmlDocument(html);
     const root = vocabularyRoot(doc, spelling, reading);
     if (!root) return null;
     const meanings = extractMeanings(root, doc, spelling, reading);
@@ -19574,7 +19613,7 @@ ${normalizedReading}`;
     return unique(urls);
   }
   function vocabularySupplementUrls(html, spelling, reading, currentUrl = "") {
-    const doc = new DOMParser().parseFromString(html, "text/html");
+    const doc = parseHtmlDocument(html);
     const current = absoluteJpdbUrl(currentUrl);
     return uniqueBy([
       ...vocabularyDetailUrls(doc, spelling, reading),
@@ -20951,7 +20990,7 @@ ${normalizedReading}`;
     return `${KANJIVG_RAW_BASE}/${codePoint.toString(16).padStart(5, "0")}.svg`;
   }
   function parseKanjiVGSvg(svgText, kanji) {
-    const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    const doc = parseXmlDocument(svgText, "image/svg+xml");
     const sourceSvg = doc.querySelector("svg");
     if (!sourceSvg) return null;
     const viewBox = sourceSvg.getAttribute("viewBox") || "0 0 109 109";
@@ -22029,6 +22068,8 @@ ${normalizedReading}`;
       this.activateLine(state, element2, true);
     }
     activateLine(state, element2, pinned) {
+      const pinnedLine = state.overlay.querySelector('.jpdb-ocr-line-active[data-pinned="true"]');
+      if (!pinned && pinnedLine && pinnedLine !== element2) return;
       state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => {
         if (line === element2) return;
         this.deactivateLine(line);
@@ -22118,8 +22159,9 @@ ${normalizedReading}`;
       const contentRect = textElement.getBoundingClientRect();
       const contentWidth = Math.max(1, contentRect.width);
       const contentHeight = Math.max(1, contentRect.height);
-      const frameWidth = Math.min(imageWidth, Math.max(1, contentWidth + padX * 2));
-      const frameHeight = Math.min(imageHeight, Math.max(1, contentHeight + padTop + padBottom));
+      const minHitSize = Math.max(24, Math.round(fontSize * 1.25));
+      const frameWidth = Math.min(imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2));
+      const frameHeight = Math.min(imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
       const left = clampNumber$3(boxLeft + boxWidth / 2 - frameWidth / 2, 0, Math.max(0, imageWidth - frameWidth));
       const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
       const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
@@ -24583,7 +24625,7 @@ ${normalizedReading}`;
     }
   }
   function parseRtkHtml(html, kanji) {
-    const doc = new DOMParser().parseFromString(html, "text/html");
+    const doc = parseHtmlDocument(html);
     const keywordElement = doc.querySelector("h2 code");
     const keyword = rtkKeywordText(keywordElement);
     if (!keyword) return null;
@@ -25156,7 +25198,7 @@ ${spelling}`);
   const UCHISEN_PAYWALL_IMAGE_RE = /(?:^|\/)(?:kanji\/)?enrollment\.(?:png|jpe?g|webp)$/i;
   function parseUchisenData(html) {
     if (!html.trim()) return { images: [], componentGroups: [], kanjiKeyword: null };
-    const doc = new DOMParser().parseFromString(html, "text/html");
+    const doc = parseHtmlDocument(html);
     return {
       images: parseUchisenImagesFromDocument(doc),
       componentGroups: parseUchisenComponentGroupsFromDocument(doc),
@@ -28910,6 +28952,7 @@ ${spelling}`);
       allowUiText: true,
       minLength: 1,
       includeUiChrome: true,
+      fallbackToWholePage: true,
       matches: (url) => url.hostname === "news.web.nhk" && /\/news\/easy\//.test(url.pathname) || url.protocol === "file:" && /NHK.*(?:やさしいことば|NEWS WEB EASY)|(?:やさしいことば|NEWS WEB EASY).*NHK/i.test(decodeURIComponent(url.pathname)) || /NHKやさしいことばニュース|NEWS WEB EASY/i.test(document.title)
     },
     {
@@ -28933,6 +28976,7 @@ ${spelling}`);
         "[onclick]",
         "[data-audio]"
       ].join(","),
+      fallbackToWholePage: true,
       matches: (url) => (url.hostname === "news.web.nhk" || url.hostname.endsWith(".nhk.or.jp")) && /\/news\/html\//.test(url.pathname)
     },
     {
@@ -29015,10 +29059,18 @@ ${spelling}`);
   function completeSiteScanTargets(profiles, limit, href) {
     if (!profiles.length) return null;
     const siteTargets = collectSiteScanTargets(limit, href) ?? [];
-    return siteTargets.length || !hasGenericPageTextFallback(profiles) ? siteTargets : null;
+    if (siteTargets.length) return siteTargets;
+    if (hasWholePageFallback(profiles)) {
+      const broadTargets = collectWholePageScanTargets(limit);
+      if (broadTargets.length) return broadTargets;
+    }
+    return hasGenericPageTextFallback(profiles) ? null : siteTargets;
   }
   function hasGenericPageTextFallback(profiles) {
     return profiles.some((profile) => profile.includeGenericPageText);
+  }
+  function hasWholePageFallback(profiles) {
+    return profiles.some((profile) => profile.fallbackToWholePage);
   }
   function effectiveScanTargetLimit(profiles, requestedLimit) {
     const profileLimit = profiles.reduce((limit, profile) => Math.min(limit, profile.scanLimit ?? limit), requestedLimit);
@@ -36457,7 +36509,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   function parseYouTubeXmlSubtitleText(text2, options = {}) {
     if (!looksLikeYouTubeXmlSubtitleText(text2)) return [];
     try {
-      const document2 = new DOMParser().parseFromString(text2, "text/xml");
+      const document2 = parseXmlDocument(text2, "text/xml");
       const srv3 = parseYouTubeSrv3Rows(document2, options);
       const cues = [
         ...parseYouTubeTimedTextElements(document2),
@@ -37406,6 +37458,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   function isYouTubePage$1() {
     return /(^|\.)youtube\.com$/i.test(location.hostname);
+  }
+  async function discoverYouTubeCaptionTracks() {
+    const pageTracks = getYouTubeCaptionTracks();
+    return pageTracks.length ? pageTracks : await getAndroidYouTubeCaptionTracks();
   }
   async function loadYouTubeTrackCues(track, options) {
     if (!track.url) return [];
@@ -38902,7 +38958,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       return isYouTubePage() && (!this.selectedTrackId || !this.cues.length);
     }
     shouldUpdateFromDomCaptions() {
-      return !isYouTubePage() || Boolean(this.selectedTrackId && !this.cues.length);
+      return !isYouTubePage() || !this.cues.length && (Boolean(this.selectedTrackId) || !this.tracks.some((track) => track.kind === "youtube"));
     }
     refreshNativeCueLists() {
       const primary = this.tracks.find((item) => item.id === this.selectedTrackId);
@@ -38983,8 +39039,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     }
     domCaptionFallback() {
       if (this.cues.length) return null;
-      const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
+      let selected = this.tracks.find((track) => track.id === this.selectedTrackId);
       if (!this.shouldUseDomCaptionFallback(selected)) return null;
+      selected = this.ensureDomCaptionFallbackTrack(selected);
       this.ensureYouTubeDomCaptionFallbackActive(selected);
       const text2 = readPageCaptionText(this.video, this.root);
       if (!text2) {
@@ -39007,9 +39064,27 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       return this.options.getSettings().subtitleOverlayVisible;
     }
     canUseDomCaptionFallback(selected) {
-      if (isYouTubePage()) return Boolean(this.selectedTrackId);
+      if (isYouTubePage()) return Boolean(this.selectedTrackId || !this.tracks.some((track) => track.kind === "youtube"));
       const selectedNativeTrackNeedsDomFallback = Boolean(selected?.kind === "native" && selected.track && !this.cues.length);
       return !this.selectedTrackId || selectedNativeTrackNeedsDomFallback;
+    }
+    ensureDomCaptionFallbackTrack(selected) {
+      if (!isYouTubePage() || selected || this.tracks.some((track2) => track2.kind === "youtube")) return selected;
+      const track = this.createYouTubeDomCaptionFallbackTrack();
+      this.tracks.push(track);
+      this.selectedTrackId = track.id;
+      this.youtubeDomCaptionFallbackTrackId = track.id;
+      this.lastMenuSignature = "";
+      return track;
+    }
+    createYouTubeDomCaptionFallbackTrack() {
+      return {
+        id: `youtube-dom-${this.youtubeVideoId || getYouTubeVideoId() || Date.now()}`,
+        label: "YouTube native captions",
+        kind: "youtube",
+        loadingState: "waiting",
+        sourceKey: "youtube-dom-caption-fallback"
+      };
     }
     clearDomCaptionFallbackIfExpired() {
       this.pendingDomCaption = void 0;
@@ -39585,7 +39660,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       const videoId = getYouTubeVideoId();
       if (!videoId) return;
       this.updateYouTubeDiscoveryVideo(videoId);
-      const tracks = getYouTubeCaptionTracks();
+      const tracks = await discoverYouTubeCaptionTracks();
       if (!tracks.length) return;
       const { added, updatedSelectedTrack } = this.mergeYouTubeCaptionTracks(tracks);
       this.finishYouTubeTrackDiscovery(added, updatedSelectedTrack);
@@ -41767,13 +41842,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     }
     canHoverLookupReaderWord(word) {
       if (!word.closest("[data-jpdb-reader-root]")) return true;
-      return Boolean(word.closest(".jpdb-subtitle-player, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .jpdb-reader-popover .jpdb-reader-example-sentence"));
+      return Boolean(word.closest(".jpdb-subtitle-player, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion"));
     }
     handleHoverPointer(event) {
       if (this.shouldIgnoreHoverPointer(event)) return;
       this.lastPointerPosition = { x: event.clientX, y: event.clientY };
       const insideActivePopover = this.handleActivePopoverHover(event);
-      if (insideActivePopover && this.isPointerInsideActiveHoverWord(event)) return;
+      if (insideActivePopover) return;
       const word = this.hoverReaderWordForEvent(event);
       if (!word) {
         if (insideActivePopover) return;
@@ -42439,7 +42514,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       await this.showCard(card, context.sentence, context.anchor, {
         trigger: context.trigger,
         navigation: context.navigation,
-        preservePosition: context.insideReaderPopup,
+        preservePosition: context.insideReaderPopup && context.trigger === "modal",
         previousNavigationEntry: context.previousNavigationEntry,
         hoverLookupKey: context.hoverLookupKey,
         hoverLookupGeneration: options.hoverLookupGeneration,
@@ -42515,7 +42590,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       return options.previousNavigationEntry ?? this.renderedWordPreviousNavigationEntry(insideReaderPopup, trigger, navigation);
     }
     renderedWordTrigger(trigger, insideReaderPopup) {
-      if (insideReaderPopup && this.activePopoverMode === "hover") return "hover";
+      if (insideReaderPopup && this.activePopoverMode) return this.activePopoverMode;
       return trigger === "hover" ? "hover" : "modal";
     }
     renderedWordPreviousNavigationEntry(insideReaderPopup, trigger, navigation) {
