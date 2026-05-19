@@ -311,7 +311,21 @@ function callWithUnshadowedWindowRemoveEventListener(
 
 function restoreWindowProperty(key: 'dispatchEvent' | 'addEventListener' | 'removeEventListener', descriptor: PropertyDescriptor): void {
     try {
-        Object.defineProperty(window, key, descriptor);
+        Object.defineProperty(window, key, normalizedPropertyDescriptor(descriptor));
     } catch {
     }
+}
+
+export function normalizedPropertyDescriptor(descriptor: PropertyDescriptor): PropertyDescriptor {
+    const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, 'value')
+        || Object.prototype.hasOwnProperty.call(descriptor, 'writable');
+    const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, 'get')
+        || Object.prototype.hasOwnProperty.call(descriptor, 'set');
+    if (!hasDataShape || !hasAccessorShape) return descriptor;
+    return {
+        configurable: descriptor.configurable,
+        enumerable: descriptor.enumerable,
+        value: descriptor.value,
+        writable: descriptor.writable,
+    };
 }

@@ -13,7 +13,7 @@ vi.mock('../../src/reader/main', () => ({
 }));
 
 import { bootReaderApp } from '../../src/reader/reader-boot';
-import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../../src/reader/window-events';
+import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, normalizedPropertyDescriptor, removeWindowEventListener } from '../../src/reader/window-events';
 
 type BootWindow = Window & {
     __jpdbPopupReaderInitialized?: boolean;
@@ -83,6 +83,26 @@ describe('reader boot', () => {
         dispatchWindowEvent(createWindowCustomEvent(eventName));
 
         expect(listener).not.toHaveBeenCalled();
+    });
+
+    it('normalizes Firefox userscript window descriptors before restoring them', () => {
+        const descriptor = {
+            configurable: true,
+            enumerable: true,
+            get: () => undefined,
+            value: undefined,
+            writable: true,
+        } as PropertyDescriptor;
+        const target: Record<string, unknown> = {};
+
+        expect(() => Object.defineProperty(target, 'dispatchEvent', descriptor)).toThrow(TypeError);
+        expect(() => Object.defineProperty(target, 'dispatchEvent', normalizedPropertyDescriptor(descriptor))).not.toThrow();
+        expect(Object.getOwnPropertyDescriptor(target, 'dispatchEvent')).toMatchObject({
+            configurable: true,
+            enumerable: true,
+            value: undefined,
+            writable: true,
+        });
     });
 });
 
