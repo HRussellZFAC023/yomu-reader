@@ -14,6 +14,7 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
     'yomu-reader-settings',
     'yomu-settings',
     'jpdb-reader-newtab-card-cache',
+    'jpdb-reader-newtab-grade-queue',
     'jpdb-reader-newtab-current-word',
     'jpdb-reader-newtab-ui',
     'jpdb-reader-source-open-state',

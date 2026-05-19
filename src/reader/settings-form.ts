@@ -182,7 +182,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                         <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open new tab page</a>
                         <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">Copy address</button>
                     </div>
-                    <div class="jpdb-reader-help">Use this page as your browser new-tab URL or add it to the iPad Home Screen. Offline caching is eventually consistent: よむ refreshes the next cached review list and card assets when the source is reachable, then uses the last good cache while offline. Grades are only submitted when JPDB or Anki is reachable.</div>
+                    <div class="jpdb-reader-help">Use this page as your browser new-tab URL or add it to the iPad Home Screen. Offline caching is eventually consistent: よむ refreshes the next cached review list and card assets when the source is reachable, uses the last good cache while offline, and queues JPDB or Anki grades until the source reconnects.</div>
                 </div>
     `;
 }
