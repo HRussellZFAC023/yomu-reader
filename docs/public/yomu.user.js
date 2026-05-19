@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.15
+// @version      0.4.16
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -2979,7 +2979,7 @@
       subtitleHighlightColorSource: "Subtitle highlight color",
       subtitleUnderlineColorSource: "Subtitle underline color",
       subtitleTextColorSource: "Subtitle text color",
-      colorSourceStatus: "JPDB + Anki status",
+      colorSourceStatus: "Available status",
       colorSourceJpdb: "JPDB status",
       colorSourceAnki: "Anki status",
       colorSourcePitch: "Pitch accent",
@@ -4222,7 +4222,7 @@
     subtitleHighlightColorSource: "字幕ハイライトの色",
     subtitleUnderlineColorSource: "字幕下線の色",
     subtitleTextColorSource: "字幕テキストの色",
-    colorSourceStatus: "JPDB + Anki の状態",
+    colorSourceStatus: "利用可能な状態",
     colorSourceJpdb: "JPDBの状態",
     colorSourceAnki: "Ankiの状態",
     colorSourcePitch: "ピッチアクセント",
@@ -4629,7 +4629,7 @@
     for (const [index, candidate] of candidates.entries()) {
       try {
         const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
-        const response = await fetchWithTimeout(attempt.url, attempt.options);
+        const response = await fetchWithTimeout$1(attempt.url, attempt.options);
         if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
           lastError = new Error(`Proxy request failed (${response.status}).`);
           continue;
@@ -4721,7 +4721,7 @@
   function isHttpUrl$1(url) {
     return /^https?:\/\//i.test(url);
   }
-  function fetchWithTimeout(url, options) {
+  function fetchWithTimeout$1(url, options) {
     const {
       timeoutMs,
       allowPublicProxies: _allowPublicProxies,
@@ -4929,9 +4929,9 @@
   function addWindowEventListener(type, listener, options) {
     const target = window;
     const directAdd = readMethod(target, "addEventListener");
-    const directResult = callAddEventListener(directAdd, target, type, listener, options);
+    const directResult = callAddEventListener$1(directAdd, target, type, listener, options);
     if (directResult.called) return true;
-    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener(initialWindowAddEventListener, target, type, listener, options);
+    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$1(initialWindowAddEventListener, target, type, listener, options);
     if (initialResult.called) return true;
     const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
     if (prototypeResult.called) return true;
@@ -4942,9 +4942,9 @@
   function removeWindowEventListener(type, listener, options) {
     const target = window;
     const directRemove = readMethod(target, "removeEventListener");
-    const directResult = callRemoveEventListener(directRemove, target, type, listener, options);
+    const directResult = callRemoveEventListener$1(directRemove, target, type, listener, options);
     if (directResult.called) return true;
-    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener(initialWindowRemoveEventListener, target, type, listener, options);
+    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$1(initialWindowRemoveEventListener, target, type, listener, options);
     if (initialResult.called) return true;
     const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
     if (prototypeResult.called) return true;
@@ -4967,7 +4967,7 @@
   function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
     for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
       if (prototypeAdd === directAdd) continue;
-      const result = callAddEventListener(prototypeAdd, target, type, listener, options);
+      const result = callAddEventListener$1(prototypeAdd, target, type, listener, options);
       if (result.called) return result;
     }
     return { called: false };
@@ -4975,7 +4975,7 @@
   function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
     for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
       if (prototypeRemove === directRemove) continue;
-      const result = callRemoveEventListener(prototypeRemove, target, type, listener, options);
+      const result = callRemoveEventListener$1(prototypeRemove, target, type, listener, options);
       if (result.called) return result;
     }
     return { called: false };
@@ -5044,7 +5044,7 @@
       return { called: false, error };
     }
   }
-  function callAddEventListener(method, target, type, listener, options) {
+  function callAddEventListener$1(method, target, type, listener, options) {
     if (!method) return { called: false };
     try {
       method.call(target, type, listener, options);
@@ -5053,7 +5053,7 @@
       return { called: false, error };
     }
   }
-  function callRemoveEventListener(method, target, type, listener, options) {
+  function callRemoveEventListener$1(method, target, type, listener, options) {
     if (!method) return { called: false };
     try {
       method.call(target, type, listener, options);
@@ -5079,7 +5079,7 @@
     if (!descriptor || typeof descriptor.value === "function") return { called: false };
     try {
       if (!Reflect.deleteProperty(window, "addEventListener")) return { called: false };
-      return callAddEventListener(readMethod(window, "addEventListener"), window, type, listener, options);
+      return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
     } catch (error) {
       return { called: false, error };
     } finally {
@@ -5091,7 +5091,7 @@
     if (!descriptor || typeof descriptor.value === "function") return { called: false };
     try {
       if (!Reflect.deleteProperty(window, "removeEventListener")) return { called: false };
-      return callRemoveEventListener(readMethod(window, "removeEventListener"), window, type, listener, options);
+      return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
     } catch (error) {
       return { called: false, error };
     } finally {
@@ -5126,12 +5126,15 @@
       return;
     }
     const request = bridgeCandidate.request.bind(bridgeCandidate.candidate.thisArg);
+    const handledRequestIds = /* @__PURE__ */ new Set();
     document.documentElement.dataset[BRIDGE_MARKER] = "true";
-    addWindowEventListener(BRIDGE_REQUEST_EVENT, (event) => {
+    addBridgeEventListener(BRIDGE_REQUEST_EVENT, (event) => {
       const detail = event.detail;
       if (!detail?.id || !detail.options) return;
+      if (handledRequestIds.has(detail.id)) return;
+      rememberBridgeRequestId(handledRequestIds, detail.id);
       const send = (kind, response, message) => {
-        dispatchWindowEvent(createWindowCustomEvent(BRIDGE_RESPONSE_EVENT, { id: detail.id, kind, response, message }));
+        dispatchBridgeEvent(BRIDGE_RESPONSE_EVENT, { id: detail.id, kind, response, message });
       };
       const options = {
         ...detail.options,
@@ -5151,7 +5154,7 @@
     dispatchUserscriptBridgeReady();
   }
   function dispatchUserscriptBridgeReady() {
-    dispatchWindowEvent(createWindowCustomEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT));
+    dispatchBridgeEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT);
   }
   function userscriptHttpEventBridge() {
     if (typeof window === "undefined" || typeof document === "undefined") return void 0;
@@ -5163,9 +5166,10 @@
         options.ontimeout?.();
         reject(new Error("Request timed out."));
       }, options.timeout ?? BRIDGE_TIMEOUT_MS);
+      let cleanupBridgeResponseListener = noop;
       const cleanup = () => {
         window.clearTimeout(timeout);
-        removeWindowEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+        cleanupBridgeResponseListener();
       };
       const onResponse = (event) => {
         const detail = event.detail;
@@ -5180,10 +5184,64 @@
         else options.onerror?.(new Error(detail?.message || "Request failed."));
         reject(new Error(detail?.message || "Request failed."));
       };
-      addWindowEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+      cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
       const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-      dispatchWindowEvent(createWindowCustomEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions }));
+      dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
     });
+  }
+  function addBridgeEventListener(type, listener) {
+    const cleanups = [];
+    if (addWindowEventListener(type, listener)) {
+      cleanups.push(() => removeWindowEventListener(type, listener));
+    }
+    const documentTarget = bridgeDocumentTarget();
+    if (documentTarget && callAddEventListener(documentTarget, type, listener)) {
+      cleanups.push(() => callRemoveEventListener(documentTarget, type, listener));
+    }
+    return () => {
+      for (const cleanup of cleanups) cleanup();
+    };
+  }
+  function dispatchBridgeEvent(type, detail) {
+    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, detail));
+    const documentTarget = bridgeDocumentTarget();
+    if (documentTarget) {
+      dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, detail)) || dispatched;
+    }
+    return dispatched;
+  }
+  function bridgeDocumentTarget() {
+    if (typeof document === "undefined") return void 0;
+    return document.documentElement || void 0;
+  }
+  function callAddEventListener(target, type, listener) {
+    try {
+      target.addEventListener(type, listener);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function callRemoveEventListener(target, type, listener) {
+    try {
+      target.removeEventListener(type, listener);
+    } catch {
+    }
+  }
+  function callDispatchEvent(target, event) {
+    try {
+      return target.dispatchEvent(event);
+    } catch {
+      return false;
+    }
+  }
+  function rememberBridgeRequestId(ids, id) {
+    ids.add(id);
+    if (ids.size <= 100) return;
+    const oldest = ids.values().next().value;
+    if (oldest) ids.delete(oldest);
+  }
+  function noop() {
   }
   function userscriptRequestCandidates() {
     const candidates = [];
@@ -6117,9 +6175,11 @@
     return candidates.map((candidate) => ({ ...candidate }));
   }
   function getJapanesePod101Url(card) {
+    const spelling = card.spelling.trim();
+    const reading = card.reading.trim() || spelling;
     const params = new URLSearchParams();
-    if (card.spelling !== card.reading) params.set("kanji", card.spelling);
-    params.set("kana", card.reading);
+    if (spelling && spelling !== reading) params.set("kanji", spelling);
+    params.set("kana", reading);
     return `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?${params.toString()}`;
   }
   function isJapanesePod101Url(value) {
@@ -10156,7 +10216,13 @@ ${item.sequence ?? ""}`;
     return json.terms ?? json.entries ?? [];
   }
   function readerExportDictionaryNames(json, terms = readerExportTerms(json)) {
-    return json.dictionaries?.map((item) => item.title) ?? [...new Set(terms.map((entry) => entry.dictionary))];
+    return uniqueDictionaryNames([
+      ...json.dictionaries?.map((item) => item.title) ?? [],
+      ...terms.map((entry) => entry.dictionary),
+      ...(json.kanji ?? []).map((entry) => entry.dictionary),
+      ...(json.termMeta ?? []).map((entry) => entry.dictionary),
+      ...(json.kanjiMeta ?? []).map((entry) => entry.dictionary)
+    ]);
   }
   function readerExportDictionaryInfo(json, dictionaryNames, dictionaryTypes) {
     return json.dictionaries?.length ? json.dictionaries.map((info) => ({ ...info, type: info.type ?? dictionaryTypes[info.title] })) : dictionaryNames.map((title, index) => ({ title, alias: title, enabled: true, priority: index, type: dictionaryTypes[title] }));
@@ -10585,7 +10651,10 @@ ${glossaryKey}`;
     return record.formatName === "yomu-yomitan-dictionaries" || record.formatName === "jpdb-reader-yomitan-dictionaries";
   }
   function hasReaderDictionaryExportRows(record) {
-    return Array.isArray(record.entries) || Array.isArray(record.terms) || Array.isArray(record.kanji);
+    return Array.isArray(record.entries) || Array.isArray(record.terms) || Array.isArray(record.kanji) || Array.isArray(record.termMeta) || Array.isArray(record.kanjiMeta);
+  }
+  function uniqueDictionaryNames(names) {
+    return [...new Set(names.filter((name) => typeof name === "string" && Boolean(name)))];
   }
   function filenameFromUrl(url) {
     try {
@@ -18445,11 +18514,11 @@ ${entry.reading}`;
     let lastError;
     for (const candidate of jpdbApiFetchCandidates(url, proxyUrl)) {
       try {
-        const response = await fetch(candidate, {
+        const response = await fetchWithTimeout(candidate, {
           method: "POST",
           headers,
           body: data
-        });
+        }, REQUEST_TIMEOUT_MS$1);
         if (!response.ok && candidate !== url) {
           lastError = new Error(`JPDB proxy request failed (${response.status}).`);
           continue;
@@ -18464,6 +18533,21 @@ ${entry.reading}`;
       }
     }
     throw lastError instanceof Error ? lastError : new Error("JPDB request failed.");
+  }
+  async function fetchWithTimeout(url, init, timeoutMs) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...init, signal: controller.signal });
+    } catch (error) {
+      if (isAbortError(error)) throw new Error("JPDB request timed out.");
+      throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+  function isAbortError(error) {
+    return error instanceof DOMException && error.name === "AbortError";
   }
   function jpdbApiFetchCandidates(url, proxyUrl) {
     const configuredProxy = configuredProxyFetchUrl(url, proxyUrl);
@@ -24718,6 +24802,7 @@ ${normalizedReading}`;
     }
   }
   const LOCAL_MATCH_LIMIT = 40;
+  const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
   const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
   const log$7 = Logger.scope("ReaderParser");
   class ReaderParser {
@@ -24725,7 +24810,7 @@ ${normalizedReading}`;
       this.dependencies = dependencies;
     }
     localCardCache = /* @__PURE__ */ new Map();
-    async parse(paragraphs) {
+    async parse(paragraphs, options = {}) {
       const { getSettings, jpdb } = this.dependencies;
       const settings = getSettings();
       const done = log$7.time("parse", {
@@ -24735,7 +24820,9 @@ ${normalizedReading}`;
       });
       if (settings.apiKey.trim()) {
         try {
-          const result = await jpdb.parse(paragraphs);
+          const parsePromise = jpdb.parse(paragraphs);
+          const timeoutMs = options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS;
+          const result = timeoutMs > 0 && this.canUseLocalDictionaryFallback() ? await withTimeout(parsePromise, timeoutMs, () => new Error("JPDB parse timed out.")) : await parsePromise;
           done();
           return result;
         } catch (error) {
@@ -24833,8 +24920,10 @@ ${spelling}`);
         log$7.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
-      return matches.map((match) => {
+      return Promise.all(matches.map(async (match) => {
         const card = this.localCardFromEntry(match.entry);
+        const pitch = await this.localPitchPattern(card);
+        if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
         const reading = !match.deinflected && card.reading && card.reading !== match.surface ? card.reading : "";
         return {
           card,
@@ -24842,10 +24931,21 @@ ${spelling}`);
           end: match.end,
           length: match.end - match.start,
           rubies: reading ? [{ text: reading, start: match.start, end: match.end, length: match.end - match.start }] : [],
-          pitchClass: "",
+          pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
           sentence: text2
         };
+      }));
+    }
+    async localPitchPattern(card) {
+      const settings = this.dependencies.getSettings();
+      if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return "";
+      const lookupTermMeta = this.dependencies.dictionaries.lookupTermMeta;
+      if (typeof lookupTermMeta !== "function") return "";
+      const metaEntries = await lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).catch((error) => {
+        log$7.warn("Local pitch lookup failed while parsing text", { term: card.spelling }, error);
+        return [];
       });
+      return localPitchPatternFromMeta(card.reading, metaEntries);
     }
   }
   function fallbackLookupTermAtOffset(text2, offset) {
@@ -24875,6 +24975,16 @@ ${spelling}`);
   }
   function cardCacheKey(vid, sid) {
     return `${vid}:${sid}`;
+  }
+  function withTimeout(promise, timeoutMs, errorFactory) {
+    let timeoutId = 0;
+    const timeout = new Promise((_resolve, reject) => {
+      timeoutId = window.setTimeout(() => reject(errorFactory()), timeoutMs);
+    });
+    return Promise.race([
+      promise,
+      timeout
+    ]).finally(() => window.clearTimeout(timeoutId));
   }
   const COLOR_SOURCE_CLASSES = ["status", "jpdb", "anki", "pitch"];
   const COLOR_CHANNELS = ["highlight", "underline", "text"];
@@ -25377,7 +25487,7 @@ ${spelling}`);
   const log$6 = Logger.scope("SettingsForm");
   const COLOR_SOURCE_VALUES = ["status", "jpdb", "anki", "pitch", "off"];
   const COLOR_SOURCE_OPTIONS = [
-    ["status", "JPDB + Anki status"],
+    ["status", "Available status"],
     ["jpdb", "JPDB status"],
     ["anki", "Anki status"],
     ["pitch", "Pitch accent"],
@@ -31575,33 +31685,45 @@ button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
 }
 
 .jpdb-reader-example-target {
-  border-radius: 4px;
-  box-shadow: none;
+  padding: 0 0.08em;
+  border-radius: 0.22em;
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent-readable) 15%,
+    transparent
+  );
+  box-shadow: inset 0 -0.1em 0
+    color-mix(in srgb, var(--jpdb-reader-accent-readable) 58%, transparent);
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
 
 mark.jpdb-reader-example-target {
-  padding: 0 0.08em;
+  color: inherit;
 }
 
 .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target {
-  box-shadow: inset 0 -0.12em 0
-    color-mix(in srgb, var(--jpdb-reader-accent-readable) 56%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent-readable) 15%,
+    transparent
+  ) !important;
 }
 
 .jpdb-reader-example-card
   .jpdb-reader-example-sentence
   .jpdb-reader-word.jpdb-reader-example-target {
-  box-shadow: inset 0 -0.12em 0
-    color-mix(in srgb, var(--jpdb-reader-accent-readable) 56%, transparent) !important;
+  box-shadow: inset 0 -0.1em 0
+    color-mix(in srgb, var(--jpdb-reader-accent-readable) 58%, transparent) !important;
 }
 
 .jpdb-reader-example-card.has-image
   .jpdb-reader-example-sentence
   .jpdb-reader-word.jpdb-reader-example-target {
-  box-shadow: inset 0 -0.12em 0
-    color-mix(in srgb, var(--jpdb-reader-accent-readable) 64%, transparent) !important;
+  background: transparent !important;
+  box-shadow:
+    0 0.08em 0 color-mix(in srgb, #000 58%, transparent),
+    inset 0 -0.12em 0 color-mix(in srgb, var(--jpdb-reader-accent-readable) 74%, transparent) !important;
 }
 
 .jpdb-reader-example-translation {
@@ -42013,8 +42135,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     hasOpenReaderDialog() {
       return Boolean(this.activePopover || this.activeBackdrop || document.querySelector("[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop"));
     }
-    async parseJapanese(paragraphs) {
-      return this.parser.parse(paragraphs);
+    async parseJapanese(paragraphs, options) {
+      return this.parser.parse(paragraphs, options);
     }
     canParseJapanese() {
       return this.parser.canParse();
@@ -42045,7 +42167,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       if (!context) return;
       const done = log$1.time("lookupText", { length: context.selected.length, trigger: context.trigger });
       try {
-        const [tokens] = await this.parseJapanese([sentence]);
+        if (await this.showLocalLookupCard(context, sentence)) return;
+        const [tokens] = await this.parseJapanese([sentence], { jpdbTimeoutMs: 1200 });
         await this.showTextLookupResult(context, tokens, sentence);
       } catch (error) {
         log$1.warn("Lookup failed; trying local fallback", { selected: context.selected }, error);
@@ -42098,12 +42221,14 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       }
       await this.showLocalOrFallbackLookupCard(context, sentence);
     }
-    async showLocalOrFallbackLookupCard(context, sentence, error) {
+    async showLocalLookupCard(context, sentence) {
       const localEntries = await this.localLookupEntries(context.selected);
-      if (localEntries.length) {
-        void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, context.anchor, this.textLookupCardOptions(context));
-        return;
-      }
+      if (!localEntries.length) return false;
+      void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, context.anchor, this.textLookupCardOptions(context));
+      return true;
+    }
+    async showLocalOrFallbackLookupCard(context, sentence, error) {
+      if (await this.showLocalLookupCard(context, sentence)) return;
       if (error) this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, "jpdbLookupFailed"));
       void this.showCard(this.parser.fallbackCardFromText(context.selected), sentence, context.anchor, this.textLookupCardOptions(context));
     }
@@ -42212,12 +42337,12 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       }
     }
     async showFirstPointerTextCandidate(candidate, sentence, trigger, options) {
-      if (await this.showParsedPointerTextCandidate(candidate, sentence, trigger, options)) return;
       if (await this.showLocalPointerTextCandidate(candidate, sentence, trigger, options)) return;
+      if (await this.showParsedPointerTextCandidate(candidate, sentence, trigger, options)) return;
       if (await this.showFallbackPointerTextCandidate(candidate, sentence, trigger, options)) return;
     }
     async showParsedPointerTextCandidate(candidate, sentence, trigger, options) {
-      const [tokens] = await this.parseJapanese([candidate.text]);
+      const [tokens] = await this.parseJapanese([candidate.text], { jpdbTimeoutMs: 1200 });
       const token = pointerTokenAtOffset(tokens ?? [], candidate.offset);
       if (!token) return false;
       await this.showPointerTextCard(token.card, token.sentence ?? sentence, candidate, { start: token.start, end: token.end }, trigger, options);
@@ -42445,6 +42570,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       this.rememberCardMiningContext(card, sentence, anchor, options);
       const fallbackAnkiLookup = { state: "not-in-deck", notes: [], primary: null };
       this.lastAnkiLookup = fallbackAnkiLookup;
+      this.maybePreloadLookupCardAudio(card, options);
       const renderData = this.cardRenderData.load(card);
       const requestId = ++this.cardRenderRequest;
       const mounted = await this.mountInitialCardShell(popover, card, sentence, anchor, {
@@ -42509,6 +42635,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     maybeAutoPlayInitialCard(card, context) {
       if (!this.shouldAutoPlayInitialCard(card, context)) return;
       void this.audioActions.playTermAudio(card, { hoverLookupGeneration: context.hoverLookupGeneration });
+    }
+    maybePreloadLookupCardAudio(card, options) {
+      if (options.autoPlay === false || !this.canPreloadReaderAudio()) return;
+      this.audio.preload(card, { sourceLimit: 3, candidateLimit: 1 });
     }
     shouldAutoPlayInitialCard(card, context) {
       return context.options.autoPlay !== false && this.isCurrentCardForAutoPlay(context) && this.shouldAutoPlay(card, context.trigger);
@@ -43183,7 +43313,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     async parseNestedJapaneseContent(root, plan, isCurrent) {
       root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
       try {
-        const parsed = await this.parseJapanese(plan.targets.map((target) => target.text));
+        const parsed = await this.parseJapanese(plan.targets.map((target) => target.text), { jpdbTimeoutMs: 1200 });
         if (!isCurrent() || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
         applyNestedParsePlan(plan, parsed, this.settings);
         root.dataset.jpdbReaderParseKey = plan.parseKey;

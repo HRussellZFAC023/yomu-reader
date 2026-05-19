@@ -1861,8 +1861,13 @@ function readerExportTerms(json: ReaderDictionaryExport): YomitanTermEntry[] {
 }
 
 function readerExportDictionaryNames(json: ReaderDictionaryExport, terms = readerExportTerms(json)): string[] {
-    return json.dictionaries?.map(item => item.title)
-        ?? [...new Set(terms.map(entry => entry.dictionary))];
+    return uniqueDictionaryNames([
+        ...(json.dictionaries?.map(item => item.title) ?? []),
+        ...terms.map(entry => entry.dictionary),
+        ...(json.kanji ?? []).map(entry => entry.dictionary),
+        ...(json.termMeta ?? []).map(entry => entry.dictionary),
+        ...(json.kanjiMeta ?? []).map(entry => entry.dictionary),
+    ]);
 }
 
 function readerExportDictionaryInfo(
@@ -2437,7 +2442,13 @@ function isReaderDictionaryExportFormat(record: { formatName?: unknown }): boole
 function hasReaderDictionaryExportRows(record: Partial<ReaderDictionaryExport>): boolean {
     return Array.isArray(record.entries)
         || Array.isArray(record.terms)
-        || Array.isArray(record.kanji);
+        || Array.isArray(record.kanji)
+        || Array.isArray(record.termMeta)
+        || Array.isArray(record.kanjiMeta);
+}
+
+function uniqueDictionaryNames(names: unknown[]): string[] {
+    return [...new Set(names.filter((name): name is string => typeof name === 'string' && Boolean(name)))];
 }
 
 function filenameFromUrl(url: string): string {

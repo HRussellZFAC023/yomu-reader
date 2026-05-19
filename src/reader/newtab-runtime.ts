@@ -81,6 +81,7 @@ import {
 import { StudySourceController } from './study-sources';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import { installUchisenCarousel, loadUchisenData } from './uchisen';
+import { addWindowEventListener } from './window-events';
 import { renderWordPills } from './word-pills';
 
 import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanTermEntry } from './yomitan';
@@ -109,7 +110,7 @@ export function bootNewTabRuntime(): void {
         log.error('New tab initialization failed', error);
         throw error;
     });
-    window.addEventListener('pagehide', () => app.destroy(), { once: true });
+    addWindowEventListener('pagehide', () => app.destroy(), { once: true });
 }
 
 export class NewTabRuntime {
@@ -319,7 +320,7 @@ export class NewTabRuntime {
     private installExternalRefreshListener(): void {
         this.externalRefreshController?.abort();
         const controller = new AbortController();
-        window.addEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => {
+        addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => {
             if (this.newTab?.isCurrentPage()) void this.newTab.refreshExternalData();
         }, { signal: controller.signal });
         this.externalRefreshController = controller;
@@ -457,6 +458,7 @@ export class NewTabRuntime {
         this.navigation.clearKanji();
         const { popover, reused } = this.lookupRenderSurface(options.reuseActivePopover === true);
         if (requestId !== this.lookupRenderRequest) return;
+        this.maybePreloadLookupCardAudio(card, options);
         const renderData = this.cardRenderData.load(card);
         const fallbackAnkiLookup: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
         const renderState = { fullRenderCompleted: false };
@@ -1140,6 +1142,11 @@ export class NewTabRuntime {
         void this.audioActions.playTermAudio(card);
     }
 
+    private maybePreloadLookupCardAudio(card: JPDBCard, options: NewTabLookupDisplayOptions): void {
+        if (options.autoPlay === false || !this.settings.audioEnabled || !this.settings.autoPlayAudio) return;
+        this.audio.preload(card, { sourceLimit: 3, candidateLimit: 1 });
+    }
+
     private shouldAutoPlayLookupCard(card: JPDBCard, options: NewTabLookupDisplayOptions): boolean {
         if (options.autoPlay === false) return false;
         if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return false;
@@ -1174,11 +1181,12 @@ export class NewTabRuntime {
     }
 
     private async lookupCard(term: string, reading: string): Promise<JPDBCard> {
-        const parsed = await this.parser.parse([term]).catch(() => [[]]);
+        const localEntry = await this.localLookupEntry(term, reading);
+        if (localEntry) return this.parser.localCardFromEntry(localEntry);
+        const parsed = await this.parser.parse([term], { jpdbTimeoutMs: 1_200 }).catch(() => [[]]);
         const token = pickTokenForSelection(parsed[0] ?? [], term);
         if (token) return token.card;
-        const localEntry = await this.localLookupEntry(term, reading);
-        return localEntry ? this.parser.localCardFromEntry(localEntry) : this.parser.fallbackCardFromText(term);
+        return this.parser.fallbackCardFromText(term);
     }
 
     private async localLookupEntry(term: string, reading: string): Promise<YomitanTermEntry | undefined> {
@@ -1487,7 +1495,7 @@ export class NewTabRuntime {
         if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
         try {
-            const parsed = await this.parser.parse(plan.targets.map(target => target.text));
+            const parsed = await this.parser.parse(plan.targets.map(target => target.text), { jpdbTimeoutMs: 1_200 });
             if (!root.isConnected || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             root.dataset.jpdbReaderParseKey = plan.parseKey;

@@ -348,6 +348,7 @@ const NEW_TAB_SEARCH_WORD_LIMIT = 10;
 const NEW_TAB_SEARCH_KANJI_LIMIT = 6;
 const NEW_TAB_SEARCH_SUGGESTION_LIMIT = 6;
 const NEW_TAB_KANJI_FRONT_KEYWORD_LIMIT = 3;
+const NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS = 8_000;
 const NEW_TAB_HANDWRITING_DEBOUNCE_MS = 360;
 const NEW_TAB_HANDWRITING_GEOMETRY_CANDIDATE_LIMIT = 240;
 const NEW_TAB_HANDWRITING_GOOGLE_URL = 'https://www.google.com/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8';
@@ -986,7 +987,7 @@ export class NewTabController {
         const onProgress = (message: string): void => {
             if (this.isCurrentLoad(loadGeneration)) this.setStatus(root, message);
         };
-        onProgress(this.text(usedCachedWords ? 'refreshing' : 'loading'));
+        if (!usedCachedWords) onProgress(this.text('loading'));
         return this.loadWords(onProgress);
     }
 
@@ -1102,9 +1103,11 @@ export class NewTabController {
     private async loadAnkiWords(): Promise<NewTabLoadResult> {
         const settings = this.dependencies.getSettings();
         if (!settings.ankiEnabled) return { cards: [], sourceLabel: 'Anki', needsDictionarySetup: false, reviewCountMode: true };
-        const cards = await this.dependencies.anki.listNewTabCards(80).catch(() => {
-            return [];
-        });
+        const cards = await this.remoteSourceWithFallback(
+            'Anki',
+            this.dependencies.anki.listNewTabCards(80),
+            [] as JPDBCard[],
+        );
         return { cards, sourceLabel: cards.length ? 'Anki' : 'Anki', needsDictionarySetup: false, reviewCountMode: true };
     }
 
@@ -1168,7 +1171,11 @@ export class NewTabController {
     private async loadSelectedJpdbDeckWords(selectedDeck: string): Promise<NewTabLoadResult | null> {
         if (selectedDeck === JPDB_ALL_DECKS) return null;
         try {
-            const cards = markJpdbApiReviewCards(await this.dependencies.jpdb.listDeckCards(selectedDeck, NEW_TAB_WORD_LIMIT));
+            const cards = markJpdbApiReviewCards(await this.remoteSourceWithFallback(
+                'JPDB selected deck',
+                this.dependencies.jpdb.listDeckCards(selectedDeck, NEW_TAB_WORD_LIMIT),
+                [] as JPDBCard[],
+            ));
             return { cards, sourceLabel: 'JPDB', needsDictionarySetup: false, reviewCountMode: true };
         } catch {
             return null;
@@ -1176,17 +1183,33 @@ export class NewTabController {
     }
 
     private async loadSampledJpdbDeckWords(): Promise<NewTabLoadResult> {
-        const decks = await this.dependencies.jpdb.listDecks().catch(() => []);
+        const decks = await this.remoteSourceWithFallback(
+            'JPDB deck list',
+            this.dependencies.jpdb.listDecks(),
+            [],
+        );
         const eligibleDecks = decks
             .filter(deck => !/(never\s*-?\s*forget|blacklist|suspend)/i.test(`${deck.id} ${deck.name}`))
             .slice(0, JPDB_DECK_SAMPLE_LIMIT);
         const cards = (await Promise.all(eligibleDecks.map(deck =>
-            this.dependencies.jpdb.listDeckCards(deck.id, JPDB_WORDS_PER_DECK)
+            this.remoteSourceWithFallback(
+                `JPDB deck ${deck.id}`,
+                this.dependencies.jpdb.listDeckCards(deck.id, JPDB_WORDS_PER_DECK),
+                [] as JPDBCard[],
+            )
                 .then(markJpdbApiReviewCards)
-                .catch((): JPDBCard[] => []),
         ))).flat();
 
         return { cards, sourceLabel: 'JPDB', needsDictionarySetup: false, reviewCountMode: cards.length > 0 };
+    }
+
+    private async remoteSourceWithFallback<T>(label: string, promise: Promise<T>, fallback: T): Promise<T> {
+        try {
+            return await promiseWithTimeout(promise, NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, `${label} timed out.`);
+        } catch (error) {
+            log.warn('New tab remote source failed', { label, error });
+            return fallback;
+        }
     }
 
     private isCurrentLoad(loadGeneration: number): boolean {
@@ -1676,7 +1699,9 @@ export class NewTabController {
     private canAppendImmersionExample(meaning: HTMLElement, key: string, examples: ImmersionKitExample[]): boolean {
         return Boolean(examples.length)
             && cardKey(this.visibleWords[this.index]) === key
-            && meaning.isConnected;
+            && meaning.isConnected
+            && this.state.mode === 'word'
+            && this.state.revealAnswer;
     }
 
     private renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement {
@@ -1856,19 +1881,27 @@ export class NewTabController {
     }
 
     private async playCurrentImmersionAudio(card: JPDBCard): Promise<void> {
+        const key = cardKey(card);
         const examples = await this.loadImmersionExamples(card);
-        const example = examples[this.normalizedImmersionExampleIndex(cardKey(card), examples)];
+        if (!this.isCurrentRevealedWordCard(key)) return;
+        const example = examples[this.normalizedImmersionExampleIndex(key, examples)];
         if (!example) return;
         const source = this.newTabImmersionAudioSource(example);
         if (!source || this.isCurrentImmersionAudioPlaying(source.key)) return;
         const requestId = this.beginNewTabImmersionAudio(source.key);
         const src = await this.fetchNewTabImmersionAudio(source.urls);
-        if (!this.isCurrentImmersionAudioRequest(requestId, source.key, src)) return;
+        if (!this.isCurrentImmersionAudioRequest(requestId, source.key, src) || !this.isCurrentRevealedWordCard(key)) return;
         const audio = this.attachNewTabImmersionAudio(src);
         const cleanup = () => this.clearNewTabImmersionAudio(audio);
         audio.addEventListener('ended', cleanup, { once: true });
         audio.addEventListener('error', cleanup, { once: true });
         await audio.play().catch(cleanup);
+    }
+
+    private isCurrentRevealedWordCard(key: string): boolean {
+        return this.state.mode === 'word'
+            && this.state.revealAnswer
+            && cardKey(this.visibleWords[this.index]) === key;
     }
 
     private newTabImmersionAudioSource(example: ImmersionKitExample): { urls: string[]; key: string } | null {
@@ -3852,6 +3885,17 @@ function newTabKanjiReadings(fullInfo: JpdbKanjiInfo | null, localReadings: stri
     return fullInfo?.readings.length
         ? fullInfo.readings.slice(0, 8).map(reading => `${reading.reading}${reading.share ? ` ${reading.share}` : ''}`)
         : localReadings;
+}
+
+function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+    let timeoutId = 0;
+    const timeout = new Promise<never>((_resolve, reject) => {
+        timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    });
+    return Promise.race([
+        promise,
+        timeout,
+    ]).finally(() => window.clearTimeout(timeoutId));
 }
 
 function newTabKanjiSourceAttrs(sourceStateKey: string, initiallyExpanded = true): string {

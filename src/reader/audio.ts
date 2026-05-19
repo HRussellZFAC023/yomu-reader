@@ -1080,9 +1080,11 @@ function cloneAudioCandidates(candidates: AudioCandidate[]): AudioCandidate[] {
 }
 
 function getJapanesePod101Url(card: JPDBCard): string {
+    const spelling = card.spelling.trim();
+    const reading = card.reading.trim() || spelling;
     const params = new URLSearchParams();
-    if (card.spelling !== card.reading) params.set('kanji', card.spelling);
-    params.set('kana', card.reading);
+    if (spelling && spelling !== reading) params.set('kanji', spelling);
+    params.set('kana', reading);
     return `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?${params.toString()}`;
 }
 

@@ -108,11 +108,11 @@ async function postJsonWithFetch(
     let lastError: unknown;
     for (const candidate of jpdbApiFetchCandidates(url, proxyUrl)) {
         try {
-            const response = await fetch(candidate, {
+            const response = await fetchWithTimeout(candidate, {
                 method: 'POST',
                 headers,
                 body: data,
-            });
+            }, REQUEST_TIMEOUT_MS);
             if (!response.ok && candidate !== url) {
                 lastError = new Error(`JPDB proxy request failed (${response.status}).`);
                 continue;
@@ -127,6 +127,23 @@ async function postJsonWithFetch(
         }
     }
     throw lastError instanceof Error ? lastError : new Error('JPDB request failed.');
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...init, signal: controller.signal });
+    } catch (error) {
+        if (isAbortError(error)) throw new Error('JPDB request timed out.');
+        throw error;
+    } finally {
+        window.clearTimeout(timeoutId);
+    }
+}
+
+function isAbortError(error: unknown): boolean {
+    return error instanceof DOMException && error.name === 'AbortError';
 }
 
 function jpdbApiFetchCandidates(url: string, proxyUrl: string): string[] {

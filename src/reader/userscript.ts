@@ -42,12 +42,15 @@ export function installUserscriptHttpBridge(): void {
         return;
     }
     const request = bridgeCandidate.request.bind(bridgeCandidate.candidate.thisArg);
+    const handledRequestIds = new Set<string>();
     document.documentElement.dataset[BRIDGE_MARKER] = 'true';
-    addWindowEventListener(BRIDGE_REQUEST_EVENT, event => {
+    addBridgeEventListener(BRIDGE_REQUEST_EVENT, event => {
         const detail = (event as CustomEvent).detail as { id?: string; options?: Parameters<UserscriptHttpRequest>[0] } | undefined;
         if (!detail?.id || !detail.options) return;
+        if (handledRequestIds.has(detail.id)) return;
+        rememberBridgeRequestId(handledRequestIds, detail.id);
         const send = (kind: 'load' | 'error' | 'timeout', response?: UserscriptHttpResponse, message?: string) => {
-            dispatchWindowEvent(createWindowCustomEvent(BRIDGE_RESPONSE_EVENT, { id: detail.id, kind, response, message }));
+            dispatchBridgeEvent(BRIDGE_RESPONSE_EVENT, { id: detail.id, kind, response, message });
         };
         const options = {
             ...detail.options,
@@ -68,7 +71,7 @@ export function installUserscriptHttpBridge(): void {
 }
 
 function dispatchUserscriptBridgeReady(): void {
-    dispatchWindowEvent(createWindowCustomEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT));
+    dispatchBridgeEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT);
 }
 
 function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
@@ -81,9 +84,10 @@ function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
             options.ontimeout?.();
             reject(new Error('Request timed out.'));
         }, options.timeout ?? BRIDGE_TIMEOUT_MS);
+        let cleanupBridgeResponseListener = noop;
         const cleanup = () => {
             window.clearTimeout(timeout);
-            removeWindowEventListener(BRIDGE_RESPONSE_EVENT, onResponse as EventListener);
+            cleanupBridgeResponseListener();
         };
         const onResponse = (event: CustomEvent) => {
             const detail = event.detail as { id?: string; kind?: string; response?: UserscriptHttpResponse; message?: string } | undefined;
@@ -98,11 +102,83 @@ function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
             else options.onerror?.(new Error(detail?.message || 'Request failed.'));
             reject(new Error(detail?.message || 'Request failed.'));
         };
-        addWindowEventListener(BRIDGE_RESPONSE_EVENT, onResponse as EventListener);
+        cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse as EventListener);
         const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-        dispatchWindowEvent(createWindowCustomEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions }));
+        dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
     })) as UserscriptHttpRequest;
 }
+
+function addBridgeEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+): () => void {
+    const cleanups: Array<() => void> = [];
+    if (addWindowEventListener(type, listener)) {
+        cleanups.push(() => removeWindowEventListener(type, listener));
+    }
+    const documentTarget = bridgeDocumentTarget();
+    if (documentTarget && callAddEventListener(documentTarget, type, listener)) {
+        cleanups.push(() => callRemoveEventListener(documentTarget, type, listener));
+    }
+    return () => {
+        for (const cleanup of cleanups) cleanup();
+    };
+}
+
+function dispatchBridgeEvent<T>(type: string, detail?: T): boolean {
+    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, detail));
+    const documentTarget = bridgeDocumentTarget();
+    if (documentTarget) {
+        dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, detail)) || dispatched;
+    }
+    return dispatched;
+}
+
+function bridgeDocumentTarget(): HTMLElement | undefined {
+    if (typeof document === 'undefined') return undefined;
+    return document.documentElement || undefined;
+}
+
+function callAddEventListener(
+    target: EventTarget,
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+): boolean {
+    try {
+        target.addEventListener(type, listener);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function callRemoveEventListener(
+    target: EventTarget,
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+): void {
+    try {
+        target.removeEventListener(type, listener);
+    } catch {
+    }
+}
+
+function callDispatchEvent(target: EventTarget, event: Event): boolean {
+    try {
+        return target.dispatchEvent(event);
+    } catch {
+        return false;
+    }
+}
+
+function rememberBridgeRequestId(ids: Set<string>, id: string): void {
+    ids.add(id);
+    if (ids.size <= 100) return;
+    const oldest = ids.values().next().value;
+    if (oldest) ids.delete(oldest);
+}
+
+function noop(): void {}
 
 function userscriptRequestCandidates(): UserscriptRequestCandidate[] {
     const candidates: UserscriptRequestCandidate[] = [];
