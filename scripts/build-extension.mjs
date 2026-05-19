@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -60,10 +61,11 @@ console.log(`Yomu extension packages written to ${out}`);
 
 async function stageNewTabShell() {
     await mkdir(newtab, { recursive: true });
+    const appHash = createHash('sha256').update(await readFile(newtabApp)).digest('hex').slice(0, 12);
     const index = await readFile(publicNewtabIndex, 'utf8');
-    await writeFile(newtabIndex, extensionNewTabIndex(index));
+    await writeFile(newtabIndex, extensionNewTabIndex(index, appHash));
     if (existsSync(publicNewtabServiceWorker)) {
-        await copyFile(publicNewtabServiceWorker, path.join(newtab, 'sw.js'));
+        await writeFile(path.join(newtab, 'sw.js'), extensionNewTabServiceWorker(await readFile(publicNewtabServiceWorker, 'utf8'), appHash));
     }
     if (existsSync(publicIcon)) {
         await copyFile(publicIcon, path.join(newtab, 'yomu-icon.svg'));
@@ -81,8 +83,14 @@ async function stageManifestIcons() {
     }
 }
 
-function extensionNewTabIndex(index) {
-    return index.replaceAll('href="../yomu-icon.svg"', 'href="./yomu-icon.svg"');
+function extensionNewTabIndex(index, appHash) {
+    return index
+        .replaceAll('href="../yomu-icon.svg"', 'href="./yomu-icon.svg"')
+        .replace(/<script src="\.\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script src="./app.js?v=${appHash}"></script>`);
+}
+
+function extensionNewTabServiceWorker(source, appHash) {
+    return source.replaceAll('__YOMU_NEW_TAB_APP_HASH__', appHash);
 }
 
 async function verifyReleaseArtifacts() {

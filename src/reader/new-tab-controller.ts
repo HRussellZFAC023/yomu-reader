@@ -47,7 +47,7 @@ import {
     type NewTabUiState,
 } from './new-tab';
 import type { ReaderParser } from './reader-parser';
-import type { JPDBCard, JPDBGrade, ReaderSettings } from './types';
+import type { CardState, JPDBCard, JPDBGrade, ReaderSettings } from './types';
 import type { RtkClient, RtkInfo } from './rtk';
 import { gmStorageDelete, gmStorageGet, gmStorageSet } from './storage';
 import { resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
@@ -255,6 +255,20 @@ function newTabCardSourceLabel(card: JPDBCard, language: ReaderSettings['interfa
 function newTabPitchClass(card: JPDBCard): string {
     return getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
 }
+
+const NEW_TAB_WORD_STATE_CLASSES: CardState[] = [
+    'new',
+    'learning',
+    'known',
+    'due',
+    'failed',
+    'locked',
+    'never-forget',
+    'blacklisted',
+    'suspended',
+    'not-in-deck',
+    'redundant',
+];
 
 function newTabKanjiKeyword(card: JPDBCard, fullInfo: JpdbKanjiInfo | null, rtk: RtkInfo | null, localMeanings: string[]): string {
     return fullInfo?.keyword || rtk?.keyword || card.kanjiKeyword || localMeanings[0] || '';
@@ -1776,8 +1790,31 @@ export class NewTabController {
             if ((word.dataset.vid === cardVid && word.dataset.sid === cardSid)
                 || targets.some(target => surface.includes(target))) {
                 word.classList.add('jpdb-reader-example-target');
+                this.applyNewTabParsedTargetCardIdentity(word, card, surface);
             }
         });
+    }
+
+    private applyNewTabParsedTargetCardIdentity(word: HTMLElement, card: JPDBCard, surface: string): void {
+        const state = primaryCardState(card.cardState);
+        const sourceClass = card.source === 'anki' || card.reviewSource === 'anki' ? 'anki' : 'jpdb';
+        const pitchClass = newTabPitchClass(card);
+        for (const cls of Array.from(word.classList)) {
+            if (cls.startsWith('jpdb-pitch-')) {
+                word.classList.remove(cls);
+                continue;
+            }
+            if (NEW_TAB_WORD_STATE_CLASSES.some(candidate => cls === `jpdb-${candidate}` || cls === `anki-${candidate}`)) {
+                word.classList.remove(cls);
+            }
+        }
+        word.classList.add(`${sourceClass}-${state}`, `jpdb-pitch-${pitchClass}`);
+        word.dataset.vid = String(card.vid);
+        word.dataset.sid = String(card.sid);
+        word.dataset.expression = card.spelling;
+        word.dataset.reading = card.reading;
+        word.dataset.pitchClass = pitchClass;
+        word.dataset.sentence ||= card.sentence || surface;
     }
 
     private renderNewTabImmersionToolbar(example: ImmersionKitExample, index: number, total: number, hasAudio: boolean): HTMLElement {

@@ -52,4 +52,19 @@ function syncNewTabIndex() {
   mkdirSync(dirname(indexTarget), { recursive: true });
   writeFileSync(indexTarget, html);
   console.log(`Synced ${indexTarget}`);
+  syncNewTabServiceWorker(hash);
+}
+
+function syncNewTabServiceWorker(hash) {
+  const swSource = join(root, 'public', 'newtab', 'sw.js');
+  const swDist = join(root, 'dist', 'newtab', 'sw.js');
+  const swTarget = join(root, 'docs', 'public', 'newtab', 'sw.js');
+  if (!existsSync(swSource)) return;
+  const js = readFileSync(swSource, 'utf8')
+    .replaceAll('__YOMU_NEW_TAB_APP_HASH__', hash);
+  mkdirSync(dirname(swDist), { recursive: true });
+  writeFileSync(swDist, js);
+  mkdirSync(dirname(swTarget), { recursive: true });
+  writeFileSync(swTarget, js);
+  console.log(`Synced ${swTarget}`);
 }

@@ -1515,10 +1515,18 @@ describe('new tab review helpers', () => {
 
     it('parses the front sentence with the same content parser used by other card text', async () => {
         const sentence = 'お母ちゃん中学生？';
-        const card = newTabTestCard({ vid: 88, sid: 44, spelling: '中学生', reading: 'ちゅうがくせい', sentence });
+        const card = newTabTestCard({
+            vid: 88,
+            sid: 44,
+            spelling: '中学生',
+            reading: 'ちゅうがくせい',
+            sentence,
+            cardState: ['due'],
+            pitchAccent: ['LH'],
+        });
         const parseContent = vi.fn(async (prompt: HTMLElement) => {
             const sentenceNode = prompt.querySelector<HTMLElement>('[data-newtab-sentence-render]');
-            sentenceNode!.innerHTML = 'お母ちゃん<span class="jpdb-reader-word jpdb-new jpdb-pitch-heiban" data-vid="88" data-sid="44" data-sentence="お母ちゃん中学生？" tabindex="0">中学生</span>？';
+            sentenceNode!.innerHTML = 'お母ちゃん<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown" data-vid="-1" data-sid="-1" data-sentence="お母ちゃん中学生？" tabindex="0">中学生</span>？';
         });
         const controller = newTabPromptController(DEFAULT_SETTINGS, { parseContent });
         const root = document.createElement('main');
@@ -1543,8 +1551,14 @@ describe('new tab review helpers', () => {
 
             await waitForExpect(() => {
                 expect(parseContent).toHaveBeenCalledWith(root.querySelector('[data-newtab-prompt]'));
-                expect(root.querySelector('.jpdb-reader-newtab-sentence .jpdb-reader-word')?.textContent).toBe('中学生');
-                expect(root.querySelector('.jpdb-reader-newtab-sentence .jpdb-reader-word')?.classList.contains('jpdb-reader-example-target')).toBe(true);
+                const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-sentence .jpdb-reader-word');
+                expect(word?.textContent).toBe('中学生');
+                expect(word?.classList.contains('jpdb-reader-example-target')).toBe(true);
+                expect(word?.classList.contains('jpdb-due')).toBe(true);
+                expect(word?.classList.contains('jpdb-not-in-deck')).toBe(false);
+                expect(word?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+                expect(word?.dataset.vid).toBe('88');
+                expect(word?.dataset.sid).toBe('44');
             });
         } finally {
             root.remove();
@@ -2151,6 +2165,42 @@ describe('new tab review helpers', () => {
         } finally {
             runtime.destroy();
             restoreCanvas();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('uses a longer JPDB parse window for hosted new-tab study text than popovers', async () => {
+        const runtime = new NewTabRuntime();
+        const parse = vi.fn(async () => [[]]);
+        const studyRoot = document.createElement('div');
+        studyRoot.innerHTML = '<span class="jpdb-reader-parseable">大切です。</span>';
+        document.body.append(studyRoot);
+        const internals = runtime as unknown as {
+            parser: { canParse(): boolean; parse: typeof parse };
+            createNewTabController(): NewTabController;
+            parseNewTabContent(root: HTMLElement, options?: { jpdbTimeoutMs?: number }): Promise<void>;
+        };
+        internals.parser = { canParse: () => true, parse };
+
+        try {
+            const controller = internals.createNewTabController() as unknown as {
+                dependencies: { parseContent(root: HTMLElement): Promise<void> | void };
+            };
+
+            await controller.dependencies.parseContent(studyRoot);
+
+            expect(parse).toHaveBeenLastCalledWith(['大切です。'], { jpdbTimeoutMs: 15_000 });
+
+            parse.mockClear();
+            const popover = document.createElement('div');
+            popover.innerHTML = '<span class="jpdb-reader-parseable">日本語です。</span>';
+            document.body.append(popover);
+
+            await internals.parseNewTabContent(popover);
+
+            expect(parse).toHaveBeenCalledWith(['日本語です。'], { jpdbTimeoutMs: 1_200 });
+        } finally {
+            runtime.destroy();
             document.body.replaceChildren();
         }
     });

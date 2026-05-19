@@ -1,5 +1,6 @@
-const CACHE_NAME = 'yomu-newtab-v2';
-const SHELL = ['./', './index.html', '../yomu.user.js'];
+const APP_HASH = 'abe5ac2b0f26';
+const CACHE_NAME = `yomu-newtab-${APP_HASH}`;
+const SHELL = ['./', './index.html', './app.js', '../yomu.user.js'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).catch(() => undefined));
@@ -15,13 +16,50 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-  event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy)).catch(() => undefined);
-        return response;
-      })
-      .catch(() => caches.match(event.request).then(response => response || caches.match('./index.html'))),
-  );
+  if (event.request.mode === 'navigate') {
+    event.respondWith(networkFirstIndex(event.request));
+    return;
+  }
+  if (!shouldCacheRequest(event.request)) return;
+  event.respondWith(networkFirst(event.request));
 });
+
+async function networkFirstIndex(request) {
+  try {
+    const response = await fetch(request, { cache: 'no-store' });
+    if (response.ok) {
+      const copy = response.clone();
+      caches.open(CACHE_NAME).then(cache => cache.put('./index.html', copy)).catch(() => undefined);
+    }
+    return response;
+  } catch {
+    return await caches.match('./index.html') || Response.error();
+  }
+}
+
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok && isSameOrigin(request)) {
+      const copy = response.clone();
+      caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).catch(() => undefined);
+    }
+    return response;
+  } catch {
+    return await caches.match(request, { ignoreSearch: true })
+      || await caches.match('./index.html')
+      || Response.error();
+  }
+}
+
+function shouldCacheRequest(request) {
+  if (!isSameOrigin(request)) return false;
+  const url = new URL(request.url);
+  return url.pathname.includes('/newtab/')
+    || url.pathname.endsWith('/yomu.user.js')
+    || url.pathname.endsWith('/yomu-icon.svg');
+}
+
+function isSameOrigin(request) {
+  return new URL(request.url).origin === self.location.origin;
+}
