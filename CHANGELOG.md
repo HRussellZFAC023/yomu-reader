@@ -8,6 +8,22 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ## [Unreleased]
 
+## [0.4.23] - 2026-05-19
+
+### Changed
+
+- Extension releases now use the generated popup menu instead of an options/reviewer page, and release assets include one consolidated submission guide instead of separate review markdown files.
+- Extension new-tab builds now load the cache/version helper from an external script so Firefox and other strict extension pages do not block startup with inline-script policy errors.
+
+### Fixed
+
+- Fixed extension new-tab branding so the よむ icon resolves from the packaged extension instead of a broken hosted-page relative path.
+- Hardened Firefox/userscript page injection against cross-origin property descriptors and Trusted Types/CSP-protected parsing, restoring raw userscript installs on strict pages such as Google, YouTube, and NHK.
+- Restored YouTube subtitle discovery fallback behavior when native caption tracks are not exposed immediately, while keeping DOM caption fallback available for currently visible captions.
+- Let NHK Easy pages fall back to whole-page parsing when the site-specific parser finds no article targets, so visible Japanese can still be colored and looked up.
+- Made OCR lookup hit targets larger, kept pinned OCR lines stable during hover, and kept lookup popovers from opening directly under the pointer.
+- Kept words inside an open popup click-driven instead of hover-driven, and preserved pinned/modal popup mode while moving through nested lookup content.
+
 ## [0.4.15] - 2026-05-19
 
 ### Added

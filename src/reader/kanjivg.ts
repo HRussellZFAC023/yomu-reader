@@ -1,4 +1,4 @@
-import { escapeHtml } from './dom';
+import { escapeHtml, parseXmlDocument } from './dom';
 import { Logger } from './logger';
 import { requestText as requestReaderText } from './reader-http';
 
@@ -78,7 +78,7 @@ export function kanjiVGUrl(kanji: string): string {
 }
 
 export function parseKanjiVGSvg(svgText: string, kanji: string): KanjiVGInfo | null {
-    const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+    const doc = parseXmlDocument(svgText, 'image/svg+xml');
     const sourceSvg = doc.querySelector('svg');
     if (!sourceSvg) return null;
 

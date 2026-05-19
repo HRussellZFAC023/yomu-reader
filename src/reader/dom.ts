@@ -12,6 +12,10 @@ type TrustedTypesFactory = {
     createPolicy?: (name: string, options: { createHTML: (value: string) => string }) => { createHTML: (value: string) => unknown };
     getPolicy?: (name: string) => { createHTML: (value: string) => unknown } | null;
 };
+type TrustedTypesGlobal = typeof globalThis & {
+    trustedTypes?: TrustedTypesFactory;
+    unsafeWindow?: { trustedTypes?: TrustedTypesFactory };
+};
 
 let trustedHtmlPolicy: { createHTML: (value: string) => unknown } | null | undefined;
 
@@ -153,6 +157,22 @@ export function setInnerHtml(element: Element, html: string): void {
         element.innerHTML = trustedHtml(html) as string;
     } catch {
         element.textContent = html;
+    }
+}
+
+export function parseHtmlDocument(html: string): Document {
+    try {
+        return new DOMParser().parseFromString(trustedHtml(html) as string, 'text/html');
+    } catch {
+        return document.implementation.createHTMLDocument('');
+    }
+}
+
+export function parseXmlDocument(source: string, mimeType: DOMParserSupportedType = 'text/xml'): Document {
+    try {
+        return new DOMParser().parseFromString(trustedHtml(source) as string, mimeType);
+    } catch {
+        return document.implementation.createDocument(null, '');
     }
 }
 
@@ -1209,7 +1229,7 @@ export function escapeHtml(value: string): string {
 
 function trustedHtml(value: string): string | unknown {
     try {
-        const factory = (globalThis as unknown as { trustedTypes?: TrustedTypesFactory }).trustedTypes;
+        const factory = trustedTypesFactory();
         if (!factory) return value;
         if (trustedHtmlPolicy === undefined) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
         return trustedHtmlPolicy && typeof trustedHtmlPolicy.createHTML === 'function' ? trustedHtmlPolicy.createHTML(value) : value;
@@ -1217,6 +1237,15 @@ function trustedHtml(value: string): string | unknown {
         trustedHtmlPolicy = null;
         return value;
     }
+}
+
+function trustedTypesFactory(): TrustedTypesFactory | undefined {
+    const root = globalThis as TrustedTypesGlobal;
+    return [
+        root.trustedTypes,
+        typeof window === 'undefined' ? undefined : (window as unknown as TrustedTypesGlobal).trustedTypes,
+        root.unsafeWindow?.trustedTypes,
+    ].find((factory): factory is TrustedTypesFactory => Boolean(factory));
 }
 
 function createTrustedHtmlPolicy(factory: TrustedTypesFactory): { createHTML: (value: string) => unknown } | null {

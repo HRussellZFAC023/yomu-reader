@@ -1,4 +1,4 @@
-import { escapeHtml } from './dom';
+import { escapeHtml, parseXmlDocument } from './dom';
 
 export interface SubtitleWordTiming {
     text: string;
@@ -377,7 +377,7 @@ function youtubeJson3WordTimings(segs: Array<{ utf8?: string; tOffsetMs?: number
 function parseYouTubeXmlSubtitleText(text: string, options: ParseSubtitleTextOptions = {}): SubtitleCue[] {
     if (!looksLikeYouTubeXmlSubtitleText(text)) return [];
     try {
-        const document = new DOMParser().parseFromString(text, 'text/xml');
+        const document = parseXmlDocument(text, 'text/xml');
         const srv3 = parseYouTubeSrv3Rows(document, options);
         const cues = [
             ...parseYouTubeTimedTextElements(document),

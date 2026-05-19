@@ -164,7 +164,8 @@ function getPopoverSourceRects(anchor: HTMLElement | undefined, fallbackRect: DO
 }
 
 function pointPopoverRects(point: { x: number; y: number }): PopoverRect[] {
-    return [{ left: point.x, top: point.y, right: point.x + 1, bottom: point.y + 1 }];
+    const radius = 14;
+    return [{ left: point.x - radius, top: point.y - radius, right: point.x + radius, bottom: point.y + radius }];
 }
 
 function anchorPopoverRects(anchor: HTMLElement | undefined): PopoverRect[] {

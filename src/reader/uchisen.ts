@@ -1,4 +1,4 @@
-import { escapeHtml, setInnerHtml } from './dom';
+import { escapeHtml, parseHtmlDocument, setInnerHtml } from './dom';
 import { canonicalUchisenUrl, cleanText, decodeEntities } from './jpdb-text';
 import { createPageMediaUrl, revokePageMediaUrl } from './page-media-url';
 import { externalLinkIcon } from './popup-render';
@@ -55,7 +55,7 @@ const UCHISEN_PAYWALL_IMAGE_RE = /(?:^|\/)(?:kanji\/)?enrollment\.(?:png|jpe?g|w
 
 export function parseUchisenData(html: string): UchisenData {
     if (!html.trim()) return { images: [], componentGroups: [], kanjiKeyword: null };
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const doc = parseHtmlDocument(html);
     return {
         images: parseUchisenImagesFromDocument(doc),
         componentGroups: parseUchisenComponentGroupsFromDocument(doc),

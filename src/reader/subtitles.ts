@@ -38,6 +38,7 @@ import {
 } from './subtitle-video-inset';
 import {
     activateYouTubeCaptionTrack,
+    discoverYouTubeCaptionTracks,
     getYouTubeCaptionTracks,
     getYouTubeVideoId,
     isYouTubePage,
@@ -902,7 +903,7 @@ export class SubtitlePlayerController {
     }
 
     private shouldUpdateFromDomCaptions(): boolean {
-        return !isYouTubePage() || Boolean(this.selectedTrackId && !this.cues.length);
+        return !isYouTubePage() || (!this.cues.length && (Boolean(this.selectedTrackId) || !this.tracks.some(track => track.kind === 'youtube')));
     }
 
     private refreshNativeCueLists(): void {
@@ -992,8 +993,9 @@ export class SubtitlePlayerController {
 
     private domCaptionFallback(): { text: string; selected: SubtitleTrackOption | undefined } | null {
         if (this.cues.length) return null;
-        const selected = this.tracks.find(track => track.id === this.selectedTrackId);
+        let selected = this.tracks.find(track => track.id === this.selectedTrackId);
         if (!this.shouldUseDomCaptionFallback(selected)) return null;
+        selected = this.ensureDomCaptionFallbackTrack(selected);
         this.ensureYouTubeDomCaptionFallbackActive(selected);
         const text = readPageCaptionText(this.video, this.root);
         if (!text) {
@@ -1020,9 +1022,29 @@ export class SubtitlePlayerController {
     }
 
     private canUseDomCaptionFallback(selected: SubtitleTrackOption | undefined): boolean {
-        if (isYouTubePage()) return Boolean(this.selectedTrackId);
+        if (isYouTubePage()) return Boolean(this.selectedTrackId || !this.tracks.some(track => track.kind === 'youtube'));
         const selectedNativeTrackNeedsDomFallback = Boolean(selected?.kind === 'native' && selected.track && !this.cues.length);
         return !this.selectedTrackId || selectedNativeTrackNeedsDomFallback;
+    }
+
+    private ensureDomCaptionFallbackTrack(selected: SubtitleTrackOption | undefined): SubtitleTrackOption | undefined {
+        if (!isYouTubePage() || selected || this.tracks.some(track => track.kind === 'youtube')) return selected;
+        const track = this.createYouTubeDomCaptionFallbackTrack();
+        this.tracks.push(track);
+        this.selectedTrackId = track.id;
+        this.youtubeDomCaptionFallbackTrackId = track.id;
+        this.lastMenuSignature = '';
+        return track;
+    }
+
+    private createYouTubeDomCaptionFallbackTrack(): SubtitleTrackOption {
+        return {
+            id: `youtube-dom-${this.youtubeVideoId || getYouTubeVideoId() || Date.now()}`,
+            label: 'YouTube native captions',
+            kind: 'youtube',
+            loadingState: 'waiting',
+            sourceKey: 'youtube-dom-caption-fallback',
+        };
     }
 
     private clearDomCaptionFallbackIfExpired(): void {
@@ -1705,7 +1727,7 @@ export class SubtitlePlayerController {
 
         this.updateYouTubeDiscoveryVideo(videoId);
 
-        const tracks = getYouTubeCaptionTracks();
+        const tracks = await discoverYouTubeCaptionTracks();
         if (!tracks.length) return;
 
         const { added, updatedSelectedTrack } = this.mergeYouTubeCaptionTracks(tracks);

@@ -1257,14 +1257,14 @@ export class ReaderApp {
 
     private canHoverLookupReaderWord(word: HTMLElement): boolean {
         if (!word.closest('[data-jpdb-reader-root]')) return true;
-        return Boolean(word.closest('.jpdb-subtitle-player, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .jpdb-reader-popover .jpdb-reader-example-sentence'));
+        return Boolean(word.closest('.jpdb-subtitle-player, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion'));
     }
 
     private handleHoverPointer(event: PointerEvent): void {
         if (this.shouldIgnoreHoverPointer(event)) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         const insideActivePopover = this.handleActivePopoverHover(event);
-        if (insideActivePopover && this.isPointerInsideActiveHoverWord(event)) return;
+        if (insideActivePopover) return;
         const word = this.hoverReaderWordForEvent(event);
         if (!word) {
             if (insideActivePopover) return;
@@ -2102,7 +2102,7 @@ export class ReaderApp {
         await this.showCard(card, context.sentence, context.anchor, {
             trigger: context.trigger,
             navigation: context.navigation,
-            preservePosition: context.insideReaderPopup,
+            preservePosition: context.insideReaderPopup && context.trigger === 'modal',
             previousNavigationEntry: context.previousNavigationEntry,
             hoverLookupKey: context.hoverLookupKey,
             hoverLookupGeneration: options.hoverLookupGeneration,
@@ -2207,7 +2207,7 @@ export class ReaderApp {
     }
 
     private renderedWordTrigger(trigger: 'click' | 'hover' | undefined, insideReaderPopup: boolean): 'modal' | 'hover' {
-        if (insideReaderPopup && this.activePopoverMode === 'hover') return 'hover';
+        if (insideReaderPopup && this.activePopoverMode) return this.activePopoverMode;
         return trigger === 'hover' ? 'hover' : 'modal';
     }
 

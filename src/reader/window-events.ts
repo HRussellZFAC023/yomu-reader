@@ -264,7 +264,7 @@ function callRemoveEventListener(
 
 function callWithUnshadowedWindowDispatch(event: Event): DispatchCallResult {
     const descriptor = safeWindowPropertyDescriptor('dispatchEvent');
-    if (!descriptor || typeof descriptor.value === 'function') return { called: false };
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
         if (!Reflect.deleteProperty(window, 'dispatchEvent')) return { called: false };
         return callEventTargetMethod(readMethod<EventTarget['dispatchEvent']>(window, 'dispatchEvent'), window, event);
@@ -281,7 +281,7 @@ function callWithUnshadowedWindowAddEventListener(
     options?: boolean | AddEventListenerOptions,
 ): AddListenerCallResult {
     const descriptor = safeWindowPropertyDescriptor('addEventListener');
-    if (!descriptor || typeof descriptor.value === 'function') return { called: false };
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
         if (!Reflect.deleteProperty(window, 'addEventListener')) return { called: false };
         return callAddEventListener(readMethod<EventTarget['addEventListener']>(window, 'addEventListener'), window, type, listener, options);
@@ -298,7 +298,7 @@ function callWithUnshadowedWindowRemoveEventListener(
     options?: boolean | EventListenerOptions,
 ): AddListenerCallResult {
     const descriptor = safeWindowPropertyDescriptor('removeEventListener');
-    if (!descriptor || typeof descriptor.value === 'function') return { called: false };
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
         if (!Reflect.deleteProperty(window, 'removeEventListener')) return { called: false };
         return callRemoveEventListener(readMethod<EventTarget['removeEventListener']>(window, 'removeEventListener'), window, type, listener, options);
@@ -324,16 +324,33 @@ export function safeWindowPropertyDescriptor(key: 'dispatchEvent' | 'addEventLis
     }
 }
 
+export function shouldTemporarilyUnshadowWindowProperty(descriptor: PropertyDescriptor | undefined): descriptor is PropertyDescriptor {
+    if (!descriptor) return false;
+    try {
+        return typeof descriptor.value !== 'function';
+    } catch {
+        return false;
+    }
+}
+
 export function normalizedPropertyDescriptor(descriptor: PropertyDescriptor): PropertyDescriptor {
     const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, 'value')
         || Object.prototype.hasOwnProperty.call(descriptor, 'writable');
     const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, 'get')
         || Object.prototype.hasOwnProperty.call(descriptor, 'set');
     if (!hasDataShape || !hasAccessorShape) return descriptor;
-    return {
-        configurable: descriptor.configurable,
-        enumerable: descriptor.enumerable,
-        value: descriptor.value,
-        writable: descriptor.writable,
-    };
+    try {
+        return {
+            configurable: descriptor.configurable,
+            enumerable: descriptor.enumerable,
+            value: descriptor.value,
+            writable: descriptor.writable,
+        };
+    } catch {
+        return {
+            configurable: true,
+            value: undefined,
+            writable: true,
+        };
+    }
 }

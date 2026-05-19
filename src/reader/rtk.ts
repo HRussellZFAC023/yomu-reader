@@ -1,6 +1,7 @@
 import { Logger } from './logger';
 import { requestText as requestReaderText } from './reader-http';
 import { rtkElementFallbackGlyph, rtkElementKey, splitRtkElements, type RtkElementGlyph } from './rtk-elements';
+import { parseHtmlDocument } from './dom';
 
 export interface RtkInfo {
     kanji: string;
@@ -78,7 +79,7 @@ export class RtkClient {
 }
 
 export function parseRtkHtml(html: string, kanji: string): RtkInfo | null {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const doc = parseHtmlDocument(html);
     const keywordElement = doc.querySelector('h2 code');
     const keyword = rtkKeywordText(keywordElement);
     if (!keyword) return null;

@@ -74,6 +74,8 @@ export const NEW_TAB_SORT_OPTIONS: Array<{ value: NewTabSort; labelKey: UiCopyKe
 export function resolveNewTabBrandAssets(value: string): { homeHref: string; iconSrc: string } {
     try {
         const url = new URL(value);
+        const extensionAssets = extensionNewTabBrandAssets();
+        if (isExtensionProtocol(url.protocol) && extensionAssets) return extensionAssets;
         const path = url.pathname.replace(/\/index\.html$/, '/');
         const newTabIndex = path.lastIndexOf('/newtab/');
         const basePath = newTabIndex >= 0 ? path.slice(0, newTabIndex + 1) : '/';
@@ -84,6 +86,27 @@ export function resolveNewTabBrandAssets(value: string): { homeHref: string; ico
     } catch {
         return { homeHref: '/', iconSrc: '/yomu-icon.svg' };
     }
+}
+
+function isExtensionProtocol(protocol: string): boolean {
+    return /^(?:moz|chrome|safari-web)-extension:$/u.test(protocol);
+}
+
+function extensionNewTabBrandAssets(): { homeHref: string; iconSrc: string } | null {
+    const runtime = browserRuntime();
+    if (!runtime?.getURL) return null;
+    return {
+        homeHref: runtime.getURL('newtab/index.html'),
+        iconSrc: runtime.getURL('newtab/yomu-icon.svg'),
+    };
+}
+
+function browserRuntime(): { getURL?: (path: string) => string } | undefined {
+    const root = globalThis as typeof globalThis & {
+        browser?: { runtime?: { getURL?: (path: string) => string } };
+        chrome?: { runtime?: { getURL?: (path: string) => string } };
+    };
+    return root.browser?.runtime ?? root.chrome?.runtime;
 }
 
 export function buildNewTabPalette(accentColor: string): NewTabPalette {

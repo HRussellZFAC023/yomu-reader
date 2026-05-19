@@ -488,6 +488,8 @@ export class ImageOcrController {
     }
 
     private activateLine(state: ImageState, element: HTMLElement, pinned: boolean): void {
+        const pinnedLine = state.overlay.querySelector<HTMLElement>('.jpdb-ocr-line-active[data-pinned="true"]');
+        if (!pinned && pinnedLine && pinnedLine !== element) return;
         state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line-active').forEach(line => {
             if (line === element) return;
             this.deactivateLine(line);
@@ -596,8 +598,9 @@ export class ImageOcrController {
         const contentRect = textElement.getBoundingClientRect();
         const contentWidth = Math.max(1, contentRect.width);
         const contentHeight = Math.max(1, contentRect.height);
-        const frameWidth = Math.min(imageWidth, Math.max(1, contentWidth + padX * 2));
-        const frameHeight = Math.min(imageHeight, Math.max(1, contentHeight + padTop + padBottom));
+        const minHitSize = Math.max(24, Math.round(fontSize * 1.25));
+        const frameWidth = Math.min(imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2));
+        const frameHeight = Math.min(imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
         const left = clampNumber(boxLeft + boxWidth / 2 - frameWidth / 2, 0, Math.max(0, imageWidth - frameWidth));
         const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
         const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;

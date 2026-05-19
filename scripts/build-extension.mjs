@@ -65,6 +65,7 @@ async function stageNewTabShell() {
     const buildId = `${await packageVersion()}-${appHash}`;
     const index = await readFile(publicNewtabIndex, 'utf8');
     await writeFile(newtabIndex, extensionNewTabIndex(index, appHash, buildId));
+    await writeFile(path.join(newtab, 'version-loader.js'), extensionNewTabVersionLoader(appHash, buildId));
     await writeFile(path.join(newtab, 'version.json'), `${JSON.stringify({ appHash, buildId, generatedAt: new Date().toISOString() }, null, 2)}\n`);
     if (existsSync(publicNewtabServiceWorker)) {
         await writeFile(path.join(newtab, 'sw.js'), extensionNewTabServiceWorker(await readFile(publicNewtabServiceWorker, 'utf8'), appHash));
@@ -90,7 +91,37 @@ function extensionNewTabIndex(index, appHash, buildId) {
         .replaceAll('href="../yomu-icon.svg"', 'href="./yomu-icon.svg"')
         .replaceAll('__YOMU_NEW_TAB_APP_HASH__', appHash)
         .replaceAll('__YOMU_NEW_TAB_BUILD_ID__', buildId)
+        .replace(/<script>\s*\(\(\) => \{\s*const appHash = '[^']*';[\s\S]*?\}\)\(\);\s*<\/script>/, `<script src="./version-loader.js?v=${appHash}"></script>`)
         .replace(/<script src="\.\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script src="./app.js?v=${appHash}"></script>`);
+}
+
+function extensionNewTabVersionLoader(appHash, buildId) {
+    return `(() => {
+  const appHash = ${JSON.stringify(appHash)};
+  const buildId = ${JSON.stringify(buildId)};
+  window.yomuNewTabAppHash = appHash;
+  window.yomuNewTabBuildId = buildId;
+  const current = new URL(location.href);
+  if (current.searchParams.get('build') === buildId) return;
+  fetch(\`./version.json?t=\${Date.now()}\`, { cache: 'no-store' })
+    .then(response => response.ok ? response.json() : null)
+    .then(version => {
+      if (!version || version.buildId === buildId) return;
+      const next = new URL('./index.html', location.href);
+      next.searchParams.set('app', version.appHash);
+      next.searchParams.set('build', version.buildId);
+      Promise.all([
+        'serviceWorker' in navigator
+          ? navigator.serviceWorker.getRegistrations().then(registrations => Promise.all(registrations.map(registration => registration.unregister())))
+          : Promise.resolve(),
+        'caches' in window
+          ? caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('yomu-newtab-')).map(key => caches.delete(key))))
+          : Promise.resolve(),
+      ]).finally(() => location.replace(next.href));
+    })
+    .catch(() => undefined);
+})();
+`;
 }
 
 function extensionNewTabServiceWorker(source, appHash) {
@@ -107,11 +138,12 @@ async function verifyReleaseArtifacts() {
         'manifest.json',
         'content.js',
         'background.js',
-        'options.html',
-        'options.js',
-        'options.css',
+        'popup.html',
+        'popup.js',
+        'popup.css',
         'newtab/index.html',
         'newtab/app.js',
+        'newtab/version-loader.js',
         'newtab/sw.js',
         'newtab/version.json',
         'newtab/yomu-icon.svg',

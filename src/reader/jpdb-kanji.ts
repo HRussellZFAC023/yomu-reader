@@ -1,5 +1,6 @@
 import { Logger } from './logger';
 import { requestText as requestReaderText } from './reader-http';
+import { parseHtmlDocument } from './dom';
 
 export interface JpdbKanjiReading {
     reading: string;
@@ -103,7 +104,7 @@ export class JpdbKanjiClient {
 }
 
 export function parseJpdbKanjiHtml(html: string, kanji: string): JpdbKanjiInfo | null {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const doc = parseHtmlDocument(html);
     const keyword = sectionText(doc, 'Keyword') || metaKeyword(doc, kanji);
     if (!keyword) return null;
 

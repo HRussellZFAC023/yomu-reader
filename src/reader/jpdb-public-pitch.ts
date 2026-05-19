@@ -1,5 +1,6 @@
 import { Logger } from './logger';
 import { requestText as requestReaderText } from './reader-http';
+import { parseHtmlDocument } from './dom';
 
 const JPDB_SEARCH_URL = 'https://jpdb.io/search';
 const REQUEST_TIMEOUT_MS = 6000;
@@ -42,7 +43,7 @@ export class JpdbPublicPitchClient {
 }
 
 export function parseJpdbPublicPitchHtml(html: string, spelling = '', reading = ''): string[] {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const doc = parseHtmlDocument(html);
     const roots = Array.from(doc.querySelectorAll('.result.vocabulary'));
     const matchingRoots = roots.filter(root => vocabularyRootMatches(root, spelling, reading));
     const candidates = pitchCandidateRoots(doc, roots, matchingRoots, spelling, reading);

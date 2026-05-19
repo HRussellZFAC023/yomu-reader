@@ -1,5 +1,6 @@
 import { Logger } from './logger';
 import { requestText as requestReaderText } from './reader-http';
+import { parseHtmlDocument } from './dom';
 
 export interface JpdbVocabularyCompound {
     term: string;
@@ -88,7 +89,7 @@ export class JpdbVocabularyClient {
 }
 
 export function parseJpdbVocabularyHtml(html: string, spelling = '', reading = ''): JpdbVocabularyInfo | null {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const doc = parseHtmlDocument(html);
     const root = vocabularyRoot(doc, spelling, reading);
     if (!root) return null;
     const meanings = extractMeanings(root, doc, spelling, reading);
@@ -111,7 +112,7 @@ function vocabularyLookupUrls(vid: number, spelling: string, reading: string): s
 }
 
 function vocabularySupplementUrls(html: string, spelling: string, reading: string, currentUrl = ''): VocabularySupplementUrl[] {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const doc = parseHtmlDocument(html);
     const current = absoluteJpdbUrl(currentUrl);
     return uniqueBy([
         ...vocabularyDetailUrls(doc, spelling, reading),
