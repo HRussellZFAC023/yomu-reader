@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.19
+// @version      0.4.20
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -5101,9 +5101,20 @@
   }
   function restoreWindowProperty(key, descriptor) {
     try {
-      Object.defineProperty(window, key, descriptor);
+      Object.defineProperty(window, key, normalizedPropertyDescriptor(descriptor));
     } catch {
     }
+  }
+  function normalizedPropertyDescriptor(descriptor) {
+    const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
+    const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
+    if (!hasDataShape || !hasAccessorShape) return descriptor;
+    return {
+      configurable: descriptor.configurable,
+      enumerable: descriptor.enumerable,
+      value: descriptor.value,
+      writable: descriptor.writable
+    };
   }
   const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
   const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
