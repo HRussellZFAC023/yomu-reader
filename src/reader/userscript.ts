@@ -1,5 +1,6 @@
 import { monkeyWindow } from 'vite-plugin-monkey/dist/client';
 import { USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from './constants';
+import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from './window-events';
 type UserscriptRequestSource = {
     GM_xmlhttpRequest?: UserscriptHttpRequest;
     GM?: {
@@ -42,13 +43,11 @@ export function installUserscriptHttpBridge(): void {
     }
     const request = bridgeCandidate.request.bind(bridgeCandidate.candidate.thisArg);
     document.documentElement.dataset[BRIDGE_MARKER] = 'true';
-    window.addEventListener(BRIDGE_REQUEST_EVENT, event => {
+    addWindowEventListener(BRIDGE_REQUEST_EVENT, event => {
         const detail = (event as CustomEvent).detail as { id?: string; options?: Parameters<UserscriptHttpRequest>[0] } | undefined;
         if (!detail?.id || !detail.options) return;
         const send = (kind: 'load' | 'error' | 'timeout', response?: UserscriptHttpResponse, message?: string) => {
-            window.dispatchEvent(new CustomEvent(BRIDGE_RESPONSE_EVENT, {
-                detail: { id: detail.id, kind, response, message },
-            }));
+            dispatchWindowEvent(createWindowCustomEvent(BRIDGE_RESPONSE_EVENT, { id: detail.id, kind, response, message }));
         };
         const options = {
             ...detail.options,
@@ -69,7 +68,7 @@ export function installUserscriptHttpBridge(): void {
 }
 
 function dispatchUserscriptBridgeReady(): void {
-    window.dispatchEvent(new CustomEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT));
+    dispatchWindowEvent(createWindowCustomEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT));
 }
 
 function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
@@ -84,7 +83,7 @@ function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
         }, options.timeout ?? BRIDGE_TIMEOUT_MS);
         const cleanup = () => {
             window.clearTimeout(timeout);
-            window.removeEventListener(BRIDGE_RESPONSE_EVENT, onResponse as EventListener);
+            removeWindowEventListener(BRIDGE_RESPONSE_EVENT, onResponse as EventListener);
         };
         const onResponse = (event: CustomEvent) => {
             const detail = event.detail as { id?: string; kind?: string; response?: UserscriptHttpResponse; message?: string } | undefined;
@@ -99,9 +98,9 @@ function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
             else options.onerror?.(new Error(detail?.message || 'Request failed.'));
             reject(new Error(detail?.message || 'Request failed.'));
         };
-        window.addEventListener(BRIDGE_RESPONSE_EVENT, onResponse as EventListener);
+        addWindowEventListener(BRIDGE_RESPONSE_EVENT, onResponse as EventListener);
         const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-        window.dispatchEvent(new CustomEvent(BRIDGE_REQUEST_EVENT, { detail: { id, options: requestOptions } }));
+        dispatchWindowEvent(createWindowCustomEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions }));
     })) as UserscriptHttpRequest;
 }
 
