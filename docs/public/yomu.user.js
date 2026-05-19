@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.21
+// @version      0.4.22
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -33679,7 +33679,7 @@ html.jpdb-reader-doodle-active * {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(1040px, calc(100vw - 48px));
+  width: min(1180px, calc(100vw - 48px));
   max-height: min(820px, calc(100vh - 20px));
   max-height: min(820px, calc(100dvh - 20px));
   overflow: hidden;
@@ -34070,7 +34070,7 @@ html.jpdb-reader-doodle-active * {
 
 .jpdb-reader-settings .grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px 14px;
 }
 
