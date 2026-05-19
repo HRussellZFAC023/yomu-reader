@@ -7,6 +7,9 @@
     <title>Yomu New Tab</title>
     <link rel="icon" type="image/svg+xml" href="../yomu-icon.svg">
     <meta name="color-scheme" content="light dark">
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <style>
       :root {
         color-scheme: light dark;
@@ -393,6 +396,34 @@
 
   <body>
     <main class="jpdb-reader-newtab" data-jpdb-reader-root="true"></main>
+    <script>
+      (() => {
+        const appHash = 'abe5ac2b0f26';
+        const buildId = '0.4.19-abe5ac2b0f26';
+        window.yomuNewTabAppHash = appHash;
+        window.yomuNewTabBuildId = buildId;
+        if (appHash.startsWith('__') || buildId.startsWith('__')) return;
+        const current = new URL(location.href);
+        if (current.searchParams.get('build') === buildId) return;
+        fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' })
+          .then(response => response.ok ? response.json() : null)
+          .then(version => {
+            if (!version || version.buildId === buildId) return;
+            const next = new URL('./index.html', location.href);
+            next.searchParams.set('app', version.appHash);
+            next.searchParams.set('build', version.buildId);
+            Promise.all([
+              'serviceWorker' in navigator
+                ? navigator.serviceWorker.getRegistrations().then(registrations => Promise.all(registrations.map(registration => registration.unregister())))
+                : Promise.resolve(),
+              'caches' in window
+                ? caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('yomu-newtab-')).map(key => caches.delete(key))))
+                : Promise.resolve(),
+            ]).finally(() => location.replace(next.href));
+          })
+          .catch(() => undefined);
+      })();
+    </script>
     <script src="./app.js?v=abe5ac2b0f26"></script>
   </body>
 

@@ -45,14 +45,34 @@ function syncNewTabIndex() {
     process.exit(1);
   }
   const hash = createHash('sha256').update(readFileSync(appSource)).digest('hex').slice(0, 12);
+  const buildId = `${packageVersion()}-${hash}`;
   const html = readFileSync(indexSource, 'utf8')
+    .replaceAll('__YOMU_NEW_TAB_APP_HASH__', hash)
+    .replaceAll('__YOMU_NEW_TAB_BUILD_ID__', buildId)
     .replace(/<script src="\.\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script src="./app.js?v=${hash}"></script>`);
   mkdirSync(dirname(indexDist), { recursive: true });
   writeFileSync(indexDist, html);
   mkdirSync(dirname(indexTarget), { recursive: true });
   writeFileSync(indexTarget, html);
+  syncNewTabVersion(hash, buildId);
   console.log(`Synced ${indexTarget}`);
   syncNewTabServiceWorker(hash);
+}
+
+function syncNewTabVersion(hash, buildId) {
+  const version = `${JSON.stringify({ appHash: hash, buildId, generatedAt: new Date().toISOString() }, null, 2)}\n`;
+  const versionDist = join(root, 'dist', 'newtab', 'version.json');
+  const versionTarget = join(root, 'docs', 'public', 'newtab', 'version.json');
+  mkdirSync(dirname(versionDist), { recursive: true });
+  writeFileSync(versionDist, version);
+  mkdirSync(dirname(versionTarget), { recursive: true });
+  writeFileSync(versionTarget, version);
+  console.log(`Synced ${versionTarget}`);
+}
+
+function packageVersion() {
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  return pkg.version || 'dev';
 }
 
 function syncNewTabServiceWorker(hash) {

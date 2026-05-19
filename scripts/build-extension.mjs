@@ -62,8 +62,10 @@ console.log(`Yomu extension packages written to ${out}`);
 async function stageNewTabShell() {
     await mkdir(newtab, { recursive: true });
     const appHash = createHash('sha256').update(await readFile(newtabApp)).digest('hex').slice(0, 12);
+    const buildId = `${await packageVersion()}-${appHash}`;
     const index = await readFile(publicNewtabIndex, 'utf8');
-    await writeFile(newtabIndex, extensionNewTabIndex(index, appHash));
+    await writeFile(newtabIndex, extensionNewTabIndex(index, appHash, buildId));
+    await writeFile(path.join(newtab, 'version.json'), `${JSON.stringify({ appHash, buildId, generatedAt: new Date().toISOString() }, null, 2)}\n`);
     if (existsSync(publicNewtabServiceWorker)) {
         await writeFile(path.join(newtab, 'sw.js'), extensionNewTabServiceWorker(await readFile(publicNewtabServiceWorker, 'utf8'), appHash));
     }
@@ -83,14 +85,21 @@ async function stageManifestIcons() {
     }
 }
 
-function extensionNewTabIndex(index, appHash) {
+function extensionNewTabIndex(index, appHash, buildId) {
     return index
         .replaceAll('href="../yomu-icon.svg"', 'href="./yomu-icon.svg"')
+        .replaceAll('__YOMU_NEW_TAB_APP_HASH__', appHash)
+        .replaceAll('__YOMU_NEW_TAB_BUILD_ID__', buildId)
         .replace(/<script src="\.\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script src="./app.js?v=${appHash}"></script>`);
 }
 
 function extensionNewTabServiceWorker(source, appHash) {
     return source.replaceAll('__YOMU_NEW_TAB_APP_HASH__', appHash);
+}
+
+async function packageVersion() {
+    const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
+    return pkg.version || 'dev';
 }
 
 async function verifyReleaseArtifacts() {
@@ -104,6 +113,7 @@ async function verifyReleaseArtifacts() {
         'newtab/index.html',
         'newtab/app.js',
         'newtab/sw.js',
+        'newtab/version.json',
         'newtab/yomu-icon.svg',
         'newtab/icons/icon16.png',
         'newtab/icons/icon32.png',
