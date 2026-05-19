@@ -23,6 +23,11 @@ export interface YouTubeTrackLoadOptions<T extends YouTubeSubtitleTrack> {
     onRequestError?: (track: T, url: string, error: unknown) => void;
 }
 
+export async function discoverYouTubeCaptionTracks(): Promise<YouTubeCaptionTrackCandidate[]> {
+    const pageTracks = getYouTubeCaptionTracks();
+    return pageTracks.length ? pageTracks : await getAndroidYouTubeCaptionTracks();
+}
+
 export async function loadYouTubeTrackCues<T extends YouTubeSubtitleTrack>(
     track: T,
     options: YouTubeTrackLoadOptions<T>,

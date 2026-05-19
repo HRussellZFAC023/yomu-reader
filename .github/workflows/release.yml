@@ -48,7 +48,7 @@ jobs:
       - name: Package Safari Web Extension
         run: |
           cd dist/extension/release/safari
-          zip -qr yomu-reader-safari-web-extension.zip yomu-reader-safari-web-extension README.md
+          zip -qr yomu-reader-safari-web-extension.zip yomu-reader-safari-web-extension
       - name: Prepare release notes
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
@@ -74,11 +74,5 @@ jobs:
             dist/extension/release/firefox/yomu-reader-firefox.xpi \
             dist/extension/release/safari/yomu-reader-safari-web-extension.zip \
             dist/extension/yomu-reader-extension-project.zip \
-            dist/extension/review/chrome-web-store.md \
-            dist/extension/review/mozilla-amo.md \
-            dist/extension/review/firefox-android.md \
-            dist/extension/review/package-validation.md \
-            dist/extension/review/release-artifacts.md \
-            dist/extension/review/safari-app-store.md \
-            dist/extension/review/troubleshooting.md \
+            dist/extension/review/submission-guide.md \
             --title "$TAG" --notes-file release-notes.md --latest --verify-tag

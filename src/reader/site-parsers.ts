@@ -14,6 +14,7 @@ export interface SiteParserProfile {
     minLength?: number;
     includeUiChrome?: boolean;
     includeGenericPageText?: boolean;
+    fallbackToWholePage?: boolean;
     scanLimit?: number;
     matches(url: URL): boolean;
 }
@@ -274,6 +275,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         allowUiText: true,
         minLength: 1,
         includeUiChrome: true,
+        fallbackToWholePage: true,
         matches: url => (
             (url.hostname === 'news.web.nhk' && /\/news\/easy\//.test(url.pathname))
             || (url.protocol === 'file:' && /NHK.*(?:やさしいことば|NEWS WEB EASY)|(?:やさしいことば|NEWS WEB EASY).*NHK/i.test(decodeURIComponent(url.pathname)))
@@ -301,6 +303,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             '[onclick]',
             '[data-audio]',
         ].join(','),
+        fallbackToWholePage: true,
         matches: url => (
             (url.hostname === 'news.web.nhk' || url.hostname.endsWith('.nhk.or.jp'))
             && /\/news\/html\//.test(url.pathname)
@@ -405,11 +408,20 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
 function completeSiteScanTargets(profiles: SiteParserProfile[], limit: number, href: string): ScanTextTarget[] | null {
     if (!profiles.length) return null;
     const siteTargets = collectSiteScanTargets(limit, href) ?? [];
-    return siteTargets.length || !hasGenericPageTextFallback(profiles) ? siteTargets : null;
+    if (siteTargets.length) return siteTargets;
+    if (hasWholePageFallback(profiles)) {
+        const broadTargets = collectWholePageScanTargets(limit);
+        if (broadTargets.length) return broadTargets;
+    }
+    return hasGenericPageTextFallback(profiles) ? null : siteTargets;
 }
 
 function hasGenericPageTextFallback(profiles: SiteParserProfile[]): boolean {
     return profiles.some(profile => profile.includeGenericPageText);
+}
+
+function hasWholePageFallback(profiles: SiteParserProfile[]): boolean {
+    return profiles.some(profile => profile.fallbackToWholePage);
 }
 
 function effectiveScanTargetLimit(profiles: SiteParserProfile[], requestedLimit: number): number {

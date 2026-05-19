@@ -29,7 +29,7 @@ function hoverPointerEvent(target: HTMLElement): PointerEvent {
 }
 
 describe('hover lookup', () => {
-    it('schedules hover lookup for Immersion Kit words inside the active popover', () => {
+    it('keeps parsed words inside the active popover click-only on hover', () => {
         const app = new ReaderApp();
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
@@ -58,7 +58,7 @@ describe('hover lookup', () => {
         try {
             internals.handleHoverPointer(hoverPointerEvent(word));
 
-            expect(scheduleHoverLookup).toHaveBeenCalledWith(word, expect.any(Event));
+            expect(scheduleHoverLookup).not.toHaveBeenCalled();
             expect(handlePointerTextHover).not.toHaveBeenCalled();
         } finally {
             app.destroy();

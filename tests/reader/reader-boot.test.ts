@@ -13,7 +13,7 @@ vi.mock('../../src/reader/main', () => ({
 }));
 
 import { bootReaderApp } from '../../src/reader/reader-boot';
-import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, normalizedPropertyDescriptor, removeWindowEventListener, safeWindowPropertyDescriptor } from '../../src/reader/window-events';
+import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, normalizedPropertyDescriptor, removeWindowEventListener, safeWindowPropertyDescriptor, shouldTemporarilyUnshadowWindowProperty } from '../../src/reader/window-events';
 
 type BootWindow = Window & {
     __jpdbPopupReaderInitialized?: boolean;
@@ -116,6 +116,25 @@ describe('reader boot', () => {
 
         expect(safeWindowPropertyDescriptor('dispatchEvent')).toBeUndefined();
         expect(() => dispatchWindowEvent(createWindowCustomEvent('yomu-reader-descriptor-read-failure-test'))).not.toThrow();
+    });
+
+    it('ignores Firefox userscript descriptors whose value getter throws', () => {
+        const descriptor = Object.defineProperty({
+            configurable: true,
+            enumerable: true,
+        }, 'value', {
+            get() {
+                throw new TypeError('property descriptors must not specify a value or be writable when a getter or setter has been specified');
+            },
+        }) as PropertyDescriptor;
+        const original = Object.getOwnPropertyDescriptor;
+        vi.spyOn(Object, 'getOwnPropertyDescriptor').mockImplementation((target, key) => {
+            if (target === window && key === 'dispatchEvent') return descriptor;
+            return original(target, key);
+        });
+
+        expect(shouldTemporarilyUnshadowWindowProperty(descriptor)).toBe(false);
+        expect(() => dispatchWindowEvent(createWindowCustomEvent('yomu-reader-descriptor-value-failure-test'))).not.toThrow();
     });
 });
 
