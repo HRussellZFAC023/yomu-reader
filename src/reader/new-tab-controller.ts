@@ -192,6 +192,15 @@ function syncNewTabImmersionFrameSubtitleSize(root: HTMLElement): void {
     media.style.setProperty('--subtitle-font-size', `${size}px`);
 }
 
+async function decodeNewTabImmersionImage(src: string): Promise<void> {
+    if (!src || typeof Image === 'undefined') return;
+    const image = new Image();
+    image.decoding = 'async';
+    image.referrerPolicy = 'no-referrer';
+    image.src = src;
+    if (typeof image.decode === 'function') await image.decode().catch(() => undefined);
+}
+
 function renderSearchHandwritingPanel(language: ReaderSettings['interfaceLanguage']): HTMLElement {
     return el('details', { id: 'jpdb-reader-newtab-handwriting', class: 'jpdb-reader-newtab-handwriting', dataset: { newtabHandwriting: true } },
         el('summary', {}, uiText(language, 'drawKanji')),
@@ -313,6 +322,16 @@ interface NewTabGradeTarget {
     card: JPDBCard;
 }
 
+interface QueuedNewTabGrade {
+    id: string;
+    at: number;
+    target: 'anki' | 'jpdb-api';
+    card: JPDBCard;
+    grade: JPDBGrade;
+    attempts: number;
+    lastError?: string;
+}
+
 interface NewTabSearchResults {
     query: string;
     words: JPDBCard[];
@@ -357,6 +376,8 @@ const NEW_TAB_HANDWRITING_COMMON_KANJI =
         + '以衣医右雨運英映泳園遠王央横屋温化荷界開階寒感漢館岸起期客急級宮球究去橋業曲局銀区苦具君係軽血決研県庫湖向幸港号根祭皿仕死使始姉指歯詩次事持式実写者主守酒受州拾終習集住重宿所暑助昭消商章勝乗植申身神真深進世整昔全相送想息速族他打対代第題炭短談着注柱丁帳調追定庭笛鉄転都度登島湯等豆動童農波配倍箱畑発反坂板皮悲美鼻筆氷表秒病品負部服福物平返勉放味命面問役薬由油有遊予羊洋葉陽様落流旅両緑礼列練路和';
 const NEW_TAB_HEADER_LABEL = 'yomu';
 const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
+const NEW_TAB_GRADE_QUEUE_KEY = 'jpdb-reader-newtab-grade-queue';
+const NEW_TAB_GRADE_QUEUE_LIMIT = 200;
 const NEW_TAB_STUDY_INTERACTIVE_SELECTOR = [
     '.jpdb-reader-word',
     '.jpdb-reader-doodle-stage',
@@ -828,6 +849,13 @@ export class NewTabController {
                 this.toggleReveal(root);
             }
         }, { signal: controller.signal });
+
+        const syncQueuedGrades = () => { void this.flushQueuedGrades(); };
+        window.addEventListener('online', syncQueuedGrades, { signal: controller.signal });
+        window.addEventListener('focus', syncQueuedGrades, { signal: controller.signal });
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) syncQueuedGrades();
+        }, { signal: controller.signal });
         this.rootEventController = controller;
     }
 
@@ -1001,6 +1029,7 @@ export class NewTabController {
         if (!this.allWords.length && useOfflineCache) await this.applyOfflineCacheIfAvailable(root, loadGeneration);
         if (!this.isCurrentLoad(loadGeneration)) return;
         this.dependencies.parser.cacheCards(this.allWords);
+        void this.flushQueuedGrades();
         if (!this.allWords.length) {
             await this.renderEmptyWordLoad(root);
             return;
@@ -1048,10 +1077,14 @@ export class NewTabController {
             this.sourceLabel = this.offlineSourceLabel(cached.sourceLabel);
             this.dependencies.parser.cacheCards(this.allWords);
             this.applyWords(root, preferStoredWord);
-            this.setStatus(root, this.text('offlineGradesDisabled'));
+            this.setStatus(root, this.text(this.offlineCacheStatusKey(cached.cards)));
             return;
         }
         this.renderEmpty(root, APP_NAME, this.text('couldNotLoadWords'));
+    }
+
+    private offlineCacheStatusKey(cards: JPDBCard[]): UiCopyKey {
+        return cards.some(card => this.canReviewCard(card) && this.offlineGradeTarget(card)) ? 'offlineGradesDisabled' : 'offlineCache';
     }
 
     private async loadWords(onProgress?: (message: string) => void): Promise<NewTabLoadResult> {
@@ -1826,9 +1859,29 @@ export class NewTabController {
             if (!examples.length || cardKey(this.visibleWords[this.index]) !== key) return;
             const currentIndex = this.normalizedImmersionExampleIndex(key, examples);
             const delta = action === 'next' ? 1 : -1;
-            this.immersionExampleIndex.set(key, (currentIndex + delta + examples.length) % examples.length);
-            this.renderWord(root, current);
+            const nextIndex = (currentIndex + delta + examples.length) % examples.length;
+            this.immersionExampleIndex.set(key, nextIndex);
+            void this.replaceNewTabImmersionExample(root, current, examples, nextIndex);
         });
+    }
+
+    private async replaceNewTabImmersionExample(root: HTMLElement, card: JPDBCard, examples: ImmersionKitExample[], index: number): Promise<void> {
+        const slots = this.studySlots(root);
+        const meaning = slots.meaning;
+        const key = cardKey(card);
+        if (!meaning || !this.canAppendImmersionExample(meaning, key, examples)) return;
+        const requestId = `${key}:${performance.now()}:${Math.random()}`;
+        meaning.dataset.newtabImmersionRequest = requestId;
+        const immersion = this.renderNewTabImmersionCard(card, examples, index);
+        const imagePrepared = await this.prepareNewTabImmersionImage(immersion, examples[index]);
+        if (meaning.dataset.newtabImmersionRequest !== requestId) return;
+        if (!this.canAppendImmersionExample(meaning, key, examples)) return;
+        const existing = meaning.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-immersion');
+        if (existing) existing.replaceWith(immersion);
+        else meaning.append(immersion);
+        if (imagePrepared) syncNewTabImmersionFrameSubtitleSize(immersion);
+        else this.loadNewTabImmersionImage(immersion, examples[index]);
+        await this.parseNewTabImmersionExample(immersion, card, key);
     }
 
     private normalizedImmersionExampleIndex(key: string, examples: ImmersionKitExample[]): number {
@@ -1838,23 +1891,30 @@ export class NewTabController {
         return 0;
     }
 
+    private async prepareNewTabImmersionImage(root: HTMLElement, example: ImmersionKitExample): Promise<boolean> {
+        const image = root.querySelector<HTMLImageElement>('[data-yomu-immersion-image-src]');
+        if (!image) return true;
+        const urls = this.dependencies.immersionKit.mediaUrls(example, 'image');
+        if (!urls.length) {
+            this.hideNewTabImmersionImage(root, image);
+            return true;
+        }
+        const settings = this.dependencies.getSettings();
+        const src = await this.dependencies.immersionKit.fetchBlobUrl(urls, settings.audioTimeoutMs, settings.corsProxyUrl)
+            .catch(() => '');
+        if (!src) return false;
+        await decodeNewTabImmersionImage(src);
+        image.src = src;
+        image.dataset.yomuImmersionImageSrc = src;
+        return true;
+    }
+
     private loadNewTabImmersionImage(root: HTMLElement, example: ImmersionKitExample): void {
         const image = root.querySelector<HTMLImageElement>('.jpdb-reader-newtab-immersion [data-yomu-immersion-image-src]');
         if (!image) return;
         const urls = this.dependencies.immersionKit.mediaUrls(example, 'image');
-        const hide = () => {
-            const media = image.closest('.jpdb-reader-example-media');
-            const sentence = media?.querySelector<HTMLElement>('.jpdb-reader-example-sentence');
-            if (sentence) {
-                sentence.classList.remove('jpdb-subtitle-primary');
-                media?.after(sentence);
-            }
-            media?.remove();
-            root.querySelector<HTMLElement>('.jpdb-reader-newtab-immersion .jpdb-reader-example-card')?.classList.remove('has-image');
-            syncNewTabImmersionFrameSubtitleSize(root);
-        };
         if (!urls.length) {
-            hide();
+            this.hideNewTabImmersionImage(root, image);
             return;
         }
         let directIndex = Math.max(0, urls.indexOf(image.getAttribute('src') || image.dataset.yomuImmersionImageSrc || ''));
@@ -1862,7 +1922,7 @@ export class NewTabController {
             directIndex += 1;
             const nextUrl = urls[directIndex];
             if (!nextUrl) {
-                hide();
+                this.hideNewTabImmersionImage(root, image);
                 return;
             }
             if (image.isConnected) image.src = nextUrl;
@@ -1878,6 +1938,18 @@ export class NewTabController {
                 syncNewTabImmersionFrameSubtitleSize(root);
             })
             .catch(() => undefined);
+    }
+
+    private hideNewTabImmersionImage(root: HTMLElement, image: HTMLImageElement): void {
+        const media = image.closest('.jpdb-reader-example-media');
+        const sentence = media?.querySelector<HTMLElement>('.jpdb-reader-example-sentence');
+        if (sentence) {
+            sentence.classList.remove('jpdb-subtitle-primary');
+            media?.after(sentence);
+        }
+        media?.remove();
+        root.querySelector<HTMLElement>('.jpdb-reader-example-card')?.classList.remove('has-image');
+        syncNewTabImmersionFrameSubtitleSize(root);
     }
 
     private async playCurrentImmersionAudio(card: JPDBCard): Promise<void> {
@@ -3384,6 +3456,7 @@ export class NewTabController {
     private canReviewCard(card: JPDBCard): boolean {
         const settings = this.dependencies.getSettings();
         if (!settings.enableReviews) return false;
+        if (this.isOfflineSourceLabel(this.sourceLabel) && !this.offlineGradeTarget(card)) return false;
         if (card.source === 'anki' || card.reviewSource === 'anki') return settings.ankiEnabled;
         if (card.reviewSource === 'jpdb-live') return settings.jpdbMiningEnabled;
         if (card.reviewSource === 'jpdb-api' || isPositiveJpdbCard(card)) {
@@ -3442,7 +3515,12 @@ export class NewTabController {
         if (!target) return;
         if (!this.canReviewCard(target.card)) return;
         if (this.isOfflineSourceLabel(this.sourceLabel)) {
-            this.setStatus(target.root, this.text('offlineGradeReconnect'));
+            if (await this.queueOfflineGrade(target.card, grade)) {
+                this.setStatus(target.root, this.text('offlineGradeReconnect'));
+                this.advanceAfterGrade(target.root, target.card);
+            } else {
+                this.setStatus(target.root, this.text('couldNotSubmitGrade'));
+            }
             return;
         }
         try {
@@ -3452,6 +3530,11 @@ export class NewTabController {
             this.advanceAfterGrade(target.root, target.card);
         } catch (error) {
             log.warn('New tab grade failed', { term: target.card.spelling, source: target.card.source, grade }, error);
+            if (await this.queueOfflineGrade(target.card, grade)) {
+                this.setStatus(target.root, this.text('offlineGradeReconnect'));
+                this.advanceAfterGrade(target.root, target.card);
+                return;
+            }
             this.setStatus(target.root, this.text('couldNotSubmitGrade'));
         }
     }
@@ -3493,6 +3576,73 @@ export class NewTabController {
         const cardId = card.ankiCardId ?? card.rid;
         if (!cardId) throw new Error(this.text('missingAnkiCardId'));
         await this.dependencies.anki.answerCard(cardId, grade);
+    }
+
+    private async queueOfflineGrade(card: JPDBCard, grade: JPDBGrade): Promise<boolean> {
+        const target = this.offlineGradeTarget(card);
+        if (!target || !this.dependencies.getSettings().newTabOfflineEnabled) return false;
+        const queue = await this.readQueuedGrades();
+        const entry: QueuedNewTabGrade = {
+            id: `${target}:${cardKey(card)}:${Date.now()}:${Math.random().toString(36).slice(2)}`,
+            at: Date.now(),
+            target,
+            card,
+            grade,
+            attempts: 0,
+        };
+        const deduped = queue.filter(item => this.queuedGradeKey(item) !== this.queuedGradeKey(entry));
+        deduped.push(entry);
+        await this.writeQueuedGrades(deduped.slice(-NEW_TAB_GRADE_QUEUE_LIMIT));
+        return true;
+    }
+
+    private offlineGradeTarget(card: JPDBCard): QueuedNewTabGrade['target'] | null {
+        if (card.source === 'anki' || card.reviewSource === 'anki') return (card.ankiCardId ?? card.rid) ? 'anki' : null;
+        if (card.reviewSource === 'jpdb-api' || isPositiveJpdbCard(card)) return 'jpdb-api';
+        return null;
+    }
+
+    private async flushQueuedGrades(): Promise<void> {
+        const queue = await this.readQueuedGrades();
+        if (!queue.length) return;
+        const pending: QueuedNewTabGrade[] = [];
+        for (const item of queue) {
+            if (!item) continue;
+            try {
+                await this.submitQueuedGrade(item);
+            } catch (error) {
+                pending.push({
+                    ...item,
+                    attempts: item.attempts + 1,
+                    lastError: error instanceof Error ? error.message : String(error),
+                });
+            }
+        }
+        await this.writeQueuedGrades(pending);
+    }
+
+    private async submitQueuedGrade(item: QueuedNewTabGrade): Promise<void> {
+        if (item.target === 'anki') {
+            await this.submitAnkiGrade(item.card, item.grade);
+            return;
+        }
+        await this.submitJpdbApiGradeIfNeeded(item.card, item.grade);
+    }
+
+    private queuedGradeKey(item: Pick<QueuedNewTabGrade, 'target' | 'card'>): string {
+        return `${item.target}:${cardKey(item.card)}`;
+    }
+
+    private async readQueuedGrades(): Promise<QueuedNewTabGrade[]> {
+        const queue = await gmStorageGet<QueuedNewTabGrade[] | null>(NEW_TAB_GRADE_QUEUE_KEY, null)
+            .catch(() => null);
+        return Array.isArray(queue) ? queue.filter(isQueuedNewTabGrade).slice(-NEW_TAB_GRADE_QUEUE_LIMIT) : [];
+    }
+
+    private writeQueuedGrades(queue: QueuedNewTabGrade[]): Promise<void> {
+        return queue.length
+            ? gmStorageSet(NEW_TAB_GRADE_QUEUE_KEY, queue.slice(-NEW_TAB_GRADE_QUEUE_LIMIT))
+            : gmStorageDelete(NEW_TAB_GRADE_QUEUE_KEY);
     }
 
     private advanceAfterGrade(root: HTMLElement, card: JPDBCard): void {
@@ -3896,6 +4046,27 @@ function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: 
         promise,
         timeout,
     ]).finally(() => window.clearTimeout(timeoutId));
+}
+
+function isQueuedNewTabGrade(value: unknown): value is QueuedNewTabGrade {
+    if (!value || typeof value !== 'object') return false;
+    const record = value as Partial<QueuedNewTabGrade>;
+    return typeof record.id === 'string'
+        && typeof record.at === 'number'
+        && (record.target === 'anki' || record.target === 'jpdb-api')
+        && Boolean(record.card && typeof record.card === 'object')
+        && isJpdbGrade(record.grade)
+        && typeof record.attempts === 'number';
+}
+
+function isJpdbGrade(value: unknown): value is JPDBGrade {
+    return value === 'nothing'
+        || value === 'something'
+        || value === 'hard'
+        || value === 'okay'
+        || value === 'easy'
+        || value === 'fail'
+        || value === 'pass';
 }
 
 function newTabKanjiSourceAttrs(sourceStateKey: string, initiallyExpanded = true): string {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.16
+// @version      0.4.17
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -132,6 +132,7 @@
     "yomu-reader-settings",
     "yomu-settings",
     "jpdb-reader-newtab-card-cache",
+    "jpdb-reader-newtab-grade-queue",
     "jpdb-reader-newtab-current-word",
     "jpdb-reader-newtab-ui",
     "jpdb-reader-source-open-state",
@@ -2954,7 +2955,7 @@
       newTabOfflineEnabled: "Cache new tab for offline use",
       newTabOfflineLimit: "Offline review cache limit",
       newTabUrl: "New tab address",
-      newTabOfflineHelp: "Use this page as your browser new-tab URL or add it to the iPad Home Screen. Offline caching is eventually consistent: よむ refreshes the next cached review list and card assets when the source is reachable, then uses the last good cache while offline. Grades are only submitted when JPDB or Anki is reachable.",
+      newTabOfflineHelp: "Use this page as your browser new-tab URL or add it to the iPad Home Screen. Offline caching is eventually consistent: よむ refreshes the next cached review list and card assets when the source is reachable, uses the last good cache while offline, and queues JPDB or Anki grades until the source reconnects.",
       newTabJpdbDeck: "New tab JPDB deck",
       openNewTabPage: "Open new tab page",
       copyAddress: "Copy address",
@@ -3376,7 +3377,7 @@
       noWordsYet: "No words yet.",
       noKanjiCardsYet: "No kanji cards yet.",
       couldNotLoadWords: "Could not load words.",
-      offlineGradesDisabled: "Offline cache. Grades are disabled until the source reconnects.",
+      offlineGradesDisabled: "Offline cache. Grades are saved here and sync when JPDB or Anki reconnects.",
       startWithDictionary: "Start with a dictionary",
       addDictionaryStudyCards: "Add a dictionary to turn this page into study cards.",
       dictionaryReadyNewTabs: "It stays in this browser and is ready whenever a new tab opens.",
@@ -3398,7 +3399,7 @@
       jpdbKanjiUpdateFailed: "Could not update JPDB kanji. Enable kanji reviews on JPDB first.",
       jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check JPDB kanji reviews are enabled.",
       grading: "Grading...",
-      offlineGradeReconnect: "Offline cache. Reconnect JPDB or Anki to submit grades.",
+      offlineGradeReconnect: "Grade saved offline. It will sync when JPDB or Anki reconnects.",
       jpdbActionsDisabled: "JPDB actions are disabled in settings.",
       addJpdbApiKeyReview: "Add a JPDB API key to review JPDB cards.",
       missingAnkiCardId: "Missing Anki card id.",
@@ -3640,7 +3641,7 @@
       fallbackSetupDictionaries: "Add dictionaries",
       fallbackSetupJpdb: "Add JPDB key",
       getApp: `Get ${APP_NAME}`,
-      offlineCacheGradesDisabled: "Offline cache. Grades are disabled until the source reconnects.",
+      offlineCacheGradesDisabled: "Offline cache. Grades are saved here and sync when JPDB or Anki reconnects.",
       recognizing: "Recognizing...",
       noHandwritingMatch: "No handwriting match yet. Type or paste kanji instead.",
       yourKanjiDrawing: "Your kanji drawing",
@@ -3736,7 +3737,7 @@
     noWordsYet: "まだ単語がありません。",
     noKanjiCardsYet: "まだ漢字カードがありません。",
     couldNotLoadWords: "単語を読み込めませんでした。",
-    offlineGradesDisabled: "オフラインキャッシュです。接続元が復帰するまで採点は無効です。",
+    offlineGradesDisabled: "オフラインキャッシュです。採点はここに保存され、JPDBまたはAnkiへの再接続時に同期されます。",
     startWithDictionary: "辞書から始める",
     addDictionaryStudyCards: "辞書を追加すると、このページを学習カードにできます。",
     dictionaryReadyNewTabs: "このブラウザーに保存され、新しいタブを開くたびに使えます。",
@@ -3760,7 +3761,7 @@
     jpdbKanjiUpdateFailed: "JPDB漢字を更新できませんでした。先にJPDBで漢字レビューを有効にしてください。",
     jpdbKanjiUpdateFailedRuntime: "JPDB漢字を更新できませんでした。JPDBの漢字レビューが有効か確認してください。",
     grading: "採点中...",
-    offlineGradeReconnect: "オフラインキャッシュです。JPDBまたはAnkiに再接続して採点を送信してください。",
+    offlineGradeReconnect: "採点をオフラインで保存しました。JPDBまたはAnkiへの再接続時に同期されます。",
     jpdbActionsDisabled: "設定でJPDB操作が無効です。",
     addJpdbApiKeyReview: "JPDBカードをレビューするにはJPDB APIキーを追加してください。",
     missingAnkiCardId: "AnkiカードIDがありません。",
@@ -3832,7 +3833,7 @@
     fallbackSetupCopy: "JPDBキーやローカル辞書がまだ接続されていません。このセットアップカードでも、単語のコピー、ブラウザー音声、外部辞書リンク、漢字確認は使えます。",
     fallbackSetupDictionaries: "辞書を追加",
     fallbackSetupJpdb: "JPDBキーを追加",
-    offlineCacheGradesDisabled: "オフラインキャッシュです。接続元が復帰するまで採点は無効です。",
+    offlineCacheGradesDisabled: "オフラインキャッシュです。採点はここに保存され、JPDBまたはAnkiへの再接続時に同期されます。",
     recognizing: "認識中...",
     noHandwritingMatch: "手書き候補がまだありません。漢字を入力または貼り付けてください。",
     yourKanjiDrawing: "あなたの手書き",
@@ -4197,7 +4198,7 @@
     newTabOfflineEnabled: "新規タブをオフライン用にキャッシュ",
     newTabOfflineLimit: "オフライン復習キャッシュ上限",
     newTabUrl: "新規タブのアドレス",
-    newTabOfflineHelp: "このページをブラウザの新規タブURLとして使うか、iPadのホーム画面に追加できます。オフラインキャッシュは接続時に順次更新されます。ソースに到達できるときによむが次の復習リストとカード素材を更新し、オフライン中は最後に成功したキャッシュを使います。評価はJPDBまたはAnkiに到達できるときだけ送信されます。",
+    newTabOfflineHelp: "このページをブラウザの新規タブURLとして使うか、iPadのホーム画面に追加できます。オフラインキャッシュは接続時に順次更新されます。ソースに到達できるときによむが次の復習リストとカード素材を更新し、オフライン中は最後に成功したキャッシュを使います。JPDBまたはAnkiの採点はオフライン中に保存され、再接続時に同期されます。",
     newTabJpdbDeck: "新規タブのJPDBデッキ",
     openNewTabPage: "新規タブページを開く",
     copyAddress: "アドレスをコピー",
@@ -25633,7 +25634,7 @@ ${spelling}`);
                         <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open new tab page</a>
                         <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">Copy address</button>
                     </div>
-                    <div class="jpdb-reader-help">Use this page as your browser new-tab URL or add it to the iPad Home Screen. Offline caching is eventually consistent: よむ refreshes the next cached review list and card assets when the source is reachable, then uses the last good cache while offline. Grades are only submitted when JPDB or Anki is reachable.</div>
+                    <div class="jpdb-reader-help">Use this page as your browser new-tab URL or add it to the iPad Home Screen. Offline caching is eventually consistent: よむ refreshes the next cached review list and card assets when the source is reachable, uses the last good cache while offline, and queues JPDB or Anki grades until the source reconnects.</div>
                 </div>
     `;
   }

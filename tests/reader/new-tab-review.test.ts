@@ -11,6 +11,8 @@ import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { definitionSourceRows } from '../../src/reader/source-sections';
 import type { JPDBCard } from '../../src/reader/types';
 
+const NEW_TAB_GRADE_QUEUE_KEY = 'jpdb-reader-newtab-grade-queue';
+
 beforeEach(() => {
     vi.stubGlobal('BroadcastChannel', undefined);
 });
@@ -18,6 +20,7 @@ beforeEach(() => {
 afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    localStorage.removeItem(NEW_TAB_GRADE_QUEUE_KEY);
 });
 
 function newTabTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
@@ -63,6 +66,22 @@ async function waitForExpect(assertion: () => void | Promise<void>, timeoutMs = 
     }
     if (lastError) throw lastError;
     await assertion();
+}
+
+function readNewTabGradeQueue(): Array<{
+    target: string;
+    grade: string;
+    attempts: number;
+    lastError?: string;
+    card: Partial<JPDBCard>;
+}> {
+    return JSON.parse(localStorage.getItem(NEW_TAB_GRADE_QUEUE_KEY) ?? '[]') as Array<{
+        target: string;
+        grade: string;
+        attempts: number;
+        lastError?: string;
+        card: Partial<JPDBCard>;
+    }>;
 }
 
 function newTabPromptController(settings = DEFAULT_SETTINGS, overrides: Partial<ConstructorParameters<typeof NewTabController>[0]> = {}): NewTabController {
@@ -853,6 +872,312 @@ describe('new tab review helpers', () => {
         expect(controller.lookupGradeOptions(card)).toEqual([['fail', 'Fail'], ['pass', 'Pass']]);
         (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state = { mode: 'word', revealAnswer: false };
         expect(controller.lookupGradeOptions(card)).toEqual([]);
+    });
+
+    it('queues offline JPDB grades and advances the cached review card', async () => {
+        const first = newTabTestCard({ vid: 1, sid: 1, spelling: '安定', reading: 'あんてい', source: 'jpdb', reviewSource: 'jpdb-api' });
+        const second = newTabTestCard({ vid: 2, sid: 2, spelling: '読む', reading: 'よむ', source: 'jpdb', reviewSource: 'jpdb-api' });
+        const reviewCard = vi.fn(async () => {});
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'jpdb-key',
+                jpdbMiningEnabled: true,
+                enableReviews: true,
+                immersionKitEnabled: false,
+                newTabOfflineEnabled: true,
+                newTabParsingEnabled: false,
+                newTabFrontSentenceEnabled: false,
+            }),
+            anki: { answerCard: vi.fn() } as never,
+            jpdb: { reviewCard } as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        document.body.append(root);
+        Object.assign(controller as unknown as {
+            allWords: JPDBCard[];
+            visibleWords: JPDBCard[];
+            index: number;
+            reviewCountMode: boolean;
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        }, {
+            allWords: [first, second],
+            visibleWords: [first, second],
+            index: 0,
+            reviewCountMode: true,
+            sourceLabel: 'JPDB (offline)',
+            state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+        });
+        (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, first);
+
+        await (controller as unknown as { gradeCurrentCard(grade: 'okay'): Promise<void> }).gradeCurrentCard('okay');
+
+        const queue = readNewTabGradeQueue();
+        expect(queue).toHaveLength(1);
+        expect(queue[0]).toMatchObject({ target: 'jpdb-api', grade: 'okay', attempts: 0 });
+        expect(queue[0]?.card.spelling).toBe('安定');
+        expect(reviewCard).not.toHaveBeenCalled();
+        expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['読む']);
+        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('読む');
+        root.remove();
+    });
+
+    it('flushes queued JPDB grades when the source is reachable again', async () => {
+        const card = newTabTestCard({ vid: 1, sid: 1, spelling: '安定', reading: 'あんてい', source: 'jpdb', reviewSource: 'jpdb-api' });
+        localStorage.setItem(NEW_TAB_GRADE_QUEUE_KEY, JSON.stringify([{
+            id: 'jpdb-api:1:1:安定:あんてい',
+            at: 1,
+            target: 'jpdb-api',
+            card,
+            grade: 'easy',
+            attempts: 0,
+        }]));
+        const reviewCard = vi.fn(async () => {});
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true }),
+            anki: { answerCard: vi.fn() } as never,
+            jpdb: { reviewCard } as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+
+        await (controller as unknown as { flushQueuedGrades(): Promise<void> }).flushQueuedGrades();
+
+        expect(reviewCard).toHaveBeenCalledWith(card, 'easy');
+        expect(localStorage.getItem(NEW_TAB_GRADE_QUEUE_KEY)).toBeNull();
+    });
+
+    it('keeps queued JPDB grades when sync fails so they can retry later', async () => {
+        const card = newTabTestCard({ vid: 1, sid: 1, spelling: '安定', reading: 'あんてい', source: 'jpdb', reviewSource: 'jpdb-api' });
+        localStorage.setItem(NEW_TAB_GRADE_QUEUE_KEY, JSON.stringify([{
+            id: 'jpdb-api:1:1:安定:あんてい',
+            at: 1,
+            target: 'jpdb-api',
+            card,
+            grade: 'hard',
+            attempts: 0,
+        }]));
+        const reviewCard = vi.fn(async () => { throw new Error('offline'); });
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true }),
+            anki: { answerCard: vi.fn() } as never,
+            jpdb: { reviewCard } as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+
+        await (controller as unknown as { flushQueuedGrades(): Promise<void> }).flushQueuedGrades();
+
+        const queue = readNewTabGradeQueue();
+        expect(queue).toHaveLength(1);
+        expect(queue[0]).toMatchObject({ target: 'jpdb-api', grade: 'hard', attempts: 1, lastError: 'offline' });
+    });
+
+    it('does not let a failed Anki sync block a reachable JPDB queued grade', async () => {
+        const ankiCard = newTabTestCard({ spelling: '復習', reading: 'ふくしゅう', source: 'anki', reviewSource: 'anki', ankiCardId: 404 });
+        const jpdbCard = newTabTestCard({ vid: 1, sid: 1, spelling: '安定', reading: 'あんてい', source: 'jpdb', reviewSource: 'jpdb-api' });
+        localStorage.setItem(NEW_TAB_GRADE_QUEUE_KEY, JSON.stringify([
+            {
+                id: 'anki:404',
+                at: 1,
+                target: 'anki',
+                card: ankiCard,
+                grade: 'fail',
+                attempts: 0,
+            },
+            {
+                id: 'jpdb-api:1:1:安定:あんてい',
+                at: 2,
+                target: 'jpdb-api',
+                card: jpdbCard,
+                grade: 'easy',
+                attempts: 0,
+            },
+        ]));
+        const answerCard = vi.fn(async () => { throw new Error('anki offline'); });
+        const reviewCard = vi.fn(async () => {});
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true, ankiEnabled: true }),
+            anki: { answerCard } as never,
+            jpdb: { reviewCard } as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+
+        await (controller as unknown as { flushQueuedGrades(): Promise<void> }).flushQueuedGrades();
+
+        expect(answerCard).toHaveBeenCalledWith(404, 'fail');
+        expect(reviewCard).toHaveBeenCalledWith(jpdbCard, 'easy');
+        const queue = readNewTabGradeQueue();
+        expect(queue).toHaveLength(1);
+        expect(queue[0]).toMatchObject({ target: 'anki', grade: 'fail', attempts: 1, lastError: 'anki offline' });
+    });
+
+    it('flushes queued Anki grades through AnkiConnect', async () => {
+        const card = newTabTestCard({ spelling: '復習', reading: 'ふくしゅう', source: 'anki', reviewSource: 'anki', ankiCardId: 404 });
+        localStorage.setItem(NEW_TAB_GRADE_QUEUE_KEY, JSON.stringify([{
+            id: 'anki:404',
+            at: 1,
+            target: 'anki',
+            card,
+            grade: 'pass',
+            attempts: 0,
+        }]));
+        const answerCard = vi.fn(async () => {});
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }),
+            anki: { answerCard } as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+
+        await (controller as unknown as { flushQueuedGrades(): Promise<void> }).flushQueuedGrades();
+
+        expect(answerCard).toHaveBeenCalledWith(404, 'pass');
+        expect(localStorage.getItem(NEW_TAB_GRADE_QUEUE_KEY)).toBeNull();
+    });
+
+    it('retries queued grades when the browser comes back online', async () => {
+        const card = newTabTestCard({ vid: 1, sid: 1, spelling: '安定', reading: 'あんてい', source: 'jpdb', reviewSource: 'jpdb-api' });
+        localStorage.setItem(NEW_TAB_GRADE_QUEUE_KEY, JSON.stringify([{
+            id: 'jpdb-api:1:1:安定:あんてい',
+            at: 1,
+            target: 'jpdb-api',
+            card,
+            grade: 'okay',
+            attempts: 0,
+        }]));
+        const reviewCard = vi.fn(async () => {});
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true }),
+            anki: { answerCard: vi.fn() } as never,
+            jpdb: { reviewCard } as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        document.body.append(root);
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+
+        window.dispatchEvent(new Event('online'));
+
+        await waitForExpect(() => {
+            expect(reviewCard).toHaveBeenCalledWith(card, 'okay');
+            expect(localStorage.getItem(NEW_TAB_GRADE_QUEUE_KEY)).toBeNull();
+        });
+        controller.destroy();
+        root.remove();
+    });
+
+    it('hides grade buttons for offline live JPDB review cards that cannot be replayed', () => {
+        const card = newTabTestCard({ vid: 0, sid: 0, rid: 0, spelling: '記', reading: 'record', source: 'jpdb', reviewSource: 'jpdb-live', jpdbReviewId: 'kb,記' });
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'jpdb-key',
+                jpdbMiningEnabled: true,
+                enableReviews: true,
+                immersionKitEnabled: false,
+                newTabParsingEnabled: false,
+                newTabFrontSentenceEnabled: false,
+            }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        Object.assign(controller as unknown as {
+            visibleWords: JPDBCard[];
+            index: number;
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        }, {
+            visibleWords: [card],
+            index: 0,
+            sourceLabel: 'JPDB (offline)',
+            state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+        });
+
+        (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
+
+        expect(root.querySelector('[data-grade]')).toBeNull();
+        expect(root.querySelector('[data-newtab-action="reveal"]')).not.toBeNull();
     });
 
     it('reloads fresh queues after the last graded card without using stale offline cache', () => {
@@ -2188,6 +2513,113 @@ describe('new tab review helpers', () => {
         expect(node.querySelector('[data-immersion-action="audio"]')).toBeNull();
         expect(node.querySelector('[data-immersion-action="previous"]')).not.toBeNull();
         expect(node.querySelector('[data-immersion-action="next"]')).not.toBeNull();
+    });
+
+    it('keeps the current new-tab Immersion Kit image until the next example image is ready', async () => {
+        const card = newTabTestCard({ spelling: '中学生', reading: 'ちゅうがくせい' });
+        const examples: ImmersionKitExample[] = [
+            {
+                id: 'ik-1',
+                sentence: 'お母ちゃん中学生？',
+                sentenceWithFurigana: '',
+                translation: 'Are you a middle schooler, kid?',
+                sourceTitle: 'First Source',
+                titleSlug: 'first-source',
+                category: 'anime',
+                soundFile: '',
+                imageFile: 'first.jpg',
+                soundUrl: '',
+                imageUrl: '',
+            },
+            {
+                id: 'ik-2',
+                sentence: '中学生です。',
+                sentenceWithFurigana: '',
+                translation: 'I am a junior high school student.',
+                sourceTitle: 'Second Source',
+                titleSlug: 'second-source',
+                category: 'anime',
+                soundFile: '',
+                imageFile: 'second.jpg',
+                soundUrl: '',
+                imageUrl: '',
+            },
+        ];
+        let resolveSecondImage!: (src: string) => void;
+        const fetchBlobUrl = vi.fn((urls: string | string[]) => {
+            const list = Array.isArray(urls) ? urls : [urls];
+            if (list[0]?.includes('second.jpg')) {
+                return new Promise<string>(resolve => {
+                    resolveSecondImage = resolve;
+                });
+            }
+            return Promise.resolve('blob:http://localhost/first.jpg');
+        });
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitShowImages: true }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {
+                mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => (
+                    kind === 'image' ? [`https://media.test/${example.imageFile}`] : []
+                )),
+                fetchBlobUrl,
+            } as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        const meaning = document.createElement('div');
+        meaning.dataset.newtabMeaning = 'true';
+        root.append(meaning);
+        document.body.append(root);
+        const privateController = controller as unknown as {
+            renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement;
+            performNewTabImmersionAction(root: HTMLElement, action: string): void;
+            immersionCacheKey(card: JPDBCard): string;
+            immersionCache: Map<string, Promise<ImmersionKitExample[]>>;
+            visibleWords: JPDBCard[];
+            index: number;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        };
+        privateController.visibleWords = [card];
+        privateController.index = 0;
+        privateController.state = {
+            mode: 'word',
+            sort: 'random',
+            filter: 'study',
+            source: 'dictionary',
+            revealAnswer: true,
+        };
+        privateController.immersionCache.set(privateController.immersionCacheKey(card), Promise.resolve(examples));
+        meaning.append(privateController.renderNewTabImmersionCard(card, examples, 0));
+
+        try {
+            privateController.performNewTabImmersionAction(root, 'next');
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(meaning.textContent).toContain('お母ちゃん中学生？');
+            expect(meaning.querySelector<HTMLImageElement>('.jpdb-reader-example-image')?.getAttribute('src')).toBe('https://media.test/first.jpg');
+            expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/second.jpg'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl);
+
+            resolveSecondImage('blob:http://localhost/second.jpg');
+
+            await waitForExpect(() => {
+                expect(meaning.textContent).toContain('中学生です。');
+                expect(meaning.querySelector<HTMLImageElement>('.jpdb-reader-example-image')?.getAttribute('src')).toBe('blob:http://localhost/second.jpg');
+            });
+        } finally {
+            root.remove();
+        }
     });
 
     it('uses JPDB related vocabulary queries when new-tab Immersion Kit reveal has no direct examples', async () => {
