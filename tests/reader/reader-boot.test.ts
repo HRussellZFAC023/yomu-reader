@@ -13,7 +13,7 @@ vi.mock('../../src/reader/main', () => ({
 }));
 
 import { bootReaderApp } from '../../src/reader/reader-boot';
-import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, normalizedPropertyDescriptor, removeWindowEventListener } from '../../src/reader/window-events';
+import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, normalizedPropertyDescriptor, removeWindowEventListener, safeWindowPropertyDescriptor } from '../../src/reader/window-events';
 
 type BootWindow = Window & {
     __jpdbPopupReaderInitialized?: boolean;
@@ -103,6 +103,19 @@ describe('reader boot', () => {
             value: undefined,
             writable: true,
         });
+    });
+
+    it('ignores Firefox userscript descriptor read failures on window event methods', () => {
+        const original = Object.getOwnPropertyDescriptor;
+        vi.spyOn(Object, 'getOwnPropertyDescriptor').mockImplementation((target, key) => {
+            if (target === window && key === 'dispatchEvent') {
+                throw new TypeError('property descriptors must not specify a value or be writable when a getter or setter has been specified');
+            }
+            return original(target, key);
+        });
+
+        expect(safeWindowPropertyDescriptor('dispatchEvent')).toBeUndefined();
+        expect(() => dispatchWindowEvent(createWindowCustomEvent('yomu-reader-descriptor-read-failure-test'))).not.toThrow();
     });
 });
 
