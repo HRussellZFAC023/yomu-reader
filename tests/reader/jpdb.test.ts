@@ -57,7 +57,7 @@ import { readPageCaptionText } from '../../src/reader/subtitle-dom-captions';
 import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isJapaneseSubtitleTrack, shouldReplaceWaitingNativeTrack } from '../../src/reader/subtitle-track-metadata';
 import { renderSubtitlePrimary } from '../../src/reader/subtitle-rendering';
 import { planTranscriptHydrationIndexes } from '../../src/reader/subtitle-transcript-hydration';
-import { installUserscriptHttpBridge } from '../../src/reader/userscript';
+import { getUserscriptHttpRequest, installUserscriptHttpBridge } from '../../src/reader/userscript';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport, renderDictionaryScopedStyles } from '../../src/reader/yomitan';
 import type { AudioSourceSetting, JPDBCard, JPDBToken } from '../../src/reader/types';
 import { yomitanZipBlob } from './zip-fixture';
@@ -427,13 +427,17 @@ describe('reader helpers', () => {
     it('uses configurable pitch colors in graphs and visible new-tab target highlights', () => {
         const normalizedKanjiCss = KANJI_CSS.replace(/\s+/g, ' ');
         const normalizedNewTabCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
+        const normalizedImmersionCss = IMMERSION_STUDY_CSS.replace(/\s+/g, ' ');
         const html = renderPitch({ ...card, spelling: '読む', reading: 'よむ', pitchAccent: ['HLL'] });
 
         expect(normalizedKanjiCss).toContain('.jpdb-reader-pitch .atamadaka { color: var(--jpdb-reader-pitch-atamadaka, #fe4b74); }');
         expect(html).toContain('<polyline class="atamadaka"');
         expect(html).toContain('<circle class="atamadaka"');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-sentence .jpdb-reader-example-target { border-radius: 0.12em; box-shadow: inset 0 -0.16em 0 color-mix(in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 64%, transparent);');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-sentence mark.jpdb-reader-example-target { padding: 0 0.08em; background: transparent; color: inherit; }');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-sentence .jpdb-reader-example-target { padding: 0 0.08em; border-radius: 0.22em; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 14%, transparent );');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-target { padding: 0 0.08em; border-radius: 0.22em; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 15%, transparent );');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { background: transparent !important;');
+        expect(normalizedImmersionCss).toContain('.jpdb-reader-example-target { padding: 0 0.08em; border-radius: 0.22em; background: color-mix( in srgb, var(--jpdb-reader-accent-readable) 15%, transparent );');
+        expect(normalizedImmersionCss).toContain('.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { background: transparent !important;');
     });
 
     it('resizes sheet popovers continuously when dragging the handle', () => {
@@ -1287,7 +1291,9 @@ describe('reader helpers', () => {
             const select = form.querySelector<HTMLSelectElement>(`select[name="${name}"]`);
             expect(select?.value).toBe(value);
             expect(Array.from(select?.options ?? []).map(option => option.value)).toEqual(['status', 'jpdb', 'anki', 'pitch', 'off']);
+            expect(Array.from(select?.options ?? []).map(option => option.textContent)).toContain('Available status');
         });
+        expect(form.textContent).not.toContain('JPDB + Anki status');
         expect(form.querySelector<HTMLSelectElement>('select[name="wordHighlightMode"]')).toBeNull();
 
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
@@ -1358,6 +1364,70 @@ describe('reader helpers', () => {
         expect(tokens[0].rubies).toEqual([{ text: 'かんじ', start: 0, end: 2, length: 2 }]);
         expect(renderTokensToHtml('漢字を書く', tokens, { ...DEFAULT_SETTINGS, furiganaMode: 'all' }))
             .toContain('<rt class="jpdb-reader-furi">かんじ</rt>');
+    });
+
+    it('enriches local dictionary fallback tokens with local pitch metadata', async () => {
+        const findTermMatches = vi.fn().mockResolvedValue([{
+            entry: {
+                expression: '計量',
+                reading: 'けいりょう',
+                glossary: ['measurement'],
+                dictionary: 'JMdict',
+            },
+            start: 0,
+            end: 2,
+            surface: '計量',
+        }]);
+        const lookupTermMeta = vi.fn().mockResolvedValue([{
+            expression: '計量',
+            mode: 'pitch',
+            data: { reading: 'けいりょう', pitches: [{ position: 0 }] },
+            dictionary: 'Pitch',
+        }]);
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true, showPitchAccent: true }),
+            jpdb: {} as never,
+            dictionaries: { findTermMatches, lookupTermMeta } as never,
+        });
+
+        const [tokens] = await parser.parse(['計量する']);
+
+        expect(lookupTermMeta).toHaveBeenCalledWith('計量', 12, DEFAULT_SETTINGS.dictionaryPreferences);
+        expect(tokens[0].card.pitchAccent).toEqual(['LHHHH']);
+        expect(tokens[0].pitchClass).toBe('heiban');
+        expect(renderTokensToHtml('計量する', tokens, DEFAULT_SETTINGS))
+            .toContain('jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban');
+    });
+
+    it('falls back to local parsing when JPDB parsing stalls', async () => {
+        vi.useFakeTimers();
+        const findTermMatches = vi.fn().mockResolvedValue([{
+            entry: {
+                expression: '漢字',
+                reading: 'かんじ',
+                glossary: ['Chinese characters'],
+                dictionary: 'JMdict',
+            },
+            start: 0,
+            end: 2,
+            surface: '漢字',
+        }]);
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'api-key', localDictionariesEnabled: true }),
+            jpdb: { parse: vi.fn(() => new Promise(() => undefined)) } as never,
+            dictionaries: { findTermMatches } as never,
+        });
+
+        try {
+            const parsed = parser.parse(['漢字を書く']);
+            await vi.advanceTimersByTimeAsync(6000);
+            const [tokens] = await parsed;
+
+            expect(findTermMatches).toHaveBeenCalledWith('漢字を書く', expect.any(Number), DEFAULT_SETTINGS.dictionaryPreferences);
+            expect(tokens[0].card.spelling).toBe('漢字');
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('treats JPDB-origin cards as JPDB-backed even without an API key', () => {
@@ -2108,6 +2178,46 @@ describe('reader helpers', () => {
             });
             restoreMedia();
             restoreBrowser();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses the spelling as JapanesePod101 kana when a card has no reading', async () => {
+        const requested: string[] = [];
+        const restoreMedia = mockHtmlAudioPlayback([]);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:http://localhost/kana-audio'),
+        });
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                details.onload?.({
+                    status: 200,
+                    response: new Blob(['audio'], { type: 'audio/mpeg' }),
+                });
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSources: [{ type: 'jpod101', url: '', voice: '', enabled: true }],
+            }));
+
+            await expect(player.play({ ...card, spelling: 'ねこ', reading: '' })).resolves.toBe(true);
+
+            expect(requested[0]).toContain('https://assets.languagepod101.com/dictionary/japanese/audiomp3.php');
+            expect(requested[0]).toContain('kana=%E3%81%AD%E3%81%93');
+            expect(requested[0]).not.toContain('kanji=');
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            restoreMedia();
             vi.unstubAllGlobals();
         }
     });
@@ -6109,6 +6219,39 @@ describe('reader helpers', () => {
             });
 
             expect(document.documentElement.dataset.yomuUserscriptHttpBridge).toBe('true');
+        } finally {
+            delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('routes userscript bridge requests through the document target when window dispatch is shadowed', async () => {
+        const request = vi.fn((options: Parameters<UserscriptHttpRequest>[0]) => {
+            options.onload?.({
+                status: 200,
+                response: 'raw-ok',
+                responseText: 'raw-ok',
+                finalUrl: options.url,
+            });
+        });
+
+        vi.stubGlobal('GM_xmlhttpRequest', request);
+        delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+
+        try {
+            installUserscriptHttpBridge();
+            vi.unstubAllGlobals();
+
+            const bridgeRequest = getUserscriptHttpRequest();
+            expect(bridgeRequest).toBeDefined();
+
+            const response = await withWindowProperty('dispatchEvent', undefined, () => bridgeRequest?.({
+                url: 'https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js',
+                method: 'GET',
+            }));
+
+            expect(request).toHaveBeenCalledTimes(1);
+            expect(response?.responseText).toBe('raw-ok');
         } finally {
             delete document.documentElement.dataset.yomuUserscriptHttpBridge;
             vi.unstubAllGlobals();

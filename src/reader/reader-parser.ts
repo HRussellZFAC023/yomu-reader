@@ -1,11 +1,18 @@
 import { JpdbClient } from './jpdb';
+import { getPitchClass } from './jpdb-parser';
 import { Logger } from './logger';
+import { localPitchPatternFromMeta } from './popup-render';
 import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
-import { YomitanDictionaryStore, glossaryToText, type YomitanTermEntry } from './yomitan';
+import { YomitanDictionaryStore, glossaryToText, type YomitanMetaEntry, type YomitanTermEntry } from './yomitan';
 
 const LOCAL_MATCH_LIMIT = 40;
+const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6_000;
 const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
 const log = Logger.scope('ReaderParser');
+
+export interface ReaderParserParseOptions {
+    jpdbTimeoutMs?: number;
+}
 
 export interface ReaderParserDependencies {
     getSettings: () => ReaderSettings;
@@ -18,7 +25,7 @@ export class ReaderParser {
 
     constructor(private dependencies: ReaderParserDependencies) {}
 
-    async parse(paragraphs: string[]): Promise<JPDBToken[][]> {
+    async parse(paragraphs: string[], options: ReaderParserParseOptions = {}): Promise<JPDBToken[][]> {
         const { getSettings, jpdb } = this.dependencies;
         const settings = getSettings();
         const done = log.time('parse', {
@@ -28,7 +35,11 @@ export class ReaderParser {
         });
         if (settings.apiKey.trim()) {
             try {
-                const result = await jpdb.parse(paragraphs);
+                const parsePromise = jpdb.parse(paragraphs);
+                const timeoutMs = options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS;
+                const result = timeoutMs > 0 && this.canUseLocalDictionaryFallback()
+                    ? await withTimeout(parsePromise, timeoutMs, () => new Error('JPDB parse timed out.'))
+                    : await parsePromise;
                 done();
                 return result;
             } catch (error) {
@@ -132,8 +143,10 @@ export class ReaderParser {
             log.warn('Local dictionary parse failed', { length: text.length }, error);
             return [];
         });
-        return matches.map(match => {
+        return Promise.all(matches.map(async match => {
             const card = this.localCardFromEntry(match.entry);
+            const pitch = await this.localPitchPattern(card);
+            if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
             const reading = !match.deinflected && card.reading && card.reading !== match.surface ? card.reading : '';
             return {
                 card,
@@ -141,10 +154,22 @@ export class ReaderParser {
                 end: match.end,
                 length: match.end - match.start,
                 rubies: reading ? [{ text: reading, start: match.start, end: match.end, length: match.end - match.start }] : [],
-                pitchClass: '',
+                pitchClass: pitch ? getPitchClass([pitch], card.reading) : '',
                 sentence: text,
             };
+        }));
+    }
+
+    private async localPitchPattern(card: JPDBCard): Promise<string> {
+        const settings = this.dependencies.getSettings();
+        if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return '';
+        const lookupTermMeta = this.dependencies.dictionaries.lookupTermMeta as ((expression: string, limit: number, preferences?: ReaderSettings['dictionaryPreferences']) => Promise<YomitanMetaEntry[]>) | undefined;
+        if (typeof lookupTermMeta !== 'function') return '';
+        const metaEntries = await lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).catch(error => {
+            log.warn('Local pitch lookup failed while parsing text', { term: card.spelling }, error);
+            return [] as YomitanMetaEntry[];
         });
+        return localPitchPatternFromMeta(card.reading, metaEntries);
     }
 }
 
@@ -179,4 +204,15 @@ function stableLocalId(value: string): number {
 
 function cardCacheKey(vid: number, sid: number): string {
     return `${vid}:${sid}`;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorFactory: () => Error): Promise<T> {
+    let timeoutId = 0;
+    const timeout = new Promise<never>((_resolve, reject) => {
+        timeoutId = window.setTimeout(() => reject(errorFactory()), timeoutMs);
+    });
+    return Promise.race([
+        promise,
+        timeout,
+    ]).finally(() => window.clearTimeout(timeoutId));
 }

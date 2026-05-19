@@ -86,7 +86,7 @@ import {
 } from './popup-render';
 import { RtkClient, type RtkInfo } from './rtk';
 import { ReaderAudioActions } from './reader-audio-actions';
-import { ReaderParser, fallbackLookupTermAtOffset } from './reader-parser';
+import { ReaderParser, fallbackLookupTermAtOffset, type ReaderParserParseOptions } from './reader-parser';
 import {
     DEFAULT_SETTINGS,
     applyUrlBootstrapSettings,
@@ -1725,8 +1725,8 @@ export class ReaderApp {
         return Boolean(this.activePopover || this.activeBackdrop || document.querySelector('[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop'));
     }
 
-    private async parseJapanese(paragraphs: string[]): Promise<JPDBToken[][]> {
-        return this.parser.parse(paragraphs);
+    private async parseJapanese(paragraphs: string[], options?: ReaderParserParseOptions): Promise<JPDBToken[][]> {
+        return this.parser.parse(paragraphs, options);
     }
 
     private canParseJapanese(): boolean {
@@ -1763,7 +1763,8 @@ export class ReaderApp {
         if (!context) return;
         const done = log.time('lookupText', { length: context.selected.length, trigger: context.trigger });
         try {
-            const [tokens] = await this.parseJapanese([sentence]);
+            if (await this.showLocalLookupCard(context, sentence)) return;
+            const [tokens] = await this.parseJapanese([sentence], { jpdbTimeoutMs: 1_200 });
             await this.showTextLookupResult(context, tokens, sentence);
         } catch (error) {
             log.warn('Lookup failed; trying local fallback', { selected: context.selected }, error);
@@ -1836,12 +1837,15 @@ export class ReaderApp {
         await this.showLocalOrFallbackLookupCard(context, sentence);
     }
 
-    private async showLocalOrFallbackLookupCard(context: TextLookupDisplayContext, sentence: string, error?: unknown): Promise<void> {
+    private async showLocalLookupCard(context: TextLookupDisplayContext, sentence: string): Promise<boolean> {
         const localEntries = await this.localLookupEntries(context.selected);
-        if (localEntries.length) {
-            void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, context.anchor, this.textLookupCardOptions(context));
-            return;
-        }
+        if (!localEntries.length) return false;
+        void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, context.anchor, this.textLookupCardOptions(context));
+        return true;
+    }
+
+    private async showLocalOrFallbackLookupCard(context: TextLookupDisplayContext, sentence: string, error?: unknown): Promise<void> {
+        if (await this.showLocalLookupCard(context, sentence)) return;
         if (error) this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, 'jpdbLookupFailed'));
         void this.showCard(this.parser.fallbackCardFromText(context.selected), sentence, context.anchor, this.textLookupCardOptions(context));
     }
@@ -1981,8 +1985,8 @@ export class ReaderApp {
         trigger: 'modal' | 'hover',
         options: PointerTextDisplayOptions,
     ): Promise<void> {
-        if (await this.showParsedPointerTextCandidate(candidate, sentence, trigger, options)) return;
         if (await this.showLocalPointerTextCandidate(candidate, sentence, trigger, options)) return;
+        if (await this.showParsedPointerTextCandidate(candidate, sentence, trigger, options)) return;
         if (await this.showFallbackPointerTextCandidate(candidate, sentence, trigger, options)) return;
     }
 
@@ -1992,7 +1996,7 @@ export class ReaderApp {
         trigger: 'modal' | 'hover',
         options: PointerTextDisplayOptions,
     ): Promise<boolean> {
-        const [tokens] = await this.parseJapanese([candidate.text]);
+        const [tokens] = await this.parseJapanese([candidate.text], { jpdbTimeoutMs: 1_200 });
         const token = pointerTokenAtOffset(tokens ?? [], candidate.offset);
         if (!token) return false;
         await this.showPointerTextCard(token.card, token.sentence ?? sentence, candidate, { start: token.start, end: token.end }, trigger, options);
@@ -2306,6 +2310,7 @@ export class ReaderApp {
         this.rememberCardMiningContext(card, sentence, anchor, options);
         const fallbackAnkiLookup: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
         this.lastAnkiLookup = fallbackAnkiLookup;
+        this.maybePreloadLookupCardAudio(card, options);
         const renderData = this.cardRenderData.load(card);
         const requestId = ++this.cardRenderRequest;
 
@@ -2412,6 +2417,11 @@ export class ReaderApp {
     ): void {
         if (!this.shouldAutoPlayInitialCard(card, context)) return;
         void this.audioActions.playTermAudio(card, { hoverLookupGeneration: context.hoverLookupGeneration });
+    }
+
+    private maybePreloadLookupCardAudio(card: JPDBCard, options: CardDisplayOptions): void {
+        if (options.autoPlay === false || !this.canPreloadReaderAudio()) return;
+        this.audio.preload(card, { sourceLimit: 3, candidateLimit: 1 });
     }
 
     private shouldAutoPlayInitialCard(
@@ -3214,7 +3224,7 @@ export class ReaderApp {
     ): Promise<void> {
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
         try {
-            const parsed = await this.parseJapanese(plan.targets.map(target => target.text));
+            const parsed = await this.parseJapanese(plan.targets.map(target => target.text), { jpdbTimeoutMs: 1_200 });
             if (!isCurrent() || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             root.dataset.jpdbReaderParseKey = plan.parseKey;

@@ -6,6 +6,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { unzipSync } from 'fflate';
+import { hardenGeneratedExtensionBackgrounds } from './extension-runtime-hardening.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const compilerCli = resolveCompilerCli();
@@ -51,6 +52,7 @@ await run(process.execPath, [
     '--newtab-dir', newtab,
 ]);
 
+await hardenGeneratedExtensionBackgrounds(out);
 await run(process.execPath, [path.join(out, 'tools', 'verify.mjs')], { cwd: out });
 await verifyReleaseArtifacts();
 

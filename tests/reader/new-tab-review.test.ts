@@ -2344,6 +2344,96 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('does not append or autoplay delayed Immersion Kit reveal content after hiding the card', async () => {
+        const card = newTabTestCard({ spelling: '発音', reading: 'はつおん' });
+        const example: ImmersionKitExample = {
+            id: 'ik-delayed',
+            sentence: '発音を確かめる。',
+            sentenceWithFurigana: '',
+            translation: 'Check the pronunciation.',
+            sourceTitle: 'Test Source',
+            titleSlug: 'test-source',
+            category: 'anime',
+            soundFile: 'line.mp3',
+            imageFile: '',
+            soundUrl: '',
+            imageUrl: '',
+        };
+        let resolveSearch!: (examples: ImmersionKitExample[]) => void;
+        const search = vi.fn(() => new Promise<ImmersionKitExample[]>(resolve => {
+            resolveSearch = resolve;
+        }));
+        const fetchBlobUrl = vi.fn(async () => 'blob:http://localhost/line.mp3');
+        const played: string[] = [];
+        class FakeAudio {
+            playbackRate = 1;
+            ended = false;
+            constructor(public src: string) {}
+            addEventListener(): void {}
+            play(): Promise<void> {
+                played.push(this.src);
+                return Promise.resolve();
+            }
+            pause(): void {}
+        }
+        vi.stubGlobal('Audio', FakeAudio);
+
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {
+                search,
+                mediaUrls: vi.fn((_example: ImmersionKitExample, kind: 'image' | 'sound') => kind === 'sound' ? ['https://media.test/line.mp3'] : []),
+                fetchBlobUrl,
+            } as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        document.body.append(root);
+        Object.assign(controller as unknown as {
+            allWords: JPDBCard[];
+            visibleWords: JPDBCard[];
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        }, {
+            allWords: [card],
+            visibleWords: [card],
+            sourceLabel: 'Dictionaries',
+            state: { mode: 'word', sort: 'random', filter: 'study', source: 'dictionary', revealAnswer: false },
+        });
+
+        try {
+            (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
+            (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="reveal"]')?.click();
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="reveal"]')?.click();
+            resolveSearch([example]);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(root.querySelector('.jpdb-reader-newtab-immersion')).toBeNull();
+            expect(fetchBlobUrl).not.toHaveBeenCalled();
+            expect(played).toEqual([]);
+        } finally {
+            root.remove();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('highlights parsed new-tab Immersion Kit targets and opens lookups from example words', async () => {
         const card = newTabTestCard({ vid: 88, sid: 44, spelling: '中学生', reading: 'ちゅうがくせい' });
         const lookupText = vi.fn();
@@ -2939,6 +3029,65 @@ describe('new tab review helpers', () => {
         expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, { fallbackToRandom: false });
     });
 
+    it('falls back to dictionary words when auto review sources stall', async () => {
+        vi.useFakeTimers();
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        const localCard = newTabTestCard({ spelling: '書く', reading: 'かく', source: 'local' });
+        const listRandomTopTerms = vi.fn(async () => [{
+            expression: '書く',
+            reading: 'かく',
+            glossary: ['to write'],
+            score: 1,
+            dictionary: 'Local',
+        }]);
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'api-key',
+                ankiEnabled: true,
+                newTabSource: 'auto',
+            }),
+            anki: {
+                listNewTabCards: vi.fn(() => new Promise(() => undefined)),
+            } as never,
+            jpdb: {
+                listDecks: vi.fn(() => new Promise(() => undefined)),
+            } as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+                latestStatus: () => ({ connected: false }),
+                requestCurrent: vi.fn(),
+            } as never,
+            parser: {
+                localCardFromEntry: vi.fn(() => localCard),
+            } as never,
+            dictionaries: {
+                summary: vi.fn(async () => ({ dictionaries: ['Local'], dictionaryTypes: {} })),
+                listRandomTopTerms,
+            } as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+
+        try {
+            const resultPromise = (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; reviewCountMode?: boolean }> }).loadWords();
+            await vi.advanceTimersByTimeAsync(8000);
+            const result = await resultPromise;
+
+            expect(result.cards.map(card => card.spelling)).toEqual(['書く']);
+            expect(result.reviewCountMode).toBe(false);
+            expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, { fallbackToRandom: false });
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('falls back from top 2k dictionary words to 6k and then the corpus', async () => {
         localStorage.removeItem('jpdb-reader-newtab-ui');
         const listRandomTopTerms = vi.fn(async (_limit: number, maxRank: number) => {
@@ -3148,7 +3297,7 @@ describe('new tab review helpers', () => {
 
             await waitForExpect(() => {
                 expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('読む');
-                expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Refreshing...');
+                expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
             });
             expect(cacheCards).toHaveBeenCalledWith([expect.objectContaining({ spelling: '読む', reading: 'よむ' })]);
 

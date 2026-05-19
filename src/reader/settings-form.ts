@@ -22,7 +22,7 @@ type ColorSourceSettingName =
 
 const COLOR_SOURCE_VALUES: readonly SelectableReaderColorSource[] = ['status', 'jpdb', 'anki', 'pitch', 'off'];
 const COLOR_SOURCE_OPTIONS: [SelectableReaderColorSource, string][] = [
-    ['status', 'JPDB + Anki status'],
+    ['status', 'Available status'],
     ['jpdb', 'JPDB status'],
     ['anki', 'Anki status'],
     ['pitch', 'Pitch accent'],

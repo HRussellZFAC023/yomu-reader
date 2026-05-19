@@ -74,6 +74,58 @@ describe('Yomitan ZIP import performance path', () => {
         expect((await store.lookupSimilarTermsByKanji('猫', 5)).map(entry => entry.expression)).toEqual(['山猫', '猫舌']);
         expect((await storeCounts(['termKanji'])).termKanji).toBeGreaterThan(0);
     });
+
+    it('recovers dictionary availability from simple reader exports without dictionary metadata', async () => {
+        const store = createStore();
+        await store.clear();
+
+        const summary = await store.importFile(new File([JSON.stringify({
+            formatName: 'yomu-yomitan-dictionaries',
+            kanji: [
+                { character: '読', onyomi: ['ドク'], kunyomi: ['よ.む'], tags: [], meanings: ['read'], dictionary: 'Simple Kanji' },
+            ],
+            termMeta: [
+                { expression: '読む', mode: 'freq', data: { frequency: 400 }, dictionary: 'Simple Frequency' },
+            ],
+        })], 'simple-reader-dictionaries.json', { type: 'application/json' }));
+
+        expect(summary).toMatchObject({
+            dictionaries: ['Simple Kanji', 'Simple Frequency'],
+            dictionaryTypes: {
+                'Simple Kanji': 'kanji',
+                'Simple Frequency': 'frequency',
+            },
+            kanji: 1,
+            termMeta: 1,
+            entries: 2,
+        });
+        expect((await store.summary()).dictionaries.map(item => item.title)).toEqual(['Simple Kanji', 'Simple Frequency']);
+        expect(await store.lookupKanji('読', 5, [
+            { name: 'Simple Kanji', alias: 'Simple Kanji', enabled: true, priority: 0, type: 'kanji' },
+        ])).toMatchObject([{ dictionary: 'Simple Kanji', meanings: ['read'] }]);
+    });
+
+    it('imports metadata-only legacy reader dictionary exports', async () => {
+        const store = createStore();
+        await store.clear();
+
+        const summary = await store.importFile(new File([JSON.stringify({
+            formatName: 'jpdb-reader-yomitan-dictionaries',
+            termMeta: [
+                { expression: '行く', mode: 'freq', data: { frequency: 500 }, dictionary: 'Legacy Frequency' },
+            ],
+        })], 'legacy-reader-dictionaries.json', { type: 'application/json' }));
+
+        expect(summary).toMatchObject({
+            dictionaries: ['Legacy Frequency'],
+            dictionaryTypes: { 'Legacy Frequency': 'frequency' },
+            termMeta: 1,
+            entries: 1,
+        });
+        expect(await store.lookupTermMeta('行く', 5, [
+            { name: 'Legacy Frequency', alias: 'Legacy Frequency', enabled: true, priority: 0, type: 'frequency' },
+        ])).toMatchObject([{ dictionary: 'Legacy Frequency', mode: 'freq' }]);
+    });
 });
 
 function createStore(): YomitanDictionaryStore {
