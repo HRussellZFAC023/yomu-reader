@@ -87,6 +87,8 @@ import { renderWordPills } from './word-pills';
 import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanTermEntry } from './yomitan';
 
 const log = Logger.scope('NewTabRuntime');
+const NEW_TAB_POPOVER_PARSE_TIMEOUT_MS = 1_200;
+const NEW_TAB_STUDY_PARSE_TIMEOUT_MS = 15_000;
 
 type YomuNewTabWindow = typeof window & {
     __YOMU_READER_RUNTIME__?: string;
@@ -102,6 +104,10 @@ interface NewTabLookupDisplayOptions {
 interface NewTabKanjiLookupOptions {
     navigation?: CardNavigationMode;
     reuseActivePopover?: boolean;
+}
+
+interface NewTabParseContentOptions {
+    jpdbTimeoutMs?: number;
 }
 
 export function bootNewTabRuntime(): void {
@@ -343,7 +349,7 @@ export class NewTabRuntime {
             jpdbReviewBridge: this.jpdbReviewBridge,
             parser: this.parser,
             dictionaries: this.dictionaries,
-            parseContent: root => this.parseNewTabContent(root),
+            parseContent: root => this.parseNewTabContent(root, { jpdbTimeoutMs: NEW_TAB_STUDY_PARSE_TIMEOUT_MS }),
             lookupText: (text, reading, anchor) => this.lookupText(text, reading, anchor),
             lookupDictionaryReference: (query, reading, _dictionary, anchor) => this.lookupText(query, reading || query, anchor),
             showLookupCard: (card, sentence, anchor) => this.showLookupCard(card, sentence, anchor, { navigation: 'push-current', reuseActivePopover: true, autoPlay: false }),
@@ -1183,7 +1189,7 @@ export class NewTabRuntime {
     private async lookupCard(term: string, reading: string): Promise<JPDBCard> {
         const localEntry = await this.localLookupEntry(term, reading);
         if (localEntry) return this.parser.localCardFromEntry(localEntry);
-        const parsed = await this.parser.parse([term], { jpdbTimeoutMs: 1_200 }).catch(() => [[]]);
+        const parsed = await this.parser.parse([term], { jpdbTimeoutMs: NEW_TAB_POPOVER_PARSE_TIMEOUT_MS }).catch(() => [[]]);
         const token = pickTokenForSelection(parsed[0] ?? [], term);
         if (token) return token.card;
         return this.parser.fallbackCardFromText(term);
@@ -1489,13 +1495,15 @@ export class NewTabRuntime {
         await this.dictionaryStyles.refresh();
     }
 
-    private async parseNewTabContent(root: HTMLElement): Promise<void> {
+    private async parseNewTabContent(root: HTMLElement, options: NewTabParseContentOptions = {}): Promise<void> {
         if (!root.isConnected || !this.parser.canParse()) return;
         const plan = nestedTextParsePlan(root, 160);
         if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
         try {
-            const parsed = await this.parser.parse(plan.targets.map(target => target.text), { jpdbTimeoutMs: 1_200 });
+            const parsed = await this.parser.parse(plan.targets.map(target => target.text), {
+                jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
+            });
             if (!root.isConnected || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             root.dataset.jpdbReaderParseKey = plan.parseKey;
