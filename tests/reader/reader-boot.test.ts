@@ -13,6 +13,7 @@ vi.mock('../../src/reader/main', () => ({
 }));
 
 import { bootReaderApp } from '../../src/reader/reader-boot';
+import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../../src/reader/window-events';
 
 type BootWindow = Window & {
     __jpdbPopupReaderInitialized?: boolean;
@@ -42,13 +43,10 @@ describe('reader boot', () => {
     });
 
     it('boots when a page shadows window.dispatchEvent', () => {
-        const prototypeDispatch = vi.spyOn(window.EventTarget.prototype, 'dispatchEvent');
-
         withWindowProperty('dispatchEvent', undefined, () => {
             expect(() => bootReaderApp()).not.toThrow();
         });
 
-        expect(prototypeDispatch).toHaveBeenCalled();
         expect(appMocks.init).toHaveBeenCalledWith({ isDemo: false, showWelcome: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
@@ -63,8 +61,6 @@ describe('reader boot', () => {
     });
 
     it('registers runtime claim listeners when a page shadows window.addEventListener', () => {
-        const prototypeAdd = vi.spyOn(window.EventTarget.prototype, 'addEventListener');
-
         withWindowProperty('addEventListener', undefined, () => {
             expect(() => bootReaderApp()).not.toThrow();
         });
@@ -73,8 +69,20 @@ describe('reader boot', () => {
             detail: { ownerId: 'replacement-runtime', kind: 'userscript', priority: 2 },
         }));
 
-        expect(prototypeAdd).toHaveBeenCalled();
         expect(appMocks.destroy).toHaveBeenCalled();
+    });
+
+    it('removes listeners when a page shadows window.removeEventListener', () => {
+        const listener = vi.fn();
+        const eventName = 'yomu-reader-shadowed-remove-listener-test';
+
+        expect(addWindowEventListener(eventName, listener)).toBe(true);
+        withWindowProperty('removeEventListener', undefined, () => {
+            expect(removeWindowEventListener(eventName, listener)).toBe(true);
+        });
+        dispatchWindowEvent(createWindowCustomEvent(eventName));
+
+        expect(listener).not.toHaveBeenCalled();
     });
 });
 

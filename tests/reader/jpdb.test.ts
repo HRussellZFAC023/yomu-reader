@@ -57,6 +57,7 @@ import { readPageCaptionText } from '../../src/reader/subtitle-dom-captions';
 import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isJapaneseSubtitleTrack, shouldReplaceWaitingNativeTrack } from '../../src/reader/subtitle-track-metadata';
 import { renderSubtitlePrimary } from '../../src/reader/subtitle-rendering';
 import { planTranscriptHydrationIndexes } from '../../src/reader/subtitle-transcript-hydration';
+import { installUserscriptHttpBridge } from '../../src/reader/userscript';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport, renderDictionaryScopedStyles } from '../../src/reader/yomitan';
 import type { AudioSourceSetting, JPDBCard, JPDBToken } from '../../src/reader/types';
 import { yomitanZipBlob } from './zip-fixture';
@@ -6096,6 +6097,24 @@ describe('reader helpers', () => {
         ]);
     });
 
+    it('announces the userscript bridge when a page shadows window.dispatchEvent', () => {
+        const request = vi.fn();
+
+        vi.stubGlobal('GM_xmlhttpRequest', request);
+        document.documentElement.dataset.yomuUserscriptHttpBridge = 'true';
+
+        try {
+            withWindowProperty('dispatchEvent', undefined, () => {
+                expect(() => installUserscriptHttpBridge()).not.toThrow();
+            });
+
+            expect(document.documentElement.dataset.yomuUserscriptHttpBridge).toBe('true');
+        } finally {
+            delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('downloads dictionaries through lowercase GM.xmlhttpRequest when that is the exposed userscript API', async () => {
         const blob = yomitanZipBlob({
             'index.json': { title: 'Alias Dict', format: 3 },
@@ -10633,3 +10652,17 @@ describe('reader helpers', () => {
         }
     });
 });
+
+function withWindowProperty<T>(key: keyof Window, value: unknown, callback: () => T): T {
+    const descriptor = Object.getOwnPropertyDescriptor(window, key);
+    Object.defineProperty(window, key, {
+        configurable: true,
+        value,
+    });
+    try {
+        return callback();
+    } finally {
+        if (descriptor) Object.defineProperty(window, key, descriptor);
+        else delete (window as unknown as Record<string, unknown>)[key as string];
+    }
+}

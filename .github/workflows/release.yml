@@ -17,13 +17,38 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout Yomu
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Checkout UserScript Compiler
+        uses: actions/checkout@v6
+        with:
+          repository: HRussellZFAC023/UserScript-Compiler
+          path: UserScript-Compiler
+
       - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
+          cache-dependency-path: |
+            package-lock.json
+            UserScript-Compiler/package-lock.json
+      - name: Install compiler dependencies
+        working-directory: UserScript-Compiler
+        run: npm ci
+      - name: Install Yomu dependencies
+        run: npm ci
       - run: npm run check
+      - name: Build extension release packages
+        env:
+          USERSCRIPT_COMPILER_CLI: UserScript-Compiler/src/cli.mjs
+        run: npm run build:extension
+      - name: Package Safari Web Extension
+        run: |
+          cd dist/extension/release/safari
+          zip -qr yomu-reader-safari-web-extension.zip yomu-reader-safari-web-extension README.md
       - name: Prepare release notes
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
@@ -34,7 +59,8 @@ jobs:
           const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
           const match = changelog.match(new RegExp(`## \\[${version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\][\\s\\S]*?(?=\\n## \\[|$)`));
           const notes = (match?.[0] ?? `## ${version}\n\nSee CHANGELOG.md for details.`)
-            + '\n\nInstall/update userscript: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js\n';
+            + '\n\nInstall/update userscript: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js\n'
+            + '\nRelease assets include the compiled userscript, Chrome extension ZIP, Firefox XPI, Safari Web Extension ZIP, and the full compiler project bundle with review/audit notes.\n';
           fs.writeFileSync('release-notes.md', notes);
           NODE
       - name: Publish GitHub release
@@ -42,4 +68,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          gh release create "$TAG" dist/yomu.user.js --title "$TAG" --notes-file release-notes.md --latest
+          gh release create "$TAG" \
+            dist/yomu.user.js \
+            dist/extension/release/chrome/yomu-reader-chrome.zip \
+            dist/extension/release/firefox/yomu-reader-firefox.xpi \
+            dist/extension/release/safari/yomu-reader-safari-web-extension.zip \
+            dist/extension/yomu-reader-extension-project.zip \
+            dist/extension/review/chrome-web-store.md \
+            dist/extension/review/mozilla-amo.md \
+            dist/extension/review/firefox-android.md \
+            dist/extension/review/package-validation.md \
+            dist/extension/review/release-artifacts.md \
+            dist/extension/review/safari-app-store.md \
+            dist/extension/review/troubleshooting.md \
+            --title "$TAG" --notes-file release-notes.md --latest --verify-tag

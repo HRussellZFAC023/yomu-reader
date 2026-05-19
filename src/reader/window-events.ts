@@ -1,3 +1,7 @@
+const initialWindowDispatchEvent = initialWindowMethod('dispatchEvent');
+const initialWindowAddEventListener = initialWindowMethod('addEventListener');
+const initialWindowRemoveEventListener = initialWindowMethod('removeEventListener');
+
 export function createWindowEvent(type: string, init: EventInit = {}): Event {
     const documentEvent = createDocumentEvent(type, init);
     if (documentEvent) return documentEvent;
@@ -35,6 +39,11 @@ export function dispatchWindowEvent(event: Event): boolean {
     const directResult = callEventTargetMethod(directDispatch, target, event);
     if (directResult.called) return directResult.result;
 
+    const initialResult = initialWindowDispatchEvent === directDispatch
+        ? { called: false } as DispatchCallResult
+        : callEventTargetMethod(initialWindowDispatchEvent, target, event);
+    if (initialResult.called) return initialResult.result;
+
     const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
     if (prototypeResult.called) return prototypeResult.result;
 
@@ -54,6 +63,11 @@ export function addWindowEventListener(
     const directResult = callAddEventListener(directAdd, target, type, listener, options);
     if (directResult.called) return true;
 
+    const initialResult = initialWindowAddEventListener === directAdd
+        ? { called: false } as AddListenerCallResult
+        : callAddEventListener(initialWindowAddEventListener, target, type, listener, options);
+    if (initialResult.called) return true;
+
     const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
     if (prototypeResult.called) return true;
 
@@ -61,6 +75,35 @@ export function addWindowEventListener(
     if (unshadowedResult.called) return true;
 
     return false;
+}
+
+export function removeWindowEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | EventListenerOptions,
+): boolean {
+    const target = window;
+    const directRemove = readMethod<EventTarget['removeEventListener']>(target, 'removeEventListener');
+    const directResult = callRemoveEventListener(directRemove, target, type, listener, options);
+    if (directResult.called) return true;
+
+    const initialResult = initialWindowRemoveEventListener === directRemove
+        ? { called: false } as AddListenerCallResult
+        : callRemoveEventListener(initialWindowRemoveEventListener, target, type, listener, options);
+    if (initialResult.called) return true;
+
+    const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
+    if (prototypeResult.called) return true;
+
+    const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
+    if (unshadowedResult.called) return true;
+
+    return false;
+}
+
+function initialWindowMethod<K extends 'dispatchEvent' | 'addEventListener' | 'removeEventListener'>(key: K): EventTarget[K] | undefined {
+    if (typeof window === 'undefined') return undefined;
+    return readMethod<EventTarget[K]>(window, key);
 }
 
 function dispatchWithPrototypeMethod(
@@ -86,6 +129,21 @@ function addListenerWithPrototypeMethod(
     for (const prototypeAdd of eventTargetPrototypeMethods(target, 'addEventListener')) {
         if (prototypeAdd === directAdd) continue;
         const result = callAddEventListener(prototypeAdd, target, type, listener, options);
+        if (result.called) return result;
+    }
+    return { called: false };
+}
+
+function removeListenerWithPrototypeMethod(
+    target: EventTarget,
+    directRemove: EventTarget['removeEventListener'] | undefined,
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | EventListenerOptions,
+): AddListenerCallResult {
+    for (const prototypeRemove of eventTargetPrototypeMethods(target, 'removeEventListener')) {
+        if (prototypeRemove === directRemove) continue;
+        const result = callRemoveEventListener(prototypeRemove, target, type, listener, options);
         if (result.called) return result;
     }
     return { called: false };
@@ -118,7 +176,7 @@ function createDocumentCustomEvent<T>(type: string, init: CustomEventInit<T>): C
     }
 }
 
-function eventTargetPrototypeMethods<K extends 'dispatchEvent' | 'addEventListener'>(target: EventTarget, key: K): Array<EventTarget[K]> {
+function eventTargetPrototypeMethods<K extends 'dispatchEvent' | 'addEventListener' | 'removeEventListener'>(target: EventTarget, key: K): Array<EventTarget[K]> {
     const methods: Array<EventTarget[K]> = [];
     const add = (method: EventTarget[K] | undefined) => {
         if (method && !methods.includes(method)) methods.push(method);
@@ -188,6 +246,22 @@ function callAddEventListener(
     }
 }
 
+function callRemoveEventListener(
+    method: EventTarget['removeEventListener'] | undefined,
+    target: EventTarget,
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | EventListenerOptions,
+): AddListenerCallResult {
+    if (!method) return { called: false };
+    try {
+        method.call(target, type, listener, options);
+        return { called: true };
+    } catch (error) {
+        return { called: false, error };
+    }
+}
+
 function callWithUnshadowedWindowDispatch(event: Event): DispatchCallResult {
     const descriptor = Object.getOwnPropertyDescriptor(window, 'dispatchEvent');
     if (!descriptor || typeof descriptor.value === 'function') return { called: false };
@@ -218,7 +292,24 @@ function callWithUnshadowedWindowAddEventListener(
     }
 }
 
-function restoreWindowProperty(key: 'dispatchEvent' | 'addEventListener', descriptor: PropertyDescriptor): void {
+function callWithUnshadowedWindowRemoveEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | EventListenerOptions,
+): AddListenerCallResult {
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'removeEventListener');
+    if (!descriptor || typeof descriptor.value === 'function') return { called: false };
+    try {
+        if (!Reflect.deleteProperty(window, 'removeEventListener')) return { called: false };
+        return callRemoveEventListener(readMethod<EventTarget['removeEventListener']>(window, 'removeEventListener'), window, type, listener, options);
+    } catch (error) {
+        return { called: false, error };
+    } finally {
+        restoreWindowProperty('removeEventListener', descriptor);
+    }
+}
+
+function restoreWindowProperty(key: 'dispatchEvent' | 'addEventListener' | 'removeEventListener', descriptor: PropertyDescriptor): void {
     try {
         Object.defineProperty(window, key, descriptor);
     } catch {
