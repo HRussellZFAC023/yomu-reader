@@ -263,7 +263,7 @@ function callRemoveEventListener(
 }
 
 function callWithUnshadowedWindowDispatch(event: Event): DispatchCallResult {
-    const descriptor = Object.getOwnPropertyDescriptor(window, 'dispatchEvent');
+    const descriptor = safeWindowPropertyDescriptor('dispatchEvent');
     if (!descriptor || typeof descriptor.value === 'function') return { called: false };
     try {
         if (!Reflect.deleteProperty(window, 'dispatchEvent')) return { called: false };
@@ -280,7 +280,7 @@ function callWithUnshadowedWindowAddEventListener(
     listener: EventListenerOrEventListenerObject,
     options?: boolean | AddEventListenerOptions,
 ): AddListenerCallResult {
-    const descriptor = Object.getOwnPropertyDescriptor(window, 'addEventListener');
+    const descriptor = safeWindowPropertyDescriptor('addEventListener');
     if (!descriptor || typeof descriptor.value === 'function') return { called: false };
     try {
         if (!Reflect.deleteProperty(window, 'addEventListener')) return { called: false };
@@ -297,7 +297,7 @@ function callWithUnshadowedWindowRemoveEventListener(
     listener: EventListenerOrEventListenerObject,
     options?: boolean | EventListenerOptions,
 ): AddListenerCallResult {
-    const descriptor = Object.getOwnPropertyDescriptor(window, 'removeEventListener');
+    const descriptor = safeWindowPropertyDescriptor('removeEventListener');
     if (!descriptor || typeof descriptor.value === 'function') return { called: false };
     try {
         if (!Reflect.deleteProperty(window, 'removeEventListener')) return { called: false };
@@ -313,6 +313,14 @@ function restoreWindowProperty(key: 'dispatchEvent' | 'addEventListener' | 'remo
     try {
         Object.defineProperty(window, key, normalizedPropertyDescriptor(descriptor));
     } catch {
+    }
+}
+
+export function safeWindowPropertyDescriptor(key: 'dispatchEvent' | 'addEventListener' | 'removeEventListener'): PropertyDescriptor | undefined {
+    try {
+        return Object.getOwnPropertyDescriptor(window, key);
+    } catch {
+        return undefined;
     }
 }
 

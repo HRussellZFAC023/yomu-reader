@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.20
+// @version      0.4.21
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -5064,7 +5064,7 @@
     }
   }
   function callWithUnshadowedWindowDispatch(event) {
-    const descriptor = Object.getOwnPropertyDescriptor(window, "dispatchEvent");
+    const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
     if (!descriptor || typeof descriptor.value === "function") return { called: false };
     try {
       if (!Reflect.deleteProperty(window, "dispatchEvent")) return { called: false };
@@ -5076,7 +5076,7 @@
     }
   }
   function callWithUnshadowedWindowAddEventListener(type, listener, options) {
-    const descriptor = Object.getOwnPropertyDescriptor(window, "addEventListener");
+    const descriptor = safeWindowPropertyDescriptor("addEventListener");
     if (!descriptor || typeof descriptor.value === "function") return { called: false };
     try {
       if (!Reflect.deleteProperty(window, "addEventListener")) return { called: false };
@@ -5088,7 +5088,7 @@
     }
   }
   function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
-    const descriptor = Object.getOwnPropertyDescriptor(window, "removeEventListener");
+    const descriptor = safeWindowPropertyDescriptor("removeEventListener");
     if (!descriptor || typeof descriptor.value === "function") return { called: false };
     try {
       if (!Reflect.deleteProperty(window, "removeEventListener")) return { called: false };
@@ -5103,6 +5103,13 @@
     try {
       Object.defineProperty(window, key, normalizedPropertyDescriptor(descriptor));
     } catch {
+    }
+  }
+  function safeWindowPropertyDescriptor(key) {
+    try {
+      return Object.getOwnPropertyDescriptor(window, key);
+    } catch {
+      return void 0;
     }
   }
   function normalizedPropertyDescriptor(descriptor) {
