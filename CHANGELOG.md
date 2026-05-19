@@ -8,8 +8,11 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ## [Unreleased]
 
+## [0.4.15] - 2026-05-19
+
 ### Added
 
+- Added GitHub Release assets for the compiled userscript, Chrome extension ZIP, Firefox XPI, Safari Web Extension ZIP, compiler project bundle, and review notes.
 - Added an Audio setting for whether JPDB/browser text-to-speech is fallback-only or participates in the configured source order/random pool.
 - Replaced the Help-panel Help link with a Factory Reset action that clears settings, API keys, preferences, cached cards, local dictionary storage, and other よむ local data before reloading defaults.
 - Hardened Factory Reset so settings storage is cleared even if dictionary database cleanup is blocked, including userscript managers that expose modern `GM.*` storage APIs.
@@ -19,6 +22,7 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ### Changed
 
+- Made GitHub Pages deploys rebuild and sync the hosted userscript and new-tab assets before publishing.
 - Made `/newtab` keep JPDB and Anki SRS queue order, alternate JPDB/Anki cards in Auto mode, and only fall back to random dictionary words after both review queues are empty.
 - Made the hosted new tab paint cached cards immediately while JPDB, Anki, or dictionary sources refresh in the background, and sped up deck/dictionary refresh work so a card appears sooner after reload.
 - Moved the shared cross-origin proxy URL control into Audio settings so proxy-dependent audio sources are easier to diagnose.
@@ -26,6 +30,7 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ### Fixed
 
+- Fixed raw userscript installs on pages that shadow window event methods by routing the userscript HTTP bridge through hardened event helpers.
 - Let the hosted new-tab page attempt direct AnkiConnect requests and show the CORS/userscript bridge setup hint when standalone Anki tests fail.
 - Made recommended dictionary installs visibly queue/import on their buttons and kept Settings Save unavailable until dictionary imports finish, so new-tab setup no longer looks broken while dictionaries are still loading.
 - Restored LanguagePod101 lookups through the configured/public proxy path in browser-fetch contexts.
