@@ -16,6 +16,8 @@ type UserscriptRequestCandidate = {
     path: string;
 };
 
+type DatasetEventTarget = EventTarget & { dataset?: DOMStringMap };
+
 const BRIDGE_REQUEST_EVENT = 'yomu-userscript-http-request';
 const BRIDGE_RESPONSE_EVENT = 'yomu-userscript-http-response';
 const BRIDGE_MARKER = 'yomuUserscriptHttpBridge';
@@ -37,13 +39,15 @@ export function installUserscriptHttpBridge(): void {
         .map(candidate => ({ candidate, request: asUserscriptRequest(candidate.request) }))
         .find(item => item.request);
     if (!bridgeCandidate?.request) return;
-    if (document.documentElement.dataset[BRIDGE_MARKER] === 'true') {
+    const markerDataset = bridgeMarkerDataset();
+    if (!markerDataset) return;
+    if (markerDataset[BRIDGE_MARKER] === 'true') {
         dispatchUserscriptBridgeReady();
         return;
     }
     const request = bridgeCandidate.request.bind(bridgeCandidate.candidate.thisArg);
     const handledRequestIds = new Set<string>();
-    document.documentElement.dataset[BRIDGE_MARKER] = 'true';
+    markerDataset[BRIDGE_MARKER] = 'true';
     addBridgeEventListener(BRIDGE_REQUEST_EVENT, event => {
         const detail = (event as CustomEvent).detail as { id?: string; options?: Parameters<UserscriptHttpRequest>[0] } | undefined;
         if (!detail?.id || !detail.options) return;
@@ -76,7 +80,7 @@ function dispatchUserscriptBridgeReady(): void {
 
 function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
     if (typeof window === 'undefined' || typeof document === 'undefined') return undefined;
-    if (document.documentElement.dataset[BRIDGE_MARKER] !== 'true') return undefined;
+    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== 'true') return undefined;
     return ((options: Parameters<UserscriptHttpRequest>[0]) => new Promise<UserscriptHttpResponse>((resolve, reject) => {
         const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
         const timeout = window.setTimeout(() => {
@@ -136,7 +140,13 @@ function dispatchBridgeEvent<T>(type: string, detail?: T): boolean {
 
 function bridgeDocumentTarget(): HTMLElement | undefined {
     if (typeof document === 'undefined') return undefined;
-    return document.documentElement || undefined;
+    return document.documentElement instanceof HTMLElement ? document.documentElement : undefined;
+}
+
+function bridgeMarkerDataset(): DOMStringMap | undefined {
+    if (typeof document === 'undefined') return undefined;
+    const root = document.documentElement as DatasetEventTarget | null;
+    return root?.dataset;
 }
 
 function callAddEventListener(

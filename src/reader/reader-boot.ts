@@ -87,9 +87,19 @@ function detectYomuRuntimeKind(): YomuRuntimeKind {
     const global = globalThis as {
         chrome?: { runtime?: { id?: string } };
         browser?: { runtime?: { id?: string } };
+        GM?: {
+            getValue?: unknown;
+            xmlHttpRequest?: unknown;
+            xmlhttpRequest?: unknown;
+        };
+        GM_info?: unknown;
     };
     if (global.chrome?.runtime?.id || global.browser?.runtime?.id) return 'extension';
-    if (typeof GM_getValue === 'function') return 'userscript';
+    if (typeof GM_getValue === 'function'
+        || typeof global.GM?.getValue === 'function'
+        || typeof global.GM?.xmlHttpRequest === 'function'
+        || typeof global.GM?.xmlhttpRequest === 'function'
+        || Boolean(global.GM_info)) return 'userscript';
     return 'demo';
 }
 

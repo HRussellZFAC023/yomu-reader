@@ -60,6 +60,16 @@ describe('reader boot', () => {
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('extension');
     });
 
+    it('detects modern userscript managers that expose GM.getValue without legacy GM_getValue', () => {
+        vi.stubGlobal('GM_getValue', undefined);
+        vi.stubGlobal('GM', { getValue: vi.fn() });
+
+        bootReaderApp();
+
+        expect(appMocks.init).toHaveBeenCalledWith({ isDemo: false, showWelcome: true });
+        expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
+    });
+
     it('registers runtime claim listeners when a page shadows window.addEventListener', () => {
         withWindowProperty('addEventListener', undefined, () => {
             expect(() => bootReaderApp()).not.toThrow();

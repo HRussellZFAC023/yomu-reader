@@ -382,9 +382,14 @@ declare global {
         ontimeout?: () => void;
     }) => void);
     const GM: undefined | {
+        getValue?: <T>(key: string, defaultValue: T) => T | Promise<T>;
+        setValue?: (key: string, value: unknown) => void | Promise<void>;
+        deleteValue?: (key: string) => void | Promise<void>;
+        listValues?: () => string[] | Promise<string[]>;
         xmlHttpRequest?: UserscriptHttpRequest;
         xmlhttpRequest?: UserscriptHttpRequest;
     };
+    const GM_info: undefined | Record<string, unknown>;
     const GM_setValue: undefined | ((key: string, value: unknown) => void | Promise<void>);
     const GM_getValue: undefined | (<T>(key: string, defaultValue: T) => T | Promise<T>);
     const GM_deleteValue: undefined | ((key: string) => void | Promise<void>);
