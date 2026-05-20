@@ -8,9 +8,9 @@ type YomuDemoWindow = typeof window & {
 
 export function initDemo() {
     const bootWindow = window as YomuDemoWindow;
-    const isRealExtension = typeof GM_getValue === 'function';
+    const isRealRuntime = hasUserscriptRuntime() || hasExtensionRuntime();
 
-    if (isRealExtension) {
+    if (isRealRuntime) {
         // Real extension will take over naturally
         return;
     }
@@ -30,4 +30,28 @@ export function initDemo() {
     });
 
     void app.init({ isDemo: true }).catch(console.error);
+}
+
+function hasUserscriptRuntime(): boolean {
+    const runtime = globalThis as {
+        GM?: {
+            getValue?: unknown;
+            xmlHttpRequest?: unknown;
+            xmlhttpRequest?: unknown;
+        };
+        GM_info?: unknown;
+    };
+    return typeof GM_getValue === 'function'
+        || typeof runtime.GM?.getValue === 'function'
+        || typeof runtime.GM?.xmlHttpRequest === 'function'
+        || typeof runtime.GM?.xmlhttpRequest === 'function'
+        || Boolean(runtime.GM_info);
+}
+
+function hasExtensionRuntime(): boolean {
+    const runtime = globalThis as {
+        chrome?: { runtime?: { id?: string } };
+        browser?: { runtime?: { id?: string } };
+    };
+    return Boolean(runtime.chrome?.runtime?.id || runtime.browser?.runtime?.id);
 }

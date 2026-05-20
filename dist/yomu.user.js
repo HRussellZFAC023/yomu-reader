@@ -5237,13 +5237,15 @@
     if (typeof window === "undefined" || typeof document === "undefined") return;
     const bridgeCandidate = userscriptRequestCandidates().map((candidate) => ({ candidate, request: asUserscriptRequest(candidate.request) })).find((item) => item.request);
     if (!bridgeCandidate?.request) return;
-    if (document.documentElement.dataset[BRIDGE_MARKER] === "true") {
+    const markerDataset = bridgeMarkerDataset();
+    if (!markerDataset) return;
+    if (markerDataset[BRIDGE_MARKER] === "true") {
       dispatchUserscriptBridgeReady();
       return;
     }
     const request = bridgeCandidate.request.bind(bridgeCandidate.candidate.thisArg);
     const handledRequestIds = /* @__PURE__ */ new Set();
-    document.documentElement.dataset[BRIDGE_MARKER] = "true";
+    markerDataset[BRIDGE_MARKER] = "true";
     addBridgeEventListener(BRIDGE_REQUEST_EVENT, (event) => {
       const detail = event.detail;
       if (!detail?.id || !detail.options) return;
@@ -5274,7 +5276,7 @@
   }
   function userscriptHttpEventBridge() {
     if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-    if (document.documentElement.dataset[BRIDGE_MARKER] !== "true") return void 0;
+    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
     return (options) => new Promise((resolve, reject) => {
       const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
       const timeout = window.setTimeout(() => {
@@ -5328,7 +5330,12 @@
   }
   function bridgeDocumentTarget() {
     if (typeof document === "undefined") return void 0;
-    return document.documentElement || void 0;
+    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
+  }
+  function bridgeMarkerDataset() {
+    if (typeof document === "undefined") return void 0;
+    const root = document.documentElement;
+    return root?.dataset;
   }
   function callAddEventListener(target, type, listener) {
     try {
@@ -44234,7 +44241,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   function detectYomuRuntimeKind() {
     const global = globalThis;
     if (global.chrome?.runtime?.id || global.browser?.runtime?.id) return "extension";
-    if (typeof GM_getValue === "function") return "userscript";
+    if (typeof GM_getValue === "function" || typeof global.GM?.getValue === "function" || typeof global.GM?.xmlHttpRequest === "function" || typeof global.GM?.xmlhttpRequest === "function" || Boolean(global.GM_info)) return "userscript";
     return "demo";
   }
   function runtimePriority(kind) {
