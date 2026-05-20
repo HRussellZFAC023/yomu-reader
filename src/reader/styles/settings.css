@@ -308,6 +308,16 @@
 .jpdb-reader-settings input[type="radio"] {
   border-radius: 999px;
 }
+.jpdb-reader-settings input[type="checkbox"]:enabled:hover,
+.jpdb-reader-settings input[type="radio"]:enabled:hover {
+  border-color: var(--jpdb-reader-accent);
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface-2) 82%,
+    var(--jpdb-reader-accent) 18%
+  );
+  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
+}
 .jpdb-reader-settings input[type="checkbox"]:checked,
 .jpdb-reader-settings input[type="radio"]:checked {
   border-color: var(--jpdb-reader-accent);
@@ -571,6 +581,26 @@
 }
 .jpdb-reader-help-card p {
   margin: 8px 0 0;
+  color: var(--jpdb-reader-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.jpdb-reader-help-glossary {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+.jpdb-reader-help-glossary > div {
+  display: grid;
+  gap: 3px;
+}
+.jpdb-reader-help-glossary dt {
+  color: var(--jpdb-reader-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+.jpdb-reader-help-glossary dd {
+  margin: 0;
   color: var(--jpdb-reader-muted);
   font-size: 13px;
   line-height: 1.45;

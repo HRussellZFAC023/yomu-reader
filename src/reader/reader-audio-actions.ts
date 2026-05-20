@@ -19,14 +19,14 @@ export class ReaderAudioActions {
 
     constructor(private readonly dependencies: ReaderAudioActionsDependencies) {}
 
-    async playTermAudio(card: JPDBCard, options: { hoverLookupGeneration?: number; userGesture?: boolean } = {}): Promise<void> {
+    async playTermAudio(card: JPDBCard, options: { hoverLookupGeneration?: number; userGesture?: boolean; isCurrent?: () => boolean } = {}): Promise<void> {
         if (!this.dependencies.getSettings().audioEnabled) {
             this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, 'audioPlaybackDisabledToast'));
             return;
         }
-        const isCurrent = options.hoverLookupGeneration === undefined
+        const isCurrent = options.isCurrent ?? (options.hoverLookupGeneration === undefined
             ? undefined
-            : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration;
+            : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
         const loadingPopover = this.dependencies.getActivePopover();
         const loadingRequest = ++this.loadingRequest;
         this.setLoading(loadingPopover, loadingRequest);

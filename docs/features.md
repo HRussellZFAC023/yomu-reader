@@ -120,7 +120,7 @@ On iPhone and iPad, this is often the easiest daily-review surface because it av
 
 ## Help And Support In Settings
 
-The Help tab includes quick links to the hosted tools and docs, GitHub issues, Discord, donation support, and a Factory Reset action that clears よむ settings, API keys, cached data, and imported dictionaries back to defaults.
+The Help tab includes quick links to the hosted tools and docs, GitHub issues, Discord, donation support, a Glossary for technical terms, and a Factory Reset action that clears よむ settings, API keys, cached data, and imported dictionaries back to defaults.
 
 <figure class="yomu-feature-shot">
   <img :src="'/yomu-reader/screenshots/real-help-settings.png'" alt="The よむ Help settings tab with donation, issue reporting, GitHub, Discord, docs, video player, and new-tab links.">

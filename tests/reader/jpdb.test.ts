@@ -5296,6 +5296,58 @@ describe('reader helpers', () => {
         expect(playSpy).toHaveBeenCalledWith(example, true);
     });
 
+    it('keeps Immersion Kit navigation audio off when autoplay is disabled', async () => {
+        const app = new ReaderApp();
+        const container = document.createElement('details');
+        container.setAttribute('data-immersion-kit', '');
+        const popover = document.createElement('div');
+        popover.append(container);
+        document.body.append(popover);
+
+        const example = {
+            id: 'anime_test_000001',
+            sentence: 'これは発音です',
+            sentenceWithFurigana: '',
+            translation: '',
+            sourceTitle: 'Test Source',
+            titleSlug: 'test_source',
+            category: 'anime',
+            soundFile: 'line.mp3',
+            imageFile: '',
+            soundUrl: '',
+            imageUrl: '',
+        };
+        const playSpy = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parseJapanese(texts: string[]): Promise<JPDBToken[][]>;
+            immersionPopover: {
+                loadExamples(popover: HTMLElement, card: JPDBCard): Promise<void>;
+                searchExamples(card: JPDBCard): Promise<unknown>;
+                playExampleAudio(example: unknown, quiet?: boolean): Promise<void>;
+                mediaUrls(example: unknown, kind: 'image' | 'sound'): string[];
+            };
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, immersionKitAutoPlayAudio: false, immersionKitShowImages: false };
+        internals.immersionPopover.searchExamples = vi.fn(async () => ({
+            examples: [example],
+            query: '発音',
+            usedFallback: false,
+            triedQueries: ['発音'],
+        }));
+        internals.parseJapanese = vi.fn(async () => []);
+        internals.immersionPopover.playExampleAudio = playSpy;
+        internals.immersionPopover.mediaUrls = vi.fn((_, kind) => kind === 'image' ? [] : ['https://media.test/line.mp3']);
+
+        await internals.immersionPopover.loadExamples(popover, card);
+
+        container.querySelector<HTMLButtonElement>('[data-immersion-action="next"]')?.click();
+        expect(playSpy).not.toHaveBeenCalled();
+
+        container.querySelector<HTMLButtonElement>('[data-immersion-action="audio"]')?.click();
+        expect(playSpy).toHaveBeenCalledWith(example);
+    });
+
     it('keeps kanji dive back navigation inside the kanji stack before returning to the word', async () => {
         const app = new ReaderApp();
         const originalRequestAnimationFrame = window.requestAnimationFrame;
@@ -6018,6 +6070,21 @@ describe('reader helpers', () => {
             expect(top).toBeGreaterThanOrEqual(0);
             expect(top + 120).toBeLessThanOrEqual(420);
             expect(top >= 190 || top + 120 <= 170).toBe(true);
+        });
+    });
+
+    it('keeps cursor-following hover popovers out of the next-word path when there is room above', () => {
+        withViewport(600, 420, () => {
+            const popover = sizedPopover(220, 120);
+
+            positionPopover(popover, undefined, undefined, {
+                followPoint: { x: 300, y: 180 },
+                preferBefore: true,
+            });
+
+            const top = Number.parseFloat(popover.style.top);
+            expect(top + 120).toBeLessThanOrEqual(170);
+            expect(popover.dataset.jpdbReaderPlacementSide).toBe('above');
         });
     });
 
@@ -9014,6 +9081,36 @@ describe('reader helpers', () => {
         }
     });
 
+    it('keeps native YouTube captions visible while a selected track has no Yomu cues yet', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+
+        try {
+            const active = applySubtitleNativeTrackModes({
+                tracks: [{ id: 'youtube-0', label: 'Japanese', kind: 'youtube' }],
+                selectedTrackId: 'youtube-0',
+                secondaryTrackId: '',
+                overlayVisible: true,
+                hasPrimaryCues: false,
+                currentCueText: '',
+                youtubeDomCaptionFallbackTrackId: '',
+                lastYomuCaptionsActive: false,
+            });
+
+            expect(active).toBe(false);
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(false);
+        } finally {
+            document.documentElement.classList.remove('jpdb-subtitle-yomu-captions-active');
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('hides native YouTube captions after Yomu has loaded subtitle cues', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -9395,6 +9492,12 @@ describe('reader helpers', () => {
         expect(unwrapReaderWords(document)).toBe(1);
         expect(document.querySelector('p')?.textContent).toBe('今日は読む。');
         expect(document.querySelector('[data-jpdb-reader-root] .jpdb-reader-word')?.textContent).toBe('設定');
+    });
+
+    it('ignores OCR furigana when deriving the reader word surface text', () => {
+        document.body.innerHTML = '<span class="jpdb-reader-word"><span class="jpdb-ocr-ruby"><span class="jpdb-ocr-furi" data-jpdb-reader-surface-ignore="true">かがみ</span><span class="jpdb-ocr-ruby-base">鏡</span></span>のない<span class="jpdb-ocr-ruby"><span class="jpdb-ocr-furi" data-jpdb-reader-surface-ignore="true">むら</span><span class="jpdb-ocr-ruby-base">村</span></span></span>';
+
+        expect(readerWordSurfaceText(document.querySelector('.jpdb-reader-word')!)).toBe('鏡のない村');
     });
 
     it('falls back to text lookup and reparses when a clicked page word has fallen out of cache', async () => {
@@ -10128,6 +10231,40 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(['食卓やリビングなど、おうちのちょっとしたところに飾れる。']);
     });
 
+    it('keeps nested text inside short centered headings out of text-node scans', () => {
+        document.body.innerHTML = `
+            <main>
+                <h2 style="text-align:center;font-size:22px;line-height:1.1"><span>お花のプラン</span></h2>
+            </main>
+        `;
+
+        const targets = collectTextTargetsIn(document.body, 10, false);
+        expect(targets).toEqual([]);
+    });
+
+    it('keeps short centered display headings out of broad page scans too', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 200,
+            width: 800,
+            height: 200,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <h2 style="text-align:center;font-size:22px;line-height:1.1">ポストに届いて、受取ラクラク</h2>
+            <p>食卓やリビングなど、おうちのちょっとしたところに飾れる。</p>
+        `;
+
+        const targets = collectScanTargets(10, 'https://bloomeelife.com/');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(['食卓やリビングなど、おうちのちょっとしたところに飾れる。']);
+    });
+
     it('detects Japanese page captions near a video without site-specific selectors', () => {
         document.body.innerHTML = '<video></video><div class="lesson-player"><span>今日は花を見ます。</span></div>';
         const video = document.querySelector('video') as HTMLVideoElement;
@@ -10228,6 +10365,33 @@ describe('reader helpers', () => {
             vertical: true,
             box: { left: 650, top: 120, width: 70, height: 640 },
         });
+    });
+
+    it('drops separate OCR furigana rows when a larger kanji title row is present', () => {
+        const result = normalizeOcrResult({
+            width: 1000,
+            height: 1200,
+            lines: [
+                { text: 'かがみ', box: { left: 180, top: 110, width: 150, height: 34 } },
+                { text: 'むら', box: { left: 670, top: 104, width: 120, height: 34 } },
+                { text: '鏡のない村', box: { left: 170, top: 145, width: 620, height: 120 } },
+            ],
+        }, 1000, 1200);
+
+        expect(result?.lines.map(line => line.text)).toEqual(['鏡のない村']);
+    });
+
+    it('drops vertical OCR furigana columns next to larger kanji title columns', () => {
+        const result = normalizeOcrResult({
+            width: 1000,
+            height: 1200,
+            lines: [
+                { text: 'かがみ', vertical: true, box: { left: 300, top: 120, width: 28, height: 150 } },
+                { text: '鏡のない村', vertical: true, box: { left: 335, top: 110, width: 90, height: 520 } },
+            ],
+        }, 1000, 1200);
+
+        expect(result?.lines.map(line => line.text)).toEqual(['鏡のない村']);
     });
 
     it('normalizes YomiNinja scalable OCR regions from native engines', () => {

@@ -174,9 +174,8 @@ export class ImmersionPopoverController {
                 return;
             }
             const action = button.dataset.immersionAction;
-            const shouldAutoPlay = this.options.getSettings().immersionKitAutoPlayAudio;
-            if (action === 'previous') render(index - 1, shouldAutoPlay, true);
-            if (action === 'next') render(index + 1, shouldAutoPlay, true);
+            if (action === 'previous') render(index - 1, this.shouldAutoPlayCarouselAudio(), true);
+            if (action === 'next') render(index + 1, this.shouldAutoPlayCarouselAudio(), true);
             if (action === 'audio') void this.playExampleAudio(examples[index]);
         });
         container.addEventListener('keydown', event => {
@@ -218,6 +217,11 @@ export class ImmersionPopoverController {
             hoverAudioActive = false;
         });
         render(index, false);
+    }
+
+    private shouldAutoPlayCarouselAudio(): boolean {
+        const settings = this.options.getSettings();
+        return settings.immersionKitEnabled && settings.immersionKitAutoPlayAudio;
     }
 
     private renderEmptyIfConnected(popover: HTMLElement, container: HTMLElement): void {

@@ -1,5 +1,6 @@
 import type { ReaderSettings } from './types';
 import { gmStorageGetSync, gmStorageSetSync } from './storage';
+import { setInnerHtml } from './dom';
 
 export const SHEET_HEIGHT_STORAGE_KEY = 'jpdb-reader-sheet-height-ratio';
 export const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = 'jpdb-reader-settings-drawer-height-ratio';
@@ -384,7 +385,7 @@ export function installSheetCloseButton(popover: HTMLElement, onDismiss: () => v
         button.dataset.jpdbReaderSheetClose = 'true';
         button.setAttribute('aria-label', label);
         button.title = label;
-        button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"></path></svg>';
+        setInnerHtml(button, '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"></path></svg>');
         button.addEventListener('click', close);
         return button;
     };

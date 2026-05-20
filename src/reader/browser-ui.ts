@@ -19,6 +19,7 @@ interface PopoverSizeRect {
 interface PopoverPositionOptions {
     followPoint?: { x: number; y: number };
     maxHeight?: number;
+    preferBefore?: boolean;
 }
 
 interface PopoverWritingLayout {
@@ -41,6 +42,7 @@ interface PopoverPositionFrame {
     viewportHeight: number;
     width: number;
     height: number;
+    preferBefore: boolean;
 }
 
 const DEFAULT_POPOVER_WRITING_MODE: NormalizedWritingMode = 'horizontal-tb';
@@ -124,6 +126,7 @@ function preparePopoverPositionFrame(
         viewportHeight,
         width: popover.offsetWidth,
         height: popover.offsetHeight,
+        preferBefore: Boolean(options.preferBefore),
     };
 }
 
@@ -142,7 +145,7 @@ function positionPopoverWithoutAnchor(popover: HTMLElement, frame: PopoverPositi
 
 function positionAnchoredPopover(popover: HTMLElement, anchor: HTMLElement | undefined, frame: PopoverPositionFrame): void {
     const writingMode = getPopoverWritingMode(anchor);
-    const position = getYomitanLikePopoverPosition(frame.sourceRects, writingMode, frame.viewport, frame.width, frame.height);
+    const position = getYomitanLikePopoverPosition(frame.sourceRects, writingMode, frame.viewport, frame.width, frame.height, frame.preferBefore);
     popover.style.maxWidth = `${Math.max(0, position.width)}px`;
     popover.style.maxHeight = `${Math.max(0, position.height)}px`;
     popover.dataset.jpdbReaderPlacementSide = getPlacementSide(writingMode, position);
@@ -243,9 +246,10 @@ function getYomitanLikePopoverPosition(
     viewport: PopoverRect,
     frameWidth: number,
     frameHeight: number,
+    preferBefore: boolean,
 ): PopoverSizeRect {
     const horizontal = isHorizontalPopoverMode(writingMode);
-    const layout = popoverWritingLayout(writingMode, horizontal);
+    const layout = popoverWritingLayout(writingMode, horizontal, preferBefore);
     return bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, layout)
         ?? fallbackPopoverPosition(viewport, frameWidth, frameHeight);
 }
@@ -276,12 +280,19 @@ function fallbackPopoverPosition(viewport: PopoverRect, frameWidth: number, fram
     return { left: viewport.left, top: viewport.top, width: frameWidth, height: frameHeight, after: true, below: true };
 }
 
-function popoverWritingLayout(writingMode: NormalizedWritingMode, horizontal: boolean): PopoverWritingLayout {
+function popoverWritingLayout(writingMode: NormalizedWritingMode, horizontal: boolean, preferBefore: boolean): PopoverWritingLayout {
     return {
         horizontalOffset: horizontal ? 0 : 10,
         verticalOffset: horizontal ? 10 : 0,
-        preferAfter: horizontal ? true : isVerticalTextPopupOnRight(writingMode),
+        preferAfter: horizontal
+            ? !preferBefore
+            : verticalTextPrefersAfter(writingMode, preferBefore),
     };
+}
+
+function verticalTextPrefersAfter(writingMode: NormalizedWritingMode, preferBefore: boolean): boolean {
+    const defaultAfter = isVerticalTextPopupOnRight(writingMode);
+    return preferBefore ? !defaultAfter : defaultAfter;
 }
 
 function tallerPopoverPosition(best: PopoverSizeRect | null, next: PopoverSizeRect): PopoverSizeRect {

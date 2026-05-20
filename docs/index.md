@@ -34,17 +34,9 @@ features:
 
 ## What It Does
 
-よむ is a small helper that runs inside your browser. When you point it at Japanese text, subtitles, or manga images, it opens a clean popup with readings, meanings, mining actions, examples, kanji details, and audio.
+よむ is a small helper that runs inside your browser. When you point it at Japanese text, subtitles, or manga images, it opens a clean popup with readings, meanings, mining actions for saving study context, examples, kanji details, and audio.
 
-It is meant for learners who want the useful parts of paid reading suites without turning study into another subscription. You can start with simple popup lookup, add JPDB or local dictionaries later, and connect Anki only when you want flashcards.
-
-## New Words In These Docs
-
-- **JPDB** is an online Japanese study site. よむ can use it for word status, definitions, review buttons, and mining.
-- **Yomitan dictionaries** are downloadable dictionary files. よむ can import them so lookups keep working from local browser storage.
-- **Mining** means saving a word, sentence, subtitle, or image context so you can study it later.
-- **Anki** is a flashcard app. よむ can send cards to Anki when you choose to connect it.
-- **OCR** means reading text from images, such as manga panels or screenshots.
+It is meant for learners who want the useful parts of paid reading suites without turning study into another subscription. You can start with simple popup lookup, add JPDB, an online Japanese study site, or imported Yomitan dictionary files later, and connect Anki flashcards only when you want them.
 
 <div class="yomu-shot-grid">
   <figure>

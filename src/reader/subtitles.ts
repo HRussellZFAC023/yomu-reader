@@ -2913,6 +2913,9 @@ export function requestSubtitleText(url: string): Promise<string> {
     if (/^(blob|data):/i.test(url)) {
         return fetchSubtitleText(url);
     }
+    if (isYouTubeTimedTextUrl(url)) {
+        return requestSubtitleTextWithUserscript(url).catch(error => fetchSubtitleText(url).catch(() => Promise.reject(error)));
+    }
     if (shouldFetchSubtitleInPageContext(url)) {
         return fetchSubtitleText(url).catch(error => requestSubtitleTextWithUserscript(url, error));
     }
@@ -2956,9 +2959,17 @@ function subtitleRequestSignal(): AbortSignal | undefined {
 function shouldFetchSubtitleInPageContext(url: string): boolean {
     try {
         const parsed = new URL(url, location.href);
-        if (parsed.origin === location.origin) return true;
-        return isYouTubePage()
-            && /(^|\.)youtube\.com$/i.test(parsed.hostname)
+        return parsed.origin === location.origin;
+    } catch {
+        return false;
+    }
+}
+
+function isYouTubeTimedTextUrl(url: string): boolean {
+    if (!isYouTubePage()) return false;
+    try {
+        const parsed = new URL(url, location.href);
+        return /(^|\.)youtube\.com$/i.test(parsed.hostname)
             && /\/api\/timedtext$/i.test(parsed.pathname);
     } catch {
         return false;

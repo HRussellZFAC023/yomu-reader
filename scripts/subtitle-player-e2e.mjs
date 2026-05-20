@@ -353,26 +353,41 @@ async function waitForDrawerMode(page, mode) {
 }
 
 async function openTracksPanel(page) {
-    const alreadyOpenTracks = await page.evaluate(() => {
+    const openPanelMode = await page.evaluate(() => {
         const panel = document.querySelector('.jpdb-subtitle-list');
-        const tracks = panel?.querySelector('[data-action="panel-tracks"][aria-pressed="true"]');
-        return Boolean(panel && !panel.hidden && tracks);
+        if (!panel || panel.hidden) return '';
+        if (panel.querySelector('[data-action="panel-tracks"][aria-pressed="true"]')) return 'tracks';
+        if (panel.querySelector('[data-action="panel-lines"][aria-pressed="true"]')) return 'lines';
+        return 'open';
     });
-    if (alreadyOpenTracks) return;
-    await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click({ force: true });
-    await page.waitForFunction(() => !document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 5000 });
-    const alreadyOpenAfterToggle = await page.evaluate(() => {
-        const panel = document.querySelector('.jpdb-subtitle-list');
-        const tracks = panel?.querySelector('[data-action="panel-tracks"][aria-pressed="true"]');
-        return Boolean(panel && !panel.hidden && tracks);
-    });
-    if (!alreadyOpenAfterToggle) {
-        await page.locator('.jpdb-subtitle-list [data-action="panel-tracks"]').first().click({ force: true });
-        await waitForDrawerMode(page, 'tracks');
+    if (openPanelMode === 'tracks') return;
+    if (!openPanelMode) {
+        await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click({ force: true });
+        await page.waitForFunction(() => !document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 5000 });
     }
+    await page.locator('.jpdb-subtitle-list [data-action="panel-tracks"]').first().click({ force: true });
+    await waitForDrawerMode(page, 'tracks');
 }
 
 async function openLinesOrTracksPanel(page) {
+    const openPanelMode = await page.evaluate(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        if (!panel || panel.hidden) return '';
+        if (panel.querySelector('[data-action="panel-lines"][aria-pressed="true"]')) return 'lines';
+        if (panel.querySelector('[data-action="panel-tracks"][aria-pressed="true"]')) return 'tracks';
+        return 'open';
+    });
+    if (openPanelMode === 'lines') return;
+    if (openPanelMode) {
+        const linesButton = page.locator('.jpdb-subtitle-list [data-action="panel-lines"]').first();
+        const canOpenLines = await linesButton.evaluate(button => !button.disabled).catch(() => false);
+        if (canOpenLines) {
+            await linesButton.click({ force: true });
+            await waitForDrawerMode(page, 'lines');
+        }
+        return;
+    }
+
     const canOpenPanel = await page.locator('.jpdb-subtitle-rail [data-action="panel"]').evaluate(button => {
         const element = button;
         return !element.hidden && !(element instanceof HTMLButtonElement && element.disabled) && getComputedStyle(element).display !== 'none';

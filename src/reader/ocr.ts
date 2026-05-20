@@ -57,6 +57,8 @@ const LENS_PLATFORM_WEB = 3;
 const LENS_SURFACE_CHROMIUM = 4;
 const LENS_AUTO_FILTER = 7;
 const LENS_WRITING_TOP_TO_BOTTOM = 2;
+const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
+const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
 const log = Logger.scope('OCR');
 const OCR_RECOGNIZERS: Partial<Record<ReaderSettings['ocrProvider'], OcrRecognizer>> = {
     'google-lens': recognizeViaGoogleLens,
@@ -192,7 +194,8 @@ export class ImageOcrController {
             return;
         }
         if (this.shouldSkipRefresh(settings, options)) {
-            this.clear();
+            this.pruneDisconnectedStates();
+            this.schedulePosition();
             return;
         }
 
@@ -432,11 +435,15 @@ export class ImageOcrController {
         const settings = this.options.getSettings();
         const showText = settings.ocrShowTextOverlay || forceOverlay;
 
-        const sentence = result.lines.map(line => line.text).join('\n');
-        const parsed = await this.parseOcrLines(result.lines, settings);
+        const initialParsed = await this.parseOcrLines(result.lines, settings);
+        const lines = cleanOcrLookupLines(result.lines, initialParsed);
+        const parsed = ocrLinesChanged(result.lines, lines)
+            ? await this.parseOcrLines(lines, settings)
+            : initialParsed;
+        const sentence = lines.map(line => line.text).join('\n');
         applyOcrOverlayStyle(state.overlay, settings);
 
-        for (const [index, line] of result.lines.entries()) {
+        for (const [index, line] of lines.entries()) {
             state.overlay.append(this.renderOcrLineElement(state, result, line, parsed[index] ?? [], sentence, showText, settings));
         }
         this.positionState(state.image);
@@ -780,7 +787,8 @@ function offsetRegionLines(lines: OcrLine[], regionBox: OcrRect | null, width: n
 }
 
 function japaneseOcrResult(width: number, height: number, lines: OcrLine[]): OcrResult | null {
-    const japaneseLines = lines.filter(line => line.text.length > 0 && HAS_JAPANESE.test(line.text));
+    const japaneseLines = removeStandaloneFuriganaLines(lines)
+        .filter(line => line.text.length > 0 && HAS_JAPANESE.test(line.text));
     return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
 }
 
@@ -788,6 +796,89 @@ function japaneseOcrLine(text: string, box: OcrRect | null): OcrLine | null {
     return text && box && HAS_JAPANESE.test(text)
         ? { text, box, vertical: box.height > box.width * 1.25 && text.length > 1 }
         : null;
+}
+
+function cleanOcrLookupLines(lines: OcrLine[], parsed: JPDBToken[][]): OcrLine[] {
+    const cleaned = lines.map((line, index) => {
+        const text = cleanOcrLookupText(line.text, parsed[index] ?? []);
+        return text === line.text ? line : { ...line, text };
+    });
+    return removeStandaloneFuriganaLines(cleaned);
+}
+
+function ocrLinesChanged(original: OcrLine[], cleaned: OcrLine[]): boolean {
+    return original.length !== cleaned.length
+        || cleaned.some((line, index) => line.text !== original[index]?.text);
+}
+
+function cleanOcrLookupText(text: string, tokens: JPDBToken[]): string {
+    const rubies = tokens
+        .flatMap(token => token.rubies.map(ruby => ({ ruby, token })))
+        .sort((a, b) => b.ruby.start - a.ruby.start);
+    let cleaned = text;
+    for (const { ruby } of rubies) {
+        if (!OCR_KANJI_RE.test(cleaned.slice(ruby.start, ruby.end))) continue;
+        cleaned = removeOcrReadingAroundRuby(cleaned, ruby.text, ruby.start, ruby.end);
+    }
+    return cleanOcrText(cleaned);
+}
+
+function removeOcrReadingAroundRuby(text: string, reading: string, start: number, end: number): string {
+    const cleanReading = cleanOcrText(reading);
+    if (!cleanReading) return text;
+    if (text.slice(Math.max(0, start - cleanReading.length), start) === cleanReading) {
+        return text.slice(0, start - cleanReading.length) + text.slice(start);
+    }
+    if (text.slice(end, end + cleanReading.length) === cleanReading) {
+        return text.slice(0, end) + text.slice(end + cleanReading.length);
+    }
+    return text;
+}
+
+function removeStandaloneFuriganaLines(lines: OcrLine[]): OcrLine[] {
+    const filtered = lines.filter((line, index) => !isStandaloneFuriganaLine(line, lines, index));
+    return filtered.length ? filtered : lines;
+}
+
+function isStandaloneFuriganaLine(line: OcrLine, lines: OcrLine[], index: number): boolean {
+    const text = cleanOcrText(line.text).replace(/\s+/g, '');
+    if (!text || text.length > 10 || !OCR_KANA_ONLY_RE.test(text)) return false;
+    return lines.some((other, otherIndex) => otherIndex !== index
+        && OCR_KANJI_RE.test(other.text)
+        && ocrLineLooksLikeFuriganaFor(line, other));
+}
+
+function ocrLineLooksLikeFuriganaFor(furi: OcrLine, base: OcrLine): boolean {
+    if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
+    const overlap = horizontalOverlap(furi.box, base.box);
+    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
+    const smaller = furi.box.height <= base.box.height * 0.75 || furi.box.width <= base.box.width * 0.65;
+    const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5
+        && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
+    return overlapRatio >= 0.32 && smaller && nearTop;
+}
+
+function horizontalOverlap(a: OcrRect, b: OcrRect): number {
+    return Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
+}
+
+function ocrLineLooksLikeVerticalFuriganaFor(furi: OcrLine, base: OcrLine): boolean {
+    if (!furi.vertical || !base.vertical) return false;
+    const overlap = verticalOverlap(furi.box, base.box);
+    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
+    const smaller = furi.box.width <= base.box.width * 0.75 || furi.box.height <= base.box.height * 0.65;
+    const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
+    return overlapRatio >= 0.32 && smaller && nearSide;
+}
+
+function verticalOverlap(a: OcrRect, b: OcrRect): number {
+    return Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
+}
+
+function horizontalGap(a: OcrRect, b: OcrRect): number {
+    if (a.left + a.width < b.left) return b.left - (a.left + a.width);
+    if (b.left + b.width < a.left) return a.left - (b.left + b.width);
+    return 0;
 }
 
 export function readFallbackOcrResult(image: HTMLImageElement, _includeAccessibleText = false): OcrResult | null {
@@ -829,6 +920,8 @@ function normalizeOcrRuby(root: HTMLElement): void {
 
         const furi = document.createElement('span');
         furi.className = 'jpdb-ocr-furi';
+        furi.dataset.jpdbReaderSurfaceIgnore = 'true';
+        furi.setAttribute('aria-hidden', 'true');
         const base = document.createElement('span');
         base.className = 'jpdb-ocr-ruby-base';
 

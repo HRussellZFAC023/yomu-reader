@@ -90,29 +90,33 @@
 }
 .jpdb-reader-kanji-facts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 136px), 1fr));
+  gap: 6px;
   overflow: visible;
   padding-bottom: 0;
 }
 .jpdb-reader-kanji-facts span {
-  display: grid;
-  gap: 3px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   min-width: 0;
-  align-content: center;
-  min-height: 44px;
-  padding: 8px 10px;
+  min-height: 34px;
+  padding: 6px 9px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: var(--jpdb-reader-surface-2);
   color: var(--jpdb-reader-text);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 820;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
+  line-height: 1.1;
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .jpdb-reader-kanji-facts :is(strong, small) {
-  display: block;
+  display: inline;
+  flex: 0 0 auto;
   color: var(--jpdb-reader-muted);
   font-size: 10px;
   font-weight: 850;
@@ -693,19 +697,28 @@ html.jpdb-reader-doodle-active * {
   font: 800 12px/1 var(--jpdb-reader-font);
 }
 
-.jpdb-reader-popover:has(.jpdb-reader-popover-body) {
+.jpdb-reader-popover:has(.jpdb-reader-popover-body),
+.jpdb-reader-popover[data-jpdb-reader-body-stabilizers="true"] {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   overflow: hidden;
   padding: 0;
+  scrollbar-gutter: auto;
 }
 .jpdb-reader-popover-body {
   min-height: 0;
-  overflow: auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
   overflow-anchor: none;
   padding: 14px;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
+}
+.jpdb-reader-popover-body > * {
+  min-width: 0;
+  max-width: 100%;
 }
 .jpdb-reader-actions {
   position: relative;

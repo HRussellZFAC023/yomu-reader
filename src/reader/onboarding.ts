@@ -1,4 +1,5 @@
 import { APP_NAME } from './constants';
+import { setInnerHtml } from './dom';
 import { uiText, type UiCopyKey } from './i18n';
 import { Logger } from './logger';
 import { defaultDictionaryLookupLinks, saveSettings } from './settings';
@@ -51,7 +52,7 @@ export class OnboardingController {
         closeButton.dataset.onboardingAction = 'close';
         closeButton.title = uiText(this.options.getSettings().interfaceLanguage, 'closeOnboarding');
         closeButton.setAttribute('aria-label', uiText(this.options.getSettings().interfaceLanguage, 'closeOnboarding'));
-        closeButton.innerHTML = closeIcon();
+        setInnerHtml(closeButton, closeIcon());
         closeButton.addEventListener('click', () => void this.complete(false));
 
         const eyebrow = element('div', 'jpdb-reader-onboarding-eyebrow', uiText(this.options.getSettings().interfaceLanguage, 'onboardingEyebrow'));

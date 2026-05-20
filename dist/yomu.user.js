@@ -1822,6 +1822,7 @@
   ].join(",");
   const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
   const DISPLAY_HEADING_RE = /^H[1-6]$/;
+  const DISPLAY_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6";
   const MAX_CONTEXT_SENTENCE_LENGTH = 180;
   const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
   const BLOCK_TAGS = /* @__PURE__ */ new Set([
@@ -1861,17 +1862,23 @@
     "UL"
   ]);
   function setInnerHtml(element2, html) {
-    try {
-      element2.innerHTML = trustedHtml(html);
-    } catch {
-      element2.textContent = html;
-    }
+    if (!assignInnerHtml(element2, html)) element2.textContent = html;
   }
   function parseHtmlDocument(html) {
+    const parsed = parseHtmlWithDomParser(html);
+    if (parsed) return parsed;
+    const fallback = document.implementation.createHTMLDocument("");
+    if (assignInnerHtml(fallback.documentElement, html)) return fallback;
+    if (assignInnerHtml(fallback.body, html)) return fallback;
+    fallback.body.textContent = html;
+    return fallback;
+  }
+  function assignInnerHtml(element2, html) {
     try {
-      return new DOMParser().parseFromString(trustedHtml(html), "text/html");
+      element2.innerHTML = trustedHtml(html);
+      return true;
     } catch {
-      return document.implementation.createHTMLDocument("");
+      return false;
     }
   }
   function parseXmlDocument(source, mimeType = "text/xml") {
@@ -1880,6 +1887,18 @@
     } catch {
       return document.implementation.createDocument(null, "");
     }
+  }
+  function parseHtmlWithDomParser(html) {
+    try {
+      return new DOMParser().parseFromString(trustedHtml(html), "text/html");
+    } catch {
+      return null;
+    }
+  }
+  function appendTrustedHtml(element2, html) {
+    const template = document.createElement("template");
+    setInnerHtml(template, html);
+    element2.append(template.content);
   }
   function appendToDocumentHead(element2) {
     const target = document.head || document.documentElement || document.body;
@@ -1977,6 +1996,7 @@
   function shouldRejectTextTargetParent(parent, text2, visibleOnly, options) {
     if (parent.closest(SKIP_SELECTOR)) return true;
     if (isInsideExcludedReaderRoot(parent, options)) return true;
+    if (isShortCenteredDisplayHeading(parent, text2)) return true;
     return shouldRejectTextTargetPresentation(parent, text2, visibleOnly);
   }
   function isInsideExcludedReaderRoot(parent, options) {
@@ -2058,6 +2078,10 @@
         return;
       }
       const text2 = element2.textContent?.trim() ?? "";
+      if (text2 && isShortCenteredDisplayHeading(element2, text2)) {
+        flush();
+        return;
+      }
       if (!options.allowUiText && text2 && isFragileUiText(element2, text2)) {
         flush();
         return;
@@ -2146,7 +2170,7 @@
       }
       if (node.nodeType !== Node.ELEMENT_NODE) return;
       const child = node;
-      if (child.tagName === "RT" || child.tagName === "RP") return;
+      if (isSurfaceIgnoredElement(child)) return;
       text2 += readerWordSurfaceText(child);
     });
     return text2;
@@ -2243,7 +2267,10 @@
     return text2;
   }
   function isIgnoredReadableElement(element2) {
-    return READABLE_IGNORED_TAGS.has(element2.tagName) || element2.matches('button,svg,use,[aria-hidden="true"],[role="button"]');
+    return isSurfaceIgnoredElement(element2) || element2.matches('button,svg,use,[aria-hidden="true"],[role="button"]');
+  }
+  function isSurfaceIgnoredElement(element2) {
+    return READABLE_IGNORED_TAGS.has(element2.tagName) || element2.matches('[data-jpdb-reader-surface-ignore="true"],.jpdb-reader-furi,.jpdb-ocr-furi');
   }
   function cleanReadableSentence(value) {
     return value.replace(/\s+/g, " ").replace(/([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])\s+([、。！？・])/gu, "$1$2").replace(/([、。！？・])\s+([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])/gu, "$1$2").trim();
@@ -2712,6 +2739,16 @@
     if (fragileByTypography(element2, metrics.style, metrics.compactLength, metrics.fontSize, metrics.lineHeight, metrics.prose)) return true;
     if (fragileByCompactLayout(text2, metrics.style, metrics.rect)) return true;
     return fragileByInlineControl(text2, metrics.style, metrics.rect);
+  }
+  function isShortCenteredDisplayHeading(element2, text2) {
+    const heading = closestDisplayHeading(element2);
+    if (!heading) return false;
+    const style = getComputedStyle(heading);
+    const headingText = heading.textContent?.trim() || text2;
+    return style.textAlign === "center" && compactLength(headingText) <= 40;
+  }
+  function closestDisplayHeading(element2) {
+    return DISPLAY_HEADING_RE.test(element2.tagName) ? element2 : element2.closest(DISPLAY_HEADING_SELECTOR);
   }
   function isFragileUiContext(element2, text2) {
     if (UI_CLASS_RE.test(String(element2.className)) && !isReadableProseUiClassText(element2, text2)) return true;
@@ -3377,6 +3414,17 @@
       helpSupportTitle: "Support よむ",
       helpSupportCopy: "よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as Migaku currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.",
       helpSupportCopyExtra: "Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.",
+      helpGlossaryTitle: "Glossary",
+      helpGlossaryTermjpdb: "JPDB",
+      helpGlossaryDefinitionjpdb: "An online Japanese study site. よむ can use it for word status, definitions, review buttons, and mining.",
+      helpGlossaryTermyomitan: "Yomitan dictionaries",
+      helpGlossaryDefinitionyomitan: "Downloadable dictionary files. よむ can import them so lookups keep working from local browser storage.",
+      helpGlossaryTermmining: "Mining",
+      helpGlossaryDefinitionmining: "Saving a word, sentence, subtitle, or image context so you can study it later.",
+      helpGlossaryTermanki: "Anki",
+      helpGlossaryDefinitionanki: "A flashcard app. よむ can send cards to Anki when you choose to connect it.",
+      helpGlossaryTermocr: "OCR",
+      helpGlossaryDefinitionocr: "Reading text from images, such as manga panels or screenshots.",
       videoPlayer: "Video Player",
       newTabPage: "New Tab",
       newTabMode: "New tab mode",
@@ -4478,6 +4526,17 @@
     helpSupportTitle: "よむをサポート",
     helpSupportCopy: "よむはポップアップ検索、JPDB採掘、インポート辞書、字幕、画像読み取り、Ankiエクスポートを1つの無料ユーザースクリプトにまとめます。",
     helpSupportCopyExtra: "寄付は任意です。リーダーを磨き続けるための時間、検証端末、サービス、保守、AIトークン費用の助けになります。",
+    helpGlossaryTitle: "用語集",
+    helpGlossaryTermjpdb: "JPDB",
+    helpGlossaryDefinitionjpdb: "オンラインの日本語学習サイトです。よむは単語ステータス、定義、復習ボタン、採掘に使えます。",
+    helpGlossaryTermyomitan: "Yomitan辞書",
+    helpGlossaryDefinitionyomitan: "ダウンロードできる辞書ファイルです。よむにインポートすると、ブラウザ内のローカル保存から検索できます。",
+    helpGlossaryTermmining: "採掘",
+    helpGlossaryDefinitionmining: "あとで学習できるように、単語、文、字幕、画像文脈を保存することです。",
+    helpGlossaryTermanki: "Anki",
+    helpGlossaryDefinitionanki: "フラッシュカードアプリです。接続すると、よむからAnkiへカードを送れます。",
+    helpGlossaryTermocr: "OCR",
+    helpGlossaryDefinitionocr: "漫画コマやスクリーンショットなど、画像から文字を読むことです。",
     videoPlayer: "動画プレイヤー",
     docs: "ドキュメント",
     factoryReset: "初期状態に戻す",
@@ -8734,6 +8793,7 @@ ${scopedInner}
   const TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM = 40;
   const TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH = 2;
   const TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH = 3;
+  const TERM_SEARCH_PREFIX_BOUNDARY = String.fromCharCode(63743);
   const TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS = 12e3;
   const TERM_SEARCH_LEGACY_FALLBACK_MAX_MS = 140;
   const TERM_KANJI_INDEX_BATCH_SIZE = 5e3;
@@ -10493,7 +10553,7 @@ ${glossaryKey}`;
     return glossaryWords(normalizeGlossarySearchText(query)).find((word) => word.length >= TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH) ?? "";
   }
   function termSearchPrefixRange(query) {
-    return IDBKeyRange.bound(query, `${query}￿`, false, false);
+    return IDBKeyRange.bound(query, `${query}${TERM_SEARCH_PREFIX_BOUNDARY}`, false, false);
   }
   function rankedTermSearchResults(candidates, query, limit, rank) {
     const seen = /* @__PURE__ */ new Set();
@@ -12397,7 +12457,8 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       viewportWidth,
       viewportHeight,
       width: popover.offsetWidth,
-      height: popover.offsetHeight
+      height: popover.offsetHeight,
+      preferBefore: Boolean(options.preferBefore)
     };
   }
   function popoverMaxFrameHeight(viewportHeight, options) {
@@ -12413,7 +12474,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   }
   function positionAnchoredPopover(popover, anchor, frame) {
     const writingMode = getPopoverWritingMode(anchor);
-    const position = getYomitanLikePopoverPosition(frame.sourceRects, writingMode, frame.viewport, frame.width, frame.height);
+    const position = getYomitanLikePopoverPosition(frame.sourceRects, writingMode, frame.viewport, frame.width, frame.height, frame.preferBefore);
     popover.style.maxWidth = `${Math.max(0, position.width)}px`;
     popover.style.maxHeight = `${Math.max(0, position.height)}px`;
     popover.dataset.jpdbReaderPlacementSide = getPlacementSide(writingMode, position);
@@ -12492,9 +12553,9 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const normalized = writingMode;
     return SUPPORTED_POPOVER_WRITING_MODES.has(normalized) ? normalized : DEFAULT_POPOVER_WRITING_MODE;
   }
-  function getYomitanLikePopoverPosition(sourceRects, writingMode, viewport, frameWidth, frameHeight) {
+  function getYomitanLikePopoverPosition(sourceRects, writingMode, viewport, frameWidth, frameHeight, preferBefore) {
     const horizontal = isHorizontalPopoverMode(writingMode);
-    const layout = popoverWritingLayout(writingMode, horizontal);
+    const layout = popoverWritingLayout(writingMode, horizontal, preferBefore);
     return bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, layout) ?? fallbackPopoverPosition(viewport, frameWidth, frameHeight);
   }
   function bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, layout) {
@@ -12513,12 +12574,16 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   function fallbackPopoverPosition(viewport, frameWidth, frameHeight) {
     return { left: viewport.left, top: viewport.top, width: frameWidth, height: frameHeight, after: true, below: true };
   }
-  function popoverWritingLayout(writingMode, horizontal) {
+  function popoverWritingLayout(writingMode, horizontal, preferBefore) {
     return {
       horizontalOffset: horizontal ? 0 : 10,
       verticalOffset: horizontal ? 10 : 0,
-      preferAfter: horizontal ? true : isVerticalTextPopupOnRight(writingMode)
+      preferAfter: horizontal ? !preferBefore : verticalTextPrefersAfter(writingMode, preferBefore)
     };
+  }
+  function verticalTextPrefersAfter(writingMode, preferBefore) {
+    const defaultAfter = isVerticalTextPopupOnRight(writingMode);
+    return preferBefore ? !defaultAfter : defaultAfter;
   }
   function tallerPopoverPosition(best, next) {
     return best === null || next.height > best.height ? next : best;
@@ -17740,9 +17805,8 @@ ${entry.reading}`;
           return;
         }
         const action = button2.dataset.immersionAction;
-        const shouldAutoPlay = this.options.getSettings().immersionKitAutoPlayAudio;
-        if (action === "previous") render(index - 1, shouldAutoPlay, true);
-        if (action === "next") render(index + 1, shouldAutoPlay, true);
+        if (action === "previous") render(index - 1, this.shouldAutoPlayCarouselAudio(), true);
+        if (action === "next") render(index + 1, this.shouldAutoPlayCarouselAudio(), true);
         if (action === "audio") void this.playExampleAudio(examples[index]);
       });
       container.addEventListener("keydown", (event) => {
@@ -17784,6 +17848,10 @@ ${entry.reading}`;
         hoverAudioActive = false;
       });
       render(index, false);
+    }
+    shouldAutoPlayCarouselAudio() {
+      const settings = this.options.getSettings();
+      return settings.immersionKitEnabled && settings.immersionKitAutoPlayAudio;
     }
     renderEmptyIfConnected(popover, container) {
       if (!isConnectedImmersionSurface(popover, container)) return;
@@ -19460,7 +19528,7 @@ ${normalizedReading}`;
       direct.click();
       return;
     }
-    const form = Array.from(document.querySelectorAll("form")).find((item) => item.innerHTML.includes('name="r"') || item.action.includes("/review"));
+    const form = Array.from(document.querySelectorAll("form")).find((item) => Boolean(item.querySelector('[name="r"]')) || item.action.includes("/review"));
     const submit = form?.querySelector('button, input[type="submit"]');
     if (submit) submit.click();
     else form?.requestSubmit?.();
@@ -21402,7 +21470,7 @@ ${normalizedReading}`;
       closeButton.dataset.onboardingAction = "close";
       closeButton.title = uiText(this.options.getSettings().interfaceLanguage, "closeOnboarding");
       closeButton.setAttribute("aria-label", uiText(this.options.getSettings().interfaceLanguage, "closeOnboarding"));
-      closeButton.innerHTML = closeIcon$1();
+      setInnerHtml(closeButton, closeIcon$1());
       closeButton.addEventListener("click", () => void this.complete(false));
       const eyebrow = element("div", "jpdb-reader-onboarding-eyebrow", uiText(this.options.getSettings().interfaceLanguage, "onboardingEyebrow"));
       const title = element("h2", "", APP_NAME);
@@ -21733,6 +21801,8 @@ ${normalizedReading}`;
   const LENS_SURFACE_CHROMIUM = 4;
   const LENS_AUTO_FILTER = 7;
   const LENS_WRITING_TOP_TO_BOTTOM = 2;
+  const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
+  const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
   const log$a = Logger.scope("OCR");
   const OCR_RECOGNIZERS = {
     "google-lens": recognizeViaGoogleLens,
@@ -21841,7 +21911,8 @@ ${normalizedReading}`;
         return;
       }
       if (this.shouldSkipRefresh(settings, options)) {
-        this.clear();
+        this.pruneDisconnectedStates();
+        this.schedulePosition();
         return;
       }
       this.pruneDisconnectedStates();
@@ -22025,10 +22096,12 @@ ${normalizedReading}`;
       state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
       const settings = this.options.getSettings();
       const showText = settings.ocrShowTextOverlay || forceOverlay;
-      const sentence = result.lines.map((line) => line.text).join("\n");
-      const parsed = await this.parseOcrLines(result.lines, settings);
+      const initialParsed = await this.parseOcrLines(result.lines, settings);
+      const lines = cleanOcrLookupLines(result.lines, initialParsed);
+      const parsed = ocrLinesChanged(result.lines, lines) ? await this.parseOcrLines(lines, settings) : initialParsed;
+      const sentence = lines.map((line) => line.text).join("\n");
       applyOcrOverlayStyle(state.overlay, settings);
-      for (const [index, line] of result.lines.entries()) {
+      for (const [index, line] of lines.entries()) {
         state.overlay.append(this.renderOcrLineElement(state, result, line, parsed[index] ?? [], sentence, showText, settings));
       }
       this.positionState(state.image);
@@ -22305,8 +22378,74 @@ ${normalizedReading}`;
     return lines.map((line) => offsetLineToRegion(line, regionBox, width, height)).filter((line) => Boolean(line));
   }
   function japaneseOcrResult(width, height, lines) {
-    const japaneseLines = lines.filter((line) => line.text.length > 0 && HAS_JAPANESE$1.test(line.text));
+    const japaneseLines = removeStandaloneFuriganaLines(lines).filter((line) => line.text.length > 0 && HAS_JAPANESE$1.test(line.text));
     return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
+  }
+  function cleanOcrLookupLines(lines, parsed) {
+    const cleaned = lines.map((line, index) => {
+      const text2 = cleanOcrLookupText(line.text, parsed[index] ?? []);
+      return text2 === line.text ? line : { ...line, text: text2 };
+    });
+    return removeStandaloneFuriganaLines(cleaned);
+  }
+  function ocrLinesChanged(original, cleaned) {
+    return original.length !== cleaned.length || cleaned.some((line, index) => line.text !== original[index]?.text);
+  }
+  function cleanOcrLookupText(text2, tokens) {
+    const rubies = tokens.flatMap((token) => token.rubies.map((ruby) => ({ ruby, token }))).sort((a, b) => b.ruby.start - a.ruby.start);
+    let cleaned = text2;
+    for (const { ruby } of rubies) {
+      if (!OCR_KANJI_RE.test(cleaned.slice(ruby.start, ruby.end))) continue;
+      cleaned = removeOcrReadingAroundRuby(cleaned, ruby.text, ruby.start, ruby.end);
+    }
+    return cleanOcrText(cleaned);
+  }
+  function removeOcrReadingAroundRuby(text2, reading, start, end) {
+    const cleanReading = cleanOcrText(reading);
+    if (!cleanReading) return text2;
+    if (text2.slice(Math.max(0, start - cleanReading.length), start) === cleanReading) {
+      return text2.slice(0, start - cleanReading.length) + text2.slice(start);
+    }
+    if (text2.slice(end, end + cleanReading.length) === cleanReading) {
+      return text2.slice(0, end) + text2.slice(end + cleanReading.length);
+    }
+    return text2;
+  }
+  function removeStandaloneFuriganaLines(lines) {
+    const filtered = lines.filter((line, index) => !isStandaloneFuriganaLine(line, lines, index));
+    return filtered.length ? filtered : lines;
+  }
+  function isStandaloneFuriganaLine(line, lines, index) {
+    const text2 = cleanOcrText(line.text).replace(/\s+/g, "");
+    if (!text2 || text2.length > 10 || !OCR_KANA_ONLY_RE.test(text2)) return false;
+    return lines.some((other, otherIndex) => otherIndex !== index && OCR_KANJI_RE.test(other.text) && ocrLineLooksLikeFuriganaFor(line, other));
+  }
+  function ocrLineLooksLikeFuriganaFor(furi, base) {
+    if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
+    const overlap = horizontalOverlap(furi.box, base.box);
+    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
+    const smaller = furi.box.height <= base.box.height * 0.75 || furi.box.width <= base.box.width * 0.65;
+    const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5 && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
+    return overlapRatio >= 0.32 && smaller && nearTop;
+  }
+  function horizontalOverlap(a, b) {
+    return Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
+  }
+  function ocrLineLooksLikeVerticalFuriganaFor(furi, base) {
+    if (!furi.vertical || !base.vertical) return false;
+    const overlap = verticalOverlap(furi.box, base.box);
+    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
+    const smaller = furi.box.width <= base.box.width * 0.75 || furi.box.height <= base.box.height * 0.65;
+    const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
+    return overlapRatio >= 0.32 && smaller && nearSide;
+  }
+  function verticalOverlap(a, b) {
+    return Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
+  }
+  function horizontalGap(a, b) {
+    if (a.left + a.width < b.left) return b.left - (a.left + a.width);
+    if (b.left + b.width < a.left) return a.left - (b.left + b.width);
+    return 0;
   }
   function readFallbackOcrResult(image, _includeAccessibleText = false) {
     const width = image.naturalWidth || image.width || 1;
@@ -22342,6 +22481,8 @@ ${normalizedReading}`;
       replacement.className = "jpdb-ocr-ruby";
       const furi = document.createElement("span");
       furi.className = "jpdb-ocr-furi";
+      furi.dataset.jpdbReaderSurfaceIgnore = "true";
+      furi.setAttribute("aria-hidden", "true");
       const base = document.createElement("span");
       base.className = "jpdb-ocr-ruby-base";
       for (const child of Array.from(ruby.childNodes)) {
@@ -23925,7 +24066,7 @@ ${normalizedReading}`;
       button2.dataset.jpdbReaderSheetClose = "true";
       button2.setAttribute("aria-label", label);
       button2.title = label;
-      button2.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"></path></svg>';
+      setInnerHtml(button2, '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"></path></svg>');
       button2.addEventListener("click", close);
       return button2;
     };
@@ -24805,7 +24946,7 @@ ${normalizedReading}`;
         this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "audioPlaybackDisabledToast"));
         return;
       }
-      const isCurrent = options.hoverLookupGeneration === void 0 ? void 0 : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration;
+      const isCurrent = options.isCurrent ?? (options.hoverLookupGeneration === void 0 ? void 0 : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
       const loadingPopover = this.dependencies.getActivePopover();
       const loadingRequest = ++this.loadingRequest;
       this.setLoading(loadingPopover, loadingRequest);
@@ -25591,6 +25732,35 @@ ${spelling}`);
         </div>
     `;
   }
+  function renderHelpGlossaryPanel() {
+    return `
+        <div class="jpdb-reader-help-card jpdb-reader-help-glossary-card">
+            <div class="jpdb-reader-help-title" data-help-glossary-title>Glossary</div>
+            <dl class="jpdb-reader-help-glossary">
+                <div>
+                    <dt data-help-glossary-term="jpdb">JPDB</dt>
+                    <dd data-help-glossary-definition="jpdb">An online Japanese study site. よむ can use it for word status, definitions, review buttons, and mining.</dd>
+                </div>
+                <div>
+                    <dt data-help-glossary-term="yomitan">Yomitan dictionaries</dt>
+                    <dd data-help-glossary-definition="yomitan">Downloadable dictionary files. よむ can import them so lookups keep working from local browser storage.</dd>
+                </div>
+                <div>
+                    <dt data-help-glossary-term="mining">Mining</dt>
+                    <dd data-help-glossary-definition="mining">Saving a word, sentence, subtitle, or image context so you can study it later.</dd>
+                </div>
+                <div>
+                    <dt data-help-glossary-term="anki">Anki</dt>
+                    <dd data-help-glossary-definition="anki">A flashcard app. よむ can send cards to Anki when you choose to connect it.</dd>
+                </div>
+                <div>
+                    <dt data-help-glossary-term="ocr">OCR</dt>
+                    <dd data-help-glossary-definition="ocr">Reading text from images, such as manga panels or screenshots.</dd>
+                </div>
+            </dl>
+        </div>
+    `;
+  }
   function renderSettingsForm(settings, jpdbSettingsUrl) {
     return `
             <div class="jpdb-reader-settings-head">
@@ -26009,6 +26179,7 @@ ${spelling}`);
             <fieldset data-settings-panel="help" hidden>
                 <legend>Help</legend>
                 ${renderHelpLinksPanel()}
+                ${renderHelpGlossaryPanel()}
             </fieldset>
     `;
   }
@@ -26795,6 +26966,12 @@ ${spelling}`);
     panel.querySelector('[data-help-link="issues"]')?.replaceChildren(text2("issues"));
     panel.querySelector('[data-help-link="donate"]')?.replaceChildren(text2("donate"));
     panel.querySelector('[data-help-link="discord"]')?.replaceChildren(text2("discord"));
+    const glossary = form.querySelector(".jpdb-reader-help-glossary-card");
+    glossary?.querySelector("[data-help-glossary-title]")?.replaceChildren(text2("helpGlossaryTitle"));
+    ["jpdb", "yomitan", "mining", "anki", "ocr"].forEach((term) => {
+      glossary?.querySelector(`[data-help-glossary-term="${term}"]`)?.replaceChildren(text2(`helpGlossaryTerm${term}`));
+      glossary?.querySelector(`[data-help-glossary-definition="${term}"]`)?.replaceChildren(text2(`helpGlossaryDefinition${term}`));
+    });
   }
   function renderReviewShortcutInputs(settings) {
     const fivePointHidden = !settings.enableReviews || settings.twoButtonReviews;
@@ -29859,15 +30036,24 @@ ${spelling}`);
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
   padding: 0;
+  scrollbar-gutter: auto;
 }
 
 .jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body {
   min-height: 0;
-  overflow: auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
   padding: 14px 16px;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions {
@@ -32408,31 +32594,35 @@ mark.jpdb-reader-example-target {
 
 .jpdb-reader-kanji-facts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 136px), 1fr));
+  gap: 6px;
   overflow: visible;
   padding-bottom: 0;
 }
 
 .jpdb-reader-kanji-facts span {
-  display: grid;
-  gap: 3px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   min-width: 0;
-  align-content: center;
-  min-height: 44px;
-  padding: 8px 10px;
+  min-height: 34px;
+  padding: 6px 9px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: var(--jpdb-reader-surface-2);
   color: var(--jpdb-reader-text);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 820;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
+  line-height: 1.1;
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .jpdb-reader-kanji-facts :is(strong, small) {
-  display: block;
+  display: inline;
+  flex: 0 0 auto;
   color: var(--jpdb-reader-muted);
   font-size: 10px;
   font-weight: 850;
@@ -33091,20 +33281,30 @@ html.jpdb-reader-doodle-active * {
   font: 800 12px/1 var(--jpdb-reader-font);
 }
 
-.jpdb-reader-popover:has(.jpdb-reader-popover-body) {
+.jpdb-reader-popover:has(.jpdb-reader-popover-body),
+.jpdb-reader-popover[data-jpdb-reader-body-stabilizers="true"] {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   overflow: hidden;
   padding: 0;
+  scrollbar-gutter: auto;
 }
 
 .jpdb-reader-popover-body {
   min-height: 0;
-  overflow: auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
   overflow-anchor: none;
   padding: 14px;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
+}
+
+.jpdb-reader-popover-body > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .jpdb-reader-actions {
@@ -34063,6 +34263,17 @@ html.jpdb-reader-doodle-active * {
   border-radius: 999px;
 }
 
+.jpdb-reader-settings input[type="checkbox"]:enabled:hover,
+.jpdb-reader-settings input[type="radio"]:enabled:hover {
+  border-color: var(--jpdb-reader-accent);
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface-2) 82%,
+    var(--jpdb-reader-accent) 18%
+  );
+  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
+}
+
 .jpdb-reader-settings input[type="checkbox"]:checked,
 .jpdb-reader-settings input[type="radio"]:checked {
   border-color: var(--jpdb-reader-accent);
@@ -34366,6 +34577,30 @@ html.jpdb-reader-doodle-active * {
 
 .jpdb-reader-help-card p {
   margin: 8px 0 0;
+  color: var(--jpdb-reader-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.jpdb-reader-help-glossary {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.jpdb-reader-help-glossary > div {
+  display: grid;
+  gap: 3px;
+}
+
+.jpdb-reader-help-glossary dt {
+  color: var(--jpdb-reader-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.jpdb-reader-help-glossary dd {
+  margin: 0;
   color: var(--jpdb-reader-muted);
   font-size: 13px;
   line-height: 1.45;
@@ -38003,8 +38238,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     return isEnglishSubtitleTrack(track) || track.kind === "native";
   }
   function applySubtitleNativeTrackModes(state) {
-    const yomuCaptionsActive = Boolean(state.overlayVisible && (state.selectedTrackId || state.hasPrimaryCues || state.currentCueText));
-    if (!isYouTubePage()) return applyGenericNativeTrackModes(state);
+    const youtubePage = isYouTubePage();
+    const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
+    const yomuCaptionsActive = Boolean(state.overlayVisible && (youtubePage ? hasYomuCaptionContent : state.selectedTrackId || hasYomuCaptionContent));
+    if (!youtubePage) return applyGenericNativeTrackModes(state);
     return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
   }
   function applyGenericNativeTrackModes(state) {
@@ -38285,8 +38522,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || "1") > 0;
   }
   function isCaptionNearVideo(rect, videoRect) {
-    const horizontalOverlap = Math.max(0, Math.min(rect.right, videoRect.right) - Math.max(rect.left, videoRect.left));
-    const overlapRatio = horizontalOverlap / Math.max(1, Math.min(rect.width, videoRect.width));
+    const horizontalOverlap2 = Math.max(0, Math.min(rect.right, videoRect.right) - Math.max(rect.left, videoRect.left));
+    const overlapRatio = horizontalOverlap2 / Math.max(1, Math.min(rect.width, videoRect.width));
     const overlapsVideo = captionOverlapsVideo(rect, videoRect, overlapRatio);
     const belowVideo = captionSitsBelowVideo(rect, videoRect, overlapRatio);
     const tooLarge = rect.width * rect.height > videoRect.width * videoRect.height * 0.45;
@@ -40692,6 +40929,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     if (/^(blob|data):/i.test(url)) {
       return fetchSubtitleText(url);
     }
+    if (isYouTubeTimedTextUrl(url)) {
+      return requestSubtitleTextWithUserscript(url).catch((error) => fetchSubtitleText(url).catch(() => Promise.reject(error)));
+    }
     if (shouldFetchSubtitleInPageContext(url)) {
       return fetchSubtitleText(url).catch((error) => requestSubtitleTextWithUserscript(url, error));
     }
@@ -40727,8 +40967,16 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   function shouldFetchSubtitleInPageContext(url) {
     try {
       const parsed = new URL(url, location.href);
-      if (parsed.origin === location.origin) return true;
-      return isYouTubePage() && /(^|\.)youtube\.com$/i.test(parsed.hostname) && /\/api\/timedtext$/i.test(parsed.pathname);
+      return parsed.origin === location.origin;
+    } catch {
+      return false;
+    }
+  }
+  function isYouTubeTimedTextUrl(url) {
+    if (!isYouTubePage()) return false;
+    try {
+      const parsed = new URL(url, location.href);
+      return /(^|\.)youtube\.com$/i.test(parsed.hostname) && /\/api\/timedtext$/i.test(parsed.pathname);
     } catch {
       return false;
     }
@@ -41162,7 +41410,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       parseJapanese: async (text2) => (await this.parseJapanese([text2]))[0] ?? [],
       onLookup: (text2, sentence) => this.lookupText(text2, sentence),
       onToast: (message) => this.toast(message),
-      shouldAutoScan: () => this.pageHasJapaneseText
+      shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeStandaloneImagePage()
     });
     pageScanner = new VisiblePageScanner({
       getSettings: () => this.settings,
@@ -41469,7 +41717,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
           const insideActivePopover = this.activePopoverMode === "modal" && this.isInsideActivePopover(event.target);
           void this.showLookupCandidate(candidate, "modal", {
             navigation: insideActivePopover ? "push-current" : "reset",
-            preservePosition: insideActivePopover
+            preservePosition: insideActivePopover,
+            userGesture: true
           });
           return;
         }
@@ -41484,7 +41733,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         event.stopPropagation();
         this.suppressSelectionLookupUntil = Date.now() + 350;
         if (word.closest(".jpdb-subtitle-player") && this.settings.subtitleMiningPause) pauseActiveVideo();
-        void this.showWord(word, { trigger: "click" });
+        void this.showWord(word, { trigger: "click", userGesture: true });
       }, { capture: true });
       document.addEventListener("mousedown", (event) => {
         if (this.isDestroyed) return;
@@ -41862,6 +42111,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     }
     handleActivePopoverHover(event) {
       if (!this.isInsideActivePopover(event.target)) return false;
+      this.cancelPendingHoverLookup();
       this.cancelHoverClose();
       return true;
     }
@@ -41886,10 +42136,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     }
     refreshActivePointerTextHover(candidate, event) {
       if (!this.isActivePointerTextLookup(candidate)) return false;
-      this.rememberHoverPopoverPointer(event);
       this.cancelHoverClose();
       this.refreshActiveHoverAnchor(candidate.anchor);
-      this.scheduleActivePopoverReposition();
       return true;
     }
     cancelMissingPointerTextCandidate(candidate) {
@@ -41906,12 +42154,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       if (this.isActiveHoverLookup(hoverLookupKey)) {
         this.cancelHoverClose();
         this.refreshActiveHoverAnchor(word);
-        this.scheduleActivePopoverReposition();
         return;
       }
       if (this.activePopoverMode === "hover" && this.activeHoverWord === word) {
         this.cancelHoverClose();
-        this.scheduleActivePopoverReposition();
         return;
       }
       if (!this.shouldLookupOnHover(event)) return;
@@ -42071,10 +42317,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       if (!activeWord || !this.canRunScheduledHoverLookup(activeWord, event)) return;
       const activeHoverLookupKey = this.hoverLookupKeyForWord(activeWord);
       if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
-      void this.showWord(activeWord, { trigger: "hover", hoverLookupGeneration }).finally(() => void 0);
-      window.setTimeout(() => {
+      void this.showWord(activeWord, { trigger: "hover", hoverLookupGeneration }).finally(() => {
         if (this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = "";
-      }, 0);
+      });
     }
     resolveScheduledHoverWord(word) {
       if (word.isConnected) return word;
@@ -42123,10 +42368,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         if (!candidate.anchor.isConnected || !this.settings.lookupOnHover) return;
         if (!shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? "", event, this.pressedKeys)) return;
         if (hoverLookupKey) this.hoverLookupInFlightKey = hoverLookupKey;
-        void this.showLookupCandidate(candidate, "hover", { hoverLookupGeneration }).finally(() => void 0);
-        window.setTimeout(() => {
+        void this.showLookupCandidate(candidate, "hover", { hoverLookupGeneration }).finally(() => {
           if (this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = "";
-        }, 0);
+        });
       };
       const delay2 = Math.max(0, this.settings.hoverOpenDelayMs);
       if (delay2 === 0) {
@@ -42285,7 +42529,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         trigger,
         navigation,
         preservePosition: this.textLookupPreservePosition(navigation, options),
-        previousNavigationEntry: this.textLookupPreviousNavigationEntryForOptions(trigger, navigation, options)
+        previousNavigationEntry: this.textLookupPreviousNavigationEntryForOptions(trigger, navigation, options),
+        userGesture: options.userGesture
       };
     }
     textLookupPreservePosition(navigation, options) {
@@ -42334,7 +42579,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         trigger: context.trigger,
         navigation: context.navigation,
         preservePosition: context.preservePosition,
-        previousNavigationEntry: context.previousNavigationEntry
+        previousNavigationEntry: context.previousNavigationEntry,
+        userGesture: context.userGesture
       };
     }
     handleDictionaryLookupLink(event, anchor, trigger) {
@@ -42464,7 +42710,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         preservePosition: options.preservePosition,
         hoverLookupKey: trigger === "hover" ? this.activePointerTextLookupKey(candidate, range.start, range.end, card) : void 0,
         hoverLookupGeneration: options.hoverLookupGeneration,
-        pointerTextLookup: trigger === "hover" ? pointerTextLookup : void 0
+        pointerTextLookup: trigger === "hover" ? pointerTextLookup : void 0,
+        userGesture: options.userGesture
       });
     }
     async lookupLocalEntryAtOffset(text2, offset) {
@@ -42518,7 +42765,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         previousNavigationEntry: context.previousNavigationEntry,
         hoverLookupKey: context.hoverLookupKey,
         hoverLookupGeneration: options.hoverLookupGeneration,
-        insideReaderPopup: context.insideReaderPopup
+        insideReaderPopup: context.insideReaderPopup,
+        userGesture: options.userGesture
       });
     }
     cardForRenderedWord(word) {
@@ -42546,7 +42794,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         anchor: renderedWordAnchor(word, false, this.activePopoverAnchor),
         navigation,
         preservePosition: trigger === "hover",
-        previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, false, trigger, navigation)
+        previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, false, trigger, navigation),
+        userGesture: options.userGesture
       });
       return true;
     }
@@ -42559,7 +42808,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         anchor: renderedWordAnchor(word, true, this.activePopoverAnchor),
         navigation,
         preservePosition: true,
-        previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, true, trigger, navigation)
+        previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, true, trigger, navigation),
+        userGesture: options.userGesture
       });
       return true;
     }
@@ -42728,14 +42978,18 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     }
     maybeAutoPlayInitialCard(card, context) {
       if (!this.shouldAutoPlayInitialCard(card, context)) return;
-      void this.audioActions.playTermAudio(card, { hoverLookupGeneration: context.hoverLookupGeneration });
+      void this.audioActions.playTermAudio(card, {
+        hoverLookupGeneration: context.hoverLookupGeneration,
+        userGesture: context.options.userGesture,
+        isCurrent: context.trigger === "hover" ? context.isCurrentHoverCard : void 0
+      });
     }
     maybePreloadLookupCardAudio(card, options) {
       if (options.autoPlay === false || !this.canPreloadReaderAudio()) return;
       this.audio.preload(card, { sourceLimit: 3, candidateLimit: 1 });
     }
     shouldAutoPlayInitialCard(card, context) {
-      return context.options.autoPlay !== false && this.isCurrentCardForAutoPlay(context) && this.shouldAutoPlay(card, context.trigger);
+      return context.options.autoPlay !== false && this.isCurrentCardForAutoPlay(context) && this.shouldAutoPlay(card, context.trigger, Boolean(context.options.userGesture));
     }
     isCurrentCardForAutoPlay(context) {
       return context.trigger === "modal" || context.isCurrentHoverCard();
@@ -42899,14 +43153,16 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         preservePosition: true
       });
     }
-    shouldAutoPlay(card, trigger) {
-      if (!this.settings.autoPlayAudio) return false;
+    shouldAutoPlay(card, trigger, userGesture = false) {
+      if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return false;
       if (!this.shouldAutoPlayForTrigger(trigger)) return false;
       const key = `${card.vid}:${card.sid}`;
       const now = Date.now();
-      if (key === this.lastAutoAudioKey && now - this.lastAutoAudioAt < 2500) return false;
-      this.lastAutoAudioKey = key;
-      this.lastAutoAudioAt = now;
+      if (!userGesture) {
+        if (key === this.lastAutoAudioKey && now - this.lastAutoAudioAt < 2500) return false;
+        this.lastAutoAudioKey = key;
+        this.lastAutoAudioAt = now;
+      }
       return true;
     }
     shouldAutoPlayForTrigger(trigger) {
@@ -43280,7 +43536,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       const stack = popover.querySelector(".jpdb-reader-kanji-section-stack");
       if (!stack) return null;
       const sourceStateKey = kanjiSourceStateKey(KANJI_SIMILAR_WORDS_SOURCE_ID);
-      stack.insertAdjacentHTML("beforeend", renderSimilarKanjiWordsShell(
+      appendTrustedHtml(stack, renderSimilarKanjiWordsShell(
         kanji,
         this.settings.interfaceLanguage,
         sourceStateKey,
@@ -43618,14 +43874,15 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         this.activePopoverResizeObserver = new ResizeObserver(() => this.repositionActivePopover());
         this.activePopoverResizeObserver.observe(popover);
         this.installPopoverBodyStabilizers(popover);
-        if (state.previousPopoverRect) {
+        if (state.mode !== "hover" && state.previousPopoverRect) {
           this.lockActivePopoverPosition(state.previousPopoverRect);
           this.placeActivePopoverWithoutMoving(popover, state.previousPopoverRect);
           this.syncActivePopoverFixedHeight();
         } else {
           this.activePopoverPositionLocked = false;
+          this.activePopoverLockedPosition = void 0;
           this.repositionActivePopover();
-          this.lockActivePopoverPosition(popover.getBoundingClientRect());
+          if (state.mode !== "hover") this.lockActivePopoverPosition(popover.getBoundingClientRect());
         }
         requestAnimationFrame(() => this.repositionActivePopover());
       } else {
@@ -43674,8 +43931,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : void 0,
         this.activePopoverAnchorRect,
         {
-          followPoint: this.shouldFollowActivePointerText() ? this.hoverPopoverPointerPosition : void 0,
-          maxHeight: popoverMaxHeightSetting(this.settings)
+          followPoint: this.shouldFollowActiveHoverPointer() ? this.hoverPopoverPointerPosition : void 0,
+          maxHeight: popoverMaxHeightSetting(this.settings),
+          preferBefore: this.shouldPreferActiveHoverPopoverBefore()
         }
       );
       this.syncActivePopoverFixedHeight();
@@ -43711,8 +43969,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       const rect = this.activePopoverAnchor.getBoundingClientRect();
       if (rect.width > 0 || rect.height > 0) this.activePopoverAnchorRect = rect;
     }
-    shouldFollowActivePointerText() {
-      return this.activePopoverMode === "hover" && Boolean(this.activePointerTextLookup);
+    shouldFollowActiveHoverPointer() {
+      return this.activePopoverMode === "hover" && Boolean(this.hoverPopoverPointerPosition);
+    }
+    shouldPreferActiveHoverPopoverBefore() {
+      return this.shouldFollowActiveHoverPointer();
     }
     shouldUseFixedModalHeight(popover) {
       return this.activePopoverMode !== "hover" && this.settings.popoverHeightMode === "fixed" && !popover.classList.contains("jpdb-reader-sheet") && Boolean(popover.querySelector(".jpdb-reader-popover-body"));
@@ -43885,6 +44146,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   function tokenContainsPointerOffset(token, offset) {
     return token.start <= offset && offset < token.end || token.start < offset && offset <= token.end;
+  }
+  function documentLooksLikeStandaloneImagePage() {
+    const images = Array.from(document.images).filter((image) => !image.closest("[data-jpdb-reader-root]"));
+    if (images.length !== 1) return false;
+    const bodyText = document.body?.textContent?.replace(/\s+/g, "").trim() ?? "";
+    if (bodyText) return false;
+    return Boolean(images[0]?.currentSrc || images[0]?.src);
   }
   function cardStateLabel(state, language) {
     const key = CARD_STATE_LABEL_KEYS[state];
