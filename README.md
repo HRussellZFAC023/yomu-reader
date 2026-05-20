@@ -201,7 +201,7 @@ Build browser extension packages from the same userscript and the real `/newtab`
 npm run build:extension
 ```
 
-The output goes to `dist/extension/` with Chrome, Firefox, Safari, standalone, audit, and store-review folders. Clone `UserScript-Compiler` beside this repo or set `USERSCRIPT_COMPILER_CLI` when using a different checkout path.
+The output goes to `dist/extension/` with Chrome, Firefox, Safari, standalone, audit, review, and release folders. Clone `UserScript-Compiler` beside this repo or set `USERSCRIPT_COMPILER_CLI` when using a different checkout path.
 Compiler-generated review drafts live in `dist/extension/review/`; machine-readable audit evidence lives in `dist/extension/audit/`.
 
 ## Deployment
@@ -212,7 +212,7 @@ GitHub Actions cover CI, userscript bundling, docs deployment, and release publi
 - `Build Userscript` builds `dist/yomu.user.js` and commits it back to `main` when the bundle changes.
 - `Build Browser Extensions` builds Chrome, Firefox, and Safari extension artifacts and uploads them as a workflow artifact.
 - `Deploy Docs` builds the VitePress docs and publishes GitHub Pages when docs-related files change.
-- `Release` publishes `dist/yomu.user.js` to the GitHub Releases tab when a `v*` tag is pushed or the workflow is run manually.
+- `Release` publishes the compiled userscript, Chrome ZIP, Firefox XPI, Safari Web Extension ZIP, compiler project ZIP, and consolidated submission guide when a `v*` tag is pushed or the workflow is run manually.
 
 GreasyFork does not provide a general write API for unattended publishing. Its supported update paths are the logged-in prefill form and GitHub/GitLab/Bitbucket webhook/update checks. For the initial GreasyFork publish, use the built code from `dist/yomu.user.js`, then configure GreasyFork to sync from:
 
