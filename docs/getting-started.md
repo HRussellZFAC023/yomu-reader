@@ -37,7 +37,7 @@ A userscript is a small helper that a browser extension runs for you. You instal
 </div>
 
 Chrome, Firefox, and Safari extension packages are available for local testing and store submission. For normal installation today, use the userscript.
-Store listings are not live yet, so beginners should ignore extension-package instructions unless they are testing or reviewing よむ.
+Store listings are not live yet, so beginners should ignore extension-package instructions unless they are testing the extension packages.
 
 ## 2. Install a Userscript Manager
 
