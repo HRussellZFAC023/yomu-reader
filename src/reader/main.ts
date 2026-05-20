@@ -15,6 +15,7 @@ import { FactoryResetCoordinator, FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS } f
 import {
     HAS_JAPANESE,
     appendToDocumentHead,
+    appendTrustedHtml,
     documentHasJapaneseText,
     collectVisibleTextTargets,
     escapeHtml,
@@ -259,9 +260,10 @@ interface CardDisplayOptions {
     hoverLookupGeneration?: number;
     pointerTextLookup?: ActivePointerTextLookup;
     insideReaderPopup?: boolean;
+    userGesture?: boolean;
 }
 
-type PointerTextDisplayOptions = Pick<CardDisplayOptions, 'navigation' | 'preservePosition' | 'hoverLookupGeneration'>;
+type PointerTextDisplayOptions = Pick<CardDisplayOptions, 'navigation' | 'preservePosition' | 'hoverLookupGeneration' | 'userGesture'>;
 type LocalPointerTextEntryMatch = { entry: YomitanTermEntry; start: number; end: number };
 
 function canSchedulePointerTextHoverLookup(hoverEnabled: boolean, candidate: PointerTextLookup | null): candidate is PointerTextLookup {
@@ -292,6 +294,7 @@ interface TextLookupOptions {
     preservePosition?: boolean;
     previousNavigationEntry?: PopupNavigationEntry;
     anchor?: HTMLElement;
+    userGesture?: boolean;
 }
 
 interface TextLookupDisplayContext {
@@ -301,6 +304,7 @@ interface TextLookupDisplayContext {
     navigation: CardNavigationMode;
     preservePosition: boolean;
     previousNavigationEntry?: PopupNavigationEntry;
+    userGesture?: boolean;
 }
 
 interface PressLookupState {
@@ -477,7 +481,7 @@ export class ReaderApp {
         parseJapanese: async text => (await this.parseJapanese([text]))[0] ?? [],
         onLookup: (text, sentence) => this.lookupText(text, sentence),
         onToast: message => this.toast(message),
-        shouldAutoScan: () => this.pageHasJapaneseText,
+        shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeStandaloneImagePage(),
     });
     private pageScanner = new VisiblePageScanner({
         getSettings: () => this.settings,
@@ -825,6 +829,7 @@ export class ReaderApp {
                 void this.showLookupCandidate(candidate, 'modal', {
                     navigation: insideActivePopover ? 'push-current' : 'reset',
                     preservePosition: insideActivePopover,
+                    userGesture: true,
                 });
                 return;
             }
@@ -840,7 +845,7 @@ export class ReaderApp {
             event.stopPropagation();
             this.suppressSelectionLookupUntil = Date.now() + 350;
             if (word.closest('.jpdb-subtitle-player') && this.settings.subtitleMiningPause) pauseActiveVideo();
-            void this.showWord(word, { trigger: 'click' });
+            void this.showWord(word, { trigger: 'click', userGesture: true });
         }, { capture: true });
 
         document.addEventListener('mousedown', event => {
@@ -1282,6 +1287,7 @@ export class ReaderApp {
 
     private handleActivePopoverHover(event: PointerEvent): boolean {
         if (!this.isInsideActivePopover(event.target as Node | null)) return false;
+        this.cancelPendingHoverLookup();
         this.cancelHoverClose();
         return true;
     }
@@ -1313,10 +1319,9 @@ export class ReaderApp {
 
     private refreshActivePointerTextHover(candidate: PointerTextLookup, event: PointerEvent): boolean {
         if (!this.isActivePointerTextLookup(candidate)) return false;
-        this.rememberHoverPopoverPointer(event);
+        void event;
         this.cancelHoverClose();
         this.refreshActiveHoverAnchor(candidate.anchor);
-        this.scheduleActivePopoverReposition();
         return true;
     }
 
@@ -1336,12 +1341,10 @@ export class ReaderApp {
         if (this.isActiveHoverLookup(hoverLookupKey)) {
             this.cancelHoverClose();
             this.refreshActiveHoverAnchor(word);
-            this.scheduleActivePopoverReposition();
             return;
         }
         if (this.activePopoverMode === 'hover' && this.activeHoverWord === word) {
             this.cancelHoverClose();
-            this.scheduleActivePopoverReposition();
             return;
         }
         if (!this.shouldLookupOnHover(event)) return;
@@ -1531,10 +1534,9 @@ export class ReaderApp {
         if (!activeWord || !this.canRunScheduledHoverLookup(activeWord, event)) return;
         const activeHoverLookupKey = this.hoverLookupKeyForWord(activeWord);
         if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
-        void this.showWord(activeWord, { trigger: 'hover', hoverLookupGeneration }).finally(() => undefined);
-        window.setTimeout(() => {
+        void this.showWord(activeWord, { trigger: 'hover', hoverLookupGeneration }).finally(() => {
             if (this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = '';
-        }, 0);
+        });
     }
 
     private resolveScheduledHoverWord(word: HTMLElement): HTMLElement | null {
@@ -1593,10 +1595,9 @@ export class ReaderApp {
             if (!candidate.anchor.isConnected || !this.settings.lookupOnHover) return;
             if (!shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys)) return;
             if (hoverLookupKey) this.hoverLookupInFlightKey = hoverLookupKey;
-            void this.showLookupCandidate(candidate, 'hover', { hoverLookupGeneration }).finally(() => undefined);
-            window.setTimeout(() => {
+            void this.showLookupCandidate(candidate, 'hover', { hoverLookupGeneration }).finally(() => {
                 if (this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = '';
-            }, 0);
+            });
         };
         const delay = Math.max(0, this.settings.hoverOpenDelayMs);
         if (delay === 0) {
@@ -1795,6 +1796,7 @@ export class ReaderApp {
             navigation,
             preservePosition: this.textLookupPreservePosition(navigation, options),
             previousNavigationEntry: this.textLookupPreviousNavigationEntryForOptions(trigger, navigation, options),
+            userGesture: options.userGesture,
         };
     }
 
@@ -1856,12 +1858,13 @@ export class ReaderApp {
             : [];
     }
 
-    private textLookupCardOptions(context: TextLookupDisplayContext): Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry'> {
+    private textLookupCardOptions(context: TextLookupDisplayContext): Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry' | 'userGesture'> {
         return {
             trigger: context.trigger,
             navigation: context.navigation,
             preservePosition: context.preservePosition,
             previousNavigationEntry: context.previousNavigationEntry,
+            userGesture: context.userGesture,
         };
     }
 
@@ -1967,7 +1970,7 @@ export class ReaderApp {
         ].join(',')));
     }
 
-    private async showLookupCandidate(candidate: PointerTextLookup, trigger: 'modal' | 'hover', options: { navigation?: CardNavigationMode; preservePosition?: boolean; hoverLookupGeneration?: number } = {}): Promise<void> {
+    private async showLookupCandidate(candidate: PointerTextLookup, trigger: 'modal' | 'hover', options: { navigation?: CardNavigationMode; preservePosition?: boolean; hoverLookupGeneration?: number; userGesture?: boolean } = {}): Promise<void> {
         const sentence = lookupCandidateSentence(candidate.text);
         if (!sentence) return;
         const done = log.time('lookupTextAtPointer', { length: sentence.length, offset: candidate.offset, trigger });
@@ -2045,6 +2048,7 @@ export class ReaderApp {
             hoverLookupKey: trigger === 'hover' ? this.activePointerTextLookupKey(candidate, range.start, range.end, card) : undefined,
             hoverLookupGeneration: options.hoverLookupGeneration,
             pointerTextLookup: trigger === 'hover' ? pointerTextLookup : undefined,
+            userGesture: options.userGesture,
         });
     }
 
@@ -2085,7 +2089,7 @@ export class ReaderApp {
         return (await this.dictionaries.lookup(surface, surface, 1, this.settings.dictionaryPreferences).catch(() => []))[0];
     }
 
-    private async showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; hoverLookupGeneration?: number; previousNavigationEntry?: PopupNavigationEntry } = {}): Promise<void> {
+    private async showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; hoverLookupGeneration?: number; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean } = {}): Promise<void> {
         const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         const card = this.cardForRenderedWord(word);
         if (!card) {
@@ -2107,6 +2111,7 @@ export class ReaderApp {
             hoverLookupKey: context.hoverLookupKey,
             hoverLookupGeneration: options.hoverLookupGeneration,
             insideReaderPopup: context.insideReaderPopup,
+            userGesture: options.userGesture,
         });
     }
 
@@ -2118,7 +2123,7 @@ export class ReaderApp {
 
     private async handleMissingRenderedWordCard(
         word: HTMLElement,
-        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry },
+        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean },
         insideReaderPopup: boolean,
     ): Promise<void> {
         const vid = Number(word.dataset.vid);
@@ -2134,7 +2139,7 @@ export class ReaderApp {
 
     private async lookupUncachedPageWord(
         word: HTMLElement,
-        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry },
+        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean },
     ): Promise<boolean> {
         const expression = normalizedLookupText(readerWordSurfaceText(word));
         if (!isLookupableJapaneseText(expression)) return false;
@@ -2145,13 +2150,14 @@ export class ReaderApp {
             navigation,
             preservePosition: trigger === 'hover',
             previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, false, trigger, navigation),
+            userGesture: options.userGesture,
         });
         return true;
     }
 
     private async lookupUncachedPopupWord(
         word: HTMLElement,
-        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry },
+        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean },
     ): Promise<boolean> {
         const expression = normalizedLookupText(readerWordSurfaceText(word));
         if (!isLookupableJapaneseText(expression)) return false;
@@ -2162,6 +2168,7 @@ export class ReaderApp {
             navigation,
             preservePosition: true,
             previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, true, trigger, navigation),
+            userGesture: options.userGesture,
         });
         return true;
     }
@@ -2416,7 +2423,11 @@ export class ReaderApp {
         },
     ): void {
         if (!this.shouldAutoPlayInitialCard(card, context)) return;
-        void this.audioActions.playTermAudio(card, { hoverLookupGeneration: context.hoverLookupGeneration });
+        void this.audioActions.playTermAudio(card, {
+            hoverLookupGeneration: context.hoverLookupGeneration,
+            userGesture: context.options.userGesture,
+            isCurrent: context.trigger === 'hover' ? context.isCurrentHoverCard : undefined,
+        });
     }
 
     private maybePreloadLookupCardAudio(card: JPDBCard, options: CardDisplayOptions): void {
@@ -2430,7 +2441,7 @@ export class ReaderApp {
     ): boolean {
         return context.options.autoPlay !== false
             && this.isCurrentCardForAutoPlay(context)
-            && this.shouldAutoPlay(card, context.trigger);
+            && this.shouldAutoPlay(card, context.trigger, Boolean(context.options.userGesture));
     }
 
     private isCurrentCardForAutoPlay(context: { trigger: 'modal' | 'hover'; isCurrentHoverCard: () => boolean }): boolean {
@@ -2632,14 +2643,16 @@ export class ReaderApp {
         });
     }
 
-    private shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover'): boolean {
-        if (!this.settings.autoPlayAudio) return false;
+    private shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture = false): boolean {
+        if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return false;
         if (!this.shouldAutoPlayForTrigger(trigger)) return false;
         const key = `${card.vid}:${card.sid}`;
         const now = Date.now();
-        if (key === this.lastAutoAudioKey && now - this.lastAutoAudioAt < 2500) return false;
-        this.lastAutoAudioKey = key;
-        this.lastAutoAudioAt = now;
+        if (!userGesture) {
+            if (key === this.lastAutoAudioKey && now - this.lastAutoAudioAt < 2500) return false;
+            this.lastAutoAudioKey = key;
+            this.lastAutoAudioAt = now;
+        }
         return true;
     }
 
@@ -3057,7 +3070,7 @@ export class ReaderApp {
         const stack = popover.querySelector<HTMLElement>('.jpdb-reader-kanji-section-stack');
         if (!stack) return null;
         const sourceStateKey = kanjiSourceStateKey(KANJI_SIMILAR_WORDS_SOURCE_ID);
-        stack.insertAdjacentHTML('beforeend', renderSimilarKanjiWordsShell(
+        appendTrustedHtml(stack, renderSimilarKanjiWordsShell(
             kanji,
             this.settings.interfaceLanguage,
             sourceStateKey,
@@ -3458,15 +3471,16 @@ export class ReaderApp {
             this.activePopoverResizeObserver = new ResizeObserver(() => this.repositionActivePopover());
             this.activePopoverResizeObserver.observe(popover);
             this.installPopoverBodyStabilizers(popover);
-            if (state.previousPopoverRect) {
+            if (state.mode !== 'hover' && state.previousPopoverRect) {
                 this.lockActivePopoverPosition(state.previousPopoverRect);
                 this.placeActivePopoverWithoutMoving(popover, state.previousPopoverRect);
                 this.syncActivePopoverFixedHeight();
             }
             else {
                 this.activePopoverPositionLocked = false;
+                this.activePopoverLockedPosition = undefined;
                 this.repositionActivePopover();
-                this.lockActivePopoverPosition(popover.getBoundingClientRect());
+                if (state.mode !== 'hover') this.lockActivePopoverPosition(popover.getBoundingClientRect());
             }
             requestAnimationFrame(() => this.repositionActivePopover());
         } else {
@@ -3523,8 +3537,9 @@ export class ReaderApp {
             this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined,
             this.activePopoverAnchorRect,
             {
-                followPoint: this.shouldFollowActivePointerText() ? this.hoverPopoverPointerPosition : undefined,
+                followPoint: this.shouldFollowActiveHoverPointer() ? this.hoverPopoverPointerPosition : undefined,
                 maxHeight: popoverMaxHeightSetting(this.settings),
+                preferBefore: this.shouldPreferActiveHoverPopoverBefore(),
             },
         );
         this.syncActivePopoverFixedHeight();
@@ -3567,8 +3582,12 @@ export class ReaderApp {
         if (rect.width > 0 || rect.height > 0) this.activePopoverAnchorRect = rect;
     }
 
-    private shouldFollowActivePointerText(): boolean {
-        return this.activePopoverMode === 'hover' && Boolean(this.activePointerTextLookup);
+    private shouldFollowActiveHoverPointer(): boolean {
+        return this.activePopoverMode === 'hover' && Boolean(this.hoverPopoverPointerPosition);
+    }
+
+    private shouldPreferActiveHoverPopoverBefore(): boolean {
+        return this.shouldFollowActiveHoverPointer();
     }
 
     private shouldUseFixedModalHeight(popover: HTMLElement): boolean {
@@ -3766,6 +3785,14 @@ function pointerTokenAtOffset(tokens: JPDBToken[], offset: number): JPDBToken | 
 function tokenContainsPointerOffset(token: JPDBToken, offset: number): boolean {
     return (token.start <= offset && offset < token.end)
         || (token.start < offset && offset <= token.end);
+}
+
+function documentLooksLikeStandaloneImagePage(): boolean {
+    const images = Array.from(document.images).filter(image => !image.closest('[data-jpdb-reader-root]'));
+    if (images.length !== 1) return false;
+    const bodyText = document.body?.textContent?.replace(/\s+/g, '').trim() ?? '';
+    if (bodyText) return false;
+    return Boolean(images[0]?.currentSrc || images[0]?.src);
 }
 
 function cardStateLabel(state: string, language: InterfaceLanguage): string {

@@ -23,9 +23,11 @@ export interface SubtitleNativeTrackModeState<T extends SubtitleNativeTrackModeO
 export function applySubtitleNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
     state: SubtitleNativeTrackModeState<T>,
 ): boolean {
+    const youtubePage = isYouTubePage();
+    const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
     const yomuCaptionsActive = Boolean(state.overlayVisible
-        && (state.selectedTrackId || state.hasPrimaryCues || state.currentCueText));
-    if (!isYouTubePage()) return applyGenericNativeTrackModes(state);
+        && (youtubePage ? hasYomuCaptionContent : (state.selectedTrackId || hasYomuCaptionContent)));
+    if (!youtubePage) return applyGenericNativeTrackModes(state);
     return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
 }
 

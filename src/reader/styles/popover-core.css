@@ -53,15 +53,24 @@
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
   padding: 0;
+  scrollbar-gutter: auto;
 }
 
 .jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body {
   min-height: 0;
-  overflow: auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
   padding: 14px 16px;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions {

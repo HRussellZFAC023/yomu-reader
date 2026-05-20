@@ -271,7 +271,7 @@ function clickRevealControl(): void {
         return;
     }
     const form = Array.from(document.querySelectorAll<HTMLFormElement>('form'))
-        .find(item => item.innerHTML.includes('name="r"') || item.action.includes('/review'));
+        .find(item => Boolean(item.querySelector('[name="r"]')) || item.action.includes('/review'));
     const submit = form?.querySelector<HTMLElement>('button, input[type="submit"]');
     if (submit) submit.click();
     else form?.requestSubmit?.();

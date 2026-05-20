@@ -113,6 +113,7 @@ const HARD_FRAGMENT_SKIP_SELECTOR = [
 ].join(',');
 const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
+const DISPLAY_HEADING_SELECTOR = 'h1,h2,h3,h4,h5,h6';
 const MAX_CONTEXT_SENTENCE_LENGTH = 180;
 const PROSE_TAGS = new Set(['P', 'LI', 'DD', 'DT', 'TD', 'TH', 'BLOCKQUOTE', 'FIGCAPTION']);
 const BLOCK_TAGS = new Set([
@@ -152,19 +153,35 @@ const BLOCK_TAGS = new Set([
     'UL',
 ]);
 
+/*
+ * Central HTML sink for Yomu-owned render templates.
+ *
+ * Callers pass markup assembled by the reader's render functions; dynamic text,
+ * attributes, and URLs must be escaped before they reach this helper. Keeping
+ * the assignment centralized makes AMO/CWS review notes and Trusted Types
+ * behavior auditable instead of scattering raw HTML sinks through feature code.
+ */
 export function setInnerHtml(element: Element, html: string): void {
-    try {
-        element.innerHTML = trustedHtml(html) as string;
-    } catch {
-        element.textContent = html;
-    }
+    if (!assignInnerHtml(element, html)) element.textContent = html;
 }
 
 export function parseHtmlDocument(html: string): Document {
+    const parsed = parseHtmlWithDomParser(html);
+    if (parsed) return parsed;
+
+    const fallback = document.implementation.createHTMLDocument('');
+    if (assignInnerHtml(fallback.documentElement, html)) return fallback;
+    if (assignInnerHtml(fallback.body, html)) return fallback;
+    fallback.body.textContent = html;
+    return fallback;
+}
+
+function assignInnerHtml(element: Element, html: string): boolean {
     try {
-        return new DOMParser().parseFromString(trustedHtml(html) as string, 'text/html');
+        element.innerHTML = trustedHtml(html) as string;
+        return true;
     } catch {
-        return document.implementation.createHTMLDocument('');
+        return false;
     }
 }
 
@@ -174,6 +191,20 @@ export function parseXmlDocument(source: string, mimeType: DOMParserSupportedTyp
     } catch {
         return document.implementation.createDocument(null, '');
     }
+}
+
+function parseHtmlWithDomParser(html: string): Document | null {
+    try {
+        return new DOMParser().parseFromString(trustedHtml(html) as string, 'text/html');
+    } catch {
+        return null;
+    }
+}
+
+export function appendTrustedHtml(element: Element, html: string): void {
+    const template = document.createElement('template');
+    setInnerHtml(template, html);
+    element.append(template.content);
 }
 
 export function appendToDocumentHead(element: Node): void {
@@ -328,6 +359,7 @@ function textTargetParentFilterResult(parent: HTMLElement, text: string, visible
 function shouldRejectTextTargetParent(parent: HTMLElement, text: string, visibleOnly: boolean, options: TextTargetCollectionOptions): boolean {
     if (parent.closest(SKIP_SELECTOR)) return true;
     if (isInsideExcludedReaderRoot(parent, options)) return true;
+    if (isShortCenteredDisplayHeading(parent, text)) return true;
     return shouldRejectTextTargetPresentation(parent, text, visibleOnly);
 }
 
@@ -427,6 +459,10 @@ export function collectFragmentTextTargetsIn(
             return;
         }
         const text = element.textContent?.trim() ?? '';
+        if (text && isShortCenteredDisplayHeading(element, text)) {
+            flush();
+            return;
+        }
         if (!options.allowUiText && text && isFragileUiText(element, text)) {
             flush();
             return;
@@ -536,7 +572,7 @@ export function readerWordSurfaceText(element: Element): string {
         }
         if (node.nodeType !== Node.ELEMENT_NODE) return;
         const child = node as Element;
-        if (child.tagName === 'RT' || child.tagName === 'RP') return;
+        if (isSurfaceIgnoredElement(child)) return;
         text += readerWordSurfaceText(child);
     });
     return text;
@@ -657,8 +693,13 @@ function readableElementSurfaceText(element: Element): string {
 }
 
 function isIgnoredReadableElement(element: Element): boolean {
-    return READABLE_IGNORED_TAGS.has(element.tagName)
+    return isSurfaceIgnoredElement(element)
         || element.matches('button,svg,use,[aria-hidden="true"],[role="button"]');
+}
+
+function isSurfaceIgnoredElement(element: Element): boolean {
+    return READABLE_IGNORED_TAGS.has(element.tagName)
+        || element.matches('[data-jpdb-reader-surface-ignore="true"],.jpdb-reader-furi,.jpdb-ocr-furi');
 }
 
 function cleanReadableSentence(value: string): string {
@@ -1301,6 +1342,20 @@ function isFragileUiText(element: HTMLElement, text: string): boolean {
     if (fragileByTypography(element, metrics.style, metrics.compactLength, metrics.fontSize, metrics.lineHeight, metrics.prose)) return true;
     if (fragileByCompactLayout(text, metrics.style, metrics.rect)) return true;
     return fragileByInlineControl(text, metrics.style, metrics.rect);
+}
+
+function isShortCenteredDisplayHeading(element: HTMLElement, text: string): boolean {
+    const heading = closestDisplayHeading(element);
+    if (!heading) return false;
+    const style = getComputedStyle(heading);
+    const headingText = heading.textContent?.trim() || text;
+    return style.textAlign === 'center' && compactLength(headingText) <= 40;
+}
+
+function closestDisplayHeading(element: HTMLElement): HTMLElement | null {
+    return DISPLAY_HEADING_RE.test(element.tagName)
+        ? element
+        : element.closest<HTMLElement>(DISPLAY_HEADING_SELECTOR);
 }
 
 function isFragileUiContext(element: HTMLElement, text: string): boolean {

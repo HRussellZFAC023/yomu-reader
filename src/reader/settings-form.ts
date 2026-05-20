@@ -74,6 +74,36 @@ export function renderHelpLinksPanel(): string {
     `;
 }
 
+function renderHelpGlossaryPanel(): string {
+    return `
+        <div class="jpdb-reader-help-card jpdb-reader-help-glossary-card">
+            <div class="jpdb-reader-help-title" data-help-glossary-title>Glossary</div>
+            <dl class="jpdb-reader-help-glossary">
+                <div>
+                    <dt data-help-glossary-term="jpdb">JPDB</dt>
+                    <dd data-help-glossary-definition="jpdb">An online Japanese study site. よむ can use it for word status, definitions, review buttons, and mining.</dd>
+                </div>
+                <div>
+                    <dt data-help-glossary-term="yomitan">Yomitan dictionaries</dt>
+                    <dd data-help-glossary-definition="yomitan">Downloadable dictionary files. よむ can import them so lookups keep working from local browser storage.</dd>
+                </div>
+                <div>
+                    <dt data-help-glossary-term="mining">Mining</dt>
+                    <dd data-help-glossary-definition="mining">Saving a word, sentence, subtitle, or image context so you can study it later.</dd>
+                </div>
+                <div>
+                    <dt data-help-glossary-term="anki">Anki</dt>
+                    <dd data-help-glossary-definition="anki">A flashcard app. よむ can send cards to Anki when you choose to connect it.</dd>
+                </div>
+                <div>
+                    <dt data-help-glossary-term="ocr">OCR</dt>
+                    <dd data-help-glossary-definition="ocr">Reading text from images, such as manga panels or screenshots.</dd>
+                </div>
+            </dl>
+        </div>
+    `;
+}
+
 export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: string): string {
     return `
             <div class="jpdb-reader-settings-head">
@@ -514,6 +544,7 @@ function renderHelpSettingsPanel(): string {
             <fieldset data-settings-panel="help" hidden>
                 <legend>Help</legend>
                 ${renderHelpLinksPanel()}
+                ${renderHelpGlossaryPanel()}
             </fieldset>
     `;
 }
@@ -1386,6 +1417,13 @@ function localizeHelpLinksPanel(form: HTMLFormElement, language: InterfaceLangua
     panel.querySelector<HTMLElement>('[data-help-link="issues"]')?.replaceChildren(text('issues'));
     panel.querySelector<HTMLElement>('[data-help-link="donate"]')?.replaceChildren(text('donate'));
     panel.querySelector<HTMLElement>('[data-help-link="discord"]')?.replaceChildren(text('discord'));
+
+    const glossary = form.querySelector<HTMLElement>('.jpdb-reader-help-glossary-card');
+    glossary?.querySelector<HTMLElement>('[data-help-glossary-title]')?.replaceChildren(text('helpGlossaryTitle'));
+    (['jpdb', 'yomitan', 'mining', 'anki', 'ocr'] as const).forEach(term => {
+        glossary?.querySelector<HTMLElement>(`[data-help-glossary-term="${term}"]`)?.replaceChildren(text(`helpGlossaryTerm${term}`));
+        glossary?.querySelector<HTMLElement>(`[data-help-glossary-definition="${term}"]`)?.replaceChildren(text(`helpGlossaryDefinition${term}`));
+    });
 }
 
 export function renderReviewShortcutInputs(settings: ReaderSettings): string {

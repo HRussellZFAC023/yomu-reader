@@ -63,6 +63,7 @@ import {
     kanjiSourceLabel,
     orderedKanjiSourceIds,
 } from './source-sections';
+import { JISHO_LOOKUP_LINK, JPDB_LOOKUP_LINK } from './settings';
 import { installUchisenCarousel, loadUchisenData, type UchisenData } from './uchisen';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanTermEntry } from './yomitan';
 
@@ -1892,33 +1893,40 @@ export class NewTabController {
         if (action !== 'previous' && action !== 'next') return;
         const key = cardKey(current);
         const cached = this.immersionCache.get(this.immersionCacheKey(current));
-        void cached?.then(examples => {
+        void cached?.then(async examples => {
             if (!examples.length || cardKey(this.visibleWords[this.index]) !== key) return;
             const currentIndex = this.normalizedImmersionExampleIndex(key, examples);
             const delta = action === 'next' ? 1 : -1;
             const nextIndex = (currentIndex + delta + examples.length) % examples.length;
             this.immersionExampleIndex.set(key, nextIndex);
-            void this.replaceNewTabImmersionExample(root, current, examples, nextIndex);
+            const replaced = await this.replaceNewTabImmersionExample(root, current, examples, nextIndex);
+            if (replaced && this.shouldAutoPlayNewTabImmersionNavigationAudio()) void this.playCurrentImmersionAudio(current);
         });
     }
 
-    private async replaceNewTabImmersionExample(root: HTMLElement, card: JPDBCard, examples: ImmersionKitExample[], index: number): Promise<void> {
+    private shouldAutoPlayNewTabImmersionNavigationAudio(): boolean {
+        const settings = this.dependencies.getSettings();
+        return settings.immersionKitEnabled && settings.immersionKitAutoPlayAudio;
+    }
+
+    private async replaceNewTabImmersionExample(root: HTMLElement, card: JPDBCard, examples: ImmersionKitExample[], index: number): Promise<boolean> {
         const slots = this.studySlots(root);
         const meaning = slots.meaning;
         const key = cardKey(card);
-        if (!meaning || !this.canAppendImmersionExample(meaning, key, examples)) return;
+        if (!meaning || !this.canAppendImmersionExample(meaning, key, examples)) return false;
         const requestId = `${key}:${performance.now()}:${Math.random()}`;
         meaning.dataset.newtabImmersionRequest = requestId;
         const immersion = this.renderNewTabImmersionCard(card, examples, index);
         const imagePrepared = await this.prepareNewTabImmersionImage(immersion, examples[index]);
-        if (meaning.dataset.newtabImmersionRequest !== requestId) return;
-        if (!this.canAppendImmersionExample(meaning, key, examples)) return;
+        if (meaning.dataset.newtabImmersionRequest !== requestId) return false;
+        if (!this.canAppendImmersionExample(meaning, key, examples)) return false;
         const existing = meaning.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-immersion');
         if (existing) existing.replaceWith(immersion);
         else meaning.append(immersion);
         if (imagePrepared) syncNewTabImmersionFrameSubtitleSize(immersion);
         else this.loadNewTabImmersionImage(immersion, examples[index]);
         await this.parseNewTabImmersionExample(immersion, card, key);
+        return true;
     }
 
     private normalizedImmersionExampleIndex(key: string, examples: ImmersionKitExample[]): number {
@@ -3214,9 +3222,10 @@ export class NewTabController {
     }
 
     private async loadSearchResults(query: string): Promise<NewTabSearchResults> {
-        const [summary, words, kanji] = await Promise.all([
-            this.dependencies.dictionaries.summary?.().catch(() => null) ?? Promise.resolve(null),
-            this.searchWordCards(query),
+        const summary = await (this.dependencies.dictionaries.summary?.().catch(() => null) ?? Promise.resolve(null));
+        const hasLocalDictionaries = Boolean(summary?.dictionaries.length);
+        const [words, kanji] = await Promise.all([
+            this.searchWordCards(query, hasLocalDictionaries),
             this.searchKanjiCards(query),
         ]);
         return {
@@ -3224,16 +3233,16 @@ export class NewTabController {
             words,
             kanji,
             suggestions: this.searchSuggestions(query, words),
-            hasLocalDictionaries: Boolean(summary?.dictionaries.length),
+            hasLocalDictionaries,
         };
     }
 
-    private async searchWordCards(query: string): Promise<JPDBCard[]> {
+    private async searchWordCards(query: string, hasLocalDictionaries: boolean): Promise<JPDBCard[]> {
         const settings = this.dependencies.getSettings();
         const parsedPromise = queryHasJapanese(query)
             ? this.dependencies.parser.parse([query]).catch(() => [[]])
             : Promise.resolve([[]] as Awaited<ReturnType<ReaderParser['parse']>>);
-        const localEntriesPromise = settings.localDictionariesEnabled
+        const localEntriesPromise = settings.localDictionariesEnabled && hasLocalDictionaries
             ? this.searchLocalDictionaryEntries(query, settings)
             : Promise.resolve([]);
 
@@ -3361,7 +3370,7 @@ export class NewTabController {
         if (!results) return;
         results.dataset.searchQuery = query;
         replaceChildrenWith(results,
-            this.renderExternalSearchLinks(query),
+            this.renderExternalSearchLinks(query, true),
             el('div', { class: 'jpdb-reader-newtab-search-message' }, this.text('searching')),
         );
     }
@@ -3373,7 +3382,7 @@ export class NewTabController {
         const resultCount = results.words.length + results.kanji.length;
         this.renderSearchAutocomplete(root, results.query, results.suggestions);
         replaceChildrenWith(mount,
-            this.renderExternalSearchLinks(results.query),
+            this.renderExternalSearchLinks(results.query, !results.hasLocalDictionaries || resultCount === 0),
             results.words.length ? this.renderSearchWordResults(results.words) : null,
             results.kanji.length ? this.renderSearchKanjiResults(results.kanji) : null,
             resultCount ? null : this.renderSearchNoResults(results),
@@ -3385,15 +3394,19 @@ export class NewTabController {
         if (!results) return;
         results.dataset.searchQuery = query;
         replaceChildrenWith(results,
-            this.renderExternalSearchLinks(query),
+            this.renderExternalSearchLinks(query, true),
             el('div', { class: 'jpdb-reader-newtab-search-message' }, this.text('searchLocalDictionariesFailed')),
         );
     }
 
-    private renderExternalSearchLinks(query: string): HTMLElement | null {
+    private renderExternalSearchLinks(query: string, includeBuiltInFallback = false): HTMLElement | null {
         const context = searchLookupLinkContext(query);
-        const links = this.dependencies.getSettings().dictionaryLookupLinks
-            .filter(link => link.enabled)
+        const configuredLinks = this.dependencies.getSettings().dictionaryLookupLinks
+            .filter(link => link.enabled);
+        const lookupLinks = includeBuiltInFallback
+            ? withBuiltInSearchLookupLinks(configuredLinks)
+            : configuredLinks;
+        const links = lookupLinks
             .map(link => {
                 if (link.action === 'copy' || link.id === 'copy') {
                     return el('button', { type: 'button', dataset: { newtabAction: 'search-copy', query } }, link.label || this.text('copyWord'));
@@ -4189,10 +4202,8 @@ function renderNewTabKanjiMnemonic(fullInfo: JpdbKanjiInfo | null): HTMLElement 
 }
 
 function htmlToFirstElement(html: string): HTMLElement | null {
-    const template = document.createElement('template');
-    template.innerHTML = html.trim();
-    const first = template.content.firstElementChild;
-    return first instanceof HTMLElement ? first : null;
+    const first = new DOMParser().parseFromString(html.trim(), 'text/html').body.firstElementChild;
+    return first ? document.importNode(first, true) as HTMLElement : null;
 }
 
 function normalizeJpdbKanjiInfo(info: JpdbKanjiInfo): JpdbKanjiInfo {
@@ -4343,6 +4354,15 @@ function searchLookupLinkContext(query: string): { query: string; word: string; 
         vid: '0',
         sid: '0',
     };
+}
+
+function withBuiltInSearchLookupLinks(links: ReaderSettings['dictionaryLookupLinks']): ReaderSettings['dictionaryLookupLinks'] {
+    const lookupLinks = [...links];
+    for (const link of [JPDB_LOOKUP_LINK, JISHO_LOOKUP_LINK]) {
+        if (lookupLinks.some(existing => existing.id === link.id || existing.urlTemplate === link.urlTemplate)) continue;
+        lookupLinks.push(link);
+    }
+    return lookupLinks;
 }
 
 async function recognizeGoogleJapaneseHandwriting(strokes: DoodleStroke[]): Promise<string[]> {

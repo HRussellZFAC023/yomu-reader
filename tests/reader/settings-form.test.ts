@@ -30,6 +30,17 @@ describe('settings help panel', () => {
         expect(html).toContain('data-help-link="factory-reset"');
         expect(html).not.toContain('data-help-link="support"');
     });
+
+    it('moves technical definitions into the Help glossary', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+        expect(form.querySelector('[data-settings-panel="help"] .jpdb-reader-help-glossary-card')).toBeTruthy();
+        expect(form.querySelector('[data-help-glossary-title]')?.textContent).toBe('Glossary');
+        expect(form.textContent).toContain('JPDB');
+        expect(form.textContent).toContain('Yomitan dictionaries');
+        expect(form.textContent).toContain('Reading text from images');
+    });
 });
 
 describe('settings form localization', () => {

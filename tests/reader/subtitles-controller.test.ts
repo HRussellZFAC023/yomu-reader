@@ -32,11 +32,13 @@ describe('SubtitlePlayerController', () => {
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
     });
 
-    it('requests YouTube timedtext in the page context before using the userscript bridge', async () => {
+    it('requests YouTube timedtext through the userscript bridge before page fetch', async () => {
         const originalLocation = window.location;
         const originalFetch = globalThis.fetch;
         const fetchMock = vi.fn(async () => new Response('<timedtext><body><p t="1000" d="1000">今日は</p></body></timedtext>', { status: 200 }));
-        const gmRequest = vi.fn();
+        const gmRequest = vi.fn((details: Parameters<UserscriptHttpRequest>[0]) => {
+            details.onload?.({ status: 200, responseText: '<timedtext><body><p t="1000" d="1000">今日は</p></body></timedtext>', response: '' });
+        });
         Object.defineProperty(window, 'location', {
             configurable: true,
             value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
@@ -48,8 +50,8 @@ describe('SubtitlePlayerController', () => {
             const text = await requestSubtitleText('https://www.youtube.com/api/timedtext?v=abc123&lang=ja&fmt=srv3');
 
             expect(text).toContain('timedtext');
-            expect(fetchMock).toHaveBeenCalledTimes(1);
-            expect(gmRequest).not.toHaveBeenCalled();
+            expect(gmRequest).toHaveBeenCalledTimes(1);
+            expect(fetchMock).not.toHaveBeenCalled();
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,

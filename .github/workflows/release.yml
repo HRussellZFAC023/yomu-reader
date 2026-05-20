@@ -60,7 +60,7 @@ jobs:
           const match = changelog.match(new RegExp(`## \\[${version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\][\\s\\S]*?(?=\\n## \\[|$)`));
           const notes = (match?.[0] ?? `## ${version}\n\nSee CHANGELOG.md for details.`)
             + '\n\nInstall/update userscript: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js\n'
-            + '\nRelease assets include the compiled userscript, Chrome extension ZIP, Firefox XPI, Safari Web Extension ZIP, and the full compiler project bundle with review/audit notes.\n';
+            + '\nRelease assets include the compiled userscript, Chrome extension ZIP, Firefox XPI, Safari Web Extension ZIP, the full compiler project bundle, and one submission guide with review/audit notes.\n';
           fs.writeFileSync('release-notes.md', notes);
           NODE
       - name: Publish GitHub release

@@ -41,6 +41,7 @@ const TERM_SEARCH_INDEX_BATCH_SIZE = 5000;
 const TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM = 40;
 const TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH = 2;
 const TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH = 3;
+const TERM_SEARCH_PREFIX_BOUNDARY = String.fromCharCode(0xf8ff);
 const TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS = 12000;
 const TERM_SEARCH_LEGACY_FALLBACK_MAX_MS = 140;
 const TERM_KANJI_INDEX_BATCH_SIZE = 5000;
@@ -2142,7 +2143,7 @@ function termSearchIndexToken(query: string): string {
 }
 
 function termSearchPrefixRange(query: string): IDBKeyRange {
-    return IDBKeyRange.bound(query, `${query}\uffff`, false, false);
+    return IDBKeyRange.bound(query, `${query}${TERM_SEARCH_PREFIX_BOUNDARY}`, false, false);
 }
 
 function rankedTermSearchResults(

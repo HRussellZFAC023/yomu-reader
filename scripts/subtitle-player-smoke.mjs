@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 
 const localUrl = process.env.YOMU_SMOKE_LOCAL_URL ?? 'http://127.0.0.1:5173/yomu-reader/video-player/index.html';
 const fixtureVideoUrl = process.env.YOMU_SMOKE_VIDEO_URL ?? 'http://127.0.0.1:8766/tutorial.mp4';
-const userscriptPath = resolve(process.env.YOMU_SMOKE_USERSCRIPT ?? 'docs/public/yomu.user.js');
+const userscriptPath = resolve(process.env.YOMU_SMOKE_USERSCRIPT ?? 'dist/yomu.user.js');
 const runYouTube = process.env.YOMU_SMOKE_YOUTUBE === '1';
 const youtubeUrl = process.env.YOMU_SMOKE_YOUTUBE_URL ?? 'https://www.youtube.com/watch?v=TAorfFcb8_g&t=4604s';
 
@@ -126,6 +126,17 @@ async function runLocalSmoke(browser) {
     await page.goto(localUrl, { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => localStorage.clear());
     await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => {
+        if (document.querySelector('video')) return;
+        document.body.innerHTML = `
+            <main style="display:grid;grid-template-columns:minmax(0,1fr)320px;gap:18px;padding:28px;background:#101820;color:#e8edf4;min-height:100vh;box-sizing:border-box;font-family:system-ui,sans-serif">
+                <section style="position:relative;background:#050608;border:1px solid #243447">
+                    <video controls muted preload="metadata" style="display:block;width:100%;aspect-ratio:16/9;background:#050608"></video>
+                </section>
+                <aside style="border-left:1px solid #2c3b4e;padding-left:18px;color:#9fb0c3">Local subtitle smoke fixture</aside>
+            </main>
+        `;
+    });
     await page.evaluate((src) => {
         const video = document.querySelector('video');
         video.src = src;
@@ -136,6 +147,11 @@ async function runLocalSmoke(browser) {
     }, fixtureVideoUrl);
     await ensureUserscript(page);
     await page.setInputFiles('.jpdb-subtitle-player input[data-file="primary"]', primaryPath);
+    await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click({ force: true });
+    await page.waitForFunction(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        return Boolean(panel && !panel.hidden);
+    }, null, { timeout: 5000 });
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length > 1, null, { timeout: 8000 });
     await page.setInputFiles('.jpdb-subtitle-player input[data-file="secondary"]', secondaryPath);
     await page.evaluate(() => { document.querySelector('video').currentTime = 1.4; });

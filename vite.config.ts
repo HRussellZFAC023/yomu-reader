@@ -18,6 +18,8 @@ export default defineConfig(({ mode }) => ({
                 version: pkg.version,
                 description: 'JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.',
                 author: 'Henry',
+                // See docs/store-review-notes.md before narrowing these; broad page
+                // access is Yomu's core "read Japanese anywhere" behavior.
                 match: ['*://*/*', 'file:///*'],
                 connect: [
                     'jpdb.io',
@@ -32,6 +34,8 @@ export default defineConfig(({ mode }) => ({
                     'localhost',
                     '127.0.0.1',
                     '*.ts.net',
+                    // Required for user-configured audio, OCR, proxy, dictionary,
+                    // AnkiConnect-compatible, Tailnet, and local service URLs.
                     '*',
                 ],
                 grant: [

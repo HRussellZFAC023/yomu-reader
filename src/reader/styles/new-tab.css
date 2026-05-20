@@ -658,7 +658,7 @@
   align-content: start;
   align-items: start;
   gap: clamp(14px, 2.4vh, 26px);
-  padding-bottom: clamp(104px, 15vh, 152px);
+  padding-bottom: 0;
 }
 
 .jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-study {
@@ -1402,33 +1402,37 @@
 .jpdb-reader-newtab-kanji-info-source .jpdb-reader-kanji-facts,
 .jpdb-reader-newtab-origin-graph .jpdb-reader-kanji-facts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 136px), 1fr));
+  gap: 6px;
   overflow: visible;
   padding-bottom: 0;
 }
 
 .jpdb-reader-newtab-kanji-info-source .jpdb-reader-kanji-facts span,
 .jpdb-reader-newtab-origin-graph .jpdb-reader-kanji-facts span {
-  display: grid;
-  gap: 3px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   min-width: 0;
-  align-content: center;
-  min-height: 44px;
-  padding: 8px 10px;
+  min-height: 34px;
+  padding: 6px 9px;
   border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.12));
   border-radius: 8px;
   background: var(--jpdb-reader-surface-2, #282e37);
   color: var(--jpdb-reader-text, #f2f4f8);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 820;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
+  line-height: 1.1;
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .jpdb-reader-newtab-kanji-info-source .jpdb-reader-kanji-facts :is(strong, small),
 .jpdb-reader-newtab-origin-graph .jpdb-reader-kanji-facts :is(strong, small) {
-  display: block;
+  display: inline;
+  flex: 0 0 auto;
   color: var(--jpdb-reader-muted, #aab2c0);
   font-size: 10px;
   font-weight: 850;
@@ -1443,7 +1447,7 @@
 .jpdb-reader-newtab-origin-graph
   .jpdb-reader-origin-graph-wrap
   + .jpdb-reader-kanji-facts {
-  margin-top: 14px;
+  margin-top: 18px;
 }
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-local-glossary,
