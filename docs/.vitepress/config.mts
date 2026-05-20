@@ -62,7 +62,7 @@ export default defineConfig({
             { icon: 'github', link: `https://github.com/HRussellZFAC023/${repositoryName}` },
         ],
         footer: {
-            message: 'Free userscript now. Chrome, Firefox, and Safari packages are in review prep.',
+            message: 'Free userscript now. Chrome, Firefox, and Safari packages are being prepared for store submission.',
             copyright: 'Released under the GPL-3.0-or-later license.',
         },
     },
