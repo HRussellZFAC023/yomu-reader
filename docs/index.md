@@ -29,7 +29,7 @@ features:
 ---
 
 <div class="yomu-callout">
-  <strong>Install path:</strong> よむ is available today as a userscript. Chrome, Firefox, and Safari extension packages can also be built for local testing and store-review prep, but the userscript is the friendliest normal install for now.
+  <strong>Install path:</strong> よむ is available today as a userscript. Chrome, Firefox, and Safari extension packages can also be built for local testing and store submission, but the userscript is the friendliest normal install for now.
 </div>
 
 ## What It Does

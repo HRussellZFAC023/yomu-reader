@@ -44,6 +44,6 @@ Useful details make support much faster:
 
 ## Browser Builds
 
-Chrome, Firefox, and Safari extension packages can be built from the same userscript bundle for local testing and store-review prep. The current public install path is still the userscript until the store listings are ready.
+Chrome, Firefox, and Safari extension packages can be built from the same userscript bundle for local testing and store submission. The current public install path is still the userscript until the store listings are ready.
 
 GreasyFork publishing is also planned so non-technical users get a friendlier install and automatic update path.

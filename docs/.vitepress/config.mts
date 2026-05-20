@@ -51,7 +51,6 @@ export default defineConfig({
                 text: 'Project',
                 items: [
                     { text: 'Support', link: '/support' },
-                    { text: 'Store Review Notes', link: '/store-review-notes' },
                     { text: 'Changelog', link: '/changelog' },
                 ],
             },
