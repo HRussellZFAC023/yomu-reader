@@ -3246,11 +3246,18 @@ export class NewTabController {
             ? this.searchLocalDictionaryEntries(query, settings)
             : Promise.resolve([]);
 
+        const loadedCards = this.searchLoadedWordCards(query);
         const [parsed, localEntries] = await Promise.all([parsedPromise, localEntriesPromise]);
         const parsedCards = (parsed[0] ?? []).map(token => ({ ...token.card, sentence: token.sentence ?? query }));
         const localCards = localEntries
             .map(entry => ({ ...this.dependencies.parser.localCardFromEntry(entry), sentence: query }));
-        return dedupeWords([...parsedCards, ...localCards]).slice(0, NEW_TAB_SEARCH_WORD_LIMIT);
+        return dedupeWords([...parsedCards, ...loadedCards, ...localCards]).slice(0, NEW_TAB_SEARCH_WORD_LIMIT);
+    }
+
+    private searchLoadedWordCards(query: string): JPDBCard[] {
+        const normalized = normalizeSearchQuery(query).toLocaleLowerCase();
+        if (!normalized) return [];
+        return this.allWords.filter(card => cardMatchesSearchResult(card, normalized));
     }
 
     private async searchLocalDictionaryEntries(query: string, settings: ReaderSettings): Promise<YomitanTermEntry[]> {
@@ -4331,6 +4338,15 @@ function cardMatchesSearchSuggestion(card: JPDBCard, normalizedQuery: string): b
         card.spelling,
         card.reading,
         firstCardMeaning(card),
+    ].some(value => value.toLocaleLowerCase().includes(normalizedQuery));
+}
+
+function cardMatchesSearchResult(card: JPDBCard, normalizedQuery: string): boolean {
+    return [
+        card.spelling,
+        card.reading,
+        firstCardMeaning(card),
+        ...card.meanings.flatMap(meaning => meaning.glosses),
     ].some(value => value.toLocaleLowerCase().includes(normalizedQuery));
 }
 

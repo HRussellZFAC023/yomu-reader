@@ -1791,6 +1791,76 @@ describe('new tab review helpers', () => {
         root.remove();
     });
 
+    it('searches loaded JPDB and Anki review cards even without a local dictionary', async () => {
+        const lookupText = vi.fn();
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitEnabled: false }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {
+                parse: vi.fn(async () => [[]]),
+                localCardFromEntry: vi.fn(),
+                fallbackCardFromText: vi.fn(text => newTabTestCard({
+                    spelling: text,
+                    reading: text,
+                    meanings: [],
+                    source: 'fallback',
+                })),
+            } as never,
+            dictionaries: {
+                summary: vi.fn(async () => ({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 })),
+                lookup: vi.fn(async () => []),
+                findTermMatches: vi.fn(async () => []),
+                lookupKanji: vi.fn(async () => []),
+            } as never,
+            lookupText,
+            showKanjiCard: vi.fn(),
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        document.body.append(root);
+        Object.assign(controller as unknown as {
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            allWords: JPDBCard[];
+        }, {
+            state: { mode: 'search', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
+            allWords: [
+                newTabTestCard({
+                    spelling: '猫',
+                    reading: 'ねこ',
+                    meanings: [{ glosses: ['cat; feline'], partOfSpeech: ['noun'] }],
+                    source: 'jpdb',
+                    reviewSource: 'jpdb-live',
+                }),
+            ],
+        });
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void; renderSearch(root: HTMLElement): void }).bindRootEvents(root);
+        (controller as unknown as { renderSearch(root: HTMLElement): void }).renderSearch(root);
+
+        (controller as unknown as { performSearch(root: HTMLElement, query: string): void }).performSearch(root, 'cat');
+
+        await waitForExpect(() => {
+            const results = root.querySelector('[data-newtab-search-results]')?.textContent ?? '';
+            expect(results).toContain('猫');
+            expect(results).toContain('cat');
+        });
+
+        root.querySelector<HTMLButtonElement>('[data-newtab-action="search-result-word"]')?.click();
+        expect(lookupText).toHaveBeenCalledWith('猫', 'ねこ', root.querySelector('[data-newtab-action="search-result-word"]'));
+        root.remove();
+    });
+
     it('searches English glossary text, kana prefixes, and enabled lookup links in search mode', async () => {
         const settings = {
             ...DEFAULT_SETTINGS,

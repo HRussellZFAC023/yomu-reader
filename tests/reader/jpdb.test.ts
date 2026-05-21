@@ -6290,6 +6290,7 @@ describe('reader helpers', () => {
     it('announces the userscript bridge when a page shadows window.dispatchEvent', () => {
         const request = vi.fn();
 
+        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html' });
         vi.stubGlobal('GM_xmlhttpRequest', request);
         document.documentElement.dataset.yomuUserscriptHttpBridge = 'true';
 
@@ -6315,6 +6316,7 @@ describe('reader helpers', () => {
             });
         });
 
+        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html' });
         vi.stubGlobal('GM_xmlhttpRequest', request);
         delete document.documentElement.dataset.yomuUserscriptHttpBridge;
 
@@ -6332,6 +6334,23 @@ describe('reader helpers', () => {
 
             expect(request).toHaveBeenCalledTimes(1);
             expect(response?.responseText).toBe('raw-ok');
+        } finally {
+            delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not expose the userscript bridge on arbitrary matched pages', () => {
+        const request = vi.fn();
+
+        vi.stubGlobal('location', { href: 'https://example.com/article' });
+        vi.stubGlobal('GM_xmlhttpRequest', request);
+        delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+
+        try {
+            installUserscriptHttpBridge();
+            expect(document.documentElement.dataset.yomuUserscriptHttpBridge).toBeUndefined();
+            expect(getUserscriptHttpRequest()).toBeDefined();
         } finally {
             delete document.documentElement.dataset.yomuUserscriptHttpBridge;
             vi.unstubAllGlobals();

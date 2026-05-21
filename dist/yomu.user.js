@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.23
+// @version      0.4.24
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -4967,6 +4967,77 @@
     }
   }
   var _monkeyWindow = /* @__PURE__ */ (() => window)();
+  function isYomuNewTabUrl(value) {
+    const url = parseNewTabUrl(value);
+    return url ? isYomuNewTabUrlObject(url) : false;
+  }
+  function parseNewTabUrl(value) {
+    try {
+      return new URL(value);
+    } catch {
+      return null;
+    }
+  }
+  function isYomuNewTabUrlObject(url) {
+    const path = normalizedNewTabPath(url);
+    return url.searchParams.has("yomu-newtab") || isHostedNewTabPath(url, path) || isLocalNewTabPath(url, path) || isRepositoryNewTabPath(path);
+  }
+  function normalizedNewTabPath(url) {
+    return url.pathname.replace(/\/index\.html$/, "/");
+  }
+  function isHostedNewTabPath(url, path) {
+    return url.hostname === "hrussellzfac023.github.io" && path === `/${APP_REPOSITORY_NAME}/newtab/`;
+  }
+  function isLocalNewTabPath(url, path) {
+    return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname) && path.endsWith("/newtab/");
+  }
+  function isRepositoryNewTabPath(path) {
+    return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith("/newtab/");
+  }
+  const LOCAL_HOSTS = /^(127\.0\.0\.1|localhost|\[::1\])$/;
+  function isYomuHostedAppUrl(value) {
+    const appUrl = readYomuAppUrl(value);
+    return appUrl ? isYomuHostedAppRoute(value, appUrl) : false;
+  }
+  function isYomuHostedPassivePage(value) {
+    const appUrl = readYomuAppUrl(value);
+    return appUrl ? isPassiveYomuRepositoryPage(value, appUrl) : false;
+  }
+  function readYomuAppUrl(value) {
+    try {
+      const url = new URL(value);
+      return { url, path: normalizedPath(url.pathname) };
+    } catch {
+      return null;
+    }
+  }
+  function isYomuHostedAppRoute(value, appUrl) {
+    return isYomuActiveAppRoute(value, appUrl) || isYomuRepositoryAppUrl(appUrl);
+  }
+  function isPassiveYomuRepositoryPage(value, appUrl) {
+    return isYomuRepositoryAppUrl(appUrl) && !isYomuActiveAppRoute(value, appUrl);
+  }
+  function isYomuActiveAppRoute(value, appUrl) {
+    return isYomuNewTabUrl(value) || isYomuVideoPlayerPath(appUrl.path);
+  }
+  function isYomuRepositoryAppUrl(appUrl) {
+    return isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl);
+  }
+  function isHostedRepositoryAppUrl(appUrl) {
+    return appUrl.url.origin === GITHUB_PAGES_ORIGIN && appUrl.path.startsWith(`/${APP_REPOSITORY_NAME}/`);
+  }
+  function isLocalRepositoryAppUrl(appUrl) {
+    return isYomuLocalAppPath(appUrl.path) && (appUrl.url.protocol === "file:" || LOCAL_HOSTS.test(appUrl.url.hostname));
+  }
+  function normalizedPath(pathname) {
+    return pathname.replace(/\/index\.html$/, "/");
+  }
+  function isYomuVideoPlayerPath(path) {
+    return path.endsWith("/video-player/");
+  }
+  function isYomuLocalAppPath(path) {
+    return path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith("/newtab/") || isYomuVideoPlayerPath(path);
+  }
   const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
   const initialWindowAddEventListener = initialWindowMethod("addEventListener");
   const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
@@ -5235,6 +5306,7 @@
   }
   function installUserscriptHttpBridge() {
     if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (!shouldInstallUserscriptHttpBridge()) return;
     const bridgeCandidate = userscriptRequestCandidates().map((candidate) => ({ candidate, request: asUserscriptRequest(candidate.request) })).find((item) => item.request);
     if (!bridgeCandidate?.request) return;
     const markerDataset = bridgeMarkerDataset();
@@ -5270,6 +5342,13 @@
       }
     });
     dispatchUserscriptBridgeReady();
+  }
+  function shouldInstallUserscriptHttpBridge() {
+    try {
+      return typeof location !== "undefined" && isYomuHostedAppUrl(location.href);
+    } catch {
+      return false;
+    }
   }
   function dispatchUserscriptBridgeReady() {
     dispatchBridgeEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT);
@@ -6771,77 +6850,6 @@
   }
   function escapeRegExp$1(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-  function isYomuNewTabUrl(value) {
-    const url = parseNewTabUrl(value);
-    return url ? isYomuNewTabUrlObject(url) : false;
-  }
-  function parseNewTabUrl(value) {
-    try {
-      return new URL(value);
-    } catch {
-      return null;
-    }
-  }
-  function isYomuNewTabUrlObject(url) {
-    const path = normalizedNewTabPath(url);
-    return url.searchParams.has("yomu-newtab") || isHostedNewTabPath(url, path) || isLocalNewTabPath(url, path) || isRepositoryNewTabPath(path);
-  }
-  function normalizedNewTabPath(url) {
-    return url.pathname.replace(/\/index\.html$/, "/");
-  }
-  function isHostedNewTabPath(url, path) {
-    return url.hostname === "hrussellzfac023.github.io" && path === `/${APP_REPOSITORY_NAME}/newtab/`;
-  }
-  function isLocalNewTabPath(url, path) {
-    return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname) && path.endsWith("/newtab/");
-  }
-  function isRepositoryNewTabPath(path) {
-    return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith("/newtab/");
-  }
-  const LOCAL_HOSTS = /^(127\.0\.0\.1|localhost|\[::1\])$/;
-  function isYomuHostedAppUrl(value) {
-    const appUrl = readYomuAppUrl(value);
-    return appUrl ? isYomuHostedAppRoute(value, appUrl) : false;
-  }
-  function isYomuHostedPassivePage(value) {
-    const appUrl = readYomuAppUrl(value);
-    return appUrl ? isPassiveYomuRepositoryPage(value, appUrl) : false;
-  }
-  function readYomuAppUrl(value) {
-    try {
-      const url = new URL(value);
-      return { url, path: normalizedPath(url.pathname) };
-    } catch {
-      return null;
-    }
-  }
-  function isYomuHostedAppRoute(value, appUrl) {
-    return isYomuActiveAppRoute(value, appUrl) || isYomuRepositoryAppUrl(appUrl);
-  }
-  function isPassiveYomuRepositoryPage(value, appUrl) {
-    return isYomuRepositoryAppUrl(appUrl) && !isYomuActiveAppRoute(value, appUrl);
-  }
-  function isYomuActiveAppRoute(value, appUrl) {
-    return isYomuNewTabUrl(value) || isYomuVideoPlayerPath(appUrl.path);
-  }
-  function isYomuRepositoryAppUrl(appUrl) {
-    return isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl);
-  }
-  function isHostedRepositoryAppUrl(appUrl) {
-    return appUrl.url.origin === GITHUB_PAGES_ORIGIN && appUrl.path.startsWith(`/${APP_REPOSITORY_NAME}/`);
-  }
-  function isLocalRepositoryAppUrl(appUrl) {
-    return isYomuLocalAppPath(appUrl.path) && (appUrl.url.protocol === "file:" || LOCAL_HOSTS.test(appUrl.url.hostname));
-  }
-  function normalizedPath(pathname) {
-    return pathname.replace(/\/index\.html$/, "/");
-  }
-  function isYomuVideoPlayerPath(path) {
-    return path.endsWith("/video-player/");
-  }
-  function isYomuLocalAppPath(path) {
-    return path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith("/newtab/") || isYomuVideoPlayerPath(path);
   }
   const POS_LABELS = {
     adj: "adjective",
