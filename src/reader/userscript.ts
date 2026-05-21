@@ -1,4 +1,5 @@
 import { monkeyWindow } from 'vite-plugin-monkey/dist/client';
+import { isYomuHostedAppUrl } from './app-pages';
 import { USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from './constants';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from './window-events';
 type UserscriptRequestSource = {
@@ -35,6 +36,7 @@ export function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
 
 export function installUserscriptHttpBridge(): void {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (!shouldInstallUserscriptHttpBridge()) return;
     const bridgeCandidate = userscriptRequestCandidates()
         .map(candidate => ({ candidate, request: asUserscriptRequest(candidate.request) }))
         .find(item => item.request);
@@ -72,6 +74,14 @@ export function installUserscriptHttpBridge(): void {
         }
     });
     dispatchUserscriptBridgeReady();
+}
+
+function shouldInstallUserscriptHttpBridge(): boolean {
+    try {
+        return typeof location !== 'undefined' && isYomuHostedAppUrl(location.href);
+    } catch {
+        return false;
+    }
 }
 
 function dispatchUserscriptBridgeReady(): void {

@@ -8,6 +8,13 @@ Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFA
 
 ## [Unreleased]
 
+## [0.4.24] - 2026-05-21
+
+### Fixed
+
+- Made hosted new-tab search include already-loaded JPDB and Anki review cards, so English glossary searches can find study cards even before a local dictionary is installed.
+- Limited the userscript HTTP bridge to Yomu-hosted app pages while keeping direct GM requests available inside the userscript on normal websites.
+
 ## [0.4.23] - 2026-05-19
 
 ### Changed
