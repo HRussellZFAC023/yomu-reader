@@ -127,7 +127,13 @@ interface SubtitleMenuState {
 interface SubtitlePlayerOptions {
     getSettings: () => ReaderSettings;
     parseJapanese: (text: string) => Promise<JPDBToken[]>;
+    parseJapaneseBatch?: (texts: string[], options?: SubtitleParseOptions) => Promise<JPDBToken[][]>;
     onSettingsChange: () => void;
+}
+
+interface SubtitleParseOptions {
+    jpdbTimeoutMs?: number;
+    includeLocalPitch?: boolean;
 }
 
 function updatePageSubtitleTrack(track: SubtitleTrackOption, source: PageSubtitleSource): boolean {
@@ -251,11 +257,13 @@ const TRANSCRIPT_ACTIVE_HYDRATION_AHEAD = 3;
 const TRANSCRIPT_HYDRATION_MAX_ROWS = 12;
 const TRANSCRIPT_BACKGROUND_HYDRATION_BATCH = 1;
 const TRANSCRIPT_BACKGROUND_PARSE_CONCURRENCY = 1;
+const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 4;
 const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
 const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
 const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 40;
 const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
 const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
+const SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS = 1_200;
 const SUBTITLE_EMPTY_PARSE_RETRY_MS = 2500;
 const SUBTITLE_REQUEST_TIMEOUT_MS = 8000;
 const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2000;
@@ -301,6 +309,17 @@ function transcriptWarmupIndexes(priority: number[], focusIndex: number, rowCoun
         ...forwardIndexes(focusIndex, Math.min(rowCount, focusIndex + TRANSCRIPT_BACKGROUND_PARSE_AHEAD)),
         ...backwardIndexes(focusIndex - 1, Math.max(0, focusIndex - TRANSCRIPT_BACKGROUND_PARSE_BEHIND)),
     ];
+}
+
+function uniqueSubtitleParseTexts(texts: string[]): string[] {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const text of texts.map(value => value.trim()).filter(Boolean)) {
+        if (seen.has(text)) continue;
+        seen.add(text);
+        result.push(text);
+    }
+    return result;
 }
 
 function forwardIndexes(start: number, endExclusive: number): number[] {
@@ -1227,14 +1246,7 @@ export class SubtitlePlayerController {
         const promise = (async () => {
             const tokens = await this.options.parseJapanese(text);
             const html = withBreaks(renderTokensToHtml(text, tokens, settings));
-            if (parsedSubtitleHtmlHasReaderWords(html)) {
-                this.parsedHtmlCache.set(key, html);
-                this.emptyParsedHtmlCache.delete(key);
-                if (this.parsedHtmlCache.size > 180) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? '');
-            } else {
-                this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
-                if (this.emptyParsedHtmlCache.size > 180) this.emptyParsedHtmlCache.delete(this.emptyParsedHtmlCache.keys().next().value ?? '');
-            }
+            this.rememberParsedCueHtml(key, html);
             return html;
         })();
         this.pendingParsedHtml.set(key, promise);
@@ -1242,6 +1254,58 @@ export class SubtitlePlayerController {
             return await promise;
         } finally {
             this.pendingParsedHtml.delete(key);
+        }
+    }
+
+    private async parseCueHtmlBatch(texts: string[], settings = this.options.getSettings()): Promise<Array<{ key: string; html: string }>> {
+        const ready: Array<Promise<{ key: string; html: string }>> = [];
+        const batch: Array<{ text: string; key: string }> = [];
+        for (const item of uniqueSubtitleParseTexts(texts).map(text => ({ text, key: this.parseCacheKey(text, settings) }))) {
+            const cached = this.parsedHtmlCache.get(item.key) ?? this.freshEmptyParsedHtml(item.key);
+            if (cached !== undefined) {
+                ready.push(Promise.resolve({ key: item.key, html: cached }));
+                continue;
+            }
+            const pending = this.pendingParsedHtml.get(item.key);
+            if (pending) {
+                ready.push(pending.then(html => ({ key: item.key, html })));
+                continue;
+            }
+            batch.push(item);
+        }
+        if (!batch.length) return Promise.all(ready);
+        if (!this.options.parseJapaneseBatch) {
+            return Promise.all([...ready, ...batch.map(async item => ({
+                key: item.key,
+                html: await this.parseCueHtml(item.text, settings),
+            }))]);
+        }
+
+        const parsed = this.options.parseJapaneseBatch(batch.map(item => item.text), subtitleParseOptions());
+        const parsedHtml = batch.map((item, index) => parsed.then(tokens => {
+            const html = withBreaks(renderTokensToHtml(item.text, tokens[index] ?? [], settings));
+            this.rememberParsedCueHtml(item.key, html);
+            return { key: item.key, html };
+        }));
+        const pendingHtml = parsedHtml.map(promise => promise.then(result => result.html));
+        batch.forEach((item, index) => this.pendingParsedHtml.set(item.key, pendingHtml[index]));
+        try {
+            return await Promise.all([...ready, ...parsedHtml]);
+        } finally {
+            batch.forEach((item, index) => {
+                if (this.pendingParsedHtml.get(item.key) === pendingHtml[index]) this.pendingParsedHtml.delete(item.key);
+            });
+        }
+    }
+
+    private rememberParsedCueHtml(key: string, html: string): void {
+        if (parsedSubtitleHtmlHasReaderWords(html)) {
+            this.parsedHtmlCache.set(key, html);
+            this.emptyParsedHtmlCache.delete(key);
+            if (this.parsedHtmlCache.size > 180) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? '');
+        } else {
+            this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
+            if (this.emptyParsedHtmlCache.size > 180) this.emptyParsedHtmlCache.delete(this.emptyParsedHtmlCache.keys().next().value ?? '');
         }
     }
 
@@ -2322,10 +2386,16 @@ export class SubtitlePlayerController {
         if (!request) return;
         const serial = ++this.transcriptHydrationSerial;
         const indexes = this.transcriptHydrationIndexes(preferredIndex, request.rows.length);
+        const targets: TranscriptRowHydrationTarget[] = [];
         for (const index of indexes) {
             if (serial !== this.transcriptHydrationSerial) return;
-            await this.hydrateTranscriptRow(index, request.settings, request.rows);
+            const hydration = this.transcriptRowHydrationTarget(index, request.settings, request.rows);
+            if (!hydration) continue;
+            const cached = this.parsedHtmlCache.get(hydration.key);
+            if (cached) this.applyCachedTranscriptRowHtml(hydration, cached);
+            else targets.push(hydration);
         }
+        if (targets.length) await this.hydrateTranscriptRowTargets(targets, request.settings, serial);
     }
 
     private transcriptHydrationRequest(): { settings: ReaderSettings; rows: TranscriptRow[] } | null {
@@ -2370,6 +2440,20 @@ export class SubtitlePlayerController {
             hydration.target.dataset.parseFailedKey = hydration.key;
             hydration.target.dataset.parseFailedAt = String(Date.now());
             delete hydration.target.dataset.parsedKey;
+        }
+    }
+
+    private async hydrateTranscriptRowTargets(targets: TranscriptRowHydrationTarget[], settings: ReaderSettings, serial: number): Promise<void> {
+        try {
+            const parsed = await this.parseCueHtmlBatch(targets.map(target => target.cue.text), settings);
+            if (serial !== this.transcriptHydrationSerial) return;
+            for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html);
+        } catch {
+            targets.forEach(hydration => {
+                hydration.target.dataset.parseFailedKey = hydration.key;
+                hydration.target.dataset.parseFailedAt = String(Date.now());
+                delete hydration.target.dataset.parsedKey;
+            });
         }
     }
 
@@ -2422,12 +2506,12 @@ export class SubtitlePlayerController {
         const worker = async () => {
             while (cursor < planned.length) {
                 if (serial !== this.transcriptCacheWarmupSerial) return;
-                const item = planned[cursor++];
-                if (!item || this.parsedHtmlCache.has(item.key)) continue;
+                const batch = this.nextTranscriptWarmupBatch(planned, () => cursor++);
+                if (!batch.length) continue;
                 try {
-                    const html = await this.parseCueHtml(item.text, settings);
+                    const parsed = await this.parseCueHtmlBatch(batch.map(item => item.text), settings);
                     if (serial !== this.transcriptCacheWarmupSerial) return;
-                    this.updateTranscriptRowsForParseKey(item.key, html);
+                    for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html);
                 } catch {
                 }
                 if (cursor < planned.length) await waitForBackgroundTranscriptParseTurn(pauseMs);
@@ -2439,6 +2523,21 @@ export class SubtitlePlayerController {
             () => worker(),
         );
         await Promise.all(workers);
+    }
+
+    private nextTranscriptWarmupBatch(
+        planned: Array<{ rowIndex: number; text: string; key: string }>,
+        takeNextIndex: () => number,
+    ): Array<{ rowIndex: number; text: string; key: string }> {
+        const batchSize = this.options.parseJapaneseBatch ? TRANSCRIPT_BACKGROUND_PARSE_BATCH : 1;
+        const batch: Array<{ rowIndex: number; text: string; key: string }> = [];
+        while (batch.length < batchSize) {
+            const item = planned[takeNextIndex()];
+            if (!item) break;
+            if (this.parsedHtmlCache.has(item.key) || this.hasFreshEmptyParsedHtml(item.key)) continue;
+            batch.push(item);
+        }
+        return batch;
     }
 
     private transcriptWarmupPlan(rows: TranscriptRow[], preferredIndex: number, settings: ReaderSettings): Array<{ rowIndex: number; text: string; key: string }> {
@@ -2538,7 +2637,7 @@ export class SubtitlePlayerController {
                     <button type="button" data-action="load-secondary">${escapeHtml(uiText(language, 'loadNativeSubtitles'))}</button>
                 </div>
                 <div class="jpdb-subtitle-track-summary">${escapeHtml(trackPanelSummaryText(state.autoDetected, language))}</div>
-                ${state.tracks.length ? state.tracks.map(track => this.renderTrackRow(track)).join('') : `<div class="jpdb-subtitle-list-empty">${escapeHtml(uiText(language, 'noAutoDetectedSubtitleTracks'))}</div>`}
+                ${state.tracks.length ? state.tracks.map(track => this.renderTrackRow(track)).join('') : ''}
             </div>
             <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="${escapeHtml(uiText(language, 'resizeSubtitleTracksPanel'))}"></button>
         `;
@@ -2779,6 +2878,13 @@ export class SubtitlePlayerController {
 function waitForBackgroundTranscriptParseTurn(delayMs: number): Promise<void> {
     if (delayMs <= 0) return Promise.resolve();
     return new Promise(resolve => window.setTimeout(resolve, delayMs));
+}
+
+function subtitleParseOptions(): SubtitleParseOptions {
+    return {
+        jpdbTimeoutMs: SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS,
+        includeLocalPitch: false,
+    };
 }
 
 function renderPanelNavigationControls(enabled: boolean, language: InterfaceLanguage): string {

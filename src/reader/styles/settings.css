@@ -181,6 +181,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   box-sizing: border-box;
   min-height: 38px;
   padding: 0 16px;
@@ -324,12 +325,16 @@
   background: var(--jpdb-reader-accent);
   box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
 }
+.jpdb-reader-settings input[type="checkbox"]:checked:enabled:hover,
+.jpdb-reader-settings input[type="radio"]:checked:enabled:hover {
+  background: var(--jpdb-reader-accent);
+}
 .jpdb-reader-settings input[type="checkbox"]:checked::after {
   content: "";
   width: 12px;
   height: 7px;
-  border-left: 2.5px solid #11161d;
-  border-bottom: 2.5px solid #11161d;
+  border-left: 2.5px solid #ffffff;
+  border-bottom: 2.5px solid #ffffff;
   transform: rotate(-45deg) translate(1px, -1px);
 }
 .jpdb-reader-settings input[type="radio"]:checked::after {
@@ -337,7 +342,7 @@
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: #11161d;
+  background: #ffffff;
 }
 .jpdb-reader-settings input[type="checkbox"]:focus-visible,
 .jpdb-reader-settings input[type="radio"]:focus-visible {
@@ -619,6 +624,21 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.jpdb-reader-help-actions .jpdb-reader-btn span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.jpdb-reader-help-actions .jpdb-reader-btn svg {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .jpdb-reader-help-actions .jpdb-reader-help-donate {
   border-color: var(--jpdb-reader-accent);

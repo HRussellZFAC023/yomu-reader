@@ -28,6 +28,7 @@ function createSettingsDialog(overrides: Record<string, unknown> = {}): {
         audio: { play: vi.fn(), stop: vi.fn() },
         subtitles: { refresh: vi.fn() },
         ocr: { refresh: vi.fn() },
+        youtube: { refresh: vi.fn() },
         createBackdrop: () => document.createElement('div'),
         mountDialog: (backdrop: HTMLElement, form: HTMLFormElement) => document.body.append(backdrop, form),
         dismiss,

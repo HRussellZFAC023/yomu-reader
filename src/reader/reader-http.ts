@@ -113,7 +113,8 @@ async function requestViaFetch(url: string, options: ReaderHttpOptions): Promise
 function shouldRetryWithFetch(error: unknown): boolean {
     if (!(error instanceof Error)) return true;
     if (/\(\d{3}\)/.test(error.message)) return false;
-    return /timed out|timeout|network|cors|blocked|request failed/i.test(error.message);
+    if (/timed out|timeout/i.test(error.message)) return false;
+    return /network|cors|blocked|request failed/i.test(error.message);
 }
 
 function recordHeaders(headers: HeadersInit | undefined): Record<string, string> | undefined {

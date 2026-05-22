@@ -8,9 +8,10 @@ const code = fs.readFileSync(file, 'utf8');
 let replacements = 0;
 const formatted = code.replace(/\bconst\s+([A-Za-z_$][\w$]*Css)\s*=\s*('(?:\\.|[^'\\])*');/g, (match, name, literal) => {
   const css = Function(`"use strict"; return ${literal};`)();
-  if (typeof css !== 'string' || !css.includes('\n')) return match;
+  if (typeof css !== 'string') return match;
+  const readableCss = css.includes('\n') ? css : css.replace(/}/g, '}\n').trim();
   replacements += 1;
-  return `const ${name} = \`\n${escapeTemplateLiteral(css)}\n\`;`;
+  return `const ${name} = \`\n${escapeTemplateLiteral(readableCss)}\n\`;`;
 });
 
 if (replacements === 0) {

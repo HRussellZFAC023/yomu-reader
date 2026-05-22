@@ -510,6 +510,82 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('batches transcript cache warmup when a batch parser is available', async () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            subtitleTranscriptAutoScroll: false,
+            apiKey: 'test-key',
+            localDictionariesEnabled: false,
+        };
+        const parseJapanese = vi.fn(async () => []);
+        const parseJapaneseBatch = vi.fn(async (texts: string[], _options?: unknown) => texts.map(() => [] as JPDBToken[]));
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese,
+            parseJapaneseBatch,
+            onSettingsChange: () => undefined,
+        });
+        const cues = Array.from({ length: 9 }, (_, index) => ({
+            start: index,
+            end: index + 0.8,
+            text: `字幕${index}`,
+            transcriptEligible: true,
+        }));
+        const rows = cues.map((cue, cueIndex) => ({ cue, cueIndex }));
+        type WarmupRows = typeof rows;
+        type WarmupSettings = typeof settings;
+        const internals = controller as unknown as {
+            transcriptCacheWarmupSerial: number;
+            warmTranscriptParseCache: (
+                rows: WarmupRows,
+                preferredIndex: number,
+                settings: WarmupSettings,
+                serial: number,
+            ) => Promise<void>;
+        };
+
+        internals.transcriptCacheWarmupSerial = 1;
+        await internals.warmTranscriptParseCache(rows, 0, settings, 1);
+
+        expect(parseJapanese).not.toHaveBeenCalled();
+        expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['字幕0', '字幕1', '字幕2', '字幕3']);
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: false });
+        expect(parseJapaneseBatch.mock.calls[1]?.[0]).toEqual(['字幕4', '字幕5', '字幕6', '字幕7']);
+    });
+
+    it('reuses pending transcript cue parses across batch hydration requests', async () => {
+        const testSettings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            subtitleTranscriptAutoScroll: false,
+            apiKey: 'test-key',
+            localDictionariesEnabled: false,
+        };
+        let resolveBatch!: (tokens: JPDBToken[][]) => void;
+        const parseJapaneseBatch = vi.fn((_texts: string[], _options?: unknown) => new Promise<JPDBToken[][]>(resolve => {
+            resolveBatch = resolve;
+        }));
+        const controller = new SubtitlePlayerController({
+            getSettings: () => testSettings,
+            parseJapanese: async () => [],
+            parseJapaneseBatch,
+            onSettingsChange: () => undefined,
+        });
+        const internals = controller as unknown as {
+            parseCueHtmlBatch: (texts: string[], settings: ReaderSettings) => Promise<Array<{ key: string; html: string }>>;
+        };
+
+        const first = internals.parseCueHtmlBatch(['字幕0'], testSettings);
+        const second = internals.parseCueHtmlBatch(['字幕0'], testSettings);
+
+        expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: false });
+        resolveBatch([[]]);
+
+        const [firstResult, secondResult] = await Promise.all([first, second]);
+        expect(firstResult[0]?.html).toContain('字幕0');
+        expect(secondResult[0]?.html).toContain('字幕0');
+    });
+
     it('seeks using the source cue index when transcript rows are filtered', () => {
         const settings = {
             ...DEFAULT_SETTINGS,

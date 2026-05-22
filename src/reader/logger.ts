@@ -127,6 +127,7 @@ export function loggingSettingsSummary(settings: ReaderSettings): Record<string,
         newTabSource: settings.newTabSource,
         ocrEnabled: settings.ocrEnabled,
         subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
+        youtubeImmersionEnabled: settings.youtubeImmersionEnabled,
     };
 }
 

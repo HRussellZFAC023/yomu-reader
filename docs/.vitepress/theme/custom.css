@@ -161,6 +161,257 @@
   color: var(--vp-c-brand-3);
 }
 
+.yomu-install-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 28px;
+  align-items: stretch;
+  margin: 24px 0 32px;
+  padding: 22px 24px;
+  border: 1px solid
+    color-mix(in srgb, var(--vp-c-brand-2) 34%, var(--vp-c-divider));
+  border-radius: 8px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--vp-c-brand-2) 9%, var(--vp-c-bg-soft)),
+    color-mix(in srgb, var(--vp-c-brand-2) 3%, var(--vp-c-bg))
+  );
+  box-shadow: 0 18px 48px rgba(20, 30, 45, 0.08);
+}
+
+.dark .yomu-install-panel {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--vp-c-brand-2) 14%, var(--vp-c-bg-soft)),
+    color-mix(in srgb, var(--vp-c-brand-2) 6%, var(--vp-c-bg-alt))
+  );
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.2);
+}
+
+.yomu-install-copy {
+  min-width: 0;
+  max-width: 700px;
+}
+
+.yomu-install-kicker {
+  display: inline-flex;
+  margin-bottom: 10px;
+  color: var(--vp-c-brand-1);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.yomu-install-panel strong {
+  display: block;
+  color: var(--vp-c-text-1);
+  font-size: 22px;
+  line-height: 1.22;
+}
+
+.dark .yomu-install-panel strong {
+  color: var(--vp-c-text-1);
+}
+
+.yomu-install-panel p {
+  max-width: 62ch;
+  margin: 10px 0 0;
+  color: var(--vp-c-text-2);
+  line-height: 1.62;
+}
+
+.yomu-install-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.yomu-install-steps a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 38px;
+  min-width: 0;
+  padding: 6px 10px 6px 7px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--vp-c-bg) 74%, transparent);
+  color: var(--vp-c-text-2) !important;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none !important;
+}
+
+.yomu-install-step-link {
+  border-color: color-mix(
+    in srgb,
+    var(--vp-c-brand-2) 44%,
+    var(--vp-c-divider)
+  );
+  background: color-mix(in srgb, var(--vp-c-brand-2) 8%, var(--vp-c-bg));
+  color: var(--vp-c-text-1) !important;
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.yomu-install-steps a:hover {
+  border-color: var(--vp-c-brand-2);
+  background: color-mix(in srgb, var(--vp-c-brand-2) 10%, var(--vp-c-bg));
+  box-shadow: 0 8px 18px rgba(20, 30, 45, 0.08);
+  transform: translateY(-1px);
+}
+
+.yomu-install-steps b {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.yomu-install-step-link span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yomu-install-actions {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.yomu-secondary-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.yomu-cta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.yomu-cta-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-1) !important;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none !important;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.yomu-cta-button:hover {
+  border-color: var(--vp-c-brand-2);
+  background: color-mix(in srgb, var(--vp-c-brand-2) 10%, var(--vp-c-bg));
+  box-shadow: 0 10px 22px rgba(20, 30, 45, 0.08);
+  transform: translateY(-1px);
+}
+
+.yomu-cta-button.primary {
+  border-color: var(--vp-c-brand-1);
+  background: var(--vp-c-brand-1);
+  color: #fff !important;
+}
+
+.dark .yomu-cta-button.primary {
+  color: #102018 !important;
+}
+
+.yomu-cta-button.primary:hover {
+  border-color: var(--vp-c-brand-2);
+  background: var(--vp-c-brand-2);
+}
+
+.yomu-cta-button-main {
+  min-height: 56px;
+  font-size: 16px;
+}
+
+.yomu-cta-button.disabled {
+  flex-direction: column;
+  gap: 3px;
+  cursor: default;
+  opacity: 0.76;
+}
+
+.yomu-cta-button.disabled:hover {
+  border-color: var(--vp-c-divider);
+  background: var(--vp-c-bg);
+  transform: none;
+}
+
+.yomu-cta-button small {
+  color: var(--vp-c-text-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.yomu-store-status {
+  display: grid;
+  gap: 6px;
+  margin-top: 0;
+  padding: 2px 0;
+}
+
+.yomu-store-status-title {
+  margin-bottom: 2px;
+  color: var(--vp-c-text-1);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.yomu-store-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 28px;
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.yomu-store-status-row small {
+  color: color-mix(in srgb, var(--vp-c-text-2) 72%, transparent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.yomu-support-actions {
+  max-width: 760px;
+}
+
 .yomu-shot-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -259,5 +510,35 @@
   .yomu-platform-list,
   .yomu-link-grid {
     grid-template-columns: 1fr;
+  }
+
+  .yomu-install-panel,
+  .yomu-cta-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 540px) {
+  .yomu-install-panel {
+    gap: 20px;
+    padding: 18px;
+  }
+
+  .yomu-install-panel strong {
+    font-size: 20px;
+  }
+
+  .yomu-secondary-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .yomu-install-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .yomu-store-status-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
   }
 }

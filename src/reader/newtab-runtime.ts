@@ -1,6 +1,7 @@
 import { AudioPlayer } from './audio';
 import { AnkiConnectClient, type AnkiLookupResult } from './anki';
 import { listNewTabAnkiCards } from './anki-new-tab';
+import { runLimited } from './async-utils';
 import { copyText, positionPopover } from './browser-ui';
 import { CardActionController } from './card-action-controller';
 import { CardPopoverRenderer } from './card-popover-renderer';
@@ -25,6 +26,7 @@ import { ImmersionPopoverController } from './immersion-popover-controller';
 import { uiText, type UiCopyKey } from './i18n';
 import { JpdbClient } from './jpdb';
 import { JpdbKanjiClient, type JpdbKanjiInfo } from './jpdb-kanji';
+import { getPitchClass } from './jpdb-parser';
 import { JpdbPublicPitchClient } from './jpdb-public-pitch';
 import { createJpdbReviewBridgeClient } from './jpdb-review-bridge';
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from './jpdb-vocabulary';
@@ -89,6 +91,9 @@ import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanTermEntry }
 const log = Logger.scope('NewTabRuntime');
 const NEW_TAB_POPOVER_PARSE_TIMEOUT_MS = 1_200;
 const NEW_TAB_STUDY_PARSE_TIMEOUT_MS = 15_000;
+const NEW_TAB_ANKI_ENRICHMENT_LIMIT = 16;
+const NEW_TAB_PITCH_ENRICHMENT_LIMIT = 12;
+const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
 
 type YomuNewTabWindow = typeof window & {
     __YOMU_READER_RUNTIME__?: string;
@@ -190,8 +195,9 @@ export class NewTabRuntime {
     private studySources = new StudySourceController({
         getSettings: () => this.settings,
         dictionarySourceAttributes: key => this.dictionarySourceState.attributes(key),
-        parseJapanese: paragraphs => this.parser.parse(paragraphs),
+        parseJapanese: (paragraphs, options) => this.parser.parse(paragraphs, options),
         parsePopoverJapanese: popover => this.parseNewTabContent(popover),
+        enrichPitchWords: tokens => this.enrichPitchWords(tokens),
         enrichAnkiWords: tokens => this.enrichAnkiWords(tokens),
         isCurrentPopoverRoot: root => this.isCurrentPopoverRoot(root),
     });
@@ -199,9 +205,10 @@ export class NewTabRuntime {
         getSettings: () => this.settings,
         client: this.immersionKit,
         audio: this.audio,
-        parseJapanese: paragraphs => this.parser.parse(paragraphs),
+        parseJapanese: (paragraphs, options) => this.parser.parse(paragraphs, options),
         canParseJapanese: () => this.parser.canParse(),
         parsePopoverJapanese: popover => this.parseNewTabContent(popover),
+        enrichPitchWords: tokens => this.enrichPitchWords(tokens),
         enrichAnkiWords: tokens => this.enrichAnkiWords(tokens),
         repositionPopover: () => this.repositionLookupPopover(),
         setImmersionTranslationBlurred: blurred => this.setImmersionTranslationBlurred(blurred),
@@ -257,6 +264,7 @@ export class NewTabRuntime {
         audio: this.audio,
         subtitles: refreshableNoop(),
         ocr: refreshableNoop(),
+        youtube: refreshableNoop(),
         createBackdrop: () => createReaderBackdrop(() => this.dismiss()),
         mountDialog: (backdrop, form) => this.mountSettingsDialog(backdrop, form),
         dismiss: () => this.dismiss(),
@@ -1149,8 +1157,11 @@ export class NewTabRuntime {
     }
 
     private maybePreloadLookupCardAudio(card: JPDBCard, options: NewTabLookupDisplayOptions): void {
-        if (options.autoPlay === false || !this.settings.audioEnabled || !this.settings.autoPlayAudio) return;
-        this.audio.preload(card, { sourceLimit: 3, candidateLimit: 1 });
+        if (!this.settings.audioEnabled) return;
+        this.audio.preload(card, {
+            sourceLimit: options.autoPlay === false || !this.settings.autoPlayAudio ? 1 : 3,
+            candidateLimit: 1,
+        });
     }
 
     private shouldAutoPlayLookupCard(card: JPDBCard, options: NewTabLookupDisplayOptions): boolean {
@@ -1421,11 +1432,31 @@ export class NewTabRuntime {
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
-        }).slice(0, 16);
-        for (const token of uniqueTokens) {
+        }).slice(0, NEW_TAB_ANKI_ENRICHMENT_LIMIT);
+        await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
             const lookup = await this.anki.findExistingCards(token.card);
             this.applyAnkiLookupToRenderedWords(token.card, lookup);
-        }
+        });
+    }
+
+    private async enrichPitchWords(tokens: JPDBToken[]): Promise<void> {
+        if (!this.settings.showPitchAccent) return;
+        const seen = new Set<string>();
+        const uniqueTokens = tokens.filter(token => {
+            if (token.card.pitchAccent.length) return false;
+            if (!token.card.spelling.trim()) return false;
+            const key = cardKey(token.card);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        }).slice(0, NEW_TAB_PITCH_ENRICHMENT_LIMIT);
+
+        await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
+            const pitchAccent = await this.jpdbPublicPitch.lookup(token.card.spelling, token.card.reading).catch(() => []);
+            if (!pitchAccent.length) return;
+            if (!token.card.pitchAccent.length) token.card.pitchAccent = pitchAccent;
+            this.applyPitchAccentToRenderedWords(token.card);
+        });
     }
 
     private applyAnkiLookupToRenderedWords(card: JPDBCard, ankiLookup: AnkiLookupResult): void {
@@ -1436,6 +1467,19 @@ export class NewTabRuntime {
             word.dataset.ankiState = ankiLookup.state;
             word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(', ') ?? '';
             word.title = `Anki: ${this.cardStateText(ankiLookup.state)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ''}`;
+        });
+    }
+
+    private applyPitchAccentToRenderedWords(card: JPDBCard): void {
+        const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling);
+        if (!pitchClass) return;
+        const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
+        this.activeLookupPopover?.querySelectorAll<HTMLElement>(selector).forEach(word => {
+            Array.from(word.classList)
+                .filter(className => className.startsWith('jpdb-pitch-'))
+                .forEach(className => word.classList.remove(className));
+            word.classList.add(`jpdb-pitch-${pitchClass}`);
+            word.dataset.pitchClass = pitchClass;
         });
     }
 
@@ -1507,6 +1551,7 @@ export class NewTabRuntime {
             if (!root.isConnected || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             root.dataset.jpdbReaderParseKey = plan.parseKey;
+            void this.enrichPitchWords(parsed.flat());
         } catch (_error) {
         } finally {
             clearNestedParseLoadingKey(root, plan.parseKey);

@@ -303,6 +303,8 @@ export interface ReaderSettings {
     subtitleFontWeight: number;
     subtitleMiningPause: boolean;
     subtitleSeekPadding: number;
+    youtubeImmersionEnabled: boolean;
+    youtubeShowFilterNotice: boolean;
     ankiEnabled: boolean;
     ankiConnectUrl: string;
     ankiDeck: string;
@@ -343,6 +345,7 @@ export interface ReaderSettings {
         nextSubtitle: string;
         copySubtitle: string;
         toggleOcr: string;
+        toggleYoutubeImmersion: string;
         scanImages: string;
         gradeNothing: string;
         gradeSomething: string;

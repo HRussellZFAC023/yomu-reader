@@ -85,7 +85,7 @@ export default defineConfig(({ mode }) => ({
         emptyOutDir: mode !== 'development',
         target: 'es2022',
         minify: false,
-        cssMinify: false,
+        cssMinify: true,
     },
     test: {
         environment: 'jsdom',

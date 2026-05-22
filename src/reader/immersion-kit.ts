@@ -12,6 +12,8 @@ const OBJECT_STORE_BASE = 'https://us-southeast-1.linodeobjects.com/immersionkit
 const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const MEDIA_CANDIDATE_LIMIT = 4;
 const SEARCH_EXAMPLE_LIMIT = 250;
+const SEARCH_CACHE_LIMIT = 160;
+const PRELOAD_KEY_LIMIT = 300;
 const NADESHIKO_SEARCH_LIMIT = 25;
 const MIN_LEARNING_SENTENCE_LENGTH = 8;
 const DEFAULT_EXAMPLE_SORT = 'sentence_length:asc';
@@ -154,6 +156,7 @@ export class ImmersionKitClient {
             .then(examples => {
                 const result = applySearchExampleLimit(examples, settings);
                 this.cache.set(cacheKey, result);
+                pruneOldestMapEntries(this.cache, SEARCH_CACHE_LIMIT);
                 return result;
             })
             .finally(() => {
@@ -275,6 +278,7 @@ export class ImmersionKitClient {
         const query = term.trim();
         if (!canSearchImmersionExamples(query, settings) || this.preloadKeys.has(query)) return;
         this.preloadKeys.add(query);
+        pruneOldestSetEntries(this.preloadKeys, PRELOAD_KEY_LIMIT);
 
         void this.search(query, settings)
             .then(examples => {
@@ -495,8 +499,8 @@ function mediaFileUrls(example: ImmersionKitExample, file: string): string[] {
 function mediaFileTitleUrls(category: string, title: string, file: string): string[] {
     const path = `media/${category}/${title}/media/${file}`;
     return [
-        ...apiUrls(`/download_media?${new URLSearchParams({ path })}`),
         `${OBJECT_STORE_BASE}/${path.split('/').map(encodeURIComponent).join('/')}`,
+        ...apiUrls(`/download_media?${new URLSearchParams({ path })}`),
     ];
 }
 
@@ -731,7 +735,23 @@ async function requestFirstBlob(urls: string | string[], timeoutMs: number, prox
 }
 
 function prioritizeMediaCandidates(urls: string[]): string[] {
-    return [...urls].sort((a, b) => Number(isObjectStoreMediaUrl(a)) - Number(isObjectStoreMediaUrl(b)));
+    return [...urls].sort((a, b) => Number(isObjectStoreMediaUrl(b)) - Number(isObjectStoreMediaUrl(a)));
+}
+
+function pruneOldestMapEntries<K, V>(map: Map<K, V>, limit: number): void {
+    while (map.size > limit) {
+        const oldest = map.keys().next().value;
+        if (oldest === undefined) break;
+        map.delete(oldest);
+    }
+}
+
+function pruneOldestSetEntries<T>(set: Set<T>, limit: number): void {
+    while (set.size > limit) {
+        const oldest = set.values().next().value;
+        if (oldest === undefined) break;
+        set.delete(oldest);
+    }
 }
 
 function isObjectStoreMediaUrl(url: string): boolean {

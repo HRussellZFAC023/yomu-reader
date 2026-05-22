@@ -33,6 +33,10 @@ import { speakerIcon } from './popup-render';
 import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 
 const IMMERSION_SEARCH_CACHE_TTL_MS = 30_000;
+const IMMERSION_SEARCH_CACHE_LIMIT = 120;
+const IMMERSION_PRELOAD_TERM_LIMIT = 240;
+const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
+const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
 const log = Logger.scope('ImmersionPopover');
 
 interface ExampleAudioSource {
@@ -51,13 +55,18 @@ export interface ImmersionSearchOptions {
     relatedQueries?: string[];
 }
 
+interface ImmersionParseOptions {
+    jpdbTimeoutMs?: number;
+}
+
 interface ImmersionPopoverControllerOptions {
     getSettings: () => ReaderSettings;
     client: ImmersionKitClient;
     audio: AudioPlayer;
-    parseJapanese: (paragraphs: string[]) => Promise<JPDBToken[][]>;
+    parseJapanese: (paragraphs: string[], options?: ImmersionParseOptions) => Promise<JPDBToken[][]>;
     canParseJapanese: () => boolean;
     parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
+    enrichPitchWords: (tokens: JPDBToken[]) => void | Promise<void>;
     enrichAnkiWords: (tokens: JPDBToken[]) => void | Promise<void>;
     repositionPopover: () => void;
     setImmersionTranslationBlurred: (blurred: boolean) => void;
@@ -196,6 +205,7 @@ export class ImmersionPopoverController {
             const audioKey = hoverAudioExampleKey(examples[index]);
             if (this.hoverAudioPlayedKeys.has(audioKey)) return;
             this.hoverAudioPlayedKeys.add(audioKey);
+            pruneOldestSetEntries(this.hoverAudioPlayedKeys, IMMERSION_HOVER_AUDIO_KEY_LIMIT);
             hoverAudioCanPlay = false;
             hoverAudioActive = true;
             void this.playExampleAudio(examples[index], true, () => hoverAudioActive && container.isConnected && media.isConnected && media.matches(':hover'));
@@ -240,6 +250,7 @@ export class ImmersionPopoverController {
             throw error;
         });
         this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise });
+        pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
         return promise;
     }
 
@@ -264,6 +275,7 @@ export class ImmersionPopoverController {
         const term = token.card.spelling.trim();
         if (!isUsefulImmersionPreloadQuery(term) || this.preloadedTerms.has(term)) return '';
         this.preloadedTerms.add(term);
+        pruneOldestSetEntries(this.preloadedTerms, IMMERSION_PRELOAD_TERM_LIMIT);
         return term;
     }
 
@@ -274,9 +286,11 @@ export class ImmersionPopoverController {
 
     private async fetchExamples(card: JPDBCard, options: ImmersionSearchOptions): Promise<ImmersionKitSearchResult> {
         const exactQuery = normalizeImmersionSearchQuery(card.spelling);
-        const queries = await this.immersionSearchQueries(card, options, exactQuery);
         const triedQueries: string[] = [];
+        const exactResult = await this.fetchExamplesForQuery(exactQuery, exactQuery, triedQueries);
+        if (exactResult) return exactResult;
 
+        const queries = await this.immersionFallbackSearchQueries(card, options, exactQuery);
         for (const query of queries) {
             const result = await this.fetchExamplesForQuery(query, exactQuery, triedQueries);
             if (result) return result;
@@ -285,13 +299,13 @@ export class ImmersionPopoverController {
         return { examples: [], query: exactQuery, usedFallback: false, triedQueries };
     }
 
-    private async immersionSearchQueries(card: JPDBCard, options: ImmersionSearchOptions, exactQuery: string): Promise<string[]> {
+    private async immersionFallbackSearchQueries(card: JPDBCard, options: ImmersionSearchOptions, exactQuery: string): Promise<string[]> {
         const relatedQueries = uniqueImmersionQueries(options.relatedQueries ?? [])
             .map(normalizeImmersionSearchQuery)
             .filter(query => isUsefulImmersionFallbackQuery(query, exactQuery));
         const fallbackQueries = await this.fallbackQueries(card, exactQuery);
-        return uniqueImmersionQueries([exactQuery, ...relatedQueries, ...fallbackQueries])
-            .slice(0, 1 + IMMERSION_FALLBACK_QUERY_LIMIT);
+        return uniqueImmersionQueries([...relatedQueries, ...fallbackQueries])
+            .slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
     }
 
     private async fetchExamplesForQuery(
@@ -344,7 +358,7 @@ export class ImmersionPopoverController {
     }
 
     private async fallbackParseTokens(card: JPDBCard): Promise<JPDBToken[]> {
-        const [tokens] = await this.options.parseJapanese([card.spelling]).catch(() => {
+        const [tokens] = await this.options.parseJapanese([card.spelling], { jpdbTimeoutMs: 1_200 }).catch(() => {
             return [[]] as JPDBToken[][];
         });
         return tokens ?? [];
@@ -417,6 +431,7 @@ export class ImmersionPopoverController {
         const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, total, imageUrl, audioUrls));
         if (storedContext) {
             this.contextByCardKey.set(cardKey(card), storedContext);
+            pruneOldestMapEntries(this.contextByCardKey, IMMERSION_CONTEXT_CACHE_LIMIT);
             this.promoteExampleMiningContext(card, storedContext, promoteMiningContext);
         }
     }
@@ -544,7 +559,7 @@ export class ImmersionPopoverController {
         searchQuery: string,
         isCurrent: () => boolean,
     ): void {
-        void this.options.parseJapanese([example.sentence])
+        void this.options.parseJapanese([example.sentence], { jpdbTimeoutMs: 1_200 })
             .then(([tokens]) => {
                 if (!isCurrent() || !container.isConnected) return;
                 const sentence = container.querySelector<HTMLElement>('[data-immersion-sentence-render]');
@@ -552,6 +567,7 @@ export class ImmersionPopoverController {
                 setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens ?? [], this.options.getSettings()));
                 this.highlightTarget(sentence, card, searchQuery);
                 void this.options.parsePopoverJapanese(container);
+                void this.options.enrichPitchWords(tokens ?? []);
                 void this.options.enrichAnkiWords(tokens ?? []);
                 this.options.repositionPopover();
             })
@@ -859,6 +875,29 @@ function heldExampleImageHeight(image: HTMLImageElement | null): number {
 function hoverAudioExampleKey(example: ImmersionKitExample | undefined): string {
     if (!example) return '';
     return example.id || `${example.provider ?? 'immersion-kit'}:${example.sourceTitle}:${example.sentence}:${example.soundFile || example.soundUrl}`;
+}
+
+function pruneImmersionSearchCache(cache: Map<string, { expiresAt: number; promise: Promise<ImmersionKitSearchResult> }>, now: number, limit: number): void {
+    for (const [key, value] of cache) {
+        if (value.expiresAt <= now) cache.delete(key);
+    }
+    pruneOldestMapEntries(cache, limit);
+}
+
+function pruneOldestMapEntries<TKey, TValue>(cache: Map<TKey, TValue>, limit: number): void {
+    while (cache.size > limit) {
+        const oldest = cache.keys().next().value as TKey | undefined;
+        if (oldest === undefined) break;
+        cache.delete(oldest);
+    }
+}
+
+function pruneOldestSetEntries<TValue>(cache: Set<TValue>, limit: number): void {
+    while (cache.size > limit) {
+        const oldest = cache.keys().next().value as TValue | undefined;
+        if (oldest === undefined) break;
+        cache.delete(oldest);
+    }
 }
 
 function renderExampleTranslation(translation: string, settings: ReaderSettings): string {

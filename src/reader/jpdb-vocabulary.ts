@@ -1,6 +1,7 @@
 import { Logger } from './logger';
 import { requestText as requestReaderText } from './reader-http';
 import { parseHtmlDocument } from './dom';
+import type { JPDBCard } from './types';
 
 export interface JpdbVocabularyCompound {
     term: string;
@@ -40,6 +41,7 @@ interface VocabularySupplementUrl {
 
 export class JpdbVocabularyClient {
     private cache = new Map<string, Promise<JpdbVocabularyInfo | null>>();
+    private searchCache = new Map<string, Promise<JPDBCard[]>>();
 
     constructor(private readonly getCorsProxyUrl: () => string = () => '') {}
 
@@ -54,6 +56,18 @@ export class JpdbVocabularyClient {
         return promise;
     }
 
+    search(query: string, limit = 10): Promise<JPDBCard[]> {
+        const normalized = cleanText(query);
+        if (!normalized) return Promise.resolve([]);
+        const key = `${normalized}:${limit}`;
+        let promise = this.searchCache.get(key);
+        if (!promise) {
+            promise = this.fetchSearch(normalized, limit);
+            this.searchCache.set(key, promise);
+        }
+        return promise;
+    }
+
     private async fetchInfo(vid: number, spelling: string, reading: string): Promise<JpdbVocabularyInfo | null> {
         for (const url of vocabularyLookupUrls(vid, spelling, reading)) {
             const html = await requestText(url, this.getCorsProxyUrl()).catch(error => {
@@ -64,6 +78,15 @@ export class JpdbVocabularyClient {
             if (info) return await this.fetchSupplementaryInfo(info, html, url, vid, spelling, reading);
         }
         return null;
+    }
+
+    private async fetchSearch(query: string, limit: number): Promise<JPDBCard[]> {
+        const url = `${JPDB_SEARCH_URL}?q=${encodeURIComponent(query)}`;
+        const html = await requestText(url, this.getCorsProxyUrl()).catch(error => {
+            log.warn('Vocabulary search request failed', { query }, error);
+            return '';
+        });
+        return html ? parseJpdbSearchHtml(html, limit) : [];
     }
 
     private async fetchSupplementaryInfo(
@@ -99,6 +122,83 @@ export function parseJpdbVocabularyHtml(html: string, spelling = '', reading = '
     return meanings.length || compounds.length || usedInVocabulary.length || examples.length
         ? { meanings, compounds, usedInVocabulary, examples }
         : null;
+}
+
+export function parseJpdbSearchHtml(html: string, limit = 10): JPDBCard[] {
+    const doc = parseHtmlDocument(html);
+    const roots = Array.from(doc.querySelectorAll<HTMLElement>('.results.search .result.vocabulary, .result.vocabulary'));
+    return uniqueBy(
+        roots
+            .map(root => searchResultCard(root, doc))
+            .filter((card): card is JPDBCard => card !== null),
+        card => `${card.vid}:${card.spelling}:${card.reading}`,
+    ).slice(0, limit);
+}
+
+function searchResultCard(root: HTMLElement, doc: Document): JPDBCard | null {
+    const identity = searchResultIdentity(root);
+    const headword = root.querySelector<HTMLElement>('.subsection-headword .primary-spelling .spelling, .subsection-headword .spelling');
+    const spelling = cleanText(identity?.expression ?? '') || cleanText(headword ? baseText(headword) : '');
+    const reading = cleanText(identity?.reading ?? '') || cleanText(headword ? readingText(headword) : '') || spelling;
+    if (!spelling || !JAPANESE_RE.test(spelling)) return null;
+    const meanings = extractMeanings(root, doc, spelling, reading);
+    const partOfSpeech = extractPartOfSpeech(root);
+    return {
+        vid: identity?.vid ?? 0,
+        sid: 0,
+        rid: 0,
+        spelling,
+        reading,
+        frequencyRank: extractFrequencyRank(root),
+        partOfSpeech,
+        meanings: meanings.map(meaning => ({ glosses: [meaning], partOfSpeech })),
+        cardState: ['not-in-deck'],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'jpdb',
+        sentence: spelling,
+    };
+}
+
+function searchResultIdentity(root: ParentNode): { vid: number; expression: string; reading: string } | null {
+    const links = Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]'));
+    const details = links.find(link => /more details/i.test(cleanText(link.textContent ?? '')));
+    return (details ? vocabularyEntryFromUrl(details.href || details.getAttribute('href') || '') : null)
+        ?? links.map(link => vocabularyEntryFromUrl(link.href || link.getAttribute('href') || '')).find((entry): entry is { vid: number; expression: string; reading: string } => entry !== null)
+        ?? null;
+}
+
+function vocabularyEntryFromUrl(value: string): { vid: number; expression: string; reading: string } | null {
+    if (!value) return null;
+    try {
+        const parsed = new URL(value, 'https://jpdb.io');
+        const parts = parsed.pathname.split('/').filter(Boolean);
+        if (parts[0] !== 'vocabulary') return null;
+        const vid = Number.parseInt(parts[1] ?? '', 10);
+        return {
+            vid: Number.isFinite(vid) ? vid : 0,
+            expression: decodePathPart(parts[2] ?? ''),
+            reading: decodePathPart(parts[3] ?? ''),
+        };
+    } catch {
+        return null;
+    }
+}
+
+function extractPartOfSpeech(root: ParentNode): string[] {
+    return unique(Array.from(root.querySelectorAll<HTMLElement>('.subsection-meanings .part-of-speech div'))
+        .map(element => cleanText(element.textContent ?? ''))
+        .filter(Boolean));
+}
+
+function extractFrequencyRank(root: ParentNode): number | null {
+    for (const tag of Array.from(root.querySelectorAll<HTMLElement>('.tags .tag, .tag'))) {
+        const match = /\bTop\s+([\d,]+)/i.exec(cleanText(tag.textContent ?? ''));
+        if (!match?.[1]) continue;
+        const rank = Number.parseInt(match[1].replace(/,/g, ''), 10);
+        if (Number.isFinite(rank)) return rank;
+    }
+    return null;
 }
 
 function vocabularyLookupUrls(vid: number, spelling: string, reading: string): string[] {

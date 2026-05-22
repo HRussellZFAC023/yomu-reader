@@ -1,8 +1,8 @@
 import { escapeHtml } from './dom';
 import { grammarRuleText, uiText, type UiCopyKey } from './i18n';
 import { Logger } from './logger';
+import { requestJson as requestReaderJson } from './reader-http';
 import type { InterfaceLanguage } from './types';
-import { getUserscriptHttpRequest } from './userscript';
 
 const log = Logger.scope('StudyTools');
 
@@ -60,6 +60,9 @@ const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！�
 const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
 const GRAMMAR_PREFERENCES_KEY = 'yomu.grammarPreferences.v1';
 const MAX_LOCAL_GRAMMAR_HINTS = 12;
+const GRAMMAR_HINT_CACHE_LIMIT = 240;
+const TRANSLATION_CACHE_LIMIT = 160;
+const TRANSLATION_TIMEOUT_MS = 5000;
 const ENGLISH_TEXT_RE = /[A-Za-z]{3,}/u;
 const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 
@@ -76,7 +79,7 @@ function gp(
     confidence: GrammarHint['confidence'] = 'medium',
     priority = 30,
 ): GrammarPattern {
-    return { ruleId, level, pattern: new RegExp(source, 'u'), name, kind, short, detail, url, confidence, priority, examples };
+    return { ruleId, level, pattern: new RegExp(source, 'gu'), name, kind, short, detail, url, confidence, priority, examples };
 }
 
 function ex(japanese: string, english: string, note?: string): GrammarExample[] {
@@ -334,6 +337,7 @@ const GRAMMAR_PATTERNS: GrammarPattern[] = [
 
 const translationCache = new Map<string, string>();
 const translationInFlight = new Map<string, Promise<string>>();
+const grammarHintCache = new Map<string, GrammarHint[]>();
 
 export function listLocalGrammarRuleExamples(): LocalGrammarRuleExample[] {
     return GRAMMAR_PATTERNS.flatMap(rule => rule.examples.map(example => ({
@@ -346,6 +350,9 @@ export function listLocalGrammarRuleExamples(): LocalGrammarRuleExample[] {
 
 export function detectGrammarHints(sentence: string): GrammarHint[] {
     const normalized = sentence.normalize('NFKC').replace(/\s+/g, '');
+    const cached = grammarHintCache.get(normalized);
+    if (cached) return cached;
+
     const seenMatches = new Set<string>();
     const seenNames = new Map<string, number>();
     const selected: RankedGrammarHint[] = [];
@@ -363,9 +370,31 @@ export function detectGrammarHints(sentence: string): GrammarHint[] {
         selected.push(item);
         if (selected.length >= MAX_LOCAL_GRAMMAR_HINTS) break;
     }
-    return selected
+    const hints = selected
         .sort(compareGrammarHints)
         .map(({ priority: _priority, ...hint }) => hint);
+    cacheGrammarHints(normalized, hints);
+    return hints;
+}
+
+export function preloadGrammarResources(sentence: string, language: InterfaceLanguage = 'en'): GrammarHint[] {
+    const hints = detectGrammarHints(sentence);
+    if (language === 'ja' && hints.length) {
+        void grammarRuleText(language, hints[0].ruleId).catch(() => undefined);
+    }
+    return hints;
+}
+
+export function preloadJapaneseSentenceTranslation(sentence: string, language: InterfaceLanguage = 'en'): void {
+    void translateJapaneseSentence(sentence, language).catch(() => undefined);
+}
+
+function cacheGrammarHints(key: string, hints: GrammarHint[]): void {
+    if (!key) return;
+    grammarHintCache.set(key, hints);
+    if (grammarHintCache.size <= GRAMMAR_HINT_CACHE_LIMIT) return;
+    const oldest = grammarHintCache.keys().next().value;
+    if (typeof oldest === 'string') grammarHintCache.delete(oldest);
 }
 
 function compareRankedGrammarHints(a: RankedGrammarHint, b: RankedGrammarHint): number {
@@ -468,6 +497,7 @@ export async function translateJapaneseSentence(sentence: string, language: Inte
             const translated = (json.sentences ?? []).map(item => item.trans ?? '').join('').trim();
             if (!translated) throw new Error('No translation returned.');
             translationCache.set(cacheKey, translated);
+            pruneOldestMapEntries(translationCache, TRANSLATION_CACHE_LIMIT);
             log.info('Translation completed', { sentenceLength: trimmed.length, translationLength: translated.length });
             return translated;
         } catch (error) {
@@ -613,9 +643,7 @@ function renderGrammarHintGuide(hint: GrammarHint, language: InterfaceLanguage):
 }
 
 function grammarMatches(item: GrammarPattern, sentence: string): RankedGrammarHint[] {
-    const flags = item.pattern.flags.includes('g') ? item.pattern.flags : `${item.pattern.flags}g`;
-    const pattern = new RegExp(item.pattern.source, flags);
-    return Array.from(sentence.matchAll(pattern))
+    return Array.from(sentence.matchAll(item.pattern))
         .map(match => {
             const rawMatch = match[0];
             const learnerFacingMatch = learnerMatch(item.name, rawMatch);
@@ -672,38 +700,21 @@ interface GoogleTranslateResponse {
 }
 
 function requestJson<T>(url: string): Promise<T> {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        return new Promise((resolve, reject) => {
-            userscriptRequest({
-                method: 'GET',
-                url,
-                responseType: 'json',
-                timeout: 8000,
-                onload: response => {
-                    if (response.status >= 200 && response.status < 300) {
-                        resolve((response.response ?? JSON.parse(String(response.responseText ?? '{}'))) as T);
-                    } else {
-                        log.warn('Translation request returned HTTP error', { status: response.status });
-                        reject(new Error(`Translation request failed (${response.status}).`));
-                    }
-                },
-                onerror: error => {
-                    log.warn('Translation request failed', { error });
-                    reject(error);
-                },
-                ontimeout: () => {
-                    log.warn('Translation request timed out');
-                    reject(new Error('Translation timed out.'));
-                },
-            });
-        });
+    return requestReaderJson(url, {
+        timeoutMs: TRANSLATION_TIMEOUT_MS,
+        allowDirectCrossOrigin: true,
+        allowConfiguredProxy: false,
+        allowPublicProxies: false,
+        preferFetch: true,
+        failureLabel: 'Translation request',
+        timeoutLabel: 'Translation timed out.',
+    }) as Promise<T>;
+}
+
+function pruneOldestMapEntries<TKey, TValue>(cache: Map<TKey, TValue>, limit: number): void {
+    while (cache.size > limit) {
+        const oldest = cache.keys().next().value as TKey | undefined;
+        if (oldest === undefined) break;
+        cache.delete(oldest);
     }
-    return fetch(url).then(async response => {
-        if (!response.ok) {
-            log.warn('Translation request returned HTTP error', { status: response.status });
-            throw new Error(`Translation request failed (${response.status}).`);
-        }
-        return response.json() as Promise<T>;
-    });
 }
