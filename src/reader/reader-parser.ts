@@ -8,10 +8,13 @@ import { YomitanDictionaryStore, glossaryToText, type YomitanMetaEntry, type Yom
 const LOCAL_MATCH_LIMIT = 40;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6_000;
 const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
+const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
+const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
 const log = Logger.scope('ReaderParser');
 
 export interface ReaderParserParseOptions {
     jpdbTimeoutMs?: number;
+    includeLocalPitch?: boolean;
 }
 
 export interface ReaderParserDependencies {
@@ -37,26 +40,23 @@ export class ReaderParser {
             try {
                 const parsePromise = jpdb.parse(paragraphs);
                 const timeoutMs = options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS;
-                const result = timeoutMs > 0 && this.canUseLocalDictionaryFallback()
+                const canFallback = this.canUseParseFallback();
+                const result = timeoutMs > 0 && canFallback
                     ? await withTimeout(parsePromise, timeoutMs, () => new Error('JPDB parse timed out.'))
                     : await parsePromise;
                 done();
                 return result;
             } catch (error) {
-                if (!this.canUseLocalDictionaryFallback()) {
-                    log.warn('JPDB parse failed without local fallback', error);
+                if (!this.canUseParseFallback()) {
+                    log.warn('JPDB parse failed without fallback', error);
                     done();
                     throw error;
                 }
-                log.warn('JPDB parse failed; using local dictionary fallback', error);
+                log.warn('JPDB parse failed; using local or segmented fallback', error);
             }
         }
-        if (!this.canUseLocalDictionaryFallback()) {
-            done();
-            return paragraphs.map(() => []);
-        }
         try {
-            const result = await Promise.all(paragraphs.map(text => this.parseLocalDictionaryText(text)));
+            const result = await Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
             return result;
         } finally {
             done();
@@ -64,8 +64,7 @@ export class ReaderParser {
     }
 
     canParse(): boolean {
-        const settings = this.dependencies.getSettings();
-        return Boolean(settings.apiKey.trim()) || this.canUseLocalDictionaryFallback();
+        return true;
     }
 
     isJpdbBackedCard(card: JPDBCard): boolean {
@@ -136,7 +135,17 @@ export class ReaderParser {
         return this.dependencies.getSettings().localDictionariesEnabled;
     }
 
-    private async parseLocalDictionaryText(text: string): Promise<JPDBToken[]> {
+    private canUseParseFallback(): boolean {
+        return this.canUseLocalDictionaryFallback() || canSegmentJapaneseText();
+    }
+
+    private async parseLocalOrSegmentedText(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
+        if (!this.canUseLocalDictionaryFallback()) return this.parseSegmentedText(text);
+        const tokens = await this.parseLocalDictionaryText(text, options);
+        return tokens.length ? tokens : this.parseSegmentedText(text);
+    }
+
+    private async parseLocalDictionaryText(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
         const { dictionaries, getSettings } = this.dependencies;
         const settings = getSettings();
         const matches = await dictionaries.findTermMatches(text, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch(error => {
@@ -145,7 +154,7 @@ export class ReaderParser {
         });
         return Promise.all(matches.map(async match => {
             const card = this.localCardFromEntry(match.entry);
-            const pitch = await this.localPitchPattern(card);
+            const pitch = await this.localPitchPattern(card, options);
             if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
             const reading = !match.deinflected && card.reading && card.reading !== match.surface ? card.reading : '';
             return {
@@ -160,8 +169,24 @@ export class ReaderParser {
         }));
     }
 
-    private async localPitchPattern(card: JPDBCard): Promise<string> {
+    private parseSegmentedText(text: string): JPDBToken[] {
+        return segmentJapaneseText(text).map(segment => {
+            const card = this.fallbackCardFromText(segment.surface);
+            return {
+                card,
+                start: segment.start,
+                end: segment.end,
+                length: segment.end - segment.start,
+                rubies: [],
+                pitchClass: '',
+                sentence: text,
+            };
+        });
+    }
+
+    private async localPitchPattern(card: JPDBCard, options: ReaderParserParseOptions): Promise<string> {
         const settings = this.dependencies.getSettings();
+        if (options.includeLocalPitch === false) return '';
         if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return '';
         const lookupTermMeta = this.dependencies.dictionaries.lookupTermMeta as ((expression: string, limit: number, preferences?: ReaderSettings['dictionaryPreferences']) => Promise<YomitanMetaEntry[]>) | undefined;
         if (typeof lookupTermMeta !== 'function') return '';
@@ -204,6 +229,76 @@ function stableLocalId(value: string): number {
 
 function cardCacheKey(vid: number, sid: number): string {
     return `${vid}:${sid}`;
+}
+
+type JapaneseTextSegment = { surface: string; start: number; end: number };
+type IntlSegmentRecord = { segment: string; index: number; isWordLike?: boolean };
+type IntlSegmenter = { segment(value: string): Iterable<IntlSegmentRecord> };
+type IntlSegmenterConstructor = new (
+    locale: string,
+    options: { granularity: 'word' },
+) => IntlSegmenter;
+let cachedSegmenterConstructor: IntlSegmenterConstructor | null | undefined;
+let cachedJapaneseWordSegmenter: IntlSegmenter | null | undefined;
+
+function segmentJapaneseText(text: string): JapaneseTextSegment[] {
+    const segmenter = japaneseWordSegmenter();
+    if (!segmenter) {
+        return Array.from(text.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap(match => {
+            const start = match.index ?? 0;
+            return fallbackJapaneseRunSegment(match[0], start);
+        });
+    }
+    return Array.from(text.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap(match => {
+        const start = match.index ?? 0;
+        return segmentJapaneseRun(match[0], start, segmenter);
+    });
+}
+
+function segmentJapaneseRun(text: string, offset: number, segmenter: IntlSegmenter): JapaneseTextSegment[] {
+    return Array.from(segmenter.segment(text))
+        .filter(isUsefulJapaneseSegment)
+        .map(segment => ({
+            surface: segment.segment,
+            start: offset + segment.index,
+            end: offset + segment.index + segment.segment.length,
+        }));
+}
+
+function intlSegmenter(): IntlSegmenterConstructor | null {
+    const candidate = (Intl as unknown as { Segmenter?: IntlSegmenterConstructor }).Segmenter;
+    return typeof candidate === 'function' ? candidate : null;
+}
+
+function japaneseWordSegmenter(): IntlSegmenter | null {
+    const Segmenter = intlSegmenter();
+    if (!Segmenter) {
+        cachedSegmenterConstructor = null;
+        cachedJapaneseWordSegmenter = null;
+        return null;
+    }
+    if (cachedSegmenterConstructor !== Segmenter) {
+        cachedSegmenterConstructor = Segmenter;
+        cachedJapaneseWordSegmenter = new Segmenter('ja', { granularity: 'word' });
+    }
+    return cachedJapaneseWordSegmenter ?? null;
+}
+
+function isUsefulJapaneseSegment(segment: IntlSegmentRecord): boolean {
+    const surface = segment.segment.trim();
+    return segment.isWordLike !== false
+        && JAPANESE_CHARACTER_RE.test(surface);
+}
+
+function fallbackJapaneseRunSegment(text: string, offset: number): JapaneseTextSegment[] {
+    const surface = text.trim();
+    if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
+    const start = offset + text.indexOf(surface);
+    return [{ surface, start, end: start + surface.length }];
+}
+
+function canSegmentJapaneseText(): boolean {
+    return true;
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorFactory: () => Error): Promise<T> {

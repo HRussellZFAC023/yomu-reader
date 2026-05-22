@@ -20,6 +20,7 @@ const VOCABULARY_FIELDS = [
 ];
 const DECK_FIELDS = ['id', 'name'];
 const PARSE_CACHE_SIZE = 250;
+const PARAGRAPH_PARSE_CACHE_SIZE = 800;
 const log = Logger.scope('JpdbClient');
 
 interface JpdbDeckVocabularyResponse {
@@ -38,6 +39,8 @@ export class JpdbClient {
     private cardCache = new Map<string, JPDBCard>();
     private parseCache = new LruCache<string, JPDBToken[][]>(PARSE_CACHE_SIZE);
     private parseInFlight = new Map<string, Promise<JPDBToken[][]>>();
+    private paragraphParseCache = new LruCache<string, JPDBToken[]>(PARAGRAPH_PARSE_CACHE_SIZE);
+    private paragraphParseInFlight = new Map<string, Promise<JPDBToken[]>>();
 
     constructor(getApiKey: () => string, getProxyUrl: () => string = () => '') {
         this.api = new JpdbApiClient(getApiKey, getProxyUrl);
@@ -57,7 +60,7 @@ export class JpdbClient {
             return inFlight;
         }
 
-        const promise = this.fetchParse(text, cacheKey);
+        const promise = this.parseParagraphs(text, cacheKey);
         this.parseInFlight.set(cacheKey, promise);
         void promise.then(() => {
             if (this.parseInFlight.get(cacheKey) === promise) this.parseInFlight.delete(cacheKey);
@@ -126,6 +129,9 @@ export class JpdbClient {
     clear(): void {
         this.cardCache.clear();
         this.parseCache.clear();
+        this.parseInFlight.clear();
+        this.paragraphParseCache.clear();
+        this.paragraphParseInFlight.clear();
     }
 
     private async addVocabularyToDeck(deckId: string, card: JPDBCard): Promise<void> {
@@ -189,10 +195,43 @@ export class JpdbClient {
 
             this.cacheCards(cards);
             this.parseCache.set(cacheKey, tokens);
+            text.forEach((paragraph, index) => {
+                this.paragraphParseCache.set(paragraph, tokens[index] ?? []);
+            });
             return tokens;
         } finally {
             done();
         }
+    }
+
+    private parseParagraphs(text: string[], cacheKey: string): Promise<JPDBToken[][]> {
+        const missing: string[] = [];
+        const seenMissing = new Set<string>();
+        for (const paragraph of text) {
+            if (this.paragraphParseCache.get(paragraph) || this.paragraphParseInFlight.has(paragraph)) continue;
+            if (seenMissing.has(paragraph)) continue;
+            seenMissing.add(paragraph);
+            missing.push(paragraph);
+        }
+
+        if (missing.length) {
+            const missingRequest = this.fetchParse(missing, missing.join('\n'));
+            missing.forEach((paragraph, index) => {
+                const paragraphPromise = missingRequest.then(parsed => parsed[index] ?? []);
+                this.paragraphParseInFlight.set(paragraph, paragraphPromise);
+                void paragraphPromise.then(() => {
+                    if (this.paragraphParseInFlight.get(paragraph) === paragraphPromise) this.paragraphParseInFlight.delete(paragraph);
+                }, () => {
+                    if (this.paragraphParseInFlight.get(paragraph) === paragraphPromise) this.paragraphParseInFlight.delete(paragraph);
+                });
+            });
+        }
+
+        return Promise.all(text.map(paragraph => this.paragraphParseCache.get(paragraph) ?? this.paragraphParseInFlight.get(paragraph) ?? []))
+            .then(tokens => {
+                this.parseCache.set(cacheKey, tokens);
+                return tokens;
+            });
     }
 }
 

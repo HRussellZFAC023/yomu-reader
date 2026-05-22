@@ -1861,6 +1861,77 @@ describe('new tab review helpers', () => {
         root.remove();
     });
 
+    it('searches public JPDB without a local dictionary or API key', async () => {
+        const showLookupCard = vi.fn();
+        const publicCard = newTabTestCard({
+            vid: 1002650,
+            sid: 0,
+            spelling: 'お母さん',
+            reading: 'おかあさん',
+            meanings: [{ glosses: ['mother; mom; mum'], partOfSpeech: ['Noun'] }],
+            cardState: ['not-in-deck'],
+            source: 'jpdb',
+            sentence: 'お母さん',
+        });
+        const publicSearch = vi.fn(async () => [publicCard]);
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true, immersionKitEnabled: false }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {
+                parse: vi.fn(async () => [[]]),
+                fallbackCardFromText: vi.fn(text => newTabTestCard({
+                    spelling: text,
+                    reading: text,
+                    meanings: [],
+                    source: 'fallback',
+                })),
+            } as never,
+            dictionaries: {
+                summary: vi.fn(async () => ({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 })),
+                lookupKanji: vi.fn(async () => []),
+            } as never,
+            lookupText: vi.fn(),
+            showLookupCard,
+            showKanjiCard: vi.fn(),
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        document.body.append(root);
+        Object.assign(controller as unknown as {
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        }, {
+            state: { mode: 'search', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
+        });
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void; renderSearch(root: HTMLElement): void }).bindRootEvents(root);
+        (controller as unknown as { renderSearch(root: HTMLElement): void }).renderSearch(root);
+
+        (controller as unknown as { performSearch(root: HTMLElement, query: string): void }).performSearch(root, 'mum');
+
+        await waitForExpect(() => {
+            const text = root.querySelector('[data-newtab-search-results]')?.textContent ?? '';
+            expect(text).toContain('お母さん');
+            expect(text).toContain('mother; mom; mum');
+        });
+        expect(publicSearch).toHaveBeenCalledWith('mum', expect.any(Number));
+
+        root.querySelector<HTMLButtonElement>('[data-newtab-action="search-result-word"]')?.click();
+        expect(showLookupCard).toHaveBeenCalledWith(publicCard, 'お母さん', root.querySelector('[data-newtab-action="search-result-word"]'));
+        root.remove();
+    });
+
     it('searches English glossary text, kana prefixes, and enabled lookup links in search mode', async () => {
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -2461,6 +2532,54 @@ describe('new tab review helpers', () => {
 
             expect(playTermAudio).toHaveBeenCalledTimes(1);
             expect(playTermAudio).toHaveBeenCalledWith(card);
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('preloads the current hosted new-tab dictionary word even when autoplay is off', async () => {
+        const runtime = new NewTabRuntime();
+        const card = newTabTestCard({ spelling: '静寂', reading: 'せいじゃく', sentence: '静寂が好き。' });
+        const preload = vi.fn();
+        const renderData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+        };
+        const internals = runtime as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            audio: { preload: typeof preload };
+            cardRenderData: { load(): { localEntries: Promise<unknown[]>; all: Promise<typeof renderData> } };
+            parser: { canParse(): boolean; isJpdbBackedCard(card: JPDBCard): boolean };
+            showLookupCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: { autoPlay?: boolean }): Promise<void>;
+        };
+
+        try {
+            internals.settings = {
+                ...DEFAULT_SETTINGS,
+                audioEnabled: true,
+                autoPlayAudio: false,
+                popupMode: 'popover',
+                localDictionariesEnabled: false,
+                immersionKitEnabled: false,
+            };
+            internals.audio = { preload };
+            internals.cardRenderData = {
+                load: () => ({ localEntries: Promise.resolve([]), all: Promise.resolve(renderData) }),
+            };
+            internals.parser = {
+                canParse: () => false,
+                isJpdbBackedCard: () => true,
+            };
+
+            await internals.showLookupCard(card, '静寂が好き。', undefined, { autoPlay: false });
+
+            expect(preload).toHaveBeenCalledWith(card, { sourceLimit: 1, candidateLimit: 1 });
         } finally {
             runtime.destroy();
             document.body.replaceChildren();
@@ -3317,7 +3436,7 @@ describe('new tab review helpers', () => {
         root.querySelector<HTMLButtonElement>('[data-newtab-action="load-dictionary"]')?.click();
 
         expect(showSettings).toHaveBeenCalledWith('dictionaries');
-        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
+        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('Local dictionaries');
     });
 
     it('does not retry empty dictionary setup in a loading loop', () => {
@@ -3350,7 +3469,7 @@ describe('new tab review helpers', () => {
         vi.advanceTimersByTime(30_000);
 
         expect(invalidateCaches).not.toHaveBeenCalled();
-        expect(root.querySelector('[data-newtab-status]')?.textContent).toContain('Install a dictionary');
+        expect(root.querySelector('[data-newtab-status]')?.textContent).toContain('Optional: add a Yomitan dictionary');
     });
 
     it('does not reload dictionary setup on a later new-tab render', async () => {
@@ -3380,8 +3499,8 @@ describe('new tab review helpers', () => {
         await controller.renderPage();
 
         expect(summary).toHaveBeenCalledTimes(1);
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
-        expect(document.querySelector('[data-newtab-status]')?.textContent).toContain('Install a dictionary');
+        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Local dictionaries');
+        expect(document.querySelector('[data-newtab-status]')?.textContent).toContain('Optional: add a Yomitan dictionary');
         document.body.replaceChildren();
     });
 
@@ -3444,7 +3563,7 @@ describe('new tab review helpers', () => {
         });
 
         await controller.renderPage();
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
+        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Local dictionaries');
 
         settings.dictionaryPreferences = [{ name: 'Local', alias: 'Tiny Alias', enabled: true, priority: 0, type: 'terms' }];
         await controller.renderPage();
@@ -3519,7 +3638,7 @@ describe('new tab review helpers', () => {
         });
 
         await controller.renderPage();
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
+        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Local dictionaries');
 
         await controller.refreshExternalData();
 
@@ -3867,6 +3986,101 @@ describe('new tab review helpers', () => {
         } finally {
             document.body.replaceChildren();
             localStorage.removeItem('jpdb-reader-newtab-card-cache');
+        }
+    });
+
+    it('keeps a navigated cached dictionary kanji card selected when refresh completes', async () => {
+        const restoreCanvas = stubKanjiDoodleBrowserApis();
+        document.body.replaceChildren();
+        localStorage.setItem('jpdb-reader-newtab-ui', JSON.stringify({
+            mode: 'kanji',
+            sort: 'random',
+            filter: 'study',
+            source: 'dictionary',
+            revealAnswer: false,
+        }));
+        localStorage.removeItem('jpdb-reader-newtab-card-cache');
+        sessionStorage.removeItem('jpdb-reader-newtab-current-word');
+
+        const cachedRead = newTabTestCard({ vid: 1, sid: 1, spelling: '読む', reading: 'よむ', source: 'local', kanjiKeyword: 'read' });
+        const cachedWrite = newTabTestCard({ vid: 2, sid: 2, spelling: '書く', reading: 'かく', source: 'local', kanjiKeyword: 'write' });
+        const liveWalk = newTabTestCard({ vid: 3, sid: 3, spelling: '歩く', reading: 'あるく', source: 'local', kanjiKeyword: 'walk' });
+        localStorage.setItem('jpdb-reader-newtab-card-cache', JSON.stringify({
+            sourceLabel: 'Dictionary',
+            cards: [cachedRead, cachedWrite],
+        }));
+
+        const liveEntries = deferred<Array<{ expression: string; reading: string; glossary: string[]; score: number; dictionary: string }>>();
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                newTabEnabled: true,
+                newTabSource: 'dictionary',
+                immersionKitEnabled: false,
+                jpdbKanjiEnabled: false,
+                rtkEnabled: false,
+                uchisenEnabled: false,
+                kanjivgEnabled: false,
+                kanjiOriginsEnabled: false,
+                similarKanjiWords: false,
+                localDictionaryShowKanji: false,
+                newTabKanjiAutogradeEnabled: false,
+            }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+            } as never,
+            parser: {
+                cacheCards: vi.fn(),
+                localCardFromEntry: vi.fn(() => liveWalk),
+            } as never,
+            dictionaries: {
+                summary: vi.fn(async () => ({ dictionaries: ['Local'], dictionaryTypes: {} })),
+                listRandomTopTerms: vi.fn(() => liveEntries.promise),
+            } as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+
+        try {
+            const render = controller.renderPage();
+
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe('1:1:読む:よむ');
+                expect(document.querySelector('[data-newtab-prompt]')?.textContent).toContain('read');
+            });
+
+            document.querySelector<HTMLButtonElement>('[data-newtab-action="next"]')?.click();
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe('2:2:書く:かく');
+                expect(document.querySelector('[data-newtab-prompt]')?.textContent).toContain('write');
+            });
+
+            liveEntries.resolve([{
+                expression: '歩く',
+                reading: 'あるく',
+                glossary: ['to walk'],
+                score: 1,
+                dictionary: 'Local',
+            }]);
+            await render;
+
+            expect(document.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe('2:2:書く:かく');
+            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toContain('write');
+            expect((controller as unknown as { allWords: JPDBCard[] }).allWords.map(card => card.spelling)).toEqual(['書く', '歩く']);
+        } finally {
+            restoreCanvas();
+            document.body.replaceChildren();
+            localStorage.removeItem('jpdb-reader-newtab-ui');
+            localStorage.removeItem('jpdb-reader-newtab-card-cache');
+            sessionStorage.removeItem('jpdb-reader-newtab-current-word');
         }
     });
 

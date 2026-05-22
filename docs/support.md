@@ -23,27 +23,13 @@
 
 Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.
 
-## Project Links
+## Quick Actions
 
-- Install userscript: [dist/yomu.user.js](https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js)
-- Source code: [GitHub repository](https://github.com/HRussellZFAC023/yomu-reader)
-- Bug reports and feature requests: [GitHub issues](https://github.com/HRussellZFAC023/yomu-reader/issues)
-- Donations: [PayPal](https://paypal.me/HenryRussell163)
-- Discord: [Yomu server](https://discord.gg/WvDt57uk5)
-
-## Before Asking For Help
-
-Useful details make support much faster:
-
-1. Your browser and device, for example Chrome on Windows, Safari on iPad, or Firefox on Android.
-2. Which userscript manager you installed, for example Tampermonkey or Userscripts.
-3. What page you were on.
-4. What you expected to happen.
-5. What happened instead.
-6. A screenshot if the issue is visual.
-
-## Browser Builds
-
-Chrome, Firefox, and Safari extension packages can be built from the same userscript bundle for local testing and store submission. The current public install path is still the userscript until the store listings are ready.
-
-GreasyFork publishing is also planned so non-technical users get a friendlier install and automatic update path.
+<div class="yomu-cta-grid yomu-support-actions">
+  <a class="yomu-cta-button primary" href="https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js">Install userscript</a>
+  <a class="yomu-cta-button" href="https://github.com/HRussellZFAC023/yomu-reader/issues">Report a bug</a>
+  <a class="yomu-cta-button" href="https://discord.gg/WvDt57uk5">Join Discord</a>
+  <a class="yomu-cta-button" href="https://paypal.me/HenryRussell163">Donate</a>
+  <a class="yomu-cta-button" href="https://github.com/HRussellZFAC023/yomu-reader">View source</a>
+  <span class="yomu-cta-button disabled">Store installs <small>Coming soon</small></span>
+</div>

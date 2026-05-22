@@ -55,6 +55,7 @@ interface SettingsDialogDependencies {
     audio: AudioPlayer;
     subtitles: Refreshable;
     ocr: Refreshable;
+    youtube: Refreshable;
     createBackdrop: () => HTMLElement;
     mountDialog: (backdrop: HTMLElement, form: HTMLFormElement) => void;
     dismiss: () => void;
@@ -258,6 +259,7 @@ export class SettingsDialogController {
         this.dependencies.installFab();
         this.dependencies.subtitles.refresh();
         this.dependencies.ocr.refresh();
+        this.dependencies.youtube.refresh();
         this.dependencies.clearSettingsPreview();
         this.dependencies.dismiss();
         this.dependencies.scheduleDictionaryRescan();
@@ -936,6 +938,7 @@ export class SettingsDialogController {
         this.dependencies.scheduleDictionaryRescan();
         this.dependencies.installFab();
         this.dependencies.subtitles.refresh();
+        this.dependencies.youtube.refresh();
         this.dependencies.clearSettingsPreview();
         log.info('Settings imported', loggingSettingsSummary(this.settings));
         this.open();

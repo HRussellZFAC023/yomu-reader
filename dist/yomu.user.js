@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.24
+// @version      0.4.25
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -637,7 +637,8 @@
       newTabEnabled: settings.newTabEnabled,
       newTabSource: settings.newTabSource,
       ocrEnabled: settings.ocrEnabled,
-      subtitlePlayerEnabled: settings.subtitlePlayerEnabled
+      subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
+      youtubeImmersionEnabled: settings.youtubeImmersionEnabled
     };
   }
   function isDevMode() {
@@ -938,6 +939,8 @@
     subtitleFontWeight: 760,
     subtitleMiningPause: false,
     subtitleSeekPadding: 0.08,
+    youtubeImmersionEnabled: false,
+    youtubeShowFilterNotice: true,
     ankiEnabled: false,
     ankiConnectUrl: "http://127.0.0.1:8765",
     ankiDeck: "よむ",
@@ -978,6 +981,7 @@
       nextSubtitle: "Alt+ArrowRight",
       copySubtitle: "Alt+C",
       toggleOcr: "Alt+O",
+      toggleYoutubeImmersion: "Alt+Y",
       scanImages: "Alt+I",
       gradeNothing: "1",
       gradeSomething: "2",
@@ -2962,6 +2966,7 @@
       audio: "Audio",
       images: "OCR",
       video: "Video",
+      youTube: "YouTube",
       anki: "Anki",
       jpdb: "JPDB",
       apiKey: "API key",
@@ -3193,6 +3198,16 @@
       subtitleFontWeight: "Subtitle font weight",
       subtitleSeekPadding: "Subtitle seek padding (seconds)",
       subtitlePreview: "Live subtitle preview",
+      youtubeImmersionEnabled: "Only show Japanese-looking YouTube videos",
+      youtubeShowFilterNotice: "Show reveal control for hidden videos",
+      youtubeHelp: "Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.",
+      youtubeFilterOn: "YouTube filter on",
+      youtubeFilterOff: "YouTube filter off",
+      youtubeShowAnyway: "Show anyway",
+      youtubeFilterAgain: "Filter again",
+      youtubeTurnOff: "Turn off",
+      youtubeToggleToastOn: "YouTube immersion filter enabled.",
+      youtubeToggleToastOff: "YouTube immersion filter disabled.",
       ankiEnabled: "Enable Anki mining",
       ankiMineWithJpdb: "Also add to Anki when adding to JPDB",
       ankiCaptureScreenshot: "Attach context image when possible",
@@ -3281,7 +3296,7 @@
       dictionaryDownloadBlocked: "Dictionary download is blocked in this browser. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.",
       dictionaryManualDownloadHint: "Enable the よむ userscript on this page, then tap Download again. You can also download the ZIP manually and use Import dictionary above.",
       dictionaryInstallQueueHelp: "Dictionary installs can take a few minutes. You can queue more than one; よむ installs them one at a time and keeps Save waiting until the active import finishes.",
-      dictionaryInstallNewTabHelp: "Install a dictionary in Settings and keep this tab open until the import finishes. Large dictionaries can take a few minutes.",
+      dictionaryInstallNewTabHelp: "Optional: add a Yomitan dictionary in Settings for offline local results. Public JPDB lookup works without one.",
       dictionaryInstallQueued: "{dictionary} queued. It will install after the current dictionary finishes.",
       dictionaryInstallSaveBlocked: "Dictionary import is still running. Save will be available when it finishes.",
       dictionaryImportQueueStatus: "{count} dictionary install{plural} in progress. Save will be available when finished.",
@@ -3368,10 +3383,10 @@
       loadingSubtitleLines: "Loading subtitle lines",
       waitingForCaptionLines: "Waiting for caption lines",
       subtitleCurrentLineWillAppear: "The current line will appear here as soon as captions are available.",
-      noAutoDetectedSubtitleTracks: "No auto-detected subtitle tracks yet. Load a file, open YouTube captions once, or play the video for a moment.",
-      autoDetectedTracksWillAppear: "Auto-detected YouTube/native tracks will appear here.",
-      autoDetectedOptionSingular: "1 auto-detected option",
-      autoDetectedOptions: "auto-detected options",
+      noAutoDetectedSubtitleTracks: "",
+      autoDetectedTracksWillAppear: "Subtitle tracks appear here.",
+      autoDetectedOptionSingular: "1 subtitle option",
+      autoDetectedOptions: "subtitle options",
       detected: "Detected",
       japaneseOverlay: "Japanese overlay",
       nativeOverlay: "native overlay",
@@ -3395,6 +3410,7 @@
       trackStatusWaiting: "waiting for captions",
       trackStatusFailed: "failed",
       toggleImageReading: "Toggle image reading",
+      toggleYoutubeImmersion: "Toggle YouTube filter",
       readImagesNow: "Read images now",
       ocrReadingImage: "Reading image...",
       ocrNoJapaneseText: "No Japanese text found",
@@ -3448,10 +3464,10 @@
       noKanjiCardsYet: "No kanji cards yet.",
       couldNotLoadWords: "Could not load words.",
       offlineGradesDisabled: "Offline cache. Grades are saved here and sync when JPDB or Anki reconnects.",
-      startWithDictionary: "Start with a dictionary",
-      addDictionaryStudyCards: "Add a dictionary to turn this page into study cards.",
-      dictionaryReadyNewTabs: "It stays in this browser and is ready whenever a new tab opens.",
-      addDictionary: "Add dictionary",
+      startWithDictionary: "Local dictionaries",
+      addDictionaryStudyCards: "Use this only if you want offline Yomitan results.",
+      dictionaryReadyNewTabs: "Public JPDB lookup works without an API key.",
+      addDictionary: "Open dictionary settings",
       reveal: "Reveal",
       hide: "Hide",
       revealTranslation: "Reveal translation",
@@ -3488,8 +3504,8 @@
       searchLocalDictionariesFailed: "Could not search local dictionaries.",
       externalDictionarySearch: "External dictionary search",
       words: "Words",
-      noLocalResults: "No local results.",
-      addDictionaryForLocalResults: "Add a dictionary for local results.",
+      noLocalResults: "No matching results.",
+      addDictionaryForLocalResults: "No JPDB matches found.",
       filterStudy: "Study",
       filterAll: "All",
       sourceAuto: "Auto",
@@ -3706,8 +3722,8 @@
       recommendedJpdbv2Kana: "Frequency data based on the JPDB corpus. よむ shows this first when sorting local frequency chips.",
       recommendedBccwj: "Frequency data from the Balanced Corpus of Contemporary Written Japanese.",
       recommendedJiten: "Frequency data from the media stats database at jiten.moe.",
-      fallbackSetupTitle: "Start with a dictionary",
-      fallbackSetupCopy: "No JPDB key or local dictionary is connected yet. This setup card can still copy the term, play browser audio, open external lookup links, and inspect kanji.",
+      fallbackSetupTitle: "Public JPDB lookup",
+      fallbackSetupCopy: "Search and lookup work without a JPDB API key. Add local dictionaries only when you want offline Yomitan results.",
       fallbackSetupDictionaries: "Add dictionaries",
       fallbackSetupJpdb: "Add JPDB key",
       getApp: `Get ${APP_NAME}`,
@@ -3808,9 +3824,9 @@
     noKanjiCardsYet: "まだ漢字カードがありません。",
     couldNotLoadWords: "単語を読み込めませんでした。",
     offlineGradesDisabled: "オフラインキャッシュです。採点はここに保存され、JPDBまたはAnkiへの再接続時に同期されます。",
-    startWithDictionary: "辞書から始める",
-    addDictionaryStudyCards: "辞書を追加すると、このページを学習カードにできます。",
-    dictionaryReadyNewTabs: "このブラウザーに保存され、新しいタブを開くたびに使えます。",
+    startWithDictionary: "ローカル辞書",
+    addDictionaryStudyCards: "オフラインのYomitan結果が必要なときだけ使います。",
+    dictionaryReadyNewTabs: "公開JPDB検索はAPIキーなしで使えます。",
     addDictionary: "辞書を追加",
     reveal: "表示",
     hide: "隠す",
@@ -3863,7 +3879,7 @@
     dictionaryDownloadBlocked: "このブラウザーでは辞書のダウンロードがブロックされています。自動ダウンロードに失敗する場合は、辞書URLを開いて設定からZIPをインポートしてください。",
     dictionaryManualDownloadHint: "このページでよむのユーザースクリプトを有効にしてから、もう一度ダウンロードを押してください。ZIPを手動でダウンロードして、上の辞書インポートから読み込むこともできます。",
     dictionaryInstallQueueHelp: "辞書のインストールには数分かかることがあります。複数キューに入れられますが、よむは1件ずつインストールし、インポート完了まで保存を待機します。",
-    dictionaryInstallNewTabHelp: "設定で辞書をインストールし、インポートが終わるまでこのタブを開いたままにしてください。大きい辞書は数分かかることがあります。",
+    dictionaryInstallNewTabHelp: "ローカル結果が必要な場合のみ、設定でYomitan辞書を追加してください。公開JPDB検索は辞書なしで使えます。",
     dictionaryInstallQueued: "{dictionary}を待機中です。現在の辞書が終わったらインストールします。",
     dictionaryInstallSaveBlocked: "辞書インポートがまだ進行中です。完了すると保存できます。",
     dictionaryImportQueueStatus: "{count}件の辞書インストールが進行中です。完了すると保存できます。",
@@ -3890,8 +3906,8 @@
     searchLocalDictionariesFailed: "ローカル辞書を検索できませんでした。",
     externalDictionarySearch: "外部辞書検索",
     words: "単語",
-    noLocalResults: "ローカル結果がありません。",
-    addDictionaryForLocalResults: "ローカル結果には辞書を追加してください。",
+    noLocalResults: "一致する結果がありません。",
+    addDictionaryForLocalResults: "JPDBの一致が見つかりません。",
     scanPage: "ページをスキャン",
     noImmersionExamples: "Immersion Kitの例文が見つかりません。",
     noImmersionExamplesCompact: "例文なし",
@@ -4036,10 +4052,10 @@
     loadingSubtitleLines: "字幕行を読み込み中",
     waitingForCaptionLines: "字幕行を待機中",
     subtitleCurrentLineWillAppear: "字幕が利用可能になり次第、現在の行がここに表示されます。",
-    noAutoDetectedSubtitleTracks: "自動検出された字幕トラックはまだありません。ファイルを読み込むか、YouTubeの字幕を一度開くか、動画を少し再生してください。",
-    autoDetectedTracksWillAppear: "自動検出されたYouTube/ページ字幕はここに表示されます。",
-    autoDetectedOptionSingular: "自動検出オプション1件",
-    autoDetectedOptions: "件の自動検出オプション",
+    noAutoDetectedSubtitleTracks: "",
+    autoDetectedTracksWillAppear: "字幕トラックはここに表示されます。",
+    autoDetectedOptionSingular: "字幕オプション1件",
+    autoDetectedOptions: "件の字幕オプション",
     detected: "検出済み",
     japaneseOverlay: "日本語オーバーレイ",
     nativeOverlay: "母語オーバーレイ",
@@ -4221,6 +4237,7 @@
     reader: "リーダー",
     images: "OCR",
     video: "動画",
+    youTube: "YouTube",
     anki: "Anki",
     jpdb: "JPDB",
     apiKey: "APIキー",
@@ -4437,6 +4454,16 @@
     subtitleFontWeight: "字幕フォントの太さ",
     subtitleSeekPadding: "字幕シーク余白 (秒)",
     subtitlePreview: "字幕ライブプレビュー",
+    youtubeImmersionEnabled: "日本語らしいYouTube動画だけ表示",
+    youtubeShowFilterNotice: "非表示動画の表示ボタンを出す",
+    youtubeHelp: "既定ではオフです。YouTubeのおすすめ、検索、サイドバーを日本語らしい動画に集中させたい時にオンにしてください。",
+    youtubeFilterOn: "YouTubeフィルター: オン",
+    youtubeFilterOff: "YouTubeフィルター: オフ",
+    youtubeShowAnyway: "それでも表示",
+    youtubeFilterAgain: "もう一度隠す",
+    youtubeTurnOff: "オフにする",
+    youtubeToggleToastOn: "YouTube没入フィルターをオンにしました。",
+    youtubeToggleToastOff: "YouTube没入フィルターをオフにしました。",
     ankiEnabled: "Anki採掘を有効にする",
     ankiMineWithJpdb: "JPDBへ追加するときAnkiにも追加",
     ankiCaptureScreenshot: "可能なら文脈画像を添付",
@@ -4520,6 +4547,7 @@
     nextSubtitle: "次の字幕",
     copySubtitle: "字幕をコピー",
     toggleImageReading: "画像読み取りを切り替え",
+    toggleYoutubeImmersion: "YouTubeフィルターを切り替え",
     readImagesNow: "今すぐ画像を読む",
     helpLinksTitle: "便利なページ",
     helpLinksCopy: "ホストされたリーダーツールとドキュメントをここから開けます。",
@@ -5603,7 +5631,8 @@
   function shouldRetryWithFetch(error) {
     if (!(error instanceof Error)) return true;
     if (/\(\d{3}\)/.test(error.message)) return false;
-    return /timed out|timeout|network|cors|blocked|request failed/i.test(error.message);
+    if (/timed out|timeout/i.test(error.message)) return false;
+    return /network|cors|blocked|request failed/i.test(error.message);
   }
   function recordHeaders(headers) {
     if (!headers) return void 0;
@@ -5617,6 +5646,9 @@
   const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1e3;
   const AUDIO_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
   const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1e3;
+  const AUDIO_CANDIDATE_CACHE_LIMIT = 600;
+  const READY_AUDIO_CACHE_LIMIT = 160;
+  const AUDIO_SOURCE_RACE_STAGGER_MS = 120;
   const LOOPBACK_AUDIO_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
   const SOFT_CHIME_NOTES = [
     { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
@@ -5702,7 +5734,7 @@
         return { state: result, errors };
       }
       const realAudioSources = sources.filter((source) => !isTtsFallbackSource(source));
-      const realAudioResult = await this.playOrderedSources(orderAudioSources(realAudioSources, settings.audioSelectionMode), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+      const realAudioResult = await this.playGreedyAudioSources(orderAudioSources(realAudioSources, settings.audioSelectionMode), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
       if (realAudioResult !== "miss") return { state: realAudioResult, errors };
       const textToSpeechResult = await this.playOrderedSources(sources.filter(isBrowserTextToSpeechSource), card, settings, requestId, triedUrls, isCurrent, errors);
       if (textToSpeechResult !== "miss") return { state: textToSpeechResult, errors };
@@ -5715,6 +5747,74 @@
         if (result !== "miss") return result;
       }
       return "miss";
+    }
+    async playGreedyAudioSources(sources, card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio) {
+      if (sources.length <= 1) {
+        return await this.playOrderedSources(sources, card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+      }
+      const pending = /* @__PURE__ */ new Set();
+      let nextSourceIndex = 0;
+      const startNextSource = () => {
+        const source = sources[nextSourceIndex++];
+        if (source) pending.add(this.prepareSourceWithErrors(source, card, settings, requestId, triedUrls, isCurrent, errors));
+      };
+      while (pending.size || nextSourceIndex < sources.length) {
+        if (!pending.size) {
+          startNextSource();
+          continue;
+        }
+        const current = nextSourceIndex < sources.length ? await Promise.race([
+          ...pending,
+          delayAudioSourceRace(AUDIO_SOURCE_RACE_STAGGER_MS)
+        ]) : await Promise.race(pending);
+        if (!current) {
+          startNextSource();
+          continue;
+        }
+        pending.delete(current.promise);
+        if (current.result.state === "superseded") return "superseded";
+        if (current.result.state !== "ready" || !current.result.prepared) continue;
+        const result = await this.playPreparedCandidate(current.result.prepared, settings, requestId, isCurrent, reservedAudio).catch((error) => {
+          errors.push(error instanceof Error ? error.message : String(error));
+          return error instanceof AudioPlaybackAttemptError ? "playback-error" : "miss";
+        });
+        if (result !== "miss") return result;
+      }
+      return "miss";
+    }
+    prepareSourceWithErrors(source, card, settings, requestId, triedUrls, isCurrent, errors) {
+      let promise;
+      promise = this.prepareSource(source, card, settings, requestId, triedUrls, isCurrent).catch((error) => {
+        errors.push(error instanceof Error ? error.message : String(error));
+        return { state: "miss" };
+      }).then((result) => ({ promise, result }));
+      return promise;
+    }
+    async prepareSource(source, card, settings, requestId, triedUrls, isCurrent) {
+      if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: "superseded" };
+      const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
+      if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: "superseded" };
+      const bagKey = getAudioBagKey(source, card);
+      for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
+        if (!registerAudioAttempt(triedUrls, candidate)) continue;
+        const audio = await Promise.resolve(this.createPlayableAudio(candidate, source.type, settings)).catch(() => null);
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: "superseded" };
+        if (audio) return { state: "ready", prepared: { audio, candidate, id, bagKey, sourceType: source.type } };
+      }
+      return { state: "miss" };
+    }
+    async playPreparedCandidate(prepared, settings, requestId, isCurrent, reservedAudio) {
+      let played = false;
+      try {
+        const audio = reservedAudio ? await this.createPlayableAudio(prepared.candidate, prepared.sourceType, settings, reservedAudio) : prepared.audio;
+        played = await this.playPreparedAudio(audio, requestId, isCurrent);
+      } catch (error) {
+        throw new AudioPlaybackAttemptError(error);
+      }
+      if (!this.isPlaybackCurrent(requestId, isCurrent)) return "superseded";
+      if (!played) return "miss";
+      this.shuffledAudio.markPlayed(prepared.bagKey, prepared.id);
+      return "played";
     }
     async playSourceWithErrors(source, card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio) {
       if (!this.isPlaybackCurrent(requestId, isCurrent)) {
@@ -5898,6 +5998,7 @@
         throw error;
       });
       this.readyAudioCache.set(key, { expiresAt: now + READY_AUDIO_CACHE_TTL_MS, promise });
+      pruneTimedCache(this.readyAudioCache, READY_AUDIO_CACHE_LIMIT, now);
       return promise;
     }
     async createReadyAudio(audioUrl, audio = this.createAudioElement(audioUrl)) {
@@ -5944,6 +6045,7 @@
         throw error;
       });
       this.candidateCache.set(key, { expiresAt: now + AUDIO_CANDIDATE_CACHE_TTL_MS, promise });
+      pruneTimedCache(this.candidateCache, AUDIO_CANDIDATE_CACHE_LIMIT, now);
       return promise.then(cloneAudioCandidates);
     }
     async fetchAudioAsBlobUrl(url, sourceUrl, timeoutMs, mode) {
@@ -6271,6 +6373,19 @@
       sourceLimit: Math.max(1, options.sourceLimit ?? 1),
       candidateLimit: Math.max(1, options.candidateLimit ?? 1)
     };
+  }
+  function delayAudioSourceRace(ms) {
+    return new Promise((resolve) => window.setTimeout(() => resolve(null), ms));
+  }
+  function pruneTimedCache(cache, limit, now = Date.now()) {
+    for (const [key, entry] of cache) {
+      if (entry.expiresAt <= now) cache.delete(key);
+    }
+    while (cache.size > limit) {
+      const oldest = cache.keys().next().value;
+      if (typeof oldest !== "string") break;
+      cache.delete(oldest);
+    }
   }
   async function getAudioCandidates(source, card, timeoutMs, proxyUrl) {
     return await (AUDIO_CANDIDATE_LOADERS[source.type] ?? loadNoAudioCandidates)(source, card, timeoutMs, proxyUrl);
@@ -8817,7 +8932,7 @@ ${scopedInner}
   const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
   const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
   const JAPANESE_RE$3 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  const JAPANESE_CHARACTER_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const log$s = Logger.scope("Yomitan");
   class YomitanDictionaryStore {
     constructor(getCorsProxyUrl = () => "", getInterfaceLanguage = () => "en") {
@@ -9045,7 +9160,7 @@ ${scopedInner}
       const candidates = /* @__PURE__ */ new Map();
       const maxLength = Math.min(18, source.length);
       for (let start = 0; start < source.length; start++) {
-        if (!JAPANESE_CHARACTER_RE.test(source[start])) continue;
+        if (!JAPANESE_CHARACTER_RE$1.test(source[start])) continue;
         this.collectTermMatchCandidatesAt(source, start, maxLength, candidates);
       }
       return candidates;
@@ -12408,6 +12523,17 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const audio = uiText(language, "audio");
     return filename ? `${audio} ${filename}` : audio;
   }
+  async function runLimited(items, concurrency, worker) {
+    if (!items.length) return;
+    const workerCount = Math.max(1, Math.min(items.length, Math.floor(concurrency) || 1));
+    let nextIndex = 0;
+    await Promise.all(Array.from({ length: workerCount }, async () => {
+      while (nextIndex < items.length) {
+        const index = nextIndex++;
+        await worker(items[index], index);
+      }
+    }));
+  }
   const DEFAULT_POPOVER_WRITING_MODE = "horizontal-tb";
   const SUPPORTED_POPOVER_WRITING_MODES = /* @__PURE__ */ new Set([
     "horizontal-tb",
@@ -12719,10 +12845,13 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
   const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
   const MAX_LOCAL_GRAMMAR_HINTS = 12;
+  const GRAMMAR_HINT_CACHE_LIMIT = 240;
+  const TRANSLATION_CACHE_LIMIT = 160;
+  const TRANSLATION_TIMEOUT_MS = 5e3;
   const ENGLISH_TEXT_RE = /[A-Za-z]{3,}/u;
   const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
   function gp(ruleId, level, name, source, kind, short, detail, url, examples, confidence = "medium", priority = 30) {
-    return { ruleId, level, pattern: new RegExp(source, "u"), name, kind, short, detail, url, confidence, priority, examples };
+    return { ruleId, level, pattern: new RegExp(source, "gu"), name, kind, short, detail, url, confidence, priority, examples };
   }
   function ex(japanese, english, note) {
     return note ? [{ japanese, english, note }] : [{ japanese, english }];
@@ -12977,8 +13106,11 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   ];
   const translationCache = /* @__PURE__ */ new Map();
   const translationInFlight = /* @__PURE__ */ new Map();
+  const grammarHintCache = /* @__PURE__ */ new Map();
   function detectGrammarHints(sentence) {
     const normalized = sentence.normalize("NFKC").replace(/\s+/g, "");
+    const cached = grammarHintCache.get(normalized);
+    if (cached) return cached;
     const seenMatches = /* @__PURE__ */ new Set();
     const seenNames = /* @__PURE__ */ new Map();
     const selected = [];
@@ -12994,7 +13126,26 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
       selected.push(item);
       if (selected.length >= MAX_LOCAL_GRAMMAR_HINTS) break;
     }
-    return selected.sort(compareGrammarHints).map(({ priority: _priority, ...hint }) => hint);
+    const hints = selected.sort(compareGrammarHints).map(({ priority: _priority, ...hint }) => hint);
+    cacheGrammarHints(normalized, hints);
+    return hints;
+  }
+  function preloadGrammarResources(sentence, language = "en") {
+    const hints = detectGrammarHints(sentence);
+    if (language === "ja" && hints.length) {
+      void grammarRuleText(language, hints[0].ruleId).catch(() => void 0);
+    }
+    return hints;
+  }
+  function preloadJapaneseSentenceTranslation(sentence, language = "en") {
+    void translateJapaneseSentence(sentence, language).catch(() => void 0);
+  }
+  function cacheGrammarHints(key, hints) {
+    if (!key) return;
+    grammarHintCache.set(key, hints);
+    if (grammarHintCache.size <= GRAMMAR_HINT_CACHE_LIMIT) return;
+    const oldest = grammarHintCache.keys().next().value;
+    if (typeof oldest === "string") grammarHintCache.delete(oldest);
   }
   function compareRankedGrammarHints(a, b) {
     return a.priority - b.priority || a.index - b.index || b.match.length - a.match.length || a.name.localeCompare(b.name);
@@ -13082,6 +13233,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
         const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
         if (!translated) throw new Error("No translation returned.");
         translationCache.set(cacheKey, translated);
+        pruneOldestMapEntries$3(translationCache, TRANSLATION_CACHE_LIMIT);
         log$q.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
         return translated;
       } catch (error) {
@@ -13209,9 +13361,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     return hint.url ? `<a class="jpdb-reader-study-guide" href="${escapeHtml$1(hint.url)}" target="_blank" rel="noopener">${escapeHtml$1(uiText(language, "grammarGuide"))}</a>` : "";
   }
   function grammarMatches(item, sentence) {
-    const flags = item.pattern.flags.includes("g") ? item.pattern.flags : `${item.pattern.flags}g`;
-    const pattern = new RegExp(item.pattern.source, flags);
-    return Array.from(sentence.matchAll(pattern)).map((match) => {
+    return Array.from(sentence.matchAll(item.pattern)).map((match) => {
       const rawMatch = match[0];
       const learnerFacingMatch = learnerMatch(item.name, rawMatch);
       const learnerOffset = rawMatch.lastIndexOf(learnerFacingMatch);
@@ -13284,40 +13434,22 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     return afterLastParticle || match;
   }
   function requestJson$2(url) {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-      return new Promise((resolve, reject) => {
-        userscriptRequest({
-          method: "GET",
-          url,
-          responseType: "json",
-          timeout: 8e3,
-          onload: (response) => {
-            if (response.status >= 200 && response.status < 300) {
-              resolve(response.response ?? JSON.parse(String(response.responseText ?? "{}")));
-            } else {
-              log$q.warn("Translation request returned HTTP error", { status: response.status });
-              reject(new Error(`Translation request failed (${response.status}).`));
-            }
-          },
-          onerror: (error) => {
-            log$q.warn("Translation request failed", { error });
-            reject(error);
-          },
-          ontimeout: () => {
-            log$q.warn("Translation request timed out");
-            reject(new Error("Translation timed out."));
-          }
-        });
-      });
-    }
-    return fetch(url).then(async (response) => {
-      if (!response.ok) {
-        log$q.warn("Translation request returned HTTP error", { status: response.status });
-        throw new Error(`Translation request failed (${response.status}).`);
-      }
-      return response.json();
+    return requestJson$3(url, {
+      timeoutMs: TRANSLATION_TIMEOUT_MS,
+      allowDirectCrossOrigin: true,
+      allowConfiguredProxy: false,
+      allowPublicProxies: false,
+      preferFetch: true,
+      failureLabel: "Translation request",
+      timeoutLabel: "Translation timed out."
     });
+  }
+  function pruneOldestMapEntries$3(cache, limit) {
+    while (cache.size > limit) {
+      const oldest = cache.keys().next().value;
+      if (oldest === void 0) break;
+      cache.delete(oldest);
+    }
   }
   const log$p = Logger.scope("StudyRender");
   async function renderStudyToolResult(button2, action, sentence, grammarHints, language = "en") {
@@ -16687,7 +16819,13 @@ ${entry.reading}`;
   }
   const log$m = Logger.scope("CardRenderData");
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
-  const CARD_RENDER_DETAIL_TIMEOUT_MS = 4500;
+  const CARD_RENDER_DATA_CACHE_LIMIT = 120;
+  const CARD_RENDER_LOCAL_TIMEOUT_MS = 2500;
+  const CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS = 4e3;
+  const CARD_RENDER_ANKI_TIMEOUT_MS = 2500;
+  const CARD_RENDER_DECK_TIMEOUT_MS = 1500;
+  const CARD_RENDER_PITCH_TIMEOUT_MS = 6500;
+  const CARD_RENDER_SHARED_DECK_CACHE_TTL_MS = 5 * 60 * 1e3;
   function loadingCardRenderData(localEntries, ankiLookup) {
     return {
       localEntries,
@@ -16705,8 +16843,12 @@ ${entry.reading}`;
       this.dependencies = dependencies;
     }
     cache = /* @__PURE__ */ new Map();
+    jpdbDecksCache;
+    ankiDecksCache;
     clear() {
       this.cache.clear();
+      this.jpdbDecksCache = void 0;
+      this.ankiDecksCache = void 0;
     }
     load(card) {
       const key = this.cacheKey(card);
@@ -16718,97 +16860,116 @@ ${entry.reading}`;
         if (this.cache.get(key)?.load === load) this.cache.delete(key);
       });
       this.cache.set(key, { expiresAt: now + CARD_RENDER_DATA_CACHE_TTL_MS, load });
+      pruneExpiringMap(this.cache, now, CARD_RENDER_DATA_CACHE_LIMIT);
       return load;
     }
     fetch(card) {
-      const timeoutMs = this.detailTimeoutMs();
-      const localEntries = this.loadLocalTermEntries(card, timeoutMs);
-      const all = this.loadAll(card, timeoutMs, localEntries);
+      const localEntries = this.loadLocalTermEntries(card);
+      const all = this.loadAll(card, localEntries);
       return { localEntries, all };
-    }
-    detailTimeoutMs() {
-      return CARD_RENDER_DETAIL_TIMEOUT_MS;
     }
     withFallback(card, timeoutMs, detail, promise, fallback) {
       return cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs);
     }
-    loadLocalTermEntries(card, timeoutMs) {
+    loadLocalTermEntries(card) {
       const settings = this.settings();
       if (!settings.localDictionariesEnabled) return Promise.resolve([]);
-      return this.withFallback(card, timeoutMs, "local term dictionary", this.dependencies.dictionaries.lookup(card.spelling, card.reading, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
+      return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local term dictionary", this.dependencies.dictionaries.lookup(card.spelling, card.reading, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
         log$m.warn("Local term lookup failed while rendering card", { term: card.spelling }, error);
         return [];
       }), []);
     }
-    loadLocalKanjiEntries(card, timeoutMs) {
+    loadLocalKanjiEntries(card) {
       const settings = this.settings();
       if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji) return Promise.resolve([]);
-      return this.withFallback(card, timeoutMs, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
+      return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
         log$m.warn("Local kanji lookup failed while rendering card", { term: card.spelling }, error);
         return [];
       }), []);
     }
-    loadLocalMetaEntries(card, timeoutMs) {
+    loadLocalMetaEntries(card) {
       const settings = this.settings();
       if (!settings.localDictionariesEnabled) return Promise.resolve([]);
-      return this.withFallback(card, timeoutMs, "local metadata dictionary", this.dependencies.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch((error) => {
+      return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local metadata dictionary", this.dependencies.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch((error) => {
         log$m.warn("Local metadata lookup failed while rendering card", { term: card.spelling }, error);
         return [];
       }), []);
     }
-    loadPublicPitch(card, timeoutMs) {
+    loadPublicPitch(card) {
       const settings = this.settings();
       if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
-      return this.withFallback(card, timeoutMs, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
+      return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
         log$m.warn("Public JPDB pitch lookup failed while rendering card", { term: card.spelling }, error);
         return [];
       }), []);
     }
-    loadJpdbVocabularyInfo(card, timeoutMs) {
+    loadJpdbVocabularyInfo(card) {
       const settings = this.settings();
       if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
-      return this.withFallback(card, timeoutMs, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
+      return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
         log$m.warn("JPDB vocabulary page lookup failed while rendering card", { term: card.spelling }, error);
         return null;
       }), null);
     }
-    loadAnkiLookup(card, timeoutMs) {
+    loadAnkiLookup(card) {
       const fallback = { state: "not-in-deck", notes: [], primary: null };
       if (!this.settings().ankiEnabled || canUseMobileAnkiHandoff(this.settings())) return Promise.resolve(fallback);
-      return this.withFallback(card, timeoutMs, "Anki existing cards", this.dependencies.anki.findExistingCards(card).catch((error) => {
+      return this.withFallback(card, CARD_RENDER_ANKI_TIMEOUT_MS, "Anki existing cards", this.dependencies.anki.findExistingCards(card).catch((error) => {
         log$m.warn("Anki lookup failed while rendering card", { term: card.spelling }, error);
         return fallback;
       }), fallback);
     }
-    loadJpdbDecks(card, timeoutMs) {
+    loadJpdbDecks(card) {
       const settings = this.settings();
       if (!settings.jpdbMiningEnabled || !settings.apiKey.trim() || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
-      return this.withFallback(card, timeoutMs, "JPDB deck list", this.dependencies.jpdb.listDecks().catch((error) => {
+      return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "JPDB deck list", this.cachedJpdbDecks(settings).catch((error) => {
         log$m.warn("JPDB deck list failed while rendering card", { term: card.spelling }, error);
         return [];
       }), []);
     }
-    loadAnkiDecks(card, timeoutMs) {
+    loadAnkiDecks(card) {
       if (!this.settings().ankiEnabled || canUseMobileAnkiHandoff(this.settings())) return Promise.resolve([]);
-      return this.withFallback(card, timeoutMs, "Anki deck list", this.dependencies.anki.deckNames().catch((error) => {
+      return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki deck list", this.cachedAnkiDecks(this.settings()).catch((error) => {
         log$m.warn("Anki deck list failed while rendering card", { term: card.spelling }, error);
         return [];
       }), []);
     }
-    loadAll(card, timeoutMs, localEntries) {
+    loadAll(card, localEntries) {
       return Promise.all([
         localEntries,
-        this.loadLocalKanjiEntries(card, timeoutMs),
-        this.loadLocalMetaEntries(card, timeoutMs),
-        this.loadPublicPitch(card, timeoutMs),
-        this.loadAnkiLookup(card, timeoutMs),
-        this.loadJpdbDecks(card, timeoutMs),
-        this.loadAnkiDecks(card, timeoutMs),
-        this.loadJpdbVocabularyInfo(card, timeoutMs)
+        this.loadLocalKanjiEntries(card),
+        this.loadLocalMetaEntries(card),
+        this.loadPublicPitch(card),
+        this.loadAnkiLookup(card),
+        this.loadJpdbDecks(card),
+        this.loadAnkiDecks(card),
+        this.loadJpdbVocabularyInfo(card)
       ]).then(([localEntriesValue, kanjiEntries, metaEntries, jpdbPublicPitch, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo]) => {
         if (!card.pitchAccent.length && jpdbPublicPitch.length) card.pitchAccent = jpdbPublicPitch;
         return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo };
       });
+    }
+    cachedJpdbDecks(settings) {
+      const key = `jpdb:${settings.apiKey.trim()}`;
+      const now = Date.now();
+      if (this.jpdbDecksCache?.key === key && this.jpdbDecksCache.expiresAt > now) return this.jpdbDecksCache.promise;
+      const promise = this.dependencies.jpdb.listDecks().catch((error) => {
+        if (this.jpdbDecksCache?.promise === promise) this.jpdbDecksCache = void 0;
+        throw error;
+      });
+      this.jpdbDecksCache = { key, expiresAt: now + CARD_RENDER_SHARED_DECK_CACHE_TTL_MS, promise };
+      return promise;
+    }
+    cachedAnkiDecks(settings) {
+      const key = `anki:${settings.ankiConnectUrl}`;
+      const now = Date.now();
+      if (this.ankiDecksCache?.key === key && this.ankiDecksCache.expiresAt > now) return this.ankiDecksCache.promise;
+      const promise = this.dependencies.anki.deckNames().catch((error) => {
+        if (this.ankiDecksCache?.promise === promise) this.ankiDecksCache = void 0;
+        throw error;
+      });
+      this.ankiDecksCache = { key, expiresAt: now + CARD_RENDER_SHARED_DECK_CACHE_TTL_MS, promise };
+      return promise;
     }
     cacheKey(card) {
       const settings = this.settings();
@@ -16819,6 +16980,11 @@ ${entry.reading}`;
         max: settings.localDictionaryMaxResults,
         pitch: settings.showPitchAccent,
         anki: settings.ankiEnabled,
+        ankiConnectUrl: settings.ankiConnectUrl,
+        ankiMobileHandoff: settings.ankiMobileHandoff,
+        jpdbDefinitions: settings.jpdbDefinitionsEnabled,
+        jpdbMining: settings.jpdbMiningEnabled,
+        hasApiKey: Boolean(settings.apiKey.trim()),
         dictionaries: settings.dictionaryPreferences.map((preference) => ({
           name: preference.name,
           enabled: preference.enabled,
@@ -16841,6 +17007,16 @@ ${entry.reading}`;
   }
   function delay$1(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+  function pruneExpiringMap(cache, now, limit) {
+    for (const [key, value] of cache) {
+      if (value.expiresAt <= now) cache.delete(key);
+    }
+    while (cache.size > limit) {
+      const oldest = cache.keys().next().value;
+      if (typeof oldest !== "string") break;
+      cache.delete(oldest);
+    }
   }
   const STORAGE_KEY = "jpdb-reader-source-open-state";
   class DictionarySourceStateController {
@@ -17050,6 +17226,8 @@ ${entry.reading}`;
   const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
   const MEDIA_CANDIDATE_LIMIT = 4;
   const SEARCH_EXAMPLE_LIMIT = 250;
+  const SEARCH_CACHE_LIMIT = 160;
+  const PRELOAD_KEY_LIMIT = 300;
   const NADESHIKO_SEARCH_LIMIT = 25;
   const MIN_LEARNING_SENTENCE_LENGTH = 8;
   const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
@@ -17168,6 +17346,7 @@ ${entry.reading}`;
       const promise = this.searchEnabledSources(query, settings).then((examples) => {
         const result = applySearchExampleLimit(examples, settings);
         this.cache.set(cacheKey, result);
+        pruneOldestMapEntries$2(this.cache, SEARCH_CACHE_LIMIT);
         return result;
       }).finally(() => {
         this.inflight.delete(cacheKey);
@@ -17270,6 +17449,7 @@ ${entry.reading}`;
       const query = term.trim();
       if (!canSearchImmersionExamples(query, settings) || this.preloadKeys.has(query)) return;
       this.preloadKeys.add(query);
+      pruneOldestSetEntries$1(this.preloadKeys, PRELOAD_KEY_LIMIT);
       void this.search(query, settings).then((examples) => {
         for (const example of examples.slice(0, 1)) {
           const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, "image") : [];
@@ -17433,8 +17613,8 @@ ${entry.reading}`;
   function mediaFileTitleUrls(category, title, file) {
     const path = `media/${category}/${title}/media/${file}`;
     return [
-      ...apiUrls(`/download_media?${new URLSearchParams({ path })}`),
-      `${OBJECT_STORE_BASE}/${path.split("/").map(encodeURIComponent).join("/")}`
+      `${OBJECT_STORE_BASE}/${path.split("/").map(encodeURIComponent).join("/")}`,
+      ...apiUrls(`/download_media?${new URLSearchParams({ path })}`)
     ];
   }
   function exampleTitleSlug(record, id) {
@@ -17623,7 +17803,21 @@ ${entry.reading}`;
     throw requestError(lastError, "No Immersion Kit media candidate could be loaded.");
   }
   function prioritizeMediaCandidates(urls) {
-    return [...urls].sort((a, b) => Number(isObjectStoreMediaUrl(a)) - Number(isObjectStoreMediaUrl(b)));
+    return [...urls].sort((a, b) => Number(isObjectStoreMediaUrl(b)) - Number(isObjectStoreMediaUrl(a)));
+  }
+  function pruneOldestMapEntries$2(map, limit) {
+    while (map.size > limit) {
+      const oldest = map.keys().next().value;
+      if (oldest === void 0) break;
+      map.delete(oldest);
+    }
+  }
+  function pruneOldestSetEntries$1(set, limit) {
+    while (set.size > limit) {
+      const oldest = set.values().next().value;
+      if (oldest === void 0) break;
+      set.delete(oldest);
+    }
   }
   function isObjectStoreMediaUrl(url) {
     try {
@@ -17729,6 +17923,10 @@ ${entry.reading}`;
     return queryLength(b) - queryLength(a);
   }
   const IMMERSION_SEARCH_CACHE_TTL_MS = 3e4;
+  const IMMERSION_SEARCH_CACHE_LIMIT = 120;
+  const IMMERSION_PRELOAD_TERM_LIMIT = 240;
+  const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
+  const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
   const log$j = Logger.scope("ImmersionPopover");
   class ImmersionPopoverController {
     constructor(options) {
@@ -17842,6 +18040,7 @@ ${entry.reading}`;
         const audioKey = hoverAudioExampleKey(examples[index]);
         if (this.hoverAudioPlayedKeys.has(audioKey)) return;
         this.hoverAudioPlayedKeys.add(audioKey);
+        pruneOldestSetEntries(this.hoverAudioPlayedKeys, IMMERSION_HOVER_AUDIO_KEY_LIMIT);
         hoverAudioCanPlay = false;
         hoverAudioActive = true;
         void this.playExampleAudio(examples[index], true, () => hoverAudioActive && container.isConnected && media.isConnected && media.matches(":hover"));
@@ -17882,6 +18081,7 @@ ${entry.reading}`;
         throw error;
       });
       this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise });
+      pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
       return promise;
     }
     preloadForTokens(tokens) {
@@ -17903,6 +18103,7 @@ ${entry.reading}`;
       const term = token.card.spelling.trim();
       if (!isUsefulImmersionPreloadQuery(term) || this.preloadedTerms.has(term)) return "";
       this.preloadedTerms.add(term);
+      pruneOldestSetEntries(this.preloadedTerms, IMMERSION_PRELOAD_TERM_LIMIT);
       return term;
     }
     stopAudio() {
@@ -17911,18 +18112,20 @@ ${entry.reading}`;
     }
     async fetchExamples(card, options) {
       const exactQuery = normalizeImmersionSearchQuery(card.spelling);
-      const queries = await this.immersionSearchQueries(card, options, exactQuery);
       const triedQueries = [];
+      const exactResult = await this.fetchExamplesForQuery(exactQuery, exactQuery, triedQueries);
+      if (exactResult) return exactResult;
+      const queries = await this.immersionFallbackSearchQueries(card, options, exactQuery);
       for (const query of queries) {
         const result = await this.fetchExamplesForQuery(query, exactQuery, triedQueries);
         if (result) return result;
       }
       return { examples: [], query: exactQuery, usedFallback: false, triedQueries };
     }
-    async immersionSearchQueries(card, options, exactQuery) {
+    async immersionFallbackSearchQueries(card, options, exactQuery) {
       const relatedQueries = uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery).filter((query) => isUsefulImmersionFallbackQuery(query, exactQuery));
       const fallbackQueries = await this.fallbackQueries(card, exactQuery);
-      return uniqueImmersionQueries([exactQuery, ...relatedQueries, ...fallbackQueries]).slice(0, 1 + IMMERSION_FALLBACK_QUERY_LIMIT);
+      return uniqueImmersionQueries([...relatedQueries, ...fallbackQueries]).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
     }
     async fetchExamplesForQuery(query, exactQuery, triedQueries) {
       if (!query) return null;
@@ -17966,7 +18169,7 @@ ${entry.reading}`;
       addImmersionFallbackQueries(candidates, fallbackTokenQueries(card, tokens), exactQuery);
     }
     async fallbackParseTokens(card) {
-      const [tokens] = await this.options.parseJapanese([card.spelling]).catch(() => {
+      const [tokens] = await this.options.parseJapanese([card.spelling], { jpdbTimeoutMs: 1200 }).catch(() => {
         return [[]];
       });
       return tokens ?? [];
@@ -18012,6 +18215,7 @@ ${entry.reading}`;
       const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, total, imageUrl, audioUrls));
       if (storedContext) {
         this.contextByCardKey.set(cardKey$1(card), storedContext);
+        pruneOldestMapEntries$1(this.contextByCardKey, IMMERSION_CONTEXT_CACHE_LIMIT);
         this.promoteExampleMiningContext(card, storedContext, promoteMiningContext);
       }
     }
@@ -18115,13 +18319,14 @@ ${entry.reading}`;
       this.options.repositionPopover();
     }
     parseRenderedExampleSentence(container, card, example, searchQuery, isCurrent) {
-      void this.options.parseJapanese([example.sentence]).then(([tokens]) => {
+      void this.options.parseJapanese([example.sentence], { jpdbTimeoutMs: 1200 }).then(([tokens]) => {
         if (!isCurrent() || !container.isConnected) return;
         const sentence = container.querySelector("[data-immersion-sentence-render]");
         if (!sentence) return;
         setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens ?? [], this.options.getSettings()));
         this.highlightTarget(sentence, card, searchQuery);
         void this.options.parsePopoverJapanese(container);
+        void this.options.enrichPitchWords(tokens ?? []);
         void this.options.enrichAnkiWords(tokens ?? []);
         this.options.repositionPopover();
       }).catch(() => void 0);
@@ -18360,6 +18565,26 @@ ${entry.reading}`;
   function hoverAudioExampleKey(example) {
     if (!example) return "";
     return example.id || `${example.provider ?? "immersion-kit"}:${example.sourceTitle}:${example.sentence}:${example.soundFile || example.soundUrl}`;
+  }
+  function pruneImmersionSearchCache(cache, now, limit) {
+    for (const [key, value] of cache) {
+      if (value.expiresAt <= now) cache.delete(key);
+    }
+    pruneOldestMapEntries$1(cache, limit);
+  }
+  function pruneOldestMapEntries$1(cache, limit) {
+    while (cache.size > limit) {
+      const oldest = cache.keys().next().value;
+      if (oldest === void 0) break;
+      cache.delete(oldest);
+    }
+  }
+  function pruneOldestSetEntries(cache, limit) {
+    while (cache.size > limit) {
+      const oldest = cache.keys().next().value;
+      if (oldest === void 0) break;
+      cache.delete(oldest);
+    }
   }
   function renderExampleTranslation(translation, settings) {
     if (!settings.immersionKitShowTranslation || !translation) return "";
@@ -19030,12 +19255,15 @@ ${entry.reading}`;
   ];
   const DECK_FIELDS = ["id", "name"];
   const PARSE_CACHE_SIZE = 250;
+  const PARAGRAPH_PARSE_CACHE_SIZE = 800;
   const log$h = Logger.scope("JpdbClient");
   class JpdbClient {
     api;
     cardCache = /* @__PURE__ */ new Map();
     parseCache = new LruCache(PARSE_CACHE_SIZE);
     parseInFlight = /* @__PURE__ */ new Map();
+    paragraphParseCache = new LruCache(PARAGRAPH_PARSE_CACHE_SIZE);
+    paragraphParseInFlight = /* @__PURE__ */ new Map();
     constructor(getApiKey, getProxyUrl = () => "") {
       this.api = new JpdbApiClient(getApiKey, getProxyUrl);
     }
@@ -19051,7 +19279,7 @@ ${entry.reading}`;
       if (inFlight) {
         return inFlight;
       }
-      const promise = this.fetchParse(text2, cacheKey);
+      const promise = this.parseParagraphs(text2, cacheKey);
       this.parseInFlight.set(cacheKey, promise);
       void promise.then(() => {
         if (this.parseInFlight.get(cacheKey) === promise) this.parseInFlight.delete(cacheKey);
@@ -19111,6 +19339,9 @@ ${entry.reading}`;
     clear() {
       this.cardCache.clear();
       this.parseCache.clear();
+      this.parseInFlight.clear();
+      this.paragraphParseCache.clear();
+      this.paragraphParseInFlight.clear();
     }
     async addVocabularyToDeck(deckId, card) {
       if (deckId === "forq") {
@@ -19166,10 +19397,39 @@ ${entry.reading}`;
         const tokens = jpdbParseResultToTokens(text2, raw.tokens, cards);
         this.cacheCards(cards);
         this.parseCache.set(cacheKey, tokens);
+        text2.forEach((paragraph, index) => {
+          this.paragraphParseCache.set(paragraph, tokens[index] ?? []);
+        });
         return tokens;
       } finally {
         done();
       }
+    }
+    parseParagraphs(text2, cacheKey) {
+      const missing = [];
+      const seenMissing = /* @__PURE__ */ new Set();
+      for (const paragraph of text2) {
+        if (this.paragraphParseCache.get(paragraph) || this.paragraphParseInFlight.has(paragraph)) continue;
+        if (seenMissing.has(paragraph)) continue;
+        seenMissing.add(paragraph);
+        missing.push(paragraph);
+      }
+      if (missing.length) {
+        const missingRequest = this.fetchParse(missing, missing.join("\n"));
+        missing.forEach((paragraph, index) => {
+          const paragraphPromise = missingRequest.then((parsed) => parsed[index] ?? []);
+          this.paragraphParseInFlight.set(paragraph, paragraphPromise);
+          void paragraphPromise.then(() => {
+            if (this.paragraphParseInFlight.get(paragraph) === paragraphPromise) this.paragraphParseInFlight.delete(paragraph);
+          }, () => {
+            if (this.paragraphParseInFlight.get(paragraph) === paragraphPromise) this.paragraphParseInFlight.delete(paragraph);
+          });
+        });
+      }
+      return Promise.all(text2.map((paragraph) => this.paragraphParseCache.get(paragraph) ?? this.paragraphParseInFlight.get(paragraph) ?? [])).then((tokens) => {
+        this.parseCache.set(cacheKey, tokens);
+        return tokens;
+      });
     }
   }
   function normalizeParagraphs(paragraphs) {
@@ -19642,6 +19902,7 @@ ${normalizedReading}`;
       this.getCorsProxyUrl = getCorsProxyUrl;
     }
     cache = /* @__PURE__ */ new Map();
+    searchCache = /* @__PURE__ */ new Map();
     lookup(vid, spelling, reading) {
       if (!spelling) return Promise.resolve(null);
       const key = `${vid}:${spelling}:${reading}`;
@@ -19649,6 +19910,17 @@ ${normalizedReading}`;
       if (!promise) {
         promise = this.fetchInfo(vid, spelling, reading);
         this.cache.set(key, promise);
+      }
+      return promise;
+    }
+    search(query, limit = 10) {
+      const normalized = cleanText$1(query);
+      if (!normalized) return Promise.resolve([]);
+      const key = `${normalized}:${limit}`;
+      let promise = this.searchCache.get(key);
+      if (!promise) {
+        promise = this.fetchSearch(normalized, limit);
+        this.searchCache.set(key, promise);
       }
       return promise;
     }
@@ -19662,6 +19934,14 @@ ${normalizedReading}`;
         if (info) return await this.fetchSupplementaryInfo(info, html, url, vid, spelling, reading);
       }
       return null;
+    }
+    async fetchSearch(query, limit) {
+      const url = `${JPDB_SEARCH_URL}?q=${encodeURIComponent(query)}`;
+      const html = await requestText$4(url, this.getCorsProxyUrl()).catch((error) => {
+        log$f.warn("Vocabulary search request failed", { query }, error);
+        return "";
+      });
+      return html ? parseJpdbSearchHtml(html, limit) : [];
     }
     async fetchSupplementaryInfo(initialInfo, html, initialUrl, vid, spelling, reading) {
       let info = initialInfo;
@@ -19686,6 +19966,71 @@ ${normalizedReading}`;
     const usedInVocabulary = extractUsedInVocabulary(root);
     const examples = extractExamples(root);
     return meanings.length || compounds.length || usedInVocabulary.length || examples.length ? { meanings, compounds, usedInVocabulary, examples } : null;
+  }
+  function parseJpdbSearchHtml(html, limit = 10) {
+    const doc = parseHtmlDocument(html);
+    const roots = Array.from(doc.querySelectorAll(".results.search .result.vocabulary, .result.vocabulary"));
+    return uniqueBy(
+      roots.map((root) => searchResultCard(root, doc)).filter((card) => card !== null),
+      (card) => `${card.vid}:${card.spelling}:${card.reading}`
+    ).slice(0, limit);
+  }
+  function searchResultCard(root, doc) {
+    const identity = searchResultIdentity(root);
+    const headword = root.querySelector(".subsection-headword .primary-spelling .spelling, .subsection-headword .spelling");
+    const spelling = cleanText$1(identity?.expression ?? "") || cleanText$1(headword ? baseText(headword) : "");
+    const reading = cleanText$1(identity?.reading ?? "") || cleanText$1(headword ? readingText(headword) : "") || spelling;
+    if (!spelling || !JAPANESE_RE$1.test(spelling)) return null;
+    const meanings = extractMeanings(root, doc, spelling, reading);
+    const partOfSpeech = extractPartOfSpeech(root);
+    return {
+      vid: identity?.vid ?? 0,
+      sid: 0,
+      rid: 0,
+      spelling,
+      reading,
+      frequencyRank: extractFrequencyRank(root),
+      partOfSpeech,
+      meanings: meanings.map((meaning) => ({ glosses: [meaning], partOfSpeech })),
+      cardState: ["not-in-deck"],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "jpdb",
+      sentence: spelling
+    };
+  }
+  function searchResultIdentity(root) {
+    const links = Array.from(root.querySelectorAll('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]'));
+    const details = links.find((link) => /more details/i.test(cleanText$1(link.textContent ?? "")));
+    return (details ? vocabularyEntryFromUrl(details.href || details.getAttribute("href") || "") : null) ?? links.map((link) => vocabularyEntryFromUrl(link.href || link.getAttribute("href") || "")).find((entry) => entry !== null) ?? null;
+  }
+  function vocabularyEntryFromUrl(value) {
+    if (!value) return null;
+    try {
+      const parsed = new URL(value, "https://jpdb.io");
+      const parts = parsed.pathname.split("/").filter(Boolean);
+      if (parts[0] !== "vocabulary") return null;
+      const vid = Number.parseInt(parts[1] ?? "", 10);
+      return {
+        vid: Number.isFinite(vid) ? vid : 0,
+        expression: decodePathPart(parts[2] ?? ""),
+        reading: decodePathPart(parts[3] ?? "")
+      };
+    } catch {
+      return null;
+    }
+  }
+  function extractPartOfSpeech(root) {
+    return unique(Array.from(root.querySelectorAll(".subsection-meanings .part-of-speech div")).map((element2) => cleanText$1(element2.textContent ?? "")).filter(Boolean));
+  }
+  function extractFrequencyRank(root) {
+    for (const tag of Array.from(root.querySelectorAll(".tags .tag, .tag"))) {
+      const match = /\bTop\s+([\d,]+)/i.exec(cleanText$1(tag.textContent ?? ""));
+      if (!match?.[1]) continue;
+      const rank = Number.parseInt(match[1].replace(/,/g, ""), 10);
+      if (Number.isFinite(rank)) return rank;
+    }
+    return null;
   }
   function vocabularyLookupUrls(vid, spelling, reading) {
     const urls = [];
@@ -21412,7 +21757,7 @@ ${normalizedReading}`;
       return Boolean(element2?.closest?.(".asbplayer-offscreen, .asbplayer-subtitles-container-bottom"));
     });
   }
-  function mutationInsideReaderRoot$1(mutation) {
+  function mutationInsideReaderRoot$2(mutation) {
     const nodes = [
       mutation.target,
       ...Array.from(mutation.addedNodes),
@@ -21604,7 +21949,7 @@ ${normalizedReading}`;
       return {
         ...current,
         onboardingSeen: true,
-        jpdbDefinitionsEnabled: openSettings === true,
+        jpdbDefinitionsEnabled: true,
         localDictionariesEnabled: openSettings !== true,
         dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? "jpdb" : "local"),
         interfaceLanguage: selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage)
@@ -25021,6 +25366,8 @@ ${normalizedReading}`;
   const LOCAL_MATCH_LIMIT = 40;
   const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
   const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
+  const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
+  const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
   const log$7 = Logger.scope("ReaderParser");
   class ReaderParser {
     constructor(dependencies) {
@@ -25039,32 +25386,28 @@ ${normalizedReading}`;
         try {
           const parsePromise = jpdb.parse(paragraphs);
           const timeoutMs = options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS;
-          const result = timeoutMs > 0 && this.canUseLocalDictionaryFallback() ? await withTimeout(parsePromise, timeoutMs, () => new Error("JPDB parse timed out.")) : await parsePromise;
+          const canFallback = this.canUseParseFallback();
+          const result = timeoutMs > 0 && canFallback ? await withTimeout(parsePromise, timeoutMs, () => new Error("JPDB parse timed out.")) : await parsePromise;
           done();
           return result;
         } catch (error) {
-          if (!this.canUseLocalDictionaryFallback()) {
-            log$7.warn("JPDB parse failed without local fallback", error);
+          if (!this.canUseParseFallback()) {
+            log$7.warn("JPDB parse failed without fallback", error);
             done();
             throw error;
           }
-          log$7.warn("JPDB parse failed; using local dictionary fallback", error);
+          log$7.warn("JPDB parse failed; using local or segmented fallback", error);
         }
       }
-      if (!this.canUseLocalDictionaryFallback()) {
-        done();
-        return paragraphs.map(() => []);
-      }
       try {
-        const result = await Promise.all(paragraphs.map((text2) => this.parseLocalDictionaryText(text2)));
+        const result = await Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
         return result;
       } finally {
         done();
       }
     }
     canParse() {
-      const settings = this.dependencies.getSettings();
-      return Boolean(settings.apiKey.trim()) || this.canUseLocalDictionaryFallback();
+      return true;
     }
     isJpdbBackedCard(card) {
       return (!card.source || card.source === "jpdb") && card.vid > 0 && card.sid > 0;
@@ -25130,7 +25473,15 @@ ${spelling}`);
     canUseLocalDictionaryFallback() {
       return this.dependencies.getSettings().localDictionariesEnabled;
     }
-    async parseLocalDictionaryText(text2) {
+    canUseParseFallback() {
+      return this.canUseLocalDictionaryFallback() || canSegmentJapaneseText();
+    }
+    async parseLocalOrSegmentedText(text2, options) {
+      if (!this.canUseLocalDictionaryFallback()) return this.parseSegmentedText(text2);
+      const tokens = await this.parseLocalDictionaryText(text2, options);
+      return tokens.length ? tokens : this.parseSegmentedText(text2);
+    }
+    async parseLocalDictionaryText(text2, options) {
       const { dictionaries, getSettings } = this.dependencies;
       const settings = getSettings();
       const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
@@ -25139,7 +25490,7 @@ ${spelling}`);
       });
       return Promise.all(matches.map(async (match) => {
         const card = this.localCardFromEntry(match.entry);
-        const pitch = await this.localPitchPattern(card);
+        const pitch = await this.localPitchPattern(card, options);
         if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
         const reading = !match.deinflected && card.reading && card.reading !== match.surface ? card.reading : "";
         return {
@@ -25153,8 +25504,23 @@ ${spelling}`);
         };
       }));
     }
-    async localPitchPattern(card) {
+    parseSegmentedText(text2) {
+      return segmentJapaneseText(text2).map((segment) => {
+        const card = this.fallbackCardFromText(segment.surface);
+        return {
+          card,
+          start: segment.start,
+          end: segment.end,
+          length: segment.end - segment.start,
+          rubies: [],
+          pitchClass: "",
+          sentence: text2
+        };
+      });
+    }
+    async localPitchPattern(card, options) {
       const settings = this.dependencies.getSettings();
+      if (options.includeLocalPitch === false) return "";
       if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return "";
       const lookupTermMeta = this.dependencies.dictionaries.lookupTermMeta;
       if (typeof lookupTermMeta !== "function") return "";
@@ -25192,6 +25558,58 @@ ${spelling}`);
   }
   function cardCacheKey(vid, sid) {
     return `${vid}:${sid}`;
+  }
+  let cachedSegmenterConstructor;
+  let cachedJapaneseWordSegmenter;
+  function segmentJapaneseText(text2) {
+    const segmenter = japaneseWordSegmenter();
+    if (!segmenter) {
+      return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
+        const start = match.index ?? 0;
+        return fallbackJapaneseRunSegment(match[0], start);
+      });
+    }
+    return Array.from(text2.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
+      const start = match.index ?? 0;
+      return segmentJapaneseRun(match[0], start, segmenter);
+    });
+  }
+  function segmentJapaneseRun(text2, offset, segmenter) {
+    return Array.from(segmenter.segment(text2)).filter(isUsefulJapaneseSegment).map((segment) => ({
+      surface: segment.segment,
+      start: offset + segment.index,
+      end: offset + segment.index + segment.segment.length
+    }));
+  }
+  function intlSegmenter() {
+    const candidate = Intl.Segmenter;
+    return typeof candidate === "function" ? candidate : null;
+  }
+  function japaneseWordSegmenter() {
+    const Segmenter = intlSegmenter();
+    if (!Segmenter) {
+      cachedSegmenterConstructor = null;
+      cachedJapaneseWordSegmenter = null;
+      return null;
+    }
+    if (cachedSegmenterConstructor !== Segmenter) {
+      cachedSegmenterConstructor = Segmenter;
+      cachedJapaneseWordSegmenter = new Segmenter("ja", { granularity: "word" });
+    }
+    return cachedJapaneseWordSegmenter ?? null;
+  }
+  function isUsefulJapaneseSegment(segment) {
+    const surface = segment.segment.trim();
+    return segment.isWordLike !== false && JAPANESE_CHARACTER_RE.test(surface);
+  }
+  function fallbackJapaneseRunSegment(text2, offset) {
+    const surface = text2.trim();
+    if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
+    const start = offset + text2.indexOf(surface);
+    return [{ surface, start, end: start + surface.length }];
+  }
+  function canSegmentJapaneseText() {
+    return true;
   }
   function withTimeout(promise, timeoutMs, errorFactory) {
     let timeoutId = 0;
@@ -25727,9 +26145,9 @@ ${spelling}`);
                 <p data-help-links-copy>Open the hosted reader tools and docs from here.</p>
             </div>
             <div class="jpdb-reader-help-actions">
-                <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">Video Player</a>
-                <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">New Tab</a>
-                <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}" target="_blank" rel="noopener" data-help-link="docs">Docs</a>
+                <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">${externalButtonLabel("Video Player")}</a>
+                <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">${externalButtonLabel("New Tab")}</a>
+                <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}" target="_blank" rel="noopener" data-help-link="docs">${externalButtonLabel("Docs")}</a>
                 <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="factory-reset" data-help-link="factory-reset">Factory Reset</button>
             </div>
             <div class="jpdb-reader-help-support">
@@ -25739,9 +26157,9 @@ ${spelling}`);
                     <p data-help-support-copy-extra>Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.</p>
                 </div>
                 <div class="jpdb-reader-help-actions">
-                    <a class="jpdb-reader-btn jpdb-reader-help-donate" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">Donate</a>
-                    <a class="jpdb-reader-btn" href="${GITHUB_REPOSITORY_URL}/issues" target="_blank" rel="noopener" data-help-link="issues">Issues</a>
-                    <a class="jpdb-reader-btn jpdb-reader-help-discord" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener" data-help-link="discord">Discord</a>
+                    <a class="jpdb-reader-btn jpdb-reader-help-donate" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">${externalButtonLabel("Donate")}</a>
+                    <a class="jpdb-reader-btn" href="${GITHUB_REPOSITORY_URL}/issues" target="_blank" rel="noopener" data-help-link="issues">${externalButtonLabel("Issues")}</a>
+                    <a class="jpdb-reader-btn jpdb-reader-help-discord" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener" data-help-link="discord">${externalButtonLabel("Discord")}</a>
                 </div>
             </div>
         </div>
@@ -25792,6 +26210,7 @@ ${spelling}`);
             ${renderKanjiSettingsPanel(settings)}
             ${renderImageSettingsPanel(settings)}
             ${renderVideoSettingsPanel(settings)}
+            ${renderYoutubeSettingsPanel(settings)}
             ${renderMiningSettingsPanel(settings)}
             ${renderDictionariesSettingsPanel(settings)}
             ${renderShortcutSettingsPanel(settings)}
@@ -26102,6 +26521,18 @@ ${spelling}`);
                 </div>
     `;
   }
+  function renderYoutubeSettingsPanel(settings) {
+    return `
+            <fieldset data-settings-panel="media" hidden>
+                <legend>YouTube</legend>
+                <div class="grid">
+                    ${checkbox("youtubeImmersionEnabled", "Only show Japanese-looking YouTube videos", settings.youtubeImmersionEnabled)}
+                    ${checkbox("youtubeShowFilterNotice", "Show reveal control for hidden videos", settings.youtubeShowFilterNotice)}
+                </div>
+                <div class="jpdb-reader-help" data-youtube-help>Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.</div>
+            </fieldset>
+    `;
+  }
   function renderMiningSettingsPanel(settings) {
     return `
             <fieldset data-settings-panel="mining" hidden>
@@ -26182,6 +26613,7 @@ ${spelling}`);
                     ${shortcutInput("shortcuts.nextSubtitle", "Next subtitle", settings.shortcuts.nextSubtitle)}
                     ${shortcutInput("shortcuts.copySubtitle", "Copy subtitle", settings.shortcuts.copySubtitle)}
                     ${shortcutInput("shortcuts.toggleOcr", "Toggle image reading", settings.shortcuts.toggleOcr)}
+                    ${shortcutInput("shortcuts.toggleYoutubeImmersion", "Toggle YouTube filter", settings.shortcuts.toggleYoutubeImmersion)}
                     ${shortcutInput("shortcuts.scanImages", "Read images now", settings.shortcuts.scanImages)}
                     ${renderReviewShortcutInputs(settings)}
                 </div>
@@ -26304,6 +26736,7 @@ ${spelling}`);
       text2("kanji"),
       text2("images"),
       text2("video"),
+      text2("youTube"),
       text2("anki"),
       text2("dictionaries"),
       text2("shortcuts"),
@@ -26497,7 +26930,8 @@ ${spelling}`);
     setFieldsetHelp(form, 4, text2("readerHelp"));
     setFieldsetHelp(form, 5, text2("kanjiHelp"));
     setFieldsetHelp(form, 6, text2("ocrHelp"));
-    setFieldsetHelp(form, 8, text2("ankiHelp"));
+    form.querySelector("[data-youtube-help]")?.replaceChildren(text2("youtubeHelp"));
+    setFieldsetHelp(form, 9, text2("ankiHelp"));
     localizeNewTabHelp(form, text2);
     localizeAudioHelp(form, text2);
     localizeDictionaryImportHelp(form, text2);
@@ -26880,6 +27314,8 @@ ${spelling}`);
       ["ankiTags", "ankiTags"],
       ["studyTranslationEnabled", "studyTranslationEnabled"],
       ["studyGrammarEnabled", "studyGrammarEnabled"],
+      ["youtubeImmersionEnabled", "youtubeImmersionEnabled"],
+      ["youtubeShowFilterNotice", "youtubeShowFilterNotice"],
       ["jpdbDefinitionsEnabled", "jpdbDefinitionsEnabled"],
       ["localDictionariesEnabled", "localDictionariesEnabled"],
       ["localDictionaryShowKanji", "localDictionaryShowKanji"],
@@ -26896,6 +27332,7 @@ ${spelling}`);
       ["shortcuts.nextSubtitle", "nextSubtitle"],
       ["shortcuts.copySubtitle", "copySubtitle"],
       ["shortcuts.toggleOcr", "toggleImageReading"],
+      ["shortcuts.toggleYoutubeImmersion", "toggleYoutubeImmersion"],
       ["shortcuts.scanImages", "readImagesNow"],
       ["shortcuts.gradeNothing", "gradeNothing"],
       ["shortcuts.gradeSomething", "gradeSomething"],
@@ -26974,19 +27411,26 @@ ${spelling}`);
     panel.querySelector("[data-help-support-title]")?.replaceChildren(text2("helpSupportTitle"));
     panel.querySelector("[data-help-support-copy]")?.replaceChildren(text2("helpSupportCopy"));
     panel.querySelector("[data-help-support-copy-extra]")?.replaceChildren(text2("helpSupportCopyExtra"));
-    panel.querySelector('[data-help-link="video-player"]')?.replaceChildren(text2("videoPlayer"));
-    panel.querySelector('[data-help-link="new-tab"]')?.replaceChildren(text2("newTabPage"));
-    panel.querySelector('[data-help-link="docs"]')?.replaceChildren(text2("docs"));
+    setExternalButtonLabel(panel.querySelector('[data-help-link="video-player"]'), text2("videoPlayer"));
+    setExternalButtonLabel(panel.querySelector('[data-help-link="new-tab"]'), text2("newTabPage"));
+    setExternalButtonLabel(panel.querySelector('[data-help-link="docs"]'), text2("docs"));
     panel.querySelector('[data-help-link="factory-reset"]')?.replaceChildren(text2("factoryReset"));
-    panel.querySelector('[data-help-link="issues"]')?.replaceChildren(text2("issues"));
-    panel.querySelector('[data-help-link="donate"]')?.replaceChildren(text2("donate"));
-    panel.querySelector('[data-help-link="discord"]')?.replaceChildren(text2("discord"));
+    setExternalButtonLabel(panel.querySelector('[data-help-link="issues"]'), text2("issues"));
+    setExternalButtonLabel(panel.querySelector('[data-help-link="donate"]'), text2("donate"));
+    setExternalButtonLabel(panel.querySelector('[data-help-link="discord"]'), text2("discord"));
     const glossary = form.querySelector(".jpdb-reader-help-glossary-card");
     glossary?.querySelector("[data-help-glossary-title]")?.replaceChildren(text2("helpGlossaryTitle"));
     ["jpdb", "yomitan", "mining", "anki", "ocr"].forEach((term) => {
       glossary?.querySelector(`[data-help-glossary-term="${term}"]`)?.replaceChildren(text2(`helpGlossaryTerm${term}`));
       glossary?.querySelector(`[data-help-glossary-definition="${term}"]`)?.replaceChildren(text2(`helpGlossaryDefinition${term}`));
     });
+  }
+  function externalButtonLabel(label) {
+    return `<span>${escapeHtml$1(label)}</span>${externalLinkIcon()}`;
+  }
+  function setExternalButtonLabel(element2, label) {
+    if (!element2) return;
+    setInnerHtml(element2, externalButtonLabel(label));
   }
   function renderReviewShortcutInputs(settings) {
     const fivePointHidden = !settings.enableReviews || settings.twoButtonReviews;
@@ -27681,6 +28125,7 @@ ${spelling}`);
       dictionaryPreferences,
       dictionaryLookupLinks: readDictionaryLookupLinks(data),
       ...readSubtitleFormSettings(reader, current),
+      ...readYoutubeFormSettings(reader),
       ...readAnkiFormSettings(reader, current),
       ...readStudyToolFormSettings(reader, current),
       enableLogging: has("enableLogging"),
@@ -27953,6 +28398,13 @@ ${spelling}`);
       immersionKitPlaybackRate: Math.max(0.5, Math.min(2, number("immersionKitPlaybackRate", current.immersionKitPlaybackRate)))
     };
   }
+  function readYoutubeFormSettings(reader) {
+    const { has } = reader;
+    return {
+      youtubeImmersionEnabled: has("youtubeImmersionEnabled"),
+      youtubeShowFilterNotice: has("youtubeShowFilterNotice")
+    };
+  }
   function readShortcutFormSettings(reader) {
     const { get } = reader;
     return {
@@ -27965,6 +28417,7 @@ ${spelling}`);
       nextSubtitle: get("shortcuts.nextSubtitle"),
       copySubtitle: get("shortcuts.copySubtitle"),
       toggleOcr: get("shortcuts.toggleOcr"),
+      toggleYoutubeImmersion: get("shortcuts.toggleYoutubeImmersion"),
       scanImages: get("shortcuts.scanImages"),
       gradeNothing: get("shortcuts.gradeNothing"),
       gradeSomething: get("shortcuts.gradeSomething"),
@@ -28202,6 +28655,7 @@ ${spelling}`);
       this.dependencies.installFab();
       this.dependencies.subtitles.refresh();
       this.dependencies.ocr.refresh();
+      this.dependencies.youtube.refresh();
       this.dependencies.clearSettingsPreview();
       this.dependencies.dismiss();
       this.dependencies.scheduleDictionaryRescan();
@@ -28818,6 +29272,7 @@ ${spelling}`);
       this.dependencies.scheduleDictionaryRescan();
       this.dependencies.installFab();
       this.dependencies.subtitles.refresh();
+      this.dependencies.youtube.refresh();
       this.dependencies.clearSettingsPreview();
       log$5.info("Settings imported", loggingSettingsSummary(this.settings));
       this.open();
@@ -29332,6984 +29787,995 @@ ${spelling}`);
     return unique2;
   }
   const readerCss = `
-:root {
-  --jpdb-reader-bg: #181b20;
-  --jpdb-reader-surface: #20242b;
-  --jpdb-reader-surface-2: #282e37;
-  --jpdb-reader-text: #f2f4f8;
-  --jpdb-reader-muted: #aab2c0;
-  --jpdb-reader-faint: #6f7a89;
-  --jpdb-reader-border: rgba(255,255,255,.12);
-  --jpdb-reader-accent: #5ea780;
-  --jpdb-reader-accent-readable: #76bd99;
-  --jpdb-reader-accent-soft: rgba(94,167,128,.18);
-  --jpdb-reader-hover: rgba(255,255,255,.08);
-  --jpdb-reader-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+:root{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent: #5ea780;--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-accent-soft: rgba(94,167,128,.18);--jpdb-reader-hover: rgba(255,255,255,.08);--jpdb-reader-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif}
+@media (prefers-color-scheme: light){:root{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}
+}
+.jpdb-reader-theme-dark{--jpdb-reader-bg: #181b20;--jpdb-reader-surface: #20242b;--jpdb-reader-surface-2: #282e37;--jpdb-reader-text: #f2f4f8;--jpdb-reader-muted: #aab2c0;--jpdb-reader-faint: #6f7a89;--jpdb-reader-border: rgba(255,255,255,.12);--jpdb-reader-accent-readable: #76bd99;--jpdb-reader-hover: rgba(255,255,255,.08)}
+.jpdb-reader-theme-light{--jpdb-reader-bg: #ffffff;--jpdb-reader-surface: #f7f8fa;--jpdb-reader-surface-2: #eef1f4;--jpdb-reader-text: #171a1f;--jpdb-reader-muted: #596272;--jpdb-reader-faint: #7b8493;--jpdb-reader-border: rgba(20,30,45,.16);--jpdb-reader-accent-readable: #25573d;--jpdb-reader-hover: rgba(20,30,45,.07)}
+.jpdb-reader-middle-scan-active{overscroll-behavior:none;cursor:crosshair}
+.jpdb-reader-middle-scan-active *{cursor:crosshair!important}
+[data-jpdb-reader-root],[data-jpdb-reader-root] *{box-sizing:border-box}
+[data-jpdb-reader-root] :where(a){border-bottom:0;color:inherit;outline:revert;text-decoration:none}
+[data-jpdb-reader-root] :where(button){appearance:none;-webkit-appearance:none;background:transparent;border:0;border-radius:0;box-shadow:none;color:inherit;cursor:pointer;display:inline-block;font:inherit;height:auto;line-height:normal;margin:0;padding:0;text-align:inherit;text-decoration:none;transform:none;transition:none;white-space:normal}
+[data-jpdb-reader-root] :where(input,select,textarea){appearance:auto;-webkit-appearance:auto;background:revert;border:revert;border-radius:revert;box-shadow:none;color:inherit;font:inherit;height:auto;margin:0;padding:revert;transform:none;transition:none;width:auto}
+[data-jpdb-reader-root] :where(fieldset,legend,p,ul,ol,li,dl,dt,dd,blockquote,figure,form,table,th,td,hr,h1,h2,h3,h4,h5,h6){letter-spacing:normal;line-height:revert;margin:revert;padding:revert}
+[data-jpdb-reader-root] :where(table){border-collapse:revert;border-spacing:revert}
+[data-jpdb-reader-root] :where(th,td){border:revert;text-align:revert}
+[data-jpdb-reader-root] :where(rt){font-size:revert;opacity:revert}
+[data-jpdb-reader-root] button,[data-jpdb-reader-root] input,[data-jpdb-reader-root] select,[data-jpdb-reader-root] textarea{font-family:var(--jpdb-reader-font);letter-spacing:0;text-transform:none}
+.jpdb-reader-word{--jpdb-reader-word-underline: transparent;--jpdb-reader-source-status-color: var(--jpdb-reader-status-color, currentColor);--jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);--jpdb-reader-source-status-soft: var(--jpdb-reader-status-soft, transparent);--jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-color, currentColor);--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-jpdb-color, transparent);--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-jpdb-soft, transparent);--jpdb-reader-source-anki-color: var(--jpdb-reader-anki-color, currentColor);--jpdb-reader-source-anki-decoration: var(--jpdb-reader-anki-color, transparent);--jpdb-reader-source-anki-soft: var(--jpdb-reader-anki-soft, transparent);--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-color, currentColor);--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown, #94a3b8));--jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-soft, var(--jpdb-reader-pitch-unknown-soft, transparent));position:static;display:inline;white-space:nowrap;word-break:keep-all;overflow-wrap:normal!important;border-radius:3px;cursor:pointer;-webkit-tap-highlight-color:transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var( --jpdb-reader-word-underline, transparent )!important;text-decoration-thickness:2px!important;text-underline-offset:.16em!important;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.jpdb-reader-word:after{content:none}
+.jpdb-reader-word:hover,.jpdb-reader-word:focus{background:var(--jpdb-reader-hover)!important;outline:none}
+.jpdb-reader-word:is(.jpdb-new,.jpdb-suspended,.jpdb-not-in-deck){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, .16))}
+.jpdb-reader-word.jpdb-learning{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16))}
+.jpdb-reader-word:is(.jpdb-known,.jpdb-never-forget,.jpdb-redundant){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, .16))}
+.jpdb-reader-word.jpdb-due{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, .16))}
+.jpdb-reader-word.jpdb-failed{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16))}
+.jpdb-reader-word:is(.jpdb-blacklisted,.jpdb-locked){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-ignored-soft, rgba(184, 167, 255, .16));--jpdb-reader-status-color: var(--jpdb-reader-state-ignored, #b8a7ff);--jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft, rgba(184, 167, 255, .16));opacity:.82!important}
+.jpdb-reader-word:is(.anki-new,.anki-suspended){--jpdb-reader-anki-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-anki-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, .16))}
+.jpdb-reader-word.anki-learning{--jpdb-reader-anki-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-anki-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16))}
+.jpdb-reader-word.anki-known{--jpdb-reader-anki-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-anki-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, .16))}
+.jpdb-reader-word.anki-due{--jpdb-reader-anki-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-anki-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, .16))}
+.jpdb-reader-word.anki-failed{--jpdb-reader-anki-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-anki-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16))}
+.jpdb-reader-word:is(.jpdb-new,.jpdb-suspended,.jpdb-not-in-deck,.anki-new,.anki-suspended){--jpdb-reader-status-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, .16))}
+.jpdb-reader-word:is(.jpdb-learning,.anki-learning){--jpdb-reader-status-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-status-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, .16))}
+.jpdb-reader-word:is(.jpdb-known,.jpdb-never-forget,.jpdb-redundant,.anki-known){--jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, .16))}
+.jpdb-reader-word:is(.jpdb-due,.anki-due){--jpdb-reader-status-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-status-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, .16))}
+.jpdb-reader-word:is(.jpdb-failed,.anki-failed){--jpdb-reader-status-color: var(--jpdb-reader-state-failed, #ff6b6b);--jpdb-reader-status-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, .16))}
+.jpdb-reader-word.jpdb-pitch-heiban{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-heiban-soft, rgba(53, 158, 255, .14))}
+.jpdb-reader-word.jpdb-pitch-atamadaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-atamadaka-soft, rgba(254, 75, 116, .14))}
+.jpdb-reader-word.jpdb-pitch-nakadaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-nakadaka-soft, rgba(251, 168, 64, .16))}
+.jpdb-reader-word.jpdb-pitch-odaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-odaka-soft, rgba(87, 204, 183, .14))}
+.jpdb-reader-word.jpdb-pitch-kifuku{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-kifuku, #9050f6);--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-kifuku-soft, rgba(144, 80, 246, .14))}
+.jpdb-reader-word-highlight-status{--jpdb-reader-word-highlight: var(--jpdb-reader-source-status-soft, transparent)}
+.jpdb-reader-word-highlight-jpdb{--jpdb-reader-word-highlight: var(--jpdb-reader-source-jpdb-soft, transparent)}
+.jpdb-reader-word-highlight-anki{--jpdb-reader-word-highlight: var(--jpdb-reader-source-anki-soft, transparent)}
+.jpdb-reader-word-highlight-pitch{--jpdb-reader-word-highlight: var(--jpdb-reader-source-pitch-soft, transparent)}
+.jpdb-reader-word-underline-status{--jpdb-reader-word-decoration: var(--jpdb-reader-source-status-decoration, transparent)}
+.jpdb-reader-word-underline-jpdb{--jpdb-reader-word-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent)}
+.jpdb-reader-word-underline-anki{--jpdb-reader-word-decoration: var(--jpdb-reader-source-anki-decoration, transparent)}
+.jpdb-reader-word-underline-pitch{--jpdb-reader-word-decoration: var(--jpdb-reader-source-pitch-decoration, transparent)}
+.jpdb-reader-word-text-status{--jpdb-reader-word-color: var(--jpdb-reader-source-status-color, currentColor)}
+.jpdb-reader-word-text-jpdb{--jpdb-reader-word-color: var(--jpdb-reader-source-jpdb-color, currentColor)}
+.jpdb-reader-word-text-anki{--jpdb-reader-word-color: var(--jpdb-reader-source-anki-color, currentColor)}
+.jpdb-reader-word-text-pitch{--jpdb-reader-word-color: var(--jpdb-reader-source-pitch-color, currentColor)}
+.jpdb-reader-word-highlight-status .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}
+.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}
+.jpdb-reader-word-highlight-anki .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}
+.jpdb-reader-word-highlight-pitch .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}
+.jpdb-reader-word-underline-status .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent)}
+.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent)}
+.jpdb-reader-word-underline-anki .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent)}
+.jpdb-reader-word-underline-pitch .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent)}
+.jpdb-reader-word-text-status .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, currentColor)!important}
+.jpdb-reader-word-text-jpdb .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, currentColor)!important}
+.jpdb-reader-word-text-anki .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, currentColor)!important}
+.jpdb-reader-word-text-pitch .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, currentColor)!important}
+:is(.jpdb-reader-word-highlight-pitch,.jpdb-reader-word-underline-pitch,.jpdb-reader-word-text-pitch) .jpdb-reader-word{opacity:1!important}
+.jpdb-reader-word.jpdb-reader-has-furi{line-height:1.85}
+.jpdb-reader-furi{font-size:.52em;color:var(--jpdb-reader-muted);line-height:1;user-select:none}
+.jpdb-reader-word ruby{position:static;display:ruby;ruby-align:center;ruby-position:over;line-height:1;vertical-align:baseline;text-decoration-line:inherit!important;text-decoration-style:inherit!important;text-decoration-color:inherit!important;text-decoration-thickness:inherit!important;text-underline-offset:inherit!important}
+.jpdb-reader-word rp{display:none}
+.jpdb-reader-word rt.jpdb-reader-furi{position:static;left:auto;bottom:auto;display:ruby-text;transform:none;white-space:nowrap;pointer-events:none;text-decoration:none!important;ruby-align:center;line-height:1;text-align:center}
+.jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-known,.jpdb-due,.jpdb-never-forget) .jpdb-reader-furi{display:none}
+.jpdb-ocr-layer{position:fixed;z-index:2147483643;pointer-events:none;box-sizing:border-box;contain:layout style}
+.jpdb-ocr-status,.jpdb-ocr-line{pointer-events:auto;box-sizing:border-box;font-family:var(--jpdb-reader-font);-webkit-tap-highlight-color:transparent}
+.jpdb-ocr-status{position:absolute;left:8px;right:8px;bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#181b20d1;color:#ffffffe0;box-shadow:0 8px 22px #0000003d;font-size:11px;font-weight:700}
+.jpdb-ocr-line{position:absolute;display:flex;align-items:flex-end;justify-content:center;overflow:visible;min-width:0;min-height:0;padding:var(--jpdb-ocr-pad-top, 3px) var(--jpdb-ocr-pad-x, 5px) var(--jpdb-ocr-pad-bottom, 3px);border:1px solid transparent;border-radius:6px;background:transparent;color:transparent;text-shadow:none;font-weight:800;line-height:1;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:none;opacity:1;user-select:text;cursor:text}
+.jpdb-ocr-line-text{display:inline-flex;flex:none;justify-content:center;align-items:flex-end;align-content:flex-end;flex-wrap:nowrap;white-space:nowrap;max-width:none;overflow-wrap:normal}
+.jpdb-ocr-line[data-vertical=true]{align-items:center;justify-content:center;letter-spacing:0}
+.jpdb-ocr-line[data-vertical=true] .jpdb-ocr-line-text{white-space:normal;flex-wrap:wrap}
+.jpdb-ocr-line-visible{border-color:#ffffff1a;background:#181b2024;box-shadow:0 6px 16px #0003,inset 0 0 0 1px #ffffff0a}
+.jpdb-ocr-line:hover,.jpdb-ocr-line:focus,.jpdb-ocr-line.jpdb-ocr-line-active{color:var(--jpdb-ocr-text-color, #fff);text-shadow:0 2px 2px var(--jpdb-ocr-outline-color, #000),0 0 3px var(--jpdb-ocr-outline-color, #000),0 0 10px var(--jpdb-ocr-outline-color, #000);background:var(--jpdb-ocr-background-active-rgba, rgba(24, 27, 32, .48));border-color:#ffffff2e;box-shadow:0 10px 24px #0000003d,inset 0 0 0 1px #ffffff0d;outline:none;z-index:2}
+.jpdb-ocr-line .jpdb-reader-word{background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration:none!important;color:inherit!important;pointer-events:none;cursor:pointer;line-height:1!important}
+.jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi{line-height:1!important}
+.jpdb-ocr-line[data-has-furi=true] .jpdb-reader-word{display:inline-flex;align-items:flex-end}
+.jpdb-ocr-line .jpdb-ocr-plain{display:inline-flex;align-items:flex-end;line-height:1;white-space:pre}
+.jpdb-ocr-line:hover .jpdb-reader-word,.jpdb-ocr-line:focus .jpdb-reader-word,.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-reader-word{pointer-events:auto}
+.jpdb-ocr-ruby{position:relative;display:inline-flex;align-items:flex-end;justify-content:center;padding-top:.5em;line-height:1;vertical-align:baseline}
+.jpdb-ocr-ruby-base{display:inline-flex;align-items:flex-end;line-height:1}
+.jpdb-ocr-furi{position:absolute;top:0;left:50%;color:currentColor;font-size:.42em;line-height:1;opacity:0;pointer-events:none;text-align:center;text-shadow:none;transform:translate(-50%);white-space:nowrap}
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-new,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-suspended,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-not-in-deck{color:var(--jpdb-reader-state-new, #58a6ff)!important}
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-learning{color:var(--jpdb-reader-state-learning, #ffd166)!important}
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-known,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-never-forget,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-redundant{color:var(--jpdb-reader-state-known, #7bd88f)!important}
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-due{color:var(--jpdb-reader-state-due, #5fb3b3)!important}
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-failed{color:var(--jpdb-reader-state-failed, #ff6b6b)!important}
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-blacklisted,.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-reader-word.jpdb-locked{color:var(--jpdb-reader-state-ignored, #b8a7ff)!important}
+.jpdb-ocr-line:is(:hover,:focus,.jpdb-ocr-line-active) .jpdb-ocr-furi{opacity:.9;text-shadow:0 1px 1px var(--jpdb-ocr-outline-color, #000),0 0 5px var(--jpdb-ocr-outline-color, #000)}
+.asbplayer-subtitles-container-bottom{z-index:2147483644!important}
+.asbplayer-subtitles-container-bottom .jpdb-reader-word{--jpdb-reader-subtitle-fallback: currentColor;background:transparent!important;--jpdb-reader-word-underline: transparent;text-decoration-line:underline!important;text-decoration-style:solid!important;text-decoration-color:var( --jpdb-reader-word-underline, transparent )!important;text-decoration-thickness:.08em!important;text-underline-offset:.15em!important;color:inherit!important}
+.jpdb-reader-fab{position:fixed;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));z-index:2147483645;min-width:52px;width:auto;height:52px;padding:0 13px;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);box-shadow:0 10px 28px #00000040;opacity:.78;font:700 14px/1 var(--jpdb-reader-font);cursor:pointer;touch-action:none;transform:translateZ(0)}
+.jpdb-reader-fab:hover,.jpdb-reader-fab:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);opacity:1;outline:none}
+.jpdb-reader-fab-over-video:not(:hover):not(:focus-visible){opacity:.28;transform:translate3d(0,6px,0) scale(.92)}
+.jpdb-reader-backdrop{position:fixed;inset:0;z-index:2147483646;background:#0c1016bd}
+.jpdb-reader-popover,.jpdb-reader-settings{position:fixed;z-index:2147483647;box-sizing:border-box;background:var(--jpdb-reader-bg);border:1px solid var(--jpdb-reader-border);border-radius:12px;box-shadow:0 16px 48px #00000057;color:var(--jpdb-reader-text);color-scheme:light dark;font:14px/1.45 var(--jpdb-reader-font)}
+.jpdb-reader-popover{width:min(520px,calc(100vw - 16px));max-height:min(580px,calc(100vh - 16px));overflow:auto;overflow-anchor:none;padding:14px;container-type:inline-size;scrollbar-gutter:stable}
+.jpdb-reader-popover.jpdb-reader-sheet{inset:auto 0 0!important;width:100%;height:var(--jpdb-reader-sheet-height, var(--jpdb-reader-sheet-collapsed-height, 70dvh));min-height:var(--jpdb-reader-sheet-min-height, 180px);max-height:var(--jpdb-reader-sheet-viewport-height, 100dvh);border-radius:16px 16px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom));overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-resizing{user-select:none}
+.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body){display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden;padding:0;scrollbar-gutter:auto}
+.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body{min-height:0;min-width:0;max-width:100%;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:14px 16px;scrollbar-gutter:auto;-webkit-overflow-scrolling:touch}
+.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body>*{min-width:0;max-width:100%}
+.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions{padding:6px 16px calc(18px + env(safe-area-inset-bottom))}
+.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining{padding-top:37px}
+.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded{border-radius:0;padding-top:max(8px,env(safe-area-inset-top))}
+.jpdb-reader-sheet .jpdb-reader-sheet-handle{display:block}
+.jpdb-reader-popover.jpdb-reader-sheet>.jpdb-reader-sheet-handle{width:100%;margin:0}
+.jpdb-reader-sheet-close{position:absolute;top:8px;right:max(12px,env(safe-area-inset-right));z-index:2;display:inline-grid;place-items:center;width:32px;height:32px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 88%,transparent);color:var(--jpdb-reader-text);box-shadow:0 8px 20px #0000003d;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.jpdb-reader-sheet-close:hover,.jpdb-reader-sheet-close:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent);outline:none}
+.jpdb-reader-sheet-close svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+:root.jpdb-reader-theme-dark .jpdb-reader-popover,:root.jpdb-reader-theme-dark .jpdb-reader-settings,:root.jpdb-reader-theme-dark .jpdb-reader-onboarding{color-scheme:dark}
+:root.jpdb-reader-theme-light .jpdb-reader-popover,:root.jpdb-reader-theme-light .jpdb-reader-settings,:root.jpdb-reader-theme-light .jpdb-reader-onboarding{color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not(.jpdb-reader-theme-light) .jpdb-reader-popover,:root:not(.jpdb-reader-theme-light) .jpdb-reader-settings,:root:not(.jpdb-reader-theme-light) .jpdb-reader-onboarding{color-scheme:dark}
+}
+@media (prefers-color-scheme: light){:root:not(.jpdb-reader-theme-dark) .jpdb-reader-popover,:root:not(.jpdb-reader-theme-dark) .jpdb-reader-settings,:root:not(.jpdb-reader-theme-dark) .jpdb-reader-onboarding{color-scheme:light}
+}
+.jpdb-reader-sheet-handle{display:none;position:relative;width:calc(100% + 32px);height:46px;border-bottom:1px solid var(--jpdb-reader-border);border-radius:16px 16px 0 0;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 72%,transparent);margin:-14px -16px 10px;cursor:grab;touch-action:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.jpdb-reader-sheet-handle:before{content:"";position:absolute;top:50%;left:50%;width:46px;height:5px;border-radius:999px;background:var(--jpdb-reader-faint);transform:translate(-50%,-50%)}
+.jpdb-reader-sheet-handle:active{cursor:grabbing}
+.jpdb-reader-sheet-handle:hover:before,.jpdb-reader-sheet-handle:focus-visible:before{background:var(--jpdb-reader-accent)}
+.jpdb-reader-header{display:flex;align-items:flex-start;gap:10px}
+.jpdb-reader-heading{min-width:0;flex:1 1 auto}
+.jpdb-reader-card-tools{display:flex;align-items:flex-start;gap:8px;margin-left:auto}
+.jpdb-reader-icon-btn{position:relative;display:inline-grid;place-items:center;width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important;flex:0 0 auto;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:50%;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);cursor:pointer;overflow:hidden;transform:translateY(-.01rem);-webkit-tap-highlight-color:transparent}
+.jpdb-reader-icon-btn:hover,.jpdb-reader-icon-btn:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 26%,transparent);color:var(--jpdb-reader-accent);transform:translateY(-.25rem);outline:none}
+.jpdb-reader-icon-btn:active{transform:scale(.98)}
+.jpdb-reader-onboarding{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;box-sizing:border-box;width:min(760px,calc(100vw - 24px));max-height:min(760px,calc(100vh - 24px));overflow:auto;padding:54px 32px 32px;border:1px solid var(--jpdb-reader-border);border-radius:16px;background:radial-gradient(circle at 18% 0%,var(--jpdb-reader-accent-soft),transparent 34%),var(--jpdb-reader-bg);color:var(--jpdb-reader-text);box-shadow:0 26px 70px #0006;color-scheme:light dark;font:15px/1.5 var(--jpdb-reader-font)}
+.jpdb-reader-onboarding-close{position:absolute;top:14px;right:14px}
+.jpdb-reader-onboarding h2{margin:4px 0 10px;color:var(--jpdb-reader-text);font-size:clamp(38px,8vw,72px);line-height:.95;letter-spacing:0}
+.jpdb-reader-onboarding p{max-width:620px;margin:0;color:var(--jpdb-reader-muted)}
+.jpdb-reader-onboarding-eyebrow{color:var(--jpdb-reader-accent);font-size:11px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.jpdb-reader-onboarding-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:24px 0}
+.jpdb-reader-onboarding-grid div{display:grid;gap:5px;min-height:96px;padding:14px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface)}
+.jpdb-reader-onboarding-grid strong{color:var(--jpdb-reader-text);font-size:16px}
+.jpdb-reader-onboarding-grid span{color:var(--jpdb-reader-muted);font-size:13px}
+.jpdb-reader-onboarding-language{display:grid;gap:6px;max-width:280px;margin:0 0 16px;color:var(--jpdb-reader-muted);font-weight:750;font-size:13px}
+.jpdb-reader-onboarding-language select{width:100%;box-sizing:border-box;min-height:42px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);padding:8px 10px;font:750 14px/1.2 var(--jpdb-reader-font)}
+.jpdb-reader-onboarding-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.jpdb-reader-onboarding-actions .jpdb-reader-btn{min-width:150px;min-height:46px}
+.jpdb-reader-icon-btn svg{width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+@keyframes jpdb-reader-audio-loading-a{0%{left:0}
+25%{left:0}
+75%{left:100%}
+to{left:100%}
+}
+@keyframes jpdb-reader-audio-loading-b{0%{right:100%}
+50%{right:0}
+to{right:0}
+}
+.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 62%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent);cursor:progress}
+.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:before,.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:after{content:"";position:absolute;left:0;right:100%;bottom:0;height:3px;background:var(--jpdb-reader-accent);pointer-events:none}
+.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:before{animation:jpdb-reader-audio-loading-a 1.65s infinite ease-in-out,jpdb-reader-audio-loading-b 1.65s infinite ease-in-out}
+.jpdb-reader-popover[data-audio-loading=true] .jpdb-reader-audio-control:after{animation:jpdb-reader-audio-loading-a 1.65s infinite ease-in-out .62s,jpdb-reader-audio-loading-b 1.65s infinite ease-in-out .62s}
+.jpdb-reader-spelling{color:var(--jpdb-reader-text);font-size:24px;font-weight:750;line-height:1.16;text-decoration:none;word-break:keep-all}
+.jpdb-reader-title-row{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;width:100%;min-width:0}
+.jpdb-reader-kanji-inline{display:inline!important;width:auto!important;min-width:0!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-bottom:2px solid transparent!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:inherit!important;cursor:pointer;font:inherit!important;line-height:inherit!important;text-align:inherit!important;vertical-align:baseline!important;-webkit-tap-highlight-color:transparent}
+.jpdb-reader-kanji-inline:hover,.jpdb-reader-kanji-inline:focus-visible{border-bottom-color:currentColor!important;outline:none!important}
+.jpdb-reader-pill{appearance:none;-webkit-appearance:none;display:inline-flex!important;align-items:center;align-self:center;gap:4px;box-sizing:border-box;width:auto!important;min-width:0!important;max-width:max-content!important;height:auto!important;min-height:24px!important;padding:3px 8px!important;margin:0!important;border:1px solid var(--chip-border, var(--jpdb-reader-border))!important;border-radius:999px!important;color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2))!important;box-shadow:0 1px 1px #0000002e!important;font-size:11px!important;font-weight:700!important;line-height:1!important;text-align:center!important;text-decoration:none!important;vertical-align:middle!important;white-space:nowrap!important;flex:0 0 auto!important}
+a.jpdb-reader-action-pill,button.jpdb-reader-action-pill{--chip-bg: color-mix( in srgb, var(--jpdb-reader-surface) 92%, var(--jpdb-reader-accent) 8% );--chip-border: color-mix( in srgb, var(--jpdb-reader-accent) 38%, var(--jpdb-reader-border) );--chip-text: var(--jpdb-reader-text);cursor:pointer;font-family:inherit;transform:translateY(-.01rem)!important;-webkit-tap-highlight-color:transparent}
+.jpdb-reader-action-pill:hover,.jpdb-reader-action-pill:focus-visible{color:var(--chip-text, var(--jpdb-reader-text))!important;background:var(--chip-bg, var(--jpdb-reader-surface-2))!important;transform:translateY(-1px)!important;box-shadow:0 3px 8px color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 34%,transparent)!important;outline:2px solid color-mix(in srgb,var(--chip-border, var(--jpdb-reader-accent)) 55%,transparent)!important;outline-offset:1px}
+.jpdb-reader-jpdb-pill{--chip-bg: color-mix( in srgb, var(--jpdb-reader-accent) 15%, var(--jpdb-reader-surface) );--chip-border: color-mix( in srgb, var(--jpdb-reader-accent) 58%, var(--jpdb-reader-border) );--chip-text: var(--jpdb-reader-accent-readable)}
+.jpdb-reader-action-pill:active{transform:scale(.98)!important}
+.jpdb-reader-pill svg{width:12px!important;height:12px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.jpdb-reader-word-pills{display:flex;align-items:center;flex-wrap:wrap;gap:5px;width:100%;margin-top:6px}
+@container (max-width: 340px){.jpdb-reader-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:0 8px}
+.jpdb-reader-heading{display:contents}
+.jpdb-reader-title-row{grid-column:1;grid-row:1}
+.jpdb-reader-card-tools{display:contents}
+.jpdb-reader-pitch{grid-column:1 / -1;grid-row:2;margin-top:-3px}
+.jpdb-reader-audio-control{grid-column:2;grid-row:1;margin-left:auto}
+.jpdb-reader-word-pills{grid-column:1 / -1;grid-row:3;width:auto;gap:4px;margin-top:5px}
+.jpdb-reader-pill{padding:3px 7px!important;font-size:10.5px!important}
+}
+.jpdb-reader-reading,.jpdb-reader-pos,.jpdb-reader-meta,.jpdb-reader-help{color:var(--jpdb-reader-muted)}
+.jpdb-reader-reading{margin-top:2px;font-size:15px}
+.jpdb-reader-title-row .jpdb-reader-reading{margin-top:0;line-height:1.2}
+.jpdb-reader-pos{margin-top:7px;font-size:11px;line-height:1.35}
+.jpdb-reader-status-line{min-height:22px}
+.jpdb-reader-status-line[data-status-tone]{margin-top:8px;padding:8px 10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text)}
+.jpdb-reader-status-line[data-status-tone=pending]{color:var(--jpdb-reader-muted)}
+.jpdb-reader-status-line[data-status-tone=success]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-accent) 11%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent)}
+.jpdb-reader-status-line[data-status-tone=error]{border-color:color-mix(in srgb,#e55353 52%,var(--jpdb-reader-border));background:color-mix(in srgb,#e55353 11%,var(--jpdb-reader-surface-2));color:#ff8c8c}
+.jpdb-reader-meanings{margin:9px 0;display:grid;gap:5px}
+.jpdb-reader-meaning{color:var(--jpdb-reader-text);font-size:13px;line-height:1.32}
+.jpdb-reader-jpdb-extras{display:grid;gap:10px;margin:10px 0 0}
+.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-examples-group,.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-used-in-group{border:0;border-radius:0;background:transparent;padding:0}
+.jpdb-reader-jpdb-extras :is(.jpdb-reader-jpdb-examples-group,.jpdb-reader-jpdb-used-in-group)>.jpdb-reader-local-glossary{padding:0 8px 8px}
+.jpdb-reader-jpdb-extra{display:grid;gap:6px;margin:0;padding:0}
+.jpdb-reader-jpdb-extra h6{margin:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:850;text-transform:uppercase}
+.jpdb-reader-jpdb-compounds,.jpdb-reader-jpdb-used-in,.jpdb-reader-jpdb-examples{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.jpdb-reader-jpdb-example{padding:2px 0;color:var(--jpdb-reader-text);line-height:1.3}
+.jpdb-reader-jpdb-example-row.has-audio{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:start;gap:8px}
+.jpdb-reader-jpdb-example-text{min-width:0}
+button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important;margin-top:2px;border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 88%,transparent)}
+button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg{width:14px;height:14px;stroke-width:2.6}
+.jpdb-reader-jpdb-compounds li,.jpdb-reader-jpdb-used-in li{display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr);align-items:baseline;gap:8px;min-width:0}
+.jpdb-reader-jpdb-compound,.jpdb-reader-jpdb-used-in-link{display:inline-flex;align-items:flex-start;min-width:0;color:inherit!important;text-decoration:none}
+.jpdb-reader-jpdb-compound:hover,.jpdb-reader-jpdb-compound:focus-visible,.jpdb-reader-jpdb-used-in-link:hover,.jpdb-reader-jpdb-used-in-link:focus-visible{color:inherit!important;outline:none}
+.jpdb-reader-jpdb-compound-head{display:grid;gap:2px;max-width:100%}
+.jpdb-reader-jpdb-compound-term{display:inline-block;width:max-content;max-width:100%;font-size:17px;line-height:1.1;font-weight:850;white-space:nowrap}
+.jpdb-reader-jpdb-used-in-term{font-size:14.5px;font-weight:760;line-height:1.25}
+.jpdb-reader-jpdb-used-in-source-item{grid-template-columns:minmax(0,1fr)!important;align-items:start!important;gap:2px!important}
+.jpdb-reader-jpdb-used-in-source-link{display:block}
+.jpdb-reader-jpdb-used-in-source-title{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:760;line-height:1.25}
+.jpdb-reader-jpdb-compound-reading,.jpdb-reader-jpdb-compounds small,.jpdb-reader-jpdb-used-in small,.jpdb-reader-jpdb-example .jpdb-reader-example-translation{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.25}
+.jpdb-reader-jpdb-compound-reading{white-space:nowrap}
+.jpdb-reader-jpdb-compound:has(.jpdb-reader-word) .jpdb-reader-jpdb-compound-reading{display:none}
+.jpdb-reader-example-summary .jpdb-reader-example-count{flex:0 0 auto;margin-left:auto;text-align:right;white-space:nowrap}
+.jpdb-reader-jpdb-example .jpdb-reader-example-sentence,.jpdb-reader-jpdb-example .jpdb-reader-example-translation{justify-self:stretch;width:100%;text-align:left;text-wrap:pretty}
+.jpdb-reader-jpdb-example .jpdb-reader-example-sentence{line-height:1.35}
+.jpdb-reader-jpdb-example .jpdb-reader-example-translation{font-size:10.5px;line-height:1.3}
+.jpdb-reader-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:11px}
+.jpdb-reader-state-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--jpdb-reader-faint);margin-right:4px}
+.jpdb-reader-state-dot.jpdb-new,.jpdb-reader-state-dot.jpdb-suspended,.jpdb-reader-state-dot.jpdb-not-in-deck{background:var(--jpdb-reader-state-new, #58a6ff)}
+.jpdb-reader-state-dot.jpdb-learning{background:var(--jpdb-reader-state-learning, #ffd166)}
+.jpdb-reader-state-dot.jpdb-known,.jpdb-reader-state-dot.jpdb-never-forget,.jpdb-reader-state-dot.jpdb-redundant{background:var(--jpdb-reader-state-known, #7bd88f)}
+.jpdb-reader-state-dot.jpdb-due{background:var(--jpdb-reader-state-due, #5fb3b3)}
+.jpdb-reader-state-dot.jpdb-failed{background:var(--jpdb-reader-state-failed, #ff6b6b)}
+.jpdb-reader-state-dot.jpdb-blacklisted,.jpdb-reader-state-dot.jpdb-locked{background:var(--jpdb-reader-state-ignored, #b8a7ff)}
+.jpdb-reader-local{border-top:1px solid var(--jpdb-reader-border);margin-top:12px;padding-top:12px;display:grid;gap:8px;font-size:13px;line-height:1.45}
+.jpdb-reader-definition-stack{display:grid;gap:0;margin-top:12px}
+.jpdb-reader-definition-stack .jpdb-reader-local{margin-top:0}
+.jpdb-reader-source-card,.jpdb-reader-study-source{gap:0;padding-top:0;position:relative}
+.jpdb-reader-source-card .jpdb-reader-meanings{margin:0}
+.jpdb-reader-source-card>summary.jpdb-reader-local-title,.jpdb-reader-study-source>summary.jpdb-reader-local-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:6px 0;cursor:pointer;list-style:none}
+.jpdb-reader-source-card>summary.jpdb-reader-local-title::-webkit-details-marker,.jpdb-reader-study-source>summary.jpdb-reader-local-title::-webkit-details-marker{display:none}
+.jpdb-reader-source-card>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source>summary.jpdb-reader-local-title:after{content:"+";flex:0 0 auto;margin-left:0;color:var(--jpdb-reader-muted);font-size:15px;line-height:1}
+.jpdb-reader-source-card[open]>summary.jpdb-reader-local-title:after,.jpdb-reader-study-source[open]>summary.jpdb-reader-local-title:after{content:"-"}
+.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title{cursor:default}
+.jpdb-reader-source-card[data-immersion-empty=true]>summary.jpdb-reader-local-title:after{content:""}
+.jpdb-reader-source-card>:not(summary){margin-left:0;margin-right:0}
+.jpdb-reader-source-card[open]>:last-child{margin-bottom:7px}
+.jpdb-reader-dictionary-source-list,.jpdb-reader-dictionaries-section .jpdb-reader-local-terms{gap:0;margin-top:0;padding:0}
+.jpdb-reader-dictionary-source-list{display:grid}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group{border-top:1px solid var(--jpdb-reader-border);padding:0;overflow:visible}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child{border-top:1px solid var(--jpdb-reader-border)}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px;padding:6px 0;color:var(--jpdb-reader-muted);cursor:pointer;list-style:none}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::-webkit-details-marker{display:none}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title:after{content:"+";flex:0 0 auto;color:var(--jpdb-reader-muted);font-size:14px;line-height:1}
+.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group[open]>.jpdb-reader-dictionary-source-title:after{content:"-"}
+.jpdb-reader-dictionaries-section .jpdb-reader-local-term{border:0;border-radius:0;background:transparent;padding:7px 0 8px}
+.jpdb-reader-dictionaries-section .jpdb-reader-local-term+.jpdb-reader-local-term,.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title+.jpdb-reader-local-terms{border-top:1px solid var(--jpdb-reader-border)}
+.jpdb-reader-study-source>.jpdb-reader-study-panel{margin-top:4px;margin-bottom:12px}
+.jpdb-reader-local-title{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;text-transform:uppercase}
+.jpdb-reader-source-status{margin-left:auto;color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:none}
+.jpdb-reader-local-entry{border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);padding:6px}
+.jpdb-reader-source-card>.jpdb-reader-local-entry{display:grid;gap:10px;padding:8px 0 0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.jpdb-reader-kanji>.jpdb-reader-local-entry+.jpdb-reader-local-entry{margin-top:6px}
+.jpdb-reader-local-terms{display:grid;gap:5px}
+.jpdb-reader-local-term{padding:7px 32px 7px 8px;background:color-mix(in srgb,var(--jpdb-reader-surface) 88%,var(--jpdb-reader-surface-2))}
+.jpdb-reader-source-card .jpdb-reader-local-term{padding:7px 0 8px;border-top:1px solid color-mix(in srgb,var(--jpdb-reader-border) 52%,transparent);border-radius:0;background:transparent}
+.jpdb-reader-source-card .jpdb-reader-local-term:first-child{border-top:0}
+.jpdb-reader-local-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-weight:700}
+.jpdb-reader-local-expression{min-width:0;color:var(--jpdb-reader-text);font-size:16px;line-height:1.25;font-weight:850}
+.jpdb-reader-local-reading,.jpdb-reader-local-dict{color:var(--jpdb-reader-muted);font-size:11px;font-weight:650}
+.jpdb-reader-local-dict{margin-left:auto}
+.jpdb-reader-local-frequency{margin-left:auto;color:var(--jpdb-reader-accent-readable);font-size:11px;font-weight:800}
+.jpdb-reader-local-senses{display:grid;gap:2px;margin-top:4px}
+.jpdb-reader-local-tags{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px}
+.jpdb-reader-local-head+.jpdb-reader-local-tags{margin-top:5px}
+.jpdb-reader-local-tags:empty{display:none}
+.jpdb-reader-dict-tag{display:inline-flex;align-items:center;min-height:1.35em;padding:0 .38em;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 55%,var(--jpdb-reader-border));border-radius:4px;background:color-mix(in srgb,var(--jpdb-reader-accent) 24%,var(--jpdb-reader-surface-2));color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:800;line-height:1.2}
+.jpdb-reader-source-tag{border-color:var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted)}
+.jpdb-reader-local-sense,.jpdb-reader-local-glossary-entry{display:flex;align-items:baseline;gap:6px;min-width:0}
+.jpdb-reader-local-sense{color:var(--jpdb-reader-text);font-size:13px;line-height:1.3}
+.jpdb-reader-local-sense>span:last-child,.jpdb-reader-local-glossary-entry>div{min-width:0;flex:1 1 auto}
+.jpdb-reader-local-sense-index{flex:0 0 16px;color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-align:right}
+.jpdb-reader-local-glossary{margin-top:3px;color:var(--jpdb-reader-text);font-size:13px;line-height:1.45;white-space:normal;display:grid;gap:2px;min-width:0;max-width:100%;overflow-wrap:anywhere;--font-size-no-units: 13;--line-height: 1.45;--list-padding1: 1.1em;--list-padding2: 1.45em;--compact-list-separator: " / "}
+.jpdb-reader-local-glossary-entry.no-index{display:block}
+.jpdb-reader-local-glossary-entry.no-index>div{min-width:0}
+.jpdb-reader-local-glossary-entry.no-index>div>div:first-child>:first-child{margin-top:0!important}
+.jpdb-reader-local-glossary-entry.no-index>div>div:last-child>:last-child{margin-bottom:0!important}
+.jpdb-reader-local-glossary-entry.no-index .gloss-sc-div,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ul,.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ol{margin-top:.12em!important;margin-bottom:.12em!important}
+.jpdb-reader-local-glossary ul,.jpdb-reader-local-glossary ol{padding:0}
+.jpdb-reader-local-glossary li{margin:1px 0}
+.jpdb-reader-local-glossary table{border-collapse:collapse;width:100%;white-space:normal;margin:4px 0}
+.jpdb-reader-local-glossary td,.jpdb-reader-local-glossary th{border:1px solid var(--jpdb-reader-border);padding:8px 6px 6px;line-height:1.45}
+.jpdb-reader-dictionary-group{padding:0;overflow:hidden}
+.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary{align-items:center;cursor:pointer;display:flex;gap:8px;justify-content:space-between;list-style:none;min-height:38px;padding:8px 0}
+.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head::-webkit-details-marker,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary::-webkit-details-marker{display:none}
+.jpdb-reader-dictionary-group>summary.jpdb-reader-local-head:after,.jpdb-reader-dictionary-group>summary.jpdb-reader-local-title.jpdb-reader-example-summary:after{content:"+";margin-left:4px;color:var(--jpdb-reader-muted);font-size:16px;line-height:1}
+.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-head:after,.jpdb-reader-dictionary-group[open]>summary.jpdb-reader-local-title.jpdb-reader-example-summary:after{content:"-"}
+.jpdb-reader-dictionary-group>.jpdb-reader-local-glossary{padding:0 8px 8px}
+.jpdb-reader-local-glossary .structured-content{display:inline;min-width:0;max-width:100%;white-space:normal;line-height:var(--line-height)}
+.jpdb-reader-local-glossary ruby{display:ruby;ruby-align:center;ruby-position:over;max-width:100%;margin:0 .03em;color:inherit;line-height:1;text-align:center;vertical-align:baseline;white-space:nowrap}
+.jpdb-reader-local-glossary rt{display:ruby-text;color:var(--jpdb-reader-muted);font-size:.52em;font-weight:600;line-height:1;text-align:center;white-space:nowrap}
+.jpdb-reader-local-glossary rp{display:none}
+.jpdb-reader-local-glossary :is(.gloss-sc-div,.gloss-sc-ul,.gloss-sc-ol,.gloss-sc-li,.gloss-sc-details){box-sizing:border-box;min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal}
+.jpdb-reader-local-glossary [data-sc-class=extra-box]{box-sizing:border-box;max-width:100%}
+.jpdb-reader-local-glossary .gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-ol{margin:.25em 0 .25em var(--list-padding1);padding:0}
+.jpdb-reader-local-glossary .gloss-sc-ul[data-sc-content=glossary],.jpdb-reader-local-glossary .gloss-sc-ol[data-sc-content=glossary]{display:grid;gap:.25em}
+.jpdb-reader-local-glossary .gloss-sc-li{margin:0;padding-left:.1em}
+.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ul,.jpdb-reader-local-glossary .gloss-sc-li>.gloss-sc-ol{margin-left:var(--list-padding2)}
+.jpdb-reader-local-glossary .gloss-sc-details{margin:.35em 0;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 72%,transparent)}
+.jpdb-reader-local-glossary .gloss-sc-summary{padding:.35em .55em;cursor:pointer;font-weight:700}
+.jpdb-reader-local-glossary .gloss-sc-details>:not(.gloss-sc-summary){padding:0 .55em .45em}
+.jpdb-reader-local-glossary .gloss-sc-table-container{display:block;max-width:100%;margin:.35em 0;overflow-x:auto;white-space:normal}
+.jpdb-reader-local-glossary .gloss-sc-table{width:auto;min-width:min(100%,24rem);border-collapse:collapse;table-layout:auto}
+.jpdb-reader-local-glossary .gloss-sc-th,.jpdb-reader-local-glossary .gloss-sc-td{border:1px solid var(--jpdb-reader-border);padding:.35em .45em;vertical-align:top}
+.jpdb-reader-local-glossary .gloss-sc-th{background:var(--jpdb-reader-surface-2);font-weight:800}
+.jpdb-reader-local-glossary .gloss-sc-td[data-sc-class=form-valid]{text-align:center;vertical-align:middle}
+.jpdb-reader-local-glossary [data-sc-class=form-valid]{color:var(--jpdb-reader-accent-readable);font-weight:800}
+.jpdb-reader-local-glossary .gloss-link{color:var(--jpdb-reader-accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
+.jpdb-reader-local-glossary .gloss-link-external-icon{display:none}
+.jpdb-reader-local-glossary [data-sc-content=part-of-speech-info],.jpdb-reader-local-glossary [data-sc-class=tag],.jpdb-reader-local-glossary [data-sc-class=pitch-accent-position]{display:inline-flex;align-items:center;min-height:1.4em;margin:0 .25em .15em 0;padding:.05em .35em;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font-size:.88em;font-weight:700;white-space:nowrap}
+.jpdb-reader-local-glossary .gloss-image-link{display:inline-flex;align-items:center;gap:.35em;max-width:100%;margin:.15em 0;color:var(--jpdb-reader-muted);vertical-align:middle}
+.jpdb-reader-local-glossary .gloss-image-container{position:relative;display:inline-block;max-width:min(100%,20rem);min-width:3rem;overflow:hidden;border:1px solid var(--jpdb-reader-border);border-radius:6px;background:var(--jpdb-reader-surface-2);vertical-align:middle}
+.jpdb-reader-local-glossary .gloss-image-sizer{display:block}
+.jpdb-reader-local-glossary .gloss-image-background,.jpdb-reader-local-glossary .gloss-image-container-overlay{position:absolute;inset:0}
+.jpdb-reader-local-glossary .gloss-image-background{background:linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%),linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%);background-position:0 0,6px 6px;background-size:12px 12px}
+.jpdb-reader-local-glossary .gloss-image-link-text,.jpdb-reader-local-glossary .gloss-image-description{color:var(--jpdb-reader-muted);font-size:.9em}
+.jpdb-reader-anki-existing{margin-top:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);overflow:hidden}
+.jpdb-reader-anki-existing summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;cursor:pointer;color:var(--jpdb-reader-text);font-size:11px;font-weight:800;list-style:none}
+.jpdb-reader-anki-existing summary::-webkit-details-marker{display:none}
+.jpdb-reader-anki-existing summary small{color:var(--jpdb-reader-muted);font-weight:600;text-align:right}
+.jpdb-reader-anki-card-preview{border-top:1px solid var(--jpdb-reader-border);padding:9px 10px 10px;display:grid;gap:8px;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}
+.jpdb-reader-anki-field,.jpdb-reader-anki-context{display:grid;gap:2px}
+.jpdb-reader-anki-field>strong,.jpdb-reader-anki-context>strong,.jpdb-reader-anki-rendered-side>strong{color:var(--jpdb-reader-text);font-size:11px;text-transform:uppercase}
+.jpdb-reader-anki-field>span,.jpdb-reader-anki-context>span,.jpdb-reader-anki-context>small{white-space:pre-wrap;overflow-wrap:anywhere}
+.jpdb-reader-anki-rendered-card,.jpdb-reader-anki-fields{display:grid;gap:8px}
+.jpdb-reader-anki-rendered-side{display:grid;gap:5px;min-width:0}
+.jpdb-reader-anki-rendered-side-body{max-height:220px;overflow:auto;overscroll-behavior:contain;contain:content;border:1px solid var(--jpdb-reader-border);border-radius:6px;padding:8px;background:#00000024;color:var(--jpdb-reader-text);font-size:13px;line-height:1.45}
+.jpdb-reader-anki-rendered-side-body *{max-width:100%}
+.jpdb-reader-anki-rendered-side-body img,.jpdb-reader-anki-rendered-side-body video,.jpdb-reader-anki-rendered-side-body audio{max-width:100%;height:auto}
+.jpdb-reader-anki-sound{display:inline-block;line-height:1.3;width:fit-content;max-width:100%;margin-top:2px;cursor:pointer;padding:2px 6px;border:1px solid var(--jpdb-reader-border);border-radius:999px;color:var(--jpdb-reader-text);background:#5ea78029;font-size:10px;font-weight:700}
+.jpdb-reader-anki-sound:disabled{cursor:default;opacity:.65}
+.jpdb-reader-anki-note-actions{display:grid;gap:8px}
+.jpdb-reader-anki-note-action-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.jpdb-reader-anki-audio-merge{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;min-width:0}
+.jpdb-reader-anki-audio-merge span{color:var(--jpdb-reader-text);font-size:11px;font-weight:800;text-transform:uppercase}
+.jpdb-reader-anki-audio-merge select{min-width:0;width:100%;border:1px solid var(--jpdb-reader-border);border-radius:6px;padding:5px 8px;color:var(--jpdb-reader-text);background:var(--jpdb-reader-bg);font:inherit}
+.jpdb-reader-settings-subsection{display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--jpdb-reader-border)}
+.jpdb-reader-immersion{container-type:inline-size;--jpdb-reader-example-media-max-height: clamp(150px, calc(100vh - 300px) , 260px)}
+.jpdb-reader-example-card{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:start;padding:0;border:0;border-radius:0;background:transparent}
+.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}
+.jpdb-reader-example-image{display:block;max-width:100%;height:auto;max-height:var(--jpdb-reader-example-media-max-height);object-fit:contain}
+.jpdb-reader-example-media{position:relative;display:flex;align-items:center;justify-content:center;width:100%;min-height:0;overflow:visible;border:0;border-radius:0;background:transparent}
+.jpdb-reader-example-card.has-image .jpdb-reader-example-media{overflow:hidden}
+.jpdb-reader-example-body{display:grid;align-content:start;gap:9px;min-width:0}
+.jpdb-reader-example-source{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jpdb-reader-example-summary{display:flex!important;align-items:center!important;justify-content:space-between;gap:8px!important;min-height:38px;padding:8px 0;width:100%}
+.jpdb-reader-example-summary .jpdb-reader-example-source{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;line-height:1.2;text-transform:uppercase}
+.jpdb-reader-example-summary .jpdb-reader-local-dict{display:block;max-width:100%;flex:1 1 auto;margin-left:0;min-width:0;text-align:left;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
+.jpdb-reader-example-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;width:100%;margin:3px 0 7px}
+.jpdb-reader-example-meta{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:7px;row-gap:2px}
+.jpdb-reader-example-meta .jpdb-reader-example-source{grid-column:1 / -1;flex:none;max-width:100%;color:var(--jpdb-reader-muted);font-size:10.5px;font-weight:850;line-height:1.15;text-transform:uppercase}
+.jpdb-reader-example-title{min-width:0;color:var(--jpdb-reader-text);font-size:11px;font-weight:780;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jpdb-reader-example-count{color:var(--jpdb-reader-faint);font-size:10.5px;font-weight:850;line-height:1.2;white-space:nowrap}
+.jpdb-reader-example-sentence{justify-self:center;min-width:0;width:min(100%,38em);color:var(--jpdb-reader-text);font-size:13px;line-height:1.72;text-align:center;text-wrap:balance;overflow-wrap:anywhere;word-break:normal}
+.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence{position:absolute;left:50%;bottom:clamp(8px,5%,18px);z-index:1;width:min(calc(100% - 28px),34em);padding:2px 6px;transform:translate(-50%);color:#fff;font-size:13px;font-weight:750;line-height:1.45;text-shadow:0 1px 2px rgb(0 0 0 / 95%),0 0 5px rgb(0 0 0 / 90%),0 0 9px rgb(0 0 0 / 78%);pointer-events:auto}
+.jpdb-reader-example-sentence:has(rt.jpdb-reader-furi){padding-top:.25em;line-height:1.95}
+.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence:has(rt.jpdb-reader-furi){padding-top:2px;line-height:1.75}
+.jpdb-reader-example-sentence .jpdb-reader-word{display:inline;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-has-furi{line-height:2}
+.jpdb-reader-example-target{padding:0 .08em;border-radius:.22em;background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 15%,transparent);box-shadow:inset 0 -.1em color-mix(in srgb,var(--jpdb-reader-accent-readable) 58%,transparent);-webkit-box-decoration-break:clone;box-decoration-break:clone}
+mark.jpdb-reader-example-target{color:inherit}
+.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:color-mix(in srgb,var(--jpdb-reader-accent-readable) 15%,transparent)!important}
+.jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{box-shadow:inset 0 -.1em color-mix(in srgb,var(--jpdb-reader-accent-readable) 58%,transparent)!important}
+.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target{background:transparent!important;box-shadow:0 .08em color-mix(in srgb,#000 58%,transparent),inset 0 -.12em color-mix(in srgb,var(--jpdb-reader-accent-readable) 74%,transparent)!important}
+.jpdb-reader-example-translation{justify-self:center;width:min(100%,38em);color:var(--jpdb-reader-muted);font-size:11px;line-height:1.45;text-align:center;text-wrap:balance}
+.jpdb-reader-example-translation[data-immersion-translation-blurred=true],.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]{filter:blur(4px);user-select:none;cursor:pointer}
+.jpdb-reader-example-translation[data-immersion-translation-blurred=true]:hover,.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]:hover,.jpdb-reader-example-translation[data-immersion-translation-blurred=true]:focus-visible,.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred=true]:focus-visible{filter:blur(3px);outline:none}
+.jpdb-reader-example-actions{flex:0 0 auto;display:inline-flex;align-items:center;justify-self:end;gap:3px;margin-top:0;padding:0;border:0;background:transparent}
+.jpdb-reader-example-toolbar .jpdb-reader-example-actions{margin-left:auto}
+.jpdb-reader-immersion>.jpdb-reader-example-actions{display:flex;justify-content:flex-end;margin:-2px 0 6px}
+.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:30px!important;min-width:30px!important;max-width:30px!important;height:30px!important;min-height:30px!important;max-height:30px!important;border-radius:5px;background:#ffffff06;font-size:13px}
+.jpdb-reader-example-actions svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}
+@container (min-width: 560px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width: 520px){.jpdb-reader-example-card.has-image{grid-template-columns:minmax(0,1fr)}
+.jpdb-reader-example-media{--jpdb-reader-example-media-max-height: clamp(130px, calc(100vh - 300px) , 230px);max-height:var(--jpdb-reader-example-media-max-height)}
+.jpdb-reader-example-image{max-height:var(--jpdb-reader-example-media-max-height)}
+.jpdb-reader-example-actions{justify-self:start}
+.jpdb-reader-example-toolbar{flex-wrap:wrap}
+.jpdb-reader-example-meta{flex-basis:100%}
+.jpdb-reader-example-toolbar .jpdb-reader-example-actions{margin-left:0}
+.jpdb-reader-example-source{flex-basis:100%}
+}
+@media (pointer: coarse){.jpdb-reader-example-actions .jpdb-reader-icon-mini{width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important}
+}
+.jpdb-reader-study-tools{display:grid;gap:8px;margin:10px 0}
+.jpdb-reader-study-panel{display:grid;gap:10px;background:transparent;padding:0;color:var(--jpdb-reader-text);font-size:11px;line-height:1.4}
+.jpdb-reader-study-translation-panel{gap:12px}
+.jpdb-reader-study-block{display:grid;gap:4px;min-width:0}
+.jpdb-reader-study-sentence-block{gap:8px}
+.jpdb-reader-study-block+.jpdb-reader-study-block{border-top:1px solid var(--jpdb-reader-border);padding-top:10px}
+.jpdb-reader-study-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:800;letter-spacing:0;line-height:1.2;text-transform:uppercase}
+.jpdb-reader-study-label-row,.jpdb-reader-study-item-head,.jpdb-reader-grammar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.jpdb-reader-study-label-row .jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important}
+.jpdb-reader-study-original{margin:0;font-size:13px;line-height:1.7}
+.jpdb-reader-study-original rt{color:var(--jpdb-reader-muted);font-size:.58em;line-height:1}
+.jpdb-reader-study-translation{color:var(--jpdb-reader-text);font-size:13px;line-height:1.45}
+.jpdb-reader-study-name{color:var(--jpdb-reader-text);font-weight:800}
+.jpdb-reader-study-list{border-top:1px solid var(--jpdb-reader-border);display:grid;gap:0;list-style:none;margin:0;padding:6px 0 0}
+.jpdb-reader-study-item{display:grid;grid-template-columns:minmax(54px,max-content) minmax(0,1fr);gap:10px;align-items:start;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:8px 0}
+.jpdb-reader-study-item.known{opacity:.72}
+.jpdb-reader-study-item:first-child{border-top:0;padding-top:2px}
+.jpdb-reader-study-name{display:grid;gap:4px;font-size:15px;line-height:1.25}
+.jpdb-reader-study-body{display:grid;gap:4px;min-width:0}
+.jpdb-reader-study-kind{color:var(--jpdb-reader-muted);font-size:11px;font-weight:700;min-width:0}
+.jpdb-reader-study-short,.jpdb-reader-study-empty{color:var(--jpdb-reader-text)}
+.jpdb-reader-study-detail,.jpdb-reader-study-match{color:var(--jpdb-reader-muted)}
+.jpdb-reader-study-detail{font-size:11px;line-height:1.35}
+.jpdb-reader-study-match{display:flex;flex-wrap:wrap;gap:4px;align-items:baseline;font-size:11px}
+.jpdb-reader-study-match span{color:var(--jpdb-reader-muted)}
+.jpdb-reader-study-guide{display:inline-flex;align-items:center;min-height:24px;border-radius:3px;color:color-mix(in srgb,var(--jpdb-reader-accent-readable) 82%,var(--jpdb-reader-text));font-size:11px;font-weight:800;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--jpdb-reader-accent-readable) 64%,transparent);text-decoration-thickness:1px;text-underline-offset:3px;width:max-content}
+.jpdb-reader-study-guide:hover{color:var(--jpdb-reader-text);text-decoration-color:var(--jpdb-reader-accent-readable)}
+.jpdb-reader-study-guide:focus-visible{color:var(--jpdb-reader-text);outline:2px solid color-mix(in srgb,var(--jpdb-reader-accent-readable) 58%,transparent);outline-offset:2px;text-decoration-color:var(--jpdb-reader-accent-readable)}
+.jpdb-reader-grammar-summary{min-width:0;color:var(--jpdb-reader-muted);font-size:11px;font-weight:700}
+.jpdb-reader-grammar-level{justify-self:start;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 42%,var(--jpdb-reader-border));border-radius:999px;padding:1px 5px;color:var(--jpdb-reader-accent-readable);font-size:10px;font-weight:850;line-height:1.2}
+.jpdb-reader-grammar-known,.jpdb-reader-grammar-toggle{border:1px solid var(--jpdb-reader-border);border-radius:5px;background:#ffffff06;color:var(--jpdb-reader-muted);cursor:pointer;font:inherit;font-size:11px;font-weight:800;line-height:1.1;min-height:24px;padding:0 7px;white-space:nowrap}
+.jpdb-reader-grammar-known:hover,.jpdb-reader-grammar-known:focus-visible,.jpdb-reader-grammar-toggle:hover,.jpdb-reader-grammar-toggle:focus-visible{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 52%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent-readable);outline:none}
+.jpdb-reader-grammar-known[aria-pressed=true],.jpdb-reader-grammar-toggle[aria-pressed=true]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 46%,var(--jpdb-reader-border));color:var(--jpdb-reader-accent-readable)}
+.jpdb-reader-grammar-more{display:grid;gap:4px}
+.jpdb-reader-grammar-more[open]{row-gap:6px}
+.jpdb-reader-grammar-more>summary{width:max-content;color:var(--jpdb-reader-muted);cursor:pointer;font-size:11px;font-weight:750;list-style:none}
+.jpdb-reader-grammar-more>summary::-webkit-details-marker{display:none}
+.jpdb-reader-grammar-more>summary:after{content:"+";margin-left:5px}
+.jpdb-reader-grammar-more[open]>summary:after{content:"-"}
+.jpdb-reader-grammar-examples{display:grid;row-gap:6px;margin-top:4px}
+.jpdb-reader-grammar-examples>span{color:var(--jpdb-reader-text);font-size:11px;font-weight:750;line-height:1.25}
+.jpdb-reader-grammar-example{display:grid;row-gap:2px}
+@media (max-width: 420px){.jpdb-reader-study-item{grid-template-columns:minmax(0,1fr);gap:4px}
+.jpdb-reader-study-name{font-size:14px}
+}
+.jpdb-reader-template-preview{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px;margin-top:10px}
+.jpdb-reader-template-preview-title{color:var(--jpdb-reader-text);font-size:13px;font-weight:800;margin-bottom:8px}
+.jpdb-reader-template-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.jpdb-reader-template-preview-grid>div{border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);padding:10px;min-height:118px}
+.jpdb-reader-template-preview strong,.jpdb-reader-template-preview small{display:block;color:var(--jpdb-reader-muted)}
+.jpdb-reader-template-expression{color:var(--jpdb-reader-text);font-size:24px;font-weight:850;line-height:1.1;margin-top:8px}
+.jpdb-reader-template-reading,.jpdb-reader-template-meaning{color:var(--jpdb-reader-muted);margin-top:4px}
+.jpdb-reader-template-sentence{color:var(--jpdb-reader-text);font-size:18px;line-height:1.35;margin:10px 0 8px}
+.jpdb-reader-template-sentence span{color:var(--jpdb-reader-accent);font-weight:850}
+.jpdb-reader-frequency-pill{border:1px solid var(--chip-border, var(--jpdb-reader-border));background:var(--chip-bg, var(--jpdb-reader-surface-2));color:var(--chip-text, var(--jpdb-reader-text))}
+.jpdb-reader-kanji-char{font-size:20px}
+.jpdb-reader-kanji-readings{display:flex;flex-wrap:wrap;gap:6px;color:var(--jpdb-reader-muted);font-size:11px;margin-top:6px}
+.jpdb-reader-modal-nav{display:flex;align-items:center;gap:7px;margin-bottom:8px;color:var(--jpdb-reader-muted);font-size:11px;font-weight:750}
+.jpdb-reader-modal-nav span{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jpdb-reader-kanji-display{color:var(--jpdb-reader-text);font-size:46px;font-weight:850;line-height:1}
+.jpdb-reader-kanji-title-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 12px;width:100%}
+.jpdb-reader-kanji-title-row [data-kanji-keyword-mount]{min-width:0}
+.jpdb-reader-kanji-title-row .jpdb-reader-word-pills{grid-column:2 / -1;justify-self:start;align-self:start;margin-top:1px}
+.jpdb-reader-kanji-title-row .jpdb-reader-action-pill{--chip-bg: var(--jpdb-reader-surface);--chip-border: var(--jpdb-reader-border);--chip-text: var(--jpdb-reader-muted)}
+.jpdb-reader-kanji-keywords{display:flex;flex-wrap:wrap;align-items:center;gap:7px;min-width:0}
+.jpdb-reader-kanji-keyword{display:inline-flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0;max-width:100%;min-height:24px;padding:3px 9px;border:1px solid color-mix(in srgb,var(--jpdb-reader-accent) 34%,var(--jpdb-reader-border));border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 88%,var(--jpdb-reader-accent) 12%);color:var(--jpdb-reader-text);box-shadow:none;font-size:12px;font-weight:780;line-height:1.08;overflow:hidden;white-space:nowrap}
+.jpdb-reader-kanji-keyword small{display:inline;flex:0 0 auto;height:auto;padding:0;border-radius:0;background:transparent;color:var(--jpdb-reader-muted);font-size:9px;font-weight:800;line-height:1;letter-spacing:0;text-transform:uppercase}
+.jpdb-reader-kanji-keyword span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.jpdb-reader-kanji-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,136px),1fr));gap:6px;overflow:visible;padding-bottom:0}
+.jpdb-reader-kanji-facts span{display:flex;align-items:baseline;gap:6px;min-width:0;min-height:34px;padding:6px 9px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-text);font-size:12px;font-weight:820;line-height:1.1;overflow:hidden;overflow-wrap:normal;text-overflow:ellipsis;white-space:nowrap}
+.jpdb-reader-kanji-facts :is(strong,small){display:inline;flex:0 0 auto;color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;line-height:1.1;text-transform:uppercase}
+.jpdb-reader-origin-detail{display:grid;gap:8px}
+.jpdb-reader-kanji-facts+.jpdb-reader-origin-detail{margin-top:8px}
+.jpdb-reader-origin-detail p{margin:0;color:var(--jpdb-reader-text);font-size:13px;line-height:1.35}
+.jpdb-reader-origin-detail p span{color:var(--jpdb-reader-muted)}
+.jpdb-reader-radical-card{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;padding:8px 0;border-top:1px solid color-mix(in srgb,var(--jpdb-reader-border) 52%,transparent);background:transparent}
+.jpdb-reader-radical-card:first-child{border-top:0}
+.jpdb-reader-radical-glyph{display:grid;place-items:center;width:42px;height:42px;border-radius:8px;background:var(--jpdb-reader-bg);font-size:28px!important;line-height:1}
+.jpdb-reader-radical-card img{width:48px;height:48px;object-fit:contain;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-text) 92%,white)}
+.jpdb-reader-radical-frames{display:flex!important;flex-flow:row wrap;gap:5px!important;margin-top:5px}
+.jpdb-reader-radical-card div{display:grid;gap:2px;min-width:0}
+.jpdb-reader-radical-card strong{color:var(--jpdb-reader-text);font-size:15px}
+.jpdb-reader-radical-card span{color:var(--jpdb-reader-muted);font-size:11px;line-height:1.3}
+.jpdb-reader-origin-graph-wrap{--jpdb-reader-origin-graph-node-size: 60px;--jpdb-reader-origin-graph-bg: color-mix( in srgb, var(--jpdb-reader-surface, #20242b) 88%, var(--jpdb-reader-bg, #181b20) );--jpdb-reader-origin-graph-line: color-mix( in srgb, var(--jpdb-reader-text, #f2f4f8) 72%, transparent );--jpdb-reader-origin-graph-outbound-line: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 76%, var(--jpdb-reader-text, #f2f4f8) );--jpdb-reader-origin-graph-subcomponent-line: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 48%, var(--jpdb-reader-text, #f2f4f8) );--jpdb-reader-origin-graph-frame: color-mix( in srgb, var(--jpdb-reader-bg, #181b20) 84%, var(--jpdb-reader-text, #f2f4f8) );--jpdb-reader-origin-graph-node-fill: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 72%, var(--jpdb-reader-surface-2, #282e37) );--jpdb-reader-origin-graph-related-fill: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 18%, var(--jpdb-reader-surface, #20242b) );--jpdb-reader-origin-graph-accent-text: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 12%, #000 );position:relative;height:min(240px,58vw);min-height:190px;margin-top:8px;border:1px solid color-mix(in srgb,var(--jpdb-reader-border) 82%,var(--jpdb-reader-text, #f2f4f8));border-radius:8px;background:var(--jpdb-reader-origin-graph-bg);box-shadow:inset 0 1px color-mix(in srgb,var(--jpdb-reader-text, #f2f4f8) 8%,transparent),inset 0 -18px 44px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 18%,transparent);isolation:isolate;overflow:hidden}
+.jpdb-reader-origin-graph-wrap[data-origin-has-subcomponents=true]{height:min(340px,72vw);min-height:240px}
+.jpdb-reader-origin-graph-lines{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.35;transition:opacity .12s ease}
+.jpdb-reader-origin-graph-wrap[data-graph-ready=true] .jpdb-reader-origin-graph-lines{opacity:1}
+.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge{fill:none;stroke:var(--jpdb-reader-origin-graph-line);stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow{fill:var(--jpdb-reader-origin-graph-line)}
+.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow-outbound .jpdb-reader-origin-edge-arrow{fill:var(--jpdb-reader-origin-graph-outbound-line)}
+.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow-subcomponent .jpdb-reader-origin-edge-arrow{fill:var(--jpdb-reader-origin-graph-subcomponent-line)}
+.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-group.outbound .jpdb-reader-origin-edge{stroke:var(--jpdb-reader-origin-graph-outbound-line);stroke-dasharray:2.6 3.2}
+.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-group.subcomponent .jpdb-reader-origin-edge{stroke:var(--jpdb-reader-origin-graph-subcomponent-line);stroke-width:1.15;stroke-dasharray:1.6 4}
+.jpdb-reader-origin-graph-wrap:has([data-origin-outbound-toggle]:not(:checked)) [data-origin-outbound=true]{display:none}
+.jpdb-reader-origin-graph-wrap:has([data-origin-subcomponent-toggle]:not(:checked)) [data-origin-subcomponent=true]{display:none}
+.jpdb-reader-origin-graph-toggles{position:absolute;top:7px;right:7px;z-index:4;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:5px;max-width:calc(100% - 14px)}
+.jpdb-reader-origin-graph-toggle{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:4px 7px;border:1px solid var(--jpdb-reader-border, rgba(255, 255, 255, .12));border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 88%,transparent);color:var(--jpdb-reader-text, #f2f4f8);font-size:11px;font-weight:850;line-height:1.1;cursor:pointer;user-select:none;box-shadow:0 8px 20px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 24%,transparent)}
+.jpdb-reader-origin-graph-toggle input{width:13px;height:13px;margin:0;accent-color:var(--jpdb-reader-accent, #5ea780)}
+.jpdb-reader-origin-graph-node{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:var(--jpdb-reader-origin-graph-node-size);min-width:var(--jpdb-reader-origin-graph-node-size);height:var(--jpdb-reader-origin-graph-node-size);padding:0;border:4px solid var(--jpdb-reader-origin-graph-frame);border-radius:999px;background:var(--jpdb-reader-origin-graph-node-fill);color:var(--jpdb-reader-text, #f2f4f8);font-family:"Hiragino Sans","Yu Gothic",var(--jpdb-reader-font);font-size:33px;font-weight:850;line-height:1;box-shadow:0 9px 26px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 34%,transparent);cursor:grab;touch-action:none;user-select:none;z-index:2;transition:border-color .14s ease,box-shadow .14s ease,transform .14s ease}
+.jpdb-reader-origin-graph-node.current{border-color:var(--jpdb-reader-origin-graph-frame);background:var(--jpdb-reader-accent, #5ea780);color:var(--jpdb-reader-origin-graph-accent-text);font-size:35px;box-shadow:0 12px 32px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 40%,transparent)}
+.jpdb-reader-origin-graph-node.component{border-color:var(--jpdb-reader-origin-graph-frame)}
+.jpdb-reader-origin-graph-node.related{background:var(--jpdb-reader-origin-graph-related-fill);color:var(--jpdb-reader-text, #f2f4f8);font-size:29px}
+.jpdb-reader-origin-graph-node[data-label-length="2"]{font-size:27px}
+.jpdb-reader-origin-graph-node[data-label-length=many]{font-size:22px}
+.jpdb-reader-origin-graph-node:hover,.jpdb-reader-origin-graph-node:focus-visible{border-color:var(--jpdb-reader-origin-graph-frame);box-shadow:0 14px 34px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 44%,transparent),0 0 0 3px color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 24%,transparent);outline:none;transform:translate(-50%,-50%) scale(1.04)}
+.jpdb-reader-origin-graph-node.dragging{cursor:grabbing;z-index:3;transform:translate(-50%,-50%) scale(1.08);box-shadow:0 18px 40px color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 50%,transparent),0 0 0 4px color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 28%,transparent)}
+.jpdb-reader-rtk-head{display:flex;align-items:baseline;gap:8px;color:var(--jpdb-reader-text)}
+.jpdb-reader-rtk-head span{color:var(--jpdb-reader-muted);font-size:11px}
+.jpdb-reader-rtk details,.jpdb-reader-jpdb-kanji details{margin-top:8px;color:var(--jpdb-reader-muted)}
+.jpdb-reader-rtk summary,.jpdb-reader-jpdb-kanji summary{cursor:pointer;color:var(--jpdb-reader-text);font-weight:750}
+.jpdb-reader-rtk p,.jpdb-reader-jpdb-kanji p{margin:6px 0 0;color:var(--jpdb-reader-muted);line-height:1.45}
+.jpdb-reader-rtk-elements{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+.jpdb-reader-rtk-elements>span,.jpdb-reader-rtk-elements>button{display:inline-flex;align-items:center;gap:5px;min-height:24px;padding:2px 8px;border:1px solid transparent;border-radius:999px;background:var(--jpdb-reader-surface-2);color:var(--jpdb-reader-muted);font:inherit;font-size:11px;font-weight:750}
+.jpdb-reader-rtk-elements>span strong,.jpdb-reader-rtk-elements>button strong{color:var(--jpdb-reader-text);font-size:14px;line-height:1}
+.jpdb-reader-rtk-elements>span span,.jpdb-reader-rtk-elements>button span{all:unset;color:var(--jpdb-reader-muted)}
+.jpdb-reader-rtk-elements>button{cursor:pointer}
+.jpdb-reader-rtk-elements>button:hover,.jpdb-reader-rtk-elements>button:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text);outline:none}
+.jpdb-reader-component-grid,.jpdb-reader-similar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:6px;margin-top:8px}
+.jpdb-reader-similar-grid{grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:8px}
+.jpdb-reader-component-card,.jpdb-reader-component-button,.jpdb-reader-similar-word{min-width:0;border:1px solid color-mix(in srgb,var(--jpdb-reader-border) 70%,transparent);border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 62%,transparent);color:var(--jpdb-reader-text);padding:7px}
+.jpdb-reader-component-card,.jpdb-reader-component-button{display:grid;gap:2px;text-align:left;cursor:pointer;font:inherit}
+.jpdb-reader-component-card strong,.jpdb-reader-component-button strong{font-size:18px}
+.jpdb-reader-component-card span,.jpdb-reader-component-card small,.jpdb-reader-component-button span,.jpdb-reader-component-button small,.jpdb-reader-similar-word small,.jpdb-reader-similar-word em{color:var(--jpdb-reader-muted);font-size:11px;font-style:normal}
+.jpdb-reader-similar-word{display:grid;gap:3px;align-content:start;min-height:86px;text-align:left;cursor:pointer;font:inherit}
+.jpdb-reader-similar-word-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}
+.jpdb-reader-similar-word-head>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jpdb-reader-similar-reading,.jpdb-reader-similar-meaning{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical}
+.jpdb-reader-similar-reading{-webkit-line-clamp:1;line-clamp:1}
+.jpdb-reader-similar-meaning{-webkit-line-clamp:2;line-clamp:2}
+.jpdb-reader-similar-word:hover,.jpdb-reader-similar-word:focus-visible,.jpdb-reader-component-card:hover,.jpdb-reader-component-card:focus-visible,.jpdb-reader-component-button:hover,.jpdb-reader-component-button:focus-visible{border-color:var(--jpdb-reader-accent);outline:none}
+.jpdb-reader-doodle-stage{position:relative;width:min(100%,240px);aspect-ratio:1 / 1;justify-self:center;margin:8px auto 0;--jpdb-reader-doodle-ink: #141820;border:1px solid var(--jpdb-reader-border);border-radius:8px;overflow:hidden;background:linear-gradient(90deg,rgba(0,0,0,.08) 1px,transparent 1px),linear-gradient(0deg,rgba(0,0,0,.08) 1px,transparent 1px),#f8f9fb;background-size:27.25px 27.25px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+.jpdb-reader-kanjivg>.jpdb-reader-doodle-stage{margin-inline:auto}
+.jpdb-reader-doodle-ghost,.jpdb-reader-doodle-canvas{position:absolute;inset:0}
+.jpdb-reader-doodle-ghost{display:grid;place-items:center;opacity:.3;pointer-events:none}
+.jpdb-reader-doodle-stage.trace-hidden .jpdb-reader-doodle-ghost,.jpdb-reader-doodle-ghost[hidden]{display:none!important}
+.jpdb-reader-doodle-canvas{width:100%;height:100%;cursor:crosshair;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+.jpdb-reader-doodle-tools,.jpdb-reader-doodle-tools *,.jpdb-reader-btn.jpdb-reader-doodle-control{touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+html.jpdb-reader-doodle-active,html.jpdb-reader-doodle-active body,html.jpdb-reader-doodle-active *{user-select:none!important;-webkit-user-select:none!important;-webkit-touch-callout:none!important;-webkit-tap-highlight-color:transparent!important}
+.jpdb-reader-kanjivg-svg{width:90%;max-height:90%}
+.jpdb-reader-kanjivg-strokes path{fill:none;stroke:#141820;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.jpdb-reader-kanjivg-numbers{fill:#6b7280;font-size:8px;font-family:var(--jpdb-reader-font)}
+.jpdb-reader-kanjivg .jpdb-reader-help{color:#3d4654}
+.jpdb-reader-doodle-text-ghost{color:#141820;font-family:Hiragino Sans,Hiragino Kaku Gothic ProN,Yu Gothic,Meiryo,sans-serif;font-size:180px;font-weight:500;line-height:1}
+.jpdb-reader-doodle-tools{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:7px}
+.jpdb-reader-kanjivg>.jpdb-reader-doodle-tools{margin-bottom:12px}
+.jpdb-reader-kanjivg>.jpdb-reader-newtab-doodle-result{margin:0 auto 12px}
+.jpdb-reader-kanjivg.jpdb-reader-doodle-pass .jpdb-reader-newtab-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-state-known, #7bd88f) 16%,var(--jpdb-reader-surface, #20242b))}
+.jpdb-reader-kanjivg.jpdb-reader-doodle-fail .jpdb-reader-newtab-doodle-result{border-color:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 54%,var(--jpdb-reader-border, rgba(255, 255, 255, .12)));background:color-mix(in srgb,var(--jpdb-reader-state-failed, #ff6b6b) 16%,var(--jpdb-reader-surface, #20242b))}
+.jpdb-reader-btn.jpdb-reader-doodle-control{min-height:28px;max-height:30px;padding:4px 9px;border-radius:7px;font:800 12px/1 var(--jpdb-reader-font)}
+.jpdb-reader-popover:has(.jpdb-reader-popover-body),.jpdb-reader-popover[data-jpdb-reader-body-stabilizers=true]{display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;padding:0;scrollbar-gutter:auto}
+.jpdb-reader-popover-body{min-height:0;min-width:0;max-width:100%;overflow-x:hidden;overflow-y:auto;overflow-anchor:none;padding:14px;overscroll-behavior:contain;scrollbar-gutter:auto}
+.jpdb-reader-popover-body>*{min-width:0;max-width:100%}
+.jpdb-reader-actions{position:relative;z-index:4;container-type:inline-size;border-top:1px solid var(--jpdb-reader-border);margin:0;padding:6px 14px 15px;display:grid;gap:6px;--jpdb-reader-actions-bg: color-mix(in srgb, var(--jpdb-reader-bg) 90%, black 10%);background:var(--jpdb-reader-actions-bg);box-shadow:0 -1px 0 var(--jpdb-reader-actions-bg)}
+.jpdb-reader-row{display:grid;grid-template-columns:repeat(var(--cols, 3),minmax(0,1fr));gap:10px}
+.jpdb-reader-mining-details{position:relative;display:grid;gap:0;min-width:0}
+.jpdb-reader-mining-panel{display:grid;gap:6px;min-width:0}
+.jpdb-reader-mining-title{position:static;justify-content:center;padding-inline:10px}
+.jpdb-reader-mining-title:hover,.jpdb-reader-mining-title:focus-visible{color:var(--jpdb-reader-state-new, #5aa9ff)}
+.jpdb-reader-actions-has-mining{position:relative;padding-top:31px}
+.jpdb-reader-actions-gutter{position:absolute;top:1px;right:10px;left:10px;height:30px;display:flex;justify-content:center;align-items:center;cursor:grab;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none}
+.jpdb-reader-actions-gutter[hidden]{display:none!important}
+.jpdb-reader-actions-gutter:active,.jpdb-reader-mining-drawer-dragging .jpdb-reader-actions-gutter{cursor:grabbing}
+.jpdb-reader-mining-collapse{display:inline-flex;align-items:center;justify-content:center;width:72px;height:30px;min-width:72px;min-height:30px;border:0;border-radius:999px;background:transparent;color:var(--jpdb-reader-muted);cursor:pointer;padding:0;pointer-events:auto;-webkit-tap-highlight-color:transparent}
+.jpdb-reader-mining-collapse:before{content:"";display:block;width:42px;height:5px;border-radius:999px;background:var(--jpdb-reader-faint)}
+.jpdb-reader-mining-collapse:hover,.jpdb-reader-mining-collapse:focus-visible{outline:none}
+.jpdb-reader-mining-collapse:hover:before,.jpdb-reader-mining-collapse:focus-visible:before{background:var(--jpdb-reader-accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--jpdb-reader-accent) 12%,transparent)}
+.jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse:before{width:48px;background:color-mix(in srgb,var(--jpdb-reader-accent) 74%,var(--jpdb-reader-faint))}
+.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-panel,.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-details{display:none}
+.jpdb-reader-mining-action-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:12px;padding:0}
+.jpdb-reader-kanji-mining-row{grid-template-columns:repeat(var(--cols, 3),minmax(0,1fr))}
+.jpdb-reader-add-deck-select{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.jpdb-reader-add-deck-select-open{position:static;width:100%;min-width:0;height:34px;margin-top:6px;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);opacity:1;pointer-events:auto;font:750 12px/1 var(--jpdb-reader-font)}
+.jpdb-reader-grades{grid-template-columns:repeat(5,minmax(24px,1fr))}
+.jpdb-reader-mining-action-row .jpdb-reader-btn{min-width:0;min-height:48px;padding-inline:clamp(6px,1.8cqi,10px);font-size:clamp(10.5px,3cqi,13px);letter-spacing:0;line-height:1.05;white-space:nowrap;overflow-wrap:normal}
+.jpdb-reader-grades .jpdb-reader-btn{min-width:0;min-height:48px;padding-inline:clamp(2px,1cqi,6px);font-size:clamp(9.3px,2.55cqi,11px);letter-spacing:0;line-height:1.05;white-space:nowrap;overflow-wrap:normal}
+.jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:color-mix(in srgb,var(--jpdb-reader-surface) 90%,currentColor 7%);color:var(--jpdb-reader-text);cursor:pointer;font:750 13px/1 var(--jpdb-reader-font);text-align:center;text-decoration:none;white-space:nowrap;box-shadow:inset 0 1px #ffffff08;transform:none;transition:background .14s ease,border-color .14s ease,box-shadow .14s ease,transform .12s ease;-webkit-tap-highlight-color:transparent}
+.jpdb-reader-btn:focus-visible:not(:disabled){border-color:color-mix(in srgb,var(--button-accent, var(--jpdb-reader-accent)) 70%,var(--jpdb-reader-border));outline:2px solid color-mix(in srgb,var(--button-accent, var(--jpdb-reader-accent)) 44%,transparent);outline-offset:2px}
+@media (hover: hover) and (pointer: fine){.jpdb-reader-btn:hover:not(:disabled){background:color-mix(in srgb,var(--jpdb-reader-surface) 84%,var(--button-accent, currentColor) 16%);box-shadow:inset 0 1px #ffffff0d,0 6px 14px #00000029;transform:translateY(-.12rem)}
+}
+.jpdb-reader-btn:active:not(:disabled){transform:scale(.98)}
+.jpdb-reader-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.jpdb-reader-btn.primary{color:var(--jpdb-reader-accent-readable);border-color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--jpdb-reader-accent) 14%)}
+.jpdb-reader-btn.add{--button-accent: var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable)!important}
+.jpdb-reader-btn.nf{--button-accent: var(--jpdb-reader-state-known, #7bd88f)}
+.jpdb-reader-btn.nf.danger{--button-accent: var(--jpdb-reader-state-failed, #ff6b6b)}
+.jpdb-reader-btn.blacklist{--button-accent: var(--jpdb-reader-state-ignored, #b8a7ff)}
+.jpdb-reader-btn.anki{--button-accent: var(--jpdb-reader-state-new, #5aa9ff)}
+.jpdb-reader-btn.nothing,.jpdb-reader-btn.fail,.jpdb-reader-btn.something{--button-accent: var(--jpdb-reader-state-failed, #ff6b6b)}
+.jpdb-reader-btn.hard{--button-accent: var(--jpdb-reader-state-due, #ffb454)}
+.jpdb-reader-btn.okay,.jpdb-reader-btn.pass{--button-accent: var(--jpdb-reader-state-known, #7bd88f)}
+.jpdb-reader-btn.easy{--button-accent: var(--jpdb-reader-state-new, #5aa9ff)}
+.jpdb-reader-btn:is(.add,.nf,.blacklist,.anki,.nothing,.something,.hard,.okay,.easy,.fail,.pass){color:var(--jpdb-reader-text);border-color:color-mix(in srgb,var(--button-accent, var(--jpdb-reader-border)) 54%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-surface) 94%,var(--button-accent, var(--jpdb-reader-border)) 6%)}
+@container (max-width: 430px){.jpdb-reader-mining-action-row{gap:6px}
+.jpdb-reader-mining-action-row .jpdb-reader-btn,.jpdb-reader-grades .jpdb-reader-btn{min-height:44px}
+.jpdb-reader-mining-action-row .jpdb-reader-btn{font-size:clamp(10px,2.85cqi,11.5px)}
+.jpdb-reader-grades .jpdb-reader-btn{padding-inline:clamp(1px,.75cqi,4px);font-size:clamp(8.8px,2.4cqi,10.4px)}
+}
+@container (max-width: 340px){.jpdb-reader-actions{padding:6px 10px 15px;gap:6px}
+.jpdb-reader-actions-has-mining{padding-top:29px}
+.jpdb-reader-actions-gutter{top:1px;right:8px;left:8px;height:28px}
+.jpdb-reader-mining-collapse{width:64px;height:28px;min-width:64px;min-height:28px}
+.jpdb-reader-mining-collapse:before{width:38px}
+.jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse:before{width:44px}
+.jpdb-reader-row,.jpdb-reader-mining-action-row{gap:3px}
+.jpdb-reader-mining-action-row .jpdb-reader-btn{min-height:38px;padding-inline:3px;border-radius:8px;font-size:9.5px}
+.jpdb-reader-grades .jpdb-reader-btn{min-height:38px;padding-inline:1px;border-radius:8px;font-size:8.8px}
+}
+@container (max-width: 300px){.jpdb-reader-actions{padding-inline:8px}
+.jpdb-reader-row,.jpdb-reader-mining-action-row{gap:2px}
+.jpdb-reader-grades{grid-template-columns:repeat(3,minmax(24px,1fr))}
+.jpdb-reader-mining-action-row .jpdb-reader-btn{font-size:8.8px}
+.jpdb-reader-grades .jpdb-reader-btn{padding-inline:0;font-size:8.2px}
+}
+.jpdb-reader-pitch svg{display:block;height:42px;max-width:128px}
+.jpdb-reader-pitch text{fill:var(--jpdb-reader-text);font-size:11px}
+.jpdb-reader-pitch polyline{fill:none;stroke:currentColor;stroke-width:2}
+.jpdb-reader-pitch circle{fill:currentColor}
+.jpdb-reader-pitch .heiban{color:var(--jpdb-reader-pitch-heiban, #359eff)}
+.jpdb-reader-pitch .atamadaka{color:var(--jpdb-reader-pitch-atamadaka, #fe4b74)}
+.jpdb-reader-pitch .nakadaka{color:var(--jpdb-reader-pitch-nakadaka, #fba840)}
+.jpdb-reader-pitch .odaka{color:var(--jpdb-reader-pitch-odaka, #57ccb7)}
+.jpdb-reader-pitch .kifuku{color:var(--jpdb-reader-pitch-kifuku, #9050f6)}
+.yomu-jpdb-uchisen-source[open]>:last-child{display:grid;gap:10px}
+.yomu-jpdb-uchisen-body{display:grid;gap:10px;justify-items:center;text-align:center}
+.yomu-jpdb-source-meta,.yomu-jpdb-counter{color:var(--jpdb-reader-muted);font-size:12px;font-weight:750}
+.yomu-jpdb-uchisen-summary-main,.yomu-jpdb-uchisen-summary-controls,.yomu-jpdb-uchisen-summary-link{display:inline-flex;align-items:center}
+.yomu-jpdb-uchisen-summary-main{gap:8px;min-width:0}
+.yomu-jpdb-uchisen-summary-controls{gap:7px;margin-left:auto}
+.yomu-jpdb-uchisen-summary-controls .jpdb-reader-icon-mini{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important}
+.yomu-jpdb-uchisen-summary-link{gap:4px;min-height:28px;padding-inline:2px;color:var(--jpdb-reader-accent-readable);font-size:11px;font-weight:750;line-height:1.2;text-decoration:none;text-transform:none}
+.yomu-jpdb-uchisen-summary-link svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.yomu-jpdb-uchisen-summary-link:hover,.yomu-jpdb-uchisen-summary-link:focus-visible{color:var(--jpdb-reader-accent);outline:none}
+.yomu-jpdb-component-breakdown{display:grid;gap:8px;width:100%;text-align:left}
+.yomu-jpdb-component-group{display:grid;gap:5px}
+.yomu-jpdb-component-group-label{color:var(--jpdb-reader-muted);font-size:10px;font-weight:850;line-height:1.1;text-transform:uppercase}
+.yomu-jpdb-component-list{display:flex;flex-wrap:wrap;gap:6px}
+.yomu-jpdb-component-chip{display:inline-flex;align-items:baseline;gap:6px;min-width:0;padding:5px 7px;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface-2) 72%,transparent);color:var(--jpdb-reader-text);font-size:11px;font-weight:760;line-height:1.2;text-decoration:none}
+.yomu-jpdb-component-chip strong{font-size:16px;line-height:1}
+.yomu-jpdb-component-chip span{color:var(--jpdb-reader-muted)}
+.yomu-jpdb-component-chip:hover,.yomu-jpdb-component-chip:focus-visible{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text);outline:none}
+.yomu-jpdb-image-shell{display:grid;place-items:center;justify-self:center;width:min(100%,540px);min-height:120px;border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-bg) 72%,transparent);overflow:hidden}
+.yomu-jpdb-image-shell img{display:block;max-width:100%;max-height:min(260px,50vh);object-fit:contain}
+.yomu-jpdb-story{color:var(--jpdb-reader-text);font-size:13px;line-height:1.5}
+.jpdb-reader-toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%);z-index:2147483647;max-width:min(520px,calc(100vw - 24px));padding:10px 12px;border-radius:10px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);border:1px solid var(--jpdb-reader-border);box-shadow:0 10px 28px #00000040;font:13px/1.35 var(--jpdb-reader-font)}
+.jpdb-reader-settings{left:50%;top:50%;transform:translate(-50%,-50%);width:min(1180px,calc(100vw - 48px));max-height:min(820px,calc(100vh - 20px));max-height:min(820px,calc(100dvh - 20px));overflow:hidden;padding:0;display:flex;flex-direction:column}
+.jpdb-reader-settings button,.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-settings textarea,.jpdb-reader-settings fieldset,.jpdb-reader-settings legend{margin:0;letter-spacing:0}
+.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-settings textarea{box-shadow:none;transform:none}
+.jpdb-reader-settings input:hover,.jpdb-reader-settings input:focus,.jpdb-reader-settings input:active{transform:none}
+.jpdb-reader-settings input[type=checkbox]:before,.jpdb-reader-settings input[type=radio]:before{content:none!important}
+.jpdb-reader-settings-head{flex:0 0 auto;padding:18px 18px 0}
+.jpdb-reader-settings-drag-handle{display:none;width:min(160px,44vw);height:34px;border-radius:999px;margin:-6px auto 2px;cursor:grab;touch-action:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.jpdb-reader-settings-drag-handle:before{content:"";display:block;width:48px;height:5px;border-radius:999px;margin:14px auto 0;background:var(--jpdb-reader-faint)}
+.jpdb-reader-settings-drag-handle:active{cursor:grabbing}
+.jpdb-reader-settings-drag-handle:focus-visible:before{background:var(--jpdb-reader-accent)}
+.jpdb-reader-settings-tabs{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:6px;overflow:visible;padding:0 18px 8px}
+.jpdb-reader-settings-tab{min-height:34px;padding:0 11px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-muted);font:800 12px/1 var(--jpdb-reader-font);cursor:pointer;white-space:nowrap;transform:translateY(-.01rem)}
+.jpdb-reader-settings-tab[aria-selected=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-readable);background:var(--jpdb-reader-accent-soft)}
+.jpdb-reader-settings-tab:focus-visible{border-color:var(--jpdb-reader-accent);outline:2px solid var(--jpdb-reader-accent-soft);outline-offset:2px}
+@media (hover: hover) and (pointer: fine){.jpdb-reader-settings-tab:hover{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent);color:var(--jpdb-reader-accent-readable);transform:translateY(-.16rem)}
+}
+@media (hover: none),(pointer: coarse){.jpdb-reader-settings-tab:not([aria-selected=true]):hover{border-color:var(--jpdb-reader-border);background:var(--jpdb-reader-surface);color:var(--jpdb-reader-muted);box-shadow:none;transform:none}
+}
+.jpdb-reader-settings-tab:active{transform:scale(.98)}
+.jpdb-reader-settings-scroll{min-height:0;overflow:auto;padding:0 18px 96px;-webkit-overflow-scrolling:touch}
+.jpdb-reader-settings h2{margin:0 0 12px;font-size:20px;line-height:1.45;color:var(--jpdb-reader-text)!important}
+.jpdb-reader-settings fieldset{border:1px solid var(--jpdb-reader-border);border-radius:8px;margin:12px 0;padding:12px}
+.jpdb-reader-settings legend{color:var(--jpdb-reader-muted);padding:0 6px}
+.jpdb-reader-settings label{display:grid;gap:5px;margin:10px 0;min-width:0;color:var(--jpdb-reader-muted)!important;font-size:11px;line-height:1.35}
+.jpdb-reader-settings input,.jpdb-reader-settings select,.jpdb-reader-field-display{width:100%;box-sizing:border-box;min-height:38px;border-radius:7px;border:1px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:700 12px/1.2 var(--jpdb-reader-font);height:38px;min-width:0;padding:8px}
+.jpdb-reader-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;min-height:38px;padding:0 16px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);color:var(--jpdb-reader-text);font:800 12px/1 var(--jpdb-reader-font);cursor:pointer;text-align:center;text-decoration:none!important}
+.jpdb-reader-btn:where(:link,:visited){color:var(--jpdb-reader-text)!important}
+.jpdb-reader-btn:hover,.jpdb-reader-btn:focus-visible{border-color:var(--button-accent, var(--jpdb-reader-accent));background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--button-accent, var(--jpdb-reader-accent)) 18%);outline:none}
+.jpdb-reader-btn:active{transform:scale(.98)}
+.jpdb-reader-btn:disabled{cursor:not-allowed;opacity:.62}
+.jpdb-reader-btn[data-save-blocked]{cursor:wait;color:var(--jpdb-reader-accent-readable);border-color:color-mix(in srgb,var(--jpdb-reader-accent) 55%,var(--jpdb-reader-border));background:var(--jpdb-reader-accent-soft)}
+.jpdb-reader-btn[data-import-state]{gap:7px;cursor:progress;opacity:1}
+.jpdb-reader-btn[data-import-state]:before{content:"";display:inline-block;flex:0 0 auto}
+.jpdb-reader-btn[data-import-state=installing]:before{width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:999px;animation:jpdb-reader-spin .8s linear infinite}
+.jpdb-reader-btn[data-import-state=queued]:before{width:8px;height:8px;border-radius:999px;background:currentColor;opacity:.72}
+.jpdb-reader-btn.add{color:var(--jpdb-reader-accent-readable)!important;border-color:var(--jpdb-reader-accent)!important;background:color-mix(in srgb,var(--jpdb-reader-surface) 82%,var(--jpdb-reader-accent) 18%)!important}
+.jpdb-reader-btn.add:hover,.jpdb-reader-btn.add:focus-visible{background:color-mix(in srgb,var(--jpdb-reader-surface) 74%,var(--jpdb-reader-accent) 26%)!important;box-shadow:0 4px 12px color-mix(in srgb,var(--jpdb-reader-accent) 20%,transparent)}
+@keyframes jpdb-reader-spin{to{transform:rotate(1turn)}
+}
+@media (prefers-reduced-motion: reduce){.jpdb-reader-btn[data-import-state=installing]:before{animation-duration:1.8s}
+}
+.jpdb-reader-field-display{min-width:0;display:flex;align-items:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;pointer-events:none}
+.jpdb-reader-settings input[type=color]{padding:3px;cursor:pointer}
+.jpdb-reader-settings input[type=checkbox],.jpdb-reader-settings input[type=radio]{appearance:none;-webkit-appearance:none;width:24px;height:24px;min-width:24px;min-height:24px;display:grid;place-content:center;margin:0;padding:0;border:1.5px solid var(--jpdb-reader-border);background:var(--jpdb-reader-surface-2);box-shadow:inset 0 0 0 1px #0000000f}
+.jpdb-reader-settings input[type=checkbox]{border-radius:7px}
+.jpdb-reader-settings input[type=radio]{border-radius:999px}
+.jpdb-reader-settings input[type=checkbox]:enabled:hover,.jpdb-reader-settings input[type=radio]:enabled:hover{border-color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-surface-2) 82%,var(--jpdb-reader-accent) 18%);box-shadow:0 0 0 3px var(--jpdb-reader-accent-soft)}
+.jpdb-reader-settings input[type=checkbox]:checked,.jpdb-reader-settings input[type=radio]:checked{border-color:var(--jpdb-reader-accent);background:var(--jpdb-reader-accent);box-shadow:0 0 0 3px var(--jpdb-reader-accent-soft)}
+.jpdb-reader-settings input[type=checkbox]:checked:enabled:hover,.jpdb-reader-settings input[type=radio]:checked:enabled:hover{background:var(--jpdb-reader-accent)}
+.jpdb-reader-settings input[type=checkbox]:checked:after{content:"";width:12px;height:7px;border-left:2.5px solid #ffffff;border-bottom:2.5px solid #ffffff;transform:rotate(-45deg) translate(1px,-1px)}
+.jpdb-reader-settings input[type=radio]:checked:after{content:"";width:10px;height:10px;border-radius:999px;background:#fff}
+.jpdb-reader-settings input[type=checkbox]:focus-visible,.jpdb-reader-settings input[type=radio]:focus-visible{outline:2px solid var(--jpdb-reader-accent);outline-offset:3px}
+.jpdb-reader-settings label:has(input:disabled),.jpdb-reader-settings label:has(select:disabled),.jpdb-reader-settings label:has(textarea:disabled){opacity:.55}
+.jpdb-reader-settings input:disabled,.jpdb-reader-settings select:disabled,.jpdb-reader-settings textarea:disabled{cursor:not-allowed}
+.jpdb-reader-settings input[type=file][data-file],.jpdb-reader-settings [hidden]{display:none!important}
+.jpdb-reader-settings .inline{display:flex;align-items:center;gap:12px;min-height:32px}
+.jpdb-reader-settings .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 14px}
+.jpdb-reader-settings .jpdb-reader-radio-group{align-self:end;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin:10px 0;padding:0;border:0;min-width:0}
+.jpdb-reader-settings .jpdb-reader-radio-group legend{grid-column:1 / -1;padding:0;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}
+.jpdb-reader-settings .jpdb-reader-radio-group label{grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;margin:0;min-height:38px}
+.jpdb-reader-settings-subsection{margin:16px 0 0;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--jpdb-reader-border) 72%,transparent)}
+.jpdb-reader-theme-field{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-height:38px;gap:10px;margin:10px 0;color:var(--jpdb-reader-muted)!important;font-size:11px}
+.jpdb-reader-theme-title{min-width:0;font:750 12px/1.2 var(--jpdb-reader-font)}
+.jpdb-reader-settings .jpdb-reader-theme-appearance{display:flex;align-items:center;justify-content:flex-end;min-width:48px;height:22px;margin:0}
+.jpdb-reader-settings .jpdb-reader-theme-switch{position:relative;display:block;width:40px;min-width:40px;height:22px!important;min-height:22px!important;padding:0;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,transparent);cursor:pointer;transform:translateY(-1px)}
+.jpdb-reader-settings .jpdb-reader-theme-switch .check{position:absolute;top:1px;left:1px;display:grid;place-items:center;width:18px;height:18px;border-radius:999px;background:var(--jpdb-reader-bg);box-shadow:0 1px 3px #00000047}
+.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .check{transform:translate(18px)}
+.jpdb-reader-settings .jpdb-reader-theme-switch .icon{position:relative;display:block;width:14px;height:14px;color:var(--jpdb-reader-muted)}
+.jpdb-reader-settings .jpdb-reader-theme-switch .sun,.jpdb-reader-settings .jpdb-reader-theme-switch .moon{position:absolute;inset:0;display:grid;place-items:center;font-size:11px;line-height:1}
+.jpdb-reader-settings .jpdb-reader-theme-switch .sun:before{content:"☀"}
+.jpdb-reader-settings .jpdb-reader-theme-switch .moon:before{content:"☾"}
+.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=false] .sun,.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .moon{opacity:0}
+.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=true] .sun,.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked=false] .moon{opacity:1}
+.jpdb-reader-settings .jpdb-reader-theme-switch:hover,.jpdb-reader-settings .jpdb-reader-theme-switch:focus-visible{border-color:var(--jpdb-reader-accent);outline:2px solid var(--jpdb-reader-accent-soft);outline-offset:3px}
+.jpdb-reader-shortcut-group{display:contents}
+.jpdb-reader-settings .footer{flex:0 0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:10px;margin:0;background:var(--jpdb-reader-bg);border-top:1px solid var(--jpdb-reader-border);padding:12px 18px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -10px 24px #0000002e}
+.jpdb-reader-settings-save-status{flex:1 1 100%;color:var(--jpdb-reader-accent-readable);font:760 11px/1.35 var(--jpdb-reader-font);text-align:right}
+.jpdb-reader-settings .footer .jpdb-reader-btn{min-width:92px;padding-inline:18px;font-size:13px}
+.jpdb-reader-settings .footer .jpdb-reader-btn[data-action=cancel]{color:var(--jpdb-reader-text);border-color:var(--jpdb-reader-border);background:color-mix(in srgb,var(--jpdb-reader-surface) 92%,var(--jpdb-reader-text) 5%)}
+.jpdb-reader-settings a:not(.jpdb-reader-btn){color:var(--jpdb-reader-accent-readable)!important;text-decoration:underline;text-underline-offset:3px}
+.jpdb-reader-settings-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}
+.jpdb-reader-settings-actions-single{display:flex;justify-content:center}
+.jpdb-reader-settings-actions .jpdb-reader-btn{display:inline-flex;min-width:0}
+.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 45%,var(--jpdb-reader-border));background:color-mix(in srgb,var(--jpdb-reader-surface) 86%,var(--jpdb-reader-accent) 14%);color:var(--jpdb-reader-text)!important}
+.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]:hover,.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]:focus-visible{border-color:var(--jpdb-reader-accent);background:color-mix(in srgb,var(--jpdb-reader-surface) 78%,var(--jpdb-reader-accent) 22%);box-shadow:0 6px 16px color-mix(in srgb,var(--jpdb-reader-accent) 18%,transparent)}
+.jpdb-reader-help-card{display:grid;gap:12px;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:14px}
+.jpdb-reader-help-title{color:var(--jpdb-reader-text);font-size:15px;font-weight:850}
+.jpdb-reader-help-card p{margin:8px 0 0;color:var(--jpdb-reader-muted);font-size:13px;line-height:1.45}
+.jpdb-reader-help-glossary{display:grid;gap:10px;margin:0}
+.jpdb-reader-help-glossary>div{display:grid;gap:3px}
+.jpdb-reader-help-glossary dt{color:var(--jpdb-reader-text);font-size:13px;font-weight:800}
+.jpdb-reader-help-glossary dd{margin:0;color:var(--jpdb-reader-muted);font-size:13px;line-height:1.45}
+.jpdb-reader-help-actions{display:flex;flex-wrap:nowrap;gap:8px;min-width:0}
+.jpdb-reader-help-actions .jpdb-reader-btn{flex:1 1 auto;min-width:0;min-height:42px;padding-inline:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jpdb-reader-help-actions .jpdb-reader-btn span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.jpdb-reader-help-actions .jpdb-reader-btn svg{flex:0 0 auto;width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.jpdb-reader-help-actions .jpdb-reader-help-donate{border-color:var(--jpdb-reader-accent);background:var(--jpdb-reader-accent);color:var(--jpdb-reader-accent-text, #11161d)!important;box-shadow:0 6px 16px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent)}
+.jpdb-reader-help-actions .jpdb-reader-help-donate:hover,.jpdb-reader-help-actions .jpdb-reader-help-donate:focus-visible{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 86%,white);background:color-mix(in srgb,var(--jpdb-reader-accent) 90%,white);color:var(--jpdb-reader-accent-text, #11161d)!important;box-shadow:0 8px 20px color-mix(in srgb,var(--jpdb-reader-accent) 28%,transparent)}
+.jpdb-reader-help-actions .jpdb-reader-help-reset{border-color:color-mix(in srgb,#ef4444 70%,var(--jpdb-reader-border));color:color-mix(in srgb,#ef4444 78%,var(--jpdb-reader-text))!important}
+.jpdb-reader-help-actions .jpdb-reader-help-reset:hover,.jpdb-reader-help-actions .jpdb-reader-help-reset:focus-visible{background:color-mix(in srgb,#7f1d1d 42%,var(--jpdb-reader-surface));border-color:#ef4444;color:color-mix(in srgb,#ef4444 62%,var(--jpdb-reader-text))!important}
+.jpdb-reader-help-support{display:grid;gap:10px;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--jpdb-reader-border) 72%,transparent)}
+.jpdb-reader-help-discord{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:42px;min-width:0;padding:8px 10px;border:1px solid var(--jpdb-reader-border);border-radius:8px;color:var(--jpdb-reader-text);background:color-mix(in srgb,var(--jpdb-reader-surface) 88%,var(--jpdb-reader-accent) 12%);font:800 12px/1.2 var(--jpdb-reader-font);text-align:center;overflow-wrap:anywhere}
+.jpdb-reader-dictionary-status{margin:10px 0;color:var(--jpdb-reader-muted);font-size:11px}
+.jpdb-reader-dictionary-priorities,.jpdb-reader-kanji-priorities,.jpdb-reader-audio-sources,.jpdb-reader-lookup-links{display:grid;gap:9px;margin:12px 0}
+.jpdb-reader-recommended-dictionaries{display:grid;gap:10px;margin:12px 0}
+.jpdb-reader-recommended-title{color:var(--jpdb-reader-text);font-weight:800;font-size:13px}
+.jpdb-reader-recommended-note{margin:-4px 0 2px}
+.jpdb-reader-recommended-group{display:grid;gap:7px}
+.jpdb-reader-recommended-group-title{color:var(--jpdb-reader-faint);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}
+.jpdb-reader-recommended-item{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:10px;align-items:center;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px}
+.jpdb-reader-recommended-item .jpdb-reader-btn{width:100%;min-height:42px;padding-inline:10px}
+.jpdb-reader-recommended-name{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;color:var(--jpdb-reader-text);font-weight:800;font-size:13px}
+.jpdb-reader-recommended-name a{font-size:11px;font-weight:700}
+.jpdb-reader-recommended-status{margin-top:7px;color:var(--jpdb-reader-accent-readable);font:760 11px/1.35 var(--jpdb-reader-font);overflow-wrap:anywhere}
+.jpdb-reader-recommended-status[data-import-state=queued]{color:var(--jpdb-reader-muted)}
+.jpdb-reader-order-head,.jpdb-reader-order-row{display:grid;gap:10px;align-items:center;box-sizing:border-box;min-width:0}
+.jpdb-reader-dictionary-head,.jpdb-reader-dictionary-row,.jpdb-reader-audio-source-head,.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-head,.jpdb-reader-lookup-link-row{grid-template-columns:50px minmax(0,1fr) minmax(0,.9fr) max-content 42px}
+.jpdb-reader-dictionary-head.no-remove,.jpdb-reader-dictionary-row.no-remove{grid-template-columns:50px minmax(0,1fr) minmax(0,.9fr) max-content}
+.jpdb-reader-dictionary-head.compact,.jpdb-reader-dictionary-row.compact{grid-template-columns:50px minmax(0,1fr) max-content 42px}
+.jpdb-reader-dictionary-head.compact.no-remove,.jpdb-reader-dictionary-row.compact.no-remove{grid-template-columns:50px minmax(0,1fr) max-content}
+.jpdb-reader-order-head{padding:0 10px;color:var(--jpdb-reader-faint);font-size:11px;font-weight:700;text-transform:uppercase}
+.jpdb-reader-order-row{position:relative;border:1px solid var(--jpdb-reader-border);border-radius:8px;background:var(--jpdb-reader-surface);padding:10px;min-height:56px;width:100%}
+.jpdb-reader-dictionary-row-help{grid-column:2 / -1;color:var(--jpdb-reader-muted);font-size:11px;line-height:1.35}
+.jpdb-reader-settings .jpdb-reader-dictionary-toggle{margin:0;justify-content:center;color:var(--jpdb-reader-text)}
+.jpdb-reader-audio-source-choice select,.jpdb-reader-audio-source-fields input,.jpdb-reader-audio-source-fields select{min-width:0;width:100%}
+.jpdb-reader-lookup-link-row input{min-width:0}
+.jpdb-reader-lookup-link-note{color:var(--jpdb-reader-muted);min-height:38px;display:flex;align-items:center}
+.jpdb-reader-lookup-link-fixed{width:34px;height:34px}
+.jpdb-reader-lookup-link-actions{display:flex;justify-content:flex-start;margin-top:3px}
+.jpdb-reader-lookup-link-actions .jpdb-reader-btn{width:auto!important;min-width:86px!important;padding-inline:16px!important}
+.jpdb-reader-settings .jpdb-reader-audio-index{margin:0;min-height:38px;justify-content:center;color:var(--jpdb-reader-text)}
+.jpdb-reader-audio-source-choice{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center;min-width:0}
+.jpdb-reader-audio-source-fields{display:grid;gap:6px}
+.jpdb-reader-row-tools{display:flex;gap:5px;justify-content:flex-end;flex-wrap:nowrap;min-width:max-content}
+.jpdb-reader-drag-handle{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.jpdb-reader-drag-handle:active,.jpdb-reader-order-row-dragging .jpdb-reader-drag-handle{cursor:grabbing}
+.jpdb-reader-order-row-drag-pending,.jpdb-reader-order-row-dragging{user-select:none;-webkit-user-select:none}
+.jpdb-reader-order-row-dragging{border-color:var(--jpdb-reader-accent);box-shadow:0 14px 30px color-mix(in srgb,var(--jpdb-reader-accent) 18%,transparent);z-index:2}
+.jpdb-reader-icon-mini{display:inline-grid!important;place-items:center!important;width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important;padding:0!important;border:1px solid var(--jpdb-reader-border);border-radius:7px;background:transparent;color:var(--jpdb-reader-text);cursor:pointer;font:800 13px/1 var(--jpdb-reader-font);transform:translateY(-.01rem)}
+.jpdb-reader-icon-mini svg{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.jpdb-reader-icon-mini:hover,.jpdb-reader-icon-mini:focus-visible{border-color:var(--jpdb-reader-accent);box-shadow:0 8px 18px color-mix(in srgb,var(--jpdb-reader-accent) 22%,transparent);color:var(--jpdb-reader-accent);transform:translateY(-.25rem);outline:none}
+.jpdb-reader-icon-mini:active{transform:scale(.98)}
+@media (min-width: 700px) and (max-width: 1180px) and (hover: hover) and (pointer: fine){.jpdb-reader-settings{width:min(860px,calc(100vw - 44px));max-height:min(820px,calc(100vh - 44px));max-height:min(820px,calc(100dvh - 44px))}
+.jpdb-reader-settings-head{padding:20px 22px 0}
+.jpdb-reader-settings-tabs{padding-inline:22px}
+.jpdb-reader-settings-scroll{padding:0 22px 104px}
+.jpdb-reader-dictionary-head,.jpdb-reader-dictionary-row,.jpdb-reader-audio-source-head,.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-head,.jpdb-reader-lookup-link-row{grid-template-columns:46px minmax(0,.95fr) minmax(0,1.1fr) max-content 42px}
+.jpdb-reader-dictionary-head.no-remove,.jpdb-reader-dictionary-row.no-remove{grid-template-columns:46px minmax(0,.95fr) minmax(0,1.1fr) max-content}
+.jpdb-reader-dictionary-head.compact,.jpdb-reader-dictionary-row.compact{grid-template-columns:46px minmax(0,1fr) max-content 42px}
+.jpdb-reader-dictionary-head.compact.no-remove,.jpdb-reader-dictionary-row.compact.no-remove{grid-template-columns:46px minmax(0,1fr) max-content}
+.jpdb-reader-recommended-item{grid-template-columns:minmax(0,1fr) minmax(112px,140px)}
+}
+@media (pointer: coarse) and (min-width: 700px){.jpdb-reader-settings{inset:auto 0 0;transform:none;width:100%;height:var(--jpdb-reader-settings-drawer-height, 88svh);min-height:var(--jpdb-reader-settings-drawer-min-height, 280px);max-height:var(--jpdb-reader-settings-drawer-viewport-height, 100svh);border-radius:18px 18px 0 0}
+.jpdb-reader-settings.jpdb-reader-settings-drawer-resizing{user-select:none}
+.jpdb-reader-settings.jpdb-reader-settings-drawer-expanded{border-radius:0}
+.jpdb-reader-settings-drag-handle{display:block}
+.jpdb-reader-settings-head{padding:8px 24px 0}
+.jpdb-reader-settings-tabs{padding:0 24px 10px}
+.jpdb-reader-settings-scroll{padding:0 24px 108px}
+}
+@media (max-width: 699px){.jpdb-reader-settings{inset:auto 0 0;transform:none;width:100%;height:var(--jpdb-reader-settings-drawer-height, 88svh);min-height:var(--jpdb-reader-settings-drawer-min-height, 280px);max-height:var(--jpdb-reader-settings-drawer-viewport-height, 100svh);border-radius:16px 16px 0 0}
+.jpdb-reader-settings.jpdb-reader-settings-drawer-resizing{user-select:none}
+.jpdb-reader-settings.jpdb-reader-settings-drawer-expanded{border-radius:0}
+.jpdb-reader-settings-drag-handle{display:block}
+.jpdb-reader-settings-head{padding:8px 14px 0}
+.jpdb-reader-settings-tabs{padding:0 14px 8px}
+.jpdb-reader-settings-scroll{padding:0 14px 100px}
+.jpdb-reader-settings fieldset{margin:10px 0;padding:11px}
+.jpdb-reader-settings .grid,.jpdb-reader-settings-actions,.jpdb-reader-template-preview-grid,.jpdb-reader-recommended-item{grid-template-columns:1fr}
+.jpdb-reader-help-actions{gap:6px}
+.jpdb-reader-help-actions .jpdb-reader-btn{min-height:40px;padding-inline:6px;font-size:11px}
+.jpdb-reader-order-head{display:none}
+.jpdb-reader-dictionary-row,.jpdb-reader-dictionary-row.compact,.jpdb-reader-audio-source-row,.jpdb-reader-lookup-link-row{grid-template-columns:42px minmax(0,1fr) 42px;align-items:center;gap:8px}
+.jpdb-reader-dictionary-row>.jpdb-reader-order-toggle,.jpdb-reader-audio-source-row>.jpdb-reader-order-toggle,.jpdb-reader-lookup-link-row>.jpdb-reader-order-toggle{grid-column:1;grid-row:1}
+.jpdb-reader-dictionary-row>.jpdb-reader-field-display,.jpdb-reader-audio-source-choice,.jpdb-reader-lookup-link-row>input[name$=".label"]{grid-column:2 / -1;grid-row:1}
+.jpdb-reader-dictionary-row>input[name$=".alias"],.jpdb-reader-dictionary-row>.jpdb-reader-field-display[aria-label="Display name"],.jpdb-reader-audio-source-fields,.jpdb-reader-lookup-link-row>input[name$=".urlTemplate"],.jpdb-reader-lookup-link-note{grid-column:2 / -1;grid-row:2}
+.jpdb-reader-row-order-tools{grid-column:2;grid-row:3;justify-content:flex-start;min-width:0}
+.jpdb-reader-row-remove-tools{grid-column:3;grid-row:3;align-self:start;justify-content:flex-end}
+.jpdb-reader-audio-source-row .jpdb-reader-row-tools{grid-column:auto;justify-content:flex-start;flex-wrap:nowrap;min-width:0}
+.jpdb-reader-audio-source-row .jpdb-reader-row-order-tools,.jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools{grid-column:2;grid-row:3}
+.jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools,.jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools{grid-column:3;grid-row:3}
+.jpdb-reader-audio-source-row .jpdb-reader-icon-mini{width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important}
+.jpdb-reader-lookup-link-row .jpdb-reader-row-tools{justify-content:flex-start}
+.jpdb-reader-dictionary-row-help{grid-column:1 / -1}
+.jpdb-reader-settings .footer{justify-content:stretch;gap:12px;padding:12px 14px calc(14px + env(safe-area-inset-bottom))}
+.jpdb-reader-settings .footer .jpdb-reader-btn{flex:1 1 0;min-width:0}
+}
+.jpdb-reader-icon-mini[data-immersion-action=previous],.jpdb-reader-icon-mini[data-immersion-action=next],.jpdb-reader-icon-mini[data-yomu-immersion-action=previous],.jpdb-reader-icon-mini[data-yomu-immersion-action=next],.jpdb-reader-icon-mini[data-uchisen-action=previous],.jpdb-reader-icon-mini[data-uchisen-action=next],.jpdb-reader-icon-mini[data-action=kanji-prev],.jpdb-reader-icon-mini[data-action=kanji-next]{font-size:19px;line-height:0;padding-bottom:2px!important}
+.jpdb-subtitle-player{position:fixed;left:0;bottom:0;width:100%;height:100%;z-index:2147483644;pointer-events:none;--subtitle-font-size-target: 28px;--subtitle-font-size: var(--subtitle-font-size-target);--subtitle-bottom: 12%;--subtitle-color: #fff;--subtitle-outline: #000;--subtitle-background-rgba: transparent;--subtitle-family: var(--jpdb-reader-font);--subtitle-weight: 760}
+.jpdb-subtitle-text{position:absolute;left:14px;right:14px;bottom:var(--subtitle-bottom);color:var(--subtitle-color);text-align:center;font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);white-space:pre-wrap;overflow-wrap:anywhere;word-break:keep-all;max-height:min(45%,calc(100% - 24px));overflow:hidden;pointer-events:auto;-webkit-tap-highlight-color:transparent}
+.jpdb-subtitle-status{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.jpdb-subtitle-primary{display:inline;padding:0 .06em;border-radius:3px;background:var(--subtitle-background-rgba);box-shadow:none;-webkit-box-decoration-break:clone;box-decoration-break:clone;line-height:1.58;overflow-wrap:normal;word-break:keep-all;-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}
+.jpdb-subtitle-secondary{display:block;width:fit-content;max-width:100%;margin-top:8px;margin-left:auto;margin-right:auto;padding:0;border:0!important;background:transparent!important;color:#ffffffd1;font-size:.62em;font-family:inherit;font-weight:650;line-height:1.25;min-height:24px;text-shadow:0 2px 2px #000,0 0 7px rgba(0,0,0,.86);cursor:pointer;white-space:pre-wrap;overflow-wrap:anywhere}
+.jpdb-subtitle-secondary-blurred{filter:blur(5px);opacity:.8}
+.jpdb-subtitle-secondary-blurred:hover,.jpdb-subtitle-secondary-blurred:focus-visible{filter:none;opacity:1}
+.jpdb-subtitle-karaoke-word{display:inline;border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.jpdb-subtitle-word-pending{opacity:.42}
+.jpdb-subtitle-word-spoken,.jpdb-subtitle-word-current{opacity:1;color:var(--subtitle-color)}
+.jpdb-subtitle-word-spoken{color:color-mix(in srgb,var(--jpdb-reader-accent, #5ea780) 58%,var(--subtitle-color));text-decoration-line:underline;text-decoration-color:var(--jpdb-reader-accent, #5ea780);text-decoration-thickness:.09em;text-underline-offset:.16em}
+.jpdb-subtitle-word-current{text-decoration-line:underline;text-decoration-color:var(--subtitle-color);text-decoration-thickness:.1em;text-underline-offset:.16em}
+.jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-subtitle-fallback: var(--subtitle-color);background:transparent!important;color:var(--subtitle-color)!important;--jpdb-reader-word-underline: transparent;text-decoration-line:none!important;text-decoration-style:solid!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important;text-decoration-thickness:.08em!important;text-underline-offset:.15em!important;white-space:nowrap;text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.92),0 3px 12px rgba(0,0,0,.72);-webkit-text-stroke:.02em color-mix(in srgb,var(--subtitle-outline) 78%,transparent);paint-order:stroke fill}
+.jpdb-subtitle-primary .jpdb-reader-word:hover,.jpdb-subtitle-primary .jpdb-reader-word:focus-visible{background:#ffffff24!important}
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-has-furi{line-height:1.48}
+.jpdb-reader-subtitle-highlight-status{--jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-status-soft, transparent)}
+.jpdb-reader-subtitle-highlight-jpdb{--jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-jpdb-soft, transparent)}
+.jpdb-reader-subtitle-highlight-anki{--jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-anki-soft, transparent)}
+.jpdb-reader-subtitle-highlight-pitch{--jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-pitch-soft, transparent)}
+.jpdb-reader-subtitle-underline-status{--jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-status-decoration, transparent)}
+.jpdb-reader-subtitle-underline-jpdb{--jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent)}
+.jpdb-reader-subtitle-underline-anki{--jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-anki-decoration, transparent)}
+.jpdb-reader-subtitle-underline-pitch{--jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-pitch-decoration, transparent)}
+.jpdb-reader-subtitle-text-status{--jpdb-reader-subtitle-text: var(--jpdb-reader-source-status-color, var(--jpdb-reader-subtitle-fallback, currentColor))}
+.jpdb-reader-subtitle-text-jpdb{--jpdb-reader-subtitle-text: var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-subtitle-fallback, currentColor))}
+.jpdb-reader-subtitle-text-anki{--jpdb-reader-subtitle-text: var(--jpdb-reader-source-anki-color, var(--jpdb-reader-subtitle-fallback, currentColor))}
+.jpdb-reader-subtitle-text-pitch{--jpdb-reader-subtitle-text: var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-subtitle-fallback, currentColor))}
+:is(.jpdb-reader-subtitle-highlight-status,.jpdb-reader-subtitle-highlight-jpdb,.jpdb-reader-subtitle-highlight-anki,.jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-subtitle-highlight, transparent)!important}
+:is(.jpdb-reader-subtitle-underline-status,.jpdb-reader-subtitle-underline-jpdb,.jpdb-reader-subtitle-underline-anki,.jpdb-reader-subtitle-underline-pitch) :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-subtitle-decoration, transparent);text-decoration-line:underline!important}
+:is(.jpdb-reader-subtitle-text-status,.jpdb-reader-subtitle-text-jpdb,.jpdb-reader-subtitle-text-anki,.jpdb-reader-subtitle-text-pitch) :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor))!important}
+.jpdb-reader-subtitle-highlight-status :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-source-status-soft, transparent)!important}
+.jpdb-reader-subtitle-highlight-jpdb :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-source-jpdb-soft, transparent)!important}
+.jpdb-reader-subtitle-highlight-anki :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-source-anki-soft, transparent)!important}
+.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{background:var(--jpdb-reader-source-pitch-soft, transparent)!important}
+.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);text-decoration-line:underline!important}
+.jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);text-decoration-line:underline!important}
+.jpdb-reader-subtitle-underline-anki :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent);text-decoration-line:underline!important}
+.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);text-decoration-line:underline!important}
+.jpdb-reader-subtitle-text-status :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, var(--jpdb-reader-subtitle-fallback, currentColor))!important}
+.jpdb-reader-subtitle-text-jpdb :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-subtitle-fallback, currentColor))!important}
+.jpdb-reader-subtitle-text-anki :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-source-anki-color, var(--jpdb-reader-subtitle-fallback, currentColor))!important}
+.jpdb-reader-subtitle-text-pitch :is(.jpdb-subtitle-primary,.jpdb-subtitle-row-text,.asbplayer-subtitles-container-bottom) .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-subtitle-fallback, currentColor))!important}
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending{opacity:.42}
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken{opacity:1;--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, var(--jpdb-reader-accent, #5ea780));text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, var(--jpdb-reader-accent, #5ea780))!important}
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-current{opacity:1;text-decoration-line:underline!important;text-decoration-color:var(--subtitle-color)!important}
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending{filter:saturate(.72)}
+.jpdb-subtitle-primary .jpdb-reader-furi{color:currentColor;opacity:.82;text-shadow:0 1px 1px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 7px rgba(0,0,0,.86)}
+.jpdb-subtitle-primary-loading{opacity:.78;color:currentColor}
+.jpdb-reader-subtitle-preview{min-height:94px;padding:18px 10px;border:1px solid var(--jpdb-reader-border);border-radius:10px;background:linear-gradient(135deg,rgba(255,255,255,.1) 25%,transparent 25% 50%,rgba(255,255,255,.1) 50% 75%,transparent 75%) 0 0 / 28px 28px,#1c222b;display:grid;place-items:center;text-align:center;overflow:hidden;color:var(--subtitle-color);font:var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);text-shadow:0 1px 2px var(--subtitle-outline),0 0 3px var(--subtitle-outline),0 0 8px rgba(0,0,0,.86)}
+.jpdb-reader-subtitle-preview .jpdb-subtitle-primary{display:inline}
+.jpdb-reader-subtitle-preview .jpdb-reader-word{--jpdb-reader-source-status-color: var(--jpdb-reader-status-color, var(--subtitle-color));--jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);--jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-color, var(--subtitle-color));--jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-jpdb-color, transparent);--jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-color, var(--subtitle-color));--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, transparent)}
+.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-new,.jpdb-suspended,.jpdb-not-in-deck){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);--jpdb-reader-status-color: var(--jpdb-reader-state-new, #58a6ff)}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-learning{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);--jpdb-reader-status-color: var(--jpdb-reader-state-learning, #ffd166)}
+.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-known,.jpdb-never-forget,.jpdb-redundant){--jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);--jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f)}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-due{--jpdb-reader-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);--jpdb-reader-status-color: var(--jpdb-reader-state-due, #5fb3b3)}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-heiban{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff)}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-atamadaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74)}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-nakadaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840)}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-odaka{--jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7)}
+.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-status .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-status-color, var(--subtitle-color))!important}
+.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-jpdb-color, var(--subtitle-color))!important}
+.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-pitch .jpdb-subtitle-primary .jpdb-reader-word{color:var(--jpdb-reader-source-pitch-color, var(--subtitle-color))!important}
+.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-status .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important}
+.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important}
+.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word{--jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);text-decoration-line:underline!important;text-decoration-color:var(--jpdb-reader-word-underline, transparent)!important}
+.jpdb-subtitle-rail{position:absolute;right:max(10px,env(safe-area-inset-right));top:10px;display:flex;align-items:center;gap:4px;max-width:calc(100% - 20px);padding:4px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent);box-shadow:0 12px 30px #00000038;backdrop-filter:blur(14px);pointer-events:auto;opacity:.78}
+.jpdb-subtitle-controls-hidden .jpdb-subtitle-menu,.jpdb-subtitle-controls-hidden .jpdb-subtitle-list{display:none!important}
+.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail{opacity:0;pointer-events:none}
+.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:hover,.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:focus-within{opacity:1}
+.jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:.72}
+.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within){opacity:0;pointer-events:none}
+.jpdb-subtitle-controls-always .jpdb-subtitle-rail,.jpdb-subtitle-rail:hover,.jpdb-subtitle-menu-open .jpdb-subtitle-rail,.jpdb-subtitle-panel-open .jpdb-subtitle-rail{opacity:1}
+.jpdb-subtitle-rail button,.jpdb-subtitle-menu button,.jpdb-subtitle-list button{border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:7px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);color:var(--jpdb-reader-text, #fff);box-shadow:none;font:700 12px/1 var(--jpdb-reader-font);pointer-events:auto}
+.jpdb-subtitle-rail button{display:inline-grid;place-items:center;min-width:34px;width:34px;max-width:34px;min-height:34px;height:34px;max-height:34px;padding:0;flex:0 0 auto;white-space:nowrap}
+.jpdb-subtitle-rail button[data-action=previous],.jpdb-subtitle-rail button[data-action=next]{font-size:19px;line-height:0;padding-bottom:2px}
+.jpdb-subtitle-panel-toggle{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 50%,var(--jpdb-reader-border, rgba(255,255,255,.22)))!important;background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))!important}
+.jpdb-subtitle-icon{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.jpdb-subtitle-panel-toggle[aria-pressed=false]{color:var(--jpdb-reader-muted, rgba(255,255,255,.72));border-color:var(--jpdb-reader-border, rgba(255,255,255,.18))!important;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent)!important}
+.jpdb-subtitle-rail button[hidden],.jpdb-subtitle-menu button[hidden]{display:none!important}
+.jpdb-subtitle-rail button:disabled{opacity:.45}
+.jpdb-subtitle-compact-video .jpdb-subtitle-rail{top:8px;right:8px;gap:3px;padding:3px}
+.jpdb-subtitle-compact-video .jpdb-subtitle-rail button{min-width:32px;width:32px;max-width:32px;min-height:32px;height:32px;max-height:32px}
+.jpdb-subtitle-menu{position:absolute;right:max(10px,env(safe-area-inset-right));top:50px;display:grid;gap:6px;width:min(230px,calc(100vw - 24px));padding:8px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.18));border-radius:8px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 92%,transparent);box-shadow:0 14px 34px #00000047;pointer-events:auto}
+.jpdb-subtitle-menu[hidden],.jpdb-subtitle-list[hidden]{display:none}
+.jpdb-subtitle-menu-head{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:30px;padding:0 0 2px;color:var(--jpdb-reader-muted, rgba(255,255,255,.78));font:800 12px/1 var(--jpdb-reader-font)}
+.jpdb-subtitle-menu button{min-height:36px;text-align:left;padding:0 10px;box-shadow:none}
+.jpdb-subtitle-menu button[aria-pressed=true],.jpdb-subtitle-track-row button[aria-pressed=true]{border-color:var(--jpdb-reader-accent);color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}
+.jpdb-subtitle-list{position:fixed;right:max(12px,env(safe-area-inset-right));top:72px;width:min(460px,calc(100vw - 24px));height:min(78vh,860px);max-height:calc(100vh - 24px);overflow:hidden;display:grid;grid-template-rows:auto minmax(0,1fr);border:1px solid color-mix(in srgb,var(--jpdb-reader-border, rgba(255,255,255,.18)) 88%,rgba(255,255,255,.1));border-radius:22px;background:color-mix(in srgb,var(--jpdb-reader-bg, #181b20) 94%,rgba(255,255,255,.06));color:var(--jpdb-reader-text, #fff);box-shadow:0 24px 56px #00000052;pointer-events:auto;backdrop-filter:blur(18px) saturate(1.08);-webkit-backdrop-filter:blur(18px) saturate(1.08);transform:translateZ(0)}
+html.jpdb-subtitle-yomu-captions-active .ytp-caption-window-container,html.jpdb-subtitle-yomu-captions-active .caption-window,html.jpdb-subtitle-yomu-captions-active .ytp-caption-segment,html.jpdb-subtitle-fullscreen .jpdb-subtitle-list,html.jpdb-subtitle-fullscreen .jpdb-reader-fab{display:none!important}
+.jpdb-subtitle-resize{position:absolute;z-index:2;min-width:24px;min-height:24px;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;outline:none!important;touch-action:none}
+.jpdb-subtitle-resize:after{content:"";position:absolute;border-radius:999px;background:#ffffff38;opacity:0}
+.jpdb-subtitle-resize:hover:after,.jpdb-subtitle-resize:focus-visible:after{background:var(--jpdb-reader-accent);opacity:.88}
+.jpdb-subtitle-transcript-right .jpdb-subtitle-resize{left:-12px;top:0;bottom:0;width:24px;cursor:ew-resize}
+.jpdb-subtitle-transcript-left .jpdb-subtitle-resize{right:-12px;top:0;bottom:0;width:24px;cursor:ew-resize}
+.jpdb-subtitle-transcript-right .jpdb-subtitle-resize:after,.jpdb-subtitle-transcript-left .jpdb-subtitle-resize:after{top:16px;bottom:16px;left:11px;width:2px}
+.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize{left:0;right:0;top:-12px;height:24px;cursor:ns-resize}
+.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize:after{left:16px;right:16px;top:11px;height:2px}
+.jpdb-subtitle-drawer-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:12px;padding:14px 14px 12px;border-bottom:1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 76%,transparent)}
+.jpdb-subtitle-drawer-brand{display:grid;gap:4px;min-width:0}
+.jpdb-subtitle-drawer-title{min-width:0;color:var(--jpdb-reader-text, #fff);font:800 15px/1.2 var(--jpdb-reader-font);letter-spacing:.01em}
+.jpdb-subtitle-drawer-meta{min-width:0;color:var(--jpdb-reader-muted, rgba(255,255,255,.78));font:700 11px/1.35 var(--jpdb-reader-font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jpdb-subtitle-drawer-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}
+.jpdb-subtitle-drawer-close{display:inline-grid;place-items:center;min-width:34px;width:34px;min-height:34px;height:34px;padding:0!important;border-radius:12px!important}
+.jpdb-subtitle-drawer-close svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.jpdb-subtitle-panel-mode,.jpdb-subtitle-panel-nav{justify-self:start;width:max-content;display:inline-flex;flex:0 0 auto;align-items:center;gap:2px;padding:2px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:12px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 82%,transparent)}
+.jpdb-subtitle-panel-mode button{min-height:30px;padding:0 11px;border:0;border-radius:10px;background:transparent;text-align:center;box-shadow:none;font-size:11px;font-weight:700}
+.jpdb-subtitle-panel-mode button[aria-pressed=true]{color:var(--jpdb-reader-text, #fff);background:color-mix(in srgb,var(--jpdb-reader-accent) 18%,var(--jpdb-reader-surface, #20242b))}
+.jpdb-subtitle-panel-mode button:disabled{opacity:.42}
+.jpdb-subtitle-panel-nav button{display:inline-grid;place-items:center;min-width:32px;width:32px;min-height:32px;height:32px;padding:0 0 2px;border:0;border-radius:10px;background:transparent;text-align:center;box-shadow:none;font-size:19px;line-height:0}
+.jpdb-subtitle-panel-nav button:disabled{opacity:.38}
+.jpdb-subtitle-list-scroll{min-height:0;overflow-y:auto;overflow-x:hidden;display:grid;align-content:start;grid-auto-rows:max-content;gap:4px;padding:8px 10px 12px;overscroll-behavior:contain}
+.jpdb-subtitle-list-row{display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:start;gap:10px;min-height:76px;padding:16px 18px;border:0;border-bottom:1px solid var(--jpdb-reader-border, rgba(255,255,255,.15));border-radius:0;background:transparent;cursor:pointer}
+.jpdb-subtitle-row-body{min-width:0;display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:6px;width:100%;min-height:42px;padding:0;text-align:left;border:0!important;background:transparent!important;box-shadow:none!important}
+.jpdb-subtitle-row-tools{align-self:start;display:grid;grid-template-columns:30px auto;align-items:center;gap:12px;color:var(--jpdb-reader-muted, rgba(255,255,255,.82))}
+.jpdb-subtitle-row-copy{display:inline-grid;place-items:center;min-width:30px;width:30px;min-height:30px;height:30px;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--jpdb-reader-muted, rgba(255,255,255,.82))!important}
+.jpdb-subtitle-list-row.active{border-color:var(--jpdb-reader-border, rgba(255,255,255,.16));background:color-mix(in srgb,var(--jpdb-reader-accent) 14%,transparent);box-shadow:inset 2px 0 0 var(--jpdb-reader-accent)}
+.jpdb-subtitle-list .jpdb-reader-word{color:inherit!important}
+.jpdb-subtitle-row-time{color:var(--jpdb-reader-muted, rgba(255,255,255,.82));font-size:16px;line-height:1.2;font-weight:760;white-space:nowrap}
+.jpdb-subtitle-row-text{min-width:0;max-width:100%;grid-column:1;color:var(--jpdb-reader-text, #fff);overflow-wrap:anywhere;word-break:break-word;white-space:normal;font-weight:600;line-height:1.45;font-size:22px;letter-spacing:0;text-shadow:0 1px 1px rgba(0,0,0,.38)}
+.jpdb-subtitle-row-text .jpdb-reader-word{--jpdb-reader-subtitle-fallback: var(--jpdb-reader-text, #fff);color:inherit;background:transparent;text-decoration-color:var(--jpdb-reader-word-underline, currentColor);text-decoration-thickness:.08em;text-underline-offset:.16em;border-radius:4px;padding:0 1px;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.jpdb-subtitle-list .jpdb-subtitle-row-text .jpdb-reader-word,.jpdb-subtitle-list .jpdb-subtitle-row-text .jpdb-reader-word ruby{color:inherit!important}
+.jpdb-subtitle-row-text ruby,.jpdb-subtitle-row-text rt,.jpdb-subtitle-row-text .jpdb-reader-furi{white-space:normal!important}
+.jpdb-subtitle-row-text .jpdb-reader-word:hover,.jpdb-subtitle-row-text .jpdb-reader-word:focus-visible{background:var(--jpdb-reader-hover, rgba(255,255,255,.14));outline:1px solid var(--jpdb-reader-border, rgba(255,255,255,.28))}
+.jpdb-subtitle-row-translation{grid-column:1;min-width:0;margin-top:3px;color:var(--jpdb-reader-muted, rgba(255,255,255,.68));overflow-wrap:anywhere;font-style:normal;font-weight:650;line-height:1.4}
+.jpdb-subtitle-tracks-panel .jpdb-subtitle-list-scroll{align-content:start}
+.jpdb-subtitle-track-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;padding:7px 8px;border:1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));border-radius:8px;background:transparent}
+.jpdb-subtitle-track-row.active{border-color:color-mix(in srgb,var(--jpdb-reader-accent) 68%,var(--jpdb-reader-border, rgba(255,255,255,.14)));background:color-mix(in srgb,var(--jpdb-reader-accent) 14%,transparent)}
+.jpdb-subtitle-track-row strong{min-width:0;overflow-wrap:anywhere;font-size:11px;line-height:1.2}
+.jpdb-subtitle-track-title{grid-column:1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}
+.jpdb-subtitle-track-title span{padding:1px 5px;border-radius:6px;background:color-mix(in srgb,var(--jpdb-reader-surface, #20242b) 86%,transparent);color:var(--jpdb-reader-muted, rgba(255,255,255,.72));font-size:8px;text-transform:uppercase}
+.jpdb-subtitle-track-row span{grid-column:1;color:var(--jpdb-reader-faint, rgba(255,255,255,.62));font-size:9px;font-weight:700}
+.jpdb-subtitle-track-actions{grid-column:2;grid-row:1 / span 2;align-self:center;display:flex;gap:5px}
+.jpdb-subtitle-track-row button{min-height:26px;padding-inline:9px;text-align:center;box-shadow:none;font-size:10px}
+.jpdb-subtitle-track-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:8px;margin-bottom:4px}
+.jpdb-subtitle-track-tools button{display:inline-flex;align-items:center;justify-content:center;min-width:0;min-height:36px;padding:0 10px;text-align:center;line-height:1.2;white-space:normal;overflow-wrap:anywhere;box-shadow:none}
+.jpdb-subtitle-track-summary{margin:0 0 3px;padding:5px 7px;border:1px dashed var(--jpdb-reader-border, rgba(255,255,255,.16));border-radius:8px;color:var(--jpdb-reader-muted, rgba(255,255,255,.72));background:transparent;font:750 11px/1.3 var(--jpdb-reader-font)}
+.jpdb-subtitle-list-empty{padding:12px;color:var(--jpdb-reader-muted, rgba(255,255,255,.72));font:700 12px/1.35 var(--jpdb-reader-font)}
+.jpdb-subtitle-hidden .jpdb-subtitle-text{display:none}
+@media (max-width: 768px),(pointer: coarse){.jpdb-reader-btn{min-height:44px;font-size:13px}
+.jpdb-reader-onboarding{inset:auto 0 0;transform:none;width:100%;max-height:88vh;max-height:88svh;border-radius:16px 16px 0 0;padding:54px 20px calc(24px + env(safe-area-inset-bottom))}
+.jpdb-reader-onboarding-close{top:12px;right:16px}
+.jpdb-reader-onboarding-grid{grid-template-columns:1fr}
+.jpdb-reader-onboarding-actions{display:grid;grid-template-columns:1fr}
+.jpdb-ocr-line{min-width:0;min-height:0;border-radius:8px}
+.jpdb-subtitle-text{left:8px;right:8px;font-size:min(var(--subtitle-font-size),8vw)}
+.jpdb-subtitle-rail{top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));bottom:auto;gap:3px}
+.jpdb-subtitle-rail button{height:34px;min-height:34px;max-height:34px;min-width:34px;width:34px;max-width:34px;padding:0;font-size:11px}
+.jpdb-subtitle-menu{top:calc(52px + env(safe-area-inset-top));right:8px;bottom:auto}
+.jpdb-subtitle-transcript-bottom .jpdb-subtitle-list{left:10px!important;right:auto!important;width:calc(100vw - 20px)!important;border-radius:20px 20px 16px 16px}
+}
+@media (max-width: 519px){.jpdb-subtitle-list{left:10px!important;right:auto!important;width:calc(100vw - 20px)!important;border-radius:20px 20px 16px 16px}
+}
+.jpdb-youtube-filtered{display:none!important}
+.jpdb-youtube-filter-bar{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));z-index:2147483645;display:flex;align-items:center;gap:10px;max-width:min(560px,calc(100vw - 24px));padding:8px 10px 8px 12px;border:1px solid var(--jpdb-reader-border);border-radius:999px;background:var(--jpdb-reader-bg);color:var(--jpdb-reader-muted);box-shadow:0 12px 34px #00000047;font:750 12px/1.3 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;transform:translate(-50%)}
+.jpdb-youtube-filter-bar span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jpdb-youtube-filter-actions{display:flex;flex:0 0 auto;align-items:center;gap:6px}
+.jpdb-youtube-filter-bar button{flex:0 0 auto;min-height:30px;padding:0 12px;border:1px solid var(--jpdb-reader-accent);border-radius:999px;background:transparent;color:var(--jpdb-reader-accent);font:inherit;cursor:pointer}
+.jpdb-youtube-filter-bar [data-action=turn-off]{border-color:var(--jpdb-reader-border);color:var(--jpdb-reader-muted)}
+@media (max-width: 768px),(pointer: coarse){.jpdb-youtube-filter-bar{bottom:max(76px,calc(60px + env(safe-area-inset-bottom)));border-radius:12px}
 }
-
-@media (prefers-color-scheme: light) {
-  :root {
-    --jpdb-reader-bg: #ffffff;
-    --jpdb-reader-surface: #f7f8fa;
-    --jpdb-reader-surface-2: #eef1f4;
-    --jpdb-reader-text: #171a1f;
-    --jpdb-reader-muted: #596272;
-    --jpdb-reader-faint: #7b8493;
-    --jpdb-reader-border: rgba(20,30,45,.16);
-    --jpdb-reader-accent-readable: #25573d;
-    --jpdb-reader-hover: rgba(20,30,45,.07);
-  }
-}
-
-.jpdb-reader-theme-dark {
-  --jpdb-reader-bg: #181b20;
-  --jpdb-reader-surface: #20242b;
-  --jpdb-reader-surface-2: #282e37;
-  --jpdb-reader-text: #f2f4f8;
-  --jpdb-reader-muted: #aab2c0;
-  --jpdb-reader-faint: #6f7a89;
-  --jpdb-reader-border: rgba(255,255,255,.12);
-  --jpdb-reader-accent-readable: #76bd99;
-  --jpdb-reader-hover: rgba(255,255,255,.08);
-}
-
-.jpdb-reader-theme-light {
-  --jpdb-reader-bg: #ffffff;
-  --jpdb-reader-surface: #f7f8fa;
-  --jpdb-reader-surface-2: #eef1f4;
-  --jpdb-reader-text: #171a1f;
-  --jpdb-reader-muted: #596272;
-  --jpdb-reader-faint: #7b8493;
-  --jpdb-reader-border: rgba(20,30,45,.16);
-  --jpdb-reader-accent-readable: #25573d;
-  --jpdb-reader-hover: rgba(20,30,45,.07);
-}
-
-.jpdb-reader-middle-scan-active {
-  overscroll-behavior: none;
-  cursor: crosshair;
-}
-
-.jpdb-reader-middle-scan-active * {
-  cursor: crosshair !important;
-}
-
-[data-jpdb-reader-root],
-[data-jpdb-reader-root] * {
-  box-sizing: border-box;
-}
-
-[data-jpdb-reader-root] :where(a) {
-  border-bottom: 0;
-  color: inherit;
-  outline: revert;
-  text-decoration: none;
-}
-
-[data-jpdb-reader-root] :where(button) {
-  appearance: none;
-  -webkit-appearance: none;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  color: inherit;
-  cursor: pointer;
-  display: inline-block;
-  font: inherit;
-  height: auto;
-  line-height: normal;
-  margin: 0;
-  padding: 0;
-  text-align: inherit;
-  text-decoration: none;
-  transform: none;
-  transition: none;
-  white-space: normal;
-}
-
-[data-jpdb-reader-root] :where(input, select, textarea) {
-  appearance: auto;
-  -webkit-appearance: auto;
-  background: revert;
-  border: revert;
-  border-radius: revert;
-  box-shadow: none;
-  color: inherit;
-  font: inherit;
-  height: auto;
-  margin: 0;
-  padding: revert;
-  transform: none;
-  transition: none;
-  width: auto;
-}
-
-[data-jpdb-reader-root] :where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6) {
-  letter-spacing: normal;
-  line-height: revert;
-  margin: revert;
-  padding: revert;
-}
-
-[data-jpdb-reader-root] :where(table) {
-  border-collapse: revert;
-  border-spacing: revert;
-}
-
-[data-jpdb-reader-root] :where(th, td) {
-  border: revert;
-  text-align: revert;
-}
-
-[data-jpdb-reader-root] :where(rt) {
-  font-size: revert;
-  opacity: revert;
-}
-
-[data-jpdb-reader-root] button,
-[data-jpdb-reader-root] input,
-[data-jpdb-reader-root] select,
-[data-jpdb-reader-root] textarea {
-  font-family: var(--jpdb-reader-font);
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.jpdb-reader-word {
-  --jpdb-reader-word-underline: transparent;
-  --jpdb-reader-source-status-color: var(--jpdb-reader-status-color, currentColor);
-  --jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);
-  --jpdb-reader-source-status-soft: var(--jpdb-reader-status-soft, transparent);
-  --jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-color, currentColor);
-  --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-jpdb-color, transparent);
-  --jpdb-reader-source-jpdb-soft: var(--jpdb-reader-jpdb-soft, transparent);
-  --jpdb-reader-source-anki-color: var(--jpdb-reader-anki-color, currentColor);
-  --jpdb-reader-source-anki-decoration: var(--jpdb-reader-anki-color, transparent);
-  --jpdb-reader-source-anki-soft: var(--jpdb-reader-anki-soft, transparent);
-  --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-color, currentColor);
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown, #94a3b8));
-  --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-soft, var(--jpdb-reader-pitch-unknown-soft, transparent));
-  position: static;
-  display: inline;
-  white-space: nowrap;
-  word-break: keep-all;
-  overflow-wrap: normal !important;
-  border-radius: 3px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  text-decoration-line: underline !important;
-  text-decoration-style: solid !important;
-  text-decoration-color: var(
-    --jpdb-reader-word-underline,
-    transparent
-  ) !important;
-  text-decoration-thickness: 2px !important;
-  text-underline-offset: 0.16em !important;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-}
-
-.jpdb-reader-word::after {
-  content: none;
-}
-
-.jpdb-reader-word:hover,
-.jpdb-reader-word:focus {
-  background: var(--jpdb-reader-hover) !important;
-  outline: none;
-}
-
-.jpdb-reader-word:is(.jpdb-new, .jpdb-suspended, .jpdb-not-in-deck) {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);
-  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, 0.16));
-}
-
-.jpdb-reader-word.jpdb-learning {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);
-  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, 0.16));
-}
-
-.jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant) {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);
-  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16));
-}
-
-.jpdb-reader-word.jpdb-due {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);
-  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, 0.16));
-}
-
-.jpdb-reader-word.jpdb-failed {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-failed, #ff6b6b);
-  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, 0.16));
-}
-
-.jpdb-reader-word:is(.jpdb-blacklisted, .jpdb-locked) {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-ignored, #b8a7ff);
-  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-ignored-soft, rgba(184, 167, 255, 0.16));
-  --jpdb-reader-status-color: var(--jpdb-reader-state-ignored, #b8a7ff);
-  --jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft, rgba(184, 167, 255, 0.16));
-  opacity: 0.82 !important;
-}
-
-.jpdb-reader-word:is(.anki-new, .anki-suspended) {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-new, #58a6ff);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, 0.16));
-}
-
-.jpdb-reader-word.anki-learning {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-learning, #ffd166);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, 0.16));
-}
-
-.jpdb-reader-word.anki-known {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-known, #7bd88f);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16));
-}
-
-.jpdb-reader-word.anki-due {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-due, #5fb3b3);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, 0.16));
-}
-
-.jpdb-reader-word.anki-failed {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-failed, #ff6b6b);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, 0.16));
-}
-
-.jpdb-reader-word:is(.jpdb-new, .jpdb-suspended, .jpdb-not-in-deck, .anki-new, .anki-suspended) {
-  --jpdb-reader-status-color: var(--jpdb-reader-state-new, #58a6ff);
-  --jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, 0.16));
-}
-
-.jpdb-reader-word:is(.jpdb-learning, .anki-learning) {
-  --jpdb-reader-status-color: var(--jpdb-reader-state-learning, #ffd166);
-  --jpdb-reader-status-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, 0.16));
-}
-
-.jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant, .anki-known) {
-  --jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f);
-  --jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16));
-}
-
-.jpdb-reader-word:is(.jpdb-due, .anki-due) {
-  --jpdb-reader-status-color: var(--jpdb-reader-state-due, #5fb3b3);
-  --jpdb-reader-status-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, 0.16));
-}
-
-.jpdb-reader-word:is(.jpdb-failed, .anki-failed) {
-  --jpdb-reader-status-color: var(--jpdb-reader-state-failed, #ff6b6b);
-  --jpdb-reader-status-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, 0.16));
-}
-
-.jpdb-reader-word.jpdb-pitch-heiban {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff);
-  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-heiban-soft, rgba(53, 158, 255, 0.14));
-}
-
-.jpdb-reader-word.jpdb-pitch-atamadaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);
-  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-atamadaka-soft, rgba(254, 75, 116, 0.14));
-}
-
-.jpdb-reader-word.jpdb-pitch-nakadaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840);
-  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-nakadaka-soft, rgba(251, 168, 64, 0.16));
-}
-
-.jpdb-reader-word.jpdb-pitch-odaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7);
-  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-odaka-soft, rgba(87, 204, 183, 0.14));
-}
-
-.jpdb-reader-word.jpdb-pitch-kifuku {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-kifuku, #9050f6);
-  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-kifuku-soft, rgba(144, 80, 246, 0.14));
-}
-
-.jpdb-reader-word-highlight-status { --jpdb-reader-word-highlight: var(--jpdb-reader-source-status-soft, transparent); }
-
-.jpdb-reader-word-highlight-jpdb { --jpdb-reader-word-highlight: var(--jpdb-reader-source-jpdb-soft, transparent); }
-
-.jpdb-reader-word-highlight-anki { --jpdb-reader-word-highlight: var(--jpdb-reader-source-anki-soft, transparent); }
-
-.jpdb-reader-word-highlight-pitch { --jpdb-reader-word-highlight: var(--jpdb-reader-source-pitch-soft, transparent); }
-
-.jpdb-reader-word-underline-status { --jpdb-reader-word-decoration: var(--jpdb-reader-source-status-decoration, transparent); }
-
-.jpdb-reader-word-underline-jpdb { --jpdb-reader-word-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent); }
-
-.jpdb-reader-word-underline-anki { --jpdb-reader-word-decoration: var(--jpdb-reader-source-anki-decoration, transparent); }
-
-.jpdb-reader-word-underline-pitch { --jpdb-reader-word-decoration: var(--jpdb-reader-source-pitch-decoration, transparent); }
-
-.jpdb-reader-word-text-status { --jpdb-reader-word-color: var(--jpdb-reader-source-status-color, currentColor); }
-
-.jpdb-reader-word-text-jpdb { --jpdb-reader-word-color: var(--jpdb-reader-source-jpdb-color, currentColor); }
-
-.jpdb-reader-word-text-anki { --jpdb-reader-word-color: var(--jpdb-reader-source-anki-color, currentColor); }
-
-.jpdb-reader-word-text-pitch { --jpdb-reader-word-color: var(--jpdb-reader-source-pitch-color, currentColor); }
-
-.jpdb-reader-word-highlight-status .jpdb-reader-word { background: var(--jpdb-reader-source-status-soft, transparent) !important; }
-
-.jpdb-reader-word-highlight-jpdb .jpdb-reader-word { background: var(--jpdb-reader-source-jpdb-soft, transparent) !important; }
-
-.jpdb-reader-word-highlight-anki .jpdb-reader-word { background: var(--jpdb-reader-source-anki-soft, transparent) !important; }
-
-.jpdb-reader-word-highlight-pitch .jpdb-reader-word { background: var(--jpdb-reader-source-pitch-soft, transparent) !important; }
-
-.jpdb-reader-word-underline-status .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent); }
-
-.jpdb-reader-word-underline-jpdb .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent); }
-
-.jpdb-reader-word-underline-anki .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent); }
-
-.jpdb-reader-word-underline-pitch .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); }
-
-.jpdb-reader-word-text-status .jpdb-reader-word { color: var(--jpdb-reader-source-status-color, currentColor) !important; }
-
-.jpdb-reader-word-text-jpdb .jpdb-reader-word { color: var(--jpdb-reader-source-jpdb-color, currentColor) !important; }
-
-.jpdb-reader-word-text-anki .jpdb-reader-word { color: var(--jpdb-reader-source-anki-color, currentColor) !important; }
-
-.jpdb-reader-word-text-pitch .jpdb-reader-word { color: var(--jpdb-reader-source-pitch-color, currentColor) !important; }
-
-:is(.jpdb-reader-word-highlight-pitch, .jpdb-reader-word-underline-pitch, .jpdb-reader-word-text-pitch) .jpdb-reader-word {
-  opacity: 1 !important;
-}
-
-.jpdb-reader-word.jpdb-reader-has-furi {
-  line-height: 1.85;
-}
-
-.jpdb-reader-furi {
-  font-size: 0.52em;
-  color: var(--jpdb-reader-muted);
-  line-height: 1;
-  user-select: none;
-}
-
-.jpdb-reader-word ruby {
-  position: static;
-  display: ruby;
-  ruby-align: center;
-  ruby-position: over;
-  line-height: 1;
-  vertical-align: baseline;
-  text-decoration-line: inherit !important;
-  text-decoration-style: inherit !important;
-  text-decoration-color: inherit !important;
-  text-decoration-thickness: inherit !important;
-  text-underline-offset: inherit !important;
-}
-
-.jpdb-reader-word rp {
-  display: none;
-}
-
-.jpdb-reader-word rt.jpdb-reader-furi {
-  position: static;
-  left: auto;
-  bottom: auto;
-  display: ruby-text;
-  transform: none;
-  white-space: nowrap;
-  pointer-events: none;
-  text-decoration: none !important;
-  ruby-align: center;
-  line-height: 1;
-  text-align: center;
-}
-
-.jpdb-reader-hide-known
-  .jpdb-reader-word:is(.jpdb-known, .jpdb-due, .jpdb-never-forget)
-  .jpdb-reader-furi {
-  display: none;
-}
-
-.jpdb-ocr-layer {
-  position: fixed;
-  z-index: 2147483643;
-  pointer-events: none;
-  box-sizing: border-box;
-  contain: layout style;
-}
-
-.jpdb-ocr-status,
-.jpdb-ocr-line {
-  pointer-events: auto;
-  box-sizing: border-box;
-  font-family: var(--jpdb-reader-font);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.jpdb-ocr-status {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(24, 27, 32, 0.82);
-  color: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.jpdb-ocr-line {
-  position: absolute;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  overflow: visible;
-  min-width: 0;
-  min-height: 0;
-  padding: var(--jpdb-ocr-pad-top, 3px) var(--jpdb-ocr-pad-x, 5px)
-    var(--jpdb-ocr-pad-bottom, 3px);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: transparent;
-  text-shadow: none;
-  font-weight: 800;
-  line-height: 1;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  box-shadow: none;
-  opacity: 1;
-  user-select: text;
-  cursor: text;
-}
-
-.jpdb-ocr-line-text {
-  display: inline-flex;
-  flex: none;
-  justify-content: center;
-  align-items: flex-end;
-  align-content: flex-end;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-  max-width: none;
-  overflow-wrap: normal;
-}
-
-.jpdb-ocr-line[data-vertical="true"] {
-  align-items: center;
-  justify-content: center;
-  letter-spacing: 0;
-}
-
-.jpdb-ocr-line[data-vertical="true"] .jpdb-ocr-line-text {
-  white-space: normal;
-  flex-wrap: wrap;
-}
-
-.jpdb-ocr-line-visible {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(24, 27, 32, 0.14);
-  box-shadow:
-    0 6px 16px rgba(0, 0, 0, 0.2),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-}
-
-.jpdb-ocr-line:hover,
-.jpdb-ocr-line:focus,
-.jpdb-ocr-line.jpdb-ocr-line-active {
-  color: var(--jpdb-ocr-text-color, #fff);
-  text-shadow:
-    0 2px 2px var(--jpdb-ocr-outline-color, #000),
-    0 0 3px var(--jpdb-ocr-outline-color, #000),
-    0 0 10px var(--jpdb-ocr-outline-color, #000);
-  background: var(--jpdb-ocr-background-active-rgba, rgba(24, 27, 32, 0.48));
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow:
-    0 10px 24px rgba(0, 0, 0, 0.24),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-  outline: none;
-  z-index: 2;
-}
-
-.jpdb-ocr-line .jpdb-reader-word {
-  background: transparent !important;
-  --jpdb-reader-word-underline: transparent;
-  text-decoration: none !important;
-  color: inherit !important;
-  pointer-events: none;
-  cursor: pointer;
-  line-height: 1 !important;
-}
-
-.jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi {
-  line-height: 1 !important;
-}
-
-.jpdb-ocr-line[data-has-furi="true"] .jpdb-reader-word {
-  display: inline-flex;
-  align-items: flex-end;
-}
-
-.jpdb-ocr-line .jpdb-ocr-plain {
-  display: inline-flex;
-  align-items: flex-end;
-  line-height: 1;
-  white-space: pre;
-}
-
-.jpdb-ocr-line:hover .jpdb-reader-word,
-.jpdb-ocr-line:focus .jpdb-reader-word,
-.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-reader-word {
-  pointer-events: auto;
-}
-
-.jpdb-ocr-ruby {
-  position: relative;
-  display: inline-flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-top: 0.5em;
-  line-height: 1;
-  vertical-align: baseline;
-}
-
-.jpdb-ocr-ruby-base {
-  display: inline-flex;
-  align-items: flex-end;
-  line-height: 1;
-}
-
-.jpdb-ocr-furi {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  color: currentColor;
-  font-size: 0.42em;
-  line-height: 1;
-  opacity: 0;
-  pointer-events: none;
-  text-align: center;
-  text-shadow: none;
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-new,
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-suspended,
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-not-in-deck {
-  color: var(--jpdb-reader-state-new, #58a6ff) !important;
-}
-
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-learning {
-  color: var(--jpdb-reader-state-learning, #ffd166) !important;
-}
-
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-known,
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-never-forget,
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-redundant {
-  color: var(--jpdb-reader-state-known, #7bd88f) !important;
-}
-
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-due {
-  color: var(--jpdb-reader-state-due, #5fb3b3) !important;
-}
-
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-failed {
-  color: var(--jpdb-reader-state-failed, #ff6b6b) !important;
-}
-
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-blacklisted,
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-locked {
-  color: var(--jpdb-reader-state-ignored, #b8a7ff) !important;
-}
-
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-ocr-furi {
-  opacity: 0.9;
-  text-shadow:
-    0 1px 1px var(--jpdb-ocr-outline-color, #000),
-    0 0 5px var(--jpdb-ocr-outline-color, #000);
-}
-
-.asbplayer-subtitles-container-bottom {
-  z-index: 2147483644 !important;
-}
-
-.asbplayer-subtitles-container-bottom .jpdb-reader-word {
-  --jpdb-reader-subtitle-fallback: currentColor;
-  background: transparent !important;
-  --jpdb-reader-word-underline: transparent;
-  text-decoration-line: underline !important;
-  text-decoration-style: solid !important;
-  text-decoration-color: var(
-    --jpdb-reader-word-underline,
-    transparent
-  ) !important;
-  text-decoration-thickness: 0.08em !important;
-  text-underline-offset: 0.15em !important;
-  color: inherit !important;
-}
-
-.jpdb-reader-fab {
-  position: fixed;
-  right: max(14px, env(safe-area-inset-right));
-  bottom: max(14px, env(safe-area-inset-bottom));
-  z-index: 2147483645;
-  min-width: 52px;
-  width: auto;
-  height: 52px;
-  padding: 0 13px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 50%;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
-  opacity: 0.78;
-  font: 700 14px/1 var(--jpdb-reader-font);
-  cursor: pointer;
-  touch-action: none;
-  transform: translate3d(0, 0, 0);
-}
-
-.jpdb-reader-fab:hover,
-.jpdb-reader-fab:focus-visible {
-  border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent);
-  opacity: 1;
-  outline: none;
-}
-
-.jpdb-reader-fab-over-video:not(:hover):not(:focus-visible) {
-  opacity: 0.28;
-  transform: translate3d(0, 6px, 0) scale(0.92);
-}
-
-.jpdb-reader-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 2147483646;
-  background: rgba(12, 16, 22, 0.74);
-}
-
-.jpdb-reader-popover,
-.jpdb-reader-settings {
-  position: fixed;
-  z-index: 2147483647;
-  box-sizing: border-box;
-  background: var(--jpdb-reader-bg);
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 12px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.34);
-  color: var(--jpdb-reader-text);
-  color-scheme: light dark;
-  font: 14px/1.45 var(--jpdb-reader-font);
-}
-
-.jpdb-reader-popover {
-  width: min(520px, calc(100vw - 16px));
-  max-height: min(580px, calc(100vh - 16px));
-  overflow: auto;
-  overflow-anchor: none;
-  padding: 14px;
-  container-type: inline-size;
-  scrollbar-gutter: stable;
-}
-
-.jpdb-reader-popover.jpdb-reader-sheet {
-  left: 0 !important;
-  right: 0 !important;
-  top: auto !important;
-  bottom: 0 !important;
-  width: 100%;
-  height: var(--jpdb-reader-sheet-height, var(--jpdb-reader-sheet-collapsed-height, 70dvh));
-  min-height: var(--jpdb-reader-sheet-min-height, 180px);
-  max-height: var(--jpdb-reader-sheet-viewport-height, 100dvh);
-  border-radius: 16px 16px 0 0;
-  padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-resizing {
-  user-select: none;
-}
-
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  overflow: hidden;
-  padding: 0;
-  scrollbar-gutter: auto;
-}
-
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body {
-  min-height: 0;
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 14px 16px;
-  scrollbar-gutter: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-popover-body > * {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions {
-  padding: 6px 16px calc(18px + env(safe-area-inset-bottom));
-}
-
-.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining {
-  padding-top: 37px;
-}
-
-.jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded {
-  border-radius: 0;
-  padding-top: max(8px, env(safe-area-inset-top));
-}
-
-.jpdb-reader-sheet .jpdb-reader-sheet-handle {
-  display: block;
-}
-
-.jpdb-reader-popover.jpdb-reader-sheet > .jpdb-reader-sheet-handle {
-  width: 100%;
-  margin: 0;
-}
-
-.jpdb-reader-sheet-close {
-  position: absolute;
-  top: 8px;
-  right: max(12px, env(safe-area-inset-right));
-  z-index: 2;
-  display: inline-grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 88%, transparent);
-  color: var(--jpdb-reader-text);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.jpdb-reader-sheet-close:hover,
-.jpdb-reader-sheet-close:focus-visible {
-  border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent);
-  outline: none;
-}
-
-.jpdb-reader-sheet-close svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-}
-
-:root.jpdb-reader-theme-dark .jpdb-reader-popover,
-:root.jpdb-reader-theme-dark .jpdb-reader-settings,
-:root.jpdb-reader-theme-dark .jpdb-reader-onboarding {
-  color-scheme: dark;
-}
-
-:root.jpdb-reader-theme-light .jpdb-reader-popover,
-:root.jpdb-reader-theme-light .jpdb-reader-settings,
-:root.jpdb-reader-theme-light .jpdb-reader-onboarding {
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.jpdb-reader-theme-light) .jpdb-reader-popover,
-  :root:not(.jpdb-reader-theme-light) .jpdb-reader-settings,
-  :root:not(.jpdb-reader-theme-light) .jpdb-reader-onboarding {
-    color-scheme: dark;
-  }
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not(.jpdb-reader-theme-dark) .jpdb-reader-popover,
-  :root:not(.jpdb-reader-theme-dark) .jpdb-reader-settings,
-  :root:not(.jpdb-reader-theme-dark) .jpdb-reader-onboarding {
-    color-scheme: light;
-  }
-}
-
-.jpdb-reader-sheet-handle {
-  display: none;
-  position: relative;
-  width: calc(100% + 32px);
-  height: 46px;
-  border-bottom: 1px solid var(--jpdb-reader-border);
-  border-radius: 16px 16px 0 0;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface, #20242b) 72%,
-    transparent
-  );
-  margin: -14px -16px 10px;
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.jpdb-reader-sheet-handle::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 46px;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--jpdb-reader-faint);
-  transform: translate(-50%, -50%);
-}
-
-.jpdb-reader-sheet-handle:active {
-  cursor: grabbing;
-}
-
-.jpdb-reader-sheet-handle:hover::before,
-.jpdb-reader-sheet-handle:focus-visible::before {
-  background: var(--jpdb-reader-accent);
-}
-
-.jpdb-reader-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.jpdb-reader-heading {
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.jpdb-reader-card-tools {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-left: auto;
-}
-
-.jpdb-reader-icon-btn {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  width: 36px !important;
-  min-width: 36px !important;
-  max-width: 36px !important;
-  height: 36px !important;
-  min-height: 36px !important;
-  max-height: 36px !important;
-  flex: 0 0 auto;
-  padding: 0 !important;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 50%;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  cursor: pointer;
-  overflow: hidden;
-  transform: translateY(-0.01rem);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.jpdb-reader-icon-btn:hover,
-.jpdb-reader-icon-btn:focus-visible {
-  border-color: var(--jpdb-reader-accent);
-  box-shadow: 0 8px 18px
-    color-mix(in srgb, var(--jpdb-reader-accent) 26%, transparent);
-  color: var(--jpdb-reader-accent);
-  transform: translateY(-0.25rem);
-  outline: none;
-}
-
-.jpdb-reader-icon-btn:active {
-  transform: scale(0.98);
-}
-
-.jpdb-reader-onboarding {
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 2147483647;
-  box-sizing: border-box;
-  width: min(760px, calc(100vw - 24px));
-  max-height: min(760px, calc(100vh - 24px));
-  overflow: auto;
-  padding: 54px 32px 32px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 16px;
-  background:
-    radial-gradient(
-      circle at 18% 0%,
-      var(--jpdb-reader-accent-soft),
-      transparent 34%
-    ),
-    var(--jpdb-reader-bg);
-  color: var(--jpdb-reader-text);
-  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.4);
-  color-scheme: light dark;
-  font: 15px/1.5 var(--jpdb-reader-font);
-}
-
-.jpdb-reader-onboarding-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-}
-
-.jpdb-reader-onboarding h2 {
-  margin: 4px 0 10px;
-  color: var(--jpdb-reader-text);
-  font-size: clamp(38px, 8vw, 72px);
-  line-height: 0.95;
-  letter-spacing: 0;
-}
-
-.jpdb-reader-onboarding p {
-  max-width: 620px;
-  margin: 0;
-  color: var(--jpdb-reader-muted);
-}
-
-.jpdb-reader-onboarding-eyebrow {
-  color: var(--jpdb-reader-accent);
-  font-size: 11px;
-  font-weight: 850;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.jpdb-reader-onboarding-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin: 24px 0;
-}
-
-.jpdb-reader-onboarding-grid div {
-  display: grid;
-  gap: 5px;
-  min-height: 96px;
-  padding: 14px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-}
-
-.jpdb-reader-onboarding-grid strong {
-  color: var(--jpdb-reader-text);
-  font-size: 16px;
-}
-
-.jpdb-reader-onboarding-grid span {
-  color: var(--jpdb-reader-muted);
-  font-size: 13px;
-}
-
-.jpdb-reader-onboarding-language {
-  display: grid;
-  gap: 6px;
-  max-width: 280px;
-  margin: 0 0 16px;
-  color: var(--jpdb-reader-muted);
-  font-weight: 750;
-  font-size: 13px;
-}
-
-.jpdb-reader-onboarding-language select {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 42px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  padding: 8px 10px;
-  font: 750 14px/1.2 var(--jpdb-reader-font);
-}
-
-.jpdb-reader-onboarding-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.jpdb-reader-onboarding-actions .jpdb-reader-btn {
-  min-width: 150px;
-  min-height: 46px;
-}
-
-.jpdb-reader-icon-btn svg {
-  width: 20px !important;
-  height: 20px !important;
-  max-width: 20px !important;
-  max-height: 20px !important;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-@keyframes jpdb-reader-audio-loading-a {
-  0% {
-    left: 0;
-  }
-  25% {
-    left: 0;
-  }
-  75% {
-    left: 100%;
-  }
-  100% {
-    left: 100%;
-  }
-}
-
-@keyframes jpdb-reader-audio-loading-b {
-  0% {
-    right: 100%;
-  }
-  50% {
-    right: 0;
-  }
-  100% {
-    right: 0;
-  }
-}
-
-.jpdb-reader-popover[data-audio-loading="true"] .jpdb-reader-audio-control {
-  border-color: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 62%,
-    var(--jpdb-reader-border)
-  );
-  color: var(--jpdb-reader-accent);
-  cursor: progress;
-}
-
-.jpdb-reader-popover[data-audio-loading="true"]
-  .jpdb-reader-audio-control::before,
-.jpdb-reader-popover[data-audio-loading="true"]
-  .jpdb-reader-audio-control::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 100%;
-  bottom: 0;
-  height: 3px;
-  background: var(--jpdb-reader-accent);
-  pointer-events: none;
-}
-
-.jpdb-reader-popover[data-audio-loading="true"]
-  .jpdb-reader-audio-control::before {
-  animation:
-    jpdb-reader-audio-loading-a 1.65s infinite ease-in-out,
-    jpdb-reader-audio-loading-b 1.65s infinite ease-in-out;
-}
-
-.jpdb-reader-popover[data-audio-loading="true"]
-  .jpdb-reader-audio-control::after {
-  animation:
-    jpdb-reader-audio-loading-a 1.65s infinite ease-in-out 0.62s,
-    jpdb-reader-audio-loading-b 1.65s infinite ease-in-out 0.62s;
-}
-
-.jpdb-reader-spelling {
-  color: var(--jpdb-reader-text);
-  font-size: 24px;
-  font-weight: 750;
-  line-height: 1.16;
-  text-decoration: none;
-  word-break: keep-all;
-}
-
-.jpdb-reader-title-row {
-  display: flex;
-  align-items: baseline;
-  gap: 9px;
-  flex-wrap: wrap;
-  width: 100%;
-  min-width: 0;
-}
-
-.jpdb-reader-kanji-inline {
-  display: inline !important;
-  width: auto !important;
-  min-width: 0 !important;
-  height: auto !important;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-bottom: 2px solid transparent !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: inherit !important;
-  cursor: pointer;
-  font: inherit !important;
-  line-height: inherit !important;
-  text-align: inherit !important;
-  vertical-align: baseline !important;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.jpdb-reader-kanji-inline:hover,
-.jpdb-reader-kanji-inline:focus-visible {
-  border-bottom-color: currentColor !important;
-  outline: none !important;
-}
-
-.jpdb-reader-pill {
-  appearance: none;
-  -webkit-appearance: none;
-  display: inline-flex !important;
-  align-items: center;
-  align-self: center;
-  gap: 4px;
-  box-sizing: border-box;
-  width: auto !important;
-  min-width: 0 !important;
-  max-width: max-content !important;
-  height: auto !important;
-  min-height: 24px !important;
-  padding: 3px 8px !important;
-  margin: 0 !important;
-  border: 1px solid var(--chip-border, var(--jpdb-reader-border)) !important;
-  border-radius: 999px !important;
-  color: var(--chip-text, var(--jpdb-reader-text)) !important;
-  background: var(--chip-bg, var(--jpdb-reader-surface-2)) !important;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.18) !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  line-height: 1 !important;
-  text-align: center !important;
-  text-decoration: none !important;
-  vertical-align: middle !important;
-  white-space: nowrap !important;
-  flex: 0 0 auto !important;
-}
-
-a.jpdb-reader-action-pill,
-button.jpdb-reader-action-pill {
-  --chip-bg: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 92%,
-    var(--jpdb-reader-accent) 8%
-  );
-  --chip-border: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 38%,
-    var(--jpdb-reader-border)
-  );
-  --chip-text: var(--jpdb-reader-text);
-  cursor: pointer;
-  font-family: inherit;
-  transform: translateY(-0.01rem) !important;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.jpdb-reader-action-pill:hover,
-.jpdb-reader-action-pill:focus-visible {
-  color: var(--chip-text, var(--jpdb-reader-text)) !important;
-  background: var(--chip-bg, var(--jpdb-reader-surface-2)) !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 3px 8px
-    color-mix(
-      in srgb,
-      var(--chip-border, var(--jpdb-reader-accent)) 34%,
-      transparent
-    ) !important;
-  outline: 2px solid
-    color-mix(
-      in srgb,
-      var(--chip-border, var(--jpdb-reader-accent)) 55%,
-      transparent
-    ) !important;
-  outline-offset: 1px;
-}
-
-.jpdb-reader-jpdb-pill {
-  --chip-bg: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 15%,
-    var(--jpdb-reader-surface)
-  );
-  --chip-border: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 58%,
-    var(--jpdb-reader-border)
-  );
-  --chip-text: var(--jpdb-reader-accent-readable);
-}
-
-.jpdb-reader-action-pill:active {
-  transform: scale(0.98) !important;
-}
-
-.jpdb-reader-pill svg {
-  width: 12px !important;
-  height: 12px !important;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.jpdb-reader-word-pills {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 5px;
-  width: 100%;
-  margin-top: 6px;
-}
-
-@container (max-width: 340px) {
-  .jpdb-reader-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
-    gap: 0 8px;
-  }
-  .jpdb-reader-heading {
-    display: contents;
-  }
-  .jpdb-reader-title-row {
-    grid-column: 1;
-    grid-row: 1;
-  }
-  .jpdb-reader-card-tools {
-    display: contents;
-  }
-  .jpdb-reader-pitch {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    margin-top: -3px;
-  }
-  .jpdb-reader-audio-control {
-    grid-column: 2;
-    grid-row: 1;
-    margin-left: auto;
-  }
-  .jpdb-reader-word-pills {
-    grid-column: 1 / -1;
-    grid-row: 3;
-    width: auto;
-    gap: 4px;
-    margin-top: 5px;
-  }
-  .jpdb-reader-pill {
-    padding: 3px 7px !important;
-    font-size: 10.5px !important;
-  }
-}
-
-.jpdb-reader-reading,
-.jpdb-reader-pos,
-.jpdb-reader-meta,
-.jpdb-reader-help {
-  color: var(--jpdb-reader-muted);
-}
-
-.jpdb-reader-reading {
-  margin-top: 2px;
-  font-size: 15px;
-}
-
-.jpdb-reader-title-row .jpdb-reader-reading {
-  margin-top: 0;
-  line-height: 1.2;
-}
-
-.jpdb-reader-pos {
-  margin-top: 7px;
-  font-size: 11px;
-  line-height: 1.35;
-}
-
-.jpdb-reader-status-line {
-  min-height: 22px;
-}
-
-.jpdb-reader-status-line[data-status-tone] {
-  margin-top: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface-2);
-  color: var(--jpdb-reader-text);
-}
-
-.jpdb-reader-status-line[data-status-tone="pending"] {
-  color: var(--jpdb-reader-muted);
-}
-
-.jpdb-reader-status-line[data-status-tone="success"] {
-  border-color: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 52%,
-    var(--jpdb-reader-border)
-  );
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 11%,
-    var(--jpdb-reader-surface-2)
-  );
-  color: var(--jpdb-reader-accent);
-}
-
-.jpdb-reader-status-line[data-status-tone="error"] {
-  border-color: color-mix(in srgb, #e55353 52%, var(--jpdb-reader-border));
-  background: color-mix(in srgb, #e55353 11%, var(--jpdb-reader-surface-2));
-  color: #ff8c8c;
-}
-
-.jpdb-reader-meanings {
-  margin: 9px 0;
-  display: grid;
-  gap: 5px;
-}
-
-.jpdb-reader-meaning {
-  color: var(--jpdb-reader-text);
-  font-size: 13px;
-  line-height: 1.32;
-}
-
-.jpdb-reader-jpdb-extras {
-  display: grid;
-  gap: 10px;
-  margin: 10px 0 0;
-}
-
-.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-examples-group,
-.jpdb-reader-jpdb-extras .jpdb-reader-jpdb-used-in-group {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  padding: 0;
-}
-
-.jpdb-reader-jpdb-extras
-  :is(.jpdb-reader-jpdb-examples-group, .jpdb-reader-jpdb-used-in-group)
-  > .jpdb-reader-local-glossary {
-  padding: 0 8px 8px;
-}
-
-.jpdb-reader-jpdb-extra {
-  display: grid;
-  gap: 6px;
-}
-
-.jpdb-reader-jpdb-extra h6 {
-  margin: 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  font-weight: 850;
-  text-transform: uppercase;
-}
-
-.jpdb-reader-jpdb-compounds,
-.jpdb-reader-jpdb-used-in,
-.jpdb-reader-jpdb-examples {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.jpdb-reader-jpdb-example {
-  padding: 2px 0;
-  color: var(--jpdb-reader-text);
-  line-height: 1.3;
-}
-
-.jpdb-reader-jpdb-example-row.has-audio {
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr);
-  align-items: start;
-  gap: 8px;
-}
-
-.jpdb-reader-jpdb-example-text {
-  min-width: 0;
-}
-
-button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini {
-  width: 28px !important;
-  min-width: 28px !important;
-  max-width: 28px !important;
-  height: 28px !important;
-  min-height: 28px !important;
-  max-height: 28px !important;
-  margin-top: 2px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 88%, transparent);
-}
-
-button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
-  width: 14px;
-  height: 14px;
-  stroke-width: 2.6;
-}
-
-.jpdb-reader-jpdb-compounds li,
-.jpdb-reader-jpdb-used-in li {
-  display: grid;
-  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-}
-
-.jpdb-reader-jpdb-compound,
-.jpdb-reader-jpdb-used-in-link {
-  display: inline-flex;
-  align-items: flex-start;
-  min-width: 0;
-  color: inherit !important;
-  text-decoration: none;
-}
-
-.jpdb-reader-jpdb-compound:hover,
-.jpdb-reader-jpdb-compound:focus-visible,
-.jpdb-reader-jpdb-used-in-link:hover,
-.jpdb-reader-jpdb-used-in-link:focus-visible {
-  color: inherit !important;
-  outline: none;
-}
-
-.jpdb-reader-jpdb-compound-head {
-  display: grid;
-  gap: 2px;
-  max-width: 100%;
-}
-
-.jpdb-reader-jpdb-compound-term {
-  display: inline-block;
-  width: max-content;
-  max-width: 100%;
-  font-size: 17px;
-  line-height: 1.1;
-  font-weight: 850;
-  white-space: nowrap;
-}
-
-.jpdb-reader-jpdb-used-in-term {
-  font-size: 14.5px;
-  font-weight: 760;
-  line-height: 1.25;
-}
-
-.jpdb-reader-jpdb-used-in-source-item {
-  grid-template-columns: minmax(0, 1fr) !important;
-  align-items: start !important;
-  gap: 2px !important;
-}
-
-.jpdb-reader-jpdb-used-in-source-link {
-  display: block;
-}
-
-.jpdb-reader-jpdb-used-in-source-title {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  font-weight: 760;
-  line-height: 1.25;
-}
-
-.jpdb-reader-jpdb-compound-reading,
-.jpdb-reader-jpdb-compounds small,
-.jpdb-reader-jpdb-used-in small,
-.jpdb-reader-jpdb-example .jpdb-reader-example-translation {
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  line-height: 1.25;
-}
-
-.jpdb-reader-jpdb-compound-reading {
-  white-space: nowrap;
-}
-
-.jpdb-reader-jpdb-compound:has(.jpdb-reader-word) .jpdb-reader-jpdb-compound-reading {
-  display: none;
-}
-
-.jpdb-reader-example-summary .jpdb-reader-example-count {
-  flex: 0 0 auto;
-  margin-left: auto;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.jpdb-reader-jpdb-example .jpdb-reader-example-sentence,
-.jpdb-reader-jpdb-example .jpdb-reader-example-translation {
-  justify-self: stretch;
-  width: 100%;
-  text-align: left;
-  text-wrap: pretty;
-}
-
-.jpdb-reader-jpdb-example .jpdb-reader-example-sentence {
-  line-height: 1.35;
-}
-
-.jpdb-reader-jpdb-example .jpdb-reader-example-translation {
-  font-size: 10.5px;
-  line-height: 1.3;
-}
-
-.jpdb-reader-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  font-size: 11px;
-}
-
-.jpdb-reader-state-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-  background: var(--jpdb-reader-faint);
-  margin-right: 4px;
-}
-
-.jpdb-reader-state-dot.jpdb-new,
-.jpdb-reader-state-dot.jpdb-suspended,
-.jpdb-reader-state-dot.jpdb-not-in-deck {
-  background: var(--jpdb-reader-state-new, #58a6ff);
-}
-
-.jpdb-reader-state-dot.jpdb-learning {
-  background: var(--jpdb-reader-state-learning, #ffd166);
-}
-
-.jpdb-reader-state-dot.jpdb-known,
-.jpdb-reader-state-dot.jpdb-never-forget,
-.jpdb-reader-state-dot.jpdb-redundant {
-  background: var(--jpdb-reader-state-known, #7bd88f);
-}
-
-.jpdb-reader-state-dot.jpdb-due {
-  background: var(--jpdb-reader-state-due, #5fb3b3);
-}
-
-.jpdb-reader-state-dot.jpdb-failed {
-  background: var(--jpdb-reader-state-failed, #ff6b6b);
-}
-
-.jpdb-reader-state-dot.jpdb-blacklisted,
-.jpdb-reader-state-dot.jpdb-locked {
-  background: var(--jpdb-reader-state-ignored, #b8a7ff);
-}
-
-.jpdb-reader-local {
-  border-top: 1px solid var(--jpdb-reader-border);
-  margin-top: 12px;
-  padding-top: 12px;
-  display: grid;
-  gap: 8px;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.jpdb-reader-definition-stack {
-  display: grid;
-  gap: 0;
-  margin-top: 12px;
-}
-
-.jpdb-reader-definition-stack .jpdb-reader-local {
-  margin-top: 0;
-}
-
-.jpdb-reader-source-card,
-.jpdb-reader-study-source {
-  gap: 0;
-  padding-top: 0;
-  position: relative;
-}
-
-.jpdb-reader-source-card .jpdb-reader-meanings {
-  margin: 0;
-}
-
-.jpdb-reader-source-card > summary.jpdb-reader-local-title,
-.jpdb-reader-study-source > summary.jpdb-reader-local-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 34px;
-  padding: 6px 0;
-  cursor: pointer;
-  list-style: none;
-}
-
-.jpdb-reader-source-card
-  > summary.jpdb-reader-local-title::-webkit-details-marker,
-.jpdb-reader-study-source
-  > summary.jpdb-reader-local-title::-webkit-details-marker {
-  display: none;
-}
-
-.jpdb-reader-source-card > summary.jpdb-reader-local-title::after,
-.jpdb-reader-study-source > summary.jpdb-reader-local-title::after {
-  content: "+";
-  flex: 0 0 auto;
-  margin-left: 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 15px;
-  line-height: 1;
-}
-
-.jpdb-reader-source-card[open] > summary.jpdb-reader-local-title::after,
-.jpdb-reader-study-source[open] > summary.jpdb-reader-local-title::after {
-  content: "-";
-}
-
-.jpdb-reader-source-card[data-immersion-empty="true"]
-  > summary.jpdb-reader-local-title {
-  cursor: default;
-}
-
-.jpdb-reader-source-card[data-immersion-empty="true"]
-  > summary.jpdb-reader-local-title::after {
-  content: "";
-}
-
-.jpdb-reader-source-card > :not(summary) {
-  margin-left: 0;
-  margin-right: 0;
-}
-
-.jpdb-reader-source-card[open] > :last-child {
-  margin-bottom: 7px;
-}
-
-.jpdb-reader-dictionary-source-list,
-.jpdb-reader-dictionaries-section .jpdb-reader-local-terms {
-  gap: 0;
-  margin-top: 0;
-  padding: 0;
-}
-
-.jpdb-reader-dictionary-source-list {
-  display: grid;
-}
-
-.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group {
-  border-top: 1px solid var(--jpdb-reader-border);
-  padding: 0;
-  overflow: visible;
-}
-
-.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child {
-  border-top: 1px solid var(--jpdb-reader-border);
-}
-
-.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 30px;
-  padding: 6px 0;
-  color: var(--jpdb-reader-muted);
-  cursor: pointer;
-  list-style: none;
-}
-
-.jpdb-reader-dictionaries-section
-  .jpdb-reader-dictionary-source-title::-webkit-details-marker {
-  display: none;
-}
-
-.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::after {
-  content: "+";
-  flex: 0 0 auto;
-  color: var(--jpdb-reader-muted);
-  font-size: 14px;
-  line-height: 1;
-}
-
-.jpdb-reader-dictionaries-section
-  .jpdb-reader-dictionary-group[open]
-  > .jpdb-reader-dictionary-source-title::after {
-  content: "-";
-}
-
-.jpdb-reader-dictionaries-section .jpdb-reader-local-term {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  padding: 7px 0 8px;
-}
-
-.jpdb-reader-dictionaries-section
-  .jpdb-reader-local-term
-  + .jpdb-reader-local-term,
-.jpdb-reader-dictionaries-section
-  .jpdb-reader-dictionary-source-title
-  + .jpdb-reader-local-terms {
-  border-top: 1px solid var(--jpdb-reader-border);
-}
-
-.jpdb-reader-study-source > .jpdb-reader-study-panel {
-  margin-top: 4px;
-  margin-bottom: 12px;
-}
-
-.jpdb-reader-local-title {
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.jpdb-reader-source-status {
-  margin-left: auto;
-  color: var(--jpdb-reader-faint);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: none;
-}
-
-.jpdb-reader-local-entry {
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 7px;
-  background: var(--jpdb-reader-surface);
-  padding: 6px;
-}
-
-.jpdb-reader-source-card > .jpdb-reader-local-entry {
-  display: grid;
-  gap: 10px;
-  padding: 8px 0 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.jpdb-reader-kanji > .jpdb-reader-local-entry + .jpdb-reader-local-entry {
-  margin-top: 6px;
-}
-
-.jpdb-reader-local-terms {
-  display: grid;
-  gap: 5px;
-}
-
-.jpdb-reader-local-term {
-  padding: 7px 8px;
-  padding-right: 32px;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 88%,
-    var(--jpdb-reader-surface-2)
-  );
-}
-
-.jpdb-reader-source-card .jpdb-reader-local-term {
-  padding: 7px 0 8px;
-  padding-right: 0;
-  border-top: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-border) 52%, transparent);
-  border-radius: 0;
-  background: transparent;
-}
-
-.jpdb-reader-source-card .jpdb-reader-local-term:first-child {
-  border-top: 0;
-}
-
-.jpdb-reader-local-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px;
-  font-weight: 700;
-}
-
-.jpdb-reader-local-expression {
-  min-width: 0;
-  color: var(--jpdb-reader-text);
-  font-size: 16px;
-  line-height: 1.25;
-  font-weight: 850;
-}
-
-.jpdb-reader-local-reading,
-.jpdb-reader-local-dict {
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  font-weight: 650;
-}
-
-.jpdb-reader-local-dict {
-  margin-left: auto;
-}
-
-.jpdb-reader-local-frequency {
-  margin-left: auto;
-  color: var(--jpdb-reader-accent-readable);
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.jpdb-reader-local-senses {
-  display: grid;
-  gap: 2px;
-  margin-top: 4px;
-}
-
-.jpdb-reader-local-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 0 0 4px;
-}
-
-.jpdb-reader-local-head + .jpdb-reader-local-tags {
-  margin-top: 5px;
-}
-
-.jpdb-reader-local-tags:empty {
-  display: none;
-}
-
-.jpdb-reader-dict-tag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.35em;
-  padding: 0 0.38em;
-  border: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-accent) 55%, var(--jpdb-reader-border));
-  border-radius: 4px;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 24%,
-    var(--jpdb-reader-surface-2)
-  );
-  color: var(--jpdb-reader-accent-readable);
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1.2;
-}
-
-.jpdb-reader-source-tag {
-  border-color: var(--jpdb-reader-border);
-  background: var(--jpdb-reader-surface-2);
-  color: var(--jpdb-reader-muted);
-}
-
-.jpdb-reader-local-sense,
-.jpdb-reader-local-glossary-entry {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-}
-
-.jpdb-reader-local-sense {
-  color: var(--jpdb-reader-text);
-  font-size: 13px;
-  line-height: 1.3;
-}
-
-.jpdb-reader-local-sense > span:last-child,
-.jpdb-reader-local-glossary-entry > div {
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.jpdb-reader-local-sense-index {
-  flex: 0 0 16px;
-  color: var(--jpdb-reader-faint);
-  font-size: 11px;
-  font-weight: 800;
-  text-align: right;
-}
-
-.jpdb-reader-local-glossary {
-  margin-top: 3px;
-  color: var(--jpdb-reader-text);
-  font-size: 13px;
-  line-height: 1.45;
-  white-space: normal;
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  --font-size-no-units: 13;
-  --line-height: 1.45;
-  --list-padding1: 1.1em;
-  --list-padding2: 1.45em;
-  --compact-list-separator: " / ";
-}
-
-.jpdb-reader-local-glossary-entry.no-index {
-  display: block;
-}
-
-.jpdb-reader-local-glossary-entry.no-index > div {
-  min-width: 0;
-}
-
-.jpdb-reader-local-glossary-entry.no-index
-  > div
-  > div:first-child
-  > :first-child {
-  margin-top: 0 !important;
-}
-
-.jpdb-reader-local-glossary-entry.no-index
-  > div
-  > div:last-child
-  > :last-child {
-  margin-bottom: 0 !important;
-}
-
-.jpdb-reader-local-glossary-entry.no-index .gloss-sc-div,
-.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ul,
-.jpdb-reader-local-glossary-entry.no-index .gloss-sc-ol {
-  margin-top: 0.12em !important;
-  margin-bottom: 0.12em !important;
-}
-
-.jpdb-reader-local-glossary ul,
-.jpdb-reader-local-glossary ol {
-  padding: 0;
-}
-
-.jpdb-reader-local-glossary li {
-  margin: 1px 0;
-}
-
-.jpdb-reader-local-glossary table {
-  border-collapse: collapse;
-  width: 100%;
-  white-space: normal;
-  margin: 4px 0;
-}
-
-.jpdb-reader-local-glossary td,
-.jpdb-reader-local-glossary th {
-  border: 1px solid var(--jpdb-reader-border);
-  padding: 8px 6px 6px;
-  line-height: 1.45;
-}
-
-.jpdb-reader-dictionary-group {
-  padding: 0;
-  overflow: hidden;
-}
-
-.jpdb-reader-dictionary-group > summary.jpdb-reader-local-head,
-.jpdb-reader-dictionary-group > summary.jpdb-reader-local-title.jpdb-reader-example-summary {
-  align-items: center;
-  cursor: pointer;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  list-style: none;
-  min-height: 38px;
-  padding: 8px 0;
-}
-
-.jpdb-reader-dictionary-group
-  > summary.jpdb-reader-local-head::-webkit-details-marker,
-.jpdb-reader-dictionary-group
-  > summary.jpdb-reader-local-title.jpdb-reader-example-summary::-webkit-details-marker {
-  display: none;
-}
-
-.jpdb-reader-dictionary-group > summary.jpdb-reader-local-head::after,
-.jpdb-reader-dictionary-group
-  > summary.jpdb-reader-local-title.jpdb-reader-example-summary::after {
-  content: "+";
-  margin-left: 4px;
-  color: var(--jpdb-reader-muted);
-  font-size: 16px;
-  line-height: 1;
-}
-
-.jpdb-reader-dictionary-group[open] > summary.jpdb-reader-local-head::after,
-.jpdb-reader-dictionary-group[open]
-  > summary.jpdb-reader-local-title.jpdb-reader-example-summary::after {
-  content: "-";
-}
-
-.jpdb-reader-dictionary-group > .jpdb-reader-local-glossary {
-  padding: 0 8px 8px;
-}
-
-.jpdb-reader-local-glossary .structured-content {
-  display: inline;
-  min-width: 0;
-  max-width: 100%;
-  white-space: normal;
-  line-height: var(--line-height);
-}
-
-.jpdb-reader-local-glossary ruby {
-  display: ruby;
-  ruby-align: center;
-  ruby-position: over;
-  max-width: 100%;
-  margin: 0 0.03em;
-  color: inherit;
-  line-height: 1;
-  text-align: center;
-  vertical-align: baseline;
-  white-space: nowrap;
-}
-
-.jpdb-reader-local-glossary rt {
-  display: ruby-text;
-  color: var(--jpdb-reader-muted);
-  font-size: 0.52em;
-  font-weight: 600;
-  line-height: 1;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.jpdb-reader-local-glossary rp {
-  display: none;
-}
-
-.jpdb-reader-local-glossary
-  :is(
-    .gloss-sc-div,
-    .gloss-sc-ul,
-    .gloss-sc-ol,
-    .gloss-sc-li,
-    .gloss-sc-details
-  ) {
-  box-sizing: border-box;
-  min-width: 0;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
-
-.jpdb-reader-local-glossary [data-sc-class="extra-box"] {
-  box-sizing: border-box;
-  max-width: 100%;
-}
-
-.jpdb-reader-local-glossary .gloss-sc-ul,
-.jpdb-reader-local-glossary .gloss-sc-ol {
-  margin: 0.25em 0 0.25em var(--list-padding1);
-  padding: 0;
-}
-
-.jpdb-reader-local-glossary .gloss-sc-ul[data-sc-content="glossary"],
-.jpdb-reader-local-glossary .gloss-sc-ol[data-sc-content="glossary"] {
-  display: grid;
-  gap: 0.25em;
-}
-
-.jpdb-reader-local-glossary .gloss-sc-li {
-  margin: 0;
-  padding-left: 0.1em;
-}
-
-.jpdb-reader-local-glossary .gloss-sc-li > .gloss-sc-ul,
-.jpdb-reader-local-glossary .gloss-sc-li > .gloss-sc-ol {
-  margin-left: var(--list-padding2);
-}
-
-.jpdb-reader-local-glossary .gloss-sc-details {
-  margin: 0.35em 0;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 72%, transparent);
-}
-
-.jpdb-reader-local-glossary .gloss-sc-summary {
-  padding: 0.35em 0.55em;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.jpdb-reader-local-glossary .gloss-sc-details > :not(.gloss-sc-summary) {
-  padding: 0 0.55em 0.45em;
-}
-
-.jpdb-reader-local-glossary .gloss-sc-table-container {
-  display: block;
-  max-width: 100%;
-  margin: 0.35em 0;
-  overflow-x: auto;
-  white-space: normal;
-}
-
-.jpdb-reader-local-glossary .gloss-sc-table {
-  width: auto;
-  min-width: min(100%, 24rem);
-  border-collapse: collapse;
-  table-layout: auto;
-}
-
-.jpdb-reader-local-glossary .gloss-sc-th,
-.jpdb-reader-local-glossary .gloss-sc-td {
-  border: 1px solid var(--jpdb-reader-border);
-  padding: 0.35em 0.45em;
-  vertical-align: top;
-}
-
-.jpdb-reader-local-glossary .gloss-sc-th {
-  background: var(--jpdb-reader-surface-2);
-  font-weight: 800;
-}
-
-.jpdb-reader-local-glossary .gloss-sc-td[data-sc-class="form-valid"] {
-  text-align: center;
-  vertical-align: middle;
-}
-
-.jpdb-reader-local-glossary [data-sc-class="form-valid"] {
-  color: var(--jpdb-reader-accent-readable);
-  font-weight: 800;
-}
-
-.jpdb-reader-local-glossary .gloss-link {
-  color: var(--jpdb-reader-accent);
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-}
-
-.jpdb-reader-local-glossary .gloss-link-external-icon {
-  display: none;
-}
-
-.jpdb-reader-local-glossary [data-sc-content="part-of-speech-info"],
-.jpdb-reader-local-glossary [data-sc-class="tag"],
-.jpdb-reader-local-glossary [data-sc-class="pitch-accent-position"] {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.4em;
-  margin: 0 0.25em 0.15em 0;
-  padding: 0.05em 0.35em;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 999px;
-  background: var(--jpdb-reader-surface-2);
-  color: var(--jpdb-reader-muted);
-  font-size: 0.88em;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.jpdb-reader-local-glossary .gloss-image-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35em;
-  max-width: 100%;
-  margin: 0.15em 0;
-  color: var(--jpdb-reader-muted);
-  vertical-align: middle;
-}
-
-.jpdb-reader-local-glossary .gloss-image-container {
-  position: relative;
-  display: inline-block;
-  max-width: min(100%, 20rem);
-  min-width: 3rem;
-  overflow: hidden;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 6px;
-  background: var(--jpdb-reader-surface-2);
-  vertical-align: middle;
-}
-
-.jpdb-reader-local-glossary .gloss-image-sizer {
-  display: block;
-}
-
-.jpdb-reader-local-glossary .gloss-image-background,
-.jpdb-reader-local-glossary .gloss-image-container-overlay {
-  position: absolute;
-  inset: 0;
-}
-
-.jpdb-reader-local-glossary .gloss-image-background {
-  background:
-    linear-gradient(
-      45deg,
-      rgba(255, 255, 255, 0.06) 25%,
-      transparent 25% 75%,
-      rgba(255, 255, 255, 0.06) 75%
-    ),
-    linear-gradient(
-      45deg,
-      rgba(255, 255, 255, 0.06) 25%,
-      transparent 25% 75%,
-      rgba(255, 255, 255, 0.06) 75%
-    );
-  background-position:
-    0 0,
-    6px 6px;
-  background-size: 12px 12px;
-}
-
-.jpdb-reader-local-glossary .gloss-image-link-text,
-.jpdb-reader-local-glossary .gloss-image-description {
-  color: var(--jpdb-reader-muted);
-  font-size: 0.9em;
-}
-
-.jpdb-reader-anki-existing {
-  margin-top: 12px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  overflow: hidden;
-}
-
-.jpdb-reader-anki-existing summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 9px 10px;
-  cursor: pointer;
-  color: var(--jpdb-reader-text);
-  font-size: 11px;
-  font-weight: 800;
-  list-style: none;
-}
-
-.jpdb-reader-anki-existing summary::-webkit-details-marker {
-  display: none;
-}
-
-.jpdb-reader-anki-existing summary small {
-  color: var(--jpdb-reader-muted);
-  font-weight: 600;
-  text-align: right;
-}
-
-.jpdb-reader-anki-card-preview {
-  border-top: 1px solid var(--jpdb-reader-border);
-  padding: 9px 10px 10px;
-  display: grid;
-  gap: 8px;
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  line-height: 1.35;
-}
-
-.jpdb-reader-anki-field,
-.jpdb-reader-anki-context {
-  display: grid;
-  gap: 2px;
-}
-
-.jpdb-reader-anki-field > strong,
-.jpdb-reader-anki-context > strong,
-.jpdb-reader-anki-rendered-side > strong {
-  color: var(--jpdb-reader-text);
-  font-size: 11px;
-  text-transform: uppercase;
-}
-
-.jpdb-reader-anki-field > span,
-.jpdb-reader-anki-context > span,
-.jpdb-reader-anki-context > small {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.jpdb-reader-anki-rendered-card,
-.jpdb-reader-anki-fields {
-  display: grid;
-  gap: 8px;
-}
-
-.jpdb-reader-anki-rendered-side {
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-}
-
-.jpdb-reader-anki-rendered-side-body {
-  max-height: 220px;
-  overflow: auto;
-  overscroll-behavior: contain;
-  contain: content;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 6px;
-  padding: 8px;
-  background: rgba(0, 0, 0, 0.14);
-  color: var(--jpdb-reader-text);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.jpdb-reader-anki-rendered-side-body * {
-  max-width: 100%;
-}
-
-.jpdb-reader-anki-rendered-side-body img,
-.jpdb-reader-anki-rendered-side-body video,
-.jpdb-reader-anki-rendered-side-body audio {
-  max-width: 100%;
-  height: auto;
-}
-
-.jpdb-reader-anki-sound {
-  display: inline-block;
-  line-height: 1.3;
-  width: fit-content;
-  max-width: 100%;
-  margin-top: 2px;
-  cursor: pointer;
-  padding: 2px 6px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 999px;
-  color: var(--jpdb-reader-text);
-  background: rgba(94, 167, 128, 0.16);
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.jpdb-reader-anki-sound:disabled {
-  cursor: default;
-  opacity: 0.65;
-}
-
-.jpdb-reader-anki-note-actions {
-  display: grid;
-  gap: 8px;
-}
-
-.jpdb-reader-anki-note-action-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.jpdb-reader-anki-audio-merge {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.jpdb-reader-anki-audio-merge span {
-  color: var(--jpdb-reader-text);
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.jpdb-reader-anki-audio-merge select {
-  min-width: 0;
-  width: 100%;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 6px;
-  padding: 5px 8px;
-  color: var(--jpdb-reader-text);
-  background: var(--jpdb-reader-bg);
-  font: inherit;
-}
-
-.jpdb-reader-settings-subsection {
-  display: grid;
-  gap: 8px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--jpdb-reader-border);
-}
-
-.jpdb-reader-immersion {
-  container-type: inline-size;
-  --jpdb-reader-example-media-max-height: clamp(150px, calc(100vh - 300px), 260px);
-}
-
-.jpdb-reader-example-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 6px;
-  align-items: start;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.jpdb-reader-example-card.has-image {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.jpdb-reader-example-image {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  max-height: var(--jpdb-reader-example-media-max-height);
-  object-fit: contain;
-}
-
-.jpdb-reader-example-media {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 0;
-  overflow: visible;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.jpdb-reader-example-card.has-image .jpdb-reader-example-media {
-  overflow: hidden;
-}
-
-.jpdb-reader-example-body {
-  display: grid;
-  align-content: start;
-  gap: 9px;
-  min-width: 0;
-}
-
-.jpdb-reader-example-source {
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.jpdb-reader-example-summary {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between;
-  gap: 8px !important;
-  min-height: 38px;
-  padding: 8px 0;
-  width: 100%;
-}
-
-.jpdb-reader-example-summary .jpdb-reader-example-source {
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.jpdb-reader-example-summary .jpdb-reader-local-dict {
-  display: block;
-  max-width: 100%;
-  flex: 1 1 auto;
-  margin-left: 0;
-  min-width: 0;
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.jpdb-reader-example-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
-  width: 100%;
-  margin: 3px 0 7px;
-}
-
-.jpdb-reader-example-meta {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: baseline;
-  column-gap: 7px;
-  row-gap: 2px;
-}
-
-.jpdb-reader-example-meta .jpdb-reader-example-source {
-  grid-column: 1 / -1;
-  flex: none;
-  max-width: 100%;
-  color: var(--jpdb-reader-muted);
-  font-size: 10.5px;
-  font-weight: 850;
-  line-height: 1.15;
-  text-transform: uppercase;
-}
-
-.jpdb-reader-example-title {
-  min-width: 0;
-  color: var(--jpdb-reader-text);
-  font-size: 11px;
-  font-weight: 780;
-  line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.jpdb-reader-example-count {
-  color: var(--jpdb-reader-faint);
-  font-size: 10.5px;
-  font-weight: 850;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.jpdb-reader-example-sentence {
-  justify-self: center;
-  min-width: 0;
-  width: min(100%, 38em);
-  color: var(--jpdb-reader-text);
-  font-size: 13px;
-  line-height: 1.72;
-  text-align: center;
-  text-wrap: balance;
-  overflow-wrap: anywhere;
-  word-break: normal;
-}
-
-.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence {
-  position: absolute;
-  left: 50%;
-  bottom: clamp(8px, 5%, 18px);
-  z-index: 1;
-  width: min(calc(100% - 28px), 34em);
-  padding: 2px 6px;
-  transform: translateX(-50%);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 750;
-  line-height: 1.45;
-  text-shadow:
-    0 1px 2px rgb(0 0 0 / 95%),
-    0 0 5px rgb(0 0 0 / 90%),
-    0 0 9px rgb(0 0 0 / 78%);
-  pointer-events: auto;
-}
-
-.jpdb-reader-example-sentence:has(rt.jpdb-reader-furi) {
-  padding-top: 0.25em;
-  line-height: 1.95;
-}
-
-.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence:has(rt.jpdb-reader-furi) {
-  padding-top: 2px;
-  line-height: 1.75;
-}
-
-.jpdb-reader-example-sentence .jpdb-reader-word {
-  display: inline;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-}
-
-.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-has-furi {
-  line-height: 2;
-}
-
-.jpdb-reader-example-target {
-  padding: 0 0.08em;
-  border-radius: 0.22em;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent-readable) 15%,
-    transparent
-  );
-  box-shadow: inset 0 -0.1em 0
-    color-mix(in srgb, var(--jpdb-reader-accent-readable) 58%, transparent);
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-}
-
-mark.jpdb-reader-example-target {
-  color: inherit;
-}
-
-.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target {
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent-readable) 15%,
-    transparent
-  ) !important;
-}
-
-.jpdb-reader-example-card
-  .jpdb-reader-example-sentence
-  .jpdb-reader-word.jpdb-reader-example-target {
-  box-shadow: inset 0 -0.1em 0
-    color-mix(in srgb, var(--jpdb-reader-accent-readable) 58%, transparent) !important;
-}
-
-.jpdb-reader-example-card.has-image
-  .jpdb-reader-example-sentence
-  .jpdb-reader-word.jpdb-reader-example-target {
-  background: transparent !important;
-  box-shadow:
-    0 0.08em 0 color-mix(in srgb, #000 58%, transparent),
-    inset 0 -0.12em 0 color-mix(in srgb, var(--jpdb-reader-accent-readable) 74%, transparent) !important;
-}
-
-.jpdb-reader-example-translation {
-  justify-self: center;
-  width: min(100%, 38em);
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  line-height: 1.45;
-  text-align: center;
-  text-wrap: balance;
-}
-
-.jpdb-reader-example-translation[data-immersion-translation-blurred="true"],
-.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"] {
-  filter: blur(4px);
-  user-select: none;
-  cursor: pointer;
-}
-
-.jpdb-reader-example-translation[data-immersion-translation-blurred="true"]:hover,
-.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"]:hover,
-.jpdb-reader-example-translation[data-immersion-translation-blurred="true"]:focus-visible,
-.jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"]:focus-visible {
-  filter: blur(3px);
-  outline: none;
-}
-
-.jpdb-reader-example-actions {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-self: end;
-  gap: 3px;
-  margin-top: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.jpdb-reader-example-toolbar .jpdb-reader-example-actions {
-  margin-left: auto;
-}
-
-.jpdb-reader-immersion > .jpdb-reader-example-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin: -2px 0 6px;
-}
-
-.jpdb-reader-example-actions .jpdb-reader-icon-mini {
-  width: 30px !important;
-  min-width: 30px !important;
-  max-width: 30px !important;
-  height: 30px !important;
-  min-height: 30px !important;
-  max-height: 30px !important;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.025);
-  font-size: 13px;
-}
-
-.jpdb-reader-example-actions svg {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.35;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-@container (min-width: 560px) {
-  .jpdb-reader-example-card.has-image {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 520px) {
-  .jpdb-reader-example-card.has-image {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .jpdb-reader-example-media {
-    --jpdb-reader-example-media-max-height: clamp(130px, calc(100vh - 300px), 230px);
-    max-height: var(--jpdb-reader-example-media-max-height);
-  }
-  .jpdb-reader-example-image {
-    max-height: var(--jpdb-reader-example-media-max-height);
-  }
-  .jpdb-reader-example-actions {
-    justify-self: start;
-  }
-  .jpdb-reader-example-toolbar {
-    flex-wrap: wrap;
-  }
-  .jpdb-reader-example-meta {
-    flex-basis: 100%;
-  }
-  .jpdb-reader-example-toolbar .jpdb-reader-example-actions {
-    margin-left: 0;
-  }
-  .jpdb-reader-example-source {
-    flex-basis: 100%;
-  }
-}
-
-@media (pointer: coarse) {
-  .jpdb-reader-example-actions .jpdb-reader-icon-mini {
-    width: 34px !important;
-    min-width: 34px !important;
-    max-width: 34px !important;
-    height: 34px !important;
-    min-height: 34px !important;
-    max-height: 34px !important;
-  }
-}
-
-.jpdb-reader-study-tools {
-  display: grid;
-  gap: 8px;
-  margin: 10px 0;
-}
-
-.jpdb-reader-study-panel {
-  display: grid;
-  gap: 10px;
-  background: transparent;
-  padding: 0;
-  color: var(--jpdb-reader-text);
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.jpdb-reader-study-translation-panel {
-  gap: 12px;
-}
-
-.jpdb-reader-study-block {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.jpdb-reader-study-sentence-block {
-  gap: 8px;
-}
-
-.jpdb-reader-study-block + .jpdb-reader-study-block {
-  border-top: 1px solid var(--jpdb-reader-border);
-  padding-top: 10px;
-}
-
-.jpdb-reader-study-label {
-  color: var(--jpdb-reader-muted);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.jpdb-reader-study-label-row,
-.jpdb-reader-study-item-head,
-.jpdb-reader-grammar-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-}
-
-.jpdb-reader-study-label-row .jpdb-reader-icon-mini {
-  width: 28px !important;
-  min-width: 28px !important;
-  max-width: 28px !important;
-  height: 28px !important;
-  min-height: 28px !important;
-  max-height: 28px !important;
-}
-
-.jpdb-reader-study-original {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.jpdb-reader-study-original rt {
-  color: var(--jpdb-reader-muted);
-  font-size: 0.58em;
-  line-height: 1;
-}
-
-.jpdb-reader-study-translation {
-  color: var(--jpdb-reader-text);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.jpdb-reader-study-name {
-  color: var(--jpdb-reader-text);
-  font-weight: 800;
-}
-
-.jpdb-reader-study-list {
-  border-top: 1px solid var(--jpdb-reader-border);
-  display: grid;
-  gap: 0;
-  list-style: none;
-  margin: 0;
-  padding: 6px 0 0;
-}
-
-.jpdb-reader-study-item {
-  display: grid;
-  grid-template-columns: minmax(54px, max-content) minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-  border-top: 1px solid var(--jpdb-reader-border);
-  margin: 0;
-  padding: 8px 0;
-}
-
-.jpdb-reader-study-item.known {
-  opacity: 0.72;
-}
-
-.jpdb-reader-study-item:first-child {
-  border-top: 0;
-  padding-top: 2px;
-}
-
-.jpdb-reader-study-name {
-  display: grid;
-  gap: 4px;
-  font-size: 15px;
-  line-height: 1.25;
-}
-
-.jpdb-reader-study-body {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.jpdb-reader-study-kind {
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  font-weight: 700;
-  min-width: 0;
-}
-
-.jpdb-reader-study-short,
-.jpdb-reader-study-empty {
-  color: var(--jpdb-reader-text);
-}
-
-.jpdb-reader-study-detail,
-.jpdb-reader-study-match {
-  color: var(--jpdb-reader-muted);
-}
-
-.jpdb-reader-study-detail {
-  font-size: 11px;
-  line-height: 1.35;
-}
-
-.jpdb-reader-study-match {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: baseline;
-  font-size: 11px;
-}
-
-.jpdb-reader-study-match span {
-  color: var(--jpdb-reader-muted);
-}
-
-.jpdb-reader-study-guide {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  border-radius: 3px;
-  color: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent-readable) 82%,
-    var(--jpdb-reader-text)
-  );
-  font-size: 11px;
-  font-weight: 800;
-  text-decoration: underline;
-  text-decoration-color: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent-readable) 64%,
-    transparent
-  );
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-  width: max-content;
-}
-
-.jpdb-reader-study-guide:hover {
-  color: var(--jpdb-reader-text);
-  text-decoration-color: var(--jpdb-reader-accent-readable);
-}
-
-.jpdb-reader-study-guide:focus-visible {
-  color: var(--jpdb-reader-text);
-  outline: 2px solid
-    color-mix(in srgb, var(--jpdb-reader-accent-readable) 58%, transparent);
-  outline-offset: 2px;
-  text-decoration-color: var(--jpdb-reader-accent-readable);
-}
-
-.jpdb-reader-grammar-summary {
-  min-width: 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.jpdb-reader-grammar-level {
-  justify-self: start;
-  border: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-accent) 42%, var(--jpdb-reader-border));
-  border-radius: 999px;
-  padding: 1px 5px;
-  color: var(--jpdb-reader-accent-readable);
-  font-size: 10px;
-  font-weight: 850;
-  line-height: 1.2;
-}
-
-.jpdb-reader-grammar-known,
-.jpdb-reader-grammar-toggle {
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.025);
-  color: var(--jpdb-reader-muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1.1;
-  min-height: 24px;
-  padding: 0 7px;
-  white-space: nowrap;
-}
-
-.jpdb-reader-grammar-known:hover,
-.jpdb-reader-grammar-known:focus-visible,
-.jpdb-reader-grammar-toggle:hover,
-.jpdb-reader-grammar-toggle:focus-visible {
-  border-color: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 52%,
-    var(--jpdb-reader-border)
-  );
-  color: var(--jpdb-reader-accent-readable);
-  outline: none;
-}
-
-.jpdb-reader-grammar-known[aria-pressed="true"],
-.jpdb-reader-grammar-toggle[aria-pressed="true"] {
-  border-color: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 46%,
-    var(--jpdb-reader-border)
-  );
-  color: var(--jpdb-reader-accent-readable);
-}
-
-.jpdb-reader-grammar-more {
-  display: grid;
-  gap: 4px;
-}
-
-.jpdb-reader-grammar-more[open] {
-  row-gap: 6px;
-}
-
-.jpdb-reader-grammar-more > summary {
-  width: max-content;
-  color: var(--jpdb-reader-muted);
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 750;
-  list-style: none;
-}
-
-.jpdb-reader-grammar-more > summary::-webkit-details-marker {
-  display: none;
-}
-
-.jpdb-reader-grammar-more > summary::after {
-  content: "+";
-  margin-left: 5px;
-}
-
-.jpdb-reader-grammar-more[open] > summary::after {
-  content: "-";
-}
-
-.jpdb-reader-grammar-examples {
-  display: grid;
-  row-gap: 6px;
-  margin-top: 4px;
-}
-
-.jpdb-reader-grammar-examples > span {
-  color: var(--jpdb-reader-text);
-  font-size: 11px;
-  font-weight: 750;
-  line-height: 1.25;
-}
-
-.jpdb-reader-grammar-example {
-  display: grid;
-  row-gap: 2px;
-}
-
-@media (max-width: 420px) {
-  .jpdb-reader-study-item {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
-  }
-  .jpdb-reader-study-name {
-    font-size: 14px;
-  }
-}
-
-.jpdb-reader-template-preview {
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  padding: 10px;
-  margin-top: 10px;
-}
-
-.jpdb-reader-template-preview-title {
-  color: var(--jpdb-reader-text);
-  font-size: 13px;
-  font-weight: 800;
-  margin-bottom: 8px;
-}
-
-.jpdb-reader-template-preview-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.jpdb-reader-template-preview-grid > div {
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface-2);
-  padding: 10px;
-  min-height: 118px;
-}
-
-.jpdb-reader-template-preview strong,
-.jpdb-reader-template-preview small {
-  display: block;
-  color: var(--jpdb-reader-muted);
-}
-
-.jpdb-reader-template-expression {
-  color: var(--jpdb-reader-text);
-  font-size: 24px;
-  font-weight: 850;
-  line-height: 1.1;
-  margin-top: 8px;
-}
-
-.jpdb-reader-template-reading,
-.jpdb-reader-template-meaning {
-  color: var(--jpdb-reader-muted);
-  margin-top: 4px;
-}
-
-.jpdb-reader-template-sentence {
-  color: var(--jpdb-reader-text);
-  font-size: 18px;
-  line-height: 1.35;
-  margin: 10px 0 8px;
-}
-
-.jpdb-reader-template-sentence span {
-  color: var(--jpdb-reader-accent);
-  font-weight: 850;
-}
-
-.jpdb-reader-frequency-pill {
-  border: 1px solid var(--chip-border, var(--jpdb-reader-border));
-  background: var(--chip-bg, var(--jpdb-reader-surface-2));
-  color: var(--chip-text, var(--jpdb-reader-text));
-}
-
-.jpdb-reader-kanji-char {
-  font-size: 20px;
-}
-
-.jpdb-reader-kanji-readings {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  margin-top: 6px;
-}
-
-.jpdb-reader-modal-nav {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 8px;
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  font-weight: 750;
-}
-
-.jpdb-reader-modal-nav span {
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.jpdb-reader-kanji-display {
-  color: var(--jpdb-reader-text);
-  font-size: 46px;
-  font-weight: 850;
-  line-height: 1;
-}
-
-.jpdb-reader-kanji-title-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px 12px;
-  width: 100%;
-}
-
-.jpdb-reader-kanji-title-row [data-kanji-keyword-mount] {
-  min-width: 0;
-}
-
-.jpdb-reader-kanji-title-row .jpdb-reader-word-pills {
-  grid-column: 2 / -1;
-  justify-self: start;
-  align-self: start;
-  margin-top: 1px;
-}
-
-.jpdb-reader-kanji-title-row .jpdb-reader-action-pill {
-  --chip-bg: var(--jpdb-reader-surface);
-  --chip-border: var(--jpdb-reader-border);
-  --chip-text: var(--jpdb-reader-muted);
-}
-
-.jpdb-reader-kanji-keywords {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-
-.jpdb-reader-kanji-keyword {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
-  min-width: 0;
-  max-width: 100%;
-  min-height: 24px;
-  padding: 3px 9px;
-  border: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-accent) 34%, var(--jpdb-reader-border));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 88%, var(--jpdb-reader-accent) 12%);
-  color: var(--jpdb-reader-text);
-  box-shadow: none;
-  font-size: 12px;
-  font-weight: 780;
-  line-height: 1.08;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.jpdb-reader-kanji-keyword small {
-  display: inline;
-  flex: 0 0 auto;
-  height: auto;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--jpdb-reader-muted);
-  font-size: 9px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
-
-.jpdb-reader-kanji-keyword span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.jpdb-reader-kanji-facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 136px), 1fr));
-  gap: 6px;
-  overflow: visible;
-  padding-bottom: 0;
-}
-
-.jpdb-reader-kanji-facts span {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-  min-height: 34px;
-  padding: 6px 9px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface-2);
-  color: var(--jpdb-reader-text);
-  font-size: 12px;
-  font-weight: 820;
-  line-height: 1.1;
-  overflow: hidden;
-  overflow-wrap: normal;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.jpdb-reader-kanji-facts :is(strong, small) {
-  display: inline;
-  flex: 0 0 auto;
-  color: var(--jpdb-reader-muted);
-  font-size: 10px;
-  font-weight: 850;
-  line-height: 1.1;
-  text-transform: uppercase;
-}
-
-.jpdb-reader-origin-detail {
-  display: grid;
-  gap: 8px;
-}
-
-.jpdb-reader-kanji-facts + .jpdb-reader-origin-detail {
-  margin-top: 8px;
-}
-
-.jpdb-reader-origin-detail p {
-  margin: 0;
-  color: var(--jpdb-reader-text);
-  font-size: 13px;
-  line-height: 1.35;
-}
-
-.jpdb-reader-origin-detail p span {
-  color: var(--jpdb-reader-muted);
-}
-
-.jpdb-reader-radical-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-  border-top: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-border) 52%, transparent);
-  background: transparent;
-}
-
-.jpdb-reader-radical-card:first-child {
-  border-top: 0;
-}
-
-.jpdb-reader-radical-glyph {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  background: var(--jpdb-reader-bg);
-  font-size: 28px !important;
-  line-height: 1;
-}
-
-.jpdb-reader-radical-card img {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--jpdb-reader-text) 92%, white);
-}
-
-.jpdb-reader-radical-frames {
-  display: flex !important;
-  flex-flow: row wrap;
-  gap: 5px !important;
-  margin-top: 5px;
-}
-
-.jpdb-reader-radical-card div {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.jpdb-reader-radical-card strong {
-  color: var(--jpdb-reader-text);
-  font-size: 15px;
-}
-
-.jpdb-reader-radical-card span {
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  line-height: 1.3;
-}
-
-.jpdb-reader-origin-graph-wrap {
-  --jpdb-reader-origin-graph-node-size: 60px;
-  --jpdb-reader-origin-graph-bg: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface, #20242b) 88%,
-    var(--jpdb-reader-bg, #181b20)
-  );
-  --jpdb-reader-origin-graph-line: color-mix(
-    in srgb,
-    var(--jpdb-reader-text, #f2f4f8) 72%,
-    transparent
-  );
-  --jpdb-reader-origin-graph-outbound-line: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent, #5ea780) 76%,
-    var(--jpdb-reader-text, #f2f4f8)
-  );
-  --jpdb-reader-origin-graph-subcomponent-line: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent, #5ea780) 48%,
-    var(--jpdb-reader-text, #f2f4f8)
-  );
-  --jpdb-reader-origin-graph-frame: color-mix(
-    in srgb,
-    var(--jpdb-reader-bg, #181b20) 84%,
-    var(--jpdb-reader-text, #f2f4f8)
-  );
-  --jpdb-reader-origin-graph-node-fill: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent, #5ea780) 72%,
-    var(--jpdb-reader-surface-2, #282e37)
-  );
-  --jpdb-reader-origin-graph-related-fill: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent, #5ea780) 18%,
-    var(--jpdb-reader-surface, #20242b)
-  );
-  --jpdb-reader-origin-graph-accent-text: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent, #5ea780) 12%,
-    #000
-  );
-  position: relative;
-  height: min(240px, 58vw);
-  min-height: 190px;
-  margin-top: 8px;
-  border: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-border) 82%, var(--jpdb-reader-text, #f2f4f8));
-  border-radius: 8px;
-  background: var(--jpdb-reader-origin-graph-bg);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--jpdb-reader-text, #f2f4f8) 8%, transparent),
-    inset 0 -18px 44px color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 18%, transparent);
-  isolation: isolate;
-  overflow: hidden;
-}
-
-.jpdb-reader-origin-graph-wrap[data-origin-has-subcomponents="true"] {
-  height: min(340px, 72vw);
-  min-height: 240px;
-}
-
-.jpdb-reader-origin-graph-lines {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.35;
-  transition: opacity 0.12s ease;
-}
-
-.jpdb-reader-origin-graph-wrap[data-graph-ready="true"] .jpdb-reader-origin-graph-lines {
-  opacity: 1;
-}
-
-.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge {
-  fill: none;
-  stroke: var(--jpdb-reader-origin-graph-line);
-  stroke-width: 1.35;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-
-.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-arrow {
-  fill: var(--jpdb-reader-origin-graph-line);
-}
-
-.jpdb-reader-origin-graph-lines
-  .jpdb-reader-origin-edge-arrow-outbound
-  .jpdb-reader-origin-edge-arrow {
-  fill: var(--jpdb-reader-origin-graph-outbound-line);
-}
-
-.jpdb-reader-origin-graph-lines
-  .jpdb-reader-origin-edge-arrow-subcomponent
-  .jpdb-reader-origin-edge-arrow {
-  fill: var(--jpdb-reader-origin-graph-subcomponent-line);
-}
-
-.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-group.outbound .jpdb-reader-origin-edge {
-  stroke: var(--jpdb-reader-origin-graph-outbound-line);
-  stroke-dasharray: 2.6 3.2;
-}
-
-.jpdb-reader-origin-graph-lines .jpdb-reader-origin-edge-group.subcomponent .jpdb-reader-origin-edge {
-  stroke: var(--jpdb-reader-origin-graph-subcomponent-line);
-  stroke-width: 1.15;
-  stroke-dasharray: 1.6 4;
-}
-
-.jpdb-reader-origin-graph-wrap:has([data-origin-outbound-toggle]:not(:checked))
-  [data-origin-outbound="true"] {
-  display: none;
-}
-
-.jpdb-reader-origin-graph-wrap:has([data-origin-subcomponent-toggle]:not(:checked))
-  [data-origin-subcomponent="true"] {
-  display: none;
-}
-
-.jpdb-reader-origin-graph-toggles {
-  position: absolute;
-  top: 7px;
-  right: 7px;
-  z-index: 4;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 5px;
-  max-width: calc(100% - 14px);
-}
-
-.jpdb-reader-origin-graph-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 100%;
-  padding: 4px 7px;
-  border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.12));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 88%, transparent);
-  color: var(--jpdb-reader-text, #f2f4f8);
-  font-size: 11px;
-  font-weight: 850;
-  line-height: 1.1;
-  cursor: pointer;
-  user-select: none;
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 24%, transparent);
-}
-
-.jpdb-reader-origin-graph-toggle input {
-  width: 13px;
-  height: 13px;
-  margin: 0;
-  accent-color: var(--jpdb-reader-accent, #5ea780);
-}
-
-.jpdb-reader-origin-graph-node {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  display: grid;
-  place-items: center;
-  width: var(--jpdb-reader-origin-graph-node-size);
-  min-width: var(--jpdb-reader-origin-graph-node-size);
-  height: var(--jpdb-reader-origin-graph-node-size);
-  padding: 0;
-  border: 4px solid var(--jpdb-reader-origin-graph-frame);
-  border-radius: 999px;
-  background: var(--jpdb-reader-origin-graph-node-fill);
-  color: var(--jpdb-reader-text, #f2f4f8);
-  font-family: "Hiragino Sans", "Yu Gothic", var(--jpdb-reader-font);
-  font-size: 33px;
-  font-weight: 850;
-  line-height: 1;
-  box-shadow: 0 9px 26px color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 34%, transparent);
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  z-index: 2;
-  transition:
-    border-color 0.14s ease,
-    box-shadow 0.14s ease,
-    transform 0.14s ease;
-}
-
-.jpdb-reader-origin-graph-node.current {
-  border-color: var(--jpdb-reader-origin-graph-frame);
-  background: var(--jpdb-reader-accent, #5ea780);
-  color: var(--jpdb-reader-origin-graph-accent-text);
-  font-size: 35px;
-  box-shadow: 0 12px 32px
-    color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 40%, transparent);
-}
-
-.jpdb-reader-origin-graph-node.component {
-  border-color: var(--jpdb-reader-origin-graph-frame);
-}
-
-.jpdb-reader-origin-graph-node.related {
-  background: var(--jpdb-reader-origin-graph-related-fill);
-  color: var(--jpdb-reader-text, #f2f4f8);
-  font-size: 29px;
-}
-
-.jpdb-reader-origin-graph-node[data-label-length="2"] {
-  font-size: 27px;
-}
-
-.jpdb-reader-origin-graph-node[data-label-length="many"] {
-  font-size: 22px;
-}
-
-.jpdb-reader-origin-graph-node:hover,
-.jpdb-reader-origin-graph-node:focus-visible {
-  border-color: var(--jpdb-reader-origin-graph-frame);
-  box-shadow:
-    0 14px 34px color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 44%, transparent),
-    0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent, #5ea780) 24%, transparent);
-  outline: none;
-  transform: translate(-50%, -50%) scale(1.04);
-}
-
-.jpdb-reader-origin-graph-node.dragging {
-  cursor: grabbing;
-  z-index: 3;
-  transform: translate(-50%, -50%) scale(1.08);
-  box-shadow:
-    0 18px 40px color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 50%, transparent),
-    0 0 0 4px color-mix(in srgb, var(--jpdb-reader-accent, #5ea780) 28%, transparent);
-}
-
-.jpdb-reader-rtk-head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  color: var(--jpdb-reader-text);
-}
-
-.jpdb-reader-rtk-head span {
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-}
-
-.jpdb-reader-rtk details,
-.jpdb-reader-jpdb-kanji details {
-  margin-top: 8px;
-  color: var(--jpdb-reader-muted);
-}
-
-.jpdb-reader-rtk summary,
-.jpdb-reader-jpdb-kanji summary {
-  cursor: pointer;
-  color: var(--jpdb-reader-text);
-  font-weight: 750;
-}
-
-.jpdb-reader-rtk p,
-.jpdb-reader-jpdb-kanji p {
-  margin: 6px 0 0;
-  color: var(--jpdb-reader-muted);
-  line-height: 1.45;
-}
-
-.jpdb-reader-rtk-elements {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.jpdb-reader-rtk-elements > span,
-.jpdb-reader-rtk-elements > button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 24px;
-  padding: 2px 8px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: var(--jpdb-reader-surface-2);
-  color: var(--jpdb-reader-muted);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 750;
-}
-
-.jpdb-reader-rtk-elements > span strong,
-.jpdb-reader-rtk-elements > button strong {
-  color: var(--jpdb-reader-text);
-  font-size: 14px;
-  line-height: 1;
-}
-
-.jpdb-reader-rtk-elements > span span,
-.jpdb-reader-rtk-elements > button span {
-  all: unset;
-  color: var(--jpdb-reader-muted);
-}
-
-.jpdb-reader-rtk-elements > button {
-  cursor: pointer;
-}
-
-.jpdb-reader-rtk-elements > button:hover,
-.jpdb-reader-rtk-elements > button:focus-visible {
-  border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-text);
-  outline: none;
-}
-
-.jpdb-reader-component-grid,
-.jpdb-reader-similar-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.jpdb-reader-similar-grid {
-  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
-  gap: 8px;
-}
-
-.jpdb-reader-component-card,
-.jpdb-reader-component-button,
-.jpdb-reader-similar-word {
-  min-width: 0;
-  border: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-border) 70%, transparent);
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 62%, transparent);
-  color: var(--jpdb-reader-text);
-  padding: 7px;
-}
-
-.jpdb-reader-component-card,
-.jpdb-reader-component-button {
-  display: grid;
-  gap: 2px;
-  text-align: left;
-  cursor: pointer;
-  font: inherit;
-}
-
-.jpdb-reader-component-card strong,
-.jpdb-reader-component-button strong {
-  font-size: 18px;
-}
-
-.jpdb-reader-component-card span,
-.jpdb-reader-component-card small,
-.jpdb-reader-component-button span,
-.jpdb-reader-component-button small,
-.jpdb-reader-similar-word small,
-.jpdb-reader-similar-word em {
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  font-style: normal;
-}
-
-.jpdb-reader-similar-word {
-  display: grid;
-  gap: 3px;
-  align-content: start;
-  min-height: 86px;
-  text-align: left;
-  cursor: pointer;
-  font: inherit;
-}
-
-.jpdb-reader-similar-word-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-}
-
-.jpdb-reader-similar-word-head > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.jpdb-reader-similar-reading,
-.jpdb-reader-similar-meaning {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-}
-
-.jpdb-reader-similar-reading {
-  -webkit-line-clamp: 1;
-  line-clamp: 1;
-}
-
-.jpdb-reader-similar-meaning {
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-}
-
-.jpdb-reader-similar-word:hover,
-.jpdb-reader-similar-word:focus-visible,
-.jpdb-reader-component-card:hover,
-.jpdb-reader-component-card:focus-visible,
-.jpdb-reader-component-button:hover,
-.jpdb-reader-component-button:focus-visible {
-  border-color: var(--jpdb-reader-accent);
-  outline: none;
-}
-
-.jpdb-reader-doodle-stage {
-  position: relative;
-  width: min(100%, 240px);
-  aspect-ratio: 1 / 1;
-  justify-self: center;
-  margin: 8px auto 0;
-  --jpdb-reader-doodle-ink: #141820;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  overflow: hidden;
-  background:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(0, 0, 0, 0.08) 1px, transparent 1px), #f8f9fb;
-  background-size: 27.25px 27.25px;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.jpdb-reader-kanjivg > .jpdb-reader-doodle-stage {
-  margin-inline: auto;
-}
-
-.jpdb-reader-doodle-ghost,
-.jpdb-reader-doodle-canvas {
-  position: absolute;
-  inset: 0;
-}
-
-.jpdb-reader-doodle-ghost {
-  display: grid;
-  place-items: center;
-  opacity: 0.3;
-  pointer-events: none;
-}
-
-.jpdb-reader-doodle-stage.trace-hidden .jpdb-reader-doodle-ghost,
-.jpdb-reader-doodle-ghost[hidden] {
-  display: none !important;
-}
-
-.jpdb-reader-doodle-canvas {
-  width: 100%;
-  height: 100%;
-  cursor: crosshair;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.jpdb-reader-doodle-tools,
-.jpdb-reader-doodle-tools *,
-.jpdb-reader-btn.jpdb-reader-doodle-control {
-  touch-action: manipulation;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-html.jpdb-reader-doodle-active,
-html.jpdb-reader-doodle-active body,
-html.jpdb-reader-doodle-active * {
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -webkit-touch-callout: none !important;
-  -webkit-tap-highlight-color: transparent !important;
-}
-
-.jpdb-reader-kanjivg-svg {
-  width: 90%;
-  max-height: 90%;
-}
-
-.jpdb-reader-kanjivg-strokes path {
-  fill: none;
-  stroke: #141820;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.jpdb-reader-kanjivg-numbers {
-  fill: #6b7280;
-  font-size: 8px;
-  font-family: var(--jpdb-reader-font);
-}
-
-.jpdb-reader-kanjivg .jpdb-reader-help {
-  color: #3d4654;
-}
-
-.jpdb-reader-doodle-text-ghost {
-  color: #141820;
-  font-family:
-    "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo,
-    sans-serif;
-  font-size: 180px;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.jpdb-reader-doodle-tools {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  margin-top: 7px;
-}
-
-.jpdb-reader-kanjivg > .jpdb-reader-doodle-tools {
-  margin-bottom: 12px;
-}
-
-.jpdb-reader-kanjivg > .jpdb-reader-newtab-doodle-result {
-  margin: 0 auto 12px;
-}
-
-.jpdb-reader-kanjivg.jpdb-reader-doodle-pass .jpdb-reader-newtab-doodle-result {
-  border-color: color-mix(
-    in srgb,
-    var(--jpdb-reader-state-known, #7bd88f) 54%,
-    var(--jpdb-reader-border, rgba(255, 255, 255, 0.12))
-  );
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-state-known, #7bd88f) 16%,
-    var(--jpdb-reader-surface, #20242b)
-  );
-}
-
-.jpdb-reader-kanjivg.jpdb-reader-doodle-fail .jpdb-reader-newtab-doodle-result {
-  border-color: color-mix(
-    in srgb,
-    var(--jpdb-reader-state-failed, #ff6b6b) 54%,
-    var(--jpdb-reader-border, rgba(255, 255, 255, 0.12))
-  );
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-state-failed, #ff6b6b) 16%,
-    var(--jpdb-reader-surface, #20242b)
-  );
-}
-
-.jpdb-reader-btn.jpdb-reader-doodle-control {
-  min-height: 28px;
-  max-height: 30px;
-  padding: 4px 9px;
-  border-radius: 7px;
-  font: 800 12px/1 var(--jpdb-reader-font);
-}
-
-.jpdb-reader-popover:has(.jpdb-reader-popover-body),
-.jpdb-reader-popover[data-jpdb-reader-body-stabilizers="true"] {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  overflow: hidden;
-  padding: 0;
-  scrollbar-gutter: auto;
-}
-
-.jpdb-reader-popover-body {
-  min-height: 0;
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overflow-anchor: none;
-  padding: 14px;
-  overscroll-behavior: contain;
-  scrollbar-gutter: auto;
-}
-
-.jpdb-reader-popover-body > * {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.jpdb-reader-actions {
-  position: relative;
-  z-index: 4;
-  container-type: inline-size;
-  border-top: 1px solid var(--jpdb-reader-border);
-  margin: 0;
-  padding: 6px 14px 15px;
-  display: grid;
-  gap: 6px;
-  --jpdb-reader-actions-bg: color-mix(in srgb, var(--jpdb-reader-bg) 90%, black 10%);
-  background: var(--jpdb-reader-actions-bg);
-  box-shadow: 0 -1px 0 var(--jpdb-reader-actions-bg);
-}
-
-.jpdb-reader-row {
-  display: grid;
-  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
-  gap: 10px;
-}
-
-.jpdb-reader-mining-details {
-  position: relative;
-  display: grid;
-  gap: 0;
-  min-width: 0;
-}
-
-.jpdb-reader-mining-panel {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-
-.jpdb-reader-mining-title {
-  position: static;
-  justify-content: center;
-  padding-inline: 10px;
-}
-
-.jpdb-reader-mining-title:hover,
-.jpdb-reader-mining-title:focus-visible {
-  color: var(--jpdb-reader-state-new, #5aa9ff);
-}
-
-.jpdb-reader-actions-has-mining {
-  position: relative;
-  padding-top: 31px;
-}
-
-.jpdb-reader-actions-gutter {
-  position: absolute;
-  top: 1px;
-  right: 10px;
-  left: 10px;
-  height: 30px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: grab;
-  pointer-events: auto;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.jpdb-reader-actions-gutter[hidden] {
-  display: none !important;
-}
-
-.jpdb-reader-actions-gutter:active,
-.jpdb-reader-mining-drawer-dragging .jpdb-reader-actions-gutter {
-  cursor: grabbing;
-}
-
-.jpdb-reader-mining-collapse {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 72px;
-  height: 30px;
-  min-width: 72px;
-  min-height: 30px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--jpdb-reader-muted);
-  cursor: pointer;
-  padding: 0;
-  pointer-events: auto;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.jpdb-reader-mining-collapse::before {
-  content: "";
-  display: block;
-  width: 42px;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--jpdb-reader-faint);
-}
-
-.jpdb-reader-mining-collapse:hover,
-.jpdb-reader-mining-collapse:focus-visible {
-  outline: none;
-}
-
-.jpdb-reader-mining-collapse:hover::before,
-.jpdb-reader-mining-collapse:focus-visible::before {
-  background: var(--jpdb-reader-accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent);
-}
-
-.jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse::before {
-  width: 48px;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 74%, var(--jpdb-reader-faint));
-}
-
-.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-panel,
-.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-details {
-  display: none;
-}
-
-.jpdb-reader-mining-action-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: stretch;
-  gap: 12px;
-  padding: 0;
-}
-
-.jpdb-reader-kanji-mining-row {
-  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
-}
-
-.jpdb-reader-add-deck-select {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.jpdb-reader-add-deck-select-open {
-  position: static;
-  width: 100%;
-  min-width: 0;
-  height: 34px;
-  margin-top: 6px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 7px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  opacity: 1;
-  pointer-events: auto;
-  font: 750 12px/1 var(--jpdb-reader-font);
-}
-
-.jpdb-reader-grades {
-  grid-template-columns: repeat(5, minmax(24px, 1fr));
-}
-
-.jpdb-reader-mining-action-row .jpdb-reader-btn {
-  min-width: 0;
-  min-height: 48px;
-  padding-inline: clamp(6px, 1.8cqi, 10px);
-  font-size: clamp(10.5px, 3cqi, 13px);
-  letter-spacing: 0;
-  line-height: 1.05;
-  white-space: nowrap;
-  overflow-wrap: normal;
-}
-
-.jpdb-reader-grades .jpdb-reader-btn {
-  min-width: 0;
-  min-height: 48px;
-  padding-inline: clamp(2px, 1cqi, 6px);
-  font-size: clamp(9.3px, 2.55cqi, 11px);
-  letter-spacing: 0;
-  line-height: 1.05;
-  white-space: nowrap;
-  overflow-wrap: normal;
-}
-
-.jpdb-reader-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-height: 42px;
-  padding: 0 12px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 10px;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 90%,
-    currentColor 7%
-  );
-  color: var(--jpdb-reader-text);
-  cursor: pointer;
-  font: 750 13px/1 var(--jpdb-reader-font);
-  text-align: center;
-  text-decoration: none;
-  white-space: nowrap;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  transform: none;
-  transition:
-    background 0.14s ease,
-    border-color 0.14s ease,
-    box-shadow 0.14s ease,
-    transform 0.12s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.jpdb-reader-btn:focus-visible:not(:disabled) {
-  border-color: color-mix(
-    in srgb,
-    var(--button-accent, var(--jpdb-reader-accent)) 70%,
-    var(--jpdb-reader-border)
-  );
-  outline: 2px solid
-    color-mix(in srgb, var(--button-accent, var(--jpdb-reader-accent)) 44%, transparent);
-  outline-offset: 2px;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .jpdb-reader-btn:hover:not(:disabled) {
-    background: color-mix(
-      in srgb,
-      var(--jpdb-reader-surface) 84%,
-      var(--button-accent, currentColor) 16%
-    );
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.05),
-      0 6px 14px rgba(0, 0, 0, 0.16);
-    transform: translateY(-0.12rem);
-  }
-}
-
-.jpdb-reader-btn:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-.jpdb-reader-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.jpdb-reader-btn.primary {
-  color: var(--jpdb-reader-accent-readable);
-  border-color: var(--jpdb-reader-accent);
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 86%,
-    var(--jpdb-reader-accent) 14%
-  );
-}
-
-.jpdb-reader-btn.add {
-  --button-accent: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent-readable) !important;
-}
-
-.jpdb-reader-btn.nf {
-  --button-accent: var(--jpdb-reader-state-known, #7bd88f);
-}
-
-.jpdb-reader-btn.nf.danger {
-  --button-accent: var(--jpdb-reader-state-failed, #ff6b6b);
-}
-
-.jpdb-reader-btn.blacklist {
-  --button-accent: var(--jpdb-reader-state-ignored, #b8a7ff);
-}
-
-.jpdb-reader-btn.anki {
-  --button-accent: var(--jpdb-reader-state-new, #5aa9ff);
-}
-
-.jpdb-reader-btn.nothing,
-.jpdb-reader-btn.fail {
-  --button-accent: var(--jpdb-reader-state-failed, #ff6b6b);
-}
-
-.jpdb-reader-btn.something {
-  --button-accent: var(--jpdb-reader-state-failed, #ff6b6b);
-}
-
-.jpdb-reader-btn.hard {
-  --button-accent: var(--jpdb-reader-state-due, #ffb454);
-}
-
-.jpdb-reader-btn.okay,
-.jpdb-reader-btn.pass {
-  --button-accent: var(--jpdb-reader-state-known, #7bd88f);
-}
-
-.jpdb-reader-btn.easy {
-  --button-accent: var(--jpdb-reader-state-new, #5aa9ff);
-}
-
-.jpdb-reader-btn:is(
-  .add,
-  .nf,
-  .blacklist,
-  .anki,
-  .nothing,
-  .something,
-  .hard,
-  .okay,
-  .easy,
-  .fail,
-  .pass
-) {
-  color: var(--jpdb-reader-text);
-  border-color: color-mix(
-    in srgb,
-    var(--button-accent, var(--jpdb-reader-border)) 54%,
-    var(--jpdb-reader-border)
-  );
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 94%,
-    var(--button-accent, var(--jpdb-reader-border)) 6%
-  );
-}
-
-@container (max-width: 430px) {
-  .jpdb-reader-mining-action-row {
-    gap: 6px;
-  }
-  .jpdb-reader-mining-action-row .jpdb-reader-btn,
-  .jpdb-reader-grades .jpdb-reader-btn {
-    min-height: 44px;
-  }
-  .jpdb-reader-mining-action-row .jpdb-reader-btn {
-    font-size: clamp(10px, 2.85cqi, 11.5px);
-  }
-  .jpdb-reader-grades .jpdb-reader-btn {
-    padding-inline: clamp(1px, 0.75cqi, 4px);
-    font-size: clamp(8.8px, 2.4cqi, 10.4px);
-  }
-}
-
-@container (max-width: 340px) {
-  .jpdb-reader-actions {
-    padding: 6px 10px 15px;
-    gap: 6px;
-  }
-  .jpdb-reader-actions-has-mining {
-    padding-top: 29px;
-  }
-  .jpdb-reader-actions-gutter {
-    top: 1px;
-    right: 8px;
-    left: 8px;
-    height: 28px;
-  }
-  .jpdb-reader-mining-collapse {
-    width: 64px;
-    height: 28px;
-    min-width: 64px;
-    min-height: 28px;
-  }
-  .jpdb-reader-mining-collapse::before {
-    width: 38px;
-  }
-  .jpdb-reader-actions:not(.jpdb-reader-actions-mining-collapsed) .jpdb-reader-mining-collapse::before {
-    width: 44px;
-  }
-  .jpdb-reader-row,
-  .jpdb-reader-mining-action-row {
-    gap: 3px;
-  }
-  .jpdb-reader-mining-action-row .jpdb-reader-btn {
-    min-height: 38px;
-    padding-inline: 3px;
-    border-radius: 8px;
-    font-size: 9.5px;
-  }
-  .jpdb-reader-grades .jpdb-reader-btn {
-    min-height: 38px;
-    padding-inline: 1px;
-    border-radius: 8px;
-    font-size: 8.8px;
-  }
-}
-
-@container (max-width: 300px) {
-  .jpdb-reader-actions {
-    padding-inline: 8px;
-  }
-  .jpdb-reader-row,
-  .jpdb-reader-mining-action-row {
-    gap: 2px;
-  }
-  .jpdb-reader-grades {
-    grid-template-columns: repeat(3, minmax(24px, 1fr));
-  }
-  .jpdb-reader-mining-action-row .jpdb-reader-btn {
-    font-size: 8.8px;
-  }
-  .jpdb-reader-grades .jpdb-reader-btn {
-    padding-inline: 0;
-    font-size: 8.2px;
-  }
-}
-
-.jpdb-reader-pitch svg {
-  display: block;
-  height: 42px;
-  max-width: 128px;
-}
-
-.jpdb-reader-pitch text {
-  fill: var(--jpdb-reader-text);
-  font-size: 11px;
-}
-
-.jpdb-reader-pitch polyline {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-}
-
-.jpdb-reader-pitch circle {
-  fill: currentColor;
-}
-
-.jpdb-reader-pitch .heiban {
-  color: var(--jpdb-reader-pitch-heiban, #359eff);
-}
-
-.jpdb-reader-pitch .atamadaka {
-  color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);
-}
-
-.jpdb-reader-pitch .nakadaka {
-  color: var(--jpdb-reader-pitch-nakadaka, #fba840);
-}
-
-.jpdb-reader-pitch .odaka {
-  color: var(--jpdb-reader-pitch-odaka, #57ccb7);
-}
-
-.jpdb-reader-pitch .kifuku {
-  color: var(--jpdb-reader-pitch-kifuku, #9050f6);
-}
-
-.yomu-jpdb-uchisen-source[open] > :last-child {
-  display: grid;
-  gap: 10px;
-}
-
-.yomu-jpdb-uchisen-body {
-  display: grid;
-  gap: 10px;
-  justify-items: center;
-  text-align: center;
-}
-
-.yomu-jpdb-source-meta,
-.yomu-jpdb-counter {
-  color: var(--jpdb-reader-muted);
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.yomu-jpdb-uchisen-summary-main,
-.yomu-jpdb-uchisen-summary-controls,
-.yomu-jpdb-uchisen-summary-link {
-  display: inline-flex;
-  align-items: center;
-}
-
-.yomu-jpdb-uchisen-summary-main {
-  gap: 8px;
-  min-width: 0;
-}
-
-.yomu-jpdb-uchisen-summary-controls {
-  gap: 7px;
-  margin-left: auto;
-}
-
-.yomu-jpdb-uchisen-summary-controls .jpdb-reader-icon-mini {
-  width: 28px !important;
-  min-width: 28px !important;
-  max-width: 28px !important;
-  height: 28px !important;
-  min-height: 28px !important;
-  max-height: 28px !important;
-}
-
-.yomu-jpdb-uchisen-summary-link {
-  gap: 4px;
-  min-height: 28px;
-  padding-inline: 2px;
-  color: var(--jpdb-reader-accent-readable);
-  font-size: 11px;
-  font-weight: 750;
-  line-height: 1.2;
-  text-decoration: none;
-  text-transform: none;
-}
-
-.yomu-jpdb-uchisen-summary-link svg {
-  width: 12px;
-  height: 12px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.yomu-jpdb-uchisen-summary-link:hover,
-.yomu-jpdb-uchisen-summary-link:focus-visible {
-  color: var(--jpdb-reader-accent);
-  outline: none;
-}
-
-.yomu-jpdb-component-breakdown {
-  display: grid;
-  gap: 8px;
-  width: 100%;
-  text-align: left;
-}
-
-.yomu-jpdb-component-group {
-  display: grid;
-  gap: 5px;
-}
-
-.yomu-jpdb-component-group-label {
-  color: var(--jpdb-reader-muted);
-  font-size: 10px;
-  font-weight: 850;
-  line-height: 1.1;
-  text-transform: uppercase;
-}
-
-.yomu-jpdb-component-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.yomu-jpdb-component-chip {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-  padding: 5px 7px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 72%, transparent);
-  color: var(--jpdb-reader-text);
-  font-size: 11px;
-  font-weight: 760;
-  line-height: 1.2;
-  text-decoration: none;
-}
-
-.yomu-jpdb-component-chip strong {
-  font-size: 16px;
-  line-height: 1;
-}
-
-.yomu-jpdb-component-chip span {
-  color: var(--jpdb-reader-muted);
-}
-
-.yomu-jpdb-component-chip:hover,
-.yomu-jpdb-component-chip:focus-visible {
-  border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-text);
-  outline: none;
-}
-
-.yomu-jpdb-image-shell {
-  display: grid;
-  place-items: center;
-  justify-self: center;
-  width: min(100%, 540px);
-  min-height: 120px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-bg) 72%, transparent);
-  overflow: hidden;
-}
-
-.yomu-jpdb-image-shell img {
-  display: block;
-  max-width: 100%;
-  max-height: min(260px, 50vh);
-  object-fit: contain;
-}
-
-.yomu-jpdb-story {
-  color: var(--jpdb-reader-text);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.jpdb-reader-toast {
-  position: fixed;
-  left: 50%;
-  bottom: max(18px, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  z-index: 2147483647;
-  max-width: min(520px, calc(100vw - 24px));
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  border: 1px solid var(--jpdb-reader-border);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
-  font: 13px/1.35 var(--jpdb-reader-font);
-}
-
-.jpdb-reader-settings {
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: min(1180px, calc(100vw - 48px));
-  max-height: min(820px, calc(100vh - 20px));
-  max-height: min(820px, calc(100dvh - 20px));
-  overflow: hidden;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.jpdb-reader-settings button,
-.jpdb-reader-settings input,
-.jpdb-reader-settings select,
-.jpdb-reader-settings textarea,
-.jpdb-reader-settings fieldset,
-.jpdb-reader-settings legend {
-  margin: 0;
-  letter-spacing: 0;
-}
-
-.jpdb-reader-settings input,
-.jpdb-reader-settings select,
-.jpdb-reader-settings textarea {
-  box-shadow: none;
-  transform: none;
-}
-
-.jpdb-reader-settings input:hover,
-.jpdb-reader-settings input:focus,
-.jpdb-reader-settings input:active {
-  transform: none;
-}
-
-.jpdb-reader-settings input[type="checkbox"]::before,
-.jpdb-reader-settings input[type="radio"]::before {
-  content: none !important;
-}
-
-.jpdb-reader-settings-head {
-  flex: 0 0 auto;
-  padding: 18px 18px 0;
-}
-
-.jpdb-reader-settings-drag-handle {
-  display: none;
-  width: min(160px, 44vw);
-  height: 34px;
-  border-radius: 999px;
-  margin: -6px auto 2px;
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.jpdb-reader-settings-drag-handle::before {
-  content: "";
-  display: block;
-  width: 48px;
-  height: 5px;
-  border-radius: 999px;
-  margin: 14px auto 0;
-  background: var(--jpdb-reader-faint);
-}
-
-.jpdb-reader-settings-drag-handle:active {
-  cursor: grabbing;
-}
-
-.jpdb-reader-settings-drag-handle:focus-visible::before {
-  background: var(--jpdb-reader-accent);
-}
-
-.jpdb-reader-settings-tabs {
-  flex: 0 0 auto;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  overflow: visible;
-  padding: 0 18px 8px;
-}
-
-.jpdb-reader-settings-tab {
-  min-height: 34px;
-  padding: 0 11px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 999px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-muted);
-  font: 800 12px/1 var(--jpdb-reader-font);
-  cursor: pointer;
-  white-space: nowrap;
-  transform: translateY(-0.01rem);
-}
-
-.jpdb-reader-settings-tab[aria-selected="true"] {
-  border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent-readable);
-  background: var(--jpdb-reader-accent-soft);
-}
-
-.jpdb-reader-settings-tab:focus-visible {
-  border-color: var(--jpdb-reader-accent);
-  outline: 2px solid var(--jpdb-reader-accent-soft);
-  outline-offset: 2px;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .jpdb-reader-settings-tab:hover {
-    border-color: var(--jpdb-reader-accent);
-    box-shadow: 0 8px 18px
-      color-mix(in srgb, var(--jpdb-reader-accent) 22%, transparent);
-    color: var(--jpdb-reader-accent-readable);
-    transform: translateY(-0.16rem);
-  }
-}
-
-@media (hover: none), (pointer: coarse) {
-  .jpdb-reader-settings-tab:not([aria-selected="true"]):hover {
-    border-color: var(--jpdb-reader-border);
-    background: var(--jpdb-reader-surface);
-    color: var(--jpdb-reader-muted);
-    box-shadow: none;
-    transform: none;
-  }
-}
-
-.jpdb-reader-settings-tab:active {
-  transform: scale(0.98);
-}
-
-.jpdb-reader-settings-scroll {
-  min-height: 0;
-  overflow: auto;
-  padding: 0 18px 96px;
-  -webkit-overflow-scrolling: touch;
-}
-
-.jpdb-reader-settings h2 {
-  margin: 0 0 12px;
-  font-size: 20px;
-  line-height: 1.45;
-  color: var(--jpdb-reader-text) !important;
-}
-
-.jpdb-reader-settings fieldset {
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  margin: 12px 0;
-  padding: 12px;
-}
-
-.jpdb-reader-settings legend {
-  color: var(--jpdb-reader-muted);
-  padding: 0 6px;
-}
-
-.jpdb-reader-settings label {
-  display: grid;
-  gap: 5px;
-  margin: 10px 0;
-  min-width: 0;
-  color: var(--jpdb-reader-muted) !important;
-  font-size: 11px;
-  line-height: 1.35;
-}
-
-.jpdb-reader-settings input,
-.jpdb-reader-settings select,
-.jpdb-reader-field-display {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 38px;
-  border-radius: 7px;
-  border: 1px solid var(--jpdb-reader-border);
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  font: 700 12px/1.2 var(--jpdb-reader-font);
-  height: 38px;
-  min-width: 0;
-  padding: 8px;
-}
-
-.jpdb-reader-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-height: 38px;
-  padding: 0 16px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  font: 800 12px/1 var(--jpdb-reader-font);
-  cursor: pointer;
-  text-align: center;
-  text-decoration: none !important;
-}
-
-.jpdb-reader-btn:where(:link, :visited) {
-  color: var(--jpdb-reader-text) !important;
-}
-
-.jpdb-reader-btn:hover,
-.jpdb-reader-btn:focus-visible {
-  border-color: var(--button-accent, var(--jpdb-reader-accent));
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 82%,
-    var(--button-accent, var(--jpdb-reader-accent)) 18%
-  );
-  outline: none;
-}
-
-.jpdb-reader-btn:active {
-  transform: scale(0.98);
-}
-
-.jpdb-reader-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.62;
-}
-
-.jpdb-reader-btn[data-save-blocked] {
-  cursor: wait;
-  color: var(--jpdb-reader-accent-readable);
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 55%, var(--jpdb-reader-border));
-  background: var(--jpdb-reader-accent-soft);
-}
-
-.jpdb-reader-btn[data-import-state] {
-  gap: 7px;
-  cursor: progress;
-  opacity: 1;
-}
-
-.jpdb-reader-btn[data-import-state]::before {
-  content: "";
-  display: inline-block;
-  flex: 0 0 auto;
-}
-
-.jpdb-reader-btn[data-import-state="installing"]::before {
-  width: 13px;
-  height: 13px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 999px;
-  animation: jpdb-reader-spin 0.8s linear infinite;
-}
-
-.jpdb-reader-btn[data-import-state="queued"]::before {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: currentColor;
-  opacity: 0.72;
-}
-
-.jpdb-reader-btn.add {
-  color: var(--jpdb-reader-accent-readable) !important;
-  border-color: var(--jpdb-reader-accent) !important;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 82%,
-    var(--jpdb-reader-accent) 18%
-  ) !important;
-}
-
-.jpdb-reader-btn.add:hover,
-.jpdb-reader-btn.add:focus-visible {
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 74%,
-    var(--jpdb-reader-accent) 26%
-  ) !important;
-  box-shadow: 0 4px 12px
-    color-mix(in srgb, var(--jpdb-reader-accent) 20%, transparent);
-}
-
-@keyframes jpdb-reader-spin {
-  to {
-    transform: rotate(1turn);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .jpdb-reader-btn[data-import-state="installing"]::before {
-    animation-duration: 1.8s;
-  }
-}
-
-.jpdb-reader-field-display {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  pointer-events: none;
-}
-
-.jpdb-reader-settings input[type="color"] {
-  padding: 3px;
-  cursor: pointer;
-}
-
-.jpdb-reader-settings input[type="checkbox"],
-.jpdb-reader-settings input[type="radio"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  min-height: 24px;
-  display: grid;
-  place-content: center;
-  margin: 0;
-  padding: 0;
-  border: 1.5px solid var(--jpdb-reader-border);
-  background: var(--jpdb-reader-surface-2);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
-}
-
-.jpdb-reader-settings input[type="checkbox"] {
-  border-radius: 7px;
-}
-
-.jpdb-reader-settings input[type="radio"] {
-  border-radius: 999px;
-}
-
-.jpdb-reader-settings input[type="checkbox"]:enabled:hover,
-.jpdb-reader-settings input[type="radio"]:enabled:hover {
-  border-color: var(--jpdb-reader-accent);
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface-2) 82%,
-    var(--jpdb-reader-accent) 18%
-  );
-  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
-}
-
-.jpdb-reader-settings input[type="checkbox"]:checked,
-.jpdb-reader-settings input[type="radio"]:checked {
-  border-color: var(--jpdb-reader-accent);
-  background: var(--jpdb-reader-accent);
-  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
-}
-
-.jpdb-reader-settings input[type="checkbox"]:checked::after {
-  content: "";
-  width: 12px;
-  height: 7px;
-  border-left: 2.5px solid #11161d;
-  border-bottom: 2.5px solid #11161d;
-  transform: rotate(-45deg) translate(1px, -1px);
-}
-
-.jpdb-reader-settings input[type="radio"]:checked::after {
-  content: "";
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: #11161d;
-}
-
-.jpdb-reader-settings input[type="checkbox"]:focus-visible,
-.jpdb-reader-settings input[type="radio"]:focus-visible {
-  outline: 2px solid var(--jpdb-reader-accent);
-  outline-offset: 3px;
-}
-
-.jpdb-reader-settings label:has(input:disabled),
-.jpdb-reader-settings label:has(select:disabled),
-.jpdb-reader-settings label:has(textarea:disabled) {
-  opacity: 0.55;
-}
-
-.jpdb-reader-settings input:disabled,
-.jpdb-reader-settings select:disabled,
-.jpdb-reader-settings textarea:disabled {
-  cursor: not-allowed;
-}
-
-.jpdb-reader-settings input[type="file"][data-file] {
-  display: none !important;
-}
-
-.jpdb-reader-settings [hidden] {
-  display: none !important;
-}
-
-.jpdb-reader-settings .inline {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 32px;
-}
-
-.jpdb-reader-settings .grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px 14px;
-}
-
-.jpdb-reader-settings .jpdb-reader-radio-group {
-  align-self: end;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 12px;
-  margin: 10px 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-
-.jpdb-reader-settings .jpdb-reader-radio-group legend {
-  grid-column: 1 / -1;
-  padding: 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  line-height: 1.35;
-}
-
-.jpdb-reader-settings .jpdb-reader-radio-group label {
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  min-height: 38px;
-}
-
-.jpdb-reader-settings-subsection {
-  margin: 16px 0 0;
-  padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
-}
-
-.jpdb-reader-theme-field {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  min-height: 38px;
-  gap: 10px;
-  margin: 10px 0;
-  color: var(--jpdb-reader-muted) !important;
-  font-size: 11px;
-}
-
-.jpdb-reader-theme-title {
-  min-width: 0;
-  font: 750 12px/1.2 var(--jpdb-reader-font);
-}
-
-.jpdb-reader-settings .jpdb-reader-theme-appearance {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-width: 48px;
-  height: 22px;
-  margin: 0;
-}
-
-.jpdb-reader-settings .jpdb-reader-theme-switch {
-  position: relative;
-  display: block;
-  width: 40px;
-  min-width: 40px;
-  height: 22px !important;
-  min-height: 22px !important;
-  padding: 0;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface) 86%, transparent);
-  cursor: pointer;
-  transform: translateY(-1px);
-}
-
-.jpdb-reader-settings .jpdb-reader-theme-switch .check {
-  position: absolute;
-  top: 1px;
-  left: 1px;
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: var(--jpdb-reader-bg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
-}
-
-.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked="true"] .check {
-  transform: translateX(18px);
-}
-
-.jpdb-reader-settings .jpdb-reader-theme-switch .icon {
-  position: relative;
-  display: block;
-  width: 14px;
-  height: 14px;
-  color: var(--jpdb-reader-muted);
-}
-
-.jpdb-reader-settings .jpdb-reader-theme-switch .sun,
-.jpdb-reader-settings .jpdb-reader-theme-switch .moon {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 11px;
-  line-height: 1;
-}
-
-.jpdb-reader-settings .jpdb-reader-theme-switch .sun::before {
-  content: "☀";
-}
-
-.jpdb-reader-settings .jpdb-reader-theme-switch .moon::before {
-  content: "☾";
-}
-
-.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked="false"] .sun,
-.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked="true"] .moon {
-  opacity: 0;
-}
-
-.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked="true"] .sun,
-.jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked="false"] .moon {
-  opacity: 1;
-}
-
-.jpdb-reader-settings .jpdb-reader-theme-switch:hover,
-.jpdb-reader-settings .jpdb-reader-theme-switch:focus-visible {
-  border-color: var(--jpdb-reader-accent);
-  outline: 2px solid var(--jpdb-reader-accent-soft);
-  outline-offset: 3px;
-}
-
-.jpdb-reader-shortcut-group {
-  display: contents;
-}
-
-.jpdb-reader-settings .footer {
-  flex: 0 0 auto;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  margin: 0;
-  background: var(--jpdb-reader-bg);
-  border-top: 1px solid var(--jpdb-reader-border);
-  padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
-  box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.18);
-}
-
-.jpdb-reader-settings-save-status {
-  flex: 1 1 100%;
-  color: var(--jpdb-reader-accent-readable);
-  font: 760 11px/1.35 var(--jpdb-reader-font);
-  text-align: right;
-}
-
-.jpdb-reader-settings .footer .jpdb-reader-btn {
-  min-width: 92px;
-  padding-inline: 18px;
-  font-size: 13px;
-}
-
-.jpdb-reader-settings .footer .jpdb-reader-btn[data-action="cancel"] {
-  color: var(--jpdb-reader-text);
-  border-color: var(--jpdb-reader-border);
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 92%,
-    var(--jpdb-reader-text) 5%
-  );
-}
-
-.jpdb-reader-settings a:not(.jpdb-reader-btn) {
-  color: var(--jpdb-reader-accent-readable) !important;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.jpdb-reader-settings-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin: 10px 0;
-}
-
-.jpdb-reader-settings-actions-single {
-  display: flex;
-  justify-content: center;
-}
-
-.jpdb-reader-settings-actions .jpdb-reader-btn {
-  display: inline-flex;
-  min-width: 0;
-}
-
-.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link] {
-  border-color: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent) 45%,
-    var(--jpdb-reader-border)
-  );
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 86%,
-    var(--jpdb-reader-accent) 14%
-  );
-  color: var(--jpdb-reader-text) !important;
-}
-
-.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]:hover,
-.jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link]:focus-visible {
-  border-color: var(--jpdb-reader-accent);
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 78%,
-    var(--jpdb-reader-accent) 22%
-  );
-  box-shadow: 0 6px 16px
-    color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
-}
-
-.jpdb-reader-help-card {
-  display: grid;
-  gap: 12px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  padding: 14px;
-}
-
-.jpdb-reader-help-title {
-  color: var(--jpdb-reader-text);
-  font-size: 15px;
-  font-weight: 850;
-}
-
-.jpdb-reader-help-card p {
-  margin: 8px 0 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.jpdb-reader-help-glossary {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-}
-
-.jpdb-reader-help-glossary > div {
-  display: grid;
-  gap: 3px;
-}
-
-.jpdb-reader-help-glossary dt {
-  color: var(--jpdb-reader-text);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.jpdb-reader-help-glossary dd {
-  margin: 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.jpdb-reader-help-actions {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
-  min-width: 0;
-}
-
-.jpdb-reader-help-actions .jpdb-reader-btn {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 42px;
-  padding-inline: 10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.jpdb-reader-help-actions .jpdb-reader-help-donate {
-  border-color: var(--jpdb-reader-accent);
-  background: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent-text, #11161d) !important;
-  box-shadow: 0 6px 16px
-    color-mix(in srgb, var(--jpdb-reader-accent) 22%, transparent);
-}
-
-.jpdb-reader-help-actions .jpdb-reader-help-donate:hover,
-.jpdb-reader-help-actions .jpdb-reader-help-donate:focus-visible {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 86%, white);
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 90%, white);
-  color: var(--jpdb-reader-accent-text, #11161d) !important;
-  box-shadow: 0 8px 20px
-    color-mix(in srgb, var(--jpdb-reader-accent) 28%, transparent);
-}
-
-.jpdb-reader-help-actions .jpdb-reader-help-reset {
-  border-color: color-mix(in srgb, #ef4444 70%, var(--jpdb-reader-border));
-  color: color-mix(in srgb, #ef4444 78%, var(--jpdb-reader-text)) !important;
-}
-
-.jpdb-reader-help-actions .jpdb-reader-help-reset:hover,
-.jpdb-reader-help-actions .jpdb-reader-help-reset:focus-visible {
-  background: color-mix(in srgb, #7f1d1d 42%, var(--jpdb-reader-surface));
-  border-color: #ef4444;
-  color: color-mix(in srgb, #ef4444 62%, var(--jpdb-reader-text)) !important;
-}
-
-.jpdb-reader-help-support {
-  display: grid;
-  gap: 10px;
-  padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
-}
-
-.jpdb-reader-help-discord {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-height: 42px;
-  min-width: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  color: var(--jpdb-reader-text);
-  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, var(--jpdb-reader-accent) 12%);
-  font: 800 12px/1.2 var(--jpdb-reader-font);
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-
-.jpdb-reader-dictionary-status {
-  margin: 10px 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-}
-
-.jpdb-reader-dictionary-priorities,
-.jpdb-reader-kanji-priorities,
-.jpdb-reader-audio-sources,
-.jpdb-reader-lookup-links {
-  display: grid;
-  gap: 9px;
-  margin: 12px 0;
-}
-
-.jpdb-reader-recommended-dictionaries {
-  display: grid;
-  gap: 10px;
-  margin: 12px 0;
-}
-
-.jpdb-reader-recommended-title {
-  color: var(--jpdb-reader-text);
-  font-weight: 800;
-  font-size: 13px;
-}
-
-.jpdb-reader-recommended-note {
-  margin: -4px 0 2px;
-}
-
-.jpdb-reader-recommended-group {
-  display: grid;
-  gap: 7px;
-}
-
-.jpdb-reader-recommended-group-title {
-  color: var(--jpdb-reader-faint);
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.jpdb-reader-recommended-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 112px;
-  gap: 10px;
-  align-items: center;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  padding: 10px;
-}
-
-.jpdb-reader-recommended-item .jpdb-reader-btn {
-  width: 100%;
-  min-height: 42px;
-  padding-inline: 10px;
-}
-
-.jpdb-reader-recommended-name {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
-  flex-wrap: wrap;
-  color: var(--jpdb-reader-text);
-  font-weight: 800;
-  font-size: 13px;
-}
-
-.jpdb-reader-recommended-name a {
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.jpdb-reader-recommended-status {
-  margin-top: 7px;
-  color: var(--jpdb-reader-accent-readable);
-  font: 760 11px/1.35 var(--jpdb-reader-font);
-  overflow-wrap: anywhere;
-}
-
-.jpdb-reader-recommended-status[data-import-state="queued"] {
-  color: var(--jpdb-reader-muted);
-}
-
-.jpdb-reader-order-head,
-.jpdb-reader-order-row {
-  display: grid;
-  gap: 10px;
-  align-items: center;
-  box-sizing: border-box;
-  min-width: 0;
-}
-
-.jpdb-reader-dictionary-head,
-.jpdb-reader-dictionary-row,
-.jpdb-reader-audio-source-head,
-.jpdb-reader-audio-source-row,
-.jpdb-reader-lookup-link-head,
-.jpdb-reader-lookup-link-row {
-  grid-template-columns: 50px minmax(0, 1fr) minmax(0, 0.9fr) max-content 42px;
-}
-
-.jpdb-reader-dictionary-head.no-remove,
-.jpdb-reader-dictionary-row.no-remove {
-  grid-template-columns: 50px minmax(0, 1fr) minmax(0, 0.9fr) max-content;
-}
-
-.jpdb-reader-dictionary-head.compact,
-.jpdb-reader-dictionary-row.compact {
-  grid-template-columns: 50px minmax(0, 1fr) max-content 42px;
-}
-
-.jpdb-reader-dictionary-head.compact.no-remove,
-.jpdb-reader-dictionary-row.compact.no-remove {
-  grid-template-columns: 50px minmax(0, 1fr) max-content;
-}
-
-.jpdb-reader-order-head {
-  padding: 0 10px;
-  color: var(--jpdb-reader-faint);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.jpdb-reader-order-row {
-  position: relative;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  padding: 10px;
-  min-height: 56px;
-  width: 100%;
-}
-
-.jpdb-reader-dictionary-row-help {
-  grid-column: 2 / -1;
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  line-height: 1.35;
-}
-
-.jpdb-reader-settings .jpdb-reader-dictionary-toggle {
-  margin: 0;
-  justify-content: center;
-  color: var(--jpdb-reader-text);
-}
-
-.jpdb-reader-audio-source-choice select,
-.jpdb-reader-audio-source-fields input,
-.jpdb-reader-audio-source-fields select {
-  min-width: 0;
-  width: 100%;
-}
-
-.jpdb-reader-lookup-link-row input {
-  min-width: 0;
-}
-
-.jpdb-reader-lookup-link-note {
-  color: var(--jpdb-reader-muted);
-  min-height: 38px;
-  display: flex;
-  align-items: center;
-}
-
-.jpdb-reader-lookup-link-fixed {
-  width: 34px;
-  height: 34px;
-}
-
-.jpdb-reader-lookup-link-actions {
-  display: flex;
-  justify-content: flex-start;
-  margin-top: 3px;
-}
-
-.jpdb-reader-lookup-link-actions .jpdb-reader-btn {
-  width: auto !important;
-  min-width: 86px !important;
-  padding-inline: 16px !important;
-}
-
-.jpdb-reader-settings .jpdb-reader-audio-index {
-  margin: 0;
-  min-height: 38px;
-  justify-content: center;
-  color: var(--jpdb-reader-text);
-}
-
-.jpdb-reader-audio-source-choice {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 34px;
-  gap: 6px;
-  align-items: center;
-  min-width: 0;
-}
-
-.jpdb-reader-audio-source-fields {
-  display: grid;
-  gap: 6px;
-}
-
-.jpdb-reader-row-tools {
-  display: flex;
-  gap: 5px;
-  justify-content: flex-end;
-  flex-wrap: nowrap;
-  min-width: max-content;
-}
-
-.jpdb-reader-drag-handle {
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.jpdb-reader-drag-handle:active,
-.jpdb-reader-order-row-dragging .jpdb-reader-drag-handle {
-  cursor: grabbing;
-}
-
-.jpdb-reader-order-row-drag-pending,
-.jpdb-reader-order-row-dragging {
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.jpdb-reader-order-row-dragging {
-  border-color: var(--jpdb-reader-accent);
-  box-shadow: 0 14px 30px color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
-  z-index: 2;
-}
-
-.jpdb-reader-icon-mini {
-  display: inline-grid !important;
-  place-items: center !important;
-  width: 34px !important;
-  min-width: 34px !important;
-  max-width: 34px !important;
-  height: 34px !important;
-  min-height: 34px !important;
-  max-height: 34px !important;
-  padding: 0 !important;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 7px;
-  background: transparent;
-  color: var(--jpdb-reader-text);
-  cursor: pointer;
-  font: 800 13px/1 var(--jpdb-reader-font);
-  transform: translateY(-0.01rem);
-}
-
-.jpdb-reader-icon-mini svg {
-  display: block;
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.jpdb-reader-icon-mini:hover,
-.jpdb-reader-icon-mini:focus-visible {
-  border-color: var(--jpdb-reader-accent);
-  box-shadow: 0 8px 18px
-    color-mix(in srgb, var(--jpdb-reader-accent) 22%, transparent);
-  color: var(--jpdb-reader-accent);
-  transform: translateY(-0.25rem);
-  outline: none;
-}
-
-.jpdb-reader-icon-mini:active {
-  transform: scale(0.98);
-}
-
-@media (min-width: 700px) and (max-width: 1180px) and (hover: hover) and (pointer: fine) {
-  .jpdb-reader-settings {
-    width: min(860px, calc(100vw - 44px));
-    max-height: min(820px, calc(100vh - 44px));
-    max-height: min(820px, calc(100dvh - 44px));
-  }
-
-  .jpdb-reader-settings-head {
-    padding: 20px 22px 0;
-  }
-
-  .jpdb-reader-settings-tabs {
-    padding-inline: 22px;
-  }
-
-  .jpdb-reader-settings-scroll {
-    padding: 0 22px 104px;
-  }
-
-  .jpdb-reader-dictionary-head,
-  .jpdb-reader-dictionary-row,
-  .jpdb-reader-audio-source-head,
-  .jpdb-reader-audio-source-row,
-  .jpdb-reader-lookup-link-head,
-  .jpdb-reader-lookup-link-row {
-    grid-template-columns: 46px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content 42px;
-  }
-
-  .jpdb-reader-dictionary-head.no-remove,
-  .jpdb-reader-dictionary-row.no-remove {
-    grid-template-columns: 46px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content;
-  }
-
-  .jpdb-reader-dictionary-head.compact,
-  .jpdb-reader-dictionary-row.compact {
-    grid-template-columns: 46px minmax(0, 1fr) max-content 42px;
-  }
-
-  .jpdb-reader-dictionary-head.compact.no-remove,
-  .jpdb-reader-dictionary-row.compact.no-remove {
-    grid-template-columns: 46px minmax(0, 1fr) max-content;
-  }
-
-  .jpdb-reader-recommended-item {
-    grid-template-columns: minmax(0, 1fr) minmax(112px, 140px);
-  }
-}
-
-@media (pointer: coarse) and (min-width: 700px) {
-  .jpdb-reader-settings {
-    inset: auto 0 0 0;
-    left: 0;
-    right: 0;
-    top: auto;
-    bottom: 0;
-    transform: none;
-    width: 100%;
-    height: var(--jpdb-reader-settings-drawer-height, 88svh);
-    min-height: var(--jpdb-reader-settings-drawer-min-height, 280px);
-    max-height: var(--jpdb-reader-settings-drawer-viewport-height, 100svh);
-    border-radius: 18px 18px 0 0;
-  }
-
-  .jpdb-reader-settings.jpdb-reader-settings-drawer-resizing {
-    user-select: none;
-  }
-
-  .jpdb-reader-settings.jpdb-reader-settings-drawer-expanded {
-    border-radius: 0;
-  }
-
-  .jpdb-reader-settings-drag-handle {
-    display: block;
-  }
-
-  .jpdb-reader-settings-head {
-    padding: 8px 24px 0;
-  }
-
-  .jpdb-reader-settings-tabs {
-    padding: 0 24px 10px;
-  }
-
-  .jpdb-reader-settings-scroll {
-    padding: 0 24px 108px;
-  }
-
-}
-
-@media (max-width: 699px) {
-  .jpdb-reader-settings {
-    inset: auto 0 0 0;
-    left: 0;
-    right: 0;
-    top: auto;
-    bottom: 0;
-    transform: none;
-    width: 100%;
-    height: var(--jpdb-reader-settings-drawer-height, 88svh);
-    min-height: var(--jpdb-reader-settings-drawer-min-height, 280px);
-    max-height: var(--jpdb-reader-settings-drawer-viewport-height, 100svh);
-    border-radius: 16px 16px 0 0;
-  }
-
-  .jpdb-reader-settings.jpdb-reader-settings-drawer-resizing {
-    user-select: none;
-  }
-
-  .jpdb-reader-settings.jpdb-reader-settings-drawer-expanded {
-    border-radius: 0;
-  }
-
-  .jpdb-reader-settings-drag-handle {
-    display: block;
-  }
-
-  .jpdb-reader-settings-head {
-    padding: 8px 14px 0;
-  }
-
-  .jpdb-reader-settings-tabs {
-    padding: 0 14px 8px;
-  }
-
-  .jpdb-reader-settings-scroll {
-    padding: 0 14px 100px;
-  }
-
-  .jpdb-reader-settings fieldset {
-    margin: 10px 0;
-    padding: 11px;
-  }
-
-  .jpdb-reader-settings .grid,
-  .jpdb-reader-settings-actions,
-  .jpdb-reader-template-preview-grid,
-  .jpdb-reader-recommended-item {
-    grid-template-columns: 1fr;
-  }
-
-  .jpdb-reader-help-actions {
-    gap: 6px;
-  }
-
-  .jpdb-reader-help-actions .jpdb-reader-btn {
-    min-height: 40px;
-    padding-inline: 6px;
-    font-size: 11px;
-  }
-
-  .jpdb-reader-order-head {
-    display: none;
-  }
-
-  .jpdb-reader-dictionary-row,
-  .jpdb-reader-dictionary-row.compact,
-  .jpdb-reader-audio-source-row,
-  .jpdb-reader-lookup-link-row {
-    grid-template-columns: 42px minmax(0, 1fr) 42px;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .jpdb-reader-dictionary-row > .jpdb-reader-order-toggle,
-  .jpdb-reader-audio-source-row > .jpdb-reader-order-toggle,
-  .jpdb-reader-lookup-link-row > .jpdb-reader-order-toggle {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .jpdb-reader-dictionary-row > .jpdb-reader-field-display,
-  .jpdb-reader-audio-source-choice,
-  .jpdb-reader-lookup-link-row > input[name$=".label"] {
-    grid-column: 2 / -1;
-    grid-row: 1;
-  }
-
-  .jpdb-reader-dictionary-row > input[name$=".alias"],
-  .jpdb-reader-dictionary-row > .jpdb-reader-field-display[aria-label="Display name"],
-  .jpdb-reader-audio-source-fields,
-  .jpdb-reader-lookup-link-row > input[name$=".urlTemplate"],
-  .jpdb-reader-lookup-link-note {
-    grid-column: 2 / -1;
-    grid-row: 2;
-  }
-
-  .jpdb-reader-row-order-tools {
-    grid-column: 2;
-    grid-row: 3;
-    justify-content: flex-start;
-    min-width: 0;
-  }
-
-  .jpdb-reader-row-remove-tools {
-    grid-column: 3;
-    grid-row: 3;
-    align-self: start;
-    justify-content: flex-end;
-  }
-
-  .jpdb-reader-audio-source-row .jpdb-reader-row-tools {
-    grid-column: auto;
-    justify-content: flex-start;
-    flex-wrap: nowrap;
-    min-width: 0;
-  }
-
-  .jpdb-reader-audio-source-row .jpdb-reader-row-order-tools,
-  .jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools {
-    grid-column: 2;
-    grid-row: 3;
-  }
-
-  .jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools,
-  .jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools {
-    grid-column: 3;
-    grid-row: 3;
-  }
-
-  .jpdb-reader-audio-source-row .jpdb-reader-icon-mini {
-    width: 36px !important;
-    min-width: 36px !important;
-    max-width: 36px !important;
-    height: 36px !important;
-    min-height: 36px !important;
-    max-height: 36px !important;
-  }
-
-  .jpdb-reader-lookup-link-row .jpdb-reader-row-tools {
-    justify-content: flex-start;
-  }
-
-  .jpdb-reader-dictionary-row-help {
-    grid-column: 1 / -1;
-  }
-
-  .jpdb-reader-settings .footer {
-    justify-content: stretch;
-    gap: 12px;
-    padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
-  }
-
-  .jpdb-reader-settings .footer .jpdb-reader-btn {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-}
-
-.jpdb-reader-icon-mini[data-immersion-action="previous"],
-.jpdb-reader-icon-mini[data-immersion-action="next"],
-.jpdb-reader-icon-mini[data-yomu-immersion-action="previous"],
-.jpdb-reader-icon-mini[data-yomu-immersion-action="next"],
-.jpdb-reader-icon-mini[data-uchisen-action="previous"],
-.jpdb-reader-icon-mini[data-uchisen-action="next"],
-.jpdb-reader-icon-mini[data-action="kanji-prev"],
-.jpdb-reader-icon-mini[data-action="kanji-next"] {
-  font-size: 19px;
-  line-height: 0;
-  padding-bottom: 2px !important;
-}
-
-.jpdb-subtitle-player {
-  position: fixed;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2147483644;
-  pointer-events: none;
-  --subtitle-font-size-target: 28px;
-  --subtitle-font-size: var(--subtitle-font-size-target);
-  --subtitle-bottom: 12%;
-  --subtitle-color: #fff;
-  --subtitle-outline: #000;
-  --subtitle-background-rgba: transparent;
-  --subtitle-family: var(--jpdb-reader-font);
-  --subtitle-weight: 760;
-}
-
-.jpdb-subtitle-text {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: var(--subtitle-bottom);
-  color: var(--subtitle-color);
-  text-align: center;
-  font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);
-  text-shadow:
-    0 1px 2px var(--subtitle-outline),
-    0 0 3px var(--subtitle-outline),
-    0 0 8px rgba(0,0,0,.92),
-    0 3px 12px rgba(0,0,0,.72);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: keep-all;
-  max-height: min(45%, calc(100% - 24px));
-  overflow: hidden;
-  pointer-events: auto;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.jpdb-subtitle-status {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
-.jpdb-subtitle-primary {
-  display: inline;
-  padding: 0 .06em;
-  border-radius: 3px;
-  background: var(--subtitle-background-rgba);
-  box-shadow: none;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-  line-height: 1.58;
-  overflow-wrap: normal;
-  word-break: keep-all;
-  -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline) 78%, transparent);
-  paint-order: stroke fill;
-}
-
-.jpdb-subtitle-secondary {
-  display: block;
-  width: fit-content;
-  max-width: 100%;
-  margin-top: 8px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 0;
-  border: 0 !important;
-  background: transparent !important;
-  color: rgba(255,255,255,.82);
-  font-size: .62em;
-  font-family: inherit;
-  font-weight: 650;
-  line-height: 1.25;
-  min-height: 24px;
-  text-shadow: 0 2px 2px #000, 0 0 7px rgba(0,0,0,.86);
-  cursor: pointer;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.jpdb-subtitle-secondary-blurred {
-  filter: blur(5px);
-  opacity: .8;
-}
-
-.jpdb-subtitle-secondary-blurred:hover,
-.jpdb-subtitle-secondary-blurred:focus-visible {
-  filter: none;
-  opacity: 1;
-}
-
-.jpdb-subtitle-karaoke-word {
-  display: inline;
-  border-radius: 3px;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-}
-
-.jpdb-subtitle-word-pending {
-  opacity: .42;
-}
-
-.jpdb-subtitle-word-spoken,
-.jpdb-subtitle-word-current {
-  opacity: 1;
-  color: var(--subtitle-color);
-}
-
-.jpdb-subtitle-word-spoken {
-  color: color-mix(in srgb, var(--jpdb-reader-accent, #5ea780) 58%, var(--subtitle-color));
-  text-decoration-line: underline;
-  text-decoration-color: var(--jpdb-reader-accent, #5ea780);
-  text-decoration-thickness: .09em;
-  text-underline-offset: .16em;
-}
-
-.jpdb-subtitle-word-current {
-  text-decoration-line: underline;
-  text-decoration-color: var(--subtitle-color);
-  text-decoration-thickness: .1em;
-  text-underline-offset: .16em;
-}
-
-.jpdb-subtitle-primary .jpdb-reader-word {
-  --jpdb-reader-subtitle-fallback: var(--subtitle-color);
-  background: transparent !important;
-  color: var(--subtitle-color) !important;
-  --jpdb-reader-word-underline: transparent;
-  text-decoration-line: none !important;
-  text-decoration-style: solid !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
-  text-decoration-thickness: .08em !important;
-  text-underline-offset: .15em !important;
-  white-space: nowrap;
-  text-shadow:
-    0 1px 2px var(--subtitle-outline),
-    0 0 3px var(--subtitle-outline),
-    0 0 8px rgba(0,0,0,.92),
-    0 3px 12px rgba(0,0,0,.72);
-  -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline) 78%, transparent);
-  paint-order: stroke fill;
-}
-
-.jpdb-subtitle-primary .jpdb-reader-word:hover,
-.jpdb-subtitle-primary .jpdb-reader-word:focus-visible {
-  background: rgba(255,255,255,.14) !important;
-}
-
-.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-has-furi {
-  line-height: 1.48;
-}
-
-.jpdb-reader-subtitle-highlight-status { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-status-soft, transparent); }
-
-.jpdb-reader-subtitle-highlight-jpdb { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-jpdb-soft, transparent); }
-
-.jpdb-reader-subtitle-highlight-anki { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-anki-soft, transparent); }
-
-.jpdb-reader-subtitle-highlight-pitch { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-pitch-soft, transparent); }
-
-.jpdb-reader-subtitle-underline-status { --jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-status-decoration, transparent); }
-
-.jpdb-reader-subtitle-underline-jpdb { --jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent); }
-
-.jpdb-reader-subtitle-underline-anki { --jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-anki-decoration, transparent); }
-
-.jpdb-reader-subtitle-underline-pitch { --jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-pitch-decoration, transparent); }
-
-.jpdb-reader-subtitle-text-status { --jpdb-reader-subtitle-text: var(--jpdb-reader-source-status-color, var(--jpdb-reader-subtitle-fallback, currentColor)); }
-
-.jpdb-reader-subtitle-text-jpdb { --jpdb-reader-subtitle-text: var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-subtitle-fallback, currentColor)); }
-
-.jpdb-reader-subtitle-text-anki { --jpdb-reader-subtitle-text: var(--jpdb-reader-source-anki-color, var(--jpdb-reader-subtitle-fallback, currentColor)); }
-
-.jpdb-reader-subtitle-text-pitch { --jpdb-reader-subtitle-text: var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-subtitle-fallback, currentColor)); }
-
-:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  background: var(--jpdb-reader-subtitle-highlight, transparent) !important;
-}
-
-:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-decoration, transparent);
-  text-decoration-line: underline !important;
-}
-
-:is(.jpdb-reader-subtitle-text-status, .jpdb-reader-subtitle-text-jpdb, .jpdb-reader-subtitle-text-anki, .jpdb-reader-subtitle-text-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  color: var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
-}
-
-.jpdb-reader-subtitle-highlight-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  background: var(--jpdb-reader-source-status-soft, transparent) !important;
-}
-
-.jpdb-reader-subtitle-highlight-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  background: var(--jpdb-reader-source-jpdb-soft, transparent) !important;
-}
-
-.jpdb-reader-subtitle-highlight-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  background: var(--jpdb-reader-source-anki-soft, transparent) !important;
-}
-
-.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  background: var(--jpdb-reader-source-pitch-soft, transparent) !important;
-}
-
-.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);
-  text-decoration-line: underline !important;
-}
-
-.jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);
-  text-decoration-line: underline !important;
-}
-
-.jpdb-reader-subtitle-underline-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent);
-  text-decoration-line: underline !important;
-}
-
-.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);
-  text-decoration-line: underline !important;
-}
-
-.jpdb-reader-subtitle-text-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  color: var(--jpdb-reader-source-status-color, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
-}
-
-.jpdb-reader-subtitle-text-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  color: var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
-}
-
-.jpdb-reader-subtitle-text-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  color: var(--jpdb-reader-source-anki-color, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
-}
-
-.jpdb-reader-subtitle-text-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  color: var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
-}
-
-.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending { opacity: .42; }
-
-.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken {
-  opacity: 1;
-  --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, var(--jpdb-reader-accent, #5ea780));
-  text-decoration-line: underline !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, var(--jpdb-reader-accent, #5ea780)) !important;
-}
-
-.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-current {
-  opacity: 1;
-  text-decoration-line: underline !important;
-  text-decoration-color: var(--subtitle-color) !important;
-}
-
-.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending {
-  filter: saturate(.72);
-}
-
-.jpdb-subtitle-primary .jpdb-reader-furi {
-  color: currentColor;
-  opacity: .82;
-  text-shadow:
-    0 1px 1px var(--subtitle-outline),
-    0 0 3px var(--subtitle-outline),
-    0 0 7px rgba(0,0,0,.86);
-}
-
-.jpdb-subtitle-primary-loading {
-  opacity: .78;
-  color: currentColor;
-}
-
-.jpdb-reader-subtitle-preview {
-  min-height: 94px;
-  padding: 18px 10px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 10px;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,.10) 25%, transparent 25% 50%, rgba(255,255,255,.10) 50% 75%, transparent 75%) 0 0 / 28px 28px,
-    #1c222b;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  overflow: hidden;
-  color: var(--subtitle-color);
-  font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);
-  text-shadow:
-    0 1px 2px var(--subtitle-outline),
-    0 0 3px var(--subtitle-outline),
-    0 0 8px rgba(0,0,0,.86);
-}
-
-.jpdb-reader-subtitle-preview .jpdb-subtitle-primary {
-  display: inline;
-}
-
-.jpdb-reader-subtitle-preview .jpdb-reader-word {
-  --jpdb-reader-source-status-color: var(--jpdb-reader-status-color, var(--subtitle-color));
-  --jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);
-  --jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-color, var(--subtitle-color));
-  --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-jpdb-color, transparent);
-  --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-color, var(--subtitle-color));
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, transparent);
-}
-
-.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-new, .jpdb-suspended, .jpdb-not-in-deck) {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);
-  --jpdb-reader-status-color: var(--jpdb-reader-state-new, #58a6ff);
-}
-
-.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-learning {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);
-  --jpdb-reader-status-color: var(--jpdb-reader-state-learning, #ffd166);
-}
-
-.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant) {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);
-  --jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f);
-}
-
-.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-due {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);
-  --jpdb-reader-status-color: var(--jpdb-reader-state-due, #5fb3b3);
-}
-
-.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-heiban {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff);
-}
-
-.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-atamadaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);
-}
-
-.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-nakadaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840);
-}
-
-.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-odaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7);
-}
-
-.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-status .jpdb-subtitle-primary .jpdb-reader-word {
-  color: var(--jpdb-reader-source-status-color, var(--subtitle-color)) !important;
-}
-
-.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-jpdb .jpdb-subtitle-primary .jpdb-reader-word {
-  color: var(--jpdb-reader-source-jpdb-color, var(--subtitle-color)) !important;
-}
-
-.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-pitch .jpdb-subtitle-primary .jpdb-reader-word {
-  color: var(--jpdb-reader-source-pitch-color, var(--subtitle-color)) !important;
-}
-
-.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-status .jpdb-subtitle-primary .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);
-  text-decoration-line: underline !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
-}
-
-.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-primary .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);
-  text-decoration-line: underline !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
-}
-
-.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);
-  text-decoration-line: underline !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
-}
-
-.jpdb-subtitle-rail {
-  position: absolute;
-  right: max(10px, env(safe-area-inset-right));
-  top: 10px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  max-width: calc(100% - 20px);
-  padding: 4px;
-  border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 82%, transparent);
-  box-shadow: 0 12px 30px rgba(0,0,0,.22);
-  backdrop-filter: blur(14px);
-  pointer-events: auto;
-  opacity: .78;
-}
-
-.jpdb-subtitle-controls-hidden .jpdb-subtitle-menu,
-.jpdb-subtitle-controls-hidden .jpdb-subtitle-list {
-  display: none !important;
-}
-
-.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:hover,
-.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:focus-within {
-  opacity: 1;
-}
-
-.jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: .72; }
-
-.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.jpdb-subtitle-controls-always .jpdb-subtitle-rail {
-  opacity: 1;
-}
-
-.jpdb-subtitle-rail:hover,
-.jpdb-subtitle-menu-open .jpdb-subtitle-rail,
-.jpdb-subtitle-panel-open .jpdb-subtitle-rail {
-  opacity: 1;
-}
-
-.jpdb-subtitle-rail button,
-.jpdb-subtitle-menu button,
-.jpdb-subtitle-list button {
-  border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.16));
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 86%, transparent);
-  color: var(--jpdb-reader-text, #fff);
-  box-shadow: none;
-  font: 700 12px/1 var(--jpdb-reader-font);
-  pointer-events: auto;
-}
-
-.jpdb-subtitle-rail button {
-  display: inline-grid;
-  place-items: center;
-  min-width: 34px;
-  width: 34px;
-  max-width: 34px;
-  min-height: 34px;
-  height: 34px;
-  max-height: 34px;
-  padding: 0;
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
-.jpdb-subtitle-rail button[data-action="previous"],
-.jpdb-subtitle-rail button[data-action="next"] {
-  font-size: 19px;
-  line-height: 0;
-  padding-bottom: 2px;
-}
-
-.jpdb-subtitle-panel-toggle {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border, rgba(255,255,255,.22))) !important;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface, #20242b)) !important;
-}
-
-.jpdb-subtitle-icon {
-  width: 17px;
-  height: 17px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.jpdb-subtitle-panel-toggle[aria-pressed="false"] {
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.72));
-  border-color: var(--jpdb-reader-border, rgba(255,255,255,.18)) !important;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 86%, transparent) !important;
-}
-
-.jpdb-subtitle-rail button[hidden],
-.jpdb-subtitle-menu button[hidden] {
-  display: none !important;
-}
-
-.jpdb-subtitle-rail button:disabled {
-  opacity: .45;
-}
-
-.jpdb-subtitle-compact-video .jpdb-subtitle-rail {
-  top: 8px;
-  right: 8px;
-  gap: 3px;
-  padding: 3px;
-}
-
-.jpdb-subtitle-compact-video .jpdb-subtitle-rail button {
-  min-width: 32px;
-  width: 32px;
-  max-width: 32px;
-  min-height: 32px;
-  height: 32px;
-  max-height: 32px;
-}
-
-.jpdb-subtitle-menu {
-  position: absolute;
-  right: max(10px, env(safe-area-inset-right));
-  top: 50px;
-  display: grid;
-  gap: 6px;
-  width: min(230px, calc(100vw - 24px));
-  padding: 8px;
-  border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.18));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 92%, transparent);
-  box-shadow: 0 14px 34px rgba(0,0,0,.28);
-  pointer-events: auto;
-}
-
-.jpdb-subtitle-menu[hidden],
-.jpdb-subtitle-list[hidden] { display: none; }
-
-.jpdb-subtitle-menu-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  min-height: 30px;
-  padding: 0 0 2px;
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.78));
-  font: 800 12px/1 var(--jpdb-reader-font);
-}
-
-.jpdb-subtitle-menu button {
-  min-height: 36px;
-  text-align: left;
-  padding: 0 10px;
-  box-shadow: none;
-}
-
-.jpdb-subtitle-menu button[aria-pressed="true"],
-.jpdb-subtitle-track-row button[aria-pressed="true"] {
-  border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-text, #fff);
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface, #20242b));
-}
-
-.jpdb-subtitle-list {
-  position: fixed;
-  right: max(12px, env(safe-area-inset-right));
-  top: 72px;
-  width: min(460px, calc(100vw - 24px));
-  height: min(78vh, 860px);
-  max-height: calc(100vh - 24px);
-  overflow: hidden;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border, rgba(255,255,255,.18)) 88%, rgba(255,255,255,.10));
-  border-radius: 22px;
-  background: color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 94%, rgba(255,255,255,.06));
-  color: var(--jpdb-reader-text, #fff);
-  box-shadow: 0 24px 56px rgba(0,0,0,.32);
-  pointer-events: auto;
-  backdrop-filter: blur(18px) saturate(1.08);
-  -webkit-backdrop-filter: blur(18px) saturate(1.08);
-  transform: translateZ(0);
-}
-
-html.jpdb-subtitle-yomu-captions-active .ytp-caption-window-container,
-html.jpdb-subtitle-yomu-captions-active .caption-window,
-html.jpdb-subtitle-yomu-captions-active .ytp-caption-segment {
-  display: none !important;
-}
-
-html.jpdb-subtitle-fullscreen .jpdb-subtitle-list,
-html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
-  display: none !important;
-}
-
-.jpdb-subtitle-resize {
-  position: absolute;
-  z-index: 2;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  touch-action: none;
-}
-
-.jpdb-subtitle-resize::after {
-  content: "";
-  position: absolute;
-  border-radius: 999px;
-  background: rgba(255,255,255,.22);
-  opacity: 0;
-}
-
-.jpdb-subtitle-resize:hover::after,
-.jpdb-subtitle-resize:focus-visible::after {
-  background: var(--jpdb-reader-accent);
-  opacity: .88;
-}
-
-.jpdb-subtitle-transcript-right .jpdb-subtitle-resize {
-  left: -12px;
-  top: 0;
-  bottom: 0;
-  width: 24px;
-  cursor: ew-resize;
-}
-
-.jpdb-subtitle-transcript-left .jpdb-subtitle-resize {
-  right: -12px;
-  top: 0;
-  bottom: 0;
-  width: 24px;
-  cursor: ew-resize;
-}
-
-.jpdb-subtitle-transcript-right .jpdb-subtitle-resize::after,
-.jpdb-subtitle-transcript-left .jpdb-subtitle-resize::after {
-  top: 16px;
-  bottom: 16px;
-  left: 11px;
-  width: 2px;
-}
-
-.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize {
-  left: 0;
-  right: 0;
-  top: -12px;
-  height: 24px;
-  cursor: ns-resize;
-}
-
-.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize::after {
-  left: 16px;
-  right: 16px;
-  top: 11px;
-  height: 2px;
-}
-
-.jpdb-subtitle-drawer-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 12px;
-  padding: 14px 14px 12px;
-  border-bottom: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 76%, transparent);
-}
-
-.jpdb-subtitle-drawer-brand {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.jpdb-subtitle-drawer-title {
-  min-width: 0;
-  color: var(--jpdb-reader-text, #fff);
-  font: 800 15px/1.2 var(--jpdb-reader-font);
-  letter-spacing: .01em;
-}
-
-.jpdb-subtitle-drawer-meta {
-  min-width: 0;
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.78));
-  font: 700 11px/1.35 var(--jpdb-reader-font);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.jpdb-subtitle-drawer-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-}
-
-.jpdb-subtitle-drawer-close {
-  display: inline-grid;
-  place-items: center;
-  min-width: 34px;
-  width: 34px;
-  min-height: 34px;
-  height: 34px;
-  padding: 0 !important;
-  border-radius: 12px !important;
-}
-
-.jpdb-subtitle-drawer-close svg {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.jpdb-subtitle-panel-mode,
-.jpdb-subtitle-panel-nav {
-  justify-self: start;
-  width: max-content;
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 82%, transparent);
-}
-
-.jpdb-subtitle-panel-mode button {
-  min-height: 30px;
-  padding: 0 11px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  text-align: center;
-  box-shadow: none;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.jpdb-subtitle-panel-mode button[aria-pressed="true"] {
-  color: var(--jpdb-reader-text, #fff);
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface, #20242b));
-}
-
-.jpdb-subtitle-panel-mode button:disabled {
-  opacity: .42;
-}
-
-.jpdb-subtitle-panel-nav button {
-  display: inline-grid;
-  place-items: center;
-  min-width: 32px;
-  width: 32px;
-  min-height: 32px;
-  height: 32px;
-  padding: 0 0 2px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  text-align: center;
-  box-shadow: none;
-  font-size: 19px;
-  line-height: 0;
-}
-
-.jpdb-subtitle-panel-nav button:disabled {
-  opacity: .38;
-}
-
-.jpdb-subtitle-list-scroll {
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: grid;
-  align-content: start;
-  grid-auto-rows: max-content;
-  gap: 4px;
-  padding: 8px 10px 12px;
-  overscroll-behavior: contain;
-}
-
-.jpdb-subtitle-list-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content;
-  align-items: start;
-  gap: 10px;
-  min-height: 76px;
-  padding: 16px 18px;
-  border: 0;
-  border-bottom: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.15));
-  border-radius: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-.jpdb-subtitle-row-body {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
-  gap: 6px;
-  width: 100%;
-  min-height: 42px;
-  padding: 0;
-  text-align: left;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.jpdb-subtitle-row-tools {
-  align-self: start;
-  display: grid;
-  grid-template-columns: 30px auto;
-  align-items: center;
-  gap: 12px;
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.82));
-}
-
-.jpdb-subtitle-row-copy {
-  display: inline-grid;
-  place-items: center;
-  min-width: 30px;
-  width: 30px;
-  min-height: 30px;
-  height: 30px;
-  padding: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.82)) !important;
-}
-
-.jpdb-subtitle-list-row.active {
-  border-color: var(--jpdb-reader-border, rgba(255,255,255,.16));
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, transparent);
-  box-shadow: inset 2px 0 0 var(--jpdb-reader-accent);
-}
-
-.jpdb-subtitle-list .jpdb-reader-word {
-  color: inherit !important;
-}
-
-.jpdb-subtitle-row-time {
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.82));
-  font-size: 16px;
-  line-height: 1.2;
-  font-weight: 760;
-  white-space: nowrap;
-}
-
-.jpdb-subtitle-row-text {
-  min-width: 0;
-  max-width: 100%;
-  grid-column: 1;
-  color: var(--jpdb-reader-text, #fff);
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  white-space: normal;
-  font-weight: 600;
-  line-height: 1.45;
-  font-size: 22px;
-  letter-spacing: 0;
-  text-shadow: 0 1px 1px rgba(0,0,0,.38);
-}
-
-.jpdb-subtitle-row-text .jpdb-reader-word {
-  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text, #fff);
-  color: inherit;
-  background: transparent;
-  text-decoration-color: var(--jpdb-reader-word-underline, currentColor);
-  text-decoration-thickness: .08em;
-  text-underline-offset: .16em;
-  border-radius: 4px;
-  padding: 0 1px;
-  white-space: normal !important;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-}
-
-.jpdb-subtitle-list .jpdb-subtitle-row-text .jpdb-reader-word,
-.jpdb-subtitle-list .jpdb-subtitle-row-text .jpdb-reader-word ruby {
-  color: inherit !important;
-}
-
-.jpdb-subtitle-row-text ruby,
-.jpdb-subtitle-row-text rt,
-.jpdb-subtitle-row-text .jpdb-reader-furi {
-  white-space: normal !important;
-}
-
-.jpdb-subtitle-row-text .jpdb-reader-word:hover,
-.jpdb-subtitle-row-text .jpdb-reader-word:focus-visible {
-  background: var(--jpdb-reader-hover, rgba(255,255,255,.14));
-  outline: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.28));
-}
-
-.jpdb-subtitle-row-translation {
-  grid-column: 1;
-  min-width: 0;
-  margin-top: 3px;
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.68));
-  overflow-wrap: anywhere;
-  font-style: normal;
-  font-weight: 650;
-  line-height: 1.4;
-}
-
-.jpdb-subtitle-tracks-panel .jpdb-subtitle-list-scroll {
-  align-content: start;
-}
-
-.jpdb-subtitle-track-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 3px 8px;
-  padding: 7px 8px;
-  border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));
-  border-radius: 8px;
-  background: transparent;
-}
-
-.jpdb-subtitle-track-row.active {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 68%, var(--jpdb-reader-border, rgba(255,255,255,.14)));
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, transparent);
-}
-
-.jpdb-subtitle-track-row strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-size: 11px;
-  line-height: 1.2;
-}
-
-.jpdb-subtitle-track-title {
-  grid-column: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
-  align-items: center;
-}
-
-.jpdb-subtitle-track-title span {
-  padding: 1px 5px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 86%, transparent);
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.72));
-  font-size: 8px;
-  text-transform: uppercase;
-}
-
-.jpdb-subtitle-track-row span {
-  grid-column: 1;
-  color: var(--jpdb-reader-faint, rgba(255,255,255,.62));
-  font-size: 9px;
-  font-weight: 700;
-}
-
-.jpdb-subtitle-track-actions {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: center;
-  display: flex;
-  gap: 5px;
-}
-
-.jpdb-subtitle-track-row button {
-  min-height: 26px;
-  padding-inline: 9px;
-  text-align: center;
-  box-shadow: none;
-  font-size: 10px;
-}
-
-.jpdb-subtitle-track-tools {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.jpdb-subtitle-track-tools button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  min-height: 36px;
-  padding: 0 10px;
-  text-align: center;
-  line-height: 1.2;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  box-shadow: none;
-}
-
-.jpdb-subtitle-track-summary {
-  margin: 0 0 3px;
-  padding: 5px 7px;
-  border: 1px dashed var(--jpdb-reader-border, rgba(255,255,255,.16));
-  border-radius: 8px;
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.72));
-  background: transparent;
-  font: 750 11px/1.3 var(--jpdb-reader-font);
-}
-
-.jpdb-subtitle-list-empty {
-  padding: 12px;
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.72));
-  font: 700 12px/1.35 var(--jpdb-reader-font);
-}
-
-.jpdb-subtitle-hidden .jpdb-subtitle-text { display: none; }
-
-@media (max-width: 768px), (pointer: coarse) {
-  .jpdb-reader-btn { min-height: 44px; font-size: 13px; }
-  .jpdb-reader-onboarding {
-    inset: auto 0 0 0;
-    transform: none;
-    width: 100%;
-    max-height: 88vh;
-    max-height: 88svh;
-    border-radius: 16px 16px 0 0;
-    padding: 54px 20px calc(24px + env(safe-area-inset-bottom));
-  }
-  .jpdb-reader-onboarding-close {
-    top: 12px;
-    right: 16px;
-  }
-  .jpdb-reader-onboarding-grid { grid-template-columns: 1fr; }
-  .jpdb-reader-onboarding-actions { display: grid; grid-template-columns: 1fr; }
-  .jpdb-ocr-line { min-width: 0; min-height: 0; border-radius: 8px; }
-  .jpdb-subtitle-text { left: 8px; right: 8px; font-size: min(var(--subtitle-font-size), 8vw); }
-  .jpdb-subtitle-rail {
-    top: max(8px, env(safe-area-inset-top));
-    right: max(8px, env(safe-area-inset-right));
-    bottom: auto;
-    gap: 3px;
-  }
-  .jpdb-subtitle-rail button {
-    height: 34px;
-    min-height: 34px;
-    max-height: 34px;
-    min-width: 34px;
-    width: 34px;
-    max-width: 34px;
-    padding: 0;
-    font-size: 11px;
-  }
-  .jpdb-subtitle-menu {
-    top: calc(52px + env(safe-area-inset-top));
-    right: 8px;
-    bottom: auto;
-  }
-  .jpdb-subtitle-transcript-bottom .jpdb-subtitle-list {
-    left: 10px !important;
-    right: auto !important;
-    width: calc(100vw - 20px) !important;
-    border-radius: 20px 20px 16px 16px;
-  }
-}
-
-@media (max-width: 519px) {
-  .jpdb-subtitle-list {
-    left: 10px !important;
-    right: auto !important;
-    width: calc(100vw - 20px) !important;
-    border-radius: 20px 20px 16px 16px;
-  }
-}
-
 `;
   const READER_CSS = readerCss;
   const log$4 = Logger.scope("StudySources");
+  const STUDY_GRAMMAR_CACHE_LIMIT = 160;
+  const STUDY_TRANSLATION_CACHE_LIMIT = 80;
   class StudySourceController {
     constructor(dependencies) {
       this.dependencies = dependencies;
     }
+    grammarHintCache = /* @__PURE__ */ new Map();
+    translationContentCache = /* @__PURE__ */ new Map();
     renderTranslationSource(sentence) {
       const settings = this.settings();
       if (!sentence || !settings.studyTranslationEnabled) return "";
@@ -36331,11 +30797,24 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         `;
     }
     installLoaders(popover, sentence) {
+      this.preloadStudySources(sentence);
       this.installTranslationLoader(popover, sentence);
       this.installGrammarLoader(popover, sentence);
     }
     async detectGrammarHints(sentence) {
       return detectGrammarHints(sentence);
+    }
+    preloadStudySources(sentence) {
+      if (!sentence) return;
+      const settings = this.settings();
+      if (settings.studyGrammarEnabled) {
+        void this.cachedGrammarHints(sentence);
+        preloadGrammarResources(sentence, settings.interfaceLanguage);
+      }
+      if (settings.studyTranslationEnabled) {
+        preloadJapaneseSentenceTranslation(sentence, settings.interfaceLanguage);
+        void this.cachedTranslationContent(sentence);
+      }
     }
     renderTranslationPanel(sentence) {
       const language = this.settings().interfaceLanguage;
@@ -36386,7 +30865,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       const panel = container.querySelector("[data-study-grammar-panel]");
       if (!panel) return;
       try {
-        const hints = await this.detectGrammarHints(sentence);
+        const hints = await this.cachedGrammarHints(sentence);
         if (!this.canRenderGrammar(popover, container)) return;
         if (!hints.length) {
           container.remove();
@@ -36426,7 +30905,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     async loadTranslation(popover, sentence, container) {
       if (!sentence) return;
       try {
-        const translation = await this.loadTranslationContent(sentence);
+        const translation = await this.cachedTranslationContent(sentence);
         if (!this.canApplyTranslation(popover, container)) return;
         this.applyTranslation(popover, sentence, container, translation);
       } catch (error) {
@@ -36438,10 +30917,34 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     }
     async loadTranslationContent(sentence) {
       const [tokens, translated] = await Promise.all([
-        this.dependencies.parseJapanese([sentence]).then(([parsed]) => parsed ?? []),
+        this.dependencies.parseJapanese([sentence], { jpdbTimeoutMs: 1200 }).then(([parsed]) => parsed ?? []),
         translateJapaneseSentence(sentence, this.settings().interfaceLanguage)
       ]);
       return { tokens, translated };
+    }
+    cachedGrammarHints(sentence) {
+      const key = this.studyCacheKey(sentence);
+      const cached = this.grammarHintCache.get(key);
+      if (cached) return cached;
+      const promise = Promise.resolve(detectGrammarHints(sentence));
+      this.grammarHintCache.set(key, promise);
+      pruneOldestMapEntries(this.grammarHintCache, STUDY_GRAMMAR_CACHE_LIMIT);
+      return promise;
+    }
+    cachedTranslationContent(sentence) {
+      const key = this.studyCacheKey(sentence);
+      const cached = this.translationContentCache.get(key);
+      if (cached) return cached;
+      const promise = this.loadTranslationContent(sentence).catch((error) => {
+        if (this.translationContentCache.get(key) === promise) this.translationContentCache.delete(key);
+        throw error;
+      });
+      this.translationContentCache.set(key, promise);
+      pruneOldestMapEntries(this.translationContentCache, STUDY_TRANSLATION_CACHE_LIMIT);
+      return promise;
+    }
+    studyCacheKey(sentence) {
+      return `${this.settings().interfaceLanguage}${sentence.trim()}`;
     }
     applyTranslation(popover, sentence, container, translation) {
       const original = container.querySelector("[data-study-original-render]");
@@ -36449,6 +30952,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       const result = container.querySelector("[data-study-translation-result]");
       if (result) result.textContent = translation.translated;
       void this.dependencies.parsePopoverJapanese(popover);
+      void this.dependencies.enrichPitchWords(translation.tokens);
       void this.dependencies.enrichAnkiWords(translation.tokens);
     }
     renderTranslationError(sentence, container, error) {
@@ -36472,6 +30976,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       ancestor = ancestor.parentElement?.closest("details");
     }
     return true;
+  }
+  function pruneOldestMapEntries(cache, limit) {
+    while (cache.size > limit) {
+      const oldest = cache.keys().next().value;
+      if (oldest === void 0) break;
+      cache.delete(oldest);
+    }
   }
   function normalizeSubtitleCues(cues, options = {}) {
     const normalized = [];
@@ -38648,11 +33159,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   const TRANSCRIPT_HYDRATION_MAX_ROWS = 12;
   const TRANSCRIPT_BACKGROUND_HYDRATION_BATCH = 1;
   const TRANSCRIPT_BACKGROUND_PARSE_CONCURRENCY = 1;
+  const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 4;
   const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
   const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
   const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 40;
   const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
   const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
+  const SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS = 1200;
   const SUBTITLE_EMPTY_PARSE_RETRY_MS = 2500;
   const SUBTITLE_REQUEST_TIMEOUT_MS = 8e3;
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
@@ -38674,6 +33187,16 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       ...forwardIndexes(focusIndex, Math.min(rowCount, focusIndex + TRANSCRIPT_BACKGROUND_PARSE_AHEAD)),
       ...backwardIndexes(focusIndex - 1, Math.max(0, focusIndex - TRANSCRIPT_BACKGROUND_PARSE_BEHIND))
     ];
+  }
+  function uniqueSubtitleParseTexts(texts) {
+    const seen = /* @__PURE__ */ new Set();
+    const result = [];
+    for (const text2 of texts.map((value) => value.trim()).filter(Boolean)) {
+      if (seen.has(text2)) continue;
+      seen.add(text2);
+      result.push(text2);
+    }
+    return result;
   }
   function forwardIndexes(start, endExclusive) {
     const indexes = [];
@@ -38801,7 +33324,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       this.abortController = new AbortController();
       this.install();
       this.observer = new MutationObserver((mutations) => {
-        if (mutations.every(mutationInsideReaderRoot)) return;
+        if (mutations.every(mutationInsideReaderRoot$1)) return;
         if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
         this.scheduleDiscoverVideo();
       });
@@ -39489,14 +34012,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       const promise = (async () => {
         const tokens = await this.options.parseJapanese(text2);
         const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
-        if (parsedSubtitleHtmlHasReaderWords(html)) {
-          this.parsedHtmlCache.set(key, html);
-          this.emptyParsedHtmlCache.delete(key);
-          if (this.parsedHtmlCache.size > 180) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? "");
-        } else {
-          this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
-          if (this.emptyParsedHtmlCache.size > 180) this.emptyParsedHtmlCache.delete(this.emptyParsedHtmlCache.keys().next().value ?? "");
-        }
+        this.rememberParsedCueHtml(key, html);
         return html;
       })();
       this.pendingParsedHtml.set(key, promise);
@@ -39504,6 +34020,55 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         return await promise;
       } finally {
         this.pendingParsedHtml.delete(key);
+      }
+    }
+    async parseCueHtmlBatch(texts, settings = this.options.getSettings()) {
+      const ready = [];
+      const batch = [];
+      for (const item of uniqueSubtitleParseTexts(texts).map((text2) => ({ text: text2, key: this.parseCacheKey(text2, settings) }))) {
+        const cached = this.parsedHtmlCache.get(item.key) ?? this.freshEmptyParsedHtml(item.key);
+        if (cached !== void 0) {
+          ready.push(Promise.resolve({ key: item.key, html: cached }));
+          continue;
+        }
+        const pending = this.pendingParsedHtml.get(item.key);
+        if (pending) {
+          ready.push(pending.then((html) => ({ key: item.key, html })));
+          continue;
+        }
+        batch.push(item);
+      }
+      if (!batch.length) return Promise.all(ready);
+      if (!this.options.parseJapaneseBatch) {
+        return Promise.all([...ready, ...batch.map(async (item) => ({
+          key: item.key,
+          html: await this.parseCueHtml(item.text, settings)
+        }))]);
+      }
+      const parsed = this.options.parseJapaneseBatch(batch.map((item) => item.text), subtitleParseOptions());
+      const parsedHtml = batch.map((item, index) => parsed.then((tokens) => {
+        const html = withBreaks(renderTokensToHtml(item.text, tokens[index] ?? [], settings));
+        this.rememberParsedCueHtml(item.key, html);
+        return { key: item.key, html };
+      }));
+      const pendingHtml = parsedHtml.map((promise) => promise.then((result) => result.html));
+      batch.forEach((item, index) => this.pendingParsedHtml.set(item.key, pendingHtml[index]));
+      try {
+        return await Promise.all([...ready, ...parsedHtml]);
+      } finally {
+        batch.forEach((item, index) => {
+          if (this.pendingParsedHtml.get(item.key) === pendingHtml[index]) this.pendingParsedHtml.delete(item.key);
+        });
+      }
+    }
+    rememberParsedCueHtml(key, html) {
+      if (parsedSubtitleHtmlHasReaderWords(html)) {
+        this.parsedHtmlCache.set(key, html);
+        this.emptyParsedHtmlCache.delete(key);
+        if (this.parsedHtmlCache.size > 180) this.parsedHtmlCache.delete(this.parsedHtmlCache.keys().next().value ?? "");
+      } else {
+        this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
+        if (this.emptyParsedHtmlCache.size > 180) this.emptyParsedHtmlCache.delete(this.emptyParsedHtmlCache.keys().next().value ?? "");
       }
     }
     hasFreshEmptyParsedHtml(key) {
@@ -40427,10 +34992,16 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       if (!request) return;
       const serial = ++this.transcriptHydrationSerial;
       const indexes = this.transcriptHydrationIndexes(preferredIndex, request.rows.length);
+      const targets = [];
       for (const index of indexes) {
         if (serial !== this.transcriptHydrationSerial) return;
-        await this.hydrateTranscriptRow(index, request.settings, request.rows);
+        const hydration = this.transcriptRowHydrationTarget(index, request.settings, request.rows);
+        if (!hydration) continue;
+        const cached = this.parsedHtmlCache.get(hydration.key);
+        if (cached) this.applyCachedTranscriptRowHtml(hydration, cached);
+        else targets.push(hydration);
       }
+      if (targets.length) await this.hydrateTranscriptRowTargets(targets, request.settings, serial);
     }
     transcriptHydrationRequest() {
       if (!this.canHydrateTranscriptRows()) return null;
@@ -40469,6 +35040,19 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         hydration.target.dataset.parseFailedKey = hydration.key;
         hydration.target.dataset.parseFailedAt = String(Date.now());
         delete hydration.target.dataset.parsedKey;
+      }
+    }
+    async hydrateTranscriptRowTargets(targets, settings, serial) {
+      try {
+        const parsed = await this.parseCueHtmlBatch(targets.map((target) => target.cue.text), settings);
+        if (serial !== this.transcriptHydrationSerial) return;
+        for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html);
+      } catch {
+        targets.forEach((hydration) => {
+          hydration.target.dataset.parseFailedKey = hydration.key;
+          hydration.target.dataset.parseFailedAt = String(Date.now());
+          delete hydration.target.dataset.parsedKey;
+        });
       }
     }
     transcriptRowHydrationTarget(index, settings, rows) {
@@ -40515,12 +35099,12 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       const worker = async () => {
         while (cursor < planned.length) {
           if (serial !== this.transcriptCacheWarmupSerial) return;
-          const item = planned[cursor++];
-          if (!item || this.parsedHtmlCache.has(item.key)) continue;
+          const batch = this.nextTranscriptWarmupBatch(planned, () => cursor++);
+          if (!batch.length) continue;
           try {
-            const html = await this.parseCueHtml(item.text, settings);
+            const parsed = await this.parseCueHtmlBatch(batch.map((item) => item.text), settings);
             if (serial !== this.transcriptCacheWarmupSerial) return;
-            this.updateTranscriptRowsForParseKey(item.key, html);
+            for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html);
           } catch {
           }
           if (cursor < planned.length) await waitForBackgroundTranscriptParseTurn(pauseMs);
@@ -40531,6 +35115,17 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         () => worker()
       );
       await Promise.all(workers);
+    }
+    nextTranscriptWarmupBatch(planned, takeNextIndex) {
+      const batchSize = this.options.parseJapaneseBatch ? TRANSCRIPT_BACKGROUND_PARSE_BATCH : 1;
+      const batch = [];
+      while (batch.length < batchSize) {
+        const item = planned[takeNextIndex()];
+        if (!item) break;
+        if (this.parsedHtmlCache.has(item.key) || this.hasFreshEmptyParsedHtml(item.key)) continue;
+        batch.push(item);
+      }
+      return batch;
     }
     transcriptWarmupPlan(rows, preferredIndex, settings) {
       const priority = this.transcriptHydrationIndexes(preferredIndex, rows.length);
@@ -40616,7 +35211,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
                     <button type="button" data-action="load-secondary">${escapeHtml$1(uiText(language, "loadNativeSubtitles"))}</button>
                 </div>
                 <div class="jpdb-subtitle-track-summary">${escapeHtml$1(trackPanelSummaryText(state.autoDetected, language))}</div>
-                ${state.tracks.length ? state.tracks.map((track) => this.renderTrackRow(track)).join("") : `<div class="jpdb-subtitle-list-empty">${escapeHtml$1(uiText(language, "noAutoDetectedSubtitleTracks"))}</div>`}
+                ${state.tracks.length ? state.tracks.map((track) => this.renderTrackRow(track)).join("") : ""}
             </div>
             <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="${escapeHtml$1(uiText(language, "resizeSubtitleTracksPanel"))}"></button>
         `;
@@ -40828,6 +35423,12 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   function waitForBackgroundTranscriptParseTurn(delayMs) {
     if (delayMs <= 0) return Promise.resolve();
     return new Promise((resolve) => window.setTimeout(resolve, delayMs));
+  }
+  function subtitleParseOptions() {
+    return {
+      jpdbTimeoutMs: SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS,
+      includeLocalPitch: false
+    };
   }
   function renderPanelNavigationControls(enabled, language) {
     const previous = uiText(language, "previousSubtitle");
@@ -41081,7 +35682,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       return value ? "inline-or-invalid" : "";
     }
   }
-  function mutationInsideReaderRoot(mutation) {
+  function mutationInsideReaderRoot$1(mutation) {
     const nodes = [
       mutation.target,
       ...Array.from(mutation.addedNodes),
@@ -41104,6 +35705,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     return node instanceof Element && Boolean(node.querySelector("video"));
   }
   const log$2 = Logger.scope("VisiblePageScanner");
+  const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
+  const VISIBLE_SCAN_APPLY_BATCH_SIZE = 16;
+  const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 1200;
   class VisiblePageScanner {
     constructor(dependencies) {
       this.dependencies = dependencies;
@@ -41128,8 +35732,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       const targets = roots.flatMap((root) => collectTextTargetsIn(root, 12, false)).slice(0, 12);
       if (!targets.length) return;
       try {
-        const parsed = await this.dependencies.parseJapanese(targets.map((target) => target.text));
-        this.applyTokens(targets, parsed);
+        const parsed = await this.dependencies.parseJapanese(targets.map((target) => target.text), scanParseOptions());
+        await this.applyTokens(targets, parsed);
         this.preloadParsed(parsed);
       } catch {
       }
@@ -41145,19 +35749,32 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         this.handleEmptyVisiblePageScan(silent);
         return;
       }
-      const parsed = await this.dependencies.parseJapanese(targets.map((target) => target.text));
-      this.applyTokens(targets, parsed);
-      this.preloadParsed(parsed);
+      await this.parseAndApplyTargets(targets);
     }
-    applyTokens(targets, parsed) {
-      this.dependencies.pauseMutationObserver(() => {
-        targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.dependencies.getSettings()));
-      });
+    async parseAndApplyTargets(targets) {
+      for (let index = 0; index < targets.length; index += VISIBLE_SCAN_PARSE_BATCH_SIZE) {
+        const batch = targets.slice(index, index + VISIBLE_SCAN_PARSE_BATCH_SIZE);
+        const parsed = await this.dependencies.parseJapanese(batch.map((target) => target.text), scanParseOptions());
+        await this.applyTokens(batch, parsed);
+        this.preloadParsed(parsed);
+        if (index + VISIBLE_SCAN_PARSE_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
+      }
+    }
+    async applyTokens(targets, parsed) {
+      for (let index = 0; index < targets.length; index += VISIBLE_SCAN_APPLY_BATCH_SIZE) {
+        const start = index;
+        const batch = targets.slice(start, start + VISIBLE_SCAN_APPLY_BATCH_SIZE);
+        this.dependencies.pauseMutationObserver(() => {
+          batch.forEach((target, offset) => applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings()));
+        });
+        if (index + VISIBLE_SCAN_APPLY_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
+      }
     }
     preloadParsed(parsed) {
       const tokens = parsed.flat();
       this.dependencies.preloadParsedTokens(tokens);
       this.dependencies.preloadImmersionTokens(tokens);
+      void this.dependencies.enrichPitchWords(tokens);
       void this.dependencies.enrichAnkiWords(tokens);
     }
     handleEmptyVisiblePageScan(silent) {
@@ -41170,6 +35787,15 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     finishScan() {
       this.scanInFlight = false;
     }
+  }
+  function waitForVisibleScanTurn() {
+    return new Promise((resolve) => window.setTimeout(resolve, 0));
+  }
+  function scanParseOptions() {
+    return {
+      jpdbTimeoutMs: VISIBLE_SCAN_PARSE_TIMEOUT_MS,
+      includeLocalPitch: false
+    };
   }
   function renderWordPills(options) {
     const context = wordPillContext(options.card, options.overrideQuery);
@@ -41200,9 +35826,235 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       sid: String(Math.max(0, card.sid))
     };
   }
+  const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
+  const VIDEO_CARD_SELECTOR = [
+    "ytd-rich-item-renderer",
+    "ytd-rich-grid-media",
+    "ytd-rich-shelf-renderer",
+    "ytd-video-renderer",
+    "ytd-compact-video-renderer",
+    "ytd-compact-radio-renderer",
+    "ytd-compact-playlist-renderer",
+    "ytd-grid-video-renderer",
+    "ytd-reel-item-renderer",
+    "ytd-reel-video-renderer",
+    "ytd-playlist-renderer",
+    "ytd-radio-renderer",
+    "ytd-shelf-renderer",
+    "yt-lockup-view-model",
+    "ytm-rich-item-renderer",
+    "ytm-compact-video-renderer",
+    "ytm-video-card-renderer",
+    "ytm-shorts-lockup-view-model"
+  ].join(",");
+  const VIDEO_CARD_CLOSEST_SELECTOR = VIDEO_CARD_SELECTOR;
+  const TITLE_SELECTOR = [
+    "#video-title",
+    "a#video-title",
+    "yt-formatted-string#video-title",
+    "h3 a",
+    "h3",
+    ".yt-lockup-metadata-view-model-wiz__title",
+    ".media-item-headline",
+    'a[href*="/watch"]',
+    'a[href*="/shorts"]'
+  ].join(",");
+  const JAPANESE_CHAR_RE = /[\u3040-\u30ff\u3400-\u9fff]/g;
+  const KANA_RE = /[\u3040-\u30ff]/g;
+  const LATIN_WORD_RE = /[a-z]{3,}/gi;
+  function isYouTubeHost(hostname = location.hostname) {
+    return YOUTUBE_HOST_RE.test(hostname);
+  }
+  function isProbablyJapaneseYouTubeText(text2) {
+    const compact = text2.replace(/\s+/g, " ").trim();
+    if (!HAS_JAPANESE$1.test(compact)) return false;
+    const japaneseChars = compact.match(JAPANESE_CHAR_RE)?.length ?? 0;
+    const kanaChars = compact.match(KANA_RE)?.length ?? 0;
+    const latinWords = compact.match(LATIN_WORD_RE)?.length ?? 0;
+    if (kanaChars >= 2) return true;
+    if (japaneseChars >= 4) return true;
+    return japaneseChars >= 2 && latinWords <= 2;
+  }
+  function collectYouTubeVideoCards(root = document) {
+    const cards = /* @__PURE__ */ new Set();
+    root.querySelectorAll(VIDEO_CARD_SELECTOR).forEach((card) => {
+      if (!card.closest("[data-jpdb-reader-root]")) cards.add(card);
+    });
+    root.querySelectorAll('a[href*="/watch?v="], a[href^="/shorts/"], a[href*="youtube.com/shorts/"]').forEach((link) => {
+      const card = link.closest(VIDEO_CARD_CLOSEST_SELECTOR) ?? link.parentElement;
+      if (card && !card.closest("[data-jpdb-reader-root]")) cards.add(card);
+    });
+    return [...cards].filter((card) => card.isConnected);
+  }
+  function readYouTubeCardText(card) {
+    const title = card.querySelector(TITLE_SELECTOR);
+    const titleText = [
+      title?.getAttribute("title"),
+      title?.getAttribute("aria-label"),
+      title?.textContent
+    ].find((value) => value?.trim()) ?? "";
+    return titleText.trim() || card.textContent?.trim() || "";
+  }
+  class YoutubeImmersionFilter {
+    constructor(options) {
+      this.options = options;
+    }
+    observer;
+    events;
+    timer;
+    bar;
+    revealed = false;
+    init() {
+      this.destroy();
+      if (!this.isActivePage() || !document.body) return;
+      if (!this.options.getSettings().youtubeImmersionEnabled) return;
+      this.startWatching();
+      this.schedule(300);
+    }
+    startWatching() {
+      if (this.observer || !document.body) return;
+      this.events = new AbortController();
+      this.observer = new MutationObserver((mutations) => {
+        if (mutations.every(mutationInsideReaderRoot)) return;
+        this.schedule(350);
+      });
+      this.observer.observe(document.body, { childList: true, subtree: true });
+      window.addEventListener("yt-navigate-finish", () => this.schedule(120), { signal: this.events.signal });
+      window.addEventListener("popstate", () => this.schedule(120), { signal: this.events.signal });
+    }
+    refresh() {
+      if (!this.isActivePage()) {
+        this.destroy();
+        return;
+      }
+      if (!this.options.getSettings().youtubeImmersionEnabled) {
+        this.stopWatching();
+        this.clear();
+        return;
+      }
+      this.startWatching();
+      this.schedule(0);
+    }
+    destroy() {
+      this.stopWatching();
+      this.clear();
+    }
+    stopWatching() {
+      this.events?.abort();
+      this.events = void 0;
+      this.observer?.disconnect();
+      this.observer = void 0;
+    }
+    isActivePage() {
+      return this.options.isActivePage?.() ?? isYouTubeHost();
+    }
+    schedule(delay2) {
+      window.clearTimeout(this.timer);
+      this.timer = window.setTimeout(() => this.scan(), delay2);
+    }
+    scan() {
+      const settings = this.options.getSettings();
+      if (!settings.youtubeImmersionEnabled) {
+        this.clear();
+        return;
+      }
+      let filteredCount = 0;
+      let shownCount = 0;
+      for (const card of collectYouTubeVideoCards()) {
+        const text2 = readYouTubeCardText(card);
+        if (!text2) continue;
+        const isJapanese = isProbablyJapaneseYouTubeText(text2);
+        if (!isJapanese) filteredCount += 1;
+        if (isJapanese || this.revealed) {
+          this.showCard(card);
+          shownCount += 1;
+        } else {
+          this.hideCard(card);
+        }
+      }
+      if (settings.youtubeShowFilterNotice) {
+        this.renderNotice(filteredCount, shownCount, settings);
+      } else {
+        this.bar?.remove();
+        this.bar = void 0;
+      }
+    }
+    hideCard(card) {
+      card.classList.add("jpdb-youtube-filtered");
+      card.dataset.yomuYoutubeFiltered = "true";
+    }
+    showCard(card) {
+      card.classList.remove("jpdb-youtube-filtered");
+      delete card.dataset.yomuYoutubeFiltered;
+    }
+    renderNotice(filteredCount, shownCount, settings) {
+      if (!filteredCount) {
+        this.bar?.remove();
+        this.bar = void 0;
+        return;
+      }
+      if (!this.bar) {
+        this.bar = document.createElement("div");
+        this.bar.className = "jpdb-youtube-filter-bar";
+        this.bar.dataset.jpdbReaderRoot = "true";
+        const label = document.createElement("span");
+        label.dataset.role = "summary";
+        const actions = document.createElement("div");
+        actions.className = "jpdb-youtube-filter-actions";
+        const showAnyway2 = document.createElement("button");
+        showAnyway2.type = "button";
+        showAnyway2.dataset.action = "show-anyway";
+        const turnOff2 = document.createElement("button");
+        turnOff2.type = "button";
+        turnOff2.dataset.action = "turn-off";
+        actions.append(showAnyway2, turnOff2);
+        this.bar.addEventListener("click", (event) => {
+          const action = event.target.closest("[data-action]")?.dataset.action;
+          if (action === "show-anyway") {
+            this.revealed = !this.revealed;
+            this.schedule(0);
+          }
+          if (action === "turn-off") {
+            this.options.setEnabled?.(false);
+            if (!this.options.setEnabled) this.clear();
+          }
+        });
+        this.bar.append(label, actions);
+        document.body.append(this.bar);
+      }
+      const summary = this.bar.querySelector('[data-role="summary"]');
+      const showAnyway = this.bar.querySelector('[data-action="show-anyway"]');
+      const turnOff = this.bar.querySelector('[data-action="turn-off"]');
+      if (summary) {
+        summary.textContent = this.revealed ? `${APP_NAME} is showing ${filteredCount} hidden YouTube item${filteredCount === 1 ? "" : "s"}` : `${APP_NAME} hid ${filteredCount} non-Japanese-looking YouTube item${filteredCount === 1 ? "" : "s"}`;
+        summary.title = shownCount ? `${shownCount} Japanese-looking items stayed visible.` : "";
+      }
+      if (showAnyway) showAnyway.textContent = this.revealed ? uiText(settings.interfaceLanguage, "youtubeFilterAgain") : uiText(settings.interfaceLanguage, "youtubeShowAnyway");
+      if (turnOff) turnOff.textContent = uiText(settings.interfaceLanguage, "youtubeTurnOff");
+    }
+    clear() {
+      window.clearTimeout(this.timer);
+      this.timer = void 0;
+      this.revealed = false;
+      document.querySelectorAll('[data-yomu-youtube-filtered="true"], .jpdb-youtube-filtered').forEach((card) => this.showCard(card));
+      this.bar?.remove();
+      this.bar = void 0;
+    }
+  }
+  function mutationInsideReaderRoot(mutation) {
+    const nodes = [mutation.target, ...Array.from(mutation.addedNodes)];
+    return nodes.every((node) => {
+      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return Boolean(element2?.closest?.("[data-jpdb-reader-root]"));
+    });
+  }
   const log$1 = Logger.scope("ReaderApp");
   const TERM_AUDIO_PRELOAD_LIMIT = 8;
   const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 6;
+  const PRELOADED_TERM_AUDIO_KEY_LIMIT = 500;
+  const ANKI_ENRICHMENT_LIMIT = 16;
+  const PITCH_ENRICHMENT_LIMIT = 12;
+  const BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
   const TWO_BUTTON_REVIEW_SHORTCUTS = [
     ["gradeFail", "fail"],
     ["gradePass", "pass"]
@@ -41356,8 +36208,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     studySources = new StudySourceController({
       getSettings: () => this.settings,
       dictionarySourceAttributes: (key) => this.dictionarySourceState.attributes(key),
-      parseJapanese: (paragraphs) => this.parseJapanese(paragraphs),
+      parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
       parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
+      enrichPitchWords: (tokens) => this.enrichPitchWords(tokens),
       enrichAnkiWords: (tokens) => this.enrichAnkiWords(tokens),
       isCurrentPopoverRoot: (root) => this.isCurrentPopoverRoot(root)
     });
@@ -41385,9 +36238,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       getSettings: () => this.settings,
       client: this.immersionKit,
       audio: this.audio,
-      parseJapanese: (paragraphs) => this.parseJapanese(paragraphs),
+      parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
       canParseJapanese: () => this.canParseJapanese(),
       parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
+      enrichPitchWords: (tokens) => this.enrichPitchWords(tokens),
       enrichAnkiWords: (tokens) => this.enrichAnkiWords(tokens),
       repositionPopover: () => this.repositionActivePopover(),
       setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
@@ -41418,6 +36272,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     subtitles = new SubtitlePlayerController({
       getSettings: () => this.settings,
       parseJapanese: async (text2) => (await this.parseJapanese([text2]))[0] ?? [],
+      parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
       onSettingsChange: () => void saveSettings(this.settings)
     });
     ocr = new ImageOcrController({
@@ -41427,12 +36282,17 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       onToast: (message) => this.toast(message),
       shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeStandaloneImagePage()
     });
+    youtube = new YoutubeImmersionFilter({
+      getSettings: () => this.settings,
+      setEnabled: (enabled) => void this.setYoutubeImmersionEnabled(enabled)
+    });
     pageScanner = new VisiblePageScanner({
       getSettings: () => this.settings,
-      parseJapanese: (paragraphs) => this.parseJapanese(paragraphs),
+      parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
       pauseMutationObserver: (callback) => this.pauseAutoScanObserver(callback),
       preloadParsedTokens: (tokens) => this.preloadTermAudioForTokens(tokens),
       preloadImmersionTokens: (tokens) => this.immersionPopover.preloadForTokens(tokens),
+      enrichPitchWords: (tokens) => this.enrichPitchWords(tokens),
       enrichAnkiWords: (tokens) => this.enrichAnkiWords(tokens),
       toast: (message) => this.toast(message)
     });
@@ -41535,6 +36395,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       this.installFab();
       this.subtitles.init();
       this.ocr.init();
+      this.youtube.init();
       this.setupAutoScan();
       if (shouldShowWelcome && !isYomuHostedAppUrl(location.href)) await this.onboarding.showIfNeeded();
       if (this.shouldScanInitialPage()) void this.pageScanner.scanVisiblePage({ silent: true });
@@ -41547,6 +36408,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         GM_registerMenuCommand(`${APP_NAME} settings`, () => this.showSettings());
         GM_registerMenuCommand(`${APP_NAME} open new tab`, () => this.openNewTabPage());
         GM_registerMenuCommand(`${APP_NAME} open video player`, () => this.openVideoPlayer());
+        GM_registerMenuCommand(`${APP_NAME} toggle YouTube filter`, () => void this.toggleYoutubeImmersion());
         GM_registerMenuCommand(`${APP_NAME} toggle puck`, () => {
           this.settings.showFloatingButton = !this.settings.showFloatingButton;
           void saveSettings(this.settings).then(() => this.installFab());
@@ -41565,6 +36427,16 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       if (opened) opened.opener = null;
       if (!opened) location.href = VIDEO_PLAYER_PAGE_URL;
       log$1.info("Video player page opened", { url: VIDEO_PLAYER_PAGE_URL });
+    }
+    async toggleYoutubeImmersion() {
+      await this.setYoutubeImmersionEnabled(!this.settings.youtubeImmersionEnabled);
+    }
+    async setYoutubeImmersionEnabled(enabled) {
+      this.settings.youtubeImmersionEnabled = enabled;
+      await saveSettings(this.settings);
+      this.youtube.refresh();
+      log$1.info("YouTube immersion filter toggled", { enabled });
+      this.toast(uiText(this.settings.interfaceLanguage, enabled ? "youtubeToggleToastOn" : "youtubeToggleToastOff"));
     }
     async invalidateRuntimeStoresForFactoryReset() {
       this.dismiss({ suppressHoverTarget: false });
@@ -41635,6 +36507,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       this.abortController.abort();
       this.autoScanObserver?.disconnect();
       this.subtitles.destroy();
+      this.youtube.destroy();
       window.clearTimeout(this.autoScanTimer);
       window.clearTimeout(this.asbScanTimer);
       window.clearTimeout(this.selectionTimer);
@@ -41665,7 +36538,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       this.autoScanObserver?.disconnect();
       this.autoScanObserver = new MutationObserver((mutations) => {
         if (mutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
-        else if (mutations.every(mutationInsideReaderRoot$1)) return;
+        else if (mutations.every(mutationInsideReaderRoot$2)) return;
         else if (mutations.some(mutationMayContainJapaneseText)) {
           this.pageHasJapaneseText = true;
           this.scheduleAutoScan(450);
@@ -41844,6 +36717,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
           this.ocr.refresh();
           log$1.info("Shortcut toggled OCR", { enabled: this.settings.ocrEnabled });
           this.toast(uiText(this.settings.interfaceLanguage, this.settings.ocrEnabled ? "imageReadingEnabled" : "imageReadingHidden"));
+          return;
+        }
+        if (matchesShortcut(event, this.settings.shortcuts.toggleYoutubeImmersion)) {
+          event.preventDefault();
+          void this.toggleYoutubeImmersion();
           return;
         }
         if (matchesShortcut(event, this.settings.shortcuts.scanImages)) {
@@ -42058,7 +36936,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     }
     preloadHoverWordAudio(word) {
       this.preloadReaderWordAudio(word, { sourceLimit: 2, candidateLimit: 1 });
-      this.preloadNearbyReaderWordAudio(word);
+      if (this.canPreloadBackgroundReaderAudio()) this.preloadNearbyReaderWordAudio(word);
     }
     preloadReaderWordAudio(word, options = {}) {
       if (!this.canPreloadReaderAudio()) return false;
@@ -42069,12 +36947,15 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       return true;
     }
     canPreloadReaderAudio() {
+      return this.settings.audioEnabled;
+    }
+    canPreloadBackgroundReaderAudio() {
       return this.settings.audioEnabled && this.settings.autoPlayAudio;
     }
     reservePreloadedTermAudio(card) {
       const key = cardKey$1(card);
       if (this.preloadedTermAudioKeys.has(key)) return false;
-      this.preloadedTermAudioKeys.add(key);
+      this.rememberPreloadedTermAudioKey(key);
       return true;
     }
     preloadableReaderWordCard(word) {
@@ -43000,8 +37881,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       });
     }
     maybePreloadLookupCardAudio(card, options) {
-      if (options.autoPlay === false || !this.canPreloadReaderAudio()) return;
-      this.audio.preload(card, { sourceLimit: 3, candidateLimit: 1 });
+      if (!this.canPreloadReaderAudio()) return;
+      this.audio.preload(card, {
+        sourceLimit: options.autoPlay === false || !this.settings.autoPlayAudio ? 1 : 3,
+        candidateLimit: 1
+      });
     }
     shouldAutoPlayInitialCard(card, context) {
       return context.options.autoPlay !== false && this.isCurrentCardForAutoPlay(context) && this.shouldAutoPlay(card, context.trigger, Boolean(context.options.userGesture));
@@ -43691,6 +38575,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     afterNestedJapaneseParsed(parsed) {
       const tokens = parsed.flat();
       this.preloadTermAudioForTokens(tokens);
+      void this.enrichPitchWords(tokens);
       void this.enrichAnkiWords(tokens);
     }
     isCurrentPopoverRoot(root) {
@@ -43704,14 +38589,32 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
-      }).slice(0, 16);
-      for (const token of uniqueTokens) {
+      }).slice(0, ANKI_ENRICHMENT_LIMIT);
+      await runLimited(uniqueTokens, BACKGROUND_ENRICHMENT_CONCURRENCY, async (token) => {
         const lookup = await this.anki.findExistingCards(token.card);
         this.applyAnkiLookupToRenderedWords(token.card, lookup);
-      }
+      });
+    }
+    async enrichPitchWords(tokens) {
+      if (!this.settings.showPitchAccent) return;
+      const seen = /* @__PURE__ */ new Set();
+      const uniqueTokens = tokens.filter((token) => {
+        if (token.card.pitchAccent.length) return false;
+        if (!token.card.spelling.trim()) return false;
+        const key = cardKey$1(token.card);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, PITCH_ENRICHMENT_LIMIT);
+      await runLimited(uniqueTokens, BACKGROUND_ENRICHMENT_CONCURRENCY, async (token) => {
+        const pitchAccent = await this.jpdbPublicPitch.lookup(token.card.spelling, token.card.reading).catch(() => []);
+        if (!pitchAccent.length) return;
+        if (!token.card.pitchAccent.length) token.card.pitchAccent = pitchAccent;
+        this.applyPitchAccentToRenderedWords(token.card);
+      });
     }
     preloadTermAudioForTokens(tokens) {
-      if (!this.canPreloadReaderAudio()) return;
+      if (!this.canPreloadBackgroundReaderAudio()) return;
       this.queueTermAudioPreloads(tokens);
     }
     queueTermAudioPreloads(tokens) {
@@ -43726,9 +38629,17 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
       if (!isUsefulImmersionPreloadQuery(token.card.spelling)) return false;
       const key = cardKey$1(token.card);
       if (this.preloadedTermAudioKeys.has(key)) return false;
-      this.preloadedTermAudioKeys.add(key);
+      this.rememberPreloadedTermAudioKey(key);
       this.audio.preload(token.card, { sourceLimit: 1, candidateLimit: 1 });
       return true;
+    }
+    rememberPreloadedTermAudioKey(key) {
+      this.preloadedTermAudioKeys.add(key);
+      while (this.preloadedTermAudioKeys.size > PRELOADED_TERM_AUDIO_KEY_LIMIT) {
+        const oldest = this.preloadedTermAudioKeys.values().next().value;
+        if (typeof oldest !== "string") break;
+        this.preloadedTermAudioKeys.delete(oldest);
+      }
     }
     dictionaryLabel(name) {
       return this.settings.dictionaryPreferences.find((item) => item.name === name)?.alias || name;
@@ -43750,6 +38661,16 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         word.dataset.ankiState = ankiLookup.state;
         word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(", ") ?? "";
         word.title = `Anki: ${cardStateLabel(ankiLookup.state, this.settings.interfaceLanguage)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ""}`;
+      });
+    }
+    applyPitchAccentToRenderedWords(card) {
+      const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling);
+      if (!pitchClass) return;
+      const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
+      document.querySelectorAll(selector).forEach((word) => {
+        Array.from(word.classList).filter((className) => className.startsWith("jpdb-pitch-")).forEach((className) => word.classList.remove(className));
+        word.classList.add(`jpdb-pitch-${pitchClass}`);
+        word.dataset.pitchClass = pitchClass;
       });
     }
     async handleCardAction(button2, card, sentence) {
@@ -43810,6 +38731,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
         audio: this.audio,
         subtitles: this.subtitles,
         ocr: this.ocr,
+        youtube: this.youtube,
         createBackdrop: () => createReaderBackdrop(() => this.dismiss()),
         mountDialog: (backdrop, form) => this.mountSettingsDialog(backdrop, form),
         dismiss: () => this.dismiss(),

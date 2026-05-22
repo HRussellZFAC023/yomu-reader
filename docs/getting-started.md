@@ -36,8 +36,7 @@ A userscript is a small helper that a browser extension runs for you. You instal
   </div>
 </div>
 
-Chrome, Firefox, and Safari extension packages are available for local testing and store submission. For normal installation today, use the userscript.
-Store listings are not live yet, so beginners should ignore extension-package instructions unless they are testing the extension packages.
+Browser store installs are coming soon. For normal installation today, use the userscript.
 
 ## 2. Install a Userscript Manager
 
@@ -61,7 +60,7 @@ For the free route, install Userscripts, open the app once, choose a folder when
 
 ## 3. Install よむ
 
-Until the GreasyFork page is live, install from the built file on GitHub:
+Install from the current userscript file on GitHub:
 
 [Install よむ userscript](https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js)
 
@@ -118,4 +117,4 @@ After setup, go to Settings > Dictionaries and use Export settings JSON. This gi
 
 ## If Something Does Not Work
 
-The most common fixes are enabling the userscript manager for the current site, refreshing the page after changing settings, checking that a JPDB key was pasted correctly, and remembering that `localhost` on an iPhone means the iPhone itself rather than your desktop computer. If the install link or hosted tools are down, check [Support](/support) for the current project links and issue tracker.
+The most common fixes are enabling the userscript manager for the current site, refreshing the page after changing settings, checking that a JPDB key was pasted correctly, and remembering that `localhost` on an iPhone means the iPhone itself rather than your desktop computer. If the install link or hosted tools are down, check [Support](/support) for reinstall, Discord, and issue-report options.

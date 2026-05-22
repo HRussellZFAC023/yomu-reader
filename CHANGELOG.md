@@ -1,12 +1,19 @@
 # Changelog
 
-All notable user-facing changes should be recorded here. The documentation site includes this file directly, so updating this changelog also updates the website.
+## [0.4.25] - 2026-05-22
 
-Releases: https://github.com/HRussellZFAC023/yomu-reader/releases
+### Changed
 
-Raw userscript install/update URL: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
+- Made popup, subtitle, YouTube, and hosted new-tab work prioritize the current word more aggressively while moving background parsing, card data, grammar, translation, audio, and Immersion Kit preloads onto shorter waits and bounded caches.
+- Batched visible-page DOM updates and transcript hydration work so long pages and YouTube transcripts stay responsive on iPhone-class devices.
+- Added outbound-link icons to hosted Settings help links so external destinations match the Video Player affordance.
 
-## [Unreleased]
+### Fixed
+
+- Prevented disabled YouTube filtering from attaching observers or scanning video cards until the filter is enabled.
+- Kept subtitle transcript cue parsing from dropping rows that were already pending in another hydration batch.
+- Reused fallback Japanese word segmentation and cleared in-flight JPDB parses on reset to avoid stale parser work.
+- Stopped userscript HTTP timeouts from starting a second fetch fallback, avoiding extra waits on slow requests.
 
 ## [0.4.24] - 2026-05-21
 

@@ -42,6 +42,26 @@ interface AudioSourcePlayResult {
     errors: string[];
 }
 
+interface PreparedAudioCandidate {
+    audio: HTMLAudioElement;
+    candidate: AudioCandidate;
+    id: string;
+    bagKey: string;
+    sourceType: AudioSourceType;
+}
+
+interface AudioSourcePrepareResult {
+    state: 'ready' | 'miss' | 'superseded';
+    prepared?: PreparedAudioCandidate;
+}
+
+type PendingAudioSourcePreparation = Promise<CompletedAudioSourcePreparation>;
+
+interface CompletedAudioSourcePreparation {
+    promise: PendingAudioSourcePreparation;
+    result: AudioSourcePrepareResult;
+}
+
 interface AudioPlaybackRequest {
     requestId: number;
     isCurrent: () => boolean;
@@ -68,6 +88,9 @@ const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be
 const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1000;
 const AUDIO_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1000;
+const AUDIO_CANDIDATE_CACHE_LIMIT = 600;
+const READY_AUDIO_CACHE_LIMIT = 160;
+const AUDIO_SOURCE_RACE_STAGGER_MS = 120;
 const LOOPBACK_AUDIO_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const SOFT_CHIME_NOTES: SoftChimeNote[] = [
     { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
@@ -176,7 +199,7 @@ export class AudioPlayer {
         }
 
         const realAudioSources = sources.filter(source => !isTtsFallbackSource(source));
-        const realAudioResult = await this.playOrderedSources(orderAudioSources(realAudioSources, settings.audioSelectionMode), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+        const realAudioResult = await this.playGreedyAudioSources(orderAudioSources(realAudioSources, settings.audioSelectionMode), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
         if (realAudioResult !== 'miss') return { state: realAudioResult, errors };
 
         const textToSpeechResult = await this.playOrderedSources(sources.filter(isBrowserTextToSpeechSource), card, settings, requestId, triedUrls, isCurrent, errors);
@@ -201,6 +224,119 @@ export class AudioPlayer {
             if (result !== 'miss') return result;
         }
         return 'miss';
+    }
+
+    private async playGreedyAudioSources(
+        sources: AudioSourceSetting[],
+        card: JPDBCard,
+        settings: ReaderSettings,
+        requestId: number,
+        triedUrls: Set<string>,
+        isCurrent: () => boolean,
+        errors: string[],
+        reservedAudio?: HTMLAudioElement,
+    ): Promise<AudioSourcePlayResult['state']> {
+        if (sources.length <= 1) {
+            return await this.playOrderedSources(sources, card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+        }
+
+        const pending = new Set<PendingAudioSourcePreparation>();
+        let nextSourceIndex = 0;
+        const startNextSource = () => {
+            const source = sources[nextSourceIndex++];
+            if (source) pending.add(this.prepareSourceWithErrors(source, card, settings, requestId, triedUrls, isCurrent, errors));
+        };
+
+        while (pending.size || nextSourceIndex < sources.length) {
+            if (!pending.size) {
+                startNextSource();
+                continue;
+            }
+
+            const current = nextSourceIndex < sources.length
+                ? await Promise.race([
+                    ...pending,
+                    delayAudioSourceRace(AUDIO_SOURCE_RACE_STAGGER_MS),
+                ])
+                : await Promise.race(pending);
+            if (!current) {
+                startNextSource();
+                continue;
+            }
+            pending.delete(current.promise);
+            if (current.result.state === 'superseded') return 'superseded';
+            if (current.result.state !== 'ready' || !current.result.prepared) continue;
+
+            const result = await this.playPreparedCandidate(current.result.prepared, settings, requestId, isCurrent, reservedAudio)
+                .catch(error => {
+                    errors.push(error instanceof Error ? error.message : String(error));
+                    return error instanceof AudioPlaybackAttemptError ? 'playback-error' as const : 'miss' as const;
+                });
+            if (result !== 'miss') return result;
+        }
+        return 'miss';
+    }
+
+    private prepareSourceWithErrors(
+        source: AudioSourceSetting,
+        card: JPDBCard,
+        settings: ReaderSettings,
+        requestId: number,
+        triedUrls: Set<string>,
+        isCurrent: () => boolean,
+        errors: string[],
+    ): PendingAudioSourcePreparation {
+        let promise!: PendingAudioSourcePreparation;
+        promise = this.prepareSource(source, card, settings, requestId, triedUrls, isCurrent)
+            .catch(error => {
+                errors.push(error instanceof Error ? error.message : String(error));
+                return { state: 'miss' as const };
+            })
+            .then(result => ({ promise, result }));
+        return promise;
+    }
+
+    private async prepareSource(
+        source: AudioSourceSetting,
+        card: JPDBCard,
+        settings: ReaderSettings,
+        requestId: number,
+        triedUrls: Set<string>,
+        isCurrent: () => boolean,
+    ): Promise<AudioSourcePrepareResult> {
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: 'superseded' };
+        const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: 'superseded' };
+        const bagKey = getAudioBagKey(source, card);
+        for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
+            if (!registerAudioAttempt(triedUrls, candidate)) continue;
+            const audio = await Promise.resolve(this.createPlayableAudio(candidate, source.type, settings)).catch(() => null);
+            if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: 'superseded' };
+            if (audio) return { state: 'ready', prepared: { audio, candidate, id, bagKey, sourceType: source.type } };
+        }
+        return { state: 'miss' };
+    }
+
+    private async playPreparedCandidate(
+        prepared: PreparedAudioCandidate,
+        settings: ReaderSettings,
+        requestId: number,
+        isCurrent: () => boolean,
+        reservedAudio?: HTMLAudioElement,
+    ): Promise<AudioSourcePlayResult['state']> {
+        let played = false;
+        try {
+            const audio = reservedAudio
+                ? await this.createPlayableAudio(prepared.candidate, prepared.sourceType, settings, reservedAudio)
+                : prepared.audio;
+            played = await this.playPreparedAudio(audio, requestId, isCurrent);
+        } catch (error) {
+            throw new AudioPlaybackAttemptError(error);
+        }
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return 'superseded';
+        if (!played) return 'miss';
+        this.shuffledAudio.markPlayed(prepared.bagKey, prepared.id);
+        return 'played';
     }
 
     private async playSourceWithErrors(
@@ -460,6 +596,7 @@ export class AudioPlayer {
                 throw error;
             });
         this.readyAudioCache.set(key, { expiresAt: now + READY_AUDIO_CACHE_TTL_MS, promise });
+        pruneTimedCache(this.readyAudioCache, READY_AUDIO_CACHE_LIMIT, now);
         return promise;
     }
 
@@ -516,6 +653,7 @@ export class AudioPlayer {
                 throw error;
             });
         this.candidateCache.set(key, { expiresAt: now + AUDIO_CANDIDATE_CACHE_TTL_MS, promise });
+        pruneTimedCache(this.candidateCache, AUDIO_CANDIDATE_CACHE_LIMIT, now);
         return promise.then(cloneAudioCandidates);
     }
 
@@ -941,6 +1079,21 @@ function audioPreloadLimits(options: AudioPreloadOptions): AudioPreloadLimits {
         sourceLimit: Math.max(1, options.sourceLimit ?? 1),
         candidateLimit: Math.max(1, options.candidateLimit ?? 1),
     };
+}
+
+function delayAudioSourceRace(ms: number): Promise<null> {
+    return new Promise(resolve => window.setTimeout(() => resolve(null), ms));
+}
+
+function pruneTimedCache<T>(cache: Map<string, { expiresAt: number; promise: Promise<T> }>, limit: number, now = Date.now()): void {
+    for (const [key, entry] of cache) {
+        if (entry.expiresAt <= now) cache.delete(key);
+    }
+    while (cache.size > limit) {
+        const oldest = cache.keys().next().value;
+        if (typeof oldest !== 'string') break;
+        cache.delete(oldest);
+    }
 }
 
 async function getAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<AudioCandidate[]> {

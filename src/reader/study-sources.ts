@@ -4,26 +4,43 @@ import { uiText } from './i18n';
 import { Logger } from './logger';
 import { speakerIcon } from './popup-render';
 import { definitionSourceStateKey } from './definition-source-render';
-import { detectGrammarHints as detectLocalGrammarHints, renderGrammarHints, translateJapaneseSentence, type GrammarHint } from './study-tools';
+import {
+    detectGrammarHints as detectLocalGrammarHints,
+    preloadGrammarResources,
+    preloadJapaneseSentenceTranslation,
+    renderGrammarHints,
+    translateJapaneseSentence,
+    type GrammarHint,
+} from './study-tools';
 import type { JPDBToken, ReaderSettings } from './types';
 
 const log = Logger.scope('StudySources');
+const STUDY_GRAMMAR_CACHE_LIMIT = 160;
+const STUDY_TRANSLATION_CACHE_LIMIT = 80;
 
 interface StudyTranslationResult {
     tokens: JPDBToken[];
     translated: string;
 }
 
+interface StudyParseOptions {
+    jpdbTimeoutMs?: number;
+}
+
 export interface StudySourceControllerDependencies {
     getSettings: () => ReaderSettings;
     dictionarySourceAttributes: (sourceStateKey: string) => string;
-    parseJapanese: (paragraphs: string[]) => Promise<JPDBToken[][]>;
+    parseJapanese: (paragraphs: string[], options?: StudyParseOptions) => Promise<JPDBToken[][]>;
     parsePopoverJapanese: (popover: HTMLElement) => Promise<void> | void;
+    enrichPitchWords: (tokens: JPDBToken[]) => Promise<void> | void;
     enrichAnkiWords: (tokens: JPDBToken[]) => Promise<void> | void;
     isCurrentPopoverRoot: (root: HTMLElement) => boolean;
 }
 
 export class StudySourceController {
+    private grammarHintCache = new Map<string, Promise<GrammarHint[]>>();
+    private translationContentCache = new Map<string, Promise<StudyTranslationResult>>();
+
     constructor(private readonly dependencies: StudySourceControllerDependencies) {}
 
     renderTranslationSource(sentence?: string): string {
@@ -49,12 +66,26 @@ export class StudySourceController {
     }
 
     installLoaders(popover: HTMLElement, sentence?: string): void {
+        this.preloadStudySources(sentence);
         this.installTranslationLoader(popover, sentence);
         this.installGrammarLoader(popover, sentence);
     }
 
     async detectGrammarHints(sentence: string): Promise<GrammarHint[]> {
         return detectLocalGrammarHints(sentence);
+    }
+
+    private preloadStudySources(sentence?: string): void {
+        if (!sentence) return;
+        const settings = this.settings();
+        if (settings.studyGrammarEnabled) {
+            void this.cachedGrammarHints(sentence);
+            preloadGrammarResources(sentence, settings.interfaceLanguage);
+        }
+        if (settings.studyTranslationEnabled) {
+            preloadJapaneseSentenceTranslation(sentence, settings.interfaceLanguage);
+            void this.cachedTranslationContent(sentence);
+        }
     }
 
     private renderTranslationPanel(sentence: string): string {
@@ -109,7 +140,7 @@ export class StudySourceController {
         const panel = container.querySelector<HTMLElement>('[data-study-grammar-panel]');
         if (!panel) return;
         try {
-            const hints = await this.detectGrammarHints(sentence);
+            const hints = await this.cachedGrammarHints(sentence);
             if (!this.canRenderGrammar(popover, container)) return;
             if (!hints.length) {
                 container.remove();
@@ -152,7 +183,7 @@ export class StudySourceController {
     private async loadTranslation(popover: HTMLElement, sentence: string | undefined, container: HTMLElement): Promise<void> {
         if (!sentence) return;
         try {
-            const translation = await this.loadTranslationContent(sentence);
+            const translation = await this.cachedTranslationContent(sentence);
             if (!this.canApplyTranslation(popover, container)) return;
             this.applyTranslation(popover, sentence, container, translation);
         } catch (error) {
@@ -166,10 +197,37 @@ export class StudySourceController {
 
     private async loadTranslationContent(sentence: string): Promise<StudyTranslationResult> {
         const [tokens, translated] = await Promise.all([
-            this.dependencies.parseJapanese([sentence]).then(([parsed]) => parsed ?? []),
+            this.dependencies.parseJapanese([sentence], { jpdbTimeoutMs: 1_200 }).then(([parsed]) => parsed ?? []),
             translateJapaneseSentence(sentence, this.settings().interfaceLanguage),
         ]);
         return { tokens, translated };
+    }
+
+    private cachedGrammarHints(sentence: string): Promise<GrammarHint[]> {
+        const key = this.studyCacheKey(sentence);
+        const cached = this.grammarHintCache.get(key);
+        if (cached) return cached;
+        const promise = Promise.resolve(detectLocalGrammarHints(sentence));
+        this.grammarHintCache.set(key, promise);
+        pruneOldestMapEntries(this.grammarHintCache, STUDY_GRAMMAR_CACHE_LIMIT);
+        return promise;
+    }
+
+    private cachedTranslationContent(sentence: string): Promise<StudyTranslationResult> {
+        const key = this.studyCacheKey(sentence);
+        const cached = this.translationContentCache.get(key);
+        if (cached) return cached;
+        const promise = this.loadTranslationContent(sentence).catch(error => {
+            if (this.translationContentCache.get(key) === promise) this.translationContentCache.delete(key);
+            throw error;
+        });
+        this.translationContentCache.set(key, promise);
+        pruneOldestMapEntries(this.translationContentCache, STUDY_TRANSLATION_CACHE_LIMIT);
+        return promise;
+    }
+
+    private studyCacheKey(sentence: string): string {
+        return `${this.settings().interfaceLanguage}\u0001${sentence.trim()}`;
     }
 
     private applyTranslation(
@@ -183,6 +241,7 @@ export class StudySourceController {
         const result = container.querySelector<HTMLElement>('[data-study-translation-result]');
         if (result) result.textContent = translation.translated;
         void this.dependencies.parsePopoverJapanese(popover);
+        void this.dependencies.enrichPitchWords(translation.tokens);
         void this.dependencies.enrichAnkiWords(translation.tokens);
     }
 
@@ -210,4 +269,12 @@ function isStudyDetailsOpen(container: HTMLDetailsElement): boolean {
         ancestor = ancestor.parentElement?.closest<HTMLDetailsElement>('details');
     }
     return true;
+}
+
+function pruneOldestMapEntries<TKey, TValue>(cache: Map<TKey, TValue>, limit: number): void {
+    while (cache.size > limit) {
+        const oldest = cache.keys().next().value as TKey | undefined;
+        if (oldest === undefined) break;
+        cache.delete(oldest);
+    }
 }

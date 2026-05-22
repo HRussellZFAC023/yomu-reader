@@ -179,7 +179,7 @@ export class OnboardingController {
         return {
             ...current,
             onboardingSeen: true,
-            jpdbDefinitionsEnabled: openSettings === true,
+            jpdbDefinitionsEnabled: true,
             localDictionariesEnabled: openSettings !== true,
             dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? 'jpdb' : 'local'),
             interfaceLanguage: selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage),

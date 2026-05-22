@@ -8,7 +8,7 @@ import type { RecommendedDictionary } from './recommended-dictionaries';
 import { RECOMMENDED_JAPANESE_DICTIONARIES } from './recommended-dictionaries';
 import { definitionSourceRows, kanjiSourceRows, type SettingsSourceRow } from './source-sections';
 import type { YomitanDictionaryInfo } from './yomitan';
-import { speakerIcon } from './popup-render';
+import { externalLinkIcon, speakerIcon } from './popup-render';
 
 const log = Logger.scope('SettingsForm');
 type SelectableReaderColorSource = Exclude<ReaderColorSource, 'auto'>;
@@ -53,9 +53,9 @@ export function renderHelpLinksPanel(): string {
                 <p data-help-links-copy>Open the hosted reader tools and docs from here.</p>
             </div>
             <div class="jpdb-reader-help-actions">
-                <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">Video Player</a>
-                <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">New Tab</a>
-                <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}" target="_blank" rel="noopener" data-help-link="docs">Docs</a>
+                <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">${externalButtonLabel('Video Player')}</a>
+                <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">${externalButtonLabel('New Tab')}</a>
+                <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}" target="_blank" rel="noopener" data-help-link="docs">${externalButtonLabel('Docs')}</a>
                 <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="factory-reset" data-help-link="factory-reset">Factory Reset</button>
             </div>
             <div class="jpdb-reader-help-support">
@@ -65,9 +65,9 @@ export function renderHelpLinksPanel(): string {
                     <p data-help-support-copy-extra>Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.</p>
                 </div>
                 <div class="jpdb-reader-help-actions">
-                    <a class="jpdb-reader-btn jpdb-reader-help-donate" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">Donate</a>
-                    <a class="jpdb-reader-btn" href="${GITHUB_REPOSITORY_URL}/issues" target="_blank" rel="noopener" data-help-link="issues">Issues</a>
-                    <a class="jpdb-reader-btn jpdb-reader-help-discord" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener" data-help-link="discord">Discord</a>
+                    <a class="jpdb-reader-btn jpdb-reader-help-donate" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">${externalButtonLabel('Donate')}</a>
+                    <a class="jpdb-reader-btn" href="${GITHUB_REPOSITORY_URL}/issues" target="_blank" rel="noopener" data-help-link="issues">${externalButtonLabel('Issues')}</a>
+                    <a class="jpdb-reader-btn jpdb-reader-help-discord" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener" data-help-link="discord">${externalButtonLabel('Discord')}</a>
                 </div>
             </div>
         </div>
@@ -120,6 +120,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
             ${renderKanjiSettingsPanel(settings)}
             ${renderImageSettingsPanel(settings)}
             ${renderVideoSettingsPanel(settings)}
+            ${renderYoutubeSettingsPanel(settings)}
             ${renderMiningSettingsPanel(settings)}
             ${renderDictionariesSettingsPanel(settings)}
             ${renderShortcutSettingsPanel(settings)}
@@ -449,6 +450,19 @@ function renderSubtitlePreview(): string {
     `;
 }
 
+function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
+    return `
+            <fieldset data-settings-panel="media" hidden>
+                <legend>YouTube</legend>
+                <div class="grid">
+                    ${checkbox('youtubeImmersionEnabled', 'Only show Japanese-looking YouTube videos', settings.youtubeImmersionEnabled)}
+                    ${checkbox('youtubeShowFilterNotice', 'Show reveal control for hidden videos', settings.youtubeShowFilterNotice)}
+                </div>
+                <div class="jpdb-reader-help" data-youtube-help>Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.</div>
+            </fieldset>
+    `;
+}
+
 function renderMiningSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset data-settings-panel="mining" hidden>
@@ -531,6 +545,7 @@ function renderShortcutSettingsPanel(settings: ReaderSettings): string {
                     ${shortcutInput('shortcuts.nextSubtitle', 'Next subtitle', settings.shortcuts.nextSubtitle)}
                     ${shortcutInput('shortcuts.copySubtitle', 'Copy subtitle', settings.shortcuts.copySubtitle)}
                     ${shortcutInput('shortcuts.toggleOcr', 'Toggle image reading', settings.shortcuts.toggleOcr)}
+                    ${shortcutInput('shortcuts.toggleYoutubeImmersion', 'Toggle YouTube filter', settings.shortcuts.toggleYoutubeImmersion)}
                     ${shortcutInput('shortcuts.scanImages', 'Read images now', settings.shortcuts.scanImages)}
                     ${renderReviewShortcutInputs(settings)}
                 </div>
@@ -675,6 +690,7 @@ function localizeSettingsLegends(form: HTMLFormElement, text: SettingsText): voi
         text('kanji'),
         text('images'),
         text('video'),
+        text('youTube'),
         text('anki'),
         text('dictionaries'),
         text('shortcuts'),
@@ -884,7 +900,8 @@ function localizeSettingsHelpText(form: HTMLFormElement, text: SettingsText): vo
     setFieldsetHelp(form, 4, text('readerHelp'));
     setFieldsetHelp(form, 5, text('kanjiHelp'));
     setFieldsetHelp(form, 6, text('ocrHelp'));
-    setFieldsetHelp(form, 8, text('ankiHelp'));
+    form.querySelector<HTMLElement>('[data-youtube-help]')?.replaceChildren(text('youtubeHelp'));
+    setFieldsetHelp(form, 9, text('ankiHelp'));
     localizeNewTabHelp(form, text);
     localizeAudioHelp(form, text);
     localizeDictionaryImportHelp(form, text);
@@ -1300,6 +1317,8 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['ankiTags', 'ankiTags'],
         ['studyTranslationEnabled', 'studyTranslationEnabled'],
         ['studyGrammarEnabled', 'studyGrammarEnabled'],
+        ['youtubeImmersionEnabled', 'youtubeImmersionEnabled'],
+        ['youtubeShowFilterNotice', 'youtubeShowFilterNotice'],
         ['jpdbDefinitionsEnabled', 'jpdbDefinitionsEnabled'],
         ['localDictionariesEnabled', 'localDictionariesEnabled'],
         ['localDictionaryShowKanji', 'localDictionaryShowKanji'],
@@ -1316,6 +1335,7 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['shortcuts.nextSubtitle', 'nextSubtitle'],
         ['shortcuts.copySubtitle', 'copySubtitle'],
         ['shortcuts.toggleOcr', 'toggleImageReading'],
+        ['shortcuts.toggleYoutubeImmersion', 'toggleYoutubeImmersion'],
         ['shortcuts.scanImages', 'readImagesNow'],
         ['shortcuts.gradeNothing', 'gradeNothing'],
         ['shortcuts.gradeSomething', 'gradeSomething'],
@@ -1410,13 +1430,13 @@ function localizeHelpLinksPanel(form: HTMLFormElement, language: InterfaceLangua
     panel.querySelector<HTMLElement>('[data-help-support-title]')?.replaceChildren(text('helpSupportTitle'));
     panel.querySelector<HTMLElement>('[data-help-support-copy]')?.replaceChildren(text('helpSupportCopy'));
     panel.querySelector<HTMLElement>('[data-help-support-copy-extra]')?.replaceChildren(text('helpSupportCopyExtra'));
-    panel.querySelector<HTMLElement>('[data-help-link="video-player"]')?.replaceChildren(text('videoPlayer'));
-    panel.querySelector<HTMLElement>('[data-help-link="new-tab"]')?.replaceChildren(text('newTabPage'));
-    panel.querySelector<HTMLElement>('[data-help-link="docs"]')?.replaceChildren(text('docs'));
+    setExternalButtonLabel(panel.querySelector<HTMLElement>('[data-help-link="video-player"]'), text('videoPlayer'));
+    setExternalButtonLabel(panel.querySelector<HTMLElement>('[data-help-link="new-tab"]'), text('newTabPage'));
+    setExternalButtonLabel(panel.querySelector<HTMLElement>('[data-help-link="docs"]'), text('docs'));
     panel.querySelector<HTMLElement>('[data-help-link="factory-reset"]')?.replaceChildren(text('factoryReset'));
-    panel.querySelector<HTMLElement>('[data-help-link="issues"]')?.replaceChildren(text('issues'));
-    panel.querySelector<HTMLElement>('[data-help-link="donate"]')?.replaceChildren(text('donate'));
-    panel.querySelector<HTMLElement>('[data-help-link="discord"]')?.replaceChildren(text('discord'));
+    setExternalButtonLabel(panel.querySelector<HTMLElement>('[data-help-link="issues"]'), text('issues'));
+    setExternalButtonLabel(panel.querySelector<HTMLElement>('[data-help-link="donate"]'), text('donate'));
+    setExternalButtonLabel(panel.querySelector<HTMLElement>('[data-help-link="discord"]'), text('discord'));
 
     const glossary = form.querySelector<HTMLElement>('.jpdb-reader-help-glossary-card');
     glossary?.querySelector<HTMLElement>('[data-help-glossary-title]')?.replaceChildren(text('helpGlossaryTitle'));
@@ -1424,6 +1444,15 @@ function localizeHelpLinksPanel(form: HTMLFormElement, language: InterfaceLangua
         glossary?.querySelector<HTMLElement>(`[data-help-glossary-term="${term}"]`)?.replaceChildren(text(`helpGlossaryTerm${term}`));
         glossary?.querySelector<HTMLElement>(`[data-help-glossary-definition="${term}"]`)?.replaceChildren(text(`helpGlossaryDefinition${term}`));
     });
+}
+
+function externalButtonLabel(label: string): string {
+    return `<span>${escapeHtml(label)}</span>${externalLinkIcon()}`;
+}
+
+function setExternalButtonLabel(element: HTMLElement | null | undefined, label: string): void {
+    if (!element) return;
+    setInnerHtml(element, externalButtonLabel(label));
 }
 
 export function renderReviewShortcutInputs(settings: ReaderSettings): string {
@@ -2214,6 +2243,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         dictionaryPreferences,
         dictionaryLookupLinks: readDictionaryLookupLinks(data),
         ...readSubtitleFormSettings(reader, current),
+        ...readYoutubeFormSettings(reader),
         ...readAnkiFormSettings(reader, current),
         ...readStudyToolFormSettings(reader, current),
         enableLogging: has('enableLogging'),
@@ -2508,6 +2538,14 @@ function readImmersionKitFormSettings(reader: SettingsFormReader, current: Reade
     };
 }
 
+function readYoutubeFormSettings(reader: SettingsFormReader): Partial<ReaderSettings> {
+    const { has } = reader;
+    return {
+        youtubeImmersionEnabled: has('youtubeImmersionEnabled'),
+        youtubeShowFilterNotice: has('youtubeShowFilterNotice'),
+    };
+}
+
 function readShortcutFormSettings(reader: SettingsFormReader): ReaderSettings['shortcuts'] {
     const { get } = reader;
     return {
@@ -2520,6 +2558,7 @@ function readShortcutFormSettings(reader: SettingsFormReader): ReaderSettings['s
         nextSubtitle: get('shortcuts.nextSubtitle'),
         copySubtitle: get('shortcuts.copySubtitle'),
         toggleOcr: get('shortcuts.toggleOcr'),
+        toggleYoutubeImmersion: get('shortcuts.toggleYoutubeImmersion'),
         scanImages: get('shortcuts.scanImages'),
         gradeNothing: get('shortcuts.gradeNothing'),
         gradeSomething: get('shortcuts.gradeSomething'),

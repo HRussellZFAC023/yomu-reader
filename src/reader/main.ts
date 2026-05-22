@@ -2,6 +2,7 @@ import { AudioPlayer } from './audio';
 import { isYomuHostedAppUrl, isYomuHostedPassivePage } from './app-pages';
 import { AnkiConnectClient, captureActiveVideoFrame, type AnkiLookupResult } from './anki';
 import { renderReviewButtons } from './anki-render';
+import { runLimited } from './async-utils';
 import { copyText, isEditableTarget, normalizePressedKey, pauseActiveVideo, positionPopover } from './browser-ui';
 import { CardActionController } from './card-action-controller';
 import { CardPopoverRenderer } from './card-popover-renderer';
@@ -42,6 +43,7 @@ import { ImmersionPopoverController } from './immersion-popover-controller';
 import { FloatingButtonController } from './floating-button';
 import { JpdbClient } from './jpdb';
 import { JpdbKanjiClient, type JpdbKanjiInfo, type JpdbKanjiVocabulary } from './jpdb-kanji';
+import { getPitchClass } from './jpdb-parser';
 import { JpdbPublicPitchClient } from './jpdb-public-pitch';
 import { initJpdbReviewPageBridge } from './jpdb-review-bridge';
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from './jpdb-vocabulary';
@@ -119,6 +121,7 @@ import { installUchisenCarousel, loadUchisenData } from './uchisen';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import { VisiblePageScanner } from './visible-page-scanner';
 import { renderWordPills } from './word-pills';
+import { YoutubeImmersionFilter } from './youtube';
 import {
     YomitanDictionaryStore,
     type YomitanKanjiEntry,
@@ -129,6 +132,10 @@ import {
 const log = Logger.scope('ReaderApp');
 const TERM_AUDIO_PRELOAD_LIMIT = 8;
 const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 6;
+const PRELOADED_TERM_AUDIO_KEY_LIMIT = 500;
+const ANKI_ENRICHMENT_LIMIT = 16;
+const PITCH_ENRICHMENT_LIMIT = 12;
+const BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
 type ReviewShortcutKey = keyof ReaderSettings['shortcuts'];
 
 const TWO_BUTTON_REVIEW_SHORTCUTS: Array<[ReviewShortcutKey, JPDBGrade]> = [
@@ -412,8 +419,9 @@ export class ReaderApp {
     private studySources = new StudySourceController({
         getSettings: () => this.settings,
         dictionarySourceAttributes: key => this.dictionarySourceState.attributes(key),
-        parseJapanese: paragraphs => this.parseJapanese(paragraphs),
+        parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
+        enrichPitchWords: tokens => this.enrichPitchWords(tokens),
         enrichAnkiWords: tokens => this.enrichAnkiWords(tokens),
         isCurrentPopoverRoot: root => this.isCurrentPopoverRoot(root),
     });
@@ -441,9 +449,10 @@ export class ReaderApp {
         getSettings: () => this.settings,
         client: this.immersionKit,
         audio: this.audio,
-        parseJapanese: paragraphs => this.parseJapanese(paragraphs),
+        parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
         canParseJapanese: () => this.canParseJapanese(),
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
+        enrichPitchWords: tokens => this.enrichPitchWords(tokens),
         enrichAnkiWords: tokens => this.enrichAnkiWords(tokens),
         repositionPopover: () => this.repositionActivePopover(),
         setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
@@ -474,6 +483,7 @@ export class ReaderApp {
     private subtitles = new SubtitlePlayerController({
         getSettings: () => this.settings,
         parseJapanese: async text => (await this.parseJapanese([text]))[0] ?? [],
+        parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
         onSettingsChange: () => void saveSettings(this.settings),
     });
     private ocr = new ImageOcrController({
@@ -483,12 +493,17 @@ export class ReaderApp {
         onToast: message => this.toast(message),
         shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeStandaloneImagePage(),
     });
+    private youtube = new YoutubeImmersionFilter({
+        getSettings: () => this.settings,
+        setEnabled: enabled => void this.setYoutubeImmersionEnabled(enabled),
+    });
     private pageScanner = new VisiblePageScanner({
         getSettings: () => this.settings,
-        parseJapanese: paragraphs => this.parseJapanese(paragraphs),
+        parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
         pauseMutationObserver: callback => this.pauseAutoScanObserver(callback),
         preloadParsedTokens: tokens => this.preloadTermAudioForTokens(tokens),
         preloadImmersionTokens: tokens => this.immersionPopover.preloadForTokens(tokens),
+        enrichPitchWords: tokens => this.enrichPitchWords(tokens),
         enrichAnkiWords: tokens => this.enrichAnkiWords(tokens),
         toast: message => this.toast(message),
     });
@@ -599,6 +614,7 @@ export class ReaderApp {
         this.installFab();
         this.subtitles.init();
         this.ocr.init();
+        this.youtube.init();
         this.setupAutoScan();
         if (shouldShowWelcome && !isYomuHostedAppUrl(location.href)) await this.onboarding.showIfNeeded();
         if (this.shouldScanInitialPage()) void this.pageScanner.scanVisiblePage({ silent: true });
@@ -615,6 +631,7 @@ export class ReaderApp {
             GM_registerMenuCommand(`${APP_NAME} settings`, () => this.showSettings());
             GM_registerMenuCommand(`${APP_NAME} open new tab`, () => this.openNewTabPage());
             GM_registerMenuCommand(`${APP_NAME} open video player`, () => this.openVideoPlayer());
+            GM_registerMenuCommand(`${APP_NAME} toggle YouTube filter`, () => void this.toggleYoutubeImmersion());
             GM_registerMenuCommand(`${APP_NAME} toggle puck`, () => {
                 this.settings.showFloatingButton = !this.settings.showFloatingButton;
                 void saveSettings(this.settings).then(() => this.installFab());
@@ -635,6 +652,18 @@ export class ReaderApp {
         if (opened) opened.opener = null;
         if (!opened) location.href = VIDEO_PLAYER_PAGE_URL;
         log.info('Video player page opened', { url: VIDEO_PLAYER_PAGE_URL });
+    }
+
+    private async toggleYoutubeImmersion(): Promise<void> {
+        await this.setYoutubeImmersionEnabled(!this.settings.youtubeImmersionEnabled);
+    }
+
+    private async setYoutubeImmersionEnabled(enabled: boolean): Promise<void> {
+        this.settings.youtubeImmersionEnabled = enabled;
+        await saveSettings(this.settings);
+        this.youtube.refresh();
+        log.info('YouTube immersion filter toggled', { enabled });
+        this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'youtubeToggleToastOn' : 'youtubeToggleToastOff'));
     }
 
     private async invalidateRuntimeStoresForFactoryReset(): Promise<void> {
@@ -716,6 +745,7 @@ export class ReaderApp {
         this.abortController.abort();
         this.autoScanObserver?.disconnect();
         this.subtitles.destroy();
+        this.youtube.destroy();
         window.clearTimeout(this.autoScanTimer);
         window.clearTimeout(this.asbScanTimer);
         window.clearTimeout(this.selectionTimer);
@@ -957,6 +987,11 @@ export class ReaderApp {
                 this.ocr.refresh();
                 log.info('Shortcut toggled OCR', { enabled: this.settings.ocrEnabled });
                 this.toast(uiText(this.settings.interfaceLanguage, this.settings.ocrEnabled ? 'imageReadingEnabled' : 'imageReadingHidden'));
+                return;
+            }
+            if (matchesShortcut(event, this.settings.shortcuts.toggleYoutubeImmersion)) {
+                event.preventDefault();
+                void this.toggleYoutubeImmersion();
                 return;
             }
             if (matchesShortcut(event, this.settings.shortcuts.scanImages)) {
@@ -1203,7 +1238,7 @@ export class ReaderApp {
 
     private preloadHoverWordAudio(word: HTMLElement): void {
         this.preloadReaderWordAudio(word, { sourceLimit: 2, candidateLimit: 1 });
-        this.preloadNearbyReaderWordAudio(word);
+        if (this.canPreloadBackgroundReaderAudio()) this.preloadNearbyReaderWordAudio(word);
     }
 
     private preloadReaderWordAudio(word: HTMLElement, options: { sourceLimit?: number; candidateLimit?: number } = {}): boolean {
@@ -1216,13 +1251,17 @@ export class ReaderApp {
     }
 
     private canPreloadReaderAudio(): boolean {
+        return this.settings.audioEnabled;
+    }
+
+    private canPreloadBackgroundReaderAudio(): boolean {
         return this.settings.audioEnabled && this.settings.autoPlayAudio;
     }
 
     private reservePreloadedTermAudio(card: JPDBCard): boolean {
         const key = cardKey(card);
         if (this.preloadedTermAudioKeys.has(key)) return false;
-        this.preloadedTermAudioKeys.add(key);
+        this.rememberPreloadedTermAudioKey(key);
         return true;
     }
 
@@ -2431,8 +2470,11 @@ export class ReaderApp {
     }
 
     private maybePreloadLookupCardAudio(card: JPDBCard, options: CardDisplayOptions): void {
-        if (options.autoPlay === false || !this.canPreloadReaderAudio()) return;
-        this.audio.preload(card, { sourceLimit: 3, candidateLimit: 1 });
+        if (!this.canPreloadReaderAudio()) return;
+        this.audio.preload(card, {
+            sourceLimit: options.autoPlay === false || !this.settings.autoPlayAudio ? 1 : 3,
+            candidateLimit: 1,
+        });
     }
 
     private shouldAutoPlayInitialCard(
@@ -3251,6 +3293,7 @@ export class ReaderApp {
     private afterNestedJapaneseParsed(parsed: JPDBToken[][]): void {
         const tokens = parsed.flat();
         this.preloadTermAudioForTokens(tokens);
+        void this.enrichPitchWords(tokens);
         void this.enrichAnkiWords(tokens);
     }
 
@@ -3266,15 +3309,35 @@ export class ReaderApp {
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
-        }).slice(0, 16);
-        for (const token of uniqueTokens) {
+        }).slice(0, ANKI_ENRICHMENT_LIMIT);
+        await runLimited(uniqueTokens, BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
             const lookup = await this.anki.findExistingCards(token.card);
             this.applyAnkiLookupToRenderedWords(token.card, lookup);
-        }
+        });
+    }
+
+    private async enrichPitchWords(tokens: JPDBToken[]): Promise<void> {
+        if (!this.settings.showPitchAccent) return;
+        const seen = new Set<string>();
+        const uniqueTokens = tokens.filter(token => {
+            if (token.card.pitchAccent.length) return false;
+            if (!token.card.spelling.trim()) return false;
+            const key = cardKey(token.card);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        }).slice(0, PITCH_ENRICHMENT_LIMIT);
+
+        await runLimited(uniqueTokens, BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
+            const pitchAccent = await this.jpdbPublicPitch.lookup(token.card.spelling, token.card.reading).catch(() => []);
+            if (!pitchAccent.length) return;
+            if (!token.card.pitchAccent.length) token.card.pitchAccent = pitchAccent;
+            this.applyPitchAccentToRenderedWords(token.card);
+        });
     }
 
     private preloadTermAudioForTokens(tokens: JPDBToken[]): void {
-        if (!this.canPreloadReaderAudio()) return;
+        if (!this.canPreloadBackgroundReaderAudio()) return;
         this.queueTermAudioPreloads(tokens);
     }
 
@@ -3291,9 +3354,18 @@ export class ReaderApp {
         if (!isUsefulImmersionPreloadQuery(token.card.spelling)) return false;
         const key = cardKey(token.card);
         if (this.preloadedTermAudioKeys.has(key)) return false;
-        this.preloadedTermAudioKeys.add(key);
+        this.rememberPreloadedTermAudioKey(key);
         this.audio.preload(token.card, { sourceLimit: 1, candidateLimit: 1 });
         return true;
+    }
+
+    private rememberPreloadedTermAudioKey(key: string): void {
+        this.preloadedTermAudioKeys.add(key);
+        while (this.preloadedTermAudioKeys.size > PRELOADED_TERM_AUDIO_KEY_LIMIT) {
+            const oldest = this.preloadedTermAudioKeys.values().next().value;
+            if (typeof oldest !== 'string') break;
+            this.preloadedTermAudioKeys.delete(oldest);
+        }
     }
 
     private dictionaryLabel(name: string): string {
@@ -3318,6 +3390,19 @@ export class ReaderApp {
             word.dataset.ankiState = ankiLookup.state;
             word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(', ') ?? '';
             word.title = `Anki: ${cardStateLabel(ankiLookup.state, this.settings.interfaceLanguage)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ''}`;
+        });
+    }
+
+    private applyPitchAccentToRenderedWords(card: JPDBCard): void {
+        const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling);
+        if (!pitchClass) return;
+        const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
+        document.querySelectorAll<HTMLElement>(selector).forEach(word => {
+            Array.from(word.classList)
+                .filter(className => className.startsWith('jpdb-pitch-'))
+                .forEach(className => word.classList.remove(className));
+            word.classList.add(`jpdb-pitch-${pitchClass}`);
+            word.dataset.pitchClass = pitchClass;
         });
     }
 
@@ -3381,6 +3466,7 @@ export class ReaderApp {
             audio: this.audio,
             subtitles: this.subtitles,
             ocr: this.ocr,
+            youtube: this.youtube,
             createBackdrop: () => createReaderBackdrop(() => this.dismiss()),
             mountDialog: (backdrop, form) => this.mountSettingsDialog(backdrop, form),
             dismiss: () => this.dismiss(),

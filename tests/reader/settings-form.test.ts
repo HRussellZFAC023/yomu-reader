@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm } from '../../src/reader/settings-form';
+
+const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
 
 function topLevelLegendForControl(form: HTMLFormElement, controlName: string): string {
     const control = form.querySelector<HTMLElement>(`[name="${controlName}"]`);
@@ -31,6 +34,21 @@ describe('settings help panel', () => {
         expect(html).not.toContain('data-help-link="support"');
     });
 
+    it('marks hosted and support links with external-link icons', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderHelpLinksPanel();
+
+        for (const key of ['video-player', 'new-tab', 'docs', 'donate', 'issues', 'discord']) {
+            expect(form.querySelector(`[data-help-link="${key}"] svg`)).not.toBeNull();
+        }
+        expect(form.querySelector('[data-help-link="factory-reset"] svg')).toBeNull();
+
+        localizeSettingsForm(form, 'ja');
+
+        expect(form.querySelector('[data-help-link="video-player"]')?.textContent).toContain('動画プレイヤー');
+        expect(form.querySelector('[data-help-link="video-player"] svg')).not.toBeNull();
+    });
+
     it('moves technical definitions into the Help glossary', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
@@ -44,6 +62,17 @@ describe('settings help panel', () => {
 });
 
 describe('settings form localization', () => {
+    it('keeps checked checkbox and radio marks visible on hover', () => {
+        const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('.jpdb-reader-settings input[type="checkbox"]:enabled:hover, .jpdb-reader-settings input[type="radio"]:enabled:hover { border-color: var(--jpdb-reader-accent);');
+        expect(normalizedCss).toContain('box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);');
+        expect(normalizedCss).toContain('.jpdb-reader-settings input[type="checkbox"]:checked, .jpdb-reader-settings input[type="radio"]:checked { border-color: var(--jpdb-reader-accent); background: var(--jpdb-reader-accent); box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft); }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings input[type="checkbox"]:checked:enabled:hover, .jpdb-reader-settings input[type="radio"]:checked:enabled:hover { background: var(--jpdb-reader-accent); }');
+        expect(normalizedCss).toContain('border-left: 2.5px solid #ffffff; border-bottom: 2.5px solid #ffffff;');
+        expect(normalizedCss).toContain('background: #ffffff;');
+    });
+
     it('shows Immersion Kit reveal audio autoplay enabled by default', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
@@ -92,10 +121,36 @@ describe('settings form localization', () => {
         localizeSettingsForm(form, 'en');
 
         expect(topLevelLegendForControl(form, 'subtitlePlayerEnabled')).toBe('Video');
+        expect(topLevelLegendForControl(form, 'youtubeImmersionEnabled')).toBe('YouTube');
         expect(topLevelLegendForControl(form, 'ankiEnabled')).toBe('Anki');
         expect(topLevelLegendForControl(form, 'jpdbDefinitionsEnabled')).toBe('Dictionaries');
         expect(topLevelLegendForControl(form, 'shortcuts.openSettings')).toBe('Shortcuts');
         expect(form.querySelector('.jpdb-reader-radio-group > legend')?.textContent).toBe('Examples per word limit');
+    });
+
+    it('restores YouTube filter controls and the Alt+Y shortcut', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const filter = form.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]')!;
+        const notice = form.querySelector<HTMLInputElement>('input[name="youtubeShowFilterNotice"]')!;
+        const shortcut = form.querySelector<HTMLInputElement>('input[name="shortcuts.toggleYoutubeImmersion"]')!;
+
+        expect(DEFAULT_SETTINGS.youtubeImmersionEnabled).toBe(false);
+        expect(DEFAULT_SETTINGS.youtubeShowFilterNotice).toBe(true);
+        expect(DEFAULT_SETTINGS.shortcuts.toggleYoutubeImmersion).toBe('Alt+Y');
+        expect(filter.checked).toBe(false);
+        expect(notice.checked).toBe(true);
+        expect(shortcut.value).toBe('Alt+Y');
+
+        filter.checked = true;
+        notice.checked = false;
+        shortcut.value = 'Ctrl+Y';
+
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+
+        expect(saved.youtubeImmersionEnabled).toBe(true);
+        expect(saved.youtubeShowFilterNotice).toBe(false);
+        expect(saved.shortcuts.toggleYoutubeImmersion).toBe('Ctrl+Y');
     });
 
     it('localizes Japanese settings copy added outside the original labels', () => {

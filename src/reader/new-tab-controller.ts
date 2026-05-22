@@ -67,6 +67,8 @@ import { JISHO_LOOKUP_LINK, JPDB_LOOKUP_LINK } from './settings';
 import { installUchisenCarousel, loadUchisenData, type UchisenData } from './uchisen';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanTermEntry } from './yomitan';
 
+const NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS = 1_200;
+
 export interface NewTabControllerDependencies {
     getSettings: () => ReaderSettings;
     anki: {
@@ -78,7 +80,7 @@ export interface NewTabControllerDependencies {
     kanjiVG: KanjiVGClient;
     rtk: RtkClient;
     immersionKit: ImmersionKitClient;
-    jpdbVocabulary?: Pick<JpdbVocabularyClient, 'lookup'>;
+    jpdbVocabulary?: Pick<JpdbVocabularyClient, 'lookup'> & Partial<Pick<JpdbVocabularyClient, 'search'>>;
     jpdbPublicPitch?: Pick<JpdbPublicPitchClient, 'lookup'>;
     jpdbReviewBridge: JpdbReviewBridgeClient;
     parser: ReaderParser;
@@ -381,6 +383,7 @@ const NEW_TAB_SEARCH_DEBOUNCE_MS = 220;
 const NEW_TAB_SEARCH_WORD_LIMIT = 10;
 const NEW_TAB_SEARCH_KANJI_LIMIT = 6;
 const NEW_TAB_SEARCH_SUGGESTION_LIMIT = 6;
+const NEW_TAB_PUBLIC_JPDB_STARTER_QUERIES = ['日本語', '読む', '食べる', '見る', '行く', '今日'] as const;
 const NEW_TAB_KANJI_FRONT_KEYWORD_LIMIT = 3;
 const NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS = 8_000;
 const NEW_TAB_HANDWRITING_DEBOUNCE_MS = 360;
@@ -448,12 +451,14 @@ export class NewTabController {
     private searchDebounce: ReturnType<typeof setTimeout> | undefined;
     private searchQuery = '';
     private searchActiveSuggestionIndex = -1;
+    private searchWordCardCache = new Map<string, JPDBCard>();
     private searchHandwritingStrokes: DoodleStroke[] = [];
     private searchHandwritingGeneration = 0;
     private searchHandwritingDebounce: ReturnType<typeof setTimeout> | undefined;
     private searchHandwritingShapeCandidateCache = new Map<string, Promise<KanjiShapeCandidate | null>>();
     private rootEventController: AbortController | undefined;
     private lastPointerNavigation: { action: 'next' | 'previous'; time: number } | null = null;
+    private navigationGeneration = 0;
 
     constructor(private readonly dependencies: NewTabControllerDependencies) {
         const saved = loadNewTabUiState();
@@ -1013,6 +1018,7 @@ export class NewTabController {
 
     private async loadWordsInto(root: HTMLElement, preferStoredWord: boolean, options: NewTabLoadOptions = {}): Promise<void> {
         const loadGeneration = ++this.loadGeneration;
+        const navigationGeneration = this.navigationGeneration;
         const useOfflineCache = options.useOfflineCache !== false;
         try {
             const usedCachedWords = useOfflineCache
@@ -1020,7 +1026,7 @@ export class NewTabController {
                 : false;
             const result = await this.loadWordsWithProgress(root, loadGeneration, usedCachedWords);
             if (!this.isCurrentLoad(loadGeneration)) return;
-            await this.applyLoadedWords(root, preferStoredWord, loadGeneration, result, useOfflineCache);
+            await this.applyLoadedWords(root, preferStoredWord, loadGeneration, result, useOfflineCache, usedCachedWords, navigationGeneration);
         } catch (error) {
             await this.handleLoadWordsError(root, preferStoredWord, loadGeneration, error, useOfflineCache);
         }
@@ -1034,10 +1040,25 @@ export class NewTabController {
         return this.loadWords(onProgress);
     }
 
-    private async applyLoadedWords(root: HTMLElement, preferStoredWord: boolean, loadGeneration: number, result: NewTabLoadResult, useOfflineCache: boolean): Promise<void> {
+    private async applyLoadedWords(
+        root: HTMLElement,
+        preferStoredWord: boolean,
+        loadGeneration: number,
+        result: NewTabLoadResult,
+        useOfflineCache: boolean,
+        usedCachedWords: boolean,
+        navigationGeneration: number,
+    ): Promise<void> {
         const preferredCardKey = this.currentVisibleWordKey();
+        const preferredCard = this.visibleWords[this.index];
         this.dictionarySetupRequired = result.needsDictionarySetup;
-        this.allWords = dedupeWords(result.cards).slice(0, NEW_TAB_WORD_LIMIT);
+        this.allWords = this.mergeLoadedWordsWithNavigatedCachedCard(
+            dedupeWords(result.cards).slice(0, NEW_TAB_WORD_LIMIT),
+            preferredCard,
+            usedCachedWords,
+            navigationGeneration,
+            result,
+        );
         this.reviewCountMode = result.reviewCountMode === true;
         this.sourceLabel = result.sourceLabel;
         if (this.allWords.length) void this.writeOfflineCache(this.allWords, this.sourceLabel);
@@ -1051,6 +1072,40 @@ export class NewTabController {
         }
         delete root.dataset.standaloneNewtab;
         this.applyWords(root, preferStoredWord, preferredCardKey);
+    }
+
+    private mergeLoadedWordsWithNavigatedCachedCard(
+        loadedWords: JPDBCard[],
+        preferredCard: JPDBCard | undefined,
+        usedCachedWords: boolean,
+        navigationGeneration: number,
+        result: NewTabLoadResult,
+    ): JPDBCard[] {
+        if (!this.shouldKeepNavigatedCachedCard(loadedWords, preferredCard, usedCachedWords, navigationGeneration, result)) {
+            return loadedWords;
+        }
+        return [preferredCard, ...loadedWords].slice(0, NEW_TAB_WORD_LIMIT);
+    }
+
+    private shouldKeepNavigatedCachedCard(
+        loadedWords: JPDBCard[],
+        preferredCard: JPDBCard | undefined,
+        usedCachedWords: boolean,
+        navigationGeneration: number,
+        result: NewTabLoadResult,
+    ): preferredCard is JPDBCard {
+        return Boolean(
+            usedCachedWords
+            && preferredCard
+            && this.navigationGeneration !== navigationGeneration
+            && result.reviewCountMode !== true
+            && this.isDictionaryCard(preferredCard)
+            && !loadedWords.some(card => cardKey(card) === cardKey(preferredCard)),
+        );
+    }
+
+    private isDictionaryCard(card: JPDBCard): boolean {
+        return card.source === 'local' || card.source === 'fallback' || card.reviewSource === 'dictionary';
     }
 
     private async applyOfflineCacheWhileLoading(root: HTMLElement, preferStoredWord: boolean, loadGeneration: number): Promise<boolean> {
@@ -1131,11 +1186,17 @@ export class NewTabController {
 
     private async loadAutoDictionaryWordsIfNeeded(accumulator: NewTabLoadAccumulator, onProgress?: (message: string) => void): Promise<void> {
         if (!this.shouldLoadAutoDictionaryWords(accumulator)) return;
+        if (!await this.hasLocalDictionaries()) return;
         appendNewTabLoadResult(accumulator, await this.loadDictionaryWords(onProgress));
     }
 
     private shouldLoadAutoDictionaryWords(accumulator: NewTabLoadAccumulator): boolean {
         return this.state.source === 'auto' && accumulator.cards.length === 0;
+    }
+
+    private async hasLocalDictionaries(): Promise<boolean> {
+        const summary = await this.dependencies.dictionaries.summary?.().catch(() => null) ?? null;
+        return Boolean(summary?.dictionaries.length);
     }
 
     private wordSourceOrder(): readonly NewTabWordSource[] {
@@ -1197,13 +1258,32 @@ export class NewTabController {
         if (!settings.jpdbMiningEnabled) return { cards: [], sourceLabel: 'JPDB', needsDictionarySetup: false, reviewCountMode: true };
         const live = this.loadLiveJpdbReviewWords(settings);
         if (live) return live;
-        if (!settings.apiKey.trim()) return { cards: [], sourceLabel: 'JPDB', needsDictionarySetup: false, reviewCountMode: true };
+        if (!settings.apiKey.trim()) return this.loadPublicJpdbWords();
 
         const selectedDeck = settings.newTabJpdbDeck.trim() || JPDB_ALL_DECKS;
         const selectedDeckCards = await this.loadSelectedJpdbDeckWords(selectedDeck);
         if (selectedDeckCards) return selectedDeckCards;
 
         return this.loadSampledJpdbDeckWords();
+    }
+
+    private async loadPublicJpdbWords(): Promise<NewTabLoadResult> {
+        if (!this.dependencies.jpdbVocabulary?.search) {
+            return { cards: [], sourceLabel: 'JPDB', needsDictionarySetup: false, reviewCountMode: false };
+        }
+        const cards = await this.remoteSourceWithFallback(
+            'JPDB public search',
+            this.loadPublicJpdbStarterCards(),
+            [] as JPDBCard[],
+        );
+        return { cards, sourceLabel: 'JPDB', needsDictionarySetup: false, reviewCountMode: false };
+    }
+
+    private async loadPublicJpdbStarterCards(): Promise<JPDBCard[]> {
+        const cards = (await Promise.all(NEW_TAB_PUBLIC_JPDB_STARTER_QUERIES.map(query =>
+            this.dependencies.jpdbVocabulary?.search?.(query, 2).catch(() => []) ?? Promise.resolve([]),
+        ))).flat();
+        return dedupeWords(cards).slice(0, NEW_TAB_WORD_LIMIT);
     }
 
     private loadLiveJpdbReviewWords(settings: ReaderSettings): NewTabLoadResult | null {
@@ -1395,6 +1475,7 @@ export class NewTabController {
         const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
         if (!root || !this.visibleWords.length) return;
         this.dependencies.dismiss({ suppressHoverTarget: false });
+        this.navigationGeneration++;
         this.index = (this.index + 1) % this.visibleWords.length;
         this.state.revealAnswer = false;
         this.persistState();
@@ -1405,6 +1486,7 @@ export class NewTabController {
         const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
         if (!root || !this.visibleWords.length) return;
         this.dependencies.dismiss({ suppressHoverTarget: false });
+        this.navigationGeneration++;
         this.index = (this.index - 1 + this.visibleWords.length) % this.visibleWords.length;
         this.state.revealAnswer = false;
         this.persistState();
@@ -2112,7 +2194,7 @@ export class NewTabController {
 
     private async addNewTabParsedImmersionFallbackQueries(candidates: string[], card: JPDBCard, exactQuery: string): Promise<void> {
         if (typeof this.dependencies.parser.canParse !== 'function' || !this.dependencies.parser.canParse()) return;
-        const [tokens] = await this.dependencies.parser.parse([card.spelling]).catch(() => [[]]);
+        const [tokens] = await this.dependencies.parser.parse([card.spelling], { jpdbTimeoutMs: NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS }).catch(() => [[]]);
         for (const token of tokens ?? []) {
             this.addNewTabImmersionFallbackQuery(candidates, token.card.spelling, exactQuery);
             this.addNewTabImmersionFallbackQuery(candidates, card.spelling.slice(token.start, token.end), exactQuery);
@@ -2834,6 +2916,12 @@ export class NewTabController {
         if (action === 'search-result-word') {
             event.preventDefault();
             const button = target.closest<HTMLElement>('[data-expression]');
+            const key = cleanNestedLookupValue(button?.dataset.newtabCard);
+            const card = key ? this.searchWordCardCache.get(key) : undefined;
+            if (card && this.dependencies.showLookupCard) {
+                void this.dependencies.showLookupCard(card, card.sentence || card.spelling, button ?? target);
+                return true;
+            }
             const expression = cleanNestedLookupValue(button?.dataset.expression);
             if (expression) void this.dependencies.lookupText?.(expression, cleanNestedLookupValue(button?.dataset.reading) || expression, button ?? target);
             return true;
@@ -3245,13 +3333,23 @@ export class NewTabController {
         const localEntriesPromise = settings.localDictionariesEnabled && hasLocalDictionaries
             ? this.searchLocalDictionaryEntries(query, settings)
             : Promise.resolve([]);
+        const publicJpdbPromise = this.searchPublicJpdbCards(query);
 
         const loadedCards = this.searchLoadedWordCards(query);
-        const [parsed, localEntries] = await Promise.all([parsedPromise, localEntriesPromise]);
+        const [parsed, localEntries, publicJpdbCards] = await Promise.all([parsedPromise, localEntriesPromise, publicJpdbPromise]);
         const parsedCards = (parsed[0] ?? []).map(token => ({ ...token.card, sentence: token.sentence ?? query }));
         const localCards = localEntries
             .map(entry => ({ ...this.dependencies.parser.localCardFromEntry(entry), sentence: query }));
-        return dedupeWords([...parsedCards, ...loadedCards, ...localCards]).slice(0, NEW_TAB_SEARCH_WORD_LIMIT);
+        return dedupeWords([...parsedCards, ...publicJpdbCards, ...loadedCards, ...localCards]).slice(0, NEW_TAB_SEARCH_WORD_LIMIT);
+    }
+
+    private async searchPublicJpdbCards(query: string): Promise<JPDBCard[]> {
+        if (!this.dependencies.jpdbVocabulary?.search) return [];
+        return this.dependencies.jpdbVocabulary.search(query, NEW_TAB_SEARCH_WORD_LIMIT)
+            .catch(error => {
+                log.warn('New tab public JPDB search failed', { query, error });
+                return [];
+            });
     }
 
     private searchLoadedWordCards(query: string): JPDBCard[] {
@@ -3333,6 +3431,7 @@ export class NewTabController {
         const results = this.searchResultsMount(root);
         if (!results) return;
         delete results.dataset.searchQuery;
+        this.searchWordCardCache.clear();
         this.renderSearchAutocomplete(root, '', []);
         replaceChildrenWith(results, el('div', { class: 'jpdb-reader-newtab-search-empty' }));
     }
@@ -3386,6 +3485,7 @@ export class NewTabController {
         const mount = this.searchResultsMount(root);
         if (!mount) return;
         mount.dataset.searchQuery = results.query;
+        this.searchWordCardCache = new Map(results.words.map(card => [cardKey(card), card]));
         const resultCount = results.words.length + results.kanji.length;
         this.renderSearchAutocomplete(root, results.query, results.suggestions);
         replaceChildrenWith(mount,
@@ -3400,6 +3500,7 @@ export class NewTabController {
         const results = this.searchResultsMount(root);
         if (!results) return;
         results.dataset.searchQuery = query;
+        this.searchWordCardCache.clear();
         replaceChildrenWith(results,
             this.renderExternalSearchLinks(query, true),
             el('div', { class: 'jpdb-reader-newtab-search-message' }, this.text('searchLocalDictionariesFailed')),
@@ -3442,7 +3543,7 @@ export class NewTabController {
         return el('button', {
             type: 'button',
             class: 'jpdb-reader-newtab-search-card jpdb-reader-newtab-search-word',
-            dataset: { newtabAction: 'search-result-word', expression: card.spelling, reading: card.reading },
+            dataset: { newtabAction: 'search-result-word', newtabCard: cardKey(card), expression: card.spelling, reading: card.reading },
         },
         el('span', { class: 'jpdb-reader-newtab-search-term', lang: 'ja' }, card.spelling),
         meta ? el('span', { class: 'jpdb-reader-newtab-search-meta' }, meta) : null,

@@ -4,13 +4,22 @@ import { collectScanTargets } from './site-parsers';
 import type { JPDBToken, ReaderSettings } from './types';
 
 const log = Logger.scope('VisiblePageScanner');
+const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
+const VISIBLE_SCAN_APPLY_BATCH_SIZE = 16;
+const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 1_200;
+
+interface VisibleScanParseOptions {
+    jpdbTimeoutMs?: number;
+    includeLocalPitch?: boolean;
+}
 
 export interface VisiblePageScannerDependencies {
     getSettings: () => ReaderSettings;
-    parseJapanese: (paragraphs: string[]) => Promise<JPDBToken[][]>;
+    parseJapanese: (paragraphs: string[], options?: VisibleScanParseOptions) => Promise<JPDBToken[][]>;
     pauseMutationObserver: <T>(callback: () => T) => T;
     preloadParsedTokens: (tokens: JPDBToken[]) => void;
     preloadImmersionTokens: (tokens: JPDBToken[]) => void;
+    enrichPitchWords: (tokens: JPDBToken[]) => Promise<void> | void;
     enrichAnkiWords: (tokens: JPDBToken[]) => Promise<void> | void;
     toast: (message: string) => void;
 }
@@ -42,8 +51,8 @@ export class VisiblePageScanner {
         if (!targets.length) return;
 
         try {
-            const parsed = await this.dependencies.parseJapanese(targets.map(target => target.text));
-            this.applyTokens(targets, parsed);
+            const parsed = await this.dependencies.parseJapanese(targets.map(target => target.text), scanParseOptions());
+            await this.applyTokens(targets, parsed);
             this.preloadParsed(parsed);
         } catch {
             // External subtitle overlays update frequently; the regular popup path still reports API errors.
@@ -63,21 +72,35 @@ export class VisiblePageScanner {
             return;
         }
 
-        const parsed = await this.dependencies.parseJapanese(targets.map(target => target.text));
-        this.applyTokens(targets, parsed);
-        this.preloadParsed(parsed);
+        await this.parseAndApplyTargets(targets);
     }
 
-    private applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][]): void {
-        this.dependencies.pauseMutationObserver(() => {
-            targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], this.dependencies.getSettings()));
-        });
+    private async parseAndApplyTargets(targets: ScanTextTarget[]): Promise<void> {
+        for (let index = 0; index < targets.length; index += VISIBLE_SCAN_PARSE_BATCH_SIZE) {
+            const batch = targets.slice(index, index + VISIBLE_SCAN_PARSE_BATCH_SIZE);
+            const parsed = await this.dependencies.parseJapanese(batch.map(target => target.text), scanParseOptions());
+            await this.applyTokens(batch, parsed);
+            this.preloadParsed(parsed);
+            if (index + VISIBLE_SCAN_PARSE_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
+        }
+    }
+
+    private async applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][]): Promise<void> {
+        for (let index = 0; index < targets.length; index += VISIBLE_SCAN_APPLY_BATCH_SIZE) {
+            const start = index;
+            const batch = targets.slice(start, start + VISIBLE_SCAN_APPLY_BATCH_SIZE);
+            this.dependencies.pauseMutationObserver(() => {
+                batch.forEach((target, offset) => applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings()));
+            });
+            if (index + VISIBLE_SCAN_APPLY_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
+        }
     }
 
     private preloadParsed(parsed: JPDBToken[][]): void {
         const tokens = parsed.flat();
         this.dependencies.preloadParsedTokens(tokens);
         this.dependencies.preloadImmersionTokens(tokens);
+        void this.dependencies.enrichPitchWords(tokens);
         void this.dependencies.enrichAnkiWords(tokens);
     }
 
@@ -93,4 +116,15 @@ export class VisiblePageScanner {
     private finishScan(): void {
         this.scanInFlight = false;
     }
+}
+
+function waitForVisibleScanTurn(): Promise<void> {
+    return new Promise(resolve => window.setTimeout(resolve, 0));
+}
+
+function scanParseOptions(): VisibleScanParseOptions {
+    return {
+        jpdbTimeoutMs: VISIBLE_SCAN_PARSE_TIMEOUT_MS,
+        includeLocalPitch: false,
+    };
 }

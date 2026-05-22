@@ -678,6 +678,8 @@ button.jpdb-reader-action-pill {
 .jpdb-reader-jpdb-extra {
   display: grid;
   gap: 6px;
+  margin: 0;
+  padding: 0;
 }
 .jpdb-reader-jpdb-extra h6 {
   margin: 0;

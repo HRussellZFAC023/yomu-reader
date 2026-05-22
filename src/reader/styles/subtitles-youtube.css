@@ -500,6 +500,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
+  outline: none !important;
   touch-action: none;
 }
 .jpdb-subtitle-resize::after {
