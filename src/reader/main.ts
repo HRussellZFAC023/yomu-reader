@@ -1931,7 +1931,7 @@ export class ReaderApp {
 
     private textLookupPreviousNavigationEntry(trigger: 'modal' | 'hover', navigation: CardNavigationMode): PopupNavigationEntry | undefined {
         return trigger === 'modal' && navigation === 'push-current'
-            ? this.navigation.activeKanjiEntry()
+            ? this.activePopoverNavigationEntry()
             : undefined;
     }
 
@@ -2167,12 +2167,14 @@ export class ReaderApp {
         options: PointerTextDisplayOptions,
     ): Promise<void> {
         if (trigger === 'hover' && !this.isCurrentPointerTextHoverResult(candidate, range, options.hoverLookupGeneration)) return;
+        const navigation = options.navigation ?? 'reset';
         const pointerTextLookup = { anchor: candidate.anchor, text: candidate.text, start: range.start, end: range.end };
         const cardSentence = lookupCandidateSentence(candidate.text, range.start, range.end) || sentence;
         await this.showCard(card, cardSentence, candidate.anchor, {
             trigger,
-            navigation: options.navigation ?? 'reset',
+            navigation,
             preservePosition: options.preservePosition,
+            previousNavigationEntry: this.textLookupPreviousNavigationEntry(trigger, navigation),
             hoverLookupKey: trigger === 'hover' ? this.activePointerTextLookupKey(candidate, range.start, range.end, card) : undefined,
             hoverLookupGeneration: options.hoverLookupGeneration,
             pointerTextLookup: trigger === 'hover' ? pointerTextLookup : undefined,
@@ -2373,6 +2375,7 @@ export class ReaderApp {
     }
 
     private renderedWordTrigger(trigger: 'click' | 'hover' | undefined, insideReaderPopup: boolean): 'modal' | 'hover' {
+        if (insideReaderPopup && trigger === 'click') return 'modal';
         if (insideReaderPopup && this.activePopoverMode) return this.activePopoverMode;
         return trigger === 'hover' ? 'hover' : 'modal';
     }
@@ -2383,8 +2386,15 @@ export class ReaderApp {
         navigation: CardNavigationMode,
     ): PopupNavigationEntry | undefined {
         return insideReaderPopup && trigger === 'modal' && navigation === 'push-current'
-            ? this.navigation.activeKanjiEntry()
+            ? this.activePopoverNavigationEntry()
             : undefined;
+    }
+
+    private activePopoverNavigationEntry(): PopupNavigationEntry | undefined {
+        const activeKanji = this.navigation.activeKanjiEntry();
+        if (activeKanji) return activeKanji;
+        if (!this.activePopover?.isConnected || !this.lastCard) return undefined;
+        return { kind: 'word', card: this.lastCard, sentence: this.lastCardSentence };
     }
 
     private showTokenList(tokens: JPDBToken[], selected: string, anchor?: HTMLElement, options: Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry'> = {}): void {
