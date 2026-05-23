@@ -55,6 +55,13 @@ function requestViaUserscript(
     userscriptRequest: UserscriptHttpRequest,
 ): Promise<unknown> {
     return new Promise((resolve, reject) => {
+        const signal = options.signal;
+        if (signal?.aborted) {
+            reject(abortError());
+            return;
+        }
+        let handle: UserscriptHttpRequestHandle | undefined;
+        const tryAbort = () => { try { handle?.abort?.(); } catch { /* ignore */ } };
         const handleLoad = (response: UserscriptHttpResponse) => {
             if (response.status < 200 || response.status >= 300) {
                 reject(new Error(`${options.failureLabel ?? 'Request'} failed (${response.status}).`));
@@ -66,6 +73,11 @@ function requestViaUserscript(
                 reject(error);
             }
         };
+        const onAbort = () => {
+            tryAbort();
+            reject(abortError());
+        };
+        if (signal) signal.addEventListener('abort', onAbort, { once: true });
         const result = userscriptRequest({
             method: options.method ?? 'GET',
             url,
@@ -78,12 +90,24 @@ function requestViaUserscript(
             cookie: options.cookie,
             onload: handleLoad,
             onerror: error => reject(error instanceof Error ? error : new Error(`${options.failureLabel ?? 'Request'} failed.`)),
-            ontimeout: () => reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? 'Request'} timed out.`)),
+            ontimeout: () => {
+                tryAbort();
+                reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? 'Request'} timed out.`));
+            },
         });
         if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
             (result as Promise<UserscriptHttpResponse>).then(handleLoad, error => reject(error instanceof Error ? error : new Error(`${options.failureLabel ?? 'Request'} failed.`)));
+        } else if (result && typeof (result as UserscriptHttpRequestHandle).abort === 'function') {
+            handle = result as UserscriptHttpRequestHandle;
         }
     });
+}
+
+function abortError(): Error {
+    if (typeof DOMException === 'function') return new DOMException('Aborted', 'AbortError');
+    const error = new Error('Aborted');
+    error.name = 'AbortError';
+    return error;
 }
 
 function normalizeUserscriptResponse(response: UserscriptHttpResponse, responseType: NonNullable<ReaderHttpOptions['responseType']>): unknown {

@@ -53,7 +53,7 @@ Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, 
 
 ## Audio
 
-Audio sources follow Yomitan’s source model and fallback order. Custom JSON sources should return an `audioSourceList` with `audioSources`, matching Yomitan’s format. The Audio settings include the shared cross-origin proxy URL used by hosted-page audio and public lookup requests. By default, JPDB and browser text-to-speech stay as fallbacks after recorded sources miss; switch **Text-to-speech handling** to **Follow source order / random** if you want those rows to participate in your configured order or random audio pool.
+Audio sources follow Yomitan’s source model and fallback order. Custom JSON sources should return an `audioSourceList` with `audioSources`, matching Yomitan’s format. The Audio settings include the shared cross-origin proxy URL used by hosted-page audio and public lookup requests. **Shuffle audio** behaves like a shuffled deck: よむ tries every available candidate for a word before reshuffling, instead of independently picking a random clip each time. By default, JPDB and browser text-to-speech stay as fallbacks after recorded sources miss; switch **Text-to-speech handling** to **Follow source order / shuffle** if you want those rows to participate in your configured order or shuffled audio pool.
 
 Local setup guide: https://hrussellzfac023.github.io/yomu-reader/local-audio
 

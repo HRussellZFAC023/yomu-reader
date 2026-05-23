@@ -37,13 +37,20 @@ const STORE_WRITE_BATCH_SIZE = 1000;
 const ZIP_IMPORT_FLUSH_ENTRY_LIMIT = 10000;
 const HOT_LOOKUP_CACHE_TTL_MS = 2000;
 const TOP_TERM_EXPRESSION_ENTRY_LIMIT = 500;
-const TERM_SEARCH_INDEX_BATCH_SIZE = 5000;
+const TERM_SEARCH_INDEX_BATCH_SIZE = 300;
 const TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM = 40;
 const TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH = 2;
 const TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH = 3;
 const TERM_SEARCH_PREFIX_BOUNDARY = String.fromCharCode(0xf8ff);
 const TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS = 12000;
 const TERM_SEARCH_LEGACY_FALLBACK_MAX_MS = 140;
+const TERM_SEARCH_INDEX_CURSOR_MAX_ROWS = 8000;
+const TERM_SEARCH_INDEX_CURSOR_MAX_MS = 180;
+const TERM_SEARCH_DEFAULT_CANDIDATE_LIMIT = 240;
+const RANDOM_TERM_LIST_MAX_ROWS = 20000;
+const RANDOM_TERM_LIST_MAX_MS = 220;
+const RANDOM_TOP_TERM_LIST_MAX_ROWS = 30000;
+const RANDOM_TOP_TERM_LIST_MAX_MS = 320;
 const TERM_KANJI_INDEX_BATCH_SIZE = 5000;
 const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12000;
 const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
@@ -82,6 +89,16 @@ interface GlossaryCursorSearchOptions {
     maxMs?: number;
 }
 
+interface TermSearchOptions {
+    candidateLimit?: number;
+    glossaryIndexMaxRows?: number;
+    glossaryIndexMaxMs?: number;
+    glossaryFallbackMaxRows?: number;
+    glossaryFallbackMaxMs?: number;
+    prepareIndex?: boolean;
+    fallbackWhileIndexing?: boolean;
+}
+
 interface HotLookupCacheEntry<T> {
     expiresAt: number;
     promise: Promise<T>;
@@ -112,6 +129,10 @@ interface ReaderDictionaryExport {
 type YomitanZipIndex = { title?: string; format?: number; version?: number; revision?: string };
 interface RandomTopTermOptions {
     fallbackToRandom?: boolean;
+    maxRows?: number;
+    maxMs?: number;
+    fallbackMaxRows?: number;
+    fallbackMaxMs?: number;
 }
 
 export class YomitanDictionaryStore {
@@ -231,7 +252,7 @@ export class YomitanDictionaryStore {
         );
     }
 
-    async searchTerms(query: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanTermEntry[]> {
+    async searchTerms(query: string, limit: number, preferences: DictionaryPreference[] = [], options: TermSearchOptions = {}): Promise<YomitanTermEntry[]> {
         const normalizedQuery = normalizeTermSearchQuery(query);
         const done = log.time('Term search', { query: normalizedQuery, limit, dictionaries: preferences.length });
         if (!normalizedQuery) {
@@ -242,10 +263,11 @@ export class YomitanDictionaryStore {
         try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
+            const candidateLimit = options.candidateLimit ?? Math.max(limit * 24, TERM_SEARCH_DEFAULT_CANDIDATE_LIMIT);
             const [indexedEntries, glossaryCandidates] = await Promise.all([
                 this.getIndexedTermSearchEntries(db, normalizedQuery, Math.max(limit * 12, 120)),
                 shouldSearchTermGlossaries(normalizedQuery)
-                    ? this.getGlossaryTermSearchCandidates(db, normalizedQuery, Math.max(limit * 80, 800), rank)
+                    ? this.getGlossaryTermSearchCandidates(db, normalizedQuery, candidateLimit, rank, options)
                     : Promise.resolve([]),
             ]);
             const candidates = [
@@ -465,14 +487,31 @@ export class YomitanDictionaryStore {
         return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
     }
 
-    async listRandomTerms(limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanTermEntry[]> {
+    async hasDictionaries(): Promise<boolean> {
+        const done = log.time('Dictionary presence check');
+        try {
+            const db = await this.db();
+            return (await this.getAllDictionaryInfo(db)).length > 0;
+        } catch (error) {
+            log.warn('Dictionary presence check failed', { error });
+            throw error;
+        } finally {
+            done();
+        }
+    }
+
+    async listRandomTerms(limit: number, preferences: DictionaryPreference[] = [], options: GlossaryCursorSearchOptions = {}): Promise<YomitanTermEntry[]> {
         const done = log.time('Random term listing', { limit, dictionaries: preferences.length });
         try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
             const reservoir: YomitanTermEntry[] = [];
             const seen = new Set<string>();
+            const startedAt = performance.now();
+            const maxRows = options.maxRows ?? RANDOM_TERM_LIST_MAX_ROWS;
+            const maxMs = options.maxMs ?? RANDOM_TERM_LIST_MAX_MS;
             let count = 0;
+            let visited = 0;
 
             await new Promise<void>((resolve, reject) => {
                 const tx = db.transaction('terms', 'readonly');
@@ -484,6 +523,12 @@ export class YomitanDictionaryStore {
                         resolve();
                         return;
                     }
+                    if ((maxRows > 0 && visited >= maxRows)
+                        || (maxMs > 0 && performance.now() - startedAt >= maxMs)) {
+                        resolve();
+                        return;
+                    }
+                    visited++;
                     const entry = cursor.value as YomitanTermEntry;
                     if (
                         entry.expression
@@ -521,10 +566,16 @@ export class YomitanDictionaryStore {
         try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
-            const topTerms = await this.collectTopFrequencyTerms(db, maxRank, rank);
-            const results = await this.randomTopTermResults(db, topTerms, limit, rank, preferences);
+            const topTerms = await this.collectTopFrequencyTerms(db, maxRank, rank, {
+                maxRows: options.maxRows ?? RANDOM_TOP_TERM_LIST_MAX_ROWS,
+                maxMs: options.maxMs ?? RANDOM_TOP_TERM_LIST_MAX_MS,
+            });
+            const results = await this.randomTopTermResults(db, topTerms, limit, rank, preferences, options);
             if (options.fallbackToRandom !== false && this.shouldFallbackToRandomTerms(topTerms, results)) {
-                return await this.listRandomTerms(limit, preferences);
+                return await this.listRandomTerms(limit, preferences, {
+                    maxRows: options.fallbackMaxRows,
+                    maxMs: options.fallbackMaxMs,
+                });
             }
             return results;
         } catch (error) {
@@ -541,18 +592,31 @@ export class YomitanDictionaryStore {
         limit: number,
         rank: Map<string, DictionaryPreference>,
         preferences: DictionaryPreference[],
+        options: RandomTopTermOptions,
     ): Promise<YomitanTermEntry[]> {
         return topTerms.size
             ? await this.entriesForRandomExpressions(db, topTerms, limit, preferences)
-            : await this.listRandomCommonTerms(db, limit, rank);
+            : await this.listRandomCommonTerms(db, limit, rank, {
+                maxRows: options.fallbackMaxRows,
+                maxMs: options.fallbackMaxMs,
+            });
     }
 
     private shouldFallbackToRandomTerms(topTerms: Map<string, number>, results: YomitanTermEntry[]): boolean {
         return !topTerms.size && !results.length;
     }
 
-    private async collectTopFrequencyTerms(db: IDBDatabase, maxRank: number, rank: Map<string, DictionaryPreference>): Promise<Map<string, number>> {
+    private async collectTopFrequencyTerms(
+        db: IDBDatabase,
+        maxRank: number,
+        rank: Map<string, DictionaryPreference>,
+        options: GlossaryCursorSearchOptions = {},
+    ): Promise<Map<string, number>> {
         const expressions = new Map<string, number>();
+        const startedAt = performance.now();
+        const maxRows = options.maxRows ?? RANDOM_TOP_TERM_LIST_MAX_ROWS;
+        const maxMs = options.maxMs ?? RANDOM_TOP_TERM_LIST_MAX_MS;
+        let visited = 0;
         await new Promise<void>((resolve, reject) => {
             const tx = db.transaction('termMeta', 'readonly');
             const request = tx.objectStore('termMeta').openCursor();
@@ -563,6 +627,12 @@ export class YomitanDictionaryStore {
                     resolve();
                     return;
                 }
+                if ((maxRows > 0 && visited >= maxRows)
+                    || (maxMs > 0 && performance.now() - startedAt >= maxMs)) {
+                    resolve();
+                    return;
+                }
+                visited++;
                 const entry = cursor.value as YomitanMetaEntry;
                 if (entry.mode === 'freq' && entry.expression && dictionaryEnabled(entry.dictionary, rank)) {
                     const freq = extractFrequency(entry.data);
@@ -630,10 +700,19 @@ export class YomitanDictionaryStore {
         });
     }
 
-    private async listRandomCommonTerms(db: IDBDatabase, limit: number, rank: Map<string, DictionaryPreference>): Promise<YomitanTermEntry[]> {
+    private async listRandomCommonTerms(
+        db: IDBDatabase,
+        limit: number,
+        rank: Map<string, DictionaryPreference>,
+        options: GlossaryCursorSearchOptions = {},
+    ): Promise<YomitanTermEntry[]> {
         const reservoir: YomitanTermEntry[] = [];
         const seen = new Set<string>();
+        const startedAt = performance.now();
+        const maxRows = options.maxRows ?? RANDOM_TERM_LIST_MAX_ROWS;
+        const maxMs = options.maxMs ?? RANDOM_TERM_LIST_MAX_MS;
         let count = 0;
+        let visited = 0;
         await new Promise<void>((resolve, reject) => {
             const tx = db.transaction('terms', 'readonly');
             const request = tx.objectStore('terms').openCursor();
@@ -644,6 +723,12 @@ export class YomitanDictionaryStore {
                     resolve();
                     return;
                 }
+                if ((maxRows > 0 && visited >= maxRows)
+                    || (maxMs > 0 && performance.now() - startedAt >= maxMs)) {
+                    resolve();
+                    return;
+                }
+                visited++;
                 const entry = cursor.value as YomitanTermEntry;
                 if (isCommonDictionaryTerm(entry, rank)) {
                     const key = `${entry.expression}\n${entry.reading}`;
@@ -1390,19 +1475,24 @@ export class YomitanDictionaryStore {
         query: string,
         candidateLimit: number,
         rank: Map<string, DictionaryPreference>,
+        options: TermSearchOptions = {},
     ): Promise<TermSearchCandidate[]> {
         if (hasStore(db, 'termSearch')) {
-            const indexed = await this.getGlossaryTermSearchIndexCandidates(db, query, candidateLimit, rank);
+            const indexed = await this.getGlossaryTermSearchIndexCandidates(db, query, candidateLimit, rank, {
+                maxRows: options.glossaryIndexMaxRows ?? TERM_SEARCH_INDEX_CURSOR_MAX_ROWS,
+                maxMs: options.glossaryIndexMaxMs ?? TERM_SEARCH_INDEX_CURSOR_MAX_MS,
+            });
             if (indexed.length) return indexed;
             const building = Boolean(this.termSearchIndexPromise);
             const indexedCount = await this.countStore(db, 'termSearch');
             if (indexedCount > 0 && !building) return indexed;
-            if (!building) {
+            if (!building && options.prepareIndex !== false) {
                 void this.prepareTermSearchIndex();
             }
+            if (building && options.fallbackWhileIndexing === false) return indexed;
             return this.getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank, {
-                maxRows: TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS,
-                maxMs: TERM_SEARCH_LEGACY_FALLBACK_MAX_MS,
+                maxRows: options.glossaryFallbackMaxRows ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS,
+                maxMs: options.glossaryFallbackMaxMs ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_MS,
             });
         }
         return this.getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank);
@@ -1451,11 +1541,14 @@ export class YomitanDictionaryStore {
         query: string,
         candidateLimit: number,
         rank: Map<string, DictionaryPreference>,
+        options: GlossaryCursorSearchOptions = {},
     ): Promise<TermSearchCandidate[]> {
         const token = termSearchIndexToken(query);
         if (!token) return [];
         return new Promise((resolve, reject) => {
             const candidates: TermSearchCandidate[] = [];
+            const startedAt = performance.now();
+            let visited = 0;
             const request = db.transaction('termSearch', 'readonly')
                 .objectStore('termSearch')
                 .index('token')
@@ -1467,6 +1560,12 @@ export class YomitanDictionaryStore {
                     resolve(candidates);
                     return;
                 }
+                if ((options.maxRows && visited >= options.maxRows)
+                    || (options.maxMs && performance.now() - startedAt >= options.maxMs)) {
+                    resolve(candidates);
+                    return;
+                }
+                visited++;
                 const entry = cursor.value as YomitanTermSearchEntry;
                 if (dictionaryEnabled(entry.dictionary, rank)) {
                     const searchRank = glossaryTermSearchRank(entry.glossary, query);
@@ -1574,6 +1673,7 @@ export class YomitanDictionaryStore {
                 if (generation !== this.termIndexGeneration) return;
                 await this.addTermSearchIndexChunk(db, chunk.terms);
                 indexedTerms += chunk.terms.length;
+                await nextTask();
                 if (chunk.done) break;
                 lastKey = chunk.lastKey;
             }
@@ -1597,6 +1697,7 @@ export class YomitanDictionaryStore {
                 if (generation !== this.termIndexGeneration) return;
                 await this.addTermKanjiIndexChunk(db, chunk.terms);
                 indexedTerms += chunk.terms.length;
+                await nextTask();
                 if (chunk.done) break;
                 lastKey = chunk.lastKey;
             }
@@ -1669,6 +1770,8 @@ export class YomitanDictionaryStore {
             }
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
+            tx.onabort = () => reject(tx.error);
+            commitTransaction(tx);
         });
     }
 
@@ -1681,6 +1784,8 @@ export class YomitanDictionaryStore {
             }
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
+            tx.onabort = () => reject(tx.error);
+            commitTransaction(tx);
         });
     }
 

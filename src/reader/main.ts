@@ -136,6 +136,7 @@ const TERM_AUDIO_PRELOAD_LIMIT = 4;
 const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 3;
 const NEARBY_TERM_AUDIO_PRELOAD_DELAY_MS = 350;
 const PRELOADED_TERM_AUDIO_KEY_LIMIT = 500;
+const FALLBACK_LOOKUP_INITIAL_WAIT_MS = 180;
 const ANKI_ENRICHMENT_LIMIT = 16;
 const PITCH_ENRICHMENT_LIMIT = 12;
 const BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
@@ -318,6 +319,8 @@ interface TextLookupOptions {
     previousNavigationEntry?: PopupNavigationEntry;
     anchor?: HTMLElement;
     userGesture?: boolean;
+    trigger?: 'modal' | 'hover';
+    hoverLookupGeneration?: number;
 }
 
 interface TextLookupDisplayContext {
@@ -328,6 +331,7 @@ interface TextLookupDisplayContext {
     preservePosition: boolean;
     previousNavigationEntry?: PopupNavigationEntry;
     userGesture?: boolean;
+    hoverLookupGeneration?: number;
 }
 
 interface PressLookupState {
@@ -507,6 +511,7 @@ export class ReaderApp {
         parseJapanese: async text => (await this.parseJapanese([text]))[0] ?? [],
         onToast: message => this.toast(message),
         shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeStandaloneImagePage(),
+        enrichPitchTokens: tokens => void this.enrichPitchWords(tokens),
     });
     private youtube = new YoutubeImmersionFilter({
         getSettings: () => this.settings,
@@ -1874,7 +1879,7 @@ export class ReaderApp {
         const done = log.time('lookupText', { length: context.selected.length, trigger: context.trigger });
         try {
             if (await this.showLocalLookupCard(context, sentence)) return;
-            const [tokens] = await this.parseJapanese([sentence], { jpdbTimeoutMs: 1_200 });
+            const [tokens] = await this.parseJapanese([sentence], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true });
             await this.showTextLookupResult(context, tokens, sentence);
         } catch (error) {
             log.warn('Lookup failed; trying local fallback', { selected: context.selected }, error);
@@ -1887,7 +1892,7 @@ export class ReaderApp {
     private textLookupDisplayContext(text: string, options: TextLookupOptions): TextLookupDisplayContext | null {
         const selected = normalizedLookupText(text);
         if (!isLookupableJapaneseText(selected)) return null;
-        const trigger = this.activeTextLookupTrigger();
+        const trigger = options.trigger ?? this.activeTextLookupTrigger();
         const navigation = options.navigation ?? 'reset';
         return this.createTextLookupDisplayContext(selected, trigger, navigation, options);
     }
@@ -1906,6 +1911,7 @@ export class ReaderApp {
             preservePosition: this.textLookupPreservePosition(navigation, options),
             previousNavigationEntry: this.textLookupPreviousNavigationEntryForOptions(trigger, navigation, options),
             userGesture: options.userGesture,
+            hoverLookupGeneration: options.hoverLookupGeneration,
         };
     }
 
@@ -1956,6 +1962,17 @@ export class ReaderApp {
         return publicCard;
     }
 
+    private async resolveLookupCardForInitialRender(card: JPDBCard): Promise<JPDBCard> {
+        if (card.source !== 'fallback') return card;
+
+        const resolved = this.resolveLookupCard(card);
+        void resolved.catch(() => undefined);
+        return Promise.race([
+            resolved,
+            wait(FALLBACK_LOOKUP_INITIAL_WAIT_MS).then(() => card),
+        ]);
+    }
+
     private async publicLookupCard(term: string, exact = false): Promise<JPDBCard | undefined> {
         if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return undefined;
         const cards = await this.jpdbVocabulary.search(term, 1).catch(error => {
@@ -1984,13 +2001,14 @@ export class ReaderApp {
             : [];
     }
 
-    private textLookupCardOptions(context: TextLookupDisplayContext): Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry' | 'userGesture'> {
+    private textLookupCardOptions(context: TextLookupDisplayContext): Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry' | 'userGesture' | 'hoverLookupGeneration'> {
         return {
             trigger: context.trigger,
             navigation: context.navigation,
             preservePosition: context.preservePosition,
             previousNavigationEntry: context.previousNavigationEntry,
             userGesture: context.userGesture,
+            hoverLookupGeneration: context.hoverLookupGeneration,
         };
     }
 
@@ -2125,7 +2143,7 @@ export class ReaderApp {
         trigger: 'modal' | 'hover',
         options: PointerTextDisplayOptions,
     ): Promise<boolean> {
-        const [tokens] = await this.parseJapanese([candidate.text], { jpdbTimeoutMs: 1_200 });
+        const [tokens] = await this.parseJapanese([candidate.text], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true });
         const token = pointerTokenAtOffset(tokens ?? [], candidate.offset);
         if (!token) return false;
         await this.showPointerTextCard(token.card, sentence, candidate, { start: token.start, end: token.end }, trigger, options);
@@ -2284,7 +2302,7 @@ export class ReaderApp {
 
     private async handleMissingRenderedWordCard(
         word: HTMLElement,
-        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean },
+        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean; hoverLookupGeneration?: number },
         insideReaderPopup: boolean,
     ): Promise<void> {
         const vid = Number(word.dataset.vid);
@@ -2300,7 +2318,7 @@ export class ReaderApp {
 
     private async lookupUncachedPageWord(
         word: HTMLElement,
-        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean },
+        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean; hoverLookupGeneration?: number },
     ): Promise<boolean> {
         const expression = normalizedLookupText(readerWordSurfaceText(word));
         if (!isLookupableJapaneseText(expression)) return false;
@@ -2312,13 +2330,15 @@ export class ReaderApp {
             preservePosition: trigger === 'hover',
             previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, false, trigger, navigation),
             userGesture: options.userGesture,
+            trigger,
+            hoverLookupGeneration: options.hoverLookupGeneration,
         });
         return true;
     }
 
     private async lookupUncachedPopupWord(
         word: HTMLElement,
-        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean },
+        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean; hoverLookupGeneration?: number },
     ): Promise<boolean> {
         const expression = normalizedLookupText(readerWordSurfaceText(word));
         if (!isLookupableJapaneseText(expression)) return false;
@@ -2330,6 +2350,8 @@ export class ReaderApp {
             preservePosition: true,
             previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, true, trigger, navigation),
             userGesture: options.userGesture,
+            trigger,
+            hoverLookupGeneration: options.hoverLookupGeneration,
         });
         return true;
     }
@@ -2470,7 +2492,7 @@ export class ReaderApp {
     }
 
     private async showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options: CardDisplayOptions = {}): Promise<void> {
-        card = await this.resolveLookupCard(card);
+        card = await this.resolveLookupCardForInitialRender(card);
         this.lastCard = card;
         this.lastCardSentence = sentence;
         const popover = this.createPopover();
@@ -2665,10 +2687,9 @@ export class ReaderApp {
         this.repositionActivePopover();
         void this.parsePopoverJapanese(popover);
         if (this.settings.immersionKitEnabled) {
-            const immersionExamples = this.immersionPopover.searchExamples(card, {
+            void this.immersionPopover.loadExamples(popover, card, {
                 relatedQueries: this.immersionRelatedQueries(data.jpdbVocabularyInfo),
             });
-            void this.immersionPopover.loadExamples(popover, card, immersionExamples);
         }
         this.studySources.installLoaders(popover, sentence);
     }
@@ -3414,7 +3435,7 @@ export class ReaderApp {
     ): Promise<void> {
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
         try {
-            const parsed = await this.parseJapanese(plan.targets.map(target => target.text), { jpdbTimeoutMs: 1_200 });
+            const parsed = await this.parseJapanese(plan.targets.map(target => target.text), { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true });
             if (!isCurrent() || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             root.dataset.jpdbReaderParseKey = plan.parseKey;
@@ -3887,6 +3908,7 @@ export class ReaderApp {
 
     private dismiss(options: { suppressHoverTarget?: boolean; preserveNavigation?: boolean; preserveHoverGeneration?: boolean } = { suppressHoverTarget: true }): void {
         const hadSettingsDialog = Boolean(this.activePopover?.classList.contains('jpdb-reader-settings'));
+        if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
         this.clearHoverDismissState(options);
         this.audio.stop();
         this.immersionPopover.stopAudio();
@@ -4014,6 +4036,10 @@ function documentLooksLikeStandaloneImagePage(): boolean {
     const bodyText = document.body?.textContent?.replace(/\s+/g, '').trim() ?? '';
     if (bodyText) return false;
     return Boolean(images[0]?.currentSrc || images[0]?.src);
+}
+
+function wait(ms: number): Promise<void> {
+    return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
 function cardStateLabel(state: string, language: InterfaceLanguage): string {

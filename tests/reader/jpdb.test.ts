@@ -430,6 +430,49 @@ describe('reader helpers', () => {
         }
     });
 
+    it('batches large JPDB parse requests by UTF-8 size like the reference reader', async () => {
+        const client = new JpdbClient(() => 'token');
+        const parseBodies: string[][] = [];
+        const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+            const body = JSON.parse(String(init?.body ?? '{}')) as { text?: string[] };
+            const text = body.text ?? [];
+            parseBodies.push(text);
+            return {
+                status: 200,
+                ok: true,
+                text: async () => JSON.stringify({
+                    vocabulary: text.map((paragraph, index) => [
+                        index + 1,
+                        index + 2,
+                        index + 3,
+                        paragraph.slice(0, 2),
+                        paragraph.slice(0, 2),
+                        100 + index,
+                        [],
+                        [[`meaning ${index}`]],
+                        [[]],
+                        ['new'],
+                        [],
+                    ]),
+                    tokens: text.map((_paragraph, index) => [[index, 0, 2, null]]),
+                }),
+            };
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const first = '喧嘩'.repeat(1500);
+            const second = '日本語'.repeat(1000);
+            const [firstTokens, secondTokens] = await client.parse([first, second]);
+
+            expect(firstTokens[0].card.spelling).toBe('喧嘩');
+            expect(secondTokens[0].card.spelling).toBe('日本');
+            expect(parseBodies).toEqual([[first], [second]]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('clears in-flight JPDB parses when caches are reset', async () => {
         const client = new JpdbClient(() => 'token');
         let resolveFirst!: (response: { status: number; ok: boolean; text: () => Promise<string> }) => void;
@@ -1542,8 +1585,9 @@ describe('reader helpers', () => {
 
             expect(tokens.map(token => token.card.spelling)).toEqual(['きょう', 'は', 'よむ']);
             expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 3], [3, 4], [4, 6]]);
-            expect(renderTokensToHtml('きょうはよむ', tokens, DEFAULT_SETTINGS))
-                .toContain('jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown');
+            const rendered = renderTokensToHtml('きょうはよむ', tokens, DEFAULT_SETTINGS);
+            expect(rendered).toContain('jpdb-reader-word jpdb-pitch-unknown');
+            expect(rendered).not.toContain('jpdb-not-in-deck');
         } finally {
             if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
             else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
@@ -1570,7 +1614,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            const parsed = parser.parse(['今日は読む'], { jpdbTimeoutMs: 1200 });
+            const parsed = parser.parse(['今日は読む'], { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true });
             await vi.advanceTimersByTimeAsync(1200);
             const [tokens] = await parsed;
 
@@ -1579,6 +1623,38 @@ describe('reader helpers', () => {
             vi.useRealTimers();
             if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
             else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
+        }
+    });
+
+    it('waits for JPDB by default instead of locking in local compound fallback tokens', async () => {
+        vi.useFakeTimers();
+        const jpdbTokens: JPDBToken[][] = [[{
+            card: { ...card, spelling: '喧嘩', reading: 'けんか', cardState: ['known'] },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'けんか', start: 0, end: 2, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '喧嘩した',
+        }]];
+        const parse = vi.fn(() => new Promise<JPDBToken[][]>(resolve => {
+            window.setTimeout(() => resolve(jpdbTokens), 1500);
+        }));
+        const findTermMatches = vi.fn().mockResolvedValue([]);
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'api-key', localDictionariesEnabled: true }),
+            jpdb: { parse } as never,
+            dictionaries: { findTermMatches } as never,
+        });
+
+        try {
+            const parsed = parser.parse(['喧嘩した'], { jpdbTimeoutMs: 1200 });
+            await vi.advanceTimersByTimeAsync(1500);
+
+            await expect(parsed).resolves.toBe(jpdbTokens);
+            expect(findTermMatches).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
         }
     });
 
@@ -1602,7 +1678,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            const parsed = parser.parse(['漢字を書く']);
+            const parsed = parser.parse(['漢字を書く'], { allowJpdbTimeoutFallback: true });
             await vi.advanceTimersByTimeAsync(6000);
             const [tokens] = await parsed;
 
@@ -1635,7 +1711,7 @@ describe('reader helpers', () => {
 
         expect(card).toMatchObject({
             spelling: '日本語がある場所ならどこでも',
-            reading: '日本語がある場所ならどこでも',
+            reading: '',
             source: 'fallback',
             meanings: [],
             cardState: ['not-in-deck'],
@@ -1900,7 +1976,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('plays random audio like a shuffled deck before repeating clips', () => {
+    it('shuffles audio like a deck before repeating clips', () => {
         const deck = new ShuffledAudioDeck(() => 0);
         const ids = ['a', 'b', 'c'];
         const played: string[] = [];
@@ -1922,6 +1998,46 @@ describe('reader helpers', () => {
             deck.markPlayed('読む', next);
         }
         expect(new Set(secondCycle)).toEqual(new Set(ids));
+    });
+
+    it('shuffles available audio sources across repeated play presses', async () => {
+        const played: string[] = [];
+        const requested: string[] = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                details.onload?.({ status: 200, response: new Blob(['audio'], { type: 'audio/mpeg' }) });
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'random',
+                audioViaBlob: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'custom', url: 'http://x.test/first.mp3', voice: '', enabled: true },
+                    { type: 'custom', url: 'http://x.test/second.mp3', voice: '', enabled: true },
+                ],
+            }));
+
+            await expect(player.play(card)).resolves.toBe(true);
+            await expect(player.play(card)).resolves.toBe(true);
+
+            expect(requested).toEqual([]);
+            expect(played).toEqual([
+                'http://x.test/second.mp3',
+                'http://x.test/first.mp3',
+            ]);
+        } finally {
+            randomSpy.mockRestore();
+            restoreMedia();
+            vi.unstubAllGlobals();
+        }
     });
 
     it('keeps JPDB and browser text-to-speech enabled in the default audio fallbacks', () => {
@@ -3512,12 +3628,19 @@ describe('reader helpers', () => {
 
     it('skips direct browser fetches for known CORS-blocked public audio lookup URLs', async () => {
         const target = 'https://jisho.org/search/%E5%A4%A7%E5%88%87';
+        const jishoAudioTarget = 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/7f5db2ba73cff9c5ef681c0431a12d93.mp3';
         const japanesePodTarget = 'https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=%E5%A4%A7%E5%88%87&kana=%E3%81%9F%E3%81%84%E3%81%9B%E3%81%A4';
         const languagePodPostTarget = 'https://www.japanesepod101.com/learningcenter/reference/dictionary_post';
         const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
             const url = String(input);
+            if (url.startsWith('https://api.allorigins.win/raw?') && url.includes('jisho.org')) {
+                return Promise.resolve(new Response('ok', { status: 200 }));
+            }
             if (url.startsWith('https://yomu-jpdb-public-proxy') && url.includes('jisho.org')) {
                 return Promise.resolve(new Response('ok', { status: 200 }));
+            }
+            if (url.startsWith('https://yomu-jpdb-public-proxy') && url.includes('d1vjc5dkcd3yh2.cloudfront.net')) {
+                return Promise.resolve(new Response('jisho audio', { status: 200 }));
             }
             if (url.startsWith('https://yomu-jpdb-public-proxy') && url.includes('assets.languagepod101.com')) {
                 return Promise.resolve(new Response('audio', { status: 200 }));
@@ -3536,7 +3659,14 @@ describe('reader helpers', () => {
 
             expect(await response.text()).toBe('ok');
             expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
-                `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent(target)}`,
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+            ]);
+
+            fetchMock.mockClear();
+            await expect(fetchWithCorsFallbacks(jishoAudioTarget, '', { allowDirectCrossOrigin: true, credentials: 'omit' }))
+                .resolves.toBeInstanceOf(Response);
+            expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+                `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent(jishoAudioTarget)}`,
             ]);
 
             fetchMock.mockClear();
@@ -4587,7 +4717,7 @@ describe('reader helpers', () => {
             sentence: '14日に中国の習近平国家主席と話をする予定です。',
         };
 
-        await controller.loadExamples(popover, compoundCard, controller.searchExamples(compoundCard, { relatedQueries: ['国家', '主席'] }));
+        await controller.loadExamples(popover, compoundCard, { relatedQueries: ['国家', '主席'] });
 
         expect(container.querySelector('.jpdb-reader-example-title')?.textContent).toBe('国家 · Show');
         expect(container.querySelector('.jpdb-reader-example-count')?.textContent).toBe('1/1');
@@ -4731,7 +4861,11 @@ describe('reader helpers', () => {
             await expect(player.play(card)).resolves.toBe(true);
             await expect(player.play(card)).resolves.toBe(true);
 
-            expect(requested).toEqual(['http://x.test/available.mp3']);
+            expect(requested).toEqual([
+                'http://x.test/missing.mp3',
+                'http://x.test/available.mp3',
+                'http://x.test/missing.mp3',
+            ]);
             expect(played).toEqual(['blob:http://localhost/random-source-audio.mp3', 'blob:http://localhost/random-source-audio.mp3']);
             expect(spoken).toEqual([]);
         } finally {
@@ -4860,7 +4994,7 @@ describe('reader helpers', () => {
 
             await expect(player.play(card)).resolves.toBe(true);
 
-            expect(requested).toEqual(['http://x.test/first-missing.mp3', 'http://x.test/second-missing.mp3']);
+            expect(requested).toEqual(['http://x.test/second-missing.mp3', 'http://x.test/first-missing.mp3']);
             expect(spoken).toEqual([card.spelling]);
         } finally {
             randomSpy.mockRestore();
@@ -6154,7 +6288,7 @@ describe('reader helpers', () => {
         expect(playSpy).toHaveBeenCalledWith(example, true);
     });
 
-    it('keeps Immersion Kit navigation audio off when autoplay is disabled', async () => {
+    it('starts Immersion Kit audio on next example even when initial autoplay is disabled', async () => {
         const app = new ReaderApp();
         const container = document.createElement('details');
         container.setAttribute('data-immersion-kit', '');
@@ -6200,8 +6334,9 @@ describe('reader helpers', () => {
         await internals.immersionPopover.loadExamples(popover, card);
 
         container.querySelector<HTMLButtonElement>('[data-immersion-action="next"]')?.click();
-        expect(playSpy).not.toHaveBeenCalled();
+        expect(playSpy).toHaveBeenCalledWith(example, true);
 
+        playSpy.mockClear();
         container.querySelector<HTMLButtonElement>('[data-immersion-action="audio"]')?.click();
         expect(playSpy).toHaveBeenCalledWith(example);
     });
@@ -7237,7 +7372,7 @@ describe('reader helpers', () => {
             const response = await withWindowProperty('dispatchEvent', undefined, () => bridgeRequest?.({
                 url: 'https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js',
                 method: 'GET',
-            }));
+            }) as Promise<UserscriptHttpResponse> | undefined);
 
             expect(request).toHaveBeenCalledTimes(1);
             expect(response?.responseText).toBe('raw-ok');
@@ -10580,6 +10715,68 @@ describe('reader helpers', () => {
         }
     });
 
+    it('renders fallback lookup cards promptly when public JPDB resolution is slow', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const fallbackCard: JPDBCard = {
+            ...card,
+            vid: -1,
+            sid: -1,
+            rid: 0,
+            spelling: '青空',
+            reading: '青空',
+            source: 'fallback',
+            pitchAccent: [],
+        };
+        const resolveLookupCard = vi.fn(() => new Promise<JPDBCard>(() => undefined));
+        const updateWord = vi.fn();
+        const clearKanji = vi.fn();
+        const load = vi.fn(() => ({
+            localEntries: Promise.resolve([]),
+            all: Promise.resolve({
+                localEntries: [],
+                kanjiEntries: [],
+                metaEntries: [],
+                ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+                jpdbDecks: [],
+                ankiDecks: [],
+                jpdbVocabularyInfo: null,
+            }),
+        }));
+        const mountInitialCardShell = vi.fn(async () => null);
+        const internals = app as unknown as {
+            resolveLookupCard: typeof resolveLookupCard;
+            createPopover(): HTMLElement;
+            navigation: { updateWord: typeof updateWord; clearKanji: typeof clearKanji };
+            rememberCardMiningContext(): void;
+            maybePreloadLookupCardAudio(): void;
+            cardRenderData: { load: typeof load };
+            mountInitialCardShell: typeof mountInitialCardShell;
+            showCard(card: JPDBCard, sentence?: string): Promise<void>;
+        };
+        internals.resolveLookupCard = resolveLookupCard;
+        internals.createPopover = () => document.createElement('div');
+        internals.navigation = { updateWord, clearKanji };
+        internals.rememberCardMiningContext = vi.fn();
+        internals.maybePreloadLookupCardAudio = vi.fn();
+        internals.cardRenderData = { load };
+        internals.mountInitialCardShell = mountInitialCardShell;
+
+        try {
+            const show = internals.showCard(fallbackCard);
+            await vi.advanceTimersByTimeAsync(181);
+            await show;
+
+            expect(resolveLookupCard).toHaveBeenCalledWith(fallbackCard);
+            expect(updateWord).toHaveBeenCalledWith(fallbackCard, undefined, 'modal', 'reset', undefined);
+            expect(load).toHaveBeenCalledWith(fallbackCard);
+            expect(mountInitialCardShell).toHaveBeenCalledWith(expect.any(HTMLElement), fallbackCard, undefined, undefined, expect.any(Object));
+        } finally {
+            app.destroy();
+            vi.useRealTimers();
+        }
+    });
+
     it('resolves segmented fallback lookup cards through public JPDB search before rendering', async () => {
         const app = new ReaderApp();
         const fallbackCard: JPDBCard = {
@@ -10856,7 +11053,7 @@ describe('reader helpers', () => {
             sentence: '今日は、雲ひとつない青空だ。',
         }], DEFAULT_SETTINGS);
 
-        expect(Array.from(document.querySelectorAll('.jpdb-reader-word')).map(word => readerWordSurfaceText(word))).toEqual(['青', '空']);
+        expect(Array.from(document.querySelectorAll('.jpdb-reader-word')).map(word => readerWordSurfaceText(word))).toEqual(['青空']);
     });
 
     it('uses NHK-style ruby-aware site parsing without duplicating native furigana', () => {
@@ -10891,6 +11088,50 @@ describe('reader helpers', () => {
         expect(document.querySelector('rt')?.textContent).toBe('とうきょう');
         expect(document.querySelectorAll('.jpdb-reader-word.jpdb-known')).toHaveLength(1);
         expect(document.querySelector('.jpdb-reader-word')?.textContent).toBe('東京');
+    });
+
+    it('keeps Tadoku ruby-base words together with trailing kana', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 200,
+            width: 800,
+            height: 200,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <main id="main" role="main">
+                <section>
+                    <div class="bd-title"><h1><ruby>鏡<rt>かがみ</rt></ruby>のない<ruby>村<rt>むら</rt></ruby></h1></div>
+                    <div class="bd-desc-jp">
+                        <p><ruby>親思<rt>おやおも</rt></ruby>いの<ruby>正助<rt>しょうすけ</rt></ruby>は、<ruby>殿様<rt>とのさま</rt></ruby>にほしいものを<ruby>聞<rt>き</rt></ruby>かれます。</p>
+                    </div>
+                </section>
+            </main>
+        `;
+        const targets = collectSiteScanTargets(10, 'https://tadoku.org/japanese/book/61371/') ?? [];
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toContain('親思いの正助は、殿様にほしいものを聞かれます。');
+
+        const target = targets.find(item => item.text.startsWith('親思い'))!;
+        applyTokensToScanTarget(target, [{
+            card: { ...card, cardState: ['known'], spelling: '親思い', reading: 'おやおもい' },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [{ text: 'おやおも', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: target.text,
+        }], DEFAULT_SETTINGS);
+
+        const words = Array.from(document.querySelectorAll<HTMLElement>('.bd-desc-jp .jpdb-reader-word'));
+        expect(words).toHaveLength(1);
+        expect(readerWordSurfaceText(words[0])).toBe('親思い');
+        expect(words[0]?.querySelector('rt')?.textContent).toBe('おやおも');
     });
 
     it('uses Comprehensible Japanese transcript parsing across native ruby and cue controls', () => {
@@ -10929,9 +11170,10 @@ describe('reader helpers', () => {
         }], DEFAULT_SETTINGS);
 
         const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
-        expect(words.map(word => readerWordSurfaceText(word))).toEqual(['被', 'って']);
+        expect(words.map(word => readerWordSurfaceText(word))).toEqual(['被って']);
         expect(words.every(word => word.dataset.sentence === '小人は帽子を被っています。')).toBe(true);
-        expect(document.querySelectorAll('.jpdb-reader-word rt')).toHaveLength(0);
+        expect(document.querySelectorAll('.jpdb-reader-word rt.jpdb-reader-furi')).toHaveLength(0);
+        expect(document.querySelector('.jpdb-reader-word rt.kanji')?.textContent).toBe('かぶ');
     });
 
     it('recovers full mining sentences around old partial transcript highlights', () => {
@@ -11942,6 +12184,47 @@ describe('reader helpers', () => {
         expect((await store.searchTerms('cat', 5)).map(entry => entry.expression)).toContain('猫');
         await store.prepareTermSearchIndex();
         expect((await store.searchTerms('cat', 5)).map(entry => entry.expression)).toContain('猫');
+    });
+
+    it('can run interactive glossary search without starting the full token index rebuild', async () => {
+        const store = new YomitanDictionaryStore();
+        await store.clear();
+        await store.importFile(new File([JSON.stringify({
+            formatName: 'dexie',
+            data: {
+                data: [{
+                    tableName: 'terms',
+                    rows: [
+                        { $: [1, { expression: '猫', reading: 'ねこ', glossary: ['cat'], score: 20, dictionary: 'Jitendex' }] },
+                    ],
+                }],
+            },
+        })], 'interactive-search-dictionaries.json', { type: 'application/json' }));
+
+        expect((await store.searchTerms('cat', 5, [], {
+            candidateLimit: 12,
+            glossaryFallbackMaxRows: 20,
+            glossaryFallbackMaxMs: 20,
+            prepareIndex: false,
+        })).map(entry => entry.expression)).toContain('猫');
+
+        const termSearchCount = await new Promise<number>((resolve, reject) => {
+            const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
+            request.onsuccess = () => {
+                const db = request.result;
+                const count = db.transaction('termSearch', 'readonly').objectStore('termSearch').count();
+                count.onsuccess = () => {
+                    db.close();
+                    resolve(count.result);
+                };
+                count.onerror = () => {
+                    db.close();
+                    reject(count.error);
+                };
+            };
+            request.onerror = () => reject(request.error);
+        });
+        expect(termSearchCount).toBe(0);
     });
 
     it('deletes the local dictionary database while another Yomu tab has it open', async () => {

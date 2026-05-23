@@ -38,6 +38,7 @@ const IMMERSION_SEARCH_CACHE_LIMIT = 120;
 const IMMERSION_PRELOAD_TERM_LIMIT = 240;
 const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
 const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
+const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
 const log = Logger.scope('ImmersionPopover');
 
 interface ExampleAudioSource {
@@ -54,10 +55,12 @@ export interface ImmersionKitSearchResult {
 
 export interface ImmersionSearchOptions {
     relatedQueries?: string[];
+    signal?: AbortSignal;
 }
 
 interface ImmersionParseOptions {
     jpdbTimeoutMs?: number;
+    allowJpdbTimeoutFallback?: boolean;
 }
 
 interface ImmersionPopoverControllerOptions {
@@ -90,8 +93,16 @@ export class ImmersionPopoverController {
     private activeMiningContext?: MiningContext;
     private contextByCardKey = new Map<string, StoredMiningContext>();
     private searchResultCache = new Map<string, { expiresAt: number; promise: Promise<ImmersionKitSearchResult> }>();
+    private loadAbortControllers = new WeakMap<HTMLElement, AbortController>();
 
     constructor(private options: ImmersionPopoverControllerOptions) {}
+
+    abortPendingRequests(popover: HTMLElement): void {
+        const controller = this.loadAbortControllers.get(popover);
+        if (!controller) return;
+        controller.abort();
+        this.loadAbortControllers.delete(popover);
+    }
 
     hasActiveContext(card: JPDBCard, sentence?: string): boolean {
         return this.activeMiningContext?.term === card.spelling
@@ -127,18 +138,26 @@ export class ImmersionPopoverController {
     async loadExamples(
         popover: HTMLElement,
         card: JPDBCard,
-        searchPromise: Promise<ImmersionKitSearchResult> = this.searchExamples(card),
+        options: ImmersionSearchOptions = {},
     ): Promise<void> {
         const container = popover.querySelector<HTMLElement>('[data-immersion-kit]');
         if (!container) return;
 
+        this.abortPendingRequests(popover);
+        const controller = new AbortController();
+        this.loadAbortControllers.set(popover, controller);
+        const searchPromise = this.searchExamples(card, { ...options, signal: controller.signal });
+
         try {
-            const result = await searchPromise;
-            if (!isConnectedImmersionSurface(popover, container)) return;
+            const result = await raceAgainstAbort(searchPromise, controller.signal);
+            if (controller.signal.aborted || !isConnectedImmersionSurface(popover, container)) return;
             this.renderLoadedExamples(container, card, result);
         } catch (error) {
+            if (isAbortError(error)) return;
             log.warn('Immersion Kit examples failed', { term: card.spelling }, error);
             this.renderEmptyIfConnected(popover, container);
+        } finally {
+            if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
         }
     }
 
@@ -185,7 +204,7 @@ export class ImmersionPopoverController {
             }
             const action = button.dataset.immersionAction;
             if (action === 'previous') render(index - 1, this.shouldAutoPlayCarouselAudio(), true);
-            if (action === 'next') render(index + 1, this.shouldAutoPlayCarouselAudio(), true);
+            if (action === 'next') render(index + 1, true, true);
             if (action === 'audio') void this.playExampleAudio(examples[index]);
         });
         container.addEventListener('keydown', event => {
@@ -243,15 +262,18 @@ export class ImmersionPopoverController {
     async searchExamples(card: JPDBCard, options: ImmersionSearchOptions = {}): Promise<ImmersionKitSearchResult> {
         const key = this.searchCacheKey(card, options);
         const now = Date.now();
-        const cached = this.searchResultCache.get(key);
+        const cacheSearch = !options.signal;
+        const cached = cacheSearch ? this.searchResultCache.get(key) : undefined;
         if (cached && cached.expiresAt > now) return cached.promise;
 
         const promise = this.fetchExamples(card, options).catch(error => {
-            if (this.searchResultCache.get(key)?.promise === promise) this.searchResultCache.delete(key);
+            if (cacheSearch && this.searchResultCache.get(key)?.promise === promise) this.searchResultCache.delete(key);
             throw error;
         });
-        this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise });
-        pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
+        if (cacheSearch) {
+            this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise });
+            pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
+        }
         return promise;
     }
 
@@ -288,16 +310,85 @@ export class ImmersionPopoverController {
     private async fetchExamples(card: JPDBCard, options: ImmersionSearchOptions): Promise<ImmersionKitSearchResult> {
         const exactQuery = normalizeImmersionSearchQuery(card.spelling);
         const triedQueries: string[] = [];
-        const exactResult = await this.fetchExamplesForQuery(exactQuery, exactQuery, triedQueries);
+        const exactResult = await this.fetchExamplesForQuery(exactQuery, exactQuery, triedQueries, options.signal);
         if (exactResult) return exactResult;
 
         const queries = await this.immersionFallbackSearchQueries(card, options, exactQuery);
-        for (const query of queries) {
-            const result = await this.fetchExamplesForQuery(query, exactQuery, triedQueries);
-            if (result) return result;
-        }
+        const fallbackResult = await this.fetchFirstFallbackExamples(queries, exactQuery, triedQueries, options.signal);
+        if (fallbackResult) return fallbackResult;
 
         return { examples: [], query: exactQuery, usedFallback: false, triedQueries };
+    }
+
+    private fetchFirstFallbackExamples(
+        queries: string[],
+        exactQuery: string,
+        triedQueries: string[],
+        signal?: AbortSignal,
+    ): Promise<ImmersionKitSearchResult | null> {
+        if (!queries.length) return Promise.resolve(null);
+        const concurrency = Math.min(IMMERSION_FALLBACK_SEARCH_CONCURRENCY, queries.length);
+        let nextIndex = 0;
+        let active = 0;
+        let settled = false;
+
+        return new Promise((resolve, reject) => {
+            const cleanupAbortListener = (): void => {
+                signal?.removeEventListener('abort', handleAbort);
+            };
+            const fail = (error: unknown): void => {
+                if (settled) return;
+                settled = true;
+                cleanupAbortListener();
+                reject(error);
+            };
+            const finish = (result: ImmersionKitSearchResult | null): void => {
+                if (settled) return;
+                settled = true;
+                cleanupAbortListener();
+                resolve(result);
+            };
+            const handleAbort = (): void => fail(abortErrorForRace());
+            if (signal?.aborted) {
+                handleAbort();
+                return;
+            }
+            signal?.addEventListener('abort', handleAbort, { once: true });
+            const launch = (): void => {
+                if (signal?.aborted) {
+                    handleAbort();
+                    return;
+                }
+                while (!settled && active < concurrency && nextIndex < queries.length) {
+                    const query = queries[nextIndex++];
+                    active++;
+                    void this.fetchExamplesForQuery(query, exactQuery, triedQueries, signal)
+                        .then(result => {
+                            active--;
+                            if (result) {
+                                finish(result);
+                                return;
+                            }
+                            if (nextIndex >= queries.length && active === 0) finish(null);
+                            else launch();
+                        })
+                        .catch(error => {
+                            active--;
+                            if (signal?.aborted) {
+                                handleAbort();
+                                return;
+                            }
+                            if (isAbortError(error)) {
+                                fail(error);
+                                return;
+                            }
+                            if (nextIndex >= queries.length && active === 0) finish(null);
+                            else launch();
+                        });
+                }
+            };
+            launch();
+        });
     }
 
     private async immersionFallbackSearchQueries(card: JPDBCard, options: ImmersionSearchOptions, exactQuery: string): Promise<string[]> {
@@ -313,13 +404,19 @@ export class ImmersionPopoverController {
         query: string,
         exactQuery: string,
         triedQueries: string[],
+        signal?: AbortSignal,
     ): Promise<ImmersionKitSearchResult | null> {
         if (!query) return null;
+        if (signal?.aborted) throw abortErrorForRace();
         triedQueries.push(query);
         try {
-            const examples = await this.options.client.search(query, this.options.getSettings());
+            const settings = this.options.getSettings();
+            const examples = signal
+                ? await this.options.client.search(query, settings, { signal })
+                : await this.options.client.search(query, settings);
             return immersionSearchResultForQuery(query, exactQuery, triedQueries, examples);
-        } catch {
+        } catch (error) {
+            if (isAbortError(error)) throw error;
             return null;
         }
     }
@@ -359,7 +456,7 @@ export class ImmersionPopoverController {
     }
 
     private async fallbackParseTokens(card: JPDBCard): Promise<JPDBToken[]> {
-        const [tokens] = await this.options.parseJapanese([card.spelling], { jpdbTimeoutMs: 1_200 }).catch(() => {
+        const [tokens] = await this.options.parseJapanese([card.spelling], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true }).catch(() => {
             return [[]] as JPDBToken[][];
         });
         return tokens ?? [];
@@ -560,7 +657,7 @@ export class ImmersionPopoverController {
         searchQuery: string,
         isCurrent: () => boolean,
     ): void {
-        void this.options.parseJapanese([example.sentence], { jpdbTimeoutMs: 1_200 })
+        void this.options.parseJapanese([example.sentence], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true })
             .then(([tokens]) => {
                 if (!isCurrent() || !container.isConnected) return;
                 const sentence = container.querySelector<HTMLElement>('[data-immersion-sentence-render]');
@@ -778,6 +875,32 @@ function pageMiningSourceKind(anchor?: HTMLElement): ReturnType<typeof inferMini
 
 function isConnectedImmersionSurface(popover: HTMLElement, container: HTMLElement): boolean {
     return popover.isConnected && container.isConnected;
+}
+
+function isAbortError(error: unknown): boolean {
+    return error instanceof Error && error.name === 'AbortError';
+}
+
+function raceAgainstAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+    if (signal.aborted) return Promise.reject(abortErrorForRace());
+    return new Promise<T>((resolve, reject) => {
+        const onAbort = () => reject(abortErrorForRace());
+        signal.addEventListener('abort', onAbort, { once: true });
+        promise.then(value => {
+            signal.removeEventListener('abort', onAbort);
+            resolve(value);
+        }, error => {
+            signal.removeEventListener('abort', onAbort);
+            reject(error);
+        });
+    });
+}
+
+function abortErrorForRace(): Error {
+    if (typeof DOMException === 'function') return new DOMException('Aborted', 'AbortError');
+    const error = new Error('Aborted');
+    error.name = 'AbortError';
+    return error;
 }
 
 function addImmersionFallbackQuery(candidates: string[], value: string, exactQuery: string): void {

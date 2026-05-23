@@ -52,6 +52,7 @@ interface OcrControllerOptions {
     parseJapanese: (text: string) => Promise<JPDBToken[]>;
     onToast: (message: string) => void;
     shouldAutoScan?: () => boolean;
+    enrichPitchTokens?: (tokens: JPDBToken[]) => void;
 }
 
 const MAX_CACHE_ITEMS = 36;
@@ -178,16 +179,24 @@ export class ImageOcrController {
         this.mutationObserver = new MutationObserver(mutations => {
             const settings = this.options.getSettings();
             if (!settings.ocrEnabled) return;
-            if (mutations.some(mutation => mutationTouchesRenderableMedia(mutation))) {
-                this.schedulePosition();
-                if (settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false) this.scheduleRefresh(80);
+            let addedImage = false;
+            let touched = false;
+            for (const mutation of mutations) {
+                if (!mutationTouchesRenderableMedia(mutation)) continue;
+                touched = true;
+                if (mutation.type === 'childList' && [...mutation.addedNodes].some(nodeContainsRenderableMedia)) addedImage = true;
+                if (addedImage) break;
             }
+            if (!touched) return;
+            this.schedulePosition();
+            if (!settings.ocrAutoScanImages || this.options.shouldAutoScan?.() === false) return;
+            this.scheduleRefresh(addedImage ? 0 : 40);
         });
         this.mutationObserver.observe(document.body, {
             childList: true,
             subtree: true,
             attributes: true,
-            attributeFilter: ['class', 'style', 'hidden', 'src', 'srcset', 'sizes', 'loading', 'poster'],
+            attributeFilter: ['style', 'class', 'hidden', 'src', 'srcset', 'sizes', 'loading', 'poster'],
         });
     }
 
@@ -317,9 +326,14 @@ export class ImageOcrController {
         image.addEventListener('load', () => {
             this.resetStateIfImageChanged(state);
             this.schedulePosition();
-            this.scheduleRefresh(80);
+            this.scheduleRefresh(0);
         });
         this.states.set(image, state);
+        if (image.complete && image.naturalWidth > 0) {
+            this.schedulePosition();
+            const settings = this.options.getSettings();
+            if (settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false) this.enqueue(image);
+        }
         return state;
     }
 
@@ -458,6 +472,7 @@ export class ImageOcrController {
             state.overlay.append(this.renderOcrLineElement(state, result, line, parsed[index] ?? [], sentence, showText, settings));
         }
         this.positionState(state.image);
+        this.options.enrichPitchTokens?.(parsed.flat());
     }
 
     private async parseOcrLines(lines: OcrLine[], settings: ReaderSettings): Promise<JPDBToken[][]> {
@@ -477,46 +492,31 @@ export class ImageOcrController {
         settings: ReaderSettings,
     ): HTMLElement {
         const element = createOcrLineElement(result, line, tokens, sentence, showText, settings);
-        element.addEventListener('pointerenter', event => {
-            if (event.pointerType !== 'touch') this.activateLine(state, element, false);
-        });
-        element.addEventListener('pointerleave', event => {
-            if (event.pointerType !== 'touch' && element.dataset.pinned !== 'true') this.deactivateLine(element);
-        });
-        element.addEventListener('focus', () => {
-            if (element.dataset.pinned !== 'true') this.activateLine(state, element, false);
-        });
-        element.addEventListener('blur', () => {
-            if (element.dataset.pinned !== 'true') this.deactivateLine(element);
-        });
         element.addEventListener('click', event => this.toggleOcrLinePinned(state, element, event));
         return element;
     }
 
     private toggleOcrLinePinned(state: ImageState, element: HTMLElement, event: MouseEvent): void {
-        if ((event.target as HTMLElement).closest('.jpdb-reader-word')) return;
+        if ((event.target as HTMLElement).closest('.jpdb-reader-word[data-vid]')) return;
         event.preventDefault();
         event.stopPropagation();
-        if (element.classList.contains('jpdb-ocr-line-active') && element.dataset.pinned === 'true') {
-            this.deactivateLine(element);
+        if (element.dataset.pinned === 'true') {
+            this.unpinLine(element);
             return;
         }
         element.focus({ preventScroll: true });
-        this.activateLine(state, element, true);
+        this.pinLine(state, element);
     }
 
-    private activateLine(state: ImageState, element: HTMLElement, pinned: boolean): void {
-        const pinnedLine = state.overlay.querySelector<HTMLElement>('.jpdb-ocr-line-active[data-pinned="true"]');
-        if (!pinned && pinnedLine && pinnedLine !== element) return;
+    private pinLine(state: ImageState, element: HTMLElement): void {
         state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line-active').forEach(line => {
-            if (line === element) return;
-            this.deactivateLine(line);
+            if (line !== element) this.unpinLine(line);
         });
         element.classList.add('jpdb-ocr-line-active');
-        element.dataset.pinned = pinned ? 'true' : 'false';
+        element.dataset.pinned = 'true';
     }
 
-    private deactivateLine(element: HTMLElement): void {
+    private unpinLine(element: HTMLElement): void {
         element.classList.remove('jpdb-ocr-line-active');
         element.dataset.pinned = 'false';
     }

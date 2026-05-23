@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.28] - 2026-05-23
+
+### Added
+
+- Added beginner-facing reading-site recommendations to the getting started guide, including graded readers, easy news, ebook readers, web novels, and subtitle-based YouTube practice.
+- Added hosted-page copy that explains よむ as a reading-first immersion system across JPDB, Yomitan dictionaries, Anki, OCR, subtitles, and example sources.
+
+### Changed
+
+- Made shuffled audio behave like a deck, trying available clips for a word before reshuffling, and updated the README and audio docs to describe the new behavior.
+- Improved hosted new-tab and stats behavior around JPDB/Anki study cards, dictionary-backed study words, and cached runtime data.
+
+### Fixed
+
+- Hardened lookup, audio, OCR, proxy fetches, and local dictionary paths with broader regression coverage for JPDB pages, new-tab review, performance caches, and stats.
+
 ## [0.4.27] - 2026-05-23
 
 ### Fixed

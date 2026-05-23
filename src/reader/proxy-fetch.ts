@@ -238,6 +238,9 @@ function shouldSkipDirectCrossOriginFetch(targetUrl: string, options: ProxyFetch
         if (target.hostname === 'jisho.org') {
             return method === 'GET' && target.pathname.startsWith('/search/');
         }
+        if (target.hostname === 'd1vjc5dkcd3yh2.cloudfront.net' && target.pathname.startsWith('/audio/')) {
+            return method === 'GET';
+        }
         if (target.hostname === 'www.japanesepod101.com') {
             return method === 'POST' && target.pathname === '/learningcenter/reference/dictionary_post';
         }
@@ -264,6 +267,15 @@ function specializedProxyUrls(targetUrl: string, options: ProxyFetchOptions): st
             return [configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ''];
         }
         if (method === 'POST' && target.hostname === 'www.japanesepod101.com' && target.pathname === '/learningcenter/reference/dictionary_post') {
+            return [configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ''];
+        }
+        if (method === 'GET' && target.hostname === 'jisho.org' && target.pathname.startsWith('/search/')) {
+            return [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+                jishoMarkdownProxyUrl(targetUrl) ?? '',
+            ];
+        }
+        if (method === 'GET' && target.hostname === 'd1vjc5dkcd3yh2.cloudfront.net' && target.pathname.startsWith('/audio/')) {
             return [configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ''];
         }
         if (method === 'GET' && target.hostname === 'jpdb.io' && target.pathname.startsWith('/static/v/')) {

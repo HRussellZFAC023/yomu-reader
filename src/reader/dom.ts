@@ -582,9 +582,16 @@ export function nearestReadableSentenceForElement(element: HTMLElement, fallback
     const surface = readerWordSurfaceText(element).trim() || element.textContent?.trim() || '';
     const cleanFallback = cleanReadableSentence(fallback);
     const ocrLine = element.closest<HTMLElement>('.jpdb-ocr-line');
-    if (ocrLine) return cleanReadableSentence(ocrLine.dataset.sentence || ocrLine.dataset.ocrText || ocrLine.getAttribute('aria-label') || cleanFallback);
+    if (ocrLine) return ocrLineSentenceForElement(ocrLine, surface, cleanFallback);
     const nearest = nearestReadableAncestorSentence(element, surface, cleanFallback);
     return nearest || fallbackReadableSentence(cleanFallback, surface);
+}
+
+function ocrLineSentenceForElement(ocrLine: HTMLElement, surface: string, cleanFallback: string): string {
+    const multi = cleanReadableSentence(ocrLine.dataset.sentence || ocrLine.dataset.ocrText || ocrLine.getAttribute('aria-label') || cleanFallback);
+    const local = surface ? sentenceAroundSurface(multi, surface, cleanFallback) : '';
+    if (local) return local;
+    return cleanReadableSentence(ocrLine.dataset.ocrText || multi || surface || cleanFallback);
 }
 
 function nearestReadableAncestorSentence(element: HTMLElement, surface: string, cleanFallback: string): string {
@@ -897,20 +904,11 @@ export function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: 
     if (!safeTokens.length) return;
 
     const sentence = target.text.replace(/\s+/g, ' ').trim();
-    if (fragmentTargetHasNativeRuby(target)) {
-        applyTokensToFragmentPieces(target, safeTokens, settings, sentence);
-        return;
-    }
-
     applyTokensToIndexedFragmentTarget(target, safeTokens, settings, sentence);
 }
 
 function hasFragmentTokenWork(target: FragmentTextTarget, tokens: JPDBToken[]): boolean {
     return Boolean(tokens.length && target.fragments.length);
-}
-
-function fragmentTargetHasNativeRuby(target: FragmentTextTarget): boolean {
-    return target.fragments.some(fragment => fragment.hasNativeRuby);
 }
 
 function applyTokensToIndexedFragmentTarget(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings, sentence: string): void {
@@ -986,94 +984,9 @@ function insertMultiFragmentToken(range: Range, token: JPDBToken): void {
     range.insertNode(shell);
 }
 
-function applyTokensToFragmentPieces(
-    target: FragmentTextTarget,
-    safeTokens: JPDBToken[],
-    settings: ReaderSettings,
-    sentence: string,
-): void {
-    let globalOffset = 0;
-    for (const fragmentInfo of target.fragments) {
-        globalOffset = applyTokensToFragmentPiece(target, fragmentInfo, safeTokens, settings, sentence, globalOffset);
-    }
-}
-
-function applyTokensToFragmentPiece(
-    target: FragmentTextTarget,
-    fragment: TextFragment,
-    safeTokens: JPDBToken[],
-    settings: ReaderSettings,
-    sentence: string,
-    fragmentStart: number,
-): number {
-    const fragmentEnd = fragmentStart + fragment.end - fragment.start;
-    if (!fragment.node.parentElement) return fragmentEnd;
-    const overlappingTokens = safeTokens.filter(token => tokenOverlapsRange(token, fragmentStart, fragmentEnd));
-    if (overlappingTokens.length) replaceFragmentWithTokens(target, fragment, overlappingTokens, settings, sentence, fragmentStart, fragmentEnd);
-    return fragmentEnd;
-}
-
-function tokenOverlapsRange(token: JPDBToken, start: number, end: number): boolean {
-    return token.start < end && token.end > start;
-}
-
-function replaceFragmentWithTokens(
-    target: FragmentTextTarget,
-    fragment: TextFragment,
-    tokens: JPDBToken[],
-    settings: ReaderSettings,
-    sentence: string,
-    fragmentStart: number,
-    fragmentEnd: number,
-): void {
-    const nodeText = fragment.node.data;
-    const replacement = document.createDocumentFragment();
-    let localOffset = fragment.start;
-    for (const token of tokens) {
-        const nextOffset = appendFragmentToken(replacement, target, fragment, nodeText, token, settings, sentence, fragmentStart, fragmentEnd, localOffset);
-        localOffset = nextOffset;
-    }
-    if (localOffset < fragment.end) replacement.append(document.createTextNode(nodeText.slice(localOffset, fragment.end)));
-    fragment.node.replaceWith(replacement);
-}
-
-function appendFragmentToken(
-    replacement: DocumentFragment,
-    target: FragmentTextTarget,
-    fragment: TextFragment,
-    nodeText: string,
-    token: JPDBToken,
-    settings: ReaderSettings,
-    sentence: string,
-    fragmentStart: number,
-    fragmentEnd: number,
-    localOffset: number,
-): number {
-    const overlapStart = Math.max(token.start, fragmentStart);
-    const overlapEnd = Math.min(token.end, fragmentEnd);
-    const localStart = fragment.start + overlapStart - fragmentStart;
-    const localEnd = fragment.start + overlapEnd - fragmentStart;
-    if (localStart > localOffset) replacement.append(document.createTextNode(nodeText.slice(localOffset, localStart)));
-    replacement.append(renderToken(nodeText.slice(localStart, localEnd), tokenWithReadableSentence(token, target.text, token.sentence ?? sentence), settings, {
-        allowRuby: fragmentTokenAllowsRuby(target, fragment, token, overlapStart, overlapEnd),
-        kanjiNavigation: kanjiNavigationForElement(target.parent),
-    }));
-    return localEnd;
-}
-
 function tokenWithReadableSentence(token: JPDBToken, text: string, fallback?: string): JPDBToken {
     const sentence = sentenceAroundRange(text, token.start, token.end, fallback) || fallback || token.sentence;
     return sentence === token.sentence ? token : { ...token, sentence };
-}
-
-function fragmentTokenAllowsRuby(target: FragmentTextTarget, fragment: TextFragment, token: JPDBToken, overlapStart: number, overlapEnd: number): boolean {
-    if (!tokenCoversFragmentOverlap(token, overlapStart, overlapEnd)) return false;
-    return fragmentAllowsInjectedRuby(target, fragment);
-}
-
-function tokenCoversFragmentOverlap(token: JPDBToken, overlapStart: number, overlapEnd: number): boolean {
-    if (overlapStart !== token.start) return false;
-    return overlapEnd === token.end;
 }
 
 function fragmentAllowsInjectedRuby(target: FragmentTextTarget, fragment: TextFragment): boolean {
@@ -1298,8 +1211,15 @@ function hasDifficultKanji(surface: string): boolean {
 }
 
 function readerWordClassName(state: string, token: JPDBToken): string {
-    const classes = ['jpdb-reader-word', `jpdb-${state}`, `jpdb-pitch-${safePitchClass(token.pitchClass)}`];
+    const classes = ['jpdb-reader-word'];
+    if (hasKnownCardState(token.card)) classes.push(`jpdb-${state}`);
+    classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
     return classes.join(' ');
+}
+
+function hasKnownCardState(card: JPDBToken['card']): boolean {
+    if (card.source === 'fallback') return false;
+    return Array.isArray(card.cardState) && card.cardState.length > 0;
 }
 
 function safePitchClass(value: string): string {

@@ -282,8 +282,8 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
                 ${checkbox('audioFallbackChimeEnabled', 'Play a soft chime when no audio is available', settings.audioFallbackChimeEnabled)}
                 <div class="grid">
                     ${select('audioAutoPlayMode', 'Auto-play trigger', settings.audioAutoPlayMode, [['all', 'Hover and tap/click'], ['hover', 'Hover only'], ['tap', 'Tap/click only']])}
-                    ${select('audioSelectionMode', 'When several sources or clips exist', settings.audioSelectionMode, [['first', 'First audio'], ['random', 'Random audio']])}
-                    ${select('audioTtsMode', 'Text-to-speech handling', settings.audioTtsMode, [['fallback', 'Fallback after recorded audio'], ['source-order', 'Follow source order / random']])}
+                    ${select('audioSelectionMode', 'When several sources or clips exist', settings.audioSelectionMode, [['first', 'First audio'], ['random', 'Shuffle audio']])}
+                    ${select('audioTtsMode', 'Text-to-speech handling', settings.audioTtsMode, [['fallback', 'Fallback after recorded audio'], ['source-order', 'Follow source order / shuffle']])}
                     ${input('audioTimeoutMs', 'Audio timeout (ms)', String(settings.audioTimeoutMs), 'number')}
                     ${input('corsProxyUrl', 'Cross-origin proxy URL', settings.corsProxyUrl, 'url', { placeholder: 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev' })}
                 </div>

@@ -121,4 +121,29 @@ describe('stats aggregation', () => {
         ]));
         expect(combined.status).toBe('ready');
     });
+
+    it('loads Anki stats across every deck returned by AnkiConnect', async () => {
+        const calls: Array<{ action: string; params?: Record<string, unknown> }> = [];
+        const api = {
+            invoke: async <T>(action: string, params?: Record<string, unknown>): Promise<T> => {
+                calls.push({ action, params });
+                const reply = (value: unknown): T => value as T;
+                if (action === 'deckNames') return reply(['Core', 'Mining', 'Anime::Subs']);
+                if (action === 'getNumCardsReviewedToday') return reply(0);
+                if (action === 'getNumCardsReviewedByDay') return reply([]);
+                if (action === 'getDeckStats') return reply({});
+                if (action === 'findCards') return reply([]);
+                throw new Error(`unexpected action ${action}`);
+            },
+        } as Parameters<typeof loadAnkiConnectStats>[0];
+
+        const anki = await loadAnkiConnectStats(api);
+
+        expect(anki.message).toBe('Connected to 3 decks.');
+        expect(anki.deckNames).toEqual(['Core', 'Mining', 'Anime::Subs']);
+        expect(calls.find(call => call.action === 'getDeckStats')?.params).toEqual({
+            decks: ['Core', 'Mining', 'Anime::Subs'],
+        });
+        expect(calls.find(call => call.action === 'findCards')?.params).toEqual({ query: 'rated:30' });
+    });
 });

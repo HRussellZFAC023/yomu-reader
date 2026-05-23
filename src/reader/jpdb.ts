@@ -21,8 +21,11 @@ const VOCABULARY_FIELDS = [
 const DECK_FIELDS = ['id', 'name'];
 const PARSE_CACHE_SIZE = 250;
 const PARAGRAPH_PARSE_CACHE_SIZE = 800;
+const PARSE_BATCH_BYTE_LIMIT = 16_384;
+const PARSE_PARAGRAPH_JSON_OVERHEAD_BYTES = 7;
 const VOCABULARY_LOOKUP_CHUNK_SIZE = 100;
 const log = Logger.scope('JpdbClient');
+const utf8Encoder = new TextEncoder();
 
 interface JpdbDeckVocabularyResponse {
     vocabulary?: unknown[];
@@ -219,10 +222,24 @@ export class JpdbClient {
             missing.push(paragraph);
         }
 
-        if (missing.length) {
-            const missingRequest = this.fetchParse(missing, missing.join('\n'));
-            missing.forEach((paragraph, index) => {
-                const paragraphPromise = missingRequest.then(parsed => parsed[index] ?? []);
+        if (missing.length) this.queueMissingParagraphParses(missing);
+
+        return Promise.all(text.map(paragraph => this.paragraphParseCache.get(paragraph) ?? this.paragraphParseInFlight.get(paragraph) ?? []))
+            .then(tokens => {
+                this.parseCache.set(cacheKey, tokens);
+                return tokens;
+            });
+    }
+
+    private queueMissingParagraphParses(missing: string[]): void {
+        let previousBatch: Promise<unknown> | null = null;
+        for (const batch of parseParagraphBatches(missing)) {
+            const batchRequest: Promise<JPDBToken[][]> = previousBatch
+                ? previousBatch.then(() => this.fetchParse(batch, batch.join('\n')))
+                : this.fetchParse(batch, batch.join('\n'));
+            previousBatch = batchRequest.catch(() => undefined);
+            batch.forEach((paragraph, index) => {
+                const paragraphPromise = batchRequest.then(parsed => parsed[index] ?? []);
                 this.paragraphParseInFlight.set(paragraph, paragraphPromise);
                 void paragraphPromise.then(() => {
                     if (this.paragraphParseInFlight.get(paragraph) === paragraphPromise) this.paragraphParseInFlight.delete(paragraph);
@@ -231,17 +248,35 @@ export class JpdbClient {
                 });
             });
         }
-
-        return Promise.all(text.map(paragraph => this.paragraphParseCache.get(paragraph) ?? this.paragraphParseInFlight.get(paragraph) ?? []))
-            .then(tokens => {
-                this.parseCache.set(cacheKey, tokens);
-                return tokens;
-            });
     }
 }
 
 function normalizeParagraphs(paragraphs: string[]): string[] {
     return paragraphs.map(paragraph => paragraph.trim()).filter(Boolean);
+}
+
+function parseParagraphBatches(paragraphs: string[]): string[][] {
+    const batches: string[][] = [];
+    let batch: string[] = [];
+    let batchBytes = 0;
+
+    for (const paragraph of paragraphs) {
+        const paragraphBytes = parseParagraphRequestBytes(paragraph);
+        if (batch.length && batchBytes + paragraphBytes > PARSE_BATCH_BYTE_LIMIT) {
+            batches.push(batch);
+            batch = [];
+            batchBytes = 0;
+        }
+        batch.push(paragraph);
+        batchBytes += paragraphBytes;
+    }
+
+    if (batch.length) batches.push(batch);
+    return batches;
+}
+
+function parseParagraphRequestBytes(paragraph: string): number {
+    return utf8Encoder.encode(paragraph).length + PARSE_PARAGRAPH_JSON_OVERHEAD_BYTES;
 }
 
 function cardKey(vid: number, sid: number): string {
