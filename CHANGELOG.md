@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.27] - 2026-05-23
+
+### Fixed
+
+- Kept the back arrow available when clicking parsed study-source words inside an already-open popup, including hover-opened popovers and fallback/local parsed sentence spans.
+
 ## [0.4.26] - 2026-05-23
 
 ### Added

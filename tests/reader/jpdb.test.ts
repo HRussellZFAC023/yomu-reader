@@ -10663,6 +10663,83 @@ describe('reader helpers', () => {
         }
     });
 
+    it('keeps a back arrow when clicking study-source words inside a hover-opened popup', async () => {
+        const app = new ReaderApp();
+        const originalRequestAnimationFrame = window.requestAnimationFrame;
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+        vi.stubGlobal('matchMedia', vi.fn(() => ({
+            matches: false,
+            media: '',
+            onchange: null,
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+        })));
+        Object.defineProperty(window, 'requestAnimationFrame', {
+            configurable: true,
+            value: (frame: FrameRequestCallback) => {
+                frame(0);
+                return 1;
+            },
+        });
+
+        try {
+            const sourceCard: JPDBCard = { ...card, spelling: '印刷', reading: 'いんさつ' };
+            const nestedCard: JPDBCard = { ...card, vid: -91, sid: -92, spelling: '技術', reading: 'ぎじゅつ', source: 'fallback' };
+            const internals = app as unknown as {
+                settings: typeof DEFAULT_SETTINGS;
+                parser: { cacheCards(cards: JPDBCard[]): void };
+                parsePopoverJapanese(popover: HTMLElement): Promise<void>;
+                showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: { trigger?: 'modal' | 'hover'; navigation?: 'reset' | 'preserve' | 'push-current'; autoPlay?: boolean }): Promise<void>;
+                showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover' }): Promise<void>;
+            };
+            internals.settings = {
+                ...DEFAULT_SETTINGS,
+                audioEnabled: false,
+                ankiEnabled: false,
+                localDictionariesEnabled: false,
+                localDictionaryShowKanji: false,
+                jpdbDefinitionsEnabled: false,
+                jpdbMiningEnabled: false,
+                showPitchAccent: false,
+                immersionKitEnabled: false,
+                studyGrammarEnabled: false,
+                studyTranslationEnabled: false,
+            };
+            internals.parsePopoverJapanese = vi.fn(async () => undefined);
+            internals.parser.cacheCards([nestedCard]);
+
+            await internals.showCard(sourceCard, '印刷技術です。', undefined, { trigger: 'hover', navigation: 'reset', autoPlay: false });
+            const hoverPopover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+            hoverPopover.querySelector<HTMLElement>('.jpdb-reader-popover-body')?.insertAdjacentHTML('beforeend', `
+                <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>
+                    Grammar また、PDFファイルをダウンロードしたり、印刷して本にすることもできます。
+                    <span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban" data-vid="${nestedCard.vid}" data-sid="${nestedCard.sid}" data-sentence="Grammar また、PDFファイルをダウンロードしたり、印刷して本にすることもできます。" tabindex="0">技術</span>
+                </div>
+            `);
+
+            await internals.showWord(hoverPopover.querySelector<HTMLElement>('.jpdb-reader-study-original .jpdb-reader-word')!, { trigger: 'click' });
+
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLElement>('.jpdb-reader-popover')?.getAttribute('aria-modal')).toBe('true');
+                expect(document.querySelector<HTMLButtonElement>('[data-action="word-history-back"]')?.title).toBe('Back to word: 印刷');
+            });
+        } finally {
+            Object.defineProperty(window, 'requestAnimationFrame', {
+                configurable: true,
+                value: originalRequestAnimationFrame,
+            });
+            vi.unstubAllGlobals();
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('scans native ruby bases without adding duplicate furigana', () => {
         document.body.innerHTML = '<p><ruby>事故<rt>じこ</rt></ruby>がありました。</p>';
         const targets = collectTextTargetsIn(document.body, 10, false);
