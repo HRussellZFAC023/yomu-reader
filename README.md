@@ -187,6 +187,14 @@ http://127.0.0.1:5174/
 http://127.0.0.1:5174/newtab/
 ```
 
+For iPad testing over Tailscale, run:
+
+```bash
+npm run dev:ipad
+```
+
+That command lets Vite choose a free port when `5174` is already busy, publishes the chosen localhost port with Tailscale Serve, and prints the exact iPad links to open. Use the root URL it prints, not `/yomu-reader/`; that path is for the production GitHub Pages site.
+
 `npm run dev` is the normal Vite dev server, like the ASMR.one harness. Vite handles reloads, the root page gives the vite-plugin-monkey install link, and `/newtab/` is served from the TypeScript entry. Dev builds enable console logging automatically; production builds still follow the Settings toggle. Chrome may require Tampermonkey's user scripts permission to be enabled before local dev installs can run.
 
 The production userscript is written to:
@@ -201,7 +209,7 @@ Build browser extension packages from the same userscript and the real `/newtab`
 npm run build:extension
 ```
 
-The output goes to `dist/extension/` with Chrome, Firefox, Safari, standalone, audit, review, and release folders. Clone `UserScript-Compiler` beside this repo or set `USERSCRIPT_COMPILER_CLI` when using a different checkout path.
+The output goes to `dist/extension/` with Chrome, Firefox, Safari, standalone, audit, review, and release folders. In this workspace, `UserScript-Compiler` lives at `../../tools/UserScript-Compiler`; set `USERSCRIPT_COMPILER_CLI` when using a different checkout path.
 Compiler-generated review drafts live in `dist/extension/review/`; machine-readable audit evidence lives in `dist/extension/audit/`.
 
 ## Deployment

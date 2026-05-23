@@ -48,11 +48,12 @@
       .jpdb-reader-newtab-topbar {
         min-height: 44px;
         display: grid;
-        grid-template-columns: auto 1fr auto;
+        grid-template-columns: auto 1fr auto auto;
         align-items: center;
-        gap: 12px;
+        gap: 8px;
       }
 
+      .jpdb-reader-language-toggle,
       .jpdb-reader-newtab-overflow {
         width: 40px;
         height: 40px;
@@ -69,6 +70,17 @@
         font-weight: 900;
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
+      }
+
+      .jpdb-reader-language-toggle {
+        border-color: transparent;
+        background: transparent;
+        box-shadow: none;
+        padding: 0;
+        font: inherit;
+        font-size: 15px;
+        font-weight: 620;
+        cursor: pointer;
       }
 
       .jpdb-reader-newtab-brand {
@@ -246,7 +258,7 @@
     <main class="jpdb-reader-newtab" data-jpdb-reader-root="true" data-standalone-newtab="true">
       <div class="jpdb-reader-newtab-shell">
         <header class="jpdb-reader-newtab-topbar">
-          <a class="jpdb-reader-newtab-brand" href="https://hrussellzfac023.github.io/yomu-reader/"
+          <a class="jpdb-reader-newtab-brand" href="../"
             aria-label="Open Yomu">
             <img src="../yomu-icon.svg" alt="" width="32" height="32">
           </a>
@@ -254,7 +266,8 @@
             <button type="button" data-newtab-action="mode" data-mode="word" data-active="true">Word</button>
             <button type="button" data-newtab-action="mode" data-mode="kanji">Kanji</button>
           </div>
-          <a class="jpdb-reader-newtab-overflow" href="https://hrussellzfac023.github.io/yomu-reader/"
+          <button class="jpdb-reader-language-toggle" type="button" data-newtab-action="language" aria-label="Switch Yomu HUD to Japanese" lang="ja">あ</button>
+          <a class="jpdb-reader-newtab-overflow" href="../"
             aria-label="Open Yomu">...</a>
         </header>
         <section class="jpdb-reader-newtab-study" data-newtab-study>
@@ -288,11 +301,78 @@
         const meaning = root.querySelector('[data-newtab-meaning]');
         const count = root.querySelector('[data-newtab-count]');
         const reveal = root.querySelector('[data-newtab-action="reveal"]');
+        const languageToggle = root.querySelector('[data-newtab-action="language"]');
+        const modeButtons = {
+          word: root.querySelector('[data-mode="word"]'),
+          kanji: root.querySelector('[data-mode="kanji"]')
+        };
+        const controlButtons = {
+          previous: root.querySelector('[data-newtab-action="previous"]'),
+          next: root.querySelector('[data-newtab-action="next"]')
+        };
+        const settingsKey = 'jpdb-popup-reader-settings';
+        const copy = {
+          en: {
+            modeLabel: 'Study mode',
+            word: 'Word',
+            kanji: 'Kanji',
+            previous: 'Previous',
+            next: 'Next',
+            reveal: 'Reveal',
+            hide: 'Hide',
+            switchToJapanese: 'Switch Yomu HUD to Japanese',
+            switchToEnglish: 'Switch Yomu HUD to English',
+            openYomu: 'Open Yomu'
+          },
+          ja: {
+            modeLabel: '学習モード',
+            word: '単語',
+            kanji: '漢字',
+            previous: '前へ',
+            next: '次へ',
+            reveal: '表示',
+            hide: '隠す',
+            switchToJapanese: 'Yomu HUDを日本語に切り替え',
+            switchToEnglish: 'Yomu HUDを英語に切り替え',
+            openYomu: 'Yomuを開く'
+          }
+        };
         let index = Number(sessionStorage.getItem('yomu-demo-word') || Math.floor(Math.random() * words.length));
         let mode = 'word';
         let shown = false;
+        const readLanguage = () => {
+          try {
+            const stored = JSON.parse(localStorage.getItem(settingsKey) || '{}').interfaceLanguage;
+            return stored === 'ja' ? 'ja' : 'en';
+          } catch {
+            return 'en';
+          }
+        };
+        let language = readLanguage();
+        const saveLanguage = value => {
+          const settings = JSON.parse(localStorage.getItem(settingsKey) || '{}');
+          settings.interfaceLanguage = value;
+          localStorage.setItem(settingsKey, JSON.stringify(settings));
+          window.dispatchEvent(new CustomEvent('yomu-interface-language-change', { detail: { language: value } }));
+        };
+        const applyCopy = () => {
+          const text = copy[language];
+          const next = language === 'ja' ? 'en' : 'ja';
+          root.querySelector('.jpdb-reader-newtab-mode').setAttribute('aria-label', text.modeLabel);
+          root.querySelectorAll('[aria-label="Open Yomu"], [aria-label="Yomuを開く"]').forEach(element => element.setAttribute('aria-label', text.openYomu));
+          modeButtons.word.textContent = text.word;
+          modeButtons.kanji.textContent = text.kanji;
+          controlButtons.previous.textContent = text.previous;
+          controlButtons.next.textContent = text.next;
+          languageToggle.textContent = next === 'ja' ? 'あ' : 'A';
+          languageToggle.lang = next === 'ja' ? 'ja' : 'en';
+          languageToggle.setAttribute('aria-label', next === 'ja' ? text.switchToJapanese : text.switchToEnglish);
+          reveal.textContent = shown ? text.hide : text.reveal;
+          document.documentElement.lang = language;
+        };
         const kanji = value => Array.from(new Set(Array.from(value).filter(char => /[\u3400-\u9fff々〆]/u.test(char))));
         const draw = () => {
+          const text = copy[language];
           const item = words[index % words.length];
           const k = kanji(item[0])[0] || item[0][0];
           root.classList.toggle('jpdb-reader-newtab-revealed', shown);
@@ -301,10 +381,11 @@
           reading.textContent = shown ? (mode === 'kanji' ? item[0] : item[1]) : '';
           meaning.textContent = shown ? (mode === 'kanji' ? `${item[1]} · ${item[2]}` : item[2]) : '';
           count.textContent = `${(index % words.length) + 1} / ${words.length}`;
-          reveal.textContent = shown ? 'Hide' : 'Reveal';
+          reveal.textContent = shown ? text.hide : text.reveal;
           sessionStorage.setItem('yomu-demo-word', String(index));
         };
         root.addEventListener('click', event => {
+          if (event.target.closest('[data-newtab-action="language"]')) { language = language === 'ja' ? 'en' : 'ja'; saveLanguage(language); applyCopy(); draw(); return; }
           if (event.target.closest('[data-newtab-action="next"]')) { index = (index + 1) % words.length; shown = false; draw(); return; }
           if (event.target.closest('[data-newtab-action="previous"]')) { index = (index - 1 + words.length) % words.length; shown = false; draw(); return; }
           if (event.target.closest('[data-newtab-action="reveal"]')) { shown = !shown; draw(); return; }
@@ -318,6 +399,14 @@
           }
           if (event.target.closest('[data-newtab-study]')) { shown = true; draw(); }
         });
+        window.addEventListener('yomu-interface-language-change', event => {
+          const next = event.detail && event.detail.language === 'ja' ? 'ja' : 'en';
+          if (next === language) return;
+          language = next;
+          applyCopy();
+          draw();
+        });
+        applyCopy();
         draw();
       })();
     </script>

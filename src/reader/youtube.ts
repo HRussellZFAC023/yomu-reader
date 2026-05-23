@@ -27,17 +27,19 @@ const VIDEO_CARD_SELECTOR = [
 
 const VIDEO_CARD_CLOSEST_SELECTOR = VIDEO_CARD_SELECTOR;
 
-const TITLE_SELECTOR = [
+const TITLE_SELECTORS = [
     '#video-title',
     'a#video-title',
     'yt-formatted-string#video-title',
     'h3 a',
     'h3',
     '.yt-lockup-metadata-view-model-wiz__title',
+    '.ytLockupMetadataViewModelTitle',
+    '.ytLockupMetadataViewModelHeadingReset',
     '.media-item-headline',
     'a[href*="/watch"]',
     'a[href*="/shorts"]',
-].join(',');
+];
 
 const JAPANESE_CHAR_RE = /[\u3040-\u30ff\u3400-\u9fff]/g;
 const KANA_RE = /[\u3040-\u30ff]/g;
@@ -73,7 +75,9 @@ export function collectYouTubeVideoCards(root: ParentNode = document): HTMLEleme
 }
 
 export function readYouTubeCardText(card: HTMLElement): string {
-    const title = card.querySelector<HTMLElement>(TITLE_SELECTOR);
+    const title = TITLE_SELECTORS
+        .map(selector => card.querySelector<HTMLElement>(selector))
+        .find(Boolean);
     const titleText = [
         title?.getAttribute('title'),
         title?.getAttribute('aria-label'),
@@ -233,10 +237,13 @@ export class YoutubeImmersionFilter {
         const showAnyway = this.bar.querySelector<HTMLButtonElement>('[data-action="show-anyway"]');
         const turnOff = this.bar.querySelector<HTMLButtonElement>('[data-action="turn-off"]');
         if (summary) {
+            const plural = filteredCount === 1 ? '' : 's';
             summary.textContent = this.revealed
-                ? `${APP_NAME} is showing ${filteredCount} hidden YouTube item${filteredCount === 1 ? '' : 's'}`
-                : `${APP_NAME} hid ${filteredCount} non-Japanese-looking YouTube item${filteredCount === 1 ? '' : 's'}`;
-            summary.title = shownCount ? `${shownCount} Japanese-looking items stayed visible.` : '';
+                ? formatYoutubeText(uiText(settings.interfaceLanguage, 'youtubeFilterShowing'), { appName: APP_NAME, count: String(filteredCount), plural })
+                : formatYoutubeText(uiText(settings.interfaceLanguage, 'youtubeFilterHid'), { appName: APP_NAME, count: String(filteredCount), plural });
+            summary.title = shownCount
+                ? formatYoutubeText(uiText(settings.interfaceLanguage, 'youtubeFilterVisible'), { count: String(shownCount) })
+                : '';
         }
         if (showAnyway) showAnyway.textContent = this.revealed ? uiText(settings.interfaceLanguage, 'youtubeFilterAgain') : uiText(settings.interfaceLanguage, 'youtubeShowAnyway');
         if (turnOff) turnOff.textContent = uiText(settings.interfaceLanguage, 'youtubeTurnOff');
@@ -250,6 +257,10 @@ export class YoutubeImmersionFilter {
         this.bar?.remove();
         this.bar = undefined;
     }
+}
+
+function formatYoutubeText(template: string, values: Record<string, string>): string {
+    return template.replace(/\{(\w+)\}/g, (_match: string, key: string) => values[key] ?? '');
 }
 
 function mutationInsideReaderRoot(mutation: MutationRecord): boolean {

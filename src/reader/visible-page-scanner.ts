@@ -1,4 +1,5 @@
 import { applyTokensToScanTarget, collectTextTargetsIn, type ScanTextTarget } from './dom';
+import { uiText } from './i18n';
 import { Logger } from './logger';
 import { collectScanTargets } from './site-parsers';
 import type { JPDBToken, ReaderSettings } from './types';
@@ -105,12 +106,12 @@ export class VisiblePageScanner {
     }
 
     private handleEmptyVisiblePageScan(silent: boolean): void {
-        if (!silent) this.dependencies.toast('No unscanned Japanese text found.');
+        if (!silent) this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, 'noUnscannedJapaneseText'));
     }
 
     private handleVisiblePageScanError(error: unknown, silent: boolean): void {
         log.warn('Visible page scan failed', error);
-        if (!silent) this.dependencies.toast(error instanceof Error ? error.message : 'JPDB scan failed.');
+        if (!silent) this.dependencies.toast(error instanceof Error ? error.message : uiText(this.dependencies.getSettings().interfaceLanguage, 'jpdbScanFailed'));
     }
 
     private finishScan(): void {

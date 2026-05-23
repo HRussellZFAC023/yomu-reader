@@ -15,7 +15,7 @@ const compilerCli = resolveCompilerCli();
 if (!compilerCli) {
     console.error([
         'Could not find UserScript Compiler.',
-        'Clone https://github.com/HRussellZFAC023/UserScript-Compiler beside yomu-reader,',
+        'This workspace expects it at tools/UserScript-Compiler,',
         'or set USERSCRIPT_COMPILER_CLI=/absolute/path/to/UserScript-Compiler/src/cli.mjs.',
     ].join('\n'));
     process.exit(1);
@@ -181,6 +181,7 @@ function verifyDirectoryArtifact(directory, requiredFiles) {
 function resolveCompilerCli() {
     const candidates = [
         process.env.USERSCRIPT_COMPILER_CLI,
+        path.join(root, '..', '..', 'tools', 'UserScript-Compiler', 'src', 'cli.mjs'),
         path.join(root, '..', 'UserScript-Compiler', 'src', 'cli.mjs'),
         path.join(root, 'node_modules', '.bin', 'userscript-compiler'),
     ].filter(Boolean);

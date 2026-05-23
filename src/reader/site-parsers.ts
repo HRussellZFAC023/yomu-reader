@@ -4,6 +4,8 @@ import {
     type FragmentTextTarget,
     type ScanTextTarget,
 } from './dom';
+import { APP_REPOSITORY_NAME } from './constants';
+
 export interface SiteParserProfile {
     id: string;
     name: string;
@@ -16,6 +18,7 @@ export interface SiteParserProfile {
     includeGenericPageText?: boolean;
     fallbackToWholePage?: boolean;
     scanLimit?: number;
+    heading?: boolean;
     matches(url: URL): boolean;
 }
 
@@ -90,6 +93,20 @@ const GENERIC_PROSE_EXCLUDE = [
     'time',
 ].join(',');
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
+    {
+        id: 'yomu-demo-lookup-parser',
+        name: 'Yomu demo lookup',
+        description: 'Hosted Yomu docs Try Me text.',
+        roots: ['[data-yomu-demo-lookup] h3', '[data-yomu-demo-lookup] p'],
+        exclude: COMMON_EXCLUDE,
+        allowUiText: true,
+        heading: true,
+        minLength: 1,
+        includeUiChrome: true,
+        scanLimit: 20,
+        matches: url => Boolean(document.querySelector('[data-yomu-demo-lookup]'))
+            && url.pathname.startsWith(`/${APP_REPOSITORY_NAME}/`),
+    },
     {
         id: 'jpdb-parser',
         name: 'JPDB',
@@ -365,6 +382,7 @@ function collectRootScanTargets(profile: SiteParserProfile, root: Element, conte
         allowUiText: profile.allowUiText,
         minLength: profile.minLength,
         includeUiChrome: profile.includeUiChrome,
+        heading: profile.heading,
     });
     for (const target of collected) {
         if (!addUniqueSiteScanTarget(profile, target, context)) continue;

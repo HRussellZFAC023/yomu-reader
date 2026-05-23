@@ -265,11 +265,6 @@ function segmentJapaneseRun(text: string, offset: number, segmenter: IntlSegment
         }));
 }
 
-function intlSegmenter(): IntlSegmenterConstructor | null {
-    const candidate = (Intl as unknown as { Segmenter?: IntlSegmenterConstructor }).Segmenter;
-    return typeof candidate === 'function' ? candidate : null;
-}
-
 function japaneseWordSegmenter(): IntlSegmenter | null {
     const Segmenter = intlSegmenter();
     if (!Segmenter) {
@@ -288,6 +283,11 @@ function isUsefulJapaneseSegment(segment: IntlSegmentRecord): boolean {
     const surface = segment.segment.trim();
     return segment.isWordLike !== false
         && JAPANESE_CHARACTER_RE.test(surface);
+}
+
+function intlSegmenter(): IntlSegmenterConstructor | null {
+    const candidate = (Intl as unknown as { Segmenter?: IntlSegmenterConstructor }).Segmenter;
+    return typeof candidate === 'function' ? candidate : null;
 }
 
 function fallbackJapaneseRunSegment(text: string, offset: number): JapaneseTextSegment[] {

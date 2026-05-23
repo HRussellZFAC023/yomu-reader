@@ -417,11 +417,16 @@ function extractTermFromVocabularyPath(root: HTMLElement): { term: string; readi
     const parts = linkToVocabulary.pathname.split('/').filter(Boolean);
     if (!hasVocabularyPathTerm(parts)) return null;
     const term = decodePathPart(parts[2]);
-    return { term, reading: decodePathPart(parts[3] ?? '') || term };
+    return { term, reading: vocabularyPathReading(parts) || term };
 }
 
 function hasVocabularyPathTerm(parts: string[]): boolean {
     return parts[0] === 'vocabulary' && Boolean(parts[2]);
+}
+
+function vocabularyPathReading(parts: string[]): string {
+    const reading = decodePathPart(parts[3] ?? '');
+    return JAPANESE_RE.test(reading) ? reading : '';
 }
 
 function extractCurrentTermTarget(): { term: string; reading: string } | null {
@@ -517,7 +522,24 @@ function isRubyAnnotation(element: Element): boolean {
 }
 
 function rubyReadingText(element: Element, fallback: (root: Node) => string): string {
-    return Array.from(element.children).find(child => child.tagName === 'RT')?.textContent || fallback(element);
+    let text = '';
+    let base = '';
+    element.childNodes.forEach(child => {
+        if (child.nodeType === Node.TEXT_NODE) {
+            base += child.textContent ?? '';
+            return;
+        }
+        if (child.nodeType !== Node.ELEMENT_NODE) return;
+        const childElement = child as Element;
+        if (childElement.tagName === 'RT') {
+            text += childElement.textContent || base;
+            base = '';
+            return;
+        }
+        if (childElement.tagName === 'RP') return;
+        base += fallback(childElement);
+    });
+    return text + base || fallback(element);
 }
 
 function extractAlternateTerms(root: ParentNode): string[] {

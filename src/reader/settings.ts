@@ -753,6 +753,14 @@ export function effectiveReaderColorSource(
     return legacyReaderColorSourceForAuto(settings, fallback);
 }
 
+export function effectiveReaderTextColorSource(
+    settings: LegacyReaderSettings,
+    source: ReaderColorSource,
+    fallback: ConcreteReaderColorSource = DEFAULT_COLOR_CHANNELS.wordTextColorSource,
+): ConcreteReaderColorSource {
+    return effectiveTextColorSource(settings, effectiveReaderColorSource(settings, source, fallback));
+}
+
 export function effectiveSubtitleColorSource(
     settings: LegacyReaderSettings,
     source: ReaderColorSource,
@@ -760,6 +768,38 @@ export function effectiveSubtitleColorSource(
 ): ConcreteReaderColorSource {
     if (source !== 'auto') return source;
     return legacySubtitleColorSourceForAuto(settings, fallback);
+}
+
+export function effectiveSubtitleTextColorSource(
+    settings: LegacyReaderSettings,
+    source: ReaderColorSource,
+    fallback: ConcreteReaderColorSource = DEFAULT_COLOR_CHANNELS.subtitleTextColorSource,
+): ConcreteReaderColorSource {
+    return effectiveTextColorSource(settings, effectiveSubtitleColorSource(settings, source, fallback));
+}
+
+function effectiveTextColorSource(settings: LegacyReaderSettings, source: ConcreteReaderColorSource): ConcreteReaderColorSource {
+    if (source === 'jpdb' && !hasJpdbStatusSource(settings)) return 'off';
+    if (source === 'anki' && !hasAnkiStatusSource(settings)) return 'off';
+    if (source === 'status') return effectiveAvailableTextStatusSource(settings);
+    return source;
+}
+
+function effectiveAvailableTextStatusSource(settings: LegacyReaderSettings): ConcreteReaderColorSource {
+    const hasJpdb = hasJpdbStatusSource(settings);
+    const hasAnki = hasAnkiStatusSource(settings);
+    if (hasJpdb && hasAnki) return 'status';
+    if (hasJpdb) return 'jpdb';
+    if (hasAnki) return 'anki';
+    return 'off';
+}
+
+function hasJpdbStatusSource(settings: LegacyReaderSettings): boolean {
+    return Boolean(settings.apiKey?.trim());
+}
+
+function hasAnkiStatusSource(settings: LegacyReaderSettings): boolean {
+    return Boolean(settings.ankiEnabled);
 }
 
 export function effectiveFuriganaMode(settings: ReaderSettings): Exclude<FuriganaMode, 'auto'> {

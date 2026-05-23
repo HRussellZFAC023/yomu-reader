@@ -22,7 +22,7 @@ export interface NewTabPalette {
     shadow: string;
 }
 
-export type NewTabMode = 'word' | 'kanji' | 'search';
+export type NewTabMode = 'word' | 'kanji' | 'search' | 'stats';
 export type NewTabSort = 'random' | 'frequency' | 'state';
 export type NewTabFilter = 'all' | 'study' | 'local' | CardState;
 
@@ -189,7 +189,7 @@ export function normalizeNewTabUiState(value: Partial<NewTabUiState> | null | un
 }
 
 function normalizeNewTabMode(value: unknown): NewTabMode {
-    return value === 'kanji' || value === 'search' ? value : DEFAULT_NEW_TAB_UI_STATE.mode;
+    return value === 'kanji' || value === 'search' || value === 'stats' ? value : DEFAULT_NEW_TAB_UI_STATE.mode;
 }
 
 function normalizeNewTabSort(value: unknown): NewTabSort {

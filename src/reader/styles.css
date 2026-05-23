@@ -1,5 +1,6 @@
 @import './styles/base.css';
 @import './styles/new-tab.css';
+@import './styles/stats.css';
 @import './styles/reader-words-ocr.css';
 @import './styles/popover-core.css';
 @import './styles/local-dictionaries.css';

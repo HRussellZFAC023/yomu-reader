@@ -399,7 +399,7 @@ export function collectFragmentTextTargetsIn(
     limit = 40,
     visibleOnly = true,
     excludeSelector = '',
-    options: { allowUiText?: boolean; minLength?: number; includeReaderRoot?: boolean; includeUiChrome?: boolean } = {},
+    options: { allowUiText?: boolean; minLength?: number; includeReaderRoot?: boolean; includeUiChrome?: boolean; heading?: boolean } = {},
 ): FragmentTextTarget[] {
     const targets: FragmentTextTarget[] = [];
     const fragments: TextFragment[] = [];
@@ -459,7 +459,7 @@ export function collectFragmentTextTargetsIn(
             return;
         }
         const text = element.textContent?.trim() ?? '';
-        if (text && isShortCenteredDisplayHeading(element, text)) {
+        if (!options.heading && text && isShortCenteredDisplayHeading(element, text)) {
             flush();
             return;
         }
@@ -581,6 +581,8 @@ export function readerWordSurfaceText(element: Element): string {
 export function nearestReadableSentenceForElement(element: HTMLElement, fallback = ''): string {
     const surface = readerWordSurfaceText(element).trim() || element.textContent?.trim() || '';
     const cleanFallback = cleanReadableSentence(fallback);
+    const ocrLine = element.closest<HTMLElement>('.jpdb-ocr-line');
+    if (ocrLine) return cleanReadableSentence(ocrLine.dataset.sentence || ocrLine.dataset.ocrText || ocrLine.getAttribute('aria-label') || cleanFallback);
     const nearest = nearestReadableAncestorSentence(element, surface, cleanFallback);
     return nearest || fallbackReadableSentence(cleanFallback, surface);
 }
@@ -589,7 +591,7 @@ function nearestReadableAncestorSentence(element: HTMLElement, surface: string, 
     let current: HTMLElement | null = element.parentElement;
 
     while (isReadableAncestorCandidate(current)) {
-        const sentence = readableAncestorSentence(current, surface, cleanFallback);
+        const sentence = readableAncestorSentence(current, element, surface, cleanFallback);
         if (sentence) return sentence;
         current = current.parentElement;
     }
@@ -601,9 +603,13 @@ function isReadableAncestorCandidate(element: HTMLElement | null): element is HT
     return element !== document.body && element !== document.documentElement;
 }
 
-function readableAncestorSentence(element: HTMLElement, surface: string, cleanFallback: string): string {
+function readableAncestorSentence(element: HTMLElement, target: HTMLElement, surface: string, cleanFallback: string): string {
     if (!canReadSentenceContextFrom(element)) return '';
-    const sentence = sentenceAroundSurface(readableSurfaceText(element), surface, cleanFallback);
+    const text = readableSurfaceText(element);
+    const range = readableSurfaceRange(element, target);
+    const sentence = range
+        ? sentenceAroundRange(text, range.start, range.end, cleanFallback)
+        : sentenceAroundSurface(text, surface, cleanFallback);
     return isUsefulContextSentence(sentence, cleanFallback, surface) ? sentence : '';
 }
 
@@ -629,6 +635,32 @@ export function sentenceAroundSurface(value: string, surface = '', fallback = ''
     if (hardClean.length <= MAX_CONTEXT_SENTENCE_LENGTH) return hardClean;
 
     return clampLongSentence(hardClean, search);
+}
+
+export function sentenceAroundRange(value: string, start: number, end: number, fallback = ''): string {
+    if (!isJapaneseSentenceContext(cleanReadableSentence(value))) return '';
+    const range = normalizedSentenceRange(value.length, start, end);
+    if (!range) return sentenceAroundSurface(value, fallback, fallback);
+
+    const hardBounded = hardBoundedSentenceRange(value, range.start, range.end);
+    const localStart = range.start - hardBounded.start;
+    const localEnd = range.end - hardBounded.start;
+    const hardText = cleanReadableSentence(hardBounded.text);
+    const surface = cleanReadableSentence(hardBounded.text.slice(localStart, localEnd)) || fallback;
+    const cleanStart = cleanReadableSentence(hardBounded.text.slice(0, localStart)).length;
+    const cleanEnd = cleanStart + surface.length;
+    const hardClean = trimSoftSentenceBoundaryAroundRange(hardText, cleanStart, cleanEnd);
+    if (!hardClean) return sentenceAroundSurface(value, fallback, fallback);
+    if (hardClean.length <= MAX_CONTEXT_SENTENCE_LENGTH) return hardClean;
+
+    return clampLongSentence(hardClean, surface);
+}
+
+function normalizedSentenceRange(length: number, start: number, end: number): { start: number; end: number } | null {
+    if (!Number.isFinite(start) || !Number.isFinite(end) || length <= 0) return null;
+    const safeStart = Math.max(0, Math.min(length - 1, Math.floor(start)));
+    const safeEnd = Math.max(safeStart + 1, Math.min(length, Math.ceil(end)));
+    return { start: safeStart, end: safeEnd };
 }
 
 function sentenceSearchIndex(text: string, search: string): number {
@@ -692,6 +724,33 @@ function readableElementSurfaceText(element: Element): string {
     return text;
 }
 
+function readableSurfaceRange(root: Element, target: HTMLElement): { start: number; end: number } | null {
+    let offset = 0;
+    let range: { start: number; end: number } | null = null;
+
+    const visit = (node: Node): void => {
+        if (range) return;
+        if (node === target) {
+            const text = readableSurfaceText(node);
+            range = { start: offset, end: offset + text.length };
+            offset += text.length;
+            return;
+        }
+        if (node.nodeType === Node.TEXT_NODE) {
+            offset += nodeTextContent(node).length;
+            return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+        const element = node as Element;
+        if (isIgnoredReadableElement(element)) return;
+        element.childNodes.forEach(visit);
+    };
+
+    visit(root);
+    return range;
+}
+
 function isIgnoredReadableElement(element: Element): boolean {
     return isSurfaceIgnoredElement(element)
         || element.matches('button,svg,use,[aria-hidden="true"],[role="button"]');
@@ -714,6 +773,15 @@ function hardBoundedSentence(text: string, index: number, length: number): strin
     const start = sentenceStartIndex(text, index);
     const end = sentenceEndIndex(text, index + length);
     return text.slice(start, end).trim();
+}
+
+function hardBoundedSentenceRange(text: string, start: number, end: number): { text: string; start: number } {
+    const sentenceStart = sentenceStartIndex(text, start);
+    const sentenceEnd = sentenceEndIndex(text, end);
+    return {
+        text: text.slice(sentenceStart, sentenceEnd),
+        start: sentenceStart,
+    };
 }
 
 function sentenceStartIndex(text: string, index: number): number {
@@ -739,6 +807,19 @@ function trimSoftSentenceBoundary(sentence: string, surface: string): string {
     const end = softBoundaryEnd(clean, index + surface.length);
     const trimmed = clean.slice(start, end).trim();
     const omitted = `${clean.slice(0, start)}${clean.slice(end)}`;
+    return shouldUseSoftSentenceTrim(clean, trimmed, omitted) ? trimmed : clean;
+}
+
+function trimSoftSentenceBoundaryAroundRange(sentence: string, start: number, end: number): string {
+    const leadingTrim = sentence.length - sentence.trimStart().length;
+    const clean = sentence.trim();
+    if (!clean) return clean;
+    const cleanStart = Math.max(0, Math.min(clean.length, start - leadingTrim));
+    const cleanEnd = Math.max(cleanStart, Math.min(clean.length, end - leadingTrim));
+    const trimStart = softBoundaryStart(clean, cleanStart);
+    const trimEnd = softBoundaryEnd(clean, cleanEnd);
+    const trimmed = clean.slice(trimStart, trimEnd).trim();
+    const omitted = `${clean.slice(0, trimStart)}${clean.slice(trimEnd)}`;
     return shouldUseSoftSentenceTrim(clean, trimmed, omitted) ? trimmed : clean;
 }
 
@@ -794,7 +875,8 @@ function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], se
     let offset = 0;
     for (const token of tokens) {
         appendPlainTextBeforeToken(fragment, target.text, offset, token.start);
-        fragment.append(renderToken(target.text.slice(token.start, token.end), token, settings, {
+        const tokenWithSentence = tokenWithReadableSentence(token, target.text, token.sentence);
+        fragment.append(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
             allowRuby: !target.hasNativeRuby && !target.suppressRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
         }));
@@ -850,7 +932,7 @@ function applyTokenToIndexedFragments(
     const bounds = attachableFragmentRange(start, end);
     if (!bounds) return;
 
-    const tokenWithSentence = { ...token, sentence: token.sentence ?? sentence };
+    const tokenWithSentence = tokenWithReadableSentence(token, target.text, token.sentence ?? sentence);
     const isSingleFragment = bounds.start.fragment === bounds.end.fragment;
     const range = document.createRange();
     range.setStart(bounds.start.fragment.node, bounds.start.localOffset);
@@ -972,11 +1054,16 @@ function appendFragmentToken(
     const localStart = fragment.start + overlapStart - fragmentStart;
     const localEnd = fragment.start + overlapEnd - fragmentStart;
     if (localStart > localOffset) replacement.append(document.createTextNode(nodeText.slice(localOffset, localStart)));
-    replacement.append(renderToken(nodeText.slice(localStart, localEnd), { ...token, sentence: token.sentence ?? sentence }, settings, {
+    replacement.append(renderToken(nodeText.slice(localStart, localEnd), tokenWithReadableSentence(token, target.text, token.sentence ?? sentence), settings, {
         allowRuby: fragmentTokenAllowsRuby(target, fragment, token, overlapStart, overlapEnd),
         kanjiNavigation: kanjiNavigationForElement(target.parent),
     }));
     return localEnd;
+}
+
+function tokenWithReadableSentence(token: JPDBToken, text: string, fallback?: string): JPDBToken {
+    const sentence = sentenceAroundRange(text, token.start, token.end, fallback) || fallback || token.sentence;
+    return sentence === token.sentence ? token : { ...token, sentence };
 }
 
 function fragmentTokenAllowsRuby(target: FragmentTextTarget, fragment: TextFragment, token: JPDBToken, overlapStart: number, overlapEnd: number): boolean {

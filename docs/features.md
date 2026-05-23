@@ -73,7 +73,7 @@ Use this for manga panels, screenshots, and image-heavy pages where normal text 
 
 The transcript is meant to work as a reading surface too: visible Japanese lines are hydrated into the same lookup words as the overlay, so you can skim, jump to a line, and open a popup without leaving the video.
 
-For local files, open the [Yomu video player](https://hrussellzfac023.github.io/yomu-reader/video-player/index.html), drop in a browser-supported video, and add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
+For local files, open the [Yomu video player](./video-player/index.html), drop in a browser-supported video, and add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
 
 You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. The transcript panel is off by default and can be opened from the subtitle controls or overflow menu. On phones it becomes a bottom panel so the video stays usable.
 
@@ -101,13 +101,7 @@ If you do not use Anki, leave it off. JPDB mining and local dictionary lookup st
 
 ## New Tab Study Page
 
-よむ includes an optional new-tab page at:
-
-```text
-https://hrussellzfac023.github.io/yomu-reader/newtab/
-```
-
-Use that URL as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries study words from Anki first, then JPDB, then local dictionary words. A new install starts by sending you to Settings > Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local browser storage.
+よむ includes an optional [new-tab page](./newtab/index.html). Use the full address after opening that local or hosted page as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries study words from Anki first, then JPDB, then local dictionary words. A new install starts by sending you to Settings > Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local browser storage.
 
 On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests. Browsers that allow direct local requests without the bridge also need `https://hrussellzfac023.github.io` in AnkiConnect's `webCorsOriginList`.
 
@@ -126,9 +120,3 @@ The Help tab includes quick links to the hosted tools and docs, GitHub issues, D
   <img :src="'/yomu-reader/screenshots/real-help-settings.png'" alt="The よむ Help settings tab with donation, issue reporting, GitHub, Discord, docs, video player, and new-tab links.">
   <figcaption>Support links live inside settings.</figcaption>
 </figure>
-
-## Privacy And Control
-
-Most features are optional modules. Imported dictionaries stay in browser storage. JPDB requests happen when you use JPDB lookup, parsing, mining, review, or kanji details. Example providers receive the looked-up term only when their examples are enabled. Local OCR sends image data only to the endpoint you configure. Anki mining talks to your AnkiConnect endpoint or mobile handoff.
-
-If you want a simpler setup, start with the userscript, JPDB, and one local dictionary. Add OCR, subtitles, audio, and Anki later.

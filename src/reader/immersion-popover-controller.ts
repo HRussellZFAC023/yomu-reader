@@ -15,6 +15,7 @@ import {
     uniqueImmersionQueries,
 } from './immersion-query';
 import { ImmersionKitClient, type ImmersionKitExample } from './immersion-kit';
+import { localizedImmersionProviderLabel, localizedImmersionSourceTitle } from './immersion-labels';
 import { uiText } from './i18n';
 import { Logger } from './logger';
 import {
@@ -455,12 +456,12 @@ export class ImmersionPopoverController {
         const language = settings.interfaceLanguage;
         const sentenceHtml = renderHighlightedTextHtml(example.sentence, [card.spelling, card.reading, searchQuery], 'jpdb-reader-example-target');
         const translation = renderExampleTranslation(example.translation, settings);
-        const sourceLabel = immersionExampleSourceLabel(card, example, searchQuery);
+        const sourceLabel = immersionExampleSourceLabel(card, example, searchQuery, language);
         const sentence = renderExampleSentenceHtml(sentenceHtml);
         const image = renderExampleImageHtml(container, imageUrl, sentence);
         return `
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml(immersionExampleProviderLabel(example))}</span>
+                <span class="jpdb-reader-example-source">${escapeHtml(immersionExampleProviderLabel(example, language))}</span>
             </summary>
             <div class="jpdb-reader-example-toolbar">
                 <div class="jpdb-reader-example-meta jpdb-reader-example-meta-compact">
@@ -588,10 +589,11 @@ export class ImmersionPopoverController {
     }
 
     private toggleTranslationBlur(container: HTMLElement): void {
-        const shouldBlur = !this.options.getSettings().immersionKitRevealTranslationOnClick;
+        const settings = this.options.getSettings();
+        const shouldBlur = !settings.immersionKitRevealTranslationOnClick;
         this.options.setImmersionTranslationBlurred(shouldBlur);
         container.querySelectorAll<HTMLElement>('.jpdb-reader-example-translation').forEach(translation => {
-            setTranslationBlurAttributes(translation, shouldBlur, 'immersionTranslationBlurred');
+            setTranslationBlurAttributes(translation, shouldBlur, 'immersionTranslationBlurred', settings.interfaceLanguage);
         });
         this.options.repositionPopover();
     }
@@ -654,8 +656,8 @@ export class ImmersionPopoverController {
 
     private handleExampleAudioError(example: ImmersionKitExample, quiet: boolean, requestId: number, error: unknown): void {
         if (this.shouldClearAudioAfterExampleError(requestId)) this.clearAudio();
-        log.warn('Immersion example audio failed', { provider: immersionExampleProviderLabel(example), sourceTitle: example.sourceTitle, quiet }, error);
-        if (!quiet) this.options.toast(error instanceof Error ? error.message : 'Example audio failed.');
+        log.warn('Immersion example audio failed', { provider: immersionExampleProviderLabel(example, 'en'), sourceTitle: example.sourceTitle, quiet }, error);
+        if (!quiet) this.options.toast(error instanceof Error ? error.message : uiText(this.options.getSettings().interfaceLanguage, 'audioSourceReturnedNoAudio'));
     }
 
     private shouldClearAudioAfterExampleError(requestId: number): boolean {
@@ -666,7 +668,7 @@ export class ImmersionPopoverController {
         const urls = this.mediaUrls(example, 'sound');
         const key = urls[0] ?? '';
         if (key) return { urls, key };
-        if (!quiet) this.options.toast(`No ${immersionExampleProviderLabel(example)} audio for this example.`);
+        if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, 'audioSourceReturnedNoAudio'));
         return null;
     }
 
@@ -721,14 +723,15 @@ export class ImmersionPopoverController {
     }
 }
 
-function immersionExampleSourceLabel(card: JPDBCard, example: ImmersionKitExample, searchQuery: string): string {
+function immersionExampleSourceLabel(card: JPDBCard, example: ImmersionKitExample, searchQuery: string, language: ReaderSettings['interfaceLanguage']): string {
+    const sourceTitle = localizedImmersionSourceTitle(example.sourceTitle, language);
     return queryKey(searchQuery) !== queryKey(card.spelling)
-        ? `${searchQuery} · ${example.sourceTitle}`
-        : example.sourceTitle;
+        ? `${searchQuery} · ${sourceTitle}`
+        : sourceTitle;
 }
 
-function immersionExampleProviderLabel(example: ImmersionKitExample): string {
-    return example.provider === 'nadeshiko' ? 'Nadeshiko' : 'Immersion Kit';
+function immersionExampleProviderLabel(example: ImmersionKitExample, language: ReaderSettings['interfaceLanguage']): string {
+    return localizedImmersionProviderLabel(example, language);
 }
 
 function accurateImmersionExamples(query: string, examples: ImmersionKitExample[]): ImmersionKitExample[] {
@@ -828,10 +831,10 @@ function renderExampleSentenceHtml(sentenceHtml: string): string {
 
 function renderExampleActionsHtml(hasAudio: boolean, language: ReaderSettings['interfaceLanguage']): string {
     return `
-        <div class="jpdb-reader-example-actions" role="group" aria-label="Immersion Kit example controls">
-            <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${uiText(language, 'previousExample')}" aria-label="${uiText(language, 'previousExample')}">‹</button>
-            ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${uiText(language, 'playExampleAudio')}" aria-label="${uiText(language, 'playExampleAudio')}">${speakerIcon()}</button>` : ''}
-            <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${uiText(language, 'nextExample')}" aria-label="${uiText(language, 'nextExample')}">›</button>
+        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml(uiText(language, 'immersionExampleControls'))}">
+            <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${escapeHtml(uiText(language, 'previousExample'))}" aria-label="${escapeHtml(uiText(language, 'previousExample'))}">‹</button>
+            ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${escapeHtml(uiText(language, 'playExampleAudio'))}" aria-label="${escapeHtml(uiText(language, 'playExampleAudio'))}">${speakerIcon()}</button>` : ''}
+            <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${escapeHtml(uiText(language, 'nextExample'))}" aria-label="${escapeHtml(uiText(language, 'nextExample'))}">›</button>
         </div>
     `;
 }
@@ -906,15 +909,15 @@ function renderExampleTranslation(translation: string, settings: ReaderSettings)
     if (!settings.immersionKitRevealTranslationOnClick) {
         return `<div class="jpdb-reader-example-translation">${escaped}</div>`;
     }
-    return `<div class="jpdb-reader-example-translation" data-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="Reveal translation">${escaped}</div>`;
+    return `<div class="jpdb-reader-example-translation" data-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="${escapeHtml(uiText(settings.interfaceLanguage, 'revealTranslation'))}">${escaped}</div>`;
 }
 
-function setTranslationBlurAttributes(element: HTMLElement, blurred: boolean, key: 'immersionTranslationBlurred'): void {
+function setTranslationBlurAttributes(element: HTMLElement, blurred: boolean, key: 'immersionTranslationBlurred', language: ReaderSettings['interfaceLanguage']): void {
     if (blurred) {
         element.dataset[key] = 'true';
         element.setAttribute('role', 'button');
         element.setAttribute('tabindex', '0');
-        element.setAttribute('aria-label', 'Reveal translation');
+        element.setAttribute('aria-label', uiText(language, 'revealTranslation'));
         return;
     }
     delete element.dataset[key];

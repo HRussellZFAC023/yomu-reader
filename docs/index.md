@@ -17,7 +17,7 @@ hero:
       link: /getting-started
     - theme: alt
       text: Open Study App
-      link: /newtab/index.html
+      link: newtab/index.html
       target: _self
 features:
   - title: Install in minutes
@@ -30,22 +30,21 @@ features:
 
 <div class="yomu-install-panel">
   <div class="yomu-install-copy">
-    <span class="yomu-install-kicker">Available now</span>
     <strong>Install よむ as a userscript</strong>
-    <p>Use a userscript manager such as Tampermonkey or Userscripts, then open the current よむ install link. Browser store versions are planned but not live yet.</p>
-    <div class="yomu-install-steps" aria-label="Install steps">
-      <a class="yomu-install-step-link" href="https://www.tampermonkey.net/" target="_blank" rel="noopener" aria-label="Open the Tampermonkey install page for your browser"><b>1</b> <span>Add manager</span></a>
-      <a class="yomu-install-step-link" href="https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js" aria-label="Install the よむ userscript"><b>2</b> <span>Install よむ</span></a>
-      <a class="yomu-install-step-link" href="getting-started#_5-try-your-first-lookup" aria-label="Open first lookup instructions after refreshing a Japanese page"><b>3</b> <span>Refresh page</span></a>
-    </div>
+    <p>Use Tampermonkey or Userscripts, install よむ, then refresh a Japanese page and tap or hover a word.</p>
   </div>
   <div class="yomu-install-actions">
-    <div class="yomu-store-status" aria-label="Browser extension store status">
-      <div class="yomu-store-status-title">Browser extensions</div>
-      <div class="yomu-store-status-row">Chrome extension <small>Coming soon</small></div>
-      <div class="yomu-store-status-row">Firefox extension <small>Coming soon</small></div>
-      <div class="yomu-store-status-row">Safari extension <small>Coming soon</small></div>
+    <div class="yomu-store-status" aria-label="Extension store status">
+      <div class="yomu-store-status-title">Extensions</div>
+      <div class="yomu-store-status-row">Chrome <small>Coming soon</small></div>
+      <div class="yomu-store-status-row">Firefox <small>Coming soon</small></div>
+      <div class="yomu-store-status-row">Safari <small>Coming soon</small></div>
     </div>
+  </div>
+  <div class="yomu-install-steps" aria-label="Install steps">
+    <a class="yomu-install-step-link" href="https://www.tampermonkey.net/" target="_blank" rel="noopener" aria-label="Open the Tampermonkey install page for your browser"><b>1</b> <span>Add manager</span></a>
+    <a class="yomu-install-step-link" href="https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js" aria-label="Install the よむ userscript"><b>2</b> <span>Install よむ</span></a>
+    <a class="yomu-install-step-link" href="getting-started#_5-try-your-first-lookup" aria-label="Open first lookup instructions after refreshing a Japanese page"><b>3</b> <span>Refresh page</span></a>
   </div>
 </div>
 
@@ -55,15 +54,27 @@ features:
 
 Start with simple popup lookup. Later, add JPDB for review status, import Yomitan dictionary files for local definitions, or connect Anki when you want flashcards.
 
-<div class="yomu-shot-grid">
-  <figure>
-    <img :src="'/yomu-reader/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing JPDB state, pitch, definitions, translation, grammar, and mining controls.">
-    <figcaption>Popup lookup with live JPDB data and mining controls.</figcaption>
-  </figure>
-  <figure>
-    <img :src="'/yomu-reader/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing JPDB and RTK facts with a rendered KanjiVG stroke diagram.">
-    <figcaption>Kanji drilldown with live KanjiVG stroke data.</figcaption>
-  </figure>
+<div class="yomu-try-me" data-yomu-demo-lookup>
+  <strong>Try me</strong>
+  <div class="yomu-try-me-text">
+    <h3>
+      <span class="jpdb-reader-word" data-sentence="青空の下で日本語を読む" tabindex="0">青空</span>の下で<span class="jpdb-reader-word" data-sentence="青空の下で日本語を読む" tabindex="0">日本語</span>を<span class="jpdb-reader-word" data-sentence="青空の下で日本語を読む" tabindex="0">読む</span>
+    </h3>
+    <p>
+      <span class="jpdb-reader-word" data-sentence="今日は静かな喫茶店で新しい本を読みました。" tabindex="0">今日</span>は<span class="jpdb-reader-word" data-sentence="今日は静かな喫茶店で新しい本を読みました。" tabindex="0">静かな</span><span class="jpdb-reader-word" data-sentence="今日は静かな喫茶店で新しい本を読みました。" tabindex="0">喫茶店</span>で<span class="jpdb-reader-word" data-sentence="今日は静かな喫茶店で新しい本を読みました。" tabindex="0">新しい</span><span class="jpdb-reader-word" data-sentence="今日は静かな喫茶店で新しい本を読みました。" tabindex="0">本</span>を<span class="jpdb-reader-word" data-sentence="今日は静かな喫茶店で新しい本を読みました。" tabindex="0">読みました</span>。
+    </p>
+  </div>
+
+  <div class="yomu-shot-grid">
+    <figure>
+      <img :src="'/yomu-reader/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing JPDB state, pitch, definitions, translation, grammar, and mining controls.">
+      <figcaption>Popup lookup with live JPDB data and mining controls.</figcaption>
+    </figure>
+    <figure>
+      <img :src="'/yomu-reader/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing JPDB and RTK facts with a rendered KanjiVG stroke diagram.">
+      <figcaption>Kanji drilldown with live KanjiVG stroke data.</figcaption>
+    </figure>
+  </div>
 </div>
 
 ## Next Steps
@@ -79,9 +90,9 @@ Start with simple popup lookup. Later, add JPDB for review status, import Yomita
   </a>
   <a class="yomu-link-card" href="newtab/index.html">
     <strong>Open study app</strong>
-    <span>Review JPDB, Anki, or imported dictionary cards from the hosted app.</span>
+    <span>Review JPDB, Anki, or imported dictionary cards from the study app.</span>
   </a>
-  <a class="yomu-link-card" href="https://hrussellzfac023.github.io/yomu-reader/video-player/index.html">
+  <a class="yomu-link-card" href="video-player/index.html">
     <strong>Open video player</strong>
     <span>Use local browser-supported videos and subtitle files with よむ lookup.</span>
   </a>

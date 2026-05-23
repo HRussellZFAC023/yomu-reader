@@ -248,6 +248,7 @@ export class NewTabRuntime {
     });
     private factoryReset = new FactoryResetCoordinator({
         isDestroyed: () => this.isDestroyed,
+        getLanguage: () => this.settings.interfaceLanguage,
         invalidateRuntimeStores: () => this.invalidateRuntimeStoresForFactoryReset(),
         resetDictionaryDatabase: () => this.dictionaries.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS })
             .then(() => ({ deleted: true })),
@@ -346,6 +347,8 @@ export class NewTabRuntime {
             anki: {
                 listNewTabCards: limit => listNewTabAnkiCards(this.anki, this.settings, limit),
                 answerCard: (cardId, grade) => this.anki.answerCard(cardId, grade),
+                invoke: (action, params) => this.anki.invoke(action, params),
+                requestPermission: () => this.anki.invoke('requestPermission'),
             },
             jpdb: this.jpdb,
             jpdbKanji: this.jpdbKanji,
@@ -943,9 +946,9 @@ export class NewTabRuntime {
                 <div class="jpdb-reader-local-entry"><div class="jpdb-reader-help">${escapeHtml(this.text('loadingMnemonicImages'))}</div></div>
             </details>
         `);
-        const data = await loadUchisenData(kanji, this.settings.corsProxyUrl).catch(() => ({ images: [], componentGroups: [], kanjiKeyword: null }));
+        const data = await loadUchisenData(kanji, this.settings.corsProxyUrl).catch(() => ({ images: [], componentGroups: [], kanjiKeyword: null, kanjiId: '', canGenerateImages: false }));
         if (!this.isCurrentLookupRender(popover, requestId) || !mount.isConnected) return;
-        if (!data.images.length) {
+        if (!data.images.length && !data.canGenerateImages) {
             mount.remove();
             this.repositionLookupPopover();
             return;
@@ -958,6 +961,10 @@ export class NewTabRuntime {
             bodyClass: 'jpdb-reader-local-entry yomu-jpdb-uchisen-body',
             componentGroups: data.componentGroups,
             kanjiKeyword: data.kanjiKeyword,
+            kanjiId: data.kanjiId,
+            canGenerateImages: data.canGenerateImages,
+            refreshData: () => loadUchisenData(kanji, this.settings.corsProxyUrl),
+            interfaceLanguage: this.settings.interfaceLanguage,
         });
         if (this.isCurrentLookupRender(popover, requestId)) this.repositionLookupPopover();
     }
@@ -1122,8 +1129,7 @@ export class NewTabRuntime {
         if (showPicker) {
             try {
                 showPicker.call(picker);
-            } catch (_error) {
-                // The temporary visible select is the fallback on browsers without a native picker.
+            } catch {
             }
         }
         return true;
@@ -1159,8 +1165,9 @@ export class NewTabRuntime {
     private maybePreloadLookupCardAudio(card: JPDBCard, options: NewTabLookupDisplayOptions): void {
         if (!this.settings.audioEnabled) return;
         this.audio.preload(card, {
-            sourceLimit: options.autoPlay === false || !this.settings.autoPlayAudio ? 1 : 3,
+            sourceLimit: 1,
             candidateLimit: 1,
+            prepareAudio: false,
         });
     }
 
@@ -1200,10 +1207,18 @@ export class NewTabRuntime {
     private async lookupCard(term: string, reading: string): Promise<JPDBCard> {
         const localEntry = await this.localLookupEntry(term, reading);
         if (localEntry) return this.parser.localCardFromEntry(localEntry);
+        const publicCard = await this.publicLookupCard(term, true);
+        if (publicCard) return publicCard;
         const parsed = await this.parser.parse([term], { jpdbTimeoutMs: NEW_TAB_POPOVER_PARSE_TIMEOUT_MS }).catch(() => [[]]);
         const token = pickTokenForSelection(parsed[0] ?? [], term);
         if (token) return token.card;
         return this.parser.fallbackCardFromText(term);
+    }
+
+    private async publicLookupCard(term: string, exact = false): Promise<JPDBCard | undefined> {
+        if (!this.settings.jpdbDefinitionsEnabled) return undefined;
+        const cards = await this.jpdbVocabulary.search(term, 1).catch(() => []);
+        return cards.find(card => card.spelling === term) ?? (exact ? undefined : cards[0]);
     }
 
     private async localLookupEntry(term: string, reading: string): Promise<YomitanTermEntry | undefined> {
@@ -1232,7 +1247,7 @@ export class NewTabRuntime {
         this.installLookupPopoverBodyStabilizers(popover);
         this.dictionarySourceState.installTracking(popover);
         if (popover.classList.contains('jpdb-reader-sheet')) {
-            installSheetHandle(popover, () => this.dismissLookupPopover());
+            installSheetHandle(popover, () => this.dismissLookupPopover(), this.text('resizeLookupSheet'));
             this.localizeLookupPopoverChrome(popover);
             popover.classList.toggle('jpdb-reader-sheet-sticky', this.settings.stickyBottomSheet);
             if (this.settings.stickyBottomSheet) {
@@ -1459,6 +1474,28 @@ export class NewTabRuntime {
         });
     }
 
+    private async enrichPublicVocabularyWords(tokens: JPDBToken[]): Promise<void> {
+        const seen = new Set<string>();
+        const uniqueTokens = tokens.filter(token => {
+            if (token.card.source !== 'fallback') return false;
+            const key = cardKey(token.card);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        }).slice(0, NEW_TAB_PITCH_ENRICHMENT_LIMIT);
+
+        await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
+            const card = await this.publicLookupCard(token.card.spelling, true);
+            if (!card) {
+                this.unwrapRenderedFallbackWords(token.card);
+                return;
+            }
+            if (!card.pitchAccent.length) card.pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
+            this.parser.cacheCards([card]);
+            this.applyPublicVocabularyToRenderedWords(token.card, card);
+        });
+    }
+
     private applyAnkiLookupToRenderedWords(card: JPDBCard, ankiLookup: AnkiLookupResult): void {
         if (!ankiLookup.primary) return;
         const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
@@ -1481,6 +1518,33 @@ export class NewTabRuntime {
             word.classList.add(`jpdb-pitch-${pitchClass}`);
             word.dataset.pitchClass = pitchClass;
         });
+    }
+
+    private applyPublicVocabularyToRenderedWords(fallback: JPDBCard, card: JPDBCard): void {
+        const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
+        document.querySelectorAll<HTMLElement>(this.renderedWordSelector(fallback)).forEach(word => {
+            Array.from(word.classList)
+                .filter(className => className.startsWith('jpdb-pitch-'))
+                .forEach(className => word.classList.remove(className));
+            word.classList.add(`jpdb-pitch-${pitchClass}`);
+            word.dataset.vid = String(card.vid);
+            word.dataset.sid = String(card.sid);
+            word.dataset.expression = card.spelling;
+            word.dataset.reading = card.reading;
+            word.dataset.pitchClass = pitchClass;
+        });
+    }
+
+    private unwrapRenderedFallbackWords(card: JPDBCard): void {
+        document.querySelectorAll<HTMLElement>(this.renderedWordSelector(card)).forEach(word => {
+            const parent = word.parentNode;
+            word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
+            parent?.normalize();
+        });
+    }
+
+    private renderedWordSelector(card: JPDBCard): string {
+        return `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
     }
 
     private cardStateText(state: string): string {
@@ -1551,8 +1615,9 @@ export class NewTabRuntime {
             if (!root.isConnected || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             root.dataset.jpdbReaderParseKey = plan.parseKey;
+            void this.enrichPublicVocabularyWords(parsed.flat());
             void this.enrichPitchWords(parsed.flat());
-        } catch (_error) {
+        } catch {
         } finally {
             clearNestedParseLoadingKey(root, plan.parseKey);
         }

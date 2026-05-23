@@ -20,11 +20,13 @@ interface AudioPlaybackOptions {
 interface AudioPreloadOptions {
     sourceLimit?: number;
     candidateLimit?: number;
+    prepareAudio?: boolean;
 }
 
 interface AudioPreloadLimits {
     sourceLimit: number;
     candidateLimit: number;
+    prepareAudio: boolean;
 }
 
 interface AudioRequestOptions {
@@ -375,7 +377,7 @@ export class AudioPlayer {
     preload(card: JPDBCard, options: AudioPreloadOptions = {}): void {
         const settings = this.getSettings();
         if (!settings.audioEnabled) return;
-        const { sourceLimit, candidateLimit } = audioPreloadLimits(options);
+        const { sourceLimit, candidateLimit, prepareAudio } = audioPreloadLimits(options);
         const sources = preloadableAudioSources(getOrderedAudioSources(settings), settings).slice(0, sourceLimit);
         if (!sources.length) return;
 
@@ -388,6 +390,7 @@ export class AudioPlayer {
                         if (triedUrls.has(candidateKey)) continue;
                         triedUrls.add(candidateKey);
                         preconnectAudioUrl(candidate.url);
+                        if (!prepareAudio) continue;
                         void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, true)
                             .catch(() => undefined);
                     }
@@ -531,6 +534,12 @@ export class AudioPlayer {
         isCurrent: () => boolean,
         reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
+        if (shouldStreamCandidateBeforeBlob(candidate, sourceType, settings)) {
+            const streamed = await this.playDirectAudioCandidate(candidate, id, bagKey, requestId, isCurrent, reservedAudio)
+                .catch(() => false);
+            if (streamed || !this.isPlaybackCurrent(requestId, isCurrent)) return streamed;
+        }
+
         let audio: HTMLAudioElement;
         try {
             audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
@@ -544,6 +553,23 @@ export class AudioPlayer {
         } catch (error) {
             throw new AudioPlaybackAttemptError(error);
         }
+        if (!played) return false;
+        this.shuffledAudio.markPlayed(bagKey, id);
+        return true;
+    }
+
+    private async playDirectAudioCandidate(
+        candidate: AudioCandidate,
+        id: string,
+        bagKey: string,
+        requestId: number,
+        isCurrent: () => boolean,
+        reservedAudio?: HTMLAudioElement,
+    ): Promise<boolean> {
+        const audio = reservedAudio
+            ? await this.createReadyAudio(candidate.url, reservedAudio)
+            : this.createAudioElement(candidate.url);
+        const played = await this.playPreparedAudio(audio, requestId, isCurrent);
         if (!played) return false;
         this.shuffledAudio.markPlayed(bagKey, id);
         return true;
@@ -961,6 +987,22 @@ function shouldForceBlobAudioPlayback(sourceType: AudioSourceType): boolean {
     return sourceType === 'jpod101';
 }
 
+function shouldStreamCandidateBeforeBlob(candidate: AudioCandidate, sourceType: AudioSourceType, settings: ReaderSettings): boolean {
+    return settings.audioViaBlob
+        && !shouldForceBlobAudioPlayback(sourceType)
+        && shouldPreferDirectAudioElementBeforeBlob(sourceType)
+        && /^https?:\/\//i.test(candidate.url)
+        && isLikelyAudioUrl(candidate.url);
+}
+
+function shouldPreferDirectAudioElementBeforeBlob(sourceType: AudioSourceType): boolean {
+    return sourceType === 'language-pod-101'
+        || sourceType === 'jisho'
+        || sourceType === 'lingua-libre'
+        || sourceType === 'wiktionary'
+        || sourceType === 'custom-json';
+}
+
 function isHostedGithubPagesApp(): boolean {
     if (typeof location === 'undefined') return false;
     try {
@@ -1078,6 +1120,7 @@ function audioPreloadLimits(options: AudioPreloadOptions): AudioPreloadLimits {
     return {
         sourceLimit: Math.max(1, options.sourceLimit ?? 1),
         candidateLimit: Math.max(1, options.candidateLimit ?? 1),
+        prepareAudio: options.prepareAudio !== false,
     };
 }
 

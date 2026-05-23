@@ -1,6 +1,7 @@
 import type { ReaderSettings } from './types';
 import { gmStorageGetSync, gmStorageSetSync } from './storage';
 import { setInnerHtml } from './dom';
+import { uiText } from './i18n';
 
 export const SHEET_HEIGHT_STORAGE_KEY = 'jpdb-reader-sheet-height-ratio';
 export const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = 'jpdb-reader-settings-drawer-height-ratio';
@@ -24,7 +25,7 @@ export function createReaderPopover(appName: string, settings: ReaderSettings): 
     popover.className = 'jpdb-reader-popover';
     popover.dataset.jpdbReaderRoot = 'true';
     popover.setAttribute('role', 'dialog');
-    popover.setAttribute('aria-label', `${appName} lookup`);
+    popover.setAttribute('aria-label', uiText(settings.interfaceLanguage, 'lookupDialog') || `${appName} lookup`);
     popover.setAttribute('aria-modal', 'true');
     popover.tabIndex = -1;
     if (shouldUseSheet(settings)) popover.classList.add('jpdb-reader-sheet');
@@ -60,7 +61,7 @@ export function placePopoverAtViewportPosition(popover: HTMLElement, rect: DOMRe
     popover.style.maxHeight = `${configuredMaxHeight ? Math.min(availableHeight, configuredMaxHeight) : availableHeight}px`;
 }
 
-export function installSheetHandle(popover: HTMLElement, onDismiss: () => void): void {
+export function installSheetHandle(popover: HTMLElement, onDismiss: () => void, label = 'Drag to resize lookup sheet, or tap to close'): void {
     if (popover.dataset.jpdbReaderSheetHandleInstalled === 'true') return;
     popover.dataset.jpdbReaderSheetHandleInstalled = 'true';
 
@@ -72,7 +73,7 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void):
     const syncHandle = (handle: HTMLElement): void => {
         handle.setAttribute('role', 'button');
         handle.setAttribute('tabindex', '0');
-        handle.setAttribute('aria-label', 'Drag to resize lookup sheet, or tap to close');
+        handle.setAttribute('aria-label', label);
         handle.setAttribute('aria-expanded', String(isFullHeight()));
         handle.setAttribute('aria-valuemin', String(sheetMinHeight(viewportHeight)));
         handle.setAttribute('aria-valuemax', String(viewportHeight));
@@ -415,7 +416,7 @@ export function installSheetCloseButton(popover: HTMLElement, onDismiss: () => v
     }
 }
 
-export function installSettingsDrawerHandle(drawer: HTMLElement): void {
+export function installSettingsDrawerHandle(drawer: HTMLElement, label = 'Resize settings'): void {
     if (drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled === 'true') return;
     drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled = 'true';
 
@@ -437,7 +438,7 @@ export function installSettingsDrawerHandle(drawer: HTMLElement): void {
     const syncHandle = (handle: HTMLElement): void => {
         handle.setAttribute('role', 'separator');
         handle.setAttribute('tabindex', '0');
-        handle.setAttribute('aria-label', 'Resize Settings');
+        handle.setAttribute('aria-label', label);
         handle.setAttribute('aria-orientation', 'horizontal');
         handle.setAttribute('aria-valuemin', String(settingsDrawerMinHeight(viewportHeight)));
         handle.setAttribute('aria-valuemax', String(viewportHeight));

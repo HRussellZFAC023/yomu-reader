@@ -9,15 +9,18 @@ export interface NestedParsePlan {
 }
 
 export function nestedTextParsePlan(root: HTMLElement, limit: number): NestedParsePlan | null {
-    const targets = Array.from(root.querySelectorAll<HTMLElement>(PARSEABLE_SELECTOR))
-        .flatMap(parseRoot => collectFragmentTextTargetsIn(parseRoot, limit, false, '', { includeReaderRoot: true, allowUiText: true, minLength: 1 }))
+    const parseRoots = root.matches(PARSEABLE_SELECTOR)
+        ? [root]
+        : Array.from(root.querySelectorAll<HTMLElement>(PARSEABLE_SELECTOR));
+    const targets = parseRoots
+        .flatMap(parseRoot => collectFragmentTextTargetsIn(parseRoot, limit, false, '', { includeReaderRoot: true, allowUiText: true, heading: true, minLength: 1 }))
         .slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
 }
 
 export function nestedParseAlreadyScheduled(root: HTMLElement, parseKey: string): boolean {
     return root.dataset.jpdbReaderParseKey === parseKey
-        || root.dataset.jpdbReaderParseLoadingKey === parseKey;
+        && Boolean(root.querySelector(`${PARSEABLE_SELECTOR} .jpdb-reader-word`));
 }
 
 export function applyNestedParsePlan(plan: NestedParsePlan, parsed: JPDBToken[][], settings: ReaderSettings): void {

@@ -61,8 +61,8 @@ export function renderHelpLinksPanel(): string {
             <div class="jpdb-reader-help-support">
                 <div>
                     <div class="jpdb-reader-help-title" data-help-support-title>Support よむ</div>
-                    <p data-help-support-copy>よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as Migaku currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.</p>
-                    <p data-help-support-copy-extra>Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.</p>
+                    <p data-help-support-copy>よむ brings popup lookup, JPDB, OCR, subtitles, dictionaries, and Anki.</p>
+                    <p data-help-support-copy-extra>Donations are optional.</p>
                 </div>
                 <div class="jpdb-reader-help-actions">
                     <a class="jpdb-reader-btn jpdb-reader-help-donate" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">${externalButtonLabel('Donate')}</a>
@@ -213,7 +213,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                         <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open new tab page</a>
                         <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">Copy address</button>
                     </div>
-                    <div class="jpdb-reader-help">Use this page as your browser new-tab URL or add it to the iPad Home Screen. Offline caching is eventually consistent: よむ refreshes the next cached review list and card assets when the source is reachable, uses the last good cache while offline, and queues JPDB or Anki grades until the source reconnects.</div>
+                    <div class="jpdb-reader-help">Use this page as your new-tab URL or iPad Home Screen app. よむ refreshes cache when online and queues grades while offline.</div>
                 </div>
     `;
 }
@@ -290,7 +290,7 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
                 <div class="jpdb-reader-audio-sources" data-source-editor data-audio-source-editor>
                     ${renderAudioSourceEditor(settings.audioSources)}
                 </div>
-                <div class="jpdb-reader-help">Supports {term}, {reading}, and {language}. The proxy is shared by hosted-page audio and public lookup requests. In fallback mode, JPDB and browser text-to-speech rows are tried only after recorded audio misses. See the <a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">Yomitan audio guide</a>.</div>
+                <div class="jpdb-reader-help">Supports {term}, {reading}, and {language}. Fallback mode tries JPDB and browser TTS after recorded audio misses. See the <a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">Yomitan audio guide</a>.</div>
             </fieldset>
     `;
 }
@@ -508,7 +508,7 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                 </div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
-                    <div class="jpdb-reader-help">These small buttons open the current word in an external dictionary. Use {query} for normal search URLs; it fills in the current word. {word} and {reading} are available for sites that need them separately.</div>
+                    <div class="jpdb-reader-help">Open the current word in external dictionaries. Use {query}, or {word} and {reading} when a site needs them separately.</div>
                     <div class="jpdb-reader-lookup-links" data-source-editor>
                         ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks)}
                     </div>
@@ -651,6 +651,7 @@ function localizeSettingsShell(form: HTMLFormElement, language: InterfaceLanguag
     form.setAttribute('aria-label', text('settingsTitle'));
     form.querySelector('h2')?.replaceChildren(text('settingsTitle'));
     form.querySelector<HTMLElement>('.jpdb-reader-settings-tabs')?.setAttribute('aria-label', text('settingsSections'));
+    form.querySelector<HTMLElement>('.jpdb-reader-settings-drag-handle')?.setAttribute('aria-label', text('resizeSettings'));
     localizeThemeSwitch(form, text);
     localizeSettingsTabs(form, text);
     localizeSettingsLegends(form, text);
@@ -827,7 +828,7 @@ function localizeMediaSettingsSelects(form: HTMLFormElement, text: SettingsText)
         ['games', text('games')],
     ]);
     setSelectOptionLabels(form, 'immersionKitExampleSource', [
-        ['immersion-kit', 'Immersion Kit'],
+        ['immersion-kit', text('immersionKit')],
         ['nadeshiko', 'Nadeshiko'],
         ['combined', text('immersionKitAndNadeshiko')],
     ]);
@@ -1037,6 +1038,7 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
     const rows: Array<[string, SettingsTextKey, SettingsTextKey]> = [
         ['Translation', 'sourceNameTranslation', 'sourceHelpTranslation'],
         ['Grammar', 'sourceNameGrammar', 'sourceHelpGrammar'],
+        ['Immersion Kit', 'sourceNameImmersionKit', 'sourceHelpImmersionKit'],
         ['Stroke practice', 'sourceNameStrokePractice', 'sourceHelpStrokePractice'],
         ['Readings and components', 'readingsComponents', 'sourceHelpReadingsComponents'],
         ['Imported kanji dictionaries', 'sourceNameImportedKanjiDictionaries', 'sourceHelpImportedKanjiDictionaries'],
@@ -1902,30 +1904,37 @@ function syncSourceRowOrder(container: HTMLElement): void {
 }
 
 function syncAudioSourceIndexes(container: HTMLElement, rows = Array.from(container.querySelectorAll<HTMLElement>('[data-audio-source-row]'))): void {
+    const language = settingsLanguageForElement(container);
     rows.forEach((row, index) => {
         row.dataset.sourceId = `audio-${index}`;
         row.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[name^="audioSources."]').forEach(control => {
             control.name = control.name.replace(/^audioSources\.\d+\./, `audioSources.${index}.`);
             if (control instanceof HTMLSelectElement && control.name.endsWith('.type')) {
-                control.setAttribute('aria-label', `Audio source ${index + 1}`);
+                control.setAttribute('aria-label', uiText(language, 'audioSourceNumber').replace('{number}', String(index + 1)));
             }
             if (control instanceof HTMLSelectElement && control.name.endsWith('.voice')) {
-                control.setAttribute('aria-label', `Text-to-speech voice ${index + 1}`);
+                control.setAttribute('aria-label', uiText(language, 'textToSpeechVoiceNumber').replace('{number}', String(index + 1)));
             }
         });
     });
 }
 
 function syncDictionaryLookupLinkIndexes(container: HTMLElement, rows = Array.from(container.querySelectorAll<HTMLElement>('[data-lookup-link-row]'))): void {
+    const language = settingsLanguageForElement(container);
     rows.forEach((row, index) => {
         row.dataset.index = String(index);
         row.dataset.sourceId = `lookup-link-${index}`;
         row.querySelectorAll<HTMLInputElement>('[name^="dictionaryLookupLinks."]').forEach(control => {
             control.name = control.name.replace(/^dictionaryLookupLinks\.\d+\./, `dictionaryLookupLinks.${index}.`);
-            if (control.name.endsWith('.label')) control.setAttribute('aria-label', `Lookup pill ${index + 1} label`);
-            if (control.name.endsWith('.urlTemplate')) control.setAttribute('aria-label', `Lookup pill ${index + 1} URL template`);
+            if (control.name.endsWith('.label')) control.setAttribute('aria-label', uiText(language, 'lookupPillLabelNumber').replace('{number}', String(index + 1)));
+            if (control.name.endsWith('.urlTemplate')) control.setAttribute('aria-label', uiText(language, 'lookupUrlTemplateNumber').replace('{number}', String(index + 1)));
         });
     });
+}
+
+function settingsLanguageForElement(element: HTMLElement): InterfaceLanguage {
+    const form = element.closest<HTMLFormElement>('form');
+    return form ? getFormInterfaceLanguage(form, 'en') : 'en';
 }
 
 export function installShortcutCapture(root: HTMLElement): void {

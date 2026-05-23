@@ -366,6 +366,9 @@ declare global {
         data?: string | Blob | FormData | ArrayBuffer;
         responseType?: 'blob' | 'json' | 'text' | 'arraybuffer';
         timeout?: number;
+        anonymous?: boolean;
+        withCredentials?: boolean;
+        cookie?: string;
         onload?: (response: UserscriptHttpResponse) => void;
         onprogress?: (event: { lengthComputable?: boolean; loaded: number; total: number }) => void;
         onerror?: (error: unknown) => void;
@@ -379,6 +382,9 @@ declare global {
         data?: string | Blob | FormData | ArrayBuffer;
         responseType?: 'blob' | 'json' | 'text' | 'arraybuffer';
         timeout?: number;
+        anonymous?: boolean;
+        withCredentials?: boolean;
+        cookie?: string;
         onload?: (response: { status: number; response: unknown; responseText?: string; finalUrl?: string }) => void;
         onprogress?: (event: { lengthComputable?: boolean; loaded: number; total: number }) => void;
         onerror?: (error: unknown) => void;

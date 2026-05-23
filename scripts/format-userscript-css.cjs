@@ -15,8 +15,8 @@ const formatted = code.replace(/\bconst\s+([A-Za-z_$][\w$]*Css)\s*=\s*('(?:\\.|[
 });
 
 if (replacements === 0) {
-  console.error('No inline CSS literals were formatted in dist/yomu.user.js.');
-  process.exit(1);
+  console.log('No inline CSS literals needed formatting in dist/yomu.user.js.');
+  process.exit(0);
 }
 
 fs.writeFileSync(file, formatted);

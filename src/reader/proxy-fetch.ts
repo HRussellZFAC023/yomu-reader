@@ -209,8 +209,22 @@ function isProxySafeRequest(targetUrl: string, options: ProxyFetchOptions): bool
 function shouldPreferProxyFirst(targetUrl: string, direct: FetchUrlCandidate | null, proxySafe: boolean): boolean {
     return Boolean(direct)
         && proxySafe
+        && !isKnownDirectCorsTarget(targetUrl)
         && (isHostedGithubPagesApp() || isAppleTouchBrowser())
         && isCrossOriginHttpUrl(targetUrl);
+}
+
+function isKnownDirectCorsTarget(targetUrl: string): boolean {
+    try {
+        const target = new URL(targetUrl, location.href);
+        return [
+            'apiv2express.immersionkit.com',
+            'apiv2.immersionkit.com',
+            'api.nadeshiko.co',
+        ].includes(target.hostname);
+    } catch {
+        return false;
+    }
 }
 
 function shouldSkipDirectCrossOriginFetch(targetUrl: string, options: ProxyFetchOptions): boolean {

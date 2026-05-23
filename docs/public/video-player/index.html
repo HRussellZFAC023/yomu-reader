@@ -123,6 +123,30 @@
       height: 38px;
     }
 
+    .language-button {
+      display: inline-grid;
+      place-items: center;
+      width: 38px;
+      min-width: 38px;
+      height: 38px;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 680;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .language-button:hover,
+    .language-button:focus-visible {
+      background: var(--panel);
+      border-color: var(--line);
+      color: var(--ink);
+    }
+
     .VPSwitch.VPSwitchAppearance {
       position: relative;
       display: block;
@@ -315,7 +339,7 @@
 
       .topbar {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 1fr) auto auto;
         align-items: center;
         gap: 12px 10px;
       }
@@ -329,6 +353,13 @@
         grid-row: 1;
         width: 42px;
         min-width: 42px;
+        justify-self: end;
+      }
+
+      .language-button {
+        grid-column: 3;
+        grid-row: 1;
+        min-width: 54px;
         justify-self: end;
       }
 
@@ -368,6 +399,7 @@
             </span>
           </button>
         </div>
+        <button class="language-button" type="button" data-language-toggle aria-label="Switch Yomu HUD to Japanese" lang="ja">あ</button>
         <label class="file-button">
           Open video
           <input type="file" accept="video/*,.mkv,.mp4,.m4v,.mov,.webm,.ogv" data-video-input>
@@ -395,8 +427,45 @@
       const emptyOpen = document.querySelector('[data-empty-open]');
       const status = document.querySelector('[data-status]');
       const themeToggle = document.querySelector('[data-theme-toggle]');
+      const languageToggle = document.querySelector('[data-language-toggle]');
       const themeKey = 'yomu-page-theme';
+      const settingsKey = 'jpdb-popup-reader-settings';
+      const languageEvent = 'yomu-interface-language-change';
       let objectUrl = '';
+      let currentVideoName = '';
+
+      const copy = {
+        en: {
+          title: 'Yomu Video',
+          brand: 'Yomu Video',
+          openHome: 'Open Yomu home',
+          openVideo: 'Open video',
+          stageLabel: 'Video',
+          emptyTitle: 'Open or drop a video',
+          emptyStatus: 'Use subtitle controls for tracks, lines, and mining after opening a video.',
+          chooseVideo: 'Choose a browser-supported video file.',
+          opening: name => `Opening ${name}...`,
+          switchToLightTheme: 'Switch to light theme',
+          switchToDarkTheme: 'Switch to dark theme',
+          switchToJapanese: 'Switch Yomu HUD to Japanese',
+          switchToEnglish: 'Switch Yomu HUD to English',
+        },
+        ja: {
+          title: 'よむ 動画',
+          brand: 'よむ 動画',
+          openHome: 'よむホームを開く',
+          openVideo: '動画を開く',
+          stageLabel: '動画',
+          emptyTitle: '動画を開くかドロップ',
+          emptyStatus: '動画を開いたあと、字幕コントロールでトラック、行、マイニングを使えます。',
+          chooseVideo: 'ブラウザーで再生できる動画ファイルを選んでください。',
+          opening: name => `${name}を開いています...`,
+          switchToLightTheme: 'ライトテーマに切り替え',
+          switchToDarkTheme: 'ダークテーマに切り替え',
+          switchToJapanese: 'Yomu HUDを日本語に切り替え',
+          switchToEnglish: 'Yomu HUDを英語に切り替え',
+        },
+      };
 
       function effectiveTheme() {
         const saved = localStorage.getItem(themeKey);
@@ -408,7 +477,8 @@
         document.documentElement.classList.toggle('yomu-page-theme-dark', theme === 'dark');
         document.documentElement.classList.toggle('yomu-page-theme-light', theme === 'light');
         if (themeToggle) {
-          const label = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+          const text = copy[effectiveInterfaceLanguage()];
+          const label = theme === 'dark' ? text.switchToLightTheme : text.switchToDarkTheme;
           themeToggle.setAttribute('aria-label', label);
           themeToggle.setAttribute('aria-checked', String(theme === 'light'));
           themeToggle.title = label;
@@ -416,9 +486,58 @@
       }
 
       applyTheme(effectiveTheme());
+      applyInterfaceLanguage(effectiveInterfaceLanguage());
 
       function setStatus(message) {
         status.textContent = message;
+      }
+
+      function readSettings() {
+        try {
+          const settings = JSON.parse(localStorage.getItem(settingsKey) || '{}');
+          return settings && typeof settings === 'object' && !Array.isArray(settings) ? settings : {};
+        } catch {
+          return {};
+        }
+      }
+
+      function saveInterfaceLanguage(language) {
+        const settings = readSettings();
+        settings.interfaceLanguage = language;
+        localStorage.setItem(settingsKey, JSON.stringify(settings));
+        window.dispatchEvent(new CustomEvent(languageEvent, { detail: { language } }));
+        applyInterfaceLanguage(language);
+      }
+
+      function effectiveInterfaceLanguage() {
+        const language = readSettings().interfaceLanguage;
+        if (language === 'ja' || language === 'en') return language;
+        return [...(navigator.languages || []), navigator.language].some(value => String(value || '').toLowerCase().startsWith('ja')) ? 'ja' : 'en';
+      }
+
+      function nextInterfaceLanguage() {
+        return effectiveInterfaceLanguage() === 'ja' ? 'en' : 'ja';
+      }
+
+      function applyInterfaceLanguage(language) {
+        document.documentElement.lang = language === 'ja' ? 'ja' : 'en';
+        const text = copy[language] || copy.en;
+        document.title = text.title;
+        document.querySelector('.brand').setAttribute('aria-label', text.openHome);
+        document.querySelector('.brand strong').textContent = text.brand;
+        document.querySelector('[data-yomu-video-frame]').setAttribute('aria-label', text.stageLabel);
+        document.querySelector('.file-button').firstChild.textContent = text.openVideo;
+        document.querySelector('.empty strong').textContent = text.emptyTitle;
+        if (!currentVideoName) setStatus(text.emptyStatus);
+        if (languageToggle) {
+          const next = nextInterfaceLanguage();
+          const label = next === 'ja' ? text.switchToJapanese : text.switchToEnglish;
+          languageToggle.textContent = next === 'ja' ? 'あ' : 'A';
+          languageToggle.lang = next === 'ja' ? 'ja' : 'en';
+          languageToggle.setAttribute('aria-label', label);
+          languageToggle.removeAttribute('title');
+        }
+        applyTheme(effectiveTheme());
       }
 
       function revokeObjectUrl() {
@@ -431,7 +550,8 @@
         if (!file) return;
         revokeObjectUrl();
         stage.classList.add('has-video');
-        setStatus(`Opening ${file.name}...`);
+        currentVideoName = file.name;
+        setStatus(copy[effectiveInterfaceLanguage()].opening(file.name));
         objectUrl = URL.createObjectURL(file);
         window.setTimeout(() => {
           video.src = objectUrl;
@@ -447,7 +567,7 @@
             return;
           }
         }
-        setStatus('Choose a browser-supported video file.');
+        setStatus(copy[effectiveInterfaceLanguage()].chooseVideo);
       }
 
       videoInput.addEventListener('change', () => {
@@ -461,6 +581,7 @@
         localStorage.setItem(themeKey, next);
         applyTheme(next);
       });
+      languageToggle?.addEventListener('click', () => saveInterfaceLanguage(nextInterfaceLanguage()));
 
       for (const eventName of ['dragenter', 'dragover']) {
         document.addEventListener(eventName, event => {

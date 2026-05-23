@@ -1,6 +1,7 @@
 import { Logger } from './logger';
 import { requestText as requestReaderText } from './reader-http';
 import { parseHtmlDocument } from './dom';
+import { readJpdbPitchPatterns } from './jpdb-public-pitch';
 import type { JPDBCard } from './types';
 
 export interface JpdbVocabularyCompound {
@@ -153,7 +154,7 @@ function searchResultCard(root: HTMLElement, doc: Document): JPDBCard | null {
         partOfSpeech,
         meanings: meanings.map(meaning => ({ glosses: [meaning], partOfSpeech })),
         cardState: ['not-in-deck'],
-        pitchAccent: [],
+        pitchAccent: readJpdbPitchPatterns(root),
         wordWithReading: null,
         source: 'jpdb',
         sentence: spelling,
@@ -178,7 +179,7 @@ function vocabularyEntryFromUrl(value: string): { vid: number; expression: strin
         return {
             vid: Number.isFinite(vid) ? vid : 0,
             expression: decodePathPart(parts[2] ?? ''),
-            reading: decodePathPart(parts[3] ?? ''),
+            reading: vocabularyPathReading(parts),
         };
     } catch {
         return null;
@@ -329,8 +330,13 @@ function vocabularyIdentityFromPath(pathname: string): { expression: string; rea
     if (parts[0] !== 'vocabulary') return null;
     return {
         expression: decodePathPart(parts[2] ?? ''),
-        reading: decodePathPart(parts[3] ?? ''),
+        reading: vocabularyPathReading(parts),
     };
+}
+
+function vocabularyPathReading(parts: string[]): string {
+    const reading = decodePathPart(parts[3] ?? '');
+    return JAPANESE_RE.test(reading) ? reading : '';
 }
 
 function vocabularyIdentityMatches(identity: { expression: string; reading: string }, spelling: string, reading: string): boolean {
@@ -526,7 +532,24 @@ function isRubyAnnotation(element: Element): boolean {
 }
 
 function rubyReadingText(element: Element): string {
-    return Array.from(element.children).find(child => child.tagName === 'RT')?.textContent || baseText(element);
+    let text = '';
+    let base = '';
+    element.childNodes.forEach(child => {
+        if (child.nodeType === Node.TEXT_NODE) {
+            base += child.textContent ?? '';
+            return;
+        }
+        if (child.nodeType !== Node.ELEMENT_NODE) return;
+        const childElement = child as Element;
+        if (childElement.tagName === 'RT') {
+            text += childElement.textContent || base;
+            base = '';
+            return;
+        }
+        if (childElement.tagName === 'RP') return;
+        base += baseText(childElement);
+    });
+    return text + base || baseText(element);
 }
 
 function cleanText(value: string): string {
