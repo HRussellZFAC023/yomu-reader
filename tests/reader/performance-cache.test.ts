@@ -5,7 +5,7 @@ import type { ImmersionKitClient, ImmersionKitExample } from '../../src/reader/i
 import { requestText as requestReaderText } from '../../src/reader/reader-http';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { StudySourceController } from '../../src/reader/study-sources';
-import type { JPDBCard, JPDBToken } from '../../src/reader/types';
+import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/types';
 import type { YomitanDictionaryStore } from '../../src/reader/yomitan';
 import type { AnkiConnectClient } from '../../src/reader/anki';
 import type { JpdbClient } from '../../src/reader/jpdb';
@@ -69,6 +69,49 @@ describe('performance cache bounds', () => {
 
         expect(preload).toHaveBeenCalledTimes(242);
         expect(preload.mock.calls.at(-1)?.[0]).toBe('単語0');
+    });
+
+    it('runs Immersion Kit fallback searches concurrently after an exact miss', async () => {
+        const slowFallback = deferred<ImmersionKitExample[]>();
+        const search = vi.fn((query: string) => {
+            if (query === '正確') return Promise.resolve([]);
+            if (query === '遅い候補') return slowFallback.promise;
+            if (query === '速い候補') return Promise.resolve([immersionExample(query)]);
+            return Promise.resolve([]);
+        });
+        const controller = createImmersionController({ search, preload: vi.fn() } as unknown as ImmersionKitClient);
+
+        const resultPromise = controller.searchExamples({ ...cardFor(1), spelling: '正確' }, {
+            relatedQueries: ['遅い候補', '速い候補'],
+        });
+        await expect(resultPromise).resolves.toMatchObject({ query: '速い候補' });
+        expect(search.mock.calls.map(([query]) => query)).toEqual(['正確', '遅い候補', '速い候補']);
+        slowFallback.resolve([]);
+    });
+
+    it('aborts the active Immersion Kit load request when a popover is dismissed', async () => {
+        const searchStarted = deferred<void>();
+        const search = vi.fn((_query: string, _settings: ReaderSettings, options?: { signal?: AbortSignal }) => new Promise<ImmersionKitExample[]>((_resolve, reject) => {
+            searchStarted.resolve();
+            options?.signal?.addEventListener('abort', () => reject(abortError()), { once: true });
+        }));
+        const controller = createImmersionController({ search, preload: vi.fn() } as unknown as ImmersionKitClient);
+        const popover = document.createElement('div');
+        popover.innerHTML = '<div data-immersion-kit></div>';
+        document.body.append(popover);
+
+        try {
+            const load = controller.loadExamples(popover, cardFor(1));
+            await searchStarted.promise;
+            const signal = search.mock.calls[0]?.[2]?.signal;
+
+            controller.abortPendingRequests(popover);
+
+            expect(signal?.aborted).toBe(true);
+            await expect(load).resolves.toBeUndefined();
+        } finally {
+            popover.remove();
+        }
     });
 
     it('bounds study source sentence caches', async () => {
@@ -187,4 +230,21 @@ function immersionExample(query: string): ImmersionKitExample {
         soundUrl: '',
         imageUrl: '',
     };
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (error: unknown) => void } {
+    let resolve!: (value: T) => void;
+    let reject!: (error: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    return { promise, resolve, reject };
+}
+
+function abortError(): Error {
+    if (typeof DOMException === 'function') return new DOMException('Aborted', 'AbortError');
+    const error = new Error('Aborted');
+    error.name = 'AbortError';
+    return error;
 }

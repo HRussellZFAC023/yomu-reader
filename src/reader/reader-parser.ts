@@ -14,6 +14,7 @@ const log = Logger.scope('ReaderParser');
 
 export interface ReaderParserParseOptions {
     jpdbTimeoutMs?: number;
+    allowJpdbTimeoutFallback?: boolean;
     includeLocalPitch?: boolean;
 }
 
@@ -39,8 +40,8 @@ export class ReaderParser {
         if (settings.apiKey.trim()) {
             try {
                 const parsePromise = jpdb.parse(paragraphs);
-                const timeoutMs = options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS;
-                const canFallback = this.canUseParseFallback();
+                const timeoutMs = options.allowJpdbTimeoutFallback ? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS : 0;
+                const canFallback = options.allowJpdbTimeoutFallback === true && this.canUseParseFallback();
                 const result = timeoutMs > 0 && canFallback
                     ? await withTimeout(parsePromise, timeoutMs, () => new Error('JPDB parse timed out.'))
                     : await parsePromise;
@@ -118,7 +119,7 @@ export class ReaderParser {
             sid: id,
             rid: 0,
             spelling,
-            reading: spelling,
+            reading: '',
             frequencyRank: null,
             partOfSpeech: [],
             meanings: [],

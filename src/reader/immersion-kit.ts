@@ -11,6 +11,7 @@ const NADESHIKO_API_BASE = 'https://api.nadeshiko.co/v1';
 const OBJECT_STORE_BASE = 'https://us-southeast-1.linodeobjects.com/immersionkit';
 const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const MEDIA_CANDIDATE_LIMIT = 4;
+const MEDIA_CANDIDATE_CONCURRENCY = 2;
 const SEARCH_EXAMPLE_LIMIT = 250;
 const SEARCH_CACHE_LIMIT = 160;
 const PRELOAD_KEY_LIMIT = 300;
@@ -138,6 +139,7 @@ export interface ImmersionKitExample {
 export interface ImmersionKitSearchOptions {
     requestLimit?: number;
     resultLimit?: number;
+    signal?: AbortSignal;
 }
 
 export class ImmersionKitClient {
@@ -153,22 +155,25 @@ export class ImmersionKitClient {
         const cacheKey = this.searchCacheKey(query, settings, options);
         const cached = this.cache.get(cacheKey);
         if (cached) return cached;
-        const inflight = this.inflight.get(cacheKey);
+        const cacheInflight = !options.signal;
+        const inflight = cacheInflight ? this.inflight.get(cacheKey) : undefined;
         if (inflight) return inflight;
 
         const done = log.time('search', { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
         const promise = this.searchEnabledSources(query, settings, options)
             .then(examples => {
                 const result = applySearchExampleLimit(examples, settings, options);
-                this.cache.set(cacheKey, result);
-                pruneOldestMapEntries(this.cache, SEARCH_CACHE_LIMIT);
+                if (!options.signal?.aborted) {
+                    this.cache.set(cacheKey, result);
+                    pruneOldestMapEntries(this.cache, SEARCH_CACHE_LIMIT);
+                }
                 return result;
             })
             .finally(() => {
-                this.inflight.delete(cacheKey);
+                if (cacheInflight) this.inflight.delete(cacheKey);
                 done();
             });
-        this.inflight.set(cacheKey, promise);
+        if (cacheInflight) this.inflight.set(cacheKey, promise);
         return promise;
     }
 
@@ -176,11 +181,13 @@ export class ImmersionKitClient {
         const sources = enabledImmersionExampleSources(settings);
         const resultSets = await Promise.all(sources.map(source =>
             source === 'nadeshiko'
-                ? this.searchNadeshiko(query, settings).catch(error => {
+                ? this.searchNadeshiko(query, settings, options).catch(error => {
+                    if (isAbortError(error)) throw error;
                     log.warn('Nadeshiko examples failed', { query }, error);
                     return [];
                 })
                 : this.searchImmersionKit(query, settings, options).catch(error => {
+                    if (isAbortError(error)) throw error;
                     log.warn('Immersion Kit examples failed', { query }, error);
                     return [];
                 }),
@@ -191,11 +198,11 @@ export class ImmersionKitClient {
     }
 
     private searchImmersionKit(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): Promise<ImmersionKitExample[]> {
-        return requestJson(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl)
+        return requestJson(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal)
             .then(data => filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), 'immersion-kit'));
     }
 
-    private searchNadeshiko(query: string, settings: ReaderSettings): Promise<ImmersionKitExample[]> {
+    private searchNadeshiko(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): Promise<ImmersionKitExample[]> {
         const apiKey = settings.nadeshikoApiKey.trim();
         if (!apiKey) return Promise.resolve([]);
         return requestReaderJson(`${NADESHIKO_API_BASE}/search`, {
@@ -210,6 +217,7 @@ export class ImmersionKitClient {
             allowPublicProxies: false,
             allowConfiguredProxy: false,
             preferFetch: shouldPreferFetchForImmersionKitRequests(),
+            signal: options.signal,
             failureLabel: 'Nadeshiko request',
             timeoutLabel: 'Nadeshiko request timed out.',
         }).then(data => filterNadeshikoExamples(data, query, settings, this.minimumSentenceLength(settings)));
@@ -691,12 +699,13 @@ function normalizeForSurfaceMatch(value: string): string {
     return value.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
 }
 
-async function requestJson(url: string | string[], timeoutMs: number, proxyUrl = ''): Promise<unknown> {
+async function requestJson(url: string | string[], timeoutMs: number, proxyUrl = '', signal?: AbortSignal): Promise<unknown> {
     let lastError: unknown;
     for (const candidate of urlCandidates(url)) {
         try {
-            return await requestJsonCandidate(candidate, timeoutMs, proxyUrl);
+            return await requestJsonCandidate(candidate, timeoutMs, proxyUrl, signal);
         } catch (error) {
+            if (isAbortError(error)) throw error;
             lastError = error;
         }
     }
@@ -711,21 +720,27 @@ function requestError(error: unknown, fallback: string): Error {
     return error instanceof Error ? error : new Error(fallback);
 }
 
-function requestJsonCandidate(url: string, timeoutMs: number, proxyUrl = ''): Promise<unknown> {
+function requestJsonCandidate(url: string, timeoutMs: number, proxyUrl = '', signal?: AbortSignal): Promise<unknown> {
     return requestReaderJson(url, {
         proxyUrl,
         timeoutMs,
         allowDirectCrossOrigin: true,
         allowPublicProxies: false,
         preferFetch: shouldPreferFetchForImmersionKitRequests(),
+        signal,
         failureLabel: 'Immersion Kit request',
         timeoutLabel: 'Immersion Kit request timed out.',
     }).catch(error => {
+        if (isAbortError(error)) throw error;
         if (error instanceof Error && /blocked|cross-origin|cors/i.test(error.message)) {
             throw new Error('Immersion Kit search is blocked in this browser. Configure browser/CORS or use the built-in fallback settings.');
         }
         throw requestError(error, 'Immersion Kit request failed.');
     });
+}
+
+function isAbortError(error: unknown): boolean {
+    return error instanceof Error && error.name === 'AbortError';
 }
 
 function requestBlob(url: string, timeoutMs: number, proxyUrl = ''): Promise<Blob> {
@@ -744,15 +759,44 @@ function requestBlob(url: string, timeoutMs: number, proxyUrl = ''): Promise<Blo
 
 async function requestFirstBlob(urls: string | string[], timeoutMs: number, proxyUrl = ''): Promise<Blob> {
     const candidates = prioritizeMediaCandidates(urlCandidates(urls)).slice(0, MEDIA_CANDIDATE_LIMIT);
+    if (candidates.length > 1) return requestFirstBlobConcurrent(candidates, timeoutMs, proxyUrl);
+    const [candidate] = candidates;
+    if (!candidate) throw new Error('No Immersion Kit media candidate could be loaded.');
+    return requestBlob(candidate, timeoutMs, proxyUrl);
+}
+
+function requestFirstBlobConcurrent(candidates: string[], timeoutMs: number, proxyUrl = ''): Promise<Blob> {
     let lastError: unknown;
-    for (const url of candidates) {
-        try {
-            return await requestBlob(url, timeoutMs, proxyUrl);
-        } catch (error) {
-            lastError = error;
-        }
-    }
-    throw requestError(lastError, 'No Immersion Kit media candidate could be loaded.');
+    let nextIndex = 0;
+    let active = 0;
+    let settled = false;
+    const concurrency = Math.min(MEDIA_CANDIDATE_CONCURRENCY, candidates.length);
+
+    return new Promise((resolve, reject) => {
+        const launch = (): void => {
+            while (!settled && active < concurrency && nextIndex < candidates.length) {
+                const candidate = candidates[nextIndex++];
+                active++;
+                void requestBlob(candidate, timeoutMs, proxyUrl)
+                    .then(blob => {
+                        if (settled) return;
+                        settled = true;
+                        resolve(blob);
+                    })
+                    .catch(error => {
+                        active--;
+                        lastError = error;
+                        if (nextIndex >= candidates.length && active === 0) {
+                            settled = true;
+                            reject(requestError(lastError, 'No Immersion Kit media candidate could be loaded.'));
+                            return;
+                        }
+                        launch();
+                    });
+            }
+        };
+        launch();
+    });
 }
 
 function prioritizeMediaCandidates(urls: string[]): string[] {

@@ -923,7 +923,7 @@ describe('new tab review helpers', () => {
         expect(publicSearch).not.toHaveBeenCalledWith('読む', expect.any(Number));
     });
 
-    it('uses local dictionary sampling as the no-key JPDB public search seed when dictionaries exist', async () => {
+    it('uses local dictionary cards instead of public JPDB words when no API key is configured', async () => {
         const publicSearch = vi.fn(async (query: string) => [
             newTabTestCard({
                 vid: query.charCodeAt(0),
@@ -958,7 +958,9 @@ describe('new tab review helpers', () => {
             jpdbReviewBridge: {
                 onUpdate: () => () => {},
             } as never,
-            parser: {} as never,
+            parser: {
+                localCardFromEntry: vi.fn(entry => newTabTestCard({ spelling: entry.expression, reading: entry.reading, source: 'local' })),
+            } as never,
             dictionaries: {
                 summary: vi.fn(async () => ({
                     dictionaries: [{ title: 'Local', alias: 'Local', enabled: true, priority: 0, type: 'terms' as const }],
@@ -977,11 +979,11 @@ describe('new tab review helpers', () => {
 
         const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[] }> }).loadWords();
 
-        expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, { fallbackToRandom: false });
-        expect(publicSearch).toHaveBeenCalledWith('書く', 1);
-        expect(publicSearch).toHaveBeenCalledWith('見る', 1);
+        expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
+        expect(publicSearch).not.toHaveBeenCalled();
         expect(kanjiLookup).not.toHaveBeenCalled();
         expect(result.cards.map(card => card.spelling)).toEqual(['書く', '見る']);
+        expect(result.cards.every(card => card.source === 'local')).toBe(true);
     });
 
     it('does not load JPDB review cards when JPDB writes are disabled', async () => {
@@ -2135,12 +2137,22 @@ describe('new tab review helpers', () => {
         });
 
         root.querySelector<HTMLButtonElement>('[data-newtab-action="search-result-word"]')?.click();
-        expect(lookupText).toHaveBeenCalledWith('読む', 'よむ', root.querySelector('[data-newtab-action="search-result-word"]'));
+        await waitForExpect(() => {
+            const detail = root.querySelector('[data-newtab-search-detail]')?.textContent ?? '';
+            expect(detail).toContain('Local');
+            expect(detail).toContain('to read');
+            expect(detail).toContain('Kanji Local');
+            expect(detail).toContain('read');
+        });
+        expect(lookupText).not.toHaveBeenCalled();
 
         root.querySelector<HTMLButtonElement>('[data-newtab-action="search-result-kanji"]')?.click();
         await waitForExpect(() => {
-            expect(showKanjiCard).toHaveBeenCalledWith(expect.objectContaining({ spelling: '読', kanjiKeyword: 'read' }), '読', '読', root.querySelector('[data-newtab-action="search-result-kanji"]'));
+            const details = Array.from(root.querySelectorAll('[data-newtab-search-detail]')).map(node => node.textContent ?? '').join('\n');
+            expect(details).toContain('JPDB');
+            expect(details).toContain('read');
         });
+        expect(showKanjiCard).not.toHaveBeenCalled();
         root.remove();
     });
 
@@ -2210,7 +2222,12 @@ describe('new tab review helpers', () => {
         });
 
         root.querySelector<HTMLButtonElement>('[data-newtab-action="search-result-word"]')?.click();
-        expect(lookupText).toHaveBeenCalledWith('猫', 'ねこ', root.querySelector('[data-newtab-action="search-result-word"]'));
+        await waitForExpect(() => {
+            const detail = root.querySelector('[data-newtab-search-detail]')?.textContent ?? '';
+            expect(detail).toContain('JPDB');
+            expect(detail).toContain('cat');
+        });
+        expect(lookupText).not.toHaveBeenCalled();
         root.remove();
     });
 
@@ -2281,8 +2298,126 @@ describe('new tab review helpers', () => {
         expect(publicSearch).toHaveBeenCalledWith('mum', expect.any(Number));
 
         root.querySelector<HTMLButtonElement>('[data-newtab-action="search-result-word"]')?.click();
-        expect(showLookupCard).toHaveBeenCalledWith(publicCard, 'お母さん', root.querySelector('[data-newtab-action="search-result-word"]'));
+        await waitForExpect(() => {
+            const detail = root.querySelector('[data-newtab-search-detail]')?.textContent ?? '';
+            expect(detail).toContain('JPDB');
+            expect(detail).toContain('mother');
+        });
+        expect(showLookupCard).not.toHaveBeenCalled();
         root.remove();
+    });
+
+    it('expands search cards with runtime popup sources and keeps inline actions in search mode', async () => {
+        const catCard = newTabTestCard({
+            vid: 1600,
+            sid: 1,
+            spelling: '猫',
+            reading: 'ねこ',
+            meanings: [{ glosses: ['cat'], partOfSpeech: ['Noun'] }],
+            source: 'jpdb',
+            sentence: '猫',
+        });
+        const blackCatCard = newTabTestCard({
+            vid: 1601,
+            sid: 1,
+            spelling: '黒猫',
+            reading: 'くろねこ',
+            meanings: [{ glosses: ['black cat'], partOfSpeech: ['Noun'] }],
+            source: 'jpdb',
+            sentence: '黒猫',
+        });
+        const publicSearch = vi.fn(async (query: string) => query === '黒猫' ? [blackCatCard] : [catCard]);
+        const loadCardRenderData = vi.fn(async () => ({
+            localEntries: [{ expression: '猫', reading: 'ねこ', glossary: ['cat from local dictionary'], score: 20, dictionary: 'Local' }],
+            kanjiEntries: [{ character: '猫', onyomi: [], kunyomi: ['ねこ'], tags: [], meanings: ['cat kanji'], dictionary: 'Kanji Local' }],
+            metaEntries: [],
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: { meanings: ['cat'], compounds: [], usedInVocabulary: [], examples: [] },
+        } as never));
+        const renderDefinitionSources = vi.fn(() => `
+            <div class="jpdb-reader-definition-stack">
+                <details open>
+                    <summary>Popup sources</summary>
+                    <a class="gloss-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="黒猫" data-dictionary-reading="くろねこ" data-dictionary="Local">黒猫</a>
+                    <button type="button" data-action="jpdb-example-audio" data-jpdb-audio="example-audio" data-jpdb-example-sentence="猫が寝る。">audio</button>
+                </details>
+            </div>
+        `);
+        const installSearchDetailSources = vi.fn();
+        const playJpdbExampleAudio = vi.fn();
+        const lookupDictionaryReference = vi.fn();
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true, immersionKitEnabled: false }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {
+                parse: vi.fn(async () => [[]]),
+                fallbackCardFromText: vi.fn(text => newTabTestCard({ spelling: text, reading: text, source: 'fallback' })),
+            } as never,
+            dictionaries: {
+                lookup: vi.fn(async () => []),
+                findTermMatches: vi.fn(async () => []),
+                lookupKanji: vi.fn(async () => []),
+            } as never,
+            loadCardRenderData,
+            renderDefinitionSources,
+            installSearchDetailSources,
+            playJpdbExampleAudio,
+            lookupDictionaryReference,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        document.body.append(root);
+        Object.assign(controller as unknown as {
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        }, {
+            state: { mode: 'search', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
+        });
+        try {
+            (controller as unknown as { bindRootEvents(root: HTMLElement): void; renderSearch(root: HTMLElement): void }).bindRootEvents(root);
+            (controller as unknown as { renderSearch(root: HTMLElement): void }).renderSearch(root);
+            (controller as unknown as { performSearch(root: HTMLElement, query: string): void }).performSearch(root, 'cat');
+
+            await waitForExpect(() => {
+                expect(root.querySelector('[data-newtab-search-results]')?.textContent).toContain('猫');
+            });
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="search-result-word"]')?.click();
+            await waitForExpect(() => {
+                const detail = root.querySelector('[data-newtab-search-detail]')?.textContent ?? '';
+                expect(detail).toContain('Popup sources');
+                expect(detail).toContain('Kanji Local');
+                expect(detail).toContain('cat kanji');
+            });
+            expect(loadCardRenderData).toHaveBeenCalledWith(catCard);
+            expect(renderDefinitionSources).toHaveBeenCalledWith(catCard, expect.any(Array), '猫', expect.any(Object));
+            expect(installSearchDetailSources).toHaveBeenCalledWith(root.querySelector('[data-newtab-search-detail]'), catCard, '猫', expect.any(Object));
+
+            root.querySelector<HTMLButtonElement>('[data-action="jpdb-example-audio"]')?.click();
+            expect(playJpdbExampleAudio).toHaveBeenCalledWith('example-audio', '猫が寝る。');
+
+            root.querySelector<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]')?.click();
+            await waitForExpect(() => {
+                expect(root.querySelector<HTMLInputElement>('[data-newtab-search-input]')?.value).toBe('黒猫');
+                expect(publicSearch).toHaveBeenCalledWith('黒猫', expect.any(Number));
+            });
+            expect(lookupDictionaryReference).not.toHaveBeenCalled();
+        } finally {
+            root.remove();
+        }
     });
 
     it('searches English glossary text, kana prefixes, and enabled lookup links in search mode', async () => {
@@ -2405,8 +2540,8 @@ describe('new tab review helpers', () => {
         await waitForExpect(() => {
             expect(root.querySelector('[data-newtab-search-autocomplete]')?.textContent).toContain('面白い');
         });
-        expect(searchTerms).toHaveBeenCalledWith('cat', expect.any(Number), settings.dictionaryPreferences);
-        expect(searchTerms).toHaveBeenCalledWith('おもし', expect.any(Number), settings.dictionaryPreferences);
+        expect(searchTerms).toHaveBeenCalledWith('cat', expect.any(Number), settings.dictionaryPreferences, expect.any(Object));
+        expect(searchTerms).toHaveBeenCalledWith('おもし', expect.any(Number), settings.dictionaryPreferences, expect.any(Object));
         root.querySelector<HTMLInputElement>('[data-newtab-search-input]')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
         expect(root.querySelector<HTMLInputElement>('[data-newtab-search-input]')?.value).toBe('');
         expect(root.querySelector<HTMLElement>('[data-newtab-controls]')?.hidden).toBe(true);
@@ -2683,7 +2818,7 @@ describe('new tab review helpers', () => {
         const internals = runtime as unknown as {
             parser: { canParse(): boolean; parse: typeof parse };
             createNewTabController(): NewTabController;
-            parseNewTabContent(root: HTMLElement, options?: { jpdbTimeoutMs?: number }): Promise<void>;
+            parseNewTabContent(root: HTMLElement, options?: { jpdbTimeoutMs?: number; allowJpdbTimeoutFallback?: boolean }): Promise<void>;
         };
         internals.parser = { canParse: () => true, parse };
 
@@ -2694,7 +2829,7 @@ describe('new tab review helpers', () => {
 
             await controller.dependencies.parseContent(studyRoot);
 
-            expect(parse).toHaveBeenLastCalledWith(['大切です。'], { jpdbTimeoutMs: 15_000 });
+            expect(parse).toHaveBeenLastCalledWith(['大切です。'], { jpdbTimeoutMs: 15_000, allowJpdbTimeoutFallback: true });
 
             parse.mockClear();
             const popover = document.createElement('div');
@@ -2703,7 +2838,7 @@ describe('new tab review helpers', () => {
 
             await internals.parseNewTabContent(popover);
 
-            expect(parse).toHaveBeenCalledWith(['日本語です。'], { jpdbTimeoutMs: 1_200 });
+            expect(parse).toHaveBeenCalledWith(['日本語です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true });
         } finally {
             runtime.destroy();
             document.body.replaceChildren();
@@ -4115,7 +4250,7 @@ describe('new tab review helpers', () => {
         await controller.renderPage();
 
         expect(summary).toHaveBeenCalledTimes(2);
-        expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, settings.dictionaryPreferences, { fallbackToRandom: false });
+        expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, settings.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
         expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
         expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
         document.body.replaceChildren();
@@ -4190,7 +4325,7 @@ describe('new tab review helpers', () => {
 
         expect(summary).toHaveBeenCalledTimes(2);
         expect(invalidateCaches).toHaveBeenCalledTimes(1);
-        expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, settings.dictionaryPreferences, { fallbackToRandom: false });
+        expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, settings.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
         expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
         expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
         document.body.replaceChildren();
@@ -4243,7 +4378,7 @@ describe('new tab review helpers', () => {
 
         expect(result.cards.map(card => card.spelling)).toEqual(['書く']);
         expect(result.reviewCountMode).toBe(false);
-        expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, { fallbackToRandom: false });
+        expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
     });
 
     it('falls back to dictionary words when auto review sources stall', async () => {
@@ -4299,7 +4434,7 @@ describe('new tab review helpers', () => {
 
             expect(result.cards.map(card => card.spelling)).toEqual(['書く']);
             expect(result.reviewCountMode).toBe(false);
-            expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, { fallbackToRandom: false });
+            expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
         } finally {
             vi.useRealTimers();
         }
@@ -4349,9 +4484,9 @@ describe('new tab review helpers', () => {
 
         const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[] }> }).loadWords();
 
-        expect(listRandomTopTerms).toHaveBeenNthCalledWith(1, 180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, { fallbackToRandom: false });
-        expect(listRandomTopTerms).toHaveBeenNthCalledWith(2, 180, 6000, DEFAULT_SETTINGS.dictionaryPreferences, { fallbackToRandom: false });
-        expect(listRandomTerms).toHaveBeenCalledWith(180, DEFAULT_SETTINGS.dictionaryPreferences);
+        expect(listRandomTopTerms).toHaveBeenNthCalledWith(1, 180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
+        expect(listRandomTopTerms).toHaveBeenNthCalledWith(2, 180, 6000, DEFAULT_SETTINGS.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
+        expect(listRandomTerms).toHaveBeenCalledWith(180, DEFAULT_SETTINGS.dictionaryPreferences, expect.any(Object));
         expect(result.cards.map(card => card.spelling)).toEqual(['珍語']);
     });
 

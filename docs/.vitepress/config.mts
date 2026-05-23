@@ -10,7 +10,7 @@ const videoPlayerLink = 'video-player/index.html';
 
 export default defineConfig({
     title: 'よむ',
-    description: 'A free JPDB and Yomitan popup reader for Japanese text, manga, video subtitles, and mining.',
+    description: 'A free Japanese immersion reader for web pages, manga, subtitles, JPDB, Yomitan dictionaries, Anki, audio, OCR, and mining.',
     base,
     cleanUrls: true,
     lastUpdated: true,
@@ -22,7 +22,7 @@ export default defineConfig({
         ['meta', { name: 'theme-color', content: '#5ea780' }],
         ['meta', { property: 'og:type', content: 'website' }],
         ['meta', { property: 'og:title', content: 'よむ - Free Japanese popup reader' }],
-        ['meta', { property: 'og:description', content: 'Install a friendly JPDB/Yomitan reader for lookup, mining, OCR, subtitles, and iPad-friendly study.' }],
+        ['meta', { property: 'og:description', content: 'Learn Japanese by reading what you like. よむ connects lookup, mining, OCR, subtitles, JPDB, Yomitan dictionaries, Anki, and audio in one browser popup.' }],
         ['meta', { property: 'og:url', content: siteUrl }],
     ],
     themeConfig: {

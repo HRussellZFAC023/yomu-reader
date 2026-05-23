@@ -359,6 +359,7 @@ export interface ReaderSettings {
 
 declare global {
     type UserscriptHttpResponse = { status: number; response: unknown; responseText?: string; finalUrl?: string };
+    type UserscriptHttpRequestHandle = { abort?: () => void };
     type UserscriptHttpRequest = (details: {
         method?: string;
         url: string;
@@ -373,7 +374,7 @@ declare global {
         onprogress?: (event: { lengthComputable?: boolean; loaded: number; total: number }) => void;
         onerror?: (error: unknown) => void;
         ontimeout?: () => void;
-    }) => void | Promise<UserscriptHttpResponse>;
+    }) => void | UserscriptHttpRequestHandle | Promise<UserscriptHttpResponse>;
 
     const GM_xmlhttpRequest: undefined | ((details: {
         method?: string;

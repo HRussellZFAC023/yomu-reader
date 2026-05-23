@@ -44,12 +44,20 @@ interface AudioSourcePlayResult {
     errors: string[];
 }
 
+interface OrderedAudioSource {
+    source: AudioSourceSetting;
+    id: string;
+    bagKey: string;
+}
+
 interface PreparedAudioCandidate {
     audio: HTMLAudioElement;
     candidate: AudioCandidate;
     id: string;
     bagKey: string;
     sourceType: AudioSourceType;
+    sourceId: string;
+    sourceBagKey: string;
 }
 
 interface AudioSourcePrepareResult {
@@ -196,23 +204,23 @@ export class AudioPlayer {
         const errors: string[] = [];
         const triedUrls = new Set<string>();
         if (settings.audioTtsMode === 'source-order') {
-            const result = await this.playOrderedSources(orderAudioSources(sources, settings.audioSelectionMode), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+            const result = await this.playOrderedSources(orderAudioSources(sources, settings.audioSelectionMode, card, this.shuffledAudio), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
             return { state: result, errors };
         }
 
         const realAudioSources = sources.filter(source => !isTtsFallbackSource(source));
-        const realAudioResult = await this.playGreedyAudioSources(orderAudioSources(realAudioSources, settings.audioSelectionMode), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+        const realAudioResult = await this.playGreedyAudioSources(orderAudioSources(realAudioSources, settings.audioSelectionMode, card, this.shuffledAudio), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
         if (realAudioResult !== 'miss') return { state: realAudioResult, errors };
 
-        const textToSpeechResult = await this.playOrderedSources(sources.filter(isBrowserTextToSpeechSource), card, settings, requestId, triedUrls, isCurrent, errors);
+        const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), card, settings, requestId, triedUrls, isCurrent, errors);
         if (textToSpeechResult !== 'miss') return { state: textToSpeechResult, errors };
 
-        const jpdbTtsResult = await this.playOrderedSources(sources.filter(isJpdbTtsSource), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+        const jpdbTtsResult = await this.playOrderedSources(orderAudioSources(sources.filter(isJpdbTtsSource), settings.audioSelectionMode, card, this.shuffledAudio), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
         return { state: jpdbTtsResult, errors };
     }
 
     private async playOrderedSources(
-        sources: AudioSourceSetting[],
+        sources: OrderedAudioSource[],
         card: JPDBCard,
         settings: ReaderSettings,
         requestId: number,
@@ -221,15 +229,15 @@ export class AudioPlayer {
         errors: string[],
         reservedAudio?: HTMLAudioElement,
     ): Promise<AudioSourcePlayResult['state']> {
-        for (const source of sources) {
-            const result = await this.playSourceWithErrors(source, card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+        for (const sourceEntry of sources) {
+            const result = await this.playSourceWithErrors(sourceEntry, card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
             if (result !== 'miss') return result;
         }
         return 'miss';
     }
 
     private async playGreedyAudioSources(
-        sources: AudioSourceSetting[],
+        sources: OrderedAudioSource[],
         card: JPDBCard,
         settings: ReaderSettings,
         requestId: number,
@@ -245,8 +253,8 @@ export class AudioPlayer {
         const pending = new Set<PendingAudioSourcePreparation>();
         let nextSourceIndex = 0;
         const startNextSource = () => {
-            const source = sources[nextSourceIndex++];
-            if (source) pending.add(this.prepareSourceWithErrors(source, card, settings, requestId, triedUrls, isCurrent, errors));
+            const sourceEntry = sources[nextSourceIndex++];
+            if (sourceEntry) pending.add(this.prepareSourceWithErrors(sourceEntry, card, settings, requestId, triedUrls, isCurrent, errors));
         };
 
         while (pending.size || nextSourceIndex < sources.length) {
@@ -280,7 +288,7 @@ export class AudioPlayer {
     }
 
     private prepareSourceWithErrors(
-        source: AudioSourceSetting,
+        sourceEntry: OrderedAudioSource,
         card: JPDBCard,
         settings: ReaderSettings,
         requestId: number,
@@ -289,7 +297,7 @@ export class AudioPlayer {
         errors: string[],
     ): PendingAudioSourcePreparation {
         let promise!: PendingAudioSourcePreparation;
-        promise = this.prepareSource(source, card, settings, requestId, triedUrls, isCurrent)
+        promise = this.prepareSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent)
             .catch(error => {
                 errors.push(error instanceof Error ? error.message : String(error));
                 return { state: 'miss' as const };
@@ -299,7 +307,7 @@ export class AudioPlayer {
     }
 
     private async prepareSource(
-        source: AudioSourceSetting,
+        sourceEntry: OrderedAudioSource,
         card: JPDBCard,
         settings: ReaderSettings,
         requestId: number,
@@ -307,6 +315,7 @@ export class AudioPlayer {
         isCurrent: () => boolean,
     ): Promise<AudioSourcePrepareResult> {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: 'superseded' };
+        const { source } = sourceEntry;
         const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: 'superseded' };
         const bagKey = getAudioBagKey(source, card);
@@ -314,7 +323,7 @@ export class AudioPlayer {
             if (!registerAudioAttempt(triedUrls, candidate)) continue;
             const audio = await Promise.resolve(this.createPlayableAudio(candidate, source.type, settings)).catch(() => null);
             if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: 'superseded' };
-            if (audio) return { state: 'ready', prepared: { audio, candidate, id, bagKey, sourceType: source.type } };
+            if (audio) return { state: 'ready', prepared: { audio, candidate, id, bagKey, sourceType: source.type, sourceId: sourceEntry.id, sourceBagKey: sourceEntry.bagKey } };
         }
         return { state: 'miss' };
     }
@@ -338,11 +347,12 @@ export class AudioPlayer {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return 'superseded';
         if (!played) return 'miss';
         this.shuffledAudio.markPlayed(prepared.bagKey, prepared.id);
+        this.shuffledAudio.markPlayed(prepared.sourceBagKey, prepared.sourceId);
         return 'played';
     }
 
     private async playSourceWithErrors(
-        source: AudioSourceSetting,
+        sourceEntry: OrderedAudioSource,
         card: JPDBCard,
         settings: ReaderSettings,
         requestId: number,
@@ -355,8 +365,10 @@ export class AudioPlayer {
             return 'superseded';
         }
         try {
-            const played = await this.playFromSource(source, card, settings, requestId, triedUrls, isCurrent, reservedAudio);
-            return this.audioSourceAttemptResult(played, requestId, isCurrent);
+            const played = await this.playFromSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent, reservedAudio);
+            const result = this.audioSourceAttemptResult(played, requestId, isCurrent);
+            if (result === 'played') this.shuffledAudio.markPlayed(sourceEntry.bagKey, sourceEntry.id);
+            return result;
         } catch (error) {
             errors.push(error instanceof Error ? error.message : String(error));
             if (error instanceof AudioPlaybackAttemptError) return 'playback-error';
@@ -485,7 +497,7 @@ export class AudioPlayer {
     }
 
     private async playFromSource(
-        source: AudioSourceSetting,
+        sourceEntry: OrderedAudioSource,
         card: JPDBCard,
         settings: ReaderSettings,
         requestId: number,
@@ -493,6 +505,7 @@ export class AudioPlayer {
         isCurrent: () => boolean,
         reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
+        const { source } = sourceEntry;
         if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, settings, requestId, isCurrent);
 
         const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
@@ -644,7 +657,7 @@ export class AudioPlayer {
         this.current = audio;
         this.rewindPreparedAudio(audio);
         await audio.play();
-        return this.finishPreparedAudio(audio, requestId, isCurrent);
+        return true;
     }
 
     private rewindPreparedAudio(audio: HTMLAudioElement): void {
@@ -653,14 +666,6 @@ export class AudioPlayer {
         } catch {
             // Some direct remote audio URLs do not allow seeking before metadata loads.
         }
-    }
-
-    private finishPreparedAudio(audio: HTMLAudioElement, requestId: number, isCurrent: () => boolean): boolean {
-        if (!this.isPlaybackCurrent(requestId, isCurrent)) {
-            audio.pause();
-            return false;
-        }
-        return true;
     }
 
     private getCachedAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<AudioCandidate[]> {
@@ -813,6 +818,10 @@ function waitForSoftChime(): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, 460));
 }
 
+/**
+ * Keeps a shuffled bag per audio key. This is intentionally not IID random
+ * selection: every candidate in the current bag is offered before a reshuffle.
+ */
 export class ShuffledAudioDeck {
     private bags = new Map<string, ShuffledAudioBag>();
 
@@ -823,11 +832,11 @@ export class ShuffledAudioDeck {
 
         const signature = ids.join('\u0000');
         const current = this.bags.get(key);
-        if (reusableAudioBag(current, signature)) return [...current.remaining];
+        if (reusableAudioBag(current, signature)) return audioDeckOrderWithFallbacks(current.remaining, ids);
 
         const next = this.buildAudioBag(ids, signature, current);
         this.bags.set(key, next);
-        return [...next.remaining];
+        return audioDeckOrderWithFallbacks(next.remaining, ids);
     }
 
     private buildAudioBag(ids: string[], signature: string, current: ShuffledAudioBag | undefined): ShuffledAudioBag {
@@ -866,6 +875,14 @@ function reusableAudioBag(bag: ShuffledAudioBag | undefined, signature: string):
     return Boolean(bag && bag.signature === signature && bag.remaining.length);
 }
 
+function audioDeckOrderWithFallbacks(remaining: string[], ids: string[]): string[] {
+    const unplayed = new Set(remaining);
+    return [
+        ...remaining,
+        ...ids.filter(id => !unplayed.has(id)),
+    ];
+}
+
 function rotateRepeatedAudioLead(ids: string[], lastPlayed: string | undefined): void {
     if (lastPlayed && ids.length > 1 && ids[0] === lastPlayed) ids.push(ids.shift()!);
 }
@@ -898,9 +915,11 @@ export async function resolveAnkiWordAudio(card: JPDBCard, settings: ReaderSetti
     const sources = orderAudioSources(
         getOrderedAudioSources(settings).filter(source => !isBrowserTextToSpeechSource(source)),
         settings.audioSelectionMode,
+        card,
+        new ShuffledAudioDeck(),
     );
     const triedUrls = new Set<string>();
-    for (const source of sources) {
+    for (const { source } of sources) {
         const audio = await resolveAnkiWordAudioFromSource(source, card, settings, triedUrls).catch(() => null);
         if (audio) return audio;
     }
@@ -1216,9 +1235,22 @@ function orderAudioCandidates(
 
 function orderAudioSources(
     sources: AudioSourceSetting[],
-    _mode: AudioSelectionMode,
-): AudioSourceSetting[] {
-    return sources;
+    mode: AudioSelectionMode,
+    card: JPDBCard,
+    shuffledAudio: ShuffledAudioDeck,
+): OrderedAudioSource[] {
+    const bagKey = getAudioSourceBagKey(sources, card);
+    const entries = sources.map((source, index) => ({
+        source,
+        id: getAudioSourceDeckId(source, index),
+        bagKey,
+    }));
+    if (mode !== 'random' || entries.length < 2) return entries;
+
+    const byId = new Map(entries.map(entry => [entry.id, entry]));
+    return shuffledAudio.order(bagKey, entries.map(entry => entry.id))
+        .map(id => byId.get(id))
+        .filter((entry): entry is OrderedAudioSource => Boolean(entry));
 }
 
 function isTtsFallbackSource(source: AudioSourceSetting): boolean {
@@ -1250,6 +1282,27 @@ function getAudioBagKey(source: AudioSourceSetting, card: JPDBCard): string {
         card.spelling,
         card.reading,
     ].join('\u0001');
+}
+
+function getAudioSourceBagKey(sources: AudioSourceSetting[], card: JPDBCard): string {
+    return [
+        'audio-sources',
+        card.spelling,
+        card.reading,
+        ...sources.map(getAudioSourceSignature),
+    ].join('\u0001');
+}
+
+function getAudioSourceDeckId(source: AudioSourceSetting, index: number): string {
+    return `${index}\u0000${getAudioSourceSignature(source)}`;
+}
+
+function getAudioSourceSignature(source: AudioSourceSetting): string {
+    return [
+        source.type,
+        source.url.trim(),
+        source.voice.trim(),
+    ].join('\u0000');
 }
 
 function getAudioCandidateCacheKey(source: AudioSourceSetting, card: JPDBCard): string {

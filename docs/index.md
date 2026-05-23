@@ -2,8 +2,8 @@
 layout: home
 hero:
   name: よむ
-  text: Free Japanese lookup and mining for the web
-  tagline: Tap or hover Japanese text, read manga images, mine subtitles, import dictionaries, and save study cards without paying for a full study suite.
+  text: Learn Japanese by reading what you actually like
+  tagline: Tap a word anywhere, understand it in context, save it for review, and keep reading. よむ turns real Japanese pages, manga, subtitles, and study sites into one connected immersion system.
   image:
     src: /yomu-icon.svg
     alt: よむ app icon
@@ -20,12 +20,12 @@ hero:
       link: newtab/index.html
       target: _self
 features:
-  - title: Install in minutes
-    details: Add Tampermonkey or Userscripts, open the よむ install link, then refresh a Japanese page and tap a word.
-  - title: Study from real material
-    details: Look up words on websites, manga images, subtitles, JPDB pages, and example sentences. Add Yomitan dictionaries, JPDB, or Anki when you want more study tools.
-  - title: Forever free
-    details: No subscription, no account required, and local dictionaries stay in your browser.
+  - title: Read first
+    details: Extensive reading works because you meet vocabulary and grammar repeatedly in meaningful context. よむ removes just enough friction that you can stay inside the story.
+  - title: Bring every tool
+    details: JPDB status and mining, Yomitan dictionaries, Anki cards, audio, example sentences, OCR, and subtitles all work from the same popup.
+  - title: Start anywhere
+    details: Begin with graded readers and easy news, then move into Satori, ebooks, manga, YouTube, web novels, and native sites as your known words grow.
 ---
 
 <div class="yomu-install-panel">
@@ -44,7 +44,7 @@ features:
   <div class="yomu-install-steps" aria-label="Install steps">
     <a class="yomu-install-step-link" href="https://www.tampermonkey.net/" target="_blank" rel="noopener" aria-label="Open the Tampermonkey install page for your browser"><b>1</b> <span>Add manager</span></a>
     <a class="yomu-install-step-link" href="https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js" aria-label="Install the よむ userscript"><b>2</b> <span>Install よむ</span></a>
-    <a class="yomu-install-step-link" href="getting-started#_5-try-your-first-lookup" aria-label="Open first lookup instructions after refreshing a Japanese page"><b>3</b> <span>Refresh page</span></a>
+    <a class="yomu-install-step-link" href="getting-started#_6-try-your-first-lookup" aria-label="Open first lookup instructions after refreshing a Japanese page"><b>3</b> <span>Refresh page</span></a>
   </div>
 </div>
 
@@ -52,7 +52,11 @@ features:
 
 よむ runs inside your browser. Point it at Japanese text, subtitles, or manga images and it opens a clean popup with readings, meanings, kanji details, examples, audio, and mining actions.
 
-Start with simple popup lookup. Later, add JPDB for review status, import Yomitan dictionary files for local definitions, or connect Anki when you want flashcards.
+The method is simple: read material you can mostly follow, look up only what keeps you moving, and let useful words come back later in reviews. This is the same idea behind graded readers, comprehensible input, and i+1 sentences: new Japanese sticks faster when it is attached to a scene, a sentence, and a reason you cared enough to read it.
+
+よむ gives you the superset of the usual Japanese reading stack. Use JPDB for mining and global word status, import Yomitan dictionaries for local definitions, connect Anki when you want your own cards, pull example sentences from Immersion Kit or Nadeshiko, play audio, trace kanji, OCR manga panels, and mine subtitles from video. You do not have to choose one ecosystem before you start reading.
+
+For the research behind the approach, see the 2025 meta-analysis on [learning a language through extensive reading](https://link.springer.com/article/10.1007/s10648-025-10068-6), the classic idea of [comprehensible input](https://journals.library.columbia.edu/index.php/SALT/article/view/1278), and Tadoku's practical reading rules for Japanese learners at [tadoku.org](https://tadoku.org/japanese/en/what-is-tadoku-en/).
 
 <div class="yomu-try-me" data-yomu-demo-lookup>
   <strong>Try me</strong>

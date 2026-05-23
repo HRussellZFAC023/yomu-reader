@@ -91,6 +91,8 @@ import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanTermEntry }
 const log = Logger.scope('NewTabRuntime');
 const NEW_TAB_POPOVER_PARSE_TIMEOUT_MS = 1_200;
 const NEW_TAB_STUDY_PARSE_TIMEOUT_MS = 15_000;
+const NEW_TAB_LOCAL_LOOKUP_TIMEOUT_MS = 450;
+const NEW_TAB_REMOTE_LOOKUP_TIMEOUT_MS = 8_000;
 const NEW_TAB_ANKI_ENRICHMENT_LIMIT = 16;
 const NEW_TAB_PITCH_ENRICHMENT_LIMIT = 12;
 const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
@@ -113,6 +115,7 @@ interface NewTabKanjiLookupOptions {
 
 interface NewTabParseContentOptions {
     jpdbTimeoutMs?: number;
+    allowJpdbTimeoutFallback?: boolean;
 }
 
 export function bootNewTabRuntime(): void {
@@ -306,7 +309,11 @@ export class NewTabRuntime {
         this.newTab = this.createNewTabController();
         await this.newTab.renderPage();
         void this.refreshDictionaryStyles();
-        if (this.settings.localDictionariesEnabled) void this.dictionaries.prepareTermSearchIndex();
+        if (this.settings.localDictionariesEnabled) {
+            window.setTimeout(() => {
+                if (!this.isDestroyed) void this.dictionaries.prepareTermSearchIndex();
+            }, 1500);
+        }
     }
 
     destroy(): void {
@@ -365,6 +372,10 @@ export class NewTabRuntime {
             lookupDictionaryReference: (query, reading, _dictionary, anchor) => this.lookupText(query, reading || query, anchor),
             showLookupCard: (card, sentence, anchor) => this.showLookupCard(card, sentence, anchor, { navigation: 'push-current', reuseActivePopover: true, autoPlay: false }),
             showKanjiCard: (card, kanji, sentence, anchor) => this.showKanjiLookupCard(card, kanji, sentence, anchor),
+            loadCardRenderData: card => this.cardRenderData.load(card).all,
+            renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo),
+            installSearchDetailSources: (root, card, sentence, jpdbVocabularyInfo) => this.installLookupPopoverSources(root, card, sentence, jpdbVocabularyInfo),
+            playJpdbExampleAudio: (audioIds, fallbackSentence) => this.audioActions.playJpdbExampleAudio(audioIds, fallbackSentence),
             setImmersionTranslationBlurred: blurred => this.setImmersionTranslationBlurred(blurred),
             dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
             isDictionarySourceOpen: (key, initiallyExpanded) => this.dictionarySourceState.isOpen(key, initiallyExpanded),
@@ -749,13 +760,24 @@ export class NewTabRuntime {
         let kanjiVGInfo: KanjiVGInfo | null = null;
         let kanjiEntries: YomitanKanjiEntry[] = [];
         const practiceDoodle = installKanjiPracticeDoodle(popover, () => this.settings.interfaceLanguage, () => kanjiVGInfo);
-        const jpdbInfoPromise = this.settings.jpdbKanjiEnabled ? this.jpdbKanji.lookup(kanji).catch(() => null) : Promise.resolve(null);
+        const jpdbInfoPromise = this.settings.jpdbKanjiEnabled
+            ? this.lookupDetailWithTimeout(this.jpdbKanji.lookup(kanji), null, 'JPDB kanji lookup timed out.')
+            : Promise.resolve(null);
         const kanjiEntriesPromise = this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji
-            ? this.dictionaries.lookupKanji(kanji, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => [])
+            ? this.lookupDetailWithTimeout(
+                this.dictionaries.lookupKanji(kanji, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences),
+                [] as YomitanKanjiEntry[],
+                'Local kanji lookup timed out.',
+                NEW_TAB_LOCAL_LOOKUP_TIMEOUT_MS,
+            )
             : Promise.resolve([]);
-        const rtkInfoPromise = this.settings.rtkEnabled ? this.rtk.lookup(kanji).catch(() => null) : Promise.resolve(null);
+        const rtkInfoPromise = this.settings.rtkEnabled
+            ? this.lookupDetailWithTimeout(this.rtk.lookup(kanji), null, 'RTK lookup timed out.')
+            : Promise.resolve(null);
         const needsKanjiVG = this.settings.kanjivgEnabled || (this.settings.kanjiOriginsEnabled && this.settings.kanjiOriginGraphEnabled);
-        const kanjiVGInfoPromise = needsKanjiVG ? this.kanjiVG.lookup(kanji).catch(() => null) : Promise.resolve(null);
+        const kanjiVGInfoPromise = needsKanjiVG
+            ? this.lookupDetailWithTimeout(this.kanjiVG.lookup(kanji), null, 'KanjiVG lookup timed out.')
+            : Promise.resolve(null);
         if (this.settings.similarKanjiWords) {
             this.renderSimilarKanjiWordsProgressively(popover, jpdbInfoPromise, kanji, card, requestId);
         }
@@ -922,7 +944,12 @@ export class NewTabRuntime {
 
     private async lookupSimilarKanjiWordsWhenIdle(kanji: string): Promise<YomitanTermEntry[]> {
         await this.waitForIdle();
-        return this.dictionaries.lookupSimilarTermsByKanji(kanji, this.settings.similarKanjiWordLimit, this.settings.dictionaryPreferences);
+        return this.lookupDetailWithTimeout(
+            this.dictionaries.lookupSimilarTermsByKanji(kanji, this.settings.similarKanjiWordLimit, this.settings.dictionaryPreferences),
+            [] as YomitanTermEntry[],
+            'Similar kanji words lookup timed out.',
+            NEW_TAB_LOCAL_LOOKUP_TIMEOUT_MS,
+        );
     }
 
     private waitForIdle(timeoutMs = 75): Promise<void> {
@@ -933,6 +960,25 @@ export class NewTabRuntime {
             }
             setTimeout(resolve, 0);
         });
+    }
+
+    private lookupDetailWithTimeout<T>(
+        promise: Promise<T>,
+        fallback: T,
+        message: string,
+        timeoutMs = NEW_TAB_REMOTE_LOOKUP_TIMEOUT_MS,
+    ): Promise<T> {
+        let timeoutId = 0;
+        const timeout = new Promise<T>(resolve => {
+            timeoutId = window.setTimeout(() => {
+                log.debug(message, { timeoutMs });
+                resolve(fallback);
+            }, timeoutMs);
+        });
+        return Promise.race([
+            promise.catch(() => fallback),
+            timeout,
+        ]).finally(() => window.clearTimeout(timeoutId));
     }
 
     private async renderUchisenInto(popover: HTMLElement, kanji: string, requestId: number): Promise<void> {
@@ -1209,7 +1255,7 @@ export class NewTabRuntime {
         if (localEntry) return this.parser.localCardFromEntry(localEntry);
         const publicCard = await this.publicLookupCard(term, true);
         if (publicCard) return publicCard;
-        const parsed = await this.parser.parse([term], { jpdbTimeoutMs: NEW_TAB_POPOVER_PARSE_TIMEOUT_MS }).catch(() => [[]]);
+        const parsed = await this.parser.parse([term], { jpdbTimeoutMs: NEW_TAB_POPOVER_PARSE_TIMEOUT_MS, allowJpdbTimeoutFallback: true }).catch(() => [[]]);
         const token = pickTokenForSelection(parsed[0] ?? [], term);
         if (token) return token.card;
         return this.parser.fallbackCardFromText(term);
@@ -1417,10 +1463,10 @@ export class NewTabRuntime {
     ): void {
         this.studySources.installLoaders(popover, sentence);
         if (!this.settings.immersionKitEnabled) return;
-        const examples = jpdbVocabularyInfo
-            ? this.immersionPopover.searchExamples(card, { relatedQueries: this.immersionRelatedQueries(jpdbVocabularyInfo) })
+        const options = jpdbVocabularyInfo
+            ? { relatedQueries: this.immersionRelatedQueries(jpdbVocabularyInfo) }
             : undefined;
-        void this.immersionPopover.loadExamples(popover, card, examples);
+        void this.immersionPopover.loadExamples(popover, card, options);
     }
 
     private immersionRelatedQueries(info: JpdbVocabularyInfo): string[] {
@@ -1611,6 +1657,7 @@ export class NewTabRuntime {
         try {
             const parsed = await this.parser.parse(plan.targets.map(target => target.text), {
                 jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
+                allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? true,
             });
             if (!root.isConnected || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
             applyNestedParsePlan(plan, parsed, this.settings);

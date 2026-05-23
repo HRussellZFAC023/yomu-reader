@@ -31,6 +31,7 @@ export interface StatsSourceSnapshot {
     label: string;
     status: StatsSourceStatus;
     message: string;
+    deckNames?: string[];
     daily: StatsDailyPoint[];
     cards: StatsCardBreakdown;
     reviewsToday: number;
@@ -200,9 +201,9 @@ export function parseJpdbReviewExport(value: unknown): JpdbReviewImport {
     };
 }
 
-export async function loadAnkiConnectStats(api: StatsAnkiApi, deckHint = ''): Promise<StatsSourceSnapshot> {
+export async function loadAnkiConnectStats(api: StatsAnkiApi): Promise<StatsSourceSnapshot> {
     const deckNames = await api.invoke<string[]>('deckNames');
-    const decks = selectedAnkiDecks(deckNames, deckHint);
+    const decks = deckNames.filter(deck => deck.trim());
     const [reviewedToday, reviewedByDay, deckStats] = await Promise.all([
         api.invoke<number>('getNumCardsReviewedToday').catch(() => 0),
         api.invoke<Array<[string, number]>>('getNumCardsReviewedByDay').catch(() => []),
@@ -210,13 +211,14 @@ export async function loadAnkiConnectStats(api: StatsAnkiApi, deckHint = ''): Pr
             ? api.invoke<Record<string, AnkiDeckStats>>('getDeckStats', { decks }).catch(() => ({}))
             : Promise.resolve({} as Record<string, AnkiDeckStats>),
     ]);
-    const retentionDaily = await loadAnkiRetentionDaily(api, deckHint).catch(() => []);
+    const retentionDaily = await loadAnkiRetentionDaily(api).catch(() => []);
     const daily = mergeDailyPoints(ankiReviewedByDayToDaily(reviewedByDay), retentionDaily);
     const source = finalizeStatsSource({
         id: 'anki',
         label: 'Anki',
         status: 'ready',
         message: decks.length ? `Connected to ${decks.length} deck${decks.length === 1 ? '' : 's'}.` : 'Connected to Anki.',
+        deckNames: decks,
         daily,
         cards: ankiCardBreakdown(Object.values(deckStats)),
         reviewsToday: reviewedToday,
@@ -418,8 +420,8 @@ function ankiReviewedByDayToDaily(value: Array<[string, number]>): StatsDailyPoi
         .filter((point): point is StatsDailyPoint => point !== null);
 }
 
-async function loadAnkiRetentionDaily(api: StatsAnkiApi, deckHint: string): Promise<StatsDailyPoint[]> {
-    const cards = await api.invoke<number[]>('findCards', { query: ankiRetentionQuery(deckHint) });
+async function loadAnkiRetentionDaily(api: StatsAnkiApi): Promise<StatsDailyPoint[]> {
+    const cards = await api.invoke<number[]>('findCards', { query: ankiRetentionQuery() });
     const selectedCards = cards.filter(card => Number.isFinite(Number(card))).slice(0, ANKI_RETENTION_CARD_LIMIT);
     if (!selectedCards.length) return [];
     const reviewsByCard = await api.invoke<Record<string, AnkiReviewLog[]>>('getReviewsOfCards', { cards: selectedCards });
@@ -438,19 +440,8 @@ async function loadAnkiRetentionDaily(api: StatsAnkiApi, deckHint: string): Prom
     return sortedDailyPoints([...daily.values()]);
 }
 
-function ankiRetentionQuery(deckHint: string): string {
-    const deck = deckHint.trim();
-    return [deck ? `deck:${quoteAnkiSearch(deck)}` : '', `rated:${ANKI_RETENTION_WINDOW_DAYS}`].filter(Boolean).join(' ');
-}
-
-function quoteAnkiSearch(value: string): string {
-    return `"${value.replace(/\\/gu, '\\\\').replace(/"/gu, '\\"')}"`;
-}
-
-function selectedAnkiDecks(deckNames: string[], deckHint: string): string[] {
-    const hint = deckHint.trim();
-    if (!hint) return deckNames;
-    return deckNames.includes(hint) ? [hint] : deckNames;
+function ankiRetentionQuery(): string {
+    return `rated:${ANKI_RETENTION_WINDOW_DAYS}`;
 }
 
 function jpdbReviewCards(value: unknown): unknown[] {

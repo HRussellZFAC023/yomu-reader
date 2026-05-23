@@ -155,7 +155,7 @@ http://localhost:9393/?term={term}&reading={reading}
 
 Leave `{term}` and `{reading}` exactly as written. よむ replaces those placeholders for each word you look up.
 
-JPDB and browser text-to-speech rows are fallback-only by default, so random audio still prefers recorded clips first. In Settings > Audio, change **Text-to-speech handling** to **Follow source order / random** if you want TTS rows to follow your source order or random audio setting.
+JPDB and browser text-to-speech rows are fallback-only by default, so **Shuffle audio** still prefers recorded clips first. Shuffle mode behaves like a shuffled deck: よむ tries every available candidate for a word before reshuffling, instead of independently picking a random clip each time. In Settings > Audio, change **Text-to-speech handling** to **Follow source order / shuffle** if you want TTS rows to follow your source order or shuffled audio setting.
 
 ## Using an iPad or Another Device
 

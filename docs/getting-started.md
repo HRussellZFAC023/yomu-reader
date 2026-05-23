@@ -86,7 +86,66 @@ JPDB is optional for basic local dictionary lookup, but it is the easiest way to
 
 You can use よむ without a JPDB key by importing Yomitan dictionaries from Settings > Dictionaries. JPDB-only actions such as mining to JPDB still need a JPDB API key.
 
-## 5. Try Your First Lookup
+## 5. Pick A First Reading Site
+
+Good よむ sites have selectable Japanese text, interesting short pieces, or images/subtitles that become readable with よむ OCR and subtitle tools. The goal is not to finish the hardest thing you can find. The goal is to read every day at the edge of comfort, where most sentences make sense and the unknown words are worth saving.
+
+These are strong starting points, based on recurring recommendations from r/LearnJapanese reading threads and the sites that work well with popup lookup:
+
+<div class="yomu-link-grid yomu-next-grid">
+  <a class="yomu-link-card" href="https://tadoku.org/japanese/free-books-en/" target="_blank" rel="noopener">
+    <strong>Tadoku free books</strong>
+    <span>Free graded readers from starter level upward. Best first stop when native sites still feel too dense.</span>
+  </a>
+  <a class="yomu-link-card" href="https://www3.nhk.or.jp/news/easy/" target="_blank" rel="noopener">
+    <strong>NHK News Web Easy</strong>
+    <span>Short simplified news with furigana and audio. Great daily habit once basic grammar is in place.</span>
+  </a>
+  <a class="yomu-link-card" href="https://www.satorireader.com/" target="_blank" rel="noopener">
+    <strong>Satori Reader</strong>
+    <span>Polished learner stories with notes and audio. よむ adds your normal JPDB, Yomitan, and Anki flow on top.</span>
+  </a>
+  <a class="yomu-link-card" href="https://watanoc.com/" target="_blank" rel="noopener">
+    <strong>Watanoc</strong>
+    <span>Short articles by JLPT-ish level. Useful bridge between graded readers and native web articles.</span>
+  </a>
+  <a class="yomu-link-card" href="http://hukumusume.com/douwa/" target="_blank" rel="noopener">
+    <strong>Hukumusume fairy tales</strong>
+    <span>Large collection of folk tales and children's stories. Repetition makes it friendly for mining common words.</span>
+  </a>
+  <a class="yomu-link-card" href="https://matcha-jp.com/easy" target="_blank" rel="noopener">
+    <strong>MATCHA Easy Japanese</strong>
+    <span>Travel and culture articles in simpler Japanese. Nice when you want real-world topics instead of drills.</span>
+  </a>
+  <a class="yomu-link-card" href="https://reader.ttsu.app/" target="_blank" rel="noopener">
+    <strong>Ttsu Reader</strong>
+    <span>Read Japanese EPUBs in the browser with よむ lookup. This is the clean route into light novels and books.</span>
+  </a>
+  <a class="yomu-link-card" href="https://learnnatively.com/" target="_blank" rel="noopener">
+    <strong>Learn Natively</strong>
+    <span>Find books, manga, and web material by difficulty so your next read is challenging without being miserable.</span>
+  </a>
+  <a class="yomu-link-card" href="https://www.aozora.gr.jp/" target="_blank" rel="noopener">
+    <strong>Aozora Bunko</strong>
+    <span>Free public-domain literature. Better for intermediate and advanced readers, or for mining short passages.</span>
+  </a>
+  <a class="yomu-link-card" href="https://kakuyomu.jp/" target="_blank" rel="noopener">
+    <strong>Kakuyomu</strong>
+    <span>Native web novels with selectable text. Use after easier material, or search for genres you already love.</span>
+  </a>
+  <a class="yomu-link-card" href="https://syosetu.com/" target="_blank" rel="noopener">
+    <strong>Shosetsuka ni Naro</strong>
+    <span>Huge native web-novel site. Excellent for long-term immersion once lookup speed feels natural.</span>
+  </a>
+  <a class="yomu-link-card" href="https://www.youtube.com/" target="_blank" rel="noopener">
+    <strong>YouTube with Japanese subtitles</strong>
+    <span>Use よむ subtitle lookup and the transcript panel for listening-plus-reading immersion.</span>
+  </a>
+</div>
+
+Community threads worth skimming: [Tadoku graded reader update](https://www.reddit.com/r/LearnJapanese/comments/19bitqy/2024_updated_free_tadoku_graded_reader_pdfs_2681/), [beginner reading resources](https://www.reddit.com/r/LearnJapanese/comments/ixl8mr/what_are_some_decent_beginner_reading_resources/), and [learning Japanese by reading](https://www.reddit.com/r/LearnJapanese/comments/1i7jblt/method_learning_japanese_by_reading_books_manga/).
+
+## 6. Try Your First Lookup
 
 1. Open a Japanese article, manga page, JPDB page, or video page.
 2. Tap or hover a word.
@@ -94,7 +153,7 @@ You can use よむ without a JPDB key by importing Yomitan dictionaries from Set
 
 On phones and tablets, tapping is usually easier than hover. On desktop, hover is faster once you are used to it.
 
-## 6. Turn On More Tools When You Need Them
+## 7. Turn On More Tools When You Need Them
 
 - Dictionaries: choose the Dictionaries tab in Settings when you want local dictionary study words. よむ downloads JMdict into local browser storage when the userscript request bridge is available; you can also import any Yomitan ZIP dictionary or settings export manually.
 - Images: enable OCR to tap Japanese text inside manga panels or screenshots.
@@ -103,7 +162,7 @@ On phones and tablets, tapping is usually easier than hover. On desktop, hover i
 - New tab: use the よむ [new-tab page](./newtab/index.html) as a study screen; opening it turns the study page on automatically.
 - Audio: the easiest hosted setup is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). If you want to self-host the audio files instead, the commonly shared files are here: [nyaa.si/view/1957972](https://nyaa.si/view/1957972).
 
-## 7. iPhone And iPad Notes
+## 8. iPhone And iPad Notes
 
 iPhone and iPad Safari can run よむ through a userscript app, but local desktop bridges are different there. JPDB lookup, local dictionaries, OCR, subtitle taps, the hosted video player, the new-tab study page, and the AnkiMobile handoff are the friendly mobile paths. Direct AnkiConnect and localhost audio helpers still need a desktop computer that is reachable from the device, for example on the same Wi-Fi or through Tailscale.
 
@@ -111,7 +170,7 @@ Localhost on iPhone means the phone itself, not your desktop. If you run AnkiCon
 
 If a setup step mentions leaving a terminal window or local server running, treat it as optional power-user setup. The hosted audio path, JPDB mining, imported dictionaries, and the new-tab page are simpler on mobile.
 
-## 8. Back Up Settings
+## 9. Back Up Settings
 
 After setup, go to Settings > Dictionaries and use Export settings JSON. This gives you a small backup file you can import on another browser later.
 

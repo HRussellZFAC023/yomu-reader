@@ -25,6 +25,7 @@ interface StudyTranslationResult {
 
 interface StudyParseOptions {
     jpdbTimeoutMs?: number;
+    allowJpdbTimeoutFallback?: boolean;
 }
 
 export interface StudySourceControllerDependencies {
@@ -197,7 +198,7 @@ export class StudySourceController {
 
     private async loadTranslationContent(sentence: string): Promise<StudyTranslationResult> {
         const [tokens, translated] = await Promise.all([
-            this.dependencies.parseJapanese([sentence], { jpdbTimeoutMs: 1_200 }).then(([parsed]) => parsed ?? []),
+            this.dependencies.parseJapanese([sentence], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true }).then(([parsed]) => parsed ?? []),
             translateJapaneseSentence(sentence, this.settings().interfaceLanguage),
         ]);
         return { tokens, translated };

@@ -599,7 +599,14 @@
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.jpdb-reader-newtab-search-card-shell {
+  min-width: 0;
+  display: grid;
+  gap: 0;
+}
+
 .jpdb-reader-newtab-search-card {
+  width: 100%;
   min-width: 0;
   min-height: 68px;
   display: grid;
@@ -617,6 +624,35 @@
   color: var(--jpdb-reader-text, #f2f4f8);
   text-align: left;
   cursor: pointer;
+}
+
+.jpdb-reader-newtab-search-card[aria-expanded="true"] {
+  border-color: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent, #5ea780) 62%,
+    var(--jpdb-reader-border, rgba(255, 255, 255, 0.12))
+  );
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.jpdb-reader-newtab-search-detail {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.12));
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-bg, #111318) 72%,
+    var(--jpdb-reader-surface, #20242b) 28%
+  );
+}
+
+.jpdb-reader-newtab-search-detail[hidden] {
+  display: none;
 }
 
 .jpdb-reader-newtab-search-word {
