@@ -57,6 +57,13 @@
   width: min(920px, calc(100vw - 28px));
 }
 
+.jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-shell {
+  width: min(1080px, calc(100vw - 28px));
+  grid-template-rows: auto auto;
+  align-content: start;
+  padding-bottom: max(28px, calc(18px + env(safe-area-inset-bottom)));
+}
+
 .jpdb-reader-newtab-revealed .jpdb-reader-newtab-shell {
   grid-template-rows: auto auto auto;
   align-content: start;
@@ -70,9 +77,9 @@
 .jpdb-reader-newtab-topbar {
   min-height: 42px;
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto auto;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .jpdb-reader-newtab .jpdb-reader-newtab-overflow {
@@ -133,7 +140,7 @@
 .jpdb-reader-newtab-mode {
   justify-self: center;
   display: inline-grid;
-  grid-template-columns: repeat(3, minmax(64px, 1fr));
+  grid-template-columns: repeat(4, minmax(58px, 1fr));
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.12));
@@ -237,6 +244,26 @@
 .jpdb-reader-theme-switch[aria-checked="true"] .sun,
 .jpdb-reader-theme-switch[aria-checked="false"] .moon {
   opacity: 1;
+}
+
+.jpdb-reader-language-toggle {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jpdb-reader-muted, #aab2c0);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 620;
+  line-height: 1;
+  text-align: center;
+  cursor: pointer;
 }
 
 .jpdb-reader-newtab-mode button[data-active="true"] {
@@ -1993,6 +2020,7 @@
 }
 
 .jpdb-reader-theme-switch:focus-visible,
+.jpdb-reader-language-toggle:focus-visible,
 .jpdb-reader-newtab-overflow:focus-visible,
 .jpdb-reader-newtab-mode button:focus-visible,
 .jpdb-reader-newtab-controls button:not([data-grade]):focus-visible,
@@ -2015,6 +2043,7 @@
 
 @media (hover: hover) and (pointer: fine) {
   .jpdb-reader-theme-switch:hover,
+  .jpdb-reader-language-toggle:hover,
   .jpdb-reader-newtab-overflow:hover,
   .jpdb-reader-newtab-mode button:hover,
   .jpdb-reader-newtab-controls button:not([data-grade]):hover,
@@ -2030,6 +2059,15 @@
       var(--jpdb-reader-accent, #5ea780) 60%,
       var(--jpdb-reader-border, rgba(255, 255, 255, 0.12))
     );
+  }
+
+  .jpdb-reader-language-toggle:hover {
+    background: color-mix(
+      in srgb,
+      var(--jpdb-reader-surface, #20242b) 84%,
+      transparent
+    );
+    color: var(--jpdb-reader-text, #f2f4f8);
   }
 }
 
@@ -2056,22 +2094,42 @@
     gap: 14px;
   }
 
+  .jpdb-reader-newtab-topbar {
+    gap: 4px;
+  }
+
   .jpdb-reader-newtab-brand {
-    min-width: 92px;
+    min-width: 32px;
   }
 
   .jpdb-reader-newtab-brand .title {
-    gap: 7px;
-    font-size: 15px;
+    gap: 0;
+  }
+
+  .jpdb-reader-newtab-brand span {
+    display: none;
   }
 
   .jpdb-reader-newtab-mode {
-    grid-template-columns: repeat(3, minmax(48px, 1fr));
+    grid-template-columns: repeat(3, minmax(40px, 1fr));
   }
 
   .jpdb-reader-newtab-mode button {
-    padding: 0 7px;
+    padding: 0 5px;
     font-size: 10px;
+  }
+
+  .jpdb-reader-theme-appearance,
+  .jpdb-reader-newtab .jpdb-reader-newtab-overflow {
+    width: 44px;
+    min-width: 44px;
+  }
+
+  .jpdb-reader-language-toggle {
+    width: 32px;
+    min-width: 32px;
+    padding: 0;
+    font-size: 15px;
   }
 
   .jpdb-reader-newtab-search-mode .jpdb-reader-newtab-study {

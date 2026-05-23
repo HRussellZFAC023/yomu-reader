@@ -21,6 +21,7 @@ const VOCABULARY_FIELDS = [
 const DECK_FIELDS = ['id', 'name'];
 const PARSE_CACHE_SIZE = 250;
 const PARAGRAPH_PARSE_CACHE_SIZE = 800;
+const VOCABULARY_LOOKUP_CHUNK_SIZE = 100;
 const log = Logger.scope('JpdbClient');
 
 interface JpdbDeckVocabularyResponse {
@@ -103,11 +104,15 @@ export class JpdbClient {
             done();
             return [];
         }
-        const lookup = await this.api.request<JpdbVocabularyLookupResponse>('lookup-vocabulary', {
-            list: pairs,
-            fields: VOCABULARY_FIELDS,
-        });
-        const cards = jpdbVocabularyToCards((lookup.vocabulary_info ?? []) as JPDBRawVocabulary[]);
+        const rawVocabulary: unknown[] = [];
+        for (let index = 0; index < pairs.length; index += VOCABULARY_LOOKUP_CHUNK_SIZE) {
+            const lookup = await this.api.request<JpdbVocabularyLookupResponse>('lookup-vocabulary', {
+                list: pairs.slice(index, index + VOCABULARY_LOOKUP_CHUNK_SIZE),
+                fields: VOCABULARY_FIELDS,
+            });
+            rawVocabulary.push(...(lookup.vocabulary_info ?? []));
+        }
+        const cards = jpdbVocabularyToCards(rawVocabulary as JPDBRawVocabulary[]);
         this.cacheCards(cards);
         done();
         return cards;

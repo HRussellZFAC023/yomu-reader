@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan } from '../../src/reader/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan } from '../../src/reader/nested-text-parse';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import type { JPDBCard, JPDBToken } from '../../src/reader/types';
 
 describe('nested text parse plans', () => {
     afterEach(() => {
@@ -16,8 +18,46 @@ describe('nested text parse plans', () => {
         expect(plan?.targets.map(target => target.text)).toEqual(['今日はいい天気です。']);
         expect(plan?.parseKey).toBe('今日はいい天気です。');
         expect(root && plan ? nestedParseAlreadyScheduled(root, plan.parseKey) : true).toBe(false);
-        if (root && plan) root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
+        if (root && plan) root.dataset.jpdbReaderParseKey = plan.parseKey;
+        expect(root && plan ? nestedParseAlreadyScheduled(root, plan.parseKey) : false).toBe(false);
+        root?.querySelector('.jpdb-reader-parseable')?.append(document.createElement('span'));
+        root?.querySelector('span')?.classList.add('jpdb-reader-word');
         expect(root && plan ? nestedParseAlreadyScheduled(root, plan.parseKey) : false).toBe(true);
+    });
+
+    it('collects a parseable root element when parsing starts at the sentence', () => {
+        document.body.innerHTML = '<span class="jpdb-reader-newtab-sentence jpdb-reader-parseable" lang="ja">お連れ様との会話が <mark class="jpdb-reader-example-target">日本語</mark>でしたので</span>';
+        const root = document.body.querySelector<HTMLElement>('.jpdb-reader-newtab-sentence');
+
+        const plan = root ? nestedTextParsePlan(root, 24) : null;
+
+        expect(plan?.targets.map(target => target.text)).toEqual(['お連れ様との会話が 日本語でしたので']);
+    });
+
+    it('applies parsed tokens inside a highlighted new-tab sentence', () => {
+        document.body.innerHTML = '<h1 data-newtab-prompt style="text-align: center;"><span class="jpdb-reader-newtab-front"><span class="jpdb-reader-newtab-sentence jpdb-reader-parseable" lang="ja" data-newtab-sentence-render="true">お連れ様との会話が <mark class="jpdb-reader-example-target">日本語</mark>でしたので</span></span></h1>';
+        const root = document.body.querySelector<HTMLElement>('[data-newtab-prompt]')!;
+        const plan = nestedTextParsePlan(root, 24)!;
+
+        applyNestedParsePlan(plan, [[
+            token('お', 0),
+            token('連れ', 1, 'つれ', 'heiban'),
+            token('様', 3, 'さま', 'heiban'),
+            token('と', 4),
+            token('の', 5),
+            token('会話', 6, 'かいわ', 'heiban'),
+            token('が', 8),
+            token('日本語', 10, 'にほんご', 'heiban'),
+            token('で', 13),
+            token('した', 14, 'した', 'heiban'),
+            token('ので', 16, 'ので', 'heiban'),
+        ]], DEFAULT_SETTINGS);
+
+        const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-sentence mark .jpdb-reader-word');
+        expect(word?.textContent).toBe('日本語');
+        expect(word?.dataset.sentence).toBe('お連れ様との会話が 日本語でしたので');
+        expect(word?.classList.contains('jpdb-reader-example-target')).toBe(false);
+        expect(word?.closest('mark')?.classList.contains('jpdb-reader-example-target')).toBe(true);
     });
 
     it('collects Japanese fragments from parseable grammar examples', () => {
@@ -41,3 +81,31 @@ describe('nested text parse plans', () => {
         expect(root.dataset.jpdbReaderParseLoadingKey).toBeUndefined();
     });
 });
+
+function token(surface: string, start: number, reading = surface, pitchClass = ''): JPDBToken {
+    return {
+        card: card(surface, reading),
+        start,
+        end: start + surface.length,
+        length: surface.length,
+        rubies: reading === surface ? [] : [{ text: reading, start, end: start + surface.length, length: surface.length }],
+        pitchClass,
+    };
+}
+
+function card(spelling: string, reading: string): JPDBCard {
+    return {
+        vid: 1464530,
+        sid: 0,
+        rid: 0,
+        spelling,
+        reading,
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: ['not-in-deck'],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'fallback',
+    };
+}

@@ -47,7 +47,7 @@ export function parseJpdbPublicPitchHtml(html: string, spelling = '', reading = 
     const roots = Array.from(doc.querySelectorAll('.result.vocabulary'));
     const matchingRoots = roots.filter(root => vocabularyRootMatches(root, spelling, reading));
     const candidates = pitchCandidateRoots(doc, roots, matchingRoots, spelling, reading);
-    const patterns = candidates.flatMap(readPitchPatterns).filter(Boolean);
+    const patterns = candidates.flatMap(readJpdbPitchPatterns).filter(Boolean);
     return unique(patterns);
 }
 
@@ -67,7 +67,7 @@ function canUseGenericPitchRoot(doc: Document, roots: Element[], spelling: strin
         || documentMatchesVocabulary(doc, spelling, reading);
 }
 
-function readPitchPatterns(root: ParentNode): string[] {
+export function readJpdbPitchPatterns(root: ParentNode): string[] {
     const patterns: string[] = [];
     root.querySelectorAll('.subsection-pitch-accent').forEach(section => {
         const stack = section.querySelector('.subsection > div') ?? section;

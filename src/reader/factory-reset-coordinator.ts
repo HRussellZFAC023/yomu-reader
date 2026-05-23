@@ -1,4 +1,5 @@
 import { APP_NAME } from './constants';
+import { uiText } from './i18n';
 import { Logger } from './logger';
 import {
     beginSettingsResetGuard,
@@ -15,6 +16,7 @@ import {
     type FactoryResetSignal,
     type FactoryResetSignalSource,
 } from './storage';
+import type { InterfaceLanguage } from './types';
 
 const log = Logger.scope('FactoryReset');
 const FACTORY_RESET_PREPARE_DELAY_MS = 80;
@@ -23,6 +25,7 @@ export const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
 
 export interface FactoryResetCoordinatorDependencies {
     isDestroyed: () => boolean;
+    getLanguage: () => InterfaceLanguage;
     invalidateRuntimeStores: () => Promise<void>;
     resetDictionaryDatabase: () => Promise<unknown>;
     toast: (message: string) => void;
@@ -51,11 +54,7 @@ export class FactoryResetCoordinator {
     }
 
     async resetAllData(): Promise<void> {
-        const confirmed = window.confirm([
-            `Reset all ${APP_NAME} data?`,
-            '',
-            'This deletes settings, API keys, preferences, cached cards, local dictionaries, and all other local/GM storage for the userscript.',
-        ].join('\n'));
+        const confirmed = window.confirm(this.text('factoryResetConfirm', { appName: APP_NAME }));
         if (!confirmed) return;
 
         const resetSignal = createFactoryResetSignal('prepare');
@@ -77,7 +76,7 @@ export class FactoryResetCoordinator {
             this.activeResetId = '';
             endSettingsResetGuard();
             log.warn('All-data reset failed', error);
-            this.dependencies.toast(error instanceof Error ? error.message : 'Reset failed.');
+            this.dependencies.toast(error instanceof Error ? error.message : this.text('factoryResetFailed'));
         }
     }
 
@@ -86,7 +85,7 @@ export class FactoryResetCoordinator {
             return await this.dependencies.resetDictionaryDatabase();
         } catch (error) {
             log.warn('Dictionary database reset failed after settings storage was cleared', error);
-            this.dependencies.toast('Settings were reset. Local dictionaries may need clearing after closing other よむ tabs.');
+            this.dependencies.toast(this.text('factoryResetDictionaryWarning'));
             return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
         }
     }
@@ -107,7 +106,7 @@ export class FactoryResetCoordinator {
         await this.dependencies.invalidateRuntimeStores();
         if (signal.phase === 'complete') {
             this.clearRemoteGuardReleaseTimer();
-            this.dependencies.toast('よむ was reset in another tab. Reloading...');
+            this.dependencies.toast(this.text('factoryResetOtherTabReloading'));
             window.setTimeout(() => this.dependencies.reload(), 50);
         } else {
             this.scheduleRemoteGuardRelease();
@@ -118,7 +117,11 @@ export class FactoryResetCoordinator {
         const settingsKeysStillPresent = await settingsStorageKeysStillPresent();
         if (!settingsKeysStillPresent.length) return;
         log.warn('Settings storage keys still present after factory reset deletion', { settingsKeysStillPresent });
-        throw new Error('Factory reset could not delete saved settings. Please close other よむ tabs and try again.');
+        throw new Error(this.text('factoryResetDeleteSettingsFailed'));
+    }
+
+    private text(key: Parameters<typeof uiText>[1], values: Record<string, string> = {}): string {
+        return uiText(this.dependencies.getLanguage(), key).replace(/\{(\w+)\}/g, (_match: string, name: string) => values[name] ?? '');
     }
 
     private scheduleRemoteGuardRelease(): void {

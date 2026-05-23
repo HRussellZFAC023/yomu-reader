@@ -135,26 +135,31 @@ export interface ImmersionKitExample {
     mediaPublicId?: string;
 }
 
+export interface ImmersionKitSearchOptions {
+    requestLimit?: number;
+    resultLimit?: number;
+}
+
 export class ImmersionKitClient {
     private cache = new Map<string, ImmersionKitExample[]>();
     private inflight = new Map<string, Promise<ImmersionKitExample[]>>();
     private preloadKeys = new Set<string>();
     private mediaBlobUrlCache = new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS);
 
-    async search(term: string, settings: ReaderSettings): Promise<ImmersionKitExample[]> {
+    async search(term: string, settings: ReaderSettings, options: ImmersionKitSearchOptions = {}): Promise<ImmersionKitExample[]> {
         const query = term.trim();
         if (!canSearchImmersionExamples(query, settings)) return [];
 
-        const cacheKey = this.searchCacheKey(query, settings);
+        const cacheKey = this.searchCacheKey(query, settings, options);
         const cached = this.cache.get(cacheKey);
         if (cached) return cached;
         const inflight = this.inflight.get(cacheKey);
         if (inflight) return inflight;
 
         const done = log.time('search', { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
-        const promise = this.searchEnabledSources(query, settings)
+        const promise = this.searchEnabledSources(query, settings, options)
             .then(examples => {
-                const result = applySearchExampleLimit(examples, settings);
+                const result = applySearchExampleLimit(examples, settings, options);
                 this.cache.set(cacheKey, result);
                 pruneOldestMapEntries(this.cache, SEARCH_CACHE_LIMIT);
                 return result;
@@ -167,7 +172,7 @@ export class ImmersionKitClient {
         return promise;
     }
 
-    private async searchEnabledSources(query: string, settings: ReaderSettings): Promise<ImmersionKitExample[]> {
+    private async searchEnabledSources(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): Promise<ImmersionKitExample[]> {
         const sources = enabledImmersionExampleSources(settings);
         const resultSets = await Promise.all(sources.map(source =>
             source === 'nadeshiko'
@@ -175,7 +180,7 @@ export class ImmersionKitClient {
                     log.warn('Nadeshiko examples failed', { query }, error);
                     return [];
                 })
-                : this.searchImmersionKit(query, settings).catch(error => {
+                : this.searchImmersionKit(query, settings, options).catch(error => {
                     log.warn('Immersion Kit examples failed', { query }, error);
                     return [];
                 }),
@@ -185,8 +190,8 @@ export class ImmersionKitClient {
             : resultSets.flat();
     }
 
-    private searchImmersionKit(query: string, settings: ReaderSettings): Promise<ImmersionKitExample[]> {
-        return requestJson(apiUrls(`/search?${this.searchParams(query, settings)}`), settings.audioTimeoutMs, settings.corsProxyUrl)
+    private searchImmersionKit(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): Promise<ImmersionKitExample[]> {
+        return requestJson(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl)
             .then(data => filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), 'immersion-kit'));
     }
 
@@ -210,13 +215,13 @@ export class ImmersionKitClient {
         }).then(data => filterNadeshikoExamples(data, query, settings, this.minimumSentenceLength(settings)));
     }
 
-    private searchCacheKey(query: string, settings: ReaderSettings): string {
+    private searchCacheKey(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): string {
         return JSON.stringify({
             query,
             source: settings.immersionKitExampleSource,
             nadeshikoKey: sensitiveFingerprint(settings.nadeshikoApiKey),
-            limit: SEARCH_EXAMPLE_LIMIT,
-            userLimit: settings.immersionKitLimitEnabled ? settings.immersionKitLimit : 0,
+            limit: searchRequestLimit(options),
+            userLimit: searchResultLimit(settings, options),
             min: this.minimumSentenceLength(settings),
             max: settings.immersionKitMaxLength,
             category: settings.immersionKitCategory,
@@ -237,10 +242,10 @@ export class ImmersionKitClient {
         });
     }
 
-    private searchParams(query: string, settings: ReaderSettings): URLSearchParams {
+    private searchParams(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): URLSearchParams {
         const params = new URLSearchParams({
             q: query,
-            limit: String(SEARCH_EXAMPLE_LIMIT),
+            limit: String(searchRequestLimit(options)),
             sort: this.apiSort(settings),
         });
         if (settings.immersionKitExactMatch) params.set('exactMatch', 'true');
@@ -368,10 +373,25 @@ function filterNadeshikoExamples(data: unknown, query: string, settings: ReaderS
         .filter(example => isSearchExampleSurfaceMatch(example, query));
 }
 
-function applySearchExampleLimit(examples: ImmersionKitExample[], settings: ReaderSettings): ImmersionKitExample[] {
+function applySearchExampleLimit(examples: ImmersionKitExample[], settings: ReaderSettings, options: ImmersionKitSearchOptions = {}): ImmersionKitExample[] {
+    const limit = searchResultLimit(settings, options);
+    return limit ? examples.slice(0, limit) : examples;
+}
+
+function searchRequestLimit(options: ImmersionKitSearchOptions): number {
+    return boundedSearchLimit(options.requestLimit, SEARCH_EXAMPLE_LIMIT);
+}
+
+function searchResultLimit(settings: ReaderSettings, options: ImmersionKitSearchOptions): number {
+    if (options.resultLimit !== undefined) return boundedSearchLimit(options.resultLimit, SEARCH_EXAMPLE_LIMIT);
     return settings.immersionKitLimitEnabled
-        ? examples.slice(0, Math.max(1, settings.immersionKitLimit))
-        : examples;
+        ? boundedSearchLimit(settings.immersionKitLimit, SEARCH_EXAMPLE_LIMIT)
+        : 0;
+}
+
+function boundedSearchLimit(value: number | undefined, fallback: number): number {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+    return Math.max(1, Math.min(SEARCH_EXAMPLE_LIMIT, Math.trunc(value)));
 }
 
 function isSearchExampleInRange(example: ImmersionKitExample, settings: ReaderSettings, minLength: number): boolean {
@@ -696,6 +716,7 @@ function requestJsonCandidate(url: string, timeoutMs: number, proxyUrl = ''): Pr
         proxyUrl,
         timeoutMs,
         allowDirectCrossOrigin: true,
+        allowPublicProxies: false,
         preferFetch: shouldPreferFetchForImmersionKitRequests(),
         failureLabel: 'Immersion Kit request',
         timeoutLabel: 'Immersion Kit request timed out.',

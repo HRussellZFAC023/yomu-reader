@@ -205,6 +205,7 @@
   z-index: 2147483643;
   pointer-events: none;
   box-sizing: border-box;
+  overflow: hidden;
   contain: layout style;
 }
 .jpdb-ocr-status,
@@ -243,6 +244,7 @@
   background: transparent;
   color: transparent;
   text-shadow: none;
+  text-decoration: none !important;
   font-weight: 800;
   line-height: 1;
   white-space: pre-wrap;

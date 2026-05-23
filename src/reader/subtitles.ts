@@ -2198,6 +2198,7 @@ export class SubtitlePlayerController {
             currentRowIndex,
             this.selectedTrackId,
             this.tracks.find(track => track.id === this.selectedTrackId)?.loadingState ?? '',
+            !this.cues.length && this.currentCue ? subtitleCueSignature(this.currentCue) : '',
         ].join(':');
         return { rows, currentRowIndex, signature };
     }

@@ -2,7 +2,9 @@ import {
     accentToRgba,
     effectiveFuriganaMode,
     effectiveReaderColorSource,
+    effectiveReaderTextColorSource,
     effectiveSubtitleColorSource,
+    effectiveSubtitleTextColorSource,
     sanitizeAccentColor,
 } from './settings';
 import type { ReaderColorSource, ReaderSettings } from './types';
@@ -58,12 +60,12 @@ function appliedReaderTheme(settings: ReaderSettings): AppliedReaderTheme {
         wordColorSources: {
             highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource, 'jpdb'),
             underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, 'pitch'),
-            text: effectiveReaderColorSource(settings, settings.wordTextColorSource, 'off'),
+            text: effectiveReaderTextColorSource(settings, settings.wordTextColorSource, 'off'),
         },
         subtitleColorSources: {
             highlight: effectiveSubtitleColorSource(settings, settings.subtitleHighlightColorSource, 'jpdb'),
             underline: effectiveSubtitleColorSource(settings, settings.subtitleUnderlineColorSource, 'pitch'),
-            text: effectiveSubtitleColorSource(settings, settings.subtitleTextColorSource, 'jpdb'),
+            text: effectiveSubtitleTextColorSource(settings, settings.subtitleTextColorSource, 'jpdb'),
         },
     };
 }

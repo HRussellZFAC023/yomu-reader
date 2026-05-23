@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.26] - 2026-05-23
+
+### Added
+
+- Added a hosted New Tab Stats view that combines JPDB and Anki progress, including daily review activity, study minutes, new-card charts, retention, streaks, card distribution, average review speed, and due-time estimates.
+- Added JPDB `reviews.json` import support for historical review graphs while still using the JPDB API key for current card-state stats.
+- Added AnkiConnect stats loading for daily review counts, retention sampling, and deck card breakdowns.
+
+### Changed
+
+- Added a Stats nav mode alongside Word, Kanji, and Search, with a matching docs nav link and Yomu-themed responsive styling.
+- Let the Stats card distribution jump back into the study deck focused on due or failed cards.
+
 ## [0.4.25] - 2026-05-22
 
 ### Changed

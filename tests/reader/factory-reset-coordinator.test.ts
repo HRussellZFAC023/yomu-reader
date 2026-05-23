@@ -28,6 +28,7 @@ describe('FactoryResetCoordinator', () => {
         const reload = vi.fn();
         const coordinator = new FactoryResetCoordinator({
             isDestroyed: () => false,
+            getLanguage: () => 'en',
             invalidateRuntimeStores: vi.fn(async () => undefined),
             resetDictionaryDatabase: vi.fn(async () => ({ cleared: true, deleted: true })),
             toast: vi.fn(),
@@ -61,6 +62,7 @@ describe('FactoryResetCoordinator', () => {
         const toast = vi.fn();
         const coordinator = new FactoryResetCoordinator({
             isDestroyed: () => false,
+            getLanguage: () => 'en',
             invalidateRuntimeStores: vi.fn(async () => undefined),
             resetDictionaryDatabase: vi.fn(async () => {
                 await saveSettings({ ...DEFAULT_SETTINGS, apiKey: 'rewritten-during-reset' });

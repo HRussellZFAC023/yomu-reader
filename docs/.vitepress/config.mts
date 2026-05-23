@@ -1,9 +1,12 @@
 import { defineConfig } from 'vitepress';
+import { jpdbAudioDevProxyPlugin } from '../../vite-jpdb-audio-proxy';
 
 const repositoryName = 'yomu-reader';
 const base = `/${repositoryName}/`;
 const siteUrl = `https://hrussellzfac023.github.io${base}`;
-const videoPlayerUrl = `${siteUrl}video-player/index.html`;
+const newTabLink = 'newtab/index.html';
+const statsLink = 'newtab/index.html?mode=stats';
+const videoPlayerLink = 'video-player/index.html';
 
 export default defineConfig({
     title: 'よむ',
@@ -11,6 +14,9 @@ export default defineConfig({
     base,
     cleanUrls: true,
     lastUpdated: true,
+    vite: {
+        plugins: [jpdbAudioDevProxyPlugin()],
+    },
     head: [
         ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}yomu-icon.svg` }],
         ['meta', { name: 'theme-color', content: '#5ea780' }],
@@ -25,11 +31,12 @@ export default defineConfig({
         nav: [
             { text: 'Start', link: '/getting-started' },
             { text: 'Features', link: '/features' },
-            { text: 'New Tab', link: '/newtab/index.html', target: '_self' },
+            { text: 'New Tab', link: newTabLink, target: '_self' },
+            { text: 'Stats', link: statsLink, target: '_self' },
             {
                 text: 'More',
                 items: [
-                    { text: 'Video Player', link: videoPlayerUrl, target: '_self' },
+                    { text: 'Video Player', link: videoPlayerLink, target: '_self' },
                     { text: 'Local Audio', link: '/local-audio' },
                     { text: 'Support', link: '/support' },
                     { text: 'Changelog', link: '/changelog' },
@@ -44,7 +51,7 @@ export default defineConfig({
                     { text: 'Getting Started', link: '/getting-started' },
                     { text: 'Features', link: '/features' },
                     { text: 'Local Audio', link: '/local-audio' },
-                    { text: 'Video Player', link: videoPlayerUrl, target: '_self' },
+                    { text: 'Video Player', link: videoPlayerLink, target: '_self' },
                 ],
             },
             {

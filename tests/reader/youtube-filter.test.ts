@@ -22,6 +22,14 @@ function renderYouTubeCards(): void {
                 <a id="video-title" href="/watch?v=channel">study with me</a>
                 <span id="channel-name">日本語チャンネル</span>
             </ytd-rich-item-renderer>
+            <yt-lockup-view-model data-case="modern-lockup">
+                <a class="ytLockupViewModelContentImage" href="/watch?v=modern">25:39</a>
+                <div class="ytLockupMetadataViewModelMetadata">
+                    <h3 class="ytLockupMetadataViewModelHeadingReset" title="東京カフェで朝ごはん">東京カフェで朝ごはん</h3>
+                    <a class="ytLockupMetadataViewModelTitle" href="/watch?v=modern">東京カフェで朝ごはん</a>
+                    <span>Japanese channel</span>
+                </div>
+            </yt-lockup-view-model>
         </main>
     `;
 }
@@ -41,10 +49,12 @@ describe('YouTube immersion filter', () => {
 
         const cards = collectYouTubeVideoCards(document);
 
-        expect(cards).toHaveLength(3);
+        expect(cards).toHaveLength(4);
         expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[0]))).toBe(true);
         expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[1]))).toBe(false);
         expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[2]))).toBe(false);
+        expect(readYouTubeCardText(cards[3])).toBe('東京カフェで朝ごはん');
+        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[3]))).toBe(true);
     });
 
     it('hides non-Japanese-looking cards and supports reveal and turn-off controls', () => {
@@ -71,6 +81,7 @@ describe('YouTube immersion filter', () => {
         expect(card('jp').classList.contains('jpdb-youtube-filtered')).toBe(false);
         expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(card('channel-only').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('modern-lockup').classList.contains('jpdb-youtube-filtered')).toBe(false);
         expect(document.querySelector('.jpdb-youtube-filter-bar')?.textContent).toContain('hid 2');
 
         document.querySelector<HTMLButtonElement>('[data-action="show-anyway"]')!.click();

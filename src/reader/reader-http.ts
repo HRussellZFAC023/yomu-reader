@@ -8,6 +8,9 @@ export interface ReaderHttpOptions extends Omit<ProxyFetchOptions, 'body'> {
     failureLabel?: string;
     timeoutLabel?: string;
     preferFetch?: boolean;
+    anonymous?: boolean;
+    withCredentials?: boolean;
+    cookie?: string;
 }
 
 export async function requestText(url: string, options: ReaderHttpOptions = {}): Promise<string> {
@@ -70,6 +73,9 @@ function requestViaUserscript(
             data: options.data,
             responseType: options.responseType,
             timeout: options.timeoutMs,
+            anonymous: options.anonymous,
+            withCredentials: options.withCredentials,
+            cookie: options.cookie,
             onload: handleLoad,
             onerror: error => reject(error instanceof Error ? error : new Error(`${options.failureLabel ?? 'Request'} failed.`)),
             ontimeout: () => reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? 'Request'} timed out.`)),

@@ -14,7 +14,7 @@ describe('reader theme', () => {
     });
 
     it('applies concrete default color channels', () => {
-        const applied = applyReaderTheme(DEFAULT_SETTINGS);
+        const applied = applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key' });
         const root = document.documentElement;
 
         expect(root.classList.contains('jpdb-reader-word-highlight-jpdb')).toBe(true);
@@ -25,6 +25,75 @@ describe('reader theme', () => {
         expect(root.classList.contains('jpdb-reader-subtitle-text-jpdb')).toBe(true);
         expect(applied.wordColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'off' });
         expect(applied.subtitleColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'jpdb' });
+    });
+
+    it('treats unavailable JPDB text color as off until an API key is available', () => {
+        const withoutKey = applyReaderTheme({
+            ...DEFAULT_SETTINGS,
+            localDictionariesEnabled: true,
+            wordTextColorSource: 'jpdb',
+            subtitleTextColorSource: 'jpdb',
+        });
+        const root = document.documentElement;
+
+        expect(root.classList.contains('jpdb-reader-word-text-jpdb')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-subtitle-text-jpdb')).toBe(false);
+        expect(withoutKey.wordColorSources.text).toBe('off');
+        expect(withoutKey.subtitleColorSources.text).toBe('off');
+
+        const withKey = applyReaderTheme({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-api-key',
+            wordTextColorSource: 'jpdb',
+            subtitleTextColorSource: 'jpdb',
+        });
+
+        expect(root.classList.contains('jpdb-reader-word-text-jpdb')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-subtitle-text-jpdb')).toBe(true);
+        expect(withKey.wordColorSources.text).toBe('jpdb');
+        expect(withKey.subtitleColorSources.text).toBe('jpdb');
+    });
+
+    it('uses only available status backends for text color', () => {
+        const none = applyReaderTheme({
+            ...DEFAULT_SETTINGS,
+            wordTextColorSource: 'status',
+            subtitleTextColorSource: 'status',
+        });
+
+        expect(none.wordColorSources.text).toBe('off');
+        expect(none.subtitleColorSources.text).toBe('off');
+
+        const ankiOnly = applyReaderTheme({
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            wordTextColorSource: 'status',
+            subtitleTextColorSource: 'status',
+        });
+
+        expect(ankiOnly.wordColorSources.text).toBe('anki');
+        expect(ankiOnly.subtitleColorSources.text).toBe('anki');
+
+        const jpdbOnly = applyReaderTheme({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-api-key',
+            wordTextColorSource: 'status',
+            subtitleTextColorSource: 'status',
+        });
+
+        expect(jpdbOnly.wordColorSources.text).toBe('jpdb');
+        expect(jpdbOnly.subtitleColorSources.text).toBe('jpdb');
+
+        const both = applyReaderTheme({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-api-key',
+            ankiEnabled: true,
+            wordTextColorSource: 'status',
+            subtitleTextColorSource: 'status',
+        });
+
+        expect(both.wordColorSources.text).toBe('status');
+        expect(both.subtitleColorSources.text).toBe('status');
     });
 
     it('applies theme classes, color-source classes, and CSS variables from settings', () => {
@@ -67,6 +136,8 @@ describe('reader theme', () => {
     it('lets color channels drive theme classes instead of legacy word highlight mode', () => {
         const settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
+            apiKey: 'test-api-key',
+            ankiEnabled: true,
             wordHighlightColorSource: 'jpdb',
             wordUnderlineColorSource: 'off',
             wordTextColorSource: 'status',

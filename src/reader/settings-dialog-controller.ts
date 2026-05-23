@@ -119,8 +119,9 @@ function recommendedDictionaryForControl(control: HTMLElement | null | undefined
     return dictionary;
 }
 
-function recommendedDictionaryDownloadStatus(control: HTMLElement | null | undefined, dictionaryName: string): string {
-    return `${control?.dataset.installed === 'true' ? 'Updating' : 'Downloading'} ${dictionaryName}...`;
+function recommendedDictionaryDownloadStatus(control: HTMLElement | null | undefined, dictionaryName: string, language: InterfaceLanguage): string {
+    const action = control?.dataset.installed === 'true' ? uiText(language, 'update') : uiText(language, 'dictionaryDownloading');
+    return `${dictionaryName}: ${action}...`;
 }
 
 function settingsActionButton(control: HTMLElement | null | undefined): HTMLButtonElement | null {
@@ -136,10 +137,11 @@ function handleSettingsActionError(
     control: HTMLElement | null | undefined,
     setStatus: SettingsStatusSetter,
     error: unknown,
+    language: InterfaceLanguage,
 ): string {
     log.warn('Settings action failed', { action }, error);
     if (shouldReenableSettingsAction(action)) control?.removeAttribute('disabled');
-    const message = errorMessage(error, 'Import failed.');
+    const message = errorMessage(error, uiText(language, 'actionFailed'));
     setStatus(message);
     return message;
 }
@@ -157,19 +159,24 @@ function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatusElemen
 }
 
 function renderDictionaryStatusElements(elements: DictionaryStatusElements, summary: DictionarySummary, settings: ReaderSettings): void {
-    if (elements.status) elements.status.textContent = dictionaryStatusText(summary);
+    if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
     if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
 }
 
-function dictionaryStatusText(summary: DictionarySummary): string {
+function dictionaryStatusText(summary: DictionarySummary, language: InterfaceLanguage): string {
     return summary.dictionaries.length
-        ? `${summary.dictionaries.length} dictionaries, ${summary.terms.toLocaleString()} terms, ${summary.kanji.toLocaleString()} kanji, ${summary.termMeta.toLocaleString()} metadata rows.`
-        : 'No local dictionaries imported yet.';
+        ? formatUiTemplate(uiText(language, 'dictionaryStatusSummary'), {
+            dictionaries: summary.dictionaries.length.toLocaleString(),
+            terms: summary.terms.toLocaleString(),
+            kanji: summary.kanji.toLocaleString(),
+            metadata: summary.termMeta.toLocaleString(),
+        })
+        : uiText(language, 'noLocalDictionariesImported');
 }
 
-function setDictionaryStatusError(status: HTMLElement | null, error: unknown): void {
-    if (status) status.textContent = errorMessage(error, 'Dictionary status unavailable.');
+function setDictionaryStatusError(status: HTMLElement | null, error: unknown, language: InterfaceLanguage): void {
+    if (status) status.textContent = errorMessage(error, uiText(language, 'dictionaryStatusUnavailable'));
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -193,7 +200,7 @@ export class SettingsDialogController {
         this.bindLivePreview(form);
         this.bindEditorControls(form);
         this.dependencies.mountDialog(backdrop, form);
-        installSettingsDrawerHandle(form);
+        installSettingsDrawerHandle(form, uiText(this.settings.interfaceLanguage, 'resizeSettings'));
         this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
         this.syncRecommendedDictionaryInstallControls(form);
         this.syncDictionaryOperationState(form);
@@ -239,7 +246,7 @@ export class SettingsDialogController {
             void saveSettings(this.settings).then(() => this.afterSettingsSaved())
                 .catch(error => {
                     log.error('Settings save failed', error);
-                    this.dependencies.toast(error instanceof Error ? error.message : 'Settings save failed.');
+                    this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, 'settingsSaveFailed')));
                 });
         });
         form.querySelector('[data-action="cancel"]')?.addEventListener('click', () => this.dependencies.dismiss());
@@ -264,7 +271,7 @@ export class SettingsDialogController {
         this.dependencies.dismiss();
         this.dependencies.scheduleDictionaryRescan();
         this.dependencies.refreshNewTabIfCurrent();
-        this.dependencies.toast('Settings saved.');
+        this.dependencies.toast(uiText(this.settings.interfaceLanguage, 'settingsSaved'));
     }
 
     private bindLivePreview(form: HTMLFormElement): void {
@@ -405,7 +412,8 @@ export class SettingsDialogController {
         const button = form.querySelector<HTMLButtonElement>('[data-theme-switch]');
         if (!button) return;
         const theme = this.effectiveTheme(input?.value as ReaderSettings['theme'] | undefined);
-        const label = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        const label = uiText(language, theme === 'dark' ? 'switchToLightTheme' : 'switchToDarkTheme');
         button.setAttribute('aria-checked', String(theme === 'light'));
         button.setAttribute('aria-label', label);
         button.title = label;
@@ -469,7 +477,7 @@ export class SettingsDialogController {
             await this.applyDictionaryStatus(form, elements, summary);
         } catch (error) {
             log.warn('Dictionary status unavailable', error);
-            setDictionaryStatusError(elements.status, error);
+            setDictionaryStatusError(elements.status, error, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         }
     }
 
@@ -605,7 +613,8 @@ export class SettingsDialogController {
         try {
             await this.runSettingsAction(form, action, control, setStatus);
         } catch (error) {
-            const message = handleSettingsActionError(action, control, setStatus, error);
+            const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+            const message = handleSettingsActionError(action, control, setStatus, error, language);
             this.dependencies.toast(message);
         }
     }
@@ -656,13 +665,14 @@ export class SettingsDialogController {
         focusPreviewAudioSource(form, button, previewSettings);
         this.settings = { ...previewSettings, audioEnabled: true, audioViaBlob: true };
         button?.setAttribute('disabled', 'true');
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         try {
-            this.dependencies.toast('Playing よむ...');
+            this.dependencies.toast(uiText(language, 'playingAudioPreview'));
             await this.dependencies.audio.play(createAudioPreviewCard(), { userGesture: true });
             log.info('Audio settings preview started');
         } catch (error) {
             log.warn('Audio settings preview failed', error);
-            this.dependencies.toast(error instanceof Error ? error.message : 'Audio preview failed.');
+            this.dependencies.toast(errorMessage(error, uiText(language, 'audioPreviewFailed')));
         } finally {
             this.settings = previous;
             button?.removeAttribute('disabled');
@@ -686,7 +696,7 @@ export class SettingsDialogController {
         if (action === 'export-yomitan-dictionary') {
             const blob = await this.dependencies.dictionaries.exportJson();
             downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
-            setStatus('Dictionaries exported.');
+            setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), 'dictionariesExported'));
             log.info('Dictionaries exported');
             return true;
         }
@@ -708,7 +718,7 @@ export class SettingsDialogController {
                 storage: await exportManagedStoredValues(),
                 ...(dictionaries ? { dictionaries } : {}),
             }, null, 2)], { type: 'application/json' }), `yomu-settings-${dateStamp()}.json`);
-            setStatus('Settings exported.');
+            setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), 'settingsExported'));
             log.info('Settings exported');
             return true;
         }
@@ -779,7 +789,7 @@ export class SettingsDialogController {
     private async handleSettingsSupportAction(action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
         if (action === 'copy-newtab-url') {
             await copyText(NEW_TAB_PAGE_URL);
-            this.dependencies.toast('New tab address copied.');
+            this.dependencies.toast(uiText(this.settings.interfaceLanguage, 'newTabAddressCopied'));
             return true;
         }
         if (action === 'factory-reset') {
@@ -799,9 +809,9 @@ export class SettingsDialogController {
     private async deleteDictionaryFromSettings(form: HTMLFormElement, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<void> {
         const dictionary = control?.dataset.dictionaryName;
         if (!dictionary) throw new Error('Dictionary not found.');
-        if (!window.confirm(`Remove "${dictionary}" and all of its imported entries?`)) return;
+        if (!window.confirm(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoveConfirm'), { dictionary }))) return;
         control?.setAttribute('disabled', 'true');
-        setStatus(`Removing ${dictionary}...`);
+        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoving'), { dictionary }));
         await this.dependencies.dictionaries.deleteDictionary(dictionary);
         await clearNewTabOfflineCache().catch(() => undefined);
         this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter(item => item.name !== dictionary);
@@ -839,7 +849,7 @@ export class SettingsDialogController {
         setStatus(queuedMessage);
         await this.enqueueDictionaryOperation(form, async () => {
             try {
-                const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name);
+                const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name, this.settings.interfaceLanguage);
                 this.setRecommendedDictionaryInstallState(form, dictionary.id, 'installing', startedMessage);
                 setStatus(startedMessage);
                 log.info('Downloading selected dictionary', { dictionary: dictionary.name });

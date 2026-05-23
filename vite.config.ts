@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import monkey from 'vite-plugin-monkey';
 import pkg from './package.json' with { type: 'json' };
+import { jpdbAudioDevProxyPlugin } from './vite-jpdb-audio-proxy';
 
 const githubOwner = 'HRussellZFAC023';
 const repoUrl = `https://github.com/${githubOwner}/${pkg.name}`;
@@ -10,6 +11,7 @@ const userscriptIcon = `${docsUrl}yomu-icon.svg`;
 
 export default defineConfig(({ mode }) => ({
     plugins: [
+        jpdbAudioDevProxyPlugin(),
         monkey({
             entry: 'src/reader/userscript-entry.ts',
             userscript: {
@@ -84,7 +86,7 @@ export default defineConfig(({ mode }) => ({
         outDir: 'dist',
         emptyOutDir: mode !== 'development',
         target: 'es2022',
-        minify: false,
+        minify: true,
         cssMinify: true,
     },
     test: {

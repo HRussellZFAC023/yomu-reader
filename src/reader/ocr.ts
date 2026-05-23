@@ -5,7 +5,6 @@ import { accentToRgba } from './settings';
 import type { JPDBToken, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 
-type LookupText = (text: string, sentence?: string) => Promise<void> | void;
 type OcrRecognizer = (image: HTMLImageElement, settings: ReaderSettings) => Promise<OcrResult | null>;
 
 export interface OcrRect {
@@ -41,10 +40,16 @@ interface ImageState {
     autoSkipped: boolean;
 }
 
+interface OcrRenderedImageFrame {
+    imageLeft: number;
+    imageTop: number;
+    imageWidth: number;
+    imageHeight: number;
+}
+
 interface OcrControllerOptions {
     getSettings: () => ReaderSettings;
     parseJapanese: (text: string) => Promise<JPDBToken[]>;
-    onLookup: LookupText;
     onToast: (message: string) => void;
     shouldAutoScan?: () => boolean;
 }
@@ -184,7 +189,12 @@ export class ImageOcrController {
             attributes: true,
             attributeFilter: ['class', 'style', 'hidden', 'src', 'srcset', 'sizes', 'loading', 'poster'],
         });
-        log.info('OCR controller initialized');
+    }
+
+    destroy(): void {
+        this.mutationObserver?.disconnect();
+        if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
+        this.clear();
     }
 
     refresh(options: { userRequested?: boolean } = {}): void {
@@ -297,6 +307,7 @@ export class ImageOcrController {
 
         const status = document.createElement('div');
         status.className = 'jpdb-ocr-status';
+        status.dataset.jpdbReaderSurfaceIgnore = 'true';
         status.hidden = true;
 
         overlay.append(status);
@@ -563,21 +574,21 @@ export class ImageOcrController {
         state.overlay.style.top = `${rect.top}px`;
         state.overlay.style.width = `${rect.width}px`;
         state.overlay.style.height = `${rect.height}px`;
-        this.fitLineFonts(state, rect.width, rect.height);
+        this.fitLineFonts(state, renderedOcrImageFrame(image, rect, state.result));
     }
 
-    private fitLineFonts(state: ImageState, imageWidth: number, imageHeight: number): void {
+    private fitLineFonts(state: ImageState, frame: OcrRenderedImageFrame): void {
         const scale = this.options.getSettings().ocrFontScale;
         state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line').forEach(element => {
-            const boxLeft = Number(element.dataset.boxLeft) * imageWidth;
-            const boxTop = Number(element.dataset.boxTop) * imageHeight;
-            const boxWidth = Number(element.dataset.boxWidth) * imageWidth;
-            const boxHeight = Number(element.dataset.boxHeight) * imageHeight;
+            const boxLeft = frame.imageLeft + Number(element.dataset.boxLeft) * frame.imageWidth;
+            const boxTop = frame.imageTop + Number(element.dataset.boxTop) * frame.imageHeight;
+            const boxWidth = Number(element.dataset.boxWidth) * frame.imageWidth;
+            const boxHeight = Number(element.dataset.boxHeight) * frame.imageHeight;
             if (!Number.isFinite(boxWidth) || !Number.isFinite(boxHeight) || boxWidth <= 0 || boxHeight <= 0) return;
             const text = element.dataset.ocrText ?? '';
             const vertical = element.dataset.vertical === 'true';
             element.style.fontSize = `${ocrFontPx(text, boxWidth, boxHeight, vertical, scale)}px`;
-            this.fitLineFrame(element, boxLeft, boxTop, boxWidth, boxHeight, imageWidth, imageHeight, vertical);
+            this.fitLineFrame(element, boxLeft, boxTop, boxWidth, boxHeight, frame, vertical);
         });
     }
 
@@ -587,8 +598,7 @@ export class ImageOcrController {
         boxTop: number,
         boxWidth: number,
         boxHeight: number,
-        imageWidth: number,
-        imageHeight: number,
+        frame: OcrRenderedImageFrame,
         vertical: boolean,
     ): void {
         const textElement = element.querySelector<HTMLElement>('.jpdb-ocr-line-text');
@@ -606,12 +616,16 @@ export class ImageOcrController {
         const contentWidth = Math.max(1, contentRect.width);
         const contentHeight = Math.max(1, contentRect.height);
         const minHitSize = Math.max(24, Math.round(fontSize * 1.25));
-        const frameWidth = Math.min(imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2));
-        const frameHeight = Math.min(imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
-        const left = clampNumber(boxLeft + boxWidth / 2 - frameWidth / 2, 0, Math.max(0, imageWidth - frameWidth));
+        const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2));
+        const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
+        const minLeft = frame.imageLeft;
+        const minTop = frame.imageTop;
+        const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth);
+        const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - frameHeight);
+        const left = clampNumber(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
         const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
         const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
-        const top = clampNumber(!vertical ? baselineAlignedTop : centeredTop, 0, Math.max(0, imageHeight - frameHeight));
+        const top = clampNumber(!vertical ? baselineAlignedTop : centeredTop, minTop, maxTop);
 
         element.style.left = `${left}px`;
         element.style.top = `${top}px`;
@@ -655,7 +669,7 @@ function createOcrLineElement(
     settings: ReaderSettings,
 ): HTMLElement {
     const element = document.createElement('div');
-    element.className = showText ? 'jpdb-ocr-line jpdb-ocr-line-visible' : 'jpdb-ocr-line';
+    element.className = showText ? 'jpdb-ocr-line jpdb-reader-word jpdb-ocr-line-visible' : 'jpdb-ocr-line jpdb-reader-word';
     setOcrLineDataset(element, result, line, sentence);
     element.title = line.text;
     element.tabIndex = 0;
@@ -692,6 +706,167 @@ function setOcrLinePosition(element: HTMLElement, result: OcrResult, line: OcrLi
     element.style.top = `${100 * line.box.top / result.height}%`;
     element.style.width = `${100 * line.box.width / result.width}%`;
     element.style.height = `${100 * line.box.height / result.height}%`;
+}
+
+function renderedOcrImageFrame(image: HTMLImageElement, rect: DOMRect, result: OcrResult | undefined): OcrRenderedImageFrame {
+    const style = getComputedStyle(image);
+    const content = imageContentBox(image, rect, style);
+    const sourceWidth = result?.width || image.naturalWidth || image.width || content.width || rect.width || 1;
+    const sourceHeight = result?.height || image.naturalHeight || image.height || content.height || rect.height || 1;
+    const object = fittedObjectSize(style.objectFit, sourceWidth, sourceHeight, content.width, content.height);
+    const offset = objectPositionOffset(style.objectPosition, content.width - object.width, content.height - object.height);
+    return {
+        imageLeft: content.left + offset.x,
+        imageTop: content.top + offset.y,
+        imageWidth: Math.max(1, object.width),
+        imageHeight: Math.max(1, object.height),
+    };
+}
+
+function imageContentBox(image: HTMLImageElement, rect: DOMRect, style: CSSStyleDeclaration): OcrRect {
+    const scaleX = rectScale(rect.width, image.offsetWidth);
+    const scaleY = rectScale(rect.height, image.offsetHeight);
+    const left = scaledBoxEdge(style.borderLeftWidth, scaleX) + scaledBoxEdge(style.paddingLeft, scaleX);
+    const right = scaledBoxEdge(style.borderRightWidth, scaleX) + scaledBoxEdge(style.paddingRight, scaleX);
+    const top = scaledBoxEdge(style.borderTopWidth, scaleY) + scaledBoxEdge(style.paddingTop, scaleY);
+    const bottom = scaledBoxEdge(style.borderBottomWidth, scaleY) + scaledBoxEdge(style.paddingBottom, scaleY);
+    return {
+        left,
+        top,
+        width: Math.max(1, rect.width - left - right),
+        height: Math.max(1, rect.height - top - bottom),
+    };
+}
+
+function rectScale(rectSize: number, layoutSize: number): number {
+    return layoutSize > 0 ? rectSize / layoutSize : 1;
+}
+
+function scaledBoxEdge(value: string, scale: number): number {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed * scale : 0;
+}
+
+function fittedObjectSize(
+    objectFit: string,
+    sourceWidth: number,
+    sourceHeight: number,
+    contentWidth: number,
+    contentHeight: number,
+): { width: number; height: number } {
+    const safeSourceWidth = Math.max(1, sourceWidth);
+    const safeSourceHeight = Math.max(1, sourceHeight);
+    const safeContentWidth = Math.max(1, contentWidth);
+    const safeContentHeight = Math.max(1, contentHeight);
+    const contain = () => scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.min(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
+    switch (objectFit) {
+        case 'contain':
+            return contain();
+        case 'cover':
+            return scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.max(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
+        case 'none':
+            return { width: safeSourceWidth, height: safeSourceHeight };
+        case 'scale-down': {
+            const contained = contain();
+            return contained.width < safeSourceWidth || contained.height < safeSourceHeight
+                ? contained
+                : { width: safeSourceWidth, height: safeSourceHeight };
+        }
+        case 'fill':
+        default:
+            return { width: safeContentWidth, height: safeContentHeight };
+    }
+}
+
+function scaledObjectSize(width: number, height: number, scale: number): { width: number; height: number } {
+    return {
+        width: Math.max(1, width * scale),
+        height: Math.max(1, height * scale),
+    };
+}
+
+function objectPositionOffset(value: string, freeX: number, freeY: number): { x: number; y: number } {
+    const tokens = cssPositionTokens(value);
+    const axes = parseObjectPositionAxes(tokens);
+    return {
+        x: axisPositionOffset(axes.x, freeX),
+        y: axisPositionOffset(axes.y, freeY),
+    };
+}
+
+type OcrObjectPositionAxis = { keyword?: string; token?: string; offset?: string };
+
+function cssPositionTokens(value: string): string[] {
+    return value.trim().match(/(?:calc\([^)]*\)|[^\s]+)/g) ?? [];
+}
+
+function parseObjectPositionAxes(tokens: string[]): { x: OcrObjectPositionAxis; y: OcrObjectPositionAxis } {
+    const paired = parseKeywordPositionAxes(tokens);
+    if (paired) return paired;
+    const [first = '50%', second] = tokens;
+    if (isVerticalPositionKeyword(first)) return { x: positionAxis(second || '50%'), y: positionAxis(first) };
+    return { x: positionAxis(first), y: positionAxis(second || '50%') };
+}
+
+function parseKeywordPositionAxes(tokens: string[]): { x: OcrObjectPositionAxis; y: OcrObjectPositionAxis } | null {
+    let x: OcrObjectPositionAxis | null = null;
+    let y: OcrObjectPositionAxis | null = null;
+    for (let index = 0; index < tokens.length; index += 1) {
+        const token = tokens[index];
+        if (isHorizontalPositionKeyword(token)) {
+            x = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
+            continue;
+        }
+        if (isVerticalPositionKeyword(token)) {
+            y = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
+        }
+    }
+    return x || y ? { x: x ?? positionAxis('50%'), y: y ?? positionAxis('50%') } : null;
+}
+
+function positionAxis(token: string): OcrObjectPositionAxis {
+    return positionKeyword(token) ? { keyword: token } : { token };
+}
+
+function positionOffsetToken(token: string | undefined): string | undefined {
+    return token && !positionKeyword(token) ? token : undefined;
+}
+
+function axisPositionOffset(axis: OcrObjectPositionAxis, freeSpace: number): number {
+    const base = axis.keyword ? keywordPositionOffset(axis.keyword, freeSpace) : tokenPositionOffset(axis.token, freeSpace);
+    const offset = cssLengthPx(axis.offset);
+    if (axis.keyword === 'right' || axis.keyword === 'bottom') return base - offset;
+    return base + offset;
+}
+
+function keywordPositionOffset(keyword: string, freeSpace: number): number {
+    if (keyword === 'right' || keyword === 'bottom') return freeSpace;
+    if (keyword === 'center') return freeSpace / 2;
+    return 0;
+}
+
+function tokenPositionOffset(token: string | undefined, freeSpace: number): number {
+    if (!token) return freeSpace / 2;
+    if (token.endsWith('%')) return freeSpace * (Number.parseFloat(token) || 0) / 100;
+    return cssLengthPx(token);
+}
+
+function cssLengthPx(value: string | undefined): number {
+    if (!value) return 0;
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function positionKeyword(token: string | undefined): token is string {
+    return isHorizontalPositionKeyword(token) || isVerticalPositionKeyword(token) || token === 'center';
+}
+
+function isHorizontalPositionKeyword(token: string | undefined): token is string {
+    return token === 'left' || token === 'right';
+}
+
+function isVerticalPositionKeyword(token: string | undefined): token is string {
+    return token === 'top' || token === 'bottom';
 }
 
 function captureImageElement(image: HTMLImageElement): string | undefined {
