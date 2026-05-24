@@ -6,6 +6,7 @@ import { escapeHtml, renderHighlightedTextHtml, setInnerHtml } from './dom';
 import { el, fragment, replaceChildrenWith, type DomAttrs } from './dom-builder';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from './immersion-kit';
 import { localizedImmersionProviderLabel, localizedImmersionSourceTitle } from './immersion-labels';
+import { waitForIdle as waitForBrowserIdle } from './idle';
 import {
     IMMERSION_FALLBACK_QUERY_LIMIT,
     immersionFallbackFragments,
@@ -4258,13 +4259,7 @@ export class NewTabController {
     }
 
     private waitForIdle(timeoutMs = 75): Promise<void> {
-        return new Promise(resolve => {
-            if ('requestIdleCallback' in window) {
-                window.requestIdleCallback(() => resolve(), { timeout: timeoutMs });
-                return;
-            }
-            setTimeout(resolve, 0);
-        });
+        return waitForBrowserIdle(timeoutMs);
     }
 
     private keywordFromDetails(card: JPDBCard, jpdb: JpdbKanjiInfo | null, rtk: RtkInfo | null): string {
