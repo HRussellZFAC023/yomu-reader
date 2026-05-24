@@ -15,6 +15,24 @@
 .jpdb-reader-definition-stack .jpdb-reader-local {
   margin-top: 0;
 }
+.yomu-jpdb-page-addon {
+  color: var(--jpdb-reader-text);
+  color-scheme: light dark;
+  font: 14px/1.45 var(--jpdb-reader-font);
+  margin: 14px 0;
+  max-width: min(100%, 760px);
+  padding: 0 0 2px;
+}
+.yomu-jpdb-page-addon .jpdb-reader-definition-stack {
+  margin-top: 0;
+}
+.yomu-jpdb-page-addon .jpdb-reader-source-card:first-child,
+.yomu-jpdb-page-addon .jpdb-reader-study-source:first-child {
+  border-top: 1px solid var(--jpdb-reader-border);
+}
+.yomu-jpdb-page-addon .jpdb-reader-help {
+  color: var(--jpdb-reader-muted);
+}
 .jpdb-reader-source-card,
 .jpdb-reader-study-source {
   gap: 0;

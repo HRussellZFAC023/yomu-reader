@@ -47,6 +47,20 @@ import { JpdbClient } from './jpdb';
 import { JpdbKanjiClient, type JpdbKanjiInfo, type JpdbKanjiVocabulary } from './jpdb-kanji';
 import { getPitchClass } from './jpdb-parser';
 import { JpdbPublicPitchClient } from './jpdb-public-pitch';
+import {
+    currentJpdbTermTarget,
+    currentLocalDictionaryTargets,
+    dictionaryPreferencePriority as jpdbPageDictionaryPreferencePriority,
+    extractCurrentKanji,
+    isJpdbHost,
+    isKanjiPage,
+    isKanjiReviewBack,
+    jpdbAudioCard,
+    localDictionaryLookupVariants,
+    uniqueLocalDictionaryEntries,
+    type JpdbTermTarget,
+    type LocalDictionaryTarget,
+} from './jpdb-page-targets';
 import { initJpdbReviewPageBridge } from './jpdb-review-bridge';
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from './jpdb-vocabulary';
 import { buildKanjiFacts, buildKanjiOriginGraph, KanjiOriginClient, type KanjiSourceInfo } from './kanji-origin';
@@ -60,6 +74,7 @@ import {
     type MiningContext,
 } from './mining-context';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
+import { NativeTitleGuard } from './native-title-guard';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from './nested-text-parse';
 import { resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
 import { OnboardingController } from './onboarding';
@@ -337,6 +352,12 @@ interface TextLookupDisplayContext {
     hoverLookupGeneration?: number;
 }
 
+interface RenderDefinitionSourcesOptions {
+    includeJpdbSource?: boolean;
+    includeStudySources?: boolean;
+    includeImmersionSource?: boolean;
+}
+
 interface PressLookupState {
     pointerId: number;
     startX: number;
@@ -568,6 +589,7 @@ export class ReaderApp {
     private activePopoverPositionLocked = false;
     private activePopoverLockedPosition?: { left: number; top: number };
     private activePopoverResizeObserver?: ResizeObserver;
+    private readonly nativeTitleGuard = new NativeTitleGuard();
     private lastPointerPosition?: { x: number; y: number };
     private hoverPopoverPointerPosition?: { x: number; y: number };
     private popoverRepositionFrame?: number;
@@ -579,6 +601,8 @@ export class ReaderApp {
     private cardRenderRequest = 0;
     private dictionaryRescanPending = false;
     private visiblePageReparseTimer?: number;
+    private jpdbPageEnhanceTimer?: number;
+    private jpdbPageEnhancementGeneration = 0;
     private nearbyReaderAudioPreloadTimer?: number;
     private preloadedTermAudioKeys = new Set<string>();
     private pressedKeys = new Set<string>();
@@ -617,7 +641,19 @@ export class ReaderApp {
     }
 
     private enableDemoMode(): void {
-        this.settings.onboardingSeen = true;
+        this.settings = {
+            ...this.settings,
+            onboardingSeen: true,
+            audioEnabled: false,
+            autoPlayAudio: false,
+            audioFallbackChimeEnabled: false,
+            immersionKitAutoPlayAudio: false,
+            immersionKitPlayOnHover: false,
+            immersionKitPlayOnImageClick: false,
+            autoScanJapanese: false,
+            scanVisiblePage: false,
+            showFloatingButton: false,
+        };
         this.isDemo = true;
     }
 
@@ -644,6 +680,7 @@ export class ReaderApp {
         this.ocr.init();
         this.youtube.init();
         this.setupAutoScan();
+        this.initJpdbPageEnhancements();
         if (this.isDemo && document.querySelector('[data-yomu-demo-lookup]')) {
             void this.pageScanner.scanVisiblePage({ silent: true });
         }
@@ -745,6 +782,7 @@ export class ReaderApp {
             this.dictionaryRescanPending = true;
             return;
         }
+        this.scheduleJpdbPageEnhancements(80);
         this.scheduleVisiblePageReparse(120);
     }
 
@@ -760,11 +798,165 @@ export class ReaderApp {
     private async reparseVisiblePage(): Promise<void> {
         this.jpdb.clear();
         this.parser.clearLocalCache();
-        this.pauseAutoScanObserver(() => unwrapReaderWords(document));
+        this.pauseAutoScanObserver(() => {
+            unwrapReaderWords(document);
+            this.removeJpdbPageEnhancements();
+        });
         if (!this.canParseJapanese()) {
+            this.scheduleJpdbPageEnhancements(0);
             return;
         }
         await this.pageScanner.scanVisiblePage({ silent: true });
+        this.scheduleJpdbPageEnhancements(0);
+    }
+
+    private initJpdbPageEnhancements(): void {
+        if (!isJpdbHost()) return;
+        this.scheduleJpdbPageEnhancements(0);
+        addWindowEventListener('popstate', () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
+        addWindowEventListener('hashchange', () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
+    }
+
+    private scheduleJpdbPageEnhancements(delay = 0): void {
+        if (this.isDestroyed || !isJpdbHost()) return;
+        window.clearTimeout(this.jpdbPageEnhanceTimer);
+        this.jpdbPageEnhanceTimer = window.setTimeout(() => {
+            this.jpdbPageEnhanceTimer = undefined;
+            void this.refreshJpdbPageEnhancements();
+        }, Math.max(0, delay));
+    }
+
+    private async refreshJpdbPageEnhancements(): Promise<void> {
+        const generation = ++this.jpdbPageEnhancementGeneration;
+        this.pauseAutoScanObserver(() => this.removeJpdbPageEnhancements());
+        if (!this.settings.jpdbPageEnhancementsEnabled) return;
+        if (this.isCurrentJpdbKanjiSurface()) {
+            if (this.settings.jpdbPageKanjiEnhancementsEnabled) this.installJpdbKanjiPageEnhancement(generation);
+            return;
+        }
+        if (this.settings.jpdbPageWordEnhancementsEnabled) await this.installJpdbWordPageEnhancements(generation);
+    }
+
+    private removeJpdbPageEnhancements(): void {
+        document.querySelectorAll<HTMLElement>('[data-yomu-jpdb-addon]').forEach(element => element.remove());
+    }
+
+    private isCurrentJpdbKanjiSurface(): boolean {
+        return isKanjiPage() || isKanjiReviewBack();
+    }
+
+    private async installJpdbWordPageEnhancements(generation: number): Promise<void> {
+        const targets = currentLocalDictionaryTargets();
+        await Promise.all(targets.map(target => this.installJpdbWordPageEnhancement(target, generation)));
+    }
+
+    private async installJpdbWordPageEnhancement(target: LocalDictionaryTarget, generation: number): Promise<void> {
+        const card = jpdbAudioCard(target.term, target.reading);
+        const entries = await this.lookupJpdbPageLocalEntries(target);
+        if (!this.isCurrentJpdbPageEnhancement(generation)) return;
+        if (!entries.length && !this.settings.immersionKitEnabled) return;
+
+        const root = this.createJpdbPageAddonRoot('word', target.anchor);
+        if (!root) return;
+        setInnerHtml(root, this.renderDefinitionSources(card, entries, target.examples[0]?.sentence, null, {
+            includeJpdbSource: false,
+            includeStudySources: false,
+        }));
+        this.installJpdbPageAddonHandlers(root, card);
+        this.dictionarySourceState.installTracking(root);
+        this.installJpdbPageImmersionExamples(root, card, [
+            ...target.alternates,
+            ...target.compounds.flatMap(compound => [compound.term, compound.reading]),
+            ...target.examples.map(example => example.sentence),
+        ]);
+        void this.parseJpdbPageAddonJapanese(root);
+    }
+
+    private async lookupJpdbPageLocalEntries(target: LocalDictionaryTarget): Promise<YomitanTermEntry[]> {
+        if (!this.settings.localDictionariesEnabled) return [];
+        const variants = localDictionaryLookupVariants(target).slice(0, 12);
+        const batches = await Promise.all(variants.map(variant =>
+            this.dictionaries.lookup(
+                variant.term,
+                variant.reading || variant.term,
+                this.settings.localDictionaryMaxResults,
+                this.settings.dictionaryPreferences,
+            ).catch(() => [] as YomitanTermEntry[]),
+        ));
+        return uniqueLocalDictionaryEntries(batches.flat())
+            .sort((first, second) =>
+                jpdbPageDictionaryPreferencePriority(first.dictionary, this.settings)
+                    - jpdbPageDictionaryPreferencePriority(second.dictionary, this.settings),
+            )
+            .slice(0, this.settings.localDictionaryMaxResults);
+    }
+
+    private installJpdbKanjiPageEnhancement(generation: number): void {
+        const kanji = extractCurrentKanji();
+        if (!isKanjiCharacter(kanji) || !this.isCurrentJpdbPageEnhancement(generation)) return;
+        const target = currentJpdbTermTarget();
+        const root = this.createJpdbPageAddonRoot('kanji', target?.anchor ?? document.body);
+        if (!root) return;
+        const language = this.settings.interfaceLanguage;
+        const mounts = this.renderKanjiSourceMounts(kanji, language);
+        if (!mounts) {
+            root.remove();
+            return;
+        }
+
+        const card = jpdbAudioCard(kanji, kanji);
+        setInnerHtml(root, `<div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">${mounts}</div>`);
+        this.installJpdbPageAddonHandlers(root, card);
+        this.dictionarySourceState.installTracking(root);
+        this.startKanjiProgressiveRender(root, this.kanjiDetailPromises(kanji), card, kanji, language, target ?? undefined);
+        void this.parseJpdbPageAddonJapanese(root);
+    }
+
+    private createJpdbPageAddonRoot(kind: 'word' | 'kanji', anchor: HTMLElement): HTMLElement | null {
+        if (!anchor.isConnected) return null;
+        const root = document.createElement('div');
+        root.dataset.jpdbReaderRoot = 'true';
+        root.dataset.yomuJpdbAddon = kind;
+        root.className = `yomu-jpdb-page-addon yomu-jpdb-${kind}-addon`;
+        this.pauseAutoScanObserver(() => {
+            if (anchor === document.body) document.body.prepend(root);
+            else anchor.insertAdjacentElement('afterend', root);
+        });
+        return root;
+    }
+
+    private installJpdbPageAddonHandlers(root: HTMLElement, fallbackCard: JPDBCard): void {
+        root.addEventListener('click', event => {
+            if (!(event instanceof MouseEvent)) return;
+            if (this.handleDictionaryLookupLink(event, root, 'modal')) return;
+            const actionButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
+            if (!actionButton || !root.contains(actionButton)) return;
+            const action = actionButton.dataset.action;
+            if (!action) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (action === 'kanji') {
+                const kanji = actionButton.dataset.kanji ?? '';
+                void this.showKanjiCard(fallbackCard, kanji, fallbackCard.spelling, actionButton, { navigation: 'push-current', preservePosition: true });
+                return;
+            }
+            if (action === 'similar-word' || action === 'lookup') {
+                const expression = actionButton.dataset.expression ?? actionButton.dataset.lookup ?? actionButton.dataset.term ?? '';
+                const reading = actionButton.dataset.reading ?? expression;
+                void this.lookupText(expression, reading, { anchor: actionButton, navigation: 'push-current', preservePosition: true, userGesture: true });
+                return;
+            }
+            if (action === 'jpdb-example-audio') {
+                void this.audioActions.playJpdbExampleAudio(actionButton.dataset.jpdbAudio ?? '', actionButton.dataset.jpdbExampleSentence ?? '');
+            }
+        });
+    }
+
+    private isCurrentJpdbPageEnhancement(generation: number): boolean {
+        return !this.isDestroyed
+            && isJpdbHost()
+            && this.settings.jpdbPageEnhancementsEnabled
+            && generation === this.jpdbPageEnhancementGeneration;
     }
 
     private applyAccentColor(color: string): void {
@@ -795,6 +987,7 @@ export class ReaderApp {
         window.clearTimeout(this.asbScanTimer);
         window.clearTimeout(this.selectionTimer);
         window.clearTimeout(this.visiblePageReparseTimer);
+        window.clearTimeout(this.jpdbPageEnhanceTimer);
         window.clearTimeout(this.nearbyReaderAudioPreloadTimer);
         window.clearTimeout(this.hoverLookupTimer);
         window.clearTimeout(this.hoverCloseTimer);
@@ -804,10 +997,12 @@ export class ReaderApp {
             this.popoverRepositionFrame = undefined;
         }
         this.activePopoverResizeObserver?.disconnect();
+        this.nativeTitleGuard.restore();
         
         this.floatingButton.destroy();
         this.activePopover?.remove();
         this.activeBackdrop?.remove();
+        this.removeJpdbPageEnhancements();
         document.querySelectorAll('.jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby').forEach(el => {
             if (el.classList.contains('jpdb-reader-word') || el.classList.contains('jpdb-reader-ruby')) {
                 const text = document.createTextNode(el.textContent || '');
@@ -830,10 +1025,12 @@ export class ReaderApp {
                 this.pageHasJapaneseText = true;
                 this.scheduleAutoScan(450);
             }
+            this.scheduleJpdbPageEnhancements(500);
         });
         this.observeAutoScanMutations();
         window.addEventListener('scroll', () => this.scheduleAutoScan(500), { passive: true });
         window.addEventListener('resize', () => this.scheduleAutoScan(700), { passive: true });
+        window.addEventListener('resize', () => this.scheduleJpdbPageEnhancements(700), { passive: true });
         if (this.pageHasJapaneseText) this.scheduleAutoScan(600);
     }
 
@@ -897,6 +1094,7 @@ export class ReaderApp {
             if (this.isDestroyed) return;
             const target = event.target as HTMLElement;
             if (target.closest?.('[data-jpdb-reader-root] [data-action="kanji"][data-kanji]')) return;
+            if (target.closest?.('[data-yomu-jpdb-addon] [data-action]')) return;
             if (target.closest?.('[data-settings-preview-lookup]')) return;
             const word = target.closest?.('.jpdb-reader-word') as HTMLElement | null;
             if (!word && target.closest?.('[data-jpdb-reader-root] a.gloss-link[data-dictionary-lookup]')) return;
@@ -1376,12 +1574,12 @@ export class ReaderApp {
 
     private canLookupReaderWord(word: HTMLElement): boolean {
         if (!word.closest('[data-jpdb-reader-root]')) return true;
-        return Boolean(word.closest('.jpdb-subtitle-player, .jpdb-ocr-layer, .jpdb-reader-popover'));
+        return Boolean(word.closest('.jpdb-subtitle-player, .jpdb-ocr-layer, .jpdb-reader-popover, .yomu-jpdb-page-addon'));
     }
 
     private canHoverLookupReaderWord(word: HTMLElement): boolean {
         if (!word.closest('[data-jpdb-reader-root]')) return true;
-        if (word.closest('.jpdb-subtitle-player, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion')) return true;
+        if (word.closest('.jpdb-subtitle-player, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .yomu-jpdb-page-addon')) return true;
         return this.hasHoverLookupShortcut()
             && Boolean(word.closest('.jpdb-reader-newtab, .jpdb-reader-popover, .jpdb-reader-settings'));
     }
@@ -3037,13 +3235,14 @@ export class ReaderApp {
         });
     }
 
-    private startKanjiProgressiveRender(popover: HTMLElement, detailsPromises: KanjiDetailPromises, card: JPDBCard, kanji: string, language: InterfaceLanguage): void {
+    private startKanjiProgressiveRender(popover: HTMLElement, detailsPromises: KanjiDetailPromises, card: JPDBCard, kanji: string, language: InterfaceLanguage, pageTarget?: JpdbTermTarget): void {
         if (this.settings.similarKanjiWords) {
             void this.renderSimilarKanjiWordsProgressively(popover, detailsPromises.jpdbInfo, kanji, card);
         }
         if (this.settings.uchisenEnabled) {
             void this.renderUchisenInto(popover, kanji);
         }
+        this.installKanjiImmersionExamples(popover, card, pageTarget?.queries ?? []);
         void this.renderKanjiDetailsInto(popover, detailsPromises, kanji, language);
         if (this.settings.kanjivgEnabled) {
             void this.renderKanjiVGInto(popover, detailsPromises.kanjiVGInfo, kanji, language);
@@ -3078,6 +3277,7 @@ export class ReaderApp {
         }
         if (sourceId === KANJI_JPDB_SOURCE_ID) return '<div data-kanji-jpdb-mount></div>';
         if (sourceId === KANJI_RTK_SOURCE_ID) return '<div data-kanji-rtk-mount></div>';
+        if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderKanjiImmersionKitMount();
         if (sourceId === KANJI_UCHISEN_SOURCE_ID) return '<div data-kanji-uchisen-mount></div>';
         if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return '<div data-kanji-definitions-mount></div>';
         const dictionaryName = kanjiDictionaryNameFromSourceId(sourceId);
@@ -3095,6 +3295,17 @@ export class ReaderApp {
         }
         if (sourceId === KANJI_ORIGINS_SOURCE_ID) return '<div data-kanji-origin-mount></div>';
         return '';
+    }
+
+    private renderKanjiImmersionKitMount(): string {
+        if (!this.shouldRenderKanjiImmersionKit()) return '';
+        const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
+        return `
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.closedAttributes(sourceStateKey)}>
+                <summary class="jpdb-reader-local-title">${uiText(this.settings.interfaceLanguage, 'immersionKit')}</summary>
+                <div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, 'loadingExamples')}</div>
+            </details>
+        `;
     }
 
     private renderKanjiActionBar(card: JPDBCard): string {
@@ -3222,7 +3433,7 @@ export class ReaderApp {
         if (this.settings.kanjiOriginsEnabled) {
             void this.renderKanjiOriginsInto(popover, kanji, resolvedJpdbInfo, resolvedRtkInfo, resolvedKanjiVGInfo, kanjiEntries);
         }
-        void this.parsePopoverJapanese(popover);
+        void (this.isJpdbPageAddonRoot(popover) ? this.parseJpdbPageAddonJapanese(popover) : this.parsePopoverJapanese(popover));
         this.repositionActivePopover();
     }
 
@@ -3435,20 +3646,29 @@ export class ReaderApp {
         });
     }
 
-    private renderDefinitionSources(card: JPDBCard, entries: YomitanTermEntry[], sentence?: string, jpdbVocabularyInfo: JpdbVocabularyInfo | null = null): string {
+    private renderDefinitionSources(
+        card: JPDBCard,
+        entries: YomitanTermEntry[],
+        sentence?: string,
+        jpdbVocabularyInfo: JpdbVocabularyInfo | null = null,
+        options: RenderDefinitionSourcesOptions = {},
+    ): string {
         const grouped = groupTermEntriesByDictionary(entries);
         const setup = this.renderFallbackSetupSource(card);
         const sourceIds = orderedDefinitionSourceIds(this.settings, [...grouped.keys()]);
         const dictionarySourceIds = sourceIds.filter(sourceId => grouped.has(sourceId));
+        const includeJpdbSource = options.includeJpdbSource ?? true;
+        const includeStudySources = options.includeStudySources ?? true;
+        const includeImmersionSource = options.includeImmersionSource ?? true;
         let renderedDictionaries = false;
         const sections = [
             setup,
             ...sourceIds
             .map(sourceId => {
-                if (sourceId === JPDB_DEFINITION_SOURCE_ID) return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded), jpdbVocabularyInfo, this.settings.interfaceLanguage);
-                if (sourceId === STUDY_TRANSLATION_SOURCE_ID) return this.studySources.renderTranslationSource(sentence);
-                if (sourceId === STUDY_GRAMMAR_SOURCE_ID) return this.studySources.renderGrammarSource(sentence);
-                if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderImmersionKitMount();
+                if (sourceId === JPDB_DEFINITION_SOURCE_ID) return includeJpdbSource ? renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded), jpdbVocabularyInfo, this.settings.interfaceLanguage) : '';
+                if (sourceId === STUDY_TRANSLATION_SOURCE_ID) return includeStudySources ? this.studySources.renderTranslationSource(sentence) : '';
+                if (sourceId === STUDY_GRAMMAR_SOURCE_ID) return includeStudySources ? this.studySources.renderGrammarSource(sentence) : '';
+                if (sourceId === IMMERSION_KIT_SOURCE_ID) return includeImmersionSource ? this.renderImmersionKitMount() : '';
                 if (grouped.has(sourceId)) {
                     if (renderedDictionaries) return '';
                     renderedDictionaries = true;
@@ -3485,11 +3705,37 @@ export class ReaderApp {
         `;
     }
 
+    private shouldRenderKanjiImmersionKit(): boolean {
+        return this.settings.immersionKitEnabled && this.settings.kanjiImmersionKitEnabled;
+    }
+
+    private installKanjiImmersionExamples(root: HTMLElement, card: JPDBCard, relatedQueries: string[] = []): void {
+        if (!this.shouldRenderKanjiImmersionKit()) return;
+        this.immersionPopover.installLazyLoad(root, card, relatedQueries.length ? { relatedQueries } : undefined);
+    }
+
+    private installJpdbPageImmersionExamples(root: HTMLElement, card: JPDBCard, relatedQueries: string[] = []): void {
+        if (!this.settings.immersionKitEnabled) return;
+        this.immersionPopover.installLazyLoad(root, card, relatedQueries.length ? { relatedQueries } : undefined);
+    }
+
     private async parsePopoverJapanese(popover: HTMLElement): Promise<void> {
         if (!this.isCurrentPopoverRoot(popover)) return;
         const plan = nestedTextParsePlan(popover, 120);
         if (!plan || nestedParseAlreadyScheduled(popover, plan.parseKey)) return;
         await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
+    }
+
+    private async parseJpdbPageAddonJapanese(root: HTMLElement): Promise<void> {
+        if (!this.isJpdbPageAddonRoot(root)) return;
+        clearNestedParseState(root);
+        const plan = nestedTextParsePlan(root, 120);
+        if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
+        await this.parseNestedJapaneseContent(root, plan, () => this.isJpdbPageAddonRoot(root));
+    }
+
+    private isJpdbPageAddonRoot(root: HTMLElement): boolean {
+        return Boolean(root.isConnected && root.matches('[data-yomu-jpdb-addon]'));
     }
 
     private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
@@ -3831,6 +4077,7 @@ export class ReaderApp {
         this.activePointerTextLookup = state.mode === 'hover' ? options.pointerTextLookup : undefined;
         this.hoverPopoverPointerPosition = mountedHoverPointerPosition(state, this.lastPointerPosition);
         popover.classList.toggle('jpdb-reader-sheet-sticky', this.isStickyMountedSheet(popover, state));
+        this.nativeTitleGuard.suppressForPopover(popover, state.resolvedAnchor);
     }
 
     private installMountedPopoverSurface(popover: HTMLElement, state: PopoverMountState): void {
@@ -3876,6 +4123,7 @@ export class ReaderApp {
     private repositionActivePopover(): void {
         const popover = this.repositionableActivePopover();
         if (!popover) return;
+        this.nativeTitleGuard.refresh(popover, this.activePopoverAnchor);
         const scrollBody = this.popoverScrollBody(popover);
         const scrollTop = scrollBody.scrollTop;
         this.prepareActivePopoverForPositioning(popover);
@@ -4107,6 +4355,7 @@ export class ReaderApp {
     }
 
     private removeReaderDialogNodes(): void {
+        this.nativeTitleGuard.restore();
         this.activePopover?.remove();
         this.activeBackdrop?.remove();
         this.activePopoverResizeObserver?.disconnect();

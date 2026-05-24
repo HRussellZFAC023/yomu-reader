@@ -184,8 +184,13 @@ export interface ReaderSettings {
     subtitleTextColorSource: ReaderColorSource;
     jpdbDefinitionsEnabled: boolean;
     jpdbDefinitionsPriority: number;
+    jpdbPageEnhancementsEnabled: boolean;
+    jpdbPageWordEnhancementsEnabled: boolean;
+    jpdbPageKanjiEnhancementsEnabled: boolean;
     jpdbKanjiEnabled: boolean;
     jpdbKanjiPriority: number;
+    kanjiImmersionKitEnabled: boolean;
+    kanjiImmersionKitPriority: number;
     uchisenEnabled: boolean;
     uchisenPriority: number;
     rtkEnabled: boolean;

@@ -29,6 +29,7 @@ const publicNewtab = path.join(root, 'public', 'newtab');
 const publicNewtabIndex = path.join(publicNewtab, 'index.html');
 const publicNewtabServiceWorker = path.join(publicNewtab, 'sw.js');
 const publicIcon = path.join(root, 'public', 'yomu-icon.svg');
+const publicFaviconFiles = ['favicon-16x16.png', 'favicon-32x32.png', 'apple-touch-icon.png'];
 const publicExtensionIcons = path.join(root, 'public', 'extension-icons');
 const out = path.join(root, 'dist', 'extension');
 
@@ -73,6 +74,10 @@ async function stageNewTabShell() {
     if (existsSync(publicIcon)) {
         await copyFile(publicIcon, path.join(newtab, 'yomu-icon.svg'));
     }
+    for (const file of publicFaviconFiles) {
+        const source = path.join(root, 'public', file);
+        if (existsSync(source)) await copyFile(source, path.join(newtab, file));
+    }
     await stageManifestIcons();
 }
 
@@ -88,6 +93,9 @@ async function stageManifestIcons() {
 
 function extensionNewTabIndex(index, appHash, buildId) {
     return index
+        .replaceAll('href="../favicon-32x32.png"', 'href="./favicon-32x32.png"')
+        .replaceAll('href="../favicon-16x16.png"', 'href="./favicon-16x16.png"')
+        .replaceAll('href="../apple-touch-icon.png"', 'href="./apple-touch-icon.png"')
         .replaceAll('href="../yomu-icon.svg"', 'href="./yomu-icon.svg"')
         .replaceAll('__YOMU_NEW_TAB_APP_HASH__', appHash)
         .replaceAll('__YOMU_NEW_TAB_BUILD_ID__', buildId)
@@ -147,6 +155,9 @@ async function verifyReleaseArtifacts() {
         'newtab/sw.js',
         'newtab/version.json',
         'newtab/yomu-icon.svg',
+        'newtab/favicon-16x16.png',
+        'newtab/favicon-32x32.png',
+        'newtab/apple-touch-icon.png',
         'newtab/icons/icon16.png',
         'newtab/icons/icon32.png',
         'newtab/icons/icon48.png',

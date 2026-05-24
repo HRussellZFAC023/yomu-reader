@@ -133,6 +133,16 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
             help: 'Remembering the Kanji keywords, elements, and stories.',
         },
         {
+            id: IMMERSION_KIT_SOURCE_ID,
+            name: 'Immersion Kit',
+            alias: 'Immersion Kit',
+            enabled: settings.kanjiImmersionKitEnabled,
+            priority: settings.kanjiImmersionKitPriority,
+            prefix: 'kanjiImmersionKit',
+            readonly: true,
+            help: 'Example sentences, images, and audio for the selected kanji.',
+        },
+        {
             id: KANJI_UCHISEN_SOURCE_ID,
             name: 'Uchisen',
             alias: 'Uchisen',
@@ -224,6 +234,7 @@ export function orderedDefinitionSourceIds(settings: ReaderSettings, dictionaryN
 export function orderedKanjiSourceIds(settings: ReaderSettings): string[] {
     return kanjiSourceRows(settings)
         .filter(row => row.enabled)
+        .filter(row => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled)
         .filter(row => row.id !== KANJI_DICTIONARIES_SOURCE_ID || !settings.dictionaryPreferences.some(preference => preference.type === 'kanji'))
         .map(row => row.id);
 }

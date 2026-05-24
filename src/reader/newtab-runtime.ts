@@ -28,6 +28,7 @@ import { JpdbClient } from './jpdb';
 import { JpdbKanjiClient, type JpdbKanjiInfo } from './jpdb-kanji';
 import { getPitchClass } from './jpdb-parser';
 import { JpdbPublicPitchClient } from './jpdb-public-pitch';
+import { jpdbAudioCard } from './jpdb-page-targets';
 import { createJpdbReviewBridgeClient } from './jpdb-review-bridge';
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from './jpdb-vocabulary';
 import { KanjiVGClient, type KanjiVGInfo } from './kanjivg';
@@ -600,6 +601,7 @@ export class NewTabRuntime {
         }
         if (sourceId === KANJI_JPDB_SOURCE_ID) return '<div data-kanji-jpdb-mount></div>';
         if (sourceId === KANJI_RTK_SOURCE_ID) return '<div data-kanji-rtk-mount></div>';
+        if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderKanjiLookupImmersionMount();
         if (sourceId === KANJI_ORIGINS_SOURCE_ID) return '<div data-kanji-origin-mount></div>';
         if (sourceId === KANJI_UCHISEN_SOURCE_ID) return '<div data-kanji-uchisen-mount></div>';
         if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return '<div data-kanji-definitions-mount></div>';
@@ -618,6 +620,17 @@ export class NewTabRuntime {
         return dictionaryName
             ? `<div data-kanji-definitions-mount data-kanji-dictionary="${escapeHtml(dictionaryName)}" data-kanji-source-id="${escapeHtml(sourceId)}"></div>`
             : '';
+    }
+
+    private renderKanjiLookupImmersionMount(): string {
+        if (!this.shouldRenderKanjiImmersionKit()) return '';
+        const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
+        return `
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.closedAttributes(sourceStateKey)}>
+                <summary class="jpdb-reader-local-title">${uiText(this.settings.interfaceLanguage, 'immersionKit')}</summary>
+                <div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, 'loadingExamples')}</div>
+            </details>
+        `;
     }
 
     private renderKanjiLookupActionBar(card: JPDBCard): string {
@@ -795,6 +808,7 @@ export class NewTabRuntime {
         if (this.settings.uchisenEnabled) {
             void this.renderUchisenInto(popover, kanji, requestId);
         }
+        this.installKanjiLookupImmersionExamples(popover, kanji);
 
         const renderKeyword = () => {
             if (!this.isCurrentLookupRender(popover, requestId)) return;
@@ -899,6 +913,15 @@ export class NewTabRuntime {
         renderOrigins();
         void this.parseNewTabContent(popover);
         this.repositionLookupPopover();
+    }
+
+    private shouldRenderKanjiImmersionKit(): boolean {
+        return this.settings.immersionKitEnabled && this.settings.kanjiImmersionKitEnabled;
+    }
+
+    private installKanjiLookupImmersionExamples(popover: HTMLElement, kanji: string): void {
+        if (!this.shouldRenderKanjiImmersionKit()) return;
+        this.immersionPopover.installLazyLoad(popover, jpdbAudioCard(kanji, kanji));
     }
 
     private renderSimilarKanjiWordsProgressively(
