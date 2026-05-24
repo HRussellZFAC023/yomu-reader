@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Centered the よ glyph in the Yomu SVG icon, made hosted social metadata point at the SVG, and regenerated fallback raster assets.
+- Made hosted social metadata point at the live Yomu SVG icon and regenerated fallback raster assets from that SVG.
 
 ## [0.4.37] - 2026-05-24
 
