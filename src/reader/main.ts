@@ -1111,7 +1111,9 @@ export class ReaderApp {
     }
 
     private shouldLookupOnHover(event: MouseEvent | KeyboardEvent): boolean {
-        return this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys);
+        return !this.hasStickyModalPopover()
+            && this.settings.lookupOnHover
+            && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys);
     }
 
     private hasHoverLookupShortcut(): boolean {
@@ -1399,10 +1401,15 @@ export class ReaderApp {
     }
 
     private shouldIgnoreHoverPointer(event: PointerEvent): boolean {
-        return this.isDestroyed
-            || this.pressLookup?.source === 'middle'
-            || event.pointerType === 'touch'
-            || this.shouldSuppressPenHover(event);
+        if (this.isDestroyed || this.pressLookup?.source === 'middle' || event.pointerType === 'touch' || this.shouldSuppressPenHover(event)) return true;
+        if (!this.hasStickyModalPopover()) return false;
+        this.cancelPendingHoverLookup();
+        this.cancelHoverClose();
+        return true;
+    }
+
+    private hasStickyModalPopover(): boolean {
+        return this.activePopoverMode === 'modal' && Boolean(this.activePopover);
     }
 
     private suppressHoverAfterPenContact(event: PointerEvent): void {
@@ -1489,7 +1496,7 @@ export class ReaderApp {
     }
 
     private handleHoverPointerOut(event: PointerEvent): void {
-        if (this.isDestroyed || event.pointerType === 'touch' || this.shouldSuppressPenHover(event)) return;
+        if (this.isDestroyed || this.hasStickyModalPopover() || event.pointerType === 'touch' || this.shouldSuppressPenHover(event)) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         const related = event.relatedTarget as Node | null;
         if (this.handleActivePopoverPointerOut(event, related)) return;
