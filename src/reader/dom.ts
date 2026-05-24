@@ -111,6 +111,35 @@ const HARD_FRAGMENT_SKIP_SELECTOR = [
     '[class*="voice" i]',
     '.jpdb-reader-word',
 ].join(',');
+const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = [
+    'script',
+    'style',
+    'noscript',
+    'textarea',
+    'input',
+    'select',
+    'button',
+    'option',
+    'summary',
+    'a[href]',
+    'svg',
+    'use',
+    '[contenteditable="true"]',
+    '[role="button"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[role="tab"]',
+    '[data-audio]',
+    '[class*="audio" i]',
+    '[class*="sound" i]',
+    '[class*="speaker" i]',
+    '[class*="control" i]',
+    '[class*="toggle" i]',
+    '[class*="player" i]',
+    '[class*="voice" i]',
+    '.jpdb-reader-word',
+].join(',');
+const FORM_CHROME_BOUNDARY_TAGS = new Set(['FORM', 'LABEL', 'FIELDSET', 'LEGEND']);
 const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const DISPLAY_HEADING_SELECTOR = 'h1,h2,h3,h4,h5,h6';
@@ -399,7 +428,7 @@ export function collectFragmentTextTargetsIn(
     limit = 40,
     visibleOnly = true,
     excludeSelector = '',
-    options: { allowUiText?: boolean; minLength?: number; includeReaderRoot?: boolean; includeUiChrome?: boolean; heading?: boolean } = {},
+    options: { allowUiText?: boolean; minLength?: number; includeReaderRoot?: boolean; includeUiChrome?: boolean; includeFormChrome?: boolean; heading?: boolean } = {},
 ): FragmentTextTarget[] {
     const targets: FragmentTextTarget[] = [];
     const fragments: TextFragment[] = [];
@@ -449,8 +478,7 @@ export function collectFragmentTextTargetsIn(
         const tagName = element.tagName;
         if (tagName === 'RT' || tagName === 'RP') return;
         if (!options.includeReaderRoot && element.closest('[data-jpdb-reader-root]')) return;
-        const skipSelector = options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR;
-        if (element.matches(skipSelector) || (excludeSelector && element.matches(excludeSelector))) {
+        if (shouldSkipFragmentElement(element, options) || (excludeSelector && element.matches(excludeSelector))) {
             flush();
             return;
         }
@@ -468,7 +496,7 @@ export function collectFragmentTextTargetsIn(
             return;
         }
 
-        const isBlock = isParagraphBoundary(element) && !isInlineSentenceListItem(element);
+        const isBlock = isFragmentParagraphBoundary(element, options) && !isInlineSentenceListItem(element);
         if (isBlock) flush();
 
         const nextHasNativeRuby = hasNativeRuby || tagName === 'RUBY' || tagName === 'RB';
@@ -483,6 +511,22 @@ export function collectFragmentTextTargetsIn(
     visit(root);
     flush();
     return targets;
+}
+
+function shouldSkipFragmentElement(
+    element: HTMLElement,
+    options: { includeUiChrome?: boolean; includeFormChrome?: boolean },
+): boolean {
+    if (options.includeFormChrome) return element.matches(FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
+    return element.matches(options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR);
+}
+
+function isFragmentParagraphBoundary(
+    element: HTMLElement,
+    options: { includeFormChrome?: boolean },
+): boolean {
+    return (options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.has(element.tagName))
+        || isParagraphBoundary(element);
 }
 
 function isInlineSentenceListItem(element: HTMLElement): boolean {
@@ -547,9 +591,10 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     else applyTokensToTextNode(target, tokens, settings);
 }
 
-export function unwrapReaderWords(root: ParentNode = document): number {
+export function unwrapReaderWords(root: ParentNode = document, options: { includeReaderRoot?: boolean; excludeSelector?: string } = {}): number {
     const words = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-word'))
-        .filter(word => !word.closest(READER_ROOT_SELECTOR));
+        .filter(word => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR))
+        .filter(word => !options.excludeSelector || !word.matches(options.excludeSelector));
     const parents = new Set<Node>();
 
     for (const word of words) {

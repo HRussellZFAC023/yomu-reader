@@ -64,6 +64,7 @@ interface SettingsDialogDependencies {
     applyAccentColor: (color: string) => void;
     applyWordColors: (settings?: ReaderSettings) => void;
     lookupText?: (text: string, sentence: string, anchor: HTMLElement) => void | Promise<void>;
+    parseSettingsJapanese?: (form: HTMLFormElement) => void | Promise<void>;
     installFab: () => void;
     refreshDictionaryStyles: () => Promise<void>;
     scheduleDictionaryRescan: () => void;
@@ -206,6 +207,7 @@ export class SettingsDialogController {
         this.syncDictionaryOperationState(form);
         void this.refreshDictionaryStatus(form);
         void this.refreshDeckControls(form);
+        this.refreshSettingsJapaneseParse(form);
     }
 
     private get settings(): ReaderSettings {
@@ -347,6 +349,7 @@ export class SettingsDialogController {
             this.syncDictionaryOperationState(form);
             syncSubtitlePreview(form);
             this.dependencies.installFab();
+            this.refreshSettingsJapaneseParse(form);
         });
         form.querySelector<HTMLSelectElement>('select[name="ocrProvider"]')?.addEventListener('change', event => {
             const value = (event.currentTarget as HTMLSelectElement).value;
@@ -453,6 +456,7 @@ export class SettingsDialogController {
         if (!apiKey) {
             setInnerHtml(container, renderDeckControls(this.settings, [], false));
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+            this.refreshSettingsJapaneseParse(form);
             return;
         }
 
@@ -467,6 +471,7 @@ export class SettingsDialogController {
         } finally {
             this.settings.apiKey = originalKey;
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+            this.refreshSettingsJapaneseParse(form);
         }
     }
 
@@ -488,6 +493,11 @@ export class SettingsDialogController {
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         this.syncRecommendedDictionaryInstallControls(form);
         this.syncDictionaryOperationState(form);
+        this.refreshSettingsJapaneseParse(form);
+    }
+
+    private refreshSettingsJapaneseParse(form: HTMLFormElement): void {
+        void this.dependencies.parseSettingsJapanese?.(form);
     }
 
     private async mergeDictionaryPreferencesFromSummary(summary: DictionarySummary): Promise<void> {

@@ -17,13 +17,13 @@ describe('reader theme', () => {
         const applied = applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key' });
         const root = document.documentElement;
 
-        expect(root.classList.contains('jpdb-reader-word-highlight-jpdb')).toBe(true);
-        expect(root.classList.contains('jpdb-reader-word-underline-pitch')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-word-highlight-pitch')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-word-underline-jpdb')).toBe(true);
         expect(root.classList.contains('jpdb-reader-word-text-off')).toBe(false);
         expect(root.classList.contains('jpdb-reader-subtitle-highlight-jpdb')).toBe(true);
         expect(root.classList.contains('jpdb-reader-subtitle-underline-pitch')).toBe(true);
         expect(root.classList.contains('jpdb-reader-subtitle-text-jpdb')).toBe(true);
-        expect(applied.wordColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'off' });
+        expect(applied.wordColorSources).toMatchObject({ highlight: 'pitch', underline: 'jpdb', text: 'off' });
         expect(applied.subtitleColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'jpdb' });
     });
 
@@ -192,8 +192,8 @@ describe('reader theme', () => {
 
         const settings = await loadSettings();
 
-        expect(settings.wordHighlightColorSource).toBe('jpdb');
-        expect(settings.wordUnderlineColorSource).toBe('pitch');
+        expect(settings.wordHighlightColorSource).toBe('pitch');
+        expect(settings.wordUnderlineColorSource).toBe('jpdb');
         expect(settings.wordTextColorSource).toBe('off');
         expect(settings.subtitleHighlightColorSource).toBe('jpdb');
         expect(settings.subtitleUnderlineColorSource).toBe('pitch');

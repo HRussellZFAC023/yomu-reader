@@ -1465,7 +1465,7 @@ describe('reader helpers', () => {
     });
 
     it('uses concrete color-channel defaults while preserving legacy automatic choices', () => {
-        expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'auto')).toBe('jpdb');
+        expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'auto')).toBe('pitch');
         expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'auto', 'pitch')).toBe('pitch');
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, wordHighlightMode: 'pitch' }, 'auto')).toBe('pitch');
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, wordHighlightMode: 'status' }, 'auto')).toBe('status');
@@ -1486,8 +1486,8 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, jpdbMiningEnabled: false });
 
         expect(html).toContain('jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban');
-        expect(DEFAULT_SETTINGS.wordHighlightColorSource).toBe('jpdb');
-        expect(DEFAULT_SETTINGS.wordUnderlineColorSource).toBe('pitch');
+        expect(DEFAULT_SETTINGS.wordHighlightColorSource).toBe('pitch');
+        expect(DEFAULT_SETTINGS.wordUnderlineColorSource).toBe('jpdb');
         expect(DEFAULT_SETTINGS.wordTextColorSource).toBe('off');
         expect(DEFAULT_SETTINGS.subtitleHighlightColorSource).toBe('jpdb');
         expect(DEFAULT_SETTINGS.subtitleUnderlineColorSource).toBe('pitch');
@@ -1499,8 +1499,8 @@ describe('reader helpers', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         const expected = {
-            wordHighlightColorSource: 'jpdb',
-            wordUnderlineColorSource: 'pitch',
+            wordHighlightColorSource: 'pitch',
+            wordUnderlineColorSource: 'jpdb',
             wordTextColorSource: 'off',
             subtitleHighlightColorSource: 'jpdb',
             subtitleUnderlineColorSource: 'pitch',
@@ -2502,8 +2502,8 @@ describe('reader helpers', () => {
         try {
             const settings = await loadSettings();
 
-            expect(settings.wordHighlightColorSource).toBe('jpdb');
-            expect(settings.wordUnderlineColorSource).toBe('pitch');
+            expect(settings.wordHighlightColorSource).toBe('pitch');
+            expect(settings.wordUnderlineColorSource).toBe('jpdb');
             expect(settings.wordTextColorSource).toBe('off');
             expect(settings.subtitleHighlightColorSource).toBe('jpdb');
             expect(settings.subtitleUnderlineColorSource).toBe('pitch');

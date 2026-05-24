@@ -31,6 +31,7 @@ For look-and-feel acceptance, do not use mocked fixture screenshots as proof. Fi
 - Prefer local/imported data and optional runtime lookups over bundling large datasets.
 - Treat external kanji/etymology sources as license-sensitive. Check `docs/kanji-source-research.md` before adding a source.
 - Keep visible product naming as `よむ` and the built userscript as `dist/yomu.user.js`.
+- When adding user-visible app or website copy, add both English and Japanese entries in `src/reader/i18n.ts`, verify Japanese mode does not show `未翻訳`, and rebuild/sync hosted assets so `docs/public/newtab/app.js` carries the new copy.
 - Update `dist/yomu.user.js` by running the build when source changes affect the bundle.
 - Greasy Fork limits scripts to 2 MB. Keep `dist/yomu.user.js` under 2,000,000 bytes and rely on `npm run verify` as the guardrail. Do not minify, compress, pack, or obfuscate the userscript to fit the limit; Greasy Fork forbids that. If size gets tight, remove duplication, purge unused CSS, prefer runtime/hosted assets for nonessential media such as icons, and avoid bundling large datasets.
 - Treat bundle size as architecture, not bookkeeping. Ask: what is the smallest amount of code needed to preserve the feature? Keep common reader behavior generic, and do not add page-specific layout handling unless usage evidence shows it is needed. When code handles a special website shape, isolate it behind a named Adapter and keep the generic path simple.

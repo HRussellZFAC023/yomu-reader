@@ -60,8 +60,8 @@ import {
     type MiningContext,
 } from './mining-context';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, type NestedParsePlan } from './nested-text-parse';
-import { uiText, type UiCopyKey } from './i18n';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from './nested-text-parse';
+import { resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
 import { OnboardingController } from './onboarding';
 import { installOriginGraphInteractions } from './origin-graph-interactions';
 import { ImageOcrController } from './ocr';
@@ -1114,6 +1114,10 @@ export class ReaderApp {
         return this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys);
     }
 
+    private hasHoverLookupShortcut(): boolean {
+        return Boolean((this.settings.shortcuts.hoverLookup ?? '').trim());
+    }
+
     private beginPressLookup(event: PointerEvent): void {
         const request = this.pressLookupRequest(event);
         if (!request) return;
@@ -1375,7 +1379,9 @@ export class ReaderApp {
 
     private canHoverLookupReaderWord(word: HTMLElement): boolean {
         if (!word.closest('[data-jpdb-reader-root]')) return true;
-        return Boolean(word.closest('.jpdb-subtitle-player, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion'));
+        if (word.closest('.jpdb-subtitle-player, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion')) return true;
+        return this.hasHoverLookupShortcut()
+            && Boolean(word.closest('.jpdb-reader-newtab, .jpdb-reader-popover, .jpdb-reader-settings'));
     }
 
     private handleHoverPointer(event: PointerEvent): void {
@@ -1413,7 +1419,13 @@ export class ReaderApp {
         if (!this.isInsideActivePopover(event.target as Node | null)) return false;
         this.cancelPendingHoverLookup();
         this.cancelHoverClose();
-        return true;
+        return !this.canHoverLookupActivePopoverWord(event);
+    }
+
+    private canHoverLookupActivePopoverWord(event: PointerEvent): boolean {
+        if (!this.hasHoverLookupShortcut() || !this.shouldLookupOnHover(event)) return false;
+        const word = this.hoverReaderWordForEvent(event);
+        return Boolean(word && this.isInsideActivePopover(word));
     }
 
     private isPointerInsideActiveHoverWord(event: PointerEvent): boolean {
@@ -3473,6 +3485,16 @@ export class ReaderApp {
         await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
     }
 
+    private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
+        if (!this.isCurrentSettingsRoot(form)) return;
+        unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup]' });
+        clearNestedParseState(form);
+        if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.canParseJapanese()) return;
+        const plan = nestedSettingsTextParsePlan(form, 320);
+        if (!plan) return;
+        await this.parseNestedJapaneseContent(form, plan, () => this.isCurrentSettingsRoot(form));
+    }
+
     private async parseNestedJapaneseContent(
         root: HTMLElement,
         plan: NestedParsePlan,
@@ -3500,6 +3522,10 @@ export class ReaderApp {
 
     private isCurrentPopoverRoot(root: HTMLElement): boolean {
         return Boolean(root.isConnected && this.activePopover && (root === this.activePopover || this.activePopover.contains(root)));
+    }
+
+    private isCurrentSettingsRoot(root: HTMLElement): boolean {
+        return Boolean(root.isConnected && this.activePopover === root && root.classList.contains('jpdb-reader-settings'));
     }
 
     private async enrichAnkiWords(tokens: JPDBToken[]): Promise<void> {
@@ -3722,6 +3748,7 @@ export class ReaderApp {
             applyAccentColor: color => this.applyAccentColor(color),
             applyWordColors: settings => this.applyWordColors(settings),
             lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor }),
+            parseSettingsJapanese: form => this.parseSettingsJapanese(form),
             installFab: () => this.installFab(),
             refreshDictionaryStyles: () => this.refreshDictionaryStyles(),
             scheduleDictionaryRescan: () => this.scheduleDictionaryRescan(),

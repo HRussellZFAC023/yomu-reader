@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.32] - 2026-05-24
+
+### Changed
+
+- Moved the hosted new-tab Stats and Settings actions into a compact more menu, refreshed new-tab source switching, and tightened responsive/new-tab styling.
+- Improved Japanese UI parsing for settings and nested reader text while preserving click-first lookup behavior inside Yomu-controlled surfaces.
+
+### Fixed
+
+- Hardened pointer lookup edge cases around low-value kana tokens, JPDB reading matches, theme/settings controls, and new-tab review flows.
+
 ## [0.4.30] - 2026-05-24
 
 ### Fixed
