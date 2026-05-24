@@ -1,5 +1,6 @@
 import { HAS_JAPANESE, escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { resolveUiLanguage, uiText } from './i18n';
+import { waitForIdle } from './idle';
 import { Logger } from './logger';
 import { accentToRgba } from './settings';
 import type { JPDBToken, ReaderSettings } from './types';
@@ -379,7 +380,7 @@ export class ImageOcrController {
         this.busy = true;
         const hasFastText = Boolean(readFallbackOcrResult(image, false));
         const delay = this.states.get(image)?.overlayRequested || hasFastText ? 0 : 900;
-        void waitForIdle(delay)
+        void waitForIdle(delay, delay)
             .then(() => this.scanImage(image))
             .finally(() => {
                 this.busy = false;
@@ -2305,17 +2306,6 @@ function requestBlob(url: string): Promise<Blob> {
         });
     }
     return fetch(url).then(response => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
-}
-
-function waitForIdle(timeout: number): Promise<void> {
-    if (!timeout) return Promise.resolve();
-    return new Promise(resolve => {
-        if ('requestIdleCallback' in window) {
-            window.requestIdleCallback(() => resolve(), { timeout });
-        } else {
-            globalThis.setTimeout(resolve, timeout);
-        }
-    });
 }
 
 function loadImage(url: string): Promise<HTMLImageElement> {

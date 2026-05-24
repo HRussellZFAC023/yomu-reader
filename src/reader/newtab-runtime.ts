@@ -23,6 +23,7 @@ import { DictionaryStyleController } from './dictionary-styles';
 import { FactoryResetCoordinator, FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS } from './factory-reset-coordinator';
 import { ImmersionKitClient } from './immersion-kit';
 import { ImmersionPopoverController } from './immersion-popover-controller';
+import { waitForIdle as waitForBrowserIdle } from './idle';
 import { resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
 import { JpdbClient } from './jpdb';
 import { JpdbKanjiClient, type JpdbKanjiInfo } from './jpdb-kanji';
@@ -987,13 +988,7 @@ export class NewTabRuntime {
     }
 
     private waitForIdle(timeoutMs = 75): Promise<void> {
-        return new Promise(resolve => {
-            if ('requestIdleCallback' in window) {
-                window.requestIdleCallback(() => resolve(), { timeout: timeoutMs });
-                return;
-            }
-            setTimeout(resolve, 0);
-        });
+        return waitForBrowserIdle(timeoutMs);
     }
 
     private lookupDetailWithTimeout<T>(

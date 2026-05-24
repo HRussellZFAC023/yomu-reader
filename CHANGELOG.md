@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.36] - 2026-05-24
+
+### Fixed
+
+- Added an iOS/Safari-safe idle scheduling fallback so OCR and deferred dictionary lookups no longer crash when `window.requestIdleCallback` is missing or not callable.
+
 ## [0.4.35] - 2026-05-24
 
 ### Fixed

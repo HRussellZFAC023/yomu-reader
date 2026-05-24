@@ -42,6 +42,7 @@ import {
 import { ImmersionKitClient } from './immersion-kit';
 import { isUsefulImmersionPreloadQuery } from './immersion-query';
 import { ImmersionPopoverController, type ImmersionSearchOptions } from './immersion-popover-controller';
+import { waitForIdle as waitForBrowserIdle } from './idle';
 import { FloatingButtonController } from './floating-button';
 import { JpdbClient } from './jpdb';
 import { JpdbKanjiClient, type JpdbKanjiInfo, type JpdbKanjiVocabulary } from './jpdb-kanji';
@@ -3477,13 +3478,7 @@ export class ReaderApp {
     }
 
     private waitForIdle(timeoutMs = 75): Promise<void> {
-        return new Promise(resolve => {
-            if ('requestIdleCallback' in window) {
-                window.requestIdleCallback(() => resolve(), { timeout: timeoutMs });
-                return;
-            }
-            setTimeout(resolve, 0);
-        });
+        return waitForBrowserIdle(timeoutMs);
     }
 
     private renderSimilarKanjiWordsProgressively(popover: HTMLElement, jpdbInfoPromise: Promise<JpdbKanjiInfo | null>, kanji: string, card: JPDBCard): void {
