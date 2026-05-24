@@ -14,6 +14,7 @@ interface HoverLookupInternals {
     handleHoverPointer(event: PointerEvent): void;
     handleHoverPointerOut(event: PointerEvent): void;
     scheduleHoverLookup(word: HTMLElement, event: PointerEvent): void;
+    scheduleHoverClose(delay?: number, options?: { ignoreCssHover?: boolean }): void;
     handlePointerTextHover(event: PointerEvent): void;
 }
 
@@ -76,7 +77,7 @@ describe('hover lookup', () => {
         }
     });
 
-    it('allows modifier-hover on parsed words inside the active popover', () => {
+    it('keeps modifier-hover disabled while a clicked popover is open', () => {
         const app = new ReaderApp();
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
@@ -105,7 +106,7 @@ describe('hover lookup', () => {
         try {
             internals.handleHoverPointer(hoverPointerEvent(word, 'mouse', 'pointerover', { shiftKey: true }));
 
-            expect(scheduleHoverLookup).toHaveBeenCalledWith(word, expect.objectContaining({ shiftKey: true }));
+            expect(scheduleHoverLookup).not.toHaveBeenCalled();
             expect(handlePointerTextHover).not.toHaveBeenCalled();
         } finally {
             app.destroy();
@@ -171,6 +172,77 @@ describe('hover lookup', () => {
 
             expect(scheduleHoverLookup).not.toHaveBeenCalled();
             expect(handlePointerTextHover).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('disables page hover lookups while a clicked popover is open', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        popover.textContent = '読む';
+        const pageWord = document.createElement('span');
+        pageWord.className = 'jpdb-reader-word';
+        pageWord.dataset.vid = '3';
+        pageWord.dataset.sid = '4';
+        pageWord.dataset.sentence = '本を読む';
+        pageWord.textContent = '読む';
+        document.body.append(popover, pageWord);
+
+        const internals = app as unknown as HoverLookupInternals;
+        const scheduleHoverLookup = vi.fn();
+        const handlePointerTextHover = vi.fn();
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'modal';
+        internals.scheduleHoverLookup = scheduleHoverLookup;
+        internals.handlePointerTextHover = handlePointerTextHover;
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(pageWord, 'mouse'));
+            internals.handleHoverPointer(hoverPointerEvent(pageWord, 'pen'));
+
+            expect(scheduleHoverLookup).not.toHaveBeenCalled();
+            expect(handlePointerTextHover).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not schedule hover close when the pointer leaves a clicked popover', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        popover.innerHTML = '<div class="jpdb-reader-popover-body">説明</div>';
+        document.body.append(popover);
+        const body = popover.querySelector<HTMLElement>('.jpdb-reader-popover-body')!;
+        const internals = app as unknown as HoverLookupInternals;
+        const scheduleHoverClose = vi.fn();
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'modal';
+        internals.scheduleHoverClose = scheduleHoverClose;
+
+        try {
+            internals.handleHoverPointerOut(hoverPointerEvent(body, 'mouse', 'pointerout'));
+            internals.handleHoverPointerOut(hoverPointerEvent(body, 'pen', 'pointerout'));
+
+            expect(scheduleHoverClose).not.toHaveBeenCalled();
         } finally {
             app.destroy();
             document.body.replaceChildren();

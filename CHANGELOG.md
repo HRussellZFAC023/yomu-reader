@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.33] - 2026-05-24
+
+### Fixed
+
+- Disabled hover lookup and hover-close behavior while a click/tap-opened popup is active, so iPad mouse, trackpad, and Apple Pencil hover surfaces no longer replace or close the sticky lookup when the pointer moves away.
+
 ## [0.4.32] - 2026-05-24
 
 ### Changed
