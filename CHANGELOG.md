@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.39] - 2026-05-24
+
+### Fixed
+
+- Restored the pre-0.4.38 raster Yomu app icons while keeping the hosted share metadata pointed at the SVG icon.
+
 ## [0.4.38] - 2026-05-24
 
 ### Fixed
