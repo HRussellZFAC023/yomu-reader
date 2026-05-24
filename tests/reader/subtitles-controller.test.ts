@@ -32,6 +32,33 @@ describe('SubtitlePlayerController', () => {
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
     });
 
+    it('keeps subtitle file loaders in the side panel instead of the over-video menu', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+        (controller as unknown as { install: () => void }).install();
+        (controller as unknown as { video: HTMLVideoElement }).video = document.createElement('video');
+
+        (controller as unknown as { toggleMenu: () => void }).toggleMenu();
+        const menuActions = [...document.querySelectorAll<HTMLButtonElement>('.jpdb-subtitle-menu button')]
+            .map(button => button.dataset.action);
+        expect(menuActions).not.toContain('load');
+        expect(menuActions).not.toContain('load-secondary');
+
+        (controller as unknown as { openTracksPanel: () => void }).openTracksPanel();
+        const sidePanelActions = [...document.querySelectorAll<HTMLButtonElement>('.jpdb-subtitle-list button')]
+            .map(button => button.dataset.action);
+        expect(sidePanelActions).toContain('load');
+        expect(sidePanelActions).toContain('load-secondary');
+    });
+
     it('requests YouTube timedtext through the userscript bridge before page fetch', async () => {
         const originalLocation = window.location;
         const originalFetch = globalThis.fetch;
