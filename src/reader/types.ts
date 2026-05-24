@@ -417,5 +417,6 @@ declare global {
     ) => number);
     const GM_removeValueChangeListener: undefined | ((listenerId: number) => void);
     const GM_addStyle: undefined | ((css: string) => void);
+    const GM_getResourceText: undefined | ((name: string) => string);
     const GM_registerMenuCommand: undefined | ((name: string, fn: () => void) => void);
 }

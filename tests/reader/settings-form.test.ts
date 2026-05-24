@@ -211,4 +211,41 @@ describe('settings form localization', () => {
         ].forEach(phrase => expect(text).not.toContain(phrase));
         expect(text).not.toContain('未翻訳');
     });
+
+    it('adds Japanese select option metadata for lookup without duplicating it on relocalize', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const languageSelect = form.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')!;
+
+        localizeSettingsForm(form, 'ja');
+        localizeSettingsForm(form, 'ja');
+
+        const metadata = languageSelect.parentElement?.querySelectorAll('[data-settings-select-options-meta]') ?? [];
+        expect(metadata).toHaveLength(1);
+        expect(metadata[0]?.textContent).toBe('選択肢: 自動 / 英語 / 日本語');
+
+        localizeSettingsForm(form, 'en');
+
+        expect(languageSelect.parentElement?.querySelector('[data-settings-select-options-meta]')).toBeNull();
+    });
+
+    it('unwraps stale parsed settings labels before relocalizing', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        localizeSettingsForm(form, 'ja');
+        const label = form.querySelector<HTMLInputElement>('input[name="stickyBottomSheet"]')!.closest('label')!;
+        const input = label.querySelector('input')!;
+        const firstWord = document.createElement('span');
+        firstWord.className = 'jpdb-reader-word';
+        firstWord.textContent = '閉じる';
+        const secondWord = document.createElement('span');
+        secondWord.className = 'jpdb-reader-word';
+        secondWord.textContent = '下部';
+        label.replaceChildren(input, firstWord, document.createTextNode(' まで '), secondWord, document.createTextNode(' シート'));
+
+        localizeSettingsForm(form, 'ja');
+
+        expect(label.querySelector('.jpdb-reader-word')).toBeNull();
+        expect(label.textContent).toBe('閉じるまで下部シートを開いたままにする');
+    });
 });

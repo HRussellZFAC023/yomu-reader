@@ -49,6 +49,92 @@ describe('performance cache bounds', () => {
         expect(lookup.mock.calls.at(-1)?.[0]).toBe('単語0');
     });
 
+    it('uses local pitch metadata without waiting for public JPDB pitch', async () => {
+        const lookupTermMeta = vi.fn(async () => [{
+            expression: '計量',
+            mode: 'pitch' as const,
+            data: { reading: 'けいりょう', pitches: [{ position: 0 }] },
+            dictionary: 'Pitch',
+        }]);
+        const publicPitch = vi.fn(async () => ['HLL']);
+        const loader = new CardRenderDataLoader({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                localDictionariesEnabled: true,
+                localDictionaryShowKanji: false,
+                showPitchAccent: true,
+                ankiEnabled: false,
+                jpdbDefinitionsEnabled: false,
+                jpdbMiningEnabled: false,
+            }),
+            dictionaries: {
+                lookup: vi.fn(async () => []),
+                lookupKanji: vi.fn(async () => []),
+                lookupTermMeta,
+            } as unknown as YomitanDictionaryStore,
+            jpdbPublicPitch: { lookup: publicPitch } as unknown as JpdbPublicPitchClient,
+            jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
+            anki: {
+                findExistingCards: vi.fn(),
+                deckNames: vi.fn(),
+            } as unknown as AnkiConnectClient,
+            jpdb: { listDecks: vi.fn() } as unknown as JpdbClient,
+            isJpdbBackedCard: () => false,
+        });
+        const lookupCard = { ...cardFor(1), spelling: '計量', reading: 'けいりょう', pitchAccent: [] };
+        const load = loader.load(lookupCard);
+
+        await expect(load.localMetaEntries ?? Promise.resolve([])).resolves.toHaveLength(1);
+        await expect(load.all).resolves.toMatchObject({ metaEntries: expect.any(Array) });
+
+        expect(lookupCard.pitchAccent).toEqual(['LHHHH']);
+        expect(publicPitch).not.toHaveBeenCalled();
+    });
+
+    it('does not let slow local pitch metadata delay public pitch fallback', async () => {
+        vi.useFakeTimers();
+        try {
+            const lookupTermMeta = vi.fn(() => new Promise<never>(() => undefined));
+            const publicPitch = vi.fn(async () => ['HLL']);
+            const loader = new CardRenderDataLoader({
+                getSettings: () => ({
+                    ...DEFAULT_SETTINGS,
+                    localDictionariesEnabled: true,
+                    localDictionaryShowKanji: false,
+                    showPitchAccent: true,
+                    ankiEnabled: false,
+                    jpdbDefinitionsEnabled: false,
+                    jpdbMiningEnabled: false,
+                }),
+                dictionaries: {
+                    lookup: vi.fn(async () => []),
+                    lookupKanji: vi.fn(async () => []),
+                    lookupTermMeta,
+                } as unknown as YomitanDictionaryStore,
+                jpdbPublicPitch: { lookup: publicPitch } as unknown as JpdbPublicPitchClient,
+                jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
+                anki: {
+                    findExistingCards: vi.fn(),
+                    deckNames: vi.fn(),
+                } as unknown as AnkiConnectClient,
+                jpdb: { listDecks: vi.fn() } as unknown as JpdbClient,
+                isJpdbBackedCard: () => false,
+            });
+            const lookupCard = { ...cardFor(1), spelling: '読む', reading: 'よむ', pitchAccent: [] };
+            const load = loader.load(lookupCard);
+
+            await vi.advanceTimersByTimeAsync(119);
+            expect(publicPitch).not.toHaveBeenCalled();
+            await vi.advanceTimersByTimeAsync(1);
+            expect(publicPitch).toHaveBeenCalledWith('読む', 'よむ');
+            await vi.advanceTimersByTimeAsync(2_500);
+            await expect(load.all).resolves.toMatchObject({ metaEntries: [] });
+            expect(lookupCard.pitchAccent).toEqual(['HLL']);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('bounds Immersion Kit search cache without eager token preloads', async () => {
         const search = vi.fn(async (query: string) => [immersionExample(query)]);
         const preload = vi.fn();

@@ -7,6 +7,7 @@ import { NewTabRuntime } from '../../src/reader/newtab-runtime';
 import { parseJpdbReviewDocument } from '../../src/reader/jpdb-review-bridge';
 import { installKanjiDoodle, KANJI_DOODLE_CLEAR_EVENT } from '../../src/reader/kanji-doodle';
 import { assessKanjiStrokes, rankKanjiStrokeCandidates } from '../../src/reader/kanji-stroke-grader';
+import { createReaderBackdrop, createReaderPopover } from '../../src/reader/popover-shell';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { definitionSourceRows } from '../../src/reader/source-sections';
 import type { JPDBCard, JPDBToken } from '../../src/reader/types';
@@ -4657,6 +4658,57 @@ describe('new tab review helpers', () => {
                 navigation: 'push-current',
                 reuseActivePopover: true,
             }));
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('stacks hosted new-tab lookups over settings without adding a second modal backdrop', () => {
+        const runtime = new NewTabRuntime();
+        const settings = { ...DEFAULT_SETTINGS, popupMode: 'sheet' as const };
+        const settingsForm = document.createElement('form');
+        settingsForm.className = 'jpdb-reader-settings';
+        settingsForm.dataset.jpdbReaderRoot = 'true';
+        const settingsBackdrop = createReaderBackdrop(() => undefined);
+        const anchor = document.createElement('span');
+        anchor.textContent = '設定';
+        document.body.append(settingsBackdrop, settingsForm, anchor);
+        const internals = runtime as unknown as {
+            settings: typeof settings;
+            activeDialog?: HTMLElement;
+            activeBackdrop?: HTMLElement;
+            activeLookupPopover?: HTMLElement;
+            activeLookupBackdrop?: HTMLElement;
+            mountLookupPopover(popover: HTMLElement, anchor?: HTMLElement, options?: { stackOverSettings?: boolean }): void;
+            dismissLookupPopover(): void;
+        };
+        internals.settings = settings;
+        internals.activeDialog = settingsForm;
+        internals.activeBackdrop = settingsBackdrop;
+
+        try {
+            const lookup = createReaderPopover('よむ', settings);
+            lookup.innerHTML = '<div class="jpdb-reader-popover-body">辞書</div>';
+            internals.mountLookupPopover(lookup, anchor, { stackOverSettings: true });
+
+            expect(settingsForm.isConnected).toBe(true);
+            expect(settingsBackdrop.isConnected).toBe(true);
+            expect(lookup.isConnected).toBe(true);
+            expect(lookup.getAttribute('aria-modal')).toBe('false');
+            expect(lookup.classList.contains('jpdb-reader-sheet')).toBe(false);
+            expect(lookup.querySelector('.jpdb-reader-sheet-handle')).toBeNull();
+            expect(document.querySelectorAll('.jpdb-reader-backdrop')).toHaveLength(1);
+            expect(internals.activeLookupPopover).toBe(lookup);
+            expect(internals.activeLookupBackdrop).toBeUndefined();
+
+            internals.dismissLookupPopover();
+
+            expect(lookup.isConnected).toBe(false);
+            expect(settingsForm.isConnected).toBe(true);
+            expect(settingsBackdrop.isConnected).toBe(true);
+            expect(internals.activeDialog).toBe(settingsForm);
+            expect(internals.activeBackdrop).toBe(settingsBackdrop);
         } finally {
             runtime.destroy();
             document.body.replaceChildren();

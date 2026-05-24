@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { nestedTextParsePlan } from '../../src/reader/nested-text-parse';
 import { detectGrammarHints, listLocalGrammarRuleExamples, renderGrammarHints, type GrammarHint } from '../../src/reader/study-tools';
 
 const ENGLISH_WORD_RE = /\b[A-Za-z]{3,}\b/u;
@@ -89,6 +90,21 @@ describe('local Japanese grammar hints', () => {
         expect(html).not.toContain('Details');
         expect(html).not.toContain('Example');
         expect(html).not.toContain('based on data');
+    });
+
+    it('makes Japanese grammar explanations lookupable without parsing the chrome labels', async () => {
+        const [hint] = detectGrammarHints('データに基づいて判断します。');
+        const html = await renderGrammarHints([hint], 'データに基づいて判断します。', { knownRuleIds: [], showKnown: false }, 'ja');
+        const root = document.createElement('div');
+        root.dataset.jpdbReaderRoot = 'true';
+        root.innerHTML = html;
+
+        const texts = nestedTextParsePlan(root, 20)?.targets.map(target => target.text) ?? [];
+
+        expect(texts).toContain('に基づく');
+        expect(texts).toContain('行動や判断の根拠や証拠を示します。');
+        expect(texts).toContain('データに基づいて');
+        expect(texts).not.toContain('検出箇所データに基づいて');
     });
 
     it('uses the matched Japanese form for English-titled grammar rules in Japanese UI', async () => {

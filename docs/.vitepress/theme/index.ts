@@ -6,13 +6,26 @@ import './custom.css';
 type InterfaceLanguage = 'en' | 'ja';
 
 const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
+const SETTINGS_CHANGE_EVENT = 'yomu-settings-change';
+const OPEN_SETTINGS_EVENT = 'yomu-open-settings';
 const LANGUAGE_EVENT = 'yomu-interface-language-change';
 const LANGUAGE_TOGGLE_ID = 'yomu-hud-language-toggle';
 const YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
+const DEFAULT_ACCENT_COLOR = '#5ea780';
+const HOSTED_OVERFLOW_SELECTOR = '[data-yomu-hosted-overflow]';
 const textNodeOriginals = new WeakMap<Text, string>();
 const attrOriginals = new WeakMap<Element, Map<string, string>>();
 let languageToggleObserver: MutationObserver | undefined;
+let accentSyncBound = false;
+let themeClassObserver: MutationObserver | undefined;
 let routeSyncBound = false;
+
+const HOSTED_OVERFLOW_LINKS = [
+    { text: 'Video Player', href: '/yomu-reader/video-player/index.html', target: '_self' },
+    { text: 'Local Audio', href: '/yomu-reader/local-audio' },
+    { text: 'Stats', href: '/yomu-reader/newtab/index.html?mode=stats', target: '_self' },
+    { text: 'Changelog', href: '/yomu-reader/changelog' },
+] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Skip to content': '本文へスキップ',
@@ -25,6 +38,9 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Study': '学習',
     'New Tab': '新しいタブ',
     'More': 'その他',
+    'Menu': 'メニュー',
+    'Settings': '設定',
+    'Open settings': '設定を開く',
     'Video Player': '動画プレイヤー',
     'Local Audio': 'ローカル音声',
     'Support': 'サポート',
@@ -107,7 +123,9 @@ function installHostedLanguageToggle() {
     if (languageToggleObserver) return;
     languageToggleObserver = new MutationObserver(() => {
         syncHostedLanguageToggle();
+        syncHostedOverflowMenu();
         localizeHostedDocsCopy();
+        syncHostedAccent();
     });
     languageToggleObserver.observe(document.body, { childList: true, subtree: true });
 }
@@ -146,6 +164,67 @@ function syncHostedLanguageToggleButton(button: HTMLButtonElement): void {
     if (button.textContent !== text) button.textContent = text;
     if (button.hasAttribute('title')) button.removeAttribute('title');
     if (button.getAttribute('aria-label') !== label) button.setAttribute('aria-label', label);
+}
+
+function installHostedOverflowMenu() {
+    syncHostedOverflowMenu();
+}
+
+function syncHostedOverflowMenu() {
+    const extra = document.querySelector<HTMLElement>('.VPNavBarExtra');
+    if (!extra) return;
+    extra.classList.add('yomu-hosted-extra');
+    const button = extra.querySelector<HTMLButtonElement>(':scope > button.button');
+    if (button) {
+        button.setAttribute('aria-label', translateHostedDocsString('Menu', effectiveInterfaceLanguage()));
+        button.removeAttribute('title');
+    }
+
+    const menu = extra.querySelector<HTMLElement>('.VPMenu');
+    if (!menu) return;
+    if (!menu.querySelector(HOSTED_OVERFLOW_SELECTOR)) menu.prepend(createHostedOverflowGroup());
+}
+
+function createHostedOverflowGroup(): HTMLElement {
+    const group = document.createElement('div');
+    group.className = 'group yomu-hosted-overflow-group';
+    group.dataset.yomuHostedOverflow = 'true';
+
+    const list = document.createElement('div');
+    list.className = 'yomu-hosted-overflow-list';
+    list.append(createHostedSettingsItem(), ...HOSTED_OVERFLOW_LINKS.map(createHostedOverflowLink));
+    group.append(list);
+    return group;
+}
+
+function createHostedSettingsItem(): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.className = 'yomu-hosted-overflow-link';
+    button.type = 'button';
+    button.textContent = 'Settings';
+    button.setAttribute('aria-label', 'Open settings');
+    button.addEventListener('click', () => openHostedSettings());
+    return button;
+}
+
+function createHostedOverflowLink(item: typeof HOSTED_OVERFLOW_LINKS[number]): HTMLAnchorElement {
+    const link = document.createElement('a');
+    link.className = 'yomu-hosted-overflow-link';
+    link.href = item.href;
+    link.textContent = item.text;
+    if (item.target) link.target = item.target;
+    return link;
+}
+
+function openHostedSettings(): void {
+    installHostedYomuRuntime();
+    const dispatch = () => {
+        if (document.querySelector('.jpdb-reader-settings')) return true;
+        window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT, { detail: { panel: 'basics' } }));
+        return Boolean(document.querySelector('.jpdb-reader-settings'));
+    };
+    dispatch();
+    [120, 360, 900].forEach(delay => window.setTimeout(dispatch, delay));
 }
 
 function languageToggleLabel(current: InterfaceLanguage, next: InterfaceLanguage): string {
@@ -238,6 +317,109 @@ function readStoredSettings(): Record<string, any> {
     }
 }
 
+function installHostedAccentSync(): void {
+    syncHostedAccent();
+    if (accentSyncBound) return;
+    accentSyncBound = true;
+    window.addEventListener(SETTINGS_CHANGE_EVENT, syncHostedAccent);
+    window.addEventListener('storage', event => {
+        if (event.key === SETTINGS_STORAGE_KEY || event.key === null) syncHostedAccent();
+    });
+    themeClassObserver = new MutationObserver(syncHostedAccent);
+    themeClassObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+}
+
+function syncHostedAccent(): void {
+    const accent = sanitizeHostedAccent(readStoredSettings().accentColor);
+    const root = document.documentElement;
+    const dark = root.classList.contains('dark');
+    const pageBackground = dark ? '#181b20' : '#ffffff';
+    const brandReadable = readableOn(accent, pageBackground, 4.5);
+    const brandHover = readableOn(mixHex(accent, dark ? '#ffffff' : '#000000', 0.18), pageBackground, 3.5);
+    const brandSoft = hexToRgba(accent, dark ? 0.22 : 0.16);
+    const accentText = readableTextOn(accent);
+
+    root.style.setProperty('--yomu-accent', accent);
+    root.style.setProperty('--yomu-accent-readable', brandReadable);
+    root.style.setProperty('--yomu-accent-ink', accentText);
+    root.style.setProperty('--vp-c-brand-1', brandReadable);
+    root.style.setProperty('--vp-c-brand-2', brandHover);
+    root.style.setProperty('--vp-c-brand-3', accent);
+    root.style.setProperty('--vp-c-brand-soft', brandSoft);
+    root.style.setProperty('--vp-button-brand-border', brandReadable);
+    root.style.setProperty('--vp-button-brand-bg', accent);
+    root.style.setProperty('--vp-button-brand-text', accentText);
+    root.style.setProperty('--vp-button-brand-hover-border', brandHover);
+    root.style.setProperty('--vp-button-brand-hover-bg', brandHover);
+    root.style.setProperty('--vp-button-brand-hover-text', accentText);
+    root.style.setProperty('--vp-button-brand-active-text', accentText);
+    root.style.setProperty('--vp-home-hero-name-color', brandReadable);
+    root.style.setProperty('--jpdb-reader-accent', accent);
+    root.style.setProperty('--jpdb-reader-accent-text', accentText);
+    root.style.setProperty('--jpdb-reader-accent-soft', brandSoft);
+
+    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', accent);
+}
+
+function sanitizeHostedAccent(value: unknown, fallback = DEFAULT_ACCENT_COLOR): string {
+    if (typeof value !== 'string') return fallback;
+    const trimmed = value.trim();
+    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+    const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+    return shortHex ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase() : fallback;
+}
+
+function readableTextOn(background: string): '#11161d' | '#ffffff' {
+    return contrastRatio(background, '#11161d') >= contrastRatio(background, '#ffffff') ? '#11161d' : '#ffffff';
+}
+
+function readableOn(color: string, background: string, targetContrast: number): string {
+    const safe = sanitizeHostedAccent(color);
+    if (contrastRatio(safe, background) >= targetContrast) return safe;
+    const toward = contrastRatio(background, '#000000') > contrastRatio(background, '#ffffff') ? '#000000' : '#ffffff';
+    for (let amount = 0.08; amount <= 1; amount += 0.08) {
+        const mixed = mixHex(safe, toward, amount);
+        if (contrastRatio(mixed, background) >= targetContrast) return mixed;
+    }
+    return toward;
+}
+
+function contrastRatio(a: string, b: string): number {
+    const l1 = relativeLuminance(a);
+    const l2 = relativeLuminance(b);
+    const light = Math.max(l1, l2);
+    const dark = Math.min(l1, l2);
+    return (light + 0.05) / (dark + 0.05);
+}
+
+function relativeLuminance(color: string): number {
+    const [red, green, blue] = hexToRgb(color).map(value => {
+        const channel = value / 255;
+        return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function mixHex(from: string, to: string, amount: number): string {
+    const a = hexToRgb(from);
+    const b = hexToRgb(to);
+    return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, '0')).join('')}`;
+}
+
+function hexToRgb(color: string): [number, number, number] {
+    const safe = sanitizeHostedAccent(color);
+    return [
+        parseInt(safe.slice(1, 3), 16),
+        parseInt(safe.slice(3, 5), 16),
+        parseInt(safe.slice(5, 7), 16),
+    ];
+}
+
+function hexToRgba(color: string, alpha: number): string {
+    const [red, green, blue] = hexToRgb(color);
+    return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, alpha)).toFixed(2)})`;
+}
+
 function browserPrefersJapanese(): boolean {
     const languages = [...(navigator.languages ?? []), navigator.language];
     return languages.some(language => language?.toLowerCase().startsWith('ja'));
@@ -246,6 +428,8 @@ function browserPrefersJapanese(): boolean {
 function installHostedDocsEnhancements(): void {
     syncLandmarks();
     installHostedLanguageToggle();
+    installHostedOverflowMenu();
+    installHostedAccentSync();
     localizeHostedDocsCopy();
     scheduleHostedDocsLocalization();
     installHostedYomuRuntime();
@@ -253,19 +437,24 @@ function installHostedDocsEnhancements(): void {
     routeSyncBound = true;
     window.addEventListener(LANGUAGE_EVENT, () => {
         syncHostedLanguageToggle();
+        syncHostedOverflowMenu();
         scheduleHostedDocsLocalization();
     });
     window.addEventListener('hashchange', () => window.requestAnimationFrame(() => {
         syncLandmarks();
         syncHostedLanguageToggle();
+        syncHostedOverflowMenu();
         scheduleHostedDocsLocalization();
         installHostedYomuRuntime();
+        syncHostedAccent();
     }));
     window.addEventListener('popstate', () => window.requestAnimationFrame(() => {
         syncLandmarks();
         syncHostedLanguageToggle();
+        syncHostedOverflowMenu();
         scheduleHostedDocsLocalization();
         installHostedYomuRuntime();
+        syncHostedAccent();
     }));
 }
 

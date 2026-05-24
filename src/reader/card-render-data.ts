@@ -4,6 +4,7 @@ import type { JpdbClient } from './jpdb';
 import type { JpdbPublicPitchClient } from './jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from './jpdb-vocabulary';
 import { Logger } from './logger';
+import { localPitchPatternFromMeta } from './popup-render';
 import type { JPDBCard, JPDBDeck, ReaderSettings } from './types';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from './yomitan';
 
@@ -15,6 +16,7 @@ const CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS = 4_000;
 const CARD_RENDER_ANKI_TIMEOUT_MS = 2_500;
 const CARD_RENDER_DECK_TIMEOUT_MS = 1_500;
 const CARD_RENDER_PITCH_TIMEOUT_MS = 6_500;
+const CARD_RENDER_LOCAL_PITCH_GRACE_MS = 120;
 const CARD_RENDER_SHARED_DECK_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export interface CardRenderData {
@@ -29,6 +31,7 @@ export interface CardRenderData {
 
 export interface CardRenderDataLoad {
     localEntries: Promise<YomitanTermEntry[]>;
+    localMetaEntries?: Promise<YomitanMetaEntry[]>;
     all: Promise<CardRenderData>;
 }
 
@@ -42,11 +45,11 @@ export interface CardRenderDataLoaderDependencies {
     isJpdbBackedCard: (card: JPDBCard) => boolean;
 }
 
-export function loadingCardRenderData(localEntries: YomitanTermEntry[], ankiLookup: AnkiLookupResult): CardRenderData & { loading: boolean } {
+export function loadingCardRenderData(localEntries: YomitanTermEntry[], ankiLookup: AnkiLookupResult, metaEntries: YomitanMetaEntry[] = []): CardRenderData & { loading: boolean } {
     return {
         localEntries,
         kanjiEntries: [],
-        metaEntries: [],
+        metaEntries,
         ankiLookup,
         jpdbDecks: [],
         ankiDecks: [],
@@ -85,8 +88,13 @@ export class CardRenderDataLoader {
 
     private fetch(card: JPDBCard): CardRenderDataLoad {
         const localEntries = this.loadLocalTermEntries(card);
-        const all = this.loadAll(card, localEntries);
-        return { localEntries, all };
+        const localMetaEntries = this.loadLocalMetaEntries(card).then(metaEntries => {
+            this.applyLocalPitchAccent(card, metaEntries);
+            return metaEntries;
+        });
+        const publicPitch = this.loadPublicPitchAfterLocalPitchGrace(card, localMetaEntries);
+        const all = this.loadAll(card, localEntries, localMetaEntries, publicPitch);
+        return { localEntries, localMetaEntries, all };
     }
 
     private withFallback<T>(card: JPDBCard, timeoutMs: number, detail: string, promise: Promise<T>, fallback: T): Promise<T> {
@@ -129,6 +137,11 @@ export class CardRenderDataLoader {
         }), [] as string[]);
     }
 
+    private async loadPublicPitchAfterLocalPitchGrace(card: JPDBCard, localMetaEntries: Promise<YomitanMetaEntry[]>): Promise<string[]> {
+        await Promise.race([localMetaEntries, delay(CARD_RENDER_LOCAL_PITCH_GRACE_MS)]);
+        return this.loadPublicPitch(card);
+    }
+
     private loadJpdbVocabularyInfo(card: JPDBCard): Promise<JpdbVocabularyInfo | null> {
         const settings = this.settings();
         if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
@@ -164,12 +177,17 @@ export class CardRenderDataLoader {
         }), [] as string[]);
     }
 
-    private loadAll(card: JPDBCard, localEntries: Promise<YomitanTermEntry[]>): Promise<CardRenderData> {
+    private loadAll(
+        card: JPDBCard,
+        localEntries: Promise<YomitanTermEntry[]>,
+        localMetaEntries: Promise<YomitanMetaEntry[]>,
+        publicPitch: Promise<string[]>,
+    ): Promise<CardRenderData> {
         return Promise.all([
             localEntries,
             this.loadLocalKanjiEntries(card),
-            this.loadLocalMetaEntries(card),
-            this.loadPublicPitch(card),
+            localMetaEntries,
+            publicPitch,
             this.loadAnkiLookup(card),
             this.loadJpdbDecks(card),
             this.loadAnkiDecks(card),
@@ -178,6 +196,12 @@ export class CardRenderDataLoader {
             if (!card.pitchAccent.length && jpdbPublicPitch.length) card.pitchAccent = jpdbPublicPitch;
             return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo };
         });
+    }
+
+    private applyLocalPitchAccent(card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
+        if (card.pitchAccent.length) return;
+        const pitch = localPitchPatternFromMeta(card.reading, metaEntries);
+        if (pitch) card.pitchAccent = [pitch];
     }
 
     private cachedJpdbDecks(settings: ReaderSettings): Promise<JPDBDeck[]> {

@@ -4,6 +4,7 @@ import { resolve, join } from 'node:path';
 import { chromium } from 'playwright';
 
 const userscriptPath = resolve(process.env.YOMU_E2E_USERSCRIPT ?? 'dist/yomu.user.js');
+const readerCssPath = resolve(process.env.YOMU_E2E_READER_CSS ?? 'dist/yomu.css');
 const artifactsDir = resolve(process.env.YOMU_E2E_ARTIFACTS ?? 'artifacts/subtitle-e2e/latest');
 const youtubeUrl = process.env.YOMU_E2E_YOUTUBE_URL ?? 'https://www.youtube.com/watch?v=TAorfFcb8_g&t=5050s';
 const fixtureVideoUrl = process.env.YOMU_E2E_VIDEO_URL ?? '';
@@ -32,9 +33,9 @@ Then they are holding a camera.
 `;
 
 const youtubeTimedText = `<timedtext><body>
-<p t="5040000" d="3000"><s t="0">これは</s></p>
-<p t="5043000" d="3000"><s t="0">これが</s></p>
-<p t="5046000" d="3500"><s t="0">ルーターとデフォルトゲートウェイなら</s></p>
+<p t="5040000" d="2000"><s t="0">これは一つ目です。</s></p>
+<p t="5044000" d="2200"><s t="0">次の行も表示します。</s></p>
+<p t="5049000" d="2400"><s t="0">前後の行を保ちます。</s></p>
 </body></timedtext>`;
 
 function assert(condition, message, details = {}) {
@@ -80,6 +81,11 @@ function genericHtml(origin) {
     video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #050608; }
     .caption-window { position: absolute; left: 18%; right: 18%; bottom: 78px; text-align: center; font-size: 28px; color: white; text-shadow: 0 2px 4px black; }
     aside { border-left: 1px solid #2c3b4e; padding-left: 18px; color: #9fb0c3; }
+    @media (max-width: 700px) {
+      main { display: block; padding: 0; }
+      .player { border: 0; }
+      aside { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -218,6 +224,7 @@ function send(res, body, contentType, status = 200) {
 
 async function ensureUserscript(page) {
     if (await page.locator('.jpdb-subtitle-player').count()) return;
+    await installUserscriptStyleResource(page);
     try {
         await page.addScriptTag({ path: userscriptPath });
     } catch {
@@ -230,6 +237,30 @@ async function ensureUserscript(page) {
         });
     }
     await page.waitForSelector('.jpdb-subtitle-player', { timeout: 10000 });
+}
+
+async function installUserscriptStyleResource(page) {
+    const readerCss = readFileSync(readerCssPath, 'utf8');
+    const polyfill = `
+            window.GM_getResourceText = name => name === 'yomuCss' ? ${JSON.stringify(readerCss)} : '';
+            window.GM_addStyle = css => {
+                const style = document.createElement('style');
+                style.textContent = css;
+                document.head.append(style);
+                return style;
+            };
+        `;
+    try {
+        await page.addScriptTag({ content: polyfill });
+    } catch {
+        const client = await page.context().newCDPSession(page);
+        await client.send('Runtime.evaluate', {
+            expression: polyfill,
+            awaitPromise: false,
+            allowUnsafeEvalBlockedByCSP: true,
+            replMode: true,
+        });
+    }
 }
 
 async function installFixtureRoutes(page) {
@@ -491,6 +522,8 @@ function drawerLayoutRects(state, phase) {
 function assertDrawerLayoutState(site, phase, state, layout) {
     assert(hasTranscriptPanel(layout.panel), `${site.name}: missing transcript panel during ${phase}`, state);
     assert(hasUsableVideo(layout.video), `${site.name}: missing usable video during ${phase}`, state);
+    if (site.expectPlacement) assert(layout.placement === site.expectPlacement, `${site.name}: unexpected transcript placement during ${phase}`, state);
+    if (site.expectEdgeToEdgePanel) assert(isEdgeToEdgePanel(layout.panel, state.viewport), `${site.name}: compact transcript panel is not edge-to-edge during ${phase}`, state);
     assert(!rectsOverlap(layout.panel, layout.video), `${site.name}: transcript panel overlaps video during ${phase}`, state);
     assert(panelFitsViewport(layout.panel, state.viewport), `${site.name}: transcript panel leaves viewport during ${phase}`, state);
     assert(!state.blockingDialogVisible, `${site.name}: blocking page dialog is covering the verification screenshot`, state);
@@ -515,6 +548,10 @@ function panelFitsViewport(panel, viewport) {
         && panel.bottom <= viewport.height + 1;
 }
 
+function isEdgeToEdgePanel(panel, viewport) {
+    return Math.abs(panel.left) <= 1 && Math.abs(panel.width - viewport.width) <= 1;
+}
+
 function assertDrawerResize(site, phase, resize, layout, state) {
     if (phase !== 'resized') return;
     assert(resize.resized, `${site.name}: transcript drawer resize handle was not available`, state);
@@ -527,6 +564,7 @@ function assertDrawerResize(site, phase, resize, layout, state) {
 
 function assertExpectedSubtitleState(site, phase, state) {
     if (site.expectRows !== false) assert(state.rows > 0, `${site.name}: transcript lines did not render during ${phase}`, state);
+    if (site.minRows) assert(state.rows >= site.minRows, `${site.name}: expected the full transcript window during ${phase}`, state);
     if (!site.expectNativeCaptions) return;
     assert(!state.yomuCaptionsActive, `${site.name}: generic page captions were hidden by YouTube-only caption suppression`, state);
     assert(state.nativeCaptionVisible, `${site.name}: page native captions are not visible`, state);
@@ -566,6 +604,7 @@ async function runYouTubeWithFallback(browser) {
             url: youtubeUrl,
             viewport: { width: 2048, height: 1050 },
             route: installYouTubeFixtureRoutes,
+            minRows: 3,
             readyTimeout: 30000,
         });
     }
@@ -583,6 +622,7 @@ async function runYouTubeWithFallback(browser) {
             url: youtubeUrl,
             viewport: { width: 2048, height: 1050 },
             route: installYouTubeFixtureRoutes,
+            minRows: 3,
             readyTimeout: 30000,
         });
         return { ...fallback, fallbackReason: error instanceof Error ? error.message : String(error) };
@@ -600,6 +640,14 @@ try {
             name: 'generic',
             url: `${fixture.origin}/generic`,
             viewport: { width: 1600, height: 950 },
+            expectNativeCaptions: true,
+        },
+        {
+            name: 'generic-mobile',
+            url: `${fixture.origin}/generic`,
+            viewport: { width: 390, height: 844 },
+            expectPlacement: 'bottom',
+            expectEdgeToEdgePanel: true,
             expectNativeCaptions: true,
         },
         {

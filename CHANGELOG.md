@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.37] - 2026-05-24
+
+### Added
+
+- Added a development userscript launcher and shipped readable reader CSS as a Greasy Fork `@resource`, with release verification for the external CSS asset and userscript metadata.
+
+### Changed
+
+- Refined settings, hosted new-tab, subtitle, and nested lookup behavior, including stacked settings popups and subtitle-player click lookup handling.
+- Refreshed the Yomu icon assets and tightened hosted docs/new-tab styling.
+
+### Fixed
+
+- Hardened subtitle parsing, native-track handling, JPDB source parsing, performance caches, and settings form behavior with broader regression coverage.
+
 ## [0.4.36] - 2026-05-24
 
 ### Fixed

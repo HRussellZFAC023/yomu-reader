@@ -17,21 +17,26 @@ export interface TranscriptHydrationPlan {
 
 export function planTranscriptHydrationIndexes(options: TranscriptHydrationPlanOptions): TranscriptHydrationPlan {
     const indexes = new Set<number>();
-    addPreferredIndexes(indexes, options);
     addVisibleIndexes(indexes, options);
-    const nextCursor = addBackgroundIndexes(indexes, options);
+    const cappedOptions = { ...options, maxRows: Math.max(options.maxRows, indexes.size) };
+    addPreferredIndexes(indexes, cappedOptions);
+    const nextCursor = addBackgroundIndexes(indexes, cappedOptions);
     return { indexes: [...indexes].sort((a, b) => a - b), nextCursor };
 }
 
 function addPreferredIndexes(indexes: Set<number>, options: TranscriptHydrationPlanOptions): void {
     if (options.preferredIndex >= 0) {
         for (const index of preferredHydrationRange(options)) {
+            if (shouldStopHydrating(indexes, index, options)) break;
             addHydrationIndex(indexes, index, options);
             if (indexes.size >= options.maxRows) break;
         }
         return;
     }
-    for (let index = 0; index < fallbackHydrationRows(options); index++) indexes.add(index);
+    for (let index = 0; index < fallbackHydrationRows(options); index++) {
+        if (shouldStopHydrating(indexes, index, options)) break;
+        addHydrationIndex(indexes, index, options);
+    }
 }
 
 function preferredHydrationRange(options: TranscriptHydrationPlanOptions): number[] {
@@ -44,6 +49,10 @@ function addHydrationIndex(indexes: Set<number>, index: number, options: Transcr
     if (index >= 0 && index < options.rowCount) indexes.add(index);
 }
 
+function shouldStopHydrating(indexes: Set<number>, index: number, options: TranscriptHydrationPlanOptions): boolean {
+    return indexes.size >= options.maxRows && !indexes.has(index);
+}
+
 function fallbackHydrationRows(options: TranscriptHydrationPlanOptions): number {
     return Math.min(options.fallbackRows ?? 6, options.rowCount);
 }
@@ -53,7 +62,6 @@ function addVisibleIndexes(indexes: Set<number>, options: TranscriptHydrationPla
     if (!rows) return;
     for (const row of rows.elements) {
         addVisibleTranscriptRowIndex(indexes, row, rows.scrollerRect, options);
-        if (indexes.size >= options.maxRows) break;
     }
 }
 

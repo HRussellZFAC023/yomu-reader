@@ -9,7 +9,7 @@ import { CardPopoverRenderer } from './card-popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from './card-render-data';
 import { cardKey } from './card-utils';
 import { normalizeCardStates } from './card-state';
-import { APP_NAME, IMMERSION_KIT_SOURCE_ID, INTERFACE_LANGUAGE_CHANGE_EVENT, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, VIDEO_PLAYER_PAGE_URL } from './constants';
+import { APP_NAME, IMMERSION_KIT_SOURCE_ID, INTERFACE_LANGUAGE_CHANGE_EVENT, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, OPEN_SETTINGS_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, VIDEO_PLAYER_PAGE_URL } from './constants';
 import { DictionarySourceStateController } from './dictionary-source-state';
 import { DictionaryStyleController } from './dictionary-styles';
 import { FactoryResetCoordinator, FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS } from './factory-reset-coordinator';
@@ -89,7 +89,7 @@ import {
     type ActivePointerTextLookup,
     type PointerTextLookup,
 } from './pointer-text-lookup';
-import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, popoverMaxHeightSetting, shouldUseSheet } from './popover-shell';
+import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, popoverMaxHeightSetting, refreshForcedReaderPopoverSurface, shouldUseSheet } from './popover-shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from './popup-navigation';
 import {
     buildRtkComponentSummaries,
@@ -161,6 +161,7 @@ const BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
 const SINGLE_HIRAGANA_MORA_RE = /^[\u3040-\u309fー]$/u;
 type ReviewShortcutKey = keyof ReaderSettings['shortcuts'];
 type InterfaceLanguageChangeDetail = Partial<{ language: unknown; interfaceLanguage: unknown }>;
+type OpenSettingsEventDetail = Partial<{ panel: unknown; tab: unknown }>;
 
 const TWO_BUTTON_REVIEW_SHORTCUTS: Array<[ReviewShortcutKey, JPDBGrade]> = [
     ['gradeFail', 'fail'],
@@ -186,6 +187,11 @@ function matchedReviewShortcutGrade(
 function interfaceLanguageChangeDetail(detail: InterfaceLanguageChangeDetail | undefined): InterfaceLanguage | null {
     const value = detail?.language ?? detail?.interfaceLanguage;
     return value === 'auto' || value === 'en' || value === 'ja' ? value : null;
+}
+
+function openSettingsPanelDetail(detail: OpenSettingsEventDetail | undefined): string | undefined {
+    const value = detail?.panel ?? detail?.tab;
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 function normalizedLookupText(text: string): string {
@@ -304,6 +310,7 @@ interface CardDisplayOptions {
     pointerTextLookup?: ActivePointerTextLookup;
     insideReaderPopup?: boolean;
     userGesture?: boolean;
+    stackOverSettings?: boolean;
 }
 
 type PointerTextDisplayOptions = Pick<CardDisplayOptions, 'navigation' | 'preservePosition' | 'hoverLookupGeneration' | 'userGesture'>;
@@ -340,6 +347,7 @@ interface TextLookupOptions {
     userGesture?: boolean;
     trigger?: 'modal' | 'hover';
     hoverLookupGeneration?: number;
+    stackOverSettings?: boolean;
 }
 
 interface TextLookupDisplayContext {
@@ -351,6 +359,7 @@ interface TextLookupDisplayContext {
     previousNavigationEntry?: PopupNavigationEntry;
     userGesture?: boolean;
     hoverLookupGeneration?: number;
+    stackOverSettings?: boolean;
 }
 
 interface RenderDefinitionSourcesOptions {
@@ -379,6 +388,19 @@ interface MountPopoverOptions {
     preservePosition?: boolean;
     hoverLookupKey?: string;
     pointerTextLookup?: ActivePointerTextLookup;
+    stackOverSettings?: boolean;
+}
+
+interface SettingsDialogStack {
+    form: HTMLElement;
+    backdrop?: HTMLElement;
+}
+
+interface DismissOptions {
+    suppressHoverTarget?: boolean;
+    preserveNavigation?: boolean;
+    preserveHoverGeneration?: boolean;
+    forceAll?: boolean;
 }
 
 interface PopoverMountState {
@@ -562,6 +584,7 @@ export class ReaderApp {
         reload: () => location.reload(),
     });
     private settingsDialog?: SettingsDialogController;
+    private stackedSettingsDialog?: SettingsDialogStack;
     private activePopover?: HTMLElement;
     private activeBackdrop?: HTMLElement;
     private lastCard?: JPDBCard;
@@ -1085,6 +1108,11 @@ export class ReaderApp {
     }
 
     private bindEvents(): void {
+        addWindowEventListener(OPEN_SETTINGS_EVENT, event => {
+            if (this.isDestroyed) return;
+            this.showSettings(openSettingsPanelDetail((event as CustomEvent<OpenSettingsEventDetail>).detail));
+        }, { signal: this.abortController.signal });
+
         addWindowEventListener(INTERFACE_LANGUAGE_CHANGE_EVENT, event => {
             if (this.isDestroyed) return;
             const language = interfaceLanguageChangeDetail((event as CustomEvent<InterfaceLanguageChangeDetail>).detail);
@@ -1097,6 +1125,7 @@ export class ReaderApp {
             if (target.closest?.('[data-jpdb-reader-root] [data-action="kanji"][data-kanji]')) return;
             if (target.closest?.('[data-yomu-jpdb-addon] [data-action]')) return;
             if (target.closest?.('[data-settings-preview-lookup]')) return;
+            if (target.closest?.('.jpdb-reader-settings .jpdb-reader-word')) return;
             const word = target.closest?.('.jpdb-reader-word') as HTMLElement | null;
             if (!word && target.closest?.('[data-jpdb-reader-root] a.gloss-link[data-dictionary-lookup]')) return;
             if (!word) {
@@ -1122,13 +1151,14 @@ export class ReaderApp {
                 return;
             }
             const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
-            if (!this.settings.lookupOnClick && !insideReaderPopup) return;
+            const insideSubtitlePlayer = Boolean(word.closest('.jpdb-subtitle-player'));
+            if (!this.settings.lookupOnClick && !insideReaderPopup && !insideSubtitlePlayer) return;
 
             event.preventDefault();
             event.stopPropagation();
             this.prepareModalLookupFromPointer(event);
             this.suppressSelectionLookupUntil = Date.now() + 350;
-            if (word.closest('.jpdb-subtitle-player') && this.settings.subtitleMiningPause) pauseActiveVideo();
+            if (insideSubtitlePlayer && this.settings.subtitleMiningPause) pauseActiveVideo();
             void this.showWord(word, { trigger: 'click', userGesture: true });
         }, { capture: true });
 
@@ -2153,6 +2183,7 @@ export class ReaderApp {
             previousNavigationEntry: this.textLookupPreviousNavigationEntryForOptions(trigger, navigation, options),
             userGesture: options.userGesture,
             hoverLookupGeneration: options.hoverLookupGeneration,
+            stackOverSettings: options.stackOverSettings,
         };
     }
 
@@ -2258,7 +2289,7 @@ export class ReaderApp {
             : [];
     }
 
-    private textLookupCardOptions(context: TextLookupDisplayContext): Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry' | 'userGesture' | 'hoverLookupGeneration'> {
+    private textLookupCardOptions(context: TextLookupDisplayContext): Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry' | 'userGesture' | 'hoverLookupGeneration' | 'stackOverSettings'> {
         return {
             trigger: context.trigger,
             navigation: context.navigation,
@@ -2266,6 +2297,7 @@ export class ReaderApp {
             previousNavigationEntry: context.previousNavigationEntry,
             userGesture: context.userGesture,
             hoverLookupGeneration: context.hoverLookupGeneration,
+            stackOverSettings: context.stackOverSettings,
         };
     }
 
@@ -2529,11 +2561,12 @@ export class ReaderApp {
         return (await this.dictionaries.lookup(surface, surface, 1, this.settings.dictionaryPreferences).catch(() => []))[0];
     }
 
-    private async showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; hoverLookupGeneration?: number; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean } = {}): Promise<void> {
+    private async showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; hoverLookupGeneration?: number; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean; stackOverSettings?: boolean } = {}): Promise<void> {
         const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
+        const stackOverSettings = options.stackOverSettings || Boolean(word.closest('.jpdb-reader-settings'));
         const card = this.cardForRenderedWord(word);
         if (!card) {
-            await this.handleMissingRenderedWordCard(word, options, insideReaderPopup);
+            await this.handleMissingRenderedWordCard(word, { ...options, stackOverSettings }, insideReaderPopup);
             return;
         }
         this.rememberRenderedWordMiningContext(word, card, insideReaderPopup);
@@ -2553,6 +2586,7 @@ export class ReaderApp {
             hoverLookupGeneration: options.hoverLookupGeneration,
             insideReaderPopup: context.insideReaderPopup,
             userGesture: options.userGesture,
+            stackOverSettings,
         });
     }
 
@@ -2564,23 +2598,24 @@ export class ReaderApp {
 
     private async handleMissingRenderedWordCard(
         word: HTMLElement,
-        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean; hoverLookupGeneration?: number },
+        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean; hoverLookupGeneration?: number; stackOverSettings?: boolean },
         insideReaderPopup: boolean,
     ): Promise<void> {
         const vid = Number(word.dataset.vid);
         const sid = Number(word.dataset.sid);
         if (insideReaderPopup && await this.lookupUncachedPopupWord(word, options)) return;
         if (!insideReaderPopup && await this.lookupUncachedPageWord(word, options)) {
-            this.scheduleVisiblePageReparse();
+            if (!options.stackOverSettings) this.scheduleVisiblePageReparse();
             return;
         }
+        if (options.stackOverSettings) return;
         log.warn('Clicked word missing from cache; scheduling page reparse', { vid, sid });
         this.scheduleVisiblePageReparse();
     }
 
     private async lookupUncachedPageWord(
         word: HTMLElement,
-        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean; hoverLookupGeneration?: number },
+        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean; hoverLookupGeneration?: number; stackOverSettings?: boolean },
     ): Promise<boolean> {
         const expression = normalizedLookupText(readerWordSurfaceText(word));
         if (!isLookupableJapaneseText(expression)) return false;
@@ -2594,13 +2629,14 @@ export class ReaderApp {
             userGesture: options.userGesture,
             trigger,
             hoverLookupGeneration: options.hoverLookupGeneration,
+            stackOverSettings: options.stackOverSettings,
         });
         return true;
     }
 
     private async lookupUncachedPopupWord(
         word: HTMLElement,
-        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean; hoverLookupGeneration?: number },
+        options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean; hoverLookupGeneration?: number; stackOverSettings?: boolean },
     ): Promise<boolean> {
         const expression = normalizedLookupText(readerWordSurfaceText(word));
         if (!isLookupableJapaneseText(expression)) return false;
@@ -2681,15 +2717,15 @@ export class ReaderApp {
         return { kind: 'word', card: this.lastCard, sentence: this.lastCardSentence };
     }
 
-    private showTokenList(tokens: JPDBToken[], selected: string, anchor?: HTMLElement, options: Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry'> = {}): void {
+    private showTokenList(tokens: JPDBToken[], selected: string, anchor?: HTMLElement, options: Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry' | 'stackOverSettings'> = {}): void {
         if (!tokens.length) return;
         const trigger = options.trigger === 'hover' ? 'hover' : 'modal';
         const navigation = options.navigation ?? 'reset';
         this.prepareTokenListNavigation(trigger, navigation);
         const popover = this.createPopover();
         setInnerHtml(popover, this.renderTokenListHtml(tokens, selected));
-        this.installTokenListHandlers(popover, tokens, anchor, { trigger, navigation, previousNavigationEntry: options.previousNavigationEntry });
-        this.mountPopover(popover, anchor, { mode: trigger, preservePosition: options.preservePosition });
+        this.installTokenListHandlers(popover, tokens, anchor, { trigger, navigation, previousNavigationEntry: options.previousNavigationEntry, stackOverSettings: options.stackOverSettings });
+        this.mountPopover(popover, anchor, { mode: trigger, preservePosition: options.preservePosition, stackOverSettings: options.stackOverSettings });
         void this.parsePopoverJapanese(popover);
     }
 
@@ -2728,7 +2764,7 @@ export class ReaderApp {
         popover: HTMLElement,
         tokens: JPDBToken[],
         anchor: HTMLElement | undefined,
-        context: { trigger: 'modal' | 'hover'; navigation: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry },
+        context: { trigger: 'modal' | 'hover'; navigation: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; stackOverSettings?: boolean },
     ): void {
         popover.addEventListener('click', event => {
             const button = (event.target as HTMLElement).closest('button[data-vid]') as HTMLButtonElement | null;
@@ -2741,7 +2777,7 @@ export class ReaderApp {
         button: HTMLButtonElement,
         tokens: JPDBToken[],
         anchor: HTMLElement | undefined,
-        context: { trigger: 'modal' | 'hover'; navigation: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry },
+        context: { trigger: 'modal' | 'hover'; navigation: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; stackOverSettings?: boolean },
     ): void {
         const card = this.getCachedCard(Number(button.dataset.vid), Number(button.dataset.sid));
         if (!card) return;
@@ -2750,6 +2786,7 @@ export class ReaderApp {
             navigation: context.navigation,
             preservePosition: true,
             previousNavigationEntry: context.previousNavigationEntry,
+            stackOverSettings: context.stackOverSettings,
         });
     }
 
@@ -2839,6 +2876,7 @@ export class ReaderApp {
             preservePosition: this.initialCardPreservePosition(context),
             hoverLookupKey: context.options.hoverLookupKey,
             pointerTextLookup: context.options.pointerTextLookup,
+            stackOverSettings: context.options.stackOverSettings,
         });
         this.installInitialCardBehaviors(popover, card, sentence, context, null);
         return { instantLocalEntries: null, requestId: context.requestId };
@@ -2929,6 +2967,17 @@ export class ReaderApp {
             if (renderState.fullRenderCompleted || !this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
             clearNestedParseState(popover);
             setInnerHtml(popover, this.cardPopoverRenderer.render(card, sentence, trigger, loadingCardRenderData(localEntries, this.lastAnkiLookup ?? fallbackAnkiLookup)));
+            refreshForcedReaderPopoverSurface(popover, this.settings);
+            this.repositionActivePopover();
+            void this.parsePopoverJapanese(popover);
+        });
+        if (!renderData.localMetaEntries) return;
+        void Promise.all([renderData.localEntries, renderData.localMetaEntries]).then(([localEntries, metaEntries]) => {
+            if (renderState.fullRenderCompleted || !this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
+            this.applyPitchAccentToRenderedWords(card);
+            clearNestedParseState(popover);
+            setInnerHtml(popover, this.cardPopoverRenderer.render(card, sentence, trigger, loadingCardRenderData(localEntries, this.lastAnkiLookup ?? fallbackAnkiLookup, metaEntries)));
+            refreshForcedReaderPopoverSurface(popover, this.settings);
             this.repositionActivePopover();
             void this.parsePopoverJapanese(popover);
         });
@@ -2943,8 +2992,10 @@ export class ReaderApp {
     ): void {
         this.lastAnkiLookup = data.ankiLookup;
         this.applyAnkiLookupToRenderedWords(card, data.ankiLookup);
+        this.applyPitchAccentToRenderedWords(card);
         clearNestedParseState(popover);
         setInnerHtml(popover, this.cardPopoverRenderer.render(card, sentence, trigger, { ...data, loading: false }));
+        refreshForcedReaderPopoverSurface(popover, this.settings);
 
         this.repositionActivePopover();
         void this.parsePopoverJapanese(popover);
@@ -3302,7 +3353,7 @@ export class ReaderApp {
         if (!this.shouldRenderKanjiImmersionKit()) return '';
         const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
         return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.closedAttributes(sourceStateKey)}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.attributes(sourceStateKey)}>
                 <summary class="jpdb-reader-local-title">${uiText(this.settings.interfaceLanguage, 'immersionKit')}</summary>
                 <div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, 'loadingExamples')}</div>
             </details>
@@ -3693,7 +3744,7 @@ export class ReaderApp {
     private renderImmersionKitMount(): string {
         if (!this.settings.immersionKitEnabled) return '';
         return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.closedAttributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID))}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.attributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID))}>
                 <summary class="jpdb-reader-local-title">${uiText(this.settings.interfaceLanguage, 'immersionKit')}</summary>
                 <div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, 'loadingExamples')}</div>
             </details>
@@ -3738,26 +3789,38 @@ export class ReaderApp {
         unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup]' });
         clearNestedParseState(form);
         if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.canParseJapanese()) return;
-        const plan = nestedSettingsTextParsePlan(form, 320);
+        const plan = nestedSettingsTextParsePlan(form, 640);
         if (!plan) return;
-        await this.parseNestedJapaneseContent(form, plan, () => this.isCurrentSettingsRoot(form));
+        await this.parseNestedJapaneseContent(form, plan, () => this.isCurrentSettingsRoot(form), {
+            includeLocalPitch: false,
+            skipJpdb: true,
+        });
     }
 
     private async parseNestedJapaneseContent(
         root: HTMLElement,
         plan: NestedParsePlan,
         isCurrent: () => boolean,
+        options: ReaderParserParseOptions = {},
     ): Promise<void> {
+        const parseLoadingId = `${Date.now()}:${Math.random()}`;
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
+        root.dataset.jpdbReaderParseLoadingId = parseLoadingId;
         try {
-            const parsed = await this.parseJapanese(plan.targets.map(target => target.text), { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true });
-            if (!isCurrent() || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
+            const parsed = await this.parseJapanese(plan.targets.map(target => target.text), {
+                allowJpdbTimeoutFallback: true,
+                jpdbTimeoutMs: 1_200,
+                ...options,
+            });
+            if (!isCurrent()
+                || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
+                || root.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             root.dataset.jpdbReaderParseKey = plan.parseKey;
             this.afterNestedJapaneseParsed(parsed);
         } catch {
         } finally {
-            clearNestedParseLoadingKey(root, plan.parseKey);
+            clearNestedParseLoadingKey(root, plan.parseKey, parseLoadingId);
         }
     }
 
@@ -3995,7 +4058,7 @@ export class ReaderApp {
             applyTheme: settings => this.applyTheme(settings),
             applyAccentColor: color => this.applyAccentColor(color),
             applyWordColors: settings => this.applyWordColors(settings),
-            lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor }),
+            lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
             parseSettingsJapanese: form => this.parseSettingsJapanese(form),
             installFab: () => this.installFab(),
             refreshDictionaryStyles: () => this.refreshDictionaryStyles(),
@@ -4018,7 +4081,7 @@ export class ReaderApp {
     }
 
     private mountSettingsDialog(backdrop: HTMLElement, form: HTMLFormElement): void {
-        this.dismiss();
+        this.dismiss({ forceAll: true });
         document.body.append(backdrop, form);
         this.activeBackdrop = backdrop;
         this.activePopover = form;
@@ -4034,8 +4097,14 @@ export class ReaderApp {
         anchor?: HTMLElement,
         options: MountPopoverOptions = {},
     ): void {
-        const state = this.popoverMountState(anchor, options);
-        this.dismiss({ suppressHoverTarget: false, preserveNavigation: true, preserveHoverGeneration: state.mode === 'hover' });
+        const settingsStack = this.settingsStackForMountedPopover(options);
+        if (settingsStack) forceReaderPopoverSurface(popover, this.settings);
+        const state = this.popoverMountState(anchor, { ...options, stackOverSettings: Boolean(settingsStack) });
+        if (settingsStack) {
+            this.prepareSettingsStackedPopover(settingsStack);
+        } else {
+            this.dismiss({ suppressHoverTarget: false, preserveNavigation: true, preserveHoverGeneration: state.mode === 'hover' });
+        }
         this.appendMountedPopover(popover, state);
         this.activateMountedPopover(popover, state, options);
         this.dictionarySourceState.installTracking(popover);
@@ -4045,12 +4114,42 @@ export class ReaderApp {
 
     private popoverMountState(anchor: HTMLElement | undefined, options: MountPopoverOptions): PopoverMountState {
         const mode = options.mode ?? 'modal';
-        const backdrop = mode === 'hover' || shouldUseSheet(this.settings) ? undefined : createReaderBackdrop(() => this.dismiss());
+        const backdrop = options.stackOverSettings || mode === 'hover' || shouldUseSheet(this.settings)
+            ? undefined
+            : createReaderBackdrop(() => this.dismiss());
         const resolvedAnchor = connectedElement(anchor) ?? connectedElement(this.activePopoverAnchor);
         const anchorRect = popoverAnchorRect(resolvedAnchor, this.activePopoverAnchorRect);
         const previousPopoverRect = options.preservePosition ? this.activePopover?.getBoundingClientRect() : undefined;
         const previousHoverPointerPosition = this.hoverPopoverPointerPosition;
         return { mode, backdrop, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
+    }
+
+    private settingsStackForMountedPopover(options: MountPopoverOptions): SettingsDialogStack | undefined {
+        return this.activeSettingsLookupStack() ?? (options.stackOverSettings ? this.currentSettingsDialogStack() : undefined);
+    }
+
+    private activeSettingsLookupStack(): SettingsDialogStack | undefined {
+        if (!this.stackedSettingsDialog) return undefined;
+        return this.activePopover !== this.stackedSettingsDialog.form ? this.stackedSettingsDialog : undefined;
+    }
+
+    private currentSettingsDialogStack(): SettingsDialogStack | undefined {
+        const form = this.activePopover?.classList.contains('jpdb-reader-settings') ? this.activePopover : undefined;
+        if (!form?.isConnected) return undefined;
+        const backdrop = this.activeBackdrop?.classList.contains('jpdb-reader-backdrop') ? this.activeBackdrop : undefined;
+        return { form, backdrop };
+    }
+
+    private prepareSettingsStackedPopover(stack: SettingsDialogStack): void {
+        this.stackedSettingsDialog = stack;
+        if (this.activePopover && this.activePopover !== stack.form) {
+            this.immersionPopover.abortPendingRequests(this.activePopover);
+            this.activePopover.remove();
+        }
+        if (this.activeBackdrop && this.activeBackdrop !== stack.backdrop) this.activeBackdrop.remove();
+        this.activePopoverResizeObserver?.disconnect();
+        this.activePopoverResizeObserver = undefined;
+        this.activeBackdrop = undefined;
     }
 
     private appendMountedPopover(popover: HTMLElement, state: PopoverMountState): void {
@@ -4274,7 +4373,11 @@ export class ReaderApp {
         this.hoverWatchTimer = window.setTimeout(tick, Math.max(90, this.settings.hoverCloseDelayMs));
     }
 
-    private dismiss(options: { suppressHoverTarget?: boolean; preserveNavigation?: boolean; preserveHoverGeneration?: boolean } = { suppressHoverTarget: true }): void {
+    private dismiss(options: DismissOptions = { suppressHoverTarget: true }): void {
+        if (!options.forceAll && this.shouldDismissStackedLookupOnly()) {
+            this.dismissStackedLookupOverSettings(options);
+            return;
+        }
         const hadSettingsDialog = Boolean(this.activePopover?.classList.contains('jpdb-reader-settings'));
         if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
         this.clearHoverDismissState(options);
@@ -4284,12 +4387,42 @@ export class ReaderApp {
         this.cardRenderRequest++;
         this.restoreSettingsPreviewState();
         this.removeReaderDialogNodes();
+        this.stackedSettingsDialog = undefined;
         this.clearActivePopoverState();
         if (!options.preserveNavigation) {
             this.navigation.clearWord();
             this.navigation.clearKanji();
         }
         if (hadSettingsDialog) this.schedulePendingDictionaryRescan();
+    }
+
+    private shouldDismissStackedLookupOnly(): boolean {
+        return Boolean(this.stackedSettingsDialog && this.activePopover && this.activePopover !== this.stackedSettingsDialog.form);
+    }
+
+    private dismissStackedLookupOverSettings(options: DismissOptions): void {
+        if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
+        this.clearHoverDismissState(options);
+        this.audio.stop();
+        this.immersionPopover.stopAudio();
+        this.updateSuppressedHoverTarget(options);
+        this.cardRenderRequest++;
+        this.nativeTitleGuard.restore();
+        this.activePopover?.remove();
+        this.activeBackdrop?.remove();
+        this.activePopoverResizeObserver?.disconnect();
+        const stack = this.stackedSettingsDialog;
+        this.clearActivePopoverState();
+        if (stack?.form.isConnected) {
+            this.activePopover = stack.form;
+            this.activeBackdrop = stack.backdrop;
+            stack.form.focus();
+        }
+        this.stackedSettingsDialog = undefined;
+        if (!options.preserveNavigation) {
+            this.navigation.clearWord();
+            this.navigation.clearKanji();
+        }
     }
 
     private clearHoverDismissState(options: { preserveHoverGeneration?: boolean }): void {

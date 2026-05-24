@@ -52,7 +52,7 @@ export class VisiblePageScanner {
         if (!targets.length) return;
 
         try {
-            const parsed = await this.dependencies.parseJapanese(targets.map(target => target.text), scanParseOptions());
+            const parsed = await this.dependencies.parseJapanese(targets.map(target => target.text), scanParseOptions(this.dependencies.getSettings()));
             await this.applyTokens(targets, parsed);
             this.preloadParsed(parsed);
         } catch {
@@ -79,7 +79,7 @@ export class VisiblePageScanner {
     private async parseAndApplyTargets(targets: ScanTextTarget[]): Promise<void> {
         for (let index = 0; index < targets.length; index += VISIBLE_SCAN_PARSE_BATCH_SIZE) {
             const batch = targets.slice(index, index + VISIBLE_SCAN_PARSE_BATCH_SIZE);
-            const parsed = await this.dependencies.parseJapanese(batch.map(target => target.text), scanParseOptions());
+            const parsed = await this.dependencies.parseJapanese(batch.map(target => target.text), scanParseOptions(this.dependencies.getSettings()));
             await this.applyTokens(batch, parsed);
             this.preloadParsed(parsed);
             if (index + VISIBLE_SCAN_PARSE_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
@@ -123,9 +123,9 @@ function waitForVisibleScanTurn(): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, 0));
 }
 
-function scanParseOptions(): VisibleScanParseOptions {
+function scanParseOptions(settings: ReaderSettings): VisibleScanParseOptions {
     return {
         jpdbTimeoutMs: VISIBLE_SCAN_PARSE_TIMEOUT_MS,
-        includeLocalPitch: false,
+        includeLocalPitch: settings.showPitchAccent && settings.localDictionariesEnabled,
     };
 }

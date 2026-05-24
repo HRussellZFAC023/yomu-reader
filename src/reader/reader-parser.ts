@@ -6,6 +6,7 @@ import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 import { YomitanDictionaryStore, glossaryToText, type YomitanMetaEntry, type YomitanTermEntry } from './yomitan';
 
 const LOCAL_MATCH_LIMIT = 40;
+const LOCAL_PITCH_CACHE_LIMIT = 800;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6_000;
 const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
 const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
@@ -16,6 +17,7 @@ export interface ReaderParserParseOptions {
     jpdbTimeoutMs?: number;
     allowJpdbTimeoutFallback?: boolean;
     includeLocalPitch?: boolean;
+    skipJpdb?: boolean;
 }
 
 export interface ReaderParserDependencies {
@@ -26,6 +28,7 @@ export interface ReaderParserDependencies {
 
 export class ReaderParser {
     private localCardCache = new Map<string, JPDBCard>();
+    private localPitchCache = new Map<string, Promise<string>>();
 
     constructor(private dependencies: ReaderParserDependencies) {}
 
@@ -37,7 +40,7 @@ export class ReaderParser {
             hasApiKey: Boolean(settings.apiKey.trim()),
             localFallback: settings.localDictionariesEnabled,
         });
-        if (settings.apiKey.trim()) {
+        if (settings.apiKey.trim() && !options.skipJpdb) {
             try {
                 const parsePromise = jpdb.parse(paragraphs);
                 const timeoutMs = options.allowJpdbTimeoutFallback ? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS : 0;
@@ -86,6 +89,7 @@ export class ReaderParser {
 
     clearLocalCache(): void {
         this.localCardCache.clear();
+        this.localPitchCache.clear();
     }
 
     localCardFromEntry(entry: YomitanTermEntry): JPDBCard {
@@ -191,12 +195,39 @@ export class ReaderParser {
         if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return '';
         const lookupTermMeta = this.dependencies.dictionaries.lookupTermMeta as ((expression: string, limit: number, preferences?: ReaderSettings['dictionaryPreferences']) => Promise<YomitanMetaEntry[]>) | undefined;
         if (typeof lookupTermMeta !== 'function') return '';
-        const metaEntries = await lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).catch(error => {
+        const key = localPitchCacheKey(card, settings);
+        const cached = this.localPitchCache.get(key);
+        if (cached) return cached;
+        const promise = lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).then(metaEntries => {
+            return localPitchPatternFromMeta(card.reading, metaEntries);
+        }).catch(error => {
             log.warn('Local pitch lookup failed while parsing text', { term: card.spelling }, error);
-            return [] as YomitanMetaEntry[];
+            return '';
         });
-        return localPitchPatternFromMeta(card.reading, metaEntries);
+        this.rememberLocalPitchCacheEntry(key, promise);
+        return promise;
     }
+
+    private rememberLocalPitchCacheEntry(key: string, promise: Promise<string>): void {
+        this.localPitchCache.set(key, promise);
+        while (this.localPitchCache.size > LOCAL_PITCH_CACHE_LIMIT) {
+            const oldest = this.localPitchCache.keys().next().value;
+            if (typeof oldest !== 'string') break;
+            this.localPitchCache.delete(oldest);
+        }
+    }
+}
+
+function localPitchCacheKey(card: JPDBCard, settings: ReaderSettings): string {
+    return JSON.stringify({
+        spelling: card.spelling,
+        reading: card.reading,
+        dictionaries: settings.dictionaryPreferences.map(preference => ({
+            name: preference.name,
+            enabled: preference.enabled,
+            priority: preference.priority,
+        })),
+    });
 }
 
 export function fallbackLookupTermAtOffset(text: string, offset: number): string {

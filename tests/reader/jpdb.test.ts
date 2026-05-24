@@ -11,7 +11,7 @@ import { CardRenderDataLoader } from '../../src/reader/card-render-data';
 import { createAudioPreviewCard } from '../../src/reader/card-utils';
 import { IMMERSION_KIT_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../../src/reader/constants';
 import { deinflectJapaneseTerm, termRulesMatch } from '../../src/reader/deinflect';
-import { renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../src/reader/definition-source-render';
+import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../src/reader/definition-source-render';
 import { DictionarySourceStateController } from '../../src/reader/dictionary-source-state';
 import { applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, nearestReadableSentenceForElement, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords } from '../../src/reader/dom';
 import { FloatingButtonController } from '../../src/reader/floating-button';
@@ -31,7 +31,7 @@ import { buildNewTabPalette, isYomuNewTabUrl, resolveNewTabBrandAssets } from '.
 import { ObjectUrlCache } from '../../src/reader/object-url-cache';
 import { createPageMediaUrl } from '../../src/reader/page-media-url';
 import { ImageOcrController, normalizeOcrResult, parseGoogleLensUploadHtml, readFallbackOcrResult } from '../../src/reader/ocr';
-import { createReaderPopover, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, SHEET_HEIGHT_STORAGE_KEY, shouldUseSheet } from '../../src/reader/popover-shell';
+import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, SHEET_HEIGHT_STORAGE_KEY, shouldUseSheet } from '../../src/reader/popover-shell';
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { DEFAULT_YOMU_PUBLIC_PROXY_URL, fetchWithCorsFallbacks, proxyUrlCandidates } from '../../src/reader/proxy-fetch';
 import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderPitch, renderRtkInfo, summarizeLearnerGlossary, tokensOverlappingSelection } from '../../src/reader/popup-render';
@@ -44,7 +44,7 @@ import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, applyUrlBootstrapSettings, def
 import { installSourceRowDrag, localizeSettingsForm, readDictionaryLookupLinks, readFormSettings, renderAudioSourceEditor, renderDictionaryLookupLinkEditor, renderDictionarySourceRows, renderKanjiSourceRows, renderRecommendedDictionaries, renderSettingsForm, syncStickyBottomSheetAvailability, updateDictionaryLookupLinkEditor } from '../../src/reader/settings-form';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/site-parsers';
 import { KANJI_UCHISEN_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/source-sections';
-import { detectGrammarHints, renderGrammarHints } from '../../src/reader/study-tools';
+import { detectGrammarHints, renderGrammarHints, translateJapaneseSentence } from '../../src/reader/study-tools';
 import { READER_CSS } from '../../src/reader/styles';
 import { normalizeSubtitleCues, parseSubtitleText } from '../../src/reader/subtitle-cues';
 import { computeSubtitleDrawerLayout } from '../../src/reader/subtitle-layout';
@@ -915,6 +915,58 @@ describe('reader helpers', () => {
         }
     });
 
+    it('stacks lookup popovers over settings without dismissing the settings dialog', () => {
+        const app = new ReaderApp();
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+        const settings = { ...DEFAULT_SETTINGS, popupMode: 'sheet' as const };
+        const settingsForm = document.createElement('form');
+        settingsForm.className = 'jpdb-reader-settings';
+        settingsForm.dataset.jpdbReaderRoot = 'true';
+        const settingsBackdrop = createReaderBackdrop(() => undefined);
+        const anchor = document.createElement('span');
+        anchor.textContent = '設定';
+        document.body.append(settingsBackdrop, settingsForm, anchor);
+        const internals = app as unknown as {
+            settings: typeof settings;
+            activePopover?: HTMLElement;
+            activeBackdrop?: HTMLElement;
+            mountPopover(popover: HTMLElement, anchor?: HTMLElement, options?: { mode?: 'modal' | 'hover'; stackOverSettings?: boolean }): void;
+            dismiss(): void;
+        };
+        internals.settings = settings;
+        internals.activePopover = settingsForm;
+        internals.activeBackdrop = settingsBackdrop;
+
+        try {
+            const lookup = createReaderPopover('よむ', settings);
+            lookup.innerHTML = '<div class="jpdb-reader-popover-body">辞書</div>';
+            internals.mountPopover(lookup, anchor, { mode: 'modal', stackOverSettings: true });
+
+            expect(settingsForm.isConnected).toBe(true);
+            expect(settingsBackdrop.isConnected).toBe(true);
+            expect(lookup.isConnected).toBe(true);
+            expect(lookup.getAttribute('aria-modal')).toBe('false');
+            expect(lookup.classList.contains('jpdb-reader-sheet')).toBe(false);
+            expect(lookup.querySelector('.jpdb-reader-sheet-handle')).toBeNull();
+            expect(internals.activePopover).toBe(lookup);
+
+            internals.dismiss();
+
+            expect(lookup.isConnected).toBe(false);
+            expect(settingsForm.isConnected).toBe(true);
+            expect(settingsBackdrop.isConnected).toBe(true);
+            expect(internals.activePopover).toBe(settingsForm);
+            expect(internals.activeBackdrop).toBe(settingsBackdrop);
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
     it('resizes the mobile settings drawer from its top handle and stores the chosen height', () => {
         localStorage.removeItem(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY);
         const drawer = document.createElement('form');
@@ -952,6 +1004,8 @@ describe('reader helpers', () => {
         expect(html).toContain('jpdb-reader-settings-drag-handle');
         expect(SETTINGS_CSS).toContain('--jpdb-reader-settings-drawer-height');
         expect(SETTINGS_CSS).toContain('.jpdb-reader-settings-drag-handle');
+        expect(SETTINGS_CSS).toContain('.jpdb-reader-settings-drag-handle:hover::before');
+        expect(SUBTITLES_YOUTUBE_CSS).toContain('.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize:hover::before');
     });
 
     it('leaves source summary clicks to native details toggling even when tracking is installed twice', () => {
@@ -1022,6 +1076,52 @@ describe('reader helpers', () => {
         const attributes = controller.attributes('definition-source:translation');
         expect(attributes).toContain('data-source-initial-open="false"');
         expect(attributes).not.toContain(' open');
+    });
+
+    it('renders Immersion Kit mounts through the shared dictionary source state', () => {
+        localStorage.removeItem('jpdb-reader-source-open-state');
+        const app = new ReaderApp();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            immersionKitEnabled: true,
+            dictionarySourcesInitiallyExpanded: true,
+            jpdbDefinitionsEnabled: false,
+            studyTranslationEnabled: false,
+            studyGrammarEnabled: false,
+        };
+        const internals = app as unknown as {
+            settings: typeof settings;
+            dictionarySourceState: DictionarySourceStateController;
+            renderDefinitionSources(card: JPDBCard, entries: never[], sentence?: string): string;
+            renderKanjiImmersionKitMount(): string;
+        };
+        internals.settings = settings;
+
+        try {
+            const root = document.createElement('div');
+            root.innerHTML = internals.renderDefinitionSources(card, []);
+            const details = root.querySelector<HTMLDetailsElement>('[data-immersion-kit]');
+
+            expect(details?.dataset.sourceStateKey).toBe(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID));
+            expect(details?.dataset.sourceInitialOpen).toBe('true');
+            expect(details?.open).toBe(true);
+
+            internals.dictionarySourceState.installTracking(root);
+            details!.open = false;
+            details!.dispatchEvent(new Event('toggle', { bubbles: true }));
+
+            const rerendered = document.createElement('div');
+            rerendered.innerHTML = internals.renderDefinitionSources(card, []);
+            const rerenderedDetails = rerendered.querySelector<HTMLDetailsElement>('[data-immersion-kit]');
+
+            expect(rerenderedDetails?.dataset.sourceInitialOpen).toBe('false');
+            expect(rerenderedDetails?.open).toBe(false);
+            expect(internals.renderKanjiImmersionKitMount()).toContain('data-source-initial-open="true"');
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+            localStorage.removeItem('jpdb-reader-source-open-state');
+        }
     });
 
     it('renders the mining drawer affordance as a bar instead of text', () => {
@@ -1617,6 +1717,37 @@ describe('reader helpers', () => {
         expect(tokens[0].pitchClass).toBe('heiban');
         expect(renderTokensToHtml('計量する', tokens, DEFAULT_SETTINGS))
             .toContain('jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban');
+    });
+
+    it('deduplicates repeated local pitch metadata lookups while parsing', async () => {
+        const findTermMatches = vi.fn().mockResolvedValue([{
+            entry: {
+                expression: '計量',
+                reading: 'けいりょう',
+                glossary: ['measurement'],
+                dictionary: 'JMdict',
+            },
+            start: 0,
+            end: 2,
+            surface: '計量',
+        }]);
+        const lookupTermMeta = vi.fn().mockResolvedValue([{
+            expression: '計量',
+            mode: 'pitch',
+            data: { reading: 'けいりょう', pitches: [{ position: 0 }] },
+            dictionary: 'Pitch',
+        }]);
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true, showPitchAccent: true }),
+            jpdb: {} as never,
+            dictionaries: { findTermMatches, lookupTermMeta } as never,
+        });
+
+        const parsed = await parser.parse(['計量する', '計量する']);
+
+        expect(lookupTermMeta).toHaveBeenCalledTimes(1);
+        expect(parsed[0][0].pitchClass).toBe('heiban');
+        expect(parsed[1][0].pitchClass).toBe('heiban');
     });
 
     it('segments Japanese text without a JPDB API key or imported local dictionaries', async () => {
@@ -7248,9 +7379,10 @@ describe('reader helpers', () => {
         });
 
         expect(layout.placement).toBe('bottom');
-        expect(layout.width).toBe(700);
+        expect(layout.left).toBe(0);
+        expect(layout.width).toBe(720);
         expect(layout.height).toBe(360);
-        expect(layout.top + layout.height).toBe(890);
+        expect(layout.top + layout.height).toBe(900);
     });
 
     it('applies generic video inset through a reversible adapter', () => {
@@ -8029,6 +8161,30 @@ describe('reader helpers', () => {
             expect.objectContaining({ name: 'Primary', alias: 'Main', enabled: true, priority: 0, allowSecondarySearches: true }),
             expect.objectContaining({ name: 'Disabled', alias: 'Off', enabled: false, priority: 1 }),
         ]);
+    });
+
+    it('keeps sentence translation targeting English when the UI is Japanese', async () => {
+        const originalFetch = globalThis.fetch;
+        const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>(async (_input, _init) => new Response(JSON.stringify({
+            sentences: [{ trans: 'Sophie, move forward.' }],
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        Object.defineProperty(globalThis, 'fetch', {
+            configurable: true,
+            value: fetchMock,
+        });
+
+        try {
+            await expect(translateJapaneseSentence('ソフィー、前へ移れ。', 'ja')).resolves.toBe('Sophie, move forward.');
+
+            const requestedUrl = String(fetchMock.mock.calls[0]?.[0] ?? '');
+            const targetUrl = new URL(requestedUrl).searchParams.get('url') ?? requestedUrl;
+            const translateUrl = new URL(targetUrl);
+            expect(translateUrl.hostname).toBe('translate.googleapis.com');
+            expect(translateUrl.searchParams.get('sl')).toBe('ja');
+            expect(translateUrl.searchParams.get('tl')).toBe('en');
+        } finally {
+            Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
+        }
     });
 
     it('detects grammar hints with stable guide links', () => {
@@ -10449,12 +10605,19 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps native YouTube captions visible while Yomu is using DOM caption fallback', () => {
+    it('suppresses native YouTube captions with CSS while Yomu is using DOM caption fallback', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
             configurable: true,
             value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
         });
+        document.body.innerHTML = '<div id="movie_player"></div>';
+        const player = document.querySelector('#movie_player') as HTMLElement & {
+            setOption: ReturnType<typeof vi.fn>;
+            unloadModule: ReturnType<typeof vi.fn>;
+        };
+        player.setOption = vi.fn();
+        player.unloadModule = vi.fn();
 
         try {
             const active = applySubtitleNativeTrackModes({
@@ -10468,9 +10631,12 @@ describe('reader helpers', () => {
                 lastYomuCaptionsActive: false,
             });
 
-            expect(active).toBe(false);
-            expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(false);
+            expect(active).toBe(true);
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(true);
+            expect(player.setOption).not.toHaveBeenCalled();
+            expect(player.unloadModule).not.toHaveBeenCalled();
         } finally {
+            document.body.innerHTML = '';
             document.documentElement.classList.remove('jpdb-subtitle-yomu-captions-active');
             Object.defineProperty(window, 'location', {
                 configurable: true,
@@ -10479,7 +10645,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps native YouTube captions visible while a selected track has no Yomu cues yet', () => {
+    it('suppresses native YouTube captions with CSS while a selected track is loading', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
             configurable: true,
@@ -10498,8 +10664,8 @@ describe('reader helpers', () => {
                 lastYomuCaptionsActive: false,
             });
 
-            expect(active).toBe(false);
-            expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(false);
+            expect(active).toBe(true);
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(true);
         } finally {
             document.documentElement.classList.remove('jpdb-subtitle-yomu-captions-active');
             Object.defineProperty(window, 'location', {
@@ -10608,6 +10774,32 @@ describe('reader helpers', () => {
 
         expect(plan.indexes).toEqual([3, 4, 5, 7, 10]);
         expect(plan.nextCursor).toBe(11);
+    });
+
+    it('always includes visible transcript rows even when they exceed the warmup cap', () => {
+        const scroller = document.createElement('div');
+        scroller.getBoundingClientRect = () => new DOMRect(0, 100, 320, 220);
+        for (let index = 1; index <= 5; index++) {
+            const row = document.createElement('div');
+            row.className = 'jpdb-subtitle-list-row';
+            row.dataset.rowIndex = String(index);
+            row.getBoundingClientRect = () => new DOMRect(0, 104 + index * 30, 320, 26);
+            scroller.append(row);
+        }
+
+        const plan = planTranscriptHydrationIndexes({
+            preferredIndex: -1,
+            rowCount: 10,
+            cursor: 8,
+            scroller,
+            activeBehind: 1,
+            activeAhead: 1,
+            maxRows: 3,
+            backgroundBatch: 2,
+        });
+
+        expect(plan.indexes).toEqual([1, 2, 3, 4, 5]);
+        expect(plan.nextCursor).toBe(8);
     });
 
     it('discovers YouTube caption tracks from the current player response', () => {
@@ -12151,6 +12343,21 @@ describe('reader helpers', () => {
         });
 
         expect(readPageCaptionText(video)).toBe('エンジニア プログラミング する');
+    });
+
+    it('allows non-Japanese page captions only when a real selected caption track asks for them', () => {
+        document.body.innerHTML = '<video></video><div class="lesson-player"><span>today we read subtitles</span></div>';
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const caption = document.querySelector('span') as HTMLElement;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 100, right: 740, top: 80, bottom: 440, width: 640, height: 360 }),
+        });
+        Object.defineProperty(caption, 'getBoundingClientRect', {
+            value: () => ({ left: 180, right: 660, top: 380, bottom: 420, width: 480, height: 40 }),
+        });
+
+        expect(readPageCaptionText(video)).toBe('');
+        expect(readPageCaptionText(video, undefined, { allowNonJapanese: true })).toBe('today we read subtitles');
     });
 
     it('does not treat asbplayer helper DOM as page captions', () => {

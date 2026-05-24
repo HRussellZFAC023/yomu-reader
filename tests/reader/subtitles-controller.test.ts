@@ -3,6 +3,21 @@ import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles';
 import type { JPDBToken, ReaderSettings } from '../../src/reader/types';
 
+function withViewport<T>(width: number, height: number, callback: () => T): T {
+    const widthDescriptor = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+    const heightDescriptor = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
+    try {
+        return callback();
+    } finally {
+        if (widthDescriptor) Object.defineProperty(window, 'innerWidth', widthDescriptor);
+        else delete (window as unknown as Record<string, unknown>).innerWidth;
+        if (heightDescriptor) Object.defineProperty(window, 'innerHeight', heightDescriptor);
+        else delete (window as unknown as Record<string, unknown>).innerHeight;
+    }
+}
+
 describe('SubtitlePlayerController', () => {
     afterEach(() => {
         vi.useRealTimers();
@@ -57,6 +72,47 @@ describe('SubtitlePlayerController', () => {
             .map(button => button.dataset.action);
         expect(sidePanelActions).toContain('load');
         expect(sidePanelActions).toContain('load-secondary');
+    });
+
+    it('exposes the compact subtitle drawer resize handle as an accentable keyboard separator', () => {
+        withViewport(640, 820, () => {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                localDictionariesEnabled: false,
+            };
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async () => [],
+                onSettingsChange: () => undefined,
+            });
+
+            try {
+                (controller as unknown as { install: () => void }).install();
+                (controller as unknown as { openTracksPanel: () => void }).openTracksPanel();
+
+                const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                Object.defineProperty(panel, 'getBoundingClientRect', {
+                    configurable: true,
+                    value: () => new DOMRect(0, Number.parseFloat(panel.style.top) || 443, Number.parseFloat(panel.style.width) || 640, Number.parseFloat(panel.style.height) || 377),
+                });
+                const handle = panel.querySelector<HTMLElement>('[data-resize-transcript]')!;
+
+                expect(handle.tagName).toBe('DIV');
+                expect(handle.getAttribute('role')).toBe('separator');
+                expect(handle.getAttribute('tabindex')).toBe('0');
+                expect(handle.getAttribute('aria-orientation')).toBe('horizontal');
+                expect(handle.getAttribute('aria-valuemin')).toBe('220');
+                expect(handle.getAttribute('aria-valuenow')).toBe('377');
+
+                handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
+
+                expect(panel.style.height).toBe('425px');
+                expect(handle.getAttribute('aria-valuenow')).toBe('425');
+            } finally {
+                controller.destroy();
+            }
+        });
     });
 
     it('requests YouTube timedtext through the userscript bridge before page fetch', async () => {
@@ -576,7 +632,7 @@ describe('SubtitlePlayerController', () => {
 
         expect(parseJapanese).not.toHaveBeenCalled();
         expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['字幕0', '字幕1', '字幕2', '字幕3']);
-        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: false });
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: true });
         expect(parseJapaneseBatch.mock.calls[1]?.[0]).toEqual(['字幕4', '字幕5', '字幕6', '字幕7']);
     });
 
@@ -605,7 +661,7 @@ describe('SubtitlePlayerController', () => {
         const second = internals.parseCueHtmlBatch(['字幕0'], testSettings);
 
         expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
-        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: false });
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: true });
         resolveBatch([[]]);
 
         const [firstResult, secondResult] = await Promise.all([first, second]);
@@ -646,7 +702,12 @@ describe('SubtitlePlayerController', () => {
         internals.currentCue = cues[1];
 
         internals.openLinesPanel();
-        document.querySelector<HTMLElement>('.jpdb-subtitle-list-row')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        const row = document.querySelector<HTMLElement>('.jpdb-subtitle-list-row')!;
+        row.querySelector<HTMLElement>('.jpdb-subtitle-row-text')!.innerHTML = '<span class="jpdb-reader-word" data-vid="1" data-sid="2" tabindex="0">日本語</span>の行';
+        row.querySelector<HTMLElement>('.jpdb-reader-word')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        expect(video.currentTime).toBe(0);
+
+        row.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
         expect(video.currentTime).toBeCloseTo(90 + settings.subtitleSeekPadding);
     });

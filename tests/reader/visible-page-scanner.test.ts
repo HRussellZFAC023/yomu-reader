@@ -38,7 +38,7 @@ describe('VisiblePageScanner', () => {
             expect(parseJapanese.mock.calls[0]?.[0]).toHaveLength(80);
             expect(parseJapanese.mock.calls[1]?.[0]).toHaveLength(80);
             expect(parseJapanese.mock.calls[2]?.[0]).toHaveLength(10);
-            expect(parseJapanese.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: false });
+            expect(parseJapanese.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: true });
             expect(pauseMutationObserver).toHaveBeenCalledTimes(11);
         } finally {
             HTMLElement.prototype.getBoundingClientRect = originalRect;

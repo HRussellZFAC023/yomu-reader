@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "0.4.36",
+  "version": "0.4.37",
   "private": true,
   "type": "module",
   "description": "よむ: a small JPDB/Yomitan popup dictionary and subtitle miner userscript.",
@@ -23,9 +23,10 @@
     "tampermonkey"
   ],
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "node scripts/dev-userscript.mjs",
+    "dev:vite": "vite --host 127.0.0.1",
     "dev:ipad": "node scripts/dev-ipad.mjs",
-    "build": "vite build && vite build --config vite.newtab.config.ts && node scripts/format-userscript-css.cjs",
+    "build": "vite build && node scripts/build-reader-css.mjs && vite build --config vite.newtab.config.ts && node scripts/format-userscript-css.cjs && node scripts/annotate-userscript-compliance.cjs",
     "build:extension": "npm run build && node scripts/build-extension.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

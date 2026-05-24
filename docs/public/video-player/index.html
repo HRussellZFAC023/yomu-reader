@@ -22,6 +22,7 @@
       --soft-line: rgba(255,255,255,.08);
       --accent: #6cc98e;
       --accent-ink: #0b1710;
+      --accent-soft: rgba(108,201,142,.2);
       --shadow: rgba(0,0,0,.32);
       --radius: 8px;
     }
@@ -36,6 +37,7 @@
       --soft-line: rgba(20,30,45,.08);
       --accent: #5ea780;
       --accent-ink: #ffffff;
+      --accent-soft: rgba(94,167,128,.16);
       --shadow: rgba(20,30,45,.12);
       --jpdb-reader-bg: #ffffff;
       --jpdb-reader-surface: #f7f8fa;
@@ -57,6 +59,7 @@
       --soft-line: rgba(255,255,255,.08);
       --accent: #6cc98e;
       --accent-ink: #0b1710;
+      --accent-soft: rgba(108,201,142,.2);
       --shadow: rgba(0,0,0,.32);
       --jpdb-reader-bg: #181b20;
       --jpdb-reader-surface: #20242b;
@@ -116,6 +119,91 @@
       display: flex;
       align-items: center;
       gap: 8px;
+    }
+
+    .overflow-menu {
+      position: relative;
+    }
+
+    .overflow-menu > summary {
+      list-style: none;
+    }
+
+    .overflow-menu > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .overflow-summary {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      min-width: 38px;
+      height: 38px;
+      min-height: 38px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .hamburger-icon {
+      width: 18px;
+      height: 14px;
+      background:
+        linear-gradient(currentColor, currentColor) 0 0 / 18px 2px no-repeat,
+        linear-gradient(currentColor, currentColor) 0 6px / 18px 2px no-repeat,
+        linear-gradient(currentColor, currentColor) 0 12px / 18px 2px no-repeat;
+    }
+
+    .overflow-panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 20;
+      display: grid;
+      gap: 2px;
+      min-width: 172px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: 0 14px 36px var(--shadow);
+    }
+
+    .overflow-menu:not([open]) .overflow-panel {
+      display: none;
+    }
+
+    .overflow-panel a,
+    .overflow-panel button {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      width: 100%;
+      min-height: 34px;
+      padding: 0 10px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 720;
+      line-height: 1.2;
+      text-align: left;
+      text-decoration: none;
+    }
+
+    .overflow-panel a:hover,
+    .overflow-panel a:focus-visible,
+    .overflow-panel button:hover,
+    .overflow-panel button:focus-visible,
+    .overflow-summary:hover,
+    .overflow-summary:focus-visible {
+      background: var(--accent-soft);
+      color: var(--ink);
+      outline: 2px solid color-mix(in srgb, var(--accent) 46%, transparent);
+      outline-offset: 2px;
     }
 
     .VPNavBarAppearance.appearance {
@@ -343,7 +431,7 @@
 
       .topbar {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto auto;
+        grid-template-columns: minmax(0, 1fr) auto auto auto;
         align-items: center;
         gap: 12px 10px;
       }
@@ -364,6 +452,12 @@
         grid-column: 3;
         grid-row: 1;
         min-width: 54px;
+        justify-self: end;
+      }
+
+      .overflow-menu {
+        grid-column: 4;
+        grid-row: 1;
         justify-self: end;
       }
 
@@ -404,6 +498,17 @@
           </button>
         </div>
         <button class="language-button" type="button" data-language-toggle aria-label="Switch Yomu HUD to Japanese" lang="ja">あ</button>
+        <details class="overflow-menu" data-overflow-menu>
+          <summary class="overflow-summary" aria-label="Menu" data-overflow-summary>
+            <span class="hamburger-icon" aria-hidden="true"></span>
+          </summary>
+          <div class="overflow-panel" role="menu">
+            <button type="button" role="menuitem" data-settings-trigger>Settings</button>
+            <a href="../newtab/index.html" role="menuitem" data-menu-study>Study</a>
+            <a href="../local-audio" role="menuitem" data-menu-local-audio>Local Audio</a>
+            <a href="../support" role="menuitem" data-menu-support>Support</a>
+          </div>
+        </details>
         <label class="file-button">
           Open video
           <input type="file" accept="video/*,.mkv,.mp4,.m4v,.mov,.webm,.ogv" data-video-input>
@@ -432,8 +537,13 @@
       const status = document.querySelector('[data-status]');
       const themeToggle = document.querySelector('[data-theme-toggle]');
       const languageToggle = document.querySelector('[data-language-toggle]');
+      const overflowMenu = document.querySelector('[data-overflow-menu]');
+      const overflowSummary = document.querySelector('[data-overflow-summary]');
+      const settingsTrigger = document.querySelector('[data-settings-trigger]');
       const themeKey = 'yomu-page-theme';
       const settingsKey = 'jpdb-popup-reader-settings';
+      const settingsChangeEvent = 'yomu-settings-change';
+      const openSettingsEvent = 'yomu-open-settings';
       const languageEvent = 'yomu-interface-language-change';
       let objectUrl = '';
       let currentVideoName = '';
@@ -449,6 +559,12 @@
           emptyStatus: 'Use subtitle controls for tracks, lines, and mining after opening a video.',
           chooseVideo: 'Choose a browser-supported video file.',
           opening: name => `Opening ${name}...`,
+          menu: 'Menu',
+          settings: 'Settings',
+          openSettings: 'Open settings',
+          study: 'Study',
+          localAudio: 'Local Audio',
+          support: 'Support',
           switchToLightTheme: 'Switch to light theme',
           switchToDarkTheme: 'Switch to dark theme',
           switchToJapanese: 'Switch Yomu HUD to Japanese',
@@ -464,6 +580,12 @@
           emptyStatus: '動画を開いたあと、字幕コントロールでトラック、行、マイニングを使えます。',
           chooseVideo: 'ブラウザーで再生できる動画ファイルを選んでください。',
           opening: name => `${name}を開いています...`,
+          menu: 'メニュー',
+          settings: '設定',
+          openSettings: '設定を開く',
+          study: '学習',
+          localAudio: 'ローカル音声',
+          support: 'サポート',
           switchToLightTheme: 'ライトテーマに切り替え',
           switchToDarkTheme: 'ダークテーマに切り替え',
           switchToJapanese: 'Yomu HUDを日本語に切り替え',
@@ -505,6 +627,59 @@
         }
       }
 
+      function applyAccent() {
+        const accent = sanitizeAccent(readSettings().accentColor);
+        const accentInk = readableTextOn(accent);
+        const accentSoft = hexToRgba(accent, effectiveTheme() === 'dark' ? 0.22 : 0.16);
+        document.documentElement.style.setProperty('--accent', accent);
+        document.documentElement.style.setProperty('--accent-ink', accentInk);
+        document.documentElement.style.setProperty('--accent-soft', accentSoft);
+        document.documentElement.style.setProperty('--jpdb-reader-accent', accent);
+        document.documentElement.style.setProperty('--jpdb-reader-accent-text', accentInk);
+        document.documentElement.style.setProperty('--jpdb-reader-accent-soft', accentSoft);
+      }
+
+      function sanitizeAccent(value) {
+        if (typeof value !== 'string') return '#5ea780';
+        const trimmed = value.trim();
+        if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+        const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+        return shortHex ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase() : '#5ea780';
+      }
+
+      function readableTextOn(background) {
+        return contrastRatio(background, '#11161d') >= contrastRatio(background, '#ffffff') ? '#11161d' : '#ffffff';
+      }
+
+      function contrastRatio(a, b) {
+        const l1 = relativeLuminance(a);
+        const l2 = relativeLuminance(b);
+        const light = Math.max(l1, l2);
+        const dark = Math.min(l1, l2);
+        return (light + 0.05) / (dark + 0.05);
+      }
+
+      function relativeLuminance(color) {
+        return hexToRgb(color).map(value => {
+          const channel = value / 255;
+          return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+        }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+      }
+
+      function hexToRgb(color) {
+        const safe = sanitizeAccent(color);
+        return [
+          parseInt(safe.slice(1, 3), 16),
+          parseInt(safe.slice(3, 5), 16),
+          parseInt(safe.slice(5, 7), 16),
+        ];
+      }
+
+      function hexToRgba(color, alpha) {
+        const [red, green, blue] = hexToRgb(color);
+        return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, alpha)).toFixed(2)})`;
+      }
+
       function saveInterfaceLanguage(language) {
         const settings = readSettings();
         settings.interfaceLanguage = language;
@@ -532,6 +707,14 @@
         document.querySelector('[data-yomu-video-frame]').setAttribute('aria-label', text.stageLabel);
         document.querySelector('.file-button').firstChild.textContent = text.openVideo;
         document.querySelector('.empty strong').textContent = text.emptyTitle;
+        overflowSummary?.setAttribute('aria-label', text.menu);
+        if (settingsTrigger) {
+          settingsTrigger.textContent = text.settings;
+          settingsTrigger.setAttribute('aria-label', text.openSettings);
+        }
+        document.querySelector('[data-menu-study]')?.replaceChildren(text.study);
+        document.querySelector('[data-menu-local-audio]')?.replaceChildren(text.localAudio);
+        document.querySelector('[data-menu-support]')?.replaceChildren(text.support);
         if (!currentVideoName) setStatus(text.emptyStatus);
         if (languageToggle) {
           const next = nextInterfaceLanguage();
@@ -542,6 +725,18 @@
           languageToggle.removeAttribute('title');
         }
         applyTheme(effectiveTheme());
+        applyAccent();
+      }
+
+      function openSettings() {
+        overflowMenu?.removeAttribute('open');
+        const dispatch = () => {
+          if (document.querySelector('.jpdb-reader-settings')) return true;
+          window.dispatchEvent(new CustomEvent(openSettingsEvent, { detail: { panel: 'basics' } }));
+          return Boolean(document.querySelector('.jpdb-reader-settings'));
+        };
+        dispatch();
+        [120, 360, 900].forEach(delay => window.setTimeout(dispatch, delay));
       }
 
       function revokeObjectUrl() {
@@ -584,8 +779,14 @@
         const next = effectiveTheme() === 'dark' ? 'light' : 'dark';
         localStorage.setItem(themeKey, next);
         applyTheme(next);
+        applyAccent();
       });
       languageToggle?.addEventListener('click', () => saveInterfaceLanguage(nextInterfaceLanguage()));
+      settingsTrigger?.addEventListener('click', openSettings);
+      window.addEventListener(settingsChangeEvent, applyAccent);
+      window.addEventListener('storage', event => {
+        if (event.key === settingsKey || event.key === null) applyAccent();
+      });
 
       for (const eventName of ['dragenter', 'dragover']) {
         document.addEventListener(eventName, event => {
