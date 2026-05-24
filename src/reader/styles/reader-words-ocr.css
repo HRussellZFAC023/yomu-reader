@@ -394,6 +394,68 @@
     0 0 5px var(--jpdb-ocr-outline-color, #000);
 }
 
+.jpdb-ocr-touch-panel {
+  position: fixed;
+  left: max(10px, env(safe-area-inset-left));
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 2147483645;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  box-sizing: border-box;
+  max-height: min(34dvh, 220px);
+  padding: 12px 12px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  background: var(--jpdb-ocr-background-active-rgba, rgba(24, 27, 32, 0.88));
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.34);
+  color: var(--jpdb-ocr-text-color, #fff);
+  font-family: var(--jpdb-reader-font);
+  font-size: 20px;
+  font-weight: 750;
+  line-height: 1.65;
+  overflow: hidden;
+  pointer-events: auto;
+  text-shadow:
+    0 1px 1px var(--jpdb-ocr-outline-color, #000),
+    0 0 4px var(--jpdb-ocr-outline-color, #000);
+  touch-action: manipulation;
+}
+
+.jpdb-ocr-touch-panel-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  max-height: calc(min(34dvh, 220px) - 26px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.jpdb-ocr-touch-panel .jpdb-reader-word {
+  display: inline-block;
+  margin: 0 0.03em;
+  padding: 0 0.08em;
+  border-radius: 5px;
+  line-height: 1.5 !important;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.jpdb-ocr-touch-panel-close {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+  color: currentColor;
+  cursor: pointer;
+  font: 700 18px/1 var(--jpdb-reader-font);
+  -webkit-tap-highlight-color: transparent;
+}
+
 .asbplayer-subtitles-container-bottom {
   z-index: 2147483644 !important;
 }

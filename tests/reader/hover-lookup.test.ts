@@ -8,18 +8,23 @@ interface HoverLookupInternals {
     settings: ReaderSettings;
     activePopover?: HTMLElement;
     activePopoverMode?: 'modal' | 'hover';
+    pressLookup?: unknown;
+    suppressPenHoverUntil: number;
+    canBeginPrimaryPressLookup(event: PointerEvent): boolean;
     handleHoverPointer(event: PointerEvent): void;
+    handleHoverPointerOut(event: PointerEvent): void;
     scheduleHoverLookup(word: HTMLElement, event: PointerEvent): void;
     handlePointerTextHover(event: PointerEvent): void;
 }
 
-function hoverPointerEvent(target: HTMLElement): PointerEvent {
-    const event = new Event('pointerover', { bubbles: true, cancelable: true }) as PointerEvent;
+function hoverPointerEvent(target: HTMLElement, pointerType = 'mouse', type = 'pointerover'): PointerEvent {
+    const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
     Object.defineProperties(event, {
         target: { value: target },
+        relatedTarget: { value: null },
         clientX: { value: 40 },
         clientY: { value: 24 },
-        pointerType: { value: 'mouse' },
+        pointerType: { value: pointerType },
         altKey: { value: false },
         ctrlKey: { value: false },
         metaKey: { value: false },
@@ -91,6 +96,48 @@ describe('hover lookup', () => {
         try {
             internals.handleHoverPointer(hoverPointerEvent(body));
 
+            expect(scheduleHoverLookup).not.toHaveBeenCalled();
+            expect(handlePointerTextHover).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('keeps Apple Pencil tap separate from hover preview', () => {
+        const app = new ReaderApp();
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        word.dataset.vid = '1';
+        word.dataset.sid = '2';
+        word.dataset.sentence = '読む';
+        word.textContent = '読む';
+        document.body.append(word);
+
+        const internals = app as unknown as HoverLookupInternals;
+        const scheduleHoverLookup = vi.fn();
+        const handlePointerTextHover = vi.fn();
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            lookupOnClick: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.scheduleHoverLookup = scheduleHoverLookup;
+        internals.handlePointerTextHover = handlePointerTextHover;
+
+        try {
+            expect(internals.canBeginPrimaryPressLookup(hoverPointerEvent(word, 'pen'))).toBe(false);
+
+            internals.suppressPenHoverUntil = 0;
+            internals.handleHoverPointer(hoverPointerEvent(word, 'pen'));
+            expect(scheduleHoverLookup).toHaveBeenCalledWith(word, expect.objectContaining({ pointerType: 'pen' }));
+
+            scheduleHoverLookup.mockClear();
+            internals.suppressPenHoverUntil = Date.now() + 1000;
+            internals.handleHoverPointer(hoverPointerEvent(word, 'pen'));
+            internals.handleHoverPointerOut(hoverPointerEvent(word, 'pen', 'pointerout'));
             expect(scheduleHoverLookup).not.toHaveBeenCalled();
             expect(handlePointerTextHover).not.toHaveBeenCalled();
         } finally {
