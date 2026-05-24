@@ -6,7 +6,6 @@ import {
     immersionFallbackFragments,
     immersionSentenceContainsQuery,
     isUsefulImmersionFallbackQuery,
-    isUsefulImmersionPreloadQuery,
     normalizeImmersionSearchQuery,
     queryHasKanji,
     queryKey,
@@ -14,10 +13,11 @@ import {
     shouldRequireOriginalSurfaceMatch,
     uniqueImmersionQueries,
 } from './immersion-query';
-import { ImmersionKitClient, type ImmersionKitExample } from './immersion-kit';
+import { ImmersionKitClient, isImmersionKitRateLimitError, type ImmersionKitExample } from './immersion-kit';
 import { localizedImmersionProviderLabel, localizedImmersionSourceTitle } from './immersion-labels';
 import { uiText } from './i18n';
 import { Logger } from './logger';
+import { canAttemptAudiblePlayback } from './media-activation';
 import {
     immersionContextFromElement,
     immersionContextFromExample,
@@ -35,7 +35,6 @@ import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 
 const IMMERSION_SEARCH_CACHE_TTL_MS = 30_000;
 const IMMERSION_SEARCH_CACHE_LIMIT = 120;
-const IMMERSION_PRELOAD_TERM_LIMIT = 240;
 const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
 const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
 const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
@@ -88,7 +87,6 @@ export class ImmersionPopoverController {
     private audioKey = '';
     private audioLoadingKey = '';
     private audioRequestId = 0;
-    private preloadedTerms = new Set<string>();
     private hoverAudioPlayedKeys = new Set<string>();
     private activeMiningContext?: MiningContext;
     private contextByCardKey = new Map<string, StoredMiningContext>();
@@ -153,12 +151,37 @@ export class ImmersionPopoverController {
             if (controller.signal.aborted || !isConnectedImmersionSurface(popover, container)) return;
             this.renderLoadedExamples(container, card, result);
         } catch (error) {
-            if (isAbortError(error)) return;
+            if (isAbortError(error) && controller.signal.aborted) return;
             log.warn('Immersion Kit examples failed', { term: card.spelling }, error);
             this.renderEmptyIfConnected(popover, container);
         } finally {
             if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
         }
+    }
+
+    installLazyLoad(
+        popover: HTMLElement,
+        card: JPDBCard,
+        options: ImmersionSearchOptions = {},
+    ): void {
+        const container = popover.querySelector<HTMLDetailsElement>('[data-immersion-kit]');
+        if (!container || container.dataset.immersionLazyBound === 'true') return;
+        container.dataset.immersionLazyBound = 'true';
+
+        const load = (): void => {
+            if (!isConnectedImmersionSurface(popover, container)) return;
+            if (container instanceof HTMLDetailsElement && !container.open) return;
+            if (container.dataset.immersionLoadState) return;
+            container.dataset.immersionLoadState = 'loading';
+            void this.loadExamples(popover, card, options).finally(() => {
+                if (container.dataset.immersionLoadState === 'loading') {
+                    container.dataset.immersionLoadState = 'loaded';
+                }
+            });
+        };
+
+        container.addEventListener('toggle', load);
+        load();
     }
 
     private renderLoadedExamples(container: HTMLElement, card: JPDBCard, result: ImmersionKitSearchResult): void {
@@ -222,6 +245,7 @@ export class ImmersionPopoverController {
             if (pointerType === 'touch' || cannotHover) return;
             if (media.contains(event.relatedTarget as Node | null)) return;
             if (!hoverAudioCanPlay) return;
+            if (!canAttemptAudiblePlayback()) return;
             const audioKey = hoverAudioExampleKey(examples[index]);
             if (this.hoverAudioPlayedKeys.has(audioKey)) return;
             this.hoverAudioPlayedKeys.add(audioKey);
@@ -251,7 +275,9 @@ export class ImmersionPopoverController {
 
     private shouldAutoPlayCarouselAudio(): boolean {
         const settings = this.options.getSettings();
-        return settings.immersionKitEnabled && settings.immersionKitAutoPlayAudio;
+        return settings.immersionKitEnabled
+            && settings.immersionKitAutoPlayAudio
+            && canAttemptAudiblePlayback(true);
     }
 
     private renderEmptyIfConnected(popover: HTMLElement, container: HTMLElement): void {
@@ -278,28 +304,7 @@ export class ImmersionPopoverController {
     }
 
     preloadForTokens(tokens: JPDBToken[]): void {
-        const settings = this.options.getSettings();
-        if (!settings.immersionKitEnabled) return;
-        this.queuePreloads(tokens, settings);
-    }
-
-    private queuePreloads(tokens: JPDBToken[], settings: ReaderSettings): void {
-        let queued = 0;
-        for (const token of tokens) {
-            const term = this.nextPreloadTerm(token);
-            if (!term) continue;
-            this.options.client.preload(term, settings);
-            queued++;
-            if (queued >= 2) break;
-        }
-    }
-
-    private nextPreloadTerm(token: JPDBToken): string {
-        const term = token.card.spelling.trim();
-        if (!isUsefulImmersionPreloadQuery(term) || this.preloadedTerms.has(term)) return '';
-        this.preloadedTerms.add(term);
-        pruneOldestSetEntries(this.preloadedTerms, IMMERSION_PRELOAD_TERM_LIMIT);
-        return term;
+        void tokens;
     }
 
     stopAudio(): void {
@@ -416,7 +421,7 @@ export class ImmersionPopoverController {
                 : await this.options.client.search(query, settings);
             return immersionSearchResultForQuery(query, exactQuery, triedQueries, examples);
         } catch (error) {
-            if (isAbortError(error)) throw error;
+            if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
             return null;
         }
     }

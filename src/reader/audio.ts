@@ -1,6 +1,7 @@
 import { APP_REPOSITORY_NAME, GITHUB_PAGES_ORIGIN } from './constants';
 import { uiText } from './i18n';
 import { Logger } from './logger';
+import { canAttemptAudiblePlayback } from './media-activation';
 import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
 import { requestBlob, requestText } from './reader-http';
@@ -140,6 +141,7 @@ export class AudioPlayer {
     async play(card: JPDBCard, options: AudioPlaybackOptions = {}): Promise<boolean> {
         const request = this.audioPlaybackRequest(options);
         this.ensureAudioEnabled(request.settings);
+        if (!canAttemptAudiblePlayback(request.userGesture)) return false;
         if (!request.isCurrent()) return false;
         this.stopCurrent();
         const reservedAudio = this.reserveGestureAudioElement(request);
@@ -165,6 +167,7 @@ export class AudioPlayer {
     private reserveGestureAudioElement(request: AudioPlaybackRequest): HTMLAudioElement | undefined {
         if (!shouldReserveGestureAudioElement(request)) return undefined;
         const audio = this.createAudioElement(SILENT_AUDIO_DATA_URL);
+        audio.loop = true;
         this.current = audio;
         void audio.play().catch(() => undefined);
         return audio;
@@ -430,6 +433,7 @@ export class AudioPlayer {
     async playJpdbAudio(audioIds: string | string[], options: { userGesture?: boolean } = {}): Promise<boolean> {
         const settings = this.getSettings();
         this.ensureAudioEnabled(settings);
+        if (!canAttemptAudiblePlayback(options.userGesture)) return false;
         const ids = normalizeJpdbAudioIds(audioIds);
         if (!ids.length) throw new Error(uiText(settings.interfaceLanguage, 'jpdbExampleAudioUnavailable'));
 
@@ -455,6 +459,7 @@ export class AudioPlayer {
     async playMediaUrl(audioUrl: string): Promise<boolean> {
         const settings = this.getSettings();
         this.ensureAudioEnabled(settings);
+        if (!canAttemptAudiblePlayback(true)) return false;
         const requestId = ++this.playRequestId;
         this.stopCurrent();
         const audio = await this.createReadyAudio(audioUrl);
@@ -462,8 +467,9 @@ export class AudioPlayer {
     }
 
     private reserveJpdbGestureAudioElement(userGesture = false): HTMLAudioElement | undefined {
-        if (!userGesture || !isAppleMobileBrowser()) return undefined;
+        if (!userGesture) return undefined;
         const audio = this.createAudioElement(SILENT_AUDIO_DATA_URL);
+        audio.loop = true;
         this.current = audio;
         void audio.play().catch(() => undefined);
         return audio;
@@ -640,6 +646,7 @@ export class AudioPlayer {
     }
 
     private async createReadyAudio(audioUrl: string, audio = this.createAudioElement(audioUrl)): Promise<HTMLAudioElement> {
+        audio.loop = false;
         if (audio.src !== audioUrl) audio.src = audioUrl;
         audio.load?.();
         return audio;
@@ -1125,7 +1132,6 @@ function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSetting[] 
 
 function shouldReserveGestureAudioElement(request: AudioPlaybackRequest): boolean {
     return request.userGesture
-        && isAppleMobileBrowser()
         && request.sources.some(source => !isBrowserTextToSpeechSource(source));
 }
 

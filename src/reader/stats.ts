@@ -14,6 +14,15 @@ export interface StatsDailyPoint {
     minutes: number;
 }
 
+export interface StatsMonthlyHeatmap {
+    key: string;
+    year: number;
+    month: number;
+    startWeekday: number;
+    days: StatsDailyPoint[];
+    total: StatsDailyPoint;
+}
+
 export interface StatsCardBreakdown {
     total: number;
     new: number;
@@ -32,6 +41,7 @@ export interface StatsSourceSnapshot {
     status: StatsSourceStatus;
     message: string;
     deckNames?: string[];
+    activeDeckNames?: string[];
     daily: StatsDailyPoint[];
     cards: StatsCardBreakdown;
     reviewsToday: number;
@@ -60,6 +70,10 @@ export interface JpdbReviewImport {
 
 export interface StatsAnkiApi {
     invoke<T>(action: string, params?: Record<string, unknown>): Promise<T>;
+}
+
+export interface LoadAnkiConnectStatsOptions {
+    disabledDeckNames?: readonly string[];
 }
 
 interface AnkiDeckStats {
@@ -201,24 +215,28 @@ export function parseJpdbReviewExport(value: unknown): JpdbReviewImport {
     };
 }
 
-export async function loadAnkiConnectStats(api: StatsAnkiApi): Promise<StatsSourceSnapshot> {
+export async function loadAnkiConnectStats(api: StatsAnkiApi, options: LoadAnkiConnectStatsOptions = {}): Promise<StatsSourceSnapshot> {
     const deckNames = await api.invoke<string[]>('deckNames');
-    const decks = deckNames.filter(deck => deck.trim());
-    const [reviewedToday, reviewedByDay, deckStats] = await Promise.all([
-        api.invoke<number>('getNumCardsReviewedToday').catch(() => 0),
-        api.invoke<Array<[string, number]>>('getNumCardsReviewedByDay').catch(() => []),
+    const allDecks = deckNames.filter(deck => deck.trim());
+    const disabledDecks = new Set(options.disabledDeckNames ?? []);
+    const decks = allDecks.filter(deck => !disabledDecks.has(deck));
+    const allDecksSelected = decks.length === allDecks.length;
+    const [reviewedToday, reviewedByDay, deckStats, retentionDaily] = await Promise.all([
+        allDecksSelected ? api.invoke<number>('getNumCardsReviewedToday').catch(() => 0) : Promise.resolve(0),
+        allDecksSelected ? api.invoke<Array<[string, number]>>('getNumCardsReviewedByDay').catch(() => []) : Promise.resolve([]),
         decks.length
             ? api.invoke<Record<string, AnkiDeckStats>>('getDeckStats', { decks }).catch(() => ({}))
             : Promise.resolve({} as Record<string, AnkiDeckStats>),
+        loadAnkiRetentionDaily(api, allDecksSelected ? null : decks).catch(() => []),
     ]);
-    const retentionDaily = await loadAnkiRetentionDaily(api).catch(() => []);
-    const daily = mergeDailyPoints(ankiReviewedByDayToDaily(reviewedByDay), retentionDaily);
+    const daily = allDecksSelected ? mergeDailyPoints(ankiReviewedByDayToDaily(reviewedByDay), retentionDaily) : retentionDaily;
     const source = finalizeStatsSource({
         id: 'anki',
         label: 'Anki',
         status: 'ready',
-        message: decks.length ? `Connected to ${decks.length} deck${decks.length === 1 ? '' : 's'}.` : 'Connected to Anki.',
-        deckNames: decks,
+        message: ankiDeckSelectionMessage(decks.length, allDecks.length),
+        deckNames: allDecks,
+        activeDeckNames: decks,
         daily,
         cards: ankiCardBreakdown(Object.values(deckStats)),
         reviewsToday: reviewedToday,
@@ -241,6 +259,34 @@ export function recentDailyPoints(points: StatsDailyPoint[], days = 30, today = 
     for (let offset = days - 1; offset >= 0; offset--) {
         const date = dateKey(new Date(end - offset * DAY_MS));
         out.push(byDate.get(date) ?? emptyDailyPoint(date));
+    }
+    return out;
+}
+
+export function monthlyActivityHeatmaps(points: StatsDailyPoint[], months = 6, today = new Date()): StatsMonthlyHeatmap[] {
+    const monthCount = Math.max(1, Math.floor(months));
+    const byDate = new Map(points.map(point => [point.date, point]));
+    const currentMonth = startOfLocalMonth(today);
+    const firstMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - monthCount + 1, 1);
+    const out: StatsMonthlyHeatmap[] = [];
+    for (let offset = 0; offset < monthCount; offset++) {
+        const monthStart = new Date(firstMonth.getFullYear(), firstMonth.getMonth() + offset, 1);
+        const year = monthStart.getFullYear();
+        const month = monthStart.getMonth() + 1;
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const days: StatsDailyPoint[] = [];
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = dateKey(new Date(year, month - 1, day));
+            days.push(byDate.get(date) ?? emptyDailyPoint(date));
+        }
+        out.push({
+            key: `${year}-${String(month).padStart(2, '0')}`,
+            year,
+            month,
+            startWeekday: mondayFirstWeekday(monthStart),
+            days,
+            total: sumDailyPoints(days, `${year}-${String(month).padStart(2, '0')}`),
+        });
     }
     return out;
 }
@@ -286,6 +332,16 @@ export function statsActivityMetricValue(point: StatsDailyPoint, metric: StatsAc
 
 export function statsActivityMetricTotal(points: StatsDailyPoint[], metric: StatsActivityMetric): number {
     return points.reduce((sum, point) => sum + statsActivityMetricValue(point, metric), 0);
+}
+
+export function dailyActivityStreakAt(points: StatsDailyPoint[], date: string): number {
+    if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) return 0;
+    const active = new Set(points.filter(point => point.reviews > 0).map(point => point.date));
+    let streak = 0;
+    for (let cursor = startOfLocalDay(new Date(`${date}T00:00:00`)); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS)) {
+        streak += 1;
+    }
+    return streak;
 }
 
 export function averageReviewSpeed(source: Pick<StatsSourceSnapshot, 'daily'>): number | null {
@@ -420,8 +476,8 @@ function ankiReviewedByDayToDaily(value: Array<[string, number]>): StatsDailyPoi
         .filter((point): point is StatsDailyPoint => point !== null);
 }
 
-async function loadAnkiRetentionDaily(api: StatsAnkiApi): Promise<StatsDailyPoint[]> {
-    const cards = await api.invoke<number[]>('findCards', { query: ankiRetentionQuery() });
+async function loadAnkiRetentionDaily(api: StatsAnkiApi, deckNames: string[] | null): Promise<StatsDailyPoint[]> {
+    const cards = await findAnkiRetentionCards(api, deckNames);
     const selectedCards = cards.filter(card => Number.isFinite(Number(card))).slice(0, ANKI_RETENTION_CARD_LIMIT);
     if (!selectedCards.length) return [];
     const reviewsByCard = await api.invoke<Record<string, AnkiReviewLog[]>>('getReviewsOfCards', { cards: selectedCards });
@@ -440,8 +496,28 @@ async function loadAnkiRetentionDaily(api: StatsAnkiApi): Promise<StatsDailyPoin
     return sortedDailyPoints([...daily.values()]);
 }
 
-function ankiRetentionQuery(): string {
-    return `rated:${ANKI_RETENTION_WINDOW_DAYS}`;
+async function findAnkiRetentionCards(api: StatsAnkiApi, deckNames: string[] | null): Promise<number[]> {
+    if (deckNames !== null && !deckNames.length) return [];
+    if (deckNames === null) return await api.invoke<number[]>('findCards', { query: ankiRetentionQuery() });
+    const cardGroups = await Promise.all(deckNames.map(deck =>
+        api.invoke<number[]>('findCards', { query: ankiRetentionQuery(deck) }).catch(() => []),
+    ));
+    return [...new Set(cardGroups.flat())];
+}
+
+function ankiRetentionQuery(deckName?: string): string {
+    return [deckName ? `deck:${quoteAnkiSearch(deckName)}` : '', `rated:${ANKI_RETENTION_WINDOW_DAYS}`].filter(Boolean).join(' ');
+}
+
+function quoteAnkiSearch(value: string): string {
+    return `"${value.replace(/\\/gu, '\\\\').replace(/"/gu, '\\"')}"`;
+}
+
+function ankiDeckSelectionMessage(activeDeckCount: number, totalDeckCount: number): string {
+    if (!totalDeckCount) return 'Connected to Anki.';
+    if (!activeDeckCount) return `Connected to Anki. 0 of ${totalDeckCount} decks selected.`;
+    if (activeDeckCount === totalDeckCount) return `Connected to ${totalDeckCount} deck${totalDeckCount === 1 ? '' : 's'}.`;
+    return `Connected to ${activeDeckCount} of ${totalDeckCount} decks.`;
 }
 
 function jpdbReviewCards(value: unknown): unknown[] {
@@ -546,6 +622,17 @@ function sortedDailyPoints(points: StatsDailyPoint[]): StatsDailyPoint[] {
     return [...points].sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function sumDailyPoints(points: StatsDailyPoint[], date: string): StatsDailyPoint {
+    return points.reduce((total, point) => ({
+        date,
+        reviews: total.reviews + point.reviews,
+        correct: total.correct + point.correct,
+        failed: total.failed + point.failed,
+        newCards: total.newCards + point.newCards,
+        minutes: total.minutes + point.minutes,
+    }), emptyDailyPoint(date));
+}
+
 function ensureDailyPoint(points: Map<string, StatsDailyPoint>, date: string): StatsDailyPoint {
     const existing = points.get(date);
     if (existing) return existing;
@@ -568,6 +655,14 @@ function dateKey(date: Date): string {
 
 function startOfLocalDay(date: Date): Date {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function startOfLocalMonth(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function mondayFirstWeekday(date: Date): number {
+    return (date.getDay() + 6) % 7;
 }
 
 function normalizeDateString(value: unknown): string | null {

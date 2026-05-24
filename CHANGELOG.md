@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.29] - 2026-05-24
+
+### Added
+
+- Added richer hosted new-tab review flows for study cards, including expanded lookup/review behavior and stronger regression coverage.
+- Added media activation handling and broader Uchisen publishing/validation utilities for kanji study assets.
+
+### Changed
+
+- Improved JPDB, Anki, Immersion Kit, audio, settings, stats, and study-tool runtime behavior across popup and hosted new-tab surfaces.
+- Refined responsive styling for new-tab, stats, settings, kanji, and immersion study views.
+
+### Fixed
+
+- Hardened dictionary source ordering, JPDB parsing, proxy fetches, performance caches, study grammar handling, and stats tests around the latest study flows.
+
 ## [0.4.28] - 2026-05-23
 
 ### Added

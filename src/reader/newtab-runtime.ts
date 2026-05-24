@@ -33,6 +33,7 @@ import { JpdbVocabularyClient, type JpdbVocabularyInfo } from './jpdb-vocabulary
 import { KanjiVGClient, type KanjiVGInfo } from './kanjivg';
 import { buildKanjiFacts, buildKanjiOriginGraph } from './kanji-origin';
 import { installKanjiPracticeDoodle } from './kanji-practice-grader';
+import { canAttemptAudiblePlayback } from './media-activation';
 import { configureLogger, Logger, loggingSettingsSummary } from './logger';
 import {
     inferMiningSourceKind,
@@ -373,8 +374,17 @@ export class NewTabRuntime {
             showLookupCard: (card, sentence, anchor) => this.showLookupCard(card, sentence, anchor, { navigation: 'push-current', reuseActivePopover: true, autoPlay: false }),
             showKanjiCard: (card, kanji, sentence, anchor) => this.showKanjiLookupCard(card, kanji, sentence, anchor),
             loadCardRenderData: card => this.cardRenderData.load(card).all,
-            renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo),
+            renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, { includeStudySources: false }),
+            renderSearchWordPills: (card, metaEntries) => renderWordPills({
+                card,
+                jpdbUrl: `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`,
+                settings: this.settings,
+                metaEntries,
+                isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
+                dictionaryLabel: name => this.dictionaryLabel(name),
+            }),
             installSearchDetailSources: (root, card, sentence, jpdbVocabularyInfo) => this.installLookupPopoverSources(root, card, sentence, jpdbVocabularyInfo),
+            playWordAudio: card => this.audioActions.playTermAudio(card, { userGesture: true }),
             playJpdbExampleAudio: (audioIds, fallbackSentence) => this.audioActions.playJpdbExampleAudio(audioIds, fallbackSentence),
             setImmersionTranslationBlurred: blurred => this.setImmersionTranslationBlurred(blurred),
             dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
@@ -1221,6 +1231,7 @@ export class NewTabRuntime {
         if (options.autoPlay === false) return false;
         if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return false;
         if (!this.shouldAutoPlayForTrigger('modal')) return false;
+        if (!canAttemptAudiblePlayback()) return false;
         const key = `${card.vid}:${card.sid}`;
         const now = Date.now();
         if (key === this.lastAutoAudioKey && now - this.lastAutoAudioAt < 2500) return false;
@@ -1414,17 +1425,24 @@ export class NewTabRuntime {
         if (Number.isFinite(maxHeight) && maxHeight > 0) popover.style.height = `${maxHeight}px`;
     }
 
-    private renderDefinitionSources(card: JPDBCard, entries: YomitanTermEntry[], sentence?: string, jpdbVocabularyInfo: JpdbVocabularyInfo | null = null): string {
+    private renderDefinitionSources(
+        card: JPDBCard,
+        entries: YomitanTermEntry[],
+        sentence?: string,
+        jpdbVocabularyInfo: JpdbVocabularyInfo | null = null,
+        options: { includeStudySources?: boolean } = {},
+    ): string {
         const grouped = groupTermEntriesByDictionary(entries);
         const sourceIds = orderedDefinitionSourceIds(this.settings, [...grouped.keys()]);
         const dictionarySourceIds = sourceIds.filter(sourceId => grouped.has(sourceId));
+        const includeStudySources = options.includeStudySources ?? true;
         let renderedDictionaries = false;
         const sections = sourceIds.map(sourceId => {
             if (sourceId === JPDB_DEFINITION_SOURCE_ID) {
                 return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded), jpdbVocabularyInfo);
             }
-            if (sourceId === STUDY_TRANSLATION_SOURCE_ID) return this.studySources.renderTranslationSource(sentence);
-            if (sourceId === STUDY_GRAMMAR_SOURCE_ID) return this.studySources.renderGrammarSource(sentence);
+            if (sourceId === STUDY_TRANSLATION_SOURCE_ID) return includeStudySources ? this.studySources.renderTranslationSource(sentence) : '';
+            if (sourceId === STUDY_GRAMMAR_SOURCE_ID) return includeStudySources ? this.studySources.renderGrammarSource(sentence) : '';
             if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderImmersionKitMount();
             if (grouped.has(sourceId)) {
                 if (renderedDictionaries) return '';
@@ -1448,7 +1466,7 @@ export class NewTabRuntime {
     private renderImmersionKitMount(): string {
         if (!this.settings.immersionKitEnabled) return '';
         return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.attributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID))}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.closedAttributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID))}>
                 <summary class="jpdb-reader-local-title">${uiText(this.settings.interfaceLanguage, 'immersionKit')}</summary>
                 <div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, 'loadingExamples')}</div>
             </details>
@@ -1466,7 +1484,7 @@ export class NewTabRuntime {
         const options = jpdbVocabularyInfo
             ? { relatedQueries: this.immersionRelatedQueries(jpdbVocabularyInfo) }
             : undefined;
-        void this.immersionPopover.loadExamples(popover, card, options);
+        this.immersionPopover.installLazyLoad(popover, card, options);
     }
 
     private immersionRelatedQueries(info: JpdbVocabularyInfo): string[] {

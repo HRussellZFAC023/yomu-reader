@@ -405,6 +405,75 @@
   padding-top: 12px;
   border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
 }
+.jpdb-reader-proxy-guide {
+  margin: 12px 0 4px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 84%, transparent);
+}
+.jpdb-reader-proxy-guide > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 38px;
+  padding: 0 12px;
+  color: var(--jpdb-reader-accent-readable);
+  font: 800 12px/1.2 var(--jpdb-reader-font);
+  cursor: pointer;
+  list-style: none;
+}
+.jpdb-reader-proxy-guide > summary::-webkit-details-marker {
+  display: none;
+}
+.jpdb-reader-proxy-guide > summary::after {
+  content: "Show";
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+.jpdb-reader-proxy-guide[open] > summary {
+  border-bottom: 1px solid var(--jpdb-reader-border);
+}
+.jpdb-reader-proxy-guide[open] > summary::after {
+  content: "Hide";
+}
+.jpdb-reader-proxy-guide-body {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.jpdb-reader-proxy-guide-body p,
+.jpdb-reader-proxy-guide-body ol {
+  margin: 0;
+}
+.jpdb-reader-proxy-guide-body ol {
+  display: grid;
+  gap: 7px;
+  padding-left: 20px;
+}
+.jpdb-reader-proxy-guide-body code {
+  font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.jpdb-reader-proxy-guide-code-title {
+  color: var(--jpdb-reader-text);
+  font-size: 12px;
+  font-weight: 850;
+}
+.jpdb-reader-proxy-guide-code {
+  max-height: 280px;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-bg);
+  color: var(--jpdb-reader-text);
+  font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
 .jpdb-reader-theme-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

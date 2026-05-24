@@ -1,0 +1,470 @@
+#!/usr/bin/env node
+
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+const DEFAULT_CHECKPOINT = '../../artifacts/uchisen-bulk/checkpoint.json';
+const UCHISEN_ORIGIN = 'https://uchisen.com';
+const IMAGE_PROMPT_REPLACEMENTS = [
+  [/\bblood(y|ied|ing)?\b/gi, 'red festival paint'],
+  [/\bbleed(ing)?\b/gi, 'red festival paint'],
+  [/\bwounds?\b/gi, 'patched cloth'],
+  [/\binjur(y|ies|ed)?\b/gi, 'tired mishap'],
+  [/\bsick(ness)?\b/gi, 'restful'],
+  [/\bill(ness)?\b/gi, 'restful'],
+  [/\bmedicine\b/gi, 'helpful bundle'],
+  [/\bmedical\b/gi, 'helpful'],
+  [/\bdoctor\b/gi, 'kind helper'],
+  [/\bpatient\b/gi, 'visitor'],
+  [/\bdisease\b/gi, 'gloomy cloud'],
+  [/\bhospital\b/gi, 'quiet rest house'],
+  [/\bweapons?\b/gi, 'ceremonial props'],
+  [/\bswords?\b/gi, 'ceremonial wooden practice sword'],
+  [/\bknives?\b/gi, 'small wooden craft tool'],
+  [/\bdaggers?\b/gi, 'small wooden craft tool'],
+  [/\bblades?\b/gi, 'shiny craft edge'],
+  [/\bspears?\b/gi, 'slender festival pole'],
+  [/\barrows?\b/gi, 'paper arrow charm'],
+  [/\bguns?\b/gi, 'toy popper'],
+  [/\brifles?\b/gi, 'toy popper'],
+  [/\bcannons?\b/gi, 'festival drum'],
+  [/\bbombs?\b/gi, 'round festival lantern'],
+  [/\bdynamite\b/gi, 'firecracker bundle'],
+  [/\bexplos(ive|ion)s?\b/gi, 'bursting confetti'],
+  [/\bbattles?\b/gi, 'festival contest'],
+  [/\bfight(ing|s)?\b/gi, 'tugging contest'],
+  [/\bwars?\b/gi, 'old tale'],
+  [/\battack(s|ing)?\b/gi, 'surprising pounce'],
+  [/\bstab(s|bing|bed)?\b/gi, 'poke'],
+  [/\bkill(s|ing|ed)?\b/gi, 'stop'],
+  [/\bdead\b/gi, 'still'],
+  [/\bdeath\b/gi, 'quiet ending'],
+  [/\bcorpse\b/gi, 'old puppet'],
+  [/\bpoison\b/gi, 'mysterious purple dye'],
+  [/\bcriminals?\b/gi, 'mischief maker'],
+  [/\bcrimes?\b/gi, 'mischief'],
+  [/\bprison\b/gi, 'locked toy box'],
+  [/\bjail\b/gi, 'locked toy box'],
+  [/\bpunish(ment|ed|ing)?\b/gi, 'scold'],
+  [/\btorture\b/gi, 'awkward training'],
+  [/\bexecution\b/gi, 'ceremony'],
+  [/\bnoose\b/gi, 'rope loop'],
+  [/\bdemons?\b/gi, 'festival mask'],
+  [/\bdevils?\b/gi, 'festival mask'],
+  [/\bhell\b/gi, 'smoky folk-tale cave'],
+  [/\bghosts?\b/gi, 'paper lantern spirit'],
+  [/\bspirits?\b/gi, 'paper lantern spirit'],
+  [/\bskulls?\b/gi, 'round white mask'],
+  [/\bbones?\b/gi, 'ivory-colored toy sticks'],
+];
+
+class CookieJar {
+  constructor(initialCookie = '') {
+    this.cookies = new Map();
+    for (const part of initialCookie.split(';')) {
+      const [name, ...value] = part.trim().split('=');
+      if (name && value.length) this.cookies.set(name, value.join('='));
+    }
+  }
+
+  hasCookies() {
+    return this.cookies.size > 0;
+  }
+
+  header() {
+    return Array.from(this.cookies, ([name, value]) => `${name}=${value}`).join('; ');
+  }
+
+  store(headers) {
+    const setCookie = typeof headers.getSetCookie === 'function'
+      ? headers.getSetCookie()
+      : [headers.get('set-cookie')].filter(Boolean);
+    for (const cookie of setCookie) {
+      const [pair] = cookie.split(';');
+      const [name, ...value] = pair.split('=');
+      if (name && value.length) this.cookies.set(name.trim(), value.join('=').trim());
+    }
+  }
+}
+
+const options = parseArgs(process.argv.slice(2));
+if (!options.input) {
+  console.error('Usage: node scripts/uchisen-bulk-publish.mjs --input queue.jsonl [--live] [--limit N] [--delay-ms N] [--checkpoint file]');
+  process.exit(1);
+}
+
+const inputPath = path.resolve(options.input);
+const checkpointPath = path.resolve(options.checkpoint ?? DEFAULT_CHECKPOINT);
+const checkpoint = await readCheckpoint(checkpointPath);
+const jar = new CookieJar(process.env.UCHISEN_COOKIE ?? '');
+
+if (options.live && !jar.hasCookies()) {
+  await loginWithEnv(jar);
+}
+if (options.live) {
+  await verifyLogin(jar);
+}
+
+const queue = await readQueue(inputPath);
+const selected = queue
+  .filter(item => !options.resume || (!checkpoint.completed[itemKey(item)] && (options.retryFailed || !checkpoint.failed[itemKey(item)])))
+  .slice(0, options.limit ?? queue.length);
+
+console.log(JSON.stringify({
+  mode: options.live ? 'live' : 'dry-run',
+  input: inputPath,
+  checkpoint: checkpointPath,
+  total: queue.length,
+  selected: selected.length,
+  alreadyCompleted: Object.keys(checkpoint.completed).length,
+  alreadyFailed: Object.keys(checkpoint.failed).length,
+}, null, 2));
+
+for (const item of selected) {
+  const key = itemKey(item);
+  try {
+    validateItem(item);
+    if (!options.live) {
+      console.log(`[dry-run] ${key} ${item.keyword ?? ''}: ready`);
+      checkpoint.dryRuns[key] = { at: new Date().toISOString(), kanji: item.kanji };
+      await writeCheckpoint(checkpointPath, checkpoint);
+      continue;
+    }
+
+    const result = await generateAndPublish(item, jar);
+    checkpoint.completed[key] = { at: new Date().toISOString(), ...result };
+    delete checkpoint.failed[key];
+    await writeCheckpoint(checkpointPath, checkpoint);
+    console.log(`[posted] ${key} -> ${result.imageFilename}`);
+  } catch (error) {
+    checkpoint.failed[key] = { at: new Date().toISOString(), error: error.message, kanji: item.kanji };
+    await writeCheckpoint(checkpointPath, checkpoint);
+    console.error(`[failed] ${key}: ${error.message}`);
+    if (options.stopOnError) process.exit(1);
+  }
+  if (options.delayMs > 0) await sleep(options.delayMs);
+}
+
+async function generateAndPublish(item, jar) {
+  const referrer = `${UCHISEN_ORIGIN}/kanji/${encodeURIComponent(item.kanji)}`;
+  const imagePrompt = String(item.image_prompt ?? item.imagePrompt ?? '').trim();
+  const mnemonic = String(item.mnemonic ?? '').trim();
+  const storyPrompt = storyBackedImagePrompt(mnemonic, imagePrompt);
+  const safePrompt = safeImagePrompt(storyPrompt);
+  const kanjiId = String(item.kanji_id ?? item.kanjiId ?? '').trim();
+
+  await primeKanjiPage(referrer, jar);
+
+  const { generation, publishedImagePrompt } = await generateImageWithRetry(imagePrompt, storyPrompt, safePrompt, kanjiId, referrer, jar);
+  const imageFilename = generation.imageFilename;
+
+  await postForm(`${UCHISEN_ORIGIN}/save_mnemonic.php`, {
+    img_src: imageFilename,
+    kanji_id: kanjiId,
+    formatted_mnemonic: formatMnemonicHtml(mnemonic),
+    current_image_prompt: publishedImagePrompt,
+    redirect: `/kanji/${encodeURIComponent(item.kanji)}`,
+    mnemonic,
+    image_prompt: publishedImagePrompt,
+    start_blurred: 'no',
+  }, referrer, jar);
+
+  return {
+    kanji: item.kanji,
+    kanji_id: kanjiId,
+    imageFilename,
+    imageUrl: generation.imageUrl,
+  };
+}
+
+async function generateImageWithRetry(imagePrompt, storyPrompt, safePrompt, kanjiId, referrer, jar) {
+  const attempts = uniquePrompts([imagePrompt, storyPrompt, safePrompt]);
+  let lastError;
+  for (const prompt of attempts) {
+    try {
+      const generationText = await postForm(`${UCHISEN_ORIGIN}/generateimage`, {
+        prompt: escapeUchisenPrompt(prompt),
+        kanji_id: kanjiId,
+      }, referrer, jar);
+      return { generation: parseGenerationResponse(generationText), publishedImagePrompt: prompt };
+    } catch (error) {
+      lastError = error;
+      if (prompt !== attempts[attempts.length - 1]) {
+        console.warn(`Image generation failed; retrying with more context (${error.message})`);
+      }
+    }
+  }
+  throw lastError;
+}
+
+function storyBackedImagePrompt(mnemonic, imagePrompt) {
+  const story = plainMnemonic(mnemonic).replace(/\s+/g, ' ').trim();
+  if (!story) return imagePrompt;
+  return fitImagePrompt(`${imagePrompt}; scene follows this mnemonic story: ${story}`);
+}
+
+function uniquePrompts(prompts) {
+  const seen = new Set();
+  const unique = [];
+  for (const prompt of prompts) {
+    const trimmed = String(prompt).trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    unique.push(trimmed);
+  }
+  return unique;
+}
+
+function fitImagePrompt(prompt) {
+  const maxLength = 400;
+  if (prompt.length <= maxLength) return prompt;
+  const suffix = /;\s*no text or signage$/i.test(prompt) ? '; no text or signage' : '';
+  const targetLength = suffix ? maxLength - suffix.length : maxLength;
+  return `${prompt.slice(0, targetLength).replace(/[;,\s]+$/, '')}${suffix}`;
+}
+
+function plainMnemonic(text) {
+  return String(text)
+    .replace(/##([^#]+)##/g, '$1')
+    .replace(/#([^#]+)#/g, '$1')
+    .replace(/#nl#/g, ' ');
+}
+
+async function primeKanjiPage(referrer, jar) {
+  const response = await fetch(referrer, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-GB,en;q=0.5',
+      Cookie: jar.header(),
+      'User-Agent': 'Mozilla/5.0 yomu-uchisen-bulk',
+    },
+  });
+  jar.store(response.headers);
+  if (!response.ok) throw new Error(`Could not load Uchisen kanji page before publishing (${response.status}).`);
+  await response.arrayBuffer();
+}
+
+async function loginWithEnv(jar) {
+  const username = process.env.UCHISEN_USERNAME;
+  const password = process.env.UCHISEN_PASSWORD;
+  if (!username || !password) {
+    throw new Error('Live mode needs UCHISEN_COOKIE or UCHISEN_USERNAME and UCHISEN_PASSWORD in the environment.');
+  }
+  const loginPage = await fetch(`${UCHISEN_ORIGIN}/login`, {
+    headers: {
+      Cookie: jar.header(),
+      'User-Agent': 'Mozilla/5.0 yomu-uchisen-bulk',
+    },
+  });
+  jar.store(loginPage.headers);
+  const response = await fetch(`${UCHISEN_ORIGIN}/login_script.php`, {
+    method: 'POST',
+    body: new URLSearchParams({
+      username,
+      password,
+      timezone: '',
+      dst: '',
+      Submit: 'Login',
+    }),
+    redirect: 'manual',
+    headers: {
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-GB,en;q=0.5',
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      Cookie: jar.header(),
+      Referer: `${UCHISEN_ORIGIN}/login`,
+      Origin: UCHISEN_ORIGIN,
+      'User-Agent': 'Mozilla/5.0 yomu-uchisen-bulk',
+    },
+  });
+  jar.store(response.headers);
+  if (!jar.hasCookies()) throw new Error('Login did not return a usable Uchisen cookie.');
+}
+
+async function verifyLogin(jar) {
+  const dashboard = await fetch(`${UCHISEN_ORIGIN}/dashboard`, {
+    headers: {
+      Cookie: jar.header(),
+      'User-Agent': 'Mozilla/5.0 yomu-uchisen-bulk',
+    },
+    redirect: 'manual',
+  });
+  jar.store(dashboard.headers);
+  const dashboardText = await dashboard.text();
+  if (dashboard.status >= 300 || /login/i.test(dashboard.headers.get('location') ?? '') || /login_script|name="password"/i.test(dashboardText)) {
+    throw new Error('Uchisen login did not reach the dashboard; check the account credentials or cookie.');
+  }
+}
+
+async function postForm(url, fields, referrer, jar) {
+  const response = await fetch(url, {
+    method: 'POST',
+    body: new URLSearchParams(fields),
+    headers: {
+      Accept: 'text/html, */*; q=0.01',
+      'Accept-Language': 'en-GB,en;q=0.5',
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'X-Requested-With': 'XMLHttpRequest',
+      Origin: UCHISEN_ORIGIN,
+      Referer: referrer,
+      Cookie: jar.header(),
+      'User-Agent': 'Mozilla/5.0 yomu-uchisen-bulk',
+    },
+  });
+  jar.store(response.headers);
+  const text = await response.text();
+  if (!response.ok) throw new Error(`HTTP ${response.status} from ${url}`);
+  if (/login|account is needed/i.test(text) && !/success/i.test(text)) throw new Error(`Uchisen rejected the request; check authentication for ${url}`);
+  return text;
+}
+
+function parseGenerationResponse(text) {
+  const parsed = parseJsonish(text);
+  if (!parsed || isGenerationFailure(parsed)) {
+    throw new Error(generationFailureMessage(parsed, text));
+  }
+  const rawFilename = firstString(parsed.url, parsed.filename, parsed.file, parsed.img_src, parsed.image_url, parsed.imageUrl);
+  const rawFullUrl = firstString(parsed.full_url, parsed.image_url, parsed.imageUrl);
+  const imageFilename = normalizeImageFilename(rawFilename);
+  if (!imageFilename) {
+    throw new Error(`Image generation did not return a filename: ${snippet(text)}`);
+  }
+  return {
+    ...parsed,
+    imageFilename,
+    imageUrl: rawFullUrl || `https://ik.imagekit.io/uchisen/generated/saved/${imageFilename}`,
+  };
+}
+
+function generationFailureMessage(parsed, text) {
+  const message = firstString(parsed?.error_message, parsed?.error);
+  if (!message) return `Uchisen image backend rejected generation: ${snippet(text)}`;
+  if (/must be logged|not logged|login required/i.test(message)) return message;
+  const code = firstString(parsed?.error_code, parsed?.code, parsed?.exit_code);
+  const detail = code ? `${message} (code: ${code})` : message;
+  return `Uchisen image backend rejected generation: ${detail}`;
+}
+
+function parseJsonish(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const match = /\{[\s\S]*\}/.exec(text);
+    if (!match) return null;
+    return JSON.parse(match[0]);
+  }
+}
+
+function snippet(text) {
+  return String(text).replace(/\s+/g, ' ').trim().slice(0, 500);
+}
+
+function isGenerationFailure(parsed) {
+  if (parsed.success === false || parsed.success === 0 || parsed.success === '0') return true;
+  if (typeof parsed.error_message === 'string' && parsed.error_message.trim()) return true;
+  if (typeof parsed.error === 'string' && parsed.error.trim()) return true;
+  return false;
+}
+
+function firstString(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+function normalizeImageFilename(value) {
+  if (!value) return '';
+  try {
+    const url = new URL(value);
+    return url.pathname.split('/').filter(Boolean).pop() ?? value;
+  } catch {
+    return value.split('/').filter(Boolean).pop() ?? value;
+  }
+}
+
+function formatMnemonicHtml(text) {
+  return String(text)
+    .replace(/[<>]/g, '')
+    .replace(/#nl#/g, '<br>')
+    .replace(/##([^#]+)##/g, '<b>$1</b>')
+    .replace(/#([^#]+)#/g, '<i>$1</i>');
+}
+
+function escapeUchisenPrompt(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function safeImagePrompt(value) {
+  let prompt = String(value);
+  for (const [pattern, replacement] of IMAGE_PROMPT_REPLACEMENTS) {
+    prompt = prompt.replace(pattern, replacement);
+  }
+  prompt = prompt
+    .replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, 'no text or signage')
+    .replace(/no text,\s*letters,\s*numbers,\s*logos,\s*or signage/gi, 'no text or signage')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!/no text|without text/i.test(prompt)) prompt = `${prompt}; no text or signage`;
+  return prompt;
+}
+
+function validateItem(item) {
+  const missing = ['kanji', 'kanji_id', 'mnemonic', 'image_prompt'].filter(key => !String(item[key] ?? '').trim());
+  if (missing.length) throw new Error(`Missing required fields: ${missing.join(', ')}`);
+}
+
+async function readQueue(file) {
+  const text = await fs.readFile(file, 'utf8');
+  if (file.endsWith('.jsonl')) return text.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
+  const parsed = JSON.parse(text);
+  return Array.isArray(parsed) ? parsed : parsed.items;
+}
+
+async function readCheckpoint(file) {
+  try {
+    const parsed = JSON.parse(await fs.readFile(file, 'utf8'));
+    return {
+      completed: parsed.completed ?? {},
+      failed: parsed.failed ?? {},
+      dryRuns: parsed.dryRuns ?? {},
+    };
+  } catch {
+    return { completed: {}, failed: {}, dryRuns: {} };
+  }
+}
+
+async function writeCheckpoint(file, checkpoint) {
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, `${JSON.stringify(checkpoint, null, 2)}\n`);
+}
+
+function itemKey(item) {
+  return `${item.kanji_id ?? item.kanjiId ?? 'unknown'}:${item.kanji ?? ''}`;
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function parseArgs(args) {
+  const parsed = { live: false, resume: true, retryFailed: false, delayMs: 6000, stopOnError: false };
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg === '--live') parsed.live = true;
+    else if (arg === '--no-resume') parsed.resume = false;
+    else if (arg === '--retry-failed') parsed.retryFailed = true;
+    else if (arg === '--stop-on-error') parsed.stopOnError = true;
+    else if (arg === '--input') parsed.input = args[++i];
+    else if (arg === '--checkpoint') parsed.checkpoint = args[++i];
+    else if (arg === '--limit') parsed.limit = Number(args[++i]);
+    else if (arg === '--delay-ms') parsed.delayMs = Number(args[++i]);
+    else throw new Error(`Unknown argument: ${arg}`);
+  }
+  return parsed;
+}

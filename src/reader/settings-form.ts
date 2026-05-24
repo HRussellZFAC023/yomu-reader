@@ -37,6 +37,113 @@ const DEFAULT_COLOR_SOURCE_VALUES: Record<ColorSourceSettingName, SelectableRead
     subtitleTextColorSource: 'jpdb',
 };
 const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
+const YOMU_PROXY_WORKER_CODE = [
+    "const JPDB_AUDIO_ACCESS_HEADER = \"please don't steal these files\";",
+    "const FALLBACK_CORS_HEADERS = 'accept, authorization, content-type, range, x-access, x-forcecaf';",
+    "const HOP_BY_HOP_REQUEST_HEADERS = new Set([",
+    "  'connection',",
+    "  'content-length',",
+    "  'expect',",
+    "  'host',",
+    "  'keep-alive',",
+    "  'proxy-authenticate',",
+    "  'proxy-authorization',",
+    "  'te',",
+    "  'trailer',",
+    "  'transfer-encoding',",
+    "  'upgrade',",
+    ']);',
+    "const PROXY_CONTROL_REQUEST_HEADERS = new Set(['access-control-request-headers', 'access-control-request-method']);",
+    'const BROWSER_FETCH_METADATA_RE = /^(?:cf-|sec-fetch-)/i;',
+    '',
+    'export default {',
+    '  async fetch(request) {',
+    '    if (isCorsPreflight(request)) return preflight(request);',
+    '',
+    '    const target = targetUrl(request);',
+    "    if (!target) return corsText(request, 'Missing url parameter.', 400);",
+    "    if (!/^https?:$/.test(target.protocol)) return corsText(request, 'Target is not proxyable.', 400);",
+    '',
+    '    return withCors(request, await fetchProxyTarget(request, target));',
+    '  },',
+    '};',
+    '',
+    'function targetUrl(request) {',
+    '  try {',
+    '    const url = new URL(request.url);',
+    "    const raw = url.searchParams.get('url');",
+    '    return raw ? new URL(raw) : null;',
+    '  } catch {',
+    '    return null;',
+    '  }',
+    '}',
+    '',
+    'async function fetchProxyTarget(request, target) {',
+    '  return await fetch(new Request(target.href, upstreamInit(request, target)));',
+    '}',
+    '',
+    'function upstreamInit(request, target) {',
+    '  const init = {',
+    '    method: request.method,',
+    '    headers: upstreamHeaders(request, target),',
+    "    body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body,",
+    "    redirect: 'follow',",
+    '  };',
+    "  if (init.body) init.duplex = 'half';",
+    '  return init;',
+    '}',
+    '',
+    'function upstreamHeaders(request, target) {',
+    '  const headers = new Headers();',
+    '  request.headers.forEach((value, key) => {',
+    '    if (shouldForwardRequestHeader(key)) headers.set(key, value);',
+    '  });',
+    "  if (target.hostname === 'jpdb.io' && target.pathname.startsWith('/static/v/')) {",
+    "    headers.set('x-access', request.headers.get('x-access') || JPDB_AUDIO_ACCESS_HEADER);",
+    "    const forceCaf = request.headers.get('x-forcecaf') || new URL(request.url).searchParams.get('x-forcecaf');",
+    "    if (forceCaf) headers.set('x-forcecaf', forceCaf);",
+    '  }',
+    '  return headers;',
+    '}',
+    '',
+    'function shouldForwardRequestHeader(name) {',
+    '  const key = name.toLowerCase();',
+    '  return !HOP_BY_HOP_REQUEST_HEADERS.has(key)',
+    '    && !PROXY_CONTROL_REQUEST_HEADERS.has(key)',
+    '    && !BROWSER_FETCH_METADATA_RE.test(key);',
+    '}',
+    '',
+    'function preflight(request) {',
+    '  return new Response(null, { status: 204, headers: corsHeaders(request) });',
+    '}',
+    '',
+    'function corsText(request, text, status) {',
+    '  return new Response(text, { status, headers: corsHeaders(request) });',
+    '}',
+    '',
+    'function withCors(request, response) {',
+    '  const headers = new Headers(response.headers);',
+    '  corsHeaders(request, headers).forEach((value, key) => headers.set(key, value));',
+    "  headers.delete('set-cookie');",
+    '  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });',
+    '}',
+    '',
+    'function corsHeaders(request, responseHeaders) {',
+    '  const headers = new Headers();',
+    "  headers.set('access-control-allow-origin', request.headers.get('origin') || '*');",
+    "  headers.set('access-control-allow-credentials', 'true');",
+    "  headers.set('access-control-allow-methods', request.headers.get('access-control-request-method') || 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS');",
+    "  headers.set('access-control-allow-headers', request.headers.get('access-control-request-headers') || FALLBACK_CORS_HEADERS);",
+    "  headers.set('access-control-expose-headers', responseHeaders ? Array.from(responseHeaders.keys()).filter(name => name.toLowerCase() !== 'set-cookie').join(', ') || '*' : '*');",
+    "  headers.set('access-control-max-age', '86400');",
+    "  headers.set('vary', 'Origin');",
+    '  return headers;',
+    '}',
+    '',
+    'function isCorsPreflight(request) {',
+    "  return request.method === 'OPTIONS' && request.headers.has('access-control-request-method');",
+    '}',
+].join('\n');
 
 interface SettingsFormReader {
     get: (key: string) => string;
@@ -71,34 +178,29 @@ export function renderHelpLinksPanel(): string {
                 </div>
             </div>
         </div>
+        ${renderHelpGlossaryCard()}
     `;
 }
 
-function renderHelpGlossaryPanel(): string {
+function renderHelpGlossaryCard(): string {
+    const terms = [
+        ['jpdb', 'JPDB', 'An online Japanese study site. よむ can use it for word status, definitions, review buttons, and mining.'],
+        ['yomitan', 'Yomitan dictionaries', 'Downloadable dictionary files. よむ can import them so lookups keep working from local browser storage.'],
+        ['mining', 'Mining', 'Saving a word, sentence, subtitle, or image context so you can study it later.'],
+        ['anki', 'Anki', 'A flashcard app. よむ can send cards to Anki when you choose to connect it.'],
+        ['ocr', 'OCR', 'Reading text from images, such as manga panels or screenshots.'],
+    ] as const;
+
     return `
         <div class="jpdb-reader-help-card jpdb-reader-help-glossary-card">
             <div class="jpdb-reader-help-title" data-help-glossary-title>Glossary</div>
             <dl class="jpdb-reader-help-glossary">
-                <div>
-                    <dt data-help-glossary-term="jpdb">JPDB</dt>
-                    <dd data-help-glossary-definition="jpdb">An online Japanese study site. よむ can use it for word status, definitions, review buttons, and mining.</dd>
-                </div>
-                <div>
-                    <dt data-help-glossary-term="yomitan">Yomitan dictionaries</dt>
-                    <dd data-help-glossary-definition="yomitan">Downloadable dictionary files. よむ can import them so lookups keep working from local browser storage.</dd>
-                </div>
-                <div>
-                    <dt data-help-glossary-term="mining">Mining</dt>
-                    <dd data-help-glossary-definition="mining">Saving a word, sentence, subtitle, or image context so you can study it later.</dd>
-                </div>
-                <div>
-                    <dt data-help-glossary-term="anki">Anki</dt>
-                    <dd data-help-glossary-definition="anki">A flashcard app. よむ can send cards to Anki when you choose to connect it.</dd>
-                </div>
-                <div>
-                    <dt data-help-glossary-term="ocr">OCR</dt>
-                    <dd data-help-glossary-definition="ocr">Reading text from images, such as manga panels or screenshots.</dd>
-                </div>
+                ${terms.map(([key, term, definition]) => `
+                    <div>
+                        <dt data-help-glossary-term="${key}">${escapeHtml(term)}</dt>
+                        <dd data-help-glossary-definition="${key}">${escapeHtml(definition)}</dd>
+                    </div>
+                `).join('')}
             </dl>
         </div>
     `;
@@ -198,7 +300,8 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                     <div class="jpdb-reader-local-title">New tab</div>
                     <div class="grid">
                         ${checkbox('newTabEnabled', 'Use Yomu new tab study page', settings.newTabEnabled)}
-                        ${select('newTabSource', 'New tab review source', settings.newTabSource, [['auto', 'Auto: JPDB + Anki'], ['jpdb', 'JPDB'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
+                        ${checkbox('newTabAnkiEnabled', 'Use Anki cards on new tab', settings.newTabAnkiEnabled)}
+                        ${select('newTabSource', 'New tab review source', settings.newTabSource, [['auto', 'Auto: JPDB, then Anki'], ['jpdb', 'JPDB'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
                         ${select('newTabJpdbReviewMode', 'JPDB review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
                         ${select('newTabKanjiKeywordSource', 'Kanji keyword source', settings.newTabKanjiKeywordSource, [['auto', 'Auto: RTK, then JPDB, then local'], ['rtk', 'RTK / Heisig'], ['jpdb', 'JPDB'], ['local', 'Local card meaning']])}
                         ${checkbox('newTabParsingEnabled', 'Parse sentences on new tab', settings.newTabParsingEnabled)}
@@ -287,11 +390,36 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
                     ${input('audioTimeoutMs', 'Audio timeout (ms)', String(settings.audioTimeoutMs), 'number')}
                     ${input('corsProxyUrl', 'Cross-origin proxy URL', settings.corsProxyUrl, 'url', { placeholder: 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev' })}
                 </div>
+                ${renderProxySetupGuide()}
                 <div class="jpdb-reader-audio-sources" data-source-editor data-audio-source-editor>
                     ${renderAudioSourceEditor(settings.audioSources)}
                 </div>
                 <div class="jpdb-reader-help">Supports {term}, {reading}, and {language}. Fallback mode tries JPDB and browser TTS after recorded audio misses. See the <a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">Yomitan audio guide</a>.</div>
             </fieldset>
+    `;
+}
+
+function renderProxySetupGuide(): string {
+    return `
+                <details class="jpdb-reader-proxy-guide">
+                    <summary>Make your own Cloudflare proxy</summary>
+                    <div class="jpdb-reader-proxy-guide-body">
+                        <p>The default public proxy is fine for most people, but you can run your own free Cloudflare Worker if you want a private endpoint or want to customize what the proxy allows.</p>
+                        <ol>
+                            <li>Go to <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare Dashboard</a> and log in or create a free account.</li>
+                            <li>Open <b>Compute & AI</b>, then <b>Workers & Pages</b>, and click <b>Create</b>.</li>
+                            <li>Choose <b>Worker</b>, give it a name such as <code>yomu-proxy</code>, and click <b>Deploy</b>.</li>
+                            <li>Click <b>Edit code</b>. Delete the starter code and paste the Worker code below.</li>
+                            <li>Click <b>Deploy</b> in the top-right of the editor.</li>
+                            <li>Copy the Worker URL, for example <code>https://yomu-proxy.yourname.workers.dev</code>.</li>
+                            <li>Paste that URL into <b>Cross-origin proxy URL</b>. Do not add <code>?url=</code>; よむ adds that part automatically.</li>
+                            <li>Save settings, then try a JPDB lookup, hosted dictionary import, or external audio source to confirm requests are going through your Worker.</li>
+                        </ol>
+                        <p>This example forwards public HTTP and HTTPS requests and strips hop-by-hop/browser metadata headers. If you share the URL widely, consider editing the protocol/host check to only allow the sites you use.</p>
+                        <div class="jpdb-reader-proxy-guide-code-title">Worker proxy code</div>
+                        <pre class="jpdb-reader-proxy-guide-code"><code>${escapeHtml(YOMU_PROXY_WORKER_CODE)}</code></pre>
+                    </div>
+                </details>
     `;
 }
 
@@ -559,7 +687,6 @@ function renderHelpSettingsPanel(): string {
             <fieldset data-settings-panel="help" hidden>
                 <legend>Help</legend>
                 ${renderHelpLinksPanel()}
-                ${renderHelpGlossaryPanel()}
             </fieldset>
     `;
 }
@@ -1200,6 +1327,7 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['enableLogging', 'enableLogging'],
         ['accentColor', 'accentColor'],
         ['newTabEnabled', 'newTabEnabled'],
+        ['newTabAnkiEnabled', 'newTabAnkiEnabled'],
         ['newTabSource', 'newTabSource'],
         ['newTabJpdbReviewMode', 'newTabJpdbReviewMode'],
         ['corsProxyUrl', 'corsProxyUrl'],
@@ -2378,6 +2506,7 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
     const { get, has, number } = reader;
     return {
         newTabEnabled: has('newTabEnabled'),
+        newTabAnkiEnabled: has('newTabAnkiEnabled'),
         newTabSource: readOption(get('newTabSource'), ['auto', 'jpdb', 'anki', 'dictionary'] as const, current.newTabSource),
         newTabJpdbDeck: get('newTabJpdbDeck').trim() || current.newTabJpdbDeck,
         newTabJpdbReviewMode: readOption(get('newTabJpdbReviewMode'), ['auto', 'api-vocabulary', 'live-review'] as const, current.newTabJpdbReviewMode),

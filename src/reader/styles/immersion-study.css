@@ -429,6 +429,19 @@ mark.jpdb-reader-example-target {
   font-weight: 700;
   min-width: 0;
 }
+.jpdb-reader-grammar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.jpdb-reader-grammar-repeat {
+  color: var(--jpdb-reader-muted);
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1;
+}
 .jpdb-reader-study-short,
 .jpdb-reader-study-empty {
   color: var(--jpdb-reader-text);

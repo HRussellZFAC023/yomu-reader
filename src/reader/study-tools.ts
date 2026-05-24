@@ -44,6 +44,11 @@ interface GrammarPattern {
 
 type RankedGrammarHint = GrammarHint & { priority: number };
 
+interface GroupedGrammarHint {
+    hint: GrammarHint;
+    count: number;
+}
+
 export interface GrammarPreferences {
     knownRuleIds: string[];
     showKnown: boolean;
@@ -524,11 +529,12 @@ export async function renderGrammarHints(hints: GrammarHint[], sentence: string,
     if (!hints.length) return '';
     const knownRuleIds = new Set(preferences.knownRuleIds);
     const visibleHints = visibleGrammarHints(hints, knownRuleIds, preferences.showKnown);
+    const visibleGroups = groupGrammarHintsByRule(visibleHints);
     const knownCount = countKnownGrammarHints(hints, knownRuleIds);
     return `
         ${renderGrammarSentence(sentence)}
-        ${renderGrammarToolbar(visibleHints.length, knownCount, preferences.showKnown, language)}
-        ${await renderGrammarHintList(visibleHints, knownRuleIds, language)}`;
+        ${renderGrammarToolbar(visibleGroups.length, knownCount, preferences.showKnown, language)}
+        ${await renderGrammarHintList(visibleGroups, knownRuleIds, language)}`;
 }
 
 function visibleGrammarHints(hints: GrammarHint[], knownRuleIds: Set<string>, showKnown: boolean): GrammarHint[] {
@@ -536,7 +542,20 @@ function visibleGrammarHints(hints: GrammarHint[], knownRuleIds: Set<string>, sh
 }
 
 function countKnownGrammarHints(hints: GrammarHint[], knownRuleIds: Set<string>): number {
-    return hints.filter(hint => knownRuleIds.has(hint.ruleId)).length;
+    return new Set(hints.filter(hint => knownRuleIds.has(hint.ruleId)).map(hint => hint.ruleId)).size;
+}
+
+function groupGrammarHintsByRule(hints: GrammarHint[]): GroupedGrammarHint[] {
+    const groups = new Map<string, GroupedGrammarHint>();
+    for (const hint of hints) {
+        const existing = groups.get(hint.ruleId);
+        if (existing) {
+            existing.count += 1;
+            continue;
+        }
+        groups.set(hint.ruleId, { hint, count: 1 });
+    }
+    return Array.from(groups.values());
 }
 
 function renderGrammarSentence(sentence: string): string {
@@ -561,15 +580,16 @@ function renderGrammarKnownVisibilityButton(knownCount: number, showKnown: boole
     return `<button class="jpdb-reader-grammar-toggle" type="button" data-action="study-grammar-toggle-known-visibility" aria-pressed="${showKnown ? 'true' : 'false'}">${label}</button>`;
 }
 
-async function renderGrammarHintList(visibleHints: GrammarHint[], knownRuleIds: Set<string>, language: InterfaceLanguage): Promise<string> {
-    if (!visibleHints.length) return `<div class="jpdb-reader-study-empty">${escapeHtml(uiText(language, 'allDetectedGrammarKnown'))}</div>`;
-    const items = await Promise.all(visibleHints.map(hint => renderGrammarHintItem(hint, knownRuleIds.has(hint.ruleId), language)));
+async function renderGrammarHintList(visibleGroups: GroupedGrammarHint[], knownRuleIds: Set<string>, language: InterfaceLanguage): Promise<string> {
+    if (!visibleGroups.length) return `<div class="jpdb-reader-study-empty">${escapeHtml(uiText(language, 'allDetectedGrammarKnown'))}</div>`;
+    const items = await Promise.all(visibleGroups.map(group => renderGrammarHintItem(group, knownRuleIds.has(group.hint.ruleId), language)));
     return `<ol class="jpdb-reader-study-list" data-grammar-list>
         ${items.join('')}
         </ol>`;
 }
 
-async function renderGrammarHintItem(hint: GrammarHint, known: boolean, language: InterfaceLanguage): Promise<string> {
+async function renderGrammarHintItem(group: GroupedGrammarHint, known: boolean, language: InterfaceLanguage): Promise<string> {
+    const { hint, count } = group;
     const copy = await grammarHintCopy(hint, language);
     const displayName = grammarDisplayName(hint, language);
     return `
@@ -581,7 +601,10 @@ async function renderGrammarHintItem(hint: GrammarHint, known: boolean, language
                 <div class="jpdb-reader-study-body">
                     <div class="jpdb-reader-study-item-head">
                         <div class="jpdb-reader-study-kind">${escapeHtml(copy.kind)}</div>
-                        <button class="jpdb-reader-grammar-known" type="button" data-action="study-grammar-toggle-known" data-grammar-rule-id="${escapeHtml(hint.ruleId)}" data-grammar-known="${known ? 'true' : 'false'}" aria-pressed="${known ? 'true' : 'false'}">${known ? uiText(language, 'grammarReview') : uiText(language, 'grammarKnown')}</button>
+                        <div class="jpdb-reader-grammar-actions">
+                            ${renderGrammarRepeatCount(count)}
+                            <button class="jpdb-reader-grammar-known" type="button" data-action="study-grammar-toggle-known" data-grammar-rule-id="${escapeHtml(hint.ruleId)}" data-grammar-known="${known ? 'true' : 'false'}" aria-pressed="${known ? 'true' : 'false'}">${known ? uiText(language, 'grammarReview') : uiText(language, 'grammarKnown')}</button>
+                        </div>
                     </div>
                     <div class="jpdb-reader-study-short">${escapeHtml(copy.short)}</div>
                     <details class="jpdb-reader-grammar-more">
@@ -593,6 +616,10 @@ async function renderGrammarHintItem(hint: GrammarHint, known: boolean, language
                     </details>
                 </div>
             </li>`;
+}
+
+function renderGrammarRepeatCount(count: number): string {
+    return count > 1 ? `<span class="jpdb-reader-grammar-repeat">x${count}</span>` : '';
 }
 
 async function grammarHintCopy(hint: GrammarHint, language: InterfaceLanguage): Promise<{ kind: string; short: string; detail: string }> {

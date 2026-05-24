@@ -38,7 +38,7 @@
 }
 
 .jpdb-reader-newtab-shell {
-  width: min(760px, calc(100vw - 28px));
+  width: min(920px, calc(100vw - 28px));
   min-height: 100dvh;
   margin: 0 auto;
   display: grid;
@@ -597,6 +597,12 @@
 
 .jpdb-reader-newtab-search-kanji-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: start;
+}
+
+.jpdb-reader-newtab-search-kanji-grid
+  > .jpdb-reader-newtab-search-card-shell[data-newtab-search-expanded="true"] {
+  grid-column: 1 / -1;
 }
 
 .jpdb-reader-newtab-search-card-shell {
@@ -653,6 +659,33 @@
 
 .jpdb-reader-newtab-search-detail[hidden] {
   display: none;
+}
+
+.jpdb-reader-newtab-search-inline-kanji {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.jpdb-reader-newtab-search-inline-title {
+  margin: 2px 0 0;
+  color: var(--jpdb-reader-muted, #aab2c0);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.jpdb-reader-newtab-search-inline-kanji .jpdb-reader-newtab-kanji-details {
+  width: 100%;
+  margin: 0;
+  justify-self: stretch;
+}
+
+.jpdb-reader-newtab-search-detail > .jpdb-reader-newtab-kanji-details {
+  width: 100%;
+  margin: 0;
+  justify-self: stretch;
 }
 
 .jpdb-reader-newtab-search-word {
@@ -785,6 +818,23 @@
   line-height: 1.2;
   font-weight: 760;
   text-align: center;
+}
+
+button.jpdb-reader-newtab-status {
+  min-height: 20px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+button.jpdb-reader-newtab-status:disabled {
+  cursor: default;
+}
+
+button.jpdb-reader-newtab-status:not(:disabled):hover {
+  background: color-mix(in srgb, var(--jpdb-reader-text, #f2f4f8) 12%, transparent);
 }
 
 .jpdb-reader-newtab-prompt {
@@ -2059,6 +2109,7 @@
 .jpdb-reader-language-toggle:focus-visible,
 .jpdb-reader-newtab-overflow:focus-visible,
 .jpdb-reader-newtab-mode button:focus-visible,
+.jpdb-reader-newtab-status:focus-visible,
 .jpdb-reader-newtab-controls button:not([data-grade]):focus-visible,
 .jpdb-reader-newtab-doodle-actions button:focus-visible,
 .jpdb-reader-newtab-searchbox button:focus-visible,
@@ -2277,6 +2328,7 @@
 
   .jpdb-reader-newtab-controls button {
     min-height: 42px;
+    min-width: 0;
     padding: 0 6px;
     font-size: 11px;
   }
