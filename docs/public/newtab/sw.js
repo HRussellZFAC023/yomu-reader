@@ -1,4 +1,4 @@
-const APP_HASH = 'ce72d42d0641';
+const APP_HASH = 'ac43a0983bb8';
 const CACHE_NAME = `yomu-newtab-${APP_HASH}`;
 const SHELL = ['./', './index.html', './app.js', '../yomu.user.js'];
 
@@ -57,7 +57,10 @@ function shouldCacheRequest(request) {
   const url = new URL(request.url);
   return url.pathname.includes('/newtab/')
     || url.pathname.endsWith('/yomu.user.js')
-    || url.pathname.endsWith('/yomu-icon.svg');
+    || url.pathname.endsWith('/yomu-icon.svg')
+    || url.pathname.endsWith('/favicon-16x16.png')
+    || url.pathname.endsWith('/favicon-32x32.png')
+    || url.pathname.endsWith('/apple-touch-icon.png');
 }
 
 function isSameOrigin(request) {

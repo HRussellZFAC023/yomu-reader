@@ -20,18 +20,6 @@ async function waitForExpect(assertion: () => void | Promise<void>, timeoutMs = 
     await assertion();
 }
 
-function dispatchPointerEvent(target: EventTarget, type: string, pointerType: 'mouse' | 'pen' | 'touch'): void {
-    const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
-    Object.defineProperties(event, {
-        button: { value: 0 },
-        clientX: { value: 120 },
-        clientY: { value: 120 },
-        pointerId: { value: 1 },
-        pointerType: { value: pointerType },
-    });
-    target.dispatchEvent(event);
-}
-
 function testCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {
         vid: 10,
@@ -76,8 +64,8 @@ function installIntersectionObserver(): void {
     });
 }
 
-describe('OCR touch panel', () => {
-    it('shows a larger parsed sentence tray for Apple Pencil taps', async () => {
+describe('OCR sentence focus', () => {
+    it('focuses an OCR sentence inline and clears it when clicking away', async () => {
         installIntersectionObserver();
         const sentence = '日本語を読む';
         const image = document.createElement('img');
@@ -113,16 +101,12 @@ describe('OCR touch panel', () => {
             });
 
             const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
-            dispatchPointerEvent(line, 'pointerdown', 'pen');
             line.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
 
-            const panel = document.querySelector<HTMLElement>('.jpdb-ocr-touch-panel')!;
-            expect(panel).not.toBeNull();
-            expect(panel.textContent).toContain(sentence);
-            expect(panel.querySelector<HTMLElement>('.jpdb-reader-word[data-vid="10"]')?.textContent).toBe('日本語');
-
-            panel.querySelector<HTMLButtonElement>('[data-ocr-touch-panel-close]')?.click();
             expect(document.querySelector('.jpdb-ocr-touch-panel')).toBeNull();
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
+
+            document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
             expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
         } finally {
             controller.destroy();

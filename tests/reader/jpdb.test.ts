@@ -9,7 +9,7 @@ import { CardActionController } from '../../src/reader/card-action-controller';
 import { CardPopoverRenderer } from '../../src/reader/card-popover-renderer';
 import { CardRenderDataLoader } from '../../src/reader/card-render-data';
 import { createAudioPreviewCard } from '../../src/reader/card-utils';
-import { STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../../src/reader/constants';
+import { IMMERSION_KIT_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../../src/reader/constants';
 import { deinflectJapaneseTerm, termRulesMatch } from '../../src/reader/deinflect';
 import { renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../src/reader/definition-source-render';
 import { DictionarySourceStateController } from '../../src/reader/dictionary-source-state';
@@ -3545,6 +3545,20 @@ describe('reader helpers', () => {
         expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).immersionKitEnabled).toBe(true);
     });
 
+    it('saves JPDB page enhancement toggles separately from source ordering', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        form.querySelector<HTMLInputElement>('input[name="jpdbPageWordEnhancementsEnabled"]')!.checked = false;
+
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+
+        expect(saved.jpdbPageEnhancementsEnabled).toBe(true);
+        expect(saved.jpdbPageWordEnhancementsEnabled).toBe(false);
+        expect(saved.jpdbPageKanjiEnhancementsEnabled).toBe(true);
+        expect(saved.jpdbDefinitionsEnabled).toBe(true);
+        expect(saved.kanjiImmersionKitEnabled).toBe(true);
+    });
+
     it('keeps definition source ordering compact until editable dictionaries exist', () => {
         document.body.innerHTML = `<form>${renderDictionarySourceRows(DEFAULT_SETTINGS)}</form>`;
 
@@ -4161,6 +4175,23 @@ describe('reader helpers', () => {
         expect(kanjiSourceRows(saved).map(row => row.id)).toContain(KANJI_UCHISEN_SOURCE_ID);
         expect(orderedKanjiSourceIds(saved)[1]).toBe(KANJI_UCHISEN_SOURCE_ID);
         expect(orderedKanjiSourceIds({ ...saved, uchisenEnabled: false })).not.toContain(KANJI_UCHISEN_SOURCE_ID);
+    });
+
+    it('adds Immersion Kit to kanji source ordering', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            kanjiImmersionKitPriority: 1,
+        }, 'https://jpdb.io/settings');
+
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+
+        expect(saved.kanjiImmersionKitEnabled).toBe(true);
+        expect(saved.kanjiImmersionKitPriority).toBe(1);
+        expect(kanjiSourceRows(saved).map(row => row.id)).toContain(IMMERSION_KIT_SOURCE_ID);
+        expect(orderedKanjiSourceIds(saved)[1]).toBe(IMMERSION_KIT_SOURCE_ID);
+        expect(orderedKanjiSourceIds({ ...saved, kanjiImmersionKitEnabled: false })).not.toContain(IMMERSION_KIT_SOURCE_ID);
+        expect(orderedKanjiSourceIds({ ...saved, immersionKitEnabled: false })).not.toContain(IMMERSION_KIT_SOURCE_ID);
     });
 
     it('parses public JPDB search results into word cards', () => {
@@ -11957,7 +11988,7 @@ describe('reader helpers', () => {
         expect(normalizedTargets.some(text => text.includes('きのう昨日'))).toBe(false);
     });
 
-    it('uses JPDB-specific fragment parsing for dictionary result pages', () => {
+    it('skips JPDB primary spellings because their native ruby layout is fragile', () => {
         const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
             left: 0,
             right: 900,
@@ -11985,7 +12016,10 @@ describe('reader helpers', () => {
         const targets = collectScanTargets(10, 'https://jpdb.io/search?q=HAHA&lang=english#a');
         rectSpy.mockRestore();
 
-        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining(['母', 'ハハ', 'かか was used by children']));
+        const texts = targets.map(target => target.text);
+        expect(texts).toContain('かか was used by children');
+        expect(texts).not.toContain('母');
+        expect(texts).not.toContain('ハハ');
     });
 
     it('scans JPDB example sentences so word color settings apply there too', () => {

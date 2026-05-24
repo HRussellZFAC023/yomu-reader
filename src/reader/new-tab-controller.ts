@@ -1,7 +1,7 @@
 import { primaryCardState } from './card-state';
 import { copyText } from './browser-ui';
 import type { CardRenderData } from './card-render-data';
-import { APP_NAME, DOCS_BASE_URL, JPDB_DEFINITION_SOURCE_ID } from './constants';
+import { APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from './constants';
 import { escapeHtml, renderHighlightedTextHtml, setInnerHtml } from './dom';
 import { el, fragment, replaceChildrenWith, type DomAttrs } from './dom-builder';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from './immersion-kit';
@@ -3739,6 +3739,7 @@ export class NewTabController {
         replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.rtk, details.vg, details.local, details.similar, similarLoaded));
         this.renderSimilarKanjiWordsProgressively(slots, card, kanji, details);
         this.renderNewTabUchisen(slots.meaning, kanji);
+        this.renderNewTabKanjiImmersion(slots.meaning, kanji);
         void this.dependencies.parseContent?.(slots.meaning);
     }
 
@@ -3772,6 +3773,74 @@ export class NewTabController {
         }).catch(() => {
             if (mount.isConnected) mount.remove();
         });
+    }
+
+    private renderNewTabKanjiImmersionPlaceholder(settings: ReaderSettings): HTMLElement | null {
+        if (!settings.immersionKitEnabled || !settings.kanjiImmersionKitEnabled) return null;
+        const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
+        const isOpen = this.isSourceOpen(sourceStateKey, false);
+        return el('div', { dataset: { newtabKanjiImmersionMount: true } },
+            el('details', {
+                class: 'jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion',
+                open: isOpen,
+                dataset: {
+                    sourceStateKey,
+                    sourceInitialOpen: String(isOpen),
+                    newtabKanjiImmersionDetails: true,
+                },
+            },
+            el('summary', { class: 'jpdb-reader-local-title' }, uiText(settings.interfaceLanguage, 'immersionKit')),
+            el('div', { class: 'jpdb-reader-help', dataset: { newtabKanjiImmersionBody: true } }, uiText(settings.interfaceLanguage, 'loadingExamples'))),
+        );
+    }
+
+    private renderNewTabKanjiImmersion(root: HTMLElement, kanji: string): void {
+        const settings = this.dependencies.getSettings();
+        const mount = root.querySelector<HTMLElement>('[data-newtab-kanji-immersion-mount]');
+        const details = mount?.querySelector<HTMLDetailsElement>('[data-newtab-kanji-immersion-details]');
+        const body = mount?.querySelector<HTMLElement>('[data-newtab-kanji-immersion-body]');
+        if (!mount || !details || !body || !settings.immersionKitEnabled || !settings.kanjiImmersionKitEnabled) return;
+
+        const card = this.dependencies.parser.fallbackCardFromText?.(kanji) ?? fallbackSearchKanjiCard(kanji);
+        let started = false;
+        const load = () => {
+            if (!details.open || started || !mount.isConnected || !body.isConnected) return;
+            started = true;
+            void this.loadImmersionExamples(card).then(async examples => {
+                if (!mount.isConnected || !body.isConnected) return;
+                const example = examples[0];
+                if (!example) {
+                    replaceChildrenWith(body, el('div', { class: 'jpdb-reader-help' }, uiText(this.language(), 'noImmersionExamplesCompact')));
+                    details.dataset.immersionEmpty = 'true';
+                    return;
+                }
+                const immersion = this.renderNewTabKanjiImmersionCard(card, example, 0, examples.length);
+                replaceChildrenWith(body, immersion);
+                this.loadNewTabImmersionImage(immersion, example);
+                await this.dependencies.parseContent?.(immersion);
+                this.highlightNewTabParsedTarget(immersion, '[data-immersion-sentence-render]', card);
+            }).catch(() => {
+                if (body.isConnected) replaceChildrenWith(body, el('div', { class: 'jpdb-reader-help' }, uiText(this.language(), 'noImmersionExamplesCompact')));
+            });
+        };
+        details.addEventListener('toggle', load);
+        load();
+    }
+
+    private renderNewTabKanjiImmersionCard(card: JPDBCard, example: ImmersionKitExample, index: number, total: number): HTMLElement {
+        const settings = this.dependencies.getSettings();
+        const language = this.language();
+        const audioUrls = newTabImmersionAudioUrls(example, this.dependencies.immersionKit);
+        return el('div', { class: 'jpdb-reader-newtab-immersion' },
+            el('div', { class: 'jpdb-reader-example-toolbar' },
+                el('div', { class: 'jpdb-reader-example-meta' },
+                    el('span', { class: 'jpdb-reader-example-source' }, newTabImmersionProviderLabel(example, language)),
+                    el('span', { class: 'jpdb-reader-example-title' }, localizedImmersionSourceTitle(example.sourceTitle, language)),
+                    el('span', { class: 'jpdb-reader-example-count' }, `${index + 1}/${total}`),
+                ),
+            ),
+            this.renderNewTabImmersionExampleBody(card, example, settings, index, total, audioUrls),
+        );
     }
 
     private loadUchisenDetails(kanji: string): Promise<UchisenData | null> {
@@ -3871,6 +3940,7 @@ export class NewTabController {
         if (sourceId === KANJI_RTK_SOURCE_ID) return this.renderNewTabRtkSection(rtk, fullInfo, localEntries, settings);
         if (sourceId === KANJI_ORIGINS_SOURCE_ID) return this.renderNewTabKanjiOriginGraph(kanji, fullInfo, rtk, vg, localEntries, settings, excludeFactLabels);
         if (sourceId === KANJI_UCHISEN_SOURCE_ID) return this.renderNewTabUchisenPlaceholder(settings);
+        if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderNewTabKanjiImmersionPlaceholder(settings);
         if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) return htmlToFirstElement(this.renderNewTabSimilarKanjiWords(card, kanji, fullInfo?.vocabulary ?? [], similarEntries, similarEntriesLoaded));
         if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return this.renderNewTabKanjiDictionarySection(localEntries, sourceId, this.kanjiSourceTitle(sourceId));
         const dictionaryName = kanjiDictionaryNameFromSourceId(sourceId);

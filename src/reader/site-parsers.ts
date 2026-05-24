@@ -119,8 +119,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             '.subsection-usages',
             '.subsection-examples',
             '.subsection-pitch-accent',
-            '.subsection-spelling',
-            '.primary-spelling',
             '.review-card',
             '.answer',
             '.sentence',
@@ -128,6 +126,8 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         exclude: [
             COMMON_EXCLUDE,
             '.nav',
+            '.subsection-spelling',
+            '.primary-spelling',
             '.subsection-label',
             '.vocabulary-audio',
             '.icon-link',

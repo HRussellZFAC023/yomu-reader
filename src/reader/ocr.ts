@@ -38,8 +38,6 @@ interface ImageState {
     overlayRequested: boolean;
     manualRequested: boolean;
     autoSkipped: boolean;
-    touchPanel?: HTMLElement;
-    touchPanelSource?: HTMLElement;
 }
 
 interface OcrRenderedImageFrame {
@@ -67,7 +65,6 @@ const LENS_AUTO_FILTER = 7;
 const LENS_WRITING_TOP_TO_BOTTOM = 2;
 const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
 const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
-const OCR_TOUCH_PANEL_POINTER_MAX_AGE_MS = 1200;
 const log = Logger.scope('OCR');
 const OCR_RECOGNIZERS: Partial<Record<ReaderSettings['ocrProvider'], OcrRecognizer>> = {
     'google-lens': recognizeViaGoogleLens,
@@ -164,11 +161,15 @@ export class ImageOcrController {
     private busy = false;
     private positionFrame = 0;
     private refreshTimer = 0;
+    private readonly handleDocumentPointerDown = (event: Event) => this.unpinOcrLinesFromDocumentEvent(event);
+    private readonly handleDocumentClick = (event: Event) => this.unpinOcrLinesFromDocumentEvent(event);
 
     constructor(private readonly options: OcrControllerOptions) {}
 
     init(): void {
         this.refresh();
+        document.addEventListener('pointerdown', this.handleDocumentPointerDown, true);
+        document.addEventListener('click', this.handleDocumentClick, true);
         window.addEventListener('scroll', () => {
             if (!this.options.getSettings().ocrEnabled) return;
             this.schedulePosition();
@@ -204,6 +205,8 @@ export class ImageOcrController {
     }
 
     destroy(): void {
+        document.removeEventListener('pointerdown', this.handleDocumentPointerDown, true);
+        document.removeEventListener('click', this.handleDocumentClick, true);
         this.mutationObserver?.disconnect();
         if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
         this.clear();
@@ -458,7 +461,6 @@ export class ImageOcrController {
     private async renderResult(state: ImageState, result: OcrResult, forceOverlay = false): Promise<void> {
         state.result = result;
         state.status.hidden = true;
-        this.hideTouchPanel(state);
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
 
         const settings = this.options.getSettings();
@@ -496,7 +498,6 @@ export class ImageOcrController {
         settings: ReaderSettings,
     ): HTMLElement {
         const element = createOcrLineElement(result, line, tokens, sentence, showText, settings);
-        element.addEventListener('pointerdown', event => rememberOcrLinePointer(element, event), { passive: true });
         element.addEventListener('click', event => this.toggleOcrLinePinned(state, element, event));
         return element;
     }
@@ -511,8 +512,6 @@ export class ImageOcrController {
         }
         element.focus({ preventScroll: true });
         this.pinLine(state, element);
-        if (shouldShowOcrTouchPanel(element)) this.showTouchPanel(state, element);
-        else this.hideTouchPanel(state);
     }
 
     private pinLine(state: ImageState, element: HTMLElement): void {
@@ -526,37 +525,18 @@ export class ImageOcrController {
     private unpinLine(element: HTMLElement): void {
         element.classList.remove('jpdb-ocr-line-active');
         element.dataset.pinned = 'false';
-        this.hideTouchPanelForLine(element);
     }
 
-    private showTouchPanel(state: ImageState, element: HTMLElement): void {
-        for (const candidate of this.states.values()) {
-            if (candidate !== state) this.hideTouchPanel(candidate);
-        }
-        this.hideTouchPanel(state);
-        const panel = createOcrTouchPanel();
-        state.touchPanel = panel;
-        state.touchPanelSource = element;
-        applyOcrOverlayStyle(panel, this.options.getSettings());
-        renderOcrTouchPanelSentence(panel, element);
-        panel.querySelector<HTMLButtonElement>('[data-ocr-touch-panel-close]')?.addEventListener('click', event => {
-            event.preventDefault();
-            event.stopPropagation();
-            this.unpinLine(element);
-        });
-        document.body.append(panel);
+    private unpinOcrLinesFromDocumentEvent(event: Event): void {
+        const target = event.target instanceof Element ? event.target : null;
+        if (target?.closest('.jpdb-ocr-line, .jpdb-reader-popover, .jpdb-reader-settings, .jpdb-reader-onboarding, .jpdb-reader-fab')) return;
+        this.unpinAllLines();
     }
 
-    private hideTouchPanelForLine(element: HTMLElement): void {
+    private unpinAllLines(): void {
         for (const state of this.states.values()) {
-            if (state.touchPanelSource === element) this.hideTouchPanel(state);
+            state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line-active').forEach(line => this.unpinLine(line));
         }
-    }
-
-    private hideTouchPanel(state: ImageState): void {
-        state.touchPanel?.remove();
-        state.touchPanel = undefined;
-        state.touchPanelSource = undefined;
     }
 
     private observePriority(image: HTMLImageElement): number {
@@ -575,7 +555,6 @@ export class ImageOcrController {
         state.overlayRequested = false;
         state.manualRequested = false;
         state.autoSkipped = false;
-        this.hideTouchPanel(state);
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
         state.status.hidden = true;
     }
@@ -679,7 +658,6 @@ export class ImageOcrController {
         window.clearTimeout(this.refreshTimer);
         this.queue = [];
         for (const state of this.states.values()) {
-            this.hideTouchPanel(state);
             state.overlay.remove();
         }
         this.states.clear();
@@ -689,7 +667,6 @@ export class ImageOcrController {
         for (const [image, state] of this.states) {
             if (image.isConnected) continue;
             this.observer?.unobserve(image);
-            this.hideTouchPanel(state);
             state.overlay.remove();
             this.states.delete(image);
         }
@@ -723,60 +700,6 @@ function createOcrLineElement(
     element.dataset.hasFuri = String(Boolean(textElement.querySelector('.jpdb-reader-has-furi')));
     setOcrLinePosition(element, result, line);
     return element;
-}
-
-function createOcrTouchPanel(): HTMLElement {
-    const panel = document.createElement('div');
-    panel.className = 'jpdb-ocr-touch-panel';
-    panel.dataset.jpdbReaderRoot = 'true';
-    panel.dataset.jpdbReaderSurfaceIgnore = 'true';
-    panel.setAttribute('role', 'region');
-    panel.setAttribute('aria-label', 'OCR sentence');
-
-    const text = document.createElement('div');
-    text.className = 'jpdb-ocr-touch-panel-text';
-
-    const close = document.createElement('button');
-    close.className = 'jpdb-ocr-touch-panel-close';
-    close.type = 'button';
-    close.title = 'Close OCR sentence';
-    close.setAttribute('aria-label', 'Close OCR sentence');
-    close.dataset.ocrTouchPanelClose = 'true';
-    close.textContent = 'x';
-
-    panel.append(text, close);
-    return panel;
-}
-
-function renderOcrTouchPanelSentence(panel: HTMLElement, line: HTMLElement): void {
-    const target = panel.querySelector<HTMLElement>('.jpdb-ocr-touch-panel-text');
-    if (!target) return;
-    const source = line.querySelector<HTMLElement>('.jpdb-ocr-line-text');
-    setInnerHtml(target, source?.innerHTML || escapeHtml(line.dataset.ocrText ?? ''));
-    target.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(word => {
-        word.dataset.sentence ||= line.dataset.sentence || line.dataset.ocrText || '';
-        word.tabIndex = 0;
-    });
-}
-
-function rememberOcrLinePointer(element: HTMLElement, event: PointerEvent): void {
-    element.dataset.lastPointerType = event.pointerType;
-    element.dataset.lastPointerAt = String(Date.now());
-}
-
-function shouldShowOcrTouchPanel(element: HTMLElement): boolean {
-    if (recentTouchLikeOcrPointer(element)) return true;
-    return window.matchMedia?.('(pointer: coarse)').matches ?? false;
-}
-
-function recentTouchLikeOcrPointer(element: HTMLElement): boolean {
-    if (!isTouchLikeOcrPointerType(element.dataset.lastPointerType)) return false;
-    const age = Date.now() - Number(element.dataset.lastPointerAt || 0);
-    return Number.isFinite(age) && age >= 0 && age <= OCR_TOUCH_PANEL_POINTER_MAX_AGE_MS;
-}
-
-function isTouchLikeOcrPointerType(value: string | undefined): boolean {
-    return value === 'touch' || value === 'pen';
 }
 
 function setOcrLineDataset(element: HTMLElement, result: OcrResult, line: OcrLine, sentence: string): void {

@@ -5,6 +5,7 @@
 ### Fixed
 
 - Disabled hover lookup and hover-close behavior while a click/tap-opened popup is active, so iPad mouse, trackpad, and Apple Pencil hover surfaces no longer replace or close the sticky lookup when the pointer moves away.
+- Suppressed native browser title tooltips while a dictionary popup is open, preventing OCR sentence/status tooltips from covering the lookup card.
 
 ## [0.4.32] - 2026-05-24
 

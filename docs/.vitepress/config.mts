@@ -18,7 +18,11 @@ export default defineConfig({
         plugins: [jpdbAudioDevProxyPlugin()],
     },
     head: [
+        ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: `${base}favicon-32x32.png` }],
+        ['link', { rel: 'icon', type: 'image/png', sizes: '16x16', href: `${base}favicon-16x16.png` }],
         ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}yomu-icon.svg` }],
+        ['link', { rel: 'apple-touch-icon', sizes: '180x180', href: `${base}apple-touch-icon.png` }],
+        ['meta', { name: 'apple-mobile-web-app-title', content: 'よむ' }],
         ['meta', { name: 'theme-color', content: '#5ea780' }],
         ['meta', { property: 'og:type', content: 'website' }],
         ['meta', { property: 'og:title', content: 'よむ - Free Japanese popup reader' }],
@@ -31,14 +35,14 @@ export default defineConfig({
         nav: [
             { text: 'Start', link: '/getting-started' },
             { text: 'Features', link: '/features' },
-            { text: 'New Tab', link: newTabLink, target: '_self' },
-            { text: 'Stats', link: statsLink, target: '_self' },
+            { text: 'Study', link: newTabLink, target: '_self' },
+            { text: 'Support', link: '/support' },
             {
                 text: 'More',
                 items: [
                     { text: 'Video Player', link: videoPlayerLink, target: '_self' },
                     { text: 'Local Audio', link: '/local-audio' },
-                    { text: 'Support', link: '/support' },
+                    { text: 'Stats', link: statsLink, target: '_self' },
                     { text: 'Changelog', link: '/changelog' },
                 ],
             },

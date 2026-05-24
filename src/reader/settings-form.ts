@@ -259,6 +259,15 @@ function renderJpdbSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: stri
                 <div data-review-config ${settings.enableReviews ? '' : 'hidden'}>
                     ${select('twoButtonReviews', 'Review rating scale', settings.twoButtonReviews ? 'true' : 'false', [['false', 'Five point: NOTHING to EASY'], ['true', 'Two point: FAIL / PASS']])}
                 </div>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title">JPDB page enhancements</div>
+                    <div class="grid">
+                        ${checkbox('jpdbPageEnhancementsEnabled', 'Enhance JPDB pages', settings.jpdbPageEnhancementsEnabled)}
+                        ${checkbox('jpdbPageWordEnhancementsEnabled', 'Add sources to JPDB word/search pages', settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
+                        ${checkbox('jpdbPageKanjiEnhancementsEnabled', 'Add sources to JPDB kanji pages', settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
+                    </div>
+                    <div class="jpdb-reader-help" data-jpdb-page-enhancements-help>JPDB page additions use the same source order as popup and kanji settings.</div>
+                </div>
             </fieldset>
     `;
 }
@@ -849,8 +858,10 @@ function localizeSettingsSectionTitles(form: HTMLFormElement, text: SettingsText
     replaceLocalTitle(form, /Pitch accent colors|ピッチアクセント/, text('pitchAccentColors'));
     replaceLocalTitle(form, /Color channels|色チャンネル/, text('colorChannels'));
     replaceLocalTitle(form, /New tab|新規タブ/, text('newTab'));
+    replaceLocalTitle(form, /JPDB page enhancements|JPDBページ拡張/, text('jpdbPageEnhancements'));
     replaceLocalTitle(form, /Lookup pills|検索ピル/, text('lookupPills'));
     form.querySelector<HTMLElement>('[data-color-channels-help]')?.replaceChildren(text('colorChannelsHelp'));
+    form.querySelector<HTMLElement>('[data-jpdb-page-enhancements-help]')?.replaceChildren(text('jpdbPageEnhancementsHelp'));
     form.querySelector<HTMLElement>('[data-subtitle-preview] .jpdb-subtitle-secondary')?.replaceChildren(text('subtitlePreview'));
 }
 
@@ -1318,6 +1329,9 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['addToForq', 'addToForq'],
         ['enableReviews', 'enableReviews'],
         ['twoButtonReviews', 'reviewRatingScale'],
+        ['jpdbPageEnhancementsEnabled', 'jpdbPageEnhancementsEnabled'],
+        ['jpdbPageWordEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled'],
+        ['jpdbPageKanjiEnhancementsEnabled', 'jpdbPageKanjiEnhancementsEnabled'],
         ['interfaceLanguage', 'settingsLanguage'],
         ['popupMode', 'popupMode'],
         ['stickyBottomSheet', 'stickyBottomSheet'],
@@ -2415,9 +2429,13 @@ function hasJpdbDefinitionsRow(has: (key: string) => boolean): boolean {
 
 function readJpdbFormSettings(reader: SettingsFormReader, current: ReaderSettings, definitionsRowPresent: boolean): Partial<ReaderSettings> {
     const { has, number } = reader;
+    const jpdbPageEnhancementsEnabled = has('jpdbPageEnhancementsEnabled');
     return {
         jpdbDefinitionsEnabled: definitionsRowPresent ? has('jpdbDefinitions.enabled') : has('jpdbDefinitionsEnabled'),
         jpdbDefinitionsPriority: Math.max(0, Math.min(999, number('jpdbDefinitions.priority', current.jpdbDefinitionsPriority))),
+        jpdbPageEnhancementsEnabled,
+        jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has('jpdbPageWordEnhancementsEnabled'),
+        jpdbPageKanjiEnhancementsEnabled: jpdbPageEnhancementsEnabled && has('jpdbPageKanjiEnhancementsEnabled'),
     };
 }
 
@@ -2426,6 +2444,8 @@ function readKanjiAddonFormSettings(reader: SettingsFormReader, current: ReaderS
     return {
         jpdbKanjiEnabled: has('jpdbKanji.enabled'),
         jpdbKanjiPriority: Math.max(0, Math.min(999, number('jpdbKanji.priority', current.jpdbKanjiPriority))),
+        kanjiImmersionKitEnabled: has('kanjiImmersionKit.enabled'),
+        kanjiImmersionKitPriority: Math.max(0, Math.min(999, number('kanjiImmersionKit.priority', current.kanjiImmersionKitPriority))),
         uchisenEnabled: has('uchisen.enabled'),
         uchisenPriority: Math.max(0, Math.min(999, number('uchisen.priority', current.uchisenPriority))),
         rtkEnabled: has('rtk.enabled'),
