@@ -1,11 +1,21 @@
 # Changelog
 
+## [0.4.34] - 2026-05-24
+
+### Added
+
+- Restored JPDB.io page enhancements for JPDB word/search and kanji surfaces, using the same ordered source-card styling as the popup and hosted new-tab dictionary.
+- Added Immersion Kit as a reorderable kanji source for popup, hosted new-tab, and JPDB kanji pages.
+
+### Fixed
+
+- Suppressed native browser title tooltips while a dictionary popup is open, preventing OCR sentence/status tooltips from covering the lookup card.
+
 ## [0.4.33] - 2026-05-24
 
 ### Fixed
 
 - Disabled hover lookup and hover-close behavior while a click/tap-opened popup is active, so iPad mouse, trackpad, and Apple Pencil hover surfaces no longer replace or close the sticky lookup when the pointer moves away.
-- Suppressed native browser title tooltips while a dictionary popup is open, preventing OCR sentence/status tooltips from covering the lookup card.
 
 ## [0.4.32] - 2026-05-24
 
