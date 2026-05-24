@@ -586,6 +586,7 @@ export class ReaderApp {
     private nextHoverAnchorId = 1;
     private suppressSelectionLookupUntil = 0;
     private suppressWordClickUntil = 0;
+    private suppressPenHoverUntil = 0;
     private pageHasJapaneseText = false;
     private pressLookup?: PressLookupState;
     private suppressMiddleAuxClickUntil = 0;
@@ -947,6 +948,7 @@ export class ReaderApp {
         }, { capture: true });
 
         document.addEventListener('pointerdown', event => {
+            this.suppressHoverAfterPenContact(event);
             this.dismissModalPopoverForOutsidePointer(event);
             this.dismissHoverPopoverForOutsidePointer(event);
             this.beginPressLookup(event);
@@ -1137,6 +1139,7 @@ export class ReaderApp {
     private canBeginPrimaryPressLookup(event: PointerEvent): boolean {
         return hasPressLookupEnabled(this.settings)
             && event.pointerType !== 'touch'
+            && event.pointerType !== 'pen'
             && (event.pointerType !== 'mouse' || event.button === 0);
     }
 
@@ -1392,7 +1395,18 @@ export class ReaderApp {
     private shouldIgnoreHoverPointer(event: PointerEvent): boolean {
         return this.isDestroyed
             || this.pressLookup?.source === 'middle'
-            || event.pointerType === 'touch';
+            || event.pointerType === 'touch'
+            || this.shouldSuppressPenHover(event);
+    }
+
+    private suppressHoverAfterPenContact(event: PointerEvent): void {
+        if (event.pointerType !== 'pen') return;
+        this.suppressPenHoverUntil = Date.now() + Math.max(700, this.settings.hoverCloseDelayMs + 450);
+        this.cancelPendingHoverLookup();
+    }
+
+    private shouldSuppressPenHover(event: PointerEvent): boolean {
+        return event.pointerType === 'pen' && Date.now() < this.suppressPenHoverUntil;
     }
 
     private handleActivePopoverHover(event: PointerEvent): boolean {
@@ -1463,7 +1477,7 @@ export class ReaderApp {
     }
 
     private handleHoverPointerOut(event: PointerEvent): void {
-        if (this.isDestroyed) return;
+        if (this.isDestroyed || event.pointerType === 'touch' || this.shouldSuppressPenHover(event)) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         const related = event.relatedTarget as Node | null;
         if (this.handleActivePopoverPointerOut(event, related)) return;
@@ -2004,7 +2018,7 @@ export class ReaderApp {
             log.warn('Public JPDB search failed while resolving lookup card', { term }, error);
             return [];
         });
-        return cards.find(card => card.spelling === term) ?? (exact ? undefined : cards[0]);
+        return cards.find(card => card.spelling === term || card.reading === term) ?? (exact ? undefined : cards[0]);
     }
 
     private async showLocalLookupCard(context: TextLookupDisplayContext, sentence: string): Promise<boolean> {
@@ -2170,9 +2184,14 @@ export class ReaderApp {
     ): Promise<boolean> {
         const [tokens] = await this.parseJapanese([candidate.text], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true });
         const token = pointerTokenAtOffset(tokens ?? [], candidate.offset);
-        if (!token) return false;
+        if (!token || this.shouldSkipPointerTextToken(candidate, token)) return false;
         await this.showPointerTextCard(token.card, sentence, candidate, { start: token.start, end: token.end }, trigger, options);
         return true;
+    }
+
+    private shouldSkipPointerTextToken(candidate: PointerTextLookup, token: JPDBToken): boolean {
+        return isLowValuePointerTextToken(token)
+            && candidate.end - candidate.start > token.end - token.start;
     }
 
     private async showLocalPointerTextCandidate(
@@ -4103,6 +4122,10 @@ function tokenContainsPointerOffset(token: JPDBToken, offset: number): boolean {
 }
 
 function isLowValuePitchEnrichmentToken(token: JPDBToken): boolean {
+    return isLowValuePointerTextToken(token);
+}
+
+function isLowValuePointerTextToken(token: JPDBToken): boolean {
     const spelling = token.card.spelling.trim();
     return SINGLE_HIRAGANA_MORA_RE.test(spelling);
 }
