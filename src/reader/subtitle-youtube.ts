@@ -120,20 +120,6 @@ function youtubeCaptionCandidateMatchesTrack(candidate: YouTubeCaptionTrackCandi
         || Boolean(candidate.language && track.language && candidate.language.toLowerCase() === track.language.toLowerCase());
 }
 
-export function disableYouTubeNativeCaptions(): void {
-    if (!isYouTubePage()) return;
-    const player = document.querySelector('#movie_player') as {
-        unloadModule?: (name: string) => void;
-        setOption?: (module: string, option: string, value: unknown) => void;
-    } | null;
-    try {
-        player?.setOption?.('captions', 'track', {});
-        player?.unloadModule?.('captions');
-    } catch {
-        // YouTube's player API is private and best-effort.
-    }
-}
-
 export function activateYouTubeCaptionTrack(track: YouTubeSubtitleTrack): void {
     if (!isYouTubePage()) return;
     const player = youtubeCaptionPlayer();

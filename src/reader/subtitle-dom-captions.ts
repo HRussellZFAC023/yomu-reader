@@ -11,32 +11,37 @@ const CAPTION_SELECTOR_LIST = [
 const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(',');
 const CAPTION_CONTAINER_SELECTORS = '.caption-visual-line,.captions-text,[data-purpose="captions-text"],.caption-window,.ytp-caption-segment';
 
-export function readPageCaptionText(video?: HTMLVideoElement, readerRoot?: HTMLElement): string {
-    const direct = readDirectPageCaptionText(video, readerRoot);
+export interface PageCaptionReadOptions {
+    allowNonJapanese?: boolean;
+}
+
+export function readPageCaptionText(video?: HTMLVideoElement, readerRoot?: HTMLElement, options: PageCaptionReadOptions = {}): string {
+    const direct = readDirectPageCaptionText(video, readerRoot, options);
     if (direct || !video) return direct;
     return isYouTubePage()
-        ? readHiddenYouTubeCaptionText(readerRoot)
-        : readNearbyPageCaptionText(video, readerRoot);
+        ? readHiddenYouTubeCaptionText(readerRoot, options)
+        : readNearbyPageCaptionText(video, readerRoot, options);
 }
 
-function readDirectPageCaptionText(video?: HTMLVideoElement, readerRoot?: HTMLElement): string {
-    return collectCaptionTexts([...document.querySelectorAll<HTMLElement>(CAPTION_SELECTORS)], video, readerRoot, false);
+function readDirectPageCaptionText(video?: HTMLVideoElement, readerRoot?: HTMLElement, options: PageCaptionReadOptions = {}): string {
+    return collectCaptionTexts([...document.querySelectorAll<HTMLElement>(CAPTION_SELECTORS)], video, readerRoot, false, options);
 }
 
-function readNearbyPageCaptionText(video: HTMLVideoElement, readerRoot?: HTMLElement): string {
+function readNearbyPageCaptionText(video: HTMLVideoElement, readerRoot?: HTMLElement, options: PageCaptionReadOptions = {}): string {
     return collectCaptionTexts(
         [...document.querySelectorAll<HTMLElement>('span, p, div')],
         video,
         readerRoot,
         true,
+        options,
     );
 }
 
-function readHiddenYouTubeCaptionText(readerRoot?: HTMLElement): string {
+function readHiddenYouTubeCaptionText(readerRoot?: HTMLElement, options: PageCaptionReadOptions = {}): string {
     const lines: string[] = [];
     const seen = new Set<string>();
     for (const element of Array.from(document.querySelectorAll<HTMLElement>('.ytp-caption-segment, .caption-window'))) {
-        const text = hiddenYouTubeCaptionLine(element, readerRoot);
+        const text = hiddenYouTubeCaptionLine(element, readerRoot, options);
         if (!text || seen.has(text)) continue;
         seen.add(text);
         lines.push(text);
@@ -45,17 +50,23 @@ function readHiddenYouTubeCaptionText(readerRoot?: HTMLElement): string {
     return lines.join(' ').replace(/\s+/g, ' ').trim();
 }
 
-function hiddenYouTubeCaptionLine(element: HTMLElement, readerRoot?: HTMLElement): string {
+function hiddenYouTubeCaptionLine(element: HTMLElement, readerRoot?: HTMLElement, options: PageCaptionReadOptions = {}): string {
     if (isCaptionElementExcluded(element, readerRoot)) return '';
     const text = normalizeCaptionText(element.innerText || element.textContent || '');
-    return isJapaneseCaptionText(text) ? text : '';
+    return isAllowedCaptionText(text, options) ? text : '';
 }
 
-function collectCaptionTexts(elements: HTMLElement[], video?: HTMLVideoElement, readerRoot?: HTMLElement, nearVideoOnly = false): string {
+function collectCaptionTexts(
+    elements: HTMLElement[],
+    video?: HTMLVideoElement,
+    readerRoot?: HTMLElement,
+    nearVideoOnly = false,
+    options: PageCaptionReadOptions = {},
+): string {
     const lines: string[] = [];
     const seen = new Set<string>();
     for (const element of elements) {
-        if (!isLikelyCaptionElement(element, video, readerRoot, nearVideoOnly)) continue;
+        if (!isLikelyCaptionElement(element, video, readerRoot, nearVideoOnly, options)) continue;
         const text = unseenCaptionText(element, seen);
         if (!text) continue;
         seen.add(text);
@@ -70,15 +81,21 @@ function unseenCaptionText(element: HTMLElement, seen: Set<string>): string {
     return text && !seen.has(text) ? text : '';
 }
 
-function isLikelyCaptionElement(element: HTMLElement, video?: HTMLVideoElement, readerRoot?: HTMLElement, nearVideoOnly = false): boolean {
-    if (!isCaptionCandidateElement(element, readerRoot)) return false;
+function isLikelyCaptionElement(
+    element: HTMLElement,
+    video?: HTMLVideoElement,
+    readerRoot?: HTMLElement,
+    nearVideoOnly = false,
+    options: PageCaptionReadOptions = {},
+): boolean {
+    if (!isCaptionCandidateElement(element, readerRoot, options)) return false;
     const rect = element.getBoundingClientRect();
     return isVisibleCaptionRect(element, rect) && matchesCaptionVideoScope(rect, video, nearVideoOnly);
 }
 
-function isCaptionCandidateElement(element: HTMLElement, readerRoot?: HTMLElement): boolean {
+function isCaptionCandidateElement(element: HTMLElement, readerRoot?: HTMLElement, options: PageCaptionReadOptions = {}): boolean {
     if (isCaptionElementExcluded(element, readerRoot)) return false;
-    return isCaptionTextShape(element, normalizeCaptionText(element.innerText || element.textContent || ''));
+    return isCaptionTextShape(element, normalizeCaptionText(element.innerText || element.textContent || ''), options);
 }
 
 function matchesCaptionVideoScope(rect: DOMRect, video?: HTMLVideoElement, nearVideoOnly = false): boolean {
@@ -108,24 +125,27 @@ function isCaptionElementExcluded(element: HTMLElement, readerRoot?: HTMLElement
         ].join(',')));
 }
 
-function isCaptionTextShape(element: HTMLElement, text: string): boolean {
+function isCaptionTextShape(element: HTMLElement, text: string, options: PageCaptionReadOptions): boolean {
     const allowsChildText = element.matches(CAPTION_CONTAINER_SELECTORS);
-    if (!hasCaptionTextLength(text)) return false;
-    if (!isJapaneseCaptionText(text)) return false;
+    if (!isAllowedCaptionText(text, options)) return false;
     if (text.split('\n').length > 4) return false;
-    return allowsChildText || !hasJapaneseCaptionChildText(element);
+    return allowsChildText || !hasCaptionChildText(element, options);
 }
 
-function hasCaptionTextLength(text: string): boolean {
-    return text.length >= 2 && text.length <= 180;
+function isAllowedCaptionText(text: string, options: PageCaptionReadOptions): boolean {
+    return hasCaptionTextLength(text) && (options.allowNonJapanese || isJapaneseCaptionText(text));
 }
 
 function isJapaneseCaptionText(text: string): boolean {
     return Boolean(text && /[\u3040-\u30ff\u3400-\u9fff]/.test(text));
 }
 
-function hasJapaneseCaptionChildText(element: HTMLElement): boolean {
-    return [...element.children].some(child => /[\u3040-\u30ff\u3400-\u9fff]/.test(child.textContent ?? ''));
+function hasCaptionTextLength(text: string): boolean {
+    return text.length >= 2 && text.length <= 180;
+}
+
+function hasCaptionChildText(element: HTMLElement, options: PageCaptionReadOptions): boolean {
+    return [...element.children].some(child => isAllowedCaptionText(normalizeCaptionText(child.textContent ?? ''), options));
 }
 
 function isVisibleCaptionRect(element: HTMLElement, rect: DOMRect): boolean {

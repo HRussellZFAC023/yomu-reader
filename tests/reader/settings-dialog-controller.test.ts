@@ -9,6 +9,7 @@ type SettingsDialogControllerConstructor = new (dependencies: Record<string, unk
 
 function createSettingsDialog(overrides: Record<string, unknown> = {}): {
     dependencies: Record<string, any>;
+    controller: SettingsDialogController;
     dismiss: ReturnType<typeof vi.fn>;
     form: HTMLFormElement;
 } {
@@ -51,6 +52,7 @@ function createSettingsDialog(overrides: Record<string, unknown> = {}): {
     controller.open();
 
     return {
+        controller,
         dependencies,
         dismiss,
         form: document.querySelector<HTMLFormElement>('.jpdb-reader-settings')!,
@@ -131,9 +133,12 @@ describe('settings dialog keyboard dismissal', () => {
         expect(dismiss).not.toHaveBeenCalled();
     });
 
-    it('requests Japanese settings parsing after opening and language changes', () => {
+    it('requests Japanese settings parsing after opening, language changes, and tab changes', async () => {
         const parseSettingsJapanese = vi.fn();
-        const { form } = createSettingsDialog({ parseSettingsJapanese });
+        const { form } = createSettingsDialog({
+            parseSettingsJapanese,
+            dictionaries: { summary: vi.fn(() => new Promise(() => undefined)) },
+        });
         const language = form.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')!;
 
         expect(parseSettingsJapanese).toHaveBeenCalledWith(form);
@@ -143,6 +148,35 @@ describe('settings dialog keyboard dismissal', () => {
         language.dispatchEvent(new Event('change', { bubbles: true }));
 
         expect(parseSettingsJapanese).toHaveBeenCalledWith(form);
+
+        parseSettingsJapanese.mockClear();
+        form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="dictionaries"]')?.click();
+        await flushPromises();
+
+        expect(parseSettingsJapanese).toHaveBeenCalledWith(form);
+    });
+
+    it('does not dismiss or toast from a stale save after settings is reopened', async () => {
+        const refresh = deferred<void>();
+        const refreshDictionaryStyles = vi.fn(() => refresh.promise);
+        const { controller, dependencies, dismiss, form } = createSettingsDialog({
+            dictionaries: {
+                summary: vi.fn(() => new Promise(() => undefined)),
+            },
+            refreshDictionaryStyles,
+        });
+
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await waitForCondition(() => refreshDictionaryStyles.mock.calls.length === 1);
+        form.remove();
+        controller.open();
+
+        refresh.resolve();
+        await flushPromises();
+        await flushPromises();
+
+        expect(dismiss).not.toHaveBeenCalled();
+        expect(dependencies.toast).not.toHaveBeenCalledWith('Settings saved.');
     });
 });
 

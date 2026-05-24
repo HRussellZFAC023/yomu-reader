@@ -137,6 +137,74 @@
   outline-offset: -1px;
 }
 
+.VPNavBarMenu > .VPFlyout.VPNavBarMenuGroup {
+  display: none !important;
+}
+
+.VPNavBarExtra.extra {
+  display: block !important;
+}
+
+.VPNavBarExtra.extra .button {
+  width: 44px;
+  min-width: 44px;
+}
+
+.VPNavBarExtra.extra .button .vpi-more-horizontal.icon {
+  width: 18px;
+  height: 14px;
+  background:
+    linear-gradient(currentColor, currentColor) 0 0 / 18px 2px no-repeat,
+    linear-gradient(currentColor, currentColor) 0 6px / 18px 2px no-repeat,
+    linear-gradient(currentColor, currentColor) 0 12px / 18px 2px no-repeat !important;
+  color: currentColor;
+  -webkit-mask: none !important;
+  mask: none !important;
+}
+
+.yomu-hosted-overflow-group {
+  padding: 8px;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.yomu-hosted-overflow-list {
+  display: grid;
+  gap: 2px;
+  min-width: 174px;
+}
+
+.yomu-hosted-overflow-link {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  width: 100%;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--vp-c-text-1);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: left;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
+.yomu-hosted-overflow-link:hover,
+.yomu-hosted-overflow-link:focus-visible {
+  background: color-mix(in srgb, var(--vp-c-brand-2) 12%, transparent);
+  color: var(--vp-c-brand-1);
+  outline: none;
+}
+
+@media (max-width: 767px) {
+  .VPNavBarExtra.extra {
+    display: none !important;
+  }
+}
+
 .VPSkipLink {
   min-height: 24px;
   padding-block: 4px;
@@ -357,13 +425,13 @@
 }
 
 .yomu-cta-button.primary {
-  border-color: var(--vp-c-brand-1);
-  background: var(--vp-c-brand-1);
-  color: #fff !important;
+  border-color: var(--yomu-accent, var(--vp-c-brand-1));
+  background: var(--yomu-accent, var(--vp-c-brand-1));
+  color: var(--yomu-accent-ink, #fff) !important;
 }
 
 .dark .yomu-cta-button.primary {
-  color: #102018 !important;
+  color: var(--yomu-accent-ink, #102018) !important;
 }
 
 .yomu-cta-button.primary:hover {

@@ -1,4 +1,5 @@
 import { Logger } from './logger';
+import { SETTINGS_CHANGE_EVENT } from './constants';
 import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists } from './storage';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, DictionaryLookupLink, DictionaryPreference, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from './types';
 
@@ -933,10 +934,21 @@ export async function saveSettings(settings: ReaderSettings): Promise<void> {
         return;
     }
     try {
-        await gmStorageSet(SETTINGS_STORAGE_KEY, stripLegacyWordHighlightMode(settings));
+        const storedSettings = stripLegacyWordHighlightMode(settings) ?? settings;
+        await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
+        dispatchSettingsChange(storedSettings);
     } catch (error) {
         log.warn('Settings save failed', { error });
         throw error;
+    }
+}
+
+function dispatchSettingsChange(settings: Partial<ReaderSettings>): void {
+    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+    try {
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings } }));
+    } catch {
+        // Some test shims do not expose CustomEvent; saving settings should still succeed.
     }
 }
 

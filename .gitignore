@@ -4,6 +4,8 @@ node_modules/
 !.env.example
 dist/*
 !dist/yomu.user.js
+!dist/yomu.css
+dist-dev/
 dist-reader/
 coverage/
 qa-artifacts/

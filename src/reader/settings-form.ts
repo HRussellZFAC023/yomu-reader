@@ -1,5 +1,5 @@
 import { DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, VIDEO_PLAYER_PAGE_URL } from './constants';
-import { escapeHtml, setInnerHtml } from './dom';
+import { escapeHtml, setInnerHtml, unwrapReaderWords } from './dom';
 import { resolveUiLanguage, uiText } from './i18n';
 import { Logger } from './logger';
 import { AUDIO_GUIDE_URL, AUDIO_SOURCE_LABELS, AUDIO_SOURCE_UI_OPTIONS, COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, accentToRgba, formatShortcutEvent, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from './settings';
@@ -767,6 +767,7 @@ export function getFormInterfaceLanguage(form: HTMLFormElement, fallback: Interf
 }
 
 export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceLanguage): void {
+    unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup]' });
     const text = (key: Parameters<typeof uiText>[1]) => uiText(language, key);
     localizeSettingsShell(form, language, text);
     localizeSettingsLabels(form, text);
@@ -777,6 +778,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
     localizeSettingsActions(form, text);
     localizeSettingsEditorChrome(form, text);
     localizeHelpLinksPanel(form, language);
+    syncSettingsSelectOptionMeta(form, language);
 }
 
 type SettingsText = (key: Parameters<typeof uiText>[1]) => string;
@@ -1535,6 +1537,24 @@ function setSelectOptionLabels(form: HTMLFormElement, name: string, options: Arr
     options.forEach(([value, label]) => {
         const option = Array.from(selectElement.options).find(item => item.value === value);
         if (option) option.textContent = label;
+    });
+}
+
+function syncSettingsSelectOptionMeta(form: HTMLFormElement, language: InterfaceLanguage): void {
+    const showMeta = resolveUiLanguage(language) === 'ja';
+    form.querySelectorAll<HTMLSelectElement>('select').forEach(selectElement => {
+        const existing = selectElement.nextElementSibling;
+        if (existing instanceof HTMLElement && existing.matches('[data-settings-select-options-meta]')) existing.remove();
+        if (!showMeta) return;
+        const labels = Array.from(selectElement.options)
+            .map(option => option.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+            .filter(label => /[\u3040-\u30ff\u3400-\u9fff]/.test(label));
+        if (!labels.length) return;
+        const meta = document.createElement('div');
+        meta.className = 'jpdb-reader-select-options-meta';
+        meta.dataset.settingsSelectOptionsMeta = '';
+        meta.textContent = `${uiText(language, 'selectOptions')}: ${labels.join(' / ')}`;
+        selectElement.insertAdjacentElement('afterend', meta);
     });
 }
 

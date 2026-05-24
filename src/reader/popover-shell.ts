@@ -19,6 +19,7 @@ const SETTINGS_DRAWER_TAP_MOVEMENT_PX = 8;
 const SETTINGS_DRAWER_KEYBOARD_STEP_PX = 56;
 const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
 const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
+const FORCED_POPOVER_SURFACE_DATA_KEY = 'jpdbReaderForcedPopoverSurface';
 
 export function createReaderPopover(appName: string, settings: ReaderSettings): HTMLElement {
     const popover = document.createElement('div');
@@ -31,6 +32,20 @@ export function createReaderPopover(appName: string, settings: ReaderSettings): 
     if (shouldUseSheet(settings)) popover.classList.add('jpdb-reader-sheet');
     else popover.style.width = `${settings.popoverWidth}px`;
     return popover;
+}
+
+export function forceReaderPopoverSurface(popover: HTMLElement, settings: ReaderSettings): void {
+    popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] = 'true';
+    refreshForcedReaderPopoverSurface(popover, settings);
+}
+
+export function refreshForcedReaderPopoverSurface(popover: HTMLElement, settings: ReaderSettings): void {
+    if (popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] !== 'true') return;
+    popover.classList.remove('jpdb-reader-sheet', 'jpdb-reader-sheet-sticky', 'jpdb-reader-sheet-expanded', 'jpdb-reader-sheet-resizing');
+    popover.style.width = `${settings.popoverWidth}px`;
+    popover.style.height = '';
+    popover.style.minHeight = '';
+    popover.querySelectorAll('.jpdb-reader-sheet-handle, .jpdb-reader-sheet-close').forEach(element => element.remove());
 }
 
 export function createReaderBackdrop(onDismiss: () => void): HTMLElement {

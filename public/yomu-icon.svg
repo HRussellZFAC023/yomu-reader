@@ -16,8 +16,8 @@
   <rect x="4" y="4" width="56" height="56" rx="12" fill="none" stroke="url(#yomu-rim)" stroke-width="2" />
   <circle cx="49.2" cy="18.2" r="8.2" fill="#5ea780" opacity="0.1" />
   <text
-    x="30.8"
-    y="36.6"
+    x="28.3"
+    y="43"
     text-anchor="middle"
     dominant-baseline="central"
     font-family="Hiragino Sans, Yu Gothic, Noto Sans JP, Meiryo, system-ui, sans-serif"

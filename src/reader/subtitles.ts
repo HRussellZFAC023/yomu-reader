@@ -267,6 +267,10 @@ const SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS = 1_200;
 const SUBTITLE_EMPTY_PARSE_RETRY_MS = 2500;
 const SUBTITLE_REQUEST_TIMEOUT_MS = 8000;
 const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2000;
+const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = 'youtube-dom-caption-fallback';
+const TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT = 220;
+const TRANSCRIPT_PANEL_MIN_SIDE_WIDTH = 340;
+const TRANSCRIPT_PANEL_KEYBOARD_STEP_PX = 48;
 const log = Logger.scope('Subtitles');
 const TRACK_LOAD_OPTIONS: Omit<SubtitleTrackLoadOptions<SubtitleTrackOption>, 'tracks' | 'transcriptEligible'> = {
     requestText: requestSubtitleText,
@@ -718,6 +722,7 @@ export class SubtitlePlayerController {
     }
 
     private addNativeTrack(track: TextTrack): void {
+        if (isYouTubePage()) return;
         if (this.tracks.some(item => item.track === track)) return;
         const id = `native-${this.tracks.length}`;
         const label = track.label || track.language || `${uiText(this.options.getSettings().interfaceLanguage, 'subtitleFallbackLabel')} ${this.tracks.length + 1}`;
@@ -1016,7 +1021,9 @@ export class SubtitlePlayerController {
         if (!this.shouldUseDomCaptionFallback(selected)) return null;
         selected = this.ensureDomCaptionFallbackTrack(selected);
         this.ensureYouTubeDomCaptionFallbackActive(selected);
-        const text = readPageCaptionText(this.video, this.root);
+        const text = readPageCaptionText(this.video, this.root, {
+            allowNonJapanese: this.shouldAllowNonJapaneseDomCaptionFallback(selected),
+        });
         if (!text) {
             this.clearDomCaptionFallbackIfExpired();
             return null;
@@ -1062,8 +1069,13 @@ export class SubtitlePlayerController {
             label: 'YouTube native captions',
             kind: 'youtube',
             loadingState: 'waiting',
-            sourceKey: 'youtube-dom-caption-fallback',
+            sourceKey: YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY,
         };
+    }
+
+    private shouldAllowNonJapaneseDomCaptionFallback(selected: SubtitleTrackOption | undefined): boolean {
+        return Boolean(selected?.kind === 'youtube'
+            && selected.sourceKey !== YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY);
     }
 
     private clearDomCaptionFallbackIfExpired(): void {
@@ -1388,6 +1400,7 @@ export class SubtitlePlayerController {
     }
 
     private handleClick(event: MouseEvent): void {
+        if ((event.target as HTMLElement).closest?.('.jpdb-reader-word')) return;
         const target = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');
         const action = target?.dataset.action;
         if (!action) return;
@@ -1758,11 +1771,12 @@ export class SubtitlePlayerController {
     }
 
     private setNativeTrackModes(): void {
+        const settings = this.options.getSettings();
         this.lastYomuCaptionsActive = applySubtitleNativeTrackModes({
             tracks: this.tracks,
             selectedTrackId: this.selectedTrackId,
             secondaryTrackId: this.secondaryTrackId,
-            overlayVisible: this.options.getSettings().subtitleOverlayVisible,
+            overlayVisible: settings.subtitleOverlayVisible || this.isTranscriptPanelOpen(),
             hasPrimaryCues: Boolean(this.cues.length),
             currentCueText: this.currentCue?.text,
             youtubeDomCaptionFallbackTrackId: this.youtubeDomCaptionFallbackTrackId,
@@ -1794,8 +1808,13 @@ export class SubtitlePlayerController {
         const tracks = await discoverYouTubeCaptionTracks();
         if (!tracks.length) return;
 
+        this.removeYouTubeDomCaptionFallbackTracks();
         const { added, updatedSelectedTrack } = this.mergeYouTubeCaptionTracks(tracks);
         this.finishYouTubeTrackDiscovery(added, updatedSelectedTrack);
+    }
+
+    private removeYouTubeDomCaptionFallbackTracks(): void {
+        this.removeSubtitleTracks(track => track.sourceKey === YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY);
     }
 
     private updateYouTubeDiscoveryVideo(videoId: string): void {
@@ -2229,7 +2248,7 @@ export class SubtitlePlayerController {
                     ? state.rows.map((row, index) => this.renderTranscriptRow(row, index, state.currentRowIndex)).join('')
                     : this.renderTranscriptWaitingState()}
             </div>
-            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="${escapeHtml(uiText(language, 'resizeTranscriptPanel'))}"></button>
+            <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, 'resizeTranscriptPanel'))}"></div>
         `;
     }
 
@@ -2313,6 +2332,8 @@ export class SubtitlePlayerController {
         if (!handle || handle.dataset.transcriptResizeBound === 'true') return;
         handle.dataset.transcriptResizeBound = 'true';
         handle.addEventListener('pointerdown', event => this.startTranscriptResize(event));
+        handle.addEventListener('keydown', event => this.resizeTranscriptPanelFromKeyboard(event));
+        this.syncTranscriptResizeHandle();
     }
 
     private startTranscriptResize(event: PointerEvent): void {
@@ -2329,10 +2350,13 @@ export class SubtitlePlayerController {
 
         const onMove = (moveEvent: PointerEvent) => {
             if (placement === 'bottom') {
-                const nextHeight = clampNumber(startHeight + startY - moveEvent.clientY, 220, Math.max(220, window.innerHeight - TRANSCRIPT_PANEL_MARGIN * 3));
+                const nextHeight = clampNumber(startHeight + startY - moveEvent.clientY, TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT, this.maxTranscriptPanelBottomHeight());
                 this.transcriptPanelSize.bottomHeight = Math.round(nextHeight);
+            } else if (placement === 'left') {
+                const nextWidth = clampNumber(startWidth + moveEvent.clientX - startX, TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, this.maxTranscriptPanelSideWidth());
+                this.transcriptPanelSize.sideWidth = Math.round(nextWidth);
             } else {
-                const nextWidth = clampNumber(startWidth + startX - moveEvent.clientX, 340, Math.max(340, window.innerWidth - TRANSCRIPT_PANEL_MARGIN * 3));
+                const nextWidth = clampNumber(startWidth + startX - moveEvent.clientX, TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, this.maxTranscriptPanelSideWidth());
                 this.transcriptPanelSize.sideWidth = Math.round(nextWidth);
             }
             this.positionTranscriptPanel();
@@ -2347,6 +2371,67 @@ export class SubtitlePlayerController {
 
         window.addEventListener('pointermove', onMove, this.eventOptions());
         window.addEventListener('pointerup', onUp, this.eventOptions({ once: true }));
+    }
+
+    private resizeTranscriptPanelFromKeyboard(event: KeyboardEvent): void {
+        if (!this.transcriptPanel) return;
+        const placement = this.effectiveTranscriptPlacement;
+        const increase = placement === 'bottom'
+            ? event.key === 'ArrowUp'
+            : placement === 'left'
+                ? event.key === 'ArrowRight'
+                : event.key === 'ArrowLeft';
+        const decrease = placement === 'bottom'
+            ? event.key === 'ArrowDown'
+            : placement === 'left'
+                ? event.key === 'ArrowLeft'
+                : event.key === 'ArrowRight';
+        if (!increase && !decrease) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        const rect = this.transcriptPanel.getBoundingClientRect();
+        const delta = increase ? TRANSCRIPT_PANEL_KEYBOARD_STEP_PX : -TRANSCRIPT_PANEL_KEYBOARD_STEP_PX;
+        if (placement === 'bottom') {
+            this.transcriptPanelSize.bottomHeight = Math.round(clampNumber(
+                rect.height + delta,
+                TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT,
+                this.maxTranscriptPanelBottomHeight(),
+            ));
+        } else {
+            this.transcriptPanelSize.sideWidth = Math.round(clampNumber(
+                rect.width + delta,
+                TRANSCRIPT_PANEL_MIN_SIDE_WIDTH,
+                this.maxTranscriptPanelSideWidth(),
+            ));
+        }
+        saveTranscriptPanelSize(this.transcriptPanelSize);
+        this.positionTranscriptPanel();
+    }
+
+    private syncTranscriptResizeHandle(layout?: TranscriptPanelLayout): void {
+        const handle = this.transcriptPanel?.querySelector<HTMLElement>('[data-resize-transcript]');
+        if (!handle) return;
+        const placement = layout?.placement ?? this.effectiveTranscriptPlacement;
+        const isBottom = placement === 'bottom';
+        const rect = this.transcriptPanel?.getBoundingClientRect();
+        const currentSize = isBottom
+            ? layout?.height ?? rect?.height ?? 0
+            : layout?.width ?? rect?.width ?? 0;
+        handle.setAttribute('role', 'separator');
+        handle.setAttribute('tabindex', '0');
+        handle.setAttribute('aria-orientation', isBottom ? 'horizontal' : 'vertical');
+        handle.setAttribute('aria-valuemin', String(isBottom ? TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT : TRANSCRIPT_PANEL_MIN_SIDE_WIDTH));
+        handle.setAttribute('aria-valuemax', String(isBottom ? this.maxTranscriptPanelBottomHeight() : this.maxTranscriptPanelSideWidth()));
+        handle.setAttribute('aria-valuenow', String(Math.round(currentSize)));
+    }
+
+    private maxTranscriptPanelBottomHeight(): number {
+        return Math.max(TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT, window.innerHeight - TRANSCRIPT_PANEL_MARGIN * 3);
+    }
+
+    private maxTranscriptPanelSideWidth(): number {
+        return Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, window.innerWidth - TRANSCRIPT_PANEL_MARGIN * 3);
     }
 
     private scheduleTranscriptHydration(preferredIndex = this.activeTranscriptRowIndex()): void {
@@ -2632,13 +2717,13 @@ export class SubtitlePlayerController {
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 <div class="jpdb-subtitle-track-tools">
-                    <button type="button" data-action="load">${escapeHtml(uiText(language, 'loadJapaneseSubtitles'))}</button>
+                    <button type="button" data-action="load">${escapeHtml(uiText(language, 'loadPrimarySubtitles'))}</button>
                     <button type="button" data-action="load-secondary">${escapeHtml(uiText(language, 'loadNativeSubtitles'))}</button>
                 </div>
                 <div class="jpdb-subtitle-track-summary">${escapeHtml(trackPanelSummaryText(state.autoDetected, language))}</div>
                 ${state.tracks.length ? state.tracks.map(track => this.renderTrackRow(track)).join('') : ''}
             </div>
-            <button class="jpdb-subtitle-resize" type="button" data-resize-transcript aria-label="${escapeHtml(uiText(language, 'resizeSubtitleTracksPanel'))}"></button>
+            <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, 'resizeSubtitleTracksPanel'))}"></div>
         `;
     }
 
@@ -2654,7 +2739,7 @@ export class SubtitlePlayerController {
                     </div>
                 <span>${escapeHtml(trackLanguageLabel(track, language))}${trackRoleText(isPrimary, isSecondary, language)}${trackStatusText(track, language)}</span>
                 <div class="jpdb-subtitle-track-actions">
-                    <button type="button" data-action="primary-track" aria-pressed="${isPrimary}">${escapeHtml(uiText(language, isPrimary ? 'unsetJapaneseSubtitles' : 'japaneseSubtitles'))}</button>
+                    <button type="button" data-action="primary-track" aria-pressed="${isPrimary}">${escapeHtml(uiText(language, isPrimary ? 'unsetPrimarySubtitles' : 'primarySubtitles'))}</button>
                     <button type="button" data-action="secondary-track" aria-pressed="${isSecondary}">${escapeHtml(uiText(language, isSecondary ? 'unsetNativeSubtitles' : 'nativeSubtitles'))}</button>
                 </div>
             </div>
@@ -2806,6 +2891,7 @@ export class SubtitlePlayerController {
         applyTranscriptPanelLayout(panel, layout);
         this.effectiveTranscriptPlacement = layout.placement;
         this.syncTranscriptPlacementClass();
+        this.syncTranscriptResizeHandle(layout);
         this.syncDrawerButtons(this.hasVisibleSubtitleLines());
         this.applyVideoInsetForTranscriptLayout(layout);
     }
@@ -2882,7 +2968,7 @@ function waitForBackgroundTranscriptParseTurn(delayMs: number): Promise<void> {
 function subtitleParseOptions(): SubtitleParseOptions {
     return {
         jpdbTimeoutMs: SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS,
-        includeLocalPitch: false,
+        includeLocalPitch: true,
     };
 }
 
@@ -3134,7 +3220,7 @@ function localizedSubtitleTrackLabel(track: SubtitleTrackOption, language: Inter
 
 function trackRoleText(isPrimary: boolean, isSecondary: boolean, language: InterfaceLanguage): string {
     return [
-        isPrimary ? ` · ${uiText(language, 'japaneseOverlay')}` : '',
+        isPrimary ? ` · ${uiText(language, 'primaryOverlay')}` : '',
         isSecondary ? ` · ${uiText(language, 'nativeOverlay')}` : '',
     ].join('');
 }
@@ -3154,7 +3240,7 @@ function drawerMetaParts(
 function drawerTrackMetaParts(count: number, primary: string | undefined, secondary: string | undefined, language: InterfaceLanguage): string[] {
     return [
         `${count} ${uiText(language, count === 1 ? 'subtitleOptionSingular' : 'subtitleOptionPlural')}`,
-        primary ? `${uiText(language, 'japaneseSubtitles')}: ${primary}` : uiText(language, 'chooseJapaneseSubtitles'),
+        primary ? `${uiText(language, 'primarySubtitles')}: ${primary}` : uiText(language, 'choosePrimarySubtitles'),
         secondary ? `${uiText(language, 'nativeSubtitles')}: ${secondary}` : '',
     ];
 }

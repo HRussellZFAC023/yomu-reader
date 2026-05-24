@@ -1,3 +1,13 @@
-import readerCss from './styles-reader.css?inline';
+const READER_CSS_RESOURCE = 'yomuCss';
 
-export const READER_CSS = readerCss;
+export const READER_CSS = resourceReaderCss();
+
+function resourceReaderCss(): string {
+    try {
+        return typeof GM_getResourceText === 'function'
+            ? GM_getResourceText(READER_CSS_RESOURCE)
+            : '';
+    } catch {
+        return '';
+    }
+}

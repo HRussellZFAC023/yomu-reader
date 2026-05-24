@@ -3,7 +3,7 @@ import { AnkiConnectClient, canUseMobileAnkiHandoff, needsHostedAnkiConnectSetup
 import { copyText } from './browser-ui';
 import { createAudioPreviewCard } from './card-utils';
 import { NEW_TAB_PAGE_URL, SETTINGS_TITLE } from './constants';
-import { setInnerHtml } from './dom';
+import { readerWordSurfaceText, setInnerHtml } from './dom';
 import { JpdbClient } from './jpdb';
 import { configureLogger, Logger, loggingSettingsSummary } from './logger';
 import { clearNewTabOfflineCache } from './new-tab-controller';
@@ -190,6 +190,8 @@ export class SettingsDialogController {
     private dictionaryOperationQueue: Promise<void> = Promise.resolve();
     private pendingDictionaryOperations = 0;
     private recommendedDictionaryOperations = new Map<string, RecommendedDictionaryOperationState>();
+    private currentForm?: HTMLFormElement;
+    private saveRequestId = 0;
 
     constructor(private readonly dependencies: SettingsDialogDependencies) {}
 
@@ -200,6 +202,7 @@ export class SettingsDialogController {
         this.bindFormSubmit(form);
         this.bindLivePreview(form);
         this.bindEditorControls(form);
+        this.currentForm = form;
         this.dependencies.mountDialog(backdrop, form);
         installSettingsDrawerHandle(form, uiText(this.settings.interfaceLanguage, 'resizeSettings'));
         this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
@@ -245,7 +248,8 @@ export class SettingsDialogController {
             if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
                 this.dependencies.clearDictionarySourceOpenOverrides();
             }
-            void saveSettings(this.settings).then(() => this.afterSettingsSaved())
+            const saveRequestId = ++this.saveRequestId;
+            void saveSettings(this.settings).then(() => this.afterSettingsSaved(form, saveRequestId))
                 .catch(error => {
                     log.error('Settings save failed', error);
                     this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, 'settingsSaveFailed')));
@@ -260,7 +264,7 @@ export class SettingsDialogController {
         });
     }
 
-    private async afterSettingsSaved(): Promise<void> {
+    private async afterSettingsSaved(form: HTMLFormElement, saveRequestId: number): Promise<void> {
         log.info('Settings saved', loggingSettingsSummary(this.settings));
         this.dependencies.jpdb.clear();
         this.dependencies.applyTheme();
@@ -269,6 +273,7 @@ export class SettingsDialogController {
         this.dependencies.subtitles.refresh();
         this.dependencies.ocr.refresh();
         this.dependencies.youtube.refresh();
+        if (this.currentForm !== form || !form.isConnected || this.saveRequestId !== saveRequestId) return;
         this.dependencies.clearSettingsPreview();
         this.dependencies.dismiss();
         this.dependencies.scheduleDictionaryRescan();
@@ -388,9 +393,9 @@ export class SettingsDialogController {
 
     private handleSettingsPreviewLookup(event: Event): boolean {
         const target = event.target instanceof HTMLElement ? event.target : null;
-        const word = target?.closest<HTMLElement>('[data-settings-preview-lookup]');
+        const word = target?.closest<HTMLElement>('[data-settings-preview-lookup], .jpdb-reader-settings .jpdb-reader-word');
         if (!word || !this.dependencies.lookupText) return false;
-        const expression = word.dataset.settingsPreviewLookup?.trim() || word.textContent?.trim() || '';
+        const expression = word.dataset.settingsPreviewLookup?.trim() || readerWordSurfaceText(word).trim() || word.textContent?.trim() || '';
         if (!expression) return false;
         event.preventDefault();
         event.stopPropagation();
@@ -646,6 +651,7 @@ export class SettingsDialogController {
         if (action === 'settings-panel') {
             const panel = selectedSettingsPanel(control);
             activateSettingsPanel(form, panel);
+            this.refreshSettingsJapaneseParse(form);
             return true;
         }
         if (isDictionarySourceOrderAction(action)) {

@@ -521,8 +521,9 @@ export async function translateJapaneseSentence(sentence: string, language: Inte
     return promise;
 }
 
-function translationTargetLanguage(language: InterfaceLanguage): string {
-    return language === 'ja' ? 'ja' : 'en';
+function translationTargetLanguage(_language: InterfaceLanguage): string {
+    // The source is Japanese; Japanese UI is immersion chrome, not a translation target.
+    return 'en';
 }
 
 export async function renderGrammarHints(hints: GrammarHint[], sentence: string, preferences = readGrammarPreferences(), language: InterfaceLanguage = 'en'): Promise<string> {
@@ -606,11 +607,11 @@ async function renderGrammarHintItem(group: GroupedGrammarHint, known: boolean, 
                             <button class="jpdb-reader-grammar-known" type="button" data-action="study-grammar-toggle-known" data-grammar-rule-id="${escapeHtml(hint.ruleId)}" data-grammar-known="${known ? 'true' : 'false'}" aria-pressed="${known ? 'true' : 'false'}">${known ? uiText(language, 'grammarReview') : uiText(language, 'grammarKnown')}</button>
                         </div>
                     </div>
-                    <div class="jpdb-reader-study-short">${escapeHtml(copy.short)}</div>
+                    <div class="jpdb-reader-study-short jpdb-reader-parseable">${escapeHtml(copy.short)}</div>
                     <details class="jpdb-reader-grammar-more">
                         <summary>${escapeHtml(uiText(language, 'grammarDetails'))}</summary>
-                        <div class="jpdb-reader-study-detail">${escapeHtml(copy.detail)}</div>
-                        <div class="jpdb-reader-study-match"><span>${escapeHtml(uiText(language, 'grammarFoundIn'))}</span>${escapeHtml(hint.match)}</div>
+                        <div class="jpdb-reader-study-detail jpdb-reader-parseable">${escapeHtml(copy.detail)}</div>
+                        <div class="jpdb-reader-study-match"><span>${escapeHtml(uiText(language, 'grammarFoundIn'))}</span><span class="jpdb-reader-study-match-text jpdb-reader-parseable">${escapeHtml(hint.match)}</span></div>
                         ${renderGrammarHintExamples(hint, language)}
                         ${renderGrammarHintGuide(hint, language)}
                     </details>

@@ -46,7 +46,7 @@ import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState
 import { NewTabController, newTabKanjiSourceTitle } from './new-tab-controller';
 import { NEW_TAB_CSS } from './newtab-styles';
 import { installOriginGraphInteractions } from './origin-graph-interactions';
-import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, popoverMaxHeightSetting } from './popover-shell';
+import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, popoverMaxHeightSetting, refreshForcedReaderPopoverSurface } from './popover-shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from './popup-navigation';
 import {
     buildRtkComponentSummaries,
@@ -109,6 +109,7 @@ interface NewTabLookupDisplayOptions {
     previousNavigationEntry?: PopupNavigationEntry;
     reuseActivePopover?: boolean;
     autoPlay?: boolean;
+    stackOverSettings?: boolean;
 }
 
 interface NewTabKanjiLookupOptions {
@@ -279,7 +280,7 @@ export class NewTabRuntime {
         applyTheme: settings => this.applyTheme(settings),
         applyAccentColor: color => this.applyAccentColor(color),
         applyWordColors: settings => this.applyWordColors(settings),
-        lookupText: (text, _sentence, anchor) => this.lookupText(text, text, anchor),
+        lookupText: (text, _sentence, anchor) => this.lookupText(text, text, anchor, { stackOverSettings: true }),
         parseSettingsJapanese: form => this.parseSettingsJapanese(form),
         installFab: () => undefined,
         refreshDictionaryStyles: () => this.refreshDictionaryStyles(),
@@ -441,9 +442,9 @@ export class NewTabRuntime {
         return { popover: createReaderPopover(APP_NAME, this.settings), reused: false };
     }
 
-    private activateLookupRenderSurface(popover: HTMLElement, anchor: HTMLElement | undefined, reused: boolean): void {
+    private activateLookupRenderSurface(popover: HTMLElement, anchor: HTMLElement | undefined, reused: boolean, options: Pick<NewTabLookupDisplayOptions, 'stackOverSettings'> = {}): void {
         if (!reused) {
-            this.mountLookupPopover(popover, anchor);
+            this.mountLookupPopover(popover, anchor, options);
             return;
         }
         this.activeLookupAnchor = anchor;
@@ -474,6 +475,7 @@ export class NewTabRuntime {
 
     private localizeLookupPopoverChrome(popover: HTMLElement): void {
         popover.setAttribute('aria-label', this.text('lookupDialog'));
+        refreshForcedReaderPopoverSurface(popover, this.settings);
         popover.querySelectorAll<HTMLElement>('.jpdb-reader-sheet-handle').forEach(handle => {
             handle.setAttribute('aria-label', this.text('resizeLookupSheet'));
         });
@@ -506,7 +508,7 @@ export class NewTabRuntime {
         clearNestedParseState(popover);
         setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', loadingCardRenderData([], fallbackAnkiLookup)));
         this.localizeLookupPopoverChrome(popover);
-        this.activateLookupRenderSurface(popover, anchor, reused);
+        this.activateLookupRenderSurface(popover, anchor, reused, options);
         this.immersionPopover.rememberPageMiningContext(card, sentence, anchor);
         this.installLookupPopoverHandlers(popover, card, sentence, anchor);
         this.installLookupPopoverSources(popover, card, sentence);
@@ -521,9 +523,23 @@ export class NewTabRuntime {
             this.installLookupPopoverSources(popover, card, sentence);
             this.repositionLookupPopover();
         });
+        if (renderData.localMetaEntries) {
+            void Promise.all([renderData.localEntries, renderData.localMetaEntries]).then(([localEntries, metaEntries]) => {
+                if (renderState.fullRenderCompleted || !this.isCurrentLookupRender(popover, requestId)) return;
+                this.applyPitchAccentToRenderedWords(card);
+                clearNestedParseState(popover);
+                setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', loadingCardRenderData(localEntries, fallbackAnkiLookup, metaEntries)));
+                this.localizeLookupPopoverChrome(popover);
+                this.dictionarySourceState.installTracking(popover);
+                void this.parseNewTabContent(popover);
+                this.installLookupPopoverSources(popover, card, sentence);
+                this.repositionLookupPopover();
+            });
+        }
         void renderData.all.then(data => {
             if (!this.isCurrentLookupRender(popover, requestId)) return;
             renderState.fullRenderCompleted = true;
+            this.applyPitchAccentToRenderedWords(card);
             clearNestedParseState(popover);
             setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', { ...data, loading: false }));
             this.localizeLookupPopoverChrome(popover);
@@ -627,7 +643,7 @@ export class NewTabRuntime {
         if (!this.shouldRenderKanjiImmersionKit()) return '';
         const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
         return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.closedAttributes(sourceStateKey)}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.attributes(sourceStateKey)}>
                 <summary class="jpdb-reader-local-title">${uiText(this.settings.interfaceLanguage, 'immersionKit')}</summary>
                 <div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, 'loadingExamples')}</div>
             </details>
@@ -1303,12 +1319,14 @@ export class NewTabRuntime {
         return entries[0];
     }
 
-    private mountLookupPopover(popover: HTMLElement, anchor?: HTMLElement): void {
+    private mountLookupPopover(popover: HTMLElement, anchor?: HTMLElement, options: NewTabLookupDisplayOptions = {}): void {
         this.activeLookupHandlerController?.abort();
         this.activeLookupHandlerController = undefined;
         this.activeLookupPopover?.remove();
         this.activeLookupBackdrop?.remove();
-        const useBackdrop = !popover.classList.contains('jpdb-reader-sheet');
+        const stackOverSettings = Boolean(options.stackOverSettings && this.activeDialog?.classList.contains('jpdb-reader-settings') && this.activeDialog.isConnected);
+        if (stackOverSettings) forceReaderPopoverSurface(popover, this.settings);
+        const useBackdrop = !stackOverSettings && !popover.classList.contains('jpdb-reader-sheet');
         popover.setAttribute('aria-modal', String(useBackdrop));
         if (useBackdrop) {
             const backdrop = createReaderBackdrop(() => this.dismissLookupPopover());
@@ -1485,7 +1503,7 @@ export class NewTabRuntime {
     private renderImmersionKitMount(): string {
         if (!this.settings.immersionKitEnabled) return '';
         return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.closedAttributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID))}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.attributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID))}>
                 <summary class="jpdb-reader-local-title">${uiText(this.settings.interfaceLanguage, 'immersionKit')}</summary>
                 <div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, 'loadingExamples')}</div>
             </details>
@@ -1690,20 +1708,24 @@ export class NewTabRuntime {
         if (!root.isConnected || !this.parser.canParse()) return;
         const plan = nestedTextParsePlan(root, 160);
         if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
+        const parseLoadingId = `${Date.now()}:${Math.random()}`;
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
+        root.dataset.jpdbReaderParseLoadingId = parseLoadingId;
         try {
             const parsed = await this.parser.parse(plan.targets.map(target => target.text), {
                 jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
                 allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? true,
             });
-            if (!root.isConnected || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
+            if (!root.isConnected
+                || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
+                || root.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             root.dataset.jpdbReaderParseKey = plan.parseKey;
             void this.enrichPublicVocabularyWords(parsed.flat());
             void this.enrichPitchWords(parsed.flat());
         } catch {
         } finally {
-            clearNestedParseLoadingKey(root, plan.parseKey);
+            clearNestedParseLoadingKey(root, plan.parseKey, parseLoadingId);
         }
     }
 
@@ -1712,22 +1734,28 @@ export class NewTabRuntime {
         unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup]' });
         clearNestedParseState(form);
         if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.parser.canParse()) return;
-        const plan = nestedSettingsTextParsePlan(form, 320);
+        const plan = nestedSettingsTextParsePlan(form, 640);
         if (!plan) return;
+        const parseLoadingId = `${Date.now()}:${Math.random()}`;
         form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
+        form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
         try {
             const parsed = await this.parser.parse(plan.targets.map(target => target.text), {
-                jpdbTimeoutMs: NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
                 allowJpdbTimeoutFallback: true,
+                includeLocalPitch: false,
+                jpdbTimeoutMs: NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
+                skipJpdb: true,
             });
-            if (!this.isCurrentSettingsRoot(form) || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
+            if (!this.isCurrentSettingsRoot(form)
+                || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
+                || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             form.dataset.jpdbReaderParseKey = plan.parseKey;
             void this.enrichPublicVocabularyWords(parsed.flat());
             void this.enrichPitchWords(parsed.flat());
         } catch {
         } finally {
-            clearNestedParseLoadingKey(form, plan.parseKey);
+            clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
         }
     }
 

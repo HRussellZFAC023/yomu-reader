@@ -1,5 +1,5 @@
 import { ensureTextTrackReadable } from './subtitle-track-loader';
-import { activateYouTubeCaptionTrack, disableYouTubeNativeCaptions, isYouTubePage } from './subtitle-youtube';
+import { isYouTubePage } from './subtitle-youtube';
 
 export interface SubtitleNativeTrackModeOption {
     id: string;
@@ -25,8 +25,7 @@ export function applySubtitleNativeTrackModes<T extends SubtitleNativeTrackModeO
 ): boolean {
     const youtubePage = isYouTubePage();
     const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
-    const yomuCaptionsActive = Boolean(state.overlayVisible
-        && (youtubePage ? hasYomuCaptionContent : (state.selectedTrackId || hasYomuCaptionContent)));
+    const yomuCaptionsActive = Boolean(state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent));
     if (!youtubePage) return applyGenericNativeTrackModes(state);
     return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
 }
@@ -46,10 +45,8 @@ function applyYouTubeNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
     yomuCaptionsActive: boolean,
 ): boolean {
     applyYouTubeTextTrackModes(state);
-    const hideYouTubeNativeCaptions = yomuCaptionsActive && !needsYouTubeDomCaptionFallback(state);
+    const hideYouTubeNativeCaptions = yomuCaptionsActive;
     document.documentElement.classList.toggle('jpdb-subtitle-yomu-captions-active', hideYouTubeNativeCaptions);
-    if (shouldDisableYouTubeNativeCaptions(state, hideYouTubeNativeCaptions)) disableYouTubeNativeCaptions();
-    if (shouldRestoreYouTubeNativeCaptions(state, hideYouTubeNativeCaptions)) restoreYouTubeNativeCaptionTrack(state);
     return hideYouTubeNativeCaptions;
 }
 
@@ -59,35 +56,6 @@ function applyYouTubeTextTrackModes<T extends SubtitleNativeTrackModeOption>(
     for (const option of state.tracks) {
         if (option.track) option.track.mode = isSelectedSubtitleTrack(option, state) ? 'hidden' : 'disabled';
     }
-}
-
-function shouldDisableYouTubeNativeCaptions<T extends SubtitleNativeTrackModeOption>(
-    state: SubtitleNativeTrackModeState<T>,
-    hideYouTubeNativeCaptions: boolean,
-): boolean {
-    return hideYouTubeNativeCaptions
-        && !state.lastYomuCaptionsActive;
-}
-
-function shouldRestoreYouTubeNativeCaptions<T extends SubtitleNativeTrackModeOption>(
-    state: SubtitleNativeTrackModeState<T>,
-    hideYouTubeNativeCaptions: boolean,
-): boolean {
-    return !hideYouTubeNativeCaptions && state.lastYomuCaptionsActive;
-}
-
-function restoreYouTubeNativeCaptionTrack<T extends SubtitleNativeTrackModeOption>(
-    state: SubtitleNativeTrackModeState<T>,
-): void {
-    const selected = state.tracks.find(track => track.id === state.selectedTrackId && track.kind === 'youtube');
-    if (selected) activateYouTubeCaptionTrack(selected);
-}
-
-function needsYouTubeDomCaptionFallback<T extends SubtitleNativeTrackModeOption>(
-    state: SubtitleNativeTrackModeState<T>,
-): boolean {
-    return Boolean(state.youtubeDomCaptionFallbackTrackId
-        && state.youtubeDomCaptionFallbackTrackId === state.selectedTrackId);
 }
 
 function isSelectedSubtitleTrack(
