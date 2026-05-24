@@ -253,6 +253,7 @@
   opacity: 1;
   user-select: text;
   cursor: text;
+  touch-action: manipulation;
 }
 .jpdb-ocr-line-text {
   display: inline-flex;
