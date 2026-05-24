@@ -29,8 +29,8 @@ const COLOR_SOURCE_OPTIONS: [SelectableReaderColorSource, string][] = [
     ['off', 'Off'],
 ];
 const DEFAULT_COLOR_SOURCE_VALUES: Record<ColorSourceSettingName, SelectableReaderColorSource> = {
-    wordHighlightColorSource: 'jpdb',
-    wordUnderlineColorSource: 'pitch',
+    wordHighlightColorSource: 'pitch',
+    wordUnderlineColorSource: 'jpdb',
     wordTextColorSource: 'off',
     subtitleHighlightColorSource: 'jpdb',
     subtitleUnderlineColorSource: 'pitch',

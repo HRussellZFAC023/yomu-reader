@@ -18,6 +18,18 @@ export function nestedTextParsePlan(root: HTMLElement, limit: number): NestedPar
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
 }
 
+export function nestedSettingsTextParsePlan(root: HTMLElement, limit: number): NestedParsePlan | null {
+    const targets = collectFragmentTextTargetsIn(root, limit, false, '', {
+        includeReaderRoot: true,
+        includeUiChrome: true,
+        includeFormChrome: true,
+        allowUiText: true,
+        heading: true,
+        minLength: 1,
+    }).slice(0, limit);
+    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+}
+
 export function nestedParseAlreadyScheduled(root: HTMLElement, parseKey: string): boolean {
     return root.dataset.jpdbReaderParseKey === parseKey
         && Boolean(root.querySelector(`${PARSEABLE_SELECTOR} .jpdb-reader-word`));

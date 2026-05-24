@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { applyNestedParsePlan, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan } from '../../src/reader/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../../src/reader/nested-text-parse';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/types';
 
@@ -67,6 +67,26 @@ describe('nested text parse plans', () => {
         const plan = root ? nestedTextParsePlan(root, 24) : null;
 
         expect(plan?.targets.map(target => target.text)).toEqual(['窓が開けてあります。']);
+    });
+
+    it('collects Japanese settings chrome without parsing controls', () => {
+        document.body.innerHTML = `
+            <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
+                <label>設定言語<select><option>日本語</option></select></label>
+                <div class="jpdb-reader-help">日本語の説明を読む</div>
+                <button type="button">保存</button>
+                <a href="https://example.test">詳細</a>
+            </form>
+        `;
+        const root = document.body.querySelector<HTMLElement>('form')!;
+
+        const plan = nestedSettingsTextParsePlan(root, 24);
+        const texts = plan?.targets.map(target => target.text) ?? [];
+
+        expect(texts).toContain('設定言語');
+        expect(texts).toContain('日本語の説明を読む');
+        expect(texts).not.toContain('保存');
+        expect(texts).not.toContain('詳細');
     });
 
     it('clears stale parse markers before replacing parseable content', () => {

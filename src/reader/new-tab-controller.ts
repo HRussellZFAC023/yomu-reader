@@ -833,7 +833,6 @@ export class NewTabController {
                         el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'word' } }, uiText(language, 'word')),
                         el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'kanji' } }, uiText(language, 'kanji')),
                         el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'search' } }, uiText(language, 'search')),
-                        el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'stats' } }, uiText(language, 'stats')),
                     ),
                     el('div', { class: 'VPNavBarAppearance appearance jpdb-reader-theme-appearance' },
                         el('button', {
@@ -859,12 +858,16 @@ export class NewTabController {
                         lang: nextLanguage === 'ja' ? 'ja' : 'en',
                         'aria-label': languageToggleLabel,
                     }, nextLanguage === 'ja' ? 'あ' : 'A'),
-                    el('button', {
-                        class: 'jpdb-reader-newtab-overflow',
-                        type: 'button',
-                        dataset: { newtabAction: 'settings' },
-                        'aria-label': uiText(language, 'openYomuSettings'),
-                    }, '...'),
+                    el('details', { class: 'jpdb-reader-newtab-more' },
+                        el('summary', {
+                            class: 'jpdb-reader-newtab-overflow',
+                            'aria-label': uiText(language, 'more'),
+                        }, '...'),
+                        el('div', { class: 'jpdb-reader-newtab-more-menu', role: 'menu' },
+                            el('button', { type: 'button', role: 'menuitem', dataset: { newtabAction: 'mode', mode: 'stats' } }, uiText(language, 'stats')),
+                            el('button', { type: 'button', role: 'menuitem', dataset: { newtabAction: 'settings' } }, uiText(language, 'settings')),
+                        ),
+                    ),
                 ),
                 el('section', { class: 'jpdb-reader-newtab-study', dataset: { newtabStudy: true }, 'aria-live': 'polite' },
                     el('div', { class: 'jpdb-reader-newtab-count', dataset: { newtabCount: true } }, '0 / 0'),
@@ -949,6 +952,7 @@ export class NewTabController {
                 this.performNewTabImmersionAction(root, immersionAction);
                 return;
             }
+            if (action) target.closest<HTMLDetailsElement>('.jpdb-reader-newtab-more')?.removeAttribute('open');
             if (action === 'settings') {
                 event.preventDefault();
                 this.dependencies.showSettings('basics');
@@ -981,7 +985,7 @@ export class NewTabController {
             if (action === 'source-toggle') {
                 event.preventDefault();
                 const source = target.closest<HTMLElement>('[data-source-toggle-target]')?.dataset.sourceToggleTarget;
-                if (source === 'jpdb' || source === 'anki') void this.switchReviewSource(root, source);
+                if (source === 'jpdb' || source === 'anki' || source === 'dictionary') void this.switchReviewSource(root, source);
                 return;
             }
             if (root.dataset.standaloneNewtab === 'true' && !this.allWords.length) return;
@@ -1440,13 +1444,13 @@ export class NewTabController {
         navigationGeneration: number,
         result: NewTabLoadResult,
     ): JPDBCard[] {
-        if (!this.shouldKeepNavigatedCachedCard(loadedWords, preferredCard, usedCachedWords, navigationGeneration, result)) {
+        if (!this.shouldKeepCurrentCardForBackgroundLoad(loadedWords, preferredCard, usedCachedWords, navigationGeneration, result)) {
             return loadedWords;
         }
         return [normalizeNewTabCard(preferredCard), ...loadedWords];
     }
 
-    private shouldKeepNavigatedCachedCard(
+    private shouldKeepCurrentCardForBackgroundLoad(
         loadedWords: JPDBCard[],
         preferredCard: JPDBCard | undefined,
         usedCachedWords: boolean,
@@ -1454,11 +1458,10 @@ export class NewTabController {
         result: NewTabLoadResult,
     ): preferredCard is JPDBCard {
         return Boolean(
-            usedCachedWords
-            && preferredCard
+            preferredCard
+            && usedCachedWords
             && this.navigationGeneration !== navigationGeneration
             && result.reviewCountMode !== true
-            && this.isDictionaryCard(preferredCard)
             && !loadedWords.some(card => cardKey(card) === cardKey(preferredCard)),
         );
     }
@@ -2447,7 +2450,7 @@ export class NewTabController {
         this.applyWords(root, options.preserveWord, preferredCardKey);
     }
 
-    private async switchReviewSource(root: HTMLElement, source: 'jpdb' | 'anki'): Promise<void> {
+    private async switchReviewSource(root: HTMLElement, source: ConcreteNewTabWordSource): Promise<void> {
         if (source === this.state.source) return;
         this.dependencies.dismiss({ suppressHoverTarget: false });
         const settings = this.dependencies.getSettings();
@@ -2839,16 +2842,30 @@ export class NewTabController {
         if (statusSlot instanceof HTMLButtonElement) statusSlot.disabled = true;
     }
 
-    private sourceToggleTarget(card: JPDBCard): 'jpdb' | 'anki' | null {
-        if (!this.canToggleReviewSource()) return null;
-        const current = this.cardReviewSource(card);
-        if (current === 'jpdb' && this.canUseAnkiSource()) return 'anki';
-        if (current === 'anki' && this.canUseJpdbSource()) return 'jpdb';
-        return null;
+    private sourceToggleTarget(card: JPDBCard): ConcreteNewTabWordSource | null {
+        const sources = this.sourceToggleSources(card);
+        if (sources.length < 2) return null;
+        const current = this.sourceToggleCurrentSource(card, sources);
+        const currentIndex = sources.indexOf(current);
+        return sources[(currentIndex + 1) % sources.length] ?? sources[0] ?? null;
     }
 
-    private canToggleReviewSource(): boolean {
-        return this.canUseJpdbSource() && this.canUseAnkiSource();
+    private sourceToggleSources(card: JPDBCard): ConcreteNewTabWordSource[] {
+        const current = this.cardReviewSource(card);
+        const sources: ConcreteNewTabWordSource[] = [];
+        const add = (source: ConcreteNewTabWordSource): void => {
+            if (!sources.includes(source)) sources.push(source);
+        };
+        if (this.canUseJpdbSource() || current === 'jpdb' || this.state.source === 'jpdb') add('jpdb');
+        if (this.canUseAnkiSource() || current === 'anki' || this.state.source === 'anki') add('anki');
+        add('dictionary');
+        return sources;
+    }
+
+    private sourceToggleCurrentSource(card: JPDBCard, sources: ConcreteNewTabWordSource[]): ConcreteNewTabWordSource {
+        if (this.state.source !== 'auto' && sources.includes(this.state.source)) return this.state.source;
+        const current = this.cardReviewSource(card);
+        return sources.includes(current) ? current : sources[0] ?? 'dictionary';
     }
 
     private canUseJpdbSource(): boolean {
@@ -2870,8 +2887,10 @@ export class NewTabController {
         return 'dictionary';
     }
 
-    private sourceToggleLabel(source: 'jpdb' | 'anki'): string {
-        return source === 'jpdb' ? 'JPDB' : 'Anki';
+    private sourceToggleLabel(source: ConcreteNewTabWordSource): string {
+        if (source === 'jpdb') return 'JPDB';
+        if (source === 'anki') return 'Anki';
+        return this.text('dictionary');
     }
 
     private renderCount(countSlot: HTMLElement | null, label: string): void {
@@ -5638,10 +5657,13 @@ export class NewTabController {
         if (!root) return;
         if (!status.card) return;
         if (this.isPendingLiveJpdbCard(status.card)) return;
+        const preferredCardKey = this.currentVisibleWordKey();
+        const preferredCard = this.sourceCardForVisibleCard(this.visibleWords[this.index]);
         const card = this.cardFromLiveJpdb(status.card);
         if (!card) return;
         this.upsertLiveJpdbCard(card);
-        this.applyWords(root, false);
+        this.keepVisibleCardInQueue(preferredCard);
+        this.applyWords(root, true, preferredCardKey);
     }
 
     private jpdbBridgeRoot(): HTMLElement | null {
@@ -5653,6 +5675,12 @@ export class NewTabController {
         const existingIndex = this.allWords.findIndex(item => item.reviewSource === 'jpdb-live');
         if (existingIndex >= 0) this.allWords.splice(existingIndex, 1, card);
         else this.allWords.unshift(card);
+    }
+
+    private keepVisibleCardInQueue(card: JPDBCard | undefined): void {
+        if (!card) return;
+        if (this.allWords.some(item => cardKey(item) === cardKey(card))) return;
+        this.allWords.unshift(normalizeNewTabCard(card));
     }
 
     private liveCardFromBridge(): JPDBCard | null {

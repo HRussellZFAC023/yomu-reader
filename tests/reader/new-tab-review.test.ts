@@ -1121,18 +1121,18 @@ describe('new tab review helpers', () => {
         });
 
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, cards[0]!);
-        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('1 / 3 · JPDB');
+        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('1 / 3 · JPDB ⇄');
 
         (controller as unknown as { index: number }).index = 1;
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, cards[1]!);
-        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('2 / 3 · Anki');
+        expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('2 / 3 · Anki ⇄');
 
         (controller as unknown as { index: number }).index = 2;
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, cards[2]!);
         expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
     });
 
-    it('lets the status footer switch from JPDB to Anki and persists the source setting', async () => {
+    it('lets the status footer cycle JPDB, Anki, and Dictionary and persists the source setting', async () => {
         document.body.replaceChildren();
         localStorage.removeItem('jpdb-reader-newtab-ui');
         localStorage.removeItem('jpdb-reader-newtab-card-cache');
@@ -1149,6 +1149,7 @@ describe('new tab review helpers', () => {
         };
         const jpdbCard = newTabTestCard({ vid: 1, sid: 1, spelling: '日本語', reading: 'にほんご', source: 'jpdb' });
         const ankiCard = newTabTestCard({ vid: -1, sid: -1, rid: 101, spelling: '暗記', reading: 'あんき', source: 'anki', reviewSource: 'anki' });
+        const dictionaryCard = newTabTestCard({ vid: -2, sid: 0, spelling: '書く', reading: 'かく', source: 'local', reviewSource: 'dictionary' });
         const controller = new NewTabController({
             getSettings: () => settings,
             anki: {
@@ -1168,8 +1169,12 @@ describe('new tab review helpers', () => {
             } as never,
             parser: {
                 cacheCards: vi.fn(),
+                localCardFromEntry: vi.fn(() => dictionaryCard),
             } as never,
-            dictionaries: {} as never,
+            dictionaries: {
+                summary: vi.fn(async () => ({ dictionaries: ['Local'], dictionaryTypes: {} })),
+                listRandomTopTerms: vi.fn(async () => [{ expression: '書く', reading: 'かく', glossary: ['to write'], score: 1, dictionary: 'Local' }]),
+            } as never,
             onSettingsChange: vi.fn(),
             applyTheme: vi.fn(),
             showSettings: vi.fn(),
@@ -1184,11 +1189,39 @@ describe('new tab review helpers', () => {
         expect(status.closest('[data-newtab-controls]')).toBeNull();
         expect(Array.from(document.querySelectorAll<HTMLElement>('[data-newtab-controls] [data-newtab-action]'))
             .map(element => element.dataset.newtabAction)).toEqual(['previous', 'reveal', 'next']);
+        expect(status.dataset.sourceToggleTarget).toBe('anki');
 
         status.click();
         await waitForExpect(() => {
             expect(settings.newTabSource).toBe('anki');
             expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('暗記');
+        });
+        const ankiStatus = document.querySelector<HTMLButtonElement>('[data-newtab-status]')!;
+        expect(ankiStatus.textContent).toContain('Anki ⇄');
+        expect(ankiStatus.disabled).toBe(false);
+        expect(ankiStatus.dataset.sourceToggleTarget).toBe('dictionary');
+
+        ankiStatus.click();
+        await waitForExpect(() => {
+            expect(settings.newTabSource).toBe('dictionary');
+            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
+        });
+        const dictionaryStatus = document.querySelector<HTMLButtonElement>('[data-newtab-status]')!;
+        expect(dictionaryStatus.textContent).toContain('Dictionary ⇄');
+        expect(dictionaryStatus.disabled).toBe(false);
+        expect(dictionaryStatus.dataset.sourceToggleTarget).toBe('jpdb');
+
+        document.body.replaceChildren();
+        await controller.renderPage();
+        await waitForExpect(() => {
+            expect(settings.newTabSource).toBe('dictionary');
+            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
+        });
+
+        document.querySelector<HTMLButtonElement>('[data-newtab-status]')?.click();
+        await waitForExpect(() => {
+            expect(settings.newTabSource).toBe('jpdb');
+            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('日本語');
         });
 
         document.body.replaceChildren();
@@ -1197,7 +1230,7 @@ describe('new tab review helpers', () => {
         sessionStorage.removeItem('jpdb-reader-newtab-current-word');
     });
 
-    it('does not show a JPDB source toggle for Anki-only users without a JPDB API or live review card', () => {
+    it('lets Anki-only users toggle to Dictionary without exposing JPDB', () => {
         const controller = new NewTabController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -1241,9 +1274,11 @@ describe('new tab review helpers', () => {
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, ankiCard);
 
         const status = root.querySelector<HTMLButtonElement>('[data-newtab-status]')!;
-        expect(status.textContent).toBe('1 / 1 · Anki');
-        expect(status.dataset.newtabAction).toBeUndefined();
-        expect(status.disabled).toBe(true);
+        expect(status.textContent).toBe('1 / 1 · Anki ⇄');
+        expect(status.dataset.newtabAction).toBe('source-toggle');
+        expect(status.dataset.sourceToggleTarget).toBe('dictionary');
+        expect(status.title).toContain('Dictionary');
+        expect(status.disabled).toBe(false);
     });
 
     it('keeps JPDB visible in the dictionary source rows when disabled', () => {

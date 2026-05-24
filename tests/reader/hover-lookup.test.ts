@@ -17,7 +17,12 @@ interface HoverLookupInternals {
     handlePointerTextHover(event: PointerEvent): void;
 }
 
-function hoverPointerEvent(target: HTMLElement, pointerType = 'mouse', type = 'pointerover'): PointerEvent {
+function hoverPointerEvent(
+    target: HTMLElement,
+    pointerType = 'mouse',
+    type = 'pointerover',
+    modifiers: Partial<Pick<PointerEvent, 'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey'>> = {},
+): PointerEvent {
     const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
     Object.defineProperties(event, {
         target: { value: target },
@@ -25,10 +30,10 @@ function hoverPointerEvent(target: HTMLElement, pointerType = 'mouse', type = 'p
         clientX: { value: 40 },
         clientY: { value: 24 },
         pointerType: { value: pointerType },
-        altKey: { value: false },
-        ctrlKey: { value: false },
-        metaKey: { value: false },
-        shiftKey: { value: false },
+        altKey: { value: modifiers.altKey ?? false },
+        ctrlKey: { value: modifiers.ctrlKey ?? false },
+        metaKey: { value: modifiers.metaKey ?? false },
+        shiftKey: { value: modifiers.shiftKey ?? false },
     });
     return event;
 }
@@ -64,6 +69,74 @@ describe('hover lookup', () => {
             internals.handleHoverPointer(hoverPointerEvent(word));
 
             expect(scheduleHoverLookup).not.toHaveBeenCalled();
+            expect(handlePointerTextHover).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('allows modifier-hover on parsed words inside the active popover', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        popover.innerHTML = `
+            <div class="jpdb-reader-example-sentence">
+                <span class="jpdb-reader-word jpdb-known" data-vid="1" data-sid="2" data-sentence="今日は読む">読む</span>
+            </div>
+        `;
+        document.body.append(popover);
+        const word = popover.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const internals = app as unknown as HoverLookupInternals;
+        const scheduleHoverLookup = vi.fn();
+        const handlePointerTextHover = vi.fn();
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: 'Shift' },
+        };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'modal';
+        internals.scheduleHoverLookup = scheduleHoverLookup;
+        internals.handlePointerTextHover = handlePointerTextHover;
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(word, 'mouse', 'pointerover', { shiftKey: true }));
+
+            expect(scheduleHoverLookup).toHaveBeenCalledWith(word, expect.objectContaining({ shiftKey: true }));
+            expect(handlePointerTextHover).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('allows modifier-hover on parsed new-tab words owned by the reader UI', () => {
+        const app = new ReaderApp();
+        const root = document.createElement('div');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.innerHTML = '<span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="今日は読む">読む</span>';
+        document.body.append(root);
+        const word = root.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const internals = app as unknown as HoverLookupInternals;
+        const scheduleHoverLookup = vi.fn();
+        const handlePointerTextHover = vi.fn();
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: 'Shift' },
+        };
+        internals.scheduleHoverLookup = scheduleHoverLookup;
+        internals.handlePointerTextHover = handlePointerTextHover;
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(word, 'mouse', 'pointerover', { shiftKey: true }));
+
+            expect(scheduleHoverLookup).toHaveBeenCalledWith(word, expect.objectContaining({ shiftKey: true }));
             expect(handlePointerTextHover).not.toHaveBeenCalled();
         } finally {
             app.destroy();

@@ -58,8 +58,8 @@ function appliedReaderTheme(settings: ReaderSettings): AppliedReaderTheme {
     return {
         furiganaMode: effectiveFuriganaMode(settings),
         wordColorSources: {
-            highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource, 'jpdb'),
-            underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, 'pitch'),
+            highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource, 'pitch'),
+            underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, 'jpdb'),
             text: effectiveReaderTextColorSource(settings, settings.wordTextColorSource, 'off'),
         },
         subtitleColorSources: {

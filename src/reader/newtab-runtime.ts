@@ -18,12 +18,12 @@ import {
     renderSimilarKanjiWordsShell,
 } from './definition-source-render';
 import { DictionarySourceStateController } from './dictionary-source-state';
-import { appendToDocumentHead, escapeHtml, HAS_JAPANESE, readerWordSurfaceText, setInnerHtml } from './dom';
+import { appendToDocumentHead, escapeHtml, HAS_JAPANESE, readerWordSurfaceText, setInnerHtml, unwrapReaderWords } from './dom';
 import { DictionaryStyleController } from './dictionary-styles';
 import { FactoryResetCoordinator, FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS } from './factory-reset-coordinator';
 import { ImmersionKitClient } from './immersion-kit';
 import { ImmersionPopoverController } from './immersion-popover-controller';
-import { uiText, type UiCopyKey } from './i18n';
+import { resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
 import { JpdbClient } from './jpdb';
 import { JpdbKanjiClient, type JpdbKanjiInfo } from './jpdb-kanji';
 import { getPitchClass } from './jpdb-parser';
@@ -40,7 +40,7 @@ import {
     resolveMiningContext as resolveStoredMiningContext,
     type MiningContext,
 } from './mining-context';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan } from './nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from './nested-text-parse';
 import { NewTabController, newTabKanjiSourceTitle } from './new-tab-controller';
 import { NEW_TAB_CSS } from './newtab-styles';
 import { installOriginGraphInteractions } from './origin-graph-interactions';
@@ -278,6 +278,7 @@ export class NewTabRuntime {
         applyAccentColor: color => this.applyAccentColor(color),
         applyWordColors: settings => this.applyWordColors(settings),
         lookupText: (text, _sentence, anchor) => this.lookupText(text, text, anchor),
+        parseSettingsJapanese: form => this.parseSettingsJapanese(form),
         installFab: () => undefined,
         refreshDictionaryStyles: () => this.refreshDictionaryStyles(),
         scheduleDictionaryRescan: () => undefined,
@@ -1686,6 +1687,34 @@ export class NewTabRuntime {
         } finally {
             clearNestedParseLoadingKey(root, plan.parseKey);
         }
+    }
+
+    private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
+        if (!this.isCurrentSettingsRoot(form)) return;
+        unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup]' });
+        clearNestedParseState(form);
+        if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.parser.canParse()) return;
+        const plan = nestedSettingsTextParsePlan(form, 320);
+        if (!plan) return;
+        form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
+        try {
+            const parsed = await this.parser.parse(plan.targets.map(target => target.text), {
+                jpdbTimeoutMs: NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
+                allowJpdbTimeoutFallback: true,
+            });
+            if (!this.isCurrentSettingsRoot(form) || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey) return;
+            applyNestedParsePlan(plan, parsed, this.settings);
+            form.dataset.jpdbReaderParseKey = plan.parseKey;
+            void this.enrichPublicVocabularyWords(parsed.flat());
+            void this.enrichPitchWords(parsed.flat());
+        } catch {
+        } finally {
+            clearNestedParseLoadingKey(form, plan.parseKey);
+        }
+    }
+
+    private isCurrentSettingsRoot(root: HTMLElement): boolean {
+        return Boolean(root.isConnected && this.activeDialog === root && root.classList.contains('jpdb-reader-settings'));
     }
 }
 

@@ -82,6 +82,18 @@
   gap: 6px;
 }
 
+.jpdb-reader-newtab-more {
+  position: relative;
+}
+
+.jpdb-reader-newtab-more > summary {
+  list-style: none;
+}
+
+.jpdb-reader-newtab-more > summary::-webkit-details-marker {
+  display: none;
+}
+
 .jpdb-reader-newtab .jpdb-reader-newtab-overflow {
   width: 44px;
   min-width: 44px;
@@ -137,10 +149,53 @@
   cursor: pointer;
 }
 
+.jpdb-reader-newtab-more-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  min-width: 132px;
+  padding: 6px;
+  border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface, #20242b);
+  box-shadow: 0 14px 36px var(--jpdb-reader-shadow, rgba(0, 0, 0, 0.28));
+}
+
+.jpdb-reader-newtab-more:not([open]) .jpdb-reader-newtab-more-menu {
+  display: none;
+}
+
+.jpdb-reader-newtab-more-menu button {
+  width: 100%;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--jpdb-reader-text, #f2f4f8);
+  font-size: 12px;
+  font-weight: 760;
+  text-align: left;
+  cursor: pointer;
+}
+
+.jpdb-reader-newtab-more-menu button[data-active="true"] {
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent, #5ea780) 18%,
+    transparent
+  );
+  color: var(--jpdb-reader-text, #f2f4f8);
+}
+
 .jpdb-reader-newtab-mode {
   justify-self: center;
   display: inline-grid;
-  grid-template-columns: repeat(4, minmax(58px, 1fr));
+  grid-template-columns: repeat(3, minmax(58px, 1fr));
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.12));
@@ -821,12 +876,21 @@
 }
 
 button.jpdb-reader-newtab-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 20px;
-  padding: 2px 6px;
-  border: 0;
+  padding: 3px 8px;
+  border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
   cursor: pointer;
+}
+
+button.jpdb-reader-newtab-status:not(:disabled) {
+  border-color: color-mix(in srgb, var(--jpdb-reader-text, #f2f4f8) 22%, transparent);
+  background: color-mix(in srgb, var(--jpdb-reader-text, #f2f4f8) 7%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #000 20%, transparent);
 }
 
 button.jpdb-reader-newtab-status:disabled {
@@ -834,7 +898,8 @@ button.jpdb-reader-newtab-status:disabled {
 }
 
 button.jpdb-reader-newtab-status:not(:disabled):hover {
-  background: color-mix(in srgb, var(--jpdb-reader-text, #f2f4f8) 12%, transparent);
+  border-color: color-mix(in srgb, var(--jpdb-reader-text, #f2f4f8) 34%, transparent);
+  background: color-mix(in srgb, var(--jpdb-reader-text, #f2f4f8) 14%, transparent);
 }
 
 .jpdb-reader-newtab-prompt {
@@ -2109,6 +2174,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-language-toggle:focus-visible,
 .jpdb-reader-newtab-overflow:focus-visible,
 .jpdb-reader-newtab-mode button:focus-visible,
+.jpdb-reader-newtab-more-menu button:focus-visible,
 .jpdb-reader-newtab-status:focus-visible,
 .jpdb-reader-newtab-controls button:not([data-grade]):focus-visible,
 .jpdb-reader-newtab-doodle-actions button:focus-visible,
@@ -2133,6 +2199,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-language-toggle:hover,
   .jpdb-reader-newtab-overflow:hover,
   .jpdb-reader-newtab-mode button:hover,
+  .jpdb-reader-newtab-more-menu button:hover,
   .jpdb-reader-newtab-controls button:not([data-grade]):hover,
   .jpdb-reader-newtab-doodle-actions button:hover,
   .jpdb-reader-newtab-searchbox button:hover,

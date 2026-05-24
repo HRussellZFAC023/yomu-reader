@@ -116,8 +116,8 @@ type ConcreteReaderColorSource = Exclude<ReaderColorSource, 'auto'>;
 type LegacyWordHighlightMode = 'auto' | 'status' | 'pitch' | 'off';
 
 const DEFAULT_COLOR_CHANNELS: Record<ReaderColorChannelKey, ConcreteReaderColorSource> = {
-    wordHighlightColorSource: 'jpdb',
-    wordUnderlineColorSource: 'pitch',
+    wordHighlightColorSource: 'pitch',
+    wordUnderlineColorSource: 'jpdb',
     wordTextColorSource: 'off',
     subtitleHighlightColorSource: 'jpdb',
     subtitleUnderlineColorSource: 'pitch',

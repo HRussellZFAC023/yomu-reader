@@ -130,6 +130,20 @@ describe('settings dialog keyboard dismissal', () => {
         expect(shortcut.value).toBe('Escape');
         expect(dismiss).not.toHaveBeenCalled();
     });
+
+    it('requests Japanese settings parsing after opening and language changes', () => {
+        const parseSettingsJapanese = vi.fn();
+        const { form } = createSettingsDialog({ parseSettingsJapanese });
+        const language = form.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')!;
+
+        expect(parseSettingsJapanese).toHaveBeenCalledWith(form);
+
+        parseSettingsJapanese.mockClear();
+        language.value = 'ja';
+        language.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(parseSettingsJapanese).toHaveBeenCalledWith(form);
+    });
 });
 
 describe('settings dialog dictionary imports', () => {

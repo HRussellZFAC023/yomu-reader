@@ -188,6 +188,10 @@ describe('settings form localization', () => {
         expect(form.querySelector('.jpdb-reader-template-preview-title')?.textContent).toBe('単語を先に表示するプリセット');
         expect(form.querySelector('.jpdb-reader-template-meaning')?.textContent).toBe('読む');
         expect(form.querySelector<HTMLElement>('[data-theme-switch]')?.title).toBe('ライトテーマに切り替え');
+        expect(form.querySelector('[data-help-links-title]')?.textContent).toBe('便利なページ');
+        expect(form.querySelector('[data-help-support-title]')?.textContent).toBe('よむをサポート');
+        expect(form.querySelector('[data-help-link="factory-reset"]')?.textContent).toBe('初期状態に戻す');
+        expect(form.querySelector('[data-help-glossary-title]')?.textContent).toBe('用語集');
 
         const text = form.textContent ?? '';
         [
@@ -199,8 +203,12 @@ describe('settings form localization', () => {
             'Lookup pills',
             'Term dictionaries',
             'Factory Reset',
+            'Useful pages',
+            'Support よむ',
+            'Glossary',
             'Word first preset',
             'to read',
         ].forEach(phrase => expect(text).not.toContain(phrase));
+        expect(text).not.toContain('未翻訳');
     });
 });
