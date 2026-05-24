@@ -1932,6 +1932,75 @@ describe('reader helpers', () => {
         }
     });
 
+    it('lets touch-style taps reveal OCR lines before tapping parsed words', async () => {
+        const app = new ReaderApp();
+        const lookupText = vi.fn(async () => undefined);
+        const showWord = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            lookupText: typeof lookupText;
+            showWord: typeof showWord;
+        };
+        internals.lookupText = lookupText;
+        internals.showWord = showWord;
+
+        const image = document.createElement('img');
+        image.src = '/yomu-reader/screenshots/real-popup-lookup.png';
+        image.dataset.ocrLines = JSON.stringify([
+            { text: '日本語を読む', box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
+        ]);
+        Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
+        image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
+        document.body.replaceChildren(image);
+
+        vi.stubGlobal('location', {
+            href: 'http://127.0.0.1:5177/yomu-reader/',
+            origin: 'http://127.0.0.1:5177',
+            hostname: '127.0.0.1',
+        });
+        vi.stubGlobal('IntersectionObserver', class {
+            constructor(private readonly callback: IntersectionObserverCallback) {}
+            observe(target: Element): void {
+                this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
+            }
+            unobserve(): void {}
+            disconnect(): void {}
+            takeRecords(): IntersectionObserverEntry[] { return []; }
+            root = null;
+            rootMargin = '0px';
+            thresholds = [0];
+        });
+
+        try {
+            await app.init({ showWelcome: false });
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-line')?.getAttribute('aria-label')).toBe('日本語を読む');
+            });
+
+            const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            const tap = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 });
+            const clickWasNotCanceled = line.dispatchEvent(tap);
+
+            expect(clickWasNotCanceled).toBe(false);
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
+            expect(lookupText).not.toHaveBeenCalled();
+            expect(showWord).not.toHaveBeenCalled();
+
+            line.querySelector<HTMLElement>('.jpdb-ocr-line-text')!.innerHTML = '<span class="jpdb-reader-word jpdb-not-in-deck" data-vid="10" data-sid="20" data-sentence="日本語を読む" tabindex="0">日本語</span>を読む';
+            const word = line.querySelector<HTMLElement>('.jpdb-reader-word[data-vid]')!;
+            word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 130, clientY: 120 }));
+
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
+                trigger: 'click',
+                userGesture: true,
+            }));
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
     it('aligns OCR boxes to the rendered object-fit image pixels', async () => {
         const image = document.createElement('img');
         image.src = '/yomu-reader/screenshots/real-kanji-drilldown.png';

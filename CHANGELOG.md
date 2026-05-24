@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.30] - 2026-05-24
+
+### Fixed
+
+- Fixed iPhone/touch OCR image interaction so tapping an OCR line reveals and pins the sentence first, while tapping parsed words inside the revealed line still opens the normal lookup popup.
+
 ## [0.4.29] - 2026-05-24
 
 ### Added
