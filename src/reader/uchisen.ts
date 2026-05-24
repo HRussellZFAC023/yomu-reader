@@ -50,6 +50,19 @@ export interface UchisenGenerateResult {
     story: string;
 }
 
+interface UchisenGenerationPayload {
+    success?: unknown;
+    url?: unknown;
+    full_url?: unknown;
+    image_url?: unknown;
+    imageUrl?: unknown;
+    filename?: unknown;
+    file?: unknown;
+    img_src?: unknown;
+    error_message?: unknown;
+    error?: unknown;
+}
+
 interface UchisenImageCandidate extends UchisenImage {
     paywall: boolean;
 }
@@ -76,12 +89,13 @@ const UCHISEN_PAYWALL_IMAGE_RE = /(?:^|\/)(?:kanji\/)?enrollment\.(?:png|jpe?g|w
 export function parseUchisenData(html: string): UchisenData {
     if (!html.trim()) return emptyUchisenData();
     const doc = parseHtmlDocument(html);
+    const kanjiId = parseUchisenKanjiIdFromDocument(doc);
     return {
         images: parseUchisenImagesFromDocument(doc),
         componentGroups: parseUchisenComponentGroupsFromDocument(doc),
         kanjiKeyword: parseUchisenKanjiKeywordFromDocument(doc),
-        kanjiId: parseUchisenKanjiIdFromDocument(doc),
-        canGenerateImages: parseUchisenAuthenticatedFromDocument(doc),
+        kanjiId,
+        canGenerateImages: Boolean(kanjiId && parseUchisenCanGenerateFromDocument(doc)),
     };
 }
 
@@ -156,12 +170,13 @@ function parseUchisenKanjiIdFromDocument(doc: Document): string {
     return cleanText(candidates.find(Boolean) ?? '');
 }
 
-function parseUchisenAuthenticatedFromDocument(doc: Document): boolean {
+function parseUchisenCanGenerateFromDocument(doc: Document): boolean {
     const userId = cleanText(doc.querySelector<HTMLInputElement>('input#user_id')?.value ?? '');
-    if (userId) return true;
-    const hasLoginLink = Boolean(doc.querySelector('#lo_links a[href="/login"], #lo_links_dropdown a[href="/login"], form[action="/login"], form[action^="/login?"]'));
-    const hasKanjiForm = Boolean(doc.querySelector<HTMLInputElement>('input#kanji_id, input[name="kanji_id"]')?.value);
-    return hasKanjiForm && !hasLoginLink;
+    const hasAccountNav = Boolean(doc.querySelector('a[href^="/account/"], a[href="/logout"]'));
+    const hasStudioGenerateButton = Boolean(doc.querySelector('.generate_image_button, button[data-uchisen-action="generate-submit"]'));
+    const hasLoginPrompt = Boolean(doc.querySelector('#lo_links a[href*="login"], a[href*="/login"]'));
+    const explicitlyUnavailable = Boolean(doc.querySelector('[data-uchisen-generate-unavailable], .generate_image_button[disabled]'));
+    return !explicitlyUnavailable && (hasStudioGenerateButton || Boolean(userId) || hasAccountNav || hasLoginPrompt);
 }
 
 function uchisenKanjiKeyword(value: string): UchisenKanjiKeyword | null {
@@ -302,7 +317,7 @@ export async function installUchisenCarousel(
     let currentComponentGroups = options.componentGroups ?? [];
     let currentKanjiKeyword = options.kanjiKeyword ?? null;
     let currentKanjiId = options.kanjiId ?? '';
-    let canGenerateImages = Boolean(options.canGenerateImages && currentKanjiId);
+    let canGenerateImages = Boolean(currentKanjiId && options.canGenerateImages);
     const storedIndex = await gmStorageGet(`${UCHISEN_INDEX_PREFIX}${kanji}`, 0);
     let index = preferredUchisenIndex(storedIndex, currentImages);
     if (!isValidUchisenIndex(index, currentImages)) index = 0;
@@ -338,7 +353,7 @@ export async function installUchisenCarousel(
                         <span class="yomu-jpdb-counter">${total ? `${index + 1}/${total}` : '0'}</span>
                     </span>
                 `;
-        const bodyMeta = options.summaryHtml && total ? `<div class="yomu-jpdb-source-meta">${index + 1}/${total}</div>` : '';
+        const bodyMeta = options.summaryHtml && total ? `<span class="yomu-jpdb-source-meta">${index + 1}/${total}</span>` : '';
         setInnerHtml(container, `
             <details class="${detailsClass}" ${sourceAttributes}>
                 <summary class="${summaryClass}">
@@ -346,16 +361,16 @@ export async function installUchisenCarousel(
                 </summary>
                 <div class="${bodyClass}">
                     <div class="yomu-jpdb-uchisen-toolbar">
-                        ${total ? `<span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="${escapeHtml(uiText(language, 'uchisenMnemonicImages'))}">
-                            <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">&lsaquo;</button>
-                            <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">&rsaquo;</button>
-                        </span>` : '<span></span>'}
+                        ${bodyMeta}
                         <span class="yomu-jpdb-uchisen-link-row">
                             <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(kanji)}" target="_blank" rel="noopener">${escapeHtml(uchisenExternalLinkLabel(language))} ${externalLinkIcon()}</a>
                             ${canGenerateImages ? `<button class="yomu-jpdb-uchisen-summary-link yomu-jpdb-uchisen-generate-link" type="button" data-uchisen-action="generate-toggle" aria-expanded="${generateOpen}" title="${escapeHtml(uiText(language, 'generateUchisenImage'))}">${escapeHtml(uiText(language, 'generateUchisenImageToggle'))}</button>` : ''}
                         </span>
+                        ${total ? `<span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="${escapeHtml(uiText(language, 'uchisenMnemonicImages'))}">
+                            <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">&lsaquo;</button>
+                            <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">&rsaquo;</button>
+                        </span>` : ''}
                     </div>
-                    ${bodyMeta}
                     ${generateOpen ? renderUchisenGeneratePanel(generateFields, generateStatus, generateBusy, language) : ''}
                     ${renderUchisenComponentGroups(currentKanjiKeyword, currentComponentGroups, language)}
                     ${item ? `<div class="yomu-jpdb-image-shell"><img alt="${escapeHtml(formatUchisenTemplate(uiText(language, 'uchisenMnemonicFor'), { kanji }))}" data-uchisen-image></div>
@@ -395,7 +410,7 @@ export async function installUchisenCarousel(
             currentComponentGroups = fresh.componentGroups;
             currentKanjiKeyword = fresh.kanjiKeyword;
             currentKanjiId = fresh.kanjiId || currentKanjiId;
-            canGenerateImages = Boolean(fresh.canGenerateImages && currentKanjiId);
+            canGenerateImages = Boolean(currentKanjiId && fresh.canGenerateImages);
         } else {
             currentImages = orderedUchisenImages([
                 ...currentImages.map(item => ({ ...item, paywall: isUchisenPaywallItem(item) })),
@@ -425,8 +440,11 @@ export async function installUchisenCarousel(
             await refreshAfterGenerate(result);
             generateStatus = { tone: 'success', text: uiText(options.interfaceLanguage ?? 'en', 'uchisenGeneratedImage') };
             generateOpen = false;
-        } catch {
-            generateStatus = { tone: 'error', text: uiText(options.interfaceLanguage ?? 'en', 'uchisenGenerateFailed') };
+        } catch (error) {
+            const message = error instanceof Error && error.message.trim()
+                ? error.message.trim()
+                : uiText(options.interfaceLanguage ?? 'en', 'uchisenGenerateFailed');
+            generateStatus = { tone: 'error', text: message };
         } finally {
             generateBusy = false;
             render();
@@ -474,33 +492,88 @@ export async function generateAndPublishUchisenMnemonic(
     const kanjiId = request.kanjiId.trim();
     const mnemonic = request.mnemonic.trim();
     const imagePrompt = request.imagePrompt.trim();
+    const storyBackedPrompt = storyBackedUchisenImagePrompt(mnemonic, imagePrompt);
+    const safeImagePrompt = safeUchisenImagePrompt(storyBackedPrompt);
     if (!kanjiId || !mnemonic || !imagePrompt) throw new Error('Missing Uchisen generation fields.');
 
     const referrer = `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`;
     onStatus?.(uiText(language, 'uchisenGeneratingImage'));
-    const generationText = await postUchisenForm('https://uchisen.com/generateimage', {
-        prompt: escapeUchisenPrompt(imagePrompt),
-        kanji_id: kanjiId,
-    }, referrer, proxyUrl, 'Uchisen image generation', 120000);
-    const generation = parseUchisenGenerationResponse(generationText);
+    const { generation, imagePrompt: publishedImagePrompt } = await generateUchisenImageWithRetry(
+        kanjiId,
+        imagePrompt,
+        storyBackedPrompt,
+        safeImagePrompt,
+        referrer,
+        proxyUrl,
+    );
 
     onStatus?.(uiText(language, 'uchisenPublishingMnemonic'));
     await postUchisenForm('https://uchisen.com/save_mnemonic.php', {
         img_src: generation.imageFilename,
         kanji_id: kanjiId,
         formatted_mnemonic: formatUchisenMnemonicHtml(mnemonic),
-        current_image_prompt: imagePrompt,
+        current_image_prompt: publishedImagePrompt,
         redirect: `/kanji/${encodeURIComponent(kanji)}`,
         mnemonic,
-        image_prompt: imagePrompt,
+        image_prompt: publishedImagePrompt,
         start_blurred: 'no',
     }, referrer, proxyUrl, 'Uchisen mnemonic publish', 120000);
 
     return {
         imageFilename: generation.imageFilename,
-        imageUrl: canonicalUchisenUrl(generation.imageFilename),
+        imageUrl: generation.imageUrl,
         story: plainUchisenMnemonic(mnemonic),
     };
+}
+
+async function generateUchisenImageWithRetry(
+    kanjiId: string,
+    imagePrompt: string,
+    storyBackedPrompt: string,
+    safeImagePrompt: string,
+    referrer: string,
+    proxyUrl: string,
+): Promise<{ generation: { imageFilename: string; imageUrl: string }; imagePrompt: string }> {
+    const attempts = uniqueUchisenPrompts([imagePrompt, storyBackedPrompt, safeImagePrompt]);
+    let lastError: unknown;
+    for (const prompt of attempts) {
+        try {
+            const generationText = await postUchisenForm('https://uchisen.com/generateimage', {
+                prompt: uchisenPromptFieldValue(prompt),
+                kanji_id: kanjiId,
+            }, referrer, proxyUrl, 'Uchisen image generation', 120000);
+            return { generation: parseUchisenGenerationResponse(generationText), imagePrompt: prompt };
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    throw lastError instanceof Error ? lastError : new Error('Uchisen image generation failed.');
+}
+
+function storyBackedUchisenImagePrompt(mnemonic: string, imagePrompt: string): string {
+    const story = plainUchisenMnemonic(mnemonic).replace(/\s+/g, ' ').trim();
+    if (!story) return imagePrompt;
+    return fitUchisenImagePrompt(`${imagePrompt}; scene follows this mnemonic story: ${story}`);
+}
+
+function uniqueUchisenPrompts(prompts: string[]): string[] {
+    const seen = new Set<string>();
+    const unique: string[] = [];
+    for (const prompt of prompts) {
+        const trimmed = prompt.trim();
+        if (!trimmed || seen.has(trimmed)) continue;
+        seen.add(trimmed);
+        unique.push(trimmed);
+    }
+    return unique;
+}
+
+function fitUchisenImagePrompt(prompt: string): string {
+    const maxLength = 400;
+    if (prompt.length <= maxLength) return prompt;
+    const noTextSuffix = /;\s*no text or signage$/i.test(prompt) ? '; no text or signage' : '';
+    const targetLength = noTextSuffix ? maxLength - noTextSuffix.length : maxLength;
+    return `${prompt.slice(0, targetLength).replace(/[;,\s]+$/, '')}${noTextSuffix}`;
 }
 
 function renderUchisenGeneratePanel(
@@ -545,7 +618,7 @@ function defaultUchisenGenerateFields(
         : 'simple component props';
     return {
         mnemonic: `##${keywordText}## A warm, clear scene brings ${componentStory} together so ${keywordText.toLowerCase()} feels easy to picture.`,
-        imagePrompt: `1970s Japanese children's storybook illustration of a friendly ${keywordText.toLowerCase()} scene; include distinct props for ${componentPrompt}; pastel colors, vintage textures; clear silhouettes, warm light, no text or signage`,
+        imagePrompt: safeUchisenImagePrompt(`Japanese children's storybook illustration of a friendly ${keywordText.toLowerCase()} scene; include distinct props for ${componentPrompt}; pastel colors, vintage textures; warm light; clear silhouettes; no text or signage`),
     };
 }
 
@@ -568,13 +641,91 @@ function findUchisenImageIndex(images: UchisenImage[], imageUrl: string): number
     return images.findIndex(item => canonicalUchisenUrl(item.url) === canonical);
 }
 
-function parseUchisenGenerationResponse(text: string): { imageFilename: string } {
-    const json = parseJsonObjectFromText(text) as { success?: unknown; url?: unknown; error_message?: unknown; error?: unknown } | null;
-    if (!json || json.success === false) throw new Error(String(json?.error_message ?? json?.error ?? 'Image generation failed.'));
-    const imageFilename = typeof json.url === 'string' ? json.url.trim() : '';
-    if (!imageFilename) throw new Error('Image generation did not return a filename.');
-    return { imageFilename };
+function parseUchisenGenerationResponse(text: string): { imageFilename: string; imageUrl: string } {
+    const json = parseJsonObjectFromText(text) as UchisenGenerationPayload | null;
+    if (!json || isUchisenGenerationFailure(json)) {
+        throw new Error(uchisenGenerationErrorMessage(json, text));
+    }
+    const rawFilename = firstString(json.url, json.filename, json.file, json.img_src, json.image_url, json.imageUrl);
+    const rawFullUrl = firstString(json.full_url, json.image_url, json.imageUrl);
+    const imageFilename = normalizeUchisenImageFilename(rawFilename);
+    if (!imageFilename) throw new Error(`Image generation did not return a filename: ${snippet(text)}`);
+    return {
+        imageFilename,
+        imageUrl: rawFullUrl ? canonicalUchisenUrl(rawFullUrl) : canonicalUchisenUrl(imageFilename),
+    };
 }
+
+function uchisenPromptFieldValue(value: string): string {
+    return escapeHtml(value).replace(/'/g, '&#039;');
+}
+
+function safeUchisenImagePrompt(value: string): string {
+    let prompt = value;
+    for (const [pattern, replacement] of UCHISEN_IMAGE_PROMPT_REPLACEMENTS) {
+        prompt = prompt.replace(pattern, replacement);
+    }
+    prompt = prompt
+        .replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, 'no text or signage')
+        .replace(/no text,\s*letters,\s*numbers,\s*logos,\s*or signage/gi, 'no text or signage')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!/no text|without text/i.test(prompt)) prompt = `${prompt}; no text or signage`;
+    return prompt;
+}
+
+const UCHISEN_IMAGE_PROMPT_REPLACEMENTS: Array<[RegExp, string]> = [
+    [/\bblood(y|ied|ing)?\b/gi, 'red festival paint'],
+    [/\bbleed(ing)?\b/gi, 'red festival paint'],
+    [/\bwounds?\b/gi, 'patched cloth'],
+    [/\binjur(y|ies|ed)?\b/gi, 'tired mishap'],
+    [/\bsick(ness)?\b/gi, 'restful'],
+    [/\bill(ness)?\b/gi, 'restful'],
+    [/\bmedicine\b/gi, 'helpful bundle'],
+    [/\bmedical\b/gi, 'helpful'],
+    [/\bdoctor\b/gi, 'kind helper'],
+    [/\bpatient\b/gi, 'visitor'],
+    [/\bdisease\b/gi, 'gloomy cloud'],
+    [/\bhospital\b/gi, 'quiet rest house'],
+    [/\bweapons?\b/gi, 'ceremonial props'],
+    [/\bswords?\b/gi, 'ceremonial wooden practice sword'],
+    [/\bknives?\b/gi, 'small wooden craft tool'],
+    [/\bdaggers?\b/gi, 'small wooden craft tool'],
+    [/\bblades?\b/gi, 'shiny craft edge'],
+    [/\bspears?\b/gi, 'slender festival pole'],
+    [/\barrows?\b/gi, 'paper arrow charm'],
+    [/\bguns?\b/gi, 'toy popper'],
+    [/\brifles?\b/gi, 'toy popper'],
+    [/\bcannons?\b/gi, 'festival drum'],
+    [/\bbombs?\b/gi, 'round festival lantern'],
+    [/\bdynamite\b/gi, 'firecracker bundle'],
+    [/\bexplos(ive|ion)s?\b/gi, 'bursting confetti'],
+    [/\bbattles?\b/gi, 'festival contest'],
+    [/\bfight(ing|s)?\b/gi, 'tugging contest'],
+    [/\bwars?\b/gi, 'old tale'],
+    [/\battack(s|ing)?\b/gi, 'surprising pounce'],
+    [/\bstab(s|bing|bed)?\b/gi, 'poke'],
+    [/\bkill(s|ing|ed)?\b/gi, 'stop'],
+    [/\bdead\b/gi, 'still'],
+    [/\bdeath\b/gi, 'quiet ending'],
+    [/\bcorpse\b/gi, 'old puppet'],
+    [/\bpoison\b/gi, 'mysterious purple dye'],
+    [/\bcriminals?\b/gi, 'mischief maker'],
+    [/\bcrimes?\b/gi, 'mischief'],
+    [/\bprison\b/gi, 'locked toy box'],
+    [/\bjail\b/gi, 'locked toy box'],
+    [/\bpunish(ment|ed|ing)?\b/gi, 'scold'],
+    [/\btorture\b/gi, 'awkward training'],
+    [/\bexecution\b/gi, 'ceremony'],
+    [/\bnoose\b/gi, 'rope loop'],
+    [/\bdemons?\b/gi, 'festival mask'],
+    [/\bdevils?\b/gi, 'festival mask'],
+    [/\bhell\b/gi, 'smoky folk-tale cave'],
+    [/\bghosts?\b/gi, 'paper lantern spirit'],
+    [/\bspirits?\b/gi, 'paper lantern spirit'],
+    [/\bskulls?\b/gi, 'round white mask'],
+    [/\bbones?\b/gi, 'ivory-colored toy sticks'],
+];
 
 function parseJsonObjectFromText(text: string): unknown {
     try {
@@ -590,6 +741,41 @@ function parseJsonObjectFromText(text: string): unknown {
     }
 }
 
+function isUchisenGenerationFailure(json: UchisenGenerationPayload): boolean {
+    if (json.success === false || json.success === 0 || json.success === '0') return true;
+    if (typeof json.error_message === 'string' && json.error_message.trim()) return true;
+    if (typeof json.error === 'string' && json.error.trim()) return true;
+    return false;
+}
+
+function uchisenGenerationErrorMessage(json: UchisenGenerationPayload | null, text: string): string {
+    const message = firstString(json?.error_message, json?.error);
+    if (/must be logged|not logged|login required/i.test(message)) return message;
+    if (message) return `Uchisen image backend rejected generation: ${message}`;
+    return `Uchisen image backend rejected generation: ${snippet(text)}`;
+}
+
+function firstString(...values: unknown[]): string {
+    for (const value of values) {
+        if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+    return '';
+}
+
+function normalizeUchisenImageFilename(value: string): string {
+    if (!value) return '';
+    try {
+        const url = new URL(value);
+        return url.pathname.split('/').filter(Boolean).pop() ?? value;
+    } catch {
+        return value.split('/').filter(Boolean).pop() ?? value;
+    }
+}
+
+function snippet(text: string): string {
+    return String(text).replace(/\s+/g, ' ').trim().slice(0, 500);
+}
+
 function formatUchisenMnemonicHtml(value: string): string {
     return String(value)
         .replace(/[<>]/g, '')
@@ -603,16 +789,6 @@ function plainUchisenMnemonic(value: string): string {
         .replace(/#nl#/g, ' ')
         .replace(/##([^#]+)##/g, '$1')
         .replace(/#([^#]+)#/g, '$1'));
-}
-
-function escapeUchisenPrompt(value: string): string {
-    return String(value).replace(/[&<>"']/g, character => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;',
-    }[character] ?? character));
 }
 
 function renderUchisenComponentGroups(
@@ -731,7 +907,7 @@ function postUchisenForm(
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'X-Requested-With': 'XMLHttpRequest',
-            Accept: '*/*',
+            Accept: 'text/html, */*; q=0.01',
             Origin: 'https://uchisen.com',
             Referer: referrer,
         },
@@ -746,11 +922,18 @@ function postUchisenForm(
         allowConfiguredProxy: false,
         allowDirectCrossOrigin: true,
     }).then(text => {
-        if (/error|failed|not logged|login required/i.test(text) && !/success/i.test(text)) {
-            throw new Error(`${failureLabel} failed.`);
+        const json = parseJsonObjectFromText(text) as { error_message?: unknown; error?: unknown } | null;
+        const message = firstString(json?.error_message, json?.error);
+        if (message && !/generateimage$/i.test(url)) throw new Error(message);
+        if (isUchisenAuthFailure(text)) {
+            throw new Error(`${failureLabel} failed because Uchisen did not accept the current login.`);
         }
         return text;
     });
+}
+
+function isUchisenAuthFailure(text: string): boolean {
+    return /not logged|login required|account is needed/i.test(text) && !/success/i.test(text);
 }
 
 function encodedForm(fields: Record<string, string>): string {

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { detectGrammarHints, listLocalGrammarRuleExamples, renderGrammarHints } from '../../src/reader/study-tools';
+import { detectGrammarHints, listLocalGrammarRuleExamples, renderGrammarHints, type GrammarHint } from '../../src/reader/study-tools';
 
 const ENGLISH_WORD_RE = /\b[A-Za-z]{3,}\b/u;
 const JA_GRAMMAR_RULE_COPY = fs.readFileSync(path.resolve('docs/public/data/ja-grammar-rule-copy.json'), 'utf8');
@@ -14,6 +14,19 @@ function textContent(html: string): string {
     const root = document.createElement('div');
     root.innerHTML = html;
     return root.textContent ?? '';
+}
+
+function grammarHint(overrides: Partial<GrammarHint> & Pick<GrammarHint, 'ruleId' | 'name' | 'index' | 'match'>): GrammarHint {
+    return {
+        level: 'N5',
+        kind: 'Particle',
+        short: 'marks a sentence role',
+        detail: 'Explains the particle role in context.',
+        url: '',
+        confidence: 'high',
+        examples: [],
+        ...overrides,
+    };
 }
 
 describe('local Japanese grammar hints', () => {
@@ -97,6 +110,43 @@ describe('local Japanese grammar hints', () => {
         expect(html).not.toContain('Verb');
         expect(html).not.toContain('dekiru');
         expect(html).not.toContain('ability');
+    });
+
+    it('renders repeated grammar rules once with an occurrence count', async () => {
+        const hints = [
+            grammarHint({ ruleId: 'particle-wo', name: 'を', index: 2, match: '本を' }),
+            grammarHint({ ruleId: 'particle-de', name: 'で', index: 5, match: '駅で' }),
+            grammarHint({ ruleId: 'particle-wo', name: 'を', index: 8, match: '水を' }),
+        ];
+
+        const html = await renderGrammarHints(hints, '本を駅で水を読む。', { knownRuleIds: [], showKnown: false });
+        const root = document.createElement('div');
+        root.innerHTML = html;
+
+        expect(root.querySelector('.jpdb-reader-grammar-summary')?.textContent).toBe('2 shown');
+        expect(root.querySelectorAll('li[data-grammar-rule-id]')).toHaveLength(2);
+        expect(root.querySelectorAll('li[data-grammar-rule-id="particle-wo"]')).toHaveLength(1);
+        expect(root.querySelector('li[data-grammar-rule-id="particle-wo"] .jpdb-reader-grammar-repeat')?.textContent).toBe('x2');
+        expect(root.querySelector('li[data-grammar-rule-id="particle-de"] .jpdb-reader-grammar-repeat')).toBeNull();
+    });
+
+    it('counts hidden known grammar by distinct rule', async () => {
+        const hints = [
+            grammarHint({ ruleId: 'particle-wo', name: 'を', index: 2, match: '本を' }),
+            grammarHint({ ruleId: 'particle-wo', name: 'を', index: 8, match: '水を' }),
+            grammarHint({ ruleId: 'particle-de', name: 'で', index: 5, match: '駅で' }),
+        ];
+
+        const html = await renderGrammarHints(hints, '本を駅で水を読む。', {
+            knownRuleIds: ['particle-wo'],
+            showKnown: false,
+        });
+        const root = document.createElement('div');
+        root.innerHTML = html;
+
+        expect(root.querySelector('.jpdb-reader-grammar-summary')?.textContent).toBe('1 shown · 1 known hidden');
+        expect(root.querySelectorAll('li[data-grammar-rule-id]')).toHaveLength(1);
+        expect(root.querySelector('li[data-grammar-rule-id="particle-wo"]')).toBeNull();
     });
 
     it.each(listLocalGrammarRuleExamples())('renders Japanese i18n copy for $ruleId without English words', async ({ ruleId, example }) => {

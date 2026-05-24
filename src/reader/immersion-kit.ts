@@ -187,7 +187,7 @@ export class ImmersionKitClient {
                     return [];
                 })
                 : this.searchImmersionKit(query, settings, options).catch(error => {
-                    if (isAbortError(error)) throw error;
+                    if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
                     log.warn('Immersion Kit examples failed', { query }, error);
                     return [];
                 }),
@@ -705,7 +705,7 @@ async function requestJson(url: string | string[], timeoutMs: number, proxyUrl =
         try {
             return await requestJsonCandidate(candidate, timeoutMs, proxyUrl, signal);
         } catch (error) {
-            if (isAbortError(error)) throw error;
+            if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
             lastError = error;
         }
     }
@@ -732,6 +732,7 @@ function requestJsonCandidate(url: string, timeoutMs: number, proxyUrl = '', sig
         timeoutLabel: 'Immersion Kit request timed out.',
     }).catch(error => {
         if (isAbortError(error)) throw error;
+        if (isImmersionKitRateLimitError(error)) throw error;
         if (error instanceof Error && /blocked|cross-origin|cors/i.test(error.message)) {
             throw new Error('Immersion Kit search is blocked in this browser. Configure browser/CORS or use the built-in fallback settings.');
         }
@@ -741,6 +742,10 @@ function requestJsonCandidate(url: string, timeoutMs: number, proxyUrl = '', sig
 
 function isAbortError(error: unknown): boolean {
     return error instanceof Error && error.name === 'AbortError';
+}
+
+export function isImmersionKitRateLimitError(error: unknown): boolean {
+    return error instanceof Error && /\b(?:429|too many requests|rate[- ]?limited)\b/i.test(error.message);
 }
 
 function requestBlob(url: string, timeoutMs: number, proxyUrl = ''): Promise<Blob> {
@@ -784,6 +789,7 @@ function requestFirstBlobConcurrent(candidates: string[], timeoutMs: number, pro
                         resolve(blob);
                     })
                     .catch(error => {
+                        if (settled) return;
                         active--;
                         lastError = error;
                         if (nextIndex >= candidates.length && active === 0) {

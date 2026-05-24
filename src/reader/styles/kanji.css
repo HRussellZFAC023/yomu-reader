@@ -1145,19 +1145,24 @@ html.jpdb-reader-doodle-active * {
 }
 .yomu-jpdb-uchisen-toolbar {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 6px 12px;
   width: 100%;
+  min-width: 0;
+}
+.yomu-jpdb-uchisen-toolbar > .yomu-jpdb-source-meta {
+  grid-column: 1;
+  justify-self: start;
 }
 .yomu-jpdb-uchisen-summary-main {
   gap: 8px;
   min-width: 0;
 }
 .yomu-jpdb-uchisen-summary-controls {
-  grid-column: 3;
   gap: 7px;
-  margin-left: auto;
+  grid-column: 3;
+  justify-self: end;
 }
 .yomu-jpdb-uchisen-summary-controls .jpdb-reader-icon-mini {
   width: 28px !important;
@@ -1169,7 +1174,6 @@ html.jpdb-reader-doodle-active * {
 }
 .yomu-jpdb-uchisen-summary-link {
   gap: 4px;
-  justify-self: center;
   min-height: 28px;
   padding-inline: 2px;
   border: 0;
@@ -1190,7 +1194,8 @@ html.jpdb-reader-doodle-active * {
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 6px 12px;
+  gap: 6px 10px;
+  justify-self: center;
   min-width: 0;
 }
 .yomu-jpdb-uchisen-generate-link::before {

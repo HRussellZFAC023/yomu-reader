@@ -108,6 +108,7 @@ export interface JPDBCard {
     ankiCardId?: number;
     jpdbReviewId?: string;
     kanjiKeyword?: string;
+    sourceCardKey?: string;
 }
 
 export interface JPDBDeck {
@@ -240,6 +241,7 @@ export interface ReaderSettings {
     scanVisiblePage: boolean;
     showFloatingButton: boolean;
     newTabEnabled: boolean;
+    newTabAnkiEnabled: boolean;
     newTabSource: NewTabWordSource;
     newTabJpdbDeck: string;
     newTabJpdbReviewMode: NewTabJpdbReviewMode;

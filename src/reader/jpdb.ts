@@ -36,6 +36,11 @@ interface JpdbVocabularyLookupResponse {
     vocabulary_info?: unknown[];
 }
 
+export interface JpdbListDeckCardsOptions {
+    scheduledOnly?: boolean;
+    scanLimit?: number;
+}
+
 export { getPitchClass, splitJapaneseSentences };
 
 export class JpdbClient {
@@ -95,28 +100,23 @@ export class JpdbClient {
         return decks;
     }
 
-    async listDeckCards(deckId: string, limit = 80): Promise<JPDBCard[]> {
+    async listDeckCards(deckId: string, limit = 80, options: JpdbListDeckCardsOptions = {}): Promise<JPDBCard[]> {
         const id = normalizeDeckRequestId(deckId);
-        const done = log.time('listDeckCards', { deckId, limit });
+        const maxCards = Math.max(1, Math.floor(limit));
+        const done = log.time('listDeckCards', { deckId, limit: maxCards, scheduledOnly: options.scheduledOnly, scanLimit: options.scanLimit });
         const response = await this.api.request<JpdbDeckVocabularyResponse>('deck/list-vocabulary', {
             id,
             fetch_occurences: false,
         });
-        const pairs = normalizeVocabularyPairs(response.vocabulary).slice(0, Math.max(1, limit));
+        const pairs = deckVocabularyPairsForRequest(normalizeVocabularyPairs(response.vocabulary), maxCards, options);
         if (!pairs.length) {
             done();
             return [];
         }
-        const rawVocabulary: unknown[] = [];
-        for (let index = 0; index < pairs.length; index += VOCABULARY_LOOKUP_CHUNK_SIZE) {
-            const lookup = await this.api.request<JpdbVocabularyLookupResponse>('lookup-vocabulary', {
-                list: pairs.slice(index, index + VOCABULARY_LOOKUP_CHUNK_SIZE),
-                fields: VOCABULARY_FIELDS,
-            });
-            rawVocabulary.push(...(lookup.vocabulary_info ?? []));
-        }
-        const cards = jpdbVocabularyToCards(rawVocabulary as JPDBRawVocabulary[]);
-        this.cacheCards(cards);
+
+        const cards = options.scheduledOnly
+            ? await this.lookupScheduledDeckCards(pairs, maxCards)
+            : await this.lookupDeckVocabularyCards(pairs);
         done();
         return cards;
     }
@@ -187,6 +187,29 @@ export class JpdbClient {
         for (const card of cards) {
             this.cardCache.set(cardKey(card.vid, card.sid), card);
         }
+    }
+
+    private async lookupScheduledDeckCards(pairs: Array<[number, number]>, limit: number): Promise<JPDBCard[]> {
+        const cards: JPDBCard[] = [];
+        for (let index = 0; index < pairs.length && cards.length < limit; index += VOCABULARY_LOOKUP_CHUNK_SIZE) {
+            const batchCards = await this.lookupDeckVocabularyCards(pairs.slice(index, index + VOCABULARY_LOOKUP_CHUNK_SIZE));
+            cards.push(...batchCards.filter(isScheduledJpdbStudyCard));
+        }
+        return cards.slice(0, limit);
+    }
+
+    private async lookupDeckVocabularyCards(pairs: Array<[number, number]>): Promise<JPDBCard[]> {
+        const rawVocabulary: unknown[] = [];
+        for (let index = 0; index < pairs.length; index += VOCABULARY_LOOKUP_CHUNK_SIZE) {
+            const lookup = await this.api.request<JpdbVocabularyLookupResponse>('lookup-vocabulary', {
+                list: pairs.slice(index, index + VOCABULARY_LOOKUP_CHUNK_SIZE),
+                fields: VOCABULARY_FIELDS,
+            });
+            rawVocabulary.push(...(lookup.vocabulary_info ?? []));
+        }
+        const cards = jpdbVocabularyToCards(rawVocabulary as JPDBRawVocabulary[]);
+        this.cacheCards(cards);
+        return cards;
     }
 
     private async fetchParse(text: string[], cacheKey: string): Promise<JPDBToken[][]> {
@@ -299,6 +322,22 @@ function normalizeVocabularyPairs(value: unknown): Array<[number, number]> {
             return Number.isInteger(vid) && Number.isInteger(sid) ? [vid, sid] as [number, number] : null;
         })
         .filter((item): item is [number, number] => item !== null);
+}
+
+function deckVocabularyPairsForRequest(pairs: Array<[number, number]>, limit: number, options: JpdbListDeckCardsOptions): Array<[number, number]> {
+    const scanLimit = normalizePositiveInteger(options.scanLimit);
+    const scannedPairs = scanLimit ? pairs.slice(0, scanLimit) : pairs;
+    return options.scheduledOnly ? scannedPairs : scannedPairs.slice(0, limit);
+}
+
+function normalizePositiveInteger(value: number | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+    const integer = Math.floor(value);
+    return integer > 0 ? integer : null;
+}
+
+function isScheduledJpdbStudyCard(card: JPDBCard): boolean {
+    return card.cardState.some(state => state === 'new' || state === 'learning' || state === 'due' || state === 'failed');
 }
 
 function normalizeDeck(value: unknown): JPDBDeck | null {

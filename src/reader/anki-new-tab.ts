@@ -3,6 +3,8 @@ import { Logger } from './logger';
 import type { CardState, JPDBCard, ReaderSettings } from './types';
 
 const log = Logger.scope('AnkiNewTab');
+const ANKI_CARD_INFO_CHUNK_SIZE = 250;
+const ANKI_NOTE_INFO_CHUNK_SIZE = 100;
 let unavailableUntil = 0;
 
 interface AnkiNoteInfo {
@@ -13,6 +15,7 @@ interface AnkiNoteInfo {
 
 interface AnkiCardInfo {
     cardId: number;
+    deckName?: string;
     queue: number;
     type: number;
     due?: number;
@@ -27,12 +30,19 @@ interface AnkiNoteCardFields {
     sentence: string;
 }
 
+type AnkiNewTabQueryKind = 'due' | 'new';
+
 export async function listNewTabAnkiCards(client: AnkiConnectClient, settings: ReaderSettings, limit = 80): Promise<JPDBCard[]> {
-    if (!settings.ankiEnabled || canUseMobileAnkiHandoff(settings) || Date.now() < unavailableUntil) return [];
+    if (!settings.newTabAnkiEnabled || canUseMobileAnkiHandoff(settings) || Date.now() < unavailableUntil) return [];
 
     try {
         const done = log.time('listNewTabCards', { deck: settings.ankiDeck, model: settings.ankiModel, limit });
-        const cards = await loadNewTabAnkiCards(client, settings, limit);
+        const deckNames = await newTabAnkiDeckNames(client, settings);
+        const dueCards = await loadNewTabAnkiCards(client, settings, deckNames, limit, 'due');
+        const newCards = dueCards.length >= limit
+            ? []
+            : await loadNewTabAnkiCards(client, settings, deckNames, limit - dueCards.length, 'new');
+        const cards = [...dueCards, ...newCards].slice(0, Math.max(1, limit));
         done();
         return cards;
     } catch (error) {
@@ -42,43 +52,98 @@ export async function listNewTabAnkiCards(client: AnkiConnectClient, settings: R
     }
 }
 
-async function loadNewTabAnkiCards(client: AnkiConnectClient, settings: ReaderSettings, limit: number): Promise<JPDBCard[]> {
-    const query = newTabAnkiQuery(settings);
-    const candidateCardIds = ankiCandidateIds(await client.invoke<number[]>('findCards', { query }), Math.max(1, limit * 8));
-    if (!candidateCardIds.length) return [];
-
-    const dueCards = await loadDueNewTabAnkiCards(client, candidateCardIds);
-    if (!dueCards.length) return [];
-
-    const noteIds = unique(dueCards.map(cardInfo => Number(cardInfo.note)).filter(Number.isFinite));
-    const notes = await client.invoke<AnkiNoteInfo[]>('notesInfo', { notes: noteIds });
-    const notesById = notesByNoteId(notes);
-    const cardsByNote = cardsByNoteId(dueCards);
-    return noteIds
-        .map(noteId => {
-            const note = notesById.get(noteId);
-            return note ? ankiNoteToCard(note, cardsByNote.get(noteId) ?? []) : null;
-        })
-        .filter((card): card is JPDBCard => card !== null)
-        .slice(0, Math.max(1, limit));
+async function loadNewTabAnkiCards(client: AnkiConnectClient, settings: ReaderSettings, deckNames: string[], limit: number, kind: AnkiNewTabQueryKind): Promise<JPDBCard[]> {
+    const cards: JPDBCard[] = [];
+    const seenCards = new Set<number>();
+    const seenNotes = new Set<number>();
+    for (const query of newTabAnkiQueries(settings, deckNames, kind)) {
+        const loadedCards = await loadNewTabAnkiCardsForQuery(client, query, limit - cards.length, kind, seenCards, seenNotes);
+        cards.push(...loadedCards);
+        if (cards.length >= limit) break;
+    }
+    return cards.slice(0, Math.max(1, limit));
 }
 
-async function loadDueNewTabAnkiCards(client: AnkiConnectClient, candidateCardIds: number[]): Promise<AnkiCardInfo[]> {
-    const dueFlags = await client.invoke<boolean[]>('areDue', { cards: candidateCardIds }).catch(() => candidateCardIds.map(() => true));
-    const dueByCardId = new Map(candidateCardIds.map((cardId, index) => [Number(cardId), dueFlags[index]]));
-    const cards = await client.invoke<AnkiCardInfo[]>('cardsInfo', { cards: candidateCardIds }).catch((): AnkiCardInfo[] => []);
+async function loadNewTabAnkiCardsForQuery(
+    client: AnkiConnectClient,
+    query: string,
+    limit: number,
+    kind: AnkiNewTabQueryKind,
+    seenCards: Set<number>,
+    seenNotes: Set<number>,
+): Promise<JPDBCard[]> {
+    if (limit <= 0) return [];
+    const candidateCardIds = ankiCandidateIds(await client.invoke<number[]>('findCards', { query }))
+        .filter(cardId => !seenCards.has(Number(cardId)));
+    if (!candidateCardIds.length) return [];
+
+    const reviewCards = await loadReviewableNewTabAnkiCards(client, candidateCardIds, kind);
+    if (!reviewCards.length) return [];
+
+    const noteIds = unique(reviewCards.map(cardInfo => Number(cardInfo.note)).filter(Number.isFinite))
+        .filter(noteId => !seenNotes.has(noteId));
+    const cardsByNote = cardsByNoteId(reviewCards);
+    const cards: JPDBCard[] = [];
+    for (const chunk of chunks(noteIds, ANKI_NOTE_INFO_CHUNK_SIZE)) {
+        const notes = await client.invoke<AnkiNoteInfo[]>('notesInfo', { notes: chunk }).catch((): AnkiNoteInfo[] => []);
+        const notesById = notesByNoteId(notes);
+        for (const noteId of chunk) {
+            const note = notesById.get(noteId);
+            const card = note ? ankiNoteToCard(note, cardsByNote.get(noteId) ?? []) : null;
+            if (card) {
+                cards.push(card);
+                seenNotes.add(noteId);
+                const cardId = Number(card.ankiCardId ?? card.rid);
+                if (Number.isFinite(cardId)) seenCards.add(cardId);
+            }
+            if (cards.length >= limit) return cards.slice(0, Math.max(1, limit));
+        }
+    }
+    return cards.slice(0, Math.max(1, limit));
+}
+
+async function newTabAnkiDeckNames(client: AnkiConnectClient, settings: ReaderSettings): Promise<string[]> {
+    const names = await client.invoke<unknown>('deckNames').catch(() => []);
+    const deckNames = Array.isArray(names) ? names.filter((name): name is string => typeof name === 'string' && Boolean(name.trim())) : [];
+    const fallbackDeck = settings.ankiDeck.trim();
+    return deckNames.length ? deckNames : fallbackDeck ? [fallbackDeck] : [];
+}
+
+async function loadReviewableNewTabAnkiCards(client: AnkiConnectClient, candidateCardIds: number[], kind: AnkiNewTabQueryKind): Promise<AnkiCardInfo[]> {
+    const dueByCardId = kind === 'due'
+        ? await ankiDueFlags(client, candidateCardIds)
+        : new Map<number, boolean>();
+    const cards = (await Promise.all(chunks(candidateCardIds, ANKI_CARD_INFO_CHUNK_SIZE)
+        .map(chunk => client.invoke<AnkiCardInfo[]>('cardsInfo', { cards: chunk }).catch((): AnkiCardInfo[] => []))))
+        .flat();
     return orderAnkiReviewCards(
-        cards.filter(cardInfo => isReviewableAnkiCard(cardInfo, dueByCardId.get(Number(cardInfo.cardId)))),
+        cards.filter(cardInfo => isReviewableAnkiCard(cardInfo, kind, dueByCardId.get(Number(cardInfo.cardId)))),
         candidateCardIds,
     );
 }
 
-function newTabAnkiQuery(settings: ReaderSettings): string {
+async function ankiDueFlags(client: AnkiConnectClient, candidateCardIds: number[]): Promise<Map<number, boolean>> {
+    const flags = new Map<number, boolean>();
+    for (const chunk of chunks(candidateCardIds, ANKI_CARD_INFO_CHUNK_SIZE)) {
+        const dueFlags = await client.invoke<boolean[]>('areDue', { cards: chunk }).catch((): boolean[] => []);
+        chunk.forEach((cardId, index) => flags.set(Number(cardId), dueFlags[index] === true));
+    }
+    return flags;
+}
+
+function newTabAnkiQueries(settings: ReaderSettings, deckNames: string[], kind: AnkiNewTabQueryKind): string[] {
+    const broadQuery = newTabAnkiQuery(deckNames, '', kind);
+    const model = settings.ankiModel.trim();
+    const modelQuery = model ? newTabAnkiQuery(deckNames, model, kind) : '';
+    return [...new Set([broadQuery, modelQuery].filter(Boolean))];
+}
+
+function newTabAnkiQuery(deckNames: string[], model: string, kind: AnkiNewTabQueryKind): string {
     return [
-        settings.ankiDeck ? `deck:${quoteAnkiSearch(settings.ankiDeck)}` : '',
-        settings.ankiModel ? `note:${quoteAnkiSearch(settings.ankiModel)}` : '',
+        deckNames.length ? `(${deckNames.map(deck => `deck:${quoteAnkiSearch(deck)}`).join(' OR ')})` : '',
+        model ? `note:${quoteAnkiSearch(model)}` : '',
         '-is:suspended',
-        '(is:due OR is:new OR is:learn)',
+        kind === 'due' ? '(is:due OR is:learn)' : 'is:new',
     ].filter(Boolean).join(' ');
 }
 
@@ -86,15 +151,24 @@ function quoteAnkiSearch(term: string): string {
     return `"${term.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
-function ankiCandidateIds(ids: number[], limit: number): number[] {
+function ankiCandidateIds(ids: number[]): number[] {
     const uniqueIds = unique(ids).filter(id => Number.isFinite(Number(id)));
-    return uniqueIds.slice(0, limit);
+    return uniqueIds;
 }
 
-function isReviewableAnkiCard(cardInfo: AnkiCardInfo, dueFlag: boolean | undefined): boolean {
+function chunks<T>(items: T[], size: number): T[][] {
+    const out: T[][] = [];
+    for (let index = 0; index < items.length; index += Math.max(1, size)) {
+        out.push(items.slice(index, index + Math.max(1, size)));
+    }
+    return out;
+}
+
+function isReviewableAnkiCard(cardInfo: AnkiCardInfo, kind: AnkiNewTabQueryKind, dueFlag: boolean | undefined): boolean {
     if (cardInfo.queue === -1) return false;
-    if ([0, 1, 3].includes(cardInfo.queue) || [0, 1, 3].includes(cardInfo.type)) return true;
-    return Boolean(dueFlag);
+    if (kind === 'new') return cardInfo.queue === 0 || cardInfo.type === 0;
+    if (!dueFlag) return false;
+    return [1, 2, 3].includes(cardInfo.queue) || [1, 2, 3].includes(cardInfo.type);
 }
 
 function cardsByNoteId(cards: AnkiCardInfo[]): Map<number, AnkiCardInfo[]> {

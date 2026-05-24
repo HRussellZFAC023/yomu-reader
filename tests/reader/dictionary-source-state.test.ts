@@ -34,4 +34,30 @@ describe('dictionary source open state', () => {
         expect(second.isOpen('kanji:__kanji_jpdb__', true)).toBe(false);
         expect(second.attributes('kanji:__kanji_jpdb__', true)).not.toContain(' open');
     });
+
+    it('can render a source closed without applying a remembered open override', () => {
+        const first = new DictionarySourceStateController({
+            getSettings: () => DEFAULT_SETTINGS,
+            onStateChange: () => undefined,
+        });
+        const root = document.createElement('div');
+        root.innerHTML = `
+            <details data-source-state-key="definition:immersion-kit" data-source-initial-open="false">
+                <summary class="jpdb-reader-local-title">Immersion Kit</summary>
+            </details>
+        `;
+        const details = root.querySelector<HTMLDetailsElement>('details');
+        expect(details).not.toBeNull();
+        first.installTracking(root);
+
+        details!.open = true;
+        details!.dispatchEvent(new Event('toggle', { bubbles: false }));
+
+        const second = new DictionarySourceStateController({
+            getSettings: () => DEFAULT_SETTINGS,
+            onStateChange: () => undefined,
+        });
+        expect(second.attributes('definition:immersion-kit', false)).toContain(' open');
+        expect(second.closedAttributes('definition:immersion-kit')).toBe('data-source-state-key="definition:immersion-kit" data-source-initial-open="false"');
+    });
 });

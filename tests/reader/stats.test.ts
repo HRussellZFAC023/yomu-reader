@@ -3,8 +3,10 @@ import {
     applyJpdbReviewImport,
     averageReviewSpeed,
     combineStatsSources,
+    dailyActivityStreakAt,
     estimatedDueMinutes,
     loadAnkiConnectStats,
+    monthlyActivityHeatmaps,
     parseJpdbReviewExport,
     statsActivityMetricTotal,
     statsCardSegments,
@@ -122,6 +124,39 @@ describe('stats aggregation', () => {
         expect(combined.status).toBe('ready');
     });
 
+    it('builds compact calendar months for stats heatmaps', () => {
+        const months = monthlyActivityHeatmaps([
+            { date: '2026-04-30', reviews: 2, correct: 1, failed: 1, newCards: 1, minutes: 3 },
+            { date: '2026-05-01', reviews: 4, correct: 4, failed: 0, newCards: 0, minutes: 2 },
+            { date: '2026-05-23', reviews: 6, correct: 5, failed: 1, newCards: 2, minutes: 4 },
+        ], 2, new Date('2026-05-23T12:00:00'));
+
+        expect(months.map(month => month.key)).toEqual(['2026-04', '2026-05']);
+        expect(months[0]).toMatchObject({
+            month: 4,
+            startWeekday: 2,
+            total: expect.objectContaining({ reviews: 2, correct: 1, failed: 1, newCards: 1, minutes: 3 }),
+        });
+        expect(months[1].days).toHaveLength(31);
+        expect(months[1].days[0]).toMatchObject({ date: '2026-05-01', reviews: 4 });
+        expect(months[1].total).toMatchObject({ reviews: 10, correct: 9, failed: 1, newCards: 2, minutes: 6 });
+    });
+
+    it('reports the active streak ending on a selected stats day', () => {
+        const daily = [
+            { date: '2026-05-18', reviews: 2, correct: 2, failed: 0, newCards: 1, minutes: 2 },
+            { date: '2026-05-19', reviews: 3, correct: 3, failed: 0, newCards: 0, minutes: 3 },
+            { date: '2026-05-20', reviews: 0, correct: 0, failed: 0, newCards: 0, minutes: 0 },
+            { date: '2026-05-21', reviews: 1, correct: 1, failed: 0, newCards: 0, minutes: 1 },
+            { date: '2026-05-22', reviews: 4, correct: 3, failed: 1, newCards: 2, minutes: 4 },
+            { date: '2026-05-23', reviews: 2, correct: 2, failed: 0, newCards: 0, minutes: 2 },
+        ];
+
+        expect(dailyActivityStreakAt(daily, '2026-05-23')).toBe(3);
+        expect(dailyActivityStreakAt(daily, '2026-05-20')).toBe(0);
+        expect(dailyActivityStreakAt(daily, '2026-05-19')).toBe(2);
+    });
+
     it('loads Anki stats across every deck returned by AnkiConnect', async () => {
         const calls: Array<{ action: string; params?: Record<string, unknown> }> = [];
         const api = {
@@ -141,9 +176,37 @@ describe('stats aggregation', () => {
 
         expect(anki.message).toBe('Connected to 3 decks.');
         expect(anki.deckNames).toEqual(['Core', 'Mining', 'Anime::Subs']);
+        expect(anki.activeDeckNames).toEqual(['Core', 'Mining', 'Anime::Subs']);
         expect(calls.find(call => call.action === 'getDeckStats')?.params).toEqual({
             decks: ['Core', 'Mining', 'Anime::Subs'],
         });
         expect(calls.find(call => call.action === 'findCards')?.params).toEqual({ query: 'rated:30' });
+    });
+
+    it('filters Anki stats with disabled deck toggles', async () => {
+        const calls: Array<{ action: string; params?: Record<string, unknown> }> = [];
+        const api = {
+            invoke: async <T>(action: string, params?: Record<string, unknown>): Promise<T> => {
+                calls.push({ action, params });
+                const reply = (value: unknown): T => value as T;
+                if (action === 'deckNames') return reply(['Core', 'Mining', 'Anime::Subs']);
+                if (action === 'getDeckStats') return reply({});
+                if (action === 'findCards') return reply([]);
+                throw new Error(`unexpected action ${action}`);
+            },
+        } as Parameters<typeof loadAnkiConnectStats>[0];
+
+        const anki = await loadAnkiConnectStats(api, { disabledDeckNames: ['Mining'] });
+
+        expect(anki.message).toBe('Connected to 2 of 3 decks.');
+        expect(anki.deckNames).toEqual(['Core', 'Mining', 'Anime::Subs']);
+        expect(anki.activeDeckNames).toEqual(['Core', 'Anime::Subs']);
+        expect(calls.find(call => call.action === 'getDeckStats')?.params).toEqual({
+            decks: ['Core', 'Anime::Subs'],
+        });
+        expect(calls.filter(call => call.action === 'findCards').map(call => call.params)).toEqual([
+            { query: 'deck:"Core" rated:30' },
+            { query: 'deck:"Anime::Subs" rated:30' },
+        ]);
     });
 });

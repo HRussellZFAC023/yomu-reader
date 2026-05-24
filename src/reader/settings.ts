@@ -212,6 +212,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     scanVisiblePage: true,
     showFloatingButton: true,
     newTabEnabled: false,
+    newTabAnkiEnabled: true,
     newTabSource: 'auto',
     newTabJpdbDeck: 'all',
     newTabJpdbReviewMode: 'auto',
@@ -409,6 +410,7 @@ function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial
 function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
         newTabEnabled: booleanSetting(value, 'newTabEnabled'),
+        newTabAnkiEnabled: booleanSetting(value, 'newTabAnkiEnabled'),
         newTabSource: normalizeNewTabSource(value?.newTabSource),
         newTabJpdbDeck: normalizeDeckIdSetting(value?.newTabJpdbDeck, DEFAULT_SETTINGS.newTabJpdbDeck),
         newTabJpdbReviewMode: normalizeNewTabJpdbReviewMode(value?.newTabJpdbReviewMode),

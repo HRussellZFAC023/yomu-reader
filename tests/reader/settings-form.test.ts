@@ -114,6 +114,23 @@ describe('settings form localization', () => {
         expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).newTabFrontSentenceEnabled).toBe(false);
     });
 
+    it('keeps Anki new-tab sourcing separate from Anki mining', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, ankiEnabled: false }, 'https://jpdb.io/settings');
+        const newTabAnkiToggle = form.querySelector<HTMLInputElement>('input[name="newTabAnkiEnabled"]');
+        const ankiMiningToggle = form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]');
+
+        expect(DEFAULT_SETTINGS.newTabAnkiEnabled).toBe(true);
+        expect(newTabAnkiToggle?.checked).toBe(true);
+        expect(ankiMiningToggle?.checked).toBe(false);
+
+        newTabAnkiToggle!.checked = false;
+
+        const saved = readFormSettings(new FormData(form), { ...DEFAULT_SETTINGS, ankiEnabled: false });
+        expect(saved.newTabAnkiEnabled).toBe(false);
+        expect(saved.ankiEnabled).toBe(false);
+    });
+
     it('keeps top-level section legends attached to their panels', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');

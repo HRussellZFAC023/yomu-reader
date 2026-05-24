@@ -49,7 +49,7 @@ describe('performance cache bounds', () => {
         expect(lookup.mock.calls.at(-1)?.[0]).toBe('単語0');
     });
 
-    it('bounds Immersion Kit search and preload tracking caches', async () => {
+    it('bounds Immersion Kit search cache without eager token preloads', async () => {
         const search = vi.fn(async (query: string) => [immersionExample(query)]);
         const preload = vi.fn();
         const controller = createImmersionController({ search, preload } as unknown as ImmersionKitClient);
@@ -67,8 +67,7 @@ describe('performance cache bounds', () => {
         }
         controller.preloadForTokens([tokenFor(0)]);
 
-        expect(preload).toHaveBeenCalledTimes(242);
-        expect(preload.mock.calls.at(-1)?.[0]).toBe('単語0');
+        expect(preload).not.toHaveBeenCalled();
     });
 
     it('runs Immersion Kit fallback searches concurrently after an exact miss', async () => {
@@ -87,6 +86,51 @@ describe('performance cache bounds', () => {
         await expect(resultPromise).resolves.toMatchObject({ query: '速い候補' });
         expect(search.mock.calls.map(([query]) => query)).toEqual(['正確', '遅い候補', '速い候補']);
         slowFallback.resolve([]);
+    });
+
+    it('waits to search Immersion Kit until the source is opened', async () => {
+        const search = vi.fn(async (query: string) => [immersionExample(query)]);
+        const controller = createImmersionController({ search, preload: vi.fn() } as unknown as ImmersionKitClient);
+        const popover = document.createElement('div');
+        popover.innerHTML = '<details data-immersion-kit><summary>Immersion Kit</summary><div>Loading examples...</div></details>';
+        document.body.append(popover);
+        const details = popover.querySelector<HTMLDetailsElement>('[data-immersion-kit]');
+
+        try {
+            controller.installLazyLoad(popover, cardFor(1));
+            expect(search).not.toHaveBeenCalled();
+
+            if (details) {
+                details.open = true;
+                details.dispatchEvent(new Event('toggle', { bubbles: true }));
+            }
+
+            await vi.waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+            expect(search.mock.calls[0]?.[0]).toBe('単語1');
+        } finally {
+            popover.remove();
+        }
+    });
+
+    it('stops Immersion Kit fallback searches after rate limiting', async () => {
+        const search = vi.fn(async (_query: string) => {
+            throw new Error('Immersion Kit request failed (429).');
+        });
+        const controller = createImmersionController({ search, preload: vi.fn() } as unknown as ImmersionKitClient);
+        const popover = document.createElement('div');
+        popover.innerHTML = '<details open data-immersion-kit><summary>Immersion Kit</summary><div>Loading examples...</div></details>';
+        document.body.append(popover);
+        const rateLimitedCard = { ...cardFor(1), spelling: '日本語', reading: 'にほんご' };
+
+        try {
+            await controller.loadExamples(popover, rateLimitedCard);
+
+            expect(search).toHaveBeenCalledTimes(1);
+            expect(search.mock.calls[0]?.[0]).toBe('日本語');
+            expect(popover.querySelector<HTMLElement>('[data-immersion-kit]')?.dataset.immersionEmpty).toBe('true');
+        } finally {
+            popover.remove();
+        }
     });
 
     it('aborts the active Immersion Kit load request when a popover is dismissed', async () => {
