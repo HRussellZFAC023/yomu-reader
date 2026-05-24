@@ -2026,8 +2026,6 @@ export class SubtitlePlayerController {
                 <span>${escapeHtml(uiText(language, 'subtitleOptions'))}</span>
                 <button class="jpdb-reader-icon-mini" type="button" data-action="menu" title="${escapeHtml(uiText(language, 'closeSubtitleOptions'))}" aria-label="${escapeHtml(uiText(language, 'closeSubtitleOptions'))}">${closeIcon()}</button>
             </div>
-            <button type="button" data-action="load">${escapeHtml(uiText(language, 'loadJapaneseSubtitles'))}</button>
-            <button type="button" data-action="load-secondary">${escapeHtml(uiText(language, 'loadNativeSubtitles'))}</button>
             ${this.renderSubtitleMenuButtons(state, language)}
         `);
     }

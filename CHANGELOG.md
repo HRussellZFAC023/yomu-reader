@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.35] - 2026-05-24
+
+### Fixed
+
+- Removed the duplicate over-video subtitle file loader buttons; local subtitle files are now chosen from the subtitle tracks side panel.
+
 ## [0.4.34] - 2026-05-24
 
 ### Added
