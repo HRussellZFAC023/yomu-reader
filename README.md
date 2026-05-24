@@ -266,8 +266,7 @@ Donation note: よむ has already cost more in AI/API tokens than donations are 
 
 よむ is its own userscript, but several open projects shaped the design and edge-case coverage:
 
-- [asmr-one-ultimate](https://github.com/HRussellZFAC023/voiceworks-toolkit/tree/main/asmr-one-ultimate) for the original JPDB mining flow and visual direction.
-- [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader) for JPDB reader behavior, parser edge cases, and ASB-style integration ideas.
+- [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader) for the main JPDB reader inspiration, parser edge cases, mining flow, and ASB-style integration ideas.
 - [Yomitan](https://github.com/yomidevs/yomitan) for dictionary import formats, structured glossary handling, audio-source conventions, and scanning UX references.
 - [JPDB Custom Dictionary Mod](https://gitlab.com/nakura/jpdb_cdm) for the JPDB-side idea of importing and displaying Yomitan-style dictionary entries on JPDB pages; used as product inspiration only, with no code copied.
 - [JMdict for Yomitan](https://github.com/yomidevs/jmdict-yomitan) and EDRDG/JMdict for the recommended dictionary package that users can download into local browser storage.
