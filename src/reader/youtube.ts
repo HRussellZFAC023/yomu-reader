@@ -1,23 +1,16 @@
 import { APP_NAME } from './constants';
-import { HAS_JAPANESE } from './dom';
+import { HAS_JAPANESE, unwrapReaderWords } from './dom';
 import { uiText } from './i18n';
 import type { ReaderSettings } from './types';
 
 const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
 const VIDEO_CARD_SELECTOR = [
     'ytd-rich-item-renderer',
-    'ytd-rich-grid-media',
-    'ytd-rich-shelf-renderer',
     'ytd-video-renderer',
     'ytd-compact-video-renderer',
-    'ytd-compact-radio-renderer',
-    'ytd-compact-playlist-renderer',
     'ytd-grid-video-renderer',
     'ytd-reel-item-renderer',
     'ytd-reel-video-renderer',
-    'ytd-playlist-renderer',
-    'ytd-radio-renderer',
-    'ytd-shelf-renderer',
     'yt-lockup-view-model',
     'ytm-rich-item-renderer',
     'ytm-compact-video-renderer',
@@ -26,6 +19,17 @@ const VIDEO_CARD_SELECTOR = [
 ].join(',');
 
 const VIDEO_CARD_CLOSEST_SELECTOR = VIDEO_CARD_SELECTOR;
+
+const NON_VIDEO_CONTAINER_SELECTOR = [
+    'ytd-rich-shelf-renderer',
+    'ytd-shelf-renderer',
+    'ytd-playlist-renderer',
+    'ytd-compact-playlist-renderer',
+    'ytd-radio-renderer',
+    'ytd-compact-radio-renderer',
+    'ytm-playlist-renderer',
+    'ytm-compact-playlist-renderer',
+].join(',');
 
 const TITLE_SELECTORS = [
     '#video-title',
@@ -52,17 +56,40 @@ const VIDEO_LINK_SELECTORS = [
     'yt-formatted-string#title > a.yt-simple-endpoint',
 ].join(',');
 
+const PLAYLIST_BADGE_SELECTOR = [
+    'ytd-thumbnail-overlay-bottom-panel-renderer',
+    'ytd-thumbnail-overlay-side-panel-renderer',
+    'ytd-badge-supported-renderer',
+    '.badge-shape-wiz__text',
+    '[aria-label*="playlist" i]',
+    '[aria-label*="mix" i]',
+    '[aria-label*="再生リスト"]',
+    '[aria-label*="ミックス"]',
+].join(',');
+const YOUTUBE_WATCH_TITLE_SELECTOR = [
+    'ytd-watch-metadata h1',
+    'ytd-watch-metadata #title',
+].join(',');
+
 const HIRAGANA_RE = /\p{Script=Hiragana}/u;
 const KATAKANA_RE = /\p{Script=Katakana}/u;
 const HAN_RE = /\p{Script=Han}/u;
 const NIHONGO_TUBE_SYMBOL_RE = /[≧≦°ಠ●◕○◯⊙▽△_∩∪ﾟ∇♪ω◇◆◎⌒※☆★♡♥︶︸ಥ¬╯╰┻┳━┛┗┓┏┫┣╋╂┃━─┌┐└┘├┤┴┬╱╲╳]/u;
 const OEMBED_TITLE_CACHE_LIMIT = 240;
+const OEMBED_SESSION_CACHE_PREFIX = 'yomu:youtube-oembed-title:v1:';
+const OEMBED_SESSION_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const OEMBED_BATCH_RESCAN_DELAY_MS = 180;
 const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 4200;
 
 type YouTubeCardInfo = {
     card: HTMLElement;
     title: string;
     videoId: string;
+};
+
+type StoredOEmbedTitle = {
+    title: string | null;
+    cachedAt: number;
 };
 
 export function isYouTubeHost(hostname = location.hostname): boolean {
@@ -83,11 +110,13 @@ export function isProbablyJapaneseYouTubeText(text: string): boolean {
 export function collectYouTubeVideoCards(root: ParentNode = document): HTMLElement[] {
     const cards = new Set<HTMLElement>();
     root.querySelectorAll<HTMLElement>(VIDEO_CARD_SELECTOR).forEach(card => {
-        if (!card.closest('[data-jpdb-reader-root]')) cards.add(card);
+        const normalized = normalizeYouTubeVideoCard(card);
+        if (normalized) cards.add(normalized);
     });
     root.querySelectorAll<HTMLAnchorElement>('a[href*="/watch?v="], a[href^="/shorts/"], a[href*="youtube.com/shorts/"]').forEach(link => {
-        const card = link.closest<HTMLElement>(VIDEO_CARD_CLOSEST_SELECTOR) ?? link.parentElement;
-        if (card && !card.closest('[data-jpdb-reader-root]')) cards.add(card);
+        const closestCard = link.closest<HTMLElement>(VIDEO_CARD_CLOSEST_SELECTOR);
+        const normalized = closestCard ? normalizeYouTubeVideoCard(closestCard) : null;
+        if (normalized) cards.add(normalized);
     });
     return [...cards].filter(card => card.isConnected);
 }
@@ -116,11 +145,13 @@ export class YoutubeImmersionFilter {
     private observer?: MutationObserver;
     private events?: AbortController;
     private timer?: number;
+    private metadataRescanTimer?: number;
     private noticeTimer?: number;
     private bar?: HTMLElement;
     private revealed = false;
     private lastNoticeKey = '';
-    private dismissedNoticeKey = '';
+    private dismissedNoticeScope = '';
+    private noticeRouteKey = '';
     private readonly oembedTitleCache = new Map<string, string | null>();
     private readonly pendingOembedTitles = new Set<string>();
 
@@ -136,7 +167,7 @@ export class YoutubeImmersionFilter {
         if (!this.options.getSettings().youtubeImmersionEnabled) return;
 
         this.startWatching();
-        this.schedule(300);
+        this.schedule(0);
     }
 
     private startWatching(): void {
@@ -144,6 +175,7 @@ export class YoutubeImmersionFilter {
         this.events = new AbortController();
         this.observer = new MutationObserver(mutations => {
             if (mutations.every(mutationInsideReaderRoot)) return;
+            if (!mutations.some(mutationMayAffectYouTubeCards)) return;
             this.schedule(350);
         });
         this.observer.observe(document.body, { childList: true, subtree: true });
@@ -162,7 +194,9 @@ export class YoutubeImmersionFilter {
             return;
         }
         this.startWatching();
-        this.schedule(0);
+        window.clearTimeout(this.timer);
+        this.timer = undefined;
+        this.scan();
     }
 
     destroy(): void {
@@ -183,7 +217,10 @@ export class YoutubeImmersionFilter {
 
     private schedule(delay: number): void {
         window.clearTimeout(this.timer);
-        this.timer = window.setTimeout(() => this.scan(), delay);
+        this.timer = window.setTimeout(() => {
+            this.timer = undefined;
+            this.scan();
+        }, delay);
     }
 
     private scan(): void {
@@ -193,9 +230,28 @@ export class YoutubeImmersionFilter {
             return;
         }
 
+        unwrapYouTubeWatchTitleReaderWords();
+
+        if (isYouTubeShortsWatchPage()) {
+            this.clearFilteredCards();
+            this.removeNotice();
+            return;
+        }
+
         let filteredCount = 0;
         let shownCount = 0;
-        for (const card of collectYouTubeVideoCards()) {
+        for (const card of collectYouTubeFilterItems()) {
+            if (isYouTubeAlwaysHiddenItem(card)) {
+                filteredCount += 1;
+                if (this.revealed) {
+                    this.showCard(card);
+                    shownCount += 1;
+                } else {
+                    this.hideCard(card);
+                }
+                continue;
+            }
+
             const info = readYouTubeCardInfo(card);
             if (!info.title) continue;
 
@@ -237,13 +293,13 @@ export class YoutubeImmersionFilter {
         if (!filteredCount) {
             this.removeNotice();
             this.lastNoticeKey = '';
-            this.dismissedNoticeKey = '';
             return;
         }
 
-        const noticeKey = `${this.revealed ? 'revealed' : 'hidden'}:${filteredCount}:${shownCount}`;
-        if (!this.bar && this.dismissedNoticeKey === noticeKey) return;
-        const shouldStartTimer = !this.bar || this.lastNoticeKey !== noticeKey;
+        const noticeScope = this.currentNoticeScope();
+        const noticeKey = `${noticeScope}:${filteredCount}:${shownCount}`;
+        if (!this.bar && this.dismissedNoticeScope === noticeScope) return;
+        const shouldStartTimer = !this.bar;
 
         if (!this.bar) {
             this.bar = document.createElement('div');
@@ -268,7 +324,7 @@ export class YoutubeImmersionFilter {
                 }
                 if (action === 'hide-notice') {
                     this.options.setShowFilterNotice?.(false);
-                    this.dismissedNoticeKey = this.lastNoticeKey;
+                    this.dismissedNoticeScope = this.currentNoticeScope();
                     this.removeNotice();
                 }
             });
@@ -276,7 +332,6 @@ export class YoutubeImmersionFilter {
             document.body.append(this.bar);
         }
         this.lastNoticeKey = noticeKey;
-        this.dismissedNoticeKey = '';
 
         const summary = this.bar.querySelector<HTMLElement>('[data-role="summary"]');
         const toggleHidden = this.bar.querySelector<HTMLButtonElement>('[data-action="toggle-hidden"]');
@@ -292,24 +347,28 @@ export class YoutubeImmersionFilter {
         }
         if (toggleHidden) toggleHidden.textContent = this.revealed ? uiText(settings.interfaceLanguage, 'youtubeHideHiddenVideos') : uiText(settings.interfaceLanguage, 'youtubeShowHiddenVideos');
         if (hideNotice) hideNotice.textContent = uiText(settings.interfaceLanguage, 'youtubeHideNotice');
-        if (shouldStartTimer) this.startNoticeTimer(noticeKey);
+        if (shouldStartTimer) this.startNoticeTimer(noticeScope);
     }
 
     private clear(): void {
         window.clearTimeout(this.timer);
+        window.clearTimeout(this.metadataRescanTimer);
         this.timer = undefined;
+        this.metadataRescanTimer = undefined;
         this.revealed = false;
-        document.querySelectorAll<HTMLElement>('[data-yomu-youtube-filtered="true"], .jpdb-youtube-filtered').forEach(card => this.showCard(card));
+        this.clearFilteredCards();
         this.removeNotice();
         this.lastNoticeKey = '';
-        this.dismissedNoticeKey = '';
+        this.dismissedNoticeScope = '';
+        this.noticeRouteKey = '';
     }
 
     private resolveTitleForFiltering(info: YouTubeCardInfo): string {
         if (!info.videoId) return info.title;
-        if (this.oembedTitleCache.has(info.videoId)) return this.oembedTitleCache.get(info.videoId) || info.title;
-        this.fetchOriginalTitle(info.videoId);
-        return '';
+        const cached = this.cachedOEmbedTitle(info.videoId);
+        if (cached !== undefined) return cached || info.title;
+        if (shouldVerifyOriginalYouTubeTitle(info.title)) this.fetchOriginalTitle(info.videoId);
+        return info.title;
     }
 
     private fetchOriginalTitle(videoId: string): void {
@@ -324,23 +383,40 @@ export class YoutubeImmersionFilter {
             })
             .finally(() => {
                 this.pendingOembedTitles.delete(videoId);
-                if (this.options.getSettings().youtubeImmersionEnabled) this.schedule(0);
+                if (this.options.getSettings().youtubeImmersionEnabled) this.scheduleMetadataRescan();
             });
     }
 
-    private rememberOEmbedTitle(videoId: string, title: string | null): void {
+    private cachedOEmbedTitle(videoId: string): string | null | undefined {
+        if (this.oembedTitleCache.has(videoId)) return this.oembedTitleCache.get(videoId) ?? null;
+        const stored = readStoredOEmbedTitle(videoId);
+        if (stored === undefined) return undefined;
+        this.rememberOEmbedTitle(videoId, stored, { persist: false });
+        return stored;
+    }
+
+    private rememberOEmbedTitle(videoId: string, title: string | null, options: { persist?: boolean } = {}): void {
         if (this.oembedTitleCache.size >= OEMBED_TITLE_CACHE_LIMIT) {
             const oldest = this.oembedTitleCache.keys().next().value;
             if (oldest) this.oembedTitleCache.delete(oldest);
         }
         this.oembedTitleCache.set(videoId, title);
+        if (options.persist !== false) writeStoredOEmbedTitle(videoId, title);
     }
 
-    private startNoticeTimer(noticeKey: string): void {
+    private scheduleMetadataRescan(): void {
+        if (this.metadataRescanTimer !== undefined) return;
+        this.metadataRescanTimer = window.setTimeout(() => {
+            this.metadataRescanTimer = undefined;
+            this.schedule(0);
+        }, OEMBED_BATCH_RESCAN_DELAY_MS);
+    }
+
+    private startNoticeTimer(noticeScope: string): void {
         window.clearTimeout(this.noticeTimer);
         this.noticeTimer = window.setTimeout(() => {
-            if (this.lastNoticeKey !== noticeKey) return;
-            this.dismissedNoticeKey = noticeKey;
+            if (this.currentNoticeScope() !== noticeScope) return;
+            this.dismissedNoticeScope = noticeScope;
             this.removeNotice();
         }, YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS);
     }
@@ -350,6 +426,21 @@ export class YoutubeImmersionFilter {
         this.noticeTimer = undefined;
         this.bar?.remove();
         this.bar = undefined;
+    }
+
+    private clearFilteredCards(): void {
+        document.querySelectorAll<HTMLElement>('[data-yomu-youtube-filtered="true"], .jpdb-youtube-filtered').forEach(card => this.showCard(card));
+    }
+
+    private currentNoticeScope(): string {
+        const routeKey = `${location.pathname}${location.search}`;
+        if (this.noticeRouteKey !== routeKey) {
+            this.noticeRouteKey = routeKey;
+            this.dismissedNoticeScope = '';
+            this.lastNoticeKey = '';
+            this.removeNotice();
+        }
+        return `${routeKey}:${this.revealed ? 'revealed' : 'hidden'}`;
     }
 }
 
@@ -364,6 +455,47 @@ function normalizeYouTubeTitleForLanguageCheck(text: string): string {
         .replace(/ミックスリスト/g, '')
         .replace(/\s+/g, ' ')
         .trim();
+}
+
+function shouldVerifyOriginalYouTubeTitle(title: string): boolean {
+    return isProbablyJapaneseYouTubeText(title);
+}
+
+function collectYouTubeFilterItems(root: ParentNode = document): HTMLElement[] {
+    const items = new Set<HTMLElement>(collectYouTubeVideoCards(root));
+    root.querySelectorAll<HTMLElement>(`${VIDEO_CARD_SELECTOR},${NON_VIDEO_CONTAINER_SELECTOR}`).forEach(element => {
+        const normalized = normalizeYouTubeFilterItem(element);
+        if (normalized) items.add(normalized);
+    });
+    return [...items].filter(item => item.isConnected);
+}
+
+function normalizeYouTubeFilterItem(element: HTMLElement): HTMLElement | null {
+    if (!element.isConnected) return null;
+    if (isYouTubeShortsWatchPage() && element.closest('ytd-shorts, ytd-reel-video-renderer')) return null;
+    if (element.closest('[data-jpdb-reader-root]')) return null;
+    if (element.matches(NON_VIDEO_CONTAINER_SELECTOR)) return element;
+    if (isYouTubePlaylistLikeCard(element)) return element.closest<HTMLElement>(VIDEO_CARD_SELECTOR) ?? element;
+    return normalizeYouTubeVideoCard(element);
+}
+
+function isYouTubeAlwaysHiddenItem(card: HTMLElement): boolean {
+    return card.matches(NON_VIDEO_CONTAINER_SELECTOR) || isYouTubePlaylistLikeCard(card);
+}
+
+function normalizeYouTubeVideoCard(element: HTMLElement): HTMLElement | null {
+    if (!element.isConnected) return null;
+    if (isYouTubeShortsWatchPage() && element.closest('ytd-shorts, ytd-reel-video-renderer')) return null;
+    if (element.closest('[data-jpdb-reader-root]')) return null;
+    if (element.matches(NON_VIDEO_CONTAINER_SELECTOR)) return null;
+    if (!element.querySelector(VIDEO_LINK_SELECTORS)) return null;
+    if (isYouTubePlaylistLikeCard(element)) return null;
+    const excluded = element.closest<HTMLElement>(NON_VIDEO_CONTAINER_SELECTOR);
+    if (excluded && !excluded.matches(VIDEO_CARD_SELECTOR)) {
+        const cardInsideExcluded = element.closest<HTMLElement>(VIDEO_CARD_SELECTOR);
+        if (!cardInsideExcluded || cardInsideExcluded === excluded) return null;
+    }
+    return element.closest<HTMLElement>(VIDEO_CARD_SELECTOR);
 }
 
 function readYouTubeVideoId(card: HTMLElement): string {
@@ -384,12 +516,74 @@ function extractYouTubeVideoId(href: string | null): string {
     }
 }
 
+function isYouTubeShortsWatchPage(): boolean {
+    return location.pathname.startsWith('/shorts/');
+}
+
+function isYouTubeWatchPage(): boolean {
+    return location.pathname === '/watch';
+}
+
+function unwrapYouTubeWatchTitleReaderWords(): void {
+    if (!isYouTubeWatchPage()) return;
+    document.querySelectorAll<HTMLElement>(YOUTUBE_WATCH_TITLE_SELECTOR).forEach(title => {
+        unwrapReaderWords(title);
+    });
+}
+
+function isYouTubePlaylistLikeCard(card: HTMLElement): boolean {
+    if (card.matches(NON_VIDEO_CONTAINER_SELECTOR)) return true;
+    const links = Array.from(card.querySelectorAll<HTMLAnchorElement>('a[href]'));
+    const playlistLinks = links.filter(link => {
+        const href = link.getAttribute('href') ?? '';
+        return href.includes('/playlist?')
+            || href.includes('/watch_videos?')
+            || /[?&]start_radio=/.test(href)
+            || (!extractYouTubeVideoId(href) && /[?&]list=/.test(href));
+    });
+    if (playlistLinks.length && playlistLinks.length >= links.filter(link => extractYouTubeVideoId(link.getAttribute('href'))).length) {
+        return true;
+    }
+    return Array.from(card.querySelectorAll<HTMLElement>(PLAYLIST_BADGE_SELECTOR)).some(element => {
+        const text = `${element.getAttribute('aria-label') ?? ''} ${element.textContent ?? ''}`;
+        return /\bplaylist\b|\bmix\b|\bradio\b|再生リスト|ミックス|ラジオ/i.test(text);
+    });
+}
+
 async function fetchYouTubeOEmbedTitle(videoId: string): Promise<string | null> {
     const watchUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
-    const response = await fetch(`https://www.youtube.com/oembed?url=${watchUrl}`);
+    const response = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(watchUrl)}`);
     if (!response.ok) return null;
     const data = await response.json() as { title?: unknown };
     return typeof data.title === 'string' && data.title.trim() ? data.title.trim() : null;
+}
+
+function readStoredOEmbedTitle(videoId: string): string | null | undefined {
+    try {
+        const raw = sessionStorage.getItem(storedOEmbedTitleKey(videoId));
+        if (!raw) return undefined;
+        const parsed = JSON.parse(raw) as Partial<StoredOEmbedTitle>;
+        if (!Number.isFinite(parsed.cachedAt) || Date.now() - Number(parsed.cachedAt) > OEMBED_SESSION_CACHE_TTL_MS) {
+            sessionStorage.removeItem(storedOEmbedTitleKey(videoId));
+            return undefined;
+        }
+        return typeof parsed.title === 'string' ? parsed.title : null;
+    } catch {
+        return undefined;
+    }
+}
+
+function writeStoredOEmbedTitle(videoId: string, title: string | null): void {
+    try {
+        const stored: StoredOEmbedTitle = { title, cachedAt: Date.now() };
+        sessionStorage.setItem(storedOEmbedTitleKey(videoId), JSON.stringify(stored));
+    } catch {
+        // Session cache is only a jitter/noise reduction; memory cache still covers this page.
+    }
+}
+
+function storedOEmbedTitleKey(videoId: string): string {
+    return `${OEMBED_SESSION_CACHE_PREFIX}${videoId}`;
 }
 
 function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
@@ -398,4 +592,20 @@ function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
         const element = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
         return Boolean(element?.closest?.('[data-jpdb-reader-root]'));
     });
+}
+
+function mutationMayAffectYouTubeCards(mutation: MutationRecord): boolean {
+    const nodes = [mutation.target, ...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+    return nodes.some(nodeMayAffectYouTubeCards);
+}
+
+function nodeMayAffectYouTubeCards(node: Node): boolean {
+    const element = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
+    if (!element || element.closest('[data-jpdb-reader-root]')) return false;
+    return element.matches(VIDEO_CARD_SELECTOR)
+        || element.matches(NON_VIDEO_CONTAINER_SELECTOR)
+        || element.matches('ytd-rich-grid-renderer, ytd-section-list-renderer, ytd-item-section-renderer, ytm-rich-grid-renderer')
+        || Boolean(element.closest(VIDEO_CARD_SELECTOR))
+        || Boolean(element.querySelector?.(VIDEO_CARD_SELECTOR))
+        || Boolean(element.querySelector?.('a[href*="/watch?v="], a[href^="/shorts/"], a[href*="youtube.com/shorts/"]'));
 }

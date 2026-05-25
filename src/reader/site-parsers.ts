@@ -93,6 +93,48 @@ const GENERIC_PROSE_EXCLUDE = [
     '[aria-label*="音声"]',
     'time',
 ].join(',');
+const SAFE_UI_CHROME_ROOTS = [
+    'nav a[href]',
+    '[role="navigation"] a[href]',
+    '[class*="breadcrumb" i] a[href]',
+    'header a[href]',
+    'aside a[href]',
+    'main a[href]',
+    '[role="main"] a[href]',
+    'article a[href]',
+    'button',
+    'summary',
+].join(',');
+const SAFE_UI_CHROME_EXCLUDE = [
+    COMMON_EXCLUDE,
+    'form',
+    'label',
+    'fieldset',
+    'legend',
+    'input',
+    'select',
+    'textarea',
+    'option',
+    'svg',
+    'use',
+    'rt',
+    'rp',
+    '[disabled]',
+    '[aria-disabled="true"]',
+    '[contenteditable="true"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[role="tab"]',
+    '[data-audio]',
+    '[class*="audio" i]',
+    '[class*="control" i]',
+    '[class*="player" i]',
+    '[class*="sound" i]',
+    '[class*="speaker" i]',
+    '[class*="toggle" i]',
+    '[class*="voice" i]',
+].join(',');
+const SAFE_UI_CHROME_MAX_COMPACT_LENGTH = 80;
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
         id: 'yomu-demo-lookup-parser',
@@ -240,10 +282,8 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
         id: 'youtube-comments-parser',
         name: 'YouTube watch text',
-        description: 'Japanese video metadata and comments in YouTube watch views.',
+        description: 'Japanese descriptions and comments in YouTube watch views.',
         roots: [
-            'ytd-watch-metadata h1',
-            'ytd-watch-metadata #title',
             'ytd-watch-metadata #description',
             'ytd-watch-metadata #description-inline-expander',
             'ytd-watch-metadata ytd-text-inline-expander',
@@ -448,7 +488,8 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
     const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
     if (siteTargets) return siteTargets;
     const genericTargets = collectGenericProseTargets(effectiveLimit);
-    if (genericTargets.length) return genericTargets;
+    const uiChromeTargets = collectSafeUiChromeTargets(effectiveLimit - genericTargets.length, genericTargets);
+    if (genericTargets.length || uiChromeTargets.length) return [...genericTargets, ...uiChromeTargets];
 
     const broadTargets = collectWholePageScanTargets(effectiveLimit);
     return broadTargets.length ? broadTargets : collectVisibleTextTargets(effectiveLimit);
@@ -499,6 +540,45 @@ function collectGenericProseTargets(limit: number): FragmentTextTarget[] {
     return collection.targets;
 }
 
+function collectSafeUiChromeTargets(limit: number, existingTargets: FragmentTextTarget[] = []): FragmentTextTarget[] {
+    if (limit <= 0) return [];
+    const collection: GenericProseCollection = {
+        targets: [],
+        seen: new Set(existingTargets.flatMap(target => target.fragments[0]?.node ? [target.fragments[0].node] : [])),
+        limit,
+    };
+
+    for (const root of safeUiChromeRoots()) {
+        collectSafeUiChromeTargetsFromRoot(root, collection);
+        if (genericProseCollectionFull(collection)) break;
+    }
+
+    return collection.targets;
+}
+
+function safeUiChromeRoots(): HTMLElement[] {
+    return uniqueVisibleRoots(Array.from(document.querySelectorAll<HTMLElement>(SAFE_UI_CHROME_ROOTS))
+        .filter(root => isUsefulSafeUiChromeRoot(root)));
+}
+
+function collectSafeUiChromeTargetsFromRoot(root: HTMLElement, collection: GenericProseCollection): void {
+    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, SAFE_UI_CHROME_EXCLUDE, {
+        allowUiText: true,
+        includeUiChrome: true,
+        heading: true,
+        minLength: 1,
+    });
+    for (const target of collected) {
+        appendGenericProseTarget(collection.targets, collection.seen, {
+            ...target,
+            parserId: 'safe-ui-chrome-parser',
+            suppressRuby: true,
+            passiveInteraction: true,
+        });
+        if (genericProseCollectionFull(collection)) break;
+    }
+}
+
 function genericProseRoots(): HTMLElement[] {
     return Array.from(document.querySelectorAll<HTMLElement>(GENERIC_PROSE_ROOTS))
         .filter(root => isUsefulGenericProseRoot(root));
@@ -534,6 +614,23 @@ function isUsefulGenericProseRoot(root: HTMLElement): boolean {
     const text = root.textContent?.replace(/\s+/g, '').trim() ?? '';
     if (text.length < 12) return false;
     return /[\u3040-\u30ff\u3400-\u9fff]/u.test(text);
+}
+
+function isUsefulSafeUiChromeRoot(root: HTMLElement): boolean {
+    if (root.closest(SAFE_UI_CHROME_EXCLUDE)) return false;
+    if (!isVisibleSafeUiChromeRoot(root)) return false;
+    const text = root.textContent?.replace(/\s+/g, '').trim() ?? '';
+    if (!/[\u3040-\u30ff\u3400-\u9fff]/u.test(text)) return false;
+    return text.length >= 2 && text.length <= SAFE_UI_CHROME_MAX_COMPACT_LENGTH;
+}
+
+function isVisibleSafeUiChromeRoot(root: HTMLElement): boolean {
+    const rect = root.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0 || rect.bottom < 0 || rect.top > window.innerHeight) return false;
+    const style = getComputedStyle(root);
+    return style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && Number(style.opacity || '1') > 0;
 }
 
 function queryParserRoots(profile: SiteParserProfile): HTMLElement[] {

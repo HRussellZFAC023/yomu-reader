@@ -1221,6 +1221,7 @@ export class ReaderApp {
                 });
                 return;
             }
+            if (word.dataset.jpdbReaderPassive === 'true') return;
             if (Date.now() < this.suppressWordClickUntil) {
                 event.preventDefault();
                 event.stopPropagation();

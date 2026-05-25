@@ -247,6 +247,7 @@ export interface TextTarget {
     parent: HTMLElement;
     hasNativeRuby?: boolean;
     suppressRuby?: boolean;
+    passiveInteraction?: boolean;
 }
 
 export interface TextFragment {
@@ -255,6 +256,7 @@ export interface TextFragment {
     end: number;
     hasNativeRuby: boolean;
     suppressRuby: boolean;
+    passiveInteraction?: boolean;
 }
 
 export interface FragmentTextTarget {
@@ -263,6 +265,7 @@ export interface FragmentTextTarget {
     fragments: TextFragment[];
     parserId?: string;
     suppressRuby?: boolean;
+    passiveInteraction?: boolean;
 }
 
 export type ScanTextTarget = TextTarget | FragmentTextTarget;
@@ -931,6 +934,8 @@ function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], se
         fragment.append(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
             allowRuby: !target.hasNativeRuby && !target.suppressRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
+            scanWord: true,
+            passiveInteraction: target.passiveInteraction,
         }));
         offset = token.end;
     }
@@ -982,7 +987,10 @@ function applyTokenToIndexedFragments(
     range.setEnd(bounds.end.fragment.node, bounds.end.localOffset);
 
     if (isSingleFragment) insertSingleFragmentToken(range, target, bounds.start.fragment, token, tokenWithSentence, settings);
-    else insertMultiFragmentToken(range, tokenWithSentence);
+    else insertMultiFragmentToken(range, tokenWithSentence, {
+        scanWord: true,
+        passiveInteraction: target.passiveInteraction,
+    });
     range.detach();
 }
 
@@ -1020,11 +1028,13 @@ function insertSingleFragmentToken(
     range.insertNode(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
         allowRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
+        scanWord: true,
+        passiveInteraction: target.passiveInteraction,
     }));
 }
 
-function insertMultiFragmentToken(range: Range, token: JPDBToken): void {
-    const shell = renderTokenShell(token);
+function insertMultiFragmentToken(range: Range, token: JPDBToken, options: TokenRenderOptions = {}): void {
+    const shell = renderTokenShell(token, options);
     shell.append(range.extractContents());
     range.insertNode(shell);
 }
@@ -1194,16 +1204,17 @@ function renderToken(
     surface: string,
     token: JPDBToken,
     settings: ReaderSettings,
-    options: { allowRuby?: boolean; kanjiNavigation?: KanjiNavigationRenderOptions } = {},
+    options: TokenRenderOptions = {},
 ): HTMLElement {
     const span = document.createElement('span');
     const state = primaryCardState(token.card.cardState);
     span.className = readerWordClassName(state, token);
+    applyTokenRenderOptions(span, options);
     span.dataset.vid = String(token.card.vid);
     span.dataset.sid = String(token.card.sid);
     span.dataset.pitchClass = safePitchClass(token.pitchClass);
     span.dataset.sentence = token.sentence ?? '';
-    if (!options.kanjiNavigation?.enabled) span.tabIndex = 0;
+    if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = 0;
 
     const hasRuby = shouldRenderRuby(surface, token, settings, options.allowRuby);
     if (hasRuby) {
@@ -1217,16 +1228,32 @@ function renderToken(
     return span;
 }
 
-function renderTokenShell(token: JPDBToken): HTMLElement {
+interface TokenRenderOptions {
+    allowRuby?: boolean;
+    kanjiNavigation?: KanjiNavigationRenderOptions;
+    scanWord?: boolean;
+    passiveInteraction?: boolean;
+}
+
+function renderTokenShell(token: JPDBToken, options: TokenRenderOptions = {}): HTMLElement {
     const span = document.createElement('span');
     const state = primaryCardState(token.card.cardState);
     span.className = readerWordClassName(state, token);
+    applyTokenRenderOptions(span, options);
     span.dataset.vid = String(token.card.vid);
     span.dataset.sid = String(token.card.sid);
     span.dataset.pitchClass = safePitchClass(token.pitchClass);
     span.dataset.sentence = token.sentence ?? '';
-    span.tabIndex = 0;
+    if (options.passiveInteraction !== true) span.tabIndex = 0;
     return span;
+}
+
+function applyTokenRenderOptions(span: HTMLElement, options: TokenRenderOptions): void {
+    if (options.scanWord) span.classList.add('jpdb-reader-scan-word');
+    if (options.passiveInteraction) {
+        span.classList.add('jpdb-reader-passive-word');
+        span.dataset.jpdbReaderPassive = 'true';
+    }
 }
 
 function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSettings): string {
