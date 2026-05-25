@@ -15,7 +15,7 @@ import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefini
 import { DictionarySourceStateController } from '../../src/reader/dictionary-source-state';
 import { applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, nearestReadableSentenceForElement, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords } from '../../src/reader/dom';
 import { FloatingButtonController } from '../../src/reader/floating-button';
-import { ImmersionKitClient } from '../../src/reader/immersion-kit';
+import { ImmersionKitClient, type ImmersionKitExample } from '../../src/reader/immersion-kit';
 import { ImmersionPopoverController } from '../../src/reader/immersion-popover-controller';
 import { JpdbClient, splitJapaneseSentences } from '../../src/reader/jpdb';
 import { jpdbVocabularyToCards } from '../../src/reader/jpdb-parser';
@@ -101,6 +101,62 @@ async function waitForExpect(assertion: () => void | Promise<void>, timeoutMs = 
     }
     if (lastError) throw lastError;
     await assertion();
+}
+
+function immersionExample(sentence: string): ImmersionKitExample {
+    return {
+        id: `ik-${sentence}`,
+        sentence,
+        sentenceWithFurigana: '',
+        translation: 'Example translation.',
+        sourceTitle: 'Test Source',
+        titleSlug: 'test_source',
+        category: 'anime',
+        soundFile: '',
+        imageFile: '',
+        soundUrl: '',
+        imageUrl: '',
+    };
+}
+
+function immersionPopoverTestController(
+    search: (query: string, settings: typeof DEFAULT_SETTINGS, options: { signal?: AbortSignal }) => Promise<ImmersionKitExample[]>,
+): ImmersionPopoverController {
+    return new ImmersionPopoverController({
+        getSettings: () => ({
+            ...DEFAULT_SETTINGS,
+            immersionKitEnabled: true,
+            immersionKitShowImages: false,
+        }),
+        client: {
+            search,
+            mediaUrls: vi.fn(() => []),
+            fetchBlobUrl: vi.fn(async () => ''),
+        } as unknown as ImmersionKitClient,
+        audio: { play: vi.fn(async () => undefined) } as never,
+        parseJapanese: vi.fn(async () => []),
+        canParseJapanese: () => false,
+        parsePopoverJapanese: vi.fn(),
+        enrichPitchWords: vi.fn(),
+        enrichAnkiWords: vi.fn(),
+        repositionPopover: vi.fn(),
+        setImmersionTranslationBlurred: vi.fn(),
+        toast: vi.fn(),
+    });
+}
+
+function immersionLazyLoadSurface(open: boolean): { popover: HTMLElement; container: HTMLDetailsElement } {
+    const popover = document.createElement('div');
+    const container = document.createElement('details');
+    container.dataset.immersionKit = 'true';
+    container.open = open;
+    container.innerHTML = `
+        <summary class="jpdb-reader-local-title">Immersion Kit</summary>
+        <div class="jpdb-reader-help">Loading examples...</div>
+    `;
+    popover.append(container);
+    document.body.append(popover);
+    return { popover, container };
 }
 
 function dispatchPointerEvent(target: EventTarget, type: string, clientY: number, pointerType = 'mouse', clientX = 0): void {
@@ -1152,10 +1208,20 @@ describe('reader helpers', () => {
             const details = root.querySelector<HTMLDetailsElement>('[data-immersion-kit]');
 
             expect(details?.dataset.sourceStateKey).toBe(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID));
-            expect(details?.dataset.sourceInitialOpen).toBe('true');
-            expect(details?.open).toBe(true);
+            expect(details?.dataset.sourceInitialOpen).toBe('false');
+            expect(details?.open).toBe(false);
 
             internals.dictionarySourceState.installTracking(root);
+            details!.open = true;
+            details!.dispatchEvent(new Event('toggle', { bubbles: true }));
+
+            const opened = document.createElement('div');
+            opened.innerHTML = internals.renderDefinitionSources(card, []);
+            const openedDetails = opened.querySelector<HTMLDetailsElement>('[data-immersion-kit]');
+
+            expect(openedDetails?.dataset.sourceInitialOpen).toBe('true');
+            expect(openedDetails?.open).toBe(true);
+
             details!.open = false;
             details!.dispatchEvent(new Event('toggle', { bubbles: true }));
 
@@ -1165,7 +1231,7 @@ describe('reader helpers', () => {
 
             expect(rerenderedDetails?.dataset.sourceInitialOpen).toBe('false');
             expect(rerenderedDetails?.open).toBe(false);
-            expect(internals.renderKanjiImmersionKitMount()).toContain('data-source-initial-open="true"');
+            expect(internals.renderKanjiImmersionKitMount()).toContain('data-source-initial-open="false"');
         } finally {
             app.destroy();
             document.body.replaceChildren();
@@ -5042,7 +5108,7 @@ describe('reader helpers', () => {
         expect(parseJapanese).not.toHaveBeenCalled();
     });
 
-    it('passes abort signals through Immersion Kit popup searches without sharing abortable cache', async () => {
+    it('passes abort signals through Immersion Kit popup searches and caches completed results', async () => {
         const search = vi.fn(async (_query: string, _settings: typeof DEFAULT_SETTINGS, _options: { signal?: AbortSignal }) => [{
             id: 'ik-1',
             sentence: '食べる。',
@@ -5075,9 +5141,117 @@ describe('reader helpers', () => {
         await controller.searchExamples(card, { signal: first.signal });
         await controller.searchExamples(card, { signal: second.signal });
 
-        expect(search).toHaveBeenCalledTimes(2);
+        expect(search).toHaveBeenCalledTimes(1);
         expect(search.mock.calls[0]?.[2]).toEqual(expect.objectContaining({ signal: first.signal }));
-        expect(search.mock.calls[1]?.[2]).toEqual(expect.objectContaining({ signal: second.signal }));
+    });
+
+    it('does not start lazy Immersion Kit popup searches until the source is opened', async () => {
+        vi.useFakeTimers();
+        try {
+            const search = vi.fn(async () => [immersionExample('食べる。')]);
+            const controller = immersionPopoverTestController(search);
+            const { popover, container } = immersionLazyLoadSurface(false);
+
+            controller.installLazyLoad(popover, card);
+            await vi.advanceTimersByTimeAsync(500);
+
+            expect(search).not.toHaveBeenCalled();
+
+            container.open = true;
+            container.dispatchEvent(new Event('toggle'));
+            await vi.advanceTimersByTimeAsync(200);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(search).toHaveBeenCalledTimes(1);
+        } finally {
+            document.body.replaceChildren();
+            vi.useRealTimers();
+        }
+    });
+
+    it('cancels scheduled lazy Immersion Kit popup searches when the source closes', async () => {
+        vi.useFakeTimers();
+        try {
+            const search = vi.fn(async () => [immersionExample('食べる。')]);
+            const controller = immersionPopoverTestController(search);
+            const { popover, container } = immersionLazyLoadSurface(true);
+
+            controller.installLazyLoad(popover, card);
+            container.open = false;
+            container.dispatchEvent(new Event('toggle'));
+            await vi.advanceTimersByTimeAsync(500);
+
+            expect(search).not.toHaveBeenCalled();
+
+            container.open = true;
+            container.dispatchEvent(new Event('toggle'));
+            await vi.advanceTimersByTimeAsync(200);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(search).toHaveBeenCalledTimes(1);
+        } finally {
+            document.body.replaceChildren();
+            vi.useRealTimers();
+        }
+    });
+
+    it('aborts in-flight lazy Immersion Kit popup searches when the source closes and can retry', async () => {
+        vi.useFakeTimers();
+        try {
+            let firstSignal: AbortSignal | undefined;
+            const search = vi.fn((_query: string, _settings: typeof DEFAULT_SETTINGS, options: { signal?: AbortSignal }) => {
+                if (search.mock.calls.length === 1) {
+                    firstSignal = options.signal;
+                    return new Promise<ImmersionKitExample[]>((_resolve, reject) => {
+                        options.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+                    });
+                }
+                return Promise.resolve([immersionExample('食べる。')]);
+            });
+            const controller = immersionPopoverTestController(search);
+            const { popover, container } = immersionLazyLoadSurface(true);
+
+            controller.installLazyLoad(popover, card);
+            await vi.advanceTimersByTimeAsync(200);
+            await Promise.resolve();
+
+            expect(search).toHaveBeenCalledTimes(1);
+
+            container.open = false;
+            container.dispatchEvent(new Event('toggle'));
+            expect(firstSignal?.aborted).toBe(true);
+
+            container.open = true;
+            container.dispatchEvent(new Event('toggle'));
+            await vi.advanceTimersByTimeAsync(200);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(search).toHaveBeenCalledTimes(2);
+        } finally {
+            document.body.replaceChildren();
+            vi.useRealTimers();
+        }
+    });
+
+    it('backs off Immersion Kit network searches after a 429 response', async () => {
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('Too Many Requests', {
+            status: 429,
+            statusText: 'Too Many Requests',
+        }));
+        try {
+            const client = new ImmersionKitClient();
+            const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, audioTimeoutMs: 1000 };
+
+            await expect(client.search('読む', settings, { requestLimit: 1, resultLimit: 1 })).rejects.toThrow(/429|rate/i);
+            await expect(client.search('書く', settings, { requestLimit: 1, resultLimit: 1 })).rejects.toThrow(/rate/i);
+
+            expect(fetchSpy).toHaveBeenCalledTimes(1);
+        } finally {
+            fetchSpy.mockRestore();
+        }
     });
 
     it('falls back from stuck card detail providers', async () => {

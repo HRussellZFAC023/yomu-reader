@@ -8,7 +8,6 @@ export class LruCache<K, V> {
         if (value !== undefined) {
             this.map.delete(key);
             this.map.set(key, value);
-        } else {
         }
         return value;
     }

@@ -13,6 +13,7 @@ const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const MEDIA_CANDIDATE_LIMIT = 4;
 const SEARCH_EXAMPLE_LIMIT = 250;
 const SEARCH_CACHE_LIMIT = 160;
+const SEARCH_RATE_LIMIT_COOLDOWN_MS = 2 * 60 * 1000;
 const PRELOAD_KEY_LIMIT = 300;
 const NADESHIKO_SEARCH_LIMIT = 25;
 const MIN_LEARNING_SENTENCE_LENGTH = 8;
@@ -147,6 +148,7 @@ export class ImmersionKitClient {
     private inflight = new Map<string, Promise<ImmersionKitExample[]>>();
     private preloadKeys = new Set<string>();
     private mediaBlobUrlCache = new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS);
+    private immersionKitRateLimitedUntil = 0;
 
     async search(term: string, settings: ReaderSettings, options: ImmersionKitSearchOptions = {}): Promise<ImmersionKitExample[]> {
         const query = term.trim();
@@ -235,8 +237,23 @@ export class ImmersionKitClient {
     }
 
     private searchImmersionKit(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): Promise<ImmersionKitExample[]> {
+        this.assertImmersionKitSearchAllowed();
         return requestJson(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal)
-            .then(data => filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), 'immersion-kit'));
+            .then(data => filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), 'immersion-kit'))
+            .catch(error => {
+                if (isImmersionKitRateLimitError(error)) this.noteImmersionKitRateLimit();
+                throw error;
+            });
+    }
+
+    private assertImmersionKitSearchAllowed(): void {
+        if (Date.now() < this.immersionKitRateLimitedUntil) {
+            throw new Error('Immersion Kit is temporarily rate-limited; retrying later.');
+        }
+    }
+
+    private noteImmersionKitRateLimit(): void {
+        this.immersionKitRateLimitedUntil = Date.now() + SEARCH_RATE_LIMIT_COOLDOWN_MS;
     }
 
     private searchNadeshiko(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): Promise<ImmersionKitExample[]> {
@@ -779,7 +796,13 @@ function requestJsonCandidate(url: string, timeoutMs: number, proxyUrl = '', sig
 }
 
 function isAbortError(error: unknown): boolean {
-    return error instanceof Error && error.name === 'AbortError';
+    return errorName(error) === 'AbortError';
+}
+
+function errorName(error: unknown): string {
+    if (!error || typeof error !== 'object') return '';
+    const name = (error as { name?: unknown }).name;
+    return typeof name === 'string' ? name : '';
 }
 
 export function isImmersionKitRateLimitError(error: unknown): boolean {

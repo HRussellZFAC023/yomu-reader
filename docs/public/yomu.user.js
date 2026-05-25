@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.41
+// @version      0.4.42
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -17804,6 +17804,7 @@ ${entry.reading}`;
  const MEDIA_CANDIDATE_LIMIT = 4;
  const SEARCH_EXAMPLE_LIMIT = 250;
  const SEARCH_CACHE_LIMIT = 160;
+ const SEARCH_RATE_LIMIT_COOLDOWN_MS = 2 * 60 * 1e3;
  const PRELOAD_KEY_LIMIT = 300;
  const NADESHIKO_SEARCH_LIMIT = 25;
  const MIN_LEARNING_SENTENCE_LENGTH = 8;
@@ -17911,6 +17912,7 @@ ${entry.reading}`;
   inflight = /* @__PURE__ */ new Map();
   preloadKeys = /* @__PURE__ */ new Set();
   mediaBlobUrlCache = new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS);
+  immersionKitRateLimitedUntil = 0;
   async search(term, settings, options = {}) {
    const query = term.trim();
    if (!canSearchImmersionExamples(query, settings)) return [];
@@ -17974,7 +17976,19 @@ ${entry.reading}`;
    });
   }
   searchImmersionKit(query, settings, options) {
-   return requestJson$1(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal).then((data) => filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), "immersion-kit"));
+   this.assertImmersionKitSearchAllowed();
+   return requestJson$1(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal).then((data) => filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), "immersion-kit")).catch((error) => {
+    if (isImmersionKitRateLimitError(error)) this.noteImmersionKitRateLimit();
+    throw error;
+   });
+  }
+  assertImmersionKitSearchAllowed() {
+   if (Date.now() < this.immersionKitRateLimitedUntil) {
+    throw new Error("Immersion Kit is temporarily rate-limited; retrying later.");
+   }
+  }
+  noteImmersionKitRateLimit() {
+   this.immersionKitRateLimitedUntil = Date.now() + SEARCH_RATE_LIMIT_COOLDOWN_MS;
   }
   searchNadeshiko(query, settings, options) {
    const apiKey = settings.nadeshikoApiKey.trim();
@@ -18402,7 +18416,12 @@ ${entry.reading}`;
   });
  }
  function isAbortError$2(error) {
-  return error instanceof Error && error.name === "AbortError";
+  return errorName$1(error) === "AbortError";
+ }
+ function errorName$1(error) {
+  if (!error || typeof error !== "object") return "";
+  const name = error.name;
+  return typeof name === "string" ? name : "";
  }
  function isImmersionKitRateLimitError(error) {
   return error instanceof Error && /\b(?:429|too many requests|rate[- ]?limited)\b/i.test(error.message);
@@ -18561,10 +18580,13 @@ ${entry.reading}`;
  function localizedImmersionSourceTitle(title, language) {
   return resolveUiLanguage(language) === "ja" ? IMMERSION_SOURCE_TITLES_JA[title] ?? title : title;
  }
- const IMMERSION_SEARCH_CACHE_TTL_MS = 3e4;
+ const IMMERSION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1e3;
  const IMMERSION_SEARCH_CACHE_LIMIT = 120;
  const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
  const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 48;
+ const IMMERSION_LAZY_LOAD_DELAY_MS = 180;
+ const IMMERSION_LAZY_LOAD_ROOT_MARGIN = "180px 0px";
+ const IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX = 180;
  const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
  const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
  const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
@@ -18584,7 +18606,17 @@ ${entry.reading}`;
   searchResultCache = /* @__PURE__ */ new Map();
   parsedSentenceCache = /* @__PURE__ */ new Map();
   loadAbortControllers = /* @__PURE__ */ new WeakMap();
+  lazyLoadTimers = /* @__PURE__ */ new WeakMap();
+  lazyLoadObservers = /* @__PURE__ */ new WeakMap();
   abortPendingRequests(popover) {
+   const container = popover.querySelector("[data-immersion-kit]");
+   if (container) {
+    this.clearLazyLoadTimer(container);
+    this.disconnectLazyLoadObserver(container);
+   }
+   this.abortActiveLoad(popover);
+  }
+  abortActiveLoad(popover) {
    const controller = this.loadAbortControllers.get(popover);
    if (!controller) return;
    controller.abort();
@@ -18623,16 +18655,22 @@ ${entry.reading}`;
   async loadExamples(popover, card, options = {}) {
    const container = popover.querySelector("[data-immersion-kit]");
    if (!container) return;
-   this.abortPendingRequests(popover);
+   this.abortActiveLoad(popover);
    const controller = new AbortController();
    this.loadAbortControllers.set(popover, controller);
    const searchPromise = this.searchExamples(card, { ...options, signal: controller.signal });
    try {
     const result = await raceAgainstAbort(searchPromise, controller.signal);
-    if (controller.signal.aborted || !isConnectedImmersionSurface(popover, container)) return;
+    if (controller.signal.aborted || !isConnectedImmersionSurface(popover, container)) {
+     if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
+     return;
+    }
     this.renderLoadedExamples(container, card, result);
    } catch (error) {
-    if (isAbortError$1(error) && controller.signal.aborted) return;
+    if (isAbortError$1(error) && controller.signal.aborted) {
+     if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
+     return;
+    }
     log$j.warn("Immersion Kit examples failed", { term: card.spelling }, error);
     this.renderEmptyIfConnected(popover, container);
    } finally {
@@ -18643,19 +18681,71 @@ ${entry.reading}`;
    const container = popover.querySelector("[data-immersion-kit]");
    if (!container || container.dataset.immersionLazyBound === "true") return;
    container.dataset.immersionLazyBound = "true";
-   const load = () => {
-    if (!isConnectedImmersionSurface(popover, container)) return;
-    if (container instanceof HTMLDetailsElement && !container.open) return;
-    if (container.dataset.immersionLoadState) return;
-    container.dataset.immersionLoadState = "loading";
-    void this.loadExamples(popover, card, options).finally(() => {
-     if (container.dataset.immersionLoadState === "loading") {
-      container.dataset.immersionLoadState = "loaded";
+   const canLoad = () => this.canStartLazyLoad(popover, container);
+   const scheduleLoad = () => {
+    if (!canLoad()) return;
+    if (container.dataset.immersionLoadState === "scheduled") return;
+    this.clearLazyLoadTimer(container);
+    container.dataset.immersionLoadState = "scheduled";
+    const timer = window.setTimeout(() => {
+     this.lazyLoadTimers.delete(container);
+     if (!canLoad()) {
+      if (container.dataset.immersionLoadState === "scheduled") delete container.dataset.immersionLoadState;
+      return;
      }
-    });
+     container.dataset.immersionLoadState = "loading";
+     void this.loadExamples(popover, card, options).then(() => {
+      if (container.dataset.immersionLoadState !== "loading") return;
+      container.dataset.immersionLoadState = "loaded";
+     }).catch(() => {
+      if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
+     });
+    }, IMMERSION_LAZY_LOAD_DELAY_MS);
+    this.lazyLoadTimers.set(container, timer);
    };
-   container.addEventListener("toggle", load);
-   load();
+   const maybeLoad = () => {
+    if (!canLoad()) return;
+    if (isImmersionNearVisibleArea(popover, container)) scheduleLoad();
+   };
+   const handleToggle = () => {
+    if (!container.open) {
+     this.clearLazyLoadTimer(container);
+     if (container.dataset.immersionLoadState === "scheduled" || container.dataset.immersionLoadState === "loading") {
+      delete container.dataset.immersionLoadState;
+     }
+     this.abortActiveLoad(popover);
+     return;
+    }
+    maybeLoad();
+   };
+   container.addEventListener("toggle", handleToggle);
+   this.installLazyVisibilityObserver(popover, container, maybeLoad);
+   maybeLoad();
+  }
+  canStartLazyLoad(popover, container) {
+   return isConnectedImmersionSurface(popover, container) && container.open && container.dataset.immersionEmpty !== "true" && !["loading", "loaded"].includes(container.dataset.immersionLoadState ?? "");
+  }
+  installLazyVisibilityObserver(popover, container, maybeLoad) {
+   if (typeof IntersectionObserver !== "function") return;
+   const observer = new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting)) maybeLoad();
+   }, {
+    root: immersionLazyLoadRoot(popover, container),
+    rootMargin: IMMERSION_LAZY_LOAD_ROOT_MARGIN
+   });
+   observer.observe(container);
+   this.lazyLoadObservers.set(container, observer);
+  }
+  clearLazyLoadTimer(container) {
+   const timer = this.lazyLoadTimers.get(container);
+   if (timer === void 0) return;
+   window.clearTimeout(timer);
+   this.lazyLoadTimers.delete(container);
+   if (container.dataset.immersionLoadState === "scheduled") delete container.dataset.immersionLoadState;
+  }
+  disconnectLazyLoadObserver(container) {
+   this.lazyLoadObservers.get(container)?.disconnect();
+   this.lazyLoadObservers.delete(container);
   }
   renderLoadedExamples(container, card, result) {
    const { examples } = result;
@@ -18753,11 +18843,16 @@ ${entry.reading}`;
    this.renderEmpty(container);
   }
   async searchExamples(card, options = {}) {
-   if (options.signal) return this.fetchExamples(card, options);
    const key = this.searchCacheKey(card, options);
    const now = Date.now();
    const cached = this.searchResultCache.get(key);
    if (cached && cached.expiresAt > now) return cached.promise;
+   if (options.signal) {
+    return this.fetchExamples(card, options).then((result) => {
+     if (!options.signal?.aborted) this.rememberSearchResult(key, result);
+     return result;
+    });
+   }
    const promise = this.fetchExamples(card, options).catch((error) => {
     if (this.searchResultCache.get(key)?.promise === promise) this.searchResultCache.delete(key);
     throw error;
@@ -18765,6 +18860,11 @@ ${entry.reading}`;
    this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise });
    pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
    return promise;
+  }
+  rememberSearchResult(key, result) {
+   const now = Date.now();
+   this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise: Promise.resolve(result) });
+   pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
   }
   stopAudio() {
    this.audioRequestId++;
@@ -19260,7 +19360,12 @@ ${entry.reading}`;
   return popover.isConnected && container.isConnected;
  }
  function isAbortError$1(error) {
-  return error instanceof Error && error.name === "AbortError";
+  return errorName(error) === "AbortError";
+ }
+ function errorName(error) {
+  if (!error || typeof error !== "object") return "";
+  const name = error.name;
+  return typeof name === "string" ? name : "";
  }
  function raceAgainstAbort(promise, signal) {
   if (signal.aborted) return Promise.reject(abortErrorForRace());
@@ -19358,6 +19463,24 @@ ${entry.reading}`;
  function hoverAudioExampleKey(example) {
   if (!example) return "";
   return example.id || `${example.provider ?? "immersion-kit"}:${example.sourceTitle}:${example.sentence}:${example.soundFile || example.soundUrl}`;
+ }
+ function immersionLazyLoadRoot(popover, target) {
+  const body = popover.querySelector(".jpdb-reader-popover-body");
+  if (body?.contains(target)) return body;
+  return popover.contains(target) ? popover : null;
+ }
+ function isImmersionNearVisibleArea(popover, container) {
+  const root = immersionLazyLoadRoot(popover, container);
+  const containerRect = container.getBoundingClientRect();
+  const rootRect = root?.getBoundingClientRect();
+  if (!hasUsableRect(containerRect) || !rootRect || !hasUsableRect(rootRect)) return true;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || rootRect.bottom;
+  const visibleTop = Math.max(0, rootRect.top);
+  const visibleBottom = Math.min(viewportHeight, rootRect.bottom);
+  return containerRect.bottom >= visibleTop - IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX && containerRect.top <= visibleBottom + IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX;
+ }
+ function hasUsableRect(rect) {
+  return rect.width > 0 || rect.height > 0;
  }
  function pruneImmersionSearchCache(cache, now, limit) {
   for (const [key, value] of cache) {
@@ -23665,11 +23788,19 @@ ${glossaryKey}`;
   busy = false;
   positionFrame = 0;
   refreshTimer = 0;
-  handleDocumentPointerDown = (event) => this.unpinOcrLinesFromDocumentEvent(event);
+  lastPointerMoveImage;
+  handleDocumentPointerDown = (event) => {
+   this.unpinOcrLinesFromDocumentEvent(event);
+   this.requestOcrFromPointerEvent(event);
+  };
+  handleDocumentPointerOver = (event) => this.requestOcrFromPointerEvent(event);
+  handleDocumentPointerMove = (event) => this.requestOcrFromPointerEvent(event);
   handleDocumentClick = (event) => this.unpinOcrLinesFromDocumentEvent(event);
   init() {
    this.refresh();
    document.addEventListener("pointerdown", this.handleDocumentPointerDown, true);
+   document.addEventListener("pointerover", this.handleDocumentPointerOver, true);
+   document.addEventListener("pointermove", this.handleDocumentPointerMove, true);
    document.addEventListener("click", this.handleDocumentClick, true);
    window.addEventListener("scroll", () => {
     if (!this.options.getSettings().ocrEnabled) return;
@@ -23706,6 +23837,8 @@ ${glossaryKey}`;
   }
   destroy() {
    document.removeEventListener("pointerdown", this.handleDocumentPointerDown, true);
+   document.removeEventListener("pointerover", this.handleDocumentPointerOver, true);
+   document.removeEventListener("pointermove", this.handleDocumentPointerMove, true);
    document.removeEventListener("click", this.handleDocumentClick, true);
    this.mutationObserver?.disconnect();
    if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
@@ -23828,8 +23961,9 @@ ${glossaryKey}`;
   }
   shouldQueueOcrRequest(state, image, userRequested) {
    if (shouldSkipOcrRequest(state, userRequested)) return false;
+   const forceExistingOverlay = userRequested && !state.overlayRequested;
    updateOcrRequestFlags(state, image, userRequested);
-   if (this.renderExistingOcrResult(state, userRequested)) return false;
+   if (this.renderExistingOcrResult(state, forceExistingOverlay)) return false;
    return !state.loading;
   }
   queueOcrRequest(image, state, userRequested) {
@@ -23841,6 +23975,14 @@ ${glossaryKey}`;
    if (!state.result) return false;
    if (userRequested) void this.renderResult(state, state.result, true);
    return true;
+  }
+  requestOcrFromPointerEvent(event) {
+   const image = ocrImageFromPointerEvent(event, this.options.getSettings());
+   if (!image) return;
+   if (event.type === "pointermove" && image === this.lastPointerMoveImage) return;
+   if (event.type === "pointermove") this.lastPointerMoveImage = image;
+   else this.lastPointerMoveImage = void 0;
+   this.enqueue(image, true);
   }
   queueImageForOcr(image) {
    if (!this.queue.includes(image)) this.queue.push(image);
@@ -25153,6 +25295,32 @@ ${glossaryKey}`;
   if (!isNearViewport(image, settings.ocrPrefetchMargin)) return false;
   if (isImageOccludedByVideo(image, rect)) return false;
   return isVisibleOcrImage(image);
+ }
+ function ocrImageFromPointerEvent(event, settings) {
+  if (!settings.ocrEnabled || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+  const image = pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
+  return image && isCandidateImage(image, settings) && shouldObserveImage(image, settings) ? image : null;
+ }
+ function shouldHandleOcrPointerEvent(event) {
+  if (event.type === "pointerdown") return event.button === void 0 || event.button === 0;
+  return (event.type === "pointerover" || event.type === "pointermove") && isHoverPointerType(event.pointerType);
+ }
+ function isPointerLikeEvent(event) {
+  const candidate = event;
+  return typeof candidate.clientX === "number" && typeof candidate.clientY === "number";
+ }
+ function isHoverPointerType(pointerType) {
+  return !pointerType || pointerType === "mouse" || pointerType === "pen";
+ }
+ function pointerEventImageTarget(event) {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target || target.closest("[data-jpdb-reader-root]")) return null;
+  return target instanceof HTMLImageElement ? target : target.closest("img");
+ }
+ function pointerEventImageAtPoint(event) {
+  const element2 = document.elementFromPoint?.(event.clientX, event.clientY);
+  if (!element2 || element2.closest("[data-jpdb-reader-root]")) return null;
+  return element2 instanceof HTMLImageElement ? element2 : element2.closest("img");
  }
  function isIgnoredOcrImage(image) {
   return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[aria-hidden="true"], [hidden], .slick-cloned'));
@@ -40385,7 +40553,7 @@ ${spelling}`);
    if (!this.shouldRenderKanjiImmersionKit()) return "";
    const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
    return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.attributes(sourceStateKey)}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.attributes(sourceStateKey, false)}>
                 <summary class="jpdb-reader-local-title">${uiText(this.settings.interfaceLanguage, "immersionKit")}</summary>
                 <div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, "loadingExamples")}</div>
             </details>
@@ -40707,7 +40875,7 @@ ${spelling}`);
   renderImmersionKitMount() {
    if (!this.settings.immersionKitEnabled) return "";
    return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.attributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID))}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.attributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID), false)}>
                 <summary class="jpdb-reader-local-title">${uiText(this.settings.interfaceLanguage, "immersionKit")}</summary>
                 <div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, "loadingExamples")}</div>
             </details>
