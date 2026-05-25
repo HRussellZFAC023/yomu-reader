@@ -137,10 +137,10 @@ export function parseJpdbSearchHtml(html: string, limit = 10): JPDBCard[] {
 }
 
 function searchResultCard(root: HTMLElement, doc: Document): JPDBCard | null {
-    const identity = searchResultIdentity(root);
+    const identity = searchResultIdentity(root, doc);
     const headword = root.querySelector<HTMLElement>('.subsection-headword .primary-spelling .spelling, .subsection-headword .spelling');
     const spelling = cleanText(identity?.expression ?? '') || cleanText(headword ? baseText(headword) : '');
-    const reading = cleanText(identity?.reading ?? '') || cleanText(headword ? readingText(headword) : '') || spelling;
+    const reading = cleanText(identity?.reading ?? '') || cleanText(headword ? readingText(headword) : '') || metaDescriptionReading(doc, spelling) || spelling;
     if (!spelling || !JAPANESE_RE.test(spelling)) return null;
     const meanings = extractMeanings(root, doc, spelling, reading);
     const partOfSpeech = extractPartOfSpeech(root);
@@ -161,12 +161,18 @@ function searchResultCard(root: HTMLElement, doc: Document): JPDBCard | null {
     };
 }
 
-function searchResultIdentity(root: ParentNode): { vid: number; expression: string; reading: string } | null {
+function searchResultIdentity(root: ParentNode, doc: Document): { vid: number; expression: string; reading: string } | null {
     const links = Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]'));
     const details = links.find(link => /more details/i.test(cleanText(link.textContent ?? '')));
-    return (details ? vocabularyEntryFromUrl(details.href || details.getAttribute('href') || '') : null)
-        ?? links.map(link => vocabularyEntryFromUrl(link.href || link.getAttribute('href') || '')).find((entry): entry is { vid: number; expression: string; reading: string } => entry !== null)
-        ?? null;
+    const detailIdentity = details ? vocabularyEntryFromUrl(details.href || details.getAttribute('href') || '') : null;
+    const canonicalIdentity = documentVocabularyEntry(doc);
+    const linkIdentities = links.map(link => vocabularyEntryFromUrl(link.href || link.getAttribute('href') || ''))
+        .filter((entry): entry is { vid: number; expression: string; reading: string } => entry !== null);
+    return bestVocabularyIdentity([
+        detailIdentity,
+        canonicalIdentity,
+        ...linkIdentities,
+    ]);
 }
 
 function vocabularyEntryFromUrl(value: string): { vid: number; expression: string; reading: string } | null {
@@ -184,6 +190,25 @@ function vocabularyEntryFromUrl(value: string): { vid: number; expression: strin
     } catch {
         return null;
     }
+}
+
+function documentVocabularyEntry(doc: Document): { vid: number; expression: string; reading: string } | null {
+    const canonical = doc.querySelector<HTMLLinkElement>('link[rel="canonical"][href*="/vocabulary/"]')?.href ?? '';
+    return vocabularyEntryFromUrl(canonical);
+}
+
+function bestVocabularyIdentity(entries: Array<{ vid: number; expression: string; reading: string } | null>): { vid: number; expression: string; reading: string } | null {
+    const candidates = entries.filter((entry): entry is { vid: number; expression: string; reading: string } => entry !== null);
+    return candidates.find(entry => entry.reading) ?? candidates[0] ?? null;
+}
+
+function metaDescriptionReading(doc: Document, spelling: string): string {
+    if (!spelling) return '';
+    const description = doc.querySelector<HTMLMetaElement>('meta[name="description"]')?.content ?? '';
+    const escaped = escapeRegExp(spelling);
+    const match = new RegExp(`${escaped}\\s*[（(]([^）)]+)[）)]`).exec(description);
+    const reading = cleanText(match?.[1] ?? '');
+    return JAPANESE_RE.test(reading) ? reading : '';
 }
 
 function extractPartOfSpeech(root: ParentNode): string[] {
@@ -558,6 +583,10 @@ function cleanText(value: string): string {
 
 function cleanMeaning(value: string): string {
     return cleanText(value).replace(/^\d+\.\s*/, '');
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function decodePathPart(value: string): string {

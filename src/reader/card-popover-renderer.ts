@@ -7,7 +7,7 @@ import { renderKanjiDefinitions } from './definition-source-render';
 import { uiText, type UiCopyKey } from './i18n';
 import { loadMiningContext } from './mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
-import { renderPitch, speakerIcon } from './popup-render';
+import { cardPronunciationReading, renderPitch, speakerIcon } from './popup-render';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from './types';
 import type { JpdbVocabularyInfo } from './jpdb-vocabulary';
 import type { YomitanMetaEntry, YomitanTermEntry } from './yomitan';
@@ -255,7 +255,8 @@ function miningActionState(cardStates: ReturnType<typeof normalizeCardStates>, l
 }
 
 function renderReading(card: JPDBCard): string {
-    return card.reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml(card.reading)}</div>` : '';
+    const reading = cardPronunciationReading(card);
+    return reading && reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml(reading)}</div>` : '';
 }
 
 function renderMeta(metaItems: string[]): string {
