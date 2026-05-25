@@ -1221,7 +1221,6 @@ export class ReaderApp {
                 });
                 return;
             }
-            if (this.shouldLetOcrLineHandleClick(word, target)) return;
             if (Date.now() < this.suppressWordClickUntil) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -1401,11 +1400,6 @@ export class ReaderApp {
             this.cancelPendingHoverLookup();
             if (this.activePopoverMode === 'hover') this.scheduleHoverClose(0, { ignoreCssHover: true });
         });
-    }
-
-    private shouldLetOcrLineHandleClick(word: HTMLElement, target: HTMLElement): boolean {
-        return word.classList.contains('jpdb-ocr-line')
-            && !target.closest('.jpdb-reader-word[data-vid]');
     }
 
     private shortcutGrade(event: KeyboardEvent): JPDBGrade | null {

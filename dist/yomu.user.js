@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.45
+// @version      0.4.46
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -38797,7 +38797,6 @@ ${spelling}`);
      });
      return;
     }
-    if (this.shouldLetOcrLineHandleClick(word, target)) return;
     if (Date.now() < this.suppressWordClickUntil) {
      event.preventDefault();
      event.stopPropagation();
@@ -38960,9 +38959,6 @@ ${spelling}`);
     this.cancelPendingHoverLookup();
     if (this.activePopoverMode === "hover") this.scheduleHoverClose(0, { ignoreCssHover: true });
    });
-  }
-  shouldLetOcrLineHandleClick(word, target) {
-   return word.classList.contains("jpdb-ocr-line") && !target.closest(".jpdb-reader-word[data-vid]");
   }
   shortcutGrade(event) {
    if (!this.settings.enableReviews) return null;

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.46] - 2026-05-25
+
+### Fixed
+
+- Restored iOS tap/click lookup behavior for OCR text regions so tapping an OCR line opens the same sticky/modal lookup state as tapping normal scanned text.
+
 ## [0.4.45] - 2026-05-25
 
 ### Changed
