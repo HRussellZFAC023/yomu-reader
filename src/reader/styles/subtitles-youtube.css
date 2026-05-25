@@ -329,9 +329,7 @@
   pointer-events: auto;
   opacity: .78;
 }
-.jpdb-subtitle-controls-hidden .jpdb-subtitle-menu,
-.jpdb-subtitle-controls-hidden .jpdb-subtitle-list,
-.jpdb-subtitle-list.jpdb-subtitle-controls-hidden {
+.jpdb-subtitle-controls-hidden .jpdb-subtitle-menu {
   display: none !important;
 }
 .jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {
@@ -511,6 +509,7 @@ html.jpdb-subtitle-video-inset-right ytd-watch-flexy #player-container-inner,
 html.jpdb-subtitle-video-inset-left ytd-watch-flexy #player-container-inner,
 html.jpdb-subtitle-video-inset-right ytd-watch-flexy #movie_player,
 html.jpdb-subtitle-video-inset-left ytd-watch-flexy #movie_player {
+  width: var(--ytd-watch-flexy-player-width, auto) !important;
   max-width: var(--ytd-watch-flexy-player-width, none) !important;
   min-width: 0 !important;
 }
@@ -924,6 +923,12 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   color: var(--jpdb-reader-muted, rgba(255,255,255,.72));
   background: transparent;
   font: 750 11px/1.3 var(--jpdb-reader-font);
+}
+.jpdb-subtitle-track-hint {
+  margin: -1px 0 4px;
+  padding: 0 2px;
+  color: var(--jpdb-reader-faint, rgba(255,255,255,.6));
+  font: 700 10px/1.35 var(--jpdb-reader-font);
 }
 .jpdb-subtitle-list-empty {
   padding: 12px;

@@ -47,6 +47,45 @@ describe('SubtitlePlayerController', () => {
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
     });
 
+    it('returns compact subtitle controls to idle after pointer activity over video', async () => {
+        vi.useFakeTimers();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+
+        try {
+            (controller as unknown as { install: () => void }).install();
+            const video = document.createElement('video');
+            Object.defineProperty(video, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(0, 0, 1920, 1080),
+            });
+            (controller as unknown as { video: HTMLVideoElement }).video = video;
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+
+            (controller as unknown as { handlePointerActivity: (event: Pick<PointerEvent, 'clientX' | 'clientY'>) => void })
+                .handlePointerActivity({ clientX: 100, clientY: 100 });
+
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
+
+            await vi.advanceTimersByTimeAsync(2600);
+
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps subtitle file loaders in the side panel instead of the over-video menu', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -806,6 +845,11 @@ describe('SubtitlePlayerController', () => {
 
         row.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-        expect(video.currentTime).toBeCloseTo(90 + settings.subtitleSeekPadding);
+        expect(video.currentTime).toBeCloseTo(90);
+
+        video.currentTime = 0;
+        row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+
+        expect(video.currentTime).toBeCloseTo(90);
     });
 });
