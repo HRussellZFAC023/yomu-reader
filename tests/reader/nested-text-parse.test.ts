@@ -19,7 +19,7 @@ describe('nested text parse plans', () => {
         expect(plan?.parseKey).toBe('今日はいい天気です。');
         expect(root && plan ? nestedParseAlreadyScheduled(root, plan.parseKey) : true).toBe(false);
         if (root && plan) root.dataset.jpdbReaderParseKey = plan.parseKey;
-        expect(root && plan ? nestedParseAlreadyScheduled(root, plan.parseKey) : false).toBe(false);
+        expect(root && plan ? nestedParseAlreadyScheduled(root, plan.parseKey) : false).toBe(true);
         root?.querySelector('.jpdb-reader-parseable')?.append(document.createElement('span'));
         root?.querySelector('span')?.classList.add('jpdb-reader-word');
         expect(root && plan ? nestedParseAlreadyScheduled(root, plan.parseKey) : false).toBe(true);

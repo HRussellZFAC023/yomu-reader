@@ -281,7 +281,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleFontWeight: 760,
     subtitleMiningPause: false,
     subtitleSeekPadding: 0.08,
-    youtubeImmersionEnabled: false,
+    youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
     ankiEnabled: false,
     ankiConnectUrl: 'http://127.0.0.1:8765',

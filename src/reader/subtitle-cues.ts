@@ -879,9 +879,29 @@ export function findAlignedCue(cues: SubtitleCue[], cue: SubtitleCue): SubtitleC
 }
 
 export function findActiveSubtitleCue(cues: SubtitleCue[], time: number): SubtitleCue | undefined {
-    return cues
-        .filter(cue => time >= cue.start - 0.05 && time < cue.end + 0.12)
-        .sort((a, b) => b.start - a.start || b.end - a.end)[0];
+    let low = 0;
+    let high = cues.length - 1;
+    let index = -1;
+    const latestAllowedStart = time + 0.05;
+    while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        if (cues[mid].start <= latestAllowedStart) {
+            index = mid;
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+
+    let best: SubtitleCue | undefined;
+    for (let i = index; i >= 0; i--) {
+        const cue = cues[i];
+        if (best && cue.start < best.start) break;
+        if (time >= cue.start - 0.05 && time < cue.end + 0.12) {
+            if (!best || cue.start > best.start || (cue.start === best.start && cue.end > best.end)) best = cue;
+        }
+    }
+    return best;
 }
 
 export function subtitleCueSignature(cue: SubtitleCue): string {

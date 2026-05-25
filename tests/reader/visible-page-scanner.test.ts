@@ -108,6 +108,73 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('skips late target writes after the scanner is destroyed', async () => {
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = () => ({
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 20,
+            top: 0,
+            right: 100,
+            bottom: 20,
+            left: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = '<p>日本語の文です。</p>';
+        const parsed = deferred<JPDBToken[][]>();
+        const parseJapanese = vi.fn(() => parsed.promise);
+        const preloadParsedTokens = vi.fn();
+        const enrichPitchWords = vi.fn();
+        const enrichAnkiWords = vi.fn();
+        const scanner = new VisiblePageScanner({
+            getSettings: () => DEFAULT_SETTINGS,
+            parseJapanese,
+            pauseMutationObserver: callback => callback(),
+            preloadParsedTokens,
+            enrichPitchWords,
+            enrichAnkiWords,
+            toast: vi.fn(),
+        });
+
+        try {
+            const scan = scanner.scanVisiblePage({ silent: true });
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
+
+            scanner.destroy();
+            parsed.resolve([[{
+                card: {
+                    vid: 1,
+                    sid: 1,
+                    rid: 1,
+                    spelling: '日本語',
+                    reading: 'にほんご',
+                    frequencyRank: null,
+                    partOfSpeech: [],
+                    meanings: [],
+                    cardState: ['known'],
+                    pitchAccent: [],
+                    wordWithReading: null,
+                    source: 'jpdb',
+                },
+                start: 0,
+                end: 3,
+                length: 3,
+                rubies: [],
+                pitchClass: '',
+            }]]);
+            await scan;
+
+            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
+            expect(preloadParsedTokens).not.toHaveBeenCalled();
+            expect(enrichPitchWords).not.toHaveBeenCalled();
+            expect(enrichAnkiWords).not.toHaveBeenCalled();
+        } finally {
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            document.body.innerHTML = '';
+        }
+    });
+
     it('runs one pending visible scan after an in-flight scan finishes', async () => {
         const originalRect = HTMLElement.prototype.getBoundingClientRect;
         HTMLElement.prototype.getBoundingClientRect = () => ({

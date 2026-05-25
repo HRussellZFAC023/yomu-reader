@@ -40,7 +40,7 @@ export function bootReaderApp(): void {
 
 function discardDemoRuntimeForRealBoot(bootWindow: YomuBootWindow, isRealRuntime: boolean): void {
     if (!bootWindow.__yomuReaderAppInitialized || !bootWindow.__yomuDemoApp || !isRealRuntime) return;
-    bootWindow.__yomuDemoApp.destroy();
+    bootWindow.__yomuDemoApp.destroy({ preservePageWords: true });
     delete bootWindow.__yomuDemoApp;
     bootWindow.__yomuReaderAppInitialized = false;
 }
@@ -53,8 +53,8 @@ function canReplaceExistingRuntime(bootWindow: YomuBootWindow, runtimeKind: Yomu
 
 function destroyExistingRuntimeApps(bootWindow: YomuBootWindow): void {
     if (!bootWindow.__yomuReaderAppInitialized) return;
-    bootWindow.__yomuRealApp?.destroy();
-    bootWindow.__yomuDemoApp?.destroy();
+    bootWindow.__yomuRealApp?.destroy({ preservePageWords: true });
+    bootWindow.__yomuDemoApp?.destroy({ preservePageWords: true });
 }
 
 function registerBootedRuntime(bootWindow: YomuBootWindow, app: ReaderApp, isRealRuntime: boolean): void {
@@ -66,7 +66,7 @@ function registerBootedRuntime(bootWindow: YomuBootWindow, app: ReaderApp, isRea
     bootWindow.__yomuDemoApp = app;
     addWindowEventListener('yomu-extension-loaded', () => {
         if (bootWindow.__yomuDemoApp === app) {
-            app.destroy();
+            app.destroy({ preservePageWords: true });
             delete bootWindow.__yomuDemoApp;
         }
     });
@@ -135,7 +135,7 @@ function bindRuntimeClaims(app: ReaderApp, ownerId: string, kind: YomuRuntimeKin
         const nextKind = normalizeRuntimeKind(detail.kind);
         if (runtimePriority(nextKind) < runtimePriority(kind)) return;
         log.info('Yielding to another Yomu runtime', { current: kind, next: nextKind });
-        app.destroy();
+        app.destroy({ preservePageWords: true });
         releaseYomuRuntime(ownerId);
         clearBootWindowOwner(app, ownerId);
     });

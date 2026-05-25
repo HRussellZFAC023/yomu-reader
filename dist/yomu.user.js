@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.40
+// @version      0.4.41
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -724,6 +724,7 @@ Greasy Fork compliance notes:
  const INTERFACE_LANGUAGE_CHANGE_EVENT = "yomu-interface-language-change";
  const OPEN_SETTINGS_EVENT = "yomu-open-settings";
  const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
+ const HOSTED_DEMO_LOOKUP_SCAN_EVENT = "yomu-hosted-demo-lookup-scan";
  const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
  const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
  const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
@@ -975,7 +976,7 @@ Greasy Fork compliance notes:
   subtitleFontWeight: 760,
   subtitleMiningPause: false,
   subtitleSeekPadding: 0.08,
-  youtubeImmersionEnabled: false,
+  youtubeImmersionEnabled: true,
   youtubeShowFilterNotice: true,
   ankiEnabled: false,
   ankiConnectUrl: "http://127.0.0.1:8765",
@@ -3329,14 +3330,14 @@ Greasy Fork compliance notes:
    subtitleFontWeight: "Subtitle font weight",
    subtitleSeekPadding: "Subtitle seek padding (seconds)",
    subtitlePreview: "Live subtitle preview",
-   youtubeImmersionEnabled: "Only show Japanese-looking YouTube videos",
-   youtubeShowFilterNotice: "Show reveal control for hidden videos",
-   youtubeHelp: "Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.",
+   youtubeImmersionEnabled: "Only show Japanese YouTube videos",
+   youtubeShowFilterNotice: "Show a temporary hidden-video notice",
+   youtubeHelp: "On by default. The notice can be hidden without turning off the YouTube filter.",
    youtubeFilterOn: "YouTube filter on",
    youtubeFilterOff: "YouTube filter off",
-   youtubeShowAnyway: "Show anyway",
-   youtubeFilterAgain: "Filter again",
-   youtubeTurnOff: "Turn off",
+   youtubeShowHiddenVideos: "Show hidden videos",
+   youtubeHideHiddenVideos: "Hide hidden videos",
+   youtubeHideNotice: "Hide notice",
    youtubeFilterShowing: "{appName} is showing {count} hidden YouTube item{plural}",
    youtubeFilterHid: "{appName} hid {count} non-Japanese-looking YouTube item{plural}",
    youtubeFilterVisible: "{count} Japanese-looking items stayed visible.",
@@ -4713,14 +4714,14 @@ Greasy Fork compliance notes:
   subtitleFontWeight: "字幕フォントの太さ",
   subtitleSeekPadding: "字幕シーク余白 (秒)",
   subtitlePreview: "字幕ライブプレビュー",
-  youtubeImmersionEnabled: "日本語らしいYouTube動画だけ表示",
-  youtubeShowFilterNotice: "非表示動画の表示ボタンを出す",
-  youtubeHelp: "既定ではオフです。YouTubeのおすすめ、検索、サイドバーを日本語らしい動画に集中させたい時にオンにしてください。",
+  youtubeImmersionEnabled: "日本語のYouTube動画だけ表示",
+  youtubeShowFilterNotice: "非表示動画の通知を一時的に出す",
+  youtubeHelp: "既定でオンです。通知を隠してもYouTubeフィルターはオンのままです。",
   youtubeFilterOn: "YouTubeフィルター: オン",
   youtubeFilterOff: "YouTubeフィルター: オフ",
-  youtubeShowAnyway: "それでも表示",
-  youtubeFilterAgain: "もう一度隠す",
-  youtubeTurnOff: "オフにする",
+  youtubeShowHiddenVideos: "非表示動画を表示",
+  youtubeHideHiddenVideos: "非表示動画を隠す",
+  youtubeHideNotice: "通知を隠す",
   youtubeFilterShowing: "{appName}は非表示のYouTube項目{count}件を表示中",
   youtubeFilterHid: "{appName}は日本語らしくないYouTube項目{count}件を非表示にしました",
   youtubeFilterVisible: "日本語らしい項目{count}件は表示したままです。",
@@ -17431,7 +17432,8 @@ ${entry.reading}`;
     if (!card.pitchAccent.length && publicPitch.length) card.pitchAccent = publicPitch;
     return publicPitch;
    });
-   const all = this.loadAll(card, localEntries, localMetaEntries, pitchAccent);
+   void pitchAccent.catch(() => void 0);
+   const all = this.loadAll(card, localEntries, localMetaEntries);
    return { localEntries, localMetaEntries, pitchAccent, all };
   }
   withFallback(card, timeoutMs, detail, promise, fallback) {
@@ -17504,17 +17506,16 @@ ${entry.reading}`;
     return [];
    }), []);
   }
-  loadAll(card, localEntries, localMetaEntries, publicPitch) {
+  loadAll(card, localEntries, localMetaEntries) {
    return Promise.all([
     localEntries,
     this.loadLocalKanjiEntries(card),
     localMetaEntries,
-    publicPitch,
     this.loadAnkiLookup(card),
     this.loadJpdbDecks(card),
     this.loadAnkiDecks(card),
     this.loadJpdbVocabularyInfo(card)
-   ]).then(([localEntriesValue, kanjiEntries, metaEntries, _jpdbPublicPitch, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo]) => {
+   ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo]) => {
     return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo };
    });
   }
@@ -18752,11 +18753,12 @@ ${entry.reading}`;
    this.renderEmpty(container);
   }
   async searchExamples(card, options = {}) {
+   if (options.signal) return this.fetchExamples(card, options);
    const key = this.searchCacheKey(card, options);
    const now = Date.now();
    const cached = this.searchResultCache.get(key);
    if (cached && cached.expiresAt > now) return cached.promise;
-   const promise = this.fetchExamples(card, { ...options, signal: void 0 }).catch((error) => {
+   const promise = this.fetchExamples(card, options).catch((error) => {
     if (this.searchResultCache.get(key)?.promise === promise) this.searchResultCache.delete(key);
     throw error;
    });
@@ -18935,13 +18937,15 @@ ${entry.reading}`;
    const hasAudio = audioUrls.length > 0;
    const imageUrl = imageUrls[0] ?? "";
    const contextImageUrl = immersionMiningImageUrl(imageUrls);
+   const cachedTokens = this.cachedParsedExampleSentenceTokens(example.sentence);
    this.rememberExampleMiningContext(card, example, index, examples.length, contextImageUrl, audioUrls, promoteMiningContext);
    delete container.dataset.immersionEmpty;
    setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio));
    this.loadRenderedExampleImages(container, imageUrls, isCurrent);
    this.options.repositionPopover();
    if (playAudio) void this.playExampleAudio(example, true);
-   this.parseRenderedExampleSentence(container, card, example, searchQuery, isCurrent);
+   if (cachedTokens) this.applyParsedExampleSentence(container, card, example, searchQuery, cachedTokens, { updateHtml: false });
+   else this.parseRenderedExampleSentence(container, card, example, searchQuery, isCurrent);
   }
   rememberExampleMiningContext(card, example, index, total, imageUrl, audioUrls, promoteMiningContext) {
    const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, total, imageUrl, audioUrls));
@@ -18956,7 +18960,7 @@ ${entry.reading}`;
   }
   renderExampleHtml(container, card, example, total, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio) {
    const language = settings.interfaceLanguage;
-   const sentenceHtml = renderHighlightedTextHtml(example.sentence, [card.spelling, card.reading, searchQuery], "jpdb-reader-example-target");
+   const sentenceHtml = this.renderExampleSentenceContent(example.sentence, card, searchQuery, settings);
    const translation = renderExampleTranslation(example.translation, settings);
    const sourceLabel2 = immersionExampleSourceLabel(card, example, searchQuery, language);
    const sentence = renderExampleSentenceHtml(sentenceHtml);
@@ -18980,6 +18984,10 @@ ${entry.reading}`;
                 </div>
             </div>
         `;
+  }
+  renderExampleSentenceContent(sentence, card, searchQuery, settings) {
+   const tokens = this.cachedParsedExampleSentenceTokens(sentence);
+   return tokens ? renderTokensToHtml(sentence, tokens, settings) : renderHighlightedTextHtml(sentence, [card.spelling, card.reading, searchQuery], "jpdb-reader-example-target");
   }
   loadRenderedExampleImages(container, imageUrls, isCurrent) {
    container.querySelectorAll("[data-immersion-image]").forEach((imageElement) => {
@@ -19053,28 +19061,40 @@ ${entry.reading}`;
   parseRenderedExampleSentence(container, card, example, searchQuery, isCurrent) {
    void this.parsedExampleSentenceTokens(example.sentence).then((tokens) => {
     if (!isCurrent() || !container.isConnected) return;
-    const sentence = container.querySelector("[data-immersion-sentence-render]");
-    if (!sentence) return;
-    setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens, this.options.getSettings()));
-    this.highlightTarget(sentence, card, searchQuery);
-    void this.options.parsePopoverJapanese(container);
-    void this.options.enrichPitchWords(tokens);
-    void this.options.enrichAnkiWords(tokens);
-    this.options.repositionPopover();
+    this.applyParsedExampleSentence(container, card, example, searchQuery, tokens);
    }).catch(() => void 0);
+  }
+  applyParsedExampleSentence(container, card, example, searchQuery, tokens, options = {}) {
+   const sentence = container.querySelector("[data-immersion-sentence-render]");
+   if (!sentence) return;
+   if (options.updateHtml !== false) {
+    setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens, this.options.getSettings()));
+   }
+   this.highlightTarget(sentence, card, searchQuery);
+   void this.options.enrichPitchWords(tokens);
+   void this.options.enrichAnkiWords(tokens);
+   this.options.repositionPopover();
   }
   parsedExampleSentenceTokens(sentence) {
    const key = sentence.trim();
    if (!key) return Promise.resolve([]);
    const cached = this.parsedSentenceCache.get(key);
-   if (cached) return cached;
-   const promise = this.options.parseJapanese([sentence], { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true }).then(([tokens]) => tokens ?? []).catch((error) => {
-    if (this.parsedSentenceCache.get(key) === promise) this.parsedSentenceCache.delete(key);
+   if (cached) return cached.tokens ? Promise.resolve(cached.tokens) : cached.promise;
+   const entry = { promise: Promise.resolve([]) };
+   entry.promise = this.options.parseJapanese([sentence], { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true }).then(([tokens]) => {
+    const parsed = tokens ?? [];
+    entry.tokens = parsed;
+    return parsed;
+   }).catch((error) => {
+    if (this.parsedSentenceCache.get(key) === entry) this.parsedSentenceCache.delete(key);
     throw error;
    });
-   this.parsedSentenceCache.set(key, promise);
+   this.parsedSentenceCache.set(key, entry);
    pruneOldestMapEntries$1(this.parsedSentenceCache, IMMERSION_PARSED_SENTENCE_CACHE_LIMIT);
-   return promise;
+   return entry.promise;
+  }
+  cachedParsedExampleSentenceTokens(sentence) {
+   return this.parsedSentenceCache.get(sentence.trim())?.tokens;
   }
   highlightTarget(sentence, card, searchQuery = "") {
    const cardVid = String(card.vid);
@@ -23183,7 +23203,7 @@ ${glossaryKey}`;
   return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
  }
  function nestedParseAlreadyScheduled(root, parseKey) {
-  return root.dataset.jpdbReaderParseLoadingKey === parseKey || root.dataset.jpdbReaderParseKey === parseKey && Boolean(root.querySelector(`${PARSEABLE_SELECTOR} .jpdb-reader-word`));
+  return root.dataset.jpdbReaderParseLoadingKey === parseKey || root.dataset.jpdbReaderParseKey === parseKey;
  }
  function applyNestedParsePlan(plan, parsed, settings) {
   plan.targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], settings));
@@ -23711,7 +23731,7 @@ ${glossaryKey}`;
    this.schedulePosition();
   }
   shouldSkipRefresh(settings, options) {
-   return !options.userRequested && !Array.from(document.images).some(hasFallbackOcrMetadata) && (!settings.ocrAutoScanImages || this.options.shouldAutoScan?.() === false);
+   return !options.userRequested && (!settings.ocrAutoScanImages || this.options.shouldAutoScan?.() === false);
   }
   refreshImages(settings) {
    return Array.from(document.images).filter((image) => isCandidateImage(image, settings) && shouldObserveImage(image, settings)).sort((a, b) => this.compareRefreshImages(a, b)).slice(0, settings.ocrMaxImagesPerPage);
@@ -23761,6 +23781,10 @@ ${glossaryKey}`;
    if (this.observer && this.observerMargin === rootMargin) return;
    this.observer?.disconnect();
    this.observerMargin = rootMargin;
+   if (typeof IntersectionObserver !== "function") {
+    this.observer = void 0;
+    return;
+   }
    this.observer = new IntersectionObserver((entries) => {
     for (const entry of entries) {
      if (!entry.isIntersecting) continue;
@@ -25203,9 +25227,6 @@ ${glossaryKey}`;
   if (settings.ocrProvider === "local-service") return true;
   if (settings.ocrProvider === "cloud-vision") return Boolean(settings.ocrCloudVisionApiKey.trim());
   return settings.ocrProvider === "google-lens";
- }
- function hasFallbackOcrMetadata(image) {
-  return Boolean(readFallbackOcrResult(image, false));
  }
  function isNearViewport(element2, margin) {
   const rect = element2.getBoundingClientRect();
@@ -26934,6 +26955,7 @@ ${glossaryKey}`;
   }
  }
  const LOCAL_MATCH_LIMIT = 40;
+ const LOCAL_PARSE_CACHE_LIMIT = 600;
  const LOCAL_PITCH_CACHE_LIMIT = 800;
  const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
  const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
@@ -26945,6 +26967,7 @@ ${glossaryKey}`;
    this.dependencies = dependencies;
   }
   localCardCache = /* @__PURE__ */ new Map();
+  localParseCache = /* @__PURE__ */ new Map();
   localPitchCache = /* @__PURE__ */ new Map();
   async parse(paragraphs, options = {}) {
    const { getSettings, jpdb } = this.dependencies;
@@ -26996,6 +27019,7 @@ ${glossaryKey}`;
   }
   clearLocalCache() {
    this.localCardCache.clear();
+   this.localParseCache.clear();
    this.localPitchCache.clear();
   }
   localCardFromEntry(entry) {
@@ -27050,9 +27074,33 @@ ${spelling}`);
    return this.canUseLocalDictionaryFallback() || canSegmentJapaneseText();
   }
   async parseLocalOrSegmentedText(text2, options) {
+   const settings = this.dependencies.getSettings();
+   const key = localParseCacheKey(text2, options, settings);
+   const cached = this.localParseCache.get(key);
+   if (cached) {
+    this.localParseCache.delete(key);
+    this.localParseCache.set(key, cached);
+    return cached;
+   }
+   const promise = this.parseLocalOrSegmentedTextUncached(text2, options).catch((error) => {
+    if (this.localParseCache.get(key) === promise) this.localParseCache.delete(key);
+    throw error;
+   });
+   this.rememberLocalParseCacheEntry(key, promise);
+   return promise;
+  }
+  async parseLocalOrSegmentedTextUncached(text2, options) {
    if (!this.canUseLocalDictionaryFallback()) return this.parseSegmentedText(text2);
    const tokens = await this.parseLocalDictionaryText(text2, options);
    return tokens.length ? tokens : this.parseSegmentedText(text2);
+  }
+  rememberLocalParseCacheEntry(key, promise) {
+   this.localParseCache.set(key, promise);
+   while (this.localParseCache.size > LOCAL_PARSE_CACHE_LIMIT) {
+    const oldest = this.localParseCache.keys().next().value;
+    if (typeof oldest !== "string") break;
+    this.localParseCache.delete(oldest);
+   }
   }
   async parseLocalDictionaryText(text2, options) {
    const { dictionaries, getSettings } = this.dependencies;
@@ -27127,6 +27175,19 @@ ${spelling}`);
     enabled: preference.enabled,
     priority: preference.priority
    }))
+  });
+ }
+ function localParseCacheKey(text2, options, settings) {
+  const localDictionariesEnabled = settings.localDictionariesEnabled;
+  return JSON.stringify({
+   text: text2,
+   localDictionariesEnabled,
+   includeLocalPitch: localDictionariesEnabled && settings.showPitchAccent && options.includeLocalPitch !== false,
+   dictionaries: localDictionariesEnabled ? settings.dictionaryPreferences.map((preference) => ({
+    name: preference.name,
+    enabled: preference.enabled,
+    priority: preference.priority
+   })) : []
   });
  }
  function fallbackLookupTermAtOffset(text2, offset) {
@@ -28684,10 +28745,10 @@ ${spelling}`);
             <fieldset data-settings-panel="media" hidden>
                 <legend>YouTube</legend>
                 <div class="grid">
-                    ${checkbox("youtubeImmersionEnabled", "Only show Japanese-looking YouTube videos", settings.youtubeImmersionEnabled)}
-                    ${checkbox("youtubeShowFilterNotice", "Show reveal control for hidden videos", settings.youtubeShowFilterNotice)}
+                    ${checkbox("youtubeImmersionEnabled", "Only show Japanese YouTube videos", settings.youtubeImmersionEnabled)}
+                    ${checkbox("youtubeShowFilterNotice", "Show a temporary hidden-video notice", settings.youtubeShowFilterNotice)}
                 </div>
-                <div class="jpdb-reader-help" data-youtube-help>Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.</div>
+                <div class="jpdb-reader-help" data-youtube-help>On by default. The notice can be hidden without turning off the YouTube filter.</div>
             </fieldset>
     `;
  }
@@ -32991,7 +33052,28 @@ ${spelling}`);
   })).filter((candidate) => candidate.overlap > 0 || candidate.startDistance <= 0.45).sort((a, b) => b.overlap - a.overlap || a.startDistance - b.startDistance)[0]?.item;
  }
  function findActiveSubtitleCue(cues, time) {
-  return cues.filter((cue) => time >= cue.start - 0.05 && time < cue.end + 0.12).sort((a, b) => b.start - a.start || b.end - a.end)[0];
+  let low = 0;
+  let high = cues.length - 1;
+  let index = -1;
+  const latestAllowedStart = time + 0.05;
+  while (low <= high) {
+   const mid = Math.floor((low + high) / 2);
+   if (cues[mid].start <= latestAllowedStart) {
+    index = mid;
+    low = mid + 1;
+   } else {
+    high = mid - 1;
+   }
+  }
+  let best;
+  for (let i = index; i >= 0; i--) {
+   const cue = cues[i];
+   if (best && cue.start < best.start) break;
+   if (time >= cue.start - 0.05 && time < cue.end + 0.12) {
+    if (!best || cue.start > best.start || cue.start === best.start && cue.end > best.end) best = cue;
+   }
+  }
+  return best;
  }
  function subtitleCueSignature(cue) {
   return `${cue.start.toFixed(2)}:${cue.end.toFixed(2)}:${cue.text.trim()}`;
@@ -33969,6 +34051,7 @@ ${spelling}`);
   return [...new Set(values)];
  }
  async function loadSubtitleTrackCues(track, options) {
+  if (track.cues?.length) return { track, cues: track.cues };
   if (track.track) return loadNativeTrackCues(track);
   if (isRemoteSubtitleTrack(track)) {
    const cues = await loadRemoteTrackCues(track, options);
@@ -34596,6 +34679,7 @@ ${spelling}`);
   parsedHtmlCache = /* @__PURE__ */ new Map();
   emptyParsedHtmlCache = /* @__PURE__ */ new Map();
   pendingParsedHtml = /* @__PURE__ */ new Map();
+  transcriptTextTargetsByParseKey = /* @__PURE__ */ new Map();
   renderSerial = 0;
   panelMode = "lines";
   lastMenuSignature = "";
@@ -36184,7 +36268,6 @@ ${spelling}`);
    const currentRowIndex = this.activeTranscriptRowIndex(rows, currentCueIndex);
    const signature = [
     rows.length,
-    currentRowIndex,
     this.selectedTrackId,
     this.tracks.find((track) => track.id === this.selectedTrackId)?.loadingState ?? "",
     !this.cues.length && this.currentCue ? subtitleCueSignature(this.currentCue) : ""
@@ -36220,6 +36303,7 @@ ${spelling}`);
         `;
   }
   afterTranscriptPanelRender(state) {
+   this.indexTranscriptTextTargets();
    this.bindTranscriptScroller();
    this.bindTranscriptResizeHandle();
    this.positionTranscriptPanel();
@@ -36560,7 +36644,7 @@ ${spelling}`);
    const panel = this.updatableTranscriptPanel();
    if (!panel) return;
    const hasReaderWords = parsedSubtitleHtmlHasReaderWords(html);
-   for (const target of Array.from(panel.querySelectorAll("[data-transcript-text]"))) {
+   for (const target of this.transcriptTextTargetsForParseKey(panel, key)) {
     if (!shouldApplyParsedTranscriptHtml(target, key)) continue;
     if (hasReaderWords) {
      target.dataset.parsedKey = key;
@@ -36578,6 +36662,22 @@ ${spelling}`);
     }
    }
   }
+  indexTranscriptTextTargets(panel = this.updatableTranscriptPanel()) {
+   this.transcriptTextTargetsByParseKey.clear();
+   if (!panel) return;
+   for (const target of Array.from(panel.querySelectorAll("[data-transcript-text][data-parse-key]"))) {
+    const key = target.dataset.parseKey;
+    if (!key) continue;
+    const targets = this.transcriptTextTargetsByParseKey.get(key);
+    if (targets) targets.push(target);
+    else this.transcriptTextTargetsByParseKey.set(key, [target]);
+   }
+  }
+  transcriptTextTargetsForParseKey(panel, key) {
+   if (!this.transcriptTextTargetsByParseKey.size) this.indexTranscriptTextTargets(panel);
+   const targets = this.transcriptTextTargetsByParseKey.get(key) ?? [];
+   return targets.filter((target) => target.isConnected && panel.contains(target));
+  }
   updatableTranscriptPanel() {
    if (!this.transcriptPanel) return null;
    if (this.transcriptPanel.hidden) return null;
@@ -36586,6 +36686,7 @@ ${spelling}`);
   }
   renderTrackPanel() {
    if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== "tracks") return;
+   this.transcriptTextTargetsByParseKey.clear();
    const state = this.trackPanelRenderState();
    setInnerHtml(this.transcriptPanel, this.renderTrackPanelHtml(state));
    this.bindTranscriptResizeHandle();
@@ -36843,6 +36944,7 @@ ${spelling}`);
  function subtitleParseOptions() {
   return {
    jpdbTimeoutMs: SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS,
+   allowJpdbTimeoutFallback: true,
    includeLocalPitch: false
   };
  }
@@ -37131,6 +37233,11 @@ ${spelling}`);
   scanInFlight = false;
   scanPending = false;
   scanPendingSilent = true;
+  destroyed = false;
+  destroy() {
+   this.destroyed = true;
+   this.scanPending = false;
+  }
   async scanVisiblePage(options = {}) {
    const silent = Boolean(options.silent);
    if (!this.beginScan(silent)) return;
@@ -37145,18 +37252,21 @@ ${spelling}`);
    }
   }
   async scanAsbPlayerSubtitles() {
+   if (this.destroyed) return;
    const roots = Array.from(document.querySelectorAll(".asbplayer-offscreen, .asbplayer-subtitles-container-bottom"));
    if (!roots.length) return;
    const targets = roots.flatMap((root) => collectTextTargetsIn(root, 12, false)).slice(0, 12);
    if (!targets.length) return;
    try {
     const parsed = await this.dependencies.parseJapanese(targets.map((target) => target.text), scanParseOptions(this.dependencies.getSettings()));
+    if (this.destroyed) return;
     await this.applyTokens(targets, parsed);
     this.preloadParsed(parsed);
    } catch {
    }
   }
   beginScan(silent) {
+   if (this.destroyed) return false;
    if (this.scanInFlight) {
     this.scanPending = true;
     this.scanPendingSilent = this.scanPendingSilent && silent;
@@ -37166,6 +37276,7 @@ ${spelling}`);
    return true;
   }
   async runVisiblePageScan(silent) {
+   if (this.destroyed) return;
    const targets = collectScanTargets();
    if (!targets.length) {
     this.handleEmptyVisiblePageScan(silent);
@@ -37175,8 +37286,10 @@ ${spelling}`);
   }
   async parseAndApplyTargets(targets) {
    for (let index = 0; index < targets.length; index += VISIBLE_SCAN_PARSE_BATCH_SIZE) {
+    if (this.destroyed) return;
     const batch = targets.slice(index, index + VISIBLE_SCAN_PARSE_BATCH_SIZE);
     const parsed = await this.dependencies.parseJapanese(batch.map((target) => target.text), scanParseOptions(this.dependencies.getSettings()));
+    if (this.destroyed) return;
     await this.applyTokens(batch, parsed);
     this.preloadParsed(parsed);
     if (index + VISIBLE_SCAN_PARSE_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
@@ -37184,10 +37297,13 @@ ${spelling}`);
   }
   async applyTokens(targets, parsed) {
    for (let index = 0; index < targets.length; index += VISIBLE_SCAN_APPLY_BATCH_SIZE) {
+    if (this.destroyed) return;
     const start = index;
     const batch = targets.slice(start, start + VISIBLE_SCAN_APPLY_BATCH_SIZE);
     this.dependencies.pauseMutationObserver(() => {
+     if (this.destroyed) return;
      batch.forEach((target, offset) => {
+      if (this.destroyed) return;
       if (!isCurrentScanTarget(target)) return;
       applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings());
      });
@@ -37196,6 +37312,7 @@ ${spelling}`);
    }
   }
   preloadParsed(parsed) {
+   if (this.destroyed) return;
    const tokens = parsed.flat();
    this.dependencies.preloadParsedTokens(tokens);
    void this.dependencies.enrichPitchWords(tokens);
@@ -37210,6 +37327,11 @@ ${spelling}`);
   }
   finishScan() {
    this.scanInFlight = false;
+   if (this.destroyed) {
+    this.scanPending = false;
+    this.scanPendingSilent = true;
+    return;
+   }
    if (!this.scanPending) return;
    const silent = this.scanPendingSilent;
    this.scanPending = false;
@@ -37302,21 +37424,32 @@ ${spelling}`);
   'a[href*="/watch"]',
   'a[href*="/shorts"]'
  ];
- const JAPANESE_CHAR_RE = /[\u3040-\u30ff\u3400-\u9fff]/g;
- const KANA_RE = /[\u3040-\u30ff]/g;
- const LATIN_WORD_RE = /[a-z]{3,}/gi;
+ const VIDEO_LINK_SELECTORS = [
+  'a[href*="/watch"]',
+  'a[href^="/shorts/"]',
+  'a[href*="youtube.com/shorts/"]',
+  ".yt-lockup-view-model__content-image",
+  "ytd-thumbnail > a",
+  "a.yt-simple-endpoint",
+  "a#video-title",
+  "yt-formatted-string#title > a.yt-simple-endpoint"
+ ].join(",");
+ const HIRAGANA_RE = /\p{Script=Hiragana}/u;
+ const KATAKANA_RE = /\p{Script=Katakana}/u;
+ const HAN_RE = /\p{Script=Han}/u;
+ const NIHONGO_TUBE_SYMBOL_RE = /[≧≦°ಠ●◕○◯⊙▽△_∩∪ﾟ∇♪ω◇◆◎⌒※☆★♡♥︶︸ಥ¬╯╰┻┳━┛┗┓┏┫┣╋╂┃━─┌┐└┘├┤┴┬╱╲╳]/u;
+ const OEMBED_TITLE_CACHE_LIMIT = 240;
+ const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 4200;
  function isYouTubeHost(hostname = location.hostname) {
   return YOUTUBE_HOST_RE.test(hostname);
  }
  function isProbablyJapaneseYouTubeText(text2) {
-  const compact = text2.replace(/\s+/g, " ").trim();
+  const compact = normalizeYouTubeTitleForLanguageCheck(text2);
   if (!HAS_JAPANESE$1.test(compact)) return false;
-  const japaneseChars = compact.match(JAPANESE_CHAR_RE)?.length ?? 0;
-  const kanaChars = compact.match(KANA_RE)?.length ?? 0;
-  const latinWords = compact.match(LATIN_WORD_RE)?.length ?? 0;
-  if (kanaChars >= 2) return true;
-  if (japaneseChars >= 4) return true;
-  return japaneseChars >= 2 && latinWords <= 2;
+  if (NIHONGO_TUBE_SYMBOL_RE.test(compact)) {
+   return HIRAGANA_RE.test(compact) && KATAKANA_RE.test(compact) && HAN_RE.test(compact);
+  }
+  return HIRAGANA_RE.test(compact) || KATAKANA_RE.test(compact);
  }
  function collectYouTubeVideoCards(root = document) {
   const cards = /* @__PURE__ */ new Set();
@@ -37329,14 +37462,18 @@ ${spelling}`);
   });
   return [...cards].filter((card) => card.isConnected);
  }
- function readYouTubeCardText(card) {
+ function readYouTubeCardInfo(card) {
   const title = TITLE_SELECTORS.map((selector) => card.querySelector(selector)).find(Boolean);
   const titleText = [
    title?.getAttribute("title"),
    title?.getAttribute("aria-label"),
    title?.textContent
   ].find((value) => value?.trim()) ?? "";
-  return titleText.trim() || card.textContent?.trim() || "";
+  return {
+   card,
+   title: (titleText.trim() || card.textContent?.trim() || "").trim(),
+   videoId: readYouTubeVideoId(card)
+  };
  }
  class YoutubeImmersionFilter {
   constructor(options) {
@@ -37345,8 +37482,13 @@ ${spelling}`);
   observer;
   events;
   timer;
+  noticeTimer;
   bar;
   revealed = false;
+  lastNoticeKey = "";
+  dismissedNoticeKey = "";
+  oembedTitleCache = /* @__PURE__ */ new Map();
+  pendingOembedTitles = /* @__PURE__ */ new Set();
   init() {
    this.destroy();
    if (!this.isActivePage() || !document.body) return;
@@ -37404,8 +37546,13 @@ ${spelling}`);
    let filteredCount = 0;
    let shownCount = 0;
    for (const card of collectYouTubeVideoCards()) {
-    const text2 = readYouTubeCardText(card);
-    if (!text2) continue;
+    const info = readYouTubeCardInfo(card);
+    if (!info.title) continue;
+    const text2 = this.resolveTitleForFiltering(info);
+    if (!text2) {
+     if (!this.revealed) this.hideCard(card);
+     continue;
+    }
     const isJapanese = isProbablyJapaneseYouTubeText(text2);
     if (!isJapanese) filteredCount += 1;
     if (isJapanese || this.revealed) {
@@ -37432,10 +37579,14 @@ ${spelling}`);
   }
   renderNotice(filteredCount, shownCount, settings) {
    if (!filteredCount) {
-    this.bar?.remove();
-    this.bar = void 0;
+    this.removeNotice();
+    this.lastNoticeKey = "";
+    this.dismissedNoticeKey = "";
     return;
    }
+   const noticeKey = `${this.revealed ? "revealed" : "hidden"}:${filteredCount}:${shownCount}`;
+   if (!this.bar && this.dismissedNoticeKey === noticeKey) return;
+   const shouldStartTimer = !this.bar || this.lastNoticeKey !== noticeKey;
    if (!this.bar) {
     this.bar = document.createElement("div");
     this.bar.className = "jpdb-youtube-filter-bar";
@@ -37444,49 +37595,118 @@ ${spelling}`);
     label.dataset.role = "summary";
     const actions = document.createElement("div");
     actions.className = "jpdb-youtube-filter-actions";
-    const showAnyway2 = document.createElement("button");
-    showAnyway2.type = "button";
-    showAnyway2.dataset.action = "show-anyway";
-    const turnOff2 = document.createElement("button");
-    turnOff2.type = "button";
-    turnOff2.dataset.action = "turn-off";
-    actions.append(showAnyway2, turnOff2);
+    const toggleHidden2 = document.createElement("button");
+    toggleHidden2.type = "button";
+    toggleHidden2.dataset.action = "toggle-hidden";
+    const hideNotice2 = document.createElement("button");
+    hideNotice2.type = "button";
+    hideNotice2.dataset.action = "hide-notice";
+    actions.append(toggleHidden2, hideNotice2);
     this.bar.addEventListener("click", (event) => {
      const action = event.target.closest("[data-action]")?.dataset.action;
-     if (action === "show-anyway") {
+     if (action === "toggle-hidden") {
       this.revealed = !this.revealed;
       this.schedule(0);
      }
-     if (action === "turn-off") {
-      this.options.setEnabled?.(false);
-      if (!this.options.setEnabled) this.clear();
+     if (action === "hide-notice") {
+      this.options.setShowFilterNotice?.(false);
+      this.dismissedNoticeKey = this.lastNoticeKey;
+      this.removeNotice();
      }
     });
     this.bar.append(label, actions);
     document.body.append(this.bar);
    }
+   this.lastNoticeKey = noticeKey;
+   this.dismissedNoticeKey = "";
    const summary = this.bar.querySelector('[data-role="summary"]');
-   const showAnyway = this.bar.querySelector('[data-action="show-anyway"]');
-   const turnOff = this.bar.querySelector('[data-action="turn-off"]');
+   const toggleHidden = this.bar.querySelector('[data-action="toggle-hidden"]');
+   const hideNotice = this.bar.querySelector('[data-action="hide-notice"]');
    if (summary) {
     const plural = filteredCount === 1 ? "" : "s";
     summary.textContent = this.revealed ? formatYoutubeText(uiText(settings.interfaceLanguage, "youtubeFilterShowing"), { appName: APP_NAME, count: String(filteredCount), plural }) : formatYoutubeText(uiText(settings.interfaceLanguage, "youtubeFilterHid"), { appName: APP_NAME, count: String(filteredCount), plural });
     summary.title = shownCount ? formatYoutubeText(uiText(settings.interfaceLanguage, "youtubeFilterVisible"), { count: String(shownCount) }) : "";
    }
-   if (showAnyway) showAnyway.textContent = this.revealed ? uiText(settings.interfaceLanguage, "youtubeFilterAgain") : uiText(settings.interfaceLanguage, "youtubeShowAnyway");
-   if (turnOff) turnOff.textContent = uiText(settings.interfaceLanguage, "youtubeTurnOff");
+   if (toggleHidden) toggleHidden.textContent = this.revealed ? uiText(settings.interfaceLanguage, "youtubeHideHiddenVideos") : uiText(settings.interfaceLanguage, "youtubeShowHiddenVideos");
+   if (hideNotice) hideNotice.textContent = uiText(settings.interfaceLanguage, "youtubeHideNotice");
+   if (shouldStartTimer) this.startNoticeTimer(noticeKey);
   }
   clear() {
    window.clearTimeout(this.timer);
    this.timer = void 0;
    this.revealed = false;
    document.querySelectorAll('[data-yomu-youtube-filtered="true"], .jpdb-youtube-filtered').forEach((card) => this.showCard(card));
+   this.removeNotice();
+   this.lastNoticeKey = "";
+   this.dismissedNoticeKey = "";
+  }
+  resolveTitleForFiltering(info) {
+   if (!info.videoId) return info.title;
+   if (this.oembedTitleCache.has(info.videoId)) return this.oembedTitleCache.get(info.videoId) || info.title;
+   this.fetchOriginalTitle(info.videoId);
+   return "";
+  }
+  fetchOriginalTitle(videoId) {
+   if (this.pendingOembedTitles.has(videoId)) return;
+   this.pendingOembedTitles.add(videoId);
+   void fetchYouTubeOEmbedTitle(videoId).then((title) => {
+    this.rememberOEmbedTitle(videoId, title);
+   }).catch(() => {
+    this.rememberOEmbedTitle(videoId, null);
+   }).finally(() => {
+    this.pendingOembedTitles.delete(videoId);
+    if (this.options.getSettings().youtubeImmersionEnabled) this.schedule(0);
+   });
+  }
+  rememberOEmbedTitle(videoId, title) {
+   if (this.oembedTitleCache.size >= OEMBED_TITLE_CACHE_LIMIT) {
+    const oldest = this.oembedTitleCache.keys().next().value;
+    if (oldest) this.oembedTitleCache.delete(oldest);
+   }
+   this.oembedTitleCache.set(videoId, title);
+  }
+  startNoticeTimer(noticeKey) {
+   window.clearTimeout(this.noticeTimer);
+   this.noticeTimer = window.setTimeout(() => {
+    if (this.lastNoticeKey !== noticeKey) return;
+    this.dismissedNoticeKey = noticeKey;
+    this.removeNotice();
+   }, YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS);
+  }
+  removeNotice() {
+   window.clearTimeout(this.noticeTimer);
+   this.noticeTimer = void 0;
    this.bar?.remove();
    this.bar = void 0;
   }
  }
  function formatYoutubeText(template, values) {
   return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
+ }
+ function normalizeYouTubeTitleForLanguageCheck(text2) {
+  return text2.replace(/fypシ゚/g, "").replace(/fypシ/g, "").replace(/ミックスリスト/g, "").replace(/\s+/g, " ").trim();
+ }
+ function readYouTubeVideoId(card) {
+  const link = Array.from(card.querySelectorAll(VIDEO_LINK_SELECTORS)).find((candidate) => extractYouTubeVideoId(candidate.getAttribute("href")));
+  return link ? extractYouTubeVideoId(link.getAttribute("href")) : "";
+ }
+ function extractYouTubeVideoId(href) {
+  if (!href) return "";
+  try {
+   const url = new URL(href, "https://www.youtube.com");
+   if (url.pathname === "/watch") return url.searchParams.get("v") ?? "";
+   const shortsMatch = url.pathname.match(/^\/shorts\/([^/?#]+)/);
+   return shortsMatch?.[1] ?? "";
+  } catch {
+   return "";
+  }
+ }
+ async function fetchYouTubeOEmbedTitle(videoId) {
+  const watchUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+  const response = await fetch(`https://www.youtube.com/oembed?url=${watchUrl}`);
+  if (!response.ok) return null;
+  const data = await response.json();
+  return typeof data.title === "string" && data.title.trim() ? data.title.trim() : null;
  }
  function mutationInsideReaderRoot(mutation) {
   const nodes = [mutation.target, ...Array.from(mutation.addedNodes)];
@@ -37504,6 +37724,10 @@ ${spelling}`);
  const ANKI_ENRICHMENT_LIMIT = 16;
  const PITCH_ENRICHMENT_LIMIT = 12;
  const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
+ const BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT = 8;
+ const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
+ const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 3e4;
+ const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;
  const PITCH_LOCAL_META_LIMIT = 12;
  const PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT = 800;
  const BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
@@ -37673,7 +37897,7 @@ ${spelling}`);
    dictionarySourceAttributes: (key) => this.dictionarySourceState.attributes(key),
    parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
    parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
-   enrichPitchWords: (tokens) => this.enrichPitchWords(tokens),
+   enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
    enrichAnkiWords: (tokens) => this.enrichAnkiWords(tokens),
    isCurrentPopoverRoot: (root) => this.isCurrentPopoverRoot(root)
   });
@@ -37704,7 +37928,7 @@ ${spelling}`);
    parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
    canParseJapanese: () => this.canParseJapanese(),
    parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
-   enrichPitchWords: (tokens) => this.enrichPitchWords(tokens),
+   enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
    enrichAnkiWords: (tokens) => this.enrichAnkiWords(tokens),
    repositionPopover: () => this.repositionActivePopover(),
    setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
@@ -37747,14 +37971,14 @@ ${spelling}`);
   });
   youtube = new YoutubeImmersionFilter({
    getSettings: () => this.settings,
-   setEnabled: (enabled) => void this.setYoutubeImmersionEnabled(enabled)
+   setShowFilterNotice: (visible) => void this.setYoutubeFilterNoticeVisible(visible)
   });
   pageScanner = new VisiblePageScanner({
    getSettings: () => this.settings,
    parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
    pauseMutationObserver: (callback) => this.pauseAutoScanObserver(callback),
    preloadParsedTokens: (tokens) => this.preloadTermAudioForTokens(tokens),
-   enrichPitchWords: (tokens) => this.enrichPitchWords(tokens),
+   enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
    enrichAnkiWords: (tokens) => this.enrichAnkiWords(tokens),
    toast: (message) => this.toast(message)
   });
@@ -37812,6 +38036,7 @@ ${spelling}`);
   jpdbPageEnhancementGeneration = 0;
   nearbyReaderAudioPreloadTimer;
   preloadedTermAudioKeys = /* @__PURE__ */ new Set();
+  nestedParseContentCache = /* @__PURE__ */ new Map();
   pitchEnrichmentLocalCache = /* @__PURE__ */ new Map();
   pitchEnrichmentQueue = [];
   pitchEnrichmentQueuedKeys = /* @__PURE__ */ new Set();
@@ -37858,6 +38083,7 @@ ${spelling}`);
     immersionKitAutoPlayAudio: false,
     immersionKitPlayOnHover: false,
     immersionKitPlayOnImageClick: false,
+    ocrAutoScanImages: false,
     autoScanJapanese: false,
     scanVisiblePage: false,
     showFloatingButton: false
@@ -37874,8 +38100,12 @@ ${spelling}`);
   }
   initHostedPassivePage() {
    if (!isYomuHostedPassivePage(location.href)) return false;
-   if (this.isDemo && document.querySelector("[data-yomu-demo-lookup]")) return false;
    this.ocr.init();
+   if (this.shouldScanHostedDemoLookup()) {
+    this.scanHostedDemoLookup();
+    log$1.info("Passive hosted Try Me scan initialized", { href: location.href, demo: this.isDemo });
+    return true;
+   }
    log$1.info("Passive hosted OCR initialized", { href: location.href, demo: this.isDemo });
    return true;
   }
@@ -37886,11 +38116,17 @@ ${spelling}`);
    this.youtube.init();
    this.setupAutoScan();
    this.initJpdbPageEnhancements();
-   if (this.isDemo && document.querySelector("[data-yomu-demo-lookup]")) {
-    void this.pageScanner.scanVisiblePage({ silent: true });
-   }
+   this.scanHostedDemoLookup();
    if (shouldShowWelcome && !isYomuHostedAppUrl(location.href)) await this.onboarding.showIfNeeded();
    if (this.shouldScanInitialPage()) void this.pageScanner.scanVisiblePage({ silent: true });
+  }
+  scanHostedDemoLookup() {
+   if (this.isDestroyed || !this.shouldScanHostedDemoLookup()) return;
+   this.pageHasJapaneseText = true;
+   void this.pageScanner.scanVisiblePage({ silent: true });
+  }
+  shouldScanHostedDemoLookup() {
+   return isYomuHostedPassivePage(location.href) && Boolean(document.querySelector("[data-yomu-demo-lookup]")) && !document.querySelector("[data-yomu-demo-lookup] .jpdb-reader-word");
   }
   shouldScanInitialPage() {
    return this.canParseJapanese() && (this.settings.scanVisiblePage || this.settings.autoScanJapanese) && this.pageHasJapaneseText;
@@ -37930,6 +38166,12 @@ ${spelling}`);
    log$1.info("YouTube immersion filter toggled", { enabled });
    this.toast(uiText(this.settings.interfaceLanguage, enabled ? "youtubeToggleToastOn" : "youtubeToggleToastOff"));
   }
+  async setYoutubeFilterNoticeVisible(visible) {
+   this.settings.youtubeShowFilterNotice = visible;
+   await saveSettings(this.settings);
+   this.youtube.refresh();
+   log$1.info("YouTube filter notice visibility changed", { visible });
+  }
   async setInterfaceLanguage(language) {
    if (this.settings.interfaceLanguage === language) return;
    this.settings.interfaceLanguage = language;
@@ -37947,6 +38189,7 @@ ${spelling}`);
    this.dictionarySourceState.clear();
    this.cardRenderData.clear();
    this.preloadedTermAudioKeys.clear();
+   this.nestedParseContentCache.clear();
    this.pitchEnrichmentLocalCache.clear();
    this.clearPitchEnrichmentQueue();
    this.pitchEnrichmentUrgentKeys.clear();
@@ -37981,6 +38224,7 @@ ${spelling}`);
     return;
    }
    this.pitchEnrichmentLocalCache.clear();
+   this.nestedParseContentCache.clear();
    this.clearPitchEnrichmentQueue();
    this.scheduleJpdbPageEnhancements(80);
    this.scheduleVisiblePageReparse(120);
@@ -37996,6 +38240,7 @@ ${spelling}`);
   async reparseVisiblePage() {
    this.jpdb.clear();
    this.parser.clearLocalCache();
+   this.nestedParseContentCache.clear();
    this.pauseAutoScanObserver(() => {
     this.removeJpdbPageEnhancements();
    });
@@ -38148,8 +38393,9 @@ ${spelling}`);
     () => this.showSettings()
    );
   }
-  destroy() {
+  destroy(options = {}) {
    this.isDestroyed = true;
+   this.pageScanner.destroy?.();
    this.factoryReset.destroy();
    this.abortController.abort();
    this.autoScanObserver?.disconnect();
@@ -38165,6 +38411,7 @@ ${spelling}`);
    window.clearTimeout(this.hoverLookupTimer);
    window.clearTimeout(this.hoverCloseTimer);
    window.clearTimeout(this.hoverWatchTimer);
+   this.nestedParseContentCache.clear();
    this.pitchEnrichmentLocalCache.clear();
    this.clearPitchEnrichmentQueue();
    if (this.popoverRepositionFrame !== void 0) {
@@ -38177,14 +38424,16 @@ ${spelling}`);
    this.activePopover?.remove();
    this.activeBackdrop?.remove();
    this.removeJpdbPageEnhancements();
-   document.querySelectorAll(".jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby").forEach((el) => {
-    if (el.classList.contains("jpdb-reader-word") || el.classList.contains("jpdb-reader-ruby")) {
-     const text2 = document.createTextNode(el.textContent || "");
-     el.replaceWith(text2);
-    } else {
-     el.remove();
-    }
-   });
+   if (!options.preservePageWords) {
+    document.querySelectorAll(".jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby").forEach((el) => {
+     if (el.classList.contains("jpdb-reader-word") || el.classList.contains("jpdb-reader-ruby")) {
+      const text2 = document.createTextNode(el.classList.contains("jpdb-reader-word") ? readerWordSurfaceText(el) : el.textContent || "");
+      el.replaceWith(text2);
+     } else {
+      el.remove();
+     }
+    });
+   }
    this.dictionaryStyles.remove();
    document.querySelectorAll("[data-jpdb-reader-root]").forEach((el) => el.remove());
   }
@@ -38215,7 +38464,7 @@ ${spelling}`);
    try {
     return callback();
    } finally {
-    if (this.autoScanObserver === observer) this.observeAutoScanMutations();
+    if (!this.isDestroyed && this.autoScanObserver === observer) this.observeAutoScanMutations();
    }
   }
   scheduleAutoScan(delay2) {
@@ -38252,6 +38501,9 @@ ${spelling}`);
     if (this.isDestroyed) return;
     const language = interfaceLanguageChangeDetail(event.detail);
     if (language) void this.setInterfaceLanguage(language);
+   }, { signal: this.abortController.signal });
+   addWindowEventListener(HOSTED_DEMO_LOOKUP_SCAN_EVENT, () => {
+    this.scanHostedDemoLookup();
    }, { signal: this.abortController.signal });
    document.addEventListener("click", (event) => {
     if (this.isDestroyed) return;
@@ -39708,7 +39960,7 @@ ${spelling}`);
    this.audio.preload(card, {
     sourceLimit: 1,
     candidateLimit: 1,
-    prepareAudio: false
+    prepareAudio: options.trigger !== "hover"
    });
   }
   shouldAutoPlayInitialCard(card, context) {
@@ -39728,9 +39980,10 @@ ${spelling}`);
    let localEntriesValue = null;
    let metaEntriesValue = [];
    let renderedPitchKey = card.pitchAccent.join("|");
-   const canRender = () => !renderState.fullRenderCompleted && this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard);
+   const isCurrentRender = () => this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard);
+   const canRenderLoading = () => !renderState.fullRenderCompleted && isCurrentRender();
    const renderLoading = () => {
-    if (!canRender()) return;
+    if (!canRenderLoading()) return;
     renderedPitchKey = card.pitchAccent.join("|");
     const preservedImmersion = this.preserveImmersionMountForRerender(popover);
     clearNestedParseState(popover);
@@ -39747,13 +40000,13 @@ ${spelling}`);
    if (renderData.localMetaEntries) {
     void renderData.localMetaEntries.then((metaEntries) => {
      metaEntriesValue = metaEntries;
-     if (!canRender()) return;
+     if (!canRenderLoading()) return;
      this.updateDeferredCardHeader(popover, card, metaEntriesValue);
     });
    }
    if (!renderData.pitchAccent) return;
    void renderData.pitchAccent.then((pitchAccent) => {
-    if (!pitchAccent.length || !canRender()) return;
+    if (!pitchAccent.length || !isCurrentRender()) return;
     if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
     if (renderedPitchKey === card.pitchAccent.join("|")) return;
     renderedPitchKey = card.pitchAccent.join("|");
@@ -40504,7 +40757,7 @@ ${spelling}`);
    root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
    root.dataset.jpdbReaderParseLoadingId = parseLoadingId;
    try {
-    const parsed = await this.parseJapanese(plan.targets.map((target) => target.text), {
+    const parsed = await this.loadParsedNestedJapaneseContent(plan.targets.map((target) => target.text), {
      allowJpdbTimeoutFallback: true,
      includeLocalPitch: false,
      jpdbTimeoutMs: 1200,
@@ -40513,16 +40766,65 @@ ${spelling}`);
     if (!isCurrent() || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey || root.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
     applyNestedParsePlan(plan, parsed, this.settings);
     root.dataset.jpdbReaderParseKey = plan.parseKey;
-    this.afterNestedJapaneseParsed(parsed);
+    this.afterNestedJapaneseParsed(parsed, options.skipJpdb ? { publicLookup: false } : void 0);
    } catch {
    } finally {
     clearNestedParseLoadingKey(root, plan.parseKey, parseLoadingId);
    }
   }
-  afterNestedJapaneseParsed(parsed) {
+  loadParsedNestedJapaneseContent(texts, options = {}) {
+   const parseOptions = {
+    jpdbTimeoutMs: options.jpdbTimeoutMs ?? 1200,
+    allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? true,
+    includeLocalPitch: options.includeLocalPitch ?? false,
+    skipJpdb: options.skipJpdb ?? false
+   };
+   const key = this.nestedParseContentCacheKey(texts, parseOptions);
+   const now = Date.now();
+   const cached = this.nestedParseContentCache.get(key);
+   if (cached && cached.expiresAt > now) {
+    this.nestedParseContentCache.delete(key);
+    this.nestedParseContentCache.set(key, cached);
+    return cached.promise;
+   }
+   if (cached) this.nestedParseContentCache.delete(key);
+   const promise = this.parseJapanese(texts, parseOptions).catch((error) => {
+    if (this.nestedParseContentCache.get(key)?.promise === promise) this.nestedParseContentCache.delete(key);
+    throw error;
+   });
+   this.nestedParseContentCache.set(key, { expiresAt: now + NESTED_PARSE_CONTENT_CACHE_TTL_MS, promise });
+   this.pruneNestedParseContentCache(now);
+   return promise;
+  }
+  nestedParseContentCacheKey(texts, options) {
+   return JSON.stringify({
+    texts,
+    options,
+    settings: {
+     apiKey: Boolean(this.settings.apiKey.trim()),
+     localDictionariesEnabled: this.settings.localDictionariesEnabled,
+     dictionaries: this.settings.dictionaryPreferences.map((preference) => ({
+      name: preference.name,
+      enabled: preference.enabled,
+      priority: preference.priority
+     }))
+    }
+   });
+  }
+  pruneNestedParseContentCache(now) {
+   for (const [key, entry] of this.nestedParseContentCache) {
+    if (entry.expiresAt <= now) this.nestedParseContentCache.delete(key);
+   }
+   while (this.nestedParseContentCache.size > NESTED_PARSE_CONTENT_CACHE_LIMIT) {
+    const oldest = this.nestedParseContentCache.keys().next().value;
+    if (typeof oldest !== "string") break;
+    this.nestedParseContentCache.delete(oldest);
+   }
+  }
+  afterNestedJapaneseParsed(parsed, pitchOptions) {
    const tokens = parsed.flat();
    this.preloadTermAudioForTokens(tokens);
-   void this.enrichPitchWords(tokens);
+   void this.enrichPitchWords(tokens, pitchOptions ?? { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT });
    void this.enrichAnkiWords(tokens);
   }
   isCurrentPopoverRoot(root) {
@@ -40557,9 +40859,30 @@ ${spelling}`);
     seen.add(key);
     return true;
    }).sort((first2, second) => pitchEnrichmentPriority(first2) - pitchEnrichmentPriority(second));
+   if (options.publicLookup === false) {
+    await runLimited(uniqueTokens.slice(0, PITCH_ENRICHMENT_LIMIT), BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, (token) => this.enrichPitchToken(token, options));
+    return;
+   }
    if (options.urgent) {
     const urgentTokens = uniqueTokens.map((token) => this.takeQueuedPitchEnrichmentToken(cardKey$1(token.card)) ?? token);
-    await runLimited(urgentTokens, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, (token) => this.enrichPitchToken(token));
+    await runLimited(urgentTokens, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, (token) => this.enrichPitchToken(token, options));
+    return;
+   }
+   if (typeof options.publicLookupLimit === "number") {
+    const publicLookupLimit = Math.max(0, Math.floor(options.publicLookupLimit));
+    const publicTokens = uniqueTokens.slice(0, publicLookupLimit);
+    const localOnlyTokens = uniqueTokens.slice(publicLookupLimit);
+    const localOnly = runLimited(
+     localOnlyTokens,
+     BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
+     (token) => this.enrichPitchToken(token, { publicLookup: false })
+    );
+    if (!publicTokens.length) {
+     await localOnly;
+     return;
+    }
+    this.queuePitchEnrichmentTokens(publicTokens, options);
+    await Promise.all([localOnly, this.drainPitchEnrichmentQueue()]);
     return;
    }
    this.queuePitchEnrichmentTokens(uniqueTokens, options);
@@ -40621,19 +40944,19 @@ ${spelling}`);
     if (this.pitchEnrichmentQueue.length) await this.waitForIdle();
    }
   }
-  async enrichPitchToken(token) {
+  async enrichPitchToken(token, options = {}) {
    const fallback = token.card;
    let card = fallback;
    if (!card.pitchAccent.length) {
     const localPitch = await this.localPitchAccentForCard(card);
     if (localPitch.length) card.pitchAccent = localPitch;
    }
-   if (!card.pitchAccent.length) card = await this.resolveRenderedFallbackVocabulary(fallback) ?? fallback;
+   if (!card.pitchAccent.length && options.publicLookup !== false) card = await this.resolveRenderedFallbackVocabulary(fallback) ?? fallback;
    if (!card.pitchAccent.length && card !== fallback) {
     const localPitch = await this.localPitchAccentForCard(card);
     if (localPitch.length) card.pitchAccent = localPitch;
    }
-   const pitchAccent = card.pitchAccent.length ? card.pitchAccent : await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
+   const pitchAccent = card.pitchAccent.length ? card.pitchAccent : options.publicLookup === false ? [] : await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
    if (pitchAccent.length && !card.pitchAccent.length) card.pitchAccent = pitchAccent;
    const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling);
    if (card !== fallback) {
@@ -41342,7 +41665,7 @@ ${spelling}`);
  }
  function discardDemoRuntimeForRealBoot(bootWindow, isRealRuntime) {
   if (!bootWindow.__yomuReaderAppInitialized || !bootWindow.__yomuDemoApp || !isRealRuntime) return;
-  bootWindow.__yomuDemoApp.destroy();
+  bootWindow.__yomuDemoApp.destroy({ preservePageWords: true });
   delete bootWindow.__yomuDemoApp;
   bootWindow.__yomuReaderAppInitialized = false;
  }
@@ -41353,8 +41676,8 @@ ${spelling}`);
  }
  function destroyExistingRuntimeApps(bootWindow) {
   if (!bootWindow.__yomuReaderAppInitialized) return;
-  bootWindow.__yomuRealApp?.destroy();
-  bootWindow.__yomuDemoApp?.destroy();
+  bootWindow.__yomuRealApp?.destroy({ preservePageWords: true });
+  bootWindow.__yomuDemoApp?.destroy({ preservePageWords: true });
  }
  function registerBootedRuntime(bootWindow, app, isRealRuntime) {
   if (isRealRuntime) {
@@ -41365,7 +41688,7 @@ ${spelling}`);
   bootWindow.__yomuDemoApp = app;
   addWindowEventListener("yomu-extension-loaded", () => {
    if (bootWindow.__yomuDemoApp === app) {
-    app.destroy();
+    app.destroy({ preservePageWords: true });
     delete bootWindow.__yomuDemoApp;
    }
   });
@@ -41415,7 +41738,7 @@ ${spelling}`);
    const nextKind = normalizeRuntimeKind(detail.kind);
    if (runtimePriority(nextKind) < runtimePriority(kind)) return;
    log.info("Yielding to another Yomu runtime", { current: kind, next: nextKind });
-   app.destroy();
+   app.destroy({ preservePageWords: true });
    releaseYomuRuntime(ownerId);
    clearBootWindowOwner(app, ownerId);
   });

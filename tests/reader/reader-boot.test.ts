@@ -79,7 +79,42 @@ describe('reader boot', () => {
             detail: { ownerId: 'replacement-runtime', kind: 'userscript', priority: 2 },
         }));
 
-        expect(appMocks.destroy).toHaveBeenCalled();
+        expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+    });
+
+    it('preserves parsed page words when a real runtime boots after the hosted demo runtime', () => {
+        vi.stubGlobal('GM_getValue', undefined);
+
+        bootReaderApp();
+        vi.stubGlobal('GM_getValue', vi.fn());
+        bootReaderApp();
+
+        expect(appMocks.init).toHaveBeenCalledWith({ isDemo: true, showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ isDemo: false, showWelcome: true });
+        expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+        expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
+    });
+
+    it('preserves parsed page words when the extension replaces a userscript runtime', () => {
+        bootReaderApp();
+        appMocks.destroy.mockClear();
+
+        vi.stubGlobal('chrome', { runtime: { id: 'compiled-yomu-extension' } });
+        bootReaderApp();
+
+        expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ isDemo: false, showWelcome: false });
+        expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('extension');
+    });
+
+    it('preserves parsed page words when the hosted demo hears an extension-loaded signal', () => {
+        vi.stubGlobal('GM_getValue', undefined);
+        bootReaderApp();
+        appMocks.destroy.mockClear();
+
+        window.dispatchEvent(new CustomEvent('yomu-extension-loaded'));
+
+        expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
     });
 
     it('removes listeners when a page shadows window.removeEventListener', () => {

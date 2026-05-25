@@ -35,7 +35,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - Hosted local video player at `https://hrussellzfac023.github.io/yomu-reader/video-player/index.html` for opening browser-supported local video and subtitle files without a desktop bridge.
 - Tap subtitle words or OCR text directly to mine; no keyboard required.
 - Optional new-tab study page at `https://hrussellzfac023.github.io/yomu-reader/newtab/`, with accessible accent-color theming and Anki, JPDB, or local dictionary words.
-- Optional YouTube immersion mode hides non-Japanese-looking video cards on YouTube. It is off by default, has an `Alt+Y` toggle shortcut, and includes **Show anyway** / **Turn off** escape hatches.
+- YouTube immersion mode hides non-Japanese-looking video cards on YouTube by default. It checks original YouTube titles when available, has an `Alt+Y` toggle shortcut, and includes temporary reveal and notice-hiding controls.
 - First-run welcome screen explains the core workflow once, then stays out of the way.
 - Configurable accent color and word highlight mode, including pitch-accent colors when JPDB/Anki mining status is not being used.
 

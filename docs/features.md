@@ -84,13 +84,13 @@ You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and m
 
 ## YouTube Immersion Filter
 
-Turn on the optional YouTube filter when recommendations pull you out of Japanese. よむ scans YouTube video card titles and hides cards that do not look Japanese, including recommendations, search results, and sidebars. YouTube playback, subtitles, and よむ controls keep working. It is off by default.
+The YouTube filter is on by default so recommendations stay focused on Japanese. よむ checks the original YouTube title through oEmbed when a video id is available, then hides cards that do not look Japanese across recommendations, search results, and sidebars. YouTube playback, subtitles, and よむ controls keep working.
 
-The notice shows how many cards were hidden. Use **Show anyway** to reveal them, **Filter again** to hide them again, **Turn off** to disable the filter, or `Alt+Y` to toggle it quickly. It is a lightweight title-based filter, so YouTube layout changes and mixed-language titles can affect it.
+The temporary notice shows how many cards were hidden and disappears after a few seconds. Use **Show hidden videos** to reveal them, **Hide hidden videos** to filter them again, **Hide notice** to stop showing that notice while keeping the filter enabled, or `Alt+Y` to toggle the filter itself.
 
 <figure class="yomu-feature-shot">
   <img :src="'/yomu-reader/screenshots/real-youtube-filter.png'" alt="A real YouTube page with よむ hiding non-Japanese-looking recommendation cards and showing the filter notice.">
-  <figcaption>Filtered YouTube recommendations with the reveal and turn-off controls visible.</figcaption>
+  <figcaption>Filtered YouTube recommendations with temporary reveal and notice controls visible.</figcaption>
 </figure>
 
 ## Anki And Mobile Handoff

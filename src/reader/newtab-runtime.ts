@@ -58,6 +58,7 @@ import {
     renderKanjiKeywordLine,
     renderKanjiOrigins,
     renderKanjiPractice,
+    renderPitch,
     renderRtkInfo,
     uniqueKanji,
 } from './popup-render';
@@ -89,7 +90,7 @@ import { installUchisenCarousel, loadUchisenData } from './uchisen';
 import { addWindowEventListener } from './window-events';
 import { renderWordPills } from './word-pills';
 
-import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanTermEntry } from './yomitan';
+import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from './yomitan';
 
 const log = Logger.scope('NewTabRuntime');
 const NEW_TAB_POPOVER_PARSE_TIMEOUT_MS = 1_200;
@@ -112,6 +113,7 @@ interface NewTabLookupDisplayOptions {
     reuseActivePopover?: boolean;
     autoPlay?: boolean;
     stackOverSettings?: boolean;
+    userGesture?: boolean;
 }
 
 interface NewTabKanjiLookupOptions {
@@ -381,9 +383,14 @@ export class NewTabRuntime {
                 jpdbTimeoutMs: options?.jpdbTimeoutMs ?? NEW_TAB_STUDY_PARSE_TIMEOUT_MS,
                 allowJpdbTimeoutFallback: options?.allowJpdbTimeoutFallback,
             }),
-            lookupText: (text, reading, anchor) => this.lookupText(text, reading, anchor),
-            lookupDictionaryReference: (query, reading, _dictionary, anchor) => this.lookupText(query, reading || query, anchor),
-            showLookupCard: (card, sentence, anchor) => this.showLookupCard(card, sentence, anchor, { navigation: 'push-current', reuseActivePopover: true, autoPlay: false }),
+            lookupText: (text, reading, anchor, options) => this.lookupText(text, reading, anchor, { userGesture: options?.userGesture }),
+            lookupDictionaryReference: (query, reading, _dictionary, anchor, options) => this.lookupText(query, reading || query, anchor, { userGesture: options?.userGesture }),
+            showLookupCard: (card, sentence, anchor, options) => this.showLookupCard(card, sentence, anchor, {
+                navigation: 'push-current',
+                reuseActivePopover: true,
+                autoPlay: false,
+                userGesture: options?.userGesture,
+            }),
             showKanjiCard: (card, kanji, sentence, anchor) => this.showKanjiLookupCard(card, kanji, sentence, anchor),
             loadCardRenderData: card => this.cardRenderData.load(card).all,
             renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, { includeStudySources: false }),
@@ -396,6 +403,7 @@ export class NewTabRuntime {
                 dictionaryLabel: name => this.dictionaryLabel(name),
             }),
             installSearchDetailSources: (root, card, sentence, jpdbVocabularyInfo) => this.installLookupPopoverSources(root, card, sentence, jpdbVocabularyInfo),
+            preloadWordAudio: card => this.preloadCurrentStudyWordAudio(card),
             playWordAudio: card => this.audioActions.playTermAudio(card, { userGesture: true }),
             playJpdbExampleAudio: (audioIds, fallbackSentence) => this.audioActions.playJpdbExampleAudio(audioIds, fallbackSentence),
             setImmersionTranslationBlurred: blurred => this.setImmersionTranslationBlurred(blurred),
@@ -513,6 +521,8 @@ export class NewTabRuntime {
         const renderData = this.cardRenderData.load(card);
         const fallbackAnkiLookup: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
         const renderState = { fullRenderCompleted: false };
+        let metaEntriesValue: YomitanMetaEntry[] = [];
+        let renderedPitchKey = card.pitchAccent.join('|');
         clearNestedParseState(popover);
         setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', loadingCardRenderData([], fallbackAnkiLookup)));
         this.localizeLookupPopoverChrome(popover);
@@ -533,8 +543,10 @@ export class NewTabRuntime {
         });
         if (renderData.localMetaEntries) {
             void Promise.all([renderData.localEntries, renderData.localMetaEntries]).then(([localEntries, metaEntries]) => {
+                metaEntriesValue = metaEntries;
                 if (renderState.fullRenderCompleted || !this.isCurrentLookupRender(popover, requestId)) return;
                 this.applyPitchAccentToRenderedWords(card);
+                renderedPitchKey = card.pitchAccent.join('|');
                 clearNestedParseState(popover);
                 setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', loadingCardRenderData(localEntries, fallbackAnkiLookup, metaEntries)));
                 this.localizeLookupPopoverChrome(popover);
@@ -544,9 +556,20 @@ export class NewTabRuntime {
                 this.repositionLookupPopover();
             });
         }
+        if (renderData.pitchAccent) {
+            void renderData.pitchAccent.then(pitchAccent => {
+                if (!pitchAccent.length || !this.isCurrentLookupRender(popover, requestId)) return;
+                if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
+                if (renderedPitchKey === card.pitchAccent.join('|')) return;
+                renderedPitchKey = card.pitchAccent.join('|');
+                this.updateDeferredLookupPitch(popover, card, metaEntriesValue);
+            });
+        }
         void renderData.all.then(data => {
             if (!this.isCurrentLookupRender(popover, requestId)) return;
             renderState.fullRenderCompleted = true;
+            metaEntriesValue = data.metaEntries;
+            renderedPitchKey = card.pitchAccent.join('|');
             this.applyPitchAccentToRenderedWords(card);
             clearNestedParseState(popover);
             setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', { ...data, loading: false }));
@@ -557,6 +580,33 @@ export class NewTabRuntime {
             this.repositionLookupPopover();
         });
         void this.parseNewTabContent(popover);
+    }
+
+    private updateDeferredLookupPitch(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
+        this.applyPitchAccentToRenderedWords(card);
+        this.updateLookupWordPills(popover, card, metaEntries);
+        this.updateLookupPitch(popover, card, metaEntries);
+        this.repositionLookupPopover();
+    }
+
+    private updateLookupWordPills(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
+        const heading = popover.querySelector<HTMLElement>('.jpdb-reader-heading');
+        if (!heading) return;
+        const html = renderWordPills({
+            card,
+            jpdbUrl: `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`,
+            settings: this.settings,
+            metaEntries,
+            isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
+            dictionaryLabel: name => this.dictionaryLabel(name),
+        });
+        replaceOptionalElement(heading, '.jpdb-reader-word-pills', html);
+    }
+
+    private updateLookupPitch(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
+        const tools = popover.querySelector<HTMLElement>('.jpdb-reader-card-tools');
+        if (!tools || !this.settings.showPitchAccent) return;
+        replaceOptionalElement(tools, '.jpdb-reader-pitch', renderPitch(card, metaEntries), tools.firstElementChild);
     }
 
     private lookupPreviousNavigationEntry(navigation: CardNavigationMode | undefined): PopupNavigationEntry | undefined {
@@ -770,7 +820,7 @@ export class NewTabRuntime {
             if (action === 'similar-word' || action === 'lookup') {
                 const expression = button.dataset.expression ?? button.dataset.lookup ?? button.dataset.term ?? '';
                 const reading = button.dataset.reading ?? expression;
-                void this.lookupText(expression, reading, button, { navigation: 'push-current', reuseActivePopover: true });
+                void this.lookupText(expression, reading, button, { navigation: 'push-current', reuseActivePopover: true, userGesture: true });
                 return;
             }
             if (action === 'jpdb-kanji-action') {
@@ -1128,6 +1178,7 @@ export class NewTabRuntime {
         void this.lookupText(link.dataset.dictionaryLookup ?? '', link.dataset.dictionaryReading || query, link, {
             navigation: 'push-current',
             reuseActivePopover: true,
+            userGesture: true,
         });
         return true;
     }
@@ -1148,6 +1199,7 @@ export class NewTabRuntime {
                     navigation: 'push-current',
                     reuseActivePopover: true,
                     previousNavigationEntry: this.lookupPreviousNavigationEntry('push-current'),
+                    userGesture: true,
                 });
             }
             return true;
@@ -1156,6 +1208,7 @@ export class NewTabRuntime {
             navigation: 'push-current',
             reuseActivePopover: true,
             previousNavigationEntry: this.lookupPreviousNavigationEntry('push-current'),
+            userGesture: true,
         });
         return true;
     }
@@ -1258,7 +1311,17 @@ export class NewTabRuntime {
 
     private maybeAutoPlayLookupCard(card: JPDBCard, options: NewTabLookupDisplayOptions): void {
         if (!this.shouldAutoPlayLookupCard(card, options)) return;
-        void this.audioActions.playTermAudio(card);
+        if (options.userGesture) void this.audioActions.playTermAudio(card, { userGesture: true });
+        else void this.audioActions.playTermAudio(card);
+    }
+
+    private preloadCurrentStudyWordAudio(card: JPDBCard): void {
+        if (!this.settings.audioEnabled) return;
+        this.audio.preload(card, {
+            sourceLimit: 1,
+            candidateLimit: 1,
+            prepareAudio: true,
+        });
     }
 
     private maybePreloadLookupCardAudio(card: JPDBCard, options: NewTabLookupDisplayOptions): void {
@@ -1266,7 +1329,7 @@ export class NewTabRuntime {
         this.audio.preload(card, {
             sourceLimit: 1,
             candidateLimit: 1,
-            prepareAudio: false,
+            prepareAudio: true,
         });
     }
 
@@ -1830,4 +1893,27 @@ function markNewTabRuntime(): void {
 
 function refreshableNoop(): { refresh: () => void } {
     return { refresh: () => undefined };
+}
+
+function replaceOptionalElement(parent: Element, selector: string, html: string, before: Element | null = null): void {
+    const existing = parent.querySelector<HTMLElement>(selector);
+    const next = htmlToFirstElement(html);
+    if (existing && next) {
+        existing.replaceWith(next);
+        return;
+    }
+    if (existing) {
+        existing.remove();
+        return;
+    }
+    if (next) parent.insertBefore(next, before);
+}
+
+function htmlToFirstElement(html: string): HTMLElement | null {
+    const trimmed = html.trim();
+    if (!trimmed) return null;
+    const template = document.createElement('template');
+    template.innerHTML = trimmed;
+    const first = template.content.firstElementChild;
+    return first instanceof HTMLElement ? first : null;
 }

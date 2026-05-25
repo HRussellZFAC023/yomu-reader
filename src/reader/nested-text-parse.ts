@@ -77,8 +77,7 @@ export function nestedSettingsTextParsePlan(root: HTMLElement, limit: number): N
 
 export function nestedParseAlreadyScheduled(root: HTMLElement, parseKey: string): boolean {
     return root.dataset.jpdbReaderParseLoadingKey === parseKey
-        || (root.dataset.jpdbReaderParseKey === parseKey
-            && Boolean(root.querySelector(`${PARSEABLE_SELECTOR} .jpdb-reader-word`)));
+        || root.dataset.jpdbReaderParseKey === parseKey;
 }
 
 export function applyNestedParsePlan(plan: NestedParsePlan, parsed: JPDBToken[][], settings: ReaderSettings): void {

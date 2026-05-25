@@ -379,13 +379,110 @@ describe('SubtitlePlayerController', () => {
             await Promise.resolve();
 
             const row = document.querySelector<HTMLElement>('.jpdb-subtitle-row-text');
-            expect(parseJapanese).toHaveBeenCalledWith('読む', { jpdbTimeoutMs: 1200, includeLocalPitch: false });
+            expect(parseJapanese).toHaveBeenCalledWith('読む', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
             expect(row?.querySelector('.jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
             expect(row?.querySelector('.jpdb-reader-furi')?.textContent).toBe('よ');
         } finally {
             window.requestAnimationFrame = originalRequestAnimationFrame;
             window.cancelAnimationFrame = originalCancelAnimationFrame;
         }
+    });
+
+    it('updates transcript rows through the parse-key index instead of scanning every row', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            subtitleTranscriptAutoScroll: false,
+            apiKey: 'test-key',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+        (controller as unknown as { install: () => void }).install();
+
+        const video = document.createElement('video');
+        Object.defineProperty(video, 'currentTime', { configurable: true, value: 0.5, writable: true });
+        const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
+        const internals = controller as unknown as {
+            video: HTMLVideoElement;
+            selectedTrackId: string;
+            cues: Array<typeof cue>;
+            currentCue: typeof cue;
+            openLinesPanel: () => void;
+            parseCacheKey: (text: string, settings: typeof DEFAULT_SETTINGS) => string;
+            updateTranscriptRowsForParseKey(key: string, html: string): void;
+        };
+        internals.video = video;
+        internals.selectedTrackId = 'file-primary';
+        internals.cues = [cue];
+        internals.currentCue = cue;
+
+        internals.openLinesPanel();
+        const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+        const originalQuerySelectorAll = panel.querySelectorAll.bind(panel);
+        const querySelectorAll = vi.spyOn(panel, 'querySelectorAll');
+        querySelectorAll.mockImplementation(((selector: string) => {
+            if (selector === '[data-transcript-text]' || selector === '[data-transcript-text][data-parse-key]') {
+                throw new Error('unexpected full transcript scan');
+            }
+            return originalQuerySelectorAll(selector);
+        }) as typeof panel.querySelectorAll);
+
+        const key = internals.parseCacheKey('読む', settings);
+        internals.updateTranscriptRowsForParseKey(key, '<span class="jpdb-reader-word jpdb-known">読む</span>');
+
+        expect(document.querySelector('.jpdb-subtitle-row-text .jpdb-reader-word')?.textContent).toBe('読む');
+        expect(querySelectorAll).not.toHaveBeenCalledWith('[data-transcript-text]');
+    });
+
+    it('updates the active transcript line without replacing existing rows', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            subtitleTranscriptAutoScroll: false,
+            apiKey: '',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+        (controller as unknown as { install: () => void }).install();
+
+        const video = document.createElement('video');
+        Object.defineProperty(video, 'currentTime', { configurable: true, value: 0.5, writable: true });
+        const cues = [
+            { start: 0, end: 1, text: '一番', transcriptEligible: true },
+            { start: 1, end: 2, text: '二番', transcriptEligible: true },
+        ];
+        const internals = controller as unknown as {
+            video: HTMLVideoElement;
+            selectedTrackId: string;
+            cues: typeof cues;
+            currentCue: typeof cues[number];
+            openLinesPanel: () => void;
+            renderTranscriptPanel(force?: boolean): void;
+        };
+        internals.video = video;
+        internals.selectedTrackId = 'file-primary';
+        internals.cues = cues;
+        internals.currentCue = cues[0]!;
+
+        internals.openLinesPanel();
+        const initialRows = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row'));
+        expect(initialRows[0]?.classList.contains('active')).toBe(true);
+
+        internals.currentCue = cues[1]!;
+        video.currentTime = 1.2;
+        internals.renderTranscriptPanel();
+
+        const updatedRows = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row'));
+        expect(updatedRows[0]).toBe(initialRows[0]);
+        expect(updatedRows[1]).toBe(initialRows[1]);
+        expect(updatedRows[0]?.classList.contains('active')).toBe(false);
+        expect(updatedRows[1]?.classList.contains('active')).toBe(true);
     });
 
     it('does not cache empty subtitle parse results as parsed word HTML', async () => {
@@ -521,7 +618,7 @@ describe('SubtitlePlayerController', () => {
             internals.openLinesPanel();
             for (let index = 0; index < cues.length * 12; index++) await Promise.resolve();
 
-            expect(parseJapanese).toHaveBeenCalledWith('字幕23', { jpdbTimeoutMs: 1200, includeLocalPitch: false });
+            expect(parseJapanese).toHaveBeenCalledWith('字幕23', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
         } finally {
             window.requestAnimationFrame = originalRequestAnimationFrame;
         }
@@ -572,7 +669,7 @@ describe('SubtitlePlayerController', () => {
 
             await Promise.resolve();
             expect(parseJapanese).toHaveBeenCalledTimes(1);
-            expect(parseJapanese).toHaveBeenCalledWith('字幕0', { jpdbTimeoutMs: 1200, includeLocalPitch: false });
+            expect(parseJapanese).toHaveBeenCalledWith('字幕0', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
 
             await vi.advanceTimersByTimeAsync(119);
             expect(parseJapanese).toHaveBeenCalledTimes(1);
@@ -580,7 +677,7 @@ describe('SubtitlePlayerController', () => {
             await vi.advanceTimersByTimeAsync(1);
             await Promise.resolve();
             expect(parseJapanese).toHaveBeenCalledTimes(2);
-            expect(parseJapanese).toHaveBeenCalledWith('字幕1', { jpdbTimeoutMs: 1200, includeLocalPitch: false });
+            expect(parseJapanese).toHaveBeenCalledWith('字幕1', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
 
             internals.transcriptCacheWarmupSerial = 2;
             await vi.runOnlyPendingTimersAsync();
@@ -632,7 +729,7 @@ describe('SubtitlePlayerController', () => {
 
         expect(parseJapanese).not.toHaveBeenCalled();
         expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['字幕0', '字幕1', '字幕2', '字幕3']);
-        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: false });
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
         expect(parseJapaneseBatch.mock.calls[1]?.[0]).toEqual(['字幕4', '字幕5', '字幕6', '字幕7']);
     });
 
@@ -661,7 +758,7 @@ describe('SubtitlePlayerController', () => {
         const second = internals.parseCueHtmlBatch(['字幕0'], testSettings);
 
         expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
-        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: false });
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
         resolveBatch([[]]);
 
         const [firstResult, secondResult] = await Promise.all([first, second]);

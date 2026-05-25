@@ -2539,8 +2539,10 @@ mark.jpdb-reader-example-target {
   justify-content: space-between;
   gap: 8px;
   min-width: 0;
+  max-width: 100%;
 }
 .jpdb-reader-study-label-row .jpdb-reader-icon-mini {
+  flex: 0 0 28px;
   width: 28px !important;
   min-width: 28px !important;
   max-width: 28px !important;
@@ -2550,8 +2552,23 @@ mark.jpdb-reader-example-target {
 }
 .jpdb-reader-study-original {
   margin: 0;
+  min-width: 0;
+  max-width: 100%;
   font-size: 13px;
   line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: normal;
+}
+.jpdb-reader-study-original .jpdb-reader-word,
+.jpdb-reader-study-short .jpdb-reader-word,
+.jpdb-reader-study-detail .jpdb-reader-word,
+.jpdb-reader-study-match-text .jpdb-reader-word,
+.jpdb-reader-grammar-example .jpdb-reader-word,
+.jpdb-reader-jpdb-example .jpdb-reader-example-sentence .jpdb-reader-word {
+  overflow-wrap: anywhere !important;
+  white-space: normal;
+  word-break: normal;
 }
 .jpdb-reader-study-original rt {
   color: var(--jpdb-reader-muted);
@@ -2560,8 +2577,13 @@ mark.jpdb-reader-example-target {
 }
 .jpdb-reader-study-translation {
   color: var(--jpdb-reader-text);
+  min-width: 0;
+  max-width: 100%;
   font-size: 13px;
   line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: normal;
 }
 .jpdb-reader-study-name {
   color: var(--jpdb-reader-text);
@@ -2624,6 +2646,17 @@ mark.jpdb-reader-example-target {
 .jpdb-reader-study-short,
 .jpdb-reader-study-empty {
   color: var(--jpdb-reader-text);
+}
+.jpdb-reader-study-short,
+.jpdb-reader-study-empty,
+.jpdb-reader-study-detail,
+.jpdb-reader-study-match-text,
+.jpdb-reader-grammar-example {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: normal;
 }
 .jpdb-reader-study-detail,
 .jpdb-reader-study-match {
@@ -6563,7 +6596,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     cursor: pointer;
 }
 
-.jpdb-youtube-filter-bar [data-action="turn-off"] {
+.jpdb-youtube-filter-bar [data-action="hide-notice"] {
     border-color: var(--jpdb-reader-border);
     color: var(--jpdb-reader-muted);
 }

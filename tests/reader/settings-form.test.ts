@@ -152,20 +152,20 @@ describe('settings form localization', () => {
         const notice = form.querySelector<HTMLInputElement>('input[name="youtubeShowFilterNotice"]')!;
         const shortcut = form.querySelector<HTMLInputElement>('input[name="shortcuts.toggleYoutubeImmersion"]')!;
 
-        expect(DEFAULT_SETTINGS.youtubeImmersionEnabled).toBe(false);
+        expect(DEFAULT_SETTINGS.youtubeImmersionEnabled).toBe(true);
         expect(DEFAULT_SETTINGS.youtubeShowFilterNotice).toBe(true);
         expect(DEFAULT_SETTINGS.shortcuts.toggleYoutubeImmersion).toBe('Alt+Y');
-        expect(filter.checked).toBe(false);
+        expect(filter.checked).toBe(true);
         expect(notice.checked).toBe(true);
         expect(shortcut.value).toBe('Alt+Y');
 
-        filter.checked = true;
+        filter.checked = false;
         notice.checked = false;
         shortcut.value = 'Ctrl+Y';
 
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
 
-        expect(saved.youtubeImmersionEnabled).toBe(true);
+        expect(saved.youtubeImmersionEnabled).toBe(false);
         expect(saved.youtubeShowFilterNotice).toBe(false);
         expect(saved.shortcuts.toggleYoutubeImmersion).toBe('Ctrl+Y');
     });
