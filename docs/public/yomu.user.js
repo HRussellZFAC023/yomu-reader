@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.43
+// @version      0.4.44
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -1806,7 +1806,7 @@ Greasy Fork compliance notes:
   return "terms";
  }
  const HAS_JAPANESE$1 = /[\u3040-\u30ff\u3400-\u9fff]/;
- const KANJI_RE$2 = /[\u3400-\u9fff]/u;
+ const KANJI_RE$3 = /[\u3400-\u9fff]/u;
  const EASY_FURIGANA_KANJI = new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
  );
@@ -2767,7 +2767,7 @@ Greasy Fork compliance notes:
  }
  function hasDifficultKanji(surface) {
   for (const char of surface) {
-   if (KANJI_RE$2.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+   if (KANJI_RE$3.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
   }
   return false;
  }
@@ -7204,7 +7204,7 @@ Greasy Fork compliance notes:
   return urls;
  }
  function commonsSearchApiUrl(term, source) {
-  const search = source === "lingua-libre" ? `intitle:/-(${escapeRegExp$1(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"` : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp$1(term)}[0123456789]*.ogg/i`;
+  const search = source === "lingua-libre" ? `intitle:/-(${escapeRegExp$2(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"` : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp$2(term)}[0123456789]*.ogg/i`;
   return `https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srnamespace=6&origin=*&srsearch=${encodeURIComponent(search)}`;
  }
  function commonsSearchTitles(response) {
@@ -7242,7 +7242,7 @@ Greasy Fork compliance notes:
   return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
  }
  function findHtmlElementById(html, tag, id) {
-  return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp$1(id)}\\1`, "i"));
+  return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp$2(id)}\\1`, "i"));
  }
  function findHtmlElementByClass(html, tag, className) {
   return findHtmlElementsByClass(html, tag, className)[0] ?? null;
@@ -7297,7 +7297,7 @@ Greasy Fork compliance notes:
   return uniqueAudioUrls(urls);
  }
  function getHtmlAttribute(attributes, name) {
-  const match = new RegExp(`\\b${escapeRegExp$1(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
+  const match = new RegExp(`\\b${escapeRegExp$2(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
   return match ? decodeHtmlAttribute(match[2]) : null;
  }
  function decodeHtmlAttribute(value) {
@@ -7309,9 +7309,9 @@ Greasy Fork compliance notes:
  function isValidCommonsAudioFilename(filename, fileUser, term, source) {
   if (!filename) return false;
   if (source === "lingua-libre") {
-   return new RegExp(`^File:LL-Q\\d+\\s+\\(jpn\\)-${escapeRegExp$1(fileUser)}-${escapeRegExp$1(term)}\\.wav$`, "i").test(filename);
+   return new RegExp(`^File:LL-Q\\d+\\s+\\(jpn\\)-${escapeRegExp$2(fileUser)}-${escapeRegExp$2(term)}\\.wav$`, "i").test(filename);
   }
-  return new RegExp(`^File:ja(-\\w\\w)?-${escapeRegExp$1(term)}\\d*\\.ogg$`, "i").test(filename);
+  return new RegExp(`^File:ja(-\\w\\w)?-${escapeRegExp$2(term)}\\d*\\.ogg$`, "i").test(filename);
  }
  function normalizeAudioUrl(value, sourceUrl) {
   try {
@@ -7411,7 +7411,7 @@ Greasy Fork compliance notes:
   if (rel === "preconnect") link.crossOrigin = "anonymous";
   document.head?.append(link);
  }
- function escapeRegExp$1(value) {
+ function escapeRegExp$2(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  }
  const POS_LABELS = {
@@ -13736,8 +13736,9 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
  async function translateJapaneseSentence(sentence, language = "en") {
   const trimmed = sentence.trim();
   if (!trimmed) return "";
+  const requestSentence = normalizeSentenceForTranslationRequest(trimmed);
   const targetLanguage = translationTargetLanguage();
-  const cacheKey = `${targetLanguage}:${trimmed}`;
+  const cacheKey = `${targetLanguage}:${requestSentence}`;
   const cached = translationCache.get(cacheKey);
   if (cached) {
    return cached;
@@ -13746,7 +13747,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   if (inFlight) {
    return inFlight;
   }
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(trimmed)}`;
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(requestSentence)}`;
   const promise = (async () => {
    const done = log$q.time("Translate sentence", { sentenceLength: trimmed.length });
    try {
@@ -13774,6 +13775,9 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
  }
  function translationTargetLanguage(_language) {
   return "en";
+ }
+ function normalizeSentenceForTranslationRequest(sentence) {
+  return sentence.replace(/[「『]/g, '"').replace(/[」』]/g, '"');
  }
  async function renderGrammarHints(hints, sentence, preferences = readGrammarPreferences(), language = "en") {
   if (!hints.length) return "";
@@ -15082,7 +15086,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
  }
  function metaKeyword(doc, kanji) {
   const description = doc.querySelector('meta[name="description"]')?.content ?? "";
-  const match = new RegExp(`${escapeRegExp(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
+  const match = new RegExp(`${escapeRegExp$1(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
   return cleanText$5(match?.[1] ?? "");
  }
  function cleanText$5(value) {
@@ -15095,7 +15099,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   const normalized = value.trim().toLowerCase();
   return normalized === "" || normalized === "missing" || section?.querySelector(".keyword-missing") !== null;
  }
- function escapeRegExp(value) {
+ function escapeRegExp$1(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  }
  function requestText$6(url, proxyUrl = "", options = {}) {
@@ -16426,9 +16430,11 @@ ${entry.reading}`;
   ].join("");
  }
  function renderPitch(card, metaEntries = []) {
-  const pitch = card.pitchAccent[0] || localPitchPatternFromMeta(card.reading, metaEntries);
+  const reading = cardPronunciationReading(card);
+  const pitch = card.pitchAccent[0] || localPitchPatternFromMeta(reading || card.reading, metaEntries);
   if (!pitch) return "";
-  const morae = splitMorae$1(card.reading);
+  if (!reading) return "";
+  const morae = splitMorae$1(reading);
   const highs = Array.from(pitch).filter((ch) => ch === "H" || ch === "L").slice(0, morae.length);
   if (highs.length < 2) return "";
   const width = morae.length * 24 + 18;
@@ -16439,6 +16445,12 @@ ${entry.reading}`;
         ${highs.map((level, index) => `<circle class="${cls}" cx="${9 + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
         ${morae.map((mora, index) => `<text x="${9 + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
     </svg></div>`;
+ }
+ function cardPronunciationReading(card) {
+  const reading = cleanPronunciationReading(card.reading);
+  if (reading && !containsKanji(reading)) return reading;
+  const rubyReading = cleanPronunciationReading(readingFromWordWithReading(card.wordWithReading ?? ""));
+  return rubyReading && !containsKanji(rubyReading) ? rubyReading : "";
  }
  function localPitchPatternFromMeta(reading, entries) {
   for (const entry of entries) {
@@ -16522,6 +16534,28 @@ ${entry.reading}`;
  function isKanjiCharacter$1(value) {
   const code = value.codePointAt(0) ?? 0;
   return code >= 13312 && code <= 40959;
+ }
+ function containsKanji(value) {
+  return Array.from(value).some(isKanjiCharacter$1);
+ }
+ function cleanPronunciationReading(value) {
+  return value.replace(/\s+/g, "").trim();
+ }
+ function readingFromWordWithReading(value) {
+  let reading = "";
+  let offset = 0;
+  const rubyPattern = /([^\[\]]+)\[([^\]]+)\]/g;
+  for (const match of value.matchAll(rubyPattern)) {
+   const index = match.index ?? 0;
+   reading += unannotatedPronunciationText(value.slice(offset, index));
+   reading += match[2] ?? "";
+   offset = index + match[0].length;
+  }
+  reading += unannotatedPronunciationText(value.slice(offset));
+  return reading;
+ }
+ function unannotatedPronunciationText(value) {
+  return Array.from(value).filter((character) => !isKanjiCharacter$1(character)).join("");
  }
  function splitMorae$1(reading) {
   const small = new Set("ゃゅょャュョァィゥェォ");
@@ -17331,7 +17365,8 @@ ${entry.reading}`;
   };
  }
  function renderReading(card) {
-  return card.reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml$1(card.reading)}</div>` : "";
+  const reading = cardPronunciationReading(card);
+  return reading && reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml$1(reading)}</div>` : "";
  }
  function renderMeta(metaItems) {
   return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : "";
@@ -19920,6 +19955,8 @@ ${entry.reading}`;
   }
  }
  const COMBINING_KANA = new Set("ゃゅょぁぃぅぇぉャュョァィゥェォ");
+ const KANJI_RE$2 = /[\u3400-\u9fff]/u;
+ const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
  function jpdbVocabularyToCards(vocabulary2) {
   const cards = vocabulary2.map(([
    vid,
@@ -19953,26 +19990,28 @@ ${entry.reading}`;
   return cards;
  }
  function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
-  const tokens = rawTokens.map((innerTokens) => parseParagraphTokens(innerTokens, cards));
+  const tokens = rawTokens.map((innerTokens, index) => parseParagraphTokens(paragraphs[index] ?? "", innerTokens, cards));
   assignSentenceInfo(paragraphs, tokens);
   return tokens;
  }
- function parseParagraphTokens(rawTokens, cards) {
+ function parseParagraphTokens(paragraph, rawTokens, cards) {
   let inheritedPitchClass = "";
   return rawTokens.map((rawToken) => {
-   const token = parseToken(rawToken, cards, inheritedPitchClass);
+   const token = parseToken(rawToken, paragraph, cards, inheritedPitchClass);
    inheritedPitchClass = token.pitchClass;
    return token;
   });
  }
- function parseToken([vocabularyIndex, position, length, furigana], cards, inheritedPitchClass) {
+ function parseToken([vocabularyIndex, position, length, furigana], paragraph, cards, inheritedPitchClass) {
   const card = cards[vocabularyIndex];
+  const rubies = parseRubies(furigana, position);
+  repairCardReadingFromRubies(card, paragraph.slice(position, position + length), rubies, position);
   const token = {
    card,
    start: position,
    end: position + length,
    length,
-   rubies: parseRubies(furigana, position),
+   rubies,
    pitchClass: inheritedOrCurrentPitchClass(card, inheritedPitchClass)
   };
   assignWordWithReading(token);
@@ -20140,6 +20179,31 @@ ${entry.reading}`;
    word.splice(start - offset + length, 0, `[${text2}]`);
   }
   card.wordWithReading = word.join("");
+ }
+ function repairCardReadingFromRubies(card, surface, rubies, offset) {
+  if (!shouldRepairCardReading(card, surface, rubies)) return;
+  const reading = surfaceReadingFromRubies(surface, rubies, offset);
+  if (reading && KANA_RE.test(reading)) card.reading = reading;
+ }
+ function shouldRepairCardReading(card, surface, rubies) {
+  if (!rubies.length || !surface || card.spelling !== surface) return false;
+  if (!KANJI_RE$2.test(card.spelling)) return false;
+  const reading = card.reading.trim();
+  return !reading || reading === card.spelling;
+ }
+ function surfaceReadingFromRubies(surface, rubies, offset) {
+  let reading = "";
+  let cursor = 0;
+  for (const ruby of rubies) {
+   const start = ruby.start - offset;
+   const end = ruby.end - offset;
+   if (start < cursor || start < 0 || end > surface.length || end <= start) return "";
+   reading += surface.slice(cursor, start);
+   reading += ruby.text;
+   cursor = end;
+  }
+  reading += surface.slice(cursor);
+  return reading;
  }
  class LruCache {
   constructor(maxSize) {
@@ -21374,10 +21438,10 @@ ${glossaryKey}`;
   ).slice(0, limit);
  }
  function searchResultCard(root, doc) {
-  const identity = searchResultIdentity(root);
+  const identity = searchResultIdentity(root, doc);
   const headword = root.querySelector(".subsection-headword .primary-spelling .spelling, .subsection-headword .spelling");
   const spelling = cleanText$1(identity?.expression ?? "") || cleanText$1(headword ? baseText(headword) : "");
-  const reading = cleanText$1(identity?.reading ?? "") || cleanText$1(headword ? readingText(headword) : "") || spelling;
+  const reading = cleanText$1(identity?.reading ?? "") || cleanText$1(headword ? readingText(headword) : "") || metaDescriptionReading(doc, spelling) || spelling;
   if (!spelling || !JAPANESE_RE$1.test(spelling)) return null;
   const meanings = extractMeanings(root, doc, spelling, reading);
   const partOfSpeech = extractPartOfSpeech(root);
@@ -21397,10 +21461,17 @@ ${glossaryKey}`;
    sentence: spelling
   };
  }
- function searchResultIdentity(root) {
+ function searchResultIdentity(root, doc) {
   const links = Array.from(root.querySelectorAll('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]'));
   const details = links.find((link) => /more details/i.test(cleanText$1(link.textContent ?? "")));
-  return (details ? vocabularyEntryFromUrl(details.href || details.getAttribute("href") || "") : null) ?? links.map((link) => vocabularyEntryFromUrl(link.href || link.getAttribute("href") || "")).find((entry) => entry !== null) ?? null;
+  const detailIdentity = details ? vocabularyEntryFromUrl(details.href || details.getAttribute("href") || "") : null;
+  const canonicalIdentity = documentVocabularyEntry(doc);
+  const linkIdentities = links.map((link) => vocabularyEntryFromUrl(link.href || link.getAttribute("href") || "")).filter((entry) => entry !== null);
+  return bestVocabularyIdentity([
+   detailIdentity,
+   canonicalIdentity,
+   ...linkIdentities
+  ]);
  }
  function vocabularyEntryFromUrl(value) {
   if (!value) return null;
@@ -21417,6 +21488,22 @@ ${glossaryKey}`;
   } catch {
    return null;
   }
+ }
+ function documentVocabularyEntry(doc) {
+  const canonical = doc.querySelector('link[rel="canonical"][href*="/vocabulary/"]')?.href ?? "";
+  return vocabularyEntryFromUrl(canonical);
+ }
+ function bestVocabularyIdentity(entries) {
+  const candidates = entries.filter((entry) => entry !== null);
+  return candidates.find((entry) => entry.reading) ?? candidates[0] ?? null;
+ }
+ function metaDescriptionReading(doc, spelling) {
+  if (!spelling) return "";
+  const description = doc.querySelector('meta[name="description"]')?.content ?? "";
+  const escaped = escapeRegExp(spelling);
+  const match = new RegExp(`${escaped}\\s*[（(]([^）)]+)[）)]`).exec(description);
+  const reading = cleanText$1(match?.[1] ?? "");
+  return JAPANESE_RE$1.test(reading) ? reading : "";
  }
  function extractPartOfSpeech(root) {
   return unique(Array.from(root.querySelectorAll(".subsection-meanings .part-of-speech div")).map((element2) => cleanText$1(element2.textContent ?? "")).filter(Boolean));
@@ -21710,6 +21797,9 @@ ${glossaryKey}`;
  }
  function cleanMeaning(value) {
   return cleanText$1(value).replace(/^\d+\.\s*/, "");
+ }
+ function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  }
  function decodePathPart(value) {
   try {
