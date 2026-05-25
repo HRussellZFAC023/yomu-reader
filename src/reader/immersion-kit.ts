@@ -13,7 +13,8 @@ const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const MEDIA_CANDIDATE_LIMIT = 4;
 const SEARCH_EXAMPLE_LIMIT = 250;
 const SEARCH_CACHE_LIMIT = 160;
-const SEARCH_RATE_LIMIT_COOLDOWN_MS = 2 * 60 * 1000;
+const SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS = 1_000;
+const SEARCH_RATE_LIMIT_MAX_BACKOFF_MS = 30_000;
 const PRELOAD_KEY_LIMIT = 300;
 const NADESHIKO_SEARCH_LIMIT = 25;
 const MIN_LEARNING_SENTENCE_LENGTH = 8;
@@ -149,6 +150,7 @@ export class ImmersionKitClient {
     private preloadKeys = new Set<string>();
     private mediaBlobUrlCache = new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS);
     private immersionKitRateLimitedUntil = 0;
+    private immersionKitBackoffMs = SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS;
 
     async search(term: string, settings: ReaderSettings, options: ImmersionKitSearchOptions = {}): Promise<ImmersionKitExample[]> {
         const query = term.trim();
@@ -239,7 +241,10 @@ export class ImmersionKitClient {
     private searchImmersionKit(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): Promise<ImmersionKitExample[]> {
         this.assertImmersionKitSearchAllowed();
         return requestJson(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal)
-            .then(data => filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), 'immersion-kit'))
+            .then(data => {
+                this.resetImmersionKitBackoff();
+                return filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), 'immersion-kit');
+            })
             .catch(error => {
                 if (isImmersionKitRateLimitError(error)) this.noteImmersionKitRateLimit();
                 throw error;
@@ -253,7 +258,13 @@ export class ImmersionKitClient {
     }
 
     private noteImmersionKitRateLimit(): void {
-        this.immersionKitRateLimitedUntil = Date.now() + SEARCH_RATE_LIMIT_COOLDOWN_MS;
+        this.immersionKitRateLimitedUntil = Date.now() + this.immersionKitBackoffMs;
+        this.immersionKitBackoffMs = Math.min(this.immersionKitBackoffMs * 2, SEARCH_RATE_LIMIT_MAX_BACKOFF_MS);
+    }
+
+    private resetImmersionKitBackoff(): void {
+        this.immersionKitBackoffMs = SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS;
+        this.immersionKitRateLimitedUntil = 0;
     }
 
     private searchNadeshiko(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): Promise<ImmersionKitExample[]> {
