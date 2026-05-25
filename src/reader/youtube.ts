@@ -61,8 +61,6 @@ const PLAYLIST_BADGE_SELECTOR = [
     'ytd-thumbnail-overlay-side-panel-renderer',
     'ytd-badge-supported-renderer',
     '.badge-shape-wiz__text',
-    '[aria-label*="playlist" i]',
-    '[aria-label*="mix" i]',
     '[aria-label*="再生リスト"]',
     '[aria-label*="ミックス"]',
 ].join(',');

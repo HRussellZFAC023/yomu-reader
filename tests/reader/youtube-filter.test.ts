@@ -168,6 +168,36 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
+    it('keeps normal videos visible when their title aria-label contains mix', async () => {
+        vi.useFakeTimers();
+        stubOEmbedTitles({ music: '東京で Lo-fi mix を聴く' });
+        document.body.innerHTML = `
+            <main>
+                <ytd-rich-item-renderer data-case="music">
+                    <a id="video-title" href="/watch?v=music" aria-label="東京で Lo-fi mix を聴く">東京で Lo-fi mix を聴く</a>
+                </ytd-rich-item-renderer>
+            </main>
+        `;
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            youtubeImmersionEnabled: true,
+            youtubeShowFilterNotice: true,
+        };
+        const filter = new YoutubeImmersionFilter({
+            getSettings: () => settings,
+            isActivePage: () => true,
+        });
+
+        filter.init();
+        await runInitialFilterScan();
+
+        expect(collectYouTubeVideoCards(document)).toEqual([card('music')]);
+        expect(card('music').classList.contains('jpdb-youtube-filtered')).toBe(false);
+        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
+
+        filter.destroy();
+    });
+
     it('keeps Japanese-looking translated titles visible while original title lookup is pending', async () => {
         vi.useFakeTimers();
         const translated = deferred<{ ok: boolean; json: () => Promise<{ title: string }> }>();
