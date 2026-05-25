@@ -101,7 +101,10 @@ describe('YouTube immersion filter', () => {
         expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[3]))).toBe(true);
         expect(readYouTubeCardText(cards[4])).toBe('東京カフェで朝ごはん');
         expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[4]))).toBe(true);
-        expect(isProbablyJapaneseYouTubeText('日本語')).toBe(false);
+        expect(isProbablyJapaneseYouTubeText('日本語')).toBe(true);
+        expect(isProbablyJapaneseYouTubeText('東京散歩')).toBe(true);
+        expect(isProbablyJapaneseYouTubeText('睡眠音楽♪')).toBe(true);
+        expect(isProbablyJapaneseYouTubeText('作業用BGM')).toBe(true);
         expect(isProbablyJapaneseYouTubeText('fypシ゚')).toBe(false);
     });
 
@@ -127,6 +130,86 @@ describe('YouTube immersion filter', () => {
         const cards = collectYouTubeVideoCards(document);
 
         expect(cards).toEqual([card('outer-video')]);
+    });
+
+    it('hides the outer rich-grid slot for nested modern lockup cards', async () => {
+        vi.useFakeTimers();
+        stubOEmbedTitles({ modern: '10 habits for studying' });
+        document.body.innerHTML = `
+            <main>
+                <ytd-rich-grid-row>
+                    <div id="contents">
+                        <ytd-rich-item-renderer data-case="outer-modern">
+                            <yt-lockup-view-model data-case="inner-modern">
+                                <a class="ytLockupViewModelContentImage" href="/watch?v=modern">25:39</a>
+                                <div class="ytLockupMetadataViewModelMetadata">
+                                    <h3 class="ytLockupMetadataViewModelHeadingReset">10 habits for studying</h3>
+                                    <a class="ytLockupMetadataViewModelTitle" href="/watch?v=modern">10 habits for studying</a>
+                                </div>
+                            </yt-lockup-view-model>
+                        </ytd-rich-item-renderer>
+                    </div>
+                </ytd-rich-grid-row>
+            </main>
+        `;
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            youtubeImmersionEnabled: true,
+            youtubeShowFilterNotice: true,
+        };
+        const filter = new YoutubeImmersionFilter({
+            getSettings: () => settings,
+            isActivePage: () => true,
+        });
+
+        filter.init();
+        await runInitialFilterScan();
+
+        expect(collectYouTubeVideoCards(document)).toEqual([card('outer-modern')]);
+        expect(card('outer-modern').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('inner-modern').classList.contains('jpdb-youtube-filtered')).toBe(false);
+        expect(document.querySelector('.jpdb-youtube-filter-bar')?.textContent).toContain('hid 1');
+
+        filter.destroy();
+    });
+
+    it('nudges YouTube continuation loading when filtering leaves too few visible videos', async () => {
+        vi.useFakeTimers();
+        document.body.innerHTML = `
+            <main>
+                <ytd-rich-item-renderer data-case="jp">
+                    <a id="video-title" href="/watch?v=jp">日本語で花の名前を覚える</a>
+                </ytd-rich-item-renderer>
+                <ytd-rich-item-renderer data-case="english-1">
+                    <a id="video-title" href="/watch?v=en1">10 habits for studying</a>
+                </ytd-rich-item-renderer>
+                <ytd-rich-item-renderer data-case="english-2">
+                    <a id="video-title" href="/watch?v=en2">The best desk setup</a>
+                </ytd-rich-item-renderer>
+                <ytd-continuation-item-renderer data-case="continuation"></ytd-continuation-item-renderer>
+            </main>
+        `;
+        const continuation = card('continuation') as HTMLElement & { scrollIntoView: (options?: ScrollIntoViewOptions) => void };
+        const scrollIntoView = vi.fn();
+        continuation.scrollIntoView = scrollIntoView;
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            youtubeImmersionEnabled: true,
+            youtubeShowFilterNotice: true,
+        };
+        const filter = new YoutubeImmersionFilter({
+            getSettings: () => settings,
+            isActivePage: () => true,
+        });
+
+        filter.init();
+        await runInitialFilterScan();
+
+        expect(card('english-1').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('english-2').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(scrollIntoView).toHaveBeenCalledWith({ block: 'end' });
+
+        filter.destroy();
     });
 
     it('hides playlist and mix tiles instead of leaving them in the filtered feed', async () => {
@@ -525,6 +608,7 @@ describe('YouTube immersion filter', () => {
             expect(MutationObserverMock).toHaveBeenCalledTimes(1);
             expect(observe).toHaveBeenCalledTimes(1);
             expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
+            expect(card('translated-english').classList.contains('jpdb-youtube-filtered')).toBe(true);
 
             settings = { ...settings, youtubeImmersionEnabled: false };
             filter.refresh();

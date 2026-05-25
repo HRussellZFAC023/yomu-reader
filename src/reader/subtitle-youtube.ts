@@ -37,7 +37,11 @@ export interface YouTubeTrackLoadOptions<T extends YouTubeSubtitleTrack> {
 
 export async function discoverYouTubeCaptionTracks(): Promise<YouTubeCaptionTrackCandidate[]> {
     const pageTracks = getYouTubeCaptionTracks();
-    return pageTracks.length ? pageTracks : await getAndroidYouTubeCaptionTracks();
+    const androidTracks = await getAndroidYouTubeCaptionTracks();
+    return uniqueYouTubeCaptionTrackCandidates([
+        ...pageTracks,
+        ...androidTracks,
+    ]);
 }
 
 export async function loadYouTubeTrackCues<T extends YouTubeSubtitleTrack>(
@@ -172,6 +176,15 @@ export function isYouTubePage(): boolean {
     return /(^|\.)youtube\.com$/i.test(location.hostname);
 }
 
+export function isYouTubeOwnedVideoElement(video: HTMLVideoElement | undefined): boolean {
+    if (!isYouTubePage()) return true;
+    if (!video || !getYouTubeVideoId()) return false;
+    const player = video.closest<HTMLElement>('#movie_player') as (HTMLElement & { getVideoData?: () => { video_id?: string } }) | null;
+    if (!player) return false;
+    const playerVideoId = getYouTubePlayerVideoId(player);
+    return !playerVideoId || playerVideoId === getYouTubeVideoId();
+}
+
 export function shouldRefreshYouTubeTrackUrl(next: string | undefined, current: string | undefined): boolean {
     if (!next || next === current) return false;
     return youtubeTrackUrlScore(next) >= youtubeTrackUrlScore(current);
@@ -204,7 +217,7 @@ export function youtubeCaptionTrackIdentity(track: {
         sourceLanguage,
         targetLanguage || language,
         track.vssId ?? '',
-        normalizedYouTubeCaptionLabel(track.label),
+        track.vssId ? '' : normalizedYouTubeCaptionLabel(track.label),
     ].join(':');
 }
 
@@ -239,14 +252,28 @@ function getYouTubePlayerCaptionTracks(): unknown[] {
         getAudioTrack?: () => { captionTracks?: unknown[] };
     } | null;
     const videoId = getYouTubeVideoId();
-    const playerVideoId = player?.getVideoData?.()?.video_id;
+    if (!videoId) return [];
+    const playerVideoId = getYouTubePlayerVideoId(player);
     const tracks = player?.getAudioTrack?.()?.captionTracks;
-    return (!playerVideoId || !videoId || playerVideoId === videoId) && Array.isArray(tracks) ? tracks : [];
+    if (playerVideoId && playerVideoId !== videoId) return [];
+    return Array.isArray(tracks) ? tracks.filter(track => youtubeRawCaptionTrackMatchesVideo(track, videoId)) : [];
+}
+
+function getYouTubePlayerVideoId(player: { getVideoData?: () => { video_id?: string } } | null): string {
+    try {
+        return player?.getVideoData?.()?.video_id ?? '';
+    } catch {
+        return '';
+    }
 }
 
 function uniqueYouTubeCaptionTracks(rawTracks: unknown[], rawTranslationLanguages: unknown[] | undefined = []): YouTubeCaptionTrackCandidate[] {
+    return uniqueYouTubeCaptionTrackCandidates(youtubeCaptionTracksWithTranslations(rawTracks, rawTranslationLanguages));
+}
+
+function uniqueYouTubeCaptionTrackCandidates(candidates: YouTubeCaptionTrackCandidate[]): YouTubeCaptionTrackCandidate[] {
     const tracks = new Map<string, YouTubeCaptionTrackCandidate>();
-    for (const parsed of youtubeCaptionTracksWithTranslations(rawTracks, rawTranslationLanguages)) {
+    for (const parsed of candidates) {
         const key = youtubeCaptionTrackIdentity(parsed);
         const existing = tracks.get(key);
         if (!existing || shouldRefreshYouTubeTrackUrl(parsed.url, existing.url)) tracks.set(key, parsed);
@@ -508,6 +535,7 @@ type YouTubePlayerResponse = {
 
 function getYouTubePlayerResponse(): YouTubePlayerResponse | null {
     const videoId = getYouTubeVideoId();
+    if (!videoId) return null;
     const fromWindow = (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse;
     if (isMatchingYouTubePlayerResponse(fromWindow, videoId)) return fromWindow as YouTubePlayerResponse;
 
@@ -613,8 +641,25 @@ function hasYouTubeCaptionTracks(response: YouTubePlayerResponse): boolean {
 }
 
 function youtubePlayerResponseMatchesVideo(response: YouTubePlayerResponse, videoId: string): boolean {
+    if (!videoId) return false;
     const responseVideoId = response.videoDetails?.videoId;
-    return !videoId || !responseVideoId || responseVideoId === videoId;
+    if (responseVideoId) return responseVideoId === videoId;
+    return youtubePlayerResponseCaptionUrlsMatchVideo(response, videoId);
+}
+
+function youtubePlayerResponseCaptionUrlsMatchVideo(response: YouTubePlayerResponse, videoId: string): boolean {
+    const tracks = response.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    return Array.isArray(tracks) && tracks.some(track => youtubeRawCaptionTrackMatchesVideo(track, videoId));
+}
+
+function youtubeRawCaptionTrackMatchesVideo(track: unknown, videoId: string): boolean {
+    try {
+        const rawUrl = rawYouTubeCaptionUrl(track as { url?: string; baseUrl?: string });
+        if (!rawUrl) return false;
+        return new URL(rawUrl, location.href).searchParams.get('v') === videoId;
+    } catch {
+        return false;
+    }
 }
 
 function extractJsonObject(text: string, start: number): string | null {
@@ -684,9 +729,32 @@ function readYouTubeClientName(): string {
 }
 
 function readYouTubeConfigString(key: string): string {
-    const ytcfg = (window as Window & { ytcfg?: { get?: (key: string) => unknown } }).ytcfg;
-    const value = ytcfg?.get?.(key);
-    return typeof value === 'string' && value ? value : '';
+    const ytcfg = (window as Window & { ytcfg?: { data_?: Record<string, unknown>; get?: (key: string) => unknown } }).ytcfg;
+    const value = ytcfg?.get?.(key) ?? ytcfg?.data_?.[key];
+    if (typeof value === 'string' && value) return value;
+    return readYouTubeConfigStringFromScripts(key);
+}
+
+function readYouTubeConfigStringFromScripts(key: string): string {
+    const escapedKey = escapeRegExp(key);
+    const patterns = [
+        new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'u'),
+        new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'u'),
+    ];
+    for (const script of Array.from(document.scripts)) {
+        const text = script.textContent ?? '';
+        const raw = patterns.map(pattern => text.match(pattern)?.[1]).find(Boolean);
+        if (raw) return unescapeYouTubeConfigString(raw);
+    }
+    return '';
+}
+
+function unescapeYouTubeConfigString(value: string): string {
+    try {
+        return JSON.parse(`"${value}"`) as string;
+    } catch {
+        return value;
+    }
 }
 
 function youtubeTrackUrlScore(value: string | undefined): number {
@@ -710,4 +778,8 @@ function youtubeTrackSearchParamScore(params: URLSearchParams): number {
 
 function uniqueStrings(values: string[]): string[] {
     return [...new Set(values.filter(Boolean))];
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

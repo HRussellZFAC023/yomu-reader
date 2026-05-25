@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.49
+// @version      0.4.50
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -3545,7 +3545,7 @@ Greasy Fork compliance notes:
    waitingForCaptionLines: "Waiting for caption lines",
    subtitleCurrentLineWillAppear: "The current line will appear here as soon as captions are available.",
    seekSubtitleLine: "Seek subtitle line",
-   subtitleTracksHint: "Choose a primary track; Lines opens automatically so you can browse and jump by timestamp.",
+   subtitleTracksHint: "Choose a primary track, then click Lines to browse subtitles and jump by timestamp.",
    noAutoDetectedSubtitleTracks: "",
    autoDetectedTracksWillAppear: "Subtitle tracks appear here.",
    autoDetectedOptionSingular: "1 subtitle option",
@@ -4318,7 +4318,7 @@ Greasy Fork compliance notes:
   waitingForCaptionLines: "字幕行を待機中",
   subtitleCurrentLineWillAppear: "字幕が利用可能になり次第、現在の行がここに表示されます。",
   seekSubtitleLine: "字幕行へ移動",
-  subtitleTracksHint: "主字幕を選ぶと自動で行表示に切り替わり、時刻から移動できます。",
+  subtitleTracksHint: "主字幕を選んだら「行」をクリックすると、字幕を一覧して時刻へ移動できます。",
   noAutoDetectedSubtitleTracks: "",
   autoDetectedTracksWillAppear: "字幕トラックはここに表示されます。",
   autoDetectedOptionSingular: "字幕オプション1件",
@@ -7222,7 +7222,7 @@ Greasy Fork compliance notes:
   return urls;
  }
  function commonsSearchApiUrl(term, source) {
-  const search = source === "lingua-libre" ? `intitle:/-(${escapeRegExp$2(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"` : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp$2(term)}[0123456789]*.ogg/i`;
+  const search = source === "lingua-libre" ? `intitle:/-(${escapeRegExp$3(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"` : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp$3(term)}[0123456789]*.ogg/i`;
   return `https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srnamespace=6&origin=*&srsearch=${encodeURIComponent(search)}`;
  }
  function commonsSearchTitles(response) {
@@ -7260,7 +7260,7 @@ Greasy Fork compliance notes:
   return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
  }
  function findHtmlElementById(html, tag, id) {
-  return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp$2(id)}\\1`, "i"));
+  return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp$3(id)}\\1`, "i"));
  }
  function findHtmlElementByClass(html, tag, className) {
   return findHtmlElementsByClass(html, tag, className)[0] ?? null;
@@ -7315,7 +7315,7 @@ Greasy Fork compliance notes:
   return uniqueAudioUrls(urls);
  }
  function getHtmlAttribute(attributes, name) {
-  const match = new RegExp(`\\b${escapeRegExp$2(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
+  const match = new RegExp(`\\b${escapeRegExp$3(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
   return match ? decodeHtmlAttribute(match[2]) : null;
  }
  function decodeHtmlAttribute(value) {
@@ -7327,9 +7327,9 @@ Greasy Fork compliance notes:
  function isValidCommonsAudioFilename(filename, fileUser, term, source) {
   if (!filename) return false;
   if (source === "lingua-libre") {
-   return new RegExp(`^File:LL-Q\\d+\\s+\\(jpn\\)-${escapeRegExp$2(fileUser)}-${escapeRegExp$2(term)}\\.wav$`, "i").test(filename);
+   return new RegExp(`^File:LL-Q\\d+\\s+\\(jpn\\)-${escapeRegExp$3(fileUser)}-${escapeRegExp$3(term)}\\.wav$`, "i").test(filename);
   }
-  return new RegExp(`^File:ja(-\\w\\w)?-${escapeRegExp$2(term)}\\d*\\.ogg$`, "i").test(filename);
+  return new RegExp(`^File:ja(-\\w\\w)?-${escapeRegExp$3(term)}\\d*\\.ogg$`, "i").test(filename);
  }
  function normalizeAudioUrl(value, sourceUrl) {
   try {
@@ -7429,7 +7429,7 @@ Greasy Fork compliance notes:
   if (rel === "preconnect") link.crossOrigin = "anonymous";
   document.head?.append(link);
  }
- function escapeRegExp$2(value) {
+ function escapeRegExp$3(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  }
  const POS_LABELS = {
@@ -15104,7 +15104,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
  }
  function metaKeyword(doc, kanji) {
   const description = doc.querySelector('meta[name="description"]')?.content ?? "";
-  const match = new RegExp(`${escapeRegExp$1(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
+  const match = new RegExp(`${escapeRegExp$2(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
   return cleanText$5(match?.[1] ?? "");
  }
  function cleanText$5(value) {
@@ -15117,7 +15117,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   const normalized = value.trim().toLowerCase();
   return normalized === "" || normalized === "missing" || section?.querySelector(".keyword-missing") !== null;
  }
- function escapeRegExp$1(value) {
+ function escapeRegExp$2(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  }
  function requestText$6(url, proxyUrl = "", options = {}) {
@@ -21528,7 +21528,7 @@ ${glossaryKey}`;
  function metaDescriptionReading(doc, spelling) {
   if (!spelling) return "";
   const description = doc.querySelector('meta[name="description"]')?.content ?? "";
-  const escaped = escapeRegExp(spelling);
+  const escaped = escapeRegExp$1(spelling);
   const match = new RegExp(`${escaped}\\s*[（(]([^）)]+)[）)]`).exec(description);
   const reading = cleanText$1(match?.[1] ?? "");
   return JAPANESE_RE$1.test(reading) ? reading : "";
@@ -21826,7 +21826,7 @@ ${glossaryKey}`;
  function cleanMeaning(value) {
   return cleanText$1(value).replace(/^\d+\.\s*/, "");
  }
- function escapeRegExp(value) {
+ function escapeRegExp$1(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  }
  function decodePathPart(value) {
@@ -34019,7 +34019,11 @@ ${spelling}`);
  }
  async function discoverYouTubeCaptionTracks() {
   const pageTracks = getYouTubeCaptionTracks();
-  return pageTracks.length ? pageTracks : await getAndroidYouTubeCaptionTracks();
+  const androidTracks = await getAndroidYouTubeCaptionTracks();
+  return uniqueYouTubeCaptionTrackCandidates([
+   ...pageTracks,
+   ...androidTracks
+  ]);
  }
  async function loadYouTubeTrackCues(track, options) {
   if (!track.url) return [];
@@ -34113,6 +34117,14 @@ ${spelling}`);
  function isYouTubePage() {
   return /(^|\.)youtube\.com$/i.test(location.hostname);
  }
+ function isYouTubeOwnedVideoElement(video) {
+  if (!isYouTubePage()) return true;
+  if (!video || !getYouTubeVideoId()) return false;
+  const player = video.closest("#movie_player");
+  if (!player) return false;
+  const playerVideoId = getYouTubePlayerVideoId(player);
+  return !playerVideoId || playerVideoId === getYouTubeVideoId();
+ }
  function shouldRefreshYouTubeTrackUrl(next, current) {
   if (!next || next === current) return false;
   return youtubeTrackUrlScore(next) >= youtubeTrackUrlScore(current);
@@ -34131,7 +34143,7 @@ ${spelling}`);
    sourceLanguage,
    targetLanguage || language,
    track.vssId ?? "",
-   normalizedYouTubeCaptionLabel(track.label)
+   track.vssId ? "" : normalizedYouTubeCaptionLabel(track.label)
   ].join(":");
  }
  function compatibleYouTubeCaptionTracks(candidate, track) {
@@ -34151,13 +34163,25 @@ ${spelling}`);
  function getYouTubePlayerCaptionTracks() {
   const player = document.querySelector("#movie_player");
   const videoId = getYouTubeVideoId();
-  const playerVideoId = player?.getVideoData?.()?.video_id;
+  if (!videoId) return [];
+  const playerVideoId = getYouTubePlayerVideoId(player);
   const tracks = player?.getAudioTrack?.()?.captionTracks;
-  return (!playerVideoId || !videoId || playerVideoId === videoId) && Array.isArray(tracks) ? tracks : [];
+  if (playerVideoId && playerVideoId !== videoId) return [];
+  return Array.isArray(tracks) ? tracks.filter((track) => youtubeRawCaptionTrackMatchesVideo(track, videoId)) : [];
+ }
+ function getYouTubePlayerVideoId(player) {
+  try {
+   return player?.getVideoData?.()?.video_id ?? "";
+  } catch {
+   return "";
+  }
  }
  function uniqueYouTubeCaptionTracks(rawTracks, rawTranslationLanguages = []) {
+  return uniqueYouTubeCaptionTrackCandidates(youtubeCaptionTracksWithTranslations(rawTracks, rawTranslationLanguages));
+ }
+ function uniqueYouTubeCaptionTrackCandidates(candidates) {
   const tracks = /* @__PURE__ */ new Map();
-  for (const parsed of youtubeCaptionTracksWithTranslations(rawTracks, rawTranslationLanguages)) {
+  for (const parsed of candidates) {
    const key = youtubeCaptionTrackIdentity(parsed);
    const existing = tracks.get(key);
    if (!existing || shouldRefreshYouTubeTrackUrl(parsed.url, existing.url)) tracks.set(key, parsed);
@@ -34349,6 +34373,7 @@ ${spelling}`);
  }
  function getYouTubePlayerResponse() {
   const videoId = getYouTubeVideoId();
+  if (!videoId) return null;
   const fromWindow = window.ytInitialPlayerResponse;
   if (isMatchingYouTubePlayerResponse(fromWindow, videoId)) return fromWindow;
   const fromConfig = readYouTubePlayerResponseFromConfig(videoId);
@@ -34437,8 +34462,23 @@ ${spelling}`);
   return Boolean(response.captions?.playerCaptionsTracklistRenderer?.captionTracks);
  }
  function youtubePlayerResponseMatchesVideo(response, videoId) {
+  if (!videoId) return false;
   const responseVideoId = response.videoDetails?.videoId;
-  return !videoId || !responseVideoId || responseVideoId === videoId;
+  if (responseVideoId) return responseVideoId === videoId;
+  return youtubePlayerResponseCaptionUrlsMatchVideo(response, videoId);
+ }
+ function youtubePlayerResponseCaptionUrlsMatchVideo(response, videoId) {
+  const tracks = response.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+  return Array.isArray(tracks) && tracks.some((track) => youtubeRawCaptionTrackMatchesVideo(track, videoId));
+ }
+ function youtubeRawCaptionTrackMatchesVideo(track, videoId) {
+  try {
+   const rawUrl = rawYouTubeCaptionUrl(track);
+   if (!rawUrl) return false;
+   return new URL(rawUrl, location.href).searchParams.get("v") === videoId;
+  } catch {
+   return false;
+  }
  }
  function extractJsonObject(text2, start) {
   const objectStart = text2.indexOf("{", start);
@@ -34494,8 +34534,29 @@ ${spelling}`);
  }
  function readYouTubeConfigString(key) {
   const ytcfg = window.ytcfg;
-  const value = ytcfg?.get?.(key);
-  return typeof value === "string" && value ? value : "";
+  const value = ytcfg?.get?.(key) ?? ytcfg?.data_?.[key];
+  if (typeof value === "string" && value) return value;
+  return readYouTubeConfigStringFromScripts(key);
+ }
+ function readYouTubeConfigStringFromScripts(key) {
+  const escapedKey = escapeRegExp(key);
+  const patterns = [
+   new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
+   new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
+  ];
+  for (const script of Array.from(document.scripts)) {
+   const text2 = script.textContent ?? "";
+   const raw = patterns.map((pattern) => text2.match(pattern)?.[1]).find(Boolean);
+   if (raw) return unescapeYouTubeConfigString(raw);
+  }
+  return "";
+ }
+ function unescapeYouTubeConfigString(value) {
+  try {
+   return JSON.parse(`"${value}"`);
+  } catch {
+   return value;
+  }
  }
  function youtubeTrackUrlScore(value) {
   if (!value) return 0;
@@ -34516,6 +34577,9 @@ ${spelling}`);
  }
  function uniqueStrings(values) {
   return [...new Set(values.filter(Boolean))];
+ }
+ function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  }
  async function loadSubtitleTrackCues(track, options) {
   if (track.cues?.length) return { track, cues: track.cues };
@@ -34815,7 +34879,7 @@ ${spelling}`);
  function readPageCaptionText(video, readerRoot, options = {}) {
   const direct = readDirectPageCaptionText(video, readerRoot, options);
   if (direct || !video) return direct;
-  return isYouTubePage() ? readHiddenYouTubeCaptionText(readerRoot, options) : readNearbyPageCaptionText(video, readerRoot, options);
+  return isYouTubePage() ? readHiddenYouTubeCaptionText(video, readerRoot, options) : readNearbyPageCaptionText(video, readerRoot, options);
  }
  function readDirectPageCaptionText(video, readerRoot, options = {}) {
   return collectCaptionTexts([...document.querySelectorAll(CAPTION_SELECTORS)], video, readerRoot, false, options);
@@ -34829,10 +34893,11 @@ ${spelling}`);
    options
   );
  }
- function readHiddenYouTubeCaptionText(readerRoot, options = {}) {
+ function readHiddenYouTubeCaptionText(video, readerRoot, options = {}) {
+  const root = youtubeCaptionSearchRoot(video);
   const lines = [];
   const seen = /* @__PURE__ */ new Set();
-  for (const element2 of Array.from(document.querySelectorAll(".ytp-caption-segment, .caption-window"))) {
+  for (const element2 of Array.from(root.querySelectorAll(".ytp-caption-segment, .caption-window"))) {
    const text2 = hiddenYouTubeCaptionLine(element2, readerRoot, options);
    if (!text2 || seen.has(text2)) continue;
    seen.add(text2);
@@ -34840,6 +34905,9 @@ ${spelling}`);
    if (lines.length >= 2) break;
   }
   return lines.join(" ").replace(/\s+/g, " ").trim();
+ }
+ function youtubeCaptionSearchRoot(video) {
+  return video.closest("#movie_player, .html5-video-player, ytd-player, ytd-watch-flexy, ytd-reel-video-renderer, ytd-shorts") ?? video.parentElement ?? document;
  }
  function hiddenYouTubeCaptionLine(element2, readerRoot, options = {}) {
   if (isCaptionElementExcluded(element2, readerRoot)) return "";
@@ -35369,6 +35437,12 @@ ${spelling}`);
   }
   discoverEnabledVideo() {
    const candidate = this.discoverVideoCandidate();
+   if (!candidate) {
+    if (this.video && !this.isSubtitleVideoCandidate(this.video)) this.clearDiscoveredVideoCandidate();
+    this.syncSubtitleSourceContext(void 0);
+    this.refresh();
+    return;
+   }
    if (candidate && candidate !== this.video) this.useDiscoveredVideoCandidate(candidate);
    this.syncSubtitleSourceContext(candidate ?? this.video);
    this.discoverPageSubtitleTracks();
@@ -35379,7 +35453,20 @@ ${spelling}`);
    return Array.from(document.querySelectorAll("video")).filter((video) => this.isSubtitleVideoCandidate(video)).sort((a, b) => videoElementArea(b) - videoElementArea(a))[0];
   }
   isSubtitleVideoCandidate(video) {
+   if (isYouTubePage() && !isYouTubeOwnedVideoElement(video)) return false;
    return video.readyState >= 1 || video.clientWidth > 120 || video.getBoundingClientRect().width > 120;
+  }
+  clearDiscoveredVideoCandidate() {
+   this.video = void 0;
+   this.subtitleSourceContextKey = "";
+   this.youtubeVideoId = "";
+   this.youtubeAutoSelectSuppressedVideoId = "";
+   this.youtubeDomCaptionFallbackTrackId = "";
+   this.clearTransientSubtitleState();
+   this.removeSubtitleTracks((track) => track.kind !== "file");
+   this.setNativeTrackModes();
+   this.render();
+   this.syncControls();
   }
   useDiscoveredVideoCandidate(candidate) {
    this.video = candidate;
@@ -35628,10 +35715,11 @@ ${spelling}`);
    void this.discoverYouTubeTracksThrottled(true);
   }
   shouldRefreshYouTubeTracks() {
-   return isYouTubePage() && (!this.selectedTrackId || !this.cues.length);
+   return isYouTubePage() && Boolean(getYouTubeVideoId()) && (!this.video || isYouTubeOwnedVideoElement(this.video)) && (!this.selectedTrackId || !this.cues.length);
   }
   shouldUpdateFromDomCaptions() {
-   return !isYouTubePage() || !this.cues.length && (Boolean(this.selectedTrackId) || !this.tracks.some((track) => track.kind === "youtube"));
+   if (!isYouTubePage()) return true;
+   return Boolean(getYouTubeVideoId()) && isYouTubeOwnedVideoElement(this.video) && !this.cues.length && (Boolean(this.selectedTrackId) || !this.tracks.some((track) => track.kind === "youtube"));
   }
   refreshNativeCueLists() {
    const primary = this.tracks.find((item) => item.id === this.selectedTrackId);
@@ -35739,7 +35827,9 @@ ${spelling}`);
    return this.options.getSettings().subtitleOverlayVisible;
   }
   canUseDomCaptionFallback(selected) {
-   if (isYouTubePage()) return Boolean(this.selectedTrackId || !this.tracks.some((track) => track.kind === "youtube"));
+   if (isYouTubePage()) {
+    return Boolean(getYouTubeVideoId()) && isYouTubeOwnedVideoElement(this.video) && Boolean(this.selectedTrackId || !this.tracks.some((track) => track.kind === "youtube"));
+   }
    const selectedNativeTrackNeedsDomFallback = Boolean(selected?.kind === "native" && selected.track && !this.cues.length);
    return !this.selectedTrackId || selectedNativeTrackNeedsDomFallback;
   }
@@ -35753,8 +35843,9 @@ ${spelling}`);
    return track;
   }
   createYouTubeDomCaptionFallbackTrack() {
+   const videoId = getYouTubeVideoId();
    return {
-    id: `youtube-dom-${this.youtubeVideoId || getYouTubeVideoId() || Date.now()}`,
+    id: `youtube-dom-${this.youtubeVideoId || videoId}`,
     label: "YouTube native captions",
     kind: "youtube",
     loadingState: "waiting",
@@ -36718,10 +36809,6 @@ ${spelling}`);
     else this.closeTranscriptPanel();
     return;
    }
-   if (this.hasTranscriptSurface()) {
-    this.openLinesPanel();
-    return;
-   }
    this.renderTrackPanel();
    this.positionTranscriptPanel({ realignAfterInset: true });
    this.syncPanelState();
@@ -37553,7 +37640,7 @@ ${spelling}`);
  function subtitleSourceContextKey(video) {
   const url = new URL(location.href);
   url.hash = "";
-  if (isYouTubePage()) return `youtube:${getYouTubeVideoId() || url.pathname}`;
+  if (isYouTubePage()) return getYouTubeVideoId() ? `youtube:${getYouTubeVideoId()}` : "";
   if (isCijVideoPage()) return `cij:${url.origin}${url.pathname}${url.search}`;
   const videoSource = videoSourceKey(video);
   return `page:${url.origin}${url.pathname}${url.search}${videoSource ? `|video:${videoSource}` : ""}`;
@@ -37922,6 +38009,18 @@ ${spelling}`);
   "ytm-shorts-lockup-view-model"
  ].join(",");
  const VIDEO_CARD_CLOSEST_SELECTOR = VIDEO_CARD_SELECTOR;
+ const VIDEO_CARD_HIDE_TARGET_SELECTOR = [
+  "ytd-rich-item-renderer",
+  "ytm-rich-item-renderer",
+  "ytd-video-renderer",
+  "ytd-compact-video-renderer",
+  "ytd-grid-video-renderer",
+  "ytd-reel-item-renderer",
+  "ytd-reel-video-renderer",
+  "ytm-compact-video-renderer",
+  "ytm-video-card-renderer",
+  "ytm-shorts-lockup-view-model"
+ ].join(",");
  const NON_VIDEO_CONTAINER_SELECTOR = [
   "ytd-rich-shelf-renderer",
   "ytd-shelf-renderer",
@@ -37976,16 +38075,16 @@ ${spelling}`);
  const OEMBED_SESSION_CACHE_TTL_MS = 6 * 60 * 60 * 1e3;
  const OEMBED_BATCH_RESCAN_DELAY_MS = 180;
  const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 4200;
+ const YOUTUBE_VISIBLE_BACKFILL_TARGET = 18;
+ const YOUTUBE_BACKFILL_THROTTLE_MS = 2400;
+ const YOUTUBE_BACKFILL_RESTORE_DELAY_MS = 50;
  function isYouTubeHost(hostname = location.hostname) {
   return YOUTUBE_HOST_RE.test(hostname);
  }
  function isProbablyJapaneseYouTubeText(text2) {
   const compact = normalizeYouTubeTitleForLanguageCheck(text2);
   if (!HAS_JAPANESE$1.test(compact)) return false;
-  if (NIHONGO_TUBE_SYMBOL_RE.test(compact)) {
-   return HIRAGANA_RE.test(compact) && KATAKANA_RE.test(compact) && HAN_RE.test(compact);
-  }
-  return HIRAGANA_RE.test(compact) || KATAKANA_RE.test(compact);
+  return HIRAGANA_RE.test(compact) || KATAKANA_RE.test(compact) || HAN_RE.test(compact);
  }
  function collectYouTubeVideoCards(root = document) {
   const cards = /* @__PURE__ */ new Set();
@@ -38027,12 +38126,18 @@ ${spelling}`);
   lastNoticeKey = "";
   dismissedNoticeScope = "";
   noticeRouteKey = "";
+  lastBackfillAt = Number.NEGATIVE_INFINITY;
+  destroyed = true;
   oembedTitleCache = /* @__PURE__ */ new Map();
   pendingOembedTitles = /* @__PURE__ */ new Set();
   init() {
    this.destroy();
-   if (!this.isActivePage() || !document.body) return;
-   if (!this.options.getSettings().youtubeImmersionEnabled) return;
+   this.destroyed = false;
+   if (!this.isActivePage() || !document.body || !this.options.getSettings().youtubeImmersionEnabled) {
+    this.destroyed = true;
+    return;
+   }
+   this.setFilterActiveClass(true);
    this.startWatching();
    this.schedule(0);
   }
@@ -38054,16 +38159,20 @@ ${spelling}`);
     return;
    }
    if (!this.options.getSettings().youtubeImmersionEnabled) {
+    this.destroyed = true;
     this.stopWatching();
     this.clear();
     return;
    }
+   this.destroyed = false;
+   this.setFilterActiveClass(true);
    this.startWatching();
    window.clearTimeout(this.timer);
    this.timer = void 0;
    this.scan();
   }
   destroy() {
+   this.destroyed = true;
    this.stopWatching();
    this.clear();
   }
@@ -38097,6 +38206,7 @@ ${spelling}`);
    }
    let filteredCount = 0;
    let shownCount = 0;
+   const visibleVideoIds = /* @__PURE__ */ new Set();
    for (const card of collectYouTubeFilterItems()) {
     if (isYouTubeAlwaysHiddenItem(card)) {
      filteredCount += 1;
@@ -38120,6 +38230,7 @@ ${spelling}`);
     if (isJapanese || this.revealed) {
      this.showCard(card);
      shownCount += 1;
+     if (info.videoId) visibleVideoIds.add(info.videoId);
     } else {
      this.hideCard(card);
     }
@@ -38130,6 +38241,7 @@ ${spelling}`);
     this.bar?.remove();
     this.bar = void 0;
    }
+   this.maybeBackfillFeed(filteredCount, shownCount, visibleVideoIds.size);
   }
   hideCard(card) {
    card.classList.add("jpdb-youtube-filtered");
@@ -38203,6 +38315,8 @@ ${spelling}`);
    this.lastNoticeKey = "";
    this.dismissedNoticeScope = "";
    this.noticeRouteKey = "";
+   this.lastBackfillAt = Number.NEGATIVE_INFINITY;
+   this.setFilterActiveClass(false);
   }
   resolveTitleForFiltering(info) {
    if (!info.videoId) return info.title;
@@ -38220,7 +38334,7 @@ ${spelling}`);
     this.rememberOEmbedTitle(videoId, null);
    }).finally(() => {
     this.pendingOembedTitles.delete(videoId);
-    if (this.options.getSettings().youtubeImmersionEnabled) this.scheduleMetadataRescan();
+    if (!this.destroyed && this.options.getSettings().youtubeImmersionEnabled) this.scheduleMetadataRescan();
    });
   }
   cachedOEmbedTitle(videoId) {
@@ -38272,12 +38386,31 @@ ${spelling}`);
    }
    return `${routeKey}:${this.revealed ? "revealed" : "hidden"}`;
   }
+  maybeBackfillFeed(filteredCount, shownCount, visibleUniqueCount) {
+   if (this.revealed || !filteredCount || isYouTubeWatchPage() || isYouTubeShortsWatchPage()) return;
+   if (Math.max(shownCount, visibleUniqueCount) >= YOUTUBE_VISIBLE_BACKFILL_TARGET) return;
+   const now = performance.now();
+   if (now - this.lastBackfillAt < YOUTUBE_BACKFILL_THROTTLE_MS) return;
+   const continuation = document.querySelector("ytd-continuation-item-renderer, ytm-continuation-item-renderer, tp-yt-paper-spinner-lite");
+   if (!continuation?.isConnected) return;
+   this.lastBackfillAt = now;
+   const shouldRestoreScroll = !isNearPageBottom();
+   const scrollX = window.scrollX;
+   const scrollY = window.scrollY;
+   continuation.scrollIntoView({ block: "end" });
+   if (shouldRestoreScroll) {
+    window.setTimeout(() => window.scrollTo(scrollX, scrollY), YOUTUBE_BACKFILL_RESTORE_DELAY_MS);
+   }
+  }
+  setFilterActiveClass(active) {
+   document.documentElement.classList.toggle("jpdb-youtube-filter-active", active);
+  }
  }
  function formatYoutubeText(template, values) {
   return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
  }
  function normalizeYouTubeTitleForLanguageCheck(text2) {
-  return text2.replace(/fypシ゚/g, "").replace(/fypシ/g, "").replace(/ミックスリスト/g, "").replace(/\s+/g, " ").trim();
+  return text2.replace(/fypシ゚/g, "").replace(/fypシ/g, "").replace(/ミックスリスト/g, "").replace(NIHONGO_TUBE_SYMBOL_RE, "").replace(/\s+/g, " ").trim();
  }
  function shouldVerifyOriginalYouTubeTitle(title) {
   return isProbablyJapaneseYouTubeText(title);
@@ -38295,7 +38428,7 @@ ${spelling}`);
   if (isYouTubeShortsWatchPage() && element2.closest("ytd-shorts, ytd-reel-video-renderer")) return null;
   if (element2.closest("[data-jpdb-reader-root]")) return null;
   if (element2.matches(NON_VIDEO_CONTAINER_SELECTOR)) return element2;
-  if (isYouTubePlaylistLikeCard(element2)) return element2.closest(VIDEO_CARD_SELECTOR) ?? element2;
+  if (isYouTubePlaylistLikeCard(element2)) return youtubeCardHideTarget(element2) ?? element2;
   return normalizeYouTubeVideoCard(element2);
  }
  function isYouTubeAlwaysHiddenItem(card) {
@@ -38313,6 +38446,11 @@ ${spelling}`);
    const cardInsideExcluded = element2.closest(VIDEO_CARD_SELECTOR);
    if (!cardInsideExcluded || cardInsideExcluded === excluded) return null;
   }
+  return youtubeCardHideTarget(element2);
+ }
+ function youtubeCardHideTarget(element2) {
+  const outer = element2.closest(VIDEO_CARD_HIDE_TARGET_SELECTOR);
+  if (outer?.querySelector(VIDEO_LINK_SELECTORS)) return outer;
   return element2.closest(VIDEO_CARD_SELECTOR);
  }
  function readYouTubeVideoId(card) {
@@ -38332,6 +38470,10 @@ ${spelling}`);
  }
  function isYouTubeShortsWatchPage() {
   return location.pathname.startsWith("/shorts/");
+ }
+ function isNearPageBottom() {
+  const page = document.scrollingElement ?? document.documentElement;
+  return window.scrollY + window.innerHeight >= page.scrollHeight - Math.max(900, window.innerHeight);
  }
  function isYouTubeWatchPage() {
   return location.pathname === "/watch";

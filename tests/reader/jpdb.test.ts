@@ -11352,6 +11352,73 @@ describe('reader helpers', () => {
         }
     });
 
+    it('matches Android YouTube fallback tracks by stream identity when labels differ', async () => {
+        const originalLocation = window.location;
+        const originalFetch = globalThis.fetch;
+        const originalYtcfg = (window as Window & { ytcfg?: unknown }).ytcfg;
+        const requestedUrls: string[] = [];
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        (window as Window & { ytcfg?: { get: (key: string) => string } }).ytcfg = {
+            get: key => ({
+                INNERTUBE_API_KEY: 'test-key',
+                INNERTUBE_CLIENT_NAME: 'WEB',
+                HL: 'ja',
+            })[key] ?? '',
+        };
+        Object.defineProperty(globalThis, 'fetch', {
+            configurable: true,
+            value: vi.fn(async () => new Response(JSON.stringify({
+                videoDetails: { videoId: 'abc123' },
+                captions: {
+                    playerCaptionsTracklistRenderer: {
+                        captionTracks: [{
+                            baseUrl: 'https://www.youtube.com/api/timedtext?v=abc123&android=1&lang=ja',
+                            languageCode: 'ja',
+                            vssId: '.ja',
+                            name: { simpleText: 'Japanese' },
+                        }],
+                    },
+                },
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } })),
+        });
+
+        try {
+            const cues = await loadYouTubeTrackCues({
+                kind: 'youtube',
+                label: '日本語 (ja)',
+                language: 'ja',
+                sourceType: 'manual',
+                sourceLanguage: 'ja',
+                vssId: '.ja',
+                url: 'https://www.youtube.com/api/timedtext?v=abc123&lang=ja',
+            }, {
+                requestText: async url => {
+                    requestedUrls.push(url);
+                    if (!url.includes('android=1')) return '';
+                    if (new URL(url).searchParams.get('fmt') !== 'json3') return '';
+                    return JSON.stringify({
+                        events: [
+                            { tStartMs: 1000, dDurationMs: 2000, segs: [{ utf8: '今日は' }, { utf8: '読む。' }] },
+                        ],
+                    });
+                },
+            });
+
+            expect(requestedUrls.some(url => url.includes('android=1') && url.includes('lang=ja'))).toBe(true);
+            expect(cues).toMatchObject([{ start: 1, end: 3, text: '今日は読む。' }]);
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
+            (window as Window & { ytcfg?: unknown }).ytcfg = originalYtcfg;
+        }
+    });
+
     it('suppresses native YouTube captions with CSS while Yomu is using DOM caption fallback', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -11584,6 +11651,179 @@ describe('reader helpers', () => {
                 configurable: true,
                 value: originalLocation,
             });
+        }
+    });
+
+    it('does not reuse stale YouTube caption tracks away from a concrete video page', () => {
+        const originalLocation = window.location;
+        const originalResponse = (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse;
+        document.body.innerHTML = '<div id="movie_player"></div>';
+        const player = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & {
+            getAudioTrack?: () => { captionTracks?: unknown[] };
+            getVideoData?: () => { video_id?: string };
+        };
+        player.getAudioTrack = () => ({
+            captionTracks: [
+                { baseUrl: 'https://www.youtube.com/api/timedtext?v=old123&lang=ja', languageCode: 'ja', name: { simpleText: '日本語' } },
+            ],
+        });
+        (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = {
+            videoDetails: { videoId: 'old123' },
+            captions: {
+                playerCaptionsTracklistRenderer: {
+                    captionTracks: [
+                        { baseUrl: 'https://www.youtube.com/api/timedtext?v=old123&lang=ja', languageCode: 'ja', name: { simpleText: '日本語' } },
+                    ],
+                },
+            },
+        };
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/') as unknown as Location,
+        });
+
+        try {
+            expect(getYouTubeVideoId()).toBe('');
+            expect(getYouTubeCaptionTracks()).toEqual([]);
+        } finally {
+            document.body.innerHTML = '';
+            (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = originalResponse;
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('rejects stale YouTube player responses and player tracks for another video id', () => {
+        const originalLocation = window.location;
+        const originalResponse = (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse;
+        document.body.innerHTML = '<div id="movie_player"></div>';
+        const player = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & {
+            getAudioTrack?: () => { captionTracks?: unknown[] };
+            getVideoData?: () => { video_id?: string };
+        };
+        player.getVideoData = () => ({ video_id: 'old123' });
+        player.getAudioTrack = () => ({
+            captionTracks: [
+                { baseUrl: 'https://www.youtube.com/api/timedtext?v=old123&lang=ja', languageCode: 'ja', name: { simpleText: '日本語' } },
+            ],
+        });
+        (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = {
+            captions: {
+                playerCaptionsTracklistRenderer: {
+                    captionTracks: [
+                        { baseUrl: 'https://www.youtube.com/api/timedtext?v=old123&lang=ja', languageCode: 'ja', name: { simpleText: '日本語' } },
+                    ],
+                },
+            },
+        };
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=new456') as unknown as Location,
+        });
+
+        try {
+            expect(getYouTubeCaptionTracks()).toEqual([]);
+        } finally {
+            document.body.innerHTML = '';
+            (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = originalResponse;
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('accepts YouTube player responses without videoDetails only when caption URLs match the current video', () => {
+        const originalLocation = window.location;
+        const originalResponse = (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = {
+            captions: {
+                playerCaptionsTracklistRenderer: {
+                    captionTracks: [
+                        { baseUrl: 'https://www.youtube.com/api/timedtext?v=abc123&lang=ja', languageCode: 'ja', name: { simpleText: '日本語' } },
+                    ],
+                },
+            },
+        };
+
+        try {
+            const tracks = getYouTubeCaptionTracks();
+
+            expect(tracks).toHaveLength(1);
+            expect(tracks[0]).toMatchObject({ language: 'ja', label: '日本語 (ja)' });
+        } finally {
+            (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = originalResponse;
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('prefers same-strength Android YouTube caption URLs when web caption URLs are empty-prone', async () => {
+        const originalLocation = window.location;
+        const originalFetch = globalThis.fetch;
+        const originalResponse = (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse;
+        const originalConfig = (window as Window & { ytcfg?: unknown }).ytcfg;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = {
+            videoDetails: { videoId: 'abc123' },
+            captions: {
+                playerCaptionsTracklistRenderer: {
+                    captionTracks: [
+                        { baseUrl: 'https://www.youtube.com/api/timedtext?v=abc123&lang=ja', languageCode: 'ja', vssId: '.ja', name: { simpleText: '日本語' } },
+                    ],
+                },
+            },
+        };
+        (window as Window & { ytcfg?: { data_: Record<string, unknown> } }).ytcfg = {
+            data_: {
+                INNERTUBE_API_KEY: 'test-key',
+                INNERTUBE_CLIENT_NAME: 'WEB',
+                HL: 'ja',
+            },
+        };
+        Object.defineProperty(globalThis, 'fetch', {
+            configurable: true,
+            value: vi.fn(async () => new Response(JSON.stringify({
+                videoDetails: { videoId: 'abc123' },
+                captions: {
+                    playerCaptionsTracklistRenderer: {
+                        captionTracks: [{
+                            baseUrl: 'https://www.youtube.com/api/timedtext?v=abc123&lang=ja&android=1',
+                            languageCode: 'ja',
+                            vssId: '.ja',
+                            name: { simpleText: 'Japanese' },
+                        }],
+                    },
+                },
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } })),
+        });
+
+        try {
+            const tracks = await discoverYouTubeCaptionTracks();
+
+            expect(globalThis.fetch).toHaveBeenCalledWith('https://www.youtube.com/youtubei/v1/player?key=test-key', expect.objectContaining({ method: 'POST' }));
+            expect(tracks).toHaveLength(1);
+            expect(tracks[0].url).toContain('android=1');
+            expect(tracks[0]).toMatchObject({ language: 'ja', sourceType: 'manual', vssId: '.ja' });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = originalResponse;
+            (window as Window & { ytcfg?: unknown }).ytcfg = originalConfig;
+            Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
         }
     });
 

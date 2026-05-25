@@ -20,6 +20,19 @@ const VIDEO_CARD_SELECTOR = [
 
 const VIDEO_CARD_CLOSEST_SELECTOR = VIDEO_CARD_SELECTOR;
 
+const VIDEO_CARD_HIDE_TARGET_SELECTOR = [
+    'ytd-rich-item-renderer',
+    'ytm-rich-item-renderer',
+    'ytd-video-renderer',
+    'ytd-compact-video-renderer',
+    'ytd-grid-video-renderer',
+    'ytd-reel-item-renderer',
+    'ytd-reel-video-renderer',
+    'ytm-compact-video-renderer',
+    'ytm-video-card-renderer',
+    'ytm-shorts-lockup-view-model',
+].join(',');
+
 const NON_VIDEO_CONTAINER_SELECTOR = [
     'ytd-rich-shelf-renderer',
     'ytd-shelf-renderer',
@@ -78,6 +91,9 @@ const OEMBED_SESSION_CACHE_PREFIX = 'yomu:youtube-oembed-title:v1:';
 const OEMBED_SESSION_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const OEMBED_BATCH_RESCAN_DELAY_MS = 180;
 const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 4200;
+const YOUTUBE_VISIBLE_BACKFILL_TARGET = 18;
+const YOUTUBE_BACKFILL_THROTTLE_MS = 2400;
+const YOUTUBE_BACKFILL_RESTORE_DELAY_MS = 50;
 
 type YouTubeCardInfo = {
     card: HTMLElement;
@@ -98,11 +114,7 @@ export function isProbablyJapaneseYouTubeText(text: string): boolean {
     const compact = normalizeYouTubeTitleForLanguageCheck(text);
     if (!HAS_JAPANESE.test(compact)) return false;
 
-    if (NIHONGO_TUBE_SYMBOL_RE.test(compact)) {
-        return HIRAGANA_RE.test(compact) && KATAKANA_RE.test(compact) && HAN_RE.test(compact);
-    }
-
-    return HIRAGANA_RE.test(compact) || KATAKANA_RE.test(compact);
+    return HIRAGANA_RE.test(compact) || KATAKANA_RE.test(compact) || HAN_RE.test(compact);
 }
 
 export function collectYouTubeVideoCards(root: ParentNode = document): HTMLElement[] {
@@ -150,6 +162,8 @@ export class YoutubeImmersionFilter {
     private lastNoticeKey = '';
     private dismissedNoticeScope = '';
     private noticeRouteKey = '';
+    private lastBackfillAt = Number.NEGATIVE_INFINITY;
+    private destroyed = true;
     private readonly oembedTitleCache = new Map<string, string | null>();
     private readonly pendingOembedTitles = new Set<string>();
 
@@ -161,9 +175,13 @@ export class YoutubeImmersionFilter {
 
     init(): void {
         this.destroy();
-        if (!this.isActivePage() || !document.body) return;
-        if (!this.options.getSettings().youtubeImmersionEnabled) return;
+        this.destroyed = false;
+        if (!this.isActivePage() || !document.body || !this.options.getSettings().youtubeImmersionEnabled) {
+            this.destroyed = true;
+            return;
+        }
 
+        this.setFilterActiveClass(true);
         this.startWatching();
         this.schedule(0);
     }
@@ -187,10 +205,13 @@ export class YoutubeImmersionFilter {
             return;
         }
         if (!this.options.getSettings().youtubeImmersionEnabled) {
+            this.destroyed = true;
             this.stopWatching();
             this.clear();
             return;
         }
+        this.destroyed = false;
+        this.setFilterActiveClass(true);
         this.startWatching();
         window.clearTimeout(this.timer);
         this.timer = undefined;
@@ -198,6 +219,7 @@ export class YoutubeImmersionFilter {
     }
 
     destroy(): void {
+        this.destroyed = true;
         this.stopWatching();
         this.clear();
     }
@@ -238,6 +260,7 @@ export class YoutubeImmersionFilter {
 
         let filteredCount = 0;
         let shownCount = 0;
+        const visibleVideoIds = new Set<string>();
         for (const card of collectYouTubeFilterItems()) {
             if (isYouTubeAlwaysHiddenItem(card)) {
                 filteredCount += 1;
@@ -264,6 +287,7 @@ export class YoutubeImmersionFilter {
             if (isJapanese || this.revealed) {
                 this.showCard(card);
                 shownCount += 1;
+                if (info.videoId) visibleVideoIds.add(info.videoId);
             } else {
                 this.hideCard(card);
             }
@@ -275,6 +299,7 @@ export class YoutubeImmersionFilter {
             this.bar?.remove();
             this.bar = undefined;
         }
+        this.maybeBackfillFeed(filteredCount, shownCount, visibleVideoIds.size);
     }
 
     private hideCard(card: HTMLElement): void {
@@ -359,6 +384,8 @@ export class YoutubeImmersionFilter {
         this.lastNoticeKey = '';
         this.dismissedNoticeScope = '';
         this.noticeRouteKey = '';
+        this.lastBackfillAt = Number.NEGATIVE_INFINITY;
+        this.setFilterActiveClass(false);
     }
 
     private resolveTitleForFiltering(info: YouTubeCardInfo): string {
@@ -381,7 +408,7 @@ export class YoutubeImmersionFilter {
             })
             .finally(() => {
                 this.pendingOembedTitles.delete(videoId);
-                if (this.options.getSettings().youtubeImmersionEnabled) this.scheduleMetadataRescan();
+                if (!this.destroyed && this.options.getSettings().youtubeImmersionEnabled) this.scheduleMetadataRescan();
             });
     }
 
@@ -440,6 +467,28 @@ export class YoutubeImmersionFilter {
         }
         return `${routeKey}:${this.revealed ? 'revealed' : 'hidden'}`;
     }
+
+    private maybeBackfillFeed(filteredCount: number, shownCount: number, visibleUniqueCount: number): void {
+        if (this.revealed || !filteredCount || isYouTubeWatchPage() || isYouTubeShortsWatchPage()) return;
+        if (Math.max(shownCount, visibleUniqueCount) >= YOUTUBE_VISIBLE_BACKFILL_TARGET) return;
+        const now = performance.now();
+        if (now - this.lastBackfillAt < YOUTUBE_BACKFILL_THROTTLE_MS) return;
+        const continuation = document.querySelector<HTMLElement>('ytd-continuation-item-renderer, ytm-continuation-item-renderer, tp-yt-paper-spinner-lite');
+        if (!continuation?.isConnected) return;
+
+        this.lastBackfillAt = now;
+        const shouldRestoreScroll = !isNearPageBottom();
+        const scrollX = window.scrollX;
+        const scrollY = window.scrollY;
+        continuation.scrollIntoView({ block: 'end' });
+        if (shouldRestoreScroll) {
+            window.setTimeout(() => window.scrollTo(scrollX, scrollY), YOUTUBE_BACKFILL_RESTORE_DELAY_MS);
+        }
+    }
+
+    private setFilterActiveClass(active: boolean): void {
+        document.documentElement.classList.toggle('jpdb-youtube-filter-active', active);
+    }
 }
 
 function formatYoutubeText(template: string, values: Record<string, string>): string {
@@ -451,6 +500,7 @@ function normalizeYouTubeTitleForLanguageCheck(text: string): string {
         .replace(/fypシ゚/g, '')
         .replace(/fypシ/g, '')
         .replace(/ミックスリスト/g, '')
+        .replace(NIHONGO_TUBE_SYMBOL_RE, '')
         .replace(/\s+/g, ' ')
         .trim();
 }
@@ -473,7 +523,7 @@ function normalizeYouTubeFilterItem(element: HTMLElement): HTMLElement | null {
     if (isYouTubeShortsWatchPage() && element.closest('ytd-shorts, ytd-reel-video-renderer')) return null;
     if (element.closest('[data-jpdb-reader-root]')) return null;
     if (element.matches(NON_VIDEO_CONTAINER_SELECTOR)) return element;
-    if (isYouTubePlaylistLikeCard(element)) return element.closest<HTMLElement>(VIDEO_CARD_SELECTOR) ?? element;
+    if (isYouTubePlaylistLikeCard(element)) return youtubeCardHideTarget(element) ?? element;
     return normalizeYouTubeVideoCard(element);
 }
 
@@ -493,6 +543,12 @@ function normalizeYouTubeVideoCard(element: HTMLElement): HTMLElement | null {
         const cardInsideExcluded = element.closest<HTMLElement>(VIDEO_CARD_SELECTOR);
         if (!cardInsideExcluded || cardInsideExcluded === excluded) return null;
     }
+    return youtubeCardHideTarget(element);
+}
+
+function youtubeCardHideTarget(element: HTMLElement): HTMLElement | null {
+    const outer = element.closest<HTMLElement>(VIDEO_CARD_HIDE_TARGET_SELECTOR);
+    if (outer?.querySelector(VIDEO_LINK_SELECTORS)) return outer;
     return element.closest<HTMLElement>(VIDEO_CARD_SELECTOR);
 }
 
@@ -516,6 +572,11 @@ function extractYouTubeVideoId(href: string | null): string {
 
 function isYouTubeShortsWatchPage(): boolean {
     return location.pathname.startsWith('/shorts/');
+}
+
+function isNearPageBottom(): boolean {
+    const page = document.scrollingElement ?? document.documentElement;
+    return window.scrollY + window.innerHeight >= page.scrollHeight - Math.max(900, window.innerHeight);
 }
 
 function isYouTubeWatchPage(): boolean {
