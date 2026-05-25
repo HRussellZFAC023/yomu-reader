@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.43] - 2026-05-25
+
+### Fixed
+
+- Fixed hosted Try Me furigana alignment by keeping parsed words on native inline ruby layout instead of flex layout.
+
 ## [0.4.42] - 2026-05-25
 
 ### Added
