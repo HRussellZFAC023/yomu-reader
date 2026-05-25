@@ -2,6 +2,8 @@ import { normalizeCardStates } from './card-state';
 import type { JPDBCard, JPDBRawToken, JPDBRawVocabulary, JPDBRuby, JPDBToken } from './types';
 
 const COMBINING_KANA = new Set('ゃゅょぁぃぅぇぉャュョァィゥェォ');
+const KANJI_RE = /[\u3400-\u9fff]/u;
+const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
 export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard[] {
     const cards = vocabulary.map(([
         vid,
@@ -36,28 +38,30 @@ export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard
 }
 
 export function jpdbParseResultToTokens(paragraphs: string[], rawTokens: JPDBRawToken[][], cards: JPDBCard[]): JPDBToken[][] {
-    const tokens = rawTokens.map(innerTokens => parseParagraphTokens(innerTokens, cards));
+    const tokens = rawTokens.map((innerTokens, index) => parseParagraphTokens(paragraphs[index] ?? '', innerTokens, cards));
     assignSentenceInfo(paragraphs, tokens);
     return tokens;
 }
 
-function parseParagraphTokens(rawTokens: JPDBRawToken[], cards: JPDBCard[]): JPDBToken[] {
+function parseParagraphTokens(paragraph: string, rawTokens: JPDBRawToken[], cards: JPDBCard[]): JPDBToken[] {
     let inheritedPitchClass = '';
     return rawTokens.map(rawToken => {
-        const token = parseToken(rawToken, cards, inheritedPitchClass);
+        const token = parseToken(rawToken, paragraph, cards, inheritedPitchClass);
         inheritedPitchClass = token.pitchClass;
         return token;
     });
 }
 
-function parseToken([vocabularyIndex, position, length, furigana]: JPDBRawToken, cards: JPDBCard[], inheritedPitchClass: string): JPDBToken {
+function parseToken([vocabularyIndex, position, length, furigana]: JPDBRawToken, paragraph: string, cards: JPDBCard[], inheritedPitchClass: string): JPDBToken {
     const card = cards[vocabularyIndex];
+    const rubies = parseRubies(furigana, position);
+    repairCardReadingFromRubies(card, paragraph.slice(position, position + length), rubies, position);
     const token: JPDBToken = {
         card,
         start: position,
         end: position + length,
         length,
-        rubies: parseRubies(furigana, position),
+        rubies,
         pitchClass: inheritedOrCurrentPitchClass(card, inheritedPitchClass),
     };
     assignWordWithReading(token);
@@ -278,4 +282,32 @@ function assignWordWithReading(token: JPDBToken): void {
         word.splice(start - offset + length, 0, `[${text}]`);
     }
     card.wordWithReading = word.join('');
+}
+
+function repairCardReadingFromRubies(card: JPDBCard, surface: string, rubies: JPDBRuby[], offset: number): void {
+    if (!shouldRepairCardReading(card, surface, rubies)) return;
+    const reading = surfaceReadingFromRubies(surface, rubies, offset);
+    if (reading && KANA_RE.test(reading)) card.reading = reading;
+}
+
+function shouldRepairCardReading(card: JPDBCard, surface: string, rubies: JPDBRuby[]): boolean {
+    if (!rubies.length || !surface || card.spelling !== surface) return false;
+    if (!KANJI_RE.test(card.spelling)) return false;
+    const reading = card.reading.trim();
+    return !reading || reading === card.spelling;
+}
+
+function surfaceReadingFromRubies(surface: string, rubies: JPDBRuby[], offset: number): string {
+    let reading = '';
+    let cursor = 0;
+    for (const ruby of rubies) {
+        const start = ruby.start - offset;
+        const end = ruby.end - offset;
+        if (start < cursor || start < 0 || end > surface.length || end <= start) return '';
+        reading += surface.slice(cursor, start);
+        reading += ruby.text;
+        cursor = end;
+    }
+    reading += surface.slice(cursor);
+    return reading;
 }

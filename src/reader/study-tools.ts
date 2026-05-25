@@ -484,8 +484,9 @@ export function setKnownGrammarVisible(showKnown: boolean): GrammarPreferences {
 export async function translateJapaneseSentence(sentence: string, language: InterfaceLanguage = 'en'): Promise<string> {
     const trimmed = sentence.trim();
     if (!trimmed) return '';
+    const requestSentence = normalizeSentenceForTranslationRequest(trimmed);
     const targetLanguage = translationTargetLanguage(language);
-    const cacheKey = `${targetLanguage}:${trimmed}`;
+    const cacheKey = `${targetLanguage}:${requestSentence}`;
     const cached = translationCache.get(cacheKey);
     if (cached) {
         return cached;
@@ -494,7 +495,7 @@ export async function translateJapaneseSentence(sentence: string, language: Inte
     if (inFlight) {
         return inFlight;
     }
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(trimmed)}`;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(requestSentence)}`;
     const promise = (async () => {
         const done = log.time('Translate sentence', { sentenceLength: trimmed.length });
         try {
@@ -524,6 +525,12 @@ export async function translateJapaneseSentence(sentence: string, language: Inte
 function translationTargetLanguage(_language: InterfaceLanguage): string {
     // The source is Japanese; Japanese UI is immersion chrome, not a translation target.
     return 'en';
+}
+
+function normalizeSentenceForTranslationRequest(sentence: string): string {
+    return sentence
+        .replace(/[「『]/g, '"')
+        .replace(/[」』]/g, '"');
 }
 
 export async function renderGrammarHints(hints: GrammarHint[], sentence: string, preferences = readGrammarPreferences(), language: InterfaceLanguage = 'en'): Promise<string> {

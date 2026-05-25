@@ -18,7 +18,7 @@ import { FloatingButtonController } from '../../src/reader/floating-button';
 import { ImmersionKitClient, type ImmersionKitExample } from '../../src/reader/immersion-kit';
 import { ImmersionPopoverController } from '../../src/reader/immersion-popover-controller';
 import { JpdbClient, splitJapaneseSentences } from '../../src/reader/jpdb';
-import { jpdbVocabularyToCards } from '../../src/reader/jpdb-parser';
+import { jpdbParseResultToTokens, jpdbVocabularyToCards } from '../../src/reader/jpdb-parser';
 import { isKanjiReviewBack, isKanjiReviewFront, parseJpdbReviewCardValue } from '../../src/reader/jpdb-page-targets';
 import { JpdbKanjiClient, parseJpdbKanjiHtml, visibleJpdbKanjiActions } from '../../src/reader/jpdb-kanji';
 import { JpdbVocabularyClient, parseJpdbAudioData, parseJpdbSearchHtml, parseJpdbVocabularyHtml } from '../../src/reader/jpdb-vocabulary';
@@ -3735,6 +3735,39 @@ describe('reader helpers', () => {
         expect(html).toContain('>む<');
     });
 
+    it('uses token furigana as the popup pronunciation when a JPDB card reading falls back to kanji', () => {
+        const cards = jpdbVocabularyToCards([[
+            1407930,
+            0,
+            0,
+            '多読',
+            '多読',
+            9800,
+            ['n'],
+            [['wide reading']],
+            [['n']],
+            ['not-in-deck'],
+            ['LHH'],
+        ]]);
+
+        const [[token]] = jpdbParseResultToTokens(['多読'], [[
+            [0, 0, 2, [['多', 'た'], ['読', 'どく']]],
+        ]], cards);
+
+        expect(token?.card.reading).toBe('たどく');
+        expect(token?.card.wordWithReading).toBe('多[た]読[どく]');
+        const html = renderPitch(token!.card);
+        expect(html).toContain('>た<');
+        expect(html).toContain('>ど<');
+        expect(html).toContain('>く<');
+        expect(html).not.toContain('>多<');
+        expect(html).not.toContain('>読<');
+    });
+
+    it('does not render a pitch graph against kanji when no pronunciation is available', () => {
+        expect(renderPitch({ ...card, spelling: '多読', reading: '多読', pitchAccent: ['LHH'], wordWithReading: null })).toBe('');
+    });
+
     it('parses pitch accent patterns from public JPDB vocabulary pages', () => {
         const html = `
             <link rel="canonical" href="https://jpdb.io/vocabulary/1157000/%E6%98%93%E3%81%97%E3%81%84/%E3%82%84%E3%81%95%E3%81%97%E3%81%84">
@@ -4692,6 +4725,35 @@ describe('reader helpers', () => {
             spelling: '日本語',
             reading: 'にほんご',
             frequencyRank: 4800,
+        });
+    });
+
+    it('uses canonical JPDB detail readings before supplemental links when resolving public cards', () => {
+        const cards = parseJpdbSearchHtml(`
+            <link rel="canonical" href="https://jpdb.io/vocabulary/1407930/%E5%A4%9A%E8%AA%AD/%E3%81%9F%E3%81%A9%E3%81%8F">
+            <meta name="description" content="Dictionary definition of 多読 (たどく) — wide reading; extensive reading">
+            <div class="results details">
+                <div class="result vocabulary">
+                    <div class="subsection-headword">
+                        <div class="primary-spelling">
+                            <div class="spelling"><div><ruby class="v">多<rt>た</rt>読<rt>どく</rt></ruby></div></div>
+                        </div>
+                    </div>
+                    <div class="subsection-meanings">
+                        <div class="part-of-speech"><div>Noun</div><div>Verb (する)</div></div>
+                        <div class="description">1. wide reading; extensive reading</div>
+                    </div>
+                    <a class="view-conjugations-link" href="/vocabulary/1407930/%E5%A4%9A%E8%AA%AD/used-in">Used in: 10</a>
+                </div>
+            </div>
+        `);
+
+        expect(cards).toHaveLength(1);
+        expect(cards[0]).toMatchObject({
+            vid: 1407930,
+            spelling: '多読',
+            reading: 'たどく',
+            partOfSpeech: ['Noun', 'Verb (する)'],
         });
     });
 
@@ -8768,6 +8830,29 @@ describe('reader helpers', () => {
             expect(translateUrl.hostname).toBe('translate.googleapis.com');
             expect(translateUrl.searchParams.get('sl')).toBe('ja');
             expect(translateUrl.searchParams.get('tl')).toBe('en');
+        } finally {
+            Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
+        }
+    });
+
+    it('normalizes Japanese quote punctuation before requesting sentence translation', async () => {
+        const originalFetch = globalThis.fetch;
+        const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>(async (_input, _init) => new Response(JSON.stringify({
+            sentences: [{ trans: 'NPO Multilingual Extensive Reading proposes and supports "extensive reading".' }],
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        Object.defineProperty(globalThis, 'fetch', {
+            configurable: true,
+            value: fetchMock,
+        });
+
+        try {
+            await expect(translateJapaneseSentence('NPO多言語多読は「多読」を提案します。', 'en'))
+                .resolves.toBe('NPO Multilingual Extensive Reading proposes and supports "extensive reading".');
+
+            const requestedUrl = String(fetchMock.mock.calls[0]?.[0] ?? '');
+            const targetUrl = new URL(requestedUrl).searchParams.get('url') ?? requestedUrl;
+            const translateUrl = new URL(targetUrl);
+            expect(translateUrl.searchParams.get('q')).toBe('NPO多言語多読は"多読"を提案します。');
         } finally {
             Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
         }
