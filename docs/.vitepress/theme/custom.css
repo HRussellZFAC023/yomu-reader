@@ -218,6 +218,16 @@
   color: inherit !important;
 }
 
+.vp-doc :not(pre) > code {
+  color: var(--vp-c-text-1);
+  background: color-mix(in srgb, var(--vp-c-bg-soft) 82%, var(--vp-c-bg));
+  font-weight: 650;
+}
+
+.VPSidebarItem.is-active > .item .text {
+  color: var(--vp-c-text-1) !important;
+}
+
 .vp-doc h2 {
   border-top: 1px solid var(--vp-c-divider);
   padding-top: 28px;
@@ -250,11 +260,11 @@
 }
 
 .yomu-callout strong {
-  color: var(--vp-c-brand-1);
+  color: var(--vp-c-text-1);
 }
 
 .dark .yomu-callout strong {
-  color: var(--vp-c-brand-3);
+  color: var(--vp-c-text-1);
 }
 
 .yomu-install-panel {
@@ -499,9 +509,10 @@
 
 .yomu-store-status-row small {
   padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--vp-c-brand-2) 24%, var(--vp-c-divider));
   border-radius: 6px;
   background: color-mix(in srgb, var(--vp-c-brand-2) 10%, transparent);
-  color: color-mix(in srgb, var(--vp-c-text-2) 82%, transparent);
+  color: var(--vp-c-text-1);
   font-size: 11px;
   font-weight: 760;
 }
@@ -525,12 +536,12 @@
 }
 
 .yomu-try-me strong {
-  color: var(--vp-c-brand-1);
+  color: var(--vp-c-text-1);
   font-size: 18px;
 }
 
 .dark .yomu-try-me strong {
-  color: var(--vp-c-brand-3);
+  color: var(--vp-c-text-1);
 }
 
 .yomu-try-me-text {
@@ -571,6 +582,15 @@
   max-width: 100%;
   white-space: normal;
   overflow-wrap: anywhere !important;
+}
+
+.yomu-try-me .jpdb-reader-word {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0 2px;
 }
 
 .yomu-shot-grid {

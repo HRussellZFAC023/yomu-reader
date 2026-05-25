@@ -330,7 +330,8 @@
   opacity: .78;
 }
 .jpdb-subtitle-controls-hidden .jpdb-subtitle-menu,
-.jpdb-subtitle-controls-hidden .jpdb-subtitle-list {
+.jpdb-subtitle-controls-hidden .jpdb-subtitle-list,
+.jpdb-subtitle-list.jpdb-subtitle-controls-hidden {
   display: none !important;
 }
 .jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {
@@ -971,7 +972,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     right: 8px;
     bottom: auto;
   }
-  .jpdb-subtitle-transcript-bottom .jpdb-subtitle-list {
+  .jpdb-subtitle-transcript-bottom .jpdb-subtitle-list,
+  .jpdb-subtitle-list.jpdb-subtitle-transcript-bottom {
     left: 0 !important;
     right: auto !important;
     width: 100vw !important;

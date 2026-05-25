@@ -17,6 +17,7 @@ export interface SiteParserProfile {
     includeUiChrome?: boolean;
     includeGenericPageText?: boolean;
     fallbackToWholePage?: boolean;
+    visibleOnly?: boolean;
     scanLimit?: number;
     heading?: boolean;
     matches(url: URL): boolean;
@@ -103,6 +104,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         heading: true,
         minLength: 1,
         includeUiChrome: true,
+        visibleOnly: false,
         scanLimit: 20,
         matches: url => Boolean(document.querySelector('[data-yomu-demo-lookup]'))
             && url.pathname.startsWith(`/${APP_REPOSITORY_NAME}/`),
@@ -407,7 +409,7 @@ function collectProfileScanTargets(profile: SiteParserProfile, context: SiteScan
 }
 
 function collectRootScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext): void {
-    const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context), true, profile.exclude ?? COMMON_EXCLUDE, {
+    const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context), profile.visibleOnly ?? true, profile.exclude ?? COMMON_EXCLUDE, {
         allowUiText: profile.allowUiText,
         minLength: profile.minLength,
         includeUiChrome: profile.includeUiChrome,

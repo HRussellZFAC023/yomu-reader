@@ -99,6 +99,8 @@ const NEW_TAB_REMOTE_LOOKUP_TIMEOUT_MS = 8_000;
 const NEW_TAB_ANKI_ENRICHMENT_LIMIT = 16;
 const NEW_TAB_PITCH_ENRICHMENT_LIMIT = 12;
 const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
+const NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
+const NEW_TAB_PARSE_CONTENT_CACHE_LIMIT = 160;
 
 type YomuNewTabWindow = typeof window & {
     __YOMU_READER_RUNTIME__?: string;
@@ -190,6 +192,7 @@ export class NewTabRuntime {
     private activeLookupAnchor?: HTMLElement;
     private activeLookupHandlerController?: AbortController;
     private lookupRenderRequest = 0;
+    private parseContentCache = new Map<string, { expiresAt: number; promise: Promise<JPDBToken[][]> }>();
     private lastAutoAudioKey = '';
     private lastAutoAudioAt = 0;
     private externalRefreshController?: AbortController;
@@ -329,6 +332,7 @@ export class NewTabRuntime {
         this.factoryReset.destroy();
         this.newTab?.destroy();
         this.dictionaryStyles.remove();
+        this.parseContentCache.clear();
         this.dismiss();
     }
 
@@ -338,6 +342,7 @@ export class NewTabRuntime {
         this.parser.clearLocalCache();
         this.dictionarySourceState.clear();
         this.cardRenderData.clear();
+        this.parseContentCache.clear();
         this.lookupRenderRequest++;
         this.lastAutoAudioKey = '';
         this.lastAutoAudioAt = 0;
@@ -372,7 +377,10 @@ export class NewTabRuntime {
             jpdbReviewBridge: this.jpdbReviewBridge,
             parser: this.parser,
             dictionaries: this.dictionaries,
-            parseContent: root => this.parseNewTabContent(root, { jpdbTimeoutMs: NEW_TAB_STUDY_PARSE_TIMEOUT_MS }),
+            parseContent: (root, options) => this.parseNewTabContent(root, {
+                jpdbTimeoutMs: options?.jpdbTimeoutMs ?? NEW_TAB_STUDY_PARSE_TIMEOUT_MS,
+                allowJpdbTimeoutFallback: options?.allowJpdbTimeoutFallback,
+            }),
             lookupText: (text, reading, anchor) => this.lookupText(text, reading, anchor),
             lookupDictionaryReference: (query, reading, _dictionary, anchor) => this.lookupText(query, reading || query, anchor),
             showLookupCard: (card, sentence, anchor) => this.showLookupCard(card, sentence, anchor, { navigation: 'push-current', reuseActivePopover: true, autoPlay: false }),
@@ -1712,10 +1720,7 @@ export class NewTabRuntime {
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
         root.dataset.jpdbReaderParseLoadingId = parseLoadingId;
         try {
-            const parsed = await this.parser.parse(plan.targets.map(target => target.text), {
-                jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
-                allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? true,
-            });
+            const parsed = await this.loadParsedNewTabContent(plan.targets.map(target => target.text), options);
             if (!root.isConnected
                 || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
                 || root.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
@@ -1726,6 +1731,61 @@ export class NewTabRuntime {
         } catch {
         } finally {
             clearNestedParseLoadingKey(root, plan.parseKey, parseLoadingId);
+        }
+    }
+
+    private loadParsedNewTabContent(texts: string[], options: NewTabParseContentOptions = {}): Promise<JPDBToken[][]> {
+        const parseOptions = {
+            jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
+            allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? true,
+            includeLocalPitch: false,
+        };
+        const key = this.parseContentCacheKey(texts, parseOptions);
+        const now = Date.now();
+        const cached = this.parseContentCache.get(key);
+        if (cached && cached.expiresAt > now) {
+            this.parseContentCache.delete(key);
+            this.parseContentCache.set(key, cached);
+            return cached.promise;
+        }
+        if (cached) this.parseContentCache.delete(key);
+
+        const promise = this.parser.parse(texts, parseOptions).catch(error => {
+            if (this.parseContentCache.get(key)?.promise === promise) this.parseContentCache.delete(key);
+            throw error;
+        });
+        this.parseContentCache.set(key, { expiresAt: now + NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS, promise });
+        this.pruneParseContentCache(now);
+        return promise;
+    }
+
+    private parseContentCacheKey(
+        texts: string[],
+        options: { jpdbTimeoutMs: number; allowJpdbTimeoutFallback: boolean; includeLocalPitch: boolean },
+    ): string {
+        return JSON.stringify({
+            texts,
+            options,
+            settings: {
+                apiKey: Boolean(this.settings.apiKey.trim()),
+                localDictionariesEnabled: this.settings.localDictionariesEnabled,
+                dictionaries: this.settings.dictionaryPreferences.map(preference => ({
+                    name: preference.name,
+                    enabled: preference.enabled,
+                    priority: preference.priority,
+                })),
+            },
+        });
+    }
+
+    private pruneParseContentCache(now: number): void {
+        for (const [key, entry] of this.parseContentCache) {
+            if (entry.expiresAt <= now) this.parseContentCache.delete(key);
+        }
+        while (this.parseContentCache.size > NEW_TAB_PARSE_CONTENT_CACHE_LIMIT) {
+            const oldest = this.parseContentCache.keys().next().value;
+            if (typeof oldest !== 'string') break;
+            this.parseContentCache.delete(oldest);
         }
     }
 

@@ -61,12 +61,8 @@ For the research behind the approach, see the 2025 meta-analysis on [learning a 
 <div class="yomu-try-me" data-yomu-demo-lookup>
   <strong>Try me</strong>
   <div class="yomu-try-me-text">
-    <h3>
-      <span class="jpdb-reader-word" data-sentence="青空の下で日本語を読む" tabindex="0">青空</span>の下で<span class="jpdb-reader-word" data-sentence="青空の下で日本語を読む" tabindex="0">日本語</span>を<span class="jpdb-reader-word" data-sentence="青空の下で日本語を読む" tabindex="0">読む</span>
-    </h3>
-    <p>
-      <span class="jpdb-reader-word" data-sentence="今日は静かな喫茶店で新しい本を読みました。" tabindex="0">今日</span>は<span class="jpdb-reader-word" data-sentence="今日は静かな喫茶店で新しい本を読みました。" tabindex="0">静かな</span><span class="jpdb-reader-word" data-sentence="今日は静かな喫茶店で新しい本を読みました。" tabindex="0">喫茶店</span>で<span class="jpdb-reader-word" data-sentence="今日は静かな喫茶店で新しい本を読みました。" tabindex="0">新しい</span><span class="jpdb-reader-word" data-sentence="今日は静かな喫茶店で新しい本を読みました。" tabindex="0">本</span>を<span class="jpdb-reader-word" data-sentence="今日は静かな喫茶店で新しい本を読みました。" tabindex="0">読みました</span>。
-    </p>
+    <h3>青空の下で日本語を読む</h3>
+    <p>今日は静かな喫茶店で新しい本を読みました。</p>
   </div>
 
   <div class="yomu-shot-grid">

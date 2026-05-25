@@ -671,7 +671,7 @@ function fallbackReadableSentence(cleanFallback: string, surface: string): strin
 
 function canReadSentenceContextFrom(element: HTMLElement): boolean {
     return !element.closest(READER_ROOT_SELECTOR)
-        || Boolean(element.closest('.jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-ocr-layer'));
+        || Boolean(element.closest('.jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer'));
 }
 
 export function sentenceAroundSurface(value: string, surface = '', fallback = ''): string {

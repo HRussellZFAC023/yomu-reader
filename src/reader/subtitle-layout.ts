@@ -88,10 +88,14 @@ export function shouldUseCompactSubtitleDrawer(viewportWidth: number): boolean {
 }
 
 export function applyTranscriptPanelLayout(panel: HTMLElement, layout: TranscriptPanelLayout): void {
+    setStylePropertyIfChanged(panel, 'position', 'fixed');
     setStylePropertyIfChanged(panel, 'left', `${Math.round(layout.left)}px`);
     setStylePropertyIfChanged(panel, 'top', `${Math.round(layout.top)}px`);
     setStylePropertyIfChanged(panel, 'right', 'auto');
     setStylePropertyIfChanged(panel, 'bottom', 'auto');
+    setStylePropertyIfChanged(panel, 'box-sizing', 'border-box');
+    setStylePropertyIfChanged(panel, 'z-index', '2147483645');
+    setStylePropertyIfChanged(panel, 'pointer-events', 'auto');
     setStylePropertyIfChanged(panel, 'width', `${Math.round(Math.max(260, Math.min(layout.width, layout.viewportWidth - layout.margin * 2)))}px`);
     const minHeight = layout.placement === 'bottom' ? 80 : 150;
     const height = `${Math.round(Math.max(minHeight, layout.height))}px`;

@@ -31,6 +31,15 @@ if (code.includes('// @downloadURL')) fail('Greasy Fork build should not adverti
 if (code.includes('// @updateURL')) fail('Greasy Fork build should not advertise an alternate update URL.');
 if (!code.includes('Bundled library source information') || !code.includes('fflate')) fail('bundled library source/version notice is missing.');
 if (!fs.existsSync(cssResourceFile)) fail('dist/yomu.css is missing; the @resource yomuCss URL must point at a shipped file.');
+const cssResource = fs.readFileSync(cssResourceFile, 'utf8');
+for (const selector of [
+  '.jpdb-reader-popover',
+  '.jpdb-reader-popover.jpdb-reader-sheet',
+  '.jpdb-reader-word-highlight-pitch',
+  '.jpdb-ocr-layer',
+]) {
+  if (!cssResource.includes(selector)) fail(`dist/yomu.css is missing required reader selector: ${selector}`);
+}
 if (!code.includes('(function ()')) fail('userscript should be bundled as a plain IIFE for Tampermonkey copy/paste.');
 if (lines.length < MIN_READABLE_LINE_COUNT || maxLineLength > MAX_READABLE_LINE_LENGTH) {
   fail(`dist/yomu.user.js looks minified or unreadable (${lines.length.toLocaleString()} lines, longest line ${maxLineLength.toLocaleString()} chars). Greasy Fork requires non-minified code.`);

@@ -17,6 +17,7 @@ copyFileSync(source, target);
 console.log(`Synced ${target}`);
 
 copyBuiltAsset('dist/newtab/app.js', 'docs/public/newtab/app.js');
+copyBuiltAsset('dist/yomu.css', 'docs/public/yomu.css');
 syncNewTabIndex();
 
 function copyBuiltAsset(sourcePath, targetPath) {

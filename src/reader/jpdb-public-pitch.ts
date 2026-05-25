@@ -4,11 +4,13 @@ import { parseHtmlDocument } from './dom';
 
 const JPDB_SEARCH_URL = 'https://jpdb.io/search';
 const REQUEST_TIMEOUT_MS = 6000;
+const CACHE_TTL_MS = 10 * 60 * 1000;
+const CACHE_LIMIT = 600;
 const SMALL_KANA = new Set('ゃゅょャュョァィゥェォ');
 const log = Logger.scope('JpdbPublicPitch');
 
 export class JpdbPublicPitchClient {
-    private cache = new Map<string, Promise<string[]>>();
+    private cache = new Map<string, { expiresAt: number; promise: Promise<string[]> }>();
 
     constructor(private readonly getCorsProxyUrl: () => string = () => '') {}
 
@@ -18,12 +20,30 @@ export class JpdbPublicPitchClient {
         if (!normalizedSpelling && !normalizedReading) return Promise.resolve([]);
 
         const key = `${normalizedSpelling}\n${normalizedReading}`;
-        let promise = this.cache.get(key);
-        if (!promise) {
-            promise = this.fetchPitch(normalizedSpelling, normalizedReading);
-            this.cache.set(key, promise);
+        const now = Date.now();
+        const cached = this.cache.get(key);
+        if (cached && cached.expiresAt > now) {
+            this.cache.delete(key);
+            this.cache.set(key, cached);
+            return cached.promise;
         }
+        if (cached) this.cache.delete(key);
+
+        const promise = this.fetchPitch(normalizedSpelling, normalizedReading);
+        this.cache.set(key, { expiresAt: now + CACHE_TTL_MS, promise });
+        this.pruneCache(now);
         return promise;
+    }
+
+    private pruneCache(now: number): void {
+        for (const [key, entry] of this.cache) {
+            if (entry.expiresAt <= now) this.cache.delete(key);
+        }
+        while (this.cache.size > CACHE_LIMIT) {
+            const oldest = this.cache.keys().next().value;
+            if (typeof oldest !== 'string') break;
+            this.cache.delete(oldest);
+        }
     }
 
     private async fetchPitch(spelling: string, reading: string): Promise<string[]> {

@@ -13,7 +13,7 @@ import {
     shouldRequireOriginalSurfaceMatch,
     uniqueImmersionQueries,
 } from './immersion-query';
-import { ImmersionKitClient, isImmersionKitRateLimitError, type ImmersionKitExample } from './immersion-kit';
+import { ImmersionKitClient, isImmersionKitRateLimitError, type ImmersionKitExample, type ImmersionKitSearchOptions } from './immersion-kit';
 import { localizedImmersionProviderLabel, localizedImmersionSourceTitle } from './immersion-labels';
 import { uiText } from './i18n';
 import { Logger } from './logger';
@@ -35,9 +35,12 @@ import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 
 const IMMERSION_SEARCH_CACHE_TTL_MS = 30_000;
 const IMMERSION_SEARCH_CACHE_LIMIT = 120;
+const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
+const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 48;
 const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
 const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
 const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
+const IMMERSION_PARSED_SENTENCE_CACHE_LIMIT = 160;
 const log = Logger.scope('ImmersionPopover');
 
 interface ExampleAudioSource {
@@ -91,6 +94,7 @@ export class ImmersionPopoverController {
     private activeMiningContext?: MiningContext;
     private contextByCardKey = new Map<string, StoredMiningContext>();
     private searchResultCache = new Map<string, { expiresAt: number; promise: Promise<ImmersionKitSearchResult> }>();
+    private parsedSentenceCache = new Map<string, Promise<JPDBToken[]>>();
     private loadAbortControllers = new WeakMap<HTMLElement, AbortController>();
 
     constructor(private options: ImmersionPopoverControllerOptions) {}
@@ -119,6 +123,13 @@ export class ImmersionPopoverController {
         const cleanSentence = normalizeMiningSentence(sentence);
         if (!isPageMiningSentence(cleanSentence, card)) return;
         this.rememberStoredMiningContext(saveMiningContext(card.spelling, this.pageMiningContextDraft(cleanSentence, anchor)));
+    }
+
+    rememberTermMiningContext(term: string, sentence?: string, anchor?: HTMLElement): void {
+        const cleanTerm = term.trim();
+        const cleanSentence = normalizeMiningSentence(sentence);
+        if (!cleanTerm || !isPageMiningSentence(cleanSentence, { spelling: cleanTerm } as JPDBCard)) return;
+        this.rememberStoredMiningContext(saveMiningContext(cleanTerm, this.pageMiningContextDraft(cleanSentence, anchor)));
     }
 
     private pageMiningContextDraft(sentence: string, anchor?: HTMLElement): MiningContextDraft {
@@ -288,23 +299,16 @@ export class ImmersionPopoverController {
     async searchExamples(card: JPDBCard, options: ImmersionSearchOptions = {}): Promise<ImmersionKitSearchResult> {
         const key = this.searchCacheKey(card, options);
         const now = Date.now();
-        const cacheSearch = !options.signal;
-        const cached = cacheSearch ? this.searchResultCache.get(key) : undefined;
+        const cached = this.searchResultCache.get(key);
         if (cached && cached.expiresAt > now) return cached.promise;
 
-        const promise = this.fetchExamples(card, options).catch(error => {
-            if (cacheSearch && this.searchResultCache.get(key)?.promise === promise) this.searchResultCache.delete(key);
+        const promise = this.fetchExamples(card, { ...options, signal: undefined }).catch(error => {
+            if (this.searchResultCache.get(key)?.promise === promise) this.searchResultCache.delete(key);
             throw error;
         });
-        if (cacheSearch) {
-            this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise });
-            pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
-        }
+        this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise });
+        pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
         return promise;
-    }
-
-    preloadForTokens(tokens: JPDBToken[]): void {
-        void tokens;
     }
 
     stopAudio(): void {
@@ -416,14 +420,25 @@ export class ImmersionPopoverController {
         triedQueries.push(query);
         try {
             const settings = this.options.getSettings();
-            const examples = signal
-                ? await this.options.client.search(query, settings, { signal })
-                : await this.options.client.search(query, settings);
+            const searchOptions = this.popupSearchOptions(settings, signal);
+            const examples = await this.options.client.search(query, settings, searchOptions);
             return immersionSearchResultForQuery(query, exactQuery, triedQueries, examples);
         } catch (error) {
             if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
             return null;
         }
+    }
+
+    private popupSearchOptions(settings: ReaderSettings, signal?: AbortSignal): ImmersionKitSearchOptions {
+        const resultLimit = settings.immersionKitLimitEnabled
+            ? Math.min(settings.immersionKitLimit, IMMERSION_POPUP_EXAMPLE_LIMIT)
+            : IMMERSION_POPUP_EXAMPLE_LIMIT;
+        return {
+            requestLimit: Math.max(IMMERSION_POPUP_SEARCH_REQUEST_LIMIT, resultLimit),
+            resultLimit,
+            fastFirst: true,
+            ...(signal ? { signal } : {}),
+        };
     }
 
     private searchCacheKey(card: JPDBCard, options: ImmersionSearchOptions): string {
@@ -512,10 +527,11 @@ export class ImmersionPopoverController {
         const audioUrls = this.mediaUrls(example, 'sound');
         const hasAudio = audioUrls.length > 0;
         const imageUrl = imageUrls[0] ?? '';
+        const contextImageUrl = immersionMiningImageUrl(imageUrls);
 
-        this.rememberExampleMiningContext(card, example, index, examples.length, imageUrl, audioUrls, promoteMiningContext);
+        this.rememberExampleMiningContext(card, example, index, examples.length, contextImageUrl, audioUrls, promoteMiningContext);
         delete container.dataset.immersionEmpty;
-        setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, audioUrls, hasAudio));
+        setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio));
         this.loadRenderedExampleImages(container, imageUrls, isCurrent);
         this.options.repositionPopover();
         if (playAudio) void this.playExampleAudio(example, true);
@@ -552,6 +568,7 @@ export class ImmersionPopoverController {
         searchQuery: string,
         settings: ReaderSettings,
         imageUrl: string,
+        contextImageUrl: string,
         audioUrls: string[],
         hasAudio: boolean,
     ): string {
@@ -572,7 +589,7 @@ export class ImmersionPopoverController {
                 </div>
                 ${renderExampleActionsHtml(hasAudio, language)}
             </div>
-            <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml(example.sentence)}" data-immersion-source-title="${escapeHtml(example.sourceTitle)}" data-immersion-image-url="${escapeHtml(imageUrl)}" data-immersion-audio-urls="${escapeHtml(JSON.stringify(audioUrls))}">
+            <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml(example.sentence)}" data-immersion-source-title="${escapeHtml(example.sourceTitle)}" data-immersion-image-url="${escapeHtml(contextImageUrl)}" data-immersion-audio-urls="${escapeHtml(JSON.stringify(audioUrls))}">
                 <div class="jpdb-reader-example-body">
                     ${image}
                     ${image ? '' : sentence}
@@ -662,19 +679,36 @@ export class ImmersionPopoverController {
         searchQuery: string,
         isCurrent: () => boolean,
     ): void {
-        void this.options.parseJapanese([example.sentence], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true })
-            .then(([tokens]) => {
+        void this.parsedExampleSentenceTokens(example.sentence)
+            .then(tokens => {
                 if (!isCurrent() || !container.isConnected) return;
                 const sentence = container.querySelector<HTMLElement>('[data-immersion-sentence-render]');
                 if (!sentence) return;
-                setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens ?? [], this.options.getSettings()));
+                setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens, this.options.getSettings()));
                 this.highlightTarget(sentence, card, searchQuery);
                 void this.options.parsePopoverJapanese(container);
-                void this.options.enrichPitchWords(tokens ?? []);
-                void this.options.enrichAnkiWords(tokens ?? []);
+                void this.options.enrichPitchWords(tokens);
+                void this.options.enrichAnkiWords(tokens);
                 this.options.repositionPopover();
             })
             .catch(() => undefined);
+    }
+
+    private parsedExampleSentenceTokens(sentence: string): Promise<JPDBToken[]> {
+        const key = sentence.trim();
+        if (!key) return Promise.resolve([]);
+        const cached = this.parsedSentenceCache.get(key);
+        if (cached) return cached;
+
+        const promise = this.options.parseJapanese([sentence], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true })
+            .then(([tokens]) => tokens ?? [])
+            .catch(error => {
+                if (this.parsedSentenceCache.get(key) === promise) this.parsedSentenceCache.delete(key);
+                throw error;
+            });
+        this.parsedSentenceCache.set(key, promise);
+        pruneOldestMapEntries(this.parsedSentenceCache, IMMERSION_PARSED_SENTENCE_CACHE_LIMIT);
+        return promise;
     }
 
     private highlightTarget(sentence: HTMLElement, card: JPDBCard, searchQuery = ''): void {
@@ -862,6 +896,10 @@ function shouldFilterImmersionExamplesBySurface(query: string): boolean {
     return queryHasKanji(query) || shouldRequireOriginalSurfaceMatch(query);
 }
 
+function immersionMiningImageUrl(imageUrls: string[]): string {
+    return imageUrls.find(url => /\/download_media\?/u.test(url)) ?? imageUrls[0] ?? '';
+}
+
 function isPageMiningSentence(sentence: string, card: JPDBCard): boolean {
     return Boolean(sentence && sentence !== card.spelling);
 }
@@ -873,7 +911,7 @@ function shouldPromoteExampleMiningContext(activeContext: MiningContext | undefi
 function pageMiningSourceKind(anchor?: HTMLElement): ReturnType<typeof inferMiningSourceKind> {
     return inferMiningSourceKind({
         isImageSource: Boolean(anchor?.closest('.jpdb-ocr-line')),
-        hasVideo: Boolean(anchor?.closest('.jpdb-subtitle-player')) || Boolean(document.querySelector('video')),
+        hasVideo: Boolean(anchor?.closest('.jpdb-subtitle-player, .jpdb-subtitle-list')) || Boolean(document.querySelector('video')),
         hostname: location.hostname,
     });
 }
@@ -950,7 +988,7 @@ function validImmersionExampleIndex(index: number, length: number): number {
 function renderExampleImageHtml(container: HTMLElement, imageUrl: string, overlay = ''): string {
     if (!imageUrl) return '';
     const heldImage = heldExampleImage(container);
-    return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml(imageUrl)}"${heldExampleImageAttributes(heldImage) || ` src="${escapeHtml(imageUrl)}"`} alt="" loading="eager" decoding="async" referrerpolicy="no-referrer">${overlay}</div>`;
+    return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml(imageUrl)}"${heldExampleImageAttributes(heldImage)} alt="" loading="eager" decoding="async" referrerpolicy="no-referrer">${overlay}</div>`;
 }
 
 function renderExampleSentenceHtml(sentenceHtml: string): string {
