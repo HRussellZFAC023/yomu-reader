@@ -19,7 +19,7 @@ export function readPageCaptionText(video?: HTMLVideoElement, readerRoot?: HTMLE
     const direct = readDirectPageCaptionText(video, readerRoot, options);
     if (direct || !video) return direct;
     return isYouTubePage()
-        ? readHiddenYouTubeCaptionText(readerRoot, options)
+        ? readHiddenYouTubeCaptionText(video, readerRoot, options)
         : readNearbyPageCaptionText(video, readerRoot, options);
 }
 
@@ -37,10 +37,11 @@ function readNearbyPageCaptionText(video: HTMLVideoElement, readerRoot?: HTMLEle
     );
 }
 
-function readHiddenYouTubeCaptionText(readerRoot?: HTMLElement, options: PageCaptionReadOptions = {}): string {
+function readHiddenYouTubeCaptionText(video: HTMLVideoElement, readerRoot?: HTMLElement, options: PageCaptionReadOptions = {}): string {
+    const root = youtubeCaptionSearchRoot(video);
     const lines: string[] = [];
     const seen = new Set<string>();
-    for (const element of Array.from(document.querySelectorAll<HTMLElement>('.ytp-caption-segment, .caption-window'))) {
+    for (const element of Array.from(root.querySelectorAll<HTMLElement>('.ytp-caption-segment, .caption-window'))) {
         const text = hiddenYouTubeCaptionLine(element, readerRoot, options);
         if (!text || seen.has(text)) continue;
         seen.add(text);
@@ -48,6 +49,10 @@ function readHiddenYouTubeCaptionText(readerRoot?: HTMLElement, options: PageCap
         if (lines.length >= 2) break;
     }
     return lines.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+function youtubeCaptionSearchRoot(video: HTMLVideoElement): ParentNode {
+    return video.closest('#movie_player, .html5-video-player, ytd-player, ytd-watch-flexy, ytd-reel-video-renderer, ytd-shorts') ?? video.parentElement ?? document;
 }
 
 function hiddenYouTubeCaptionLine(element: HTMLElement, readerRoot?: HTMLElement, options: PageCaptionReadOptions = {}): string {

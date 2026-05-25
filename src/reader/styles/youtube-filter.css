@@ -1,5 +1,12 @@
 .jpdb-youtube-filtered {
     display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+html.jpdb-youtube-filter-active ytd-rich-grid-row,
+html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
+    display: contents !important;
 }
 
 .jpdb-youtube-filter-bar {

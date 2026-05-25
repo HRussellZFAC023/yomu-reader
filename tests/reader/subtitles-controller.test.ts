@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { readPageCaptionText } from '../../src/reader/subtitle-dom-captions';
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles';
 import type { JPDBToken, ReaderSettings } from '../../src/reader/types';
 
@@ -111,6 +112,149 @@ describe('SubtitlePlayerController', () => {
             .map(button => button.dataset.action);
         expect(sidePanelActions).toContain('load');
         expect(sidePanelActions).toContain('load-secondary');
+    });
+
+    it('keeps the tracks panel open after choosing a primary track so Lines is an explicit next step', async () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            subtitleOverlayVisible: true,
+            subtitleTranscriptVisible: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+
+        try {
+            (controller as unknown as { install: () => void }).install();
+            (controller as unknown as { video: HTMLVideoElement }).video = document.createElement('video');
+            (controller as unknown as { tracks: unknown[] }).tracks = [{
+                id: 'file-ja',
+                kind: 'file',
+                label: '日本語',
+                cues: [{ start: 1, end: 2, text: '今日は読む。' }],
+            }];
+
+            (controller as unknown as { openTracksPanel: () => void }).openTracksPanel();
+            await (controller as unknown as { selectTrack: (id: string) => Promise<void> }).selectTrack('file-ja');
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
+            expect(panel.querySelector<HTMLButtonElement>('[data-action="panel-tracks"]')?.getAttribute('aria-pressed')).toBe('true');
+            expect(panel.querySelector<HTMLButtonElement>('[data-action="panel-lines"]')?.disabled).toBe(false);
+            expect(panel.querySelector('.jpdb-subtitle-list-row')).toBeNull();
+
+            panel.querySelector<HTMLButtonElement>('[data-action="panel-lines"]')!.click();
+
+            expect(panel.classList.contains('jpdb-subtitle-lines-panel')).toBe(true);
+            expect(panel.querySelector('.jpdb-subtitle-list-row')?.textContent).toContain('今日は読む。');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('ignores YouTube home hover-preview captions instead of creating a global subtitle overlay', async () => {
+        vi.useFakeTimers();
+        const originalLocation = window.location;
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            subtitleOverlayVisible: true,
+            subtitleAutoDetect: true,
+        };
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <ytd-rich-item-renderer>
+                <video></video>
+                <div class="caption-window"><span class="ytp-caption-segment">みなさん、こんにちは！</span></div>
+            </ytd-rich-item-renderer>
+        `;
+        const video = document.querySelector('video')!;
+        Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            configurable: true,
+            value: () => new DOMRect(0, 0, 640, 360),
+        });
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+
+        try {
+            controller.init();
+            await vi.advanceTimersByTimeAsync(800);
+
+            expect(document.querySelector('.jpdb-subtitle-primary')).toBeNull();
+            expect(document.querySelector('.jpdb-subtitle-text')?.textContent).toBe('');
+            expect((controller as unknown as { video?: HTMLVideoElement }).video).toBeUndefined();
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(false);
+        } finally {
+            controller.destroy();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('still reads scoped YouTube watch captions from the owned movie player', () => {
+        const originalLocation = window.location;
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            subtitleOverlayVisible: true,
+            subtitleAutoDetect: true,
+        };
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+        document.body.innerHTML = `
+            <div id="movie_player">
+                <video></video>
+                <div class="caption-window"><span class="ytp-caption-segment">今日は読む。</span></div>
+            </div>
+        `;
+        const player = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { getVideoData?: () => { video_id?: string } };
+        player.getVideoData = () => ({ video_id: 'abc123' });
+        const video = document.querySelector('video')!;
+        Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            configurable: true,
+            value: () => new DOMRect(0, 0, 960, 540),
+        });
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+
+        try {
+            controller.init();
+
+            expect((controller as unknown as { video?: HTMLVideoElement }).video).toBe(video);
+            expect(readPageCaptionText(video, document.querySelector<HTMLElement>('.jpdb-subtitle-player') ?? undefined)).toBe('今日は読む。');
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
     });
 
     it('exposes the compact subtitle drawer resize handle as an accentable keyboard separator', () => {

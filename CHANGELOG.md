@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.50] - 2026-05-25
+
+### Changed
+
+- Subtitle track selection now stays on Tracks and tells users to click Lines next, with updated English and Japanese copy.
+
+### Fixed
+
+- Restored full timed transcript loading for YouTube videos whose page caption URL is empty by merging Android player caption tracks and matching equivalent Japanese streams across localized labels.
+- Prevented YouTube hover-preview videos from becoming Yomu subtitle sources or leaking stale `.jpdb-subtitle-primary` overlays onto feed pages.
+- Tightened YouTube feed filtering so playlist/mix cards and filtered videos collapse without blank grid gaps, while kanji/katakana Japanese titles remain visible and sparse feeds nudge YouTube continuation loading.
+
 ## [0.4.49] - 2026-05-25
 
 ### Added

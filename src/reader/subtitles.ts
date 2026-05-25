@@ -41,6 +41,7 @@ import {
     discoverYouTubeCaptionTracks,
     getYouTubeCaptionTracks,
     getYouTubeVideoId,
+    isYouTubeOwnedVideoElement,
     isYouTubePage,
     shouldRefreshYouTubeTrackUrl,
     type YouTubeCaptionTrackCandidate,
@@ -640,6 +641,12 @@ export class SubtitlePlayerController {
 
     private discoverEnabledVideo(): void {
         const candidate = this.discoverVideoCandidate();
+        if (!candidate) {
+            if (this.video && !this.isSubtitleVideoCandidate(this.video)) this.clearDiscoveredVideoCandidate();
+            this.syncSubtitleSourceContext(undefined);
+            this.refresh();
+            return;
+        }
         if (candidate && candidate !== this.video) this.useDiscoveredVideoCandidate(candidate);
         this.syncSubtitleSourceContext(candidate ?? this.video);
         this.discoverPageSubtitleTracks();
@@ -654,7 +661,21 @@ export class SubtitlePlayerController {
     }
 
     private isSubtitleVideoCandidate(video: HTMLVideoElement): boolean {
+        if (isYouTubePage() && !isYouTubeOwnedVideoElement(video)) return false;
         return video.readyState >= 1 || video.clientWidth > 120 || video.getBoundingClientRect().width > 120;
+    }
+
+    private clearDiscoveredVideoCandidate(): void {
+        this.video = undefined;
+        this.subtitleSourceContextKey = '';
+        this.youtubeVideoId = '';
+        this.youtubeAutoSelectSuppressedVideoId = '';
+        this.youtubeDomCaptionFallbackTrackId = '';
+        this.clearTransientSubtitleState();
+        this.removeSubtitleTracks(track => track.kind !== 'file');
+        this.setNativeTrackModes();
+        this.render();
+        this.syncControls();
     }
 
     private useDiscoveredVideoCandidate(candidate: HTMLVideoElement): void {
@@ -946,11 +967,18 @@ export class SubtitlePlayerController {
     }
 
     private shouldRefreshYouTubeTracks(): boolean {
-        return isYouTubePage() && (!this.selectedTrackId || !this.cues.length);
+        return isYouTubePage()
+            && Boolean(getYouTubeVideoId())
+            && (!this.video || isYouTubeOwnedVideoElement(this.video))
+            && (!this.selectedTrackId || !this.cues.length);
     }
 
     private shouldUpdateFromDomCaptions(): boolean {
-        return !isYouTubePage() || (!this.cues.length && (Boolean(this.selectedTrackId) || !this.tracks.some(track => track.kind === 'youtube')));
+        if (!isYouTubePage()) return true;
+        return Boolean(getYouTubeVideoId())
+            && isYouTubeOwnedVideoElement(this.video)
+            && !this.cues.length
+            && (Boolean(this.selectedTrackId) || !this.tracks.some(track => track.kind === 'youtube'));
     }
 
     private refreshNativeCueLists(): void {
@@ -1071,7 +1099,11 @@ export class SubtitlePlayerController {
     }
 
     private canUseDomCaptionFallback(selected: SubtitleTrackOption | undefined): boolean {
-        if (isYouTubePage()) return Boolean(this.selectedTrackId || !this.tracks.some(track => track.kind === 'youtube'));
+        if (isYouTubePage()) {
+            return Boolean(getYouTubeVideoId())
+                && isYouTubeOwnedVideoElement(this.video)
+                && Boolean(this.selectedTrackId || !this.tracks.some(track => track.kind === 'youtube'));
+        }
         const selectedNativeTrackNeedsDomFallback = Boolean(selected?.kind === 'native' && selected.track && !this.cues.length);
         return !this.selectedTrackId || selectedNativeTrackNeedsDomFallback;
     }
@@ -1087,8 +1119,9 @@ export class SubtitlePlayerController {
     }
 
     private createYouTubeDomCaptionFallbackTrack(): SubtitleTrackOption {
+        const videoId = getYouTubeVideoId();
         return {
-            id: `youtube-dom-${this.youtubeVideoId || getYouTubeVideoId() || Date.now()}`,
+            id: `youtube-dom-${this.youtubeVideoId || videoId}`,
             label: 'YouTube native captions',
             kind: 'youtube',
             loadingState: 'waiting',
@@ -2210,10 +2243,6 @@ export class SubtitlePlayerController {
             else this.closeTranscriptPanel();
             return;
         }
-        if (this.hasTranscriptSurface()) {
-            this.openLinesPanel();
-            return;
-        }
         this.renderTrackPanel();
         this.positionTranscriptPanel({ realignAfterInset: true });
         this.syncPanelState();
@@ -3177,7 +3206,7 @@ function closeIcon(): string {
 function subtitleSourceContextKey(video?: HTMLVideoElement): string {
     const url = new URL(location.href);
     url.hash = '';
-    if (isYouTubePage()) return `youtube:${getYouTubeVideoId() || url.pathname}`;
+    if (isYouTubePage()) return getYouTubeVideoId() ? `youtube:${getYouTubeVideoId()}` : '';
     if (isCijVideoPage()) return `cij:${url.origin}${url.pathname}${url.search}`;
     const videoSource = videoSourceKey(video);
     return `page:${url.origin}${url.pathname}${url.search}${videoSource ? `|video:${videoSource}` : ''}`;
