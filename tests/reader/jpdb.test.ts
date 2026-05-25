@@ -2338,16 +2338,13 @@ describe('reader helpers', () => {
         }
     });
 
-    it('lets touch-style taps reveal OCR lines before tapping parsed words', async () => {
+    it('opens OCR line taps through the same sticky click lookup path as page words', async () => {
         const app = new ReaderApp();
         const lookupText = vi.fn(async () => undefined);
-        const showWord = vi.fn(async () => undefined);
         const internals = app as unknown as {
             lookupText: typeof lookupText;
-            showWord: typeof showWord;
         };
         internals.lookupText = lookupText;
-        internals.showWord = showWord;
 
         const image = document.createElement('img');
         image.src = '/yomu-reader/screenshots/real-popup-lookup.png';
@@ -2384,20 +2381,28 @@ describe('reader helpers', () => {
             });
 
             const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            lookupText.mockClear();
             const tap = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 });
             const clickWasNotCanceled = line.dispatchEvent(tap);
 
             expect(clickWasNotCanceled).toBe(false);
-            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
-            expect(lookupText).not.toHaveBeenCalled();
-            expect(showWord).not.toHaveBeenCalled();
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
+            expect(lookupText).toHaveBeenCalledWith('日本語を読む', '日本語を読む', expect.objectContaining({
+                anchor: line,
+                navigation: 'reset',
+                trigger: 'modal',
+                userGesture: true,
+            }));
 
             line.querySelector<HTMLElement>('.jpdb-ocr-line-text')!.innerHTML = '<span class="jpdb-reader-word jpdb-not-in-deck" data-vid="10" data-sid="20" data-sentence="日本語を読む" tabindex="0">日本語</span>を読む';
             const word = line.querySelector<HTMLElement>('.jpdb-reader-word[data-vid]')!;
+            lookupText.mockClear();
             word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 130, clientY: 120 }));
 
-            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
-                trigger: 'click',
+            expect(lookupText).toHaveBeenCalledWith('日本語', '日本語を読む', expect.objectContaining({
+                anchor: word,
+                navigation: 'reset',
+                trigger: 'modal',
                 userGesture: true,
             }));
         } finally {
