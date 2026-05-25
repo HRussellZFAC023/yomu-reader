@@ -5,6 +5,7 @@
 ### Fixed
 
 - Fixed hosted Try Me furigana alignment by keeping parsed words on native inline ruby layout instead of flex layout.
+- Changed Immersion Kit rate-limit backoff to start at 1 s (was 100 ms) and double on each consecutive 429, capping at 30 s, then reset after a successful search.
 
 ## [0.4.42] - 2026-05-25
 

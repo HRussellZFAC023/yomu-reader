@@ -17839,7 +17839,8 @@ ${entry.reading}`;
  const MEDIA_CANDIDATE_LIMIT = 4;
  const SEARCH_EXAMPLE_LIMIT = 250;
  const SEARCH_CACHE_LIMIT = 160;
- const SEARCH_RATE_LIMIT_COOLDOWN_MS = 2 * 60 * 1e3;
+ const SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS = 1e3;
+ const SEARCH_RATE_LIMIT_MAX_BACKOFF_MS = 3e4;
  const PRELOAD_KEY_LIMIT = 300;
  const NADESHIKO_SEARCH_LIMIT = 25;
  const MIN_LEARNING_SENTENCE_LENGTH = 8;
@@ -17948,6 +17949,7 @@ ${entry.reading}`;
   preloadKeys = /* @__PURE__ */ new Set();
   mediaBlobUrlCache = new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS);
   immersionKitRateLimitedUntil = 0;
+  immersionKitBackoffMs = SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS;
   async search(term, settings, options = {}) {
    const query = term.trim();
    if (!canSearchImmersionExamples(query, settings)) return [];
@@ -18012,7 +18014,10 @@ ${entry.reading}`;
   }
   searchImmersionKit(query, settings, options) {
    this.assertImmersionKitSearchAllowed();
-   return requestJson$1(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal).then((data) => filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), "immersion-kit")).catch((error) => {
+   return requestJson$1(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal).then((data) => {
+    this.resetImmersionKitBackoff();
+    return filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), "immersion-kit");
+   }).catch((error) => {
     if (isImmersionKitRateLimitError(error)) this.noteImmersionKitRateLimit();
     throw error;
    });
@@ -18023,7 +18028,12 @@ ${entry.reading}`;
    }
   }
   noteImmersionKitRateLimit() {
-   this.immersionKitRateLimitedUntil = Date.now() + SEARCH_RATE_LIMIT_COOLDOWN_MS;
+   this.immersionKitRateLimitedUntil = Date.now() + this.immersionKitBackoffMs;
+   this.immersionKitBackoffMs = Math.min(this.immersionKitBackoffMs * 2, SEARCH_RATE_LIMIT_MAX_BACKOFF_MS);
+  }
+  resetImmersionKitBackoff() {
+   this.immersionKitBackoffMs = SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS;
+   this.immersionKitRateLimitedUntil = 0;
   }
   searchNadeshiko(query, settings, options) {
    const apiKey = settings.nadeshikoApiKey.trim();
