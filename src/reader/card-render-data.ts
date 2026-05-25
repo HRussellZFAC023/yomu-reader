@@ -97,7 +97,8 @@ export class CardRenderDataLoader {
             if (!card.pitchAccent.length && publicPitch.length) card.pitchAccent = publicPitch;
             return publicPitch;
         });
-        const all = this.loadAll(card, localEntries, localMetaEntries, pitchAccent);
+        void pitchAccent.catch(() => undefined);
+        const all = this.loadAll(card, localEntries, localMetaEntries);
         return { localEntries, localMetaEntries, pitchAccent, all };
     }
 
@@ -185,18 +186,16 @@ export class CardRenderDataLoader {
         card: JPDBCard,
         localEntries: Promise<YomitanTermEntry[]>,
         localMetaEntries: Promise<YomitanMetaEntry[]>,
-        publicPitch: Promise<string[]>,
     ): Promise<CardRenderData> {
         return Promise.all([
             localEntries,
             this.loadLocalKanjiEntries(card),
             localMetaEntries,
-            publicPitch,
             this.loadAnkiLookup(card),
             this.loadJpdbDecks(card),
             this.loadAnkiDecks(card),
             this.loadJpdbVocabularyInfo(card),
-        ]).then(([localEntriesValue, kanjiEntries, metaEntries, _jpdbPublicPitch, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo]) => {
+        ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo]) => {
             return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo };
         });
     }

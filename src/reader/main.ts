@@ -9,7 +9,7 @@ import { CardPopoverRenderer } from './card-popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from './card-render-data';
 import { cardKey } from './card-utils';
 import { normalizeCardStates } from './card-state';
-import { APP_NAME, IMMERSION_KIT_SOURCE_ID, INTERFACE_LANGUAGE_CHANGE_EVENT, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, OPEN_SETTINGS_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, VIDEO_PLAYER_PAGE_URL } from './constants';
+import { APP_NAME, HOSTED_DEMO_LOOKUP_SCAN_EVENT, IMMERSION_KIT_SOURCE_ID, INTERFACE_LANGUAGE_CHANGE_EVENT, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, OPEN_SETTINGS_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, VIDEO_PLAYER_PAGE_URL } from './constants';
 import { DictionarySourceStateController } from './dictionary-source-state';
 import { DictionaryStyleController } from './dictionary-styles';
 import { FactoryResetCoordinator, FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS } from './factory-reset-coordinator';
@@ -160,6 +160,10 @@ const FALLBACK_LOOKUP_INITIAL_WAIT_MS = 180;
 const ANKI_ENRICHMENT_LIMIT = 16;
 const PITCH_ENRICHMENT_LIMIT = 12;
 const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
+const BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT = 8;
+const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
+const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
+const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;
 const PITCH_LOCAL_META_LIMIT = 12;
 const PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT = 800;
 const BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
@@ -425,6 +429,21 @@ interface ReaderAppInitOptions {
     showWelcome?: boolean;
 }
 
+interface ReaderAppDestroyOptions {
+    preservePageWords?: boolean;
+}
+
+interface PitchEnrichmentOptions {
+    urgent?: boolean;
+    publicLookup?: boolean;
+    publicLookupLimit?: number;
+}
+
+interface NestedParseContentCacheEntry {
+    expiresAt: number;
+    promise: Promise<JPDBToken[][]>;
+}
+
 export class ReaderApp {
     private abortController = new AbortController();
     public isDemo = false;
@@ -496,7 +515,7 @@ export class ReaderApp {
         dictionarySourceAttributes: key => this.dictionarySourceState.attributes(key),
         parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
-        enrichPitchWords: tokens => this.enrichPitchWords(tokens),
+        enrichPitchWords: tokens => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
         enrichAnkiWords: tokens => this.enrichAnkiWords(tokens),
         isCurrentPopoverRoot: root => this.isCurrentPopoverRoot(root),
     });
@@ -527,7 +546,7 @@ export class ReaderApp {
         parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
         canParseJapanese: () => this.canParseJapanese(),
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
-        enrichPitchWords: tokens => this.enrichPitchWords(tokens),
+        enrichPitchWords: tokens => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
         enrichAnkiWords: tokens => this.enrichAnkiWords(tokens),
         repositionPopover: () => this.repositionActivePopover(),
         setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
@@ -570,14 +589,14 @@ export class ReaderApp {
     });
     private youtube = new YoutubeImmersionFilter({
         getSettings: () => this.settings,
-        setEnabled: enabled => void this.setYoutubeImmersionEnabled(enabled),
+        setShowFilterNotice: visible => void this.setYoutubeFilterNoticeVisible(visible),
     });
     private pageScanner = new VisiblePageScanner({
         getSettings: () => this.settings,
         parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
         pauseMutationObserver: callback => this.pauseAutoScanObserver(callback),
         preloadParsedTokens: tokens => this.preloadTermAudioForTokens(tokens),
-        enrichPitchWords: tokens => this.enrichPitchWords(tokens),
+        enrichPitchWords: tokens => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
         enrichAnkiWords: tokens => this.enrichAnkiWords(tokens),
         toast: message => this.toast(message),
     });
@@ -636,6 +655,7 @@ export class ReaderApp {
     private jpdbPageEnhancementGeneration = 0;
     private nearbyReaderAudioPreloadTimer?: number;
     private preloadedTermAudioKeys = new Set<string>();
+    private nestedParseContentCache = new Map<string, NestedParseContentCacheEntry>();
     private pitchEnrichmentLocalCache = new Map<string, Promise<string>>();
     private pitchEnrichmentQueue: JPDBToken[] = [];
     private pitchEnrichmentQueuedKeys = new Set<string>();
@@ -686,6 +706,7 @@ export class ReaderApp {
             immersionKitAutoPlayAudio: false,
             immersionKitPlayOnHover: false,
             immersionKitPlayOnImageClick: false,
+            ocrAutoScanImages: false,
             autoScanJapanese: false,
             scanVisiblePage: false,
             showFloatingButton: false,
@@ -704,8 +725,12 @@ export class ReaderApp {
 
     private initHostedPassivePage(): boolean {
         if (!isYomuHostedPassivePage(location.href)) return false;
-        if (this.isDemo && document.querySelector('[data-yomu-demo-lookup]')) return false;
         this.ocr.init();
+        if (this.shouldScanHostedDemoLookup()) {
+            this.scanHostedDemoLookup();
+            log.info('Passive hosted Try Me scan initialized', { href: location.href, demo: this.isDemo });
+            return true;
+        }
         log.info('Passive hosted OCR initialized', { href: location.href, demo: this.isDemo });
         return true;
     }
@@ -717,11 +742,21 @@ export class ReaderApp {
         this.youtube.init();
         this.setupAutoScan();
         this.initJpdbPageEnhancements();
-        if (this.isDemo && document.querySelector('[data-yomu-demo-lookup]')) {
-            void this.pageScanner.scanVisiblePage({ silent: true });
-        }
+        this.scanHostedDemoLookup();
         if (shouldShowWelcome && !isYomuHostedAppUrl(location.href)) await this.onboarding.showIfNeeded();
         if (this.shouldScanInitialPage()) void this.pageScanner.scanVisiblePage({ silent: true });
+    }
+
+    private scanHostedDemoLookup(): void {
+        if (this.isDestroyed || !this.shouldScanHostedDemoLookup()) return;
+        this.pageHasJapaneseText = true;
+        void this.pageScanner.scanVisiblePage({ silent: true });
+    }
+
+    private shouldScanHostedDemoLookup(): boolean {
+        return isYomuHostedPassivePage(location.href)
+            && Boolean(document.querySelector('[data-yomu-demo-lookup]'))
+            && !document.querySelector('[data-yomu-demo-lookup] .jpdb-reader-word');
     }
 
     private shouldScanInitialPage(): boolean {
@@ -770,6 +805,13 @@ export class ReaderApp {
         this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'youtubeToggleToastOn' : 'youtubeToggleToastOff'));
     }
 
+    private async setYoutubeFilterNoticeVisible(visible: boolean): Promise<void> {
+        this.settings.youtubeShowFilterNotice = visible;
+        await saveSettings(this.settings);
+        this.youtube.refresh();
+        log.info('YouTube filter notice visibility changed', { visible });
+    }
+
     private async setInterfaceLanguage(language: InterfaceLanguage): Promise<void> {
         if (this.settings.interfaceLanguage === language) return;
         this.settings.interfaceLanguage = language;
@@ -788,6 +830,7 @@ export class ReaderApp {
         this.dictionarySourceState.clear();
         this.cardRenderData.clear();
         this.preloadedTermAudioKeys.clear();
+        this.nestedParseContentCache.clear();
         this.pitchEnrichmentLocalCache.clear();
         this.clearPitchEnrichmentQueue();
         this.pitchEnrichmentUrgentKeys.clear();
@@ -826,6 +869,7 @@ export class ReaderApp {
             return;
         }
         this.pitchEnrichmentLocalCache.clear();
+        this.nestedParseContentCache.clear();
         this.clearPitchEnrichmentQueue();
         this.scheduleJpdbPageEnhancements(80);
         this.scheduleVisiblePageReparse(120);
@@ -843,6 +887,7 @@ export class ReaderApp {
     private async reparseVisiblePage(): Promise<void> {
         this.jpdb.clear();
         this.parser.clearLocalCache();
+        this.nestedParseContentCache.clear();
         this.pauseAutoScanObserver(() => {
             this.removeJpdbPageEnhancements();
         });
@@ -1019,8 +1064,9 @@ export class ReaderApp {
         );
     }
 
-    destroy(): void {
+    destroy(options: ReaderAppDestroyOptions = {}): void {
         this.isDestroyed = true;
+        this.pageScanner.destroy?.();
         this.factoryReset.destroy();
         this.abortController.abort();
         this.autoScanObserver?.disconnect();
@@ -1036,6 +1082,7 @@ export class ReaderApp {
         window.clearTimeout(this.hoverLookupTimer);
         window.clearTimeout(this.hoverCloseTimer);
         window.clearTimeout(this.hoverWatchTimer);
+        this.nestedParseContentCache.clear();
         this.pitchEnrichmentLocalCache.clear();
         this.clearPitchEnrichmentQueue();
         if (this.popoverRepositionFrame !== undefined) {
@@ -1049,14 +1096,18 @@ export class ReaderApp {
         this.activePopover?.remove();
         this.activeBackdrop?.remove();
         this.removeJpdbPageEnhancements();
-        document.querySelectorAll('.jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby').forEach(el => {
-            if (el.classList.contains('jpdb-reader-word') || el.classList.contains('jpdb-reader-ruby')) {
-                const text = document.createTextNode(el.textContent || '');
-                el.replaceWith(text);
-            } else {
-                el.remove();
-            }
-        });
+        if (!options.preservePageWords) {
+            document.querySelectorAll('.jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby').forEach(el => {
+                if (el.classList.contains('jpdb-reader-word') || el.classList.contains('jpdb-reader-ruby')) {
+                    const text = document.createTextNode(el.classList.contains('jpdb-reader-word')
+                        ? readerWordSurfaceText(el)
+                        : el.textContent || '');
+                    el.replaceWith(text);
+                } else {
+                    el.remove();
+                }
+            });
+        }
         
         this.dictionaryStyles.remove();
         document.querySelectorAll('[data-jpdb-reader-root]').forEach(el => el.remove());
@@ -1092,7 +1143,7 @@ export class ReaderApp {
         try {
             return callback();
         } finally {
-            if (this.autoScanObserver === observer) this.observeAutoScanMutations();
+            if (!this.isDestroyed && this.autoScanObserver === observer) this.observeAutoScanMutations();
         }
     }
 
@@ -1139,6 +1190,10 @@ export class ReaderApp {
             if (this.isDestroyed) return;
             const language = interfaceLanguageChangeDetail((event as CustomEvent<InterfaceLanguageChangeDetail>).detail);
             if (language) void this.setInterfaceLanguage(language);
+        }, { signal: this.abortController.signal });
+
+        addWindowEventListener(HOSTED_DEMO_LOOKUP_SCAN_EVENT, () => {
+            this.scanHostedDemoLookup();
         }, { signal: this.abortController.signal });
 
         document.addEventListener('click', event => {
@@ -2967,7 +3022,7 @@ export class ReaderApp {
         this.audio.preload(card, {
             sourceLimit: 1,
             candidateLimit: 1,
-            prepareAudio: false,
+            prepareAudio: options.trigger !== 'hover',
         });
     }
 
@@ -3007,10 +3062,10 @@ export class ReaderApp {
         let localEntriesValue: YomitanTermEntry[] | null = null;
         let metaEntriesValue: YomitanMetaEntry[] = [];
         let renderedPitchKey = card.pitchAccent.join('|');
-        const canRender = () => !renderState.fullRenderCompleted
-            && this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard);
+        const isCurrentRender = () => this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard);
+        const canRenderLoading = () => !renderState.fullRenderCompleted && isCurrentRender();
         const renderLoading = () => {
-            if (!canRender()) return;
+            if (!canRenderLoading()) return;
             renderedPitchKey = card.pitchAccent.join('|');
             const preservedImmersion = this.preserveImmersionMountForRerender(popover);
             clearNestedParseState(popover);
@@ -3027,13 +3082,13 @@ export class ReaderApp {
         if (renderData.localMetaEntries) {
             void renderData.localMetaEntries.then(metaEntries => {
                 metaEntriesValue = metaEntries;
-                if (!canRender()) return;
+                if (!canRenderLoading()) return;
                 this.updateDeferredCardHeader(popover, card, metaEntriesValue);
             });
         }
         if (!renderData.pitchAccent) return;
         void renderData.pitchAccent.then(pitchAccent => {
-            if (!pitchAccent.length || !canRender()) return;
+            if (!pitchAccent.length || !isCurrentRender()) return;
             if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
             if (renderedPitchKey === card.pitchAccent.join('|')) return;
             renderedPitchKey = card.pitchAccent.join('|');
@@ -3915,7 +3970,7 @@ export class ReaderApp {
         root.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
         root.dataset.jpdbReaderParseLoadingId = parseLoadingId;
         try {
-            const parsed = await this.parseJapanese(plan.targets.map(target => target.text), {
+            const parsed = await this.loadParsedNestedJapaneseContent(plan.targets.map(target => target.text), {
                 allowJpdbTimeoutFallback: true,
                 includeLocalPitch: false,
                 jpdbTimeoutMs: 1_200,
@@ -3926,17 +3981,73 @@ export class ReaderApp {
                 || root.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
             applyNestedParsePlan(plan, parsed, this.settings);
             root.dataset.jpdbReaderParseKey = plan.parseKey;
-            this.afterNestedJapaneseParsed(parsed);
+            this.afterNestedJapaneseParsed(parsed, options.skipJpdb ? { publicLookup: false } : undefined);
         } catch {
         } finally {
             clearNestedParseLoadingKey(root, plan.parseKey, parseLoadingId);
         }
     }
 
-    private afterNestedJapaneseParsed(parsed: JPDBToken[][]): void {
+    private loadParsedNestedJapaneseContent(texts: string[], options: ReaderParserParseOptions = {}): Promise<JPDBToken[][]> {
+        const parseOptions = {
+            jpdbTimeoutMs: options.jpdbTimeoutMs ?? 1_200,
+            allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? true,
+            includeLocalPitch: options.includeLocalPitch ?? false,
+            skipJpdb: options.skipJpdb ?? false,
+        };
+        const key = this.nestedParseContentCacheKey(texts, parseOptions);
+        const now = Date.now();
+        const cached = this.nestedParseContentCache.get(key);
+        if (cached && cached.expiresAt > now) {
+            this.nestedParseContentCache.delete(key);
+            this.nestedParseContentCache.set(key, cached);
+            return cached.promise;
+        }
+        if (cached) this.nestedParseContentCache.delete(key);
+
+        const promise = this.parseJapanese(texts, parseOptions).catch(error => {
+            if (this.nestedParseContentCache.get(key)?.promise === promise) this.nestedParseContentCache.delete(key);
+            throw error;
+        });
+        this.nestedParseContentCache.set(key, { expiresAt: now + NESTED_PARSE_CONTENT_CACHE_TTL_MS, promise });
+        this.pruneNestedParseContentCache(now);
+        return promise;
+    }
+
+    private nestedParseContentCacheKey(
+        texts: string[],
+        options: Required<ReaderParserParseOptions>,
+    ): string {
+        return JSON.stringify({
+            texts,
+            options,
+            settings: {
+                apiKey: Boolean(this.settings.apiKey.trim()),
+                localDictionariesEnabled: this.settings.localDictionariesEnabled,
+                dictionaries: this.settings.dictionaryPreferences.map(preference => ({
+                    name: preference.name,
+                    enabled: preference.enabled,
+                    priority: preference.priority,
+                })),
+            },
+        });
+    }
+
+    private pruneNestedParseContentCache(now: number): void {
+        for (const [key, entry] of this.nestedParseContentCache) {
+            if (entry.expiresAt <= now) this.nestedParseContentCache.delete(key);
+        }
+        while (this.nestedParseContentCache.size > NESTED_PARSE_CONTENT_CACHE_LIMIT) {
+            const oldest = this.nestedParseContentCache.keys().next().value;
+            if (typeof oldest !== 'string') break;
+            this.nestedParseContentCache.delete(oldest);
+        }
+    }
+
+    private afterNestedJapaneseParsed(parsed: JPDBToken[][], pitchOptions?: PitchEnrichmentOptions): void {
         const tokens = parsed.flat();
         this.preloadTermAudioForTokens(tokens);
-        void this.enrichPitchWords(tokens);
+        void this.enrichPitchWords(tokens, pitchOptions ?? { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT });
         void this.enrichAnkiWords(tokens);
     }
 
@@ -3963,7 +4074,7 @@ export class ReaderApp {
         });
     }
 
-    private async enrichPitchWords(tokens: JPDBToken[], options: { urgent?: boolean } = {}): Promise<void> {
+    private async enrichPitchWords(tokens: JPDBToken[], options: PitchEnrichmentOptions = {}): Promise<void> {
         if (this.isDestroyed || !this.settings.showPitchAccent) return;
         const seen = new Set<string>();
         const uniqueTokens = tokens.filter(token => {
@@ -3976,9 +4087,32 @@ export class ReaderApp {
             return true;
         }).sort((first, second) => pitchEnrichmentPriority(first) - pitchEnrichmentPriority(second));
 
+        if (options.publicLookup === false) {
+            await runLimited(uniqueTokens.slice(0, PITCH_ENRICHMENT_LIMIT), BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, token => this.enrichPitchToken(token, options));
+            return;
+        }
+
         if (options.urgent) {
             const urgentTokens = uniqueTokens.map(token => this.takeQueuedPitchEnrichmentToken(cardKey(token.card)) ?? token);
-            await runLimited(urgentTokens, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, token => this.enrichPitchToken(token));
+            await runLimited(urgentTokens, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, token => this.enrichPitchToken(token, options));
+            return;
+        }
+
+        if (typeof options.publicLookupLimit === 'number') {
+            const publicLookupLimit = Math.max(0, Math.floor(options.publicLookupLimit));
+            const publicTokens = uniqueTokens.slice(0, publicLookupLimit);
+            const localOnlyTokens = uniqueTokens.slice(publicLookupLimit);
+            const localOnly = runLimited(
+                localOnlyTokens,
+                BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
+                token => this.enrichPitchToken(token, { publicLookup: false }),
+            );
+            if (!publicTokens.length) {
+                await localOnly;
+                return;
+            }
+            this.queuePitchEnrichmentTokens(publicTokens, options);
+            await Promise.all([localOnly, this.drainPitchEnrichmentQueue()]);
             return;
         }
 
@@ -4052,21 +4186,23 @@ export class ReaderApp {
         }
     }
 
-    private async enrichPitchToken(token: JPDBToken): Promise<void> {
+    private async enrichPitchToken(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookup'> = {}): Promise<void> {
         const fallback = token.card;
         let card = fallback;
         if (!card.pitchAccent.length) {
             const localPitch = await this.localPitchAccentForCard(card);
             if (localPitch.length) card.pitchAccent = localPitch;
         }
-        if (!card.pitchAccent.length) card = await this.resolveRenderedFallbackVocabulary(fallback) ?? fallback;
+        if (!card.pitchAccent.length && options.publicLookup !== false) card = await this.resolveRenderedFallbackVocabulary(fallback) ?? fallback;
         if (!card.pitchAccent.length && card !== fallback) {
             const localPitch = await this.localPitchAccentForCard(card);
             if (localPitch.length) card.pitchAccent = localPitch;
         }
         const pitchAccent = card.pitchAccent.length
             ? card.pitchAccent
-            : await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
+            : options.publicLookup === false
+                ? []
+                : await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
         if (pitchAccent.length && !card.pitchAccent.length) card.pitchAccent = pitchAccent;
         const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling);
         if (card !== fallback) {

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.41] - 2026-05-25
+
+### Changed
+
+- Made the YouTube immersion filter enabled by default and updated its settings/docs copy to match the new default.
+- Aligned YouTube card filtering with NihongoTube by checking original YouTube oEmbed titles when video ids are available and using kana-based Japanese detection instead of localized title text alone.
+
+### Fixed
+
+- Replaced the persistent YouTube hidden-video bar with a temporary toast-style notice and clearer controls for showing hidden videos or hiding future notices without turning off the filter.
+
 ## [0.4.40] - 2026-05-25
 
 ### Fixed

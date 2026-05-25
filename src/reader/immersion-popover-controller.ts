@@ -85,6 +85,11 @@ interface HeldExampleImage {
     holdUntilReady: boolean;
 }
 
+interface ParsedSentenceCacheEntry {
+    promise: Promise<JPDBToken[]>;
+    tokens?: JPDBToken[];
+}
+
 export class ImmersionPopoverController {
     private audioElement?: HTMLAudioElement;
     private audioKey = '';
@@ -94,7 +99,7 @@ export class ImmersionPopoverController {
     private activeMiningContext?: MiningContext;
     private contextByCardKey = new Map<string, StoredMiningContext>();
     private searchResultCache = new Map<string, { expiresAt: number; promise: Promise<ImmersionKitSearchResult> }>();
-    private parsedSentenceCache = new Map<string, Promise<JPDBToken[]>>();
+    private parsedSentenceCache = new Map<string, ParsedSentenceCacheEntry>();
     private loadAbortControllers = new WeakMap<HTMLElement, AbortController>();
 
     constructor(private options: ImmersionPopoverControllerOptions) {}
@@ -297,12 +302,13 @@ export class ImmersionPopoverController {
     }
 
     async searchExamples(card: JPDBCard, options: ImmersionSearchOptions = {}): Promise<ImmersionKitSearchResult> {
+        if (options.signal) return this.fetchExamples(card, options);
         const key = this.searchCacheKey(card, options);
         const now = Date.now();
         const cached = this.searchResultCache.get(key);
         if (cached && cached.expiresAt > now) return cached.promise;
 
-        const promise = this.fetchExamples(card, { ...options, signal: undefined }).catch(error => {
+        const promise = this.fetchExamples(card, options).catch(error => {
             if (this.searchResultCache.get(key)?.promise === promise) this.searchResultCache.delete(key);
             throw error;
         });
@@ -528,6 +534,7 @@ export class ImmersionPopoverController {
         const hasAudio = audioUrls.length > 0;
         const imageUrl = imageUrls[0] ?? '';
         const contextImageUrl = immersionMiningImageUrl(imageUrls);
+        const cachedTokens = this.cachedParsedExampleSentenceTokens(example.sentence);
 
         this.rememberExampleMiningContext(card, example, index, examples.length, contextImageUrl, audioUrls, promoteMiningContext);
         delete container.dataset.immersionEmpty;
@@ -535,7 +542,8 @@ export class ImmersionPopoverController {
         this.loadRenderedExampleImages(container, imageUrls, isCurrent);
         this.options.repositionPopover();
         if (playAudio) void this.playExampleAudio(example, true);
-        this.parseRenderedExampleSentence(container, card, example, searchQuery, isCurrent);
+        if (cachedTokens) this.applyParsedExampleSentence(container, card, example, searchQuery, cachedTokens, { updateHtml: false });
+        else this.parseRenderedExampleSentence(container, card, example, searchQuery, isCurrent);
     }
 
     private rememberExampleMiningContext(
@@ -573,7 +581,7 @@ export class ImmersionPopoverController {
         hasAudio: boolean,
     ): string {
         const language = settings.interfaceLanguage;
-        const sentenceHtml = renderHighlightedTextHtml(example.sentence, [card.spelling, card.reading, searchQuery], 'jpdb-reader-example-target');
+        const sentenceHtml = this.renderExampleSentenceContent(example.sentence, card, searchQuery, settings);
         const translation = renderExampleTranslation(example.translation, settings);
         const sourceLabel = immersionExampleSourceLabel(card, example, searchQuery, language);
         const sentence = renderExampleSentenceHtml(sentenceHtml);
@@ -597,6 +605,13 @@ export class ImmersionPopoverController {
                 </div>
             </div>
         `;
+    }
+
+    private renderExampleSentenceContent(sentence: string, card: JPDBCard, searchQuery: string, settings: ReaderSettings): string {
+        const tokens = this.cachedParsedExampleSentenceTokens(sentence);
+        return tokens
+            ? renderTokensToHtml(sentence, tokens, settings)
+            : renderHighlightedTextHtml(sentence, [card.spelling, card.reading, searchQuery], 'jpdb-reader-example-target');
     }
 
     private loadRenderedExampleImages(container: HTMLElement, imageUrls: string[], isCurrent: () => boolean): void {
@@ -682,33 +697,54 @@ export class ImmersionPopoverController {
         void this.parsedExampleSentenceTokens(example.sentence)
             .then(tokens => {
                 if (!isCurrent() || !container.isConnected) return;
-                const sentence = container.querySelector<HTMLElement>('[data-immersion-sentence-render]');
-                if (!sentence) return;
-                setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens, this.options.getSettings()));
-                this.highlightTarget(sentence, card, searchQuery);
-                void this.options.parsePopoverJapanese(container);
-                void this.options.enrichPitchWords(tokens);
-                void this.options.enrichAnkiWords(tokens);
-                this.options.repositionPopover();
+                this.applyParsedExampleSentence(container, card, example, searchQuery, tokens);
             })
             .catch(() => undefined);
+    }
+
+    private applyParsedExampleSentence(
+        container: HTMLElement,
+        card: JPDBCard,
+        example: ImmersionKitExample,
+        searchQuery: string,
+        tokens: JPDBToken[],
+        options: { updateHtml?: boolean } = {},
+    ): void {
+        const sentence = container.querySelector<HTMLElement>('[data-immersion-sentence-render]');
+        if (!sentence) return;
+        if (options.updateHtml !== false) {
+            setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens, this.options.getSettings()));
+        }
+        this.highlightTarget(sentence, card, searchQuery);
+        void this.options.enrichPitchWords(tokens);
+        void this.options.enrichAnkiWords(tokens);
+        this.options.repositionPopover();
     }
 
     private parsedExampleSentenceTokens(sentence: string): Promise<JPDBToken[]> {
         const key = sentence.trim();
         if (!key) return Promise.resolve([]);
         const cached = this.parsedSentenceCache.get(key);
-        if (cached) return cached;
+        if (cached) return cached.tokens ? Promise.resolve(cached.tokens) : cached.promise;
 
-        const promise = this.options.parseJapanese([sentence], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true })
-            .then(([tokens]) => tokens ?? [])
+        const entry: ParsedSentenceCacheEntry = { promise: Promise.resolve([]) };
+        entry.promise = this.options.parseJapanese([sentence], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true })
+            .then(([tokens]) => {
+                const parsed = tokens ?? [];
+                entry.tokens = parsed;
+                return parsed;
+            })
             .catch(error => {
-                if (this.parsedSentenceCache.get(key) === promise) this.parsedSentenceCache.delete(key);
+                if (this.parsedSentenceCache.get(key) === entry) this.parsedSentenceCache.delete(key);
                 throw error;
             });
-        this.parsedSentenceCache.set(key, promise);
+        this.parsedSentenceCache.set(key, entry);
         pruneOldestMapEntries(this.parsedSentenceCache, IMMERSION_PARSED_SENTENCE_CACHE_LIMIT);
-        return promise;
+        return entry.promise;
+    }
+
+    private cachedParsedExampleSentenceTokens(sentence: string): JPDBToken[] | undefined {
+        return this.parsedSentenceCache.get(sentence.trim())?.tokens;
     }
 
     private highlightTarget(sentence: HTMLElement, card: JPDBCard, searchQuery = ''): void {

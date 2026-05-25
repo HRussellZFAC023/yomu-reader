@@ -47,7 +47,7 @@
     cursor: pointer;
 }
 
-.jpdb-youtube-filter-bar [data-action="turn-off"] {
+.jpdb-youtube-filter-bar [data-action="hide-notice"] {
     border-color: var(--jpdb-reader-border);
     color: var(--jpdb-reader-muted);
 }

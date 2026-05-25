@@ -226,7 +226,7 @@ describe('performance cache bounds', () => {
         }
     });
 
-    it('abandons the active Immersion Kit load when a popover is dismissed without canceling shared search', async () => {
+    it('abandons and aborts the active Immersion Kit load when a popover is dismissed', async () => {
         const searchStarted = deferred<void>();
         const search = vi.fn((_query: string, _settings: ReaderSettings, options?: { signal?: AbortSignal }) => new Promise<ImmersionKitExample[]>(() => {
             searchStarted.resolve();
@@ -243,14 +243,15 @@ describe('performance cache bounds', () => {
 
             controller.abortPendingRequests(popover);
 
-            expect(signal).toBeUndefined();
+            expect(signal).toBeDefined();
+            expect(signal?.aborted).toBe(true);
             await expect(load).resolves.toBeUndefined();
         } finally {
             popover.remove();
         }
     });
 
-    it('reuses an Immersion Kit search that was started by an abandoned popover load', async () => {
+    it('starts a fresh Immersion Kit search after an abandoned popover load', async () => {
         const searchResult = deferred<ImmersionKitExample[]>();
         const search = vi.fn((_query: string) => searchResult.promise);
         const controller = createImmersionController({
@@ -272,7 +273,7 @@ describe('performance cache bounds', () => {
             await expect(firstLoad).resolves.toBeUndefined();
 
             const secondLoad = controller.loadExamples(secondPopover, cardFor(1));
-            expect(search).toHaveBeenCalledTimes(1);
+            expect(search).toHaveBeenCalledTimes(2);
 
             searchResult.resolve([immersionExample('単語1')]);
             await secondLoad;
@@ -349,13 +350,23 @@ describe('performance cache bounds', () => {
     });
 
     it('caches parsed Immersion example sentences across carousel renders', async () => {
-        const parseJapanese = vi.fn(async (): Promise<JPDBToken[][]> => [[]]);
+        const parsedToken: JPDBToken = {
+            card: cardFor(1),
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: 'heiban',
+            sentence: '単語1を見た。',
+        };
+        const parseJapanese = vi.fn(async (): Promise<JPDBToken[][]> => [[parsedToken]]);
+        const parsePopoverJapanese = vi.fn();
         const search = vi.fn(async () => [immersionExample('単語1')]);
         const controller = createImmersionController({
             search,
             preload: vi.fn(),
             mediaUrls: vi.fn(() => []),
-        } as unknown as ImmersionKitClient, { parseJapanese });
+        } as unknown as ImmersionKitClient, { parseJapanese, parsePopoverJapanese });
         const popover = document.createElement('div');
         popover.innerHTML = '<div data-immersion-kit></div>';
         document.body.append(popover);
@@ -363,11 +374,13 @@ describe('performance cache bounds', () => {
         try {
             await controller.loadExamples(popover, cardFor(1));
             await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
+            await vi.waitFor(() => expect(popover.querySelector('.jpdb-reader-word')?.textContent).toBe('単語1'));
 
             popover.querySelector<HTMLButtonElement>('[data-immersion-action="next"]')?.click();
-            await Promise.resolve();
 
             expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(parsePopoverJapanese).not.toHaveBeenCalled();
+            expect(popover.querySelector('.jpdb-reader-word')?.textContent).toBe('単語1');
         } finally {
             popover.remove();
         }

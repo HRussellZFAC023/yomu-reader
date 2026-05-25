@@ -24,7 +24,7 @@ export function initDemo() {
 
     addWindowEventListener('yomu-extension-loaded', () => {
         if (bootWindow.__yomuDemoApp === app) {
-            app.destroy();
+            app.destroy({ preservePageWords: true });
             delete bootWindow.__yomuDemoApp;
         }
     });

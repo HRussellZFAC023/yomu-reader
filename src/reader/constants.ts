@@ -18,6 +18,7 @@ export const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = 'yomu-userscript-http-bridge-r
 export const INTERFACE_LANGUAGE_CHANGE_EVENT = 'yomu-interface-language-change';
 export const OPEN_SETTINGS_EVENT = 'yomu-open-settings';
 export const SETTINGS_CHANGE_EVENT = 'yomu-settings-change';
+export const HOSTED_DEMO_LOOKUP_SCAN_EVENT = 'yomu-hosted-demo-lookup-scan';
 export const FALLBACK_SETUP_SOURCE_ID = '__fallback_setup__';
 export const JPDB_DEFINITION_SOURCE_ID = '__jpdb__';
 export const JPDB_DEFINITION_EXAMPLES_SOURCE_ID = '__jpdb_examples__';

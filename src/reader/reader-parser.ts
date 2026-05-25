@@ -6,6 +6,7 @@ import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 import { YomitanDictionaryStore, glossaryToText, type YomitanMetaEntry, type YomitanTermEntry } from './yomitan';
 
 const LOCAL_MATCH_LIMIT = 40;
+const LOCAL_PARSE_CACHE_LIMIT = 600;
 const LOCAL_PITCH_CACHE_LIMIT = 800;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6_000;
 const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
@@ -28,6 +29,7 @@ export interface ReaderParserDependencies {
 
 export class ReaderParser {
     private localCardCache = new Map<string, JPDBCard>();
+    private localParseCache = new Map<string, Promise<JPDBToken[]>>();
     private localPitchCache = new Map<string, Promise<string>>();
 
     constructor(private dependencies: ReaderParserDependencies) {}
@@ -89,6 +91,7 @@ export class ReaderParser {
 
     clearLocalCache(): void {
         this.localCardCache.clear();
+        this.localParseCache.clear();
         this.localPitchCache.clear();
     }
 
@@ -145,9 +148,35 @@ export class ReaderParser {
     }
 
     private async parseLocalOrSegmentedText(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
+        const settings = this.dependencies.getSettings();
+        const key = localParseCacheKey(text, options, settings);
+        const cached = this.localParseCache.get(key);
+        if (cached) {
+            this.localParseCache.delete(key);
+            this.localParseCache.set(key, cached);
+            return cached;
+        }
+        const promise = this.parseLocalOrSegmentedTextUncached(text, options).catch(error => {
+            if (this.localParseCache.get(key) === promise) this.localParseCache.delete(key);
+            throw error;
+        });
+        this.rememberLocalParseCacheEntry(key, promise);
+        return promise;
+    }
+
+    private async parseLocalOrSegmentedTextUncached(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
         if (!this.canUseLocalDictionaryFallback()) return this.parseSegmentedText(text);
         const tokens = await this.parseLocalDictionaryText(text, options);
         return tokens.length ? tokens : this.parseSegmentedText(text);
+    }
+
+    private rememberLocalParseCacheEntry(key: string, promise: Promise<JPDBToken[]>): void {
+        this.localParseCache.set(key, promise);
+        while (this.localParseCache.size > LOCAL_PARSE_CACHE_LIMIT) {
+            const oldest = this.localParseCache.keys().next().value;
+            if (typeof oldest !== 'string') break;
+            this.localParseCache.delete(oldest);
+        }
     }
 
     private async parseLocalDictionaryText(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
@@ -227,6 +256,20 @@ function localPitchCacheKey(card: JPDBCard, settings: ReaderSettings): string {
             enabled: preference.enabled,
             priority: preference.priority,
         })),
+    });
+}
+
+function localParseCacheKey(text: string, options: ReaderParserParseOptions, settings: ReaderSettings): string {
+    const localDictionariesEnabled = settings.localDictionariesEnabled;
+    return JSON.stringify({
+        text,
+        localDictionariesEnabled,
+        includeLocalPitch: localDictionariesEnabled && settings.showPitchAccent && options.includeLocalPitch !== false,
+        dictionaries: localDictionariesEnabled ? settings.dictionaryPreferences.map(preference => ({
+            name: preference.name,
+            enabled: preference.enabled,
+            priority: preference.priority,
+        })) : [],
     });
 }
 

@@ -28,6 +28,7 @@ export async function loadSubtitleTrackCues<T extends SubtitleTrackLoadable>(
     track: T,
     options: SubtitleTrackLoadOptions<T>,
 ): Promise<{ track: T; cues: SubtitleCue[] }> {
+    if (track.cues?.length) return { track, cues: track.cues };
     if (track.track) return loadNativeTrackCues(track);
 
     if (isRemoteSubtitleTrack(track)) {

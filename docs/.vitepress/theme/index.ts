@@ -9,6 +9,7 @@ const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 const SETTINGS_CHANGE_EVENT = 'yomu-settings-change';
 const OPEN_SETTINGS_EVENT = 'yomu-open-settings';
 const LANGUAGE_EVENT = 'yomu-interface-language-change';
+const HOSTED_DEMO_LOOKUP_SCAN_EVENT = 'yomu-hosted-demo-lookup-scan';
 const LANGUAGE_TOGGLE_ID = 'yomu-hud-language-toggle';
 const YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
 const DEFAULT_ACCENT_COLOR = '#5ea780';
@@ -284,6 +285,7 @@ function translateTextNodes(root: ParentNode, language: InterfaceLanguage): void
 
 function translateAttributes(root: ParentNode, language: InterfaceLanguage): void {
     root.querySelectorAll<HTMLElement>('[aria-label], [title], [alt], [placeholder]').forEach(element => {
+        if (shouldSkipHostedDocsNode(element)) return;
         ['aria-label', 'title', 'alt', 'placeholder'].forEach(attr => {
             const value = element.getAttribute(attr);
             if (!value) return;
@@ -305,7 +307,7 @@ function translateHostedDocsString(value: string, language: InterfaceLanguage): 
 }
 
 function shouldSkipHostedDocsNode(element: Element): boolean {
-    return Boolean(element.closest('script, style, pre, code, kbd, samp, textarea, input'));
+    return Boolean(element.closest('script, style, pre, code, kbd, samp, textarea, input, [data-jpdb-reader-root], .jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby, .jpdb-ocr-layer, .jpdb-ocr-line'));
 }
 
 function readStoredSettings(): Record<string, any> {
@@ -433,6 +435,7 @@ function installHostedDocsEnhancements(): void {
     localizeHostedDocsCopy();
     scheduleHostedDocsLocalization();
     installHostedYomuRuntime();
+    scheduleHostedDemoLookupScan();
     if (routeSyncBound) return;
     routeSyncBound = true;
     window.addEventListener(LANGUAGE_EVENT, () => {
@@ -446,6 +449,7 @@ function installHostedDocsEnhancements(): void {
         syncHostedOverflowMenu();
         scheduleHostedDocsLocalization();
         installHostedYomuRuntime();
+        scheduleHostedDemoLookupScan();
         syncHostedAccent();
     }));
     window.addEventListener('popstate', () => window.requestAnimationFrame(() => {
@@ -454,8 +458,15 @@ function installHostedDocsEnhancements(): void {
         syncHostedOverflowMenu();
         scheduleHostedDocsLocalization();
         installHostedYomuRuntime();
+        scheduleHostedDemoLookupScan();
         syncHostedAccent();
     }));
+}
+
+function scheduleHostedDemoLookupScan(): void {
+    window.requestAnimationFrame(() => {
+        window.dispatchEvent(new CustomEvent(HOSTED_DEMO_LOOKUP_SCAN_EVENT));
+    });
 }
 
 function installHostedYomuRuntime(): void {

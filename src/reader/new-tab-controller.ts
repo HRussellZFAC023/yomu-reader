@@ -2,7 +2,7 @@ import { primaryCardState } from './card-state';
 import { copyText } from './browser-ui';
 import type { CardRenderData } from './card-render-data';
 import { APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from './constants';
-import { escapeHtml, renderHighlightedTextHtml, setInnerHtml } from './dom';
+import { escapeHtml, renderHighlightedTextHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { el, fragment, replaceChildrenWith, type DomAttrs } from './dom-builder';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from './immersion-kit';
 import { localizedImmersionProviderLabel, localizedImmersionSourceTitle } from './immersion-labels';
@@ -79,7 +79,7 @@ import {
     type StatsSourceSnapshot,
 } from './stats';
 import type { ReaderParser } from './reader-parser';
-import type { CardState, JPDBCard, JPDBDeck, JPDBGrade, ReaderSettings } from './types';
+import type { CardState, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import type { RtkClient, RtkInfo } from './rtk';
 import { gmStorageDelete, gmStorageGet, gmStorageSet } from './storage';
 import { nextExplicitUiLanguage, resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
@@ -104,6 +104,9 @@ const NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS = 1_200;
 const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 6;
 const NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT = 48;
 const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
+const NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS = 120;
+const NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS = 2_500;
+const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
 const SEARCH_CARD_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
     new: 'stateNew',
     learning: 'stateLearning',
@@ -121,6 +124,15 @@ const SEARCH_CARD_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
 interface NewTabParseContentOptions {
     jpdbTimeoutMs?: number;
     allowJpdbTimeoutFallback?: boolean;
+}
+
+interface NewTabLookupDependencyOptions {
+    userGesture?: boolean;
+}
+
+interface ParsedNewTabSentenceCacheEntry {
+    promise: Promise<JPDBToken[]>;
+    tokens?: JPDBToken[];
 }
 
 function newTabShortParseOptions(): NewTabParseContentOptions {
@@ -150,14 +162,15 @@ export interface NewTabControllerDependencies {
     jpdbReviewBridge: JpdbReviewBridgeClient;
     parser: ReaderParser;
     dictionaries: YomitanDictionaryStore;
-    lookupText?: (text: string, sentence: string, anchor?: HTMLElement) => Promise<void> | void;
-    lookupDictionaryReference?: (query: string, reading: string, sourceDictionary: string, anchor?: HTMLElement) => Promise<void> | void;
-    showLookupCard?: (card: JPDBCard, sentence: string, anchor?: HTMLElement) => Promise<void> | void;
+    lookupText?: (text: string, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
+    lookupDictionaryReference?: (query: string, reading: string, sourceDictionary: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
+    showLookupCard?: (card: JPDBCard, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     showKanjiCard?: (card: JPDBCard, kanji: string, sentence: string, anchor?: HTMLElement) => Promise<void> | void;
     loadCardRenderData?: (card: JPDBCard) => Promise<CardRenderData>;
     renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => string;
     renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[]) => string;
     installSearchDetailSources?: (root: HTMLElement, card: JPDBCard, sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => void;
+    preloadWordAudio?: (card: JPDBCard) => void;
     playWordAudio?: (card: JPDBCard) => Promise<void> | void;
     playJpdbExampleAudio?: (audioIds: string, fallbackSentence: string) => Promise<void> | void;
     parseContent?: (root: HTMLElement, options?: NewTabParseContentOptions) => Promise<void> | void;
@@ -171,23 +184,30 @@ export interface NewTabControllerDependencies {
     dismiss: (options?: { suppressHoverTarget?: boolean }) => void;
 }
 
-function renderNewTabImmersionSentence(card: JPDBCard, example: ImmersionKitExample): HTMLElement {
+function renderNewTabImmersionSentence(card: JPDBCard, example: ImmersionKitExample, settings: ReaderSettings, tokens?: JPDBToken[]): HTMLElement {
     const sentence = document.createElement('div');
     sentence.className = 'jpdb-reader-example-sentence jpdb-reader-parseable';
     sentence.lang = 'ja';
     sentence.dataset.immersionSentenceRender = '';
-    setInnerHtml(sentence, renderHighlightedTextHtml(example.sentence, newTabCardHighlightTargets(card), 'jpdb-reader-example-target'));
+    sentence.dataset.newtabSentenceText = example.sentence;
+    setInnerHtml(sentence, renderNewTabSentenceHtml(example.sentence, card, settings, tokens));
     return sentence;
 }
 
-function renderNewTabFrontSentence(card: JPDBCard, sentence: string): HTMLElement {
+function renderNewTabFrontSentence(card: JPDBCard, sentence: string, settings: ReaderSettings, tokens?: JPDBToken[]): HTMLElement {
     const sentenceWrap = el('span', {
         class: 'jpdb-reader-newtab-sentence jpdb-reader-parseable',
         lang: 'ja',
-        dataset: { newtabSentenceRender: true },
+        dataset: { newtabSentenceRender: true, newtabSentenceText: sentence },
     });
-    setInnerHtml(sentenceWrap, renderHighlightedTextHtml(sentence, newTabCardHighlightTargets(card), 'jpdb-reader-example-target'));
+    setInnerHtml(sentenceWrap, renderNewTabSentenceHtml(sentence, card, settings, tokens));
     return sentenceWrap;
+}
+
+function renderNewTabSentenceHtml(sentence: string, card: JPDBCard, settings: ReaderSettings, tokens?: JPDBToken[]): string {
+    return tokens && tokens.length
+        ? renderTokensToHtml(sentence, tokens, settings)
+        : renderHighlightedTextHtml(sentence, newTabCardHighlightTargets(card), 'jpdb-reader-example-target');
 }
 
 function renderNewTabImmersionTranslation(example: ImmersionKitExample, settings: ReaderSettings): HTMLElement | null {
@@ -598,8 +618,10 @@ export class NewTabController {
     private immersionCache = new Map<string, Promise<ImmersionKitExample[]>>();
     private immersionExampleIndex = new Map<string, number>();
     private frontSentenceCache = new Map<string, Promise<string>>();
+    private parsedSentenceCache = new Map<string, ParsedNewTabSentenceCacheEntry>();
     private wordPitchCache = new Map<string, Promise<string[]>>();
     private doodlePreviewCache = new Map<string, string>();
+    private immersionPrefetchGeneration = 0;
     private immersionAudio?: HTMLAudioElement;
     private immersionAudioKey = '';
     private immersionAudioRequestId = 0;
@@ -719,6 +741,7 @@ export class NewTabController {
         this.clearSearchDebounce();
         this.clearSearchHandwritingDebounce();
         this.frontSentenceCache.clear();
+        this.parsedSentenceCache.clear();
         this.rootEventController = undefined;
         const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
         if (root) delete root.dataset.newtabBound;
@@ -810,6 +833,7 @@ export class NewTabController {
         this.immersionCache.clear();
         this.immersionExampleIndex.clear();
         this.frontSentenceCache.clear();
+        this.parsedSentenceCache.clear();
         this.doodlePreviewCache.clear();
         this.immersionAudio?.pause();
         this.immersionAudio = undefined;
@@ -1227,10 +1251,10 @@ export class NewTabController {
             return true;
         }
         if (card && this.dependencies.showLookupCard) {
-            void this.dependencies.showLookupCard(card, sentence, word);
+            void this.dependencies.showLookupCard(card, sentence, word, { userGesture: true });
             return true;
         }
-        void this.dependencies.lookupText?.(expression, reading, word);
+        void this.dependencies.lookupText?.(expression, reading, word, { userGesture: true });
         return true;
     }
 
@@ -1258,7 +1282,7 @@ export class NewTabController {
         const card = this.visibleWords[this.index];
         if (!card) return false;
         consumeNestedLookupEvent(event);
-        void this.dependencies.lookupText?.(card.spelling, newTabCardReading(card), prompt);
+        void this.dependencies.lookupText?.(card.spelling, newTabCardReading(card), prompt, { userGesture: true });
         return true;
     }
 
@@ -1275,6 +1299,7 @@ export class NewTabController {
             link.dataset.dictionaryReading ?? '',
             link.dataset.dictionary ?? '',
             link,
+            { userGesture: true },
         );
         return true;
     }
@@ -1309,7 +1334,7 @@ export class NewTabController {
         if (this.dependencies.showKanjiCard) {
             void this.dependencies.showKanjiCard(card, kanji, sentenceForCard(card), actionTarget);
         } else {
-            void this.dependencies.lookupText?.(kanji, kanji, actionTarget);
+            void this.dependencies.lookupText?.(kanji, kanji, actionTarget, { userGesture: true });
         }
         return true;
     }
@@ -1323,7 +1348,7 @@ export class NewTabController {
             this.selectSearchSuggestion(root, term);
             return true;
         }
-        void this.dependencies.lookupText?.(term, reading || term, actionTarget);
+        void this.dependencies.lookupText?.(term, reading || term, actionTarget, { userGesture: true });
         return true;
     }
 
@@ -2822,8 +2847,10 @@ export class NewTabController {
         this.renderControls(slots, card);
         this.renderInstallCta(root);
         this.renderStatus(slots.status, card);
+        const prefetchGeneration = ++this.immersionPrefetchGeneration;
+        if (this.state.mode === 'word') this.dependencies.preloadWordAudio?.(card);
         this.prefetchNearbyWordPitch(card);
-        this.prefetchNearbyImmersionExamples(card);
+        this.prefetchNearbyImmersionExamples(card, prefetchGeneration);
     }
 
     private renderPromptForMode(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>): void {
@@ -3080,7 +3107,7 @@ export class NewTabController {
         }
 
         if (this.shouldParseSentencePrompt()) {
-            return renderNewTabFrontSentence(card, sentence);
+            return renderNewTabFrontSentence(card, sentence, this.dependencies.getSettings(), this.cachedParsedNewTabSentenceTokens(sentence));
         }
 
         const target = sentencePromptTarget(card, sentence);
@@ -3111,6 +3138,9 @@ export class NewTabController {
         const key = cardKey(card);
         const requestId = `${key}:${performance.now()}:${Math.random()}`;
         prompt.dataset.newtabPromptParseRequest = requestId;
+        const sentence = prompt.querySelector<HTMLElement>('[data-newtab-sentence-render]');
+        const sentenceText = this.newTabSentenceText(sentence);
+        if (sentence && await this.parseNewTabSentenceElement(sentence, sentenceText, card, () => this.canApplyNewTabPromptParse(prompt, key, requestId))) return;
         await this.dependencies.parseContent?.(prompt, newTabShortParseOptions())?.catch(() => undefined);
         if (!this.canApplyNewTabPromptParse(prompt, key, requestId)) return;
         this.highlightNewTabParsedTarget(prompt, '[data-newtab-sentence-render]', card);
@@ -3193,9 +3223,7 @@ export class NewTabController {
 
     private async loadImmersionFrontSentence(card: JPDBCard): Promise<string> {
         if (!this.canLoadImmersionFrontSentence()) return '';
-        const cached = this.immersionCache.get(this.immersionCacheKey(card));
-        if (!cached) return '';
-        const examples = await cached;
+        const examples = await this.loadImmersionExamples(card);
         const example = examples[this.normalizedImmersionExampleIndex(cardKey(card), examples)] ?? examples[0];
         return normalizePromptContextSentence(example?.sentence, card);
     }
@@ -3258,13 +3286,18 @@ export class NewTabController {
         const example = examples[index];
         const audioUrls = newTabImmersionAudioUrls(example, this.dependencies.immersionKit);
         const hasAudio = audioUrls.length > 0;
-        return el('div', { class: 'jpdb-reader-newtab-immersion' },
+        const node = el('div', { class: 'jpdb-reader-newtab-immersion' },
             this.renderNewTabImmersionToolbar(example, index, examples.length, hasAudio),
             this.renderNewTabImmersionExampleBody(card, example, settings, index, examples.length, audioUrls),
         );
+        this.highlightNewTabImmersionTarget(node, card);
+        return node;
     }
 
     private async parseNewTabImmersionExample(root: HTMLElement, card: JPDBCard, key: string): Promise<void> {
+        const sentence = root.querySelector<HTMLElement>('[data-immersion-sentence-render]');
+        const sentenceText = this.newTabSentenceText(sentence);
+        if (sentence && await this.parseNewTabSentenceElement(sentence, sentenceText, card, () => this.canApplyNewTabImmersionParse(root, key))) return;
         await this.dependencies.parseContent?.(root, newTabShortParseOptions())?.catch(() => undefined);
         if (!this.canApplyNewTabImmersionParse(root, key)) return;
         this.highlightNewTabImmersionTarget(root, card);
@@ -3277,22 +3310,91 @@ export class NewTabController {
             && this.state.revealAnswer;
     }
 
+    private async parseNewTabSentenceElement(sentence: HTMLElement, sentenceText: string, card: JPDBCard, isCurrent: () => boolean): Promise<boolean> {
+        const cached = this.cachedParsedNewTabSentenceTokens(sentenceText);
+        if (cached) {
+            if (isCurrent()) this.applyParsedNewTabSentenceElement(sentence, sentenceText, card, cached);
+            return true;
+        }
+        if (!this.canParseNewTabSentence(sentenceText)) return false;
+        const tokens = await this.parsedNewTabSentenceTokens(sentenceText).catch(() => []);
+        if (isCurrent()) this.applyParsedNewTabSentenceElement(sentence, sentenceText, card, tokens);
+        return true;
+    }
+
+    private applyParsedNewTabSentenceElement(sentence: HTMLElement, sentenceText: string, card: JPDBCard, tokens: JPDBToken[]): void {
+        sentence.dataset.newtabSentenceText = sentenceText;
+        setInnerHtml(sentence, renderNewTabSentenceHtml(sentenceText, card, this.dependencies.getSettings(), tokens));
+        this.highlightNewTabParsedWords(sentence, card);
+    }
+
+    private newTabSentenceText(sentence: HTMLElement | null): string {
+        return (sentence?.dataset.newtabSentenceText
+            || sentence?.closest<HTMLElement>('[data-immersion-sentence]')?.dataset.immersionSentence
+            || sentence?.textContent
+            || '').trim();
+    }
+
+    private parsedNewTabSentenceTokens(sentence: string): Promise<JPDBToken[]> {
+        const key = sentence.trim();
+        if (!key || !this.canParseNewTabSentence(key)) return Promise.resolve([]);
+        const cached = this.parsedSentenceCache.get(key);
+        if (cached) return cached.tokens ? Promise.resolve(cached.tokens) : cached.promise;
+
+        const entry: ParsedNewTabSentenceCacheEntry = { promise: Promise.resolve([]) };
+        entry.promise = this.dependencies.parser.parse([key], {
+            ...newTabShortParseOptions(),
+            includeLocalPitch: false,
+        }).then(([tokens]) => {
+            const parsed = tokens ?? [];
+            entry.tokens = parsed;
+            return parsed;
+        }).catch(error => {
+            if (this.parsedSentenceCache.get(key) === entry) this.parsedSentenceCache.delete(key);
+            throw error;
+        });
+        this.parsedSentenceCache.set(key, entry);
+        pruneOldestMapEntries(this.parsedSentenceCache, NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT);
+        return entry.promise;
+    }
+
+    private cachedParsedNewTabSentenceTokens(sentence: string): JPDBToken[] | undefined {
+        return this.parsedSentenceCache.get(sentence.trim())?.tokens;
+    }
+
+    private canParseNewTabSentence(sentence: string): boolean {
+        return Boolean(sentence.trim())
+            && typeof this.dependencies.parser.canParse === 'function'
+            && this.dependencies.parser.canParse()
+            && typeof this.dependencies.parser.parse === 'function';
+    }
+
     private highlightNewTabImmersionTarget(root: HTMLElement, card: JPDBCard): void {
         this.highlightNewTabParsedTarget(root, '[data-immersion-sentence-render]', card);
     }
 
     private highlightNewTabParsedTarget(root: HTMLElement, selector: string, card: JPDBCard): void {
+        root.querySelectorAll<HTMLElement>(`${selector} .jpdb-reader-word`).forEach(word => {
+            this.highlightNewTabParsedWord(word, card);
+        });
+    }
+
+    private highlightNewTabParsedWords(root: HTMLElement, card: JPDBCard): void {
+        root.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(word => {
+            this.highlightNewTabParsedWord(word, card);
+        });
+    }
+
+    private highlightNewTabParsedWord(word: HTMLElement, card: JPDBCard): void {
         const cardVid = String(card.vid);
         const cardSid = String(card.sid);
         const targets = newTabCardHighlightTargets(card);
-        root.querySelectorAll<HTMLElement>(`${selector} .jpdb-reader-word`).forEach(word => {
-            const surface = word.textContent?.replace(/\s+/g, '') ?? '';
-            if ((word.dataset.vid === cardVid && word.dataset.sid === cardSid)
-                || targets.some(target => surface.includes(target))) {
-                word.classList.add('jpdb-reader-example-target');
-                this.applyNewTabParsedTargetCardIdentity(word, card, surface);
-            }
-        });
+        const surface = word.textContent?.replace(/\s+/g, '') ?? '';
+        if ((word.dataset.vid === cardVid && word.dataset.sid === cardSid)
+            || targets.some(target => surface.includes(target))) {
+            word.classList.add('jpdb-reader-example-target');
+            this.applyNewTabParsedTargetCardIdentity(word, card, surface);
+        }
     }
 
     private applyNewTabParsedTargetCardIdentity(word: HTMLElement, card: JPDBCard, surface: string): void {
@@ -3362,7 +3464,7 @@ export class NewTabController {
         audioUrls: string[],
     ): HTMLElement {
         const imageUrl = newTabImmersionImageUrl(example, settings, this.dependencies.immersionKit);
-        const sentence = renderNewTabImmersionSentence(card, example);
+        const sentence = renderNewTabImmersionSentence(card, example, settings, this.cachedParsedNewTabSentenceTokens(example.sentence));
         if (imageUrl) sentence.classList.add('jpdb-subtitle-primary');
         return el('div', {
             class: `jpdb-reader-example-card ${imageUrl ? 'has-image' : ''}`,
@@ -3630,13 +3732,16 @@ export class NewTabController {
         return uniqueImmersionQueries(candidates).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
     }
 
-    private prefetchNearbyImmersionExamples(card: JPDBCard): void {
+    private prefetchNearbyImmersionExamples(card: JPDBCard, generation: number): void {
         if (!this.shouldPrefetchNewTabImmersion()) return;
-        this.prefetchNewTabImmersionCard(card);
+        this.prefetchNewTabImmersionCard(card, { generation, current: true });
         for (let offset = 1; offset <= NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD; offset++) {
             const nearby = this.visibleWords[(this.index + offset) % this.visibleWords.length];
             if (!nearby || cardKey(nearby) === cardKey(card)) continue;
-            void this.waitForIdle().then(() => this.prefetchNewTabImmersionCard(nearby));
+            void this.waitForIdle().then(() => {
+                if (!this.isCurrentImmersionPrefetchGeneration(generation)) return;
+                this.prefetchNewTabImmersionCard(nearby, { generation, current: false });
+            });
         }
     }
 
@@ -3647,25 +3752,40 @@ export class NewTabController {
             && typeof this.dependencies.immersionKit?.search === 'function';
     }
 
-    private prefetchNewTabImmersionCard(card: JPDBCard): void {
+    private prefetchNewTabImmersionCard(card: JPDBCard, context: { generation: number; current: boolean }): void {
         void this.loadImmersionExamples(card)
             .then(examples => {
+                if (!this.isCurrentImmersionPrefetchGeneration(context.generation)) return;
+                this.prefetchNewTabImmersionSentences(card, examples, context.current);
                 const example = examples[this.normalizedImmersionExampleIndex(cardKey(card), examples)] ?? examples[0];
                 if (!example) return;
-                this.prefetchNewTabImmersionMedia(example);
-                this.prefetchNewTabParsedSentence(normalizePromptContextSentence(example.sentence, card));
+                if (context.current) this.prefetchNewTabImmersionMedia(example);
             })
             .catch(() => undefined);
     }
 
+    private isCurrentImmersionPrefetchGeneration(generation: number): boolean {
+        return generation === this.immersionPrefetchGeneration
+            && this.state.mode === 'word';
+    }
+
     private prefetchNewTabParsedSentence(sentence: string): void {
         const text = sentence.trim();
-        if (!text || typeof this.dependencies.parser.canParse !== 'function' || !this.dependencies.parser.canParse()) return;
-        if (typeof this.dependencies.parser.parse !== 'function') return;
-        void this.dependencies.parser.parse([text], {
-            ...newTabShortParseOptions(),
-            includeLocalPitch: false,
-        }).catch(() => undefined);
+        if (!text) return;
+        void this.parsedNewTabSentenceTokens(text).catch(() => undefined);
+    }
+
+    private prefetchNewTabImmersionSentences(card: JPDBCard, examples: ImmersionKitExample[], includeAdjacent: boolean): void {
+        if (!examples.length) return;
+        const key = cardKey(card);
+        const index = this.normalizedImmersionExampleIndex(key, examples);
+        const indexes = includeAdjacent && examples.length > 1
+            ? [index, (index + 1) % examples.length]
+            : [index];
+        uniqueNumbers(indexes).forEach(exampleIndex => {
+            const sentence = normalizePromptContextSentence(examples[exampleIndex]?.sentence, card);
+            if (sentence) this.prefetchNewTabParsedSentence(sentence);
+        });
     }
 
     private prefetchNewTabImmersionMedia(example: ImmersionKitExample): void {
@@ -5990,9 +6110,24 @@ export class NewTabController {
     }
 
     private async fetchWordPitch(card: JPDBCard): Promise<string[]> {
-        const localPitch = await this.fetchLocalWordPitch(card);
-        if (localPitch) return [localPitch];
-        return await this.dependencies.jpdbPublicPitch?.lookup(card.spelling, newTabCardReading(card)).catch(() => []) ?? [];
+        const localPitch = this.fetchLocalWordPitch(card);
+        const quickLocalPitch = await Promise.race([
+            localPitch,
+            delayWithValue('', NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS),
+        ]);
+        if (quickLocalPitch) return [quickLocalPitch];
+
+        return firstNonEmptyPitch([
+            this.fetchPublicWordPitch(card),
+            Promise.race([
+                localPitch,
+                delayWithValue('', NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS),
+            ]).then(pitch => pitch ? [pitch] : []),
+        ]);
+    }
+
+    private fetchPublicWordPitch(card: JPDBCard): Promise<string[]> {
+        return this.dependencies.jpdbPublicPitch?.lookup(card.spelling, newTabCardReading(card)).catch(() => []) ?? Promise.resolve([]);
     }
 
     private async fetchLocalWordPitch(card: JPDBCard): Promise<string> {
@@ -6922,4 +7057,46 @@ function liveJpdbCardSentence(card: JpdbReviewBridgeCard): string {
 
 function liveJpdbCardKeyword(card: JpdbReviewBridgeCard): string {
     return card.keyword || card.prompt;
+}
+
+function firstNonEmptyPitch(promises: Promise<string[]>[]): Promise<string[]> {
+    if (!promises.length) return Promise.resolve([]);
+    return new Promise(resolve => {
+        let pending = promises.length;
+        let settled = false;
+        const finishEmpty = (): void => {
+            pending -= 1;
+            if (!settled && pending <= 0) {
+                settled = true;
+                resolve([]);
+            }
+        };
+        promises.forEach(promise => {
+            promise.then(pitch => {
+                if (settled) return;
+                if (pitch.length) {
+                    settled = true;
+                    resolve(pitch);
+                    return;
+                }
+                finishEmpty();
+            }).catch(() => finishEmpty());
+        });
+    });
+}
+
+function delayWithValue<T>(value: T, ms: number): Promise<T> {
+    return new Promise(resolve => window.setTimeout(() => resolve(value), ms));
+}
+
+function uniqueNumbers(values: number[]): number[] {
+    return [...new Set(values)];
+}
+
+function pruneOldestMapEntries<TKey, TValue>(cache: Map<TKey, TValue>, limit: number): void {
+    while (cache.size > limit) {
+        const oldest = cache.keys().next().value;
+        if (oldest === undefined) break;
+        cache.delete(oldest);
+    }
 }

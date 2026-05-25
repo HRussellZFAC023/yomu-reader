@@ -28,8 +28,14 @@ export class VisiblePageScanner {
     private scanInFlight = false;
     private scanPending = false;
     private scanPendingSilent = true;
+    private destroyed = false;
 
     constructor(private readonly dependencies: VisiblePageScannerDependencies) {}
+
+    destroy(): void {
+        this.destroyed = true;
+        this.scanPending = false;
+    }
 
     async scanVisiblePage(options: { silent?: boolean } = {}): Promise<void> {
         const silent = Boolean(options.silent);
@@ -46,6 +52,7 @@ export class VisiblePageScanner {
     }
 
     async scanAsbPlayerSubtitles(): Promise<void> {
+        if (this.destroyed) return;
         const roots = Array.from(document.querySelectorAll<HTMLElement>('.asbplayer-offscreen, .asbplayer-subtitles-container-bottom'));
         if (!roots.length) return;
 
@@ -54,6 +61,7 @@ export class VisiblePageScanner {
 
         try {
             const parsed = await this.dependencies.parseJapanese(targets.map(target => target.text), scanParseOptions(this.dependencies.getSettings()));
+            if (this.destroyed) return;
             await this.applyTokens(targets, parsed);
             this.preloadParsed(parsed);
         } catch {
@@ -62,6 +70,7 @@ export class VisiblePageScanner {
     }
 
     private beginScan(silent: boolean): boolean {
+        if (this.destroyed) return false;
         if (this.scanInFlight) {
             this.scanPending = true;
             this.scanPendingSilent = this.scanPendingSilent && silent;
@@ -72,6 +81,7 @@ export class VisiblePageScanner {
     }
 
     private async runVisiblePageScan(silent: boolean): Promise<void> {
+        if (this.destroyed) return;
         const targets = collectScanTargets();
         if (!targets.length) {
             this.handleEmptyVisiblePageScan(silent);
@@ -83,8 +93,10 @@ export class VisiblePageScanner {
 
     private async parseAndApplyTargets(targets: ScanTextTarget[]): Promise<void> {
         for (let index = 0; index < targets.length; index += VISIBLE_SCAN_PARSE_BATCH_SIZE) {
+            if (this.destroyed) return;
             const batch = targets.slice(index, index + VISIBLE_SCAN_PARSE_BATCH_SIZE);
             const parsed = await this.dependencies.parseJapanese(batch.map(target => target.text), scanParseOptions(this.dependencies.getSettings()));
+            if (this.destroyed) return;
             await this.applyTokens(batch, parsed);
             this.preloadParsed(parsed);
             if (index + VISIBLE_SCAN_PARSE_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
@@ -93,10 +105,13 @@ export class VisiblePageScanner {
 
     private async applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][]): Promise<void> {
         for (let index = 0; index < targets.length; index += VISIBLE_SCAN_APPLY_BATCH_SIZE) {
+            if (this.destroyed) return;
             const start = index;
             const batch = targets.slice(start, start + VISIBLE_SCAN_APPLY_BATCH_SIZE);
             this.dependencies.pauseMutationObserver(() => {
+                if (this.destroyed) return;
                 batch.forEach((target, offset) => {
+                    if (this.destroyed) return;
                     if (!isCurrentScanTarget(target)) return;
                     applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings());
                 });
@@ -106,6 +121,7 @@ export class VisiblePageScanner {
     }
 
     private preloadParsed(parsed: JPDBToken[][]): void {
+        if (this.destroyed) return;
         const tokens = parsed.flat();
         this.dependencies.preloadParsedTokens(tokens);
         void this.dependencies.enrichPitchWords(tokens);
@@ -123,6 +139,11 @@ export class VisiblePageScanner {
 
     private finishScan(): void {
         this.scanInFlight = false;
+        if (this.destroyed) {
+            this.scanPending = false;
+            this.scanPendingSilent = true;
+            return;
+        }
         if (!this.scanPending) return;
         const silent = this.scanPendingSilent;
         this.scanPending = false;

@@ -592,10 +592,10 @@ function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
             <fieldset data-settings-panel="media" hidden>
                 <legend>YouTube</legend>
                 <div class="grid">
-                    ${checkbox('youtubeImmersionEnabled', 'Only show Japanese-looking YouTube videos', settings.youtubeImmersionEnabled)}
-                    ${checkbox('youtubeShowFilterNotice', 'Show reveal control for hidden videos', settings.youtubeShowFilterNotice)}
+                    ${checkbox('youtubeImmersionEnabled', 'Only show Japanese YouTube videos', settings.youtubeImmersionEnabled)}
+                    ${checkbox('youtubeShowFilterNotice', 'Show a temporary hidden-video notice', settings.youtubeShowFilterNotice)}
                 </div>
-                <div class="jpdb-reader-help" data-youtube-help>Off by default. Turn it on when you want YouTube recommendations, search, and sidebars to stay focused on Japanese-looking video cards.</div>
+                <div class="jpdb-reader-help" data-youtube-help>On by default. The notice can be hidden without turning off the YouTube filter.</div>
             </fieldset>
     `;
 }

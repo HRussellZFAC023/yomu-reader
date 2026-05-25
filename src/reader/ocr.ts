@@ -237,7 +237,6 @@ export class ImageOcrController {
 
     private shouldSkipRefresh(settings: ReaderSettings, options: { userRequested?: boolean }): boolean {
         return !options.userRequested
-            && !Array.from(document.images).some(hasFallbackOcrMetadata)
             && (!settings.ocrAutoScanImages || this.options.shouldAutoScan?.() === false);
     }
 
@@ -302,6 +301,10 @@ export class ImageOcrController {
         if (this.observer && this.observerMargin === rootMargin) return;
         this.observer?.disconnect();
         this.observerMargin = rootMargin;
+        if (typeof IntersectionObserver !== 'function') {
+            this.observer = undefined;
+            return;
+        }
         this.observer = new IntersectionObserver(entries => {
             for (const entry of entries) {
                 if (!entry.isIntersecting) continue;

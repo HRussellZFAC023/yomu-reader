@@ -133,6 +133,7 @@ interface SubtitlePlayerOptions {
 
 interface SubtitleParseOptions {
     jpdbTimeoutMs?: number;
+    allowJpdbTimeoutFallback?: boolean;
     includeLocalPitch?: boolean;
 }
 
@@ -402,6 +403,7 @@ export class SubtitlePlayerController {
     private parsedHtmlCache = new Map<string, string>();
     private emptyParsedHtmlCache = new Map<string, { html: string; expiresAt: number }>();
     private pendingParsedHtml = new Map<string, Promise<string>>();
+    private transcriptTextTargetsByParseKey = new Map<string, HTMLElement[]>();
     private renderSerial = 0;
     private panelMode: 'lines' | 'tracks' = 'lines';
     private lastMenuSignature = '';
@@ -2225,7 +2227,6 @@ export class SubtitlePlayerController {
         const currentRowIndex = this.activeTranscriptRowIndex(rows, currentCueIndex);
         const signature = [
             rows.length,
-            currentRowIndex,
             this.selectedTrackId,
             this.tracks.find(track => track.id === this.selectedTrackId)?.loadingState ?? '',
             !this.cues.length && this.currentCue ? subtitleCueSignature(this.currentCue) : '',
@@ -2266,6 +2267,7 @@ export class SubtitlePlayerController {
     }
 
     private afterTranscriptPanelRender(state: TranscriptPanelRenderState): void {
+        this.indexTranscriptTextTargets();
         this.bindTranscriptScroller();
         this.bindTranscriptResizeHandle();
         this.positionTranscriptPanel();
@@ -2673,7 +2675,7 @@ export class SubtitlePlayerController {
         const panel = this.updatableTranscriptPanel();
         if (!panel) return;
         const hasReaderWords = parsedSubtitleHtmlHasReaderWords(html);
-        for (const target of Array.from(panel.querySelectorAll<HTMLElement>('[data-transcript-text]'))) {
+        for (const target of this.transcriptTextTargetsForParseKey(panel, key)) {
             if (!shouldApplyParsedTranscriptHtml(target, key)) continue;
             if (hasReaderWords) {
                 target.dataset.parsedKey = key;
@@ -2692,6 +2694,24 @@ export class SubtitlePlayerController {
         }
     }
 
+    private indexTranscriptTextTargets(panel = this.updatableTranscriptPanel()): void {
+        this.transcriptTextTargetsByParseKey.clear();
+        if (!panel) return;
+        for (const target of Array.from(panel.querySelectorAll<HTMLElement>('[data-transcript-text][data-parse-key]'))) {
+            const key = target.dataset.parseKey;
+            if (!key) continue;
+            const targets = this.transcriptTextTargetsByParseKey.get(key);
+            if (targets) targets.push(target);
+            else this.transcriptTextTargetsByParseKey.set(key, [target]);
+        }
+    }
+
+    private transcriptTextTargetsForParseKey(panel: HTMLElement, key: string): HTMLElement[] {
+        if (!this.transcriptTextTargetsByParseKey.size) this.indexTranscriptTextTargets(panel);
+        const targets = this.transcriptTextTargetsByParseKey.get(key) ?? [];
+        return targets.filter(target => target.isConnected && panel.contains(target));
+    }
+
     private updatableTranscriptPanel(): HTMLElement | null {
         if (!this.transcriptPanel) return null;
         if (this.transcriptPanel.hidden) return null;
@@ -2701,6 +2721,7 @@ export class SubtitlePlayerController {
 
     private renderTrackPanel(): void {
         if (!this.transcriptPanel || this.transcriptPanel.hidden || this.panelMode !== 'tracks') return;
+        this.transcriptTextTargetsByParseKey.clear();
         const state = this.trackPanelRenderState();
         setInnerHtml(this.transcriptPanel, this.renderTrackPanelHtml(state));
         this.bindTranscriptResizeHandle();
@@ -2991,6 +3012,7 @@ function waitForBackgroundTranscriptParseTurn(delayMs: number): Promise<void> {
 function subtitleParseOptions(): SubtitleParseOptions {
     return {
         jpdbTimeoutMs: SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS,
+        allowJpdbTimeoutFallback: true,
         includeLocalPitch: false,
     };
 }
