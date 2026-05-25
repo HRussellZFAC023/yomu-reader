@@ -57,9 +57,9 @@ The easiest free option is the **Userscripts** app. It runs scripts inside Safar
 
 **One-time setup (takes about a minute):**
 
-1. Install Userscripts and open it once. You'll see a mostly empty screen — that's fine. The app quietly sets up a folder for your scripts in the background; you don't need to do anything inside the app.
-2. Open **Settings** on your phone → **Safari** → **Extensions** → **Userscripts**.
-3. Turn the toggle **on**, then tap **Userscripts** and set it to **All Websites**.
+1. Install Userscripts and open it once. Current versions create a default scripts folder automatically, so the first screen may look mostly empty. That is expected.
+2. Open **Settings** → **Safari** → **Extensions** → **Userscripts**. On newer iOS versions, this may be under **Settings** → **Apps** → **Safari** → **Extensions**.
+3. Turn Userscripts **on**, then allow it on **All Websites**.
 
 That's the setup done. Jump to step 3 to install よむ.
 
@@ -71,20 +71,20 @@ That's the setup done. Jump to step 3 to install よむ.
 
 **On desktop (Chrome, Edge, Firefox):**
 
-Tap the link above. Tampermonkey opens an install screen showing a script named よむ. Press Install, then open a page with Japanese text.
+Open the link above. Tampermonkey should show an install screen for a script named よむ. Press Install, then open a page with Japanese text.
 
 **On iPhone or iPad (Userscripts app):**
 
-The install flow is one extra tap compared to desktop.
+The install flow has one extra Safari step.
 
-1. Tap the install link above. Safari will show a page of code — that's normal, don't worry.
-2. Tap the **`aA` button** on the left side of the address bar.
+1. Tap the install link above. Safari may show a page of code. That is normal.
+2. Tap **AA** on iPhone, or the Safari extensions button on iPad.
 3. Tap **Userscripts** in the menu that appears.
-4. You'll see an install prompt. Tap **Install**.
+4. When Userscripts shows the よむ install prompt, tap **Install**.
 5. Open any Japanese page and try tapping a word.
 
 <div class="yomu-callout">
-  <strong>Nothing happened when you tapped the link?</strong> The install prompt doesn't pop up on its own on iOS — you have to open it via the aA button. If you don't see Userscripts in the aA menu, go back to Settings → Safari → Extensions and make sure it's turned on.
+  <strong>Still seeing only code?</strong> Open Userscripts from Safari's AA or extensions menu. iOS does not show the install prompt until you do. If Userscripts is missing from that menu, enable it in Settings → Safari → Extensions.
 </div>
 
 ## 4. Add JPDB, Or Skip It For Now

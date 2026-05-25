@@ -134,10 +134,11 @@ function finishOcrScan(state: ImageState): void {
     state.manualRequested = false;
 }
 
-function renderNoOcrLines(state: ImageState, settings: ReaderSettings, manualRequested: boolean): void {
-    state.autoSkipped = !manualRequested;
-    state.status.textContent = uiText(settings.interfaceLanguage, 'ocrNoJapaneseText');
-    state.status.hidden = !state.overlayRequested || state.autoSkipped;
+function renderNoOcrLines(state: ImageState): void {
+    state.autoSkipped = true;
+    state.status.textContent = '';
+    state.status.hidden = true;
+    state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
 }
 
 function renderOcrErrorStatus(state: ImageState, settings: ReaderSettings, provider: string, manualRequested: boolean, error: unknown): void {
@@ -451,7 +452,7 @@ export class ImageOcrController {
         const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
         const result = inlineFallback ?? providerResult;
         if (!result?.lines.length) {
-            renderNoOcrLines(state, settings, manualRequested);
+            renderNoOcrLines(state);
             return;
         }
 

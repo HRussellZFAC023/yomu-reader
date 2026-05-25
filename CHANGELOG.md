@@ -1,11 +1,27 @@
 # Changelog
 
+## [0.4.45] - 2026-05-25
+
+### Changed
+
+- Refined the iPhone/iPad install guide for current Userscripts behavior, including the automatic scripts folder and Safari AA/extensions menu flow.
+
+### Fixed
+
+- Kept image OCR quiet when a scanned image has no Japanese text, instead of showing a "No Japanese text found" banner on ordinary non-Japanese images.
+- Changed Immersion Kit rate-limit backoff to start at 1 s (was 100 ms) and double on each consecutive 429, capping at 30 s, then reset after a successful search.
+
+## [0.4.44] - 2026-05-25
+
+### Fixed
+
+- Fixed OCR pronunciation cleanup and Japanese translation quote parsing in popup results.
+
 ## [0.4.43] - 2026-05-25
 
 ### Fixed
 
 - Fixed hosted Try Me furigana alignment by keeping parsed words on native inline ruby layout instead of flex layout.
-- Changed Immersion Kit rate-limit backoff to start at 1 s (was 100 ms) and double on each consecutive 429, capping at 30 s, then reset after a successful search.
 
 ## [0.4.42] - 2026-05-25
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.44
+// @version      0.4.45
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -3562,7 +3562,6 @@ Greasy Fork compliance notes:
    toggleYoutubeImmersion: "Toggle YouTube filter",
    readImagesNow: "Read images now",
    ocrReadingImage: "Reading image...",
-   ocrNoJapaneseText: "No Japanese text found",
    ocrFailed: "OCR failed",
    ocrEnabledToast: "Image reading enabled.",
    ocrHiddenToast: "Image reading hidden.",
@@ -4331,7 +4330,6 @@ Greasy Fork compliance notes:
   trackStatusWaiting: "字幕待機中",
   trackStatusFailed: "失敗",
   ocrReadingImage: "画像を読み取り中...",
-  ocrNoJapaneseText: "日本語テキストが見つかりません",
   ocrFailed: "画像文字認識に失敗しました",
   ocrEnabledToast: "画像読み取りを有効にしました。",
   ocrHiddenToast: "画像読み取りを非表示にしました。",
@@ -23860,10 +23858,11 @@ ${glossaryKey}`;
   state.loading = false;
   state.manualRequested = false;
  }
- function renderNoOcrLines(state, settings, manualRequested) {
-  state.autoSkipped = !manualRequested;
-  state.status.textContent = uiText(settings.interfaceLanguage, "ocrNoJapaneseText");
-  state.status.hidden = !state.overlayRequested || state.autoSkipped;
+ function renderNoOcrLines(state) {
+  state.autoSkipped = true;
+  state.status.textContent = "";
+  state.status.hidden = true;
+  state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
  }
  function renderOcrErrorStatus(state, settings, provider, manualRequested, error) {
   state.status.textContent = ocrVisibleErrorMessage(settings, error);
@@ -24128,7 +24127,7 @@ ${glossaryKey}`;
    const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
    const result = inlineFallback ?? providerResult;
    if (!result?.lines.length) {
-    renderNoOcrLines(state, settings, manualRequested);
+    renderNoOcrLines(state);
     return;
    }
    this.remember(key, result);
