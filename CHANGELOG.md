@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.49] - 2026-05-25
+
+### Added
+
+- Added YouTube auto-translated caption choices for preferred languages such as Japanese, so English videos can be watched with YouTube-provided Japanese translated subtitles when available.
+
+### Changed
+
+- After choosing a subtitle track, the sidebar now moves directly back to Lines when transcript lines are available, with a small Tracks hint explaining the flow.
+- YouTube caption discovery now keeps creator captions, auto-generated captions, and auto-translated captions as separate track choices instead of collapsing same-language options together.
+
+### Fixed
+
+- Made transcript row clicks and keyboard activation seek to the exact subtitle timestamp, while keeping the configured seek padding for previous/next controls.
+- Reduced the YouTube DOM-caption fallback delay and preserved full transcript rendering when timed YouTube tracks are available, avoiding the one-line-only sidebar state.
+- Kept the transcript drawer visible when subtitle controls are hidden and tightened current YouTube player insets so the side drawer does not overlap the video after layout settles.
+- Refreshed transcript JPDB parsing when parse-affecting settings change, keeping sidebar subtitle words colorized, hoverable, and clickable like player subtitles.
+
 ## [0.4.48] - 2026-05-25
 
 ### Fixed

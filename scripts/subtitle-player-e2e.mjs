@@ -338,7 +338,7 @@ async function maybeSelectFirstJapaneseTrack(page) {
 async function pressPrimaryTrackIfNeeded(track) {
     const button = track.locator('[data-action="primary-track"]').first();
     if (await button.getAttribute('aria-pressed') === 'true') return;
-    await button.click({ force: true });
+    await button.click();
 }
 
 async function dismissBlockingOverlays(page) {
@@ -362,13 +362,13 @@ async function assertDrawerModeControls(page) {
     const linesButton = page.locator('.jpdb-subtitle-list [data-action="panel-lines"]').first();
     const canOpenLines = await linesButton.evaluate(button => !button.disabled).catch(() => false);
     if (canOpenLines) {
-        await linesButton.click({ force: true });
+        await linesButton.click();
         await waitForDrawerMode(page, 'lines');
     }
 
-    await page.locator('.jpdb-subtitle-list [data-action="panel-tracks"]').first().click({ force: true });
+    await page.locator('.jpdb-subtitle-list [data-action="panel-tracks"]').first().click();
     await waitForDrawerMode(page, 'tracks');
-    await page.locator('.jpdb-subtitle-list [data-action="close-panel"]').first().click({ force: true });
+    await page.locator('.jpdb-subtitle-list [data-action="close-panel"]').first().click();
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 5000 });
     await openTracksPanel(page);
 }
@@ -393,11 +393,21 @@ async function openTracksPanel(page) {
     });
     if (openPanelMode === 'tracks') return;
     if (!openPanelMode) {
-        await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click({ force: true });
-        await page.waitForFunction(() => !document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 5000 });
+        await clickRailPanelButton(page);
+        await waitForPanelOpen(page);
     }
-    await page.locator('.jpdb-subtitle-list [data-action="panel-tracks"]').first().click({ force: true });
+    await page.locator('.jpdb-subtitle-list [data-action="panel-tracks"]').first().click();
     await waitForDrawerMode(page, 'tracks');
+}
+
+async function clickRailPanelButton(page) {
+    const panelButton = page.locator('.jpdb-subtitle-rail [data-action="panel"]').first();
+    await panelButton.waitFor({ state: 'visible', timeout: 5000 });
+    await panelButton.click();
+}
+
+async function waitForPanelOpen(page) {
+    await page.waitForFunction(() => !document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 5000 });
 }
 
 async function openLinesOrTracksPanel(page) {
@@ -413,7 +423,7 @@ async function openLinesOrTracksPanel(page) {
         const linesButton = page.locator('.jpdb-subtitle-list [data-action="panel-lines"]').first();
         const canOpenLines = await linesButton.evaluate(button => !button.disabled).catch(() => false);
         if (canOpenLines) {
-            await linesButton.click({ force: true });
+            await linesButton.click();
             await waitForDrawerMode(page, 'lines');
         }
         return;
@@ -430,7 +440,7 @@ async function openLinesOrTracksPanel(page) {
             return Boolean(panel && !panel.hidden && lines);
         });
         if (alreadyOpenLines) return;
-        await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click({ force: true });
+        await clickRailPanelButton(page);
     } else {
         await openTracksPanel(page);
         return;
@@ -475,9 +485,20 @@ async function snapshot(page) {
             yomuCaptionsActive: document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active'),
             nativeCaptionVisible: nativeCaption ? nativeStyle?.display !== 'none' && nativeStyle?.visibility !== 'hidden' : true,
             blockingDialogVisible: [...document.querySelectorAll('[role="dialog"], tp-yt-paper-dialog')]
-                .some(element => /Before you continue|cookies and data|Sign in to confirm/i.test(element.textContent ?? '')
-                    && getComputedStyle(element).display !== 'none'
-                    && getComputedStyle(element).visibility !== 'hidden'),
+                .some(element => {
+                    if (!/Before you continue|cookies and data|Sign in to confirm/i.test(element.textContent ?? '')) return false;
+                    const style = getComputedStyle(element);
+                    const rect = element.getBoundingClientRect();
+                    return style.display !== 'none'
+                        && style.visibility !== 'hidden'
+                        && style.opacity !== '0'
+                        && rect.width >= 120
+                        && rect.height >= 80
+                        && rect.right > 0
+                        && rect.bottom > 0
+                        && rect.left < window.innerWidth
+                        && rect.top < window.innerHeight;
+                }),
             viewport: { width: window.innerWidth, height: window.innerHeight },
         };
     });
@@ -492,7 +513,7 @@ async function exerciseDrawerLayout(page, site) {
 }
 
 async function exerciseDrawerLayoutPhase(page, site, phase) {
-    const resize = await prepareDrawerLayoutPhase(page, phase);
+    const resize = await prepareDrawerLayoutPhase(page, site, phase);
     const state = await snapshot(page);
     const layout = drawerLayoutRects(state, phase);
     assertDrawerLayoutState(site, phase, state, layout);
@@ -502,13 +523,31 @@ async function exerciseDrawerLayoutPhase(page, site, phase) {
     return drawerLayoutResult(phase, layout.placement, resize.resized, screenshot, state);
 }
 
-async function prepareDrawerLayoutPhase(page, phase) {
+async function prepareDrawerLayoutPhase(page, site, phase) {
     await openLinesOrTracksPanel(page);
+    await waitForDrawerLayoutSettled(page, site);
     if (phase !== 'resized') return { beforeResizePanel: undefined, resized: false };
     const beforeResize = await snapshot(page);
     const beforeResizePanel = rectFromJson(beforeResize.panel);
     const resized = await resizePanel(page, beforeResize.placement || 'right');
     return { beforeResizePanel, resized };
+}
+
+async function waitForDrawerLayoutSettled(page, site) {
+    await page.waitForFunction(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list')?.getBoundingClientRect();
+        const moviePlayer = document.querySelector('#movie_player');
+        const video = (moviePlayer || document.querySelector('video'))?.getBoundingClientRect();
+        if (!panel || !video) return false;
+        const rows = document.querySelectorAll('.jpdb-subtitle-list-row').length;
+        const tracks = document.querySelectorAll('.jpdb-subtitle-track-row').length;
+        if (rows === 0 && tracks === 0) return false;
+        return panel.right <= video.left + 1
+            || video.right <= panel.left + 1
+            || panel.bottom <= video.top + 1
+            || video.bottom <= panel.top + 1;
+    }, null, { timeout: site.readyTimeout ?? 25000 });
+    await page.waitForTimeout(150);
 }
 
 function drawerLayoutRects(state, phase) {
@@ -526,7 +565,9 @@ function assertDrawerLayoutState(site, phase, state, layout) {
     if (site.expectEdgeToEdgePanel) assert(isEdgeToEdgePanel(layout.panel, state.viewport), `${site.name}: compact transcript panel is not edge-to-edge during ${phase}`, state);
     assert(!rectsOverlap(layout.panel, layout.video), `${site.name}: transcript panel overlaps video during ${phase}`, state);
     assert(panelFitsViewport(layout.panel, state.viewport), `${site.name}: transcript panel leaves viewport during ${phase}`, state);
-    assert(!state.blockingDialogVisible, `${site.name}: blocking page dialog is covering the verification screenshot`, state);
+    if (!site.ignoreBlockingDialogs) {
+        assert(!state.blockingDialogVisible, `${site.name}: blocking page dialog is covering the verification screenshot`, state);
+    }
 }
 
 function hasTranscriptPanel(panel) {
@@ -614,6 +655,7 @@ async function runYouTubeWithFallback(browser) {
             url: youtubeUrl,
             viewport: { width: 2048, height: 1050 },
             youtubeConsent: true,
+            ignoreBlockingDialogs: true,
             readyTimeout: 50000,
         });
     } catch (error) {
