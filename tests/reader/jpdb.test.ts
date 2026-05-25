@@ -13184,6 +13184,27 @@ describe('reader helpers', () => {
         expect(document.querySelectorAll('rt')).toHaveLength(0);
     });
 
+    it('marks scanned page words with wrapping CSS so furigana cannot create a page-wide line', () => {
+        expect(READER_WORD_CSS).toContain('.jpdb-reader-word.jpdb-reader-scan-word');
+        expect(READER_WORD_CSS).toContain('overflow-wrap: anywhere !important');
+        document.body.innerHTML = '<p>検索履歴から検索語句を削除することができます。</p>';
+        const [target] = collectTextTargetsIn(document.body, 10, false);
+
+        applyTokensToTextNode(target, [{
+            card: { ...card, cardState: ['known'], spelling: '検索履歴', reading: 'けんさくりれき' },
+            start: 0,
+            end: 4,
+            length: 4,
+            rubies: [{ text: 'けんさくりれき', start: 0, end: 4, length: 4 }],
+            pitchClass: '',
+            sentence: '検索履歴から検索語句を削除することができます。',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(word.classList.contains('jpdb-reader-scan-word')).toBe(true);
+        expect(word.querySelector('rt')?.textContent).toBe('けんさくりれき');
+    });
+
     it('parses compact related vocabulary for status colors without adding furigana', () => {
         document.body.innerHTML = `
             <div data-jpdb-reader-root="true" class="jpdb-reader-word-text-status">
@@ -13420,6 +13441,70 @@ describe('reader helpers', () => {
         ]);
     });
 
+    it('adds safe UI chrome labels after prose as passive no-ruby scan targets', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 200,
+            width: 800,
+            height: 200,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <header><nav><a href="/help">ヘルプセンター</a></nav></header>
+            <main>
+                <article><p>今日は静かな喫茶店で新しい本を読みました。</p></article>
+                <a href="/history">検索履歴を管理する</a>
+                <button type="button">設定を保存する</button>
+            </main>
+            <form><button type="submit">登録する</button></form>
+        `;
+        document.querySelectorAll<HTMLButtonElement>('button')
+            .forEach(button => { button.getBoundingClientRect = () => ({
+                left: 0,
+                right: 160,
+                top: 0,
+                bottom: 40,
+                width: 160,
+                height: 40,
+                x: 0,
+                y: 0,
+                toJSON: () => ({}),
+            } as DOMRect); });
+
+        const targets = collectScanTargets(10, 'https://support.google.com/youtube/answer/6342839');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual([
+            '今日は静かな喫茶店で新しい本を読みました。',
+            'ヘルプセンター',
+            '検索履歴を管理する',
+            '設定を保存する',
+        ]);
+        const uiTarget = targets.find(target => target.text === '検索履歴を管理する')!;
+        expect('passiveInteraction' in uiTarget && uiTarget.passiveInteraction).toBe(true);
+        expect('suppressRuby' in uiTarget && uiTarget.suppressRuby).toBe(true);
+
+        applyTokensToScanTarget(uiTarget, [{
+            card: { ...card, cardState: ['known'], spelling: '検索履歴', reading: 'けんさくりれき' },
+            start: 0,
+            end: 4,
+            length: 4,
+            rubies: [{ text: 'けんさくりれき', start: 0, end: 4, length: 4 }],
+            pitchClass: '',
+            sentence: '検索履歴を管理する',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('a[href="/history"] .jpdb-reader-word')!;
+        expect(word.classList.contains('jpdb-reader-passive-word')).toBe(true);
+        expect(word.classList.contains('jpdb-reader-scan-word')).toBe(true);
+        expect(word.tabIndex).toBe(-1);
+        expect(word.querySelector('rt')).toBeNull();
+    });
+
     it('collects the hosted Try Me text as parser-owned source text', () => {
         const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
             left: 0,
@@ -13641,7 +13726,7 @@ describe('reader helpers', () => {
             .toContain('mokuro-parser');
     });
 
-    it('scans YouTube watch titles, descriptions, and comments', () => {
+    it('scans YouTube watch descriptions and comments without mutating SPA titles', () => {
         const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
             left: 0,
             right: 1000,
@@ -13669,24 +13754,25 @@ describe('reader helpers', () => {
         rectSpy.mockRestore();
 
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
-            '新卒エンジニア、仕事終わりにプログラミング勉強をする！！',
             'Webアプリ開発を目指して、日本語で勉強中の新卒エンジニアです！',
             '今夜も配信見なかったごめんね。',
         ]));
+        expect(targets.map(target => target.text)).not.toContain('新卒エンジニア、仕事終わりにプログラミング勉強をする！！');
 
-        const title = targets.find(target => target.text.startsWith('新卒エンジニア'));
-        expect(title).toBeTruthy();
-        applyTokensToScanTarget(title!, [{
-            card: { ...card, cardState: ['known'], spelling: '新卒', reading: 'しんそつ' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'しんそつ', start: 0, end: 2, length: 2 }],
+        const description = targets.find(target => target.text.startsWith('Webアプリ開発'));
+        expect(description).toBeTruthy();
+        applyTokensToScanTarget(description!, [{
+            card: { ...card, cardState: ['known'], spelling: 'アプリ', reading: 'アプリ' },
+            start: 3,
+            end: 6,
+            length: 3,
+            rubies: [],
             pitchClass: '',
-            sentence: '新卒エンジニア、仕事終わりにプログラミング勉強をする！！',
+            sentence: 'Webアプリ開発を目指して、日本語で勉強中の新卒エンジニアです！',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
-        expect(document.querySelector('ytd-watch-metadata h1 .jpdb-reader-word.jpdb-known')?.textContent).toBe('新卒');
+        expect(document.querySelector('ytd-watch-metadata h1 .jpdb-reader-word')).toBeNull();
+        expect(document.querySelector('ytd-watch-metadata #description-inline-expander .jpdb-reader-word.jpdb-known')?.textContent).toBe('アプリ');
         expect(document.querySelectorAll('ytd-watch-metadata h1 rt')).toHaveLength(0);
     });
 
@@ -13705,6 +13791,9 @@ describe('reader helpers', () => {
         document.body.innerHTML = `
             <ytd-watch-metadata>
                 <h1><yt-formatted-string>日本語タイトル</yt-formatted-string></h1>
+                <div id="description-inline-expander">
+                    <yt-attributed-string id="attributed-snippet-text">概要文です</yt-attributed-string>
+                </div>
             </ytd-watch-metadata>
             ${Array.from({ length: 120 }, (_, index) => `
                 <ytd-comment-view-model>
@@ -13717,7 +13806,8 @@ describe('reader helpers', () => {
         rectSpy.mockRestore();
 
         expect(targets).toHaveLength(80);
-        expect(targets[0]?.text).toBe('日本語タイトル');
+        expect(targets[0]?.text).toBe('概要文です');
+        expect(targets.map(target => target.text)).not.toContain('日本語タイトル');
         expect(targets.map(target => target.text)).not.toContain('コメント119です');
     });
 

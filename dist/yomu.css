@@ -175,6 +175,22 @@
   content: none;
 }
 
+.jpdb-reader-word.jpdb-reader-scan-word {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere !important;
+  line-break: auto;
+}
+
+.jpdb-reader-word.jpdb-reader-scan-word ruby,
+.jpdb-reader-word.jpdb-reader-scan-word rt {
+  white-space: normal;
+}
+
+.jpdb-reader-word.jpdb-reader-passive-word {
+  cursor: inherit;
+}
+
 .jpdb-reader-word:hover,
 .jpdb-reader-word:focus {
   background: var(--jpdb-reader-hover) !important;

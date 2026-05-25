@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.47] - 2026-05-25
+
+### Fixed
+
+- Allowed scanned page words with furigana to wrap normally, preventing long annotated Japanese lines from overflowing into adjacent page columns.
+- Added passive no-furigana scanning for safe page UI labels such as navigation links and buttons, so labels can be recognized without hijacking the controls' normal clicks.
+
 ## [0.4.46] - 2026-05-25
 
 ### Fixed
