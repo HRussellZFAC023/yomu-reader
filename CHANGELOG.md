@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.48] - 2026-05-25
+
+### Fixed
+
+- Smoothed YouTube immersion filtering by avoiding repeated oEmbed retries, batching rescans, and keeping translated-looking titles visible until the original title check finishes.
+- Hid playlist, mix, radio, and shelf items without treating normal videos whose title contains "mix" as playlists.
+- Stopped the YouTube hidden-items notice from reappearing on every count change, left Shorts scrolling untouched, and prevented よむ spans from leaving stale YouTube watch titles after SPA navigation.
+
 ## [0.4.47] - 2026-05-25
 
 ### Fixed
