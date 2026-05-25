@@ -64,6 +64,18 @@ function installIntersectionObserver(): void {
     });
 }
 
+function dispatchPointerEvent(target: EventTarget, type: string, clientX = 120, clientY = 120, pointerType = 'mouse'): void {
+    const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
+    Object.defineProperties(event, {
+        button: { value: 0 },
+        clientX: { value: clientX },
+        clientY: { value: clientY },
+        pointerId: { value: 1 },
+        pointerType: { value: pointerType },
+    });
+    target.dispatchEvent(event);
+}
+
 describe('OCR sentence focus', () => {
     it('focuses an OCR sentence inline and clears it when clicking away', async () => {
         installIntersectionObserver();
@@ -111,6 +123,48 @@ describe('OCR sentence focus', () => {
         } finally {
             controller.destroy();
             vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('queues OCR from image hover even when quiet auto-scan is suppressed', async () => {
+        const sentence = '日本語を読む';
+        const image = document.createElement('img');
+        image.src = '/ocr-test.png';
+        image.dataset.ocrLines = JSON.stringify([
+            { text: sentence, box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
+        ]);
+        Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
+        image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
+        document.body.replaceChildren(image);
+
+        const controller = new ImageOcrController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ocrEnabled: true,
+                ocrAutoScanImages: false,
+                ocrShowTextOverlay: false,
+                ocrMinImageArea: 1,
+                ocrMaxImagesPerPage: 5,
+                ocrPrefetchMargin: 0,
+            }),
+            parseJapanese: vi.fn(async () => [parsedToken(sentence)]),
+            onToast: vi.fn(),
+            shouldAutoScan: () => false,
+        });
+
+        try {
+            controller.init();
+            expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
+
+            dispatchPointerEvent(image, 'pointerover');
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-line')?.getAttribute('aria-label')).toBe(sentence);
+            });
+        } finally {
+            controller.destroy();
             document.body.replaceChildren();
         }
     });

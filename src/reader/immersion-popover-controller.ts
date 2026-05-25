@@ -33,10 +33,13 @@ import {
 import { speakerIcon } from './popup-render';
 import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 
-const IMMERSION_SEARCH_CACHE_TTL_MS = 30_000;
+const IMMERSION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
 const IMMERSION_SEARCH_CACHE_LIMIT = 120;
 const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
 const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 48;
+const IMMERSION_LAZY_LOAD_DELAY_MS = 180;
+const IMMERSION_LAZY_LOAD_ROOT_MARGIN = '180px 0px';
+const IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX = 180;
 const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
 const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
 const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
@@ -101,10 +104,21 @@ export class ImmersionPopoverController {
     private searchResultCache = new Map<string, { expiresAt: number; promise: Promise<ImmersionKitSearchResult> }>();
     private parsedSentenceCache = new Map<string, ParsedSentenceCacheEntry>();
     private loadAbortControllers = new WeakMap<HTMLElement, AbortController>();
+    private lazyLoadTimers = new WeakMap<HTMLElement, number>();
+    private lazyLoadObservers = new WeakMap<HTMLElement, IntersectionObserver>();
 
     constructor(private options: ImmersionPopoverControllerOptions) {}
 
     abortPendingRequests(popover: HTMLElement): void {
+        const container = popover.querySelector<HTMLElement>('[data-immersion-kit]');
+        if (container) {
+            this.clearLazyLoadTimer(container);
+            this.disconnectLazyLoadObserver(container);
+        }
+        this.abortActiveLoad(popover);
+    }
+
+    private abortActiveLoad(popover: HTMLElement): void {
         const controller = this.loadAbortControllers.get(popover);
         if (!controller) return;
         controller.abort();
@@ -157,17 +171,23 @@ export class ImmersionPopoverController {
         const container = popover.querySelector<HTMLElement>('[data-immersion-kit]');
         if (!container) return;
 
-        this.abortPendingRequests(popover);
+        this.abortActiveLoad(popover);
         const controller = new AbortController();
         this.loadAbortControllers.set(popover, controller);
         const searchPromise = this.searchExamples(card, { ...options, signal: controller.signal });
 
         try {
             const result = await raceAgainstAbort(searchPromise, controller.signal);
-            if (controller.signal.aborted || !isConnectedImmersionSurface(popover, container)) return;
+            if (controller.signal.aborted || !isConnectedImmersionSurface(popover, container)) {
+                if (container.dataset.immersionLoadState === 'loading') delete container.dataset.immersionLoadState;
+                return;
+            }
             this.renderLoadedExamples(container, card, result);
         } catch (error) {
-            if (isAbortError(error) && controller.signal.aborted) return;
+            if (isAbortError(error) && controller.signal.aborted) {
+                if (container.dataset.immersionLoadState === 'loading') delete container.dataset.immersionLoadState;
+                return;
+            }
             log.warn('Immersion Kit examples failed', { term: card.spelling }, error);
             this.renderEmptyIfConnected(popover, container);
         } finally {
@@ -184,20 +204,81 @@ export class ImmersionPopoverController {
         if (!container || container.dataset.immersionLazyBound === 'true') return;
         container.dataset.immersionLazyBound = 'true';
 
-        const load = (): void => {
-            if (!isConnectedImmersionSurface(popover, container)) return;
-            if (container instanceof HTMLDetailsElement && !container.open) return;
-            if (container.dataset.immersionLoadState) return;
-            container.dataset.immersionLoadState = 'loading';
-            void this.loadExamples(popover, card, options).finally(() => {
-                if (container.dataset.immersionLoadState === 'loading') {
-                    container.dataset.immersionLoadState = 'loaded';
+        const canLoad = (): boolean => this.canStartLazyLoad(popover, container);
+        const scheduleLoad = (): void => {
+            if (!canLoad()) return;
+            if (container.dataset.immersionLoadState === 'scheduled') return;
+            this.clearLazyLoadTimer(container);
+            container.dataset.immersionLoadState = 'scheduled';
+            const timer = window.setTimeout(() => {
+                this.lazyLoadTimers.delete(container);
+                if (!canLoad()) {
+                    if (container.dataset.immersionLoadState === 'scheduled') delete container.dataset.immersionLoadState;
+                    return;
                 }
-            });
+                container.dataset.immersionLoadState = 'loading';
+                void this.loadExamples(popover, card, options)
+                    .then(() => {
+                        if (container.dataset.immersionLoadState !== 'loading') return;
+                        container.dataset.immersionLoadState = 'loaded';
+                    })
+                    .catch(() => {
+                        if (container.dataset.immersionLoadState === 'loading') delete container.dataset.immersionLoadState;
+                    });
+            }, IMMERSION_LAZY_LOAD_DELAY_MS);
+            this.lazyLoadTimers.set(container, timer);
+        };
+        const maybeLoad = (): void => {
+            if (!canLoad()) return;
+            if (isImmersionNearVisibleArea(popover, container)) scheduleLoad();
+        };
+        const handleToggle = (): void => {
+            if (!container.open) {
+                this.clearLazyLoadTimer(container);
+                if (container.dataset.immersionLoadState === 'scheduled' || container.dataset.immersionLoadState === 'loading') {
+                    delete container.dataset.immersionLoadState;
+                }
+                this.abortActiveLoad(popover);
+                return;
+            }
+            maybeLoad();
         };
 
-        container.addEventListener('toggle', load);
-        load();
+        container.addEventListener('toggle', handleToggle);
+        this.installLazyVisibilityObserver(popover, container, maybeLoad);
+        maybeLoad();
+    }
+
+    private canStartLazyLoad(popover: HTMLElement, container: HTMLDetailsElement): boolean {
+        return isConnectedImmersionSurface(popover, container)
+            && container.open
+            && container.dataset.immersionEmpty !== 'true'
+            && !['loading', 'loaded'].includes(container.dataset.immersionLoadState ?? '');
+    }
+
+    private installLazyVisibilityObserver(popover: HTMLElement, container: HTMLElement, maybeLoad: () => void): void {
+        if (typeof IntersectionObserver !== 'function') return;
+        const observer = new IntersectionObserver(entries => {
+            if (entries.some(entry => entry.isIntersecting)) maybeLoad();
+        }, {
+            root: immersionLazyLoadRoot(popover, container),
+            rootMargin: IMMERSION_LAZY_LOAD_ROOT_MARGIN,
+        });
+        observer.observe(container);
+        this.lazyLoadObservers.set(container, observer);
+    }
+
+    private clearLazyLoadTimer(container: HTMLElement): void {
+        const timer = this.lazyLoadTimers.get(container);
+        if (timer === undefined) return;
+        window.clearTimeout(timer);
+        this.lazyLoadTimers.delete(container);
+        if (container.dataset.immersionLoadState === 'scheduled') delete container.dataset.immersionLoadState;
+    }
+
+    private disconnectLazyLoadObserver(container: HTMLElement): void {
+        this.lazyLoadObservers.get(container)?.disconnect();
+        this.lazyLoadObservers.delete(container);
     }
 
     private renderLoadedExamples(container: HTMLElement, card: JPDBCard, result: ImmersionKitSearchResult): void {
@@ -302,11 +383,17 @@ export class ImmersionPopoverController {
     }
 
     async searchExamples(card: JPDBCard, options: ImmersionSearchOptions = {}): Promise<ImmersionKitSearchResult> {
-        if (options.signal) return this.fetchExamples(card, options);
         const key = this.searchCacheKey(card, options);
         const now = Date.now();
         const cached = this.searchResultCache.get(key);
         if (cached && cached.expiresAt > now) return cached.promise;
+
+        if (options.signal) {
+            return this.fetchExamples(card, options).then(result => {
+                if (!options.signal?.aborted) this.rememberSearchResult(key, result);
+                return result;
+            });
+        }
 
         const promise = this.fetchExamples(card, options).catch(error => {
             if (this.searchResultCache.get(key)?.promise === promise) this.searchResultCache.delete(key);
@@ -315,6 +402,12 @@ export class ImmersionPopoverController {
         this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise });
         pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
         return promise;
+    }
+
+    private rememberSearchResult(key: string, result: ImmersionKitSearchResult): void {
+        const now = Date.now();
+        this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise: Promise.resolve(result) });
+        pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
     }
 
     stopAudio(): void {
@@ -957,7 +1050,13 @@ function isConnectedImmersionSurface(popover: HTMLElement, container: HTMLElemen
 }
 
 function isAbortError(error: unknown): boolean {
-    return error instanceof Error && error.name === 'AbortError';
+    return errorName(error) === 'AbortError';
+}
+
+function errorName(error: unknown): string {
+    if (!error || typeof error !== 'object') return '';
+    const name = (error as { name?: unknown }).name;
+    return typeof name === 'string' ? name : '';
 }
 
 function raceAgainstAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
@@ -1080,6 +1179,29 @@ function heldExampleImageHeight(image: HTMLImageElement | null): number {
 function hoverAudioExampleKey(example: ImmersionKitExample | undefined): string {
     if (!example) return '';
     return example.id || `${example.provider ?? 'immersion-kit'}:${example.sourceTitle}:${example.sentence}:${example.soundFile || example.soundUrl}`;
+}
+
+function immersionLazyLoadRoot(popover: HTMLElement, target: HTMLElement): Element | null {
+    const body = popover.querySelector<HTMLElement>('.jpdb-reader-popover-body');
+    if (body?.contains(target)) return body;
+    return popover.contains(target) ? popover : null;
+}
+
+function isImmersionNearVisibleArea(popover: HTMLElement, container: HTMLElement): boolean {
+    const root = immersionLazyLoadRoot(popover, container);
+    const containerRect = container.getBoundingClientRect();
+    const rootRect = root?.getBoundingClientRect();
+    if (!hasUsableRect(containerRect) || !rootRect || !hasUsableRect(rootRect)) return true;
+
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || rootRect.bottom;
+    const visibleTop = Math.max(0, rootRect.top);
+    const visibleBottom = Math.min(viewportHeight, rootRect.bottom);
+    return containerRect.bottom >= visibleTop - IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX
+        && containerRect.top <= visibleBottom + IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX;
+}
+
+function hasUsableRect(rect: DOMRect | DOMRectReadOnly): boolean {
+    return rect.width > 0 || rect.height > 0;
 }
 
 function pruneImmersionSearchCache(cache: Map<string, { expiresAt: number; promise: Promise<ImmersionKitSearchResult> }>, now: number, limit: number): void {

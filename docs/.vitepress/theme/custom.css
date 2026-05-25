@@ -148,35 +148,63 @@
 .VPNavBarExtra.extra .button {
   width: 44px;
   min-width: 44px;
+  justify-content: center;
+  padding: 0;
 }
 
 .VPNavBarExtra.extra .button .vpi-more-horizontal.icon {
-  width: 18px;
-  height: 14px;
-  background:
-    linear-gradient(currentColor, currentColor) 0 0 / 18px 2px no-repeat,
-    linear-gradient(currentColor, currentColor) 0 6px / 18px 2px no-repeat,
-    linear-gradient(currentColor, currentColor) 0 12px / 18px 2px no-repeat !important;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  background: transparent !important;
+  background-color: transparent !important;
   color: currentColor;
   -webkit-mask: none !important;
   mask: none !important;
 }
 
+.VPNavBarExtra.extra .button .vpi-more-horizontal.icon::before {
+  content: "...";
+  padding-bottom: 4px;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.VPNavBarExtra.extra .VPMenu {
+  min-width: 190px;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.VPNavBarExtra.extra .VPMenu > .group {
+  margin: 0;
+  padding: 8px;
+}
+
+.VPNavBarExtra.extra .VPMenu > .group + .group {
+  border-top: 1px solid var(--vp-c-divider);
+  padding: 8px;
+}
+
+.VPNavBarExtra.extra .VPMenu > .group:last-child {
+  padding-bottom: 8px;
+}
+
 .yomu-hosted-overflow-group {
   padding: 8px;
-  border-bottom: 1px solid var(--vp-c-divider);
 }
 
 .yomu-hosted-overflow-list {
   display: grid;
   gap: 2px;
-  min-width: 174px;
 }
 
 .yomu-hosted-overflow-link {
   display: flex;
   align-items: center;
-  min-height: 34px;
+  min-height: 36px;
   width: 100%;
   padding: 0 10px;
   border: 0;
@@ -192,11 +220,75 @@
   cursor: pointer;
 }
 
+.VPNavBarExtra.extra .item.appearance,
+.VPNavBarExtra.extra .item.social-links {
+  min-width: 174px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+}
+
+.VPNavBarExtra.extra .item.appearance {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.VPNavBarExtra.extra .item.appearance .label {
+  line-height: 1;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.VPNavBarExtra.extra .item.appearance .appearance-action {
+  margin-right: 0;
+}
+
+.VPNavBarExtra.extra .item.social-links {
+  justify-content: flex-start;
+}
+
+.VPNavBarExtra.extra .item.social-links .social-links-list {
+  width: 100%;
+  margin: 0;
+}
+
+.VPNavBarExtra.extra .item.social-links .VPSocialLink {
+  width: 100%;
+  height: 36px;
+  justify-content: space-between;
+  color: var(--vp-c-text-1);
+}
+
+.VPNavBarExtra.extra .item.social-links .VPSocialLink::before {
+  content: "GitHub";
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1;
+  color: var(--vp-c-text-2);
+}
+
+.VPNavBarExtra.extra .item.social-links .VPSocialLink:hover::before {
+  color: var(--vp-c-brand-1);
+}
+
+.VPNavBarExtra.extra .item.appearance:hover,
+.VPNavBarExtra.extra .item.appearance:focus-within,
+.VPNavBarExtra.extra .item.social-links:hover,
+.VPNavBarExtra.extra .item.social-links:focus-within {
+  background: color-mix(in srgb, var(--vp-c-brand-2) 12%, transparent);
+}
+
 .yomu-hosted-overflow-link:hover,
 .yomu-hosted-overflow-link:focus-visible {
   background: color-mix(in srgb, var(--vp-c-brand-2) 12%, transparent);
   color: var(--vp-c-brand-1);
   outline: none;
+}
+
+@media (min-width: 1280px) {
+  .VPNavBarExtra.extra .VPMenu > .group:not(.yomu-hosted-overflow-group) {
+    display: none;
+  }
 }
 
 @media (max-width: 767px) {
