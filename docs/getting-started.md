@@ -51,27 +51,41 @@ On Chromium browsers, Tampermonkey may ask for permission to run user scripts. C
 
 ### iPhone or iPad
 
-You have two good options:
+The easiest free option is the **Userscripts** app. It runs scripts inside Safari.
 
-1. [Userscripts on the App Store](https://apps.apple.com/app/userscripts/id1463298887) is free and open source. It runs scripts in Safari.
-2. [Tampermonkey for Safari](https://www.tampermonkey.net/index.php?browser=safari&locale=en) also supports Safari on iOS/iPadOS.
+[Get Userscripts — free on the App Store](https://apps.apple.com/app/userscripts/id1463298887)
 
-For the free route, install Userscripts, open the app once, choose a folder when it asks where to save scripts, then enable it in Safari settings. In Safari, the extension must be allowed on the websites where you want よむ to run.
+**One-time setup (takes about a minute):**
+
+1. Install Userscripts and open it once. You'll see a mostly empty screen — that's fine. The app quietly sets up a folder for your scripts in the background; you don't need to do anything inside the app.
+2. Open **Settings** on your phone → **Safari** → **Extensions** → **Userscripts**.
+3. Turn the toggle **on**, then tap **Userscripts** and set it to **All Websites**.
+
+That's the setup done. Jump to step 3 to install よむ.
+
+[Tampermonkey for Safari](https://www.tampermonkey.net/index.php?browser=safari&locale=en) is another option if you prefer it.
 
 ## 3. Install よむ
 
-Install from the current userscript file on GitHub:
-
 [Install よむ userscript](https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js)
 
-What should happen:
+**On desktop (Chrome, Edge, Firefox):**
 
-1. Your userscript manager opens an install screen.
-2. It shows a script named よむ.
-3. Press Install.
-4. Open a page with Japanese text.
+Tap the link above. Tampermonkey opens an install screen showing a script named よむ. Press Install, then open a page with Japanese text.
 
-If your browser only shows code instead of an install screen, your userscript manager is not enabled for that page yet. Do not paste the code anywhere manually. Go back to the userscript manager setup, make sure it is enabled, then open the install link again.
+**On iPhone or iPad (Userscripts app):**
+
+The install flow is one extra tap compared to desktop.
+
+1. Tap the install link above. Safari will show a page of code — that's normal, don't worry.
+2. Tap the **`aA` button** on the left side of the address bar.
+3. Tap **Userscripts** in the menu that appears.
+4. You'll see an install prompt. Tap **Install**.
+5. Open any Japanese page and try tapping a word.
+
+<div class="yomu-callout">
+  <strong>Nothing happened when you tapped the link?</strong> The install prompt doesn't pop up on its own on iOS — you have to open it via the aA button. If you don't see Userscripts in the aA menu, go back to Settings → Safari → Extensions and make sure it's turned on.
+</div>
 
 ## 4. Add JPDB, Or Skip It For Now
 
