@@ -126,7 +126,7 @@ interface SubtitleMenuState {
 
 interface SubtitlePlayerOptions {
     getSettings: () => ReaderSettings;
-    parseJapanese: (text: string) => Promise<JPDBToken[]>;
+    parseJapanese: (text: string, options?: SubtitleParseOptions) => Promise<JPDBToken[]>;
     parseJapaneseBatch?: (texts: string[], options?: SubtitleParseOptions) => Promise<JPDBToken[][]>;
     onSettingsChange: () => void;
 }
@@ -408,6 +408,7 @@ export class SubtitlePlayerController {
     private lastTranscriptSignature = '';
     private transcriptScrollFrame?: number;
     private transcriptHydrateFrame?: number;
+    private transcriptInsetRealignFrame?: number;
     private transcriptHydrationSerial = 0;
     private transcriptCacheWarmupSerial = 0;
     private transcriptCacheWarmupSignature = '';
@@ -498,7 +499,10 @@ export class SubtitlePlayerController {
         this.transcriptScrollFrame = undefined;
         if (this.transcriptHydrateFrame !== undefined) window.cancelAnimationFrame(this.transcriptHydrateFrame);
         this.transcriptHydrateFrame = undefined;
+        if (this.transcriptInsetRealignFrame !== undefined) window.cancelAnimationFrame(this.transcriptInsetRealignFrame);
+        this.transcriptInsetRealignFrame = undefined;
         this.clearVideoInsetForTranscriptPanel();
+        this.transcriptPanel?.remove();
         this.root?.remove();
         this.root = undefined;
         this.subtitleEl = undefined;
@@ -529,12 +533,15 @@ export class SubtitlePlayerController {
 
     private syncRootVisibility(settings: ReaderSettings): void {
         if (!this.root) return;
-        this.root.hidden = shouldHideSubtitleRoot(settings, this.video, this.cues);
+        const hidden = shouldHideSubtitleRoot(settings, this.video, this.cues);
+        this.root.hidden = hidden;
+        if (hidden && this.transcriptPanel) this.transcriptPanel.hidden = true;
         this.root.classList.toggle('jpdb-subtitle-hidden', !settings.subtitleOverlayVisible);
         this.root.classList.toggle('jpdb-subtitle-controls-auto', settings.subtitleControlsMode === 'auto');
         this.root.classList.toggle('jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
         this.root.classList.toggle('jpdb-subtitle-controls-always', settings.subtitleControlsMode === 'always');
         this.root.classList.toggle('jpdb-subtitle-controls-idle', shouldKeepIdleControlClass(this.root, settings));
+        this.transcriptPanel?.classList.toggle('jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
     }
 
     private syncRootStyleSettings(settings: ReaderSettings): void {
@@ -558,7 +565,7 @@ export class SubtitlePlayerController {
 
     private install(): void {
         if (this.root) return;
-        document.querySelectorAll<HTMLElement>('.jpdb-subtitle-player[data-jpdb-reader-root="true"]').forEach(element => element.remove());
+        document.querySelectorAll<HTMLElement>('.jpdb-subtitle-player[data-jpdb-reader-root="true"], .jpdb-subtitle-list[data-jpdb-reader-root="true"]').forEach(element => element.remove());
 
         const root = document.createElement('div');
         root.className = 'jpdb-subtitle-player';
@@ -584,11 +591,14 @@ export class SubtitlePlayerController {
         this.subtitleEl = root.querySelector('.jpdb-subtitle-text') as HTMLElement;
         this.menuEl = root.querySelector<HTMLElement>('.jpdb-subtitle-menu') ?? undefined;
         this.transcriptPanel = root.querySelector('.jpdb-subtitle-list') as HTMLElement;
+        this.transcriptPanel.dataset.jpdbReaderRoot = 'true';
+        this.transcriptPanel.addEventListener('click', event => this.handleClick(event), this.eventOptions());
         this.primaryFileInput = root.querySelector('input[data-file="primary"]') as HTMLInputElement;
         this.secondaryFileInput = root.querySelector('input[data-file="secondary"]') as HTMLInputElement;
         this.primaryFileInput.addEventListener('change', () => void this.loadSubtitleFile('primary'), this.eventOptions());
         this.secondaryFileInput.addEventListener('change', () => void this.loadSubtitleFile('secondary'), this.eventOptions());
         document.body.appendChild(root);
+        document.body.appendChild(this.transcriptPanel);
         this.root = root;
         this.refresh();
     }
@@ -963,7 +973,7 @@ export class SubtitlePlayerController {
             return;
         }
         applyElementLayout(this.root, layout);
-        this.positionTranscriptPanel();
+        this.positionTranscriptPanel({ realignAfterInset: true });
         this.fitSubtitleTextToVideo();
     }
 
@@ -1256,7 +1266,7 @@ export class SubtitlePlayerController {
         const pending = this.pendingParsedHtml.get(key);
         if (pending) return pending;
         const promise = (async () => {
-            const tokens = await this.options.parseJapanese(text);
+            const tokens = await this.options.parseJapanese(text, subtitleParseOptions());
             const html = withBreaks(renderTokensToHtml(text, tokens, settings));
             this.rememberParsedCueHtml(key, html);
             return html;
@@ -1995,10 +2005,13 @@ export class SubtitlePlayerController {
 
     private syncTranscriptPlacementClass(): void {
         if (!this.root) return;
-        this.root.classList.toggle('jpdb-subtitle-transcript-right', this.effectiveTranscriptPlacement === 'right');
-        this.root.classList.toggle('jpdb-subtitle-transcript-left', this.effectiveTranscriptPlacement === 'left');
-        this.root.classList.toggle('jpdb-subtitle-transcript-bottom', this.effectiveTranscriptPlacement === 'bottom');
+        for (const element of [this.root, this.transcriptPanel].filter((item): item is HTMLElement => Boolean(item))) {
+            element.classList.toggle('jpdb-subtitle-transcript-right', this.effectiveTranscriptPlacement === 'right');
+            element.classList.toggle('jpdb-subtitle-transcript-left', this.effectiveTranscriptPlacement === 'left');
+            element.classList.toggle('jpdb-subtitle-transcript-bottom', this.effectiveTranscriptPlacement === 'bottom');
+        }
         this.root.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
+        if (this.transcriptPanel) this.transcriptPanel.dataset.transcriptPlacement = this.effectiveTranscriptPlacement;
     }
 
     private hasTranscriptSurface(): boolean {
@@ -2029,7 +2042,7 @@ export class SubtitlePlayerController {
         this.options.onSettingsChange();
         if (this.menuEl) this.menuEl.hidden = true;
         this.renderTranscriptPanel(true);
-        this.positionTranscriptPanel();
+        this.positionTranscriptPanel({ realignAfterInset: true });
         this.syncControls();
     }
 
@@ -2123,7 +2136,7 @@ export class SubtitlePlayerController {
         this.options.onSettingsChange();
         this.closeMenuForOpenTranscriptPanel();
         this.renderTranscriptPanel(true);
-        this.positionTranscriptPanel();
+        this.positionTranscriptPanel({ realignAfterInset: shouldOpen });
         this.syncPanelState();
     }
 
@@ -2144,7 +2157,7 @@ export class SubtitlePlayerController {
             return;
         }
         this.renderTrackPanel();
-        this.positionTranscriptPanel();
+        this.positionTranscriptPanel({ realignAfterInset: true });
         this.syncPanelState();
     }
 
@@ -2867,7 +2880,7 @@ export class SubtitlePlayerController {
         else this.renderTrackPanel();
     }
 
-    private positionTranscriptPanel(): void {
+    private positionTranscriptPanel(options: { realignAfterInset?: boolean } = {}): void {
         if (this.fullscreen) {
             this.clearVideoInsetForTranscriptPanel();
             return;
@@ -2894,6 +2907,16 @@ export class SubtitlePlayerController {
         this.syncTranscriptResizeHandle(layout);
         this.syncDrawerButtons(this.hasVisibleSubtitleLines());
         this.applyVideoInsetForTranscriptLayout(layout);
+        if (options.realignAfterInset) this.scheduleTranscriptPanelRealignAfterInset();
+    }
+
+    private scheduleTranscriptPanelRealignAfterInset(): void {
+        if (this.transcriptInsetRealignFrame !== undefined) return;
+        this.transcriptInsetRealignFrame = requestAnimationFrame(() => {
+            this.transcriptInsetRealignFrame = undefined;
+            if (this.destroyed || !this.transcriptPanel || this.transcriptPanel.hidden) return;
+            this.alignToVideo();
+        });
     }
 
     private applyVideoInsetForTranscriptLayout(layout: TranscriptPanelLayout): void {
@@ -2968,7 +2991,7 @@ function waitForBackgroundTranscriptParseTurn(delayMs: number): Promise<void> {
 function subtitleParseOptions(): SubtitleParseOptions {
     return {
         jpdbTimeoutMs: SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS,
-        includeLocalPitch: true,
+        includeLocalPitch: false,
     };
 }
 

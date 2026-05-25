@@ -379,7 +379,7 @@ describe('SubtitlePlayerController', () => {
             await Promise.resolve();
 
             const row = document.querySelector<HTMLElement>('.jpdb-subtitle-row-text');
-            expect(parseJapanese).toHaveBeenCalledWith('読む');
+            expect(parseJapanese).toHaveBeenCalledWith('読む', { jpdbTimeoutMs: 1200, includeLocalPitch: false });
             expect(row?.querySelector('.jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
             expect(row?.querySelector('.jpdb-reader-furi')?.textContent).toBe('よ');
         } finally {
@@ -521,7 +521,7 @@ describe('SubtitlePlayerController', () => {
             internals.openLinesPanel();
             for (let index = 0; index < cues.length * 12; index++) await Promise.resolve();
 
-            expect(parseJapanese).toHaveBeenCalledWith('字幕23');
+            expect(parseJapanese).toHaveBeenCalledWith('字幕23', { jpdbTimeoutMs: 1200, includeLocalPitch: false });
         } finally {
             window.requestAnimationFrame = originalRequestAnimationFrame;
         }
@@ -572,7 +572,7 @@ describe('SubtitlePlayerController', () => {
 
             await Promise.resolve();
             expect(parseJapanese).toHaveBeenCalledTimes(1);
-            expect(parseJapanese).toHaveBeenCalledWith('字幕0');
+            expect(parseJapanese).toHaveBeenCalledWith('字幕0', { jpdbTimeoutMs: 1200, includeLocalPitch: false });
 
             await vi.advanceTimersByTimeAsync(119);
             expect(parseJapanese).toHaveBeenCalledTimes(1);
@@ -580,7 +580,7 @@ describe('SubtitlePlayerController', () => {
             await vi.advanceTimersByTimeAsync(1);
             await Promise.resolve();
             expect(parseJapanese).toHaveBeenCalledTimes(2);
-            expect(parseJapanese).toHaveBeenCalledWith('字幕1');
+            expect(parseJapanese).toHaveBeenCalledWith('字幕1', { jpdbTimeoutMs: 1200, includeLocalPitch: false });
 
             internals.transcriptCacheWarmupSerial = 2;
             await vi.runOnlyPendingTimersAsync();
@@ -632,7 +632,7 @@ describe('SubtitlePlayerController', () => {
 
         expect(parseJapanese).not.toHaveBeenCalled();
         expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['字幕0', '字幕1', '字幕2', '字幕3']);
-        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: true });
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: false });
         expect(parseJapaneseBatch.mock.calls[1]?.[0]).toEqual(['字幕4', '字幕5', '字幕6', '字幕7']);
     });
 
@@ -661,7 +661,7 @@ describe('SubtitlePlayerController', () => {
         const second = internals.parseCueHtmlBatch(['字幕0'], testSettings);
 
         expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
-        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: true });
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: false });
         resolveBatch([[]]);
 
         const [firstResult, secondResult] = await Promise.all([first, second]);

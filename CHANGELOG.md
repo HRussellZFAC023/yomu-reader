@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.40] - 2026-05-25
+
+### Fixed
+
+- Restored the known-good Yomu icon and regenerated every shipped icon asset from the same source visual.
+- Fixed hosted/iOS reader styling when userscript `GM_*` resource APIs are unavailable, restoring lookup drawers, word colors, and OCR overlays on the main site.
+- Published the reader CSS asset with the hosted docs so the main site can load the full stylesheet without userscript manager APIs.
+
 ## [0.4.39] - 2026-05-24
 
 ### Fixed

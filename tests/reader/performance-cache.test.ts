@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CardRenderDataLoader } from '../../src/reader/card-render-data';
 import { ImmersionPopoverController } from '../../src/reader/immersion-popover-controller';
 import type { ImmersionKitClient, ImmersionKitExample } from '../../src/reader/immersion-kit';
+import { loadMiningContext } from '../../src/reader/mining-context';
 import { requestText as requestReaderText } from '../../src/reader/reader-http';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { StudySourceController } from '../../src/reader/study-sources';
@@ -135,7 +136,7 @@ describe('performance cache bounds', () => {
         }
     });
 
-    it('bounds Immersion Kit search cache without eager token preloads', async () => {
+    it('bounds Immersion Kit search cache', async () => {
         const search = vi.fn(async (query: string) => [immersionExample(query)]);
         const preload = vi.fn();
         const controller = createImmersionController({ search, preload } as unknown as ImmersionKitClient);
@@ -147,13 +148,19 @@ describe('performance cache bounds', () => {
 
         expect(search).toHaveBeenCalledTimes(122);
         expect(search.mock.calls.at(-1)?.[0]).toBe('単語0');
+    });
 
-        for (let index = 0; index < 241; index++) {
-            controller.preloadForTokens([tokenFor(index)]);
-        }
-        controller.preloadForTokens([tokenFor(0)]);
+    it('caps popup Immersion Kit searches to a lightweight request size', async () => {
+        const search = vi.fn(async (query: string) => [immersionExample(query)]);
+        const controller = createImmersionController({ search, preload: vi.fn() } as unknown as ImmersionKitClient);
 
-        expect(preload).not.toHaveBeenCalled();
+        await controller.searchExamples(cardFor(1));
+
+        expect(search).toHaveBeenCalledWith(
+            '単語1',
+            expect.objectContaining({ immersionKitEnabled: true }),
+            expect.objectContaining({ requestLimit: 48, resultLimit: 6 }),
+        );
     });
 
     it('runs Immersion Kit fallback searches concurrently after an exact miss', async () => {
@@ -219,11 +226,10 @@ describe('performance cache bounds', () => {
         }
     });
 
-    it('aborts the active Immersion Kit load request when a popover is dismissed', async () => {
+    it('abandons the active Immersion Kit load when a popover is dismissed without canceling shared search', async () => {
         const searchStarted = deferred<void>();
-        const search = vi.fn((_query: string, _settings: ReaderSettings, options?: { signal?: AbortSignal }) => new Promise<ImmersionKitExample[]>((_resolve, reject) => {
+        const search = vi.fn((_query: string, _settings: ReaderSettings, options?: { signal?: AbortSignal }) => new Promise<ImmersionKitExample[]>(() => {
             searchStarted.resolve();
-            options?.signal?.addEventListener('abort', () => reject(abortError()), { once: true });
         }));
         const controller = createImmersionController({ search, preload: vi.fn() } as unknown as ImmersionKitClient);
         const popover = document.createElement('div');
@@ -237,8 +243,131 @@ describe('performance cache bounds', () => {
 
             controller.abortPendingRequests(popover);
 
-            expect(signal?.aborted).toBe(true);
+            expect(signal).toBeUndefined();
             await expect(load).resolves.toBeUndefined();
+        } finally {
+            popover.remove();
+        }
+    });
+
+    it('reuses an Immersion Kit search that was started by an abandoned popover load', async () => {
+        const searchResult = deferred<ImmersionKitExample[]>();
+        const search = vi.fn((_query: string) => searchResult.promise);
+        const controller = createImmersionController({
+            search,
+            preload: vi.fn(),
+            mediaUrls: vi.fn(() => []),
+        } as unknown as ImmersionKitClient);
+        const firstPopover = document.createElement('div');
+        const secondPopover = document.createElement('div');
+        firstPopover.innerHTML = '<div data-immersion-kit></div>';
+        secondPopover.innerHTML = '<div data-immersion-kit></div>';
+        document.body.append(firstPopover, secondPopover);
+
+        try {
+            const firstLoad = controller.loadExamples(firstPopover, cardFor(1));
+            await vi.waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+
+            controller.abortPendingRequests(firstPopover);
+            await expect(firstLoad).resolves.toBeUndefined();
+
+            const secondLoad = controller.loadExamples(secondPopover, cardFor(1));
+            expect(search).toHaveBeenCalledTimes(1);
+
+            searchResult.resolve([immersionExample('単語1')]);
+            await secondLoad;
+
+            expect(secondPopover.querySelector('.jpdb-reader-example-card')).not.toBeNull();
+        } finally {
+            firstPopover.remove();
+            secondPopover.remove();
+        }
+    });
+
+    it('waits for the blob cache before assigning popup Immersion images', async () => {
+        const blobUrl = deferred<string>();
+        const mediaUrl = 'https://media.test/frame.jpg';
+        const search = vi.fn(async () => [{ ...immersionExample('単語1'), imageUrl: mediaUrl }]);
+        const fetchBlobUrl = vi.fn(() => blobUrl.promise);
+        const controller = createImmersionController({
+            search,
+            preload: vi.fn(),
+            mediaUrls: vi.fn(() => [mediaUrl]),
+            fetchBlobUrl,
+        } as unknown as ImmersionKitClient);
+        const popover = document.createElement('div');
+        popover.innerHTML = '<div data-immersion-kit></div>';
+        document.body.append(popover);
+
+        try {
+            await controller.loadExamples(popover, cardFor(1));
+            await vi.waitFor(() => expect(fetchBlobUrl).toHaveBeenCalledWith(mediaUrl, DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl));
+            const image = popover.querySelector<HTMLImageElement>('[data-immersion-image]');
+
+            expect(image?.getAttribute('src')).toBeNull();
+
+            blobUrl.resolve('blob:http://localhost/frame');
+            await vi.waitFor(() => expect(image?.getAttribute('src')).toBe('blob:http://localhost/frame'));
+        } finally {
+            popover.remove();
+        }
+    });
+
+    it('stores a fetchable Immersion Kit media candidate for nested mining', async () => {
+        localStorage.removeItem('yomu-mining-context:単語1');
+        localStorage.removeItem('yomu-mining-context:映画');
+        const objectStoreUrl = 'https://us-southeast-1.linodeobjects.com/immersionkit/media/drama/example/media/frame.jpg';
+        const apiUrl = 'https://apiv2express.immersionkit.com/download_media?path=media%2Fdrama%2Fexample%2Fmedia%2Fframe.jpg';
+        const search = vi.fn(async () => [{ ...immersionExample('単語1'), imageFile: 'frame.jpg' }]);
+        const controller = createImmersionController({
+            search,
+            preload: vi.fn(),
+            mediaUrls: vi.fn(() => [objectStoreUrl, apiUrl]),
+            fetchBlobUrl: vi.fn(async () => 'blob:http://localhost/frame'),
+        } as unknown as ImmersionKitClient);
+        const popover = document.createElement('div');
+        popover.innerHTML = '<div data-immersion-kit></div>';
+        document.body.append(popover);
+
+        try {
+            await controller.loadExamples(popover, cardFor(1));
+            const example = popover.querySelector<HTMLElement>('.jpdb-reader-example-card');
+            expect(example?.dataset.immersionImageUrl).toBe(apiUrl);
+            expect(loadMiningContext('単語1')?.imageUrl).toBe(apiUrl);
+
+            (controller as unknown as { rememberTermMiningContext(term: string, sentence?: string, anchor?: HTMLElement): void })
+                .rememberTermMiningContext('映画', '単語1を見た。', example ?? undefined);
+
+            expect(loadMiningContext('映画')).toMatchObject({
+                sentence: '単語1を見た。',
+                imageUrl: apiUrl,
+                sourceKind: 'immersion-kit',
+            });
+        } finally {
+            popover.remove();
+        }
+    });
+
+    it('caches parsed Immersion example sentences across carousel renders', async () => {
+        const parseJapanese = vi.fn(async (): Promise<JPDBToken[][]> => [[]]);
+        const search = vi.fn(async () => [immersionExample('単語1')]);
+        const controller = createImmersionController({
+            search,
+            preload: vi.fn(),
+            mediaUrls: vi.fn(() => []),
+        } as unknown as ImmersionKitClient, { parseJapanese });
+        const popover = document.createElement('div');
+        popover.innerHTML = '<div data-immersion-kit></div>';
+        document.body.append(popover);
+
+        try {
+            await controller.loadExamples(popover, cardFor(1));
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
+
+            popover.querySelector<HTMLButtonElement>('[data-immersion-action="next"]')?.click();
+            await Promise.resolve();
+
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
         } finally {
             popover.remove();
         }
@@ -301,7 +430,20 @@ describe('reader HTTP latency', () => {
     });
 });
 
-function createImmersionController(client: ImmersionKitClient): ImmersionPopoverController {
+function createImmersionController(
+    client: ImmersionKitClient,
+    overrides: Partial<{
+        getSettings: () => ReaderSettings;
+        parseJapanese: (paragraphs: string[], options?: { jpdbTimeoutMs?: number; allowJpdbTimeoutFallback?: boolean }) => Promise<JPDBToken[][]>;
+        canParseJapanese: () => boolean;
+        parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
+        enrichPitchWords: (tokens: JPDBToken[]) => void | Promise<void>;
+        enrichAnkiWords: (tokens: JPDBToken[]) => void | Promise<void>;
+        repositionPopover: () => void;
+        setImmersionTranslationBlurred: (blurred: boolean) => void;
+        toast: (message: string) => void;
+    }> = {},
+): ImmersionPopoverController {
     return new ImmersionPopoverController({
         getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitEnabled: true }),
         client,
@@ -314,6 +456,7 @@ function createImmersionController(client: ImmersionKitClient): ImmersionPopover
         repositionPopover: vi.fn(),
         setImmersionTranslationBlurred: vi.fn(),
         toast: vi.fn(),
+        ...overrides,
     });
 }
 
@@ -331,18 +474,6 @@ function cardFor(index: number): JPDBCard {
         pitchAccent: [],
         wordWithReading: null,
         source: 'jpdb',
-    };
-}
-
-function tokenFor(index: number): JPDBToken {
-    const card = cardFor(index);
-    return {
-        card,
-        start: 0,
-        end: card.spelling.length,
-        length: card.spelling.length,
-        rubies: [],
-        pitchClass: '',
     };
 }
 
@@ -370,11 +501,4 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reje
         reject = rej;
     });
     return { promise, resolve, reject };
-}
-
-function abortError(): Error {
-    if (typeof DOMException === 'function') return new DOMException('Aborted', 'AbortError');
-    const error = new Error('Aborted');
-    error.name = 'AbortError';
-    return error;
 }

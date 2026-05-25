@@ -25,7 +25,6 @@ describe('VisiblePageScanner', () => {
             parseJapanese,
             pauseMutationObserver,
             preloadParsedTokens: vi.fn(),
-            preloadImmersionTokens: vi.fn(),
             enrichPitchWords: vi.fn(),
             enrichAnkiWords: vi.fn(),
             toast: vi.fn(),
@@ -38,11 +37,131 @@ describe('VisiblePageScanner', () => {
             expect(parseJapanese.mock.calls[0]?.[0]).toHaveLength(80);
             expect(parseJapanese.mock.calls[1]?.[0]).toHaveLength(80);
             expect(parseJapanese.mock.calls[2]?.[0]).toHaveLength(10);
-            expect(parseJapanese.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: true });
+            expect(parseJapanese.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: false });
             expect(pauseMutationObserver).toHaveBeenCalledTimes(11);
         } finally {
             HTMLElement.prototype.getBoundingClientRect = originalRect;
             document.body.innerHTML = '';
         }
     });
+
+    it('skips stale target writes when visible text changes while parsing', async () => {
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = () => ({
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 20,
+            top: 0,
+            right: 100,
+            bottom: 20,
+            left: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = '<p>日本語の文です。</p>';
+        const parsed = deferred<JPDBToken[][]>();
+        const parseJapanese = vi.fn(() => parsed.promise);
+        const scanner = new VisiblePageScanner({
+            getSettings: () => DEFAULT_SETTINGS,
+            parseJapanese,
+            pauseMutationObserver: callback => callback(),
+            preloadParsedTokens: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords: vi.fn(),
+            toast: vi.fn(),
+        });
+
+        try {
+            const scan = scanner.scanVisiblePage({ silent: true });
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
+
+            const text = document.querySelector('p')?.firstChild as Text;
+            text.data = '英語の文です。';
+            parsed.resolve([[{
+                card: {
+                    vid: 1,
+                    sid: 1,
+                    rid: 1,
+                    spelling: '日本語',
+                    reading: 'にほんご',
+                    frequencyRank: null,
+                    partOfSpeech: [],
+                    meanings: [],
+                    cardState: ['known'],
+                    pitchAccent: [],
+                    wordWithReading: null,
+                    source: 'jpdb',
+                },
+                start: 0,
+                end: 3,
+                length: 3,
+                rubies: [],
+                pitchClass: '',
+            }]]);
+            await scan;
+
+            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('p')?.textContent).toBe('英語の文です。');
+        } finally {
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('runs one pending visible scan after an in-flight scan finishes', async () => {
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = () => ({
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 20,
+            top: 0,
+            right: 100,
+            bottom: 20,
+            left: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = '<p>今日は読む。</p>';
+        const firstParse = deferred<JPDBToken[][]>();
+        const secondParse = deferred<JPDBToken[][]>();
+        const parseJapanese = vi.fn()
+            .mockImplementationOnce(() => firstParse.promise)
+            .mockImplementationOnce(() => secondParse.promise);
+        const scanner = new VisiblePageScanner({
+            getSettings: () => DEFAULT_SETTINGS,
+            parseJapanese,
+            pauseMutationObserver: callback => callback(),
+            preloadParsedTokens: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords: vi.fn(),
+            toast: vi.fn(),
+        });
+
+        try {
+            const firstScan = scanner.scanVisiblePage({ silent: true });
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
+            document.querySelector('p')!.textContent = '明日は書く。';
+
+            await scanner.scanVisiblePage({ silent: true });
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+
+            firstParse.resolve([[]]);
+            await firstScan;
+
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2));
+            expect(parseJapanese.mock.calls[1]?.[0]).toEqual(['明日は書く。']);
+
+            secondParse.resolve([[]]);
+            await new Promise(resolve => window.setTimeout(resolve, 0));
+        } finally {
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            document.body.innerHTML = '';
+        }
+    });
 });
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>(settle => { resolve = settle; });
+    return { promise, resolve };
+}

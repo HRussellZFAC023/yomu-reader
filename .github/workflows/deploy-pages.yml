@@ -8,6 +8,7 @@ on:
     paths:
       - CHANGELOG.md
       - docs/**
+      - dist/yomu.css
       - dist/yomu.user.js
       - package.json
       - package-lock.json

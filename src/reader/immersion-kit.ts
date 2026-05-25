@@ -11,7 +11,6 @@ const NADESHIKO_API_BASE = 'https://api.nadeshiko.co/v1';
 const OBJECT_STORE_BASE = 'https://us-southeast-1.linodeobjects.com/immersionkit';
 const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const MEDIA_CANDIDATE_LIMIT = 4;
-const MEDIA_CANDIDATE_CONCURRENCY = 2;
 const SEARCH_EXAMPLE_LIMIT = 250;
 const SEARCH_CACHE_LIMIT = 160;
 const PRELOAD_KEY_LIMIT = 300;
@@ -139,6 +138,7 @@ export interface ImmersionKitExample {
 export interface ImmersionKitSearchOptions {
     requestLimit?: number;
     resultLimit?: number;
+    fastFirst?: boolean;
     signal?: AbortSignal;
 }
 
@@ -179,22 +179,59 @@ export class ImmersionKitClient {
 
     private async searchEnabledSources(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): Promise<ImmersionKitExample[]> {
         const sources = enabledImmersionExampleSources(settings);
+        if (settings.immersionKitExampleSource === 'combined' && options.fastFirst && sources.length > 1) {
+            return this.searchCombinedFastFirst(query, settings, options, sources);
+        }
         const resultSets = await Promise.all(sources.map(source =>
-            source === 'nadeshiko'
-                ? this.searchNadeshiko(query, settings, options).catch(error => {
-                    if (isAbortError(error)) throw error;
-                    log.warn('Nadeshiko examples failed', { query }, error);
-                    return [];
-                })
-                : this.searchImmersionKit(query, settings, options).catch(error => {
-                    if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
-                    log.warn('Immersion Kit examples failed', { query }, error);
-                    return [];
-                }),
+            this.searchSource(source, query, settings, options),
         ));
         return settings.immersionKitExampleSource === 'combined'
             ? deterministicMergedExamples(sources, resultSets, this.combinedShuffleSeed(query, settings))
             : resultSets.flat();
+    }
+
+    private searchCombinedFastFirst(
+        query: string,
+        settings: ReaderSettings,
+        options: ImmersionKitSearchOptions,
+        sources: Array<'immersion-kit' | 'nadeshiko'>,
+    ): Promise<ImmersionKitExample[]> {
+        let pending = sources.length;
+        const emptyResults: ImmersionKitExample[][] = [];
+        return new Promise((resolve, reject) => {
+            sources.forEach(source => {
+                void this.searchSource(source, query, settings, options)
+                    .then(examples => {
+                        if (examples.length) {
+                            resolve(examples);
+                            return;
+                        }
+                        emptyResults.push(examples);
+                        pending -= 1;
+                        if (pending === 0) resolve(emptyResults.flat());
+                    })
+                    .catch(reject);
+            });
+        });
+    }
+
+    private searchSource(
+        source: 'immersion-kit' | 'nadeshiko',
+        query: string,
+        settings: ReaderSettings,
+        options: ImmersionKitSearchOptions,
+    ): Promise<ImmersionKitExample[]> {
+        return source === 'nadeshiko'
+            ? this.searchNadeshiko(query, settings, options).catch(error => {
+                if (isAbortError(error)) throw error;
+                log.warn('Nadeshiko examples failed', { query }, error);
+                return [];
+            })
+            : this.searchImmersionKit(query, settings, options).catch(error => {
+                if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
+                log.warn('Immersion Kit examples failed', { query }, error);
+                return [];
+            });
     }
 
     private searchImmersionKit(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): Promise<ImmersionKitExample[]> {
@@ -235,6 +272,7 @@ export class ImmersionKitClient {
             category: settings.immersionKitCategory,
             sort: this.effectiveSort(settings),
             exact: settings.immersionKitExactMatch,
+            fastFirst: Boolean(options.fastFirst),
         });
     }
 
@@ -764,45 +802,15 @@ function requestBlob(url: string, timeoutMs: number, proxyUrl = ''): Promise<Blo
 
 async function requestFirstBlob(urls: string | string[], timeoutMs: number, proxyUrl = ''): Promise<Blob> {
     const candidates = prioritizeMediaCandidates(urlCandidates(urls)).slice(0, MEDIA_CANDIDATE_LIMIT);
-    if (candidates.length > 1) return requestFirstBlobConcurrent(candidates, timeoutMs, proxyUrl);
-    const [candidate] = candidates;
-    if (!candidate) throw new Error('No Immersion Kit media candidate could be loaded.');
-    return requestBlob(candidate, timeoutMs, proxyUrl);
-}
-
-function requestFirstBlobConcurrent(candidates: string[], timeoutMs: number, proxyUrl = ''): Promise<Blob> {
     let lastError: unknown;
-    let nextIndex = 0;
-    let active = 0;
-    let settled = false;
-    const concurrency = Math.min(MEDIA_CANDIDATE_CONCURRENCY, candidates.length);
-
-    return new Promise((resolve, reject) => {
-        const launch = (): void => {
-            while (!settled && active < concurrency && nextIndex < candidates.length) {
-                const candidate = candidates[nextIndex++];
-                active++;
-                void requestBlob(candidate, timeoutMs, proxyUrl)
-                    .then(blob => {
-                        if (settled) return;
-                        settled = true;
-                        resolve(blob);
-                    })
-                    .catch(error => {
-                        if (settled) return;
-                        active--;
-                        lastError = error;
-                        if (nextIndex >= candidates.length && active === 0) {
-                            settled = true;
-                            reject(requestError(lastError, 'No Immersion Kit media candidate could be loaded.'));
-                            return;
-                        }
-                        launch();
-                    });
-            }
-        };
-        launch();
-    });
+    for (const candidate of candidates) {
+        try {
+            return await requestBlob(candidate, timeoutMs, proxyUrl);
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    throw requestError(lastError, 'No Immersion Kit media candidate could be loaded.');
 }
 
 function prioritizeMediaCandidates(urls: string[]): string[] {

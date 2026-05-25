@@ -1,4 +1,4 @@
-import { applyTokensToScanTarget, collectTextTargetsIn, type ScanTextTarget } from './dom';
+import { applyTokensToScanTarget, collectTextTargetsIn, isFragmentTextTarget, type ScanTextTarget } from './dom';
 import { uiText } from './i18n';
 import { Logger } from './logger';
 import { collectScanTargets } from './site-parsers';
@@ -19,7 +19,6 @@ export interface VisiblePageScannerDependencies {
     parseJapanese: (paragraphs: string[], options?: VisibleScanParseOptions) => Promise<JPDBToken[][]>;
     pauseMutationObserver: <T>(callback: () => T) => T;
     preloadParsedTokens: (tokens: JPDBToken[]) => void;
-    preloadImmersionTokens: (tokens: JPDBToken[]) => void;
     enrichPitchWords: (tokens: JPDBToken[]) => Promise<void> | void;
     enrichAnkiWords: (tokens: JPDBToken[]) => Promise<void> | void;
     toast: (message: string) => void;
@@ -27,12 +26,14 @@ export interface VisiblePageScannerDependencies {
 
 export class VisiblePageScanner {
     private scanInFlight = false;
+    private scanPending = false;
+    private scanPendingSilent = true;
 
     constructor(private readonly dependencies: VisiblePageScannerDependencies) {}
 
     async scanVisiblePage(options: { silent?: boolean } = {}): Promise<void> {
         const silent = Boolean(options.silent);
-        if (!this.beginScan()) return;
+        if (!this.beginScan(silent)) return;
         const done = log.time('scanVisiblePage', { silent });
         try {
             await this.runVisiblePageScan(silent);
@@ -60,8 +61,12 @@ export class VisiblePageScanner {
         }
     }
 
-    private beginScan(): boolean {
-        if (this.scanInFlight) return false;
+    private beginScan(silent: boolean): boolean {
+        if (this.scanInFlight) {
+            this.scanPending = true;
+            this.scanPendingSilent = this.scanPendingSilent && silent;
+            return false;
+        }
         this.scanInFlight = true;
         return true;
     }
@@ -91,7 +96,10 @@ export class VisiblePageScanner {
             const start = index;
             const batch = targets.slice(start, start + VISIBLE_SCAN_APPLY_BATCH_SIZE);
             this.dependencies.pauseMutationObserver(() => {
-                batch.forEach((target, offset) => applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings()));
+                batch.forEach((target, offset) => {
+                    if (!isCurrentScanTarget(target)) return;
+                    applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings());
+                });
             });
             if (index + VISIBLE_SCAN_APPLY_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
         }
@@ -100,7 +108,6 @@ export class VisiblePageScanner {
     private preloadParsed(parsed: JPDBToken[][]): void {
         const tokens = parsed.flat();
         this.dependencies.preloadParsedTokens(tokens);
-        this.dependencies.preloadImmersionTokens(tokens);
         void this.dependencies.enrichPitchWords(tokens);
         void this.dependencies.enrichAnkiWords(tokens);
     }
@@ -116,6 +123,11 @@ export class VisiblePageScanner {
 
     private finishScan(): void {
         this.scanInFlight = false;
+        if (!this.scanPending) return;
+        const silent = this.scanPendingSilent;
+        this.scanPending = false;
+        this.scanPendingSilent = true;
+        void waitForVisibleScanTurn().then(() => this.scanVisiblePage({ silent }));
     }
 }
 
@@ -123,9 +135,27 @@ function waitForVisibleScanTurn(): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, 0));
 }
 
-function scanParseOptions(settings: ReaderSettings): VisibleScanParseOptions {
+function isCurrentScanTarget(target: ScanTextTarget): boolean {
+    if (isFragmentTextTarget(target)) return isCurrentFragmentScanTarget(target);
+    return target.parent.isConnected
+        && target.node.isConnected
+        && target.node.parentElement === target.parent
+        && (target.node.textContent ?? '').trim() === target.text;
+}
+
+function isCurrentFragmentScanTarget(target: Extract<ScanTextTarget, { fragments: unknown }>): boolean {
+    if (!target.parent.isConnected || !target.fragments.length) return false;
+    const text = target.fragments.map(fragment => {
+        if (!fragment.node.isConnected || !fragment.node.parentElement) return null;
+        return fragment.node.data.slice(fragment.start, fragment.end);
+    });
+    return text.every((value): value is string => value !== null)
+        && text.join('') === target.text;
+}
+
+function scanParseOptions(_settings: ReaderSettings): VisibleScanParseOptions {
     return {
         jpdbTimeoutMs: VISIBLE_SCAN_PARSE_TIMEOUT_MS,
-        includeLocalPitch: settings.showPitchAccent && settings.localDictionariesEnabled,
+        includeLocalPitch: false,
     };
 }

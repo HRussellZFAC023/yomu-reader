@@ -103,6 +103,7 @@ import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, Yomit
 const NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS = 1_200;
 const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 6;
 const NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT = 48;
+const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
 const SEARCH_CARD_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
     new: 'stateNew',
     learning: 'stateLearning',
@@ -116,6 +117,15 @@ const SEARCH_CARD_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
     'not-in-deck': 'stateNotInDeck',
     redundant: 'stateRedundant',
 };
+
+interface NewTabParseContentOptions {
+    jpdbTimeoutMs?: number;
+    allowJpdbTimeoutFallback?: boolean;
+}
+
+function newTabShortParseOptions(): NewTabParseContentOptions {
+    return { jpdbTimeoutMs: NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS, allowJpdbTimeoutFallback: true };
+}
 
 function searchCardStateLabel(state: string, language: ReaderSettings['interfaceLanguage']): string {
     const key = SEARCH_CARD_STATE_LABEL_KEYS[state];
@@ -150,7 +160,7 @@ export interface NewTabControllerDependencies {
     installSearchDetailSources?: (root: HTMLElement, card: JPDBCard, sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => void;
     playWordAudio?: (card: JPDBCard) => Promise<void> | void;
     playJpdbExampleAudio?: (audioIds: string, fallbackSentence: string) => Promise<void> | void;
-    parseContent?: (root: HTMLElement) => Promise<void> | void;
+    parseContent?: (root: HTMLElement, options?: NewTabParseContentOptions) => Promise<void> | void;
     setImmersionTranslationBlurred?: (blurred: boolean) => void;
     dictionarySourceAttributes?: (sourceStateKey: string, initiallyExpanded?: boolean) => string;
     isDictionarySourceOpen?: (sourceStateKey: string, initiallyExpanded?: boolean) => boolean;
@@ -2166,7 +2176,9 @@ export class NewTabController {
 
     private async loadFallbackStudyWordsIfNeeded(accumulator: NewTabLoadAccumulator, onProgress?: (message: string) => void): Promise<void> {
         if (!this.shouldLoadFallbackStudyWords(accumulator)) return;
-        appendNewTabLoadResult(accumulator, await this.loadFreshStudyWords(onProgress));
+        appendNewTabLoadResult(accumulator, await this.loadFreshStudyWords(onProgress, {
+            requireDictionaryBeforePublicFallback: this.state.source === 'auto',
+        }));
     }
 
     private shouldLoadFallbackStudyWords(accumulator: NewTabLoadAccumulator): boolean {
@@ -2233,9 +2245,25 @@ export class NewTabController {
         }
     }
 
-    private async loadFreshStudyWords(onProgress?: (message: string) => void): Promise<NewTabLoadResult> {
+    private async loadFreshStudyWords(
+        onProgress?: (message: string) => void,
+        options: { requireDictionaryBeforePublicFallback?: boolean } = {},
+    ): Promise<NewTabLoadResult> {
+        if (options.requireDictionaryBeforePublicFallback) {
+            const dictionaryResult = await this.loadDictionaryWords(onProgress);
+            if (dictionaryResult.needsDictionarySetup) return dictionaryResult;
+            if (dictionaryResult.cards.length) return dictionaryResult;
+            return this.loadPublicFreshStudyWords(dictionaryResult);
+        }
         const publicJpdbPromise = this.loadPublicJpdbWords();
         const dictionaryResult = await this.loadDictionaryWords(onProgress);
+        return this.loadPublicFreshStudyWords(dictionaryResult, publicJpdbPromise);
+    }
+
+    private async loadPublicFreshStudyWords(
+        dictionaryResult: NewTabLoadResult,
+        publicJpdbPromise = this.loadPublicJpdbWords(),
+    ): Promise<NewTabLoadResult> {
         if (dictionaryResult.cards.length) {
             const publicResult = await promiseWithTimeout(publicJpdbPromise, NEW_TAB_PUBLIC_FALLBACK_GRACE_MS, 'Public JPDB fallback deferred.')
                 .catch(() => emptyNewTabLoadResult('JPDB'));
@@ -2794,6 +2822,8 @@ export class NewTabController {
         this.renderControls(slots, card);
         this.renderInstallCta(root);
         this.renderStatus(slots.status, card);
+        this.prefetchNearbyWordPitch(card);
+        this.prefetchNearbyImmersionExamples(card);
     }
 
     private renderPromptForMode(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>): void {
@@ -3038,31 +3068,31 @@ export class NewTabController {
             el('span', { class: 'jpdb-reader-newtab-term' }, this.renderReaderWord(card, state, card.spelling, sentence || card.spelling)),
         );
         if (!sentence) return wrap;
+        wrap.append(this.renderWordPromptSentenceNode(card, state, sentence));
+        return wrap;
+    }
 
+    private renderWordPromptSentenceNode(card: JPDBCard, state: ReturnType<typeof primaryCardState>, sentence: string): HTMLElement {
         const sentenceWrap = el('span', { class: 'jpdb-reader-newtab-sentence' });
         if (this.shouldRenderPlainSentencePrompt(card, sentence)) {
             sentenceWrap.append(document.createTextNode(sentence));
-            wrap.append(sentenceWrap);
-            return wrap;
+            return sentenceWrap;
         }
 
         if (this.shouldParseSentencePrompt()) {
-            wrap.append(renderNewTabFrontSentence(card, sentence));
-            return wrap;
+            return renderNewTabFrontSentence(card, sentence);
         }
 
         const target = sentencePromptTarget(card, sentence);
         if (!target) {
             sentenceWrap.textContent = sentence;
-            wrap.append(sentenceWrap);
-            return wrap;
+            return sentenceWrap;
         }
         const start = sentence.indexOf(target);
         sentenceWrap.append(document.createTextNode(sentence.slice(0, start)));
         sentenceWrap.append(this.renderReaderWord(card, state, target, sentence));
         sentenceWrap.append(document.createTextNode(sentence.slice(start + target.length)));
-        wrap.append(sentenceWrap);
-        return wrap;
+        return sentenceWrap;
     }
 
     private shouldRenderPlainSentencePrompt(card: JPDBCard, sentence: string): boolean {
@@ -3081,7 +3111,7 @@ export class NewTabController {
         const key = cardKey(card);
         const requestId = `${key}:${performance.now()}:${Math.random()}`;
         prompt.dataset.newtabPromptParseRequest = requestId;
-        await this.dependencies.parseContent?.(prompt)?.catch(() => undefined);
+        await this.dependencies.parseContent?.(prompt, newTabShortParseOptions())?.catch(() => undefined);
         if (!this.canApplyNewTabPromptParse(prompt, key, requestId)) return;
         this.highlightNewTabParsedTarget(prompt, '[data-newtab-sentence-render]', card);
     }
@@ -3105,7 +3135,30 @@ export class NewTabController {
         prompt.dataset.newtabSentenceRequest = requestId;
         const sentence = await this.loadFrontSentence(card);
         if (!sentence || !this.canApplyFrontSentence(prompt, key, requestId)) return;
-        this.renderWordPromptContent(prompt, card, state, sentence);
+        this.applyFrontSentence(prompt, card, state, sentence);
+    }
+
+    private applyFrontSentence(
+        prompt: HTMLElement,
+        card: JPDBCard,
+        state: ReturnType<typeof primaryCardState>,
+        sentence: string,
+    ): void {
+        const wrap = prompt.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-front');
+        if (!wrap) {
+            this.renderWordPromptContent(prompt, card, state, sentence);
+            return;
+        }
+        prompt.classList.toggle('jpdb-reader-newtab-prompt-has-sentence', Boolean(sentence));
+        this.updatePromptTermSentence(wrap, sentence || card.spelling);
+        wrap.querySelectorAll<HTMLElement>(':scope > .jpdb-reader-newtab-sentence').forEach(node => node.remove());
+        if (sentence) wrap.append(this.renderWordPromptSentenceNode(card, state, sentence));
+        void this.parseNewTabPromptSentence(prompt, card);
+    }
+
+    private updatePromptTermSentence(wrap: HTMLElement, sentence: string): void {
+        wrap.querySelectorAll<HTMLElement>(':scope > .jpdb-reader-newtab-term .jpdb-reader-word')
+            .forEach(word => { word.dataset.sentence = sentence; });
     }
 
     private canApplyFrontSentence(prompt: HTMLElement, key: string, requestId: string): boolean {
@@ -3212,7 +3265,7 @@ export class NewTabController {
     }
 
     private async parseNewTabImmersionExample(root: HTMLElement, card: JPDBCard, key: string): Promise<void> {
-        await this.dependencies.parseContent?.(root)?.catch(() => undefined);
+        await this.dependencies.parseContent?.(root, newTabShortParseOptions())?.catch(() => undefined);
         if (!this.canApplyNewTabImmersionParse(root, key)) return;
         this.highlightNewTabImmersionTarget(root, card);
     }
@@ -3525,8 +3578,14 @@ export class NewTabController {
         const exactExamples = await this.searchNewTabImmersionQuery(exactQuery);
         if (exactExamples.length) return exactExamples;
 
-        const fallbackQueries = await this.newTabImmersionFallbackQueries(card, exactQuery);
-        for (const query of fallbackQueries) {
+        const cheapFallback = await this.searchFirstNewTabImmersionQuery(this.cheapNewTabImmersionFallbackQueries(card, exactQuery));
+        if (cheapFallback.length) return cheapFallback;
+
+        return this.searchFirstNewTabImmersionQuery(await this.expensiveNewTabImmersionFallbackQueries(card, exactQuery));
+    }
+
+    private async searchFirstNewTabImmersionQuery(queries: string[]): Promise<ImmersionKitExample[]> {
+        for (const query of queries) {
             const examples = await this.searchNewTabImmersionQuery(query);
             if (examples.length) return examples;
         }
@@ -3547,6 +3606,7 @@ export class NewTabController {
         return {
             requestLimit: Math.max(NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT, resultLimit),
             resultLimit,
+            fastFirst: true,
         };
     }
 
@@ -3556,13 +3616,70 @@ export class NewTabController {
             : NEW_TAB_IMMERSION_EXAMPLE_LIMIT;
     }
 
-    private async newTabImmersionFallbackQueries(card: JPDBCard, exactQuery: string): Promise<string[]> {
+    private cheapNewTabImmersionFallbackQueries(card: JPDBCard, exactQuery: string): string[] {
         const candidates: string[] = [];
         this.addNewTabImmersionFallbackQuery(candidates, newTabCardOptionalReading(card), exactQuery);
-        await this.addNewTabParsedImmersionFallbackQueries(candidates, card, exactQuery);
         this.addNewTabImmersionFallbackQueries(candidates, immersionFallbackFragments(card.spelling), exactQuery);
+        return uniqueImmersionQueries(candidates).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
+    }
+
+    private async expensiveNewTabImmersionFallbackQueries(card: JPDBCard, exactQuery: string): Promise<string[]> {
+        const candidates: string[] = [];
+        await this.addNewTabParsedImmersionFallbackQueries(candidates, card, exactQuery);
         await this.addNewTabJpdbImmersionFallbackQueries(candidates, card, exactQuery);
         return uniqueImmersionQueries(candidates).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
+    }
+
+    private prefetchNearbyImmersionExamples(card: JPDBCard): void {
+        if (!this.shouldPrefetchNewTabImmersion()) return;
+        this.prefetchNewTabImmersionCard(card);
+        for (let offset = 1; offset <= NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD; offset++) {
+            const nearby = this.visibleWords[(this.index + offset) % this.visibleWords.length];
+            if (!nearby || cardKey(nearby) === cardKey(card)) continue;
+            void this.waitForIdle().then(() => this.prefetchNewTabImmersionCard(nearby));
+        }
+    }
+
+    private shouldPrefetchNewTabImmersion(): boolean {
+        return this.state.mode === 'word'
+            && this.visibleWords.length > 0
+            && this.dependencies.getSettings().immersionKitEnabled
+            && typeof this.dependencies.immersionKit?.search === 'function';
+    }
+
+    private prefetchNewTabImmersionCard(card: JPDBCard): void {
+        void this.loadImmersionExamples(card)
+            .then(examples => {
+                const example = examples[this.normalizedImmersionExampleIndex(cardKey(card), examples)] ?? examples[0];
+                if (!example) return;
+                this.prefetchNewTabImmersionMedia(example);
+                this.prefetchNewTabParsedSentence(normalizePromptContextSentence(example.sentence, card));
+            })
+            .catch(() => undefined);
+    }
+
+    private prefetchNewTabParsedSentence(sentence: string): void {
+        const text = sentence.trim();
+        if (!text || typeof this.dependencies.parser.canParse !== 'function' || !this.dependencies.parser.canParse()) return;
+        if (typeof this.dependencies.parser.parse !== 'function') return;
+        void this.dependencies.parser.parse([text], {
+            ...newTabShortParseOptions(),
+            includeLocalPitch: false,
+        }).catch(() => undefined);
+    }
+
+    private prefetchNewTabImmersionMedia(example: ImmersionKitExample): void {
+        const settings = this.dependencies.getSettings();
+        const imageUrls = settings.immersionKitShowImages ? this.dependencies.immersionKit.mediaUrls(example, 'image') : [];
+        if (imageUrls.length) {
+            void this.dependencies.immersionKit.fetchBlobUrl(imageUrls, settings.audioTimeoutMs, settings.corsProxyUrl)
+                .catch(() => undefined);
+        }
+        const audioUrls = this.dependencies.immersionKit.mediaUrls(example, 'sound');
+        if (audioUrls.length) {
+            void this.dependencies.immersionKit.fetchBlobUrl(audioUrls, settings.audioTimeoutMs, settings.corsProxyUrl)
+                .catch(() => undefined);
+        }
     }
 
     private async addNewTabJpdbImmersionFallbackQueries(candidates: string[], card: JPDBCard, exactQuery: string): Promise<void> {
@@ -3820,7 +3937,7 @@ export class NewTabController {
                 const immersion = this.renderNewTabKanjiImmersionCard(card, example, 0, examples.length);
                 replaceChildrenWith(body, immersion);
                 this.loadNewTabImmersionImage(immersion, example);
-                await this.dependencies.parseContent?.(immersion);
+                await this.dependencies.parseContent?.(immersion, newTabShortParseOptions());
                 this.highlightNewTabParsedTarget(immersion, '[data-immersion-sentence-render]', card);
             }).catch(() => {
                 if (body.isConnected) replaceChildrenWith(body, el('div', { class: 'jpdb-reader-help' }, uiText(this.language(), 'noImmersionExamplesCompact')));
@@ -5832,6 +5949,29 @@ export class NewTabController {
         if (root.dataset.newtabPitchRequest !== requestId || !pitchAccent.length) return;
         if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
         this.updateRenderedWordPitch(root, card);
+    }
+
+    private prefetchNearbyWordPitch(card: JPDBCard): void {
+        if (!this.shouldPrefetchWordPitch()) return;
+        this.prefetchWordPitch(card);
+        for (let offset = 1; offset <= NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD; offset++) {
+            const nearby = this.visibleWords[(this.index + offset) % this.visibleWords.length];
+            if (!nearby || cardKey(nearby) === cardKey(card)) continue;
+            void this.waitForIdle().then(() => this.prefetchWordPitch(nearby));
+        }
+    }
+
+    private shouldPrefetchWordPitch(): boolean {
+        return this.state.mode === 'word'
+            && this.visibleWords.length > 0
+            && this.dependencies.getSettings().showPitchAccent;
+    }
+
+    private prefetchWordPitch(card: JPDBCard): void {
+        if (!this.shouldEnrichWordPitch(card)) return;
+        void this.loadWordPitch(card).then(pitchAccent => {
+            if (!card.pitchAccent.length && pitchAccent.length) card.pitchAccent = pitchAccent;
+        }).catch(() => undefined);
     }
 
     private shouldEnrichWordPitch(card: JPDBCard): boolean {

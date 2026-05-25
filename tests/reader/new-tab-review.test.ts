@@ -55,6 +55,22 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
     return { promise, resolve };
 }
 
+function newTabImmersionExample(query: string): ImmersionKitExample {
+    return {
+        id: `ik-${query}`,
+        sentence: `${query}を見た。`,
+        sentenceWithFurigana: '',
+        translation: 'I saw it.',
+        sourceTitle: 'Test Source',
+        titleSlug: 'test-source',
+        category: 'anime',
+        soundFile: '',
+        imageFile: '',
+        soundUrl: '',
+        imageUrl: '',
+    };
+}
+
 async function waitForExpect(assertion: () => void | Promise<void>, timeoutMs = 1000): Promise<void> {
     const start = Date.now();
     let lastError: unknown;
@@ -2949,6 +2965,43 @@ describe('new tab review helpers', () => {
         expect(lookupTermMeta).toHaveBeenCalledWith('計量', 12, expect.any(Array));
     });
 
+    it('prefetches lookahead word pitch before the next card is shown', async () => {
+        const first = newTabTestCard({ vid: 1, sid: 1, spelling: '軽い', reading: 'かるい', pitchAccent: [] });
+        const second = newTabTestCard({ vid: 2, sid: 2, spelling: '椅子', reading: 'いす', pitchAccent: [] });
+        const publicPitch = vi.fn(async () => ['LHH']);
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false, showPitchAccent: true }, {
+            jpdbPublicPitch: { lookup: publicPitch },
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        document.body.append(root);
+        Object.assign(controller as unknown as {
+            visibleWords: JPDBCard[];
+            index: number;
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        }, {
+            visibleWords: [first, second],
+            index: 0,
+            sourceLabel: 'JPDB',
+            state: { mode: 'word', sort: 'frequency', filter: 'study', source: 'jpdb', revealAnswer: false },
+        });
+
+        try {
+            (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, first);
+
+            await waitForExpect(() => {
+                expect(publicPitch).toHaveBeenCalledWith('軽い', 'かるい');
+                expect(publicPitch).toHaveBeenCalledWith('椅子', 'いす');
+            });
+            expect(second.pitchAccent).toEqual(['LHH']);
+        } finally {
+            root.remove();
+        }
+    });
+
     it('does not expose stale JPDB supplemental slugs as new-tab readings', async () => {
         const publicPitch = vi.fn(async () => ['LHHH']);
         const card = newTabTestCard({ spelling: '日本語', reading: 'used-in', source: 'jpdb', pitchAccent: [] });
@@ -3002,7 +3055,10 @@ describe('new tab review helpers', () => {
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
 
             await waitForExpect(() => {
-                expect(parseContent).toHaveBeenCalledWith(root.querySelector('[data-newtab-prompt]'));
+                expect(parseContent).toHaveBeenCalledWith(
+                    root.querySelector('[data-newtab-prompt]'),
+                    expect.objectContaining({ jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true }),
+                );
                 const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-sentence .jpdb-reader-word');
                 expect(word?.textContent).toBe('中学生');
                 expect(word?.classList.contains('jpdb-reader-example-target')).toBe(true);
@@ -3174,6 +3230,123 @@ describe('new tab review helpers', () => {
         } finally {
             root.remove();
         }
+    });
+
+    it('adds async front sentences without replacing the rendered term word', async () => {
+        const card = newTabTestCard({ spelling: '中学生', reading: 'ちゅうがくせい' });
+        const examples = deferred<ImmersionKitExample[]>();
+        const parseContent = vi.fn(async () => undefined);
+        const controller = newTabPromptController(DEFAULT_SETTINGS, {
+            parseContent,
+            immersionKit: {
+                search: vi.fn(() => examples.promise),
+                mediaUrls: vi.fn(() => []),
+            } as never,
+        });
+        void (controller as unknown as { loadImmersionExamples(card: JPDBCard): Promise<ImmersionKitExample[]> }).loadImmersionExamples(card);
+        const root = renderNewTabWordFront(controller, card);
+        document.body.append(root);
+        const term = root.querySelector<HTMLElement>('.jpdb-reader-newtab-term .jpdb-reader-word')!;
+        term.dataset.stabilityMarker = 'keep-me';
+
+        try {
+            examples.resolve([{
+                ...newTabImmersionExample('中学生'),
+                sentence: 'お母ちゃん中学生？',
+            }]);
+
+            await waitForExpect(() => {
+                expect(root.querySelector('.jpdb-reader-newtab-sentence')?.textContent).toBe('お母ちゃん中学生？');
+            });
+
+            expect(root.querySelector('.jpdb-reader-newtab-term .jpdb-reader-word')).toBe(term);
+            expect(term.dataset.stabilityMarker).toBe('keep-me');
+            expect(term.dataset.sentence).toBe('お母ちゃん中学生？');
+            expect(parseContent).toHaveBeenCalledWith(
+                root.querySelector('[data-newtab-prompt]'),
+                expect.objectContaining({ jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true }),
+            );
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('prefetches current and next new-tab Immersion Kit examples before reveal', async () => {
+        const first = newTabTestCard({ spelling: '一番', reading: 'いちばん' });
+        const second = newTabTestCard({ spelling: '二番', reading: 'にばん' });
+        const search = vi.fn(async (query: string): Promise<ImmersionKitExample[]> => [newTabImmersionExample(query)]);
+        const fetchBlobUrl = vi.fn(async () => 'blob:http://localhost/media');
+        const parse = vi.fn(async () => [[]]);
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: true }, {
+            immersionKit: {
+                search,
+                mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => (
+                    kind === 'image' ? [`https://media.test/${example.id}.jpg`] : [`https://media.test/${example.id}.mp3`]
+                )),
+                fetchBlobUrl,
+            } as never,
+            parser: {
+                canParse: () => true,
+                parse,
+            } as never,
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        document.body.append(root);
+        Object.assign(controller as unknown as {
+            visibleWords: JPDBCard[];
+            index: number;
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        }, {
+            visibleWords: [first, second],
+            index: 0,
+            sourceLabel: 'JPDB',
+            state: { mode: 'word', sort: 'frequency', filter: 'study', source: 'jpdb', revealAnswer: false },
+        });
+
+        try {
+            (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, first);
+
+            await waitForExpect(() => {
+                expect(search.mock.calls.map(([query]) => query)).toEqual(expect.arrayContaining(['一番', '二番']));
+            });
+            expect(root.querySelector('.jpdb-reader-newtab-immersion')).toBeNull();
+            expect(fetchBlobUrl).toHaveBeenCalled();
+            expect(parse).toHaveBeenCalledWith(['一番を見た。'], expect.objectContaining({ jpdbTimeoutMs: 1_200, includeLocalPitch: false }));
+            expect(parse).toHaveBeenCalledWith(['二番を見た。'], expect.objectContaining({ jpdbTimeoutMs: 1_200, includeLocalPitch: false }));
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('tries cheap new-tab Immersion Kit fallbacks before parser fallback work', async () => {
+        const card = newTabTestCard({ spelling: '食べ物', reading: 'たべもの' });
+        const search = vi.fn(async (query: string): Promise<ImmersionKitExample[]> => (
+            query === 'たべもの' ? [newTabImmersionExample(query)] : []
+        ));
+        const parse = vi.fn(async () => {
+            throw new Error('parser fallback should not run before cheap fallback hits');
+        });
+        const controller = newTabPromptController(DEFAULT_SETTINGS, {
+            immersionKit: {
+                search,
+                mediaUrls: vi.fn(() => []),
+            } as never,
+            parser: {
+                canParse: () => true,
+                parse,
+            } as never,
+        });
+
+        await expect((controller as unknown as {
+            loadImmersionExamples(card: JPDBCard): Promise<ImmersionKitExample[]>;
+        }).loadImmersionExamples(card)).resolves.toHaveLength(1);
+
+        expect(search.mock.calls.map(([query]) => query)).toEqual(['食べ物', 'たべもの']);
+        expect(parse).not.toHaveBeenCalled();
     });
 
     it('falls back to a JPDB example sentence on the front when Immersion Kit is off', async () => {
@@ -4379,7 +4552,7 @@ describe('new tab review helpers', () => {
 
             await controller.dependencies.parseContent(studyRoot);
 
-            expect(parse).toHaveBeenLastCalledWith(['大切です。'], { jpdbTimeoutMs: 15_000, allowJpdbTimeoutFallback: true });
+            expect(parse).toHaveBeenLastCalledWith(['大切です。'], { jpdbTimeoutMs: 15_000, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
 
             parse.mockClear();
             const popover = document.createElement('div');
@@ -4388,7 +4561,60 @@ describe('new tab review helpers', () => {
 
             await internals.parseNewTabContent(popover);
 
-            expect(parse).toHaveBeenCalledWith(['日本語です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true });
+            expect(parse).toHaveBeenCalledWith(['日本語です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('dedupes matching in-flight hosted new-tab parses', async () => {
+        const runtime = new NewTabRuntime();
+        const parseResult = deferred<JPDBToken[][]>();
+        const parse = vi.fn(() => parseResult.promise);
+        const root = document.createElement('div');
+        root.innerHTML = '<span class="jpdb-reader-parseable">日本語です。</span>';
+        document.body.append(root);
+        const internals = runtime as unknown as {
+            parser: { canParse(): boolean; parse: typeof parse };
+            parseNewTabContent(root: HTMLElement): Promise<void>;
+        };
+        internals.parser = { canParse: () => true, parse };
+
+        try {
+            const first = internals.parseNewTabContent(root);
+            const second = internals.parseNewTabContent(root);
+
+            expect(parse).toHaveBeenCalledTimes(1);
+
+            parseResult.resolve([[]]);
+            await Promise.all([first, second]);
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('reuses parsed hosted new-tab content across freshly rendered matching roots', async () => {
+        const runtime = new NewTabRuntime();
+        const parse = vi.fn(async () => [[]]);
+        const firstRoot = document.createElement('div');
+        const secondRoot = document.createElement('div');
+        firstRoot.innerHTML = '<span class="jpdb-reader-parseable">大切です。</span>';
+        secondRoot.innerHTML = '<span class="jpdb-reader-parseable">大切です。</span>';
+        document.body.append(firstRoot, secondRoot);
+        const internals = runtime as unknown as {
+            parser: { canParse(): boolean; parse: typeof parse };
+            parseNewTabContent(root: HTMLElement): Promise<void>;
+        };
+        internals.parser = { canParse: () => true, parse };
+
+        try {
+            await internals.parseNewTabContent(firstRoot);
+            await internals.parseNewTabContent(secondRoot);
+
+            expect(parse).toHaveBeenCalledTimes(1);
+            expect(parse).toHaveBeenCalledWith(['大切です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
         } finally {
             runtime.destroy();
             document.body.replaceChildren();
@@ -5161,7 +5387,7 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('waits until reveal before loading new-tab Immersion Kit examples', async () => {
+    it('prefetches new-tab Immersion Kit examples before reveal but renders them only on reveal', async () => {
         const read = newTabTestCard({ vid: 1, sid: 1, spelling: '読む', reading: 'よむ', sentence: '本を読む。' });
         const write = newTabTestCard({ vid: 2, sid: 2, spelling: '書く', reading: 'かく', sentence: '名前を書く。' });
         const walk = newTabTestCard({ vid: 3, sid: 3, spelling: '歩く', reading: 'あるく', sentence: '道を歩く。' });
@@ -5224,11 +5450,18 @@ describe('new tab review helpers', () => {
 
         try {
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, read);
-            expect(search).not.toHaveBeenCalled();
+            await waitForExpect(() => {
+                expect(search.mock.calls.map(([query]) => query)).toContain('読む');
+            });
+            expect(root.querySelector('.jpdb-reader-newtab-immersion')).toBeNull();
             (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
 
             root.querySelector<HTMLButtonElement>('[data-newtab-action="next"]')?.click();
-            expect(search).not.toHaveBeenCalled();
+            await waitForExpect(() => {
+                expect(search.mock.calls.map(([query]) => query)).toContain('書く');
+            });
+            const writeSearchesBeforeReveal = search.mock.calls.map(([query]) => query).filter(query => query === '書く').length;
+            expect(root.querySelector('.jpdb-reader-newtab-immersion')).toBeNull();
 
             root.querySelector<HTMLButtonElement>('[data-newtab-action="reveal"]')?.click();
 
@@ -5240,7 +5473,7 @@ describe('new tab review helpers', () => {
                 expect.anything(),
                 expect.objectContaining({ requestLimit: 48, resultLimit: 6 }),
             );
-            expect(search.mock.calls.map(([query]) => query).filter(query => query === '書く')).toHaveLength(1);
+            expect(search.mock.calls.map(([query]) => query).filter(query => query === '書く')).toHaveLength(writeSearchesBeforeReveal);
         } finally {
             root.remove();
         }
@@ -5502,7 +5735,10 @@ describe('new tab review helpers', () => {
                 parseNewTabImmersionExample(root: HTMLElement, card: JPDBCard, key: string): Promise<void>;
             }).parseNewTabImmersionExample(node, card, `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`);
             const word = root.querySelector<HTMLElement>('.jpdb-reader-word')!;
-            expect(parseContent).toHaveBeenCalledWith(node);
+            expect(parseContent).toHaveBeenCalledWith(
+                node,
+                expect.objectContaining({ jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true }),
+            );
             expect(word.classList.contains('jpdb-reader-example-target')).toBe(true);
 
             (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
@@ -5771,7 +6007,7 @@ describe('new tab review helpers', () => {
         root.querySelector<HTMLButtonElement>('[data-newtab-action="load-dictionary"]')?.click();
 
         expect(showSettings).toHaveBeenCalledWith('dictionaries');
-        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('Local dictionaries');
+        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
     });
 
     it('does not retry empty dictionary setup in a loading loop', () => {
@@ -5834,7 +6070,7 @@ describe('new tab review helpers', () => {
         await controller.renderPage();
 
         expect(summary).toHaveBeenCalledTimes(1);
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Local dictionaries');
+        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
         expect(document.querySelector('[data-newtab-status]')?.textContent).toContain('Optional: add a Yomitan dictionary');
         document.body.replaceChildren();
     });
@@ -5898,7 +6134,7 @@ describe('new tab review helpers', () => {
         });
 
         await controller.renderPage();
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Local dictionaries');
+        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
 
         settings.dictionaryPreferences = [{ name: 'Local', alias: 'Tiny Alias', enabled: true, priority: 0, type: 'terms' }];
         await controller.renderPage();
@@ -5973,7 +6209,7 @@ describe('new tab review helpers', () => {
         });
 
         await controller.renderPage();
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Local dictionaries');
+        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
 
         await controller.refreshExternalData();
 
@@ -6033,6 +6269,94 @@ describe('new tab review helpers', () => {
         expect(result.cards.map(card => card.spelling)).toEqual(['書く']);
         expect(result.reviewCountMode).toBe(false);
         expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
+    });
+
+    it('shows first-run dictionary setup for auto review when no local dictionaries are installed', async () => {
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        const publicSearch = vi.fn(async () => [newTabTestCard({ spelling: '公開', reading: 'こうかい', source: 'jpdb' })]);
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                ankiEnabled: false,
+                newTabAnkiEnabled: false,
+                newTabSource: 'auto',
+            }),
+            anki: {
+                listNewTabCards: vi.fn(async () => []),
+            } as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+                latestStatus: () => ({ connected: false }),
+                requestCurrent: vi.fn(),
+            } as never,
+            parser: {} as never,
+            dictionaries: {
+                summary: vi.fn(async () => ({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 })),
+            } as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+
+        const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; needsDictionarySetup?: boolean }> }).loadWords();
+
+        expect(result.cards).toEqual([]);
+        expect(result.needsDictionarySetup).toBe(true);
+        expect(publicSearch).not.toHaveBeenCalled();
+    });
+
+    it('uses seeded local dictionaries before public JPDB in first-run auto review', async () => {
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        const localCard = newTabTestCard({ spelling: '今日', reading: 'きょう', source: 'local' });
+        const publicSearch = vi.fn(async () => [newTabTestCard({ spelling: '公開', reading: 'こうかい', source: 'jpdb' })]);
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                ankiEnabled: false,
+                newTabAnkiEnabled: false,
+                newTabSource: 'auto',
+            }),
+            anki: {
+                listNewTabCards: vi.fn(async () => []),
+            } as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+                latestStatus: () => ({ connected: false }),
+                requestCurrent: vi.fn(),
+            } as never,
+            parser: {
+                localCardFromEntry: vi.fn(() => localCard),
+            } as never,
+            dictionaries: {
+                summary: vi.fn(async () => ({ dictionaries: ['Local'], terms: 1, kanji: 0, termMeta: 0, kanjiMeta: 0 })),
+                listRandomTopTerms: vi.fn(async () => [{ expression: '今日', reading: 'きょう', glossary: ['today'], score: 1, dictionary: 'Local' }]),
+            } as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+
+        const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string }> }).loadWords();
+
+        expect(result.sourceLabel).toBe('Dictionary');
+        expect(result.cards.map(card => card.spelling)).toEqual(['今日']);
+        expect(publicSearch).not.toHaveBeenCalled();
     });
 
     it('falls back to dictionary words when auto review sources stall', async () => {

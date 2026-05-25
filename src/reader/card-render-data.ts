@@ -32,6 +32,7 @@ export interface CardRenderData {
 export interface CardRenderDataLoad {
     localEntries: Promise<YomitanTermEntry[]>;
     localMetaEntries?: Promise<YomitanMetaEntry[]>;
+    pitchAccent?: Promise<string[]>;
     all: Promise<CardRenderData>;
 }
 
@@ -92,9 +93,12 @@ export class CardRenderDataLoader {
             this.applyLocalPitchAccent(card, metaEntries);
             return metaEntries;
         });
-        const publicPitch = this.loadPublicPitchAfterLocalPitchGrace(card, localMetaEntries);
-        const all = this.loadAll(card, localEntries, localMetaEntries, publicPitch);
-        return { localEntries, localMetaEntries, all };
+        const pitchAccent = this.loadPublicPitchAfterLocalPitchGrace(card, localMetaEntries).then(publicPitch => {
+            if (!card.pitchAccent.length && publicPitch.length) card.pitchAccent = publicPitch;
+            return publicPitch;
+        });
+        const all = this.loadAll(card, localEntries, localMetaEntries, pitchAccent);
+        return { localEntries, localMetaEntries, pitchAccent, all };
     }
 
     private withFallback<T>(card: JPDBCard, timeoutMs: number, detail: string, promise: Promise<T>, fallback: T): Promise<T> {
@@ -192,8 +196,7 @@ export class CardRenderDataLoader {
             this.loadJpdbDecks(card),
             this.loadAnkiDecks(card),
             this.loadJpdbVocabularyInfo(card),
-        ]).then(([localEntriesValue, kanjiEntries, metaEntries, jpdbPublicPitch, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo]) => {
-            if (!card.pitchAccent.length && jpdbPublicPitch.length) card.pitchAccent = jpdbPublicPitch;
+        ]).then(([localEntriesValue, kanjiEntries, metaEntries, _jpdbPublicPitch, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo]) => {
             return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo };
         });
     }
