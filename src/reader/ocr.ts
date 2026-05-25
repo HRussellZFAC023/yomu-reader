@@ -162,7 +162,13 @@ export class ImageOcrController {
     private busy = false;
     private positionFrame = 0;
     private refreshTimer = 0;
-    private readonly handleDocumentPointerDown = (event: Event) => this.unpinOcrLinesFromDocumentEvent(event);
+    private lastPointerMoveImage?: HTMLImageElement;
+    private readonly handleDocumentPointerDown = (event: Event) => {
+        this.unpinOcrLinesFromDocumentEvent(event);
+        this.requestOcrFromPointerEvent(event);
+    };
+    private readonly handleDocumentPointerOver = (event: Event) => this.requestOcrFromPointerEvent(event);
+    private readonly handleDocumentPointerMove = (event: Event) => this.requestOcrFromPointerEvent(event);
     private readonly handleDocumentClick = (event: Event) => this.unpinOcrLinesFromDocumentEvent(event);
 
     constructor(private readonly options: OcrControllerOptions) {}
@@ -170,6 +176,8 @@ export class ImageOcrController {
     init(): void {
         this.refresh();
         document.addEventListener('pointerdown', this.handleDocumentPointerDown, true);
+        document.addEventListener('pointerover', this.handleDocumentPointerOver, true);
+        document.addEventListener('pointermove', this.handleDocumentPointerMove, true);
         document.addEventListener('click', this.handleDocumentClick, true);
         window.addEventListener('scroll', () => {
             if (!this.options.getSettings().ocrEnabled) return;
@@ -207,6 +215,8 @@ export class ImageOcrController {
 
     destroy(): void {
         document.removeEventListener('pointerdown', this.handleDocumentPointerDown, true);
+        document.removeEventListener('pointerover', this.handleDocumentPointerOver, true);
+        document.removeEventListener('pointermove', this.handleDocumentPointerMove, true);
         document.removeEventListener('click', this.handleDocumentClick, true);
         this.mutationObserver?.disconnect();
         if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
@@ -355,8 +365,9 @@ export class ImageOcrController {
 
     private shouldQueueOcrRequest(state: ImageState, image: HTMLImageElement, userRequested: boolean): boolean {
         if (shouldSkipOcrRequest(state, userRequested)) return false;
+        const forceExistingOverlay = userRequested && !state.overlayRequested;
         updateOcrRequestFlags(state, image, userRequested);
-        if (this.renderExistingOcrResult(state, userRequested)) return false;
+        if (this.renderExistingOcrResult(state, forceExistingOverlay)) return false;
         return !state.loading;
     }
 
@@ -370,6 +381,15 @@ export class ImageOcrController {
         if (!state.result) return false;
         if (userRequested) void this.renderResult(state, state.result, true);
         return true;
+    }
+
+    private requestOcrFromPointerEvent(event: Event): void {
+        const image = ocrImageFromPointerEvent(event, this.options.getSettings());
+        if (!image) return;
+        if (event.type === 'pointermove' && image === this.lastPointerMoveImage) return;
+        if (event.type === 'pointermove') this.lastPointerMoveImage = image;
+        else this.lastPointerMoveImage = undefined;
+        this.enqueue(image, true);
     }
 
     private queueImageForOcr(image: HTMLImageElement): void {
@@ -1949,6 +1969,38 @@ function isCandidateImage(image: HTMLImageElement, settings: ReaderSettings): bo
     if (!isNearViewport(image, settings.ocrPrefetchMargin)) return false;
     if (isImageOccludedByVideo(image, rect)) return false;
     return isVisibleOcrImage(image);
+}
+
+function ocrImageFromPointerEvent(event: Event, settings: ReaderSettings): HTMLImageElement | null {
+    if (!settings.ocrEnabled || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    const image = pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
+    return image && isCandidateImage(image, settings) && shouldObserveImage(image, settings) ? image : null;
+}
+
+function shouldHandleOcrPointerEvent(event: Event & Pick<PointerEvent, 'button' | 'pointerType'>): boolean {
+    if (event.type === 'pointerdown') return event.button === undefined || event.button === 0;
+    return (event.type === 'pointerover' || event.type === 'pointermove') && isHoverPointerType(event.pointerType);
+}
+
+function isPointerLikeEvent(event: Event): event is Event & Pick<PointerEvent, 'button' | 'clientX' | 'clientY' | 'pointerType'> {
+    const candidate = event as Partial<PointerEvent>;
+    return typeof candidate.clientX === 'number' && typeof candidate.clientY === 'number';
+}
+
+function isHoverPointerType(pointerType: string): boolean {
+    return !pointerType || pointerType === 'mouse' || pointerType === 'pen';
+}
+
+function pointerEventImageTarget(event: Event): HTMLImageElement | null {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target || target.closest('[data-jpdb-reader-root]')) return null;
+    return target instanceof HTMLImageElement ? target : target.closest('img');
+}
+
+function pointerEventImageAtPoint(event: Event & Pick<PointerEvent, 'clientX' | 'clientY'>): HTMLImageElement | null {
+    const element = document.elementFromPoint?.(event.clientX, event.clientY);
+    if (!element || element.closest('[data-jpdb-reader-root]')) return null;
+    return element instanceof HTMLImageElement ? element : element.closest('img');
 }
 
 function isIgnoredOcrImage(image: HTMLImageElement): boolean {

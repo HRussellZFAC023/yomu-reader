@@ -701,7 +701,7 @@ export class NewTabRuntime {
         if (!this.shouldRenderKanjiImmersionKit()) return '';
         const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
         return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.attributes(sourceStateKey)}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.attributes(sourceStateKey, false)}>
                 <summary class="jpdb-reader-local-title">${uiText(this.settings.interfaceLanguage, 'immersionKit')}</summary>
                 <div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, 'loadingExamples')}</div>
             </details>
@@ -1574,7 +1574,7 @@ export class NewTabRuntime {
     private renderImmersionKitMount(): string {
         if (!this.settings.immersionKitEnabled) return '';
         return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.attributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID))}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.attributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID), false)}>
                 <summary class="jpdb-reader-local-title">${uiText(this.settings.interfaceLanguage, 'immersionKit')}</summary>
                 <div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, 'loadingExamples')}</div>
             </details>

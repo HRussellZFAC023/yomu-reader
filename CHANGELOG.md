@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.42] - 2026-05-25
+
+### Added
+
+- OCR now triggers automatically when hovering or moving the pointer over a manga/image panel, so you no longer need to click to start a scan on a new image.
+- Immersion Kit searches now respect a 2-minute rate-limit cooldown after receiving a 429 response, preventing repeated failed requests from hammering the API.
+
+### Fixed
+
+- Fixed a bug where `ImmersionPopoverController.loadExamples` resolved to `false` instead of resolving cleanly when a popover load was aborted mid-flight, which could incorrectly suppress a follow-up load on a new popover.
+- Fixed the Immersion Kit `<details>` mount starting open when it should start closed on both the reader and new-tab pages.
+- Fixed the docs navigation "more" button icon rendering incorrectly in some browsers.
+
+### Internal
+
+- Removed an empty `else {}` branch from `LruCache.get` that had no effect.
+- Added dedicated test suites for `LruCache`, `runLimited`, card-state normalization, and immersion query utilities (60 new tests).
+
 ## [0.4.41] - 2026-05-25
 
 ### Changed
