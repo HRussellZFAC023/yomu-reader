@@ -64,6 +64,37 @@ function installIntersectionObserver(): void {
     });
 }
 
+function installCanvasEncodingMock(): () => void {
+    const getContextDescriptor = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'getContext');
+    const toBlobDescriptor = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'toBlob');
+    const context = {
+        drawImage: vi.fn(),
+        getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 } as ImageData)),
+    } as unknown as CanvasRenderingContext2D;
+    Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+        configurable: true,
+        value: () => context,
+    });
+    Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
+        configurable: true,
+        value(callback: BlobCallback) {
+            callback(new Blob(['image'], { type: 'image/jpeg' }));
+        },
+    });
+    return () => {
+        restorePrototypeDescriptor(HTMLCanvasElement.prototype, 'getContext', getContextDescriptor);
+        restorePrototypeDescriptor(HTMLCanvasElement.prototype, 'toBlob', toBlobDescriptor);
+    };
+}
+
+function restorePrototypeDescriptor(prototype: object, key: PropertyKey, descriptor: PropertyDescriptor | undefined): void {
+    if (descriptor) {
+        Object.defineProperty(prototype, key, descriptor);
+        return;
+    }
+    delete (prototype as Record<PropertyKey, unknown>)[key];
+}
+
 function dispatchPointerEvent(target: EventTarget, type: string, clientX = 120, clientY = 120, pointerType = 'mouse'): void {
     const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
     Object.defineProperties(event, {
@@ -165,6 +196,59 @@ describe('OCR sentence focus', () => {
             });
         } finally {
             controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('hides the status banner when OCR finds no Japanese text', async () => {
+        const restoreCanvas = installCanvasEncodingMock();
+        installIntersectionObserver();
+        const image = document.createElement('img');
+        image.src = '/ocr-english-only.png';
+        Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
+        image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
+        document.body.replaceChildren(image);
+
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+            width: 1000,
+            height: 600,
+            lines: [{ text: 'Only English here', box: { left: 100, top: 120, width: 300, height: 60 } }],
+        }), { status: 200, headers: { 'content-type': 'application/json' } }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const controller = new ImageOcrController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ocrEnabled: true,
+                ocrAutoScanImages: false,
+                ocrShowTextOverlay: false,
+                ocrProvider: 'local-service',
+                ocrMinImageArea: 1,
+                ocrMaxImagesPerPage: 5,
+                ocrPrefetchMargin: 0,
+            }),
+            parseJapanese: vi.fn(async () => []),
+            onToast: vi.fn(),
+            shouldAutoScan: () => false,
+        });
+
+        try {
+            controller.init();
+            dispatchPointerEvent(image, 'pointerover');
+
+            await waitForExpect(() => {
+                const status = document.querySelector<HTMLElement>('.jpdb-ocr-status');
+                expect(fetchMock).toHaveBeenCalled();
+                expect(status).not.toBeNull();
+                expect(status?.hidden).toBe(true);
+                expect(status?.textContent).toBe('');
+                expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
+            });
+        } finally {
+            controller.destroy();
+            restoreCanvas();
+            vi.unstubAllGlobals();
             document.body.replaceChildren();
         }
     });
