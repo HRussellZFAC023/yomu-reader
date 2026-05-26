@@ -26,7 +26,7 @@ import { JpdbPublicPitchClient, parseJpdbPublicPitchHtml } from '../../src/reade
 import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo } from '../../src/reader/kanji-origin';
 import { parseKanjiVGSvg } from '../../src/reader/kanjivg';
 import { Logger } from '../../src/reader/logger';
-import { AUTO_SCAN_OBSERVER_OPTIONS, mutationMayContainJapaneseText } from '../../src/reader/mutation-scan';
+import { AUTO_SCAN_OBSERVER_OPTIONS, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText } from '../../src/reader/mutation-scan';
 import { buildNewTabPalette, isYomuNewTabUrl, resolveNewTabBrandAssets } from '../../src/reader/new-tab';
 import { ObjectUrlCache } from '../../src/reader/object-url-cache';
 import { createPageMediaUrl } from '../../src/reader/page-media-url';
@@ -3745,6 +3745,30 @@ describe('reader helpers', () => {
         expect(html).toContain('class="atamadaka"');
         expect(html).toContain('>よ<');
         expect(html).toContain('>む<');
+    });
+
+    it('collapses JPDB character-aligned pitch over small kana when rendering the graph', () => {
+        const today = jpdbVocabularyToCards([[
+            1579110,
+            0,
+            0,
+            '今日',
+            'きょう',
+            200,
+            ['adv', 'n'],
+            [['today']],
+            [['adv', 'n']],
+            ['not-in-deck'],
+            ['HHL'],
+        ]])[0]!;
+        const html = renderPitch(today);
+
+        expect(today.pitchAccent).toEqual(['HL']);
+        expect(html).toContain('class="atamadaka"');
+        expect(html).toContain('points="9,10 33,29"');
+        expect(html).not.toContain('points="9,10 33,10"');
+        expect(html).toContain('>きょ<');
+        expect(html).toContain('>う<');
     });
 
     it('uses token furigana as the popup pronunciation when a JPDB card reading falls back to kanji', () => {
@@ -14051,6 +14075,73 @@ describe('reader helpers', () => {
         expect(AUTO_SCAN_OBSERVER_OPTIONS.attributes).toBe(true);
         expect(AUTO_SCAN_OBSERVER_OPTIONS.attributeFilter).toContain('open');
         expect(mutationMayContainJapaneseText(mutation)).toBe(true);
+    });
+
+    it('does not recreate JPDB page addons for attribute-only JPDB mutations', () => {
+        const result = document.createElement('div');
+        result.className = 'result vocabulary';
+        result.textContent = '今日は本を読む';
+        const mutation = {
+            type: 'attributes',
+            attributeName: 'class',
+            target: result,
+            addedNodes: [],
+            removedNodes: [],
+        } as unknown as MutationRecord;
+
+        expect(mutationMayContainJapaneseText(mutation)).toBe(true);
+        expect(mutationMayAffectJpdbPageEnhancements(mutation)).toBe(false);
+    });
+
+    it('refreshes JPDB page addons for target visibility changes', () => {
+        const answer = document.createElement('div');
+        answer.className = 'answer';
+        answer.textContent = '答えは今日です。';
+        const mutation = {
+            type: 'attributes',
+            attributeName: 'hidden',
+            target: answer,
+            addedNodes: [],
+            removedNodes: [],
+        } as unknown as MutationRecord;
+
+        expect(mutationMayAffectJpdbPageEnhancements(mutation)).toBe(true);
+    });
+
+    it('refreshes JPDB page addons when result content is added', () => {
+        const result = document.createElement('div');
+        result.className = 'result vocabulary';
+        result.innerHTML = '<div class="subsection-meanings">today</div>';
+        const mutation = {
+            type: 'childList',
+            target: document.body,
+            addedNodes: [result],
+            removedNodes: [],
+        } as unknown as MutationRecord;
+
+        expect(mutationMayAffectJpdbPageEnhancements(mutation)).toBe(true);
+    });
+
+    it('ignores Immersion Kit subtree changes on JPDB pages', () => {
+        document.body.innerHTML = `
+            <div class="result vocabulary">
+                <div class="subsection-meanings">today</div>
+                <div class="subsection-immersion-kit">
+                    <div class="examples">Loading examples...</div>
+                </div>
+            </div>
+        `;
+        const target = document.querySelector('.subsection-immersion-kit .examples')!;
+        const example = document.createElement('div');
+        example.textContent = '今日は忙しいです。';
+        const mutation = {
+            type: 'childList',
+            target,
+            addedNodes: [example],
+            removedNodes: [],
+        } as unknown as MutationRecord;
+
+        expect(mutationMayAffectJpdbPageEnhancements(mutation)).toBe(false);
     });
 
     it('ports the supported site parser list from anki-jpdb.reader, including the newer NHK host', () => {

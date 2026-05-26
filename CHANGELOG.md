@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.52] - 2026-05-26
+
+### Fixed
+
+- Normalized JPDB pitch accent patterns against Japanese morae before cards render, fixing small-kana readings such as `今日`/`きょう` whose pitch graph could appear flat.
+- Avoided recreating JPDB page add-ons for unrelated JPDB-page mutations, preventing noisy refreshes from dynamic sections such as Immersion Kit examples.
+
 ## [0.4.51] - 2026-05-26
 
 ### Changed
