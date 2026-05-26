@@ -6,6 +6,7 @@ import { copyText, positionPopover } from './browser-ui';
 import { CardActionController } from './card-action-controller';
 import { CardPopoverRenderer } from './card-popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData } from './card-render-data';
+import { highlightCardTargetScopes } from './card-highlight';
 import { cardKey } from './card-utils';
 import { APP_NAME, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from './constants';
 import {
@@ -1788,6 +1789,7 @@ export class NewTabRuntime {
                 || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
                 || root.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
             applyNestedParsePlan(plan, parsed, this.settings);
+            highlightCardTargetScopes(root);
             root.dataset.jpdbReaderParseKey = plan.parseKey;
             void this.enrichPublicVocabularyWords(parsed.flat());
             void this.enrichPitchWords(parsed.flat());

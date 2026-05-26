@@ -1,8 +1,9 @@
 import { primaryCardState } from './card-state';
 import { copyText } from './browser-ui';
 import type { CardRenderData } from './card-render-data';
+import { cardHighlightTargets, isCardHighlightWord, normalizedJapaneseCardReading, renderCardHighlightedTextHtml } from './card-highlight';
 import { APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from './constants';
-import { escapeHtml, renderHighlightedTextHtml, renderTokensToHtml, setInnerHtml } from './dom';
+import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { el, fragment, replaceChildrenWith, type DomAttrs } from './dom-builder';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from './immersion-kit';
 import { localizedImmersionProviderLabel, localizedImmersionSourceTitle } from './immersion-labels';
@@ -208,7 +209,7 @@ function renderNewTabFrontSentence(card: JPDBCard, sentence: string, settings: R
 function renderNewTabSentenceHtml(sentence: string, card: JPDBCard, settings: ReaderSettings, tokens?: JPDBToken[]): string {
     return tokens && tokens.length
         ? renderTokensToHtml(sentence, tokens, settings)
-        : renderHighlightedTextHtml(sentence, newTabCardHighlightTargets(card), 'jpdb-reader-example-target');
+        : renderCardHighlightedTextHtml(sentence, card);
 }
 
 function renderNewTabImmersionTranslation(example: ImmersionKitExample, settings: ReaderSettings): HTMLElement | null {
@@ -3387,12 +3388,8 @@ export class NewTabController {
     }
 
     private highlightNewTabParsedWord(word: HTMLElement, card: JPDBCard): void {
-        const cardVid = String(card.vid);
-        const cardSid = String(card.sid);
-        const targets = newTabCardHighlightTargets(card);
         const surface = word.textContent?.replace(/\s+/g, '') ?? '';
-        if ((word.dataset.vid === cardVid && word.dataset.sid === cardSid)
-            || targets.some(target => surface.includes(target))) {
+        if (isCardHighlightWord(word, card)) {
             word.classList.add('jpdb-reader-example-target');
             this.applyNewTabParsedTargetCardIdentity(word, card, surface);
         }
@@ -6295,12 +6292,7 @@ function newTabCardOptionalReading(card: JPDBCard): string {
 }
 
 function newTabCardHighlightTargets(card: JPDBCard): string[] {
-    return uniqueStrings([card.spelling, newTabCardOptionalReading(card)]);
-}
-
-function normalizedJapaneseCardReading(spelling: string, reading: string): string {
-    const cleanReading = cleanNestedLookupValue(reading);
-    return cleanReading && queryHasJapanese(cleanReading) ? cleanReading : spelling;
+    return cardHighlightTargets(card);
 }
 
 function appendLoadedWords(result: NewTabLoadResult, cards: JPDBCard[], labels: string[]): void {

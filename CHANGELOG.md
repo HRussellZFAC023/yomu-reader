@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.55] - 2026-05-26
+
+### Fixed
+
+- Highlighted the word under review consistently in popover dictionary sources, JPDB examples, and JPDB page Immersion Kit examples.
+
 ## [0.4.54] - 2026-05-26
 
 ### Fixed

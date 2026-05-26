@@ -7,6 +7,7 @@ import { copyText, hasVisiblePageVideo, isEditableTarget, normalizePressedKey, p
 import { CardActionController } from './card-action-controller';
 import { CardPopoverRenderer } from './card-popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from './card-render-data';
+import { highlightCardTargetScopes } from './card-highlight';
 import { cardKey } from './card-utils';
 import { normalizeCardStates } from './card-state';
 import { APP_NAME, HOSTED_DEMO_LOOKUP_SCAN_EVENT, IMMERSION_KIT_SOURCE_ID, INTERFACE_LANGUAGE_CHANGE_EVENT, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, OPEN_SETTINGS_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, VIDEO_PLAYER_PAGE_URL } from './constants';
@@ -4017,6 +4018,7 @@ export class ReaderApp {
                 || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
                 || root.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
             applyNestedParsePlan(plan, parsed, this.settings);
+            highlightCardTargetScopes(root);
             root.dataset.jpdbReaderParseKey = plan.parseKey;
             this.afterNestedJapaneseParsed(parsed, options.skipJpdb ? { publicLookup: false } : undefined);
         } catch {

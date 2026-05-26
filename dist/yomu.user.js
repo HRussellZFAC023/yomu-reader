@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.54
+// @version      0.4.55
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -13455,7 +13455,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
  const TRANSLATION_CACHE_LIMIT = 160;
  const TRANSLATION_TIMEOUT_MS = 5e3;
  const ENGLISH_TEXT_RE = /[A-Za-z]{3,}/u;
- const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+ const JAPANESE_TEXT_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
  function gp(ruleId, level, name, source, kind, short, detail, url, examples, confidence = "medium", priority = 30) {
   return { ruleId, level, pattern: new RegExp(source, "gu"), name, kind, short, detail, url, confidence, priority, examples };
  }
@@ -13968,7 +13968,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
  }
  function grammarDisplayName(hint, language) {
   if (language !== "ja" || !ENGLISH_TEXT_RE.test(hint.name)) return hint.name;
-  if (JAPANESE_TEXT_RE.test(hint.match)) return hint.match;
+  if (JAPANESE_TEXT_RE$1.test(hint.match)) return hint.match;
   return japaneseGrammarText(hint.name) || hint.name;
  }
  function japaneseGrammarText(value) {
@@ -14542,6 +14542,91 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   const blacklistDeck = settings.blacklistDeck.trim();
   if (deck.id === neverForgetDeck || deck.id === blacklistDeck) return true;
   return /never\s*-?\s*forget|blacklist|suspend/i.test(`${deck.id} ${deck.name}`);
+ }
+ const CARD_HIGHLIGHT_CLASS = "jpdb-reader-example-target";
+ const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff々〆]/u;
+ function cardHighlightTargets(card) {
+  const spelling = cleanCardHighlightValue(card.spelling);
+  const reading = optionalJapaneseCardReading(card);
+  return uniqueCardHighlightValues([spelling, reading]);
+ }
+ function normalizedJapaneseCardReading(spelling, reading) {
+  const cleanSpelling = cleanCardHighlightValue(spelling);
+  const cleanReading = cleanCardHighlightValue(reading);
+  return cleanReading && JAPANESE_TEXT_RE.test(cleanReading) ? cleanReading : cleanSpelling;
+ }
+ function renderCardHighlightedTextHtml(text2, card) {
+  return renderHighlightedTextHtml(text2, cardHighlightTargets(card), CARD_HIGHLIGHT_CLASS);
+ }
+ function cardHighlightScopeAttributes(card) {
+  if (!card) return "";
+  const spelling = cleanCardHighlightValue(card.spelling);
+  if (!spelling) return "";
+  return [
+   `data-card-highlight-spelling="${escapeHtml$1(spelling)}"`,
+   `data-card-highlight-reading="${escapeHtml$1(cleanCardHighlightValue(card.reading))}"`,
+   card.vid !== void 0 ? `data-card-highlight-vid="${escapeHtml$1(String(card.vid))}"` : "",
+   card.sid !== void 0 ? `data-card-highlight-sid="${escapeHtml$1(String(card.sid))}"` : ""
+  ].filter(Boolean).join(" ");
+ }
+ function highlightCardTargetWords(root, card) {
+  const words = cardHighlightWords(root);
+  for (const word of words) {
+   if (isCardHighlightWord(word, card)) word.classList.add(CARD_HIGHLIGHT_CLASS);
+  }
+ }
+ function highlightCardTargetScopes(root) {
+  for (const scope of cardHighlightScopes(root)) {
+   const card = cardHighlightTargetFromScope(scope);
+   if (card) highlightCardTargetWords(scope, card);
+  }
+ }
+ function isCardHighlightWord(word, card) {
+  const cardVid = card.vid === void 0 ? "" : String(card.vid);
+  const cardSid = card.sid === void 0 ? "" : String(card.sid);
+  if (cardVid && cardSid && word.dataset.vid === cardVid && word.dataset.sid === cardSid) return true;
+  const surface = compactCardHighlightValue(readerWordSurfaceText(word));
+  if (!surface) return false;
+  return cardHighlightTargets(card).map(compactCardHighlightValue).filter(Boolean).some((target) => surface.includes(target));
+ }
+ function optionalJapaneseCardReading(card) {
+  const spelling = cleanCardHighlightValue(card.spelling);
+  const reading = normalizedJapaneseCardReading(spelling, card.reading);
+  return reading && reading !== spelling ? reading : "";
+ }
+ function cardHighlightWords(root) {
+  const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
+  return root instanceof HTMLElement && root.matches(".jpdb-reader-word") ? [root, ...words] : words;
+ }
+ function cardHighlightScopes(root) {
+  const selector = "[data-card-highlight-spelling]";
+  const scopes = Array.from(root.querySelectorAll(selector));
+  return root instanceof HTMLElement && root.matches(selector) ? [root, ...scopes] : scopes;
+ }
+ function cardHighlightTargetFromScope(scope) {
+  const spelling = cleanCardHighlightValue(scope.dataset.cardHighlightSpelling);
+  if (!spelling) return null;
+  const reading = cleanCardHighlightValue(scope.dataset.cardHighlightReading);
+  return {
+   spelling,
+   reading,
+   vid: scope.dataset.cardHighlightVid,
+   sid: scope.dataset.cardHighlightSid
+  };
+ }
+ function cleanCardHighlightValue(value) {
+  return (value ?? "").replace(/\s+/g, " ").trim();
+ }
+ function compactCardHighlightValue(value) {
+  return cleanCardHighlightValue(value).replace(/\s+/g, "");
+ }
+ function uniqueCardHighlightValues(values) {
+  const seen = /* @__PURE__ */ new Set();
+  return values.map(cleanCardHighlightValue).filter((value) => {
+   if (!value || seen.has(value)) return false;
+   seen.add(value);
+   return true;
+  });
  }
  const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
  const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
@@ -16723,10 +16808,10 @@ ${entry.reading}`;
  }
  function renderJpdbDefinitionSource(card, sourceAttributes, info = null, language = "en") {
   const meanings = jpdbDefinitionMeanings(card, info).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning)}</div>`).join("");
-  const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language);
+  const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language, card);
   if (!meanings && !extras) return "";
   return `
-        <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID))}>
+        <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title">JPDB</summary>
             ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}
             ${extras}
@@ -16737,9 +16822,9 @@ ${entry.reading}`;
   if (shouldPreferCardMeanings(card)) return cardDefinitionMeanings(card, info);
   return (info?.meanings ?? []).slice(0, 6);
  }
- function renderJpdbVocabularyExtras(info, sourceAttributes, language) {
+ function renderJpdbVocabularyExtras(info, sourceAttributes, language, card) {
   if (!hasJpdbVocabularyExtras(info)) return "";
-  return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info)}${renderJpdbUsedInVocabulary(info, sourceAttributes, language)}${renderJpdbExamples(info, sourceAttributes, language)}</div>`;
+  return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info)}${renderJpdbUsedInVocabulary(info, sourceAttributes, language)}${renderJpdbExamples(info, sourceAttributes, language, card)}</div>`;
  }
  function shouldPreferCardMeanings(card) {
   return card.source !== "local" && card.source !== "anki" && card.source !== "fallback";
@@ -16809,7 +16894,7 @@ ${entry.reading}`;
         </details>
     ` : "";
  }
- function renderJpdbExamples(info, sourceAttributes, language) {
+ function renderJpdbExamples(info, sourceAttributes, language, card) {
   return info.examples.length ? `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" ${sourceAttributes(definitionSourceStateKey(`${JPDB_DEFINITION_SOURCE_ID}:examples`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
@@ -16823,7 +16908,7 @@ ${entry.reading}`;
             <div class="jpdb-reader-jpdb-example-row${example.audioIds?.length ? " has-audio" : ""}">
               ${renderJpdbExampleAudioButton(example.audioIds, example.sentence, language)}
               <div class="jpdb-reader-jpdb-example-text">
-                <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${escapeHtml$1(example.sentence)}</div>
+                <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${renderCardHighlightedTextHtml(example.sentence, card)}</div>
                 ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.translation)}</div>` : ""}
               </div>
             </div>
@@ -16860,7 +16945,7 @@ ${entry.reading}`;
    `${termCount} ${uiText(settings.interfaceLanguage, termCount === 1 ? "localWordSingular" : "localWordPlural")}`
   ].join(" · ");
   return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${sourceAttributes(definitionSourceStateKey("__local_dictionaries__"))}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(definitionSourceStateKey("__local_dictionaries__"))}>
             <summary class="jpdb-reader-local-title">
                 <span>${uiText(settings.interfaceLanguage, "dictionaries")}</span>
                 <span class="jpdb-reader-source-status">${escapeHtml$1(status)}</span>
@@ -19223,8 +19308,8 @@ ${entry.reading}`;
    this.loadRenderedExampleImages(container, imageUrls, isCurrent);
    this.options.repositionPopover();
    if (playAudio) void this.playExampleAudio(example, true);
-   if (cachedTokens) this.applyParsedExampleSentence(container, card, example, searchQuery, cachedTokens, { updateHtml: false });
-   else this.parseRenderedExampleSentence(container, card, example, searchQuery, isCurrent);
+   if (cachedTokens) this.applyParsedExampleSentence(container, card, example, cachedTokens, { updateHtml: false });
+   else this.parseRenderedExampleSentence(container, card, example, isCurrent);
   }
   rememberExampleMiningContext(card, example, index, total, imageUrl, audioUrls, promoteMiningContext) {
    const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, total, imageUrl, audioUrls));
@@ -19239,7 +19324,7 @@ ${entry.reading}`;
   }
   renderExampleHtml(container, card, example, total, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio) {
    const language = settings.interfaceLanguage;
-   const sentenceHtml = this.renderExampleSentenceContent(example.sentence, card, searchQuery, settings);
+   const sentenceHtml = this.renderExampleSentenceContent(example.sentence, card, settings);
    const translation = renderExampleTranslation(example.translation, settings);
    const sourceLabel2 = immersionExampleSourceLabel(card, example, searchQuery, language);
    const sentence = renderExampleSentenceHtml(sentenceHtml);
@@ -19264,9 +19349,9 @@ ${entry.reading}`;
             </div>
         `;
   }
-  renderExampleSentenceContent(sentence, card, searchQuery, settings) {
+  renderExampleSentenceContent(sentence, card, settings) {
    const tokens = this.cachedParsedExampleSentenceTokens(sentence);
-   return tokens ? renderTokensToHtml(sentence, tokens, settings) : renderHighlightedTextHtml(sentence, [card.spelling, card.reading, searchQuery], "jpdb-reader-example-target");
+   return tokens ? renderTokensToHtml(sentence, tokens, settings) : renderHighlightedTextHtml(sentence, cardHighlightTargets(card), "jpdb-reader-example-target");
   }
   loadRenderedExampleImages(container, imageUrls, isCurrent) {
    container.querySelectorAll("[data-immersion-image]").forEach((imageElement) => {
@@ -19337,19 +19422,19 @@ ${entry.reading}`;
    container.querySelector(".jpdb-reader-example-card")?.classList.remove("has-image");
    this.options.repositionPopover();
   }
-  parseRenderedExampleSentence(container, card, example, searchQuery, isCurrent) {
+  parseRenderedExampleSentence(container, card, example, isCurrent) {
    void this.parsedExampleSentenceTokens(example.sentence).then((tokens) => {
     if (!isCurrent() || !container.isConnected) return;
-    this.applyParsedExampleSentence(container, card, example, searchQuery, tokens);
+    this.applyParsedExampleSentence(container, card, example, tokens);
    }).catch(() => void 0);
   }
-  applyParsedExampleSentence(container, card, example, searchQuery, tokens, options = {}) {
+  applyParsedExampleSentence(container, card, example, tokens, options = {}) {
    const sentence = container.querySelector("[data-immersion-sentence-render]");
    if (!sentence) return;
    if (options.updateHtml !== false) {
     setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens, this.options.getSettings()));
    }
-   this.highlightTarget(sentence, card, searchQuery);
+   this.highlightTarget(sentence, card);
    void this.options.enrichPitchWords(tokens);
    void this.options.enrichAnkiWords(tokens);
    this.options.repositionPopover();
@@ -19375,16 +19460,8 @@ ${entry.reading}`;
   cachedParsedExampleSentenceTokens(sentence) {
    return this.parsedSentenceCache.get(sentence.trim())?.tokens;
   }
-  highlightTarget(sentence, card, searchQuery = "") {
-   const cardVid = String(card.vid);
-   const cardSid = String(card.sid);
-   const targets = [card.spelling, card.reading, searchQuery].map((value) => value.trim()).filter(Boolean);
-   sentence.querySelectorAll(".jpdb-reader-word").forEach((word) => {
-    const surface = word.textContent?.replace(/\s+/g, "") ?? "";
-    if (word.dataset.vid === cardVid && word.dataset.sid === cardSid || targets.some((target) => surface.includes(target))) {
-     word.classList.add("jpdb-reader-example-target");
-    }
-   });
+  highlightTarget(sentence, card) {
+   highlightCardTargetWords(sentence, card);
   }
   toggleTranslationBlur(container) {
    const settings = this.options.getSettings();
@@ -41994,6 +42071,7 @@ ${spelling}`);
     });
     if (!isCurrent() || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey || root.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
     applyNestedParsePlan(plan, parsed, this.settings);
+    highlightCardTargetScopes(root);
     root.dataset.jpdbReaderParseKey = plan.parseKey;
     this.afterNestedJapaneseParsed(parsed, options.skipJpdb ? { publicLookup: false } : void 0);
    } catch {
