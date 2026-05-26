@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.53] - 2026-05-26
+
+### Fixed
+
+- Kept scanned native page controls clickable across websites by rendering Japanese text inside links, buttons, summaries, and compact click handlers as passive lookup spans.
+- Prevented press-drag lookup and injected furigana from hijacking passive control text while preserving hover lookup on those words.
+
 ## [0.4.52] - 2026-05-26
 
 ### Fixed

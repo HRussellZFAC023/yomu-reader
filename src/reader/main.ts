@@ -23,6 +23,7 @@ import {
     escapeHtml,
     getSelectionSentence,
     getSelectionText,
+    isPassiveInteractionElement,
     nearestReadableSentenceForElement,
     readerWordSurfaceText,
     renderTokensToHtml,
@@ -1676,6 +1677,7 @@ export class ReaderApp {
     }
 
     private canLookupReaderWord(word: HTMLElement): boolean {
+        if (word.dataset.jpdbReaderPassive === 'true') return false;
         if (!word.closest('[data-jpdb-reader-root]')) return true;
         return Boolean(word.closest('.jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-popover, .yomu-jpdb-page-addon'));
     }
@@ -2468,17 +2470,8 @@ export class ReaderApp {
     }
 
     private isNativeTextLookupTarget(target: Element): boolean {
-        return Boolean(target.closest([
-            'a[href]',
-            'button',
-            'input',
-            'textarea',
-            'select',
-            'summary',
-            '[role="button"]',
-            '[contenteditable="true"]',
-            '.jpdb-reader-word',
-        ].join(',')));
+        return isPassiveInteractionElement(target)
+            || Boolean(target.closest('input,textarea,select,[contenteditable="true"],.jpdb-reader-word'));
     }
 
     private async showLookupCandidate(candidate: PointerTextLookup, trigger: 'modal' | 'hover', options: { navigation?: CardNavigationMode; preservePosition?: boolean; hoverLookupGeneration?: number; userGesture?: boolean } = {}): Promise<void> {

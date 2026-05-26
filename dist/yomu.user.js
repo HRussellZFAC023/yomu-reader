@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.52
+// @version      0.4.53
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -1935,6 +1935,31 @@ Greasy Fork compliance notes:
  const DISPLAY_HEADING_RE = /^H[1-6]$/;
  const DISPLAY_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6";
  const MAX_CONTEXT_SENTENCE_LENGTH = 180;
+ const PASSIVE_INTERACTION_SELECTOR = [
+  "a[href]",
+  "button",
+  "summary",
+  "label",
+  '[role="button"]',
+  '[role="link"]',
+  '[role="menuitem"]',
+  '[role="option"]',
+  '[role="tab"]',
+  '[role="checkbox"]',
+  '[role="radio"]',
+  '[role="switch"]',
+  "[aria-controls]",
+  "[aria-expanded]",
+  '[slot="more-button"]',
+  ".more-button",
+  "#more",
+  "#less"
+ ].join(",");
+ const COMPACT_PASSIVE_INTERACTION_SELECTOR = [
+  "[onclick]",
+  '[tabindex]:not([tabindex="-1"])'
+ ].join(",");
+ const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
  const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
  const BLOCK_TAGS = /* @__PURE__ */ new Set([
   "ADDRESS",
@@ -2128,12 +2153,14 @@ Greasy Fork compliance notes:
  function textTargetFromAcceptedNode(node) {
   const parent = node.parentElement;
   if (!parent) return null;
+  const passiveInteraction = isPassiveInteractionElement(parent);
   return {
    node,
    text: nodeTextContent(node).trim(),
    parent,
    hasNativeRuby: Boolean(parent.closest("ruby")),
-   suppressRuby: shouldSuppressInjectedRuby(parent)
+   suppressRuby: shouldSuppressInjectedRuby(parent) || passiveInteraction,
+   passiveInteraction
   };
  }
  function collectFragmentTextTargetsIn(root, limit = 40, visibleOnly = true, excludeSelector = "", options = {}) {
@@ -2152,10 +2179,17 @@ Greasy Fork compliance notes:
    const compactText = text2.replace(/\s+/g, "");
    const hasNativeRuby = trimmedFragments.some((fragment) => fragment.hasNativeRuby);
    const suppressRuby = trimmedFragments.some((fragment) => fragment.suppressRuby);
+   const passiveInteraction = trimmedFragments.every((fragment) => fragment.passiveInteraction);
    if (HAS_JAPANESE$1.test(text2) && (compactText.length >= (options.minLength ?? 2) || hasNativeRuby)) {
     const parent = trimmedFragments[0]?.node.parentElement;
     if (parent) {
-     targets.push({ text: text2, parent, fragments: trimmedFragments, suppressRuby });
+     targets.push({
+      text: text2,
+      parent,
+      fragments: trimmedFragments,
+      suppressRuby: suppressRuby || passiveInteraction,
+      passiveInteraction
+     });
     }
    }
    fragments.length = 0;
@@ -2170,7 +2204,8 @@ Greasy Fork compliance notes:
      start: 0,
      end: text22.length,
      hasNativeRuby,
-     suppressRuby: parent ? shouldSuppressInjectedRuby(parent) : false
+     suppressRuby: parent ? shouldSuppressInjectedRuby(parent) : false,
+     passiveInteraction: parent ? isPassiveInteractionElement(parent) : false
     });
     return;
    }
@@ -2218,6 +2253,14 @@ Greasy Fork compliance notes:
  }
  function isInlineSentenceListItem(element2) {
   return element2.tagName === "LI" && Boolean(element2.closest(".japanese_sentence"));
+ }
+ function isPassiveInteractionElement(element2) {
+  if (element2.closest(READER_ROOT_SELECTOR$1)) return false;
+  if (element2.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
+  const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+  if (!compactInteraction) return false;
+  const text2 = compactInteraction.textContent?.replace(/\s+/g, "").trim() ?? "";
+  return text2.length > 0 && text2.length <= COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT;
  }
  function trimTextFragments(fragments) {
   const trimmed = fragments.map((fragment) => ({ ...fragment }));
@@ -2541,7 +2584,7 @@ Greasy Fork compliance notes:
    appendPlainTextBeforeToken(fragment, target.text, offset, token.start);
    const tokenWithSentence = tokenWithReadableSentence(token, target.text, token.sentence);
    fragment.append(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
-    allowRuby: !target.hasNativeRuby && !target.suppressRuby,
+    allowRuby: target.passiveInteraction !== true && !target.hasNativeRuby && !target.suppressRuby,
     kanjiNavigation: kanjiNavigationForElement(target.parent),
     scanWord: true,
     passiveInteraction: target.passiveInteraction
@@ -2577,15 +2620,19 @@ Greasy Fork compliance notes:
   if (!bounds) return;
   const tokenWithSentence = tokenWithReadableSentence(token, target.text, token.sentence ?? sentence);
   const isSingleFragment = bounds.start.fragment === bounds.end.fragment;
+  const passiveInteraction = target.passiveInteraction === true || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end);
   const range = document.createRange();
   range.setStart(bounds.start.fragment.node, bounds.start.localOffset);
   range.setEnd(bounds.end.fragment.node, bounds.end.localOffset);
-  if (isSingleFragment) insertSingleFragmentToken(range, target, bounds.start.fragment, token, tokenWithSentence, settings);
+  if (isSingleFragment) insertSingleFragmentToken(range, target, bounds.start.fragment, token, tokenWithSentence, settings, passiveInteraction);
   else insertMultiFragmentToken(range, tokenWithSentence, {
    scanWord: true,
-   passiveInteraction: target.passiveInteraction
+   passiveInteraction
   });
   range.detach();
+ }
+ function fragmentRangeHasPassiveInteraction(fragments, start, end) {
+  return fragments.some((fragment) => fragment.passiveInteraction === true && fragment.globalStart < end && fragment.globalEnd > start);
  }
  function attachableFragmentRange(start, end) {
   const attachedStart = attachedFragmentBoundary(start);
@@ -2598,14 +2645,14 @@ Greasy Fork compliance notes:
   if (!boundary.fragment.node.parentElement) return null;
   return boundary;
  }
- function insertSingleFragmentToken(range, target, fragment, token, tokenWithSentence, settings) {
-  const allowRuby = !fragment.hasNativeRuby && !fragment.suppressRuby && !target.suppressRuby;
+ function insertSingleFragmentToken(range, target, fragment, token, tokenWithSentence, settings, passiveInteraction) {
+  const allowRuby = !passiveInteraction && !fragment.hasNativeRuby && !fragment.suppressRuby && !target.suppressRuby;
   range.deleteContents();
   range.insertNode(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
    allowRuby,
    kanjiNavigation: kanjiNavigationForElement(target.parent),
    scanWord: true,
-   passiveInteraction: target.passiveInteraction
+   passiveInteraction
   }));
  }
  function insertMultiFragmentToken(range, token, options = {}) {
@@ -39876,6 +39923,7 @@ ${spelling}`);
    return queued;
   }
   canLookupReaderWord(word) {
+   if (word.dataset.jpdbReaderPassive === "true") return false;
    if (!word.closest("[data-jpdb-reader-root]")) return true;
    return Boolean(word.closest(".jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-popover, .yomu-jpdb-page-addon"));
   }
@@ -40523,17 +40571,7 @@ ${spelling}`);
    };
   }
   isNativeTextLookupTarget(target) {
-   return Boolean(target.closest([
-    "a[href]",
-    "button",
-    "input",
-    "textarea",
-    "select",
-    "summary",
-    '[role="button"]',
-    '[contenteditable="true"]',
-    ".jpdb-reader-word"
-   ].join(",")));
+   return isPassiveInteractionElement(target) || Boolean(target.closest('input,textarea,select,[contenteditable="true"],.jpdb-reader-word'));
   }
   async showLookupCandidate(candidate, trigger, options = {}) {
    const sentence = lookupCandidateSentence(candidate.text, candidate.start, candidate.end);
