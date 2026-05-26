@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">よむ social preview</title>
+  <desc id="desc">よむ app icon with the text Free Japanese popup reader.</desc>
+  <defs>
+    <linearGradient id="page-bg" x1="0" x2="1200" y1="0" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#121820" />
+      <stop offset="0.58" stop-color="#17251f" />
+      <stop offset="1" stop-color="#0f171c" />
+    </linearGradient>
+    <linearGradient id="panel-bg" x1="88" x2="1112" y1="74" y2="556" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1c232c" />
+      <stop offset="1" stop-color="#15211c" />
+    </linearGradient>
+    <linearGradient id="yomu-bg" x1="8" x2="56" y1="4" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#20242b" />
+      <stop offset="1" stop-color="#181b20" />
+    </linearGradient>
+    <linearGradient id="yomu-rim" x1="8" x2="56" y1="5" y2="59" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3a4350" />
+      <stop offset="1" stop-color="#282e37" />
+    </linearGradient>
+    <filter id="card-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="20" stdDeviation="28" flood-color="#000000" flood-opacity="0.32" />
+    </filter>
+    <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1" stdDeviation="0.9" flood-color="#000000" flood-opacity="0.28" />
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#page-bg)" />
+  <path d="M0 512c124-40 225-47 318-20 102 30 197 99 322 91 146-8 241-112 363-123 76-7 141 19 197 53v117H0z" fill="#5ea780" opacity="0.14" />
+  <path d="M810 0h390v192c-77 28-148 32-213 13-85-25-126-86-177-96z" fill="#fe4b74" opacity="0.09" />
+
+  <rect x="88" y="74" width="1024" height="482" rx="42" fill="url(#panel-bg)" stroke="#304034" stroke-width="2" filter="url(#card-shadow)" />
+  <rect x="121" y="107" width="382" height="382" rx="56" fill="#10151b" stroke="#354250" stroke-width="2" />
+
+  <g transform="translate(151 137) scale(5.03125)">
+    <rect width="64" height="64" rx="14" fill="url(#yomu-bg)" />
+    <rect x="4" y="4" width="56" height="56" rx="12" fill="none" stroke="url(#yomu-rim)" stroke-width="2" />
+    <circle cx="49.2" cy="18.2" r="8.2" fill="#5ea780" opacity="0.1" />
+    <text
+      x="30.8"
+      y="36.6"
+      text-anchor="middle"
+      dominant-baseline="central"
+      font-family="Hiragino Sans, Yu Gothic, Noto Sans JP, Meiryo, system-ui, sans-serif"
+      font-size="38"
+      font-weight="800"
+      fill="#f2f4f8">&#12424;</text>
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#soft-shadow)">
+      <path d="M42.1 16.7h5.1l3.4 4.6h5.8" stroke="#181b20" stroke-width="4.1" />
+      <path d="M42.1 16.7h5.1l3.4 4.6h5.8" stroke="#fe4b74" stroke-width="1.9" />
+      <g fill="#fe4b74" stroke="#181b20" stroke-width="0.8">
+        <circle cx="42.1" cy="16.7" r="1.5" />
+        <circle cx="47.2" cy="16.7" r="1.5" />
+        <circle cx="50.6" cy="21.3" r="1.5" />
+        <circle cx="56.4" cy="21.3" r="1.5" />
+      </g>
+    </g>
+  </g>
+
+  <g font-family="Inter, Hiragino Sans, Yu Gothic, Noto Sans JP, Meiryo, system-ui, sans-serif">
+    <text x="568" y="215" font-size="118" font-weight="800" fill="#f5f7fb">よむ</text>
+    <text x="572" y="288" font-size="48" font-weight="750" fill="#dce8e1">Free Japanese</text>
+    <text x="572" y="344" font-size="48" font-weight="750" fill="#dce8e1">popup reader</text>
+    <text x="574" y="402" font-size="28" font-weight="500" fill="#b7c5bf">Lookup, mining, OCR, subtitles, JPDB,</text>
+    <text x="574" y="438" font-size="28" font-weight="500" fill="#b7c5bf">Yomitan, Anki, and audio.</text>
+    <g font-size="24" font-weight="700">
+      <rect x="574" y="474" width="120" height="44" rx="22" fill="#5ea780" />
+      <text x="634" y="503" text-anchor="middle" fill="#07120d">Lookup</text>
+      <rect x="714" y="474" width="82" height="44" rx="22" fill="#23313b" stroke="#3a4a57" />
+      <text x="755" y="503" text-anchor="middle" fill="#f3f7f4">OCR</text>
+      <rect x="816" y="474" width="132" height="44" rx="22" fill="#23313b" stroke="#3a4a57" />
+      <text x="882" y="503" text-anchor="middle" fill="#f3f7f4">Subtitles</text>
+    </g>
+  </g>
+</svg>
