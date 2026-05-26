@@ -41,7 +41,7 @@ import { NewTabRuntime } from '../../src/reader/newtab-runtime';
 import { ReaderAudioActions } from '../../src/reader/reader-audio-actions';
 import { ReaderParser, fallbackLookupTermAtOffset } from '../../src/reader/reader-parser';
 import { parseRtkSearchIndex } from '../../src/reader/rtk';
-import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, loadSettings, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor, saveSettings } from '../../src/reader/settings';
+import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, loadSettings, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor, saveSettings } from '../../src/reader/settings';
 import { installSourceRowDrag, localizeSettingsForm, readDictionaryLookupLinks, readFormSettings, renderAudioSourceEditor, renderDictionaryLookupLinkEditor, renderDictionarySourceRows, renderKanjiSourceRows, renderRecommendedDictionaries, renderSettingsForm, syncStickyBottomSheetAvailability, updateDictionaryLookupLinkEditor } from '../../src/reader/settings-form';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/site-parsers';
 import { KANJI_UCHISEN_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/source-sections';
@@ -2307,6 +2307,60 @@ describe('reader helpers', () => {
         }
     });
 
+    it('keeps manual audio enabled in hosted demo mode while suppressing autoplay', async () => {
+        localStorage.clear();
+        const app = new ReaderApp();
+        document.body.innerHTML = '<main>Hosted docs</main>';
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/',
+            origin: 'https://hrussellzfac023.github.io',
+            hostname: 'hrussellzfac023.github.io',
+        });
+
+        try {
+            await app.init({ isDemo: true, showWelcome: false });
+            const { settings } = app as unknown as { settings: typeof DEFAULT_SETTINGS };
+
+            expect(settings.audioEnabled).toBe(true);
+            expect(settings.autoPlayAudio).toBe(false);
+            expect(settings.immersionKitAutoPlayAudio).toBe(false);
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('overrides persisted disabled audio in hosted demo mode', async () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            audioEnabled: false,
+            autoPlayAudio: true,
+            immersionKitAutoPlayAudio: true,
+        }));
+        const app = new ReaderApp();
+        document.body.innerHTML = '<main>Hosted docs</main>';
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/',
+            origin: 'https://hrussellzfac023.github.io',
+            hostname: 'hrussellzfac023.github.io',
+        });
+
+        try {
+            await app.init({ isDemo: true, showWelcome: false });
+            const { settings } = app as unknown as { settings: typeof DEFAULT_SETTINGS };
+
+            expect(settings.audioEnabled).toBe(true);
+            expect(settings.autoPlayAudio).toBe(false);
+            expect(settings.immersionKitAutoPlayAudio).toBe(false);
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            localStorage.removeItem(SETTINGS_STORAGE_KEY);
+            document.body.replaceChildren();
+        }
+    });
+
     it('scans hosted Try Me text after VitePress route changes expose it', async () => {
         const app = new ReaderApp();
         const scanVisiblePage = vi.fn(async () => undefined);
@@ -3719,7 +3773,8 @@ describe('reader helpers', () => {
             throw new Error('DOMParser should not be needed for audio source previews.');
         });
 
-        async function playSource(type: AudioSourceSetting['type'], playCard: JPDBCard = { ...card, spelling: '猫', reading: 'ねこ' }): Promise<void> {
+        async function playSource(type: AudioSourceSetting['type'], playCard: JPDBCard = { ...card, spelling: '猫', reading: 'ねこ' }): Promise<string[]> {
+            const start = played.length;
             const player = new AudioPlayer(() => ({
                 ...DEFAULT_SETTINGS,
                 audioEnableDefaultSources: false,
@@ -3730,17 +3785,25 @@ describe('reader helpers', () => {
                 ],
             }));
             await expect(player.play(playCard), type).resolves.toBe(true);
+            return played.slice(start);
         }
 
         try {
-            await playSource('jpod101');
-            await playSource('language-pod-101');
-            await playSource('jisho');
-            await playSource('lingua-libre');
-            await playSource('wiktionary', { ...card, spelling: 'satsumaimo', reading: 'satsumaimo' });
-            await playSource('custom-json');
+            const playedBySource = {
+                jpod101: await playSource('jpod101'),
+                languagePod101: await playSource('language-pod-101'),
+                jisho: await playSource('jisho'),
+                linguaLibre: await playSource('lingua-libre'),
+                wiktionary: await playSource('wiktionary', { ...card, spelling: 'satsumaimo', reading: 'satsumaimo' }),
+                customJson: await playSource('custom-json'),
+            };
 
             expect(played).toHaveLength(6);
+            expect(Object.values(playedBySource).flat()).toEqual(played);
+            expect(playedBySource.jisho).toEqual([expect.stringMatching(/^blob:/)]);
+            expect(playedBySource.linguaLibre).toEqual([expect.stringMatching(/^blob:/)]);
+            expect(playedBySource.wiktionary).toEqual([expect.stringMatching(/^blob:/)]);
+            expect(played.every(url => url.startsWith('blob:'))).toBe(true);
             expect(requested.some(request => request.url.includes('assets.languagepod101.com/dictionary/japanese/audiomp3.php'))).toBe(true);
             expect(requested.some(request => request.method === 'POST' && request.url === 'https://www.japanesepod101.com/learningcenter/reference/dictionary_post')).toBe(true);
             expect(requested.some(request => request.url === 'https://jisho.org/search/%E7%8C%AB')).toBe(true);
@@ -3757,6 +3820,61 @@ describe('reader helpers', () => {
             Object.defineProperty(URL, 'revokeObjectURL', {
                 configurable: true,
                 value: originalRevokeObjectUrl,
+            });
+            restoreMedia();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses blob playback before direct media elements for custom JSON audio', async () => {
+        const played: string[] = [];
+        const requested: Array<{ url: string; responseType?: string }> = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:http://localhost/custom-json-audio'),
+        });
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push({ url: details.url, responseType: details.responseType });
+                if (details.responseType === 'text') {
+                    const response = JSON.stringify({ audioSources: [{ url: 'https://media.test/neko.mp3' }] });
+                    details.onload?.({ status: 200, response, responseText: response });
+                    return;
+                }
+                details.onload?.({
+                    status: 200,
+                    response: new Blob(['audio'], { type: 'audio/mpeg' }),
+                });
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [{
+                    type: 'custom-json',
+                    url: 'https://custom.test/source?term={term}',
+                    voice: '',
+                    enabled: true,
+                }],
+            }));
+
+            await expect(player.play({ ...card, spelling: '猫', reading: 'ねこ' })).resolves.toBe(true);
+
+            expect(requested.map(request => request.url)).toEqual([
+                'https://custom.test/source?term=%E7%8C%AB',
+                'https://media.test/neko.mp3',
+            ]);
+            expect(played).toEqual(['blob:http://localhost/custom-json-audio']);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
             });
             restoreMedia();
             vi.unstubAllGlobals();
@@ -6322,7 +6440,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('streams custom JSON audio candidates directly and caches the source lookup', async () => {
+    it('fetches custom JSON audio candidates as blobs and caches the source lookup', async () => {
         const played: string[] = [];
         const restoreMedia = mockHtmlAudioPlayback(played);
         let sourceRequests = 0;
@@ -6371,8 +6489,8 @@ describe('reader helpers', () => {
             await player.play(card);
 
             expect(sourceRequests).toBe(1);
-            expect(blobRequests).toBe(0);
-            expect(played).toEqual(['http://x.test/audio.mp3', 'http://x.test/audio.mp3']);
+            expect(blobRequests).toBe(1);
+            expect(played).toEqual(['blob:http://localhost/audio.mp3', 'blob:http://localhost/audio.mp3']);
         } finally {
             Object.defineProperty(URL, 'createObjectURL', {
                 configurable: true,
@@ -6387,15 +6505,13 @@ describe('reader helpers', () => {
         }
     });
 
-    it('falls back to a blob fetch when direct custom JSON playback fails', async () => {
+    it('plays custom JSON audio through blob URLs without a direct media attempt', async () => {
         const played: string[] = [];
         let sourceRequests = 0;
         let blobRequests = 0;
         const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function play(this: HTMLMediaElement) {
             played.push(this.src);
-            return this.src === 'http://x.test/audio.mp3'
-                ? Promise.reject(new DOMException('Unsupported direct media', 'NotSupportedError'))
-                : Promise.resolve();
+            return Promise.resolve();
         });
         const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
         const loadSpy = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
@@ -6443,7 +6559,7 @@ describe('reader helpers', () => {
 
             expect(sourceRequests).toBe(1);
             expect(blobRequests).toBe(1);
-            expect(played).toEqual(['http://x.test/audio.mp3', 'blob:http://localhost/audio.mp3']);
+            expect(played).toEqual(['blob:http://localhost/audio.mp3']);
         } finally {
             Object.defineProperty(URL, 'createObjectURL', {
                 configurable: true,
@@ -6689,9 +6805,7 @@ describe('reader helpers', () => {
         const restoreAppleMobile = mockAppleMobileBrowser();
         const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function play(this: HTMLMediaElement) {
             played.push(this.src);
-            return this.src === 'http://x.test/audio/taberu.mp3'
-                ? Promise.reject(new DOMException('Unsupported direct media', 'NotSupportedError'))
-                : Promise.resolve();
+            return Promise.resolve();
         });
         const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
         const loadSpy = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
@@ -6739,7 +6853,7 @@ describe('reader helpers', () => {
 
             await player.play(card);
 
-            expect(played).toEqual(['http://x.test/audio/taberu.mp3', 'blob:http://localhost/audio-retry']);
+            expect(played).toEqual(['blob:http://localhost/audio-retry']);
         } finally {
             Object.defineProperty(URL, 'createObjectURL', {
                 configurable: true,
@@ -7251,6 +7365,47 @@ describe('reader helpers', () => {
         }
     });
 
+    it('fetches hosted Immersion Kit object-store audio through the proxy before creating blob URLs', async () => {
+        const client = new ImmersionKitClient();
+        const originalCreateObjectUrl = URL.createObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:https://hrussellzfac023.github.io/yomu-reader/immersion-kit-audio'),
+        });
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/',
+            origin: 'https://hrussellzfac023.github.io',
+            hostname: 'hrussellzfac023.github.io',
+        });
+        const target = 'https://us-southeast-1.linodeobjects.com/immersionkit/media/anime/Test/media/line.mp3';
+        const fetchMock = vi.fn((input: RequestInfo | URL) => {
+            const url = String(input);
+            if (url.startsWith(DEFAULT_YOMU_PUBLIC_PROXY_URL)) {
+                return Promise.resolve({
+                    ok: true,
+                    status: 200,
+                    blob: () => Promise.resolve(new Blob(['audio'], { type: 'audio/mpeg' })),
+                } as Response);
+            }
+            return Promise.reject(new Error(`unexpected direct fetch: ${url}`));
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(client.fetchBlobUrl(target, DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl))
+                .resolves.toBe('blob:https://hrussellzfac023.github.io/yomu-reader/immersion-kit-audio');
+            expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+                `${DEFAULT_YOMU_PUBLIC_PROXY_URL}/?url=${encodeURIComponent(target)}`,
+            ]);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('uses Immersion Kit canonical deck titles for media folders with punctuation', async () => {
         const client = new ImmersionKitClient();
         vi.stubGlobal('GM', {
@@ -7543,6 +7698,75 @@ describe('reader helpers', () => {
         expect(playSpy).toHaveBeenCalledWith(example);
     });
 
+    it('plays Immersion Kit popup audio from fetched blob URLs instead of direct media URLs', async () => {
+        const constructed: string[] = [];
+        const played: string[] = [];
+        class FakeAudio {
+            preload = '';
+            playbackRate = 1;
+            ended = false;
+
+            constructor(public src: string) {
+                constructed.push(src);
+            }
+
+            play(): Promise<void> {
+                played.push(this.src);
+                return Promise.resolve();
+            }
+
+            pause(): void {}
+            addEventListener(): void {}
+        }
+        const fetchBlobUrl = vi.fn(async () => 'blob:http://localhost/line.mp3');
+        vi.stubGlobal('Audio', FakeAudio);
+        const example = {
+            id: 'anime_test_000001',
+            sentence: 'これは発音です',
+            sentenceWithFurigana: '',
+            translation: '',
+            sourceTitle: 'Test Source',
+            titleSlug: 'test_source',
+            category: 'anime',
+            soundFile: 'line.mp3',
+            imageFile: '',
+            soundUrl: '',
+            imageUrl: '',
+        };
+        const controller = new ImmersionPopoverController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                immersionKitEnabled: true,
+                immersionKitShowImages: false,
+            }),
+            client: {
+                mediaUrls: vi.fn((_: unknown, kind: 'image' | 'sound') => kind === 'sound' ? ['https://media.test/line.mp3'] : []),
+                fetchBlobUrl,
+            } as unknown as ImmersionKitClient,
+            audio: { play: vi.fn(async () => undefined), stop: vi.fn() } as never,
+            parseJapanese: vi.fn(async () => []),
+            canParseJapanese: () => false,
+            parsePopoverJapanese: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords: vi.fn(),
+            repositionPopover: vi.fn(),
+            setImmersionTranslationBlurred: vi.fn(),
+            toast: vi.fn(),
+        });
+
+        try {
+            await (controller as unknown as {
+                playExampleAudio(example: ImmersionKitExample): Promise<void>;
+            }).playExampleAudio(example);
+
+            expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/line.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl);
+            expect(constructed).toEqual(['blob:http://localhost/line.mp3']);
+            expect(played).toEqual(['blob:http://localhost/line.mp3']);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('keeps kanji dive back navigation inside the kanji stack before returning to the word', async () => {
         const app = new ReaderApp();
         const originalRequestAnimationFrame = window.requestAnimationFrame;
@@ -7768,9 +7992,9 @@ describe('reader helpers', () => {
             await internals.showKanjiCard(originalWord, '漢', '漢字です。');
             document.querySelector('.jpdb-reader-popover')?.insertAdjacentHTML(
                 'beforeend',
-                '<a class="gloss-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="漢語" data-dictionary-reading="かんご" data-dictionary="JPDB">漢語</a>',
+                '<a class="gloss-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="漢語" data-dictionary-reading="かんご" data-dictionary="JPDB"><span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true" data-vid="11" data-sid="21" data-sentence="漢語" tabindex="-1">漢語</span></a>',
             );
-            document.querySelector<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]')?.click();
+            document.querySelector<HTMLElement>('a.gloss-link[data-dictionary-lookup] .jpdb-reader-word')?.click();
 
             await waitForExpect(() => {
                 expect(document.querySelector('.jpdb-reader-spelling')?.textContent).toBe('漢語');
@@ -8351,6 +8575,39 @@ describe('reader helpers', () => {
             });
             expect(lookupCandidateFromPoint(app, 220, 30, paragraph)).toBeNull();
         });
+    });
+
+    it('uses fallback pointer lookup on unparsed dictionary hyperlink text inside popovers', () => {
+        document.body.innerHTML = `
+            <div data-jpdb-reader-root="true">
+                <div class="jpdb-reader-popover">
+                    <div class="jpdb-reader-local-glossary">
+                        <a class="gloss-link" href="#dict-entry"><span>青空</span></a>
+                    </div>
+                    <div class="jpdb-reader-help"><span>日本語</span></div>
+                </div>
+            </div>
+        `;
+        const linkText = document.querySelector<HTMLElement>('a.gloss-link span')!;
+        const helpText = document.querySelector<HTMLElement>('.jpdb-reader-help span')!;
+        const app = new ReaderApp();
+
+        try {
+            withPointerTextLookupMock(linkText.firstChild as Text, 0, [{ left: 20, top: 20, width: 48, height: 28 }], () => {
+                expect(lookupCandidateFromPoint(app, 28, 30, linkText)).toMatchObject({
+                    text: '青空',
+                    offset: 0,
+                    start: 0,
+                    end: 2,
+                    anchor: linkText,
+                });
+            });
+            withPointerTextLookupMock(helpText.firstChild as Text, 0, [{ left: 20, top: 60, width: 64, height: 28 }], () => {
+                expect(lookupCandidateFromPoint(app, 28, 70, helpText)).toBeNull();
+            });
+        } finally {
+            app.destroy();
+        }
     });
 
     it('does not use fallback pointer lookup on JPDB native Immersion Kit controls', () => {
@@ -13758,6 +14015,66 @@ describe('reader helpers', () => {
         }], DEFAULT_SETTINGS);
 
         expect(Array.from(document.querySelectorAll('.jpdb-reader-word')).map(word => readerWordSurfaceText(word))).toEqual(['青空']);
+    });
+
+    it('keeps parsed dictionary hyperlink text passive so link clicks can pass through', () => {
+        document.body.innerHTML = `
+            <div data-jpdb-reader-root="true">
+                <div class="jpdb-reader-popover">
+                    <div class="jpdb-reader-local-glossary jpdb-reader-parseable">
+                        <a class="gloss-link" href="#dict-entry"><span class="gloss-link-text">青空</span></a>を読む
+                    </div>
+                </div>
+            </div>
+        `;
+        const root = document.querySelector('.jpdb-reader-parseable')!;
+        const targets = collectFragmentTextTargetsIn(root, 10, false, '', {
+            includeReaderRoot: true,
+            allowUiText: true,
+            minLength: 1,
+            readerRootPassiveInteractions: true,
+        });
+        expect(targets.map(target => target.text)).toEqual(['青空を読む']);
+
+        applyTokensToScanTarget(targets[0], [
+            {
+                card: { ...card, spelling: '青空', reading: 'あおぞら', cardState: ['known'] },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [{ text: 'あおぞら', start: 0, end: 2, length: 2 }],
+                pitchClass: '',
+                sentence: '青空を読む',
+            },
+            {
+                card: { ...card, spelling: '読む', reading: 'よむ', cardState: ['known'] },
+                start: 3,
+                end: 5,
+                length: 2,
+                rubies: [{ text: 'よむ', start: 3, end: 5, length: 2 }],
+                pitchClass: '',
+                sentence: '青空を読む',
+            },
+        ], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const linkWord = document.querySelector<HTMLElement>('a.gloss-link .jpdb-reader-word')!;
+        const proseWord = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'))
+            .find(word => readerWordSurfaceText(word) === '読む')!;
+        expect(linkWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(linkWord.tabIndex).toBe(-1);
+        expect(linkWord.querySelector('rt')).toBeNull();
+        expect(proseWord.dataset.jpdbReaderPassive).toBeUndefined();
+        expect(proseWord.tabIndex).toBe(0);
+        expect(proseWord.querySelector('rt')?.textContent).toBe('よむ');
+
+        const app = new ReaderApp();
+        try {
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+            expect(linkWord.dispatchEvent(event)).toBe(true);
+            expect(event.defaultPrevented).toBe(false);
+        } finally {
+            app.destroy();
+        }
     });
 
     it('uses NHK-style ruby-aware site parsing without duplicating native furigana', () => {

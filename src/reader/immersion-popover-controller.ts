@@ -890,7 +890,6 @@ export class ImmersionPopoverController {
         requestId: number,
         isCurrent: () => boolean,
     ): Promise<void> {
-        if (await this.playDirectExampleAudio(source, requestId, isCurrent)) return;
         const src = await this.options.client.fetchBlobUrl(source.urls, this.options.getSettings().audioTimeoutMs, this.options.getSettings().corsProxyUrl);
         if (!this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent)) {
             this.clearAudioRequestIfCurrent(requestId, source.key);
@@ -899,23 +898,6 @@ export class ImmersionPopoverController {
 
         const audio = this.attachExampleAudio(src);
         await this.playAttachedExampleAudio(audio, isCurrent);
-    }
-
-    private async playDirectExampleAudio(
-        source: ExampleAudioSource,
-        requestId: number,
-        isCurrent: () => boolean,
-    ): Promise<boolean> {
-        const src = source.urls[0];
-        if (!src) return false;
-        try {
-            const audio = this.attachExampleAudio(src);
-            await this.playAttachedExampleAudio(audio, isCurrent);
-            return this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent);
-        } catch {
-            if (this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent)) this.clearAudio();
-            return false;
-        }
     }
 
     private async playAttachedExampleAudio(audio: HTMLAudioElement, isCurrent: () => boolean): Promise<void> {

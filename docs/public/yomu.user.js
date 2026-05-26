@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.55
+// @version      0.4.56
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -1845,7 +1845,7 @@ Greasy Fork compliance notes:
   '[aria-hidden="true"]',
   ".jpdb-reader-word"
  ].join(",");
- const READER_ROOT_SELECTOR$1 = "[data-jpdb-reader-root]";
+ const READER_ROOT_SELECTOR$2 = "[data-jpdb-reader-root]";
  const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
  const PITCH_CLASSES = /* @__PURE__ */ new Set(["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"]);
  const FRAGMENT_SKIP_SELECTOR = [
@@ -2081,7 +2081,7 @@ Greasy Fork compliance notes:
  }
  function canInspectTextNode(node) {
   const parent = node.parentElement;
-  return Boolean(parent && !parent.closest(SKIP_SELECTOR) && !parent.closest(READER_ROOT_SELECTOR$1));
+  return Boolean(parent && !parent.closest(SKIP_SELECTOR) && !parent.closest(READER_ROOT_SELECTOR$2));
  }
  function textWalkerHasJapanese(walker, limit) {
   let inspected = 0;
@@ -2141,7 +2141,7 @@ Greasy Fork compliance notes:
  }
  function isInsideExcludedReaderRoot(parent, options) {
   if (options.includeReaderRoot) return false;
-  return Boolean(parent.closest(READER_ROOT_SELECTOR$1));
+  return Boolean(parent.closest(READER_ROOT_SELECTOR$2));
  }
  function shouldRejectTextTargetPresentation(parent, text2, visibleOnly) {
   if (shouldRejectInvisibleTextTarget(parent, visibleOnly)) return true;
@@ -2209,7 +2209,7 @@ Greasy Fork compliance notes:
      end: text22.length,
      hasNativeRuby,
      suppressRuby: parent ? shouldSuppressInjectedRuby(parent) : false,
-     passiveInteraction: parent ? isPassiveInteractionElement(parent) : false
+     passiveInteraction: parent ? isFragmentPassiveInteractionElement(parent, options) : false
     });
     return;
    }
@@ -2259,12 +2259,16 @@ Greasy Fork compliance notes:
   return element2.tagName === "LI" && Boolean(element2.closest(".japanese_sentence"));
  }
  function isPassiveInteractionElement(element2) {
-  if (element2.closest(READER_ROOT_SELECTOR$1)) return false;
+  if (element2.closest(READER_ROOT_SELECTOR$2)) return false;
   if (element2.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
   const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
   if (!compactInteraction) return false;
   const text2 = compactInteraction.textContent?.replace(/\s+/g, "").trim() ?? "";
   return text2.length > 0 && text2.length <= COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT;
+ }
+ function isFragmentPassiveInteractionElement(element2, options) {
+  if (isPassiveInteractionElement(element2)) return true;
+  return Boolean(options.readerRootPassiveInteractions && element2.closest(READER_ROOT_SELECTOR$2) && element2.closest(PASSIVE_INTERACTION_SELECTOR));
  }
  function trimTextFragments(fragments) {
   const trimmed = fragments.map((fragment) => ({ ...fragment }));
@@ -2314,7 +2318,7 @@ Greasy Fork compliance notes:
   else applyTokensToTextNode(target, tokens, settings);
  }
  function unwrapReaderWords(root = document, options = {}) {
-  const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR$1)).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
+  const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR$2)).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
   const parents = /* @__PURE__ */ new Set();
   for (const word of words) {
    const parent = word.parentNode;
@@ -2377,7 +2381,7 @@ Greasy Fork compliance notes:
   return sentenceAroundSurface(cleanFallback, surface) || cleanFallback;
  }
  function canReadSentenceContextFrom(element2) {
-  return !element2.closest(READER_ROOT_SELECTOR$1) || Boolean(element2.closest(".jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer"));
+  return !element2.closest(READER_ROOT_SELECTOR$2) || Boolean(element2.closest(".jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer"));
  }
  function sentenceAroundSurface(value, surface = "", fallback = "") {
   const text2 = cleanReadableSentence(value);
@@ -6422,10 +6426,6 @@ Greasy Fork compliance notes:
    return false;
   }
   async playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, reservedAudio) {
-   if (shouldStreamCandidateBeforeBlob(candidate, sourceType, settings)) {
-    const streamed = await this.playDirectAudioCandidate(candidate, id, bagKey, requestId, isCurrent, reservedAudio).catch(() => false);
-    if (streamed || !this.isPlaybackCurrent(requestId, isCurrent)) return streamed;
-   }
    let audio;
    try {
     audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
@@ -6439,13 +6439,6 @@ Greasy Fork compliance notes:
    } catch (error) {
     throw new AudioPlaybackAttemptError(error);
    }
-   if (!played) return false;
-   this.shuffledAudio.markPlayed(bagKey, id);
-   return true;
-  }
-  async playDirectAudioCandidate(candidate, id, bagKey, requestId, isCurrent, reservedAudio) {
-   const audio = reservedAudio ? await this.createReadyAudio(candidate.url, reservedAudio) : this.createAudioElement(candidate.url);
-   const played = await this.playPreparedAudio(audio, requestId, isCurrent);
    if (!played) return false;
    this.shuffledAudio.markPlayed(bagKey, id);
    return true;
@@ -6787,12 +6780,6 @@ Greasy Fork compliance notes:
  }
  function shouldForceBlobAudioPlayback(sourceType) {
   return sourceType === "jpod101";
- }
- function shouldStreamCandidateBeforeBlob(candidate, sourceType, settings) {
-  return settings.audioViaBlob && !shouldForceBlobAudioPlayback(sourceType) && shouldPreferDirectAudioElementBeforeBlob(sourceType) && /^https?:\/\//i.test(candidate.url) && isLikelyAudioUrl(candidate.url);
- }
- function shouldPreferDirectAudioElementBeforeBlob(sourceType) {
-  return sourceType === "language-pod-101" || sourceType === "jisho" || sourceType === "lingua-libre" || sourceType === "wiktionary" || sourceType === "custom-json";
  }
  function structuredAudioUrlsForValue(value, sourceUrl) {
   if (Array.isArray(value)) return uniqueAudioUrls(value.flatMap((item) => findAudioUrls(item, sourceUrl)));
@@ -19485,7 +19472,6 @@ ${entry.reading}`;
    }
   }
   async playFetchedExampleAudio(source, requestId, isCurrent) {
-   if (await this.playDirectExampleAudio(source, requestId, isCurrent)) return;
    const src = await this.options.client.fetchBlobUrl(source.urls, this.options.getSettings().audioTimeoutMs, this.options.getSettings().corsProxyUrl);
    if (!this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent)) {
     this.clearAudioRequestIfCurrent(requestId, source.key);
@@ -19493,18 +19479,6 @@ ${entry.reading}`;
    }
    const audio = this.attachExampleAudio(src);
    await this.playAttachedExampleAudio(audio, isCurrent);
-  }
-  async playDirectExampleAudio(source, requestId, isCurrent) {
-   const src = source.urls[0];
-   if (!src) return false;
-   try {
-    const audio = this.attachExampleAudio(src);
-    await this.playAttachedExampleAudio(audio, isCurrent);
-    return this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent);
-   } catch {
-    if (this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent)) this.clearAudio();
-    return false;
-   }
   }
   async playAttachedExampleAudio(audio, isCurrent) {
    if (!isCurrent()) {
@@ -23471,7 +23445,7 @@ ${glossaryKey}`;
   attributeFilter: ["class", "style", "hidden", "open", "aria-hidden", "aria-expanded"]
  };
  const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
- const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
+ const READER_ROOT_SELECTOR$1 = "[data-jpdb-reader-root]";
  const JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR = [
   ".result.vocabulary",
   ".result.kanji",
@@ -23486,7 +23460,7 @@ ${glossaryKey}`;
   ".cross-table"
  ].join(",");
  const JPDB_PAGE_ENHANCEMENT_DYNAMIC_IGNORE_SELECTOR = [
-  READER_ROOT_SELECTOR,
+  READER_ROOT_SELECTOR$1,
   "[data-immersion-kit]",
   '[class*="immersion" i]'
  ].join(",");
@@ -23663,7 +23637,13 @@ ${glossaryKey}`;
  ].join(",");
  function nestedTextParsePlan(root, limit) {
   const parseRoots = root.matches(PARSEABLE_SELECTOR) ? [root] : Array.from(root.querySelectorAll(PARSEABLE_SELECTOR));
-  const targets = parseRoots.flatMap((parseRoot) => collectFragmentTextTargetsIn(parseRoot, limit, false, "", { includeReaderRoot: true, allowUiText: true, heading: true, minLength: 1 })).slice(0, limit);
+  const targets = parseRoots.flatMap((parseRoot) => collectFragmentTextTargetsIn(parseRoot, limit, false, "", {
+   includeReaderRoot: true,
+   allowUiText: true,
+   heading: true,
+   minLength: 1,
+   readerRootPassiveInteractions: true
+  })).slice(0, limit);
   return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
  }
  function nestedSettingsTextParsePlan(root, limit) {
@@ -26098,6 +26078,7 @@ ${glossaryKey}`;
   }
  }
  const JAPANESE_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]/u;
+ const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
  const POINTER_TEXT_SKIP_SELECTOR = [
   "script",
   "style",
@@ -26118,8 +26099,9 @@ ${glossaryKey}`;
   '[role="radio"]',
   '[role="tab"]',
   "[onclick]",
-  "[data-jpdb-reader-root]"
+  READER_ROOT_SELECTOR
  ].join(",");
+ const READER_ROOT_POINTER_TEXT_LINK_SELECTOR = `${READER_ROOT_SELECTOR} .jpdb-reader-local-glossary a[href]`;
  const SCREEN_READER_ONLY_CLASS_RE = /(^|[-_\s])(sr-only|screen-reader-text|visually-hidden|visuallyhidden)([-_\s]|$)/i;
  const YOUTUBE_METADATA_SELECTOR = [
   "#metadata",
@@ -26188,19 +26170,20 @@ ${glossaryKey}`;
   return parts.every((part) => METADATA_TOKEN_RE.test(part));
  }
  function isPointerTextParentEligible(parent) {
+  const allowReaderRoot = Boolean(parent.closest(READER_ROOT_POINTER_TEXT_LINK_SELECTOR));
   let current = parent;
   while (current) {
-   if (!isPointerTextElementEligible(current)) return false;
+   if (!isPointerTextElementEligible(current, allowReaderRoot)) return false;
    current = current.parentElement;
   }
   return true;
  }
- function isPointerTextElementEligible(element2) {
+ function isPointerTextElementEligible(element2, allowReaderRoot = false) {
   const style = getComputedStyle(element2);
-  return elementPassesPointerTextAttributes(element2) && stylePassesPointerTextLookup(style) && !isScreenReaderOnlyElement(element2, style);
+  return elementPassesPointerTextAttributes(element2, allowReaderRoot) && stylePassesPointerTextLookup(style) && !isScreenReaderOnlyElement(element2, style);
  }
- function elementPassesPointerTextAttributes(element2) {
-  return !element2.matches(POINTER_TEXT_SKIP_SELECTOR) && !element2.hasAttribute("hidden") && !element2.hasAttribute("inert") && element2.getAttribute("aria-hidden")?.toLowerCase() !== "true";
+ function elementPassesPointerTextAttributes(element2, allowReaderRoot) {
+  return (!element2.matches(POINTER_TEXT_SKIP_SELECTOR) || allowReaderRoot && element2.matches(READER_ROOT_SELECTOR)) && !element2.hasAttribute("hidden") && !element2.hasAttribute("inert") && element2.getAttribute("aria-hidden")?.toLowerCase() !== "true";
  }
  function stylePassesPointerTextLookup(style) {
   return style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && Number(style.opacity || "1") > 0;
@@ -39384,7 +39367,7 @@ ${spelling}`);
    this.settings = {
     ...this.settings,
     onboardingSeen: true,
-    audioEnabled: false,
+    audioEnabled: true,
     autoPlayAudio: false,
     audioFallbackChimeEnabled: false,
     immersionKitAutoPlayAudio: false,

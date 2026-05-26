@@ -1,4 +1,3 @@
-import { APP_REPOSITORY_NAME, GITHUB_PAGES_ORIGIN } from './constants';
 import { uiText } from './i18n';
 import { Logger } from './logger';
 import { canAttemptAudiblePlayback } from './media-activation';
@@ -553,12 +552,6 @@ export class AudioPlayer {
         isCurrent: () => boolean,
         reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
-        if (shouldStreamCandidateBeforeBlob(candidate, sourceType, settings)) {
-            const streamed = await this.playDirectAudioCandidate(candidate, id, bagKey, requestId, isCurrent, reservedAudio)
-                .catch(() => false);
-            if (streamed || !this.isPlaybackCurrent(requestId, isCurrent)) return streamed;
-        }
-
         let audio: HTMLAudioElement;
         try {
             audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
@@ -572,23 +565,6 @@ export class AudioPlayer {
         } catch (error) {
             throw new AudioPlaybackAttemptError(error);
         }
-        if (!played) return false;
-        this.shuffledAudio.markPlayed(bagKey, id);
-        return true;
-    }
-
-    private async playDirectAudioCandidate(
-        candidate: AudioCandidate,
-        id: string,
-        bagKey: string,
-        requestId: number,
-        isCurrent: () => boolean,
-        reservedAudio?: HTMLAudioElement,
-    ): Promise<boolean> {
-        const audio = reservedAudio
-            ? await this.createReadyAudio(candidate.url, reservedAudio)
-            : this.createAudioElement(candidate.url);
-        const played = await this.playPreparedAudio(audio, requestId, isCurrent);
         if (!played) return false;
         this.shuffledAudio.markPlayed(bagKey, id);
         return true;
@@ -1011,33 +987,6 @@ function directAudioUrlsForValue(value: unknown, sourceUrl?: string): string[] |
 
 function shouldForceBlobAudioPlayback(sourceType: AudioSourceType): boolean {
     return sourceType === 'jpod101';
-}
-
-function shouldStreamCandidateBeforeBlob(candidate: AudioCandidate, sourceType: AudioSourceType, settings: ReaderSettings): boolean {
-    return settings.audioViaBlob
-        && !shouldForceBlobAudioPlayback(sourceType)
-        && shouldPreferDirectAudioElementBeforeBlob(sourceType)
-        && /^https?:\/\//i.test(candidate.url)
-        && isLikelyAudioUrl(candidate.url);
-}
-
-function shouldPreferDirectAudioElementBeforeBlob(sourceType: AudioSourceType): boolean {
-    return sourceType === 'language-pod-101'
-        || sourceType === 'jisho'
-        || sourceType === 'lingua-libre'
-        || sourceType === 'wiktionary'
-        || sourceType === 'custom-json';
-}
-
-function isHostedGithubPagesApp(): boolean {
-    if (typeof location === 'undefined') return false;
-    try {
-        const current = new URL(location.href);
-        return current.origin === GITHUB_PAGES_ORIGIN
-            && current.pathname.replace(/\/index\.html$/, '/').startsWith(`/${APP_REPOSITORY_NAME}/`);
-    } catch {
-        return false;
-    }
 }
 
 function structuredAudioUrlsForValue(value: unknown, sourceUrl?: string): string[] | null {

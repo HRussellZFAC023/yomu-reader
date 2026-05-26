@@ -732,7 +732,7 @@ export class ReaderApp {
         this.settings = {
             ...this.settings,
             onboardingSeen: true,
-            audioEnabled: false,
+            audioEnabled: true,
             autoPlayAudio: false,
             audioFallbackChimeEnabled: false,
             immersionKitAutoPlayAudio: false,

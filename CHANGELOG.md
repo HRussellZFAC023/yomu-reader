@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.56] - 2026-05-26
+
+### Fixed
+
+- Re-enabled manual audio on the hosted docs demo while keeping autoplay suppressed.
+- Routed term and Immersion Kit example audio through blob/proxy playback before media elements touch remote URLs, avoiding page CSP `media-src` blocks on sites such as Wiktionary.
+- Kept dictionary glossary hyperlinks clickable after nested parsing while still allowing their visible Japanese text to be inspected with hover lookup.
+
 ## [0.4.55] - 2026-05-26
 
 ### Fixed
