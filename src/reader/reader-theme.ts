@@ -63,11 +63,15 @@ function appliedReaderTheme(settings: ReaderSettings): AppliedReaderTheme {
             text: effectiveReaderTextColorSource(settings, settings.wordTextColorSource, 'off'),
         },
         subtitleColorSources: {
-            highlight: effectiveSubtitleColorSource(settings, settings.subtitleHighlightColorSource, 'jpdb'),
-            underline: effectiveSubtitleColorSource(settings, settings.subtitleUnderlineColorSource, 'pitch'),
-            text: effectiveSubtitleTextColorSource(settings, settings.subtitleTextColorSource, 'jpdb'),
+            highlight: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleHighlightColorSource, 'jpdb')),
+            underline: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleUnderlineColorSource, 'pitch')),
+            text: appliedSubtitleColorSource(settings, effectiveSubtitleTextColorSource(settings, settings.subtitleTextColorSource, 'jpdb')),
         },
     };
+}
+
+function appliedSubtitleColorSource(settings: ReaderSettings, source: AppliedColorSource): AppliedColorSource {
+    return source === 'status' ? effectiveReaderColorSource(settings, 'status', 'status') : source;
 }
 
 function readerStateColors(settings: ReaderSettings): Record<string, string> {

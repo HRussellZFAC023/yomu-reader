@@ -60,6 +60,36 @@ describe('nested text parse plans', () => {
         expect(word?.closest('mark')?.classList.contains('jpdb-reader-example-target')).toBe(true);
     });
 
+    it('replans partially parsed reader-owned example sentences as one stable sentence', () => {
+        document.body.innerHTML = `
+            <section data-jpdb-reader-root="true" data-jpdb-reader-parse-key="stale">
+                <div class="jpdb-reader-example-sentence jpdb-reader-parseable">
+                    <mark class="jpdb-reader-example-target"><span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban jpdb-reader-example-target" data-vid="1464530" data-sid="0" tabindex="0">日本語</span></mark>は分かりません。
+                </div>
+            </section>
+        `;
+        const root = document.body.querySelector<HTMLElement>('section')!;
+        const plan = nestedTextParsePlan(root, 24)!;
+
+        expect(plan.targets.map(target => target.text)).toEqual(['日本語は分かりません。']);
+        expect(root.dataset.jpdbReaderParseKey).toBeUndefined();
+
+        applyNestedParsePlan(plan, [[
+            token('日本語', 0, 'にほんご', 'heiban'),
+            token('分かりません', 4, 'わかりません', 'heiban'),
+        ]], DEFAULT_SETTINGS);
+
+        const sentence = root.querySelector<HTMLElement>('.jpdb-reader-example-sentence')!;
+        const words = Array.from(sentence.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        expect(sentence.textContent?.replace(/\s+/g, '')).toBe('日本語は分かりません。');
+        expect(words.map(word => word.textContent)).toEqual(['日本語', '分かりません']);
+        expect(words[0]?.closest('mark')?.classList.contains('jpdb-reader-example-target')).toBe(true);
+
+        root.dataset.jpdbReaderParseKey = plan.parseKey;
+        expect(nestedTextParsePlan(root, 24)).toBeNull();
+        expect(sentence.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
+    });
+
     it('collects Japanese fragments from parseable grammar examples', () => {
         document.body.innerHTML = '<section><div class="jpdb-reader-grammar-example jpdb-reader-parseable"><div>窓が開けてあります。</div><div>The window has been opened and left that way.</div></div></section>';
         const root = document.body.querySelector<HTMLElement>('section');
@@ -67,6 +97,25 @@ describe('nested text parse plans', () => {
         const plan = root ? nestedTextParsePlan(root, 24) : null;
 
         expect(plan?.targets.map(target => target.text)).toEqual(['窓が開けてあります。']);
+    });
+
+    it('collects lookup text from dictionary modal examples and found-in rows', () => {
+        document.body.innerHTML = `
+            <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
+                <details open>
+                    <summary>Examples</summary>
+                    <div class="jpdb-reader-example-sentence jpdb-reader-parseable">青空の下で本を読みます。</div>
+                    <div class="jpdb-reader-study-match">
+                        <span>Found in</span>
+                        <span class="jpdb-reader-study-match-text jpdb-reader-parseable">読みます</span>
+                    </div>
+                </details>
+            </div>
+        `;
+        const root = document.body.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+        const plan = nestedTextParsePlan(root, 24);
+
+        expect(plan?.targets.map(target => target.text)).toEqual(['青空の下で本を読みます。', '読みます']);
     });
 
     it('collects Japanese settings labels, headings, select metadata, and help prose without parsing hidden controls', () => {

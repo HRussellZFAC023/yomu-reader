@@ -167,7 +167,7 @@ function configuredProxyFetchUrl(targetUrl: string, configuredProxyUrl: string):
 
 function shouldPreferConfiguredProxyForJpdbApi(url: string): boolean {
     if (!isJpdbApiUrl(url)) return false;
-    return isHostedGithubPagesApp() || isAppleTouchBrowser();
+    return isCrossOriginJpdbApiPage() || isHostedGithubPagesApp() || isAppleTouchBrowser();
 }
 
 function isJpdbApiUrl(url: string): boolean {
@@ -185,6 +185,15 @@ function isHostedGithubPagesApp(): boolean {
         const current = new URL(location.href);
         return current.origin === 'https://hrussellzfac023.github.io'
             && current.pathname.replace(/\/index\.html$/, '/').startsWith('/yomu-reader/');
+    } catch {
+        return false;
+    }
+}
+
+function isCrossOriginJpdbApiPage(): boolean {
+    if (typeof location === 'undefined') return false;
+    try {
+        return new URL(location.href).origin !== 'https://jpdb.io';
     } catch {
         return false;
     }

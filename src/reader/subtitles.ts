@@ -1,4 +1,4 @@
-import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
+import { escapeHtml, readerWordSurfaceText, renderTokensToHtml, setInnerHtml } from './dom';
 import {
     compactTextLength,
     cueHasExactWordTimings,
@@ -233,7 +233,7 @@ function nextSubtitleFontSize(element: HTMLElement, fitted: number, minimum: num
 
 function applyKaraokeClassToWordElement(element: HTMLElement, cursor: number, progress: number): number {
     element.classList.remove('jpdb-subtitle-word-pending', 'jpdb-subtitle-word-spoken', 'jpdb-subtitle-word-current');
-    const surface = element.textContent?.replace(/\s+/g, '') ?? '';
+    const surface = readerWordSurfaceText(element).replace(/\s+/g, '');
     if (!surface) return cursor;
     const start = cursor;
     const end = cursor + compactTextLength(surface);
@@ -1259,7 +1259,8 @@ export class SubtitlePlayerController {
         const primary = this.subtitleEl?.querySelector('.jpdb-subtitle-primary');
         if (primary) {
             const currentCue = this.currentCue ?? null;
-            const shouldKaraoke = this.shouldRenderKaraokePrimary(primary, currentCue);
+            const shouldKaraoke = !parsedSubtitleHtmlHasReaderWords(html)
+                && this.shouldRenderKaraokePrimary(primary, currentCue);
             setInnerHtml(primary, this.primaryReplacementHtml(html, currentCue, shouldKaraoke));
             this.syncKaraokePrimary(currentCue, shouldKaraoke);
             this.fitSubtitleTextToVideo();

@@ -672,6 +672,105 @@ describe('SubtitlePlayerController', () => {
         expect(querySelectorAll).not.toHaveBeenCalledWith('[data-transcript-text]');
     });
 
+    it('uses visible word surface text for parsed subtitle karaoke timing', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+        try {
+            (controller as unknown as { install: () => void }).install();
+            const subtitle = document.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+            subtitle.innerHTML = `
+                <div class="jpdb-subtitle-primary">
+                    <span class="jpdb-reader-word">読<rt>よ</rt>む</span><span class="jpdb-reader-word">今日</span>
+                </div>
+            `;
+            const cue = {
+                start: 0,
+                end: 3,
+                text: '読む今日',
+                words: [
+                    { text: '読む', start: 0, end: 1 },
+                    { text: '今日', start: 1, end: 2 },
+                ],
+                wordTimingsExact: true,
+                transcriptEligible: true,
+            };
+
+            (controller as unknown as {
+                applyKaraokeStateToPrimary: (cueArg: unknown, time: number) => void;
+            }).applyKaraokeStateToPrimary(cue, 1.2);
+
+            const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-subtitle-primary .jpdb-reader-word'));
+            expect(words[0]?.classList.contains('jpdb-subtitle-word-spoken')).toBe(true);
+            expect(words[1]?.classList.contains('jpdb-subtitle-word-current')).toBe(true);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('does not apply karaoke state after parsed subtitle replacement', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            subtitleKaraokeMode: true,
+            apiKey: 'test-key',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+
+        try {
+            (controller as unknown as { install: () => void }).install();
+            const video = document.createElement('video');
+            Object.defineProperty(video, 'currentTime', { configurable: true, value: 1.5, writable: true });
+            const cue = {
+                start: 1,
+                end: 4,
+                text: '今日読む',
+                words: [
+                    { text: '今日', start: 1, end: 2 },
+                    { text: '読む', start: 2, end: 4 },
+                ],
+                wordTimingsExact: true,
+                transcriptEligible: true,
+            };
+            const internals = controller as unknown as {
+                video: HTMLVideoElement;
+                selectedTrackId: string;
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+                subtitleEl: HTMLElement;
+                renderSerial: number;
+                replacePrimaryHtml(html: string, serial: number): void;
+            };
+            internals.video = video;
+            internals.selectedTrackId = 'youtube-0';
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            internals.renderSerial = 7;
+            internals.subtitleEl.innerHTML = '<div class="jpdb-subtitle-primary">今日読む</div>';
+
+            internals.replacePrimaryHtml('<span class="jpdb-reader-word">読む</span>', 7);
+
+            const parsedWord = document.querySelector<HTMLElement>('.jpdb-subtitle-primary .jpdb-reader-word')!;
+            expect(parsedWord.textContent).toContain('読む');
+            expect(parsedWord.classList.contains('jpdb-subtitle-word-current')).toBe(false);
+            expect(parsedWord.classList.contains('jpdb-subtitle-word-spoken')).toBe(false);
+            expect(parsedWord.classList.contains('jpdb-subtitle-word-pending')).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('updates the active transcript line without replacing existing rows', () => {
         const settings = {
             ...DEFAULT_SETTINGS,

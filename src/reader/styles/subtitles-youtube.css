@@ -117,10 +117,15 @@
 }
 .jpdb-subtitle-primary .jpdb-reader-word {
   --jpdb-reader-subtitle-fallback: var(--subtitle-color);
+  --jpdb-reader-subtitle-highlight-default: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 24%,
+    transparent
+  );
   background: transparent !important;
   color: var(--subtitle-color) !important;
   --jpdb-reader-word-underline: transparent;
-  text-decoration-line: none !important;
+  text-decoration-line: underline !important;
   text-decoration-style: solid !important;
   text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
   text-decoration-thickness: .08em !important;
@@ -141,79 +146,62 @@
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 1.48;
 }
-.jpdb-reader-subtitle-highlight-status { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-status-soft, transparent); }
-.jpdb-reader-subtitle-highlight-jpdb { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-jpdb-soft, transparent); }
-.jpdb-reader-subtitle-highlight-anki { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-anki-soft, transparent); }
-.jpdb-reader-subtitle-highlight-pitch { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-source-pitch-soft, transparent); }
-.jpdb-reader-subtitle-underline-status { --jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-status-decoration, transparent); }
-.jpdb-reader-subtitle-underline-jpdb { --jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent); }
-.jpdb-reader-subtitle-underline-anki { --jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-anki-decoration, transparent); }
-.jpdb-reader-subtitle-underline-pitch { --jpdb-reader-subtitle-decoration: var(--jpdb-reader-source-pitch-decoration, transparent); }
-.jpdb-reader-subtitle-text-status { --jpdb-reader-subtitle-text: var(--jpdb-reader-source-status-color, var(--jpdb-reader-subtitle-fallback, currentColor)); }
-.jpdb-reader-subtitle-text-jpdb { --jpdb-reader-subtitle-text: var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-subtitle-fallback, currentColor)); }
-.jpdb-reader-subtitle-text-anki { --jpdb-reader-subtitle-text: var(--jpdb-reader-source-anki-color, var(--jpdb-reader-subtitle-fallback, currentColor)); }
-.jpdb-reader-subtitle-text-pitch { --jpdb-reader-subtitle-text: var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-subtitle-fallback, currentColor)); }
+:is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  --jpdb-reader-subtitle-status-color: var(--jpdb-reader-status-color, var(--jpdb-reader-state-new, #58a6ff));
+  --jpdb-reader-subtitle-jpdb-color: var(--jpdb-reader-jpdb-color, var(--jpdb-reader-state-new, #58a6ff));
+  --jpdb-reader-subtitle-anki-color: var(--jpdb-reader-anki-color, var(--jpdb-reader-state-new, #58a6ff));
+  --jpdb-reader-subtitle-pitch-color: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown, #94a3b8));
+  --jpdb-reader-subtitle-source-status-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-status-color) 32%, transparent);
+  --jpdb-reader-subtitle-source-jpdb-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-jpdb-color) 32%, transparent);
+  --jpdb-reader-subtitle-source-anki-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-anki-color) 32%, transparent);
+  --jpdb-reader-subtitle-source-pitch-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-color) 30%, transparent);
+  --jpdb-reader-subtitle-highlight-default: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 24%,
+    transparent
+  );
+  --jpdb-reader-word-underline: transparent;
+  background: transparent !important;
+  color: var(--jpdb-reader-subtitle-fallback, currentColor) !important;
+  text-decoration-line: underline !important;
+  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+}
+.jpdb-reader-subtitle-highlight-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-status-soft, var(--jpdb-reader-source-status-soft, var(--jpdb-reader-subtitle-highlight-default))); }
+.jpdb-reader-subtitle-highlight-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-jpdb-soft, var(--jpdb-reader-source-jpdb-soft, var(--jpdb-reader-subtitle-highlight-default))); }
+.jpdb-reader-subtitle-highlight-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-anki-soft, var(--jpdb-reader-source-anki-soft, var(--jpdb-reader-subtitle-highlight-default))); }
+.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-pitch-soft, var(--jpdb-reader-source-pitch-soft, var(--jpdb-reader-subtitle-highlight-default))); }
+.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-status-color); }
+.jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-color); }
+.jpdb-reader-subtitle-underline-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-anki-color); }
+.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-color); }
+.jpdb-reader-subtitle-text-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-status-color); }
+.jpdb-reader-subtitle-text-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-jpdb-color); }
+.jpdb-reader-subtitle-text-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-anki-color); }
+.jpdb-reader-subtitle-text-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-pitch-color); }
 :is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  background: var(--jpdb-reader-subtitle-highlight, transparent) !important;
+  background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important;
 }
 :is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-decoration, transparent);
   text-decoration-line: underline !important;
 }
 :is(.jpdb-reader-subtitle-text-status, .jpdb-reader-subtitle-text-jpdb, .jpdb-reader-subtitle-text-anki, .jpdb-reader-subtitle-text-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
   color: var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
 }
-.jpdb-reader-subtitle-highlight-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  background: var(--jpdb-reader-source-status-soft, transparent) !important;
-}
-.jpdb-reader-subtitle-highlight-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  background: var(--jpdb-reader-source-jpdb-soft, transparent) !important;
-}
-.jpdb-reader-subtitle-highlight-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  background: var(--jpdb-reader-source-anki-soft, transparent) !important;
-}
-.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  background: var(--jpdb-reader-source-pitch-soft, transparent) !important;
-}
-.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);
-  text-decoration-line: underline !important;
-}
-.jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);
-  text-decoration-line: underline !important;
-}
-.jpdb-reader-subtitle-underline-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent);
-  text-decoration-line: underline !important;
-}
-.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);
-  text-decoration-line: underline !important;
-}
-.jpdb-reader-subtitle-text-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  color: var(--jpdb-reader-source-status-color, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
-}
-.jpdb-reader-subtitle-text-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  color: var(--jpdb-reader-source-jpdb-color, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
-}
-.jpdb-reader-subtitle-text-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  color: var(--jpdb-reader-source-anki-color, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
-}
-.jpdb-reader-subtitle-text-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  color: var(--jpdb-reader-source-pitch-color, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
-}
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending { opacity: .42; }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken {
   opacity: 1;
-  --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, var(--jpdb-reader-accent, #5ea780));
-  text-decoration-line: underline !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, var(--jpdb-reader-accent, #5ea780)) !important;
 }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-current {
   opacity: 1;
-  text-decoration-line: underline !important;
-  text-decoration-color: var(--subtitle-color) !important;
+}
+.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-example-target {
+  --jpdb-reader-word-underline: transparent;
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 34%,
+    rgb(0 0 0 / 38%)
+  ) !important;
+  text-decoration-color: transparent !important;
 }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending {
   filter: saturate(.72);
@@ -253,12 +241,12 @@
   display: inline;
 }
 .jpdb-reader-subtitle-preview .jpdb-reader-word {
-  --jpdb-reader-source-status-color: var(--jpdb-reader-status-color, var(--subtitle-color));
-  --jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);
-  --jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-color, var(--subtitle-color));
-  --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-jpdb-color, transparent);
-  --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-color, var(--subtitle-color));
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, transparent);
+  --jpdb-reader-source-status-color: var(--jpdb-reader-status-color, var(--jpdb-reader-state-new, #58a6ff));
+  --jpdb-reader-source-status-decoration: var(--jpdb-reader-source-status-color);
+  --jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-color, var(--jpdb-reader-state-new, #58a6ff));
+  --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-source-jpdb-color);
+  --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown, #94a3b8));
+  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-source-pitch-color);
 }
 .jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-new, .jpdb-suspended, .jpdb-not-in-deck) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);
@@ -807,7 +795,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text, #fff);
   color: inherit;
   background: transparent;
-  text-decoration-color: var(--jpdb-reader-word-underline, currentColor);
+  text-decoration-color: var(--jpdb-reader-word-underline, transparent);
   text-decoration-thickness: .08em;
   text-underline-offset: .16em;
   border-radius: 4px;

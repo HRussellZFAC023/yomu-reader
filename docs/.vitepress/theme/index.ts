@@ -1,4 +1,4 @@
-import DefaultTheme from 'vitepress/theme';
+import DefaultTheme from 'vitepress/theme-without-fonts';
 import type { Theme } from 'vitepress';
 import { defineComponent, h, onMounted } from 'vue';
 import './custom.css';

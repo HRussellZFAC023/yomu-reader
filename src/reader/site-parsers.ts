@@ -49,6 +49,8 @@ const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
 ].join(',');
 const DEFAULT_SCAN_TARGET_LIMIT = 2000;
 const GENERIC_PROSE_ROOTS = [
+    'main h1',
+    '[role="main"] h1',
     'article',
     'main article',
     '[role="main"] article',
@@ -157,6 +159,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         heading: true,
         minLength: 1,
         includeUiChrome: true,
+        includeGenericPageText: true,
         visibleOnly: false,
         scanLimit: 20,
         matches: url => Boolean(document.querySelector('[data-yomu-demo-lookup]'))
@@ -549,10 +552,11 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
     const matchingProfiles = getMatchingSiteParsers(href);
     const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
     const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
-    if (siteTargets) return siteTargets;
-    const genericTargets = collectGenericProseTargets(effectiveLimit);
-    const uiChromeTargets = collectSafeUiChromeTargets(effectiveLimit - genericTargets.length, genericTargets);
-    if (genericTargets.length || uiChromeTargets.length) return [...genericTargets, ...uiChromeTargets];
+    if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) return siteTargets;
+    const baseTargets = siteTargets ?? [];
+    const genericTargets = collectGenericProseTargets(effectiveLimit - baseTargets.length, baseTargets);
+    const uiChromeTargets = collectSafeUiChromeTargets(effectiveLimit - baseTargets.length - genericTargets.length, [...baseTargets, ...genericTargets]);
+    if (baseTargets.length || genericTargets.length || uiChromeTargets.length) return [...baseTargets, ...genericTargets, ...uiChromeTargets];
 
     const broadTargets = collectWholePageScanTargets(effectiveLimit);
     return broadTargets.length ? broadTargets : collectVisibleTextTargets(effectiveLimit);
@@ -591,9 +595,9 @@ function collectWholePageScanTargets(limit: number): FragmentTextTarget[] {
     return targets.map(target => ({ ...target, parserId: target.parserId ?? 'whole-page-parser' }));
 }
 
-function collectGenericProseTargets(limit: number): FragmentTextTarget[] {
+function collectGenericProseTargets(limit: number, existingTargets: ScanTextTarget[] = []): FragmentTextTarget[] {
     const roots = genericProseRoots();
-    const collection: GenericProseCollection = { targets: [], seen: new Set(), limit };
+    const collection: GenericProseCollection = { targets: [], seen: seenTextNodes(existingTargets), limit };
 
     for (const root of roots) {
         collectGenericProseTargetsFromRoot(root, collection);
@@ -603,11 +607,18 @@ function collectGenericProseTargets(limit: number): FragmentTextTarget[] {
     return collection.targets;
 }
 
-function collectSafeUiChromeTargets(limit: number, existingTargets: FragmentTextTarget[] = []): FragmentTextTarget[] {
+function seenTextNodes(targets: ScanTextTarget[]): Set<Text> {
+    return new Set(targets.flatMap(target => {
+        if ('fragments' in target) return target.fragments[0]?.node ? [target.fragments[0].node] : [];
+        return [target.node];
+    }));
+}
+
+function collectSafeUiChromeTargets(limit: number, existingTargets: ScanTextTarget[] = []): FragmentTextTarget[] {
     if (limit <= 0) return [];
     const collection: GenericProseCollection = {
         targets: [],
-        seen: new Set(existingTargets.flatMap(target => target.fragments[0]?.node ? [target.fragments[0].node] : [])),
+        seen: seenTextNodes(existingTargets),
         limit,
     };
 

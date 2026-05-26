@@ -1,5 +1,5 @@
 import { APP_NAME } from './constants';
-import { HAS_JAPANESE, unwrapReaderWords } from './dom';
+import { HAS_JAPANESE } from './dom';
 import { uiText } from './i18n';
 import type { ReaderSettings } from './types';
 
@@ -77,11 +77,6 @@ const PLAYLIST_BADGE_SELECTOR = [
     '[aria-label*="再生リスト"]',
     '[aria-label*="ミックス"]',
 ].join(',');
-const YOUTUBE_WATCH_TITLE_SELECTOR = [
-    'ytd-watch-metadata h1',
-    'ytd-watch-metadata #title',
-].join(',');
-
 const HIRAGANA_RE = /\p{Script=Hiragana}/u;
 const KATAKANA_RE = /\p{Script=Katakana}/u;
 const HAN_RE = /\p{Script=Han}/u;
@@ -249,8 +244,6 @@ export class YoutubeImmersionFilter {
             this.clear();
             return;
         }
-
-        unwrapYouTubeWatchTitleReaderWords();
 
         if (isYouTubeShortsWatchPage()) {
             this.clearFilteredCards();
@@ -581,13 +574,6 @@ function isNearPageBottom(): boolean {
 
 function isYouTubeWatchPage(): boolean {
     return location.pathname === '/watch';
-}
-
-function unwrapYouTubeWatchTitleReaderWords(): void {
-    if (!isYouTubeWatchPage()) return;
-    document.querySelectorAll<HTMLElement>(YOUTUBE_WATCH_TITLE_SELECTOR).forEach(title => {
-        unwrapReaderWords(title);
-    });
 }
 
 function isYouTubePlaylistLikeCard(card: HTMLElement): boolean {

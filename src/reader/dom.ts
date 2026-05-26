@@ -1284,6 +1284,8 @@ function renderToken(
     span.dataset.sid = String(token.card.sid);
     span.dataset.pitchClass = safePitchClass(token.pitchClass);
     span.dataset.sentence = token.sentence ?? '';
+    if (token.card.spelling) span.dataset.expression = token.card.spelling;
+    if (token.card.reading) span.dataset.reading = token.card.reading;
     if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = 0;
 
     const hasRuby = shouldRenderRuby(surface, token, settings, options.allowRuby);
@@ -1314,6 +1316,8 @@ function renderTokenShell(token: JPDBToken, options: TokenRenderOptions = {}): H
     span.dataset.sid = String(token.card.sid);
     span.dataset.pitchClass = safePitchClass(token.pitchClass);
     span.dataset.sentence = token.sentence ?? '';
+    if (token.card.spelling) span.dataset.expression = token.card.spelling;
+    if (token.card.reading) span.dataset.reading = token.card.reading;
     if (options.passiveInteraction !== true) span.tabIndex = 0;
     return span;
 }
@@ -1331,7 +1335,9 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const hasRuby = shouldRenderRuby(surface, token, settings);
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
     const classes = [readerWordClassName(state, token), hasRuby ? 'jpdb-reader-has-furi' : ''].filter(Boolean).join(' ');
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}" tabindex="0">${content}</span>`;
+    const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : '';
+    const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : '';
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${expression}${reading} tabindex="0">${content}</span>`;
 }
 
 function shouldRenderRuby(surface: string, token: JPDBToken, settings: ReaderSettings, allowRuby = true): boolean {
@@ -1485,6 +1491,7 @@ const INLINE_DISPLAY_VALUES = new Set(['inline', 'contents', 'inline-block', 'in
 const BLOCK_LIKE_DISPLAY_VALUES = new Set(['block', 'flow-root', 'grid', 'list-item', 'table', 'table-row', 'table-cell']);
 
 function isFragileUiText(element: HTMLElement, text: string): boolean {
+    if (isReadablePrimaryDisplayHeadingText(element, text)) return false;
     if (isFragileUiContext(element, text)) return true;
 
     const metrics = fragileTextMetrics(element, text);
@@ -1498,6 +1505,7 @@ function isShortCenteredDisplayHeading(element: HTMLElement, text: string): bool
     if (!heading) return false;
     const style = getComputedStyle(heading);
     const headingText = heading.textContent?.trim() || text;
+    if (isReadablePrimaryDisplayHeadingText(element, text)) return false;
     return style.textAlign === 'center' && compactLength(headingText) <= 40;
 }
 
@@ -1505,6 +1513,14 @@ function closestDisplayHeading(element: HTMLElement): HTMLElement | null {
     return DISPLAY_HEADING_RE.test(element.tagName)
         ? element
         : element.closest<HTMLElement>(DISPLAY_HEADING_SELECTOR);
+}
+
+function isReadablePrimaryDisplayHeadingText(element: HTMLElement, text: string): boolean {
+    const heading = closestDisplayHeading(element);
+    if (!heading || heading.tagName !== 'H1') return false;
+    if (compactLength(text) < 4) return false;
+    if (heading.closest('header, nav, footer, aside, [role="banner"], [role="navigation"], [role="contentinfo"], [role="complementary"]')) return false;
+    return Boolean(heading.closest('main, [role="main"]'));
 }
 
 function isFragileUiContext(element: HTMLElement, text: string): boolean {

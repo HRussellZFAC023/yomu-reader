@@ -98,6 +98,11 @@ interface AnkiCardInfo {
     note?: number;
 }
 
+interface AnkiMultiAction {
+    action: string;
+    params?: Record<string, unknown>;
+}
+
 export interface AnkiRenderedCard {
     cardId: number;
     deckName: string;
@@ -206,13 +211,46 @@ export class AnkiConnectClient {
     }
 
     async findExistingCards(card: JPDBCard): Promise<AnkiLookupResult> {
+        return (await this.findExistingCardsBatch([card]))[0] ?? emptyAnkiLookupResult();
+    }
+
+    async findExistingCardsBatch(cards: JPDBCard[]): Promise<AnkiLookupResult[]> {
         const empty = emptyAnkiLookupResult();
-        if (canUseMobileAnkiHandoff(this.getSettings())) return empty;
-        if (this.isLookupCoolingDown()) return empty;
-        const cacheKey = this.lookupCacheKey(card);
-        const cached = this.readLookupCache(cacheKey);
-        if (cached) return cached;
-        return await this.findExistingCardsUncached(card, cacheKey, empty);
+        if (!cards.length) return [];
+        if (canUseMobileAnkiHandoff(this.getSettings())) return cards.map(() => empty);
+        if (this.isLookupCoolingDown()) return cards.map(() => empty);
+
+        const results: AnkiLookupResult[] = cards.map(() => empty);
+        const pending = new Map<string, { card: JPDBCard; indexes: number[] }>();
+        cards.forEach((card, index) => {
+            const cacheKey = this.lookupCacheKey(card);
+            const cached = this.readLookupCache(cacheKey);
+            if (cached) {
+                results[index] = cached;
+                return;
+            }
+            const group = pending.get(cacheKey) ?? { card, indexes: [] };
+            group.indexes.push(index);
+            pending.set(cacheKey, group);
+        });
+        if (!pending.size) return results;
+
+        try {
+            const done = log.time('findExistingCardsBatch', { terms: pending.size });
+            const resolved = await this.findExistingCardsBatchUncached([...pending.entries()]);
+            for (const [cacheKey, result] of resolved) {
+                this.writeLookupCache(cacheKey, result);
+                pending.get(cacheKey)?.indexes.forEach(index => {
+                    results[index] = result;
+                });
+            }
+            done();
+            return results;
+        } catch (error) {
+            log.warn('Anki batch lookup failed; entering cooldown', { terms: pending.size }, error);
+            this.unavailableUntil = Date.now() + 30000;
+            return results;
+        }
     }
 
     private lookupCacheKey(card: JPDBCard): string {
@@ -222,38 +260,6 @@ export class AnkiConnectClient {
     private isLookupCoolingDown(): boolean {
         if (Date.now() >= this.unavailableUntil) return false;
         return true;
-    }
-
-    private async findExistingCardsUncached(card: JPDBCard, cacheKey: string, empty: AnkiLookupResult): Promise<AnkiLookupResult> {
-        try {
-            const done = log.time('findExistingCards', { term: card.spelling });
-            const noteIds = await this.findCandidateNoteIds(card);
-            if (!noteIds.size) {
-                this.writeLookupCache(cacheKey, empty);
-                done();
-                return empty;
-            }
-
-            const { existing } = await this.loadExistingNotes(card, noteIds);
-            if (!existing.length) {
-                this.writeLookupCache(cacheKey, empty);
-                done();
-                return empty;
-            }
-
-            const result: AnkiLookupResult = {
-                state: stateFromExistingNotes(existing),
-                notes: existing,
-                primary: pickPrimaryExistingNote(existing),
-            };
-            this.writeLookupCache(cacheKey, result);
-            done();
-            return result;
-        } catch (error) {
-            log.warn('Anki lookup failed; entering cooldown', { term: card.spelling }, error);
-            this.unavailableUntil = Date.now() + 30000;
-            return empty;
-        }
     }
 
     private readLookupCache(cacheKey: string): AnkiLookupResult | null {
@@ -266,13 +272,54 @@ export class AnkiConnectClient {
         this.lookupCache.set(cacheKey, { at: Date.now(), result });
     }
 
-    private async findCandidateNoteIds(card: JPDBCard): Promise<Set<number>> {
-        const noteIds = new Set<number>();
-        for (const term of unique([card.spelling, card.reading].filter(Boolean))) {
-            const ids = await this.invoke<number[]>('findNotes', { query: quoteAnkiSearch(term) }).catch((): number[] => []);
-            ids.forEach(id => noteIds.add(id));
+    private async findExistingCardsBatchUncached(groups: Array<[string, { card: JPDBCard }]>): Promise<Map<string, AnkiLookupResult>> {
+        const empty = emptyAnkiLookupResult();
+        const noteIdsByKey = await this.findCandidateNoteIdsByLookupKey(groups);
+        const allNoteIds = unique(Array.from(noteIdsByKey.values()).flatMap(noteIds => [...noteIds]));
+        if (!allNoteIds.length) {
+            return new Map(groups.map(([cacheKey]) => [cacheKey, empty]));
         }
-        return noteIds;
+
+        const notes = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: allNoteIds });
+        const cardsByNote = await this.loadCardsByNote(notes);
+        const notesById = new Map(notes.map(note => [note.noteId, note]));
+        return new Map(groups.map(([cacheKey, { card }]) => {
+            const candidateIds = noteIdsByKey.get(cacheKey) ?? new Set<number>();
+            const matchingNotes = [...candidateIds]
+                .map(noteId => notesById.get(noteId))
+                .filter((note): note is AnkiNoteInfo => Boolean(note && noteLooksLikeCard(note, card)));
+            const existing = matchingNotes.map(note => ankiExistingNoteFromInfo(note, cardsByNote.get(note.noteId) ?? []));
+            return [cacheKey, existing.length ? {
+                state: stateFromExistingNotes(existing),
+                notes: existing,
+                primary: pickPrimaryExistingNote(existing),
+            } : empty];
+        }));
+    }
+
+    private async findCandidateNoteIdsByLookupKey(groups: Array<[string, { card: JPDBCard }]>): Promise<Map<string, Set<number>>> {
+        const keysByTerm = new Map<string, Set<string>>();
+        for (const [cacheKey, { card }] of groups) {
+            for (const term of unique([card.spelling, card.reading].filter(Boolean))) {
+                const keys = keysByTerm.get(term) ?? new Set<string>();
+                keys.add(cacheKey);
+                keysByTerm.set(term, keys);
+            }
+        }
+        const terms = [...keysByTerm.keys()];
+        const responses = await this.invokeMulti<number[]>(terms.map(term => ({
+            action: 'findNotes',
+            params: { query: quoteAnkiSearch(term) },
+        })));
+        const noteIdsByKey = new Map(groups.map(([cacheKey]) => [cacheKey, new Set<number>()]));
+        terms.forEach((term, index) => {
+            const ids = responses[index] ?? [];
+            for (const cacheKey of keysByTerm.get(term) ?? []) {
+                const noteIds = noteIdsByKey.get(cacheKey);
+                ids.forEach(id => noteIds?.add(id));
+            }
+        });
+        return noteIdsByKey;
     }
 
     private async loadExistingNotes(card: JPDBCard, noteIds: Set<number>): Promise<{ existing: AnkiExistingNote[]; candidateNotes: number }> {
@@ -521,6 +568,19 @@ export class AnkiConnectClient {
             throw new Error(resolveUiLanguage(settings.interfaceLanguage) === 'ja' ? this.text('ankiConnectActionFailed') : response.error);
         }
         return response.result;
+    }
+
+    private async invokeMulti<T>(actions: AnkiMultiAction[]): Promise<Array<T | undefined>> {
+        if (!actions.length) return [];
+        try {
+            const responses = await this.invoke<Array<AnkiResponse<T>>>('multi', { actions });
+            return responses.map(response => response.error ? undefined : response.result);
+        } catch (error) {
+            log.warn('AnkiConnect multi action failed; falling back to individual actions', error);
+            return Promise.all(actions.map(action =>
+                this.invoke<T>(action.action, action.params ?? {}).catch(() => undefined),
+            ));
+        }
     }
 
     private text(key: Parameters<typeof uiText>[1]): string {
@@ -1119,12 +1179,15 @@ function noteHasExactTarget(fields: Record<string, string>, exactTargets: string
 }
 
 function noteExpressionContainsTarget(fields: Record<string, string>, exactTargets: string[]): boolean {
-    const expression = firstNoteField(fields, ['Expression', 'Front', 'Word', 'Vocab', 'Term', 'Expression Reading']);
+    const expression = firstNoteField(fields, ANKI_EXPRESSION_FIELD_NAMES);
     return Boolean(expression && exactTargets.some(target => expression.includes(target)));
 }
 
 function firstNoteField(fields: Record<string, string>, names: string[]): string {
-    return names.map(name => fields[name]).find(Boolean) ?? '';
+    const exact = names.map(name => fields[name]).find(Boolean);
+    if (exact) return exact;
+    const normalizedNames = new Set(names.map(normalizeAnkiFieldName));
+    return Object.entries(fields).find(([name, value]) => normalizedNames.has(normalizeAnkiFieldName(name)) && Boolean(value))?.[1] ?? '';
 }
 
 function noteReadingContainsTarget(fields: Record<string, string>, card: JPDBCard): boolean {
@@ -1133,7 +1196,37 @@ function noteReadingContainsTarget(fields: Record<string, string>, card: JPDBCar
 }
 
 function firstNoteReading(fields: Record<string, string>): string {
-    return firstNoteField(fields, ['Reading', 'Kana', 'Yomi']);
+    return firstNoteField(fields, ANKI_READING_FIELD_NAMES);
+}
+
+const ANKI_EXPRESSION_FIELD_NAMES = [
+    'Expression',
+    'Expression Reading',
+    'Front',
+    'Japanese',
+    'Kanji',
+    'Primary',
+    'Term',
+    'Vocab',
+    'Vocabulary',
+    'Vocabulary Kanji',
+    'Vocabulary-Kanji',
+    'Word',
+    'Word Kanji',
+];
+
+const ANKI_READING_FIELD_NAMES = [
+    'Kana',
+    'Pronunciation',
+    'Reading',
+    'Readings',
+    'Vocabulary Kana',
+    'Vocabulary-Kana',
+    'Yomi',
+];
+
+function normalizeAnkiFieldName(value: string): string {
+    return value.replace(/[_\s-]+/g, '').toLowerCase();
 }
 
 function stripHtml(value: string): string {

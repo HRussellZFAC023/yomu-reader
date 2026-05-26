@@ -19,12 +19,18 @@ export interface ReaderParserParseOptions {
     allowJpdbTimeoutFallback?: boolean;
     includeLocalPitch?: boolean;
     skipJpdb?: boolean;
+    requireJpdb?: boolean;
+    allowSegmentedFallback?: boolean;
 }
 
 export interface ReaderParserDependencies {
     getSettings: () => ReaderSettings;
     jpdb: JpdbClient;
     dictionaries: YomitanDictionaryStore;
+}
+
+export function jpdbFirstParseOptions(options: ReaderParserParseOptions = {}): ReaderParserParseOptions {
+    return { requireJpdb: true, includeLocalPitch: false, ...options };
 }
 
 export class ReaderParser {
@@ -46,14 +52,18 @@ export class ReaderParser {
             try {
                 const parsePromise = jpdb.parse(paragraphs);
                 const timeoutMs = options.allowJpdbTimeoutFallback ? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS : 0;
-                const canFallback = options.allowJpdbTimeoutFallback === true && this.canUseParseFallback();
-                const result = timeoutMs > 0 && canFallback
+                const result = timeoutMs > 0
                     ? await withTimeout(parsePromise, timeoutMs, () => new Error('JPDB parse timed out.'))
                     : await parsePromise;
                 done();
                 return result;
             } catch (error) {
-                if (!this.canUseParseFallback()) {
+                if (options.requireJpdb) {
+                    log.warn('JPDB-first parse failed without local fallback', error);
+                    done();
+                    throw error;
+                }
+                if (!this.canUseParseFallback(options)) {
                     log.warn('JPDB parse failed without fallback', error);
                     done();
                     throw error;
@@ -74,7 +84,7 @@ export class ReaderParser {
     }
 
     isJpdbBackedCard(card: JPDBCard): boolean {
-        return (!card.source || card.source === 'jpdb') && card.vid > 0 && card.sid > 0;
+        return (!card.source || card.source === 'jpdb') && card.vid > 0;
     }
 
     getCachedCard(vid: number, sid: number): JPDBCard | undefined {
@@ -143,8 +153,8 @@ export class ReaderParser {
         return this.dependencies.getSettings().localDictionariesEnabled;
     }
 
-    private canUseParseFallback(): boolean {
-        return this.canUseLocalDictionaryFallback() || canSegmentJapaneseText();
+    private canUseParseFallback(options: ReaderParserParseOptions): boolean {
+        return this.canUseLocalDictionaryFallback() || options.allowSegmentedFallback === true;
     }
 
     private async parseLocalOrSegmentedText(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
@@ -165,9 +175,11 @@ export class ReaderParser {
     }
 
     private async parseLocalOrSegmentedTextUncached(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
-        if (!this.canUseLocalDictionaryFallback()) return this.parseSegmentedText(text);
-        const tokens = await this.parseLocalDictionaryText(text, options);
-        return tokens.length ? tokens : this.parseSegmentedText(text);
+        if (this.canUseLocalDictionaryFallback()) {
+            const tokens = await this.parseLocalDictionaryText(text, options);
+            if (tokens.length) return tokens;
+        }
+        return options.allowSegmentedFallback === true ? this.parseSegmentedText(text) : [];
     }
 
     private rememberLocalParseCacheEntry(key: string, promise: Promise<JPDBToken[]>): void {
@@ -264,6 +276,7 @@ function localParseCacheKey(text: string, options: ReaderParserParseOptions, set
     return JSON.stringify({
         text,
         localDictionariesEnabled,
+        allowSegmentedFallback: options.allowSegmentedFallback === true,
         includeLocalPitch: localDictionariesEnabled && settings.showPitchAccent && options.includeLocalPitch !== false,
         dictionaries: localDictionariesEnabled ? settings.dictionaryPreferences.map(preference => ({
             name: preference.name,
@@ -274,19 +287,27 @@ function localParseCacheKey(text: string, options: ReaderParserParseOptions, set
 }
 
 export function fallbackLookupTermAtOffset(text: string, offset: number): string {
+    const range = fallbackLookupRangeAtOffset(text, offset);
+    if (range) return normalizeFallbackTerm(text.slice(range.start, range.end));
+    return normalizeFallbackTerm(text);
+}
+
+export function fallbackLookupRangeAtOffset(text: string, offset: number): { start: number; end: number } | undefined {
     const clampedOffset = Math.max(0, Math.min(offset, Math.max(0, text.length - 1)));
+    const segment = segmentJapaneseText(text).find(item => offsetInsideFallbackMatch(item.start, item.end, clampedOffset));
+    if (segment) return { start: segment.start, end: segment.end };
     for (const match of text.matchAll(JAPANESE_SCRIPT_GROUP_RE)) {
         const start = match.index ?? 0;
         const end = start + match[0].length;
         if (offsetInsideFallbackMatch(start, end, clampedOffset)) {
-            return normalizeFallbackTerm(match[0]);
+            return { start, end };
         }
     }
-    return normalizeFallbackTerm(text);
+    return undefined;
 }
 
 function offsetInsideFallbackMatch(start: number, end: number, offset: number): boolean {
-    return (start <= offset && offset < end) || (start < offset && offset <= end);
+    return start <= offset && offset < end;
 }
 
 function normalizeFallbackTerm(text: string): string {
@@ -331,13 +352,13 @@ function segmentJapaneseText(text: string): JapaneseTextSegment[] {
 }
 
 function segmentJapaneseRun(text: string, offset: number, segmenter: IntlSegmenter): JapaneseTextSegment[] {
-    return Array.from(segmenter.segment(text))
+    return mergeAdjacentKanjiSegments(Array.from(segmenter.segment(text))
         .filter(isUsefulJapaneseSegment)
         .map(segment => ({
             surface: segment.segment,
             start: offset + segment.index,
             end: offset + segment.index + segment.segment.length,
-        }));
+        })));
 }
 
 function japaneseWordSegmenter(): IntlSegmenter | null {
@@ -360,6 +381,24 @@ function isUsefulJapaneseSegment(segment: IntlSegmentRecord): boolean {
         && JAPANESE_CHARACTER_RE.test(surface);
 }
 
+function mergeAdjacentKanjiSegments(segments: JapaneseTextSegment[]): JapaneseTextSegment[] {
+    const merged: JapaneseTextSegment[] = [];
+    for (const segment of segments) {
+        const previous = merged.at(-1);
+        if (previous && previous.end === segment.start && isKanjiOnlySegment(previous.surface) && isKanjiOnlySegment(segment.surface)) {
+            previous.surface += segment.surface;
+            previous.end = segment.end;
+            continue;
+        }
+        merged.push({ ...segment });
+    }
+    return merged;
+}
+
+function isKanjiOnlySegment(surface: string): boolean {
+    return /^[\u3400-\u9fff々〆ヵヶ]+$/u.test(surface);
+}
+
 function intlSegmenter(): IntlSegmenterConstructor | null {
     const candidate = (Intl as unknown as { Segmenter?: IntlSegmenterConstructor }).Segmenter;
     return typeof candidate === 'function' ? candidate : null;
@@ -370,10 +409,6 @@ function fallbackJapaneseRunSegment(text: string, offset: number): JapaneseTextS
     if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
     const start = offset + text.indexOf(surface);
     return [{ surface, start, end: start + surface.length }];
-}
-
-function canSegmentJapaneseText(): boolean {
-    return true;
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorFactory: () => Error): Promise<T> {

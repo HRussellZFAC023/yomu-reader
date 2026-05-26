@@ -758,7 +758,15 @@ function normalizeDeckIdSetting(value: unknown, fallback: string): string {
 }
 
 export function hasPersonalizedFuriganaSource(settings: ReaderSettings): boolean {
-    return settings.ankiEnabled || Boolean(settings.apiKey.trim());
+    return shouldLookupAnkiStatus(settings) || Boolean(settings.apiKey.trim());
+}
+
+export function shouldLookupAnkiStatus(settings: Partial<ReaderSettings>): boolean {
+    return Boolean(
+        settings.ankiEnabled
+        || settings.furiganaMode === 'known-status'
+        || hasRequestedAnkiColorSource(settings)
+    );
 }
 
 export function effectiveReaderColorSource(
@@ -766,8 +774,8 @@ export function effectiveReaderColorSource(
     source: ReaderColorSource,
     fallback: ConcreteReaderColorSource = DEFAULT_COLOR_CHANNELS.wordHighlightColorSource,
 ): ConcreteReaderColorSource {
-    if (source !== 'auto') return source;
-    return legacyReaderColorSourceForAuto(settings, fallback);
+    const concrete = source === 'auto' ? legacyReaderColorSourceForAuto(settings, fallback) : source;
+    return effectiveAvailableColorSource(settings, concrete);
 }
 
 export function effectiveReaderTextColorSource(
@@ -783,8 +791,9 @@ export function effectiveSubtitleColorSource(
     source: ReaderColorSource,
     fallback: ConcreteReaderColorSource = DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource,
 ): ConcreteReaderColorSource {
-    if (source !== 'auto') return source;
-    return legacySubtitleColorSourceForAuto(settings, fallback);
+    const concrete = source === 'auto' ? legacySubtitleColorSourceForAuto(settings, fallback) : source;
+    if (concrete === 'status') return 'status';
+    return effectiveAvailableColorSource(settings, concrete);
 }
 
 export function effectiveSubtitleTextColorSource(
@@ -796,15 +805,19 @@ export function effectiveSubtitleTextColorSource(
 }
 
 function effectiveTextColorSource(settings: LegacyReaderSettings, source: ConcreteReaderColorSource): ConcreteReaderColorSource {
+    return effectiveAvailableColorSource(settings, source);
+}
+
+function effectiveAvailableColorSource(settings: LegacyReaderSettings, source: ConcreteReaderColorSource): ConcreteReaderColorSource {
     if (source === 'jpdb' && !hasJpdbStatusSource(settings)) return 'off';
-    if (source === 'anki' && !hasAnkiStatusSource(settings)) return 'off';
-    if (source === 'status') return effectiveAvailableTextStatusSource(settings);
+    if (source === 'anki') return 'anki';
+    if (source === 'status') return effectiveAvailableStatusSource(settings, true);
     return source;
 }
 
-function effectiveAvailableTextStatusSource(settings: LegacyReaderSettings): ConcreteReaderColorSource {
+function effectiveAvailableStatusSource(settings: LegacyReaderSettings, includeRequestedAnki = false): ConcreteReaderColorSource {
     const hasJpdb = hasJpdbStatusSource(settings);
-    const hasAnki = hasAnkiStatusSource(settings);
+    const hasAnki = includeRequestedAnki || hasAnkiStatusSource(settings);
     if (hasJpdb && hasAnki) return 'status';
     if (hasJpdb) return 'jpdb';
     if (hasAnki) return 'anki';
@@ -816,8 +829,24 @@ function hasJpdbStatusSource(settings: LegacyReaderSettings): boolean {
 }
 
 function hasAnkiStatusSource(settings: LegacyReaderSettings): boolean {
-    return Boolean(settings.ankiEnabled);
+    return Boolean(settings.ankiEnabled || (!hasJpdbStatusSource(settings) && hasRequestedAnkiColorSource(settings)));
 }
+
+function hasRequestedAnkiColorSource(settings: Partial<ReaderSettings>): boolean {
+    return COLOR_STATUS_CHANNEL_KEYS.some(key => {
+        const source = settings[key];
+        return source === 'anki' || source === 'status';
+    });
+}
+
+const COLOR_STATUS_CHANNEL_KEYS: ReaderColorChannelKey[] = [
+    'wordHighlightColorSource',
+    'wordUnderlineColorSource',
+    'wordTextColorSource',
+    'subtitleHighlightColorSource',
+    'subtitleUnderlineColorSource',
+    'subtitleTextColorSource',
+];
 
 export function effectiveFuriganaMode(settings: ReaderSettings): Exclude<FuriganaMode, 'auto'> {
     if (!settings.showFurigana || settings.furiganaMode === 'off') return 'off';

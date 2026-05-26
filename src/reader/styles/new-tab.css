@@ -2126,10 +2126,16 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-example-card.has-image
   .jpdb-reader-example-sentence
   .jpdb-reader-word.jpdb-reader-example-target {
-  background: transparent !important;
+  --jpdb-reader-word-underline: transparent;
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 34%,
+    rgb(0 0 0 / 38%)
+  ) !important;
   box-shadow:
     0 0.08em 0 color-mix(in srgb, #000 58%, transparent),
     inset 0 -0.12em 0 color-mix(in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 74%, transparent);
+  text-decoration-color: transparent !important;
 }
 
 .jpdb-reader-newtab-immersion .jpdb-reader-example-translation {

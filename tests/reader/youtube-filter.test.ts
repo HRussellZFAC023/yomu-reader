@@ -531,7 +531,7 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
-    it('unwraps reader words from the YouTube watch title so SPA navigation can replace it cleanly', async () => {
+    it('leaves reader words in the YouTube watch title alone while filtering recommendations', async () => {
         vi.useFakeTimers();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/watch?v=current',
@@ -558,7 +558,7 @@ describe('YouTube immersion filter', () => {
         filter.init();
         await vi.advanceTimersByTimeAsync(0);
 
-        expect(document.querySelector('ytd-watch-metadata h1 .jpdb-reader-word')).toBeNull();
+        expect(document.querySelector('ytd-watch-metadata h1 .jpdb-reader-word')).not.toBeNull();
         expect(document.querySelector('ytd-watch-metadata h1')?.textContent).toBe('古い動画タイトル');
 
         filter.destroy();

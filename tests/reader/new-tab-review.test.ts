@@ -3110,7 +3110,7 @@ describe('new tab review helpers', () => {
             await waitForExpect(() => {
                 expect(parseContent).toHaveBeenCalledWith(
                     root.querySelector('[data-newtab-prompt]'),
-                    expect.objectContaining({ jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true }),
+                    expect.objectContaining({ jpdbTimeoutMs: 1_200 }),
                 );
                 const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-sentence .jpdb-reader-word');
                 expect(word?.textContent).toBe('中学生');
@@ -3351,7 +3351,7 @@ describe('new tab review helpers', () => {
             expect(term.dataset.sentence).toBe('お母ちゃん中学生？');
             expect(parseContent).toHaveBeenCalledWith(
                 root.querySelector('[data-newtab-prompt]'),
-                expect.objectContaining({ jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true }),
+                expect.objectContaining({ jpdbTimeoutMs: 1_200 }),
             );
         } finally {
             root.remove();
@@ -3402,8 +3402,8 @@ describe('new tab review helpers', () => {
             });
             expect(root.querySelector('.jpdb-reader-newtab-immersion')).toBeNull();
             expect(fetchBlobUrl).toHaveBeenCalled();
-            expect(parse).toHaveBeenCalledWith(['一番を見た。'], expect.objectContaining({ jpdbTimeoutMs: 1_200, includeLocalPitch: false }));
-            expect(parse).toHaveBeenCalledWith(['二番を見た。'], expect.objectContaining({ jpdbTimeoutMs: 1_200, includeLocalPitch: false }));
+            expect(parse).toHaveBeenCalledWith(['一番を見た。'], { includeLocalPitch: false, requireJpdb: true });
+            expect(parse).toHaveBeenCalledWith(['二番を見た。'], { includeLocalPitch: false, requireJpdb: true });
         } finally {
             root.remove();
         }
@@ -3468,7 +3468,7 @@ describe('new tab review helpers', () => {
             secondExamples.resolve([newTabImmersionExample('二番')]);
             await waitForExpect(() => {
                 expect(fetchBlobUrl.mock.calls.flatMap(([urls]) => Array.isArray(urls) ? urls : [urls]).join('\n')).toContain('ik-二番');
-                expect(parse).toHaveBeenCalledWith(['二番を見た。'], expect.objectContaining({ jpdbTimeoutMs: 1_200, includeLocalPitch: false }));
+                expect(parse).toHaveBeenCalledWith(['二番を見た。'], { includeLocalPitch: false, requireJpdb: true });
             });
         } finally {
             root.remove();
@@ -4705,7 +4705,7 @@ describe('new tab review helpers', () => {
 
             await controller.dependencies.parseContent(studyRoot);
 
-            expect(parse).toHaveBeenLastCalledWith(['大切です。'], { jpdbTimeoutMs: 15_000, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+            expect(parse).toHaveBeenLastCalledWith(['大切です。'], { jpdbTimeoutMs: 15_000, allowJpdbTimeoutFallback: false, includeLocalPitch: false });
 
             parse.mockClear();
             const popover = document.createElement('div');
@@ -4714,7 +4714,7 @@ describe('new tab review helpers', () => {
 
             await internals.parseNewTabContent(popover);
 
-            expect(parse).toHaveBeenCalledWith(['日本語です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+            expect(parse).toHaveBeenCalledWith(['日本語です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: false, includeLocalPitch: false });
         } finally {
             runtime.destroy();
             document.body.replaceChildren();
@@ -4767,7 +4767,7 @@ describe('new tab review helpers', () => {
             await internals.parseNewTabContent(secondRoot);
 
             expect(parse).toHaveBeenCalledTimes(1);
-            expect(parse).toHaveBeenCalledWith(['大切です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+            expect(parse).toHaveBeenCalledWith(['大切です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: false, includeLocalPitch: false });
         } finally {
             runtime.destroy();
             document.body.replaceChildren();
@@ -5767,6 +5767,28 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('retries new-tab sentence parsing after an all-fallback timeout result', async () => {
+        const fallbackCard = newTabTestCard({ vid: -1, sid: -1, spelling: '分', reading: '', source: 'fallback' });
+        const parsedCard = newTabTestCard({ vid: 1502860, sid: 0, spelling: '分かりません', reading: 'わかりません', source: 'jpdb' });
+        const parse = vi.fn()
+            .mockResolvedValueOnce([[newTabSentenceToken(fallbackCard, '日本語は分かりません。')]])
+            .mockResolvedValueOnce([[newTabSentenceToken(parsedCard, '日本語は分かりません。')]]);
+        const controller = newTabPromptController(DEFAULT_SETTINGS, {
+            parser: {
+                canParse: () => true,
+                parse,
+            } as never,
+        });
+        const internals = controller as unknown as { parsedNewTabSentenceTokens(sentence: string): Promise<JPDBToken[]> };
+
+        await expect(internals.parsedNewTabSentenceTokens('日本語は分かりません。'))
+            .resolves.toEqual([expect.objectContaining({ card: expect.objectContaining({ source: 'fallback' }) })]);
+        await expect(internals.parsedNewTabSentenceTokens('日本語は分かりません。'))
+            .resolves.toEqual([expect.objectContaining({ card: expect.objectContaining({ spelling: '分かりません' }) })]);
+
+        expect(parse).toHaveBeenCalledTimes(2);
+    });
+
     it('renders prefetched next-word front sentence tokens without waiting for parseContent', async () => {
         const first = newTabTestCard({ vid: 1, sid: 1, spelling: '読む', reading: 'よむ', sentence: '本を読む。' });
         const second = newTabTestCard({ vid: 2, sid: 2, spelling: '書く', reading: 'かく', sentence: '名前を書く。' });
@@ -6085,7 +6107,7 @@ describe('new tab review helpers', () => {
             const word = root.querySelector<HTMLElement>('.jpdb-reader-word')!;
             expect(parseContent).toHaveBeenCalledWith(
                 node,
-                expect.objectContaining({ jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true }),
+                expect.objectContaining({ jpdbTimeoutMs: 1_200 }),
             );
             expect(word.classList.contains('jpdb-reader-example-target')).toBe(true);
 

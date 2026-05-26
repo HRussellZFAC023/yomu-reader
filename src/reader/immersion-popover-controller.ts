@@ -33,6 +33,7 @@ import {
     type StoredMiningContext,
 } from './mining-context';
 import { speakerIcon } from './popup-render';
+import { jpdbFirstParseOptions, type ReaderParserParseOptions } from './reader-parser';
 import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 
 const IMMERSION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -66,16 +67,11 @@ export interface ImmersionSearchOptions {
     signal?: AbortSignal;
 }
 
-interface ImmersionParseOptions {
-    jpdbTimeoutMs?: number;
-    allowJpdbTimeoutFallback?: boolean;
-}
-
 interface ImmersionPopoverControllerOptions {
     getSettings: () => ReaderSettings;
     client: ImmersionKitClient;
     audio: AudioPlayer;
-    parseJapanese: (paragraphs: string[], options?: ImmersionParseOptions) => Promise<JPDBToken[][]>;
+    parseJapanese: (paragraphs: string[], options?: ReaderParserParseOptions) => Promise<JPDBToken[][]>;
     canParseJapanese: () => boolean;
     parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
     enrichPitchWords: (tokens: JPDBToken[]) => void | Promise<void>;
@@ -302,11 +298,8 @@ export class ImmersionPopoverController {
         const { examples } = result;
         let index = this.startIndex(card, examples);
         let renderRequest = 0;
-        let hoverAudioCanPlay = false;
+        let hoverAudioCanPlay = true;
         let hoverAudioActive = false;
-        requestAnimationFrame(() => {
-            hoverAudioCanPlay = !container.matches(':hover');
-        });
         const render = (nextIndex: number, playAudio: boolean, promoteMiningContext = false) => {
             const requestId = ++renderRequest;
             index = (nextIndex + examples.length) % examples.length;
@@ -342,13 +335,11 @@ export class ImmersionPopoverController {
             event.preventDefault();
             this.toggleTranslationBlur(container);
         });
-        const handleImmersionHover = (event: MouseEvent | PointerEvent) => {
-            const media = (event.target as HTMLElement).closest?.('.jpdb-reader-example-media');
-            if (!media || !this.options.getSettings().immersionKitPlayOnHover) return;
-            const pointerType = 'pointerType' in event ? event.pointerType : 'mouse';
+        const playHoverAudioForTarget = (hoverTarget: HTMLElement, pointerType: string, relatedTarget: EventTarget | null) => {
+            if (!hoverTarget || !this.options.getSettings().immersionKitPlayOnHover) return;
             const cannotHover = pointerType !== 'mouse' && (window.matchMedia?.('(hover: none)').matches ?? false);
             if (pointerType === 'touch' || cannotHover) return;
-            if (media.contains(event.relatedTarget as Node | null)) return;
+            if (hoverTarget.contains(relatedTarget as Node | null)) return;
             if (!hoverAudioCanPlay) return;
             if (this.shouldSuppressAutoAudioForVideo()) return;
             if (!canAttemptAudiblePlayback()) return;
@@ -358,14 +349,21 @@ export class ImmersionPopoverController {
             pruneOldestSetEntries(this.hoverAudioPlayedKeys, IMMERSION_HOVER_AUDIO_KEY_LIMIT);
             hoverAudioCanPlay = false;
             hoverAudioActive = true;
-            void this.playExampleAudio(examples[index], true, () => hoverAudioActive && container.isConnected && media.isConnected && media.matches(':hover'));
+            void this.playExampleAudio(examples[index], true, () => hoverAudioActive && container.isConnected && hoverTarget.isConnected && hoverTarget.matches(':hover'));
+        };
+        const handleImmersionHover = (event: MouseEvent | PointerEvent) => {
+            const hoverTarget = (event.target as HTMLElement).closest?.<HTMLElement>('.jpdb-reader-example-media, .jpdb-reader-example-card');
+            if (hoverTarget) playHoverAudioForTarget(hoverTarget, 'pointerType' in event ? event.pointerType : 'mouse', event.relatedTarget);
         };
         const bindHoverMedia = () => {
-            container.querySelectorAll<HTMLElement>('.jpdb-reader-example-media').forEach(media => {
-                if (media.dataset.immersionHoverBound === 'true') return;
-                media.dataset.immersionHoverBound = 'true';
-                media.addEventListener('pointerover', handleImmersionHover);
-                media.addEventListener('mouseover', handleImmersionHover);
+            container.querySelectorAll<HTMLElement>('.jpdb-reader-example-media, .jpdb-reader-example-card').forEach(hoverTarget => {
+                if (hoverTarget.dataset.immersionHoverBound === 'true') return;
+                hoverTarget.dataset.immersionHoverBound = 'true';
+                hoverTarget.addEventListener('pointerover', handleImmersionHover);
+                hoverTarget.addEventListener('mouseover', handleImmersionHover);
+                requestAnimationFrame(() => {
+                    if (hoverTarget.isConnected && hoverTarget.matches(':hover')) playHoverAudioForTarget(hoverTarget, 'mouse', null);
+                });
             });
         };
         container.addEventListener('pointerleave', () => {
@@ -838,10 +836,11 @@ export class ImmersionPopoverController {
         if (cached) return cached.tokens ? Promise.resolve(cached.tokens) : cached.promise;
 
         const entry: ParsedSentenceCacheEntry = { promise: Promise.resolve([]) };
-        entry.promise = this.options.parseJapanese([sentence], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true })
+        entry.promise = this.options.parseJapanese([sentence], jpdbFirstParseOptions())
             .then(([tokens]) => {
                 const parsed = tokens ?? [];
-                entry.tokens = parsed;
+                if (shouldCacheParsedExampleSentenceTokens(parsed)) entry.tokens = parsed;
+                else if (this.parsedSentenceCache.get(key) === entry) this.parsedSentenceCache.delete(key);
                 return parsed;
             })
             .catch(error => {
@@ -872,6 +871,11 @@ export class ImmersionPopoverController {
     }
 
     private async playExampleAudio(example: ImmersionKitExample, quiet = false, isCurrent: () => boolean = () => true): Promise<void> {
+        const settings = this.options.getSettings();
+        if (!settings.audioEnabled) {
+            if (!quiet) this.options.toast(uiText(settings.interfaceLanguage, 'audioPlaybackDisabled'));
+            return;
+        }
         const source = this.exampleAudioSource(example, quiet);
         if (!source) return;
 
@@ -1139,6 +1143,14 @@ function renderExampleActionsHtml(hasAudio: boolean, language: ReaderSettings['i
             <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${escapeHtml(uiText(language, 'nextExample'))}" aria-label="${escapeHtml(uiText(language, 'nextExample'))}">›</button>
         </div>
     `;
+}
+
+function shouldCacheParsedExampleSentenceTokens(tokens: JPDBToken[]): boolean {
+    return !tokens.length || tokens.some(token => token.card.source !== 'fallback');
+}
+
+function isHoveringExampleMedia(container: HTMLElement): boolean {
+    return Boolean(container.querySelector('.jpdb-reader-example-media:hover'));
 }
 
 function heldExampleMediaStyle(image: HeldExampleImage): string {

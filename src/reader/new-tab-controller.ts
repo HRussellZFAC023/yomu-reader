@@ -79,7 +79,7 @@ import {
     type StatsSourceId,
     type StatsSourceSnapshot,
 } from './stats';
-import type { ReaderParser } from './reader-parser';
+import { jpdbFirstParseOptions, type ReaderParser } from './reader-parser';
 import type { CardState, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import type { RtkClient, RtkInfo } from './rtk';
 import { gmStorageDelete, gmStorageGet, gmStorageSet } from './storage';
@@ -138,7 +138,11 @@ interface ParsedNewTabSentenceCacheEntry {
 }
 
 function newTabShortParseOptions(): NewTabParseContentOptions {
-    return { jpdbTimeoutMs: NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS, allowJpdbTimeoutFallback: true };
+    return { jpdbTimeoutMs: NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS };
+}
+
+function shouldCacheParsedNewTabSentenceTokens(tokens: JPDBToken[]): boolean {
+    return !tokens.length || tokens.some(token => token.card.source !== 'fallback');
 }
 
 function searchCardStateLabel(state: string, language: ReaderSettings['interfaceLanguage']): string {
@@ -1398,6 +1402,7 @@ export class NewTabController {
         const settings = this.dependencies.getSettings();
         if (!revealed || !card || this.state.mode !== 'word') return;
         if (!settings.immersionKitEnabled || !settings.immersionKitAutoPlayAudio) return;
+        if (!settings.audioEnabled) return;
         if (!canAttemptAudiblePlayback(true)) return;
         void this.playCurrentImmersionAudio(card);
     }
@@ -3344,12 +3349,10 @@ export class NewTabController {
         if (cached) return cached.tokens ? Promise.resolve(cached.tokens) : cached.promise;
 
         const entry: ParsedNewTabSentenceCacheEntry = { promise: Promise.resolve([]) };
-        entry.promise = this.dependencies.parser.parse([key], {
-            ...newTabShortParseOptions(),
-            includeLocalPitch: false,
-        }).then(([tokens]) => {
+        entry.promise = this.dependencies.parser.parse([key], jpdbFirstParseOptions()).then(([tokens]) => {
             const parsed = tokens ?? [];
-            entry.tokens = parsed;
+            if (shouldCacheParsedNewTabSentenceTokens(parsed)) entry.tokens = parsed;
+            else if (this.parsedSentenceCache.get(key) === entry) this.parsedSentenceCache.delete(key);
             return parsed;
         }).catch(error => {
             if (this.parsedSentenceCache.get(key) === entry) this.parsedSentenceCache.delete(key);
@@ -3508,6 +3511,7 @@ export class NewTabController {
         const settings = this.dependencies.getSettings();
         return settings.immersionKitEnabled
             && settings.immersionKitAutoPlayAudio
+            && settings.audioEnabled
             && canAttemptAudiblePlayback(true);
     }
 
@@ -3600,6 +3604,7 @@ export class NewTabController {
     }
 
     private async playCurrentImmersionAudio(card: JPDBCard): Promise<void> {
+        if (!this.dependencies.getSettings().audioEnabled) return;
         const key = cardKey(card);
         const examples = await this.loadImmersionExamples(card);
         if (!this.isCurrentRevealedWordCard(key)) return;

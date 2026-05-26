@@ -24,12 +24,16 @@ export const DEFAULT_YOMU_PUBLIC_PROXY_URL = 'https://yomu-jpdb-public-proxy.hen
 
 const BUILT_IN_PROXY_BUILDERS: ProxyUrlBuilder[] = [
     targetUrl => configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? '',
-    targetUrl => `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+    targetUrl => allOriginsProxyUrl(targetUrl),
     targetUrl => jishoMarkdownProxyUrl(targetUrl) ?? '',
 ];
 
 const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
 const READ_METHODS = new Set(['GET', 'HEAD']);
+const KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS = new Set([
+    'd1pra95f92lrn3.cloudfront.net',
+    'd1vjc5dkcd3yh2.cloudfront.net',
+]);
 
 export function proxyUrlCandidates(targetUrl: string, configuredProxyUrl = '', allowPublicProxies = true): string[] {
     const candidates = [
@@ -228,6 +232,18 @@ function isKnownDirectCorsTarget(targetUrl: string): boolean {
     }
 }
 
+export function isKnownCorsBlockedPublicAudioCdnUrl(target: string | URL): boolean {
+    try {
+        const url = typeof target === 'string'
+            ? (typeof location === 'undefined' ? new URL(target) : new URL(target, location.href))
+            : target;
+        return KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(url.hostname)
+            && url.pathname.startsWith('/audio/');
+    } catch {
+        return false;
+    }
+}
+
 function shouldSkipDirectCrossOriginFetch(targetUrl: string, options: ProxyFetchOptions): boolean {
     if (!isCrossOriginHttpUrl(targetUrl)) return false;
     try {
@@ -239,7 +255,7 @@ function shouldSkipDirectCrossOriginFetch(targetUrl: string, options: ProxyFetch
         if (target.hostname === 'jisho.org') {
             return method === 'GET' && target.pathname.startsWith('/search/');
         }
-        if (target.hostname === 'd1vjc5dkcd3yh2.cloudfront.net' && target.pathname.startsWith('/audio/')) {
+        if (isKnownCorsBlockedPublicAudioCdnUrl(target)) {
             return method === 'GET';
         }
         if (target.hostname === 'cdn.innovativelanguage.com' && target.pathname.includes('/learningcenter/audio/')) {
@@ -275,11 +291,12 @@ function specializedProxyUrls(targetUrl: string, options: ProxyFetchOptions): st
         }
         if (method === 'GET' && target.hostname === 'jisho.org' && target.pathname.startsWith('/search/')) {
             return [
-                configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? '',
+                allOriginsProxyUrl(targetUrl),
                 jishoMarkdownProxyUrl(targetUrl) ?? '',
+                configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? '',
             ];
         }
-        if (method === 'GET' && target.hostname === 'd1vjc5dkcd3yh2.cloudfront.net' && target.pathname.startsWith('/audio/')) {
+        if (method === 'GET' && isKnownCorsBlockedPublicAudioCdnUrl(target)) {
             return [configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ''];
         }
         if (method === 'GET' && target.hostname === 'cdn.innovativelanguage.com' && target.pathname.includes('/learningcenter/audio/')) {
@@ -326,7 +343,8 @@ function isCrossOriginHttpUrl(targetUrl: string): boolean {
 function isJpdbPublicAudioUrl(targetUrl: string): boolean {
     try {
         const target = new URL(targetUrl, location.href);
-        return target.hostname === 'jpdb.io' && target.pathname.startsWith('/static/v/');
+        return (target.hostname === 'jpdb.io' && target.pathname.startsWith('/static/v/'))
+            || isKnownCorsBlockedPublicAudioCdnUrl(target);
     } catch {
         return false;
     }
@@ -412,4 +430,8 @@ function jishoMarkdownProxyUrl(targetUrl: string): string | null {
     } catch {
         return null;
     }
+}
+
+function allOriginsProxyUrl(targetUrl: string): string {
+    return `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
 }

@@ -2,6 +2,7 @@ import { AnkiConnectClient, canUseMobileAnkiHandoff, type AnkiAudioMergeMode, ty
 import { resolveAnkiWordAudio } from './audio';
 import { copyText } from './browser-ui';
 import { normalizeCardStates } from './card-state';
+import { readerWordSurfaceText } from './dom';
 import { JpdbClient } from './jpdb';
 import { handleStudyGrammarAction, renderStudyToolResult } from './study-render';
 import { uiText } from './i18n';
@@ -74,7 +75,7 @@ export class CardActionController {
             'study-grammar-toggle-known-visibility': () => this.performStudyGrammarToggle(button, sentence),
             'study-translate': () => this.performStudyTool(button, action, sentence),
             'study-grammar': () => this.performStudyGrammarTool(button, sentence),
-            'study-read-sentence': () => this.performStudyReadSentence(sentence),
+            'study-read-sentence': () => this.performStudyReadSentence(button, sentence),
             'jpdb-example-audio': () => this.performJpdbExampleAudio(button),
             'anki-media-audio': () => this.performAnkiMediaAudio(button),
         };
@@ -99,9 +100,16 @@ export class CardActionController {
         return false;
     }
 
-    private async performStudyReadSentence(sentence?: string): Promise<boolean> {
-        await this.options.playSentenceAudio(sentence);
+    private async performStudyReadSentence(button: HTMLButtonElement, sentence?: string): Promise<boolean> {
+        await this.options.playSentenceAudio(this.studySentenceFromButton(button) || sentence);
         return false;
+    }
+
+    private studySentenceFromButton(button: HTMLButtonElement): string {
+        const original = button
+            .closest<HTMLElement>('.jpdb-reader-study-sentence-block')
+            ?.querySelector<HTMLElement>('[data-study-original-render]');
+        return original ? readerWordSurfaceText(original).replace(/\s+/g, ' ').trim() : '';
     }
 
     private async performJpdbExampleAudio(button: HTMLButtonElement): Promise<boolean> {
@@ -184,6 +192,7 @@ export class CardActionController {
         if (!popover) return;
         delete popover.dataset.jpdbReaderParseKey;
         delete popover.dataset.jpdbReaderParseLoadingKey;
+        delete popover.dataset.jpdbReaderParseLoadingId;
         await this.options.parsePopoverJapanese(popover);
     }
 
