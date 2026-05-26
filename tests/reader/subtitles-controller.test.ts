@@ -114,6 +114,58 @@ describe('SubtitlePlayerController', () => {
         expect(sidePanelActions).toContain('load-secondary');
     });
 
+    it('lets video rail controls auto-hide while the transcript panel is open', async () => {
+        vi.useFakeTimers();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+
+        try {
+            (controller as unknown as { install: () => void }).install();
+            const video = document.createElement('video');
+            Object.defineProperty(video, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(0, 72, 960, 540),
+            });
+            const internals = controller as unknown as {
+                video: HTMLVideoElement;
+                cues: Array<{ start: number; end: number; text: string; transcriptEligible: boolean }>;
+                openLinesPanel: () => void;
+            };
+            internals.video = video;
+            internals.cues = [
+                { start: 0, end: 1, text: '一番', transcriptEligible: true },
+                { start: 1, end: 2, text: '二番', transcriptEligible: true },
+            ];
+            controller.refresh();
+
+            internals.openLinesPanel();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            expect(document.querySelector<HTMLElement>('.jpdb-subtitle-list')?.hidden).toBe(false);
+            expect(root.classList.contains('jpdb-subtitle-panel-open')).toBe(true);
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+
+            (controller as unknown as { handlePointerActivity: (event: Pick<PointerEvent, 'clientX' | 'clientY'>) => void })
+                .handlePointerActivity({ clientX: 100, clientY: 100 });
+
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
+
+            await vi.advanceTimersByTimeAsync(2600);
+
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps the tracks panel open after choosing a primary track so Lines is an explicit next step', async () => {
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -1035,5 +1087,56 @@ describe('SubtitlePlayerController', () => {
         row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
 
         expect(video.currentTime).toBeCloseTo(90);
+    });
+
+    it('resumes a playing video after transcript row seeking pauses it', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            subtitleTranscriptAutoScroll: false,
+            apiKey: '',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+        (controller as unknown as { install: () => void }).install();
+
+        const video = document.createElement('video');
+        let currentTime = 0;
+        let paused = false;
+        Object.defineProperty(video, 'currentTime', {
+            configurable: true,
+            get: () => currentTime,
+            set: value => {
+                currentTime = Number(value);
+                paused = true;
+            },
+        });
+        Object.defineProperty(video, 'paused', { configurable: true, get: () => paused });
+        Object.defineProperty(video, 'ended', { configurable: true, value: false });
+        const play = vi.fn(async () => {
+            paused = false;
+        });
+        Object.defineProperty(video, 'play', { configurable: true, value: play });
+
+        const cues = [{ start: 12, end: 14, text: '日本語の行', transcriptEligible: true }];
+        const internals = controller as unknown as {
+            video: HTMLVideoElement;
+            cues: typeof cues;
+            currentCue: typeof cues[number];
+            openLinesPanel: () => void;
+        };
+        internals.video = video;
+        internals.cues = cues;
+        internals.currentCue = cues[0];
+
+        internals.openLinesPanel();
+        document.querySelector<HTMLElement>('.jpdb-subtitle-list-row')!
+            .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        expect(currentTime).toBeCloseTo(12);
+        expect(play).toHaveBeenCalledTimes(1);
     });
 });

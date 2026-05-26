@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/nested-text-parse';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm } from '../../src/reader/settings-form';
+import type { JPDBCard, JPDBToken } from '../../src/reader/types';
 
 const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
 
@@ -81,6 +83,25 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.immersionKitAutoPlayAudio).toBe(true);
         expect(toggle?.checked).toBe(true);
         expect(toggle?.closest('label')?.textContent).toContain('reveal');
+    });
+
+    it('exposes video-safe autoplay and popover dimming settings', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const videoAudio = form.querySelector<HTMLInputElement>('input[name="suppressAutoAudioOnVideo"]')!;
+        const backdrop = form.querySelector<HTMLInputElement>('input[name="popoverBackdropEnabled"]')!;
+
+        expect(DEFAULT_SETTINGS.suppressAutoAudioOnVideo).toBe(true);
+        expect(DEFAULT_SETTINGS.popoverBackdropEnabled).toBe(true);
+        expect(videoAudio.checked).toBe(true);
+        expect(backdrop.checked).toBe(true);
+
+        videoAudio.checked = false;
+        backdrop.checked = false;
+
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        expect(saved.suppressAutoAudioOnVideo).toBe(false);
+        expect(saved.popoverBackdropEnabled).toBe(false);
     });
 
     it('shows the Nadeshiko key field only for Nadeshiko-backed example modes', () => {
@@ -248,4 +269,53 @@ describe('settings form localization', () => {
         expect(label.querySelector('.jpdb-reader-word')).toBeNull();
         expect(label.textContent).toBe('閉じるまで下部シートを開いたままにする');
     });
+
+    it('keeps parsed Japanese inline labels inside one grid item', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        localizeSettingsForm(form, 'ja');
+        const label = form.querySelector<HTMLInputElement>('input[name="jpdbMiningEnabled"]')!.closest('label')!;
+        const labelText = label.querySelector<HTMLElement>(':scope > .jpdb-reader-settings-label-text');
+
+        expect(labelText?.textContent).toBe('JPDBの復習・デッキ変更を許可');
+
+        const plan = nestedSettingsTextParsePlan(form, 640)!;
+        const targetIndex = plan.targets.findIndex(target => target.text === 'JPDBの復習・デッキ変更を許可');
+        expect(targetIndex).toBeGreaterThanOrEqual(0);
+        const parsed = plan.targets.map(() => [] as JPDBToken[]);
+        parsed[targetIndex] = [settingsToken('JPDB', 0)];
+
+        applyNestedParsePlan(plan, parsed, DEFAULT_SETTINGS);
+
+        expect(Array.from(label.children).filter(child => child.classList.contains('jpdb-reader-word'))).toHaveLength(0);
+        expect(label.querySelector(':scope > .jpdb-reader-settings-label-text .jpdb-reader-word')?.textContent).toBe('JPDB');
+    });
 });
+
+function settingsToken(surface: string, start: number): JPDBToken {
+    return {
+        card: settingsCard(surface),
+        start,
+        end: start + surface.length,
+        length: surface.length,
+        rubies: [],
+        pitchClass: '',
+    };
+}
+
+function settingsCard(spelling: string): JPDBCard {
+    return {
+        vid: 1464530,
+        sid: 0,
+        rid: 0,
+        spelling,
+        reading: spelling,
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: ['not-in-deck'],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'fallback',
+    };
+}

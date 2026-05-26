@@ -5526,6 +5526,27 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('times out hung new-tab Immersion Kit example loads', async () => {
+        vi.useFakeTimers();
+        const card = newTabTestCard({ spelling: '中学生', reading: 'ちゅうがくせい' });
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, audioTimeoutMs: 1000 }, {
+            immersionKit: {
+                search: vi.fn(() => new Promise<ImmersionKitExample[]>(() => undefined)),
+                mediaUrls: vi.fn(() => []),
+            } as never,
+        });
+
+        try {
+            const load = (controller as unknown as { loadImmersionExamples(card: JPDBCard): Promise<ImmersionKitExample[]> })
+                .loadImmersionExamples(card);
+            await vi.advanceTimersByTimeAsync(2000);
+
+            await expect(load).resolves.toEqual([]);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('uses JPDB related vocabulary queries when new-tab Immersion Kit reveal has no direct examples', async () => {
         const card = newTabTestCard({ vid: 44, sid: 44, spelling: '甘言', reading: 'かんげん' });
         const example: ImmersionKitExample = {

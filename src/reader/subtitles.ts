@@ -1556,8 +1556,7 @@ export class SubtitlePlayerController {
     }
 
     private hasActiveSubtitleUi(): boolean {
-        return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden)
-            || Boolean(this.root?.classList.contains('jpdb-subtitle-menu-open'))
+        return Boolean(this.root?.classList.contains('jpdb-subtitle-menu-open'))
             || Boolean(this.root?.matches(':focus-within'));
     }
 
@@ -1608,7 +1607,7 @@ export class SubtitlePlayerController {
     private seekSubtitle(direction: -1 | 1): void {
         if (!this.video) return;
         if (!this.cues.length) {
-            this.video.currentTime = Math.max(0, this.video.currentTime + direction * 5);
+            this.seekVideoTo(Math.max(0, this.video.currentTime + direction * 5));
             return;
         }
 
@@ -1639,12 +1638,34 @@ export class SubtitlePlayerController {
 
     private seekToCueObject(cue: SubtitleCue, options: { exact?: boolean } = {}): void {
         const padding = options.exact ? 0 : this.options.getSettings().subtitleSeekPadding;
-        if (this.video) this.video.currentTime = Math.max(0, cue.start + padding);
+        this.seekVideoTo(Math.max(0, cue.start + padding));
         this.currentCue = cue;
         this.secondaryCue = this.secondaryCues.find(item => cue.start >= item.start - 0.35 && cue.start <= item.end + 0.35);
         this.render();
         this.syncControls();
         this.renderTranscriptPanel();
+    }
+
+    private seekVideoTo(time: number): void {
+        const video = this.video;
+        if (!video) return;
+        const shouldResume = !video.paused && !video.ended;
+        video.currentTime = time;
+        if (shouldResume) this.resumeVideoAfterSeek(video);
+    }
+
+    private resumeVideoAfterSeek(video: HTMLVideoElement): void {
+        const requestPlay = () => {
+            if (this.video !== video || !video.paused) return;
+            void video.play().catch(() => undefined);
+        };
+        const handleSeeked = () => requestPlay();
+        requestPlay();
+        video.addEventListener('seeked', handleSeeked, { once: true });
+        window.setTimeout(() => {
+            video.removeEventListener('seeked', handleSeeked);
+            requestPlay();
+        }, 160);
     }
 
     private async copySubtitle(index?: number): Promise<void> {

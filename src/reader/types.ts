@@ -207,6 +207,7 @@ export interface ReaderSettings {
     similarKanjiWordLimit: number;
     audioEnabled: boolean;
     autoPlayAudio: boolean;
+    suppressAutoAudioOnVideo: boolean;
     audioAutoPlayMode: AudioAutoPlayMode;
     audioSources: AudioSourceSetting[];
     audioEnableDefaultSources: boolean;
@@ -332,6 +333,7 @@ export interface ReaderSettings {
     theme: 'auto' | 'light' | 'dark';
     popupMode: 'auto' | 'sheet' | 'popover';
     stickyBottomSheet: boolean;
+    popoverBackdropEnabled: boolean;
     popoverWidth: number;
     popoverHeight: number;
     popoverHeightMode: 'available' | 'fixed';

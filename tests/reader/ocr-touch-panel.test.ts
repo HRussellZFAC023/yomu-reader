@@ -252,4 +252,67 @@ describe('OCR sentence focus', () => {
             document.body.replaceChildren();
         }
     });
+
+    it('pauses local OCR fetches after the endpoint is unreachable', async () => {
+        const restoreCanvas = installCanvasEncodingMock();
+        installIntersectionObserver();
+        const first = document.createElement('img');
+        first.src = '/ocr-local-down-1.png';
+        Object.defineProperty(first, 'naturalWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(first, 'naturalHeight', { configurable: true, value: 600 });
+        first.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
+        const second = document.createElement('img');
+        second.src = '/ocr-local-down-2.png';
+        Object.defineProperty(second, 'naturalWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(second, 'naturalHeight', { configurable: true, value: 600 });
+        second.getBoundingClientRect = () => new DOMRect(40, 120, 500, 300);
+        document.body.replaceChildren(first, second);
+
+        const unavailableMessage = 'Local OCR server is unreachable. Start it or allow CORS for this page.';
+        const fetchMock = vi.fn(async () => {
+            throw new TypeError('NetworkError when attempting to fetch resource.');
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const controller = new ImageOcrController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ocrEnabled: true,
+                ocrAutoScanImages: false,
+                ocrShowTextOverlay: false,
+                ocrProvider: 'local-service',
+                ocrMinImageArea: 1,
+                ocrMaxImagesPerPage: 5,
+                ocrPrefetchMargin: 0,
+            }),
+            parseJapanese: vi.fn(async () => []),
+            onToast: vi.fn(),
+            shouldAutoScan: () => false,
+        });
+
+        try {
+            controller.init();
+            dispatchPointerEvent(first, 'pointerover');
+
+            await waitForExpect(() => {
+                expect(fetchMock).toHaveBeenCalledTimes(1);
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-status')?.textContent)
+                    .toBe(unavailableMessage);
+            });
+
+            dispatchPointerEvent(second, 'pointerover');
+
+            await waitForExpect(() => {
+                const statuses = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-ocr-status'));
+                expect(fetchMock).toHaveBeenCalledTimes(1);
+                expect(statuses).toHaveLength(2);
+                expect(statuses[1]?.textContent).toBe(unavailableMessage);
+            });
+        } finally {
+            controller.destroy();
+            restoreCanvas();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
 });

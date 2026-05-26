@@ -11,6 +11,7 @@ import type { YomitanDictionaryInfo } from './yomitan';
 import { externalLinkIcon, speakerIcon } from './popup-render';
 
 const log = Logger.scope('SettingsForm');
+const SETTINGS_LABEL_TEXT_CLASS = 'jpdb-reader-settings-label-text';
 type SelectableReaderColorSource = Exclude<ReaderColorSource, 'auto'>;
 type ColorSourceSettingName =
     | 'wordHighlightColorSource'
@@ -281,6 +282,7 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
                     ${themeSegmentedControl(settings.theme)}
                     ${select('popupMode', 'Popup mode', settings.popupMode, [['auto', 'Auto'], ['sheet', 'Bottom sheet'], ['popover', 'Popover']])}
                     ${renderStickyBottomSheetControl(settings)}
+                    ${checkbox('popoverBackdropEnabled', 'Dim page behind popover', settings.popoverBackdropEnabled)}
                     ${input('popoverWidth', 'Popover width (px)', String(settings.popoverWidth), 'number', { min: 280, max: 900, step: 10 })}
                     ${input('popoverHeight', 'Popover height (px)', String(settings.popoverHeight), 'number', { min: 220, max: 900, step: 10 })}
                     ${select('popoverHeightMode', 'Popover height', settings.popoverHeightMode, [['available', 'Grow to available space'], ['fixed', 'Use height setting']])}
@@ -390,6 +392,7 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
                 <legend>Audio</legend>
                 ${checkbox('audioEnabled', 'Enable audio playback for terms', settings.audioEnabled)}
                 ${checkbox('autoPlayAudio', 'Auto-play when a word card opens', settings.autoPlayAudio)}
+                ${checkbox('suppressAutoAudioOnVideo', 'Do not auto-play lookup audio on video pages', settings.suppressAutoAudioOnVideo)}
                 ${checkbox('audioEnableDefaultSources', 'Use built-in audio sources', settings.audioEnableDefaultSources)}
                 ${checkbox('audioFallbackChimeEnabled', 'Play a soft chime when no audio is available', settings.audioFallbackChimeEnabled)}
                 <div class="grid">
@@ -779,6 +782,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
     localizeSettingsEditorChrome(form, text);
     localizeHelpLinksPanel(form, language);
     syncSettingsSelectOptionMeta(form, language);
+    normalizeSettingsLabelTextContainers(form);
 }
 
 type SettingsText = (key: Parameters<typeof uiText>[1]) => string;
@@ -1337,6 +1341,7 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['interfaceLanguage', 'settingsLanguage'],
         ['popupMode', 'popupMode'],
         ['stickyBottomSheet', 'stickyBottomSheet'],
+        ['popoverBackdropEnabled', 'popoverBackdropEnabled'],
         ['popoverWidth', 'popoverWidth'],
         ['popoverHeight', 'popoverHeight'],
         ['popoverHeightMode', 'popoverHeightMode'],
@@ -1392,6 +1397,7 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['similarKanjiWordLimit', 'similarKanjiWordLimit'],
         ['audioEnabled', 'audioEnabled'],
         ['autoPlayAudio', 'autoPlayAudio'],
+        ['suppressAutoAudioOnVideo', 'suppressAutoAudioOnVideo'],
         ['audioAutoPlayMode', 'audioAutoPlayMode'],
         ['audioEnableDefaultSources', 'audioEnableDefaultSources'],
         ['audioFallbackChimeEnabled', 'audioFallbackChimeEnabled'],
@@ -1509,15 +1515,67 @@ function setControlLabel(form: HTMLFormElement, name: string, label: string): vo
 }
 
 function setBlockLabelText(label: Element, text: string): void {
+    const container = directSettingsLabelTextContainer(label);
+    if (container) {
+        setLeadingText(container, text);
+        return;
+    }
     const textNode = Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE) as Text | undefined;
     if (textNode) textNode.textContent = text;
     else label.insertBefore(document.createTextNode(text), label.firstChild);
 }
 
 function setInlineLabelText(label: Element, text: string): void {
+    const container = directSettingsLabelTextContainer(label);
+    if (container) {
+        container.replaceChildren(text);
+        return;
+    }
     const textNode = Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim()) as Text | undefined;
     if (textNode) textNode.textContent = text;
     else label.append(document.createTextNode(text));
+}
+
+function directSettingsLabelTextContainer(label: Element): HTMLElement | null {
+    return Array.from(label.children).find((child): child is HTMLElement =>
+        child instanceof HTMLElement && child.classList.contains(SETTINGS_LABEL_TEXT_CLASS),
+    ) ?? null;
+}
+
+function setLeadingText(container: HTMLElement, text: string): void {
+    const textNode = Array.from(container.childNodes).find(node => node.nodeType === Node.TEXT_NODE) as Text | undefined;
+    if (textNode) textNode.textContent = text;
+    else container.insertBefore(document.createTextNode(text), container.firstChild);
+}
+
+function normalizeSettingsLabelTextContainers(form: HTMLFormElement): void {
+    form.querySelectorAll<HTMLLabelElement>('label').forEach(normalizeSettingsLabelTextContainer);
+}
+
+function normalizeSettingsLabelTextContainer(label: HTMLLabelElement): void {
+    let pending: ChildNode[] = [];
+    const flush = () => {
+        if (!pending.length) return;
+        const wrapper = document.createElement('span');
+        wrapper.className = SETTINGS_LABEL_TEXT_CLASS;
+        label.insertBefore(wrapper, pending[0]);
+        pending.forEach(node => wrapper.append(node));
+        pending = [];
+    };
+
+    for (const node of Array.from(label.childNodes)) {
+        if (isWrappableSettingsLabelNode(node)) {
+            pending.push(node);
+            continue;
+        }
+        flush();
+    }
+    flush();
+}
+
+function isWrappableSettingsLabelNode(node: ChildNode): boolean {
+    if (node.nodeType === Node.TEXT_NODE) return Boolean((node.textContent ?? '').trim());
+    return node instanceof HTMLAnchorElement;
 }
 
 function setRadioLabel(form: HTMLFormElement, name: string, value: string, label: string): void {
@@ -2488,6 +2546,7 @@ function readAudioFormSettings(reader: SettingsFormReader, current: ReaderSettin
     return {
         audioEnabled: has('audioEnabled'),
         autoPlayAudio: has('autoPlayAudio'),
+        suppressAutoAudioOnVideo: has('suppressAutoAudioOnVideo'),
         audioAutoPlayMode: readOption(get('audioAutoPlayMode'), ['all', 'hover', 'tap'] as const, current.audioAutoPlayMode),
         audioSources,
         audioEnableDefaultSources: has('audioEnableDefaultSources'),
@@ -2620,6 +2679,7 @@ function readPopupFormSettings(reader: SettingsFormReader, current: ReaderSettin
         theme: readOption(get('theme'), ['auto', 'dark', 'light'] as const, current.theme),
         popupMode,
         stickyBottomSheet: popupMode !== 'popover' && has('stickyBottomSheet'),
+        popoverBackdropEnabled: has('popoverBackdropEnabled'),
         popoverWidth: Math.max(280, Math.min(900, number('popoverWidth', current.popoverWidth))),
         popoverHeight: Math.max(220, Math.min(900, number('popoverHeight', current.popoverHeight))),
         popoverHeightMode: readOption(get('popoverHeightMode'), ['available', 'fixed'] as const, current.popoverHeightMode),

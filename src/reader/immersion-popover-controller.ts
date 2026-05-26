@@ -1,4 +1,5 @@
 import { AudioPlayer } from './audio';
+import { hasVisiblePageVideo } from './browser-ui';
 import { cardKey } from './card-utils';
 import { escapeHtml, renderHighlightedTextHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import {
@@ -38,6 +39,7 @@ const IMMERSION_SEARCH_CACHE_LIMIT = 120;
 const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
 const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 48;
 const IMMERSION_LAZY_LOAD_DELAY_MS = 180;
+const IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1_000;
 const IMMERSION_LAZY_LOAD_ROOT_MARGIN = '180px 0px';
 const IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX = 180;
 const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
@@ -175,9 +177,14 @@ export class ImmersionPopoverController {
         const controller = new AbortController();
         this.loadAbortControllers.set(popover, controller);
         const searchPromise = this.searchExamples(card, { ...options, signal: controller.signal });
+        const settings = this.options.getSettings();
 
         try {
-            const result = await raceAgainstAbort(searchPromise, controller.signal);
+            const result = await raceAgainstAbortOrTimeout(
+                searchPromise,
+                controller.signal,
+                settings.audioTimeoutMs + IMMERSION_LOAD_TIMEOUT_GRACE_MS,
+            );
             if (controller.signal.aborted || !isConnectedImmersionSurface(popover, container)) {
                 if (container.dataset.immersionLoadState === 'loading') delete container.dataset.immersionLoadState;
                 return;
@@ -324,7 +331,7 @@ export class ImmersionPopoverController {
             }
             const action = button.dataset.immersionAction;
             if (action === 'previous') render(index - 1, this.shouldAutoPlayCarouselAudio(), true);
-            if (action === 'next') render(index + 1, true, true);
+            if (action === 'next') render(index + 1, this.shouldPlayCarouselNavigationAudio(), true);
             if (action === 'audio') void this.playExampleAudio(examples[index]);
         });
         container.addEventListener('keydown', event => {
@@ -342,6 +349,7 @@ export class ImmersionPopoverController {
             if (pointerType === 'touch' || cannotHover) return;
             if (media.contains(event.relatedTarget as Node | null)) return;
             if (!hoverAudioCanPlay) return;
+            if (this.shouldSuppressAutoAudioForVideo()) return;
             if (!canAttemptAudiblePlayback()) return;
             const audioKey = hoverAudioExampleKey(examples[index]);
             if (this.hoverAudioPlayedKeys.has(audioKey)) return;
@@ -374,7 +382,17 @@ export class ImmersionPopoverController {
         const settings = this.options.getSettings();
         return settings.immersionKitEnabled
             && settings.immersionKitAutoPlayAudio
+            && !this.shouldSuppressAutoAudioForVideo()
             && canAttemptAudiblePlayback(true);
+    }
+
+    private shouldPlayCarouselNavigationAudio(): boolean {
+        return !this.shouldSuppressAutoAudioForVideo();
+    }
+
+    private shouldSuppressAutoAudioForVideo(): boolean {
+        const settings = this.options.getSettings();
+        return settings.suppressAutoAudioOnVideo && hasVisiblePageVideo();
     }
 
     private renderEmptyIfConnected(popover: HTMLElement, container: HTMLElement): void {
@@ -1059,16 +1077,27 @@ function errorName(error: unknown): string {
     return typeof name === 'string' ? name : '';
 }
 
-function raceAgainstAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+function raceAgainstAbortOrTimeout<T>(promise: Promise<T>, signal: AbortSignal, timeoutMs: number): Promise<T> {
     if (signal.aborted) return Promise.reject(abortErrorForRace());
     return new Promise<T>((resolve, reject) => {
-        const onAbort = () => reject(abortErrorForRace());
+        const onAbort = () => {
+            cleanup();
+            reject(abortErrorForRace());
+        };
+        const timeout = window.setTimeout(() => {
+            cleanup();
+            reject(new Error('Immersion Kit examples timed out.'));
+        }, Math.max(1000, timeoutMs));
+        const cleanup = () => {
+            window.clearTimeout(timeout);
+            signal.removeEventListener('abort', onAbort);
+        };
         signal.addEventListener('abort', onAbort, { once: true });
         promise.then(value => {
-            signal.removeEventListener('abort', onAbort);
+            cleanup();
             resolve(value);
         }, error => {
-            signal.removeEventListener('abort', onAbort);
+            cleanup();
             reject(error);
         });
     });

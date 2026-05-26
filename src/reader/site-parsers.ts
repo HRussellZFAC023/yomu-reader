@@ -184,6 +184,8 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             '.subsection-spelling',
             '.primary-spelling',
             '.subsection-label',
+            '.subsection-immersion-kit',
+            '[class*="immersion" i]',
             '.vocabulary-audio',
             '.icon-link',
             '[data-audio]',

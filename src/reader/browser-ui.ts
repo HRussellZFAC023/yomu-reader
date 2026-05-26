@@ -67,6 +67,17 @@ export function pauseActiveVideo(): void {
     target?.pause();
 }
 
+export function hasVisiblePageVideo(): boolean {
+    return Array.from(document.querySelectorAll('video')).some(video => {
+        if (video.closest('[data-jpdb-reader-root]')) return false;
+        const rect = video.getBoundingClientRect();
+        if (rect.width < 120 || rect.height < 90) return false;
+        const style = getComputedStyle(video);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+        return video.readyState > 0 || Boolean(video.currentSrc || video.src) || Number.isFinite(video.duration);
+    });
+}
+
 export function isEditableTarget(target: EventTarget | null): boolean {
     const element = target instanceof Element ? target : null;
     return Boolean(element?.closest('input, textarea, select, [contenteditable="true"]'));

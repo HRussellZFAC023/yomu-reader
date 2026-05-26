@@ -1005,6 +1005,36 @@ describe('reader helpers', () => {
         }
     });
 
+    it('can mount click popovers without dimming the page', () => {
+        const app = new ReaderApp();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            popupMode: 'popover' as const,
+            popoverBackdropEnabled: false,
+        };
+        const internals = app as unknown as {
+            settings: typeof settings;
+            mountPopover(popover: HTMLElement, anchor?: HTMLElement, options?: { mode?: 'modal' | 'hover' }): void;
+        };
+        internals.settings = settings;
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+
+        try {
+            const popover = createReaderPopover('よむ', settings);
+            internals.mountPopover(popover, undefined, { mode: 'modal' });
+
+            expect(popover.getAttribute('aria-modal')).toBe('false');
+            expect(document.querySelector('.jpdb-reader-backdrop')).toBeNull();
+        } finally {
+            vi.unstubAllGlobals();
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('can preserve parsed page words during demo-to-real runtime handoff', () => {
         const app = new ReaderApp();
         const word = document.createElement('span');
@@ -2636,6 +2666,7 @@ describe('reader helpers', () => {
         expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'text-to-speech', url: '', voice: '', enabled: true });
         expect(DEFAULT_SETTINGS.audioFallbackChimeEnabled).toBe(true);
         expect(DEFAULT_SETTINGS.autoPlayAudio).toBe(true);
+        expect(DEFAULT_SETTINGS.suppressAutoAudioOnVideo).toBe(true);
         expect(DEFAULT_SETTINGS.audioAutoPlayMode).toBe('all');
         expect(DEFAULT_SETTINGS.audioTtsMode).toBe('fallback');
     });
@@ -2667,6 +2698,39 @@ describe('reader helpers', () => {
         expect(decoded.type).toBe('audio/ogg; codecs=opus');
         await expect(decodeJpdbAudioBlob(new Blob(['<!doctype html>'], { type: 'text/html' }), true))
             .rejects.toThrow('JPDB audio response was not a playable audio file');
+    });
+
+    it('suppresses automatic lookup audio while a video page is active', () => {
+        const app = new ReaderApp();
+        const video = document.createElement('video');
+        Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            configurable: true,
+            value: () => new DOMRect(0, 0, 640, 360),
+        });
+        document.body.append(video);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture?: boolean, anchor?: HTMLElement): boolean;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: true,
+            autoPlayAudio: true,
+            audioAutoPlayMode: 'tap',
+            suppressAutoAudioOnVideo: true,
+        };
+
+        try {
+            expect(internals.shouldAutoPlay(card, 'modal', true)).toBe(false);
+
+            internals.settings = { ...internals.settings, suppressAutoAudioOnVideo: false };
+
+            expect(internals.shouldAutoPlay(card, 'modal', true)).toBe(true);
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
     });
 
     it('uses the local dev JPDB audio proxy from the newtab app', () => {
@@ -7326,6 +7390,43 @@ describe('reader helpers', () => {
         }
     });
 
+    it('does not leave popup Immersion Kit examples stuck loading after a hung request', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const container = document.createElement('details');
+        container.open = true;
+        container.setAttribute('data-immersion-kit', '');
+        container.dataset.immersionLoadState = 'loading';
+        container.innerHTML = '<summary>Immersion Kit</summary><div class="jpdb-reader-help">Loading examples...</div>';
+        const popover = document.createElement('div');
+        popover.append(container);
+        document.body.append(popover);
+
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            immersionPopover: {
+                loadExamples(popover: HTMLElement, card: JPDBCard): Promise<void>;
+                searchExamples(card: JPDBCard): Promise<unknown>;
+            };
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, audioTimeoutMs: 1000 };
+        internals.immersionPopover.searchExamples = vi.fn(() => new Promise(() => undefined));
+
+        try {
+            const load = internals.immersionPopover.loadExamples(popover, card);
+            await vi.advanceTimersByTimeAsync(2000);
+            await load;
+
+            expect(container.dataset.immersionEmpty).toBe('true');
+            expect(container.textContent).toContain('No examples');
+            expect(container.textContent).not.toContain('Loading examples');
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+            vi.useRealTimers();
+        }
+    });
+
     it('keeps Immersion Kit image fallbacks wired without autoplaying initial render', async () => {
         const app = new ReaderApp();
         const container = document.createElement('details');
@@ -8250,6 +8351,33 @@ describe('reader helpers', () => {
             });
             expect(lookupCandidateFromPoint(app, 220, 30, paragraph)).toBeNull();
         });
+    });
+
+    it('does not use fallback pointer lookup on JPDB native Immersion Kit controls', () => {
+        vi.stubGlobal('location', {
+            href: 'https://jpdb.io/vocabulary/1/%E4%BB%8A%E6%97%A5/%E3%81%8D%E3%82%87%E3%81%86',
+            hostname: 'jpdb.io',
+            pathname: '/vocabulary/1/%E4%BB%8A%E6%97%A5/%E3%81%8D%E3%82%87%E3%81%86',
+            search: '',
+        });
+        document.body.innerHTML = `
+            <div class="subsection-immersion-kit">
+                <div class="immersion-audio-control">今日</div>
+            </div>
+        `;
+        const control = document.querySelector<HTMLElement>('.immersion-audio-control')!;
+        const node = control.firstChild as Text;
+        const app = new ReaderApp();
+
+        try {
+            withPointerTextLookupMock(node, 1, [{ left: 20, top: 20, width: 120, height: 28 }], () => {
+                expect(lookupCandidateFromPoint(app, 64, 30, control)).toBeNull();
+            });
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
     });
 
     it('does not turn touch movement over a word into transient hover lookup', () => {
@@ -14216,6 +14344,37 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).not.toContain('漢字の読み方を消す');
     });
 
+    it('does not scan JPDB native Immersion Kit examples or audio controls', () => {
+        const visibleRect = {
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 240,
+            width: 800,
+            height: 240,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect;
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(visibleRect);
+        document.body.innerHTML = `
+            <main>
+                <div class="result vocabulary">
+                    <div class="subsection-usages">今日は本を読みます。</div>
+                    <div class="subsection-immersion-kit">
+                        <button class="immersion-audio-control">音声を聞く</button>
+                        <div class="sentence">今日は忙しいです。</div>
+                    </div>
+                </div>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://jpdb.io/vocabulary/1/%E4%BB%8A%E6%97%A5/%E3%81%8D%E3%82%87%E3%81%86');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(['今日は本を読みます。']);
+    });
+
     it('rescans Japanese text when NHK menu visibility attributes change', () => {
         const dialog = document.createElement('dialog');
         dialog.textContent = 'メニュー';
@@ -14291,6 +14450,26 @@ describe('reader helpers', () => {
             type: 'childList',
             target,
             addedNodes: [example],
+            removedNodes: [],
+        } as unknown as MutationRecord;
+
+        expect(mutationMayAffectJpdbPageEnhancements(mutation)).toBe(false);
+    });
+
+    it('does not refresh JPDB page addons when a Yomu popover is added to body', () => {
+        document.body.innerHTML = `
+            <div class="result vocabulary">
+                <div class="subsection-meanings">today</div>
+            </div>
+        `;
+        const popover = document.createElement('div');
+        popover.dataset.jpdbReaderRoot = 'true';
+        popover.className = 'jpdb-reader-popover';
+        popover.textContent = '今日';
+        const mutation = {
+            type: 'childList',
+            target: document.body,
+            addedNodes: [popover],
             removedNodes: [],
         } as unknown as MutationRecord;
 
