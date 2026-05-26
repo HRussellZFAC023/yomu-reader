@@ -13833,11 +13833,12 @@ describe('reader helpers', () => {
                 <article><p>今日は静かな喫茶店で新しい本を読みました。</p></article>
                 <a href="/history">検索履歴を管理する</a>
                 <button type="button">設定を保存する</button>
+                <details><summary>続きを読む</summary><p>追加本文</p></details>
             </main>
             <form><button type="submit">登録する</button></form>
         `;
-        document.querySelectorAll<HTMLButtonElement>('button')
-            .forEach(button => { button.getBoundingClientRect = () => ({
+        document.querySelectorAll<HTMLElement>('button, summary')
+            .forEach(control => { control.getBoundingClientRect = () => ({
                 left: 0,
                 right: 160,
                 top: 0,
@@ -13857,10 +13858,17 @@ describe('reader helpers', () => {
             'ヘルプセンター',
             '検索履歴を管理する',
             '設定を保存する',
+            '続きを読む',
         ]);
         const uiTarget = targets.find(target => target.text === '検索履歴を管理する')!;
+        const buttonTarget = targets.find(target => target.text === '設定を保存する')!;
+        const summaryTarget = targets.find(target => target.text === '続きを読む')!;
         expect('passiveInteraction' in uiTarget && uiTarget.passiveInteraction).toBe(true);
         expect('suppressRuby' in uiTarget && uiTarget.suppressRuby).toBe(true);
+        expect('passiveInteraction' in buttonTarget && buttonTarget.passiveInteraction).toBe(true);
+        expect('suppressRuby' in buttonTarget && buttonTarget.suppressRuby).toBe(true);
+        expect('passiveInteraction' in summaryTarget && summaryTarget.passiveInteraction).toBe(true);
+        expect('suppressRuby' in summaryTarget && summaryTarget.suppressRuby).toBe(true);
 
         applyTokensToScanTarget(uiTarget, [{
             card: { ...card, cardState: ['known'], spelling: '検索履歴', reading: 'けんさくりれき' },
@@ -13871,10 +13879,152 @@ describe('reader helpers', () => {
             pitchClass: '',
             sentence: '検索履歴を管理する',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        applyTokensToScanTarget(buttonTarget, [{
+            card: { ...card, cardState: ['known'], spelling: '設定', reading: 'せってい' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'せってい', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '設定を保存する',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        applyTokensToScanTarget(summaryTarget, [{
+            card: { ...card, cardState: ['not-in-deck'], spelling: '続き', reading: 'つづき' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'つづき', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '続きを読む',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const word = document.querySelector<HTMLElement>('a[href="/history"] .jpdb-reader-word')!;
+        const buttonWord = document.querySelector<HTMLElement>('button[type="button"] .jpdb-reader-word')!;
+        const summaryWord = document.querySelector<HTMLElement>('summary .jpdb-reader-word')!;
         expect(word.classList.contains('jpdb-reader-passive-word')).toBe(true);
         expect(word.classList.contains('jpdb-reader-scan-word')).toBe(true);
+        expect(word.tabIndex).toBe(-1);
+        expect(word.querySelector('rt')).toBeNull();
+        for (const controlWord of [buttonWord, summaryWord]) {
+            expect(controlWord.dataset.jpdbReaderPassive).toBe('true');
+            expect(controlWord.classList.contains('jpdb-reader-passive-word')).toBe(true);
+            expect(controlWord.classList.contains('jpdb-reader-scan-word')).toBe(true);
+            expect(controlWord.tabIndex).toBe(-1);
+            expect(controlWord.querySelector('rt')).toBeNull();
+        }
+        const app = new ReaderApp();
+        const readerWordAccess = app as unknown as {
+            canLookupReaderWord: (word: HTMLElement) => boolean;
+            canHoverLookupReaderWord: (word: HTMLElement) => boolean;
+        };
+        try {
+            expect(readerWordAccess.canLookupReaderWord(buttonWord)).toBe(false);
+            expect(readerWordAccess.canHoverLookupReaderWord(buttonWord)).toBe(true);
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('keeps inline prose links clickable without making surrounding prose passive', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 200,
+            width: 800,
+            height: 200,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <main>
+                <article>
+                    <p>今日は<a href="/more">続きを読む</a>本文を読みます。</p>
+                </article>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://example.com/article');
+        rectSpy.mockRestore();
+
+        const target = targets.find(candidate => candidate.text === '今日は続きを読む本文を読みます。');
+        expect(target).toBeTruthy();
+        expect('passiveInteraction' in target! && target.passiveInteraction).not.toBe(true);
+
+        applyTokensToScanTarget(target!, [
+            {
+                card: { ...card, cardState: ['known'], spelling: '今日', reading: 'きょう' },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [{ text: 'きょう', start: 0, end: 2, length: 2 }],
+                pitchClass: '',
+                sentence: '今日は続きを読む本文を読みます。',
+            },
+            {
+                card: { ...card, cardState: ['not-in-deck'], spelling: '続き', reading: 'つづき' },
+                start: 3,
+                end: 5,
+                length: 2,
+                rubies: [{ text: 'つづき', start: 3, end: 5, length: 2 }],
+                pitchClass: '',
+                sentence: '今日は続きを読む本文を読みます。',
+            },
+            {
+                card: { ...card, cardState: ['known'], spelling: '本文', reading: 'ほんぶん' },
+                start: 8,
+                end: 10,
+                length: 2,
+                rubies: [{ text: 'ほんぶん', start: 8, end: 10, length: 2 }],
+                pitchClass: '',
+                sentence: '今日は続きを読む本文を読みます。',
+            },
+        ], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const activeWord = document.querySelector<HTMLElement>('p > .jpdb-reader-word')!;
+        const linkWord = document.querySelector<HTMLElement>('a[href="/more"] .jpdb-reader-word')!;
+        expect(activeWord.dataset.jpdbReaderPassive).toBeUndefined();
+        expect(activeWord.tabIndex).toBe(0);
+        expect(activeWord.querySelector('rt')?.textContent).toBe('きょう');
+        expect(linkWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(linkWord.tabIndex).toBe(-1);
+        expect(linkWord.querySelector('rt')).toBeNull();
+    });
+
+    it('marks compact onclick controls passive in whole-page fallback scans', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 220,
+            top: 0,
+            bottom: 40,
+            width: 220,
+            height: 40,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = '<div><span onclick="window.openMore?.()">続きを読む</span></div>';
+
+        const targets = collectScanTargets(10, 'https://example.com/tools');
+        rectSpy.mockRestore();
+
+        const target = targets.find(candidate => candidate.text === '続きを読む');
+        expect(target).toBeTruthy();
+        expect('passiveInteraction' in target! && target.passiveInteraction).toBe(true);
+
+        applyTokensToScanTarget(target!, [{
+            card: { ...card, cardState: ['not-in-deck'], spelling: '続き', reading: 'つづき' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'つづき', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '続きを読む',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('[onclick] .jpdb-reader-word')!;
+        expect(word.dataset.jpdbReaderPassive).toBe('true');
         expect(word.tabIndex).toBe(-1);
         expect(word.querySelector('rt')).toBeNull();
     });
@@ -14010,6 +14160,9 @@ describe('reader helpers', () => {
             '許可なく転載することを禁じます。',
         ]);
         expect(targets.every(target => 'parserId' in target && target.parserId === 'nhk-parser')).toBe(true);
+        expect(targets.find(target => target.text === 'メニュー')).toMatchObject({ passiveInteraction: true });
+        expect(targets.find(target => target.text === 'ニュース')).toMatchObject({ passiveInteraction: true });
+        expect(targets.find(target => target.text === '東京でニュースを読む')).not.toMatchObject({ passiveInteraction: true });
     });
 
     it('does not scan NHK Easy article audio and ruby controls', () => {

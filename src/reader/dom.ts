@@ -144,6 +144,31 @@ const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|require
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const DISPLAY_HEADING_SELECTOR = 'h1,h2,h3,h4,h5,h6';
 const MAX_CONTEXT_SENTENCE_LENGTH = 180;
+const PASSIVE_INTERACTION_SELECTOR = [
+    'a[href]',
+    'button',
+    'summary',
+    'label',
+    '[role="button"]',
+    '[role="link"]',
+    '[role="menuitem"]',
+    '[role="option"]',
+    '[role="tab"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[role="switch"]',
+    '[aria-controls]',
+    '[aria-expanded]',
+    '[slot="more-button"]',
+    '.more-button',
+    '#more',
+    '#less',
+].join(',');
+const COMPACT_PASSIVE_INTERACTION_SELECTOR = [
+    '[onclick]',
+    '[tabindex]:not([tabindex="-1"])',
+].join(',');
+const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const PROSE_TAGS = new Set(['P', 'LI', 'DD', 'DT', 'TD', 'TH', 'BLOCKQUOTE', 'FIGCAPTION']);
 const BLOCK_TAGS = new Set([
     'ADDRESS',
@@ -417,12 +442,14 @@ function shouldRejectInvisibleTextTarget(parent: HTMLElement, visibleOnly: boole
 function textTargetFromAcceptedNode(node: Node): TextTarget | null {
     const parent = node.parentElement;
     if (!parent) return null;
+    const passiveInteraction = isPassiveInteractionElement(parent);
     return {
         node: node as Text,
         text: nodeTextContent(node).trim(),
         parent,
         hasNativeRuby: Boolean(parent.closest('ruby')),
-        suppressRuby: shouldSuppressInjectedRuby(parent),
+        suppressRuby: shouldSuppressInjectedRuby(parent) || passiveInteraction,
+        passiveInteraction,
     };
 }
 
@@ -451,10 +478,17 @@ export function collectFragmentTextTargetsIn(
         const compactText = text.replace(/\s+/g, '');
         const hasNativeRuby = trimmedFragments.some(fragment => fragment.hasNativeRuby);
         const suppressRuby = trimmedFragments.some(fragment => fragment.suppressRuby);
+        const passiveInteraction = trimmedFragments.every(fragment => fragment.passiveInteraction);
         if (HAS_JAPANESE.test(text) && (compactText.length >= (options.minLength ?? 2) || hasNativeRuby)) {
             const parent = trimmedFragments[0]?.node.parentElement;
             if (parent) {
-                targets.push({ text, parent, fragments: trimmedFragments, suppressRuby });
+                targets.push({
+                    text,
+                    parent,
+                    fragments: trimmedFragments,
+                    suppressRuby: suppressRuby || passiveInteraction,
+                    passiveInteraction,
+                });
             }
         }
         fragments.length = 0;
@@ -472,6 +506,7 @@ export function collectFragmentTextTargetsIn(
                 end: text.length,
                 hasNativeRuby,
                 suppressRuby: parent ? shouldSuppressInjectedRuby(parent) : false,
+                passiveInteraction: parent ? isPassiveInteractionElement(parent) : false,
             });
             return;
         }
@@ -534,6 +569,15 @@ function isFragmentParagraphBoundary(
 
 function isInlineSentenceListItem(element: HTMLElement): boolean {
     return element.tagName === 'LI' && Boolean(element.closest('.japanese_sentence'));
+}
+
+export function isPassiveInteractionElement(element: Element): boolean {
+    if (element.closest(READER_ROOT_SELECTOR)) return false;
+    if (element.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
+    const compactInteraction = element.closest<HTMLElement>(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+    if (!compactInteraction) return false;
+    const text = compactInteraction.textContent?.replace(/\s+/g, '').trim() ?? '';
+    return text.length > 0 && text.length <= COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT;
 }
 
 function trimTextFragments(fragments: TextFragment[]): TextFragment[] {
@@ -932,7 +976,7 @@ function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], se
         appendPlainTextBeforeToken(fragment, target.text, offset, token.start);
         const tokenWithSentence = tokenWithReadableSentence(token, target.text, token.sentence);
         fragment.append(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
-            allowRuby: !target.hasNativeRuby && !target.suppressRuby,
+            allowRuby: target.passiveInteraction !== true && !target.hasNativeRuby && !target.suppressRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
             passiveInteraction: target.passiveInteraction,
@@ -982,16 +1026,24 @@ function applyTokenToIndexedFragments(
 
     const tokenWithSentence = tokenWithReadableSentence(token, target.text, token.sentence ?? sentence);
     const isSingleFragment = bounds.start.fragment === bounds.end.fragment;
+    const passiveInteraction = target.passiveInteraction === true
+        || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end);
     const range = document.createRange();
     range.setStart(bounds.start.fragment.node, bounds.start.localOffset);
     range.setEnd(bounds.end.fragment.node, bounds.end.localOffset);
 
-    if (isSingleFragment) insertSingleFragmentToken(range, target, bounds.start.fragment, token, tokenWithSentence, settings);
+    if (isSingleFragment) insertSingleFragmentToken(range, target, bounds.start.fragment, token, tokenWithSentence, settings, passiveInteraction);
     else insertMultiFragmentToken(range, tokenWithSentence, {
         scanWord: true,
-        passiveInteraction: target.passiveInteraction,
+        passiveInteraction,
     });
     range.detach();
+}
+
+function fragmentRangeHasPassiveInteraction(fragments: IndexedTextFragment[], start: number, end: number): boolean {
+    return fragments.some(fragment => fragment.passiveInteraction === true
+        && fragment.globalStart < end
+        && fragment.globalEnd > start);
 }
 
 interface FragmentBoundaryMatch {
@@ -1022,14 +1074,15 @@ function insertSingleFragmentToken(
     token: JPDBToken,
     tokenWithSentence: JPDBToken,
     settings: ReaderSettings,
+    passiveInteraction: boolean,
 ): void {
-    const allowRuby = !fragment.hasNativeRuby && !fragment.suppressRuby && !target.suppressRuby;
+    const allowRuby = !passiveInteraction && !fragment.hasNativeRuby && !fragment.suppressRuby && !target.suppressRuby;
     range.deleteContents();
     range.insertNode(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
         allowRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
-        passiveInteraction: target.passiveInteraction,
+        passiveInteraction,
     }));
 }
 
