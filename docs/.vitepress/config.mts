@@ -4,6 +4,7 @@ import { jpdbAudioDevProxyPlugin } from '../../vite-jpdb-audio-proxy';
 const repositoryName = 'yomu-reader';
 const base = `/${repositoryName}/`;
 const siteUrl = `https://hrussellzfac023.github.io${base}`;
+const socialImage = `${siteUrl}og-image.png`;
 const newTabLink = 'newtab/index.html';
 const statsLink = 'newtab/index.html?mode=stats';
 const videoPlayerLink = 'video-player/index.html';
@@ -28,13 +29,18 @@ export default defineConfig({
         ['meta', { property: 'og:type', content: 'website' }],
         ['meta', { property: 'og:title', content: 'よむ - Free Japanese popup reader' }],
         ['meta', { property: 'og:description', content: 'Learn Japanese by reading what you like. よむ connects lookup, mining, OCR, subtitles, JPDB, Yomitan dictionaries, Anki, and audio in one browser popup.' }],
-        ['meta', { property: 'og:image', content: `${siteUrl}apple-touch-icon.png` }],
+        ['meta', { property: 'og:image', content: socialImage }],
+        ['meta', { property: 'og:image:secure_url', content: socialImage }],
         ['meta', { property: 'og:image:type', content: 'image/png' }],
-        ['meta', { property: 'og:image:width', content: '180' }],
-        ['meta', { property: 'og:image:height', content: '180' }],
+        ['meta', { property: 'og:image:width', content: '1200' }],
+        ['meta', { property: 'og:image:height', content: '630' }],
+        ['meta', { property: 'og:image:alt', content: 'よむ app icon and Japanese reader preview card' }],
         ['meta', { property: 'og:url', content: siteUrl }],
-        ['meta', { name: 'twitter:card', content: 'summary' }],
-        ['meta', { name: 'twitter:image', content: `${siteUrl}apple-touch-icon.png` }],
+        ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+        ['meta', { name: 'twitter:title', content: 'よむ - Free Japanese popup reader' }],
+        ['meta', { name: 'twitter:description', content: 'Lookup, mining, OCR, subtitles, JPDB, Yomitan dictionaries, Anki, and audio in one browser popup.' }],
+        ['meta', { name: 'twitter:image', content: socialImage }],
+        ['meta', { name: 'twitter:image:alt', content: 'よむ app icon and Japanese reader preview card' }],
     ],
     themeConfig: {
         logo: '/yomu-icon.svg',
