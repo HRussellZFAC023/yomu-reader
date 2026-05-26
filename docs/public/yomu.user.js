@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.53
+// @version      0.4.54
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -874,6 +874,7 @@ Greasy Fork compliance notes:
   similarKanjiWordLimit: 8,
   audioEnabled: true,
   autoPlayAudio: true,
+  suppressAutoAudioOnVideo: true,
   audioAutoPlayMode: "all",
   audioSources: DEFAULT_AUDIO_SOURCES,
   audioEnableDefaultSources: true,
@@ -996,6 +997,7 @@ Greasy Fork compliance notes:
   theme: "auto",
   popupMode: "auto",
   stickyBottomSheet: false,
+  popoverBackdropEnabled: true,
   popoverWidth: 520,
   popoverHeight: 540,
   popoverHeightMode: "fixed",
@@ -1062,6 +1064,7 @@ Greasy Fork compliance notes:
   const hasSavedAudioSources = hasOwn(value, "audioSources");
   const audioSources = hasSavedAudioSources || value?.audioSourceUrl ? normalizeAudioSources(value?.audioSources, value?.audioSourceUrl) : DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
   return {
+   suppressAutoAudioOnVideo: booleanSetting(value, "suppressAutoAudioOnVideo"),
    audioAutoPlayMode: normalizeAudioAutoPlayMode(value?.audioAutoPlayMode),
    audioSources,
    audioSourceUrl: audioSources.find((source) => source.url)?.url ?? value?.audioSourceUrl ?? DEFAULT_AUDIO_URL,
@@ -1178,6 +1181,7 @@ Greasy Fork compliance notes:
    theme: normalizeTheme(value?.theme),
    popupMode: normalizePopupMode(value?.popupMode),
    stickyBottomSheet: booleanSetting(value, "stickyBottomSheet"),
+   popoverBackdropEnabled: booleanSetting(value, "popoverBackdropEnabled"),
    popoverWidth: clampNumber$5(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
    popoverHeight: clampNumber$5(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
    popoverHeightMode: normalizePopoverHeightMode(value?.popoverHeightMode)
@@ -3184,6 +3188,7 @@ Greasy Fork compliance notes:
    bottomSheet: "Bottom sheet",
    popover: "Popover",
    stickyBottomSheet: "Keep bottom sheet open until closed",
+   popoverBackdropEnabled: "Dim page behind popover",
    popoverWidth: "Popover width (px)",
    popoverHeight: "Popover height (px)",
    popoverHeightMode: "Popover height",
@@ -3274,6 +3279,7 @@ Greasy Fork compliance notes:
    kanjiHelp: "Click a kanji inside the popup word to see RTK, local kanji dictionary meanings, component keywords, and related words.",
    audioEnabled: "Enable audio playback for terms",
    autoPlayAudio: "Auto-play when a word card opens",
+   suppressAutoAudioOnVideo: "Do not auto-play lookup audio on video pages",
    audioAutoPlayMode: "Auto-play trigger",
    audioEnableDefaultSources: "Use built-in audio sources",
    audioFallbackChimeEnabled: "Play a soft chime when no audio is available",
@@ -3628,6 +3634,7 @@ Greasy Fork compliance notes:
    readImagesNow: "Read images now",
    ocrReadingImage: "Reading image...",
    ocrFailed: "OCR failed",
+   localOcrUnavailable: "Local OCR server is unreachable. Start it or allow CORS for this page.",
    ocrEnabledToast: "Image reading enabled.",
    ocrHiddenToast: "Image reading hidden.",
    ocrNoReadableImages: "No readable images nearby.",
@@ -4398,6 +4405,7 @@ Greasy Fork compliance notes:
   trackStatusFailed: "失敗",
   ocrReadingImage: "画像を読み取り中...",
   ocrFailed: "画像文字認識に失敗しました",
+  localOcrUnavailable: "ローカルOCRサーバーに接続できません。起動するか、このページのCORSを許可してください。",
   ocrEnabledToast: "画像読み取りを有効にしました。",
   ocrHiddenToast: "画像読み取りを非表示にしました。",
   ocrNoReadableImages: "近くに読み取れる画像がありません。",
@@ -4580,6 +4588,7 @@ Greasy Fork compliance notes:
   bottomSheet: "下部シート",
   popover: "ポップオーバー",
   stickyBottomSheet: "閉じるまで下部シートを開いたままにする",
+  popoverBackdropEnabled: "ポップオーバーの背後を暗くする",
   popoverWidth: "ポップオーバー幅 (px)",
   popoverHeight: "ポップオーバー高さ (px)",
   popoverHeightMode: "ポップオーバー高さ",
@@ -4667,6 +4676,7 @@ Greasy Fork compliance notes:
   kanjiHelp: "ポップアップ内の単語の漢字をクリックすると、RTK、ローカル漢字辞書の意味、部品キーワード、関連語を確認できます。",
   audioEnabled: "語句の音声再生を有効にする",
   autoPlayAudio: "単語カードを開いたら自動再生",
+  suppressAutoAudioOnVideo: "動画ページでは検索音声を自動再生しない",
   audioAutoPlayMode: "自動再生のきっかけ",
   audioEnableDefaultSources: "内蔵音声ソースを使う",
   audioFallbackChimeEnabled: "音声がないときに小さなチャイムを鳴らす",
@@ -13138,6 +13148,16 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   const target = playable[0];
   target?.pause();
  }
+ function hasVisiblePageVideo() {
+  return Array.from(document.querySelectorAll("video")).some((video) => {
+   if (video.closest("[data-jpdb-reader-root]")) return false;
+   const rect = video.getBoundingClientRect();
+   if (rect.width < 120 || rect.height < 90) return false;
+   const style = getComputedStyle(video);
+   if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
+   return video.readyState > 0 || Boolean(video.currentSrc || video.src) || Number.isFinite(video.duration);
+  });
+ }
  function isEditableTarget(target) {
   const element2 = target instanceof Element ? target : null;
   return Boolean(element2?.closest('input, textarea, select, [contenteditable="true"]'));
@@ -18103,11 +18123,11 @@ ${entry.reading}`;
   }
   searchSource(source, query, settings, options) {
    return source === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
-    if (isAbortError$2(error)) throw error;
+    if (isAbortError$3(error)) throw error;
     log$k.warn("Nadeshiko examples failed", { query }, error);
     return [];
    }) : this.searchImmersionKit(query, settings, options).catch((error) => {
-    if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
+    if (isAbortError$3(error) || isImmersionKitRateLimitError(error)) throw error;
     log$k.warn("Immersion Kit examples failed", { query }, error);
     return [];
    });
@@ -18529,7 +18549,7 @@ ${entry.reading}`;
    try {
     return await requestJsonCandidate(candidate, timeoutMs, proxyUrl, signal);
    } catch (error) {
-    if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
+    if (isAbortError$3(error) || isImmersionKitRateLimitError(error)) throw error;
     lastError = error;
    }
   }
@@ -18552,7 +18572,7 @@ ${entry.reading}`;
    failureLabel: "Immersion Kit request",
    timeoutLabel: "Immersion Kit request timed out."
   }).catch((error) => {
-   if (isAbortError$2(error)) throw error;
+   if (isAbortError$3(error)) throw error;
    if (isImmersionKitRateLimitError(error)) throw error;
    if (error instanceof Error && /blocked|cross-origin|cors/i.test(error.message)) {
     throw new Error("Immersion Kit search is blocked in this browser. Configure browser/CORS or use the built-in fallback settings.");
@@ -18560,7 +18580,7 @@ ${entry.reading}`;
    throw requestError(error, "Immersion Kit request failed.");
   });
  }
- function isAbortError$2(error) {
+ function isAbortError$3(error) {
   return errorName$1(error) === "AbortError";
  }
  function errorName$1(error) {
@@ -18730,6 +18750,7 @@ ${entry.reading}`;
  const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
  const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 48;
  const IMMERSION_LAZY_LOAD_DELAY_MS = 180;
+ const IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1e3;
  const IMMERSION_LAZY_LOAD_ROOT_MARGIN = "180px 0px";
  const IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX = 180;
  const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
@@ -18804,15 +18825,20 @@ ${entry.reading}`;
    const controller = new AbortController();
    this.loadAbortControllers.set(popover, controller);
    const searchPromise = this.searchExamples(card, { ...options, signal: controller.signal });
+   const settings = this.options.getSettings();
    try {
-    const result = await raceAgainstAbort(searchPromise, controller.signal);
+    const result = await raceAgainstAbortOrTimeout(
+     searchPromise,
+     controller.signal,
+     settings.audioTimeoutMs + IMMERSION_LOAD_TIMEOUT_GRACE_MS
+    );
     if (controller.signal.aborted || !isConnectedImmersionSurface(popover, container)) {
      if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
      return;
     }
     this.renderLoadedExamples(container, card, result);
    } catch (error) {
-    if (isAbortError$1(error) && controller.signal.aborted) {
+    if (isAbortError$2(error) && controller.signal.aborted) {
      if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
      return;
     }
@@ -18934,7 +18960,7 @@ ${entry.reading}`;
     }
     const action = button2.dataset.immersionAction;
     if (action === "previous") render(index - 1, this.shouldAutoPlayCarouselAudio(), true);
-    if (action === "next") render(index + 1, true, true);
+    if (action === "next") render(index + 1, this.shouldPlayCarouselNavigationAudio(), true);
     if (action === "audio") void this.playExampleAudio(examples[index]);
    });
    container.addEventListener("keydown", (event) => {
@@ -18952,6 +18978,7 @@ ${entry.reading}`;
     if (pointerType === "touch" || cannotHover) return;
     if (media.contains(event.relatedTarget)) return;
     if (!hoverAudioCanPlay) return;
+    if (this.shouldSuppressAutoAudioForVideo()) return;
     if (!canAttemptAudiblePlayback()) return;
     const audioKey = hoverAudioExampleKey(examples[index]);
     if (this.hoverAudioPlayedKeys.has(audioKey)) return;
@@ -18981,7 +19008,14 @@ ${entry.reading}`;
   }
   shouldAutoPlayCarouselAudio() {
    const settings = this.options.getSettings();
-   return settings.immersionKitEnabled && settings.immersionKitAutoPlayAudio && canAttemptAudiblePlayback(true);
+   return settings.immersionKitEnabled && settings.immersionKitAutoPlayAudio && !this.shouldSuppressAutoAudioForVideo() && canAttemptAudiblePlayback(true);
+  }
+  shouldPlayCarouselNavigationAudio() {
+   return !this.shouldSuppressAutoAudioForVideo();
+  }
+  shouldSuppressAutoAudioForVideo() {
+   const settings = this.options.getSettings();
+   return settings.suppressAutoAudioOnVideo && hasVisiblePageVideo();
   }
   renderEmptyIfConnected(popover, container) {
    if (!isConnectedImmersionSurface(popover, container)) return;
@@ -19075,7 +19109,7 @@ ${entry.reading}`;
         handleAbort();
         return;
        }
-       if (isAbortError$1(error)) {
+       if (isAbortError$2(error)) {
         fail(error);
         return;
        }
@@ -19102,7 +19136,7 @@ ${entry.reading}`;
     const examples = await this.options.client.search(query, settings, searchOptions);
     return immersionSearchResultForQuery(query, exactQuery, triedQueries, examples);
    } catch (error) {
-    if (isAbortError$1(error) || isImmersionKitRateLimitError(error)) throw error;
+    if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
     return null;
    }
   }
@@ -19504,7 +19538,7 @@ ${entry.reading}`;
  function isConnectedImmersionSurface(popover, container) {
   return popover.isConnected && container.isConnected;
  }
- function isAbortError$1(error) {
+ function isAbortError$2(error) {
   return errorName(error) === "AbortError";
  }
  function errorName(error) {
@@ -19512,16 +19546,27 @@ ${entry.reading}`;
   const name = error.name;
   return typeof name === "string" ? name : "";
  }
- function raceAgainstAbort(promise, signal) {
+ function raceAgainstAbortOrTimeout(promise, signal, timeoutMs) {
   if (signal.aborted) return Promise.reject(abortErrorForRace());
   return new Promise((resolve, reject) => {
-   const onAbort = () => reject(abortErrorForRace());
+   const onAbort = () => {
+    cleanup();
+    reject(abortErrorForRace());
+   };
+   const timeout = window.setTimeout(() => {
+    cleanup();
+    reject(new Error("Immersion Kit examples timed out."));
+   }, Math.max(1e3, timeoutMs));
+   const cleanup = () => {
+    window.clearTimeout(timeout);
+    signal.removeEventListener("abort", onAbort);
+   };
    signal.addEventListener("abort", onAbort, { once: true });
    promise.then((value) => {
-    signal.removeEventListener("abort", onAbort);
+    cleanup();
     resolve(value);
    }, (error) => {
-    signal.removeEventListener("abort", onAbort);
+    cleanup();
     reject(error);
    });
   });
@@ -19980,13 +20025,13 @@ ${entry.reading}`;
   try {
    return await fetch(url, { ...init, signal: controller.signal });
   } catch (error) {
-   if (isAbortError(error)) throw new Error("JPDB request timed out.");
+   if (isAbortError$1(error)) throw new Error("JPDB request timed out.");
    throw error;
   } finally {
    window.clearTimeout(timeoutId);
   }
  }
- function isAbortError(error) {
+ function isAbortError$1(error) {
   return error instanceof DOMException && error.name === "AbortError";
  }
  function jpdbApiFetchCandidates(url, proxyUrl) {
@@ -23397,12 +23442,21 @@ ${glossaryKey}`;
  }
  function mutationMayAffectJpdbPageEnhancements(mutation) {
   if (mutation.type === "attributes") return jpdbPageEnhancementAttributeMayAffect(mutation);
+  if (mutation.type === "characterData") return nodeMayAffectJpdbPageEnhancements(mutation.target);
+  if (mutation.type === "childList") return childListMutationMayAffectJpdbPageEnhancements(mutation);
+  return false;
+ }
+ function childListMutationMayAffectJpdbPageEnhancements(mutation) {
   const nodes = [
-   mutation.target,
    ...Array.from(mutation.addedNodes),
    ...Array.from(mutation.removedNodes)
   ];
-  return nodes.some(nodeMayAffectJpdbPageEnhancements);
+  return nodes.some(nodeMayAffectJpdbPageEnhancements) || childListTargetMayAffectJpdbPageEnhancements(mutation.target);
+ }
+ function childListTargetMayAffectJpdbPageEnhancements(node) {
+  const element2 = mutationNodeElement(node);
+  if (!element2 || element2.closest(JPDB_PAGE_ENHANCEMENT_DYNAMIC_IGNORE_SELECTOR)) return false;
+  return element2.matches(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR) || element2.matches(JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR) || Boolean(element2.closest(`${JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR},${JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR}`));
  }
  function jpdbPageEnhancementAttributeMayAffect(mutation) {
   return JPDB_PAGE_ENHANCEMENT_VISIBILITY_ATTRIBUTES.has(mutation.attributeName ?? "") && nodeMayAffectJpdbPageEnhancements(mutation.target);
@@ -23933,6 +23987,7 @@ ${glossaryKey}`;
   return Math.max(min, Math.min(max2, Number(value.toFixed(2))));
  }
  const MAX_CACHE_ITEMS = 36;
+ const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15e3;
  const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
  const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
  const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
@@ -23973,6 +24028,13 @@ ${glossaryKey}`;
   state.status.hidden = false;
   state.status.textContent = uiText(settings.interfaceLanguage, "ocrReadingImage");
  }
+ class LocalOcrUnavailableError extends Error {
+  constructor(endpointUrl) {
+   super("Local OCR server is unreachable.");
+   this.endpointUrl = endpointUrl;
+   this.name = "LocalOcrUnavailableError";
+  }
+ }
  function beginOcrScan(state, image, settings, manualRequested) {
   state.loading = true;
   state.status.hidden = !state.overlayRequested;
@@ -23997,9 +24059,16 @@ ${glossaryKey}`;
   state.status.textContent = ocrVisibleErrorMessage(settings, error);
   state.autoSkipped = !manualRequested;
   state.status.hidden = !state.overlayRequested || state.autoSkipped;
+  if (isLocalOcrUnavailableError(error)) {
+   log$a.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, "Local OCR endpoint unavailable; pausing requests", { provider, endpoint: error.endpointUrl });
+   return;
+  }
   log$a.warn("OCR scan failed", { provider, manualRequested }, error);
  }
  function ocrVisibleErrorMessage(settings, error) {
+  if (settings.ocrProvider === "local-service" && isLocalOcrConnectionError(error)) {
+   return uiText(settings.interfaceLanguage, "localOcrUnavailable");
+  }
   if (resolveUiLanguage(settings.interfaceLanguage) === "ja") return uiText(settings.interfaceLanguage, "ocrFailed");
   return error instanceof Error ? error.message : uiText(settings.interfaceLanguage, "ocrFailed");
  }
@@ -24009,6 +24078,7 @@ ${glossaryKey}`;
   }
   states = /* @__PURE__ */ new Map();
   cache = /* @__PURE__ */ new Map();
+  localOcrUnavailable;
   observer;
   observerMargin = "";
   mutationObserver;
@@ -24275,7 +24345,34 @@ ${glossaryKey}`;
   }
   recognizeImage(image, settings) {
    const recognizer = ocrRecognizer(settings);
-   return recognizer ? recognizer(image, settings) : Promise.resolve(null);
+   if (!recognizer) return Promise.resolve(null);
+   if (settings.ocrProvider !== "local-service") return recognizer(image, settings);
+   return this.recognizeViaLocalServiceWithBackoff(image, settings, recognizer);
+  }
+  async recognizeViaLocalServiceWithBackoff(image, settings, recognizer) {
+   const endpointUrl = localOcrEndpointUrl(settings);
+   if (this.isLocalOcrUnavailable(endpointUrl)) throw new LocalOcrUnavailableError(endpointUrl);
+   try {
+    const result = await recognizer(image, settings);
+    this.clearLocalOcrUnavailable(endpointUrl);
+    return result;
+   } catch (error) {
+    if (isLocalOcrConnectionError(error)) this.rememberLocalOcrUnavailable(endpointUrl);
+    throw error;
+   }
+  }
+  isLocalOcrUnavailable(endpointUrl) {
+   const unavailable = this.localOcrUnavailable;
+   if (!unavailable || unavailable.endpointUrl !== endpointUrl) return false;
+   if (Date.now() < unavailable.retryAt) return true;
+   this.localOcrUnavailable = void 0;
+   return false;
+  }
+  rememberLocalOcrUnavailable(endpointUrl) {
+   this.localOcrUnavailable = { endpointUrl, retryAt: Date.now() + LOCAL_OCR_UNAVAILABLE_RETRY_MS };
+  }
+  clearLocalOcrUnavailable(endpointUrl) {
+   if (this.localOcrUnavailable?.endpointUrl === endpointUrl) this.localOcrUnavailable = void 0;
   }
   async renderResult(state, result, forceOverlay = false) {
    state.result = result;
@@ -25773,7 +25870,20 @@ ${glossaryKey}`;
     });
    });
   }
-  return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data }).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
+  return fetchJsonWithTimeout(url, data, timeout).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
+ }
+ function fetchJsonWithTimeout(url, data, timeout) {
+  if (!timeout) return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data });
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeoutId = window.setTimeout(() => {
+   timedOut = true;
+   controller.abort();
+  }, timeout);
+  return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data, signal: controller.signal }).catch((error) => {
+   if (timedOut || isAbortError(error)) throw new Error("OCR timed out.");
+   throw error;
+  }).finally(() => window.clearTimeout(timeoutId));
  }
  function requestArrayBuffer(url, data, timeout) {
   const body = new Uint8Array(data);
@@ -25891,6 +26001,17 @@ ${glossaryKey}`;
  }
  function localOcrEndpointUrl(settings) {
   return settings.ocrEndpointUrl.trim() || DEFAULT_LOCAL_OCR_ENDPOINT_URL;
+ }
+ function isLocalOcrConnectionError(error) {
+  if (isLocalOcrUnavailableError(error)) return true;
+  if (!(error instanceof Error)) return true;
+  return error.name === "TypeError" || error.name === "AbortError" || /network|failed to fetch|load failed|cors|blocked|timed out|timeout|request failed/i.test(error.message);
+ }
+ function isLocalOcrUnavailableError(error) {
+  return error instanceof LocalOcrUnavailableError;
+ }
+ function isAbortError(error) {
+  return error instanceof Error && error.name === "AbortError";
  }
  function safeHost$1(value) {
   try {
@@ -28600,6 +28721,7 @@ ${spelling}`);
   return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
  }
  const log$6 = Logger.scope("SettingsForm");
+ const SETTINGS_LABEL_TEXT_CLASS = "jpdb-reader-settings-label-text";
  const COLOR_SOURCE_VALUES = ["status", "jpdb", "anki", "pitch", "off"];
  const COLOR_SOURCE_OPTIONS = [
   ["status", "Available status"],
@@ -28847,6 +28969,7 @@ ${spelling}`);
                     ${themeSegmentedControl(settings.theme)}
                     ${select("popupMode", "Popup mode", settings.popupMode, [["auto", "Auto"], ["sheet", "Bottom sheet"], ["popover", "Popover"]])}
                     ${renderStickyBottomSheetControl(settings)}
+                    ${checkbox("popoverBackdropEnabled", "Dim page behind popover", settings.popoverBackdropEnabled)}
                     ${input("popoverWidth", "Popover width (px)", String(settings.popoverWidth), "number", { min: 280, max: 900, step: 10 })}
                     ${input("popoverHeight", "Popover height (px)", String(settings.popoverHeight), "number", { min: 220, max: 900, step: 10 })}
                     ${select("popoverHeightMode", "Popover height", settings.popoverHeightMode, [["available", "Grow to available space"], ["fixed", "Use height setting"]])}
@@ -28949,6 +29072,7 @@ ${spelling}`);
                 <legend>Audio</legend>
                 ${checkbox("audioEnabled", "Enable audio playback for terms", settings.audioEnabled)}
                 ${checkbox("autoPlayAudio", "Auto-play when a word card opens", settings.autoPlayAudio)}
+                ${checkbox("suppressAutoAudioOnVideo", "Do not auto-play lookup audio on video pages", settings.suppressAutoAudioOnVideo)}
                 ${checkbox("audioEnableDefaultSources", "Use built-in audio sources", settings.audioEnableDefaultSources)}
                 ${checkbox("audioFallbackChimeEnabled", "Play a soft chime when no audio is available", settings.audioFallbackChimeEnabled)}
                 <div class="grid">
@@ -29310,6 +29434,7 @@ ${spelling}`);
   localizeSettingsEditorChrome(form, text2);
   localizeHelpLinksPanel(form, language);
   syncSettingsSelectOptionMeta(form, language);
+  normalizeSettingsLabelTextContainers(form);
  }
  function localizeSettingsShell(form, language, text2) {
   form.lang = resolveUiLanguage(language);
@@ -29812,6 +29937,7 @@ ${spelling}`);
    ["interfaceLanguage", "settingsLanguage"],
    ["popupMode", "popupMode"],
    ["stickyBottomSheet", "stickyBottomSheet"],
+   ["popoverBackdropEnabled", "popoverBackdropEnabled"],
    ["popoverWidth", "popoverWidth"],
    ["popoverHeight", "popoverHeight"],
    ["popoverHeightMode", "popoverHeightMode"],
@@ -29867,6 +29993,7 @@ ${spelling}`);
    ["similarKanjiWordLimit", "similarKanjiWordLimit"],
    ["audioEnabled", "audioEnabled"],
    ["autoPlayAudio", "autoPlayAudio"],
+   ["suppressAutoAudioOnVideo", "suppressAutoAudioOnVideo"],
    ["audioAutoPlayMode", "audioAutoPlayMode"],
    ["audioEnableDefaultSources", "audioEnableDefaultSources"],
    ["audioFallbackChimeEnabled", "audioFallbackChimeEnabled"],
@@ -29980,14 +30107,60 @@ ${spelling}`);
   else setBlockLabelText(labelElement, label);
  }
  function setBlockLabelText(label, text2) {
+  const container = directSettingsLabelTextContainer(label);
+  if (container) {
+   setLeadingText(container, text2);
+   return;
+  }
   const textNode = Array.from(label.childNodes).find((node) => node.nodeType === Node.TEXT_NODE);
   if (textNode) textNode.textContent = text2;
   else label.insertBefore(document.createTextNode(text2), label.firstChild);
  }
  function setInlineLabelText(label, text2) {
+  const container = directSettingsLabelTextContainer(label);
+  if (container) {
+   container.replaceChildren(text2);
+   return;
+  }
   const textNode = Array.from(label.childNodes).find((node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim());
   if (textNode) textNode.textContent = text2;
   else label.append(document.createTextNode(text2));
+ }
+ function directSettingsLabelTextContainer(label) {
+  return Array.from(label.children).find(
+   (child) => child instanceof HTMLElement && child.classList.contains(SETTINGS_LABEL_TEXT_CLASS)
+  ) ?? null;
+ }
+ function setLeadingText(container, text2) {
+  const textNode = Array.from(container.childNodes).find((node) => node.nodeType === Node.TEXT_NODE);
+  if (textNode) textNode.textContent = text2;
+  else container.insertBefore(document.createTextNode(text2), container.firstChild);
+ }
+ function normalizeSettingsLabelTextContainers(form) {
+  form.querySelectorAll("label").forEach(normalizeSettingsLabelTextContainer);
+ }
+ function normalizeSettingsLabelTextContainer(label) {
+  let pending = [];
+  const flush = () => {
+   if (!pending.length) return;
+   const wrapper = document.createElement("span");
+   wrapper.className = SETTINGS_LABEL_TEXT_CLASS;
+   label.insertBefore(wrapper, pending[0]);
+   pending.forEach((node) => wrapper.append(node));
+   pending = [];
+  };
+  for (const node of Array.from(label.childNodes)) {
+   if (isWrappableSettingsLabelNode(node)) {
+    pending.push(node);
+    continue;
+   }
+   flush();
+  }
+  flush();
+ }
+ function isWrappableSettingsLabelNode(node) {
+  if (node.nodeType === Node.TEXT_NODE) return Boolean((node.textContent ?? "").trim());
+  return node instanceof HTMLAnchorElement;
  }
  function setRadioLabel(form, name, value, label) {
   const radio = Array.from(form.elements).find(
@@ -30838,6 +31011,7 @@ ${spelling}`);
   return {
    audioEnabled: has("audioEnabled"),
    autoPlayAudio: has("autoPlayAudio"),
+   suppressAutoAudioOnVideo: has("suppressAutoAudioOnVideo"),
    audioAutoPlayMode: readOption(get("audioAutoPlayMode"), ["all", "hover", "tap"], current.audioAutoPlayMode),
    audioSources,
    audioEnableDefaultSources: has("audioEnableDefaultSources"),
@@ -30959,6 +31133,7 @@ ${spelling}`);
    theme: readOption(get("theme"), ["auto", "dark", "light"], current.theme),
    popupMode,
    stickyBottomSheet: popupMode !== "popover" && has("stickyBottomSheet"),
+   popoverBackdropEnabled: has("popoverBackdropEnabled"),
    popoverWidth: Math.max(280, Math.min(900, number("popoverWidth", current.popoverWidth))),
    popoverHeight: Math.max(220, Math.min(900, number("popoverHeight", current.popoverHeight))),
    popoverHeightMode: readOption(get("popoverHeightMode"), ["available", "fixed"], current.popoverHeightMode)
@@ -32182,6 +32357,8 @@ ${spelling}`);
     ".subsection-spelling",
     ".primary-spelling",
     ".subsection-label",
+    ".subsection-immersion-kit",
+    '[class*="immersion" i]',
     ".vocabulary-audio",
     ".icon-link",
     "[data-audio]"
@@ -36381,7 +36558,7 @@ ${spelling}`);
    return this.hasSubtitleIdleSurface();
   }
   hasActiveSubtitleUi() {
-   return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden) || Boolean(this.root?.classList.contains("jpdb-subtitle-menu-open")) || Boolean(this.root?.matches(":focus-within"));
+   return Boolean(this.root?.classList.contains("jpdb-subtitle-menu-open")) || Boolean(this.root?.matches(":focus-within"));
   }
   hasSubtitleIdleSurface() {
    return Boolean(this.video || this.cues.length || this.currentCue?.text);
@@ -36422,7 +36599,7 @@ ${spelling}`);
   seekSubtitle(direction) {
    if (!this.video) return;
    if (!this.cues.length) {
-    this.video.currentTime = Math.max(0, this.video.currentTime + direction * 5);
+    this.seekVideoTo(Math.max(0, this.video.currentTime + direction * 5));
     return;
    }
    const time = this.video.currentTime;
@@ -36449,12 +36626,32 @@ ${spelling}`);
   }
   seekToCueObject(cue, options = {}) {
    const padding = options.exact ? 0 : this.options.getSettings().subtitleSeekPadding;
-   if (this.video) this.video.currentTime = Math.max(0, cue.start + padding);
+   this.seekVideoTo(Math.max(0, cue.start + padding));
    this.currentCue = cue;
    this.secondaryCue = this.secondaryCues.find((item) => cue.start >= item.start - 0.35 && cue.start <= item.end + 0.35);
    this.render();
    this.syncControls();
    this.renderTranscriptPanel();
+  }
+  seekVideoTo(time) {
+   const video = this.video;
+   if (!video) return;
+   const shouldResume = !video.paused && !video.ended;
+   video.currentTime = time;
+   if (shouldResume) this.resumeVideoAfterSeek(video);
+  }
+  resumeVideoAfterSeek(video) {
+   const requestPlay = () => {
+    if (this.video !== video || !video.paused) return;
+    void video.play().catch(() => void 0);
+   };
+   const handleSeeked = () => requestPlay();
+   requestPlay();
+   video.addEventListener("seeked", handleSeeked, { once: true });
+   window.setTimeout(() => {
+    video.removeEventListener("seeked", handleSeeked);
+    requestPlay();
+   }, 160);
   }
   async copySubtitle(index) {
    const text2 = this.subtitleCopyText(Number.isInteger(index) ? index : void 0);
@@ -38790,6 +38987,35 @@ ${spelling}`);
  function eventElement(event) {
   return event.target instanceof Element ? event.target : null;
  }
+ const NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR = [
+  "a[href]",
+  "button",
+  "input",
+  "textarea",
+  "select",
+  "summary",
+  '[role="button"]',
+  '[contenteditable="true"]',
+  "[data-audio]",
+  "[onclick]",
+  ".subsection-immersion-kit",
+  '[class*="immersion" i]',
+  '[class*="audio" i]',
+  '[class*="sound" i]',
+  '[class*="speaker" i]',
+  '[class~="play" i]',
+  '[class*="-play" i]',
+  '[class*="play-" i]',
+  '[class~="control" i]',
+  '[class*="-control" i]',
+  '[class*="control-" i]',
+  '[class~="button" i]',
+  '[class*="-button" i]',
+  '[class*="button-" i]',
+  '[class~="icon" i]',
+  '[class*="-icon" i]',
+  '[class*="icon-" i]'
+ ].join(",");
  function audioPreloadLimits(options) {
   return {
    sourceLimit: options.sourceLimit ?? 1,
@@ -39516,6 +39742,7 @@ ${spelling}`);
     if (target.closest?.("[data-yomu-jpdb-addon] [data-action]")) return;
     if (target.closest?.("[data-settings-preview-lookup]")) return;
     if (target.closest?.(".jpdb-reader-settings .jpdb-reader-word")) return;
+    if (this.isNativePageLookupBlocked(target)) return;
     const word = target.closest?.(".jpdb-reader-word");
     if (!word && target.closest?.("[data-jpdb-reader-root] a.gloss-link[data-dictionary-lookup]")) return;
     if (!word) {
@@ -39924,10 +40151,12 @@ ${spelling}`);
   }
   canLookupReaderWord(word) {
    if (word.dataset.jpdbReaderPassive === "true") return false;
+   if (this.isNativePageLookupBlocked(word)) return false;
    if (!word.closest("[data-jpdb-reader-root]")) return true;
    return Boolean(word.closest(".jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-popover, .yomu-jpdb-page-addon"));
   }
   canHoverLookupReaderWord(word) {
+   if (this.isNativePageLookupBlocked(word)) return false;
    if (!word.closest("[data-jpdb-reader-root]")) return true;
    if (word.closest(".jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .yomu-jpdb-page-addon")) return true;
    return this.hasHoverLookupShortcut() && Boolean(word.closest(".jpdb-reader-newtab, .jpdb-reader-popover, .jpdb-reader-settings"));
@@ -40547,7 +40776,7 @@ ${spelling}`);
   }
   pointerLookupElement(x, y, eventTarget) {
    const element2 = eventTarget instanceof Element ? eventTarget : document.elementFromPoint(x, y);
-   return element2 && !this.isNativeTextLookupTarget(element2) ? element2 : null;
+   return element2 && !this.isNativeTextLookupTarget(element2) && !this.isNativePageLookupBlocked(element2) ? element2 : null;
   }
   usablePointerTextPosition(element2, x, y) {
    const position = caretTextPositionFromPoint(x, y);
@@ -40572,6 +40801,9 @@ ${spelling}`);
   }
   isNativeTextLookupTarget(target) {
    return isPassiveInteractionElement(target) || Boolean(target.closest('input,textarea,select,[contenteditable="true"],.jpdb-reader-word'));
+  }
+  isNativePageLookupBlocked(target) {
+   return Boolean(isJpdbHost() && target && !target.closest("[data-jpdb-reader-root]") && target.closest(NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR));
   }
   async showLookupCandidate(candidate, trigger, options = {}) {
    const sentence = lookupCandidateSentence(candidate.text, candidate.start, candidate.end);
@@ -40877,6 +41109,7 @@ ${spelling}`);
     options,
     renderData,
     fallbackAnkiLookup,
+    anchor,
     requestId,
     isCurrentHoverCard,
     hoverLookupGeneration
@@ -40956,7 +41189,7 @@ ${spelling}`);
    });
   }
   shouldAutoPlayInitialCard(card, context) {
-   return context.options.autoPlay !== false && this.isCurrentCardForAutoPlay(context) && this.shouldAutoPlay(card, context.trigger, Boolean(context.options.userGesture));
+   return context.options.autoPlay !== false && this.isCurrentCardForAutoPlay(context) && this.shouldAutoPlay(card, context.trigger, Boolean(context.options.userGesture), context.anchor);
   }
   isCurrentCardForAutoPlay(context) {
    return context.trigger === "modal" || context.isCurrentHoverCard();
@@ -41190,8 +41423,9 @@ ${spelling}`);
     preservePosition: true
    });
   }
-  shouldAutoPlay(card, trigger, userGesture = false) {
+  shouldAutoPlay(card, trigger, userGesture = false, anchor) {
    if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return false;
+   if (this.shouldSuppressAutoAudioForVideo(anchor)) return false;
    if (!this.shouldAutoPlayForTrigger(trigger)) return false;
    if (!canAttemptAudiblePlayback(userGesture)) return false;
    const key = `${card.vid}:${card.sid}`;
@@ -41202,6 +41436,9 @@ ${spelling}`);
     this.lastAutoAudioAt = now;
    }
    return true;
+  }
+  shouldSuppressAutoAudioForVideo(anchor) {
+   return this.settings.suppressAutoAudioOnVideo && (Boolean(anchor?.closest(".jpdb-subtitle-player, .jpdb-subtitle-list")) || hasVisiblePageVideo());
   }
   shouldAutoPlayForTrigger(trigger) {
    const mode = this.settings.audioAutoPlayMode;
@@ -42203,7 +42440,7 @@ ${spelling}`);
   }
   popoverMountState(anchor, options) {
    const mode = options.mode ?? "modal";
-   const backdrop = options.stackOverSettings || mode === "hover" || shouldUseSheet(this.settings) ? void 0 : createReaderBackdrop(() => this.dismiss());
+   const backdrop = options.stackOverSettings || mode === "hover" || shouldUseSheet(this.settings) || !this.settings.popoverBackdropEnabled ? void 0 : createReaderBackdrop(() => this.dismiss());
    const resolvedAnchor = connectedElement(anchor) ?? connectedElement(this.activePopoverAnchor);
    const anchorRect = popoverAnchorRect(resolvedAnchor, this.activePopoverAnchorRect);
    const previousPopoverRect = options.preservePosition ? this.activePopover?.getBoundingClientRect() : void 0;

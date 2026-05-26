@@ -62,12 +62,26 @@ export function mutationMayContainJapaneseText(mutation: MutationRecord): boolea
 
 export function mutationMayAffectJpdbPageEnhancements(mutation: MutationRecord): boolean {
     if (mutation.type === 'attributes') return jpdbPageEnhancementAttributeMayAffect(mutation);
+    if (mutation.type === 'characterData') return nodeMayAffectJpdbPageEnhancements(mutation.target);
+    if (mutation.type === 'childList') return childListMutationMayAffectJpdbPageEnhancements(mutation);
+    return false;
+}
+
+function childListMutationMayAffectJpdbPageEnhancements(mutation: MutationRecord): boolean {
     const nodes = [
-        mutation.target,
         ...Array.from(mutation.addedNodes),
         ...Array.from(mutation.removedNodes),
     ];
-    return nodes.some(nodeMayAffectJpdbPageEnhancements);
+    return nodes.some(nodeMayAffectJpdbPageEnhancements)
+        || childListTargetMayAffectJpdbPageEnhancements(mutation.target);
+}
+
+function childListTargetMayAffectJpdbPageEnhancements(node: Node): boolean {
+    const element = mutationNodeElement(node);
+    if (!element || element.closest(JPDB_PAGE_ENHANCEMENT_DYNAMIC_IGNORE_SELECTOR)) return false;
+    return element.matches(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR)
+        || element.matches(JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR)
+        || Boolean(element.closest(`${JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR},${JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR}`));
 }
 
 function jpdbPageEnhancementAttributeMayAffect(mutation: MutationRecord): boolean {

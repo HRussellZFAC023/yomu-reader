@@ -179,6 +179,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     similarKanjiWordLimit: 8,
     audioEnabled: true,
     autoPlayAudio: true,
+    suppressAutoAudioOnVideo: true,
     audioAutoPlayMode: 'all',
     audioSources: DEFAULT_AUDIO_SOURCES,
     audioEnableDefaultSources: true,
@@ -301,6 +302,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     theme: 'auto',
     popupMode: 'auto',
     stickyBottomSheet: false,
+    popoverBackdropEnabled: true,
     popoverWidth: 520,
     popoverHeight: 540,
     popoverHeightMode: 'fixed',
@@ -367,12 +369,13 @@ function stripLegacyWordHighlightMode<T extends object>(value: T | null | undefi
     return settings;
 }
 
-function normalizeAudioSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'audioAutoPlayMode' | 'audioSources' | 'audioSourceUrl' | 'audioTtsMode'> {
+function normalizeAudioSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'suppressAutoAudioOnVideo' | 'audioAutoPlayMode' | 'audioSources' | 'audioSourceUrl' | 'audioTtsMode'> {
     const hasSavedAudioSources = hasOwn(value, 'audioSources');
     const audioSources = hasSavedAudioSources || value?.audioSourceUrl
         ? normalizeAudioSources(value?.audioSources, value?.audioSourceUrl)
         : DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
     return {
+        suppressAutoAudioOnVideo: booleanSetting(value, 'suppressAutoAudioOnVideo'),
         audioAutoPlayMode: normalizeAudioAutoPlayMode(value?.audioAutoPlayMode),
         audioSources,
         audioSourceUrl: audioSources.find(source => source.url)?.url ?? value?.audioSourceUrl ?? DEFAULT_AUDIO_URL,
@@ -499,6 +502,7 @@ function normalizePresentationSettings(value: Partial<ReaderSettings> | null): P
         theme: normalizeTheme(value?.theme),
         popupMode: normalizePopupMode(value?.popupMode),
         stickyBottomSheet: booleanSetting(value, 'stickyBottomSheet'),
+        popoverBackdropEnabled: booleanSetting(value, 'popoverBackdropEnabled'),
         popoverWidth: clampNumber(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
         popoverHeight: clampNumber(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
         popoverHeightMode: normalizePopoverHeightMode(value?.popoverHeightMode),

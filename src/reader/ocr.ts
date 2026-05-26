@@ -57,6 +57,7 @@ interface OcrControllerOptions {
 }
 
 const MAX_CACHE_ITEMS = 36;
+const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15000;
 const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';
 const GOOGLE_LENS_API_KEY = 'AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY';
 const DEFAULT_LOCAL_OCR_ENDPOINT_URL = 'http://127.0.0.1:7331/ocr';
@@ -113,6 +114,13 @@ interface OcrScanContext {
     done: () => void;
 }
 
+class LocalOcrUnavailableError extends Error {
+    constructor(readonly endpointUrl: string) {
+        super('Local OCR server is unreachable.');
+        this.name = 'LocalOcrUnavailableError';
+    }
+}
+
 function beginOcrScan(
     state: ImageState,
     image: HTMLImageElement,
@@ -145,10 +153,17 @@ function renderOcrErrorStatus(state: ImageState, settings: ReaderSettings, provi
     state.status.textContent = ocrVisibleErrorMessage(settings, error);
     state.autoSkipped = !manualRequested;
     state.status.hidden = !state.overlayRequested || state.autoSkipped;
+    if (isLocalOcrUnavailableError(error)) {
+        log.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, 'Local OCR endpoint unavailable; pausing requests', { provider, endpoint: error.endpointUrl });
+        return;
+    }
     log.warn('OCR scan failed', { provider, manualRequested }, error);
 }
 
 function ocrVisibleErrorMessage(settings: ReaderSettings, error: unknown): string {
+    if (settings.ocrProvider === 'local-service' && isLocalOcrConnectionError(error)) {
+        return uiText(settings.interfaceLanguage, 'localOcrUnavailable');
+    }
     if (resolveUiLanguage(settings.interfaceLanguage) === 'ja') return uiText(settings.interfaceLanguage, 'ocrFailed');
     return error instanceof Error ? error.message : uiText(settings.interfaceLanguage, 'ocrFailed');
 }
@@ -156,6 +171,7 @@ function ocrVisibleErrorMessage(settings: ReaderSettings, error: unknown): strin
 export class ImageOcrController {
     private states = new Map<HTMLImageElement, ImageState>();
     private cache = new Map<string, OcrResult>();
+    private localOcrUnavailable?: { endpointUrl: string; retryAt: number };
     private observer?: IntersectionObserver;
     private observerMargin = '';
     private mutationObserver?: MutationObserver;
@@ -480,7 +496,42 @@ export class ImageOcrController {
 
     private recognizeImage(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
         const recognizer = ocrRecognizer(settings);
-        return recognizer ? recognizer(image, settings) : Promise.resolve(null);
+        if (!recognizer) return Promise.resolve(null);
+        if (settings.ocrProvider !== 'local-service') return recognizer(image, settings);
+        return this.recognizeViaLocalServiceWithBackoff(image, settings, recognizer);
+    }
+
+    private async recognizeViaLocalServiceWithBackoff(
+        image: HTMLImageElement,
+        settings: ReaderSettings,
+        recognizer: OcrRecognizer,
+    ): Promise<OcrResult | null> {
+        const endpointUrl = localOcrEndpointUrl(settings);
+        if (this.isLocalOcrUnavailable(endpointUrl)) throw new LocalOcrUnavailableError(endpointUrl);
+        try {
+            const result = await recognizer(image, settings);
+            this.clearLocalOcrUnavailable(endpointUrl);
+            return result;
+        } catch (error) {
+            if (isLocalOcrConnectionError(error)) this.rememberLocalOcrUnavailable(endpointUrl);
+            throw error;
+        }
+    }
+
+    private isLocalOcrUnavailable(endpointUrl: string): boolean {
+        const unavailable = this.localOcrUnavailable;
+        if (!unavailable || unavailable.endpointUrl !== endpointUrl) return false;
+        if (Date.now() < unavailable.retryAt) return true;
+        this.localOcrUnavailable = undefined;
+        return false;
+    }
+
+    private rememberLocalOcrUnavailable(endpointUrl: string): void {
+        this.localOcrUnavailable = { endpointUrl, retryAt: Date.now() + LOCAL_OCR_UNAVAILABLE_RETRY_MS };
+    }
+
+    private clearLocalOcrUnavailable(endpointUrl: string): void {
+        if (this.localOcrUnavailable?.endpointUrl === endpointUrl) this.localOcrUnavailable = undefined;
     }
 
     private async renderResult(state: ImageState, result: OcrResult, forceOverlay = false): Promise<void> {
@@ -2287,8 +2338,24 @@ function requestJson(url: string, data: string, timeout: number): Promise<unknow
             });
         });
     }
-    return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: data })
+    return fetchJsonWithTimeout(url, data, timeout)
         .then(response => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
+}
+
+function fetchJsonWithTimeout(url: string, data: string, timeout: number): Promise<Response> {
+    if (!timeout) return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: data });
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+    }, timeout);
+    return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: data, signal: controller.signal })
+        .catch(error => {
+            if (timedOut || isAbortError(error)) throw new Error('OCR timed out.');
+            throw error;
+        })
+        .finally(() => window.clearTimeout(timeoutId));
 }
 
 function requestArrayBuffer(url: string, data: Uint8Array, timeout: number): Promise<ArrayBuffer> {
@@ -2432,6 +2499,22 @@ function ocrEngineLabel(settings: ReaderSettings): string {
 
 function localOcrEndpointUrl(settings: ReaderSettings): string {
     return settings.ocrEndpointUrl.trim() || DEFAULT_LOCAL_OCR_ENDPOINT_URL;
+}
+
+function isLocalOcrConnectionError(error: unknown): boolean {
+    if (isLocalOcrUnavailableError(error)) return true;
+    if (!(error instanceof Error)) return true;
+    return error.name === 'TypeError'
+        || error.name === 'AbortError'
+        || /network|failed to fetch|load failed|cors|blocked|timed out|timeout|request failed/i.test(error.message);
+}
+
+function isLocalOcrUnavailableError(error: unknown): error is LocalOcrUnavailableError {
+    return error instanceof LocalOcrUnavailableError;
+}
+
+function isAbortError(error: unknown): boolean {
+    return error instanceof Error && error.name === 'AbortError';
 }
 
 function safeHost(value: string): string {

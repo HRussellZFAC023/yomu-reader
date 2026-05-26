@@ -103,6 +103,7 @@ import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, Yomit
 const NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS = 1_200;
 const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 6;
 const NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT = 48;
+const NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1_000;
 const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
 const NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS = 120;
 const NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS = 2_500;
@@ -3670,7 +3671,12 @@ export class NewTabController {
         const key = this.immersionCacheKey(card);
         const existing = this.immersionCache.get(key);
         if (existing) return existing;
-        const promise = this.fetchNewTabImmersionExamples(card).catch(() => []);
+        const settings = this.dependencies.getSettings();
+        const promise = promiseWithTimeout(
+            this.fetchNewTabImmersionExamples(card),
+            settings.audioTimeoutMs + NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS,
+            'Immersion Kit examples timed out.',
+        ).catch(() => []);
         this.immersionCache.set(key, promise);
         return promise;
     }

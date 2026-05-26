@@ -3,7 +3,7 @@ import { isYomuHostedAppUrl, isYomuHostedPassivePage } from './app-pages';
 import { AnkiConnectClient, captureActiveVideoFrame, type AnkiLookupResult } from './anki';
 import { renderReviewButtons } from './anki-render';
 import { runLimited } from './async-utils';
-import { copyText, isEditableTarget, normalizePressedKey, pauseActiveVideo, positionPopover } from './browser-ui';
+import { copyText, hasVisiblePageVideo, isEditableTarget, normalizePressedKey, pauseActiveVideo, positionPopover } from './browser-ui';
 import { CardActionController } from './card-action-controller';
 import { CardPopoverRenderer } from './card-popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from './card-render-data';
@@ -245,6 +245,36 @@ function isMousePointerEvent(event: MouseEvent | PointerEvent): boolean {
 function eventElement(event: Event): Element | null {
     return event.target instanceof Element ? event.target : null;
 }
+
+const NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR = [
+    'a[href]',
+    'button',
+    'input',
+    'textarea',
+    'select',
+    'summary',
+    '[role="button"]',
+    '[contenteditable="true"]',
+    '[data-audio]',
+    '[onclick]',
+    '.subsection-immersion-kit',
+    '[class*="immersion" i]',
+    '[class*="audio" i]',
+    '[class*="sound" i]',
+    '[class*="speaker" i]',
+    '[class~="play" i]',
+    '[class*="-play" i]',
+    '[class*="play-" i]',
+    '[class~="control" i]',
+    '[class*="-control" i]',
+    '[class*="control-" i]',
+    '[class~="button" i]',
+    '[class*="-button" i]',
+    '[class*="button-" i]',
+    '[class~="icon" i]',
+    '[class*="-icon" i]',
+    '[class*="icon-" i]',
+].join(',');
 
 interface ReaderAudioPreloadOptions {
     sourceLimit?: number;
@@ -1204,6 +1234,7 @@ export class ReaderApp {
             if (target.closest?.('[data-yomu-jpdb-addon] [data-action]')) return;
             if (target.closest?.('[data-settings-preview-lookup]')) return;
             if (target.closest?.('.jpdb-reader-settings .jpdb-reader-word')) return;
+            if (this.isNativePageLookupBlocked(target)) return;
             const word = target.closest?.('.jpdb-reader-word') as HTMLElement | null;
             if (!word && target.closest?.('[data-jpdb-reader-root] a.gloss-link[data-dictionary-lookup]')) return;
             if (!word) {
@@ -1678,11 +1709,13 @@ export class ReaderApp {
 
     private canLookupReaderWord(word: HTMLElement): boolean {
         if (word.dataset.jpdbReaderPassive === 'true') return false;
+        if (this.isNativePageLookupBlocked(word)) return false;
         if (!word.closest('[data-jpdb-reader-root]')) return true;
         return Boolean(word.closest('.jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-popover, .yomu-jpdb-page-addon'));
     }
 
     private canHoverLookupReaderWord(word: HTMLElement): boolean {
+        if (this.isNativePageLookupBlocked(word)) return false;
         if (!word.closest('[data-jpdb-reader-root]')) return true;
         if (word.closest('.jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .yomu-jpdb-page-addon')) return true;
         return this.hasHoverLookupShortcut()
@@ -2438,7 +2471,7 @@ export class ReaderApp {
 
     private pointerLookupElement(x: number, y: number, eventTarget: EventTarget | null): Element | null {
         const element = eventTarget instanceof Element ? eventTarget : document.elementFromPoint(x, y);
-        return element && !this.isNativeTextLookupTarget(element) ? element : null;
+        return element && !this.isNativeTextLookupTarget(element) && !this.isNativePageLookupBlocked(element) ? element : null;
     }
 
     private usablePointerTextPosition(element: Element, x: number, y: number): NonNullable<ReturnType<typeof caretTextPositionFromPoint>> | null {
@@ -2472,6 +2505,13 @@ export class ReaderApp {
     private isNativeTextLookupTarget(target: Element): boolean {
         return isPassiveInteractionElement(target)
             || Boolean(target.closest('input,textarea,select,[contenteditable="true"],.jpdb-reader-word'));
+    }
+
+    private isNativePageLookupBlocked(target: Element | null): boolean {
+        return Boolean(isJpdbHost()
+            && target
+            && !target.closest('[data-jpdb-reader-root]')
+            && target.closest(NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR));
     }
 
     private async showLookupCandidate(candidate: PointerTextLookup, trigger: 'modal' | 'hover', options: { navigation?: CardNavigationMode; preservePosition?: boolean; hoverLookupGeneration?: number; userGesture?: boolean } = {}): Promise<void> {
@@ -2892,6 +2932,7 @@ export class ReaderApp {
             options,
             renderData,
             fallbackAnkiLookup,
+            anchor,
             requestId,
             isCurrentHoverCard,
             hoverLookupGeneration,
@@ -2931,6 +2972,7 @@ export class ReaderApp {
             options: CardDisplayOptions;
             renderData: CardRenderDataLoad;
             fallbackAnkiLookup: AnkiLookupResult;
+            anchor?: HTMLElement;
             requestId: number;
             isCurrentHoverCard: () => boolean;
             hoverLookupGeneration?: number;
@@ -2968,6 +3010,7 @@ export class ReaderApp {
         context: {
             trigger: 'modal' | 'hover';
             options: CardDisplayOptions;
+            anchor?: HTMLElement;
             isCurrentHoverCard: () => boolean;
             hoverLookupGeneration?: number;
         },
@@ -3016,11 +3059,11 @@ export class ReaderApp {
 
     private shouldAutoPlayInitialCard(
         card: JPDBCard,
-        context: { trigger: 'modal' | 'hover'; options: CardDisplayOptions; isCurrentHoverCard: () => boolean },
+        context: { trigger: 'modal' | 'hover'; options: CardDisplayOptions; anchor?: HTMLElement; isCurrentHoverCard: () => boolean },
     ): boolean {
         return context.options.autoPlay !== false
             && this.isCurrentCardForAutoPlay(context)
-            && this.shouldAutoPlay(card, context.trigger, Boolean(context.options.userGesture));
+            && this.shouldAutoPlay(card, context.trigger, Boolean(context.options.userGesture), context.anchor);
     }
 
     private isCurrentCardForAutoPlay(context: { trigger: 'modal' | 'hover'; isCurrentHoverCard: () => boolean }): boolean {
@@ -3301,8 +3344,9 @@ export class ReaderApp {
         });
     }
 
-    private shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture = false): boolean {
+    private shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture = false, anchor?: HTMLElement): boolean {
         if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return false;
+        if (this.shouldSuppressAutoAudioForVideo(anchor)) return false;
         if (!this.shouldAutoPlayForTrigger(trigger)) return false;
         if (!canAttemptAudiblePlayback(userGesture)) return false;
         const key = `${card.vid}:${card.sid}`;
@@ -3313,6 +3357,11 @@ export class ReaderApp {
             this.lastAutoAudioAt = now;
         }
         return true;
+    }
+
+    private shouldSuppressAutoAudioForVideo(anchor?: HTMLElement): boolean {
+        return this.settings.suppressAutoAudioOnVideo
+            && (Boolean(anchor?.closest('.jpdb-subtitle-player, .jpdb-subtitle-list')) || hasVisiblePageVideo());
     }
 
     private shouldAutoPlayForTrigger(trigger: 'modal' | 'hover'): boolean {
@@ -4477,7 +4526,7 @@ export class ReaderApp {
 
     private popoverMountState(anchor: HTMLElement | undefined, options: MountPopoverOptions): PopoverMountState {
         const mode = options.mode ?? 'modal';
-        const backdrop = options.stackOverSettings || mode === 'hover' || shouldUseSheet(this.settings)
+        const backdrop = options.stackOverSettings || mode === 'hover' || shouldUseSheet(this.settings) || !this.settings.popoverBackdropEnabled
             ? undefined
             : createReaderBackdrop(() => this.dismiss());
         const resolvedAnchor = connectedElement(anchor) ?? connectedElement(this.activePopoverAnchor);

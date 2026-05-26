@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.54] - 2026-05-26
+
+### Fixed
+
+- Kept playing videos running after transcript timestamp seeks, including sites that briefly pause the media while `currentTime` changes.
+- Added a default-on video-safe autoplay guard so automatic lookup/example audio does not interrupt visible video playback, with a setting to turn it off.
+- Added a popover setting to disable the dimmed page backdrop for sticky click-opened popovers.
+- Timed out hung popup and new-tab Immersion Kit example loads so iPad/Safari requests no longer leave the section stuck on “Loading examples...”.
+- Paused repeated local OCR requests briefly after an unreachable local endpoint so iPad and desktop sessions do not keep hammering a down OCR server.
+- Narrowed JPDB-page enhancement refreshes around dynamic Immersion Kit content while still detecting real text and anchor changes.
+
 ## [0.4.53] - 2026-05-26
 
 ### Fixed

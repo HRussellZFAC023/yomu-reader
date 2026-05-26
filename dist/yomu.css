@@ -4431,6 +4431,10 @@ html.jpdb-reader-doodle-active * {
   font-size: 11px;
   line-height: 1.35;
 }
+.jpdb-reader-settings-label-text {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
 .jpdb-reader-settings .jpdb-reader-word {
   white-space: normal;
   word-break: normal;
@@ -5903,7 +5907,7 @@ html.jpdb-reader-doodle-active * {
   opacity: 1;
 }
 .jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: .72; }
-.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
+.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
   opacity: 0;
   pointer-events: none;
 }
@@ -5911,8 +5915,7 @@ html.jpdb-reader-doodle-active * {
   opacity: 1;
 }
 .jpdb-subtitle-rail:hover,
-.jpdb-subtitle-menu-open .jpdb-subtitle-rail,
-.jpdb-subtitle-panel-open .jpdb-subtitle-rail {
+.jpdb-subtitle-menu-open .jpdb-subtitle-rail {
   opacity: 1;
 }
 .jpdb-subtitle-rail button,
