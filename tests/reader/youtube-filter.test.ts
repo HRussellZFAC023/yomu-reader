@@ -175,6 +175,7 @@ describe('YouTube immersion filter', () => {
 
     it('nudges YouTube continuation loading when filtering leaves too few visible videos', async () => {
         vi.useFakeTimers();
+        stubOEmbedTitles({ jp: '日本語で花の名前を覚える' });
         document.body.innerHTML = `
             <main>
                 <ytd-rich-item-renderer data-case="jp">
