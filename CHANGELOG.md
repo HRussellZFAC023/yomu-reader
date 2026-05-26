@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.4.58] - 2026-05-26
+
+### Fixed
+
+- Let explicit Anki/status underline and color settings read existing Anki card status without enabling Anki mining.
+- Batched Anki existing-card lookups across all decks and recognized common imported vocabulary fields, so cards in non-mining decks can show status, edit, and grading controls instead of “Add to Anki”.
+- Kept JPDB vocabulary details, pitch accent, and Anki status loading independently so popovers settle faster and do not wait sequentially on slow Anki responses.
+- Rebound translation, grammar, and Immersion Kit loaders after deferred popup rerenders so cards cannot get stuck on “Finding grammar...” or “Loading dictionary details...”.
+- Kept hosted runtime and QA audio enabled by default while preserving explicit disabled-audio behavior for tests and user settings.
+- Ignored VitePress's check-only home `--vp-offset` hydration warning in the docs audit while continuing to fail real console and page errors.
+
+## [0.4.57] - 2026-05-26
+
+### Fixed
+
+- Replanned partially parsed Immersion Kit and example sentences from their full visible text so existing highlighted words no longer fragment later parsing passes.
+- Routed pointer, selection, Immersion Kit, and new-tab parsing through the same JPDB-first path so inflected words keep JPDB readings and pitch instead of falling back to single-character cards.
+- Made subtitle and image-backed Immersion Kit highlights more legible and prevented target highlights from stacking with stray underline decoration.
+- Avoided caching all-fallback sentence parses as final Immersion Kit/new-tab results so transient JPDB timeouts do not poison later renders.
+- Sent Jisho lookup fallbacks through alternate public proxies before the hosted worker so transient worker 525s no longer block dictionary audio discovery.
+
 ## [0.4.56] - 2026-05-26
 
 ### Fixed

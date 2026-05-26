@@ -12,6 +12,7 @@ import type { JPDBCard, JPDBToken } from '../../src/reader/types';
 
 interface PointerTextCardInternals {
     showCard: (card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, options: unknown) => Promise<void>;
+    renderedWordSentence(word: HTMLElement): string | undefined;
     showPointerTextCard(
         card: JPDBCard,
         sentence: string,
@@ -83,6 +84,27 @@ describe('reader sentence context', () => {
                 document.body,
                 expect.objectContaining({ trigger: 'modal' }),
             );
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('keeps noisy YouTube chrome out of rendered word translation context', () => {
+        const app = new ReaderApp();
+        const title = '【ASMR】評価が悪い美容室のヘアカット✂💈【ロールプレイ】';
+        const internals = app as unknown as PointerTextCardInternals;
+        document.body.innerHTML = `
+            <section>
+                <span>・動画全編を視聴</span>
+                <span>36:35</span><span>33:17</span><span>9:02</span><span>3:02</span>
+                <span class="jpdb-reader-word" data-sentence="${title}" data-expression="美容">美容</span>
+                <span>${title}</span>
+            </section>
+        `;
+
+        try {
+            expect(internals.renderedWordSentence(document.querySelector<HTMLElement>('.jpdb-reader-word')!))
+                .toBe(title);
         } finally {
             app.destroy();
         }

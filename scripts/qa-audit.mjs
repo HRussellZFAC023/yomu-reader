@@ -13,6 +13,7 @@ const DIST = path.join(ROOT, 'dist');
 const ARTIFACTS = path.join(ROOT, 'qa-artifacts');
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const SCRIPT_PATH = path.join(DIST, 'yomu.user.js');
+const CSS_PATH = path.join(DIST, 'yomu.css');
 const SCRIPT_FALLBACK_PATHS = [
     SCRIPT_PATH,
     path.join(ROOT, 'docs', '.vitepress', 'dist', 'yomu.user.js'),
@@ -38,7 +39,7 @@ const baseSettings = {
     kanjiOriginRadicalImagesEnabled: false,
     similarKanjiWords: true,
     similarKanjiWordLimit: 8,
-    audioEnabled: false,
+    audioEnabled: true,
     autoPlayAudio: false,
     audioSources: [],
     audioEnableDefaultSources: false,
@@ -144,6 +145,7 @@ const baseSettings = {
 
 const results = [];
 let userscript = '';
+let readerCss = '';
 
 async function readBuiltUserscript() {
     const errors = [];
@@ -156,6 +158,14 @@ async function readBuiltUserscript() {
         }
     }
     throw new Error(`Could not find a built userscript.\n${errors.join('\n')}`);
+}
+
+async function readBuiltReaderCss() {
+    try {
+        return await readFile(CSS_PATH, 'utf8');
+    } catch {
+        return '';
+    }
 }
 
 function record(name, status, detail = '') {
@@ -294,6 +304,7 @@ function dataUrl(html) {
 
 const QA_READER_PATH = '/__qa__/reader';
 const QA_VIDEO_PATH = '/__qa__/video';
+const QA_RUNTIME_REGRESSION_PATH = '/__qa__/runtime-regression';
 const QA_JA_SUBTITLES_PATH = '/__qa__/subtitles-ja.vtt';
 const QA_EN_SUBTITLES_PATH = '/__qa__/subtitles-en.vtt';
 
@@ -368,6 +379,36 @@ function qaVideoHtml() {
 </html>`;
 }
 
+function qaRuntimeRegressionHtml() {
+    return `<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>よむ Runtime Regression Fixture</title>
+  <style>
+    body { margin: 0; font: 24px/1.9 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #171a1f; background: #f6f7f9; }
+    main { max-width: 820px; margin: 0 auto; padding: 42px 20px 160px; }
+	    article { background: #fff; border: 1px solid rgba(20, 30, 45, .12); border-radius: 8px; padding: 24px; }
+	    p { margin: 0 0 1.1em; }
+	    .yomu-link-card { display: block; margin-top: 1.2em; padding: 16px; border: 1px solid rgba(20, 30, 45, .16); border-radius: 8px; color: inherit; text-decoration: none; }
+	    .yomu-link-card span { display: block; color: #526070; font-size: 0.8em; }
+	  </style>
+	</head>
+<body>
+  <main>
+    <article>
+      <p id="inflected-pointer-target">好きなものを読んで日本語を学ぶ。</p>
+	      <p id="polite-form-target">おはようございます。</p>
+	      <p>毎日読んでいるので、もっと読みたい。</p>
+	      <p>今日は静かな喫茶店で新しい本を読みました。</p>
+	      <a id="runtime-link-card" class="yomu-link-card" href="getting-started"><strong>よむをセットアップ</strong><span>日本語のページで最初の検索を試します。</span></a>
+	    </article>
+	  </main>
+	</body>
+</html>`;
+}
+
 async function startStaticServer(root) {
     const server = createServer(async (req, res) => {
         try {
@@ -384,6 +425,13 @@ async function startStaticServer(root) {
                 res.setHeader('Access-Control-Allow-Origin', '*');
                 res.setHeader('Content-Type', 'text/html; charset=utf-8');
                 res.end(qaVideoHtml());
+                return;
+            }
+            if (url.pathname === QA_RUNTIME_REGRESSION_PATH) {
+                res.statusCode = 200;
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.end(qaRuntimeRegressionHtml());
                 return;
             }
             if (url.pathname === QA_JA_SUBTITLES_PATH || url.pathname === QA_EN_SUBTITLES_PATH) {
@@ -578,6 +626,26 @@ async function waitForRequestCountStable(requests, requestCount, idleMs, timeout
     throw new Error(message);
 }
 
+function encodedJpdbOggBytes() {
+    const oggHeader = [0x4f, 0x67, 0x67, 0x53];
+    const xor = [0x06, 0x23, 0x54, 0x0f];
+    return Buffer.from([
+        ...oggHeader.map((byte, index) => byte ^ xor[index]),
+        0x00,
+        0x02,
+        0x00,
+        0x00,
+    ]);
+}
+
+function isTransparentCssColor(value) {
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return !normalized
+        || normalized === 'transparent'
+        || normalized === 'rgba(0, 0, 0, 0)'
+        || normalized === 'rgb(0 0 0 / 0)';
+}
+
 async function newAuditedPage(browser, settings = baseSettings, viewport = { width: 1280, height: 900 }) {
     const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
     const page = await context.newPage();
@@ -661,7 +729,7 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
             contentType: response.headers.get('content-type') ?? '',
         };
     });
-    await page.addInitScript(({ settings, settingsKey }) => {
+    await page.addInitScript(({ settings, settingsKey, css }) => {
         const storagePrefix = '__yomu_qa_gm__';
         const memoryStore = new Map();
         const storageKey = key => `${storagePrefix}${key}`;
@@ -710,6 +778,7 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
             (document.head || document.documentElement || document.body).append(style);
             return style;
         };
+        window.GM_getResourceText = name => name === 'yomuCss' ? css : '';
         window.GM_registerMenuCommand = () => undefined;
         const serializeBody = async data => {
             if (data instanceof ArrayBuffer) return { kind: 'arraybuffer', bytes: [...new Uint8Array(data)] };
@@ -770,7 +839,7 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
                 });
             }).catch(settle(error => options.onerror?.(error)));
         };
-    }, { settings, settingsKey: SETTINGS_KEY });
+    }, { settings, settingsKey: SETTINGS_KEY, css: readerCss });
     return { page, requests };
 }
 
@@ -846,7 +915,14 @@ const qaVocabulary = [
     ['食卓', 'しょくたく', 'dining table', ['n'], 1500],
     ['リビング', 'りびんぐ', 'living room', ['n'], 2100],
     ['暮らし', 'くらし', 'living', ['n'], 1900],
-    ['日本語', 'にほんご', 'Japanese language', ['n'], 250],
+	    ['日本語', 'にほんご', 'Japanese language', ['n'], 250],
+	    ['よむ', 'よむ', 'to read', ['v5m'], 400, '読む'],
+	    ['好き', 'すき', 'liking', ['adj-na'], 600],
+    ['もの', 'もの', 'thing', ['n'], 450],
+    ['読んで', 'よむ', 'to read', ['v5m'], 400, '読む'],
+    ['学ぶ', 'まなぶ', 'to study', ['v5b'], 900],
+    ['読みたい', 'よみたい', 'want to read', ['v5m'], 410, '読む'],
+    ['ございます', 'ございます', 'to be (polite)', ['exp'], 1800],
 ].map(([surface, reading, gloss, partOfSpeech, frequency, spelling]) => ({
     surface,
     spelling: spelling ?? surface,
@@ -1076,6 +1152,16 @@ function mockJpdbVocabularyHtml(url) {
                         <div style="--pitch-low: 1">${htmlEscape(safeReading.slice(0, 1) || spelling.slice(0, 1))}</div>
                         <div style="--pitch-high: 1">${htmlEscape(safeReading.slice(1) || spelling.slice(1) || spelling)}</div>
                     </div></div>
+                </div>
+                <div class="subsection-examples">
+                    <h6 class="subsection-label">Monolingual examples</h6>
+                    <div class="subsection">
+                        <div class="example">
+                            <a class="icon-link example-audio" href="#" data-audio="m1/yomu-runtime-regression"></a>
+                            <span class="sentence">好きなものを読んで日本語を学ぶ。</span>
+                            <span class="translation">Learn Japanese by reading what you like.</span>
+                        </div>
+                    </div>
                 </div>
                 <div class="subsection-used-in-vocabulary">
                     <h6 class="subsection-label">Used in</h6>
@@ -1783,6 +1869,18 @@ function assertNoPageBrowserErrors(errors, label) {
 
 async function auditBloomeeAutoScan(browser) {
     const { page, requests } = await newAuditedPage(browser, { ...baseSettings, showFloatingButton: false, ocrEnabled: false });
+    await page.route('https://bloomeelife.com/**', route => route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
+            body{margin:0;padding:40px;font:18px/1.8 system-ui;color:#20242b}
+            h1{text-align:center;font-size:28px}
+            .point__itembox-txt{max-width:640px;margin:120vh auto 0}
+        </style></head><body>
+            <h1>Bloomee fixture</h1>
+            <p class="point__itembox-txt">食卓やリビングに季節の花を飾る暮らしを楽しみます。</p>
+        </body></html>`,
+    }));
     await page.goto('https://bloomeelife.com/', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await injectUserscript(page);
     await page.waitForTimeout(3500);
@@ -1972,6 +2070,7 @@ async function auditHoverLookup(browser, server) {
         }));
         throw new Error(`hover popup kept showing dictionary loading details: ${JSON.stringify({ debug, requests: requests.slice(-20) })}: ${error instanceof Error ? error.message : String(error)}`);
     });
+    await openImmersionKitDetails(page);
     await waitForAudit(page, () => {
         const immersion = document.querySelector('[data-immersion-kit]');
         return !immersion || immersion.dataset.immersionEmpty === 'true' || immersion.querySelector('.jpdb-reader-example-card');
@@ -2021,6 +2120,369 @@ async function auditHoverLookup(browser, server) {
     await page.keyboard.up('Shift');
     await page.close();
     record('hold-key hover lookup', 'pass', 'Shift hover and press-drag lookup both open lightweight popups');
+}
+
+async function auditRuntimeRegressionFixes(browser, server) {
+    const runtimeAudioRequests = [];
+    const { page } = await newAuditedPage(browser, {
+        ...baseSettings,
+        lookupOnClick: true,
+        lookupOnHover: true,
+        hoverOpenDelayMs: 35,
+        hoverCloseDelayMs: 120,
+        audioEnabled: true,
+        autoPlayAudio: false,
+        audioViaBlob: true,
+        audioEnableDefaultSources: false,
+        audioSources: [{ type: 'text-to-speech', url: '', voice: '', enabled: true }],
+        studyTranslationEnabled: true,
+        studyGrammarEnabled: true,
+        immersionKitEnabled: true,
+        immersionKitShowImages: true,
+        immersionKitAutoPlayAudio: false,
+        immersionKitPlayOnHover: false,
+    });
+    const browserErrors = collectPageBrowserErrors(page);
+    await page.addInitScript(() => {
+        window.__yomuAudioPlayEvents = [];
+        window.__yomuSpeechTexts = [];
+        HTMLMediaElement.prototype.play = function play() {
+            window.__yomuAudioPlayEvents.push({ src: this.src || this.currentSrc || '', currentSrc: this.currentSrc || '', loop: this.loop });
+            return Promise.resolve();
+        };
+        class FakeSpeechSynthesisUtterance {
+            lang = '';
+            voice = null;
+            onend = null;
+            onerror = null;
+            constructor(text) {
+                this.text = text;
+            }
+        }
+        Object.defineProperty(window, 'SpeechSynthesisUtterance', {
+            configurable: true,
+            value: FakeSpeechSynthesisUtterance,
+        });
+        Object.defineProperty(window, 'speechSynthesis', {
+            configurable: true,
+            value: {
+            cancel: () => undefined,
+            getVoices: () => [],
+            speak: utterance => {
+                window.__yomuSpeechTexts.push(utterance.text);
+                utterance.onend?.();
+            },
+            },
+        });
+    });
+    await page.route('https://jpdb.io/static/v/**', route => {
+        runtimeAudioRequests.push({ kind: 'direct', url: route.request().url() });
+        route.abort('failed');
+    });
+    await page.route('https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/**', route => {
+        const url = new URL(route.request().url());
+        const target = url.searchParams.get('url') ?? '';
+        runtimeAudioRequests.push({ kind: 'proxy', url: route.request().url(), target });
+        route.fulfill({
+            status: 200,
+            contentType: 'audio/ogg',
+            body: encodedJpdbOggBytes(),
+        });
+    });
+
+    await page.goto(`${server.origin}${QA_RUNTIME_REGRESSION_PATH}`, { waitUntil: 'domcontentloaded' });
+    await injectUserscript(page);
+    await page.evaluate(() => {
+        window.__yomuQaPointerEvents = [];
+        const surface = node => [...node.childNodes].map(child => {
+            if (child.nodeType === Node.TEXT_NODE) return child.textContent ?? '';
+            if (!(child instanceof Element) || child.matches('rt,rp')) return '';
+            return surface(child);
+        }).join('');
+        const record = event => {
+            const target = event.target instanceof Element ? event.target : null;
+            const word = target?.closest('.jpdb-reader-word');
+            window.__yomuQaPointerEvents.push({
+                type: event.type,
+                x: event.clientX,
+                y: event.clientY,
+                targetTag: target?.tagName ?? '',
+                targetText: target?.textContent?.trim() ?? '',
+                wordSurface: word ? surface(word).trim() : '',
+                wordVid: word?.getAttribute('data-vid') ?? '',
+                wordSid: word?.getAttribute('data-sid') ?? '',
+            });
+        };
+        for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click']) {
+            document.addEventListener(type, record, { capture: true });
+        }
+    });
+    await waitForAudit(page, () => {
+        const surface = node => [...node.childNodes].map(child => {
+            if (child.nodeType === Node.TEXT_NODE) return child.textContent ?? '';
+            if (!(child instanceof Element) || child.matches('rt,rp')) return '';
+            return surface(child);
+        }).join('');
+        return [...document.querySelectorAll('.jpdb-reader-word')]
+            .some(word => surface(word).trim() === '読んで');
+    }, 10000, 'runtime regression fixture did not parse 読んで as its own word').catch(async error => {
+        const detail = await page.evaluate(() => ({
+            body: document.body.textContent?.replace(/\s+/g, ' ').trim().slice(0, 500) ?? '',
+            words: [...document.querySelectorAll('.jpdb-reader-word')].map(word => {
+                const surface = node => [...node.childNodes].map(child => {
+                    if (child.nodeType === Node.TEXT_NODE) return child.textContent ?? '';
+                    if (!(child instanceof Element) || child.matches('rt,rp')) return '';
+                    return surface(child);
+                }).join('');
+                return {
+                    text: surface(word).trim(),
+                    fullText: word.textContent?.trim() ?? '',
+                    expression: word.getAttribute('data-expression') ?? '',
+                    reading: word.getAttribute('data-reading') ?? '',
+                    sentence: word.getAttribute('data-sentence') ?? '',
+                    className: word.className,
+                };
+            }),
+            parseKeys: [...document.querySelectorAll('[data-jpdb-reader-parse-key], [data-jpdb-reader-parse-loading-key]')].map(node => ({
+                tag: node.tagName,
+                parseKey: node.getAttribute('data-jpdb-reader-parse-key') ?? '',
+                loadingKey: node.getAttribute('data-jpdb-reader-parse-loading-key') ?? '',
+            })),
+        }));
+        throw new Error(`runtime regression fixture did not parse 読んで as its own word: ${JSON.stringify(detail)}: ${error instanceof Error ? error.message : String(error)}`);
+    });
+    await waitForAudit(page, () => {
+        const surface = node => [...node.childNodes].map(child => {
+            if (child.nodeType === Node.TEXT_NODE) return child.textContent ?? '';
+            if (!(child instanceof Element) || child.matches('rt,rp')) return '';
+            return surface(child);
+        }).join('');
+        const words = [...document.querySelectorAll('#polite-form-target .jpdb-reader-word')]
+            .map(word => surface(word).trim());
+        return words.includes('ございます') && !words.some(word => ['ご', 'ざ', 'い', 'ます'].includes(word));
+    }, 8000, 'runtime regression fixture split ございます instead of using JPDB parse tokens');
+
+    const readWord = page.locator('.jpdb-reader-word').filter({ hasText: '読んで' }).first();
+    const readBox = await readWord.boundingBox();
+    assertAudit(readBox, 'no 読んで scanned word bounding box found');
+    const failures = [];
+
+    await page.mouse.move(readBox.x + readBox.width / 2, readBox.y + readBox.height / 2);
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'hover popup for 読んで kept loading');
+    try {
+        assertRegressionReadPopup(await runtimeRegressionPopoverSnapshot(page), 'hover');
+    } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
+    }
+
+    await page.mouse.move(6, 6);
+    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'hover popup for 読んで stayed open after the pointer left the token').catch(async error => {
+        failures.push(error instanceof Error ? error.message : String(error));
+        await page.keyboard.press('Escape').catch(() => undefined);
+        await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 1000, 'stale popup did not close after Escape').catch(() => undefined);
+    });
+
+    const readClickPoint = { x: readBox.x + readBox.width / 2, y: readBox.y + readBox.height * 0.76 };
+    const readClickTarget = await runtimeRegressionPointerTargetSnapshot(page, readClickPoint);
+    await page.mouse.click(readClickPoint.x, readClickPoint.y);
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'click popup for 読んで kept loading');
+    try {
+        assertRegressionReadPopup(await runtimeRegressionPopoverSnapshot(page), 'click');
+    } catch (error) {
+        const clickEvents = await page.evaluate(() => window.__yomuQaPointerEvents ?? []);
+        failures.push(`${error instanceof Error ? error.message : String(error)}; clickTarget=${JSON.stringify(readClickTarget)}; clickEvents=${JSON.stringify(clickEvents.slice(-8))}`);
+    }
+
+    try {
+        await openImmersionKitDetails(page);
+        await waitForAudit(page, () => document.querySelectorAll('[data-immersion-kit] .jpdb-reader-example-card .jpdb-reader-word').length >= 2, 8000, 'Immersion Kit examples did not recursively parse after 読んで lookup');
+        assertRuntimeImmersionSnapshot(await runtimeRegressionImmersionSnapshot(page));
+    } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
+    }
+
+    try {
+        const studyReadButton = page.locator('[data-action="study-read-sentence"]').first();
+        assertAudit(await studyReadButton.count() === 1, 'study read-sentence button is missing from the popup');
+        await studyReadButton.click({ force: true });
+        await waitForAudit(page, () => (window.__yomuSpeechTexts ?? []).some(text => text.includes('好きなものを読んで日本語を学ぶ')), 3000, 'study sentence audio did not use browser speech fallback');
+    } catch (error) {
+        const detail = await page.evaluate(() => ({
+            speechTexts: window.__yomuSpeechTexts ?? [],
+            originals: [...document.querySelectorAll('[data-study-original-render]')].map(node => node.textContent?.replace(/\s+/g, ' ').trim() ?? ''),
+            buttonCount: document.querySelectorAll('[data-action="study-read-sentence"]').length,
+            pageWords: [...document.querySelectorAll('#inflected-pointer-target .jpdb-reader-word')].map(word => ({
+                text: word.textContent?.trim() ?? '',
+                expression: word.getAttribute('data-expression') ?? '',
+                reading: word.getAttribute('data-reading') ?? '',
+                sentence: word.getAttribute('data-sentence') ?? '',
+                vid: word.getAttribute('data-vid') ?? '',
+                sid: word.getAttribute('data-sid') ?? '',
+            })),
+            popoverText: document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 600) ?? '',
+        }));
+        failures.push(`${error instanceof Error ? error.message : String(error)}: ${JSON.stringify(detail)}`);
+    }
+
+    try {
+        await page.evaluate(() => {
+            delete window.GM_xmlhttpRequest;
+            if (window.GM) delete window.GM.xmlHttpRequest;
+        });
+        const exampleAudioButton = page.locator('[data-action="jpdb-example-audio"]').first();
+        assertAudit(await exampleAudioButton.count() === 1, 'JPDB example sentence audio button is missing from the popup');
+        await exampleAudioButton.click({ force: true });
+        await waitForNodeAudit(() => runtimeAudioRequests.some(request => request.kind === 'proxy'), 6000, 'JPDB example sentence audio did not request the public proxy');
+        await waitForAudit(page, () => (window.__yomuAudioPlayEvents ?? []).some(event => /^blob:/.test(event.src)), 6000, 'JPDB example sentence audio did not play from a blob URL');
+        assertAudit(!runtimeAudioRequests.some(request => request.kind === 'direct'), `JPDB example sentence audio touched direct static media before proxy/blob fallback: ${JSON.stringify(runtimeAudioRequests)}`);
+    } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
+    }
+    try {
+        const exampleWord = page.locator('.jpdb-reader-jpdb-example .jpdb-reader-word').filter({ hasText: '好き' }).first();
+        assertAudit(await exampleWord.count() === 1, 'JPDB dictionary example words are not parsed into lookup spans');
+        await exampleWord.click({ force: true });
+        await waitForAudit(page, () => {
+            const spelling = document.querySelector('.jpdb-reader-popover .jpdb-reader-spelling')?.textContent?.replace(/\s+/g, '').trim() ?? '';
+            return spelling.includes('好き');
+        }, 6000, 'clicking a parsed dictionary example word did not open its lookup card');
+        await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'dictionary example lookup card kept loading');
+        const exampleLookup = await runtimeRegressionPopoverSnapshot(page);
+        assertAudit(/好き/.test(exampleLookup.spelling), `dictionary example click opened the wrong card: ${JSON.stringify(exampleLookup)}`);
+    } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
+    }
+    try {
+        assertNoPageBrowserErrors(browserErrors, 'runtime regression fixture');
+    } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
+	    }
+	    await page.screenshot({ path: path.join(ARTIFACTS, 'runtime-regression.png'), fullPage: false });
+	    try {
+	        await assertRuntimeLinkCardLookupAndNavigation(page);
+	    } catch (error) {
+	        failures.push(error instanceof Error ? error.message : String(error));
+	    }
+	    await page.close();
+    if (failures.length) throw new Error(failures.join(' | '));
+    record('runtime regression fixture', 'pass', '読んで lookup, stale hover dismissal, study/example audio, and Immersion Kit parsing stayed healthy');
+}
+
+async function runtimeRegressionPopoverSnapshot(page) {
+    return page.evaluate(() => {
+        const popover = document.querySelector('.jpdb-reader-popover');
+        return {
+            text: popover?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+            spelling: popover?.querySelector('.jpdb-reader-spelling')?.textContent?.replace(/\s+/g, '').trim() ?? '',
+            reading: popover?.querySelector('.jpdb-reader-reading')?.textContent?.replace(/\s+/g, '').trim() ?? '',
+            pitchCount: popover?.querySelectorAll('.jpdb-reader-pitch svg, .jpdb-reader-pitch path').length ?? 0,
+        };
+    });
+}
+
+function assertRegressionReadPopup(snapshot, trigger) {
+    assertAudit(!snapshot.spelling.includes('きなものを'), `${trigger} lookup selected left-context text instead of 読んで: ${JSON.stringify(snapshot)}`);
+    assertAudit(/読む|読んで/.test(snapshot.spelling), `${trigger} lookup did not open the 読む card: ${JSON.stringify(snapshot)}`);
+    assertAudit(/よむ|よんで/.test(snapshot.reading), `${trigger} lookup lost JPDB reading: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.pitchCount > 0, `${trigger} lookup lost JPDB pitch display: ${JSON.stringify(snapshot)}`);
+}
+
+async function runtimeRegressionImmersionSnapshot(page) {
+    return page.evaluate(() => {
+        const target = document.querySelector('[data-immersion-kit] .jpdb-reader-example-card.has-image .jpdb-reader-example-target')
+            ?? document.querySelector('[data-immersion-kit] .jpdb-reader-example-target');
+        const style = target instanceof HTMLElement ? getComputedStyle(target) : null;
+        return {
+            cardCount: document.querySelectorAll('[data-immersion-kit] .jpdb-reader-example-card').length,
+            wordCount: document.querySelectorAll('[data-immersion-kit] .jpdb-reader-example-card .jpdb-reader-word').length,
+            targetText: target?.textContent?.trim() ?? '',
+            targetBackground: style?.backgroundColor ?? '',
+            targetBackgroundImage: style?.backgroundImage ?? '',
+            targetDecoration: style?.textDecorationColor ?? '',
+        };
+    });
+}
+
+async function runtimeRegressionPointerTargetSnapshot(page, point) {
+    return page.evaluate(({ x, y }) => {
+        const target = document.elementFromPoint(x, y);
+        const word = target?.closest?.('.jpdb-reader-word');
+        const surface = node => [...node.childNodes].map(child => {
+            if (child.nodeType === Node.TEXT_NODE) return child.textContent ?? '';
+            if (!(child instanceof Element) || child.matches('rt,rp')) return '';
+            return surface(child);
+        }).join('');
+        const rectSnapshot = node => {
+            const rect = node.getBoundingClientRect();
+            return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        };
+        return {
+            x,
+            y,
+            targetTag: target?.tagName ?? '',
+            targetText: target?.textContent?.trim() ?? '',
+            wordSurface: word ? surface(word).trim() : '',
+            wordText: word?.textContent?.trim() ?? '',
+            wordExpression: word?.getAttribute('data-expression') ?? '',
+            wordReading: word?.getAttribute('data-reading') ?? '',
+            wordVid: word?.getAttribute('data-vid') ?? '',
+            wordSid: word?.getAttribute('data-sid') ?? '',
+            wordRect: word ? rectSnapshot(word) : null,
+            allWords: [...document.querySelectorAll('.jpdb-reader-word')].map(node => ({
+                surface: surface(node).trim(),
+                text: node.textContent?.trim() ?? '',
+                expression: node.getAttribute('data-expression') ?? '',
+                reading: node.getAttribute('data-reading') ?? '',
+                vid: node.getAttribute('data-vid') ?? '',
+                sid: node.getAttribute('data-sid') ?? '',
+                rect: rectSnapshot(node),
+            })),
+            pointerEvents: window.__yomuQaPointerEvents ?? [],
+        };
+    }, point);
+}
+
+async function assertRuntimeLinkCardLookupAndNavigation(page) {
+    await page.keyboard.press('Escape').catch(() => undefined);
+    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 1500, 'previous popup stayed open before link-card lookup')
+        .catch(() => undefined);
+    await waitForAudit(page, () => {
+        const surface = node => [...node.childNodes].map(child => {
+            if (child.nodeType === Node.TEXT_NODE) return child.textContent ?? '';
+            if (!(child instanceof Element) || child.matches('rt,rp')) return '';
+            return surface(child);
+        }).join('');
+        return [...document.querySelectorAll('#runtime-link-card .jpdb-reader-word')]
+            .some(word => surface(word).trim() === 'よむ');
+    }, 8000, 'link card text did not parse into lookup words');
+
+    const linkWord = page.locator('#runtime-link-card .jpdb-reader-word').filter({ hasText: 'よむ' }).first();
+    const linkBox = await linkWord.boundingBox();
+    assertAudit(linkBox, 'parsed link-card word has no bounding box');
+    await page.mouse.move(linkBox.x + linkBox.width / 2, linkBox.y + linkBox.height / 2);
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'link-card hover popup kept loading');
+    const lookup = await runtimeRegressionPopoverSnapshot(page);
+    assertAudit(/読む|よむ/.test(lookup.spelling), `link-card hover opened the wrong lookup: ${JSON.stringify(lookup)}`);
+    await page.keyboard.press('Escape');
+    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close link-card hover popup');
+
+    await page.locator('#runtime-link-card').click({ force: true });
+    await page.waitForURL(url => url.pathname.endsWith('/__qa__/getting-started'), { timeout: 3000 });
+}
+
+function assertRuntimeImmersionSnapshot(snapshot) {
+    assertAudit(snapshot.cardCount > 0, `Immersion Kit did not render cards: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.wordCount >= 2, `Immersion Kit examples are not parsed into lookup words: ${JSON.stringify(snapshot)}`);
+    assertAudit(!isTransparentCssColor(snapshot.targetBackground) || snapshot.targetBackgroundImage !== 'none', `Immersion Kit target highlight is transparent: ${JSON.stringify(snapshot)}`);
+}
+
+async function openImmersionKitDetails(page) {
+    await waitForAudit(page, () => Boolean(document.querySelector('[data-immersion-kit][data-immersion-lazy-bound="true"]')), 6000, 'Immersion Kit section did not render');
+    const isOpen = await page.locator('[data-immersion-kit]').evaluate(node => node instanceof HTMLDetailsElement && node.open);
+    if (!isOpen) await page.locator('[data-immersion-kit] > summary').click();
 }
 
 async function auditJpdbSearchCompatibility(browser) {
@@ -2148,6 +2610,7 @@ async function auditImmersionKitPopover(browser, server) {
         ...baseSettings,
         localDictionariesEnabled: true,
         ankiEnabled: true,
+        audioEnabled: true,
         immersionKitEnabled: true,
         immersionKitShowTranslation: false,
         immersionKitShowImages: true,
@@ -2172,6 +2635,7 @@ async function auditImmersionKitPopover(browser, server) {
     await injectUserscript(page);
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-word').length > 0, 10000, 'fixture text was not scanned');
     await page.locator('.jpdb-reader-word').filter({ hasText: '読みました' }).first().click();
+    await openImmersionKitDetails(page);
     await page.waitForSelector('[data-immersion-kit] .jpdb-reader-example-card', { timeout: 8000 });
     await waitForAudit(page, () => {
         const image = document.querySelector('.jpdb-reader-example-image');
@@ -2320,8 +2784,10 @@ async function auditImmersionKitPopover(browser, server) {
 async function auditOcrFixture(browser) {
     const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
         body{margin:0;padding:32px;background:#15191f;color:white;font-family:system-ui}
+        .ocr-fixture-text{position:absolute;left:-9999px}
         img{display:block;width:520px;height:360px;object-fit:cover;border:1px solid #333}
     </style></head><body>
+        <p class="ocr-fixture-text">画像の日本語を読む</p>
         <img alt="今日は学校へ行きます。" data-ocr-lines='[
             {"text":"今日は学校へ行きます。","box":{"left":0.08,"top":0.12,"width":0.76,"height":0.18},"vertical":false},
             {"text":"友だちと本を読む。","box":{"left":0.14,"top":0.58,"width":0.68,"height":0.18},"vertical":false}
@@ -2349,9 +2815,19 @@ async function auditOcrFixture(browser) {
     assertAudit(overlay.wordCount >= 2, 'OCR text was not parsed into selectable words');
     assertAudit(overlay.visibleTextOverlays === 0, 'OCR text is visibly painted by default');
     assertAudit(overlay.lineTitle?.includes('学校'), 'OCR line text is missing');
-    await page.locator('.jpdb-ocr-line').first().click();
-    const activeLines = await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line-active').length);
-    assertAudit(activeLines === 1, 'OCR should reveal only one text region at a time');
+    await page.evaluate(() => {
+        const line = document.querySelector('.jpdb-ocr-line');
+        line?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    const activeSnapshot = await page.evaluate(() => ({
+        activeLines: document.querySelectorAll('.jpdb-ocr-line-active').length,
+        lines: [...document.querySelectorAll('.jpdb-ocr-line')].map(line => ({
+            text: line.getAttribute('title') ?? line.textContent?.replace(/\s+/g, '').trim() ?? '',
+            className: line.className,
+            pinned: line.getAttribute('data-pinned') ?? '',
+        })),
+    }));
+    assertAudit(activeSnapshot.activeLines === 1, `OCR should reveal only one text region at a time: ${JSON.stringify(activeSnapshot)}`);
     await page.locator('.jpdb-ocr-line .jpdb-reader-word').first().click();
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
     await assertAccessibleSurface(page, 'OCR lookup popup', '.jpdb-reader-popover');
@@ -2409,14 +2885,18 @@ async function auditVideoFixture(browser, server) {
     const snapshot = await page.evaluate(() => {
         const root = document.querySelector('.jpdb-subtitle-player');
         const primary = document.querySelector('.jpdb-subtitle-primary');
+        const firstWord = document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word');
         const rect = root?.getBoundingClientRect();
         const buttons = [...document.querySelectorAll('.jpdb-subtitle-rail button')].map(button => ({
             action: button.getAttribute('data-action') ?? '',
             label: button.getAttribute('aria-label') ?? button.getAttribute('title') ?? button.textContent?.trim() ?? '',
         }));
         const primaryStyle = primary ? getComputedStyle(primary) : null;
-        return {
+	        const firstWordStyle = firstWord instanceof HTMLElement ? getComputedStyle(firstWord) : null;
+	        return {
             hidden: root?.hidden,
+            documentClasses: document.documentElement.className,
+            subtitleRootClasses: root instanceof HTMLElement ? root.className : '',
             rect: rect ? { width: rect.width, height: rect.height, bottom: rect.bottom } : null,
             buttons,
             menuHidden: document.querySelector('.jpdb-subtitle-menu')?.hasAttribute('hidden'),
@@ -2425,7 +2905,13 @@ async function auditVideoFixture(browser, server) {
             obsoleteStatusText: document.body.textContent?.includes('No loaded Japanese subtitle lines.') ?? false,
             subtitleText: primary?.textContent ?? '',
             subtitleBackground: `${primaryStyle?.backgroundColor ?? ''} ${primaryStyle?.backgroundImage ?? ''}`,
-            subtitleWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
+	            subtitleWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
+	            subtitleWordClasses: firstWord instanceof HTMLElement ? firstWord.className : '',
+	            subtitleWordOpacity: firstWordStyle?.opacity ?? '',
+	            subtitleWordBackground: firstWordStyle?.backgroundColor ?? '',
+            subtitleWordBackgroundImage: firstWordStyle?.backgroundImage ?? '',
+            subtitleWordDecorationLine: firstWordStyle?.textDecorationLine ?? '',
+            subtitleWordDecorationColor: firstWordStyle?.textDecorationColor ?? '',
         };
     });
     assertVideoFixtureSnapshot(snapshot);
@@ -2494,7 +2980,21 @@ function assertVideoFixtureSnapshot(snapshot) {
     assertAudit(hasVisibleFixtureSubtitleText(snapshot), 'subtitle fixture cue is not visible');
     assertAudit(snapshot.subtitleWords > 0, 'subtitle cue is not token-highlighted');
     assertAudit(snapshot.subtitleBackground.includes('rgba'), 'subtitle readable background is not applied');
-}
+    assertAudit(
+        !isTransparentCssColor(snapshot.subtitleWordBackground) || snapshot.subtitleWordBackgroundImage !== 'none',
+        `subtitle parsed-word highlight is transparent: ${JSON.stringify(snapshot)}`,
+    );
+	    assertAudit(
+	        snapshot.subtitleWordDecorationLine.includes('underline')
+	            && !isTransparentCssColor(snapshot.subtitleWordDecorationColor),
+	        `subtitle parsed-word underline is not immediately visible: ${JSON.stringify(snapshot)}`,
+	    );
+	    assertAudit(
+	        !snapshot.subtitleWordClasses.includes('jpdb-subtitle-word-pending')
+	            && Number.parseFloat(snapshot.subtitleWordOpacity || '0') >= 0.9,
+	        `subtitle parsed-word state is still pending when the cue is active: ${JSON.stringify(snapshot)}`,
+	    );
+	}
 
 function hasLaidOutSubtitlePlayer(snapshot) {
     return (snapshot.rect?.width ?? 0) > 200;
@@ -2543,6 +3043,7 @@ function shouldSkipAudit(options) {
 async function main() {
     await mkdir(ARTIFACTS, { recursive: true });
     userscript = await readBuiltUserscript();
+    readerCss = await readBuiltReaderCss();
 
     const server = await startStaticServer(DIST);
     const browser = await chromium.launch({ headless: true });
@@ -2552,6 +3053,7 @@ async function main() {
         await runAudit('settings dialog', () => auditSettings(browser, server));
         await runAudit('mobile settings journey', () => auditSettingsMobile(browser, server));
         await runAudit('new-tab dictionary fallback', () => auditNewTabDictionaryFallback(browser, server));
+        await runAudit('runtime regression fixture', () => auditRuntimeRegressionFixes(browser, server), { requiresApiKey: true });
         await runAudit('Bloomee auto page scan', () => auditBloomeeAutoScan(browser), { requiresApiKey: true });
         await runAudit('hold-key hover lookup', () => auditHoverLookup(browser, server), { requiresApiKey: true });
         await runAudit('jpdb.io search compatibility', () => auditJpdbSearchCompatibility(browser), { requiresApiKey: true });

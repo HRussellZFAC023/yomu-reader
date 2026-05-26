@@ -63,7 +63,7 @@ import {
     renderRtkInfo,
     uniqueKanji,
 } from './popup-render';
-import { ReaderParser } from './reader-parser';
+import { ReaderParser, jpdbFirstParseOptions } from './reader-parser';
 import { RtkClient, type RtkInfo } from './rtk';
 import {
     DEFAULT_SETTINGS,
@@ -1373,7 +1373,7 @@ export class NewTabRuntime {
         if (localEntry) return this.parser.localCardFromEntry(localEntry);
         const publicCard = await this.publicLookupCard(term, true);
         if (publicCard) return publicCard;
-        const parsed = await this.parser.parse([term], { jpdbTimeoutMs: NEW_TAB_POPOVER_PARSE_TIMEOUT_MS, allowJpdbTimeoutFallback: true }).catch(() => [[]]);
+        const parsed = await this.parser.parse([term], jpdbFirstParseOptions()).catch(() => [[]]);
         const token = pickTokenForSelection(parsed[0] ?? [], term);
         if (token) return token.card;
         return this.parser.fallbackCardFromText(term);
@@ -1802,7 +1802,7 @@ export class NewTabRuntime {
     private loadParsedNewTabContent(texts: string[], options: NewTabParseContentOptions = {}): Promise<JPDBToken[][]> {
         const parseOptions = {
             jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
-            allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? true,
+            allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? false,
             includeLocalPitch: false,
         };
         const key = this.parseContentCacheKey(texts, parseOptions);

@@ -2,7 +2,7 @@ import type { AnkiExistingNote, AnkiLookupResult, AnkiRenderedCard } from './ank
 import { escapeHtml } from './dom';
 import type { StoredMiningContext } from './mining-context';
 import type { InterfaceLanguage, ReaderSettings } from './types';
-import { uiText } from './i18n';
+import { uiText, type UiCopyKey } from './i18n';
 
 export function renderAnkiActionRow(ankiLookup: AnkiLookupResult, settings: ReaderSettings): string {
     if (!settings.ankiEnabled) return '';
@@ -18,7 +18,7 @@ export function renderAnkiExistingSection(ankiLookup: AnkiLookupResult, storedCo
         <details class="jpdb-reader-anki-existing">
             <summary>
                 <span><span class="jpdb-reader-state-dot jpdb-${note.state}"></span>Anki</span>
-                <small>${escapeHtml(preview.decks)}</small>
+                <small>${escapeHtml(preview.summary)}</small>
             </summary>
             <div class="jpdb-reader-anki-card-preview">
                 ${preview.renderedCard}
@@ -30,13 +30,34 @@ export function renderAnkiExistingSection(ankiLookup: AnkiLookupResult, storedCo
     `;
 }
 
-function ankiExistingPreview(note: AnkiExistingNote, storedContext: StoredMiningContext | null, language: InterfaceLanguage): { decks: string; renderedCard: string; fields: string; context: string } {
+function ankiExistingPreview(note: AnkiExistingNote, storedContext: StoredMiningContext | null, language: InterfaceLanguage): { summary: string; renderedCard: string; fields: string; context: string } {
     return {
-        decks: note.deckNames.length ? note.deckNames.join(', ') : 'Anki',
+        summary: ankiExistingSummary(note, language),
         renderedCard: renderAnkiRenderedCard(note, language),
         fields: renderAnkiFields(note, language),
         context: storedContext ? renderLastMiningContext(storedContext, language) : '',
     };
+}
+
+function ankiExistingSummary(note: AnkiExistingNote, language: InterfaceLanguage): string {
+    return [
+        ankiStateLabel(note.state, language),
+        note.deckNames.length ? note.deckNames.join(', ') : '',
+        ankiReviewMetricsLabel(note, language),
+    ].filter(Boolean).join(' · ') || 'Anki';
+}
+
+function ankiReviewMetricsLabel(note: AnkiExistingNote, language: InterfaceLanguage): string {
+    const parts = [
+        note.reps ? `${note.reps} ${uiText(language, note.reps === 1 ? 'ankiReviewSingular' : 'ankiReviewPlural')}` : '',
+        note.lapses ? `${note.lapses} ${uiText(language, note.lapses === 1 ? 'ankiLapseSingular' : 'ankiLapsePlural')}` : '',
+    ].filter(Boolean);
+    return parts.join(', ');
+}
+
+function ankiStateLabel(state: string, language: InterfaceLanguage): string {
+    const key = ANKI_STATE_LABEL_KEYS[state];
+    return key ? uiText(language, key) : state;
 }
 
 function renderAnkiRenderedCard(note: AnkiExistingNote, language: InterfaceLanguage): string {
@@ -237,3 +258,17 @@ function ankiAudioLabel(filename: string, language: InterfaceLanguage): string {
     const audio = uiText(language, 'audio');
     return filename ? `${audio} ${filename}` : audio;
 }
+
+const ANKI_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
+    new: 'stateNew',
+    learning: 'stateLearning',
+    known: 'stateKnown',
+    due: 'stateDue',
+    failed: 'stateFailed',
+    locked: 'stateLocked',
+    'never-forget': 'stateNeverForget',
+    blacklisted: 'stateBlacklisted',
+    suspended: 'stateSuspended',
+    'not-in-deck': 'stateNotInDeck',
+    redundant: 'stateRedundant',
+};

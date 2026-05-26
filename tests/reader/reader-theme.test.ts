@@ -27,78 +27,136 @@ describe('reader theme', () => {
         expect(applied.subtitleColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'jpdb' });
     });
 
-    it('treats unavailable JPDB text color as off until an API key is available', () => {
+    it('treats unavailable JPDB color channels as off until an API key is available', () => {
         const withoutKey = applyReaderTheme({
             ...DEFAULT_SETTINGS,
             localDictionariesEnabled: true,
+            wordHighlightColorSource: 'jpdb',
+            wordUnderlineColorSource: 'jpdb',
             wordTextColorSource: 'jpdb',
+            subtitleHighlightColorSource: 'jpdb',
+            subtitleUnderlineColorSource: 'jpdb',
             subtitleTextColorSource: 'jpdb',
         });
         const root = document.documentElement;
 
+        expect(root.classList.contains('jpdb-reader-word-highlight-jpdb')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-word-underline-jpdb')).toBe(false);
         expect(root.classList.contains('jpdb-reader-word-text-jpdb')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-subtitle-highlight-jpdb')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-subtitle-underline-jpdb')).toBe(false);
         expect(root.classList.contains('jpdb-reader-subtitle-text-jpdb')).toBe(false);
+        expect(withoutKey.wordColorSources.highlight).toBe('off');
+        expect(withoutKey.wordColorSources.underline).toBe('off');
         expect(withoutKey.wordColorSources.text).toBe('off');
+        expect(withoutKey.subtitleColorSources.highlight).toBe('off');
+        expect(withoutKey.subtitleColorSources.underline).toBe('off');
         expect(withoutKey.subtitleColorSources.text).toBe('off');
 
         const withKey = applyReaderTheme({
             ...DEFAULT_SETTINGS,
             apiKey: 'test-api-key',
+            wordHighlightColorSource: 'jpdb',
+            wordUnderlineColorSource: 'jpdb',
             wordTextColorSource: 'jpdb',
+            subtitleHighlightColorSource: 'jpdb',
+            subtitleUnderlineColorSource: 'jpdb',
             subtitleTextColorSource: 'jpdb',
         });
 
+        expect(root.classList.contains('jpdb-reader-word-highlight-jpdb')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-word-underline-jpdb')).toBe(true);
         expect(root.classList.contains('jpdb-reader-word-text-jpdb')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-subtitle-highlight-jpdb')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-subtitle-underline-jpdb')).toBe(true);
         expect(root.classList.contains('jpdb-reader-subtitle-text-jpdb')).toBe(true);
+        expect(withKey.wordColorSources.highlight).toBe('jpdb');
+        expect(withKey.wordColorSources.underline).toBe('jpdb');
         expect(withKey.wordColorSources.text).toBe('jpdb');
+        expect(withKey.subtitleColorSources.highlight).toBe('jpdb');
+        expect(withKey.subtitleColorSources.underline).toBe('jpdb');
         expect(withKey.subtitleColorSources.text).toBe('jpdb');
     });
 
-    it('uses only available status backends for text color', () => {
+    it('lets explicit status channels use Anki lookup without enabling Anki mining', () => {
         const none = applyReaderTheme({
             ...DEFAULT_SETTINGS,
+            wordHighlightColorSource: 'status',
+            wordUnderlineColorSource: 'status',
             wordTextColorSource: 'status',
+            subtitleHighlightColorSource: 'status',
+            subtitleUnderlineColorSource: 'status',
             subtitleTextColorSource: 'status',
         });
 
-        expect(none.wordColorSources.text).toBe('off');
-        expect(none.subtitleColorSources.text).toBe('off');
+        expect(none.wordColorSources.highlight).toBe('anki');
+        expect(none.wordColorSources.underline).toBe('anki');
+        expect(none.wordColorSources.text).toBe('anki');
+        expect(none.subtitleColorSources.highlight).toBe('anki');
+        expect(none.subtitleColorSources.underline).toBe('anki');
+        expect(none.subtitleColorSources.text).toBe('anki');
 
         const ankiOnly = applyReaderTheme({
             ...DEFAULT_SETTINGS,
             ankiEnabled: true,
+            wordHighlightColorSource: 'status',
+            wordUnderlineColorSource: 'status',
             wordTextColorSource: 'status',
+            subtitleHighlightColorSource: 'status',
+            subtitleUnderlineColorSource: 'status',
             subtitleTextColorSource: 'status',
         });
 
+        expect(ankiOnly.wordColorSources.highlight).toBe('anki');
+        expect(ankiOnly.wordColorSources.underline).toBe('anki');
         expect(ankiOnly.wordColorSources.text).toBe('anki');
+        expect(ankiOnly.subtitleColorSources.highlight).toBe('anki');
+        expect(ankiOnly.subtitleColorSources.underline).toBe('anki');
         expect(ankiOnly.subtitleColorSources.text).toBe('anki');
 
         const jpdbOnly = applyReaderTheme({
             ...DEFAULT_SETTINGS,
             apiKey: 'test-api-key',
+            wordHighlightColorSource: 'status',
+            wordUnderlineColorSource: 'status',
             wordTextColorSource: 'status',
+            subtitleHighlightColorSource: 'status',
+            subtitleUnderlineColorSource: 'status',
             subtitleTextColorSource: 'status',
         });
 
-        expect(jpdbOnly.wordColorSources.text).toBe('jpdb');
-        expect(jpdbOnly.subtitleColorSources.text).toBe('jpdb');
+        expect(jpdbOnly.wordColorSources.highlight).toBe('status');
+        expect(jpdbOnly.wordColorSources.underline).toBe('status');
+        expect(jpdbOnly.wordColorSources.text).toBe('status');
+        expect(jpdbOnly.subtitleColorSources.highlight).toBe('status');
+        expect(jpdbOnly.subtitleColorSources.underline).toBe('status');
+        expect(jpdbOnly.subtitleColorSources.text).toBe('status');
 
         const both = applyReaderTheme({
             ...DEFAULT_SETTINGS,
             apiKey: 'test-api-key',
             ankiEnabled: true,
+            wordHighlightColorSource: 'status',
+            wordUnderlineColorSource: 'status',
             wordTextColorSource: 'status',
+            subtitleHighlightColorSource: 'status',
+            subtitleUnderlineColorSource: 'status',
             subtitleTextColorSource: 'status',
         });
 
+        expect(both.wordColorSources.highlight).toBe('status');
+        expect(both.wordColorSources.underline).toBe('status');
         expect(both.wordColorSources.text).toBe('status');
+        expect(both.subtitleColorSources.highlight).toBe('status');
+        expect(both.subtitleColorSources.underline).toBe('status');
         expect(both.subtitleColorSources.text).toBe('status');
     });
 
     it('applies theme classes, color-source classes, and CSS variables from settings', () => {
         const settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
+            apiKey: 'test-api-key',
+            ankiEnabled: true,
             accentColor: '#336699',
             theme: 'dark',
             wordHighlightColorSource: 'pitch',

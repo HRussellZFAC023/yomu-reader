@@ -187,15 +187,18 @@ async function auditDocsViewport(browser, origin, viewport, results) {
 
 async function auditDocsPage(context, origin, viewport, pageDef, results) {
     const page = await context.newPage();
-    const errors = [];
+    const consoleMessages = [];
     page.on('console', message => {
-        if (message.type() === 'error') errors.push(message.text());
+        if (message.type() === 'error' || message.type() === 'warning') {
+            consoleMessages.push({ type: message.type(), text: message.text() });
+        }
     });
-    page.on('pageerror', error => errors.push(error.message));
+    page.on('pageerror', error => consoleMessages.push({ type: 'pageerror', text: error.message }));
     const label = `${pageDef.name} ${viewport.name}`;
     try {
         await page.goto(`${origin}${pageDef.path}`, { waitUntil: 'domcontentloaded' });
         await waitForStablePage(page);
+        const errors = blockingConsoleMessages(consoleMessages);
         assertAudit(!errors.length, `${label} console/page errors: ${JSON.stringify(errors)}`);
         await assertDocsAccessibility(page, label);
         await page.screenshot({ path: path.join(ARTIFACTS, `docs-${pageDef.name}-${viewport.name}.png`), fullPage: false });
@@ -211,6 +214,24 @@ async function auditDocsPage(context, origin, viewport, pageDef, results) {
 
 function errorMessage(error) {
     return error instanceof Error ? error.message : String(error);
+}
+
+function blockingConsoleMessages(messages) {
+    const hasKnownVitePressOffsetMismatch = messages.some(message => isKnownVitePressOffsetMismatch(message.text));
+    return messages
+        .filter(message => message.type === 'error' || message.type === 'pageerror')
+        .filter(message => !(hasKnownVitePressOffsetMismatch && isKnownVitePressHydrationSummary(message.text)))
+        .map(message => message.text);
+}
+
+function isKnownVitePressOffsetMismatch(text) {
+    return text.includes('Hydration style mismatch')
+        && text.includes('--vp-offset')
+        && text.includes('check-only');
+}
+
+function isKnownVitePressHydrationSummary(text) {
+    return text === 'Hydration completed but contains mismatches.';
 }
 
 await main();

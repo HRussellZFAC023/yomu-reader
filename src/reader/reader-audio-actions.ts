@@ -43,6 +43,10 @@ export class ReaderAudioActions {
     }
 
     async playSentenceAudio(sentence?: string): Promise<void> {
+        if (!this.dependencies.getSettings().audioEnabled) {
+            this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, 'audioPlaybackDisabledToast'));
+            return;
+        }
         const text = sentence?.trim();
         if (!text) throw new Error(uiText(this.dependencies.getSettings().interfaceLanguage, 'noSentenceToRead'));
         const voice = this.dependencies.getSettings().audioSources.find(source =>

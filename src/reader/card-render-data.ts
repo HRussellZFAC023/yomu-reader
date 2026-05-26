@@ -5,6 +5,7 @@ import type { JpdbPublicPitchClient } from './jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from './jpdb-vocabulary';
 import { Logger } from './logger';
 import { localPitchPatternFromMeta } from './popup-render';
+import { shouldLookupAnkiStatus } from './settings';
 import type { JPDBCard, JPDBDeck, ReaderSettings } from './types';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from './yomitan';
 
@@ -33,6 +34,8 @@ export interface CardRenderDataLoad {
     localEntries: Promise<YomitanTermEntry[]>;
     localMetaEntries?: Promise<YomitanMetaEntry[]>;
     pitchAccent?: Promise<string[]>;
+    ankiLookup?: Promise<AnkiLookupResult>;
+    jpdbVocabularyInfo?: Promise<JpdbVocabularyInfo | null>;
     all: Promise<CardRenderData>;
 }
 
@@ -46,7 +49,12 @@ export interface CardRenderDataLoaderDependencies {
     isJpdbBackedCard: (card: JPDBCard) => boolean;
 }
 
-export function loadingCardRenderData(localEntries: YomitanTermEntry[], ankiLookup: AnkiLookupResult, metaEntries: YomitanMetaEntry[] = []): CardRenderData & { loading: boolean } {
+export function loadingCardRenderData(
+    localEntries: YomitanTermEntry[],
+    ankiLookup: AnkiLookupResult,
+    metaEntries: YomitanMetaEntry[] = [],
+    jpdbVocabularyInfo: JpdbVocabularyInfo | null = null,
+): CardRenderData & { loading: boolean } {
     return {
         localEntries,
         kanjiEntries: [],
@@ -54,7 +62,7 @@ export function loadingCardRenderData(localEntries: YomitanTermEntry[], ankiLook
         ankiLookup,
         jpdbDecks: [],
         ankiDecks: [],
-        jpdbVocabularyInfo: null,
+        jpdbVocabularyInfo,
         loading: true,
     };
 }
@@ -97,9 +105,11 @@ export class CardRenderDataLoader {
             if (!card.pitchAccent.length && publicPitch.length) card.pitchAccent = publicPitch;
             return publicPitch;
         });
+        const ankiLookup = this.loadAnkiLookup(card);
+        const jpdbVocabularyInfo = this.loadJpdbVocabularyInfo(card);
         void pitchAccent.catch(() => undefined);
-        const all = this.loadAll(card, localEntries, localMetaEntries);
-        return { localEntries, localMetaEntries, pitchAccent, all };
+        const all = this.loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbVocabularyInfo);
+        return { localEntries, localMetaEntries, pitchAccent, ankiLookup, jpdbVocabularyInfo, all };
     }
 
     private withFallback<T>(card: JPDBCard, timeoutMs: number, detail: string, promise: Promise<T>, fallback: T): Promise<T> {
@@ -158,7 +168,7 @@ export class CardRenderDataLoader {
 
     private loadAnkiLookup(card: JPDBCard): Promise<AnkiLookupResult> {
         const fallback: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
-        if (!this.settings().ankiEnabled || canUseMobileAnkiHandoff(this.settings())) return Promise.resolve(fallback);
+        if (!shouldLookupAnkiStatus(this.settings()) || canUseMobileAnkiHandoff(this.settings())) return Promise.resolve(fallback);
         return this.withFallback(card, CARD_RENDER_ANKI_TIMEOUT_MS, 'Anki existing cards', this.dependencies.anki.findExistingCards(card).catch(error => {
             log.warn('Anki lookup failed while rendering card', { term: card.spelling }, error);
             return fallback;
@@ -186,15 +196,17 @@ export class CardRenderDataLoader {
         card: JPDBCard,
         localEntries: Promise<YomitanTermEntry[]>,
         localMetaEntries: Promise<YomitanMetaEntry[]>,
+        ankiLookup: Promise<AnkiLookupResult>,
+        jpdbVocabularyInfo: Promise<JpdbVocabularyInfo | null>,
     ): Promise<CardRenderData> {
         return Promise.all([
             localEntries,
             this.loadLocalKanjiEntries(card),
             localMetaEntries,
-            this.loadAnkiLookup(card),
+            ankiLookup,
             this.loadJpdbDecks(card),
             this.loadAnkiDecks(card),
-            this.loadJpdbVocabularyInfo(card),
+            jpdbVocabularyInfo,
         ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo]) => {
             return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo };
         });
@@ -239,6 +251,7 @@ export class CardRenderDataLoader {
             max: settings.localDictionaryMaxResults,
             pitch: settings.showPitchAccent,
             anki: settings.ankiEnabled,
+            ankiStatus: shouldLookupAnkiStatus(settings),
             ankiConnectUrl: settings.ankiConnectUrl,
             ankiMobileHandoff: settings.ankiMobileHandoff,
             jpdbDefinitions: settings.jpdbDefinitionsEnabled,

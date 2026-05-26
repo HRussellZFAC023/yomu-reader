@@ -28,8 +28,8 @@ export interface SubtitlePrimaryRenderResult {
 
 export function renderSubtitlePrimary(input: SubtitlePrimaryRenderInput): SubtitlePrimaryRenderResult {
     const activeCue = input.cue;
-    const karaokeActive = input.karaokeMode && cueHasExactWordTimings(activeCue);
     const parsedHasReaderWords = input.parsedHtml?.includes('jpdb-reader-word') ?? false;
+    const karaokeActive = input.karaokeMode && cueHasExactWordTimings(activeCue) && !parsedHasReaderWords;
     const mode = subtitlePrimaryRenderMode(input, karaokeActive, parsedHasReaderWords);
     return {
         html: renderSubtitlePrimaryHtml(input, mode),
@@ -39,22 +39,18 @@ export function renderSubtitlePrimary(input: SubtitlePrimaryRenderInput): Subtit
     };
 }
 
-type SubtitlePrimaryRenderMode = 'parsed-karaoke' | 'karaoke' | 'parsed' | 'cached-parser' | 'loading-parser' | 'plain';
+type SubtitlePrimaryRenderMode = 'karaoke' | 'parsed' | 'cached-parser' | 'loading-parser' | 'plain';
 
 function subtitlePrimaryRenderMode(
     input: SubtitlePrimaryRenderInput,
     karaokeActive: boolean,
     parsedHasReaderWords: boolean,
 ): SubtitlePrimaryRenderMode {
-    if (hasParsedKaraokeRender(karaokeActive, parsedHasReaderWords)) return 'parsed-karaoke';
+    if (parsedHasReaderWords) return 'parsed';
     if (hasPlainKaraokeRender(input, karaokeActive)) return 'karaoke';
     if (input.parsedHtml) return 'parsed';
     if (hasReusablePrimaryParserCache(input)) return 'cached-parser';
     return parserFallbackRenderMode(input.hasParser);
-}
-
-function hasParsedKaraokeRender(karaokeActive: boolean, parsedHasReaderWords: boolean): boolean {
-    return karaokeActive && parsedHasReaderWords;
 }
 
 function hasPlainKaraokeRender(input: SubtitlePrimaryRenderInput, karaokeActive: boolean): boolean {
@@ -74,7 +70,6 @@ function renderSubtitlePrimaryHtml(input: SubtitlePrimaryRenderInput, mode: Subt
 }
 
 const SUBTITLE_PRIMARY_RENDERERS: Record<SubtitlePrimaryRenderMode, (input: SubtitlePrimaryRenderInput) => string> = {
-    'parsed-karaoke': input => input.parsedHtml ?? '',
     parsed: input => input.parsedHtml ?? '',
     karaoke: input => renderSubtitleKaraokeCue(input.cue, input.time),
     'cached-parser': input => input.lastRenderedHtml,

@@ -3,6 +3,7 @@ import { Logger } from './logger';
 import { canAttemptAudiblePlayback } from './media-activation';
 import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
+import { DEFAULT_YOMU_PUBLIC_PROXY_URL, isKnownCorsBlockedPublicAudioCdnUrl } from './proxy-fetch';
 import { requestBlob, requestText } from './reader-http';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from './types';
 
@@ -113,6 +114,7 @@ const JPDB_AUDIO_BASE_URL = 'https://jpdb.io/static/v';
 const JPDB_AUDIO_ACCESS_HEADER = "please don't steal these files";
 const JPDB_AUDIO_XOR_BYTES = [0x06, 0x23, 0x54, 0x0f] as const;
 const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
+const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const AUDIO_PRECONNECT_RELS = ['preconnect', 'dns-prefetch'] as const;
 const preconnectedAudioOrigins = new Set<string>();
 const log = Logger.scope('Audio');
@@ -210,15 +212,12 @@ export class AudioPlayer {
             return { state: result, errors };
         }
 
-        const realAudioSources = sources.filter(source => !isTtsFallbackSource(source));
+        const realAudioSources = sources.filter(source => !isBrowserTextToSpeechSource(source));
         const realAudioResult = await this.playGreedyAudioSources(orderAudioSources(realAudioSources, settings.audioSelectionMode, card, this.shuffledAudio), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
         if (realAudioResult !== 'miss') return { state: realAudioResult, errors };
 
         const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), card, settings, requestId, triedUrls, isCurrent, errors);
-        if (textToSpeechResult !== 'miss') return { state: textToSpeechResult, errors };
-
-        const jpdbTtsResult = await this.playOrderedSources(orderAudioSources(sources.filter(isJpdbTtsSource), settings.audioSelectionMode, card, this.shuffledAudio), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
-        return { state: jpdbTtsResult, errors };
+        return { state: textToSpeechResult, errors };
     }
 
     private async playOrderedSources(
@@ -461,8 +460,14 @@ export class AudioPlayer {
         if (!canAttemptAudiblePlayback(true)) return false;
         const requestId = ++this.playRequestId;
         this.stopCurrent();
-        const audio = await this.createReadyAudio(audioUrl);
+        const playableUrl = await this.prepareDirectMediaUrl(audioUrl, settings);
+        const audio = await this.createReadyAudio(playableUrl);
         return await this.playPreparedAudio(audio, requestId, () => true);
+    }
+
+    private async prepareDirectMediaUrl(audioUrl: string, settings: ReaderSettings): Promise<string> {
+        if (!shouldFetchDirectMediaAsBlob(audioUrl)) return audioUrl;
+        return await this.fetchAudioAsBlobUrl(audioUrl, audioUrl, settings.audioTimeoutMs, settings.audioSelectionMode);
     }
 
     private reserveJpdbGestureAudioElement(userGesture = false): HTMLAudioElement | undefined {
@@ -574,7 +579,7 @@ export class AudioPlayer {
         if (sourceType === 'jpdb-tts' && candidate.jpdbAudioId) {
             return this.preparePlayableJpdbAudio(candidate.jpdbAudioId, settings, reservedAudio);
         }
-        const audioViaBlob = settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType);
+        const audioViaBlob = settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType) || shouldForceBlobAudioCandidate(candidate);
         return audioViaBlob
             ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob, reservedAudio)
             : reservedAudio ? this.createReadyAudio(candidate.url, reservedAudio) : this.createAudioElement(candidate.url);
@@ -989,6 +994,15 @@ function shouldForceBlobAudioPlayback(sourceType: AudioSourceType): boolean {
     return sourceType === 'jpod101';
 }
 
+function shouldForceBlobAudioCandidate(candidate: AudioCandidate): boolean {
+    return isKnownCorsBlockedPublicAudioCdnUrl(candidate.url)
+        || isKnownCorsBlockedPublicAudioCdnUrl(candidate.sourceUrl);
+}
+
+function shouldFetchDirectMediaAsBlob(url: string): boolean {
+    return /^https?:\/\//i.test(url);
+}
+
 function structuredAudioUrlsForValue(value: unknown, sourceUrl?: string): string[] | null {
     if (Array.isArray(value)) return uniqueAudioUrls(value.flatMap(item => findAudioUrls(item, sourceUrl)));
     return typeof value === 'object' ? findAudioUrlsInRecord(value as Record<string, unknown>, sourceUrl) : null;
@@ -1087,7 +1101,7 @@ function shouldReserveGestureAudioElement(request: AudioPlaybackRequest): boolea
 function preloadableAudioSources(sources: AudioSourceSetting[], settings: ReaderSettings): AudioSourceSetting[] {
     return settings.audioTtsMode === 'source-order'
         ? sources.filter(source => !isBrowserTextToSpeechSource(source))
-        : sources.filter(source => !isTtsFallbackSource(source));
+        : sources.filter(source => !isBrowserTextToSpeechSource(source) && source.type !== 'jpdb-tts');
 }
 
 function audioPreloadLimits(options: AudioPreloadOptions): AudioPreloadLimits {
@@ -1208,14 +1222,6 @@ function orderAudioSources(
         .filter((entry): entry is OrderedAudioSource => Boolean(entry));
 }
 
-function isTtsFallbackSource(source: AudioSourceSetting): boolean {
-    return isJpdbTtsSource(source) || isBrowserTextToSpeechSource(source);
-}
-
-function isJpdbTtsSource(source: AudioSourceSetting): boolean {
-    return source.type === 'jpdb-tts';
-}
-
 function isBrowserTextToSpeechSource(source: AudioSourceSetting): boolean {
     return source.type === 'text-to-speech' || source.type === 'text-to-speech-reading';
 }
@@ -1305,7 +1311,7 @@ async function getJpdbTtsAudioIds(card: JPDBCard, timeoutMs: number, proxyUrl = 
     for (const url of jpdbVocabularyAudioLookupUrls(card)) {
         const response = await requestUrl(url, 'text', timeoutMs, { proxyUrl }).catch(() => '');
         if (typeof response !== 'string') continue;
-        const audioIds = extractJpdbVocabularyAudioIds(response, card);
+        const audioIds = extractJpdbVocabularyAudioIds(response, card, url);
         if (audioIds.length) return audioIds;
     }
     return [];
@@ -1324,16 +1330,51 @@ function jpdbVocabularyUrl(vid: number, spelling: string, reading: string): stri
     return `${JPDB_VOCABULARY_BASE_URL}/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading || spelling)}`;
 }
 
-function extractJpdbVocabularyAudioIds(html: string, card: JPDBCard): string[] {
-    return uniqueStrings(jpdbVocabularyAudioHtmlBlocks(html, card)
+function extractJpdbVocabularyAudioIds(html: string, card: JPDBCard, sourceUrl = ''): string[] {
+    return uniqueStrings(jpdbVocabularyAudioHtmlBlocks(html, card, sourceUrl)
         .flatMap(extractJpdbVocabularyAudioIdsFromHtml));
 }
 
-function jpdbVocabularyAudioHtmlBlocks(html: string, card: JPDBCard): string[] {
+function jpdbVocabularyAudioHtmlBlocks(html: string, card: JPDBCard, sourceUrl = ''): string[] {
     const resultBlocks = findHtmlBlocksByClass(html, 'result')
         .filter(block => htmlBlockHasClass(block, 'vocabulary') && jpdbVocabularyBlockMatchesCard(block, card));
     if (resultBlocks.length) return resultBlocks;
+    const singleSearchResultBlocks = findHtmlBlocksByClass(html, 'result')
+        .filter(block => htmlBlockHasClass(block, 'vocabulary'));
+    if (canUseSingleJpdbAliasAudioResult(singleSearchResultBlocks, card, sourceUrl)) return singleSearchResultBlocks;
     return jpdbHtmlMatchesCard(html, card) ? [html] : [];
+}
+
+function canUseSingleJpdbAliasAudioResult(resultBlocks: string[], card: JPDBCard, sourceUrl: string): boolean {
+    return resultBlocks.length === 1
+        && isJpdbSearchUrl(sourceUrl)
+        && isJpdbAliasLookup(card, sourceUrl)
+        && extractJpdbVocabularyAudioIdsFromHtml(resultBlocks[0] ?? '').length > 0;
+}
+
+function isJpdbSearchUrl(value: string): boolean {
+    try {
+        const url = new URL(value, 'https://jpdb.io');
+        return url.hostname === 'jpdb.io' && url.pathname === '/search';
+    } catch {
+        return false;
+    }
+}
+
+function isJpdbAliasLookup(card: JPDBCard, sourceUrl: string): boolean {
+    const query = jpdbSearchQuery(sourceUrl);
+    if (!query || JAPANESE_TEXT_RE.test(query)) return false;
+    const normalizedQuery = cleanJpdbIdentityText(query);
+    return [card.spelling, card.reading]
+        .some(value => cleanJpdbIdentityText(value) === normalizedQuery);
+}
+
+function jpdbSearchQuery(value: string): string {
+    try {
+        return new URL(value, 'https://jpdb.io').searchParams.get('q')?.trim() ?? '';
+    } catch {
+        return '';
+    }
 }
 
 function jpdbVocabularyBlockMatchesCard(html: string, card: JPDBCard): boolean {
@@ -1346,20 +1387,28 @@ function jpdbHtmlMatchesCard(html: string, card: JPDBCard): boolean {
     return canonical ? jpdbVocabularyIdentityMatches(jpdbVocabularyIdentityFromUrl(canonical), card) : false;
 }
 
-function jpdbVocabularyIdentities(html: string): Array<{ expression: string; reading: string } | null> {
+interface JpdbVocabularyIdentity {
+    vid: number;
+    expression: string;
+    reading: string;
+}
+
+function jpdbVocabularyIdentities(html: string): Array<JpdbVocabularyIdentity | null> {
     const pattern = /\bhref\s*=\s*(["'])([\s\S]*?\/vocabulary\/[\s\S]*?)\1/gi;
-    const identities: Array<{ expression: string; reading: string } | null> = [];
+    const identities: Array<JpdbVocabularyIdentity | null> = [];
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(html))) identities.push(jpdbVocabularyIdentityFromUrl(match[2] ?? ''));
     return identities;
 }
 
-function jpdbVocabularyIdentityFromUrl(value: string): { expression: string; reading: string } | null {
+function jpdbVocabularyIdentityFromUrl(value: string): JpdbVocabularyIdentity | null {
     try {
         const url = new URL(value, 'https://jpdb.io');
         const parts = url.pathname.split('/').filter(Boolean);
         if (parts[0] !== 'vocabulary') return null;
+        const vid = Number.parseInt(parts[1] ?? '', 10);
         return {
+            vid: Number.isFinite(vid) ? vid : 0,
             expression: decodeURIComponent(parts[2] ?? ''),
             reading: decodeURIComponent(parts[3] ?? ''),
         };
@@ -1368,8 +1417,9 @@ function jpdbVocabularyIdentityFromUrl(value: string): { expression: string; rea
     }
 }
 
-function jpdbVocabularyIdentityMatches(identity: { expression: string; reading: string } | null, card: JPDBCard): boolean {
+function jpdbVocabularyIdentityMatches(identity: JpdbVocabularyIdentity | null, card: JPDBCard): boolean {
     if (!identity) return false;
+    if (card.vid > 0 && identity.vid === card.vid) return true;
     const requested = new Set([cleanJpdbIdentityText(card.spelling), cleanJpdbIdentityText(card.reading)].filter(Boolean));
     const expression = cleanJpdbIdentityText(identity.expression);
     const reading = cleanJpdbIdentityText(identity.reading);
@@ -1418,11 +1468,15 @@ function jpdbAudioPageSourceUrl(audioId: string): string {
 
 async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = ''): Promise<string[]> {
     const url = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
-    const response = await requestUrl(url, 'text', timeoutMs, { proxyUrl }).catch(() => '');
+    const response = await requestUrl(url, 'text', timeoutMs, { proxyUrl: jishoLookupProxyUrl(proxyUrl) }).catch(() => '');
     if (typeof response !== 'string') return [];
 
     const audioHtml = findHtmlElementById(response, 'audio', `audio_${card.spelling}:${card.reading}`) ?? findHtmlElement(response, 'audio');
     return audioHtml ? extractAudioSourceUrls(audioHtml, url).slice(0, 1) : findAudioUrls(response, url).slice(0, 1);
+}
+
+function jishoLookupProxyUrl(proxyUrl: string): string {
+    return proxyUrl.trim() === DEFAULT_YOMU_PUBLIC_PROXY_URL ? '' : proxyUrl;
 }
 
 async function getLanguagePod101AudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = ''): Promise<string[]> {

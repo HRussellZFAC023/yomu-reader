@@ -90,14 +90,15 @@ export class StudySourceController {
     }
 
     private renderTranslationPanel(sentence: string): string {
-        const language = this.settings().interfaceLanguage;
-        const readSentence = uiText(language, 'readSentenceAloud');
+        const settings = this.settings();
+        const language = settings.interfaceLanguage;
+        const readSentence = uiText(language, settings.audioEnabled ? 'readSentenceAloud' : 'audioPlaybackDisabled');
         return `
             <div class="jpdb-reader-study-panel jpdb-reader-study-translation-panel">
                 <div class="jpdb-reader-study-block jpdb-reader-study-sentence-block">
                     <div class="jpdb-reader-study-label-row">
                         <div class="jpdb-reader-study-label">${escapeHtml(uiText(language, 'japaneseLabel'))}</div>
-                        <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" type="button" title="${escapeHtml(readSentence)}" aria-label="${escapeHtml(readSentence)}">${speakerIcon()}</button>
+                        <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" type="button" title="${escapeHtml(readSentence)}" aria-label="${escapeHtml(readSentence)}"${settings.audioEnabled ? '' : ' disabled'}>${speakerIcon()}</button>
                     </div>
                     <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml(sentence)}</div>
                 </div>
