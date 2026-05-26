@@ -12,6 +12,7 @@ export interface SiteParserProfile {
     description: string;
     roots: string[];
     exclude?: string;
+    passiveInteraction?: string;
     allowUiText?: boolean;
     minLength?: number;
     includeUiChrome?: boolean;
@@ -36,6 +37,16 @@ const COMMON_EXCLUDE = [
     '.jpdb-reader-word',
 ].join(',');
 const ASBPLAYER_ROOT_SELECTOR = '.asbplayer-offscreen, .asbplayer-subtitles-container-bottom';
+const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
+    'a[href]',
+    'button',
+    'summary',
+    '[role="button"]',
+    '[slot="more-button"]',
+    '.more-button',
+    '#more',
+    '#less',
+].join(',');
 const DEFAULT_SCAN_TARGET_LIMIT = 2000;
 const GENERIC_PROSE_ROOTS = [
     'article',
@@ -292,6 +303,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             '#content-text',
         ],
         allowUiText: true,
+        passiveInteraction: YOUTUBE_PASSIVE_INTERACTION_SELECTOR,
         includeGenericPageText: true,
         scanLimit: 80,
         matches: url => url.hostname === 'youtube.com'
@@ -449,7 +461,7 @@ function collectProfileScanTargets(profile: SiteParserProfile, context: SiteScan
 }
 
 function collectRootScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext): void {
-    const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context), profile.visibleOnly ?? true, profile.exclude ?? COMMON_EXCLUDE, {
+    const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context), profile.visibleOnly ?? true, siteScanExcludeSelector(profile), {
         allowUiText: profile.allowUiText,
         minLength: profile.minLength,
         includeUiChrome: profile.includeUiChrome,
@@ -459,14 +471,63 @@ function collectRootScanTargets(profile: SiteParserProfile, root: Element, conte
         if (!addUniqueSiteScanTarget(profile, target, context)) continue;
         if (!siteScanHasRoom(context)) break;
     }
+    collectPassiveInteractionScanTargets(profile, root, context);
 }
 
-function addUniqueSiteScanTarget(profile: SiteParserProfile, target: FragmentTextTarget, context: SiteScanContext): boolean {
+function siteScanExcludeSelector(profile: SiteParserProfile): string {
+    const base = profile.exclude ?? COMMON_EXCLUDE;
+    return profile.passiveInteraction ? `${base},${profile.passiveInteraction}` : base;
+}
+
+function collectPassiveInteractionScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext): void {
+    if (!profile.passiveInteraction || !siteScanHasRoom(context)) return;
+    for (const passiveRoot of passiveInteractionRoots(root, profile.passiveInteraction)) {
+        if (!siteScanHasRoom(context)) break;
+        const collected = collectFragmentTextTargetsIn(passiveRoot, siteScanRemaining(context), profile.visibleOnly ?? true, profile.exclude ?? COMMON_EXCLUDE, {
+            allowUiText: true,
+            minLength: profile.minLength,
+            includeUiChrome: true,
+            heading: profile.heading,
+        });
+        for (const target of collected) {
+            if (!addUniqueSiteScanTarget(profile, target, context, { passiveInteraction: true })) continue;
+            if (!siteScanHasRoom(context)) break;
+        }
+    }
+}
+
+function passiveInteractionRoots(root: Element, selector: string): Element[] {
+    const candidates = [
+        ...(root.matches(selector) ? [root] : []),
+        ...Array.from(root.querySelectorAll(selector)),
+    ];
+    return candidates.filter((candidate, index) => {
+        if (candidates.indexOf(candidate) !== index) return false;
+        return !candidates.some(other => other !== candidate && other.contains(candidate));
+    });
+}
+
+function addUniqueSiteScanTarget(
+    profile: SiteParserProfile,
+    target: FragmentTextTarget,
+    context: SiteScanContext,
+    options: { passiveInteraction?: boolean } = {},
+): boolean {
     const firstNode = target.fragments[0]?.node;
     if (!firstNode || context.seen.has(firstNode)) return false;
     context.seen.add(firstNode);
-    context.targets.push({ ...target, parserId: profile.id });
+    context.targets.push(siteScanTargetWithProfileOptions(profile, target, options));
     return true;
+}
+
+function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: FragmentTextTarget, options: { passiveInteraction?: boolean }): FragmentTextTarget {
+    if (!options.passiveInteraction) return { ...target, parserId: profile.id };
+    return {
+        ...target,
+        parserId: profile.id,
+        suppressRuby: true,
+        passiveInteraction: true,
+    };
 }
 
 function siteScanRemaining(context: SiteScanContext): number {

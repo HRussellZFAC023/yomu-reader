@@ -14126,6 +14126,62 @@ describe('reader helpers', () => {
         expect(document.querySelectorAll('ytd-watch-metadata h1 rt')).toHaveLength(0);
     });
 
+    it('keeps YouTube comment controls clickable while comment text remains active', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 1000,
+            top: 0,
+            bottom: 240,
+            width: 1000,
+            height: 240,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <ytd-comment-view-model>
+                <yt-attributed-string id="content-text">今夜も配信見なかったごめんね。</yt-attributed-string>
+                <span class="more-button" slot="more-button"><span>続きを読む</span></span>
+            </ytd-comment-view-model>
+        `;
+
+        const targets = collectScanTargets(10, 'https://www.youtube.com/watch?v=TAorfFcb8_g');
+        rectSpy.mockRestore();
+
+        const comment = targets.find(target => target.text === '今夜も配信見なかったごめんね。');
+        const more = targets.find(target => target.text === '続きを読む');
+        expect(comment).toBeTruthy();
+        expect(more).toBeTruthy();
+        expect('passiveInteraction' in comment! && comment.passiveInteraction).not.toBe(true);
+        expect('passiveInteraction' in more! && more.passiveInteraction).toBe(true);
+
+        applyTokensToScanTarget(comment!, [{
+            card: { ...card, cardState: ['known'], spelling: '配信', reading: 'はいしん' },
+            start: 3,
+            end: 5,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+            sentence: '今夜も配信見なかったごめんね。',
+        }], DEFAULT_SETTINGS);
+        applyTokensToScanTarget(more!, [{
+            card: { ...card, cardState: ['not-in-deck'], spelling: '続き', reading: 'つづき' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+            sentence: '続きを読む',
+        }], DEFAULT_SETTINGS);
+
+        const commentWord = document.querySelector<HTMLElement>('#content-text .jpdb-reader-word')!;
+        const moreWord = document.querySelector<HTMLElement>('.more-button .jpdb-reader-word')!;
+        expect(commentWord.dataset.jpdbReaderPassive).toBeUndefined();
+        expect(commentWord.tabIndex).toBe(0);
+        expect(moreWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(moreWord.tabIndex).toBe(-1);
+    });
+
     it('caps default YouTube watch scans so comment-heavy pages stay responsive', () => {
         const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
             left: 0,
