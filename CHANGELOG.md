@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.51] - 2026-05-26
+
+### Changed
+
+- Subtitle parsing now batches the active cue warmup and uses two background transcript parse workers, so YouTube lines are prepared sooner while playback advances.
+
+### Fixed
+
+- Kept YouTube comment and description controls such as "続きを読む", links, and buttons clickable while preserving passive hover lookup on their Japanese text.
+- Unwrapped object-shaped YouTube caption labels for localized and auto-translated tracks, preventing `[object Object]` from appearing in the subtitle drawer title.
+
 ## [0.4.50] - 2026-05-25
 
 ### Changed

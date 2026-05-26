@@ -756,6 +756,44 @@ describe('SubtitlePlayerController', () => {
         expect(internals.parseCacheKey('読む', localEmpty)).not.toBe(internals.parseCacheKey('読む', withDictionary));
     });
 
+    it('batches active subtitle warmup instead of parsing cues one by one', async () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+            localDictionariesEnabled: false,
+        };
+        const parseJapanese = vi.fn(async () => []);
+        const parseJapaneseBatch = vi.fn(async (texts: string[], _options?: unknown) => texts.map(() => [] as JPDBToken[]));
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese,
+            parseJapaneseBatch,
+            onSettingsChange: () => undefined,
+        });
+        const cues = [
+            { start: 0, end: 1, text: '一番', transcriptEligible: true },
+            { start: 1, end: 2, text: '二番', transcriptEligible: true },
+            { start: 2, end: 3, text: '三番', transcriptEligible: true },
+            { start: 3, end: 4, text: '四番', transcriptEligible: true },
+        ];
+        const internals = controller as unknown as {
+            cues: typeof cues;
+            currentCue: typeof cues[number];
+            warmParseAroundActiveCue: () => void;
+        };
+        internals.cues = cues;
+        internals.currentCue = cues[1]!;
+
+        internals.warmParseAroundActiveCue();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(parseJapanese).not.toHaveBeenCalled();
+        expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
+        expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['一番', '二番', '三番', '四番']);
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+    });
+
     it('continues parsing transcript rows beyond the visible hydration window', async () => {
         const originalRequestAnimationFrame = window.requestAnimationFrame;
         window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
@@ -851,16 +889,18 @@ describe('SubtitlePlayerController', () => {
             const warmup = internals.warmTranscriptParseCache(rows, 0, settings, 1);
 
             await Promise.resolve();
-            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(parseJapanese).toHaveBeenCalledTimes(2);
             expect(parseJapanese).toHaveBeenCalledWith('字幕0', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+            expect(parseJapanese).toHaveBeenCalledWith('字幕1', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
 
             await vi.advanceTimersByTimeAsync(119);
-            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(parseJapanese).toHaveBeenCalledTimes(2);
 
             await vi.advanceTimersByTimeAsync(1);
             await Promise.resolve();
-            expect(parseJapanese).toHaveBeenCalledTimes(2);
-            expect(parseJapanese).toHaveBeenCalledWith('字幕1', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+            expect(parseJapanese).toHaveBeenCalledTimes(4);
+            expect(parseJapanese).toHaveBeenCalledWith('字幕2', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+            expect(parseJapanese).toHaveBeenCalledWith('字幕3', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
 
             internals.transcriptCacheWarmupSerial = 2;
             await vi.runOnlyPendingTimersAsync();

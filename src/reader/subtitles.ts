@@ -265,7 +265,7 @@ const TRANSCRIPT_ACTIVE_HYDRATION_BEHIND = 1;
 const TRANSCRIPT_ACTIVE_HYDRATION_AHEAD = 3;
 const TRANSCRIPT_HYDRATION_MAX_ROWS = 12;
 const TRANSCRIPT_BACKGROUND_HYDRATION_BATCH = 1;
-const TRANSCRIPT_BACKGROUND_PARSE_CONCURRENCY = 1;
+const TRANSCRIPT_BACKGROUND_PARSE_CONCURRENCY = 2;
 const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 4;
 const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
 const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
@@ -1035,6 +1035,7 @@ export class SubtitlePlayerController {
         this.renderTranscriptPanel();
         this.syncControls();
         this.warmParseAroundActiveCue();
+        this.scheduleTranscriptCacheWarmup();
         void this.autoCopyCurrentCue();
     }
 
@@ -1401,18 +1402,30 @@ export class SubtitlePlayerController {
         );
         const serial = ++this.parseWarmupSerial;
         const settings = this.options.getSettings();
+        const texts = this.subtitleWarmupTexts(start, end, settings);
+        if (!texts.length) return;
         void (async () => {
-            for (let index = start; index < end; index++) {
-                if (serial !== this.parseWarmupSerial) return;
-                const text = this.cues[index]?.text.trim();
-                if (!text || this.parsedHtmlCache.has(this.parseCacheKey(text, settings))) continue;
-                try {
-                    await this.parseCueHtml(text, settings);
-                } catch {
-                }
+            try {
+                await this.parseCueHtmlBatch(texts, settings);
+            } catch {
             }
+            if (serial !== this.parseWarmupSerial) return;
             if (this.currentCue?.text.trim()) this.render();
         })();
+    }
+
+    private subtitleWarmupTexts(start: number, end: number, settings: ReaderSettings): string[] {
+        const texts: string[] = [];
+        const seen = new Set<string>();
+        for (let index = start; index < end; index++) {
+            const text = this.cues[index]?.text.trim();
+            if (!text) continue;
+            const key = this.parseCacheKey(text, settings);
+            if (seen.has(key) || this.parsedHtmlCache.has(key) || this.hasFreshEmptyParsedHtml(key)) continue;
+            seen.add(key);
+            texts.push(text);
+        }
+        return texts;
     }
 
     private fitSubtitleTextToVideo(): void {

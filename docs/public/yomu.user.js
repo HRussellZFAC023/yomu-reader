@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.50
+// @version      0.4.51
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -31927,6 +31927,16 @@ ${spelling}`);
   ".jpdb-reader-word"
  ].join(",");
  const ASBPLAYER_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
+ const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
+  "a[href]",
+  "button",
+  "summary",
+  '[role="button"]',
+  '[slot="more-button"]',
+  ".more-button",
+  "#more",
+  "#less"
+ ].join(",");
  const DEFAULT_SCAN_TARGET_LIMIT = 2e3;
  const GENERIC_PROSE_ROOTS = [
   "article",
@@ -32180,6 +32190,7 @@ ${spelling}`);
     "#content-text"
    ],
    allowUiText: true,
+   passiveInteraction: YOUTUBE_PASSIVE_INTERACTION_SELECTOR,
    includeGenericPageText: true,
    scanLimit: 80,
    matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
@@ -32315,7 +32326,7 @@ ${spelling}`);
   }
  }
  function collectRootScanTargets(profile, root, context) {
-  const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context), profile.visibleOnly ?? true, profile.exclude ?? COMMON_EXCLUDE, {
+  const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context), profile.visibleOnly ?? true, siteScanExcludeSelector(profile), {
    allowUiText: profile.allowUiText,
    minLength: profile.minLength,
    includeUiChrome: profile.includeUiChrome,
@@ -32325,13 +32336,53 @@ ${spelling}`);
    if (!addUniqueSiteScanTarget(profile, target, context)) continue;
    if (!siteScanHasRoom(context)) break;
   }
+  collectPassiveInteractionScanTargets(profile, root, context);
  }
- function addUniqueSiteScanTarget(profile, target, context) {
+ function siteScanExcludeSelector(profile) {
+  const base = profile.exclude ?? COMMON_EXCLUDE;
+  return profile.passiveInteraction ? `${base},${profile.passiveInteraction}` : base;
+ }
+ function collectPassiveInteractionScanTargets(profile, root, context) {
+  if (!profile.passiveInteraction || !siteScanHasRoom(context)) return;
+  for (const passiveRoot of passiveInteractionRoots(root, profile.passiveInteraction)) {
+   if (!siteScanHasRoom(context)) break;
+   const collected = collectFragmentTextTargetsIn(passiveRoot, siteScanRemaining(context), profile.visibleOnly ?? true, profile.exclude ?? COMMON_EXCLUDE, {
+    allowUiText: true,
+    minLength: profile.minLength,
+    includeUiChrome: true,
+    heading: profile.heading
+   });
+   for (const target of collected) {
+    if (!addUniqueSiteScanTarget(profile, target, context, { passiveInteraction: true })) continue;
+    if (!siteScanHasRoom(context)) break;
+   }
+  }
+ }
+ function passiveInteractionRoots(root, selector) {
+  const candidates = [
+   ...root.matches(selector) ? [root] : [],
+   ...Array.from(root.querySelectorAll(selector))
+  ];
+  return candidates.filter((candidate, index) => {
+   if (candidates.indexOf(candidate) !== index) return false;
+   return !candidates.some((other) => other !== candidate && other.contains(candidate));
+  });
+ }
+ function addUniqueSiteScanTarget(profile, target, context, options = {}) {
   const firstNode = target.fragments[0]?.node;
   if (!firstNode || context.seen.has(firstNode)) return false;
   context.seen.add(firstNode);
-  context.targets.push({ ...target, parserId: profile.id });
+  context.targets.push(siteScanTargetWithProfileOptions(profile, target, options));
   return true;
+ }
+ function siteScanTargetWithProfileOptions(profile, target, options) {
+  if (!options.passiveInteraction) return { ...target, parserId: profile.id };
+  return {
+   ...target,
+   parserId: profile.id,
+   suppressRuby: true,
+   passiveInteraction: true
+  };
  }
  function siteScanRemaining(context) {
   return context.effectiveLimit - context.targets.length;
@@ -34308,18 +34359,19 @@ ${spelling}`);
  }
  function firstYouTubeCaptionTrackLabel(record, language) {
   return [
-   simpleYouTubeCaptionName(record),
-   runYouTubeCaptionName(record),
-   record.displayName,
-   record.languageName,
+   youtubeCaptionText(record.name),
+   youtubeCaptionText(record.displayName),
+   youtubeCaptionText(record.languageName),
    language
   ].find((label) => Boolean(label)) ?? "";
  }
- function simpleYouTubeCaptionName(record) {
-  return record.name?.simpleText ?? "";
- }
- function runYouTubeCaptionName(record) {
-  return record.name?.runs?.map((run) => run.text ?? "").join("") ?? "";
+ function youtubeCaptionText(value) {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  const record = value;
+  if (typeof record.simpleText === "string") return record.simpleText;
+  if (!Array.isArray(record.runs)) return "";
+  return record.runs.map((run) => typeof run === "object" && run ? run.text : "").filter((text2) => typeof text2 === "string").join("");
  }
  function youtubeCaptionAutoSuffix(autoGenerated, label) {
   return autoGenerated && !/asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(label) ? " · auto-generated" : "";
@@ -35104,7 +35156,7 @@ ${spelling}`);
  const TRANSCRIPT_ACTIVE_HYDRATION_AHEAD = 3;
  const TRANSCRIPT_HYDRATION_MAX_ROWS = 12;
  const TRANSCRIPT_BACKGROUND_HYDRATION_BATCH = 1;
- const TRANSCRIPT_BACKGROUND_PARSE_CONCURRENCY = 1;
+ const TRANSCRIPT_BACKGROUND_PARSE_CONCURRENCY = 2;
  const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 4;
  const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
  const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
@@ -35773,6 +35825,7 @@ ${spelling}`);
    this.renderTranscriptPanel();
    this.syncControls();
    this.warmParseAroundActiveCue();
+   this.scheduleTranscriptCacheWarmup();
    void this.autoCopyCurrentCue();
   }
   updateLoadedPrimaryCue(cue, time) {
@@ -36085,18 +36138,29 @@ ${spelling}`);
    );
    const serial = ++this.parseWarmupSerial;
    const settings = this.options.getSettings();
+   const texts = this.subtitleWarmupTexts(start, end, settings);
+   if (!texts.length) return;
    void (async () => {
-    for (let index = start; index < end; index++) {
-     if (serial !== this.parseWarmupSerial) return;
-     const text2 = this.cues[index]?.text.trim();
-     if (!text2 || this.parsedHtmlCache.has(this.parseCacheKey(text2, settings))) continue;
-     try {
-      await this.parseCueHtml(text2, settings);
-     } catch {
-     }
+    try {
+     await this.parseCueHtmlBatch(texts, settings);
+    } catch {
     }
+    if (serial !== this.parseWarmupSerial) return;
     if (this.currentCue?.text.trim()) this.render();
    })();
+  }
+  subtitleWarmupTexts(start, end, settings) {
+   const texts = [];
+   const seen = /* @__PURE__ */ new Set();
+   for (let index = start; index < end; index++) {
+    const text2 = this.cues[index]?.text.trim();
+    if (!text2) continue;
+    const key = this.parseCacheKey(text2, settings);
+    if (seen.has(key) || this.parsedHtmlCache.has(key) || this.hasFreshEmptyParsedHtml(key)) continue;
+    seen.add(key);
+    texts.push(text2);
+   }
+   return texts;
   }
   fitSubtitleTextToVideo() {
    if (!this.root || !this.subtitleEl) return;
