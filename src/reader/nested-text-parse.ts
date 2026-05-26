@@ -46,7 +46,13 @@ export function nestedTextParsePlan(root: HTMLElement, limit: number): NestedPar
         ? [root]
         : Array.from(root.querySelectorAll<HTMLElement>(PARSEABLE_SELECTOR));
     const targets = parseRoots
-        .flatMap(parseRoot => collectFragmentTextTargetsIn(parseRoot, limit, false, '', { includeReaderRoot: true, allowUiText: true, heading: true, minLength: 1 }))
+        .flatMap(parseRoot => collectFragmentTextTargetsIn(parseRoot, limit, false, '', {
+            includeReaderRoot: true,
+            allowUiText: true,
+            heading: true,
+            minLength: 1,
+            readerRootPassiveInteractions: true,
+        }))
         .slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
 }

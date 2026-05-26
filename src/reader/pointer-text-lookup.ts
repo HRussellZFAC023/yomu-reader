@@ -1,4 +1,5 @@
 const JAPANESE_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]/u;
+const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const POINTER_TEXT_SKIP_SELECTOR = [
     'script',
     'style',
@@ -19,8 +20,9 @@ const POINTER_TEXT_SKIP_SELECTOR = [
     '[role="radio"]',
     '[role="tab"]',
     '[onclick]',
-    '[data-jpdb-reader-root]',
+    READER_ROOT_SELECTOR,
 ].join(',');
+const READER_ROOT_POINTER_TEXT_LINK_SELECTOR = `${READER_ROOT_SELECTOR} .jpdb-reader-local-glossary a[href]`;
 const SCREEN_READER_ONLY_CLASS_RE = /(^|[-_\s])(sr-only|screen-reader-text|visually-hidden|visuallyhidden)([-_\s]|$)/i;
 const YOUTUBE_METADATA_SELECTOR = [
     '#metadata',
@@ -123,23 +125,24 @@ export function isLowValuePointerText(text: string, parent?: HTMLElement | null)
 }
 
 function isPointerTextParentEligible(parent: HTMLElement): boolean {
+    const allowReaderRoot = Boolean(parent.closest(READER_ROOT_POINTER_TEXT_LINK_SELECTOR));
     let current: HTMLElement | null = parent;
     while (current) {
-        if (!isPointerTextElementEligible(current)) return false;
+        if (!isPointerTextElementEligible(current, allowReaderRoot)) return false;
         current = current.parentElement;
     }
     return true;
 }
 
-function isPointerTextElementEligible(element: HTMLElement): boolean {
+function isPointerTextElementEligible(element: HTMLElement, allowReaderRoot = false): boolean {
     const style = getComputedStyle(element);
-    return elementPassesPointerTextAttributes(element)
+    return elementPassesPointerTextAttributes(element, allowReaderRoot)
         && stylePassesPointerTextLookup(style)
         && !isScreenReaderOnlyElement(element, style);
 }
 
-function elementPassesPointerTextAttributes(element: HTMLElement): boolean {
-    return !element.matches(POINTER_TEXT_SKIP_SELECTOR)
+function elementPassesPointerTextAttributes(element: HTMLElement, allowReaderRoot: boolean): boolean {
+    return (!element.matches(POINTER_TEXT_SKIP_SELECTOR) || (allowReaderRoot && element.matches(READER_ROOT_SELECTOR)))
         && !element.hasAttribute('hidden')
         && !element.hasAttribute('inert')
         && element.getAttribute('aria-hidden')?.toLowerCase() !== 'true';

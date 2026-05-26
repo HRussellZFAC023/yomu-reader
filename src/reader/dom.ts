@@ -304,6 +304,16 @@ interface TextTargetCollectionOptions {
     includeReaderRoot?: boolean;
 }
 
+interface FragmentTextTargetCollectionOptions {
+    allowUiText?: boolean;
+    minLength?: number;
+    includeReaderRoot?: boolean;
+    includeUiChrome?: boolean;
+    includeFormChrome?: boolean;
+    heading?: boolean;
+    readerRootPassiveInteractions?: boolean;
+}
+
 export function getSelectionText(): string {
     const selection = window.getSelection();
     return selection?.toString().replace(/\s+/g, ' ').trim() ?? '';
@@ -458,7 +468,7 @@ export function collectFragmentTextTargetsIn(
     limit = 40,
     visibleOnly = true,
     excludeSelector = '',
-    options: { allowUiText?: boolean; minLength?: number; includeReaderRoot?: boolean; includeUiChrome?: boolean; includeFormChrome?: boolean; heading?: boolean } = {},
+    options: FragmentTextTargetCollectionOptions = {},
 ): FragmentTextTarget[] {
     const targets: FragmentTextTarget[] = [];
     const fragments: TextFragment[] = [];
@@ -506,7 +516,7 @@ export function collectFragmentTextTargetsIn(
                 end: text.length,
                 hasNativeRuby,
                 suppressRuby: parent ? shouldSuppressInjectedRuby(parent) : false,
-                passiveInteraction: parent ? isPassiveInteractionElement(parent) : false,
+                passiveInteraction: parent ? isFragmentPassiveInteractionElement(parent, options) : false,
             });
             return;
         }
@@ -553,7 +563,7 @@ export function collectFragmentTextTargetsIn(
 
 function shouldSkipFragmentElement(
     element: HTMLElement,
-    options: { includeUiChrome?: boolean; includeFormChrome?: boolean },
+    options: FragmentTextTargetCollectionOptions,
 ): boolean {
     if (options.includeFormChrome) return element.matches(FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
     return element.matches(options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR);
@@ -561,7 +571,7 @@ function shouldSkipFragmentElement(
 
 function isFragmentParagraphBoundary(
     element: HTMLElement,
-    options: { includeFormChrome?: boolean },
+    options: FragmentTextTargetCollectionOptions,
 ): boolean {
     return (options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.has(element.tagName))
         || isParagraphBoundary(element);
@@ -578,6 +588,13 @@ export function isPassiveInteractionElement(element: Element): boolean {
     if (!compactInteraction) return false;
     const text = compactInteraction.textContent?.replace(/\s+/g, '').trim() ?? '';
     return text.length > 0 && text.length <= COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT;
+}
+
+function isFragmentPassiveInteractionElement(element: Element, options: FragmentTextTargetCollectionOptions): boolean {
+    if (isPassiveInteractionElement(element)) return true;
+    return Boolean(options.readerRootPassiveInteractions
+        && element.closest(READER_ROOT_SELECTOR)
+        && element.closest(PASSIVE_INTERACTION_SELECTOR));
 }
 
 function trimTextFragments(fragments: TextFragment[]): TextFragment[] {
