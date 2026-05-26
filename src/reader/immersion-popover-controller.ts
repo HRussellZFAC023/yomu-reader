@@ -1,5 +1,6 @@
 import { AudioPlayer } from './audio';
 import { hasVisiblePageVideo } from './browser-ui';
+import { cardHighlightTargets, highlightCardTargetWords } from './card-highlight';
 import { cardKey } from './card-utils';
 import { escapeHtml, renderHighlightedTextHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import {
@@ -653,8 +654,8 @@ export class ImmersionPopoverController {
         this.loadRenderedExampleImages(container, imageUrls, isCurrent);
         this.options.repositionPopover();
         if (playAudio) void this.playExampleAudio(example, true);
-        if (cachedTokens) this.applyParsedExampleSentence(container, card, example, searchQuery, cachedTokens, { updateHtml: false });
-        else this.parseRenderedExampleSentence(container, card, example, searchQuery, isCurrent);
+        if (cachedTokens) this.applyParsedExampleSentence(container, card, example, cachedTokens, { updateHtml: false });
+        else this.parseRenderedExampleSentence(container, card, example, isCurrent);
     }
 
     private rememberExampleMiningContext(
@@ -692,7 +693,7 @@ export class ImmersionPopoverController {
         hasAudio: boolean,
     ): string {
         const language = settings.interfaceLanguage;
-        const sentenceHtml = this.renderExampleSentenceContent(example.sentence, card, searchQuery, settings);
+        const sentenceHtml = this.renderExampleSentenceContent(example.sentence, card, settings);
         const translation = renderExampleTranslation(example.translation, settings);
         const sourceLabel = immersionExampleSourceLabel(card, example, searchQuery, language);
         const sentence = renderExampleSentenceHtml(sentenceHtml);
@@ -718,11 +719,11 @@ export class ImmersionPopoverController {
         `;
     }
 
-    private renderExampleSentenceContent(sentence: string, card: JPDBCard, searchQuery: string, settings: ReaderSettings): string {
+    private renderExampleSentenceContent(sentence: string, card: JPDBCard, settings: ReaderSettings): string {
         const tokens = this.cachedParsedExampleSentenceTokens(sentence);
         return tokens
             ? renderTokensToHtml(sentence, tokens, settings)
-            : renderHighlightedTextHtml(sentence, [card.spelling, card.reading, searchQuery], 'jpdb-reader-example-target');
+            : renderHighlightedTextHtml(sentence, cardHighlightTargets(card), 'jpdb-reader-example-target');
     }
 
     private loadRenderedExampleImages(container: HTMLElement, imageUrls: string[], isCurrent: () => boolean): void {
@@ -802,13 +803,12 @@ export class ImmersionPopoverController {
         container: HTMLElement,
         card: JPDBCard,
         example: ImmersionKitExample,
-        searchQuery: string,
         isCurrent: () => boolean,
     ): void {
         void this.parsedExampleSentenceTokens(example.sentence)
             .then(tokens => {
                 if (!isCurrent() || !container.isConnected) return;
-                this.applyParsedExampleSentence(container, card, example, searchQuery, tokens);
+                this.applyParsedExampleSentence(container, card, example, tokens);
             })
             .catch(() => undefined);
     }
@@ -817,7 +817,6 @@ export class ImmersionPopoverController {
         container: HTMLElement,
         card: JPDBCard,
         example: ImmersionKitExample,
-        searchQuery: string,
         tokens: JPDBToken[],
         options: { updateHtml?: boolean } = {},
     ): void {
@@ -826,7 +825,7 @@ export class ImmersionPopoverController {
         if (options.updateHtml !== false) {
             setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens, this.options.getSettings()));
         }
-        this.highlightTarget(sentence, card, searchQuery);
+        this.highlightTarget(sentence, card);
         void this.options.enrichPitchWords(tokens);
         void this.options.enrichAnkiWords(tokens);
         this.options.repositionPopover();
@@ -858,17 +857,8 @@ export class ImmersionPopoverController {
         return this.parsedSentenceCache.get(sentence.trim())?.tokens;
     }
 
-    private highlightTarget(sentence: HTMLElement, card: JPDBCard, searchQuery = ''): void {
-        const cardVid = String(card.vid);
-        const cardSid = String(card.sid);
-        const targets = [card.spelling, card.reading, searchQuery].map(value => value.trim()).filter(Boolean);
-        sentence.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(word => {
-            const surface = word.textContent?.replace(/\s+/g, '') ?? '';
-            if ((word.dataset.vid === cardVid && word.dataset.sid === cardSid)
-                || targets.some(target => surface.includes(target))) {
-                word.classList.add('jpdb-reader-example-target');
-            }
-        });
+    private highlightTarget(sentence: HTMLElement, card: JPDBCard): void {
+        highlightCardTargetWords(sentence, card);
     }
 
     private toggleTranslationBlur(container: HTMLElement): void {

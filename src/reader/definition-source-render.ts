@@ -1,6 +1,7 @@
 import { HAS_JAPANESE, escapeHtml } from './dom';
 import { uiText } from './i18n';
 import { JPDB_DEFINITION_SOURCE_ID } from './constants';
+import { cardHighlightScopeAttributes, renderCardHighlightedTextHtml, type CardHighlightTarget } from './card-highlight';
 import { KANJI_DICTIONARIES_SOURCE_ID } from './source-sections';
 import { bestFrequencyEntries, dictionaryPreferencePriority, hasRichStructuredGlossary, localTermTags, normalizeFrequencyChipValue, pillStyle } from './local-dictionary-display';
 import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, speakerIcon, summarizeLearnerGlossary, type LearnerTermGroup } from './popup-render';
@@ -16,10 +17,10 @@ export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: Sou
     const meanings = jpdbDefinitionMeanings(card, info)
         .map(meaning => `<div class="jpdb-reader-meaning">${escapeHtml(meaning)}</div>`)
         .join('');
-    const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language);
+    const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language, card);
     if (!meanings && !extras) return '';
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID))}>
+        <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title">JPDB</summary>
             ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}
             ${extras}
@@ -32,9 +33,9 @@ function jpdbDefinitionMeanings(card: JPDBCard, info: JpdbVocabularyInfo | null)
     return (info?.meanings ?? []).slice(0, 6);
 }
 
-function renderJpdbVocabularyExtras(info: JpdbVocabularyInfo | null, sourceAttributes: SourceAttributes, language: InterfaceLanguage): string {
+function renderJpdbVocabularyExtras(info: JpdbVocabularyInfo | null, sourceAttributes: SourceAttributes, language: InterfaceLanguage, card: CardHighlightTarget): string {
     if (!hasJpdbVocabularyExtras(info)) return '';
-    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info)}${renderJpdbUsedInVocabulary(info, sourceAttributes, language)}${renderJpdbExamples(info, sourceAttributes, language)}</div>`;
+    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info)}${renderJpdbUsedInVocabulary(info, sourceAttributes, language)}${renderJpdbExamples(info, sourceAttributes, language, card)}</div>`;
 }
 
 function shouldPreferCardMeanings(card: JPDBCard): boolean {
@@ -112,7 +113,7 @@ function renderJpdbUsedInVocabulary(info: JpdbVocabularyInfo, sourceAttributes: 
     ` : '';
 }
 
-function renderJpdbExamples(info: JpdbVocabularyInfo, sourceAttributes: SourceAttributes, language: InterfaceLanguage): string {
+function renderJpdbExamples(info: JpdbVocabularyInfo, sourceAttributes: SourceAttributes, language: InterfaceLanguage, card: CardHighlightTarget): string {
     return info.examples.length ? `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" ${sourceAttributes(definitionSourceStateKey(`${JPDB_DEFINITION_SOURCE_ID}:examples`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
@@ -126,7 +127,7 @@ function renderJpdbExamples(info: JpdbVocabularyInfo, sourceAttributes: SourceAt
                         <div class="jpdb-reader-jpdb-example-row${example.audioIds?.length ? ' has-audio' : ''}">
                             ${renderJpdbExampleAudioButton(example.audioIds, example.sentence, language)}
                             <div class="jpdb-reader-jpdb-example-text">
-                                <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${escapeHtml(example.sentence)}</div>
+                                <div class="jpdb-reader-example-sentence jpdb-reader-parseable">${renderCardHighlightedTextHtml(example.sentence, card)}</div>
                                 ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml(example.translation)}</div>` : ''}
                             </div>
                         </div>
@@ -160,7 +161,7 @@ export function renderLocalDefinitionSourcesSection(
     settings: ReaderSettings,
     sourceAttributes: SourceAttributes,
     dictionaryLabel: DictionaryLabel,
-    reference?: Pick<JPDBCard, 'spelling' | 'reading'>,
+    reference?: CardHighlightTarget,
 ): string {
     const groupsByDictionary = dictionaries
         .map(dictionary => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) }))
@@ -176,7 +177,7 @@ export function renderLocalDefinitionSourcesSection(
         `${termCount} ${uiText(settings.interfaceLanguage, termCount === 1 ? 'localWordSingular' : 'localWordPlural')}`,
     ].join(' · ');
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${sourceAttributes(definitionSourceStateKey('__local_dictionaries__'))}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(definitionSourceStateKey('__local_dictionaries__'))}>
             <summary class="jpdb-reader-local-title">
                 <span>${uiText(settings.interfaceLanguage, 'dictionaries')}</span>
                 <span class="jpdb-reader-source-status">${escapeHtml(status)}</span>
@@ -289,7 +290,7 @@ export function kanjiSourceStateKey(sourceId: string): string {
     return `kanji:${sourceId}`;
 }
 
-function renderLocalDictionaryGroup(dictionary: string, groups: LearnerTermGroup[], sourceAttributes: SourceAttributes, dictionaryLabel: DictionaryLabel, language: InterfaceLanguage, reference?: Pick<JPDBCard, 'spelling' | 'reading'>): string {
+function renderLocalDictionaryGroup(dictionary: string, groups: LearnerTermGroup[], sourceAttributes: SourceAttributes, dictionaryLabel: DictionaryLabel, language: InterfaceLanguage, reference?: CardHighlightTarget): string {
     const entryCount = groups.length;
     return `
         <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml(dictionary)}" ${sourceAttributes(localDictionaryStateKey(dictionary))}>
@@ -304,7 +305,7 @@ function renderLocalDictionaryGroup(dictionary: string, groups: LearnerTermGroup
     `;
 }
 
-function renderLocalTermGroup(dictionary: string, group: LearnerTermGroup, dictionaryLabel: DictionaryLabel, language: InterfaceLanguage, reference?: Pick<JPDBCard, 'spelling' | 'reading'>, options: { showDictionaryTag?: boolean } = {}): string {
+function renderLocalTermGroup(dictionary: string, group: LearnerTermGroup, dictionaryLabel: DictionaryLabel, language: InterfaceLanguage, reference?: CardHighlightTarget, options: { showDictionaryTag?: boolean } = {}): string {
     return `
         <article class="jpdb-reader-local-entry jpdb-reader-local-term">
             ${renderLocalTermHead(group, reference)}
@@ -314,7 +315,7 @@ function renderLocalTermGroup(dictionary: string, group: LearnerTermGroup, dicti
     `;
 }
 
-function renderLocalTermHead(group: LearnerTermGroup, reference?: Pick<JPDBCard, 'spelling' | 'reading'>): string {
+function renderLocalTermHead(group: LearnerTermGroup, reference?: CardHighlightTarget): string {
     if (repeatsLookupHeadword(group, reference)) return '';
     return `<div class="jpdb-reader-local-head">
         <span class="jpdb-reader-local-expression">${escapeHtml(group.expression)}</span>
@@ -323,17 +324,17 @@ function renderLocalTermHead(group: LearnerTermGroup, reference?: Pick<JPDBCard,
     </div>`;
 }
 
-function repeatsLookupHeadword(group: LearnerTermGroup, reference?: Pick<JPDBCard, 'spelling' | 'reading'>): boolean {
+function repeatsLookupHeadword(group: LearnerTermGroup, reference?: CardHighlightTarget): boolean {
     if (!matchesLookupExpression(group, reference)) return false;
     return matchesLookupReading(group, reference);
 }
 
-function matchesLookupExpression(group: LearnerTermGroup, reference?: Pick<JPDBCard, 'spelling' | 'reading'>): reference is Pick<JPDBCard, 'spelling' | 'reading'> {
+function matchesLookupExpression(group: LearnerTermGroup, reference?: CardHighlightTarget): reference is CardHighlightTarget {
     if (!reference) return false;
     return group.expression === reference.spelling;
 }
 
-function matchesLookupReading(group: LearnerTermGroup, reference: Pick<JPDBCard, 'spelling' | 'reading'>): boolean {
+function matchesLookupReading(group: LearnerTermGroup, reference: CardHighlightTarget): boolean {
     if (!reference.reading) return true;
     if (group.reading === reference.reading) return true;
     return group.reading === group.expression;
