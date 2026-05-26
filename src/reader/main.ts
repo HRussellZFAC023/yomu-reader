@@ -74,7 +74,7 @@ import {
     resolveMiningContext as resolveStoredMiningContext,
     type MiningContext,
 } from './mining-context';
-import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
+import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
 import { NativeTitleGuard } from './native-title-guard';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from './nested-text-parse';
 import { resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
@@ -1122,7 +1122,7 @@ export class ReaderApp {
                 this.pageHasJapaneseText = true;
                 this.scheduleAutoScan(450);
             }
-            this.scheduleJpdbPageEnhancements(500);
+            if (isJpdbHost() && mutations.some(mutationMayAffectJpdbPageEnhancements)) this.scheduleJpdbPageEnhancements(500);
         });
         this.observeAutoScanMutations();
         window.addEventListener('scroll', () => this.scheduleAutoScan(500), { passive: true });

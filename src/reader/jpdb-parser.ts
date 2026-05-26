@@ -1,7 +1,7 @@
 import { normalizeCardStates } from './card-state';
+import { countMorae, normalizePitchPatternForReading, normalizePitchPatternsForReading, pitchLevels as readPitchLevels } from './pitch-accent';
 import type { JPDBCard, JPDBRawToken, JPDBRawVocabulary, JPDBRuby, JPDBToken } from './types';
 
-const COMBINING_KANA = new Set('ゃゅょぁぃぅぇぉャュョァィゥェォ');
 const KANJI_RE = /[\u3400-\u9fff]/u;
 const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
 export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard[] {
@@ -30,7 +30,7 @@ export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard
             partOfSpeech: meaningsPartOfSpeech[index] ?? [],
         })),
         cardState: normalizeCardStates(cardState),
-        pitchAccent: pitchAccent ?? [],
+        pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
         wordWithReading: null,
         source: 'jpdb' as const,
     }));
@@ -194,7 +194,7 @@ function punctuationSentenceBoundary(text: string, index: number): { end: number
 }
 
 export function getPitchClass(pitchAccent: string[], reading: string): string {
-    const levels = pitchLevels(pitchAccent);
+    const levels = pitchLevelsForReading(pitchAccent, reading);
     if (levels.length < 2) return '';
     return classifyPitchProfile({
         rises: countPitchTransitions(levels, 'L', 'H'),
@@ -225,10 +225,9 @@ const PITCH_PROFILE_CLASSIFIERS: Array<[string, (profile: PitchProfile) => boole
     ['kifuku', isKifuku],
 ];
 
-function pitchLevels(pitchAccent: string[]): string[] {
-    return pitchAccent.length
-        ? Array.from(pitchAccent[0]).filter(level => level === 'H' || level === 'L')
-        : [];
+function pitchLevelsForReading(pitchAccent: string[], reading: string): string[] {
+    const pattern = pitchAccent[0] ? normalizePitchPatternForReading(pitchAccent[0], reading) : '';
+    return pattern ? readPitchLevels(pattern) : [];
 }
 
 function classifyPitchProfile(profile: PitchProfile): string {
@@ -259,15 +258,6 @@ function countPitchTransitions(levels: string[], from: string, to: string): numb
     let count = 0;
     for (let index = 1; index < levels.length; index++) {
         if (levels[index - 1] === from && levels[index] === to) count++;
-    }
-    return count;
-}
-
-function countMorae(reading: string): number {
-    let count = 0;
-    for (const char of Array.from(reading)) {
-        if (count > 0 && COMBINING_KANA.has(char)) continue;
-        count++;
     }
     return count;
 }

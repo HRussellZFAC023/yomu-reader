@@ -4,6 +4,7 @@ import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiAction, ty
 import { graphEdgePath, type GraphAnchorZone } from './kanji-graph-geometry';
 import type { KanjiFact, KanjiOriginGraph, KanjiSourceInfo } from './kanji-origin';
 import type { KanjiVGInfo } from './kanjivg';
+import { normalizePitchPatternForReading, pitchLevelsForDisplay, splitMorae } from './pitch-accent';
 import type { RtkInfo } from './rtk';
 import { rtkElementFallbackGlyph, rtkElementKey, splitRtkElements, type RtkElementGlyph } from './rtk-elements';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from './types';
@@ -1580,12 +1581,13 @@ export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = []
 
     if (!reading) return '';
     const morae = splitMorae(reading);
-    const highs = Array.from(pitch).filter(ch => ch === 'H' || ch === 'L').slice(0, morae.length);
+    const normalizedPitch = normalizePitchPatternForReading(pitch, reading);
+    const highs = pitchLevelsForDisplay(pitch, reading);
     if (highs.length < 2) return '';
 
     const width = morae.length * 24 + 18;
     const points = highs.map((level, index) => `${9 + index * 24},${level === 'H' ? 10 : 29}`).join(' ');
-    const cls = getPitchClassName(pitch, morae.length);
+    const cls = getPitchClassName(normalizedPitch, morae.length);
     return `<div class="jpdb-reader-pitch"><svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
         <polyline class="${cls}" points="${points}"></polyline>
         ${highs.map((level, index) => `<circle class="${cls}" cx="${9 + index * 24}" cy="${level === 'H' ? 10 : 29}" r="3"></circle>`).join('')}
@@ -1724,16 +1726,6 @@ function readingFromWordWithReading(value: string): string {
 
 function unannotatedPronunciationText(value: string): string {
     return Array.from(value).filter(character => !isKanjiCharacter(character)).join('');
-}
-
-function splitMorae(reading: string): string[] {
-    const small = new Set('ゃゅょャュョァィゥェォ');
-    const morae: string[] = [];
-    for (const char of Array.from(reading)) {
-        if (morae.length && small.has(char)) morae[morae.length - 1] += char;
-        else morae.push(char);
-    }
-    return morae;
 }
 
 function getPitchClassName(pitch: string, moraCount = 0): string {

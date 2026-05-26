@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.51
+// @version      0.4.52
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -1841,7 +1841,7 @@ Greasy Fork compliance notes:
   '[aria-hidden="true"]',
   ".jpdb-reader-word"
  ].join(",");
- const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
+ const READER_ROOT_SELECTOR$1 = "[data-jpdb-reader-root]";
  const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
  const PITCH_CLASSES = /* @__PURE__ */ new Set(["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"]);
  const FRAGMENT_SKIP_SELECTOR = [
@@ -2052,7 +2052,7 @@ Greasy Fork compliance notes:
  }
  function canInspectTextNode(node) {
   const parent = node.parentElement;
-  return Boolean(parent && !parent.closest(SKIP_SELECTOR) && !parent.closest(READER_ROOT_SELECTOR));
+  return Boolean(parent && !parent.closest(SKIP_SELECTOR) && !parent.closest(READER_ROOT_SELECTOR$1));
  }
  function textWalkerHasJapanese(walker, limit) {
   let inspected = 0;
@@ -2112,7 +2112,7 @@ Greasy Fork compliance notes:
  }
  function isInsideExcludedReaderRoot(parent, options) {
   if (options.includeReaderRoot) return false;
-  return Boolean(parent.closest(READER_ROOT_SELECTOR));
+  return Boolean(parent.closest(READER_ROOT_SELECTOR$1));
  }
  function shouldRejectTextTargetPresentation(parent, text2, visibleOnly) {
   if (shouldRejectInvisibleTextTarget(parent, visibleOnly)) return true;
@@ -2267,7 +2267,7 @@ Greasy Fork compliance notes:
   else applyTokensToTextNode(target, tokens, settings);
  }
  function unwrapReaderWords(root = document, options = {}) {
-  const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR)).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
+  const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR$1)).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
   const parents = /* @__PURE__ */ new Set();
   for (const word of words) {
    const parent = word.parentNode;
@@ -2330,7 +2330,7 @@ Greasy Fork compliance notes:
   return sentenceAroundSurface(cleanFallback, surface) || cleanFallback;
  }
  function canReadSentenceContextFrom(element2) {
-  return !element2.closest(READER_ROOT_SELECTOR) || Boolean(element2.closest(".jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer"));
+  return !element2.closest(READER_ROOT_SELECTOR$1) || Boolean(element2.closest(".jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer"));
  }
  function sentenceAroundSurface(value, surface = "", fallback = "") {
   const text2 = cleanReadableSentence(value);
@@ -15220,6 +15220,49 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
    y: y1 + (y2 - y1) * t
   };
  }
+ const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
+ const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉャュョァィゥェォ");
+ function normalizePitchPatternForReading(pattern, reading) {
+  const levels = pitchLevels(pattern);
+  if (!levels.length) return "";
+  return normalizePitchLevelsForReading(levels, reading).join("");
+ }
+ function normalizePitchPatternsForReading(patterns, reading) {
+  return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
+ }
+ function pitchLevelsForDisplay(pattern, reading) {
+  return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
+ }
+ function pitchLevels(pattern) {
+  return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
+ }
+ function splitMorae(reading) {
+  const morae = [];
+  for (const char of Array.from(reading)) {
+   if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
+   else morae.push(char);
+  }
+  return morae;
+ }
+ function countMorae(reading) {
+  return splitMorae(reading).length;
+ }
+ function normalizePitchLevelsForReading(levels, reading) {
+  const chars = Array.from(reading);
+  if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
+  if (!looksCharacterAlignedPitch(levels, chars)) return levels;
+  const normalized = [];
+  for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
+   if (normalized.length && SMALL_KANA.has(chars[index])) continue;
+   normalized.push(levels[index]);
+  }
+  return normalized.concat(levels.slice(chars.length));
+ }
+ function looksCharacterAlignedPitch(levels, chars) {
+  if (levels.length > splitMorae(chars.join("")).length + 1) return true;
+  if (levels.length < chars.length) return false;
+  return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
+ }
  function splitRtkElements$1(value) {
   const seen = /* @__PURE__ */ new Set();
   const elements = [];
@@ -16452,12 +16495,13 @@ ${entry.reading}`;
   const pitch = card.pitchAccent[0] || localPitchPatternFromMeta(reading || card.reading, metaEntries);
   if (!pitch) return "";
   if (!reading) return "";
-  const morae = splitMorae$1(reading);
-  const highs = Array.from(pitch).filter((ch) => ch === "H" || ch === "L").slice(0, morae.length);
+  const morae = splitMorae(reading);
+  const normalizedPitch = normalizePitchPatternForReading(pitch, reading);
+  const highs = pitchLevelsForDisplay(pitch, reading);
   if (highs.length < 2) return "";
   const width = morae.length * 24 + 18;
   const points = highs.map((level, index) => `${9 + index * 24},${level === "H" ? 10 : 29}`).join(" ");
-  const cls = getPitchClassName(pitch, morae.length);
+  const cls = getPitchClassName(normalizedPitch, morae.length);
   return `<div class="jpdb-reader-pitch"><svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
         <polyline class="${cls}" points="${points}"></polyline>
         ${highs.map((level, index) => `<circle class="${cls}" cx="${9 + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
@@ -16517,7 +16561,7 @@ ${entry.reading}`;
   return Number.isInteger(value) && value >= 0 ? value : null;
  }
  function pitchPatternFromPosition(reading, position) {
-  const morae = splitMorae$1(reading);
+  const morae = splitMorae(reading);
   if (!morae.length || position > morae.length) return "";
   if (position === 0) return `L${"H".repeat(morae.length)}`;
   const levels = morae.map((_, index) => {
@@ -16574,15 +16618,6 @@ ${entry.reading}`;
  }
  function unannotatedPronunciationText(value) {
   return Array.from(value).filter((character) => !isKanjiCharacter$1(character)).join("");
- }
- function splitMorae$1(reading) {
-  const small = new Set("ゃゅょャュョァィゥェォ");
-  const morae = [];
-  for (const char of Array.from(reading)) {
-   if (morae.length && small.has(char)) morae[morae.length - 1] += char;
-   else morae.push(char);
-  }
-  return morae;
  }
  function getPitchClassName(pitch, moraCount = 0) {
   const levels = Array.from(pitch).filter((ch) => ch === "H" || ch === "L");
@@ -19982,7 +20017,6 @@ ${entry.reading}`;
    return url;
   }
  }
- const COMBINING_KANA = new Set("ゃゅょぁぃぅぇぉャュョァィゥェォ");
  const KANJI_RE$2 = /[\u3400-\u9fff]/u;
  const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
  function jpdbVocabularyToCards(vocabulary2) {
@@ -20011,7 +20045,7 @@ ${entry.reading}`;
     partOfSpeech: meaningsPartOfSpeech[index] ?? []
    })),
    cardState: normalizeCardStates(cardState),
-   pitchAccent: pitchAccent ?? [],
+   pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
    wordWithReading: null,
    source: "jpdb"
   }));
@@ -20143,7 +20177,7 @@ ${entry.reading}`;
   };
  }
  function getPitchClass(pitchAccent, reading) {
-  const levels = pitchLevels(pitchAccent);
+  const levels = pitchLevelsForReading(pitchAccent, reading);
   if (levels.length < 2) return "";
   return classifyPitchProfile({
    rises: countPitchTransitions(levels, "L", "H"),
@@ -20162,8 +20196,9 @@ ${entry.reading}`;
   ["nakadaka", isNakadaka],
   ["kifuku", isKifuku]
  ];
- function pitchLevels(pitchAccent) {
-  return pitchAccent.length ? Array.from(pitchAccent[0]).filter((level) => level === "H" || level === "L") : [];
+ function pitchLevelsForReading(pitchAccent, reading) {
+  const pattern = pitchAccent[0] ? normalizePitchPatternForReading(pitchAccent[0], reading) : "";
+  return pattern ? pitchLevels(pattern) : [];
  }
  function classifyPitchProfile(profile) {
   return PITCH_PROFILE_CLASSIFIERS.find(([, matches]) => matches(profile))?.[0] ?? "";
@@ -20187,14 +20222,6 @@ ${entry.reading}`;
   let count = 0;
   for (let index = 1; index < levels.length; index++) {
    if (levels[index - 1] === from && levels[index] === to) count++;
-  }
-  return count;
- }
- function countMorae(reading) {
-  let count = 0;
-  for (const char of Array.from(reading)) {
-   if (count > 0 && COMBINING_KANA.has(char)) continue;
-   count++;
   }
   return count;
  }
@@ -20552,7 +20579,6 @@ ${entry.reading}`;
  const REQUEST_TIMEOUT_MS = 6e3;
  const CACHE_TTL_MS = 10 * 60 * 1e3;
  const CACHE_LIMIT = 600;
- const SMALL_KANA = new Set("ゃゅょャュョァィゥェォ");
  const log$g = Logger.scope("JpdbPublicPitch");
  class JpdbPublicPitchClient {
   constructor(getCorsProxyUrl = () => "") {
@@ -20686,14 +20712,6 @@ ${normalizedReading}`;
  }
  function identityMatchesRequestedReading(expression, canonicalReading, requestedSpelling, requestedReading) {
   return canonicalReading === requestedReading || expression === requestedReading || expression === requestedSpelling;
- }
- function splitMorae(value) {
-  const morae = [];
-  for (const char of Array.from(value)) {
-   if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
-   else morae.push(char);
-  }
-  return morae;
  }
  function decodePathPart$2(value) {
   try {
@@ -23284,6 +23302,26 @@ ${glossaryKey}`;
   attributeFilter: ["class", "style", "hidden", "open", "aria-hidden", "aria-expanded"]
  };
  const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
+ const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
+ const JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR = [
+  ".result.vocabulary",
+  ".result.kanji",
+  ".entry",
+  ".answer-box",
+  ".review-card",
+  ".answer"
+ ].join(",");
+ const JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR = [
+  ".subsection-meanings",
+  ".subsection-used-in",
+  ".cross-table"
+ ].join(",");
+ const JPDB_PAGE_ENHANCEMENT_DYNAMIC_IGNORE_SELECTOR = [
+  READER_ROOT_SELECTOR,
+  "[data-immersion-kit]",
+  '[class*="immersion" i]'
+ ].join(",");
+ const JPDB_PAGE_ENHANCEMENT_VISIBILITY_ATTRIBUTES = /* @__PURE__ */ new Set(["hidden", "aria-hidden"]);
  function mutationTouchesAsbPlayer(mutation) {
   const nodes = [
    mutation.target,
@@ -23309,6 +23347,30 @@ ${glossaryKey}`;
   if (mutation.type === "characterData") return HAS_JAPANESE.test(mutation.target.textContent ?? "");
   if (mutation.type === "attributes") return HAS_JAPANESE.test(mutation.target.textContent ?? "");
   return Array.from(mutation.addedNodes).some((node) => HAS_JAPANESE.test(node.textContent ?? ""));
+ }
+ function mutationMayAffectJpdbPageEnhancements(mutation) {
+  if (mutation.type === "attributes") return jpdbPageEnhancementAttributeMayAffect(mutation);
+  const nodes = [
+   mutation.target,
+   ...Array.from(mutation.addedNodes),
+   ...Array.from(mutation.removedNodes)
+  ];
+  return nodes.some(nodeMayAffectJpdbPageEnhancements);
+ }
+ function jpdbPageEnhancementAttributeMayAffect(mutation) {
+  return JPDB_PAGE_ENHANCEMENT_VISIBILITY_ATTRIBUTES.has(mutation.attributeName ?? "") && nodeMayAffectJpdbPageEnhancements(mutation.target);
+ }
+ function nodeMayAffectJpdbPageEnhancements(node) {
+  const element2 = mutationNodeElement(node);
+  if (!element2 || element2.closest(JPDB_PAGE_ENHANCEMENT_DYNAMIC_IGNORE_SELECTOR)) return false;
+  if (node.nodeType === Node.TEXT_NODE) {
+   return HAS_JAPANESE.test(node.textContent ?? "") && Boolean(element2.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR));
+  }
+  return element2.matches(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR) || element2.matches(JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR) || Boolean(element2.querySelector(`${JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR},${JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR}`)) || HAS_JAPANESE.test(element2.textContent ?? "") && Boolean(element2.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR));
+ }
+ function mutationNodeElement(node) {
+  if (node.nodeType === Node.ELEMENT_NODE) return node;
+  return node.parentElement;
  }
  const STORED_TITLE_ATTRIBUTE = "data-jpdb-reader-native-title";
  class NativeTitleGuard {
@@ -39341,7 +39403,7 @@ ${spelling}`);
      this.pageHasJapaneseText = true;
      this.scheduleAutoScan(450);
     }
-    this.scheduleJpdbPageEnhancements(500);
+    if (isJpdbHost() && mutations.some(mutationMayAffectJpdbPageEnhancements)) this.scheduleJpdbPageEnhancements(500);
    });
    this.observeAutoScanMutations();
    window.addEventListener("scroll", () => this.scheduleAutoScan(500), { passive: true });

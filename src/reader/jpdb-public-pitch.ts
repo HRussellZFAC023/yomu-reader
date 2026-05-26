@@ -1,12 +1,12 @@
 import { Logger } from './logger';
 import { requestText as requestReaderText } from './reader-http';
 import { parseHtmlDocument } from './dom';
+import { splitMorae } from './pitch-accent';
 
 const JPDB_SEARCH_URL = 'https://jpdb.io/search';
 const REQUEST_TIMEOUT_MS = 6000;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_LIMIT = 600;
-const SMALL_KANA = new Set('ゃゅょャュョァィゥェォ');
 const log = Logger.scope('JpdbPublicPitch');
 
 export class JpdbPublicPitchClient {
@@ -178,15 +178,6 @@ function identityMatchesRequestedReading(
     return canonicalReading === requestedReading
         || expression === requestedReading
         || expression === requestedSpelling;
-}
-
-function splitMorae(value: string): string[] {
-    const morae: string[] = [];
-    for (const char of Array.from(value)) {
-        if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
-        else morae.push(char);
-    }
-    return morae;
 }
 
 function decodePathPart(value: string): string {
