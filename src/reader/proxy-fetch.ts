@@ -9,6 +9,7 @@ export interface ProxyFetchOptions extends RequestInit {
 
 type ProxyUrlBuilder = (targetUrl: string) => string;
 type FetchCandidateKind = 'direct' | 'configured-proxy' | 'public-proxy';
+type SpecializedProxyRoute = 'yomu-public-only' | 'jisho-search' | null;
 
 interface FetchUrlCandidate {
     url: string;
@@ -245,32 +246,10 @@ export function isKnownCorsBlockedPublicAudioCdnUrl(target: string | URL): boole
 }
 
 function shouldSkipDirectCrossOriginFetch(targetUrl: string, options: ProxyFetchOptions): boolean {
-    if (!isCrossOriginHttpUrl(targetUrl)) return false;
-    try {
-        const target = new URL(targetUrl, location.href);
-        const method = String(options.method ?? 'GET').toUpperCase();
-        if (target.hostname === 'assets.languagepod101.com') {
-            return method === 'GET' && target.pathname === '/dictionary/japanese/audiomp3.php';
-        }
-        if (target.hostname === 'jisho.org') {
-            return method === 'GET' && target.pathname.startsWith('/search/');
-        }
-        if (isKnownCorsBlockedPublicAudioCdnUrl(target)) {
-            return method === 'GET';
-        }
-        if (target.hostname === 'cdn.innovativelanguage.com' && target.pathname.includes('/learningcenter/audio/')) {
-            return method === 'GET';
-        }
-        if (target.hostname === 'www.japanesepod101.com') {
-            return method === 'POST' && target.pathname === '/learningcenter/reference/dictionary_post';
-        }
-        if (target.hostname === 'jpdb.io' && target.pathname.startsWith('/static/v/')) {
-            return method === 'GET';
-        }
-        return false;
-    } catch {
-        return false;
-    }
+    const target = fetchTarget(targetUrl);
+    return Boolean(target
+        && isCrossOriginHttpTarget(target)
+        && specializedProxyRoute(target, requestMethod(options)));
 }
 
 function builtInProxyUrls(targetUrl: string, options: ProxyFetchOptions): string[] {
@@ -280,35 +259,45 @@ function builtInProxyUrls(targetUrl: string, options: ProxyFetchOptions): string
 }
 
 function specializedProxyUrls(targetUrl: string, options: ProxyFetchOptions): string[] | null {
-    try {
-        const target = new URL(targetUrl);
-        const method = String(options.method ?? 'GET').toUpperCase();
-        if (method === 'GET' && target.hostname === 'assets.languagepod101.com' && target.pathname === '/dictionary/japanese/audiomp3.php') {
-            return [configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ''];
-        }
-        if (method === 'POST' && target.hostname === 'www.japanesepod101.com' && target.pathname === '/learningcenter/reference/dictionary_post') {
-            return [configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ''];
-        }
-        if (method === 'GET' && target.hostname === 'jisho.org' && target.pathname.startsWith('/search/')) {
-            return [
-                allOriginsProxyUrl(targetUrl),
-                jishoMarkdownProxyUrl(targetUrl) ?? '',
-                configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? '',
-            ];
-        }
-        if (method === 'GET' && isKnownCorsBlockedPublicAudioCdnUrl(target)) {
-            return [configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ''];
-        }
-        if (method === 'GET' && target.hostname === 'cdn.innovativelanguage.com' && target.pathname.includes('/learningcenter/audio/')) {
-            return [configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ''];
-        }
-        if (method === 'GET' && target.hostname === 'jpdb.io' && target.pathname.startsWith('/static/v/')) {
-            return [configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ''];
-        }
-    } catch {
-        return null;
+    const target = fetchTarget(targetUrl);
+    const route = target ? specializedProxyRoute(target, requestMethod(options)) : null;
+    if (!target || !route) return null;
+
+    const proxyTargetUrl = target.href;
+    if (route === 'jisho-search') {
+        return [
+            allOriginsProxyUrl(proxyTargetUrl),
+            jishoMarkdownProxyUrl(proxyTargetUrl) ?? '',
+            yomuPublicProxyUrl(proxyTargetUrl),
+        ];
+    }
+    return [yomuPublicProxyUrl(proxyTargetUrl)];
+}
+
+function specializedProxyRoute(target: URL, method: string): SpecializedProxyRoute {
+    if (method === 'GET' && target.hostname === 'jisho.org' && target.pathname.startsWith('/search/')) {
+        return 'jisho-search';
+    }
+    if (method === 'GET' && target.hostname === 'assets.languagepod101.com' && target.pathname === '/dictionary/japanese/audiomp3.php') {
+        return 'yomu-public-only';
+    }
+    if (method === 'POST' && target.hostname === 'www.japanesepod101.com' && target.pathname === '/learningcenter/reference/dictionary_post') {
+        return 'yomu-public-only';
+    }
+    if (method === 'GET' && isKnownCorsBlockedPublicAudioCdnUrl(target)) {
+        return 'yomu-public-only';
+    }
+    if (method === 'GET' && target.hostname === 'cdn.innovativelanguage.com' && target.pathname.includes('/learningcenter/audio/')) {
+        return 'yomu-public-only';
+    }
+    if (method === 'GET' && target.hostname === 'jpdb.io' && target.pathname.startsWith('/static/v/')) {
+        return 'yomu-public-only';
     }
     return null;
+}
+
+function yomuPublicProxyUrl(targetUrl: string): string {
+    return configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? '';
 }
 
 function isHostedGithubPagesApp(): boolean {
@@ -331,13 +320,28 @@ function isAppleTouchBrowser(): boolean {
 }
 
 function isCrossOriginHttpUrl(targetUrl: string): boolean {
-    if (typeof location === 'undefined') return false;
+    const target = fetchTarget(targetUrl);
+    return Boolean(target && isCrossOriginHttpTarget(target));
+}
+
+function isCrossOriginHttpTarget(target: URL): boolean {
+    return typeof location !== 'undefined'
+        && /^https?:$/i.test(target.protocol)
+        && target.origin !== location.origin;
+}
+
+function fetchTarget(targetUrl: string): URL | null {
     try {
-        const target = new URL(targetUrl, location.href);
-        return /^https?:$/i.test(target.protocol) && target.origin !== location.origin;
+        return typeof location === 'undefined'
+            ? new URL(targetUrl)
+            : new URL(targetUrl, location.href);
     } catch {
-        return false;
+        return null;
     }
+}
+
+function requestMethod(options: ProxyFetchOptions): string {
+    return String(options.method ?? 'GET').toUpperCase();
 }
 
 function isJpdbPublicAudioUrl(targetUrl: string): boolean {

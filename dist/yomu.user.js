@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.59
+// @version      0.4.60
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -802,6 +802,11 @@ Greasy Fork compliance notes:
  };
  const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
   JPDB_LOOKUP_LINK,
+  JISHO_LOOKUP_LINK,
+  COPY_LOOKUP_LINK
+ ];
+ const LEGACY_DEFAULT_LOOKUP_LINK_SET = [
+  { ...JPDB_LOOKUP_LINK, enabled: false },
   JISHO_LOOKUP_LINK,
   COPY_LOOKUP_LINK
  ];
@@ -1716,11 +1721,19 @@ Greasy Fork compliance notes:
   }));
  }
  function isLegacyDefaultLookupLinkSet(value) {
-  if (!Array.isArray(value) || value.length !== 3) return false;
-  const normalized = value.map(normalizeDictionaryLookupLink);
-  if (normalized.some((link) => !link)) return false;
-  const links = normalized;
-  return links[0]?.id === "jpdb" && links[0].label === "JPDB" && links[0].urlTemplate === JPDB_LOOKUP_LINK.urlTemplate && links[0].enabled === false && links[1]?.id === "jisho" && links[1].label === "Jisho" && links[1].urlTemplate === JISHO_LOOKUP_LINK.urlTemplate && links[1].enabled === true && links[2]?.id === "copy" && links[2].label === "Copy" && links[2].action === "copy" && links[2].enabled === true;
+  const links = normalizeLegacyLookupLinkSet(value);
+  return Boolean(links && LEGACY_DEFAULT_LOOKUP_LINK_SET.every((expected, index) => matchesLegacyLookupLink(links[index], expected)));
+ }
+ function normalizeLegacyLookupLinkSet(value) {
+  if (!Array.isArray(value) || value.length !== LEGACY_DEFAULT_LOOKUP_LINK_SET.length) return null;
+  const links = value.map(normalizeDictionaryLookupLink);
+  return links.every(isDictionaryLookupLink) ? links : null;
+ }
+ function isDictionaryLookupLink(link) {
+  return link !== null;
+ }
+ function matchesLegacyLookupLink(link, expected) {
+  return Boolean(link && link.id === expected.id && link.label === expected.label && link.urlTemplate === expected.urlTemplate && link.enabled === expected.enabled && (expected.action === void 0 || link.action === expected.action));
  }
  function normalizeDictionaryLookupLinks(value, preferJpdb = false) {
   const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb));
@@ -5334,32 +5347,8 @@ Greasy Fork compliance notes:
   }
  }
  function shouldSkipDirectCrossOriginFetch(targetUrl, options) {
-  if (!isCrossOriginHttpUrl(targetUrl)) return false;
-  try {
-   const target = new URL(targetUrl, location.href);
-   const method = String(options.method ?? "GET").toUpperCase();
-   if (target.hostname === "assets.languagepod101.com") {
-    return method === "GET" && target.pathname === "/dictionary/japanese/audiomp3.php";
-   }
-   if (target.hostname === "jisho.org") {
-    return method === "GET" && target.pathname.startsWith("/search/");
-   }
-   if (isKnownCorsBlockedPublicAudioCdnUrl(target)) {
-    return method === "GET";
-   }
-   if (target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/")) {
-    return method === "GET";
-   }
-   if (target.hostname === "www.japanesepod101.com") {
-    return method === "POST" && target.pathname === "/learningcenter/reference/dictionary_post";
-   }
-   if (target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/")) {
-    return method === "GET";
-   }
-   return false;
-  } catch {
-   return false;
-  }
+  const target = fetchTarget(targetUrl);
+  return Boolean(target && isCrossOriginHttpTarget(target) && specializedProxyRoute(target, requestMethod(options)));
  }
  function builtInProxyUrls(targetUrl, options) {
   const specialized = specializedProxyUrls(targetUrl, options);
@@ -5367,35 +5356,42 @@ Greasy Fork compliance notes:
   return candidates.filter(Boolean);
  }
  function specializedProxyUrls(targetUrl, options) {
-  try {
-   const target = new URL(targetUrl);
-   const method = String(options.method ?? "GET").toUpperCase();
-   if (method === "GET" && target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php") {
-    return [configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""];
-   }
-   if (method === "POST" && target.hostname === "www.japanesepod101.com" && target.pathname === "/learningcenter/reference/dictionary_post") {
-    return [configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""];
-   }
-   if (method === "GET" && target.hostname === "jisho.org" && target.pathname.startsWith("/search/")) {
-    return [
-     allOriginsProxyUrl(targetUrl),
-     jishoMarkdownProxyUrl(targetUrl) ?? "",
-     configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""
-    ];
-   }
-   if (method === "GET" && isKnownCorsBlockedPublicAudioCdnUrl(target)) {
-    return [configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""];
-   }
-   if (method === "GET" && target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/")) {
-    return [configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""];
-   }
-   if (method === "GET" && target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/")) {
-    return [configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""];
-   }
-  } catch {
-   return null;
+  const target = fetchTarget(targetUrl);
+  const route = target ? specializedProxyRoute(target, requestMethod(options)) : null;
+  if (!target || !route) return null;
+  const proxyTargetUrl = target.href;
+  if (route === "jisho-search") {
+   return [
+    allOriginsProxyUrl(proxyTargetUrl),
+    jishoMarkdownProxyUrl(proxyTargetUrl) ?? "",
+    yomuPublicProxyUrl(proxyTargetUrl)
+   ];
+  }
+  return [yomuPublicProxyUrl(proxyTargetUrl)];
+ }
+ function specializedProxyRoute(target, method) {
+  if (method === "GET" && target.hostname === "jisho.org" && target.pathname.startsWith("/search/")) {
+   return "jisho-search";
+  }
+  if (method === "GET" && target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php") {
+   return "yomu-public-only";
+  }
+  if (method === "POST" && target.hostname === "www.japanesepod101.com" && target.pathname === "/learningcenter/reference/dictionary_post") {
+   return "yomu-public-only";
+  }
+  if (method === "GET" && isKnownCorsBlockedPublicAudioCdnUrl(target)) {
+   return "yomu-public-only";
+  }
+  if (method === "GET" && target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/")) {
+   return "yomu-public-only";
+  }
+  if (method === "GET" && target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/")) {
+   return "yomu-public-only";
   }
   return null;
+ }
+ function yomuPublicProxyUrl(targetUrl) {
+  return configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? "";
  }
  function isHostedGithubPagesApp$1() {
   if (typeof location === "undefined") return false;
@@ -5413,13 +5409,21 @@ Greasy Fork compliance notes:
   return /iPad|iPhone|iPod/i.test(userAgent) || /Macintosh/i.test(userAgent) && /Mac/i.test(platform) && (navigator.maxTouchPoints ?? 0) > 1;
  }
  function isCrossOriginHttpUrl(targetUrl) {
-  if (typeof location === "undefined") return false;
+  const target = fetchTarget(targetUrl);
+  return Boolean(target && isCrossOriginHttpTarget(target));
+ }
+ function isCrossOriginHttpTarget(target) {
+  return typeof location !== "undefined" && /^https?:$/i.test(target.protocol) && target.origin !== location.origin;
+ }
+ function fetchTarget(targetUrl) {
   try {
-   const target = new URL(targetUrl, location.href);
-   return /^https?:$/i.test(target.protocol) && target.origin !== location.origin;
+   return typeof location === "undefined" ? new URL(targetUrl) : new URL(targetUrl, location.href);
   } catch {
-   return false;
+   return null;
   }
+ }
+ function requestMethod(options) {
+  return String(options.method ?? "GET").toUpperCase();
  }
  function isJpdbPublicAudioUrl(targetUrl) {
   try {

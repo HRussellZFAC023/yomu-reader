@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.60] - 2026-05-31
+
+### Changed
+
+- Shared the public-proxy route classification used by direct-fetch skipping and fallback ordering, keeping Jisho's special fallback order explicit while reducing userscript size.
+- Simplified legacy lookup-link migration matching and removed a dead KanjiVG cache branch.
+
 ## [0.4.59] - 2026-05-30
 
 ### Fixed
