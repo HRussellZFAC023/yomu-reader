@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.60
+// @version      0.4.61
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -25863,9 +25863,7 @@ ${glossaryKey}`;
       width: Number(boxData[2]) * width,
       height: Number(boxData[3]) * height
      }, width, height) : null;
-     if (text2 && box && HAS_JAPANESE$1.test(text2)) {
-      lines.push({ text: text2, box, vertical: box.height > box.width * 1.25 && text2.length > 1 });
-     }
+     pushJapaneseOcrLine(lines, text2, box);
     }
    }
    return lines.length ? { width, height, lines } : null;
@@ -26085,7 +26083,7 @@ ${glossaryKey}`;
      const item = annotationItem;
      const text2 = cleanOcrText(item.description);
      const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, width, height);
-     if (text2 && box && HAS_JAPANESE$1.test(text2)) lines.push({ text: text2, box, vertical: box.height > box.width * 1.25 && text2.length > 1 });
+     pushJapaneseOcrLine(lines, text2, box);
     }
    }
   }
@@ -26098,9 +26096,7 @@ ${glossaryKey}`;
   const pushLine = () => {
    const value = cleanOcrText(text2);
    const box = unionBoxes(boxes);
-   if (value && box && HAS_JAPANESE$1.test(value)) {
-    lines.push({ text: value, box, vertical: box.height > box.width * 1.25 && value.length > 1 });
-   }
+   pushJapaneseOcrLine(lines, value, box);
    text2 = "";
    boxes = [];
   };
@@ -26117,6 +26113,10 @@ ${glossaryKey}`;
    }
   }
   pushLine();
+ }
+ function pushJapaneseOcrLine(lines, text2, box) {
+  if (!text2 || !box || !HAS_JAPANESE$1.test(text2)) return;
+  lines.push({ text: text2, box, vertical: box.height > box.width * 1.25 && text2.length > 1 });
  }
  function normalizeCloudVisionVertices(value, width, height) {
   if (!Array.isArray(value) || value.length < 2) return null;

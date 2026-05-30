@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.61] - 2026-05-31
+
+### Changed
+
+- Removed stale demo, new-tab, JPDB-page, popup, settings, OCR, and kanji-graph helper code to keep the userscript under the hosted size limit.
+- Reused resolved new-tab navigation sources when loading boundary batches, avoiding duplicated source checks during card navigation.
+
 ## [0.4.60] - 2026-05-31
 
 ### Changed

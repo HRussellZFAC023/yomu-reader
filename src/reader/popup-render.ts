@@ -74,13 +74,6 @@ function metaPitchPositions(record: Record<string, unknown>): unknown[] {
     return Array.isArray(record.positions) ? record.positions : [];
 }
 
-export function renderSpellingForKanjiNavigation(spelling: string, language: InterfaceLanguage): string {
-    return Array.from(spelling).map(character => isKanjiCharacter(character)
-        ? `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${escapeHtml(character)}" title="${escapeHtml(`${uiText(language, 'showKanji')}: ${character}`)}">${escapeHtml(character)}</button>`
-        : `<span>${escapeHtml(character)}</span>`,
-    ).join('');
-}
-
 export function groupTermEntriesByDictionary(entries: YomitanTermEntry[]): Map<string, YomitanTermEntry[]> {
     const grouped = new Map<string, YomitanTermEntry[]>();
     for (const entry of entries) {

@@ -436,6 +436,7 @@ interface NewTabLoadOptions {
 }
 
 type ConcreteNewTabWordSource = Exclude<ReaderSettings['newTabSource'], 'auto'>;
+type NavigationExpansionSource = 'dictionary' | 'jpdb' | 'anki';
 
 interface KanjiDetailBundle {
     jpdb: JpdbKanjiInfo | null;
@@ -2746,8 +2747,9 @@ export class NewTabController {
         if (!root || !this.visibleWords.length) return;
         this.dependencies.dismiss({ suppressHoverTarget: false });
         this.navigationGeneration++;
-        if (this.shouldLoadMoreForNavigation(direction)) {
-            void this.loadMoreForNavigation(root, direction);
+        const expansionSource = this.navigationExpansionSource();
+        if (this.shouldLoadMoreForNavigation(direction, expansionSource)) {
+            void this.loadMoreForNavigation(root, direction, expansionSource);
             return;
         }
         this.moveVisibleWord(root, direction);
@@ -2760,22 +2762,16 @@ export class NewTabController {
         this.renderWord(root, this.visibleWords[this.index]);
     }
 
-    private shouldLoadMoreForNavigation(direction: 1 | -1): boolean {
+    private shouldLoadMoreForNavigation(direction: 1 | -1, source: NavigationExpansionSource | null): source is NavigationExpansionSource {
         if (this.navigationSupplementPromise) return false;
         const atBoundary = direction > 0
             ? this.index >= this.visibleWords.length - 1
             : this.index <= 0;
-        return atBoundary && this.navigationExpansionSource() !== null;
+        return atBoundary && source !== null;
     }
 
-    private async loadMoreForNavigation(root: HTMLElement, direction: 1 | -1): Promise<void> {
+    private async loadMoreForNavigation(root: HTMLElement, direction: 1 | -1, source: NavigationExpansionSource): Promise<void> {
         const currentKey = this.currentVisibleWordKey();
-        const source = this.navigationExpansionSource();
-        if (!source) {
-            this.moveVisibleWord(root, direction);
-            return;
-        }
-
         this.setStatus(root, this.text(this.state.mode === 'kanji' ? 'noKanjiCardsYet' : 'noWordsYet'));
         const promise = this.appendNavigationSupplement(root, direction, currentKey, source);
         this.navigationSupplementPromise = promise;
@@ -2786,7 +2782,7 @@ export class NewTabController {
         }
     }
 
-    private async appendNavigationSupplement(root: HTMLElement, direction: 1 | -1, currentKey: string, source: 'dictionary' | 'jpdb' | 'anki'): Promise<void> {
+    private async appendNavigationSupplement(root: HTMLElement, direction: 1 | -1, currentKey: string, source: NavigationExpansionSource): Promise<void> {
         const beforeSignature = this.newTabPoolSignature(this.studyPoolForCurrentMode());
         const cards = await this.loadNavigationSupplementCards(source);
         if (!cards.length) {
@@ -2816,7 +2812,7 @@ export class NewTabController {
         this.renderWord(root, this.visibleWords[this.index]);
     }
 
-    private async loadNavigationSupplementCards(source: 'dictionary' | 'jpdb' | 'anki'): Promise<JPDBCard[]> {
+    private async loadNavigationSupplementCards(source: NavigationExpansionSource): Promise<JPDBCard[]> {
         const expandedLimit = this.allWords.length + NEW_TAB_WORD_LIMIT;
         if (source === 'dictionary') return (await this.loadDictionaryWords(undefined, expandedLimit)).cards;
         if (source === 'anki') return (await this.loadAnkiWords(NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, expandedLimit)).cards;
@@ -2827,7 +2823,7 @@ export class NewTabController {
         })).cards;
     }
 
-    private navigationExpansionSource(): 'dictionary' | 'jpdb' | 'anki' | null {
+    private navigationExpansionSource(): NavigationExpansionSource | null {
         if (!this.visibleWords.length || this.state.mode === 'search' || this.state.mode === 'stats') return null;
         if (this.state.source === 'dictionary' || this.allWords.some(card => this.isDictionaryCard(card))) return 'dictionary';
         if (this.reviewCountMode && !this.isOfflineSourceLabel(this.sourceLabel) && !this.sourceLabel.includes(this.text('liveReview'))) {
