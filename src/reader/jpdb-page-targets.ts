@@ -1,8 +1,6 @@
 import type { JPDBCard, ReaderSettings } from './types';
 import type { YomitanTermEntry } from './yomitan';
-import { cleanText, firstJapaneseRun, firstReviewGlyph, JAPANESE_RE } from './jpdb-text';
-
-const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
+import { cleanText, firstReviewGlyph, JAPANESE_RE } from './jpdb-text';
 
 export interface JpdbTermTarget {
     term: string;
@@ -50,10 +48,6 @@ export function isReviewPage(): boolean {
 
 export function isKanjiPage(): boolean {
     return location.pathname.startsWith('/kanji/');
-}
-
-export function isReviewAnswer(): boolean {
-    return isReviewPage() && (/[?&]r=/.test(location.search) || Boolean(document.querySelector('.review-reveal, .kanji, .subsection-meanings')));
 }
 
 export function isKanjiReviewFront(): boolean {
@@ -318,21 +312,6 @@ function shouldKeepPageExample(sentence: string, seen: Set<string>): boolean {
     return isJapaneseTerm(sentence) && !seen.has(sentence);
 }
 
-export function currentAudioTargets(): Array<{ term: string; reading: string; link: HTMLElement }> {
-    const targets: Array<{ term: string; reading: string; link: HTMLElement }> = [];
-    const seen = new Set<HTMLElement>();
-    document.querySelectorAll<HTMLElement>('a.vocabulary-audio[data-audio]').forEach(link => {
-        if (seen.has(link) || link.closest(READER_ROOT_SELECTOR)) return;
-        const root = link.closest<HTMLElement>('.result.vocabulary, .answer-box, .review-hidden, .subsection-headword, .plain') ?? link.parentElement;
-        if (!root) return;
-        const term = extractTermFromElement(root) ?? extractTermFromAudioLink(link);
-        if (!term?.term) return;
-        seen.add(link);
-        targets.push({ ...term, link });
-    });
-    return targets.slice(0, 12);
-}
-
 export function localDictionaryLookupVariants(target: LocalDictionaryTarget): Array<{ term: string; reading: string }> {
     const variants: Array<{ term: string; reading: string }> = [];
     const add = (term: string, reading = '') => {
@@ -396,37 +375,6 @@ function isDeckPage(): boolean {
 
 function isSearchPage(): boolean {
     return location.pathname.startsWith('/search');
-}
-
-function extractTermFromAudioLink(link: HTMLElement): { term: string; reading: string } | null {
-    const root = link.closest<HTMLElement>('.result.vocabulary, .answer-box') ?? link.parentElement;
-    if (!root) return null;
-    const linkedTerm = extractTermFromVocabularyPath(root);
-    if (linkedTerm) return linkedTerm;
-    return termFromAudioLinkText(root);
-}
-
-function termFromAudioLinkText(root: HTMLElement): { term: string; reading: string } | null {
-    const text = cleanText(extractBaseText(root));
-    return isJapaneseTerm(text) ? { term: firstJapaneseRun(text), reading: firstJapaneseRun(text) } : null;
-}
-
-function extractTermFromVocabularyPath(root: HTMLElement): { term: string; reading: string } | null {
-    const linkToVocabulary = root.querySelector<HTMLAnchorElement>('a[href^="/vocabulary/"]');
-    if (!linkToVocabulary) return null;
-    const parts = linkToVocabulary.pathname.split('/').filter(Boolean);
-    if (!hasVocabularyPathTerm(parts)) return null;
-    const term = decodePathPart(parts[2]);
-    return { term, reading: vocabularyPathReading(parts) || term };
-}
-
-function hasVocabularyPathTerm(parts: string[]): boolean {
-    return parts[0] === 'vocabulary' && Boolean(parts[2]);
-}
-
-function vocabularyPathReading(parts: string[]): string {
-    const reading = decodePathPart(parts[3] ?? '');
-    return JAPANESE_RE.test(reading) ? reading : '';
 }
 
 function extractCurrentTermTarget(): { term: string; reading: string } | null {

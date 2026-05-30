@@ -29,11 +29,6 @@ export function canonicalUchisenUrl(value: string): string {
     }
 }
 
-export function reviewItemsLeftCount(htmlOrText: string): string {
-    const decoded = decodeEntities(htmlOrText.replace(/<[^>]+>/g, ' '));
-    return decoded.match(/\(([\d,]+)\)/)?.[1] ?? decoded.match(/\b(\d{1,6})\b/)?.[1] ?? '';
-}
-
 export function firstJapaneseRun(value: string): string {
     return value.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]+/u)?.[0] ?? cleanText(value);
 }
@@ -46,9 +41,4 @@ export function firstReviewGlyph(text: string): string | null {
     } catch {
         return null;
     }
-}
-
-export function kanjiVgUrl(glyph: string): string {
-    const hex = glyph.codePointAt(0)?.toString(16).padStart(5, '0') ?? '';
-    return `https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji/${hex}.svg`;
 }
