@@ -1,8 +1,8 @@
-import { uiText, type UiCopyKey } from './i18n';
+import type { UiCopyKey } from './i18n';
 import { Logger } from './logger';
 import { sanitizeAccentColor } from './settings';
 import { gmStorageGetSync, gmStorageSetSync } from './storage';
-import type { CardState, InterfaceLanguage, JPDBCard, NewTabWordSource } from './types';
+import type { CardState, JPDBCard, NewTabWordSource } from './types';
 export { isYomuNewTabUrl } from './new-tab-url';
 
 const log = Logger.scope('NewTab');
@@ -58,19 +58,6 @@ export const NEW_TAB_FILTERS: Array<{ value: NewTabFilter; labelKey: UiCopyKey }
     { value: 'local', labelKey: 'dictionary' },
 ];
 
-export const NEW_TAB_SOURCE_OPTIONS: Array<{ value: NewTabWordSource; labelKey: UiCopyKey }> = [
-    { value: 'auto', labelKey: 'sourceAuto' },
-    { value: 'jpdb', labelKey: 'jpdb' },
-    { value: 'anki', labelKey: 'anki' },
-    { value: 'dictionary', labelKey: 'dictionary' },
-];
-
-export const NEW_TAB_SORT_OPTIONS: Array<{ value: NewTabSort; labelKey: UiCopyKey }> = [
-    { value: 'random', labelKey: 'sortRandom' },
-    { value: 'frequency', labelKey: 'sortFrequency' },
-    { value: 'state', labelKey: 'sortState' },
-];
-
 export function resolveNewTabBrandAssets(value: string): { homeHref: string; iconSrc: string } {
     try {
         const url = new URL(value);
@@ -122,15 +109,6 @@ export function buildNewTabPalette(accentColor: string): NewTabPalette {
     const shadow = 'rgba(18, 28, 23, .20)';
     const palette = { accent, background, backgroundText, surface, surfaceText, accentText, border, softBorder, surfaceMuted, shadow };
     return palette;
-}
-
-export function shuffleCards(cards: JPDBCard[]): JPDBCard[] {
-    const shuffled = [...cards];
-    for (let index = shuffled.length - 1; index > 0; index--) {
-        const swapIndex = Math.floor(Math.random() * (index + 1));
-        [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-    }
-    return shuffled;
 }
 
 export function uniqueStrings(values: string[]): string[] {
@@ -216,14 +194,6 @@ export function loadNewTabUiState(): NewTabUiState {
     }
 }
 
-export function hasSavedNewTabUiState(): boolean {
-    try {
-        return gmStorageGetSync<Partial<NewTabUiState> | null>(STATE_STORAGE_KEY, null) !== null;
-    } catch {
-        return false;
-    }
-}
-
 export function saveNewTabUiState(state: NewTabUiState): void {
     try {
         gmStorageSetSync(STATE_STORAGE_KEY, frontFacingNewTabUiState(normalizeNewTabUiState(state)));
@@ -261,84 +231,6 @@ export function createNewTabStateChannel(onState: (state: NewTabUiState) => void
             channel.close();
         },
     };
-}
-
-export function filterNewTabCards(cards: JPDBCard[], filter: NewTabFilter, query: string): JPDBCard[] {
-    const normalizedQuery = query.trim().toLocaleLowerCase();
-    return cards.filter(card => {
-        if (!matchesFilter(card, filter)) return false;
-        if (!normalizedQuery) return true;
-        return [card.spelling, card.reading, firstCardMeaning(card)]
-            .some(value => value.toLocaleLowerCase().includes(normalizedQuery));
-    });
-}
-
-export function sortNewTabCards(cards: JPDBCard[], sort: NewTabSort): JPDBCard[] {
-    const sorted = [...cards];
-    if (sort === 'random') return sorted;
-    if (sort === 'frequency') {
-        return sorted.sort((a, b) =>
-            frequencyValue(a) - frequencyValue(b)
-            || a.spelling.localeCompare(b.spelling, 'ja'),
-        );
-    }
-    return sorted.sort((a, b) =>
-        stateRank(a) - stateRank(b)
-        || frequencyValue(a) - frequencyValue(b)
-        || a.spelling.localeCompare(b.spelling, 'ja'),
-    );
-}
-
-export function cardStateLabel(card: JPDBCard, language: InterfaceLanguage = 'en'): string {
-    if (card.source === 'local') return uiText(language, 'dictionary');
-    if (card.source === 'anki') return 'Anki';
-    const state = card.cardState[0] ?? 'new';
-    return newTabStateLabel(state, language) ?? state.replace(/-/g, ' ');
-}
-
-function newTabStateLabel(state: CardState, language: InterfaceLanguage): string | undefined {
-    const keys: Partial<Record<CardState, UiCopyKey>> = {
-        new: 'stateNew',
-        learning: 'stateLearning',
-        due: 'stateDue',
-        failed: 'stateFailed',
-        known: 'stateKnown',
-        'never-forget': 'stateNeverForget',
-        suspended: 'stateSuspended',
-        locked: 'stateLocked',
-        blacklisted: 'stateBlacklisted',
-        redundant: 'stateRedundant',
-        'not-in-deck': 'stateNotInDeck',
-    };
-    const key = keys[state];
-    return key ? uiText(language, key) : undefined;
-}
-
-function matchesFilter(card: JPDBCard, filter: NewTabFilter): boolean {
-    if (filter === 'all') return true;
-    if (filter === 'local') return card.source === 'local';
-    if (filter === 'study') return matchesStudyFilter(card);
-    return card.cardState.includes(filter);
-}
-
-function matchesStudyFilter(card: JPDBCard): boolean {
-    return card.source === 'local'
-        || card.source === 'anki'
-        || card.cardState.some(isStudyCardState);
-}
-
-function isStudyCardState(state: CardState): boolean {
-    return state === 'new' || state === 'learning' || state === 'due' || state === 'failed' || state === 'not-in-deck';
-}
-
-function stateRank(card: JPDBCard): number {
-    const order: CardState[] = ['failed', 'due', 'learning', 'new', 'known', 'not-in-deck', 'locked', 'suspended', 'never-forget', 'redundant', 'blacklisted'];
-    const ranks = card.cardState.map(state => order.indexOf(state)).filter(index => index >= 0);
-    return ranks.length ? Math.min(...ranks) : order.length;
-}
-
-function frequencyValue(card: JPDBCard): number {
-    return typeof card.frequencyRank === 'number' && Number.isFinite(card.frequencyRank) ? card.frequencyRank : Number.POSITIVE_INFINITY;
 }
 
 function frontFacingNewTabUiState(state: NewTabUiState): NewTabUiState {

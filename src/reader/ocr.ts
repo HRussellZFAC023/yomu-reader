@@ -1475,9 +1475,7 @@ export function parseGoogleLensUploadHtml(html: string, width: number, height: n
                     width: Number(boxData[2]) * width,
                     height: Number(boxData[3]) * height,
                 }, width, height) : null;
-                if (text && box && HAS_JAPANESE.test(text)) {
-                    lines.push({ text, box, vertical: box.height > box.width * 1.25 && text.length > 1 });
-                }
+                pushJapaneseOcrLine(lines, text, box);
             }
         }
         return lines.length ? { width, height, lines } : null;
@@ -1716,7 +1714,7 @@ function normalizeCloudVisionResponse(record: Record<string, unknown>, fallbackW
                 const item = annotationItem as Record<string, unknown>;
                 const text = cleanOcrText(item.description);
                 const box = normalizeCloudVisionVertices((item.boundingPoly as Record<string, unknown> | undefined)?.vertices, width, height);
-                if (text && box && HAS_JAPANESE.test(text)) lines.push({ text, box, vertical: box.height > box.width * 1.25 && text.length > 1 });
+                pushJapaneseOcrLine(lines, text, box);
             }
         }
     }
@@ -1730,9 +1728,7 @@ function pushCloudVisionParagraphLines(paragraph: Record<string, unknown>, lines
     const pushLine = () => {
         const value = cleanOcrText(text);
         const box = unionBoxes(boxes);
-        if (value && box && HAS_JAPANESE.test(value)) {
-            lines.push({ text: value, box, vertical: box.height > box.width * 1.25 && value.length > 1 });
-        }
+        pushJapaneseOcrLine(lines, value, box);
         text = '';
         boxes = [];
     };
@@ -1750,6 +1746,11 @@ function pushCloudVisionParagraphLines(paragraph: Record<string, unknown>, lines
         }
     }
     pushLine();
+}
+
+function pushJapaneseOcrLine(lines: OcrLine[], text: string, box: OcrRect | null): void {
+    if (!text || !box || !HAS_JAPANESE.test(text)) return;
+    lines.push({ text, box, vertical: box.height > box.width * 1.25 && text.length > 1 });
 }
 
 function normalizeCloudVisionVertices(value: unknown, width: number, height: number): OcrRect | null {

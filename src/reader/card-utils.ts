@@ -4,16 +4,6 @@ export function cardKey(card: JPDBCard): string {
     return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
 }
 
-export async function waitForInstantData<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
-    let timeout = 0;
-    return Promise.race([
-        promise,
-        new Promise<null>(resolve => {
-            timeout = window.setTimeout(() => resolve(null), timeoutMs);
-        }),
-    ]).finally(() => window.clearTimeout(timeout));
-}
-
 export function createAudioPreviewCard(): JPDBCard {
     return {
         vid: 0,

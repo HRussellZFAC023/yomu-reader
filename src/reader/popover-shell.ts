@@ -60,22 +60,6 @@ export function popoverMaxHeightSetting(settings: ReaderSettings): number | unde
     return settings.popoverHeightMode === 'fixed' ? settings.popoverHeight : undefined;
 }
 
-export function placePopoverAtViewportPosition(popover: HTMLElement, rect: DOMRect, configuredMaxHeight?: number): void {
-    const margin = 8;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const width = popover.offsetWidth;
-    const minHeight = Math.min(180, Math.max(0, viewportHeight - margin * 2));
-    const maxTop = Math.max(margin, viewportHeight - minHeight - margin);
-    const top = Math.max(margin, Math.min(rect.top, maxTop));
-    const maxLeft = Math.max(margin, viewportWidth - width - margin);
-    const left = Math.max(margin, Math.min(rect.left, maxLeft));
-    popover.style.left = `${left}px`;
-    popover.style.top = `${top}px`;
-    const availableHeight = Math.max(minHeight, viewportHeight - top - margin);
-    popover.style.maxHeight = `${configuredMaxHeight ? Math.min(availableHeight, configuredMaxHeight) : availableHeight}px`;
-}
-
 export function installSheetHandle(popover: HTMLElement, onDismiss: () => void, label = 'Drag to resize lookup sheet, or tap to close'): void {
     if (popover.dataset.jpdbReaderSheetHandleInstalled === 'true') return;
     popover.dataset.jpdbReaderSheetHandleInstalled = 'true';

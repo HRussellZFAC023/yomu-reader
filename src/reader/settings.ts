@@ -1001,10 +1001,6 @@ export function endSettingsResetGuard(): void {
     settingsResetInProgress = false;
 }
 
-export function isSettingsResetInProgress(): boolean {
-    return settingsResetInProgress;
-}
-
 export async function deleteSettingsStorage(): Promise<void> {
     for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
 }

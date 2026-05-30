@@ -61,13 +61,6 @@ export function extractFrequency(value: unknown): number | undefined {
     return Number.isFinite(rank) ? rank : undefined;
 }
 
-export function compareFrequency(a?: number, b?: number): number {
-    if (a === undefined && b === undefined) return 0;
-    if (a === undefined) return 1;
-    if (b === undefined) return -1;
-    return a - b;
-}
-
 export function nonOverlappingMatches(matches: YomitanTermMatch[], limit: number): YomitanTermMatch[] {
     const selected: YomitanTermMatch[] = [];
     const occupied: Array<[number, number]> = [];
