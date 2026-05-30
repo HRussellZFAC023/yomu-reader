@@ -55,7 +55,6 @@ export class KanjiVGClient {
         if (!promise) {
             promise = this.fetchSvg(character);
             this.cache.set(character, promise);
-        } else {
         }
         return promise;
     }

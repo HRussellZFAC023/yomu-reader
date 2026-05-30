@@ -95,6 +95,14 @@ export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
     JISHO_LOOKUP_LINK,
     COPY_LOOKUP_LINK,
 ];
+type LegacyLookupLinkSpec = Pick<DictionaryLookupLink, 'id' | 'label' | 'urlTemplate' | 'enabled'> & {
+    action?: DictionaryLookupLink['action'];
+};
+const LEGACY_DEFAULT_LOOKUP_LINK_SET: LegacyLookupLinkSpec[] = [
+    { ...JPDB_LOOKUP_LINK, enabled: false },
+    JISHO_LOOKUP_LINK,
+    COPY_LOOKUP_LINK,
+];
 
 const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_OPTIONS.map(([value]) => value));
 const LEGACY_DEFAULT_AUDIO_SOURCE_TYPES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'text-to-speech'];
@@ -1197,22 +1205,29 @@ export function defaultDictionaryLookupLinks(mode: 'jpdb' | 'local' = 'local'): 
 }
 
 function isLegacyDefaultLookupLinkSet(value: unknown): boolean {
-    if (!Array.isArray(value) || value.length !== 3) return false;
-    const normalized = value.map(normalizeDictionaryLookupLink);
-    if (normalized.some(link => !link)) return false;
-    const links = normalized as DictionaryLookupLink[];
-    return links[0]?.id === 'jpdb'
-        && links[0].label === 'JPDB'
-        && links[0].urlTemplate === JPDB_LOOKUP_LINK.urlTemplate
-        && links[0].enabled === false
-        && links[1]?.id === 'jisho'
-        && links[1].label === 'Jisho'
-        && links[1].urlTemplate === JISHO_LOOKUP_LINK.urlTemplate
-        && links[1].enabled === true
-        && links[2]?.id === 'copy'
-        && links[2].label === 'Copy'
-        && links[2].action === 'copy'
-        && links[2].enabled === true;
+    const links = normalizeLegacyLookupLinkSet(value);
+    return Boolean(links && LEGACY_DEFAULT_LOOKUP_LINK_SET.every((expected, index) => (
+        matchesLegacyLookupLink(links[index], expected)
+    )));
+}
+
+function normalizeLegacyLookupLinkSet(value: unknown): DictionaryLookupLink[] | null {
+    if (!Array.isArray(value) || value.length !== LEGACY_DEFAULT_LOOKUP_LINK_SET.length) return null;
+    const links = value.map(normalizeDictionaryLookupLink);
+    return links.every(isDictionaryLookupLink) ? links : null;
+}
+
+function isDictionaryLookupLink(link: DictionaryLookupLink | null): link is DictionaryLookupLink {
+    return link !== null;
+}
+
+function matchesLegacyLookupLink(link: DictionaryLookupLink | undefined, expected: LegacyLookupLinkSpec): boolean {
+    return Boolean(link
+        && link.id === expected.id
+        && link.label === expected.label
+        && link.urlTemplate === expected.urlTemplate
+        && link.enabled === expected.enabled
+        && (expected.action === undefined || link.action === expected.action));
 }
 
 export function normalizeDictionaryLookupLinks(value: unknown, preferJpdb = false): DictionaryLookupLink[] {
