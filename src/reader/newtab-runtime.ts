@@ -611,7 +611,8 @@ export class NewTabRuntime {
     }
 
     private lookupPreviousNavigationEntry(navigation: CardNavigationMode | undefined): PopupNavigationEntry | undefined {
-        return navigation === 'push-current' ? this.navigation.activeKanjiEntry() : undefined;
+        if (navigation !== 'push-current') return undefined;
+        return this.navigation.activeKanjiEntry() ?? this.navigation.activeWordEntry();
     }
 
     private async showKanjiLookupCard(card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement, options: NewTabKanjiLookupOptions = {}): Promise<void> {

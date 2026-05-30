@@ -3,6 +3,7 @@ import { hasVisiblePageVideo } from './browser-ui';
 import { cardHighlightTargets, highlightCardTargetWords } from './card-highlight';
 import { cardKey } from './card-utils';
 import { escapeHtml, renderHighlightedTextHtml, renderTokensToHtml, setInnerHtml } from './dom';
+import { exampleSentenceLookupTokens } from './example-sentence-tokens';
 import {
     IMMERSION_FALLBACK_QUERY_LIMIT,
     immersionFallbackFragments,
@@ -720,7 +721,7 @@ export class ImmersionPopoverController {
     private renderExampleSentenceContent(sentence: string, card: JPDBCard, settings: ReaderSettings): string {
         const tokens = this.cachedParsedExampleSentenceTokens(sentence);
         return tokens
-            ? renderTokensToHtml(sentence, tokens, settings)
+            ? renderTokensToHtml(sentence, exampleSentenceLookupTokens(tokens, card), settings)
             : renderHighlightedTextHtml(sentence, cardHighlightTargets(card), 'jpdb-reader-example-target');
     }
 
@@ -820,12 +821,13 @@ export class ImmersionPopoverController {
     ): void {
         const sentence = container.querySelector<HTMLElement>('[data-immersion-sentence-render]');
         if (!sentence) return;
+        const lookupTokens = exampleSentenceLookupTokens(tokens, card);
         if (options.updateHtml !== false) {
-            setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens, this.options.getSettings()));
+            setInnerHtml(sentence, renderTokensToHtml(example.sentence, lookupTokens, this.options.getSettings()));
         }
         this.highlightTarget(sentence, card);
-        void this.options.enrichPitchWords(tokens);
-        void this.options.enrichAnkiWords(tokens);
+        void this.options.enrichPitchWords(lookupTokens);
+        void this.options.enrichAnkiWords(lookupTokens);
         this.options.repositionPopover();
     }
 

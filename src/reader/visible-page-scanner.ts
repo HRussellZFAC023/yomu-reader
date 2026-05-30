@@ -1,7 +1,7 @@
 import { applyTokensToScanTarget, collectTextTargetsIn, isFragmentTextTarget, type ScanTextTarget } from './dom';
 import { uiText } from './i18n';
 import { Logger } from './logger';
-import { collectScanTargets } from './site-parsers';
+import { collectScanTargets, YOMU_DEMO_LOOKUP_PARSER_ID } from './site-parsers';
 import type { JPDBToken, ReaderSettings } from './types';
 
 const log = Logger.scope('VisiblePageScanner');
@@ -12,6 +12,7 @@ const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 1_200;
 interface VisibleScanParseOptions {
     jpdbTimeoutMs?: number;
     includeLocalPitch?: boolean;
+    allowSegmentedFallback?: boolean;
 }
 
 export interface VisiblePageScannerDependencies {
@@ -95,7 +96,7 @@ export class VisiblePageScanner {
         for (let index = 0; index < targets.length; index += VISIBLE_SCAN_PARSE_BATCH_SIZE) {
             if (this.destroyed) return;
             const batch = targets.slice(index, index + VISIBLE_SCAN_PARSE_BATCH_SIZE);
-            const parsed = await this.dependencies.parseJapanese(batch.map(target => target.text), scanParseOptions(this.dependencies.getSettings()));
+            const parsed = await this.dependencies.parseJapanese(batch.map(target => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
             if (this.destroyed) return;
             await this.applyTokens(batch, parsed);
             this.preloadParsed(parsed);
@@ -174,9 +175,14 @@ function isCurrentFragmentScanTarget(target: Extract<ScanTextTarget, { fragments
         && text.join('') === target.text;
 }
 
-function scanParseOptions(_settings: ReaderSettings): VisibleScanParseOptions {
+function scanParseOptions(_settings: ReaderSettings, targets: ScanTextTarget[] = []): VisibleScanParseOptions {
     return {
         jpdbTimeoutMs: VISIBLE_SCAN_PARSE_TIMEOUT_MS,
         includeLocalPitch: false,
+        ...(targets.some(isHostedDemoLookupTarget) ? { allowSegmentedFallback: true } : {}),
     };
+}
+
+function isHostedDemoLookupTarget(target: ScanTextTarget): boolean {
+    return isFragmentTextTarget(target) && target.parserId === YOMU_DEMO_LOOKUP_PARSER_ID;
 }

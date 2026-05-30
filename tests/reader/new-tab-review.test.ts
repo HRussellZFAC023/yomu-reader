@@ -3155,7 +3155,7 @@ describe('new tab review helpers', () => {
             const clickWasNotCanceled = word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
             expect(clickWasNotCanceled).toBe(false);
-            expect(showLookupCard).toHaveBeenCalledWith(related, sentence, word, { userGesture: true });
+            expect(showLookupCard).toHaveBeenCalledWith(related, sentence, word, { navigation: 'push-current', userGesture: true });
             expect(lookupText).not.toHaveBeenCalled();
         } finally {
             root.remove();
@@ -3198,7 +3198,7 @@ describe('new tab review helpers', () => {
             }));
 
             expect(clickWasNotCanceled).toBe(false);
-            expect(showLookupCard).toHaveBeenCalledWith(related, sentence, word, { userGesture: true });
+            expect(showLookupCard).toHaveBeenCalledWith(related, sentence, word, { navigation: 'push-current', userGesture: true });
             expect(lookupText).not.toHaveBeenCalledWith('食べる', 'たべる', prompt);
         } finally {
             root.remove();
@@ -3231,7 +3231,7 @@ describe('new tab review helpers', () => {
             const clickWasNotCanceled = word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
             expect(clickWasNotCanceled).toBe(false);
-            expect(lookupText).toHaveBeenCalledWith('メイ', 'メイ', word, { userGesture: true });
+            expect(lookupText).toHaveBeenCalledWith('メイ', 'メイ', word, { navigation: 'push-current', userGesture: true });
             expect(lookupText).not.toHaveBeenCalledWith('食べる', 'たべる', expect.any(HTMLElement));
             expect(showLookupCard).not.toHaveBeenCalled();
         } finally {
@@ -5002,6 +5002,7 @@ describe('new tab review helpers', () => {
         const lookupText = vi.fn(async () => undefined);
         const showLookupCard = vi.fn(async () => undefined);
         const internals = runtime as unknown as {
+            navigation: { updateWord(card: JPDBCard, sentence: string | undefined, trigger: 'modal' | 'hover', mode: 'reset' | 'preserve' | 'push-current'): void };
             parser: { cacheCards(cards: JPDBCard[]): void };
             lookupText: typeof lookupText;
             showLookupCard: typeof showLookupCard;
@@ -5010,6 +5011,7 @@ describe('new tab review helpers', () => {
         internals.lookupText = lookupText;
         internals.showLookupCard = showLookupCard;
         internals.parser.cacheCards([related]);
+        internals.navigation.updateWord(card, card.sentence, 'modal', 'reset');
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
         popover.innerHTML = `
@@ -5038,11 +5040,13 @@ describe('new tab review helpers', () => {
             }));
             expect(showLookupCard).toHaveBeenCalledWith(related, '甘言蜜語だ。', popover.querySelector('.jpdb-reader-example-sentence .jpdb-reader-word'), expect.objectContaining({
                 navigation: 'push-current',
+                previousNavigationEntry: expect.objectContaining({ kind: 'word', card }),
                 reuseActivePopover: true,
                 userGesture: true,
             }));
             expect(lookupText).toHaveBeenCalledWith('未登録語', '未登録語', popover.querySelectorAll('.jpdb-reader-example-sentence .jpdb-reader-word')[1], expect.objectContaining({
                 navigation: 'push-current',
+                previousNavigationEntry: expect.objectContaining({ kind: 'word', card }),
                 reuseActivePopover: true,
                 userGesture: true,
             }));
@@ -6115,7 +6119,7 @@ describe('new tab review helpers', () => {
             const clickWasNotCanceled = word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
             expect(clickWasNotCanceled).toBe(false);
-            expect(showLookupCard).toHaveBeenCalledWith(card, 'お母ちゃん中学生？', word, { userGesture: true });
+            expect(showLookupCard).toHaveBeenCalledWith(card, 'お母ちゃん中学生？', word, { navigation: 'push-current', userGesture: true });
             expect(lookupText).not.toHaveBeenCalled();
         } finally {
             root.remove();

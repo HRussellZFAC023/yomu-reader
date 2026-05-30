@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.59] - 2026-05-30
+
+### Fixed
+
+- Restored hosted Try Me word targets when JPDB/local dictionary data is unavailable, including one-character words such as `下`.
+- Kept hosted Try Me scanning scoped to the demo text so surrounding docs copy is not accidentally turned into lookup targets.
+- Restored YouTube subtitle sidebar controls while the transcript panel is open.
+- Unwrapped YouTube watch titles before filtering so SPA navigation cannot leave stale reader spans in the title.
+- Prevented low-value short particles in Immersion Kit/example sentences from opening noisy dictionary cards while preserving them when they are the actual target word.
+- Added back-navigation context for nested example-sentence lookups opened from a word card.
+- Reverted unrelated Uchisen prompt wording drift from the regression branch.
+
 ## [0.4.58] - 2026-05-26
 
 ### Fixed
