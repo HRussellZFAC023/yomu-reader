@@ -5,6 +5,7 @@ import { cardHighlightTargets, isCardHighlightWord, normalizedJapaneseCardReadin
 import { APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from './constants';
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { el, fragment, replaceChildrenWith, type DomAttrs } from './dom-builder';
+import { exampleSentenceLookupTokens } from './example-sentence-tokens';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from './immersion-kit';
 import { localizedImmersionProviderLabel, localizedImmersionSourceTitle } from './immersion-labels';
 import { waitForIdle as waitForBrowserIdle } from './idle';
@@ -129,6 +130,7 @@ interface NewTabParseContentOptions {
 }
 
 interface NewTabLookupDependencyOptions {
+    navigation?: 'reset' | 'preserve' | 'push-current';
     userGesture?: boolean;
 }
 
@@ -212,7 +214,7 @@ function renderNewTabFrontSentence(card: JPDBCard, sentence: string, settings: R
 
 function renderNewTabSentenceHtml(sentence: string, card: JPDBCard, settings: ReaderSettings, tokens?: JPDBToken[]): string {
     return tokens && tokens.length
-        ? renderTokensToHtml(sentence, tokens, settings)
+        ? renderTokensToHtml(sentence, exampleSentenceLookupTokens(tokens, card), settings)
         : renderCardHighlightedTextHtml(sentence, card);
 }
 
@@ -1257,10 +1259,10 @@ export class NewTabController {
             return true;
         }
         if (card && this.dependencies.showLookupCard) {
-            void this.dependencies.showLookupCard(card, sentence, word, { userGesture: true });
+            void this.dependencies.showLookupCard(card, sentence, word, { navigation: 'push-current', userGesture: true });
             return true;
         }
-        void this.dependencies.lookupText?.(expression, reading, word, { userGesture: true });
+        void this.dependencies.lookupText?.(expression, reading, word, { navigation: 'push-current', userGesture: true });
         return true;
     }
 

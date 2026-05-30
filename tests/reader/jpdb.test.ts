@@ -15719,7 +15719,6 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual([
             '青空の下で日本語を読む',
             '今日は静かな喫茶店で新しい本を読みました。',
-            '好きなものを読んで日本語を学ぶ',
         ]);
     });
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.58
+// @version      0.4.59
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -19025,6 +19025,22 @@ ${entry.reading}`;
   if (kanjiOrder) return kanjiOrder;
   return queryLength(b) - queryLength(a);
  }
+ const LOW_VALUE_EXAMPLE_PART_RE = /\b(?:particle|conjunction|auxiliary)\b/i;
+ const KANA_ONLY_RE = /^[\u3040-\u30ffー]+$/u;
+ function exampleSentenceLookupTokens(tokens, targetCard) {
+  return tokens.filter((token) => shouldKeepExampleSentenceToken(token, targetCard));
+ }
+ function shouldKeepExampleSentenceToken(token, targetCard) {
+  if (targetCard && cardKey$1(token.card) === cardKey$1(targetCard)) return true;
+  return !isLowValueExampleSentenceToken(token);
+ }
+ function isLowValueExampleSentenceToken(token) {
+  const surfaceLength = token.end - token.start;
+  if (surfaceLength > 2) return false;
+  const spelling = token.card.spelling.trim();
+  if (!spelling || !KANA_ONLY_RE.test(spelling)) return false;
+  return LOW_VALUE_EXAMPLE_PART_RE.test(token.card.partOfSpeech.join(" "));
+ }
  const IMMERSION_SOURCE_TITLES_JA = {
   "My Neighbor Totoro": "となりのトトロ"
  };
@@ -20156,7 +20172,7 @@ ${spelling}`);
   }
   renderExampleSentenceContent(sentence, card, settings) {
    const tokens = this.cachedParsedExampleSentenceTokens(sentence);
-   return tokens ? renderTokensToHtml(sentence, tokens, settings) : renderHighlightedTextHtml(sentence, cardHighlightTargets(card), "jpdb-reader-example-target");
+   return tokens ? renderTokensToHtml(sentence, exampleSentenceLookupTokens(tokens, card), settings) : renderHighlightedTextHtml(sentence, cardHighlightTargets(card), "jpdb-reader-example-target");
   }
   loadRenderedExampleImages(container, imageUrls, isCurrent) {
    container.querySelectorAll("[data-immersion-image]").forEach((imageElement) => {
@@ -20236,12 +20252,13 @@ ${spelling}`);
   applyParsedExampleSentence(container, card, example, tokens, options = {}) {
    const sentence = container.querySelector("[data-immersion-sentence-render]");
    if (!sentence) return;
+   const lookupTokens = exampleSentenceLookupTokens(tokens, card);
    if (options.updateHtml !== false) {
-    setInnerHtml(sentence, renderTokensToHtml(example.sentence, tokens, this.options.getSettings()));
+    setInnerHtml(sentence, renderTokensToHtml(example.sentence, lookupTokens, this.options.getSettings()));
    }
    this.highlightTarget(sentence, card);
-   void this.options.enrichPitchWords(tokens);
-   void this.options.enrichAnkiWords(tokens);
+   void this.options.enrichPitchWords(lookupTokens);
+   void this.options.enrichAnkiWords(lookupTokens);
    this.options.repositionPopover();
   }
   parsedExampleSentenceTokens(sentence) {
@@ -27790,6 +27807,9 @@ ${glossaryKey}`;
    if (!this.currentKanji || !this.hasActiveKanjiPopover()) return void 0;
    return this.kanjiEntry(this.currentKanji);
   }
+  activeWordEntry() {
+   return this.currentWord ? this.wordEntry(this.currentWord) : void 0;
+  }
   popPreviousWord() {
    return this.wordStack.pop();
   }
@@ -28792,24 +28812,24 @@ ${glossaryKey}`;
   return prompt;
  }
  const UCHISEN_IMAGE_PROMPT_REPLACEMENTS = [
-  [/\bblood(y|ied|ing)?\b/gi, "red paint"],
-  [/\bbleed(ing)?\b/gi, "red paint"],
+  [/\bblood(y|ied|ing)?\b/gi, "red festival paint"],
+  [/\bbleed(ing)?\b/gi, "red festival paint"],
   [/\bwounds?\b/gi, "patched cloth"],
   [/\binjur(y|ies|ed)?\b/gi, "tired mishap"],
   [/\bsick(ness)?\b/gi, "restful"],
   [/\bill(ness)?\b/gi, "restful"],
-  [/\bmedicine\b/gi, "healing potion"],
-  [/\bmedical\b/gi, "healing"],
+  [/\bmedicine\b/gi, "helpful bundle"],
+  [/\bmedical\b/gi, "helpful"],
   [/\bdoctor\b/gi, "kind helper"],
   [/\bpatient\b/gi, "visitor"],
   [/\bdisease\b/gi, "gloomy cloud"],
   [/\bhospital\b/gi, "quiet rest house"],
   [/\bweapons?\b/gi, "ceremonial props"],
-  [/\bswords?\b/gi, "ceremonial wooden practice stick"],
+  [/\bswords?\b/gi, "ceremonial wooden practice sword"],
   [/\bknives?\b/gi, "small wooden craft tool"],
   [/\bdaggers?\b/gi, "small wooden craft tool"],
-  [/\bblades?\b/gi, "shiny edge"],
-  [/\bspears?\b/gi, "slender pole"],
+  [/\bblades?\b/gi, "shiny craft edge"],
+  [/\bspears?\b/gi, "slender festival pole"],
   [/\barrows?\b/gi, "paper arrow charm"],
   [/\bguns?\b/gi, "toy popper"],
   [/\brifles?\b/gi, "toy popper"],
@@ -32695,9 +32715,10 @@ ${glossaryKey}`;
   '[class*="voice" i]'
  ].join(",");
  const SAFE_UI_CHROME_MAX_COMPACT_LENGTH = 80;
+ const YOMU_DEMO_LOOKUP_PARSER_ID = "yomu-demo-lookup-parser";
  const SITE_PARSER_PROFILES = [
   {
-   id: "yomu-demo-lookup-parser",
+   id: YOMU_DEMO_LOOKUP_PARSER_ID,
    name: "Yomu demo lookup",
    description: "Hosted Yomu docs Try Me text.",
    roots: ["[data-yomu-demo-lookup] h3", "[data-yomu-demo-lookup] p"],
@@ -32706,7 +32727,6 @@ ${glossaryKey}`;
    heading: true,
    minLength: 1,
    includeUiChrome: true,
-   includeGenericPageText: true,
    visibleOnly: false,
    scanLimit: 20,
    matches: (url) => Boolean(document.querySelector("[data-yomu-demo-lookup]")) && url.pathname.startsWith(`/${APP_REPOSITORY_NAME}/`)
@@ -38643,7 +38663,7 @@ ${glossaryKey}`;
    for (let index = 0; index < targets.length; index += VISIBLE_SCAN_PARSE_BATCH_SIZE) {
     if (this.destroyed) return;
     const batch = targets.slice(index, index + VISIBLE_SCAN_PARSE_BATCH_SIZE);
-    const parsed = await this.dependencies.parseJapanese(batch.map((target) => target.text), scanParseOptions(this.dependencies.getSettings()));
+    const parsed = await this.dependencies.parseJapanese(batch.map((target) => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
     if (this.destroyed) return;
     await this.applyTokens(batch, parsed);
     this.preloadParsed(parsed);
@@ -38709,11 +38729,15 @@ ${glossaryKey}`;
   });
   return text2.every((value) => value !== null) && text2.join("") === target.text;
  }
- function scanParseOptions(_settings) {
+ function scanParseOptions(_settings, targets = []) {
   return {
    jpdbTimeoutMs: VISIBLE_SCAN_PARSE_TIMEOUT_MS,
-   includeLocalPitch: false
+   includeLocalPitch: false,
+   ...targets.some(isHostedDemoLookupTarget) ? { allowSegmentedFallback: true } : {}
   };
+ }
+ function isHostedDemoLookupTarget(target) {
+  return isFragmentTextTarget(target) && target.parserId === YOMU_DEMO_LOOKUP_PARSER_ID;
  }
  function renderWordPills(options) {
   const context = wordPillContext(options.card, options.overrideQuery);
@@ -38811,6 +38835,10 @@ ${glossaryKey}`;
   ".badge-shape-wiz__text",
   '[aria-label*="再生リスト"]',
   '[aria-label*="ミックス"]'
+ ].join(",");
+ const YOUTUBE_WATCH_TITLE_SELECTOR = [
+  "ytd-watch-metadata h1",
+  "ytd-watch-metadata #title"
  ].join(",");
  const HIRAGANA_RE = /\p{Script=Hiragana}/u;
  const KATAKANA_RE = /\p{Script=Katakana}/u;
@@ -38944,6 +38972,7 @@ ${glossaryKey}`;
     this.clear();
     return;
    }
+   unwrapYouTubeWatchTitleReaderWords();
    if (isYouTubeShortsWatchPage()) {
     this.clearFilteredCards();
     this.removeNotice();
@@ -39222,6 +39251,12 @@ ${glossaryKey}`;
  }
  function isYouTubeWatchPage() {
   return location.pathname === "/watch";
+ }
+ function unwrapYouTubeWatchTitleReaderWords() {
+  if (!isYouTubeWatchPage()) return;
+  document.querySelectorAll(YOUTUBE_WATCH_TITLE_SELECTOR).forEach((title) => {
+   unwrapReaderWords(title);
+  });
  }
  function isYouTubePlaylistLikeCard(card) {
   if (card.matches(NON_VIDEO_CONTAINER_SELECTOR)) return true;

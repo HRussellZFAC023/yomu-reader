@@ -108,6 +108,54 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('enables segmented fallback for hosted Try Me text when no dictionary data is available', async () => {
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = () => ({
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 20,
+            top: 0,
+            right: 100,
+            bottom: 20,
+            left: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        window.history.pushState({}, '', '/yomu-reader/');
+        const heading = '青空の下で日本語を読む';
+        document.body.innerHTML = `
+            <main data-yomu-demo-lookup>
+                <h3>${heading}</h3>
+                <p>今日は静かな喫茶店で新しい本を読みました。</p>
+            </main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[], options?: { allowSegmentedFallback?: boolean }) => {
+            expect(options?.allowSegmentedFallback).toBe(true);
+            return paragraphs.map(text => text === heading ? [testToken(text, '下', 3, 4)] : []);
+        });
+        const scanner = new VisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
+            parseJapanese,
+            pauseMutationObserver: callback => callback(),
+            preloadParsedTokens: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords: vi.fn(),
+            toast: vi.fn(),
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const words = [...document.querySelectorAll<HTMLElement>('[data-yomu-demo-lookup] .jpdb-reader-word')];
+            expect(words.map(word => word.textContent)).toContain('下');
+            expect(words.find(word => word.textContent === '下')?.dataset.expression).toBe('下');
+        } finally {
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            window.history.pushState({}, '', '/');
+            document.body.innerHTML = '';
+        }
+    });
+
     it('skips late target writes after the scanner is destroyed', async () => {
         const originalRect = HTMLElement.prototype.getBoundingClientRect;
         HTMLElement.prototype.getBoundingClientRect = () => ({
@@ -231,4 +279,29 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
     let resolve!: (value: T) => void;
     const promise = new Promise<T>(settle => { resolve = settle; });
     return { promise, resolve };
+}
+
+function testToken(sentence: string, spelling: string, start: number, end: number): JPDBToken {
+    return {
+        card: {
+            vid: -start - 1,
+            sid: -start - 1,
+            rid: 0,
+            spelling,
+            reading: '',
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [],
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'fallback',
+        },
+        start,
+        end,
+        length: end - start,
+        rubies: [],
+        pitchClass: '',
+        sentence,
+    };
 }

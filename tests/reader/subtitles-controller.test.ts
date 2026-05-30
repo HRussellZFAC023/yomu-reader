@@ -1,8 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { readPageCaptionText } from '../../src/reader/subtitle-dom-captions';
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles';
 import type { JPDBToken, ReaderSettings } from '../../src/reader/types';
+
+const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
 
 function withViewport<T>(width: number, height: number, callback: () => T): T {
     const widthDescriptor = Object.getOwnPropertyDescriptor(window, 'innerWidth');
@@ -164,6 +167,11 @@ describe('SubtitlePlayerController', () => {
         } finally {
             controller.destroy();
         }
+    });
+
+    it('keeps the subtitle rail visible while the transcript panel is open', () => {
+        expect(SUBTITLES_YOUTUBE_CSS).toContain(':not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail');
+        expect(SUBTITLES_YOUTUBE_CSS).toContain('.jpdb-subtitle-panel-open .jpdb-subtitle-rail');
     });
 
     it('keeps the tracks panel open after choosing a primary track so Lines is an explicit next step', async () => {

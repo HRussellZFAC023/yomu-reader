@@ -148,9 +148,10 @@ const SAFE_UI_CHROME_EXCLUDE = [
     '[class*="voice" i]',
 ].join(',');
 const SAFE_UI_CHROME_MAX_COMPACT_LENGTH = 80;
+export const YOMU_DEMO_LOOKUP_PARSER_ID = 'yomu-demo-lookup-parser';
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
-        id: 'yomu-demo-lookup-parser',
+        id: YOMU_DEMO_LOOKUP_PARSER_ID,
         name: 'Yomu demo lookup',
         description: 'Hosted Yomu docs Try Me text.',
         roots: ['[data-yomu-demo-lookup] h3', '[data-yomu-demo-lookup] p'],
@@ -159,7 +160,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         heading: true,
         minLength: 1,
         includeUiChrome: true,
-        includeGenericPageText: true,
         visibleOnly: false,
         scanLimit: 20,
         matches: url => Boolean(document.querySelector('[data-yomu-demo-lookup]'))

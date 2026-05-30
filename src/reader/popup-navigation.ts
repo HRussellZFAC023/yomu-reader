@@ -73,6 +73,10 @@ export class PopupNavigationController {
         return this.kanjiEntry(this.currentKanji);
     }
 
+    activeWordEntry(): PopupNavigationEntry | undefined {
+        return this.currentWord ? this.wordEntry(this.currentWord) : undefined;
+    }
+
     popPreviousWord(): PopupNavigationEntry | undefined {
         return this.wordStack.pop();
     }
