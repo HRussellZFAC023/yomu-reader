@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { classifyYouTubeFilterCandidates } from '../../src/reader/youtube-filter-scan';
 import {
     YoutubeImmersionFilter,
     collectYouTubeVideoCards,
@@ -109,6 +110,53 @@ describe('YouTube immersion filter', () => {
         expect(isProbablyJapaneseYouTubeText('睡眠音楽♪')).toBe(true);
         expect(isProbablyJapaneseYouTubeText('作業用BGM')).toBe(true);
         expect(isProbablyJapaneseYouTubeText('fypシ゚')).toBe(false);
+    });
+
+    it('classifies filter candidates and counts without touching card DOM', () => {
+        const cards = ['jp', 'english', 'playlist', 'missing-title', 'missing-filter-text']
+            .map(name => {
+                const element = document.createElement('div');
+                element.dataset.case = name;
+                return element;
+            });
+
+        const result = classifyYouTubeFilterCandidates([
+            { card: cards[0], title: '花の名前', filterText: '花の名前', videoId: 'jp', alwaysHidden: false },
+            { card: cards[1], title: 'Desk setup', filterText: 'Desk setup', videoId: 'en', alwaysHidden: false },
+            { card: cards[2], title: '', filterText: '', videoId: 'playlist', alwaysHidden: true },
+            { card: cards[3], title: '', filterText: '', videoId: 'missing', alwaysHidden: false },
+            { card: cards[4], title: '東京カフェ', filterText: '', videoId: 'pending', alwaysHidden: false },
+        ], { revealed: false });
+
+        expect(result.decisions.map(decision => [decision.kind, decision.reason])).toEqual([
+            ['show', 'japanese'],
+            ['hide', 'non-japanese'],
+            ['hide', 'always-hidden'],
+            ['skip', 'missing-title'],
+            ['hide', 'missing-filter-text'],
+        ]);
+        expect(result.filteredCount).toBe(2);
+        expect(result.shownCount).toBe(1);
+        expect([...result.visibleVideoIds]).toEqual(['jp']);
+        expect(cards.some(element => element.classList.contains('jpdb-youtube-filtered'))).toBe(false);
+    });
+
+    it('still counts revealed hidden videos while only visible real videos count toward backfill uniqueness', () => {
+        const english = document.createElement('div');
+        const playlist = document.createElement('div');
+
+        const result = classifyYouTubeFilterCandidates([
+            { card: english, title: 'Desk setup', filterText: 'Desk setup', videoId: 'en', alwaysHidden: false },
+            { card: playlist, title: '', filterText: '', videoId: 'playlist', alwaysHidden: true },
+        ], { revealed: true });
+
+        expect(result.decisions.map(decision => [decision.kind, decision.reason])).toEqual([
+            ['show', 'revealed'],
+            ['show', 'always-hidden-revealed'],
+        ]);
+        expect(result.filteredCount).toBe(2);
+        expect(result.shownCount).toBe(2);
+        expect([...result.visibleVideoIds]).toEqual(['en']);
     });
 
     it('collects outer video cards while skipping playlist and mix tiles', () => {
