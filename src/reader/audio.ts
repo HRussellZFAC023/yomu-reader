@@ -5,6 +5,7 @@ import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
 import { DEFAULT_YOMU_PUBLIC_PROXY_URL, isKnownCorsBlockedPublicAudioCdnUrl } from './proxy-fetch';
 import { requestBlob, requestText } from './reader-http';
+import { uniqueStrings } from './string-utils';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from './types';
 
 interface AudioCandidate {
@@ -516,7 +517,7 @@ export class AudioPlayer {
         reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
         const { source } = sourceEntry;
-        if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, settings, requestId, isCurrent);
+        if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, requestId, isCurrent);
 
         const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
@@ -524,7 +525,7 @@ export class AudioPlayer {
         return await this.playFromAudioCandidates(candidates, source.type, settings, requestId, triedUrls, isCurrent, bagKey, reservedAudio);
     }
 
-    private async playFromTextToSpeechSource(source: AudioSourceSetting, card: JPDBCard, settings: ReaderSettings, requestId: number, isCurrent: () => boolean): Promise<boolean> {
+    private async playFromTextToSpeechSource(source: AudioSourceSetting, card: JPDBCard, requestId: number, isCurrent: () => boolean): Promise<boolean> {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         await this.playTextToSpeech(source.type === 'text-to-speech-reading' ? card.reading : card.spelling, source.voice);
         return this.isPlaybackCurrent(requestId, isCurrent);
@@ -1862,10 +1863,6 @@ function uniqueAudioUrls(urls: string[]): string[] {
         seen.add(key);
         return true;
     });
-}
-
-function uniqueStrings(values: string[]): string[] {
-    return [...new Set(values)];
 }
 
 function shouldFetchCandidateAsBlob(candidate: AudioCandidate, audioViaBlob: boolean): boolean {

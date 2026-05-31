@@ -10,6 +10,7 @@ export interface ProxyFetchOptions extends RequestInit {
 type ProxyUrlBuilder = (targetUrl: string) => string;
 type FetchCandidateKind = 'direct' | 'configured-proxy' | 'public-proxy';
 type SpecializedProxyRoute = 'yomu-public-only' | 'jisho-search' | null;
+type ConcreteSpecializedProxyRoute = Exclude<SpecializedProxyRoute, null>;
 
 interface FetchUrlCandidate {
     url: string;
@@ -19,6 +20,12 @@ interface FetchUrlCandidate {
 interface FetchAttempt {
     url: string;
     options: ProxyFetchOptions;
+}
+
+interface SpecializedProxyRouteRule {
+    method: string;
+    route: ConcreteSpecializedProxyRoute;
+    matches: (target: URL) => boolean;
 }
 
 export const DEFAULT_YOMU_PUBLIC_PROXY_URL = 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev';
@@ -35,6 +42,38 @@ const KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS = new Set([
     'd1pra95f92lrn3.cloudfront.net',
     'd1vjc5dkcd3yh2.cloudfront.net',
 ]);
+const SPECIALIZED_PROXY_ROUTE_RULES: SpecializedProxyRouteRule[] = [
+    {
+        method: 'GET',
+        route: 'jisho-search',
+        matches: target => target.hostname === 'jisho.org' && target.pathname.startsWith('/search/'),
+    },
+    {
+        method: 'GET',
+        route: 'yomu-public-only',
+        matches: target => target.hostname === 'assets.languagepod101.com' && target.pathname === '/dictionary/japanese/audiomp3.php',
+    },
+    {
+        method: 'POST',
+        route: 'yomu-public-only',
+        matches: target => target.hostname === 'www.japanesepod101.com' && target.pathname === '/learningcenter/reference/dictionary_post',
+    },
+    {
+        method: 'GET',
+        route: 'yomu-public-only',
+        matches: target => isKnownCorsBlockedPublicAudioCdnUrl(target),
+    },
+    {
+        method: 'GET',
+        route: 'yomu-public-only',
+        matches: target => target.hostname === 'cdn.innovativelanguage.com' && target.pathname.includes('/learningcenter/audio/'),
+    },
+    {
+        method: 'GET',
+        route: 'yomu-public-only',
+        matches: target => target.hostname === 'jpdb.io' && target.pathname.startsWith('/static/v/'),
+    },
+];
 
 export function proxyUrlCandidates(targetUrl: string, configuredProxyUrl = '', allowPublicProxies = true): string[] {
     const candidates = [
@@ -275,25 +314,7 @@ function specializedProxyUrls(targetUrl: string, options: ProxyFetchOptions): st
 }
 
 function specializedProxyRoute(target: URL, method: string): SpecializedProxyRoute {
-    if (method === 'GET' && target.hostname === 'jisho.org' && target.pathname.startsWith('/search/')) {
-        return 'jisho-search';
-    }
-    if (method === 'GET' && target.hostname === 'assets.languagepod101.com' && target.pathname === '/dictionary/japanese/audiomp3.php') {
-        return 'yomu-public-only';
-    }
-    if (method === 'POST' && target.hostname === 'www.japanesepod101.com' && target.pathname === '/learningcenter/reference/dictionary_post') {
-        return 'yomu-public-only';
-    }
-    if (method === 'GET' && isKnownCorsBlockedPublicAudioCdnUrl(target)) {
-        return 'yomu-public-only';
-    }
-    if (method === 'GET' && target.hostname === 'cdn.innovativelanguage.com' && target.pathname.includes('/learningcenter/audio/')) {
-        return 'yomu-public-only';
-    }
-    if (method === 'GET' && target.hostname === 'jpdb.io' && target.pathname.startsWith('/static/v/')) {
-        return 'yomu-public-only';
-    }
-    return null;
+    return SPECIALIZED_PROXY_ROUTE_RULES.find(rule => rule.method === method && rule.matches(target))?.route ?? null;
 }
 
 function yomuPublicProxyUrl(targetUrl: string): string {

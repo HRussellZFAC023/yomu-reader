@@ -1,4 +1,5 @@
 import { gmStorageGetSync, gmStorageSetSync } from './storage';
+import { clampNumber } from './number-utils';
 import type { ReaderSettings } from './types';
 
 export interface TranscriptPanelLayout {
@@ -101,10 +102,6 @@ export function applyTranscriptPanelLayout(panel: HTMLElement, layout: Transcrip
     const height = `${Math.round(Math.max(minHeight, layout.height))}px`;
     setStylePropertyIfChanged(panel, 'height', height);
     setStylePropertyIfChanged(panel, 'max-height', height);
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-    return Math.min(Math.max(value, min), Math.max(min, max));
 }
 
 function setStylePropertyIfChanged(element: HTMLElement, property: string, value: string): void {

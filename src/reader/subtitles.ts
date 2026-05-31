@@ -39,7 +39,6 @@ import {
 import {
     activateYouTubeCaptionTrack,
     discoverYouTubeCaptionTracks,
-    getYouTubeCaptionTracks,
     getYouTubeVideoId,
     isYouTubeOwnedVideoElement,
     isYouTubePage,
@@ -72,6 +71,7 @@ import { planTranscriptHydrationIndexes } from './subtitle-transcript-hydration'
 import { readPageCaptionText } from './subtitle-dom-captions';
 import { uiText } from './i18n';
 import { Logger } from './logger';
+import { clampNumber } from './number-utils';
 import { accentToRgba, matchesShortcut } from './settings';
 import type { InterfaceLanguage, JPDBToken, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
@@ -1995,7 +1995,6 @@ export class SubtitlePlayerController {
     }
 
     private syncControls(): void {
-        const settings = this.options.getSettings();
         const hasLines = this.hasVisibleSubtitleLines();
         this.root?.classList.toggle('jpdb-subtitle-panel-open', !this.transcriptPanel?.hidden);
         this.root?.classList.toggle('jpdb-subtitle-has-lines', hasLines);
@@ -2500,23 +2499,6 @@ export class SubtitlePlayerController {
         });
         this.transcriptHydrationCursor = plan.nextCursor;
         return plan.indexes;
-    }
-
-    private async hydrateTranscriptRow(index: number, settings: ReaderSettings, rows = this.transcriptRows()): Promise<void> {
-        const hydration = this.transcriptRowHydrationTarget(index, settings, rows);
-        if (!hydration) return;
-
-        const cached = this.parsedHtmlCache.get(hydration.key);
-        if (cached) return this.applyCachedTranscriptRowHtml(hydration, cached);
-
-        try {
-            const html = await this.parseCueHtml(hydration.cue.text, settings);
-            this.updateTranscriptRowsForParseKey(hydration.key, html);
-        } catch {
-            hydration.target.dataset.parseFailedKey = hydration.key;
-            hydration.target.dataset.parseFailedAt = String(Date.now());
-            delete hydration.target.dataset.parsedKey;
-        }
     }
 
     private async hydrateTranscriptRowTargets(targets: TranscriptRowHydrationTarget[], settings: ReaderSettings, serial: number): Promise<void> {
@@ -3058,10 +3040,6 @@ function applyElementLayout(element: HTMLElement, layout: { left: number; top: n
 function setStylePropertyIfChanged(element: HTMLElement, property: string, value: string): void {
     if (element.style.getPropertyValue(property) === value) return;
     element.style.setProperty(property, value);
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-    return Math.min(Math.max(value, min), Math.max(min, max));
 }
 
 type SubtitleIconName = 'copy' | 'eye' | 'eye-off' | 'menu' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'play' | 'tracks' | 'transcript';

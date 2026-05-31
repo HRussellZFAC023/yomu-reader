@@ -51,10 +51,10 @@ import {
     loadNewTabUiState,
     resolveNewTabBrandAssets,
     saveNewTabUiState,
-    uniqueStrings,
     type NewTabMode,
     type NewTabUiState,
 } from './new-tab';
+import { uniqueTrimmedStrings as uniqueStrings } from './string-utils';
 import {
     applyJpdbReviewImport,
     averageReviewSpeed,
@@ -3901,12 +3901,6 @@ export class NewTabController {
         });
     }
 
-    private kanjiKeyword(card: JPDBCard, kanji: string): string {
-        return this.keywordCache.get(kanji)
-            || card.kanjiKeyword
-            || '';
-    }
-
     private kanjiPromptKeywords(card: JPDBCard, kanji: string): KanjiPromptKeyword[] {
         const cachedKeyword = this.keywordCache.get(kanji);
         if (cachedKeyword) return [{ source: this.kanjiPromptCardKeywordSource(card), text: cachedKeyword }];
@@ -5786,23 +5780,6 @@ export class NewTabController {
         return el('div', { class: 'jpdb-reader-newtab-search-message' },
             results.hasLocalDictionaries ? this.text('noLocalResults') : this.text('addDictionaryForLocalResults'),
         );
-    }
-
-    private openSearchKanjiResult(kanji: string, anchor: HTMLElement): void {
-        const cached = this.kanjiInfoCache.has(kanji);
-        const detailsPromise = this.loadKanjiDetails(kanji);
-        const showFallback = () => {
-            const card = this.dependencies.parser.fallbackCardFromText(kanji);
-            void this.dependencies.showKanjiCard?.(card, kanji, kanji, anchor);
-        };
-        void detailsPromise.then(details => {
-            const meanings = uniqueStrings(details.local.flatMap(entry => entry.meanings)).slice(0, 6);
-            const fullInfo = details.jpdb ? normalizeJpdbKanjiInfo(details.jpdb) : null;
-            const card = this.dependencies.parser.fallbackCardFromText(kanji);
-            card.kanjiKeyword = newTabKanjiKeyword(card, fullInfo, details.rtk, meanings);
-            void this.dependencies.showKanjiCard?.(card, kanji, kanji, anchor);
-        }).catch(showFallback);
-        if (!cached) showFallback();
     }
 
     private renderControls(slots: NewTabStudySlots, card: JPDBCard): void {

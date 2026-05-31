@@ -2,6 +2,7 @@ import type { JpdbKanjiInfo } from './jpdb-kanji';
 import type { KanjiVGInfo } from './kanjivg';
 import { Logger } from './logger';
 import { requestText as requestReaderText } from './reader-http';
+import { uniqueNonEmptyStrings as uniqueStrings } from './string-utils';
 import type { RtkInfo } from './rtk';
 import type { ReaderSettings } from './types';
 import type { YomitanKanjiEntry } from './yomitan';
@@ -479,10 +480,6 @@ function kanjiVGPositionKeys(component: NonNullable<KanjiVGInfo['componentPositi
         ...componentAliases,
         ...originalAliases,
     ]);
-}
-
-function uniqueStrings(values: Array<string | undefined>): string[] {
-    return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
 }
 
 function normalizeKanjiVGPosition(value: string): string {

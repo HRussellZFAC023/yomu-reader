@@ -154,7 +154,6 @@ export class YoutubeImmersionFilter {
     private noticeTimer?: number;
     private bar?: HTMLElement;
     private revealed = false;
-    private lastNoticeKey = '';
     private dismissedNoticeScope = '';
     private noticeRouteKey = '';
     private lastBackfillAt = Number.NEGATIVE_INFINITY;
@@ -310,12 +309,10 @@ export class YoutubeImmersionFilter {
     private renderNotice(filteredCount: number, shownCount: number, settings: ReaderSettings): void {
         if (!filteredCount) {
             this.removeNotice();
-            this.lastNoticeKey = '';
             return;
         }
 
         const noticeScope = this.currentNoticeScope();
-        const noticeKey = `${noticeScope}:${filteredCount}:${shownCount}`;
         if (!this.bar && this.dismissedNoticeScope === noticeScope) return;
         const shouldStartTimer = !this.bar;
 
@@ -349,8 +346,6 @@ export class YoutubeImmersionFilter {
             this.bar.append(label, actions);
             document.body.append(this.bar);
         }
-        this.lastNoticeKey = noticeKey;
-
         const summary = this.bar.querySelector<HTMLElement>('[data-role="summary"]');
         const toggleHidden = this.bar.querySelector<HTMLButtonElement>('[data-action="toggle-hidden"]');
         const hideNotice = this.bar.querySelector<HTMLButtonElement>('[data-action="hide-notice"]');
@@ -376,7 +371,6 @@ export class YoutubeImmersionFilter {
         this.revealed = false;
         this.clearFilteredCards();
         this.removeNotice();
-        this.lastNoticeKey = '';
         this.dismissedNoticeScope = '';
         this.noticeRouteKey = '';
         this.lastBackfillAt = Number.NEGATIVE_INFINITY;
@@ -457,7 +451,6 @@ export class YoutubeImmersionFilter {
         if (this.noticeRouteKey !== routeKey) {
             this.noticeRouteKey = routeKey;
             this.dismissedNoticeScope = '';
-            this.lastNoticeKey = '';
             this.removeNotice();
         }
         return `${routeKey}:${this.revealed ? 'revealed' : 'hidden'}`;

@@ -228,7 +228,7 @@ describe('performance cache bounds', () => {
 
     it('abandons and aborts the active Immersion Kit load when a popover is dismissed', async () => {
         const searchStarted = deferred<void>();
-        const search = vi.fn((_query: string, _settings: ReaderSettings, options?: { signal?: AbortSignal }) => new Promise<ImmersionKitExample[]>(() => {
+        const search = vi.fn((_query: string, _settings: ReaderSettings, _options?: { signal?: AbortSignal }) => new Promise<ImmersionKitExample[]>(() => {
             searchStarted.resolve();
         }));
         const controller = createImmersionController({ search, preload: vi.fn() } as unknown as ImmersionKitClient);
