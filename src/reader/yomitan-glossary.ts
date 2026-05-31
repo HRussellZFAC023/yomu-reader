@@ -1,6 +1,7 @@
 import type { DictionaryPreference } from './types';
 import { dictionaryEnabled, dictionaryRank } from './yomitan-ranking';
-import { glossaryValueToText, renderStructuredGlossaryHtml, type GlossaryRenderOptions } from './yomitan-structured-content';
+import { glossaryValueToText } from './yomitan-glossary-text';
+import { renderStructuredGlossaryHtml, type GlossaryRenderOptions } from './yomitan-structured-content';
 import type { YomitanDictionaryInfo } from './yomitan-types';
 
 export type { GlossaryRenderOptions } from './yomitan-structured-content';

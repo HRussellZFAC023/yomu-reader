@@ -5,7 +5,6 @@ import {
     YoutubeImmersionFilter,
     collectYouTubeVideoCards,
     isProbablyJapaneseYouTubeText,
-    readYouTubeCardText,
 } from '../../src/reader/youtube';
 import type { ReaderSettings } from '../../src/reader/types';
 
@@ -39,6 +38,10 @@ function renderYouTubeCards(): void {
 
 function card(caseName: string): HTMLElement {
     return document.querySelector<HTMLElement>(`[data-case="${caseName}"]`)!;
+}
+
+function readCardTitle(card: HTMLElement): string {
+    return card.querySelector<HTMLElement>('#video-title, h3, .ytLockupMetadataViewModelTitle')?.textContent?.trim() ?? '';
 }
 
 function stubOEmbedTitles(titles: Record<string, string>): void {
@@ -95,12 +98,12 @@ describe('YouTube immersion filter', () => {
         const cards = collectYouTubeVideoCards(document);
 
         expect(cards).toHaveLength(5);
-        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[0]))).toBe(true);
-        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[1]))).toBe(false);
-        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[2]))).toBe(false);
-        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[3]))).toBe(true);
-        expect(readYouTubeCardText(cards[4])).toBe('東京カフェで朝ごはん');
-        expect(isProbablyJapaneseYouTubeText(readYouTubeCardText(cards[4]))).toBe(true);
+        expect(isProbablyJapaneseYouTubeText(readCardTitle(cards[0]))).toBe(true);
+        expect(isProbablyJapaneseYouTubeText(readCardTitle(cards[1]))).toBe(false);
+        expect(isProbablyJapaneseYouTubeText(readCardTitle(cards[2]))).toBe(false);
+        expect(isProbablyJapaneseYouTubeText(readCardTitle(cards[3]))).toBe(true);
+        expect(readCardTitle(cards[4])).toBe('東京カフェで朝ごはん');
+        expect(isProbablyJapaneseYouTubeText(readCardTitle(cards[4]))).toBe(true);
         expect(isProbablyJapaneseYouTubeText('日本語')).toBe(true);
         expect(isProbablyJapaneseYouTubeText('東京散歩')).toBe(true);
         expect(isProbablyJapaneseYouTubeText('睡眠音楽♪')).toBe(true);
