@@ -1,7 +1,7 @@
 import { JpdbClient } from './jpdb';
 import { getPitchClass } from './jpdb-parser';
 import { Logger } from './logger';
-import { localPitchPatternFromMeta } from './popup-render';
+import { localPitchPatternFromMeta } from './pitch-meta';
 import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 import { YomitanDictionaryStore, glossaryToText, type YomitanMetaEntry, type YomitanTermEntry } from './yomitan';
 

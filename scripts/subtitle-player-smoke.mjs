@@ -103,6 +103,13 @@ async function resizeDrawer(page, placement) {
     await page.waitForTimeout(350);
 }
 
+async function hoverSecondarySubtitle(page) {
+    const box = await page.locator('.jpdb-subtitle-secondary').boundingBox();
+    assert(box, 'Expected native subtitle line');
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    return box;
+}
+
 async function ensureUserscript(page) {
     const hasRoot = await page.locator('.jpdb-subtitle-player').count();
     if (!hasRoot) {
@@ -175,13 +182,14 @@ async function runLocalSmoke(browser) {
     assert(initial.secondaryFilter.includes('blur'), 'Expected native subtitle blur to default on', initial);
     assertDrawerLayout(initial, 'initial load');
 
-    const box = await page.locator('.jpdb-subtitle-secondary').boundingBox();
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await hoverSecondarySubtitle(page);
     await page.waitForTimeout(650);
+    await hoverSecondarySubtitle(page);
+    await page.waitForTimeout(100);
     const hoverFilter = await page.locator('.jpdb-subtitle-secondary').evaluate(element => getComputedStyle(element).filter);
     assert(isEffectivelyUnblurred(hoverFilter), 'Hover should temporarily unblur native subtitles', { hoverFilter });
 
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.locator('.jpdb-subtitle-secondary').click();
     const clickedWhileHoveringFilter = await page.locator('.jpdb-subtitle-secondary').evaluate(element => getComputedStyle(element).filter);
     assert(isEffectivelyUnblurred(clickedWhileHoveringFilter), 'Click should keep native subtitles clear while hovered', { clickedWhileHoveringFilter });
     await page.mouse.move(20, 20);

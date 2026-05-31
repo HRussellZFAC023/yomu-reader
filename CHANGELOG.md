@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.68] - 2026-05-31
+
+### Fixed
+
+- Re-guarded the hosted Try Me lookup flow so the single-kanji `下` hit target, JPDB text color, and JPDB underline styling stay intact.
+- Added browser coverage for Immersion Kit nested lookup back navigation so example words return to the source popup instead of stranding the nested card.
+- Kept the YouTube subtitle side-panel toggle visible while compact controls idle.
+
+### Changed
+
+- Removed the stale subtitle overflow menu path and split shared popup helpers into smaller reader modules to keep the userscript leaner.
+
 ## [0.4.67] - 2026-05-31
 
 ### Changed

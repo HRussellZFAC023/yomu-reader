@@ -2,7 +2,7 @@ import { escapeHtml } from './dom';
 import { renderFrequencyPills } from './definition-source-render';
 import { uiText } from './i18n';
 import { formatLookupUrl, pillStyle } from './local-dictionary-display';
-import { copyIcon, externalLinkIcon } from './popup-render';
+import { copyIcon, externalLinkIcon } from './icons';
 import type { JPDBCard, ReaderSettings } from './types';
 import type { YomitanMetaEntry } from './yomitan';
 

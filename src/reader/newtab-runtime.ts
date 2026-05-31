@@ -38,6 +38,7 @@ import { KanjiVGClient, type KanjiVGInfo } from './kanjivg';
 import { buildKanjiFacts, buildKanjiOriginGraph } from './kanji-origin';
 import { installKanjiPracticeDoodle } from './kanji-practice-grader';
 import { canAttemptAudiblePlayback } from './media-activation';
+import { groupTermEntriesByDictionary } from './local-dictionary-groups';
 import { configureLogger, Logger, loggingSettingsSummary } from './logger';
 import {
     inferMiningSourceKind,
@@ -52,7 +53,6 @@ import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, i
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from './popup-navigation';
 import {
     buildRtkComponentSummaries,
-    groupTermEntriesByDictionary,
     isKanjiCharacter,
     pickTokenForSelection,
     renderJpdbKanjiInfo,

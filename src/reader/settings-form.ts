@@ -1,7 +1,7 @@
 import { DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, VIDEO_PLAYER_PAGE_URL } from './constants';
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from './dom';
 import { resolveUiLanguage, uiText } from './i18n';
-import { Logger } from './logger';
+import { externalLinkIcon, speakerIcon } from './icons';
 import { AUDIO_GUIDE_URL, AUDIO_SOURCE_LABELS, AUDIO_SOURCE_UI_OPTIONS, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, accentToRgba, formatShortcutEvent, normalizeDictionaryLookupLinks, sanitizeAccentColor } from './settings';
 import { COLOR_SOURCE_OPTIONS, COLOR_SOURCE_VALUES, readAudioSources, readDictionaryLookupLinks, readOption, settingsColorSourceValue } from './settings-form-read';
 import type { AudioSourceSetting, DictionaryLookupLink, ImmersionExampleSource, InterfaceLanguage, JPDBDeck, ReaderColorSource, ReaderSettings } from './types';
@@ -9,11 +9,9 @@ import type { RecommendedDictionary } from './recommended-dictionaries';
 import { RECOMMENDED_JAPANESE_DICTIONARIES } from './recommended-dictionaries';
 import { definitionSourceRows, kanjiSourceRows, type SettingsSourceRow } from './source-sections';
 import type { YomitanDictionaryInfo } from './yomitan';
-import { externalLinkIcon, speakerIcon } from './popup-render';
 
 export { readAudioSources, readDictionaryLookupLinks, readFormSettings } from './settings-form-read';
 
-const log = Logger.scope('SettingsForm');
 const SETTINGS_LABEL_TEXT_CLASS = 'jpdb-reader-settings-label-text';
 const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
 const PROXY_WORKER_SOURCE_URL = `${GITHUB_REPOSITORY_URL}/blob/main/workers/jpdb-public-proxy/src/index.ts`;
@@ -576,18 +574,18 @@ function renderSettingsFooter(): string {
     `;
 }
 
-export function input(name: string, label: string, value: string, type = 'text', attributes: Record<string, string | number> = {}): string {
+function input(name: string, label: string, value: string, type = 'text', attributes: Record<string, string | number> = {}): string {
     const attributeHtml = Object.entries(attributes)
         .map(([key, attributeValue]) => ` ${key}="${escapeHtml(String(attributeValue))}"`)
         .join('');
     return `<label>${label}<input name="${name}" type="${type}" value="${escapeHtml(value)}" autocomplete="off"${attributeHtml}></label>`;
 }
 
-export function shortcutInput(name: string, label: string, value: string, placeholder = 'Press keys'): string {
+function shortcutInput(name: string, label: string, value: string, placeholder = 'Press keys'): string {
     return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" autocomplete="off" inputmode="none" aria-label="${escapeHtml(label)}"></label>`;
 }
 
-export function checkbox(name: string, label: string, checked: boolean, attributes: Record<string, boolean> = {}): string {
+function checkbox(name: string, label: string, checked: boolean, attributes: Record<string, boolean> = {}): string {
     const attributeHtml = Object.entries(attributes)
         .filter(([, value]) => value)
         .map(([key]) => ` ${key}`)
@@ -595,7 +593,7 @@ export function checkbox(name: string, label: string, checked: boolean, attribut
     return `<label class="inline"><input name="${name}" type="checkbox" ${checked ? 'checked' : ''}${attributeHtml}>${label}</label>`;
 }
 
-export function select(name: string, label: string, value: string, options: [string, string][]): string {
+function select(name: string, label: string, value: string, options: [string, string][]): string {
     return `<label>${label}<select name="${name}">${options.map(([optionValue, text]) =>
         `<option value="${escapeHtml(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(text)}</option>`,
     ).join('')}</select></label>`;
@@ -1540,7 +1538,7 @@ function setExternalButtonLabel(element: HTMLElement | null | undefined, label: 
     setInnerHtml(element, externalButtonLabel(label));
 }
 
-export function renderReviewShortcutInputs(settings: ReaderSettings): string {
+function renderReviewShortcutInputs(settings: ReaderSettings): string {
     const fivePointHidden = !settings.enableReviews || settings.twoButtonReviews;
     const passFailHidden = !settings.enableReviews || !settings.twoButtonReviews;
     return `
@@ -1637,7 +1635,7 @@ function audioSourceSelectOptions(type: AudioSourceSetting['type']): [AudioSourc
     return AUDIO_SOURCE_UI_OPTIONS;
 }
 
-export function audioSourceRowsForSettings(sources: AudioSourceSetting[]): AudioSourceSetting[] {
+function audioSourceRowsForSettings(sources: AudioSourceSetting[]): AudioSourceSetting[] {
     const rows = sources.map(source => ({ ...source }));
     return rows.length ? rows : DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
 }
@@ -2078,7 +2076,7 @@ function deckSelect(name: string, label: string, value: string, options: [string
     </label>`;
 }
 
-export function settingsTabButton(panel: string, label: string, active = false): string {
+function settingsTabButton(panel: string, label: string, active = false): string {
     return `<button class="jpdb-reader-settings-tab" type="button" data-action="settings-panel" data-panel="${escapeHtml(panel)}" role="tab" aria-selected="${active ? 'true' : 'false'}">${escapeHtml(label)}</button>`;
 }
 
@@ -2239,74 +2237,11 @@ function renderRecommendedDictionary(dictionary: RecommendedDictionary, installe
     `;
 }
 
-export function isRecommendedDictionaryInstalled(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo[]): boolean {
+function isRecommendedDictionaryInstalled(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo[]): boolean {
     const targetName = normalizedDictionaryName(dictionary.name);
     return installed.some(item => item.downloadUrl === dictionary.downloadUrl || normalizedDictionaryName(item.title).includes(targetName));
 }
 
 function normalizedDictionaryName(value: string): string {
     return value.toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]/g, '');
-}
-
-export function recommendedDictionaryFilename(dictionary: RecommendedDictionary): string {
-    try {
-        const parsed = new URL(dictionary.downloadUrl);
-        const lastPath = parsed.pathname.split('/').filter(Boolean).pop();
-        if (lastPath && /\.zip$/i.test(lastPath)) return decodeURIComponent(lastPath);
-    } catch {
-        // Fall through to a readable fallback.
-    }
-    return `${dictionary.id}.zip`;
-}
-
-
-export function getReaderSettingsExport(value: unknown): ReaderSettings | null {
-    const record = readerSettingsExportRecord(value);
-    return record && isReaderSettingsExport(record) ? record.settings as ReaderSettings : null;
-}
-
-function readerSettingsExportRecord(value: unknown): { formatName?: string; settings?: unknown } | null {
-    return value && typeof value === 'object' ? value as { formatName?: string; settings?: unknown } : null;
-}
-
-function isReaderSettingsExport(record: { formatName?: string; settings?: unknown }): boolean {
-    return isReaderSettingsExportFormat(record.formatName)
-        && Boolean(record.settings)
-        && typeof record.settings === 'object';
-}
-
-function isReaderSettingsExportFormat(formatName: string | undefined): boolean {
-    return formatName === 'yomu-reader-settings' || formatName === 'jpdb-popup-reader-settings';
-}
-
-export function pickFile(root: HTMLElement, type: 'settings' | 'dictionary'): Promise<File | null> {
-    const inputEl = root.querySelector<HTMLInputElement>(`input[data-file="${type}"]`);
-    if (!inputEl) {
-        log.warn('File picker input missing', { type });
-        return Promise.resolve(null);
-    }
-
-    return new Promise(resolve => {
-        inputEl.onchange = () => {
-            const file = inputEl.files?.[0] ?? null;
-            inputEl.value = '';
-            log.info('File picker completed', { type, name: file?.name ?? '', size: file?.size ?? 0 });
-            resolve(file);
-        };
-        inputEl.click();
-    });
-}
-
-export function downloadBlob(blob: Blob, filename: string): void {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    log.info('Downloaded blob', { filename, size: blob.size, type: blob.type });
-}
-
-export function dateStamp(): string {
-    return new Date().toISOString().replace(/[:.]/g, '-');
 }

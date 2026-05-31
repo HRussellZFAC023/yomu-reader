@@ -75,7 +75,7 @@ The transcript is meant to work as a reading surface too: visible Japanese lines
 
 For local files, open the [Yomu video player](./video-player/index.html), drop in a browser-supported video, and add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
 
-You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. The transcript panel is off by default and can be opened from the subtitle controls or overflow menu. On phones it becomes a bottom panel so the video stays usable.
+You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. The transcript panel is off by default and opens from the subtitle controls. On phones it becomes a bottom panel so the video stays usable.
 
 <figure class="yomu-feature-shot">
   <img :src="'/yomu-reader/screenshots/store-02-youtube-subtitles.png'" alt="The よむ subtitle overlay and transcript panel open on a live Comprehensible Japanese YouTube video.">

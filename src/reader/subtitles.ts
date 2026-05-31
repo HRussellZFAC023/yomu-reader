@@ -76,17 +76,6 @@ import { accentToRgba, matchesShortcut } from './settings';
 import type { InterfaceLanguage, JPDBToken, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 
-export { computeSubtitleDrawerLayout } from './subtitle-layout';
-export { collectPageSubtitleSources, type PageSubtitleSource } from './subtitle-sources';
-export { readPageCaptionText } from './subtitle-dom-captions';
-
-export {
-    normalizeSubtitleCues,
-    parseSubtitleText,
-    type SubtitleCue,
-    type SubtitleWordTiming,
-} from './subtitle-cues';
-
 interface SubtitleTrackOption {
     id: string;
     label: string;
@@ -121,16 +110,6 @@ interface SubtitleTrackSelectionLoadRequest {
     transcriptEligible: boolean;
 }
 
-interface SubtitleMenuState {
-    hasLines: boolean;
-    hasSecondary: boolean;
-    secondaryVisible: boolean;
-    panelOpen: boolean;
-    panelHidden: boolean | undefined;
-    panelMode: 'lines' | 'tracks';
-    hasTracks: boolean;
-}
-
 interface SubtitlePlayerOptions {
     getSettings: () => ReaderSettings;
     parseJapanese: (text: string, options?: SubtitleParseOptions) => Promise<JPDBToken[]>;
@@ -150,10 +129,6 @@ function updatePageSubtitleTrack(track: SubtitleTrackOption, source: PageSubtitl
     track.language = source.language;
     track.sourceKey = source.sourceKey;
     return true;
-}
-
-function secondarySubtitleToggleLabel(settings: ReaderSettings): string {
-    return uiText(settings.interfaceLanguage, settings.subtitleSecondaryVisible ? 'nativeSubtitlesOn' : 'nativeSubtitlesOff');
 }
 
 function canParseSubtitleTranscriptRows(settings: ReaderSettings): boolean {
@@ -386,7 +361,6 @@ function fittedSubtitleFontSize(element: HTMLElement, fitted: number, minimum: n
 export class SubtitlePlayerController {
     private root?: HTMLElement;
     private subtitleEl?: HTMLElement;
-    private menuEl?: HTMLElement;
     private transcriptPanel?: HTMLElement;
     private abortController?: AbortController;
     private primaryFileInput?: HTMLInputElement;
@@ -415,7 +389,6 @@ export class SubtitlePlayerController {
     private transcriptTextTargetsByParseKey = new Map<string, HTMLElement[]>();
     private renderSerial = 0;
     private panelMode: 'lines' | 'tracks' = 'lines';
-    private lastMenuSignature = '';
     private lastTranscriptSignature = '';
     private transcriptScrollFrame?: number;
     private transcriptHydrateFrame?: number;
@@ -453,14 +426,12 @@ export class SubtitlePlayerController {
         'copy-row': target => { void this.copyTranscriptRow(this.rowIndexFromTarget(target)); },
         load: () => this.primaryFileInput?.click(),
         'load-secondary': () => this.secondaryFileInput?.click(),
-        menu: () => this.toggleMenu(),
         panel: () => this.toggleTranscriptDrawer(),
         'panel-lines': () => this.openLinesPanel(),
         'panel-tracks': () => this.openTracksPanel(),
         'close-panel': () => this.closeTranscriptPanel(),
         'primary-track': target => { void this.choosePrimaryTrack(this.trackIdFromTarget(target)); },
         'secondary-track': target => { void this.chooseSecondaryTrack(this.trackIdFromTarget(target)); },
-        'toggle-secondary': () => this.toggleSecondarySubtitles(),
         'toggle-native-blur': () => this.toggleNativeSubtitleBlur(),
     };
 
@@ -519,7 +490,6 @@ export class SubtitlePlayerController {
         this.root?.remove();
         this.root = undefined;
         this.subtitleEl = undefined;
-        this.menuEl = undefined;
         this.transcriptPanel = undefined;
         this.primaryFileInput = undefined;
         this.secondaryFileInput = undefined;
@@ -595,14 +565,12 @@ export class SubtitlePlayerController {
                 <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>
             </div>
-            <div class="jpdb-subtitle-menu" hidden></div>
             <div class="jpdb-subtitle-list" hidden></div>
             <input hidden type="file" data-file="primary" accept=".srt,.vtt,.ass,.ssa,text/vtt">
             <input hidden type="file" data-file="secondary" accept=".srt,.vtt,.ass,.ssa,text/vtt">
         `);
         root.addEventListener('click', event => this.handleClick(event));
         this.subtitleEl = root.querySelector('.jpdb-subtitle-text') as HTMLElement;
-        this.menuEl = root.querySelector<HTMLElement>('.jpdb-subtitle-menu') ?? undefined;
         this.transcriptPanel = root.querySelector('.jpdb-subtitle-list') as HTMLElement;
         this.transcriptPanel.dataset.jpdbReaderRoot = 'true';
         this.transcriptPanel.addEventListener('click', event => this.handleClick(event), this.eventOptions());
@@ -735,7 +703,6 @@ export class SubtitlePlayerController {
         if (!removed.length) return 0;
 
         this.removeSubtitleTrackIds(new Set(removed.map(track => track.id)));
-        this.lastMenuSignature = '';
         this.lastTranscriptSignature = '';
         this.render();
         this.renderOpenSubtitlePanel();
@@ -1115,7 +1082,6 @@ export class SubtitlePlayerController {
         this.tracks.push(track);
         this.selectedTrackId = track.id;
         this.youtubeDomCaptionFallbackTrackId = track.id;
-        this.lastMenuSignature = '';
         return track;
     }
 
@@ -1557,8 +1523,7 @@ export class SubtitlePlayerController {
     }
 
     private hasActiveSubtitleUi(): boolean {
-        return Boolean(this.root?.classList.contains('jpdb-subtitle-menu-open'))
-            || Boolean(this.root?.matches(':focus-within'));
+        return Boolean(this.root?.matches(':focus-within'));
     }
 
     private hasSubtitleIdleSurface(): boolean {
@@ -2032,15 +1997,10 @@ export class SubtitlePlayerController {
     private syncControls(): void {
         const settings = this.options.getSettings();
         const hasLines = this.hasVisibleSubtitleLines();
-        const menuOpen = this.isSubtitleMenuOpen();
-        this.root?.classList.toggle('jpdb-subtitle-menu-open', menuOpen);
         this.root?.classList.toggle('jpdb-subtitle-panel-open', !this.transcriptPanel?.hidden);
         this.root?.classList.toggle('jpdb-subtitle-has-lines', hasLines);
         this.root?.classList.toggle('jpdb-subtitle-has-track', this.hasSelectedTrackOrLines(hasLines));
         this.syncTranscriptPlacementClass();
-        if (menuOpen) this.renderMenu();
-        const secondaryToggle = this.menuEl?.querySelector<HTMLButtonElement>('[data-action="toggle-secondary"]');
-        if (secondaryToggle) secondaryToggle.textContent = secondarySubtitleToggleLabel(settings);
         this.syncLineNavigationButtons(hasLines);
         this.syncDrawerButtons(hasLines);
         this.syncStatus();
@@ -2049,10 +2009,6 @@ export class SubtitlePlayerController {
 
     private hasVisibleSubtitleLines(): boolean {
         return Boolean(this.cues.length || this.currentCue?.text);
-    }
-
-    private isSubtitleMenuOpen(): boolean {
-        return Boolean(this.menuEl && !this.menuEl.hidden);
     }
 
     private hasSelectedTrackOrLines(hasLines: boolean): boolean {
@@ -2162,79 +2118,9 @@ export class SubtitlePlayerController {
         this.transcriptPanel.hidden = false;
         this.options.getSettings().subtitleTranscriptVisible = true;
         this.options.onSettingsChange();
-        if (this.menuEl) this.menuEl.hidden = true;
         this.renderTranscriptPanel(true);
         this.positionTranscriptPanel({ realignAfterInset: true });
         this.syncControls();
-    }
-
-    private renderMenu(): void {
-        if (!this.menuEl) return;
-        const state = this.subtitleMenuState();
-        const signature = subtitleMenuSignature(state);
-        if (!this.menuEl.hidden && this.lastMenuSignature === signature) return;
-        this.lastMenuSignature = signature;
-        const language = this.options.getSettings().interfaceLanguage;
-        setInnerHtml(this.menuEl, `
-            <div class="jpdb-subtitle-menu-head">
-                <span>${escapeHtml(uiText(language, 'subtitleOptions'))}</span>
-                <button class="jpdb-reader-icon-mini" type="button" data-action="menu" title="${escapeHtml(uiText(language, 'closeSubtitleOptions'))}" aria-label="${escapeHtml(uiText(language, 'closeSubtitleOptions'))}">${closeIcon()}</button>
-            </div>
-            ${this.renderSubtitleMenuButtons(state, language)}
-        `);
-    }
-
-    private subtitleMenuState(): SubtitleMenuState {
-        return {
-            hasLines: Boolean(this.cues.length || this.currentCue?.text),
-            hasSecondary: Boolean(this.secondaryTrackId || this.secondaryCues.length || this.secondaryCue?.text),
-            secondaryVisible: this.options.getSettings().subtitleSecondaryVisible,
-            panelOpen: Boolean(this.transcriptPanel && !this.transcriptPanel.hidden),
-            panelHidden: this.transcriptPanel?.hidden,
-            panelMode: this.panelMode,
-            hasTracks: Boolean(this.tracks.length),
-        };
-    }
-
-    private renderSubtitleMenuButtons(state: SubtitleMenuState, language: InterfaceLanguage): string {
-        return [
-            this.renderPanelMenuButton(state, language),
-            this.renderCopyLineMenuButton(state, language),
-            this.renderSecondaryMenuButton(state, language),
-        ].join('');
-    }
-
-    private renderPanelMenuButton(state: SubtitleMenuState, language: InterfaceLanguage): string {
-        if (!state.hasLines && !state.hasTracks) return '';
-        return `<button type="button" data-action="panel">${escapeHtml(uiText(language, state.panelOpen ? 'closeSubtitleDrawer' : 'openSubtitleDrawer'))}</button>`;
-    }
-
-    private renderCopyLineMenuButton(state: SubtitleMenuState, language: InterfaceLanguage): string {
-        return state.hasLines ? `<button type="button" data-action="copy">${escapeHtml(uiText(language, 'copyCurrentSubtitleLine'))}</button>` : '';
-    }
-
-    private renderSecondaryMenuButton(state: SubtitleMenuState, language: InterfaceLanguage): string {
-        if (!state.hasSecondary) return '';
-        return `<button type="button" data-action="toggle-secondary" aria-pressed="${state.secondaryVisible}">${escapeHtml(uiText(language, state.secondaryVisible ? 'nativeSubtitlesOn' : 'nativeSubtitlesOff'))}</button>`;
-    }
-
-    private toggleMenu(): void {
-        if (!this.menuEl) return;
-        this.lastMenuSignature = '';
-        this.renderMenu();
-        this.menuEl.hidden = !this.menuEl.hidden;
-        if (!this.menuEl.hidden && this.transcriptPanel) this.transcriptPanel.hidden = true;
-        this.root?.classList.toggle('jpdb-subtitle-menu-open', !this.menuEl.hidden);
-        this.root?.classList.toggle('jpdb-subtitle-panel-open', Boolean(this.transcriptPanel && !this.transcriptPanel.hidden));
-    }
-
-    private toggleSecondarySubtitles(): void {
-        const settings = this.options.getSettings();
-        settings.subtitleSecondaryVisible = !settings.subtitleSecondaryVisible;
-        if (!settings.subtitleSecondaryVisible) this.secondaryCue = undefined;
-        this.options.onSettingsChange();
-        this.render();
-        log.info('Secondary subtitles toggled', { visible: settings.subtitleSecondaryVisible });
     }
 
     private toggleNativeSubtitleBlur(): void {
@@ -2275,7 +2161,6 @@ export class SubtitlePlayerController {
         this.transcriptPanel.hidden = false;
         this.options.getSettings().subtitleTranscriptVisible = false;
         this.options.onSettingsChange();
-        if (this.menuEl) this.menuEl.hidden = true;
         this.renderTrackPanel();
         this.positionTranscriptPanel();
         this.syncPanelState();
@@ -3317,16 +3202,6 @@ function subtitleRequestFailureDetails(url: string): Record<string, string> {
     } catch {
         return { url: 'invalid' };
     }
-}
-
-function subtitleMenuSignature(state: SubtitleMenuState): string {
-    return [
-        state.hasLines,
-        state.hasSecondary,
-        state.secondaryVisible,
-        state.panelHidden,
-        state.panelMode,
-    ].join(':');
 }
 
 function shouldHideSubtitleRoot(settings: ReaderSettings, video: HTMLVideoElement | undefined, cues: SubtitleCue[]): boolean {

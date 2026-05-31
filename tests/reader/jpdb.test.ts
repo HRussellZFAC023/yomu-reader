@@ -25,6 +25,7 @@ import { JpdbVocabularyClient, parseJpdbAudioData, parseJpdbSearchHtml, parseJpd
 import { JpdbPublicPitchClient, parseJpdbPublicPitchHtml } from '../../src/reader/jpdb-public-pitch';
 import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo } from '../../src/reader/kanji-origin';
 import { parseKanjiVGSvg } from '../../src/reader/kanjivg';
+import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, summarizeLearnerGlossary } from '../../src/reader/local-dictionary-groups';
 import { Logger } from '../../src/reader/logger';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText } from '../../src/reader/mutation-scan';
 import { buildNewTabPalette, isYomuNewTabUrl, resolveNewTabBrandAssets } from '../../src/reader/new-tab';
@@ -34,7 +35,7 @@ import { ImageOcrController, normalizeOcrResult, parseGoogleLensUploadHtml, read
 import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, SHEET_HEIGHT_STORAGE_KEY, shouldUseSheet } from '../../src/reader/popover-shell';
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { DEFAULT_YOMU_PUBLIC_PROXY_URL, fetchWithCorsFallbacks, proxyUrlCandidates } from '../../src/reader/proxy-fetch';
-import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderPitch, renderRtkInfo, summarizeLearnerGlossary, tokensOverlappingSelection } from '../../src/reader/popup-render';
+import { renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderPitch, renderRtkInfo, tokensOverlappingSelection } from '../../src/reader/popup-render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
 import { ReaderApp } from '../../src/reader/main';
 import { NewTabRuntime } from '../../src/reader/newtab-runtime';
@@ -10142,9 +10143,15 @@ describe('reader helpers', () => {
         });
         const sourceUrl = 'https://github.com/example/dictionaries/releases/latest/download/hosted.zip';
         const proxyUrl = 'https://yomu-proxy.example/fetch';
+        const expectedProxyUrl = `${proxyUrl}?url=${encodeURIComponent(sourceUrl)}`;
         const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-            expect(String(input)).toBe(`${proxyUrl}?url=${encodeURIComponent(sourceUrl)}`);
-            expect(init).toMatchObject({ credentials: 'omit' });
+            if (String(input) !== expectedProxyUrl) {
+                return Promise.resolve({
+                    ok: false,
+                    status: 404,
+                    blob: () => Promise.resolve(new Blob()),
+                } as Response);
+            }
             return Promise.resolve({
                 ok: true,
                 status: 200,
@@ -10163,7 +10170,9 @@ describe('reader helpers', () => {
             fetchMock.mockClear();
             const summary = await store.importFromUrl(sourceUrl, 'hosted.zip');
 
-            expect(fetchMock).toHaveBeenCalledTimes(1);
+            const proxyRequests = fetchMock.mock.calls.filter(([input]) => String(input) === expectedProxyUrl);
+            expect(proxyRequests).toHaveLength(1);
+            expect(proxyRequests[0]?.[1]).toMatchObject({ credentials: 'omit' });
             expect(summary).toMatchObject({ dictionaries: ['Hosted Proxy Dict'], terms: 1, entries: 1 });
         } finally {
             vi.unstubAllGlobals();

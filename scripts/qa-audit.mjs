@@ -1915,6 +1915,7 @@ async function auditHostedTryMeDemo(browser, server) {
         });
         const down = wordData.find(word => word.surface === '下');
         const jpdbWord = wordData.find(word => word.surface === '日本語');
+        const hostTextColor = getComputedStyle(document.querySelector('[data-yomu-demo-lookup] p') ?? document.body).color;
         const point = down ? { x: down.rect.x + down.rect.width / 2, y: down.rect.y + down.rect.height / 2 } : null;
         const target = point ? document.elementFromPoint(point.x, point.y) : null;
         const targetWord = target?.closest?.('.jpdb-reader-word');
@@ -1923,6 +1924,7 @@ async function auditHostedTryMeDemo(browser, server) {
             wordData,
             down,
             jpdbWord,
+            hostTextColor,
             point,
             pointSurface: targetWord ? surface(targetWord).trim() : '',
             pointExpression: targetWord?.getAttribute('data-expression') ?? '',
@@ -1939,6 +1941,8 @@ async function auditHostedTryMeDemo(browser, server) {
     assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-text-jpdb'), `word text source class missing: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.jpdbWord?.textDecorationLine.includes('underline'), `JPDB-backed demo word is not underlined: ${JSON.stringify(snapshot.jpdbWord)}`);
     assertAudit(!isTransparentCssColor(snapshot.jpdbWord?.textDecorationColor), `JPDB-backed demo underline is transparent: ${JSON.stringify(snapshot.jpdbWord)}`);
+    assertAudit(!isTransparentCssColor(snapshot.jpdbWord?.color), `JPDB-backed demo text color is transparent: ${JSON.stringify(snapshot.jpdbWord)}`);
+    assertAudit(snapshot.jpdbWord?.color !== snapshot.hostTextColor, `JPDB-backed demo text color is still inherited from host copy: ${JSON.stringify(snapshot)}`);
 
     const downBox = snapshot.down.rect;
     await page.mouse.move(downBox.x + downBox.width / 2, downBox.y + downBox.height / 2);
@@ -2917,6 +2921,14 @@ async function auditImmersionKitPopover(browser, server) {
         6000,
         'Immersion Kit manual audio button did not request audio after hover autoplay',
     );
+    await page.locator('.jpdb-reader-popover [data-action="word-history-back"]').click();
+    await waitForAudit(page, () => {
+        const spellings = [...document.querySelectorAll('.jpdb-reader-popover .jpdb-reader-spelling')]
+            .map(node => node.textContent?.replace(/\s+/g, '').trim() ?? '');
+        return document.querySelectorAll('.jpdb-reader-popover').length === 1
+            && spellings.some(spelling => spelling.includes('読'));
+    }, 6000, 'nested Immersion lookup back arrow did not return to the source popup');
+    await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'source Immersion lookup kept showing dictionary loading details after back navigation');
     await page.close();
     record('Immersion Kit popup examples', 'pass', 'examples render in-card and nested words open lookup');
 }

@@ -1,7 +1,7 @@
 import { escapeHtml, parseHtmlDocument, setInnerHtml } from './dom';
 import { canonicalUchisenUrl, cleanText, decodeEntities } from './jpdb-text';
 import { createPageMediaUrl, revokePageMediaUrl } from './page-media-url';
-import { externalLinkIcon } from './popup-render';
+import { externalLinkIcon } from './icons';
 import { DEFAULT_YOMU_PUBLIC_PROXY_URL } from './proxy-fetch';
 import { requestBlob as requestReaderBlob, requestText as requestReaderText } from './reader-http';
 import { gmStorageGet, gmStorageSet } from './storage';

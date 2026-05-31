@@ -69,6 +69,7 @@ import { JpdbVocabularyClient, type JpdbVocabularyInfo } from './jpdb-vocabulary
 import { buildKanjiFacts, buildKanjiOriginGraph, KanjiOriginClient, type KanjiSourceInfo } from './kanji-origin';
 import { installKanjiPracticeDoodle } from './kanji-practice-grader';
 import { KanjiVGClient, type KanjiVGInfo } from './kanjivg';
+import { groupTermEntriesByDictionary } from './local-dictionary-groups';
 import { configureLogger, Logger, loggingSettingsSummary } from './logger';
 import {
     inferMiningSourceKind,
@@ -80,8 +81,10 @@ import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayAffect
 import { NativeTitleGuard } from './native-title-guard';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from './nested-text-parse';
 import { resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
+import { speakerIcon } from './icons';
 import { OnboardingController } from './onboarding';
 import { installOriginGraphInteractions } from './origin-graph-interactions';
+import { localPitchPatternFromMeta } from './pitch-meta';
 import { ImageOcrController } from './ocr';
 import {
     caretTextPositionFromPoint,
@@ -95,9 +98,7 @@ import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, i
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from './popup-navigation';
 import {
     buildRtkComponentSummaries,
-    groupTermEntriesByDictionary,
     isKanjiCharacter,
-    localPitchPatternFromMeta,
     pickTokenForSelection,
     renderJpdbKanjiInfo,
     renderJpdbKanjiMiningControls,
@@ -106,7 +107,6 @@ import {
     renderKanjiPractice,
     renderPitch,
     renderRtkInfo,
-    speakerIcon,
     tokensOverlappingSelection,
     uniqueKanji,
 } from './popup-render';

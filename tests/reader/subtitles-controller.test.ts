@@ -105,6 +105,51 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('opens the tracks drawer from the rail panel toggle when lines are unavailable', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            subtitleTranscriptVisible: false,
+        };
+        const onSettingsChange = vi.fn();
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange,
+        });
+
+        try {
+            (controller as unknown as { install: () => void }).install();
+            (controller as unknown as { video: HTMLVideoElement }).video = document.createElement('video');
+            (controller as unknown as { tracks: unknown[] }).tracks = [{
+                id: 'youtube-ja',
+                kind: 'youtube',
+                label: 'Japanese',
+                language: 'ja',
+                cues: [],
+            }];
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const button = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!;
+
+            button.click();
+
+            expect(panel.hidden).toBe(false);
+            expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
+            expect(panel.querySelector('.jpdb-subtitle-track-row')?.textContent).toContain('Japanese');
+            expect(panel.querySelector<HTMLButtonElement>('[data-action="panel-tracks"]')?.getAttribute('aria-pressed')).toBe('true');
+            expect(panel.querySelector<HTMLButtonElement>('[data-action="panel-lines"]')?.disabled).toBe(true);
+            expect(root.classList.contains('jpdb-subtitle-panel-open')).toBe(true);
+            expect(settings.subtitleTranscriptVisible).toBe(false);
+            expect(onSettingsChange).toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('returns compact subtitle controls to idle after pointer activity over video', async () => {
         vi.useFakeTimers();
         const settings = {
@@ -142,33 +187,6 @@ describe('SubtitlePlayerController', () => {
         } finally {
             controller.destroy();
         }
-    });
-
-    it('keeps subtitle file loaders in the side panel instead of the over-video menu', () => {
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            localDictionariesEnabled: false,
-        };
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange: () => undefined,
-        });
-        (controller as unknown as { install: () => void }).install();
-        (controller as unknown as { video: HTMLVideoElement }).video = document.createElement('video');
-
-        (controller as unknown as { toggleMenu: () => void }).toggleMenu();
-        const menuActions = [...document.querySelectorAll<HTMLButtonElement>('.jpdb-subtitle-menu button')]
-            .map(button => button.dataset.action);
-        expect(menuActions).not.toContain('load');
-        expect(menuActions).not.toContain('load-secondary');
-
-        (controller as unknown as { openTracksPanel: () => void }).openTracksPanel();
-        const sidePanelActions = [...document.querySelectorAll<HTMLButtonElement>('.jpdb-subtitle-list button')]
-            .map(button => button.dataset.action);
-        expect(sidePanelActions).toContain('load');
-        expect(sidePanelActions).toContain('load-secondary');
     });
 
     it('lets video rail controls auto-hide while the transcript panel is open', async () => {
@@ -225,13 +243,13 @@ describe('SubtitlePlayerController', () => {
 
     it('keeps the side panel toggle visible while compact navigation idles', () => {
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: .88;\n}');
+            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: .88;\n}');
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="previous"],');
+            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="previous"],');
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="next"] {\n  opacity: 0;\n  pointer-events: none;\n}');
+            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="next"] {\n  opacity: 0;\n  pointer-events: none;\n}');
         expect(SUBTITLES_YOUTUBE_CSS)
-            .not.toContain('.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 0;\n  pointer-events: none;\n}');
+            .not.toContain('.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 0;\n  pointer-events: none;\n}');
     });
 
     it('keeps the tracks panel open after choosing a primary track so Lines is an explicit next step', async () => {
