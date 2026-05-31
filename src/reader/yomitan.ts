@@ -7,6 +7,7 @@ import type { DictionaryPreference, InterfaceLanguage } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 import { readBlobText, readDexieTableRowCounts, streamDexieTables } from './yomitan-dexie-stream';
 import { renderDictionaryScopedStyles } from './yomitan-glossary';
+import { glossaryValueToSearchText } from './yomitan-glossary-text';
 import { readZipArchive, type ZipArchive } from './zip';
 import {
     compareMetaEntries,
@@ -2290,7 +2291,7 @@ function indexedTermSearchRank(entry: YomitanTermEntry, query: string): number {
 function glossaryTermSearchRank(glossary: unknown[], query: string): number {
     const normalizedQuery = normalizeGlossarySearchText(query);
     if (!normalizedQuery) return Number.POSITIVE_INFINITY;
-    const text = normalizeGlossarySearchText(glossarySearchText(glossary));
+    const text = normalizeGlossarySearchText(glossaryValueToSearchText(glossary));
     if (!text) return Number.POSITIVE_INFINITY;
     if (text === normalizedQuery) return 30;
     if (glossaryHasExactWord(text, normalizedQuery)) return 34;
@@ -2356,7 +2357,7 @@ function uniqueExpressionKanji(expression: string): string[] {
 }
 
 function glossarySearchTokens(glossary: unknown[]): string[] {
-    return uniqueSearchTokens(glossaryWords(normalizeGlossarySearchText(glossarySearchText(glossary))).flatMap(glossaryWordSearchTokens))
+    return uniqueSearchTokens(glossaryWords(normalizeGlossarySearchText(glossaryValueToSearchText(glossary))).flatMap(glossaryWordSearchTokens))
         .slice(0, TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM);
 }
 
@@ -2383,23 +2384,6 @@ function uniqueSearchTokens(tokens: string[]): string[] {
         seen.add(token);
         return true;
     });
-}
-
-function glossarySearchText(value: unknown): string {
-    if (value == null) return '';
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
-    if (Array.isArray(value)) return value.map(glossarySearchText).filter(Boolean).join(' ');
-    if (!isRecord(value)) return '';
-    if (typeof value.text === 'string') return value.text;
-    if ('content' in value) return glossarySearchText(value.content);
-    return ['description', 'alt', 'title']
-        .map(key => glossarySearchText(value[key]))
-        .filter(Boolean)
-        .join(' ');
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function trimTermSearchCandidates(

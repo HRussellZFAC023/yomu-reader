@@ -62,6 +62,7 @@ import { renderSubtitlePrimary } from '../../src/reader/subtitle-rendering';
 import { planTranscriptHydrationIndexes } from '../../src/reader/subtitle-transcript-hydration';
 import { getUserscriptHttpRequest, installUserscriptHttpBridge } from '../../src/reader/userscript';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport, renderDictionaryScopedStyles, type YomitanTermEntry } from '../../src/reader/yomitan';
+import { glossaryValueToSearchText } from '../../src/reader/yomitan-glossary-text';
 import type { AudioSourceSetting, JPDBCard, JPDBToken } from '../../src/reader/types';
 import { yomitanZipBlob } from './zip-fixture';
 import PublicProxyWorker, { isAllowedPublicProxyTarget } from '../../workers/jpdb-public-proxy/src/index';
@@ -10517,6 +10518,9 @@ describe('reader helpers', () => {
         expect(html).toContain('definition');
         expect(glossaryToHtml(['読', { tag: 'ruby', content: ['む', { tag: 'rt', content: 'む' }] }]))
             .toContain('読<ruby');
+        expect(glossaryToText({ text: 123, description: 'display fallback' })).toBe('123 display fallback');
+        expect(glossaryValueToSearchText({ text: 123, description: 'search fallback' })).toBe('search fallback');
+        expect(glossaryValueToSearchText({ tag: 'span', 'data-content': 'xref-only' })).toBe('');
     });
 
     it('preserves dictionary-provided form table symbols', () => {
@@ -16885,6 +16889,9 @@ describe('reader helpers', () => {
                             { expression: '面白い', reading: 'おもしろい', glossary: ['interesting; amusing'], score: 18, dictionary: 'Jitendex.org [2025-12-02]' },
                             { expression: '女', reading: 'おんな', glossary: ['woman'], score: 22, dictionary: 'Jitendex.org [2025-12-02]' },
                             { expression: '別語', reading: 'べつご', glossary: ['女'], score: 30, dictionary: 'Jitendex.org [2025-12-02]' },
+                            { expression: '検索用内容', reading: 'けんさくようないよう', glossary: [{ tag: 'span', content: ['visible nested meaning'] }], score: 12, dictionary: 'Jitendex.org [2025-12-02]' },
+                            { expression: '検索用説明', reading: 'けんさくようせつめい', glossary: [{ path: 'scan.png', description: 'diagram metadata' }], score: 11, dictionary: 'Jitendex.org [2025-12-02]' },
+                            { expression: '属性だけ', reading: 'ぞくせいだけ', glossary: [{ tag: 'span', 'data-content': 'xref-only hidden attribute' }], score: 10, dictionary: 'Jitendex.org [2025-12-02]' },
                         ],
                     },
                 ],
@@ -16917,7 +16924,14 @@ describe('reader helpers', () => {
         const kanjiSearchExpressions = (await store.searchTerms('女', 5)).map(entry => entry.expression);
         expect(kanjiSearchExpressions).toContain('女');
         expect(kanjiSearchExpressions).not.toContain('別語');
+        expect(glossaryToText({ tag: 'span', 'data-content': 'visible fallback' })).toBe('visible fallback');
+        expect((await store.searchTerms('visible', 5)).map(entry => entry.expression)).toContain('検索用内容');
+        expect((await store.searchTerms('diagram', 5)).map(entry => entry.expression)).toContain('検索用説明');
+        expect((await store.searchTerms('xref-only', 5)).map(entry => entry.expression)).not.toContain('属性だけ');
         await store.prepareTermSearchIndex();
+        expect((await store.searchTerms('visible', 5)).map(entry => entry.expression)).toContain('検索用内容');
+        expect((await store.searchTerms('diagram', 5)).map(entry => entry.expression)).toContain('検索用説明');
+        expect((await store.searchTerms('xref-only', 5)).map(entry => entry.expression)).not.toContain('属性だけ');
         const termSearchCount = await new Promise<number>((resolve, reject) => {
             const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
             request.onsuccess = () => {

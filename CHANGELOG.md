@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.69] - 2026-05-31
+
+### Changed
+
+- Consolidated Yomitan glossary text flattening so compact dictionary display and local dictionary search share traversal code while preserving their different `data-*` search semantics.
+- Trimmed stale YouTube and RTK exports that were only test or internal seams.
+
+### Fixed
+
+- Hardened QA coverage for visible runtime error toasts, Immersion Kit local glossary parsing, and the compact subtitle side-panel toggle staying clickable while previous/next controls idle.
+- Narrowed the runtime QA public-proxy fixture so proxied JPDB audio responses cannot masquerade as JPDB parse/search JSON.
+
 ## [0.4.68] - 2026-05-31
 
 ### Fixed

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.68
+// @version      0.4.69
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -8024,6 +8024,60 @@ ${candidate.depth}`;
   const record = value;
   return record.frequency ?? record.value ?? record.displayValue;
  }
+ const GLOSSARY_DISPLAY_TEXT_KEYS = /* @__PURE__ */ new Set(["text", "content", "description", "alt", "title"]);
+ const GLOSSARY_SEARCH_FALLBACK_TEXT_KEYS = /* @__PURE__ */ new Set(["description", "alt", "title"]);
+ function glossaryValueToText(value) {
+  return glossaryValueToProfileText(value, {
+   includeDirectDataAttributes: true,
+   fallbackTextKeys: GLOSSARY_DISPLAY_TEXT_KEYS
+  });
+ }
+ function glossaryValueToSearchText(value) {
+  return glossaryValueToProfileText(value, {
+   includeDirectDataAttributes: false,
+   fallbackTextKeys: GLOSSARY_SEARCH_FALLBACK_TEXT_KEYS
+  });
+ }
+ function glossaryValueToProfileText(value, options) {
+  const primitiveText = primitiveGlossaryText(value);
+  if (primitiveText !== void 0) return primitiveText;
+  if (Array.isArray(value)) {
+   return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
+  }
+  return isRecord$3(value) ? glossaryRecordToText(value, options) : "";
+ }
+ function primitiveGlossaryText(value) {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return void 0;
+ }
+ function glossaryRecordToText(record, options) {
+  if (typeof record.text === "string") return record.text;
+  if ("content" in record) return glossaryValueToProfileText(record.content, options);
+  const values = glossaryRecordTextValues(record, options);
+  if (values.length) return values.join(" ");
+  if ("path" in record) return glossaryPathRecordText(record);
+  return "";
+ }
+ function glossaryPathRecordText(record) {
+  return String(record.description || record.alt || "");
+ }
+ function glossaryRecordTextValues(record, options) {
+  const values = [];
+  for (const [key, childValue] of Object.entries(record)) {
+   if (!shouldReadRecordTextKey(key, options)) continue;
+   const childText = glossaryValueToProfileText(childValue, options);
+   if (childText) values.push(childText);
+  }
+  return values;
+ }
+ function shouldReadRecordTextKey(key, options) {
+  return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
+ }
+ function isRecord$3(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+ }
  const STRUCTURED_CONTENT_TAGS = /* @__PURE__ */ new Set([
   "br",
   "ruby",
@@ -8077,29 +8131,6 @@ ${candidate.depth}`;
   listStyleType: "list-style-type"
  };
  const STRUCTURED_NUMERIC_EM_STYLES = /* @__PURE__ */ new Set(["marginTop", "marginLeft", "marginRight", "marginBottom"]);
- function glossaryValueToText(value) {
-  const primitiveText = primitiveGlossaryText(value);
-  if (primitiveText !== void 0) return primitiveText;
-  if (Array.isArray(value)) return value.map(glossaryValueToText).filter(Boolean).join(" ");
-  return isRecord$3(value) ? glossaryRecordToText(value) : "";
- }
- function primitiveGlossaryText(value) {
-  if (value == null) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return void 0;
- }
- function glossaryRecordToText(record) {
-  if (typeof record.text === "string") return record.text;
-  if ("content" in record) return glossaryValueToText(record.content);
-  const values = glossaryRecordTextValues(record);
-  if (values.length) return values.join(" ");
-  if ("path" in record) return glossaryPathRecordText(record);
-  return "";
- }
- function glossaryPathRecordText(record) {
-  return String(record.description || record.alt || "");
- }
  function renderStructuredGlossaryHtml(value, dictionary = "", options = {}) {
   return renderGlossaryValue(value, {
    dictionary,
@@ -8110,7 +8141,7 @@ ${candidate.depth}`;
   if (value == null) return "";
   if (isStructuredPrimitive(value)) return escapeHtml(String(value));
   if (Array.isArray(value)) return renderGlossaryArray(value, context);
-  if (!isRecord$3(value)) return "";
+  if (!isRecord$2(value)) return "";
   return renderGlossaryRecord(value, context);
  }
  function isStructuredPrimitive(value) {
@@ -8467,16 +8498,6 @@ ${candidate.depth}`;
    return "";
   }
  }
- function glossaryRecordTextValues(record) {
-  const textKeys = /* @__PURE__ */ new Set(["text", "content", "description", "alt", "title"]);
-  const values = [];
-  for (const [key, childValue] of Object.entries(record)) {
-   if (!textKeys.has(key) && !key.startsWith("data-")) continue;
-   const childText = glossaryValueToText(childValue);
-   if (childText) values.push(childText);
-  }
-  return values;
- }
  function numericRecordValue(record, key) {
   const value = record[key];
   return typeof value === "number" && Number.isFinite(value) ? value : void 0;
@@ -8487,7 +8508,7 @@ ${candidate.depth}`;
  function camelToKebabCase(value) {
   return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
  }
- function isRecord$3(value) {
+ function isRecord$2(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
  }
  function escapeHtml(value) {
@@ -11194,7 +11215,7 @@ ${glossaryKey}`;
  function glossaryTermSearchRank(glossary, query) {
   const normalizedQuery = normalizeGlossarySearchText(query);
   if (!normalizedQuery) return Number.POSITIVE_INFINITY;
-  const text2 = normalizeGlossarySearchText(glossarySearchText(glossary));
+  const text2 = normalizeGlossarySearchText(glossaryValueToSearchText(glossary));
   if (!text2) return Number.POSITIVE_INFINITY;
   if (text2 === normalizedQuery) return 30;
   if (glossaryHasExactWord(text2, normalizedQuery)) return 34;
@@ -11245,7 +11266,7 @@ ${glossaryKey}`;
   });
  }
  function glossarySearchTokens(glossary) {
-  return uniqueSearchTokens(glossaryWords(normalizeGlossarySearchText(glossarySearchText(glossary))).flatMap(glossaryWordSearchTokens)).slice(0, TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM);
+  return uniqueSearchTokens(glossaryWords(normalizeGlossarySearchText(glossaryValueToSearchText(glossary))).flatMap(glossaryWordSearchTokens)).slice(0, TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM);
  }
  function glossaryWordSearchTokens(word) {
   const tokens = [];
@@ -11269,18 +11290,6 @@ ${glossaryKey}`;
    seen.add(token);
    return true;
   });
- }
- function glossarySearchText(value) {
-  if (value == null) return "";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
-  if (Array.isArray(value)) return value.map(glossarySearchText).filter(Boolean).join(" ");
-  if (!isRecord$2(value)) return "";
-  if (typeof value.text === "string") return value.text;
-  if ("content" in value) return glossarySearchText(value.content);
-  return ["description", "alt", "title"].map((key) => glossarySearchText(value[key])).filter(Boolean).join(" ");
- }
- function isRecord$2(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
  }
  function trimTermSearchCandidates(candidates, candidateLimit, query, rank) {
   if (candidates.length <= candidateLimit * 2) return;

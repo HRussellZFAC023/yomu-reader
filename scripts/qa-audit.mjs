@@ -1475,7 +1475,7 @@ async function seedLocalKanjiDictionaries(page) {
                 { expression: '今日', reading: 'きょう', glossary: ['today'], score: 9, dictionary: 'Jitendex' },
                 { expression: '今朝', reading: 'けさ', glossary: ['this morning'], score: 8, dictionary: 'Jitendex' },
                 { expression: '今週', reading: 'こんしゅう', glossary: ['this week'], score: 7, dictionary: 'Jitendex' },
-                { expression: '読む', reading: 'よむ', glossary: ['to read'], score: 10, dictionary: 'Jitendex' },
+                { expression: '読む', reading: 'よむ', glossary: ['to read', '日本語を読む'], score: 10, dictionary: 'Jitendex' },
                 { expression: '母', reading: 'はは', glossary: [{ type: 'structured-content', content: { tag: 'ul', data: { content: 'glossary' }, content: [{ tag: 'li', content: [{ tag: 'span', data: { content: 'part-of-speech-info' }, content: 'n' }, ' mother; mama'] }] } }], score: 10, dictionary: 'Jitendex' },
                 { expression: '母', reading: 'はは', glossary: [{ tag: 'ul', data: { content: 'glossary' }, content: [{ tag: 'li', content: 'female parent name entry' }] }], score: 5, dictionary: 'JMnedict' },
             ].forEach(entry => {
@@ -1696,7 +1696,7 @@ async function auditSettings(browser, server) {
 }
 
 async function auditSettingsMobile(browser, server) {
-    const { page } = await newAuditedPage(browser, {
+    const { page, requests } = await newAuditedPage(browser, {
         ...baseSettings,
         apiKey: '',
         showFloatingButton: true,
@@ -2002,6 +2002,22 @@ function assertNoPageBrowserErrors(errors, label) {
     assertAudit(quiet, `${label} produced browser errors: ${JSON.stringify(errors)}`);
 }
 
+async function assertNoVisibleReaderErrorToasts(page, label, detail = undefined) {
+    const toasts = await page.evaluate(() => [...document.querySelectorAll('.jpdb-reader-toast')]
+        .filter(toast => toast instanceof HTMLElement
+            && !toast.hidden
+            && getComputedStyle(toast).display !== 'none'
+            && getComputedStyle(toast).visibility !== 'hidden')
+        .map(toast => toast.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+        .filter(Boolean));
+    const errors = toasts.filter(toastLooksLikeReaderError);
+    assertAudit(!errors.length, `${label} showed visible error toasts: ${JSON.stringify({ errors, detail })}`);
+}
+
+function toastLooksLikeReaderError(text) {
+    return /error|failed|could not|unable|unexpected|syntaxerror|json|id3|no audio|returned no audio/i.test(text);
+}
+
 async function auditBloomeeAutoScan(browser) {
     const { page, requests } = await newAuditedPage(browser, { ...baseSettings, showFloatingButton: false, ocrEnabled: false });
     await page.route('https://bloomeelife.com/**', route => route.fulfill({
@@ -2259,7 +2275,7 @@ async function auditHoverLookup(browser, server) {
 
 async function auditRuntimeRegressionFixes(browser, server) {
     const runtimeAudioRequests = [];
-    const { page } = await newAuditedPage(browser, {
+    const { page, requests } = await newAuditedPage(browser, {
         ...baseSettings,
         lookupOnClick: true,
         lookupOnHover: true,
@@ -2314,15 +2330,36 @@ async function auditRuntimeRegressionFixes(browser, server) {
         runtimeAudioRequests.push({ kind: 'direct', url: route.request().url() });
         route.abort('failed');
     });
-    await page.route('https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/**', route => {
+    await page.route('https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/**', async route => {
+        const request = route.request();
         const url = new URL(route.request().url());
         const target = url.searchParams.get('url') ?? '';
-        runtimeAudioRequests.push({ kind: 'proxy', url: route.request().url(), target });
-        route.fulfill({
-            status: 200,
-            contentType: 'audio/ogg',
-            body: encodedJpdbOggBytes(),
-        });
+        runtimeAudioRequests.push({ kind: 'proxy', url: request.url(), target });
+        if (/^https:\/\/jpdb\.io\/static\/v\//i.test(target)) {
+            await route.fulfill({
+                status: 200,
+                contentType: 'audio/ogg',
+                body: encodedJpdbOggBytes(),
+            });
+            return;
+        }
+        const mocked = target
+            ? maybeMockQaRequest({
+                method: request.method(),
+                url: target,
+                headers: request.headers(),
+                data: request.postData() ?? undefined,
+            })
+            : null;
+        if (mocked) {
+            await route.fulfill({
+                status: mocked.status,
+                contentType: mocked.contentType,
+                body: Buffer.from(mocked.bytes),
+            });
+            return;
+        }
+        await route.abort('failed');
     });
 
     await page.goto(`${server.origin}${QA_RUNTIME_REGRESSION_PATH}`, { waitUntil: 'domcontentloaded' });
@@ -2493,14 +2530,19 @@ async function auditRuntimeRegressionFixes(browser, server) {
         assertNoPageBrowserErrors(browserErrors, 'runtime regression fixture');
     } catch (error) {
         failures.push(error instanceof Error ? error.message : String(error));
-	    }
-	    await page.screenshot({ path: path.join(ARTIFACTS, 'runtime-regression.png'), fullPage: false });
-	    try {
-	        await assertRuntimeLinkCardLookupAndNavigation(page);
-	    } catch (error) {
-	        failures.push(error instanceof Error ? error.message : String(error));
-	    }
-	    await page.close();
+    }
+    try {
+        await assertNoVisibleReaderErrorToasts(page, 'runtime regression fixture', { runtimeAudioRequests, requests: requests.slice(-24) });
+    } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
+    }
+    await page.screenshot({ path: path.join(ARTIFACTS, 'runtime-regression.png'), fullPage: false });
+    try {
+        await assertRuntimeLinkCardLookupAndNavigation(page);
+    } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
+    }
+    await page.close();
     if (failures.length) throw new Error(failures.join(' | '));
     record('runtime regression fixture', 'pass', '読んで lookup, stale hover dismissal, study/example audio, and Immersion Kit parsing stayed healthy');
 }
@@ -2754,10 +2796,9 @@ async function auditImmersionKitPopover(browser, server) {
     });
     await page.addInitScript(() => {
         window.__yomuAudioPlayCount = 0;
-        const originalPlay = HTMLMediaElement.prototype.play;
-        HTMLMediaElement.prototype.play = function play(...args) {
+        HTMLMediaElement.prototype.play = function play() {
             window.__yomuAudioPlayCount += 1;
-            return originalPlay.apply(this, args);
+            return Promise.resolve();
         };
     });
     await page.route(`${server.origin}/immersion-fixture.html`, route => route.fulfill({
@@ -2790,6 +2831,8 @@ async function auditImmersionKitPopover(browser, server) {
         translationVisible: Boolean(document.querySelector('[data-immersion-kit] .jpdb-reader-example-translation')),
         imageVisible: Boolean(document.querySelector('.jpdb-reader-example-image')),
         localDefinitionWords: document.querySelectorAll('.jpdb-reader-local-glossary .jpdb-reader-word').length,
+        localDefinitionTexts: [...document.querySelectorAll('.jpdb-reader-local-glossary')]
+            .map(node => node.textContent?.replace(/\s+/g, ' ').trim() ?? ''),
         hasAnkiEdit: Boolean(document.querySelector('[data-action="anki-edit"]')),
         hasAddToAnki: Boolean(document.querySelector('[data-action="anki"]')),
         ankiExisting: document.querySelector('.jpdb-reader-anki-existing')?.textContent ?? '',
@@ -2798,7 +2841,11 @@ async function auditImmersionKitPopover(browser, server) {
     assertAudit(firstSnapshot.exampleWords >= 2, 'Immersion Kit sentence is not recursively tokenized');
     assertAudit(!firstSnapshot.translationVisible, 'Immersion Kit translations are visible despite the default-off setting');
     assertAudit(firstSnapshot.imageVisible, 'Immersion Kit thumbnail did not render');
-    assertAudit(firstSnapshot.localDefinitionWords >= 0, 'local dictionary recursive parsing did not run');
+    assertAudit(
+        firstSnapshot.localDefinitionWords > 0
+            && firstSnapshot.localDefinitionTexts.some(text => /日本語.*読む|読む.*日本語/.test(text)),
+        `local dictionary recursive parsing did not run: ${JSON.stringify(firstSnapshot)}`,
+    );
     assertAudit(firstSnapshot.hasAnkiEdit && !firstSnapshot.hasAddToAnki, 'existing Anki card did not replace Add to Anki with Edit in Anki');
     assertAudit(firstSnapshot.ankiExisting.includes('Anime Mining') && firstSnapshot.ankiExisting.includes('今日は本を読む'), 'existing Anki card preview did not render deck and sentence context');
     await page.evaluate(() => {
@@ -2929,6 +2976,7 @@ async function auditImmersionKitPopover(browser, server) {
             && spellings.some(spelling => spelling.includes('読'));
     }, 6000, 'nested Immersion lookup back arrow did not return to the source popup');
     await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'source Immersion lookup kept showing dictionary loading details after back navigation');
+    await assertNoVisibleReaderErrorToasts(page, 'Immersion Kit popup examples');
     await page.close();
     record('Immersion Kit popup examples', 'pass', 'examples render in-card and nested words open lookup');
 }
@@ -3067,6 +3115,38 @@ async function auditVideoFixture(browser, server) {
         };
     });
     assertVideoFixtureSnapshot(snapshot);
+    const idleRailSnapshot = await page.evaluate(() => {
+        const root = document.querySelector('.jpdb-subtitle-player');
+        if (root instanceof HTMLElement) {
+            root.classList.add('jpdb-subtitle-controls-auto', 'jpdb-subtitle-controls-idle', 'jpdb-subtitle-compact-video');
+            root.classList.remove('jpdb-subtitle-panel-open');
+        }
+        const rail = document.querySelector('.jpdb-subtitle-rail');
+        const previous = document.querySelector('.jpdb-subtitle-rail [data-action="previous"]');
+        const next = document.querySelector('.jpdb-subtitle-rail [data-action="next"]');
+        const panel = document.querySelector('.jpdb-subtitle-rail [data-action="panel"]');
+        const styleFor = element => {
+            if (!(element instanceof HTMLElement)) return null;
+            const style = getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return {
+                opacity: style.opacity,
+                pointerEvents: style.pointerEvents,
+                visibility: style.visibility,
+                display: style.display,
+                width: rect.width,
+                height: rect.height,
+            };
+        };
+        return {
+            rootClass: root instanceof HTMLElement ? root.className : '',
+            rail: styleFor(rail),
+            previous: styleFor(previous),
+            next: styleFor(next),
+            panel: styleFor(panel),
+        };
+    });
+    assertCompactIdleRailSnapshot(idleRailSnapshot);
     await page.evaluate(() => {
         const video = document.querySelector('video');
         if (!video) return;
@@ -3154,6 +3234,14 @@ function hasLaidOutSubtitlePlayer(snapshot) {
 
 function hasVisibleFixtureSubtitleText(snapshot) {
     return snapshot.subtitleText.includes('今日') && snapshot.subtitleText.includes('読');
+}
+
+function assertCompactIdleRailSnapshot(snapshot) {
+    assertAudit(Number.parseFloat(snapshot.rail?.opacity ?? '0') >= 0.8 && snapshot.rail?.pointerEvents !== 'none', `idle compact subtitle rail is not visible/clickable: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.panel?.pointerEvents !== 'none' && snapshot.panel?.visibility !== 'hidden' && snapshot.panel?.display !== 'none', `idle compact subtitle panel toggle is not clickable: ${JSON.stringify(snapshot)}`);
+    assertAudit((snapshot.panel?.width ?? 0) >= 28 && (snapshot.panel?.height ?? 0) >= 28, `idle compact subtitle panel toggle is not laid out: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.previous?.opacity === '0' && snapshot.previous?.pointerEvents === 'none', `idle compact previous subtitle control should hide: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.next?.opacity === '0' && snapshot.next?.pointerEvents === 'none', `idle compact next subtitle control should hide: ${JSON.stringify(snapshot)}`);
 }
 
 function assertDesktopTranscriptLayout(layout) {

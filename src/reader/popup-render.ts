@@ -29,7 +29,7 @@ export function tokensOverlappingSelection(tokens: JPDBToken[] = [], selected: s
     return tokens.filter(token => token.start < end && token.end > start);
 }
 
-export interface RtkComponentSummary {
+interface RtkComponentSummary {
     kanji: string;
     keyword: string;
     meaning: string;
