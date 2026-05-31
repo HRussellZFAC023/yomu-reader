@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.66] - 2026-05-31
+
+### Fixed
+
+- Kept hosted new-tab prompt, kanji drilldown, and similar-word nested lookups on the same popup navigation stack, so those drilldowns preserve back navigation instead of replacing the active card.
+
+### Changed
+
+- Shared oldest-entry cache pruning across Immersion Kit, study-source, translation, and new-tab parse caches, with coverage for Map, Set, zero-limit, and `undefined` cache keys.
+
 ## [0.4.65] - 2026-05-31
 
 ### Fixed
