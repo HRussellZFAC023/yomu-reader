@@ -4,7 +4,7 @@ import type { JpdbClient } from './jpdb';
 import type { JpdbPublicPitchClient } from './jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from './jpdb-vocabulary';
 import { Logger } from './logger';
-import { localPitchPatternFromMeta } from './popup-render';
+import { localPitchPatternFromMeta } from './pitch-meta';
 import { shouldLookupAnkiStatus } from './settings';
 import type { JPDBCard, JPDBDeck, ReaderSettings } from './types';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from './yomitan';

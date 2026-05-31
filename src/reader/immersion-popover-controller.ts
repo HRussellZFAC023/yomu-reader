@@ -34,7 +34,7 @@ import {
     type MiningContextDraft,
     type StoredMiningContext,
 } from './mining-context';
-import { speakerIcon } from './popup-render';
+import { speakerIcon } from './icons';
 import { jpdbFirstParseOptions, type ReaderParserParseOptions } from './reader-parser';
 import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 
