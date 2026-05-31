@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.70] - 2026-05-31
+
+### Fixed
+
+- Restored hosted Try Me fallback word state plus pitch underline/highlight defaults so words such as `下` remain visibly styled and clickable when JPDB data is partial or unavailable.
+- Kept Immersion Kit nested example lookups tied to the example sentence and current study card history, preserving the back arrow instead of opening malformed popup context.
+- Recognized current YouTube player wrappers and kept the subtitle side-panel toggle clickable when compact controls are hidden.
+
 ## [0.4.69] - 2026-05-31
 
 ### Changed

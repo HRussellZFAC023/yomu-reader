@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.69
+// @version      0.4.70
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -2890,7 +2890,6 @@ Greasy Fork compliance notes:
   return classes.join(" ");
  }
  function hasKnownCardState(card) {
-  if (card.source === "fallback") return false;
   return Array.isArray(card.cardState) && card.cardState.length > 0;
  }
  function safePitchClass(value) {
@@ -8038,6 +8037,9 @@ ${candidate.depth}`;
    fallbackTextKeys: GLOSSARY_SEARCH_FALLBACK_TEXT_KEYS
   });
  }
+ function normalizeGlossarySearchText(value) {
+  return value.normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}\s'-]+/gu, " ").replace(/\s+/g, " ").trim();
+ }
  function glossaryValueToProfileText(value, options) {
   const primitiveText = primitiveGlossaryText(value);
   if (primitiveText !== void 0) return primitiveText;
@@ -11222,9 +11224,6 @@ ${glossaryKey}`;
   if (glossaryHasWordPrefix(text2, normalizedQuery)) return 44;
   if (text2.includes(normalizedQuery)) return 68;
   return Number.POSITIVE_INFINITY;
- }
- function normalizeGlossarySearchText(value) {
-  return value.normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}\s'-]+/gu, " ").replace(/\s+/g, " ").trim();
  }
  function glossaryHasExactWord(text2, query) {
   return glossaryWords(text2).some((word) => word === query);
@@ -33713,6 +33712,7 @@ ${glossaryKey}`;
  function isYouTubePage$1() {
   return /(^|\.)youtube\.com$/i.test(location.hostname);
  }
+ const YOUTUBE_VIDEO_OWNER_SELECTOR = "#movie_player, .html5-video-player, ytd-player, ytd-watch-flexy";
  async function discoverYouTubeCaptionTracks() {
   const pageTracks = getYouTubeCaptionTracks();
   const androidTracks = await getAndroidYouTubeCaptionTracks();
@@ -33816,9 +33816,10 @@ ${glossaryKey}`;
  function isYouTubeOwnedVideoElement(video) {
   if (!isYouTubePage()) return true;
   if (!video || !getYouTubeVideoId()) return false;
-  const player = video.closest("#movie_player");
-  if (!player) return false;
-  const playerVideoId = getYouTubePlayerVideoId(player);
+  const owner = video.closest(YOUTUBE_VIDEO_OWNER_SELECTOR);
+  if (!owner) return false;
+  const player = video.closest("#movie_player, .html5-video-player");
+  const playerVideoId = getYouTubePlayerVideoId(player ?? owner);
   return !playerVideoId || playerVideoId === getYouTubeVideoId();
  }
  function shouldRefreshYouTubeTrackUrl(next, current) {
@@ -39267,7 +39268,15 @@ ${glossaryKey}`;
     ocrAutoScanImages: false,
     autoScanJapanese: false,
     scanVisiblePage: false,
-    showFloatingButton: false
+    showFloatingButton: false,
+    wordUnderlineColorSource: "pitch",
+    wordTextColorSource: "off",
+    pitchColorHeiban: "#74c0ff",
+    pitchColorAtamadaka: "#ff8fab",
+    pitchColorNakadaka: "#ffd166",
+    pitchColorOdaka: "#7ee7d1",
+    pitchColorKifuku: "#c4a3ff",
+    pitchColorUnknown: "#cbd5e1"
    };
    this.isDemo = true;
   }
@@ -40997,6 +41006,7 @@ ${glossaryKey}`;
   }
   renderedWordSentence(word) {
    const tokenSentence = word.dataset.sentence || "";
+   if (tokenSentence && word.closest(".jpdb-reader-example-sentence")) return normalizedLookupText(tokenSentence);
    return preferredRenderedWordSentence(
     nearestReadableSentenceForElement(word, tokenSentence),
     tokenSentence

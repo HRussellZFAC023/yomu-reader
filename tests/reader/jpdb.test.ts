@@ -32,7 +32,7 @@ import { buildNewTabPalette, isYomuNewTabUrl, resolveNewTabBrandAssets } from '.
 import { ObjectUrlCache } from '../../src/reader/object-url-cache';
 import { createPageMediaUrl } from '../../src/reader/page-media-url';
 import { ImageOcrController, normalizeOcrResult, parseGoogleLensUploadHtml, readFallbackOcrResult } from '../../src/reader/ocr';
-import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, SHEET_HEIGHT_STORAGE_KEY, shouldUseSheet } from '../../src/reader/popover-shell';
+import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, shouldUseSheet } from '../../src/reader/popover-shell';
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { DEFAULT_YOMU_PUBLIC_PROXY_URL, fetchWithCorsFallbacks, proxyUrlCandidates } from '../../src/reader/proxy-fetch';
 import { renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderPitch, renderRtkInfo, tokensOverlappingSelection } from '../../src/reader/popup-render';
@@ -88,6 +88,8 @@ const NEW_TAB_CSS = readFileSync('src/reader/styles/new-tab.css', 'utf8');
 const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf8');
 const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
 const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
+const SHEET_HEIGHT_STORAGE_KEY = 'jpdb-reader-sheet-height-ratio';
+const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = 'jpdb-reader-settings-drawer-height-ratio';
 
 async function waitForExpect(assertion: () => void | Promise<void>, timeoutMs = 1000): Promise<void> {
     const start = Date.now();
@@ -700,6 +702,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-new, .jpdb-suspended, .jpdb-not-in-deck) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff); --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, 0.16)); }');
         expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f); --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16)); }');
         expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant, .anki-known) { --jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f); --jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16)); }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-pitch-unknown { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown, #94a3b8); --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent); }');
         expect(normalizedCss).toContain('.jpdb-reader-word-highlight-status .jpdb-reader-word { background: var(--jpdb-reader-source-status-soft, transparent) !important; }');
         expect(normalizedCss).toContain('.jpdb-reader-word-underline-status .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent); }');
         expect(normalizedCss).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); }');
@@ -2070,8 +2073,7 @@ describe('reader helpers', () => {
             expect(tokens.map(token => token.card.spelling)).toEqual(['きょう', 'は', 'よむ']);
             expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 3], [3, 4], [4, 6]]);
             const rendered = renderTokensToHtml('きょうはよむ', tokens, DEFAULT_SETTINGS);
-            expect(rendered).toContain('jpdb-reader-word jpdb-pitch-unknown');
-            expect(rendered).not.toContain('jpdb-not-in-deck');
+            expect(rendered).toContain('jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown');
         } finally {
             if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
             else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
@@ -2483,6 +2485,10 @@ describe('reader helpers', () => {
             expect(settings.audioEnabled).toBe(true);
             expect(settings.autoPlayAudio).toBe(false);
             expect(settings.immersionKitAutoPlayAudio).toBe(false);
+            expect(settings.wordUnderlineColorSource).toBe('pitch');
+            expect(settings.wordTextColorSource).toBe('off');
+            expect(settings.pitchColorHeiban).toBe('#74c0ff');
+            expect(settings.pitchColorKifuku).toBe('#c4a3ff');
         } finally {
             app.destroy();
             vi.unstubAllGlobals();

@@ -148,7 +148,10 @@ describe('VisiblePageScanner', () => {
 
             const words = [...document.querySelectorAll<HTMLElement>('[data-yomu-demo-lookup] .jpdb-reader-word')];
             expect(words.map(word => word.textContent)).toContain('下');
-            expect(words.find(word => word.textContent === '下')?.dataset.expression).toBe('下');
+            const down = words.find(word => word.textContent === '下');
+            expect(down?.dataset.expression).toBe('下');
+            expect(down?.classList.contains('jpdb-not-in-deck')).toBe(true);
+            expect(down?.tabIndex).toBe(0);
         } finally {
             HTMLElement.prototype.getBoundingClientRect = originalRect;
             window.history.pushState({}, '', '/');

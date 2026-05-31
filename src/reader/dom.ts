@@ -1366,7 +1366,6 @@ function readerWordClassName(state: string, token: JPDBToken): string {
 }
 
 function hasKnownCardState(card: JPDBToken['card']): boolean {
-    if (card.source === 'fallback') return false;
     return Array.isArray(card.cardState) && card.cardState.length > 0;
 }
 

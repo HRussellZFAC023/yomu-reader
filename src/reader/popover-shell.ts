@@ -3,9 +3,8 @@ import { gmStorageGetSync, gmStorageSetSync } from './storage';
 import { setInnerHtml } from './dom';
 import { uiText } from './i18n';
 
-export const SHEET_HEIGHT_STORAGE_KEY = 'jpdb-reader-sheet-height-ratio';
-export const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = 'jpdb-reader-settings-drawer-height-ratio';
-
+const SHEET_HEIGHT_STORAGE_KEY = 'jpdb-reader-sheet-height-ratio';
+const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = 'jpdb-reader-settings-drawer-height-ratio';
 const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
 const DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO = 0.88;
 const MIN_SHEET_HEIGHT_PX = 180;
