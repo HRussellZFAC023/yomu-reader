@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.64] - 2026-05-31
+
+### Fixed
+
+- Shortened the Jisho/Jina markdown proxy fallback to its canonical target URL form so Jisho audio discovery uses a cleaner public fallback chain.
+
+### Changed
+
+- Removed stale popup-render and JPDB text helper exports that no active reader path used.
+
 ## [0.4.63] - 2026-05-31
 
 ### Fixed

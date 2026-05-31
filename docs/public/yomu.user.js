@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.63
+// @version      0.4.64
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -5490,7 +5490,7 @@ Greasy Fork compliance notes:
   try {
    const target = new URL(targetUrl);
    if (target.hostname !== "jisho.org" || !target.pathname.startsWith("/search/")) return null;
-   return `https://r.jina.ai/http://r.jina.ai/http://${target.href}`;
+   return `https://r.jina.ai/${target.href}`;
   } catch {
    return null;
   }

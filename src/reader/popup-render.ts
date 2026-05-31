@@ -60,20 +60,6 @@ function nestedMetaValue(record: Record<string, unknown>): unknown {
     return record.displayValue ?? record.frequency ?? record.value;
 }
 
-export function formatMetaPitch(value: unknown): string {
-    const record = objectRecord(value);
-    if (!record) return '';
-    const positions = metaPitchPositions(record);
-    if (positions.length) return positions.slice(0, 4).map(String).join(', ');
-    if (typeof record.position === 'number') return String(record.position);
-    return '';
-}
-
-function metaPitchPositions(record: Record<string, unknown>): unknown[] {
-    if (Array.isArray(record.pitches)) return record.pitches;
-    return Array.isArray(record.positions) ? record.positions : [];
-}
-
 export function groupTermEntriesByDictionary(entries: YomitanTermEntry[]): Map<string, YomitanTermEntry[]> {
     const grouped = new Map<string, YomitanTermEntry[]>();
     for (const entry of entries) {
@@ -194,29 +180,6 @@ export function mergeSimilarKanjiWords(
         || a.expression.localeCompare(b.expression),
     );
     return result;
-}
-
-export function renderSimilarKanjiWordsContent(
-    localEntries: YomitanTermEntry[],
-    jpdbVocabulary: JpdbKanjiVocabulary[],
-    currentCard: JPDBCard,
-    settings: ReaderSettings,
-    dictionaryLabel: (name: string) => string,
-): string {
-    const words = mergeSimilarKanjiWords(localEntries, jpdbVocabulary, currentCard, dictionaryLabel).slice(0, settings.similarKanjiWordLimit);
-    if (!words.length) return '';
-    return `
-        <div class="jpdb-reader-local-entry jpdb-reader-similar-words">
-            ${words.map(word => `
-                <button class="jpdb-reader-similar-word" type="button" data-action="lookup" data-term="${escapeHtml(word.expression)}" data-reading="${escapeHtml(word.reading)}">
-                    <span class="jpdb-reader-similar-expression">${escapeHtml(word.expression)}</span>
-                    ${word.reading && word.reading !== word.expression ? `<span class="jpdb-reader-similar-reading">${escapeHtml(word.reading)}</span>` : ''}
-                    ${word.meaning ? `<span class="jpdb-reader-similar-meaning">${escapeHtml(word.meaning)}</span>` : ''}
-                    <span class="jpdb-reader-similar-source">${escapeHtml(word.source)}${word.frequency ? ` #${escapeHtml(String(word.frequency))}` : ''}</span>
-                </button>
-            `).join('')}
-        </div>
-    `;
 }
 
 export function summarizeLearnerGlossary(entry: Pick<YomitanTermEntry, 'glossary'>): string {

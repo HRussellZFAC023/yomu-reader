@@ -3845,7 +3845,7 @@ describe('reader helpers', () => {
             expect(urls.indexOf(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`))
                 .toBeLessThan(urls.indexOf(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`));
             expect(urls).toContain(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`);
-            expect(urls).toContain('https://r.jina.ai/http://r.jina.ai/http://https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B');
+            expect(urls).toContain('https://r.jina.ai/https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B');
             expect(spoken).toEqual([card.spelling]);
         } finally {
             vi.unstubAllGlobals();

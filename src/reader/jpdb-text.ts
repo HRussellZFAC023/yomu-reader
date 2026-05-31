@@ -29,10 +29,6 @@ export function canonicalUchisenUrl(value: string): string {
     }
 }
 
-export function firstJapaneseRun(value: string): string {
-    return value.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]+/u)?.[0] ?? cleanText(value);
-}
-
 export function firstReviewGlyph(text: string): string | null {
     const direct = text.match(KANJI_RE);
     if (direct) return direct[0];
