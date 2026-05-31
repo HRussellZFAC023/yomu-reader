@@ -2,6 +2,7 @@ import { AudioPlayer } from './audio';
 import { hasVisiblePageVideo } from './browser-ui';
 import { cardHighlightTargets, highlightCardTargetWords } from './card-highlight';
 import { cardKey } from './card-utils';
+import { pruneOldestCacheEntries } from './cache-utils';
 import { escapeHtml, renderHighlightedTextHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { exampleSentenceLookupTokens } from './example-sentence-tokens';
 import {
@@ -347,7 +348,7 @@ export class ImmersionPopoverController {
             const audioKey = hoverAudioExampleKey(examples[index]);
             if (this.hoverAudioPlayedKeys.has(audioKey)) return;
             this.hoverAudioPlayedKeys.add(audioKey);
-            pruneOldestSetEntries(this.hoverAudioPlayedKeys, IMMERSION_HOVER_AUDIO_KEY_LIMIT);
+            pruneOldestCacheEntries(this.hoverAudioPlayedKeys, IMMERSION_HOVER_AUDIO_KEY_LIMIT);
             hoverAudioCanPlay = false;
             hoverAudioActive = true;
             void this.playExampleAudio(examples[index], true, () => hoverAudioActive && container.isConnected && hoverTarget.isConnected && hoverTarget.matches(':hover'));
@@ -669,7 +670,7 @@ export class ImmersionPopoverController {
         const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, total, imageUrl, audioUrls));
         if (storedContext) {
             this.contextByCardKey.set(cardKey(card), storedContext);
-            pruneOldestMapEntries(this.contextByCardKey, IMMERSION_CONTEXT_CACHE_LIMIT);
+            pruneOldestCacheEntries(this.contextByCardKey, IMMERSION_CONTEXT_CACHE_LIMIT);
             this.promoteExampleMiningContext(card, storedContext, promoteMiningContext);
         }
     }
@@ -848,9 +849,9 @@ export class ImmersionPopoverController {
             .catch(error => {
                 if (this.parsedSentenceCache.get(key) === entry) this.parsedSentenceCache.delete(key);
                 throw error;
-            });
+        });
         this.parsedSentenceCache.set(key, entry);
-        pruneOldestMapEntries(this.parsedSentenceCache, IMMERSION_PARSED_SENTENCE_CACHE_LIMIT);
+        pruneOldestCacheEntries(this.parsedSentenceCache, IMMERSION_PARSED_SENTENCE_CACHE_LIMIT);
         return entry.promise;
     }
 
@@ -1223,23 +1224,7 @@ function pruneImmersionSearchCache(cache: Map<string, { expiresAt: number; promi
     for (const [key, value] of cache) {
         if (value.expiresAt <= now) cache.delete(key);
     }
-    pruneOldestMapEntries(cache, limit);
-}
-
-function pruneOldestMapEntries<TKey, TValue>(cache: Map<TKey, TValue>, limit: number): void {
-    while (cache.size > limit) {
-        const oldest = cache.keys().next().value as TKey | undefined;
-        if (oldest === undefined) break;
-        cache.delete(oldest);
-    }
-}
-
-function pruneOldestSetEntries<TValue>(cache: Set<TValue>, limit: number): void {
-    while (cache.size > limit) {
-        const oldest = cache.keys().next().value as TValue | undefined;
-        if (oldest === undefined) break;
-        cache.delete(oldest);
-    }
+    pruneOldestCacheEntries(cache, limit);
 }
 
 function renderExampleTranslation(translation: string, settings: ReaderSettings): string {

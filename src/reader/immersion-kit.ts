@@ -1,3 +1,4 @@
+import { pruneOldestCacheEntries } from './cache-utils';
 import { Logger } from './logger';
 import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
@@ -169,7 +170,7 @@ export class ImmersionKitClient {
                 const result = applySearchExampleLimit(examples, settings, options);
                 if (!options.signal?.aborted) {
                     this.cache.set(cacheKey, result);
-                    pruneOldestMapEntries(this.cache, SEARCH_CACHE_LIMIT);
+                    pruneOldestCacheEntries(this.cache, SEARCH_CACHE_LIMIT);
                 }
                 return result;
             })
@@ -357,7 +358,7 @@ export class ImmersionKitClient {
         const query = term.trim();
         if (!canSearchImmersionExamples(query, settings) || this.preloadKeys.has(query)) return;
         this.preloadKeys.add(query);
-        pruneOldestSetEntries(this.preloadKeys, PRELOAD_KEY_LIMIT);
+        pruneOldestCacheEntries(this.preloadKeys, PRELOAD_KEY_LIMIT);
 
         void this.search(query, settings)
             .then(examples => {
@@ -849,22 +850,6 @@ async function requestFirstBlob(urls: string | string[], timeoutMs: number, prox
 
 function prioritizeMediaCandidates(urls: string[]): string[] {
     return [...urls].sort((a, b) => Number(isObjectStoreMediaUrl(b)) - Number(isObjectStoreMediaUrl(a)));
-}
-
-function pruneOldestMapEntries<K, V>(map: Map<K, V>, limit: number): void {
-    while (map.size > limit) {
-        const oldest = map.keys().next().value;
-        if (oldest === undefined) break;
-        map.delete(oldest);
-    }
-}
-
-function pruneOldestSetEntries<T>(set: Set<T>, limit: number): void {
-    while (set.size > limit) {
-        const oldest = set.values().next().value;
-        if (oldest === undefined) break;
-        set.delete(oldest);
-    }
 }
 
 function isObjectStoreMediaUrl(url: string): boolean {

@@ -2,6 +2,7 @@ import { primaryCardState } from './card-state';
 import { copyText } from './browser-ui';
 import type { CardRenderData } from './card-render-data';
 import { cardHighlightTargets, isCardHighlightWord, normalizedJapaneseCardReading, renderCardHighlightedTextHtml } from './card-highlight';
+import { pruneOldestCacheEntries } from './cache-utils';
 import { APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from './constants';
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { el, fragment, replaceChildrenWith, type DomAttrs } from './dom-builder';
@@ -98,6 +99,7 @@ import {
     orderedDefinitionSourceIds,
     orderedKanjiSourceIds,
 } from './source-sections';
+import type { CardNavigationMode, PopupNavigationEntry } from './popup-navigation';
 import { JISHO_LOOKUP_LINK, JPDB_LOOKUP_LINK } from './settings';
 import { installUchisenCarousel, loadUchisenData, type UchisenData } from './uchisen';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from './yomitan';
@@ -130,7 +132,9 @@ interface NewTabParseContentOptions {
 }
 
 interface NewTabLookupDependencyOptions {
-    navigation?: 'reset' | 'preserve' | 'push-current';
+    navigation?: CardNavigationMode;
+    previousNavigationEntry?: PopupNavigationEntry;
+    reuseActivePopover?: boolean;
     userGesture?: boolean;
 }
 
@@ -173,7 +177,7 @@ export interface NewTabControllerDependencies {
     lookupText?: (text: string, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     lookupDictionaryReference?: (query: string, reading: string, sourceDictionary: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     showLookupCard?: (card: JPDBCard, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
-    showKanjiCard?: (card: JPDBCard, kanji: string, sentence: string, anchor?: HTMLElement) => Promise<void> | void;
+    showKanjiCard?: (card: JPDBCard, kanji: string, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     loadCardRenderData?: (card: JPDBCard) => Promise<CardRenderData>;
     renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => string;
     renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[]) => string;
@@ -436,6 +440,7 @@ interface NewTabLoadOptions {
 }
 
 type ConcreteNewTabWordSource = Exclude<ReaderSettings['newTabSource'], 'auto'>;
+type NavigationExpansionSource = 'dictionary' | 'jpdb' | 'anki';
 
 interface KanjiDetailBundle {
     jpdb: JpdbKanjiInfo | null;
@@ -1285,10 +1290,10 @@ export class NewTabController {
             return true;
         }
         if (card && this.dependencies.showLookupCard) {
-            void this.dependencies.showLookupCard(card, sentence, word, { navigation: 'push-current', userGesture: true });
+            void this.dependencies.showLookupCard(card, sentence, word, this.nestedLookupOptions());
             return true;
         }
-        void this.dependencies.lookupText?.(expression, reading, word, { navigation: 'push-current', userGesture: true });
+        void this.dependencies.lookupText?.(expression, reading, word, this.nestedLookupOptions());
         return true;
     }
 
@@ -1316,7 +1321,7 @@ export class NewTabController {
         const card = this.visibleWords[this.index];
         if (!card) return false;
         consumeNestedLookupEvent(event);
-        void this.dependencies.lookupText?.(card.spelling, newTabCardReading(card), prompt, { userGesture: true });
+        void this.dependencies.lookupText?.(card.spelling, newTabCardReading(card), prompt, this.nestedLookupOptions());
         return true;
     }
 
@@ -1333,9 +1338,17 @@ export class NewTabController {
             link.dataset.dictionaryReading ?? '',
             link.dataset.dictionary ?? '',
             link,
-            { userGesture: true },
+            this.nestedLookupOptions(),
         );
         return true;
+    }
+
+    private nestedLookupOptions(): NewTabLookupDependencyOptions {
+        return {
+            navigation: 'push-current',
+            reuseActivePopover: true,
+            userGesture: true,
+        };
     }
 
     private handleNestedLookupAction(root: HTMLElement, actionTarget: HTMLElement, event: MouseEvent): boolean {
@@ -1366,9 +1379,9 @@ export class NewTabController {
         }
         if (!card) return true;
         if (this.dependencies.showKanjiCard) {
-            void this.dependencies.showKanjiCard(card, kanji, sentenceForCard(card), actionTarget);
+            void this.dependencies.showKanjiCard(card, kanji, sentenceForCard(card), actionTarget, this.nestedLookupOptions());
         } else {
-            void this.dependencies.lookupText?.(kanji, kanji, actionTarget, { userGesture: true });
+            void this.dependencies.lookupText?.(kanji, kanji, actionTarget, this.nestedLookupOptions());
         }
         return true;
     }
@@ -1382,7 +1395,7 @@ export class NewTabController {
             this.selectSearchSuggestion(root, term);
             return true;
         }
-        void this.dependencies.lookupText?.(term, reading || term, actionTarget, { userGesture: true });
+        void this.dependencies.lookupText?.(term, reading || term, actionTarget, this.nestedLookupOptions());
         return true;
     }
 
@@ -2772,8 +2785,9 @@ export class NewTabController {
         if (!root || !this.visibleWords.length) return;
         this.dependencies.dismiss({ suppressHoverTarget: false });
         this.navigationGeneration++;
-        if (this.shouldLoadMoreForNavigation(direction)) {
-            void this.loadMoreForNavigation(root, direction);
+        const expansionSource = this.navigationExpansionSource();
+        if (this.shouldLoadMoreForNavigation(direction, expansionSource)) {
+            void this.loadMoreForNavigation(root, direction, expansionSource);
             return;
         }
         this.moveVisibleWord(root, direction);
@@ -2786,22 +2800,16 @@ export class NewTabController {
         this.renderWord(root, this.visibleWords[this.index]);
     }
 
-    private shouldLoadMoreForNavigation(direction: 1 | -1): boolean {
+    private shouldLoadMoreForNavigation(direction: 1 | -1, source: NavigationExpansionSource | null): source is NavigationExpansionSource {
         if (this.navigationSupplementPromise) return false;
         const atBoundary = direction > 0
             ? this.index >= this.visibleWords.length - 1
             : this.index <= 0;
-        return atBoundary && this.navigationExpansionSource() !== null;
+        return atBoundary && source !== null;
     }
 
-    private async loadMoreForNavigation(root: HTMLElement, direction: 1 | -1): Promise<void> {
+    private async loadMoreForNavigation(root: HTMLElement, direction: 1 | -1, source: NavigationExpansionSource): Promise<void> {
         const currentKey = this.currentVisibleWordKey();
-        const source = this.navigationExpansionSource();
-        if (!source) {
-            this.moveVisibleWord(root, direction);
-            return;
-        }
-
         this.setStatus(root, this.text(this.state.mode === 'kanji' ? 'noKanjiCardsYet' : 'noWordsYet'));
         const promise = this.appendNavigationSupplement(root, direction, currentKey, source);
         this.navigationSupplementPromise = promise;
@@ -2812,7 +2820,7 @@ export class NewTabController {
         }
     }
 
-    private async appendNavigationSupplement(root: HTMLElement, direction: 1 | -1, currentKey: string, source: 'dictionary' | 'jpdb' | 'anki'): Promise<void> {
+    private async appendNavigationSupplement(root: HTMLElement, direction: 1 | -1, currentKey: string, source: NavigationExpansionSource): Promise<void> {
         const beforeSignature = this.newTabPoolSignature(this.studyPoolForCurrentMode());
         const cards = await this.loadNavigationSupplementCards(source);
         if (!cards.length) {
@@ -2842,7 +2850,7 @@ export class NewTabController {
         this.renderWord(root, this.visibleWords[this.index]);
     }
 
-    private async loadNavigationSupplementCards(source: 'dictionary' | 'jpdb' | 'anki'): Promise<JPDBCard[]> {
+    private async loadNavigationSupplementCards(source: NavigationExpansionSource): Promise<JPDBCard[]> {
         const expandedLimit = this.allWords.length + NEW_TAB_WORD_LIMIT;
         if (source === 'dictionary') return (await this.loadDictionaryWords(undefined, expandedLimit)).cards;
         if (source === 'anki') return (await this.loadAnkiWords(NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, expandedLimit)).cards;
@@ -2853,7 +2861,7 @@ export class NewTabController {
         })).cards;
     }
 
-    private navigationExpansionSource(): 'dictionary' | 'jpdb' | 'anki' | null {
+    private navigationExpansionSource(): NavigationExpansionSource | null {
         if (!this.visibleWords.length || this.state.mode === 'search' || this.state.mode === 'stats') return null;
         if (this.state.source === 'dictionary' || this.allWords.some(card => this.isDictionaryCard(card))) return 'dictionary';
         if (this.reviewCountMode && !this.isOfflineSourceLabel(this.sourceLabel) && !this.sourceLabel.includes(this.text('liveReview'))) {
@@ -3387,7 +3395,7 @@ export class NewTabController {
             throw error;
         });
         this.parsedSentenceCache.set(key, entry);
-        pruneOldestMapEntries(this.parsedSentenceCache, NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT);
+        pruneOldestCacheEntries(this.parsedSentenceCache, NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT);
         return entry.promise;
     }
 
@@ -7150,12 +7158,4 @@ function delayWithValue<T>(value: T, ms: number): Promise<T> {
 
 function uniqueNumbers(values: number[]): number[] {
     return [...new Set(values)];
-}
-
-function pruneOldestMapEntries<TKey, TValue>(cache: Map<TKey, TValue>, limit: number): void {
-    while (cache.size > limit) {
-        const oldest = cache.keys().next().value;
-        if (oldest === undefined) break;
-        cache.delete(oldest);
-    }
 }

@@ -1,4 +1,5 @@
 import { STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from './constants';
+import { pruneOldestCacheEntries } from './cache-utils';
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { uiText } from './i18n';
 import { Logger } from './logger';
@@ -211,7 +212,7 @@ export class StudySourceController {
         if (cached) return cached;
         const promise = Promise.resolve(detectLocalGrammarHints(sentence));
         this.grammarHintCache.set(key, promise);
-        pruneOldestMapEntries(this.grammarHintCache, STUDY_GRAMMAR_CACHE_LIMIT);
+        pruneOldestCacheEntries(this.grammarHintCache, STUDY_GRAMMAR_CACHE_LIMIT);
         return promise;
     }
 
@@ -224,7 +225,7 @@ export class StudySourceController {
             throw error;
         });
         this.translationContentCache.set(key, promise);
-        pruneOldestMapEntries(this.translationContentCache, STUDY_TRANSLATION_CACHE_LIMIT);
+        pruneOldestCacheEntries(this.translationContentCache, STUDY_TRANSLATION_CACHE_LIMIT);
         return promise;
     }
 
@@ -271,12 +272,4 @@ function isStudyDetailsOpen(container: HTMLDetailsElement): boolean {
         ancestor = ancestor.parentElement?.closest<HTMLDetailsElement>('details');
     }
     return true;
-}
-
-function pruneOldestMapEntries<TKey, TValue>(cache: Map<TKey, TValue>, limit: number): void {
-    while (cache.size > limit) {
-        const oldest = cache.keys().next().value as TKey | undefined;
-        if (oldest === undefined) break;
-        cache.delete(oldest);
-    }
 }
