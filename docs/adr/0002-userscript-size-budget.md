@@ -9,7 +9,7 @@ Accepted.
 Greasy Fork limits scripts to 2 MB. The build verification already warns as the bundle approaches that ceiling.
 
 Current release state: the built `dist/yomu.user.js` is under the budget without minification. The latest size report measured
-`dist/yomu.user.js` at 1874.3 KiB raw, 399.3 KiB gzip, and 303.6 KiB brotli.
+`dist/yomu.user.js` at 1941.8 KiB raw, 439.0 KiB gzip, and 331.5 KiB brotli.
 
 ## Decision
 
