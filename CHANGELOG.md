@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.78] - 2026-05-31
+
+### Fixed
+
+- Kept the YouTube subtitle side-panel toggle available when caption tracks arrive before YouTube's watch-page video wrapper settles.
+
+### Changed
+
+- Added the runtime browser QA gate to tagged releases and split it into a reusable `qa:runtime` script.
+- Tidied YouTube immersion filter notice rendering without changing show/hide behavior.
+
 ## [0.4.77] - 2026-05-31
 
 ### Fixed

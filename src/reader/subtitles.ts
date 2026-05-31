@@ -516,7 +516,7 @@ export class SubtitlePlayerController {
 
     private syncRootVisibility(settings: ReaderSettings): void {
         if (!this.root) return;
-        const hidden = shouldHideSubtitleRoot(settings, this.video, this.cues);
+        const hidden = shouldHideSubtitleRoot(settings, this.video, this.cues, this.tracks);
         this.root.hidden = hidden;
         if (hidden && this.transcriptPanel) this.transcriptPanel.hidden = true;
         this.root.classList.toggle('jpdb-subtitle-hidden', !settings.subtitleOverlayVisible);
@@ -3182,12 +3182,12 @@ function subtitleRequestFailureDetails(url: string): Record<string, string> {
     }
 }
 
-function shouldHideSubtitleRoot(settings: ReaderSettings, video: HTMLVideoElement | undefined, cues: SubtitleCue[]): boolean {
-    return !settings.subtitlePlayerEnabled || !hasSubtitlePlaybackSurface(video, cues);
+function shouldHideSubtitleRoot(settings: ReaderSettings, video: HTMLVideoElement | undefined, cues: SubtitleCue[], tracks: SubtitleTrackOption[]): boolean {
+    return !settings.subtitlePlayerEnabled || !hasSubtitlePlaybackSurface(video, cues, tracks);
 }
 
-function hasSubtitlePlaybackSurface(video: HTMLVideoElement | undefined, cues: SubtitleCue[]): boolean {
-    return Boolean(video || cues.length);
+function hasSubtitlePlaybackSurface(video: HTMLVideoElement | undefined, cues: SubtitleCue[], tracks: SubtitleTrackOption[]): boolean {
+    return Boolean(video || cues.length || tracks.length);
 }
 
 function shouldKeepIdleControlClass(root: HTMLElement, settings: ReaderSettings): boolean {

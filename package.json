@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "0.4.77",
+  "version": "0.4.78",
   "private": true,
   "type": "module",
   "description": "よむ: a small JPDB/Yomitan popup dictionary and subtitle miner userscript.",
@@ -37,7 +37,8 @@
     "check": "npm run typecheck && npm run test && npm run build && npm run verify && node scripts/sync-docs-userscript.cjs && npm run docs:build",
     "docs": "vitepress dev docs --host 127.0.0.1",
     "docs:build": "vitepress build docs",
-    "qa": "npm run check && node scripts/qa-audit.mjs && npm run qa:subtitles && node scripts/docs-a11y-audit.mjs && node scripts/complexity-audit.mjs",
+    "qa:runtime": "node scripts/qa-audit.mjs && npm run qa:subtitles && node scripts/docs-a11y-audit.mjs && node scripts/complexity-audit.mjs",
+    "qa": "npm run check && npm run qa:runtime",
     "qa:live": "node scripts/jpdb-live-smoke.mjs",
     "size:bundle": "node scripts/bundle-size-report.mjs",
     "publish:greasyfork": "node scripts/open-greasyfork-prefill.cjs"

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.77
+// @version      0.4.78
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -35088,7 +35088,7 @@ ${glossaryKey}`;
   }
   syncRootVisibility(settings) {
    if (!this.root) return;
-   const hidden = shouldHideSubtitleRoot(settings, this.video, this.cues);
+   const hidden = shouldHideSubtitleRoot(settings, this.video, this.cues, this.tracks);
    this.root.hidden = hidden;
    if (hidden && this.transcriptPanel) this.transcriptPanel.hidden = true;
    this.root.classList.toggle("jpdb-subtitle-hidden", !settings.subtitleOverlayVisible);
@@ -37382,11 +37382,11 @@ ${glossaryKey}`;
    return { url: "invalid" };
   }
  }
- function shouldHideSubtitleRoot(settings, video, cues) {
-  return !settings.subtitlePlayerEnabled || !hasSubtitlePlaybackSurface(video, cues);
+ function shouldHideSubtitleRoot(settings, video, cues, tracks) {
+  return !settings.subtitlePlayerEnabled || !hasSubtitlePlaybackSurface(video, cues, tracks);
  }
- function hasSubtitlePlaybackSurface(video, cues) {
-  return Boolean(video || cues.length);
+ function hasSubtitlePlaybackSurface(video, cues, tracks) {
+  return Boolean(video || cues.length || tracks.length);
  }
  function shouldKeepIdleControlClass(root, settings) {
   if (isCoarsePointerDevice()) return false;
@@ -38647,47 +38647,68 @@ ${glossaryKey}`;
    const noticeScope = this.currentNoticeScope();
    if (!this.bar && this.dismissedNoticeScope === noticeScope) return;
    const shouldStartTimer = !this.bar;
+   const notice = this.ensureNoticeBar();
+   this.updateNoticeSummary(notice.summary, filteredCount, shownCount, settings);
+   this.updateNoticeActions(notice, settings);
+   if (shouldStartTimer) this.startNoticeTimer(noticeScope);
+  }
+  ensureNoticeBar() {
    if (!this.bar) {
-    this.bar = document.createElement("div");
-    this.bar.className = "jpdb-youtube-filter-bar";
-    this.bar.dataset.jpdbReaderRoot = "true";
-    const label = document.createElement("span");
-    label.dataset.role = "summary";
-    const actions = document.createElement("div");
-    actions.className = "jpdb-youtube-filter-actions";
-    const toggleHidden2 = document.createElement("button");
-    toggleHidden2.type = "button";
-    toggleHidden2.dataset.action = "toggle-hidden";
-    const hideNotice2 = document.createElement("button");
-    hideNotice2.type = "button";
-    hideNotice2.dataset.action = "hide-notice";
-    actions.append(toggleHidden2, hideNotice2);
-    this.bar.addEventListener("click", (event) => {
-     const action = event.target.closest("[data-action]")?.dataset.action;
-     if (action === "toggle-hidden") {
-      this.revealed = !this.revealed;
-      this.schedule(0);
-     }
-     if (action === "hide-notice") {
-      this.options.setShowFilterNotice?.(false);
-      this.dismissedNoticeScope = this.currentNoticeScope();
-      this.removeNotice();
-     }
-    });
-    this.bar.append(label, actions);
+    this.bar = this.createNoticeBar();
     document.body.append(this.bar);
    }
-   const summary = this.bar.querySelector('[data-role="summary"]');
-   const toggleHidden = this.bar.querySelector('[data-action="toggle-hidden"]');
-   const hideNotice = this.bar.querySelector('[data-action="hide-notice"]');
-   if (summary) {
-    const plural = filteredCount === 1 ? "" : "s";
-    summary.textContent = this.revealed ? formatYoutubeText(uiText(settings.interfaceLanguage, "youtubeFilterShowing"), { appName: APP_NAME, count: String(filteredCount), plural }) : formatYoutubeText(uiText(settings.interfaceLanguage, "youtubeFilterHid"), { appName: APP_NAME, count: String(filteredCount), plural });
-    summary.title = shownCount ? formatYoutubeText(uiText(settings.interfaceLanguage, "youtubeFilterVisible"), { count: String(shownCount) }) : "";
-   }
-   if (toggleHidden) toggleHidden.textContent = this.revealed ? uiText(settings.interfaceLanguage, "youtubeHideHiddenVideos") : uiText(settings.interfaceLanguage, "youtubeShowHiddenVideos");
-   if (hideNotice) hideNotice.textContent = uiText(settings.interfaceLanguage, "youtubeHideNotice");
-   if (shouldStartTimer) this.startNoticeTimer(noticeScope);
+   return this.noticeElements(this.bar);
+  }
+  createNoticeBar() {
+   const bar = document.createElement("div");
+   bar.className = "jpdb-youtube-filter-bar";
+   bar.dataset.jpdbReaderRoot = "true";
+   const summary = document.createElement("span");
+   summary.dataset.role = "summary";
+   const actions = document.createElement("div");
+   actions.className = "jpdb-youtube-filter-actions";
+   actions.append(noticeButton("toggle-hidden"), noticeButton("hide-notice"));
+   bar.append(summary, actions);
+   bar.addEventListener("click", (event) => this.handleNoticeClick(event));
+   return bar;
+  }
+  noticeElements(bar) {
+   return {
+    summary: bar.querySelector('[data-role="summary"]'),
+    toggleHidden: bar.querySelector('[data-action="toggle-hidden"]'),
+    hideNotice: bar.querySelector('[data-action="hide-notice"]')
+   };
+  }
+  handleNoticeClick(event) {
+   const action = event.target.closest("[data-action]")?.dataset.action;
+   if (action === "toggle-hidden") this.toggleHiddenVideos();
+   if (action === "hide-notice") this.dismissFilterNotice();
+  }
+  toggleHiddenVideos() {
+   this.revealed = !this.revealed;
+   this.schedule(0);
+  }
+  dismissFilterNotice() {
+   this.options.setShowFilterNotice?.(false);
+   this.dismissedNoticeScope = this.currentNoticeScope();
+   this.removeNotice();
+  }
+  updateNoticeSummary(summary, filteredCount, shownCount, settings) {
+   summary.textContent = this.noticeSummaryText(filteredCount, settings);
+   summary.title = shownCount ? formatYoutubeText(uiText(settings.interfaceLanguage, "youtubeFilterVisible"), { count: String(shownCount) }) : "";
+  }
+  noticeSummaryText(filteredCount, settings) {
+   const plural = filteredCount === 1 ? "" : "s";
+   const key = this.revealed ? "youtubeFilterShowing" : "youtubeFilterHid";
+   return formatYoutubeText(uiText(settings.interfaceLanguage, key), {
+    appName: APP_NAME,
+    count: String(filteredCount),
+    plural
+   });
+  }
+  updateNoticeActions(notice, settings) {
+   notice.toggleHidden.textContent = this.revealed ? uiText(settings.interfaceLanguage, "youtubeHideHiddenVideos") : uiText(settings.interfaceLanguage, "youtubeShowHiddenVideos");
+   notice.hideNotice.textContent = uiText(settings.interfaceLanguage, "youtubeHideNotice");
   }
   clear() {
    window.clearTimeout(this.timer);
@@ -38791,6 +38812,12 @@ ${glossaryKey}`;
  }
  function formatYoutubeText(template, values) {
   return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
+ }
+ function noticeButton(action) {
+  const button2 = document.createElement("button");
+  button2.type = "button";
+  button2.dataset.action = action;
+  return button2;
  }
  function shouldVerifyOriginalYouTubeTitle(title) {
   return isProbablyJapaneseYouTubeText(title);
