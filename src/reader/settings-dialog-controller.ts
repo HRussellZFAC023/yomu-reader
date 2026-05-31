@@ -6,7 +6,7 @@ import { NEW_TAB_PAGE_URL, SETTINGS_TITLE } from './constants';
 import { readerWordSurfaceText, setInnerHtml } from './dom';
 import { JpdbClient } from './jpdb';
 import { configureLogger, Logger, loggingSettingsSummary } from './logger';
-import { clearNewTabOfflineCache } from './new-tab-controller';
+import { clearNewTabOfflineCache } from './new-tab-cache';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from './recommended-dictionaries';
 import { installSettingsDrawerHandle } from './popover-shell';
 import { mergeDictionaryPreferences, normalizeReaderSettings, saveSettings } from './settings';
