@@ -1,7 +1,8 @@
 import { normalizeSubtitleCues, parseSubtitleText, type SubtitleCue } from './subtitle-cues';
 import { uniqueNonEmptyStrings as uniqueStrings } from './string-utils';
 
-const YOUTUBE_VIDEO_OWNER_SELECTOR = '#movie_player, .html5-video-player, ytd-player, ytd-watch-flexy';
+const YOUTUBE_VIDEO_PLAYER_SELECTOR = '#movie_player, .html5-video-player';
+const YOUTUBE_VIDEO_OWNER_SELECTOR = `${YOUTUBE_VIDEO_PLAYER_SELECTOR}, ytd-player, ytd-watch-flexy, #player, #player-container, #player-container-outer, .html5-video-container`;
 
 export interface YouTubeSubtitleTrack {
     label: string;
@@ -181,12 +182,13 @@ export function isYouTubePage(): boolean {
 
 export function isYouTubeOwnedVideoElement(video: HTMLVideoElement | undefined): boolean {
     if (!isYouTubePage()) return true;
-    if (!video || !getYouTubeVideoId()) return false;
+    const currentVideoId = getYouTubeVideoId();
+    if (!video || !currentVideoId) return false;
+    const player = video.closest<HTMLElement>(YOUTUBE_VIDEO_PLAYER_SELECTOR) as (HTMLElement & { getVideoData?: () => { video_id?: string } }) | null;
     const owner = video.closest<HTMLElement>(YOUTUBE_VIDEO_OWNER_SELECTOR) as (HTMLElement & { getVideoData?: () => { video_id?: string } }) | null;
-    if (!owner) return false;
-    const player = video.closest<HTMLElement>('#movie_player, .html5-video-player') as (HTMLElement & { getVideoData?: () => { video_id?: string } }) | null;
     const playerVideoId = getYouTubePlayerVideoId(player ?? owner);
-    return !playerVideoId || playerVideoId === getYouTubeVideoId();
+    if (playerVideoId && playerVideoId !== currentVideoId) return isLikelyVisibleYouTubeWatchVideo(video);
+    return Boolean(owner) || isLikelyVisibleYouTubeWatchVideo(video);
 }
 
 export function shouldRefreshYouTubeTrackUrl(next: string | undefined, current: string | undefined): boolean {
@@ -269,6 +271,16 @@ function getYouTubePlayerVideoId(player: { getVideoData?: () => { video_id?: str
     } catch {
         return '';
     }
+}
+
+function isLikelyVisibleYouTubeWatchVideo(video: HTMLVideoElement): boolean {
+    if (!video.isConnected) return false;
+    if (video.closest('[data-jpdb-reader-root], [data-yomu-jpdb-addon]')) return false;
+    const rect = video.getBoundingClientRect();
+    const width = Math.max(rect.width, video.clientWidth);
+    const height = Math.max(rect.height, video.clientHeight);
+    if (width >= 240 && height >= 135) return true;
+    return video.classList.contains('html5-main-video') && (video.readyState >= 1 || width > 0 || height > 0);
 }
 
 function uniqueYouTubeCaptionTracks(rawTracks: unknown[], rawTranslationLanguages: unknown[] | undefined = []): YouTubeCaptionTrackCandidate[] {

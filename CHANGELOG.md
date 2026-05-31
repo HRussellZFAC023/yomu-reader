@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.77] - 2026-05-31
+
+### Fixed
+
+- Restored JPDB-backed color and underline styling in the hosted Try Me demo and hardened the single-kanji hitbox so words like `下` stay clickable.
+- Stopped clicks on the current Immersion Kit example target from reopening the same malformed word popup, while keeping clean example sentence context for other nested lookups.
+- Kept the YouTube subtitle side-panel toggle available when YouTube moves or refreshes its player wrappers during watch-page navigation.
+
+### Changed
+
+- Split Cloud Vision OCR normalization into a provider module while keeping the generic OCR response dispatcher behavior unchanged.
+- Moved Google Lens upload callback literal parsing into a dedicated parser module and shared OCR result primitives across response normalizers.
+
 ## [0.4.76] - 2026-05-31
 
 ### Changed

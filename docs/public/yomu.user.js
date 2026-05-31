@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.76
+// @version      0.4.77
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -24486,6 +24486,315 @@ ${glossaryKey}`;
  function clampGraphPercent(value, min = 0, max2 = 100) {
   return Math.max(min, Math.min(max2, Number(value.toFixed(2))));
  }
+ function pushJapaneseOcrLine(lines, text2, box) {
+  if (!text2 || !box || !HAS_JAPANESE$1.test(text2)) return;
+  lines.push({ text: text2, box, vertical: box.height > box.width * 1.25 && text2.length > 1 });
+ }
+ function clampBox(box, width, height) {
+  const left = Math.max(0, Math.min(width, box.left));
+  const top = Math.max(0, Math.min(height, box.top));
+  const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
+  const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
+  if (right - left < 2 || bottom - top < 2) return null;
+  return { left, top, width: right - left, height: bottom - top };
+ }
+ function unionBoxes(boxes) {
+  if (!boxes.length) return null;
+  const left = Math.min(...boxes.map((box) => box.left));
+  const top = Math.min(...boxes.map((box) => box.top));
+  const right = Math.max(...boxes.map((box) => box.left + box.width));
+  const bottom = Math.max(...boxes.map((box) => box.top + box.height));
+  return { left, top, width: right - left, height: bottom - top };
+ }
+ function cleanOcrText(value) {
+  const text2 = typeof value === "string" ? value : String(value ?? "");
+  const normalized = text2.replace(/[ \t\r\n]+/g, HAS_JAPANESE$1.test(text2) ? "" : " ").trim();
+  return normalized.replaceAll("．．．", "…");
+ }
+ function numberFrom(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+ }
+ function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
+  const state = { width: fallbackWidth, height: fallbackHeight, lines: [] };
+  for (const response of cloudVisionResponses(record)) {
+   appendCloudVisionPages(response, state);
+   appendCloudVisionTextAnnotations(response, state);
+  }
+  return state.lines.length ? { width: state.width, height: state.height, lines: state.lines } : null;
+ }
+ function cloudVisionResponses(record) {
+  if (Array.isArray(record.responses)) return record.responses;
+  return "fullTextAnnotation" in record ? [record] : [];
+ }
+ function appendCloudVisionPages(response, state) {
+  const annotation = response?.fullTextAnnotation;
+  const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
+  for (const page of pages) appendCloudVisionPage(page, state);
+ }
+ function appendCloudVisionPage(page, state) {
+  state.width = numberFrom(page.width) || state.width;
+  state.height = numberFrom(page.height) || state.height;
+  for (const block of cloudVisionPageBlocks(page)) {
+   for (const paragraph of cloudVisionBlockParagraphs(block)) {
+    pushCloudVisionParagraphLines(paragraph, state.lines, state.width, state.height);
+   }
+  }
+ }
+ function cloudVisionPageBlocks(page) {
+  return Array.isArray(page.blocks) ? page.blocks : [];
+ }
+ function cloudVisionBlockParagraphs(block) {
+  const paragraphs = block?.paragraphs;
+  return Array.isArray(paragraphs) ? paragraphs : [];
+ }
+ function appendCloudVisionTextAnnotations(response, state) {
+  const annotations = Array.isArray(response?.textAnnotations) ? response.textAnnotations : [];
+  if (state.lines.length || annotations.length <= 1) return;
+  for (const annotationItem of annotations.slice(1)) {
+   const item = annotationItem;
+   const text2 = cleanOcrText(item.description);
+   const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, state.width, state.height);
+   pushJapaneseOcrLine(state.lines, text2, box);
+  }
+ }
+ function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
+  const words = Array.isArray(paragraph.words) ? paragraph.words : [];
+  let text2 = "";
+  let boxes = [];
+  const pushLine = () => {
+   const value = cleanOcrText(text2);
+   const box = unionBoxes(boxes);
+   pushJapaneseOcrLine(lines, value, box);
+   text2 = "";
+   boxes = [];
+  };
+  for (const word of words) {
+   const symbols = Array.isArray(word.symbols) ? word.symbols : [];
+   for (const symbol of symbols) {
+    const symbolRecord = symbol;
+    text2 += String(symbolRecord.text ?? "");
+    const box = normalizeCloudVisionVertices(symbolRecord.boundingBox?.vertices, width, height);
+    if (box) boxes.push(box);
+    const breakType = symbolRecord.property?.detectedBreak?.type;
+    if (breakType === "SPACE" || breakType === "SURE_SPACE" || breakType === "UNKNOWN") text2 += " ";
+    if (breakType === "LINE_BREAK" || breakType === "EOL_SURE_SPACE" || breakType === "HYPHEN") pushLine();
+   }
+  }
+  pushLine();
+ }
+ function normalizeCloudVisionVertices(value, width, height) {
+  if (!Array.isArray(value) || value.length < 2) return null;
+  const xs = value.map((vertex) => numberFrom(vertex?.x) ?? 0);
+  const ys = value.map((vertex) => numberFrom(vertex?.y) ?? 0);
+  const left = Math.min(...xs);
+  const top = Math.min(...ys);
+  return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
+ }
+ function googleLensUploadCallbackLiteral(html, key) {
+  const marker = "AF_initDataCallback(";
+  let searchIndex = 0;
+  while (searchIndex < html.length) {
+   const markerIndex = html.indexOf(marker, searchIndex);
+   if (markerIndex < 0) return null;
+   const literalStart = markerIndex + marker.length;
+   const literal = readBalancedLiteral(html, literalStart);
+   if (literal && callbackLiteralHasKey(literal, key)) return literal;
+   searchIndex = literalStart + Math.max(1, literal?.length ?? 1);
+  }
+  return null;
+ }
+ function callbackLiteralHasKey(literal, key) {
+  return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key)}['"]`).test(literal);
+ }
+ function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+ }
+ function readBalancedLiteral(source, startIndex) {
+  const index = balancedLiteralStart(source, startIndex);
+  if (index < 0) return null;
+  const end = balancedLiteralEnd(source, index);
+  return end >= 0 ? source.slice(index, end + 1) : null;
+ }
+ function balancedLiteralStart(source, startIndex) {
+  let index = startIndex;
+  while (/\s/.test(source[index] ?? "")) index += 1;
+  return source[index] === "{" ? index : -1;
+ }
+ function balancedLiteralEnd(source, startIndex) {
+  let depth = 0;
+  for (let current = startIndex; current < source.length; current += 1) {
+   const char = source[current];
+   if (isQuote(char)) {
+    current = quotedLiteralEnd(source, current, char);
+    if (current < 0) return -1;
+    continue;
+   }
+   depth += balancedDepthDelta(char);
+   if (depth === 0) return current;
+  }
+  return -1;
+ }
+ function quotedLiteralEnd(source, startIndex, quote) {
+  for (let current = startIndex + 1; current < source.length; current += 1) {
+   const char = source[current];
+   if (char === "\\") {
+    current += 1;
+   } else if (char === quote) {
+    return current;
+   }
+  }
+  return -1;
+ }
+ function isQuote(char) {
+  return char === '"' || char === "'";
+ }
+ function balancedDepthDelta(char) {
+  if (char === "{" || char === "[" || char === "(") return 1;
+  if (char === "}" || char === "]" || char === ")") return -1;
+  return 0;
+ }
+ function parseJsDataLiteral(source) {
+  let index = 0;
+  const value = parseValue();
+  skipWhitespace();
+  if (index !== source.length) throw new Error("Unexpected trailing data.");
+  return value;
+  function parseValue() {
+   skipWhitespace();
+   const char = source[index];
+   if (char === "{") return parseObject();
+   if (char === "[") return parseArray();
+   if (char === '"' || char === "'") return parseString();
+   if (char === "-" || /\d/.test(char ?? "")) return parseNumber();
+   return parseIdentifierValue();
+  }
+  function parseObject() {
+   const record = {};
+   index += 1;
+   skipWhitespace();
+   while (source[index] !== "}") {
+    const key = parseObjectKey();
+    skipWhitespace();
+    expect(":");
+    record[key] = parseValue();
+    skipWhitespace();
+    if (source[index] === ",") {
+     index += 1;
+     skipWhitespace();
+     continue;
+    }
+    break;
+   }
+   expect("}");
+   return record;
+  }
+  function parseObjectKey() {
+   skipWhitespace();
+   const char = source[index];
+   if (char === '"' || char === "'") return parseString();
+   return parseIdentifier();
+  }
+  function parseArray() {
+   const values = [];
+   index += 1;
+   skipWhitespace();
+   while (source[index] !== "]") {
+    if (source[index] === ",") {
+     values.push(null);
+     index += 1;
+     skipWhitespace();
+     continue;
+    }
+    values.push(parseValue());
+    skipWhitespace();
+    if (source[index] === ",") {
+     index += 1;
+     skipWhitespace();
+     continue;
+    }
+    break;
+   }
+   expect("]");
+   return values;
+  }
+  function parseString() {
+   const quote = source[index];
+   let value2 = "";
+   index += 1;
+   while (index < source.length) {
+    const char = source[index++];
+    if (char === quote) return value2;
+    if (char !== "\\") {
+     value2 += char;
+     continue;
+    }
+    value2 += parseEscapeSequence();
+   }
+   throw new Error("Unterminated string.");
+  }
+  function parseEscapeSequence() {
+   const escaped = source[index++];
+   if (escaped === "n") return "\n";
+   if (escaped === "r") return "\r";
+   if (escaped === "t") return "	";
+   if (escaped === "b") return "\b";
+   if (escaped === "f") return "\f";
+   if (escaped === "v") return "\v";
+   if (escaped === "0") return "\0";
+   if (escaped === "\n") return "";
+   if (escaped === "\r") {
+    if (source[index] === "\n") index += 1;
+    return "";
+   }
+   if (escaped === "x") return codePointEscape(2);
+   if (escaped === "u") return parseUnicodeEscape();
+   return escaped ?? "";
+  }
+  function parseUnicodeEscape() {
+   if (source[index] === "{") {
+    const end = source.indexOf("}", index + 1);
+    if (end < 0) throw new Error("Invalid unicode escape.");
+    const value2 = Number.parseInt(source.slice(index + 1, end), 16);
+    index = end + 1;
+    return Number.isFinite(value2) ? String.fromCodePoint(value2) : "";
+   }
+   return codePointEscape(4);
+  }
+  function codePointEscape(length) {
+   const hex = source.slice(index, index + length);
+   if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) throw new Error("Invalid character escape.");
+   index += length;
+   return String.fromCharCode(Number.parseInt(hex, 16));
+  }
+  function parseNumber() {
+   const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(source.slice(index));
+   if (!match) throw new Error("Invalid number.");
+   index += match[0].length;
+   return Number(match[0]);
+  }
+  function parseIdentifierValue() {
+   const identifier = parseIdentifier();
+   if (identifier === "null" || identifier === "undefined" || identifier === "NaN") return null;
+   if (identifier === "true") return true;
+   if (identifier === "false") return false;
+   if (identifier === "Infinity") return Infinity;
+   return identifier;
+  }
+  function parseIdentifier() {
+   const match = /^[A-Za-z_$][\w$]*/.exec(source.slice(index));
+   if (!match) throw new Error("Expected identifier.");
+   index += match[0].length;
+   return match[0];
+  }
+  function skipWhitespace() {
+   while (/\s/.test(source[index] ?? "")) index += 1;
+  }
+  function expect(char) {
+   if (source[index] !== char) throw new Error(`Expected ${char}.`);
+   index += 1;
+  }
+ }
  const LENS_WRITING_TOP_TO_BOTTOM = 2;
  const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
  const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
@@ -24681,261 +24990,6 @@ ${glossaryKey}`;
    return null;
   }
  }
- function googleLensUploadCallbackLiteral(html, key) {
-  const marker = "AF_initDataCallback(";
-  let searchIndex = 0;
-  while (searchIndex < html.length) {
-   const markerIndex = html.indexOf(marker, searchIndex);
-   if (markerIndex < 0) return null;
-   const literalStart = markerIndex + marker.length;
-   const literal = readBalancedLiteral(html, literalStart);
-   if (literal && callbackLiteralHasKey(literal, key)) return literal;
-   searchIndex = literalStart + Math.max(1, literal?.length ?? 1);
-  }
-  return null;
- }
- function callbackLiteralHasKey(literal, key) {
-  return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key)}['"]`).test(literal);
- }
- function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
- }
- function readBalancedLiteral(source, startIndex) {
-  let index = startIndex;
-  while (/\s/.test(source[index] ?? "")) index += 1;
-  if (source[index] !== "{") return null;
-  let depth = 0;
-  let quote = "";
-  for (let current = index; current < source.length; current += 1) {
-   const char = source[current];
-   if (quote) {
-    if (char === "\\") {
-     current += 1;
-    } else if (char === quote) {
-     quote = "";
-    }
-    continue;
-   }
-   if (char === '"' || char === "'") {
-    quote = char;
-    continue;
-   }
-   if (char === "{" || char === "[" || char === "(") depth += 1;
-   if (char === "}" || char === "]" || char === ")") depth -= 1;
-   if (depth === 0) return source.slice(index, current + 1);
-  }
-  return null;
- }
- function parseJsDataLiteral(source) {
-  let index = 0;
-  const value = parseValue();
-  skipWhitespace();
-  if (index !== source.length) throw new Error("Unexpected trailing data.");
-  return value;
-  function parseValue() {
-   skipWhitespace();
-   const char = source[index];
-   if (char === "{") return parseObject();
-   if (char === "[") return parseArray();
-   if (char === '"' || char === "'") return parseString();
-   if (char === "-" || /\d/.test(char ?? "")) return parseNumber();
-   return parseIdentifierValue();
-  }
-  function parseObject() {
-   const record = {};
-   index += 1;
-   skipWhitespace();
-   while (source[index] !== "}") {
-    const key = parseObjectKey();
-    skipWhitespace();
-    expect(":");
-    record[key] = parseValue();
-    skipWhitespace();
-    if (source[index] === ",") {
-     index += 1;
-     skipWhitespace();
-     continue;
-    }
-    break;
-   }
-   expect("}");
-   return record;
-  }
-  function parseObjectKey() {
-   skipWhitespace();
-   const char = source[index];
-   if (char === '"' || char === "'") return parseString();
-   return parseIdentifier();
-  }
-  function parseArray() {
-   const values = [];
-   index += 1;
-   skipWhitespace();
-   while (source[index] !== "]") {
-    if (source[index] === ",") {
-     values.push(null);
-     index += 1;
-     skipWhitespace();
-     continue;
-    }
-    values.push(parseValue());
-    skipWhitespace();
-    if (source[index] === ",") {
-     index += 1;
-     skipWhitespace();
-     continue;
-    }
-    break;
-   }
-   expect("]");
-   return values;
-  }
-  function parseString() {
-   const quote = source[index];
-   let value2 = "";
-   index += 1;
-   while (index < source.length) {
-    const char = source[index++];
-    if (char === quote) return value2;
-    if (char !== "\\") {
-     value2 += char;
-     continue;
-    }
-    value2 += parseEscapeSequence();
-   }
-   throw new Error("Unterminated string.");
-  }
-  function parseEscapeSequence() {
-   const escaped = source[index++];
-   if (escaped === "n") return "\n";
-   if (escaped === "r") return "\r";
-   if (escaped === "t") return "	";
-   if (escaped === "b") return "\b";
-   if (escaped === "f") return "\f";
-   if (escaped === "v") return "\v";
-   if (escaped === "0") return "\0";
-   if (escaped === "\n") return "";
-   if (escaped === "\r") {
-    if (source[index] === "\n") index += 1;
-    return "";
-   }
-   if (escaped === "x") return codePointEscape(2);
-   if (escaped === "u") return parseUnicodeEscape();
-   return escaped ?? "";
-  }
-  function parseUnicodeEscape() {
-   if (source[index] === "{") {
-    const end = source.indexOf("}", index + 1);
-    if (end < 0) throw new Error("Invalid unicode escape.");
-    const value2 = Number.parseInt(source.slice(index + 1, end), 16);
-    index = end + 1;
-    return Number.isFinite(value2) ? String.fromCodePoint(value2) : "";
-   }
-   return codePointEscape(4);
-  }
-  function codePointEscape(length) {
-   const hex = source.slice(index, index + length);
-   if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) throw new Error("Invalid character escape.");
-   index += length;
-   return String.fromCharCode(Number.parseInt(hex, 16));
-  }
-  function parseNumber() {
-   const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(source.slice(index));
-   if (!match) throw new Error("Invalid number.");
-   index += match[0].length;
-   return Number(match[0]);
-  }
-  function parseIdentifierValue() {
-   const identifier = parseIdentifier();
-   if (identifier === "null" || identifier === "undefined" || identifier === "NaN") return null;
-   if (identifier === "true") return true;
-   if (identifier === "false") return false;
-   if (identifier === "Infinity") return Infinity;
-   return identifier;
-  }
-  function parseIdentifier() {
-   const match = /^[A-Za-z_$][\w$]*/.exec(source.slice(index));
-   if (!match) throw new Error("Expected identifier.");
-   index += match[0].length;
-   return match[0];
-  }
-  function skipWhitespace() {
-   while (/\s/.test(source[index] ?? "")) index += 1;
-  }
-  function expect(char) {
-   if (source[index] !== char) throw new Error(`Expected ${char}.`);
-   index += 1;
-  }
- }
- function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
-  const responses = Array.isArray(record.responses) ? record.responses : "fullTextAnnotation" in record ? [record] : [];
-  const lines = [];
-  let width = fallbackWidth;
-  let height = fallbackHeight;
-  for (const response of responses) {
-   const annotation = response?.fullTextAnnotation;
-   const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
-   for (const page of pages) {
-    const pageRecord = page;
-    width = numberFrom(pageRecord.width) || width;
-    height = numberFrom(pageRecord.height) || height;
-    const blocks = Array.isArray(pageRecord.blocks) ? pageRecord.blocks : [];
-    for (const block of blocks) {
-     const paragraphs = Array.isArray(block.paragraphs) ? block.paragraphs : [];
-     for (const paragraph of paragraphs) {
-      pushCloudVisionParagraphLines(paragraph, lines, width, height);
-     }
-    }
-   }
-   const annotations = Array.isArray(response?.textAnnotations) ? response.textAnnotations : [];
-   if (!lines.length && annotations.length > 1) {
-    for (const annotationItem of annotations.slice(1)) {
-     const item = annotationItem;
-     const text2 = cleanOcrText(item.description);
-     const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, width, height);
-     pushJapaneseOcrLine(lines, text2, box);
-    }
-   }
-  }
-  return lines.length ? { width, height, lines } : null;
- }
- function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
-  const words = Array.isArray(paragraph.words) ? paragraph.words : [];
-  let text2 = "";
-  let boxes = [];
-  const pushLine = () => {
-   const value = cleanOcrText(text2);
-   const box = unionBoxes(boxes);
-   pushJapaneseOcrLine(lines, value, box);
-   text2 = "";
-   boxes = [];
-  };
-  for (const word of words) {
-   const symbols = Array.isArray(word.symbols) ? word.symbols : [];
-   for (const symbol of symbols) {
-    const symbolRecord = symbol;
-    text2 += String(symbolRecord.text ?? "");
-    const box = normalizeCloudVisionVertices(symbolRecord.boundingBox?.vertices, width, height);
-    if (box) boxes.push(box);
-    const breakType = symbolRecord.property?.detectedBreak?.type;
-    if (breakType === "SPACE" || breakType === "SURE_SPACE" || breakType === "UNKNOWN") text2 += " ";
-    if (breakType === "LINE_BREAK" || breakType === "EOL_SURE_SPACE" || breakType === "HYPHEN") pushLine();
-   }
-  }
-  pushLine();
- }
- function pushJapaneseOcrLine(lines, text2, box) {
-  if (!text2 || !box || !HAS_JAPANESE$1.test(text2)) return;
-  lines.push({ text: text2, box, vertical: box.height > box.width * 1.25 && text2.length > 1 });
- }
- function normalizeCloudVisionVertices(value, width, height) {
-  if (!Array.isArray(value) || value.length < 2) return null;
-  const xs = value.map((vertex) => numberFrom(vertex?.x) ?? 0);
-  const ys = value.map((vertex) => numberFrom(vertex?.y) ?? 0);
-  const left = Math.min(...xs);
-  const top = Math.min(...ys);
-  return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
- }
  function normalizeSimpleLine(value, width, height) {
   const record = asRecord(value);
   if (!record) return null;
@@ -25111,27 +25165,6 @@ ${glossaryKey}`;
  function scaleBoxNumber(value, dimension, scale) {
   return scale.fractional ? value / scale.factor * dimension : value;
  }
- function clampBox(box, width, height) {
-  const left = Math.max(0, Math.min(width, box.left));
-  const top = Math.max(0, Math.min(height, box.top));
-  const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
-  const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
-  if (right - left < 2 || bottom - top < 2) return null;
-  return { left, top, width: right - left, height: bottom - top };
- }
- function unionBoxes(boxes) {
-  if (!boxes.length) return null;
-  const left = Math.min(...boxes.map((box) => box.left));
-  const top = Math.min(...boxes.map((box) => box.top));
-  const right = Math.max(...boxes.map((box) => box.left + box.width));
-  const bottom = Math.max(...boxes.map((box) => box.top + box.height));
-  return { left, top, width: right - left, height: bottom - top };
- }
- function cleanOcrText(value) {
-  const text2 = typeof value === "string" ? value : String(value ?? "");
-  const normalized = text2.replace(/[ \t\r\n]+/g, HAS_JAPANESE$1.test(text2) ? "" : " ").trim();
-  return normalized.replaceAll("．．．", "…");
- }
  function decodeProtoMessage(bytes) {
   const fields = [];
   let offset = 0;
@@ -25210,10 +25243,6 @@ ${glossaryKey}`;
  }
  function asRecord(value) {
   return value && typeof value === "object" ? value : null;
- }
- function numberFrom(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
  }
  const MAX_CACHE_ITEMS = 36;
  const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15e3;
@@ -33727,7 +33756,8 @@ ${glossaryKey}`;
  function isYouTubePage$1() {
   return /(^|\.)youtube\.com$/i.test(location.hostname);
  }
- const YOUTUBE_VIDEO_OWNER_SELECTOR = "#movie_player, .html5-video-player, ytd-player, ytd-watch-flexy";
+ const YOUTUBE_VIDEO_PLAYER_SELECTOR = "#movie_player, .html5-video-player";
+ const YOUTUBE_VIDEO_OWNER_SELECTOR = `${YOUTUBE_VIDEO_PLAYER_SELECTOR}, ytd-player, ytd-watch-flexy, #player, #player-container, #player-container-outer, .html5-video-container`;
  async function discoverYouTubeCaptionTracks() {
   const pageTracks = getYouTubeCaptionTracks();
   const androidTracks = await getAndroidYouTubeCaptionTracks();
@@ -33830,12 +33860,13 @@ ${glossaryKey}`;
  }
  function isYouTubeOwnedVideoElement(video) {
   if (!isYouTubePage()) return true;
-  if (!video || !getYouTubeVideoId()) return false;
+  const currentVideoId = getYouTubeVideoId();
+  if (!video || !currentVideoId) return false;
+  const player = video.closest(YOUTUBE_VIDEO_PLAYER_SELECTOR);
   const owner = video.closest(YOUTUBE_VIDEO_OWNER_SELECTOR);
-  if (!owner) return false;
-  const player = video.closest("#movie_player, .html5-video-player");
   const playerVideoId = getYouTubePlayerVideoId(player ?? owner);
-  return !playerVideoId || playerVideoId === getYouTubeVideoId();
+  if (playerVideoId && playerVideoId !== currentVideoId) return isLikelyVisibleYouTubeWatchVideo(video);
+  return Boolean(owner) || isLikelyVisibleYouTubeWatchVideo(video);
  }
  function shouldRefreshYouTubeTrackUrl(next, current) {
   if (!next || next === current) return false;
@@ -33887,6 +33918,15 @@ ${glossaryKey}`;
   } catch {
    return "";
   }
+ }
+ function isLikelyVisibleYouTubeWatchVideo(video) {
+  if (!video.isConnected) return false;
+  if (video.closest("[data-jpdb-reader-root], [data-yomu-jpdb-addon]")) return false;
+  const rect = video.getBoundingClientRect();
+  const width = Math.max(rect.width, video.clientWidth);
+  const height = Math.max(rect.height, video.clientHeight);
+  if (width >= 240 && height >= 135) return true;
+  return video.classList.contains("html5-main-video") && (video.readyState >= 1 || width > 0 || height > 0);
  }
  function uniqueYouTubeCaptionTracks(rawTracks, rawTranslationLanguages = []) {
   return uniqueYouTubeCaptionTrackCandidates(youtubeCaptionTracksWithTranslations(rawTracks, rawTranslationLanguages));
@@ -39288,8 +39328,9 @@ ${glossaryKey}`;
     autoScanJapanese: false,
     scanVisiblePage: false,
     showFloatingButton: false,
-    wordUnderlineColorSource: "pitch",
-    wordTextColorSource: "off",
+    wordHighlightColorSource: "jpdb",
+    wordUnderlineColorSource: "jpdb",
+    wordTextColorSource: "jpdb",
     pitchColorHeiban: "#74c0ff",
     pitchColorAtamadaka: "#ff8fab",
     pitchColorNakadaka: "#ffd166",
@@ -39743,6 +39784,11 @@ ${glossaryKey}`;
     if (!this.canLookupReaderWord(word)) return;
     if (word.dataset.jpdbReaderPassive === "true") return;
     if (Date.now() < this.suppressWordClickUntil) {
+     event.preventDefault();
+     event.stopPropagation();
+     return;
+    }
+    if (this.shouldIgnoreCurrentImmersionExampleTargetClick(word)) {
      event.preventDefault();
      event.stopPropagation();
      return;
@@ -40910,6 +40956,7 @@ ${glossaryKey}`;
    return end - start <= 1 && candidate.end - candidate.start > 1;
   }
   async showWord(word, options = {}) {
+   if (options.trigger === "click" && this.shouldIgnoreCurrentImmersionExampleTargetClick(word)) return;
    const insideReaderPopup = Boolean(word.closest(".jpdb-reader-popover"));
    const stackOverSettings = options.stackOverSettings || Boolean(word.closest(".jpdb-reader-settings"));
    const card = this.cardForRenderedWord(word);
@@ -41003,7 +41050,7 @@ ${glossaryKey}`;
   }
   rememberRenderedWordMiningContext(word, card, insideReaderPopup) {
    if (!insideReaderPopup || !word.closest(".jpdb-reader-example-card")) return;
-   this.immersionPopover.rememberPageMiningContext(card, word.dataset.sentence || void 0, word);
+   this.immersionPopover.rememberPageMiningContext(card, this.renderedWordSentence(word), word);
   }
   renderedWordDisplayContext(word, options, insideReaderPopup) {
    const trigger = this.renderedWordTrigger(options.trigger, insideReaderPopup);
@@ -41019,12 +41066,25 @@ ${glossaryKey}`;
    };
   }
   renderedWordSentence(word) {
+   const immersionSentence = this.renderedImmersionExampleSentence(word);
+   if (immersionSentence) return immersionSentence;
    const tokenSentence = word.dataset.sentence || "";
    if (tokenSentence && word.closest(".jpdb-reader-example-sentence")) return normalizedLookupText(tokenSentence);
    return preferredRenderedWordSentence(
     nearestReadableSentenceForElement(word, tokenSentence),
     tokenSentence
    );
+  }
+  renderedImmersionExampleSentence(word) {
+   if (!word.closest(".jpdb-reader-example-sentence")) return "";
+   const sentence = word.closest("[data-immersion-sentence]")?.dataset.immersionSentence ?? "";
+   return normalizedLookupText(sentence);
+  }
+  shouldIgnoreCurrentImmersionExampleTargetClick(word) {
+   if (!this.lastCard || !this.isInsideActivePopover(word)) return false;
+   if (!word.closest("[data-immersion-kit] .jpdb-reader-example-sentence")) return false;
+   if (!word.closest(".jpdb-reader-example-target")) return false;
+   return this.cardMatchesRenderedLookupValue(this.lastCard, this.renderedWordLookupText(word));
   }
   renderedWordHoverLookupKey(word, trigger) {
    return trigger === "hover" ? this.hoverLookupKeyForWord(word) : void 0;

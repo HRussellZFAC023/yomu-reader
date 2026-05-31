@@ -6,6 +6,7 @@ const originalResponse = (window as Window & { ytInitialPlayerResponse?: unknown
 const originalConfig = (window as Window & { ytcfg?: unknown }).ytcfg;
 
 afterEach(() => {
+    document.body.replaceChildren();
     (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = originalResponse;
     (window as Window & { ytcfg?: unknown }).ytcfg = originalConfig;
     Object.defineProperty(window, 'location', {
@@ -31,6 +32,48 @@ describe('YouTube subtitle captions', () => {
         document.querySelector('.html5-video-player')?.append(video);
 
         expect(isYouTubeOwnedVideoElement(video)).toBe(true);
+    });
+
+    it('accepts a visible watch video when YouTube moves it outside known wrappers', () => {
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        const video = document.createElement('video');
+        mockVideoRect(video, 960, 540);
+        document.body.append(video);
+
+        expect(isYouTubeOwnedVideoElement(video)).toBe(true);
+    });
+
+    it('keeps the visible watch video when private player data is stale after navigation', () => {
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=new123') as unknown as Location,
+        });
+        document.body.innerHTML = '<div id="movie_player"></div>';
+        const player = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { getVideoData?: () => { video_id?: string } };
+        player.getVideoData = () => ({ video_id: 'old123' });
+        const video = document.createElement('video');
+        mockVideoRect(video, 960, 540);
+        player.append(video);
+
+        expect(isYouTubeOwnedVideoElement(video)).toBe(true);
+    });
+
+    it('rejects a stale non-player video when private player data is mismatched', () => {
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=new123') as unknown as Location,
+        });
+        document.body.innerHTML = '<div id="movie_player"></div>';
+        const player = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { getVideoData?: () => { video_id?: string } };
+        player.getVideoData = () => ({ video_id: 'old123' });
+        const video = document.createElement('video');
+        mockVideoRect(video, 120, 68);
+        player.append(video);
+
+        expect(isYouTubeOwnedVideoElement(video)).toBe(false);
     });
 
     it('extracts object-shaped displayName and languageName text for auto-translated labels', () => {
@@ -82,3 +125,17 @@ describe('YouTube subtitle captions', () => {
         });
     });
 });
+
+function mockVideoRect(video: HTMLVideoElement, width: number, height: number): void {
+    video.getBoundingClientRect = () => ({
+        x: 0,
+        y: 0,
+        top: 0,
+        left: 0,
+        right: width,
+        bottom: height,
+        width,
+        height,
+        toJSON: () => ({}),
+    });
+}

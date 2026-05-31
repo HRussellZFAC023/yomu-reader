@@ -87,6 +87,7 @@ const NEW_TAB_CSS = readFileSync('src/reader/styles/new-tab.css', 'utf8');
 const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf8');
 const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
 const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
+const DOCS_THEME_CSS = readFileSync('docs/.vitepress/theme/custom.css', 'utf8');
 const SHEET_HEIGHT_STORAGE_KEY = 'jpdb-reader-sheet-height-ratio';
 const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = 'jpdb-reader-settings-drawer-height-ratio';
 
@@ -683,10 +684,12 @@ describe('reader helpers', () => {
 
     it('marks reader word visual styling as important so page CSS resets cannot hide clickable words', () => {
         const normalizedCss = READER_WORD_CSS.replace(/\s+/g, ' ');
+        const normalizedDocsCss = DOCS_THEME_CSS.replace(/\s+/g, ' ');
         expect(normalizedCss).toContain('.jpdb-reader-word {');
         expect(normalizedCss).toContain('text-decoration-line: underline !important;');
         expect(normalizedCss).toContain('text-decoration-color: var( --jpdb-reader-word-underline, transparent ) !important;');
         expect(normalizedCss).toContain('display: inline;');
+        expect(normalizedDocsCss).toContain('.yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; line-height: inherit; vertical-align: baseline; white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important; }');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: none; }');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 1.85; }');
         expect(normalizedCss).toContain('.jpdb-reader-word ruby {');
@@ -2484,8 +2487,9 @@ describe('reader helpers', () => {
             expect(settings.audioEnabled).toBe(true);
             expect(settings.autoPlayAudio).toBe(false);
             expect(settings.immersionKitAutoPlayAudio).toBe(false);
-            expect(settings.wordUnderlineColorSource).toBe('pitch');
-            expect(settings.wordTextColorSource).toBe('off');
+            expect(settings.wordHighlightColorSource).toBe('jpdb');
+            expect(settings.wordUnderlineColorSource).toBe('jpdb');
+            expect(settings.wordTextColorSource).toBe('jpdb');
             expect(settings.pitchColorHeiban).toBe('#74c0ff');
             expect(settings.pitchColorKifuku).toBe('#c4a3ff');
         } finally {
@@ -15161,6 +15165,84 @@ describe('reader helpers', () => {
             }));
             expect(reparseVisiblePage).not.toHaveBeenCalled();
         } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('ignores clicks on the current Immersion Kit example target inside the popup', async () => {
+        const app = new ReaderApp();
+        const originalRequestAnimationFrame = window.requestAnimationFrame;
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+        vi.stubGlobal('matchMedia', vi.fn(() => ({
+            matches: false,
+            media: '',
+            onchange: null,
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+        })));
+        Object.defineProperty(window, 'requestAnimationFrame', {
+            configurable: true,
+            value: (frame: FrameRequestCallback) => {
+                frame(0);
+                return 1;
+            },
+        });
+
+        try {
+            const sourceCard: JPDBCard = { ...card, spelling: 'で', reading: 'で' };
+            const internals = app as unknown as {
+                settings: typeof DEFAULT_SETTINGS;
+                parsePopoverJapanese(popover: HTMLElement): Promise<void>;
+                showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: { trigger?: 'modal' | 'hover'; navigation?: 'reset' | 'preserve' | 'push-current'; autoPlay?: boolean }): Promise<void>;
+                showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover' }): Promise<void>;
+            };
+            internals.settings = {
+                ...DEFAULT_SETTINGS,
+                audioEnabled: false,
+                ankiEnabled: false,
+                localDictionariesEnabled: false,
+                localDictionaryShowKanji: false,
+                jpdbDefinitionsEnabled: false,
+                jpdbMiningEnabled: false,
+                showPitchAccent: false,
+                immersionKitEnabled: false,
+                studyGrammarEnabled: false,
+                studyTranslationEnabled: false,
+            };
+            internals.parsePopoverJapanese = vi.fn(async () => undefined);
+
+            await internals.showCard(sourceCard, 'うでが痛むんで？', undefined, { trigger: 'modal', navigation: 'reset', autoPlay: false });
+            const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+            popover.querySelector<HTMLElement>('.jpdb-reader-popover-body')?.insertAdjacentHTML('beforeend', `
+                <details data-immersion-kit open>
+                    <summary>Immersion Kit Princess Mononoke 2/6 ‹ ›</summary>
+                    <div class="jpdb-reader-example-card" data-immersion-sentence="うでが痛むんで？">
+                        <div class="jpdb-reader-example-sentence jpdb-reader-parseable">
+                            う<span class="jpdb-reader-word jpdb-reader-example-target" data-expression="で" tabindex="0">で</span>が痛むんで？
+                        </div>
+                    </div>
+                </details>
+            `);
+            const showCard = vi.spyOn(internals, 'showCard');
+
+            await internals.showWord(popover.querySelector<HTMLElement>('.jpdb-reader-example-target')!, { trigger: 'click' });
+
+            expect(showCard).not.toHaveBeenCalled();
+            expect(document.querySelector<HTMLButtonElement>('[data-action="word-history-back"]')).toBeNull();
+            expect(document.querySelector<HTMLElement>('.jpdb-reader-spelling')?.textContent?.replace(/\s+/g, '')).toContain('で');
+        } finally {
+            Object.defineProperty(window, 'requestAnimationFrame', {
+                configurable: true,
+                value: originalRequestAnimationFrame,
+            });
+            vi.unstubAllGlobals();
             app.destroy();
             document.body.replaceChildren();
         }
