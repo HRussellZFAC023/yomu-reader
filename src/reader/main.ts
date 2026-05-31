@@ -24,6 +24,7 @@ import {
     escapeHtml,
     getSelectionSentence,
     getSelectionText,
+    htmlToFirstElement,
     isPassiveInteractionElement,
     nearestReadableSentenceForElement,
     readerWordSurfaceText,
@@ -5157,15 +5158,6 @@ function replaceOptionalElement(parent: Element, selector: string, html: string,
         return;
     }
     if (next) parent.insertBefore(next, before);
-}
-
-function htmlToFirstElement(html: string): HTMLElement | null {
-    const trimmed = html.trim();
-    if (!trimmed) return null;
-    const template = document.createElement('template');
-    template.innerHTML = trimmed;
-    const first = template.content.firstElementChild;
-    return first ? document.importNode(first, true) as HTMLElement : null;
 }
 
 function cardStateLabel(state: string, language: InterfaceLanguage): string {
