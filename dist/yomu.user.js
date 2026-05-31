@@ -32,7 +32,6 @@
 // @grant        GM.listValues
 // @grant        GM.setValue
 // @grant        GM.xmlHttpRequest
-// @grant        GM_addStyle
 // @grant        GM_addValueChangeListener
 // @grant        GM_deleteValue
 // @grant        GM_getResourceText
