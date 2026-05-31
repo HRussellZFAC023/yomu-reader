@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.66
+// @version      0.4.67
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -3260,7 +3260,6 @@ Greasy Fork compliance notes:
    newTabJpdbReviewAuto: "Auto: live kanji + API vocabulary",
    newTabLiveReview: "Live JPDB review session",
    newTabApiVocabulary: "API vocabulary only",
-   switchReviewSource: "Switch review source",
    corsProxyUrl: "Cross-origin proxy URL",
    newTabKanjiKeywordSource: "Kanji keyword source",
    newTabKanjiKeywordAuto: "Auto: RTK, then JPDB, then local",
@@ -3557,7 +3556,6 @@ Greasy Fork compliance notes:
    dictionaryDownloadBlocked: "Dictionary download is blocked in this browser. Open the dictionary URL and import the ZIP from Settings if the automatic download fails.",
    dictionaryManualDownloadHint: "Enable the よむ userscript on this page, then tap Download again. You can also download the ZIP manually and use Import dictionary above.",
    dictionaryInstallQueueHelp: "Dictionary installs can take a few minutes. You can queue more than one; よむ installs them one at a time and keeps Save waiting until the active import finishes.",
-   dictionaryInstallNewTabHelp: "Optional: add a Yomitan dictionary in Settings for offline local results. Public JPDB lookup works without one.",
    dictionaryInstallQueued: "{dictionary} queued. It will install after the current dictionary finishes.",
    dictionaryInstallSaveBlocked: "Dictionary import is still running. Save will be available when it finishes.",
    dictionaryImportQueueStatus: "{count} dictionary install{plural} in progress. Save will be available when finished.",
@@ -3717,75 +3715,15 @@ Greasy Fork compliance notes:
    helpGlossaryDefinitionocr: "Reading text from images, such as manga panels or screenshots.",
    videoPlayer: "Video Player",
    newTabPage: "New Tab",
-   newTabMode: "New tab mode",
    word: "Word",
    search: "Search",
-   stats: "Stats",
-   statsRefresh: "Refresh stats",
-   statsCombined: "Combined",
-   statsConnections: "Connections",
-   statsReviewsToday: "Reviews today",
-   statsTotalReviews: "Total reviews",
-   statsCurrentStreak: "Current streak",
-   statsLongestStreak: "Longest streak",
-   statsRetention: "Retention",
-   statsAverageSpeed: "Average speed",
-   statsCardsPerMinute: "cards/min",
-   statsEstimatedDueTime: "Due estimate",
-   statsCards: "Cards",
-   statsDailyActivity: "Daily activity",
-   statsMonthlyHeatmap: "Monthly heatmap",
-   statsAccuracy: "Accuracy",
-   statsStreak: "Streak",
-   statsActivityReviews: "Reviews",
-   statsActivityMinutes: "Minutes",
-   statsActivityNewCards: "New cards",
-   statsCardDistribution: "Card distribution",
-   statsStudyTroubleCards: "Study due/failed",
-   statsStudyTroubleHint: "Open the main study deck focused on cards marked due or failed.",
    statsImportJpdbHistory: "Import JPDB review history",
-   statsChooseJpdbFile: "Choose reviews.json",
-   statsConnectAnki: "Connect Anki",
-   statsOpenJpdbSettings: "JPDB settings",
-   statsOpenAnkiSettings: "Anki settings",
-   statsLoading: "Loading stats...",
-   statsNoData: "No stats yet.",
-   statsApiKeyMissing: "Add a JPDB API key.",
-   statsAnkiUnavailable: "Open Anki with AnkiConnect enabled.",
-   statsImportFailed: "Could not import that file.",
-   statsImportReady: "JPDB review history imported.",
-   statsDropJpdbFile: "Drop reviews.json here or choose a file.",
-   statsDays: "days",
-   statsDue: "Due",
-   statsKnown: "Known",
    openYomuSettings: `Open ${APP_NAME} settings`,
-   searchWordsOrKanji: "Search words or kanji",
-   draw: "Draw",
-   drawKanji: "Draw kanji",
-   clearSearch: "Clear search",
-   searchSuggestions: "Search suggestions",
-   studyNavigation: "Study navigation",
-   previousWord: "Previous word",
-   nextWord: "Next word",
-   getYomu: `Get ${APP_NAME}`,
    newTabAddressCopied: "New tab address copied.",
    loading: "Loading...",
    refreshing: "Refreshing...",
-   offlineCache: "Offline cache",
-   offlineSourceSuffix: "offline",
-   noWordsYet: "Looking for more words...",
-   noKanjiCardsYet: "Looking for more kanji...",
-   noKanjiKeyword: "No kanji keyword found.",
-   couldNotLoadWords: "Could not load words.",
-   offlineGradesDisabled: "Offline cache. Grades are saved here and sync when JPDB or Anki reconnects.",
-   startWithDictionary: "Start with a dictionary",
-   addDictionaryStudyCards: "Use this only if you want offline Yomitan results.",
-   dictionaryReadyNewTabs: "Public JPDB lookup works without an API key.",
-   addDictionary: "Add dictionary",
    reveal: "Reveal",
-   hide: "Hide",
    revealTranslation: "Reveal translation",
-   yourDrawing: "Your drawing",
    immersionExampleControls: "Immersion Kit example controls",
    loadingKanjiDetails: "Loading kanji details...",
    loadingMnemonicImages: "Loading mnemonic images...",
@@ -3793,34 +3731,15 @@ Greasy Fork compliance notes:
    resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
    showMiningActions: "Show mining actions",
    hideMiningActions: "Hide mining actions",
-   couldNotSubmitGrade: "Could not submit grade.",
-   updatingJpdbKanji: "Updating JPDB kanji...",
    jpdbKanjiUpdated: "JPDB kanji updated.",
-   jpdbKanjiUpdateFailed: "Could not update JPDB kanji. Enable kanji reviews on JPDB first.",
    jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check JPDB kanji reviews are enabled.",
-   grading: "Grading...",
-   offlineGradeReconnect: "Grade saved offline. It will sync when JPDB or Anki reconnects.",
    jpdbActionsDisabled: "JPDB actions are disabled in settings.",
    addJpdbApiKeyReview: "Add a JPDB API key to review JPDB cards.",
-   missingAnkiCardId: "Missing Anki card id.",
    actionFailed: "Action failed.",
-   noDefinitionsFound: "No definitions found.",
    dictionary: "Dictionary",
    dictionariesExported: "Dictionaries exported.",
    local: "Local",
    dict: "dict",
-   cachedReviews: "Cached reviews",
-   noSource: "No source",
-   liveReview: "live review",
-   searchRecognizing: "Recognizing...",
-   searchNoHandwritingMatch: "No handwriting match yet. Type or paste kanji instead.",
-   typeOrPasteKanji: "Type or paste kanji",
-   searching: "Searching...",
-   searchLocalDictionariesFailed: "Could not search local dictionaries.",
-   externalDictionarySearch: "External dictionary search",
-   words: "Words",
-   noLocalResults: "No matching results.",
-   addDictionaryForLocalResults: "No JPDB matches found.",
    filterStudy: "Study",
    filterAll: "All",
    sourceAuto: "Auto",
@@ -3852,15 +3771,9 @@ Greasy Fork compliance notes:
    factKeyword: "Keyword",
    factType: "Type",
    factFrequency: "Frequency",
-   factWordFrequency: "Word frequency",
    factMeaning: "Meaning",
    factGrade: "Grade",
    factOldForms: "Old forms",
-   lookUp: "Look up",
-   looksRight: "Looks right",
-   checkStrokeCount: "Check stroke count",
-   checkStrokeShapeOrder: "Check stroke shape/order",
-   checkStrokeCountOrder: "Check stroke count/order",
    docs: "Docs",
    factoryReset: "Factory Reset",
    factoryResetConfirm: "Reset all {appName} data?\n\nThis deletes settings, API keys, preferences, cached cards, local dictionaries, and all other userscript storage.",
@@ -3913,7 +3826,6 @@ Greasy Fork compliance notes:
    addToDeckHint: "Add this card to the selected JPDB deck without grading it.",
    deck: "Deck",
    deckActions: "Deck actions",
-   miningActions: "Mining actions",
    reviewAddsToDeck: "Reviewing will add new words to",
    reviewBlockedBlacklisted: "This word is blacklisted. Unlist it before reviewing.",
    reviewBlockedNeverForget: "This word is marked never forget. Remove never-forget before reviewing.",
@@ -4134,78 +4046,18 @@ Greasy Fork compliance notes:
   front: "表面",
   back: "裏面",
   newTabPage: "新しいタブ",
-  newTabMode: "新しいタブのモード",
   word: "単語",
   search: "検索",
-  stats: "統計",
-  statsRefresh: "統計を更新",
-  statsCombined: "合計",
-  statsConnections: "接続",
-  statsReviewsToday: "今日の復習",
-  statsTotalReviews: "総復習数",
-  statsCurrentStreak: "現在の連続日数",
-  statsLongestStreak: "最長連続日数",
-  statsRetention: "定着率",
-  statsAverageSpeed: "平均速度",
-  statsCardsPerMinute: "カード/分",
-  statsEstimatedDueTime: "期限分の目安",
-  statsCards: "カード",
-  statsDailyActivity: "日別アクティビティ",
-  statsMonthlyHeatmap: "月別ヒートマップ",
-  statsAccuracy: "正答率",
-  statsStreak: "連続",
-  statsActivityReviews: "復習",
-  statsActivityMinutes: "分",
-  statsActivityNewCards: "新規",
-  statsCardDistribution: "カード分布",
-  statsStudyTroubleCards: "期限/失敗を学習",
-  statsStudyTroubleHint: "期限または失敗のカードを中心に学習画面を開きます。",
   statsImportJpdbHistory: "JPDB復習履歴を読み込む",
-  statsChooseJpdbFile: "reviews.jsonを選択",
-  statsConnectAnki: "Ankiに接続",
-  statsOpenJpdbSettings: "JPDB設定",
-  statsOpenAnkiSettings: "Anki設定",
-  statsLoading: "統計を読み込み中...",
-  statsNoData: "統計はまだありません。",
-  statsApiKeyMissing: "JPDB APIキーを追加してください。",
-  statsAnkiUnavailable: "AnkiConnectを有効にしてAnkiを開いてください。",
-  statsImportFailed: "このファイルを読み込めませんでした。",
-  statsImportReady: "JPDB復習履歴を読み込みました。",
-  statsDropJpdbFile: "reviews.jsonをドロップするか、ファイルを選択してください。",
-  statsDays: "日",
-  statsDue: "期限",
-  statsKnown: "既知",
   switchToLightTheme: "ライトテーマに切り替え",
   switchToDarkTheme: "ダークテーマに切り替え",
   openYomuSettings: `${APP_NAME}の設定を開く`,
-  searchWordsOrKanji: "単語・漢字を検索",
-  draw: "手書き",
-  drawKanji: "漢字を書く",
-  clearSearch: "検索をクリア",
-  searchSuggestions: "検索候補",
-  studyNavigation: "学習ナビゲーション",
-  previousWord: "前の単語",
-  nextWord: "次の単語",
-  getYomu: `${APP_NAME}を入手`,
   newTabAddressCopied: "新規タブのアドレスをコピーしました。",
   getApp: `${APP_NAME}を入手`,
   loading: "読み込み中...",
   refreshing: "更新中...",
-  offlineCache: "オフラインキャッシュ",
-  offlineSourceSuffix: "オフライン",
-  noWordsYet: "さらに単語を探しています…",
-  noKanjiCardsYet: "さらに漢字を探しています…",
-  noKanjiKeyword: "漢字キーワードが見つかりません。",
-  couldNotLoadWords: "単語を読み込めませんでした。",
-  offlineGradesDisabled: "オフラインキャッシュです。採点はここに保存され、JPDBまたはAnkiへの再接続時に同期されます。",
-  startWithDictionary: "辞書から始める",
-  addDictionaryStudyCards: "オフラインのYomitan結果が必要なときだけ使います。",
-  dictionaryReadyNewTabs: "公開JPDB検索はAPIキーなしで使えます。",
-  addDictionary: "辞書を追加",
   reveal: "表示",
-  hide: "隠す",
   revealTranslation: "翻訳を表示",
-  yourDrawing: "あなたの手書き",
   immersionExampleControls: "イマージョンキット例文の操作",
   loadingKanjiDetails: "漢字情報を読み込み中...",
   loadingMnemonicImages: "覚え方画像を読み込み中...",
@@ -4215,18 +4067,11 @@ Greasy Fork compliance notes:
   hideMiningActions: "マイニング操作を隠す",
   closeDrawer: "ドロワーを閉じる",
   copiedWord: "単語をコピーしました。",
-  couldNotSubmitGrade: "採点を送信できませんでした。",
-  updatingJpdbKanji: "JPDB漢字を更新中...",
   jpdbKanjiUpdated: "JPDB漢字を更新しました。",
-  jpdbKanjiUpdateFailed: "JPDB漢字を更新できませんでした。先にJPDBで漢字レビューを有効にしてください。",
   jpdbKanjiUpdateFailedRuntime: "JPDB漢字を更新できませんでした。JPDBの漢字レビューが有効か確認してください。",
-  grading: "採点中...",
-  offlineGradeReconnect: "採点をオフラインで保存しました。JPDBまたはAnkiへの再接続時に同期されます。",
   jpdbActionsDisabled: "設定でJPDB操作が無効です。",
   addJpdbApiKeyReview: "JPDBカードをレビューするにはJPDB APIキーを追加してください。",
-  missingAnkiCardId: "AnkiカードIDがありません。",
   actionFailed: "操作に失敗しました。",
-  noDefinitionsFound: "定義が見つかりませんでした。",
   noDefinitions: "有効な定義ソースから結果が返りませんでした。",
   dictionary: "辞書",
   dictionariesExported: "辞書をエクスポートしました。",
@@ -4257,7 +4102,6 @@ Greasy Fork compliance notes:
   dictionaryDownloadBlocked: "このブラウザーでは辞書のダウンロードがブロックされています。自動ダウンロードに失敗する場合は、辞書URLを開いて設定からZIPをインポートしてください。",
   dictionaryManualDownloadHint: "このページでよむのユーザースクリプトを有効にしてから、もう一度ダウンロードを押してください。ZIPを手動でダウンロードして、上の辞書インポートから読み込むこともできます。",
   dictionaryInstallQueueHelp: "辞書のインストールには数分かかることがあります。複数キューに入れられますが、よむは1件ずつインストールし、インポート完了まで保存を待機します。",
-  dictionaryInstallNewTabHelp: "ローカル結果が必要な場合のみ、設定でYomitan辞書を追加してください。公開JPDB検索は辞書なしで使えます。",
   dictionaryInstallQueued: "{dictionary}を待機中です。現在の辞書が終わったらインストールします。",
   dictionaryInstallSaveBlocked: "辞書インポートがまだ進行中です。完了すると保存できます。",
   dictionaryImportQueueStatus: "{count}件の辞書インストールが進行中です。完了すると保存できます。",
@@ -4277,18 +4121,6 @@ Greasy Fork compliance notes:
   yomitanSettingsInvalid: "Yomitan設定エクスポートではないようです。",
   local: "ローカル",
   dict: "辞書",
-  cachedReviews: "キャッシュ済みレビュー",
-  noSource: "ソースなし",
-  liveReview: "ライブレビュー",
-  searchRecognizing: "認識中...",
-  searchNoHandwritingMatch: "手書き候補がまだありません。漢字を入力または貼り付けてください。",
-  typeOrPasteKanji: "漢字を入力または貼り付け",
-  searching: "検索中...",
-  searchLocalDictionariesFailed: "ローカル辞書を検索できませんでした。",
-  externalDictionarySearch: "外部辞書検索",
-  words: "単語",
-  noLocalResults: "一致する結果がありません。",
-  addDictionaryForLocalResults: "JPDBの一致が見つかりません。",
   scanPage: "ページをスキャン",
   noUnscannedJapaneseText: "未スキャンの日本語テキストはありません。",
   jpdbScanFailed: "JPDBスキャンに失敗しました。",
@@ -4357,15 +4189,9 @@ Greasy Fork compliance notes:
   factKeyword: "キーワード",
   factType: "種類",
   factFrequency: "頻度",
-  factWordFrequency: "単語頻度",
   factMeaning: "意味",
   factGrade: "学年",
   factOldForms: "旧字体",
-  lookUp: "検索",
-  looksRight: "いい感じです",
-  checkStrokeCount: "画数を確認",
-  checkStrokeShapeOrder: "字形・筆順を確認",
-  checkStrokeCountOrder: "画数・筆順を確認",
   loadingSimilarWords: "単語を読み込み中...",
   openToLoadSimilarWords: "開くと単語を読み込みます。",
   noSimilarWords: "追加の単語は見つかりませんでした。",
@@ -4497,7 +4323,6 @@ Greasy Fork compliance notes:
   addToDeckHint: "選択したJPDBデッキにこのカードを追加します。",
   deck: "デッキ",
   deckActions: "デッキ操作",
-  miningActions: "マイニング操作",
   reviewAddsToDeck: "レビューすると新しい単語を追加します:",
   reviewBlockedBlacklisted: "この単語はブラックリスト入りです。レビューする前に解除してください。",
   reviewBlockedNeverForget: "この単語は「忘れない」に設定されています。レビューする前に解除してください。",
@@ -4668,7 +4493,6 @@ Greasy Fork compliance notes:
   newTabJpdbReviewAuto: "自動: ライブ漢字 + API語彙",
   newTabLiveReview: "ライブJPDB復習セッション",
   newTabApiVocabulary: "API語彙のみ",
-  switchReviewSource: "復習ソースを切り替え",
   corsProxyUrl: "クロスオリジンプロキシURL",
   newTabKanjiKeywordSource: "漢字キーワードのソース",
   newTabKanjiKeywordAuto: "自動: RTK、JPDB、ローカルの順",
@@ -28314,719 +28138,6 @@ ${glossaryKey}`;
  function isHexColor(value) {
   return /^#[0-9a-f]{6}$/i.test(value);
  }
- Logger.scope("NewTab");
- const UCHISEN_INDEX_PREFIX = "yomu-jpdb-uchisen-index:";
- const UCHISEN_PAYWALL_STORY_RE = /\bplease\s+subscribe\s+to\s+uchisen\s*pro\b/i;
- const UCHISEN_PAYWALL_IMAGE_RE = /(?:^|\/)(?:kanji\/)?enrollment\.(?:png|jpe?g|webp)$/i;
- function parseUchisenData(html) {
-  if (!html.trim()) return emptyUchisenData();
-  const doc = parseHtmlDocument(html);
-  const kanjiId = parseUchisenKanjiIdFromDocument(doc);
-  return {
-   images: parseUchisenImagesFromDocument(doc),
-   componentGroups: parseUchisenComponentGroupsFromDocument(doc),
-   kanjiKeyword: parseUchisenKanjiKeywordFromDocument(doc),
-   kanjiId,
-   canGenerateImages: Boolean(kanjiId && parseUchisenCanGenerateFromDocument(doc))
-  };
- }
- function emptyUchisenData() {
-  return { images: [], componentGroups: [], kanjiKeyword: null, kanjiId: "", canGenerateImages: false };
- }
- function parseUchisenImagesFromDocument(doc) {
-  const images = [];
-  const mainImage = mainUchisenImageUrl(doc);
-  const mainStory = cleanText$3(doc.querySelector("#mnemonic_story")?.textContent ?? "");
-  if (mainImage) {
-   const url = canonicalUchisenUrl(mainImage);
-   images.push({
-    url,
-    story: mainStory || "No story available",
-    paywall: isUchisenPaywallImage(url) || isUchisenPaywallStory(mainStory)
-   });
-  }
-  doc.querySelectorAll(".mnemonic_card").forEach((card) => {
-   const image = uchisenCardImage(card, mainStory);
-   if (image) images.push(image);
-  });
-  return orderedUchisenImages(images);
- }
- function parseUchisenComponentGroupsFromDocument(doc) {
-  const root = doc.querySelector(".kanji_info_container .components") ?? doc.querySelector(".components");
-  if (!root) return [];
-  return Array.from(root.children).filter((child) => child instanceof HTMLElement && child.classList.contains("KP_primes")).map(uchisenComponentGroup).filter((group) => Boolean(group?.components.length)).slice(0, 4);
- }
- function parseUchisenKanjiKeywordFromDocument(doc) {
-  const candidates = [
-   doc.querySelector("#kanji_keyword_container > span")?.textContent,
-   doc.querySelector("#kanji_keyword_container")?.textContent,
-   doc.querySelector(".kanji_name > span")?.textContent,
-   doc.querySelector(".mnemonic_studio_right h2.kanji_info")?.textContent
-  ];
-  for (const candidate of candidates) {
-   const keyword = uchisenKanjiKeyword(candidate ?? "");
-   if (keyword) return keyword;
-  }
-  return null;
- }
- function parseUchisenKanjiIdFromDocument(doc) {
-  const candidates = [
-   doc.querySelector("input#kanji_id")?.value,
-   doc.querySelector("input#showing_kanji_id")?.value,
-   doc.querySelector('input[name="kanji_id"]')?.value
-  ];
-  return cleanText$3(candidates.find(Boolean) ?? "");
- }
- function parseUchisenCanGenerateFromDocument(doc) {
-  const userId = cleanText$3(doc.querySelector("input#user_id")?.value ?? "");
-  const hasAccountNav = Boolean(doc.querySelector('a[href^="/account/"], a[href="/logout"]'));
-  const hasStudioGenerateButton = Boolean(doc.querySelector('.generate_image_button, button[data-uchisen-action="generate-submit"]'));
-  const hasLoginPrompt = Boolean(doc.querySelector('#lo_links a[href*="login"], a[href*="/login"]'));
-  const explicitlyUnavailable = Boolean(doc.querySelector("[data-uchisen-generate-unavailable], .generate_image_button[disabled]"));
-  return !explicitlyUnavailable && (hasStudioGenerateButton || Boolean(userId) || hasAccountNav || hasLoginPrompt);
- }
- function uchisenKanjiKeyword(value) {
-  const match = /^(.+?)\s*[-\u2013\u2014]\s*(.+)$/u.exec(cleanText$3(value));
-  if (!match) return null;
-  const kanji = cleanText$3(match[1].replace(/[「」]/g, ""));
-  const keyword = cleanText$3(match[2]);
-  if (!kanji || !keyword) return null;
-  return {
-   kanji,
-   keyword,
-   url: `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`
-  };
- }
- function uchisenComponentGroup(group) {
-  const components2 = Array.from(group.querySelectorAll(".name_combo")).map(uchisenComponent).filter((component) => Boolean(component?.symbol || component?.name)).slice(0, 8);
-  if (!components2.length) return null;
-  return {
-   title: uchisenComponentGroupTitle(group),
-   components: components2
-  };
- }
- function uchisenComponentGroupTitle(group) {
-  if (group.querySelector(".prime_label")) return "Kanji Primes";
-  if (group.querySelector(".compound_label")) return "Compound Kanji";
-  return cleanText$3(group.querySelector(".prime_label, .compound_label")?.textContent ?? "") || "Components";
- }
- function uchisenComponent(item) {
-  const link = item.querySelector("a[href]");
-  if (!link) return null;
-  const symbol = cleanText$3(link.querySelector(".component_symbol")?.textContent ?? "");
-  const name = uchisenComponentName(link, symbol);
-  return {
-   name,
-   symbol,
-   url: absoluteUchisenUrl(link.getAttribute("href") ?? "")
-  };
- }
- function uchisenComponentName(link, symbol) {
-  const text2 = cleanText$3((link.textContent ?? "").replace(/\u00a0/g, " "));
-  const withoutSymbol = symbol ? cleanText$3(text2.replace(symbol, "")) : text2;
-  return cleanText$3(withoutSymbol.replace(/[：:].*$/u, "")) || symbol;
- }
- function absoluteUchisenUrl(value) {
-  try {
-   return new URL(value, "https://uchisen.com").href;
-  } catch {
-   return value;
-  }
- }
- function orderedUchisenImages(images) {
-  const seen = /* @__PURE__ */ new Set();
-  const deduped = images.filter((item) => {
-   const key = uchisenImageDedupeKey(item);
-   if (!item.url || seen.has(key)) return false;
-   seen.add(key);
-   return true;
-  });
-  return [
-   ...deduped.filter((item) => !item.paywall),
-   ...deduped.filter((item) => item.paywall)
-  ].map(({ url, story }) => ({ url, story }));
- }
- function uchisenImageDedupeKey(item) {
-  return item.paywall && isUchisenPaywallImage(item.url) ? "paywall:enrollment" : `url:${item.url}`;
- }
- function mainUchisenImageUrl(doc) {
-  const mainLoader = doc.querySelector(".kanji_image_loader[data-large]");
-  return mainLoader?.getAttribute("data-large") || doc.querySelector("#full_kanji_image")?.getAttribute("src") || "";
- }
- function uchisenCardImage(card, mainStory) {
-  const rawUrl = card.querySelector("input.image_url")?.value.trim() ?? "";
-  if (!rawUrl) return null;
-  const url = canonicalUchisenUrl(rawUrl);
-  const story = uchisenCardStory(card, mainStory);
-  return {
-   url,
-   story,
-   paywall: isUchisenPaywallCard(card, url, story)
-  };
- }
- function uchisenCardStory(card, mainStory) {
-  const rawStory = card.querySelector("input.story")?.value ?? "";
-  const story = cleanText$3(decodeEntities(rawStory).replace(/<[^>]+>/g, " "));
-  return story || mainStory || "No story available";
- }
- function isUchisenPaywallCard(card, url, story) {
-  const thumbnailUrl = card.querySelector(".mnemonic_card_thumbnail img")?.getAttribute("src") ?? "";
-  return isUchisenPaywallImage(url) || isUchisenPaywallImage(thumbnailUrl) || isUchisenPaywallStory(story);
- }
- function isUchisenPaywallImage(url) {
-  try {
-   return UCHISEN_PAYWALL_IMAGE_RE.test(new URL(url).pathname);
-  } catch {
-   return UCHISEN_PAYWALL_IMAGE_RE.test(url.split(/[?#]/)[0]);
-  }
- }
- function isUchisenPaywallStory(story) {
-  return UCHISEN_PAYWALL_STORY_RE.test(cleanText$3(story));
- }
- async function loadUchisenData(kanji, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL) {
-  const html = await requestUchisenPageText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9e3, proxyUrl);
-  return parseUchisenData(html);
- }
- async function installUchisenCarousel(container, kanji, images, options = {}) {
-  let currentImages = images.slice();
-  let currentComponentGroups = options.componentGroups ?? [];
-  let currentKanjiKeyword = options.kanjiKeyword ?? null;
-  let currentKanjiId = options.kanjiId ?? "";
-  let canGenerateImages = Boolean(currentKanjiId && options.canGenerateImages);
-  const storedIndex = await gmStorageGet(`${UCHISEN_INDEX_PREFIX}${kanji}`, 0);
-  let index = preferredUchisenIndex(storedIndex, currentImages);
-  if (!isValidUchisenIndex(index, currentImages)) index = 0;
-  const proxyUrl = options.proxyUrl ?? DEFAULT_YOMU_PUBLIC_PROXY_URL;
-  let generateOpen = false;
-  let generateBusy = false;
-  let generateStatus = null;
-  let generateFields = defaultUchisenGenerateFields(kanji, currentKanjiKeyword, currentComponentGroups);
-  let currentImageUrl = "";
-  const cleanup = () => {
-   if (!currentImageUrl) return;
-   revokePageMediaUrl(currentImageUrl);
-   currentImageUrl = "";
-  };
-  const render = () => {
-   const language = options.interfaceLanguage ?? "en";
-   if (!isValidUchisenIndex(index, currentImages)) index = 0;
-   const item = currentImages[index] ?? null;
-   const total = currentImages.length;
-   const previousLabel = uiText(language, "previousExample");
-   const nextLabel = uiText(language, "nextExample");
-   const story = item?.story && item.story !== "No story available" ? item.story : uiText(language, "noStoryAvailable");
-   const detailsClass = options.detailsClass ?? "jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-uchisen-source";
-   const summaryClass = options.summaryClass ?? "jpdb-reader-local-head";
-   const bodyClass = options.bodyClass ?? "jpdb-reader-local-glossary yomu-jpdb-uchisen-body";
-   const sourceAttributes = options.sourceAttributes ?? "open";
-   const summaryHtml = options.summaryHtml?.(total ? index + 1 : 0, total) ?? `
-                    <span class="yomu-jpdb-uchisen-summary-main">
-                        <span>Uchisen</span>
-                        <span class="yomu-jpdb-counter">${total ? `${index + 1}/${total}` : "0"}</span>
-                    </span>
-                `;
-   const bodyMeta = options.summaryHtml && total ? `<span class="yomu-jpdb-source-meta">${index + 1}/${total}</span>` : "";
-   setInnerHtml(container, `
-            <details class="${detailsClass}" ${sourceAttributes}>
-                <summary class="${summaryClass}">
-                    ${summaryHtml}
-                </summary>
-                <div class="${bodyClass}">
-                    <div class="yomu-jpdb-uchisen-toolbar">
-                        ${bodyMeta}
-                        <span class="yomu-jpdb-uchisen-link-row">
-                            <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(kanji)}" target="_blank" rel="noopener">${escapeHtml$1(uchisenExternalLinkLabel(language))} ${externalLinkIcon()}</a>
-                            ${canGenerateImages ? `<button class="yomu-jpdb-uchisen-summary-link yomu-jpdb-uchisen-generate-link" type="button" data-uchisen-action="generate-toggle" aria-expanded="${generateOpen}" title="${escapeHtml$1(uiText(language, "generateUchisenImage"))}">${escapeHtml$1(uiText(language, "generateUchisenImageToggle"))}</button>` : ""}
-                        </span>
-                        ${total ? `<span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="${escapeHtml$1(uiText(language, "uchisenMnemonicImages"))}">
-              <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">&lsaquo;</button>
-              <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">&rsaquo;</button>
-            </span>` : ""}
-                    </div>
-                    ${generateOpen ? renderUchisenGeneratePanel(generateFields, generateStatus, generateBusy, language) : ""}
-                    ${renderUchisenComponentGroups(currentKanjiKeyword, currentComponentGroups, language)}
-                    ${item ? `<div class="yomu-jpdb-image-shell"><img alt="${escapeHtml$1(formatUchisenTemplate(uiText(language, "uchisenMnemonicFor"), { kanji }))}" data-uchisen-image></div>
-          <div class="yomu-jpdb-story">${escapeHtml$1(story)}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "noUchisenImagesYet"))}</div>`}
-                </div>
-            </details>
-        `);
-   const image = container.querySelector("[data-uchisen-image]");
-   if (!image || !item) return;
-   const srcUrl = item.url;
-   requestBlobUrl(srcUrl, 9e3, proxyUrl).then((url) => {
-    if (!image.isConnected || currentImages[index]?.url !== srcUrl) {
-     revokePageMediaUrl(url);
-     return;
-    }
-    cleanup();
-    currentImageUrl = url;
-    image.src = url;
-   }).catch(() => {
-    if (image.isConnected) image.remove();
-   });
-  };
-  const syncGenerateFields = () => {
-   generateFields = {
-    mnemonic: container.querySelector('[data-uchisen-generate-field="mnemonic"]')?.value ?? generateFields.mnemonic,
-    imagePrompt: container.querySelector('[data-uchisen-generate-field="imagePrompt"]')?.value ?? generateFields.imagePrompt
-   };
-  };
-  const refreshAfterGenerate = async (result) => {
-   const fresh = await options.refreshData?.().catch(() => null);
-   if (fresh) {
-    currentImages = fresh.images;
-    currentComponentGroups = fresh.componentGroups;
-    currentKanjiKeyword = fresh.kanjiKeyword;
-    currentKanjiId = fresh.kanjiId || currentKanjiId;
-    canGenerateImages = Boolean(currentKanjiId && fresh.canGenerateImages);
-   } else {
-    currentImages = orderedUchisenImages([
-     ...currentImages.map((item) => ({ ...item, paywall: isUchisenPaywallItem(item) })),
-     { url: result.imageUrl, story: result.story, paywall: false }
-    ]);
-   }
-   const generatedIndex = findUchisenImageIndex(currentImages, result.imageUrl);
-   index = generatedIndex >= 0 ? generatedIndex : Math.max(0, currentImages.length - 1);
-   void gmStorageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
-  };
-  const generateAndRefresh = async () => {
-   if (generateBusy || !canGenerateImages || !currentKanjiId) return;
-   syncGenerateFields();
-   generateBusy = true;
-   generateStatus = { tone: "neutral", text: uiText(options.interfaceLanguage ?? "en", "uchisenGeneratingImage") };
-   render();
-   try {
-    const result = await generateAndPublishUchisenMnemonic(kanji, {
-     kanjiId: currentKanjiId,
-     mnemonic: generateFields.mnemonic,
-     imagePrompt: generateFields.imagePrompt
-    }, proxyUrl, (message) => {
-     generateStatus = { tone: "neutral", text: message };
-     render();
-    }, options.interfaceLanguage ?? "en");
-    await refreshAfterGenerate(result);
-    generateStatus = { tone: "success", text: uiText(options.interfaceLanguage ?? "en", "uchisenGeneratedImage") };
-    generateOpen = false;
-   } catch (error) {
-    const message = error instanceof Error && error.message.trim() ? error.message.trim() : uiText(options.interfaceLanguage ?? "en", "uchisenGenerateFailed");
-    generateStatus = { tone: "error", text: message };
-   } finally {
-    generateBusy = false;
-    render();
-   }
-  };
-  container.addEventListener("click", (event) => {
-   const action = event.target.closest("[data-uchisen-action]")?.dataset.uchisenAction;
-   if (!action) return;
-   event.preventDefault();
-   event.stopPropagation();
-   if (action === "generate-toggle") {
-    generateOpen = !generateOpen;
-    generateStatus = canGenerateImages ? null : { tone: "error", text: uiText(options.interfaceLanguage ?? "en", "uchisenLoginRequired") };
-    render();
-    return;
-   }
-   if (action === "generate-submit") {
-    void generateAndRefresh();
-    return;
-   }
-   if (action !== "previous" && action !== "next") return;
-   if (!currentImages.length) return;
-   if (action === "previous") index = (index - 1 + currentImages.length) % currentImages.length;
-   if (action === "next") index = (index + 1) % currentImages.length;
-   void gmStorageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
-   render();
-  });
-  container.addEventListener("input", (event) => {
-   const field = event.target.closest("[data-uchisen-generate-field]");
-   if (!field) return;
-   syncGenerateFields();
-  });
-  render();
-  return cleanup;
- }
- async function generateAndPublishUchisenMnemonic(kanji, request, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL, onStatus, language = "en") {
-  const kanjiId = request.kanjiId.trim();
-  const mnemonic = request.mnemonic.trim();
-  const imagePrompt = request.imagePrompt.trim();
-  const storyBackedPrompt = storyBackedUchisenImagePrompt(mnemonic, imagePrompt);
-  const safeImagePrompt = safeUchisenImagePrompt(storyBackedPrompt);
-  if (!kanjiId || !mnemonic || !imagePrompt) throw new Error("Missing Uchisen generation fields.");
-  const referrer = `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`;
-  onStatus?.(uiText(language, "uchisenGeneratingImage"));
-  const { generation, imagePrompt: publishedImagePrompt } = await generateUchisenImageWithRetry(
-   kanjiId,
-   imagePrompt,
-   storyBackedPrompt,
-   safeImagePrompt,
-   referrer,
-   proxyUrl
-  );
-  onStatus?.(uiText(language, "uchisenPublishingMnemonic"));
-  await postUchisenForm("https://uchisen.com/save_mnemonic.php", {
-   img_src: generation.imageFilename,
-   kanji_id: kanjiId,
-   formatted_mnemonic: formatUchisenMnemonicHtml(mnemonic),
-   current_image_prompt: publishedImagePrompt,
-   redirect: `/kanji/${encodeURIComponent(kanji)}`,
-   mnemonic,
-   image_prompt: publishedImagePrompt,
-   start_blurred: "no"
-  }, referrer, proxyUrl, "Uchisen mnemonic publish", 12e4);
-  return {
-   imageFilename: generation.imageFilename,
-   imageUrl: generation.imageUrl,
-   story: plainUchisenMnemonic(mnemonic)
-  };
- }
- async function generateUchisenImageWithRetry(kanjiId, imagePrompt, storyBackedPrompt, safeImagePrompt, referrer, proxyUrl) {
-  const attempts = uniqueUchisenPrompts([imagePrompt, storyBackedPrompt, safeImagePrompt]);
-  let lastError;
-  for (const prompt of attempts) {
-   try {
-    const generationText = await postUchisenForm("https://uchisen.com/generateimage", {
-     prompt: uchisenPromptFieldValue(prompt),
-     kanji_id: kanjiId
-    }, referrer, proxyUrl, "Uchisen image generation", 12e4);
-    return { generation: parseUchisenGenerationResponse(generationText), imagePrompt: prompt };
-   } catch (error) {
-    lastError = error;
-   }
-  }
-  throw lastError instanceof Error ? lastError : new Error("Uchisen image generation failed.");
- }
- function storyBackedUchisenImagePrompt(mnemonic, imagePrompt) {
-  const story = plainUchisenMnemonic(mnemonic).replace(/\s+/g, " ").trim();
-  if (!story) return imagePrompt;
-  return fitUchisenImagePrompt(`${imagePrompt}; scene follows this mnemonic story: ${story}`);
- }
- function uniqueUchisenPrompts(prompts) {
-  const seen = /* @__PURE__ */ new Set();
-  const unique2 = [];
-  for (const prompt of prompts) {
-   const trimmed = prompt.trim();
-   if (!trimmed || seen.has(trimmed)) continue;
-   seen.add(trimmed);
-   unique2.push(trimmed);
-  }
-  return unique2;
- }
- function fitUchisenImagePrompt(prompt) {
-  const maxLength = 400;
-  if (prompt.length <= maxLength) return prompt;
-  const noTextSuffix = /;\s*no text or signage$/i.test(prompt) ? "; no text or signage" : "";
-  const targetLength = noTextSuffix ? maxLength - noTextSuffix.length : maxLength;
-  return `${prompt.slice(0, targetLength).replace(/[;,\s]+$/, "")}${noTextSuffix}`;
- }
- function renderUchisenGeneratePanel(fields, status, busy, language) {
-  const statusHtml = status ? `<div class="yomu-jpdb-uchisen-generate-status" data-tone="${escapeHtml$1(status.tone)}">${escapeHtml$1(status.text)}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "uchisenGenerateHint"))}</div>`;
-  return `
-        <div class="yomu-jpdb-uchisen-generator">
-            <label class="yomu-jpdb-uchisen-field">
-                <span>${escapeHtml$1(uiText(language, "uchisenMnemonicStory"))}</span>
-                <textarea rows="3" data-uchisen-generate-field="mnemonic" ${busy ? "disabled" : ""}>${escapeHtml$1(fields.mnemonic)}</textarea>
-            </label>
-            <label class="yomu-jpdb-uchisen-field">
-                <span>${escapeHtml$1(uiText(language, "uchisenImagePrompt"))}</span>
-                <textarea rows="4" data-uchisen-generate-field="imagePrompt" ${busy ? "disabled" : ""}>${escapeHtml$1(fields.imagePrompt)}</textarea>
-            </label>
-            <div class="yomu-jpdb-uchisen-generator-footer">
-                ${statusHtml}
-                <button class="jpdb-reader-btn" type="button" data-uchisen-action="generate-submit" ${busy ? "disabled" : ""}>${escapeHtml$1(uiText(language, "generateUchisenImage"))}</button>
-            </div>
-        </div>
-    `;
- }
- function defaultUchisenGenerateFields(kanji, keyword, groups) {
-  const keywordText = keyword?.keyword || kanji;
-  const components2 = uniqueUchisenComponents(groups);
-  const componentStory = components2.length ? components2.map((component) => `#${component.name}#`).join(" and ") : "#component#";
-  const componentPrompt = components2.length ? components2.map((component) => `${component.name}${component.symbol ? ` (${component.symbol})` : ""}`).join(", ") : "simple component props";
-  return {
-   mnemonic: `##${keywordText}## A warm, clear scene brings ${componentStory} together so ${keywordText.toLowerCase()} feels easy to picture.`,
-   imagePrompt: safeUchisenImagePrompt(`Japanese children's storybook illustration of a friendly ${keywordText.toLowerCase()} scene; include distinct props for ${componentPrompt}; pastel colors, vintage textures; warm light; clear silhouettes; no text or signage`)
-  };
- }
- function uniqueUchisenComponents(groups) {
-  const seen = /* @__PURE__ */ new Set();
-  const components2 = [];
-  for (const group of groups) {
-   for (const component of group.components) {
-    const key = component.name || component.symbol;
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    components2.push(component);
-   }
-  }
-  return components2;
- }
- function findUchisenImageIndex(images, imageUrl) {
-  const canonical = canonicalUchisenUrl(imageUrl);
-  return images.findIndex((item) => canonicalUchisenUrl(item.url) === canonical);
- }
- function parseUchisenGenerationResponse(text2) {
-  const json = parseJsonObjectFromText(text2);
-  if (!json || isUchisenGenerationFailure(json)) {
-   throw new Error(uchisenGenerationErrorMessage(json, text2));
-  }
-  const rawFilename = firstString(json.url, json.filename, json.file, json.img_src, json.image_url, json.imageUrl);
-  const rawFullUrl = firstString(json.full_url, json.image_url, json.imageUrl);
-  const imageFilename = normalizeUchisenImageFilename(rawFilename);
-  if (!imageFilename) throw new Error(`Image generation did not return a filename: ${snippet(text2)}`);
-  return {
-   imageFilename,
-   imageUrl: rawFullUrl ? canonicalUchisenUrl(rawFullUrl) : canonicalUchisenUrl(imageFilename)
-  };
- }
- function uchisenPromptFieldValue(value) {
-  return escapeHtml$1(value).replace(/'/g, "&#039;");
- }
- function safeUchisenImagePrompt(value) {
-  let prompt = value;
-  for (const [pattern, replacement] of UCHISEN_IMAGE_PROMPT_REPLACEMENTS) {
-   prompt = prompt.replace(pattern, replacement);
-  }
-  prompt = prompt.replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, "no text or signage").replace(/no text,\s*letters,\s*numbers,\s*logos,\s*or signage/gi, "no text or signage").replace(/\s+/g, " ").trim();
-  if (!/no text|without text/i.test(prompt)) prompt = `${prompt}; no text or signage`;
-  return prompt;
- }
- const UCHISEN_IMAGE_PROMPT_REPLACEMENTS = [
-  [/\bblood(y|ied|ing)?\b/gi, "red festival paint"],
-  [/\bbleed(ing)?\b/gi, "red festival paint"],
-  [/\bwounds?\b/gi, "patched cloth"],
-  [/\binjur(y|ies|ed)?\b/gi, "tired mishap"],
-  [/\bsick(ness)?\b/gi, "restful"],
-  [/\bill(ness)?\b/gi, "restful"],
-  [/\bmedicine\b/gi, "helpful bundle"],
-  [/\bmedical\b/gi, "helpful"],
-  [/\bdoctor\b/gi, "kind helper"],
-  [/\bpatient\b/gi, "visitor"],
-  [/\bdisease\b/gi, "gloomy cloud"],
-  [/\bhospital\b/gi, "quiet rest house"],
-  [/\bweapons?\b/gi, "ceremonial props"],
-  [/\bswords?\b/gi, "ceremonial wooden practice sword"],
-  [/\bknives?\b/gi, "small wooden craft tool"],
-  [/\bdaggers?\b/gi, "small wooden craft tool"],
-  [/\bblades?\b/gi, "shiny craft edge"],
-  [/\bspears?\b/gi, "slender festival pole"],
-  [/\barrows?\b/gi, "paper arrow charm"],
-  [/\bguns?\b/gi, "toy popper"],
-  [/\brifles?\b/gi, "toy popper"],
-  [/\bcannons?\b/gi, "festival drum"],
-  [/\bbombs?\b/gi, "round festival lantern"],
-  [/\bdynamite\b/gi, "firecracker bundle"],
-  [/\bexplos(ive|ion)s?\b/gi, "bursting confetti"],
-  [/\bbattles?\b/gi, "festival contest"],
-  [/\bfight(ing|s)?\b/gi, "tugging contest"],
-  [/\bwars?\b/gi, "old tale"],
-  [/\battack(s|ing)?\b/gi, "surprising pounce"],
-  [/\bstab(s|bing|bed)?\b/gi, "poke"],
-  [/\bkill(s|ing|ed)?\b/gi, "stop"],
-  [/\bdead\b/gi, "still"],
-  [/\bdeath\b/gi, "quiet ending"],
-  [/\bcorpse\b/gi, "old puppet"],
-  [/\bpoison\b/gi, "mysterious purple dye"],
-  [/\bcriminals?\b/gi, "mischief maker"],
-  [/\bcrimes?\b/gi, "mischief"],
-  [/\bprison\b/gi, "locked toy box"],
-  [/\bjail\b/gi, "locked toy box"],
-  [/\bpunish(ment|ed|ing)?\b/gi, "scold"],
-  [/\btorture\b/gi, "awkward training"],
-  [/\bexecution\b/gi, "ceremony"],
-  [/\bnoose\b/gi, "rope loop"],
-  [/\bdemons?\b/gi, "festival mask"],
-  [/\bdevils?\b/gi, "festival mask"],
-  [/\bhell\b/gi, "smoky folk-tale cave"],
-  [/\bghosts?\b/gi, "paper lantern spirit"],
-  [/\bspirits?\b/gi, "paper lantern spirit"],
-  [/\bskulls?\b/gi, "round white mask"],
-  [/\bbones?\b/gi, "ivory-colored toy sticks"]
- ];
- function parseJsonObjectFromText(text2) {
-  try {
-   return JSON.parse(text2);
-  } catch {
-   const match = /\{[\s\S]*\}/.exec(text2);
-   if (!match) return null;
-   try {
-    return JSON.parse(match[0]);
-   } catch {
-    return null;
-   }
-  }
- }
- function isUchisenGenerationFailure(json) {
-  if (json.success === false || json.success === 0 || json.success === "0") return true;
-  if (typeof json.error_message === "string" && json.error_message.trim()) return true;
-  if (typeof json.error === "string" && json.error.trim()) return true;
-  return false;
- }
- function uchisenGenerationErrorMessage(json, text2) {
-  const message = firstString(json?.error_message, json?.error);
-  if (/must be logged|not logged|login required/i.test(message)) return message;
-  if (message) return `Uchisen image backend rejected generation: ${message}`;
-  return `Uchisen image backend rejected generation: ${snippet(text2)}`;
- }
- function firstString(...values) {
-  for (const value of values) {
-   if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return "";
- }
- function normalizeUchisenImageFilename(value) {
-  if (!value) return "";
-  try {
-   const url = new URL(value);
-   return url.pathname.split("/").filter(Boolean).pop() ?? value;
-  } catch {
-   return value.split("/").filter(Boolean).pop() ?? value;
-  }
- }
- function snippet(text2) {
-  return String(text2).replace(/\s+/g, " ").trim().slice(0, 500);
- }
- function formatUchisenMnemonicHtml(value) {
-  return String(value).replace(/[<>]/g, "").replace(/#nl#/g, "<br>").replace(/##([^#]+)##/g, "<b>$1</b>").replace(/#([^#]+)#/g, "<i>$1</i>");
- }
- function plainUchisenMnemonic(value) {
-  return cleanText$3(String(value).replace(/#nl#/g, " ").replace(/##([^#]+)##/g, "$1").replace(/#([^#]+)#/g, "$1"));
- }
- function renderUchisenComponentGroups(kanjiKeyword, groups, language) {
-  const keywordGroup = uchisenKanjiKeywordGroup(kanjiKeyword);
-  const visibleGroups = [
-   ...keywordGroup ? [keywordGroup] : [],
-   ...groups.filter((group) => group.components.length)
-  ];
-  if (!visibleGroups.length) return "";
-  return `<div class="yomu-jpdb-component-breakdown" aria-label="${escapeHtml$1(uiText(language, "readingsComponents"))}">
-        ${visibleGroups.map((group) => `<div class="yomu-jpdb-component-group">
-      <span class="yomu-jpdb-component-group-label">${escapeHtml$1(localizedUchisenComponentGroupTitle(group.title, language))}</span>
-      <div class="yomu-jpdb-component-list">
-        ${group.components.map((component) => renderUchisenComponentChip(component)).join("")}
-      </div>
-    </div>`).join("")}
-    </div>`;
- }
- function uchisenKanjiKeywordGroup(keyword) {
-  if (!keyword || !keyword.kanji && !keyword.keyword) return null;
-  return {
-   title: "Kanji Keyword",
-   components: [{
-    name: keyword.keyword,
-    symbol: keyword.kanji,
-    url: keyword.url
-   }]
-  };
- }
- function localizedUchisenComponentGroupTitle(title, language) {
-  if (resolveUiLanguage(language) !== "ja") return title;
-  if (title === "Kanji Keyword") return "漢字キーワード";
-  if (title === "Kanji Primes") return "漢字パーツ";
-  if (title === "Compound Kanji") return "複合漢字";
-  if (title === "Components") return "部品";
-  return title;
- }
- function uchisenExternalLinkLabel(language) {
-  return resolveUiLanguage(language) === "ja" ? "Uchisenで見る" : "View on Uchisen";
- }
- function formatUchisenTemplate(template, values) {
-  return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
- }
- function renderUchisenComponentChip(component) {
-  const label = [component.name, component.symbol].filter(Boolean).join(": ");
-  const content = `
-        ${component.symbol ? `<strong>${escapeHtml$1(component.symbol)}</strong>` : ""}
-        ${component.name ? `<span>${escapeHtml$1(component.name)}</span>` : ""}
-    `;
-  return component.url ? `<a class="yomu-jpdb-component-chip" href="${escapeHtml$1(component.url)}" target="_blank" rel="noopener" title="${escapeHtml$1(label)}">${content}</a>` : `<span class="yomu-jpdb-component-chip" title="${escapeHtml$1(label)}">${content}</span>`;
- }
- function preferredUchisenIndex(storedIndex, images) {
-  if (isValidUchisenIndex(storedIndex, images)) return storedIndex;
-  const firstNonPaywall = images.findIndex((item) => !isUchisenPaywallItem(item));
-  return firstNonPaywall >= 0 ? firstNonPaywall : storedIndex;
- }
- function isValidUchisenIndex(index, images) {
-  return Number.isInteger(index) && index >= 0 && index < images.length;
- }
- function isUchisenPaywallItem(item) {
-  return Boolean(item && (isUchisenPaywallImage(item.url) || isUchisenPaywallStory(item.story)));
- }
- async function requestUchisenPageText(url, timeout, proxyUrl) {
-  try {
-   return await requestText$7(url, {
-    timeoutMs: timeout,
-    failureLabel: "Uchisen request",
-    timeoutLabel: "Uchisen request timed out.",
-    credentials: "include",
-    anonymous: false,
-    withCredentials: true,
-    allowPublicProxies: false,
-    allowConfiguredProxy: false,
-    allowDirectCrossOrigin: false
-   });
-  } catch {
-   return requestText(url, timeout, proxyUrl);
-  }
- }
- function requestText(url, timeout, proxyUrl) {
-  return requestText$7(url, {
-   proxyUrl,
-   timeoutMs: timeout,
-   failureLabel: "Uchisen request",
-   timeoutLabel: "Uchisen request timed out."
-  });
- }
- function postUchisenForm(url, fields, referrer, proxyUrl, failureLabel, timeout) {
-  return requestText$7(url, {
-   method: "POST",
-   data: encodedForm(fields),
-   headers: {
-    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "X-Requested-With": "XMLHttpRequest",
-    Accept: "text/html, */*; q=0.01",
-    Origin: "https://uchisen.com",
-    Referer: referrer
-   },
-   proxyUrl,
-   timeoutMs: timeout,
-   failureLabel,
-   timeoutLabel: `${failureLabel} timed out.`,
-   credentials: "include",
-   anonymous: false,
-   withCredentials: true,
-   allowPublicProxies: false,
-   allowConfiguredProxy: false,
-   allowDirectCrossOrigin: true
-  }).then((text2) => {
-   const json = parseJsonObjectFromText(text2);
-   const message = firstString(json?.error_message, json?.error);
-   if (message && !/generateimage$/i.test(url)) throw new Error(message);
-   if (isUchisenAuthFailure(text2)) {
-    throw new Error(`${failureLabel} failed because Uchisen did not accept the current login.`);
-   }
-   return text2;
-  });
- }
- function isUchisenAuthFailure(text2) {
-  return /not logged|login required|account is needed/i.test(text2) && !/success/i.test(text2);
- }
- function encodedForm(fields) {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(fields)) params.set(key, value);
-  return params.toString();
- }
- function requestBlobUrl(url, timeout, proxyUrl) {
-  return requestBlob(url, timeout, proxyUrl).then((blob) => createPageMediaUrl(blob));
- }
- function requestBlob(url, timeout, proxyUrl) {
-  return requestBlob$4(url, {
-   proxyUrl,
-   timeoutMs: timeout,
-   failureLabel: "Uchisen image request",
-   timeoutLabel: "Uchisen image request timed out."
-  });
- }
- Logger.scope("NewTab");
  const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
  function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
@@ -38438,6 +37549,717 @@ ${glossaryKey}`;
  function nodeContainsVideoElement(node) {
   if (node instanceof HTMLVideoElement) return true;
   return node instanceof Element && Boolean(node.querySelector("video"));
+ }
+ const UCHISEN_INDEX_PREFIX = "yomu-jpdb-uchisen-index:";
+ const UCHISEN_PAYWALL_STORY_RE = /\bplease\s+subscribe\s+to\s+uchisen\s*pro\b/i;
+ const UCHISEN_PAYWALL_IMAGE_RE = /(?:^|\/)(?:kanji\/)?enrollment\.(?:png|jpe?g|webp)$/i;
+ function parseUchisenData(html) {
+  if (!html.trim()) return emptyUchisenData();
+  const doc = parseHtmlDocument(html);
+  const kanjiId = parseUchisenKanjiIdFromDocument(doc);
+  return {
+   images: parseUchisenImagesFromDocument(doc),
+   componentGroups: parseUchisenComponentGroupsFromDocument(doc),
+   kanjiKeyword: parseUchisenKanjiKeywordFromDocument(doc),
+   kanjiId,
+   canGenerateImages: Boolean(kanjiId && parseUchisenCanGenerateFromDocument(doc))
+  };
+ }
+ function emptyUchisenData() {
+  return { images: [], componentGroups: [], kanjiKeyword: null, kanjiId: "", canGenerateImages: false };
+ }
+ function parseUchisenImagesFromDocument(doc) {
+  const images = [];
+  const mainImage = mainUchisenImageUrl(doc);
+  const mainStory = cleanText$3(doc.querySelector("#mnemonic_story")?.textContent ?? "");
+  if (mainImage) {
+   const url = canonicalUchisenUrl(mainImage);
+   images.push({
+    url,
+    story: mainStory || "No story available",
+    paywall: isUchisenPaywallImage(url) || isUchisenPaywallStory(mainStory)
+   });
+  }
+  doc.querySelectorAll(".mnemonic_card").forEach((card) => {
+   const image = uchisenCardImage(card, mainStory);
+   if (image) images.push(image);
+  });
+  return orderedUchisenImages(images);
+ }
+ function parseUchisenComponentGroupsFromDocument(doc) {
+  const root = doc.querySelector(".kanji_info_container .components") ?? doc.querySelector(".components");
+  if (!root) return [];
+  return Array.from(root.children).filter((child) => child instanceof HTMLElement && child.classList.contains("KP_primes")).map(uchisenComponentGroup).filter((group) => Boolean(group?.components.length)).slice(0, 4);
+ }
+ function parseUchisenKanjiKeywordFromDocument(doc) {
+  const candidates = [
+   doc.querySelector("#kanji_keyword_container > span")?.textContent,
+   doc.querySelector("#kanji_keyword_container")?.textContent,
+   doc.querySelector(".kanji_name > span")?.textContent,
+   doc.querySelector(".mnemonic_studio_right h2.kanji_info")?.textContent
+  ];
+  for (const candidate of candidates) {
+   const keyword = uchisenKanjiKeyword(candidate ?? "");
+   if (keyword) return keyword;
+  }
+  return null;
+ }
+ function parseUchisenKanjiIdFromDocument(doc) {
+  const candidates = [
+   doc.querySelector("input#kanji_id")?.value,
+   doc.querySelector("input#showing_kanji_id")?.value,
+   doc.querySelector('input[name="kanji_id"]')?.value
+  ];
+  return cleanText$3(candidates.find(Boolean) ?? "");
+ }
+ function parseUchisenCanGenerateFromDocument(doc) {
+  const userId = cleanText$3(doc.querySelector("input#user_id")?.value ?? "");
+  const hasAccountNav = Boolean(doc.querySelector('a[href^="/account/"], a[href="/logout"]'));
+  const hasStudioGenerateButton = Boolean(doc.querySelector('.generate_image_button, button[data-uchisen-action="generate-submit"]'));
+  const hasLoginPrompt = Boolean(doc.querySelector('#lo_links a[href*="login"], a[href*="/login"]'));
+  const explicitlyUnavailable = Boolean(doc.querySelector("[data-uchisen-generate-unavailable], .generate_image_button[disabled]"));
+  return !explicitlyUnavailable && (hasStudioGenerateButton || Boolean(userId) || hasAccountNav || hasLoginPrompt);
+ }
+ function uchisenKanjiKeyword(value) {
+  const match = /^(.+?)\s*[-\u2013\u2014]\s*(.+)$/u.exec(cleanText$3(value));
+  if (!match) return null;
+  const kanji = cleanText$3(match[1].replace(/[「」]/g, ""));
+  const keyword = cleanText$3(match[2]);
+  if (!kanji || !keyword) return null;
+  return {
+   kanji,
+   keyword,
+   url: `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`
+  };
+ }
+ function uchisenComponentGroup(group) {
+  const components2 = Array.from(group.querySelectorAll(".name_combo")).map(uchisenComponent).filter((component) => Boolean(component?.symbol || component?.name)).slice(0, 8);
+  if (!components2.length) return null;
+  return {
+   title: uchisenComponentGroupTitle(group),
+   components: components2
+  };
+ }
+ function uchisenComponentGroupTitle(group) {
+  if (group.querySelector(".prime_label")) return "Kanji Primes";
+  if (group.querySelector(".compound_label")) return "Compound Kanji";
+  return cleanText$3(group.querySelector(".prime_label, .compound_label")?.textContent ?? "") || "Components";
+ }
+ function uchisenComponent(item) {
+  const link = item.querySelector("a[href]");
+  if (!link) return null;
+  const symbol = cleanText$3(link.querySelector(".component_symbol")?.textContent ?? "");
+  const name = uchisenComponentName(link, symbol);
+  return {
+   name,
+   symbol,
+   url: absoluteUchisenUrl(link.getAttribute("href") ?? "")
+  };
+ }
+ function uchisenComponentName(link, symbol) {
+  const text2 = cleanText$3((link.textContent ?? "").replace(/\u00a0/g, " "));
+  const withoutSymbol = symbol ? cleanText$3(text2.replace(symbol, "")) : text2;
+  return cleanText$3(withoutSymbol.replace(/[：:].*$/u, "")) || symbol;
+ }
+ function absoluteUchisenUrl(value) {
+  try {
+   return new URL(value, "https://uchisen.com").href;
+  } catch {
+   return value;
+  }
+ }
+ function orderedUchisenImages(images) {
+  const seen = /* @__PURE__ */ new Set();
+  const deduped = images.filter((item) => {
+   const key = uchisenImageDedupeKey(item);
+   if (!item.url || seen.has(key)) return false;
+   seen.add(key);
+   return true;
+  });
+  return [
+   ...deduped.filter((item) => !item.paywall),
+   ...deduped.filter((item) => item.paywall)
+  ].map(({ url, story }) => ({ url, story }));
+ }
+ function uchisenImageDedupeKey(item) {
+  return item.paywall && isUchisenPaywallImage(item.url) ? "paywall:enrollment" : `url:${item.url}`;
+ }
+ function mainUchisenImageUrl(doc) {
+  const mainLoader = doc.querySelector(".kanji_image_loader[data-large]");
+  return mainLoader?.getAttribute("data-large") || doc.querySelector("#full_kanji_image")?.getAttribute("src") || "";
+ }
+ function uchisenCardImage(card, mainStory) {
+  const rawUrl = card.querySelector("input.image_url")?.value.trim() ?? "";
+  if (!rawUrl) return null;
+  const url = canonicalUchisenUrl(rawUrl);
+  const story = uchisenCardStory(card, mainStory);
+  return {
+   url,
+   story,
+   paywall: isUchisenPaywallCard(card, url, story)
+  };
+ }
+ function uchisenCardStory(card, mainStory) {
+  const rawStory = card.querySelector("input.story")?.value ?? "";
+  const story = cleanText$3(decodeEntities(rawStory).replace(/<[^>]+>/g, " "));
+  return story || mainStory || "No story available";
+ }
+ function isUchisenPaywallCard(card, url, story) {
+  const thumbnailUrl = card.querySelector(".mnemonic_card_thumbnail img")?.getAttribute("src") ?? "";
+  return isUchisenPaywallImage(url) || isUchisenPaywallImage(thumbnailUrl) || isUchisenPaywallStory(story);
+ }
+ function isUchisenPaywallImage(url) {
+  try {
+   return UCHISEN_PAYWALL_IMAGE_RE.test(new URL(url).pathname);
+  } catch {
+   return UCHISEN_PAYWALL_IMAGE_RE.test(url.split(/[?#]/)[0]);
+  }
+ }
+ function isUchisenPaywallStory(story) {
+  return UCHISEN_PAYWALL_STORY_RE.test(cleanText$3(story));
+ }
+ async function loadUchisenData(kanji, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL) {
+  const html = await requestUchisenPageText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9e3, proxyUrl);
+  return parseUchisenData(html);
+ }
+ async function installUchisenCarousel(container, kanji, images, options = {}) {
+  let currentImages = images.slice();
+  let currentComponentGroups = options.componentGroups ?? [];
+  let currentKanjiKeyword = options.kanjiKeyword ?? null;
+  let currentKanjiId = options.kanjiId ?? "";
+  let canGenerateImages = Boolean(currentKanjiId && options.canGenerateImages);
+  const storedIndex = await gmStorageGet(`${UCHISEN_INDEX_PREFIX}${kanji}`, 0);
+  let index = preferredUchisenIndex(storedIndex, currentImages);
+  if (!isValidUchisenIndex(index, currentImages)) index = 0;
+  const proxyUrl = options.proxyUrl ?? DEFAULT_YOMU_PUBLIC_PROXY_URL;
+  let generateOpen = false;
+  let generateBusy = false;
+  let generateStatus = null;
+  let generateFields = defaultUchisenGenerateFields(kanji, currentKanjiKeyword, currentComponentGroups);
+  let currentImageUrl = "";
+  const cleanup = () => {
+   if (!currentImageUrl) return;
+   revokePageMediaUrl(currentImageUrl);
+   currentImageUrl = "";
+  };
+  const render = () => {
+   const language = options.interfaceLanguage ?? "en";
+   if (!isValidUchisenIndex(index, currentImages)) index = 0;
+   const item = currentImages[index] ?? null;
+   const total = currentImages.length;
+   const previousLabel = uiText(language, "previousExample");
+   const nextLabel = uiText(language, "nextExample");
+   const story = item?.story && item.story !== "No story available" ? item.story : uiText(language, "noStoryAvailable");
+   const detailsClass = options.detailsClass ?? "jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-uchisen-source";
+   const summaryClass = options.summaryClass ?? "jpdb-reader-local-head";
+   const bodyClass = options.bodyClass ?? "jpdb-reader-local-glossary yomu-jpdb-uchisen-body";
+   const sourceAttributes = options.sourceAttributes ?? "open";
+   const summaryHtml = options.summaryHtml?.(total ? index + 1 : 0, total) ?? `
+                    <span class="yomu-jpdb-uchisen-summary-main">
+                        <span>Uchisen</span>
+                        <span class="yomu-jpdb-counter">${total ? `${index + 1}/${total}` : "0"}</span>
+                    </span>
+                `;
+   const bodyMeta = options.summaryHtml && total ? `<span class="yomu-jpdb-source-meta">${index + 1}/${total}</span>` : "";
+   setInnerHtml(container, `
+            <details class="${detailsClass}" ${sourceAttributes}>
+                <summary class="${summaryClass}">
+                    ${summaryHtml}
+                </summary>
+                <div class="${bodyClass}">
+                    <div class="yomu-jpdb-uchisen-toolbar">
+                        ${bodyMeta}
+                        <span class="yomu-jpdb-uchisen-link-row">
+                            <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(kanji)}" target="_blank" rel="noopener">${escapeHtml$1(uchisenExternalLinkLabel(language))} ${externalLinkIcon()}</a>
+                            ${canGenerateImages ? `<button class="yomu-jpdb-uchisen-summary-link yomu-jpdb-uchisen-generate-link" type="button" data-uchisen-action="generate-toggle" aria-expanded="${generateOpen}" title="${escapeHtml$1(uiText(language, "generateUchisenImage"))}">${escapeHtml$1(uiText(language, "generateUchisenImageToggle"))}</button>` : ""}
+                        </span>
+                        ${total ? `<span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="${escapeHtml$1(uiText(language, "uchisenMnemonicImages"))}">
+              <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">&lsaquo;</button>
+              <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">&rsaquo;</button>
+            </span>` : ""}
+                    </div>
+                    ${generateOpen ? renderUchisenGeneratePanel(generateFields, generateStatus, generateBusy, language) : ""}
+                    ${renderUchisenComponentGroups(currentKanjiKeyword, currentComponentGroups, language)}
+                    ${item ? `<div class="yomu-jpdb-image-shell"><img alt="${escapeHtml$1(formatUchisenTemplate(uiText(language, "uchisenMnemonicFor"), { kanji }))}" data-uchisen-image></div>
+          <div class="yomu-jpdb-story">${escapeHtml$1(story)}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "noUchisenImagesYet"))}</div>`}
+                </div>
+            </details>
+        `);
+   const image = container.querySelector("[data-uchisen-image]");
+   if (!image || !item) return;
+   const srcUrl = item.url;
+   requestBlobUrl(srcUrl, 9e3, proxyUrl).then((url) => {
+    if (!image.isConnected || currentImages[index]?.url !== srcUrl) {
+     revokePageMediaUrl(url);
+     return;
+    }
+    cleanup();
+    currentImageUrl = url;
+    image.src = url;
+   }).catch(() => {
+    if (image.isConnected) image.remove();
+   });
+  };
+  const syncGenerateFields = () => {
+   generateFields = {
+    mnemonic: container.querySelector('[data-uchisen-generate-field="mnemonic"]')?.value ?? generateFields.mnemonic,
+    imagePrompt: container.querySelector('[data-uchisen-generate-field="imagePrompt"]')?.value ?? generateFields.imagePrompt
+   };
+  };
+  const refreshAfterGenerate = async (result) => {
+   const fresh = await options.refreshData?.().catch(() => null);
+   if (fresh) {
+    currentImages = fresh.images;
+    currentComponentGroups = fresh.componentGroups;
+    currentKanjiKeyword = fresh.kanjiKeyword;
+    currentKanjiId = fresh.kanjiId || currentKanjiId;
+    canGenerateImages = Boolean(currentKanjiId && fresh.canGenerateImages);
+   } else {
+    currentImages = orderedUchisenImages([
+     ...currentImages.map((item) => ({ ...item, paywall: isUchisenPaywallItem(item) })),
+     { url: result.imageUrl, story: result.story, paywall: false }
+    ]);
+   }
+   const generatedIndex = findUchisenImageIndex(currentImages, result.imageUrl);
+   index = generatedIndex >= 0 ? generatedIndex : Math.max(0, currentImages.length - 1);
+   void gmStorageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
+  };
+  const generateAndRefresh = async () => {
+   if (generateBusy || !canGenerateImages || !currentKanjiId) return;
+   syncGenerateFields();
+   generateBusy = true;
+   generateStatus = { tone: "neutral", text: uiText(options.interfaceLanguage ?? "en", "uchisenGeneratingImage") };
+   render();
+   try {
+    const result = await generateAndPublishUchisenMnemonic(kanji, {
+     kanjiId: currentKanjiId,
+     mnemonic: generateFields.mnemonic,
+     imagePrompt: generateFields.imagePrompt
+    }, proxyUrl, (message) => {
+     generateStatus = { tone: "neutral", text: message };
+     render();
+    }, options.interfaceLanguage ?? "en");
+    await refreshAfterGenerate(result);
+    generateStatus = { tone: "success", text: uiText(options.interfaceLanguage ?? "en", "uchisenGeneratedImage") };
+    generateOpen = false;
+   } catch (error) {
+    const message = error instanceof Error && error.message.trim() ? error.message.trim() : uiText(options.interfaceLanguage ?? "en", "uchisenGenerateFailed");
+    generateStatus = { tone: "error", text: message };
+   } finally {
+    generateBusy = false;
+    render();
+   }
+  };
+  container.addEventListener("click", (event) => {
+   const action = event.target.closest("[data-uchisen-action]")?.dataset.uchisenAction;
+   if (!action) return;
+   event.preventDefault();
+   event.stopPropagation();
+   if (action === "generate-toggle") {
+    generateOpen = !generateOpen;
+    generateStatus = canGenerateImages ? null : { tone: "error", text: uiText(options.interfaceLanguage ?? "en", "uchisenLoginRequired") };
+    render();
+    return;
+   }
+   if (action === "generate-submit") {
+    void generateAndRefresh();
+    return;
+   }
+   if (action !== "previous" && action !== "next") return;
+   if (!currentImages.length) return;
+   if (action === "previous") index = (index - 1 + currentImages.length) % currentImages.length;
+   if (action === "next") index = (index + 1) % currentImages.length;
+   void gmStorageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
+   render();
+  });
+  container.addEventListener("input", (event) => {
+   const field = event.target.closest("[data-uchisen-generate-field]");
+   if (!field) return;
+   syncGenerateFields();
+  });
+  render();
+  return cleanup;
+ }
+ async function generateAndPublishUchisenMnemonic(kanji, request, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL, onStatus, language = "en") {
+  const kanjiId = request.kanjiId.trim();
+  const mnemonic = request.mnemonic.trim();
+  const imagePrompt = request.imagePrompt.trim();
+  const storyBackedPrompt = storyBackedUchisenImagePrompt(mnemonic, imagePrompt);
+  const safeImagePrompt = safeUchisenImagePrompt(storyBackedPrompt);
+  if (!kanjiId || !mnemonic || !imagePrompt) throw new Error("Missing Uchisen generation fields.");
+  const referrer = `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`;
+  onStatus?.(uiText(language, "uchisenGeneratingImage"));
+  const { generation, imagePrompt: publishedImagePrompt } = await generateUchisenImageWithRetry(
+   kanjiId,
+   imagePrompt,
+   storyBackedPrompt,
+   safeImagePrompt,
+   referrer,
+   proxyUrl
+  );
+  onStatus?.(uiText(language, "uchisenPublishingMnemonic"));
+  await postUchisenForm("https://uchisen.com/save_mnemonic.php", {
+   img_src: generation.imageFilename,
+   kanji_id: kanjiId,
+   formatted_mnemonic: formatUchisenMnemonicHtml(mnemonic),
+   current_image_prompt: publishedImagePrompt,
+   redirect: `/kanji/${encodeURIComponent(kanji)}`,
+   mnemonic,
+   image_prompt: publishedImagePrompt,
+   start_blurred: "no"
+  }, referrer, proxyUrl, "Uchisen mnemonic publish", 12e4);
+  return {
+   imageFilename: generation.imageFilename,
+   imageUrl: generation.imageUrl,
+   story: plainUchisenMnemonic(mnemonic)
+  };
+ }
+ async function generateUchisenImageWithRetry(kanjiId, imagePrompt, storyBackedPrompt, safeImagePrompt, referrer, proxyUrl) {
+  const attempts = uniqueUchisenPrompts([imagePrompt, storyBackedPrompt, safeImagePrompt]);
+  let lastError;
+  for (const prompt of attempts) {
+   try {
+    const generationText = await postUchisenForm("https://uchisen.com/generateimage", {
+     prompt: uchisenPromptFieldValue(prompt),
+     kanji_id: kanjiId
+    }, referrer, proxyUrl, "Uchisen image generation", 12e4);
+    return { generation: parseUchisenGenerationResponse(generationText), imagePrompt: prompt };
+   } catch (error) {
+    lastError = error;
+   }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Uchisen image generation failed.");
+ }
+ function storyBackedUchisenImagePrompt(mnemonic, imagePrompt) {
+  const story = plainUchisenMnemonic(mnemonic).replace(/\s+/g, " ").trim();
+  if (!story) return imagePrompt;
+  return fitUchisenImagePrompt(`${imagePrompt}; scene follows this mnemonic story: ${story}`);
+ }
+ function uniqueUchisenPrompts(prompts) {
+  const seen = /* @__PURE__ */ new Set();
+  const unique2 = [];
+  for (const prompt of prompts) {
+   const trimmed = prompt.trim();
+   if (!trimmed || seen.has(trimmed)) continue;
+   seen.add(trimmed);
+   unique2.push(trimmed);
+  }
+  return unique2;
+ }
+ function fitUchisenImagePrompt(prompt) {
+  const maxLength = 400;
+  if (prompt.length <= maxLength) return prompt;
+  const noTextSuffix = /;\s*no text or signage$/i.test(prompt) ? "; no text or signage" : "";
+  const targetLength = noTextSuffix ? maxLength - noTextSuffix.length : maxLength;
+  return `${prompt.slice(0, targetLength).replace(/[;,\s]+$/, "")}${noTextSuffix}`;
+ }
+ function renderUchisenGeneratePanel(fields, status, busy, language) {
+  const statusHtml = status ? `<div class="yomu-jpdb-uchisen-generate-status" data-tone="${escapeHtml$1(status.tone)}">${escapeHtml$1(status.text)}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "uchisenGenerateHint"))}</div>`;
+  return `
+        <div class="yomu-jpdb-uchisen-generator">
+            <label class="yomu-jpdb-uchisen-field">
+                <span>${escapeHtml$1(uiText(language, "uchisenMnemonicStory"))}</span>
+                <textarea rows="3" data-uchisen-generate-field="mnemonic" ${busy ? "disabled" : ""}>${escapeHtml$1(fields.mnemonic)}</textarea>
+            </label>
+            <label class="yomu-jpdb-uchisen-field">
+                <span>${escapeHtml$1(uiText(language, "uchisenImagePrompt"))}</span>
+                <textarea rows="4" data-uchisen-generate-field="imagePrompt" ${busy ? "disabled" : ""}>${escapeHtml$1(fields.imagePrompt)}</textarea>
+            </label>
+            <div class="yomu-jpdb-uchisen-generator-footer">
+                ${statusHtml}
+                <button class="jpdb-reader-btn" type="button" data-uchisen-action="generate-submit" ${busy ? "disabled" : ""}>${escapeHtml$1(uiText(language, "generateUchisenImage"))}</button>
+            </div>
+        </div>
+    `;
+ }
+ function defaultUchisenGenerateFields(kanji, keyword, groups) {
+  const keywordText = keyword?.keyword || kanji;
+  const components2 = uniqueUchisenComponents(groups);
+  const componentStory = components2.length ? components2.map((component) => `#${component.name}#`).join(" and ") : "#component#";
+  const componentPrompt = components2.length ? components2.map((component) => `${component.name}${component.symbol ? ` (${component.symbol})` : ""}`).join(", ") : "simple component props";
+  return {
+   mnemonic: `##${keywordText}## A warm, clear scene brings ${componentStory} together so ${keywordText.toLowerCase()} feels easy to picture.`,
+   imagePrompt: safeUchisenImagePrompt(`Japanese children's storybook illustration of a friendly ${keywordText.toLowerCase()} scene; include distinct props for ${componentPrompt}; pastel colors, vintage textures; warm light; clear silhouettes; no text or signage`)
+  };
+ }
+ function uniqueUchisenComponents(groups) {
+  const seen = /* @__PURE__ */ new Set();
+  const components2 = [];
+  for (const group of groups) {
+   for (const component of group.components) {
+    const key = component.name || component.symbol;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    components2.push(component);
+   }
+  }
+  return components2;
+ }
+ function findUchisenImageIndex(images, imageUrl) {
+  const canonical = canonicalUchisenUrl(imageUrl);
+  return images.findIndex((item) => canonicalUchisenUrl(item.url) === canonical);
+ }
+ function parseUchisenGenerationResponse(text2) {
+  const json = parseJsonObjectFromText(text2);
+  if (!json || isUchisenGenerationFailure(json)) {
+   throw new Error(uchisenGenerationErrorMessage(json, text2));
+  }
+  const rawFilename = firstString(json.url, json.filename, json.file, json.img_src, json.image_url, json.imageUrl);
+  const rawFullUrl = firstString(json.full_url, json.image_url, json.imageUrl);
+  const imageFilename = normalizeUchisenImageFilename(rawFilename);
+  if (!imageFilename) throw new Error(`Image generation did not return a filename: ${snippet(text2)}`);
+  return {
+   imageFilename,
+   imageUrl: rawFullUrl ? canonicalUchisenUrl(rawFullUrl) : canonicalUchisenUrl(imageFilename)
+  };
+ }
+ function uchisenPromptFieldValue(value) {
+  return escapeHtml$1(value).replace(/'/g, "&#039;");
+ }
+ function safeUchisenImagePrompt(value) {
+  let prompt = value;
+  for (const [pattern, replacement] of UCHISEN_IMAGE_PROMPT_REPLACEMENTS) {
+   prompt = prompt.replace(pattern, replacement);
+  }
+  prompt = prompt.replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, "no text or signage").replace(/no text,\s*letters,\s*numbers,\s*logos,\s*or signage/gi, "no text or signage").replace(/\s+/g, " ").trim();
+  if (!/no text|without text/i.test(prompt)) prompt = `${prompt}; no text or signage`;
+  return prompt;
+ }
+ const UCHISEN_IMAGE_PROMPT_REPLACEMENTS = [
+  [/\bblood(y|ied|ing)?\b/gi, "red festival paint"],
+  [/\bbleed(ing)?\b/gi, "red festival paint"],
+  [/\bwounds?\b/gi, "patched cloth"],
+  [/\binjur(y|ies|ed)?\b/gi, "tired mishap"],
+  [/\bsick(ness)?\b/gi, "restful"],
+  [/\bill(ness)?\b/gi, "restful"],
+  [/\bmedicine\b/gi, "helpful bundle"],
+  [/\bmedical\b/gi, "helpful"],
+  [/\bdoctor\b/gi, "kind helper"],
+  [/\bpatient\b/gi, "visitor"],
+  [/\bdisease\b/gi, "gloomy cloud"],
+  [/\bhospital\b/gi, "quiet rest house"],
+  [/\bweapons?\b/gi, "ceremonial props"],
+  [/\bswords?\b/gi, "ceremonial wooden practice sword"],
+  [/\bknives?\b/gi, "small wooden craft tool"],
+  [/\bdaggers?\b/gi, "small wooden craft tool"],
+  [/\bblades?\b/gi, "shiny craft edge"],
+  [/\bspears?\b/gi, "slender festival pole"],
+  [/\barrows?\b/gi, "paper arrow charm"],
+  [/\bguns?\b/gi, "toy popper"],
+  [/\brifles?\b/gi, "toy popper"],
+  [/\bcannons?\b/gi, "festival drum"],
+  [/\bbombs?\b/gi, "round festival lantern"],
+  [/\bdynamite\b/gi, "firecracker bundle"],
+  [/\bexplos(ive|ion)s?\b/gi, "bursting confetti"],
+  [/\bbattles?\b/gi, "festival contest"],
+  [/\bfight(ing|s)?\b/gi, "tugging contest"],
+  [/\bwars?\b/gi, "old tale"],
+  [/\battack(s|ing)?\b/gi, "surprising pounce"],
+  [/\bstab(s|bing|bed)?\b/gi, "poke"],
+  [/\bkill(s|ing|ed)?\b/gi, "stop"],
+  [/\bdead\b/gi, "still"],
+  [/\bdeath\b/gi, "quiet ending"],
+  [/\bcorpse\b/gi, "old puppet"],
+  [/\bpoison\b/gi, "mysterious purple dye"],
+  [/\bcriminals?\b/gi, "mischief maker"],
+  [/\bcrimes?\b/gi, "mischief"],
+  [/\bprison\b/gi, "locked toy box"],
+  [/\bjail\b/gi, "locked toy box"],
+  [/\bpunish(ment|ed|ing)?\b/gi, "scold"],
+  [/\btorture\b/gi, "awkward training"],
+  [/\bexecution\b/gi, "ceremony"],
+  [/\bnoose\b/gi, "rope loop"],
+  [/\bdemons?\b/gi, "festival mask"],
+  [/\bdevils?\b/gi, "festival mask"],
+  [/\bhell\b/gi, "smoky folk-tale cave"],
+  [/\bghosts?\b/gi, "paper lantern spirit"],
+  [/\bspirits?\b/gi, "paper lantern spirit"],
+  [/\bskulls?\b/gi, "round white mask"],
+  [/\bbones?\b/gi, "ivory-colored toy sticks"]
+ ];
+ function parseJsonObjectFromText(text2) {
+  try {
+   return JSON.parse(text2);
+  } catch {
+   const match = /\{[\s\S]*\}/.exec(text2);
+   if (!match) return null;
+   try {
+    return JSON.parse(match[0]);
+   } catch {
+    return null;
+   }
+  }
+ }
+ function isUchisenGenerationFailure(json) {
+  if (json.success === false || json.success === 0 || json.success === "0") return true;
+  if (typeof json.error_message === "string" && json.error_message.trim()) return true;
+  if (typeof json.error === "string" && json.error.trim()) return true;
+  return false;
+ }
+ function uchisenGenerationErrorMessage(json, text2) {
+  const message = firstString(json?.error_message, json?.error);
+  if (/must be logged|not logged|login required/i.test(message)) return message;
+  if (message) return `Uchisen image backend rejected generation: ${message}`;
+  return `Uchisen image backend rejected generation: ${snippet(text2)}`;
+ }
+ function firstString(...values) {
+  for (const value of values) {
+   if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+ }
+ function normalizeUchisenImageFilename(value) {
+  if (!value) return "";
+  try {
+   const url = new URL(value);
+   return url.pathname.split("/").filter(Boolean).pop() ?? value;
+  } catch {
+   return value.split("/").filter(Boolean).pop() ?? value;
+  }
+ }
+ function snippet(text2) {
+  return String(text2).replace(/\s+/g, " ").trim().slice(0, 500);
+ }
+ function formatUchisenMnemonicHtml(value) {
+  return String(value).replace(/[<>]/g, "").replace(/#nl#/g, "<br>").replace(/##([^#]+)##/g, "<b>$1</b>").replace(/#([^#]+)#/g, "<i>$1</i>");
+ }
+ function plainUchisenMnemonic(value) {
+  return cleanText$3(String(value).replace(/#nl#/g, " ").replace(/##([^#]+)##/g, "$1").replace(/#([^#]+)#/g, "$1"));
+ }
+ function renderUchisenComponentGroups(kanjiKeyword, groups, language) {
+  const keywordGroup = uchisenKanjiKeywordGroup(kanjiKeyword);
+  const visibleGroups = [
+   ...keywordGroup ? [keywordGroup] : [],
+   ...groups.filter((group) => group.components.length)
+  ];
+  if (!visibleGroups.length) return "";
+  return `<div class="yomu-jpdb-component-breakdown" aria-label="${escapeHtml$1(uiText(language, "readingsComponents"))}">
+        ${visibleGroups.map((group) => `<div class="yomu-jpdb-component-group">
+      <span class="yomu-jpdb-component-group-label">${escapeHtml$1(localizedUchisenComponentGroupTitle(group.title, language))}</span>
+      <div class="yomu-jpdb-component-list">
+        ${group.components.map((component) => renderUchisenComponentChip(component)).join("")}
+      </div>
+    </div>`).join("")}
+    </div>`;
+ }
+ function uchisenKanjiKeywordGroup(keyword) {
+  if (!keyword || !keyword.kanji && !keyword.keyword) return null;
+  return {
+   title: "Kanji Keyword",
+   components: [{
+    name: keyword.keyword,
+    symbol: keyword.kanji,
+    url: keyword.url
+   }]
+  };
+ }
+ function localizedUchisenComponentGroupTitle(title, language) {
+  if (resolveUiLanguage(language) !== "ja") return title;
+  if (title === "Kanji Keyword") return "漢字キーワード";
+  if (title === "Kanji Primes") return "漢字パーツ";
+  if (title === "Compound Kanji") return "複合漢字";
+  if (title === "Components") return "部品";
+  return title;
+ }
+ function uchisenExternalLinkLabel(language) {
+  return resolveUiLanguage(language) === "ja" ? "Uchisenで見る" : "View on Uchisen";
+ }
+ function formatUchisenTemplate(template, values) {
+  return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
+ }
+ function renderUchisenComponentChip(component) {
+  const label = [component.name, component.symbol].filter(Boolean).join(": ");
+  const content = `
+        ${component.symbol ? `<strong>${escapeHtml$1(component.symbol)}</strong>` : ""}
+        ${component.name ? `<span>${escapeHtml$1(component.name)}</span>` : ""}
+    `;
+  return component.url ? `<a class="yomu-jpdb-component-chip" href="${escapeHtml$1(component.url)}" target="_blank" rel="noopener" title="${escapeHtml$1(label)}">${content}</a>` : `<span class="yomu-jpdb-component-chip" title="${escapeHtml$1(label)}">${content}</span>`;
+ }
+ function preferredUchisenIndex(storedIndex, images) {
+  if (isValidUchisenIndex(storedIndex, images)) return storedIndex;
+  const firstNonPaywall = images.findIndex((item) => !isUchisenPaywallItem(item));
+  return firstNonPaywall >= 0 ? firstNonPaywall : storedIndex;
+ }
+ function isValidUchisenIndex(index, images) {
+  return Number.isInteger(index) && index >= 0 && index < images.length;
+ }
+ function isUchisenPaywallItem(item) {
+  return Boolean(item && (isUchisenPaywallImage(item.url) || isUchisenPaywallStory(item.story)));
+ }
+ async function requestUchisenPageText(url, timeout, proxyUrl) {
+  try {
+   return await requestText$7(url, {
+    timeoutMs: timeout,
+    failureLabel: "Uchisen request",
+    timeoutLabel: "Uchisen request timed out.",
+    credentials: "include",
+    anonymous: false,
+    withCredentials: true,
+    allowPublicProxies: false,
+    allowConfiguredProxy: false,
+    allowDirectCrossOrigin: false
+   });
+  } catch {
+   return requestText(url, timeout, proxyUrl);
+  }
+ }
+ function requestText(url, timeout, proxyUrl) {
+  return requestText$7(url, {
+   proxyUrl,
+   timeoutMs: timeout,
+   failureLabel: "Uchisen request",
+   timeoutLabel: "Uchisen request timed out."
+  });
+ }
+ function postUchisenForm(url, fields, referrer, proxyUrl, failureLabel, timeout) {
+  return requestText$7(url, {
+   method: "POST",
+   data: encodedForm(fields),
+   headers: {
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "X-Requested-With": "XMLHttpRequest",
+    Accept: "text/html, */*; q=0.01",
+    Origin: "https://uchisen.com",
+    Referer: referrer
+   },
+   proxyUrl,
+   timeoutMs: timeout,
+   failureLabel,
+   timeoutLabel: `${failureLabel} timed out.`,
+   credentials: "include",
+   anonymous: false,
+   withCredentials: true,
+   allowPublicProxies: false,
+   allowConfiguredProxy: false,
+   allowDirectCrossOrigin: true
+  }).then((text2) => {
+   const json = parseJsonObjectFromText(text2);
+   const message = firstString(json?.error_message, json?.error);
+   if (message && !/generateimage$/i.test(url)) throw new Error(message);
+   if (isUchisenAuthFailure(text2)) {
+    throw new Error(`${failureLabel} failed because Uchisen did not accept the current login.`);
+   }
+   return text2;
+  });
+ }
+ function isUchisenAuthFailure(text2) {
+  return /not logged|login required|account is needed/i.test(text2) && !/success/i.test(text2);
+ }
+ function encodedForm(fields) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(fields)) params.set(key, value);
+  return params.toString();
+ }
+ function requestBlobUrl(url, timeout, proxyUrl) {
+  return requestBlob(url, timeout, proxyUrl).then((blob) => createPageMediaUrl(blob));
+ }
+ function requestBlob(url, timeout, proxyUrl) {
+  return requestBlob$4(url, {
+   proxyUrl,
+   timeoutMs: timeout,
+   failureLabel: "Uchisen image request",
+   timeoutLabel: "Uchisen image request timed out."
+  });
  }
  const log$2 = Logger.scope("VisiblePageScanner");
  const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;

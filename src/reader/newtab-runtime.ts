@@ -26,6 +26,7 @@ import { ImmersionKitClient } from './immersion-kit';
 import { ImmersionPopoverController } from './immersion-popover-controller';
 import { waitForIdle as waitForBrowserIdle } from './idle';
 import { resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
+import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './newtab-i18n';
 import { JpdbClient } from './jpdb';
 import { JpdbKanjiClient, type JpdbKanjiInfo } from './jpdb-kanji';
 import { getPitchClass } from './jpdb-parser';
@@ -103,6 +104,7 @@ const NEW_TAB_PITCH_ENRICHMENT_LIMIT = 12;
 const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
 const NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
 const NEW_TAB_PARSE_CONTENT_CACHE_LIMIT = 160;
+type NewTabRuntimeTextKey = UiCopyKey | NewTabCopyKey;
 
 type YomuNewTabWindow = typeof window & {
     __YOMU_READER_RUNTIME__?: string;
@@ -500,8 +502,8 @@ export class NewTabRuntime {
         this.restoreSettingsPreviewState();
     }
 
-    private text(key: UiCopyKey): string {
-        return uiText(this.settings.interfaceLanguage, key);
+    private text(key: NewTabRuntimeTextKey): string {
+        return isNewTabCopyKey(key) ? newTabText(this.settings.interfaceLanguage, key) : uiText(this.settings.interfaceLanguage, key);
     }
 
     private localizeLookupPopoverChrome(popover: HTMLElement): void {

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.67] - 2026-05-31
+
+### Changed
+
+- Moved hosted-new-tab-only UI copy out of the shared userscript i18n catalog.
+- Split offline new-tab cache clearing into a tiny cache module so settings no longer imports the full new-tab controller.
+- Reduced the built userscript size by about 8 KiB while keeping the hosted new-tab bundle behavior unchanged.
+
 ## [0.4.66] - 2026-05-31
 
 ### Fixed
