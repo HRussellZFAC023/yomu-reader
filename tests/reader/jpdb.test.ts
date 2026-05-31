@@ -689,7 +689,8 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('text-decoration-line: underline !important;');
         expect(normalizedCss).toContain('text-decoration-color: var( --jpdb-reader-word-underline, transparent ) !important;');
         expect(normalizedCss).toContain('display: inline;');
-        expect(normalizedDocsCss).toContain('.yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; color: var(--jpdb-reader-source-jpdb-color, currentColor) !important; line-height: inherit; background: var(--jpdb-reader-source-jpdb-soft, transparent) !important; text-decoration-color: var( --jpdb-reader-source-jpdb-decoration, transparent ) !important; vertical-align: baseline; white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important; }');
+        expect(normalizedDocsCss).toContain('.yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; line-height: inherit; vertical-align: baseline; white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important; }');
+        expect(normalizedDocsCss).not.toContain('.yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; color: var(--jpdb-reader-source-jpdb-color');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: none; }');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 1.85; }');
         expect(normalizedCss).toContain('.jpdb-reader-word ruby {');
@@ -2487,9 +2488,9 @@ describe('reader helpers', () => {
             expect(settings.audioEnabled).toBe(true);
             expect(settings.autoPlayAudio).toBe(false);
             expect(settings.immersionKitAutoPlayAudio).toBe(false);
-            expect(settings.wordHighlightColorSource).toBe('jpdb');
+            expect(settings.wordHighlightColorSource).toBe('pitch');
             expect(settings.wordUnderlineColorSource).toBe('jpdb');
-            expect(settings.wordTextColorSource).toBe('jpdb');
+            expect(settings.wordTextColorSource).toBe('off');
             expect(settings.pitchColorHeiban).toBe('#74c0ff');
             expect(settings.pitchColorKifuku).toBe('#c4a3ff');
         } finally {
