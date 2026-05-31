@@ -2245,28 +2245,6 @@ export class SubtitlePlayerController {
         log.info('Native subtitle blur toggled', { blurred: settings.subtitleNativeBlurred });
     }
 
-    private toggleTranscriptPanel(): void {
-        if (!this.transcriptPanel) return;
-        if (!this.hasTranscriptSurface()) {
-            this.toggleTrackPanel();
-            return;
-        }
-        const shouldOpen = this.transcriptPanel.hidden || this.panelMode !== 'lines';
-        this.panelMode = 'lines';
-        this.transcriptPanel.hidden = !shouldOpen;
-        this.options.getSettings().subtitleTranscriptVisible = shouldOpen;
-        this.options.onSettingsChange();
-        this.closeMenuForOpenTranscriptPanel();
-        this.renderTranscriptPanel(true);
-        this.positionTranscriptPanel({ realignAfterInset: shouldOpen });
-        this.syncPanelState();
-    }
-
-    private closeMenuForOpenTranscriptPanel(): void {
-        if (!this.transcriptPanel || this.transcriptPanel.hidden || !this.menuEl) return;
-        this.menuEl.hidden = true;
-    }
-
     private refreshTranscriptPanelAfterTrackChange(): void {
         if (this.shouldRestoreTranscriptPanel()) {
             this.openLinesPanel();
@@ -2310,15 +2288,6 @@ export class SubtitlePlayerController {
         this.options.onSettingsChange();
         this.positionTranscriptPanel();
         this.syncControls();
-    }
-
-    private toggleTrackPanel(): void {
-        if (!this.transcriptPanel) return;
-        if (!this.transcriptPanel.hidden && this.panelMode === 'tracks') {
-            this.closeTranscriptPanel();
-            return;
-        }
-        this.openTracksPanel();
     }
 
     private renderTranscriptPanel(force = false): void {
