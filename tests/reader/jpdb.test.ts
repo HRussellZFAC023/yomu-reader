@@ -2076,6 +2076,62 @@ describe('reader helpers', () => {
         }
     });
 
+    it('fills hosted-demo gaps with segmented fallback when JPDB returns a partial parse', async () => {
+        const originalSegmenter = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
+        class FakeSegmenter {
+            segment(_value: string): Array<{ segment: string; index: number; isWordLike: boolean }> {
+                return [
+                    { segment: '青空', index: 0, isWordLike: true },
+                    { segment: 'の', index: 2, isWordLike: true },
+                    { segment: '下', index: 3, isWordLike: true },
+                    { segment: 'で', index: 4, isWordLike: true },
+                    { segment: '日本語', index: 5, isWordLike: true },
+                    { segment: 'を', index: 8, isWordLike: true },
+                    { segment: '読む', index: 9, isWordLike: true },
+                ];
+            }
+        }
+        Object.defineProperty(Intl, 'Segmenter', { configurable: true, value: FakeSegmenter });
+        const text = '青空の下で日本語を読む';
+        const jpdbTokens: JPDBToken[] = [
+            {
+                card: { ...card, vid: 51, sid: 51, spelling: '日本語', reading: 'にほんご', cardState: ['not-in-deck'], pitchAccent: [], source: 'jpdb' },
+                start: 5,
+                end: 8,
+                length: 3,
+                rubies: [],
+                pitchClass: '',
+                sentence: text,
+            },
+            {
+                card: { ...card, vid: 52, sid: 52, spelling: '読む', reading: 'よむ', cardState: ['not-in-deck'], pitchAccent: [], source: 'jpdb' },
+                start: 9,
+                end: 11,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence: text,
+            },
+        ];
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'api-key', localDictionariesEnabled: false }),
+            jpdb: { parse: vi.fn().mockResolvedValue([jpdbTokens]) } as never,
+            dictionaries: {} as never,
+        });
+
+        try {
+            const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
+
+            expect(tokens.map(token => token.card.spelling)).toEqual(['青空', 'の', '下', 'で', '日本語', 'を', '読む']);
+            expect(tokens.find(token => token.card.spelling === '日本語')?.card.source).toBe('jpdb');
+            expect(tokens.find(token => token.card.spelling === '下')?.card.source).toBe('fallback');
+            expect(renderTokensToHtml(text, tokens, DEFAULT_SETTINGS)).toContain('data-expression="下"');
+        } finally {
+            if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
+            else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
+        }
+    });
+
     it('times out instead of segmenting text when JPDB stalls without local dictionaries', async () => {
         vi.useFakeTimers();
         const originalSegmenter = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
