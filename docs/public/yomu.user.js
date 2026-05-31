@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.62
+// @version      0.4.63
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -19329,7 +19329,7 @@ ${entry.reading}`;
      const timeoutMs = options.allowJpdbTimeoutFallback ? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS : 0;
      const result = timeoutMs > 0 ? await withTimeout(parsePromise, timeoutMs, () => new Error("JPDB parse timed out.")) : await parsePromise;
      done();
-     return result;
+     return this.withSegmentedFallbackGaps(paragraphs, result, options);
     } catch (error) {
      if (options.requireJpdb) {
       log$j.warn("JPDB-first parse failed without local fallback", error);
@@ -19491,6 +19491,14 @@ ${spelling}`);
     };
    });
   }
+  withSegmentedFallbackGaps(paragraphs, parsed, options) {
+   if (options.allowSegmentedFallback !== true) return parsed;
+   return parsed.map((tokens, index) => this.fillSegmentedFallbackGaps(paragraphs[index] ?? "", tokens));
+  }
+  fillSegmentedFallbackGaps(text2, tokens) {
+   const fallbackTokens = this.parseSegmentedText(text2).filter((fallback) => !tokens.some((token) => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
+   return fallbackTokens.length ? [...tokens, ...fallbackTokens].sort(compareTokensByOffset) : tokens;
+  }
   async localPitchPattern(card, options) {
    const settings = this.dependencies.getSettings();
    if (options.includeLocalPitch === false) return "";
@@ -19563,6 +19571,12 @@ ${spelling}`);
  }
  function offsetInsideFallbackMatch(start, end, offset) {
   return start <= offset && offset < end;
+ }
+ function rangesOverlap(start, end, otherStart, otherEnd) {
+  return start < otherEnd && otherStart < end;
+ }
+ function compareTokensByOffset(a, b) {
+  return a.start - b.start || b.length - a.length;
  }
  function normalizeFallbackTerm(text2) {
   return text2.replace(/\s+/g, " ").trim().slice(0, 80);

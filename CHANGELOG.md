@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.63] - 2026-05-31
+
+### Fixed
+
+- Restored hosted Try Me click/hover lookup for words missed by a successful partial JPDB parse, including the single-kanji `下` in `青空の下で日本語を読む`.
+- Added browser QA coverage for the hosted Try Me hit target, word color/underline styling, and Immersion Kit nested lookup back arrow.
+
 ## [0.4.62] - 2026-05-31
 
 ### Changed
