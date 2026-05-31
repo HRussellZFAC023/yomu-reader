@@ -2471,7 +2471,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps manual audio enabled in hosted demo mode while suppressing autoplay', async () => {
+    it('keeps term audio autoplay enabled in hosted demo mode', async () => {
         localStorage.clear();
         const app = new ReaderApp();
         document.body.innerHTML = '<main>Hosted docs</main>';
@@ -2486,7 +2486,7 @@ describe('reader helpers', () => {
             const { settings } = app as unknown as { settings: typeof DEFAULT_SETTINGS };
 
             expect(settings.audioEnabled).toBe(true);
-            expect(settings.autoPlayAudio).toBe(false);
+            expect(settings.autoPlayAudio).toBe(true);
             expect(settings.immersionKitAutoPlayAudio).toBe(false);
             expect(settings.wordHighlightColorSource).toBe('pitch');
             expect(settings.wordUnderlineColorSource).toBe('jpdb');
@@ -2520,7 +2520,7 @@ describe('reader helpers', () => {
             const { settings } = app as unknown as { settings: typeof DEFAULT_SETTINGS };
 
             expect(settings.audioEnabled).toBe(true);
-            expect(settings.autoPlayAudio).toBe(false);
+            expect(settings.autoPlayAudio).toBe(true);
             expect(settings.immersionKitAutoPlayAudio).toBe(false);
         } finally {
             app.destroy();
