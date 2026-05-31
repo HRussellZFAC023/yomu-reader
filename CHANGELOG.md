@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.76] - 2026-05-31
+
+### Changed
+
+- Split the new-tab JPDB kanji info source renderer out of the main new-tab controller while preserving kanji and similar-word drilldown data attributes.
+- Shared the first-element HTML template helper across popup and new-tab runtimes so optional rendered sections use the same Trusted Types-aware sink.
+
 ## [0.4.75] - 2026-05-31
 
 ### Changed

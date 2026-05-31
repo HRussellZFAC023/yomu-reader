@@ -19,7 +19,7 @@ import {
     renderSimilarKanjiWordsShell,
 } from './definition-source-render';
 import { DictionarySourceStateController } from './dictionary-source-state';
-import { appendToDocumentHead, escapeHtml, HAS_JAPANESE, readerWordSurfaceText, setInnerHtml, unwrapReaderWords } from './dom';
+import { appendToDocumentHead, escapeHtml, HAS_JAPANESE, htmlToFirstElement, readerWordSurfaceText, setInnerHtml, unwrapReaderWords } from './dom';
 import { DictionaryStyleController } from './dictionary-styles';
 import { FactoryResetCoordinator, FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS } from './factory-reset-coordinator';
 import { ImmersionKitClient } from './immersion-kit';
@@ -1929,13 +1929,4 @@ function replaceOptionalElement(parent: Element, selector: string, html: string,
         return;
     }
     if (next) parent.insertBefore(next, before);
-}
-
-function htmlToFirstElement(html: string): HTMLElement | null {
-    const trimmed = html.trim();
-    if (!trimmed) return null;
-    const template = document.createElement('template');
-    template.innerHTML = trimmed;
-    const first = template.content.firstElementChild;
-    return first instanceof HTMLElement ? first : null;
 }

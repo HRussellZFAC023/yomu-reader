@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.75
+// @version      0.4.76
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -2074,6 +2074,14 @@ Greasy Fork compliance notes:
   const template = document.createElement("template");
   setInnerHtml(template, html);
   element2.append(template.content);
+ }
+ function htmlToFirstElement(html) {
+  const trimmed = html.trim();
+  if (!trimmed) return null;
+  const template = document.createElement("template");
+  setInnerHtml(template, trimmed);
+  const first2 = template.content.firstElementChild;
+  return first2 instanceof HTMLElement ? document.importNode(first2, true) : null;
  }
  function appendToDocumentHead(element2) {
   const target = document.head || document.documentElement || document.body;
@@ -42948,14 +42956,6 @@ ${glossaryKey}`;
    return;
   }
   if (next) parent.insertBefore(next, before);
- }
- function htmlToFirstElement(html) {
-  const trimmed = html.trim();
-  if (!trimmed) return null;
-  const template = document.createElement("template");
-  template.innerHTML = trimmed;
-  const first2 = template.content.firstElementChild;
-  return first2 ? document.importNode(first2, true) : null;
  }
  function cardStateLabel(state, language) {
   const key = CARD_STATE_LABEL_KEYS[state];
