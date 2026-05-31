@@ -718,27 +718,15 @@ export class AudioPlayer {
 
     private shouldPlayMissingAudioFallback(settings: ReaderSettings, requestId: number, isCurrent: () => boolean): boolean {
         if (settings.audioFallbackChimeEnabled) return this.isPlaybackCurrent(requestId, isCurrent);
-        this.logSilentMissingAudioFallback();
         return false;
-    }
-
-    private logSilentMissingAudioFallback(): void {
     }
 
     private async tryPlayMissingAudioFallback(requestId: number, isCurrent: () => boolean): Promise<boolean> {
         try {
-            const played = await this.playSoftChime(requestId, isCurrent);
-            return this.finishMissingAudioFallback(played);
+            return await this.playSoftChime(requestId, isCurrent);
         } catch {
             return false;
         }
-    }
-
-    private finishMissingAudioFallback(played: boolean): boolean {
-        if (played) {
-            return true;
-        }
-        return false;
     }
 
     private async playSoftChime(requestId: number, isCurrent: () => boolean): Promise<boolean> {

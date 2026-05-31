@@ -2525,7 +2525,12 @@ export class ReaderApp {
 
     private isNativeTextLookupTarget(target: Element, options: PointerTextLookupOptions = {}): boolean {
         return (!options.allowPassiveInteractionText && isPassiveInteractionElement(target))
+            || this.isReaderImmersionExampleSentenceText(target)
             || Boolean(target.closest('input,textarea,select,[contenteditable="true"],.jpdb-reader-word'));
+    }
+
+    private isReaderImmersionExampleSentenceText(target: Element): boolean {
+        return Boolean(target.closest('[data-jpdb-reader-root] [data-immersion-kit] .jpdb-reader-example-sentence'));
     }
 
     private isNativePageLookupBlocked(target: Element | null): boolean {

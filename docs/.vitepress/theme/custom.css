@@ -669,13 +669,11 @@
 }
 
 .yomu-try-me .jpdb-reader-word {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 0 2px;
-  line-height: 1.2;
+  display: inline;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  line-height: inherit;
   vertical-align: baseline;
   white-space: nowrap;
   overflow-wrap: normal !important;

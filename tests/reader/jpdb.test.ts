@@ -9637,6 +9637,28 @@ describe('reader helpers', () => {
         }
     });
 
+    it('does not use fallback pointer lookup on raw Immersion Kit example sentence text', () => {
+        document.body.innerHTML = `
+            <div data-jpdb-reader-root="true">
+                <details data-immersion-kit open>
+                    <div class="jpdb-reader-example-sentence"><span>うでが痛むんで？</span></div>
+                </details>
+            </div>
+        `;
+        const text = document.querySelector<HTMLElement>('.jpdb-reader-example-sentence span')!;
+        const node = text.firstChild as Text;
+        const app = new ReaderApp();
+
+        try {
+            withPointerTextLookupMock(node, 6, [{ left: 20, top: 20, width: 160, height: 28 }], () => {
+                expect(lookupCandidateFromPoint(app, 118, 30, text)).toBeNull();
+            });
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('does not turn touch movement over a word into transient hover lookup', () => {
         const app = new ReaderApp();
         const canBeginPrimaryPressLookup = (app as unknown as {

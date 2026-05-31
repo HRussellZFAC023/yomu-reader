@@ -426,7 +426,7 @@ function qaHostedTryMeHtml() {
     .yomu-try-me-text { display: grid; gap: 12px; border-radius: 8px; background: #181b20; padding: 24px; }
     .yomu-try-me-text h3 { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-1); font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; }
     .yomu-try-me-text p { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-2); font-size: 17px; line-height: 1.7; overflow-wrap: anywhere; }
-    .yomu-try-me .jpdb-reader-word { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; padding: 0 2px; line-height: 1.2; vertical-align: baseline; white-space: nowrap; overflow-wrap: normal !important; }
+    .yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; line-height: inherit; vertical-align: baseline; white-space: nowrap; overflow-wrap: normal !important; }
     .yomu-try-me .jpdb-reader-word ruby,
     .yomu-try-me .jpdb-reader-word rt { max-width: none; white-space: nowrap; overflow-wrap: normal !important; }
   </style>
@@ -1906,6 +1906,10 @@ async function auditHostedTryMeDemo(browser, server) {
                 color: style.color,
                 textDecorationColor: style.textDecorationColor,
                 textDecorationLine: style.textDecorationLine,
+                display: style.display,
+                minWidth: style.minWidth,
+                paddingInlineStart: style.paddingInlineStart,
+                paddingInlineEnd: style.paddingInlineEnd,
                 rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
             };
         });
@@ -1927,7 +1931,9 @@ async function auditHostedTryMeDemo(browser, server) {
     assertAudit(snapshot.wordData.length >= 8, `hosted Try Me parsed too few words: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.down?.expression === '下', `hosted Try Me 下 word has wrong expression: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.down.cursor === 'pointer', `hosted Try Me 下 word is not pointer-clickable: ${JSON.stringify(snapshot.down)}`);
-    assertAudit(snapshot.down.rect.width >= 24 && snapshot.down.rect.height >= 24, `hosted Try Me 下 hit target is too small: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.down.display === 'inline', `hosted Try Me 下 should use inline reader word layout: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.down.minWidth === '0px', `hosted Try Me 下 should not force a flex tap target: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.down.paddingInlineStart === '0px' && snapshot.down.paddingInlineEnd === '0px', `hosted Try Me 下 should not offset the glyph hitbox with padding: ${JSON.stringify(snapshot.down)}`);
     assertAudit(snapshot.pointSurface === '下' && snapshot.pointExpression === '下', `hosted Try Me center point misses 下: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-underline-jpdb'), `word underline source class missing: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-text-jpdb'), `word text source class missing: ${JSON.stringify(snapshot)}`);

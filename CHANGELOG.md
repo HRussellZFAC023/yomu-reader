@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.65] - 2026-05-31
+
+### Fixed
+
+- Restored hosted Try Me hit alignment by keeping demo word spans inline, so words like `下` hover and click at the visible glyph position while JPDB-driven underline/text coloring remains active.
+- Prevented raw Immersion Kit example sentence text from opening accidental fallback pointer lookups, while keeping parsed example words nested with back navigation.
+- Kept hosted nested lookup navigation options flowing through the new-tab runtime adapter so Immersion Kit and dictionary drilldowns retain the back arrow.
+- Kept the YouTube subtitle side-panel toggle visible when compact subtitle controls go idle, hiding only the previous/next navigation buttons.
+
+### Changed
+
+- Linked the public JPDB proxy setup guide to the maintained Worker source instead of embedding stale Worker code in the settings UI.
+
 ## [0.4.64] - 2026-05-31
 
 ### Fixed

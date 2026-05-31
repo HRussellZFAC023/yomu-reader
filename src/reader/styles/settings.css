@@ -495,23 +495,6 @@
 .jpdb-reader-proxy-guide-body code {
   font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
-.jpdb-reader-proxy-guide-code-title {
-  color: var(--jpdb-reader-text);
-  font-size: 12px;
-  font-weight: 850;
-}
-.jpdb-reader-proxy-guide-code {
-  max-height: 280px;
-  margin: 0;
-  padding: 10px;
-  overflow: auto;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-bg);
-  color: var(--jpdb-reader-text);
-  font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  white-space: pre;
-}
 .jpdb-reader-theme-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

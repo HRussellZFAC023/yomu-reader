@@ -98,6 +98,7 @@ import {
     orderedDefinitionSourceIds,
     orderedKanjiSourceIds,
 } from './source-sections';
+import type { CardNavigationMode, PopupNavigationEntry } from './popup-navigation';
 import { JISHO_LOOKUP_LINK, JPDB_LOOKUP_LINK } from './settings';
 import { installUchisenCarousel, loadUchisenData, type UchisenData } from './uchisen';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from './yomitan';
@@ -130,7 +131,9 @@ interface NewTabParseContentOptions {
 }
 
 interface NewTabLookupDependencyOptions {
-    navigation?: 'reset' | 'preserve' | 'push-current';
+    navigation?: CardNavigationMode;
+    previousNavigationEntry?: PopupNavigationEntry;
+    reuseActivePopover?: boolean;
     userGesture?: boolean;
 }
 
@@ -1260,10 +1263,18 @@ export class NewTabController {
             return true;
         }
         if (card && this.dependencies.showLookupCard) {
-            void this.dependencies.showLookupCard(card, sentence, word, { navigation: 'push-current', userGesture: true });
+            void this.dependencies.showLookupCard(card, sentence, word, {
+                navigation: 'push-current',
+                reuseActivePopover: true,
+                userGesture: true,
+            });
             return true;
         }
-        void this.dependencies.lookupText?.(expression, reading, word, { navigation: 'push-current', userGesture: true });
+        void this.dependencies.lookupText?.(expression, reading, word, {
+            navigation: 'push-current',
+            reuseActivePopover: true,
+            userGesture: true,
+        });
         return true;
     }
 
@@ -1308,7 +1319,11 @@ export class NewTabController {
             link.dataset.dictionaryReading ?? '',
             link.dataset.dictionary ?? '',
             link,
-            { userGesture: true },
+            {
+                navigation: 'push-current',
+                reuseActivePopover: true,
+                userGesture: true,
+            },
         );
         return true;
     }

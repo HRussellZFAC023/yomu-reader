@@ -3155,7 +3155,11 @@ describe('new tab review helpers', () => {
             const clickWasNotCanceled = word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
             expect(clickWasNotCanceled).toBe(false);
-            expect(showLookupCard).toHaveBeenCalledWith(related, sentence, word, { navigation: 'push-current', userGesture: true });
+            expect(showLookupCard).toHaveBeenCalledWith(related, sentence, word, {
+                navigation: 'push-current',
+                reuseActivePopover: true,
+                userGesture: true,
+            });
             expect(lookupText).not.toHaveBeenCalled();
         } finally {
             root.remove();
@@ -3198,7 +3202,11 @@ describe('new tab review helpers', () => {
             }));
 
             expect(clickWasNotCanceled).toBe(false);
-            expect(showLookupCard).toHaveBeenCalledWith(related, sentence, word, { navigation: 'push-current', userGesture: true });
+            expect(showLookupCard).toHaveBeenCalledWith(related, sentence, word, {
+                navigation: 'push-current',
+                reuseActivePopover: true,
+                userGesture: true,
+            });
             expect(lookupText).not.toHaveBeenCalledWith('食べる', 'たべる', prompt);
         } finally {
             root.remove();
@@ -3231,7 +3239,11 @@ describe('new tab review helpers', () => {
             const clickWasNotCanceled = word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
             expect(clickWasNotCanceled).toBe(false);
-            expect(lookupText).toHaveBeenCalledWith('メイ', 'メイ', word, { navigation: 'push-current', userGesture: true });
+            expect(lookupText).toHaveBeenCalledWith('メイ', 'メイ', word, {
+                navigation: 'push-current',
+                reuseActivePopover: true,
+                userGesture: true,
+            });
             expect(lookupText).not.toHaveBeenCalledWith('食べる', 'たべる', expect.any(HTMLElement));
             expect(showLookupCard).not.toHaveBeenCalled();
         } finally {
@@ -4624,7 +4636,11 @@ describe('new tab review helpers', () => {
         root.querySelectorAll<HTMLButtonElement>('button')[0]!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         root.querySelectorAll<HTMLButtonElement>('button')[1]!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
-        expect(lookupDictionaryReference).toHaveBeenCalledWith('国家', 'こっか', 'Jitendex', root.querySelector('a'), { userGesture: true });
+        expect(lookupDictionaryReference).toHaveBeenCalledWith('国家', 'こっか', 'Jitendex', root.querySelector('a'), {
+            navigation: 'push-current',
+            reuseActivePopover: true,
+            userGesture: true,
+        });
         expect(lookupText).toHaveBeenCalledWith('何事', 'なにごと', root.querySelectorAll('button')[0], { userGesture: true });
         expect(showKanjiCard).toHaveBeenCalledWith(card, '事', '事情を説明する。', root.querySelectorAll('button')[1]);
     });
@@ -4718,6 +4734,89 @@ describe('new tab review helpers', () => {
         } finally {
             runtime.destroy();
             document.body.replaceChildren();
+        }
+    });
+
+    it('forwards hosted nested lookup navigation options through the runtime adapter', async () => {
+        const runtime = new NewTabRuntime();
+        const lookupText = vi.fn(async () => undefined);
+        const showLookupCard = vi.fn(async () => undefined);
+        const current = newTabTestCard({ spelling: '読む', reading: 'よむ', sentence: '読む。' });
+        const next = newTabTestCard({ spelling: '下', reading: 'した', sentence: '下です。' });
+        const previousNavigationEntry = { kind: 'word' as const, card: current, sentence: current.sentence };
+        const anchor = document.createElement('span');
+        const internals = runtime as unknown as {
+            lookupText: typeof lookupText;
+            showLookupCard: typeof showLookupCard;
+            createNewTabController(): NewTabController;
+        };
+        internals.lookupText = lookupText;
+        internals.showLookupCard = showLookupCard;
+
+        try {
+            const controller = internals.createNewTabController() as unknown as {
+                dependencies: {
+                    lookupText(text: string, reading: string, anchor?: HTMLElement, options?: {
+                        navigation?: string;
+                        previousNavigationEntry?: typeof previousNavigationEntry;
+                        reuseActivePopover?: boolean;
+                        userGesture?: boolean;
+                    }): Promise<void> | void;
+                    lookupDictionaryReference(query: string, reading: string, dictionary: string, anchor?: HTMLElement, options?: {
+                        navigation?: string;
+                        previousNavigationEntry?: typeof previousNavigationEntry;
+                        reuseActivePopover?: boolean;
+                        userGesture?: boolean;
+                    }): Promise<void> | void;
+                    showLookupCard(card: JPDBCard, sentence: string, anchor?: HTMLElement, options?: {
+                        navigation?: string;
+                        previousNavigationEntry?: typeof previousNavigationEntry;
+                        reuseActivePopover?: boolean;
+                        userGesture?: boolean;
+                    }): Promise<void> | void;
+                };
+            };
+
+            await controller.dependencies.lookupText('下', 'した', anchor, {
+                navigation: 'push-current',
+                previousNavigationEntry,
+                reuseActivePopover: true,
+                userGesture: true,
+            });
+            await controller.dependencies.lookupDictionaryReference('国家', 'こっか', 'JPDB', anchor, {
+                navigation: 'push-current',
+                previousNavigationEntry,
+                reuseActivePopover: true,
+                userGesture: true,
+            });
+            await controller.dependencies.showLookupCard(next, '下です。', anchor, {
+                navigation: 'push-current',
+                previousNavigationEntry,
+                reuseActivePopover: true,
+                userGesture: true,
+            });
+
+            expect(lookupText).toHaveBeenNthCalledWith(1, '下', 'した', anchor, expect.objectContaining({
+                navigation: 'push-current',
+                previousNavigationEntry,
+                reuseActivePopover: true,
+                userGesture: true,
+            }));
+            expect(lookupText).toHaveBeenNthCalledWith(2, '国家', 'こっか', anchor, expect.objectContaining({
+                navigation: 'push-current',
+                previousNavigationEntry,
+                reuseActivePopover: true,
+                userGesture: true,
+            }));
+            expect(showLookupCard).toHaveBeenCalledWith(next, '下です。', anchor, expect.objectContaining({
+                navigation: 'push-current',
+                previousNavigationEntry,
+                reuseActivePopover: true,
+                autoPlay: false,
+                userGesture: true,
+            }));
+        } finally {
+            runtime.destroy();
         }
     });
 
@@ -6119,7 +6218,11 @@ describe('new tab review helpers', () => {
             const clickWasNotCanceled = word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
             expect(clickWasNotCanceled).toBe(false);
-            expect(showLookupCard).toHaveBeenCalledWith(card, 'お母ちゃん中学生？', word, { navigation: 'push-current', userGesture: true });
+            expect(showLookupCard).toHaveBeenCalledWith(card, 'お母ちゃん中学生？', word, {
+                navigation: 'push-current',
+                reuseActivePopover: true,
+                userGesture: true,
+            });
             expect(lookupText).not.toHaveBeenCalled();
         } finally {
             root.remove();
