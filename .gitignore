@@ -8,6 +8,7 @@ dist/*
 dist-dev/
 dist-reader/
 coverage/
+artifacts/
 qa-artifacts/
 docs/.vitepress/cache/
 docs/.vitepress/dist/

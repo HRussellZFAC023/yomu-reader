@@ -12,7 +12,7 @@ const TARGETS = [
     path.join(ROOT, 'tests'),
     path.join(ROOT, 'vite.config.ts'),
 ];
-const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'dist-reader', 'docs/.vitepress/dist', 'qa-artifacts']);
+const IGNORED_DIRS = new Set(['node_modules', '.git', 'artifacts', 'dist', 'dist-reader', 'docs/.vitepress/dist', 'qa-artifacts']);
 const FUNCTION_LIKE_CHECKS = [
     ts.isFunctionDeclaration,
     ts.isFunctionExpression,
