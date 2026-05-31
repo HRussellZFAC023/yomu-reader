@@ -742,8 +742,9 @@ export class ReaderApp {
             autoScanJapanese: false,
             scanVisiblePage: false,
             showFloatingButton: false,
-            wordUnderlineColorSource: 'pitch',
-            wordTextColorSource: 'off',
+            wordHighlightColorSource: 'jpdb',
+            wordUnderlineColorSource: 'jpdb',
+            wordTextColorSource: 'jpdb',
             pitchColorHeiban: '#74c0ff',
             pitchColorAtamadaka: '#ff8fab',
             pitchColorNakadaka: '#ffd166',
@@ -1265,6 +1266,11 @@ export class ReaderApp {
             if (!this.canLookupReaderWord(word)) return;
             if (word.dataset.jpdbReaderPassive === 'true') return;
             if (Date.now() < this.suppressWordClickUntil) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+            if (this.shouldIgnoreCurrentImmersionExampleTargetClick(word)) {
                 event.preventDefault();
                 event.stopPropagation();
                 return;
@@ -2713,6 +2719,7 @@ export class ReaderApp {
     }
 
     private async showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover'; navigation?: CardNavigationMode; hoverLookupGeneration?: number; previousNavigationEntry?: PopupNavigationEntry; userGesture?: boolean; stackOverSettings?: boolean } = {}): Promise<void> {
+        if (options.trigger === 'click' && this.shouldIgnoreCurrentImmersionExampleTargetClick(word)) return;
         const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         const stackOverSettings = options.stackOverSettings || Boolean(word.closest('.jpdb-reader-settings'));
         const card = this.cardForRenderedWord(word);
@@ -2824,7 +2831,7 @@ export class ReaderApp {
 
     private rememberRenderedWordMiningContext(word: HTMLElement, card: JPDBCard, insideReaderPopup: boolean): void {
         if (!insideReaderPopup || !word.closest('.jpdb-reader-example-card')) return;
-        this.immersionPopover.rememberPageMiningContext(card, word.dataset.sentence || undefined, word);
+        this.immersionPopover.rememberPageMiningContext(card, this.renderedWordSentence(word), word);
     }
 
     private renderedWordDisplayContext(
@@ -2846,12 +2853,27 @@ export class ReaderApp {
     }
 
     private renderedWordSentence(word: HTMLElement): string | undefined {
+        const immersionSentence = this.renderedImmersionExampleSentence(word);
+        if (immersionSentence) return immersionSentence;
         const tokenSentence = word.dataset.sentence || '';
         if (tokenSentence && word.closest('.jpdb-reader-example-sentence')) return normalizedLookupText(tokenSentence);
         return preferredRenderedWordSentence(
             nearestReadableSentenceForElement(word, tokenSentence),
             tokenSentence,
         );
+    }
+
+    private renderedImmersionExampleSentence(word: HTMLElement): string {
+        if (!word.closest('.jpdb-reader-example-sentence')) return '';
+        const sentence = word.closest<HTMLElement>('[data-immersion-sentence]')?.dataset.immersionSentence ?? '';
+        return normalizedLookupText(sentence);
+    }
+
+    private shouldIgnoreCurrentImmersionExampleTargetClick(word: HTMLElement): boolean {
+        if (!this.lastCard || !this.isInsideActivePopover(word)) return false;
+        if (!word.closest('[data-immersion-kit] .jpdb-reader-example-sentence')) return false;
+        if (!word.closest('.jpdb-reader-example-target')) return false;
+        return this.cardMatchesRenderedLookupValue(this.lastCard, this.renderedWordLookupText(word));
     }
 
     private renderedWordHoverLookupKey(word: HTMLElement, trigger: 'modal' | 'hover'): string | undefined {
