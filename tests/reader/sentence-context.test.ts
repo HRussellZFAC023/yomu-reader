@@ -121,7 +121,7 @@ describe('reader sentence context', () => {
                         <button>JPDB</button>
                         <button>Jisho</button>
                         <div class="jpdb-reader-example-sentence jpdb-reader-parseable">
-                            う<span class="jpdb-reader-word" data-sentence="うでが痛むんで？" data-expression="で">で</span>が痛むんで？
+                            う<span class="jpdb-reader-word" data-expression="で">で</span>が痛むんで？
                         </div>
                     </div>
                 </details>
