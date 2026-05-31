@@ -305,6 +305,7 @@ function dataUrl(html) {
 const QA_READER_PATH = '/__qa__/reader';
 const QA_VIDEO_PATH = '/__qa__/video';
 const QA_RUNTIME_REGRESSION_PATH = '/__qa__/runtime-regression';
+const QA_HOSTED_TRY_ME_PATH = '/yomu-reader/';
 const QA_JA_SUBTITLES_PATH = '/__qa__/subtitles-ja.vtt';
 const QA_EN_SUBTITLES_PATH = '/__qa__/subtitles-en.vtt';
 
@@ -405,7 +406,42 @@ function qaRuntimeRegressionHtml() {
 	      <a id="runtime-link-card" class="yomu-link-card" href="getting-started"><strong>よむをセットアップ</strong><span>日本語のページで最初の検索を試します。</span></a>
 	    </article>
 	  </main>
-	</body>
+</body>
+</html>`;
+}
+
+function qaHostedTryMeHtml() {
+    return `<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>よむ hosted Try Me QA</title>
+  <style>
+    :root { --vp-c-text-1: #f4f7fb; --vp-c-text-2: #b7c0cc; --jpdb-reader-hover: rgba(255,255,255,.12); }
+    body { margin: 0; min-height: 100vh; background: #2f3a40; color: var(--vp-c-text-1); font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { max-width: 960px; margin: 0 auto; padding: 42px 20px; }
+    .yomu-try-me { display: grid; gap: 18px; }
+    .yomu-try-me > strong { font-size: 24px; }
+    .yomu-try-me-text { display: grid; gap: 12px; border-radius: 8px; background: #181b20; padding: 24px; }
+    .yomu-try-me-text h3 { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-1); font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; }
+    .yomu-try-me-text p { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-2); font-size: 17px; line-height: 1.7; overflow-wrap: anywhere; }
+    .yomu-try-me .jpdb-reader-word { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; padding: 0 2px; line-height: 1.2; vertical-align: baseline; white-space: nowrap; overflow-wrap: normal !important; }
+    .yomu-try-me .jpdb-reader-word ruby,
+    .yomu-try-me .jpdb-reader-word rt { max-width: none; white-space: nowrap; overflow-wrap: normal !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="yomu-try-me" data-yomu-demo-lookup>
+      <strong>Try me</strong>
+      <div class="yomu-try-me-text">
+        <h3>青空の下で日本語を読む</h3>
+        <p>今日は静かな喫茶店で新しい本を読みました。</p>
+      </div>
+    </div>
+  </main>
+</body>
 </html>`;
 }
 
@@ -432,6 +468,13 @@ async function startStaticServer(root) {
                 res.setHeader('Access-Control-Allow-Origin', '*');
                 res.setHeader('Content-Type', 'text/html; charset=utf-8');
                 res.end(qaRuntimeRegressionHtml());
+                return;
+            }
+            if (url.pathname === QA_HOSTED_TRY_ME_PATH) {
+                res.statusCode = 200;
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.end(qaHostedTryMeHtml());
                 return;
             }
             if (url.pathname === QA_JA_SUBTITLES_PATH || url.pathname === QA_EN_SUBTITLES_PATH) {
@@ -1830,6 +1873,88 @@ function newTabDictionaryFallbackSettings() {
     };
 }
 
+async function auditHostedTryMeDemo(browser, server) {
+    const { page } = await newAuditedPage(browser, {
+        ...baseSettings,
+        wordHighlightColorSource: 'jpdb',
+        wordUnderlineColorSource: 'jpdb',
+        wordTextColorSource: 'jpdb',
+        hoverOpenDelayMs: 35,
+        hoverCloseDelayMs: 120,
+    });
+    const browserErrors = collectPageBrowserErrors(page);
+    await page.goto(`${server.origin}${QA_HOSTED_TRY_ME_PATH}`, { waitUntil: 'domcontentloaded' });
+    await injectUserscript(page);
+    await waitForAudit(page, () => [...document.querySelectorAll('[data-yomu-demo-lookup] .jpdb-reader-word')]
+        .some(word => word.textContent?.replace(/\s+/g, '').includes('下')), 10000, 'hosted Try Me did not wrap 下 as a lookup word');
+
+    const snapshot = await page.evaluate(() => {
+        const surface = node => [...node.childNodes].map(child => {
+            if (child.nodeType === Node.TEXT_NODE) return child.textContent ?? '';
+            if (!(child instanceof Element) || child.matches('rt,rp')) return '';
+            return surface(child);
+        }).join('');
+        const words = [...document.querySelectorAll('[data-yomu-demo-lookup] .jpdb-reader-word')];
+        const wordData = words.map(word => {
+            const rect = word.getBoundingClientRect();
+            const style = getComputedStyle(word);
+            return {
+                surface: surface(word).trim(),
+                expression: word.getAttribute('data-expression') ?? '',
+                className: word.className,
+                cursor: style.cursor,
+                color: style.color,
+                textDecorationColor: style.textDecorationColor,
+                textDecorationLine: style.textDecorationLine,
+                rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+            };
+        });
+        const down = wordData.find(word => word.surface === '下');
+        const jpdbWord = wordData.find(word => word.surface === '日本語');
+        const point = down ? { x: down.rect.x + down.rect.width / 2, y: down.rect.y + down.rect.height / 2 } : null;
+        const target = point ? document.elementFromPoint(point.x, point.y) : null;
+        const targetWord = target?.closest?.('.jpdb-reader-word');
+        return {
+            rootClasses: document.documentElement.className,
+            wordData,
+            down,
+            jpdbWord,
+            point,
+            pointSurface: targetWord ? surface(targetWord).trim() : '',
+            pointExpression: targetWord?.getAttribute('data-expression') ?? '',
+        };
+    });
+    assertAudit(snapshot.wordData.length >= 8, `hosted Try Me parsed too few words: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.down?.expression === '下', `hosted Try Me 下 word has wrong expression: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.down.cursor === 'pointer', `hosted Try Me 下 word is not pointer-clickable: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.down.rect.width >= 24 && snapshot.down.rect.height >= 24, `hosted Try Me 下 hit target is too small: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.pointSurface === '下' && snapshot.pointExpression === '下', `hosted Try Me center point misses 下: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-underline-jpdb'), `word underline source class missing: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-text-jpdb'), `word text source class missing: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.jpdbWord?.textDecorationLine.includes('underline'), `JPDB-backed demo word is not underlined: ${JSON.stringify(snapshot.jpdbWord)}`);
+    assertAudit(!isTransparentCssColor(snapshot.jpdbWord?.textDecorationColor), `JPDB-backed demo underline is transparent: ${JSON.stringify(snapshot.jpdbWord)}`);
+
+    const downBox = snapshot.down.rect;
+    await page.mouse.move(downBox.x + downBox.width / 2, downBox.y + downBox.height / 2);
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    await waitForAudit(page, () => {
+        const spelling = document.querySelector('.jpdb-reader-popover .jpdb-reader-spelling')?.textContent?.replace(/\s+/g, '').trim() ?? '';
+        return spelling.includes('下');
+    }, 6000, 'hovering hosted Try Me 下 did not open the 下 lookup');
+    await page.keyboard.press('Escape');
+    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close hosted Try Me hover popup');
+    await page.mouse.click(downBox.x + downBox.width / 2, downBox.y + downBox.height / 2);
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    await waitForAudit(page, () => {
+        const spelling = document.querySelector('.jpdb-reader-popover .jpdb-reader-spelling')?.textContent?.replace(/\s+/g, '').trim() ?? '';
+        return spelling.includes('下');
+    }, 6000, 'clicking hosted Try Me 下 did not open the 下 lookup');
+    assertNoPageBrowserErrors(browserErrors, 'hosted Try Me demo');
+    await page.screenshot({ path: path.join(ARTIFACTS, 'hosted-try-me.png'), fullPage: false });
+    await page.close();
+    record('hosted Try Me demo', 'pass', 'partial JPDB parses keep 下 clickable and JPDB-backed words keep color/underline styling');
+}
+
 function collectPageBrowserErrors(page) {
     const errors = { consoleErrors: [], pageErrors: [] };
     page.on('console', message => {
@@ -2755,6 +2880,15 @@ async function auditImmersionKitPopover(browser, server) {
         throw new Error(`word inside Immersion Kit example did not open a nested popup lookup: ${JSON.stringify(detail)}: ${error instanceof Error ? error.message : String(error)}`);
     });
     await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'nested Immersion lookup kept showing dictionary loading details');
+    const nestedBack = await page.evaluate(() => {
+        const button = document.querySelector('.jpdb-reader-popover [data-action="word-history-back"]');
+        return {
+            visible: button instanceof HTMLElement && getComputedStyle(button).display !== 'none' && !button.hidden,
+            title: button?.getAttribute('title') ?? '',
+            label: button?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+        };
+    });
+    assertAudit(nestedBack.visible && /読/.test(nestedBack.title), `nested Immersion lookup did not expose a back arrow to the source word: ${JSON.stringify(nestedBack)}`);
     const miningDrawer = page.locator('.jpdb-reader-popover .jpdb-reader-actions-has-mining.jpdb-reader-actions-mining-collapsed [data-action="mining-collapse"]:visible');
     if (await miningDrawer.count()) await miningDrawer.first().click();
     await page.locator('.jpdb-reader-popover [data-action="anki"]:visible').click();
@@ -3053,6 +3187,7 @@ async function main() {
         await runAudit('settings dialog', () => auditSettings(browser, server));
         await runAudit('mobile settings journey', () => auditSettingsMobile(browser, server));
         await runAudit('new-tab dictionary fallback', () => auditNewTabDictionaryFallback(browser, server));
+        await runAudit('hosted Try Me demo', () => auditHostedTryMeDemo(browser, server), { requiresApiKey: true });
         await runAudit('runtime regression fixture', () => auditRuntimeRegressionFixes(browser, server), { requiresApiKey: true });
         await runAudit('Bloomee auto page scan', () => auditBloomeeAutoScan(browser), { requiresApiKey: true });
         await runAudit('hold-key hover lookup', () => auditHoverLookup(browser, server), { requiresApiKey: true });

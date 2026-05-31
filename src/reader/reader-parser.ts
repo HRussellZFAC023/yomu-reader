@@ -56,7 +56,7 @@ export class ReaderParser {
                     ? await withTimeout(parsePromise, timeoutMs, () => new Error('JPDB parse timed out.'))
                     : await parsePromise;
                 done();
-                return result;
+                return this.withSegmentedFallbackGaps(paragraphs, result, options);
             } catch (error) {
                 if (options.requireJpdb) {
                     log.warn('JPDB-first parse failed without local fallback', error);
@@ -230,6 +230,17 @@ export class ReaderParser {
         });
     }
 
+    private withSegmentedFallbackGaps(paragraphs: string[], parsed: JPDBToken[][], options: ReaderParserParseOptions): JPDBToken[][] {
+        if (options.allowSegmentedFallback !== true) return parsed;
+        return parsed.map((tokens, index) => this.fillSegmentedFallbackGaps(paragraphs[index] ?? '', tokens));
+    }
+
+    private fillSegmentedFallbackGaps(text: string, tokens: JPDBToken[]): JPDBToken[] {
+        const fallbackTokens = this.parseSegmentedText(text)
+            .filter(fallback => !tokens.some(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
+        return fallbackTokens.length ? [...tokens, ...fallbackTokens].sort(compareTokensByOffset) : tokens;
+    }
+
     private async localPitchPattern(card: JPDBCard, options: ReaderParserParseOptions): Promise<string> {
         const settings = this.dependencies.getSettings();
         if (options.includeLocalPitch === false) return '';
@@ -308,6 +319,14 @@ export function fallbackLookupRangeAtOffset(text: string, offset: number): { sta
 
 function offsetInsideFallbackMatch(start: number, end: number, offset: number): boolean {
     return start <= offset && offset < end;
+}
+
+function rangesOverlap(start: number, end: number, otherStart: number, otherEnd: number): boolean {
+    return start < otherEnd && otherStart < end;
+}
+
+function compareTokensByOffset(a: JPDBToken, b: JPDBToken): number {
+    return a.start - b.start || b.length - a.length;
 }
 
 function normalizeFallbackTerm(text: string): string {
