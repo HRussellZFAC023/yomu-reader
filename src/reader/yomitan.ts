@@ -670,32 +670,16 @@ export class YomitanDictionaryStore {
             const fail = (error: unknown) => reject(error ?? new Error('Could not load top dictionary terms.'));
 
             for (const expression of expressions) {
-                const range = IDBKeyRange.only(expression);
-                if (typeof index.getAll === 'function') {
-                    const request = index.getAll(range, limit);
-                    request.onsuccess = () => {
-                        results.set(expression, request.result as YomitanTermEntry[]);
-                        finish();
-                    };
-                    request.onerror = () => fail(request.error);
-                    continue;
-                }
-
-                const entries: YomitanTermEntry[] = [];
-                let count = 0;
-                const request = index.openCursor(range);
-                request.onsuccess = () => {
-                    const cursor = request.result;
-                    if (!cursor || count >= limit) {
+                readIndexRequestValues<YomitanTermEntry>(
+                    index,
+                    IDBKeyRange.only(expression),
+                    limit,
+                    entries => {
                         results.set(expression, entries);
                         finish();
-                        return;
-                    }
-                    entries.push(cursor.value as YomitanTermEntry);
-                    count++;
-                    cursor.continue();
-                };
-                request.onerror = () => fail(request.error);
+                    },
+                    fail,
+                );
             }
             tx.onerror = () => fail(tx.error);
         });
@@ -1233,26 +1217,9 @@ export class YomitanDictionaryStore {
 
     private async getByIndex<T>(db: IDBDatabase, storeName: StoreName, indexName: string, value: string, limit: number): Promise<T[]> {
         return new Promise((resolve, reject) => {
-            const index = db.transaction(storeName, 'readonly').objectStore(storeName).index(indexName);
-            const query = IDBKeyRange.only(value);
-            if (typeof index.getAll === 'function') {
-                const request = index.getAll(query, limit);
-                request.onsuccess = () => resolve(request.result as T[]);
-                request.onerror = () => reject(request.error);
-                return;
-            }
-            const results: T[] = [];
-            const request = index.openCursor(query);
-            request.onsuccess = () => {
-                const cursor = request.result;
-                if (!cursor || results.length >= limit) {
-                    resolve(results);
-                    return;
-                }
-                results.push(cursor.value as T);
-                cursor.continue();
-            };
-            request.onerror = () => reject(request.error);
+            const tx = db.transaction(storeName, 'readonly');
+            const index = tx.objectStore(storeName).index(indexName);
+            readIndexRequestValues<T>(index, IDBKeyRange.only(value), limit, resolve, reject);
         });
     }
 
@@ -1269,43 +1236,29 @@ export class YomitanDictionaryStore {
             const fail = (error: unknown) => reject(error ?? new Error(`Could not read ${storeName} entries.`));
 
             for (const value of values) {
-                const query = IDBKeyRange.only(value);
-                if (typeof index.getAll === 'function') {
-                    const request = index.getAll(query, limit);
-                    request.onsuccess = () => {
-                        results.push(...request.result as T[]);
+                readIndexRequestValues<T>(
+                    index,
+                    IDBKeyRange.only(value),
+                    limit,
+                    entries => {
+                        results.push(...entries);
                         finish();
-                    };
-                    request.onerror = () => fail(request.error);
-                    continue;
-                }
-
-                let count = 0;
-                const request = index.openCursor(query);
-                request.onsuccess = () => {
-                    const cursor = request.result;
-                    if (!cursor || count >= limit) {
-                        finish();
-                        return;
-                    }
-                    results.push(cursor.value as T);
-                    count++;
-                    cursor.continue();
-                };
-                request.onerror = () => fail(request.error);
+                    },
+                    fail,
+                );
             }
             tx.onerror = () => fail(tx.error);
         });
     }
 
     private async getTermLookupEntries(db: IDBDatabase, expression: string, reading: string, expressionLimit: number, readingLimit: number): Promise<YomitanTermEntry[]> {
+        const queries = [
+            { indexName: 'expression', value: expression, limit: expressionLimit },
+            ...(reading ? [{ indexName: 'reading', value: reading, limit: readingLimit }] : []),
+        ];
         return new Promise((resolve, reject) => {
             const tx = db.transaction('terms', 'readonly');
             const store = tx.objectStore('terms');
-            const queries = [
-                { indexName: 'expression', value: expression, limit: expressionLimit },
-                ...(reading ? [{ indexName: 'reading', value: reading, limit: readingLimit }] : []),
-            ];
             const entries: YomitanTermEntry[] = [];
             let pending = queries.length;
             const finish = () => {
@@ -1314,31 +1267,16 @@ export class YomitanDictionaryStore {
             const fail = (error: unknown) => reject(error ?? new Error('Could not search local dictionary terms.'));
 
             for (const query of queries) {
-                const index = store.index(query.indexName);
-                const range = IDBKeyRange.only(query.value);
-                if (typeof index.getAll === 'function') {
-                    const request = index.getAll(range, query.limit);
-                    request.onsuccess = () => {
-                        entries.push(...request.result as YomitanTermEntry[]);
+                readIndexRequestValues<YomitanTermEntry>(
+                    store.index(query.indexName),
+                    IDBKeyRange.only(query.value),
+                    query.limit,
+                    found => {
+                        entries.push(...found);
                         finish();
-                    };
-                    request.onerror = () => fail(request.error);
-                    continue;
-                }
-
-                let count = 0;
-                const request = index.openCursor(range);
-                request.onsuccess = () => {
-                    const cursor = request.result;
-                    if (!cursor || count >= query.limit) {
-                        finish();
-                        return;
-                    }
-                    entries.push(cursor.value as YomitanTermEntry);
-                    count++;
-                    cursor.continue();
-                };
-                request.onerror = () => fail(request.error);
+                    },
+                    fail,
+                );
             }
             tx.onerror = () => fail(tx.error);
         });
@@ -1870,6 +1808,36 @@ export class YomitanDictionaryStore {
         this.hotLookupCache.clear();
         this.termKanjiIndexReady = false;
     }
+}
+
+function readIndexRequestValues<T>(
+    index: IDBIndex,
+    query: IDBKeyRange,
+    limit: number,
+    resolve: (entries: T[]) => void,
+    reject: (reason?: unknown) => void,
+): void {
+    if (typeof index.getAll === 'function') {
+        const request = index.getAll(query, limit);
+        request.onsuccess = () => resolve(request.result as T[]);
+        request.onerror = () => reject(request.error);
+        return;
+    }
+
+    const results: T[] = [];
+    let count = 0;
+    const request = index.openCursor(query);
+    request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor || count >= limit) {
+            resolve(results);
+            return;
+        }
+        results.push(cursor.value as T);
+        count++;
+        cursor.continue();
+    };
+    request.onerror = () => reject(request.error);
 }
 
 function isSearchableJapaneseSurface(surface: string): boolean {
