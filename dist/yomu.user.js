@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.73
+// @version      0.4.74
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -38338,6 +38338,57 @@ ${glossaryKey}`;
    sid: String(Math.max(0, card.sid))
   };
  }
+ const HIRAGANA_RE = /\p{Script=Hiragana}/u;
+ const KATAKANA_RE = /\p{Script=Katakana}/u;
+ const HAN_RE = /\p{Script=Han}/u;
+ const NIHONGO_TUBE_SYMBOL_RE = /[≧≦°ಠ●◕○◯⊙▽△_∩∪ﾟ∇♪ω◇◆◎⌒※☆★♡♥︶︸ಥ¬╯╰┻┳━┛┗┓┏┫┣╋╂┃━─┌┐└┘├┤┴┬╱╲╳]/u;
+ function classifyYouTubeFilterCandidates(candidates, options) {
+  const decisions = [];
+  const visibleVideoIds = /* @__PURE__ */ new Set();
+  let filteredCount = 0;
+  let shownCount = 0;
+  for (const candidate of candidates) {
+   const decision = classifyYouTubeFilterCandidate(candidate, options);
+   decisions.push(decision);
+   if (candidate.alwaysHidden || decision.reason === "non-japanese" || decision.reason === "revealed") filteredCount += 1;
+   if (decision.kind === "show") {
+    shownCount += 1;
+    if (!candidate.alwaysHidden && candidate.videoId) visibleVideoIds.add(candidate.videoId);
+   }
+  }
+  return { decisions, filteredCount, shownCount, visibleVideoIds };
+ }
+ function isProbablyJapaneseYouTubeText(text2) {
+  const compact = normalizeYouTubeTitleForLanguageCheck(text2);
+  if (!HAS_JAPANESE$1.test(compact)) return false;
+  return HIRAGANA_RE.test(compact) || KATAKANA_RE.test(compact) || HAN_RE.test(compact);
+ }
+ function classifyYouTubeFilterCandidate(candidate, options) {
+  if (candidate.alwaysHidden) {
+   return {
+    candidate,
+    kind: options.revealed ? "show" : "hide",
+    reason: options.revealed ? "always-hidden-revealed" : "always-hidden"
+   };
+  }
+  if (!candidate.title) return { candidate, kind: "skip", reason: "missing-title" };
+  if (!candidate.filterText) {
+   return {
+    candidate,
+    kind: options.revealed ? "skip" : "hide",
+    reason: "missing-filter-text"
+   };
+  }
+  if (isProbablyJapaneseYouTubeText(candidate.filterText)) return { candidate, kind: "show", reason: "japanese" };
+  return {
+   candidate,
+   kind: options.revealed ? "show" : "hide",
+   reason: options.revealed ? "revealed" : "non-japanese"
+  };
+ }
+ function normalizeYouTubeTitleForLanguageCheck(text2) {
+  return text2.replace(/fypシ゚/g, "").replace(/fypシ/g, "").replace(/ミックスリスト/g, "").replace(NIHONGO_TUBE_SYMBOL_RE, "").replace(/\s+/g, " ").trim();
+ }
  const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
  const VIDEO_CARD_SELECTOR = [
   "ytd-rich-item-renderer",
@@ -38410,10 +38461,6 @@ ${glossaryKey}`;
   "ytd-watch-metadata h1",
   "ytd-watch-metadata #title"
  ].join(",");
- const HIRAGANA_RE = /\p{Script=Hiragana}/u;
- const KATAKANA_RE = /\p{Script=Katakana}/u;
- const HAN_RE = /\p{Script=Han}/u;
- const NIHONGO_TUBE_SYMBOL_RE = /[≧≦°ಠ●◕○◯⊙▽△_∩∪ﾟ∇♪ω◇◆◎⌒※☆★♡♥︶︸ಥ¬╯╰┻┳━┛┗┓┏┫┣╋╂┃━─┌┐└┘├┤┴┬╱╲╳]/u;
  const OEMBED_TITLE_CACHE_LIMIT = 240;
  const OEMBED_SESSION_CACHE_PREFIX = "yomu:youtube-oembed-title:v1:";
  const OEMBED_SESSION_CACHE_TTL_MS = 6 * 60 * 60 * 1e3;
@@ -38424,11 +38471,6 @@ ${glossaryKey}`;
  const YOUTUBE_BACKFILL_RESTORE_DELAY_MS = 50;
  function isYouTubeHost(hostname = location.hostname) {
   return YOUTUBE_HOST_RE.test(hostname);
- }
- function isProbablyJapaneseYouTubeText(text2) {
-  const compact = normalizeYouTubeTitleForLanguageCheck(text2);
-  if (!HAS_JAPANESE$1.test(compact)) return false;
-  return HIRAGANA_RE.test(compact) || KATAKANA_RE.test(compact) || HAN_RE.test(compact);
  }
  function collectYouTubeVideoCards(root = document) {
   const cards = /* @__PURE__ */ new Set();
@@ -38547,44 +38589,36 @@ ${glossaryKey}`;
     this.removeNotice();
     return;
    }
-   let filteredCount = 0;
-   let shownCount = 0;
-   const visibleVideoIds = /* @__PURE__ */ new Set();
-   for (const card of collectYouTubeFilterItems()) {
-    if (isYouTubeAlwaysHiddenItem(card)) {
-     filteredCount += 1;
-     if (this.revealed) {
-      this.showCard(card);
-      shownCount += 1;
-     } else {
-      this.hideCard(card);
-     }
-     continue;
-    }
-    const info = readYouTubeCardInfo(card);
-    if (!info.title) continue;
-    const text2 = this.resolveTitleForFiltering(info);
-    if (!text2) {
-     if (!this.revealed) this.hideCard(card);
-     continue;
-    }
-    const isJapanese = isProbablyJapaneseYouTubeText(text2);
-    if (!isJapanese) filteredCount += 1;
-    if (isJapanese || this.revealed) {
-     this.showCard(card);
-     shownCount += 1;
-     if (info.videoId) visibleVideoIds.add(info.videoId);
-    } else {
-     this.hideCard(card);
-    }
-   }
+   const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
+   result.decisions.forEach((decision) => this.applyFilterDecision(decision));
    if (settings.youtubeShowFilterNotice) {
-    this.renderNotice(filteredCount, shownCount, settings);
+    this.renderNotice(result.filteredCount, result.shownCount, settings);
    } else {
     this.bar?.remove();
     this.bar = void 0;
    }
-   this.maybeBackfillFeed(filteredCount, shownCount, visibleVideoIds.size);
+   this.maybeBackfillFeed(result.filteredCount, result.shownCount, result.visibleVideoIds.size);
+  }
+  collectFilterCandidates() {
+   return collectYouTubeFilterItems().map((card) => {
+    const alwaysHidden = isYouTubeAlwaysHiddenItem(card);
+    const info = alwaysHidden ? null : readYouTubeCardInfo(card);
+    return {
+     card,
+     title: info?.title ?? "",
+     videoId: info?.videoId ?? "",
+     filterText: info ? this.resolveTitleForFiltering(info) : "",
+     alwaysHidden
+    };
+   });
+  }
+  applyFilterDecision(decision) {
+   if (decision.kind === "skip") return;
+   if (decision.kind === "show") {
+    this.showCard(decision.candidate.card);
+    return;
+   }
+   this.hideCard(decision.candidate.card);
   }
   hideCard(card) {
    card.classList.add("jpdb-youtube-filtered");
@@ -38746,9 +38780,6 @@ ${glossaryKey}`;
  }
  function formatYoutubeText(template, values) {
   return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
- }
- function normalizeYouTubeTitleForLanguageCheck(text2) {
-  return text2.replace(/fypシ゚/g, "").replace(/fypシ/g, "").replace(/ミックスリスト/g, "").replace(NIHONGO_TUBE_SYMBOL_RE, "").replace(/\s+/g, " ").trim();
  }
  function shouldVerifyOriginalYouTubeTitle(title) {
   return isProbablyJapaneseYouTubeText(title);

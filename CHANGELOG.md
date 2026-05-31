@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.74] - 2026-05-31
+
+### Changed
+
+- Split YouTube immersion filter show/hide/count decisions into a pure classifier while keeping DOM collection, oEmbed lookups, and notice rendering in the controller.
+- Added direct coverage for revealed hidden-video counts and YouTube backfill uniqueness so the sidebar/feed regression surface stays pinned.
+
 ## [0.4.73] - 2026-05-31
 
 ### Changed
