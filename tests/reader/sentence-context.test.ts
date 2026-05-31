@@ -109,6 +109,32 @@ describe('reader sentence context', () => {
             app.destroy();
         }
     });
+
+    it('uses the parsed Immersion Kit example sentence instead of popup chrome', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as PointerTextCardInternals;
+        document.body.innerHTML = `
+            <section class="jpdb-reader-popover" data-jpdb-reader-root="true">
+                <details data-immersion-kit open>
+                    <summary>Immersion Kit Princess Mononoke 2/6 ‹ ›</summary>
+                    <div class="jpdb-reader-example-card" data-immersion-sentence="うでが痛むんで？">
+                        <button>JPDB</button>
+                        <button>Jisho</button>
+                        <div class="jpdb-reader-example-sentence jpdb-reader-parseable">
+                            う<span class="jpdb-reader-word" data-sentence="うでが痛むんで？" data-expression="で">で</span>が痛むんで？
+                        </div>
+                    </div>
+                </details>
+            </section>
+        `;
+
+        try {
+            expect(internals.renderedWordSentence(document.querySelector<HTMLElement>('.jpdb-reader-word')!))
+                .toBe('うでが痛むんで？');
+        } finally {
+            app.destroy();
+        }
+    });
 });
 
 function token(surface: string, start: number, sentence: string): JPDBToken {

@@ -1,5 +1,7 @@
 import { normalizeSubtitleCues, parseSubtitleText, type SubtitleCue } from './subtitle-cues';
 
+const YOUTUBE_VIDEO_OWNER_SELECTOR = '#movie_player, .html5-video-player, ytd-player, ytd-watch-flexy';
+
 export interface YouTubeSubtitleTrack {
     label: string;
     kind?: string;
@@ -179,9 +181,10 @@ export function isYouTubePage(): boolean {
 export function isYouTubeOwnedVideoElement(video: HTMLVideoElement | undefined): boolean {
     if (!isYouTubePage()) return true;
     if (!video || !getYouTubeVideoId()) return false;
-    const player = video.closest<HTMLElement>('#movie_player') as (HTMLElement & { getVideoData?: () => { video_id?: string } }) | null;
-    if (!player) return false;
-    const playerVideoId = getYouTubePlayerVideoId(player);
+    const owner = video.closest<HTMLElement>(YOUTUBE_VIDEO_OWNER_SELECTOR) as (HTMLElement & { getVideoData?: () => { video_id?: string } }) | null;
+    if (!owner) return false;
+    const player = video.closest<HTMLElement>('#movie_player, .html5-video-player') as (HTMLElement & { getVideoData?: () => { video_id?: string } }) | null;
+    const playerVideoId = getYouTubePlayerVideoId(player ?? owner);
     return !playerVideoId || playerVideoId === getYouTubeVideoId();
 }
 

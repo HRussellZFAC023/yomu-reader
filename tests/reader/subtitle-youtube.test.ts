@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { getYouTubeCaptionTracks } from '../../src/reader/subtitle-youtube';
+import { getYouTubeCaptionTracks, isYouTubeOwnedVideoElement } from '../../src/reader/subtitle-youtube';
 
 const originalLocation = window.location;
 const originalResponse = (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse;
@@ -15,6 +15,24 @@ afterEach(() => {
 });
 
 describe('YouTube subtitle captions', () => {
+    it('accepts current YouTube watch player wrappers as subtitle video owners', () => {
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <ytd-watch-flexy>
+                <ytd-player>
+                    <div class="html5-video-player"></div>
+                </ytd-player>
+            </ytd-watch-flexy>
+        `;
+        const video = document.createElement('video');
+        document.querySelector('.html5-video-player')?.append(video);
+
+        expect(isYouTubeOwnedVideoElement(video)).toBe(true);
+    });
+
     it('extracts object-shaped displayName and languageName text for auto-translated labels', () => {
         Object.defineProperty(window, 'location', {
             configurable: true,

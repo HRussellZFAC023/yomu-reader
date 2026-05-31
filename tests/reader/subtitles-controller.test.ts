@@ -252,6 +252,15 @@ describe('SubtitlePlayerController', () => {
             .not.toContain('.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 0;\n  pointer-events: none;\n}');
     });
 
+    it('keeps the side panel toggle visible when subtitle controls are hidden', () => {
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {\n  opacity: .88;\n  pointer-events: auto;\n}');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail button[data-action="previous"],');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail button[data-action="next"] {\n  opacity: 0;\n  pointer-events: none;\n}');
+    });
+
     it('keeps the tracks panel open after choosing a primary track so Lines is an explicit next step', async () => {
         const settings = {
             ...DEFAULT_SETTINGS,

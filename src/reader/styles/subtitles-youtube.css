@@ -318,12 +318,13 @@
   opacity: .78;
 }
 .jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {
+  opacity: .88;
+  pointer-events: auto;
+}
+.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail button[data-action="previous"],
+.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail button[data-action="next"] {
   opacity: 0;
   pointer-events: none;
-}
-.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:hover,
-.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail:focus-within {
-  opacity: 1;
 }
 .jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: .72; }
 .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {

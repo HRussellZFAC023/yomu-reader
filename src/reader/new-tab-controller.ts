@@ -1344,9 +1344,16 @@ export class NewTabController {
     private nestedLookupOptions(): NewTabLookupDependencyOptions {
         return {
             navigation: 'push-current',
+            previousNavigationEntry: this.nestedPreviousNavigationEntry(),
             reuseActivePopover: true,
             userGesture: true,
         };
+    }
+
+    private nestedPreviousNavigationEntry(): PopupNavigationEntry | undefined {
+        if (this.state.mode === 'search') return undefined;
+        const card = this.visibleWords[this.index];
+        return card ? { kind: 'word', card, sentence: sentenceForCard(card) } : undefined;
     }
 
     private handleNestedLookupAction(root: HTMLElement, actionTarget: HTMLElement, event: MouseEvent): boolean {
