@@ -644,7 +644,7 @@
   padding: 16px;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
-  background: var(--vp-c-bg);
+  background: #181b20;
   overflow: hidden;
 }
 
@@ -652,7 +652,7 @@
   min-width: 0;
   max-width: 100%;
   margin: 0;
-  color: var(--vp-c-text-1);
+  color: #f4f7fb;
   font-size: 22px;
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -662,29 +662,35 @@
   min-width: 0;
   max-width: 100%;
   margin: 0;
-  color: var(--vp-c-text-2);
+  color: #b7c0cc;
   font-size: 17px;
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
 
 .yomu-try-me .jpdb-reader-word {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 0 2px;
-  line-height: 1.2;
+  display: inline;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  color: var(--jpdb-reader-source-jpdb-color, currentColor) !important;
+  line-height: inherit;
+  background: var(--jpdb-reader-source-jpdb-soft, transparent) !important;
+  text-decoration-color: var(
+    --jpdb-reader-source-jpdb-decoration,
+    transparent
+  ) !important;
   vertical-align: baseline;
-  white-space: nowrap;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
   overflow-wrap: normal !important;
 }
 
 .yomu-try-me .jpdb-reader-word ruby,
 .yomu-try-me .jpdb-reader-word rt {
   max-width: none;
-  white-space: nowrap;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
   overflow-wrap: normal !important;
 }
 

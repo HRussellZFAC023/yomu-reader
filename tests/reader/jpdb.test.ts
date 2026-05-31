@@ -25,16 +25,17 @@ import { JpdbVocabularyClient, parseJpdbAudioData, parseJpdbSearchHtml, parseJpd
 import { JpdbPublicPitchClient, parseJpdbPublicPitchHtml } from '../../src/reader/jpdb-public-pitch';
 import { buildKanjiFacts, buildKanjiOriginGraph, parseKanjiMapInfo } from '../../src/reader/kanji-origin';
 import { parseKanjiVGSvg } from '../../src/reader/kanjivg';
+import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, summarizeLearnerGlossary } from '../../src/reader/local-dictionary-groups';
 import { Logger } from '../../src/reader/logger';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText } from '../../src/reader/mutation-scan';
 import { buildNewTabPalette, isYomuNewTabUrl, resolveNewTabBrandAssets } from '../../src/reader/new-tab';
 import { ObjectUrlCache } from '../../src/reader/object-url-cache';
 import { createPageMediaUrl } from '../../src/reader/page-media-url';
 import { ImageOcrController, normalizeOcrResult, parseGoogleLensUploadHtml, readFallbackOcrResult } from '../../src/reader/ocr';
-import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, SHEET_HEIGHT_STORAGE_KEY, shouldUseSheet } from '../../src/reader/popover-shell';
+import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, shouldUseSheet } from '../../src/reader/popover-shell';
 import { formatPartOfSpeech } from '../../src/reader/pos';
 import { DEFAULT_YOMU_PUBLIC_PROXY_URL, fetchWithCorsFallbacks, proxyUrlCandidates } from '../../src/reader/proxy-fetch';
-import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderPitch, renderRtkInfo, summarizeLearnerGlossary, tokensOverlappingSelection } from '../../src/reader/popup-render';
+import { renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderPitch, renderRtkInfo, tokensOverlappingSelection } from '../../src/reader/popup-render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
 import { ReaderApp } from '../../src/reader/main';
 import { NewTabRuntime } from '../../src/reader/newtab-runtime';
@@ -54,13 +55,13 @@ import { createSubtitleVideoInsetAdapter } from '../../src/reader/subtitle-video
 import { discoverYouTubeCaptionTracks, getYouTubeCaptionTracks, getYouTubeVideoId, loadYouTubeTrackCues } from '../../src/reader/subtitle-youtube';
 import { applySubtitleNativeTrackModes } from '../../src/reader/subtitle-native-track-modes';
 import { installUchisenCarousel, loadUchisenImages, parseUchisenComponents, parseUchisenData, parseUchisenImages, parseUchisenKanjiKeyword } from '../../src/reader/uchisen';
-import { readPageCaptionText } from '../../src/reader/subtitle-dom-captions';
 import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isJapaneseSubtitleTrack, shouldReplaceWaitingNativeTrack } from '../../src/reader/subtitle-track-metadata';
 import { loadSubtitleTrackCues } from '../../src/reader/subtitle-track-loader';
 import { renderSubtitlePrimary } from '../../src/reader/subtitle-rendering';
 import { planTranscriptHydrationIndexes } from '../../src/reader/subtitle-transcript-hydration';
 import { getUserscriptHttpRequest, installUserscriptHttpBridge } from '../../src/reader/userscript';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport, renderDictionaryScopedStyles, type YomitanTermEntry } from '../../src/reader/yomitan';
+import { glossaryValueToSearchText } from '../../src/reader/yomitan-glossary-text';
 import type { AudioSourceSetting, JPDBCard, JPDBToken } from '../../src/reader/types';
 import { yomitanZipBlob } from './zip-fixture';
 import PublicProxyWorker, { isAllowedPublicProxyTarget } from '../../workers/jpdb-public-proxy/src/index';
@@ -86,6 +87,9 @@ const NEW_TAB_CSS = readFileSync('src/reader/styles/new-tab.css', 'utf8');
 const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf8');
 const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
 const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
+const DOCS_THEME_CSS = readFileSync('docs/.vitepress/theme/custom.css', 'utf8');
+const SHEET_HEIGHT_STORAGE_KEY = 'jpdb-reader-sheet-height-ratio';
+const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = 'jpdb-reader-settings-drawer-height-ratio';
 
 async function waitForExpect(assertion: () => void | Promise<void>, timeoutMs = 1000): Promise<void> {
     const start = Date.now();
@@ -603,7 +607,7 @@ describe('reader helpers', () => {
     it('clears in-flight JPDB parses when caches are reset', async () => {
         const client = new JpdbClient(() => 'token');
         let resolveFirst!: (response: { status: number; ok: boolean; text: () => Promise<string> }) => void;
-        const fetchMock = vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
+        const fetchMock = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => {
             const body = JSON.parse(String(init?.body ?? '{}')) as { text?: string[] };
             const text = body.text ?? [];
             const response = {
@@ -680,10 +684,12 @@ describe('reader helpers', () => {
 
     it('marks reader word visual styling as important so page CSS resets cannot hide clickable words', () => {
         const normalizedCss = READER_WORD_CSS.replace(/\s+/g, ' ');
+        const normalizedDocsCss = DOCS_THEME_CSS.replace(/\s+/g, ' ');
         expect(normalizedCss).toContain('.jpdb-reader-word {');
         expect(normalizedCss).toContain('text-decoration-line: underline !important;');
         expect(normalizedCss).toContain('text-decoration-color: var( --jpdb-reader-word-underline, transparent ) !important;');
         expect(normalizedCss).toContain('display: inline;');
+        expect(normalizedDocsCss).toContain('.yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; color: var(--jpdb-reader-source-jpdb-color, currentColor) !important; line-height: inherit; background: var(--jpdb-reader-source-jpdb-soft, transparent) !important; text-decoration-color: var( --jpdb-reader-source-jpdb-decoration, transparent ) !important; vertical-align: baseline; white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important; }');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: none; }');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 1.85; }');
         expect(normalizedCss).toContain('.jpdb-reader-word ruby {');
@@ -698,6 +704,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-new, .jpdb-suspended, .jpdb-not-in-deck) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff); --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, 0.16)); }');
         expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f); --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16)); }');
         expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant, .anki-known) { --jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f); --jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16)); }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-pitch-unknown { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown, #94a3b8); --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent); }');
         expect(normalizedCss).toContain('.jpdb-reader-word-highlight-status .jpdb-reader-word { background: var(--jpdb-reader-source-status-soft, transparent) !important; }');
         expect(normalizedCss).toContain('.jpdb-reader-word-underline-status .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent); }');
         expect(normalizedCss).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); }');
@@ -2068,8 +2075,7 @@ describe('reader helpers', () => {
             expect(tokens.map(token => token.card.spelling)).toEqual(['きょう', 'は', 'よむ']);
             expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 3], [3, 4], [4, 6]]);
             const rendered = renderTokensToHtml('きょうはよむ', tokens, DEFAULT_SETTINGS);
-            expect(rendered).toContain('jpdb-reader-word jpdb-pitch-unknown');
-            expect(rendered).not.toContain('jpdb-not-in-deck');
+            expect(rendered).toContain('jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown');
         } finally {
             if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
             else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
@@ -2481,6 +2487,11 @@ describe('reader helpers', () => {
             expect(settings.audioEnabled).toBe(true);
             expect(settings.autoPlayAudio).toBe(false);
             expect(settings.immersionKitAutoPlayAudio).toBe(false);
+            expect(settings.wordHighlightColorSource).toBe('jpdb');
+            expect(settings.wordUnderlineColorSource).toBe('jpdb');
+            expect(settings.wordTextColorSource).toBe('jpdb');
+            expect(settings.pitchColorHeiban).toBe('#74c0ff');
+            expect(settings.pitchColorKifuku).toBe('#c4a3ff');
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
@@ -4716,7 +4727,7 @@ describe('reader helpers', () => {
 
     it('uses direct fetch for CORS-friendly hosted Immersion Kit requests', async () => {
         const target = 'https://apiv2express.immersionkit.com/search?q=%E8%AA%AD%E3%82%80&limit=250';
-        const fetchMock = vi.fn((input: RequestInfo | URL) => Promise.resolve(new Response('ok', { status: 200 })));
+        const fetchMock = vi.fn((_input: RequestInfo | URL) => Promise.resolve(new Response('ok', { status: 200 })));
         vi.stubGlobal('location', {
             href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/',
             origin: 'https://hrussellzfac023.github.io',
@@ -4739,7 +4750,7 @@ describe('reader helpers', () => {
     it('uses direct fetch for CORS-friendly iPad Immersion Kit requests', async () => {
         const target = 'https://apiv2express.immersionkit.com/search?q=%E8%AA%AD%E3%82%80&limit=250';
         const restoreBrowser = mockAppleMobileBrowser();
-        const fetchMock = vi.fn((input: RequestInfo | URL) => Promise.resolve(new Response('ok', { status: 200 })));
+        const fetchMock = vi.fn((_input: RequestInfo | URL) => Promise.resolve(new Response('ok', { status: 200 })));
         vi.stubGlobal('location', {
             href: 'https://www3.nhk.or.jp/news/easy/',
             origin: 'https://www3.nhk.or.jp',
@@ -8975,6 +8986,68 @@ describe('reader helpers', () => {
         });
     });
 
+    it('applies YouTube side drawer insets to the current watch player columns', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+
+        withViewport(1600, 900, () => {
+            document.body.innerHTML = `
+                <ytd-watch-flexy>
+                    <div id="primary"><div id="primary-inner"><div id="movie_player"></div></div></div>
+                </ytd-watch-flexy>
+            `;
+            const primary = document.querySelector<HTMLElement>('#primary')!;
+            const primaryInner = document.querySelector<HTMLElement>('#primary-inner')!;
+            const moviePlayer = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: (width: number, height: number) => void };
+            const setSize = vi.fn();
+            moviePlayer.setSize = setSize;
+            Object.defineProperty(primary, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(0, 0, 1200, 675),
+            });
+            Object.defineProperty(primaryInner, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(0, 0, 1200, 675),
+            });
+
+            const adapter = createSubtitleVideoInsetAdapter();
+            try {
+                adapter.apply({
+                    side: 'right',
+                    playerSize: 1080,
+                    panelSize: 420,
+                    videoRect: new DOMRect(0, 0, 1200, 675),
+                    margin: 12,
+                });
+
+                expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')).toBe(true);
+                expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')).toBe('432px');
+                expect(primary.style.width).toBe('1080px');
+                expect(primary.style.maxWidth).toBe('1080px');
+                expect(primary.style.minWidth).toBe('0px');
+                expect(primary.style.marginRight).toBe('32px');
+                expect(primaryInner.style.width).toBe('1080px');
+                expect(primaryInner.style.maxWidth).toBe('1080px');
+                expect(setSize).toHaveBeenCalledWith(1080, 608);
+            } finally {
+                adapter.clear();
+                Object.defineProperty(window, 'location', {
+                    configurable: true,
+                    value: originalLocation,
+                });
+                document.body.innerHTML = '';
+            }
+
+            expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')).toBe(false);
+            expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')).toBe('');
+            expect(primary.style.width).toBe('');
+            expect(primaryInner.style.width).toBe('');
+        });
+    });
+
     it('keeps the hosted empty video frame at normal aspect ratio with a bottom drawer', () => {
         withViewport(390, 844, () => {
             document.body.innerHTML = '<section data-yomu-video-frame><video></video></section>';
@@ -9575,6 +9648,28 @@ describe('reader helpers', () => {
         }
     });
 
+    it('does not use fallback pointer lookup on raw Immersion Kit example sentence text', () => {
+        document.body.innerHTML = `
+            <div data-jpdb-reader-root="true">
+                <details data-immersion-kit open>
+                    <div class="jpdb-reader-example-sentence"><span>うでが痛むんで？</span></div>
+                </details>
+            </div>
+        `;
+        const text = document.querySelector<HTMLElement>('.jpdb-reader-example-sentence span')!;
+        const node = text.firstChild as Text;
+        const app = new ReaderApp();
+
+        try {
+            withPointerTextLookupMock(node, 6, [{ left: 20, top: 20, width: 160, height: 28 }], () => {
+                expect(lookupCandidateFromPoint(app, 118, 30, text)).toBeNull();
+            });
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('does not turn touch movement over a word into transient hover lookup', () => {
         const app = new ReaderApp();
         const canBeginPrimaryPressLookup = (app as unknown as {
@@ -10058,9 +10153,15 @@ describe('reader helpers', () => {
         });
         const sourceUrl = 'https://github.com/example/dictionaries/releases/latest/download/hosted.zip';
         const proxyUrl = 'https://yomu-proxy.example/fetch';
-        const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-            expect(String(input)).toBe(`${proxyUrl}?url=${encodeURIComponent(sourceUrl)}`);
-            expect(init).toMatchObject({ credentials: 'omit' });
+        const expectedProxyUrl = `${proxyUrl}?url=${encodeURIComponent(sourceUrl)}`;
+        const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
+            if (String(input) !== expectedProxyUrl) {
+                return Promise.resolve({
+                    ok: false,
+                    status: 404,
+                    blob: () => Promise.resolve(new Blob()),
+                } as Response);
+            }
             return Promise.resolve({
                 ok: true,
                 status: 200,
@@ -10079,7 +10180,9 @@ describe('reader helpers', () => {
             fetchMock.mockClear();
             const summary = await store.importFromUrl(sourceUrl, 'hosted.zip');
 
-            expect(fetchMock).toHaveBeenCalledTimes(1);
+            const proxyRequests = fetchMock.mock.calls.filter(([input]) => String(input) === expectedProxyUrl);
+            expect(proxyRequests).toHaveLength(1);
+            expect(proxyRequests[0]?.[1]).toMatchObject({ credentials: 'omit' });
             expect(summary).toMatchObject({ dictionaries: ['Hosted Proxy Dict'], terms: 1, entries: 1 });
         } finally {
             vi.unstubAllGlobals();
@@ -10424,6 +10527,9 @@ describe('reader helpers', () => {
         expect(html).toContain('definition');
         expect(glossaryToHtml(['読', { tag: 'ruby', content: ['む', { tag: 'rt', content: 'む' }] }]))
             .toContain('読<ruby');
+        expect(glossaryToText({ text: 123, description: 'display fallback' })).toBe('123 display fallback');
+        expect(glossaryValueToSearchText({ text: 123, description: 'search fallback' })).toBe('search fallback');
+        expect(glossaryValueToSearchText({ tag: 'span', 'data-content': 'xref-only' })).toBe('');
     });
 
     it('preserves dictionary-provided form table symbols', () => {
@@ -15064,6 +15170,84 @@ describe('reader helpers', () => {
         }
     });
 
+    it('ignores clicks on the current Immersion Kit example target inside the popup', async () => {
+        const app = new ReaderApp();
+        const originalRequestAnimationFrame = window.requestAnimationFrame;
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+        vi.stubGlobal('matchMedia', vi.fn(() => ({
+            matches: false,
+            media: '',
+            onchange: null,
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+        })));
+        Object.defineProperty(window, 'requestAnimationFrame', {
+            configurable: true,
+            value: (frame: FrameRequestCallback) => {
+                frame(0);
+                return 1;
+            },
+        });
+
+        try {
+            const sourceCard: JPDBCard = { ...card, spelling: 'で', reading: 'で' };
+            const internals = app as unknown as {
+                settings: typeof DEFAULT_SETTINGS;
+                parsePopoverJapanese(popover: HTMLElement): Promise<void>;
+                showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: { trigger?: 'modal' | 'hover'; navigation?: 'reset' | 'preserve' | 'push-current'; autoPlay?: boolean }): Promise<void>;
+                showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover' }): Promise<void>;
+            };
+            internals.settings = {
+                ...DEFAULT_SETTINGS,
+                audioEnabled: false,
+                ankiEnabled: false,
+                localDictionariesEnabled: false,
+                localDictionaryShowKanji: false,
+                jpdbDefinitionsEnabled: false,
+                jpdbMiningEnabled: false,
+                showPitchAccent: false,
+                immersionKitEnabled: false,
+                studyGrammarEnabled: false,
+                studyTranslationEnabled: false,
+            };
+            internals.parsePopoverJapanese = vi.fn(async () => undefined);
+
+            await internals.showCard(sourceCard, 'うでが痛むんで？', undefined, { trigger: 'modal', navigation: 'reset', autoPlay: false });
+            const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+            popover.querySelector<HTMLElement>('.jpdb-reader-popover-body')?.insertAdjacentHTML('beforeend', `
+                <details data-immersion-kit open>
+                    <summary>Immersion Kit Princess Mononoke 2/6 ‹ ›</summary>
+                    <div class="jpdb-reader-example-card" data-immersion-sentence="うでが痛むんで？">
+                        <div class="jpdb-reader-example-sentence jpdb-reader-parseable">
+                            う<span class="jpdb-reader-word jpdb-reader-example-target" data-expression="で" tabindex="0">で</span>が痛むんで？
+                        </div>
+                    </div>
+                </details>
+            `);
+            const showCard = vi.spyOn(internals, 'showCard');
+
+            await internals.showWord(popover.querySelector<HTMLElement>('.jpdb-reader-example-target')!, { trigger: 'click' });
+
+            expect(showCard).not.toHaveBeenCalled();
+            expect(document.querySelector<HTMLButtonElement>('[data-action="word-history-back"]')).toBeNull();
+            expect(document.querySelector<HTMLElement>('.jpdb-reader-spelling')?.textContent?.replace(/\s+/g, '')).toContain('で');
+        } finally {
+            Object.defineProperty(window, 'requestAnimationFrame', {
+                configurable: true,
+                value: originalRequestAnimationFrame,
+            });
+            vi.unstubAllGlobals();
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('keeps a back arrow when clicking study-source words inside a hover-opened popup', async () => {
         const app = new ReaderApp();
         const originalRequestAnimationFrame = window.requestAnimationFrame;
@@ -16448,101 +16632,6 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(['食卓やリビングなど、おうちのちょっとしたところに飾れる。']);
     });
 
-    it('detects Japanese page captions near a video without site-specific selectors', () => {
-        document.body.innerHTML = '<video></video><div class="lesson-player"><span>今日は花を見ます。</span></div>';
-        const video = document.querySelector('video') as HTMLVideoElement;
-        const caption = document.querySelector('span') as HTMLElement;
-        Object.defineProperty(video, 'getBoundingClientRect', {
-            value: () => ({ left: 100, right: 740, top: 80, bottom: 440, width: 640, height: 360 }),
-        });
-        Object.defineProperty(caption, 'getBoundingClientRect', {
-            value: () => ({ left: 180, right: 660, top: 380, bottom: 420, width: 480, height: 40 }),
-        });
-
-        expect(readPageCaptionText(video)).toBe('今日は花を見ます。');
-    });
-
-    it('collapses layout-only page caption line breaks before rendering the overlay', () => {
-        document.body.innerHTML = '<video></video><div class="lesson-player"><span></span></div>';
-        const video = document.querySelector('video') as HTMLVideoElement;
-        const caption = document.querySelector('span') as HTMLElement;
-        caption.textContent = 'エンジニア\nプログラミング\nする';
-        Object.defineProperty(caption, 'innerText', { value: 'エンジニア\nプログラミング\nする' });
-        Object.defineProperty(video, 'getBoundingClientRect', {
-            value: () => ({ left: 100, right: 740, top: 80, bottom: 440, width: 640, height: 360 }),
-        });
-        Object.defineProperty(caption, 'getBoundingClientRect', {
-            value: () => ({ left: 180, right: 660, top: 320, bottom: 420, width: 480, height: 100 }),
-        });
-
-        expect(readPageCaptionText(video)).toBe('エンジニア プログラミング する');
-    });
-
-    it('allows non-Japanese page captions only when a real selected caption track asks for them', () => {
-        document.body.innerHTML = '<video></video><div class="lesson-player"><span>today we read subtitles</span></div>';
-        const video = document.querySelector('video') as HTMLVideoElement;
-        const caption = document.querySelector('span') as HTMLElement;
-        Object.defineProperty(video, 'getBoundingClientRect', {
-            value: () => ({ left: 100, right: 740, top: 80, bottom: 440, width: 640, height: 360 }),
-        });
-        Object.defineProperty(caption, 'getBoundingClientRect', {
-            value: () => ({ left: 180, right: 660, top: 380, bottom: 420, width: 480, height: 40 }),
-        });
-
-        expect(readPageCaptionText(video)).toBe('');
-        expect(readPageCaptionText(video, undefined, { allowNonJapanese: true })).toBe('today we read subtitles');
-    });
-
-    it('does not treat asbplayer helper DOM as page captions', () => {
-        document.body.innerHTML = `
-            <video></video>
-            <div class="asbplayer-offscreen">新卒エンジニア仕事</div>
-            <div class="asbplayer-subtitles-container-bottom"><span>新卒エンジニア仕事</span></div>
-        `;
-        const video = document.querySelector('video') as HTMLVideoElement;
-        Object.defineProperty(video, 'getBoundingClientRect', {
-            value: () => ({ left: 0, right: 840, top: 0, bottom: 480, width: 840, height: 480 }),
-        });
-        for (const element of Array.from(document.querySelectorAll<HTMLElement>('div, span'))) {
-            Object.defineProperty(element, 'innerText', { value: element.textContent ?? '' });
-            Object.defineProperty(element, 'getBoundingClientRect', {
-                value: () => ({ left: 100, right: 740, top: 360, bottom: 420, width: 640, height: 60 }),
-            });
-        }
-
-        expect(readPageCaptionText(video)).toBe('');
-    });
-
-    it('does not treat YouTube Shorts titles near the video as page captions', () => {
-        const originalLocation = window.location;
-        Object.defineProperty(window, 'location', {
-            configurable: true,
-            value: new URL('https://www.youtube.com/shorts/abc123') as unknown as Location,
-        });
-        document.body.innerHTML = `
-            <video></video>
-            <h3 class="shortsLockupViewModelHostMetadataTitle"><span>鉛筆の音1時間 目を閉じて聴いていたら</span></h3>
-        `;
-        const video = document.querySelector('video') as HTMLVideoElement;
-        const title = document.querySelector('span') as HTMLElement;
-        Object.defineProperty(video, 'getBoundingClientRect', {
-            value: () => ({ left: 260, right: 860, top: 120, bottom: 720, width: 600, height: 600 }),
-        });
-        Object.defineProperty(title, 'innerText', { value: title.textContent ?? '' });
-        Object.defineProperty(title, 'getBoundingClientRect', {
-            value: () => ({ left: 300, right: 820, top: 740, bottom: 782, width: 520, height: 42 }),
-        });
-
-        try {
-            expect(readPageCaptionText(video)).toBe('');
-        } finally {
-            Object.defineProperty(window, 'location', {
-                configurable: true,
-                value: originalLocation,
-            });
-        }
-    });
-
     it('normalizes structured OCR responses for image overlays', () => {
         const result = normalizeOcrResult({
             context_resolution: { width: 800, height: 1200 },
@@ -16792,6 +16881,9 @@ describe('reader helpers', () => {
                             { expression: '面白い', reading: 'おもしろい', glossary: ['interesting; amusing'], score: 18, dictionary: 'Jitendex.org [2025-12-02]' },
                             { expression: '女', reading: 'おんな', glossary: ['woman'], score: 22, dictionary: 'Jitendex.org [2025-12-02]' },
                             { expression: '別語', reading: 'べつご', glossary: ['女'], score: 30, dictionary: 'Jitendex.org [2025-12-02]' },
+                            { expression: '検索用内容', reading: 'けんさくようないよう', glossary: [{ tag: 'span', content: ['visible nested meaning'] }], score: 12, dictionary: 'Jitendex.org [2025-12-02]' },
+                            { expression: '検索用説明', reading: 'けんさくようせつめい', glossary: [{ path: 'scan.png', description: 'diagram metadata' }], score: 11, dictionary: 'Jitendex.org [2025-12-02]' },
+                            { expression: '属性だけ', reading: 'ぞくせいだけ', glossary: [{ tag: 'span', 'data-content': 'xref-only hidden attribute' }], score: 10, dictionary: 'Jitendex.org [2025-12-02]' },
                         ],
                     },
                 ],
@@ -16824,7 +16916,14 @@ describe('reader helpers', () => {
         const kanjiSearchExpressions = (await store.searchTerms('女', 5)).map(entry => entry.expression);
         expect(kanjiSearchExpressions).toContain('女');
         expect(kanjiSearchExpressions).not.toContain('別語');
+        expect(glossaryToText({ tag: 'span', 'data-content': 'visible fallback' })).toBe('visible fallback');
+        expect((await store.searchTerms('visible', 5)).map(entry => entry.expression)).toContain('検索用内容');
+        expect((await store.searchTerms('diagram', 5)).map(entry => entry.expression)).toContain('検索用説明');
+        expect((await store.searchTerms('xref-only', 5)).map(entry => entry.expression)).not.toContain('属性だけ');
         await store.prepareTermSearchIndex();
+        expect((await store.searchTerms('visible', 5)).map(entry => entry.expression)).toContain('検索用内容');
+        expect((await store.searchTerms('diagram', 5)).map(entry => entry.expression)).toContain('検索用説明');
+        expect((await store.searchTerms('xref-only', 5)).map(entry => entry.expression)).not.toContain('属性だけ');
         const termSearchCount = await new Promise<number>((resolve, reject) => {
             const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
             request.onsuccess = () => {
