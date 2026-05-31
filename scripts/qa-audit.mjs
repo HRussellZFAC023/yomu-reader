@@ -426,7 +426,7 @@ function qaHostedTryMeHtml() {
     .yomu-try-me-text { display: grid; gap: 12px; border-radius: 8px; background: #181b20; padding: 24px; }
     .yomu-try-me-text h3 { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-1); font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; }
     .yomu-try-me-text p { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-2); font-size: 17px; line-height: 1.7; overflow-wrap: anywhere; }
-    .yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; line-height: inherit; vertical-align: baseline; white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important; }
+    .yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; color: var(--jpdb-reader-source-jpdb-color, currentColor) !important; line-height: inherit; background: var(--jpdb-reader-source-jpdb-soft, transparent) !important; text-decoration-color: var(--jpdb-reader-source-jpdb-decoration, transparent) !important; vertical-align: baseline; white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important; }
     .yomu-try-me .jpdb-reader-word ruby,
     .yomu-try-me .jpdb-reader-word rt { max-width: none; white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important; }
   </style>
@@ -1874,6 +1874,7 @@ function newTabDictionaryFallbackSettings() {
 }
 
 async function auditHostedTryMeDemo(browser, server) {
+    await assertHostedTryMeFreshProfile(browser, server);
     const { page } = await newAuditedPage(browser, {
         ...baseSettings,
         wordHighlightColorSource: 'jpdb',
@@ -1888,7 +1889,73 @@ async function auditHostedTryMeDemo(browser, server) {
     await waitForAudit(page, () => [...document.querySelectorAll('[data-yomu-demo-lookup] .jpdb-reader-word')]
         .some(word => word.textContent?.replace(/\s+/g, '').includes('下')), 10000, 'hosted Try Me did not wrap 下 as a lookup word');
 
-    const snapshot = await page.evaluate(() => {
+    const snapshot = await hostedTryMeVisualSnapshot(page);
+    assertAudit(snapshot.wordData.length >= 8, `hosted Try Me parsed too few words: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.down?.expression === '下', `hosted Try Me 下 word has wrong expression: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.down.cursor === 'pointer', `hosted Try Me 下 word is not pointer-clickable: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.down.display === 'inline', `hosted Try Me 下 should use inline reader word layout: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.down.minWidth === '0px', `hosted Try Me 下 should not force a flex tap target: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.down.whiteSpace === 'nowrap', `hosted Try Me 下 should not inherit scan-word wrapping: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.down.wordBreak === 'keep-all', `hosted Try Me 下 should keep its glyph hitbox intact: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.down.paddingInlineStart === '0px' && snapshot.down.paddingInlineEnd === '0px', `hosted Try Me 下 should not offset the glyph hitbox with padding: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.pointSurface === '下' && snapshot.pointExpression === '下', `hosted Try Me center point misses 下: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-underline-jpdb'), `word underline source class missing: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-text-jpdb'), `word text source class missing: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.jpdbWord?.textDecorationLine.includes('underline'), `JPDB-backed demo word is not underlined: ${JSON.stringify(snapshot.jpdbWord)}`);
+    assertAudit(!isTransparentCssColor(snapshot.jpdbWord?.textDecorationColor), `JPDB-backed demo underline is transparent: ${JSON.stringify(snapshot.jpdbWord)}`);
+    assertAudit(!isTransparentCssColor(snapshot.jpdbWord?.color), `JPDB-backed demo text color is transparent: ${JSON.stringify(snapshot.jpdbWord)}`);
+    assertAudit(snapshot.jpdbWord?.color !== snapshot.hostTextColor, `JPDB-backed demo text color is still inherited from host copy: ${JSON.stringify(snapshot)}`);
+
+    const downBox = snapshot.down.rect;
+    await page.mouse.move(downBox.x + downBox.width / 2, downBox.y + downBox.height / 2);
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    await waitForAudit(page, () => {
+        const spelling = document.querySelector('.jpdb-reader-popover .jpdb-reader-spelling')?.textContent?.replace(/\s+/g, '').trim() ?? '';
+        return spelling.includes('下');
+    }, 6000, 'hovering hosted Try Me 下 did not open the 下 lookup');
+    await page.keyboard.press('Escape');
+    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close hosted Try Me hover popup');
+    await page.mouse.click(downBox.x + downBox.width / 2, downBox.y + downBox.height / 2);
+    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
+    await waitForAudit(page, () => {
+        const spelling = document.querySelector('.jpdb-reader-popover .jpdb-reader-spelling')?.textContent?.replace(/\s+/g, '').trim() ?? '';
+        return spelling.includes('下');
+    }, 6000, 'clicking hosted Try Me 下 did not open the 下 lookup');
+    assertNoPageBrowserErrors(browserErrors, 'hosted Try Me demo');
+    await page.screenshot({ path: path.join(ARTIFACTS, 'hosted-try-me.png'), fullPage: false });
+    await page.close();
+    record('hosted Try Me demo', 'pass', 'partial JPDB parses keep 下 clickable and JPDB-backed words keep color/underline styling');
+}
+
+async function assertHostedTryMeFreshProfile(browser, server) {
+    const { page } = await newAuditedPage(browser, {
+        ...baseSettings,
+        apiKey: '',
+        ankiEnabled: false,
+        wordHighlightColorSource: 'jpdb',
+        wordUnderlineColorSource: 'jpdb',
+        wordTextColorSource: 'jpdb',
+        hoverOpenDelayMs: 35,
+        hoverCloseDelayMs: 120,
+    });
+    try {
+        await page.goto(`${server.origin}${QA_HOSTED_TRY_ME_PATH}`, { waitUntil: 'domcontentloaded' });
+        await injectUserscript(page);
+        await waitForAudit(page, () => [...document.querySelectorAll('[data-yomu-demo-lookup] .jpdb-reader-word')]
+            .some(word => word.textContent?.replace(/\s+/g, '').includes('下')), 10000, 'fresh hosted Try Me did not wrap 下 as a lookup word');
+        const snapshot = await hostedTryMeVisualSnapshot(page);
+        assertAudit(snapshot.down?.expression === '下', `fresh hosted Try Me 下 word has wrong expression: ${JSON.stringify(snapshot)}`);
+        assertAudit(snapshot.pointSurface === '下' && snapshot.pointExpression === '下', `fresh hosted Try Me center point misses 下: ${JSON.stringify(snapshot)}`);
+        assertAudit(snapshot.jpdbWord?.textDecorationLine.includes('underline'), `fresh hosted Try Me word is not underlined: ${JSON.stringify(snapshot.jpdbWord)}`);
+        assertAudit(!isTransparentCssColor(snapshot.jpdbWord?.textDecorationColor), `fresh hosted Try Me underline is transparent: ${JSON.stringify(snapshot.jpdbWord)}`);
+        assertAudit(snapshot.jpdbWord?.color !== snapshot.hostTextColor, `fresh hosted Try Me text color is still inherited from host copy: ${JSON.stringify(snapshot)}`);
+    } finally {
+        await page.close();
+    }
+}
+
+async function hostedTryMeVisualSnapshot(page) {
+    return await page.evaluate(() => {
         const surface = node => [...node.childNodes].map(child => {
             if (child.nodeType === Node.TEXT_NODE) return child.textContent ?? '';
             if (!(child instanceof Element) || child.matches('rt,rp')) return '';
@@ -1932,41 +1999,6 @@ async function auditHostedTryMeDemo(browser, server) {
             pointExpression: targetWord?.getAttribute('data-expression') ?? '',
         };
     });
-    assertAudit(snapshot.wordData.length >= 8, `hosted Try Me parsed too few words: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.down?.expression === '下', `hosted Try Me 下 word has wrong expression: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.down.cursor === 'pointer', `hosted Try Me 下 word is not pointer-clickable: ${JSON.stringify(snapshot.down)}`);
-    assertAudit(snapshot.down.display === 'inline', `hosted Try Me 下 should use inline reader word layout: ${JSON.stringify(snapshot.down)}`);
-    assertAudit(snapshot.down.minWidth === '0px', `hosted Try Me 下 should not force a flex tap target: ${JSON.stringify(snapshot.down)}`);
-    assertAudit(snapshot.down.whiteSpace === 'nowrap', `hosted Try Me 下 should not inherit scan-word wrapping: ${JSON.stringify(snapshot.down)}`);
-    assertAudit(snapshot.down.wordBreak === 'keep-all', `hosted Try Me 下 should keep its glyph hitbox intact: ${JSON.stringify(snapshot.down)}`);
-    assertAudit(snapshot.down.paddingInlineStart === '0px' && snapshot.down.paddingInlineEnd === '0px', `hosted Try Me 下 should not offset the glyph hitbox with padding: ${JSON.stringify(snapshot.down)}`);
-    assertAudit(snapshot.pointSurface === '下' && snapshot.pointExpression === '下', `hosted Try Me center point misses 下: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-underline-jpdb'), `word underline source class missing: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-text-jpdb'), `word text source class missing: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.jpdbWord?.textDecorationLine.includes('underline'), `JPDB-backed demo word is not underlined: ${JSON.stringify(snapshot.jpdbWord)}`);
-    assertAudit(!isTransparentCssColor(snapshot.jpdbWord?.textDecorationColor), `JPDB-backed demo underline is transparent: ${JSON.stringify(snapshot.jpdbWord)}`);
-    assertAudit(!isTransparentCssColor(snapshot.jpdbWord?.color), `JPDB-backed demo text color is transparent: ${JSON.stringify(snapshot.jpdbWord)}`);
-    assertAudit(snapshot.jpdbWord?.color !== snapshot.hostTextColor, `JPDB-backed demo text color is still inherited from host copy: ${JSON.stringify(snapshot)}`);
-
-    const downBox = snapshot.down.rect;
-    await page.mouse.move(downBox.x + downBox.width / 2, downBox.y + downBox.height / 2);
-    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
-    await waitForAudit(page, () => {
-        const spelling = document.querySelector('.jpdb-reader-popover .jpdb-reader-spelling')?.textContent?.replace(/\s+/g, '').trim() ?? '';
-        return spelling.includes('下');
-    }, 6000, 'hovering hosted Try Me 下 did not open the 下 lookup');
-    await page.keyboard.press('Escape');
-    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close hosted Try Me hover popup');
-    await page.mouse.click(downBox.x + downBox.width / 2, downBox.y + downBox.height / 2);
-    await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
-    await waitForAudit(page, () => {
-        const spelling = document.querySelector('.jpdb-reader-popover .jpdb-reader-spelling')?.textContent?.replace(/\s+/g, '').trim() ?? '';
-        return spelling.includes('下');
-    }, 6000, 'clicking hosted Try Me 下 did not open the 下 lookup');
-    assertNoPageBrowserErrors(browserErrors, 'hosted Try Me demo');
-    await page.screenshot({ path: path.join(ARTIFACTS, 'hosted-try-me.png'), fullPage: false });
-    await page.close();
-    record('hosted Try Me demo', 'pass', 'partial JPDB parses keep 下 clickable and JPDB-backed words keep color/underline styling');
 }
 
 function collectPageBrowserErrors(page) {

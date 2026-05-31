@@ -5,6 +5,7 @@
 ### Fixed
 
 - Kept the YouTube subtitle side-panel toggle available when caption tracks arrive before YouTube's watch-page video wrapper settles.
+- Restored hosted Try Me color and underline styling for fresh visitors without JPDB credentials.
 
 ### Changed
 
