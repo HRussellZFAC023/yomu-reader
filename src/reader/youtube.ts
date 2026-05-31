@@ -107,6 +107,12 @@ type StoredOEmbedTitle = {
     cachedAt: number;
 };
 
+type YouTubeFilterNoticeElements = {
+    summary: HTMLElement;
+    toggleHidden: HTMLButtonElement;
+    hideNotice: HTMLButtonElement;
+};
+
 function isYouTubeHost(hostname = location.hostname): boolean {
     return YOUTUBE_HOST_RE.test(hostname);
 }
@@ -304,51 +310,83 @@ export class YoutubeImmersionFilter {
         if (!this.bar && this.dismissedNoticeScope === noticeScope) return;
         const shouldStartTimer = !this.bar;
 
+        const notice = this.ensureNoticeBar();
+        this.updateNoticeSummary(notice.summary, filteredCount, shownCount, settings);
+        this.updateNoticeActions(notice, settings);
+        if (shouldStartTimer) this.startNoticeTimer(noticeScope);
+    }
+
+    private ensureNoticeBar(): YouTubeFilterNoticeElements {
         if (!this.bar) {
-            this.bar = document.createElement('div');
-            this.bar.className = 'jpdb-youtube-filter-bar';
-            this.bar.dataset.jpdbReaderRoot = 'true';
-            const label = document.createElement('span');
-            label.dataset.role = 'summary';
-            const actions = document.createElement('div');
-            actions.className = 'jpdb-youtube-filter-actions';
-            const toggleHidden = document.createElement('button');
-            toggleHidden.type = 'button';
-            toggleHidden.dataset.action = 'toggle-hidden';
-            const hideNotice = document.createElement('button');
-            hideNotice.type = 'button';
-            hideNotice.dataset.action = 'hide-notice';
-            actions.append(toggleHidden, hideNotice);
-            this.bar.addEventListener('click', event => {
-                const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
-                if (action === 'toggle-hidden') {
-                    this.revealed = !this.revealed;
-                    this.schedule(0);
-                }
-                if (action === 'hide-notice') {
-                    this.options.setShowFilterNotice?.(false);
-                    this.dismissedNoticeScope = this.currentNoticeScope();
-                    this.removeNotice();
-                }
-            });
-            this.bar.append(label, actions);
+            this.bar = this.createNoticeBar();
             document.body.append(this.bar);
         }
-        const summary = this.bar.querySelector<HTMLElement>('[data-role="summary"]');
-        const toggleHidden = this.bar.querySelector<HTMLButtonElement>('[data-action="toggle-hidden"]');
-        const hideNotice = this.bar.querySelector<HTMLButtonElement>('[data-action="hide-notice"]');
-        if (summary) {
-            const plural = filteredCount === 1 ? '' : 's';
-            summary.textContent = this.revealed
-                ? formatYoutubeText(uiText(settings.interfaceLanguage, 'youtubeFilterShowing'), { appName: APP_NAME, count: String(filteredCount), plural })
-                : formatYoutubeText(uiText(settings.interfaceLanguage, 'youtubeFilterHid'), { appName: APP_NAME, count: String(filteredCount), plural });
-            summary.title = shownCount
-                ? formatYoutubeText(uiText(settings.interfaceLanguage, 'youtubeFilterVisible'), { count: String(shownCount) })
-                : '';
-        }
-        if (toggleHidden) toggleHidden.textContent = this.revealed ? uiText(settings.interfaceLanguage, 'youtubeHideHiddenVideos') : uiText(settings.interfaceLanguage, 'youtubeShowHiddenVideos');
-        if (hideNotice) hideNotice.textContent = uiText(settings.interfaceLanguage, 'youtubeHideNotice');
-        if (shouldStartTimer) this.startNoticeTimer(noticeScope);
+        return this.noticeElements(this.bar);
+    }
+
+    private createNoticeBar(): HTMLElement {
+        const bar = document.createElement('div');
+        bar.className = 'jpdb-youtube-filter-bar';
+        bar.dataset.jpdbReaderRoot = 'true';
+
+        const summary = document.createElement('span');
+        summary.dataset.role = 'summary';
+        const actions = document.createElement('div');
+        actions.className = 'jpdb-youtube-filter-actions';
+
+        actions.append(noticeButton('toggle-hidden'), noticeButton('hide-notice'));
+        bar.append(summary, actions);
+        bar.addEventListener('click', event => this.handleNoticeClick(event));
+        return bar;
+    }
+
+    private noticeElements(bar: HTMLElement): YouTubeFilterNoticeElements {
+        return {
+            summary: bar.querySelector<HTMLElement>('[data-role="summary"]')!,
+            toggleHidden: bar.querySelector<HTMLButtonElement>('[data-action="toggle-hidden"]')!,
+            hideNotice: bar.querySelector<HTMLButtonElement>('[data-action="hide-notice"]')!,
+        };
+    }
+
+    private handleNoticeClick(event: MouseEvent): void {
+        const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
+        if (action === 'toggle-hidden') this.toggleHiddenVideos();
+        if (action === 'hide-notice') this.dismissFilterNotice();
+    }
+
+    private toggleHiddenVideos(): void {
+        this.revealed = !this.revealed;
+        this.schedule(0);
+    }
+
+    private dismissFilterNotice(): void {
+        this.options.setShowFilterNotice?.(false);
+        this.dismissedNoticeScope = this.currentNoticeScope();
+        this.removeNotice();
+    }
+
+    private updateNoticeSummary(summary: HTMLElement, filteredCount: number, shownCount: number, settings: ReaderSettings): void {
+        summary.textContent = this.noticeSummaryText(filteredCount, settings);
+        summary.title = shownCount
+            ? formatYoutubeText(uiText(settings.interfaceLanguage, 'youtubeFilterVisible'), { count: String(shownCount) })
+            : '';
+    }
+
+    private noticeSummaryText(filteredCount: number, settings: ReaderSettings): string {
+        const plural = filteredCount === 1 ? '' : 's';
+        const key = this.revealed ? 'youtubeFilterShowing' : 'youtubeFilterHid';
+        return formatYoutubeText(uiText(settings.interfaceLanguage, key), {
+            appName: APP_NAME,
+            count: String(filteredCount),
+            plural,
+        });
+    }
+
+    private updateNoticeActions(notice: YouTubeFilterNoticeElements, settings: ReaderSettings): void {
+        notice.toggleHidden.textContent = this.revealed
+            ? uiText(settings.interfaceLanguage, 'youtubeHideHiddenVideos')
+            : uiText(settings.interfaceLanguage, 'youtubeShowHiddenVideos');
+        notice.hideNotice.textContent = uiText(settings.interfaceLanguage, 'youtubeHideNotice');
     }
 
     private clear(): void {
@@ -469,6 +507,13 @@ export class YoutubeImmersionFilter {
 
 function formatYoutubeText(template: string, values: Record<string, string>): string {
     return template.replace(/\{(\w+)\}/g, (_match: string, key: string) => values[key] ?? '');
+}
+
+function noticeButton(action: string): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.action = action;
+    return button;
 }
 
 function shouldVerifyOriginalYouTubeTitle(title: string): boolean {
