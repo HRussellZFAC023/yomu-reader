@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.75] - 2026-05-31
+
+### Changed
+
+- Centralized bounded Yomitan IndexedDB index reads while preserving per-query limits, batch transaction scope, and cursor fallback behavior.
+- Added coverage for local dictionary lookup, kanji lookup, metadata lookup, and top-term selection when `IDBIndex.getAll` is unavailable.
+
 ## [0.4.74] - 2026-05-31
 
 ### Changed

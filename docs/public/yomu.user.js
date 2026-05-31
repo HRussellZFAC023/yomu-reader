@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.74
+// @version      0.4.75
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -9861,31 +9861,16 @@ ${entry.reading}`;
     };
     const fail = (error) => reject(error ?? new Error("Could not load top dictionary terms."));
     for (const expression of expressions) {
-     const range = IDBKeyRange.only(expression);
-     if (typeof index.getAll === "function") {
-      const request2 = index.getAll(range, limit);
-      request2.onsuccess = () => {
-       results.set(expression, request2.result);
-       finish();
-      };
-      request2.onerror = () => fail(request2.error);
-      continue;
-     }
-     const entries = [];
-     let count = 0;
-     const request = index.openCursor(range);
-     request.onsuccess = () => {
-      const cursor = request.result;
-      if (!cursor || count >= limit) {
+     readIndexRequestValues(
+      index,
+      IDBKeyRange.only(expression),
+      limit,
+      (entries) => {
        results.set(expression, entries);
        finish();
-       return;
-      }
-      entries.push(cursor.value);
-      count++;
-      cursor.continue();
-     };
-     request.onerror = () => fail(request.error);
+      },
+      fail
+     );
     }
     tx.onerror = () => fail(tx.error);
    });
@@ -10379,26 +10364,9 @@ ${entry.reading}`;
   }
   async getByIndex(db, storeName, indexName, value, limit) {
    return new Promise((resolve, reject) => {
-    const index = db.transaction(storeName, "readonly").objectStore(storeName).index(indexName);
-    const query = IDBKeyRange.only(value);
-    if (typeof index.getAll === "function") {
-     const request2 = index.getAll(query, limit);
-     request2.onsuccess = () => resolve(request2.result);
-     request2.onerror = () => reject(request2.error);
-     return;
-    }
-    const results = [];
-    const request = index.openCursor(query);
-    request.onsuccess = () => {
-     const cursor = request.result;
-     if (!cursor || results.length >= limit) {
-      resolve(results);
-      return;
-     }
-     results.push(cursor.value);
-     cursor.continue();
-    };
-    request.onerror = () => reject(request.error);
+    const tx = db.transaction(storeName, "readonly");
+    const index = tx.objectStore(storeName).index(indexName);
+    readIndexRequestValues(index, IDBKeyRange.only(value), limit, resolve, reject);
    });
   }
   async getManyByIndex(db, storeName, indexName, values, limit) {
@@ -10413,41 +10381,28 @@ ${entry.reading}`;
     };
     const fail = (error) => reject(error ?? new Error(`Could not read ${storeName} entries.`));
     for (const value of values) {
-     const query = IDBKeyRange.only(value);
-     if (typeof index.getAll === "function") {
-      const request2 = index.getAll(query, limit);
-      request2.onsuccess = () => {
-       results.push(...request2.result);
+     readIndexRequestValues(
+      index,
+      IDBKeyRange.only(value),
+      limit,
+      (entries) => {
+       results.push(...entries);
        finish();
-      };
-      request2.onerror = () => fail(request2.error);
-      continue;
-     }
-     let count = 0;
-     const request = index.openCursor(query);
-     request.onsuccess = () => {
-      const cursor = request.result;
-      if (!cursor || count >= limit) {
-       finish();
-       return;
-      }
-      results.push(cursor.value);
-      count++;
-      cursor.continue();
-     };
-     request.onerror = () => fail(request.error);
+      },
+      fail
+     );
     }
     tx.onerror = () => fail(tx.error);
    });
   }
   async getTermLookupEntries(db, expression, reading, expressionLimit, readingLimit) {
+   const queries = [
+    { indexName: "expression", value: expression, limit: expressionLimit },
+    ...reading ? [{ indexName: "reading", value: reading, limit: readingLimit }] : []
+   ];
    return new Promise((resolve, reject) => {
     const tx = db.transaction("terms", "readonly");
     const store = tx.objectStore("terms");
-    const queries = [
-     { indexName: "expression", value: expression, limit: expressionLimit },
-     ...reading ? [{ indexName: "reading", value: reading, limit: readingLimit }] : []
-    ];
     const entries = [];
     let pending = queries.length;
     const finish = () => {
@@ -10455,30 +10410,16 @@ ${entry.reading}`;
     };
     const fail = (error) => reject(error ?? new Error("Could not search local dictionary terms."));
     for (const query of queries) {
-     const index = store.index(query.indexName);
-     const range = IDBKeyRange.only(query.value);
-     if (typeof index.getAll === "function") {
-      const request2 = index.getAll(range, query.limit);
-      request2.onsuccess = () => {
-       entries.push(...request2.result);
+     readIndexRequestValues(
+      store.index(query.indexName),
+      IDBKeyRange.only(query.value),
+      query.limit,
+      (found) => {
+       entries.push(...found);
        finish();
-      };
-      request2.onerror = () => fail(request2.error);
-      continue;
-     }
-     let count = 0;
-     const request = index.openCursor(range);
-     request.onsuccess = () => {
-      const cursor = request.result;
-      if (!cursor || count >= query.limit) {
-       finish();
-       return;
-      }
-      entries.push(cursor.value);
-      count++;
-      cursor.continue();
-     };
-     request.onerror = () => fail(request.error);
+      },
+      fail
+     );
     }
     tx.onerror = () => fail(tx.error);
    });
@@ -10931,6 +10872,28 @@ ${entry.reading}`;
    this.hotLookupCache.clear();
    this.termKanjiIndexReady = false;
   }
+ }
+ function readIndexRequestValues(index, query, limit, resolve, reject) {
+  if (typeof index.getAll === "function") {
+   const request2 = index.getAll(query, limit);
+   request2.onsuccess = () => resolve(request2.result);
+   request2.onerror = () => reject(request2.error);
+   return;
+  }
+  const results = [];
+  let count = 0;
+  const request = index.openCursor(query);
+  request.onsuccess = () => {
+   const cursor = request.result;
+   if (!cursor || count >= limit) {
+    resolve(results);
+    return;
+   }
+   results.push(cursor.value);
+   count++;
+   cursor.continue();
+  };
+  request.onerror = () => reject(request.error);
  }
  function isSearchableJapaneseSurface(surface) {
   return JAPANESE_RE$4.test(surface) && !/\s/.test(surface);

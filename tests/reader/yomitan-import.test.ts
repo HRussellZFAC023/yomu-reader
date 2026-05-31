@@ -75,6 +75,57 @@ describe('Yomitan ZIP import performance path', () => {
         expect((await storeCounts(['termKanji'])).termKanji).toBeGreaterThan(0);
     });
 
+    it('falls back to cursors for bounded IndexedDB index reads when getAll is unavailable', async () => {
+        const store = createStore();
+        await store.clear();
+        await store.importFile(new File([JSON.stringify({
+            formatName: 'dexie',
+            data: {
+                data: [
+                    {
+                        tableName: 'terms',
+                        rows: [
+                            { $: [1, { expression: '読む', reading: 'よむ', glossary: ['to read'], score: 12, dictionary: 'Cursor Terms' }] },
+                            { $: [2, { expression: '読書', reading: 'どくしょ', glossary: ['reading books'], score: 10, dictionary: 'Cursor Terms' }] },
+                        ],
+                    },
+                    {
+                        tableName: 'kanji',
+                        rows: [
+                            { $: [1, { character: '読', onyomi: ['ドク'], kunyomi: ['よ.む'], meanings: ['read'], dictionary: 'Cursor Kanji' }] },
+                            { $: [2, { character: '書', onyomi: ['ショ'], kunyomi: ['か.く'], meanings: ['write'], dictionary: 'Cursor Kanji' }] },
+                        ],
+                    },
+                    {
+                        tableName: 'termMeta',
+                        rows: [
+                            { $: [1, { expression: '読む', mode: 'freq', data: { frequency: 400 }, dictionary: 'Cursor Frequency' }] },
+                        ],
+                    },
+                ],
+            },
+        })], 'cursor-fallback-dictionaries.json', { type: 'application/json' }));
+
+        const originalGetAllDescriptor = Object.getOwnPropertyDescriptor(IDBIndex.prototype, 'getAll');
+        Object.defineProperty(IDBIndex.prototype, 'getAll', {
+            configurable: true,
+            value: undefined,
+        });
+
+        try {
+            expect(await store.lookup('読む', 'よむ', 5)).toMatchObject([{ dictionary: 'Cursor Terms', glossary: ['to read'] }]);
+            expect((await store.lookupKanji('読書', 5)).map(entry => entry.character)).toEqual(['読', '書']);
+            expect(await store.lookupTermMeta('読む', 5)).toMatchObject([{ dictionary: 'Cursor Frequency', mode: 'freq' }]);
+            expect((await store.listRandomTopTerms(5, 500, [], { fallbackToRandom: false })).map(entry => entry.expression)).toEqual(['読む']);
+        } finally {
+            if (originalGetAllDescriptor) {
+                Object.defineProperty(IDBIndex.prototype, 'getAll', originalGetAllDescriptor);
+            } else {
+                delete (IDBIndex.prototype as { getAll?: unknown }).getAll;
+            }
+        }
+    });
+
     it('recovers dictionary availability from simple reader exports without dictionary metadata', async () => {
         const store = createStore();
         await store.clear();
