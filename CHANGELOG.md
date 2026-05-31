@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.73] - 2026-05-31
+
+### Changed
+
+- Split KanjiVG SVG path sampling into a pure parser module with direct path-command coverage.
+- Moved OCR response normalization, Google Lens parsing, and OCR box cleanup out of the image overlay controller.
+
 ## [0.4.72] - 2026-05-31
 
 ### Changed

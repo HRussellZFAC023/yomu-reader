@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.72
+// @version      0.4.73
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -23488,6 +23488,187 @@ ${glossaryKey}`;
  function shouldWaitForMorePracticeStrokes(strokes, expectedStrokes) {
   return expectedStrokes > 0 && strokes.filter((stroke) => stroke.length > 1).length < expectedStrokes;
  }
+ const SVG_PATH_TOKEN = /[MmZzLlHhVvCcSsQqTtAa]|[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi;
+ const CURVE_STEPS = 10;
+ const PATH_COMMAND_READERS = {
+  M: (sampler, relative) => sampler.readMove(relative),
+  L: (sampler, relative) => sampler.readLines(relative),
+  H: (sampler, relative) => sampler.readHorizontalLines(relative),
+  V: (sampler, relative) => sampler.readVerticalLines(relative),
+  C: (sampler, relative) => sampler.readCubics(relative),
+  S: (sampler, relative) => sampler.readSmoothCubics(relative),
+  Q: (sampler, relative) => sampler.readQuadratics(relative),
+  T: (sampler, relative) => sampler.readSmoothQuadratics(relative),
+  A: (sampler, relative) => sampler.readArcs(relative),
+  Z: (sampler) => sampler.closePath()
+ };
+ function parseSvgPathPoints(pathData) {
+  return new SvgPathSampler(pathData).parse();
+ }
+ class SvgPathSampler {
+  tokens;
+  index = 0;
+  command = "";
+  current = { x: 0, y: 0 };
+  start = { x: 0, y: 0 };
+  lastCubicControl = null;
+  lastQuadraticControl = null;
+  points = [];
+  constructor(pathData) {
+   this.tokens = pathData.match(SVG_PATH_TOKEN) ?? [];
+  }
+  parse() {
+   while (this.index < this.tokens.length) {
+    if (isPathCommand(this.tokens[this.index])) this.command = this.tokens[this.index++] ?? "";
+    if (!this.command) break;
+    const before = this.index;
+    const reader = PATH_COMMAND_READERS[this.command.toUpperCase()];
+    if (!reader?.(this, this.command === this.command.toLowerCase())) return this.points;
+    if (this.index === before && !isPathCommand(this.tokens[this.index])) return this.points;
+   }
+   return this.points;
+  }
+  readMove(relative) {
+   if (!this.hasNumbers(2)) return false;
+   this.current = this.absolute(this.read(), this.read(), relative);
+   this.start = this.current;
+   this.push(this.current);
+   this.command = relative ? "l" : "L";
+   this.clearControls();
+   return true;
+  }
+  readLines(relative) {
+   while (this.hasNumbers(2)) this.lineTo(this.absolute(this.read(), this.read(), relative));
+   return true;
+  }
+  readHorizontalLines(relative) {
+   while (this.hasNumbers(1)) {
+    const x = this.read();
+    this.lineTo({ x: relative ? this.current.x + x : x, y: this.current.y });
+   }
+   return true;
+  }
+  readVerticalLines(relative) {
+   while (this.hasNumbers(1)) {
+    const y = this.read();
+    this.lineTo({ x: this.current.x, y: relative ? this.current.y + y : y });
+   }
+   return true;
+  }
+  readCubics(relative) {
+   while (this.hasNumbers(6)) {
+    const c1 = this.absolute(this.read(), this.read(), relative);
+    const c2 = this.absolute(this.read(), this.read(), relative);
+    const end = this.absolute(this.read(), this.read(), relative);
+    sampleCubic(this.current, c1, c2, end, (point) => this.push(point));
+    this.current = end;
+    this.lastCubicControl = c2;
+    this.lastQuadraticControl = null;
+   }
+   return true;
+  }
+  readSmoothCubics(relative) {
+   while (this.hasNumbers(4)) {
+    const c1 = this.lastCubicControl ? reflect(this.current, this.lastCubicControl) : this.current;
+    const c2 = this.absolute(this.read(), this.read(), relative);
+    const end = this.absolute(this.read(), this.read(), relative);
+    sampleCubic(this.current, c1, c2, end, (point) => this.push(point));
+    this.current = end;
+    this.lastCubicControl = c2;
+    this.lastQuadraticControl = null;
+   }
+   return true;
+  }
+  readQuadratics(relative) {
+   while (this.hasNumbers(4)) {
+    const control = this.absolute(this.read(), this.read(), relative);
+    const end = this.absolute(this.read(), this.read(), relative);
+    sampleQuadratic(this.current, control, end, (point) => this.push(point));
+    this.current = end;
+    this.lastQuadraticControl = control;
+    this.lastCubicControl = null;
+   }
+   return true;
+  }
+  readSmoothQuadratics(relative) {
+   while (this.hasNumbers(2)) {
+    const control = this.lastQuadraticControl ? reflect(this.current, this.lastQuadraticControl) : { ...this.current };
+    const end = this.absolute(this.read(), this.read(), relative);
+    sampleQuadratic(this.current, control, end, (point) => this.push(point));
+    this.current = end;
+    this.lastQuadraticControl = control;
+    this.lastCubicControl = null;
+   }
+   return true;
+  }
+  readArcs(relative) {
+   while (this.hasNumbers(7)) {
+    this.read();
+    this.read();
+    this.read();
+    this.read();
+    this.read();
+    this.lineTo(this.absolute(this.read(), this.read(), relative));
+   }
+   return true;
+  }
+  closePath() {
+   this.lineTo(this.start);
+   this.command = "";
+   return true;
+  }
+  push(point) {
+   const previous = this.points.at(-1);
+   if (!previous || Math.hypot(previous.x - point.x, previous.y - point.y) > 1e-3) this.points.push(point);
+  }
+  hasNumbers(count) {
+   return this.index + count <= this.tokens.length && this.tokens.slice(this.index, this.index + count).every((token) => !isPathCommand(token));
+  }
+  read() {
+   return Number(this.tokens[this.index++]);
+  }
+  absolute(x, y, relative) {
+   return relative ? { x: this.current.x + x, y: this.current.y + y } : { x, y };
+  }
+  lineTo(point) {
+   this.current = point;
+   this.push(this.current);
+   this.clearControls();
+  }
+  clearControls() {
+   this.lastCubicControl = null;
+   this.lastQuadraticControl = null;
+  }
+ }
+ function isPathCommand(token) {
+  return Boolean(token && /^[A-Za-z]$/.test(token));
+ }
+ function reflect(origin, control) {
+  return {
+   x: origin.x * 2 - control.x,
+   y: origin.y * 2 - control.y
+  };
+ }
+ function sampleCubic(from, c1, c2, to, push) {
+  for (let step = 1; step <= CURVE_STEPS; step += 1) {
+   const t = step / CURVE_STEPS;
+   const mt = 1 - t;
+   push({
+    x: mt ** 3 * from.x + 3 * mt ** 2 * t * c1.x + 3 * mt * t ** 2 * c2.x + t ** 3 * to.x,
+    y: mt ** 3 * from.y + 3 * mt ** 2 * t * c1.y + 3 * mt * t ** 2 * c2.y + t ** 3 * to.y
+   });
+  }
+ }
+ function sampleQuadratic(from, c, to, push) {
+  for (let step = 1; step <= CURVE_STEPS; step += 1) {
+   const t = step / CURVE_STEPS;
+   const mt = 1 - t;
+   push({
+    x: mt ** 2 * from.x + 2 * mt * t * c.x + t ** 2 * to.x,
+    y: mt ** 2 * from.y + 2 * mt * t * c.y + t ** 2 * to.y
+   });
+  }
+ }
  const KANJIVG_RAW_BASE = "https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji";
  const log$c = Logger.scope("KanjiVG");
  class KanjiVGClient {
@@ -23568,157 +23749,6 @@ ${glossaryKey}`;
    return { x, y, width, height };
   }
   return { x: 0, y: 0, width: 109, height: 109 };
- }
- const SVG_PATH_TOKEN = /[MmZzLlHhVvCcSsQqTtAa]|[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi;
- const CURVE_STEPS = 10;
- function parseSvgPathPoints(pathData) {
-  const tokens = pathData.match(SVG_PATH_TOKEN) ?? [];
-  const points = [];
-  let index = 0;
-  let command = "";
-  let current = { x: 0, y: 0 };
-  let start = { x: 0, y: 0 };
-  let lastCubicControl = null;
-  let lastQuadraticControl = null;
-  const push = (point) => {
-   const previous = points.at(-1);
-   if (!previous || Math.hypot(previous.x - point.x, previous.y - point.y) > 1e-3) points.push(point);
-  };
-  const isCommand = (token) => Boolean(token && /^[A-Za-z]$/.test(token));
-  const hasNumbers = (count) => index + count <= tokens.length && tokens.slice(index, index + count).every((token) => !isCommand(token));
-  const read = () => Number(tokens[index++]);
-  const absolute = (x, y, relative) => relative ? { x: current.x + x, y: current.y + y } : { x, y };
-  const lineTo = (point) => {
-   current = point;
-   push(current);
-   lastCubicControl = null;
-   lastQuadraticControl = null;
-  };
-  const horizontalLineTo = (relative) => {
-   while (hasNumbers(1)) {
-    const x = read();
-    lineTo({ x: relative ? current.x + x : x, y: current.y });
-   }
-  };
-  const verticalLineTo = (relative) => {
-   while (hasNumbers(1)) {
-    const y = read();
-    lineTo({ x: current.x, y: relative ? current.y + y : y });
-   }
-  };
-  while (index < tokens.length) {
-   if (isCommand(tokens[index])) command = tokens[index++];
-   if (!command) break;
-   const relative = command === command.toLowerCase();
-   const before = index;
-   switch (command.toUpperCase()) {
-    case "M": {
-     if (!hasNumbers(2)) return points;
-     current = absolute(read(), read(), relative);
-     start = current;
-     push(current);
-     command = relative ? "l" : "L";
-     lastCubicControl = null;
-     lastQuadraticControl = null;
-     break;
-    }
-    case "L":
-     while (hasNumbers(2)) lineTo(absolute(read(), read(), relative));
-     break;
-    case "H":
-     horizontalLineTo(relative);
-     break;
-    case "V":
-     verticalLineTo(relative);
-     break;
-    case "C":
-     while (hasNumbers(6)) {
-      const c1 = absolute(read(), read(), relative);
-      const c2 = absolute(read(), read(), relative);
-      const end = absolute(read(), read(), relative);
-      sampleCubic(current, c1, c2, end, push);
-      current = end;
-      lastCubicControl = c2;
-      lastQuadraticControl = null;
-     }
-     break;
-    case "S":
-     while (hasNumbers(4)) {
-      const c1 = lastCubicControl ? reflect(current, lastCubicControl) : current;
-      const c2 = absolute(read(), read(), relative);
-      const end = absolute(read(), read(), relative);
-      sampleCubic(current, c1, c2, end, push);
-      current = end;
-      lastCubicControl = c2;
-      lastQuadraticControl = null;
-     }
-     break;
-    case "Q":
-     while (hasNumbers(4)) {
-      const c = absolute(read(), read(), relative);
-      const end = absolute(read(), read(), relative);
-      sampleQuadratic(current, c, end, push);
-      current = end;
-      lastQuadraticControl = c;
-      lastCubicControl = null;
-     }
-     break;
-    case "T":
-     while (hasNumbers(2)) {
-      const c = lastQuadraticControl ? reflect(current, lastQuadraticControl) : { ...current };
-      const end = absolute(read(), read(), relative);
-      sampleQuadratic(current, c, end, push);
-      current = end;
-      lastQuadraticControl = c;
-      lastCubicControl = null;
-     }
-     break;
-    case "A":
-     while (hasNumbers(7)) {
-      read();
-      read();
-      read();
-      read();
-      read();
-      lineTo(absolute(read(), read(), relative));
-     }
-     break;
-    case "Z":
-     lineTo(start);
-     command = "";
-     break;
-    default:
-     return points;
-   }
-   if (index === before && !isCommand(tokens[index])) return points;
-  }
-  return points;
- }
- function reflect(origin, control) {
-  return {
-   x: origin.x * 2 - control.x,
-   y: origin.y * 2 - control.y
-  };
- }
- function sampleCubic(from, c1, c2, to, push) {
-  for (let step = 1; step <= CURVE_STEPS; step += 1) {
-   const t = step / CURVE_STEPS;
-   const mt = 1 - t;
-   push({
-    x: mt ** 3 * from.x + 3 * mt ** 2 * t * c1.x + 3 * mt * t ** 2 * c2.x + t ** 3 * to.x,
-    y: mt ** 3 * from.y + 3 * mt ** 2 * t * c1.y + 3 * mt * t ** 2 * c2.y + t ** 3 * to.y
-   });
-  }
- }
- function sampleQuadratic(from, c, to, push) {
-  for (let step = 1; step <= CURVE_STEPS; step += 1) {
-   const t = step / CURVE_STEPS;
-   const mt = 1 - t;
-   push({
-    x: mt ** 2 * from.x + 2 * mt * t * c.x + t ** 2 * to.x,
-    y: mt ** 2 * from.y + 2 * mt * t * c.y + t ** 2 * to.y
-   });
-  }
  }
  function readKanjiVGComponentPositions(sourceSvg, kanji) {
   const root = Array.from(sourceSvg.querySelectorAll("g")).find((group) => group.getAttribute("kvg:element") === kanji);
@@ -24485,6 +24515,735 @@ ${glossaryKey}`;
  function clampGraphPercent(value, min = 0, max2 = 100) {
   return Math.max(min, Math.min(max2, Number(value.toFixed(2))));
  }
+ const LENS_WRITING_TOP_TO_BOTTOM = 2;
+ const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
+ const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
+ function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
+  if (!value || typeof value !== "object") return null;
+  const record = value;
+  const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
+  if (cloudVision) return cloudVision;
+  const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
+  const lines = collectGenericOcrLines(record, width, height);
+  return japaneseOcrResult(width, height, lines);
+ }
+ function ocrResultDimensions(record, fallbackWidth, fallbackHeight) {
+  const resolution = record.context_resolution;
+  const width = numberFrom(record.width) || numberFrom(resolution?.width) || fallbackWidth;
+  const height = numberFrom(record.height) || numberFrom(resolution?.height) || fallbackHeight;
+  return { width, height };
+ }
+ function collectGenericOcrLines(record, width, height) {
+  const lines = [];
+  appendGenericOcrLines(lines, genericRawLines(record), width, height, normalizeSimpleLines);
+  appendGenericOcrLines(lines, record.results, width, height, normalizeStructuredOcrResults);
+  appendGenericOcrLines(lines, record.ocr_regions, width, height, normalizeOcrRegionResults);
+  return lines;
+ }
+ function genericRawLines(record) {
+  return Array.isArray(record.lines) ? record.lines : record.regions;
+ }
+ function appendGenericOcrLines(lines, value, width, height, normalize) {
+  if (Array.isArray(value)) lines.push(...normalize(value, width, height));
+ }
+ function normalizeSimpleLines(values, width, height) {
+  return values.map((item) => normalizeSimpleLine(item, width, height)).filter((line) => Boolean(line));
+ }
+ function normalizeStructuredOcrResults(values, width, height) {
+  return values.flatMap((item) => normalizeStructuredOcrResult(item, width, height));
+ }
+ function normalizeOcrRegionResults(regions, width, height) {
+  return regions.flatMap((region) => normalizeSingleOcrRegionResults(region, width, height));
+ }
+ function normalizeSingleOcrRegionResults(region, width, height) {
+  const regionRecord = asRecord(region);
+  if (!regionRecord) return [];
+  const regionBox = normalizeOcrRegion(regionRecord, width, height);
+  const { scaleWidth, scaleHeight } = ocrRegionScale(regionBox, width, height);
+  if (!Array.isArray(regionRecord.results)) return [];
+  const lines = normalizeStructuredOcrResults(regionRecord.results, scaleWidth, scaleHeight);
+  return offsetRegionLines(lines, regionBox, width, height);
+ }
+ function ocrRegionScale(regionBox, width, height) {
+  return {
+   scaleWidth: regionBox?.width ?? width,
+   scaleHeight: regionBox?.height ?? height
+  };
+ }
+ function offsetRegionLines(lines, regionBox, width, height) {
+  if (!regionBox) return lines;
+  return lines.map((line) => offsetLineToRegion(line, regionBox, width, height)).filter((line) => Boolean(line));
+ }
+ function japaneseOcrResult(width, height, lines) {
+  const japaneseLines = removeStandaloneFuriganaLines(lines).filter((line) => line.text.length > 0 && HAS_JAPANESE$1.test(line.text));
+  return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
+ }
+ function cleanOcrLookupLines(lines, parsed) {
+  const cleaned = lines.map((line, index) => {
+   const text2 = cleanOcrLookupText(line.text, parsed[index] ?? []);
+   return text2 === line.text ? line : { ...line, text: text2 };
+  });
+  return removeStandaloneFuriganaLines(cleaned);
+ }
+ function ocrLinesChanged(original, cleaned) {
+  return original.length !== cleaned.length || cleaned.some((line, index) => line.text !== original[index]?.text);
+ }
+ function cleanOcrLookupText(text2, tokens) {
+  const rubies = tokens.flatMap((token) => token.rubies.map((ruby) => ({ ruby, token }))).sort((a, b) => b.ruby.start - a.ruby.start);
+  let cleaned = text2;
+  for (const { ruby } of rubies) {
+   if (!OCR_KANJI_RE.test(cleaned.slice(ruby.start, ruby.end))) continue;
+   cleaned = removeOcrReadingAroundRuby(cleaned, ruby.text, ruby.start, ruby.end);
+  }
+  return cleanOcrText(cleaned);
+ }
+ function removeOcrReadingAroundRuby(text2, reading, start, end) {
+  const cleanReading = cleanOcrText(reading);
+  if (!cleanReading) return text2;
+  if (text2.slice(Math.max(0, start - cleanReading.length), start) === cleanReading) {
+   return text2.slice(0, start - cleanReading.length) + text2.slice(start);
+  }
+  if (text2.slice(end, end + cleanReading.length) === cleanReading) {
+   return text2.slice(0, end) + text2.slice(end + cleanReading.length);
+  }
+  return text2;
+ }
+ function removeStandaloneFuriganaLines(lines) {
+  const filtered = lines.filter((line, index) => !isStandaloneFuriganaLine(line, lines, index));
+  return filtered.length ? filtered : lines;
+ }
+ function isStandaloneFuriganaLine(line, lines, index) {
+  const text2 = cleanOcrText(line.text).replace(/\s+/g, "");
+  if (!text2 || text2.length > 10 || !OCR_KANA_ONLY_RE.test(text2)) return false;
+  return lines.some((other, otherIndex) => otherIndex !== index && OCR_KANJI_RE.test(other.text) && ocrLineLooksLikeFuriganaFor(line, other));
+ }
+ function ocrLineLooksLikeFuriganaFor(furi, base) {
+  if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
+  const overlap = horizontalOverlap(furi.box, base.box);
+  const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
+  const smaller = furi.box.height <= base.box.height * 0.75 || furi.box.width <= base.box.width * 0.65;
+  const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5 && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
+  return overlapRatio >= 0.32 && smaller && nearTop;
+ }
+ function horizontalOverlap(a, b) {
+  return Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
+ }
+ function ocrLineLooksLikeVerticalFuriganaFor(furi, base) {
+  if (!furi.vertical || !base.vertical) return false;
+  const overlap = verticalOverlap(furi.box, base.box);
+  const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
+  const smaller = furi.box.width <= base.box.width * 0.75 || furi.box.height <= base.box.height * 0.65;
+  const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
+  return overlapRatio >= 0.32 && smaller && nearSide;
+ }
+ function verticalOverlap(a, b) {
+  return Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
+ }
+ function horizontalGap(a, b) {
+  if (a.left + a.width < b.left) return b.left - (a.left + a.width);
+  if (b.left + b.width < a.left) return a.left - (b.left + b.width);
+  return 0;
+ }
+ function parseGoogleLensResponse(bytes, width, height) {
+  const root = decodeProtoMessage(bytes);
+  const objectsResponse = protoFirstMessage(root, 2);
+  const text2 = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
+  const layout = text2 ? protoFirstMessage(text2, 1) : null;
+  if (!layout) return null;
+  const lines = [];
+  for (const paragraph of protoMessages(layout, 1)) {
+   const paragraphVertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
+   const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
+   for (const line of protoMessages(paragraph, 2)) {
+    const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
+    const words = protoMessages(line, 1).map((word) => ({
+     text: protoString(word, 2),
+     separator: protoString(word, 3),
+     box: protoBox(protoFirstMessage(word, 4), width, height)
+    })).filter((word) => word.text);
+    const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
+    const rawText = orderedWords.map((word, index) => word.text + (word.separator || (index < orderedWords.length - 1 ? " " : ""))).join("");
+    const textValue = cleanOcrText(rawText);
+    if (!textValue || !HAS_JAPANESE$1.test(textValue)) continue;
+    const box = lineBox ?? unionBoxes(words.map((word) => word.box).filter((item) => Boolean(item))) ?? paragraphBox;
+    if (!box) continue;
+    lines.push({
+     text: textValue,
+     box,
+     vertical: paragraphVertical || box.height > box.width * 1.25 && textValue.length > 1
+    });
+   }
+  }
+  return lines.length ? { width, height, lines } : null;
+ }
+ function parseGoogleLensUploadHtml(html, width, height) {
+  const literal = googleLensUploadCallbackLiteral(html, "ds:1");
+  if (!literal) return null;
+  try {
+   const callback = parseJsDataLiteral(literal);
+   const blocks = callback.data?.[2]?.[3]?.[0] ?? [];
+   const lines = [];
+   for (const block of blocks) {
+    const blockData = block;
+    const rawLines = blockData[2]?.[0]?.[5]?.[3];
+    const lineItems = rawLines?.[0];
+    if (!Array.isArray(lineItems)) continue;
+    for (const item of lineItems) {
+     const lineData = item;
+     const words = Array.isArray(lineData[0]) ? lineData[0] : [];
+     const boxData = Array.isArray(lineData[1]) ? lineData[1] : [];
+     const text2 = cleanOcrText(words.map((word) => {
+      const wordData = word;
+      return `${wordData[0] ?? ""}${wordData[3] ?? ""}`;
+     }).join(""));
+     const box = boxData.length >= 4 ? clampBox({
+      top: Number(boxData[0]) * height,
+      left: Number(boxData[1]) * width,
+      width: Number(boxData[2]) * width,
+      height: Number(boxData[3]) * height
+     }, width, height) : null;
+     pushJapaneseOcrLine(lines, text2, box);
+    }
+   }
+   return lines.length ? { width, height, lines } : null;
+  } catch {
+   return null;
+  }
+ }
+ function googleLensUploadCallbackLiteral(html, key) {
+  const marker = "AF_initDataCallback(";
+  let searchIndex = 0;
+  while (searchIndex < html.length) {
+   const markerIndex = html.indexOf(marker, searchIndex);
+   if (markerIndex < 0) return null;
+   const literalStart = markerIndex + marker.length;
+   const literal = readBalancedLiteral(html, literalStart);
+   if (literal && callbackLiteralHasKey(literal, key)) return literal;
+   searchIndex = literalStart + Math.max(1, literal?.length ?? 1);
+  }
+  return null;
+ }
+ function callbackLiteralHasKey(literal, key) {
+  return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key)}['"]`).test(literal);
+ }
+ function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+ }
+ function readBalancedLiteral(source, startIndex) {
+  let index = startIndex;
+  while (/\s/.test(source[index] ?? "")) index += 1;
+  if (source[index] !== "{") return null;
+  let depth = 0;
+  let quote = "";
+  for (let current = index; current < source.length; current += 1) {
+   const char = source[current];
+   if (quote) {
+    if (char === "\\") {
+     current += 1;
+    } else if (char === quote) {
+     quote = "";
+    }
+    continue;
+   }
+   if (char === '"' || char === "'") {
+    quote = char;
+    continue;
+   }
+   if (char === "{" || char === "[" || char === "(") depth += 1;
+   if (char === "}" || char === "]" || char === ")") depth -= 1;
+   if (depth === 0) return source.slice(index, current + 1);
+  }
+  return null;
+ }
+ function parseJsDataLiteral(source) {
+  let index = 0;
+  const value = parseValue();
+  skipWhitespace();
+  if (index !== source.length) throw new Error("Unexpected trailing data.");
+  return value;
+  function parseValue() {
+   skipWhitespace();
+   const char = source[index];
+   if (char === "{") return parseObject();
+   if (char === "[") return parseArray();
+   if (char === '"' || char === "'") return parseString();
+   if (char === "-" || /\d/.test(char ?? "")) return parseNumber();
+   return parseIdentifierValue();
+  }
+  function parseObject() {
+   const record = {};
+   index += 1;
+   skipWhitespace();
+   while (source[index] !== "}") {
+    const key = parseObjectKey();
+    skipWhitespace();
+    expect(":");
+    record[key] = parseValue();
+    skipWhitespace();
+    if (source[index] === ",") {
+     index += 1;
+     skipWhitespace();
+     continue;
+    }
+    break;
+   }
+   expect("}");
+   return record;
+  }
+  function parseObjectKey() {
+   skipWhitespace();
+   const char = source[index];
+   if (char === '"' || char === "'") return parseString();
+   return parseIdentifier();
+  }
+  function parseArray() {
+   const values = [];
+   index += 1;
+   skipWhitespace();
+   while (source[index] !== "]") {
+    if (source[index] === ",") {
+     values.push(null);
+     index += 1;
+     skipWhitespace();
+     continue;
+    }
+    values.push(parseValue());
+    skipWhitespace();
+    if (source[index] === ",") {
+     index += 1;
+     skipWhitespace();
+     continue;
+    }
+    break;
+   }
+   expect("]");
+   return values;
+  }
+  function parseString() {
+   const quote = source[index];
+   let value2 = "";
+   index += 1;
+   while (index < source.length) {
+    const char = source[index++];
+    if (char === quote) return value2;
+    if (char !== "\\") {
+     value2 += char;
+     continue;
+    }
+    value2 += parseEscapeSequence();
+   }
+   throw new Error("Unterminated string.");
+  }
+  function parseEscapeSequence() {
+   const escaped = source[index++];
+   if (escaped === "n") return "\n";
+   if (escaped === "r") return "\r";
+   if (escaped === "t") return "	";
+   if (escaped === "b") return "\b";
+   if (escaped === "f") return "\f";
+   if (escaped === "v") return "\v";
+   if (escaped === "0") return "\0";
+   if (escaped === "\n") return "";
+   if (escaped === "\r") {
+    if (source[index] === "\n") index += 1;
+    return "";
+   }
+   if (escaped === "x") return codePointEscape(2);
+   if (escaped === "u") return parseUnicodeEscape();
+   return escaped ?? "";
+  }
+  function parseUnicodeEscape() {
+   if (source[index] === "{") {
+    const end = source.indexOf("}", index + 1);
+    if (end < 0) throw new Error("Invalid unicode escape.");
+    const value2 = Number.parseInt(source.slice(index + 1, end), 16);
+    index = end + 1;
+    return Number.isFinite(value2) ? String.fromCodePoint(value2) : "";
+   }
+   return codePointEscape(4);
+  }
+  function codePointEscape(length) {
+   const hex = source.slice(index, index + length);
+   if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) throw new Error("Invalid character escape.");
+   index += length;
+   return String.fromCharCode(Number.parseInt(hex, 16));
+  }
+  function parseNumber() {
+   const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(source.slice(index));
+   if (!match) throw new Error("Invalid number.");
+   index += match[0].length;
+   return Number(match[0]);
+  }
+  function parseIdentifierValue() {
+   const identifier = parseIdentifier();
+   if (identifier === "null" || identifier === "undefined" || identifier === "NaN") return null;
+   if (identifier === "true") return true;
+   if (identifier === "false") return false;
+   if (identifier === "Infinity") return Infinity;
+   return identifier;
+  }
+  function parseIdentifier() {
+   const match = /^[A-Za-z_$][\w$]*/.exec(source.slice(index));
+   if (!match) throw new Error("Expected identifier.");
+   index += match[0].length;
+   return match[0];
+  }
+  function skipWhitespace() {
+   while (/\s/.test(source[index] ?? "")) index += 1;
+  }
+  function expect(char) {
+   if (source[index] !== char) throw new Error(`Expected ${char}.`);
+   index += 1;
+  }
+ }
+ function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
+  const responses = Array.isArray(record.responses) ? record.responses : "fullTextAnnotation" in record ? [record] : [];
+  const lines = [];
+  let width = fallbackWidth;
+  let height = fallbackHeight;
+  for (const response of responses) {
+   const annotation = response?.fullTextAnnotation;
+   const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
+   for (const page of pages) {
+    const pageRecord = page;
+    width = numberFrom(pageRecord.width) || width;
+    height = numberFrom(pageRecord.height) || height;
+    const blocks = Array.isArray(pageRecord.blocks) ? pageRecord.blocks : [];
+    for (const block of blocks) {
+     const paragraphs = Array.isArray(block.paragraphs) ? block.paragraphs : [];
+     for (const paragraph of paragraphs) {
+      pushCloudVisionParagraphLines(paragraph, lines, width, height);
+     }
+    }
+   }
+   const annotations = Array.isArray(response?.textAnnotations) ? response.textAnnotations : [];
+   if (!lines.length && annotations.length > 1) {
+    for (const annotationItem of annotations.slice(1)) {
+     const item = annotationItem;
+     const text2 = cleanOcrText(item.description);
+     const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, width, height);
+     pushJapaneseOcrLine(lines, text2, box);
+    }
+   }
+  }
+  return lines.length ? { width, height, lines } : null;
+ }
+ function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
+  const words = Array.isArray(paragraph.words) ? paragraph.words : [];
+  let text2 = "";
+  let boxes = [];
+  const pushLine = () => {
+   const value = cleanOcrText(text2);
+   const box = unionBoxes(boxes);
+   pushJapaneseOcrLine(lines, value, box);
+   text2 = "";
+   boxes = [];
+  };
+  for (const word of words) {
+   const symbols = Array.isArray(word.symbols) ? word.symbols : [];
+   for (const symbol of symbols) {
+    const symbolRecord = symbol;
+    text2 += String(symbolRecord.text ?? "");
+    const box = normalizeCloudVisionVertices(symbolRecord.boundingBox?.vertices, width, height);
+    if (box) boxes.push(box);
+    const breakType = symbolRecord.property?.detectedBreak?.type;
+    if (breakType === "SPACE" || breakType === "SURE_SPACE" || breakType === "UNKNOWN") text2 += " ";
+    if (breakType === "LINE_BREAK" || breakType === "EOL_SURE_SPACE" || breakType === "HYPHEN") pushLine();
+   }
+  }
+  pushLine();
+ }
+ function pushJapaneseOcrLine(lines, text2, box) {
+  if (!text2 || !box || !HAS_JAPANESE$1.test(text2)) return;
+  lines.push({ text: text2, box, vertical: box.height > box.width * 1.25 && text2.length > 1 });
+ }
+ function normalizeCloudVisionVertices(value, width, height) {
+  if (!Array.isArray(value) || value.length < 2) return null;
+  const xs = value.map((vertex) => numberFrom(vertex?.x) ?? 0);
+  const ys = value.map((vertex) => numberFrom(vertex?.y) ?? 0);
+  const left = Math.min(...xs);
+  const top = Math.min(...ys);
+  return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
+ }
+ function normalizeSimpleLine(value, width, height) {
+  const record = asRecord(value);
+  if (!record) return null;
+  const text2 = simpleLineText(record);
+  const box = simpleLineBox(record, width, height);
+  if (!text2 || !box) return null;
+  return { text: text2, box, vertical: simpleLineIsVertical(record) };
+ }
+ function simpleLineText(record) {
+  return stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
+ }
+ function simpleLineBox(record, width, height) {
+  return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
+ }
+ function simpleLineIsVertical(record) {
+  return Boolean(record.vertical ?? record.is_vertical);
+ }
+ function normalizeStructuredOcrResult(value, width, height) {
+  if (!value || typeof value !== "object") return [];
+  const record = value;
+  const textLines = structuredOcrTextLines(record);
+  const vertical = structuredOcrVertical(record);
+  const lines = textLines.map((item) => normalizeStructuredOcrLine(item, width, height, vertical)).filter((line) => line !== null);
+  if (lines.length) return lines;
+  return normalizeStructuredOcrFallback(record, textLines, width, height, vertical);
+ }
+ function structuredOcrTextLines(record) {
+  if (Array.isArray(record.text_lines)) return record.text_lines;
+  return Array.isArray(record.text) ? record.text : [];
+ }
+ function structuredOcrVertical(record) {
+  return Boolean(record.is_vertical ?? record.box?.isVertical);
+ }
+ function normalizeStructuredOcrLine(item, width, height, inheritedVertical) {
+  const lineRecord = asRecord(item);
+  if (!lineRecord) return null;
+  const text2 = structuredOcrLineText(lineRecord);
+  const box = structuredOcrLineBox(lineRecord, width, height);
+  if (!text2 || !box) return null;
+  return { text: text2, box, vertical: structuredOcrLineVertical(lineRecord, inheritedVertical) };
+ }
+ function structuredOcrLineText(record) {
+  return stringFrom(record.content ?? record.text ?? record.word);
+ }
+ function structuredOcrLineBox(record, width, height) {
+  return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
+ }
+ function structuredOcrLineVertical(record, inheritedVertical) {
+  return Boolean(record.is_vertical ?? record.box?.isVertical ?? inheritedVertical);
+ }
+ function normalizeStructuredOcrFallback(record, textLines, width, height, vertical) {
+  const text2 = textLines.map((item) => stringFrom(item?.content)).filter(Boolean).join("");
+  const box = normalizeBox(record.box, width, height);
+  return text2 && box ? [{ text: text2, box, vertical }] : [];
+ }
+ function normalizeOcrRegion(record, width, height) {
+  const region = readOcrRegion(record);
+  if (!region) return null;
+  const box = clampBox(scaleOcrRegion(region, width, height), width, height);
+  return box && !isFullImageOcrRegion(box, width, height) ? box : null;
+ }
+ function readOcrRegion(record) {
+  const position = record.position;
+  const size = record.size;
+  if (!position || !size) return null;
+  return completeOcrRegionParts({
+   left: numberFrom(position.left),
+   top: numberFrom(position.top),
+   width: numberFrom(size.width),
+   height: numberFrom(size.height)
+  });
+ }
+ function completeOcrRegionParts(parts) {
+  if (parts.left === null) return null;
+  if (parts.top === null) return null;
+  if (parts.width === null) return null;
+  if (parts.height === null) return null;
+  return { left: parts.left, top: parts.top, width: parts.width, height: parts.height };
+ }
+ function scaleOcrRegion(region, width, height) {
+  const divisor = Math.max(region.left, region.top, region.width, region.height) <= 1 ? 1 : 100;
+  return {
+   left: region.left / divisor * width,
+   top: region.top / divisor * height,
+   width: region.width / divisor * width,
+   height: region.height / divisor * height
+  };
+ }
+ function isFullImageOcrRegion(box, width, height) {
+  return box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
+ }
+ function offsetLineToRegion(line, region, width, height) {
+  const box = clampBox({
+   left: region.left + line.box.left,
+   top: region.top + line.box.top,
+   width: line.box.width,
+   height: line.box.height
+  }, width, height);
+  return box ? { ...line, box } : null;
+ }
+ function normalizeBox(value, width, height) {
+  if (!value || typeof value !== "object") return null;
+  const record = value;
+  return normalizePositionDimensionsBox(record, width, height) ?? normalizeDirectBox(record, width, height) ?? normalizePointBox(record, width, height);
+ }
+ function normalizePositionDimensionsBox(record, width, height) {
+  const position = asRecord(record.position);
+  const dimensions = asRecord(record.dimensions);
+  if (!position || !dimensions) return null;
+  return boxFromNumbers({
+   left: numberFrom(position.left),
+   top: numberFrom(position.top),
+   width: numberFrom(dimensions.width),
+   height: numberFrom(dimensions.height)
+  }, width, height, "percent-100");
+ }
+ function normalizeDirectBox(record, width, height) {
+  const box = directBoxNumbers(record);
+  return boxFromNumbers(box, width, height, directBoxScale(box));
+ }
+ function directBoxNumbers(record) {
+  return {
+   left: numberFrom(record.left ?? record.x),
+   top: numberFrom(record.top ?? record.y),
+   width: numberFrom(record.width ?? record.w),
+   height: numberFrom(record.height ?? record.h)
+  };
+ }
+ function directBoxScale(box) {
+  return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
+ }
+ function normalizePointBox(record, width, height) {
+  const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record[key])).filter((point) => Boolean(point));
+  if (points.length < 2) return null;
+  const xs = points.map((point) => numberFrom(point?.x)).filter((item) => item !== null);
+  const ys = points.map((point) => numberFrom(point?.y)).filter((item) => item !== null);
+  if (!xs.length || !ys.length) return null;
+  const percent = coordinatesAreFractional(xs, ys);
+  const scaledXs = scaleCoordinates(xs, width, percent);
+  const scaledYs = scaleCoordinates(ys, height, percent);
+  const left = Math.min(...scaledXs);
+  const top = Math.min(...scaledYs);
+  return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
+ }
+ function coordinatesAreFractional(xs, ys) {
+  return xs.every(isFractionalCoordinate) && ys.every(isFractionalCoordinate);
+ }
+ function isFractionalCoordinate(value) {
+  return value >= 0 && value <= 1;
+ }
+ function scaleCoordinates(values, scale, enabled) {
+  return enabled ? values.map((value) => value * scale) : values;
+ }
+ function boxFromNumbers(box, imageWidth, imageHeight, scale) {
+  if (!hasCompleteBoxNumbers(box)) return null;
+  const scaleInfo = boxScaleInfo(scale);
+  return clampBox({
+   left: scaleBoxNumber(box.left, imageWidth, scaleInfo),
+   top: scaleBoxNumber(box.top, imageHeight, scaleInfo),
+   width: scaleBoxNumber(box.width, imageWidth, scaleInfo),
+   height: scaleBoxNumber(box.height, imageHeight, scaleInfo)
+  }, imageWidth, imageHeight);
+ }
+ function hasCompleteBoxNumbers(box) {
+  return box.left !== null && box.top !== null && box.width !== null && box.height !== null;
+ }
+ function boxScaleInfo(scale) {
+  return {
+   fractional: scale !== "pixels",
+   factor: scale === "percent-100" ? 100 : 1
+  };
+ }
+ function scaleBoxNumber(value, dimension, scale) {
+  return scale.fractional ? value / scale.factor * dimension : value;
+ }
+ function clampBox(box, width, height) {
+  const left = Math.max(0, Math.min(width, box.left));
+  const top = Math.max(0, Math.min(height, box.top));
+  const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
+  const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
+  if (right - left < 2 || bottom - top < 2) return null;
+  return { left, top, width: right - left, height: bottom - top };
+ }
+ function unionBoxes(boxes) {
+  if (!boxes.length) return null;
+  const left = Math.min(...boxes.map((box) => box.left));
+  const top = Math.min(...boxes.map((box) => box.top));
+  const right = Math.max(...boxes.map((box) => box.left + box.width));
+  const bottom = Math.max(...boxes.map((box) => box.top + box.height));
+  return { left, top, width: right - left, height: bottom - top };
+ }
+ function cleanOcrText(value) {
+  const text2 = typeof value === "string" ? value : String(value ?? "");
+  const normalized = text2.replace(/[ \t\r\n]+/g, HAS_JAPANESE$1.test(text2) ? "" : " ").trim();
+  return normalized.replaceAll("．．．", "…");
+ }
+ function decodeProtoMessage(bytes) {
+  const fields = [];
+  let offset = 0;
+  while (offset < bytes.length) {
+   const [tag, nextOffset] = readVarint(bytes, offset);
+   offset = nextOffset;
+   const field = Number(tag >> 3n);
+   const wire = Number(tag & 7n);
+   if (!field) break;
+   if (wire === 0) {
+    const [value, afterValue] = readVarint(bytes, offset);
+    offset = afterValue;
+    fields.push({ field, wire, value });
+   } else if (wire === 1) {
+    fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
+    offset += 8;
+   } else if (wire === 2) {
+    const [length, afterLength] = readVarint(bytes, offset);
+    offset = afterLength;
+    const end = offset + Number(length);
+    fields.push({ field, wire, value: bytes.slice(offset, end) });
+    offset = end;
+   } else if (wire === 5) {
+    fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
+    offset += 4;
+   } else {
+    break;
+   }
+  }
+  return fields;
+ }
+ function readVarint(bytes, offset) {
+  let shift = 0n;
+  let result = 0n;
+  while (offset < bytes.length) {
+   const byte = bytes[offset++];
+   result |= BigInt(byte & 127) << shift;
+   if (!(byte & 128)) return [result, offset];
+   shift += 7n;
+  }
+  return [result, offset];
+ }
+ function protoMessages(fields, field) {
+  return fields.filter((item) => item.field === field && item.wire === 2 && item.value instanceof Uint8Array).map((item) => decodeProtoMessage(item.value));
+ }
+ function protoFirstMessage(fields, field) {
+  return protoMessages(fields, field)[0] ?? null;
+ }
+ function protoString(fields, field) {
+  const item = fields.find((value) => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
+  return item ? new TextDecoder().decode(item.value) : "";
+ }
+ function protoNumber(fields, field) {
+  const item = fields.find((value) => value.field === field);
+  if (!item) return 0;
+  return typeof item.value === "bigint" ? Number(item.value) : typeof item.value === "number" ? item.value : 0;
+ }
+ function protoBox(geometry, width, height) {
+  const box = geometry ? protoFirstMessage(geometry, 1) : null;
+  if (!box) return null;
+  const centerX = protoNumber(box, 1);
+  const centerY = protoNumber(box, 2);
+  const boxWidth = protoNumber(box, 3);
+  const boxHeight = protoNumber(box, 4);
+  if (!boxWidth || !boxHeight) return null;
+  const normalized = centerX <= 2 && centerY <= 2 && boxWidth <= 2 && boxHeight <= 2;
+  return clampBox({
+   left: (normalized ? centerX * width : centerX) - (normalized ? boxWidth * width : boxWidth) / 2,
+   top: (normalized ? centerY * height : centerY) - (normalized ? boxHeight * height : boxHeight) / 2,
+   width: normalized ? boxWidth * width : boxWidth,
+   height: normalized ? boxHeight * height : boxHeight
+  }, width, height);
+ }
+ function stringFrom(value) {
+  return typeof value === "string" ? value.replace(/\s+/g, "").trim() : "";
+ }
+ function asRecord(value) {
+  return value && typeof value === "object" ? value : null;
+ }
+ function numberFrom(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+ }
  const MAX_CACHE_ITEMS = 36;
  const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15e3;
  const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
@@ -24493,9 +25252,6 @@ ${glossaryKey}`;
  const LENS_PLATFORM_WEB = 3;
  const LENS_SURFACE_CHROMIUM = 4;
  const LENS_AUTO_FILTER = 7;
- const LENS_WRITING_TOP_TO_BOTTOM = 2;
- const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
- const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
  const log$a = Logger.scope("OCR");
  const OCR_RECOGNIZERS = {
   "google-lens": recognizeViaGoogleLens,
@@ -25238,132 +25994,6 @@ ${glossaryKey}`;
    return void 0;
   }
  }
- function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
-  if (!value || typeof value !== "object") return null;
-  const record = value;
-  const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
-  if (cloudVision) return cloudVision;
-  const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
-  const lines = collectGenericOcrLines(record, width, height);
-  return japaneseOcrResult(width, height, lines);
- }
- function ocrResultDimensions(record, fallbackWidth, fallbackHeight) {
-  const resolution = record.context_resolution;
-  const width = numberFrom(record.width) || numberFrom(resolution?.width) || fallbackWidth;
-  const height = numberFrom(record.height) || numberFrom(resolution?.height) || fallbackHeight;
-  return { width, height };
- }
- function collectGenericOcrLines(record, width, height) {
-  const lines = [];
-  appendGenericOcrLines(lines, genericRawLines(record), width, height, normalizeSimpleLines);
-  appendGenericOcrLines(lines, record.results, width, height, normalizeStructuredOcrResults);
-  appendGenericOcrLines(lines, record.ocr_regions, width, height, normalizeOcrRegionResults);
-  return lines;
- }
- function genericRawLines(record) {
-  return Array.isArray(record.lines) ? record.lines : record.regions;
- }
- function appendGenericOcrLines(lines, value, width, height, normalize) {
-  if (Array.isArray(value)) lines.push(...normalize(value, width, height));
- }
- function normalizeSimpleLines(values, width, height) {
-  return values.map((item) => normalizeSimpleLine(item, width, height)).filter((line) => Boolean(line));
- }
- function normalizeStructuredOcrResults(values, width, height) {
-  return values.flatMap((item) => normalizeStructuredOcrResult(item, width, height));
- }
- function normalizeOcrRegionResults(regions, width, height) {
-  return regions.flatMap((region) => normalizeSingleOcrRegionResults(region, width, height));
- }
- function normalizeSingleOcrRegionResults(region, width, height) {
-  const regionRecord = asRecord(region);
-  if (!regionRecord) return [];
-  const regionBox = normalizeOcrRegion(regionRecord, width, height);
-  const { scaleWidth, scaleHeight } = ocrRegionScale(regionBox, width, height);
-  if (!Array.isArray(regionRecord.results)) return [];
-  const lines = normalizeStructuredOcrResults(regionRecord.results, scaleWidth, scaleHeight);
-  return offsetRegionLines(lines, regionBox, width, height);
- }
- function ocrRegionScale(regionBox, width, height) {
-  return {
-   scaleWidth: regionBox?.width ?? width,
-   scaleHeight: regionBox?.height ?? height
-  };
- }
- function offsetRegionLines(lines, regionBox, width, height) {
-  if (!regionBox) return lines;
-  return lines.map((line) => offsetLineToRegion(line, regionBox, width, height)).filter((line) => Boolean(line));
- }
- function japaneseOcrResult(width, height, lines) {
-  const japaneseLines = removeStandaloneFuriganaLines(lines).filter((line) => line.text.length > 0 && HAS_JAPANESE$1.test(line.text));
-  return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
- }
- function cleanOcrLookupLines(lines, parsed) {
-  const cleaned = lines.map((line, index) => {
-   const text2 = cleanOcrLookupText(line.text, parsed[index] ?? []);
-   return text2 === line.text ? line : { ...line, text: text2 };
-  });
-  return removeStandaloneFuriganaLines(cleaned);
- }
- function ocrLinesChanged(original, cleaned) {
-  return original.length !== cleaned.length || cleaned.some((line, index) => line.text !== original[index]?.text);
- }
- function cleanOcrLookupText(text2, tokens) {
-  const rubies = tokens.flatMap((token) => token.rubies.map((ruby) => ({ ruby, token }))).sort((a, b) => b.ruby.start - a.ruby.start);
-  let cleaned = text2;
-  for (const { ruby } of rubies) {
-   if (!OCR_KANJI_RE.test(cleaned.slice(ruby.start, ruby.end))) continue;
-   cleaned = removeOcrReadingAroundRuby(cleaned, ruby.text, ruby.start, ruby.end);
-  }
-  return cleanOcrText(cleaned);
- }
- function removeOcrReadingAroundRuby(text2, reading, start, end) {
-  const cleanReading = cleanOcrText(reading);
-  if (!cleanReading) return text2;
-  if (text2.slice(Math.max(0, start - cleanReading.length), start) === cleanReading) {
-   return text2.slice(0, start - cleanReading.length) + text2.slice(start);
-  }
-  if (text2.slice(end, end + cleanReading.length) === cleanReading) {
-   return text2.slice(0, end) + text2.slice(end + cleanReading.length);
-  }
-  return text2;
- }
- function removeStandaloneFuriganaLines(lines) {
-  const filtered = lines.filter((line, index) => !isStandaloneFuriganaLine(line, lines, index));
-  return filtered.length ? filtered : lines;
- }
- function isStandaloneFuriganaLine(line, lines, index) {
-  const text2 = cleanOcrText(line.text).replace(/\s+/g, "");
-  if (!text2 || text2.length > 10 || !OCR_KANA_ONLY_RE.test(text2)) return false;
-  return lines.some((other, otherIndex) => otherIndex !== index && OCR_KANJI_RE.test(other.text) && ocrLineLooksLikeFuriganaFor(line, other));
- }
- function ocrLineLooksLikeFuriganaFor(furi, base) {
-  if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
-  const overlap = horizontalOverlap(furi.box, base.box);
-  const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
-  const smaller = furi.box.height <= base.box.height * 0.75 || furi.box.width <= base.box.width * 0.65;
-  const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5 && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
-  return overlapRatio >= 0.32 && smaller && nearTop;
- }
- function horizontalOverlap(a, b) {
-  return Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
- }
- function ocrLineLooksLikeVerticalFuriganaFor(furi, base) {
-  if (!furi.vertical || !base.vertical) return false;
-  const overlap = verticalOverlap(furi.box, base.box);
-  const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
-  const smaller = furi.box.width <= base.box.width * 0.75 || furi.box.height <= base.box.height * 0.65;
-  const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
-  return overlapRatio >= 0.32 && smaller && nearSide;
- }
- function verticalOverlap(a, b) {
-  return Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
- }
- function horizontalGap(a, b) {
-  if (a.left + a.width < b.left) return b.left - (a.left + a.width);
-  if (b.left + b.width < a.left) return a.left - (b.left + b.width);
-  return 0;
- }
  function readFallbackOcrResult(image, _includeAccessibleText = false) {
   const width = image.naturalWidth || image.width || 1;
   const height = image.naturalHeight || image.height || 1;
@@ -25594,523 +26224,6 @@ ${glossaryKey}`;
    protoMessageField(3, imageData)
   )));
  }
- function parseGoogleLensResponse(bytes, width, height) {
-  const root = decodeProtoMessage(bytes);
-  const objectsResponse = protoFirstMessage(root, 2);
-  const text2 = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
-  const layout = text2 ? protoFirstMessage(text2, 1) : null;
-  if (!layout) return null;
-  const lines = [];
-  for (const paragraph of protoMessages(layout, 1)) {
-   const paragraphVertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
-   const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
-   for (const line of protoMessages(paragraph, 2)) {
-    const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
-    const words = protoMessages(line, 1).map((word) => ({
-     text: protoString(word, 2),
-     separator: protoString(word, 3),
-     box: protoBox(protoFirstMessage(word, 4), width, height)
-    })).filter((word) => word.text);
-    const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
-    const rawText = orderedWords.map((word, index) => word.text + (word.separator || (index < orderedWords.length - 1 ? " " : ""))).join("");
-    const textValue = cleanOcrText(rawText);
-    if (!textValue || !HAS_JAPANESE$1.test(textValue)) continue;
-    const box = lineBox ?? unionBoxes(words.map((word) => word.box).filter((item) => Boolean(item))) ?? paragraphBox;
-    if (!box) continue;
-    lines.push({
-     text: textValue,
-     box,
-     vertical: paragraphVertical || box.height > box.width * 1.25 && textValue.length > 1
-    });
-   }
-  }
-  return lines.length ? { width, height, lines } : null;
- }
- function parseGoogleLensUploadHtml(html, width, height) {
-  const literal = googleLensUploadCallbackLiteral(html, "ds:1");
-  if (!literal) return null;
-  try {
-   const callback = parseJsDataLiteral(literal);
-   const blocks = callback.data?.[2]?.[3]?.[0] ?? [];
-   const lines = [];
-   for (const block of blocks) {
-    const blockData = block;
-    const rawLines = blockData[2]?.[0]?.[5]?.[3];
-    const lineItems = rawLines?.[0];
-    if (!Array.isArray(lineItems)) continue;
-    for (const item of lineItems) {
-     const lineData = item;
-     const words = Array.isArray(lineData[0]) ? lineData[0] : [];
-     const boxData = Array.isArray(lineData[1]) ? lineData[1] : [];
-     const text2 = cleanOcrText(words.map((word) => {
-      const wordData = word;
-      return `${wordData[0] ?? ""}${wordData[3] ?? ""}`;
-     }).join(""));
-     const box = boxData.length >= 4 ? clampBox({
-      top: Number(boxData[0]) * height,
-      left: Number(boxData[1]) * width,
-      width: Number(boxData[2]) * width,
-      height: Number(boxData[3]) * height
-     }, width, height) : null;
-     pushJapaneseOcrLine(lines, text2, box);
-    }
-   }
-   return lines.length ? { width, height, lines } : null;
-  } catch {
-   return null;
-  }
- }
- function googleLensUploadCallbackLiteral(html, key) {
-  const marker = "AF_initDataCallback(";
-  let searchIndex = 0;
-  while (searchIndex < html.length) {
-   const markerIndex = html.indexOf(marker, searchIndex);
-   if (markerIndex < 0) return null;
-   const literalStart = markerIndex + marker.length;
-   const literal = readBalancedLiteral(html, literalStart);
-   if (literal && callbackLiteralHasKey(literal, key)) return literal;
-   searchIndex = literalStart + Math.max(1, literal?.length ?? 1);
-  }
-  return null;
- }
- function callbackLiteralHasKey(literal, key) {
-  return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key)}['"]`).test(literal);
- }
- function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
- }
- function readBalancedLiteral(source, startIndex) {
-  let index = startIndex;
-  while (/\s/.test(source[index] ?? "")) index += 1;
-  if (source[index] !== "{") return null;
-  let depth = 0;
-  let quote = "";
-  for (let current = index; current < source.length; current += 1) {
-   const char = source[current];
-   if (quote) {
-    if (char === "\\") {
-     current += 1;
-    } else if (char === quote) {
-     quote = "";
-    }
-    continue;
-   }
-   if (char === '"' || char === "'") {
-    quote = char;
-    continue;
-   }
-   if (char === "{" || char === "[" || char === "(") depth += 1;
-   if (char === "}" || char === "]" || char === ")") depth -= 1;
-   if (depth === 0) return source.slice(index, current + 1);
-  }
-  return null;
- }
- function parseJsDataLiteral(source) {
-  let index = 0;
-  const value = parseValue();
-  skipWhitespace();
-  if (index !== source.length) throw new Error("Unexpected trailing data.");
-  return value;
-  function parseValue() {
-   skipWhitespace();
-   const char = source[index];
-   if (char === "{") return parseObject();
-   if (char === "[") return parseArray();
-   if (char === '"' || char === "'") return parseString();
-   if (char === "-" || /\d/.test(char ?? "")) return parseNumber();
-   return parseIdentifierValue();
-  }
-  function parseObject() {
-   const record = {};
-   index += 1;
-   skipWhitespace();
-   while (source[index] !== "}") {
-    const key = parseObjectKey();
-    skipWhitespace();
-    expect(":");
-    record[key] = parseValue();
-    skipWhitespace();
-    if (source[index] === ",") {
-     index += 1;
-     skipWhitespace();
-     continue;
-    }
-    break;
-   }
-   expect("}");
-   return record;
-  }
-  function parseObjectKey() {
-   skipWhitespace();
-   const char = source[index];
-   if (char === '"' || char === "'") return parseString();
-   return parseIdentifier();
-  }
-  function parseArray() {
-   const values = [];
-   index += 1;
-   skipWhitespace();
-   while (source[index] !== "]") {
-    if (source[index] === ",") {
-     values.push(null);
-     index += 1;
-     skipWhitespace();
-     continue;
-    }
-    values.push(parseValue());
-    skipWhitespace();
-    if (source[index] === ",") {
-     index += 1;
-     skipWhitespace();
-     continue;
-    }
-    break;
-   }
-   expect("]");
-   return values;
-  }
-  function parseString() {
-   const quote = source[index];
-   let value2 = "";
-   index += 1;
-   while (index < source.length) {
-    const char = source[index++];
-    if (char === quote) return value2;
-    if (char !== "\\") {
-     value2 += char;
-     continue;
-    }
-    value2 += parseEscapeSequence();
-   }
-   throw new Error("Unterminated string.");
-  }
-  function parseEscapeSequence() {
-   const escaped = source[index++];
-   if (escaped === "n") return "\n";
-   if (escaped === "r") return "\r";
-   if (escaped === "t") return "	";
-   if (escaped === "b") return "\b";
-   if (escaped === "f") return "\f";
-   if (escaped === "v") return "\v";
-   if (escaped === "0") return "\0";
-   if (escaped === "\n") return "";
-   if (escaped === "\r") {
-    if (source[index] === "\n") index += 1;
-    return "";
-   }
-   if (escaped === "x") return codePointEscape(2);
-   if (escaped === "u") return parseUnicodeEscape();
-   return escaped ?? "";
-  }
-  function parseUnicodeEscape() {
-   if (source[index] === "{") {
-    const end = source.indexOf("}", index + 1);
-    if (end < 0) throw new Error("Invalid unicode escape.");
-    const value2 = Number.parseInt(source.slice(index + 1, end), 16);
-    index = end + 1;
-    return Number.isFinite(value2) ? String.fromCodePoint(value2) : "";
-   }
-   return codePointEscape(4);
-  }
-  function codePointEscape(length) {
-   const hex = source.slice(index, index + length);
-   if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) throw new Error("Invalid character escape.");
-   index += length;
-   return String.fromCharCode(Number.parseInt(hex, 16));
-  }
-  function parseNumber() {
-   const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(source.slice(index));
-   if (!match) throw new Error("Invalid number.");
-   index += match[0].length;
-   return Number(match[0]);
-  }
-  function parseIdentifierValue() {
-   const identifier = parseIdentifier();
-   if (identifier === "null" || identifier === "undefined" || identifier === "NaN") return null;
-   if (identifier === "true") return true;
-   if (identifier === "false") return false;
-   if (identifier === "Infinity") return Infinity;
-   return identifier;
-  }
-  function parseIdentifier() {
-   const match = /^[A-Za-z_$][\w$]*/.exec(source.slice(index));
-   if (!match) throw new Error("Expected identifier.");
-   index += match[0].length;
-   return match[0];
-  }
-  function skipWhitespace() {
-   while (/\s/.test(source[index] ?? "")) index += 1;
-  }
-  function expect(char) {
-   if (source[index] !== char) throw new Error(`Expected ${char}.`);
-   index += 1;
-  }
- }
- function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
-  const responses = Array.isArray(record.responses) ? record.responses : "fullTextAnnotation" in record ? [record] : [];
-  const lines = [];
-  let width = fallbackWidth;
-  let height = fallbackHeight;
-  for (const response of responses) {
-   const annotation = response?.fullTextAnnotation;
-   const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
-   for (const page of pages) {
-    const pageRecord = page;
-    width = numberFrom(pageRecord.width) || width;
-    height = numberFrom(pageRecord.height) || height;
-    const blocks = Array.isArray(pageRecord.blocks) ? pageRecord.blocks : [];
-    for (const block of blocks) {
-     const paragraphs = Array.isArray(block.paragraphs) ? block.paragraphs : [];
-     for (const paragraph of paragraphs) {
-      pushCloudVisionParagraphLines(paragraph, lines, width, height);
-     }
-    }
-   }
-   const annotations = Array.isArray(response?.textAnnotations) ? response.textAnnotations : [];
-   if (!lines.length && annotations.length > 1) {
-    for (const annotationItem of annotations.slice(1)) {
-     const item = annotationItem;
-     const text2 = cleanOcrText(item.description);
-     const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, width, height);
-     pushJapaneseOcrLine(lines, text2, box);
-    }
-   }
-  }
-  return lines.length ? { width, height, lines } : null;
- }
- function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
-  const words = Array.isArray(paragraph.words) ? paragraph.words : [];
-  let text2 = "";
-  let boxes = [];
-  const pushLine = () => {
-   const value = cleanOcrText(text2);
-   const box = unionBoxes(boxes);
-   pushJapaneseOcrLine(lines, value, box);
-   text2 = "";
-   boxes = [];
-  };
-  for (const word of words) {
-   const symbols = Array.isArray(word.symbols) ? word.symbols : [];
-   for (const symbol of symbols) {
-    const symbolRecord = symbol;
-    text2 += String(symbolRecord.text ?? "");
-    const box = normalizeCloudVisionVertices(symbolRecord.boundingBox?.vertices, width, height);
-    if (box) boxes.push(box);
-    const breakType = symbolRecord.property?.detectedBreak?.type;
-    if (breakType === "SPACE" || breakType === "SURE_SPACE" || breakType === "UNKNOWN") text2 += " ";
-    if (breakType === "LINE_BREAK" || breakType === "EOL_SURE_SPACE" || breakType === "HYPHEN") pushLine();
-   }
-  }
-  pushLine();
- }
- function pushJapaneseOcrLine(lines, text2, box) {
-  if (!text2 || !box || !HAS_JAPANESE$1.test(text2)) return;
-  lines.push({ text: text2, box, vertical: box.height > box.width * 1.25 && text2.length > 1 });
- }
- function normalizeCloudVisionVertices(value, width, height) {
-  if (!Array.isArray(value) || value.length < 2) return null;
-  const xs = value.map((vertex) => numberFrom(vertex?.x) ?? 0);
-  const ys = value.map((vertex) => numberFrom(vertex?.y) ?? 0);
-  const left = Math.min(...xs);
-  const top = Math.min(...ys);
-  return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
- }
- function normalizeSimpleLine(value, width, height) {
-  const record = asRecord(value);
-  if (!record) return null;
-  const text2 = simpleLineText(record);
-  const box = simpleLineBox(record, width, height);
-  if (!text2 || !box) return null;
-  return { text: text2, box, vertical: simpleLineIsVertical(record) };
- }
- function simpleLineText(record) {
-  return stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
- }
- function simpleLineBox(record, width, height) {
-  return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
- }
- function simpleLineIsVertical(record) {
-  return Boolean(record.vertical ?? record.is_vertical);
- }
- function normalizeStructuredOcrResult(value, width, height) {
-  if (!value || typeof value !== "object") return [];
-  const record = value;
-  const textLines = structuredOcrTextLines(record);
-  const vertical = structuredOcrVertical(record);
-  const lines = textLines.map((item) => normalizeStructuredOcrLine(item, width, height, vertical)).filter((line) => line !== null);
-  if (lines.length) return lines;
-  return normalizeStructuredOcrFallback(record, textLines, width, height, vertical);
- }
- function structuredOcrTextLines(record) {
-  if (Array.isArray(record.text_lines)) return record.text_lines;
-  return Array.isArray(record.text) ? record.text : [];
- }
- function structuredOcrVertical(record) {
-  return Boolean(record.is_vertical ?? record.box?.isVertical);
- }
- function normalizeStructuredOcrLine(item, width, height, inheritedVertical) {
-  const lineRecord = asRecord(item);
-  if (!lineRecord) return null;
-  const text2 = structuredOcrLineText(lineRecord);
-  const box = structuredOcrLineBox(lineRecord, width, height);
-  if (!text2 || !box) return null;
-  return { text: text2, box, vertical: structuredOcrLineVertical(lineRecord, inheritedVertical) };
- }
- function structuredOcrLineText(record) {
-  return stringFrom(record.content ?? record.text ?? record.word);
- }
- function structuredOcrLineBox(record, width, height) {
-  return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
- }
- function structuredOcrLineVertical(record, inheritedVertical) {
-  return Boolean(record.is_vertical ?? record.box?.isVertical ?? inheritedVertical);
- }
- function normalizeStructuredOcrFallback(record, textLines, width, height, vertical) {
-  const text2 = textLines.map((item) => stringFrom(item?.content)).filter(Boolean).join("");
-  const box = normalizeBox(record.box, width, height);
-  return text2 && box ? [{ text: text2, box, vertical }] : [];
- }
- function normalizeOcrRegion(record, width, height) {
-  const region = readOcrRegion(record);
-  if (!region) return null;
-  const box = clampBox(scaleOcrRegion(region, width, height), width, height);
-  return box && !isFullImageOcrRegion(box, width, height) ? box : null;
- }
- function readOcrRegion(record) {
-  const position = record.position;
-  const size = record.size;
-  if (!position || !size) return null;
-  return completeOcrRegionParts({
-   left: numberFrom(position.left),
-   top: numberFrom(position.top),
-   width: numberFrom(size.width),
-   height: numberFrom(size.height)
-  });
- }
- function completeOcrRegionParts(parts) {
-  if (parts.left === null) return null;
-  if (parts.top === null) return null;
-  if (parts.width === null) return null;
-  if (parts.height === null) return null;
-  return { left: parts.left, top: parts.top, width: parts.width, height: parts.height };
- }
- function scaleOcrRegion(region, width, height) {
-  const divisor = Math.max(region.left, region.top, region.width, region.height) <= 1 ? 1 : 100;
-  return {
-   left: region.left / divisor * width,
-   top: region.top / divisor * height,
-   width: region.width / divisor * width,
-   height: region.height / divisor * height
-  };
- }
- function isFullImageOcrRegion(box, width, height) {
-  return box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
- }
- function offsetLineToRegion(line, region, width, height) {
-  const box = clampBox({
-   left: region.left + line.box.left,
-   top: region.top + line.box.top,
-   width: line.box.width,
-   height: line.box.height
-  }, width, height);
-  return box ? { ...line, box } : null;
- }
- function normalizeBox(value, width, height) {
-  if (!value || typeof value !== "object") return null;
-  const record = value;
-  return normalizePositionDimensionsBox(record, width, height) ?? normalizeDirectBox(record, width, height) ?? normalizePointBox(record, width, height);
- }
- function normalizePositionDimensionsBox(record, width, height) {
-  const position = asRecord(record.position);
-  const dimensions = asRecord(record.dimensions);
-  if (!position || !dimensions) return null;
-  return boxFromNumbers({
-   left: numberFrom(position.left),
-   top: numberFrom(position.top),
-   width: numberFrom(dimensions.width),
-   height: numberFrom(dimensions.height)
-  }, width, height, "percent-100");
- }
- function normalizeDirectBox(record, width, height) {
-  const box = directBoxNumbers(record);
-  return boxFromNumbers(box, width, height, directBoxScale(box));
- }
- function directBoxNumbers(record) {
-  return {
-   left: numberFrom(record.left ?? record.x),
-   top: numberFrom(record.top ?? record.y),
-   width: numberFrom(record.width ?? record.w),
-   height: numberFrom(record.height ?? record.h)
-  };
- }
- function directBoxScale(box) {
-  return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
- }
- function normalizePointBox(record, width, height) {
-  const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record[key])).filter((point) => Boolean(point));
-  if (points.length < 2) return null;
-  const xs = points.map((point) => numberFrom(point?.x)).filter((item) => item !== null);
-  const ys = points.map((point) => numberFrom(point?.y)).filter((item) => item !== null);
-  if (!xs.length || !ys.length) return null;
-  const percent = coordinatesAreFractional(xs, ys);
-  const scaledXs = scaleCoordinates(xs, width, percent);
-  const scaledYs = scaleCoordinates(ys, height, percent);
-  const left = Math.min(...scaledXs);
-  const top = Math.min(...scaledYs);
-  return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
- }
- function coordinatesAreFractional(xs, ys) {
-  return xs.every(isFractionalCoordinate) && ys.every(isFractionalCoordinate);
- }
- function isFractionalCoordinate(value) {
-  return value >= 0 && value <= 1;
- }
- function scaleCoordinates(values, scale, enabled) {
-  return enabled ? values.map((value) => value * scale) : values;
- }
- function boxFromNumbers(box, imageWidth, imageHeight, scale) {
-  if (!hasCompleteBoxNumbers(box)) return null;
-  const scaleInfo = boxScaleInfo(scale);
-  return clampBox({
-   left: scaleBoxNumber(box.left, imageWidth, scaleInfo),
-   top: scaleBoxNumber(box.top, imageHeight, scaleInfo),
-   width: scaleBoxNumber(box.width, imageWidth, scaleInfo),
-   height: scaleBoxNumber(box.height, imageHeight, scaleInfo)
-  }, imageWidth, imageHeight);
- }
- function hasCompleteBoxNumbers(box) {
-  return box.left !== null && box.top !== null && box.width !== null && box.height !== null;
- }
- function boxScaleInfo(scale) {
-  return {
-   fractional: scale !== "pixels",
-   factor: scale === "percent-100" ? 100 : 1
-  };
- }
- function scaleBoxNumber(value, dimension, scale) {
-  return scale.fractional ? value / scale.factor * dimension : value;
- }
- function clampBox(box, width, height) {
-  const left = Math.max(0, Math.min(width, box.left));
-  const top = Math.max(0, Math.min(height, box.top));
-  const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
-  const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
-  if (right - left < 2 || bottom - top < 2) return null;
-  return { left, top, width: right - left, height: bottom - top };
- }
- function unionBoxes(boxes) {
-  if (!boxes.length) return null;
-  const left = Math.min(...boxes.map((box) => box.left));
-  const top = Math.min(...boxes.map((box) => box.top));
-  const right = Math.max(...boxes.map((box) => box.left + box.width));
-  const bottom = Math.max(...boxes.map((box) => box.top + box.height));
-  return { left, top, width: right - left, height: bottom - top };
- }
- function cleanOcrText(value) {
-  const text2 = typeof value === "string" ? value : String(value ?? "");
-  const normalized = text2.replace(/[ \t\r\n]+/g, HAS_JAPANESE$1.test(text2) ? "" : " ").trim();
-  return normalized.replaceAll("．．．", "…");
- }
  function isCandidateImage(image, settings) {
   if (isIgnoredOcrImage(image)) return false;
   const rect = image.getBoundingClientRect();
@@ -26264,79 +26377,6 @@ ${glossaryKey}`;
   } while (item);
   return new Uint8Array(bytes);
  }
- function decodeProtoMessage(bytes) {
-  const fields = [];
-  let offset = 0;
-  while (offset < bytes.length) {
-   const [tag, nextOffset] = readVarint(bytes, offset);
-   offset = nextOffset;
-   const field = Number(tag >> 3n);
-   const wire = Number(tag & 7n);
-   if (!field) break;
-   if (wire === 0) {
-    const [value, afterValue] = readVarint(bytes, offset);
-    offset = afterValue;
-    fields.push({ field, wire, value });
-   } else if (wire === 1) {
-    fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
-    offset += 8;
-   } else if (wire === 2) {
-    const [length, afterLength] = readVarint(bytes, offset);
-    offset = afterLength;
-    const end = offset + Number(length);
-    fields.push({ field, wire, value: bytes.slice(offset, end) });
-    offset = end;
-   } else if (wire === 5) {
-    fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
-    offset += 4;
-   } else {
-    break;
-   }
-  }
-  return fields;
- }
- function readVarint(bytes, offset) {
-  let shift = 0n;
-  let result = 0n;
-  while (offset < bytes.length) {
-   const byte = bytes[offset++];
-   result |= BigInt(byte & 127) << shift;
-   if (!(byte & 128)) return [result, offset];
-   shift += 7n;
-  }
-  return [result, offset];
- }
- function protoMessages(fields, field) {
-  return fields.filter((item) => item.field === field && item.wire === 2 && item.value instanceof Uint8Array).map((item) => decodeProtoMessage(item.value));
- }
- function protoFirstMessage(fields, field) {
-  return protoMessages(fields, field)[0] ?? null;
- }
- function protoString(fields, field) {
-  const item = fields.find((value) => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
-  return item ? new TextDecoder().decode(item.value) : "";
- }
- function protoNumber(fields, field) {
-  const item = fields.find((value) => value.field === field);
-  if (!item) return 0;
-  return typeof item.value === "bigint" ? Number(item.value) : typeof item.value === "number" ? item.value : 0;
- }
- function protoBox(geometry, width, height) {
-  const box = geometry ? protoFirstMessage(geometry, 1) : null;
-  if (!box) return null;
-  const centerX = protoNumber(box, 1);
-  const centerY = protoNumber(box, 2);
-  const boxWidth = protoNumber(box, 3);
-  const boxHeight = protoNumber(box, 4);
-  if (!boxWidth || !boxHeight) return null;
-  const normalized = centerX <= 2 && centerY <= 2 && boxWidth <= 2 && boxHeight <= 2;
-  return clampBox({
-   left: (normalized ? centerX * width : centerX) - (normalized ? boxWidth * width : boxWidth) / 2,
-   top: (normalized ? centerY * height : centerY) - (normalized ? boxHeight * height : boxHeight) / 2,
-   width: normalized ? boxWidth * width : boxWidth,
-   height: normalized ? boxHeight * height : boxHeight
-  }, width, height);
- }
  function concatBytes(parts) {
   const length = parts.reduce((sum, part) => sum + part.length, 0);
   const result = new Uint8Array(length);
@@ -26467,16 +26507,6 @@ ${glossaryKey}`;
    reader.onerror = () => reject(reader.error ?? new Error("Blob read failed."));
    reader.readAsDataURL(blob);
   });
- }
- function stringFrom(value) {
-  return typeof value === "string" ? value.replace(/\s+/g, "").trim() : "";
- }
- function asRecord(value) {
-  return value && typeof value === "object" ? value : null;
- }
- function numberFrom(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
  }
  function imageSummary(image) {
   return {
