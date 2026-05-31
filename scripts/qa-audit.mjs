@@ -426,9 +426,9 @@ function qaHostedTryMeHtml() {
     .yomu-try-me-text { display: grid; gap: 12px; border-radius: 8px; background: #181b20; padding: 24px; }
     .yomu-try-me-text h3 { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-1); font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; }
     .yomu-try-me-text p { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-2); font-size: 17px; line-height: 1.7; overflow-wrap: anywhere; }
-    .yomu-try-me .jpdb-reader-word { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; padding: 0 2px; line-height: 1.2; vertical-align: baseline; white-space: nowrap; overflow-wrap: normal !important; }
+    .yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; color: var(--jpdb-reader-source-jpdb-color, currentColor) !important; line-height: inherit; background: var(--jpdb-reader-source-jpdb-soft, transparent) !important; text-decoration-color: var(--jpdb-reader-source-jpdb-decoration, transparent) !important; vertical-align: baseline; white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important; }
     .yomu-try-me .jpdb-reader-word ruby,
-    .yomu-try-me .jpdb-reader-word rt { max-width: none; white-space: nowrap; overflow-wrap: normal !important; }
+    .yomu-try-me .jpdb-reader-word rt { max-width: none; white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important; }
   </style>
 </head>
 <body>
@@ -904,7 +904,7 @@ async function auditNoSecretLeak() {
         record('secret leak scan', 'skip', 'YOMU_TEST_API_KEY is not set');
         return;
     }
-    const files = await listFiles(ROOT, new Set(['.git', 'node_modules', 'qa-artifacts']));
+    const files = await listFiles(ROOT, new Set(['.git', 'node_modules', 'artifacts', 'qa-artifacts']));
     const offenders = await secretLeakOffenders(files);
     assertAudit(!offenders.length, `test API key is present in source files: ${offenders.join(', ')}`);
     record('secret leak scan', 'pass', 'test key is only supplied by environment');
@@ -1475,7 +1475,7 @@ async function seedLocalKanjiDictionaries(page) {
                 { expression: '今日', reading: 'きょう', glossary: ['today'], score: 9, dictionary: 'Jitendex' },
                 { expression: '今朝', reading: 'けさ', glossary: ['this morning'], score: 8, dictionary: 'Jitendex' },
                 { expression: '今週', reading: 'こんしゅう', glossary: ['this week'], score: 7, dictionary: 'Jitendex' },
-                { expression: '読む', reading: 'よむ', glossary: ['to read'], score: 10, dictionary: 'Jitendex' },
+                { expression: '読む', reading: 'よむ', glossary: ['to read', '日本語を読む'], score: 10, dictionary: 'Jitendex' },
                 { expression: '母', reading: 'はは', glossary: [{ type: 'structured-content', content: { tag: 'ul', data: { content: 'glossary' }, content: [{ tag: 'li', content: [{ tag: 'span', data: { content: 'part-of-speech-info' }, content: 'n' }, ' mother; mama'] }] } }], score: 10, dictionary: 'Jitendex' },
                 { expression: '母', reading: 'はは', glossary: [{ tag: 'ul', data: { content: 'glossary' }, content: [{ tag: 'li', content: 'female parent name entry' }] }], score: 5, dictionary: 'JMnedict' },
             ].forEach(entry => {
@@ -1696,7 +1696,7 @@ async function auditSettings(browser, server) {
 }
 
 async function auditSettingsMobile(browser, server) {
-    const { page } = await newAuditedPage(browser, {
+    const { page, requests } = await newAuditedPage(browser, {
         ...baseSettings,
         apiKey: '',
         showFloatingButton: true,
@@ -1874,6 +1874,7 @@ function newTabDictionaryFallbackSettings() {
 }
 
 async function auditHostedTryMeDemo(browser, server) {
+    await assertHostedTryMeFreshProfile(browser, server);
     const { page } = await newAuditedPage(browser, {
         ...baseSettings,
         wordHighlightColorSource: 'jpdb',
@@ -1888,51 +1889,22 @@ async function auditHostedTryMeDemo(browser, server) {
     await waitForAudit(page, () => [...document.querySelectorAll('[data-yomu-demo-lookup] .jpdb-reader-word')]
         .some(word => word.textContent?.replace(/\s+/g, '').includes('下')), 10000, 'hosted Try Me did not wrap 下 as a lookup word');
 
-    const snapshot = await page.evaluate(() => {
-        const surface = node => [...node.childNodes].map(child => {
-            if (child.nodeType === Node.TEXT_NODE) return child.textContent ?? '';
-            if (!(child instanceof Element) || child.matches('rt,rp')) return '';
-            return surface(child);
-        }).join('');
-        const words = [...document.querySelectorAll('[data-yomu-demo-lookup] .jpdb-reader-word')];
-        const wordData = words.map(word => {
-            const rect = word.getBoundingClientRect();
-            const style = getComputedStyle(word);
-            return {
-                surface: surface(word).trim(),
-                expression: word.getAttribute('data-expression') ?? '',
-                className: word.className,
-                cursor: style.cursor,
-                color: style.color,
-                textDecorationColor: style.textDecorationColor,
-                textDecorationLine: style.textDecorationLine,
-                rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-            };
-        });
-        const down = wordData.find(word => word.surface === '下');
-        const jpdbWord = wordData.find(word => word.surface === '日本語');
-        const point = down ? { x: down.rect.x + down.rect.width / 2, y: down.rect.y + down.rect.height / 2 } : null;
-        const target = point ? document.elementFromPoint(point.x, point.y) : null;
-        const targetWord = target?.closest?.('.jpdb-reader-word');
-        return {
-            rootClasses: document.documentElement.className,
-            wordData,
-            down,
-            jpdbWord,
-            point,
-            pointSurface: targetWord ? surface(targetWord).trim() : '',
-            pointExpression: targetWord?.getAttribute('data-expression') ?? '',
-        };
-    });
+    const snapshot = await hostedTryMeVisualSnapshot(page);
     assertAudit(snapshot.wordData.length >= 8, `hosted Try Me parsed too few words: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.down?.expression === '下', `hosted Try Me 下 word has wrong expression: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.down.cursor === 'pointer', `hosted Try Me 下 word is not pointer-clickable: ${JSON.stringify(snapshot.down)}`);
-    assertAudit(snapshot.down.rect.width >= 24 && snapshot.down.rect.height >= 24, `hosted Try Me 下 hit target is too small: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.down.display === 'inline', `hosted Try Me 下 should use inline reader word layout: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.down.minWidth === '0px', `hosted Try Me 下 should not force a flex tap target: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.down.whiteSpace === 'nowrap', `hosted Try Me 下 should not inherit scan-word wrapping: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.down.wordBreak === 'keep-all', `hosted Try Me 下 should keep its glyph hitbox intact: ${JSON.stringify(snapshot.down)}`);
+    assertAudit(snapshot.down.paddingInlineStart === '0px' && snapshot.down.paddingInlineEnd === '0px', `hosted Try Me 下 should not offset the glyph hitbox with padding: ${JSON.stringify(snapshot.down)}`);
     assertAudit(snapshot.pointSurface === '下' && snapshot.pointExpression === '下', `hosted Try Me center point misses 下: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-underline-jpdb'), `word underline source class missing: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-text-jpdb'), `word text source class missing: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.jpdbWord?.textDecorationLine.includes('underline'), `JPDB-backed demo word is not underlined: ${JSON.stringify(snapshot.jpdbWord)}`);
     assertAudit(!isTransparentCssColor(snapshot.jpdbWord?.textDecorationColor), `JPDB-backed demo underline is transparent: ${JSON.stringify(snapshot.jpdbWord)}`);
+    assertAudit(!isTransparentCssColor(snapshot.jpdbWord?.color), `JPDB-backed demo text color is transparent: ${JSON.stringify(snapshot.jpdbWord)}`);
+    assertAudit(snapshot.jpdbWord?.color !== snapshot.hostTextColor, `JPDB-backed demo text color is still inherited from host copy: ${JSON.stringify(snapshot)}`);
 
     const downBox = snapshot.down.rect;
     await page.mouse.move(downBox.x + downBox.width / 2, downBox.y + downBox.height / 2);
@@ -1953,6 +1925,80 @@ async function auditHostedTryMeDemo(browser, server) {
     await page.screenshot({ path: path.join(ARTIFACTS, 'hosted-try-me.png'), fullPage: false });
     await page.close();
     record('hosted Try Me demo', 'pass', 'partial JPDB parses keep 下 clickable and JPDB-backed words keep color/underline styling');
+}
+
+async function assertHostedTryMeFreshProfile(browser, server) {
+    const { page } = await newAuditedPage(browser, {
+        ...baseSettings,
+        apiKey: '',
+        ankiEnabled: false,
+        wordHighlightColorSource: 'jpdb',
+        wordUnderlineColorSource: 'jpdb',
+        wordTextColorSource: 'jpdb',
+        hoverOpenDelayMs: 35,
+        hoverCloseDelayMs: 120,
+    });
+    try {
+        await page.goto(`${server.origin}${QA_HOSTED_TRY_ME_PATH}`, { waitUntil: 'domcontentloaded' });
+        await injectUserscript(page);
+        await waitForAudit(page, () => [...document.querySelectorAll('[data-yomu-demo-lookup] .jpdb-reader-word')]
+            .some(word => word.textContent?.replace(/\s+/g, '').includes('下')), 10000, 'fresh hosted Try Me did not wrap 下 as a lookup word');
+        const snapshot = await hostedTryMeVisualSnapshot(page);
+        assertAudit(snapshot.down?.expression === '下', `fresh hosted Try Me 下 word has wrong expression: ${JSON.stringify(snapshot)}`);
+        assertAudit(snapshot.pointSurface === '下' && snapshot.pointExpression === '下', `fresh hosted Try Me center point misses 下: ${JSON.stringify(snapshot)}`);
+        assertAudit(snapshot.jpdbWord?.textDecorationLine.includes('underline'), `fresh hosted Try Me word is not underlined: ${JSON.stringify(snapshot.jpdbWord)}`);
+        assertAudit(!isTransparentCssColor(snapshot.jpdbWord?.textDecorationColor), `fresh hosted Try Me underline is transparent: ${JSON.stringify(snapshot.jpdbWord)}`);
+        assertAudit(snapshot.jpdbWord?.color !== snapshot.hostTextColor, `fresh hosted Try Me text color is still inherited from host copy: ${JSON.stringify(snapshot)}`);
+    } finally {
+        await page.close();
+    }
+}
+
+async function hostedTryMeVisualSnapshot(page) {
+    return await page.evaluate(() => {
+        const surface = node => [...node.childNodes].map(child => {
+            if (child.nodeType === Node.TEXT_NODE) return child.textContent ?? '';
+            if (!(child instanceof Element) || child.matches('rt,rp')) return '';
+            return surface(child);
+        }).join('');
+        const words = [...document.querySelectorAll('[data-yomu-demo-lookup] .jpdb-reader-word')];
+        const wordData = words.map(word => {
+            const rect = word.getBoundingClientRect();
+            const style = getComputedStyle(word);
+            return {
+                surface: surface(word).trim(),
+                expression: word.getAttribute('data-expression') ?? '',
+                className: word.className,
+                cursor: style.cursor,
+                color: style.color,
+                textDecorationColor: style.textDecorationColor,
+                textDecorationLine: style.textDecorationLine,
+                display: style.display,
+                minWidth: style.minWidth,
+                whiteSpace: style.whiteSpace,
+                wordBreak: style.wordBreak,
+                paddingInlineStart: style.paddingInlineStart,
+                paddingInlineEnd: style.paddingInlineEnd,
+                rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+            };
+        });
+        const down = wordData.find(word => word.surface === '下');
+        const jpdbWord = wordData.find(word => word.surface === '日本語');
+        const hostTextColor = getComputedStyle(document.querySelector('[data-yomu-demo-lookup] p') ?? document.body).color;
+        const point = down ? { x: down.rect.x + down.rect.width / 2, y: down.rect.y + down.rect.height / 2 } : null;
+        const target = point ? document.elementFromPoint(point.x, point.y) : null;
+        const targetWord = target?.closest?.('.jpdb-reader-word');
+        return {
+            rootClasses: document.documentElement.className,
+            wordData,
+            down,
+            jpdbWord,
+            hostTextColor,
+            point,
+            pointSurface: targetWord ? surface(targetWord).trim() : '',
+            pointExpression: targetWord?.getAttribute('data-expression') ?? '',
+        };
+    });
 }
 
 function collectPageBrowserErrors(page) {
@@ -1990,6 +2036,22 @@ function isDocsHomeHref(href) {
 function assertNoPageBrowserErrors(errors, label) {
     const quiet = !errors.consoleErrors.length && !errors.pageErrors.length;
     assertAudit(quiet, `${label} produced browser errors: ${JSON.stringify(errors)}`);
+}
+
+async function assertNoVisibleReaderErrorToasts(page, label, detail = undefined) {
+    const toasts = await page.evaluate(() => [...document.querySelectorAll('.jpdb-reader-toast')]
+        .filter(toast => toast instanceof HTMLElement
+            && !toast.hidden
+            && getComputedStyle(toast).display !== 'none'
+            && getComputedStyle(toast).visibility !== 'hidden')
+        .map(toast => toast.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+        .filter(Boolean));
+    const errors = toasts.filter(toastLooksLikeReaderError);
+    assertAudit(!errors.length, `${label} showed visible error toasts: ${JSON.stringify({ errors, detail })}`);
+}
+
+function toastLooksLikeReaderError(text) {
+    return /error|failed|could not|unable|unexpected|syntaxerror|json|id3|no audio|returned no audio/i.test(text);
 }
 
 async function auditBloomeeAutoScan(browser) {
@@ -2249,7 +2311,7 @@ async function auditHoverLookup(browser, server) {
 
 async function auditRuntimeRegressionFixes(browser, server) {
     const runtimeAudioRequests = [];
-    const { page } = await newAuditedPage(browser, {
+    const { page, requests } = await newAuditedPage(browser, {
         ...baseSettings,
         lookupOnClick: true,
         lookupOnHover: true,
@@ -2304,15 +2366,36 @@ async function auditRuntimeRegressionFixes(browser, server) {
         runtimeAudioRequests.push({ kind: 'direct', url: route.request().url() });
         route.abort('failed');
     });
-    await page.route('https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/**', route => {
+    await page.route('https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/**', async route => {
+        const request = route.request();
         const url = new URL(route.request().url());
         const target = url.searchParams.get('url') ?? '';
-        runtimeAudioRequests.push({ kind: 'proxy', url: route.request().url(), target });
-        route.fulfill({
-            status: 200,
-            contentType: 'audio/ogg',
-            body: encodedJpdbOggBytes(),
-        });
+        runtimeAudioRequests.push({ kind: 'proxy', url: request.url(), target });
+        if (/^https:\/\/jpdb\.io\/static\/v\//i.test(target)) {
+            await route.fulfill({
+                status: 200,
+                contentType: 'audio/ogg',
+                body: encodedJpdbOggBytes(),
+            });
+            return;
+        }
+        const mocked = target
+            ? maybeMockQaRequest({
+                method: request.method(),
+                url: target,
+                headers: request.headers(),
+                data: request.postData() ?? undefined,
+            })
+            : null;
+        if (mocked) {
+            await route.fulfill({
+                status: mocked.status,
+                contentType: mocked.contentType,
+                body: Buffer.from(mocked.bytes),
+            });
+            return;
+        }
+        await route.abort('failed');
     });
 
     await page.goto(`${server.origin}${QA_RUNTIME_REGRESSION_PATH}`, { waitUntil: 'domcontentloaded' });
@@ -2483,14 +2566,19 @@ async function auditRuntimeRegressionFixes(browser, server) {
         assertNoPageBrowserErrors(browserErrors, 'runtime regression fixture');
     } catch (error) {
         failures.push(error instanceof Error ? error.message : String(error));
-	    }
-	    await page.screenshot({ path: path.join(ARTIFACTS, 'runtime-regression.png'), fullPage: false });
-	    try {
-	        await assertRuntimeLinkCardLookupAndNavigation(page);
-	    } catch (error) {
-	        failures.push(error instanceof Error ? error.message : String(error));
-	    }
-	    await page.close();
+    }
+    try {
+        await assertNoVisibleReaderErrorToasts(page, 'runtime regression fixture', { runtimeAudioRequests, requests: requests.slice(-24) });
+    } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
+    }
+    await page.screenshot({ path: path.join(ARTIFACTS, 'runtime-regression.png'), fullPage: false });
+    try {
+        await assertRuntimeLinkCardLookupAndNavigation(page);
+    } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
+    }
+    await page.close();
     if (failures.length) throw new Error(failures.join(' | '));
     record('runtime regression fixture', 'pass', '読んで lookup, stale hover dismissal, study/example audio, and Immersion Kit parsing stayed healthy');
 }
@@ -2744,10 +2832,9 @@ async function auditImmersionKitPopover(browser, server) {
     });
     await page.addInitScript(() => {
         window.__yomuAudioPlayCount = 0;
-        const originalPlay = HTMLMediaElement.prototype.play;
-        HTMLMediaElement.prototype.play = function play(...args) {
+        HTMLMediaElement.prototype.play = function play() {
             window.__yomuAudioPlayCount += 1;
-            return originalPlay.apply(this, args);
+            return Promise.resolve();
         };
     });
     await page.route(`${server.origin}/immersion-fixture.html`, route => route.fulfill({
@@ -2780,6 +2867,8 @@ async function auditImmersionKitPopover(browser, server) {
         translationVisible: Boolean(document.querySelector('[data-immersion-kit] .jpdb-reader-example-translation')),
         imageVisible: Boolean(document.querySelector('.jpdb-reader-example-image')),
         localDefinitionWords: document.querySelectorAll('.jpdb-reader-local-glossary .jpdb-reader-word').length,
+        localDefinitionTexts: [...document.querySelectorAll('.jpdb-reader-local-glossary')]
+            .map(node => node.textContent?.replace(/\s+/g, ' ').trim() ?? ''),
         hasAnkiEdit: Boolean(document.querySelector('[data-action="anki-edit"]')),
         hasAddToAnki: Boolean(document.querySelector('[data-action="anki"]')),
         ankiExisting: document.querySelector('.jpdb-reader-anki-existing')?.textContent ?? '',
@@ -2788,7 +2877,11 @@ async function auditImmersionKitPopover(browser, server) {
     assertAudit(firstSnapshot.exampleWords >= 2, 'Immersion Kit sentence is not recursively tokenized');
     assertAudit(!firstSnapshot.translationVisible, 'Immersion Kit translations are visible despite the default-off setting');
     assertAudit(firstSnapshot.imageVisible, 'Immersion Kit thumbnail did not render');
-    assertAudit(firstSnapshot.localDefinitionWords >= 0, 'local dictionary recursive parsing did not run');
+    assertAudit(
+        firstSnapshot.localDefinitionWords > 0
+            && firstSnapshot.localDefinitionTexts.some(text => /日本語.*読む|読む.*日本語/.test(text)),
+        `local dictionary recursive parsing did not run: ${JSON.stringify(firstSnapshot)}`,
+    );
     assertAudit(firstSnapshot.hasAnkiEdit && !firstSnapshot.hasAddToAnki, 'existing Anki card did not replace Add to Anki with Edit in Anki');
     assertAudit(firstSnapshot.ankiExisting.includes('Anime Mining') && firstSnapshot.ankiExisting.includes('今日は本を読む'), 'existing Anki card preview did not render deck and sentence context');
     await page.evaluate(() => {
@@ -2911,6 +3004,15 @@ async function auditImmersionKitPopover(browser, server) {
         6000,
         'Immersion Kit manual audio button did not request audio after hover autoplay',
     );
+    await page.locator('.jpdb-reader-popover [data-action="word-history-back"]').click();
+    await waitForAudit(page, () => {
+        const spellings = [...document.querySelectorAll('.jpdb-reader-popover .jpdb-reader-spelling')]
+            .map(node => node.textContent?.replace(/\s+/g, '').trim() ?? '');
+        return document.querySelectorAll('.jpdb-reader-popover').length === 1
+            && spellings.some(spelling => spelling.includes('読'));
+    }, 6000, 'nested Immersion lookup back arrow did not return to the source popup');
+    await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'source Immersion lookup kept showing dictionary loading details after back navigation');
+    await assertNoVisibleReaderErrorToasts(page, 'Immersion Kit popup examples');
     await page.close();
     record('Immersion Kit popup examples', 'pass', 'examples render in-card and nested words open lookup');
 }
@@ -3026,29 +3128,38 @@ async function auditVideoFixture(browser, server) {
             label: button.getAttribute('aria-label') ?? button.getAttribute('title') ?? button.textContent?.trim() ?? '',
         }));
         const primaryStyle = primary ? getComputedStyle(primary) : null;
-	        const firstWordStyle = firstWord instanceof HTMLElement ? getComputedStyle(firstWord) : null;
-	        return {
+        const firstWordStyle = firstWord instanceof HTMLElement ? getComputedStyle(firstWord) : null;
+        return {
             hidden: root?.hidden,
             documentClasses: document.documentElement.className,
             subtitleRootClasses: root instanceof HTMLElement ? root.className : '',
             rect: rect ? { width: rect.width, height: rect.height, bottom: rect.bottom } : null,
             buttons,
-            menuHidden: document.querySelector('.jpdb-subtitle-menu')?.hasAttribute('hidden'),
             visibleFileInputs: document.querySelectorAll('.jpdb-subtitle-player input[type="file"]:not([hidden])').length,
             transcriptVisible: Boolean(document.querySelector('.jpdb-subtitle-list:not([hidden])')),
             obsoleteStatusText: document.body.textContent?.includes('No loaded Japanese subtitle lines.') ?? false,
             subtitleText: primary?.textContent ?? '',
             subtitleBackground: `${primaryStyle?.backgroundColor ?? ''} ${primaryStyle?.backgroundImage ?? ''}`,
-	            subtitleWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
-	            subtitleWordClasses: firstWord instanceof HTMLElement ? firstWord.className : '',
-	            subtitleWordOpacity: firstWordStyle?.opacity ?? '',
-	            subtitleWordBackground: firstWordStyle?.backgroundColor ?? '',
+            subtitleWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
+            subtitleWordClasses: firstWord instanceof HTMLElement ? firstWord.className : '',
+            subtitleWordOpacity: firstWordStyle?.opacity ?? '',
+            subtitleWordBackground: firstWordStyle?.backgroundColor ?? '',
             subtitleWordBackgroundImage: firstWordStyle?.backgroundImage ?? '',
             subtitleWordDecorationLine: firstWordStyle?.textDecorationLine ?? '',
             subtitleWordDecorationColor: firstWordStyle?.textDecorationColor ?? '',
         };
     });
     assertVideoFixtureSnapshot(snapshot);
+    const idleRailSnapshot = await subtitleRailControlSnapshot(page, {
+        addClasses: ['jpdb-subtitle-controls-auto', 'jpdb-subtitle-controls-idle', 'jpdb-subtitle-compact-video'],
+        removeClasses: ['jpdb-subtitle-panel-open'],
+    });
+    assertCompactIdleRailSnapshot(idleRailSnapshot);
+    const hiddenControlsRailSnapshot = await subtitleRailControlSnapshot(page, {
+        addClasses: ['jpdb-subtitle-controls-hidden', 'jpdb-subtitle-compact-video'],
+        removeClasses: ['jpdb-subtitle-controls-auto', 'jpdb-subtitle-controls-idle', 'jpdb-subtitle-panel-open'],
+    });
+    assertHiddenControlsRailSnapshot(hiddenControlsRailSnapshot);
     await page.evaluate(() => {
         const video = document.querySelector('video');
         if (!video) return;
@@ -3105,6 +3216,40 @@ async function auditVideoFixture(browser, server) {
     record('subtitle player fixture', 'pass', 'watched a cue with JPDB highlighting and readable subtitle backing');
 }
 
+async function subtitleRailControlSnapshot(page, { addClasses, removeClasses }) {
+    return page.evaluate(({ addClasses: classesToAdd, removeClasses: classesToRemove }) => {
+        const root = document.querySelector('.jpdb-subtitle-player');
+        if (root instanceof HTMLElement) {
+            root.classList.add(...classesToAdd);
+            root.classList.remove(...classesToRemove);
+        }
+        const rail = document.querySelector('.jpdb-subtitle-rail');
+        const previous = document.querySelector('.jpdb-subtitle-rail [data-action="previous"]');
+        const next = document.querySelector('.jpdb-subtitle-rail [data-action="next"]');
+        const panel = document.querySelector('.jpdb-subtitle-rail [data-action="panel"]');
+        const styleFor = element => {
+            if (!(element instanceof HTMLElement)) return null;
+            const style = getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return {
+                opacity: style.opacity,
+                pointerEvents: style.pointerEvents,
+                visibility: style.visibility,
+                display: style.display,
+                width: rect.width,
+                height: rect.height,
+            };
+        };
+        return {
+            rootClass: root instanceof HTMLElement ? root.className : '',
+            rail: styleFor(rail),
+            previous: styleFor(previous),
+            next: styleFor(next),
+            panel: styleFor(panel),
+        };
+    }, { addClasses, removeClasses });
+}
+
 function assertVideoFixtureSnapshot(snapshot) {
     assertAudit(snapshot.hidden === false, 'subtitle player is hidden on a page with video');
     assertAudit(hasLaidOutSubtitlePlayer(snapshot), 'subtitle player is not laid out');
@@ -3118,17 +3263,17 @@ function assertVideoFixtureSnapshot(snapshot) {
         !isTransparentCssColor(snapshot.subtitleWordBackground) || snapshot.subtitleWordBackgroundImage !== 'none',
         `subtitle parsed-word highlight is transparent: ${JSON.stringify(snapshot)}`,
     );
-	    assertAudit(
-	        snapshot.subtitleWordDecorationLine.includes('underline')
-	            && !isTransparentCssColor(snapshot.subtitleWordDecorationColor),
-	        `subtitle parsed-word underline is not immediately visible: ${JSON.stringify(snapshot)}`,
-	    );
-	    assertAudit(
-	        !snapshot.subtitleWordClasses.includes('jpdb-subtitle-word-pending')
-	            && Number.parseFloat(snapshot.subtitleWordOpacity || '0') >= 0.9,
-	        `subtitle parsed-word state is still pending when the cue is active: ${JSON.stringify(snapshot)}`,
-	    );
-	}
+    assertAudit(
+        snapshot.subtitleWordDecorationLine.includes('underline')
+            && !isTransparentCssColor(snapshot.subtitleWordDecorationColor),
+        `subtitle parsed-word underline is not immediately visible: ${JSON.stringify(snapshot)}`,
+    );
+    assertAudit(
+        !snapshot.subtitleWordClasses.includes('jpdb-subtitle-word-pending')
+            && Number.parseFloat(snapshot.subtitleWordOpacity || '0') >= 0.9,
+        `subtitle parsed-word state is still pending when the cue is active: ${JSON.stringify(snapshot)}`,
+    );
+}
 
 function hasLaidOutSubtitlePlayer(snapshot) {
     return (snapshot.rect?.width ?? 0) > 200;
@@ -3136,6 +3281,22 @@ function hasLaidOutSubtitlePlayer(snapshot) {
 
 function hasVisibleFixtureSubtitleText(snapshot) {
     return snapshot.subtitleText.includes('今日') && snapshot.subtitleText.includes('読');
+}
+
+function assertCompactIdleRailSnapshot(snapshot) {
+    assertAudit(Number.parseFloat(snapshot.rail?.opacity ?? '0') >= 0.8 && snapshot.rail?.pointerEvents !== 'none', `idle compact subtitle rail is not visible/clickable: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.panel?.pointerEvents !== 'none' && snapshot.panel?.visibility !== 'hidden' && snapshot.panel?.display !== 'none', `idle compact subtitle panel toggle is not clickable: ${JSON.stringify(snapshot)}`);
+    assertAudit((snapshot.panel?.width ?? 0) >= 28 && (snapshot.panel?.height ?? 0) >= 28, `idle compact subtitle panel toggle is not laid out: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.previous?.opacity === '0' && snapshot.previous?.pointerEvents === 'none', `idle compact previous subtitle control should hide: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.next?.opacity === '0' && snapshot.next?.pointerEvents === 'none', `idle compact next subtitle control should hide: ${JSON.stringify(snapshot)}`);
+}
+
+function assertHiddenControlsRailSnapshot(snapshot) {
+    assertAudit(Number.parseFloat(snapshot.rail?.opacity ?? '0') >= 0.8 && snapshot.rail?.pointerEvents !== 'none', `hidden-controls subtitle rail is not visible/clickable: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.panel?.pointerEvents !== 'none' && snapshot.panel?.visibility !== 'hidden' && snapshot.panel?.display !== 'none', `hidden-controls subtitle panel toggle is not clickable: ${JSON.stringify(snapshot)}`);
+    assertAudit((snapshot.panel?.width ?? 0) >= 28 && (snapshot.panel?.height ?? 0) >= 28, `hidden-controls subtitle panel toggle is not laid out: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.previous?.opacity === '0' && snapshot.previous?.pointerEvents === 'none', `hidden-controls previous subtitle control should hide: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.next?.opacity === '0' && snapshot.next?.pointerEvents === 'none', `hidden-controls next subtitle control should hide: ${JSON.stringify(snapshot)}`);
 }
 
 function assertDesktopTranscriptLayout(layout) {
