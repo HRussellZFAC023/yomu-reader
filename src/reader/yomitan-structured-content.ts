@@ -1,3 +1,5 @@
+import { glossaryValueToText } from './yomitan-glossary-text';
+
 export interface GlossaryRenderOptions {
     internalSearchLinks?: boolean;
 }
@@ -78,33 +80,6 @@ const STRUCTURED_STYLE_PROPERTIES: Record<string, string> = {
 };
 
 const STRUCTURED_NUMERIC_EM_STYLES = new Set(['marginTop', 'marginLeft', 'marginRight', 'marginBottom']);
-
-export function glossaryValueToText(value: unknown): string {
-    const primitiveText = primitiveGlossaryText(value);
-    if (primitiveText !== undefined) return primitiveText;
-    if (Array.isArray(value)) return value.map(glossaryValueToText).filter(Boolean).join(' ');
-    return isRecord(value) ? glossaryRecordToText(value) : '';
-}
-
-function primitiveGlossaryText(value: unknown): string | undefined {
-    if (value == null) return '';
-    if (typeof value === 'string') return value;
-    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-    return undefined;
-}
-
-function glossaryRecordToText(record: Record<string, unknown>): string {
-    if (typeof record.text === 'string') return record.text;
-    if ('content' in record) return glossaryValueToText(record.content);
-    const values = glossaryRecordTextValues(record);
-    if (values.length) return values.join(' ');
-    if ('path' in record) return glossaryPathRecordText(record);
-    return '';
-}
-
-function glossaryPathRecordText(record: Record<string, unknown>): string {
-    return String(record.description || record.alt || '');
-}
 
 export function renderStructuredGlossaryHtml(value: unknown, dictionary = '', options: GlossaryRenderOptions = {}): string {
     return renderGlossaryValue(value, {
@@ -566,17 +541,6 @@ function locationOrigin(): string {
     } catch {
         return '';
     }
-}
-
-function glossaryRecordTextValues(record: Record<string, unknown>): string[] {
-    const textKeys = new Set(['text', 'content', 'description', 'alt', 'title']);
-    const values: string[] = [];
-    for (const [key, childValue] of Object.entries(record)) {
-        if (!textKeys.has(key) && !key.startsWith('data-')) continue;
-        const childText = glossaryValueToText(childValue);
-        if (childText) values.push(childText);
-    }
-    return values;
 }
 
 function numericRecordValue(record: Record<string, unknown>, key: string): number | undefined {

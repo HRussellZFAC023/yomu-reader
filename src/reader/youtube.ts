@@ -105,7 +105,7 @@ type StoredOEmbedTitle = {
     cachedAt: number;
 };
 
-export function isYouTubeHost(hostname = location.hostname): boolean {
+function isYouTubeHost(hostname = location.hostname): boolean {
     return YOUTUBE_HOST_RE.test(hostname);
 }
 
@@ -130,11 +130,7 @@ export function collectYouTubeVideoCards(root: ParentNode = document): HTMLEleme
     return [...cards].filter(card => card.isConnected);
 }
 
-export function readYouTubeCardText(card: HTMLElement): string {
-    return readYouTubeCardInfo(card).title;
-}
-
-export function readYouTubeCardInfo(card: HTMLElement): YouTubeCardInfo {
+function readYouTubeCardInfo(card: HTMLElement): YouTubeCardInfo {
     const title = TITLE_SELECTORS
         .map(selector => card.querySelector<HTMLElement>(selector))
         .find(Boolean);
