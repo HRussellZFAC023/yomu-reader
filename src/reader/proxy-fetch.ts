@@ -426,7 +426,7 @@ function jishoMarkdownProxyUrl(targetUrl: string): string | null {
     try {
         const target = new URL(targetUrl);
         if (target.hostname !== 'jisho.org' || !target.pathname.startsWith('/search/')) return null;
-        return `https://r.jina.ai/http://r.jina.ai/http://${target.href}`;
+        return `https://r.jina.ai/${target.href}`;
     } catch {
         return null;
     }
