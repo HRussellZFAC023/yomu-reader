@@ -150,6 +150,58 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('keeps the YouTube side panel toggle available when tracks arrive before the video wrapper settles', () => {
+        const originalLocation = window.location;
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            subtitleTranscriptVisible: false,
+        };
+        const onSettingsChange = vi.fn();
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange,
+        });
+
+        try {
+            (controller as unknown as { install: () => void }).install();
+            (controller as unknown as { tracks: unknown[] }).tracks = [{
+                id: 'youtube-ja',
+                kind: 'youtube',
+                label: 'Japanese',
+                language: 'ja',
+                cues: [],
+            }];
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const button = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!;
+
+            expect(root.hidden).toBe(false);
+            expect(button.disabled).toBe(false);
+
+            button.click();
+
+            expect(panel.hidden).toBe(false);
+            expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
+            expect(panel.querySelector('.jpdb-subtitle-track-row')?.textContent).toContain('Japanese');
+            expect(onSettingsChange).toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('returns compact subtitle controls to idle after pointer activity over video', async () => {
         vi.useFakeTimers();
         const settings = {
