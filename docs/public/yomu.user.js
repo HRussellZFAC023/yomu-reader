@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.65
+// @version      0.4.66
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -13635,6 +13635,13 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   if (writingMode === "horizontal-tb") return position.below ? "below" : "above";
   return position.after ? "right" : "left";
  }
+ function pruneOldestCacheEntries(cache, limit) {
+  while (cache.size > limit) {
+   const oldest = cache.keys().next();
+   if (oldest.done) break;
+   cache.delete(oldest.value);
+  }
+ }
  const log$r = Logger.scope("StudyTools");
  const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
  const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
@@ -14029,7 +14036,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
     const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
     if (!translated) throw new Error("No translation returned.");
     translationCache.set(cacheKey, translated);
-    pruneOldestMapEntries$3(translationCache, TRANSLATION_CACHE_LIMIT);
+    pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
     log$r.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
     return translated;
    } catch (error) {
@@ -14262,13 +14269,6 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
    failureLabel: "Translation request",
    timeoutLabel: "Translation timed out."
   });
- }
- function pruneOldestMapEntries$3(cache, limit) {
-  while (cache.size > limit) {
-   const oldest = cache.keys().next().value;
-   if (oldest === void 0) break;
-   cache.delete(oldest);
-  }
  }
  const log$q = Logger.scope("StudyRender");
  async function renderStudyToolResult(button2, action, sentence, grammarHints, language = "en") {
@@ -18366,7 +18366,7 @@ ${entry.reading}`;
     const result = applySearchExampleLimit(examples, settings, options);
     if (!options.signal?.aborted) {
      this.cache.set(cacheKey, result);
-     pruneOldestMapEntries$2(this.cache, SEARCH_CACHE_LIMIT);
+     pruneOldestCacheEntries(this.cache, SEARCH_CACHE_LIMIT);
     }
     return result;
    }).finally(() => {
@@ -18517,7 +18517,7 @@ ${entry.reading}`;
    const query = term.trim();
    if (!canSearchImmersionExamples(query, settings) || this.preloadKeys.has(query)) return;
    this.preloadKeys.add(query);
-   pruneOldestSetEntries$1(this.preloadKeys, PRELOAD_KEY_LIMIT);
+   pruneOldestCacheEntries(this.preloadKeys, PRELOAD_KEY_LIMIT);
    void this.search(query, settings).then((examples) => {
     for (const example of examples.slice(0, 1)) {
      const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, "image") : [];
@@ -18900,20 +18900,6 @@ ${entry.reading}`;
  }
  function prioritizeMediaCandidates(urls) {
   return [...urls].sort((a, b) => Number(isObjectStoreMediaUrl(b)) - Number(isObjectStoreMediaUrl(a)));
- }
- function pruneOldestMapEntries$2(map, limit) {
-  while (map.size > limit) {
-   const oldest = map.keys().next().value;
-   if (oldest === void 0) break;
-   map.delete(oldest);
-  }
- }
- function pruneOldestSetEntries$1(set, limit) {
-  while (set.size > limit) {
-   const oldest = set.values().next().value;
-   if (oldest === void 0) break;
-   set.delete(oldest);
-  }
  }
  function isObjectStoreMediaUrl(url) {
   try {
@@ -19889,7 +19875,7 @@ ${spelling}`);
     const audioKey = hoverAudioExampleKey(examples[index]);
     if (this.hoverAudioPlayedKeys.has(audioKey)) return;
     this.hoverAudioPlayedKeys.add(audioKey);
-    pruneOldestSetEntries(this.hoverAudioPlayedKeys, IMMERSION_HOVER_AUDIO_KEY_LIMIT);
+    pruneOldestCacheEntries(this.hoverAudioPlayedKeys, IMMERSION_HOVER_AUDIO_KEY_LIMIT);
     hoverAudioCanPlay = false;
     hoverAudioActive = true;
     void this.playExampleAudio(examples[index], true, () => hoverAudioActive && container.isConnected && hoverTarget.isConnected && hoverTarget.matches(":hover"));
@@ -20143,7 +20129,7 @@ ${spelling}`);
    const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, total, imageUrl, audioUrls));
    if (storedContext) {
     this.contextByCardKey.set(cardKey$1(card), storedContext);
-    pruneOldestMapEntries$1(this.contextByCardKey, IMMERSION_CONTEXT_CACHE_LIMIT);
+    pruneOldestCacheEntries(this.contextByCardKey, IMMERSION_CONTEXT_CACHE_LIMIT);
     this.promoteExampleMiningContext(card, storedContext, promoteMiningContext);
    }
   }
@@ -20284,7 +20270,7 @@ ${spelling}`);
     throw error;
    });
    this.parsedSentenceCache.set(key, entry);
-   pruneOldestMapEntries$1(this.parsedSentenceCache, IMMERSION_PARSED_SENTENCE_CACHE_LIMIT);
+   pruneOldestCacheEntries(this.parsedSentenceCache, IMMERSION_PARSED_SENTENCE_CACHE_LIMIT);
    return entry.promise;
   }
   cachedParsedExampleSentenceTokens(sentence) {
@@ -20578,21 +20564,7 @@ ${spelling}`);
   for (const [key, value] of cache) {
    if (value.expiresAt <= now) cache.delete(key);
   }
-  pruneOldestMapEntries$1(cache, limit);
- }
- function pruneOldestMapEntries$1(cache, limit) {
-  while (cache.size > limit) {
-   const oldest = cache.keys().next().value;
-   if (oldest === void 0) break;
-   cache.delete(oldest);
-  }
- }
- function pruneOldestSetEntries(cache, limit) {
-  while (cache.size > limit) {
-   const oldest = cache.keys().next().value;
-   if (oldest === void 0) break;
-   cache.delete(oldest);
-  }
+  pruneOldestCacheEntries(cache, limit);
  }
  function renderExampleTranslation(translation, settings) {
   if (!settings.immersionKitShowTranslation || !translation) return "";
@@ -33346,7 +33318,7 @@ ${glossaryKey}`;
    if (cached) return cached;
    const promise = Promise.resolve(detectGrammarHints(sentence));
    this.grammarHintCache.set(key, promise);
-   pruneOldestMapEntries(this.grammarHintCache, STUDY_GRAMMAR_CACHE_LIMIT);
+   pruneOldestCacheEntries(this.grammarHintCache, STUDY_GRAMMAR_CACHE_LIMIT);
    return promise;
   }
   cachedTranslationContent(sentence) {
@@ -33358,7 +33330,7 @@ ${glossaryKey}`;
     throw error;
    });
    this.translationContentCache.set(key, promise);
-   pruneOldestMapEntries(this.translationContentCache, STUDY_TRANSLATION_CACHE_LIMIT);
+   pruneOldestCacheEntries(this.translationContentCache, STUDY_TRANSLATION_CACHE_LIMIT);
    return promise;
   }
   studyCacheKey(sentence) {
@@ -33394,13 +33366,6 @@ ${glossaryKey}`;
    ancestor = ancestor.parentElement?.closest("details");
   }
   return true;
- }
- function pruneOldestMapEntries(cache, limit) {
-  while (cache.size > limit) {
-   const oldest = cache.keys().next().value;
-   if (oldest === void 0) break;
-   cache.delete(oldest);
-  }
  }
  function normalizeSubtitleCues(cues, options = {}) {
   const normalized = [];

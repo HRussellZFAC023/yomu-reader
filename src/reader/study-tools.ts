@@ -1,3 +1,4 @@
+import { pruneOldestCacheEntries } from './cache-utils';
 import { escapeHtml } from './dom';
 import { grammarRuleText, uiText, type UiCopyKey } from './i18n';
 import { Logger } from './logger';
@@ -503,7 +504,7 @@ export async function translateJapaneseSentence(sentence: string, language: Inte
             const translated = (json.sentences ?? []).map(item => item.trans ?? '').join('').trim();
             if (!translated) throw new Error('No translation returned.');
             translationCache.set(cacheKey, translated);
-            pruneOldestMapEntries(translationCache, TRANSLATION_CACHE_LIMIT);
+            pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
             log.info('Translation completed', { sentenceLength: trimmed.length, translationLength: translated.length });
             return translated;
         } catch (error) {
@@ -744,12 +745,4 @@ function requestJson<T>(url: string): Promise<T> {
         failureLabel: 'Translation request',
         timeoutLabel: 'Translation timed out.',
     }) as Promise<T>;
-}
-
-function pruneOldestMapEntries<TKey, TValue>(cache: Map<TKey, TValue>, limit: number): void {
-    while (cache.size > limit) {
-        const oldest = cache.keys().next().value as TKey | undefined;
-        if (oldest === undefined) break;
-        cache.delete(oldest);
-    }
 }

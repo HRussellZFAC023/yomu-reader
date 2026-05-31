@@ -403,7 +403,10 @@ export class NewTabRuntime {
                 autoPlay: false,
                 userGesture: options?.userGesture,
             }),
-            showKanjiCard: (card, kanji, sentence, anchor) => this.showKanjiLookupCard(card, kanji, sentence, anchor),
+            showKanjiCard: (card, kanji, sentence, anchor, options) => this.showKanjiLookupCard(card, kanji, sentence, anchor, {
+                navigation: options?.navigation,
+                reuseActivePopover: options?.reuseActivePopover,
+            }),
             loadCardRenderData: card => this.cardRenderData.load(card).all,
             renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, { includeStudySources: false }),
             renderSearchWordPills: (card, metaEntries) => renderWordPills({

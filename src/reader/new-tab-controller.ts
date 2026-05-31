@@ -2,6 +2,7 @@ import { primaryCardState } from './card-state';
 import { copyText } from './browser-ui';
 import type { CardRenderData } from './card-render-data';
 import { cardHighlightTargets, isCardHighlightWord, normalizedJapaneseCardReading, renderCardHighlightedTextHtml } from './card-highlight';
+import { pruneOldestCacheEntries } from './cache-utils';
 import { APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from './constants';
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { el, fragment, replaceChildrenWith, type DomAttrs } from './dom-builder';
@@ -176,7 +177,7 @@ export interface NewTabControllerDependencies {
     lookupText?: (text: string, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     lookupDictionaryReference?: (query: string, reading: string, sourceDictionary: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     showLookupCard?: (card: JPDBCard, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
-    showKanjiCard?: (card: JPDBCard, kanji: string, sentence: string, anchor?: HTMLElement) => Promise<void> | void;
+    showKanjiCard?: (card: JPDBCard, kanji: string, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     loadCardRenderData?: (card: JPDBCard) => Promise<CardRenderData>;
     renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => string;
     renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[]) => string;
@@ -1289,18 +1290,10 @@ export class NewTabController {
             return true;
         }
         if (card && this.dependencies.showLookupCard) {
-            void this.dependencies.showLookupCard(card, sentence, word, {
-                navigation: 'push-current',
-                reuseActivePopover: true,
-                userGesture: true,
-            });
+            void this.dependencies.showLookupCard(card, sentence, word, this.nestedLookupOptions());
             return true;
         }
-        void this.dependencies.lookupText?.(expression, reading, word, {
-            navigation: 'push-current',
-            reuseActivePopover: true,
-            userGesture: true,
-        });
+        void this.dependencies.lookupText?.(expression, reading, word, this.nestedLookupOptions());
         return true;
     }
 
@@ -1328,7 +1321,7 @@ export class NewTabController {
         const card = this.visibleWords[this.index];
         if (!card) return false;
         consumeNestedLookupEvent(event);
-        void this.dependencies.lookupText?.(card.spelling, newTabCardReading(card), prompt, { userGesture: true });
+        void this.dependencies.lookupText?.(card.spelling, newTabCardReading(card), prompt, this.nestedLookupOptions());
         return true;
     }
 
@@ -1345,13 +1338,17 @@ export class NewTabController {
             link.dataset.dictionaryReading ?? '',
             link.dataset.dictionary ?? '',
             link,
-            {
-                navigation: 'push-current',
-                reuseActivePopover: true,
-                userGesture: true,
-            },
+            this.nestedLookupOptions(),
         );
         return true;
+    }
+
+    private nestedLookupOptions(): NewTabLookupDependencyOptions {
+        return {
+            navigation: 'push-current',
+            reuseActivePopover: true,
+            userGesture: true,
+        };
     }
 
     private handleNestedLookupAction(root: HTMLElement, actionTarget: HTMLElement, event: MouseEvent): boolean {
@@ -1382,9 +1379,9 @@ export class NewTabController {
         }
         if (!card) return true;
         if (this.dependencies.showKanjiCard) {
-            void this.dependencies.showKanjiCard(card, kanji, sentenceForCard(card), actionTarget);
+            void this.dependencies.showKanjiCard(card, kanji, sentenceForCard(card), actionTarget, this.nestedLookupOptions());
         } else {
-            void this.dependencies.lookupText?.(kanji, kanji, actionTarget, { userGesture: true });
+            void this.dependencies.lookupText?.(kanji, kanji, actionTarget, this.nestedLookupOptions());
         }
         return true;
     }
@@ -1398,7 +1395,7 @@ export class NewTabController {
             this.selectSearchSuggestion(root, term);
             return true;
         }
-        void this.dependencies.lookupText?.(term, reading || term, actionTarget, { userGesture: true });
+        void this.dependencies.lookupText?.(term, reading || term, actionTarget, this.nestedLookupOptions());
         return true;
     }
 
@@ -3398,7 +3395,7 @@ export class NewTabController {
             throw error;
         });
         this.parsedSentenceCache.set(key, entry);
-        pruneOldestMapEntries(this.parsedSentenceCache, NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT);
+        pruneOldestCacheEntries(this.parsedSentenceCache, NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT);
         return entry.promise;
     }
 
@@ -7161,12 +7158,4 @@ function delayWithValue<T>(value: T, ms: number): Promise<T> {
 
 function uniqueNumbers(values: number[]): number[] {
     return [...new Set(values)];
-}
-
-function pruneOldestMapEntries<TKey, TValue>(cache: Map<TKey, TValue>, limit: number): void {
-    while (cache.size > limit) {
-        const oldest = cache.keys().next().value;
-        if (oldest === undefined) break;
-        cache.delete(oldest);
-    }
 }

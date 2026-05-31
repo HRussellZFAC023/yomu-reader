@@ -3577,7 +3577,11 @@ describe('new tab review helpers', () => {
 
         root.querySelector<HTMLElement>('[data-newtab-prompt]')?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
-        expect(lookupText).toHaveBeenCalledWith('月光', 'げっこう', root.querySelector('[data-newtab-prompt]'), { userGesture: true });
+        expect(lookupText).toHaveBeenCalledWith('月光', 'げっこう', root.querySelector('[data-newtab-prompt]'), {
+            navigation: 'push-current',
+            reuseActivePopover: true,
+            userGesture: true,
+        });
         expect((controller as unknown as { state: { revealAnswer: boolean } }).state.revealAnswer).toBe(false);
     });
 
@@ -4641,8 +4645,16 @@ describe('new tab review helpers', () => {
             reuseActivePopover: true,
             userGesture: true,
         });
-        expect(lookupText).toHaveBeenCalledWith('何事', 'なにごと', root.querySelectorAll('button')[0], { userGesture: true });
-        expect(showKanjiCard).toHaveBeenCalledWith(card, '事', '事情を説明する。', root.querySelectorAll('button')[1]);
+        expect(lookupText).toHaveBeenCalledWith('何事', 'なにごと', root.querySelectorAll('button')[0], {
+            navigation: 'push-current',
+            reuseActivePopover: true,
+            userGesture: true,
+        });
+        expect(showKanjiCard).toHaveBeenCalledWith(card, '事', '事情を説明する。', root.querySelectorAll('button')[1], {
+            navigation: 'push-current',
+            reuseActivePopover: true,
+            userGesture: true,
+        });
     });
 
     it('keeps kanji drill-down history and sheet height in hosted new-tab popups', async () => {
@@ -4741,6 +4753,7 @@ describe('new tab review helpers', () => {
         const runtime = new NewTabRuntime();
         const lookupText = vi.fn(async () => undefined);
         const showLookupCard = vi.fn(async () => undefined);
+        const showKanjiLookupCard = vi.fn(async () => undefined);
         const current = newTabTestCard({ spelling: '読む', reading: 'よむ', sentence: '読む。' });
         const next = newTabTestCard({ spelling: '下', reading: 'した', sentence: '下です。' });
         const previousNavigationEntry = { kind: 'word' as const, card: current, sentence: current.sentence };
@@ -4748,10 +4761,12 @@ describe('new tab review helpers', () => {
         const internals = runtime as unknown as {
             lookupText: typeof lookupText;
             showLookupCard: typeof showLookupCard;
+            showKanjiLookupCard: typeof showKanjiLookupCard;
             createNewTabController(): NewTabController;
         };
         internals.lookupText = lookupText;
         internals.showLookupCard = showLookupCard;
+        internals.showKanjiLookupCard = showKanjiLookupCard;
 
         try {
             const controller = internals.createNewTabController() as unknown as {
@@ -4769,6 +4784,12 @@ describe('new tab review helpers', () => {
                         userGesture?: boolean;
                     }): Promise<void> | void;
                     showLookupCard(card: JPDBCard, sentence: string, anchor?: HTMLElement, options?: {
+                        navigation?: string;
+                        previousNavigationEntry?: typeof previousNavigationEntry;
+                        reuseActivePopover?: boolean;
+                        userGesture?: boolean;
+                    }): Promise<void> | void;
+                    showKanjiCard(card: JPDBCard, kanji: string, sentence: string, anchor?: HTMLElement, options?: {
                         navigation?: string;
                         previousNavigationEntry?: typeof previousNavigationEntry;
                         reuseActivePopover?: boolean;
@@ -4795,6 +4816,12 @@ describe('new tab review helpers', () => {
                 reuseActivePopover: true,
                 userGesture: true,
             });
+            await controller.dependencies.showKanjiCard(next, '下', '下です。', anchor, {
+                navigation: 'push-current',
+                previousNavigationEntry,
+                reuseActivePopover: true,
+                userGesture: true,
+            });
 
             expect(lookupText).toHaveBeenNthCalledWith(1, '下', 'した', anchor, expect.objectContaining({
                 navigation: 'push-current',
@@ -4814,6 +4841,10 @@ describe('new tab review helpers', () => {
                 reuseActivePopover: true,
                 autoPlay: false,
                 userGesture: true,
+            }));
+            expect(showKanjiLookupCard).toHaveBeenCalledWith(next, '下', '下です。', anchor, expect.objectContaining({
+                navigation: 'push-current',
+                reuseActivePopover: true,
             }));
         } finally {
             runtime.destroy();
@@ -5385,7 +5416,11 @@ describe('new tab review helpers', () => {
         const button = root.querySelector<HTMLButtonElement>('button')!;
         button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
-        expect(lookupText).toHaveBeenCalledWith('寸', '寸', button, { userGesture: true });
+        expect(lookupText).toHaveBeenCalledWith('寸', '寸', button, {
+            navigation: 'push-current',
+            reuseActivePopover: true,
+            userGesture: true,
+        });
     });
 
     it('toggles blurred Immersion Kit translations on the new tab card', () => {
