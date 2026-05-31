@@ -27,7 +27,6 @@ import {
     isPassiveInteractionElement,
     nearestReadableSentenceForElement,
     readerWordSurfaceText,
-    renderTokensToHtml,
     sentenceAroundRange,
     setInnerHtml,
     unwrapReaderWords,
@@ -73,7 +72,6 @@ import { groupTermEntriesByDictionary } from './local-dictionary-groups';
 import { configureLogger, Logger, loggingSettingsSummary } from './logger';
 import {
     inferMiningSourceKind,
-    loadMiningContext,
     resolveMiningContext as resolveStoredMiningContext,
     type MiningContext,
 } from './mining-context';
@@ -81,7 +79,6 @@ import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayAffect
 import { NativeTitleGuard } from './native-title-guard';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from './nested-text-parse';
 import { resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
-import { speakerIcon } from './icons';
 import { OnboardingController } from './onboarding';
 import { installOriginGraphInteractions } from './origin-graph-interactions';
 import { localPitchPatternFromMeta } from './pitch-meta';
@@ -1783,15 +1780,6 @@ export class ReaderApp {
         if (!this.hasHoverLookupShortcut() || !this.shouldLookupOnHover(event)) return false;
         const word = this.hoverReaderWordForEvent(event);
         return Boolean(word && this.isInsideActivePopover(word));
-    }
-
-    private isPointerInsideActiveHoverWord(event: PointerEvent): boolean {
-        if (this.activePopoverMode !== 'hover' || !this.activeHoverWord?.isConnected) return false;
-        const rect = this.activeHoverWord.getBoundingClientRect();
-        return event.clientX >= rect.left
-            && event.clientX <= rect.right
-            && event.clientY >= rect.top
-            && event.clientY <= rect.bottom;
     }
 
     private hoverReaderWordForEvent(event: PointerEvent): HTMLElement | null {

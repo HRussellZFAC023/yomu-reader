@@ -62,7 +62,6 @@ import {
     renderKanjiPractice,
     renderPitch,
     renderRtkInfo,
-    uniqueKanji,
 } from './popup-render';
 import { ReaderParser, jpdbFirstParseOptions } from './reader-parser';
 import { RtkClient, type RtkInfo } from './rtk';
@@ -538,7 +537,7 @@ export class NewTabRuntime {
         this.navigation.clearKanji();
         const { popover, reused } = this.lookupRenderSurface(options.reuseActivePopover === true);
         if (requestId !== this.lookupRenderRequest) return;
-        this.maybePreloadLookupCardAudio(card, options);
+        this.maybePreloadLookupCardAudio(card);
         const renderData = this.cardRenderData.load(card);
         const fallbackAnkiLookup: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
         const renderState = { fullRenderCompleted: false };
@@ -1346,7 +1345,7 @@ export class NewTabRuntime {
         });
     }
 
-    private maybePreloadLookupCardAudio(card: JPDBCard, options: NewTabLookupDisplayOptions): void {
+    private maybePreloadLookupCardAudio(card: JPDBCard): void {
         if (!this.settings.audioEnabled) return;
         this.audio.preload(card, {
             sourceLimit: 1,

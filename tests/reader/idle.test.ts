@@ -32,7 +32,7 @@ describe('idle scheduling', () => {
 
     it('uses native requestIdleCallback when it is callable', async () => {
         const callback = vi.fn();
-        const requestIdleCallback = vi.fn((run: IdleRequestCallback, options?: IdleRequestOptions) => {
+        const requestIdleCallback = vi.fn((run: IdleRequestCallback, _options?: IdleRequestOptions) => {
             run({ didTimeout: false, timeRemaining: () => 12 });
             return 1;
         });

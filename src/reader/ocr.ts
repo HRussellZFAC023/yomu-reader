@@ -1063,12 +1063,6 @@ function japaneseOcrResult(width: number, height: number, lines: OcrLine[]): Ocr
     return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
 }
 
-function japaneseOcrLine(text: string, box: OcrRect | null): OcrLine | null {
-    return text && box && HAS_JAPANESE.test(text)
-        ? { text, box, vertical: box.height > box.width * 1.25 && text.length > 1 }
-        : null;
-}
-
 function cleanOcrLookupLines(lines: OcrLine[], parsed: JPDBToken[][]): OcrLine[] {
     const cleaned = lines.map((line, index) => {
         const text = cleanOcrLookupText(line.text, parsed[index] ?? []);
@@ -2163,10 +2157,6 @@ function shouldObserveImage(image: HTMLImageElement, settings: ReaderSettings): 
     return settings.ocrProvider === 'google-lens';
 }
 
-function hasFallbackOcrMetadata(image: HTMLImageElement): boolean {
-    return Boolean(readFallbackOcrResult(image, false));
-}
-
 function isNearViewport(element: Element, margin: number): boolean {
     const rect = element.getBoundingClientRect();
     return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
@@ -2462,10 +2452,6 @@ function stringFrom(value: unknown): string {
 
 function asRecord(value: unknown): Record<string, unknown> | null {
     return value && typeof value === 'object' ? value as Record<string, unknown> : null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function numberFrom(value: unknown): number | null {

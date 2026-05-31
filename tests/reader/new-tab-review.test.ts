@@ -6654,7 +6654,6 @@ describe('new tab review helpers', () => {
             score: 1,
             dictionary: 'Local',
         }]);
-        const invalidateCaches = vi.fn();
         const controller = new NewTabController({
             getSettings: () => settings,
             anki: {} as never,
