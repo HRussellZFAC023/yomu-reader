@@ -3092,61 +3092,38 @@ async function auditVideoFixture(browser, server) {
             label: button.getAttribute('aria-label') ?? button.getAttribute('title') ?? button.textContent?.trim() ?? '',
         }));
         const primaryStyle = primary ? getComputedStyle(primary) : null;
-	        const firstWordStyle = firstWord instanceof HTMLElement ? getComputedStyle(firstWord) : null;
-	        return {
+        const firstWordStyle = firstWord instanceof HTMLElement ? getComputedStyle(firstWord) : null;
+        return {
             hidden: root?.hidden,
             documentClasses: document.documentElement.className,
             subtitleRootClasses: root instanceof HTMLElement ? root.className : '',
             rect: rect ? { width: rect.width, height: rect.height, bottom: rect.bottom } : null,
             buttons,
-            menuHidden: document.querySelector('.jpdb-subtitle-menu')?.hasAttribute('hidden'),
             visibleFileInputs: document.querySelectorAll('.jpdb-subtitle-player input[type="file"]:not([hidden])').length,
             transcriptVisible: Boolean(document.querySelector('.jpdb-subtitle-list:not([hidden])')),
             obsoleteStatusText: document.body.textContent?.includes('No loaded Japanese subtitle lines.') ?? false,
             subtitleText: primary?.textContent ?? '',
             subtitleBackground: `${primaryStyle?.backgroundColor ?? ''} ${primaryStyle?.backgroundImage ?? ''}`,
-	            subtitleWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
-	            subtitleWordClasses: firstWord instanceof HTMLElement ? firstWord.className : '',
-	            subtitleWordOpacity: firstWordStyle?.opacity ?? '',
-	            subtitleWordBackground: firstWordStyle?.backgroundColor ?? '',
+            subtitleWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
+            subtitleWordClasses: firstWord instanceof HTMLElement ? firstWord.className : '',
+            subtitleWordOpacity: firstWordStyle?.opacity ?? '',
+            subtitleWordBackground: firstWordStyle?.backgroundColor ?? '',
             subtitleWordBackgroundImage: firstWordStyle?.backgroundImage ?? '',
             subtitleWordDecorationLine: firstWordStyle?.textDecorationLine ?? '',
             subtitleWordDecorationColor: firstWordStyle?.textDecorationColor ?? '',
         };
     });
     assertVideoFixtureSnapshot(snapshot);
-    const idleRailSnapshot = await page.evaluate(() => {
-        const root = document.querySelector('.jpdb-subtitle-player');
-        if (root instanceof HTMLElement) {
-            root.classList.add('jpdb-subtitle-controls-auto', 'jpdb-subtitle-controls-idle', 'jpdb-subtitle-compact-video');
-            root.classList.remove('jpdb-subtitle-panel-open');
-        }
-        const rail = document.querySelector('.jpdb-subtitle-rail');
-        const previous = document.querySelector('.jpdb-subtitle-rail [data-action="previous"]');
-        const next = document.querySelector('.jpdb-subtitle-rail [data-action="next"]');
-        const panel = document.querySelector('.jpdb-subtitle-rail [data-action="panel"]');
-        const styleFor = element => {
-            if (!(element instanceof HTMLElement)) return null;
-            const style = getComputedStyle(element);
-            const rect = element.getBoundingClientRect();
-            return {
-                opacity: style.opacity,
-                pointerEvents: style.pointerEvents,
-                visibility: style.visibility,
-                display: style.display,
-                width: rect.width,
-                height: rect.height,
-            };
-        };
-        return {
-            rootClass: root instanceof HTMLElement ? root.className : '',
-            rail: styleFor(rail),
-            previous: styleFor(previous),
-            next: styleFor(next),
-            panel: styleFor(panel),
-        };
+    const idleRailSnapshot = await subtitleRailControlSnapshot(page, {
+        addClasses: ['jpdb-subtitle-controls-auto', 'jpdb-subtitle-controls-idle', 'jpdb-subtitle-compact-video'],
+        removeClasses: ['jpdb-subtitle-panel-open'],
     });
     assertCompactIdleRailSnapshot(idleRailSnapshot);
+    const hiddenControlsRailSnapshot = await subtitleRailControlSnapshot(page, {
+        addClasses: ['jpdb-subtitle-controls-hidden', 'jpdb-subtitle-compact-video'],
+        removeClasses: ['jpdb-subtitle-controls-auto', 'jpdb-subtitle-controls-idle', 'jpdb-subtitle-panel-open'],
+    });
+    assertHiddenControlsRailSnapshot(hiddenControlsRailSnapshot);
     await page.evaluate(() => {
         const video = document.querySelector('video');
         if (!video) return;
@@ -3203,6 +3180,40 @@ async function auditVideoFixture(browser, server) {
     record('subtitle player fixture', 'pass', 'watched a cue with JPDB highlighting and readable subtitle backing');
 }
 
+async function subtitleRailControlSnapshot(page, { addClasses, removeClasses }) {
+    return page.evaluate(({ addClasses: classesToAdd, removeClasses: classesToRemove }) => {
+        const root = document.querySelector('.jpdb-subtitle-player');
+        if (root instanceof HTMLElement) {
+            root.classList.add(...classesToAdd);
+            root.classList.remove(...classesToRemove);
+        }
+        const rail = document.querySelector('.jpdb-subtitle-rail');
+        const previous = document.querySelector('.jpdb-subtitle-rail [data-action="previous"]');
+        const next = document.querySelector('.jpdb-subtitle-rail [data-action="next"]');
+        const panel = document.querySelector('.jpdb-subtitle-rail [data-action="panel"]');
+        const styleFor = element => {
+            if (!(element instanceof HTMLElement)) return null;
+            const style = getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return {
+                opacity: style.opacity,
+                pointerEvents: style.pointerEvents,
+                visibility: style.visibility,
+                display: style.display,
+                width: rect.width,
+                height: rect.height,
+            };
+        };
+        return {
+            rootClass: root instanceof HTMLElement ? root.className : '',
+            rail: styleFor(rail),
+            previous: styleFor(previous),
+            next: styleFor(next),
+            panel: styleFor(panel),
+        };
+    }, { addClasses, removeClasses });
+}
+
 function assertVideoFixtureSnapshot(snapshot) {
     assertAudit(snapshot.hidden === false, 'subtitle player is hidden on a page with video');
     assertAudit(hasLaidOutSubtitlePlayer(snapshot), 'subtitle player is not laid out');
@@ -3216,17 +3227,17 @@ function assertVideoFixtureSnapshot(snapshot) {
         !isTransparentCssColor(snapshot.subtitleWordBackground) || snapshot.subtitleWordBackgroundImage !== 'none',
         `subtitle parsed-word highlight is transparent: ${JSON.stringify(snapshot)}`,
     );
-	    assertAudit(
-	        snapshot.subtitleWordDecorationLine.includes('underline')
-	            && !isTransparentCssColor(snapshot.subtitleWordDecorationColor),
-	        `subtitle parsed-word underline is not immediately visible: ${JSON.stringify(snapshot)}`,
-	    );
-	    assertAudit(
-	        !snapshot.subtitleWordClasses.includes('jpdb-subtitle-word-pending')
-	            && Number.parseFloat(snapshot.subtitleWordOpacity || '0') >= 0.9,
-	        `subtitle parsed-word state is still pending when the cue is active: ${JSON.stringify(snapshot)}`,
-	    );
-	}
+    assertAudit(
+        snapshot.subtitleWordDecorationLine.includes('underline')
+            && !isTransparentCssColor(snapshot.subtitleWordDecorationColor),
+        `subtitle parsed-word underline is not immediately visible: ${JSON.stringify(snapshot)}`,
+    );
+    assertAudit(
+        !snapshot.subtitleWordClasses.includes('jpdb-subtitle-word-pending')
+            && Number.parseFloat(snapshot.subtitleWordOpacity || '0') >= 0.9,
+        `subtitle parsed-word state is still pending when the cue is active: ${JSON.stringify(snapshot)}`,
+    );
+}
 
 function hasLaidOutSubtitlePlayer(snapshot) {
     return (snapshot.rect?.width ?? 0) > 200;
@@ -3242,6 +3253,14 @@ function assertCompactIdleRailSnapshot(snapshot) {
     assertAudit((snapshot.panel?.width ?? 0) >= 28 && (snapshot.panel?.height ?? 0) >= 28, `idle compact subtitle panel toggle is not laid out: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.previous?.opacity === '0' && snapshot.previous?.pointerEvents === 'none', `idle compact previous subtitle control should hide: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.next?.opacity === '0' && snapshot.next?.pointerEvents === 'none', `idle compact next subtitle control should hide: ${JSON.stringify(snapshot)}`);
+}
+
+function assertHiddenControlsRailSnapshot(snapshot) {
+    assertAudit(Number.parseFloat(snapshot.rail?.opacity ?? '0') >= 0.8 && snapshot.rail?.pointerEvents !== 'none', `hidden-controls subtitle rail is not visible/clickable: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.panel?.pointerEvents !== 'none' && snapshot.panel?.visibility !== 'hidden' && snapshot.panel?.display !== 'none', `hidden-controls subtitle panel toggle is not clickable: ${JSON.stringify(snapshot)}`);
+    assertAudit((snapshot.panel?.width ?? 0) >= 28 && (snapshot.panel?.height ?? 0) >= 28, `hidden-controls subtitle panel toggle is not laid out: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.previous?.opacity === '0' && snapshot.previous?.pointerEvents === 'none', `hidden-controls previous subtitle control should hide: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.next?.opacity === '0' && snapshot.next?.pointerEvents === 'none', `hidden-controls next subtitle control should hide: ${JSON.stringify(snapshot)}`);
 }
 
 function assertDesktopTranscriptLayout(layout) {

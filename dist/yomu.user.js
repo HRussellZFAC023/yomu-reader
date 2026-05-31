@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.70
+// @version      0.4.71
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -1095,15 +1095,15 @@ Greasy Fork compliance notes:
  function normalizeLookupSettings(value) {
   return {
    interfaceLanguage: normalizeInterfaceLanguage(value?.interfaceLanguage),
-   jpdbDefinitionsPriority: clampNumber$5(value?.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
+   jpdbDefinitionsPriority: clampNumber$3(value?.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
    jpdbPageEnhancementsEnabled: booleanSetting(value, "jpdbPageEnhancementsEnabled"),
    jpdbPageWordEnhancementsEnabled: booleanSetting(value, "jpdbPageWordEnhancementsEnabled"),
    jpdbPageKanjiEnhancementsEnabled: booleanSetting(value, "jpdbPageKanjiEnhancementsEnabled"),
    lookupOnClick: typeof value?.lookupOnClick === "boolean" ? value.lookupOnClick : true,
    lookupOnHover: typeof value?.lookupOnHover === "boolean" ? value.lookupOnHover : value?.popupActivationMode !== "click",
    lookupOnMiddleMouse: typeof value?.lookupOnMiddleMouse === "boolean" ? value.lookupOnMiddleMouse : true,
-   hoverOpenDelayMs: clampNumber$5(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
-   hoverCloseDelayMs: clampNumber$5(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
+   hoverOpenDelayMs: clampNumber$3(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
+   hoverCloseDelayMs: clampNumber$3(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
   };
  }
  function normalizeNewTabSettings(value) {
@@ -1118,7 +1118,7 @@ Greasy Fork compliance notes:
    newTabParsingEnabled: booleanSetting(value, "newTabParsingEnabled"),
    newTabFrontSentenceEnabled: booleanSetting(value, "newTabFrontSentenceEnabled"),
    newTabOfflineEnabled: booleanSetting(value, "newTabOfflineEnabled"),
-   newTabOfflineLimit: clampNumber$5(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
+   newTabOfflineLimit: clampNumber$3(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
    newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
    newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
   };
@@ -1150,17 +1150,17 @@ Greasy Fork compliance notes:
  function normalizeKanjiSettings(value) {
   return {
    jpdbKanjiEnabled: typeof value?.jpdbKanjiEnabled === "boolean" ? value.jpdbKanjiEnabled : DEFAULT_SETTINGS.jpdbKanjiEnabled,
-   jpdbKanjiPriority: clampNumber$5(value?.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
+   jpdbKanjiPriority: clampNumber$3(value?.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
    kanjiImmersionKitEnabled: typeof value?.kanjiImmersionKitEnabled === "boolean" ? value.kanjiImmersionKitEnabled : DEFAULT_SETTINGS.kanjiImmersionKitEnabled,
-   kanjiImmersionKitPriority: clampNumber$5(value?.kanjiImmersionKitPriority, 0, 999, DEFAULT_SETTINGS.kanjiImmersionKitPriority),
+   kanjiImmersionKitPriority: clampNumber$3(value?.kanjiImmersionKitPriority, 0, 999, DEFAULT_SETTINGS.kanjiImmersionKitPriority),
    uchisenEnabled: typeof value?.uchisenEnabled === "boolean" ? value.uchisenEnabled : DEFAULT_SETTINGS.uchisenEnabled,
-   uchisenPriority: clampNumber$5(value?.uchisenPriority, 0, 999, DEFAULT_SETTINGS.uchisenPriority),
-   rtkPriority: clampNumber$5(value?.rtkPriority, 0, 999, DEFAULT_SETTINGS.rtkPriority),
-   kanjivgPriority: clampNumber$5(value?.kanjivgPriority, 0, 999, DEFAULT_SETTINGS.kanjivgPriority),
-   kanjiOriginsPriority: clampNumber$5(value?.kanjiOriginsPriority, 0, 999, DEFAULT_SETTINGS.kanjiOriginsPriority),
-   kanjiDictionariesPriority: clampNumber$5(value?.kanjiDictionariesPriority, 0, 999, DEFAULT_SETTINGS.kanjiDictionariesPriority),
-   similarKanjiWordsPriority: clampNumber$5(value?.similarKanjiWordsPriority, 0, 999, DEFAULT_SETTINGS.similarKanjiWordsPriority),
-   similarKanjiWordLimit: clampNumber$5(value?.similarKanjiWordLimit, 2, 24, DEFAULT_SETTINGS.similarKanjiWordLimit)
+   uchisenPriority: clampNumber$3(value?.uchisenPriority, 0, 999, DEFAULT_SETTINGS.uchisenPriority),
+   rtkPriority: clampNumber$3(value?.rtkPriority, 0, 999, DEFAULT_SETTINGS.rtkPriority),
+   kanjivgPriority: clampNumber$3(value?.kanjivgPriority, 0, 999, DEFAULT_SETTINGS.kanjivgPriority),
+   kanjiOriginsPriority: clampNumber$3(value?.kanjiOriginsPriority, 0, 999, DEFAULT_SETTINGS.kanjiOriginsPriority),
+   kanjiDictionariesPriority: clampNumber$3(value?.kanjiDictionariesPriority, 0, 999, DEFAULT_SETTINGS.kanjiDictionariesPriority),
+   similarKanjiWordsPriority: clampNumber$3(value?.similarKanjiWordsPriority, 0, 999, DEFAULT_SETTINGS.similarKanjiWordsPriority),
+   similarKanjiWordLimit: clampNumber$3(value?.similarKanjiWordLimit, 2, 24, DEFAULT_SETTINGS.similarKanjiWordLimit)
   };
  }
  function normalizeAnkiAndStudySettings(value) {
@@ -1174,9 +1174,9 @@ Greasy Fork compliance notes:
    ankiFrontImage: typeof value?.ankiFrontImage === "boolean" ? value.ankiFrontImage : DEFAULT_SETTINGS.ankiFrontImage,
    ankiMobileHandoff: typeof value?.ankiMobileHandoff === "boolean" ? value.ankiMobileHandoff : DEFAULT_SETTINGS.ankiMobileHandoff,
    studyTranslationEnabled: typeof value?.studyTranslationEnabled === "boolean" ? value.studyTranslationEnabled : DEFAULT_SETTINGS.studyTranslationEnabled,
-   studyTranslationPriority: clampNumber$5(value?.studyTranslationPriority, 0, 999, DEFAULT_SETTINGS.studyTranslationPriority),
+   studyTranslationPriority: clampNumber$3(value?.studyTranslationPriority, 0, 999, DEFAULT_SETTINGS.studyTranslationPriority),
    studyGrammarEnabled: typeof value?.studyGrammarEnabled === "boolean" ? value.studyGrammarEnabled : DEFAULT_SETTINGS.studyGrammarEnabled,
-   studyGrammarPriority: clampNumber$5(value?.studyGrammarPriority, 0, 999, DEFAULT_SETTINGS.studyGrammarPriority),
+   studyGrammarPriority: clampNumber$3(value?.studyGrammarPriority, 0, 999, DEFAULT_SETTINGS.studyGrammarPriority),
    enableLogging: typeof value?.enableLogging === "boolean" ? value.enableLogging : DEFAULT_SETTINGS.enableLogging
   };
  }
@@ -1186,8 +1186,8 @@ Greasy Fork compliance notes:
    popupMode: normalizePopupMode(value?.popupMode),
    stickyBottomSheet: booleanSetting(value, "stickyBottomSheet"),
    popoverBackdropEnabled: booleanSetting(value, "popoverBackdropEnabled"),
-   popoverWidth: clampNumber$5(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
-   popoverHeight: clampNumber$5(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
+   popoverWidth: clampNumber$3(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
+   popoverHeight: clampNumber$3(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
    popoverHeightMode: normalizePopoverHeightMode(value?.popoverHeightMode)
   };
  }
@@ -1207,14 +1207,14 @@ Greasy Fork compliance notes:
    audioFallbackChimeEnabled: booleanSetting(value, "audioFallbackChimeEnabled"),
    immersionKitExampleSource: normalizeImmersionExampleSource(value?.immersionKitExampleSource),
    nadeshikoApiKey: typeof value?.nadeshikoApiKey === "string" ? value.nadeshikoApiKey.trim() : DEFAULT_SETTINGS.nadeshikoApiKey,
-   immersionKitPriority: clampNumber$5(value?.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
+   immersionKitPriority: clampNumber$3(value?.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
    immersionKitLimitEnabled: typeof value?.immersionKitLimitEnabled === "boolean" ? value.immersionKitLimitEnabled : DEFAULT_SETTINGS.immersionKitLimitEnabled,
-   immersionKitLimit: clampNumber$5(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
-   immersionKitMinLength: clampNumber$5(value?.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
-   immersionKitMaxLength: clampNumber$5(value?.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
+   immersionKitLimit: clampNumber$3(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
+   immersionKitMinLength: clampNumber$3(value?.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
+   immersionKitMaxLength: clampNumber$3(value?.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
    immersionKitCategory: normalizeImmersionKitCategory(value?.immersionKitCategory),
    immersionKitSort: normalizeImmersionKitSort(value?.immersionKitSort),
-   immersionKitPlaybackRate: clampNumber$5(value?.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
+   immersionKitPlaybackRate: clampNumber$3(value?.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
    immersionKitRevealTranslationOnClick: booleanSetting(value, "immersionKitRevealTranslationOnClick"),
    immersionKitPlayOnHover: booleanSetting(value, "immersionKitPlayOnHover"),
    immersionKitPlayOnImageClick: booleanSetting(value, "immersionKitPlayOnImageClick"),
@@ -1224,8 +1224,8 @@ Greasy Fork compliance notes:
    ocrTextColor: sanitizeAccentColor(value?.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
    ocrOutlineColor: sanitizeAccentColor(value?.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor),
    ocrBackgroundColor: sanitizeAccentColor(value?.ocrBackgroundColor, DEFAULT_SETTINGS.ocrBackgroundColor),
-   ocrBackgroundOpacity: clampNumber$5(value?.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
-   ocrFontScale: clampNumber$5(value?.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
+   ocrBackgroundOpacity: clampNumber$3(value?.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
+   ocrFontScale: clampNumber$3(value?.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
   };
  }
  function normalizeSubtitleSettings(value) {
@@ -1238,9 +1238,9 @@ Greasy Fork compliance notes:
    subtitleTextColor: sanitizeAccentColor(value?.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
    subtitleOutlineColor: sanitizeAccentColor(value?.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
    subtitleBackgroundColor: sanitizeAccentColor(value?.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
-   subtitleBackgroundOpacity: clampNumber$5(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
+   subtitleBackgroundOpacity: clampNumber$3(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
    subtitleFontFamily: typeof value?.subtitleFontFamily === "string" && value.subtitleFontFamily.trim() ? value.subtitleFontFamily.trim() : DEFAULT_SETTINGS.subtitleFontFamily,
-   subtitleFontWeight: clampNumber$5(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
+   subtitleFontWeight: clampNumber$3(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
   };
  }
  function normalizeOptionalCoordinate(value) {
@@ -1300,7 +1300,7 @@ Greasy Fork compliance notes:
   if (value === "meta") return "Meta";
   return value === "shift" ? "Shift" : "";
  }
- function clampNumber$5(value, min, max2, fallback) {
+ function clampNumber$3(value, min, max2, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(min, Math.min(max2, number)) : fallback;
  }
@@ -2759,7 +2759,7 @@ Greasy Fork compliance notes:
   return html;
  }
  function renderHighlightedTextHtml(text2, targets, className) {
-  const needles = uniqueNonEmptyStrings(targets).sort((a, b) => b.length - a.length);
+  const needles = uniqueNonEmptyStrings$1(targets).sort((a, b) => b.length - a.length);
   if (!text2 || !needles.length) return escapeHtml$1(text2);
   return renderHighlightChunks(text2, needles, className);
  }
@@ -2799,7 +2799,7 @@ Greasy Fork compliance notes:
  function isBetterHighlightMatch(candidate, current) {
   return candidate.index < current.index || candidate.index === current.index && candidate.needle.length > current.needle.length;
  }
- function uniqueNonEmptyStrings(values) {
+ function uniqueNonEmptyStrings$1(values) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
  }
  function nonOverlappingTokens(tokens, textLength) {
@@ -5002,6 +5002,38 @@ Greasy Fork compliance notes:
   "d1pra95f92lrn3.cloudfront.net",
   "d1vjc5dkcd3yh2.cloudfront.net"
  ]);
+ const SPECIALIZED_PROXY_ROUTE_RULES = [
+  {
+   method: "GET",
+   route: "jisho-search",
+   matches: (target) => target.hostname === "jisho.org" && target.pathname.startsWith("/search/")
+  },
+  {
+   method: "GET",
+   route: "yomu-public-only",
+   matches: (target) => target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php"
+  },
+  {
+   method: "POST",
+   route: "yomu-public-only",
+   matches: (target) => target.hostname === "www.japanesepod101.com" && target.pathname === "/learningcenter/reference/dictionary_post"
+  },
+  {
+   method: "GET",
+   route: "yomu-public-only",
+   matches: (target) => isKnownCorsBlockedPublicAudioCdnUrl(target)
+  },
+  {
+   method: "GET",
+   route: "yomu-public-only",
+   matches: (target) => target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/")
+  },
+  {
+   method: "GET",
+   route: "yomu-public-only",
+   matches: (target) => target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/")
+  }
+ ];
  function configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) {
   const proxyUrl = configuredProxyUrl.trim();
   if (!proxyUrl) return null;
@@ -5181,25 +5213,7 @@ Greasy Fork compliance notes:
   return [yomuPublicProxyUrl(proxyTargetUrl)];
  }
  function specializedProxyRoute(target, method) {
-  if (method === "GET" && target.hostname === "jisho.org" && target.pathname.startsWith("/search/")) {
-   return "jisho-search";
-  }
-  if (method === "GET" && target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php") {
-   return "yomu-public-only";
-  }
-  if (method === "POST" && target.hostname === "www.japanesepod101.com" && target.pathname === "/learningcenter/reference/dictionary_post") {
-   return "yomu-public-only";
-  }
-  if (method === "GET" && isKnownCorsBlockedPublicAudioCdnUrl(target)) {
-   return "yomu-public-only";
-  }
-  if (method === "GET" && target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/")) {
-   return "yomu-public-only";
-  }
-  if (method === "GET" && target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/")) {
-   return "yomu-public-only";
-  }
-  return null;
+  return SPECIALIZED_PROXY_ROUTE_RULES.find((rule) => rule.method === method && rule.matches(target))?.route ?? null;
  }
  function yomuPublicProxyUrl(targetUrl) {
   return configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? "";
@@ -5985,6 +5999,25 @@ Greasy Fork compliance notes:
   if (Array.isArray(headers)) return Object.fromEntries(headers);
   return headers;
  }
+ function uniqueStrings(values, options = {}) {
+  const seen = /* @__PURE__ */ new Set();
+  const result = [];
+  for (const value of values) {
+   const normalized = options.trim ? value?.trim() : value;
+   if (normalized === void 0 || normalized === null) continue;
+   if (options.dropEmpty && !normalized) continue;
+   if (seen.has(normalized)) continue;
+   seen.add(normalized);
+   result.push(normalized);
+  }
+  return result;
+ }
+ function uniqueNonEmptyStrings(values) {
+  return uniqueStrings(values, { dropEmpty: true });
+ }
+ function uniqueTrimmedStrings(values) {
+  return uniqueStrings(values, { trim: true, dropEmpty: true });
+ }
  const REQUIRED_JA_AUDIO_SOURCES = ["jpod101", "language-pod-101", "jisho", "jpdb-tts", "text-to-speech"];
  const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
  const JAPANESE_POD_101_UNAVAILABLE_SHA256 = "ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906";
@@ -6287,13 +6320,13 @@ Greasy Fork compliance notes:
   }
   async playFromSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent, reservedAudio) {
    const { source } = sourceEntry;
-   if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, settings, requestId, isCurrent);
+   if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, requestId, isCurrent);
    const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
    if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
    const bagKey = getAudioBagKey(source, card);
    return await this.playFromAudioCandidates(candidates, source.type, settings, requestId, triedUrls, isCurrent, bagKey, reservedAudio);
   }
-  async playFromTextToSpeechSource(source, card, settings, requestId, isCurrent) {
+  async playFromTextToSpeechSource(source, card, requestId, isCurrent) {
    if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
    await this.playTextToSpeech(source.type === "text-to-speech-reading" ? card.reading : card.spelling, source.voice);
    return this.isPlaybackCurrent(requestId, isCurrent);
@@ -6899,16 +6932,16 @@ Greasy Fork compliance notes:
  function jpdbVocabularyAudioLookupUrls(card) {
   const urls = [];
   if (card.vid > 0) urls.push(jpdbVocabularyUrl$1(card.vid, card.spelling, card.reading));
-  for (const query of uniqueStrings$3([card.spelling, card.reading].filter(Boolean))) {
+  for (const query of uniqueStrings([card.spelling, card.reading].filter(Boolean))) {
    urls.push(`${JPDB_SEARCH_URL$2}?q=${encodeURIComponent(query)}`);
   }
-  return uniqueStrings$3(urls);
+  return uniqueStrings(urls);
  }
  function jpdbVocabularyUrl$1(vid, spelling, reading) {
   return `${JPDB_VOCABULARY_BASE_URL$1}/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading || spelling)}`;
  }
  function extractJpdbVocabularyAudioIds(html, card, sourceUrl = "") {
-  return uniqueStrings$3(jpdbVocabularyAudioHtmlBlocks(html, card, sourceUrl).flatMap(extractJpdbVocabularyAudioIdsFromHtml));
+  return uniqueStrings(jpdbVocabularyAudioHtmlBlocks(html, card, sourceUrl).flatMap(extractJpdbVocabularyAudioIdsFromHtml));
  }
  function jpdbVocabularyAudioHtmlBlocks(html, card, sourceUrl = "") {
   const resultBlocks = findHtmlBlocksByClass(html, "result").filter((block) => htmlBlockHasClass(block, "vocabulary") && jpdbVocabularyBlockMatchesCard(block, card));
@@ -7333,9 +7366,6 @@ Greasy Fork compliance notes:
    seen.add(key);
    return true;
   });
- }
- function uniqueStrings$3(values) {
-  return [...new Set(values)];
  }
  function shouldFetchCandidateAsBlob(candidate, audioViaBlob) {
   if (!canFetchAudioCandidateAsBlob(candidate, audioViaBlob)) return false;
@@ -9200,8 +9230,8 @@ ${scopedInner}
   if (language) settings.interfaceLanguage = language;
   const theme = importedPopupTheme(general);
   if (theme) settings.theme = theme;
-  if (hasPositiveNumber(general?.popupWidth)) settings.popoverWidth = clampNumber$4(general?.popupWidth, 280, 900);
-  if (hasPositiveNumber(general?.popupHeight)) settings.popoverHeight = clampNumber$4(general?.popupHeight, 220, 900);
+  if (hasPositiveNumber(general?.popupWidth)) settings.popoverWidth = clampNumber$2(general?.popupWidth, 280, 900);
+  if (hasPositiveNumber(general?.popupHeight)) settings.popoverHeight = clampNumber$2(general?.popupHeight, 220, 900);
   if (hasPositiveNumber(general?.popupVerticalOffset)) settings.subtitleBottomOffset = importedPopupVerticalOffset(general);
   if (typeof general?.maxResults === "number") settings.localDictionaryMaxResults = Math.max(1, Math.min(64, general.maxResults));
   const pitchEnabled = importedPitchDisplayEnabled(general);
@@ -9230,8 +9260,8 @@ ${scopedInner}
  function applyScanningSettings(settings, scanning) {
   if (typeof scanning?.selectText === "boolean") settings.parseSelection = scanning.selectText;
   if (typeof scanning?.scanWithoutMousemove === "boolean") settings.autoScanJapanese = scanning.scanWithoutMousemove;
-  if (typeof scanning?.delay === "number") settings.hoverOpenDelayMs = clampNumber$4(scanning.delay, 0, 1500);
-  if (typeof scanning?.hideDelay === "number") settings.hoverCloseDelayMs = clampNumber$4(scanning.hideDelay, 0, 3e3);
+  if (typeof scanning?.delay === "number") settings.hoverOpenDelayMs = clampNumber$2(scanning.delay, 0, 1500);
+  if (typeof scanning?.hideDelay === "number") settings.hoverCloseDelayMs = clampNumber$2(scanning.hideDelay, 0, 3e3);
   applyScanInputSettings(settings, scanning);
  }
  function applyAnkiSettings(settings, anki) {
@@ -9342,7 +9372,7 @@ ${scopedInner}
  function capitalize(value) {
   return value ? `${value[0].toUpperCase()}${value.slice(1).toLowerCase()}` : value;
  }
- function clampNumber$4(value, min, max2) {
+ function clampNumber$2(value, min, max2) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(min, Math.min(max2, number)) : min;
  }
@@ -18485,7 +18515,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
  }
  function mediaFileUrls(example, file) {
   const category = example.category || categoryFromId(example.id);
-  return uniqueStrings$2(mediaTitleCandidates(example, file).flatMap((title) => mediaFileTitleUrls(category, title, file)));
+  return uniqueTrimmedStrings(mediaTitleCandidates(example, file).flatMap((title) => mediaFileTitleUrls(category, title, file)));
  }
  function mediaFileTitleUrls(category, title, file) {
   const path = `media/${category}/${title}/media/${file}`;
@@ -18536,7 +18566,7 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
  }
  function mediaTitleCandidates(example, file) {
   const slug = example.titleSlug || titleSlugFromId(example.id);
-  return uniqueStrings$2([
+  return uniqueTrimmedStrings([
    titleFromSlug(slug),
    example.sourceTitle,
    titleFromMediaFile(file),
@@ -18549,16 +18579,6 @@ td, th { border: 1px solid #353c47; padding: 4px 6px; }
   const title = (episodeMatch?.[1] || stem).replace(/^A[_-]/, "").replace(/_/g, " ").trim();
   if (!title) return "";
   return title.replace(/\bKOn\b/u, "K-On!").replace(/\bDurarara\b/u, "Durarara!!").replace(/\bAngel Beats!?\b/u, "Angel Beats!");
- }
- function uniqueStrings$2(values) {
-  const seen = /* @__PURE__ */ new Set();
-  const result = [];
-  for (const value of values.map((item) => item.trim()).filter(Boolean)) {
-   if (seen.has(value)) continue;
-   seen.add(value);
-   result.push(value);
-  }
-  return result;
  }
  function deterministicShuffle(values, seed) {
   const result = [...values];
@@ -22707,15 +22727,12 @@ ${glossaryKey}`;
  function kanjiVGPositionKeys(component) {
   const componentAliases = KANJIVG_COMPONENT_ALIASES.get(component.component) ?? [];
   const originalAliases = component.original ? KANJIVG_COMPONENT_ALIASES.get(component.original) ?? [] : [];
-  return uniqueStrings$1([
+  return uniqueNonEmptyStrings([
    component.component,
    component.original,
    ...componentAliases,
    ...originalAliases
   ]);
- }
- function uniqueStrings$1(values) {
-  return Array.from(new Set(values.filter((value) => Boolean(value))));
  }
  function normalizeKanjiVGPosition(value) {
   const normalized = value.toLowerCase().trim();
@@ -25001,10 +25018,10 @@ ${glossaryKey}`;
    const minTop = frame.imageTop;
    const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth);
    const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - frameHeight);
-   const left = clampNumber$3(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
+   const left = clampNumber$1(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
    const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
    const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
-   const top = clampNumber$3(!vertical ? baselineAlignedTop : centeredTop, minTop, maxTop);
+   const top = clampNumber$1(!vertical ? baselineAlignedTop : centeredTop, minTop, maxTop);
    element2.style.left = `${left}px`;
    element2.style.top = `${top}px`;
    element2.style.width = `${frameWidth}px`;
@@ -25417,7 +25434,7 @@ ${glossaryKey}`;
    textNode.replaceWith(replacement);
   }
  }
- function clampNumber$3(value, min, max2) {
+ function clampNumber$1(value, min, max2) {
   return Math.min(max2, Math.max(min, value));
  }
  async function recognizeViaLocalService(image, settings) {
@@ -32451,6 +32468,9 @@ ${glossaryKey}`;
   }
   return true;
  }
+ function clampNumber(value, min, max2) {
+  return Math.min(Math.max(value, min), Math.max(min, max2));
+ }
  function normalizeSubtitleCues(cues, options = {}) {
   const normalized = [];
   cues.forEach((cue) => {
@@ -32570,7 +32590,7 @@ ${glossaryKey}`;
  }
  function exactSubtitleWords(cue, start, end) {
   if (!cue.wordTimingsExact || !cue.words?.length) return void 0;
-  const words = cue.words.filter((word) => word.text.trim() && Number.isFinite(word.start) && Number.isFinite(word.end) && word.end > start && word.start < end).map((word) => ({ ...word, start: clampNumber$2(word.start, start, end), end: clampNumber$2(word.end, start, end) })).filter((word) => word.end > word.start);
+  const words = cue.words.filter((word) => word.text.trim() && Number.isFinite(word.start) && Number.isFinite(word.end) && word.end > start && word.start < end).map((word) => ({ ...word, start: clampNumber(word.start, start, end), end: clampNumber(word.end, start, end) })).filter((word) => word.end > word.start);
   return words.length ? words : void 0;
  }
  function sliceCueWords(cue, start, end) {
@@ -32578,7 +32598,7 @@ ${glossaryKey}`;
  }
  function renderKaraokeTextParts(text2, progress) {
   const chars = Array.from(text2);
-  const split = clampNumber$2(Math.round(progress), 0, chars.length);
+  const split = clampNumber(Math.round(progress), 0, chars.length);
   const past = chars.slice(0, split).join("");
   const current = chars.slice(split, split + 1).join("");
   const upcoming = chars.slice(split + 1).join("");
@@ -32621,7 +32641,7 @@ ${glossaryKey}`;
   return Math.min(total, cursor);
  }
  function karaokeProgressInsideWord(total, cursor, length, word, time) {
-  const ratio = clampNumber$2((time - word.start) / Math.max(0.04, word.end - word.start), 0, 1);
+  const ratio = clampNumber((time - word.start) / Math.max(0.04, word.end - word.start), 0, 1);
   return Math.min(total, cursor + Math.max(1, Math.floor(length * ratio)));
  }
  function compactTextLength(text2) {
@@ -32629,9 +32649,6 @@ ${glossaryKey}`;
  }
  function displayTextWeight(text2) {
   return Array.from(text2.replace(/\s+/gu, "")).length;
- }
- function clampNumber$2(value, min, max2) {
-  return Math.min(Math.max(value, min), Math.max(min, max2));
  }
  function parseVttCuePayload(raw, cueStart, cueEnd) {
   const timestampPattern = /<((?:(?:\d+:)?\d{2}:)?\d{2}[,.]\d{3})>/g;
@@ -32673,8 +32690,8 @@ ${glossaryKey}`;
   return segmentText ? { text: segmentText, start: marker.time, end: next?.time ?? Number.POSITIVE_INFINITY } : null;
  }
  function vttWordTiming(markerWord, cueStart, cueEnd) {
-  const start = clampNumber$2(markerWord.start, cueStart, cueEnd);
-  const end = clampNumber$2(markerWord.end, cueStart, cueEnd);
+  const start = clampNumber(markerWord.start, cueStart, cueEnd);
+  const end = clampNumber(markerWord.end, cueStart, cueEnd);
   return { text: markerWord.text, start, end: Math.max(start + 0.04, end) };
  }
  function parseSubtitleText(text2, options = {}) {
@@ -32731,7 +32748,7 @@ ${glossaryKey}`;
    const nextOffset = timed[index + 1]?.offset;
    const start = cueStart + seg.offset / 1e3;
    const end = nextOffset === void 0 ? cueEnd : cueStart + nextOffset / 1e3;
-   return { text: seg.text, start: clampNumber$2(start, cueStart, cueEnd), end: clampNumber$2(end, cueStart, cueEnd) };
+   return { text: seg.text, start: clampNumber(start, cueStart, cueEnd), end: clampNumber(end, cueStart, cueEnd) };
   }).filter((word) => word.end > word.start);
  }
  function parseYouTubeXmlSubtitleText(text2, options = {}) {
@@ -33012,7 +33029,7 @@ ${glossaryKey}`;
    const start = Number.isFinite(starts[index]) ? starts[index] : cueStart;
    const nextStart = starts.slice(index + 1).find((value) => Number.isFinite(value));
    const end = typeof nextStart === "number" && Number.isFinite(nextStart) ? nextStart : cueEnd;
-   return { text: text2, start: clampNumber$2(start, cueStart, cueEnd), end: clampNumber$2(end, cueStart, cueEnd) };
+   return { text: text2, start: clampNumber(start, cueStart, cueEnd), end: clampNumber(end, cueStart, cueEnd) };
   }).filter((word) => Boolean(word?.text.trim() && word.end > word.start));
  }
  function parseAssSubtitleText(text2) {
@@ -33168,7 +33185,7 @@ ${glossaryKey}`;
   return options.compactPanel || preferredPlacement === "bottom" ? compactSubtitleDrawerLayout(options, size, margin) : sideSubtitleDrawerLayout(options, size, margin, preferredPlacement);
  }
  function compactSubtitleDrawerLayout(options, size, margin) {
-  const height = clampNumber$1(
+  const height = clampNumber(
    size.bottomHeight ?? Math.min(420, options.viewportHeight * 0.46),
    220,
    Math.max(220, options.viewportHeight - margin * 3)
@@ -33185,8 +33202,8 @@ ${glossaryKey}`;
   };
  }
  function sideSubtitleDrawerLayout(options, size, margin, preferredPlacement) {
-  const top = clampNumber$1(options.anchorTop ?? 72, margin, Math.max(margin, options.viewportHeight - 280));
-  const width = clampNumber$1(
+  const top = clampNumber(options.anchorTop ?? 72, margin, Math.max(margin, options.viewportHeight - 280));
+  const width = clampNumber(
    size.sideWidth ?? Math.min(460, options.viewportWidth * 0.32),
    340,
    Math.max(340, options.viewportWidth - margin * 3)
@@ -33221,9 +33238,6 @@ ${glossaryKey}`;
   const height = `${Math.round(Math.max(minHeight, layout.height))}px`;
   setStylePropertyIfChanged$2(panel, "height", height);
   setStylePropertyIfChanged$2(panel, "max-height", height);
- }
- function clampNumber$1(value, min, max2) {
-  return Math.min(Math.max(value, min), Math.max(min, max2));
  }
  function setStylePropertyIfChanged$2(element2, property, value) {
   if (element2.style.getPropertyValue(property) === value) return;
@@ -33919,7 +33933,7 @@ ${glossaryKey}`;
   const languages = rawLanguages.map(parseYouTubeTranslationLanguage).filter((language) => Boolean(language));
   if (!languages.length) return [];
   const byCode = new Map(languages.map((language) => [language.code, language]));
-  const preferred = uniqueStrings(["ja", "en", normalizedYouTubeLanguageCode(readYouTubeConfigString("HL"))]);
+  const preferred = uniqueNonEmptyStrings(["ja", "en", normalizedYouTubeLanguageCode(readYouTubeConfigString("HL"))]);
   return preferred.flatMap((code) => {
    const language = byCode.get(code);
    return language ? [language] : [];
@@ -34213,7 +34227,7 @@ ${glossaryKey}`;
   if (char === '"') state.inString = false;
  }
  function youtubeSubtitleRequestUrls(url) {
-  return uniqueStrings([
+  return uniqueNonEmptyStrings([
    withYouTubeSubtitleFormat(url, "srv3"),
    withYouTubeSubtitleFormat(url, "json3"),
    withYouTubeSubtitleFormat(url, "vtt"),
@@ -34272,9 +34286,6 @@ ${glossaryKey}`;
    params.has("signature") ? 2 : 0,
    params.has("kind") ? 1 : 0
   ].reduce((sum, item) => sum + item, 0);
- }
- function uniqueStrings(values) {
-  return [...new Set(values.filter(Boolean))];
  }
  function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -36305,7 +36316,6 @@ ${glossaryKey}`;
    return [...this.tracks].filter((track) => track.kind === "youtube" && isJapaneseSubtitleTrack(track)).sort(compareSubtitleTrackOptions)[0];
   }
   syncControls() {
-   this.options.getSettings();
    const hasLines = this.hasVisibleSubtitleLines();
    this.root?.classList.toggle("jpdb-subtitle-panel-open", !this.transcriptPanel?.hidden);
    this.root?.classList.toggle("jpdb-subtitle-has-lines", hasLines);
@@ -36736,20 +36746,6 @@ ${glossaryKey}`;
    });
    this.transcriptHydrationCursor = plan.nextCursor;
    return plan.indexes;
-  }
-  async hydrateTranscriptRow(index, settings, rows = this.transcriptRows()) {
-   const hydration = this.transcriptRowHydrationTarget(index, settings, rows);
-   if (!hydration) return;
-   const cached = this.parsedHtmlCache.get(hydration.key);
-   if (cached) return this.applyCachedTranscriptRowHtml(hydration, cached);
-   try {
-    const html = await this.parseCueHtml(hydration.cue.text, settings);
-    this.updateTranscriptRowsForParseKey(hydration.key, html);
-   } catch {
-    hydration.target.dataset.parseFailedKey = hydration.key;
-    hydration.target.dataset.parseFailedAt = String(Date.now());
-    delete hydration.target.dataset.parsedKey;
-   }
   }
   async hydrateTranscriptRowTargets(targets, settings, serial) {
    try {
@@ -37225,9 +37221,6 @@ ${glossaryKey}`;
  function setStylePropertyIfChanged(element2, property, value) {
   if (element2.style.getPropertyValue(property) === value) return;
   element2.style.setProperty(property, value);
- }
- function clampNumber(value, min, max2) {
-  return Math.min(Math.max(value, min), Math.max(min, max2));
  }
  function transcriptPlacementIcon(placement) {
   if (placement === "left") return "panel-left";
@@ -38444,7 +38437,6 @@ ${glossaryKey}`;
   noticeTimer;
   bar;
   revealed = false;
-  lastNoticeKey = "";
   dismissedNoticeScope = "";
   noticeRouteKey = "";
   lastBackfillAt = Number.NEGATIVE_INFINITY;
@@ -38575,11 +38567,9 @@ ${glossaryKey}`;
   renderNotice(filteredCount, shownCount, settings) {
    if (!filteredCount) {
     this.removeNotice();
-    this.lastNoticeKey = "";
     return;
    }
    const noticeScope = this.currentNoticeScope();
-   const noticeKey = `${noticeScope}:${filteredCount}:${shownCount}`;
    if (!this.bar && this.dismissedNoticeScope === noticeScope) return;
    const shouldStartTimer = !this.bar;
    if (!this.bar) {
@@ -38612,7 +38602,6 @@ ${glossaryKey}`;
     this.bar.append(label, actions);
     document.body.append(this.bar);
    }
-   this.lastNoticeKey = noticeKey;
    const summary = this.bar.querySelector('[data-role="summary"]');
    const toggleHidden = this.bar.querySelector('[data-action="toggle-hidden"]');
    const hideNotice = this.bar.querySelector('[data-action="hide-notice"]');
@@ -38633,7 +38622,6 @@ ${glossaryKey}`;
    this.revealed = false;
    this.clearFilteredCards();
    this.removeNotice();
-   this.lastNoticeKey = "";
    this.dismissedNoticeScope = "";
    this.noticeRouteKey = "";
    this.lastBackfillAt = Number.NEGATIVE_INFINITY;
@@ -38702,7 +38690,6 @@ ${glossaryKey}`;
    if (this.noticeRouteKey !== routeKey) {
     this.noticeRouteKey = routeKey;
     this.dismissedNoticeScope = "";
-    this.lastNoticeKey = "";
     this.removeNotice();
    }
    return `${routeKey}:${this.revealed ? "revealed" : "hidden"}`;
@@ -40165,11 +40152,6 @@ ${glossaryKey}`;
    if (!this.hasHoverLookupShortcut() || !this.shouldLookupOnHover(event)) return false;
    const word = this.hoverReaderWordForEvent(event);
    return Boolean(word && this.isInsideActivePopover(word));
-  }
-  isPointerInsideActiveHoverWord(event) {
-   if (this.activePopoverMode !== "hover" || !this.activeHoverWord?.isConnected) return false;
-   const rect = this.activeHoverWord.getBoundingClientRect();
-   return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
   }
   hoverReaderWordForEvent(event) {
    const word = event.target.closest?.(".jpdb-reader-word");

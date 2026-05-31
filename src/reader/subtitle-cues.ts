@@ -1,4 +1,5 @@
 import { escapeHtml, parseXmlDocument } from './dom';
+import { clampNumber } from './number-utils';
 
 export interface SubtitleWordTiming {
     text: string;
@@ -225,10 +226,6 @@ export function compactTextLength(text: string): number {
 
 function displayTextWeight(text: string): number {
     return Array.from(text.replace(/\s+/gu, '')).length;
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-    return Math.min(Math.max(value, min), Math.max(min, max));
 }
 
 function parseVttCuePayload(raw: string, cueStart: number, cueEnd: number): { text: string; words?: SubtitleWordTiming[]; wordTimingsExact?: boolean } {

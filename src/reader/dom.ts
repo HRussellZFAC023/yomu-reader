@@ -1114,12 +1114,6 @@ function tokenWithReadableSentence(token: JPDBToken, text: string, fallback?: st
     return sentence === token.sentence ? token : { ...token, sentence };
 }
 
-function fragmentAllowsInjectedRuby(target: FragmentTextTarget, fragment: TextFragment): boolean {
-    if (fragment.hasNativeRuby) return false;
-    if (fragment.suppressRuby) return false;
-    return !target.suppressRuby;
-}
-
 type IndexedTextFragment = TextFragment & {
     globalStart: number;
     globalEnd: number;

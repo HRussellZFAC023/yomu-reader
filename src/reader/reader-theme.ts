@@ -133,17 +133,6 @@ function prefersLightMode(): boolean {
     return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: light)').matches;
 }
 
-function readableOn(color: string, background: string, targetContrast: number): string {
-    const safe = sanitizeAccentColor(color);
-    if (contrastRatio(safe, background) >= targetContrast) return safe;
-    const toward = contrastRatio(background, '#000000') > contrastRatio(background, '#ffffff') ? '#000000' : '#ffffff';
-    for (let amount = 0.08; amount <= 1; amount += 0.08) {
-        const mixed = mixHex(safe, toward, amount);
-        if (contrastRatio(mixed, background) >= targetContrast) return mixed;
-    }
-    return toward;
-}
-
 function readableOnAll(color: string, backgrounds: string[], targetContrast: number): string {
     const safe = sanitizeAccentColor(color);
     if (backgrounds.every(background => contrastRatio(safe, background) >= targetContrast)) return safe;

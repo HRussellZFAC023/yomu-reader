@@ -607,7 +607,7 @@ describe('reader helpers', () => {
     it('clears in-flight JPDB parses when caches are reset', async () => {
         const client = new JpdbClient(() => 'token');
         let resolveFirst!: (response: { status: number; ok: boolean; text: () => Promise<string> }) => void;
-        const fetchMock = vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
+        const fetchMock = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => {
             const body = JSON.parse(String(init?.body ?? '{}')) as { text?: string[] };
             const text = body.text ?? [];
             const response = {
@@ -4724,7 +4724,7 @@ describe('reader helpers', () => {
 
     it('uses direct fetch for CORS-friendly hosted Immersion Kit requests', async () => {
         const target = 'https://apiv2express.immersionkit.com/search?q=%E8%AA%AD%E3%82%80&limit=250';
-        const fetchMock = vi.fn((input: RequestInfo | URL) => Promise.resolve(new Response('ok', { status: 200 })));
+        const fetchMock = vi.fn((_input: RequestInfo | URL) => Promise.resolve(new Response('ok', { status: 200 })));
         vi.stubGlobal('location', {
             href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/',
             origin: 'https://hrussellzfac023.github.io',
@@ -4747,7 +4747,7 @@ describe('reader helpers', () => {
     it('uses direct fetch for CORS-friendly iPad Immersion Kit requests', async () => {
         const target = 'https://apiv2express.immersionkit.com/search?q=%E8%AA%AD%E3%82%80&limit=250';
         const restoreBrowser = mockAppleMobileBrowser();
-        const fetchMock = vi.fn((input: RequestInfo | URL) => Promise.resolve(new Response('ok', { status: 200 })));
+        const fetchMock = vi.fn((_input: RequestInfo | URL) => Promise.resolve(new Response('ok', { status: 200 })));
         vi.stubGlobal('location', {
             href: 'https://www3.nhk.or.jp/news/easy/',
             origin: 'https://www3.nhk.or.jp',
@@ -10151,7 +10151,7 @@ describe('reader helpers', () => {
         const sourceUrl = 'https://github.com/example/dictionaries/releases/latest/download/hosted.zip';
         const proxyUrl = 'https://yomu-proxy.example/fetch';
         const expectedProxyUrl = `${proxyUrl}?url=${encodeURIComponent(sourceUrl)}`;
-        const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
             if (String(input) !== expectedProxyUrl) {
                 return Promise.resolve({
                     ok: false,

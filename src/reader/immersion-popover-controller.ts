@@ -1152,10 +1152,6 @@ function shouldCacheParsedExampleSentenceTokens(tokens: JPDBToken[]): boolean {
     return !tokens.length || tokens.some(token => token.card.source !== 'fallback');
 }
 
-function isHoveringExampleMedia(container: HTMLElement): boolean {
-    return Boolean(container.querySelector('.jpdb-reader-example-media:hover'));
-}
-
 function heldExampleMediaStyle(image: HeldExampleImage): string {
     return image.minHeight > 0 ? ` style="min-height:${image.minHeight}px"` : '';
 }

@@ -3,6 +3,7 @@ import { Logger } from './logger';
 import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
 import { requestBlob as requestReaderBlob, requestJson as requestReaderJson } from './reader-http';
+import { uniqueTrimmedStrings as uniqueStrings } from './string-utils';
 import type { ReaderSettings } from './types';
 
 const API_BASE = 'https://apiv2express.immersionkit.com';
@@ -678,16 +679,6 @@ function titleFromMediaFile(file: string): string {
         .replace(/\bAngel Beats!?\b/u, 'Angel Beats!');
 }
 
-function uniqueStrings(values: string[]): string[] {
-    const seen = new Set<string>();
-    const result: string[] = [];
-    for (const value of values.map(item => item.trim()).filter(Boolean)) {
-        if (seen.has(value)) continue;
-        seen.add(value);
-        result.push(value);
-    }
-    return result;
-}
 
 function deterministicShuffle<T>(values: T[], seed: string): T[] {
     const result = [...values];

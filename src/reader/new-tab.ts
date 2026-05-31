@@ -111,17 +111,6 @@ export function buildNewTabPalette(accentColor: string): NewTabPalette {
     return palette;
 }
 
-export function uniqueStrings(values: string[]): string[] {
-    const seen = new Set<string>();
-    return values
-        .map(value => value.trim())
-        .filter(value => {
-            if (!value || seen.has(value)) return false;
-            seen.add(value);
-            return true;
-        });
-}
-
 export function firstCardMeaning(card: JPDBCard): string {
     const plain = firstCardMeaningGlosses(card);
     if (!plain.length) return '';

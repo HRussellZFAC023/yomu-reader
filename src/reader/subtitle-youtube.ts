@@ -1,4 +1,5 @@
 import { normalizeSubtitleCues, parseSubtitleText, type SubtitleCue } from './subtitle-cues';
+import { uniqueNonEmptyStrings as uniqueStrings } from './string-utils';
 
 const YOUTUBE_VIDEO_OWNER_SELECTOR = '#movie_player, .html5-video-player, ytd-player, ytd-watch-flexy';
 
@@ -780,10 +781,6 @@ function youtubeTrackSearchParamScore(params: URLSearchParams): number {
         params.has('signature') ? 2 : 0,
         params.has('kind') ? 1 : 0,
     ].reduce((sum, item) => sum + item, 0);
-}
-
-function uniqueStrings(values: string[]): string[] {
-    return [...new Set(values.filter(Boolean))];
 }
 
 function escapeRegExp(value: string): string {

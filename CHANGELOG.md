@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.71] - 2026-05-31
+
+### Changed
+
+- Hardened release QA for the hosted Try Me and YouTube subtitle side-panel regressions, including hidden-controls rail coverage and live YouTube transcript evidence.
+- Enabled TypeScript unused-code checks and removed stale reader helpers, imports, and new-tab methods caught by the stricter gate.
+- Shared small string and numeric utilities across reader modules while preserving each caller's trimming and empty-string behavior.
+
 ## [0.4.70] - 2026-05-31
 
 ### Fixed
