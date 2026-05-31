@@ -261,6 +261,15 @@ export function appendTrustedHtml(element: Element, html: string): void {
     element.append(template.content);
 }
 
+export function htmlToFirstElement(html: string): HTMLElement | null {
+    const trimmed = html.trim();
+    if (!trimmed) return null;
+    const template = document.createElement('template');
+    setInnerHtml(template, trimmed);
+    const first = template.content.firstElementChild;
+    return first instanceof HTMLElement ? document.importNode(first, true) as HTMLElement : null;
+}
+
 export function appendToDocumentHead(element: Node): void {
     const target = document.head || document.documentElement || document.body;
     target.appendChild(element);
