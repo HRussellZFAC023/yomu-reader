@@ -20,6 +20,15 @@ export function glossaryValueToSearchText(value: unknown): string {
     });
 }
 
+export function normalizeGlossarySearchText(value: string): string {
+    return value
+        .normalize('NFKC')
+        .toLocaleLowerCase()
+        .replace(/[^\p{L}\p{N}\s'-]+/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 function glossaryValueToProfileText(value: unknown, options: GlossaryTextOptions): string {
     const primitiveText = primitiveGlossaryText(value);
     if (primitiveText !== undefined) return primitiveText;

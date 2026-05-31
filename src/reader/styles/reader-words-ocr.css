@@ -145,6 +145,10 @@
   --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-kifuku, #9050f6);
   --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-kifuku-soft, rgba(144, 80, 246, 0.14));
 }
+.jpdb-reader-word.jpdb-pitch-unknown {
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown, #94a3b8);
+  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent);
+}
 .jpdb-reader-word-highlight-status { --jpdb-reader-word-highlight: var(--jpdb-reader-source-status-soft, transparent); }
 .jpdb-reader-word-highlight-jpdb { --jpdb-reader-word-highlight: var(--jpdb-reader-source-jpdb-soft, transparent); }
 .jpdb-reader-word-highlight-anki { --jpdb-reader-word-highlight: var(--jpdb-reader-source-anki-soft, transparent); }

@@ -121,7 +121,9 @@ interface NewTabLookupDisplayOptions {
 
 interface NewTabKanjiLookupOptions {
     navigation?: CardNavigationMode;
+    previousNavigationEntry?: PopupNavigationEntry;
     reuseActivePopover?: boolean;
+    userGesture?: boolean;
 }
 
 interface NewTabParseContentOptions {
@@ -407,7 +409,9 @@ export class NewTabRuntime {
             }),
             showKanjiCard: (card, kanji, sentence, anchor, options) => this.showKanjiLookupCard(card, kanji, sentence, anchor, {
                 navigation: options?.navigation,
+                previousNavigationEntry: options?.previousNavigationEntry,
                 reuseActivePopover: options?.reuseActivePopover,
+                userGesture: options?.userGesture,
             }),
             loadCardRenderData: card => this.cardRenderData.load(card).all,
             renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, { includeStudySources: false }),

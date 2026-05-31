@@ -744,6 +744,14 @@ export class ReaderApp {
             autoScanJapanese: false,
             scanVisiblePage: false,
             showFloatingButton: false,
+            wordUnderlineColorSource: 'pitch',
+            wordTextColorSource: 'off',
+            pitchColorHeiban: '#74c0ff',
+            pitchColorAtamadaka: '#ff8fab',
+            pitchColorNakadaka: '#ffd166',
+            pitchColorOdaka: '#7ee7d1',
+            pitchColorKifuku: '#c4a3ff',
+            pitchColorUnknown: '#cbd5e1',
         };
         this.isDemo = true;
     }
@@ -2850,6 +2858,7 @@ export class ReaderApp {
 
     private renderedWordSentence(word: HTMLElement): string | undefined {
         const tokenSentence = word.dataset.sentence || '';
+        if (tokenSentence && word.closest('.jpdb-reader-example-sentence')) return normalizedLookupText(tokenSentence);
         return preferredRenderedWordSentence(
             nearestReadableSentenceForElement(word, tokenSentence),
             tokenSentence,

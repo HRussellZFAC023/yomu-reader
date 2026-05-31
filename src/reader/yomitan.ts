@@ -7,7 +7,7 @@ import type { DictionaryPreference, InterfaceLanguage } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 import { readBlobText, readDexieTableRowCounts, streamDexieTables } from './yomitan-dexie-stream';
 import { renderDictionaryScopedStyles } from './yomitan-glossary';
-import { glossaryValueToSearchText } from './yomitan-glossary-text';
+import { glossaryValueToSearchText, normalizeGlossarySearchText } from './yomitan-glossary-text';
 import { readZipArchive, type ZipArchive } from './zip';
 import {
     compareMetaEntries,
@@ -2298,15 +2298,6 @@ function glossaryTermSearchRank(glossary: unknown[], query: string): number {
     if (glossaryHasWordPrefix(text, normalizedQuery)) return 44;
     if (text.includes(normalizedQuery)) return 68;
     return Number.POSITIVE_INFINITY;
-}
-
-function normalizeGlossarySearchText(value: string): string {
-    return value
-        .normalize('NFKC')
-        .toLocaleLowerCase()
-        .replace(/[^\p{L}\p{N}\s'-]+/gu, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
 }
 
 function glossaryHasExactWord(text: string, query: string): boolean {
