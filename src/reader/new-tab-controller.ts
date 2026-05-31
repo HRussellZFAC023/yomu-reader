@@ -86,6 +86,8 @@ import type { CardState, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, ReaderSetting
 import type { RtkClient, RtkInfo } from './rtk';
 import { gmStorageDelete, gmStorageGet, gmStorageSet } from './storage';
 import { nextExplicitUiLanguage, resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
+import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './newtab-i18n';
+import { NEW_TAB_CACHE_KEY } from './new-tab-cache';
 import {
     KANJI_DICTIONARIES_SOURCE_ID,
     KANJI_JPDB_SOURCE_ID,
@@ -112,6 +114,7 @@ const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
 const NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS = 120;
 const NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS = 2_500;
 const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
+type NewTabTextKey = UiCopyKey | NewTabCopyKey;
 const SEARCH_CARD_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
     new: 'stateNew',
     learning: 'stateLearning',
@@ -309,11 +312,11 @@ async function decodeNewTabImmersionImage(src: string): Promise<void> {
 
 function renderSearchHandwritingPanel(language: ReaderSettings['interfaceLanguage']): HTMLElement {
     return el('details', { id: 'jpdb-reader-newtab-handwriting', class: 'jpdb-reader-newtab-handwriting', dataset: { newtabHandwriting: true } },
-        el('summary', {}, uiText(language, 'drawKanji')),
+        el('summary', {}, newTabText(language, 'drawKanji')),
         el('div', { class: 'jpdb-reader-newtab-handwriting-body' },
             el('div', { class: 'jpdb-reader-doodle-stage jpdb-reader-newtab-doodle jpdb-reader-newtab-search-doodle trace-hidden', dataset: { kanji: '' } },
                 el('div', { class: 'jpdb-reader-doodle-ghost', hidden: true }),
-                el('canvas', { class: 'jpdb-reader-doodle-canvas', 'aria-label': uiText(language, 'drawKanji'), tabIndex: 0 }),
+                el('canvas', { class: 'jpdb-reader-doodle-canvas', 'aria-label': newTabText(language, 'drawKanji'), tabIndex: 0 }),
             ),
             el('div', {
                 class: 'jpdb-reader-newtab-handwriting-candidates',
@@ -330,7 +333,7 @@ function renderSearchHandwritingManualAction(language: ReaderSettings['interface
         class: 'jpdb-reader-newtab-handwriting-manual-action',
         type: 'button',
         dataset: { newtabAction: 'search-focus' },
-    }, uiText(language, 'typeOrPasteKanji'));
+    }, newTabText(language, 'typeOrPasteKanji'));
 }
 
 function readerWordSurfaceText(word: HTMLElement): string {
@@ -572,7 +575,6 @@ const NEW_TAB_HANDWRITING_COMMON_KANJI =
     '一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄光入全公六共内円写冬出分切前力加動北十千午半南原反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒'
         + '以衣医右雨運英映泳園遠王央横屋温化荷界開階寒感漢館岸起期客急級宮球究去橋業曲局銀区苦具君係軽血決研県庫湖向幸港号根祭皿仕死使始姉指歯詩次事持式実写者主守酒受州拾終習集住重宿所暑助昭消商章勝乗植申身神真深進世整昔全相送想息速族他打対代第題炭短談着注柱丁帳調追定庭笛鉄転都度登島湯等豆動童農波配倍箱畑発反坂板皮悲美鼻筆氷表秒病品負部服福物平返勉放味命面問役薬由油有遊予羊洋葉陽様落流旅両緑礼列練路和';
 const NEW_TAB_HEADER_LABEL = 'yomu';
-const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
 const NEW_TAB_GRADE_QUEUE_KEY = 'jpdb-reader-newtab-grade-queue';
 const NEW_TAB_GRADE_QUEUE_LIMIT = 200;
 const NEW_TAB_STATS_JPDB_HISTORY_KEY = 'jpdb-reader-newtab-jpdb-stats-history';
@@ -598,10 +600,6 @@ const NEW_TAB_STUDY_INTERACTIVE_SELECTOR = [
     'video',
     '[contenteditable="true"]',
 ].join(',');
-
-export function clearNewTabOfflineCache(): Promise<void> {
-    return gmStorageDelete(NEW_TAB_CACHE_KEY);
-}
 
 function newTabRouteMode(): NewTabMode | null {
     try {
@@ -795,8 +793,8 @@ export class NewTabController {
         return this.dependencies.getSettings().interfaceLanguage;
     }
 
-    private text(key: UiCopyKey): string {
-        return uiText(this.language(), key);
+    private text(key: NewTabTextKey): string {
+        return isNewTabCopyKey(key) ? newTabText(this.language(), key) : uiText(this.language(), key);
     }
 
     private resolvedLanguage(): ReturnType<typeof resolveUiLanguage> {
@@ -877,11 +875,11 @@ export class NewTabController {
                             el('span', { 'data-v-1168a8e4': '' }, NEW_TAB_HEADER_LABEL),
                         ),
                     ),
-                    el('div', { class: 'jpdb-reader-newtab-mode', role: 'group', 'aria-label': uiText(language, 'newTabMode') },
+                    el('div', { class: 'jpdb-reader-newtab-mode', role: 'group', 'aria-label': newTabText(language, 'newTabMode') },
                         el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'word' } }, uiText(language, 'word')),
                         el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'kanji' } }, uiText(language, 'kanji')),
                         el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'search' } }, uiText(language, 'search')),
-                        el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'stats' } }, uiText(language, 'stats')),
+                        el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'stats' } }, newTabText(language, 'stats')),
                     ),
                     el('div', { class: 'jpdb-reader-newtab-theme-controls' },
                         el('div', { class: 'VPNavBarAppearance appearance jpdb-reader-theme-appearance' },
@@ -932,7 +930,7 @@ export class NewTabController {
                             el('input', {
                                 type: 'search',
                                 dataset: { newtabSearchInput: true },
-                                placeholder: uiText(language, 'searchWordsOrKanji'),
+                                placeholder: newTabText(language, 'searchWordsOrKanji'),
                                 autocomplete: 'on',
                                 autocapitalize: 'none',
                                 autocorrect: 'off',
@@ -940,7 +938,7 @@ export class NewTabController {
                                 spellcheck: false,
                                 enterkeyhint: 'search',
                                 lang: 'ja',
-                                'aria-label': uiText(language, 'searchWordsOrKanji'),
+                                'aria-label': newTabText(language, 'searchWordsOrKanji'),
                                 'aria-autocomplete': 'list',
                                 'aria-controls': 'jpdb-reader-newtab-autocomplete',
                                 'aria-expanded': 'false',
@@ -951,23 +949,23 @@ export class NewTabController {
                                 dataset: { newtabAction: 'search-handwriting-toggle' },
                                 'aria-controls': 'jpdb-reader-newtab-handwriting',
                                 'aria-expanded': 'false',
-                            }, uiText(language, 'draw')),
-                            el('button', { type: 'button', dataset: { newtabAction: 'search-clear' }, 'aria-label': uiText(language, 'clearSearch') }, uiText(language, 'clear')),
+                            }, newTabText(language, 'draw')),
+                            el('button', { type: 'button', dataset: { newtabAction: 'search-clear' }, 'aria-label': newTabText(language, 'clearSearch') }, uiText(language, 'clear')),
                         ),
                         el('div', {
                             id: 'jpdb-reader-newtab-autocomplete',
                             class: 'jpdb-reader-newtab-search-suggestions',
                             dataset: { newtabSearchAutocomplete: true },
                             role: 'listbox',
-                            'aria-label': uiText(language, 'searchSuggestions'),
+                            'aria-label': newTabText(language, 'searchSuggestions'),
                         }),
                         el('div', { class: 'jpdb-reader-newtab-search-results', dataset: { newtabSearchResults: true }, 'aria-live': 'polite' }),
                     ),
                 ),
-                el('nav', { class: 'jpdb-reader-newtab-controls', dataset: { newtabControls: true }, 'aria-label': uiText(language, 'studyNavigation') },
-                    el('button', { type: 'button', dataset: { newtabAction: 'previous' }, 'aria-label': uiText(language, 'previousWord') }, uiText(language, 'previousWord')),
+                el('nav', { class: 'jpdb-reader-newtab-controls', dataset: { newtabControls: true }, 'aria-label': newTabText(language, 'studyNavigation') },
+                    el('button', { type: 'button', dataset: { newtabAction: 'previous' }, 'aria-label': newTabText(language, 'previousWord') }, newTabText(language, 'previousWord')),
                     el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, uiText(language, 'reveal')),
-                    el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': uiText(language, 'nextWord') }, uiText(language, 'nextWord')),
+                    el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': newTabText(language, 'nextWord') }, newTabText(language, 'nextWord')),
                 ),
                 el('a', {
                     class: 'jpdb-reader-newtab-install',
@@ -976,7 +974,7 @@ export class NewTabController {
                     rel: 'noopener',
                     hidden: true,
                     dataset: { newtabInstall: true },
-                }, uiText(language, 'getYomu')),
+                }, newTabText(language, 'getYomu')),
             ),
         );
     }
@@ -2217,7 +2215,7 @@ export class NewTabController {
         this.renderEmpty(root, APP_NAME, this.text('couldNotLoadWords'));
     }
 
-    private offlineCacheStatusKey(cards: JPDBCard[]): UiCopyKey {
+    private offlineCacheStatusKey(cards: JPDBCard[]): NewTabTextKey {
         return cards.some(card => this.canReviewCard(card) && this.offlineGradeTarget(card)) ? 'offlineGradesDisabled' : 'offlineCache';
     }
 
@@ -4314,7 +4312,7 @@ export class NewTabController {
             fact(uiText(language, 'factKeyword'), newTabKanjiKeyword(card, fullInfo, rtk, localMeanings)),
             fact(uiText(language, 'factType'), fullInfo?.type),
             fact(uiText(language, 'factFrequency'), fullInfo?.frequency),
-            fact(uiText(language, 'factWordFrequency'), card.frequencyRank ? `#${card.frequencyRank}` : ''),
+            fact(newTabText(language, 'factWordFrequency'), card.frequencyRank ? `#${card.frequencyRank}` : ''),
             fact('Kanken', fullInfo?.kanken),
             fact('Heisig', heisigFact(fullInfo, rtk)),
             fact(uiText(language, 'factOldForms'), oldFormsFact(fullInfo)),
@@ -6415,7 +6413,7 @@ function interleaveNewTabCards(groups: JPDBCard[][]): JPDBCard[] {
 function newTabLoadResult(accumulator: NewTabLoadAccumulator, language: ReaderSettings['interfaceLanguage']): NewTabLoadResult {
     return {
         cards: accumulator.cards,
-        sourceLabel: accumulator.labels.length ? accumulator.labels.join(' + ') : uiText(language, 'noSource'),
+        sourceLabel: accumulator.labels.length ? accumulator.labels.join(' + ') : newTabText(language, 'noSource'),
         needsDictionarySetup: accumulator.cards.length === 0 && accumulator.dictionarySetupRequired,
         reviewCountMode: accumulator.reviewCountMode,
     };
@@ -6800,7 +6798,7 @@ function renderNewTabKanjiVocabulary(fullInfo: JpdbKanjiInfo | null, language: R
             class: 'jpdb-reader-newtab-kanji-popover-word',
             type: 'button',
             dataset: { action: 'similar-word', expression: item.expression, reading: item.reading },
-            title: `${uiText(language, 'lookUp')}: ${item.expression}`,
+            title: `${newTabText(language, 'lookUp')}: ${item.expression}`,
         },
         el('strong', {}, item.expression),
         el('span', { class: 'jpdb-reader-newtab-kanji-vocab-detail' }, [item.reading, item.meaning].filter(Boolean).join(' · ')))))
