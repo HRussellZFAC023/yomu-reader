@@ -104,6 +104,20 @@ describe('settings form localization', () => {
         expect(saved.popoverBackdropEnabled).toBe(false);
     });
 
+    it('links proxy setup to the maintained Worker source instead of embedding stale code', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const guide = form.querySelector<HTMLElement>('.jpdb-reader-proxy-guide')!;
+
+        expect(guide.textContent).toContain('Make your own Cloudflare proxy');
+        expect(guide.textContent).toContain('Worker source');
+        expect(guide.textContent).toContain('Deploy guide');
+        expect(guide.querySelector('.jpdb-reader-proxy-guide-code')).toBeNull();
+        expect(guide.textContent).not.toContain('const JPDB_AUDIO_ACCESS_HEADER');
+        expect(guide.querySelector('a[href$="/workers/jpdb-public-proxy/src/index.ts"]')).toBeTruthy();
+        expect(guide.querySelector('a[href$="/workers/jpdb-public-proxy"]')).toBeTruthy();
+    });
+
     it('shows the Nadeshiko key field only for Nadeshiko-backed example modes', () => {
         const defaultForm = document.createElement('form');
         defaultForm.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');

@@ -223,9 +223,15 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('keeps the subtitle rail visible while the transcript panel is open', () => {
-        expect(SUBTITLES_YOUTUBE_CSS).toContain(':not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail');
-        expect(SUBTITLES_YOUTUBE_CSS).toContain('.jpdb-subtitle-panel-open .jpdb-subtitle-rail');
+    it('keeps the side panel toggle visible while compact navigation idles', () => {
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: .88;\n}');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="previous"],');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="next"] {\n  opacity: 0;\n  pointer-events: none;\n}');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .not.toContain('.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-menu-open):not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 0;\n  pointer-events: none;\n}');
     });
 
     it('keeps the tracks panel open after choosing a primary track so Lines is an explicit next step', async () => {

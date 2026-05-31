@@ -1,6 +1,6 @@
 # Yomu JPDB Public Proxy
 
-Restricted Cloudflare Worker CORS proxy for public resources used by Yomu. It accepts public HTTPS `GET`/`HEAD` requests as a fallback for hosted-page media and public pages, while explicitly blocking private/local network targets and sensitive JPDB API paths. `POST` requests are also allowed for HTTPS targets with non-sensitive headers, which supports LanguagePod/JPOD and other custom audio POST sources.
+Cloudflare Worker CORS proxy for public resources used by Yomu. It accepts public HTTP and HTTPS targets as a fallback for hosted-page media, public pages, dictionary ZIP downloads, and custom audio sources. It forwards arbitrary HTTP methods so user-configured audio and dictionary workflows can work through the same endpoint.
 
 It accepts:
 
@@ -8,7 +8,7 @@ It accepts:
 https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=https://jpdb.io/kanji/%E5%9B%B3
 ```
 
-The worker rejects requests that include cookies or authorization-like headers, strips credential headers before forwarding, validates redirects, and does not proxy logged-in JPDB actions or secret-bearing API calls.
+The worker strips hop-by-hop and browser metadata headers before forwarding, adds CORS response headers, removes `set-cookie`, and injects the public JPDB static-audio access header for `/static/v/` audio assets. It is a broad public proxy by design; restrict `isAllowedPublicProxyTarget` before deploying if you want a narrower private endpoint.
 
 Deploy:
 
