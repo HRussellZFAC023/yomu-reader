@@ -1,7 +1,13 @@
 import { APP_NAME } from './constants';
-import { HAS_JAPANESE, unwrapReaderWords } from './dom';
+import { unwrapReaderWords } from './dom';
 import { uiText } from './i18n';
 import type { ReaderSettings } from './types';
+import {
+    classifyYouTubeFilterCandidates,
+    isProbablyJapaneseYouTubeText,
+    type YouTubeFilterCandidate,
+    type YouTubeFilterDecision,
+} from './youtube-filter-scan';
 
 const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
 const VIDEO_CARD_SELECTOR = [
@@ -81,10 +87,6 @@ const YOUTUBE_WATCH_TITLE_SELECTOR = [
     'ytd-watch-metadata h1',
     'ytd-watch-metadata #title',
 ].join(',');
-const HIRAGANA_RE = /\p{Script=Hiragana}/u;
-const KATAKANA_RE = /\p{Script=Katakana}/u;
-const HAN_RE = /\p{Script=Han}/u;
-const NIHONGO_TUBE_SYMBOL_RE = /[≧≦°ಠ●◕○◯⊙▽△_∩∪ﾟ∇♪ω◇◆◎⌒※☆★♡♥︶︸ಥ¬╯╰┻┳━┛┗┓┏┫┣╋╂┃━─┌┐└┘├┤┴┬╱╲╳]/u;
 const OEMBED_TITLE_CACHE_LIMIT = 240;
 const OEMBED_SESSION_CACHE_PREFIX = 'yomu:youtube-oembed-title:v1:';
 const OEMBED_SESSION_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -109,12 +111,7 @@ function isYouTubeHost(hostname = location.hostname): boolean {
     return YOUTUBE_HOST_RE.test(hostname);
 }
 
-export function isProbablyJapaneseYouTubeText(text: string): boolean {
-    const compact = normalizeYouTubeTitleForLanguageCheck(text);
-    if (!HAS_JAPANESE.test(compact)) return false;
-
-    return HIRAGANA_RE.test(compact) || KATAKANA_RE.test(compact) || HAN_RE.test(compact);
-}
+export { isProbablyJapaneseYouTubeText };
 
 export function collectYouTubeVideoCards(root: ParentNode = document): HTMLElement[] {
     const cards = new Set<HTMLElement>();
@@ -252,48 +249,39 @@ export class YoutubeImmersionFilter {
             return;
         }
 
-        let filteredCount = 0;
-        let shownCount = 0;
-        const visibleVideoIds = new Set<string>();
-        for (const card of collectYouTubeFilterItems()) {
-            if (isYouTubeAlwaysHiddenItem(card)) {
-                filteredCount += 1;
-                if (this.revealed) {
-                    this.showCard(card);
-                    shownCount += 1;
-                } else {
-                    this.hideCard(card);
-                }
-                continue;
-            }
-
-            const info = readYouTubeCardInfo(card);
-            if (!info.title) continue;
-
-            const text = this.resolveTitleForFiltering(info);
-            if (!text) {
-                if (!this.revealed) this.hideCard(card);
-                continue;
-            }
-
-            const isJapanese = isProbablyJapaneseYouTubeText(text);
-            if (!isJapanese) filteredCount += 1;
-            if (isJapanese || this.revealed) {
-                this.showCard(card);
-                shownCount += 1;
-                if (info.videoId) visibleVideoIds.add(info.videoId);
-            } else {
-                this.hideCard(card);
-            }
-        }
+        const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
+        result.decisions.forEach(decision => this.applyFilterDecision(decision));
 
         if (settings.youtubeShowFilterNotice) {
-            this.renderNotice(filteredCount, shownCount, settings);
+            this.renderNotice(result.filteredCount, result.shownCount, settings);
         } else {
             this.bar?.remove();
             this.bar = undefined;
         }
-        this.maybeBackfillFeed(filteredCount, shownCount, visibleVideoIds.size);
+        this.maybeBackfillFeed(result.filteredCount, result.shownCount, result.visibleVideoIds.size);
+    }
+
+    private collectFilterCandidates(): YouTubeFilterCandidate[] {
+        return collectYouTubeFilterItems().map(card => {
+            const alwaysHidden = isYouTubeAlwaysHiddenItem(card);
+            const info = alwaysHidden ? null : readYouTubeCardInfo(card);
+            return {
+                card,
+                title: info?.title ?? '',
+                videoId: info?.videoId ?? '',
+                filterText: info ? this.resolveTitleForFiltering(info) : '',
+                alwaysHidden,
+            };
+        });
+    }
+
+    private applyFilterDecision(decision: YouTubeFilterDecision): void {
+        if (decision.kind === 'skip') return;
+        if (decision.kind === 'show') {
+            this.showCard(decision.candidate.card);
+            return;
+        }
+        this.hideCard(decision.candidate.card);
     }
 
     private hideCard(card: HTMLElement): void {
@@ -481,16 +469,6 @@ export class YoutubeImmersionFilter {
 
 function formatYoutubeText(template: string, values: Record<string, string>): string {
     return template.replace(/\{(\w+)\}/g, (_match: string, key: string) => values[key] ?? '');
-}
-
-function normalizeYouTubeTitleForLanguageCheck(text: string): string {
-    return text
-        .replace(/fypシ゚/g, '')
-        .replace(/fypシ/g, '')
-        .replace(/ミックスリスト/g, '')
-        .replace(NIHONGO_TUBE_SYMBOL_RE, '')
-        .replace(/\s+/g, ' ')
-        .trim();
 }
 
 function shouldVerifyOriginalYouTubeTitle(title: string): boolean {
