@@ -119,6 +119,7 @@ async function assertDocsAccessibility(page, label) {
             || element.getAttribute('alt')
             || element.textContent
             || '').replace(/\s+/g, ' ').trim();
+        const inlineReaderWord = element => element.matches('.jpdb-reader-word') && element.closest('.yomu-try-me');
         const interactive = [...document.querySelectorAll('button,a[href],input,select,textarea,[role="button"],[tabindex]:not([tabindex="-1"])')]
             .filter(element => visible(element));
         const unnamedControls = interactive
@@ -127,7 +128,8 @@ async function assertDocsAccessibility(page, label) {
         const smallTargets = interactive
             .filter(element => {
                 const style = getComputedStyle(element);
-                return !(element.tagName.toLowerCase() === 'a' && style.display === 'inline');
+                return !(element.tagName.toLowerCase() === 'a' && style.display === 'inline')
+                    && !inlineReaderWord(element);
             })
             .map(element => {
                 const rect = element.getBoundingClientRect();
