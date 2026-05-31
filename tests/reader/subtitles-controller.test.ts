@@ -51,6 +51,60 @@ describe('SubtitlePlayerController', () => {
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
     });
 
+    it('opens and closes the transcript drawer from the rail panel toggle', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            subtitleTranscriptVisible: false,
+        };
+        const onSettingsChange = vi.fn();
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange,
+        });
+
+        try {
+            (controller as unknown as { install: () => void }).install();
+            const video = document.createElement('video');
+            const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
+            const internals = controller as unknown as {
+                video: HTMLVideoElement;
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+            };
+            internals.video = video;
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const button = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!;
+
+            expect(button.disabled).toBe(false);
+            expect(button.getAttribute('aria-pressed')).toBe('false');
+
+            button.click();
+
+            expect(panel.hidden).toBe(false);
+            expect(root.classList.contains('jpdb-subtitle-panel-open')).toBe(true);
+            expect(button.getAttribute('aria-pressed')).toBe('true');
+            expect(settings.subtitleTranscriptVisible).toBe(true);
+
+            button.click();
+
+            expect(panel.hidden).toBe(true);
+            expect(root.classList.contains('jpdb-subtitle-panel-open')).toBe(false);
+            expect(button.getAttribute('aria-pressed')).toBe('false');
+            expect(settings.subtitleTranscriptVisible).toBe(false);
+            expect(onSettingsChange).toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('returns compact subtitle controls to idle after pointer activity over video', async () => {
         vi.useFakeTimers();
         const settings = {
