@@ -18,6 +18,9 @@ const buildReaderCssScript = path.resolve('scripts/build-reader-css.mjs');
 const viteBin = process.platform === 'win32'
     ? path.resolve('node_modules/.bin/vite.cmd')
     : path.resolve('node_modules/.bin/vite');
+const vitepressBin = process.platform === 'win32'
+    ? path.resolve('node_modules/.bin/vitepress.cmd')
+    : path.resolve('node_modules/.bin/vitepress');
 
 const githubOwner = 'HRussellZFAC023';
 const repoUrl = `https://github.com/${githubOwner}/${pkg.name}`;
@@ -172,6 +175,10 @@ const vite = spawn(viteBin, ['build', '--watch', '--mode', 'development', '--out
     env: process.env,
     stdio: 'inherit',
 });
+const docs = spawn(vitepressBin, ['dev', 'docs', '--host', host], {
+    env: process.env,
+    stdio: 'inherit',
+});
 
 let announced = false;
 const listen = () => server.listen(port, host, () => {
@@ -182,6 +189,7 @@ const listen = () => server.listen(port, host, () => {
     console.log(`[yomu-dev] serving ${origin}`);
     console.log(`[yomu-dev] install ${origin}/yomu.user.js`);
     console.log(`[yomu-dev] Vite is rebuilding ${path.relative(process.cwd(), distUserscript)} on changes`);
+    console.log(`[yomu-dev] docs are served by VitePress; open the printed VitePress URL for /yomu-reader/newtab/`);
 });
 
 server.on('error', error => {
@@ -203,9 +211,17 @@ const stop = () => {
     if (!vite.killed) {
         vite.kill('SIGTERM');
     }
+    if (!docs.killed) {
+        docs.kill('SIGTERM');
+    }
 };
 
 vite.on('exit', code => {
+    if (code && code !== 130 && code !== 143) {
+        process.exitCode = code;
+    }
+});
+docs.on('exit', code => {
     if (code && code !== 130 && code !== 143) {
         process.exitCode = code;
     }
