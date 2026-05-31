@@ -404,6 +404,101 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('detects Japanese page captions near a video without site-specific selectors', () => {
+        document.body.innerHTML = '<video></video><div class="lesson-player"><span>今日は花を見ます。</span></div>';
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const caption = document.querySelector('span') as HTMLElement;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 100, right: 740, top: 80, bottom: 440, width: 640, height: 360 }),
+        });
+        Object.defineProperty(caption, 'getBoundingClientRect', {
+            value: () => ({ left: 180, right: 660, top: 380, bottom: 420, width: 480, height: 40 }),
+        });
+
+        expect(readPageCaptionText(video)).toBe('今日は花を見ます。');
+    });
+
+    it('collapses layout-only page caption line breaks before rendering the overlay', () => {
+        document.body.innerHTML = '<video></video><div class="lesson-player"><span></span></div>';
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const caption = document.querySelector('span') as HTMLElement;
+        caption.textContent = 'エンジニア\nプログラミング\nする';
+        Object.defineProperty(caption, 'innerText', { value: 'エンジニア\nプログラミング\nする' });
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 100, right: 740, top: 80, bottom: 440, width: 640, height: 360 }),
+        });
+        Object.defineProperty(caption, 'getBoundingClientRect', {
+            value: () => ({ left: 180, right: 660, top: 320, bottom: 420, width: 480, height: 100 }),
+        });
+
+        expect(readPageCaptionText(video)).toBe('エンジニア プログラミング する');
+    });
+
+    it('allows non-Japanese page captions only when a real selected caption track asks for them', () => {
+        document.body.innerHTML = '<video></video><div class="lesson-player"><span>today we read subtitles</span></div>';
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const caption = document.querySelector('span') as HTMLElement;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 100, right: 740, top: 80, bottom: 440, width: 640, height: 360 }),
+        });
+        Object.defineProperty(caption, 'getBoundingClientRect', {
+            value: () => ({ left: 180, right: 660, top: 380, bottom: 420, width: 480, height: 40 }),
+        });
+
+        expect(readPageCaptionText(video)).toBe('');
+        expect(readPageCaptionText(video, undefined, { allowNonJapanese: true })).toBe('today we read subtitles');
+    });
+
+    it('does not treat asbplayer helper DOM as page captions', () => {
+        document.body.innerHTML = `
+            <video></video>
+            <div class="asbplayer-offscreen">新卒エンジニア仕事</div>
+            <div class="asbplayer-subtitles-container-bottom"><span>新卒エンジニア仕事</span></div>
+        `;
+        const video = document.querySelector('video') as HTMLVideoElement;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 0, right: 840, top: 0, bottom: 480, width: 840, height: 480 }),
+        });
+        for (const element of Array.from(document.querySelectorAll<HTMLElement>('div, span'))) {
+            Object.defineProperty(element, 'innerText', { value: element.textContent ?? '' });
+            Object.defineProperty(element, 'getBoundingClientRect', {
+                value: () => ({ left: 100, right: 740, top: 360, bottom: 420, width: 640, height: 60 }),
+            });
+        }
+
+        expect(readPageCaptionText(video)).toBe('');
+    });
+
+    it('does not treat YouTube Shorts titles near the video as page captions', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/shorts/abc123') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <video></video>
+            <h3 class="shortsLockupViewModelHostMetadataTitle"><span>鉛筆の音1時間 目を閉じて聴いていたら</span></h3>
+        `;
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const title = document.querySelector('span') as HTMLElement;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 260, right: 860, top: 120, bottom: 720, width: 600, height: 600 }),
+        });
+        Object.defineProperty(title, 'innerText', { value: title.textContent ?? '' });
+        Object.defineProperty(title, 'getBoundingClientRect', {
+            value: () => ({ left: 300, right: 820, top: 740, bottom: 782, width: 520, height: 42 }),
+        });
+
+        try {
+            expect(readPageCaptionText(video)).toBe('');
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('exposes the compact subtitle drawer resize handle as an accentable keyboard separator', () => {
         withViewport(640, 820, () => {
             const settings = {

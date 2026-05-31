@@ -904,7 +904,7 @@ async function auditNoSecretLeak() {
         record('secret leak scan', 'skip', 'YOMU_TEST_API_KEY is not set');
         return;
     }
-    const files = await listFiles(ROOT, new Set(['.git', 'node_modules', 'qa-artifacts']));
+    const files = await listFiles(ROOT, new Set(['.git', 'node_modules', 'artifacts', 'qa-artifacts']));
     const offenders = await secretLeakOffenders(files);
     assertAudit(!offenders.length, `test API key is present in source files: ${offenders.join(', ')}`);
     record('secret leak scan', 'pass', 'test key is only supplied by environment');

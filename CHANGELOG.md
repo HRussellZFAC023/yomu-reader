@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.72] - 2026-05-31
+
+### Changed
+
+- Promoted deterministic YouTube subtitle side-panel browser coverage into the default QA run and moved generated subtitle evidence under ignored `qa-artifacts/`.
+- Shared popup/new-tab color contrast helpers so JPDB text color and underline rendering use one tested implementation.
+- Removed stale tracked QA screenshots and split page-caption subtitle tests into the subtitle controller suite.
+
 ## [0.4.71] - 2026-05-31
 
 ### Changed

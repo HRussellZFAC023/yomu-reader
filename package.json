@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "0.4.71",
+  "version": "0.4.72",
   "private": true,
   "type": "module",
   "description": "よむ: a small JPDB/Yomitan popup dictionary and subtitle miner userscript.",
@@ -33,10 +33,11 @@
     "verify": "node scripts/verify-userscript.cjs",
     "smoke:subtitles": "node scripts/subtitle-player-smoke.mjs",
     "e2e:subtitles": "node scripts/subtitle-player-e2e.mjs",
+    "qa:subtitles": "YOMU_E2E_YOUTUBE_FIXTURE=1 YOMU_E2E_ARTIFACTS=qa-artifacts/subtitle-e2e/latest npm run e2e:subtitles",
     "check": "npm run typecheck && npm run test && npm run build && npm run verify && node scripts/sync-docs-userscript.cjs && npm run docs:build",
     "docs": "vitepress dev docs --host 127.0.0.1",
     "docs:build": "vitepress build docs",
-    "qa": "npm run check && node scripts/qa-audit.mjs && node scripts/docs-a11y-audit.mjs && node scripts/complexity-audit.mjs",
+    "qa": "npm run check && node scripts/qa-audit.mjs && npm run qa:subtitles && node scripts/docs-a11y-audit.mjs && node scripts/complexity-audit.mjs",
     "qa:live": "node scripts/jpdb-live-smoke.mjs",
     "size:bundle": "node scripts/bundle-size-report.mjs",
     "publish:greasyfork": "node scripts/open-greasyfork-prefill.cjs"
