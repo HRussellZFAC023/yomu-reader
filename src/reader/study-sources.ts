@@ -3,7 +3,7 @@ import { pruneOldestCacheEntries } from './cache-utils';
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { uiText } from './i18n';
 import { Logger } from './logger';
-import { speakerIcon } from './popup-render';
+import { speakerIcon } from './icons';
 import { definitionSourceStateKey } from './definition-source-render';
 import {
     detectGrammarHints as detectLocalGrammarHints,

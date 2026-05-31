@@ -4,6 +4,7 @@ import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
 import { isYomuHostedAppUrl } from './app-pages';
 import { GITHUB_PAGES_ORIGIN } from './constants';
 import { resolveUiLanguage, uiText } from './i18n';
+import { formatMetaFrequency, groupTermEntriesByDictionary } from './local-dictionary-groups';
 import { Logger } from './logger';
 import type { CardState, DictionaryPreference, JPDBCard, JPDBGrade, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
@@ -1424,7 +1425,7 @@ function renderSentence(sentence: string, expression: string): string {
 }
 
 function renderDictionaryDefinitions(entries: YomitanTermEntry[], preferences: DictionaryPreference[]): string {
-    const groups = groupTermEntriesByDictionary(entries).slice(0, 6);
+    const groups = Array.from(groupTermEntriesByDictionary(entries).entries()).slice(0, 6);
     return groups.map(([dictionary, items]) => `
         <div class="yomu-dict-group">
             <h3 class="yomu-dict-label">${escapeHtml(dictionaryLabel(dictionary, preferences))}</h3>
@@ -1515,16 +1516,6 @@ function ankiSourceLink(sourceUrl: string, sourceTitle: string): { href: string;
     return { href: sourceUrl, label: sourceTitle || sourceUrl };
 }
 
-function groupTermEntriesByDictionary(entries: YomitanTermEntry[]): Array<[string, YomitanTermEntry[]]> {
-    const grouped = new Map<string, YomitanTermEntry[]>();
-    for (const entry of entries) {
-        const group = grouped.get(entry.dictionary) ?? [];
-        group.push(entry);
-        grouped.set(entry.dictionary, group);
-    }
-    return Array.from(grouped.entries());
-}
-
 function dictionaryLabel(name: string, preferences: DictionaryPreference[]): string {
     return preferences.find(item => item.name === name)?.alias || name;
 }
@@ -1536,27 +1527,6 @@ function uniqueValue<T>(value: T, index: number, array: T[]): boolean {
 function safeGlossaryHtml(value: unknown, dictionary: string): string {
     const html = glossaryToHtml(value, dictionary);
     return html || escapeHtml(glossaryToText(value));
-}
-
-function formatMetaFrequency(value: unknown): string {
-    const display = metaFrequencyDisplayValue(value);
-    return display == null ? '' : `#${display}`;
-}
-
-function metaFrequencyDisplayValue(value: unknown): string | null {
-    if (typeof value === 'number' || typeof value === 'string') return String(value);
-    return scalarMetaValue(nestedMetaScalarValue(value));
-}
-
-function scalarMetaValue(value: unknown): string | null {
-    if (typeof value === 'number' || typeof value === 'string') return String(value);
-    const nested = nestedMetaScalarValue(value);
-    return nested === undefined ? null : scalarMetaValue(nested);
-}
-
-function nestedMetaScalarValue(value: unknown): unknown {
-    const record = metaRecord(value);
-    return record ? record.displayValue ?? record.frequency ?? record.value : undefined;
 }
 
 function formatMetaPitch(value: unknown): string {

@@ -29,17 +29,17 @@ import type { KanjiVGClient, KanjiVGInfo } from './kanjivg';
 import { formatLookupUrl } from './local-dictionary-display';
 import type { JpdbReviewBridgeCard, JpdbReviewBridgeClient, JpdbReviewBridgeStatus } from './jpdb-review-bridge';
 import { Logger } from './logger';
+import { groupTermEntriesByDictionary } from './local-dictionary-groups';
 import { canAttemptAudiblePlayback } from './media-activation';
+import { speakerIcon } from './icons';
 import { installOriginGraphInteractions } from './origin-graph-interactions';
+import { localPitchPatternFromMeta } from './pitch-meta';
 import {
     buildRtkComponentSummaries,
-    groupTermEntriesByDictionary,
-    localPitchPatternFromMeta,
     renderKanjiKeywordLine,
     renderKanjiOrigins,
     renderPitch,
     renderRtkInfo,
-    speakerIcon,
 } from './popup-render';
 import { kanjiSourceStateKey, renderJpdbDefinitionSource, renderKanjiDefinitions, renderLocalDefinitionSourcesSection, renderSimilarKanjiWordsContent } from './definition-source-render';
 import {

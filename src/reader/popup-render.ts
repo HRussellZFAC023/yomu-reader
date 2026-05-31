@@ -1,14 +1,15 @@
-import { HAS_JAPANESE, escapeHtml } from './dom';
+import { escapeHtml } from './dom';
 import { uiText } from './i18n';
-import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiAction, type JpdbKanjiInfo, type JpdbKanjiVocabulary } from './jpdb-kanji';
+import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiAction, type JpdbKanjiInfo } from './jpdb-kanji';
 import { graphEdgePath, type GraphAnchorZone } from './kanji-graph-geometry';
 import type { KanjiFact, KanjiOriginGraph, KanjiSourceInfo } from './kanji-origin';
 import type { KanjiVGInfo } from './kanjivg';
 import { normalizePitchPatternForReading, pitchLevelsForDisplay, splitMorae } from './pitch-accent';
+import { localPitchPatternFromMeta } from './pitch-meta';
 import type { RtkInfo } from './rtk';
 import { rtkElementFallbackGlyph, rtkElementKey, splitRtkElements, type RtkElementGlyph } from './rtk-elements';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from './types';
-import { glossaryToText, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from './yomitan';
+import type { YomitanKanjiEntry, YomitanMetaEntry } from './yomitan';
 
 export function pickTokenForSelection(tokens: JPDBToken[] = [], selected: string): JPDBToken | undefined {
     const exact = tokens.find(token => token.card.spelling === selected || token.card.reading === selected);
@@ -26,110 +27,6 @@ export function tokensOverlappingSelection(tokens: JPDBToken[] = [], selected: s
     if (start < 0) return parsedText === selected ? tokens : [];
     const end = start + selected.length;
     return tokens.filter(token => token.start < end && token.end > start);
-}
-
-export function formatMetaFrequency(value: unknown): string {
-    const display = metaFrequencyDisplayValue(value);
-    if (display == null) return '';
-    return `#${display}`;
-}
-
-function metaFrequencyDisplayValue(value: unknown): string | null {
-    const primitive = primitiveMetaValue(value);
-    if (primitive !== null) return primitive;
-    const record = objectRecord(value);
-    return record ? scalarMetaValue(nestedMetaValue(record)) : null;
-}
-
-function scalarMetaValue(value: unknown): string | null {
-    const primitive = primitiveMetaValue(value);
-    if (primitive !== null) return primitive;
-    const record = objectRecord(value);
-    return record ? scalarMetaValue(nestedMetaValue(record)) : null;
-}
-
-function primitiveMetaValue(value: unknown): string | null {
-    return typeof value === 'number' || typeof value === 'string' ? String(value) : null;
-}
-
-function objectRecord(value: unknown): Record<string, unknown> | null {
-    return value && typeof value === 'object' ? value as Record<string, unknown> : null;
-}
-
-function nestedMetaValue(record: Record<string, unknown>): unknown {
-    return record.displayValue ?? record.frequency ?? record.value;
-}
-
-export function formatMetaPitch(value: unknown): string {
-    const record = objectRecord(value);
-    if (!record) return '';
-    const positions = metaPitchPositions(record);
-    if (positions.length) return positions.slice(0, 4).map(String).join(', ');
-    if (typeof record.position === 'number') return String(record.position);
-    return '';
-}
-
-function metaPitchPositions(record: Record<string, unknown>): unknown[] {
-    if (Array.isArray(record.pitches)) return record.pitches;
-    return Array.isArray(record.positions) ? record.positions : [];
-}
-
-export function groupTermEntriesByDictionary(entries: YomitanTermEntry[]): Map<string, YomitanTermEntry[]> {
-    const grouped = new Map<string, YomitanTermEntry[]>();
-    for (const entry of entries) {
-        const group = grouped.get(entry.dictionary) ?? [];
-        group.push(entry);
-        grouped.set(entry.dictionary, group);
-    }
-    return grouped;
-}
-
-export interface LearnerTermGroup {
-    expression: string;
-    reading: string;
-    entries: YomitanTermEntry[];
-    meanings: string[];
-    frequency?: number;
-}
-
-export function groupTermEntriesByHeadword(entries: YomitanTermEntry[]): LearnerTermGroup[] {
-    const grouped = new Map<string, LearnerTermGroup>();
-    const meaningKeys = new Map<string, Set<string>>();
-    for (const entry of entries) {
-        const key = termHeadwordKey(entry);
-        const group = grouped.get(key) ?? createLearnerTermGroup(entry);
-        group.entries.push(entry);
-        updateLearnerTermFrequency(group, entry);
-        addLearnerTermMeaning(group, entry, key, meaningKeys);
-        grouped.set(key, group);
-    }
-    return [...grouped.values()];
-}
-
-function termHeadwordKey(entry: YomitanTermEntry): string {
-    return `${entry.expression || entry.reading}\n${entry.reading || ''}`;
-}
-
-function createLearnerTermGroup(entry: YomitanTermEntry): LearnerTermGroup {
-    return { expression: entry.expression || entry.reading, reading: entry.reading || '', entries: [], meanings: [] };
-}
-
-function updateLearnerTermFrequency(group: LearnerTermGroup, entry: YomitanTermEntry): void {
-    if (entry.jpdbFrequency !== undefined && (group.frequency === undefined || entry.jpdbFrequency < group.frequency)) {
-        group.frequency = entry.jpdbFrequency;
-    }
-}
-
-function addLearnerTermMeaning(group: LearnerTermGroup, entry: YomitanTermEntry, key: string, meaningKeys: Map<string, Set<string>>): void {
-    const meaning = summarizeLearnerGlossary(entry);
-    if (!meaning) return;
-    const seen = meaningKeys.get(key) ?? new Set<string>();
-    const meaningKey = meaning.toLocaleLowerCase();
-    if (!seen.has(meaningKey)) {
-        seen.add(meaningKey);
-        group.meanings.push(meaning);
-    }
-    meaningKeys.set(key, seen);
 }
 
 export interface RtkComponentSummary {
@@ -151,132 +48,6 @@ export function buildRtkComponentSummaries(rtkInfo: RtkInfo | null, jpdbInfo: Jp
             meaning: localByKanji.get(kanji) || '',
         }));
     return summaries;
-}
-
-export function mergeSimilarKanjiWords(
-    localEntries: YomitanTermEntry[],
-    jpdbVocabulary: JpdbKanjiVocabulary[],
-    currentCard: JPDBCard,
-    dictionaryLabel: (name: string) => string,
-): Array<{ expression: string; reading: string; meaning: string; frequency?: number; source: string }> {
-    const currentKeys = new Set([`${currentCard.spelling}\n${currentCard.reading}`, `${currentCard.spelling}\n`]);
-    const words = new Map<string, { expression: string; reading: string; meaning: string; frequency?: number; source: string }>();
-    const add = (entry: { expression: string; reading: string; meaning: string; frequency?: number; source: string }) => {
-        const key = `${entry.expression}\n${entry.reading}`;
-        if (currentKeys.has(key) || entry.expression === currentCard.spelling) return;
-        const existing = words.get(key);
-        if (existing) {
-            existing.meaning ||= entry.meaning;
-            existing.frequency ??= entry.frequency;
-            if (!existing.source.includes(entry.source)) existing.source = `${existing.source} · ${entry.source}`;
-            return;
-        }
-        words.set(key, entry);
-    };
-
-    jpdbVocabulary.forEach(entry => add({
-        expression: entry.expression,
-        reading: entry.reading,
-        meaning: entry.meaning,
-        source: 'JPDB',
-    }));
-    localEntries.forEach(entry => add({
-        expression: entry.expression,
-        reading: entry.reading,
-        meaning: summarizeLearnerGlossary(entry),
-        frequency: entry.jpdbFrequency,
-        source: dictionaryLabel(entry.dictionary),
-    }));
-
-    const result = Array.from(words.values()).sort((a, b) =>
-        compareOptionalNumber(a.frequency, b.frequency)
-        || a.expression.length - b.expression.length
-        || a.expression.localeCompare(b.expression),
-    );
-    return result;
-}
-
-export function renderSimilarKanjiWordsContent(
-    localEntries: YomitanTermEntry[],
-    jpdbVocabulary: JpdbKanjiVocabulary[],
-    currentCard: JPDBCard,
-    settings: ReaderSettings,
-    dictionaryLabel: (name: string) => string,
-): string {
-    const words = mergeSimilarKanjiWords(localEntries, jpdbVocabulary, currentCard, dictionaryLabel).slice(0, settings.similarKanjiWordLimit);
-    if (!words.length) return '';
-    return `
-        <div class="jpdb-reader-local-entry jpdb-reader-similar-words">
-            ${words.map(word => `
-                <button class="jpdb-reader-similar-word" type="button" data-action="lookup" data-term="${escapeHtml(word.expression)}" data-reading="${escapeHtml(word.reading)}">
-                    <span class="jpdb-reader-similar-expression">${escapeHtml(word.expression)}</span>
-                    ${word.reading && word.reading !== word.expression ? `<span class="jpdb-reader-similar-reading">${escapeHtml(word.reading)}</span>` : ''}
-                    ${word.meaning ? `<span class="jpdb-reader-similar-meaning">${escapeHtml(word.meaning)}</span>` : ''}
-                    <span class="jpdb-reader-similar-source">${escapeHtml(word.source)}${word.frequency ? ` #${escapeHtml(String(word.frequency))}` : ''}</span>
-                </button>
-            `).join('')}
-        </div>
-    `;
-}
-
-export function summarizeLearnerGlossary(entry: Pick<YomitanTermEntry, 'glossary'>): string {
-    const candidates = entry.glossary
-        .flatMap(item => splitLearnerGlossaryText(glossaryToText(item)))
-        .map(cleanLearnerGlossaryText)
-        .filter(Boolean);
-    return Array.from(new Set(candidates)).slice(0, 3).join(', ');
-}
-
-const LEARNER_GLOSSARY_SOURCE_RE = /\b(?:JMdict|JMDict|Tatoeba)\b.*$/i;
-const LEARNER_GLOSSARY_TAG_RE = /^(?:\[[^\]]+\]\s*)?(?:(?:adj-(?:i|ix|ku|na|no|pn|t|f)|na-adj|adv(?:-to)?|aux(?:-[a-z]+)?|conj|ctr|exp|int|n(?:-[a-z]+)?|noun|pn|pref|prt|suf|suffix|vs(?:-[a-z]+)?|v[0-9a-z-]+|vi|vk|vn|vr|vs|vt|suru|transitive|intransitive|adjective|adverb|kana|usually|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare|relative)\s+)+/i;
-
-function splitLearnerGlossaryText(text: string): string[] {
-    const normalized = text.replace(/\s+/g, ' ').trim();
-    if (!normalized) return [];
-    const withoutExamples = cutBeforeExampleText(normalized).replace(LEARNER_GLOSSARY_SOURCE_RE, '').trim();
-    return withoutExamples
-        .split(/\s*(?:;|,|\/|\||\u3001|\u30fb)\s*/)
-        .map(item => item.trim())
-        .filter(Boolean);
-}
-
-function cleanLearnerGlossaryText(text: string): string {
-    let clean = text
-        .replace(/^\[[^\]]+\]\s*/, '')
-        .replace(LEARNER_GLOSSARY_TAG_RE, '')
-        .replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/i, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-    clean = humanizeTerseGlosses(trimLearnerMeaning(clean));
-    if (!clean || HAS_JAPANESE.test(clean) || looksLikeGrammarTag(clean)) return '';
-    return clean;
-}
-
-function cutBeforeExampleText(text: string): string {
-    const japaneseIndex = text.search(HAS_JAPANESE);
-    const sentenceIndex = text.search(/\s+[A-Z][^.;!?]*(?:[.;!?]|$)/);
-    const indexes = [japaneseIndex, sentenceIndex].filter(index => index >= 0);
-    const cutoff = indexes.length ? Math.min(...indexes) : -1;
-    return cutoff >= 0 ? text.slice(0, cutoff) : text;
-}
-
-function trimLearnerMeaning(text: string, maxLength = 56): string {
-    if (text.length <= maxLength) return text;
-    const truncated = text.slice(0, maxLength).replace(/\s+\S*$/, '').trim();
-    return truncated || text.slice(0, maxLength).trim();
-}
-
-function humanizeTerseGlosses(text: string): string {
-    const words = text.split(/\s+/).filter(Boolean);
-    if (words.length < 2 || words.length > 4) return text;
-    if (words.some(word => /^(?:a|an|and|as|for|in|of|on|or|the|to|with)$/i.test(word))) return text;
-    if (words.every(word => /^[a-z][a-z'-]*$/i.test(word))) return words.join(', ');
-    return text;
-}
-
-function looksLikeGrammarTag(text: string): boolean {
-    return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text);
 }
 
 export function renderKanjiKeywordLine(jpdbInfo: JpdbKanjiInfo | null, rtkInfo: RtkInfo | null, entries: YomitanKanjiEntry[], language: InterfaceLanguage = 'en'): string {
@@ -358,13 +129,6 @@ function nextAnchoredRtkChip(chips: RtkElementChip[], afterIndex: number): RtkEl
         if (chips[index]?.kanji) return chips[index] ?? null;
     }
     return null;
-}
-
-function compareOptionalNumber(a?: number, b?: number): number {
-    if (a === undefined && b === undefined) return 0;
-    if (a === undefined) return 1;
-    if (b === undefined) return -1;
-    return a - b;
 }
 
 function sourceStateAttribute(sourceStateKey: string | undefined, initiallyExpanded: boolean): string {
@@ -1593,97 +1357,6 @@ export function cardPronunciationReading(card: Pick<JPDBCard, 'reading' | 'spell
     if (reading && !containsKanji(reading)) return reading;
     const rubyReading = cleanPronunciationReading(readingFromWordWithReading(card.wordWithReading ?? ''));
     return rubyReading && !containsKanji(rubyReading) ? rubyReading : '';
-}
-
-export function localPitchPatternFromMeta(reading: string, entries: YomitanMetaEntry[]): string {
-    for (const entry of entries) {
-        if (entry.mode !== 'pitch') continue;
-        const position = readPitchPosition(entry.data, reading);
-        const pattern = position == null ? '' : pitchPatternFromPosition(reading, position);
-        if (pattern) return pattern;
-    }
-    return '';
-}
-
-function readPitchPosition(value: unknown, reading: string): number | null {
-    const record = objectRecord(value);
-    if (!record) return pitchPositionFromValue(value);
-    if (!pitchMetadataReadingMatches(record, reading)) return null;
-    return pitchPositionFromMetadataRecord(record);
-}
-
-function pitchPositionFromMetadataRecord(record: Record<string, unknown>): number | null {
-    const direct = pitchPositionFromValue(record.position);
-    if (direct != null) return direct;
-    return firstPitchPositionCandidate(record);
-}
-
-function firstPitchPositionCandidate(record: Record<string, unknown>): number | null {
-    return pitchPositionCandidates(record)
-        .map(candidate => pitchPositionFromValue(candidate))
-        .find((position): position is number => position != null) ?? null;
-}
-
-function pitchMetadataReadingMatches(record: Record<string, unknown>, reading: string): boolean {
-    const metadataReading = typeof record.reading === 'string' ? record.reading : '';
-    return !metadataReading || !reading || metadataReading === reading;
-}
-
-function pitchPositionCandidates(record: Record<string, unknown>): unknown[] {
-    if (Array.isArray(record.pitches)) return record.pitches;
-    return Array.isArray(record.positions) ? record.positions : [];
-}
-
-function pitchPositionFromValue(value: unknown): number | null {
-    const direct = directPitchPositionValue(value);
-    if (direct !== null) return direct;
-    if (!value || typeof value !== 'object') return null;
-    const record = value as Record<string, unknown>;
-    return pitchPositionFromValue(record.position);
-}
-
-function directPitchPositionValue(value: unknown): number | null {
-    if (typeof value === 'number') return validPitchPosition(value);
-    if (typeof value === 'string' && value.trim()) return validPitchPosition(Number(value));
-    return null;
-}
-
-function validPitchPosition(value: number): number | null {
-    return Number.isInteger(value) && value >= 0 ? value : null;
-}
-
-function pitchPatternFromPosition(reading: string, position: number): string {
-    const morae = splitMorae(reading);
-    if (!morae.length || position > morae.length) return '';
-    if (position === 0) return `L${'H'.repeat(morae.length)}`;
-    const levels = morae.map((_, index) => {
-        const moraPosition = index + 1;
-        if (position === 1) return moraPosition === 1 ? 'H' : 'L';
-        return moraPosition === 1 ? 'L' : moraPosition <= position ? 'H' : 'L';
-    });
-    return `${levels.join('')}L`;
-}
-
-export function externalLinkIcon(): string {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M7 17 17 7"></path>
-        <path d="M9 7h8v8"></path>
-    </svg>`;
-}
-
-export function copyIcon(): string {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <rect x="9" y="9" width="10" height="10" rx="2"></rect>
-        <path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
-    </svg>`;
-}
-
-export function speakerIcon(): string {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
-        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
-        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
-    </svg>`;
 }
 
 export function uniqueKanji(value: string): string[] {

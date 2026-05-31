@@ -13,16 +13,11 @@ import { mergeDictionaryPreferences, normalizeReaderSettings, saveSettings } fro
 import { exportManagedStoredValues, importStoredValues } from './storage';
 import {
     activateSettingsPanel,
-    dateStamp,
-    downloadBlob,
     getFormInterfaceLanguage,
-    getReaderSettingsExport,
     installSourceRowDrag,
     installShortcutCapture,
     localizeSettingsForm,
-    pickFile,
     readFormSettings,
-    recommendedDictionaryFilename,
     renderAnkiTemplatePreview,
     renderDeckControls,
     renderDictionarySourceRows,
@@ -38,6 +33,7 @@ import {
     updateDictionaryLookupLinkEditor,
     updateSourceRowEditor,
 } from './settings-form';
+import { dateStamp, downloadBlob, getReaderSettingsExport, pickFile, recommendedDictionaryFilename } from './settings-file-io';
 import type { InterfaceLanguage, ReaderSettings } from './types';
 import { uiText } from './i18n';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from './yomitan';
