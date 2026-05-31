@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.4.61
+// @version      0.4.62
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -37552,26 +37552,6 @@ ${glossaryKey}`;
    this.render();
    log$3.info("Native subtitle blur toggled", { blurred: settings.subtitleNativeBlurred });
   }
-  toggleTranscriptPanel() {
-   if (!this.transcriptPanel) return;
-   if (!this.hasTranscriptSurface()) {
-    this.toggleTrackPanel();
-    return;
-   }
-   const shouldOpen = this.transcriptPanel.hidden || this.panelMode !== "lines";
-   this.panelMode = "lines";
-   this.transcriptPanel.hidden = !shouldOpen;
-   this.options.getSettings().subtitleTranscriptVisible = shouldOpen;
-   this.options.onSettingsChange();
-   this.closeMenuForOpenTranscriptPanel();
-   this.renderTranscriptPanel(true);
-   this.positionTranscriptPanel({ realignAfterInset: shouldOpen });
-   this.syncPanelState();
-  }
-  closeMenuForOpenTranscriptPanel() {
-   if (!this.transcriptPanel || this.transcriptPanel.hidden || !this.menuEl) return;
-   this.menuEl.hidden = true;
-  }
   refreshTranscriptPanelAfterTrackChange() {
    if (this.shouldRestoreTranscriptPanel()) {
     this.openLinesPanel();
@@ -37611,14 +37591,6 @@ ${glossaryKey}`;
    this.options.onSettingsChange();
    this.positionTranscriptPanel();
    this.syncControls();
-  }
-  toggleTrackPanel() {
-   if (!this.transcriptPanel) return;
-   if (!this.transcriptPanel.hidden && this.panelMode === "tracks") {
-    this.closeTranscriptPanel();
-    return;
-   }
-   this.openTracksPanel();
   }
   renderTranscriptPanel(force = false) {
    const panel = this.renderableTranscriptPanel();

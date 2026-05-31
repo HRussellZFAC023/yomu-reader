@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.62] - 2026-05-31
+
+### Changed
+
+- Removed an unreachable legacy subtitle drawer toggle path so YouTube transcript panel state is driven by the current rail/menu controls only.
+- Added direct coverage for rail drawer open/close state and YouTube watch-player side insets.
+
 ## [0.4.61] - 2026-05-31
 
 ### Changed

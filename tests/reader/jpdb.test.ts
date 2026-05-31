@@ -8919,6 +8919,68 @@ describe('reader helpers', () => {
         });
     });
 
+    it('applies YouTube side drawer insets to the current watch player columns', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+
+        withViewport(1600, 900, () => {
+            document.body.innerHTML = `
+                <ytd-watch-flexy>
+                    <div id="primary"><div id="primary-inner"><div id="movie_player"></div></div></div>
+                </ytd-watch-flexy>
+            `;
+            const primary = document.querySelector<HTMLElement>('#primary')!;
+            const primaryInner = document.querySelector<HTMLElement>('#primary-inner')!;
+            const moviePlayer = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: (width: number, height: number) => void };
+            const setSize = vi.fn();
+            moviePlayer.setSize = setSize;
+            Object.defineProperty(primary, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(0, 0, 1200, 675),
+            });
+            Object.defineProperty(primaryInner, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(0, 0, 1200, 675),
+            });
+
+            const adapter = createSubtitleVideoInsetAdapter();
+            try {
+                adapter.apply({
+                    side: 'right',
+                    playerSize: 1080,
+                    panelSize: 420,
+                    videoRect: new DOMRect(0, 0, 1200, 675),
+                    margin: 12,
+                });
+
+                expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')).toBe(true);
+                expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')).toBe('432px');
+                expect(primary.style.width).toBe('1080px');
+                expect(primary.style.maxWidth).toBe('1080px');
+                expect(primary.style.minWidth).toBe('0px');
+                expect(primary.style.marginRight).toBe('32px');
+                expect(primaryInner.style.width).toBe('1080px');
+                expect(primaryInner.style.maxWidth).toBe('1080px');
+                expect(setSize).toHaveBeenCalledWith(1080, 608);
+            } finally {
+                adapter.clear();
+                Object.defineProperty(window, 'location', {
+                    configurable: true,
+                    value: originalLocation,
+                });
+                document.body.innerHTML = '';
+            }
+
+            expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')).toBe(false);
+            expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')).toBe('');
+            expect(primary.style.width).toBe('');
+            expect(primaryInner.style.width).toBe('');
+        });
+    });
+
     it('keeps the hosted empty video frame at normal aspect ratio with a bottom drawer', () => {
         withViewport(390, 844, () => {
             document.body.innerHTML = '<section data-yomu-video-frame><video></video></section>';
