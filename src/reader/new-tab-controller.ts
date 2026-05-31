@@ -980,102 +980,7 @@ export class NewTabController {
         this.rootEventController?.abort();
         const controller = new AbortController();
 
-        root.addEventListener('click', event => {
-            const target = eventTargetElement(event.target);
-            if (!target) return;
-            if (this.handleNestedLookupClick(root, target, event)) return;
-            const action = target.closest<HTMLElement>('[data-newtab-action]')?.dataset.newtabAction;
-            const immersionAction = target.closest<HTMLElement>('[data-immersion-action]')?.dataset.immersionAction;
-            const translation = target.closest<HTMLElement>('.jpdb-reader-example-translation');
-            if (translation && root.contains(translation)) {
-                event.preventDefault();
-                this.toggleNewTabImmersionTranslations(root);
-                return;
-            }
-            if (immersionAction) {
-                event.preventDefault();
-                this.performNewTabImmersionAction(root, immersionAction);
-                return;
-            }
-            if (action) target.closest<HTMLDetailsElement>('.jpdb-reader-newtab-more')?.removeAttribute('open');
-            if (action === 'settings') {
-                event.preventDefault();
-                this.dependencies.showSettings('basics');
-                return;
-            }
-            if (action === 'theme') {
-                event.preventDefault();
-                void this.toggleTheme(root);
-                return;
-            }
-            if (action === 'language') {
-                event.preventDefault();
-                void this.toggleInterfaceLanguage(root);
-                return;
-            }
-            if (action === 'load-dictionary') {
-                event.preventDefault();
-                this.dependencies.showSettings('dictionaries');
-                return;
-            }
-            if (this.handleStatsClick(root, target, event, action)) return;
-            if (this.handleSearchClick(root, target, event, action)) return;
-            if (action === 'mode') {
-                event.preventDefault();
-                const requestedMode = target.closest<HTMLElement>('[data-mode]')?.dataset.mode;
-                const mode = requestedMode === 'kanji' || requestedMode === 'search' || requestedMode === 'stats' ? requestedMode : 'word';
-                this.setState({ mode, revealAnswer: false }, root, { preserveWord: true });
-                return;
-            }
-            if (action === 'source-toggle') {
-                event.preventDefault();
-                const source = target.closest<HTMLElement>('[data-source-toggle-target]')?.dataset.sourceToggleTarget;
-                if (source === 'jpdb' || source === 'anki' || source === 'dictionary') void this.switchReviewSource(root, source);
-                return;
-            }
-            if (root.dataset.standaloneNewtab === 'true' && !this.allWords.length) return;
-            if (action === 'next') {
-                event.preventDefault();
-                if (!this.acceptPointerNavigation('next', event)) return;
-                this.showNextWord();
-                return;
-            }
-            if (action === 'skip') {
-                event.preventDefault();
-                if (!this.acceptPointerNavigation('next', event)) return;
-                this.showNextWord();
-                return;
-            }
-            if (action === 'previous') {
-                event.preventDefault();
-                if (!this.acceptPointerNavigation('previous', event)) return;
-                this.showPreviousWord();
-                return;
-            }
-            if (action === 'reveal') {
-                event.preventDefault();
-                this.toggleReveal(root);
-                return;
-            }
-            if (action === 'grade') {
-                event.preventDefault();
-                const grade = target.closest<HTMLElement>('[data-grade]')?.dataset.grade as JPDBGrade | undefined;
-                if (grade) void this.gradeCurrentCard(grade);
-                return;
-            }
-            if (action === 'jpdb-kanji-action') {
-                event.preventDefault();
-                const actionId = target.closest<HTMLElement>('[data-kanji-action-id]')?.dataset.kanjiActionId ?? '';
-                void this.performJpdbKanjiAction(root, actionId);
-                return;
-            }
-            if (this.state.mode === 'search') return;
-            const study = target.closest<HTMLElement>('[data-newtab-study]');
-            if (study && !isNewTabStudyInteractiveTarget(target)) {
-                event.preventDefault();
-                this.toggleReveal(root);
-            }
-        }, { signal: controller.signal });
+        root.addEventListener('click', event => this.handleRootClick(root, event), { signal: controller.signal });
 
         root.addEventListener('submit', event => {
             const form = (event.target as HTMLElement | null)?.closest<HTMLFormElement>('[data-newtab-search]');
@@ -1166,6 +1071,127 @@ export class NewTabController {
             if (!document.hidden) syncQueuedGrades();
         }, { signal: controller.signal });
         this.rootEventController = controller;
+    }
+
+    private handleRootClick(root: HTMLElement, event: MouseEvent): void {
+        const target = eventTargetElement(event.target);
+        if (!target) return;
+        if (this.handleNestedLookupClick(root, target, event)) return;
+        const action = target.closest<HTMLElement>('[data-newtab-action]')?.dataset.newtabAction;
+        if (this.handleRootImmersionClick(root, target, event)) return;
+        if (action) target.closest<HTMLDetailsElement>('.jpdb-reader-newtab-more')?.removeAttribute('open');
+        if (this.handleRootUtilityClick(root, event, action)) return;
+        if (this.handleStatsClick(root, target, event, action)) return;
+        if (this.handleSearchClick(root, target, event, action)) return;
+        if (this.handleRootModeClick(root, target, event, action)) return;
+        if (root.dataset.standaloneNewtab === 'true' && !this.allWords.length) return;
+        if (this.handleRootStudyActionClick(root, target, event, action)) return;
+        this.handleStudyCardClick(root, target, event);
+    }
+
+    private handleRootImmersionClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): boolean {
+        const immersionAction = target.closest<HTMLElement>('[data-immersion-action]')?.dataset.immersionAction;
+        const translation = target.closest<HTMLElement>('.jpdb-reader-example-translation');
+        if (translation && root.contains(translation)) {
+            event.preventDefault();
+            this.toggleNewTabImmersionTranslations(root);
+            return true;
+        }
+        if (immersionAction) {
+            event.preventDefault();
+            this.performNewTabImmersionAction(root, immersionAction);
+            return true;
+        }
+        return false;
+    }
+
+    private handleRootUtilityClick(root: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
+        if (action === 'settings') {
+            event.preventDefault();
+            this.dependencies.showSettings('basics');
+            return true;
+        }
+        if (action === 'theme') {
+            event.preventDefault();
+            void this.toggleTheme(root);
+            return true;
+        }
+        if (action === 'language') {
+            event.preventDefault();
+            void this.toggleInterfaceLanguage(root);
+            return true;
+        }
+        if (action === 'load-dictionary') {
+            event.preventDefault();
+            this.dependencies.showSettings('dictionaries');
+            return true;
+        }
+        return false;
+    }
+
+    private handleRootModeClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
+        if (action === 'mode') {
+            event.preventDefault();
+            const requestedMode = target.closest<HTMLElement>('[data-mode]')?.dataset.mode;
+            const mode = requestedMode === 'kanji' || requestedMode === 'search' || requestedMode === 'stats' ? requestedMode : 'word';
+            this.setState({ mode, revealAnswer: false }, root, { preserveWord: true });
+            return true;
+        }
+        if (action === 'source-toggle') {
+            event.preventDefault();
+            const source = target.closest<HTMLElement>('[data-source-toggle-target]')?.dataset.sourceToggleTarget;
+            if (source === 'jpdb' || source === 'anki' || source === 'dictionary') void this.switchReviewSource(root, source);
+            return true;
+        }
+        return false;
+    }
+
+    private handleRootStudyActionClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
+        if (action === 'next') {
+            event.preventDefault();
+            if (!this.acceptPointerNavigation('next', event)) return true;
+            this.showNextWord();
+            return true;
+        }
+        if (action === 'skip') {
+            event.preventDefault();
+            if (!this.acceptPointerNavigation('next', event)) return true;
+            this.showNextWord();
+            return true;
+        }
+        if (action === 'previous') {
+            event.preventDefault();
+            if (!this.acceptPointerNavigation('previous', event)) return true;
+            this.showPreviousWord();
+            return true;
+        }
+        if (action === 'reveal') {
+            event.preventDefault();
+            this.toggleReveal(root);
+            return true;
+        }
+        if (action === 'grade') {
+            event.preventDefault();
+            const grade = target.closest<HTMLElement>('[data-grade]')?.dataset.grade as JPDBGrade | undefined;
+            if (grade) void this.gradeCurrentCard(grade);
+            return true;
+        }
+        if (action === 'jpdb-kanji-action') {
+            event.preventDefault();
+            const actionId = target.closest<HTMLElement>('[data-kanji-action-id]')?.dataset.kanjiActionId ?? '';
+            void this.performJpdbKanjiAction(root, actionId);
+            return true;
+        }
+        return false;
+    }
+
+    private handleStudyCardClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): void {
+        if (this.state.mode === 'search') return;
+        const study = target.closest<HTMLElement>('[data-newtab-study]');
+        if (study && !isNewTabStudyInteractiveTarget(target)) {
+            event.preventDefault();
+            this.toggleReveal(root);
+        }
     }
 
     private handleStatsClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
@@ -4429,36 +4455,55 @@ export class NewTabController {
         const signature = this.kanjiDetailSettingsSignature(settings);
         if (cache.details && cache.detailsSignature === signature) return cache.details;
 
-        const lookupJpdbKanji = this.dependencies.jpdbKanji.lookup;
-        if (settings.jpdbKanjiEnabled && typeof lookupJpdbKanji === 'function' && !cache.jpdb) {
-            cache.jpdb = promiseWithTimeout(lookupJpdbKanji.call(this.dependencies.jpdbKanji, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'JPDB kanji lookup timed out.')
-                .catch(() => null);
-        }
-        const lookupRtk = this.dependencies.rtk.lookup;
-        if (settings.rtkEnabled && typeof lookupRtk === 'function' && !cache.rtk) {
-            cache.rtk = promiseWithTimeout(lookupRtk.call(this.dependencies.rtk, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'RTK lookup timed out.')
-                .catch(() => null);
-        }
-        const lookupKanjiVG = this.dependencies.kanjiVG.lookup;
-        if (this.shouldLoadKanjiVG(settings) && typeof lookupKanjiVG === 'function' && !cache.vg) {
-            cache.vg = promiseWithTimeout(lookupKanjiVG.call(this.dependencies.kanjiVG, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'KanjiVG lookup timed out.')
-                .catch(() => null);
-        }
-        if (this.shouldLoadLocalKanjiDetails(settings) && !cache.local) {
-            cache.local = this.localSearchWithTimeout(
-                this.dependencies.dictionaries.lookupKanji?.(kanji, 6, settings.dictionaryPreferences) ?? Promise.resolve([]),
-                [] as YomitanKanjiEntry[],
-            );
-        }
+        this.primeKanjiDetailSources(cache, kanji, settings);
+        cache.details = this.resolveKanjiDetailBundle(cache, settings);
+        cache.detailsSignature = signature;
+        return cache.details;
+    }
 
-        cache.details = Promise.all([
+    private primeKanjiDetailSources(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
+        this.primeJpdbKanjiDetail(cache, kanji, settings);
+        this.primeRtkKanjiDetail(cache, kanji, settings);
+        this.primeKanjiVGDetail(cache, kanji, settings);
+        this.primeLocalKanjiDetail(cache, kanji, settings);
+    }
+
+    private primeJpdbKanjiDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
+        const lookupJpdbKanji = this.dependencies.jpdbKanji.lookup;
+        if (!settings.jpdbKanjiEnabled || typeof lookupJpdbKanji !== 'function' || cache.jpdb) return;
+        cache.jpdb = promiseWithTimeout(lookupJpdbKanji.call(this.dependencies.jpdbKanji, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'JPDB kanji lookup timed out.')
+            .catch(() => null);
+    }
+
+    private primeRtkKanjiDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
+        const lookupRtk = this.dependencies.rtk.lookup;
+        if (!settings.rtkEnabled || typeof lookupRtk !== 'function' || cache.rtk) return;
+        cache.rtk = promiseWithTimeout(lookupRtk.call(this.dependencies.rtk, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'RTK lookup timed out.')
+            .catch(() => null);
+    }
+
+    private primeKanjiVGDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
+        const lookupKanjiVG = this.dependencies.kanjiVG.lookup;
+        if (!this.shouldLoadKanjiVG(settings) || typeof lookupKanjiVG !== 'function' || cache.vg) return;
+        cache.vg = promiseWithTimeout(lookupKanjiVG.call(this.dependencies.kanjiVG, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'KanjiVG lookup timed out.')
+            .catch(() => null);
+    }
+
+    private primeLocalKanjiDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
+        if (!this.shouldLoadLocalKanjiDetails(settings) || cache.local) return;
+        cache.local = this.localSearchWithTimeout(
+            this.dependencies.dictionaries.lookupKanji?.(kanji, 6, settings.dictionaryPreferences) ?? Promise.resolve([]),
+            [] as YomitanKanjiEntry[],
+        );
+    }
+
+    private resolveKanjiDetailBundle(cache: KanjiDetailCacheEntry, settings: ReaderSettings): Promise<KanjiDetailBundle> {
+        return Promise.all([
             settings.jpdbKanjiEnabled ? cache.jpdb ?? Promise.resolve(null) : Promise.resolve(null),
             settings.rtkEnabled ? cache.rtk ?? Promise.resolve(null) : Promise.resolve(null),
             this.shouldLoadKanjiVG(settings) ? cache.vg ?? Promise.resolve(null) : Promise.resolve(null),
             this.shouldLoadLocalKanjiDetails(settings) ? cache.local ?? Promise.resolve([]) : Promise.resolve([]),
         ]).then(([jpdb, rtk, vg, local]) => ({ jpdb, rtk, vg, local, similar: [] }));
-        cache.detailsSignature = signature;
-        return cache.details;
     }
 
     private kanjiDetailCacheEntry(kanji: string): KanjiDetailCacheEntry {
@@ -4634,60 +4679,69 @@ export class NewTabController {
     }
 
     private handleSearchClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
-        if (action === 'search-clear') {
-            event.preventDefault();
-            this.clearSearch(root);
-            return true;
-        }
-        if (action === 'search-focus') {
-            event.preventDefault();
-            this.searchInput(root)?.focus();
-            return true;
-        }
-        if (action === 'search-suggestion') {
-            event.preventDefault();
-            const query = target.closest<HTMLElement>('[data-query]')?.dataset.query ?? '';
-            this.selectSearchSuggestion(root, query);
-            return true;
-        }
-        if (action === 'search-handwriting-toggle') {
-            event.preventDefault();
-            this.toggleSearchHandwriting(root);
-            return true;
-        }
-        if (action === 'handwriting-candidate') {
-            event.preventDefault();
-            const query = target.closest<HTMLElement>('[data-query]')?.dataset.query ?? '';
-            this.acceptSearchHandwritingCandidate(root, query);
-            return true;
-        }
-        if (action === 'search-copy') {
-            event.preventDefault();
-            const query = cleanNestedLookupValue(target.closest<HTMLElement>('[data-query]')?.dataset.query);
-            if (query) void copyText(query);
-            return true;
-        }
-        if (action === 'search-result-word') {
-            event.preventDefault();
-            const button = target.closest<HTMLElement>('[data-expression]');
-            const key = cleanNestedLookupValue(button?.dataset.newtabCard);
-            const card = key ? this.searchWordCardCache.get(key) : undefined;
-            if (card && button) {
-                this.toggleSearchWordResult(root, button, card);
+        switch (action) {
+            case 'search-clear':
+                event.preventDefault();
+                this.clearSearch(root);
                 return true;
-            }
-            const expression = cleanNestedLookupValue(button?.dataset.expression);
-            if (expression) void this.dependencies.lookupText?.(expression, cleanNestedLookupValue(button?.dataset.reading) || expression, button ?? target);
+            case 'search-focus':
+                event.preventDefault();
+                this.searchInput(root)?.focus();
+                return true;
+            case 'search-suggestion':
+                event.preventDefault();
+                this.selectSearchSuggestion(root, this.searchActionQuery(target));
+                return true;
+            case 'search-handwriting-toggle':
+                event.preventDefault();
+                this.toggleSearchHandwriting(root);
+                return true;
+            case 'handwriting-candidate':
+                event.preventDefault();
+                this.acceptSearchHandwritingCandidate(root, this.searchActionQuery(target));
+                return true;
+            case 'search-copy':
+                event.preventDefault();
+                this.copySearchActionQuery(target);
+                return true;
+            case 'search-result-word':
+                return this.handleSearchResultWordClick(root, target, event);
+            case 'search-result-kanji':
+                return this.handleSearchResultKanjiClick(target, event);
+            default:
+                return false;
+        }
+    }
+
+    private searchActionQuery(target: HTMLElement): string {
+        return target.closest<HTMLElement>('[data-query]')?.dataset.query ?? '';
+    }
+
+    private copySearchActionQuery(target: HTMLElement): void {
+        const query = cleanNestedLookupValue(target.closest<HTMLElement>('[data-query]')?.dataset.query);
+        if (query) void copyText(query);
+    }
+
+    private handleSearchResultWordClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): boolean {
+        event.preventDefault();
+        const button = target.closest<HTMLElement>('[data-expression]');
+        const key = cleanNestedLookupValue(button?.dataset.newtabCard);
+        const card = key ? this.searchWordCardCache.get(key) : undefined;
+        if (card && button) {
+            this.toggleSearchWordResult(root, button, card);
             return true;
         }
-        if (action === 'search-result-kanji') {
-            event.preventDefault();
-            const button = target.closest<HTMLElement>('[data-kanji]');
-            const kanji = cleanNestedLookupValue(button?.dataset.kanji);
-            if (kanji && button) this.toggleSearchKanjiResult(button, kanji);
-            return true;
-        }
-        return false;
+        const expression = cleanNestedLookupValue(button?.dataset.expression);
+        if (expression) void this.dependencies.lookupText?.(expression, cleanNestedLookupValue(button?.dataset.reading) || expression, button ?? target);
+        return true;
+    }
+
+    private handleSearchResultKanjiClick(target: HTMLElement, event: MouseEvent): boolean {
+        event.preventDefault();
+        const button = target.closest<HTMLElement>('[data-kanji]');
+        const kanji = cleanNestedLookupValue(button?.dataset.kanji);
+        if (kanji && button) this.toggleSearchKanjiResult(button, kanji);
+        return true;
     }
 
     private handleSearchKeydown(root: HTMLElement, event: KeyboardEvent, target: HTMLElement | null): boolean {

@@ -39,7 +39,6 @@ const userscriptGrant: NonNullable<MonkeyUserScript['grant']> = [
     'GM_listValues',
     'GM_addValueChangeListener',
     'GM_removeValueChangeListener',
-    'GM_addStyle',
     'GM_getResourceText',
     'GM_registerMenuCommand',
 ];
