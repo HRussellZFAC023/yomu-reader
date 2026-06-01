@@ -554,7 +554,10 @@ const NEW_TAB_LOCAL_SEARCH_TIMEOUT_MS = 450;
 const NEW_TAB_PUBLIC_SEARCH_TIMEOUT_MS = 2500;
 const NEW_TAB_PUBLIC_JPDB_LOCAL_SEED_LIMIT = 24;
 const NEW_TAB_PUBLIC_JPDB_KANJI_SEED_LIMIT = 8;
-const NEW_TAB_PUBLIC_JPDB_KANJI_FALLBACK_LIMIT = 3;
+const NEW_TAB_PUBLIC_JPDB_KANJI_FALLBACK_LIMIT = 5;
+const NEW_TAB_PUBLIC_JPDB_WORD_SEED_LIMIT = 12;
+const NEW_TAB_PUBLIC_JPDB_WORD_FALLBACK_LIMIT = 2;
+const NEW_TAB_PUBLIC_JPDB_MIN_WORD_LENGTH = 2;
 const NEW_TAB_PUBLIC_JPDB_CONCURRENCY = 4;
 const NEW_TAB_DICTIONARY_RANDOM_MAX_ROWS = 16000;
 const NEW_TAB_DICTIONARY_RANDOM_MAX_MS = 180;
@@ -573,6 +576,16 @@ const NEW_TAB_HANDWRITING_GOOGLE_URL = 'https://www.google.com/inputtools/reques
 const NEW_TAB_HANDWRITING_COMMON_KANJI =
     '一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄光入全公六共内円写冬出分切前力加動北十千午半南原反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒'
         + '以衣医右雨運英映泳園遠王央横屋温化荷界開階寒感漢館岸起期客急級宮球究去橋業曲局銀区苦具君係軽血決研県庫湖向幸港号根祭皿仕死使始姉指歯詩次事持式実写者主守酒受州拾終習集住重宿所暑助昭消商章勝乗植申身神真深進世整昔全相送想息速族他打対代第題炭短談着注柱丁帳調追定庭笛鉄転都度登島湯等豆動童農波配倍箱畑発反坂板皮悲美鼻筆氷表秒病品負部服福物平返勉放味命面問役薬由油有遊予羊洋葉陽様落流旅両緑礼列練路和';
+// Curated everyday vocabulary used to seed public-JPDB study words when there is no
+// API key and no local dictionary, so the random sample is real multi-character words
+// rather than the lone kanji a single-character search tends to surface first.
+const NEW_TAB_PUBLIC_JPDB_COMMON_WORDS = [
+    '時間', '世界', '日本語', '今日', '明日', '言葉', '友達', '家族', '勉強', '学校',
+    '先生', '学生', '会社', '仕事', '電車', '料理', '食事', '音楽', '映画', '天気',
+    '元気', '簡単', '大丈夫', '一緒', '大切', '自分', '問題', '生活', '場所', '理由',
+    '練習', '説明', '質問', '意味', '経験', '準備', '約束', '連絡', '部屋', '旅行',
+    '写真', '名前', '電話', '病院', '買い物', '食べ物', '飲み物',
+];
 const NEW_TAB_HEADER_LABEL = 'yomu';
 const NEW_TAB_GRADE_QUEUE_KEY = 'jpdb-reader-newtab-grade-queue';
 const NEW_TAB_GRADE_QUEUE_LIMIT = 200;
@@ -2401,6 +2414,13 @@ export class NewTabController {
         );
         if (localSeedCards.length) return localSeedCards;
 
+        const commonWordCards = await this.publicFallbackStage(
+            'JPDB public common words',
+            this.loadPublicJpdbSearchCards(randomPublicJpdbSeedWords(), NEW_TAB_PUBLIC_JPDB_WORD_FALLBACK_LIMIT).then(preferMultiCharacterVocabulary),
+            [] as JPDBCard[],
+        );
+        if (commonWordCards.length) return commonWordCards;
+
         const kanjiSeedCards = await this.publicFallbackStage(
             'JPDB public kanji seed',
             this.loadPublicJpdbCardsFromKanjiVocabulary(),
@@ -2408,7 +2428,9 @@ export class NewTabController {
         );
         if (kanjiSeedCards.length) return kanjiSeedCards;
 
-        return this.loadPublicJpdbSearchCards(randomPublicJpdbSeedKanji(NEW_TAB_PUBLIC_JPDB_CONCURRENCY), NEW_TAB_PUBLIC_JPDB_KANJI_FALLBACK_LIMIT);
+        return preferMultiCharacterVocabulary(
+            await this.loadPublicJpdbSearchCards(randomPublicJpdbSeedKanji(NEW_TAB_PUBLIC_JPDB_CONCURRENCY), NEW_TAB_PUBLIC_JPDB_KANJI_FALLBACK_LIMIT),
+        );
     }
 
     private async loadPublicJpdbCardsFromLocalDictionary(): Promise<JPDBCard[]> {
@@ -2433,7 +2455,7 @@ export class NewTabController {
             ).catch(() => null);
             groups[index] = (info?.vocabulary ?? []).map(jpdbKanjiVocabularyToNewTabCard);
         });
-        return dedupeWords(groups.flat()).slice(0, NEW_TAB_WORD_LIMIT);
+        return preferMultiCharacterVocabulary(dedupeWords(groups.flat())).slice(0, NEW_TAB_WORD_LIMIT);
     }
 
     private async loadPublicJpdbSearchCards(queries: string[], limitPerQuery: number): Promise<JPDBCard[]> {
@@ -2901,7 +2923,9 @@ export class NewTabController {
         };
         if (this.canUseJpdbSource() || current === 'jpdb' || this.state.source === 'jpdb') add('jpdb');
         if (this.canUseAnkiSource() || current === 'anki' || this.state.source === 'anki') add('anki');
-        add('dictionary');
+        // Only offer a dictionary step when there aren't two review sources to flip
+        // between, so Anki and JPDB toggle directly when both are available.
+        if (sources.length < 2 || current === 'dictionary' || this.state.source === 'dictionary') add('dictionary');
         return sources;
     }
 
@@ -2914,9 +2938,10 @@ export class NewTabController {
     private canUseJpdbSource(): boolean {
         const settings = this.dependencies.getSettings();
         if (settings.apiKey.trim()) return true;
-        if (settings.newTabJpdbReviewMode === 'api-vocabulary') return false;
-        const status = this.liveJpdbStatus ?? this.dependencies.jpdbReviewBridge.latestStatus?.();
-        return settings.jpdbMiningEnabled && Boolean(status?.card);
+        // Without an API key, api-vocabulary mode cannot fetch words, but every other
+        // mode falls back to public JPDB lookup (no key required) — so JPDB is always a
+        // usable study source the toggle can offer.
+        return settings.newTabJpdbReviewMode !== 'api-vocabulary';
     }
 
     private canUseAnkiSource(): boolean {
@@ -6320,6 +6345,13 @@ function dedupeWords(cards: JPDBCard[]): JPDBCard[] {
     return [...seen.values()];
 }
 
+// Public-JPDB kanji seeds tend to surface the seed kanji itself as a one-character
+// "word"; prefer multi-character vocabulary but never empty the deck.
+function preferMultiCharacterVocabulary(cards: JPDBCard[]): JPDBCard[] {
+    const multi = cards.filter(card => Array.from(card.spelling).length >= NEW_TAB_PUBLIC_JPDB_MIN_WORD_LENGTH);
+    return multi.length ? multi : cards;
+}
+
 function dedupeSearchWords(cards: JPDBCard[]): JPDBCard[] {
     const results: JPDBCard[] = [];
     for (const card of dedupeWords(cards)) {
@@ -6473,6 +6505,10 @@ function isScheduledStudyCard(card: JPDBCard): boolean {
 
 function randomPublicJpdbSeedKanji(limit = NEW_TAB_PUBLIC_JPDB_KANJI_SEED_LIMIT): string[] {
     return shuffleStrings(uniqueStrings(Array.from(NEW_TAB_HANDWRITING_COMMON_KANJI))).slice(0, Math.max(0, limit));
+}
+
+function randomPublicJpdbSeedWords(limit = NEW_TAB_PUBLIC_JPDB_WORD_SEED_LIMIT): string[] {
+    return shuffleStrings(uniqueStrings([...NEW_TAB_PUBLIC_JPDB_COMMON_WORDS])).slice(0, Math.max(0, limit));
 }
 
 function shuffleStrings(values: string[]): string[] {

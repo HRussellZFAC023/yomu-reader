@@ -1641,9 +1641,13 @@ export class NewTabRuntime {
             seen.add(key);
             return true;
         }).slice(0, NEW_TAB_ANKI_ENRICHMENT_LIMIT);
-        await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
-            const lookup = await this.anki.findExistingCards(token.card);
-            this.applyAnkiLookupToRenderedWords(token.card, lookup);
+        if (!uniqueTokens.length) return;
+        // One batched AnkiConnect round-trip for all words, instead of a per-word
+        // findExistingCards request (which fanned out N notesInfo/cardsInfo calls).
+        const lookups = await this.anki.findExistingCardsBatch(uniqueTokens.map(token => token.card)).catch(() => [] as AnkiLookupResult[]);
+        uniqueTokens.forEach((token, index) => {
+            const lookup = lookups[index];
+            if (lookup) this.applyAnkiLookupToRenderedWords(token.card, lookup);
         });
     }
 
