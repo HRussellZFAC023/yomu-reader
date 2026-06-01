@@ -5,6 +5,10 @@ import type { CardState, JPDBCard, ReaderSettings } from './types';
 const log = Logger.scope('AnkiNewTab');
 const ANKI_CARD_INFO_CHUNK_SIZE = 250;
 const ANKI_NOTE_INFO_CHUNK_SIZE = 100;
+// Over-fetch a small multiple of the requested limit so filtering (suspended /
+// non-reviewable cards) still leaves enough, without running areDue/cardsInfo over
+// the entire collection — which is what made the new tab hang for large decks.
+const ANKI_CANDIDATE_OVERFETCH = 3;
 let unavailableUntil = 0;
 
 interface AnkiNoteInfo {
@@ -74,7 +78,8 @@ async function loadNewTabAnkiCardsForQuery(
 ): Promise<JPDBCard[]> {
     if (limit <= 0) return [];
     const candidateCardIds = ankiCandidateIds(await client.invoke<number[]>('findCards', { query }))
-        .filter(cardId => !seenCards.has(Number(cardId)));
+        .filter(cardId => !seenCards.has(Number(cardId)))
+        .slice(0, Math.max(1, limit) * ANKI_CANDIDATE_OVERFETCH);
     if (!candidateCardIds.length) return [];
 
     const reviewCards = await loadReviewableNewTabAnkiCards(client, candidateCardIds, kind);

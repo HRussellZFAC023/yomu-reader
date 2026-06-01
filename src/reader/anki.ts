@@ -651,14 +651,17 @@ function postJson<T>(url: string, body: string): Promise<T> {
         return Promise.reject(new Error('AnkiConnect needs the userscript request bridge on content pages.'));
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     return fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
+        signal: controller.signal,
     }).then(async response => {
         if (!response.ok) throw new Error(`AnkiConnect request failed (${response.status}).`);
         return response.json() as Promise<T>;
-    });
+    }).finally(() => clearTimeout(timeout));
 }
 
 function resolvedAnkiDeckName(deckOverride: string | undefined, settings: ReaderSettings): string {
