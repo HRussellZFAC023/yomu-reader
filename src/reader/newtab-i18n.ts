@@ -6,7 +6,6 @@ type NewTabLanguage = 'en' | 'ja';
 const NEW_TAB_COPY = {
     en: {
         switchReviewSource: 'Switch review source',
-        dictionaryInstallNewTabHelp: 'Optional: add a Yomitan dictionary in Settings for offline local results. Public JPDB lookup works without one.',
         newTabMode: 'New tab mode',
         stats: 'Stats',
         statsRefresh: 'Refresh stats',
@@ -61,10 +60,6 @@ const NEW_TAB_COPY = {
         noKanjiKeyword: 'No kanji keyword found.',
         couldNotLoadWords: 'Could not load words.',
         offlineGradesDisabled: 'Offline cache. Grades are saved here and sync when JPDB or Anki reconnects.',
-        startWithDictionary: 'Start with a dictionary',
-        addDictionaryStudyCards: 'Use this only if you want offline Yomitan results.',
-        dictionaryReadyNewTabs: 'Public JPDB lookup works without an API key.',
-        addDictionary: 'Add dictionary',
         hide: 'Hide',
         yourDrawing: 'Your drawing',
         couldNotSubmitGrade: 'Could not submit grade.',
@@ -98,7 +93,6 @@ const NEW_TAB_COPY = {
 
 const JA_NEW_TAB_COPY: Partial<Record<NewTabCopyKey, string>> = {
     switchReviewSource: '復習ソースを切り替え',
-    dictionaryInstallNewTabHelp: 'ローカル結果が必要な場合のみ、設定でYomitan辞書を追加してください。公開JPDB検索は辞書なしで使えます。',
     newTabMode: '新しいタブのモード',
     stats: '統計',
     statsRefresh: '統計を更新',
@@ -153,10 +147,6 @@ const JA_NEW_TAB_COPY: Partial<Record<NewTabCopyKey, string>> = {
     noKanjiKeyword: '漢字キーワードが見つかりません。',
     couldNotLoadWords: '単語を読み込めませんでした。',
     offlineGradesDisabled: 'オフラインキャッシュです。採点はここに保存され、JPDBまたはAnkiへの再接続時に同期されます。',
-    startWithDictionary: '辞書から始める',
-    addDictionaryStudyCards: 'オフラインのYomitan結果が必要なときだけ使います。',
-    dictionaryReadyNewTabs: '公開JPDB検索はAPIキーなしで使えます。',
-    addDictionary: '辞書を追加',
     hide: '隠す',
     yourDrawing: 'あなたの手書き',
     couldNotSubmitGrade: '採点を送信できませんでした。',

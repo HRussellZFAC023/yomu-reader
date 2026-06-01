@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- New tab no longer shows the "Start with a dictionary" setup screen. When no local dictionary is installed, both the Dictionary source and the Auto fallback skip straight to public JPDB lookup, which works without an API key. Add Yomitan dictionaries any time from Settings → Dictionaries.
+
+### Removed
+
+- Removed the dedicated new-tab dictionary-setup screen along with its now-unused rendering, cached-setup state, `load-dictionary` action, and setup-only copy.
+
 ## [0.4.61] - 2026-05-31
 
 ### Changed

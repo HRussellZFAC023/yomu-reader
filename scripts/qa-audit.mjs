@@ -1758,19 +1758,17 @@ async function auditNewTabDictionaryFallback(browser, server) {
     await page.goto(`${server.origin}/newtab/index.html?static=1`, { waitUntil: 'domcontentloaded' });
     await waitForAudit(page, () => {
         const body = document.body.textContent ?? '';
-        return body.includes('Start with a dictionary')
-            && body.includes('Add dictionary')
+        return !body.includes('Start with a dictionary')
+            && !body.includes('Add dictionary')
             && !body.includes('Loading...')
-            && !document.querySelector('[data-newtab-card]');
-    }, 8000, 'new-tab first-run setup state did not render');
-    const setupSnapshot = await page.evaluate(() => ({
+            && !body.includes('Loading words...');
+    }, 8000, 'new-tab first-run did not advance past loading without the dictionary setup screen');
+    const firstRunSnapshot = await page.evaluate(() => ({
         hasLoadDictionary: Boolean(document.querySelector('[data-newtab-action="load-dictionary"]')),
-        loadDictionaryCount: document.querySelectorAll('[data-newtab-action="load-dictionary"]').length,
-        hasConnectJpdb: Boolean(document.querySelector('[data-newtab-action="connect-jpdb"]')),
         hasSettings: Boolean(document.querySelector('[data-newtab-action="settings"]')),
         body: document.body.textContent ?? '',
     }));
-    assertNewTabSetupSnapshot(setupSnapshot);
+    assertNewTabFirstRunFallbackSnapshot(firstRunSnapshot);
 
     await seedLocalKanjiDictionaries(page);
     await injectUserscript(page);
@@ -1855,7 +1853,7 @@ async function auditNewTabDictionaryFallback(browser, server) {
     await assertAccessibleSurface(page, 'new-tab dictionary fallback', '.jpdb-reader-newtab');
     await page.screenshot({ path: path.join(ARTIFACTS, 'newtab-dictionary.png'), fullPage: false });
     await page.close();
-    record('new-tab dictionary fallback', 'pass', 'first-run setup is explicit, then seeded local dictionaries render without setup warnings');
+    record('new-tab dictionary fallback', 'pass', 'first-run skips the dictionary setup screen, then seeded local dictionaries render without setup warnings');
 }
 
 function newTabDictionaryFallbackSettings() {
@@ -2007,13 +2005,10 @@ function collectPageBrowserErrors(page) {
     return errors;
 }
 
-function assertNewTabSetupSnapshot(snapshot) {
-    const hasExpectedActions = snapshot.hasLoadDictionary
-        && snapshot.loadDictionaryCount === 1
-        && !snapshot.hasConnectJpdb
-        && snapshot.hasSettings;
-    assertAudit(hasExpectedActions, `new-tab setup actions are missing or duplicated: ${JSON.stringify(snapshot)}`);
-    assertAudit(!/今日|今朝|今週|読む/.test(snapshot.body), 'first-run new-tab setup rendered hardcoded dictionary words before the user loaded a dictionary');
+function assertNewTabFirstRunFallbackSnapshot(snapshot) {
+    assertAudit(!snapshot.hasLoadDictionary, `first-run new-tab still shows the removed "Add dictionary" setup button: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.hasSettings, `first-run new-tab is missing the settings control: ${JSON.stringify(snapshot)}`);
+    assertAudit(!/Start with a dictionary/.test(snapshot.body), `first-run new-tab still shows the removed dictionary setup screen: ${JSON.stringify(snapshot)}`);
 }
 
 function assertNewTabDictionarySnapshot(snapshot) {
