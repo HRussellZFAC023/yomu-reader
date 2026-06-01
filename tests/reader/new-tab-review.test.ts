@@ -6524,10 +6524,26 @@ describe('new tab review helpers', () => {
         expect(root.querySelector('[data-newtab-meaning]')?.textContent).toContain('to return');
     });
 
-    it('opens dictionary settings from the empty new-tab setup state', () => {
-        const showSettings = vi.fn();
+    it('renders dictionary words for the dictionary source when a dictionary is installed', async () => {
+        document.body.replaceChildren();
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            newTabEnabled: true,
+            newTabSource: 'dictionary' as const,
+            dictionaryPreferences: [{ name: 'Local', alias: 'Tiny Alias', enabled: true, priority: 0, type: 'terms' as const }],
+            immersionKitEnabled: false,
+        };
+        const localCard = newTabTestCard({ spelling: '書く', reading: 'かく', source: 'local' });
+        const listRandomTopTerms = vi.fn(async () => [{
+            expression: '書く',
+            reading: 'かく',
+            glossary: ['to write'],
+            score: 1,
+            dictionary: 'Local',
+        }]);
         const controller = new NewTabController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS }),
+            getSettings: () => settings,
             anki: {} as never,
             jpdb: {} as never,
             jpdbKanji: {} as never,
@@ -6537,141 +6553,61 @@ describe('new tab review helpers', () => {
             jpdbReviewBridge: {
                 onUpdate: () => () => {},
             } as never,
-            parser: {} as never,
-            dictionaries: {} as never,
-            onSettingsChange: vi.fn(),
-            applyTheme: vi.fn(),
-            showSettings,
-            dismiss: vi.fn(),
-        });
-        const root = document.createElement('main');
-        root.className = 'jpdb-reader-newtab';
-        root.dataset.jpdbReaderRoot = 'true';
-        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
-        (controller as unknown as { bindRootEvents(root: HTMLElement): void; renderDictionarySetup(root: HTMLElement): void }).bindRootEvents(root);
-        (controller as unknown as { renderDictionarySetup(root: HTMLElement): void }).renderDictionarySetup(root);
-
-        root.querySelector<HTMLButtonElement>('[data-newtab-action="load-dictionary"]')?.click();
-
-        expect(showSettings).toHaveBeenCalledWith('dictionaries');
-        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
-    });
-
-    it('does not retry empty dictionary setup in a loading loop', () => {
-        vi.useFakeTimers();
-        const invalidateCaches = vi.fn();
-        const controller = new NewTabController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS }),
-            anki: {} as never,
-            jpdb: {} as never,
-            jpdbKanji: {} as never,
-            kanjiVG: {} as never,
-            rtk: {} as never,
-            immersionKit: {} as never,
-            jpdbReviewBridge: {
-                onUpdate: () => () => {},
+            parser: {
+                cacheCards: vi.fn(),
+                localCardFromEntry: vi.fn(() => localCard),
             } as never,
-            parser: {} as never,
-            dictionaries: { invalidateCaches } as never,
+            dictionaries: {
+                summary: vi.fn(async () => ({
+                    dictionaries: [{ title: 'Local', alias: 'Tiny Alias', enabled: true, priority: 0, type: 'terms' as const }],
+                    terms: 1,
+                    kanji: 0,
+                    termMeta: 0,
+                    kanjiMeta: 0,
+                })),
+                listRandomTopTerms,
+            } as never,
             onSettingsChange: vi.fn(),
             applyTheme: vi.fn(),
             showSettings: vi.fn(),
             dismiss: vi.fn(),
         });
-        const root = document.createElement('main');
-        root.className = 'jpdb-reader-newtab';
-        root.dataset.jpdbReaderRoot = 'true';
-        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
 
-        (controller as unknown as { renderDictionarySetup(root: HTMLElement): void }).renderDictionarySetup(root);
-        vi.advanceTimersByTime(30_000);
+        await controller.renderPage();
 
-        expect(invalidateCaches).not.toHaveBeenCalled();
-        expect(root.querySelector('[data-newtab-status]')?.textContent).toContain('Optional: add a Yomitan dictionary');
+        expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, settings.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
+        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
+        expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
+        document.body.replaceChildren();
     });
 
-    it('does not reload dictionary setup on a later new-tab render', async () => {
+    it('falls back to public JPDB for the dictionary source when no dictionary is installed', async () => {
         document.body.replaceChildren();
         localStorage.removeItem('jpdb-reader-newtab-ui');
-        const summary = vi.fn(async () => ({ dictionaries: [], dictionaryTypes: {} }));
+        const publicSearch = vi.fn(async () => [newTabTestCard({ spelling: '公開', reading: 'こうかい', source: 'jpdb' })]);
         const controller = new NewTabController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, newTabSource: 'dictionary' }),
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                newTabEnabled: true,
+                newTabSource: 'dictionary',
+                immersionKitEnabled: false,
+            }),
             anki: {} as never,
             jpdb: {} as never,
             jpdbKanji: {} as never,
             kanjiVG: {} as never,
             rtk: {} as never,
             immersionKit: {} as never,
+            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
             jpdbReviewBridge: {
                 onUpdate: () => () => {},
+                latestStatus: () => ({ connected: false }),
+                requestCurrent: vi.fn(),
             } as never,
             parser: { cacheCards: vi.fn() } as never,
-            dictionaries: { summary } as never,
-            onSettingsChange: vi.fn(),
-            applyTheme: vi.fn(),
-            showSettings: vi.fn(),
-            dismiss: vi.fn(),
-        });
-
-        await controller.renderPage();
-        await controller.renderPage();
-
-        expect(summary).toHaveBeenCalledTimes(1);
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
-        expect(document.querySelector('[data-newtab-status]')?.textContent).toContain('Optional: add a Yomitan dictionary');
-        document.body.replaceChildren();
-    });
-
-    it('reloads the empty dictionary setup after dictionary settings change', async () => {
-        document.body.replaceChildren();
-        localStorage.removeItem('jpdb-reader-newtab-ui');
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            newTabEnabled: true,
-            newTabSource: 'dictionary' as const,
-            immersionKitEnabled: false,
-        };
-        const localCard = newTabTestCard({ spelling: '書く', reading: 'かく', source: 'local' });
-        const summary = vi.fn(async () => settings.dictionaryPreferences.length
-            ? {
-                dictionaries: [{ title: 'Local', alias: 'Tiny Alias', enabled: true, priority: 0, type: 'terms' as const }],
-                terms: 1,
-                kanji: 0,
-                termMeta: 0,
-                kanjiMeta: 0,
-            }
-            : {
-                dictionaries: [],
-                terms: 0,
-                kanji: 0,
-                termMeta: 0,
-                kanjiMeta: 0,
-            });
-        const listRandomTopTerms = vi.fn(async () => [{
-            expression: '書く',
-            reading: 'かく',
-            glossary: ['to write'],
-            score: 1,
-            dictionary: 'Local',
-        }]);
-        const controller = new NewTabController({
-            getSettings: () => settings,
-            anki: {} as never,
-            jpdb: {} as never,
-            jpdbKanji: {} as never,
-            kanjiVG: {} as never,
-            rtk: {} as never,
-            immersionKit: {} as never,
-            jpdbReviewBridge: {
-                onUpdate: () => () => {},
-            } as never,
-            parser: {
-                cacheCards: vi.fn(),
-                localCardFromEntry: vi.fn(() => localCard),
-            } as never,
             dictionaries: {
-                summary,
-                listRandomTopTerms,
+                summary: vi.fn(async () => ({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 })),
             } as never,
             onSettingsChange: vi.fn(),
             applyTheme: vi.fn(),
@@ -6679,91 +6615,11 @@ describe('new tab review helpers', () => {
             dismiss: vi.fn(),
         });
 
-        await controller.renderPage();
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
+        const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string }> }).loadWords();
 
-        settings.dictionaryPreferences = [{ name: 'Local', alias: 'Tiny Alias', enabled: true, priority: 0, type: 'terms' }];
-        await controller.renderPage();
-
-        expect(summary).toHaveBeenCalledTimes(2);
-        expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, settings.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
-        expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
-        document.body.replaceChildren();
-    });
-
-    it('can force-retry dictionary setup when dictionaries appear outside settings', async () => {
-        document.body.replaceChildren();
-        localStorage.removeItem('jpdb-reader-newtab-ui');
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            newTabEnabled: true,
-            newTabSource: 'dictionary' as const,
-            localDictionariesEnabled: true,
-            dictionaryPreferences: [{ name: 'Local', alias: 'Local', enabled: true, priority: 0, type: 'terms' as const }],
-            immersionKitEnabled: false,
-            newTabOfflineEnabled: false,
-        };
-        const localCard = newTabTestCard({ spelling: '書く', reading: 'かく', source: 'local' });
-        const summary = vi.fn()
-            .mockResolvedValueOnce({
-                dictionaries: [],
-                terms: 0,
-                kanji: 0,
-                termMeta: 0,
-                kanjiMeta: 0,
-            })
-            .mockResolvedValueOnce({
-                dictionaries: [{ title: 'Local', alias: 'Local', enabled: true, priority: 0, type: 'terms' as const }],
-                terms: 1,
-                kanji: 0,
-                termMeta: 0,
-                kanjiMeta: 0,
-            });
-        const listRandomTopTerms = vi.fn(async () => [{
-            expression: '書く',
-            reading: 'かく',
-            glossary: ['to write'],
-            score: 1,
-            dictionary: 'Local',
-        }]);
-        const invalidateCaches = vi.fn();
-        const controller = new NewTabController({
-            getSettings: () => settings,
-            anki: {} as never,
-            jpdb: {} as never,
-            jpdbKanji: {} as never,
-            kanjiVG: {} as never,
-            rtk: {} as never,
-            immersionKit: {} as never,
-            jpdbReviewBridge: {
-                onUpdate: () => () => {},
-            } as never,
-            parser: {
-                cacheCards: vi.fn(),
-                localCardFromEntry: vi.fn(() => localCard),
-            } as never,
-            dictionaries: {
-                invalidateCaches,
-                summary,
-                listRandomTopTerms,
-            } as never,
-            onSettingsChange: vi.fn(),
-            applyTheme: vi.fn(),
-            showSettings: vi.fn(),
-            dismiss: vi.fn(),
-        });
-
-        await controller.renderPage();
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('Start with a dictionary');
-
-        await controller.refreshExternalData();
-
-        expect(summary).toHaveBeenCalledTimes(2);
-        expect(invalidateCaches).toHaveBeenCalledTimes(1);
-        expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, settings.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
-        expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
+        expect(result.cards.map(card => card.spelling)).toEqual(['公開']);
+        expect(result.sourceLabel).toBe('JPDB');
+        expect(publicSearch).toHaveBeenCalled();
         document.body.replaceChildren();
     });
 
@@ -6817,7 +6673,7 @@ describe('new tab review helpers', () => {
         expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
     });
 
-    it('shows first-run dictionary setup for auto review when no local dictionaries are installed', async () => {
+    it('falls back to public JPDB for auto review when no local dictionaries are installed', async () => {
         localStorage.removeItem('jpdb-reader-newtab-ui');
         const publicSearch = vi.fn(async () => [newTabTestCard({ spelling: '公開', reading: 'こうかい', source: 'jpdb' })]);
         const controller = new NewTabController({
@@ -6852,11 +6708,11 @@ describe('new tab review helpers', () => {
             dismiss: vi.fn(),
         });
 
-        const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; needsDictionarySetup?: boolean }> }).loadWords();
+        const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string }> }).loadWords();
 
-        expect(result.cards).toEqual([]);
-        expect(result.needsDictionarySetup).toBe(true);
-        expect(publicSearch).not.toHaveBeenCalled();
+        expect(result.cards.map(card => card.spelling)).toEqual(['公開']);
+        expect(result.sourceLabel).toBe('JPDB');
+        expect(publicSearch).toHaveBeenCalled();
     });
 
     it('uses seeded local dictionaries before public JPDB in first-run auto review', async () => {

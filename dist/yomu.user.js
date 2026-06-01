@@ -39346,7 +39346,6 @@ ${glossaryKey}`;
     ...this.settings,
     onboardingSeen: true,
     audioEnabled: true,
-    autoPlayAudio: false,
     audioFallbackChimeEnabled: false,
     immersionKitAutoPlayAudio: false,
     immersionKitPlayOnHover: false,
