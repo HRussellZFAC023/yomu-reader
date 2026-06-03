@@ -2359,6 +2359,11 @@ describe('reader helpers', () => {
             ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
         });
         expect(jpdbOnly).not.toContain('data-action="grade"');
+        expect(jpdbOnly).toContain('jpdb-reader-actions-has-mining');
+        expect(jpdbOnly).not.toContain('jpdb-reader-actions-mining-collapsed');
+        expect(jpdbOnly).toContain('data-action="deck-picker"');
+        expect(jpdbOnly).toContain('aria-expanded="true"');
+        expect(jpdbOnly).toContain('Hide mining actions');
         expect(jpdbOnly).toContain('This JPDB card is locked');
 
         const ankiBacked = renderer.render({ ...card, cardState: ['locked'] }, '食べる。', 'modal', {
@@ -3236,6 +3241,42 @@ describe('reader helpers', () => {
         expect(answerCard).toHaveBeenCalledWith(20, 'okay');
         expect(invalidateCardData).toHaveBeenCalledTimes(1);
         expect(onAnkiStatusChanged).toHaveBeenCalledWith(lockedCard);
+    });
+
+    it('allows locked JPDB cards to be added to the mining deck', async () => {
+        const addToDeck = vi.fn(async () => undefined);
+        const toast = vi.fn();
+        const controller = new CardActionController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                ankiEnabled: false,
+                jpdbMiningEnabled: true,
+            }),
+            jpdb: { addToDeck } as unknown as JpdbClient,
+            anki: {} as unknown as AnkiConnectClient,
+            dictionaries: {} as unknown as YomitanDictionaryStore,
+            isJpdbBackedCard: () => true,
+            resolveMiningContext: vi.fn(),
+            showCard: vi.fn(),
+            getActivePopoverAnchor: () => undefined,
+            getActivePopoverMode: () => undefined,
+            showSettings: vi.fn(),
+            playAudio: vi.fn(),
+            playSentenceAudio: vi.fn(),
+            detectGrammarHints: vi.fn(),
+            parsePopoverJapanese: vi.fn(),
+            toast,
+        });
+        const button = document.createElement('button');
+        button.dataset.action = 'add';
+        button.dataset.deckId = 'forq';
+        const lockedCard: JPDBCard = { ...card, cardState: ['locked'] };
+
+        await expect(controller.perform('add', button, lockedCard, '食べる。')).resolves.toBe(true);
+
+        expect(addToDeck).toHaveBeenCalledWith('forq', lockedCard, '食べる。');
+        expect(toast).toHaveBeenCalledWith('Added to JPDB.');
     });
 
     it('opens and closes mining controls from the drawer bar by click or drag', () => {
@@ -6591,7 +6632,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('tries proxy fallbacks for cross-origin built-in audio before browser speech', async () => {
+    it('skips Jisho public-proxy audio lookup before browser speech when no userscript bridge is available', async () => {
         const spoken: string[] = [];
         class FakeSpeechSynthesisUtterance {
             lang = '';
@@ -6620,7 +6661,7 @@ describe('reader helpers', () => {
 
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
             expect(urls).not.toContain(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`);
-            expect(urls).toContain(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`);
+            expect(urls).not.toContain(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`);
             expect(urls.some(url => url.startsWith('https://r.jina.ai/'))).toBe(false);
             expect(spoken).toEqual([card.spelling]);
         } finally {
@@ -18404,7 +18445,7 @@ describe('reader helpers', () => {
                 meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
             }, '今日は本を読む。')).resolves.toBe(true);
 
-            expect(fetchMock).toHaveBeenCalled();
+            expect(fetchMock).not.toHaveBeenCalled();
             expect(findExistingCards).not.toHaveBeenCalled();
             expect(addCard).not.toHaveBeenCalled();
             expect(addCardViaMobileHandoff).toHaveBeenCalledOnce();
@@ -21000,8 +21041,11 @@ describe('reader helpers', () => {
             },
         ];
 
-        expect(renderTokensToHtml('日本語', tokens, DEFAULT_SETTINGS).replace(/<[^>]+>/g, ''))
+        document.body.innerHTML = renderTokensToHtml('日本語', tokens, DEFAULT_SETTINGS);
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word.jpdb-learning')!;
+        expect(readerWordSurfaceText(word))
             .toBe('日本語');
+        expect(document.querySelectorAll('.jpdb-reader-word')).toHaveLength(1);
     });
 
     it('can parse asbplayer-style subtitle DOM nodes', () => {
@@ -21019,7 +21063,8 @@ describe('reader helpers', () => {
 
         applyTokensToTextNode(target, [token], DEFAULT_SETTINGS);
 
-        expect(document.querySelector('.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-known')?.textContent)
+        const word = document.querySelector<HTMLElement>('.asbplayer-subtitles-container-bottom .jpdb-reader-word.jpdb-known')!;
+        expect(readerWordSurfaceText(word))
             .toBe('読む');
     });
 

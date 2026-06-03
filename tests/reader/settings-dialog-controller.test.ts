@@ -8,6 +8,10 @@ import type { ReaderSettings } from '../../src/reader/types';
 import type { ImportSummary } from '../../src/reader/yomitan';
 
 type SettingsDialogControllerConstructor = new (dependencies: Record<string, unknown>) => SettingsDialogController;
+type RefreshableSettingsDialogController = {
+    refreshDeckControls: (form: HTMLFormElement) => Promise<void>;
+    refreshDictionaryStatus: (form: HTMLFormElement) => Promise<void>;
+};
 
 function createSettingsDialog(overrides: Record<string, unknown> = {}): {
     dependencies: Record<string, any>;
@@ -27,7 +31,9 @@ function createSettingsDialog(overrides: Record<string, unknown> = {}): {
         dictionaries: {
             summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
         },
-        anki: {},
+        anki: {
+            isConnected: vi.fn().mockResolvedValue(false),
+        },
         audio: { play: vi.fn(), stop: vi.fn() },
         subtitles: { refresh: vi.fn() },
         ocr: { refresh: vi.fn() },
@@ -50,6 +56,18 @@ function createSettingsDialog(overrides: Record<string, unknown> = {}): {
         ...overrides,
     };
     const controller = new (SettingsDialogController as unknown as SettingsDialogControllerConstructor)(dependencies);
+    const refreshable = controller as unknown as RefreshableSettingsDialogController;
+    const refreshDictionaryStatus = refreshable.refreshDictionaryStatus.bind(controller);
+    refreshable.refreshDeckControls = vi.fn().mockResolvedValue(undefined);
+    if (typeof (dependencies.dictionaries as Record<string, unknown>).importFromUrl === 'function') {
+        let refreshCalls = 0;
+        refreshable.refreshDictionaryStatus = vi.fn((form: HTMLFormElement) => {
+            refreshCalls++;
+            return refreshCalls === 1 ? Promise.resolve() : refreshDictionaryStatus(form);
+        });
+    } else {
+        refreshable.refreshDictionaryStatus = vi.fn().mockResolvedValue(undefined);
+    }
 
     controller.open();
 

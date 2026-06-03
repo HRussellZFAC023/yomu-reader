@@ -315,7 +315,7 @@ export class CardActionController {
 
     private async addToAnki(card: JPDBCard, sentence?: string, deckName?: string): Promise<void> {
         const settings = this.options.getSettings();
-        if (canUseMobileAnkiHandoff(settings) && !await this.options.anki.isAvailableForBackground()) {
+        if (canUseMobileAnkiHandoff(settings)) {
             await this.options.anki.addCardViaMobileHandoff(card, sentence || card.sentence || '', {
                 deckName,
                 dictionaryPreferences: settings.dictionaryPreferences,

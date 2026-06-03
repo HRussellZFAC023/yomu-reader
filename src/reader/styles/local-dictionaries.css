@@ -819,6 +819,9 @@
   max-width: 100%;
   max-height: min(70vh, 420px);
 }
+.jpdb-reader-anki-rendered-side-body :where(*) {
+  font-size: min(1em, 30px);
+}
 .jpdb-reader-anki-rendered-side-body :is(h1, h2, h3, h4, h5, h6) {
   font-size: clamp(16px, 1.35em, 30px);
   line-height: 1.2;

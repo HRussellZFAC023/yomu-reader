@@ -202,6 +202,7 @@
   overflow-wrap: break-word;
 }
 .jpdb-reader-settings .jpdb-reader-word {
+  display: inline !important;
   white-space: normal;
   word-break: normal;
   overflow-wrap: normal !important;
@@ -222,10 +223,12 @@
   line-height: inherit;
 }
 .jpdb-reader-select-options-meta {
+  display: block;
   min-width: 0;
   color: var(--jpdb-reader-faint);
   font: 800 10.5px/1.45 var(--jpdb-reader-font);
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 .jpdb-reader-font-family-control {
   display: grid;
@@ -1061,6 +1064,17 @@
   align-items: center;
   min-width: 0;
 }
+.jpdb-reader-audio-source-choice select {
+  grid-column: 1;
+  grid-row: 1;
+}
+.jpdb-reader-audio-source-choice .jpdb-reader-icon-mini {
+  grid-column: 2;
+  grid-row: 1;
+}
+.jpdb-reader-audio-source-choice .jpdb-reader-select-options-meta {
+  grid-column: 1 / -1;
+}
 .jpdb-reader-audio-source-fields {
   display: grid;
   gap: 6px;
@@ -1241,13 +1255,8 @@
   }
 
   .jpdb-reader-settings-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .jpdb-reader-settings-tabs::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
 }
 
@@ -1274,13 +1283,8 @@
 
 @media (max-width: 699px) {
   .jpdb-reader-settings-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .jpdb-reader-settings-tabs::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
 
   .jpdb-reader-settings input[type="number"] {

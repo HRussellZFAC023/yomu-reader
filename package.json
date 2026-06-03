@@ -33,6 +33,7 @@
     "verify": "node scripts/verify-userscript.cjs",
     "smoke:anki": "node scripts/anki-mining-smoke.mjs",
     "smoke:anki-wikipedia": "node scripts/anki-wikipedia-smoke.mjs",
+    "smoke:anki-template": "node scripts/anki-template-render-smoke.mjs",
     "smoke:feedback": "node scripts/feedback-smoke.mjs",
     "smoke:subtitles": "node scripts/subtitle-player-smoke.mjs",
     "e2e:subtitles": "node scripts/subtitle-player-e2e.mjs",
