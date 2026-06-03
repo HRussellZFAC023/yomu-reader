@@ -745,6 +745,68 @@ describe('reader helpers', () => {
         }
     });
 
+    it('falls back to scanning listed JPDB decks when listing all-decks cards fails', async () => {
+        const client = new JpdbClient(() => 'token');
+        const requestedDecks: unknown[] = [];
+        const lookupPairs: Array<[number, number]> = [];
+        const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+            const href = String(url);
+            const body = JSON.parse(String(init?.body ?? '{}')) as { id?: string; list?: Array<[number, number]> };
+            if (href === 'https://jpdb.io/api/v1/deck/list-vocabulary') {
+                requestedDecks.push(body.id);
+                if (body.id === 'all') {
+                    return { status: 400, ok: false, text: async () => JSON.stringify({ error_message: 'unsupported deck' }) };
+                }
+                return {
+                    status: 200,
+                    ok: true,
+                    text: async () => JSON.stringify({ vocabulary: body.id === 'deck-b' ? [[1464530, 0]] : [[12345, 0]] }),
+                };
+            }
+            if (href === 'https://jpdb.io/api/v1/list-user-decks') {
+                return {
+                    status: 200,
+                    ok: true,
+                    text: async () => JSON.stringify({ decks: [['deck-a', 'Deck A'], ['deck-b', 'Deck B']] }),
+                };
+            }
+            if (href === 'https://jpdb.io/api/v1/lookup-vocabulary') {
+                const list = body.list ?? [];
+                lookupPairs.push(...list);
+                return {
+                    status: 200,
+                    ok: true,
+                    text: async () => JSON.stringify({
+                        vocabulary_info: list.map(([vid, sid]) => [
+                            vid,
+                            sid,
+                            vid + 2000,
+                            `語${vid}`,
+                            `ご${vid}`,
+                            vid,
+                            ['n'],
+                            [[`word ${vid}`]],
+                            [['n']],
+                            ['due'],
+                            [],
+                        ]),
+                    }),
+                };
+            }
+            throw new Error(`Unexpected URL: ${href}`);
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const cards = await client.listDeckCards('all', 10, { scheduledOnly: true });
+            expect(requestedDecks).toEqual(expect.arrayContaining(['all', 'deck-a', 'deck-b']));
+            expect(cards.map(c => c.vid)).toEqual(expect.arrayContaining([1464530, 12345]));
+            expect(lookupPairs).toEqual(expect.arrayContaining([[1464530, 0], [12345, 0]]));
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('reuses JPDB parse results for individual paragraphs after a batch parse', async () => {
         const client = new JpdbClient(() => 'token');
         const parseBodies: string[][] = [];

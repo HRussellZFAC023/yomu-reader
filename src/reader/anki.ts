@@ -1776,7 +1776,10 @@ export function canFetchAnkiConnectFrom(url: string, currentHref: string): boole
     if (!target) return false;
     if (target.origin === current.origin) return true;
     if (isLoopbackHostname(current.hostname)) return true;
-    return isYomuHostedAppUrl(current.href) && isHttpUrl(target);
+    // The hosted app cannot use AnkiConnect's default localhost-only CORS path.
+    // Keep loopback AnkiConnect traffic on the userscript request bridge, while
+    // still allowing explicitly configured non-local endpoints such as Tailnet hosts.
+    return isYomuHostedAppUrl(current.href) && isHttpUrl(target) && !isLoopbackHostname(target.hostname);
 }
 
 export function needsHostedAnkiConnectSetupHint(url: string, currentHref = safeLocationHref()): boolean {

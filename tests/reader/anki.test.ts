@@ -9,11 +9,18 @@ import type { ReaderSettings } from '../../src/reader/types';
 const LOCAL_DICTIONARY_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
 
 describe('AnkiConnect browser fetch eligibility', () => {
-    it('lets the hosted new-tab app contact a configured AnkiConnect endpoint', () => {
+    it('keeps hosted loopback AnkiConnect requests on the userscript bridge path', () => {
         expect(canFetchAnkiConnectFrom(
             'http://127.0.0.1:8765',
             'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
-        )).toBe(true);
+        )).toBe(false);
+        expect(canFetchAnkiConnectFrom(
+            'http://localhost:8765',
+            'https://hrussellzfac023.github.io/yomu-reader/newtab/',
+        )).toBe(false);
+    });
+
+    it('lets the hosted new-tab app contact a non-local configured AnkiConnect endpoint', () => {
         expect(canFetchAnkiConnectFrom(
             'http://tailscale-host.ts.net:8765',
             'https://hrussellzfac023.github.io/yomu-reader/newtab/',
