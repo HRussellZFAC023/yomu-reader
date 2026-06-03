@@ -16,8 +16,9 @@
 }
 .jpdb-reader-kanji-display {
   color: var(--jpdb-reader-text);
+  font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: 46px;
-  font-weight: 850;
+  font-weight: var(--jpdb-reader-popup-font-weight, 400);
   line-height: 1;
 }
 .jpdb-reader-kanji-title-row {
@@ -84,44 +85,77 @@
   text-transform: uppercase;
 }
 .jpdb-reader-kanji-keyword span {
+  font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .jpdb-reader-kanji-facts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 136px), 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr));
+  gap: 8px;
   overflow: visible;
   padding-bottom: 0;
 }
-.jpdb-reader-kanji-facts span {
-  display: flex;
+.jpdb-reader-jpdb-kanji .jpdb-reader-kanji-facts {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.jpdb-reader-origins .jpdb-reader-kanji-facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.jpdb-reader-kanji-facts > span {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
   align-items: baseline;
   gap: 6px;
   min-width: 0;
-  min-height: 34px;
-  padding: 6px 9px;
+  min-height: 38px;
+  padding: 7px 8px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: var(--jpdb-reader-surface-2);
   color: var(--jpdb-reader-text);
+  font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: 12px;
-  font-weight: 820;
+  font-weight: var(--jpdb-reader-popup-font-weight, 400);
   line-height: 1.1;
-  overflow: hidden;
-  overflow-wrap: normal;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 .jpdb-reader-kanji-facts :is(strong, small) {
   display: inline;
-  flex: 0 0 auto;
   color: var(--jpdb-reader-muted);
   font-size: 10px;
   font-weight: 850;
   line-height: 1.1;
   text-transform: uppercase;
+}
+.jpdb-reader-kanji-fact-value {
+  min-width: 0;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+@container (max-width: 620px) {
+  .jpdb-reader-jpdb-kanji .jpdb-reader-kanji-facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@container (max-width: 430px) {
+  .jpdb-reader-jpdb-kanji .jpdb-reader-kanji-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container (max-width: 340px) {
+  .jpdb-reader-kanji-facts,
+  .jpdb-reader-jpdb-kanji .jpdb-reader-kanji-facts,
+  .jpdb-reader-origins .jpdb-reader-kanji-facts {
+    grid-template-columns: 1fr;
+  }
 }
 .jpdb-reader-origin-detail {
   display: grid;
@@ -157,8 +191,10 @@
   place-items: center;
   width: 42px;
   height: 42px;
+  border: 1px solid var(--jpdb-reader-paper-border, var(--jpdb-reader-border));
   border-radius: 8px;
-  background: var(--jpdb-reader-bg);
+  background: var(--jpdb-reader-paper, var(--jpdb-reader-bg));
+  box-shadow: inset 0 0 0 1px var(--jpdb-reader-paper-inset-soft);
   font-size: 28px !important;
   line-height: 1;
 }
@@ -167,7 +203,9 @@
   height: 48px;
   object-fit: contain;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--jpdb-reader-text) 92%, white);
+  border: 1px solid var(--jpdb-reader-paper-border);
+  background: var(--jpdb-reader-paper);
+  box-shadow: inset 0 0 0 1px var(--jpdb-reader-paper-inset);
 }
 .jpdb-reader-radical-frames {
   display: flex !important;
@@ -190,64 +228,148 @@
   line-height: 1.3;
 }
 .jpdb-reader-origin-graph-wrap {
-  --jpdb-reader-origin-graph-node-size: 60px;
+  --jpdb-reader-origin-graph-node-size: clamp(56px, 13cqi, 64px);
   --jpdb-reader-origin-graph-bg: color-mix(
     in srgb,
-    var(--jpdb-reader-surface, #20242b) 88%,
-    var(--jpdb-reader-bg, #181b20)
+    var(--jpdb-reader-surface) 88%,
+    var(--jpdb-reader-bg)
   );
   --jpdb-reader-origin-graph-line: color-mix(
     in srgb,
-    var(--jpdb-reader-text, #f2f4f8) 72%,
+    var(--jpdb-reader-text) 72%,
     transparent
   );
   --jpdb-reader-origin-graph-outbound-line: color-mix(
     in srgb,
-    var(--jpdb-reader-accent, #5ea780) 76%,
-    var(--jpdb-reader-text, #f2f4f8)
+    var(--jpdb-reader-accent) 76%,
+    var(--jpdb-reader-text)
   );
   --jpdb-reader-origin-graph-subcomponent-line: color-mix(
     in srgb,
-    var(--jpdb-reader-accent, #5ea780) 48%,
-    var(--jpdb-reader-text, #f2f4f8)
+    var(--jpdb-reader-accent) 48%,
+    var(--jpdb-reader-text)
   );
   --jpdb-reader-origin-graph-frame: color-mix(
     in srgb,
-    var(--jpdb-reader-bg, #181b20) 84%,
-    var(--jpdb-reader-text, #f2f4f8)
+    var(--jpdb-reader-bg) 84%,
+    var(--jpdb-reader-text)
   );
   --jpdb-reader-origin-graph-node-fill: color-mix(
     in srgb,
-    var(--jpdb-reader-accent, #5ea780) 72%,
-    var(--jpdb-reader-surface-2, #282e37)
+    var(--jpdb-reader-accent) 72%,
+    var(--jpdb-reader-surface-2)
   );
   --jpdb-reader-origin-graph-related-fill: color-mix(
     in srgb,
-    var(--jpdb-reader-accent, #5ea780) 18%,
-    var(--jpdb-reader-surface, #20242b)
+    var(--jpdb-reader-accent) 18%,
+    var(--jpdb-reader-surface)
   );
   --jpdb-reader-origin-graph-accent-text: color-mix(
     in srgb,
-    var(--jpdb-reader-accent, #5ea780) 12%,
-    #000
+    var(--jpdb-reader-accent) 12%,
+    var(--jpdb-reader-black)
   );
   position: relative;
-  height: min(240px, 58vw);
-  min-height: 190px;
-  margin-top: 8px;
+  height: clamp(210px, 50vw, 260px);
+  min-height: 0;
+  margin-top: 10px;
   border: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-border) 82%, var(--jpdb-reader-text, #f2f4f8));
+    color-mix(in srgb, var(--jpdb-reader-border) 82%, var(--jpdb-reader-text));
   border-radius: 8px;
   background: var(--jpdb-reader-origin-graph-bg);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--jpdb-reader-text, #f2f4f8) 8%, transparent),
-    inset 0 -18px 44px color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 18%, transparent);
+    inset 0 1px 0 color-mix(in srgb, var(--jpdb-reader-text) 8%, transparent),
+    inset 0 -18px 44px color-mix(in srgb, var(--jpdb-reader-bg) 18%, transparent);
   isolation: isolate;
   overflow: hidden;
 }
+:root.jpdb-reader-theme-light .jpdb-reader-origin-graph-wrap {
+  --jpdb-reader-origin-graph-bg: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface) 84%,
+    var(--jpdb-reader-bg)
+  );
+  --jpdb-reader-origin-graph-line: color-mix(
+    in srgb,
+    var(--jpdb-reader-text, var(--jpdb-reader-theme-light-text)) 46%,
+    transparent
+  );
+  --jpdb-reader-origin-graph-outbound-line: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 72%,
+    var(--jpdb-reader-text, var(--jpdb-reader-theme-light-text)) 8%
+  );
+  --jpdb-reader-origin-graph-subcomponent-line: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 44%,
+    var(--jpdb-reader-text, var(--jpdb-reader-theme-light-text)) 18%
+  );
+  --jpdb-reader-origin-graph-frame: color-mix(
+    in srgb,
+    var(--jpdb-reader-border, var(--jpdb-reader-theme-light-border)) 75%,
+    var(--jpdb-reader-bg)
+  );
+  --jpdb-reader-origin-graph-node-fill: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 24%,
+    var(--jpdb-reader-white)
+  );
+  --jpdb-reader-origin-graph-related-fill: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 12%,
+    var(--jpdb-reader-surface)
+  );
+  --jpdb-reader-origin-graph-accent-text: var(--jpdb-reader-accent-text);
+  box-shadow:
+    inset 0 1px 0 var(--jpdb-reader-paper-inset-strong),
+    inset 0 -18px 44px color-mix(in srgb, var(--jpdb-reader-theme-light-text) 5%, transparent);
+}
+@media (prefers-color-scheme: light) {
+  :root:not(.jpdb-reader-theme-dark) .jpdb-reader-origin-graph-wrap {
+    --jpdb-reader-origin-graph-bg: color-mix(
+      in srgb,
+      var(--jpdb-reader-surface) 84%,
+      var(--jpdb-reader-bg)
+    );
+    --jpdb-reader-origin-graph-line: color-mix(
+      in srgb,
+      var(--jpdb-reader-text, var(--jpdb-reader-theme-light-text)) 46%,
+      transparent
+    );
+    --jpdb-reader-origin-graph-outbound-line: color-mix(
+      in srgb,
+      var(--jpdb-reader-accent) 72%,
+      var(--jpdb-reader-text, var(--jpdb-reader-theme-light-text)) 8%
+    );
+    --jpdb-reader-origin-graph-subcomponent-line: color-mix(
+      in srgb,
+      var(--jpdb-reader-accent) 44%,
+      var(--jpdb-reader-text, var(--jpdb-reader-theme-light-text)) 18%
+    );
+    --jpdb-reader-origin-graph-frame: color-mix(
+      in srgb,
+      var(--jpdb-reader-border, var(--jpdb-reader-theme-light-border)) 75%,
+      var(--jpdb-reader-bg)
+    );
+    --jpdb-reader-origin-graph-node-fill: color-mix(
+      in srgb,
+      var(--jpdb-reader-accent) 24%,
+      var(--jpdb-reader-white)
+    );
+    --jpdb-reader-origin-graph-related-fill: color-mix(
+      in srgb,
+      var(--jpdb-reader-accent) 12%,
+      var(--jpdb-reader-surface)
+    );
+    --jpdb-reader-origin-graph-accent-text: var(--jpdb-reader-accent-text);
+    box-shadow:
+      inset 0 1px 0 var(--jpdb-reader-paper-inset-strong),
+      inset 0 -18px 44px color-mix(in srgb, var(--jpdb-reader-theme-light-text) 5%, transparent);
+  }
+}
 .jpdb-reader-origin-graph-wrap[data-origin-has-subcomponents="true"] {
-  height: min(340px, 72vw);
-  min-height: 240px;
+  height: clamp(260px, 58vw, 300px);
+  min-height: 0;
 }
 .jpdb-reader-origin-graph-lines {
   position: absolute;
@@ -302,38 +424,39 @@
 }
 .jpdb-reader-origin-graph-toggles {
   position: absolute;
-  top: 7px;
-  right: 7px;
+  top: 10px;
+  right: 10px;
   z-index: 4;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 5px;
-  max-width: calc(100% - 14px);
+  gap: 6px;
+  max-width: calc(100% - 20px);
 }
 .jpdb-reader-origin-graph-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   max-width: 100%;
-  padding: 4px 7px;
-  border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.12));
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid var(--jpdb-reader-border);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 88%, transparent);
-  color: var(--jpdb-reader-text, #f2f4f8);
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, transparent);
+  color: var(--jpdb-reader-text);
   font-size: 11px;
   font-weight: 850;
   line-height: 1.1;
   cursor: pointer;
   user-select: none;
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 24%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--jpdb-reader-bg) 24%, transparent);
 }
 .jpdb-reader-origin-graph-toggle input {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   margin: 0;
-  accent-color: var(--jpdb-reader-accent, #5ea780);
+  accent-color: var(--jpdb-reader-accent);
 }
 .jpdb-reader-origin-graph-node {
   position: absolute;
@@ -347,12 +470,12 @@
   border: 4px solid var(--jpdb-reader-origin-graph-frame);
   border-radius: 999px;
   background: var(--jpdb-reader-origin-graph-node-fill);
-  color: var(--jpdb-reader-text, #f2f4f8);
-  font-family: "Hiragino Sans", "Yu Gothic", var(--jpdb-reader-font);
+  color: var(--jpdb-reader-text);
+  font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: 33px;
-  font-weight: 850;
+  font-weight: var(--jpdb-reader-popup-font-weight, 400);
   line-height: 1;
-  box-shadow: 0 9px 26px color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 34%, transparent);
+  box-shadow: 0 9px 26px color-mix(in srgb, var(--jpdb-reader-bg) 34%, transparent);
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -364,18 +487,18 @@
 }
 .jpdb-reader-origin-graph-node.current {
   border-color: var(--jpdb-reader-origin-graph-frame);
-  background: var(--jpdb-reader-accent, #5ea780);
+  background: var(--jpdb-reader-accent);
   color: var(--jpdb-reader-origin-graph-accent-text);
   font-size: 35px;
   box-shadow: 0 12px 32px
-    color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 40%, transparent);
+    color-mix(in srgb, var(--jpdb-reader-bg) 40%, transparent);
 }
 .jpdb-reader-origin-graph-node.component {
   border-color: var(--jpdb-reader-origin-graph-frame);
 }
 .jpdb-reader-origin-graph-node.related {
   background: var(--jpdb-reader-origin-graph-related-fill);
-  color: var(--jpdb-reader-text, #f2f4f8);
+  color: var(--jpdb-reader-text);
   font-size: 29px;
 }
 .jpdb-reader-origin-graph-node[data-label-length="2"] {
@@ -388,8 +511,8 @@
 .jpdb-reader-origin-graph-node:focus-visible {
   border-color: var(--jpdb-reader-origin-graph-frame);
   box-shadow:
-    0 14px 34px color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 44%, transparent),
-    0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent, #5ea780) 24%, transparent);
+    0 14px 34px color-mix(in srgb, var(--jpdb-reader-bg) 44%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 24%, transparent);
   outline: none;
   transform: translate(-50%, -50%) scale(1.04);
 }
@@ -398,8 +521,8 @@
   z-index: 3;
   transform: translate(-50%, -50%) scale(1.08);
   box-shadow:
-    0 18px 40px color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 50%, transparent),
-    0 0 0 4px color-mix(in srgb, var(--jpdb-reader-accent, #5ea780) 28%, transparent);
+    0 18px 40px color-mix(in srgb, var(--jpdb-reader-bg) 50%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--jpdb-reader-accent) 28%, transparent);
 }
 .jpdb-reader-rtk-head {
   display: flex;
@@ -474,22 +597,27 @@
 .jpdb-reader-similar-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
-  gap: 6px;
+  gap: 8px;
   margin-top: 8px;
 }
 .jpdb-reader-similar-grid {
-  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 146px), 1fr));
+  gap: 10px;
 }
 .jpdb-reader-component-card,
 .jpdb-reader-component-button,
 .jpdb-reader-similar-word {
   min-width: 0;
   border: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-border) 70%, transparent);
+    color-mix(in srgb, var(--jpdb-reader-border) 82%, transparent);
   border-radius: 7px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 62%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface) 88%,
+    var(--jpdb-reader-bg) 12%
+  );
   color: var(--jpdb-reader-text);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--jpdb-reader-shadow) 54%, transparent);
   padding: 7px;
 }
 .jpdb-reader-component-card,
@@ -516,9 +644,9 @@
 }
 .jpdb-reader-similar-word {
   display: grid;
-  gap: 3px;
+  gap: 4px;
   align-content: start;
-  min-height: 86px;
+  min-height: 104px;
   text-align: left;
   cursor: pointer;
   font: inherit;
@@ -565,13 +693,13 @@
   aspect-ratio: 1 / 1;
   justify-self: center;
   margin: 8px auto 0;
-  --jpdb-reader-doodle-ink: #141820;
+  --jpdb-reader-doodle-ink: var(--jpdb-reader-doodle-ink-default);
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   overflow: hidden;
   background:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(0, 0, 0, 0.08) 1px, transparent 1px), #f8f9fb;
+    linear-gradient(90deg, var(--jpdb-reader-doodle-grid) 1px, transparent 1px),
+    linear-gradient(0deg, var(--jpdb-reader-doodle-grid) 1px, transparent 1px), var(--jpdb-reader-doodle-paper);
   background-size: 27.25px 27.25px;
   touch-action: none;
   user-select: none;
@@ -630,23 +758,23 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-kanjivg-strokes path {
   fill: none;
-  stroke: #141820;
+  stroke: var(--jpdb-reader-doodle-ink-default);
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .jpdb-reader-kanjivg-numbers {
-  fill: #6b7280;
+  fill: var(--jpdb-reader-doodle-number);
   font-size: 8px;
   font-family: var(--jpdb-reader-font);
 }
 .jpdb-reader-kanjivg .jpdb-reader-help {
-  color: #3d4654;
+  color: var(--jpdb-reader-doodle-help);
 }
 .jpdb-reader-doodle-text-ghost {
-  color: #141820;
+  color: var(--jpdb-reader-doodle-ink-default);
   font-family:
-    "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo,
+    "Hiragino Sans", "Yu Gothic", Meiryo,
     sans-serif;
   font-size: 180px;
   font-weight: 500;
@@ -668,25 +796,25 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-kanjivg.jpdb-reader-doodle-pass .jpdb-reader-newtab-doodle-result {
   border-color: color-mix(
     in srgb,
-    var(--jpdb-reader-state-known, #7bd88f) 54%,
-    var(--jpdb-reader-border, rgba(255, 255, 255, 0.12))
+    var(--jpdb-reader-state-known) 54%,
+    var(--jpdb-reader-border)
   );
   background: color-mix(
     in srgb,
-    var(--jpdb-reader-state-known, #7bd88f) 16%,
-    var(--jpdb-reader-surface, #20242b)
+    var(--jpdb-reader-state-known) 16%,
+    var(--jpdb-reader-surface)
   );
 }
 .jpdb-reader-kanjivg.jpdb-reader-doodle-fail .jpdb-reader-newtab-doodle-result {
   border-color: color-mix(
     in srgb,
-    var(--jpdb-reader-state-failed, #ff6b6b) 54%,
-    var(--jpdb-reader-border, rgba(255, 255, 255, 0.12))
+    var(--jpdb-reader-state-failed) 54%,
+    var(--jpdb-reader-border)
   );
   background: color-mix(
     in srgb,
-    var(--jpdb-reader-state-failed, #ff6b6b) 16%,
-    var(--jpdb-reader-surface, #20242b)
+    var(--jpdb-reader-state-failed) 16%,
+    var(--jpdb-reader-surface)
   );
 }
 .jpdb-reader-btn.jpdb-reader-doodle-control {
@@ -729,7 +857,7 @@ html.jpdb-reader-doodle-active * {
   padding: 6px 14px 15px;
   display: grid;
   gap: 6px;
-  --jpdb-reader-actions-bg: color-mix(in srgb, var(--jpdb-reader-bg) 90%, black 10%);
+  --jpdb-reader-actions-bg: color-mix(in srgb, var(--jpdb-reader-bg) 90%, var(--jpdb-reader-black) 10%);
   background: var(--jpdb-reader-actions-bg);
   box-shadow: 0 -1px 0 var(--jpdb-reader-actions-bg);
 }
@@ -756,7 +884,7 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-mining-title:hover,
 .jpdb-reader-mining-title:focus-visible {
-  color: var(--jpdb-reader-state-new, #5aa9ff);
+  color: var(--jpdb-reader-state-new-bright);
 }
 .jpdb-reader-actions-has-mining {
   position: relative;
@@ -900,7 +1028,7 @@ html.jpdb-reader-doodle-active * {
   text-align: center;
   text-decoration: none;
   white-space: nowrap;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 1px 0 var(--jpdb-reader-surface-inset-soft);
   transform: none;
   transition:
     background 0.14s ease,
@@ -927,8 +1055,8 @@ html.jpdb-reader-doodle-active * {
       var(--button-accent, currentColor) 16%
     );
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.05),
-      0 6px 14px rgba(0, 0, 0, 0.16);
+      inset 0 1px 0 var(--jpdb-reader-ocr-active-inset),
+      0 6px 14px var(--jpdb-reader-shadow-subtle);
     transform: translateY(-0.12rem);
   }
 }
@@ -954,33 +1082,33 @@ html.jpdb-reader-doodle-active * {
   color: var(--jpdb-reader-accent-readable) !important;
 }
 .jpdb-reader-btn.nf {
-  --button-accent: var(--jpdb-reader-state-known, #7bd88f);
+  --button-accent: var(--jpdb-reader-state-known);
 }
 .jpdb-reader-btn.nf.danger {
-  --button-accent: var(--jpdb-reader-state-failed, #ff6b6b);
+  --button-accent: var(--jpdb-reader-state-failed);
 }
 .jpdb-reader-btn.blacklist {
-  --button-accent: var(--jpdb-reader-state-ignored, #b8a7ff);
+  --button-accent: var(--jpdb-reader-state-ignored);
 }
 .jpdb-reader-btn.anki {
-  --button-accent: var(--jpdb-reader-state-new, #5aa9ff);
+  --button-accent: var(--jpdb-reader-state-new-bright);
 }
 .jpdb-reader-btn.nothing,
 .jpdb-reader-btn.fail {
-  --button-accent: var(--jpdb-reader-state-failed, #ff6b6b);
+  --button-accent: var(--jpdb-reader-state-failed);
 }
 .jpdb-reader-btn.something {
-  --button-accent: var(--jpdb-reader-state-failed, #ff6b6b);
+  --button-accent: var(--jpdb-reader-state-failed);
 }
 .jpdb-reader-btn.hard {
-  --button-accent: var(--jpdb-reader-state-due, #ffb454);
+  --button-accent: var(--jpdb-reader-state-hard);
 }
 .jpdb-reader-btn.okay,
 .jpdb-reader-btn.pass {
-  --button-accent: var(--jpdb-reader-state-known, #7bd88f);
+  --button-accent: var(--jpdb-reader-state-known);
 }
 .jpdb-reader-btn.easy {
-  --button-accent: var(--jpdb-reader-state-new, #5aa9ff);
+  --button-accent: var(--jpdb-reader-state-new-bright);
 }
 .jpdb-reader-btn:is(
   .add,
@@ -1107,19 +1235,19 @@ html.jpdb-reader-doodle-active * {
   fill: currentColor;
 }
 .jpdb-reader-pitch .heiban {
-  color: var(--jpdb-reader-pitch-heiban, #359eff);
+  color: var(--jpdb-reader-pitch-heiban-readable);
 }
 .jpdb-reader-pitch .atamadaka {
-  color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);
+  color: var(--jpdb-reader-pitch-atamadaka-readable);
 }
 .jpdb-reader-pitch .nakadaka {
-  color: var(--jpdb-reader-pitch-nakadaka, #fba840);
+  color: var(--jpdb-reader-pitch-nakadaka-readable);
 }
 .jpdb-reader-pitch .odaka {
-  color: var(--jpdb-reader-pitch-odaka, #57ccb7);
+  color: var(--jpdb-reader-pitch-odaka-readable);
 }
 .jpdb-reader-pitch .kifuku {
-  color: var(--jpdb-reader-pitch-kifuku, #9050f6);
+  color: var(--jpdb-reader-pitch-kifuku-readable);
 }
 .yomu-jpdb-uchisen-source[open] > :last-child {
   display: grid;
@@ -1218,7 +1346,7 @@ html.jpdb-reader-doodle-active * {
 }
 .yomu-jpdb-uchisen-summary-link:hover,
 .yomu-jpdb-uchisen-summary-link:focus-visible {
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
   outline: none;
 }
 .yomu-jpdb-uchisen-generator {
@@ -1278,7 +1406,7 @@ html.jpdb-reader-doodle-active * {
   color: var(--jpdb-reader-accent-readable);
 }
 .yomu-jpdb-uchisen-generate-status[data-tone="error"] {
-  color: var(--jpdb-reader-danger, #ff7a7a);
+  color: var(--jpdb-reader-danger-readable);
 }
 
 .yomu-jpdb-component-breakdown {
@@ -1324,7 +1452,9 @@ html.jpdb-reader-doodle-active * {
 }
 
 .yomu-jpdb-component-chip strong {
+  font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-size: 16px;
+  font-weight: var(--jpdb-reader-popup-font-weight, 400);
   line-height: 1;
 }
 

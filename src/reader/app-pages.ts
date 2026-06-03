@@ -13,6 +13,11 @@ export function isYomuHostedPassivePage(value: string): boolean {
     return appUrl ? isPassiveYomuRepositoryPage(value, appUrl) : false;
 }
 
+export function isYomuHostedVideoPlayerPage(value: string): boolean {
+    const appUrl = readYomuAppUrl(value);
+    return appUrl ? isYomuRepositoryAppUrl(appUrl) && isYomuVideoPlayerPath(appUrl.path) : false;
+}
+
 interface YomuAppUrl {
     url: URL;
     path: string;
@@ -62,5 +67,8 @@ function isYomuVideoPlayerPath(path: string): boolean {
 }
 
 function isYomuLocalAppPath(path: string): boolean {
-    return path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith('/newtab/') || isYomuVideoPlayerPath(path);
+    return path === '/'
+        || path.startsWith(`/${APP_REPOSITORY_NAME}/`)
+        || path.endsWith('/newtab/')
+        || isYomuVideoPlayerPath(path);
 }

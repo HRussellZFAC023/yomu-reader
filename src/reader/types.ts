@@ -8,6 +8,7 @@ export type CardState =
     | 'never-forget'
     | 'blacklisted'
     | 'suspended'
+    | 'in-deck'
     | 'not-in-deck'
     | 'redundant';
 
@@ -29,7 +30,7 @@ export type AudioSelectionMode = 'first' | 'random';
 
 export type AudioTtsMode = 'fallback' | 'source-order';
 
-export type AudioAutoPlayMode = 'all' | 'hover' | 'tap';
+export type AudioAutoPlayMode = 'off' | 'all' | 'hover' | 'tap';
 
 export type OcrProvider = 'google-lens' | 'cloud-vision' | 'local-service' | 'page-text' | 'off';
 
@@ -50,6 +51,9 @@ export type ImmersionKitSort = 'sentence_length:asc' | 'sentence_length:desc' | 
 export type ImmersionExampleSource = 'immersion-kit' | 'nadeshiko' | 'combined';
 
 export type AnkiTemplateMode = 'recognition' | 'context';
+export type AnkiFieldMappingRole = 'expression' | 'reading' | 'meaning' | 'sentence' | 'audio' | 'image';
+export type AnkiFieldMapping = Partial<Record<AnkiFieldMappingRole, string>>;
+export type AnkiFieldMappings = Record<string, AnkiFieldMapping>;
 
 export type NewTabWordSource = 'auto' | 'jpdb' | 'anki' | 'dictionary';
 
@@ -106,9 +110,21 @@ export interface JPDBCard {
     sentence?: string;
     reviewSource?: 'jpdb-api' | 'jpdb-live' | 'anki' | 'dictionary';
     ankiCardId?: number;
+    ankiNoteId?: number;
+    ankiDeckNames?: string[];
+    ankiModelName?: string;
+    ankiReps?: number;
+    ankiLapses?: number;
+    ankiRenderedCards?: Array<{
+        cardId: number;
+        deckName: string;
+        question: string;
+        answer: string;
+    }>;
     jpdbReviewId?: string;
     kanjiKeyword?: string;
     sourceCardKey?: string;
+    fallbackLookupTerms?: string[];
 }
 
 export interface JPDBDeck {
@@ -243,11 +259,10 @@ export interface ReaderSettings {
     hoverCloseDelayMs: number;
     popupActivationMode: PopupActivationMode;
     scanModifierKey: ScanModifierKey;
-    autoScanJapanese: boolean;
-    scanVisiblePage: boolean;
     showFloatingButton: boolean;
     newTabEnabled: boolean;
     newTabAnkiEnabled: boolean;
+    newTabAnkiDisabledDecks: string[];
     newTabSource: NewTabWordSource;
     newTabJpdbDeck: string;
     newTabJpdbReviewMode: NewTabJpdbReviewMode;
@@ -297,6 +312,7 @@ export interface ReaderSettings {
     subtitleNativeBlurred: boolean;
     subtitleKaraokeMode: boolean;
     subtitleTranscriptVisible: boolean;
+    subtitlePausePanel: boolean;
     subtitleTranscriptPlacement: SubtitleTranscriptPlacement;
     subtitleTranscriptAutoScroll: boolean;
     subtitleAutoCopyLine: boolean;
@@ -313,13 +329,17 @@ export interface ReaderSettings {
     subtitleSeekPadding: number;
     youtubeImmersionEnabled: boolean;
     youtubeShowFilterNotice: boolean;
+    preferJapaneseSiteLanguage: boolean;
     ankiEnabled: boolean;
+    ankiSectionEnabled: boolean;
+    ankiSectionPriority: number;
     ankiConnectUrl: string;
     ankiDeck: string;
     ankiModel: string;
     ankiTags: string;
     ankiMineWithJpdb: boolean;
     ankiCaptureScreenshot: boolean;
+    ankiFieldMappings: AnkiFieldMappings;
     ankiTemplateMode: AnkiTemplateMode;
     ankiFrontReading: boolean;
     ankiFrontSentence: boolean;
@@ -337,6 +357,9 @@ export interface ReaderSettings {
     popoverWidth: number;
     popoverHeight: number;
     popoverHeightMode: 'available' | 'fixed';
+    readerFontFamily: string;
+    popupFontFamily: string;
+    popupFontWeight: number;
     miningDeck: string;
     jpdbMiningEnabled: boolean;
     neverForgetDeck: string;
@@ -350,6 +373,8 @@ export interface ReaderSettings {
         openSettings: string;
         playAudio: string;
         closePopup: string;
+        previousLookupWord: string;
+        nextLookupWord: string;
         previousSubtitle: string;
         nextSubtitle: string;
         copySubtitle: string;

@@ -302,7 +302,7 @@ describe('performance cache bounds', () => {
 
         try {
             await controller.loadExamples(popover, cardFor(1));
-            await vi.waitFor(() => expect(fetchBlobUrl).toHaveBeenCalledWith(mediaUrl, DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl));
+            await vi.waitFor(() => expect(fetchBlobUrl).toHaveBeenCalledWith(mediaUrl, DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage));
             const image = popover.querySelector<HTMLImageElement>('[data-immersion-image]');
 
             expect(image?.getAttribute('src')).toBeNull();
@@ -386,6 +386,38 @@ describe('performance cache bounds', () => {
         }
     });
 
+    it('scopes Immersion example Anki enrichment to the rendered example container', () => {
+        const token: JPDBToken = {
+            card: cardFor(1),
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+            sentence: '単語1を見た。',
+        };
+        const enrichAnkiWords = vi.fn();
+        const controller = createImmersionController({
+            search: vi.fn(),
+            preload: vi.fn(),
+            mediaUrls: vi.fn(() => []),
+        } as unknown as ImmersionKitClient, { enrichAnkiWords });
+        const container = document.createElement('div');
+        container.innerHTML = '<div data-immersion-sentence-render></div>';
+        document.body.append(container);
+        const testable = controller as unknown as {
+            applyParsedExampleSentence(container: HTMLElement, card: JPDBCard, example: ImmersionKitExample, tokens: JPDBToken[]): void;
+        };
+
+        try {
+            testable.applyParsedExampleSentence(container, cardFor(1), immersionExample('単語1'), [token]);
+
+            expect(enrichAnkiWords).toHaveBeenCalledWith(expect.any(Array), [container]);
+        } finally {
+            container.remove();
+        }
+    });
+
     it('bounds study source sentence caches', async () => {
         const controller = new StudySourceController({
             getSettings: () => DEFAULT_SETTINGS,
@@ -416,6 +448,47 @@ describe('performance cache bounds', () => {
         expect(testable.grammarHintCache.size).toBe(160);
         expect(testable.translationContentCache.size).toBe(80);
         expect(testable.loadTranslationContent).toHaveBeenCalledTimes(82);
+    });
+
+    it('scopes study translation Anki enrichment to the study container', () => {
+        const token: JPDBToken = {
+            card: cardFor(2),
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+            sentence: '単語2です。',
+        };
+        const enrichAnkiWords = vi.fn();
+        const controller = new StudySourceController({
+            getSettings: () => DEFAULT_SETTINGS,
+            dictionarySourceAttributes: () => '',
+            parseJapanese: vi.fn(async () => [[]]),
+            parsePopoverJapanese: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords,
+            isCurrentPopoverRoot: () => true,
+        });
+        const popover = document.createElement('div');
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <div data-study-original-render></div>
+            <div data-study-translation-result></div>
+        `;
+        popover.append(container);
+        document.body.append(popover);
+        const testable = controller as unknown as {
+            applyTranslation(popover: HTMLElement, sentence: string, container: HTMLElement, translation: { tokens: JPDBToken[]; translated: string }): void;
+        };
+
+        try {
+            testable.applyTranslation(popover, '単語2です。', container, { tokens: [token], translated: 'word two' });
+
+            expect(enrichAnkiWords).toHaveBeenCalledWith([token], [container]);
+        } finally {
+            popover.remove();
+        }
     });
 });
 
@@ -451,7 +524,7 @@ function createImmersionController(
         canParseJapanese: () => boolean;
         parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
         enrichPitchWords: (tokens: JPDBToken[]) => void | Promise<void>;
-        enrichAnkiWords: (tokens: JPDBToken[]) => void | Promise<void>;
+        enrichAnkiWords: (tokens: JPDBToken[], roots?: ParentNode[]) => void | Promise<void>;
         repositionPopover: () => void;
         setImmersionTranslationBlurred: (blurred: boolean) => void;
         toast: (message: string) => void;

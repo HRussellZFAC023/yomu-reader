@@ -17,13 +17,21 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
     'jpdb-reader-newtab-grade-queue',
     'jpdb-reader-newtab-current-word',
     'jpdb-reader-newtab-ui',
+    'jpdb-reader-newtab-jpdb-stats-history',
+    'jpdb-reader-newtab-disabled-anki-decks',
     'jpdb-reader-source-open-state',
     'jpdb-reader-settings-drawer-height-ratio',
     'jpdb-reader-sheet-height-ratio',
     'jpdb-reader-transcript-panel-size',
+    'yomu:anki-status-index:v1',
+    'yomu:anki-status-index-rebuild:v1',
     'yomu.grammarPreferences.v1',
     'yomu:enable-logs',
+    'yomu:prefer-japanese-site-language',
     FACTORY_RESET_SIGNAL_KEY,
+];
+const MANAGED_INDEXED_DB_NAMES = [
+    'yomu-anki-status-index',
 ];
 const EXCLUDED_BACKUP_STORAGE_KEYS = new Set([
     FACTORY_RESET_SIGNAL_KEY,
@@ -182,6 +190,7 @@ export async function clearManagedStoredValues(): Promise<number> {
         removeSessionStorageKey(key);
         count++;
     }
+    await clearManagedIndexedDatabases();
     return count;
 }
 
@@ -394,6 +403,31 @@ function webStorageHasKey(storage: Storage, key: string): boolean {
     } catch {
         return false;
     }
+}
+
+async function clearManagedIndexedDatabases(): Promise<void> {
+    await Promise.all(MANAGED_INDEXED_DB_NAMES.map(deleteIndexedDbDatabase));
+}
+
+function deleteIndexedDbDatabase(name: string): Promise<void> {
+    if (typeof indexedDB === 'undefined') return Promise.resolve();
+    return new Promise(resolve => {
+        try {
+            const request = indexedDB.deleteDatabase(name);
+            request.onsuccess = () => resolve();
+            request.onerror = error => {
+                debugStorageError('IndexedDB delete failed', name, error);
+                resolve();
+            };
+            request.onblocked = error => {
+                debugStorageError('IndexedDB delete blocked', name, error);
+                resolve();
+            };
+        } catch (error) {
+            debugStorageError('IndexedDB delete threw', name, error);
+            resolve();
+        }
+    });
 }
 
 function isPromiseLike(value: unknown): value is Promise<unknown> {

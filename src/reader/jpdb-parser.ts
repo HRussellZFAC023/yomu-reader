@@ -86,7 +86,7 @@ function parseRubies(furigana: JPDBRawToken[3], startOffset: number): JPDBRuby[]
 }
 
 function inheritedOrCurrentPitchClass(card: JPDBCard, inheritedPitchClass: string): string {
-    if (card.partOfSpeech.includes('prt')) return inheritedPitchClass;
+    if (card.partOfSpeech.includes('prt')) return '';
     return getPitchClass(card.pitchAccent, card.reading) || inheritedPitchClass;
 }
 
@@ -277,14 +277,20 @@ function assignWordWithReading(token: JPDBToken): void {
 function repairCardReadingFromRubies(card: JPDBCard, surface: string, rubies: JPDBRuby[], offset: number): void {
     if (!shouldRepairCardReading(card, surface, rubies)) return;
     const reading = surfaceReadingFromRubies(surface, rubies, offset);
-    if (reading && KANA_RE.test(reading)) card.reading = reading;
+    if (!reading || !KANA_RE.test(reading)) return;
+    const previousReading = card.reading.trim();
+    if (previousReading && previousReading !== card.spelling && previousReading !== reading) {
+        card.sourceCardKey ??= `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
+        card.pitchAccent = [];
+    }
+    card.reading = reading;
 }
 
 function shouldRepairCardReading(card: JPDBCard, surface: string, rubies: JPDBRuby[]): boolean {
     if (!rubies.length || !surface || card.spelling !== surface) return false;
     if (!KANJI_RE.test(card.spelling)) return false;
     const reading = card.reading.trim();
-    return !reading || reading === card.spelling;
+    return !reading || reading === card.spelling || KANA_RE.test(reading);
 }
 
 function surfaceReadingFromRubies(surface: string, rubies: JPDBRuby[], offset: number): string {

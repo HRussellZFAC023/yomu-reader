@@ -16,7 +16,7 @@ describe('normalizeCardState', () => {
     });
 
     it('recognizes all canonical card states', () => {
-        const states = ['new', 'learning', 'known', 'due', 'failed', 'locked', 'never-forget', 'blacklisted', 'suspended', 'not-in-deck', 'redundant'];
+        const states = ['new', 'learning', 'known', 'due', 'failed', 'locked', 'never-forget', 'blacklisted', 'suspended', 'in-deck', 'not-in-deck', 'redundant'];
         for (const state of states) {
             expect(normalizeCardState(state)).toBe(state);
         }
@@ -39,6 +39,12 @@ describe('normalizeCardState', () => {
         expect(normalizeCardState('not_in_deck')).toBe('not-in-deck');
         expect(normalizeCardState('notindeck')).toBe('not-in-deck');
         expect(normalizeCardState('not in deck')).toBe('not-in-deck');
+    });
+
+    it('resolves in-deck aliases', () => {
+        expect(normalizeCardState('in_deck')).toBe('in-deck');
+        expect(normalizeCardState('indeck')).toBe('in-deck');
+        expect(normalizeCardState('in deck')).toBe('in-deck');
     });
 
     it('resolves blacklisted aliases', () => {

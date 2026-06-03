@@ -24,6 +24,12 @@
       --accent-ink: #0b1710;
       --accent-soft: rgba(108,201,142,.2);
       --shadow: rgba(0,0,0,.32);
+      --switch-shadow: rgba(0,0,0,.28);
+      --brand-icon-bg: #f7fbf8;
+      --stage-bg: #050708;
+      --stage-empty-text: rgba(245,247,246,.72);
+      --stage-empty-shadow: rgba(0,0,0,.72);
+      --stage-empty-strong: #f5f7f6;
       --radius: 8px;
     }
 
@@ -39,14 +45,6 @@
       --accent-ink: #ffffff;
       --accent-soft: rgba(94,167,128,.16);
       --shadow: rgba(20,30,45,.12);
-      --jpdb-reader-bg: #ffffff;
-      --jpdb-reader-surface: #f7f8fa;
-      --jpdb-reader-surface-2: #eef1f4;
-      --jpdb-reader-text: #171a1f;
-      --jpdb-reader-muted: #596272;
-      --jpdb-reader-faint: #7b8493;
-      --jpdb-reader-border: rgba(20,30,45,.16);
-      --jpdb-reader-hover: rgba(20,30,45,.07);
     }
 
     :root.yomu-page-theme-dark {
@@ -61,14 +59,6 @@
       --accent-ink: #0b1710;
       --accent-soft: rgba(108,201,142,.2);
       --shadow: rgba(0,0,0,.32);
-      --jpdb-reader-bg: #181b20;
-      --jpdb-reader-surface: #20242b;
-      --jpdb-reader-surface-2: #282e37;
-      --jpdb-reader-text: #f2f4f8;
-      --jpdb-reader-muted: #aab2c0;
-      --jpdb-reader-faint: #6f7a89;
-      --jpdb-reader-border: rgba(255,255,255,.12);
-      --jpdb-reader-hover: rgba(255,255,255,.08);
     }
 
     * { box-sizing: border-box; }
@@ -88,7 +78,8 @@
     }
 
     button,
-    .file-button {
+    .file-button,
+    .toolbar-button {
       min-height: 38px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
@@ -109,10 +100,27 @@
     .file-button {
       display: inline-grid;
       place-items: center;
+      justify-items: center;
       padding: 0 14px;
       background: var(--accent);
       border-color: transparent;
       color: var(--accent-ink);
+      text-align: center;
+    }
+
+    .file-button-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      line-height: 1.1;
+    }
+
+    .toolbar-button {
+      display: inline-grid;
+      place-items: center;
+      padding: 0 12px;
+      white-space: nowrap;
     }
 
     .top-actions {
@@ -264,7 +272,7 @@
       height: 18px;
       border-radius: 999px;
       background: var(--bg);
-      box-shadow: 0 1px 3px rgba(0,0,0,.28);
+      box-shadow: 0 1px 3px var(--switch-shadow);
       transition: transform .18s ease, background .18s ease;
     }
 
@@ -339,7 +347,7 @@
       height: 36px;
       border-radius: 8px;
       border: 1px solid var(--line);
-      background: #f7fbf8;
+      background: var(--brand-icon-bg);
     }
 
     .stage {
@@ -354,7 +362,7 @@
       overflow: hidden;
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      background: #050708;
+      background: var(--stage-bg);
       box-shadow: 0 18px 46px var(--shadow);
     }
 
@@ -363,7 +371,7 @@
       max-width: 100%;
       height: 100%;
       display: block;
-      background: #050708;
+      background: var(--stage-bg);
       object-fit: contain;
     }
 
@@ -381,9 +389,9 @@
       border: 2px dashed var(--line);
       border-radius: var(--radius);
       background: transparent;
-      color: rgba(245,247,246,.72);
+      color: var(--stage-empty-text);
       text-align: center;
-      text-shadow: 0 1px 2px rgba(0,0,0,.72);
+      text-shadow: 0 1px 2px var(--stage-empty-shadow);
       cursor: pointer;
       padding: 18px;
     }
@@ -397,7 +405,7 @@
 
     .empty strong {
       display: block;
-      color: #f5f7f6;
+      color: var(--stage-empty-strong);
       font-size: clamp(18px, 4.8vw, 24px);
       line-height: 1.15;
     }
@@ -461,8 +469,15 @@
         justify-self: end;
       }
 
+      .toolbar-button {
+        grid-column: 1 / 3;
+        grid-row: 2;
+        width: 100%;
+        min-height: 48px;
+      }
+
       .file-button {
-        grid-column: 1 / -1;
+        grid-column: 3 / -1;
         grid-row: 2;
         width: 100%;
         min-height: 48px;
@@ -483,7 +498,7 @@
   <main class="app" data-app>
     <header class="topbar">
       <a class="brand" href="../" aria-label="Open Yomu home">
-        <img src="../yomu-icon.svg" alt="" width="36" height="36">
+        <img src="../yomu-icon.svg" alt="" width="36" height="36" data-yomu-brand-icon>
         <strong>Yomu Video</strong>
       </a>
       <div class="top-actions">
@@ -509,8 +524,9 @@
             <a href="../support" role="menuitem" data-menu-support>Support</a>
           </div>
         </details>
+        <button class="toolbar-button" type="button" data-subtitle-open>Subtitles</button>
         <label class="file-button">
-          Open video
+          <span class="file-button-label" data-open-video-label>Open video</span>
           <input type="file" accept="video/*,.mkv,.mp4,.m4v,.mov,.webm,.ogv" data-video-input>
         </label>
       </div>
@@ -521,7 +537,7 @@
       <button class="empty" type="button" data-empty-open>
         <div>
           <strong>Open or drop a video</strong>
-          <span class="status" data-status>Use subtitle controls for tracks, lines, and mining after opening a video.</span>
+          <span class="status" data-status>Open a video, then use Subtitles to add Japanese and native subtitle files.</span>
         </div>
       </button>
     </section>
@@ -537,16 +553,32 @@
       const status = document.querySelector('[data-status]');
       const themeToggle = document.querySelector('[data-theme-toggle]');
       const languageToggle = document.querySelector('[data-language-toggle]');
+      const openVideoLabel = document.querySelector('[data-open-video-label]');
       const overflowMenu = document.querySelector('[data-overflow-menu]');
       const overflowSummary = document.querySelector('[data-overflow-summary]');
       const settingsTrigger = document.querySelector('[data-settings-trigger]');
+      const subtitleOpen = document.querySelector('[data-subtitle-open]');
+      const brandIcon = document.querySelector('[data-yomu-brand-icon]');
       const themeKey = 'yomu-page-theme';
       const settingsKey = 'jpdb-popup-reader-settings';
       const settingsChangeEvent = 'yomu-settings-change';
       const openSettingsEvent = 'yomu-open-settings';
+      const openSubtitleTracksEvent = 'yomu-open-subtitle-tracks';
       const languageEvent = 'yomu-interface-language-change';
+      const runtimeScriptId = 'yomu-hosted-video-runtime';
+      const runtimeCssAttribute = 'data-yomu-hosted-video-css';
+      const runtimeScriptAttribute = 'data-yomu-hosted-video-script';
+      const runtimeReadyTimeoutMs = 2600;
+      const yomuRuntimeMarkerId = 'jpdb-reader-runtime-owner';
+      const colorTokens = {
+        accent: '#5ea780',
+        readableInk: '#11161d',
+        white: '#ffffff',
+      };
+      const fallbackIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><defs><linearGradient id="a" x1="8" x2="56" y1="4" y2="60" gradientUnits="userSpaceOnUse"><stop stop-color="#20242b"/><stop offset="1" stop-color="#181b20"/></linearGradient><linearGradient id="b" x1="8" x2="56" y1="5" y2="59" gradientUnits="userSpaceOnUse"><stop stop-color="#3a4350"/><stop offset="1" stop-color="#282e37"/></linearGradient></defs><rect width="64" height="64" rx="14" fill="url(#a)"/><rect x="4" y="4" width="56" height="56" rx="12" fill="none" stroke="url(#b)" stroke-width="2"/><circle cx="49.2" cy="18.2" r="8.2" fill="#5ea780" opacity=".1"/><text x="30.8" y="36.6" text-anchor="middle" dominant-baseline="central" font-family="Hiragino Sans, Yu Gothic, Noto Sans JP, Meiryo, system-ui, sans-serif" font-size="38" font-weight="800" fill="#f2f4f8">&#12424;</text><g fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M42.1 16.7h5.1l3.4 4.6h5.8" stroke="#181b20" stroke-width="4.1"/><path d="M42.1 16.7h5.1l3.4 4.6h5.8" stroke="#fe4b74" stroke-width="1.9"/><g fill="#fe4b74" stroke="#181b20" stroke-width=".8"><circle cx="42.1" cy="16.7" r="1.5"/><circle cx="47.2" cy="16.7" r="1.5"/><circle cx="50.6" cy="21.3" r="1.5"/><circle cx="56.4" cy="21.3" r="1.5"/></g></g></svg>';
       let objectUrl = '';
       let currentVideoName = '';
+      let runtimeLoadPromise = null;
 
       const copy = {
         en: {
@@ -554,10 +586,17 @@
           brand: 'Yomu Video',
           openHome: 'Open Yomu home',
           openVideo: 'Open video',
+          subtitles: 'Subtitles',
+          openSubtitles: 'Open subtitle tracks',
           stageLabel: 'Video',
           emptyTitle: 'Open or drop a video',
-          emptyStatus: 'Use subtitle controls for tracks, lines, and mining after opening a video.',
+          emptyStatus: 'Open a video, then use Subtitles to add Japanese and native subtitle files.',
           chooseVideo: 'Choose a browser-supported video file.',
+          chooseVideoBeforeSubtitles: 'Open a video first, then choose subtitle files.',
+          loadingRuntime: 'Loading Yomu controls...',
+          loadingSettings: 'Loading Yomu settings...',
+          loadingSubtitles: 'Loading subtitle controls...',
+          runtimeMissing: 'Yomu controls could not load from this server. Serve yomu.user.js and yomu.css next to the video player, or enable the Yomu userscript.',
           opening: name => `Opening ${name}...`,
           menu: 'Menu',
           settings: 'Settings',
@@ -575,10 +614,17 @@
           brand: 'よむ 動画',
           openHome: 'よむホームを開く',
           openVideo: '動画を開く',
+          subtitles: '字幕',
+          openSubtitles: '字幕トラックを開く',
           stageLabel: '動画',
           emptyTitle: '動画を開くかドロップ',
-          emptyStatus: '動画を開いたあと、字幕コントロールでトラック、行、マイニングを使えます。',
+          emptyStatus: '動画を開いたあと、字幕ボタンから日本語字幕と母語字幕ファイルを追加できます。',
           chooseVideo: 'ブラウザーで再生できる動画ファイルを選んでください。',
+          chooseVideoBeforeSubtitles: '先に動画を開いてから字幕ファイルを選んでください。',
+          loadingRuntime: 'よむの操作パネルを読み込んでいます...',
+          loadingSettings: 'よむの設定を読み込んでいます...',
+          loadingSubtitles: '字幕操作を読み込んでいます...',
+          runtimeMissing: 'このサーバーからよむの操作パネルを読み込めませんでした。動画プレイヤーの隣に yomu.user.js と yomu.css を置くか、よむユーザースクリプトを有効にしてください。',
           opening: name => `${name}を開いています...`,
           menu: 'メニュー',
           settings: '設定',
@@ -593,13 +639,23 @@
         },
       };
 
-      function effectiveTheme() {
-        const saved = localStorage.getItem(themeKey);
-        if (saved === 'dark' || saved === 'light') return saved;
+      function normalizeTheme(value) {
+        return value === 'dark' || value === 'light' || value === 'auto' ? value : 'auto';
+      }
+
+      function themePreference() {
+        const settings = readSettings();
+        if (Object.prototype.hasOwnProperty.call(settings, 'theme')) return normalizeTheme(settings.theme);
+        return normalizeTheme(localStorage.getItem(themeKey));
+      }
+
+      function effectiveTheme(preference = themePreference()) {
+        if (preference === 'dark' || preference === 'light') return preference;
         return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
       }
 
-      function applyTheme(theme) {
+      function applyTheme(preference = themePreference()) {
+        const theme = effectiveTheme(preference);
         document.documentElement.classList.toggle('yomu-page-theme-dark', theme === 'dark');
         document.documentElement.classList.toggle('yomu-page-theme-light', theme === 'light');
         if (themeToggle) {
@@ -611,7 +667,36 @@
         }
       }
 
-      applyTheme(effectiveTheme());
+      function saveThemePreference(theme) {
+        const settings = readSettings();
+        settings.theme = theme;
+        localStorage.setItem(settingsKey, JSON.stringify(settings));
+        localStorage.setItem(themeKey, theme);
+        window.dispatchEvent(new CustomEvent(settingsChangeEvent, { detail: { settings } }));
+        applyTheme(theme);
+        applyAccent();
+      }
+
+      function themePreferenceFromEvent(event) {
+        const theme = event?.detail?.settings?.theme;
+        return theme === 'dark' || theme === 'light' || theme === 'auto' ? theme : null;
+      }
+
+      function syncFromSettingsEvent(event) {
+        const theme = themePreferenceFromEvent(event);
+        if (theme) {
+          if (event?.detail?.preview !== true) {
+            if (theme === 'auto') localStorage.removeItem(themeKey);
+            else localStorage.setItem(themeKey, theme);
+          }
+          applyTheme(theme);
+        } else {
+          applyTheme();
+        }
+        applyAccent();
+      }
+
+      applyTheme();
       applyInterfaceLanguage(effectiveInterfaceLanguage());
 
       function setStatus(message) {
@@ -640,15 +725,17 @@
       }
 
       function sanitizeAccent(value) {
-        if (typeof value !== 'string') return '#5ea780';
+        if (typeof value !== 'string') return colorTokens.accent;
         const trimmed = value.trim();
         if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
         const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
-        return shortHex ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase() : '#5ea780';
+        return shortHex ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase() : colorTokens.accent;
       }
 
       function readableTextOn(background) {
-        return contrastRatio(background, '#11161d') >= contrastRatio(background, '#ffffff') ? '#11161d' : '#ffffff';
+        return contrastRatio(background, colorTokens.readableInk) >= contrastRatio(background, colorTokens.white)
+          ? colorTokens.readableInk
+          : colorTokens.white;
       }
 
       function contrastRatio(a, b) {
@@ -705,7 +792,9 @@
         document.querySelector('.brand').setAttribute('aria-label', text.openHome);
         document.querySelector('.brand strong').textContent = text.brand;
         document.querySelector('[data-yomu-video-frame]').setAttribute('aria-label', text.stageLabel);
-        document.querySelector('.file-button').firstChild.textContent = text.openVideo;
+        if (openVideoLabel) openVideoLabel.textContent = text.openVideo;
+        subtitleOpen?.replaceChildren(text.subtitles);
+        subtitleOpen?.setAttribute('aria-label', text.openSubtitles);
         document.querySelector('.empty strong').textContent = text.emptyTitle;
         overflowSummary?.setAttribute('aria-label', text.menu);
         if (settingsTrigger) {
@@ -726,17 +815,166 @@
         }
         applyTheme(effectiveTheme());
         applyAccent();
+        requestHostedDemoLookupScan();
       }
 
-      function openSettings() {
-        overflowMenu?.removeAttribute('open');
-        const dispatch = () => {
-          if (document.querySelector('.jpdb-reader-settings')) return true;
-          window.dispatchEvent(new CustomEvent(openSettingsEvent, { detail: { panel: 'basics' } }));
-          return Boolean(document.querySelector('.jpdb-reader-settings'));
-        };
-        dispatch();
+      function runtimeAssetCandidates(fileName) {
+        const urls = [
+          new URL(`../${fileName}`, window.location.href),
+          new URL(`./${fileName}`, window.location.href),
+          new URL(`/${fileName}`, window.location.origin),
+          new URL(`/yomu-reader/${fileName}`, window.location.origin),
+        ];
+        return [...new Set(urls.map(url => url.href))];
+      }
+
+      function hasYomuRuntime() {
+        const runtime = window;
+        return Boolean(
+          runtime.__yomuReaderAppInitialized ||
+          document.getElementById(yomuRuntimeMarkerId) ||
+          document.querySelector('.jpdb-subtitle-player, .jpdb-reader-settings')
+        );
+      }
+
+      function waitForYomuRuntime(timeoutMs = runtimeReadyTimeoutMs) {
+        if (hasYomuRuntime()) return Promise.resolve(true);
+        return new Promise(resolve => {
+          const started = performance.now();
+          const check = () => {
+            if (hasYomuRuntime()) {
+              resolve(true);
+              return;
+            }
+            if (performance.now() - started >= timeoutMs) {
+              resolve(false);
+              return;
+            }
+            window.setTimeout(check, 50);
+          };
+          check();
+        });
+      }
+
+      function loadYomuCss() {
+        if (document.querySelector('link[href$="/yomu.css"], link[href*="/yomu.css?"], link[' + runtimeCssAttribute + ']')) {
+          return Promise.resolve(true);
+        }
+        return loadLinkCandidates(runtimeAssetCandidates('yomu.css'));
+      }
+
+      function loadLinkCandidates(candidates, index = 0) {
+        if (index >= candidates.length) return Promise.resolve(false);
+        return new Promise(resolve => {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = candidates[index];
+          link.setAttribute(runtimeCssAttribute, 'true');
+          link.addEventListener('load', () => resolve(true), { once: true });
+          link.addEventListener('error', () => {
+            link.remove();
+            void loadLinkCandidates(candidates, index + 1).then(resolve);
+          }, { once: true });
+          document.head.append(link);
+        });
+      }
+
+      function loadYomuScript() {
+        if (hasYomuRuntime()) return Promise.resolve(true);
+        const existing = document.getElementById(runtimeScriptId) || document.querySelector('script[' + runtimeScriptAttribute + ']');
+        if (existing) return waitForYomuRuntime();
+        return loadScriptCandidates(runtimeAssetCandidates('yomu.user.js'));
+      }
+
+      function loadScriptCandidates(candidates, index = 0) {
+        if (index >= candidates.length) return Promise.resolve(false);
+        return new Promise(resolve => {
+          const script = document.createElement('script');
+          script.id = runtimeScriptId;
+          script.async = true;
+          script.src = candidates[index];
+          script.setAttribute(runtimeScriptAttribute, 'true');
+          script.addEventListener('load', () => {
+            void waitForYomuRuntime().then(ready => {
+              if (ready) {
+                resolve(true);
+                return;
+              }
+              script.remove();
+              void loadScriptCandidates(candidates, index + 1).then(resolve);
+            });
+          }, { once: true });
+          script.addEventListener('error', () => {
+            script.remove();
+            void loadScriptCandidates(candidates, index + 1).then(resolve);
+          }, { once: true });
+          document.head.append(script);
+        });
+      }
+
+      async function ensureYomuRuntime(options = {}) {
+        if (hasYomuRuntime()) return true;
+        const text = copy[effectiveInterfaceLanguage()];
+        if (!options.silent) setStatus(options.message || text.loadingRuntime);
+        runtimeLoadPromise ||= (async () => {
+          await loadYomuCss();
+          return loadYomuScript();
+        })();
+        const loaded = await runtimeLoadPromise.catch(() => false);
+        const ready = loaded && await waitForYomuRuntime();
+        if (!ready) runtimeLoadPromise = null;
+        if (!ready && !options.silent) setStatus(text.runtimeMissing);
+        return ready;
+      }
+
+      function settingsVisible() {
+        return Boolean(document.querySelector('.jpdb-reader-settings'));
+      }
+
+      function subtitleTracksVisible() {
+        return Boolean(document.querySelector('.jpdb-subtitle-list.jpdb-subtitle-tracks-panel:not([hidden])'));
+      }
+
+      function dispatchSettingsOpen() {
+        if (settingsVisible()) return true;
+        window.dispatchEvent(new CustomEvent(openSettingsEvent, { detail: { panel: 'basics' } }));
+        return settingsVisible();
+      }
+
+      function dispatchSubtitleTracksOpen() {
+        if (subtitleTracksVisible()) return true;
+        window.dispatchEvent(new CustomEvent(openSubtitleTracksEvent));
+        return subtitleTracksVisible();
+      }
+
+      function retryYomuAction(dispatch, missingMessage) {
+        if (dispatch()) return;
         [120, 360, 900].forEach(delay => window.setTimeout(dispatch, delay));
+        window.setTimeout(() => {
+          if (!dispatch()) setStatus(missingMessage);
+        }, 1350);
+      }
+
+      async function openSettings() {
+        overflowMenu?.removeAttribute('open');
+        if (dispatchSettingsOpen()) return;
+        const text = copy[effectiveInterfaceLanguage()];
+        await ensureYomuRuntime({ message: text.loadingSettings });
+        retryYomuAction(dispatchSettingsOpen, text.runtimeMissing);
+      }
+
+      async function openSubtitleTracks() {
+        overflowMenu?.removeAttribute('open');
+        const text = copy[effectiveInterfaceLanguage()];
+        if (!currentVideoName) {
+          setStatus(text.chooseVideoBeforeSubtitles);
+          void ensureYomuRuntime({ silent: true });
+          videoInput.click();
+          return;
+        }
+        if (dispatchSubtitleTracksOpen()) return;
+        await ensureYomuRuntime({ message: text.loadingSubtitles });
+        retryYomuAction(dispatchSubtitleTracksOpen, text.runtimeMissing);
       }
 
       function revokeObjectUrl() {
@@ -776,17 +1014,27 @@
       });
       emptyOpen?.addEventListener('click', () => videoInput.click());
       themeToggle?.addEventListener('click', () => {
-        const next = effectiveTheme() === 'dark' ? 'light' : 'dark';
-        localStorage.setItem(themeKey, next);
-        applyTheme(next);
-        applyAccent();
+        saveThemePreference(effectiveTheme() === 'dark' ? 'light' : 'dark');
       });
       languageToggle?.addEventListener('click', () => saveInterfaceLanguage(nextInterfaceLanguage()));
       settingsTrigger?.addEventListener('click', openSettings);
-      window.addEventListener(settingsChangeEvent, applyAccent);
+      subtitleOpen?.addEventListener('click', openSubtitleTracks);
+      window.addEventListener(settingsChangeEvent, syncFromSettingsEvent);
       window.addEventListener('storage', event => {
-        if (event.key === settingsKey || event.key === null) applyAccent();
+        if (event.key === settingsKey || event.key === themeKey || event.key === null) {
+          applyTheme();
+          applyAccent();
+        }
       });
+      matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+        if (themePreference() === 'auto') {
+          applyTheme();
+          applyAccent();
+        }
+      });
+      brandIcon?.addEventListener('error', () => {
+        brandIcon.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(fallbackIconSvg)}`;
+      }, { once: true });
 
       for (const eventName of ['dragenter', 'dragover']) {
         document.addEventListener(eventName, event => {
@@ -804,8 +1052,8 @@
       }
 
       window.addEventListener('pagehide', revokeObjectUrl);
+      void ensureYomuRuntime({ silent: true });
     })();
   </script>
-  <script src="../yomu.user.js"></script>
 </body>
 </html>

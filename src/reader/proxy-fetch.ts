@@ -32,12 +32,14 @@ export const DEFAULT_YOMU_PUBLIC_PROXY_URL = 'https://yomu-jpdb-public-proxy.hen
 
 const BUILT_IN_PROXY_BUILDERS: ProxyUrlBuilder[] = [
     targetUrl => configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? '',
-    targetUrl => allOriginsProxyUrl(targetUrl),
-    targetUrl => jishoMarkdownProxyUrl(targetUrl) ?? '',
 ];
 
 const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
 const READ_METHODS = new Set(['GET', 'HEAD']);
+const IMMERSION_KIT_API_HOSTS = new Set([
+    'apiv2express.immersionkit.com',
+    'apiv2.immersionkit.com',
+]);
 const KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS = new Set([
     'd1pra95f92lrn3.cloudfront.net',
     'd1vjc5dkcd3yh2.cloudfront.net',
@@ -78,7 +80,7 @@ const SPECIALIZED_PROXY_ROUTE_RULES: SpecializedProxyRouteRule[] = [
 export function proxyUrlCandidates(targetUrl: string, configuredProxyUrl = '', allowPublicProxies = true): string[] {
     const candidates = [
         configuredProxyFetchUrl(targetUrl, configuredProxyUrl),
-        ...(allowPublicProxies ? BUILT_IN_PROXY_BUILDERS.map(builder => builder(targetUrl)) : []),
+        ...(allowPublicProxies ? builtInProxyUrls(targetUrl, { method: 'GET' }) : []),
     ].filter((url): url is string => Boolean(url));
     return [...new Set(candidates)];
 }
@@ -262,11 +264,7 @@ function shouldPreferProxyFirst(targetUrl: string, direct: FetchUrlCandidate | n
 function isKnownDirectCorsTarget(targetUrl: string): boolean {
     try {
         const target = new URL(targetUrl, location.href);
-        return [
-            'apiv2express.immersionkit.com',
-            'apiv2.immersionkit.com',
-            'api.nadeshiko.co',
-        ].includes(target.hostname);
+        return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === 'api.nadeshiko.co';
     } catch {
         return false;
     }
@@ -288,7 +286,22 @@ function shouldSkipDirectCrossOriginFetch(targetUrl: string, options: ProxyFetch
     const target = fetchTarget(targetUrl);
     return Boolean(target
         && isCrossOriginHttpTarget(target)
-        && specializedProxyRoute(target, requestMethod(options)));
+        && (specializedProxyRoute(target, requestMethod(options))
+            || isJpdbPublicLookupTarget(target, requestMethod(options))
+            || isLocalHostedBrowserCorsTarget(target, requestMethod(options))));
+}
+
+function isJpdbPublicLookupTarget(target: URL, method: string): boolean {
+    return method === 'GET'
+        && target.hostname === 'jpdb.io'
+        && (target.pathname === '/search' || target.pathname.startsWith('/vocabulary/'));
+}
+
+function isLocalHostedBrowserCorsTarget(target: URL, method: string): boolean {
+    return method === 'GET'
+        && isLocalHostedApp()
+        && IMMERSION_KIT_API_HOSTS.has(target.hostname)
+        && target.pathname === '/search';
 }
 
 function builtInProxyUrls(targetUrl: string, options: ProxyFetchOptions): string[] {
@@ -305,8 +318,6 @@ function specializedProxyUrls(targetUrl: string, options: ProxyFetchOptions): st
     const proxyTargetUrl = target.href;
     if (route === 'jisho-search') {
         return [
-            allOriginsProxyUrl(proxyTargetUrl),
-            jishoMarkdownProxyUrl(proxyTargetUrl) ?? '',
             yomuPublicProxyUrl(proxyTargetUrl),
         ];
     }
@@ -330,6 +341,11 @@ function isHostedGithubPagesApp(): boolean {
     } catch {
         return false;
     }
+}
+
+function isLocalHostedApp(): boolean {
+    if (typeof location === 'undefined') return false;
+    return ['127.0.0.1', 'localhost', '::1'].includes(location.hostname);
 }
 
 function isAppleTouchBrowser(): boolean {
@@ -445,18 +461,4 @@ function hasSensitiveUrlParams(targetUrl: string): boolean {
 
 function isReadMethod(method: RequestInit['method'] | undefined): boolean {
     return READ_METHODS.has(String(method ?? 'GET').toUpperCase());
-}
-
-function jishoMarkdownProxyUrl(targetUrl: string): string | null {
-    try {
-        const target = new URL(targetUrl);
-        if (target.hostname !== 'jisho.org' || !target.pathname.startsWith('/search/')) return null;
-        return `https://r.jina.ai/${target.href}`;
-    } catch {
-        return null;
-    }
-}
-
-function allOriginsProxyUrl(targetUrl: string): string {
-    return `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
 }

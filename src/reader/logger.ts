@@ -1,3 +1,4 @@
+import { BRAND_COLOR_TOKENS, CORE_COLOR_TOKENS, LOGGER_COLOR_TOKENS } from './color-tokens';
 import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync } from './storage';
 import type { ReaderSettings } from './types';
 
@@ -10,11 +11,11 @@ interface LoggerOptions {
 }
 
 const LOG_PREFIX = '[Yomu]';
-const LOG_STYLE = 'background: #247a58; color: white; border-radius: 3px; padding: 2px 5px; font-weight: 700;';
-const SCOPE_STYLE = 'color: #247a58; font-weight: 700;';
-const DEBUG_STYLE = 'color: #6b7280;';
-const WARN_STYLE = 'color: #a15c00; font-weight: 700;';
-const ERROR_STYLE = 'color: #b91c1c; font-weight: 700;';
+const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
+const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
+const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
+const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
+const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
 const RUNTIME_LOG_KEY = 'yomu:enable-logs';
 const REDACTED = '[redacted]';
 const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;

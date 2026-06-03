@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import monkey, { type MonkeyUserScript } from 'vite-plugin-monkey';
 import pkg from './package.json' with { type: 'json' };
 import { jpdbAudioDevProxyPlugin } from './vite-jpdb-audio-proxy';
@@ -48,9 +48,27 @@ const userscriptMatchForCommand = (command: string) =>
         ? process.env.YOMU_DEV_MATCH.split(',').map(match => match.trim()).filter(Boolean)
         : broadUserscriptMatch;
 
+function faviconDevMiddleware(): Plugin {
+    return {
+        name: 'yomu-favicon-dev-middleware',
+        configureServer(server) {
+            server.middlewares.use((request, response, next) => {
+                if (request.url?.split('?')[0] !== '/favicon.ico') {
+                    next();
+                    return;
+                }
+                response.statusCode = 302;
+                response.setHeader('Location', '/favicon-32x32.png');
+                response.end();
+            });
+        },
+    };
+}
+
 export default defineConfig(({ command, mode }) => ({
     plugins: [
         jpdbAudioDevProxyPlugin(),
+        faviconDevMiddleware(),
         monkey({
             entry: 'src/reader/userscript-entry.ts',
             userscript: {
@@ -65,7 +83,7 @@ export default defineConfig(({ command, mode }) => ({
                 connect: userscriptConnect,
                 grant: userscriptGrant,
                 'inject-into': 'content',
-                'run-at': 'document-idle',
+                'run-at': 'document-start',
                 license: 'GPL-3.0-or-later',
                 icon: userscriptIcon,
                 icon64: userscriptIcon,
@@ -101,6 +119,7 @@ export default defineConfig(({ command, mode }) => ({
     test: {
         environment: 'jsdom',
         include: ['tests/reader/**/*.test.ts'],
+        setupFiles: ['tests/reader/setup.ts'],
         globals: true,
     },
 }));

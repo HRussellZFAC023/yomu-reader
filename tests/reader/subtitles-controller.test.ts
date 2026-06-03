@@ -1,11 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { OPEN_SUBTITLE_TRACKS_EVENT } from '../../src/reader/constants';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { readPageCaptionText } from '../../src/reader/subtitle-dom-captions';
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles';
 import type { JPDBToken, ReaderSettings } from '../../src/reader/types';
 
 const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
+const SUBTITLE_PARSE_OPTIONS = {
+    jpdbTimeoutMs: 1200,
+    allowJpdbTimeoutFallback: true,
+    allowSegmentedFallback: true,
+    includeLocalPitch: false,
+};
 
 function withViewport<T>(width: number, height: number, callback: () => T): T {
     const widthDescriptor = Object.getOwnPropertyDescriptor(window, 'innerWidth');
@@ -20,6 +27,57 @@ function withViewport<T>(width: number, height: number, callback: () => T): T {
         if (heightDescriptor) Object.defineProperty(window, 'innerHeight', heightDescriptor);
         else delete (window as unknown as Record<string, unknown>).innerHeight;
     }
+}
+
+function mockElementRect(element: Element, rect: DOMRect): void {
+    Object.defineProperty(element, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => rect,
+    });
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason?: unknown) => void } {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((promiseResolve, promiseReject) => {
+        resolve = promiseResolve;
+        reject = promiseReject;
+    });
+    return { promise, resolve, reject };
+}
+
+function makeSubtitleToken(
+    spelling: string,
+    options: {
+        cardState?: JPDBToken['card']['cardState'];
+        pitchClass?: string;
+        reading?: string;
+        rubies?: JPDBToken['rubies'];
+        vid?: number;
+    } = {},
+): JPDBToken {
+    const reading = options.reading ?? '';
+    return {
+        card: {
+            vid: options.vid ?? 1,
+            sid: options.vid ?? 1,
+            rid: options.vid ?? 1,
+            spelling,
+            reading,
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [],
+            cardState: options.cardState ?? ['not-in-deck'],
+            pitchAccent: [],
+            wordWithReading: null,
+        },
+        start: 0,
+        end: spelling.length,
+        length: spelling.length,
+        rubies: options.rubies ?? [],
+        pitchClass: options.pitchClass ?? '',
+        sentence: spelling,
+    };
 }
 
 describe('SubtitlePlayerController', () => {
@@ -51,7 +109,8 @@ describe('SubtitlePlayerController', () => {
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
     });
 
-    it('opens and closes the transcript drawer from the rail panel toggle', () => {
+    it('opens and closes the transcript drawer from the rail panel toggle', async () => {
+        vi.useFakeTimers();
         const settings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
@@ -95,11 +154,17 @@ describe('SubtitlePlayerController', () => {
 
             button.click();
 
-            expect(panel.hidden).toBe(true);
+            expect(panel.hidden).toBe(false);
+            expect(panel.classList.contains('jpdb-subtitle-panel-closing')).toBe(true);
             expect(root.classList.contains('jpdb-subtitle-panel-open')).toBe(false);
             expect(button.getAttribute('aria-pressed')).toBe('false');
             expect(settings.subtitleTranscriptVisible).toBe(false);
             expect(onSettingsChange).toHaveBeenCalled();
+
+            await vi.advanceTimersByTimeAsync(181);
+
+            expect(panel.hidden).toBe(true);
+            expect(panel.classList.contains('jpdb-subtitle-panel-closing')).toBe(false);
         } finally {
             controller.destroy();
         }
@@ -145,6 +210,230 @@ describe('SubtitlePlayerController', () => {
             expect(root.classList.contains('jpdb-subtitle-panel-open')).toBe(true);
             expect(settings.subtitleTranscriptVisible).toBe(false);
             expect(onSettingsChange).toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('opens the transcript while paused without changing the saved default', async () => {
+        vi.useFakeTimers();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            subtitlePausePanel: true,
+            subtitleTranscriptVisible: false,
+        };
+        const onSettingsChange = vi.fn();
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange,
+        });
+
+        try {
+            (controller as unknown as { install: () => void }).install();
+            const video = document.createElement('video');
+            Object.defineProperties(video, {
+                paused: { configurable: true, value: true },
+                ended: { configurable: true, value: false },
+            });
+            const cue = { start: 0, end: 2, text: '一時停止した行。', transcriptEligible: true };
+            const internals = controller as unknown as {
+                video: HTMLVideoElement;
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+            };
+            internals.video = video;
+            internals.cues = [cue];
+            internals.currentCue = cue;
+
+            controller.refresh();
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(panel.hidden).toBe(false);
+            expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(false);
+            expect(panel.textContent).toContain('一時停止した行');
+            expect(settings.subtitleTranscriptVisible).toBe(false);
+            expect(onSettingsChange).not.toHaveBeenCalled();
+
+            Object.defineProperty(video, 'paused', { configurable: true, value: false });
+            controller.refresh();
+
+            expect(panel.hidden).toBe(false);
+            expect(panel.classList.contains('jpdb-subtitle-panel-closing')).toBe(true);
+            await vi.advanceTimersByTimeAsync(181);
+            expect(panel.hidden).toBe(true);
+            expect(settings.subtitleTranscriptVisible).toBe(false);
+            expect(onSettingsChange).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('exposes auto-hide in the drawer header and uses it as the close-on-play mode', async () => {
+        vi.useFakeTimers();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            subtitlePausePanel: false,
+            subtitleTranscriptVisible: false,
+        };
+        const onSettingsChange = vi.fn();
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange,
+        });
+
+        try {
+            (controller as unknown as { install: () => void }).install();
+            const video = document.createElement('video');
+            Object.defineProperties(video, {
+                paused: { configurable: true, value: false },
+                ended: { configurable: true, value: false },
+            });
+            const cue = { start: 0, end: 2, text: '自動で隠す。', transcriptEligible: true };
+            const internals = controller as unknown as {
+                video: HTMLVideoElement;
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+                openLinesPanel: () => void;
+            };
+            internals.video = video;
+            internals.cues = [cue];
+            internals.currentCue = cue;
+
+            internals.openLinesPanel();
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const autoButton = panel.querySelector<HTMLButtonElement>('[data-action="toggle-pause-panel"]')!;
+            expect(autoButton).toBeTruthy();
+            expect(autoButton.textContent).toContain('Auto');
+            expect(autoButton.getAttribute('aria-pressed')).toBe('false');
+            expect(autoButton.getAttribute('aria-label')).toBe('Auto-hide panel while playing');
+            expect(panel.querySelector('[data-action="close-panel"]')).not.toBeNull();
+
+            autoButton.click();
+
+            expect(settings.subtitlePausePanel).toBe(true);
+            expect(settings.subtitleTranscriptVisible).toBe(false);
+            expect(panel.hidden).toBe(false);
+            expect(panel.classList.contains('jpdb-subtitle-panel-closing')).toBe(true);
+            await vi.advanceTimersByTimeAsync(181);
+            expect(panel.hidden).toBe(true);
+            expect(onSettingsChange).toHaveBeenCalled();
+
+            Object.defineProperty(video, 'paused', { configurable: true, value: true });
+            controller.refresh();
+
+            const reopenedButton = panel.querySelector<HTMLButtonElement>('[data-action="toggle-pause-panel"]')!;
+            expect(panel.hidden).toBe(false);
+            expect(panel.classList.contains('jpdb-subtitle-lines-panel')).toBe(true);
+            expect(panel.textContent).toContain('自動で隠す');
+            expect(reopenedButton.getAttribute('aria-pressed')).toBe('true');
+            expect(reopenedButton.getAttribute('aria-label')).toBe('Keep panel open while playing');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('keeps auto-hide active after switching the pause-opened drawer to tracks', async () => {
+        vi.useFakeTimers();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            subtitlePausePanel: true,
+            subtitleTranscriptVisible: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+
+        try {
+            (controller as unknown as { install: () => void }).install();
+            vi.stubGlobal('ResizeObserver', class {
+                observe(): void {}
+                disconnect(): void {}
+            });
+            const video = document.createElement('video');
+            let paused = true;
+            Object.defineProperties(video, {
+                paused: { configurable: true, get: () => paused },
+                ended: { configurable: true, value: false },
+            });
+            const cue = { start: 0, end: 2, text: '一時停止中。', transcriptEligible: true };
+            const internals = controller as unknown as {
+                video: HTMLVideoElement;
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+                observeVideoLayout: (video: HTMLVideoElement) => void;
+                openTracksPanel: () => void;
+            };
+            internals.video = video;
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            internals.observeVideoLayout(video);
+
+            controller.refresh();
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(panel.hidden).toBe(false);
+            expect(panel.classList.contains('jpdb-subtitle-lines-panel')).toBe(true);
+
+            internals.openTracksPanel();
+
+            expect(panel.hidden).toBe(false);
+            expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
+
+            paused = false;
+            video.dispatchEvent(new Event('play'));
+
+            expect(panel.classList.contains('jpdb-subtitle-panel-closing')).toBe(true);
+            await vi.advanceTimersByTimeAsync(181);
+            expect(panel.hidden).toBe(true);
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('opens the tracks drawer from the hosted video page subtitle button event', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            subtitleTranscriptVisible: false,
+        };
+        const onSettingsChange = vi.fn();
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange,
+        });
+
+        try {
+            controller.init();
+            (controller as unknown as { tracks: unknown[] }).tracks = [{
+                id: 'file-ja',
+                kind: 'file',
+                label: 'Japanese file',
+                language: 'ja',
+                cues: [],
+            }];
+
+            window.dispatchEvent(new CustomEvent(OPEN_SUBTITLE_TRACKS_EVENT));
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(panel.hidden).toBe(false);
+            expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
+            expect(panel.querySelector('.jpdb-subtitle-track-row')?.textContent).toContain('Japanese file');
+            expect(settings.subtitleTranscriptVisible).toBe(false);
+            expect(onSettingsChange).not.toHaveBeenCalled();
         } finally {
             controller.destroy();
         }
@@ -293,24 +582,83 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('keeps the side panel toggle visible while compact navigation idles', () => {
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: .88;\n}');
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="previous"],');
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="next"] {\n  opacity: 0;\n  pointer-events: none;\n}');
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .not.toContain('.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 0;\n  pointer-events: none;\n}');
+    it('selects the most visible video in scroll feeds instead of an offscreen earlier video', () => {
+        withViewport(1000, 800, () => {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                localDictionariesEnabled: false,
+            };
+            document.body.innerHTML = '<video id="old-short"></video><video id="current-short"></video>';
+            const oldShort = document.querySelector<HTMLVideoElement>('#old-short')!;
+            const currentShort = document.querySelector<HTMLVideoElement>('#current-short')!;
+            for (const video of [oldShort, currentShort]) {
+                Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
+            }
+            mockElementRect(oldShort, new DOMRect(200, -700, 600, 600));
+            mockElementRect(currentShort, new DOMRect(200, 80, 600, 600));
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async () => [],
+                onSettingsChange: () => undefined,
+            });
+
+            try {
+                const candidate = (controller as unknown as { discoverVideoCandidate: () => HTMLVideoElement | undefined }).discoverVideoCandidate();
+
+                expect(candidate).toBe(currentShort);
+            } finally {
+                controller.destroy();
+            }
+        });
     });
 
-    it('keeps the side panel toggle visible when subtitle controls are hidden', () => {
+    it('hides the rail and subtitles while the selected video is mostly out of view', () => {
+        withViewport(1000, 800, () => {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                localDictionariesEnabled: false,
+                subtitleOverlayVisible: true,
+            };
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async () => [],
+                onSettingsChange: () => undefined,
+            });
+
+            try {
+                (controller as unknown as { install: () => void }).install();
+                const video = document.createElement('video');
+                mockElementRect(video, new DOMRect(140, -520, 720, 600));
+                (controller as unknown as { video: HTMLVideoElement }).video = video;
+                (controller as unknown as { alignToVideo: () => void }).alignToVideo();
+
+                const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(true);
+
+                mockElementRect(video, new DOMRect(140, 80, 720, 600));
+                (controller as unknown as { alignToVideo: () => void }).alignToVideo();
+
+                expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(false);
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
+    it('hides the whole subtitle rail while compact navigation idles', () => {
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {\n  opacity: .88;\n  pointer-events: auto;\n}');
+            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 0;\n  pointer-events: none;\n  transform: translateY(-4px);\n}');
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail button[data-action="previous"],');
+            .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="previous"],');
+    });
+
+    it('hides the whole subtitle rail when subtitle controls are hidden', () => {
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail button[data-action="next"] {\n  opacity: 0;\n  pointer-events: none;\n}');
+            .toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {\n  opacity: 0;\n  pointer-events: none;\n  transform: translateY(-4px);\n}');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .not.toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail button[data-action="previous"],');
     });
 
     it('keeps the tracks panel open after choosing a primary track so Lines is an explicit next step', async () => {
@@ -723,6 +1071,70 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('auto-pairs Japanese YouTube captions as primary with English captions as the native overlay', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            subtitleOverlayVisible: false,
+            subtitleSecondaryVisible: false,
+            apiKey: '',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+        const internals = controller as unknown as {
+            tracks: Array<{
+                id: string;
+                label: string;
+                kind: 'youtube';
+                language: string;
+                autoGenerated?: boolean;
+                sourceType?: 'asr' | 'translation';
+                sourceLanguage?: string;
+                targetLanguage?: string;
+                url?: string;
+            }>;
+            selectedTrackId: string;
+            secondaryTrackId: string;
+            finishYouTubeTrackDiscovery: (added: number, updatedSelectedTrack: boolean) => void;
+            selectTrack: (id: string) => Promise<void>;
+            selectSecondaryTrack: (id: string) => Promise<void>;
+        };
+        internals.tracks = [
+            {
+                id: 'youtube-en',
+                label: 'English (en) · auto-translated from 日本語 (自動生成)',
+                kind: 'youtube',
+                language: 'en',
+                autoGenerated: true,
+                sourceType: 'translation',
+                sourceLanguage: 'ja',
+                targetLanguage: 'en',
+            },
+            {
+                id: 'youtube-ja',
+                label: '日本語 (自動生成) (ja)',
+                kind: 'youtube',
+                language: 'ja',
+                autoGenerated: true,
+                sourceType: 'asr',
+            },
+        ];
+        internals.selectTrack = async id => {
+            internals.selectedTrackId = id;
+        };
+        internals.selectSecondaryTrack = async id => {
+            internals.secondaryTrackId = id;
+        };
+
+        internals.finishYouTubeTrackDiscovery(2, false);
+
+        expect(internals.selectedTrackId).toBe('youtube-ja');
+        expect(internals.secondaryTrackId).toBe('youtube-en');
+    });
+
     it('clears auto-detected subtitles when a CIJ video route changes', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -856,7 +1268,7 @@ describe('SubtitlePlayerController', () => {
             await Promise.resolve();
 
             const row = document.querySelector<HTMLElement>('.jpdb-subtitle-row-text');
-            expect(parseJapanese).toHaveBeenCalledWith('読む', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+            expect(parseJapanese).toHaveBeenCalledWith('読む', SUBTITLE_PARSE_OPTIONS);
             expect(row?.querySelector('.jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
             expect(row?.querySelector('.jpdb-reader-furi')?.textContent).toBe('よ');
         } finally {
@@ -1116,6 +1528,150 @@ describe('SubtitlePlayerController', () => {
         expect(parseJapanese).toHaveBeenCalledTimes(2);
     });
 
+    it('renders provisional YouTube subtitle words immediately while authoritative JPDB parsing finishes', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                localDictionariesEnabled: false,
+                subtitleTranscriptAutoScroll: false,
+            };
+            const authoritative = deferred<JPDBToken[]>();
+            const provisionalToken = makeSubtitleToken('読む', {
+                cardState: ['not-in-deck'],
+                vid: 1,
+            });
+            const finalToken = makeSubtitleToken('読む', {
+                cardState: ['known'],
+                pitchClass: 'heiban',
+                reading: 'よむ',
+                rubies: [{ start: 0, end: 1, length: 1, text: 'よ' }],
+                vid: 2,
+            });
+            const parseJapanese = vi.fn((_text: string, options?: { requireJpdb?: boolean; skipJpdb?: boolean }) => {
+                if (options?.requireJpdb) return authoritative.promise;
+                if (options?.skipJpdb) return Promise.resolve([provisionalToken]);
+                return Promise.resolve([]);
+            });
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese,
+                onSettingsChange: () => undefined,
+            });
+            (controller as unknown as { install: () => void }).install();
+
+            const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
+            const internals = controller as unknown as {
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+                panelMode: 'lines' | 'tracks';
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+                parseCueHtml: (text: string, settings: ReaderSettings) => Promise<string>;
+                parsedHtmlCache: Map<string, string>;
+                pendingParsedHtml: Map<string, Promise<string>>;
+                provisionalParsedHtmlCache: Map<string, string>;
+                selectedTrackId: string;
+                subtitleEl: HTMLElement;
+                transcriptPanel: HTMLElement;
+                video: HTMLVideoElement;
+            };
+            const key = internals.parseCacheKey('読む', settings);
+            internals.video = document.createElement('video');
+            internals.selectedTrackId = 'youtube-0';
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            internals.panelMode = 'lines';
+            internals.transcriptPanel.hidden = false;
+            internals.subtitleEl.innerHTML = '<div class="jpdb-subtitle-primary">読む</div>';
+
+            const rowText = document.createElement('strong');
+            rowText.className = 'jpdb-subtitle-row-text';
+            rowText.setAttribute('data-transcript-text', '');
+            rowText.dataset.parseKey = key;
+            rowText.textContent = '読む';
+            internals.transcriptPanel.replaceChildren(rowText);
+
+            const provisionalHtml = await internals.parseCueHtml('読む', settings);
+            const pendingAuthoritativeHtml = internals.pendingParsedHtml.get(key);
+
+            expect(parseJapanese).toHaveBeenNthCalledWith(1, '読む', { requireJpdb: true, includeLocalPitch: false });
+            expect(parseJapanese).toHaveBeenNthCalledWith(2, '読む', { skipJpdb: true, allowSegmentedFallback: true, includeLocalPitch: false });
+            expect(provisionalHtml).toContain('jpdb-not-in-deck');
+            expect(internals.provisionalParsedHtmlCache.get(key)).toContain('jpdb-not-in-deck');
+            expect(pendingAuthoritativeHtml).toBeDefined();
+
+            authoritative.resolve([finalToken]);
+            await expect(pendingAuthoritativeHtml).resolves.toContain('jpdb-known jpdb-pitch-heiban');
+
+            expect(internals.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.provisionalParsedHtmlCache.has(key)).toBe(false);
+            expect(rowText.dataset.parsedProvisional).toBeUndefined();
+            expect(rowText.querySelector('.jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
+            expect(rowText.querySelector('.jpdb-reader-furi')?.textContent).toBe('よ');
+            expect(document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('notifies parsed subtitle tokens with the updated transcript row root', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+            localDictionariesEnabled: false,
+        };
+        const token = makeSubtitleToken('読む', { cardState: ['known'] });
+        const afterParseTokens = vi.fn();
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            afterParseTokens,
+            onSettingsChange: () => undefined,
+        });
+        const internals = controller as unknown as {
+            panelMode: 'lines' | 'tracks';
+            parseCacheKey: (text: string, settings: ReaderSettings) => string;
+            parsedTokenCache: Map<string, JPDBToken[]>;
+            transcriptPanel: HTMLElement;
+            transcriptPanelClosing: boolean;
+            updateTranscriptRowsForParseKey(key: string, html: string): void;
+        };
+        const key = internals.parseCacheKey('読む', settings);
+        const rowText = document.createElement('strong');
+        rowText.className = 'jpdb-subtitle-row-text';
+        rowText.setAttribute('data-transcript-text', '');
+        rowText.dataset.parseKey = key;
+        rowText.textContent = '読む';
+        const panel = document.createElement('div');
+        panel.className = 'jpdb-subtitle-list';
+        panel.append(rowText);
+        document.body.append(panel);
+        internals.panelMode = 'lines';
+        internals.transcriptPanel = panel;
+        internals.transcriptPanelClosing = false;
+        internals.parsedTokenCache.set(key, [token]);
+
+        try {
+            internals.updateTranscriptRowsForParseKey(
+                key,
+                '<span class="jpdb-reader-word jpdb-known" data-vid="1" data-sid="1">読む</span>',
+            );
+
+            expect(afterParseTokens).toHaveBeenCalledWith([token], [rowText]);
+        } finally {
+            panel.remove();
+        }
+    });
+
     it('invalidates subtitle parse cache keys when the parser source changes', () => {
         const controller = new SubtitlePlayerController({
             getSettings: () => DEFAULT_SETTINGS,
@@ -1184,7 +1740,7 @@ describe('SubtitlePlayerController', () => {
         expect(parseJapanese).not.toHaveBeenCalled();
         expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
         expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['一番', '二番', '三番', '四番']);
-        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual(SUBTITLE_PARSE_OPTIONS);
     });
 
     it('continues parsing transcript rows beyond the visible hydration window', async () => {
@@ -1232,7 +1788,7 @@ describe('SubtitlePlayerController', () => {
             internals.openLinesPanel();
             for (let index = 0; index < cues.length * 12; index++) await Promise.resolve();
 
-            expect(parseJapanese).toHaveBeenCalledWith('字幕23', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+            expect(parseJapanese).toHaveBeenCalledWith('字幕23', SUBTITLE_PARSE_OPTIONS);
         } finally {
             window.requestAnimationFrame = originalRequestAnimationFrame;
         }
@@ -1283,8 +1839,8 @@ describe('SubtitlePlayerController', () => {
 
             await Promise.resolve();
             expect(parseJapanese).toHaveBeenCalledTimes(2);
-            expect(parseJapanese).toHaveBeenCalledWith('字幕0', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
-            expect(parseJapanese).toHaveBeenCalledWith('字幕1', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+            expect(parseJapanese).toHaveBeenCalledWith('字幕0', SUBTITLE_PARSE_OPTIONS);
+            expect(parseJapanese).toHaveBeenCalledWith('字幕1', SUBTITLE_PARSE_OPTIONS);
 
             await vi.advanceTimersByTimeAsync(119);
             expect(parseJapanese).toHaveBeenCalledTimes(2);
@@ -1292,8 +1848,8 @@ describe('SubtitlePlayerController', () => {
             await vi.advanceTimersByTimeAsync(1);
             await Promise.resolve();
             expect(parseJapanese).toHaveBeenCalledTimes(4);
-            expect(parseJapanese).toHaveBeenCalledWith('字幕2', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
-            expect(parseJapanese).toHaveBeenCalledWith('字幕3', { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+            expect(parseJapanese).toHaveBeenCalledWith('字幕2', SUBTITLE_PARSE_OPTIONS);
+            expect(parseJapanese).toHaveBeenCalledWith('字幕3', SUBTITLE_PARSE_OPTIONS);
 
             internals.transcriptCacheWarmupSerial = 2;
             await vi.runOnlyPendingTimersAsync();
@@ -1345,7 +1901,7 @@ describe('SubtitlePlayerController', () => {
 
         expect(parseJapanese).not.toHaveBeenCalled();
         expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['字幕0', '字幕1', '字幕2', '字幕3']);
-        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual(SUBTITLE_PARSE_OPTIONS);
         expect(parseJapaneseBatch.mock.calls[1]?.[0]).toEqual(['字幕4', '字幕5', '字幕6', '字幕7']);
     });
 
@@ -1374,7 +1930,7 @@ describe('SubtitlePlayerController', () => {
         const second = internals.parseCueHtmlBatch(['字幕0'], testSettings);
 
         expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
-        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true, includeLocalPitch: false });
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual(SUBTITLE_PARSE_OPTIONS);
         resolveBatch([[]]);
 
         const [firstResult, secondResult] = await Promise.all([first, second]);

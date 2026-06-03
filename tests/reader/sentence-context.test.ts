@@ -135,6 +135,23 @@ describe('reader sentence context', () => {
             app.destroy();
         }
     });
+
+    it('uses the clicked OCR line text instead of the whole image OCR sentence', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as PointerTextCardInternals;
+        document.body.innerHTML = `
+            <div class="jpdb-ocr-line" data-ocr-text="読" data-sentence="読む 読 読">
+                <span class="jpdb-reader-word" data-expression="読">読</span>
+            </div>
+        `;
+
+        try {
+            expect(internals.renderedWordSentence(document.querySelector<HTMLElement>('.jpdb-reader-word')!))
+                .toBe('読');
+        } finally {
+            app.destroy();
+        }
+    });
 });
 
 function token(surface: string, start: number, sentence: string): JPDBToken {

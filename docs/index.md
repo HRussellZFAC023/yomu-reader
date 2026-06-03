@@ -7,6 +7,11 @@ hero:
   image:
     src: /yomu-icon.svg
     alt: よむ app icon
+    width: 240
+    height: 240
+    loading: eager
+    fetchpriority: high
+    decoding: sync
   actions:
     - theme: brand
       text: Install よむ
@@ -58,10 +63,10 @@ The method is simple: read material you can mostly follow, look up only what kee
 
 For the research behind the approach, see the 2025 meta-analysis on [learning a language through extensive reading](https://link.springer.com/article/10.1007/s10648-025-10068-6), the classic idea of [comprehensible input](https://journals.library.columbia.edu/index.php/SALT/article/view/1278), and Tadoku's practical reading rules for Japanese learners at [tadoku.org](https://tadoku.org/japanese/en/what-is-tadoku-en/).
 
-<div class="yomu-try-me" data-yomu-demo-lookup>
+<div class="yomu-try-me">
   <strong>Try me</strong>
   <div class="yomu-try-me-text">
-    <h3>青空の下で日本語を読む</h3>
+    <h3>青空の下で本を読む</h3>
     <p>今日は静かな喫茶店で新しい本を読みました。</p>
   </div>
 

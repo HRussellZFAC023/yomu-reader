@@ -35,7 +35,7 @@ export interface StudySourceControllerDependencies {
     parseJapanese: (paragraphs: string[], options?: StudyParseOptions) => Promise<JPDBToken[][]>;
     parsePopoverJapanese: (popover: HTMLElement) => Promise<void> | void;
     enrichPitchWords: (tokens: JPDBToken[]) => Promise<void> | void;
-    enrichAnkiWords: (tokens: JPDBToken[]) => Promise<void> | void;
+    enrichAnkiWords: (tokens: JPDBToken[], roots?: ParentNode[]) => Promise<void> | void;
     isCurrentPopoverRoot: (root: HTMLElement) => boolean;
 }
 
@@ -97,11 +97,10 @@ export class StudySourceController {
         return `
             <div class="jpdb-reader-study-panel jpdb-reader-study-translation-panel">
                 <div class="jpdb-reader-study-block jpdb-reader-study-sentence-block">
-                    <div class="jpdb-reader-study-label-row">
-                        <div class="jpdb-reader-study-label">${escapeHtml(uiText(language, 'japaneseLabel'))}</div>
+                    <div class="jpdb-reader-study-label-row jpdb-reader-study-sentence-row">
+                        <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml(sentence)}</div>
                         <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" type="button" title="${escapeHtml(readSentence)}" aria-label="${escapeHtml(readSentence)}"${settings.audioEnabled ? '' : ' disabled'}>${speakerIcon()}</button>
                     </div>
-                    <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml(sentence)}</div>
                 </div>
                 <div class="jpdb-reader-study-block jpdb-reader-study-meaning-block">
                     <div class="jpdb-reader-study-label">${escapeHtml(uiText(language, 'meaning'))}</div>
@@ -149,7 +148,8 @@ export class StudySourceController {
                 container.remove();
                 return;
             }
-            setInnerHtml(panel, await renderGrammarHints(hints, sentence, undefined, this.settings().interfaceLanguage));
+            const settings = this.settings();
+            setInnerHtml(panel, await renderGrammarHints(hints, sentence, undefined, settings.interfaceLanguage, { audioEnabled: settings.audioEnabled }));
             delete popover.dataset.jpdbReaderParseKey;
             delete popover.dataset.jpdbReaderParseLoadingKey;
             void this.dependencies.parsePopoverJapanese(popover);
@@ -245,7 +245,7 @@ export class StudySourceController {
         if (result) result.textContent = translation.translated;
         void this.dependencies.parsePopoverJapanese(popover);
         void this.dependencies.enrichPitchWords(translation.tokens);
-        void this.dependencies.enrichAnkiWords(translation.tokens);
+        void this.dependencies.enrichAnkiWords(translation.tokens, [container]);
     }
 
     private renderTranslationError(sentence: string, container: HTMLElement, error: unknown): void {

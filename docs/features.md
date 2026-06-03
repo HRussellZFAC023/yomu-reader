@@ -8,6 +8,8 @@ If you are new to these tools, the short version is: **lookup** means opening th
 
 Tap, select, or hover Japanese text to open a popup. The popup can show JPDB definitions, imported local dictionary entries, pitch and frequency data, audio, example sentences, kanji details, and optional mining actions.
 
+Keyboard shortcuts can move lookup to the previous or next parsed word, and if you have selected a piece of text, navigation stays inside that selection. Popup Japanese font family and weight are configurable, and the default stack matches jpdb.io for kanji, readings, example sentences, grammar snippets, and dictionary terms.
+
 JPDB mining actions can add a word, mark it Never Forget, blacklist it, or send review grades, and can be turned off while keeping JPDB-powered popup lookup. When Anki is enabled, よむ can create a compact note with the word, reading, meaning, source sentence, JPDB link, local dictionary content, optional context images, and Immersion Kit audio. The word-first Anki front can hide the reading, sentence, or image if you want a stricter prompt.
 
 Furigana and word colors are separate controls. You can show furigana only for harder kanji, show all parsed readings, hide furigana for known words, color words by JPDB/Anki state, color them by pitch accent, or turn highlight coloring off.
@@ -21,7 +23,7 @@ The popup also has optional study helpers for the current sentence. The translat
 
 ## Yomitan Dictionaries
 
-よむ can import Yomitan dictionary ZIP files, Yomitan settings exports, and dictionary backups. Imported dictionaries stay local in your browser. If you do not have JPDB or Anki connected, よむ can still use local dictionary words for the new-tab study page after you download JMdict or import a Yomitan ZIP in Settings.
+よむ can import Yomitan dictionary ZIP files, Yomitan settings exports, and dictionary backups. Imported dictionaries stay local in your browser. If you do not have JPDB or Anki connected, よむ can still use public JPDB lookup and local dictionary words for the new-tab study page after you download JMdict or import a Yomitan ZIP in Settings.
 
 This is useful if you want native-language dictionaries, monolingual Japanese definitions, frequency dictionaries, kanji dictionaries, or pitch dictionaries without depending on a remote service for every lookup.
 
@@ -73,9 +75,9 @@ Use this for manga panels, screenshots, and image-heavy pages where normal text 
 
 The transcript is meant to work as a reading surface too: visible Japanese lines are hydrated into the same lookup words as the overlay, so you can skim, jump to a line, and open a popup without leaving the video.
 
-For local files, open the [Yomu video player](./video-player/index.html), drop in a browser-supported video, and add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
+For local files, open the [Yomu video player](./video-player/index.html), drop in a browser-supported video, and use the Subtitles button to add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
 
-You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. The transcript panel is off by default and opens from the subtitle controls. On phones it becomes a bottom panel so the video stays usable.
+You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. The transcript panel is off by default, opens from the subtitle controls, and can also be set to open only while the video is paused. On phones it becomes a bottom panel so the video stays usable.
 
 <figure class="yomu-feature-shot">
   <img :src="'/yomu-reader/screenshots/store-02-youtube-subtitles.png'" alt="The よむ subtitle overlay and transcript panel open on a live Comprehensible Japanese YouTube video.">
@@ -95,7 +97,11 @@ The temporary notice shows how many cards were hidden and disappears after a few
 
 ## Anki And Mobile Handoff
 
-Anki support is optional. On desktop, open Anki with the AnkiConnect add-on installed, then よむ can create or update cards from popup lookups, subtitles, and OCR. On iPhone, iPad, and Android, よむ uses a mobile handoff when direct AnkiConnect is not available.
+Anki support is optional. With AnkiConnect reachable, よむ can create cards from popup lookups, subtitles, and OCR; detect existing cards; update matching notes; scan decks and note types; and power Anki-backed review/status features in the new-tab page.
+
+Mobile handoff is deliberately narrower. On iPhone, iPad, and Android, よむ can open AnkiMobile or AnkiDroid to create a new note when AnkiConnect is not available. Handoff does not read your collection, pull existing-card status, update existing notes, scan fields, or provide review queues. Those features need AnkiConnect today, or a future Android bridge.
+
+If you already use RTK, Core, anime-card, or other nonstandard Japanese decks, use Settings > Anki > Scan after AnkiConnect is reachable. よむ inspects existing decks and note types, suggests field mappings for expression, reading, meaning, sentence, audio, and image fields, and lets you mine into that shape when it can infer a fit. If the scan cannot infer enough fields, the cleanest route is to use the よむ note type or adjust mappings before mining.
 
 If you do not use Anki, leave it off. JPDB mining and local dictionary lookup still work without it.
 
@@ -114,7 +120,7 @@ On iPhone and iPad, this is often the easiest daily-review surface because it av
 
 ## Help And Support In Settings
 
-The Help tab includes quick links to the hosted tools and docs, GitHub issues, Discord, donation support, a Glossary for technical terms, and a Factory Reset action that clears よむ settings, API keys, cached data, and imported dictionaries back to defaults.
+The Help tab includes quick links to the hosted tools and docs, GitHub issues, Discord, donation support, and a Factory Reset action that clears よむ settings, API keys, cached data, and imported dictionaries back to defaults.
 
 <figure class="yomu-feature-shot">
   <img :src="'/yomu-reader/screenshots/real-help-settings.png'" alt="The よむ Help settings tab with donation, issue reporting, GitHub, Discord, docs, video player, and new-tab links.">

@@ -1,5 +1,6 @@
 import { JpdbApiClient } from './jpdb-api';
 import { getPitchClass, jpdbParseResultToTokens, jpdbVocabularyToCards, splitJapaneseSentences } from './jpdb-parser';
+import { runLimited } from './async-utils';
 import { LruCache } from './lru-cache';
 import { Logger } from './logger';
 import type { JPDBCard, JPDBDeck, JPDBGrade, JPDBParseResult, JPDBRawVocabulary, JPDBToken } from './types';
@@ -24,6 +25,9 @@ const PARAGRAPH_PARSE_CACHE_SIZE = 800;
 const PARSE_BATCH_BYTE_LIMIT = 16_384;
 const PARSE_PARAGRAPH_JSON_OVERHEAD_BYTES = 7;
 const VOCABULARY_LOOKUP_CHUNK_SIZE = 100;
+const USER_DECK_POOL_CACHE_TTL_MS = 5 * 60 * 1000;
+const USER_DECK_POOL_CONCURRENCY = 4;
+const JPDB_ALL_DECKS_ID = 'all';
 const log = Logger.scope('JpdbClient');
 const utf8Encoder = new TextEncoder();
 
@@ -50,8 +54,9 @@ export class JpdbClient {
     private parseInFlight = new Map<string, Promise<JPDBToken[][]>>();
     private paragraphParseCache = new LruCache<string, JPDBToken[]>(PARAGRAPH_PARSE_CACHE_SIZE);
     private paragraphParseInFlight = new Map<string, Promise<JPDBToken[]>>();
+    private userDeckPoolCache?: { key: string; expiresAt: number; promise: Promise<Set<string>> };
 
-    constructor(getApiKey: () => string, getProxyUrl: () => string = () => '') {
+    constructor(private getApiKey: () => string, getProxyUrl: () => string = () => '') {
         this.api = new JpdbApiClient(getApiKey, getProxyUrl);
     }
 
@@ -88,6 +93,7 @@ export class JpdbClient {
     async addToDeck(deckId: string, card: JPDBCard, sentence?: string): Promise<void> {
         log.info('Adding card to deck', { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
         await this.addVocabularyToDeck(deckId, card);
+        this.clearUserDeckPoolCache();
         if (sentence) await this.setCardSentence(card, sentence);
         await this.refreshCard(card);
     }
@@ -121,12 +127,19 @@ export class JpdbClient {
         return cards;
     }
 
+    async isInUserDeckPool(card: JPDBCard): Promise<boolean> {
+        if (!isDeckMembershipCard(card)) return false;
+        const pool = await this.cachedUserDeckPool();
+        return pool.has(deckMembershipKey(card.vid, card.sid));
+    }
+
     async removeFromDeck(deckId: string, card: JPDBCard): Promise<void> {
         log.info('Removing card from deck', { term: card.spelling, deckId });
         await this.api.request<void>('deck/remove-vocabulary', {
             id: deckId,
             vocabulary: [[card.vid, card.sid]],
         });
+        this.clearUserDeckPoolCache();
         await this.refreshCard(card);
     }
 
@@ -140,6 +153,7 @@ export class JpdbClient {
         this.parseInFlight.clear();
         this.paragraphParseCache.clear();
         this.paragraphParseInFlight.clear();
+        this.userDeckPoolCache = undefined;
     }
 
     private async addVocabularyToDeck(deckId: string, card: JPDBCard): Promise<void> {
@@ -209,7 +223,55 @@ export class JpdbClient {
         }
         const cards = jpdbVocabularyToCards(rawVocabulary as JPDBRawVocabulary[]);
         this.cacheCards(cards);
-        return cards;
+        return orderJpdbCardsByPairs(cards, pairs);
+    }
+
+    private cachedUserDeckPool(): Promise<Set<string>> {
+        const now = Date.now();
+        const key = this.getApiKey().trim();
+        if (this.userDeckPoolCache?.key === key && this.userDeckPoolCache.expiresAt > now) return this.userDeckPoolCache.promise;
+        const promise = this.loadUserDeckPool().catch(error => {
+            if (this.userDeckPoolCache?.promise === promise) this.userDeckPoolCache = undefined;
+            throw error;
+        });
+        this.userDeckPoolCache = { key, expiresAt: now + USER_DECK_POOL_CACHE_TTL_MS, promise };
+        return promise;
+    }
+
+    private async loadUserDeckPool(): Promise<Set<string>> {
+        try {
+            return await this.fetchDeckVocabularyPairSet(JPDB_ALL_DECKS_ID);
+        } catch (error) {
+            log.warn('JPDB all-decks membership failed; falling back to user deck scan', error);
+            return await this.fetchListedDeckVocabularyPairSet();
+        }
+    }
+
+    private async fetchListedDeckVocabularyPairSet(): Promise<Set<string>> {
+        const decks = await this.listDecks();
+        const pool = new Set<string>();
+        await runLimited(decks, USER_DECK_POOL_CONCURRENCY, async deck => {
+            const pairs = await this.listDeckVocabularyPairs(deck.id).catch((): Array<[number, number]> => []);
+            for (const [vid, sid] of pairs) pool.add(deckMembershipKey(vid, sid));
+        });
+        return pool;
+    }
+
+    private async fetchDeckVocabularyPairSet(deckId: string): Promise<Set<string>> {
+        const pairs = await this.listDeckVocabularyPairs(deckId);
+        return new Set(pairs.map(([vid, sid]) => deckMembershipKey(vid, sid)));
+    }
+
+    private async listDeckVocabularyPairs(deckId: string): Promise<Array<[number, number]>> {
+        const response = await this.api.request<JpdbDeckVocabularyResponse>('deck/list-vocabulary', {
+            id: normalizeDeckRequestId(deckId),
+            fetch_occurences: false,
+        });
+        return normalizeVocabularyPairs(response.vocabulary);
+    }
+
+    private clearUserDeckPoolCache(): void {
+        this.userDeckPoolCache = undefined;
     }
 
     private async fetchParse(text: string[], cacheKey: string): Promise<JPDBToken[][]> {
@@ -306,6 +368,14 @@ function cardKey(vid: number, sid: number): string {
     return `${vid}/${sid}`;
 }
 
+function deckMembershipKey(vid: number, sid: number): string {
+    return `${vid}/${sid}`;
+}
+
+function isDeckMembershipCard(card: JPDBCard): boolean {
+    return Number.isInteger(card.vid) && card.vid > 0 && Number.isInteger(card.sid) && card.sid >= 0;
+}
+
 function normalizeDeckRequestId(value: string): string | number {
     const trimmed = value.trim();
     const number = Number(trimmed);
@@ -330,6 +400,13 @@ function deckVocabularyPairsForRequest(pairs: Array<[number, number]>, limit: nu
     return options.scheduledOnly ? scannedPairs : scannedPairs.slice(0, limit);
 }
 
+function orderJpdbCardsByPairs(cards: JPDBCard[], pairs: Array<[number, number]>): JPDBCard[] {
+    const byPair = new Map(cards.map(card => [cardKey(card.vid, card.sid), card]));
+    return pairs
+        .map(([vid, sid]) => byPair.get(cardKey(vid, sid)))
+        .filter((card): card is JPDBCard => Boolean(card));
+}
+
 function normalizePositiveInteger(value: number | undefined): number | null {
     if (typeof value !== 'number' || !Number.isFinite(value)) return null;
     const integer = Math.floor(value);
@@ -337,7 +414,7 @@ function normalizePositiveInteger(value: number | undefined): number | null {
 }
 
 function isScheduledJpdbStudyCard(card: JPDBCard): boolean {
-    return card.cardState.some(state => state === 'new' || state === 'learning' || state === 'due' || state === 'failed');
+    return card.cardState.some(state => state === 'new' || state === 'learning' || state === 'due' || state === 'failed' || state === 'locked');
 }
 
 function normalizeDeck(value: unknown): JPDBDeck | null {

@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "0.4.59",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "よむ: a small JPDB/Yomitan popup dictionary and subtitle miner userscript.",
@@ -31,6 +31,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "verify": "node scripts/verify-userscript.cjs",
+    "smoke:anki": "node scripts/anki-mining-smoke.mjs",
+    "smoke:anki-wikipedia": "node scripts/anki-wikipedia-smoke.mjs",
+    "smoke:feedback": "node scripts/feedback-smoke.mjs",
     "smoke:subtitles": "node scripts/subtitle-player-smoke.mjs",
     "e2e:subtitles": "node scripts/subtitle-player-e2e.mjs",
     "check": "npm run typecheck && npm run test && npm run build && npm run verify && node scripts/sync-docs-userscript.cjs && npm run docs:build",

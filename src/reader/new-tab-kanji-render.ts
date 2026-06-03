@@ -2,11 +2,11 @@ import { escapeHtml, htmlToFirstElement } from './dom';
 import { el } from './dom-builder';
 import type { JpdbKanjiInfo } from './jpdb-kanji';
 import { firstCardMeaning } from './new-tab';
+import { uiText } from './i18n';
 import { newTabText } from './newtab-i18n';
 import { kanjiSourceStateKey } from './definition-source-render';
 import { KANJI_JPDB_SOURCE_ID } from './source-sections';
 import type { JPDBCard, ReaderSettings } from './types';
-import { uiText } from './i18n';
 
 export function renderNewTabKanjiInfoSection(
     card: JPDBCard,
@@ -36,7 +36,7 @@ export function renderNewTabKanjiInfoSection(
 
 function renderNewTabKanjiFactSection(card: JPDBCard, facts: [string, string][]): HTMLElement {
     return facts.length
-        ? el('div', { class: 'jpdb-reader-kanji-facts' }, facts.map(([label, value]) => el('span', {}, el('strong', {}, label), value)))
+        ? el('div', { class: 'jpdb-reader-kanji-facts' }, facts.map(([label, value]) => el('span', { title: `${label}: ${value}` }, el('strong', {}, label), el('span', { class: 'jpdb-reader-kanji-fact-value' }, value))))
         : el('div', { class: 'jpdb-reader-help' }, firstCardMeaning(card));
 }
 

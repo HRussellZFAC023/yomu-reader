@@ -9,6 +9,7 @@ export interface JpdbVocabularyCompound {
     reading: string;
     meaning: string;
     url: string;
+    audioIds?: string[];
 }
 
 export interface JpdbVocabularyExample {
@@ -30,6 +31,9 @@ const JPDB_SEARCH_URL = 'https://jpdb.io/search';
 const JPDB_COMPOUND_LIMIT = 8;
 const JPDB_USED_IN_VOCABULARY_LIMIT = 3;
 const JPDB_EXAMPLE_LIMIT = 3;
+const JPDB_USED_IN_AUDIO_REQUEST_TIMEOUT_MS = 2500;
+const REQUEST_BACKOFF_INITIAL_MS = 30_000;
+const REQUEST_BACKOFF_MAX_MS = 5 * 60_000;
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
 
@@ -43,8 +47,17 @@ interface VocabularySupplementUrl {
 export class JpdbVocabularyClient {
     private cache = new Map<string, Promise<JpdbVocabularyInfo | null>>();
     private searchCache = new Map<string, Promise<JPDBCard[]>>();
+    private requestBackoffUntil = 0;
+    private requestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
 
     constructor(private readonly getCorsProxyUrl: () => string = () => '') {}
+
+    clear(): void {
+        this.cache.clear();
+        this.searchCache.clear();
+        this.requestBackoffUntil = 0;
+        this.requestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
+    }
 
     lookup(vid: number, spelling: string, reading: string): Promise<JpdbVocabularyInfo | null> {
         if (!spelling) return Promise.resolve(null);
@@ -70,23 +83,28 @@ export class JpdbVocabularyClient {
     }
 
     private async fetchInfo(vid: number, spelling: string, reading: string): Promise<JpdbVocabularyInfo | null> {
+        if (this.isBackedOff()) return null;
         for (const url of vocabularyLookupUrls(vid, spelling, reading)) {
             const html = await requestText(url, this.getCorsProxyUrl()).catch(error => {
-                log.warn('Vocabulary page request failed', { vid, spelling, url }, error);
+                this.noteRequestFailure('Vocabulary page request failed', { vid, spelling, url }, error);
                 return '';
             });
+            if (html) this.noteRequestSuccess();
             const info = html ? parseJpdbVocabularyHtml(html, spelling, reading) : null;
             if (info) return await this.fetchSupplementaryInfo(info, html, url, vid, spelling, reading);
+            if (this.isBackedOff()) break;
         }
         return null;
     }
 
     private async fetchSearch(query: string, limit: number): Promise<JPDBCard[]> {
+        if (this.isBackedOff()) return [];
         const url = `${JPDB_SEARCH_URL}?q=${encodeURIComponent(query)}`;
         const html = await requestText(url, this.getCorsProxyUrl()).catch(error => {
-            log.warn('Vocabulary search request failed', { query }, error);
+            this.noteRequestFailure('Vocabulary search request failed', { query }, error);
             return '';
         });
+        if (html) this.noteRequestSuccess();
         return html ? parseJpdbSearchHtml(html, limit) : [];
     }
 
@@ -100,16 +118,66 @@ export class JpdbVocabularyClient {
     ): Promise<JpdbVocabularyInfo> {
         let info = initialInfo;
         for (const supplement of vocabularySupplementUrls(html, spelling, reading, initialUrl)) {
+            if (this.isBackedOff()) break;
             if (!needsSupplement(info, supplement.kind)) continue;
             const supplementHtml = await requestText(supplement.url, this.getCorsProxyUrl()).catch(error => {
-                log.warn('Vocabulary supplement request failed', { vid, spelling, url: supplement.url }, error);
+                this.noteRequestFailure('Vocabulary supplement request failed', { vid, spelling, url: supplement.url }, error);
                 return '';
             });
+            if (supplementHtml) this.noteRequestSuccess();
             const supplementalInfo = supplementHtml ? parseJpdbVocabularyHtml(supplementHtml, spelling, reading) : null;
             if (supplementalInfo) info = mergeVocabularyInfo(info, supplementalInfo);
         }
-        return info;
+        return await this.enrichLinkedVocabularyAudio(info);
     }
+
+    private async enrichLinkedVocabularyAudio(info: JpdbVocabularyInfo): Promise<JpdbVocabularyInfo> {
+        const compounds = await this.enrichVocabularyEntryAudio(info.compounds, 'Compound vocabulary audio request failed');
+        const entries = info.usedInVocabulary ?? [];
+        const usedInVocabulary = await this.enrichVocabularyEntryAudio(entries, 'Used-in vocabulary audio request failed');
+        return { ...info, compounds, usedInVocabulary };
+    }
+
+    private async enrichVocabularyEntryAudio(entries: JpdbVocabularyCompound[], failureLabel: string): Promise<JpdbVocabularyCompound[]> {
+        if (!entries.some(entry => shouldRefreshVocabularyEntryAudio(entry))) return entries;
+        return await Promise.all(entries.map(entry => this.vocabularyEntryWithAudio(entry, failureLabel)));
+    }
+
+    private async vocabularyEntryWithAudio(entry: JpdbVocabularyCompound, failureLabel: string): Promise<JpdbVocabularyCompound> {
+        if (!shouldRefreshVocabularyEntryAudio(entry) || this.isBackedOff()) return entry;
+        if (!vocabularyIdentityFromUrl(entry.url)) return entry;
+        const url = absoluteJpdbUrl(entry.url);
+        if (!url) return entry;
+        const html = await requestText(url, this.getCorsProxyUrl(), JPDB_USED_IN_AUDIO_REQUEST_TIMEOUT_MS).catch(error => {
+            this.noteRequestFailure(failureLabel, { term: entry.term, url }, error);
+            return '';
+        });
+        if (html) this.noteRequestSuccess();
+        const audioIds = html ? jpdbVocabularyAudioIds(html, entry.term, entry.reading) : [];
+        return isBetterJpdbAudioIds(audioIds, entry.audioIds ?? []) ? { ...entry, audioIds } : entry;
+    }
+
+    private isBackedOff(): boolean {
+        return Date.now() < this.requestBackoffUntil;
+    }
+
+    private noteRequestSuccess(): void {
+        this.requestBackoffUntil = 0;
+        this.requestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
+    }
+
+    private noteRequestFailure(message: string, context: Record<string, unknown>, error: unknown): void {
+        if (isPublicLookupBackoffError(error)) {
+            this.requestBackoffUntil = Date.now() + this.requestBackoffMs;
+            this.requestBackoffMs = Math.min(this.requestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS);
+        }
+        log.warn(message, context, error);
+    }
+}
+
+function isPublicLookupBackoffError(error: unknown): boolean {
+    return error instanceof Error
+        && /\b(?:429|525|too many requests|rate[- ]?limited)\b|cloudflare/i.test(error.message);
 }
 
 export function parseJpdbVocabularyHtml(html: string, spelling = '', reading = ''): JpdbVocabularyInfo | null {
@@ -433,6 +501,7 @@ function addCompoundEntry(entries: JpdbVocabularyCompound[], row: HTMLElement): 
         reading,
         meaning: cleanText(row.querySelector<HTMLElement>('.description, .en, .meaning')?.textContent ?? ''),
         url: link?.getAttribute('href') ?? '',
+        audioIds: jpdbAudioIds(row),
     });
 }
 
@@ -453,6 +522,7 @@ function extractUsedInVocabulary(root: ParentNode): JpdbVocabularyCompound[] {
                 reading,
                 meaning: cleanText(row.querySelector<HTMLElement>('.description, .en, .english, .meaning')?.textContent ?? ''),
                 url: link.getAttribute('href') ?? '',
+                audioIds: jpdbAudioIds(row),
             });
         });
     });
@@ -518,15 +588,50 @@ export function jpdbAudioIds(root: ParentNode): string[] {
         .flatMap(element => parseJpdbAudioData(element.dataset.audio ?? '')));
 }
 
+function jpdbVocabularyAudioIds(html: string, spelling: string, reading: string): string[] {
+    const doc = parseHtmlDocument(html);
+    const root = vocabularyRoot(doc, spelling, reading);
+    if (!root) return [];
+    return unique(Array.from(root.querySelectorAll<HTMLElement>('a.vocabulary-audio[data-audio], .subsection-headword [data-audio], .subsection-pitch-accent [data-audio]'))
+        .filter(element => !element.closest('.subsection-used-in, .subsection-examples'))
+        .flatMap(element => parseJpdbAudioData(element.dataset.audio ?? '')));
+}
+
 export function parseJpdbAudioData(value: string): string[] {
-    return value
-        .split(/[,+]/)
-        .map(item => item.trim())
-        .filter(isValidJpdbAudioId);
+    return value.split(',')
+        .map(normalizeJpdbAudioGroup)
+        .filter(Boolean);
 }
 
 function isValidJpdbAudioId(value: string): boolean {
     return Boolean(value && JPDB_AUDIO_ID_RE.test(value) && !value.includes('..') && !value.startsWith('//'));
+}
+
+function normalizeJpdbAudioGroup(value: string): string {
+    const ids = value.split('+')
+        .map(item => item.trim())
+        .filter(Boolean);
+    return ids.length && ids.every(isValidJpdbAudioId) ? ids.join('+') : '';
+}
+
+function shouldRefreshVocabularyEntryAudio(entry: JpdbVocabularyCompound): boolean {
+    return Boolean(entry.url && vocabularyIdentityFromUrl(entry.url) && jpdbAudioVoiceCount(entry.audioIds ?? []) < 2);
+}
+
+function isBetterJpdbAudioIds(candidate: string[], current: string[]): boolean {
+    if (!candidate.length) return false;
+    return jpdbAudioVoiceCount(candidate) > jpdbAudioVoiceCount(current) || (!current.length && candidate.length > 0);
+}
+
+function jpdbAudioVoiceCount(audioIds: string[]): number {
+    const voices = new Set<string>();
+    audioIds.forEach(group => {
+        group.split('+').forEach(audioId => {
+            const voice = /^(m1|f1|m2|f2)\//.exec(audioId)?.[1];
+            if (voice) voices.add(voice);
+        });
+    });
+    return voices.size || audioIds.length;
 }
 
 function baseText(root: Node): string {
@@ -623,10 +728,12 @@ function mergeBy<T>(primary: T[], supplemental: T[], key: (value: T) => string, 
     return uniqueBy([...primary, ...supplemental], key).slice(0, limit);
 }
 
-function requestText(url: string, proxyUrl = ''): Promise<string> {
+function requestText(url: string, proxyUrl = '', timeoutMs = 8000): Promise<string> {
     return requestReaderText(url, {
         proxyUrl,
-        timeoutMs: 8000,
+        timeoutMs,
+        credentials: 'same-origin',
+        withCredentials: true,
         failureLabel: 'JPDB vocabulary request',
         timeoutLabel: 'JPDB vocabulary request timed out.',
     });

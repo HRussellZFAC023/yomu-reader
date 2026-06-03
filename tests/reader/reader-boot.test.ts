@@ -16,12 +16,11 @@ import { bootReaderApp } from '../../src/reader/reader-boot';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, normalizedPropertyDescriptor, removeWindowEventListener, safeWindowPropertyDescriptor, shouldTemporarilyUnshadowWindowProperty } from '../../src/reader/window-events';
 
 type BootWindow = Window & {
-    __jpdbPopupReaderInitialized?: boolean;
-    __yomuDemoApp?: unknown;
     __yomuReaderAppInitialized?: boolean;
     __yomuRealApp?: unknown;
     __yomuRuntimeKind?: unknown;
     __yomuRuntimeOwnerId?: unknown;
+    __yomuDevRuntime?: boolean;
 };
 
 const bootWindow = window as BootWindow;
@@ -47,7 +46,7 @@ describe('reader boot', () => {
             expect(() => bootReaderApp()).not.toThrow();
         });
 
-        expect(appMocks.init).toHaveBeenCalledWith({ isDemo: false, showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
 
@@ -56,7 +55,7 @@ describe('reader boot', () => {
 
         bootReaderApp();
 
-        expect(appMocks.init).toHaveBeenCalledWith({ isDemo: false, showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: false });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('extension');
     });
 
@@ -66,7 +65,7 @@ describe('reader boot', () => {
 
         bootReaderApp();
 
-        expect(appMocks.init).toHaveBeenCalledWith({ isDemo: false, showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
 
@@ -82,15 +81,15 @@ describe('reader boot', () => {
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
     });
 
-    it('preserves parsed page words when a real runtime boots after the hosted demo runtime', () => {
+    it('preserves parsed page words when a real runtime boots after the page runtime', () => {
         vi.stubGlobal('GM_getValue', undefined);
 
         bootReaderApp();
         vi.stubGlobal('GM_getValue', vi.fn());
         bootReaderApp();
 
-        expect(appMocks.init).toHaveBeenCalledWith({ isDemo: true, showWelcome: false });
-        expect(appMocks.init).toHaveBeenCalledWith({ isDemo: false, showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: true });
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
@@ -103,11 +102,51 @@ describe('reader boot', () => {
         bootReaderApp();
 
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
-        expect(appMocks.init).toHaveBeenCalledWith({ isDemo: false, showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: false });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('extension');
     });
 
-    it('preserves parsed page words when the hosted demo hears an extension-loaded signal', () => {
+    it('lets the local hosted docs runtime replace a stale installed userscript', () => {
+        bootReaderApp();
+        appMocks.destroy.mockClear();
+
+        bootWindow.__yomuDevRuntime = true;
+        bootReaderApp();
+
+        expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: false });
+        expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('dev');
+    });
+
+    it('reclaims a stale local hosted docs marker when no reader app is alive', () => {
+        const marker = document.createElement('meta');
+        marker.id = 'jpdb-reader-runtime-owner';
+        marker.dataset.yomuRuntimeKind = 'dev';
+        marker.dataset.yomuRuntimeOwner = 'dev-stale';
+        document.head.append(marker);
+        bootWindow.__yomuDevRuntime = true;
+
+        bootReaderApp();
+
+        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: false });
+        expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeOwner).not.toBe('dev-stale');
+    });
+
+    it('lets a refreshed local hosted docs runtime replace an older local hosted docs runtime', () => {
+        vi.stubGlobal('GM_getValue', undefined);
+        bootWindow.__yomuDevRuntime = true;
+        bootReaderApp();
+        appMocks.destroy.mockClear();
+        appMocks.init.mockClear();
+
+        bootReaderApp();
+
+        expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: false });
+        expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('dev');
+    });
+
+    it('preserves parsed page words when the page runtime hears an extension-loaded signal', () => {
         vi.stubGlobal('GM_getValue', undefined);
         bootReaderApp();
         appMocks.destroy.mockClear();
@@ -115,6 +154,18 @@ describe('reader boot', () => {
         window.dispatchEvent(new CustomEvent('yomu-extension-loaded'));
 
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+    });
+
+    it('keeps the local hosted docs runtime active when an extension-loaded signal fires', () => {
+        vi.stubGlobal('GM_getValue', undefined);
+        bootWindow.__yomuDevRuntime = true;
+        bootReaderApp();
+        appMocks.destroy.mockClear();
+
+        window.dispatchEvent(new CustomEvent('yomu-extension-loaded'));
+
+        expect(appMocks.destroy).not.toHaveBeenCalled();
+        expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('dev');
     });
 
     it('removes listeners when a page shadows window.removeEventListener', () => {
@@ -181,6 +232,18 @@ describe('reader boot', () => {
         expect(shouldTemporarilyUnshadowWindowProperty(descriptor)).toBe(false);
         expect(() => dispatchWindowEvent(createWindowCustomEvent('yomu-reader-descriptor-value-failure-test'))).not.toThrow();
     });
+
+    it('clones custom event details into Firefox userscript page scope when available', () => {
+        const detail = { settings: { theme: 'dark' } };
+        const cloned = { settings: { theme: 'dark' }, cloned: true };
+        const cloneInto = vi.fn(() => cloned);
+        vi.stubGlobal('cloneInto', cloneInto);
+
+        const event = createWindowCustomEvent('yomu-reader-firefox-clone-detail-test', detail);
+
+        expect(cloneInto).toHaveBeenCalledWith(detail, window, { cloneFunctions: false, wrapReflectors: true });
+        expect(event.detail).toBe(cloned);
+    });
 });
 
 function withWindowProperty(key: keyof Window, value: unknown, callback: () => void): void {
@@ -199,10 +262,9 @@ function withWindowProperty(key: keyof Window, value: unknown, callback: () => v
 
 function cleanupBootWindow(): void {
     document.getElementById('jpdb-reader-runtime-owner')?.remove();
-    delete bootWindow.__jpdbPopupReaderInitialized;
-    delete bootWindow.__yomuDemoApp;
     delete bootWindow.__yomuReaderAppInitialized;
     delete bootWindow.__yomuRealApp;
     delete bootWindow.__yomuRuntimeKind;
     delete bootWindow.__yomuRuntimeOwnerId;
+    delete bootWindow.__yomuDevRuntime;
 }

@@ -1,25 +1,53 @@
 import DefaultTheme from 'vitepress/theme-without-fonts';
-import type { Theme } from 'vitepress';
-import { defineComponent, h, onMounted } from 'vue';
+import { useData, type Theme } from 'vitepress';
+import { defineComponent, h, onMounted, provide, type Ref } from 'vue';
 import './custom.css';
 
 type InterfaceLanguage = 'en' | 'ja';
+type HostedThemePreference = 'auto' | 'dark' | 'light';
 
 const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
+const VITEPRESS_APPEARANCE_KEY = 'vitepress-theme-appearance';
 const SETTINGS_CHANGE_EVENT = 'yomu-settings-change';
 const OPEN_SETTINGS_EVENT = 'yomu-open-settings';
 const LANGUAGE_EVENT = 'yomu-interface-language-change';
-const HOSTED_DEMO_LOOKUP_SCAN_EVENT = 'yomu-hosted-demo-lookup-scan';
 const LANGUAGE_TOGGLE_ID = 'yomu-hud-language-toggle';
-const YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
+const YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-runtime';
+const LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
+const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
+const HOSTED_DOCS_TRANSLATION_LEAF_SELECTOR = 'h1, h2, h3, h4, p, li, a, button, span, strong, small, figcaption, dt, dd, th, td, summary, label';
 const DEFAULT_ACCENT_COLOR = '#5ea780';
+const DOC_COLOR_TOKENS = {
+    black: '#000000',
+    white: '#ffffff',
+    readableInk: '#11161d',
+    pageBgDark: '#181b20',
+    pageBgLight: '#ffffff',
+} as const;
 const HOSTED_OVERFLOW_SELECTOR = '[data-yomu-hosted-overflow]';
+const HOSTED_MOBILE_SETTINGS_SELECTOR = '[data-yomu-hosted-mobile-settings]';
+const HOSTED_RUNTIME_SCROLL_MARGIN_PX = 160;
+const HOSTED_JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+const HOSTED_RUNTIME_TARGET_SELECTOR = [
+    '.VPHero',
+    '.VPHomeHero',
+    '.VPFeatures',
+    '.yomu-install-panel',
+    '.yomu-hosted-overflow-group',
+    '.yomu-link-grid',
+    '.vp-doc',
+].join(',');
 const textNodeOriginals = new WeakMap<Text, string>();
 const attrOriginals = new WeakMap<Element, Map<string, string>>();
 let languageToggleObserver: MutationObserver | undefined;
 let accentSyncBound = false;
+let hostedThemeSyncBound = false;
+let hostedThemeIsDark: Ref<boolean> | undefined;
 let themeClassObserver: MutationObserver | undefined;
+let hostedRuntimeIntentController: AbortController | undefined;
+let hostedRuntimeIntentTarget: HTMLElement | undefined;
 let routeSyncBound = false;
+let localRuntimeCacheCleanupStarted = false;
 
 const HOSTED_OVERFLOW_LINKS = [
     { text: 'Video Player', href: '/yomu-reader/video-player/index.html', target: '_self' },
@@ -107,7 +135,223 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'the classic idea of': '古典的な考え方である',
     'comprehensible input': '理解可能なインプット',
     "and Tadoku's practical reading rules for Japanese learners at": 'そして日本語学習者向けのTadoku実践的な読書ルール',
+    'This guide assumes you have never installed a userscript before.': 'このガイドは、ユーザースクリプトを初めてインストールする人向けです。',
+    'A userscript is a small helper that a browser extension runs for you. You install the manager once, then add よむ to that manager. After that, よむ appears on pages with Japanese text and gives you a popup dictionary, mining buttons, OCR, subtitles, and study tools.': 'ユーザースクリプトは、ブラウザー拡張機能が動かす小さな補助ツールです。管理拡張を一度インストールし、その管理拡張によむを追加します。その後、日本語テキストのあるページでよむが表示され、ポップアップ辞書、マイニングボタン、OCR、字幕、学習ツールを使えるようになります。',
+    'Short version:': '短くまとめると:',
+    'install a userscript manager, install よむ, open any Japanese page, then tap or hover a word.': 'ユーザースクリプト管理拡張を入れ、よむをインストールし、日本語ページを開いて、単語をタップまたはホバーします。',
+    'Words You Will See': 'このガイドで出てくる言葉',
+    'Userscript manager:': 'ユーザースクリプト管理拡張:',
+    'the browser add-on that runs よむ for you. Tampermonkey and Userscripts are examples.': 'よむを動かすブラウザーアドオンです。TampermonkeyやUserscriptsが例です。',
+    'JPDB:': 'JPDB:',
+    'an optional online study service for word status, review buttons, and mining.': '単語ステータス、復習ボタン、マイニングに使える任意のオンライン学習サービスです。',
+    'Yomitan dictionary:': 'Yomitan辞書:',
+    'a downloadable dictionary ZIP. よむ can import these so definitions stay local in your browser.': 'ダウンロードできる辞書ZIPです。よむにインポートすると、定義をブラウザー内にローカル保存できます。',
+    'Mining:': 'マイニング:',
+    'saving a useful word, sentence, subtitle, or image context for later study.': 'あとで学習するために、役に立つ単語、文、字幕、画像コンテキストを保存することです。',
+    'OCR:': 'OCR:',
+    'image text reading. This is what lets you tap Japanese inside manga panels or screenshots.': '画像内の文字を読み取る機能です。漫画のコマやスクリーンショット内の日本語をタップできるようにします。',
+    'Anki / AnkiConnect:': 'Anki / AnkiConnect:',
+    'Anki is a flashcard app. AnkiConnect is the desktop add-on that lets よむ create Anki cards.': 'Ankiは暗記カードアプリです。AnkiConnectは、よむからAnkiカードを作成できるようにするデスクトップ用アドオンです。',
+    'Local server:': 'ローカルサーバー:',
+    'a helper app running on your own computer, often for audio, OCR, or Anki.': '自分のコンピューター上で動く補助アプリです。音声、OCR、Anki連携などで使われます。',
+    'localhost:': 'localhost:',
+    'the device you are using right now. On an iPhone,': '今使っている端末のことです。iPhoneでは',
+    'means the iPhone, not your desktop.': 'はiPhoneを指し、デスクトップPCではありません。',
+    '1. Choose Your Browser': '1. ブラウザーを選ぶ',
+    'Chrome or Edge': 'ChromeまたはEdge',
+    'Use Tampermonkey. If the browser asks about user scripts, allow them for Tampermonkey.': 'Tampermonkeyを使います。ブラウザーがユーザースクリプトについて確認したら、Tampermonkeyで許可してください。',
+    'Firefox': 'Firefox',
+    'Use Tampermonkey from the Firefox add-ons store. Desktop Firefox is the easiest path.': 'FirefoxアドオンストアのTampermonkeyを使います。デスクトップ版Firefoxがいちばん簡単です。',
+    'Safari, iPhone, iPad': 'Safari、iPhone、iPad',
+    'Use Tampermonkey for Safari, or the free open-source Userscripts app for iOS/iPadOS.': 'Safari用Tampermonkey、またはiOS/iPadOS向けの無料オープンソースアプリUserscriptsを使います。',
+    'Browser store installs are coming soon. For normal installation today, use the userscript.': 'ブラウザーストア版は準備中です。現時点で通常インストールする場合は、ユーザースクリプト版を使ってください。',
+    '2. Install a Userscript Manager': '2. ユーザースクリプト管理拡張をインストール',
+    'Chrome, Edge, or desktop Firefox': 'Chrome、Edge、またはデスクトップ版Firefox',
+    'Open': '開く',
+    'Tampermonkey': 'Tampermonkey',
+    'Pick your browser.': '自分のブラウザーを選びます。',
+    'Install it from the official browser store.': '公式ブラウザーストアからインストールします。',
+    'Pin Tampermonkey if your browser hides extension icons.': 'ブラウザーが拡張機能アイコンを隠す場合は、Tampermonkeyをピン留めします。',
+    'On Chromium browsers, Tampermonkey may ask for permission to run user scripts. Choose the option that allows user scripts, otherwise よむ cannot start.': 'Chromium系ブラウザーでは、Tampermonkeyがユーザースクリプト実行の許可を求めることがあります。ユーザースクリプトを許可する選択肢を選んでください。許可しないと、よむは起動できません。',
+    'iPhone or iPad': 'iPhoneまたはiPad',
+    'The easiest free option is the': '無料でいちばん簡単なのは',
+    'Userscripts': 'Userscripts',
+    'app. It runs scripts inside Safari.': 'アプリです。Safari内でスクリプトを実行できます。',
+    'Get Userscripts — free on the App Store': 'Userscriptsを入手 - App Storeで無料',
+    'One-time setup (takes about a minute):': '初回だけの設定（約1分）:',
+    'Install Userscripts and open it once. Current versions create a default scripts folder automatically, so the first screen may look mostly empty. That is expected.': 'Userscriptsをインストールして、一度開きます。現在のバージョンは標準のスクリプトフォルダーを自動作成するため、最初の画面がほとんど空に見えても問題ありません。',
+    'Open Settings → Safari → Extensions → Userscripts. On newer iOS versions, this may be under Settings → Apps → Safari → Extensions.': '設定 → Safari → 機能拡張 → Userscriptsを開きます。新しいiOSでは、設定 → アプリ → Safari → 機能拡張にある場合があります。',
+    '. On newer iOS versions, this may be under': 'を開きます。新しいiOSでは',
+    'On newer iOS versions, this may be under': '新しいiOSでは',
+    'Apps': 'アプリ',
+    '→ Userscripts. On newer iOS versions, this may be under': '→ Userscriptsを開きます。新しいiOSでは',
+    '→ Extensions.': '→ 機能拡張にある場合があります。',
+    'Turn Userscripts on, then allow it on All Websites.': 'Userscriptsをオンにし、「すべてのWebサイト」で許可します。',
+    'Turn Userscripts': 'Userscriptsを',
+    'on': 'オン',
+    ', then allow it on': 'にし、',
+    'on, then allow it on': 'オンにし、',
+    'All Websites': 'すべてのWebサイト',
+    "That's the setup done. Jump to step 3 to install よむ.": 'これで設定は完了です。手順3に進んで、よむをインストールしてください。',
+    'Tampermonkey for Safari': 'Safari用Tampermonkey',
+    'is another option if you prefer it.': 'を使うこともできます。',
+    '3. Install よむ': '3. よむをインストール',
+    'Install よむ userscript': 'よむユーザースクリプトをインストール',
+    'On desktop (Chrome, Edge, Firefox):': 'デスクトップ（Chrome、Edge、Firefox）の場合:',
+    'Open the link above. Tampermonkey should show an install screen for a script named よむ. Press Install, then open a page with Japanese text.': '上のリンクを開きます。Tampermonkeyに「よむ」というスクリプトのインストール画面が表示されるはずです。Installを押し、その後日本語テキストのあるページを開きます。',
+    'On iPhone or iPad (Userscripts app):': 'iPhoneまたはiPad（Userscriptsアプリ）の場合:',
+    'The install flow has one extra Safari step.': 'インストール手順には、Safariでの追加ステップが1つあります。',
+    'Tap the install link above. Safari may show a page of code. That is normal.': '上のインストールリンクをタップします。Safariにコードのページが表示される場合がありますが、正常です。',
+    'Tap AA on iPhone, or the Safari extensions button on iPad.': 'iPhoneではAA、iPadではSafariの機能拡張ボタンをタップします。',
+    'Tap': 'タップします:',
+    'on iPhone, or the Safari extensions button on iPad.': 'をiPhoneで、またはiPadではSafariの機能拡張ボタンをタップします。',
+    'Tap Userscripts in the menu that appears.': '表示されたメニューでUserscriptsをタップします。',
+    'in the menu that appears.': 'を表示されたメニューでタップします。',
+    'When Userscripts shows the よむ install prompt, tap Install.': 'Userscriptsによむのインストール確認が表示されたら、Installをタップします。',
+    'When Userscripts shows the よむ install prompt, tap': 'Userscriptsによむのインストール確認が表示されたら',
+    'Open any Japanese page and try tapping a word.': '任意の日本語ページを開き、単語をタップしてみます。',
+    'Still seeing only code?': 'まだコードだけが表示されていますか?',
+    "Open Userscripts from Safari's AA or extensions menu. iOS does not show the install prompt until you do. If Userscripts is missing from that menu, enable it in Settings → Safari → Extensions.": 'SafariのAAまたは機能拡張メニューからUserscriptsを開いてください。iOSでは、この操作をするまでインストール確認が表示されません。そのメニューにUserscriptsがない場合は、設定 → Safari → 機能拡張で有効にしてください。',
+    '4. Add JPDB, Or Skip It For Now': '4. JPDBを追加する、または今はスキップ',
+    'JPDB is optional for basic local dictionary lookup, but it is the easiest way to get word status and mining.': '基本的なローカル辞書検索にJPDBは必須ではありませんが、単語ステータスとマイニングを使うにはいちばん簡単です。',
+    'Create or open your': '自分の',
+    'JPDB account': 'JPDBアカウント',
+    'JPDB settings': 'JPDB設定',
+    'Copy your API key from the API section.': 'APIセクションからAPIキーをコピーします。',
+    'Open よむ settings with the floating よむ button or the shortcut Alt+Shift+J.': 'フローティングのよむボタン、またはショートカットAlt+Shift+Jでよむ設定を開きます。',
+    'Paste the key into the API key field.': 'API key欄にキーを貼り付けます。',
+    'Save.': '保存します。',
+    'You can use よむ without a JPDB key by importing Yomitan dictionaries from Settings > Dictionaries. JPDB-only actions such as mining to JPDB still need a JPDB API key.': 'Settings > DictionariesからYomitan辞書をインポートすれば、JPDBキーなしでもよむを使えます。JPDBへのマイニングなど、JPDB専用の操作には引き続きJPDB APIキーが必要です。',
+    '5. Pick A First Reading Site': '5. 最初に読むサイトを選ぶ',
+    'Good よむ sites have selectable Japanese text, interesting short pieces, or images/subtitles that become readable with よむ OCR and subtitle tools. The goal is not to finish the hardest thing you can find. The goal is to read every day at the edge of comfort, where most sentences make sense and the unknown words are worth saving.': 'よむに向いたサイトは、選択できる日本語テキスト、短くて面白い文章、またはよむのOCRや字幕ツールで読める画像・字幕があるサイトです。目的は、見つけた中でいちばん難しいものを読み切ることではありません。多くの文が理解でき、未知語を保存する価値があるくらいの、少し背伸びした素材を毎日読むことです。',
+    'These are strong starting points, based on recurring recommendations from r/LearnJapanese reading threads and the sites that work well with popup lookup:': 'r/LearnJapaneseの読書スレッドで繰り返しおすすめされているものや、ポップアップ検索と相性の良いサイトをもとにした、始めやすい候補です:',
+    'Tadoku free books': 'Tadoku無料本',
+    'Free graded readers from starter level upward. Best first stop when native sites still feel too dense.': '入門レベルから読める無料graded readersです。ネイティブ向けサイトがまだ密度高く感じるときの最初の一歩に向いています。',
+    'NHK News Web Easy': 'NHK News Web Easy',
+    'Short simplified news with furigana and audio. Great daily habit once basic grammar is in place.': 'ふりがなと音声つきの短いやさしいニュースです。基本文法が身についた後の日課に向いています。',
+    'Satori Reader': 'Satori Reader',
+    'Polished learner stories with notes and audio. よむ adds your normal JPDB, Yomitan, and Anki flow on top.': '注釈と音声つきの洗練された学習者向けストーリーです。よむを重ねると、いつものJPDB、Yomitan、Ankiフローも使えます。',
+    'Watanoc': 'Watanoc',
+    'Short articles by JLPT-ish level. Useful bridge between graded readers and native web articles.': 'JLPT目安レベル別の短い記事です。graded readersからネイティブ向けWeb記事への橋渡しに役立ちます。',
+    'Hukumusume fairy tales': '福娘童話集',
+    "Large collection of folk tales and children's stories. Repetition makes it friendly for mining common words.": '昔話や子ども向け物語の大きなコレクションです。繰り返しが多く、よく出る単語のマイニングに向いています。',
+    'MATCHA Easy Japanese': 'MATCHA Easy Japanese',
+    'Travel and culture articles in simpler Japanese. Nice when you want real-world topics instead of drills.': '旅行や文化の記事をやさしい日本語で読めます。ドリルではなく現実の話題を読みたいときに便利です。',
+    'Ttsu Reader': 'Ttsu Reader',
+    'Read Japanese EPUBs in the browser with よむ lookup. This is the clean route into light novels and books.': 'ブラウザーで日本語EPUBを読み、よむ検索を使えます。ライトノベルや本へ進むためのすっきりしたルートです。',
+    'Learn Natively': 'Learn Natively',
+    'Find books, manga, and web material by difficulty so your next read is challenging without being miserable.': '本、漫画、Web素材を難易度別に探せます。次に読むものを、つらすぎず挑戦的なレベルにできます。',
+    'Aozora Bunko': '青空文庫',
+    'Free public-domain literature. Better for intermediate and advanced readers, or for mining short passages.': '無料のパブリックドメイン文学です。中級・上級者や、短い一節のマイニングに向いています。',
+    'Kakuyomu': 'カクヨム',
+    'Native web novels with selectable text. Use after easier material, or search for genres you already love.': '選択可能なテキストで読めるネイティブ向けWeb小説です。やさしい素材の後に使うか、好きなジャンルを探してみてください。',
+    'Shosetsuka ni Naro': '小説家になろう',
+    'Huge native web-novel site. Excellent for long-term immersion once lookup speed feels natural.': '巨大なネイティブ向けWeb小説サイトです。検索速度に慣れてきた後の長期的な没入に向いています。',
+    'YouTube with Japanese subtitles': '日本語字幕つきYouTube',
+    'Use よむ subtitle lookup and the transcript panel for listening-plus-reading immersion.': 'よむの字幕検索とトランスクリプトパネルを使って、聞くことと読むことを組み合わせた没入学習ができます。',
+    'Community threads worth skimming:': 'ざっと読む価値のあるコミュニティスレッド:',
+    'Tadoku graded reader update': 'Tadoku graded reader更新情報',
+    'beginner reading resources': '初心者向け読書リソース',
+    'learning Japanese by reading': '読書で日本語を学ぶ方法',
+    '6. Try Your First Lookup': '6. 最初の検索を試す',
+    'Open a Japanese article, manga page, JPDB page, or video page.': '日本語の記事、漫画ページ、JPDBページ、または動画ページを開きます。',
+    'Tap or hover a word.': '単語をタップまたはホバーします。',
+    'Use the popup to read meanings, play audio, open kanji details, or mine the word.': 'ポップアップで意味を読み、音声を再生し、漢字詳細を開き、単語をマイニングできます。',
+    'On phones and tablets, tapping is usually easier than hover. On desktop, hover is faster once you are used to it.': 'スマートフォンやタブレットでは、通常ホバーよりタップの方が簡単です。デスクトップでは、慣れるとホバーの方が速くなります。',
+    '7. Turn On More Tools When You Need Them': '7. 必要になったら追加ツールをオンにする',
+    'Dictionaries: choose the Dictionaries tab in Settings when you want local dictionary study words. よむ downloads JMdict into local browser storage when the userscript request bridge is available; you can also import any Yomitan ZIP dictionary or settings export manually.': '辞書: ローカル辞書の学習語が欲しいときは、設定のDictionariesタブを選びます。ユーザースクリプトのリクエストブリッジが使える場合、よむはJMdictをブラウザーのローカルストレージにダウンロードできます。任意のYomitan ZIP辞書や設定エクスポートを手動でインポートすることもできます。',
+    'Images: enable OCR to tap Japanese text inside manga panels or screenshots.': '画像: OCRを有効にすると、漫画のコマやスクリーンショット内の日本語テキストをタップできます。',
+    'Video: enable subtitles to mine words from Japanese subtitle lines. For local files, use the': '動画: 字幕を有効にすると、日本語字幕行から単語をマイニングできます。ローカルファイルでは',
+    'Yomu video player': 'Yomu動画プレイヤー',
+    '. On iPhone, the transcript opens as a bottom panel so it does not crush the video. On desktop and iPad, move it left, right, or below from the transcript header.': 'を使います。iPhoneでは、動画を圧迫しないようにトランスクリプトが下部パネルとして開きます。デスクトップとiPadでは、トランスクリプトのヘッダーから左、右、下へ移動できます。',
+    'On iPhone, the transcript opens as a bottom panel so it does not crush the video. On desktop and iPad, move it left, right, or below from the transcript header.': 'iPhoneでは、動画を圧迫しないようにトランスクリプトが下部パネルとして開きます。デスクトップとiPadでは、トランスクリプトのヘッダーから左、右、下へ移動できます。',
+    'Anki: enable Anki mining. Desktop uses AnkiConnect; iPhone, iPad, and Android use the mobile Anki handoff when direct AnkiConnect is not available.': 'Anki: Ankiマイニングを有効にします。デスクトップではAnkiConnectを使います。iPhone、iPad、Androidでは、直接AnkiConnectが使えない場合にモバイルAnkiハンドオフを使います。',
+    'New tab: use the よむ': '新しいタブ: よむの',
+    'new-tab page': '新しいタブページ',
+    'as a study screen; opening it turns the study page on automatically.': 'を学習画面として使えます。開くと学習ページが自動的にオンになります。',
+    'Audio: the easiest hosted setup is': '音声: いちばん簡単なホスト版設定は',
+    'Ultimate Yomitan Audio': 'Ultimate Yomitan Audio',
+    '. If you want to self-host the audio files instead, the commonly shared files are here:': 'です。代わりに音声ファイルを自分で配信したい場合、よく共有されているファイルはこちらです:',
+    'If you want to self-host the audio files instead, the commonly shared files are here:': '代わりに音声ファイルを自分で配信したい場合、よく共有されているファイルはこちらです:',
+    '8. iPhone And iPad Notes': '8. iPhoneとiPadの注意点',
+    'iPhone and iPad Safari can run よむ through a userscript app, but local desktop bridges are different there. JPDB lookup, local dictionaries, OCR, subtitle taps, the hosted video player, the new-tab study page, and the AnkiMobile handoff are the friendly mobile paths. Direct AnkiConnect and localhost audio helpers still need a desktop computer that is reachable from the device, for example on the same Wi-Fi or through Tailscale.': 'iPhoneとiPadのSafariでは、ユーザースクリプトアプリ経由でよむを実行できます。ただし、ローカルのデスクトップブリッジは扱いが異なります。JPDB検索、ローカル辞書、OCR、字幕タップ、ホスト版動画プレイヤー、新しいタブ学習ページ、AnkiMobileハンドオフがモバイルで使いやすい方法です。直接のAnkiConnectやlocalhost音声ヘルパーには、同じWi-FiやTailscaleなどで端末から到達できるデスクトップコンピューターが必要です。',
+    "Localhost on iPhone means the phone itself, not your desktop. If you run AnkiConnect, a local audio server, or OCR on a computer, use that computer's LAN/Tailscale address in よむ settings. Safari can also block autoplay and protected/cross-origin video capture, so subtitle lookup, copying, JPDB mining, and dictionary fallback remain the reliable mobile path.": 'iPhoneでのlocalhostは、そのiPhone自身を指し、デスクトップPCではありません。AnkiConnect、ローカル音声サーバー、OCRをコンピューターで動かす場合は、そのコンピューターのLAN/Tailscaleアドレスをよむ設定で使ってください。Safariは自動再生や保護された動画・クロスオリジン動画のキャプチャをブロックすることもあるため、字幕検索、コピー、JPDBマイニング、辞書フォールバックがモバイルで信頼できる経路です。',
+    'If a setup step mentions leaving a terminal window or local server running, treat it as optional power-user setup. The hosted audio path, JPDB mining, imported dictionaries, and the new-tab page are simpler on mobile.': '設定手順でターミナルウィンドウやローカルサーバーを動かしたままにする説明が出てきた場合、それは任意の上級者向け設定と考えてください。モバイルでは、ホスト版音声、JPDBマイニング、インポート辞書、新しいタブページの方が簡単です。',
+    '9. Back Up Settings': '9. 設定をバックアップ',
+    'After setup, go to Settings > Dictionaries and use Export settings JSON. This gives you a small backup file you can import on another browser later.': 'セットアップ後、Settings > Dictionariesに移動し、Export settings JSONを使います。後で別のブラウザーにインポートできる小さなバックアップファイルが作成されます。',
+    'If Something Does Not Work': 'うまく動かない場合',
+    'The most common fixes are enabling the userscript manager for the current site, refreshing the page after changing settings, checking that a JPDB key was pasted correctly, and remembering that': 'よくある解決策は、現在のサイトでユーザースクリプト管理拡張を有効にすること、設定変更後にページを更新すること、JPDBキーが正しく貼り付けられているか確認すること、そして',
+    'on an iPhone means the iPhone itself rather than your desktop computer. If the install link or hosted tools are down, check': 'はiPhone上ではデスクトップPCではなくiPhone自身を指すことを思い出すことです。インストールリンクやホスト版ツールが落ちている場合は',
+    'for reinstall, Discord, and issue-report options.': 'で再インストール、Discord、問題報告の選択肢を確認してください。',
+    'use the hosted option if you want the least fuss. Use the local server only if you are okay keeping a small helper app running on your computer.': '手間を最小にしたいならホスト版を使います。小さな補助アプリをコンピューター上で動かし続けてもよい場合だけ、ローカルサーバーを使ってください。',
+    'Easiest: Hosted Audio': 'いちばん簡単: ホスト版音声',
+    'Local Audio: What You Need': 'ローカル音声: 必要なもの',
+    'Step 1: Download the Server': '手順1: サーバーをダウンロード',
+    'Step 2: Add the Audio Files': '手順2: 音声ファイルを追加',
+    'Step 3: Start the Server': '手順3: サーバーを起動',
+    'Step 4: Check That It Works': '手順4: 動作確認',
+    'Step 5: Add It to よむ': '手順5: よむに追加',
+    'Using an iPad or Another Device': 'iPadや別の端末で使う',
+    'If Audio Does Not Play': '音声が再生されない場合',
+    'よむ can play audio from any Yomitan-compatible audio source. There are two good ways to set it up:': 'よむはYomitan互換の音声ソースから音声を再生できます。設定方法は主に2つあります:',
+    'What you want': 'やりたいこと',
+    'Best choice': 'おすすめ',
+    'The easiest setup': 'いちばん簡単な設定',
+    'Use the hosted Ultimate Yomitan Audio URL': 'ホスト版Ultimate Yomitan Audio URLを使う',
+    'Audio files stored on your own computer': '自分のコンピューターに保存した音声ファイルを使う',
+    'Download and run the local audio server': 'ローカル音声サーバーをダウンロードして実行する',
+    'よむ is designed around one loop: find Japanese in the wild, understand it quickly, and save the useful bits for study.': 'よむは1つの流れを中心に設計されています。実際の場所で日本語を見つけ、すばやく理解し、役に立つ部分を学習用に保存します。',
+    'If you are new to these tools, the short version is:': 'これらのツールが初めてなら、短くまとめると:',
+    'lookup': '検索',
+    'means opening the popup,': 'はポップアップを開くこと、',
+    'mining': 'マイニング',
+    'means saving something for later study,': 'はあとで学習するために何かを保存すること、',
+    'means reading text from images, and': 'は画像から文字を読むこと、そして',
+    'subtitles': '字幕',
+    'means Japanese video lines become tappable like normal page text.': 'は日本語の動画字幕行を普通のページテキストのようにタップ可能にすることです。',
+    'Popup Lookup And Mining': 'ポップアップ検索とマイニング',
+    'Yomitan Dictionaries': 'Yomitan辞書',
+    'Audio And Examples': '音声と例文',
+    'Kanji Drilldown': '漢字ドリルダウン',
+    'Image And Manga OCR': '画像・漫画OCR',
+    'Video Subtitle Mining': '動画字幕マイニング',
+    'YouTube Immersion Filter': 'YouTube没入フィルター',
+    'Anki And Mobile Handoff': 'Ankiとモバイルハンドオフ',
+    'New Tab Study Page': '新しいタブ学習ページ',
+    'Help And Support In Settings': '設定内のヘルプとサポート',
+    'Useful Pages': '便利なページ',
+    'Docs': 'ドキュメント',
+    'Quick Actions': 'クイックアクション',
+    'Install userscript': 'ユーザースクリプトをインストール',
+    'Report a bug': 'バグを報告',
+    'Join Discord': 'Discordに参加',
+    'Donate': '寄付する',
+    'View source': 'ソースを見る',
+    'Store installs': 'ストア版',
 };
+const HOSTED_DOCS_EN_COPY: Record<string, string> = Object.fromEntries(
+    Object.entries(HOSTED_DOCS_JA_COPY).map(([english, japanese]) => [japanese, english]),
+);
+const HOSTED_RESEARCH_LINKS = {
+    extensive: {
+        fallbackHref: 'https://link.springer.com/article/10.1007/s10648-025-10068-6',
+        hrefIncludes: 's10648-025-10068-6',
+        en: 'learning a language through extensive reading',
+        ja: '多読による言語学習',
+    },
+    input: {
+        fallbackHref: 'https://journals.library.columbia.edu/index.php/SALT/article/view/1278',
+        hrefIncludes: 'SALT/article/view/1278',
+        en: 'comprehensible input',
+        ja: '理解可能なインプット',
+    },
+    tadoku: {
+        fallbackHref: 'https://tadoku.org/japanese/en/what-is-tadoku-en/',
+        hrefIncludes: 'tadoku.org/japanese/en/what-is-tadoku-en',
+        en: 'tadoku.org',
+        ja: 'tadoku.org',
+    },
+} as const;
 
 function syncLandmarks() {
     const content = document.querySelector<HTMLElement>('#VPContent');
@@ -125,6 +369,7 @@ function installHostedLanguageToggle() {
     languageToggleObserver = new MutationObserver(() => {
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
+        syncHostedMobileNavSettings();
         localizeHostedDocsCopy();
         syncHostedAccent();
     });
@@ -150,7 +395,6 @@ function createHostedLanguageToggle(): HTMLButtonElement {
         const language = nextInterfaceLanguage();
         saveInterfaceLanguage(language);
         syncHostedLanguageToggleButton(button);
-        localizeHostedDocsCopy();
     });
     return button;
 }
@@ -169,6 +413,7 @@ function syncHostedLanguageToggleButton(button: HTMLButtonElement): void {
 
 function installHostedOverflowMenu() {
     syncHostedOverflowMenu();
+    syncHostedMobileNavSettings();
 }
 
 function syncHostedOverflowMenu() {
@@ -184,6 +429,12 @@ function syncHostedOverflowMenu() {
     const menu = extra.querySelector<HTMLElement>('.VPMenu');
     if (!menu) return;
     if (!menu.querySelector(HOSTED_OVERFLOW_SELECTOR)) menu.prepend(createHostedOverflowGroup());
+}
+
+function syncHostedMobileNavSettings() {
+    const moreItems = document.querySelector<HTMLElement>('#NavScreenGroup-more');
+    if (!moreItems || moreItems.querySelector(HOSTED_MOBILE_SETTINGS_SELECTOR)) return;
+    moreItems.prepend(createHostedMobileSettingsItem());
 }
 
 function createHostedOverflowGroup(): HTMLElement {
@@ -208,6 +459,29 @@ function createHostedSettingsItem(): HTMLButtonElement {
     return button;
 }
 
+function createHostedMobileSettingsItem(): HTMLElement {
+    const item = document.createElement('div');
+    item.className = 'item yomu-hosted-mobile-settings-item';
+    item.dataset.yomuHostedMobileSettings = 'true';
+
+    const button = document.createElement('button');
+    button.className = 'yomu-hosted-mobile-settings-button';
+    button.type = 'button';
+    button.textContent = 'Settings';
+    button.setAttribute('aria-label', 'Open settings');
+    button.addEventListener('click', () => {
+        closeHostedMobileNavScreen();
+        openHostedSettings();
+    });
+    item.append(button);
+    return item;
+}
+
+function closeHostedMobileNavScreen(): void {
+    const hamburger = document.querySelector<HTMLButtonElement>('.VPNavBarHamburger[aria-expanded="true"]');
+    hamburger?.click();
+}
+
 function createHostedOverflowLink(item: typeof HOSTED_OVERFLOW_LINKS[number]): HTMLAnchorElement {
     const link = document.createElement('a');
     link.className = 'yomu-hosted-overflow-link';
@@ -218,7 +492,7 @@ function createHostedOverflowLink(item: typeof HOSTED_OVERFLOW_LINKS[number]): H
 }
 
 function openHostedSettings(): void {
-    installHostedYomuRuntime();
+    loadHostedYomuRuntime();
     const dispatch = () => {
         if (document.querySelector('.jpdb-reader-settings')) return true;
         window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT, { detail: { panel: 'basics' } }));
@@ -254,18 +528,85 @@ function saveInterfaceLanguage(language: InterfaceLanguage): void {
     window.dispatchEvent(new CustomEvent(LANGUAGE_EVENT, { detail: { language } }));
 }
 
-function localizeHostedDocsCopy(): void {
+function localizeHostedDocsCopy(options: { resetReaderWords?: boolean } = {}): void {
     const language = effectiveInterfaceLanguage();
     document.documentElement.setAttribute('lang', language);
+    if (options.resetReaderWords) unwrapHostedDocsReaderWords();
+    localizeHostedStructuredDocsCopy(document.body, language);
+    restoreHostedDocsLeafCopy(document.body, language);
     translateTextNodes(document.body, language);
     translateAttributes(document.body, language);
 }
 
-function scheduleHostedDocsLocalization(): void {
+function scheduleHostedDocsLocalization(options: { resetReaderWords?: boolean } = {}): void {
     window.requestAnimationFrame(() => {
-        localizeHostedDocsCopy();
-        window.setTimeout(localizeHostedDocsCopy, 80);
+        localizeHostedDocsCopy(options);
+        window.setTimeout(() => {
+            localizeHostedDocsCopy();
+        }, 80);
     });
+}
+
+function localizeHostedStructuredDocsCopy(root: ParentNode, language: InterfaceLanguage): void {
+    const paragraph = hostedResearchParagraph(root);
+    if (!paragraph) return;
+    if (paragraph.dataset.yomuHostedCopy === 'research' && paragraph.dataset.yomuHostedLanguage === language) return;
+
+    const extensive = hostedResearchLink(paragraph, HOSTED_RESEARCH_LINKS.extensive, language);
+    const input = hostedResearchLink(paragraph, HOSTED_RESEARCH_LINKS.input, language);
+    const tadoku = hostedResearchLink(paragraph, HOSTED_RESEARCH_LINKS.tadoku, language);
+
+    if (language === 'ja') {
+        paragraph.replaceChildren(
+            document.createTextNode('このアプローチの背景研究については、2025年のメタ分析「'),
+            extensive,
+            document.createTextNode('」、古典的な考え方である「'),
+            input,
+            document.createTextNode('」、そして日本語学習者向けのTadokuの実践的な読書ルール（'),
+            tadoku,
+            document.createTextNode('）を参照してください。'),
+        );
+    } else {
+        paragraph.replaceChildren(
+            document.createTextNode('For the research behind the approach, see the 2025 meta-analysis on '),
+            extensive,
+            document.createTextNode(', the classic idea of '),
+            input,
+            document.createTextNode(", and Tadoku's practical reading rules for Japanese learners at "),
+            tadoku,
+            document.createTextNode('.'),
+        );
+    }
+
+    paragraph.dataset.yomuHostedCopy = 'research';
+    paragraph.dataset.yomuHostedLanguage = language;
+    resetHostedDocsTextOriginals(paragraph);
+}
+
+function hostedResearchParagraph(root: ParentNode): HTMLElement | null {
+    return Array.from(root.querySelectorAll<HTMLElement>('.vp-doc p, p')).find(paragraph =>
+        hostedResearchAnchor(paragraph, HOSTED_RESEARCH_LINKS.extensive.hrefIncludes)
+        && hostedResearchAnchor(paragraph, HOSTED_RESEARCH_LINKS.input.hrefIncludes)
+        && hostedResearchAnchor(paragraph, HOSTED_RESEARCH_LINKS.tadoku.hrefIncludes),
+    ) ?? null;
+}
+
+function hostedResearchLink(
+    paragraph: HTMLElement,
+    link: typeof HOSTED_RESEARCH_LINKS[keyof typeof HOSTED_RESEARCH_LINKS],
+    language: InterfaceLanguage,
+): HTMLAnchorElement {
+    const current = hostedResearchAnchor(paragraph, link.hrefIncludes);
+    const next = current ? current.cloneNode(false) as HTMLAnchorElement : document.createElement('a');
+    if (!current) next.href = link.fallbackHref;
+    next.textContent = language === 'ja' ? link.ja : link.en;
+    return next;
+}
+
+function hostedResearchAnchor(paragraph: HTMLElement, hrefIncludes: string): HTMLAnchorElement | null {
+    return Array.from(paragraph.querySelectorAll<HTMLAnchorElement>('a[href]')).find(anchor =>
+        anchor.href.includes(hrefIncludes) || (anchor.getAttribute('href') ?? '').includes(hrefIncludes),
+    ) ?? null;
 }
 
 function translateTextNodes(root: ParentNode, language: InterfaceLanguage): void {
@@ -299,15 +640,78 @@ function translateAttributes(root: ParentNode, language: InterfaceLanguage): voi
 }
 
 function translateHostedDocsString(value: string, language: InterfaceLanguage): string {
-    if (language !== 'ja') return value;
     const leading = value.match(/^\s*/)?.[0] ?? '';
     const trailing = value.match(/\s*$/)?.[0] ?? '';
     const core = value.trim();
-    return HOSTED_DOCS_JA_COPY[core] ? `${leading}${HOSTED_DOCS_JA_COPY[core]}${trailing}` : value;
+    const translated = language === 'ja' ? HOSTED_DOCS_JA_COPY[core] : HOSTED_DOCS_EN_COPY[core];
+    return translated ? `${leading}${translated}${trailing}` : value;
+}
+
+function restoreHostedDocsLeafCopy(root: ParentNode, language: InterfaceLanguage): void {
+    root.querySelectorAll<HTMLElement>(HOSTED_DOCS_TRANSLATION_LEAF_SELECTOR).forEach(element => {
+        if (shouldSkipHostedDocsNode(element) || !canReplaceHostedDocsCopyElement(element)) return;
+        const current = element.textContent ?? '';
+        const translated = translateHostedDocsString(current, language);
+        if (translated !== current) element.textContent = translated;
+    });
+}
+
+function canReplaceHostedDocsCopyElement(element: HTMLElement): boolean {
+    const text = element.textContent?.trim() ?? '';
+    if (!text) return false;
+    const translated = HOSTED_DOCS_JA_COPY[text] ?? HOSTED_DOCS_EN_COPY[text];
+    if (!translated) return false;
+    return Array.from(element.querySelectorAll('*')).every(child => isHostedReaderAnnotationElement(child));
+}
+
+function isHostedReaderAnnotationElement(element: Element): boolean {
+    return element.matches('.jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby, ruby, rt, rp');
 }
 
 function shouldSkipHostedDocsNode(element: Element): boolean {
+    if (element.id === LANGUAGE_TOGGLE_ID) return true;
     return Boolean(element.closest('script, style, pre, code, kbd, samp, textarea, input, [data-jpdb-reader-root], .jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby, .jpdb-ocr-layer, .jpdb-ocr-line'));
+}
+
+function unwrapHostedDocsReaderWords(): void {
+    const parents = new Set<ParentNode>();
+    document.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(word => {
+        if (word.closest('[data-jpdb-reader-root]')) return;
+        const parent = word.parentNode;
+        if (!parent) return;
+        parents.add(parent);
+        word.replaceWith(document.createTextNode(hostedReaderWordSurfaceText(word)));
+    });
+    parents.forEach(parent => {
+        parent.normalize();
+        resetHostedDocsTextOriginals(parent);
+    });
+}
+
+function resetHostedDocsTextOriginals(root: ParentNode): void {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+        textNodeOriginals.delete(node);
+    }
+}
+
+function hostedReaderWordSurfaceText(word: HTMLElement): string {
+    let text = '';
+    word.childNodes.forEach(node => {
+        text += hostedReaderSurfaceTextFromNode(node);
+    });
+    return text || word.textContent || '';
+}
+
+function hostedReaderSurfaceTextFromNode(node: ChildNode): string {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
+    if (!(node instanceof HTMLElement)) return '';
+    if (node.tagName === 'RT' || node.tagName === 'RP' || node.classList.contains('jpdb-reader-furigana')) return '';
+    let text = '';
+    node.childNodes.forEach(child => {
+        text += hostedReaderSurfaceTextFromNode(child);
+    });
+    return text;
 }
 
 function readStoredSettings(): Record<string, any> {
@@ -317,6 +721,84 @@ function readStoredSettings(): Record<string, any> {
     } catch {
         return {};
     }
+}
+
+function installHostedThemeSync(isDark: Ref<boolean>): void {
+    hostedThemeIsDark = isDark;
+    syncHostedThemeFromSettings();
+    if (hostedThemeSyncBound) return;
+    hostedThemeSyncBound = true;
+    window.addEventListener(SETTINGS_CHANGE_EVENT, event => {
+        const change = settingsThemeFromEvent(event);
+        if (!change) return;
+        if (!change.preview) writeStoredThemePreference(change.theme);
+        syncHostedThemeFromSettings(change.theme);
+    });
+    window.addEventListener('storage', event => {
+        if (event.key === SETTINGS_STORAGE_KEY || event.key === null) syncHostedThemeFromSettings();
+    });
+    window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (readStoredThemePreference() === 'auto') syncHostedThemeFromSettings();
+    });
+}
+
+function installHostedAppearanceProvider(isDark: Ref<boolean>): void {
+    provide('toggle-appearance', () => {
+        setHostedThemePreference(isDark.value ? 'light' : 'dark');
+    });
+}
+
+function setHostedThemePreference(theme: HostedThemePreference): void {
+    const settings = writeStoredThemePreference(theme);
+    syncHostedThemeFromSettings(theme);
+    window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings } }));
+}
+
+function writeStoredThemePreference(theme: HostedThemePreference): Record<string, any> {
+    const settings = readStoredSettings();
+    settings.theme = theme;
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    return settings;
+}
+
+function syncHostedThemeFromSettings(theme: unknown = readStoredThemePreference()): void {
+    const preference = normalizeHostedThemePreference(theme);
+    const effective = effectiveHostedTheme(preference);
+    if (hostedThemeIsDark && hostedThemeIsDark.value !== (effective === 'dark')) {
+        hostedThemeIsDark.value = effective === 'dark';
+    }
+    document.documentElement.classList.toggle('dark', effective === 'dark');
+    writeVitePressAppearancePreference(preference, effective);
+    syncHostedAccent();
+}
+
+function writeVitePressAppearancePreference(preference: HostedThemePreference, effective: 'dark' | 'light'): void {
+    const stored = preference === 'auto' ? 'auto' : effective;
+    localStorage.setItem(VITEPRESS_APPEARANCE_KEY, stored);
+    window.requestAnimationFrame?.(() => {
+        if (readStoredThemePreference() === preference) localStorage.setItem(VITEPRESS_APPEARANCE_KEY, stored);
+    });
+}
+
+function settingsThemeFromEvent(event: Event): { theme: HostedThemePreference; preview: boolean } | undefined {
+    const detail = (event as CustomEvent<{ preview?: unknown; settings?: { theme?: unknown } }>).detail;
+    const theme = detail?.settings?.theme;
+    return theme === 'dark' || theme === 'light' || theme === 'auto'
+        ? { theme, preview: detail?.preview === true }
+        : undefined;
+}
+
+function readStoredThemePreference(): HostedThemePreference {
+    return normalizeHostedThemePreference(readStoredSettings().theme);
+}
+
+function normalizeHostedThemePreference(value: unknown, fallback: HostedThemePreference | undefined = 'auto'): HostedThemePreference {
+    return value === 'dark' || value === 'light' || value === 'auto' ? value : fallback ?? 'auto';
+}
+
+function effectiveHostedTheme(theme: HostedThemePreference): 'dark' | 'light' {
+    if (theme === 'dark' || theme === 'light') return theme;
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 function installHostedAccentSync(): void {
@@ -335,9 +817,9 @@ function syncHostedAccent(): void {
     const accent = sanitizeHostedAccent(readStoredSettings().accentColor);
     const root = document.documentElement;
     const dark = root.classList.contains('dark');
-    const pageBackground = dark ? '#181b20' : '#ffffff';
+    const pageBackground = dark ? DOC_COLOR_TOKENS.pageBgDark : DOC_COLOR_TOKENS.pageBgLight;
     const brandReadable = readableOn(accent, pageBackground, 4.5);
-    const brandHover = readableOn(mixHex(accent, dark ? '#ffffff' : '#000000', 0.18), pageBackground, 3.5);
+    const brandHover = readableOn(mixHex(accent, dark ? DOC_COLOR_TOKENS.white : DOC_COLOR_TOKENS.black, 0.18), pageBackground, 3.5);
     const brandSoft = hexToRgba(accent, dark ? 0.22 : 0.16);
     const accentText = readableTextOn(accent);
 
@@ -371,14 +853,18 @@ function sanitizeHostedAccent(value: unknown, fallback = DEFAULT_ACCENT_COLOR): 
     return shortHex ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase() : fallback;
 }
 
-function readableTextOn(background: string): '#11161d' | '#ffffff' {
-    return contrastRatio(background, '#11161d') >= contrastRatio(background, '#ffffff') ? '#11161d' : '#ffffff';
+function readableTextOn(background: string): typeof DOC_COLOR_TOKENS.readableInk | typeof DOC_COLOR_TOKENS.white {
+    return contrastRatio(background, DOC_COLOR_TOKENS.readableInk) >= contrastRatio(background, DOC_COLOR_TOKENS.white)
+        ? DOC_COLOR_TOKENS.readableInk
+        : DOC_COLOR_TOKENS.white;
 }
 
 function readableOn(color: string, background: string, targetContrast: number): string {
     const safe = sanitizeHostedAccent(color);
     if (contrastRatio(safe, background) >= targetContrast) return safe;
-    const toward = contrastRatio(background, '#000000') > contrastRatio(background, '#ffffff') ? '#000000' : '#ffffff';
+    const toward = contrastRatio(background, DOC_COLOR_TOKENS.black) > contrastRatio(background, DOC_COLOR_TOKENS.white)
+        ? DOC_COLOR_TOKENS.black
+        : DOC_COLOR_TOKENS.white;
     for (let amount = 0.08; amount <= 1; amount += 0.08) {
         const mixed = mixHex(safe, toward, amount);
         if (contrastRatio(mixed, background) >= targetContrast) return mixed;
@@ -434,55 +920,144 @@ function installHostedDocsEnhancements(): void {
     installHostedAccentSync();
     localizeHostedDocsCopy();
     scheduleHostedDocsLocalization();
-    installHostedYomuRuntime();
-    scheduleHostedDemoLookupScan();
+    prepareHostedYomuRuntime();
     if (routeSyncBound) return;
     routeSyncBound = true;
     window.addEventListener(LANGUAGE_EVENT, () => {
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
-        scheduleHostedDocsLocalization();
+        syncHostedMobileNavSettings();
+        scheduleHostedDocsLocalization({ resetReaderWords: true });
     });
     window.addEventListener('hashchange', () => window.requestAnimationFrame(() => {
         syncLandmarks();
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
+        syncHostedMobileNavSettings();
         scheduleHostedDocsLocalization();
-        installHostedYomuRuntime();
-        scheduleHostedDemoLookupScan();
+        prepareHostedYomuRuntime();
         syncHostedAccent();
     }));
     window.addEventListener('popstate', () => window.requestAnimationFrame(() => {
         syncLandmarks();
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
+        syncHostedMobileNavSettings();
         scheduleHostedDocsLocalization();
-        installHostedYomuRuntime();
-        scheduleHostedDemoLookupScan();
+        prepareHostedYomuRuntime();
         syncHostedAccent();
     }));
 }
 
-function scheduleHostedDemoLookupScan(): void {
+function prepareHostedYomuRuntime(): void {
+    if (isHostedYomuRuntimeLoadingOrReady()) return;
+    const target = findHostedYomuRuntimeTarget();
+    if (!target) {
+        clearHostedYomuRuntimeIntent();
+        return;
+    }
+    bindHostedYomuRuntimeIntent(target);
     window.requestAnimationFrame(() => {
-        window.dispatchEvent(new CustomEvent(HOSTED_DEMO_LOOKUP_SCAN_EVENT));
+        if (hostedRuntimeIntentTarget === target && isElementNearViewport(target)) loadHostedYomuRuntime();
     });
 }
 
-function installHostedYomuRuntime(): void {
+function findHostedYomuRuntimeTarget(): HTMLElement | undefined {
+    return Array.from(document.querySelectorAll<HTMLElement>(HOSTED_RUNTIME_TARGET_SELECTOR))
+        .find(element => HOSTED_JAPANESE_TEXT_RE.test(element.textContent ?? ''));
+}
+
+function bindHostedYomuRuntimeIntent(target: HTMLElement): void {
+    if (hostedRuntimeIntentTarget === target && hostedRuntimeIntentController) return;
+    clearHostedYomuRuntimeIntent();
+    const controller = new AbortController();
+    hostedRuntimeIntentController = controller;
+    hostedRuntimeIntentTarget = target;
+    const options = { passive: true, once: true, signal: controller.signal };
+    const load = () => loadHostedYomuRuntime();
+    target.addEventListener('pointerenter', load, options);
+    target.addEventListener('pointerdown', load, options);
+    target.addEventListener('touchstart', load, options);
+    target.addEventListener('focusin', load, { once: true, signal: controller.signal });
+    window.addEventListener('scroll', () => {
+        if (isElementNearViewport(target)) loadHostedYomuRuntime();
+    }, { passive: true, signal: controller.signal });
+}
+
+function isElementNearViewport(element: HTMLElement): boolean {
+    const rect = element.getBoundingClientRect();
+    const height = window.innerHeight || document.documentElement.clientHeight;
+    return rect.top <= height + HOSTED_RUNTIME_SCROLL_MARGIN_PX && rect.bottom >= -HOSTED_RUNTIME_SCROLL_MARGIN_PX;
+}
+
+function loadHostedYomuRuntime(): void {
+    clearHostedYomuRuntimeIntent();
+    installHostedYomuRuntime();
+}
+
+function clearHostedYomuRuntimeIntent(): void {
+    hostedRuntimeIntentController?.abort();
+    hostedRuntimeIntentController = undefined;
+    hostedRuntimeIntentTarget = undefined;
+}
+
+function isHostedYomuRuntimeLoadingOrReady(): boolean {
     const runtime = window as typeof window & { __yomuReaderAppInitialized?: boolean };
-    if (runtime.__yomuReaderAppInitialized || document.getElementById(YOMU_HOSTED_RUNTIME_SCRIPT_ID)) return;
+    return Boolean(runtime.__yomuReaderAppInitialized || document.getElementById(YOMU_HOSTED_RUNTIME_SCRIPT_ID));
+}
+
+function installHostedYomuRuntime(): HTMLScriptElement | undefined {
+    const runtime = window as typeof window & {
+        __yomuDevRuntime?: boolean;
+        __yomuReaderAppInitialized?: boolean;
+    };
+    const forceLocalRuntime = isLocalHostedRuntime();
+    const currentScript = document.getElementById(YOMU_HOSTED_RUNTIME_SCRIPT_ID);
+    if (forceLocalRuntime) clearLocalHostedRuntimeCaches();
+    if (forceLocalRuntime) document.getElementById(LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID)?.remove();
+    if (runtime.__yomuReaderAppInitialized && (!forceLocalRuntime || currentScript)) return undefined;
+    if (currentScript) return undefined;
+    if (forceLocalRuntime) runtime.__yomuDevRuntime = true;
     const script = document.createElement('script');
     script.id = YOMU_HOSTED_RUNTIME_SCRIPT_ID;
-    script.src = '/yomu-reader/yomu.user.js';
+    script.src = forceLocalRuntime
+        ? `/yomu-reader/yomu.user.js?t=${Date.now()}`
+        : '/yomu-reader/yomu.user.js';
     script.async = true;
     document.head.append(script);
+    return script;
+}
+
+function isLocalHostedRuntime(): boolean {
+    return LOCAL_HOSTS.has(location.hostname);
+}
+
+function clearLocalHostedRuntimeCaches(): void {
+    if (localRuntimeCacheCleanupStarted) return;
+    localRuntimeCacheCleanupStarted = true;
+    if ('serviceWorker' in navigator) {
+        void navigator.serviceWorker.getRegistrations()
+            .then(registrations => Promise.all(registrations.map(registration => registration.unregister())))
+            .catch(() => undefined);
+    }
+    if ('caches' in window) {
+        void caches.keys()
+            .then(keys => Promise.all(keys
+                .filter(key => key.startsWith('yomu-') || key.includes('yomu-reader'))
+                .map(key => caches.delete(key))))
+            .catch(() => undefined);
+    }
 }
 
 const YomuLayout = defineComponent({
     name: 'YomuLayout',
     setup(_, { slots }) {
-        onMounted(installHostedDocsEnhancements);
+        const { isDark } = useData();
+        installHostedAppearanceProvider(isDark);
+        onMounted(() => {
+            installHostedThemeSync(isDark);
+            installHostedDocsEnhancements();
+        });
         return () => h(DefaultTheme.Layout, null, slots);
     },
 });

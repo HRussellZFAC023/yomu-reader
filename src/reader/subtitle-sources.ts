@@ -182,8 +182,8 @@ function inferSubtitleLanguage(label: string, url: string): string | undefined {
 
 export function normalizeSubtitleLanguage(language: string | undefined): string | undefined {
     if (!language) return undefined;
-    if (/^(ja|jp|jpn)(?:-|$)/i.test(language)) return 'ja';
-    if (/^(en|eng)(?:-|$)/i.test(language)) return 'en';
+    if (/^(ja|jp|jpn)(?:[-_]|$)/i.test(language)) return 'ja';
+    if (/^(en|eng)(?:[-_]|$)/i.test(language)) return 'en';
     return language;
 }
 

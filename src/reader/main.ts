@@ -1,5 +1,5 @@
 import { AudioPlayer } from './audio';
-import { isYomuHostedAppUrl, isYomuHostedPassivePage } from './app-pages';
+import { isYomuHostedAppUrl } from './app-pages';
 import { AnkiConnectClient, captureActiveVideoFrame, type AnkiLookupResult } from './anki';
 import { renderReviewButtons } from './anki-render';
 import { runLimited } from './async-utils';
@@ -10,7 +10,7 @@ import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type 
 import { highlightCardTargetScopes } from './card-highlight';
 import { cardKey } from './card-utils';
 import { normalizeCardStates } from './card-state';
-import { APP_NAME, HOSTED_DEMO_LOOKUP_SCAN_EVENT, IMMERSION_KIT_SOURCE_ID, INTERFACE_LANGUAGE_CHANGE_EVENT, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, OPEN_SETTINGS_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, VIDEO_PLAYER_PAGE_URL } from './constants';
+import { ANKI_SOURCE_ID, APP_NAME, IMMERSION_KIT_SOURCE_ID, INTERFACE_LANGUAGE_CHANGE_EVENT, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, OPEN_SETTINGS_EVENT, SETTINGS_CHANGE_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT, VIDEO_PLAYER_PAGE_URL } from './constants';
 import { DictionarySourceStateController } from './dictionary-source-state';
 import { DictionaryStyleController } from './dictionary-styles';
 import { FactoryResetCoordinator, FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS } from './factory-reset-coordinator';
@@ -25,11 +25,14 @@ import {
     getSelectionSentence,
     getSelectionText,
     htmlToFirstElement,
+    inferredInflectedSurfaceRubies,
     isPassiveInteractionElement,
     nearestReadableSentenceForElement,
     readerWordSurfaceText,
+    renderRuby,
     sentenceAroundRange,
     setInnerHtml,
+    shouldRenderRuby,
     unwrapReaderWords,
 } from './dom';
 import {
@@ -82,8 +85,9 @@ import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState
 import { resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
 import { OnboardingController } from './onboarding';
 import { installOriginGraphInteractions } from './origin-graph-interactions';
+import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
 import { localPitchPatternFromMeta } from './pitch-meta';
-import { ImageOcrController } from './ocr';
+import { ImageOcrController, normalizeOcrRenderedText } from './ocr';
 import {
     caretTextPositionFromPoint,
     isLowValuePointerText,
@@ -97,7 +101,6 @@ import { PopupNavigationController, renderModalNavigation, type CardNavigationMo
 import {
     buildRtkComponentSummaries,
     isKanjiCharacter,
-    pickTokenForSelection,
     renderJpdbKanjiInfo,
     renderJpdbKanjiMiningControls,
     renderKanjiKeywordLine,
@@ -110,7 +113,8 @@ import {
 } from './popup-render';
 import { RtkClient, type RtkInfo } from './rtk';
 import { ReaderAudioActions } from './reader-audio-actions';
-import { ReaderParser, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, jpdbFirstParseOptions, type ReaderParserParseOptions } from './reader-parser';
+import { refreshReaderWordContrast, refreshReaderWordContrastForWord } from './reader-word-contrast';
+import { ReaderParser, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from './reader-parser';
 import {
     DEFAULT_SETTINGS,
     applyUrlBootstrapSettings,
@@ -158,21 +162,28 @@ const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 3;
 const NEARBY_TERM_AUDIO_PRELOAD_DELAY_MS = 350;
 const PRELOADED_TERM_AUDIO_KEY_LIMIT = 500;
 const FALLBACK_LOOKUP_INITIAL_WAIT_MS = 180;
-const ANKI_ENRICHMENT_LIMIT = 16;
+const TEXT_LOOKUP_JPDB_TIMEOUT_MS = 650;
+const POINTER_TEXT_JPDB_TIMEOUT_MS = 450;
+const HOVER_ANKI_HYDRATION_DELAY_MS = 180;
 const PITCH_ENRICHMENT_LIMIT = 12;
 const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
-const BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT = 8;
+const BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT = 24;
 const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
 const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
 const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;
 const PITCH_LOCAL_META_LIMIT = 12;
 const PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT = 800;
-const BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
+const RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 800;
+// DOM strategy threshold only: small updates use exact selectors, larger updates may build a rendered-word index.
+// This is not an Anki cache/card cap.
+const ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD = 24;
 const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 2;
 const SINGLE_HIRAGANA_MORA_RE = /^[\u3040-\u309fー]$/u;
+const SUBSTANTIVE_LOCAL_EXPANSION_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
 type ReviewShortcutKey = keyof ReaderSettings['shortcuts'];
 type InterfaceLanguageChangeDetail = Partial<{ language: unknown; interfaceLanguage: unknown }>;
 type OpenSettingsEventDetail = Partial<{ panel: unknown; tab: unknown }>;
+type SettingsChangeEventDetail = Partial<{ preview: unknown; settings: Partial<{ theme: unknown }> }>;
 
 const TWO_BUTTON_REVIEW_SHORTCUTS: Array<[ReviewShortcutKey, JPDBGrade]> = [
     ['gradeFail', 'fail'],
@@ -205,6 +216,11 @@ function openSettingsPanelDetail(detail: OpenSettingsEventDetail | undefined): s
     return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
+function settingsThemeChangeDetail(detail: SettingsChangeEventDetail | undefined): ReaderSettings['theme'] | null {
+    const value = detail?.settings?.theme;
+    return value === 'auto' || value === 'dark' || value === 'light' ? value : null;
+}
+
 function normalizedLookupText(text: string): string {
     return text.replace(/\s+/g, ' ').trim();
 }
@@ -213,12 +229,25 @@ function isLookupableJapaneseText(text: string): boolean {
     return Boolean(text && HAS_JAPANESE.test(text));
 }
 
+function pickExactTokenForSelection(tokens: JPDBToken[] = [], selected: string): JPDBToken | undefined {
+    return tokens.find(token => token.card.spelling === selected || token.card.reading === selected);
+}
+
 function dictionaryLookupLink(target: EventTarget | null): HTMLAnchorElement | null {
     return (target as HTMLElement | null)?.closest?.<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]') ?? null;
 }
 
 function dictionaryLookupQuery(link: HTMLAnchorElement): string {
     return normalizedLookupText(link.dataset.dictionaryLookup ?? '');
+}
+
+function dictionaryLookupNestedWord(target: EventTarget | null, link: HTMLAnchorElement): HTMLElement | null {
+    const word = (target as HTMLElement | null)?.closest?.<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]') ?? null;
+    return word && link.contains(word) ? word : null;
+}
+
+function dictionaryLookupWordMatchesLink(word: HTMLElement, query: string): boolean {
+    return Boolean(query && normalizedLookupText(word.dataset.expression || readerWordSurfaceText(word)) === query);
 }
 
 function lookupCandidateSentence(text: string, start = 0, end = text.length): string {
@@ -231,7 +260,19 @@ function connectedElement<T extends HTMLElement>(element: T | undefined): T | un
 }
 
 function hasVisibleAutoScanTargets(): boolean {
-    return (collectSiteScanTargets(1)?.length ?? 0) > 0 || collectVisibleTextTargets(1).length > 0;
+    return hasVisibleSiteScanTargets() || (allowsGenericVisibleAutoScan() && collectVisibleTextTargets(1).length > 0);
+}
+
+function hasVisibleSiteScanTargets(): boolean {
+    return (collectSiteScanTargets(1)?.length ?? 0) > 0;
+}
+
+function allowsGenericVisibleAutoScan(): boolean {
+    return !isYouTubeHostForAutoScan();
+}
+
+function isYouTubeHostForAutoScan(hostname = location.hostname): boolean {
+    return hostname === 'youtu.be' || hostname === 'youtube.com' || hostname.endsWith('.youtube.com');
 }
 
 function hasPressLookupEnabled(settings: ReaderSettings): boolean {
@@ -314,6 +355,17 @@ function renderedWordAnchor(
     return insideReaderPopup ? activePopoverAnchor ?? undefined : word;
 }
 
+function selectionIntersectsElement(selection: Selection, element: HTMLElement): boolean {
+    for (let index = 0; index < selection.rangeCount; index += 1) {
+        try {
+            if (selection.getRangeAt(index).intersectsNode(element)) return true;
+        } catch {
+            // Detached selection ranges can appear briefly while a page mutates.
+        }
+    }
+    return false;
+}
+
 function popoverAnchorRect(anchor: HTMLElement | undefined, fallback: DOMRect | undefined): DOMRect | undefined {
     const rect = anchor?.getBoundingClientRect();
     return rect && (rect.width > 0 || rect.height > 0) ? rect : fallback;
@@ -391,6 +443,7 @@ interface TextLookupOptions {
     trigger?: 'modal' | 'hover';
     hoverLookupGeneration?: number;
     stackOverSettings?: boolean;
+    source?: TokenListSource;
 }
 
 interface TextLookupDisplayContext {
@@ -404,12 +457,22 @@ interface TextLookupDisplayContext {
     userGesture?: boolean;
     hoverLookupGeneration?: number;
     stackOverSettings?: boolean;
+    source?: TokenListSource;
 }
+
+type TokenListSource = 'lookup' | 'selection';
+type TokenListOptions = Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry' | 'stackOverSettings'> & {
+    source?: TokenListSource;
+};
 
 interface RenderDefinitionSourcesOptions {
     includeJpdbSource?: boolean;
     includeStudySources?: boolean;
     includeImmersionSource?: boolean;
+}
+
+function isRenderDefinitionSourcesOptions(value: Record<string, string> | RenderDefinitionSourcesOptions): value is RenderDefinitionSourcesOptions {
+    return 'includeJpdbSource' in value || 'includeStudySources' in value || 'includeImmersionSource' in value;
 }
 
 interface PressLookupState {
@@ -444,6 +507,7 @@ interface DismissOptions {
     suppressHoverTarget?: boolean;
     preserveNavigation?: boolean;
     preserveHoverGeneration?: boolean;
+    preserveKeyboardActive?: boolean;
     forceAll?: boolean;
 }
 
@@ -457,7 +521,6 @@ interface PopoverMountState {
 }
 
 interface ReaderAppInitOptions {
-    isDemo?: boolean;
     showWelcome?: boolean;
 }
 
@@ -476,9 +539,10 @@ interface NestedParseContentCacheEntry {
     promise: Promise<JPDBToken[][]>;
 }
 
+const ANKI_RECOLOR_SCAN_CHUNK_SIZE = 600;
+
 export class ReaderApp {
     private abortController = new AbortController();
-    public isDemo = false;
     private isDestroyed = false;
     private settings: ReaderSettings = DEFAULT_SETTINGS;
     private setImmersionTranslationBlurred = (blurred: boolean): void => {
@@ -532,7 +596,7 @@ export class ReaderApp {
             isJpdbBackedCard: value => this.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         }),
-        renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo),
+        renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, extraSections) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, extraSections),
         dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
         dictionaryLabel: name => this.dictionaryLabel(name),
     });
@@ -548,7 +612,7 @@ export class ReaderApp {
         parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
         enrichPitchWords: tokens => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
-        enrichAnkiWords: tokens => this.enrichAnkiWords(tokens),
+        enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
         isCurrentPopoverRoot: root => this.isCurrentPopoverRoot(root),
     });
     private cardActions = new CardActionController({
@@ -579,7 +643,7 @@ export class ReaderApp {
         canParseJapanese: () => this.canParseJapanese(),
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
         enrichPitchWords: tokens => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
-        enrichAnkiWords: tokens => this.enrichAnkiWords(tokens),
+        enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
         repositionPopover: () => this.repositionActivePopover(),
         setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
         toast: message => this.toast(message),
@@ -603,6 +667,7 @@ export class ReaderApp {
         setSettings: settings => {
             this.settings = settings;
             this.applyTheme();
+            this.applyPreferredJapaneseSiteLanguage();
         },
         showSettings: panel => this.showSettings(panel),
     });
@@ -610,14 +675,17 @@ export class ReaderApp {
         getSettings: () => this.settings,
         parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
         parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
+        afterParseTokens: (tokens, roots) => this.afterSubtitleJapaneseParsed(tokens, roots),
         onSettingsChange: () => void saveSettings(this.settings),
     });
     private ocr = new ImageOcrController({
         getSettings: () => this.settings,
-        parseJapanese: async text => (await this.parseJapanese([text]))[0] ?? [],
+        parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
         onToast: message => this.toast(message),
         shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeStandaloneImagePage(),
-        enrichPitchTokens: tokens => void this.enrichPitchWords(tokens),
+        enrichTokensBeforeRender: tokens => this.enrichOcrTokensBeforeRender(tokens),
+        enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
+        fallbackCardFromText: text => this.parser.fallbackCardFromText(text),
     });
     private youtube = new YoutubeImmersionFilter({
         getSettings: () => this.settings,
@@ -629,7 +697,8 @@ export class ReaderApp {
         pauseMutationObserver: callback => this.pauseAutoScanObserver(callback),
         preloadParsedTokens: tokens => this.preloadTermAudioForTokens(tokens),
         enrichPitchWords: tokens => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
-        enrichAnkiWords: tokens => this.enrichAnkiWords(tokens),
+        enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
+        refreshWordContrast: root => refreshReaderWordContrast(root),
         toast: message => this.toast(message),
     });
     private factoryReset = new FactoryResetCoordinator({
@@ -651,6 +720,7 @@ export class ReaderApp {
     private selectionTimer?: number;
     private autoScanTimer?: number;
     private autoScanDeadline = 0;
+    private autoScanForced = false;
     private autoScanObserver?: MutationObserver;
     private asbScanTimer?: number;
     private hoverLookupTimer?: number;
@@ -668,6 +738,7 @@ export class ReaderApp {
     private activePopoverMode?: 'modal' | 'hover';
     private activePopoverAnchor?: HTMLElement;
     private activePopoverAnchorRect?: DOMRect;
+    private keyboardActiveWord?: HTMLElement;
     private activePopoverPositionLocked = false;
     private activePopoverLockedPosition?: { left: number; top: number };
     private activePopoverResizeObserver?: ResizeObserver;
@@ -689,6 +760,9 @@ export class ReaderApp {
     private preloadedTermAudioKeys = new Set<string>();
     private nestedParseContentCache = new Map<string, NestedParseContentCacheEntry>();
     private pitchEnrichmentLocalCache = new Map<string, Promise<string>>();
+    private resolvedFallbackVocabularyCache = new Map<string, JPDBCard>();
+    private renderedWordIndex = new Map<string, Set<HTMLElement>>();
+    private renderedWordIndexFullyScanned = false;
     private pitchEnrichmentQueue: JPDBToken[] = [];
     private pitchEnrichmentQueuedKeys = new Set<string>();
     private pitchEnrichmentUrgentKeys = new Set<string>();
@@ -711,7 +785,6 @@ export class ReaderApp {
         const done = log.time('init', { href: location.href, devMode: Logger.isDevMode() });
         const shouldShowWelcome = await this.loadInitialSettings(options);
         await this.installCoreSurfaces();
-        if (this.initHostedPassivePage()) return done();
         await this.initReaderPage(shouldShowWelcome);
         done();
     }
@@ -719,36 +792,13 @@ export class ReaderApp {
     private async loadInitialSettings(options?: ReaderAppInitOptions): Promise<boolean> {
         this.factoryReset.bind();
         this.settings = await loadSettings();
-        if (options?.isDemo) this.enableDemoMode();
-        const shouldShowWelcome = options?.showWelcome ?? !this.isDemo;
+        const shouldShowWelcome = options?.showWelcome ?? true;
         this.settings = applyUrlBootstrapSettings(this.settings);
+        this.applyPreferredJapaneseSiteLanguage();
         configureLogger({ forceEnabled: this.settings.enableLogging });
         this.pageHasJapaneseText = documentHasJapaneseText();
         log.info('Settings loaded', loggingSettingsSummary(this.settings));
         return shouldShowWelcome;
-    }
-
-    private enableDemoMode(): void {
-        this.settings = {
-            ...this.settings,
-            onboardingSeen: true,
-            audioEnabled: true,
-            audioFallbackChimeEnabled: false,
-            immersionKitAutoPlayAudio: false,
-            immersionKitPlayOnHover: false,
-            immersionKitPlayOnImageClick: false,
-            ocrAutoScanImages: false,
-            autoScanJapanese: false,
-            scanVisiblePage: false,
-            showFloatingButton: false,
-            pitchColorHeiban: '#74c0ff',
-            pitchColorAtamadaka: '#ff8fab',
-            pitchColorNakadaka: '#ffd166',
-            pitchColorOdaka: '#7ee7d1',
-            pitchColorKifuku: '#c4a3ff',
-            pitchColorUnknown: '#cbd5e1',
-        };
-        this.isDemo = true;
     }
 
     private async installCoreSurfaces(): Promise<void> {
@@ -760,18 +810,6 @@ export class ReaderApp {
         initJpdbReviewPageBridge();
     }
 
-    private initHostedPassivePage(): boolean {
-        if (!isYomuHostedPassivePage(location.href)) return false;
-        this.ocr.init();
-        if (this.shouldScanHostedDemoLookup()) {
-            this.scanHostedDemoLookup();
-            log.info('Passive hosted Try Me scan initialized', { href: location.href, demo: this.isDemo });
-            return true;
-        }
-        log.info('Passive hosted OCR initialized', { href: location.href, demo: this.isDemo });
-        return true;
-    }
-
     private async initReaderPage(shouldShowWelcome: boolean): Promise<void> {
         this.installFab();
         this.subtitles.init();
@@ -779,27 +817,38 @@ export class ReaderApp {
         this.youtube.init();
         this.setupAutoScan();
         this.initJpdbPageEnhancements();
-        this.scanHostedDemoLookup();
         if (shouldShowWelcome && !isYomuHostedAppUrl(location.href)) await this.onboarding.showIfNeeded();
-        if (this.shouldScanInitialPage()) void this.pageScanner.scanVisiblePage({ silent: true });
+        if (this.shouldScanInitialPage()) {
+            void this.pageScanner.scanVisiblePage({ silent: true })
+                .finally(() => this.scheduleAnkiStatusWarmup());
+        } else {
+            this.scheduleAnkiStatusWarmup();
+        }
     }
 
-    private scanHostedDemoLookup(): void {
-        if (this.isDestroyed || !this.shouldScanHostedDemoLookup()) return;
-        this.pageHasJapaneseText = true;
-        void this.pageScanner.scanVisiblePage({ silent: true });
-    }
-
-    private shouldScanHostedDemoLookup(): boolean {
-        return isYomuHostedPassivePage(location.href)
-            && Boolean(document.querySelector('[data-yomu-demo-lookup]'))
-            && !document.querySelector('[data-yomu-demo-lookup] .jpdb-reader-word');
+    private scheduleAnkiStatusWarmup(): void {
+        if (!shouldLookupAnkiStatus(this.settings)) return;
+        const run = () => {
+            if (this.isDestroyed || !shouldLookupAnkiStatus(this.settings)) return;
+            void this.anki.warmStatusIndex().then(index => {
+                if (!index || this.isDestroyed || !shouldLookupAnkiStatus(this.settings)) return;
+                void this.recolorRenderedAnkiWordsFromCache().catch(error => {
+                    log.warnOnce('anki-cache-recolor-failed', 'Anki cache recolor failed', error);
+                });
+            });
+        };
+        window.setTimeout(() => {
+            const requestIdle = (window as Window & {
+                requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+            }).requestIdleCallback;
+            if (typeof requestIdle === 'function') requestIdle(run, { timeout: 5_000 });
+            else run();
+        }, 1_000);
     }
 
     private shouldScanInitialPage(): boolean {
         return this.canParseJapanese()
-            && (this.settings.scanVisiblePage || this.settings.autoScanJapanese)
-            && this.pageHasJapaneseText;
+            && (this.pageHasJapaneseText || hasVisibleSiteScanTargets());
     }
 
     private registerMenuCommands(): void {
@@ -853,11 +902,28 @@ export class ReaderApp {
         if (this.settings.interfaceLanguage === language) return;
         this.settings.interfaceLanguage = language;
         await saveSettings(this.settings);
+        this.settingsDialog?.refreshLanguage(language);
+        this.clearHostedPageReaderWords();
         this.installFab();
         this.subtitles.refresh();
         this.ocr.refresh();
         this.youtube.refresh();
+        this.scheduleLanguageChangeScan();
         log.info('Interface language changed', { language });
+    }
+
+    private clearHostedPageReaderWords(): void {
+        if (!isYomuHostedAppUrl(location.href)) return;
+        const count = unwrapReaderWords(document);
+        if (count > 0) refreshReaderWordContrast(document);
+    }
+
+    private scheduleLanguageChangeScan(): void {
+        window.setTimeout(() => {
+            if (this.isDestroyed) return;
+            this.pageHasJapaneseText = documentHasJapaneseText();
+            if (this.shouldScanInitialPage()) this.scheduleVisiblePageReparse(0);
+        }, 160);
     }
 
     private async invalidateRuntimeStoresForFactoryReset(): Promise<void> {
@@ -869,6 +935,7 @@ export class ReaderApp {
         this.preloadedTermAudioKeys.clear();
         this.nestedParseContentCache.clear();
         this.pitchEnrichmentLocalCache.clear();
+        this.resolvedFallbackVocabularyCache.clear();
         this.clearPitchEnrichmentQueue();
         this.pitchEnrichmentUrgentKeys.clear();
         this.pressedKeys.clear();
@@ -894,6 +961,15 @@ export class ReaderApp {
 
     private applyTheme(settings = this.settings): void {
         applyReaderTheme(settings);
+        refreshReaderWordContrast(document);
+    }
+
+    private applyPreferredJapaneseSiteLanguage(settings = this.settings): void {
+        applyJapaneseSiteLanguagePreference(settings.preferJapaneseSiteLanguage);
+    }
+
+    private publishThemeSettingsChange(): void {
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings: { theme: this.settings.theme } } }));
     }
 
     private async refreshDictionaryStyles(): Promise<void> {
@@ -907,6 +983,7 @@ export class ReaderApp {
         }
         this.pitchEnrichmentLocalCache.clear();
         this.nestedParseContentCache.clear();
+        this.resolvedFallbackVocabularyCache.clear();
         this.clearPitchEnrichmentQueue();
         this.scheduleJpdbPageEnhancements(80);
         this.scheduleVisiblePageReparse(120);
@@ -1110,7 +1187,9 @@ export class ReaderApp {
         this.ocr.destroy();
         this.subtitles.destroy();
         this.youtube.destroy();
+        this.anki.destroy?.();
         window.clearTimeout(this.autoScanTimer);
+        this.autoScanForced = false;
         window.clearTimeout(this.asbScanTimer);
         window.clearTimeout(this.selectionTimer);
         window.clearTimeout(this.visiblePageReparseTimer);
@@ -1121,7 +1200,9 @@ export class ReaderApp {
         window.clearTimeout(this.hoverWatchTimer);
         this.nestedParseContentCache.clear();
         this.pitchEnrichmentLocalCache.clear();
+        this.resolvedFallbackVocabularyCache.clear();
         this.clearPitchEnrichmentQueue();
+        this.clearRenderedWordIndex();
         if (this.popoverRepositionFrame !== undefined) {
             window.cancelAnimationFrame(this.popoverRepositionFrame);
             this.popoverRepositionFrame = undefined;
@@ -1153,19 +1234,20 @@ export class ReaderApp {
     private setupAutoScan(): void {
         this.autoScanObserver?.disconnect();
         this.autoScanObserver = new MutationObserver(mutations => {
-            if (mutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
+            const canScanText = this.canParseJapanese();
+            if (canScanText && mutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
             else if (mutations.every(mutationInsideReaderRoot)) return;
-            else if (mutations.some(mutationMayContainJapaneseText)) {
+            else if (canScanText && mutations.some(mutationMayContainJapaneseText)) {
                 this.pageHasJapaneseText = true;
                 this.scheduleAutoScan(450);
             }
             if (isJpdbHost() && mutations.some(mutationMayAffectJpdbPageEnhancements)) this.scheduleJpdbPageEnhancements(500);
         });
         this.observeAutoScanMutations();
-        window.addEventListener('scroll', () => this.scheduleAutoScan(500), { passive: true });
-        window.addEventListener('resize', () => this.scheduleAutoScan(700), { passive: true });
+        window.addEventListener('scroll', () => this.scheduleAutoScan(160, { force: true }), { passive: true });
+        window.addEventListener('resize', () => this.scheduleAutoScan(250, { force: true }), { passive: true });
         window.addEventListener('resize', () => this.scheduleJpdbPageEnhancements(700), { passive: true });
-        if (this.pageHasJapaneseText) this.scheduleAutoScan(600);
+        if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(600);
     }
 
     private observeAutoScanMutations(): void {
@@ -1184,35 +1266,45 @@ export class ReaderApp {
         }
     }
 
-    private scheduleAutoScan(delay: number): void {
-        if (!this.canScheduleAutoScan()) return;
+    private scheduleAutoScan(delay: number, options: { force?: boolean } = {}): void {
+        const forced = Boolean(options.force);
+        if (!this.canScheduleAutoScan(forced)) return;
         const deadline = Date.now() + delay;
-        if (this.autoScanTimer && this.autoScanDeadline <= deadline) return;
+        if (this.autoScanTimer && this.autoScanDeadline <= deadline) {
+            this.autoScanForced = this.autoScanForced || forced;
+            return;
+        }
 
         window.clearTimeout(this.autoScanTimer);
+        this.autoScanForced = forced;
         this.autoScanDeadline = deadline;
         this.autoScanTimer = window.setTimeout(() => {
             this.runScheduledAutoScan();
         }, delay);
     }
 
-    private canScheduleAutoScan(): boolean {
+    private canScheduleAutoScan(force = false): boolean {
         return !this.isDestroyed
-            && this.settings.autoScanJapanese
             && this.canParseJapanese()
-            && this.pageHasJapaneseText;
+            && (force || this.hasVisibleAutoScanWork());
     }
 
     private runScheduledAutoScan(): void {
+        const forced = this.autoScanForced;
         this.autoScanTimer = undefined;
         this.autoScanDeadline = 0;
-        void this.pageScanner.scanAsbPlayerSubtitles();
-        if (hasVisibleAutoScanTargets()) void this.pageScanner.scanVisiblePage({ silent: true });
+        this.autoScanForced = false;
+        if (typeof this.pageScanner.scanAsbPlayerSubtitles === 'function') void this.pageScanner.scanAsbPlayerSubtitles();
+        if (forced || hasVisibleAutoScanTargets()) void this.pageScanner.scanVisiblePage({ silent: true });
+    }
+
+    private hasVisibleAutoScanWork(): boolean {
+        return hasVisibleSiteScanTargets() || (allowsGenericVisibleAutoScan() && this.pageHasJapaneseText);
     }
 
     private scheduleAsbPlayerScan(delay: number): void {
         if (this.isDestroyed) return;
-        if (!this.settings.autoScanJapanese || !this.canParseJapanese()) return;
+        if (!this.canParseJapanese()) return;
         window.clearTimeout(this.asbScanTimer);
         this.asbScanTimer = window.setTimeout(() => void this.pageScanner.scanAsbPlayerSubtitles(), delay);
     }
@@ -1229,8 +1321,20 @@ export class ReaderApp {
             if (language) void this.setInterfaceLanguage(language);
         }, { signal: this.abortController.signal });
 
-        addWindowEventListener(HOSTED_DEMO_LOOKUP_SCAN_EVENT, () => {
-            this.scanHostedDemoLookup();
+        addWindowEventListener(SETTINGS_CHANGE_EVENT, event => {
+            if (this.isDestroyed) return;
+            const detail = (event as CustomEvent<SettingsChangeEventDetail>).detail;
+            const theme = settingsThemeChangeDetail(detail);
+            if (!theme || this.settings.theme === theme) return;
+            this.settings.theme = theme;
+            this.applyTheme();
+            if (detail?.preview !== true) void saveSettings(this.settings);
+        }, { signal: this.abortController.signal });
+
+        addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => {
+            this.audio.clearCaches();
+            this.jpdbVocabulary.clear();
+            this.cardRenderData.clear();
         }, { signal: this.abortController.signal });
 
         document.addEventListener('click', event => {
@@ -1241,17 +1345,17 @@ export class ReaderApp {
             if (target.closest?.('[data-settings-preview-lookup]')) return;
             if (target.closest?.('.jpdb-reader-settings .jpdb-reader-word')) return;
             if (this.isNativePageLookupBlocked(target)) return;
-            const word = target.closest?.('.jpdb-reader-word') as HTMLElement | null;
+            const word = this.readerWordForPointerEvent(event);
             if (!word && target.closest?.('[data-jpdb-reader-root] a.gloss-link[data-dictionary-lookup]')) return;
+            const insideActivePopover = this.activePopoverMode === 'modal' && this.isInsideActivePopover(event.target as Node | null);
             if (!word) {
-                if (!this.settings.lookupOnClick) return;
+                if (!this.settings.lookupOnClick && !insideActivePopover) return;
                 const candidate = this.lookupCandidateFromPoint(event.clientX, event.clientY, event.target);
                 if (!candidate) return;
                 event.preventDefault();
                 event.stopPropagation();
                 this.prepareModalLookupFromPointer(event);
                 this.suppressSelectionLookupUntil = Date.now() + 350;
-                const insideActivePopover = this.activePopoverMode === 'modal' && this.isInsideActivePopover(event.target as Node | null);
                 void this.showLookupCandidate(candidate, 'modal', {
                     navigation: insideActivePopover ? 'push-current' : 'reset',
                     preservePosition: insideActivePopover,
@@ -1280,6 +1384,7 @@ export class ReaderApp {
             this.prepareModalLookupFromPointer(event);
             this.suppressSelectionLookupUntil = Date.now() + 350;
             if (insideSubtitlePlayer && this.settings.subtitleMiningPause) pauseActiveVideo();
+            this.ocr.pinLineForElement(word);
             void this.showWord(word, { trigger: 'click', userGesture: true });
         }, { capture: true });
 
@@ -1374,6 +1479,16 @@ export class ReaderApp {
                 return;
             }
             if ((this.settings.shortcuts.hoverLookup ?? '').trim() && this.shouldLookupOnHover(event)) this.scheduleHoverLookupAtPointer(event);
+            if (matchesShortcut(event, this.settings.shortcuts.previousLookupWord)) {
+                event.preventDefault();
+                void this.navigateLookupWord(-1);
+                return;
+            }
+            if (matchesShortcut(event, this.settings.shortcuts.nextLookupWord)) {
+                event.preventDefault();
+                void this.navigateLookupWord(1);
+                return;
+            }
             if (matchesShortcut(event, this.settings.shortcuts.scanPage)) {
                 event.preventDefault();
                 log.info('Shortcut triggered visible page scan');
@@ -1710,6 +1825,71 @@ export class ReaderApp {
             .filter(candidate => candidate.isConnected && this.canLookupReaderWord(candidate));
     }
 
+    private async navigateLookupWord(direction: -1 | 1): Promise<void> {
+        const words = this.lookupWordNavigationCandidates();
+        if (!words.length) return;
+        const current = this.currentLookupNavigationWord(words);
+        const currentIndex = current ? words.indexOf(current) : -1;
+        const nextIndex = currentIndex >= 0
+            ? Math.max(0, Math.min(words.length - 1, currentIndex + direction))
+            : direction > 0 ? 0 : words.length - 1;
+        const word = words[nextIndex];
+        if (!word) return;
+        this.setKeyboardActiveWord(word);
+        word.focus({ preventScroll: true });
+        word.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+        await this.showWord(word, { trigger: 'click', navigation: 'reset', userGesture: true });
+        if (word.isConnected) this.setKeyboardActiveWord(word);
+    }
+
+    private lookupWordNavigationCandidates(): HTMLElement[] {
+        const selected = this.selectedLookupNavigationWords();
+        if (selected.length) return selected;
+        const scoped = this.scopedLookupNavigationWords();
+        return scoped.length ? scoped : this.lookupableReaderWords().filter(word => this.isKeyboardNavigableWord(word));
+    }
+
+    private selectedLookupNavigationWords(): HTMLElement[] {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed || !selection.rangeCount) return [];
+        return this.lookupableReaderWords()
+            .filter(word => this.isKeyboardNavigableWord(word) && selectionIntersectsElement(selection, word));
+    }
+
+    private scopedLookupNavigationWords(): HTMLElement[] {
+        const anchor = this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : this.keyboardActiveWord?.isConnected ? this.keyboardActiveWord : undefined;
+        const scope = anchor?.closest<HTMLElement>('.jpdb-subtitle-primary, .jpdb-subtitle-list-row, p, li, blockquote, article, main');
+        if (!scope) return [];
+        return Array.from(scope.querySelectorAll<HTMLElement>('.jpdb-reader-word'))
+            .filter(word => this.isKeyboardNavigableWord(word));
+    }
+
+    private currentLookupNavigationWord(words: HTMLElement[]): HTMLElement | undefined {
+        const activeAnchor = this.activePopoverAnchor?.isConnected ? this.activePopoverAnchor : undefined;
+        if (activeAnchor && words.includes(activeAnchor)) return activeAnchor;
+        if (this.keyboardActiveWord?.isConnected && words.includes(this.keyboardActiveWord)) return this.keyboardActiveWord;
+        return undefined;
+    }
+
+    private isKeyboardNavigableWord(word: HTMLElement): boolean {
+        if (!word.isConnected || word.closest('.jpdb-reader-settings')) return false;
+        if (!this.canLookupReaderWord(word)) return false;
+        return Array.from(word.getClientRects()).some(rect => rect.width > 0 && rect.height > 0);
+    }
+
+    private setKeyboardActiveWord(word: HTMLElement): void {
+        if (this.keyboardActiveWord && this.keyboardActiveWord !== word) {
+            this.keyboardActiveWord.classList.remove('jpdb-reader-keyboard-active');
+        }
+        this.keyboardActiveWord = word;
+        word.classList.add('jpdb-reader-keyboard-active');
+    }
+
+    private clearKeyboardActiveWord(): void {
+        this.keyboardActiveWord?.classList.remove('jpdb-reader-keyboard-active');
+        this.keyboardActiveWord = undefined;
+    }
+
     private queueReaderWordAudioPreloads(words: HTMLElement[], options: ReaderAudioPreloadOptions = {}): number {
         let queued = 0;
         for (const candidate of words) {
@@ -1786,8 +1966,20 @@ export class ReaderApp {
     }
 
     private hoverReaderWordForEvent(event: PointerEvent): HTMLElement | null {
-        const word = (event.target as HTMLElement).closest?.('.jpdb-reader-word') as HTMLElement | null;
+        const word = this.readerWordForPointerEvent(event);
         return word && this.canHoverLookupReaderWord(word) ? word : null;
+    }
+
+    private readerWordForPointerEvent(event: MouseEvent): HTMLElement | null {
+        const target = event.target instanceof Element ? event.target : null;
+        const direct = target?.closest?.('.jpdb-reader-word') as HTMLElement | null;
+        if (direct) return direct;
+        return this.ocrLineWordForPointer(target, event.clientX, event.clientY);
+    }
+
+    private ocrLineWordForPointer(target: Element | null, x: number, y: number): HTMLElement | null {
+        const line = target?.closest?.('.jpdb-ocr-line') as HTMLElement | null;
+        return line ? ocrLineWordAtPoint(line, x, y) : null;
     }
 
     private handlePointerTextHover(event: PointerEvent): void {
@@ -1884,6 +2076,10 @@ export class ReaderApp {
             this.cancelHoverClose();
             return;
         }
+        if (this.hoverReaderWordFromElement(related instanceof HTMLElement ? related : related?.parentElement ?? null)) {
+            this.cancelHoverClose();
+            return;
+        }
         this.scheduleHoverClose(undefined, { ignoreCssHover: true });
     }
 
@@ -1973,7 +2169,7 @@ export class ReaderApp {
         const hoverLookupGeneration = this.nextHoverLookupGeneration();
         this.hoverPendingWord = word;
         this.hoverPendingLookupKey = hoverLookupKey;
-        this.installHoverLookupTimer(() => this.runScheduledHoverLookup(word, event, hoverLookupGeneration));
+        this.installHoverLookupTimer(word, () => this.runScheduledHoverLookup(word, event, hoverLookupGeneration));
     }
 
     private shouldSkipHoverLookupSchedule(word: HTMLElement, hoverLookupKey: string): boolean {
@@ -2003,10 +2199,15 @@ export class ReaderApp {
         return Boolean(hoverLookupKey && this.hoverLookupInFlightKey === hoverLookupKey);
     }
 
-    private installHoverLookupTimer(runLookup: () => void): void {
-        const delay = Math.max(0, this.settings.hoverOpenDelayMs);
+    private installHoverLookupTimer(word: HTMLElement, runLookup: () => void): void {
+        const delay = this.hoverLookupDelayMs(word);
         if (delay === 0) runLookup();
         else this.hoverLookupTimer = window.setTimeout(runLookup, delay);
+    }
+
+    private hoverLookupDelayMs(word: HTMLElement): number {
+        if (this.activePopoverMode === 'hover' && this.activeHoverWord && this.activeHoverWord !== word) return 0;
+        return Math.max(0, this.settings.hoverOpenDelayMs);
     }
 
     private runScheduledHoverLookup(word: HTMLElement, event: MouseEvent | KeyboardEvent, hoverLookupGeneration: number): void {
@@ -2115,11 +2316,23 @@ export class ReaderApp {
     }
 
     private isHoverContextActive(options: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean } = {}): boolean {
+        if (this.isMiddlePressHoverContextActive()) return true;
         if (this.activePointerTextLookup) return this.isPointerTextHoverContextActive(options);
         if (this.activeHoverWord && this.isWordHoverActive(this.activeHoverWord, options)) return true;
         if (this.isPopoverCssHoverActive(options)) return true;
         const target = this.currentHoverPointerTarget(options);
         return target ? this.isInsideActiveHoverContext(target) : false;
+    }
+
+    private isMiddlePressHoverContextActive(): boolean {
+        const pressLookup = this.pressLookup;
+        const word = pressLookup?.lastWord;
+        return Boolean(
+            pressLookup?.source === 'middle'
+                && pressLookup.active
+                && word?.isConnected
+                && this.activeHoverWord === word,
+        );
     }
 
     private isPointerTextHoverContextActive(options: { ignoreCssHover?: boolean }): boolean {
@@ -2153,6 +2366,7 @@ export class ReaderApp {
         if (options.ignorePointerPosition) return false;
         if (!this.lastPointerPosition) return false;
         const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
+        if (target instanceof Element && this.ocrLineWordForPointer(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
         return this.isInsideNode(target, word);
     }
 
@@ -2258,7 +2472,8 @@ export class ReaderApp {
         if (Date.now() < this.suppressSelectionLookupUntil) return;
         const selected = this.selectionLookupText();
         if (!selected) return;
-        await this.lookupText(selected, getSelectionSentence());
+        if (await this.lookupRenderedSelection(selected)) return;
+        await this.lookupText(selected, getSelectionSentence(), { source: 'selection' });
     }
 
     private selectionLookupText(): string {
@@ -2275,7 +2490,7 @@ export class ReaderApp {
         if (!context) return;
         const done = log.time('lookupText', { length: context.selected.length, trigger: context.trigger });
         try {
-            const [tokens] = await this.parseJapanese([sentence], jpdbFirstParseOptions());
+            const [tokens] = await this.parseJapanese([sentence], this.textLookupParseOptions());
             await this.showTextLookupResult(context, tokens, sentence);
         } catch (error) {
             log.warn('Lookup failed; trying local fallback', { selected: context.selected }, error);
@@ -2310,6 +2525,7 @@ export class ReaderApp {
             userGesture: options.userGesture,
             hoverLookupGeneration: options.hoverLookupGeneration,
             stackOverSettings: options.stackOverSettings,
+            source: options.source,
         };
     }
 
@@ -2339,16 +2555,87 @@ export class ReaderApp {
             : undefined;
     }
 
+    private textLookupParseOptions(): ReaderParserParseOptions {
+        const apiKeyActive = Boolean(this.settings.apiKey.trim());
+        return jpdbFirstParseOptions({
+            allowSegmentedFallback: true,
+            ...(apiKeyActive ? {
+                requireJpdb: false,
+                jpdbTimeoutMs: TEXT_LOOKUP_JPDB_TIMEOUT_MS,
+                allowJpdbTimeoutFallback: true,
+            } : {}),
+        });
+    }
+
+    private async lookupRenderedSelection(selected: string): Promise<boolean> {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed || !selection.rangeCount) return false;
+        const words = this.selectionLookupRenderedWords(selection);
+        if (!words.length) return false;
+        const tokens = this.renderedSelectionTokens(words);
+        if (!tokens.length) return false;
+        const renderedSelected = this.renderedSelectionLookupText(words, selected);
+        const context = this.textLookupDisplayContext(renderedSelected, { anchor: words[0], source: 'selection' });
+        if (!context) return false;
+        const sentence = this.renderedSelectionSentence(words, getSelectionSentence() || renderedSelected);
+        if (tokens.length === 1 && this.renderedSelectionSingleTokenMatches(tokens[0], renderedSelected)) {
+            void this.showCard(tokens[0].card, tokens[0].sentence ?? sentence, context.anchor, this.textLookupCardOptions(context));
+            return true;
+        }
+        this.showTokenList(tokens, renderedSelected, context.anchor, this.textLookupTokenListOptions(context));
+        return true;
+    }
+
+    private selectionLookupRenderedWords(selection: Selection): HTMLElement[] {
+        return this.lookupableReaderWords()
+            .filter(word => selectionIntersectsElement(selection, word));
+    }
+
+    private renderedSelectionTokens(words: HTMLElement[]): JPDBToken[] {
+        let offset = 0;
+        return words.flatMap(word => {
+            const surface = this.renderedWordLookupText(word);
+            if (!surface) return [];
+            const card = this.cardForRenderedWord(word) ?? this.parser.fallbackCardFromText(surface);
+            const token: JPDBToken = {
+                card,
+                start: offset,
+                end: offset + surface.length,
+                length: surface.length,
+                rubies: [],
+                pitchClass: word.dataset.pitchClass ?? '',
+                sentence: this.renderedWordSentence(word),
+            };
+            offset = token.end;
+            return [token];
+        });
+    }
+
+    private renderedSelectionSentence(words: HTMLElement[], fallback: string): string {
+        return words.map(word => this.renderedWordSentence(word)).find(Boolean) || fallback;
+    }
+
+    private renderedSelectionLookupText(words: HTMLElement[], fallback: string): string {
+        const text = normalizedLookupText(words.map(word => this.renderedWordLookupText(word)).join(''));
+        return isLookupableJapaneseText(text) ? text : fallback;
+    }
+
+    private renderedSelectionSingleTokenMatches(token: JPDBToken, selected: string): boolean {
+        const compactSelected = compactLookupText(selected);
+        return compactLookupText(token.card.spelling) === compactSelected
+            || compactLookupText(token.card.reading) === compactSelected;
+    }
+
     private async showTextLookupResult(context: TextLookupDisplayContext, tokens: JPDBToken[], sentence: string): Promise<void> {
-        const parsedTokens = this.jpdbBackedTokens(tokens);
+        const parsedTokens = this.lookupResultTokens(tokens);
         const relevantTokens = tokensOverlappingSelection(parsedTokens, context.selected, sentence);
-        const selectedToken = pickTokenForSelection(relevantTokens, context.selected);
+        const selectedToken = pickExactTokenForSelection(relevantTokens, context.selected);
         if (selectedToken) {
             void this.showCard(selectedToken.card, selectedToken.sentence ?? sentence, context.anchor, this.textLookupCardOptions(context));
             return;
         }
         if (relevantTokens.length) {
-            this.showTokenList(relevantTokens, context.selected, context.anchor, this.textLookupCardOptions(context));
+            this.showTokenList(relevantTokens, context.selected, context.anchor, this.textLookupTokenListOptions(context));
             return;
         }
         if (sentence !== context.selected && await this.showSelectedTextParsedLookupResult(context)) return;
@@ -2356,34 +2643,37 @@ export class ReaderApp {
     }
 
     private async showSelectedTextParsedLookupResult(context: TextLookupDisplayContext): Promise<boolean> {
-        const [tokens] = await this.parseJapanese([context.selected], jpdbFirstParseOptions());
-        const parsedTokens = this.jpdbBackedTokens(tokens);
-        const selectedToken = pickTokenForSelection(parsedTokens, context.selected);
+        const [tokens] = await this.parseJapanese([context.selected], this.textLookupParseOptions());
+        const parsedTokens = this.lookupResultTokens(tokens);
+        const selectedToken = pickExactTokenForSelection(parsedTokens, context.selected);
         if (selectedToken) {
             void this.showCard(selectedToken.card, selectedToken.sentence ?? context.selected, context.anchor, this.textLookupCardOptions(context));
             return true;
         }
         if (parsedTokens.length) {
-            this.showTokenList(parsedTokens, context.selected, context.anchor, this.textLookupCardOptions(context));
+            this.showTokenList(parsedTokens, context.selected, context.anchor, this.textLookupTokenListOptions(context));
             return true;
         }
         return false;
     }
 
-    private jpdbBackedTokens(tokens: JPDBToken[] = []): JPDBToken[] {
-        return tokens.filter(token => this.isJpdbBackedCard(token.card));
+    private lookupResultTokens(tokens: JPDBToken[] = []): JPDBToken[] {
+        return tokens.filter(token => this.isJpdbBackedCard(token.card) || token.card.source === 'local' || token.card.source === 'fallback');
     }
 
     private async resolveLookupCard(card: JPDBCard): Promise<JPDBCard> {
-        if (card.source !== 'fallback') return card;
-        const publicCard = await this.publicLookupCard(card.spelling, true);
+        const contextual = card.source === 'jpdb' && Boolean(card.sourceCardKey);
+        if (card.source !== 'fallback' && !contextual) return card;
+        const publicCard = card.source === 'fallback'
+            ? await this.publicLookupFallbackCard(card)
+            : await this.publicLookupCard(card.spelling, true, contextual ? card.reading : '');
         if (!publicCard) return card;
-        this.parser.cacheCards([publicCard]);
+        this.parser.cacheCards?.([publicCard]);
         return publicCard;
     }
 
     private async resolveLookupCardForInitialRender(card: JPDBCard): Promise<JPDBCard> {
-        if (card.source !== 'fallback') return card;
+        if (card.source !== 'fallback' && !(card.source === 'jpdb' && card.sourceCardKey)) return card;
 
         const resolved = this.resolveLookupCard(card);
         void resolved.catch(() => undefined);
@@ -2393,13 +2683,31 @@ export class ReaderApp {
         ]);
     }
 
-    private async publicLookupCard(term: string, exact = false): Promise<JPDBCard | undefined> {
+    private async publicLookupCard(term: string, exact = false, reading = ''): Promise<JPDBCard | undefined> {
         if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return undefined;
-        const cards = await this.jpdbVocabulary.search(term, 1).catch(error => {
+        const cards = await this.jpdbVocabulary.search(term, reading ? 12 : 1).catch(error => {
             log.warn('Public JPDB search failed while resolving lookup card', { term }, error);
             return [];
         });
+        if (reading) return cards.find(card => card.spelling === term && card.reading === reading);
         return cards.find(card => card.spelling === term || card.reading === term) ?? (exact ? undefined : cards[0]);
+    }
+
+    private async publicLookupSpellingCard(term: string): Promise<JPDBCard | undefined> {
+        if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return undefined;
+        const cards = await this.jpdbVocabulary.search(term, 1).catch(error => {
+            log.warn('Public JPDB search failed while resolving rendered fallback card', { term }, error);
+            return [];
+        });
+        return cards.find(card => card.spelling === term);
+    }
+
+    private async publicLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined> {
+        for (const term of fallbackLookupTermsForCard(card)) {
+            const publicCard = await this.publicLookupSpellingCard(term);
+            if (publicCard) return publicCard;
+        }
+        return undefined;
     }
 
     private async showLocalLookupCard(context: TextLookupDisplayContext, sentence: string): Promise<boolean> {
@@ -2434,10 +2742,28 @@ export class ReaderApp {
         };
     }
 
+    private textLookupTokenListOptions(context: TextLookupDisplayContext): TokenListOptions {
+        return {
+            ...this.textLookupCardOptions(context),
+            source: context.source,
+        };
+    }
+
     private handleDictionaryLookupLink(event: MouseEvent, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): boolean {
         const link = dictionaryLookupLink(event.target);
         if (!link) return false;
         const query = dictionaryLookupQuery(link);
+        const nestedWord = dictionaryLookupNestedWord(event.target, link);
+        if (nestedWord && !dictionaryLookupWordMatchesLink(nestedWord, query) && !isOcrLineFrameWord(nestedWord) && !this.isNativePageLookupBlocked(nestedWord)) {
+            event.preventDefault();
+            event.stopPropagation();
+            void this.showWord(nestedWord, {
+                trigger: 'click',
+                navigation: trigger === 'modal' ? 'push-current' : 'reset',
+                userGesture: true,
+            });
+            return true;
+        }
         if (!query) return false;
         event.preventDefault();
         event.stopPropagation();
@@ -2458,9 +2784,17 @@ export class ReaderApp {
         const navigation: CardNavigationMode = trigger === 'modal' ? 'push-current' : 'reset';
         const done = log.time('dictionaryReferenceLookup', { query, hasReading: Boolean(normalizedReading), sourceDictionary, trigger });
         try {
+            const previousNavigationEntry = this.textLookupPreviousNavigationEntry(trigger, navigation);
+            const jpdbCard = sourceDictionary === 'JPDB'
+                ? await this.publicLookupCard(query, true, normalizedReading)
+                : undefined;
+            if (jpdbCard) {
+                this.parser.cacheCards?.([jpdbCard]);
+                await this.showCard(jpdbCard, query, anchor, { autoPlay: false, trigger, navigation, preservePosition, previousNavigationEntry });
+                return;
+            }
             const localEntries = await this.dictionaryReferenceLocalEntries(query, normalizedReading, sourceDictionary);
             const preferredEntry = localEntries.find(entry => entry.dictionary === sourceDictionary) ?? localEntries[0];
-            const previousNavigationEntry = this.textLookupPreviousNavigationEntry(trigger, navigation);
             if (preferredEntry) {
                 await this.showCard(this.parser.localCardFromEntry(preferredEntry), query, anchor, { autoPlay: false, trigger, navigation, preservePosition, previousNavigationEntry });
                 return;
@@ -2533,10 +2867,16 @@ export class ReaderApp {
     }
 
     private isNativePageLookupBlocked(target: Element | null): boolean {
-        return Boolean(isJpdbHost()
-            && target
-            && !target.closest('[data-jpdb-reader-root]')
-            && target.closest(NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR));
+        if (!isJpdbHost() || !target || target.closest('[data-jpdb-reader-root]')) return false;
+        if (this.isActiveNativePageReaderWord(target)) return false;
+        return Boolean(target.closest(NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR));
+    }
+
+    private isActiveNativePageReaderWord(target: Element): boolean {
+        const word = target.closest<HTMLElement>('.jpdb-reader-word');
+        return Boolean(word
+            && word.dataset.jpdbReaderPassive !== 'true'
+            && !word.closest('[data-jpdb-reader-root]'));
     }
 
     private async showLookupCandidate(candidate: PointerTextLookup, trigger: 'modal' | 'hover', options: { navigation?: CardNavigationMode; preservePosition?: boolean; hoverLookupGeneration?: number; userGesture?: boolean } = {}): Promise<void> {
@@ -2569,7 +2909,7 @@ export class ReaderApp {
         options: PointerTextDisplayOptions,
     ): Promise<boolean> {
         try {
-            const [tokens] = await this.parseJapanese([candidate.text], jpdbFirstParseOptions());
+            const [tokens] = await this.parseJapanese([candidate.text], this.pointerTextJpdbParseOptions());
             const token = pointerTokenAtOffset(tokens ?? [], candidate.offset);
             if (!token || this.shouldSkipPointerTextToken(candidate, token)) return false;
             if (!this.isJpdbBackedCard(token.card)) return false;
@@ -2579,6 +2919,15 @@ export class ReaderApp {
             log.warn('Pointer text parse failed; trying local fallback', { offset: candidate.offset }, error);
             return false;
         }
+    }
+
+    private pointerTextJpdbParseOptions(): ReaderParserParseOptions {
+        if (!this.settings.apiKey.trim()) return jpdbFirstParseOptions();
+        return jpdbFirstParseOptions({
+            requireJpdb: false,
+            jpdbTimeoutMs: POINTER_TEXT_JPDB_TIMEOUT_MS,
+            allowJpdbTimeoutFallback: true,
+        });
     }
 
     private shouldSkipPointerTextToken(candidate: PointerTextLookup, token: JPDBToken): boolean {
@@ -2607,7 +2956,9 @@ export class ReaderApp {
     ): Promise<boolean> {
         const fallbackRange = fallbackLookupRangeAtOffset(candidate.text, candidate.offset) ?? candidate;
         const fallbackTerm = fallbackLookupTermAtOffset(candidate.text, candidate.offset);
-        if (!fallbackTerm || this.isWeakPointerFallbackTerm(candidate, fallbackTerm)) return false;
+        if (!fallbackTerm
+            || this.isWeakPointerFallbackTerm(candidate, fallbackTerm)
+            || this.isOverbroadPointerFallback(candidate, fallbackRange)) return false;
         const card = this.parser.fallbackCardFromText(fallbackTerm);
         await this.showPointerTextCard(card, sentence, candidate, fallbackRange, trigger, options);
         return true;
@@ -2648,9 +2999,12 @@ export class ReaderApp {
 
     private isCurrentRenderedWordHover(word: HTMLElement, hoverLookupKey: string, hoverLookupGeneration?: number): boolean {
         if (!this.isCurrentHoverGeneration(hoverLookupGeneration, hoverLookupKey)) return false;
+        const activeMiddlePressLookup = this.pressLookup?.source === 'middle' && this.pressLookup.lastWord === word;
         return this.isRunnableScheduledHoverWord(word, hoverLookupKey)
-            && this.isWordHoverActive(word)
-            && this.settings.lookupOnHover;
+            && (
+                activeMiddlePressLookup
+                || (this.isWordHoverActive(word) && this.settings.lookupOnHover)
+            );
     }
 
     private isCurrentPointerTextHoverResult(
@@ -2681,19 +3035,53 @@ export class ReaderApp {
         run: NonNullable<ReturnType<typeof japaneseRunAt>>,
         pointerRange: { start: number; end: number },
     ): Promise<LocalPointerTextEntryMatch | undefined> {
+        if (isOverbroadLocalPointerRange(run, pointerRange)) {
+            return await this.lookupContainingLocalEntryInRun(text, run, pointerRange, { preferShorter: true });
+        }
         const exactSurface = text.slice(pointerRange.start, pointerRange.end);
         const exactEntry = await this.lookupSingleLocalSurface(exactSurface);
         if (exactEntry) return { entry: exactEntry, start: pointerRange.start, end: pointerRange.end };
+        if (!canExpandLocalPointerRange(exactSurface)) return undefined;
 
-        return await this.lookupForwardLocalEntryInRun(text, run, pointerRange.end);
+        return await this.lookupContainingLocalEntryInRun(text, run, pointerRange);
     }
 
-    private async lookupForwardLocalEntryInRun(text: string, run: NonNullable<ReturnType<typeof japaneseRunAt>>, targetEnd: number): Promise<LocalPointerTextEntryMatch | undefined> {
-        const maxEnd = Math.min(run.end, targetEnd, run.offset + 18);
-        for (let end = maxEnd; end > run.offset; end--) {
-            const surface = text.slice(run.offset, end);
-            const entry = await this.lookupSingleLocalSurface(surface);
-            if (entry) return { entry, start: run.offset, end };
+    private async lookupContainingLocalEntryInRun(
+        text: string,
+        run: NonNullable<ReturnType<typeof japaneseRunAt>>,
+        pointerRange: { start: number; end: number },
+        options: { preferShorter?: boolean } = {},
+    ): Promise<LocalPointerTextEntryMatch | undefined> {
+        const minStart = Math.max(run.start, run.offset - 8);
+        const maxEnd = Math.min(run.end, Math.max(pointerRange.end, run.offset + 18));
+        if (options.preferShorter) return await this.lookupContainingLocalEntryShortestFirst(text, run, minStart, maxEnd);
+        for (let start = Math.min(pointerRange.start, run.offset); start >= minStart; start--) {
+            const longestEnd = Math.min(maxEnd, start + 18);
+            for (let end = longestEnd; end > run.offset; end--) {
+                const surface = text.slice(start, end);
+                const entry = await this.lookupSingleLocalSurface(surface);
+                if (entry) return { entry, start, end };
+            }
+        }
+        return undefined;
+    }
+
+    private async lookupContainingLocalEntryShortestFirst(
+        text: string,
+        run: NonNullable<ReturnType<typeof japaneseRunAt>>,
+        minStart: number,
+        maxEnd: number,
+    ): Promise<LocalPointerTextEntryMatch | undefined> {
+        const maxLength = Math.min(18, maxEnd - minStart);
+        for (let length = 2; length <= maxLength; length++) {
+            const firstStart = Math.max(minStart, run.offset - length + 1);
+            const lastStart = Math.min(run.offset, maxEnd - length);
+            for (let start = lastStart; start >= firstStart; start--) {
+                const end = start + length;
+                const surface = text.slice(start, end);
+                const entry = await this.lookupSingleLocalSurface(surface);
+                if (entry) return { entry, start, end };
+            }
         }
         return undefined;
     }
@@ -2708,6 +3096,14 @@ export class ReaderApp {
 
     private isWeakPointerFallbackTerm(candidate: PointerTextLookup, term: string): boolean {
         return term.length <= 1 && candidate.end - candidate.start > 1;
+    }
+
+    private isOverbroadPointerFallback(candidate: PointerTextLookup, range: { start: number; end: number }): boolean {
+        const fallbackLength = range.end - range.start;
+        const candidateLength = candidate.end - candidate.start;
+        return fallbackLength >= candidateLength
+            && candidateLength > 6
+            && fallbackLength > 4;
     }
 
     private isWeakPointerTextRange(candidate: PointerTextLookup, start: number, end: number): boolean {
@@ -2730,6 +3126,14 @@ export class ReaderApp {
             return;
         }
         if (context.trigger === 'hover' && !this.isCurrentRenderedWordHover(word, context.hoverLookupKey ?? '', options.hoverLookupGeneration)) return;
+        const ocrKanji = this.singleKanjiOcrLookupCharacter(word);
+        if (ocrKanji && context.trigger === 'modal') {
+            await this.showKanjiCard(card, ocrKanji, ocrKanji, context.anchor, {
+                navigation: context.navigation,
+                preservePosition: context.insideReaderPopup,
+            });
+            return;
+        }
         this.preloadHoverWordAudio(word);
         await this.showCard(card, context.sentence, context.anchor, {
             trigger: context.trigger,
@@ -2742,6 +3146,13 @@ export class ReaderApp {
             userGesture: options.userGesture,
             stackOverSettings,
         });
+    }
+
+    private singleKanjiOcrLookupCharacter(word: HTMLElement): string {
+        if (!word.closest('.jpdb-ocr-line')) return '';
+        const surface = normalizedLookupText(readerWordSurfaceText(word) || word.dataset.expression || '');
+        const characters = Array.from(surface);
+        return characters.length === 1 && isKanjiCharacter(characters[0] ?? '') ? characters[0] : '';
     }
 
     private cardForRenderedWord(word: HTMLElement): JPDBCard | undefined {
@@ -2908,14 +3319,16 @@ export class ReaderApp {
         return { kind: 'word', card: this.lastCard, sentence: this.lastCardSentence };
     }
 
-    private showTokenList(tokens: JPDBToken[], selected: string, anchor?: HTMLElement, options: Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry' | 'stackOverSettings'> = {}): void {
+    private showTokenList(tokens: JPDBToken[], selected: string, anchor?: HTMLElement, options: TokenListOptions = {}): void {
         if (!tokens.length) return;
         const trigger = options.trigger === 'hover' ? 'hover' : 'modal';
         const navigation = options.navigation ?? 'reset';
+        const source = options.source ?? 'lookup';
+        const previousNavigationEntry = trigger === 'modal' ? options.previousNavigationEntry : undefined;
         this.prepareTokenListNavigation(trigger, navigation);
         const popover = this.createPopover();
-        setInnerHtml(popover, this.renderTokenListHtml(tokens, selected));
-        this.installTokenListHandlers(popover, tokens, anchor, { trigger, navigation, previousNavigationEntry: options.previousNavigationEntry, stackOverSettings: options.stackOverSettings });
+        setInnerHtml(popover, this.renderTokenListHtml(tokens, selected, source, previousNavigationEntry));
+        this.installTokenListHandlers(popover, tokens, anchor, { trigger, navigation, previousNavigationEntry, stackOverSettings: options.stackOverSettings });
         this.mountPopover(popover, anchor, { mode: trigger, preservePosition: options.preservePosition, stackOverSettings: options.stackOverSettings });
         void this.parsePopoverJapanese(popover);
     }
@@ -2924,17 +3337,33 @@ export class ReaderApp {
         if (trigger === 'modal' && navigation === 'reset') this.navigation.clearWord();
     }
 
-    private renderTokenListHtml(tokens: JPDBToken[], selected: string): string {
+    private renderTokenListHtml(tokens: JPDBToken[], selected: string, source: TokenListSource, previousNavigationEntry?: PopupNavigationEntry): string {
+        const title = uiText(this.settings.interfaceLanguage, source === 'selection' ? 'selection' : 'search');
         return `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body">
-                <div class="jpdb-reader-pos">${escapeHtml(uiText(this.settings.interfaceLanguage, 'selection'))}</div>
+                ${this.renderTokenListNavigation(previousNavigationEntry)}
+                <div class="jpdb-reader-pos">${escapeHtml(title)}</div>
                 <div class="jpdb-reader-meanings">
                     ${tokens.map(token => this.renderTokenListButton(token)).join('')}
                 </div>
                 <div class="jpdb-reader-help">${escapeHtml(uiText(this.settings.interfaceLanguage, 'parsedFrom'))}: ${escapeHtml(selected)}</div>
             </div>
         `;
+    }
+
+    private renderTokenListNavigation(previousNavigationEntry?: PopupNavigationEntry): string {
+        if (!previousNavigationEntry) return '';
+        const language = this.settings.interfaceLanguage;
+        return renderModalNavigation({
+            backAction: 'token-list-back',
+            backTitle: previousNavigationEntry.kind === 'kanji'
+                ? `${uiText(language, 'backToKanji')}: ${previousNavigationEntry.kanji}`
+                : `${uiText(language, 'backToWord')}: ${previousNavigationEntry.card.spelling}`,
+            label: previousNavigationEntry.kind === 'kanji'
+                ? previousNavigationEntry.kanji
+                : previousNavigationEntry.card.spelling,
+        });
     }
 
     private renderTokenListButton(token: JPDBToken): string {
@@ -2958,9 +3387,37 @@ export class ReaderApp {
         context: { trigger: 'modal' | 'hover'; navigation: CardNavigationMode; previousNavigationEntry?: PopupNavigationEntry; stackOverSettings?: boolean },
     ): void {
         popover.addEventListener('click', event => {
+            const backButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action="token-list-back"]');
+            if (backButton) {
+                event.preventDefault();
+                event.stopPropagation();
+                void this.showTokenListPrevious(anchor, context);
+                return;
+            }
             const button = (event.target as HTMLElement).closest('button[data-vid]') as HTMLButtonElement | null;
             if (!button) return;
             this.showTokenListCard(button, tokens, anchor, context);
+        });
+    }
+
+    private async showTokenListPrevious(
+        anchor: HTMLElement | undefined,
+        context: { trigger: 'modal' | 'hover'; previousNavigationEntry?: PopupNavigationEntry },
+    ): Promise<void> {
+        const previous = context.previousNavigationEntry;
+        if (!previous) return;
+        if (previous.kind === 'kanji') {
+            await this.showKanjiCard(previous.card, previous.kanji, previous.sentence, anchor, {
+                navigation: 'preserve',
+                preservePosition: true,
+            });
+            return;
+        }
+        await this.showCard(previous.card, previous.sentence, anchor, {
+            autoPlay: false,
+            trigger: context.trigger,
+            navigation: 'preserve',
+            preservePosition: true,
         });
     }
 
@@ -3031,6 +3488,7 @@ export class ReaderApp {
             renderState.fullRenderCompleted = true;
             if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
             this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData);
+            this.renderHydratedCardAnkiLookup(popover, card, sentence, trigger, fullData, renderData, mounted.requestId, isCurrentHoverCard);
         } finally {
             done();
         }
@@ -3256,7 +3714,7 @@ export class ReaderApp {
         if (renderData.ankiLookup) {
             void renderData.ankiLookup.then(ankiLookup => {
                 this.lastAnkiLookup = ankiLookup;
-                this.applyAnkiLookupToRenderedWords(card, ankiLookup);
+                this.applyAnkiLookupToRenderedWords(card, ankiLookup, { preserveExistingEmpty: true });
                 renderLoading();
             });
         }
@@ -3305,7 +3763,7 @@ export class ReaderApp {
         data: CardRenderData,
     ): void {
         this.lastAnkiLookup = data.ankiLookup;
-        this.applyAnkiLookupToRenderedWords(card, data.ankiLookup);
+        this.applyAnkiLookupToRenderedWords(card, data.ankiLookup, { preserveExistingEmpty: true });
         this.applyPitchAccentToRenderedWords(card);
         const preservedImmersion = this.preserveImmersionMountForRerender(popover);
         clearNestedParseState(popover);
@@ -3321,6 +3779,38 @@ export class ReaderApp {
             });
         }
         this.studySources.installLoaders(popover, sentence);
+    }
+
+    private renderHydratedCardAnkiLookup(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        trigger: 'modal' | 'hover',
+        data: CardRenderData,
+        renderData: CardRenderDataLoad,
+        requestId: number,
+        isCurrentHoverCard: () => boolean,
+    ): void {
+        const hydrateAnkiLookup = renderData.hydrateAnkiLookup;
+        if (!hydrateAnkiLookup) return;
+        const hydrate = () => {
+            if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+            void hydrateAnkiLookup()
+                .then(ankiLookup => {
+                    const resolvesPendingMiss = data.ankiLookup.trusted === false && ankiLookup.trusted !== false;
+                    if (!ankiLookup.primary && !data.ankiLookup.primary && !resolvesPendingMiss) return;
+                    if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+                    this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup });
+                })
+                .catch(error => {
+                    log.warn('Anki card detail hydration failed while rendering popup', { term: card.spelling }, error);
+                });
+        };
+        if (trigger === 'hover') {
+            window.setTimeout(hydrate, HOVER_ANKI_HYDRATION_DELAY_MS);
+            return;
+        }
+        hydrate();
     }
 
     private preserveImmersionMountForRerender(popover: HTMLElement): HTMLElement | null {
@@ -3509,6 +3999,7 @@ export class ReaderApp {
 
     private shouldAutoPlayForTrigger(trigger: 'modal' | 'hover'): boolean {
         const mode = this.settings.audioAutoPlayMode;
+        if (mode === 'off') return false;
         if (mode === 'all') return true;
         return mode === 'hover' ? trigger === 'hover' : trigger === 'modal';
     }
@@ -3719,11 +4210,11 @@ export class ReaderApp {
     private renderKanjiReviewButtons(card: JPDBCard): string {
         if (!this.settings.enableReviews) return '';
         const states = normalizeCardStates(card.cardState);
-        if (states.includes('blacklisted') || states.includes('never-forget')) return '';
         const ankiLookup = this.lastCard && cardKey(this.lastCard) === cardKey(card) ? this.lastAnkiLookup : undefined;
         const ankiNote = ankiLookup?.primary ?? null;
         const canReviewWithAnki = Boolean(ankiNote?.primaryCardId);
-        const canReviewWithJpdb = this.isJpdbBackedCard(card) && Boolean(this.settings.apiKey.trim()) && this.settings.jpdbMiningEnabled;
+        const blockedJpdbState = states.includes('blacklisted') || states.includes('never-forget') || states.includes('locked');
+        const canReviewWithJpdb = !blockedJpdbState && this.isJpdbBackedCard(card) && Boolean(this.settings.apiKey.trim()) && this.settings.jpdbMiningEnabled;
         if (!canReviewWithAnki && !canReviewWithJpdb) return '';
         return renderReviewButtons(this.settings, ankiNote);
     }
@@ -4040,8 +4531,10 @@ export class ReaderApp {
         entries: YomitanTermEntry[],
         sentence?: string,
         jpdbVocabularyInfo: JpdbVocabularyInfo | null = null,
-        options: RenderDefinitionSourcesOptions = {},
+        extraSectionsOrOptions: Record<string, string> | RenderDefinitionSourcesOptions = {},
     ): string {
+        const options = isRenderDefinitionSourcesOptions(extraSectionsOrOptions) ? extraSectionsOrOptions : {};
+        const extraSections = isRenderDefinitionSourcesOptions(extraSectionsOrOptions) ? {} : extraSectionsOrOptions;
         const grouped = groupTermEntriesByDictionary(entries);
         const setup = this.renderFallbackSetupSource(card);
         const sourceIds = orderedDefinitionSourceIds(this.settings, [...grouped.keys()]);
@@ -4055,6 +4548,7 @@ export class ReaderApp {
             ...sourceIds
             .map(sourceId => {
                 if (sourceId === JPDB_DEFINITION_SOURCE_ID) return includeJpdbSource ? renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded), jpdbVocabularyInfo, this.settings.interfaceLanguage) : '';
+                if (sourceId === ANKI_SOURCE_ID) return extraSections[ANKI_SOURCE_ID] ?? '';
                 if (sourceId === STUDY_TRANSLATION_SOURCE_ID) return includeStudySources ? this.studySources.renderTranslationSource(sentence) : '';
                 if (sourceId === STUDY_GRAMMAR_SOURCE_ID) return includeStudySources ? this.studySources.renderGrammarSource(sentence) : '';
                 if (sourceId === IMMERSION_KIT_SOURCE_ID) return includeImmersionSource ? this.renderImmersionKitMount() : '';
@@ -4133,11 +4627,33 @@ export class ReaderApp {
         clearNestedParseState(form);
         if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.canParseJapanese()) return;
         const plan = nestedSettingsTextParsePlan(form, 640);
-        if (!plan) return;
-        await this.parseNestedJapaneseContent(form, plan, () => this.isCurrentSettingsRoot(form), {
-            includeLocalPitch: false,
-            skipJpdb: true,
-        });
+        if (!plan || nestedParseAlreadyScheduled(form, plan.parseKey)) return;
+        const parseLoadingId = `${Date.now()}:${Math.random()}`;
+        form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
+        form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
+        try {
+            const parsed = await this.loadParsedNestedJapaneseContent(plan.targets.map(target => target.text), {
+                allowJpdbTimeoutFallback: true,
+                allowSegmentedFallback: true,
+                includeLocalPitch: false,
+                jpdbTimeoutMs: 1_200,
+                requireJpdb: false,
+                skipJpdb: true,
+            });
+            if (!this.isCurrentSettingsRoot(form)
+                || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
+                || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
+            applyNestedParsePlan(plan, parsed, this.settings);
+            highlightCardTargetScopes(form);
+            refreshReaderWordContrast(form);
+            form.dataset.jpdbReaderParseKey = plan.parseKey;
+            const tokens = parsed.flat();
+            void this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT });
+            void this.enrichAnkiWords(tokens, [form]);
+        } catch {
+        } finally {
+            clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
+        }
     }
 
     private async parseNestedJapaneseContent(
@@ -4159,9 +4675,11 @@ export class ReaderApp {
                 || root.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
                 || root.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
             applyNestedParsePlan(plan, parsed, this.settings);
+            this.scheduleCachedPublicVocabularyHydration(root);
             highlightCardTargetScopes(root);
+            refreshReaderWordContrast(root);
             root.dataset.jpdbReaderParseKey = plan.parseKey;
-            this.afterNestedJapaneseParsed(parsed, options.skipJpdb ? { publicLookup: false } : undefined);
+            this.afterNestedJapaneseParsed(parsed, root, options.skipJpdb ? { publicLookup: false } : undefined);
         } catch {
         } finally {
             clearNestedParseLoadingKey(root, plan.parseKey, parseLoadingId);
@@ -4175,7 +4693,7 @@ export class ReaderApp {
             includeLocalPitch: options.includeLocalPitch ?? false,
             skipJpdb: options.skipJpdb ?? false,
             requireJpdb: options.requireJpdb ?? !options.skipJpdb,
-            allowSegmentedFallback: options.allowSegmentedFallback ?? false,
+            allowSegmentedFallback: options.allowSegmentedFallback ?? !this.settings.apiKey.trim(),
         };
         const key = this.nestedParseContentCacheKey(texts, parseOptions);
         const now = Date.now();
@@ -4226,11 +4744,47 @@ export class ReaderApp {
         }
     }
 
-    private afterNestedJapaneseParsed(parsed: JPDBToken[][], pitchOptions?: PitchEnrichmentOptions): void {
+    private afterNestedJapaneseParsed(parsed: JPDBToken[][], root: ParentNode = document, pitchOptions?: PitchEnrichmentOptions): void {
         const tokens = parsed.flat();
         this.preloadTermAudioForTokens(tokens);
         void this.enrichPitchWords(tokens, pitchOptions ?? { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT });
-        void this.enrichAnkiWords(tokens);
+        void this.enrichAnkiWords(tokens, [root]);
+    }
+
+    private afterSubtitleJapaneseParsed(tokens: JPDBToken[], roots: ParentNode[] = []): void {
+        this.preloadTermAudioForTokens(tokens);
+        void this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT });
+        const targetRoots = roots.length ? roots : this.subtitleAnkiEnrichmentRoots();
+        void this.enrichAnkiWords(tokens, targetRoots.length ? targetRoots : [document]);
+    }
+
+    private async enrichOcrTokensBeforeRender(tokens: JPDBToken[]): Promise<void> {
+        if (!tokens.length) return;
+        this.preloadTermAudioForTokens(tokens);
+        await this.resolveOcrFallbackTokens(tokens);
+        await this.enrichPitchWords(tokens, { urgent: true });
+    }
+
+    private async resolveOcrFallbackTokens(tokens: JPDBToken[]): Promise<void> {
+        const fallbackTokens = tokens.filter(token => token.card.source === 'fallback');
+        if (!fallbackTokens.length) return;
+        await runLimited(fallbackTokens, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, async token => {
+            const resolved = await this.resolveLookupCardForInitialRender(token.card).catch(() => token.card);
+            if (resolved === token.card || resolved.source === 'fallback') return;
+            token.card = resolved;
+            token.pitchClass = getPitchClass(resolved.pitchAccent, resolved.reading || resolved.spelling) || token.pitchClass;
+        });
+    }
+
+    private async enrichOcrRenderedTokens(tokens: JPDBToken[], root: ParentNode): Promise<void> {
+        if (!tokens.length) return;
+        await this.enrichAnkiWords(tokens, [root]);
+    }
+
+    private subtitleAnkiEnrichmentRoots(): ParentNode[] {
+        return Array.from(document.querySelectorAll<HTMLElement>(
+            '.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom',
+        ));
     }
 
     private isCurrentPopoverRoot(root: HTMLElement): boolean {
@@ -4241,7 +4795,7 @@ export class ReaderApp {
         return Boolean(root.isConnected && this.activePopover === root && root.classList.contains('jpdb-reader-settings'));
     }
 
-    private async enrichAnkiWords(tokens: JPDBToken[]): Promise<void> {
+    private async enrichAnkiWords(tokens: JPDBToken[], roots: ParentNode[] = [document]): Promise<void> {
         if (!shouldLookupAnkiStatus(this.settings)) return;
         const seen = new Set<string>();
         const uniqueTokens = tokens.filter(token => {
@@ -4249,27 +4803,87 @@ export class ReaderApp {
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
-        }).slice(0, ANKI_ENRICHMENT_LIMIT);
-        const lookups = typeof this.anki.findExistingCardsBatch === 'function'
-            ? await this.anki.findExistingCardsBatch(uniqueTokens.map(token => token.card))
-            : await this.findAnkiCardsIndividually(uniqueTokens);
-        uniqueTokens.forEach((token, index) => {
-            this.applyAnkiLookupToRenderedWords(token.card, lookups[index] ?? { state: 'not-in-deck', notes: [], primary: null });
         });
+        const empty = (): AnkiLookupResult => ({ state: 'not-in-deck', notes: [], primary: null, trusted: false });
+        const lookups = await this.anki.findCachedStatusBatch(uniqueTokens.map(token => token.card))
+            .catch(error => {
+                log.warnOnce('background-anki-coloring-failed', 'Anki background coloring failed', error);
+                return uniqueTokens.map(() => empty());
+            });
+        this.applyAnkiLookupsToRenderedWords(uniqueTokens, lookups, roots);
     }
 
-    private async findAnkiCardsIndividually(tokens: JPDBToken[]): Promise<AnkiLookupResult[]> {
-        const lookups: AnkiLookupResult[] = Array(tokens.length).fill(null).map(() => ({ state: 'not-in-deck', notes: [], primary: null }));
-        await runLimited(tokens, BACKGROUND_ENRICHMENT_CONCURRENCY, async (token, index) => {
-            lookups[index] = await this.anki.findExistingCards(token.card);
-        });
-        return lookups;
+    private async recolorRenderedAnkiWordsFromCache(root: ParentNode = document): Promise<void> {
+        const indexedTokens = this.renderedWordIndex.size
+            ? this.renderedWordTokensForRecolorFromIndex(root)
+            : [];
+        if (indexedTokens.length || (root === document && this.renderedWordIndex.size)) {
+            if (indexedTokens.length) await this.enrichAnkiWords(indexedTokens, [root]);
+            return;
+        }
+        const tokens = await this.scanRenderedWordTokensForRecolor(root);
+        if (tokens.length) await this.enrichAnkiWords(tokens, [root]);
+    }
+
+    private async scanRenderedWordTokensForRecolor(root: ParentNode): Promise<JPDBToken[]> {
+        const seen = new Set<string>();
+        const tokens: JPDBToken[] = [];
+        for await (const word of renderedWordsInRootChunked(root, ANKI_RECOLOR_SCAN_CHUNK_SIZE)) {
+            if (this.isDestroyed || !shouldLookupAnkiStatus(this.settings)) return [];
+            this.registerRenderedWord(word);
+            const token = this.renderedWordTokenForRecolor(word);
+            if (!token) continue;
+            const key = cardKey(token.card);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            tokens.push(token);
+        }
+        if (root === document) this.renderedWordIndexFullyScanned = true;
+        return tokens;
+    }
+
+    private renderedWordTokensForRecolorFromIndex(root: ParentNode): JPDBToken[] {
+        const seen = new Set<string>();
+        const tokens: JPDBToken[] = [];
+        for (const [wordKey, words] of this.renderedWordIndex) {
+            for (const word of words) {
+                if (!word.isConnected || renderedWordElementKey(word) !== wordKey) {
+                    words.delete(word);
+                    continue;
+                }
+                if (!rootContainsRenderedWord(root, word)) continue;
+                const token = this.renderedWordTokenForRecolor(word);
+                if (!token) continue;
+                const key = cardKey(token.card);
+                if (seen.has(key)) continue;
+                seen.add(key);
+                tokens.push(token);
+            }
+            if (!words.size) this.renderedWordIndex.delete(wordKey);
+        }
+        return tokens;
+    }
+
+    private renderedWordTokenForRecolor(word: HTMLElement): JPDBToken | null {
+        const card = this.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
+        if (!card) return null;
+        const surface = readerWordSurfaceText(word);
+        return {
+            card,
+            start: 0,
+            end: surface.length,
+            length: surface.length,
+            rubies: [],
+            pitchClass: word.dataset.pitchClass ?? '',
+            sentence: word.dataset.sentence,
+        };
     }
 
     private async enrichPitchWords(tokens: JPDBToken[], options: PitchEnrichmentOptions = {}): Promise<void> {
         if (this.isDestroyed || !this.settings.showPitchAccent) return;
         const seen = new Set<string>();
-        const uniqueTokens = tokens.filter(token => {
+        const tokensNeedingLookup = tokens.filter(token => !this.applyCachedPublicVocabularyToToken(token));
+        const uniqueTokens = tokensNeedingLookup.filter(token => {
             if (token.card.pitchAccent.length) return false;
             if (isLowValuePitchEnrichmentToken(token)) return false;
             if (!token.card.spelling.trim()) return false;
@@ -4293,18 +4907,20 @@ export class ReaderApp {
         if (typeof options.publicLookupLimit === 'number') {
             const publicLookupLimit = Math.max(0, Math.floor(options.publicLookupLimit));
             const publicTokens = uniqueTokens.slice(0, publicLookupLimit);
-            const localOnlyTokens = uniqueTokens.slice(publicLookupLimit);
+            const deferredPublicTokens = uniqueTokens.slice(publicLookupLimit);
             const localOnly = runLimited(
-                localOnlyTokens,
+                deferredPublicTokens,
                 BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
                 token => this.enrichPitchToken(token, { publicLookup: false }),
             );
             if (!publicTokens.length) {
                 await localOnly;
+                this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
                 return;
             }
             this.queuePitchEnrichmentTokens(publicTokens, options);
             await Promise.all([localOnly, this.drainPitchEnrichmentQueue()]);
+            this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
             return;
         }
 
@@ -4312,11 +4928,19 @@ export class ReaderApp {
         await this.drainPitchEnrichmentQueue();
     }
 
+    private scheduleDeferredPublicPitchEnrichment(tokens: JPDBToken[]): void {
+        if (!tokens.length) return;
+        void this.waitForIdle().then(() => this.enrichPitchWords(tokens)).catch(error => {
+            log.warn('Deferred public pitch enrichment failed', error);
+        });
+    }
+
     private queuePitchEnrichmentTokens(tokens: JPDBToken[], options: { urgent?: boolean } = {}): void {
         for (const token of tokens) {
             const key = cardKey(token.card);
             if (this.pitchEnrichmentQueuedKeys.has(key)) {
                 if (options.urgent) this.promoteQueuedPitchEnrichmentToken(key);
+                this.pitchEnrichmentQueue.push(token);
                 continue;
             }
             this.pitchEnrichmentQueuedKeys.add(key);
@@ -4328,6 +4952,17 @@ export class ReaderApp {
             const dropped = this.pitchEnrichmentQueue.pop();
             if (dropped) this.forgetQueuedPitchEnrichmentToken(cardKey(dropped.card));
         }
+    }
+
+    private applyCachedPublicVocabularyToToken(token: JPDBToken): boolean {
+        if (token.card.source !== 'fallback') return false;
+        const card = this.resolvedFallbackVocabularyCache.get(cardKey(token.card));
+        if (!card) return false;
+        const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
+        this.applyPublicVocabularyToRenderedWords(token.card, card, pitchClass);
+        token.card = card;
+        token.pitchClass = pitchClass;
+        return true;
     }
 
     private promoteQueuedPitchEnrichmentToken(key: string): void {
@@ -4356,6 +4991,7 @@ export class ReaderApp {
     }
 
     private forgetQueuedPitchEnrichmentToken(key: string): void {
+        if (this.pitchEnrichmentQueue.some(token => cardKey(token.card) === key)) return;
         this.pitchEnrichmentQueuedKeys.delete(key);
         this.pitchEnrichmentUrgentKeys.delete(key);
     }
@@ -4458,13 +5094,27 @@ export class ReaderApp {
 
     private async resolveRenderedFallbackVocabulary(card: JPDBCard): Promise<JPDBCard | undefined> {
         if (card.source !== 'fallback') return undefined;
-        const publicCard = await this.publicLookupCard(card.spelling, true);
+        const publicCard = await this.publicLookupFallbackCard(card);
         if (!publicCard) return undefined;
         if (!publicCard.pitchAccent.length) {
             publicCard.pitchAccent = await this.jpdbPublicPitch.lookup(publicCard.spelling, publicCard.reading).catch(() => []);
         }
-        this.parser.cacheCards([publicCard]);
+        this.rememberResolvedFallbackVocabulary(card, publicCard);
+        this.parser.cacheCards?.([publicCard]);
         return publicCard;
+    }
+
+    private rememberResolvedFallbackVocabulary(fallback: JPDBCard, card: JPDBCard): void {
+        if (fallback.source !== 'fallback') return;
+        const key = cardKey(fallback);
+        this.resolvedFallbackVocabularyCache.delete(key);
+        this.resolvedFallbackVocabularyCache.set(key, card);
+        while (this.resolvedFallbackVocabularyCache.size > RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT) {
+            const oldest = this.resolvedFallbackVocabularyCache.keys().next().value;
+            if (typeof oldest !== 'string') break;
+            this.resolvedFallbackVocabularyCache.delete(oldest);
+        }
+        this.scheduleCachedPublicVocabularyHydration(document);
     }
 
     private preloadTermAudioForTokens(tokens: JPDBToken[]): void {
@@ -4513,17 +5163,129 @@ export class ReaderApp {
         return kanjiSourceLabel(this.settings, sourceId);
     }
 
-    private applyAnkiLookupToRenderedWords(card: JPDBCard, ankiLookup: AnkiLookupResult): void {
-        if (!ankiLookup.primary) return;
-        const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
+    private applyAnkiLookupToRenderedWords(
+        card: JPDBCard,
+        ankiLookup: AnkiLookupResult,
+        options: { preserveExistingEmpty?: boolean } = {},
+    ): void {
+        this.applyAnkiLookupMapToRenderedWords(new Map([[renderedWordCardKey(card.vid, card.sid), ankiLookup]]), [document], options);
+    }
+
+    private applyAnkiLookupsToRenderedWords(tokens: JPDBToken[], lookups: AnkiLookupResult[], roots: ParentNode[]): void {
+        const lookupByWordKey = new Map<string, AnkiLookupResult>();
+        const empty = (): AnkiLookupResult => ({ state: 'not-in-deck', notes: [], primary: null });
+        tokens.forEach((token, index) => {
+            lookupByWordKey.set(renderedWordCardKey(token.card.vid, token.card.sid), lookups[index] ?? empty());
+        });
+        this.applyAnkiLookupMapToRenderedWords(lookupByWordKey, roots.length ? roots : [document]);
+    }
+
+    private applyAnkiLookupMapToRenderedWords(
+        lookupByWordKey: Map<string, AnkiLookupResult>,
+        roots: ParentNode[],
+        options: { preserveExistingEmpty?: boolean } = {},
+    ): void {
+        if (!lookupByWordKey.size) return;
         this.pauseAutoScanObserver(() => {
-            document.querySelectorAll<HTMLElement>(selector).forEach(word => {
-                word.classList.add(`anki-${ankiLookup.state}`);
-                word.dataset.ankiState = ankiLookup.state;
-                word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(', ') ?? '';
-                word.title = `Anki: ${cardStateLabel(ankiLookup.state, this.settings.interfaceLanguage)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ''}`;
+            const targetRoots = uniqueParentNodes(roots);
+            this.prepareRenderedWordIndexForLookups(lookupByWordKey, targetRoots);
+            lookupByWordKey.forEach((lookup, key) => {
+                this.renderedWordsForLookupKey(key, targetRoots)
+                    .forEach(word => this.applyAnkiLookupToRenderedWord(word, lookup, options));
             });
         });
+    }
+
+    private prepareRenderedWordIndexForLookups(lookupByWordKey: Map<string, AnkiLookupResult>, roots: ParentNode[]): void {
+        const targetRoots = roots.length ? roots : [document];
+        const includesDocument = targetRoots.includes(document);
+        if (includesDocument && this.renderedWordIndexFullyScanned) return;
+        if (includesDocument && this.renderedWordIndexHasLookupKeys(lookupByWordKey)) return;
+        if (includesDocument && this.renderedWordIndex.size) return;
+        if (includesDocument && lookupByWordKey.size <= ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD) return;
+        targetRoots.forEach(root => this.registerRenderedWordsInRoot(root));
+        if (includesDocument) this.renderedWordIndexFullyScanned = true;
+    }
+
+    private renderedWordIndexHasLookupKeys(lookupByWordKey: Map<string, AnkiLookupResult>): boolean {
+        for (const key of lookupByWordKey.keys()) {
+            if (!this.renderedWordIndex.has(key)) return false;
+        }
+        return true;
+    }
+
+    private renderedWordsForLookupKey(key: string, roots: ParentNode[]): HTMLElement[] {
+        const targetRoots = roots.length ? roots : [document];
+        const indexed = this.indexedRenderedWordsForLookupKey(key, targetRoots);
+        if (indexed.length || this.renderedWordIndex.has(key)) return indexed;
+        const queried = this.queryRenderedWordsForLookupKey(key, targetRoots);
+        queried.forEach(word => this.registerRenderedWord(word));
+        return queried;
+    }
+
+    private indexedRenderedWordsForLookupKey(key: string, roots: ParentNode[]): HTMLElement[] {
+        const words = this.renderedWordIndex.get(key);
+        if (!words) return [];
+        const matches: HTMLElement[] = [];
+        for (const word of words) {
+            if (!word.isConnected || renderedWordElementKey(word) !== key) {
+                words.delete(word);
+                continue;
+            }
+            if (roots.some(root => rootContainsRenderedWord(root, word))) matches.push(word);
+        }
+        if (!words.size) this.renderedWordIndex.delete(key);
+        return matches;
+    }
+
+    private queryRenderedWordsForLookupKey(key: string, roots: ParentNode[]): HTMLElement[] {
+        const selector = renderedWordSelectorForKey(key);
+        if (!selector) return [];
+        const words = new Set<HTMLElement>();
+        roots.forEach(root => {
+            if (root instanceof HTMLElement && root.matches(selector)) words.add(root);
+            root.querySelectorAll<HTMLElement>(selector).forEach(word => words.add(word));
+        });
+        return [...words];
+    }
+
+    private registerRenderedWordsInRoot(root: ParentNode): void {
+        renderedWordsInRoot(root).forEach(word => this.registerRenderedWord(word));
+    }
+
+    private registerRenderedWord(word: HTMLElement): void {
+        const key = renderedWordElementKey(word);
+        if (!isValidRenderedWordKey(key)) return;
+        const words = this.renderedWordIndex.get(key) ?? new Set<HTMLElement>();
+        words.add(word);
+        this.renderedWordIndex.set(key, words);
+    }
+
+    private clearRenderedWordIndex(): void {
+        this.renderedWordIndex.clear();
+        this.renderedWordIndexFullyScanned = false;
+    }
+
+    private applyAnkiLookupToRenderedWord(
+        word: HTMLElement,
+        ankiLookup: AnkiLookupResult,
+        _options: { preserveExistingEmpty?: boolean } = {},
+    ): void {
+        if (!ankiLookup.primary) {
+            if (ankiLookup.trusted === false) return;
+            clearRenderedWordAnkiState(word);
+            word.classList.add(`anki-${ankiLookup.state}`);
+            word.dataset.ankiState = ankiLookup.state;
+            word.title = `Anki: ${cardStateLabel(ankiLookup.state, this.settings.interfaceLanguage)}`;
+            refreshReaderWordContrastForWord(word);
+            return;
+        }
+        clearRenderedWordAnkiState(word);
+        word.classList.add(`anki-${ankiLookup.state}`);
+        word.dataset.ankiState = ankiLookup.state;
+        word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(', ') ?? '';
+        word.title = `Anki: ${cardStateLabel(ankiLookup.state, this.settings.interfaceLanguage)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ''}`;
+        refreshReaderWordContrastForWord(word);
     }
 
     private applyPitchAccentToRenderedWords(card: JPDBCard, pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling)): void {
@@ -4536,6 +5298,7 @@ export class ReaderApp {
                     .forEach(className => word.classList.remove(className));
                 word.classList.add(`jpdb-pitch-${pitchClass}`);
                 word.dataset.pitchClass = pitchClass;
+                refreshReaderWordContrastForWord(word);
             });
         });
     }
@@ -4544,17 +5307,81 @@ export class ReaderApp {
         const selector = `.jpdb-reader-word[data-vid="${fallback.vid}"][data-sid="${fallback.sid}"]`;
         this.pauseAutoScanObserver(() => {
             document.querySelectorAll<HTMLElement>(selector).forEach(word => {
-                Array.from(word.classList)
-                    .filter(className => className.startsWith('jpdb-pitch-'))
-                    .forEach(className => word.classList.remove(className));
-                word.classList.add(`jpdb-pitch-${pitchClass}`);
-                word.dataset.vid = String(card.vid);
-                word.dataset.sid = String(card.sid);
-                word.dataset.expression = card.spelling;
-                word.dataset.reading = card.reading;
-                word.dataset.pitchClass = pitchClass;
+                this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
             });
         });
+    }
+
+    private applyCachedPublicVocabularyToRenderedFallbackWords(root: ParentNode): void {
+        if (!this.resolvedFallbackVocabularyCache.size) return;
+        this.pauseAutoScanObserver(() => {
+            root.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid][data-expression]').forEach(word => {
+                const key = renderedFallbackVocabularyCacheKey(word);
+                const card = key ? this.resolvedFallbackVocabularyCache.get(key) : undefined;
+                if (!card) return;
+                const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
+                this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+            });
+        });
+    }
+
+    private scheduleCachedPublicVocabularyHydration(root: ParentNode): void {
+        this.applyCachedPublicVocabularyToRenderedFallbackWords(root);
+        [120, 500, 1_500, 5_000, 10_000].forEach(delay => {
+            window.setTimeout(() => {
+                if (this.isDestroyed) return;
+                if (root instanceof Element && !root.isConnected) return;
+                this.applyCachedPublicVocabularyToRenderedFallbackWords(root);
+            }, delay);
+        });
+    }
+
+    private applyPublicVocabularyToRenderedWord(word: HTMLElement, card: JPDBCard, pitchClass: string): void {
+        this.renderedWordIndex.get(renderedWordElementKey(word))?.delete(word);
+        Array.from(word.classList)
+            .filter(className => className.startsWith('jpdb-pitch-'))
+            .forEach(className => word.classList.remove(className));
+        word.classList.add(`jpdb-pitch-${pitchClass}`);
+        word.dataset.vid = String(card.vid);
+        word.dataset.sid = String(card.sid);
+        word.dataset.expression = card.spelling;
+        word.dataset.reading = card.reading;
+        word.dataset.pitchClass = pitchClass;
+        this.registerRenderedWord(word);
+        this.applyPublicVocabularyFurigana(word, card);
+        refreshReaderWordContrastForWord(word);
+    }
+
+    private applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard): void {
+        const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
+        const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
+        const token: JPDBToken = {
+            card,
+            start: 0,
+            end: surface.length,
+            length: surface.length,
+            rubies,
+            pitchClass: word.dataset.pitchClass ?? '',
+            sentence: word.dataset.sentence,
+        };
+        if (!this.shouldApplyPublicVocabularyFurigana(card, surface, token, rubies)) return;
+        const html = renderRuby(surface, token);
+        if (!html.includes('<rt')) return;
+        setInnerHtml(word, html);
+        if (word.closest('.jpdb-ocr-line')) {
+            normalizeOcrRenderedText(word);
+            const line = word.closest<HTMLElement>('.jpdb-ocr-line');
+            if (line) line.dataset.hasFuri = 'true';
+        }
+        word.classList.add('jpdb-reader-has-furi');
+    }
+
+    private shouldApplyPublicVocabularyFurigana(card: JPDBCard, surface: string, token: JPDBToken, rubies: JPDBToken['rubies'] = []): boolean {
+        const surfaceMatchesSpelling = surface.trim() === card.spelling.trim();
+        if (!surfaceMatchesSpelling && !rubies.length) return false;
+        if (!card.reading.trim() || card.reading.trim() === card.spelling.trim()) return false;
+        if (!shouldRenderRuby(surface, token, this.settings)) return false;
+        return !surfaceMatchesSpelling || Array.from(card.spelling).some(isKanjiCharacter);
     }
 
     private async handleCardAction(button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {
@@ -4597,8 +5424,8 @@ export class ReaderApp {
             }),
             imageDataUrl: this.settings.ankiCaptureScreenshot ? this.ocr.captureSourceImageForElement(anchor ?? null) : undefined,
             videoImageDataUrl: this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() : undefined,
-            fetchImageDataUrl: (imageUrl, timeoutMs) => this.immersionKit.fetchDataUrl(imageUrl, timeoutMs, this.settings.corsProxyUrl),
-            fetchAudioDataUrl: (audioUrls, timeoutMs) => this.immersionKit.fetchDataUrl(audioUrls, timeoutMs, this.settings.corsProxyUrl),
+            fetchImageDataUrl: (imageUrl, timeoutMs) => this.immersionKit.fetchDataUrl(imageUrl, timeoutMs, this.settings.corsProxyUrl, this.settings.interfaceLanguage),
+            fetchAudioDataUrl: (audioUrls, timeoutMs) => this.immersionKit.fetchDataUrl(audioUrls, timeoutMs, this.settings.corsProxyUrl, this.settings.interfaceLanguage),
         });
         return context;
     }
@@ -4610,7 +5437,10 @@ export class ReaderApp {
     private getSettingsDialog(): SettingsDialogController {
         this.settingsDialog ??= new SettingsDialogController({
             getSettings: () => this.settings,
-            setSettings: settings => { this.settings = settings; },
+            setSettings: settings => {
+                this.settings = settings;
+                this.applyPreferredJapaneseSiteLanguage();
+            },
             jpdb: this.jpdb,
             dictionaries: this.dictionaries,
             anki: this.anki,
@@ -4670,7 +5500,12 @@ export class ReaderApp {
         if (settingsStack) {
             this.prepareSettingsStackedPopover(settingsStack);
         } else {
-            this.dismiss({ suppressHoverTarget: false, preserveNavigation: true, preserveHoverGeneration: state.mode === 'hover' });
+            this.dismiss({
+                suppressHoverTarget: false,
+                preserveNavigation: true,
+                preserveHoverGeneration: state.mode === 'hover',
+                preserveKeyboardActive: state.resolvedAnchor === this.keyboardActiveWord,
+            });
         }
         this.appendMountedPopover(popover, state);
         this.activateMountedPopover(popover, state, options);
@@ -4743,8 +5578,10 @@ export class ReaderApp {
 
     private installMountedPopoverSurface(popover: HTMLElement, state: PopoverMountState): void {
         if (!popover.classList.contains('jpdb-reader-sheet')) {
-            this.activePopoverResizeObserver = new ResizeObserver(() => this.repositionActivePopover());
-            this.activePopoverResizeObserver.observe(popover);
+            if (typeof ResizeObserver === 'function') {
+                this.activePopoverResizeObserver = new ResizeObserver(() => this.repositionActivePopover());
+                this.activePopoverResizeObserver.observe(popover);
+            }
             this.installPopoverBodyStabilizers(popover);
             if (state.mode !== 'hover' && state.previousPopoverRect) {
                 this.lockActivePopoverPosition(state.previousPopoverRect);
@@ -4955,7 +5792,7 @@ export class ReaderApp {
         this.restoreSettingsPreviewState();
         this.removeReaderDialogNodes();
         this.stackedSettingsDialog = undefined;
-        this.clearActivePopoverState();
+        this.clearActivePopoverState(options);
         if (!options.preserveNavigation) {
             this.navigation.clearWord();
             this.navigation.clearKanji();
@@ -4979,7 +5816,7 @@ export class ReaderApp {
         this.activeBackdrop?.remove();
         this.activePopoverResizeObserver?.disconnect();
         const stack = this.stackedSettingsDialog;
-        this.clearActivePopoverState();
+        this.clearActivePopoverState(options);
         if (stack?.form.isConnected) {
             this.activePopover = stack.form;
             this.activeBackdrop = stack.backdrop;
@@ -5025,6 +5862,7 @@ export class ReaderApp {
             this.clearSettingsPreviewOriginals();
             return;
         }
+        const shouldPublishThemeRestore = this.settingsPreviewOriginalTheme !== undefined;
         if (this.settingsPreviewOriginalAccent !== undefined) {
             this.applyAccentColor(this.settingsPreviewOriginalAccent);
             this.applyWordColors();
@@ -5036,6 +5874,7 @@ export class ReaderApp {
             this.settings.theme = this.settingsPreviewOriginalTheme;
         }
         this.applyTheme();
+        if (shouldPublishThemeRestore) this.publishThemeSettingsChange();
         this.clearSettingsPreviewOriginals();
     }
 
@@ -5058,7 +5897,7 @@ export class ReaderApp {
             .forEach(element => element.remove());
     }
 
-    private clearActivePopoverState(): void {
+    private clearActivePopoverState(options: { preserveKeyboardActive?: boolean } = {}): void {
         this.activePopover = undefined;
         this.activeBackdrop = undefined;
         this.activePopoverResizeObserver = undefined;
@@ -5070,6 +5909,7 @@ export class ReaderApp {
         this.activeHoverWord = undefined;
         this.activeHoverLookupKey = '';
         this.activePointerTextLookup = undefined;
+        if (!options.preserveKeyboardActive) this.clearKeyboardActiveWord();
     }
 
     private schedulePendingDictionaryRescan(): void {
@@ -5107,8 +5947,119 @@ function isLowValuePointerTextToken(token: JPDBToken): boolean {
     return SINGLE_HIRAGANA_MORA_RE.test(spelling);
 }
 
+function canExpandLocalPointerRange(surface: string): boolean {
+    return surface.length > 1 || SUBSTANTIVE_LOCAL_EXPANSION_RE.test(surface);
+}
+
+function isOverbroadLocalPointerRange(
+    run: NonNullable<ReturnType<typeof japaneseRunAt>>,
+    range: { start: number; end: number },
+): boolean {
+    const rangeLength = range.end - range.start;
+    const runLength = run.end - run.start;
+    return rangeLength > 8 && range.start <= run.start && range.end >= run.end && runLength > 8;
+}
+
+function clearRenderedWordAnkiState(word: HTMLElement): void {
+    Array.from(word.classList)
+        .filter(className => className.startsWith('anki-'))
+        .forEach(className => word.classList.remove(className));
+    delete word.dataset.ankiState;
+    delete word.dataset.ankiDecks;
+    word.style.removeProperty('--jpdb-reader-word-accessible-color');
+    word.style.removeProperty('--jpdb-reader-word-accessible-underline');
+    word.style.removeProperty('--jpdb-reader-word-highlight-text');
+    word.style.removeProperty('--jpdb-reader-word-contrast-shadow');
+    if (word.title.startsWith('Anki:')) word.removeAttribute('title');
+}
+
+function renderedWordCardKey(vid: number, sid: number): string {
+    return `${vid}:${sid}`;
+}
+
+function renderedWordElementKey(word: HTMLElement): string {
+    return renderedWordCardKey(Number(word.dataset.vid), Number(word.dataset.sid));
+}
+
+function isValidRenderedWordKey(key: string): boolean {
+    const parts = key.split(':');
+    return parts.length === 2
+        && parts.every(part => part.trim() !== '' && Number.isFinite(Number(part)));
+}
+
+function renderedWordSelectorForKey(key: string): string | null {
+    if (!isValidRenderedWordKey(key)) return null;
+    const [vid, sid] = key.split(':');
+    return `.jpdb-reader-word[data-vid="${escapeCssAttributeValue(vid ?? '')}"][data-sid="${escapeCssAttributeValue(sid ?? '')}"]`;
+}
+
+function escapeCssAttributeValue(value: string): string {
+    return value.replace(/["\\]/g, '\\$&');
+}
+
+function rootContainsRenderedWord(root: ParentNode, word: HTMLElement): boolean {
+    return root === document
+        || root === word
+        || (root instanceof Node && root.contains(word));
+}
+
+function renderedWordsInRoot(root: ParentNode): HTMLElement[] {
+    const words = new Set<HTMLElement>();
+    if (root instanceof HTMLElement && root.matches('.jpdb-reader-word[data-vid][data-sid]')) words.add(root);
+    root.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]').forEach(word => words.add(word));
+    return [...words];
+}
+
+async function* renderedWordsInRootChunked(root: ParentNode, chunkSize: number): AsyncGenerator<HTMLElement> {
+    let yielded = 0;
+    const maybeYield = async () => {
+        yielded += 1;
+        if (yielded % chunkSize === 0) await yieldToNextTask();
+    };
+    if (root instanceof HTMLElement && root.matches('.jpdb-reader-word[data-vid][data-sid]')) {
+        yield root;
+        await maybeYield();
+    }
+    const ownerDocument = root instanceof Document ? root : root.ownerDocument ?? document;
+    const walker = ownerDocument.createTreeWalker(root as Node, NodeFilter.SHOW_ELEMENT, {
+        acceptNode(node) {
+            return node instanceof HTMLElement && node.matches('.jpdb-reader-word[data-vid][data-sid]')
+                ? NodeFilter.FILTER_ACCEPT
+                : NodeFilter.FILTER_SKIP;
+        },
+    });
+    let node = walker.nextNode();
+    while (node) {
+        yield node as HTMLElement;
+        await maybeYield();
+        node = walker.nextNode();
+    }
+}
+
+function yieldToNextTask(): Promise<void> {
+    return new Promise(resolve => window.setTimeout(resolve, 0));
+}
+
+function uniqueParentNodes(roots: ParentNode[]): ParentNode[] {
+    return [...new Set(roots)];
+}
+
 function isOcrLineFrameWord(word: HTMLElement): boolean {
     return word.classList.contains('jpdb-ocr-line') && !word.dataset.vid && !word.dataset.sid;
+}
+
+function ocrLineWordAtPoint(line: HTMLElement, x: number, y: number): HTMLElement | null {
+    const words = Array.from(line.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]'));
+    if (!words.length) return null;
+    if (words.length === 1) return words[0] ?? null;
+    return words.find(word => pointInsideExpandedRect(word.getBoundingClientRect(), x, y, 8)) ?? null;
+}
+
+function pointInsideExpandedRect(rect: DOMRect, x: number, y: number, pad: number): boolean {
+    return x >= rect.left - pad
+        && x <= rect.right + pad
+        && y >= rect.top - pad
+        && y <= rect.bottom + pad;
 }
 
 function preferredRenderedWordSentence(nearest: string, tokenSentence: string): string | undefined {
@@ -5152,6 +6103,13 @@ function pitchEnrichmentTokenForCard(card: JPDBCard): JPDBToken {
     };
 }
 
+function renderedFallbackVocabularyCacheKey(word: HTMLElement): string {
+    const vid = Number(word.dataset.vid);
+    const sid = Number(word.dataset.sid);
+    const spelling = word.dataset.expression?.trim() ?? '';
+    return Number.isFinite(vid) && Number.isFinite(sid) && spelling ? `${vid}:${sid}:${spelling}:` : '';
+}
+
 function documentLooksLikeStandaloneImagePage(): boolean {
     const images = Array.from(document.images).filter(image => !image.closest('[data-jpdb-reader-root]'));
     if (images.length !== 1) return false;
@@ -5193,6 +6151,7 @@ const CARD_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
     'never-forget': 'stateNeverForget',
     blacklisted: 'stateBlacklisted',
     suspended: 'stateSuspended',
+    'in-deck': 'stateInDeck',
     'not-in-deck': 'stateNotInDeck',
     redundant: 'stateRedundant',
 };

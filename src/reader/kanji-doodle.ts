@@ -1,3 +1,4 @@
+import { DOODLE_COLOR_TOKENS } from './color-tokens';
 import { uiText } from './i18n';
 import { Logger } from './logger';
 import type { InterfaceLanguage } from './types';
@@ -112,7 +113,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     const setupStroke = (point?: DoodlePoint) => {
         const style = getComputedStyle(stage);
         context.strokeStyle = style.getPropertyValue('--jpdb-reader-doodle-ink').trim()
-            || '#141820';
+            || DOODLE_COLOR_TOKENS.ink;
         context.lineCap = 'round';
         context.lineJoin = 'round';
         context.lineWidth = strokeWidth(point);

@@ -6,6 +6,7 @@ type NewTabLanguage = 'en' | 'ja';
 const NEW_TAB_COPY = {
     en: {
         switchReviewSource: 'Switch review source',
+        dictionaryInstallNewTabHelp: 'Optional: add a Yomitan dictionary in Settings for offline local results. Public JPDB lookup works without one.',
         newTabMode: 'New tab mode',
         stats: 'Stats',
         statsRefresh: 'Refresh stats',
@@ -57,15 +58,24 @@ const NEW_TAB_COPY = {
         offlineSourceSuffix: 'offline',
         noWordsYet: 'Looking for more words...',
         noKanjiCardsYet: 'Looking for more kanji...',
+        noReviewWordsReady: 'No review cards ready.',
+        noReviewKanjiReady: 'No kanji review cards ready.',
         noKanjiKeyword: 'No kanji keyword found.',
         couldNotLoadWords: 'Could not load words.',
         offlineGradesDisabled: 'Offline cache. Grades are saved here and sync when JPDB or Anki reconnects.',
+        startWithDictionary: 'Start with a dictionary',
+        addDictionaryStudyCards: 'Use this only if you want offline Yomitan results.',
+        dictionaryReadyNewTabs: 'Public JPDB lookup works without an API key.',
+        addDictionary: 'Add dictionary',
         hide: 'Hide',
         yourDrawing: 'Your drawing',
         couldNotSubmitGrade: 'Could not submit grade.',
         updatingJpdbKanji: 'Updating JPDB kanji...',
         jpdbKanjiUpdateFailed: 'Could not update JPDB kanji. Enable kanji reviews on JPDB first.',
         grading: 'Grading...',
+        gradeTargetJpdb: 'Grades JPDB',
+        gradeTargetAnki: 'Grades Anki {target}',
+        gradeTargetJpdbAndAnki: 'Grades JPDB + Anki {target}',
         offlineGradeReconnect: 'Grade saved offline. It will sync when JPDB or Anki reconnects.',
         missingAnkiCardId: 'Missing Anki card id.',
         noDefinitionsFound: 'No definitions found.',
@@ -91,8 +101,11 @@ const NEW_TAB_COPY = {
     },
 } as const;
 
+export type NewTabCopyKey = keyof typeof NEW_TAB_COPY.en;
+
 const JA_NEW_TAB_COPY: Partial<Record<NewTabCopyKey, string>> = {
     switchReviewSource: '復習ソースを切り替え',
+    dictionaryInstallNewTabHelp: 'ローカル結果が必要な場合のみ、設定でYomitan辞書を追加してください。公開JPDB検索は辞書なしで使えます。',
     newTabMode: '新しいタブのモード',
     stats: '統計',
     statsRefresh: '統計を更新',
@@ -144,15 +157,24 @@ const JA_NEW_TAB_COPY: Partial<Record<NewTabCopyKey, string>> = {
     offlineSourceSuffix: 'オフライン',
     noWordsYet: 'さらに単語を探しています…',
     noKanjiCardsYet: 'さらに漢字を探しています…',
+    noReviewWordsReady: '復習する単語カードは今ありません。',
+    noReviewKanjiReady: '復習する漢字カードは今ありません。',
     noKanjiKeyword: '漢字キーワードが見つかりません。',
     couldNotLoadWords: '単語を読み込めませんでした。',
     offlineGradesDisabled: 'オフラインキャッシュです。採点はここに保存され、JPDBまたはAnkiへの再接続時に同期されます。',
+    startWithDictionary: '辞書から始める',
+    addDictionaryStudyCards: 'オフラインのYomitan結果が必要なときだけ使います。',
+    dictionaryReadyNewTabs: '公開JPDB検索はAPIキーなしで使えます。',
+    addDictionary: '辞書を追加',
     hide: '隠す',
     yourDrawing: 'あなたの手書き',
     couldNotSubmitGrade: '採点を送信できませんでした。',
     updatingJpdbKanji: 'JPDB漢字を更新中...',
     jpdbKanjiUpdateFailed: 'JPDB漢字を更新できませんでした。先にJPDBで漢字レビューを有効にしてください。',
     grading: '採点中...',
+    gradeTargetJpdb: 'JPDBを採点',
+    gradeTargetAnki: 'Ankiを採点 {target}',
+    gradeTargetJpdbAndAnki: 'JPDB + Ankiを採点 {target}',
     offlineGradeReconnect: '採点をオフラインで保存しました。JPDBまたはAnkiへの再接続時に同期されます。',
     missingAnkiCardId: 'AnkiカードIDがありません。',
     noDefinitionsFound: '定義が見つかりませんでした。',
@@ -183,8 +205,6 @@ const NEW_TAB_COPY_BY_LANGUAGE: Record<NewTabLanguage, Partial<Record<NewTabCopy
 };
 
 const NEW_TAB_COPY_KEYS = new Set<string>(Object.keys(NEW_TAB_COPY.en));
-
-export type NewTabCopyKey = keyof typeof NEW_TAB_COPY.en;
 
 export function isNewTabCopyKey(key: string): key is NewTabCopyKey {
     return NEW_TAB_COPY_KEYS.has(key);

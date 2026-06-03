@@ -10,6 +10,7 @@ const CARD_STATES = new Set<CardState>([
     'never-forget',
     'blacklisted',
     'suspended',
+    'in-deck',
     'not-in-deck',
     'redundant',
 ]);
@@ -21,6 +22,9 @@ const CARD_STATE_ALIASES: Record<string, CardState> = {
     not_in_deck: 'not-in-deck',
     notindeck: 'not-in-deck',
     'not in deck': 'not-in-deck',
+    in_deck: 'in-deck',
+    indeck: 'in-deck',
+    'in deck': 'in-deck',
     blacklist: 'blacklisted',
     blacklisted: 'blacklisted',
     ignored: 'blacklisted',

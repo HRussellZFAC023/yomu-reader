@@ -39,6 +39,7 @@ export class SubtitleVideoInsetAdapter {
         watchFlexy?.style.removeProperty('--ytd-watch-flexy-min-player-height');
         for (const element of youtubePlayerContainers()) clearYouTubePlayerContainerInset(element);
         if (video) clearGenericVideoInset(video);
+        resetYouTubePlayerResizeTracking();
     }
 }
 
@@ -95,6 +96,8 @@ export function createSubtitleVideoInsetAdapter(): SubtitleVideoInsetAdapter {
 
 export function subtitleVideoLayoutRect(video?: HTMLVideoElement): DOMRect {
     if (isYouTubePage()) {
+        const scopedRect = video ? youtubePlayerRectForVideo(video) : undefined;
+        if (scopedRect) return scopedRect;
         const rect = youtubeVisiblePlayerRect();
         if (rect) return rect;
     }
@@ -189,20 +192,56 @@ function applySideYouTubePlayerContainerInset(element: HTMLElement, side: Exclud
 }
 
 function youtubeVisiblePlayerRect(): DOMRect | undefined {
-    for (const selector of [
+    const rects = [
         '#movie_player',
+        '.html5-video-player',
         'ytd-watch-flexy #player-container-inner',
         'ytd-watch-flexy #player-container-outer',
         'ytd-watch-flexy #player',
-    ]) {
-        const rect = document.querySelector<HTMLElement>(selector)?.getBoundingClientRect();
+    ].flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector)))
+        .map(element => element.getBoundingClientRect())
+        .filter(usableVideoRect);
+    return rects.sort(compareVideoLayoutRects)[0];
+}
+
+function youtubePlayerRectForVideo(video: HTMLVideoElement): DOMRect | undefined {
+    const candidates = [
+        video.closest<HTMLElement>('#movie_player'),
+        video.closest<HTMLElement>('.html5-video-player'),
+        video.closest<HTMLElement>('ytd-player'),
+        video.closest<HTMLElement>('ytd-reel-video-renderer'),
+        video.closest<HTMLElement>('ytd-shorts'),
+    ];
+    for (const element of candidates) {
+        const rect = element?.getBoundingClientRect();
         if (usableVideoRect(rect)) return rect;
     }
-    return undefined;
+    const rect = video.getBoundingClientRect();
+    return usableVideoRect(rect) ? rect : undefined;
+}
+
+function compareVideoLayoutRects(a: DOMRect, b: DOMRect): number {
+    return rectViewportIntersectionArea(b) - rectViewportIntersectionArea(a)
+        || rectArea(b) - rectArea(a);
+}
+
+function rectViewportIntersectionArea(rect: DOMRect): number {
+    const left = Math.max(0, Math.min(window.innerWidth, rect.left));
+    const top = Math.max(0, Math.min(window.innerHeight, rect.top));
+    const right = Math.max(left, Math.min(window.innerWidth, rect.right));
+    const bottom = Math.max(top, Math.min(window.innerHeight, rect.bottom));
+    return Math.max(0, right - left) * Math.max(0, bottom - top);
+}
+
+function rectArea(rect: DOMRect): number {
+    return Math.max(0, rect.width) * Math.max(0, rect.height);
 }
 
 function requestYouTubePlayerResize(width: number, height: number): void {
     if (!isYouTubePage()) return;
+    const signature = youtubeResizeSignature(width, height);
+    if (signature === lastYouTubePlayerResizeSignature) return;
+    lastYouTubePlayerResizeSignature = signature;
     const player = youtubeMoviePlayer();
     try {
         if (canResizeYouTubePlayer(player, width, height)) player.setSize(Math.round(width), Math.round(height));
@@ -210,7 +249,28 @@ function requestYouTubePlayerResize(width: number, height: number): void {
         // YouTube's player API is private and best-effort.
     }
     dispatchWindowEvent(createWindowEvent('resize'));
-    window.setTimeout(() => dispatchWindowEvent(createWindowEvent('resize')), 0);
+    scheduleYouTubeResizeEvent();
+}
+
+let lastYouTubePlayerResizeSignature = '';
+let pendingYouTubeResizeEvent: number | undefined;
+
+function youtubeResizeSignature(width: number, height: number): string {
+    return `${Math.round(width)}:${Math.round(height)}`;
+}
+
+function scheduleYouTubeResizeEvent(): void {
+    if (pendingYouTubeResizeEvent !== undefined) window.clearTimeout(pendingYouTubeResizeEvent);
+    pendingYouTubeResizeEvent = window.setTimeout(() => {
+        pendingYouTubeResizeEvent = undefined;
+        dispatchWindowEvent(createWindowEvent('resize'));
+    }, 80);
+}
+
+function resetYouTubePlayerResizeTracking(): void {
+    lastYouTubePlayerResizeSignature = '';
+    if (pendingYouTubeResizeEvent !== undefined) window.clearTimeout(pendingYouTubeResizeEvent);
+    pendingYouTubeResizeEvent = undefined;
 }
 
 function youtubeMoviePlayer(): { setSize?: (width: number, height: number) => void } | null {

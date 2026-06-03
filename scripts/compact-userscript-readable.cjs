@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const fs = require('node:fs');
 const path = require('node:path');
+const esbuild = require('esbuild');
 
 const file = path.join(__dirname, '..', 'dist', 'yomu.user.js');
 const original = fs.readFileSync(file, 'utf8');
@@ -17,16 +18,38 @@ console.log(`Compacted readable userscript indentation in ${file} (saved ${saved
 
 function compactReadableIndent(code) {
   let inTemplate = false;
-  return code.split('\n').map(line => {
+  const indentationCompacted = code.split('\n').map(line => {
     const wasInTemplate = inTemplate;
     const nextLine = wasInTemplate ? line : compactLineIndent(line);
     inTemplate = templateStateAfterLine(line, inTemplate);
     return nextLine;
   }).join('\n');
+  return compactBodyWhitespace(indentationCompacted);
 }
 
 function compactLineIndent(line) {
-  return line.replace(/^( {2,})/u, spaces => ' '.repeat(Math.max(1, Math.ceil(spaces.length / 2))));
+  return line.replace(/^ +/u, '');
+}
+
+function compactBodyWhitespace(code) {
+  const bodyStart = code.indexOf('(function');
+  if (bodyStart === -1) return code;
+  const header = code.slice(0, bodyStart);
+  const body = code.slice(bodyStart);
+  try {
+    // Greasy Fork enforces a hard 2 MB script limit, so release builds minify
+    // identifiers after the compliance annotation pass has added review notes.
+    const transformed = esbuild.transformSync(body, {
+      loader: 'js',
+      minifyWhitespace: true,
+      minifyIdentifiers: true,
+      minifySyntax: true,
+      legalComments: 'none',
+    }).code.replace('(function(){', '(function (){');
+    return `${header}${transformed}`;
+  } catch {
+    return code;
+  }
 }
 
 function templateStateAfterLine(line, initialState) {

@@ -21,7 +21,10 @@ const VIDEO_CARD_SELECTOR = [
     'ytm-rich-item-renderer',
     'ytm-compact-video-renderer',
     'ytm-video-card-renderer',
+    'ytm-video-with-context-renderer',
+    'ytm-channel-featured-video-renderer',
     'ytm-shorts-lockup-view-model',
+    'ytm-shorts-lockup-view-model-v2',
 ].join(',');
 
 const VIDEO_CARD_CLOSEST_SELECTOR = VIDEO_CARD_SELECTOR;
@@ -36,7 +39,10 @@ const VIDEO_CARD_HIDE_TARGET_SELECTOR = [
     'ytd-reel-video-renderer',
     'ytm-compact-video-renderer',
     'ytm-video-card-renderer',
+    'ytm-video-with-context-renderer',
+    'ytm-channel-featured-video-renderer',
     'ytm-shorts-lockup-view-model',
+    'ytm-shorts-lockup-view-model-v2',
 ].join(',');
 
 const NON_VIDEO_CONTAINER_SELECTOR = [
@@ -50,6 +56,13 @@ const NON_VIDEO_CONTAINER_SELECTOR = [
     'ytm-compact-playlist-renderer',
 ].join(',');
 
+const SHORTS_WATCH_ITEM_SELECTOR = [
+    'ytd-shorts',
+    'ytd-reel-video-renderer',
+    'ytm-shorts-lockup-view-model',
+    'ytm-shorts-lockup-view-model-v2',
+].join(',');
+
 const TITLE_SELECTORS = [
     '#video-title',
     'a#video-title',
@@ -59,7 +72,14 @@ const TITLE_SELECTORS = [
     '.yt-lockup-metadata-view-model-wiz__title',
     '.ytLockupMetadataViewModelTitle',
     '.ytLockupMetadataViewModelHeadingReset',
+    'h3.details > span.yt-core-attributed-string',
+    'h4.video-card-title > span.yt-core-attributed-string',
+    'h4.YtmCompactMediaItemHeadline > span.yt-core-attributed-string',
+    '.YtmCompactMediaItemHeadline',
+    'h3.media-item-headline > span.yt-core-attributed-string',
     '.media-item-headline',
+    '.shortsLockupViewModelHostMetadataTitle span',
+    '.shortsLockupViewModelHostMetadataTitle',
     'a[href*="/watch"]',
     'a[href*="/shorts"]',
 ];
@@ -68,6 +88,13 @@ const VIDEO_LINK_SELECTORS = [
     'a[href*="/watch"]',
     'a[href^="/shorts/"]',
     'a[href*="youtube.com/shorts/"]',
+    'a.video-card-title-container',
+    'a.video-card-image',
+    'a.YtmCompactMediaItemMetadataContent',
+    'a.YtmCompactMediaItemImage',
+    'a.media-item-thumbnail-container',
+    'a.shortsLockupViewModelHostEndpoint',
+    'ytm-media-item a[href]',
     '.yt-lockup-view-model__content-image',
     'ytd-thumbnail > a',
     'a.yt-simple-endpoint',
@@ -125,7 +152,7 @@ export function collectYouTubeVideoCards(root: ParentNode = document): HTMLEleme
         const normalized = normalizeYouTubeVideoCard(card);
         if (normalized) cards.add(normalized);
     });
-    root.querySelectorAll<HTMLAnchorElement>('a[href*="/watch?v="], a[href^="/shorts/"], a[href*="youtube.com/shorts/"]').forEach(link => {
+    root.querySelectorAll<HTMLAnchorElement>('a[href^="/watch"], a[href*="/watch?v="], a[href*="youtube.com/watch"], a[href^="/shorts/"], a[href*="youtube.com/shorts/"]').forEach(link => {
         const closestCard = link.closest<HTMLElement>(VIDEO_CARD_CLOSEST_SELECTOR);
         const normalized = closestCard ? normalizeYouTubeVideoCard(closestCard) : null;
         if (normalized) cards.add(normalized);
@@ -137,11 +164,7 @@ function readYouTubeCardInfo(card: HTMLElement): YouTubeCardInfo {
     const title = TITLE_SELECTORS
         .map(selector => card.querySelector<HTMLElement>(selector))
         .find(Boolean);
-    const titleText = [
-        title?.getAttribute('title'),
-        title?.getAttribute('aria-label'),
-        title?.textContent,
-    ].find(value => value?.trim()) ?? '';
+    const titleText = title ? readYouTubeTitleText(title) : '';
     return {
         card,
         title: (titleText.trim() || card.textContent?.trim() || '').trim(),
@@ -191,9 +214,18 @@ export class YoutubeImmersionFilter {
             if (!mutations.some(mutationMayAffectYouTubeCards)) return;
             this.schedule(350);
         });
-        this.observer.observe(document.body, { childList: true, subtree: true });
+        this.observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['href', 'title', 'aria-label'],
+            characterData: true,
+        });
         window.addEventListener('yt-navigate-finish', () => this.schedule(120), { signal: this.events.signal });
+        window.addEventListener('yt-page-data-updated', () => this.schedule(120), { signal: this.events.signal });
+        window.addEventListener('yt-page-type-changed', () => this.schedule(120), { signal: this.events.signal });
         window.addEventListener('popstate', () => this.schedule(120), { signal: this.events.signal });
+        window.addEventListener('hashchange', () => this.schedule(120), { signal: this.events.signal });
     }
 
     refresh(): void {
@@ -271,11 +303,12 @@ export class YoutubeImmersionFilter {
         return collectYouTubeFilterItems().map(card => {
             const alwaysHidden = isYouTubeAlwaysHiddenItem(card);
             const info = alwaysHidden ? null : readYouTubeCardInfo(card);
+            const filterText = info ? this.resolveTitleForFiltering(info) : '';
             return {
                 card,
-                title: info?.title ?? '',
+                title: info?.title || filterText || info?.videoId || '',
                 videoId: info?.videoId ?? '',
-                filterText: info ? this.resolveTitleForFiltering(info) : '',
+                filterText,
                 alwaysHidden,
             };
         });
@@ -407,7 +440,7 @@ export class YoutubeImmersionFilter {
         if (!info.videoId) return info.title;
         const cached = this.cachedOEmbedTitle(info.videoId);
         if (cached !== undefined) return cached || info.title;
-        if (shouldVerifyOriginalYouTubeTitle(info.title)) this.fetchOriginalTitle(info.videoId);
+        this.fetchOriginalTitle(info.videoId);
         return info.title;
     }
 
@@ -516,8 +549,26 @@ function noticeButton(action: string): HTMLButtonElement {
     return button;
 }
 
-function shouldVerifyOriginalYouTubeTitle(title: string): boolean {
-    return isProbablyJapaneseYouTubeText(title);
+function readYouTubeTitleText(title: HTMLElement): string {
+    const visibleTitle = [
+        title.getAttribute('title'),
+        title.textContent,
+    ].find(value => value?.trim());
+    if (visibleTitle) return visibleTitle.trim();
+    return cleanYouTubeAriaTitle(title.getAttribute('aria-label') ?? '');
+}
+
+function cleanYouTubeAriaTitle(title: string): string {
+    return title
+        .split(/\s+by\s+/i)[0]
+        .split(/\s+視聴回数\s*/)[0]
+        .split(/\s+再生回数\s*/)[0]
+        .split(/\s+回視聴\s*/)[0]
+        .split(/\s+views?\s*/i)[0]
+        .split(/\s+•\s*/)[0]
+        .split(/\s+·\s*/)[0]
+        .split(/\s*,\s*/)[0]
+        .trim();
 }
 
 function collectYouTubeFilterItems(root: ParentNode = document): HTMLElement[] {
@@ -531,7 +582,7 @@ function collectYouTubeFilterItems(root: ParentNode = document): HTMLElement[] {
 
 function normalizeYouTubeFilterItem(element: HTMLElement): HTMLElement | null {
     if (!element.isConnected) return null;
-    if (isYouTubeShortsWatchPage() && element.closest('ytd-shorts, ytd-reel-video-renderer')) return null;
+    if (isYouTubeShortsWatchPage() && element.closest(SHORTS_WATCH_ITEM_SELECTOR)) return null;
     if (element.closest('[data-jpdb-reader-root]')) return null;
     if (element.matches(NON_VIDEO_CONTAINER_SELECTOR)) return element;
     if (isYouTubePlaylistLikeCard(element)) return youtubeCardHideTarget(element) ?? element;
@@ -544,7 +595,7 @@ function isYouTubeAlwaysHiddenItem(card: HTMLElement): boolean {
 
 function normalizeYouTubeVideoCard(element: HTMLElement): HTMLElement | null {
     if (!element.isConnected) return null;
-    if (isYouTubeShortsWatchPage() && element.closest('ytd-shorts, ytd-reel-video-renderer')) return null;
+    if (isYouTubeShortsWatchPage() && element.closest(SHORTS_WATCH_ITEM_SELECTOR)) return null;
     if (element.closest('[data-jpdb-reader-root]')) return null;
     if (element.matches(NON_VIDEO_CONTAINER_SELECTOR)) return null;
     if (!element.querySelector(VIDEO_LINK_SELECTORS)) return null;
@@ -674,8 +725,8 @@ function nodeMayAffectYouTubeCards(node: Node): boolean {
     if (!element || element.closest('[data-jpdb-reader-root]')) return false;
     return element.matches(VIDEO_CARD_SELECTOR)
         || element.matches(NON_VIDEO_CONTAINER_SELECTOR)
-        || element.matches('ytd-rich-grid-renderer, ytd-section-list-renderer, ytd-item-section-renderer, ytm-rich-grid-renderer')
+        || element.matches('ytd-rich-grid-renderer, ytd-section-list-renderer, ytd-item-section-renderer, ytm-app, ytm-browse, ytm-rich-grid-renderer, ytm-item-section-renderer, ytm-search, lazy-list')
         || Boolean(element.closest(VIDEO_CARD_SELECTOR))
         || Boolean(element.querySelector?.(VIDEO_CARD_SELECTOR))
-        || Boolean(element.querySelector?.('a[href*="/watch?v="], a[href^="/shorts/"], a[href*="youtube.com/shorts/"]'));
+        || Boolean(element.querySelector?.('a[href^="/watch"], a[href*="/watch?v="], a[href*="youtube.com/watch"], a[href^="/shorts/"], a[href*="youtube.com/shorts/"]'));
 }

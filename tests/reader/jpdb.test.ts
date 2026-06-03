@@ -2,20 +2,21 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { isYomuHostedAppUrl, isYomuHostedPassivePage } from '../../src/reader/app-pages';
-import { AnkiConnectClient, buildYomuAnkiFields, YOMU_MODEL_FIELDS, type AnkiLookupResult } from '../../src/reader/anki';
+import { AnkiConnectClient, AnkiDuplicateNoteError, buildYomuAnkiFields, YOMU_MODEL_FIELDS, type AnkiLookupResult } from '../../src/reader/anki';
 import { AudioPlayer, decodeJpdbAudioBlob, findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod101Audio, jpdbAudioRequest, normalizeJpdbAudioIds, resolveAnkiWordAudio, ShuffledAudioDeck } from '../../src/reader/audio';
 import { positionPopover } from '../../src/reader/browser-ui';
 import { CardActionController } from '../../src/reader/card-action-controller';
 import { CardPopoverRenderer } from '../../src/reader/card-popover-renderer';
 import { CardRenderDataLoader, type CardRenderData } from '../../src/reader/card-render-data';
 import { createAudioPreviewCard } from '../../src/reader/card-utils';
-import { HOSTED_DEMO_LOOKUP_SCAN_EVENT, IMMERSION_KIT_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../../src/reader/constants';
+import { IMMERSION_KIT_SOURCE_ID, SETTINGS_CHANGE_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../../src/reader/constants';
 import { deinflectJapaneseTerm, termRulesMatch } from '../../src/reader/deinflect';
 import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../src/reader/definition-source-render';
 import { DictionarySourceStateController } from '../../src/reader/dictionary-source-state';
 import { applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, nearestReadableSentenceForElement, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords } from '../../src/reader/dom';
 import { FloatingButtonController } from '../../src/reader/floating-button';
 import { ImmersionKitClient, type ImmersionKitExample } from '../../src/reader/immersion-kit';
+import type { MiningContext } from '../../src/reader/mining-context';
 import { ImmersionPopoverController } from '../../src/reader/immersion-popover-controller';
 import { JpdbClient, splitJapaneseSentences } from '../../src/reader/jpdb';
 import { jpdbParseResultToTokens, jpdbVocabularyToCards } from '../../src/reader/jpdb-parser';
@@ -38,6 +39,7 @@ import { DEFAULT_YOMU_PUBLIC_PROXY_URL, fetchWithCorsFallbacks, proxyUrlCandidat
 import { renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderPitch, renderRtkInfo, tokensOverlappingSelection } from '../../src/reader/popup-render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/recommended-dictionaries';
 import { ReaderApp } from '../../src/reader/main';
+import { NewTabController } from '../../src/reader/new-tab-controller';
 import { NewTabRuntime } from '../../src/reader/newtab-runtime';
 import { ReaderAudioActions } from '../../src/reader/reader-audio-actions';
 import { ReaderParser, fallbackLookupTermAtOffset, jpdbFirstParseOptions } from '../../src/reader/reader-parser';
@@ -46,6 +48,7 @@ import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, applyUrl
 import { installSourceRowDrag, localizeSettingsForm, readDictionaryLookupLinks, readFormSettings, renderAudioSourceEditor, renderDictionaryLookupLinkEditor, renderDictionarySourceRows, renderKanjiSourceRows, renderRecommendedDictionaries, renderSettingsForm, syncStickyBottomSheetAvailability, updateDictionaryLookupLinkEditor } from '../../src/reader/settings-form';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/site-parsers';
 import { KANJI_UCHISEN_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/source-sections';
+import { StudySourceController } from '../../src/reader/study-sources';
 import { detectGrammarHints, renderGrammarHints, translateJapaneseSentence } from '../../src/reader/study-tools';
 import { loadReaderCssFallback, READER_CSS, readerCssFallbackUrls, readerCssNeedsFallback } from '../../src/reader/styles';
 import { findActiveSubtitleCue, normalizeSubtitleCues, parseSubtitleText } from '../../src/reader/subtitle-cues';
@@ -60,9 +63,10 @@ import { loadSubtitleTrackCues } from '../../src/reader/subtitle-track-loader';
 import { renderSubtitlePrimary } from '../../src/reader/subtitle-rendering';
 import { planTranscriptHydrationIndexes } from '../../src/reader/subtitle-transcript-hydration';
 import { getUserscriptHttpRequest, installUserscriptHttpBridge } from '../../src/reader/userscript';
+import { renderWordPills } from '../../src/reader/word-pills';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport, renderDictionaryScopedStyles, type YomitanTermEntry } from '../../src/reader/yomitan';
 import { glossaryValueToSearchText } from '../../src/reader/yomitan-glossary-text';
-import type { AudioSourceSetting, JPDBCard, JPDBToken } from '../../src/reader/types';
+import type { AudioSourceSetting, JPDBCard, JPDBRawToken, JPDBToken } from '../../src/reader/types';
 import { yomitanZipBlob } from './zip-fixture';
 import PublicProxyWorker, { isAllowedPublicProxyTarget } from '../../workers/jpdb-public-proxy/src/index';
 
@@ -122,6 +126,7 @@ function immersionExample(sentence: string): ImmersionKitExample {
         imageUrl: '',
     };
 }
+
 
 function immersionPopoverTestController(
     search: (query: string, settings: typeof DEFAULT_SETTINGS, options: { signal?: AbortSignal }) => Promise<ImmersionKitExample[]>,
@@ -367,6 +372,18 @@ function mockHtmlAudioPlayback(played: string[], loopStates?: boolean[]): () => 
     };
 }
 
+function unproxiedFetchTarget(input: RequestInfo | URL): string {
+    const value = String(input);
+    try {
+        const url = new URL(value);
+        return url.origin === DEFAULT_YOMU_PUBLIC_PROXY_URL
+            ? url.searchParams.get('url') ?? value
+            : value;
+    } catch {
+        return value;
+    }
+}
+
 function mockAppleMobileBrowser(): () => void {
     const ownUserAgent = Object.getOwnPropertyDescriptor(navigator, 'userAgent');
     const ownPlatform = Object.getOwnPropertyDescriptor(navigator, 'platform');
@@ -506,6 +523,223 @@ describe('reader helpers', () => {
             expect(lookupBatches.map(batch => batch.length)).toEqual([100, 100]);
             expect(lookupBatches[0][0]).toEqual([1, 1001]);
             expect(lookupBatches[1][0]).toEqual([101, 1101]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps locked JPDB deck cards in scheduled deck order', async () => {
+        const client = new JpdbClient(() => 'token');
+        const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+            const href = String(url);
+            const body = JSON.parse(String(init?.body ?? '{}')) as { list?: Array<[number, number]> };
+            if (href === 'https://jpdb.io/api/v1/deck/list-vocabulary') {
+                return {
+                    status: 200,
+                    ok: true,
+                    text: async () => JSON.stringify({ vocabulary: [[1, 11], [2, 22], [3, 33]] }),
+                };
+            }
+            if (href === 'https://jpdb.io/api/v1/lookup-vocabulary') {
+                const byVid: Record<number, string[]> = {
+                    1: ['locked'],
+                    2: ['due'],
+                    3: ['known'],
+                };
+                return {
+                    status: 200,
+                    ok: true,
+                    text: async () => JSON.stringify({
+                        vocabulary_info: (body.list ?? []).map(([vid, sid]) => [
+                            vid,
+                            sid,
+                            vid + 100,
+                            `語${vid}`,
+                            `ご${vid}`,
+                            vid,
+                            ['n'],
+                            [[`word ${vid}`]],
+                            [['n']],
+                            byVid[vid] ?? ['known'],
+                            [],
+                        ]),
+                    }),
+                };
+            }
+            throw new Error(`Unexpected URL: ${href}`);
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const cards = await client.listDeckCards('deck', 10, { scheduledOnly: true });
+
+            expect(cards.map(card => card.spelling)).toEqual(['語1', '語2']);
+            expect(cards.map(card => card.cardState)).toEqual([['locked'], ['due']]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('lists all-decks scheduled JPDB vocabulary in queue order and includes locked cards', async () => {
+        const client = new JpdbClient(() => 'token');
+        const requestedDeckIds: unknown[] = [];
+        const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+            const href = String(url);
+            const body = JSON.parse(String(init?.body ?? '{}')) as { id?: unknown; list?: Array<[number, number]> };
+            if (href === 'https://jpdb.io/api/v1/deck/list-vocabulary') {
+                requestedDeckIds.push(body.id);
+                return {
+                    status: 200,
+                    ok: true,
+                    text: async () => JSON.stringify({ vocabulary: [[9, 99], [7, 77], [8, 88]] }),
+                };
+            }
+            if (href === 'https://jpdb.io/api/v1/lookup-vocabulary') {
+                const byVid: Record<number, string[]> = {
+                    7: ['due'],
+                    8: ['known'],
+                    9: ['locked'],
+                };
+                return {
+                    status: 200,
+                    ok: true,
+                    text: async () => JSON.stringify({
+                        vocabulary_info: (body.list ?? []).slice().reverse().map(([vid, sid]) => [
+                            vid,
+                            sid,
+                            vid + 100,
+                            `全${vid}`,
+                            `ぜん${vid}`,
+                            vid,
+                            ['n'],
+                            [[`all ${vid}`]],
+                            [['n']],
+                            byVid[vid] ?? ['known'],
+                            [],
+                        ]),
+                    }),
+                };
+            }
+            throw new Error(`Unexpected URL: ${href}`);
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const cards = await client.listDeckCards('all', 10, { scheduledOnly: true });
+
+            expect(requestedDeckIds).toEqual(['all']);
+            expect(cards.map(card => card.spelling)).toEqual(['全9', '全7']);
+            expect(cards.map(card => card.cardState)).toEqual([['locked'], ['due']]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('preserves JPDB deck vocabulary order after lookup responses are shuffled', async () => {
+        const client = new JpdbClient(() => 'token');
+        const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+            const href = String(url);
+            const body = JSON.parse(String(init?.body ?? '{}')) as { list?: Array<[number, number]> };
+            if (href === 'https://jpdb.io/api/v1/deck/list-vocabulary') {
+                return {
+                    status: 200,
+                    ok: true,
+                    text: async () => JSON.stringify({ vocabulary: [[1, 11], [2, 22], [3, 33]] }),
+                };
+            }
+            if (href === 'https://jpdb.io/api/v1/lookup-vocabulary') {
+                const list = [...(body.list ?? [])].reverse();
+                return {
+                    status: 200,
+                    ok: true,
+                    text: async () => JSON.stringify({
+                        vocabulary_info: list.map(([vid, sid]) => [
+                            vid,
+                            sid,
+                            vid + 100,
+                            `語${vid}`,
+                            `ご${vid}`,
+                            vid,
+                            ['n'],
+                            [[`word ${vid}`]],
+                            [['n']],
+                            ['new'],
+                            ['new'],
+                            [],
+                        ]),
+                    }),
+                };
+            }
+            throw new Error(`Unexpected URL: ${href}`);
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const cards = await client.listDeckCards('deck', 3);
+
+            expect(cards.map(card => card.spelling)).toEqual(['語1', '語2', '語3']);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('checks JPDB membership against the all-decks vocabulary pool', async () => {
+        const client = new JpdbClient(() => 'token');
+        const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+            const href = String(url);
+            const body = JSON.parse(String(init?.body ?? '{}')) as { id?: string };
+            if (href === 'https://jpdb.io/api/v1/deck/list-vocabulary') {
+                expect(body.id).toBe('all');
+                return {
+                    status: 200,
+                    ok: true,
+                    text: async () => JSON.stringify({ vocabulary: [[1464530, 0], [2, 2]] }),
+                };
+            }
+            throw new Error(`Unexpected URL: ${href}`);
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(client.isInUserDeckPool({ ...card, vid: 1464530, sid: 0 })).resolves.toBe(true);
+            await expect(client.isInUserDeckPool({ ...card, vid: 777, sid: 0 })).resolves.toBe(false);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('falls back to scanning listed JPDB decks when all-decks membership is unavailable', async () => {
+        const client = new JpdbClient(() => 'token');
+        const requestedDecks: unknown[] = [];
+        const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+            const href = String(url);
+            const body = JSON.parse(String(init?.body ?? '{}')) as { id?: string };
+            if (href === 'https://jpdb.io/api/v1/deck/list-vocabulary') {
+                requestedDecks.push(body.id);
+                if (body.id === 'all') {
+                    return { status: 400, ok: false, text: async () => JSON.stringify({ error_message: 'unsupported deck' }) };
+                }
+                return {
+                    status: 200,
+                    ok: true,
+                    text: async () => JSON.stringify({ vocabulary: body.id === 'deck-b' ? [[1464530, 0]] : [[1, 1]] }),
+                };
+            }
+            if (href === 'https://jpdb.io/api/v1/list-user-decks') {
+                return {
+                    status: 200,
+                    ok: true,
+                    text: async () => JSON.stringify({ decks: [['deck-a', 'Deck A'], ['deck-b', 'Deck B']] }),
+                };
+            }
+            throw new Error(`Unexpected URL: ${href}`);
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(client.isInUserDeckPool({ ...card, vid: 1464530, sid: 0 })).resolves.toBe(true);
+            expect(requestedDecks).toEqual(expect.arrayContaining(['all', 'deck-a', 'deck-b']));
         } finally {
             vi.unstubAllGlobals();
         }
@@ -682,6 +916,128 @@ describe('reader helpers', () => {
         expect(html).toContain('jpdb-reader-word jpdb-never-forget');
     });
 
+    it('keeps JPDB particles visually neutral while leaving them clickable', () => {
+        const text = '青空の下で';
+        const tokens: JPDBToken[] = [
+            {
+                card: { ...card, vid: 10, sid: 10, spelling: '青空', reading: 'あおぞら', partOfSpeech: ['n'], cardState: ['known'] },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [{ text: 'あおぞら', start: 0, end: 2, length: 2 }],
+                pitchClass: 'heiban',
+                sentence: text,
+            },
+            {
+                card: { ...card, vid: 11, sid: 11, spelling: 'の', reading: 'の', partOfSpeech: ['prt'], cardState: ['known'] },
+                start: 2,
+                end: 3,
+                length: 1,
+                rubies: [],
+                pitchClass: 'heiban',
+                sentence: text,
+            },
+            {
+                card: { ...card, vid: 12, sid: 12, spelling: 'で', reading: '', partOfSpeech: [], cardState: ['not-in-deck'], source: 'fallback' },
+                start: 4,
+                end: 5,
+                length: 1,
+                rubies: [],
+                pitchClass: '',
+                sentence: text,
+            },
+        ];
+
+        document.body.innerHTML = renderTokensToHtml(text, tokens, DEFAULT_SETTINGS);
+        const particle = document.querySelector<HTMLElement>('[data-expression="の"]');
+        const fallbackParticle = document.querySelector<HTMLElement>('[data-expression="で"]');
+
+        try {
+            expect(particle?.classList.contains('jpdb-reader-word')).toBe(true);
+            expect(particle?.classList.contains('jpdb-reader-particle')).toBe(true);
+            expect(particle?.dataset.vid).toBe('11');
+            expect(particle?.classList.contains('jpdb-known')).toBe(false);
+            expect(Array.from(particle?.classList ?? []).some(className => className.startsWith('jpdb-pitch-'))).toBe(false);
+            expect(fallbackParticle?.className).toBe('jpdb-reader-word jpdb-reader-particle');
+        } finally {
+            document.body.replaceChildren();
+        }
+    });
+
+    it('uses JPDB token ruby to repair ambiguous kanji readings from context', () => {
+        const text = '青空の下で';
+        const cards = jpdbVocabularyToCards([
+            [1300, 0, 0, '下', 'もと', 1300, ['adv', 'n'], [['under guidance']], [['n']], ['locked'], ['LH']],
+        ]);
+        const rawTokens: JPDBRawToken[][] = [[[0, 3, 1, [['下', 'した']]]]];
+        const [[token]] = jpdbParseResultToTokens([text], rawTokens, cards);
+        const html = renderTokensToHtml(text, [token], DEFAULT_SETTINGS);
+
+        expect(token.card.reading).toBe('した');
+        expect(token.card.sourceCardKey).toBe('1300:0:下:もと');
+        expect(token.card.pitchAccent).toEqual([]);
+        expect(html).toContain('data-expression="下"');
+        expect(html).toContain('data-reading="した"');
+        expect(html).not.toContain('data-reading="もと"');
+    });
+
+    it('resolves contextual JPDB reading overrides to an exact public card', async () => {
+        const app = new ReaderApp();
+        const contextualCard: JPDBCard = {
+            ...card,
+            vid: 1300,
+            sid: 0,
+            spelling: '下',
+            reading: 'した',
+            source: 'jpdb',
+            sourceCardKey: '1300:0:下:もと',
+        };
+        const exactCard: JPDBCard = {
+            ...contextualCard,
+            vid: 2400,
+            sid: 1,
+            meanings: [{ glosses: ['below'], partOfSpeech: ['n'] }],
+            sourceCardKey: undefined,
+        };
+        const search = vi.fn(async () => [
+            { ...contextualCard, reading: 'もと' },
+            exactCard,
+        ]);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbVocabulary: { search: typeof search };
+            resolveLookupCard(card: JPDBCard): Promise<JPDBCard>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, jpdbDefinitionsEnabled: true, showPitchAccent: true };
+        internals.jpdbVocabulary = { search };
+
+        try {
+            await expect(internals.resolveLookupCard(contextualCard)).resolves.toBe(exactCard);
+            expect(search).toHaveBeenCalledWith('下', 12);
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('does not inherit pitch coloring onto JPDB particle tokens', () => {
+        const text = '青空の下';
+        const cards = jpdbVocabularyToCards([
+            [1, 1, 1, '青空', 'あおぞら', 1200, ['n'], [['blue sky']], [['n']], ['known'], ['LHHH']],
+            [2, 2, 2, 'の', 'の', null, ['prt'], [['particle']], [['prt']], ['known'], []],
+            [3, 3, 3, '下', 'した', 1300, ['n'], [['below']], [['n']], ['known'], ['LH']],
+        ]);
+        const rawTokens: JPDBRawToken[][] = [[
+            [0, 0, 2, [['青空', 'あおぞら']]],
+            [1, 2, 1, null],
+            [2, 3, 1, [['下', 'した']]],
+        ]];
+        const [[sky, particle, below]] = jpdbParseResultToTokens([text], rawTokens, cards);
+
+        expect(sky.pitchClass).toBe('heiban');
+        expect(particle.pitchClass).toBe('');
+        expect(below.pitchClass).toBe('heiban');
+    });
+
     it('marks reader word visual styling as important so page CSS resets cannot hide clickable words', () => {
         const normalizedCss = READER_WORD_CSS.replace(/\s+/g, ' ');
         const normalizedDocsCss = DOCS_THEME_CSS.replace(/\s+/g, ' ');
@@ -689,7 +1045,10 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('text-decoration-line: underline !important;');
         expect(normalizedCss).toContain('text-decoration-color: var( --jpdb-reader-word-underline, transparent ) !important;');
         expect(normalizedCss).toContain('display: inline;');
-        expect(normalizedDocsCss).toContain('.yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; line-height: inherit; vertical-align: baseline; white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word { white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word:hover, .jpdb-reader-word:focus { background: linear-gradient(var(--jpdb-reader-hover), var(--jpdb-reader-hover)), var(--jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent)) !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none); outline: none; }');
+        expect(normalizedCss).not.toContain('.jpdb-reader-word:hover, .jpdb-reader-word:focus { background: var(--jpdb-reader-hover) !important;');
+        expect(normalizedDocsCss).not.toContain('.yomu-try-me .jpdb-reader-word');
         expect(normalizedDocsCss).not.toContain('.yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; color: var(--jpdb-reader-source-jpdb-color');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: none; }');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 1.85; }');
@@ -697,20 +1056,49 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('display: ruby;');
         expect(normalizedCss).toContain('.jpdb-reader-word rt.jpdb-reader-furi {');
         expect(normalizedCss).toContain('display: ruby-text;');
+        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-due, .jpdb-never-forget):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');
         expect(normalizedCss).toContain('text-decoration-line: inherit !important;');
         expect(normalizedCss).toContain('text-decoration-color: inherit !important;');
         expect(normalizedCss).toContain('--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-jpdb-soft, transparent);');
         expect(normalizedCss).toContain('--jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);');
-        expect(normalizedCss).toContain('--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown, #94a3b8));');
-        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-new, .jpdb-suspended, .jpdb-not-in-deck) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff); --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, 0.16)); }');
-        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f); --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16)); }');
-        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant, .anki-known) { --jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f); --jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16)); }');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-pitch-unknown { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown, #94a3b8); --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent); }');
-        expect(normalizedCss).toContain('.jpdb-reader-word-highlight-status .jpdb-reader-word { background: var(--jpdb-reader-source-status-soft, transparent) !important; }');
-        expect(normalizedCss).toContain('.jpdb-reader-word-underline-status .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent); }');
-        expect(normalizedCss).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); }');
-        expect(normalizedCss).toContain('.jpdb-reader-word-text-jpdb .jpdb-reader-word { color: var(--jpdb-reader-source-jpdb-color, currentColor) !important; }');
-        expect(normalizedCss).toContain('.jpdb-ocr-line .jpdb-reader-word { background: transparent !important; --jpdb-reader-word-underline: transparent; text-decoration: none !important;');
+        expect(normalizedCss).toContain('--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown));');
+        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new);');
+        expect(normalizedCss).toContain('--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft);');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-suspended { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-ignored);');
+        expect(normalizedCss).toContain('.jpdb-reader-word.anki-new { --jpdb-reader-anki-color: var(--jpdb-reader-state-new);');
+        expect(normalizedCss).toContain('.jpdb-reader-word.anki-suspended { --jpdb-reader-anki-color: var(--jpdb-reader-state-ignored);');
+        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck, .anki-new) { --jpdb-reader-status-color: var(--jpdb-reader-state-new);');
+        expect(normalizedCss.match(/\.jpdb-reader-word(?::is\([^)]*not-in-deck[^)]*\)|\.[\w-]*not-in-deck) \{ --jpdb-reader-(?:jpdb|anki|status)-color:/)).toBeNull();
+        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known);');
+        expect(normalizedCss).toContain('--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-known-soft);');
+        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant, .anki-known) { --jpdb-reader-status-color: var(--jpdb-reader-state-known);');
+        expect(normalizedCss).toContain('--jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft);');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-pitch-unknown { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown);');
+        expect(normalizedCss).toContain('--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent);');
+        expect(normalizedCss).toContain('--jpdb-reader-source-status-highlight: var(--jpdb-reader-status-highlight, var(--jpdb-reader-source-status-soft, transparent));');
+        expect(normalizedCss).toMatch(/--jpdb-reader-jpdb-highlight: color-mix\(\s*in srgb, var\(--jpdb-reader-jpdb-color\) 36%, var\(--jpdb-reader-highlight-backdrop\)\s*\);/);
+        expect(normalizedCss).toMatch(/--jpdb-reader-pitch-highlight: color-mix\(\s*in srgb, var\(--jpdb-reader-pitch-color\) 36%, var\(--jpdb-reader-highlight-backdrop\)\s*\);/);
+        expect(normalizedCss).toContain('.jpdb-reader-word-highlight-status .jpdb-reader-word { --jpdb-reader-word-highlight-source: var(--jpdb-reader-source-status-highlight, transparent); }');
+        expect(normalizedCss).toContain('--jpdb-reader-word-accessible-highlight');
+        expect(normalizedCss).toContain('color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ) !important;');
+        expect(normalizedCss).toContain('.jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) { color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word-underline-status .jpdb-reader-word { --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-status-decoration, transparent); --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent)); }');
+        expect(normalizedCss).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-word { --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent); --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent)); }');
+        expect(normalizedCss).toContain('.jpdb-reader-word-text-jpdb .jpdb-reader-word { --jpdb-reader-word-color-source: var(--jpdb-reader-source-jpdb-color, currentColor); color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;');
+        expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word { background: transparent !important;');
+        expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; box-shadow: none !important; text-decoration-line: underline !important;');
+        expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: transparent !important; box-shadow: none !important; }');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor); --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background: var(--jpdb-reader-word-highlight-source, transparent) !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; }');
+        expect(normalizedCss).not.toContain('.jpdb-reader-word-highlight-jpdb .jpdb-ocr-layer');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi { background: transparent !important; box-shadow: none !important; }');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: var(--jpdb-reader-word-highlight-source, transparent) !important; border-radius: 3px; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; }');
+        expect(normalizedCss).not.toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: color-mix');
+        expect(normalizedCss).not.toContain('.jpdb-reader-word-underline-jpdb .jpdb-ocr-layer');
+        expect(normalizedCss).not.toContain('.jpdb-reader-word-text-jpdb .jpdb-ocr-layer');
+        expect(normalizedCss).not.toContain('.jpdb-reader-word-highlight-pitch .jpdb-reader-word.jpdb-reader-has-furi { background: transparent');
+        expect(normalizedCss).not.toContain('.jpdb-reader-word.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: var(--jpdb-reader-source-pitch');
+        expect(normalizedCss).not.toContain('--jpdb-reader-source-pitch-soft: transparent; --jpdb-reader-source-pitch-decoration: transparent;');
+        expect(normalizedCss).not.toContain('text-decoration: none !important; color: inherit !important; pointer-events: auto;');
     });
 
     it('detects when userscript GM resource CSS is unavailable', () => {
@@ -740,18 +1128,27 @@ describe('reader helpers', () => {
 
     it('resolves subtitle color channels on each parsed word', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+        const subtitleSurfaces = ':is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom)';
 
-        expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--subtitle-color); --jpdb-reader-subtitle-highlight-default: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 24%, transparent ); background: transparent !important;');
-        expect(normalizedCss).toContain(':is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-status-color: var(--jpdb-reader-status-color, var(--jpdb-reader-state-new, #58a6ff));');
+        expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--subtitle-color); --jpdb-reader-subtitle-highlight-default: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 24%, transparent ); background: transparent !important;');
+        expect(normalizedCss).toContain(`${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-subtitle-status-color: var(--jpdb-reader-status-color, var(--jpdb-reader-state-new));`);
         expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-pitch-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-color) 30%, transparent);');
-        expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; background: transparent !important; color: var(--jpdb-reader-subtitle-fallback, currentColor) !important; text-decoration-line: underline !important; text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;');
-        expect(normalizedCss).toContain('.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-pitch-soft, var(--jpdb-reader-source-pitch-soft, var(--jpdb-reader-subtitle-highlight-default))); }');
-        expect(normalizedCss).toContain('.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-color); }');
-        expect(normalizedCss).toContain(':is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important; }');
-        expect(normalizedCss).toContain(':is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { text-decoration-line: underline !important; }');
+        expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; background: transparent !important; box-shadow: none; color: var(--jpdb-reader-subtitle-fallback, currentColor) !important; text-decoration-line: underline !important; text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;');
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-highlight-pitch ${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-pitch-soft, var(--jpdb-reader-source-pitch-soft, var(--jpdb-reader-subtitle-highlight-default))); }`);
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-pitch ${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-color); }`);
+        expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) ${subtitleSurfaces} .jpdb-reader-word { background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important; }`);
+        expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) ${subtitleSurfaces} .jpdb-reader-word.jpdb-reader-has-furi { background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important; }`);
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important;');
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-highlight-pitch ${subtitleSurfaces} .jpdb-reader-word { background: color-mix( in srgb, var(--jpdb-reader-subtitle-pitch-color) 36%, var(--jpdb-reader-highlight-backdrop) ) !important; box-shadow:`);
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-highlight-pitch ${subtitleSurfaces} .jpdb-reader-word.jpdb-reader-has-furi { background: color-mix( in srgb, var(--jpdb-reader-subtitle-pitch-color) 36%, var(--jpdb-reader-highlight-backdrop) ) !important; box-shadow:`);
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: color-mix( in srgb, var(--jpdb-reader-subtitle-pitch-color) 36%, var(--jpdb-reader-highlight-backdrop) ) !important; box-shadow:');
+        expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important; border-radius: 0.22em;');
+        expect(normalizedCss).toContain(':is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch) :is(.jpdb-reader-newtab-immersion, [data-immersion-kit]) .jpdb-reader-example-sentence.jpdb-reader-subtitle-surface .jpdb-reader-word { color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-reader-subtitle-fallback, currentColor)) ) !important; }');
+        expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) ${subtitleSurfaces} .jpdb-reader-word { text-decoration-line: underline !important; }`);
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-pitch ${subtitleSurfaces} .jpdb-reader-word { text-decoration-thickness: .12em !important; text-underline-offset: .12em !important; }`);
         expect(normalizedCss).not.toContain('.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); text-decoration-line: underline !important; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken { opacity: 1; } .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-current { opacity: 1; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text, #fff); color: inherit; background: transparent; text-decoration-color: var(--jpdb-reader-word-underline, transparent);');
+        expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); color: inherit; background: transparent; text-decoration-color: var(--jpdb-reader-word-underline, transparent);');
     });
 
     it('forces current YouTube player nodes to honor side transcript insets', () => {
@@ -767,14 +1164,20 @@ describe('reader helpers', () => {
         const normalizedImmersionCss = IMMERSION_STUDY_CSS.replace(/\s+/g, ' ');
         const html = renderPitch({ ...card, spelling: '読む', reading: 'よむ', pitchAccent: ['HLL'] });
 
-        expect(normalizedKanjiCss).toContain('.jpdb-reader-pitch .atamadaka { color: var(--jpdb-reader-pitch-atamadaka, #fe4b74); }');
+        expect(normalizedKanjiCss).toContain('.jpdb-reader-pitch .atamadaka { color: var(--jpdb-reader-pitch-atamadaka-readable); }');
         expect(html).toContain('<polyline class="atamadaka"');
         expect(html).toContain('<circle class="atamadaka"');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-sentence .jpdb-reader-example-target { padding: 0 0.08em; border-radius: 0.22em; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 14%, transparent );');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-target { padding: 0 0.08em; border-radius: 0.22em; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 15%, transparent );');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 34%, rgb(0 0 0 / 38%) ) !important;');
-        expect(normalizedImmersionCss).toContain('.jpdb-reader-example-target { padding: 0 0.08em; border-radius: 0.22em; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 15%, transparent );');
-        expect(normalizedImmersionCss).toContain('.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 34%, rgb(0 0 0 / 38%) ) !important;');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-sentence .jpdb-reader-example-target { padding: 0 0.08em; border-radius: 0.22em; background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) );');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-target { padding: 0 0.08em; border-radius: 0.22em; background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) );');
+        expect(normalizedNewTabCss).toContain('background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg)); box-shadow: 0 6px 16px var(--jpdb-reader-shadow), inset 0 0 0 1px var(--jpdb-reader-ocr-inset);');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) ) !important;');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
+        expect(normalizedImmersionCss).toContain('.jpdb-reader-example-target { padding: 0 0.08em; border-radius: 0.22em; background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) );');
+        expect(normalizedImmersionCss).toContain('background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg)); box-shadow: 0 6px 16px var(--jpdb-reader-shadow), inset 0 0 0 1px var(--jpdb-reader-ocr-inset);');
+        expect(normalizedImmersionCss).toContain('.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
+        expect(normalizedImmersionCss).toContain('.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) ) !important;');
+        expect(normalizedImmersionCss).toContain('.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
     });
 
     it('resizes sheet popovers continuously when dragging the handle', () => {
@@ -963,6 +1366,15 @@ describe('reader helpers', () => {
     it('uses the accent color when the sheet handle is hovered', () => {
         const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
         expect(normalizedCss).toContain('.jpdb-reader-sheet-handle:hover::before, .jpdb-reader-sheet-handle:focus-visible::before { background: var(--jpdb-reader-accent); }');
+    });
+
+    it('renders status tone rows with a visible status light', () => {
+        const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('.jpdb-reader-status-line[data-status-tone]::before { content: "";');
+        expect(normalizedCss).toContain('background: var(--jpdb-reader-status-light);');
+        expect(normalizedCss).toContain('.jpdb-reader-status-line[data-status-tone="success"] { --jpdb-reader-status-light: var(--jpdb-reader-accent);');
+        expect(normalizedCss).toContain('.jpdb-reader-status-line[data-status-tone="error"] { --jpdb-reader-status-light: var(--jpdb-reader-danger);');
     });
 
     it('keeps forced bottom-sheet popovers positioned on desktop viewports', () => {
@@ -1177,6 +1589,142 @@ describe('reader helpers', () => {
         expect(SUBTITLES_YOUTUBE_CSS).toContain('.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize:hover::before');
     });
 
+    it('parses Japanese settings labels in the main reader runtime', async () => {
+        const app = new ReaderApp();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'ja' as const,
+            showFurigana: true,
+            furiganaMode: 'all' as const,
+        };
+        const form = document.createElement('form');
+        form.className = 'jpdb-reader-settings';
+        form.dataset.jpdbReaderRoot = 'true';
+        form.innerHTML = renderSettingsForm(settings, 'https://jpdb.io/settings');
+        localizeSettingsForm(form, 'ja');
+        document.body.append(form);
+
+        const parseJapanese = vi.fn(async (texts: string[], options?: unknown): Promise<JPDBToken[][]> => {
+            void options;
+            return texts.map(text => {
+                const start = text.indexOf('設定');
+                if (start < 0) return [];
+                return [{
+                    card: {
+                        ...card,
+                        vid: 2468,
+                        sid: 0,
+                        spelling: '設定',
+                        reading: 'せってい',
+                        partOfSpeech: ['n'],
+                    },
+                    start,
+                    end: start + 2,
+                    length: 2,
+                    rubies: [{ text: 'せってい', start, end: start + 2, length: 2 }],
+                    pitchClass: 'heiban',
+                }];
+            });
+        });
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            activePopover?: HTMLElement;
+            parseJapanese: typeof parseJapanese;
+            parseSettingsJapanese(form: HTMLFormElement): Promise<void>;
+            enrichPitchWords(tokens: JPDBToken[], options?: unknown): Promise<void>;
+            enrichAnkiWords(tokens: JPDBToken[], roots?: ParentNode[]): Promise<void>;
+        };
+        internals.settings = settings;
+        internals.activePopover = form;
+        internals.parseJapanese = parseJapanese;
+        internals.enrichPitchWords = vi.fn(async () => undefined);
+        internals.enrichAnkiWords = vi.fn(async () => undefined);
+
+        try {
+            await internals.parseSettingsJapanese(form);
+
+            expect(parseJapanese).toHaveBeenCalledWith(
+                expect.arrayContaining(['よむ 設定']),
+                expect.objectContaining({
+                    allowJpdbTimeoutFallback: true,
+                    allowSegmentedFallback: true,
+                    includeLocalPitch: false,
+                    requireJpdb: false,
+                    skipJpdb: true,
+                }),
+            );
+            const parsedWord = form.querySelector<HTMLElement>('h2 .jpdb-reader-word[data-expression="設定"]');
+            expect(parsedWord).toBeTruthy();
+            expect(parsedWord?.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(parsedWord?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(parsedWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せってい');
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not parse settings help and status rows as reading text', async () => {
+        const app = new ReaderApp();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'ja' as const,
+            showFurigana: true,
+            furiganaMode: 'all' as const,
+        };
+        const form = document.createElement('form');
+        form.className = 'jpdb-reader-settings';
+        form.dataset.jpdbReaderRoot = 'true';
+        form.innerHTML = renderSettingsForm(settings, 'https://jpdb.io/settings');
+        localizeSettingsForm(form, 'ja');
+        document.body.append(form);
+
+        const parseJapanese = vi.fn(async (texts: string[]): Promise<JPDBToken[][]> => texts.map(text => {
+            const start = text.indexOf('公開');
+            if (start < 0) return [];
+            return [{
+                card: {
+                    ...card,
+                    vid: 8642,
+                    sid: 0,
+                    spelling: '公開',
+                    reading: 'こうかい',
+                    partOfSpeech: ['n'],
+                },
+                start,
+                end: start + 2,
+                length: 2,
+                rubies: [{ text: 'こうかい', start, end: start + 2, length: 2 }],
+                pitchClass: 'heiban',
+            }];
+        }));
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            activePopover?: HTMLElement;
+            parseJapanese: typeof parseJapanese;
+            parseSettingsJapanese(form: HTMLFormElement): Promise<void>;
+            enrichPitchWords(tokens: JPDBToken[], options?: unknown): Promise<void>;
+            enrichAnkiWords(tokens: JPDBToken[], roots?: ParentNode[]): Promise<void>;
+        };
+        internals.settings = settings;
+        internals.activePopover = form;
+        internals.parseJapanese = parseJapanese;
+        internals.enrichPitchWords = vi.fn(async () => undefined);
+        internals.enrichAnkiWords = vi.fn(async () => undefined);
+
+        try {
+            await internals.parseSettingsJapanese(form);
+
+            const parsedTexts = parseJapanese.mock.calls[0]?.[0] ?? [];
+            expect(parsedTexts.join('\n')).not.toContain('公開検索は使えます');
+            expect(form.querySelector('[data-jpdb-status] .jpdb-reader-word')).toBeNull();
+            expect(form.querySelector('[data-jpdb-status] rt')).toBeNull();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('leaves source summary clicks to native details toggling even when tracking is installed twice', () => {
         const popover = document.createElement('div');
         popover.innerHTML = `
@@ -1372,7 +1920,252 @@ describe('reader helpers', () => {
         expect(KANJI_CSS).toContain('.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-panel');
     });
 
-    it('renders the popup title spelling as a nested Japanese parse target', () => {
+    it('does not show Add to Anki while an Anki miss is still untrusted', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+            jpdbMiningEnabled: true,
+            ankiEnabled: true,
+        };
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => settings,
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render(card, '食べる。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null, trusted: false },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+        });
+
+        expect(document.querySelector<HTMLButtonElement>('[data-action="anki"]')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-anki-checking')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-meta')?.textContent).not.toContain('Checking Anki...');
+    });
+
+    it('labels mobile Anki fallback actions with the target app and new-note limitation', () => {
+        const originalUserAgent = navigator.userAgent;
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+            jpdbMiningEnabled: true,
+            ankiEnabled: true,
+            ankiMobileHandoff: true,
+        };
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => settings,
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+        const render = (lookup: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null, trusted: false }) => renderer.render(card, '食べる。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: lookup,
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+        });
+
+        try {
+            Object.defineProperty(window.navigator, 'userAgent', {
+                value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+                configurable: true,
+            });
+            document.body.innerHTML = render();
+            expect(document.querySelector<HTMLButtonElement>('[data-action="anki"]')?.textContent).toBe('Send to AnkiMobile');
+            expect(document.querySelector('.jpdb-reader-anki-handoff-hint')?.textContent).toContain('creates new notes only');
+            expect(document.querySelector('.jpdb-reader-anki-handoff-hint')?.textContent).toContain('AnkiConnect');
+            document.body.innerHTML = render({ state: 'not-in-deck', notes: [], primary: null, trusted: true });
+            expect(document.querySelector<HTMLButtonElement>('[data-action="anki"]')?.textContent).toBe('Send to AnkiMobile');
+            expect(document.querySelector('.jpdb-reader-anki-handoff-hint')?.textContent).toContain('creates new notes only');
+
+            Object.defineProperty(window.navigator, 'userAgent', {
+                value: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+                configurable: true,
+            });
+            document.body.innerHTML = render();
+            expect(document.querySelector<HTMLButtonElement>('[data-action="anki"]')?.textContent).toBe('Send to AnkiDroid');
+            expect(document.querySelector('.jpdb-reader-anki-handoff-hint')?.textContent).toContain('Android bridge');
+        } finally {
+            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('shows cached Anki status instead of a permanent loading message when card details time out', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiSectionEnabled: true,
+                jpdbDefinitionsEnabled: false,
+                studyTranslationEnabled: false,
+                studyGrammarEnabled: false,
+                immersionKitEnabled: false,
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+        const statusOnly: AnkiLookupResult = {
+            state: 'new',
+            notes: [],
+            primary: {
+                noteId: 55,
+                modelName: 'Imported Core',
+                deckNames: ['Vocab 2k'],
+                cardIds: [7701],
+                primaryCardId: 7701,
+                state: 'new',
+                fields: {},
+                detailsUnavailable: true,
+                tags: [],
+                reps: 0,
+                lapses: 0,
+            },
+        };
+        statusOnly.notes = [statusOnly.primary!];
+
+        document.body.innerHTML = renderer.render(card, '食べる。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: statusOnly,
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+        });
+
+        expect(document.querySelector('.jpdb-reader-anki-details-pending')?.textContent)
+            .toContain('showing cached status');
+        expect(document.querySelector('.jpdb-reader-anki-details-pending')?.textContent)
+            .not.toContain('Loading card details');
+    });
+
+    it('previews the Anki note fields before adding a new card', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiDeck: 'Mining',
+                ankiModel: 'Japanese',
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render({
+            ...card,
+            spelling: '読む',
+            reading: 'よむ',
+            meanings: [{ glosses: ['to read'], partOfSpeech: ['v5m'] }],
+        }, '今日は本を読む。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+        });
+
+        const preview = document.querySelector<HTMLElement>('.jpdb-reader-anki-new .jpdb-reader-anki-card-preview')!;
+        const summary = document.querySelector<HTMLElement>('.jpdb-reader-anki-new summary small')!;
+
+        expect(summary.textContent).toBe('New card · Mining · Japanese');
+        expect(preview.textContent).toContain('Expression');
+        expect(preview.textContent).toContain('読む');
+        expect(preview.textContent).toContain('Sentence');
+        expect(preview.textContent).toContain('今日は本を');
+        expect(preview.textContent).not.toContain('yomu-highlight');
+        expect(preview.textContent).toContain('Meaning');
+        expect(preview.querySelector('.yomu-highlight')?.textContent).toBe('読む');
+        expect(preview.querySelector('.yomu-definition')?.textContent).toContain('to read');
+        expect(document.querySelector<HTMLButtonElement>('[data-action="anki"]')).not.toBeNull();
+    });
+
+    it('previews configured Anki field mappings before adding a custom note type card', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiDeck: 'Mining',
+                ankiModel: 'Ambiguous Japanese',
+                ankiFieldMappings: {
+                    'Ambiguous Japanese': {
+                        expression: 'Back',
+                        reading: 'Kana Field',
+                        meaning: 'Front',
+                        sentence: 'Sentence Slot',
+                    },
+                },
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render({
+            ...card,
+            spelling: '読む',
+            reading: 'よむ',
+            meanings: [{ glosses: ['to read'], partOfSpeech: ['v5m'] }],
+        }, '今日は本を読む。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+        });
+
+        const preview = document.querySelector<HTMLElement>('.jpdb-reader-anki-new .jpdb-reader-anki-card-preview')!;
+        const labels = [...preview.querySelectorAll<HTMLElement>('.jpdb-reader-anki-field strong')]
+            .map(label => label.textContent);
+
+        expect(document.querySelector<HTMLElement>('.jpdb-reader-anki-new summary small')?.textContent)
+            .toBe('New card · Mining · Ambiguous Japanese');
+        expect(labels).toEqual(['Back', 'Kana Field', 'Front', 'Sentence Slot']);
+        expect(labels).not.toContain('Expression');
+        expect(labels).not.toContain('Reading');
+        expect(labels).not.toContain('Meaning');
+        expect(labels).not.toContain('Sentence');
+        expect(preview.textContent).toContain('読む');
+        expect(preview.textContent).toContain('よむ');
+        expect(preview.textContent).toContain('to read');
+    });
+
+    it('renders popup title kanji as immediate kanji lookup buttons', () => {
         const renderer = new CardPopoverRenderer({
             getSettings: () => DEFAULT_SETTINGS,
             isJpdbBackedCard: () => true,
@@ -1399,26 +2192,12 @@ describe('reader helpers', () => {
             loading: false,
         });
         const spelling = document.querySelector<HTMLElement>('.jpdb-reader-spelling')!;
-        const targets = collectFragmentTextTargetsIn(spelling, 10, false, '', { allowUiText: true, minLength: 1 });
-
-        expect(spelling.classList.contains('jpdb-reader-parseable')).toBe(true);
-        expect(targets.map(target => target.text)).toEqual(['漢語']);
-
-        applyTokensToScanTarget(targets[0], [{
-            card: { ...card, spelling: '漢語', reading: 'かんご', cardState: ['known'] },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'かんご', start: 0, end: 2, length: 2 }],
-            pitchClass: '',
-            sentence: '漢語',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-
-        const word = document.querySelector<HTMLElement>('.jpdb-reader-spelling .jpdb-reader-word')!;
         const kanjiButtons = [...document.querySelectorAll<HTMLElement>('.jpdb-reader-spelling .jpdb-reader-kanji-inline')];
-        expect(readerWordSurfaceText(word)).toBe('漢語');
-        expect(document.querySelector('.jpdb-reader-spelling rt')?.textContent).toBe('かんご');
+
+        expect(spelling.classList.contains('jpdb-reader-parseable')).toBe(false);
+        expect(spelling.textContent).toBe('漢語');
         expect(kanjiButtons.map(button => button.dataset.kanji)).toEqual(['漢', '語']);
+        expect(kanjiButtons.map(button => button.dataset.action)).toEqual(['kanji', 'kanji']);
     });
 
     it('hides JPDB review buttons when JPDB writes are disabled but keeps Anki review available', () => {
@@ -1478,6 +2257,63 @@ describe('reader helpers', () => {
         expect(ankiBacked).not.toContain('jpdb-reader-actions-has-mining');
     });
 
+    it('blocks locked JPDB review buttons while keeping Anki review available', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                jpdbMiningEnabled: true,
+                ankiEnabled: true,
+                enableReviews: true,
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+        const baseData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+        };
+
+        const jpdbOnly = renderer.render({ ...card, cardState: ['locked'] }, '食べる。', 'modal', {
+            ...baseData,
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+        });
+        expect(jpdbOnly).not.toContain('data-action="grade"');
+        expect(jpdbOnly).toContain('This JPDB card is locked');
+
+        const ankiBacked = renderer.render({ ...card, cardState: ['locked'] }, '食べる。', 'modal', {
+            ...baseData,
+            ankiLookup: {
+                state: 'due',
+                notes: [],
+                primary: {
+                    noteId: 10,
+                    primaryCardId: 20,
+                    cardIds: [20],
+                    state: 'due',
+                    deckNames: ['Yomu'],
+                    modelName: 'Yomu Japanese',
+                    fields: {},
+                    tags: [],
+                    reps: 1,
+                    lapses: 0,
+                },
+            },
+        });
+        expect(ankiBacked).toContain('data-action="grade"');
+        expect(ankiBacked).toContain('data-anki-card-id="20"');
+        expect(ankiBacked).not.toContain('This JPDB card is locked');
+    });
+
     it('shows JPDB and Anki status together and grades Anki cards from any deck', () => {
         const renderer = new CardPopoverRenderer({
             getSettings: () => ({
@@ -1524,11 +2360,341 @@ describe('reader helpers', () => {
         const metaText = document.querySelector('.jpdb-reader-meta')?.textContent ?? '';
         const gradeButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-action="grade"]')];
 
-        expect(metaText).toContain('Due');
+        expect(metaText).toContain('JPDB Due');
         expect(metaText).toContain('Anki Known');
+        expect(document.querySelector('.jpdb-reader-meta .jpdb-reader-state-dot.jpdb-due')).not.toBeNull();
+        expect(document.querySelector('.jpdb-reader-meta .jpdb-reader-state-dot.anki-known')).not.toBeNull();
         expect(document.querySelector('.jpdb-reader-anki-existing summary small')?.textContent).toBe('Known · Anime::Mining · 8 reviews, 1 lapse');
         expect(gradeButtons.length).toBeGreaterThan(0);
-        expect(gradeButtons.every(button => button.dataset.ankiCardId === '777')).toBe(true);
+        expect(gradeButtons.filter(button => button.dataset.ankiCardId === '777')).toHaveLength(5);
+        expect(gradeButtons.filter(button => !button.dataset.ankiCardId)).toHaveLength(5);
+        expect([...document.querySelectorAll<HTMLElement>('.jpdb-reader-review-target')].map(item => item.textContent)).toEqual([
+            'Grades Anki card: Anime::Mining #777',
+            'Grades JPDB card',
+        ]);
+    });
+
+    it('prioritizes the actual reading before redundant JPDB and due Anki status chips', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                jpdbMiningEnabled: true,
+                ankiEnabled: true,
+                enableReviews: true,
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render({
+            ...card,
+            spelling: 'よむ',
+            reading: 'よむ',
+            frequencyRank: 20200,
+            cardState: ['redundant'],
+        }, 'よむ。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+            ankiLookup: {
+                state: 'due',
+                notes: [],
+                primary: {
+                    noteId: 56,
+                    primaryCardId: 778,
+                    cardIds: [778],
+                    state: 'due',
+                    deckNames: ['Mining'],
+                    modelName: 'Imported Core',
+                    fields: { Word: 'よむ', Reading: 'よむ' },
+                    tags: [],
+                    reps: 3,
+                    lapses: 0,
+                },
+            },
+        });
+
+        const meta = document.querySelector<HTMLElement>('.jpdb-reader-meta')!;
+        const metaItems = [...meta.children].map(child => child.textContent?.trim() ?? '');
+
+        expect(metaItems).toEqual(['よむ', '#20200', 'JPDB Redundant', 'Anki Due']);
+        expect(meta.querySelector('.jpdb-reader-meta-reading')?.textContent).toBe('よむ');
+        expect(meta.querySelector('.jpdb-reader-state-dot.jpdb-redundant')).not.toBeNull();
+        expect(meta.querySelector('.jpdb-reader-state-dot.anki-due')).not.toBeNull();
+        expect(document.querySelector('.jpdb-reader-reading')).toBeNull();
+    });
+
+    it('shows separate JPDB and Anki status when JPDB is not in deck but Anki exists', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                jpdbMiningEnabled: true,
+                ankiEnabled: true,
+                enableReviews: true,
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render({ ...card, cardState: ['not-in-deck'] }, '動画を見る。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+            ankiLookup: {
+                state: 'known',
+                notes: [],
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 777,
+                    cardIds: [777],
+                    state: 'known',
+                    deckNames: ['Anime::Mining'],
+                    modelName: 'Imported Core',
+                    fields: { Word: '動画' },
+                    tags: [],
+                    reps: 8,
+                    lapses: 1,
+                },
+            },
+        });
+
+        const metaText = document.querySelector('.jpdb-reader-meta')?.textContent ?? '';
+        const gradeButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-action="grade"]')];
+
+        expect(metaText).toContain('JPDB Not in deck');
+        expect(metaText).toContain('Anki Known');
+        expect(gradeButtons.length).toBeGreaterThan(0);
+        expect(gradeButtons.filter(button => button.dataset.ankiCardId === '777')).toHaveLength(5);
+        expect(gradeButtons.filter(button => !button.dataset.ankiCardId)).toHaveLength(5);
+        expect([...document.querySelectorAll<HTMLElement>('.jpdb-reader-review-target')].map(item => item.textContent)).toEqual([
+            'Grades Anki card: Anime::Mining #777',
+            'Grades JPDB card',
+        ]);
+        expect(gradeButtons.every(button => button.title.includes('Review adds to deck'))).toBe(false);
+    });
+
+    it('hides JPDB status in the popup header until a JPDB API key is configured', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jpdbMiningEnabled: false,
+                ankiEnabled: false,
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render({ ...card, cardState: ['due'] }, '動画を見る。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+        });
+
+        const metaText = document.querySelector('.jpdb-reader-meta')?.textContent ?? '';
+
+        expect(metaText).not.toContain('JPDB Due');
+        expect(document.querySelector('.jpdb-reader-meta .jpdb-reader-state-dot.jpdb-due')).toBeNull();
+    });
+
+    it('shows Anki status without showing JPDB status when JPDB has no API key', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jpdbMiningEnabled: false,
+                ankiEnabled: true,
+                enableReviews: true,
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render({ ...card, spelling: '日本語', reading: 'にほんご', frequencyRank: 250, cardState: ['not-in-deck'] }, '日本語です。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+            ankiLookup: {
+                state: 'due',
+                notes: [],
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 777,
+                    cardIds: [777],
+                    state: 'due',
+                    deckNames: ['Mining'],
+                    modelName: 'Imported Core',
+                    fields: { Word: '日本語', Reading: 'にほんご' },
+                    tags: [],
+                    reps: 8,
+                    lapses: 1,
+                },
+            },
+        });
+
+        const meta = document.querySelector<HTMLElement>('.jpdb-reader-meta')!;
+        const metaItems = [...meta.children].map(child => child.textContent?.trim() ?? '');
+
+        expect(metaItems).toEqual(['にほんご', '#250', 'Anki Due']);
+        expect(meta.querySelector('.jpdb-reader-state-dot.jpdb-not-in-deck')).toBeNull();
+        expect(meta.querySelector('.jpdb-reader-state-dot.anki-due')).not.toBeNull();
+        expect(document.querySelector('.jpdb-reader-reading')).toBeNull();
+    });
+
+    it('shows pooled JPDB deck membership as in deck', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                jpdbMiningEnabled: true,
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render({ ...card, cardState: ['in-deck'] }, '日本語です。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+        });
+
+        const metaText = document.querySelector('.jpdb-reader-meta')?.textContent ?? '';
+
+        expect(metaText).toContain('JPDB In deck');
+        expect(metaText).not.toContain('Not in deck');
+    });
+
+    it('hides JPDB and Anki deck status when neither source is connected', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jpdbMiningEnabled: true,
+                ankiEnabled: true,
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render({ ...card, frequencyRank: 2600, cardState: ['not-in-deck'] }, '前後です。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+        });
+
+        const metaText = document.querySelector('.jpdb-reader-meta')?.textContent ?? '';
+
+        expect(metaText).toContain('#2600');
+        expect(metaText).not.toContain('Not in deck');
+        expect(metaText).not.toContain('Anki');
+    });
+
+    it('shows JPDB status in dictionary meta when the API key is active but writes are disabled', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'en',
+                apiKey: 'test-key',
+                jpdbMiningEnabled: false,
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render({ ...card, cardState: ['known'] }, '前後です。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+        });
+
+        const meta = document.querySelector<HTMLElement>('.jpdb-reader-meta')!;
+        expect(meta.textContent).toContain('Known');
+        expect(meta.querySelector('.jpdb-reader-state-dot.jpdb-known')).not.toBeNull();
+    });
+
+    it('hides the copy pill when the copy lookup link is disabled or absent', () => {
+        const html = renderWordPills({
+            card,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings: {
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'en',
+                dictionaryLookupLinks: [{
+                    id: 'jpdb',
+                    label: 'JPDB',
+                    urlTemplate: 'https://jpdb.io/search?q={word}',
+                    enabled: true,
+                }],
+            },
+            isJpdbBackedCard: () => true,
+            dictionaryLabel: name => name,
+        });
+
+        expect(html).not.toContain('jpdb-reader-copy-pill');
+        expect(html).not.toContain('data-action="copy-word"');
+        expect(html).toContain('--chip-bg:#2563c7');
     });
 
     it('uses the hosted new-tab review fallback when a dictionary card is gradeable outside JPDB API lookup', () => {
@@ -1602,10 +2768,12 @@ describe('reader helpers', () => {
         });
 
         const preview = document.querySelector<HTMLElement>('.jpdb-reader-anki-card-preview')!;
+        const details = document.querySelector<HTMLDetailsElement>('.jpdb-reader-anki-existing')!;
         const editButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-action="anki-edit"]')];
 
         expect(document.querySelector('.jpdb-reader-anki-existing summary > span')?.textContent).toBe('Anki');
         expect(document.querySelector('.jpdb-reader-anki-existing summary small')?.textContent).toBe('Known · Yomu · 3 reviews');
+        expect(details.open).toBe(true);
         expect(editButtons).toHaveLength(1);
         expect(editButtons[0]?.dataset.noteId).toBe('10');
         expect(preview.contains(editButtons[0]!)).toBe(true);
@@ -1613,7 +2781,81 @@ describe('reader helpers', () => {
         expect(document.querySelector('.jpdb-reader-actions [data-action="anki"]')).toBeNull();
     });
 
-    it('renders unfamiliar Anki notes from their rendered card and non-empty fields', () => {
+    it('renders multiple existing Anki notes with the primary note first', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                enableReviews: true,
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+        const primary = {
+            noteId: 10,
+            primaryCardId: 20,
+            cardIds: [20],
+            state: 'due' as const,
+            deckNames: ['Core'],
+            modelName: 'Core Vocab',
+            fields: { Expression: '読む', Meaning: 'to read' },
+            renderedCards: [{ cardId: 20, deckName: 'Core', question: '読む', answer: 'to read' }],
+            tags: [],
+            reps: 5,
+            lapses: 1,
+        };
+        const secondary = {
+            noteId: 11,
+            primaryCardId: 21,
+            cardIds: [21],
+            state: 'known' as const,
+            deckNames: ['Mining'],
+            modelName: 'Imported',
+            fields: { Term: '読む', Gloss: 'read a book' },
+            renderedCards: [{ cardId: 21, deckName: 'Mining', question: '読む', answer: 'read a book' }],
+            tags: [],
+            reps: 2,
+            lapses: 0,
+        };
+
+        document.body.innerHTML = renderer.render(card, '本を読む。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: {
+                state: 'due',
+                notes: [secondary, primary],
+                primary,
+            },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+        });
+
+        const details = document.querySelector<HTMLElement>('.jpdb-reader-anki-existing')!;
+        const notePreviews = [...details.querySelectorAll<HTMLElement>('.jpdb-reader-anki-card-preview')];
+
+        expect(details.querySelector('summary > span')?.textContent).toBe('Anki (2)');
+        expect(details.querySelector('summary small')?.textContent).toContain('2 matches');
+        expect(notePreviews.map(preview => preview.dataset.ankiNoteId)).toEqual(['10', '11']);
+        expect(notePreviews[0]?.textContent).toContain('Core');
+        expect(notePreviews[1]?.textContent).toContain('Mining');
+        expect(notePreviews[0]?.textContent).toContain('to read');
+        expect(notePreviews[1]?.textContent).toContain('read a book');
+        expect([...document.querySelectorAll<HTMLButtonElement>('[data-action="grade"]')].map(button => button.dataset.ankiCardId))
+            .toEqual([...Array(5).fill('20'), ...Array(5).fill('21')]);
+        expect([...document.querySelectorAll<HTMLElement>('.jpdb-reader-review-target')].map(item => item.textContent)).toEqual([
+            'Grades Anki card: Core #20',
+            'Grades Anki card: Mining #21',
+        ]);
+    });
+
+    it('renders unfamiliar Anki notes from their rendered card without exposing raw fields by default', () => {
         const renderer = new CardPopoverRenderer({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -1642,18 +2884,19 @@ describe('reader helpers', () => {
                     deckNames: ['Vocab 2k'],
                     modelName: 'Imported Vocab',
                     fields: {
-                        Expression: '女',
-                        Readings: 'おんな, おみな, おうな, うみな, おな',
-                        Translation_1: 'female, woman, female sex',
-                        Restriction_1: '',
-                        Translation_2: "female lover, girlfriend, mistress, (someone's) woman",
-                        audio: '[sound:h2k-167.mp3]',
+                        EXPRESSION: '女',
+                        READINGS: 'おんな, おみな, おうな, うみな, おな',
+                        TRANSLATION_1: 'raw stored gloss should stay hidden',
+                        RESTRICTION_1: '',
+                        TRANSLATION_2: 'raw alternate stored gloss should stay hidden',
+                        AUDIO: '[sound:h2k-167.mp3]',
                     },
                     renderedCards: [{
                         cardId: 167,
                         deckName: 'Vocab 2k',
-                        question: '<div class="front">女 [anki:play:q:0]<script>window.bad = true</script></div>',
+                        question: '<div class="front">女 <img src="front.png" onerror="window.bad = true"> [anki:play:q:0]<script>window.bad = true</script></div>',
                         answer: '<div><strong>female</strong> [anki:play:a:0]<a href="javascript:bad()">bad link</a></div>',
+                        mediaDataUrls: { 'front.png': 'data:image/png;base64,front-data' },
                     }],
                     tags: [],
                     reps: 2,
@@ -1669,21 +2912,146 @@ describe('reader helpers', () => {
         const preview = document.querySelector<HTMLElement>('.jpdb-reader-anki-card-preview')!;
 
         expect(preview.textContent).toContain('女');
-        expect(preview.textContent).toContain('Readings');
-        expect(preview.textContent).toContain('Translation_1');
-        expect(preview.textContent).toContain('h2k-167.mp3');
+        expect(preview.querySelector('.jpdb-reader-anki-stored-fields')).toBeNull();
+        expect(preview.querySelector('.jpdb-reader-anki-field')).toBeNull();
+        expect(preview.textContent).not.toContain('READINGS');
+        expect(preview.textContent).not.toContain('TRANSLATION_1');
+        expect(preview.textContent).not.toContain('raw stored gloss should stay hidden');
+        expect(preview.textContent).not.toContain('raw alternate stored gloss should stay hidden');
+        expect(preview.textContent).not.toContain('Front');
+        expect(preview.textContent).not.toContain('Back');
+        expect(preview.textContent).toContain('Card audio');
         expect(preview.querySelector('.jpdb-reader-anki-rendered-side-body')?.textContent).toContain('女');
+        expect(preview.querySelector('.jpdb-reader-anki-rendered-side-body')?.classList.contains('jpdb-reader-parseable')).toBe(true);
+        expect(preview.querySelector<HTMLImageElement>('.jpdb-reader-anki-rendered-side-body img')?.getAttribute('src')).toBe('data:image/png;base64,front-data');
+        expect(preview.querySelector<HTMLImageElement>('.jpdb-reader-anki-rendered-side-body img')?.getAttribute('data-anki-media-name')).toBe('front.png');
+        expect(preview.querySelector('.jpdb-reader-anki-rendered-side-body img')?.getAttribute('onerror')).toBeNull();
         expect(preview.textContent).not.toContain('[anki:play');
         expect(preview.querySelectorAll('.jpdb-reader-anki-playback-marker')).toHaveLength(2);
         expect(preview.querySelector<HTMLButtonElement>('.jpdb-reader-anki-playback-marker')?.dataset.ankiMediaName).toBe('h2k-167.mp3');
+        expect(preview.querySelector<HTMLButtonElement>('.jpdb-reader-anki-playback-marker')?.title).toBe('Audio h2k-167.mp3');
         expect(preview.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"]')?.tagName).toBe('BUTTON');
         expect(preview.innerHTML).not.toContain('<script');
         expect(preview.innerHTML).not.toContain('javascript:bad');
     });
 
-    it('plays Anki media audio chips through AnkiConnect media retrieval', async () => {
+    it('shows stored Anki fields when rendered cards are unavailable', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render({ ...card, spelling: '写真', reading: 'しゃしん' }, '写真を見た。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: {
+                state: 'known',
+                notes: [],
+                primary: {
+                    noteId: 770,
+                    primaryCardId: 771,
+                    cardIds: [771],
+                    state: 'known',
+                    deckNames: ['Imported'],
+                    modelName: 'All Caps Import',
+                    fields: {
+                        EXPRESSION: '写真',
+                        READING_KATAKANA: 'シャシン',
+                        TRANSLATION_1: 'photograph',
+                        AUDIO: '[sound:fallback-card.mp3]',
+                    },
+                    tags: [],
+                    reps: 1,
+                    lapses: 0,
+                },
+            },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+        });
+
+        const preview = document.querySelector<HTMLElement>('.jpdb-reader-anki-card-preview')!;
+        const storedFields = preview.querySelector<HTMLDetailsElement>('.jpdb-reader-anki-stored-fields')!;
+
+        expect(preview.querySelector('.jpdb-reader-anki-rendered-card')).toBeNull();
+        expect(storedFields).not.toBeNull();
+        expect(storedFields.open).toBe(true);
+        expect(storedFields.querySelectorAll('.jpdb-reader-anki-field')).toHaveLength(4);
+        expect(storedFields.textContent).toContain('Reading Katakana');
+        expect(storedFields.textContent).toContain('Translation 1');
+        expect(storedFields.textContent).not.toContain('READING_KATAKANA');
+        expect(storedFields.textContent).not.toContain('TRANSLATION_1');
+        expect(storedFields.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"]')?.dataset.ankiMediaName)
+            .toBe('fallback-card.mp3');
+    });
+
+    it('renders every Anki rendered card in the popover with the primary card first', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render(card, '本を読む。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: {
+                state: 'known',
+                notes: [],
+                primary: {
+                    noteId: 10,
+                    primaryCardId: 202,
+                    cardIds: [101, 202],
+                    state: 'known',
+                    deckNames: ['Mining'],
+                    modelName: 'Custom Japanese',
+                    fields: { Expression: '読む', Meaning: 'read' },
+                    renderedCards: [
+                        { cardId: 101, deckName: 'Mining', question: '<div>読む</div>', answer: '<div>to read</div>' },
+                        { cardId: 202, deckName: 'Mining', question: '<div>to read</div>', answer: '<div>読む</div>' },
+                    ],
+                    tags: [],
+                    reps: 4,
+                    lapses: 0,
+                },
+            },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+        });
+
+        const renderedCards = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-anki-rendered-card'));
+
+        expect(renderedCards.map(element => element.dataset.ankiRenderedCardId)).toEqual(['202', '101']);
+        expect(renderedCards[0]?.textContent).toContain('to read');
+        expect(renderedCards[0]?.textContent).toContain('読む');
+        expect(renderedCards[1]?.textContent).toContain('読む');
+        expect(document.querySelectorAll('.jpdb-reader-anki-rendered-card-title')).toHaveLength(2);
+    });
+
+    it('keeps Anki media audio chips separate from lookup word audio', async () => {
         const mediaFileDataUrl = vi.fn(async () => 'data:audio/mpeg;base64,audio-data');
         const playMediaUrl = vi.fn(async () => undefined);
+        const playAudio = vi.fn(async () => undefined);
         const controller = new CardActionController({
             getSettings: () => DEFAULT_SETTINGS,
             jpdb: {} as unknown as JpdbClient,
@@ -1695,7 +3063,7 @@ describe('reader helpers', () => {
             getActivePopoverAnchor: () => undefined,
             getActivePopoverMode: () => undefined,
             showSettings: vi.fn(),
-            playAudio: vi.fn(),
+            playAudio,
             playMediaUrl,
             playSentenceAudio: vi.fn(),
             detectGrammarHints: vi.fn(async () => []),
@@ -1708,6 +3076,12 @@ describe('reader helpers', () => {
         await expect(controller.perform('anki-media-audio', button, card)).resolves.toBe(false);
         expect(mediaFileDataUrl).toHaveBeenCalledWith('h2k-167.mp3');
         expect(playMediaUrl).toHaveBeenCalledWith('data:audio/mpeg;base64,audio-data');
+        expect(playAudio).not.toHaveBeenCalled();
+
+        await expect(controller.perform('audio', document.createElement('button'), card)).resolves.toBe(false);
+        expect(playAudio).toHaveBeenCalledWith(card, { userGesture: true });
+        expect(mediaFileDataUrl).toHaveBeenCalledTimes(1);
+        expect(playMediaUrl).toHaveBeenCalledTimes(1);
     });
 
     it('does not submit JPDB review grades when JPDB writes are disabled', async () => {
@@ -1740,6 +3114,39 @@ describe('reader helpers', () => {
         expect(reviewCard).not.toHaveBeenCalled();
 
         await expect(controller.reviewGrade('okay', card, undefined, { ankiCardId: 20 })).resolves.toBeUndefined();
+        expect(answerCard).toHaveBeenCalledWith(20, 'okay');
+    });
+
+    it('does not submit locked JPDB review grades but allows explicit Anki card grading', async () => {
+        const reviewCard = vi.fn(async () => undefined);
+        const answerCard = vi.fn(async () => undefined);
+        const controller = new CardActionController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                jpdbMiningEnabled: true,
+                enableReviews: true,
+            }),
+            jpdb: { reviewCard } as unknown as JpdbClient,
+            anki: { answerCard } as unknown as AnkiConnectClient,
+            dictionaries: {} as unknown as YomitanDictionaryStore,
+            isJpdbBackedCard: () => true,
+            resolveMiningContext: vi.fn(),
+            showCard: vi.fn(),
+            getActivePopoverAnchor: () => undefined,
+            getActivePopoverMode: () => undefined,
+            showSettings: vi.fn(),
+            playAudio: vi.fn(),
+            playSentenceAudio: vi.fn(),
+            detectGrammarHints: vi.fn(),
+            parsePopoverJapanese: vi.fn(),
+            toast: vi.fn(),
+        });
+
+        await expect(controller.reviewGrade('okay', { ...card, cardState: ['locked'] })).rejects.toThrow('JPDB card is locked');
+        expect(reviewCard).not.toHaveBeenCalled();
+
+        await expect(controller.reviewGrade('okay', { ...card, cardState: ['locked'] }, undefined, { ankiCardId: 20 })).resolves.toBeUndefined();
         expect(answerCard).toHaveBeenCalledWith(20, 'okay');
     });
 
@@ -1797,11 +3204,11 @@ describe('reader helpers', () => {
     });
 
     it('uses concrete color-channel defaults while preserving legacy automatic choices', () => {
-        expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'auto')).toBe('pitch');
+        expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'auto')).toBe('off');
         expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'auto', 'pitch')).toBe('pitch');
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, wordHighlightMode: 'pitch' }, 'auto')).toBe('pitch');
-        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: true, wordHighlightMode: 'status' }, 'auto')).toBe('status');
-        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, wordHighlightMode: 'status' }, 'auto')).toBe('anki');
+        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: true, wordHighlightMode: 'status' }, 'auto')).toBe('jpdb');
+        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, wordHighlightMode: 'status' }, 'auto')).toBe('off');
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, wordHighlightMode: 'off' }, 'auto')).toBe('off');
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, 'anki')).toBe('anki');
         expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'anki')).toBe('anki');
@@ -1820,12 +3227,12 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, jpdbMiningEnabled: false });
 
         expect(html).toContain('jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban');
-        expect(DEFAULT_SETTINGS.wordHighlightColorSource).toBe('pitch');
-        expect(DEFAULT_SETTINGS.wordUnderlineColorSource).toBe('jpdb');
-        expect(DEFAULT_SETTINGS.wordTextColorSource).toBe('off');
+        expect(DEFAULT_SETTINGS.wordHighlightColorSource).toBe('jpdb');
+        expect(DEFAULT_SETTINGS.wordUnderlineColorSource).toBe('pitch');
+        expect(DEFAULT_SETTINGS.wordTextColorSource).toBe('anki');
         expect(DEFAULT_SETTINGS.subtitleHighlightColorSource).toBe('jpdb');
         expect(DEFAULT_SETTINGS.subtitleUnderlineColorSource).toBe('pitch');
-        expect(DEFAULT_SETTINGS.subtitleTextColorSource).toBe('jpdb');
+        expect(DEFAULT_SETTINGS.subtitleTextColorSource).toBe('anki');
         expect('wordHighlightMode' in DEFAULT_SETTINGS).toBe(false);
     });
 
@@ -1833,21 +3240,21 @@ describe('reader helpers', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         const expected = {
-            wordHighlightColorSource: 'pitch',
-            wordUnderlineColorSource: 'jpdb',
-            wordTextColorSource: 'off',
+            wordHighlightColorSource: 'jpdb',
+            wordUnderlineColorSource: 'pitch',
+            wordTextColorSource: 'anki',
             subtitleHighlightColorSource: 'jpdb',
             subtitleUnderlineColorSource: 'pitch',
-            subtitleTextColorSource: 'jpdb',
+            subtitleTextColorSource: 'anki',
         } as const;
 
         Object.entries(expected).forEach(([name, value]) => {
             const select = form.querySelector<HTMLSelectElement>(`select[name="${name}"]`);
             expect(select?.value).toBe(value);
             expect(Array.from(select?.options ?? []).map(option => option.value)).toEqual(['status', 'jpdb', 'anki', 'pitch', 'off']);
-            expect(Array.from(select?.options ?? []).map(option => option.textContent)).toContain('Available status');
+            expect(Array.from(select?.options ?? []).map(option => option.textContent)).not.toContain('Available status');
         });
-        expect(form.textContent).not.toContain('JPDB + Anki status');
+        expect(form.textContent).toContain('JPDB + Anki status');
         expect(form.querySelector<HTMLSelectElement>('select[name="wordHighlightMode"]')).toBeNull();
 
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
@@ -1890,8 +3297,54 @@ describe('reader helpers', () => {
             .toContain('jpdb-reader-has-furi');
         expect(renderTokensToHtml('日本', [easyToken], { ...DEFAULT_SETTINGS, furiganaMode: 'all' }))
             .toContain('<rt class="jpdb-reader-furi">にほん</rt>');
+        expect(renderTokensToHtml('日本', [easyToken], { ...DEFAULT_SETTINGS, furiganaMode: 'all' }))
+            .toContain('<span class="jpdb-reader-ruby-base">日本</span>');
         expect(renderTokensToHtml('鬱', [difficultToken], { ...DEFAULT_SETTINGS, furiganaMode: 'off' }))
             .not.toContain('<rt');
+    });
+
+    it('falls back to card readings for furigana when parsed ruby spans are missing', () => {
+        const token: JPDBToken = {
+            card: { ...card, spelling: '日本語', reading: 'にほんご' },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+            sentence: '日本語',
+        };
+
+        expect(renderTokensToHtml('日本語', [token], { ...DEFAULT_SETTINGS, furiganaMode: 'all' }))
+            .toContain('<rt class="jpdb-reader-furi">にほんご</rt>');
+    });
+
+    it('centers furigana on kanji instead of trailing kana', () => {
+        const cases = [
+            { surface: '始める', reading: 'はじめる', rubies: [], bases: ['始'], furis: ['はじ'] },
+            { surface: '読み', reading: 'よみ', rubies: [{ text: 'よみ', start: 0, end: 2, length: 2 }], bases: ['読'], furis: ['よ'] },
+            { surface: '問い合わせ', reading: 'といあわせ', rubies: [], bases: ['問', '合'], furis: ['と', 'あ'] },
+        ];
+
+        try {
+            for (const item of cases) {
+                document.body.innerHTML = renderTokensToHtml(item.surface, [{
+                    card: { ...card, spelling: item.surface, reading: item.reading },
+                    start: 0,
+                    end: item.surface.length,
+                    length: item.surface.length,
+                    rubies: item.rubies,
+                    pitchClass: '',
+                    sentence: item.surface,
+                }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+                const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+                expect(readerWordSurfaceText(word)).toBe(item.surface);
+                expect(Array.from(word.querySelectorAll('.jpdb-reader-ruby-base')).map(base => base.textContent)).toEqual(item.bases);
+                expect(Array.from(word.querySelectorAll('.jpdb-reader-furi')).map(furi => furi.textContent)).toEqual(item.furis);
+            }
+        } finally {
+            document.body.replaceChildren();
+        }
     });
 
     it('emits furigana from local dictionary fallback without a JPDB API key', async () => {
@@ -2083,6 +3536,246 @@ describe('reader helpers', () => {
         }
     });
 
+    it('keeps Firefox single-word Japanese Segmenter results that are marked non-word-like', async () => {
+        const originalSegmenter = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
+        class FakeSegmenter {
+            segment(value: string): Array<{ segment: string; index: number; isWordLike: boolean }> {
+                return [{ segment: value, index: 0, isWordLike: false }];
+            }
+        }
+        Object.defineProperty(Intl, 'Segmenter', { configurable: true, value: FakeSegmenter });
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
+            jpdb: {} as never,
+            dictionaries: {} as never,
+        });
+
+        try {
+            const [japaneseTokens, readTokens] = await parser.parse(['日本語', '読む'], { allowSegmentedFallback: true });
+
+            expect(japaneseTokens.map(token => token.card.spelling)).toEqual(['日本語']);
+            expect(readTokens.map(token => token.card.spelling)).toEqual(['読む']);
+            expect(renderTokensToHtml('日本語', japaneseTokens, DEFAULT_SETTINGS)).toContain('data-expression="日本語"');
+            expect(renderTokensToHtml('読む', readTokens, DEFAULT_SETTINGS)).toContain('data-expression="読む"');
+        } finally {
+            if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
+            else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
+        }
+    });
+
+    it('preserves Intl.Segmenter kanji word boundaries instead of merging adjacent compounds', async () => {
+        const originalSegmenter = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
+        class FakeSegmenter {
+            segment(_value: string): Array<{ segment: string; index: number; isWordLike: boolean }> {
+                return [
+                    { segment: '事実', index: 0, isWordLike: true },
+                    { segment: '上', index: 2, isWordLike: true },
+                    { segment: '日本', index: 3, isWordLike: true },
+                    { segment: '国内', index: 5, isWordLike: true },
+                ];
+            }
+        }
+        Object.defineProperty(Intl, 'Segmenter', { configurable: true, value: FakeSegmenter });
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
+            jpdb: {} as never,
+            dictionaries: {} as never,
+        });
+
+        try {
+            const [tokens] = await parser.parse(['事実上日本国内'], { allowSegmentedFallback: true });
+
+            expect(tokens.map(token => token.card.spelling)).toEqual(['事実', '上', '日本', '国内']);
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 2], [2, 3], [3, 5], [5, 7]]);
+            expect(tokens.map(token => token.card.spelling)).not.toContain('事実上日本国内');
+        } finally {
+            if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
+            else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
+        }
+    });
+
+    it('keeps inflected fallback words together for lookup', async () => {
+        const originalSegmenter = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
+        class FakeSegmenter {
+            segment(_value: string): Array<{ segment: string; index: number; isWordLike: boolean }> {
+                return [
+                    { segment: '本', index: 0, isWordLike: true },
+                    { segment: 'を', index: 1, isWordLike: true },
+                    { segment: '読み', index: 2, isWordLike: true },
+                    { segment: 'ま', index: 4, isWordLike: true },
+                    { segment: 'した', index: 5, isWordLike: true },
+                ];
+            }
+        }
+        Object.defineProperty(Intl, 'Segmenter', { configurable: true, value: FakeSegmenter });
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
+            jpdb: {} as never,
+            dictionaries: {} as never,
+        });
+
+        try {
+            const [tokens] = await parser.parse(['本を読みました'], { allowSegmentedFallback: true });
+
+            expect(tokens.map(token => token.card.spelling)).toEqual(['本', 'を', '読みました']);
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 1], [1, 2], [2, 7]]);
+            expect(tokens[2]?.card.fallbackLookupTerms).toContain('読む');
+            expect(tokens.map(token => token.card.spelling)).not.toContain('した');
+        } finally {
+            if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
+            else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
+        }
+    });
+
+    it('does not merge polite YouTube comment runs into one fallback word', async () => {
+        const originalSegmenter = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
+        class FakeSegmenter {
+            segment(_value: string): Array<{ segment: string; index: number; isWordLike: boolean }> {
+                return [
+                    { segment: '先生', index: 0, isWordLike: true },
+                    { segment: 'いつも', index: 2, isWordLike: true },
+                    { segment: 'ありがとう', index: 5, isWordLike: true },
+                    { segment: 'ご', index: 10, isWordLike: true },
+                    { segment: 'ざ', index: 11, isWordLike: true },
+                    { segment: 'いま', index: 12, isWordLike: true },
+                    { segment: 'した', index: 14, isWordLike: true },
+                ];
+            }
+        }
+        Object.defineProperty(Intl, 'Segmenter', { configurable: true, value: FakeSegmenter });
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
+            jpdb: {} as never,
+            dictionaries: {} as never,
+        });
+
+        try {
+            const [tokens] = await parser.parse(['先生いつもありがとうございました'], { allowSegmentedFallback: true });
+
+            expect(tokens.map(token => token.card.spelling)).toEqual(['先生', 'いつも', 'ありがとう', 'ご', 'ざ', 'いました']);
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 2], [2, 5], [5, 10], [10, 11], [11, 12], [12, 16]]);
+            expect(fallbackLookupTermAtOffset('先生いつもありがとうございました', 1)).toBe('先生');
+            expect(tokens.map(token => token.card.spelling)).not.toContain('先生いつもありがとうございました');
+        } finally {
+            if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
+            else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
+        }
+    });
+
+    it('keeps suru auxiliary fallback boundaries on the hovered stem', async () => {
+        const originalSegmenter = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
+        class FakeSegmenter {
+            segment(_value: string): Array<{ segment: string; index: number; isWordLike: boolean }> {
+                return [
+                    { segment: '追加', index: 0, isWordLike: true },
+                    { segment: 'でき', index: 2, isWordLike: true },
+                    { segment: 'ます', index: 4, isWordLike: true },
+                ];
+            }
+        }
+        Object.defineProperty(Intl, 'Segmenter', { configurable: true, value: FakeSegmenter });
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
+            jpdb: {} as never,
+            dictionaries: {} as never,
+        });
+
+        try {
+            const [tokens] = await parser.parse(['追加できます'], { allowSegmentedFallback: true });
+
+            expect(tokens.map(token => token.card.spelling)).toEqual(['追加', 'できます']);
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 2], [2, 6]]);
+            expect(tokens[1]?.card.fallbackLookupTerms).toContain('できる');
+            expect(fallbackLookupTermAtOffset('追加できます', 1)).toBe('追加');
+            expect(fallbackLookupTermAtOffset('追加できます', 3)).toBe('できます');
+        } finally {
+            if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
+            else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
+        }
+    });
+
+    it('does not replace multiple JPDB tokens with one overbroad fallback span', async () => {
+        const originalSegmenter = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
+        class FakeSegmenter {
+            segment(_value: string): Array<{ segment: string; index: number; isWordLike: boolean }> {
+                return [{ segment: '追加できます', index: 0, isWordLike: true }];
+            }
+        }
+        Object.defineProperty(Intl, 'Segmenter', { configurable: true, value: FakeSegmenter });
+        const text = '追加できます';
+        const jpdbTokens: JPDBToken[] = [
+            {
+                card: { ...card, vid: 71, sid: 71, spelling: '追加', reading: 'ついか', cardState: ['not-in-deck'], pitchAccent: [], source: 'jpdb' },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [{ text: 'ついか', start: 0, end: 2, length: 2 }],
+                pitchClass: '',
+                sentence: text,
+            },
+            {
+                card: { ...card, vid: 72, sid: 72, spelling: 'できる', reading: 'できる', cardState: ['not-in-deck'], pitchAccent: [], source: 'jpdb' },
+                start: 2,
+                end: 6,
+                length: 4,
+                rubies: [],
+                pitchClass: '',
+                sentence: text,
+            },
+        ];
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'api-key', localDictionariesEnabled: false }),
+            jpdb: { parse: vi.fn().mockResolvedValue([jpdbTokens]) } as never,
+            dictionaries: {} as never,
+        });
+
+        try {
+            const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
+
+            expect(tokens.map(token => token.card.spelling)).toEqual(['追加', 'できる']);
+            expect(tokens.every(token => token.card.source === 'jpdb')).toBe(true);
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 2], [2, 6]]);
+        } finally {
+            if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
+            else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
+        }
+    });
+
+    it('keeps polite negative fallback verbs together instead of exposing a kanji fragment', async () => {
+        const originalSegmenter = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
+        class FakeSegmenter {
+            segment(_value: string): Array<{ segment: string; index: number; isWordLike: boolean }> {
+                return [
+                    { segment: '日本語', index: 0, isWordLike: true },
+                    { segment: 'は', index: 3, isWordLike: true },
+                    { segment: '分', index: 4, isWordLike: true },
+                    { segment: 'か', index: 5, isWordLike: true },
+                    { segment: 'り', index: 6, isWordLike: true },
+                    { segment: 'ま', index: 7, isWordLike: true },
+                    { segment: 'せん', index: 8, isWordLike: true },
+                ];
+            }
+        }
+        Object.defineProperty(Intl, 'Segmenter', { configurable: true, value: FakeSegmenter });
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
+            jpdb: {} as never,
+            dictionaries: {} as never,
+        });
+
+        try {
+            const [tokens] = await parser.parse(['日本語は分かりません'], { allowSegmentedFallback: true });
+
+            expect(tokens.map(token => token.card.spelling)).toEqual(['日本語', 'は', '分かりません']);
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 3], [3, 4], [4, 10]]);
+            expect(tokens[2]?.card.fallbackLookupTerms).toContain('分かる');
+            expect(tokens.map(token => token.card.spelling)).not.toContain('分');
+        } finally {
+            if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
+            else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
+        }
+    });
+
     it('fills hosted-demo gaps with segmented fallback when JPDB returns a partial parse', async () => {
         const originalSegmenter = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
         class FakeSegmenter {
@@ -2133,6 +3826,97 @@ describe('reader helpers', () => {
             expect(tokens.find(token => token.card.spelling === '日本語')?.card.source).toBe('jpdb');
             expect(tokens.find(token => token.card.spelling === '下')?.card.source).toBe('fallback');
             expect(renderTokensToHtml(text, tokens, DEFAULT_SETTINGS)).toContain('data-expression="下"');
+        } finally {
+            if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
+            else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
+        }
+    });
+
+    it('fills local dictionary parse gaps with segmented fallback when requested', async () => {
+        const originalSegmenter = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
+        class FakeSegmenter {
+            segment(_value: string): Array<{ segment: string; index: number; isWordLike: boolean }> {
+                return [
+                    { segment: '青空', index: 0, isWordLike: true },
+                    { segment: 'の', index: 2, isWordLike: true },
+                    { segment: '下', index: 3, isWordLike: true },
+                    { segment: 'で', index: 4, isWordLike: true },
+                    { segment: '日本語', index: 5, isWordLike: true },
+                ];
+            }
+        }
+        Object.defineProperty(Intl, 'Segmenter', { configurable: true, value: FakeSegmenter });
+        const text = '青空の下で日本語';
+        const findTermMatches = vi.fn().mockResolvedValue([{
+            entry: {
+                id: 1,
+                sequence: 1,
+                expression: '日本語',
+                reading: 'にほんご',
+                glossary: ['Japanese language'],
+                dictionary: 'Local',
+            },
+            start: 5,
+            end: 8,
+            surface: '日本語',
+        }]);
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true }),
+            jpdb: {} as never,
+            dictionaries: { findTermMatches } as never,
+        });
+
+        try {
+            const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
+
+            expect(tokens.map(token => token.card.spelling)).toEqual(['青空', 'の', '下', 'で', '日本語']);
+            expect(tokens.find(token => token.card.spelling === '日本語')?.card.source).toBe('local');
+            expect(tokens.find(token => token.card.spelling === '下')?.card.source).toBe('fallback');
+        } finally {
+            if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
+            else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
+        }
+    });
+
+    it('prefers an inflected fallback span over a shorter overlapping local match', async () => {
+        const originalSegmenter = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
+        class FakeSegmenter {
+            segment(_value: string): Array<{ segment: string; index: number; isWordLike: boolean }> {
+                return [
+                    { segment: '分', index: 0, isWordLike: true },
+                    { segment: 'か', index: 1, isWordLike: true },
+                    { segment: 'り', index: 2, isWordLike: true },
+                    { segment: 'ま', index: 3, isWordLike: true },
+                    { segment: 'せん', index: 4, isWordLike: true },
+                ];
+            }
+        }
+        Object.defineProperty(Intl, 'Segmenter', { configurable: true, value: FakeSegmenter });
+        const findTermMatches = vi.fn().mockResolvedValue([{
+            entry: {
+                id: 1,
+                sequence: 1,
+                expression: '分',
+                reading: 'ぶん',
+                glossary: ['minute'],
+                dictionary: 'Local',
+            },
+            start: 0,
+            end: 1,
+            surface: '分',
+        }]);
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true }),
+            jpdb: {} as never,
+            dictionaries: { findTermMatches } as never,
+        });
+
+        try {
+            const [tokens] = await parser.parse(['分かりません'], { allowSegmentedFallback: true });
+
+            expect(tokens.map(token => token.card.spelling)).toEqual(['分かりません']);
+            expect(tokens[0]?.card.source).toBe('fallback');
+            expect(tokens[0]?.card.fallbackLookupTerms).toContain('分かる');
         } finally {
             if (originalSegmenter) Object.defineProperty(Intl, 'Segmenter', originalSegmenter);
             else delete (Intl as unknown as { Segmenter?: unknown }).Segmenter;
@@ -2290,7 +4074,7 @@ describe('reader helpers', () => {
         expect(fallbackLookupTermAtOffset('日本語がある場所ならどこでも', 1)).toBe('日本語');
         expect(fallbackLookupTermAtOffset('日本語がある場所ならどこでも', 5)).toBe('ある');
         expect(fallbackLookupTermAtOffset('好きなものを読んで日本語を学ぶ', 5)).toBe('を');
-        expect(fallbackLookupTermAtOffset('好きなものを読んで日本語を学ぶ', 6)).toBe('読');
+        expect(fallbackLookupTermAtOffset('好きなものを読んで日本語を学ぶ', 6)).toBe('読んで');
         expect(fallbackLookupTermAtOffset('辞書カード', 3)).toBe('カード');
     });
 
@@ -2330,9 +4114,10 @@ describe('reader helpers', () => {
         const previewCard = createAudioPreviewCard();
 
         expect(previewCard).toMatchObject({
+            vid: 1456360,
             spelling: '読む',
             reading: 'よむ',
-            source: 'fallback',
+            source: 'jpdb',
         });
         expect(formatAudioUrl('http://x.test/?term={term}&reading={reading}', previewCard))
             .toBe('http://x.test/?term=%E8%AA%AD%E3%82%80&reading=%E3%82%88%E3%82%80');
@@ -2372,6 +4157,8 @@ describe('reader helpers', () => {
         expect(isYomuHostedAppUrl('https://hrussellzfac023.github.io/yomu-reader/video-player/index.html')).toBe(true);
         expect(isYomuHostedAppUrl('https://hrussellzfac023.github.io/yomu-reader/newtab/index.html')).toBe(true);
         expect(isYomuHostedAppUrl('http://127.0.0.1:5175/yomu-reader/')).toBe(true);
+        expect(isYomuHostedAppUrl('http://127.0.0.1:5175/')).toBe(true);
+        expect(isYomuHostedPassivePage('http://127.0.0.1:5175/')).toBe(true);
         expect(isYomuHostedAppUrl('https://example.com/japanese/article')).toBe(false);
     });
 
@@ -2422,7 +4209,6 @@ describe('reader helpers', () => {
             await waitForExpect(() => {
                 expect(document.querySelector('.jpdb-ocr-layer')).not.toBeNull();
                 expect(document.querySelector('.jpdb-ocr-line')?.getAttribute('aria-label')).toBe('日本語');
-                expect(document.querySelector('.jpdb-reader-floating-button')).toBeNull();
             });
 
             const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
@@ -2444,7 +4230,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('scans hosted Try Me text once when a real passive runtime replaces an in-flight demo', async () => {
+    it('uses the normal reader path on real hosted documentation pages', async () => {
         const app = new ReaderApp();
         const scanVisiblePage = vi.fn(async () => undefined);
         Object.assign(app as unknown as {
@@ -2452,7 +4238,7 @@ describe('reader helpers', () => {
         }, {
             pageScanner: { scanVisiblePage, destroy: vi.fn() },
         });
-        document.body.innerHTML = '<main data-yomu-demo-lookup>日本語を読む</main>';
+        document.body.innerHTML = '<main class="hosted-text-fixture">日本語を読む</main>';
         vi.stubGlobal('location', {
             href: 'http://127.0.0.1:5177/yomu-reader/',
             origin: 'http://127.0.0.1:5177',
@@ -2462,8 +4248,10 @@ describe('reader helpers', () => {
         try {
             await app.init({ showWelcome: false });
 
-            expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
-            expect(document.querySelector('.jpdb-reader-floating-button')).toBeNull();
+            await waitForExpect(() => {
+                expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
+            });
+            expect(document.querySelector('.jpdb-reader-fab')).not.toBeNull();
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
@@ -2471,7 +4259,101 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps term audio autoplay enabled in hosted demo mode', async () => {
+    it('ignores obsolete disabled scan settings on hosted documentation pages', async () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'ja',
+            autoScanJapanese: false,
+            scanVisiblePage: false,
+        }));
+        const app = new ReaderApp();
+        const scanVisiblePage = vi.fn(async () => undefined);
+        Object.assign(app as unknown as {
+            pageScanner: { scanVisiblePage(options: { silent?: boolean }): Promise<void>; destroy(): void };
+        }, {
+            pageScanner: { scanVisiblePage, destroy: vi.fn() },
+        });
+        document.body.innerHTML = '<main><p>好きなものを読んで日本語を学ぶ</p></main>';
+        vi.stubGlobal('location', {
+            href: 'http://127.0.0.1:5177/yomu-reader/',
+            origin: 'http://127.0.0.1:5177',
+            hostname: '127.0.0.1',
+        });
+
+        try {
+            await app.init({ showWelcome: false });
+
+            await waitForExpect(() => {
+                expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
+            });
+            const { settings } = app as unknown as { settings: Record<string, unknown> };
+            expect(settings).not.toHaveProperty('autoScanJapanese');
+            expect(settings).not.toHaveProperty('scanVisiblePage');
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            localStorage.removeItem(SETTINGS_STORAGE_KEY);
+            document.body.replaceChildren();
+        }
+    });
+
+    it('ignores obsolete disabled scan settings on hosted video-player pages', async () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 200,
+            width: 800,
+            height: 200,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'ja',
+            autoScanJapanese: false,
+            scanVisiblePage: false,
+        }));
+        const app = new ReaderApp();
+        const scanVisiblePage = vi.fn(async () => undefined);
+        Object.assign(app as unknown as {
+            pageScanner: { scanVisiblePage(options: { silent?: boolean }): Promise<void>; destroy(): void };
+        }, {
+            pageScanner: { scanVisiblePage, destroy: vi.fn() },
+        });
+        document.body.innerHTML = `
+            <main data-app>
+                <section data-yomu-video-frame>
+                    <button class="empty" type="button"><strong>動画を開くかドロップ</strong></button>
+                </section>
+            </main>
+        `;
+        vi.stubGlobal('location', {
+            href: 'http://127.0.0.1:5177/yomu-reader/video-player/index.html',
+            origin: 'http://127.0.0.1:5177',
+            hostname: '127.0.0.1',
+        });
+
+        try {
+            await app.init({ showWelcome: false });
+
+            await waitForExpect(() => {
+                expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
+            });
+            const { settings } = app as unknown as { settings: Record<string, unknown> };
+            expect(settings).not.toHaveProperty('autoScanJapanese');
+            expect(settings).not.toHaveProperty('scanVisiblePage');
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            rectSpy.mockRestore();
+            localStorage.removeItem(SETTINGS_STORAGE_KEY);
+            document.body.replaceChildren();
+        }
+    });
+
+    it('uses ordinary audio and word color settings on hosted docs', async () => {
         localStorage.clear();
         const app = new ReaderApp();
         document.body.innerHTML = '<main>Hosted docs</main>';
@@ -2482,17 +4364,17 @@ describe('reader helpers', () => {
         });
 
         try {
-            await app.init({ isDemo: true, showWelcome: false });
+            await app.init({ showWelcome: false });
             const { settings } = app as unknown as { settings: typeof DEFAULT_SETTINGS };
 
-            expect(settings.audioEnabled).toBe(true);
-            expect(settings.autoPlayAudio).toBe(true);
-            expect(settings.immersionKitAutoPlayAudio).toBe(false);
-            expect(settings.wordHighlightColorSource).toBe('pitch');
-            expect(settings.wordUnderlineColorSource).toBe('jpdb');
-            expect(settings.wordTextColorSource).toBe('off');
-            expect(settings.pitchColorHeiban).toBe('#74c0ff');
-            expect(settings.pitchColorKifuku).toBe('#c4a3ff');
+            expect(settings.audioEnabled).toBe(DEFAULT_SETTINGS.audioEnabled);
+            expect(settings.autoPlayAudio).toBe(DEFAULT_SETTINGS.autoPlayAudio);
+            expect(settings.immersionKitAutoPlayAudio).toBe(DEFAULT_SETTINGS.immersionKitAutoPlayAudio);
+            expect(settings.showFurigana).toBe(DEFAULT_SETTINGS.showFurigana);
+            expect(settings.furiganaMode).toBe(DEFAULT_SETTINGS.furiganaMode);
+            expect(settings.wordHighlightColorSource).toBe(DEFAULT_SETTINGS.wordHighlightColorSource);
+            expect(settings.wordUnderlineColorSource).toBe(DEFAULT_SETTINGS.wordUnderlineColorSource);
+            expect(settings.wordTextColorSource).toBe(DEFAULT_SETTINGS.wordTextColorSource);
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
@@ -2500,7 +4382,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('overrides persisted disabled audio in hosted demo mode', async () => {
+    it('respects persisted disabled audio on hosted docs', async () => {
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
             ...DEFAULT_SETTINGS,
             audioEnabled: false,
@@ -2516,12 +4398,12 @@ describe('reader helpers', () => {
         });
 
         try {
-            await app.init({ isDemo: true, showWelcome: false });
+            await app.init({ showWelcome: false });
             const { settings } = app as unknown as { settings: typeof DEFAULT_SETTINGS };
 
-            expect(settings.audioEnabled).toBe(true);
+            expect(settings.audioEnabled).toBe(false);
             expect(settings.autoPlayAudio).toBe(true);
-            expect(settings.immersionKitAutoPlayAudio).toBe(false);
+            expect(settings.immersionKitAutoPlayAudio).toBe(true);
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
@@ -2530,7 +4412,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('scans hosted Try Me text after VitePress route changes expose it', async () => {
+    it('scans hosted docs text after VitePress route changes expose it', async () => {
         const app = new ReaderApp();
         const scanVisiblePage = vi.fn(async () => undefined);
         Object.assign(app as unknown as {
@@ -2549,13 +4431,211 @@ describe('reader helpers', () => {
             await app.init({ showWelcome: false });
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
-            document.body.innerHTML = '<main data-yomu-demo-lookup>青空の下で日本語を読む</main>';
-            window.dispatchEvent(new CustomEvent(HOSTED_DEMO_LOOKUP_SCAN_EVENT));
+            document.body.innerHTML = '<main><div class="vp-doc"><div class="hosted-text-fixture">青空の下で本を読む</div></div></main>';
 
-            expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
+            await waitForExpect(() => {
+                expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
+            });
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('scans hosted homepage Japanese surfaces after route changes expose them without Try Me', async () => {
+        const app = new ReaderApp();
+        const scanVisiblePage = vi.fn(async () => undefined);
+        Object.assign(app as unknown as {
+            pageScanner: { scanVisiblePage(options: { silent?: boolean }): Promise<void>; destroy(): void };
+        }, {
+            pageScanner: { scanVisiblePage, destroy: vi.fn() },
+        });
+        document.body.innerHTML = '<main>Docs feature page</main>';
+        vi.stubGlobal('location', {
+            href: 'http://127.0.0.1:5177/yomu-reader/',
+            origin: 'http://127.0.0.1:5177',
+            hostname: '127.0.0.1',
+        });
+
+        try {
+            await app.init({ showWelcome: false });
+            expect(scanVisiblePage).not.toHaveBeenCalled();
+
+            document.body.innerHTML = `
+                <main>
+                    <section class="VPHero"><h1>好きなものを読んで日本語を学ぶ</h1></section>
+                    <section class="VPFeatures"><article>必要なツールをまとめて使えます。</article></section>
+                    <div class="vp-doc"><p>文脈で理解しながら読み続けます。</p></div>
+                </main>
+            `;
+            await waitForExpect(() => {
+                expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
+            });
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('scans hosted docs text when VitePress mounts it after reader init', async () => {
+        const app = new ReaderApp();
+        const scanVisiblePage = vi.fn(async () => undefined);
+        Object.assign(app as unknown as {
+            pageScanner: { scanVisiblePage(options: { silent?: boolean }): Promise<void>; destroy(): void };
+        }, {
+            pageScanner: { scanVisiblePage, destroy: vi.fn() },
+        });
+        document.body.innerHTML = '<main id="app">Loading docs</main>';
+        vi.stubGlobal('location', {
+            href: 'http://127.0.0.1:5177/yomu-reader/',
+            origin: 'http://127.0.0.1:5177',
+            hostname: '127.0.0.1',
+        });
+
+        try {
+            await app.init({ showWelcome: false });
+            await new Promise(resolve => window.setTimeout(resolve, 20));
+            expect(scanVisiblePage).not.toHaveBeenCalled();
+
+            document.querySelector('main')!.innerHTML = `
+                <div class="vp-doc">
+                    <div class="hosted-text-fixture">
+                        <h3>青空の下で本を読む</h3>
+                        <p>今日は静かな喫茶店で新しい本を読みました。</p>
+                    </div>
+                </div>
+            `;
+
+            await waitForExpect(() => {
+                expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
+            });
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('ignores obsolete disabled scan settings in English HUD mode', async () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'en',
+            autoScanJapanese: false,
+            scanVisiblePage: false,
+        }));
+        const app = new ReaderApp();
+        const scanVisiblePage = vi.fn(async () => undefined);
+        Object.assign(app as unknown as {
+            pageScanner: { scanVisiblePage(options: { silent?: boolean }): Promise<void>; destroy(): void };
+        }, {
+            pageScanner: { scanVisiblePage, destroy: vi.fn() },
+        });
+        document.body.innerHTML = `
+            <main>
+                <div class="hosted-text-fixture">
+                    <h3>青空の下で本を読む</h3>
+                    <p>今日は静かな喫茶店で新しい本を読みました。</p>
+                </div>
+            </main>
+        `;
+        vi.stubGlobal('location', {
+            href: 'http://127.0.0.1:5177/yomu-reader/',
+            origin: 'http://127.0.0.1:5177',
+            hostname: '127.0.0.1',
+        });
+
+        try {
+            await app.init({ showWelcome: false });
+
+            await waitForExpect(() => {
+                expect(scanVisiblePage).toHaveBeenCalledWith({ silent: true });
+            });
+            const { settings } = app as unknown as { settings: Record<string, unknown> };
+            expect(settings).not.toHaveProperty('autoScanJapanese');
+            expect(settings).not.toHaveProperty('scanVisiblePage');
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            localStorage.removeItem(SETTINGS_STORAGE_KEY);
+            document.body.replaceChildren();
+        }
+    });
+
+    it('keeps collecting hosted docs text until all Japanese surface text is parsed', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 200,
+            width: 800,
+            height: 200,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        const hostedBlock = document.createElement('div');
+        document.body.innerHTML = '<main><div class="vp-doc"></div></main>';
+        document.querySelector('.vp-doc')!.append(hostedBlock);
+
+        try {
+            hostedBlock.innerHTML = `
+                <h3>青空の下で本を読む</h3>
+                <p><span class="jpdb-reader-word">今日</span>は静かな喫茶店で新しい本を読みました。</p>
+            `;
+            expect(collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/').map(target => target.text))
+                .toEqual(expect.arrayContaining(['青空の下で本を読む', 'は静かな喫茶店で新しい本を読みました。']));
+
+            hostedBlock.innerHTML = `
+                <h3><span class="jpdb-reader-word">青空</span>の下で本を読む</h3>
+                <p><span class="jpdb-reader-word">今日</span>は静かな喫茶店で新しい本を読みました。</p>
+            `;
+            expect(collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/').map(target => target.text))
+                .toEqual(expect.arrayContaining(['の下で本を読む', 'は静かな喫茶店で新しい本を読みました。']));
+
+            hostedBlock.innerHTML = `
+                <h3><span class="jpdb-reader-word">青空の下で本を読む</span></h3>
+                <p><span class="jpdb-reader-word">今日は静かな喫茶店で新しい本を読みました</span>。</p>
+            `;
+            expect(collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/')).toEqual([]);
+        } finally {
+            rectSpy.mockRestore();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('collects current VitePress hosted hero heading and tagline text', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 240,
+            width: 800,
+            height: 240,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <section class="VPHero has-image">
+                <div class="container">
+                    <div class="main">
+                        <h1 class="heading">よむ 好きなものを読んで日本語を学ぶ</h1>
+                        <p class="tagline">どこでも単語をタップし、文脈で理解し、復習用に保存して、そのまま読み続けられます。</p>
+                    </div>
+                </div>
+            </section>
+        `;
+
+        try {
+            expect(collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/').map(target => target.text))
+                .toEqual(expect.arrayContaining([
+                    'よむ 好きなものを読んで日本語を学ぶ',
+                    'どこでも単語をタップし、文脈で理解し、復習用に保存して、そのまま読み続けられます。',
+                ]));
+        } finally {
+            rectSpy.mockRestore();
             document.body.replaceChildren();
         }
     });
@@ -2649,11 +4729,15 @@ describe('reader helpers', () => {
             expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
             expect(lookupText).not.toHaveBeenCalled();
 
+            document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
+
             line.querySelector<HTMLElement>('.jpdb-ocr-line-text')!.innerHTML = '<span class="jpdb-reader-word jpdb-not-in-deck" data-vid="10" data-sid="20" data-sentence="日本語を読む" tabindex="0">日本語</span>を読む';
             const word = line.querySelector<HTMLElement>('.jpdb-reader-word[data-vid]')!;
             lookupText.mockClear();
             word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 130, clientY: 120 }));
 
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
             expect(lookupText).toHaveBeenCalledWith('日本語', '日本語を読む', expect.objectContaining({
                 anchor: word,
                 navigation: 'reset',
@@ -2732,6 +4816,12 @@ describe('reader helpers', () => {
             .toBe('http://x.test/audio.mp3');
         expect(findAudioUrls({ audioSources: [{ url: 'http://x.test/1.mp3' }, { url: 'http://x.test/2.mp3' }] }))
             .toEqual(['http://x.test/1.mp3', 'http://x.test/2.mp3']);
+        expect(findAudioUrls({
+            type: 'audioSourceList',
+            audioSources: [
+                { name: 'TTS (Default - No DB)', url: 'https://audiov2.animecards.site/audio/tts?term=%E7%8C%AB&apiKey=redacted' },
+            ],
+        })).toEqual(['https://audiov2.animecards.site/audio/tts?term=%E7%8C%AB&apiKey=redacted']);
     });
 
     it('extracts audio URLs embedded in fetched text responses', () => {
@@ -2818,6 +4908,28 @@ describe('reader helpers', () => {
         expect(new Set(secondCycle)).toEqual(new Set(ids));
     });
 
+    it('consumes skipped shuffled clips without treating them as last played', () => {
+        const deck = new ShuffledAudioDeck(() => 0);
+        const ids = ['a', 'b', 'c'];
+        const first = deck.order('読む', ids)[0];
+        deck.markSkipped('読む', first);
+        const second = deck.order('読む', ids)[0];
+        deck.markPlayed('読む', second);
+
+        expect(first).toBe('b');
+        expect(second).toBe('c');
+        expect(deck.order('読む', ids)[0]).toBe('a');
+    });
+
+    it('avoids repeating the last shuffled clip when candidate order changes', () => {
+        const deck = new ShuffledAudioDeck(() => 0.99);
+        const first = deck.order('読む', ['a', 'b', 'c'])[0];
+        deck.markPlayed('読む', first);
+
+        expect(first).toBe('a');
+        expect(deck.order('読む', ['a', 'c', 'b'])[0]).not.toBe(first);
+    });
+
     it('shuffles available audio sources across repeated play presses', async () => {
         const played: string[] = [];
         const requested: string[] = [];
@@ -2843,6 +4955,7 @@ describe('reader helpers', () => {
                 ],
             }));
 
+            window.dispatchEvent(new Event('click'));
             await expect(player.play(card)).resolves.toBe(true);
             await expect(player.play(card)).resolves.toBe(true);
 
@@ -2852,6 +4965,203 @@ describe('reader helpers', () => {
                 'http://x.test/first.mp3',
             ]);
         } finally {
+            randomSpy.mockRestore();
+            restoreMedia();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps JPDB word audio as a fallback when shuffled recorded audio is available', async () => {
+        const played: string[] = [];
+        const requested: string[] = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        const originalRevokeObjectUrl = URL.revokeObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn((blob: Blob) => blob.type.includes('ogg')
+                ? 'blob:http://localhost/jpdb-word-audio'
+                : 'blob:http://localhost/recorded-word-audio'),
+        });
+        Object.defineProperty(URL, 'revokeObjectURL', {
+            configurable: true,
+            value: vi.fn(),
+        });
+        const encodedOggHeader = new Uint8Array([0x4f, 0x67, 0x67, 0x53].map((byte, index) => byte ^ [0x06, 0x23, 0x54, 0x0f][index]));
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                details.onload?.({ status: 200, response: new Blob(['audio'], { type: 'audio/mpeg' }) });
+            },
+        });
+        vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+            const target = unproxiedFetchTarget(input);
+            requested.push(target);
+            return Promise.resolve(target.includes('/static/v/')
+                ? new Response(encodedOggHeader, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } })
+                : new Response(`
+                    <link rel="canonical" href="https://jpdb.io/vocabulary/1/食べる/たべる">
+                    <a class="icon-link vocabulary-audio" href="#" data-audio="m1/jpdb-first"></a>
+                `, { status: 200 }));
+        }));
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'random',
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'custom', url: 'http://x.test/recorded.mp3', voice: '', enabled: true },
+                    { type: 'jpdb-tts', url: '', voice: '', enabled: true },
+                ],
+            }));
+
+            await expect(player.play(card)).resolves.toBe(true);
+
+            expect(requested).toEqual(['http://x.test/recorded.mp3']);
+            expect(played).toEqual(['blob:http://localhost/recorded-word-audio']);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            Object.defineProperty(URL, 'revokeObjectURL', {
+                configurable: true,
+                value: originalRevokeObjectUrl,
+            });
+            randomSpy.mockRestore();
+            restoreMedia();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('randomizes JPDB word voice candidates even when audio source order is fixed', async () => {
+        const played: string[] = [];
+        const requested: string[] = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        const originalRevokeObjectUrl = URL.revokeObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:http://localhost/jpdb-random-word-audio'),
+        });
+        Object.defineProperty(URL, 'revokeObjectURL', {
+            configurable: true,
+            value: vi.fn(),
+        });
+        const encodedOggHeader = new Uint8Array([0x4f, 0x67, 0x67, 0x53].map((byte, index) => byte ^ [0x06, 0x23, 0x54, 0x0f][index]));
+        const jpdbHtml = `
+            <link rel="canonical" href="https://jpdb.io/vocabulary/1/食べる/たべる">
+            <a class="icon-link vocabulary-audio" href="#" data-audio="m1/voice-a,m1/voice-b"></a>
+        `;
+        vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+            const target = unproxiedFetchTarget(input);
+            requested.push(target);
+            return Promise.resolve(target.includes('/static/v/')
+                ? new Response(encodedOggHeader, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } })
+                : new Response(jpdbHtml, { status: 200 }));
+        }));
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'jpdb-tts', url: '', voice: '', enabled: true }],
+            }));
+
+            window.dispatchEvent(new Event('click'));
+            await expect(player.play(card)).resolves.toBe(true);
+            await expect(player.play(card)).resolves.toBe(true);
+
+            const jpdbAudioRequests = requested.filter(target => target.includes('/vocabulary/1/') || target.includes('/static/v/m1/'));
+            expect(jpdbAudioRequests).toEqual([
+                'https://jpdb.io/vocabulary/1/%E9%A3%9F%E3%81%B9%E3%82%8B/%E3%81%9F%E3%81%B9%E3%82%8B',
+                'https://jpdb.io/static/v/m1/voice-b',
+                'https://jpdb.io/static/v/m1/voice-a',
+            ]);
+            expect(played).toEqual([
+                'blob:http://localhost/jpdb-random-word-audio',
+                'blob:http://localhost/jpdb-random-word-audio',
+            ]);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            Object.defineProperty(URL, 'revokeObjectURL', {
+                configurable: true,
+                value: originalRevokeObjectUrl,
+            });
+            randomSpy.mockRestore();
+            restoreMedia();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not invent JPDB word voice candidates for a single rendered audio id', async () => {
+        const played: string[] = [];
+        const requested: string[] = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.99);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        const originalRevokeObjectUrl = URL.revokeObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:http://localhost/jpdb-single-word-voice'),
+        });
+        Object.defineProperty(URL, 'revokeObjectURL', {
+            configurable: true,
+            value: vi.fn(),
+        });
+        const encodedOggHeader = new Uint8Array([0x4f, 0x67, 0x67, 0x53].map((byte, index) => byte ^ [0x06, 0x23, 0x54, 0x0f][index]));
+        const jpdbHtml = `
+            <link rel="canonical" href="https://jpdb.io/vocabulary/1/食べる/たべる">
+            <a class="icon-link vocabulary-audio" href="#" data-audio="m1/only-one"></a>
+        `;
+        vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+            const target = unproxiedFetchTarget(input);
+            requested.push(target);
+            return Promise.resolve(target.includes('/static/v/')
+                ? new Response(encodedOggHeader, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } })
+                : new Response(jpdbHtml, { status: 200 }));
+        }));
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'jpdb-tts', url: '', voice: '', enabled: true }],
+            }));
+
+            window.dispatchEvent(new Event('click'));
+            await expect(player.play(card)).resolves.toBe(true);
+            await expect(player.play(card)).resolves.toBe(true);
+
+            expect(requested[0]).toBe('https://jpdb.io/vocabulary/1/%E9%A3%9F%E3%81%B9%E3%82%8B/%E3%81%9F%E3%81%B9%E3%82%8B');
+            expect(requested.filter(url => url.includes('/static/v/'))).toEqual([
+                'https://jpdb.io/static/v/m1/only-one',
+            ]);
+            expect(played).toEqual([
+                'blob:http://localhost/jpdb-single-word-voice',
+                'blob:http://localhost/jpdb-single-word-voice',
+            ]);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            Object.defineProperty(URL, 'revokeObjectURL', {
+                configurable: true,
+                value: originalRevokeObjectUrl,
+            });
             randomSpy.mockRestore();
             restoreMedia();
             vi.unstubAllGlobals();
@@ -2891,8 +5201,7 @@ describe('reader helpers', () => {
 
     it('normalizes and decodes JPDB page audio references', async () => {
         expect(parseJpdbAudioData('m1/a+m1/b,/static/user/example.mp3,https://bad.example/audio.mp3,../bad')).toEqual([
-            'm1/a',
-            'm1/b',
+            'm1/a+m1/b',
             '/static/user/example.mp3',
         ]);
         expect(normalizeJpdbAudioIds('m1/a,m1/a,m1/b')).toEqual(['m1/a', 'm1/b']);
@@ -3114,18 +5423,39 @@ describe('reader helpers', () => {
         expect(IMMERSION_STUDY_CSS).not.toContain('max-height: min(260px, calc(100vh - 300px));');
     });
 
+    it('renders study sentence rows without visible English language labels', async () => {
+        const sentence = '毎日読んでいるので、もっと読みたい。';
+        const controller = new StudySourceController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, studyTranslationEnabled: true }),
+            dictionarySourceAttributes: () => '',
+            parseJapanese: vi.fn(async () => []),
+            parsePopoverJapanese: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords: vi.fn(),
+            isCurrentPopoverRoot: () => true,
+        });
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = [
+            controller.renderTranslationSource(sentence),
+            await renderGrammarHints(detectGrammarHints(sentence), sentence),
+        ].join('');
+
+        expect(wrapper.textContent).not.toContain('Japanese');
+        expect(wrapper.querySelectorAll('.jpdb-reader-study-sentence-row [data-action="study-read-sentence"]')).toHaveLength(2);
+        expect(wrapper.querySelectorAll('[data-study-original-render]')).toHaveLength(2);
+    });
+
     it('lets parsed study sentences wrap without pushing the sentence audio button off mobile sheets', () => {
         const style = document.createElement('style');
         style.textContent = `${READER_WORD_CSS}\n${IMMERSION_STUDY_CSS}`;
         document.head.append(style);
         document.body.innerHTML = `
             <div data-jpdb-reader-root>
-                <div class="jpdb-reader-study-label-row">
-                    <div class="jpdb-reader-study-label">Japanese</div>
+                <div class="jpdb-reader-study-label-row jpdb-reader-study-sentence-row">
+                    <div class="jpdb-reader-study-original">
+                        <span class="jpdb-reader-word">青空の下で本を読む今日は静かな喫茶店で新しい本を読みました</span>
+                    </div>
                     <button class="jpdb-reader-icon-mini" type="button"></button>
-                </div>
-                <div class="jpdb-reader-study-original">
-                    <span class="jpdb-reader-word">青空の下で日本語を読む今日は静かな喫茶店で新しい本を読みました</span>
                 </div>
             </div>
         `;
@@ -3282,12 +5612,12 @@ describe('reader helpers', () => {
         try {
             const settings = await loadSettings();
 
-            expect(settings.wordHighlightColorSource).toBe('pitch');
-            expect(settings.wordUnderlineColorSource).toBe('jpdb');
-            expect(settings.wordTextColorSource).toBe('off');
+            expect(settings.wordHighlightColorSource).toBe('jpdb');
+            expect(settings.wordUnderlineColorSource).toBe('pitch');
+            expect(settings.wordTextColorSource).toBe('anki');
             expect(settings.subtitleHighlightColorSource).toBe('jpdb');
             expect(settings.subtitleUnderlineColorSource).toBe('pitch');
-            expect(settings.subtitleTextColorSource).toBe('jpdb');
+            expect(settings.subtitleTextColorSource).toBe('anki');
             expect('wordHighlightMode' in settings).toBe(false);
         } finally {
             if (previous === null) localStorage.removeItem(storageKey);
@@ -3720,7 +6050,7 @@ describe('reader helpers', () => {
         const restoreBrowser = mockAppleMobileBrowser();
         const restoreMedia = mockHtmlAudioPlayback(played);
         const originalCreateObjectUrl = URL.createObjectURL;
-        let resolveFetch!: (response: Response) => void;
+        let resolveFetch: ((response: Response) => void) | undefined;
         Object.defineProperty(URL, 'createObjectURL', {
             configurable: true,
             value: vi.fn(() => 'blob:https://hrussellzfac023.github.io/yomu-reader/audio'),
@@ -3730,9 +6060,7 @@ describe('reader helpers', () => {
             origin: 'https://hrussellzfac023.github.io',
             hostname: 'hrussellzfac023.github.io',
         });
-        const fetchMock = vi.fn(() => new Promise<Response>(resolve => {
-            resolveFetch = resolve;
-        }));
+        const fetchMock = vi.fn(() => new Promise<Response>(resolve => { resolveFetch ??= resolve; }));
         vi.stubGlobal('fetch', fetchMock);
 
         try {
@@ -3745,9 +6073,9 @@ describe('reader helpers', () => {
 
             const playPromise = player.play({ ...card, spelling: '月光', reading: 'げっこう' }, { userGesture: true });
             expect(played).toEqual([expect.stringMatching(/^data:audio\/wav;base64,/)]);
-            await waitForExpect(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+            await waitForExpect(() => expect(resolveFetch).toBeDefined());
 
-            resolveFetch({
+            resolveFetch?.({
                 ok: true,
                 status: 200,
                 blob: () => Promise.resolve(new Blob(['audio'], { type: 'audio/mpeg' })),
@@ -3774,7 +6102,7 @@ describe('reader helpers', () => {
         const loopStates: boolean[] = [];
         const restoreMedia = mockHtmlAudioPlayback(played, loopStates);
         const originalCreateObjectUrl = URL.createObjectURL;
-        let resolveFetch!: (response: Response) => void;
+        let resolveFetch: ((response: Response) => void) | undefined;
         Object.defineProperty(URL, 'createObjectURL', {
             configurable: true,
             value: vi.fn(() => 'blob:https://hrussellzfac023.github.io/yomu-reader/jpdb-example-audio'),
@@ -3784,9 +6112,7 @@ describe('reader helpers', () => {
             origin: 'https://hrussellzfac023.github.io',
             hostname: 'hrussellzfac023.github.io',
         });
-        const fetchMock = vi.fn(() => new Promise<Response>(resolve => {
-            resolveFetch = resolve;
-        }));
+        const fetchMock = vi.fn(() => new Promise<Response>(resolve => { resolveFetch ??= resolve; }));
         vi.stubGlobal('fetch', fetchMock);
 
         try {
@@ -3798,11 +6124,11 @@ describe('reader helpers', () => {
 
             const playPromise = player.playJpdbAudio('m1/b4d5af0478d7', { userGesture: true });
             expect(played).toEqual([expect.stringMatching(/^data:audio\/wav;base64,/)]);
-            await waitForExpect(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+            await waitForExpect(() => expect(resolveFetch).toBeDefined());
 
             const oggHeader = [0x4f, 0x67, 0x67, 0x53];
             const encoded = new Uint8Array(oggHeader.map((byte, index) => byte ^ [0x06, 0x23, 0x54, 0x0f][index]));
-            resolveFetch({
+            resolveFetch?.({
                 ok: true,
                 status: 200,
                 blob: () => Promise.resolve(new Blob([encoded], { type: 'audio/ogg' })),
@@ -3819,6 +6145,357 @@ describe('reader helpers', () => {
                 configurable: true,
                 value: originalCreateObjectUrl,
             });
+            restoreMedia();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('randomizes JPDB sentence audio candidates across repeated plays', async () => {
+        const played: string[] = [];
+        const requested: string[] = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        const originalRevokeObjectUrl = URL.revokeObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:http://localhost/jpdb-random-sentence-audio'),
+        });
+        Object.defineProperty(URL, 'revokeObjectURL', {
+            configurable: true,
+            value: vi.fn(),
+        });
+        const encodedOggHeader = new Uint8Array([0x4f, 0x67, 0x67, 0x53].map((byte, index) => byte ^ [0x06, 0x23, 0x54, 0x0f][index]));
+        vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+            const target = unproxiedFetchTarget(input);
+            requested.push(target);
+            return Promise.resolve(new Response(encodedOggHeader, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } }));
+        }));
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioFallbackChimeEnabled: false,
+            }));
+
+            await expect(player.playJpdbAudio('m1/sentence-a,m1/sentence-b', { userGesture: true })).resolves.toBe(true);
+            await expect(player.playJpdbAudio('m1/sentence-a,m1/sentence-b', { userGesture: true })).resolves.toBe(true);
+
+            expect(requested).toEqual([
+                'https://jpdb.io/static/v/m1/sentence-b',
+                'https://jpdb.io/static/v/m1/sentence-a',
+            ]);
+            expect(played).toEqual([
+                expect.stringMatching(/^data:audio\/wav;base64,/),
+                'blob:http://localhost/jpdb-random-sentence-audio',
+                expect.stringMatching(/^data:audio\/wav;base64,/),
+                'blob:http://localhost/jpdb-random-sentence-audio',
+            ]);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            Object.defineProperty(URL, 'revokeObjectURL', {
+                configurable: true,
+                value: originalRevokeObjectUrl,
+            });
+            randomSpy.mockRestore();
+            restoreMedia();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses signed-in JPDB vocabulary voices for JPDB word audio without repeating', async () => {
+        const played: string[] = [];
+        const requested: Array<{ target: string; credentials?: RequestCredentials }> = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.99);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        const originalRevokeObjectUrl = URL.revokeObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:https://jpdb.io/signed-in-jpdb-word-audio'),
+        });
+        Object.defineProperty(URL, 'revokeObjectURL', {
+            configurable: true,
+            value: vi.fn(),
+        });
+        vi.stubGlobal('location', {
+            href: 'https://jpdb.io/vocabulary/1456360/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80',
+            origin: 'https://jpdb.io',
+            hostname: 'jpdb.io',
+            pathname: '/vocabulary/1456360/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80',
+        });
+        const encodedOggHeader = new Uint8Array([0x4f, 0x67, 0x67, 0x53].map((byte, index) => byte ^ [0x06, 0x23, 0x54, 0x0f][index]));
+        vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+            const target = unproxiedFetchTarget(input);
+            requested.push({ target, credentials: init?.credentials });
+            if (target.includes('/vocabulary/1456360/')) {
+                return Promise.resolve(new Response(`
+                    <link rel="canonical" href="https://jpdb.io/vocabulary/1456360/読む/よむ">
+                    <div class="result vocabulary">
+                        <div class="subsection-headword">
+                            <a href="/vocabulary/1456360/読む/よむ#a"><ruby>読<rt>よ</rt></ruby>む</a>
+                            <a class="icon-link vocabulary-audio" href="#" data-audio="m1/word,f1/word,m2/word,f2/word"></a>
+                        </div>
+                    </div>
+                `, { status: 200 }));
+            }
+            if (target.includes('/static/v/')) {
+                return Promise.resolve(new Response(encodedOggHeader, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } }));
+            }
+            return Promise.resolve(new Response('not found', { status: 404 }));
+        }));
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'jpdb-tts', url: '', voice: '', enabled: true }],
+            }));
+            const lookupCard = { ...card, vid: 1456360, sid: 1456360, spelling: '読む', reading: 'よむ', source: 'jpdb' as const };
+
+            for (let index = 0; index < 4; index++) {
+                await expect(player.play(lookupCard, { userGesture: true })).resolves.toBe(true);
+            }
+
+            const vocabularyRequests = requested.filter(request => request.target.includes('/vocabulary/1456360/'));
+            const audioRequests = requested.filter(request => request.target.includes('/static/v/'));
+            expect(vocabularyRequests).toHaveLength(1);
+            expect(vocabularyRequests[0]?.credentials).toBe('same-origin');
+            expect(audioRequests.every(request => request.credentials === 'same-origin')).toBe(true);
+            expect(audioRequests.map(request => request.target.replace('https://jpdb.io/static/v/', ''))).toEqual([
+                'm1/word',
+                'f1/word',
+                'm2/word',
+                'f2/word',
+            ]);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            Object.defineProperty(URL, 'revokeObjectURL', {
+                configurable: true,
+                value: originalRevokeObjectUrl,
+            });
+            randomSpy.mockRestore();
+            restoreMedia();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses the userscript JPDB session for settings preview voices away from jpdb.io', async () => {
+        const played: string[] = [];
+        const requested: Array<{ url: string; responseType?: string; withCredentials?: boolean }> = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.99);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        const originalRevokeObjectUrl = URL.revokeObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:http://127.0.0.1:5173/jpdb-preview-voice'),
+        });
+        Object.defineProperty(URL, 'revokeObjectURL', {
+            configurable: true,
+            value: vi.fn(),
+        });
+        vi.stubGlobal('location', {
+            href: 'http://127.0.0.1:5173/yomu-reader/#jpdb-reader-dictionary-lookup',
+            origin: 'http://127.0.0.1:5173',
+            hostname: '127.0.0.1',
+            pathname: '/yomu-reader/',
+        });
+        const encodedOggHeader = new Uint8Array([0x4f, 0x67, 0x67, 0x53].map((byte, index) => byte ^ [0x06, 0x23, 0x54, 0x0f][index]));
+        const request = vi.fn((details: Parameters<UserscriptHttpRequest>[0]) => {
+            requested.push({
+                url: details.url,
+                responseType: details.responseType,
+                withCredentials: details.withCredentials,
+            });
+            if (details.url.includes('/search?q=%E8%AA%AD%E3%82%80')) {
+                details.onload?.({
+                    status: 200,
+                    response: `
+                        <div class="results search">
+                            <div class="result vocabulary">
+                                <a href="/vocabulary/1456360/読む/よむ#a"><ruby>読<rt>よ</rt></ruby>む</a>
+                                <a class="icon-link vocabulary-audio" href="#" data-audio="m1/preview,f1/preview,m2/preview,f2/preview"></a>
+                            </div>
+                        </div>
+                    `,
+                    responseText: `
+                        <div class="results search">
+                            <div class="result vocabulary">
+                                <a href="/vocabulary/1456360/読む/よむ#a"><ruby>読<rt>よ</rt></ruby>む</a>
+                                <a class="icon-link vocabulary-audio" href="#" data-audio="m1/preview,f1/preview,m2/preview,f2/preview"></a>
+                            </div>
+                        </div>
+                    `,
+                });
+                return;
+            }
+            if (details.url.includes('/static/v/')) {
+                details.onload?.({
+                    status: 200,
+                    response: new Blob([encodedOggHeader], { type: 'audio/ogg' }),
+                });
+                return;
+            }
+            details.onerror?.(new Error(`Unexpected request: ${details.url}`));
+        });
+        vi.stubGlobal('GM_xmlhttpRequest', request);
+        vi.stubGlobal('GM', {});
+        vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('fetch should not run when the userscript bridge is available'))));
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'jpdb-tts', url: '', voice: '', enabled: true }],
+            }));
+
+            for (let index = 0; index < 4; index++) {
+                await expect(player.play(createAudioPreviewCard(), { userGesture: true })).resolves.toBe(true);
+            }
+
+            const lookupRequests = requested.filter(item => item.url.includes('/search?q=%E8%AA%AD%E3%82%80'));
+            const audioRequests = requested.filter(item => item.url.includes('/static/v/'));
+            expect(fetch).not.toHaveBeenCalled();
+            expect(lookupRequests).toHaveLength(1);
+            expect(requested.every(item => item.withCredentials === true)).toBe(true);
+            expect(audioRequests.map(item => item.url.replace('https://jpdb.io/static/v/', ''))).toEqual([
+                'm1/preview',
+                'f1/preview',
+                'm2/preview',
+                'f2/preview',
+            ]);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            Object.defineProperty(URL, 'revokeObjectURL', {
+                configurable: true,
+                value: originalRevokeObjectUrl,
+            });
+            randomSpy.mockRestore();
+            restoreMedia();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not repeat JPDB sentence audio when the same voice set arrives in a different order', async () => {
+        const played: string[] = [];
+        const requested: string[] = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.99);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        const originalRevokeObjectUrl = URL.revokeObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:http://localhost/jpdb-reordered-sentence-audio'),
+        });
+        Object.defineProperty(URL, 'revokeObjectURL', {
+            configurable: true,
+            value: vi.fn(),
+        });
+        const encodedOggHeader = new Uint8Array([0x4f, 0x67, 0x67, 0x53].map((byte, index) => byte ^ [0x06, 0x23, 0x54, 0x0f][index]));
+        vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+            const target = unproxiedFetchTarget(input);
+            requested.push(target);
+            return Promise.resolve(new Response(encodedOggHeader, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } }));
+        }));
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioFallbackChimeEnabled: false,
+            }));
+
+            await expect(player.playJpdbAudio('m1/sentence-a,m1/sentence-b,m1/sentence-c', { userGesture: true })).resolves.toBe(true);
+            await expect(player.playJpdbAudio('m1/sentence-a,m1/sentence-c,m1/sentence-b', { userGesture: true })).resolves.toBe(true);
+
+            expect(requested).toEqual([
+                'https://jpdb.io/static/v/m1/sentence-a',
+                'https://jpdb.io/static/v/m1/sentence-c',
+            ]);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            Object.defineProperty(URL, 'revokeObjectURL', {
+                configurable: true,
+                value: originalRevokeObjectUrl,
+            });
+            randomSpy.mockRestore();
+            restoreMedia();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not invent JPDB sentence voice candidates for a single rendered audio id', async () => {
+        const played: string[] = [];
+        const requested: string[] = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.99);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        const originalRevokeObjectUrl = URL.revokeObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:http://localhost/jpdb-single-sentence-voice'),
+        });
+        Object.defineProperty(URL, 'revokeObjectURL', {
+            configurable: true,
+            value: vi.fn(),
+        });
+        const encodedOggHeader = new Uint8Array([0x4f, 0x67, 0x67, 0x53].map((byte, index) => byte ^ [0x06, 0x23, 0x54, 0x0f][index]));
+        vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+            const target = unproxiedFetchTarget(input);
+            requested.push(target);
+            return Promise.resolve(new Response(encodedOggHeader, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } }));
+        }));
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioFallbackChimeEnabled: false,
+            }));
+
+            await expect(player.playJpdbAudio('m1/example', { userGesture: true })).resolves.toBe(true);
+            await expect(player.playJpdbAudio('m1/example', { userGesture: true })).resolves.toBe(true);
+
+            expect(requested).toEqual([
+                'https://jpdb.io/static/v/m1/example',
+            ]);
+            expect(played).toEqual([
+                expect.stringMatching(/^data:audio\/wav;base64,/),
+                'blob:http://localhost/jpdb-single-sentence-voice',
+                expect.stringMatching(/^data:audio\/wav;base64,/),
+                'blob:http://localhost/jpdb-single-sentence-voice',
+            ]);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            Object.defineProperty(URL, 'revokeObjectURL', {
+                configurable: true,
+                value: originalRevokeObjectUrl,
+            });
+            randomSpy.mockRestore();
             restoreMedia();
             vi.unstubAllGlobals();
         }
@@ -3852,12 +6529,9 @@ describe('reader helpers', () => {
             await expect(player.play(card)).resolves.toBe(true);
 
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
-            expect(urls[0]).toContain('yomu-jpdb-public-proxy');
-            expect(urls).toContain(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`);
-            expect(urls.indexOf(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`))
-                .toBeLessThan(urls.indexOf(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`));
+            expect(urls).not.toContain(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`);
             expect(urls).toContain(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`);
-            expect(urls).toContain('https://r.jina.ai/https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B');
+            expect(urls.some(url => url.startsWith('https://r.jina.ai/'))).toBe(false);
             expect(spoken).toEqual([card.spelling]);
         } finally {
             vi.unstubAllGlobals();
@@ -4056,7 +6730,10 @@ describe('reader helpers', () => {
             xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
                 requested.push({ url: details.url, responseType: details.responseType });
                 if (details.responseType === 'text') {
-                    const response = JSON.stringify({ audioSources: [{ url: 'https://media.test/neko.mp3' }] });
+                    const response = JSON.stringify({
+                        type: 'audioSourceList',
+                        audioSources: [{ name: 'TTS (Default - No DB)', url: 'https://audiov2.animecards.site/audio/tts?term=%E7%8C%AB&apiKey=redacted' }],
+                    });
                     details.onload?.({ status: 200, response, responseText: response });
                     return;
                 }
@@ -4085,7 +6762,7 @@ describe('reader helpers', () => {
 
             expect(requested.map(request => request.url)).toEqual([
                 'https://custom.test/source?term=%E7%8C%AB',
-                'https://media.test/neko.mp3',
+                'https://audiov2.animecards.site/audio/tts?term=%E7%8C%AB&apiKey=redacted',
             ]);
             expect(played).toEqual(['blob:http://localhost/custom-json-audio']);
         } finally {
@@ -4144,6 +6821,26 @@ describe('reader helpers', () => {
         expect(html).toContain('class="atamadaka"');
         expect(html).toContain('>よ<');
         expect(html).toContain('>む<');
+    });
+
+    it('uses kana spelling as the popup pronunciation when local pitch metadata has no card reading', () => {
+        const html = renderPitch({
+            ...card,
+            spelling: 'いちばん',
+            reading: '',
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'local',
+        }, [
+            { expression: 'いちばん', mode: 'pitch', data: { reading: 'いちばん', pitches: [{ position: 2 }] }, dictionary: 'Pitch' },
+        ]);
+
+        expect(html).toContain('jpdb-reader-pitch');
+        expect(html).toContain('class="nakadaka"');
+        expect(html).toContain('>い<');
+        expect(html).toContain('>ち<');
+        expect(html).toContain('>ば<');
+        expect(html).toContain('>ん<');
     });
 
     it('collapses JPDB character-aligned pitch over small kana when rendering the graph', () => {
@@ -4275,7 +6972,7 @@ describe('reader helpers', () => {
             await expect(client.lookup('易しい', 'やさしい')).resolves.toEqual([]);
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
             expect(urls[0]).toBe(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jpdb.io/search?q=%E6%98%93%E3%81%97%E3%81%84')}`);
-            expect(urls).toContain(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jpdb.io/search?q=%E6%98%93%E3%81%97%E3%81%84')}`);
+            expect(urls.some(url => url.startsWith('https://api.allorigins.win/'))).toBe(false);
             expect(urls.some(url => url.startsWith('https://corsproxy.io/'))).toBe(false);
         } finally {
             vi.unstubAllGlobals();
@@ -4292,7 +6989,7 @@ describe('reader helpers', () => {
             await expect(client.lookup(123, '読む', 'よむ')).resolves.toBeNull();
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
             expect(urls[0]).toBe(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jpdb.io/vocabulary/123/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80')}`);
-            expect(urls).toContain(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jpdb.io/vocabulary/123/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80')}`);
+            expect(urls.some(url => url.startsWith('https://api.allorigins.win/'))).toBe(false);
             expect(urls.some(url => url.startsWith('https://corsproxy.io/'))).toBe(false);
         } finally {
             vi.unstubAllGlobals();
@@ -4345,7 +7042,7 @@ describe('reader helpers', () => {
     it('sets external dictionary lookup pill defaults for JPDB-first and local-first setup', () => {
         expect(defaultDictionaryLookupLinks('jpdb').map(link => [link.id, link.enabled])).toEqual([
             ['jpdb', true],
-            ['jisho', false],
+            ['jisho', true],
             ['copy', false],
         ]);
         expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.enabled])).toEqual([
@@ -4387,6 +7084,10 @@ describe('reader helpers', () => {
             if (previous === null) localStorage.removeItem(storageKey);
             else localStorage.setItem(storageKey, previous);
         }
+    });
+
+    it('uses popover as the default popup mode', () => {
+        expect(DEFAULT_SETTINGS.popupMode).toBe('popover');
     });
 
     it('keeps the copy lookup pill fixed and URL-free in settings', () => {
@@ -4571,8 +7272,8 @@ describe('reader helpers', () => {
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="support"]')).toBeNull();
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="issues"]')?.href).toContain('/issues');
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="donate"]')?.href).toContain('paypal.me');
-        expect(form.querySelector<HTMLElement>('[data-help-support-copy]')?.textContent).toContain('よむ brings popup lookup');
-        expect(form.querySelector<HTMLElement>('[data-help-support-copy-extra]')?.textContent).toContain('Donations are optional');
+        expect(form.querySelector<HTMLElement>('[data-help-support-copy]')?.textContent).toContain('paid Japanese study suites');
+        expect(form.querySelector<HTMLElement>('[data-help-support-copy-extra]')?.textContent).toContain('long-distance Japanese girlfriend');
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="discord"]')?.href).toBe('https://discord.gg/WvDt57uk5');
         expect(SETTINGS_CSS).toContain('.jpdb-reader-help-actions');
         expect(SETTINGS_CSS).toContain('flex-wrap: nowrap');
@@ -4606,8 +7307,8 @@ describe('reader helpers', () => {
         const firstId = rows[0].dataset.sourceId;
         const handle = rows[0].querySelector<HTMLElement>('[data-source-drag-handle]')!;
         dispatchPointerEvent(handle, 'pointerdown', 4, 'mouse');
-        dispatchPointerEvent(form, 'pointermove', 240, 'mouse');
-        dispatchPointerEvent(form, 'pointerup', 240, 'mouse');
+        dispatchPointerEvent(form, 'pointermove', 999, 'mouse');
+        dispatchPointerEvent(form, 'pointerup', 999, 'mouse');
 
         const reordered = Array.from(form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]'));
         expect(reordered.at(-1)?.dataset.sourceId).toBe(firstId);
@@ -4670,7 +7371,8 @@ describe('reader helpers', () => {
         const candidates = proxyUrlCandidates(target, 'https://yomu-proxy.example/fetch');
 
         expect(candidates[0]).toBe(`https://yomu-proxy.example/fetch?url=${encodeURIComponent(target)}`);
-        expect(candidates).toContain(`https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`);
+        expect(candidates).toContain(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent(target)}`);
+        expect(candidates.some(url => url.startsWith('https://api.allorigins.win/'))).toBe(false);
         expect(proxyUrlCandidates(target, 'https://yomu-proxy.example/fetch', false)).toEqual([
             `https://yomu-proxy.example/fetch?url=${encodeURIComponent(target)}`,
         ]);
@@ -4683,7 +7385,7 @@ describe('reader helpers', () => {
             if (url.startsWith('https://yomu-proxy.example/fetch')) {
                 return Promise.resolve(new Response('blocked', { status: 403 }));
             }
-            if (url.startsWith('https://api.allorigins.win/raw')) {
+            if (url.startsWith('https://yomu-jpdb-public-proxy')) {
                 return Promise.resolve(new Response('ok', { status: 200 }));
             }
             return Promise.reject(new Error('unexpected fetch'));
@@ -4698,8 +7400,45 @@ describe('reader helpers', () => {
             expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
                 `https://yomu-proxy.example/fetch?url=${encodeURIComponent(target)}`,
                 `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent(target)}`,
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
             ]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('starts public JPDB lookup page requests through the proxy from local app pages', async () => {
+        const target = 'https://jpdb.io/search?q=%E8%AA%AD';
+        const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('ok', { status: 200 })));
+        vi.stubGlobal('location', { href: 'http://127.0.0.1:5173/yomu-reader/', origin: 'http://127.0.0.1:5173', hostname: '127.0.0.1' });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const response = await fetchWithCorsFallbacks(target, '', { credentials: 'omit' });
+
+            expect(await response.text()).toBe('ok');
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(String(fetchMock.mock.calls[0][0])).toBe(
+                `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent(target)}`,
+            );
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('starts local hosted Immersion Kit search through the proxy to avoid browser CORS errors', async () => {
+        const target = 'https://apiv2express.immersionkit.com/search?q=%E8%AA%AD%E3%82%80&limit=48';
+        const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('ok', { status: 200 })));
+        vi.stubGlobal('location', { href: 'http://127.0.0.1:5173/yomu-reader/', origin: 'http://127.0.0.1:5173', hostname: '127.0.0.1' });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const response = await fetchWithCorsFallbacks(target, DEFAULT_YOMU_PUBLIC_PROXY_URL, { allowDirectCrossOrigin: true, credentials: 'omit' });
+
+            expect(await response.text()).toBe('ok');
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(String(fetchMock.mock.calls[0][0])).toBe(
+                `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent(target)}`,
+            );
         } finally {
             vi.unstubAllGlobals();
         }
@@ -4781,9 +7520,6 @@ describe('reader helpers', () => {
         const languagePodPostTarget = 'https://www.japanesepod101.com/learningcenter/reference/dictionary_post';
         const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
             const url = String(input);
-            if (url.startsWith('https://api.allorigins.win/raw?') && url.includes('jisho.org')) {
-                return Promise.resolve(new Response('ok', { status: 200 }));
-            }
             if (url.startsWith('https://yomu-jpdb-public-proxy') && url.includes('jisho.org')) {
                 return Promise.resolve(new Response('ok', { status: 200 }));
             }
@@ -4802,7 +7538,9 @@ describe('reader helpers', () => {
             if (url.startsWith('https://yomu-jpdb-public-proxy') && url.includes('www.japanesepod101.com')) {
                 return Promise.resolve(new Response('language pod html', { status: 200 }));
             }
-            if (url.startsWith('https://r.jina.ai/')) return Promise.resolve(new Response('ok', { status: 200 }));
+            if (url.startsWith('https://yomu-jpdb-public-proxy') && url.includes('jisho.org/search')) {
+                return Promise.resolve(new Response('ok', { status: 200 }));
+            }
             return Promise.reject(new Error(`unexpected fetch: ${url}`));
         });
         vi.stubGlobal('location', { href: 'https://www.nhk.or.jp/news/easy/', origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
@@ -4813,7 +7551,7 @@ describe('reader helpers', () => {
 
             expect(await response.text()).toBe('ok');
             expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+                `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent(target)}`,
             ]);
 
             fetchMock.mockClear();
@@ -5227,6 +7965,7 @@ describe('reader helpers', () => {
                 <h6 class="subsection-label">Used in vocabulary</h6>
                 <div class="subsection">
                     <div class="used-in">
+                        <a class="icon-link vocabulary-audio" href="#" data-audio="m1/used-in-audio"></a>
                         <div class="jp"><a href="/vocabulary/4/%E5%9B%BD%E5%AE%B6%E4%B8%BB%E7%BE%A9/%E3%81%93%E3%81%A3%E3%81%8B%E3%81%97%E3%82%85%E3%81%8E#a"><ruby>国家<rt>こっか</rt></ruby>主義</a></div>
                         <div class="en">nationalism</div>
                     </div>
@@ -5249,18 +7988,24 @@ describe('reader helpers', () => {
         expect(html).toContain('data-dictionary-lookup="国家"');
         expect(html).toContain('data-dictionary-reading="こっか"');
         expect(html).toContain('jpdb-reader-jpdb-compound-term jpdb-reader-parseable');
-        expect(html).toContain('data-jpdb-reader-suppress-ruby');
         expect(info?.usedInVocabulary).toEqual([{
             term: '国家主義',
             reading: 'こっかしゅぎ',
             meaning: 'nationalism',
             url: '/vocabulary/4/%E5%9B%BD%E5%AE%B6%E4%B8%BB%E7%BE%A9/%E3%81%93%E3%81%A3%E3%81%8B%E3%81%97%E3%82%85%E3%81%8E#a',
+            audioIds: ['m1/used-in-audio'],
         }]);
         expect(html).toContain('jpdb-reader-jpdb-used-in-group');
         expect(html).toContain('Used in vocabulary');
         expect(html).toContain('data-source-state-key="definition-source:__jpdb__:used-in-vocabulary"');
         expect(html).toContain('data-dictionary-lookup="国家主義"');
-        expect(html).toContain('jpdb-reader-jpdb-used-in-term jpdb-reader-parseable');
+        expect(html).toContain('jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term');
+        expect(html).toContain('data-expression="国家主義"');
+        expect(html).not.toContain('jpdb-reader-jpdb-used-in-term jpdb-reader-parseable');
+        expect(html).toContain('data-action="jpdb-example-audio"');
+        expect(html).toContain('data-jpdb-audio="m1/used-in-audio"');
+        expect(html).toContain('data-jpdb-example-sentence="国家主義"');
+        expect(html).toContain('<rt class="jpdb-reader-furi">こっかしゅぎ</rt>');
         expect(html).not.toContain('<span class="jpdb-reader-jpdb-compound-reading">こっかしゅぎ</span>');
         expect(html).toContain('jpdb-reader-example-count');
         expect(html).not.toContain('jpdb-reader-jpdb-compound-ruby');
@@ -5273,6 +8018,126 @@ describe('reader helpers', () => {
         expect(html).toContain('jpdb-reader-example-sentence jpdb-reader-parseable');
         expect(html).toContain('jpdb-reader-example-translation');
         expect(html).not.toContain('jpdb-reader-example-translation jpdb-reader-parseable');
+    });
+
+    it('keeps JPDB used-in vocabulary compounds atomic when popup examples are parsed', async () => {
+        const info = parseJpdbVocabularyHtml(`
+            <link rel="canonical" href="https://jpdb.io/vocabulary/1300/下/した">
+            <div class="result vocabulary">
+                <a href="/vocabulary/1300/下/した#a"><ruby>下<rt>した</rt></ruby></a>
+                <div class="subsection-meanings"><div class="subsection"><div class="description">below; under</div></div></div>
+                <div class="subsection-used-in">
+                    <h6 class="subsection-label">Used in vocabulary</h6>
+                    <div class="subsection">
+                        <div class="used-in">
+                            <div class="jp"><a class="plain" href="/vocabulary/1419500/%E5%B9%B4%E4%B8%8B/%E3%81%A8%E3%81%97%E3%81%97%E3%81%9F#a"><ruby>年<rt>とし</rt></ruby><span class="highlight"><ruby>下<rt>した</rt></ruby></span></a></div>
+                            <div class="en">younger; junior</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="subsection-examples">
+                    <h6 class="subsection-label">Examples</h6>
+                    <div class="subsection"><div class="example"><span class="sentence">年下です。</span></div></div>
+                </div>
+            </div>
+        `, '下', 'した');
+        expect(info?.usedInVocabulary?.[0]).toMatchObject({
+            term: '年下',
+            reading: 'としした',
+            meaning: 'younger; junior',
+            url: '/vocabulary/1419500/%E5%B9%B4%E4%B8%8B/%E3%81%A8%E3%81%97%E3%81%97%E3%81%9F#a',
+        });
+
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = renderJpdbDefinitionSource({
+            ...card,
+            spelling: '下',
+            reading: 'した',
+            meanings: [{ glosses: ['below; under'], partOfSpeech: ['noun'] }],
+        }, key => `data-source-state-key="${key}"`, info);
+        document.body.append(popover);
+
+        const parse = vi.fn(async (texts: string[]) => texts.map(text => [
+            {
+                card: { ...card, vid: 101, sid: 0, spelling: '年', reading: 'ねん', cardState: ['known'], pitchAccent: [] },
+                start: 0,
+                end: 1,
+                length: 1,
+                rubies: [],
+                pitchClass: '',
+                sentence: text,
+            },
+            {
+                card: { ...card, vid: 102, sid: 0, spelling: '下', reading: 'した', cardState: ['known'], pitchAccent: [] },
+                start: 1,
+                end: 2,
+                length: 1,
+                rubies: [],
+                pitchClass: '',
+                sentence: text,
+            },
+        ]));
+        const showWord = vi.fn(async (_word: HTMLElement, _options: { trigger?: 'click' | 'hover'; navigation?: string; userGesture?: boolean }) => undefined);
+        const lookupDictionaryReference = vi.fn(async (
+            _query: string,
+            _reading: string,
+            _sourceDictionary: string,
+            _anchor: HTMLElement | undefined,
+            _trigger: 'modal' | 'hover',
+            _preservePosition?: boolean,
+        ) => undefined);
+        const app = new ReaderApp();
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            settings: typeof DEFAULT_SETTINGS;
+            parser: { parse: typeof parse };
+            showWord: typeof showWord;
+            lookupDictionaryReference: typeof lookupDictionaryReference;
+            handleDictionaryLookupLink(event: MouseEvent, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): boolean;
+            parsePopoverJapanese(popover: HTMLElement): Promise<void>;
+        };
+        internals.activePopover = popover;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: false,
+            ankiEnabled: false,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+            showPitchAccent: false,
+        };
+        internals.parser = { parse };
+        internals.showWord = showWord;
+        internals.lookupDictionaryReference = lookupDictionaryReference;
+
+        try {
+            await internals.parsePopoverJapanese(popover);
+
+            expect(parse).toHaveBeenCalledWith(['年下です。'], expect.any(Object));
+            const usedInWords = Array.from(popover.querySelectorAll<HTMLElement>('.jpdb-reader-jpdb-used-in .jpdb-reader-word'));
+            expect(usedInWords.map(word => readerWordSurfaceText(word))).toEqual(['年下']);
+            expect(usedInWords[0]?.dataset.expression).toBe('年下');
+            expect(usedInWords[0]?.dataset.reading).toBe('としした');
+            expect(usedInWords[0]?.dataset.vid).toBe('1419500');
+            expect(usedInWords[0]?.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(popover.querySelector<HTMLElement>('.jpdb-reader-jpdb-used-in .jpdb-reader-furi')?.textContent).toBe('としした');
+            expect(Array.from(popover.querySelectorAll<HTMLElement>('.jpdb-reader-jpdb-example .jpdb-reader-word')).map(word => readerWordSurfaceText(word))).toEqual(['年', '下']);
+
+            let handled = false;
+            popover.addEventListener('click', event => {
+                handled = internals.handleDictionaryLookupLink(event as MouseEvent, popover, 'modal');
+            });
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+            usedInWords[0]?.dispatchEvent(event);
+
+            expect(handled).toBe(true);
+            expect(event.defaultPrevented).toBe(true);
+            expect(showWord).not.toHaveBeenCalled();
+            expect(lookupDictionaryReference).toHaveBeenCalledWith('年下', 'としした', 'JPDB', popover, 'modal', true);
+        } finally {
+            app.destroy();
+            popover.remove();
+        }
     });
 
     it('keeps host page section spacing out of JPDB compound extras', () => {
@@ -5316,6 +8181,29 @@ describe('reader helpers', () => {
         }
     });
 
+    it('keeps used-in vocabulary words free of reader underline styling', () => {
+        const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('.jpdb-reader-jpdb-used-in-term .jpdb-reader-word { --jpdb-reader-word-decoration-source: transparent; --jpdb-reader-word-underline: transparent; text-decoration-color: transparent !important; }');
+    });
+
+    it('opens the top-level JPDB definition source by default', () => {
+        const calls: Array<{ key: string; initiallyExpanded: boolean | undefined }> = [];
+        const html = renderJpdbDefinitionSource({
+            ...card,
+            spelling: '前後',
+            reading: 'ぜんご',
+            meanings: [{ glosses: ['front and rear'], partOfSpeech: [] }],
+        }, (key, initiallyExpanded) => {
+            calls.push({ key, initiallyExpanded });
+            return `data-source-state-key="${key}" data-source-initial-open="${String(initiallyExpanded)}"${initiallyExpanded ? ' open' : ''}`;
+        });
+
+        expect(calls[0]).toEqual({ key: definitionSourceStateKey('__jpdb__'), initiallyExpanded: true });
+        expect(html).toContain('data-source="jpdb"');
+        expect(html).toContain('data-source-initial-open="true" open');
+    });
+
     it('parses live-shaped JPDB used-in rows, example audio, and keeps popup extras bounded', () => {
         const info = parseJpdbVocabularyHtml(`
             <link rel="canonical" href="https://jpdb.io/vocabulary/1549340/嵐/あらし">
@@ -5352,6 +8240,77 @@ describe('reader helpers', () => {
             audioIds: ['m1/e9cac7e3d132'],
         });
         expect(info?.examples.map(example => example.audioIds?.[0])).not.toContain('m1/extra');
+    });
+
+    it('hydrates JPDB used-in vocabulary audio from the linked vocabulary pages', async () => {
+        const requested: Array<{ target: string; credentials?: RequestCredentials }> = [];
+        const mainHtml = `
+            <link rel="canonical" href="https://jpdb.io/vocabulary/1456360/読む/よむ">
+            <div class="result vocabulary">
+                <a href="/vocabulary/1456360/読む/よむ#a"><ruby>読<rt>よ</rt></ruby>む</a>
+                <div class="subsection-used-in">
+                    <h6 class="subsection-label">Used in vocabulary (12 in total)</h6>
+                    <div class="subsection">
+                        <div class="used-in"><a class="icon-link vocabulary-audio" href="#" data-audio="m1/public-2181100"></a><div class="jp"><a class="plain" href="/vocabulary/2181100/空気を読む/くうきをよむ#a"><ruby>空<rt>くう</rt></ruby><ruby>気<rt>き</rt></ruby><ruby>を</ruby><span class="highlight"><ruby>読<rt>よ</rt></ruby><ruby>む</ruby></span></a></div><div class="en">to read the situation; to sense the mood</div></div>
+                        <div class="used-in"><a class="icon-link vocabulary-audio" href="#" data-audio="m1/public-2835842"></a><div class="jp"><a class="plain" href="/vocabulary/2835842/心を読む/こころをよむ#a"><ruby>心<rt>こころ</rt></ruby><ruby>を</ruby><span class="highlight"><ruby>読<rt>よ</rt></ruby><ruby>む</ruby></span></a></div><div class="en">to read somebody's thoughts</div></div>
+                        <div class="used-in"><a class="icon-link vocabulary-audio" href="#" data-audio="m1/public-2401820"></a><div class="jp"><a class="plain" href="/vocabulary/2401820/行間を読む/ぎょうかんをよむ#a"><ruby>行<rt>ぎょう</rt></ruby><ruby>間<rt>かん</rt></ruby><ruby>を</ruby><span class="highlight"><ruby>読<rt>よ</rt></ruby><ruby>む</ruby></span></a></div><div class="en">to read between the lines</div></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        const detailPage = (vid: number, expression: string, reading: string, audio: string) => `
+            <link rel="canonical" href="https://jpdb.io/vocabulary/${vid}/${expression}/${reading}">
+            <div class="result vocabulary">
+                <div class="subsection-headword">
+                    <a href="/vocabulary/${vid}/${expression}/${reading}#a"><ruby>${expression}<rt>${reading}</rt></ruby></a>
+                    <a class="icon-link vocabulary-audio" href="#" data-audio="${audio}"></a>
+                </div>
+                <div class="subsection-examples">
+                    <h6 class="subsection-label">Examples</h6>
+                    <div class="subsection"><div><a class="icon-link example-audio" href="#" data-audio="m1/example-${vid}"></a><div class="used-in"><div class="jp">${expression}。</div></div></div></div>
+                </div>
+            </div>
+        `;
+        vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+            const target = unproxiedFetchTarget(input);
+            requested.push({ target, credentials: init?.credentials });
+            if (target.includes('/vocabulary/1456360/')) return Promise.resolve(new Response(mainHtml, { status: 200 }));
+            if (target.includes('/vocabulary/2181100/')) return Promise.resolve(new Response(detailPage(2181100, '空気を読む', 'くうきをよむ', 'm1/e34618eb5d6d,f1/89adb0fd4757,m2/234e74346314,f2/2f2b8b0e8d55'), { status: 200 }));
+            if (target.includes('/vocabulary/2835842/')) return Promise.resolve(new Response(detailPage(2835842, '心を読む', 'こころをよむ', 'm1/1c95e7653e90,f1/d2c41aaf6b5e,m2/875e29c679cd,f2/75d11c8724c7'), { status: 200 }));
+            if (target.includes('/vocabulary/2401820/')) return Promise.resolve(new Response(detailPage(2401820, '行間を読む', 'ぎょうかんをよむ', 'm1/ef8217741b0e,f1/c20d2e85c6e3,m2/878b02c74a6d,f2/2ae14802a2f2'), { status: 200 }));
+            return Promise.resolve(new Response('not found', { status: 404 }));
+        }));
+
+        try {
+            const client = new JpdbVocabularyClient(() => '');
+            const info = await client.lookup(1456360, '読む', 'よむ');
+            const html = renderJpdbDefinitionSource({
+                ...card,
+                vid: 1456360,
+                spelling: '読む',
+                reading: 'よむ',
+            }, (key, initiallyExpanded) => `data-source-state-key="${key}"${initiallyExpanded ? ' open' : ''}`, info);
+
+            expect(info?.usedInVocabulary?.map(entry => [entry.term, entry.audioIds])).toEqual([
+                ['空気を読む', ['m1/e34618eb5d6d', 'f1/89adb0fd4757', 'm2/234e74346314', 'f2/2f2b8b0e8d55']],
+                ['心を読む', ['m1/1c95e7653e90', 'f1/d2c41aaf6b5e', 'm2/875e29c679cd', 'f2/75d11c8724c7']],
+                ['行間を読む', ['m1/ef8217741b0e', 'f1/c20d2e85c6e3', 'm2/878b02c74a6d', 'f2/2ae14802a2f2']],
+            ]);
+            expect(requested.map(request => request.target)).toEqual([
+                'https://jpdb.io/vocabulary/1456360/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80',
+                'https://jpdb.io/vocabulary/2181100/%E7%A9%BA%E6%B0%97%E3%82%92%E8%AA%AD%E3%82%80/%E3%81%8F%E3%81%86%E3%81%8D%E3%82%92%E3%82%88%E3%82%80#a',
+                'https://jpdb.io/vocabulary/2835842/%E5%BF%83%E3%82%92%E8%AA%AD%E3%82%80/%E3%81%93%E3%81%93%E3%82%8D%E3%82%92%E3%82%88%E3%82%80#a',
+                'https://jpdb.io/vocabulary/2401820/%E8%A1%8C%E9%96%93%E3%82%92%E8%AA%AD%E3%82%80/%E3%81%8E%E3%82%87%E3%81%86%E3%81%8B%E3%82%93%E3%82%92%E3%82%88%E3%82%80#a',
+            ]);
+            expect(requested.every(request => request.credentials === 'same-origin')).toBe(true);
+            expect((html.match(/data-action="jpdb-example-audio"/g) ?? [])).toHaveLength(3);
+            expect(html).toContain('data-jpdb-audio="m1/e34618eb5d6d,f1/89adb0fd4757,m2/234e74346314,f2/2f2b8b0e8d55"');
+            expect(html).toContain('data-jpdb-audio="m1/1c95e7653e90,f1/d2c41aaf6b5e,m2/875e29c679cd,f2/75d11c8724c7"');
+            expect(html).toContain('data-jpdb-audio="m1/ef8217741b0e,f1/c20d2e85c6e3,m2/878b02c74a6d,f2/2ae14802a2f2"');
+            expect(html).not.toContain('m1/example-2181100');
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 
     it('parses JPDB monolingual examples by section label', () => {
@@ -5427,9 +8386,10 @@ describe('reader helpers', () => {
     it('follows JPDB search result detail links for fallback cards before rendering extras', async () => {
         const searchUrl = 'https://jpdb.io/search?q=%E4%B8%80%E6%96%B9';
         const detailUrl = 'https://jpdb.io/vocabulary/1166510/%E4%B8%80%E6%96%B9/%E3%81%84%E3%81%A3%E3%81%BD%E3%81%86#a';
+        const usedInAudioUrl = 'https://jpdb.io/vocabulary/1166560/%E4%B8%80%E6%96%B9%E7%9A%84/%E3%81%84%E3%81%A3%E3%81%BD%E3%81%86%E3%81%A6%E3%81%8D#a';
         const usedInUrl = 'https://jpdb.io/vocabulary/1166510/%E4%B8%80%E6%96%B9/used-in';
         const fetchMock = vi.fn((input: RequestInfo | URL) => {
-            const url = String(input);
+            const url = unproxiedFetchTarget(input);
             if (url === searchUrl) {
                 return Promise.resolve(new Response(`
                     <div class="results search">
@@ -5463,6 +8423,23 @@ describe('reader helpers', () => {
                     </div>
                 `, { status: 200 }));
             }
+            if (url === usedInAudioUrl) {
+                return Promise.resolve(new Response(`
+                    <link rel="canonical" href="https://jpdb.io/vocabulary/1166560/一方的/いっぽうてき">
+                    <div class="result vocabulary">
+                        <div class="subsection-headword">
+                            <a href="/vocabulary/1166560/一方的/いっぽうてき#a"><ruby>一方的<rt>いっぽうてき</rt></ruby></a>
+                            <a class="icon-link vocabulary-audio" href="#" data-audio="m1/ippouteki"></a>
+                        </div>
+                        <div class="subsection-examples">
+                            <h6 class="subsection-label">Examples</h6>
+                            <div class="subsection">
+                                <div><a class="icon-link example-audio" href="#" data-audio="m1/not-used-in-word-audio"></a><div class="used-in"><div class="jp">一方的だ。</div></div></div>
+                            </div>
+                        </div>
+                    </div>
+                `, { status: 200 }));
+            }
             return Promise.reject(new Error(`unexpected fetch: ${url}`));
         });
         vi.stubGlobal('location', {
@@ -5485,9 +8462,10 @@ describe('reader helpers', () => {
                 source: 'fallback',
             }, key => `data-source-state-key="${key}"`, info);
 
-            expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([searchUrl, detailUrl]);
-            expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toContain(usedInUrl);
-            expect(info?.usedInVocabulary?.[0]).toMatchObject({ term: '一方的', reading: 'いっぽうてき', meaning: 'one-sided' });
+            const requestedUrls = fetchMock.mock.calls.map(([url]) => unproxiedFetchTarget(url));
+            expect(requestedUrls).toEqual([searchUrl, detailUrl, usedInAudioUrl]);
+            expect(requestedUrls).not.toContain(usedInUrl);
+            expect(info?.usedInVocabulary?.[0]).toMatchObject({ term: '一方的', reading: 'いっぽうてき', meaning: 'one-sided', audioIds: ['m1/ippouteki'] });
             expect(info?.examples?.[0]).toMatchObject({
                 sentence: '生活費は上がる一方だ。',
                 translation: 'The cost of living is rising.',
@@ -5495,6 +8473,7 @@ describe('reader helpers', () => {
             });
             expect(html).toContain('Used in vocabulary');
             expect(html).toContain('Example sentences');
+            expect(html).toContain('data-jpdb-audio="m1/ippouteki"');
             expect(html).toContain('data-jpdb-audio="m1/126be5be3a94"');
         } finally {
             vi.unstubAllGlobals();
@@ -5614,6 +8593,56 @@ describe('reader helpers', () => {
         expect(result.usedFallback).toBe(false);
         expect(search).toHaveBeenCalledTimes(1);
         expect(parseJapanese).not.toHaveBeenCalled();
+    });
+
+    it('parses popup Immersion Kit sentences with local pitch and segmented fallback when no API key is set', async () => {
+        const sentence = '｢化ける｣の文字の成り立ちに言及してる。';
+        const fallbackToken: JPDBToken = {
+            card: {
+                ...card,
+                vid: -443,
+                sid: -443,
+                spelling: '化ける',
+                reading: '',
+                source: 'fallback',
+                pitchAccent: [],
+            },
+            start: 1,
+            end: 4,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+            sentence,
+        };
+        const parseJapanese = vi.fn(async () => [[fallbackToken]]);
+        const controller = new ImmersionPopoverController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                localDictionariesEnabled: true,
+                showPitchAccent: true,
+                immersionKitEnabled: true,
+            }),
+            client: { search: vi.fn() } as unknown as ImmersionKitClient,
+            audio: { play: vi.fn(async () => undefined) } as never,
+            parseJapanese,
+            canParseJapanese: () => true,
+            parsePopoverJapanese: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords: vi.fn(),
+            repositionPopover: vi.fn(),
+            setImmersionTranslationBlurred: vi.fn(),
+            toast: vi.fn(),
+        });
+        const internals = controller as unknown as { parsedExampleSentenceTokens(sentence: string): Promise<JPDBToken[]> };
+
+        await expect(internals.parsedExampleSentenceTokens(sentence)).resolves.toEqual([fallbackToken]);
+
+        expect(parseJapanese).toHaveBeenCalledWith([sentence], {
+            allowSegmentedFallback: true,
+            includeLocalPitch: true,
+            requireJpdb: true,
+        });
     });
 
     it('retries Immersion Kit sentence parsing after an all-fallback timeout result', async () => {
@@ -5937,8 +8966,48 @@ describe('reader helpers', () => {
         expect(deckNames).toHaveBeenCalledTimes(1);
     });
 
+    it('promotes JPDB not-in-deck cards when pooled deck membership finds them', async () => {
+        const isInUserDeckPool = vi.fn(async () => true);
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'api-key',
+            localDictionariesEnabled: false,
+            showPitchAccent: false,
+            ankiEnabled: false,
+            jpdbDefinitionsEnabled: false,
+            jpdbMiningEnabled: true,
+        };
+        const loader = new CardRenderDataLoader({
+            getSettings: () => settings,
+            dictionaries: {
+                lookup: vi.fn(async () => []),
+                lookupKanji: vi.fn(async () => []),
+                lookupTermMeta: vi.fn(async () => []),
+            } as unknown as YomitanDictionaryStore,
+            jpdbPublicPitch: { lookup: vi.fn(async () => []) } as unknown as JpdbPublicPitchClient,
+            jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
+            anki: {
+                findExistingCards: vi.fn(async (): Promise<AnkiLookupResult> => ({ state: 'not-in-deck', notes: [], primary: null })),
+                deckNames: vi.fn(async () => []),
+            } as unknown as AnkiConnectClient,
+            jpdb: {
+                listDecks: vi.fn(async () => []),
+                isInUserDeckPool,
+            } as unknown as JpdbClient,
+            isJpdbBackedCard: () => true,
+        });
+        const pooledCard = { ...card, vid: 1464530, sid: 0, spelling: '日本語', reading: 'にほんご', cardState: ['not-in-deck'] as JPDBCard['cardState'] };
+
+        await expect(loader.load(pooledCard).all).resolves.toMatchObject({
+            jpdbDecks: [],
+            ankiDecks: [],
+        });
+        expect(pooledCard.cardState).toEqual(['in-deck']);
+        expect(isInUserDeckPool).toHaveBeenCalledWith(pooledCard);
+    });
+
     it('loads read-only Anki status from explicit color channels without enabling Anki mining', async () => {
-        const findExistingCards = vi.fn(async (): Promise<AnkiLookupResult> => ({
+        const cachedLookup: AnkiLookupResult = {
             state: 'known',
             notes: [],
             primary: {
@@ -5953,7 +9022,8 @@ describe('reader helpers', () => {
                 reps: 9,
                 lapses: 1,
             },
-        }));
+        };
+        const findCachedStatusBatch = vi.fn(async (): Promise<AnkiLookupResult[]> => [cachedLookup]);
         const deckNames = vi.fn(async () => ['Other Deck']);
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -5973,7 +9043,7 @@ describe('reader helpers', () => {
             } as unknown as YomitanDictionaryStore,
             jpdbPublicPitch: { lookup: vi.fn(async () => []) } as unknown as JpdbPublicPitchClient,
             jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
-            anki: { findExistingCards, deckNames } as unknown as AnkiConnectClient,
+            anki: { findCachedStatusBatch, deckNames } as unknown as AnkiConnectClient,
             jpdb: { listDecks: vi.fn(async () => []) } as unknown as JpdbClient,
             isJpdbBackedCard: () => true,
         });
@@ -5988,15 +9058,16 @@ describe('reader helpers', () => {
             },
             ankiDecks: [],
         });
-        expect(findExistingCards).toHaveBeenCalled();
+        expect(findCachedStatusBatch).toHaveBeenCalledWith([{ ...card, spelling: '動画', reading: 'どうが' }]);
         expect(deckNames).not.toHaveBeenCalled();
     });
 
-    it('exposes JPDB vocabulary details before slow Anki lookup finishes', async () => {
+    it('exposes JPDB vocabulary details without waiting for Anki hydration', async () => {
         vi.useFakeTimers();
         try {
             const never = new Promise<never>(() => undefined);
             const lookup = vi.fn(async () => ({ meanings: ['video'], compounds: [], examples: [] }));
+            const findExistingCards = vi.fn(() => never);
             const settings = {
                 ...DEFAULT_SETTINGS,
                 ankiEnabled: true,
@@ -6015,7 +9086,7 @@ describe('reader helpers', () => {
                 jpdbPublicPitch: { lookup: vi.fn(async () => []) } as unknown as JpdbPublicPitchClient,
                 jpdbVocabulary: { lookup } as unknown as JpdbVocabularyClient,
                 anki: {
-                    findExistingCards: vi.fn(() => never),
+                    findExistingCards,
                     deckNames: vi.fn(async () => []),
                 } as unknown as AnkiConnectClient,
                 jpdb: { listDecks: vi.fn(async () => []) } as unknown as JpdbClient,
@@ -6026,17 +9097,337 @@ describe('reader helpers', () => {
             void load.all.then(() => { allResolved = true; });
 
             await expect(load.jpdbVocabularyInfo).resolves.toMatchObject({ meanings: ['video'] });
-            expect(allResolved).toBe(false);
             expect(lookup).toHaveBeenCalledWith(card.vid, '動画', 'どうが');
 
-            await vi.advanceTimersByTimeAsync(2_500);
             await expect(load.all).resolves.toMatchObject({
                 jpdbVocabularyInfo: { meanings: ['video'] },
                 ankiLookup: { state: 'not-in-deck' },
             });
+            expect(allResolved).toBe(true);
+            expect(findExistingCards).not.toHaveBeenCalled();
+
+            const hydrated = load.hydrateAnkiLookup?.() ?? Promise.resolve({ state: 'not-in-deck', notes: [], primary: null } as AnkiLookupResult);
+            await Promise.resolve();
+            expect(findExistingCards).toHaveBeenCalledWith({ ...card, spelling: '動画', reading: 'どうが' });
+            await vi.advanceTimersByTimeAsync(4_000);
+            await expect(hydrated).resolves.toMatchObject({ state: 'not-in-deck' });
         } finally {
             vi.useRealTimers();
         }
+    });
+
+    it('uses cached Anki status in popover data while full Anki card details are slow', async () => {
+        vi.useFakeTimers();
+        try {
+            const never = new Promise<never>(() => undefined);
+            const cachedStatus: AnkiLookupResult = {
+                state: 'due',
+                notes: [{
+                    noteId: 55,
+                    modelName: 'Imported Core',
+                    deckNames: ['Anime::Mining'],
+                    cardIds: [7701],
+                    primaryCardId: 7701,
+                    state: 'due',
+                    fields: {},
+                    tags: [],
+                    reps: 9,
+                    lapses: 1,
+                }],
+                primary: {
+                    noteId: 55,
+                    modelName: 'Imported Core',
+                    deckNames: ['Anime::Mining'],
+                    cardIds: [7701],
+                    primaryCardId: 7701,
+                    state: 'due',
+                    fields: {},
+                    tags: [],
+                    reps: 9,
+                    lapses: 1,
+                },
+            };
+            const findCachedStatusBatch = vi.fn(async (): Promise<AnkiLookupResult[]> => [cachedStatus]);
+            const findExistingCards = vi.fn(() => never);
+            const deckNames = vi.fn(async () => []);
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiMobileHandoff: false,
+                localDictionariesEnabled: false,
+                showPitchAccent: false,
+                jpdbDefinitionsEnabled: false,
+                jpdbMiningEnabled: false,
+            };
+            const loader = new CardRenderDataLoader({
+                getSettings: () => settings,
+                dictionaries: {
+                    lookup: vi.fn(async () => []),
+                    lookupKanji: vi.fn(async () => []),
+                    lookupTermMeta: vi.fn(async () => []),
+                } as unknown as YomitanDictionaryStore,
+                jpdbPublicPitch: { lookup: vi.fn(async () => []) } as unknown as JpdbPublicPitchClient,
+                jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
+                anki: {
+                    findCachedStatusBatch,
+                    findExistingCards,
+                    deckNames,
+                } as unknown as AnkiConnectClient,
+                jpdb: { listDecks: vi.fn(async () => []) } as unknown as JpdbClient,
+                isJpdbBackedCard: () => true,
+            });
+            const load = loader.load({ ...card, spelling: '動画', reading: 'どうが' });
+            let allResolved = false;
+            void load.all.then(() => { allResolved = true; });
+
+            await expect(load.ankiLookup).resolves.toMatchObject({
+                state: 'due',
+                primary: { noteId: 55, primaryCardId: 7701 },
+            });
+            expect(findCachedStatusBatch).toHaveBeenCalledWith([{ ...card, spelling: '動画', reading: 'どうが' }]);
+            await expect(load.all).resolves.toMatchObject({
+                ankiLookup: {
+                    state: 'due',
+                    primary: { noteId: 55, primaryCardId: 7701 },
+                },
+                ankiDecks: [],
+            });
+            expect(allResolved).toBe(true);
+            expect(findExistingCards).not.toHaveBeenCalled();
+            expect(deckNames).not.toHaveBeenCalled();
+
+            const hydrated = load.hydrateAnkiLookup?.() ?? Promise.resolve(cachedStatus);
+            await Promise.resolve();
+            expect(findExistingCards).toHaveBeenCalledWith({ ...card, spelling: '動画', reading: 'どうが' });
+            await vi.advanceTimersByTimeAsync(4_000);
+            await expect(hydrated).resolves.toMatchObject({
+                state: 'due',
+                primary: { noteId: 55, primaryCardId: 7701, detailsUnavailable: true },
+            });
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('hydrates full Anki card details when only the dictionary Anki source is enabled', async () => {
+        const cachedStatus: AnkiLookupResult = {
+            state: 'due',
+            notes: [{
+                noteId: 55,
+                modelName: 'Imported Core',
+                deckNames: ['Anime::Mining'],
+                cardIds: [7701],
+                primaryCardId: 7701,
+                state: 'due',
+                fields: {},
+                tags: [],
+                reps: 9,
+                lapses: 1,
+            }],
+            primary: null,
+        };
+        cachedStatus.primary = cachedStatus.notes[0] ?? null;
+        const detailedLookup: AnkiLookupResult = {
+            state: 'due',
+            notes: [{
+                ...cachedStatus.notes[0]!,
+                fields: {
+                    Word: '動画',
+                    Reading: 'どうが',
+                    Meaning: 'video',
+                },
+                renderedCards: [{
+                    cardId: 7701,
+                    deckName: 'Anime::Mining',
+                    question: '<div>動画</div>',
+                    answer: '<div>video</div>',
+                }],
+            }],
+            primary: null,
+        };
+        detailedLookup.primary = detailedLookup.notes[0] ?? null;
+        const findCachedStatusBatch = vi.fn(async (): Promise<AnkiLookupResult[]> => [cachedStatus]);
+        const findExistingCards = vi.fn(async (): Promise<AnkiLookupResult> => detailedLookup);
+        const deckNames = vi.fn(async () => []);
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: false,
+            ankiSectionEnabled: true,
+            localDictionariesEnabled: false,
+            showPitchAccent: false,
+            jpdbDefinitionsEnabled: false,
+            jpdbMiningEnabled: false,
+        };
+        const lookupCard = { ...card, spelling: '動画', reading: 'どうが' };
+        const loader = new CardRenderDataLoader({
+            getSettings: () => settings,
+            dictionaries: {
+                lookup: vi.fn(async () => []),
+                lookupKanji: vi.fn(async () => []),
+                lookupTermMeta: vi.fn(async () => []),
+            } as unknown as YomitanDictionaryStore,
+            jpdbPublicPitch: { lookup: vi.fn(async () => []) } as unknown as JpdbPublicPitchClient,
+            jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
+            anki: {
+                findCachedStatusBatch,
+                findExistingCards,
+                deckNames,
+            } as unknown as AnkiConnectClient,
+            jpdb: { listDecks: vi.fn(async () => []) } as unknown as JpdbClient,
+            isJpdbBackedCard: () => true,
+        });
+
+        const load = loader.load(lookupCard);
+
+        await expect(load.ankiLookup).resolves.toMatchObject({
+            state: 'due',
+            primary: { noteId: 55, fields: {} },
+        });
+        await expect(load.all).resolves.toMatchObject({
+            ankiLookup: {
+                state: 'due',
+                primary: { noteId: 55, fields: {} },
+            },
+            ankiDecks: [],
+        });
+        expect(findCachedStatusBatch).toHaveBeenCalledWith([lookupCard]);
+        expect(findExistingCards).not.toHaveBeenCalled();
+        expect(deckNames).not.toHaveBeenCalled();
+
+        await expect(load.hydrateAnkiLookup?.()).resolves.toMatchObject({
+            state: 'due',
+            primary: {
+                noteId: 55,
+                fields: { Word: '動画', Meaning: 'video' },
+                renderedCards: [{ cardId: 7701, answer: '<div>video</div>' }],
+            },
+        });
+        expect(findExistingCards).toHaveBeenCalledWith(lookupCard);
+    });
+
+    it('keeps untrusted cached Anki misses in fast popover data', async () => {
+        const fastMiss: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null, trusted: false };
+        const findCachedStatusBatch = vi.fn(async (): Promise<AnkiLookupResult[]> => [fastMiss]);
+        const findExistingCards = vi.fn(async (): Promise<AnkiLookupResult> => ({
+            state: 'not-in-deck',
+            notes: [],
+            primary: null,
+        }));
+        const loader = new CardRenderDataLoader({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                localDictionariesEnabled: false,
+                showPitchAccent: false,
+                jpdbDefinitionsEnabled: false,
+                jpdbMiningEnabled: false,
+            }),
+            dictionaries: {
+                lookup: vi.fn(async () => []),
+                lookupKanji: vi.fn(async () => []),
+                lookupTermMeta: vi.fn(async () => []),
+            } as unknown as YomitanDictionaryStore,
+            jpdbPublicPitch: { lookup: vi.fn(async () => []) } as unknown as JpdbPublicPitchClient,
+            jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
+            anki: {
+                findCachedStatusBatch,
+                findExistingCards,
+                deckNames: vi.fn(async () => []),
+            } as unknown as AnkiConnectClient,
+            jpdb: { listDecks: vi.fn(async () => []) } as unknown as JpdbClient,
+            isJpdbBackedCard: () => true,
+        });
+
+        const load = loader.load({ ...card, spelling: '動画', reading: 'どうが' });
+
+        await expect(load.ankiLookup).resolves.toEqual(fastMiss);
+        await expect(load.all).resolves.toMatchObject({
+            ankiLookup: { state: 'not-in-deck', primary: null, trusted: false },
+        });
+        expect(findExistingCards).not.toHaveBeenCalled();
+    });
+
+    it('renders cache-only Anki status in the popover header without showing Add to Anki', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                jpdbMiningEnabled: true,
+                apiKey: 'test-key',
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+        const cachedStatus: AnkiLookupResult = {
+            state: 'due',
+            notes: [],
+            primary: {
+                noteId: 55,
+                modelName: 'Imported Core',
+                deckNames: ['Anime::Mining'],
+                cardIds: [7701],
+                primaryCardId: 7701,
+                state: 'due',
+                fields: {},
+                tags: [],
+                reps: 9,
+                lapses: 1,
+            },
+        };
+
+        document.body.innerHTML = renderer.render({ ...card, cardState: ['not-in-deck'] }, '動画を見る。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: cachedStatus,
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+        });
+
+        expect(document.querySelector('.jpdb-reader-meta')?.textContent).toContain('Anki Due');
+        expect(document.querySelector('.jpdb-reader-meta .jpdb-reader-state-dot.anki-due')).not.toBeNull();
+        expect(document.querySelector('.jpdb-reader-anki-existing summary small')?.textContent).toBe('Due · Anime::Mining · 9 reviews, 1 lapse');
+        expect(document.querySelector('.jpdb-reader-anki-details-pending')?.textContent).toContain('Loading card details from AnkiConnect');
+        expect(document.querySelector('[data-action="anki"]')).toBeNull();
+    });
+
+    it('renders trusted status-only Anki cache hits without offering Add to Anki', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                jpdbMiningEnabled: true,
+                apiKey: 'test-key',
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render({ ...card, cardState: ['not-in-deck'] }, '動画を見る。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: { state: 'due', notes: [], primary: null },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+        });
+
+        expect(document.querySelector('.jpdb-reader-meta')?.textContent).toContain('Anki Due');
+        expect(document.querySelector('.jpdb-reader-meta .jpdb-reader-state-dot.anki-due')).not.toBeNull();
+        expect(document.querySelector('[data-action="anki"]')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-anki-existing')).toBeNull();
     });
 
     it('does not let slow public JPDB pitch block card details', async () => {
@@ -6137,13 +9528,31 @@ describe('reader helpers', () => {
         }
     });
 
-    it('skips AnkiConnect card details on mobile handoff devices', async () => {
+    it('uses AnkiConnect card details on mobile handoff devices when a bridge is reachable', async () => {
         const originalUserAgent = navigator.userAgent;
         Object.defineProperty(window.navigator, 'userAgent', {
             value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
             configurable: true,
         });
-        const findExistingCards = vi.fn(async (): Promise<AnkiLookupResult> => ({ state: 'known', notes: [], primary: null }));
+        const lookup: AnkiLookupResult = {
+            state: 'known',
+            notes: [{
+                noteId: 42,
+                modelName: 'Yomu Japanese',
+                deckNames: ['Desktop Deck'],
+                cardIds: [420],
+                primaryCardId: 420,
+                state: 'known',
+                fields: { Expression: '読む', Meaning: 'to read' },
+                tags: [],
+                reps: 12,
+                lapses: 0,
+            }],
+            primary: null,
+        };
+        lookup.primary = lookup.notes[0] ?? null;
+        const findCachedStatusBatch = vi.fn(async (): Promise<AnkiLookupResult[]> => [lookup]);
+        const findExistingCards = vi.fn(async (): Promise<AnkiLookupResult> => lookup);
         const deckNames = vi.fn(async () => ['Desktop Deck']);
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -6163,17 +9572,26 @@ describe('reader helpers', () => {
             } as unknown as YomitanDictionaryStore,
             jpdbPublicPitch: { lookup: vi.fn(async () => []) } as unknown as JpdbPublicPitchClient,
             jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
-            anki: { findExistingCards, deckNames } as unknown as AnkiConnectClient,
+            anki: { findCachedStatusBatch, findExistingCards, deckNames } as unknown as AnkiConnectClient,
             jpdb: { listDecks: vi.fn(async () => []) } as unknown as JpdbClient,
             isJpdbBackedCard: () => true,
         });
 
         try {
-            await expect(loader.load(card).all).resolves.toMatchObject({
-                ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            const load = loader.load(card);
+            await expect(load.all).resolves.toMatchObject({
+                ankiLookup: { state: 'known', primary: { noteId: 42, primaryCardId: 420 } },
                 ankiDecks: [],
             });
+            expect(findCachedStatusBatch).toHaveBeenCalledWith([card]);
             expect(findExistingCards).not.toHaveBeenCalled();
+            expect(deckNames).not.toHaveBeenCalled();
+
+            await expect(load.hydrateAnkiLookup?.()).resolves.toMatchObject({
+                state: 'known',
+                primary: { noteId: 42, primaryCardId: 420 },
+            });
+            expect(findExistingCards).toHaveBeenCalledWith(card);
             expect(deckNames).not.toHaveBeenCalled();
         } finally {
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
@@ -6675,6 +10093,21 @@ describe('reader helpers', () => {
                 });
             },
         });
+        vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+            const target = unproxiedFetchTarget(input);
+            requested.push({
+                url: target,
+                headers: Object.fromEntries(new Headers(init?.headers).entries()),
+            });
+            if (target.includes('/static/v/')) {
+                return Promise.resolve(new Response(encodedOggHeader, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } }));
+            }
+            return Promise.resolve(new Response(`
+                <link rel="canonical" href="https://jpdb.io/vocabulary/2805500/大切な人/たいせつなひと">
+                <a href="/vocabulary/2805500/大切な人/たいせつなひと#a"><ruby>大切な人<rt>たいせつなひと</rt></ruby></a>
+                <a class="icon-link vocabulary-audio" href="#" data-audio="m1/b3b1e4e100d9"></a>
+            `, { status: 200 }));
+        }));
 
         try {
             const player = new AudioPlayer(() => ({
@@ -6698,7 +10131,7 @@ describe('reader helpers', () => {
                 'https://jpdb.io/vocabulary/2805500/%E5%A4%A7%E5%88%87%E3%81%AA%E4%BA%BA/%E3%81%9F%E3%81%84%E3%81%9B%E3%81%A4%E3%81%AA%E3%81%B2%E3%81%A8',
                 'https://jpdb.io/static/v/m1/b3b1e4e100d9',
             ]);
-            expect(requested[2]?.headers).toMatchObject({ 'X-Access': "please don't steal these files" });
+            expect(requested[2]?.headers).not.toHaveProperty('x-access');
             expect(played).toEqual(['blob:http://localhost/jpdb-word-audio']);
             expect(spoken).toEqual([]);
         } finally {
@@ -6747,39 +10180,22 @@ describe('reader helpers', () => {
             value: vi.fn(),
         });
         const encodedOggHeader = new Uint8Array([0x4f, 0x67, 0x67, 0x53].map((byte, index) => byte ^ [0x06, 0x23, 0x54, 0x0f][index]));
-        vi.stubGlobal('GM', {
-            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
-                requested.push(details.url);
-                if (details.responseType === 'text') {
-                    details.onload?.({
-                        status: 200,
-                        response: `
-                            <link rel="canonical" href="https://jpdb.io/vocabulary/2021520/お腹が空く/おなかがすく">
-                            <div class="results details">
-                                <div class="result vocabulary">
-                                    <a href="/vocabulary/2021520/お腹が空く/おなかがすく#a">お腹が空く</a>
-                                    <a class="icon-link vocabulary-audio" href="#" data-audio="m1/770dc398fb85"></a>
-                                </div>
-                            </div>
-                        `,
-                        responseText: `
-                            <link rel="canonical" href="https://jpdb.io/vocabulary/2021520/お腹が空く/おなかがすく">
-                            <div class="results details">
-                                <div class="result vocabulary">
-                                    <a href="/vocabulary/2021520/お腹が空く/おなかがすく#a">お腹が空く</a>
-                                    <a class="icon-link vocabulary-audio" href="#" data-audio="m1/770dc398fb85"></a>
-                                </div>
-                            </div>
-                        `,
-                    });
-                    return;
-                }
-                details.onload?.({
-                    status: 200,
-                    response: new Blob([encodedOggHeader], { type: 'application/octet-stream' }),
-                });
-            },
-        });
+        const jpdbHtml = `
+            <link rel="canonical" href="https://jpdb.io/vocabulary/2021520/お腹が空く/おなかがすく">
+            <div class="results details">
+                <div class="result vocabulary">
+                    <a href="/vocabulary/2021520/お腹が空く/おなかがすく#a">お腹が空く</a>
+                    <a class="icon-link vocabulary-audio" href="#" data-audio="m1/770dc398fb85"></a>
+                </div>
+            </div>
+        `;
+        vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+            const target = unproxiedFetchTarget(input);
+            requested.push(target);
+            return Promise.resolve(target.includes('/static/v/')
+                ? new Response(encodedOggHeader, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } })
+                : new Response(jpdbHtml, { status: 200 }));
+        }));
 
         try {
             const player = new AudioPlayer(() => ({
@@ -6837,17 +10253,17 @@ describe('reader helpers', () => {
         vi.stubGlobal('GM', {
             xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
                 requested.push(details.url);
-                if (details.responseType === 'text') {
-                    details.onload?.({
-                        status: 200,
-                        response: '<link rel="canonical" href="https://jpdb.io/vocabulary/1/食べる/たべる"><main>No word audio</main>',
-                        responseText: '<link rel="canonical" href="https://jpdb.io/vocabulary/1/食べる/たべる"><main>No word audio</main>',
-                    });
-                    return;
-                }
                 details.onload?.({ status: 200, response: new Blob(['missing'], { type: 'text/html' }) });
             },
         });
+        vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+            const target = unproxiedFetchTarget(input);
+            requested.push(target);
+            return Promise.resolve(new Response(
+                '<link rel="canonical" href="https://jpdb.io/vocabulary/1/食べる/たべる"><main>No word audio</main>',
+                { status: 200 },
+            ));
+        }));
 
         try {
             const player = new AudioPlayer(() => ({
@@ -6906,6 +10322,14 @@ describe('reader helpers', () => {
                 });
             },
         });
+        vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+            const target = unproxiedFetchTarget(input);
+            requested.push(target);
+            return Promise.resolve(new Response(
+                '<link rel="canonical" href="https://jpdb.io/vocabulary/1/食べる/たべる"><main>No word audio</main>',
+                { status: 200 },
+            ));
+        }));
 
         try {
             const player = new AudioPlayer(() => ({
@@ -7447,7 +10871,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('uses page fetch for CORS-enabled Immersion Kit search without a userscript bridge', async () => {
+    it('uses the local hosted proxy path for Immersion Kit search without a userscript bridge', async () => {
         const client = new ImmersionKitClient();
         const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve({
             ok: true,
@@ -7471,7 +10895,8 @@ describe('reader helpers', () => {
             const examples = await client.search('読む', { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitLimit: 1 });
 
             expect(fetchMock).toHaveBeenCalledTimes(1);
-            expect(String(fetchMock.mock.calls[0][0])).toContain('https://apiv2express.immersionkit.com/search?');
+            expect(String(fetchMock.mock.calls[0][0])).toContain(DEFAULT_YOMU_PUBLIC_PROXY_URL);
+            expect(String(fetchMock.mock.calls[0][0])).toContain(encodeURIComponent('https://apiv2express.immersionkit.com/search?'));
             expect(examples[0]).toMatchObject({ sourceTitle: 'Steins Gate' });
         } finally {
             vi.unstubAllGlobals();
@@ -8186,7 +11611,7 @@ describe('reader helpers', () => {
         expect(playSpy).toHaveBeenCalledWith(example, true);
     });
 
-    it('starts Immersion Kit audio on next example even when initial autoplay is disabled', async () => {
+    it('does not start Immersion Kit audio on next example when autoplay is disabled', async () => {
         const app = new ReaderApp();
         const container = document.createElement('details');
         container.setAttribute('data-immersion-kit', '');
@@ -8232,7 +11657,7 @@ describe('reader helpers', () => {
         await internals.immersionPopover.loadExamples(popover, card);
 
         container.querySelector<HTMLButtonElement>('[data-immersion-action="next"]')?.click();
-        expect(playSpy).toHaveBeenCalledWith(example, true);
+        expect(playSpy).not.toHaveBeenCalled();
 
         playSpy.mockClear();
         container.querySelector<HTMLButtonElement>('[data-immersion-action="audio"]')?.click();
@@ -8300,7 +11725,7 @@ describe('reader helpers', () => {
                 playExampleAudio(example: ImmersionKitExample): Promise<void>;
             }).playExampleAudio(example);
 
-            expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/line.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl);
+            expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/line.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
             expect(constructed).toEqual(['blob:http://localhost/line.mp3']);
             expect(played).toEqual(['blob:http://localhost/line.mp3']);
         } finally {
@@ -8555,6 +11980,127 @@ describe('reader helpers', () => {
             });
             vi.unstubAllGlobals();
             app.destroy();
+        }
+    });
+
+    it('opens the clicked parsed word inside dictionary lookup links instead of the full compound selection', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = `
+            <a class="gloss-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="日本語訳" data-dictionary-reading="にほんごやく" data-dictionary="JPDB">
+                <span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true" data-vid="10" data-sid="20" data-sentence="日本語訳">日本語</span>
+                <span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true" data-vid="11" data-sid="21" data-sentence="日本語訳">訳</span>
+            </a>
+        `;
+        document.body.append(popover);
+        const nestedWord = popover.querySelector<HTMLElement>('.jpdb-reader-word[data-vid="11"]')!;
+        const showWord = vi.fn(async () => undefined);
+        const lookupDictionaryReference = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            handleDictionaryLookupLink(event: MouseEvent, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): boolean;
+            showWord: typeof showWord;
+            lookupDictionaryReference: typeof lookupDictionaryReference;
+        };
+        internals.showWord = showWord;
+        internals.lookupDictionaryReference = lookupDictionaryReference;
+        let handled = false;
+        popover.addEventListener('click', event => {
+            handled = internals.handleDictionaryLookupLink(event as MouseEvent, popover, 'modal');
+        });
+
+        try {
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+            nestedWord.dispatchEvent(event);
+
+            expect(handled).toBe(true);
+            expect(event.defaultPrevented).toBe(true);
+            expect(showWord).toHaveBeenCalledWith(nestedWord, {
+                trigger: 'click',
+                navigation: 'push-current',
+                userGesture: true,
+            });
+            expect(lookupDictionaryReference).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('opens exact JPDB dictionary references before falling back to composite token selection', async () => {
+        const app = new ReaderApp();
+        const anchor = document.createElement('button');
+        document.body.append(anchor);
+        const exactCard: JPDBCard = {
+            ...card,
+            vid: 17000,
+            sid: 0,
+            spelling: '修繕積立金',
+            reading: 'しゅうぜんつみたてきん',
+            meanings: [{ glosses: ['maintenance fee; reserve fund for building repairs'], partOfSpeech: ['noun'] }],
+            source: 'jpdb',
+        };
+        const componentTokens: JPDBToken[] = ['修繕', '積立', '金'].map((spelling, index) => ({
+            card: {
+                ...card,
+                vid: 200 + index,
+                sid: 0,
+                spelling,
+                reading: spelling,
+                source: 'jpdb',
+            },
+            start: index,
+            end: index + spelling.length,
+            length: spelling.length,
+            rubies: [],
+            pitchClass: '',
+            sentence: '修繕積立金',
+        }));
+        const search = vi.fn(async () => [exactCard]);
+        const cacheCards = vi.fn();
+        const showCard = vi.fn(async () => undefined);
+        const parseJapanese = vi.fn(async () => [componentTokens]);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbVocabulary: { search: typeof search };
+            parser: { cacheCards: typeof cacheCards };
+            showCard: typeof showCard;
+            parseJapanese: typeof parseJapanese;
+            lookupDictionaryReference(
+                query: string,
+                reading: string,
+                sourceDictionary: string,
+                anchor: HTMLElement | undefined,
+                trigger: 'modal' | 'hover',
+                preservePosition?: boolean,
+            ): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            jpdbDefinitionsEnabled: true,
+            showPitchAccent: false,
+            localDictionariesEnabled: false,
+        };
+        internals.jpdbVocabulary = { search };
+        internals.parser = { cacheCards };
+        internals.showCard = showCard;
+        internals.parseJapanese = parseJapanese;
+
+        try {
+            await internals.lookupDictionaryReference('修繕積立金', 'しゅうぜんつみたてきん', 'JPDB', anchor, 'modal', true);
+
+            expect(search).toHaveBeenCalledWith('修繕積立金', 12);
+            expect(cacheCards).toHaveBeenCalledWith([exactCard]);
+            expect(showCard).toHaveBeenCalledWith(exactCard, '修繕積立金', anchor, expect.objectContaining({
+                autoPlay: false,
+                trigger: 'modal',
+                navigation: 'push-current',
+                preservePosition: true,
+            }));
+            expect(parseJapanese).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
         }
     });
 
@@ -8877,6 +12423,30 @@ describe('reader helpers', () => {
         expect(tracks.map(track => track.label)).toEqual(['Manual load', '日本語', 'Japanese auto', 'English']);
         expect(isJapaneseSubtitleTrack(tracks[1])).toBe(true);
         expect(isEnglishSubtitleTrack(tracks[3])).toBe(true);
+    });
+
+    it('does not classify YouTube translation source-language labels as the target subtitle language', () => {
+        const englishFromJapanese = {
+            kind: 'youtube' as const,
+            label: 'English (en) · auto-translated from 日本語 (自動生成)',
+            language: 'en',
+            sourceLanguage: 'ja',
+            targetLanguage: 'en',
+            autoGenerated: true,
+        };
+        const japaneseFromEnglish = {
+            kind: 'youtube' as const,
+            label: '日本語 (ja) · auto-translated from English',
+            language: 'ja',
+            sourceLanguage: 'en',
+            targetLanguage: 'ja',
+            autoGenerated: true,
+        };
+
+        expect(isJapaneseSubtitleTrack(englishFromJapanese)).toBe(false);
+        expect(isEnglishSubtitleTrack(englishFromJapanese)).toBe(true);
+        expect(isJapaneseSubtitleTrack(japaneseFromEnglish)).toBe(true);
+        expect(isEnglishSubtitleTrack(japaneseFromEnglish)).toBe(false);
     });
 
     it('replaces waiting native subtitle tracks with matching remote files', () => {
@@ -9291,6 +12861,66 @@ describe('reader helpers', () => {
         }
     });
 
+    it('uses the clicked word instead of the whole Japanese comment run for local pointer lookup', async () => {
+        const app = new ReaderApp();
+        const anchor = document.createElement('span');
+        const sentence = '先生いつもありがとうございました';
+        document.body.append(anchor);
+        const entry: YomitanTermEntry = {
+            expression: '先生',
+            reading: 'せんせい',
+            glossary: ['teacher'],
+            dictionary: 'Test',
+        };
+        const lookup = vi.fn(async (surface: string) => surface === '先生' ? [entry] : []);
+        const showPointerTextCard = vi.fn(async () => undefined);
+        const candidate = {
+            text: sentence,
+            offset: 1,
+            start: 0,
+            end: sentence.length,
+            anchor,
+        };
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parseJapanese(paragraphs: string[], options?: unknown): Promise<JPDBToken[][]>;
+            dictionaries: { lookup: typeof lookup };
+            showPointerTextCard: typeof showPointerTextCard;
+            showFirstPointerTextCandidate(
+                candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement },
+                sentence: string,
+                trigger: 'modal' | 'hover',
+                options: { userGesture?: boolean },
+            ): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: true,
+        };
+        internals.parseJapanese = vi.fn(async () => [[]]);
+        internals.dictionaries = { lookup };
+        internals.showPointerTextCard = showPointerTextCard;
+
+        try {
+            await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
+
+            expect(lookup).toHaveBeenCalledWith('先生', '先生', 1, internals.settings.dictionaryPreferences);
+            expect(lookup).not.toHaveBeenCalledWith(sentence, sentence, expect.any(Number), expect.anything());
+            expect(showPointerTextCard).toHaveBeenCalledWith(
+                expect.objectContaining({ spelling: '先生', reading: 'せんせい', source: 'local' }),
+                sentence,
+                candidate,
+                expect.objectContaining({ start: 0, end: 2 }),
+                'modal',
+                { userGesture: true },
+            );
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('uses JPDB parsed pointer tokens so inflected text clicks keep reading and pitch', async () => {
         const app = new ReaderApp();
         document.body.innerHTML = '<p>好きなものを読んで日本語を学ぶ</p>';
@@ -9346,7 +12976,12 @@ describe('reader helpers', () => {
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
-            expect(parse).toHaveBeenCalledWith([sentence], { includeLocalPitch: false, requireJpdb: true });
+            expect(parse).toHaveBeenCalledWith([sentence], {
+                allowJpdbTimeoutFallback: true,
+                includeLocalPitch: false,
+                jpdbTimeoutMs: 450,
+                requireJpdb: false,
+            });
             expect(showPointerTextCard).toHaveBeenCalledWith(
                 lookupCard,
                 sentence,
@@ -9416,7 +13051,12 @@ describe('reader helpers', () => {
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
-            expect(parse).toHaveBeenCalledWith([sentence], { includeLocalPitch: false, requireJpdb: true });
+            expect(parse).toHaveBeenCalledWith([sentence], {
+                allowJpdbTimeoutFallback: true,
+                includeLocalPitch: false,
+                jpdbTimeoutMs: 450,
+                requireJpdb: false,
+            });
             expect(showPointerTextCard).not.toHaveBeenCalledWith(
                 fallbackToken.card,
                 expect.anything(),
@@ -9462,12 +13102,21 @@ describe('reader helpers', () => {
         }
     });
 
-    it('does not show a single-kanji fallback pointer card when JPDB should parse the inflection', async () => {
+    it('uses an inflected fallback pointer card instead of a single-kanji fragment when JPDB is unavailable', async () => {
         const app = new ReaderApp();
         document.body.innerHTML = '<p>好きなものを読んで日本語を学ぶ</p>';
         const paragraph = document.querySelector<HTMLElement>('p')!;
         const sentence = paragraph.textContent!;
         const parse = vi.fn(async () => { throw new Error('jpdb down'); });
+        const fallbackCardFromText = vi.fn((text: string): JPDBCard => ({
+            ...card,
+            vid: -900,
+            sid: -900,
+            spelling: text,
+            reading: '',
+            source: 'fallback',
+            fallbackLookupTerms: text === '読んで' ? ['読む'] : [],
+        }));
         const showPointerTextCard = vi.fn(async () => undefined);
         const candidate = {
             text: sentence,
@@ -9478,7 +13127,7 @@ describe('reader helpers', () => {
         };
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
-            parser: { parse: typeof parse };
+            parser: { parse: typeof parse; fallbackCardFromText: typeof fallbackCardFromText };
             showPointerTextCard: typeof showPointerTextCard;
             showFirstPointerTextCandidate(
                 candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement },
@@ -9492,13 +13141,21 @@ describe('reader helpers', () => {
             apiKey: 'api-key',
             localDictionariesEnabled: false,
         };
-        internals.parser = { parse };
+        internals.parser = { parse, fallbackCardFromText };
         internals.showPointerTextCard = showPointerTextCard;
 
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
-            expect(showPointerTextCard).not.toHaveBeenCalled();
+            expect(fallbackCardFromText).toHaveBeenCalledWith('読んで');
+            expect(showPointerTextCard).toHaveBeenCalledWith(
+                expect.objectContaining({ spelling: '読んで', fallbackLookupTerms: ['読む'] }),
+                sentence,
+                candidate,
+                { start: 6, end: 9 },
+                'modal',
+                { userGesture: true },
+            );
         } finally {
             app.destroy();
         }
@@ -9548,7 +13205,13 @@ describe('reader helpers', () => {
         try {
             await internals.lookupText('読んで', sentence, { userGesture: true });
 
-            expect(parse).toHaveBeenCalledWith([sentence], { includeLocalPitch: false, requireJpdb: true });
+            expect(parse).toHaveBeenCalledWith([sentence], expect.objectContaining({
+                allowJpdbTimeoutFallback: true,
+                allowSegmentedFallback: true,
+                includeLocalPitch: false,
+                jpdbTimeoutMs: 650,
+                requireJpdb: false,
+            }));
             expect(showLocalLookupCard).not.toHaveBeenCalled();
             expect(showTokenList).toHaveBeenCalledWith(
                 [token],
@@ -9558,6 +13221,281 @@ describe('reader helpers', () => {
             );
         } finally {
             app.destroy();
+        }
+    });
+
+    it('shows parsed fallback token choices for multi-word selected text without an API key', async () => {
+        const app = new ReaderApp();
+        const sentence = '今日は静かな喫茶店で新しい本を読みました。';
+        const fallbackTokens: JPDBToken[] = [
+            {
+                card: { ...card, vid: -101, sid: -101, spelling: '新しい', reading: '', cardState: ['not-in-deck'], source: 'fallback' },
+                start: 10,
+                end: 13,
+                length: 3,
+                rubies: [],
+                pitchClass: '',
+                sentence,
+            },
+            {
+                card: { ...card, vid: -102, sid: -102, spelling: '本', reading: '', cardState: ['not-in-deck'], source: 'fallback' },
+                start: 13,
+                end: 14,
+                length: 1,
+                rubies: [],
+                pitchClass: '',
+                sentence,
+            },
+            {
+                card: { ...card, vid: -103, sid: -103, spelling: '読み', reading: '', cardState: ['not-in-deck'], source: 'fallback' },
+                start: 15,
+                end: 17,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence,
+            },
+        ];
+        const parse = vi.fn(async () => [fallbackTokens]);
+        const showLocalLookupCard = vi.fn(async () => true);
+        const showTokenList = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean };
+            showLocalLookupCard: typeof showLocalLookupCard;
+            showTokenList: typeof showTokenList;
+            lookupText(text: string, sentence?: string, options?: { userGesture?: boolean }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+        };
+        internals.parser = { parse, isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0 };
+        internals.showLocalLookupCard = showLocalLookupCard;
+        internals.showTokenList = showTokenList;
+
+        try {
+            await internals.lookupText('新しい本を読みました', sentence, { userGesture: true });
+
+            expect(parse).toHaveBeenCalledWith([sentence], {
+                allowSegmentedFallback: true,
+                includeLocalPitch: false,
+                requireJpdb: true,
+            });
+            expect(showLocalLookupCard).not.toHaveBeenCalled();
+            expect(showTokenList).toHaveBeenCalledWith(
+                fallbackTokens,
+                '新しい本を読みました',
+                undefined,
+                expect.objectContaining({ userGesture: true }),
+            );
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('uses segmented fallback for selected text even when local dictionaries are enabled without an API key', async () => {
+        const app = new ReaderApp();
+        const sentence = '今日は静かな喫茶店で新しい本を読みました。';
+        const fallbackTokens: JPDBToken[] = [{
+            card: { ...card, vid: -102, sid: -102, spelling: '本', reading: '', cardState: ['not-in-deck'], source: 'fallback' },
+            start: 13,
+            end: 14,
+            length: 1,
+            rubies: [],
+            pitchClass: '',
+            sentence,
+        }];
+        const parse = vi.fn(async () => [fallbackTokens]);
+        const showTokenList = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean };
+            showTokenList: typeof showTokenList;
+            lookupText(text: string, sentence?: string, options?: { userGesture?: boolean }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: true,
+        };
+        internals.parser = { parse, isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0 };
+        internals.showTokenList = showTokenList;
+
+        try {
+            await internals.lookupText('本', sentence, { userGesture: true });
+
+            expect(parse).toHaveBeenCalledWith([sentence], {
+                allowSegmentedFallback: true,
+                includeLocalPitch: false,
+                requireJpdb: true,
+            });
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('labels hover fallback token choices as lookup results instead of a selection', async () => {
+        const app = new ReaderApp();
+        const sentence = '百科事典';
+        const fallbackTokens: JPDBToken[] = [
+            {
+                card: { ...card, vid: -201, sid: -201, spelling: '百科', reading: '', cardState: ['not-in-deck'], source: 'fallback' },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence,
+            },
+            {
+                card: { ...card, vid: -202, sid: -202, spelling: '事典', reading: '', cardState: ['not-in-deck'], source: 'fallback' },
+                start: 2,
+                end: 4,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence,
+            },
+        ];
+        const parse = vi.fn(async () => [fallbackTokens]);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean };
+            lookupText(text: string, sentence?: string, options?: { trigger?: 'hover' }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: true,
+        };
+        internals.parser = { parse, isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0 };
+
+        try {
+            await internals.lookupText('百科事典', sentence, { trigger: 'hover' });
+
+            expect(document.querySelector('.jpdb-reader-popover .jpdb-reader-pos')?.textContent).toBe('Search');
+            expect(document.querySelector('.jpdb-reader-popover')?.textContent).not.toContain('Selection');
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('shows a back arrow on token choice popovers opened from another card', () => {
+        const app = new ReaderApp();
+        const previousCard: JPDBCard = { ...card, spelling: '訳', reading: 'やく', source: 'jpdb' };
+        const tokenCard: JPDBCard = { ...card, vid: 20, sid: 30, spelling: '日本語', reading: 'にほんご', source: 'jpdb' };
+        const token: JPDBToken = {
+            card: tokenCard,
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+            sentence: '日本語訳',
+        };
+        type TestPreviousNavigationEntry = { kind: 'word'; card: JPDBCard; sentence?: string };
+        const previousNavigationEntry: TestPreviousNavigationEntry = { kind: 'word', card: previousCard, sentence: '訳です。' };
+        const anchor = document.createElement('button');
+        const popover = document.createElement('div');
+        document.body.append(anchor, popover);
+        const showCard = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            renderTokenListHtml(
+                tokens: JPDBToken[],
+                selected: string,
+                source: 'lookup' | 'selection',
+                previousNavigationEntry?: TestPreviousNavigationEntry,
+            ): string;
+            installTokenListHandlers(
+                popover: HTMLElement,
+                tokens: JPDBToken[],
+                anchor: HTMLElement | undefined,
+                context: { trigger: 'modal' | 'hover'; navigation: 'reset' | 'preserve' | 'push-current'; previousNavigationEntry?: TestPreviousNavigationEntry },
+            ): void;
+            showCard: typeof showCard;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS };
+        internals.showCard = showCard;
+        popover.innerHTML = internals.renderTokenListHtml([token], '日本語訳', 'lookup', previousNavigationEntry);
+        internals.installTokenListHandlers(popover, [token], anchor, {
+            trigger: 'modal',
+            navigation: 'push-current',
+            previousNavigationEntry,
+        });
+
+        try {
+            const backButton = popover.querySelector<HTMLButtonElement>('[data-action="token-list-back"]')!;
+            expect(backButton).toBeTruthy();
+            expect(backButton.title).toBe('Back to word: 訳');
+
+            backButton.click();
+
+            expect(showCard).toHaveBeenCalledWith(previousCard, '訳です。', anchor, {
+                autoPlay: false,
+                trigger: 'modal',
+                navigation: 'preserve',
+                preservePosition: true,
+            });
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('uses already rendered parsed words for multi-word page selections', async () => {
+        const app = new ReaderApp();
+        const firstCard: JPDBCard = { ...card, vid: 501, sid: 501, spelling: '今日', reading: 'きょう', source: 'jpdb' };
+        const secondCard: JPDBCard = { ...card, vid: 502, sid: 502, spelling: '静か', reading: 'しずか', source: 'jpdb' };
+        document.body.innerHTML = `
+            <p>
+                <span class="jpdb-reader-word jpdb-pitch-atamadaka" data-vid="501" data-sid="501" data-expression="今日" data-reading="きょう" data-pitch-class="atamadaka" data-sentence="今日は静かです。"><ruby><span class="jpdb-reader-ruby-base">今日</span><rt class="jpdb-reader-furi">きょう</rt></ruby></span>は
+                <span class="jpdb-reader-word jpdb-pitch-atamadaka" data-vid="502" data-sid="502" data-expression="静か" data-reading="しずか" data-pitch-class="atamadaka" data-sentence="今日は静かです。"><ruby><span class="jpdb-reader-ruby-base">静か</span><rt class="jpdb-reader-furi">しずか</rt></ruby></span>です。
+            </p>
+        `;
+        const paragraph = document.querySelector('p')!;
+        const range = document.createRange();
+        range.selectNodeContents(paragraph);
+        const selection = window.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        const parse = vi.fn();
+        const showTokenList = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parser: {
+                parse: typeof parse;
+                getCachedCard(vid: number, sid: number): JPDBCard | undefined;
+                fallbackCardFromText(text: string): JPDBCard;
+                isJpdbBackedCard(card: JPDBCard): boolean;
+            };
+            showTokenList: typeof showTokenList;
+            lookupSelection(): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true };
+        internals.parser = {
+            parse,
+            getCachedCard: (vid, sid) => vid === 501 && sid === 501 ? firstCard : vid === 502 && sid === 502 ? secondCard : undefined,
+            fallbackCardFromText: text => ({ ...card, vid: -1, sid: -1, spelling: text, reading: '', source: 'fallback' }),
+            isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0,
+        };
+        internals.showTokenList = showTokenList;
+
+        try {
+            await internals.lookupSelection();
+
+            expect(parse).not.toHaveBeenCalled();
+            expect(showTokenList).toHaveBeenCalledTimes(1);
+            expect(showTokenList.mock.calls[0]?.[0].map((token: JPDBToken) => token.card.spelling)).toEqual(['今日', '静か']);
+            expect(showTokenList.mock.calls[0]?.[1]).toBe('今日静か');
+        } finally {
+            selection.removeAllRanges();
+            app.destroy();
+            document.body.replaceChildren();
         }
     });
 
@@ -9590,6 +13528,116 @@ describe('reader helpers', () => {
                 expect(lookupCandidateFromPoint(app, 28, 70, helpText)).toBeNull();
             });
         } finally {
+            app.destroy();
+        }
+    });
+
+    it('allows unparsed modal popover text clicks when page click lookup is disabled', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = '<span class="jpdb-reader-parseable">青空です。</span>';
+        document.body.append(popover);
+        const target = popover.querySelector<HTMLElement>('.jpdb-reader-parseable')!;
+        const candidate = {
+            text: '青空です。',
+            offset: 0,
+            start: 0,
+            end: 2,
+            anchor: target,
+        };
+        const lookupCandidateFromPoint = vi.fn(() => candidate);
+        const showLookupCandidate = vi.fn(async () => undefined);
+        const prepareModalLookupFromPointer = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            activePopover: HTMLElement;
+            activePopoverMode: 'modal';
+            lookupCandidateFromPoint: typeof lookupCandidateFromPoint;
+            showLookupCandidate: typeof showLookupCandidate;
+            prepareModalLookupFromPointer: typeof prepareModalLookupFromPointer;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnClick: false,
+        };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'modal';
+        internals.lookupCandidateFromPoint = lookupCandidateFromPoint;
+        internals.showLookupCandidate = showLookupCandidate;
+        internals.prepareModalLookupFromPointer = prepareModalLookupFromPointer;
+        (internals as unknown as { bindEvents(): void }).bindEvents();
+
+        try {
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 48, clientY: 24 });
+            target.dispatchEvent(event);
+
+            expect(event.defaultPrevented).toBe(true);
+            expect(lookupCandidateFromPoint).toHaveBeenCalledWith(48, 24, target);
+            expect(prepareModalLookupFromPointer).toHaveBeenCalledWith(event);
+            expect(showLookupCandidate).toHaveBeenCalledWith(candidate, 'modal', {
+                navigation: 'push-current',
+                preservePosition: true,
+                userGesture: true,
+            });
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('applies shared theme changes from hosted docs and settings toggles', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            bindEvents(): void;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            theme: 'dark',
+        };
+        internals.bindEvents();
+
+        try {
+            window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings: { theme: 'light' } } }));
+
+            expect(internals.settings.theme).toBe('light');
+            expect(document.documentElement.classList.contains('jpdb-reader-theme-light')).toBe(true);
+            expect(document.documentElement.classList.contains('jpdb-reader-theme-dark')).toBe(false);
+        } finally {
+            app.destroy();
+            document.documentElement.classList.remove('jpdb-reader-theme-light', 'jpdb-reader-theme-dark');
+        }
+    });
+
+    it('segments modal popover Japanese without a JPDB API key', async () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = '<div class="jpdb-reader-parseable">青空を見ます。</div>';
+        document.body.append(popover);
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            settings: typeof DEFAULT_SETTINGS;
+            parsePopoverJapanese(popover: HTMLElement): Promise<void>;
+        };
+        internals.activePopover = popover;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            audioEnabled: false,
+            ankiEnabled: false,
+            jpdbDefinitionsEnabled: false,
+            localDictionariesEnabled: false,
+            showPitchAccent: false,
+        };
+
+        try {
+            await internals.parsePopoverJapanese(popover);
+
+            expect([...popover.querySelectorAll<HTMLElement>('.jpdb-reader-word')].map(word => word.textContent)).toEqual(['青空', 'を', '見ます']);
+        } finally {
+            popover.remove();
             app.destroy();
         }
     });
@@ -9973,6 +14021,110 @@ describe('reader helpers', () => {
         }
     });
 
+    it('clones userscript bridge request and response details for Firefox Xray boundaries', async () => {
+        const inputHeaders = { accept: 'text/plain' };
+        let rawResponse: UserscriptHttpResponse | undefined;
+        const request = vi.fn((options: Parameters<UserscriptHttpRequest>[0]) => {
+            rawResponse = {
+                status: 200,
+                response: 'raw-ok',
+                responseText: 'raw-ok',
+                finalUrl: options.url,
+            };
+            options.onload?.(rawResponse);
+        });
+        const cloneInto = vi.fn((value: unknown) => (
+            value && typeof value === 'object'
+                ? structuredClone(value)
+                : value
+        ));
+
+        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html' });
+        vi.stubGlobal('GM_xmlhttpRequest', request);
+        vi.stubGlobal('GM', undefined);
+        vi.stubGlobal('cloneInto', cloneInto);
+        delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+
+        try {
+            installUserscriptHttpBridge();
+            vi.stubGlobal('GM_xmlhttpRequest', undefined);
+
+            const bridgeRequest = getUserscriptHttpRequest();
+            expect(bridgeRequest).toBeDefined();
+
+            const response = await bridgeRequest?.({
+                url: 'https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js',
+                method: 'GET',
+                headers: inputHeaders,
+            }) as UserscriptHttpResponse | undefined;
+
+            expect(request).toHaveBeenCalledTimes(1);
+            expect(request.mock.calls[0][0].headers).toEqual(inputHeaders);
+            expect(request.mock.calls[0][0].headers).not.toBe(inputHeaders);
+            expect(response).toEqual(rawResponse);
+            expect(response).not.toBe(rawResponse);
+            expect(cloneInto).toHaveBeenCalledWith(expect.any(Object), window, { cloneFunctions: false, wrapReflectors: true });
+        } finally {
+            delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('normalizes userscript bridge responses before dispatching across Firefox Xray boundaries', async () => {
+        const requestBody = new Uint8Array([1, 2, 3, 4]).buffer;
+        const responseBody = new Uint8Array([5, 6, 7, 8]).buffer;
+        const request = vi.fn((options: Parameters<UserscriptHttpRequest>[0]) => {
+            const rawResponse = {
+                status: 200,
+                response: responseBody,
+                responseText: 'raw-ok',
+                finalUrl: options.url,
+            };
+            Object.defineProperty(rawResponse, 'wrappedRealmProperty', {
+                enumerable: true,
+                get: () => {
+                    throw new Error('Permission denied to access property "wrappedRealmProperty"');
+                },
+            });
+            options.onload?.(rawResponse);
+        });
+        const cloneInto = vi.fn((value: unknown) => (
+            value && typeof value === 'object'
+                ? structuredClone(value)
+                : value
+        ));
+
+        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html' });
+        vi.stubGlobal('GM_xmlhttpRequest', request);
+        vi.stubGlobal('GM', undefined);
+        vi.stubGlobal('cloneInto', cloneInto);
+        delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+
+        try {
+            installUserscriptHttpBridge();
+            vi.stubGlobal('GM_xmlhttpRequest', undefined);
+
+            const bridgeRequest = getUserscriptHttpRequest();
+            const response = await bridgeRequest?.({
+                url: 'https://lensfrontend-pa.googleapis.com/v1/crupload',
+                method: 'POST',
+                data: requestBody,
+                responseType: 'arraybuffer',
+            }) as UserscriptHttpResponse | undefined;
+
+            expect(request).toHaveBeenCalledTimes(1);
+            const sentBody = request.mock.calls[0][0].data as ArrayBuffer;
+            expect(new Uint8Array(sentBody)).toEqual(new Uint8Array(requestBody));
+            expect(sentBody).not.toBe(requestBody);
+            expect(response?.status).toBe(200);
+            expect(response?.response).not.toBe(responseBody);
+            expect(response).not.toHaveProperty('wrappedRealmProperty');
+        } finally {
+            delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('does not expose the userscript bridge on arbitrary matched pages', () => {
         const request = vi.fn();
 
@@ -10228,7 +14380,6 @@ describe('reader helpers', () => {
                 .filter(url => url.includes('dict.zip'));
             expect(urls).toEqual([
                 `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://github.com/example/dict.zip')}`,
-                `https://api.allorigins.win/raw?url=${encodeURIComponent('https://github.com/example/dict.zip')}`,
             ]);
             expect(fetch).toHaveBeenCalledWith(urls[0], expect.objectContaining({ credentials: 'omit' }));
         } finally {
@@ -10736,6 +14887,7 @@ describe('reader helpers', () => {
                 ...DEFAULT_SETTINGS,
                 ankiEnabled: true,
                 ankiMobileHandoff: false,
+                interfaceLanguage: 'ja',
                 ankiFrontReading: false,
                 ankiFrontSentence: false,
                 ankiFrontImage: false,
@@ -10866,6 +15018,7 @@ describe('reader helpers', () => {
                         reps: 14,
                         lapses: 2,
                     }],
+                    areDue: [true],
                 };
                 return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
             },
@@ -10889,13 +15042,2389 @@ describe('reader helpers', () => {
                 },
             });
             expect(missing).toEqual({ state: 'not-in-deck', notes: [], primary: null });
-            expect(requests.map(request => request.action)).toEqual(['multi', 'notesInfo', 'cardsInfo']);
+            expect(requests.map(request => request.action)).toEqual(['multi', 'notesInfo', 'cardsInfo', 'areDue']);
             expect((requests[0]?.params.actions as unknown[])).toHaveLength(4);
             expect(requests[1]?.params).toEqual({ notes: [55] });
             expect(requests[2]?.params).toEqual({ cards: [7701] });
+            expect(requests[3]?.params).toEqual({ cards: [7701] });
         } finally {
             vi.unstubAllGlobals();
         }
+    });
+
+    it('does not match a different Anki expression only because the reading is the same', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                if (request.action === 'multi') {
+                    const actions = request.params.actions as Array<{ action: string; params: { query: string } }>;
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: actions.map(action => ({
+                                result: action.params.query.includes('かい') ? [55] : [],
+                                error: null,
+                            })),
+                            error: null,
+                        },
+                    });
+                }
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '回' },
+                            Reading: { value: 'かい' },
+                            Meaning: { value: 'counter for occurrences' },
+                        },
+                        cards: [7701],
+                    }],
+                    cardsInfo: [{
+                        cardId: 7701,
+                        note: 55,
+                        deckName: 'Core',
+                        queue: 2,
+                        type: 2,
+                        due: 0,
+                        reps: 14,
+                        lapses: 0,
+                    }],
+                    areDue: [true],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await expect(client.findExistingCards({ ...card, spelling: '買い', reading: 'かい' })).resolves.toEqual({
+                state: 'not-in-deck',
+                notes: [],
+                primary: null,
+            });
+            expect(requests.map(request => request.action)).toEqual(['multi', 'notesInfo']);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('hydrates rendered Anki card image media through AnkiConnect', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                if (request.action === 'multi') {
+                    const actions = request.params.actions as Array<{ action: string; params: { query: string } }>;
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: actions.map(action => ({
+                                result: action.params.query.includes('写真') || action.params.query.includes('しゃしん') ? [55] : [],
+                                error: null,
+                            })),
+                            error: null,
+                        },
+                    });
+                }
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '写真' },
+                            Reading: { value: 'しゃしん' },
+                            Meaning: { value: 'photograph' },
+                        },
+                        cards: [7701],
+                    }],
+                    cardsInfo: [{
+                        cardId: 7701,
+                        note: 55,
+                        deckName: 'Mining',
+                        queue: 0,
+                        type: 0,
+                        reps: 0,
+                        lapses: 0,
+                        question: '<div>写真<img src="scan.jpg?mtime=1"></div>',
+                        answer: '<div>photograph</div>',
+                    }],
+                    retrieveMediaFile: 'image-data',
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            const result = await client.findExistingCards({ ...card, spelling: '写真', reading: 'しゃしん' });
+
+            expect(result.primary?.renderedCards?.[0]?.mediaDataUrls).toEqual({
+                'scan.jpg': 'data:image/jpeg;base64,image-data',
+            });
+            expect(requests.find(request => request.action === 'retrieveMediaFile')?.params).toEqual({ filename: 'scan.jpg' });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('leaves rendered Anki audio media lazy so long files do not block card details', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                if (request.action === 'multi') {
+                    const actions = request.params.actions as Array<{ action: string; params: { query: string } }>;
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: actions.map(action => ({
+                                result: action.params.query.includes('写真') || action.params.query.includes('しゃしん') ? [55] : [],
+                                error: null,
+                            })),
+                            error: null,
+                        },
+                    });
+                }
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '写真' },
+                            Reading: { value: 'しゃしん' },
+                            Meaning: { value: 'photograph' },
+                        },
+                        cards: [7701],
+                    }],
+                    cardsInfo: [{
+                        cardId: 7701,
+                        note: 55,
+                        deckName: 'Mining',
+                        queue: 0,
+                        type: 0,
+                        reps: 0,
+                        lapses: 0,
+                        question: '<div>写真<img src="scan.jpg"><audio src="long-audio.mp3"></audio></div>',
+                        answer: '<div>photograph</div>',
+                    }],
+                    retrieveMediaFile: 'image-data',
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            const result = await client.findExistingCards({ ...card, spelling: '写真', reading: 'しゃしん' });
+
+            expect(result.primary?.renderedCards?.[0]?.mediaDataUrls).toEqual({
+                'scan.jpg': 'data:image/jpeg;base64,image-data',
+            });
+            expect(requests.filter(request => request.action === 'retrieveMediaFile').map(request => request.params))
+                .toEqual([{ filename: 'scan.jpg' }]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('finds existing Anki cards through fallback lookup terms for inflected reader words', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                if (request.action === 'multi') {
+                    const actions = request.params.actions as Array<{ action: string; params: { query: string } }>;
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: actions.map(action => ({
+                                result: action.params.query.includes('読む') ? [55] : [],
+                                error: null,
+                            })),
+                            error: null,
+                        },
+                    });
+                }
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '読む' },
+                            Reading: { value: 'よむ' },
+                            Meaning: { value: 'to read' },
+                        },
+                        cards: [7701],
+                    }],
+                    cardsInfo: [{
+                        cardId: 7701,
+                        note: 55,
+                        deckName: 'Anime::Mining',
+                        queue: 2,
+                        type: 2,
+                        due: 0,
+                        reps: 14,
+                        lapses: 0,
+                    }],
+                    areDue: [true],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await expect(client.findExistingCards({
+                ...card,
+                spelling: '読みました',
+                reading: 'よみました',
+                fallbackLookupTerms: ['読む'],
+            })).resolves.toMatchObject({
+                state: 'due',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7701,
+                },
+            });
+
+            const searches = requests
+                .filter(request => request.action === 'multi')
+                .flatMap(request => (request.params.actions as Array<{ params: { query: string } }>).map(action => action.params.query));
+            expect(searches.some(query => query.includes('読む'))).toBe(true);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('accepts raw AnkiConnect multi results when finding existing Anki cards', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                if (request.action === 'multi') {
+                    const actions = request.params.actions as Array<{ action: string; params: { query: string } }>;
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: actions.map(action => (
+                                action.params.query.includes('難波') || action.params.query.includes('なにわ')
+                                    ? [1778972270889]
+                                    : []
+                            )),
+                            error: null,
+                        },
+                    });
+                }
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 1778972270889,
+                        modelName: 'よむ Japanese',
+                        tags: ['yomu'],
+                        fields: {
+                            Expression: { value: '難波' },
+                            Reading: { value: 'なにわ' },
+                            Meaning: { value: 'Naniwa (former name for Osaka region)' },
+                            Sentence: { value: '<span class="yomu-highlight">難波</span>金満高校' },
+                        },
+                        cards: [1778972270890],
+                    }],
+                    cardsInfo: [{
+                        cardId: 1778972270890,
+                        note: 1778972270889,
+                        deckName: 'Mining',
+                        queue: 2,
+                        type: 2,
+                        due: 0,
+                        reps: 5,
+                        lapses: 1,
+                    }],
+                    areDue: [true],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            const [known] = await client.findExistingCardsBatch([{ ...card, spelling: '難波', reading: 'なにわ' }]);
+
+            expect(known).toMatchObject({
+                state: 'due',
+                primary: {
+                    noteId: 1778972270889,
+                    primaryCardId: 1778972270890,
+                    fields: {
+                        Expression: '難波',
+                        Reading: 'なにわ',
+                    },
+                },
+            });
+            expect(requests.map(request => request.action)).toEqual(['multi', 'notesInfo', 'cardsInfo', 'areDue']);
+            expect(requests[1]?.params).toEqual({ notes: [1778972270889] });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('deduplicates overlapping Anki status batches before the lookup cache is warm', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        let resolveMulti: ((value: unknown) => void) | undefined;
+        const multiResponse = new Promise(resolve => {
+            resolveMulti = resolve;
+        });
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                if (request.action === 'multi') return multiResponse;
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '動画' },
+                            Reading: { value: 'どうが' },
+                        },
+                        cards: [7701],
+                    }],
+                    cardsInfo: [{
+                        cardId: 7701,
+                        note: 55,
+                        deckName: 'Anime::Mining',
+                        queue: 2,
+                        type: 2,
+                        due: 0,
+                        reps: 14,
+                        lapses: 2,
+                    }],
+                    areDue: [true],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            const lookupCard = { ...card, spelling: '動画', reading: 'どうが' };
+            const first = client.findExistingCardsBatch([lookupCard]);
+            await Promise.resolve();
+            const second = client.findExistingCardsBatch([lookupCard]);
+
+            resolveMulti?.({
+                status: 200,
+                response: {
+                    result: [
+                        { result: [55], error: null },
+                        { result: [55], error: null },
+                    ],
+                    error: null,
+                },
+            });
+
+            const [firstResult, secondResult] = await Promise.all([first, second]);
+
+            expect(firstResult[0]).toMatchObject({ state: 'due', primary: { noteId: 55 } });
+            expect(secondResult[0]).toMatchObject({ state: 'due', primary: { noteId: 55 } });
+            expect(requests.filter(request => request.action === 'multi')).toHaveLength(1);
+            expect(requests.filter(request => request.action === 'notesInfo')).toHaveLength(1);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not continue an existing-card lookup after the Anki client is destroyed', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        let resolveMulti: ((value: unknown) => void) | undefined;
+        const multiResponse = new Promise(resolve => {
+            resolveMulti = resolve;
+        });
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                if (request.action === 'multi') return multiResponse;
+                return Promise.resolve({ status: 200, response: { result: [], error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            const lookup = client.findExistingCardsBatch([{ ...card, spelling: '動画', reading: 'どうが' }]);
+            await vi.waitFor(() => expect(requests.map(request => request.action)).toEqual(['multi']));
+
+            client.destroy();
+            resolveMulti?.({
+                status: 200,
+                response: {
+                    result: [
+                        { result: [55], error: null },
+                        { result: [55], error: null },
+                    ],
+                    error: null,
+                },
+            });
+
+            await expect(lookup).resolves.toEqual([{
+                state: 'not-in-deck',
+                notes: [],
+                primary: null,
+            }]);
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(requests.map(request => request.action)).toEqual(['multi']);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses a browser-stored Anki status index for hot path lookups', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const query = String(request.params?.query ?? '');
+                const resultByAction: Record<string, unknown> = {
+                    findCards: query.includes('is:due') || query === 'deck:*' ? [7701] : [],
+                    findNotes: [55],
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '動画' },
+                            Reading: { value: 'どうが' },
+                            Meaning: { value: 'video' },
+                        },
+                        cards: [7701],
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.rebuildStatusIndex();
+            requests.length = 0;
+            const cachedClient = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            const getAllSpy = vi.spyOn(IDBObjectStore.prototype, 'getAll')
+                .mockImplementation(() => {
+                    throw new Error('Anki status hot path should not scan every IndexedDB entry.');
+                });
+
+            try {
+                await expect(cachedClient.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toMatchObject([{
+                    state: 'due',
+                    primary: {
+                        noteId: 55,
+                        primaryCardId: 7701,
+                    },
+                }]);
+            } finally {
+                getAllSpy.mockRestore();
+            }
+
+            expect(requests.map(request => request.action)).toEqual([]);
+            expect(localStorage.getItem('yomu:anki-status-index:v1')).toContain('"entryStore":"indexeddb"');
+            expect(localStorage.getItem('yomu:anki-status-index:v1')).not.toContain('動画');
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('stores card deck and review metrics in the browser Anki status index', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const query = String(request.params?.query ?? '');
+                const resultByAction: Record<string, unknown> = {
+                    findCards: query === 'deck:*'
+                        ? [7701, 7702]
+                        : query.includes('is:due')
+                            ? [7702]
+                            : [],
+                    findNotes: [55],
+                    cardsInfo: [{
+                        cardId: 7701,
+                        note: 55,
+                        deckName: 'Core',
+                        queue: 2,
+                        type: 2,
+                        reps: 10,
+                        lapses: 0,
+                    }, {
+                        cardId: 7702,
+                        note: 55,
+                        deckName: 'Mining',
+                        queue: 2,
+                        type: 2,
+                        reps: 4,
+                        lapses: 1,
+                    }],
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '動画' },
+                            Reading: { value: 'どうが' },
+                        },
+                        cards: [7701, 7702],
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.rebuildStatusIndex();
+            expect(requests.map(request => request.action)).toContain('cardsInfo');
+            vi.unstubAllGlobals();
+            vi.stubGlobal('GM', {
+                xmlHttpRequest: () => Promise.reject(new Error('cached status lookup should not call AnkiConnect')),
+            });
+
+            const cachedClient = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await expect(cachedClient.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toMatchObject([{
+                state: 'due',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7702,
+                    deckNames: ['Core', 'Mining'],
+                    reps: 14,
+                    lapses: 1,
+                },
+            }]);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses fallback lookup terms for browser-stored Anki status index lookups', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const query = String(request.params?.query ?? '');
+                const resultByAction: Record<string, unknown> = {
+                    findCards: query.includes('is:due') || query === 'deck:*' ? [7701] : [],
+                    findNotes: [55],
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '読む' },
+                            Reading: { value: 'よむ' },
+                            Meaning: { value: 'to read' },
+                        },
+                        cards: [7701],
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.rebuildStatusIndex();
+            requests.length = 0;
+
+            await expect(client.findCachedStatusBatch([{
+                ...card,
+                spelling: '読みました',
+                reading: 'よみました',
+                fallbackLookupTerms: ['読む'],
+            }])).resolves.toMatchObject([{
+                state: 'due',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7701,
+                },
+            }]);
+            expect(requests).toEqual([]);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('hydrates duplicate Anki notes across decks even when the status index has one match', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const query = String(request.params?.query ?? '');
+                if (request.action === 'multi') {
+                    const actions = request.params.actions as Array<{ action: string; params: { query: string } }>;
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: actions.map(action => ({
+                                result: /動画|どうが/.test(action.params.query) ? [55, 66] : [],
+                                error: null,
+                            })),
+                            error: null,
+                        },
+                    });
+                }
+                if (request.action === 'notesInfo') {
+                    const ids = request.params.notes as number[];
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: ids.map(id => ({
+                                noteId: id,
+                                modelName: id === 55 ? 'Imported Core' : 'Mining Clone',
+                                tags: [],
+                                fields: {
+                                    Word: { value: '動画' },
+                                    Reading: { value: 'どうが' },
+                                    Meaning: { value: id === 55 ? 'video' : 'movie clip' },
+                                },
+                                cards: [id === 55 ? 7701 : 8801],
+                            })),
+                            error: null,
+                        },
+                    });
+                }
+                if (request.action === 'cardsInfo') {
+                    const ids = request.params.cards as number[];
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: ids.map(cardId => ({
+                                cardId,
+                                note: cardId === 7701 ? 55 : 66,
+                                deckName: cardId === 7701 ? 'Core' : 'Mining',
+                                queue: cardId === 7701 ? 2 : 0,
+                                type: cardId === 7701 ? 2 : 0,
+                                reps: cardId === 7701 ? 8 : 0,
+                                lapses: 0,
+                            })),
+                            error: null,
+                        },
+                    });
+                }
+                const resultByAction: Record<string, unknown> = {
+                    findCards: query === 'deck:*' || query.includes('is:due') ? [7701] : [],
+                    findNotes: [55],
+                    areDue: (request.params.cards as number[] | undefined)?.map(cardId => cardId === 7701) ?? [],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.rebuildStatusIndex();
+            requests.length = 0;
+
+            await expect(client.findExistingCards({ ...card, spelling: '動画', reading: 'どうが' })).resolves.toMatchObject({
+                state: 'due',
+                notes: [
+                    { noteId: 55, deckNames: ['Core'], reps: 8 },
+                    { noteId: 66, deckNames: ['Mining'], reps: 0 },
+                ],
+                primary: { noteId: 55, deckNames: ['Core'] },
+            });
+            expect(requests.map(request => request.action)).toEqual(['multi', 'notesInfo', 'cardsInfo', 'areDue']);
+            expect(requests.find(request => request.action === 'notesInfo')?.params).toEqual({ notes: [55, 66] });
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('indexes Anki decks beyond two thousand cards while keeping hot path lookups keyed to visible words', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const totalCards = 4097;
+        const targetCardId = totalCards;
+        const allIds = Array.from({ length: totalCards }, (_, index) => index + 1);
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        const noteInfoBatchSizes: number[] = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const query = String(request.params?.query ?? '');
+                const result = (() => {
+                    if (request.action === 'findCards') {
+                        if (query === 'deck:*') return allIds;
+                        if (query.includes('is:due')) return [targetCardId];
+                        return [];
+                    }
+                    if (request.action === 'findNotes') return allIds;
+                    if (request.action === 'notesInfo') {
+                        const notes = Array.isArray(request.params.notes) ? request.params.notes.map(Number) : [];
+                        noteInfoBatchSizes.push(notes.length);
+                        return notes.map(noteId => ({
+                            noteId,
+                            modelName: 'Imported Core',
+                            tags: [],
+                            fields: {
+                                Word: { value: `語${noteId}` },
+                            },
+                            cards: [noteId],
+                        }));
+                    }
+                    return [];
+                })();
+                return Promise.resolve({ status: 200, response: { result, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            const index = await client.rebuildStatusIndex();
+            expect(index).toMatchObject({
+                cardCount: totalCards,
+                entryCount: totalCards,
+                entryStore: 'indexeddb',
+            });
+            expect(noteInfoBatchSizes.reduce((sum, size) => sum + size, 0)).toBe(totalCards);
+            expect(Math.max(...noteInfoBatchSizes)).toBeLessThanOrEqual(500);
+
+            requests.length = 0;
+            const getSpy = vi.spyOn(IDBObjectStore.prototype, 'get');
+            const getAllSpy = vi.spyOn(IDBObjectStore.prototype, 'getAll')
+                .mockImplementation(() => {
+                    throw new Error('Large Anki status lookup should not scan every IndexedDB entry.');
+                });
+            try {
+                const hotLookups = await client.findCachedStatusBatch([
+                    { ...card, spelling: '語1', reading: '' },
+                    { ...card, spelling: `語${targetCardId}`, reading: '' },
+                    { ...card, spelling: '未収録', reading: '' },
+                ]);
+                expect(hotLookups).toHaveLength(3);
+                expect(hotLookups[0]).toMatchObject({
+                    state: 'known',
+                    primary: {
+                        noteId: 1,
+                        primaryCardId: 1,
+                    },
+                });
+                expect(hotLookups[1]).toMatchObject({
+                    state: 'due',
+                    primary: {
+                        noteId: targetCardId,
+                        primaryCardId: targetCardId,
+                    },
+                });
+                expect(hotLookups[2]).toEqual({
+                    state: 'not-in-deck',
+                    notes: [],
+                    primary: null,
+                });
+                expect(getSpy).toHaveBeenCalledTimes(3);
+            } finally {
+                getSpy.mockRestore();
+                getAllSpy.mockRestore();
+            }
+
+            expect(requests).toEqual([]);
+            expect(getAllSpy).not.toHaveBeenCalled();
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('indexes mapped custom Anki expression fields without falling back to deck-size scans', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            ankiMobileHandoff: false,
+            ankiFieldMappings: {
+                'Custom Mining': {
+                    expression: 'KanjiTerm',
+                    reading: 'Reading',
+                    meaning: 'GlossText',
+                },
+            },
+        };
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const query = String(request.params?.query ?? '');
+                const resultByAction: Record<string, unknown> = {
+                    findCards: query.includes('is:due') || query === 'deck:*' ? [8801] : [],
+                    findNotes: [9901],
+                    notesInfo: [{
+                        noteId: 9901,
+                        modelName: 'Custom Mining',
+                        tags: ['existing'],
+                        fields: {
+                            KanjiTerm: { value: '難波' },
+                            Reading: { value: 'なにわ' },
+                            GlossText: { value: 'former name for Osaka region' },
+                        },
+                        cards: [8801],
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => settings);
+            await client.rebuildStatusIndex();
+            requests.length = 0;
+            const getSpy = vi.spyOn(IDBObjectStore.prototype, 'get');
+            const getAllSpy = vi.spyOn(IDBObjectStore.prototype, 'getAll')
+                .mockImplementation(() => {
+                    throw new Error('Mapped Anki status lookups should use exact IndexedDB keys, not scan the store.');
+                });
+
+            try {
+                await expect(client.findCachedStatusBatch([{ ...card, spelling: '難波', reading: '' }])).resolves.toMatchObject([{
+                    state: 'due',
+                    primary: {
+                        noteId: 9901,
+                        primaryCardId: 8801,
+                    },
+                }]);
+                expect(getSpy).toHaveBeenCalledTimes(1);
+            } finally {
+                getSpy.mockRestore();
+                getAllSpy.mockRestore();
+            }
+
+            expect(requests).toEqual([]);
+            requests.length = 0;
+            vi.unstubAllGlobals();
+            vi.stubGlobal('GM', {
+                xmlHttpRequest: ({ data }: { data: string }) => {
+                    const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                    requests.push(request);
+                    if (request.action === 'multi') {
+                        const actions = request.params.actions as Array<{ action: string; params?: Record<string, unknown> }>;
+                        if (actions.some(action => action.action !== 'findNotes')) {
+                            throw new Error('Mapped cached Anki hydration should only run exact note lookups before note-id hydration.');
+                        }
+                        return Promise.resolve({
+                            status: 200,
+                            response: {
+                                result: actions.map(() => ({ result: [9901], error: null })),
+                                error: null,
+                            },
+                        });
+                    }
+                    if (request.action === 'findNotes') {
+                        throw new Error('Mapped cached Anki hydration should batch exact lookup terms through multi.');
+                    }
+                    const resultByAction: Record<string, unknown> = {
+                        notesInfo: [{
+                            noteId: 9901,
+                            modelName: 'Custom Mining',
+                            tags: ['existing'],
+                            fields: {
+                                KanjiTerm: { value: '難波' },
+                                Reading: { value: 'なにわ' },
+                                GlossText: { value: 'former name for Osaka region' },
+                            },
+                            cards: [8801],
+                        }],
+                        cardsInfo: [{
+                            cardId: 8801,
+                            note: 9901,
+                            deckName: 'Mining',
+                            queue: 2,
+                            type: 2,
+                            reps: 7,
+                            lapses: 1,
+                        }],
+                        areDue: [true],
+                    };
+                    return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+                },
+            });
+
+            await expect(client.findExistingCards({ ...card, spelling: '難波', reading: '' })).resolves.toMatchObject({
+                state: 'due',
+                primary: {
+                    noteId: 9901,
+                    fields: {
+                        KanjiTerm: '難波',
+                        Reading: 'なにわ',
+                        GlossText: 'former name for Osaka region',
+                    },
+                },
+            });
+            expect(requests.map(request => request.action)).toEqual(['multi', 'notesInfo', 'cardsInfo', 'areDue']);
+            const lookupActions = requests[0]?.params.actions as Array<{ action: string; params?: Record<string, unknown> }>;
+            expect(lookupActions.every(action => action.action === 'findNotes')).toBe(true);
+            expect(lookupActions.some(action => String(action.params?.query ?? '').includes('deck:*'))).toBe(false);
+            expect(lookupActions.some(action => String(action.params?.query ?? '').includes('難波'))).toBe(true);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('checks stale Anki status index counts with deck stats before scanning every card id', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const now = Date.now();
+        localStorage.setItem('yomu:anki-status-index:v1', JSON.stringify({
+            version: 1,
+            settingsKey: JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl }),
+            syncedAt: now - 10 * 60 * 1000,
+            checkedAt: now - 6 * 60 * 1000,
+            cardCount: 2505,
+            entries: {},
+        }));
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const resultByAction: Record<string, unknown> = {
+                    version: 6,
+                    deckNames: ['Mining', 'Archive'],
+                    getDeckStats: {
+                        1: { name: 'Mining', total_in_deck: 2000 },
+                        2: { name: 'Archive', total_in_deck: 505 },
+                    },
+                    findCards: [],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.warmStatusIndex();
+
+            expect(requests.map(request => request.action)).toEqual(['version', 'deckNames', 'getDeckStats']);
+            expect(requests.find(request => request.action === 'getDeckStats')?.params).toEqual({ decks: ['Mining', 'Archive'] });
+            const refreshed = JSON.parse(localStorage.getItem('yomu:anki-status-index:v1') ?? '{}') as { checkedAt?: number };
+            expect(refreshed.checkedAt).toBeGreaterThan(now - 6 * 60 * 1000);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('marks the Anki status index stale after reviews even when the card count is unchanged', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const now = Date.now();
+        localStorage.setItem('yomu:anki-status-index:v1', JSON.stringify({
+            version: 1,
+            settingsKey: JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl }),
+            syncedAt: now,
+            checkedAt: now,
+            cardCount: 1,
+            entries: {
+                [String('動画').toLocaleLowerCase()]: {
+                    state: 'due',
+                    noteId: 55,
+                    primaryCardId: 7701,
+                    deckNames: ['Anime::Mining'],
+                    reps: 14,
+                    lapses: 0,
+                    modelName: 'Imported Core',
+                },
+            },
+        }));
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const query = String(request.params?.query ?? '');
+                const resultByAction: Record<string, unknown> = {
+                    answerCards: null,
+                    version: 6,
+                    deckNames: ['Anime::Mining'],
+                    getDeckStats: {
+                        1: { name: 'Anime::Mining', total_in_deck: 1 },
+                    },
+                    findCards: query === 'deck:*' ? [7701] : [],
+                    findNotes: [55],
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '動画' },
+                            Reading: { value: 'どうが' },
+                        },
+                        cards: [7701],
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.answerCard(7701, 'okay');
+            await vi.waitFor(() => expect(requests.map(request => request.action)).toContain('notesInfo'));
+            await vi.waitFor(() => {
+                const stored = JSON.parse(localStorage.getItem('yomu:anki-status-index:v1') ?? '{}') as { entryStore?: string; syncedAt?: number };
+                expect(stored.entryStore).toBe('indexeddb');
+                expect(stored.syncedAt).toBeGreaterThan(0);
+            });
+
+            expect(requests.some(request => request.action === 'findCards' && request.params.query === 'deck:*')).toBe(true);
+            const refreshedClient = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await expect(refreshedClient.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toMatchObject([{
+                state: 'known',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7701,
+                },
+            }]);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not scan the whole Anki collection while another page is rebuilding the status index', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const now = Date.now();
+        const settingsKey = JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl });
+        localStorage.setItem('yomu:anki-status-index:v1', JSON.stringify({
+            version: 1,
+            settingsKey,
+            syncedAt: now - 60 * 60 * 1000,
+            checkedAt: now - 6 * 60 * 1000,
+            cardCount: 1,
+            entries: {
+                [String('動画').toLocaleLowerCase()]: {
+                    state: 'due',
+                    noteId: 55,
+                    primaryCardId: 7701,
+                    deckNames: ['Anime::Mining'],
+                    reps: 14,
+                    lapses: 0,
+                    modelName: 'Imported Core',
+                },
+            },
+        }));
+        localStorage.setItem('yomu:anki-status-index-rebuild:v1', JSON.stringify({
+            owner: 'other-page',
+            settingsKey,
+            startedAt: now,
+            expiresAt: now + 60 * 1000,
+        }));
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const resultByAction: Record<string, unknown> = {
+                    version: 6,
+                    deckNames: ['Mining', 'Archive'],
+                    getDeckStats: {
+                        1: { name: 'Mining', total_in_deck: 2 },
+                        2: { name: 'Archive', total_in_deck: 0 },
+                    },
+                    findCards: [7701, 7702],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.warmStatusIndex();
+
+            expect(requests.map(request => request.action)).toEqual(['version', 'deckNames', 'getDeckStats']);
+            expect(JSON.parse(localStorage.getItem('yomu:anki-status-index-rebuild:v1') ?? '{}')).toMatchObject({
+                owner: 'other-page',
+                settingsKey,
+            });
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not match Anki status index entries from meaning-only fields', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                const query = String(request.params?.query ?? '');
+                const resultByAction: Record<string, unknown> = {
+                    findCards: query.includes('is:due') || query === 'deck:*' ? [7701] : [],
+                    findNotes: [55],
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '動画' },
+                            Reading: { value: 'どうが' },
+                            Meaning: { value: '字幕' },
+                        },
+                        cards: [7701],
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.rebuildStatusIndex();
+
+            await expect(client.findCachedStatusBatch([{ ...card, spelling: '字幕', reading: 'じまく' }])).resolves.toEqual([{
+                state: 'not-in-deck',
+                notes: [],
+                primary: null,
+            }]);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('matches existing Anki notes through mapped custom expression and reading fields', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                if (request.action === 'multi') {
+                    const actions = request.params.actions as Array<{ params?: { query?: string } }>;
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: actions.map(action => ({
+                                result: String(action.params?.query ?? '').includes('難波') ? [9901] : [],
+                                error: null,
+                            })),
+                            error: null,
+                        },
+                    });
+                }
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 9901,
+                        modelName: 'Custom Mining',
+                        tags: ['existing'],
+                        fields: {
+                            SentenceFront: { value: '大阪、難波、行く' },
+                            KanaHint: { value: 'なんば / なにわ' },
+                            GlossText: { value: 'Osaka district' },
+                        },
+                        cards: [8801],
+                    }],
+                    cardsInfo: [{
+                        cardId: 8801,
+                        note: 9901,
+                        deckName: 'Mining',
+                        queue: 0,
+                        type: 0,
+                        reps: 0,
+                        lapses: 0,
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiMobileHandoff: false,
+                ankiFieldMappings: {
+                    'Custom Mining': {
+                        expression: 'SentenceFront',
+                        reading: 'KanaHint',
+                        meaning: 'GlossText',
+                    },
+                },
+            }));
+
+            await expect(client.findExistingCards({ ...card, spelling: '難波', reading: 'なにわ' })).resolves.toMatchObject({
+                state: 'new',
+                primary: {
+                    noteId: 9901,
+                    fields: {
+                        SentenceFront: '大阪、難波、行く',
+                        KanaHint: 'なんば / なにわ',
+                        GlossText: 'Osaka district',
+                    },
+                },
+            });
+            expect(requests.map(request => request.action)).toEqual(['multi', 'notesInfo', 'cardsInfo']);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps cold-cache page coloring misses untrusted without per-word Anki searches', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                if (request.action === 'multi') {
+                    const actions = request.params.actions as unknown[];
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: actions.map(() => ({ result: [], error: null })),
+                            error: null,
+                        },
+                    });
+                }
+                const resultByAction: Record<string, unknown> = {
+                    version: 6,
+                    findCards: [],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: false,
+                ankiMobileHandoff: false,
+                wordTextColorSource: 'anki',
+            }));
+
+            await expect(client.findCachedStatusBatch([
+                { ...card, spelling: '動画', reading: 'どうが' },
+                { ...card, spelling: '字幕', reading: 'じまく' },
+            ])).resolves.toEqual([
+                { state: 'not-in-deck', notes: [], primary: null, trusted: false },
+                { state: 'not-in-deck', notes: [], primary: null, trusted: false },
+            ]);
+
+            expect(requests.map(request => request.action)).toEqual([]);
+            await vi.waitFor(() => expect(requests.map(request => request.action)).toContain('findCards'));
+            expect(requests.map(request => request.action)).toEqual(['version', 'findCards']);
+            client.destroy();
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not cache Anki status misses while the status index is refreshing', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+        const index = {
+            version: 1,
+            settingsKey: JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl }),
+            syncedAt: Date.now(),
+            checkedAt: Date.now(),
+            cardCount: 2,
+            entries: {},
+        };
+        const internals = client as unknown as {
+            statusIndex?: typeof index;
+            statusIndexRefresh?: Promise<unknown>;
+        };
+        internals.statusIndex = index;
+        internals.statusIndexRefresh = new Promise(() => undefined);
+
+        await expect(client.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toEqual([{
+            state: 'not-in-deck',
+            notes: [],
+            primary: null,
+            trusted: false,
+        }]);
+
+        internals.statusIndexRefresh = undefined;
+        internals.statusIndex = {
+            ...index,
+            entries: {
+                [String('動画').toLocaleLowerCase()]: {
+                    state: 'due',
+                    noteId: 55,
+                    primaryCardId: 7701,
+                    deckNames: ['Anime::Mining'],
+                    reps: 14,
+                    lapses: 0,
+                    modelName: 'Imported Core',
+                },
+            },
+        };
+
+        await expect(client.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toMatchObject([{
+            state: 'due',
+            primary: {
+                noteId: 55,
+                primaryCardId: 7701,
+            },
+        }]);
+    });
+
+    it('queues a background status index rebuild instead of targeted cold-cache lookups', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const query = String(request.params?.query ?? '');
+                if (request.action === 'cardsInfo') {
+                    throw new Error('Status-only Anki coloring should not hydrate card fronts/backs.');
+                }
+                if (request.action === 'version') {
+                    return Promise.resolve({ status: 200, response: { result: 6, error: null } });
+                }
+                if (request.action === 'multi') {
+                    const actions = request.params.actions as Array<{ action: string; params?: { query?: string } }>;
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: actions.map(action => (
+                                action.action === 'findNotes' && /動画|どうが/.test(String(action.params?.query ?? ''))
+                                    ? [55]
+                                    : []
+                            )),
+                            error: null,
+                        },
+                    });
+                }
+                if (request.action === 'notesInfo') {
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: [{
+                                noteId: 55,
+                                modelName: 'Imported Core',
+                                tags: [],
+                                fields: {
+                                    Word: { value: '動画' },
+                                    Reading: { value: 'どうが' },
+                                },
+                                cards: [7701],
+                            }],
+                            error: null,
+                        },
+                    });
+                }
+                if (request.action === 'findCards') {
+                    return Promise.resolve({
+                        status: 200,
+                        response: { result: query.includes('is:due') ? [7701] : [], error: null },
+                    });
+                }
+                return Promise.resolve({ status: 200, response: { result: [], error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+
+            await expect(client.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toEqual([{
+                state: 'not-in-deck',
+                notes: [],
+                primary: null,
+                trusted: false,
+            }]);
+
+            expect(requests.map(request => request.action)).toEqual([]);
+            await vi.waitFor(() => expect(requests.map(request => request.action)).toContain('findCards'));
+
+            const actions = requests.map(request => request.action);
+            expect(actions).toEqual(['version', 'findCards']);
+            expect(actions).not.toContain('multi');
+            expect(actions).not.toContain('notesInfo');
+            expect(actions).not.toContain('cardsInfo');
+            client.destroy();
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps Anki status misses untrusted while another page rebuilds the status index', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const now = Date.now();
+        const settingsKey = JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl });
+        localStorage.setItem('yomu:anki-status-index:v1', JSON.stringify({
+            version: 1,
+            settingsKey,
+            syncedAt: now,
+            checkedAt: now,
+            cardCount: 1,
+            entries: {},
+        }));
+        localStorage.setItem('yomu:anki-status-index-rebuild:v1', JSON.stringify({
+            owner: 'other-page',
+            settingsKey,
+            startedAt: now,
+            expiresAt: now + 60 * 1000,
+        }));
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+
+            await expect(client.findCachedStatusBatch([{ ...card, spelling: '難波', reading: 'なにわ' }])).resolves.toEqual([{
+                state: 'not-in-deck',
+                notes: [],
+                primary: null,
+                trusted: false,
+            }]);
+
+            localStorage.removeItem('yomu:anki-status-index-rebuild:v1');
+            await expect(client.findCachedStatusBatch([{ ...card, spelling: '難波', reading: 'なにわ' }])).resolves.toEqual([{
+                state: 'not-in-deck',
+                notes: [],
+                primary: null,
+            }]);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+        }
+    });
+
+    it('returns browser-stored Anki statuses from the cache-only coloring path', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                const query = String(request.params?.query ?? '');
+                const resultByAction: Record<string, unknown> = {
+                    findCards: query.includes('is:due') || query === 'deck:*' ? [7701] : [],
+                    findNotes: [55],
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '動画' },
+                            Reading: { value: 'どうが' },
+                        },
+                        cards: [7701],
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.rebuildStatusIndex();
+            vi.unstubAllGlobals();
+            vi.stubGlobal('GM', {
+                xmlHttpRequest: () => Promise.reject(new Error('cached status lookup should not call AnkiConnect')),
+            });
+
+            await expect(client.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toMatchObject([{
+                state: 'due',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7701,
+                },
+            }]);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('periodically refreshes stale Anki status indexes even when the card count is unchanged', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        localStorage.setItem('yomu:anki-status-index:v1', JSON.stringify({
+            version: 1,
+            settingsKey: JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl }),
+            syncedAt: 1,
+            checkedAt: 1,
+            cardCount: 1,
+            entries: {
+                [String('動画').toLocaleLowerCase()]: {
+                    state: 'known',
+                    noteId: 55,
+                    primaryCardId: 7701,
+                    deckNames: ['Anime::Mining'],
+                    reps: 14,
+                    lapses: 0,
+                    modelName: 'Imported Core',
+                },
+            },
+        }));
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const query = String(request.params?.query ?? '');
+                const resultByAction: Record<string, unknown> = {
+                    findCards: query === 'deck:*' || query.includes('is:due') ? [7701] : [],
+                    findNotes: [55],
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '動画' },
+                            Reading: { value: 'どうが' },
+                        },
+                        cards: [7701],
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+
+            await expect(client.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toMatchObject([{
+                state: 'known',
+            }]);
+
+            client.warmStatusIndex();
+            await vi.waitFor(() => expect(requests.map(request => request.action)).toContain('notesInfo'));
+
+            const refreshed = JSON.parse(localStorage.getItem('yomu:anki-status-index:v1') ?? '{}') as { entryStore?: string };
+            expect(refreshed.entryStore).toBe('indexeddb');
+            const persistedClient = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await expect(persistedClient.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toMatchObject([{
+                state: 'due',
+            }]);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not continue background Anki status refresh after destroy while the availability probe is pending', async () => {
+        localStorage.clear();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        let resolveVersion: ((value: unknown) => void) | undefined;
+        const versionResponse = new Promise(resolve => {
+            resolveVersion = resolve;
+        });
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                if (request.action === 'version') return versionResponse;
+                return Promise.resolve({ status: 200, response: { result: [], error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            client.warmStatusIndex();
+            await vi.waitFor(() => expect(requests.map(request => request.action)).toEqual(['version']));
+
+            client.destroy();
+            resolveVersion?.({ status: 200, response: { result: 6, error: null } });
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(requests.map(request => request.action)).toEqual(['version']);
+        } finally {
+            localStorage.clear();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('hydrates cache-only Anki status notes by note id without searching the whole collection again', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const query = String(request.params?.query ?? '');
+                const resultByAction: Record<string, unknown> = {
+                    findCards: query.includes('is:due') || query === 'deck:*' ? [7701] : [],
+                    findNotes: [55],
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: ['existing'],
+                        fields: {
+                            Word: { value: '動画' },
+                            Reading: { value: 'どうが' },
+                            Meaning: { value: 'video' },
+                        },
+                        cards: [7701],
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.rebuildStatusIndex();
+            await client.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }]);
+            requests.length = 0;
+            vi.unstubAllGlobals();
+            vi.stubGlobal('GM', {
+                xmlHttpRequest: ({ data }: { data: string }) => {
+                    const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                    requests.push(request);
+                    if (request.action === 'findNotes') {
+                        throw new Error('Cached Anki hydration should batch exact lookup-term searches.');
+                    }
+                    if (request.action === 'multi') {
+                        const actions = request.params.actions as Array<{ action: string; params: Record<string, unknown> }>;
+                        const responses = actions.map(action => {
+                            const query = String(action.params?.query ?? '');
+                            if (query === 'deck:*' || query.includes('deck:')) {
+                                throw new Error(`Cached Anki hydration should not search the whole collection: ${query}`);
+                            }
+                            return { result: query === '"動画"' || query === '"どうが"' ? [55] : [], error: null };
+                        });
+                        return Promise.resolve({ status: 200, response: { result: responses, error: null } });
+                    }
+                    const resultByAction: Record<string, unknown> = {
+                        notesInfo: [{
+                            noteId: 55,
+                            modelName: 'Imported Core',
+                            tags: ['existing'],
+                            fields: {
+                                OddFront: { value: 'これは動画です' },
+                                Hint: { value: 'video' },
+                            },
+                            cards: [7701],
+                        }],
+                        cardsInfo: [{
+                            cardId: 7701,
+                            note: 55,
+                            deckName: 'Anime::Mining',
+                            queue: 2,
+                            type: 2,
+                            reps: 14,
+                            lapses: 2,
+                            question: '<div>動画</div>',
+                            answer: '<div>video</div>',
+                        }],
+                        areDue: [true],
+                    };
+                    return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+                },
+            });
+
+            await expect(client.findExistingCards({ ...card, spelling: '動画', reading: 'どうが' })).resolves.toMatchObject({
+                state: 'due',
+                primary: {
+                    noteId: 55,
+                    deckNames: ['Anime::Mining'],
+                    fields: {
+                        OddFront: 'これは動画です',
+                        Hint: 'video',
+                    },
+                    renderedCards: [{ cardId: 7701, question: '<div>動画</div>', answer: '<div>video</div>' }],
+                    tags: ['existing'],
+                },
+            });
+            expect(requests.map(request => request.action)).toEqual(['multi', 'notesInfo', 'cardsInfo', 'areDue']);
+            const lookupActions = requests[0]?.params.actions as Array<{ action: string; params: Record<string, unknown> }>;
+            expect(lookupActions.map(action => action.action)).toEqual(['findNotes', 'findNotes']);
+            expect(lookupActions.map(action => action.params.query)).toEqual(expect.arrayContaining(['"動画"', '"どうが"']));
+            expect(requests[1]?.params).toEqual({ notes: [55] });
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses Anki areDue flags instead of raw cardsInfo due values for existing-card status', async () => {
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                if (request.action === 'multi') {
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: [{ result: [56], error: null }, { result: [], error: null }],
+                            error: null,
+                        },
+                    });
+                }
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 56,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '未来' },
+                            Reading: { value: 'みらい' },
+                            Meaning: { value: 'future' },
+                        },
+                        cards: [8801],
+                    }],
+                    cardsInfo: [{
+                        cardId: 8801,
+                        note: 56,
+                        deckName: 'Core',
+                        queue: 2,
+                        type: 2,
+                        due: 0,
+                        reps: 9,
+                        lapses: 0,
+                    }],
+                    areDue: [false],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await expect(client.findExistingCards({ ...card, spelling: '未来', reading: 'みらい' })).resolves.toMatchObject({
+                state: 'known',
+                primary: {
+                    state: 'known',
+                    primaryCardId: 8801,
+                },
+            });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps mixed due and suspended Anki sibling cards due after full hydration', async () => {
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                if (request.action === 'multi') {
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: [{ result: [57], error: null }, { result: [], error: null }],
+                            error: null,
+                        },
+                    });
+                }
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 57,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '復習' },
+                            Reading: { value: 'ふくしゅう' },
+                            Meaning: { value: 'review' },
+                        },
+                        cards: [8802, 8803],
+                    }],
+                    cardsInfo: [
+                        {
+                            cardId: 8802,
+                            note: 57,
+                            deckName: 'Core',
+                            queue: 2,
+                            type: 2,
+                            due: 0,
+                            reps: 9,
+                            lapses: 0,
+                        },
+                        {
+                            cardId: 8803,
+                            note: 57,
+                            deckName: 'Core',
+                            queue: -1,
+                            type: 2,
+                            due: 0,
+                            reps: 0,
+                            lapses: 0,
+                        },
+                    ],
+                    areDue: [true],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await expect(client.findExistingCards({ ...card, spelling: '復習', reading: 'ふくしゅう' })).resolves.toMatchObject({
+                state: 'due',
+                primary: {
+                    state: 'due',
+                    primaryCardId: 8802,
+                },
+            });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('scans Anki decks and note types to suggest fields for non-standard libraries', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const resultByAction: Record<string, unknown> = {
+                    deckNames: ['Mining', 'Archive'],
+                    modelNames: ['Basic', 'Simple Model', 'Imported Japanese'],
+                    modelFieldNames: request.params.modelName === 'Imported Japanese'
+                        ? ['Vocabulary-Kanji', 'Vocabulary-Kana', 'Glossary', 'SentenceAudio', 'Picture']
+                        : request.params.modelName === 'Simple Model'
+                            ? ['Japanese_Word', 'Translation_1', 'audio']
+                            : ['Front', 'Back'],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            const scan = await client.scanLibrary();
+
+            expect(scan.deckNames).toEqual(['Mining', 'Archive']);
+            expect(scan.suggestedModel?.modelName).toBe('Imported Japanese');
+            expect(scan.suggestedModel?.suggestions).toEqual(expect.arrayContaining([
+                { role: 'expression', fieldName: 'Vocabulary-Kanji', confidence: 'high' },
+                { role: 'reading', fieldName: 'Vocabulary-Kana', confidence: 'high' },
+                { role: 'meaning', fieldName: 'Glossary', confidence: 'high' },
+                { role: 'sentence', fieldName: null, confidence: 'low' },
+                { role: 'audio', fieldName: 'SentenceAudio', confidence: 'high' },
+                { role: 'image', fieldName: 'Picture', confidence: 'high' },
+            ]));
+            const simple = scan.models.find(model => model.modelName === 'Simple Model');
+            expect(simple?.suggestions).toEqual(expect.arrayContaining([
+                { role: 'expression', fieldName: 'Japanese_Word', confidence: 'high' },
+                { role: 'meaning', fieldName: 'Translation_1', confidence: 'high' },
+                { role: 'sentence', fieldName: null, confidence: 'low' },
+                { role: 'audio', fieldName: 'audio', confidence: 'high' },
+            ]));
+            expect(requests.map(request => request.action)).toEqual(expect.arrayContaining([
+                'deckNames',
+                'modelNames',
+                'modelFieldNames',
+                'findNotes',
+            ]));
+            expect(requests.filter(request => request.action === 'modelFieldNames')).toHaveLength(3);
+            expect(requests.filter(request => request.action === 'findNotes')).toHaveLength(3);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('samples Anki note contents to infer roles for opaque imported fields', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const resultByAction: Record<string, unknown> = {
+                    deckNames: ['Mining'],
+                    modelNames: ['Opaque Japanese'],
+                    modelFieldNames: ['F1', 'F2', 'F3', 'F4', 'F5', 'F6'],
+                    findNotes: [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125],
+                    notesInfo: [{
+                        noteId: 101,
+                        modelName: 'Opaque Japanese',
+                        tags: [],
+                        fields: {
+                            F1: { value: '動画' },
+                            F2: { value: 'どうが' },
+                            F3: { value: 'video' },
+                            F4: { value: 'この動画を見た。' },
+                            F5: { value: '[sound:douga.mp3]' },
+                            F6: { value: '<img src="douga.jpg">' },
+                        },
+                        cards: [1001],
+                    }, {
+                        noteId: 102,
+                        modelName: 'Opaque Japanese',
+                        tags: [],
+                        fields: {
+                            F1: { value: '読む' },
+                            F2: { value: 'よむ' },
+                            F3: { value: 'to read' },
+                            F4: { value: '今日は本を読む。' },
+                            F5: { value: '[sound:yomu.mp3]' },
+                            F6: { value: '<img src="yomu.png">' },
+                        },
+                        cards: [1002],
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            const scan = await client.scanLibrary();
+
+            expect(scan.suggestedModel?.modelName).toBe('Opaque Japanese');
+            expect(scan.suggestedModel?.suggestions).toEqual(expect.arrayContaining([
+                { role: 'expression', fieldName: 'F1', confidence: 'high' },
+                { role: 'reading', fieldName: 'F2', confidence: 'high' },
+                { role: 'meaning', fieldName: 'F3', confidence: 'high' },
+                { role: 'sentence', fieldName: 'F4', confidence: 'high' },
+                { role: 'audio', fieldName: 'F5', confidence: 'high' },
+                { role: 'image', fieldName: 'F6', confidence: 'high' },
+            ]));
+            expect(requests.find(request => request.action === 'findNotes')?.params).toEqual({ query: 'note:"Opaque Japanese"' });
+            expect(requests.find(request => request.action === 'notesInfo')?.params).toEqual({
+                notes: [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124],
+            });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses scan-derived opaque Anki mappings for status index coloring', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        let settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false };
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const query = String(request.params?.query ?? '');
+                const result = (() => {
+                    if (request.action === 'deckNames') return ['Mining'];
+                    if (request.action === 'modelNames') return ['Opaque Japanese'];
+                    if (request.action === 'modelFieldNames') return ['F1', 'F2', 'F3', 'F4'];
+                    if (request.action === 'findCards') {
+                        if (query === 'deck:*' || query.includes('is:due')) return [1001];
+                        return [];
+                    }
+                    if (request.action === 'findNotes') {
+                        if (query === 'deck:*' || query.includes('Opaque Japanese')) return [101];
+                        return [];
+                    }
+                    if (request.action === 'notesInfo') {
+                        return [{
+                            noteId: 101,
+                            modelName: 'Opaque Japanese',
+                            tags: [],
+                            fields: {
+                                F1: { value: '動画' },
+                                F2: { value: 'どうが' },
+                                F3: { value: 'video' },
+                                F4: { value: 'この動画を見た。' },
+                            },
+                            cards: [1001],
+                        }];
+                    }
+                    return [];
+                })();
+                return Promise.resolve({ status: 200, response: { result, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => settings);
+            const scan = await client.scanLibrary();
+            settings = {
+                ...settings,
+                ankiFieldMappings: {
+                    'Opaque Japanese': Object.fromEntries(scan.suggestedModel?.suggestions.flatMap(suggestion => (
+                        suggestion.fieldName ? [[suggestion.role, suggestion.fieldName] as const] : []
+                    )) ?? []),
+                },
+            };
+            await client.rebuildStatusIndex();
+            requests.length = 0;
+            const getSpy = vi.spyOn(IDBObjectStore.prototype, 'get');
+            const getAllSpy = vi.spyOn(IDBObjectStore.prototype, 'getAll')
+                .mockImplementation(() => {
+                    throw new Error('Scan-derived Anki status lookups should use exact keys, not scan the whole store.');
+                });
+
+            try {
+                await expect(client.findCachedStatusBatch([{ ...card, spelling: '動画', reading: '' }])).resolves.toMatchObject([{
+                    state: 'due',
+                    primary: {
+                        noteId: 101,
+                        primaryCardId: 1001,
+                    },
+                }]);
+                expect(getSpy).toHaveBeenCalledTimes(1);
+            } finally {
+                getSpy.mockRestore();
+                getAllSpy.mockRestore();
+            }
+            expect(requests).toEqual([]);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('adds cards to an existing custom Anki note type without mutating its fields or templates', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const resultByAction: Record<string, unknown> = {
+                    createDeck: null,
+                    modelNames: ['Imported Japanese'],
+                    modelFieldNames: ['Vocabulary-Kanji', 'Vocabulary-Kana', 'Glossary', 'SentenceAudio', 'Picture', 'audio'],
+                    addNote: 88,
+                    notesInfo: [{
+                        noteId: 88,
+                        modelName: 'Imported Japanese',
+                        tags: [],
+                        fields: {
+                            'Vocabulary-Kanji': { value: '読む' },
+                            'Vocabulary-Kana': { value: 'よむ' },
+                            Glossary: { value: 'to read' },
+                        },
+                        cards: [188],
+                    }],
+                    cardsInfo: [{ cardId: 188, note: 88, deckName: 'Mining', queue: 0, type: 0, reps: 0, lapses: 0 }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiMobileHandoff: false,
+                ankiDeck: 'Mining',
+                ankiModel: 'Imported Japanese',
+            }));
+            await client.addCard({
+                ...card,
+                spelling: '読む',
+                reading: 'よむ',
+                meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
+            }, '今日は本を読む。', {
+                wordAudioDataUrl: 'data:audio/mpeg;base64,word-audio',
+                imageDataUrl: 'data:image/png;base64,image-data',
+            });
+
+            const actions = requests.map(request => request.action);
+            const addNote = requests.find(request => request.action === 'addNote')?.params.note as {
+                deckName: string;
+                modelName: string;
+                fields: Record<string, string>;
+                audio?: Array<Record<string, unknown>>;
+                picture?: Array<Record<string, unknown>>;
+            };
+            expect(actions).not.toContain('modelFieldAdd');
+            expect(actions).not.toContain('updateModelTemplates');
+            expect(actions).not.toContain('updateModelStyling');
+            expect(addNote.deckName).toBe('Mining');
+            expect(addNote.modelName).toBe('Imported Japanese');
+            expect(addNote.fields['Vocabulary-Kanji']).toBe('読む');
+            expect(addNote.fields['Vocabulary-Kana']).toBe('よむ');
+            expect(addNote.fields.Glossary).toContain('to read');
+            expect(addNote.fields.SentenceAudio).toBe('');
+            expect(addNote.fields.Picture).toBe('');
+            expect(addNote.audio?.[0]).toMatchObject({ data: 'word-audio', fields: ['audio'] });
+            expect(addNote.picture?.[0]).toMatchObject({ data: 'image-data', fields: ['Picture'] });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('scans and adds cards to alias-heavy imported Anki note types', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const resultByAction: Record<string, unknown> = {
+                    deckNames: ['Mining'],
+                    modelNames: ['Alias Heavy Japanese'],
+                    modelFieldNames: ['HeadwordKanji', 'Furigana', 'English', 'Example Sentence', 'Word Audio', 'Sentence Image'],
+                    createDeck: null,
+                    addNote: 99,
+                    notesInfo: [{
+                        noteId: 99,
+                        modelName: 'Alias Heavy Japanese',
+                        tags: [],
+                        fields: {
+                            HeadwordKanji: { value: '読む' },
+                            Furigana: { value: 'よむ' },
+                            English: { value: 'to read' },
+                        },
+                        cards: [199],
+                    }],
+                    cardsInfo: [{ cardId: 199, note: 99, deckName: 'Mining', queue: 0, type: 0, reps: 0, lapses: 0 }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiMobileHandoff: false,
+                ankiDeck: 'Mining',
+                ankiModel: 'Alias Heavy Japanese',
+            }));
+            const scan = await client.scanLibrary();
+
+            expect(scan.suggestedModel?.suggestions).toEqual(expect.arrayContaining([
+                { role: 'expression', fieldName: 'HeadwordKanji', confidence: 'high' },
+                { role: 'reading', fieldName: 'Furigana', confidence: 'high' },
+                { role: 'meaning', fieldName: 'English', confidence: 'high' },
+                { role: 'sentence', fieldName: 'Example Sentence', confidence: 'high' },
+                { role: 'audio', fieldName: 'Word Audio', confidence: 'high' },
+                { role: 'image', fieldName: 'Sentence Image', confidence: 'high' },
+            ]));
+
+            await client.addCard({
+                ...card,
+                spelling: '読む',
+                reading: 'よむ',
+                meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
+            }, '今日は本を読む。', {
+                wordAudioDataUrl: 'data:audio/mpeg;base64,word-audio',
+                imageDataUrl: 'data:image/png;base64,image-data',
+            });
+
+            const addNote = requests.find(request => request.action === 'addNote')?.params.note as {
+                fields: Record<string, string>;
+                audio?: Array<Record<string, unknown>>;
+                picture?: Array<Record<string, unknown>>;
+            };
+            expect(addNote.fields.HeadwordKanji).toBe('読む');
+            expect(addNote.fields.Furigana).toBe('よむ');
+            expect(addNote.fields.English).toContain('to read');
+            expect(addNote.fields['Example Sentence']).toContain('yomu-highlight');
+            expect(addNote.audio?.[0]).toMatchObject({ data: 'word-audio', fields: ['Word Audio'] });
+            expect(addNote.picture?.[0]).toMatchObject({ data: 'image-data', fields: ['Sentence Image'] });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses persisted Anki field mappings when adding to ambiguous custom note types', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const resultByAction: Record<string, unknown> = {
+                    createDeck: null,
+                    modelNames: ['Ambiguous Japanese'],
+                    modelFieldNames: ['Front', 'Back', 'Kana Field', 'Sentence Slot', 'Sound Slot', 'Image Slot'],
+                    addNote: 123,
+                    notesInfo: [{
+                        noteId: 123,
+                        modelName: 'Ambiguous Japanese',
+                        tags: [],
+                        fields: {
+                            Back: { value: '読む' },
+                            'Kana Field': { value: 'よむ' },
+                            Front: { value: 'to read' },
+                        },
+                        cards: [456],
+                    }],
+                    cardsInfo: [{ cardId: 456, note: 123, deckName: 'Mining', queue: 0, type: 0, reps: 0, lapses: 0 }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiMobileHandoff: false,
+                ankiDeck: 'Mining',
+                ankiModel: 'Ambiguous Japanese',
+                ankiFieldMappings: {
+                    'Ambiguous Japanese': {
+                        expression: 'Back',
+                        reading: 'Kana Field',
+                        meaning: 'Front',
+                        sentence: 'Sentence Slot',
+                        audio: 'Sound Slot',
+                        image: 'Image Slot',
+                    },
+                },
+            }));
+            await client.addCard({
+                ...card,
+                spelling: '読む',
+                reading: 'よむ',
+                meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
+            }, '今日は本を読む。', {
+                wordAudioDataUrl: 'data:audio/mpeg;base64,word-audio',
+                imageDataUrl: 'data:image/png;base64,image-data',
+            });
+
+            const addNote = requests.find(request => request.action === 'addNote')?.params.note as {
+                fields: Record<string, string>;
+                audio?: Array<Record<string, unknown>>;
+                picture?: Array<Record<string, unknown>>;
+            };
+            expect(addNote.fields.Back).toBe('読む');
+            expect(addNote.fields['Kana Field']).toBe('よむ');
+            expect(addNote.fields.Front).toContain('to read');
+            expect(addNote.fields['Sentence Slot']).toContain('yomu-highlight');
+            expect(addNote.audio?.[0]).toMatchObject({ data: 'word-audio', fields: ['Sound Slot'] });
+            expect(addNote.picture?.[0]).toMatchObject({ data: 'image-data', fields: ['Image Slot'] });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('treats a null Anki addNote result as a duplicate instead of a successful add', async () => {
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                const resultByAction: Record<string, unknown> = {
+                    createDeck: null,
+                    modelNames: ['よむ Japanese'],
+                    modelFieldNames: YOMU_MODEL_FIELDS,
+                    updateModelTemplates: null,
+                    updateModelStyling: null,
+                    addNote: null,
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await expect(client.addCard({
+                ...card,
+                spelling: '読む',
+                reading: 'よむ',
+                meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
+            }, '今日は本を読む。')).rejects.toThrow('Already in Anki');
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('recovers the mining popover when Anki rejects a duplicate note after lookup', async () => {
+        const toast = vi.fn();
+        const showCard = vi.fn(async () => undefined);
+        const findExistingCards = vi.fn(async (): Promise<AnkiLookupResult> => ({ state: 'not-in-deck', notes: [], primary: null }));
+        const addCard = vi.fn(async () => {
+            throw new AnkiDuplicateNoteError('Already in Anki. Use Edit in Anki instead.');
+        });
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            ankiMobileHandoff: false,
+            localDictionariesEnabled: false,
+            ankiCaptureScreenshot: false,
+        };
+        const controller = new CardActionController({
+            getSettings: () => settings,
+            jpdb: {} as unknown as JpdbClient,
+            anki: { findExistingCards, addCard } as unknown as AnkiConnectClient,
+            dictionaries: {
+                lookup: vi.fn(async () => []),
+                lookupKanji: vi.fn(async () => []),
+                lookupTermMeta: vi.fn(async () => []),
+            } as unknown as YomitanDictionaryStore,
+            isJpdbBackedCard: () => true,
+            resolveMiningContext: vi.fn(async (): Promise<MiningContext> => ({
+                term: '読む',
+                sentence: '今日は本を読む。',
+                sourceKind: 'page',
+                imageDataUrl: undefined,
+                audioDataUrl: undefined,
+                sourceTitle: 'Example',
+                sourceUrl: 'https://example.test/page',
+                updatedAt: 1,
+            })),
+            showCard,
+            getActivePopoverAnchor: () => undefined,
+            getActivePopoverMode: () => 'modal',
+            showSettings: vi.fn(),
+            playAudio: vi.fn(),
+            playSentenceAudio: vi.fn(),
+            detectGrammarHints: vi.fn(async () => []),
+            parsePopoverJapanese: vi.fn(),
+            toast,
+        });
+        const button = document.createElement('button');
+
+        await expect(controller.perform('anki', button, {
+            ...card,
+            spelling: '読む',
+            reading: 'よむ',
+            meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
+        }, '今日は本を読む。')).resolves.toBe(true);
+
+        expect(findExistingCards).toHaveBeenCalledTimes(1);
+        expect(addCard).toHaveBeenCalledTimes(1);
+        expect(showCard).toHaveBeenCalledWith(expect.objectContaining({ spelling: '読む' }), '今日は本を読む。', undefined, {
+            autoPlay: false,
+            trigger: 'modal',
+            navigation: 'preserve',
+            preservePosition: true,
+        });
+        expect(toast).toHaveBeenCalledWith('Already in Anki. Use Edit in Anki instead.');
+        expect(toast).not.toHaveBeenCalledWith('Sent to Anki.');
     });
 
     it('can attach both word audio and Immersion Kit context audio to Anki notes', async () => {
@@ -11010,6 +17539,132 @@ describe('reader helpers', () => {
         }
     });
 
+    it('uses persisted Anki field mappings when merging into ambiguous existing notes', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 170,
+                        modelName: 'Ambiguous Japanese',
+                        tags: [],
+                        fields: {
+                            Front: { value: '' },
+                            Back: { value: '読む' },
+                            'Kana Field': { value: '' },
+                            'Sentence Slot': { value: '' },
+                            'Sound Slot': { value: '' },
+                            'Image Slot': { value: '' },
+                        },
+                        cards: [1700],
+                    }],
+                    updateNoteFields: null,
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiMobileHandoff: false,
+                ankiFieldMappings: {
+                    'Ambiguous Japanese': {
+                        expression: 'Back',
+                        reading: 'Kana Field',
+                        meaning: 'Front',
+                        sentence: 'Sentence Slot',
+                        audio: 'Sound Slot',
+                        image: 'Image Slot',
+                    },
+                },
+            }));
+            await client.mergeYomuData(170, {
+                ...card,
+                spelling: '読む',
+                reading: 'よむ',
+                meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
+            }, '今日は本を読む。', {
+                wordAudioDataUrl: 'data:audio/mpeg;base64,word-audio',
+                imageDataUrl: 'data:image/png;base64,image-data',
+                audioMergeMode: 'both',
+            });
+
+            const update = requests.find(request => request.action === 'updateNoteFields')?.params.note as {
+                fields: Record<string, string>;
+                audio?: Array<Record<string, unknown>>;
+                picture?: Array<Record<string, unknown>>;
+            };
+            expect(update.fields.Back).toBeUndefined();
+            expect(update.fields['Kana Field']).toBe('よむ');
+            expect(update.fields.Front).toContain('to read');
+            expect(update.fields['Sentence Slot']).toContain('yomu-highlight');
+            expect(update.audio?.[0]).toMatchObject({ data: 'word-audio', fields: ['Sound Slot'] });
+            expect(update.picture?.[0]).toMatchObject({ data: 'image-data', fields: ['Image Slot'] });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('merges Yomu data into alias-heavy existing Anki notes', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 169,
+                        modelName: 'Alias Heavy Japanese',
+                        tags: [],
+                        fields: {
+                            HeadwordKanji: { value: '読む' },
+                            Furigana: { value: '' },
+                            English: { value: '' },
+                            'Example Sentence': { value: '' },
+                            'Word Audio': { value: '' },
+                            'Sentence Image': { value: '' },
+                        },
+                        cards: [1690],
+                    }],
+                    updateNoteFields: null,
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.mergeYomuData(169, {
+                ...card,
+                spelling: '読む',
+                reading: 'よむ',
+                meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
+            }, '今日は本を読む。', {
+                wordAudioDataUrl: 'data:audio/mpeg;base64,word-audio',
+                imageDataUrl: 'data:image/png;base64,image-data',
+                audioMergeMode: 'both',
+            });
+
+            const update = requests.find(request => request.action === 'updateNoteFields')?.params.note as {
+                fields: Record<string, string>;
+                audio?: Array<Record<string, unknown>>;
+                picture?: Array<Record<string, unknown>>;
+            };
+            expect(update.fields.HeadwordKanji).toBeUndefined();
+            expect(update.fields.Furigana).toBe('よむ');
+            expect(update.fields.English).toContain('to read');
+            expect(update.fields['Example Sentence']).toContain('yomu-highlight');
+            expect(update.audio?.[0]).toMatchObject({ data: 'word-audio', fields: ['Word Audio'] });
+            expect(update.picture?.[0]).toMatchObject({ data: 'image-data', fields: ['Sentence Image'] });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('lets existing Anki audio win when merging an unfamiliar note', async () => {
         const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
         vi.stubGlobal('GM', {
@@ -11055,19 +17710,49 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps existing-note merge desktop-only because mobile handoff cannot update notes', async () => {
+    it('updates existing Anki notes on mobile handoff devices when AnkiConnect is reachable', async () => {
         const originalUserAgent = navigator.userAgent;
         Object.defineProperty(window.navigator, 'userAgent', {
             value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
             configurable: true,
         });
-        const fetchMock = vi.fn(() => Promise.reject(new Error('fetch should not be called')));
-        vi.stubGlobal('fetch', fetchMock);
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 168,
+                        modelName: 'Imported Vocab',
+                        tags: [],
+                        fields: {
+                            Word: { value: '読む' },
+                            Reading: { value: '' },
+                            Meaning: { value: '' },
+                        },
+                        cards: [167],
+                    }],
+                    updateNoteFields: null,
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
 
         try {
             const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: true }));
-            await expect(client.mergeYomuData(168, card, '食べる。')).rejects.toThrow('needs AnkiConnect on desktop');
-            expect(fetchMock).not.toHaveBeenCalled();
+            await client.mergeYomuData(168, {
+                ...card,
+                spelling: '読む',
+                reading: 'よむ',
+                meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
+            }, '今日は本を読む。');
+
+            const update = requests.find(request => request.action === 'updateNoteFields')?.params.note as {
+                fields: Record<string, string>;
+            };
+            expect(update.fields.Reading).toBe('よむ');
+            expect(update.fields.Meaning).toContain('to read');
         } finally {
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
             vi.unstubAllGlobals();
@@ -11133,22 +17818,125 @@ describe('reader helpers', () => {
                 spelling: '読む',
                 reading: 'よむ',
                 meanings: [{ glosses: ['to read'], partOfSpeech: ['v5m'] }],
-            }, '今日は本を読む。');
+            }, '今日は本を読む。', {
+                wordAudioUrl: 'https://media.example.test/yomu/read.mp3',
+            });
             const params = new URL(locationStub.href).searchParams;
 
             expect(noteId).toBeNull();
             expect(fetchMock).not.toHaveBeenCalled();
-            expect(confirmSpy).toHaveBeenCalledWith('Open AnkiMobile to add "読む"?');
+            expect(confirmSpy).toHaveBeenCalledWith('Open AnkiMobile to add "読む"? Mobile handoff creates a new note only; status sync and updates need AnkiConnect.');
             expect(locationStub.href.startsWith('anki://x-callback-url/addnote?')).toBe(true);
             expect(params.get('type')).toBe('Yomu Japanese');
             expect(params.get('deck')).toBe('Mobile Deck');
             expect(params.get('tags')).toBe('yomu mobile');
-            expect(params.get('dupes')).toBe('1');
+            expect(params.get('dupes')).toBeNull();
             expect(params.get('fldExpression')).toBe('読む');
             expect(params.get('fldSentence')).toContain('<span class="yomu-highlight">読む</span>');
             expect(params.get('fldMeaning')).toContain('<div class="yomu-definition">');
             expect(params.get('fldMeaning')).toContain('to read');
+            expect(params.get('fldAudio')).toBe('https://media.example.test/yomu/read.mp3');
             expect(params.get('fldImage')).toBeNull();
+        } finally {
+            confirmSpy.mockRestore();
+            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('applies configured field mappings to AnkiMobile handoff URLs', async () => {
+        const originalUserAgent = navigator.userAgent;
+        Object.defineProperty(window.navigator, 'userAgent', {
+            value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+            configurable: true,
+        });
+        const locationStub = { href: 'https://reader.test/article', origin: 'https://reader.test', hostname: 'reader.test' };
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        vi.stubGlobal('location', locationStub);
+
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiMobileHandoff: true,
+                ankiDeck: 'Mobile Deck',
+                ankiModel: 'Imported Japanese',
+                ankiFieldMappings: {
+                    'Imported Japanese': {
+                        expression: 'Vocab',
+                        reading: 'Kana',
+                        meaning: 'Definition',
+                        sentence: 'Context',
+                        audio: 'Sound',
+                    },
+                },
+            };
+            const client = new AnkiConnectClient(() => settings);
+            await client.addCardViaMobileHandoff({
+                ...card,
+                spelling: '読む',
+                reading: 'よむ',
+                meanings: [{ glosses: ['to read'], partOfSpeech: ['v5m'] }],
+            }, '今日は本を読む。', {
+                wordAudioUrl: 'https://media.example.test/yomu/read.mp3',
+            });
+            const params = new URL(locationStub.href).searchParams;
+
+            expect(params.get('type')).toBe('Imported Japanese');
+            expect(params.get('deck')).toBe('Mobile Deck');
+            expect(params.get('fldVocab')).toBe('読む');
+            expect(params.get('fldKana')).toBe('よむ');
+            expect(params.get('fldDefinition')).toContain('to read');
+            expect(params.get('fldContext')).toContain('<span class="yomu-highlight">読む</span>');
+            expect(params.get('fldSound')).toBe('https://media.example.test/yomu/read.mp3');
+        } finally {
+            confirmSpy.mockRestore();
+            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('adds cards through AnkiConnect on mobile handoff devices when a bridge is reachable', async () => {
+        const originalUserAgent = navigator.userAgent;
+        Object.defineProperty(window.navigator, 'userAgent', {
+            value: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+            configurable: true,
+        });
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const resultByAction: Record<string, unknown> = {
+                    createDeck: null,
+                    modelNames: [],
+                    createModel: null,
+                    addNote: 12345,
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiMobileHandoff: true,
+                ankiDeck: 'Bridge Deck',
+                ankiModel: 'Bridge Japanese',
+            };
+            const client = new AnkiConnectClient(() => settings);
+
+            await expect(client.addCard({
+                ...card,
+                spelling: '読む',
+                reading: 'よむ',
+                meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
+            }, '今日は本を読む。')).resolves.toBe(12345);
+
+            expect(requests.map(request => request.action)).toContain('addNote');
+            expect(confirmSpy).not.toHaveBeenCalled();
         } finally {
             confirmSpy.mockRestore();
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
@@ -11167,7 +17955,7 @@ describe('reader helpers', () => {
             origin: 'https://hrussellzfac023.github.io',
             hostname: 'hrussellzfac023.github.io',
         };
-        const fetchMock = vi.fn(() => Promise.reject(new Error('fetch should not be called')));
+        const fetchMock = vi.fn(() => Promise.reject(new Error('Failed to fetch')));
         const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
         const toast = vi.fn();
         const settings = {
@@ -11187,10 +17975,14 @@ describe('reader helpers', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         try {
+            const anki = new AnkiConnectClient(() => settings);
+            const findExistingCards = vi.spyOn(anki, 'findExistingCards');
+            const addCard = vi.spyOn(anki, 'addCard');
+            const addCardViaMobileHandoff = vi.spyOn(anki, 'addCardViaMobileHandoff');
             const controller = new CardActionController({
                 getSettings: () => settings,
                 jpdb: {} as JpdbClient,
-                anki: new AnkiConnectClient(() => settings),
+                anki,
                 dictionaries: dictionaries as unknown as YomitanDictionaryStore,
                 isJpdbBackedCard: () => true,
                 resolveMiningContext,
@@ -11213,15 +18005,18 @@ describe('reader helpers', () => {
                 meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
             }, '今日は本を読む。')).resolves.toBe(true);
 
-            expect(fetchMock).not.toHaveBeenCalled();
+            expect(fetchMock).toHaveBeenCalled();
+            expect(findExistingCards).not.toHaveBeenCalled();
+            expect(addCard).not.toHaveBeenCalled();
+            expect(addCardViaMobileHandoff).toHaveBeenCalledOnce();
             expect(dictionaries.lookup).not.toHaveBeenCalled();
             expect(dictionaries.lookupKanji).not.toHaveBeenCalled();
             expect(dictionaries.lookupTermMeta).not.toHaveBeenCalled();
             expect(resolveMiningContext).not.toHaveBeenCalled();
-            expect(confirmSpy).toHaveBeenCalledWith('Open AnkiMobile to add "読む"?');
+            expect(confirmSpy).toHaveBeenCalledWith('Open AnkiMobile to add "読む"? Mobile handoff creates a new note only; status sync and updates need AnkiConnect.');
             expect(locationStub.href.startsWith('anki://x-callback-url/addnote?')).toBe(true);
             expect(new URL(locationStub.href).searchParams.get('deck')).toBe('Mobile Deck');
-            expect(toast).toHaveBeenCalledWith('Sent to Anki.');
+            expect(toast).toHaveBeenCalledWith('Opened mobile Anki handoff. Continue in Anki to create the new note.');
         } finally {
             confirmSpy.mockRestore();
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
@@ -11261,7 +18056,7 @@ describe('reader helpers', () => {
             }, '月光が水面を照らした。');
 
             expect(fetchMock).not.toHaveBeenCalled();
-            expect(confirmSpy).toHaveBeenCalledWith('Open AnkiMobile to add "月光"?');
+            expect(confirmSpy).toHaveBeenCalledWith('Open AnkiMobile to add "月光"? Mobile handoff creates a new note only; status sync and updates need AnkiConnect.');
             expect(locationStub.href.startsWith('anki://x-callback-url/addnote?')).toBe(true);
         } finally {
             confirmSpy.mockRestore();
@@ -11296,7 +18091,7 @@ describe('reader helpers', () => {
             const textMatch = /S\.android\.intent\.extra\.TEXT=([^;]*)/.exec(locationStub.href);
 
             expect(fetchMock).not.toHaveBeenCalled();
-            expect(confirmSpy).toHaveBeenCalledWith('Open AnkiDroid to add "読む"?');
+            expect(confirmSpy).toHaveBeenCalledWith('Open AnkiDroid to add "読む"? Mobile handoff creates a new note only; status sync and updates need AnkiConnect.');
             expect(locationStub.href).toContain('intent:#Intent;action=android.intent.action.SEND;type=text/plain;package=com.ichi2.anki');
             expect(locationStub.href).toContain('S.android.intent.extra.SUBJECT=%E8%AA%AD%E3%82%80');
             expect(locationStub.href).toContain('S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.ichi2.anki');
@@ -11311,26 +18106,56 @@ describe('reader helpers', () => {
         }
     });
 
-    it('skips existing-card AnkiConnect lookups when mobile handoff is active', async () => {
+    it('uses AnkiConnect existing-card lookups when mobile handoff is active and a bridge is reachable', async () => {
         const originalUserAgent = navigator.userAgent;
         Object.defineProperty(window.navigator, 'userAgent', {
             value: 'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
             configurable: true,
         });
-        const fetchMock = vi.fn(() => Promise.reject(new Error('fetch should not be called')));
-        vi.stubGlobal('fetch', fetchMock);
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const resultByAction: Record<string, unknown> = {
+                    multi: [
+                        { result: [55], error: null },
+                        { result: [55], error: null },
+                    ],
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '読む' },
+                            Reading: { value: 'よむ' },
+                        },
+                        cards: [7701],
+                    }],
+                    cardsInfo: [{ cardId: 7701, note: 55, deckName: 'Mobile Bridge', queue: 2, type: 2, reps: 8, lapses: 0 }],
+                    areDue: [false],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
 
         try {
             const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: true }));
-            await expect(client.findExistingCards(card)).resolves.toEqual({ state: 'not-in-deck', notes: [], primary: null });
-            expect(fetchMock).not.toHaveBeenCalled();
+            await expect(client.findExistingCards({ ...card, spelling: '読む', reading: 'よむ' })).resolves.toMatchObject({
+                state: 'known',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7701,
+                },
+            });
+            expect(requests.map(request => request.action)).toEqual(['multi', 'notesInfo', 'cardsInfo', 'areDue']);
         } finally {
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
             vi.unstubAllGlobals();
         }
     });
 
-    it('skips existing-card AnkiConnect lookups on iPadOS desktop-mode Safari', async () => {
+    it('attempts existing-card AnkiConnect lookups on iPadOS desktop-mode Safari', async () => {
         const originalUserAgent = navigator.userAgent;
         const originalPlatform = navigator.platform;
         const originalMaxTouchPoints = navigator.maxTouchPoints;
@@ -11340,13 +18165,13 @@ describe('reader helpers', () => {
         });
         Object.defineProperty(window.navigator, 'platform', { value: 'MacIntel', configurable: true });
         Object.defineProperty(window.navigator, 'maxTouchPoints', { value: 5, configurable: true });
-        const fetchMock = vi.fn(() => Promise.reject(new Error('fetch should not be called')));
+        const fetchMock = vi.fn(() => Promise.reject(new Error('Failed to fetch')));
         vi.stubGlobal('fetch', fetchMock);
 
         try {
             const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: true }));
             await expect(client.findExistingCards(card)).resolves.toEqual({ state: 'not-in-deck', notes: [], primary: null });
-            expect(fetchMock).not.toHaveBeenCalled();
+            expect(fetchMock).toHaveBeenCalled();
         } finally {
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
             Object.defineProperty(window.navigator, 'platform', { value: originalPlatform, configurable: true });
@@ -13733,6 +20558,27 @@ describe('reader helpers', () => {
             .toContain('jpdb-reader-word jpdb-never-forget');
     });
 
+    it('keeps kana-only explicit ruby from duplicating the visible word', () => {
+        document.body.innerHTML = '<p>よむ</p>';
+        const [target] = collectTextTargetsIn(document.body, 10, false);
+
+        applyTokensToTextNode(target, [{
+            card: { ...card, cardState: ['known'], spelling: 'よむ', reading: 'よむ' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'よむ', start: 0, end: 2, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: 'よむ',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(word.classList.contains('jpdb-known')).toBe(true);
+        expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
+        expect(word.textContent).toBe('よむ');
+        expect(word.querySelector('rt')).toBeNull();
+    });
+
     it('ignores overlapping token ranges instead of duplicating text', () => {
         const tokens: JPDBToken[] = [
             {
@@ -13881,6 +20727,58 @@ describe('reader helpers', () => {
         } finally {
             app.destroy();
             vi.useRealTimers();
+        }
+    });
+
+    it('opens a kanji card when clicking a single kanji OCR word', async () => {
+        const app = new ReaderApp();
+        const line = document.createElement('div');
+        line.className = 'jpdb-ocr-line';
+        line.dataset.ocrText = '読';
+        line.dataset.sentence = '読む 読 読';
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-not-in-deck';
+        word.dataset.vid = '-100';
+        word.dataset.sid = '-100';
+        word.dataset.expression = '読';
+        word.textContent = '読';
+        line.append(word);
+        document.body.append(line);
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: -100,
+            sid: -100,
+            rid: 0,
+            spelling: '読',
+            reading: '',
+            source: 'fallback',
+        };
+        const showKanjiCard = vi.fn(async () => undefined);
+        const showCard = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            getCachedCard(vid: number, sid: number): JPDBCard | undefined;
+            showKanjiCard: typeof showKanjiCard;
+            showCard: typeof showCard;
+            showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover' }): Promise<void>;
+        };
+        internals.getCachedCard = vi.fn(() => lookupCard);
+        internals.showKanjiCard = showKanjiCard;
+        internals.showCard = showCard;
+
+        try {
+            await internals.showWord(word, { trigger: 'click' });
+
+            expect(showKanjiCard).toHaveBeenCalledWith(
+                lookupCard,
+                '読',
+                '読',
+                word,
+                expect.objectContaining({ navigation: 'reset' }),
+            );
+            expect(showCard).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
         }
     });
 
@@ -14038,6 +20936,549 @@ describe('reader helpers', () => {
             expect(word.dataset.pitchClass).toBe('nakadaka');
             expect(word.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
             expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('adds furigana when public vocabulary enrichment supplies a reading after render', async () => {
+        const app = new ReaderApp();
+        const fallbackCard: JPDBCard = {
+            ...card,
+            vid: -1381470,
+            sid: -1381470,
+            rid: 0,
+            spelling: '青空',
+            reading: '',
+            source: 'fallback',
+            pitchAccent: [],
+        };
+        const publicCard: JPDBCard = {
+            ...card,
+            vid: 1381470,
+            sid: 0,
+            rid: 0,
+            spelling: '青空',
+            reading: 'あおぞら',
+            source: 'jpdb',
+            pitchAccent: ['LHHL'],
+        };
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        word.dataset.vid = String(fallbackCard.vid);
+        word.dataset.sid = String(fallbackCard.sid);
+        word.textContent = '青空';
+        document.body.append(word);
+
+        const search = vi.fn(async () => [publicCard]);
+        const cacheCards = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbVocabulary: { search: typeof search };
+            parser: { cacheCards: typeof cacheCards };
+            enrichPitchWords(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, furiganaMode: 'all', showFurigana: true, jpdbDefinitionsEnabled: false, showPitchAccent: true };
+        internals.jpdbVocabulary = { search };
+        internals.parser = { cacheCards };
+
+        const token: JPDBToken = {
+            card: fallbackCard,
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+            sentence: '青空を見る。',
+        };
+
+        try {
+            await internals.enrichPitchWords([token]);
+
+            expect(word.dataset.reading).toBe('あおぞら');
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(word.querySelector('rt')?.textContent).toBe('あおぞら');
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('adds public vocabulary furigana when automatic mode resolves through JPDB settings', async () => {
+        const app = new ReaderApp();
+        const fallbackCard: JPDBCard = {
+            ...card,
+            vid: -1381470,
+            sid: -1381470,
+            rid: 0,
+            spelling: '青空',
+            reading: '',
+            source: 'fallback',
+            pitchAccent: [],
+        };
+        const publicCard: JPDBCard = {
+            ...card,
+            vid: 1381470,
+            sid: 0,
+            rid: 0,
+            spelling: '青空',
+            reading: 'あおぞら',
+            source: 'jpdb',
+            pitchAccent: ['LHHL'],
+        };
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        word.dataset.vid = String(fallbackCard.vid);
+        word.dataset.sid = String(fallbackCard.sid);
+        word.textContent = '青空';
+        document.body.append(word);
+
+        const search = vi.fn(async () => [publicCard]);
+        const cacheCards = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbVocabulary: { search: typeof search };
+            parser: { cacheCards: typeof cacheCards };
+            enrichPitchWords(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+            furiganaMode: 'auto',
+            showFurigana: true,
+            jpdbDefinitionsEnabled: false,
+            showPitchAccent: true,
+        };
+        internals.jpdbVocabulary = { search };
+        internals.parser = { cacheCards };
+
+        const token: JPDBToken = {
+            card: fallbackCard,
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+            sentence: '青空を見る。',
+        };
+
+        try {
+            await internals.enrichPitchWords([token]);
+
+            expect(word.dataset.reading).toBe('あおぞら');
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(word.querySelector('rt')?.textContent).toBe('あおぞら');
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('adds stem furigana when public vocabulary resolves an inflected fallback word', async () => {
+        const app = new ReaderApp();
+        const fallbackCard: JPDBCard = {
+            ...card,
+            vid: -1556420,
+            sid: -1556420,
+            rid: 0,
+            spelling: '読みました',
+            reading: '',
+            source: 'fallback',
+            fallbackLookupTerms: ['読む'],
+            pitchAccent: [],
+        };
+        const publicCard: JPDBCard = {
+            ...card,
+            vid: 1556420,
+            sid: 0,
+            rid: 0,
+            spelling: '読む',
+            reading: 'よむ',
+            source: 'jpdb',
+            pitchAccent: ['HL'],
+        };
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        word.dataset.vid = String(fallbackCard.vid);
+        word.dataset.sid = String(fallbackCard.sid);
+        word.textContent = '読みました';
+        document.body.append(word);
+
+        const search = vi.fn(async (term: string) => term === '読む' ? [publicCard] : []);
+        const cacheCards = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbVocabulary: { search: typeof search };
+            parser: { cacheCards: typeof cacheCards };
+            enrichPitchWords(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, furiganaMode: 'all', showFurigana: true, jpdbDefinitionsEnabled: false, showPitchAccent: true };
+        internals.jpdbVocabulary = { search };
+        internals.parser = { cacheCards };
+
+        const token: JPDBToken = {
+            card: fallbackCard,
+            start: 0,
+            end: 5,
+            length: 5,
+            rubies: [],
+            pitchClass: '',
+            sentence: '本を読みました。',
+        };
+
+        try {
+            await internals.enrichPitchWords([token]);
+
+            expect(search).toHaveBeenCalledWith('読みました', 1);
+            expect(search).toHaveBeenCalledWith('読む', 1);
+            expect(cacheCards).toHaveBeenCalledWith([publicCard]);
+            expect(token.card).toBe(publicCard);
+            expect(word.dataset.expression).toBe('読む');
+            expect(word.dataset.reading).toBe('よむ');
+            expect(readerWordSurfaceText(word)).toBe('読みました');
+            expect(word.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('読');
+            expect(word.querySelector('rt')?.textContent).toBe('よ');
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('reapplies cached public vocabulary to fallback words rendered after the original lookup', async () => {
+        const app = new ReaderApp();
+        const fallbackCard: JPDBCard = {
+            ...card,
+            vid: -3402921022,
+            sid: -3402921022,
+            rid: 0,
+            spelling: '読む',
+            reading: '',
+            source: 'fallback',
+            pitchAccent: [],
+        };
+        const publicCard: JPDBCard = {
+            ...card,
+            vid: 1556420,
+            sid: 0,
+            rid: 0,
+            spelling: '読む',
+            reading: 'よむ',
+            source: 'jpdb',
+            pitchAccent: ['HL'],
+        };
+        const firstWord = document.createElement('span');
+        firstWord.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        firstWord.dataset.vid = String(fallbackCard.vid);
+        firstWord.dataset.sid = String(fallbackCard.sid);
+        firstWord.textContent = '読む';
+        document.body.append(firstWord);
+
+        const search = vi.fn(async () => [publicCard]);
+        const cacheCards = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbVocabulary: { search: typeof search };
+            parser: { cacheCards: typeof cacheCards };
+            enrichPitchWords(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, furiganaMode: 'all', showFurigana: true, jpdbDefinitionsEnabled: false, showPitchAccent: true };
+        internals.jpdbVocabulary = { search };
+        internals.parser = { cacheCards };
+
+        const firstToken: JPDBToken = {
+            card: fallbackCard,
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+            sentence: '読む',
+        };
+
+        try {
+            await internals.enrichPitchWords([firstToken]);
+            expect(search).toHaveBeenCalledWith('読む', 1);
+            expect(firstWord.dataset.vid).toBe('1556420');
+
+            const laterFallbackCard = { ...fallbackCard, pitchAccent: [] };
+            const laterWord = document.createElement('span');
+            laterWord.className = 'jpdb-reader-word jpdb-pitch-unknown jpdb-reader-passive-word';
+            laterWord.dataset.vid = String(laterFallbackCard.vid);
+            laterWord.dataset.sid = String(laterFallbackCard.sid);
+            laterWord.textContent = '読む';
+            document.body.append(laterWord);
+            search.mockClear();
+
+            const laterToken: JPDBToken = {
+                card: laterFallbackCard,
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence: '空気を読む',
+            };
+            await internals.enrichPitchWords([laterToken]);
+
+            expect(search).not.toHaveBeenCalled();
+            expect(laterToken.card).toBe(publicCard);
+            expect(laterWord.dataset.vid).toBe('1556420');
+            expect(laterWord.dataset.reading).toBe('よむ');
+            expect(laterWord.dataset.pitchClass).toBe('atamadaka');
+            expect(laterWord.querySelector('rt')?.textContent).toBe('よ');
+            laterWord.remove();
+        } finally {
+            firstWord.remove();
+            app.destroy();
+        }
+    });
+
+    it('hydrates fallback words beyond the background public lookup throttle without hover', async () => {
+        const app = new ReaderApp();
+        const firstFallbackCard: JPDBCard = {
+            ...card,
+            vid: -1381470,
+            sid: -1381470,
+            rid: 0,
+            spelling: '青空',
+            reading: '',
+            source: 'fallback',
+            pitchAccent: [],
+        };
+        const secondFallbackCard: JPDBCard = {
+            ...card,
+            vid: -1556420,
+            sid: -1556420,
+            rid: 0,
+            spelling: '読む',
+            reading: '',
+            source: 'fallback',
+            pitchAccent: [],
+        };
+        const firstPublicCard: JPDBCard = {
+            ...card,
+            vid: 1381470,
+            sid: 0,
+            rid: 0,
+            spelling: '青空',
+            reading: 'あおぞら',
+            source: 'jpdb',
+            pitchAccent: ['LHHL'],
+        };
+        const secondPublicCard: JPDBCard = {
+            ...card,
+            vid: 1556420,
+            sid: 0,
+            rid: 0,
+            spelling: '読む',
+            reading: 'よむ',
+            source: 'jpdb',
+            pitchAccent: ['HL'],
+        };
+        const firstWord = document.createElement('span');
+        firstWord.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        firstWord.dataset.vid = String(firstFallbackCard.vid);
+        firstWord.dataset.sid = String(firstFallbackCard.sid);
+        firstWord.textContent = '青空';
+        const secondWord = document.createElement('span');
+        secondWord.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        secondWord.dataset.vid = String(secondFallbackCard.vid);
+        secondWord.dataset.sid = String(secondFallbackCard.sid);
+        secondWord.textContent = '読む';
+        document.body.append(firstWord, secondWord);
+
+        const search = vi.fn(async (term: string) => {
+            if (term === '青空') return [firstPublicCard];
+            if (term === '読む') return [secondPublicCard];
+            return [];
+        });
+        const cacheCards = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbVocabulary: { search: typeof search };
+            parser: { cacheCards: typeof cacheCards };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+            showPitchAccent: true,
+            furiganaMode: 'all',
+        };
+        internals.jpdbVocabulary = { search };
+        internals.parser = { cacheCards };
+
+        const tokenFor = (lookupCard: JPDBCard): JPDBToken => ({
+            card: lookupCard,
+            start: 0,
+            end: lookupCard.spelling.length,
+            length: lookupCard.spelling.length,
+            rubies: [],
+            pitchClass: '',
+        });
+
+        try {
+            await internals.enrichPitchWords([tokenFor(firstFallbackCard), tokenFor(secondFallbackCard)], { publicLookupLimit: 1 });
+
+            expect(search).toHaveBeenCalledWith('青空', 1);
+            expect(firstWord.dataset.vid).toBe('1381470');
+            expect(secondWord.dataset.vid).toBe(String(secondFallbackCard.vid));
+
+            await waitForExpect(() => {
+                expect(search).toHaveBeenCalledWith('読む', 1);
+                expect(secondWord.dataset.vid).toBe('1556420');
+                expect(secondWord.dataset.reading).toBe('よむ');
+                expect(secondWord.dataset.pitchClass).toBe('atamadaka');
+                expect(secondWord.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            });
+        } finally {
+            firstWord.remove();
+            secondWord.remove();
+            app.destroy();
+        }
+    });
+
+    it('normalizes public vocabulary furigana and pitch on OCR fallback words', async () => {
+        const app = new ReaderApp();
+        const fallbackCard: JPDBCard = {
+            ...card,
+            vid: -10001,
+            sid: -10001,
+            rid: 0,
+            spelling: '読む',
+            reading: '',
+            source: 'fallback',
+            pitchAccent: [],
+        };
+        const publicCard: JPDBCard = {
+            ...card,
+            vid: 1556420,
+            sid: 0,
+            rid: 0,
+            spelling: '読む',
+            reading: 'よむ',
+            source: 'jpdb',
+            pitchAccent: ['HL'],
+        };
+        const line = document.createElement('div');
+        line.className = 'jpdb-ocr-line';
+        line.dataset.ocrText = '読む';
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        word.dataset.vid = String(fallbackCard.vid);
+        word.dataset.sid = String(fallbackCard.sid);
+        word.textContent = '読む';
+        line.append(word);
+        document.body.append(line);
+
+        const search = vi.fn(async () => [publicCard]);
+        const cacheCards = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbVocabulary: { search: typeof search };
+            parser: { cacheCards: typeof cacheCards };
+            enrichPitchWords(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, furiganaMode: 'all', showFurigana: true, jpdbDefinitionsEnabled: false, showPitchAccent: true };
+        internals.jpdbVocabulary = { search };
+        internals.parser = { cacheCards };
+
+        const token: JPDBToken = {
+            card: fallbackCard,
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+            sentence: '読む',
+        };
+
+        try {
+            await internals.enrichPitchWords([token]);
+
+            expect(search).toHaveBeenCalledWith('読む', 1);
+            expect(cacheCards).toHaveBeenCalledWith([publicCard]);
+            expect(token.card).toBe(publicCard);
+            expect(token.pitchClass).toBe('atamadaka');
+            expect(word.dataset.vid).toBe('1556420');
+            expect(word.dataset.reading).toBe('よむ');
+            expect(word.dataset.pitchClass).toBe('atamadaka');
+            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(line.dataset.hasFuri).toBe('true');
+            expect(word.querySelector('ruby')).toBeNull();
+            expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('よ');
+            expect(word.querySelector('.jpdb-ocr-furi')?.getAttribute('data-jpdb-reader-surface-ignore')).toBe('true');
+            expect(word.querySelector('.jpdb-ocr-ruby-base')?.textContent).toBe('読');
+            expect(word.querySelector('.jpdb-ocr-plain')?.textContent).toBe('む');
+            expect(readerWordSurfaceText(word)).toBe('読む');
+        } finally {
+            line.remove();
+            app.destroy();
+        }
+    });
+
+    it('does not replace rendered kana fallback tokens with public reading-only matches', async () => {
+        const app = new ReaderApp();
+        const fallbackCard: JPDBCard = {
+            ...card,
+            vid: -404,
+            sid: -404,
+            rid: 0,
+            spelling: 'した',
+            reading: '',
+            source: 'fallback',
+            pitchAccent: [],
+        };
+        const publicCard: JPDBCard = {
+            ...card,
+            vid: 1217010,
+            sid: 0,
+            rid: 0,
+            spelling: '下',
+            reading: 'した',
+            source: 'jpdb',
+            pitchAccent: ['HL'],
+        };
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        word.dataset.vid = String(fallbackCard.vid);
+        word.dataset.sid = String(fallbackCard.sid);
+        word.textContent = 'した';
+        document.body.append(word);
+
+        const search = vi.fn(async () => [publicCard]);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbVocabulary: { search: typeof search };
+            enrichPitchWords(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, furiganaMode: 'all', showFurigana: true, jpdbDefinitionsEnabled: false, showPitchAccent: true };
+        internals.jpdbVocabulary = { search };
+
+        const token: JPDBToken = {
+            card: fallbackCard,
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+            sentence: '本を読みました。',
+        };
+
+        try {
+            await internals.enrichPitchWords([token]);
+
+            expect(word.dataset.expression).not.toBe('下');
+            expect(word.dataset.reading).toBeUndefined();
+            expect(word.textContent).toBe('した');
+            expect(word.querySelector('rt')).toBeNull();
         } finally {
             word.remove();
             app.destroy();
@@ -14203,6 +21644,7 @@ describe('reader helpers', () => {
             await Promise.all([first, second]);
 
             expect(parse).toHaveBeenCalledWith(['日本語です。'], expect.objectContaining({
+                allowSegmentedFallback: true,
                 allowJpdbTimeoutFallback: false,
                 includeLocalPitch: false,
                 jpdbTimeoutMs: 1_200,
@@ -14649,6 +22091,520 @@ describe('reader helpers', () => {
         }
     });
 
+    it('hydrates popup Anki details even when the fast status cache misses', async () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772201,
+            sid: 0,
+            spelling: '動画',
+            reading: 'どうが',
+            source: 'jpdb',
+        };
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const fastMiss: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
+        const hydratedLookup: AnkiLookupResult = {
+            state: 'known',
+            notes: [],
+            primary: {
+                noteId: 55,
+                primaryCardId: 7701,
+                cardIds: [7701],
+                state: 'known',
+                deckNames: ['Anime::Mining'],
+                modelName: 'Imported Core',
+                fields: {
+                    Word: '動画',
+                    Meaning: 'video',
+                },
+                tags: ['existing'],
+                reps: 14,
+                lapses: 2,
+            },
+        };
+        const hydrateAnkiLookup = vi.fn(async () => hydratedLookup);
+        const renderCompletedCardPopover = vi.fn();
+        const data: CardRenderData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: fastMiss,
+            jpdbDecks: [],
+            ankiDecks: ['Anime::Mining'],
+            jpdbVocabularyInfo: null,
+        };
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            renderCompletedCardPopover: typeof renderCompletedCardPopover;
+            renderHydratedCardAnkiLookup(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                trigger: 'modal' | 'hover',
+                data: CardRenderData,
+                renderData: { hydrateAnkiLookup?: () => Promise<AnkiLookupResult> },
+                requestId: number,
+                isCurrentHoverCard: () => boolean,
+            ): void;
+        };
+        internals.activePopover = popover;
+        internals.renderCompletedCardPopover = renderCompletedCardPopover;
+
+        try {
+            internals.renderHydratedCardAnkiLookup(
+                popover,
+                lookupCard,
+                '動画を見る。',
+                'modal',
+                data,
+                { hydrateAnkiLookup },
+                1,
+                () => true,
+            );
+
+            await vi.waitFor(() => expect(renderCompletedCardPopover).toHaveBeenCalled());
+            expect(hydrateAnkiLookup).toHaveBeenCalledTimes(1);
+            expect(renderCompletedCardPopover).toHaveBeenCalledWith(
+                popover,
+                lookupCard,
+                '動画を見る。',
+                'modal',
+                expect.objectContaining({
+                    ankiLookup: hydratedLookup,
+                }),
+            );
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('hydrates popup out of pending Anki miss when cache confirms no existing card', async () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772203,
+            sid: 0,
+            spelling: '未登録',
+            reading: 'みとうろく',
+            source: 'jpdb',
+        };
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const fastMiss: AnkiLookupResult = {
+            state: 'not-in-deck',
+            notes: [],
+            primary: null,
+            trusted: false,
+        };
+        const hydratedLookup: AnkiLookupResult = {
+            state: 'not-in-deck',
+            notes: [],
+            primary: null,
+        };
+        const hydrateAnkiLookup = vi.fn(async () => hydratedLookup);
+        const renderCompletedCardPopover = vi.fn();
+        const data: CardRenderData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: fastMiss,
+            jpdbDecks: [],
+            ankiDecks: ['Mining'],
+            jpdbVocabularyInfo: null,
+        };
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            renderCompletedCardPopover: typeof renderCompletedCardPopover;
+            renderHydratedCardAnkiLookup(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                trigger: 'modal' | 'hover',
+                data: CardRenderData,
+                renderData: { hydrateAnkiLookup?: () => Promise<AnkiLookupResult> },
+                requestId: number,
+                isCurrentHoverCard: () => boolean,
+            ): void;
+        };
+        internals.activePopover = popover;
+        internals.renderCompletedCardPopover = renderCompletedCardPopover;
+
+        try {
+            internals.renderHydratedCardAnkiLookup(
+                popover,
+                lookupCard,
+                '未登録の語を見る。',
+                'modal',
+                data,
+                { hydrateAnkiLookup },
+                1,
+                () => true,
+            );
+
+            await vi.waitFor(() => expect(renderCompletedCardPopover).toHaveBeenCalled());
+            expect(hydrateAnkiLookup).toHaveBeenCalledTimes(1);
+            expect(renderCompletedCardPopover).toHaveBeenCalledWith(
+                popover,
+                lookupCard,
+                '未登録の語を見る。',
+                'modal',
+                expect.objectContaining({
+                    ankiLookup: hydratedLookup,
+                }),
+            );
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('does not start hover Anki detail hydration after the hover becomes stale', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772202,
+            sid: 0,
+            spelling: '連続',
+            reading: 'れんぞく',
+            source: 'jpdb',
+        };
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const fastMiss: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
+        const hydrateAnkiLookup = vi.fn(async () => ({
+            state: 'known',
+            notes: [],
+            primary: null,
+        } satisfies AnkiLookupResult));
+        const renderCompletedCardPopover = vi.fn();
+        const data: CardRenderData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: fastMiss,
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+        };
+        let currentHover = true;
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            renderCompletedCardPopover: typeof renderCompletedCardPopover;
+            renderHydratedCardAnkiLookup(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                trigger: 'modal' | 'hover',
+                data: CardRenderData,
+                renderData: { hydrateAnkiLookup?: () => Promise<AnkiLookupResult> },
+                requestId: number,
+                isCurrentHoverCard: () => boolean,
+            ): void;
+        };
+        internals.activePopover = popover;
+        internals.renderCompletedCardPopover = renderCompletedCardPopover;
+
+        try {
+            internals.renderHydratedCardAnkiLookup(
+                popover,
+                lookupCard,
+                '連続して読む。',
+                'hover',
+                data,
+                { hydrateAnkiLookup },
+                1,
+                () => currentHover,
+            );
+
+            expect(hydrateAnkiLookup).not.toHaveBeenCalled();
+            currentHover = false;
+            await vi.advanceTimersByTimeAsync(180);
+
+            expect(hydrateAnkiLookup).not.toHaveBeenCalled();
+            expect(renderCompletedCardPopover).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('hydrates newtab lookup Anki details even when the fast status cache misses', async () => {
+        const runtime = new NewTabRuntime();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772201,
+            sid: 0,
+            spelling: '動画',
+            reading: 'どうが',
+            source: 'jpdb',
+        };
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const fastMiss: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
+        const hydratedLookup: AnkiLookupResult = {
+            state: 'known',
+            notes: [],
+            primary: {
+                noteId: 55,
+                primaryCardId: 7701,
+                cardIds: [7701],
+                state: 'known',
+                deckNames: ['Anime::Mining'],
+                modelName: 'Imported Core',
+                fields: { Word: '動画' },
+                tags: ['existing'],
+                reps: 14,
+                lapses: 2,
+            },
+        };
+        const data: CardRenderData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: fastMiss,
+            jpdbDecks: [],
+            ankiDecks: ['Anime::Mining'],
+            jpdbVocabularyInfo: null,
+        };
+        const hydrateAnkiLookup = vi.fn(async () => hydratedLookup);
+        const render = vi.fn(() => '<div class="jpdb-reader-popover-body"><div class="jpdb-reader-meta">Anki Known</div></div>');
+        const applyAnkiLookupToRenderedWords = vi.fn();
+        const installTracking = vi.fn();
+        const parseNewTabContent = vi.fn(async () => undefined);
+        const installLookupPopoverSources = vi.fn();
+        const repositionLookupPopover = vi.fn();
+        const internals = runtime as unknown as {
+            activeLookupPopover: HTMLElement;
+            lookupRenderRequest: number;
+            lookupPopoverRenderer: { render: typeof render };
+            applyAnkiLookupToRenderedWords: typeof applyAnkiLookupToRenderedWords;
+            localizeLookupPopoverChrome: () => void;
+            dictionarySourceState: { installTracking: typeof installTracking };
+            parseNewTabContent: typeof parseNewTabContent;
+            installLookupPopoverSources: typeof installLookupPopoverSources;
+            repositionLookupPopover: typeof repositionLookupPopover;
+            renderHydratedLookupAnki(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                data: CardRenderData,
+                renderData: { hydrateAnkiLookup?: () => Promise<AnkiLookupResult> },
+                requestId: number,
+            ): void;
+        };
+        internals.activeLookupPopover = popover;
+        internals.lookupRenderRequest = 7;
+        internals.lookupPopoverRenderer = { render };
+        internals.applyAnkiLookupToRenderedWords = applyAnkiLookupToRenderedWords;
+        internals.localizeLookupPopoverChrome = vi.fn();
+        internals.dictionarySourceState = { installTracking };
+        internals.parseNewTabContent = parseNewTabContent;
+        internals.installLookupPopoverSources = installLookupPopoverSources;
+        internals.repositionLookupPopover = repositionLookupPopover;
+
+        try {
+            internals.renderHydratedLookupAnki(
+                popover,
+                lookupCard,
+                '動画を見る。',
+                data,
+                { hydrateAnkiLookup },
+                7,
+            );
+
+            await vi.waitFor(() => expect(render).toHaveBeenCalled());
+            expect(hydrateAnkiLookup).toHaveBeenCalledTimes(1);
+            expect(render).toHaveBeenCalledWith(lookupCard, '動画を見る。', 'modal', expect.objectContaining({
+                ankiLookup: hydratedLookup,
+                loading: false,
+            }));
+            expect(popover.textContent).toContain('Anki Known');
+            expect(applyAnkiLookupToRenderedWords).toHaveBeenCalledWith(lookupCard, hydratedLookup);
+        } finally {
+            popover.remove();
+            runtime.destroy();
+        }
+    });
+
+    it('renders newtab lookup Anki cards without raw all-caps stored-field labels when rendered HTML exists', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            ankiSectionEnabled: true,
+            ankiSectionPriority: 1,
+            jpdbDefinitionsEnabled: false,
+            studyTranslationEnabled: false,
+            studyGrammarEnabled: false,
+            immersionKitEnabled: false,
+            dictionaryPreferences: [],
+        };
+        const controller = new NewTabController({
+            getSettings: () => settings,
+            anki: {},
+            jpdb: {},
+            jpdbKanji: {},
+            kanjiVG: {},
+            rtk: {},
+            immersionKit: {},
+            jpdbReviewBridge: { onUpdate: vi.fn(() => vi.fn()) },
+            parser: {},
+            dictionaries: {},
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        } as unknown as ConstructorParameters<typeof NewTabController>[0]);
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772204,
+            sid: 0,
+            spelling: '写真',
+            reading: 'しゃしん',
+            source: 'jpdb',
+        };
+        const ankiLookup: AnkiLookupResult = {
+            state: 'known',
+            notes: [],
+            primary: {
+                noteId: 880,
+                primaryCardId: 881,
+                cardIds: [881],
+                state: 'known',
+                deckNames: ['New Tab'],
+                modelName: 'All Caps Import',
+                fields: {
+                    EXPRESSION: '写真',
+                    READING_KATAKANA: 'シャシン',
+                    TRANSLATION_1: 'raw newtab stored gloss should stay hidden',
+                    AUDIO: '[sound:newtab-card.mp3]',
+                },
+                renderedCards: [{
+                    cardId: 881,
+                    deckName: 'New Tab',
+                    question: '<div>写真 [anki:play:q:0]</div>',
+                    answer: '<div>photograph</div>',
+                }],
+                tags: [],
+                reps: 3,
+                lapses: 0,
+            },
+        };
+        const internals = controller as unknown as {
+            renderSearchFallbackDefinitionSources(card: JPDBCard, detail: {
+                localEntries: [];
+                kanjiEntries: [];
+                metaEntries: [];
+                ankiLookup: AnkiLookupResult;
+                jpdbVocabularyInfo: null;
+            }): string;
+        };
+
+        try {
+            document.body.innerHTML = internals.renderSearchFallbackDefinitionSources(lookupCard, {
+                localEntries: [],
+                kanjiEntries: [],
+                metaEntries: [],
+                ankiLookup,
+                jpdbVocabularyInfo: null,
+            });
+
+            const preview = document.querySelector<HTMLElement>('.jpdb-reader-anki-card-preview')!;
+
+            expect(preview.textContent).toContain('写真');
+            expect(preview.textContent).toContain('photograph');
+            expect(preview.textContent).toContain('Card audio');
+            expect(preview.querySelector('.jpdb-reader-anki-rendered-card')).not.toBeNull();
+            expect(preview.querySelector('.jpdb-reader-anki-stored-fields')).toBeNull();
+            expect(preview.querySelector('.jpdb-reader-anki-field')).toBeNull();
+            expect(preview.textContent).not.toContain('READING_KATAKANA');
+            expect(preview.textContent).not.toContain('TRANSLATION_1');
+            expect(preview.textContent).not.toContain('raw newtab stored gloss should stay hidden');
+            expect(preview.textContent).not.toContain('Front');
+            expect(preview.textContent).not.toContain('Back');
+            expect(preview.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"]')?.dataset.ankiMediaName)
+                .toBe('newtab-card.mp3');
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('loads newtab lookup Anki status when Anki is only a color source', async () => {
+        const runtime = new NewTabRuntime();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772201,
+            sid: 0,
+            spelling: '動画',
+            reading: 'どうが',
+            source: 'jpdb',
+        };
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = `<span class="jpdb-reader-word jpdb-not-in-deck" data-vid="${lookupCard.vid}" data-sid="${lookupCard.sid}">動画</span>`;
+        document.body.append(popover);
+        const ankiLookup: AnkiLookupResult = {
+            state: 'known',
+            notes: [],
+            primary: {
+                noteId: 55,
+                primaryCardId: 7701,
+                cardIds: [7701],
+                state: 'known',
+                deckNames: ['Anime::Mining'],
+                modelName: 'Imported Core',
+                fields: { Word: '動画' },
+                tags: [],
+                reps: 14,
+                lapses: 2,
+            },
+        };
+        const findCachedStatusBatch = vi.fn(async (): Promise<AnkiLookupResult[]> => [ankiLookup]);
+        const internals = runtime as unknown as {
+            activeLookupPopover: HTMLElement;
+            settings: typeof DEFAULT_SETTINGS;
+            anki: { findCachedStatusBatch: typeof findCachedStatusBatch };
+            enrichAnkiWords(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.activeLookupPopover = popover;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: false,
+            wordUnderlineColorSource: 'anki',
+        };
+        internals.anki = { findCachedStatusBatch };
+
+        try {
+            await internals.enrichAnkiWords([{
+                card: lookupCard,
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence: '動画を見る。',
+            }]);
+
+            const word = popover.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            expect(findCachedStatusBatch).toHaveBeenCalledWith([lookupCard]);
+            expect(word.classList.contains('anki-known')).toBe(true);
+            expect(word.dataset.ankiState).toBe('known');
+            expect(word.dataset.ankiDecks).toBe('Anime::Mining');
+            expect(word.title).toBe('Anki: Known (Anime::Mining)');
+        } finally {
+            popover.remove();
+            runtime.destroy();
+        }
+    });
+
     it('preserves loaded Immersion Kit examples across deferred and completed popup rerenders', async () => {
         const app = new ReaderApp();
         const lookupCard: JPDBCard = {
@@ -14895,8 +22851,11 @@ describe('reader helpers', () => {
         word.dataset.vid = String(token.card.vid);
         word.dataset.sid = String(token.card.sid);
         word.textContent = token.card.spelling;
-        document.body.append(word);
-        const findExistingCardsBatch = vi.fn(async (): Promise<AnkiLookupResult[]> => [{
+        const outside = word.cloneNode(true) as HTMLElement;
+        const container = document.createElement('div');
+        container.append(word);
+        document.body.append(container, outside);
+        const findCachedStatusBatch = vi.fn(async (): Promise<AnkiLookupResult[]> => [{
             state: 'known',
             notes: [],
             primary: {
@@ -14914,26 +22873,577 @@ describe('reader helpers', () => {
         }]);
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
-            anki: { findExistingCardsBatch: typeof findExistingCardsBatch };
-            enrichAnkiWords(tokens: JPDBToken[]): Promise<void>;
+            anki: { findCachedStatusBatch: typeof findCachedStatusBatch };
+            enrichAnkiWords(tokens: JPDBToken[], roots?: ParentNode[]): Promise<void>;
         };
         internals.settings = {
             ...DEFAULT_SETTINGS,
             ankiEnabled: false,
             wordUnderlineColorSource: 'anki',
         };
-        internals.anki = { findExistingCardsBatch };
+        internals.anki = { findCachedStatusBatch };
 
         try {
-            await internals.enrichAnkiWords([token]);
+            await internals.enrichAnkiWords([token], [container]);
 
-            expect(findExistingCardsBatch).toHaveBeenCalledWith([token.card]);
+            expect(findCachedStatusBatch).toHaveBeenCalledWith([token.card]);
             expect(word.classList.contains('anki-known')).toBe(true);
             expect(word.dataset.ankiState).toBe('known');
             expect(word.dataset.ankiDecks).toBe('Anime::Mining');
             expect(word.title).toBe('Anki: Known (Anime::Mining)');
+            expect(outside.classList.contains('anki-known')).toBe(false);
+        } finally {
+            container.remove();
+            outside.remove();
+            app.destroy();
+        }
+    });
+
+    it('clears stale rendered Anki color when popover fast lookup resolves a trusted miss', () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 781,
+            sid: 2,
+            rid: 0,
+            spelling: '使用',
+            reading: 'しよう',
+            source: 'jpdb',
+        };
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-not-in-deck anki-known';
+        word.dataset.vid = String(lookupCard.vid);
+        word.dataset.sid = String(lookupCard.sid);
+        word.dataset.ankiState = 'known';
+        word.dataset.ankiDecks = 'Mining';
+        word.style.setProperty('--jpdb-reader-word-accessible-color', '#58a6ff');
+        word.style.setProperty('--jpdb-reader-word-accessible-underline', '#58a6ff');
+        word.textContent = lookupCard.spelling;
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(word, popover);
+        const parsePopoverJapanese = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            settings: typeof DEFAULT_SETTINGS;
+            parsePopoverJapanese: typeof parsePopoverJapanese;
+            renderCompletedCardPopover(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                trigger: 'modal' | 'hover',
+                data: CardRenderData,
+            ): void;
+        };
+        internals.activePopover = popover;
+        internals.settings = { ...DEFAULT_SETTINGS, wordTextColorSource: 'anki' };
+        internals.parsePopoverJapanese = parsePopoverJapanese;
+
+        try {
+            internals.renderCompletedCardPopover(popover, lookupCard, '使用します。', 'hover', {
+                localEntries: [],
+                kanjiEntries: [],
+                metaEntries: [],
+                ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+                jpdbDecks: [],
+                ankiDecks: [],
+                jpdbVocabularyInfo: null,
+            });
+
+            expect(word.classList.contains('anki-known')).toBe(false);
+            expect(word.classList.contains('anki-not-in-deck')).toBe(true);
+            expect(word.dataset.ankiState).toBe('not-in-deck');
+            expect(word.dataset.ankiDecks).toBeUndefined();
+            expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).not.toBe('#58a6ff');
+            expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-underline')).not.toBe('#58a6ff');
         } finally {
             word.remove();
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('updates one rendered Anki word without scanning every rendered word in the document', () => {
+        const app = new ReaderApp();
+        const container = document.createElement('div');
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 902001,
+            sid: 17,
+            rid: 0,
+            spelling: '索引',
+            reading: 'さくいん',
+            source: 'jpdb',
+        };
+        for (let index = 0; index < 2400; index += 1) {
+            const word = document.createElement('span');
+            word.className = 'jpdb-reader-word jpdb-not-in-deck';
+            word.dataset.vid = String(901000 + index);
+            word.dataset.sid = String(index);
+            word.textContent = `単語${index}`;
+            container.append(word);
+        }
+        const target = document.createElement('span');
+        target.className = 'jpdb-reader-word jpdb-not-in-deck';
+        target.dataset.vid = String(lookupCard.vid);
+        target.dataset.sid = String(lookupCard.sid);
+        target.textContent = lookupCard.spelling;
+        container.append(target);
+        document.body.append(container);
+        const querySelectorAll = vi.spyOn(Document.prototype, 'querySelectorAll');
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            applyAnkiLookupToRenderedWords(card: JPDBCard, ankiLookup: AnkiLookupResult): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, wordTextColorSource: 'anki' };
+
+        try {
+            internals.applyAnkiLookupToRenderedWords(lookupCard, {
+                state: 'known',
+                notes: [],
+                primary: {
+                    noteId: 91,
+                    primaryCardId: 92,
+                    cardIds: [92],
+                    state: 'known',
+                    deckNames: ['Mining'],
+                    modelName: 'Imported Core',
+                    fields: { Word: lookupCard.spelling },
+                    tags: [],
+                    reps: 12,
+                    lapses: 0,
+                },
+            });
+
+            expect(target.classList.contains('anki-known')).toBe(true);
+            expect(container.querySelectorAll('.jpdb-reader-word.anki-known')).toHaveLength(1);
+            expect(querySelectorAll.mock.calls.map(call => call[0])).not.toContain('.jpdb-reader-word[data-vid][data-sid]');
+        } finally {
+            querySelectorAll.mockRestore();
+            container.remove();
+            app.destroy();
+        }
+    });
+
+    it('marks trusted Anki cache misses as not in deck during cache enrichment', async () => {
+        const app = new ReaderApp();
+        const token: JPDBToken = {
+            card: {
+                ...card,
+                vid: 782,
+                sid: 3,
+                rid: 0,
+                spelling: '解除',
+                reading: 'かいじょ',
+                source: 'jpdb',
+            },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+        };
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-not-in-deck anki-known';
+        word.dataset.vid = String(token.card.vid);
+        word.dataset.sid = String(token.card.sid);
+        word.dataset.ankiState = 'known';
+        word.dataset.ankiDecks = 'Mining';
+        word.textContent = token.card.spelling;
+        const container = document.createElement('div');
+        container.append(word);
+        document.body.append(container);
+        const findCachedStatusBatch = vi.fn(async (): Promise<AnkiLookupResult[]> => [{
+            state: 'not-in-deck',
+            notes: [],
+            primary: null,
+        }]);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            anki: { findCachedStatusBatch: typeof findCachedStatusBatch };
+            enrichAnkiWords(tokens: JPDBToken[], roots?: ParentNode[]): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            wordTextColorSource: 'anki',
+        };
+        internals.anki = { findCachedStatusBatch };
+
+        try {
+            await internals.enrichAnkiWords([token], [container]);
+
+            expect(word.classList.contains('anki-known')).toBe(false);
+            expect(word.classList.contains('anki-not-in-deck')).toBe(true);
+            expect(word.dataset.ankiState).toBe('not-in-deck');
+            expect(word.dataset.ankiDecks).toBeUndefined();
+            expect(word.title).toContain('Anki:');
+        } finally {
+            container.remove();
+            app.destroy();
+        }
+    });
+
+    it('preserves rendered Anki color during untrusted cache enrichment misses', async () => {
+        const app = new ReaderApp();
+        const token: JPDBToken = {
+            card: {
+                ...card,
+                vid: 783,
+                sid: 3,
+                rid: 0,
+                spelling: '継続',
+                reading: 'けいぞく',
+                source: 'jpdb',
+            },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+        };
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-not-in-deck anki-known';
+        word.dataset.vid = String(token.card.vid);
+        word.dataset.sid = String(token.card.sid);
+        word.dataset.ankiState = 'known';
+        word.dataset.ankiDecks = 'Mining';
+        word.textContent = token.card.spelling;
+        const container = document.createElement('div');
+        container.append(word);
+        document.body.append(container);
+        const findCachedStatusBatch = vi.fn(async (): Promise<AnkiLookupResult[]> => [{
+            state: 'not-in-deck',
+            notes: [],
+            primary: null,
+            trusted: false,
+        }]);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            anki: { findCachedStatusBatch: typeof findCachedStatusBatch };
+            enrichAnkiWords(tokens: JPDBToken[], roots?: ParentNode[]): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            wordTextColorSource: 'anki',
+        };
+        internals.anki = { findCachedStatusBatch };
+
+        try {
+            await internals.enrichAnkiWords([token], [container]);
+
+            expect(word.classList.contains('anki-known')).toBe(true);
+            expect(word.dataset.ankiState).toBe('known');
+            expect(word.dataset.ankiDecks).toBe('Mining');
+        } finally {
+            container.remove();
+            app.destroy();
+        }
+    });
+
+    it('colors every unique rendered Anki token from cache beyond two thousand words', async () => {
+        const app = new ReaderApp();
+        const container = document.createElement('div');
+        const tokenCount = 2405;
+        const tokens: JPDBToken[] = Array.from({ length: tokenCount }, (_, index): JPDBToken => ({
+            card: {
+                ...card,
+                vid: 880000 + index,
+                sid: index,
+                rid: 0,
+                spelling: `確認${index}`,
+                reading: 'かくにん',
+                source: 'jpdb',
+            },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+        }));
+        tokens.forEach(token => {
+            const word = document.createElement('span');
+            word.className = 'jpdb-reader-word jpdb-not-in-deck';
+            word.dataset.vid = String(token.card.vid);
+            word.dataset.sid = String(token.card.sid);
+            word.textContent = token.card.spelling;
+            container.append(word);
+        });
+        document.body.append(container);
+        const findCachedStatusBatch = vi.fn(async (cards: JPDBCard[]): Promise<AnkiLookupResult[]> => cards.map((lookupCard, index) => ({
+            state: 'known',
+            notes: [],
+            primary: {
+                noteId: 9000 + index,
+                primaryCardId: 9900 + index,
+                cardIds: [9900 + index],
+                state: 'known',
+                deckNames: ['Cache'],
+                modelName: 'Imported Core',
+                fields: { Word: lookupCard.spelling },
+                tags: [],
+                reps: 1,
+                lapses: 0,
+            },
+        })));
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            anki: { findCachedStatusBatch: typeof findCachedStatusBatch };
+            enrichAnkiWords(tokens: JPDBToken[], roots?: ParentNode[]): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            wordTextColorSource: 'anki',
+        };
+        internals.anki = { findCachedStatusBatch };
+
+        try {
+            await internals.enrichAnkiWords(tokens, [container]);
+
+            expect(findCachedStatusBatch).toHaveBeenCalledTimes(1);
+            const [lookedUpCards] = findCachedStatusBatch.mock.calls[0] ?? [];
+            expect(lookedUpCards).toHaveLength(tokenCount);
+            expect(lookedUpCards?.at(0)?.spelling).toBe('確認0');
+            expect(lookedUpCards?.at(-1)?.spelling).toBe(`確認${tokenCount - 1}`);
+            expect(container.querySelectorAll('.jpdb-reader-word.anki-known')).toHaveLength(tokenCount);
+        } finally {
+            container.remove();
+            app.destroy();
+        }
+    });
+
+    it('dedupes large warmup Anki recolor passes by card key instead of rendered word count', async () => {
+        const app = new ReaderApp();
+        const container = document.createElement('div');
+        const uniqueCount = 37;
+        const repeatCount = 90;
+        const cards: JPDBCard[] = Array.from({ length: uniqueCount }, (_, index): JPDBCard => ({
+            ...card,
+            vid: -910000 - index,
+            sid: -index - 1,
+            rid: 0,
+            spelling: `反復${index}`,
+            reading: 'はんぷく',
+            source: 'local',
+        }));
+        for (let repeat = 0; repeat < repeatCount; repeat += 1) {
+            for (const lookupCard of cards) {
+                const word = document.createElement('span');
+                word.className = 'jpdb-reader-word jpdb-not-in-deck';
+                word.dataset.vid = String(lookupCard.vid);
+                word.dataset.sid = String(lookupCard.sid);
+                word.textContent = lookupCard.spelling;
+                container.append(word);
+            }
+        }
+        document.body.append(container);
+        const findCachedStatusBatch = vi.fn(async (lookupCards: JPDBCard[]): Promise<AnkiLookupResult[]> => lookupCards.map((lookupCard, index) => ({
+            state: 'known',
+            notes: [],
+            primary: {
+                noteId: 9100 + index,
+                primaryCardId: 9900 + index,
+                cardIds: [9900 + index],
+                state: 'known',
+                deckNames: ['Cache'],
+                modelName: 'Imported Core',
+                fields: { Word: lookupCard.spelling },
+                tags: [],
+                reps: 1,
+                lapses: 0,
+            },
+        })));
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            anki: { findCachedStatusBatch: typeof findCachedStatusBatch };
+            recolorRenderedAnkiWordsFromCache(root?: ParentNode): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            wordTextColorSource: 'anki',
+        };
+        internals.parser.cacheCards(cards);
+        internals.anki = { findCachedStatusBatch };
+
+        try {
+            await internals.recolorRenderedAnkiWordsFromCache(container);
+
+            expect(findCachedStatusBatch).toHaveBeenCalledTimes(1);
+            const [lookedUpCards] = findCachedStatusBatch.mock.calls[0] ?? [];
+            expect(lookedUpCards).toHaveLength(uniqueCount);
+            expect(container.querySelectorAll('.jpdb-reader-word')).toHaveLength(uniqueCount * repeatCount);
+            expect(container.querySelectorAll('.jpdb-reader-word.anki-known')).toHaveLength(uniqueCount * repeatCount);
+        } finally {
+            container.remove();
+            app.destroy();
+        }
+    });
+
+    it('reuses the rendered-word index for document warmup recolor instead of rescanning the page', async () => {
+        const app = new ReaderApp();
+        const container = document.createElement('div');
+        const uniqueCount = 48;
+        const repeatCount = 60;
+        const cards: JPDBCard[] = Array.from({ length: uniqueCount }, (_, index): JPDBCard => ({
+            ...card,
+            vid: -920000 - index,
+            sid: -index - 1,
+            rid: 0,
+            spelling: `索引${index}`,
+            reading: 'さくいん',
+            source: 'local',
+        }));
+        for (let repeat = 0; repeat < repeatCount; repeat += 1) {
+            for (const lookupCard of cards) {
+                const word = document.createElement('span');
+                word.className = 'jpdb-reader-word jpdb-not-in-deck';
+                word.dataset.vid = String(lookupCard.vid);
+                word.dataset.sid = String(lookupCard.sid);
+                word.textContent = lookupCard.spelling;
+                container.append(word);
+            }
+        }
+        document.body.append(container);
+        const findCachedStatusBatch = vi.fn(async (lookupCards: JPDBCard[]): Promise<AnkiLookupResult[]> => lookupCards.map((lookupCard, index) => ({
+            state: 'known',
+            notes: [],
+            primary: {
+                noteId: 9200 + index,
+                primaryCardId: 9900 + index,
+                cardIds: [9900 + index],
+                state: 'known',
+                deckNames: ['Cache'],
+                modelName: 'Imported Core',
+                fields: { Word: lookupCard.spelling },
+                tags: [],
+                reps: 1,
+                lapses: 0,
+            },
+        })));
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            anki: { findCachedStatusBatch: typeof findCachedStatusBatch };
+            registerRenderedWordsInRoot(root: ParentNode): void;
+            recolorRenderedAnkiWordsFromCache(root?: ParentNode): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            wordTextColorSource: 'anki',
+        };
+        internals.parser.cacheCards(cards);
+        internals.registerRenderedWordsInRoot(container);
+        internals.anki = { findCachedStatusBatch };
+        const querySelectorAll = vi.spyOn(document, 'querySelectorAll');
+        const createTreeWalker = vi.spyOn(document, 'createTreeWalker');
+
+        try {
+            await internals.recolorRenderedAnkiWordsFromCache(document);
+
+            expect(createTreeWalker).not.toHaveBeenCalled();
+            expect(querySelectorAll.mock.calls.map(call => call[0])).not.toContain('.jpdb-reader-word[data-vid][data-sid]');
+            expect(findCachedStatusBatch).toHaveBeenCalledTimes(1);
+            const [lookedUpCards] = findCachedStatusBatch.mock.calls[0] ?? [];
+            expect(lookedUpCards).toHaveLength(uniqueCount);
+            expect(container.querySelectorAll('.jpdb-reader-word')).toHaveLength(uniqueCount * repeatCount);
+            expect(container.querySelectorAll('.jpdb-reader-word.anki-known')).toHaveLength(uniqueCount * repeatCount);
+        } finally {
+            querySelectorAll.mockRestore();
+            createTreeWalker.mockRestore();
+            container.remove();
+            app.destroy();
+        }
+    });
+
+    it('does not full-scan the document when a large Anki lookup batch misses a partial rendered-word index', async () => {
+        const app = new ReaderApp();
+        const container = document.createElement('div');
+        const uniqueCount = 36;
+        const cards: JPDBCard[] = Array.from({ length: uniqueCount }, (_, index): JPDBCard => ({
+            ...card,
+            vid: -930000 - index,
+            sid: -index - 1,
+            rid: 0,
+            spelling: `部分索引${index}`,
+            reading: 'ぶぶんさくいん',
+            source: 'local',
+        }));
+        cards.forEach(lookupCard => {
+            const word = document.createElement('span');
+            word.className = 'jpdb-reader-word jpdb-not-in-deck';
+            word.dataset.vid = String(lookupCard.vid);
+            word.dataset.sid = String(lookupCard.sid);
+            word.textContent = lookupCard.spelling;
+            container.append(word);
+        });
+        const indexedOnly = document.createElement('span');
+        indexedOnly.className = 'jpdb-reader-word jpdb-not-in-deck';
+        indexedOnly.dataset.vid = '123456';
+        indexedOnly.dataset.sid = '789';
+        indexedOnly.textContent = '既存';
+        container.append(indexedOnly);
+        document.body.append(container);
+        const tokens: JPDBToken[] = cards.map(lookupCard => ({
+            card: lookupCard,
+            start: 0,
+            end: lookupCard.spelling.length,
+            length: lookupCard.spelling.length,
+            rubies: [],
+            pitchClass: '',
+            sentence: lookupCard.spelling,
+        }));
+        const findCachedStatusBatch = vi.fn(async (lookupCards: JPDBCard[]): Promise<AnkiLookupResult[]> => lookupCards.map((lookupCard, index) => ({
+            state: 'known',
+            notes: [],
+            primary: {
+                noteId: 9300 + index,
+                primaryCardId: 9900 + index,
+                cardIds: [9900 + index],
+                state: 'known',
+                deckNames: ['Cache'],
+                modelName: 'Imported Core',
+                fields: { Word: lookupCard.spelling },
+                tags: [],
+                reps: 1,
+                lapses: 0,
+            },
+        })));
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            anki: { findCachedStatusBatch: typeof findCachedStatusBatch };
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            registerRenderedWord(word: HTMLElement): void;
+            enrichAnkiWords(tokens: JPDBToken[], roots?: ParentNode[]): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            wordTextColorSource: 'anki',
+        };
+        internals.parser.cacheCards(cards);
+        internals.registerRenderedWord(indexedOnly);
+        internals.anki = { findCachedStatusBatch };
+        const querySelectorAll = vi.spyOn(document, 'querySelectorAll');
+        const createTreeWalker = vi.spyOn(document, 'createTreeWalker');
+
+        try {
+            await internals.enrichAnkiWords(tokens);
+
+            expect(findCachedStatusBatch).toHaveBeenCalledTimes(1);
+            expect(findCachedStatusBatch.mock.calls[0]?.[0]).toHaveLength(uniqueCount);
+            expect(createTreeWalker).not.toHaveBeenCalled();
+            expect(querySelectorAll.mock.calls.map(call => call[0])).not.toContain('.jpdb-reader-word[data-vid][data-sid]');
+            expect(container.querySelectorAll('.jpdb-reader-word.anki-known')).toHaveLength(uniqueCount);
+            expect(indexedOnly.classList.contains('anki-known')).toBe(false);
+        } finally {
+            querySelectorAll.mockRestore();
+            createTreeWalker.mockRestore();
+            container.remove();
             app.destroy();
         }
     });
@@ -15346,7 +23856,7 @@ describe('reader helpers', () => {
         expect(document.querySelectorAll('ruby .jpdb-reader-word rt')).toHaveLength(0);
     });
 
-    it('highlights headings without injecting furigana that can be clipped by page title layouts', () => {
+    it('highlights headings with furigana when the page title is not clipped', () => {
         document.body.innerHTML = `
             <main>
                 <article>
@@ -15366,11 +23876,11 @@ describe('reader helpers', () => {
             sentence: '新卒エンジニア、仕事終わりに勉強する',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
-        expect(document.querySelector('h1 .jpdb-reader-word.jpdb-known')?.textContent).toBe('新卒');
-        expect(document.querySelectorAll('h1 rt')).toHaveLength(0);
+        expect(readerWordSurfaceText(document.querySelector('h1 .jpdb-reader-word.jpdb-known')!)).toBe('新卒');
+        expect(document.querySelector('h1 rt')?.textContent).toBe('しんそつ');
     });
 
-    it('highlights clipped prose boxes without injecting furigana that can change their height', () => {
+    it('injects furigana in clipped prose boxes like any other scanned text', () => {
         document.body.innerHTML = `
             <div style="overflow:hidden;max-height:48px;line-height:24px">
                 今日は新卒エンジニアとして仕事終わりに勉強する。
@@ -15388,8 +23898,8 @@ describe('reader helpers', () => {
             sentence: '今日は新卒エンジニアとして仕事終わりに勉強する。',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
-        expect(document.querySelector('.jpdb-reader-word.jpdb-known')?.textContent).toBe('新卒');
-        expect(document.querySelectorAll('rt')).toHaveLength(0);
+        expect(readerWordSurfaceText(document.querySelector('.jpdb-reader-word.jpdb-known')!)).toBe('新卒');
+        expect(document.querySelector('rt')?.textContent).toBe('しんそつ');
     });
 
     it('marks scanned page words with wrapping CSS so furigana cannot create a page-wide line', () => {
@@ -15413,16 +23923,15 @@ describe('reader helpers', () => {
         expect(word.querySelector('rt')?.textContent).toBe('けんさくりれき');
     });
 
-    it('parses compact related vocabulary for status colors without adding furigana', () => {
+    it('parses compact related vocabulary for status colors and furigana', () => {
         document.body.innerHTML = `
             <div data-jpdb-reader-root="true" class="jpdb-reader-word-text-status">
-                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-jpdb-reader-suppress-ruby>甘言</span>
+                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable">甘言</span>
             </div>
         `;
         const root = document.querySelector<HTMLElement>('.jpdb-reader-parseable')!;
         const targets = collectFragmentTextTargetsIn(root, 10, false, '', { includeReaderRoot: true, allowUiText: true, minLength: 1 });
         expect(targets.map(target => target.text)).toEqual(['甘言']);
-        expect(targets[0]?.suppressRuby).toBe(true);
 
         applyTokensToScanTarget(targets[0], [{
             card: { ...card, spelling: '甘言', reading: 'かんげん', cardState: ['known'] },
@@ -15438,7 +23947,7 @@ describe('reader helpers', () => {
         expect(word.classList.contains('jpdb-known')).toBe(true);
         expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
         expect(readerWordSurfaceText(word)).toBe('甘言');
-        expect(document.querySelectorAll('rt')).toHaveLength(0);
+        expect(word.querySelector('rt')?.textContent).toBe('かんげん');
     });
 
     it('can parse Japanese example fragments inside reader popup roots', () => {
@@ -15464,6 +23973,64 @@ describe('reader helpers', () => {
         }], DEFAULT_SETTINGS);
 
         expect(Array.from(document.querySelectorAll('.jpdb-reader-word')).map(word => readerWordSurfaceText(word))).toEqual(['青空']);
+    });
+
+    it('keeps single-fragment words when another token crosses inline fragments', () => {
+        document.body.innerHTML = '<p>言語は文法<span>的</span>です。</p>';
+        const [target] = collectFragmentTextTargetsIn(document.body, 10, false, '', { allowUiText: true, minLength: 1 });
+        expect(target.text).toBe('言語は文法的です。');
+
+        applyTokensToScanTarget(target, [
+            {
+                card: { ...card, spelling: '言語', reading: 'げんご', cardState: ['known'] },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [{ text: 'げんご', start: 0, end: 2, length: 2 }],
+                pitchClass: '',
+                sentence: target.text,
+            },
+            {
+                card: { ...card, spelling: '文法的', reading: 'ぶんぽうてき', cardState: ['known'] },
+                start: 3,
+                end: 6,
+                length: 3,
+                rubies: [{ text: 'ぶんぽうてき', start: 3, end: 6, length: 3 }],
+                pitchClass: '',
+                sentence: target.text,
+            },
+        ], DEFAULT_SETTINGS);
+
+        expect(Array.from(document.querySelectorAll('.jpdb-reader-word')).map(word => readerWordSurfaceText(word))).toEqual(['言語']);
+        expect(document.body.textContent).toContain('文法的です。');
+    });
+
+    it('rescans raw Japanese left in a partially rendered block', () => {
+        document.body.innerHTML = '<p>言語は文法<span>的</span>です。</p>';
+        const [target] = collectFragmentTextTargetsIn(document.body, 10, false, '', { allowUiText: true, minLength: 1 });
+        applyTokensToScanTarget(target, [
+            {
+                card: { ...card, spelling: '言語', reading: 'げんご', cardState: ['known'] },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence: target.text,
+            },
+            {
+                card: { ...card, spelling: '文法的', reading: 'ぶんぽうてき', cardState: ['known'] },
+                start: 3,
+                end: 6,
+                length: 3,
+                rubies: [],
+                pitchClass: '',
+                sentence: target.text,
+            },
+        ], DEFAULT_SETTINGS);
+
+        const remainingTargets = collectFragmentTextTargetsIn(document.body, 10, false, '', { allowUiText: true, minLength: 1 });
+        expect(remainingTargets.map(item => item.text)).toContain('は文法的です。');
     });
 
     it('keeps parsed dictionary hyperlink text passive so link clicks can pass through', () => {
@@ -15511,7 +24078,7 @@ describe('reader helpers', () => {
             .find(word => readerWordSurfaceText(word) === '読む')!;
         expect(linkWord.dataset.jpdbReaderPassive).toBe('true');
         expect(linkWord.tabIndex).toBe(-1);
-        expect(linkWord.querySelector('rt')).toBeNull();
+        expect(linkWord.querySelector('rt')?.textContent).toBe('あおぞら');
         expect(proseWord.dataset.jpdbReaderPassive).toBeUndefined();
         expect(proseWord.tabIndex).toBe(0);
         expect(proseWord.querySelector('rt')?.textContent).toBe('よむ');
@@ -15558,6 +24125,33 @@ describe('reader helpers', () => {
         expect(document.querySelector('rt')?.textContent).toBe('とうきょう');
         expect(document.querySelectorAll('.jpdb-reader-word.jpdb-known')).toHaveLength(1);
         expect(document.querySelector('.jpdb-reader-word')?.textContent).toBe('東京');
+    });
+
+    it('includes short Wikipedia infobox article labels', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 200,
+            width: 800,
+            height: 200,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <main>
+                <h1 id="firstHeading">日本語</h1>
+                <div id="mw-content-text">
+                    <table><tbody><tr><th><b>日本語</b></th></tr></tbody></table>
+                    <p>文法を学ぶ。</p>
+                </div>
+            </main>
+        `;
+        const targets = collectSiteScanTargets(10, 'https://ja.wikipedia.org/wiki/%E6%97%A5%E6%9C%AC%E8%AA%9E') ?? [];
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining(['日本語', '文法を学ぶ。']));
     });
 
     it('keeps Tadoku ruby-base words together with trailing kana', () => {
@@ -15646,6 +24240,47 @@ describe('reader helpers', () => {
         expect(document.querySelector('.jpdb-reader-word rt.kanji')?.textContent).toBe('かぶ');
     });
 
+    it('collects visible Satori Reader article text while skipping hidden reading spans and controls', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 240,
+            width: 800,
+            height: 240,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <main class="japanese-classic">
+                <div class="content-with-control-panel">
+                    <div id="article-content" class="article-standard">
+                        <span class="paragraph body">
+                            <span class="sentence">
+                                <span class="play-button-container">再</span>
+                                <span class="word kanji-knowledge-none">
+                                    <span class="wp hf">
+                                        <span class="fg">しごと</span><span class="wpt">仕事</span><span class="wpr">しごと</span>
+                                    </span>
+                                </span>
+                                <span class="word kanji-knowledge-na"><span class="wp nf"><span class="wpt">を</span><span class="wpr">を</span></span></span>
+                                <span class="word kanji-knowledge-na"><span class="wp nf"><span class="wpt">している</span><span class="wpr">している</span></span></span>
+                                <span class="notes-button-container">訳</span>
+                            </span>
+                        </span>
+                    </div>
+                </div>
+            </main>
+        `;
+
+        const targets = collectSiteScanTargets(10, 'https://www.satorireader.com/articles/bartender-episode-1-edition-n') ?? [];
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(['仕事', 'を', 'している']);
+        expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining(['再', '訳', 'しごと']));
+    });
+
     it('recovers full mining sentences around old partial transcript highlights', () => {
         document.body.innerHTML = `
             <p>
@@ -15709,7 +24344,29 @@ describe('reader helpers', () => {
         ]);
     });
 
-    it('adds safe UI chrome labels after prose as passive no-ruby scan targets', () => {
+    it('does not cap default page scans at two thousand targets', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 200,
+            width: 800,
+            height: 200,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        const paragraphs = Array.from({ length: 2005 }, (_, index) => `<p>日本語の文章${index}</p>`).join('');
+        document.body.innerHTML = `<main><article>${paragraphs}</article></main>`;
+
+        const targets = collectScanTargets(undefined, 'https://example.com/article');
+        rectSpy.mockRestore();
+
+        expect(targets).toHaveLength(2005);
+        expect(targets.at(-1)?.text).toBe('日本語の文章2004');
+    });
+
+    it('adds safe UI chrome labels after prose as passive ruby scan targets', () => {
         const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
             left: 0,
             right: 800,
@@ -15758,11 +24415,8 @@ describe('reader helpers', () => {
         const buttonTarget = targets.find(target => target.text === '設定を保存する')!;
         const summaryTarget = targets.find(target => target.text === '続きを読む')!;
         expect('passiveInteraction' in uiTarget && uiTarget.passiveInteraction).toBe(true);
-        expect('suppressRuby' in uiTarget && uiTarget.suppressRuby).toBe(true);
         expect('passiveInteraction' in buttonTarget && buttonTarget.passiveInteraction).toBe(true);
-        expect('suppressRuby' in buttonTarget && buttonTarget.suppressRuby).toBe(true);
         expect('passiveInteraction' in summaryTarget && summaryTarget.passiveInteraction).toBe(true);
-        expect('suppressRuby' in summaryTarget && summaryTarget.suppressRuby).toBe(true);
 
         applyTokensToScanTarget(uiTarget, [{
             card: { ...card, cardState: ['known'], spelling: '検索履歴', reading: 'けんさくりれき' },
@@ -15798,14 +24452,15 @@ describe('reader helpers', () => {
         expect(word.classList.contains('jpdb-reader-passive-word')).toBe(true);
         expect(word.classList.contains('jpdb-reader-scan-word')).toBe(true);
         expect(word.tabIndex).toBe(-1);
-        expect(word.querySelector('rt')).toBeNull();
+        expect(word.querySelector('rt')?.textContent).toBe('けんさくりれき');
         for (const controlWord of [buttonWord, summaryWord]) {
             expect(controlWord.dataset.jpdbReaderPassive).toBe('true');
             expect(controlWord.classList.contains('jpdb-reader-passive-word')).toBe(true);
             expect(controlWord.classList.contains('jpdb-reader-scan-word')).toBe(true);
             expect(controlWord.tabIndex).toBe(-1);
-            expect(controlWord.querySelector('rt')).toBeNull();
         }
+        expect(buttonWord.querySelector('rt')?.textContent).toBe('せってい');
+        expect(summaryWord.querySelector('rt')?.textContent).toBe('つづき');
         const app = new ReaderApp();
         const readerWordAccess = app as unknown as {
             canLookupReaderWord: (word: HTMLElement) => boolean;
@@ -15883,7 +24538,7 @@ describe('reader helpers', () => {
         expect(activeWord.querySelector('rt')?.textContent).toBe('きょう');
         expect(linkWord.dataset.jpdbReaderPassive).toBe('true');
         expect(linkWord.tabIndex).toBe(-1);
-        expect(linkWord.querySelector('rt')).toBeNull();
+        expect(linkWord.querySelector('rt')?.textContent).toBe('つづき');
     });
 
     it('marks compact onclick controls passive in whole-page fallback scans', () => {
@@ -15920,10 +24575,10 @@ describe('reader helpers', () => {
         const word = document.querySelector<HTMLElement>('[onclick] .jpdb-reader-word')!;
         expect(word.dataset.jpdbReaderPassive).toBe('true');
         expect(word.tabIndex).toBe(-1);
-        expect(word.querySelector('rt')).toBeNull();
+        expect(word.querySelector('rt')?.textContent).toBe('つづき');
     });
 
-    it('collects the hosted Try Me text as parser-owned source text', () => {
+    it('collects hosted docs text in page order including Try Me content', () => {
         const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
             left: 0,
             right: 800,
@@ -15937,33 +24592,62 @@ describe('reader helpers', () => {
         } as DOMRect);
         document.body.innerHTML = `
             <main>
-                <section class="VPHomeHero">
+                <section class="VPHero has-image">
                     <h1 style="text-align:center;font-size:48px;line-height:1.1">
                         <span class="name">よむ</span>
                         <span class="text">好きなものを読んで日本語を学ぶ</span>
                     </h1>
+                    <p class="tagline">Tap a word anywhere, understand it in context, save it for review, and keep reading. よむ turns real Japanese pages into study text.</p>
+                </section>
+                <section class="VPFeatures">
+                    <div class="item">
+                        <p>Extensive reading works because よむ removes just enough friction.</p>
+                    </div>
                 </section>
             </main>
-            <div class="yomu-try-me" data-yomu-demo-lookup>
-                <strong>Try me</strong>
-                <div class="yomu-try-me-text">
-                    <h3>青空の下で日本語を読む</h3>
-                    <p>今日は静かな喫茶店で新しい本を読みました。</p>
+            <div class="vp-doc">
+                <div class="yomu-install-panel">
+                    <div class="yomu-install-copy">
+                        <strong>Install よむ as a userscript</strong>
+                        <p>Use Tampermonkey or Userscripts, install よむ, then refresh a Japanese page.</p>
+                    </div>
+                    <div class="yomu-install-steps">
+                        <a class="yomu-install-step-link" href="/yomu-reader/yomu.user.js"><b>2</b> <span>Install よむ</span></a>
+                    </div>
+                </div>
+                <h2>What It Does</h2>
+                <p>よむ runs inside your browser. Point it at Japanese text and it opens a clean popup.</p>
+                <div class="yomu-try-me">
+                    <strong>Try me</strong>
+                    <div class="yomu-try-me-text">
+                        <h3>青空の下で本を読む</h3>
+                        <p>今日は静かな喫茶店で新しい本を読みました。</p>
+                    </div>
                 </div>
             </div>
         `;
 
-        const targets = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/');
+        const targets = collectScanTargets(20, 'http://127.0.0.1:5178/');
         rectSpy.mockRestore();
 
-        expect(document.querySelector('[data-yomu-demo-lookup] .jpdb-reader-word')).toBeNull();
-        expect(targets.map(target => target.text)).toEqual([
-            '青空の下で日本語を読む',
-            '今日は静かな喫茶店で新しい本を読みました。',
+        const texts = targets.map(target => target.text);
+        expect(document.querySelector('.yomu-try-me .jpdb-reader-word')).toBeNull();
+        expect(texts.slice(0, 2)).toEqual([
+            'よむ',
+            '好きなものを読んで日本語を学ぶ',
         ]);
+        expect(texts).toContain('よむ');
+        expect(texts.some(text => text.includes('好きなものを読んで日本語を学ぶ'))).toBe(true);
+        expect(texts).toContain('青空の下で本を読む');
+        expect(texts).toContain('今日は静かな喫茶店で新しい本を読みました。');
+        expect(texts.some(text => text.includes('よむ turns real Japanese pages'))).toBe(true);
+        expect(texts.some(text => text.includes('よむ runs inside your browser'))).toBe(true);
+        const installTarget = targets.find(target => target.text.trim() === '2 Install よむ');
+        expect(installTarget).toBeTruthy();
+        expect('passiveInteraction' in installTarget! && installTarget.passiveInteraction).toBe(true);
     });
 
-    it('does not recollect hosted Try Me source text after tokenization', () => {
+    it('collects Japanese text on hosted docs pages without a Try Me block', () => {
         const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
             left: 0,
             right: 800,
@@ -15976,31 +24660,178 @@ describe('reader helpers', () => {
             toJSON: () => ({}),
         } as DOMRect);
         document.body.innerHTML = `
-            <div class="yomu-try-me" data-yomu-demo-lookup>
-                <strong>Try me</strong>
-                <div class="yomu-try-me-text">
-                    <h3>青空</h3>
-                    <p>日本語</p>
+            <main>
+                <div class="vp-doc">
+                    <h1>機能</h1>
+                    <p>よむは日本語テキスト、字幕、漫画画像を同じポップアップで読めます。</p>
+                    <p>Video player and new tab links should remain normal navigation.</p>
+                    <div class="yomu-link-grid">
+                        <a class="yomu-link-card" href="newtab/index.html"><strong>よむを学習に使う</strong></a>
+                    </div>
                 </div>
+            </main>
+        `;
+
+        const targets = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/features/');
+        const activeAppParsers = [
+            ...getMatchingSiteParsers('http://127.0.0.1:5178/yomu-reader/newtab/index.html'),
+            ...getMatchingSiteParsers('http://127.0.0.1:5178/yomu-reader/video-player/index.html'),
+        ];
+        rectSpy.mockRestore();
+
+        const texts = targets.map(target => target.text);
+        expect(targets.some(target => 'parserId' in target && target.parserId === 'generic-prose-parser')).toBe(false);
+        expect(texts).toContain('機能');
+        expect(texts.some(text => text.includes('よむは日本語テキスト'))).toBe(true);
+        const linkTarget = targets.find(target => target.text.includes('よむを学習に使う'));
+        expect(linkTarget).toBeTruthy();
+        expect('passiveInteraction' in linkTarget! && linkTarget.passiveInteraction).toBe(true);
+        expect(activeAppParsers.map(parser => parser.id)).not.toContain('yomu-demo-lookup-parser');
+        expect(activeAppParsers.map(parser => parser.id)).toContain('yomu-video-player-parser');
+    });
+
+    it('scans hosted docs overflow menu labels as passive ruby lookup targets', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 200,
+            width: 800,
+            height: 200,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <main><div class="vp-doc"><p>今日は本を読みます。</p></div></main>
+            <div class="yomu-hosted-overflow-group">
+                <button type="button" class="yomu-hosted-overflow-link">設定</button>
+                <a class="yomu-hosted-overflow-link" href="/yomu-reader/video-player/index.html">動画プレイヤー</a>
             </div>
         `;
 
+        const targets = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/');
+        rectSpy.mockRestore();
+
+        const settingsTarget = targets.find(target => target.text.trim() === '設定');
+        expect(settingsTarget).toBeTruthy();
+        expect('passiveInteraction' in settingsTarget! && settingsTarget.passiveInteraction).toBe(true);
+        expect(settingsTarget && 'parserId' in settingsTarget ? settingsTarget.parserId : '').toBe('yomu-hosted-docs-parser');
+
+        applyTokensToScanTarget(settingsTarget!, [{
+            card: { ...card, spelling: '設定', reading: 'せってい', cardState: ['not-in-deck'] },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'せってい', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '設定',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('.yomu-hosted-overflow-group button .jpdb-reader-word')!;
+        expect(word.dataset.jpdbReaderPassive).toBe('true');
+        expect(word.tabIndex).toBe(-1);
+        expect(word.querySelector('rt')?.textContent).toBe('せってい');
+    });
+
+    it('scans hosted video-player Japanese empty-state and control text', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 200,
+            width: 800,
+            height: 200,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <main data-app>
+                <label class="file-button">動画を開く<input type="file"></label>
+                <button type="button" data-subtitle-open>字幕</button>
+                <button type="button" data-settings-trigger>設定</button>
+                <details data-overflow-menu>
+                    <summary>メニュー</summary>
+                    <a href="/yomu-reader/">学習</a>
+                </details>
+                <section class="stage" data-stage data-yomu-video-frame aria-label="動画">
+                    <button class="empty" type="button" data-empty-open>
+                        <div>
+                            <strong>動画を開くかドロップ</strong>
+                            <span class="status" data-status>動画を開いたあと、字幕ボタンから日本語字幕と母語字幕ファイルを追加できます。</span>
+                        </div>
+                    </button>
+                </section>
+            </main>
+        `;
+
         try {
-            const targets = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/');
-            expect(targets.map(target => target.text)).toEqual(['青空', '日本語']);
-            targets.forEach(target => {
+            const targets = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/video-player/index.html');
+            const texts = targets.map(target => target.text);
+
+            expect(texts).toContain('動画を開くかドロップ');
+            expect(texts.some(text => text.includes('日本語字幕と母語字幕ファイル'))).toBe(true);
+            expect(texts).toEqual(expect.arrayContaining(['動画を開く', '字幕', '設定']));
+            expect(targets.every(target => 'parserId' in target && target.parserId === 'yomu-video-player-parser')).toBe(true);
+            expect(targets.some(target => 'passiveInteraction' in target && target.passiveInteraction)).toBe(true);
+        } finally {
+            rectSpy.mockRestore();
+        }
+    });
+
+    it('keeps scanning hosted docs outside an already tokenized Try Me block', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 200,
+            width: 800,
+            height: 200,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <main>
+                <section class="VPHero">
+                    <h1><span class="text">好きなものを読んで日本語を学ぶ</span></h1>
+                </section>
+                <div class="vp-doc">
+                    <div class="yomu-try-me">
+	                    <strong>Try me</strong>
+	                    <div class="yomu-try-me-text">
+	                        <h3>青空</h3>
+	                        <p>読書</p>
+	                    </div>
+	                </div>
+	            </div>
+            </main>
+	    `;
+
+	        try {
+	            const targets = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/');
+	            const tryMeTargets = targets.filter(target => target.parent.closest('.yomu-try-me'));
+	            expect(targets.map(target => target.text)).toContain('好きなものを読んで日本語を学ぶ');
+	            expect(tryMeTargets.map(target => target.text)).toEqual(['青空', '読書']);
+	            tryMeTargets.forEach(target => {
+	                const reading = target.text === '青空' ? 'あおぞら' : 'どくしょ';
                 applyTokensToScanTarget(target, [{
-                    card: { ...card, spelling: target.text, reading: target.text, cardState: ['known'], pitchAccent: ['LH'] },
+                    card: { ...card, spelling: target.text, reading, cardState: ['known'], pitchAccent: ['LH'] },
                     start: 0,
                     end: target.text.length,
                     length: target.text.length,
-                    rubies: [],
+                    rubies: [{ text: reading, start: 0, end: target.text.length, length: target.text.length }],
                     pitchClass: 'heiban',
                     sentence: target.text,
-                }], DEFAULT_SETTINGS);
+                }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
             });
 
-            expect(collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/')).toEqual([]);
+            expect(document.querySelectorAll('.yomu-try-me .jpdb-reader-word')).toHaveLength(2);
+            expect(document.querySelectorAll('.yomu-try-me rt').length).toBeGreaterThan(0);
+            const remainingTargets = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/');
+            expect(remainingTargets.map(target => target.text)).toContain('好きなものを読んで日本語を学ぶ');
+            expect(remainingTargets.some(target => target.parent.closest('.yomu-try-me'))).toBe(false);
         } finally {
             rectSpy.mockRestore();
         }
@@ -16149,17 +24980,118 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(['今日は本を読みます。']);
     });
 
+    it('opens scanned JPDB words inside native links and leaves native controls alone', () => {
+        const visibleRect = {
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 240,
+            width: 800,
+            height: 240,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect;
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(visibleRect);
+        vi.stubGlobal('location', {
+            href: 'https://jpdb.io/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E',
+            origin: 'https://jpdb.io',
+            hostname: 'jpdb.io',
+            pathname: '/search',
+        });
+        document.body.innerHTML = `
+            <main>
+                <div class="results">
+                    <div class="result vocabulary">
+                        <a class="result-link" href="/vocabulary/1578580/%E6%97%A5%E6%9C%AC%E8%AA%9E/%E3%81%AB%E3%81%BB%E3%82%93%E3%81%94">
+                            <span class="term">日本語</span>
+                        </a>
+                        <button class="icon-link" type="button">音声</button>
+                    </div>
+                </div>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://jpdb.io/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E');
+        const linkTarget = targets.find(target => target.text.trim() === '日本語');
+        expect(linkTarget).toBeTruthy();
+        expect(linkTarget).not.toMatchObject({ passiveInteraction: true });
+        expect(targets.map(target => target.text)).not.toContain('音声');
+
+        applyTokensToScanTarget(linkTarget!, [{
+            card: { ...card, vid: 1578580, sid: 0, spelling: '日本語', reading: 'にほんご', cardState: ['known'] },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [{ text: 'にほんご', start: 0, end: 3, length: 3 }],
+            pitchClass: 'heiban',
+            sentence: '日本語',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('a.result-link .jpdb-reader-word')!;
+        const nativeControl = document.querySelector<HTMLElement>('button.icon-link')!;
+        const app = new ReaderApp();
+        const showWord = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            showWord: typeof showWord;
+            bindEvents(): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.showWord = showWord;
+        internals.bindEvents();
+
+        try {
+            expect(word.dataset.jpdbReaderPassive).toBeUndefined();
+            expect(word.tabIndex).toBe(0);
+
+            const wordClick = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 80, clientY: 24 });
+            expect(word.dispatchEvent(wordClick)).toBe(false);
+            expect(wordClick.defaultPrevented).toBe(true);
+            expect(showWord).toHaveBeenCalledWith(word, { trigger: 'click', userGesture: true });
+
+            showWord.mockClear();
+            const nativeClick = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 200, clientY: 24 });
+            expect(nativeControl.dispatchEvent(nativeClick)).toBe(true);
+            expect(nativeClick.defaultPrevented).toBe(false);
+            expect(showWord).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            rectSpy.mockRestore();
+            document.body.replaceChildren();
+        }
+    });
+
     it('rescans Japanese text when NHK menu visibility attributes change', () => {
         const dialog = document.createElement('dialog');
         dialog.textContent = 'メニュー';
         const mutation = {
             type: 'attributes',
+            attributeName: 'open',
             target: dialog,
             addedNodes: [],
         } as unknown as MutationRecord;
 
         expect(AUTO_SCAN_OBSERVER_OPTIONS.attributes).toBe(true);
         expect(AUTO_SCAN_OBSERVER_OPTIONS.attributeFilter).toContain('open');
+        expect(mutationMayContainJapaneseText(mutation)).toBe(true);
+    });
+
+    it('detects Japanese text in large dynamic nodes without relying on one textContent slice', () => {
+        const container = document.createElement('div');
+        container.append(document.createTextNode('Loading '.repeat(360)));
+        const comment = document.createElement('yt-attributed-string');
+        comment.id = 'content-text';
+        comment.textContent = '先生いつもありがとうございました。';
+        container.append(comment);
+        const mutation = {
+            type: 'childList',
+            target: document.body,
+            addedNodes: [container],
+            removedNodes: [],
+        } as unknown as MutationRecord;
+
         expect(mutationMayContainJapaneseText(mutation)).toBe(true);
     });
 
@@ -16175,7 +25107,7 @@ describe('reader helpers', () => {
             removedNodes: [],
         } as unknown as MutationRecord;
 
-        expect(mutationMayContainJapaneseText(mutation)).toBe(true);
+        expect(mutationMayContainJapaneseText(mutation)).toBe(false);
         expect(mutationMayAffectJpdbPageEnhancements(mutation)).toBe(false);
     });
 
@@ -16286,12 +25218,14 @@ describe('reader helpers', () => {
             toJSON: () => ({}),
         } as DOMRect);
         document.body.innerHTML = `
+            <main>
             <ytd-watch-metadata>
-                <h1><yt-formatted-string>新卒エンジニア、仕事終わりにプログラミング勉強をする！！</yt-formatted-string></h1>
+                <h1><yt-formatted-string title="新卒エンジニア、仕事終わりにプログラミング勉強をする！！">新卒エンジニア、仕事終わりにプログラミング勉強をする！！</yt-formatted-string></h1>
                 <div id="description-inline-expander">
                     <yt-attributed-string id="attributed-snippet-text">Webアプリ開発を目指して、日本語で勉強中の新卒エンジニアです！</yt-attributed-string>
                 </div>
             </ytd-watch-metadata>
+            </main>
             <ytd-comment-view-model>
                 <yt-attributed-string id="content-text">今夜も配信見なかったごめんね。</yt-attributed-string>
             </ytd-comment-view-model>
@@ -16414,6 +25348,35 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).not.toContain('コメント119です');
     });
 
+    it('does not scan YouTube homepage recommendation titles as page text', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 1000,
+            top: 0,
+            bottom: 240,
+            width: 1000,
+            height: 240,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <ytd-rich-grid-renderer>
+                <ytd-rich-item-renderer>
+                    <a id="video-title-link" href="/watch?v=jp">服代が月1万から20万円！？東京の春コーデ</a>
+                </ytd-rich-item-renderer>
+                <ytd-rich-item-renderer>
+                    <a id="video-title-link" href="/watch?v=podcast">弱いままの自分で大丈夫。Japanese Podcast</a>
+                </ytd-rich-item-renderer>
+            </ytd-rich-grid-renderer>
+        `;
+
+        const targets = collectScanTargets(10, 'https://www.youtube.com/');
+        rectSpy.mockRestore();
+
+        expect(targets).toEqual([]);
+    });
+
     it('falls back to generic scanning for parser sites that opt into page text', () => {
         const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
             left: 0,
@@ -16426,9 +25389,9 @@ describe('reader helpers', () => {
             y: 0,
             toJSON: () => ({}),
         } as DOMRect);
-        document.body.innerHTML = '<main><p>今日は静かな部屋で本を読みます。</p></main>';
+        document.body.innerHTML = '<div class="hosted-text-fixture"></div><main><p>今日は静かな部屋で本を読みます。</p></main>';
 
-        const targets = collectScanTargets(10, 'https://www.youtube.com/watch?v=TAorfFcb8_g');
+        const targets = collectScanTargets(10, 'https://hrussellzfac023.github.io/yomu-reader/');
         rectSpy.mockRestore();
 
         expect(targets.map(target => target.text)).toEqual(['今日は静かな部屋で本を読みます。']);
@@ -17384,4 +26347,13 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reje
         reject = rej;
     });
     return { promise, resolve, reject };
+}
+
+function deleteAnkiStatusIndexDatabase(): Promise<void> {
+    return new Promise(resolve => {
+        const request = indexedDB.deleteDatabase('yomu-anki-status-index');
+        request.onsuccess = () => resolve();
+        request.onerror = () => resolve();
+        request.onblocked = () => resolve();
+    });
 }

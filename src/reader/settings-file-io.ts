@@ -20,6 +20,31 @@ export function getReaderSettingsExport(value: unknown): ReaderSettings | null {
     return record && isReaderSettingsExport(record) ? record.settings as ReaderSettings : null;
 }
 
+export function getReaderDictionaryExport(value: unknown): unknown {
+    if (!value || typeof value !== 'object') return null;
+    const record = value as { formatName?: string; dictionaries?: unknown; dictionaryData?: unknown };
+    if (record.formatName !== 'yomu-reader-settings' && record.formatName !== 'jpdb-popup-reader-settings') return null;
+    return isReaderDictionaryExport(record.dictionaries) ? record.dictionaries : record.dictionaryData;
+}
+
+export function readerDictionaryExportHasData(value: unknown): boolean {
+    if (!isReaderDictionaryExport(value)) return false;
+    const record = value as {
+        entries?: unknown[];
+        dictionaries?: unknown[];
+        terms?: unknown[];
+        kanji?: unknown[];
+        termMeta?: unknown[];
+        kanjiMeta?: unknown[];
+    };
+    return arrayHasItems(record.dictionaries)
+        || arrayHasItems(record.entries)
+        || arrayHasItems(record.terms)
+        || arrayHasItems(record.kanji)
+        || arrayHasItems(record.termMeta)
+        || arrayHasItems(record.kanjiMeta);
+}
+
 function readerSettingsExportRecord(value: unknown): { formatName?: string; settings?: unknown } | null {
     return value && typeof value === 'object' ? value as { formatName?: string; settings?: unknown } : null;
 }
@@ -32,6 +57,16 @@ function isReaderSettingsExport(record: { formatName?: string; settings?: unknow
 
 function isReaderSettingsExportFormat(formatName: string | undefined): boolean {
     return formatName === 'yomu-reader-settings' || formatName === 'jpdb-popup-reader-settings';
+}
+
+function isReaderDictionaryExport(value: unknown): boolean {
+    if (!value || typeof value !== 'object') return false;
+    const formatName = (value as { formatName?: unknown }).formatName;
+    return formatName === 'yomu-yomitan-dictionaries' || formatName === 'jpdb-reader-yomitan-dictionaries';
+}
+
+function arrayHasItems(value: unknown): value is unknown[] {
+    return Array.isArray(value) && value.length > 0;
 }
 
 export function pickFile(root: HTMLElement, type: 'settings' | 'dictionary'): Promise<File | null> {

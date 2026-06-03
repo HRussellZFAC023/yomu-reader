@@ -65,8 +65,6 @@ const settings = {
     lookupOnClick: true,
     lookupOnHover: true,
     popupActivationMode: 'click',
-    scanVisiblePage: true,
-    autoScanJapanese: true,
     showFloatingButton: false,
     interfaceLanguage: 'auto',
     accentColor: '#5ea780',
@@ -117,6 +115,14 @@ page.on('response', response => {
     const entry = requests.find(item => item.url === response.url() && item.status === undefined);
     if (entry) {
         entry.status = response.status();
+        entry.end = performance.now();
+    }
+});
+page.on('requestfailed', request => {
+    const entry = requests.find(item => item.url === request.url() && item.status === undefined);
+    if (entry) {
+        entry.status = 'failed';
+        entry.failure = request.failure()?.errorText ?? 'failed';
         entry.end = performance.now();
     }
 });
@@ -338,7 +344,7 @@ async function audioProfileResponse(url) {
     return { status: 200, contentType: 'audio/mpeg', body: 'audio' };
 }
 
-const profileUrl = new URL(`${ORIGIN}/newtab/`);
+const profileUrl = new URL(`${ORIGIN.replace(/\/$/, '')}/newtab/index.html`);
 profileUrl.searchParams.set('apiKey', API_KEY || 'profile-key');
 if (!LIVE) profileUrl.searchParams.set('audio', 'https://audio.profile.test/source?term={term}&reading={reading}');
 const profileTarget = await openProfileTarget(page, profileUrl);
@@ -360,7 +366,7 @@ if (profileTarget.skipped) {
 
 const hoverProfile = await profileHoverPopover(page);
 
-const clickWord = page.locator('.jpdb-reader-word').filter({ hasText: CLICK_WORD }).first();
+const clickWord = await profileWordLocator(page, CLICK_WORD);
 await page.evaluate(() => { window.__yomuProfileEvents = []; });
 const clickAt = await page.evaluate(() => performance.now());
 await clickWord.click();
@@ -452,7 +458,7 @@ async function profileHoverPopover(page) {
         skipped: false,
         reason: '',
     };
-    const firstWord = page.locator('.jpdb-reader-word').filter({ hasText: HOVER_WORD }).first();
+    const firstWord = await profileWordLocator(page, HOVER_WORD);
     try {
         await firstWord.hover({ timeout: 5000 });
     } catch (error) {
@@ -557,13 +563,43 @@ async function waitForProfileWords(page, timeout) {
     const deadline = Date.now() + timeout;
     while (Date.now() < deadline) {
         const found = await page.evaluate(({ hoverWord, clickWord }) => {
-            const words = Array.from(document.querySelectorAll('.jpdb-reader-word')).map(word => word.textContent?.trim() || '');
-            return words.some(word => word.includes(hoverWord)) && words.some(word => word.includes(clickWord));
+            const words = Array.from(document.querySelectorAll('.jpdb-reader-word'));
+            return words.some(word => profileWordMatches(word, hoverWord)) && words.some(word => profileWordMatches(word, clickWord));
+
+            function profileWordMatches(word, target) {
+                const text = word.textContent?.trim() || '';
+                const withoutRuby = text.replace(/\([^)]*\)/g, '');
+                return [
+                    word.getAttribute('data-expression') || '',
+                    word.getAttribute('data-reading') || '',
+                    text,
+                    withoutRuby,
+                ].some(value => value.includes(target));
+            }
         }, { hoverWord: HOVER_WORD, clickWord: CLICK_WORD });
         if (found) return true;
         await page.waitForTimeout(150);
     }
     return false;
+}
+
+async function profileWordLocator(page, target) {
+    const index = await page.evaluate(target => {
+        const words = Array.from(document.querySelectorAll('.jpdb-reader-word'));
+        return words.findIndex(word => {
+            const text = word.textContent?.trim() || '';
+            const withoutRuby = text.replace(/\([^)]*\)/g, '');
+            return [
+                word.getAttribute('data-expression') || '',
+                word.getAttribute('data-reading') || '',
+                text,
+                withoutRuby,
+            ].some(value => value.includes(target));
+        });
+    }, target);
+    return index >= 0
+        ? page.locator('.jpdb-reader-word').nth(index)
+        : page.locator('.jpdb-reader-word').filter({ hasText: target }).first();
 }
 
 async function collectPageDebug(page) {

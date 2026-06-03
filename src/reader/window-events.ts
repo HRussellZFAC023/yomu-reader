@@ -18,7 +18,7 @@ export function createWindowEvent(type: string, init: EventInit = {}): Event {
 }
 
 export function createWindowCustomEvent<T>(type: string, detail?: T, init: Omit<CustomEventInit<T>, 'detail'> = {}): CustomEvent<T> {
-    const eventInit: CustomEventInit<T> = { ...init, detail };
+    const eventInit: CustomEventInit<T> = { ...init, detail: cloneCustomEventDetail(detail) };
     const documentEvent = createDocumentCustomEvent(type, eventInit);
     if (documentEvent) return documentEvent;
 
@@ -31,6 +31,19 @@ export function createWindowCustomEvent<T>(type: string, detail?: T, init: Omit<
     }
 
     throw new Error(`Unable to create window custom event: ${type}`);
+}
+
+type FirefoxCloneInto = (value: unknown, targetScope: object, options?: { cloneFunctions?: boolean; wrapReflectors?: boolean }) => unknown;
+
+function cloneCustomEventDetail<T>(detail: T): T {
+    if (detail === undefined || typeof window === 'undefined') return detail;
+    const cloneInto = readMethod<FirefoxCloneInto>(globalThis, 'cloneInto');
+    if (!cloneInto) return detail;
+    try {
+        return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true }) as T;
+    } catch {
+        return detail;
+    }
 }
 
 export function dispatchWindowEvent(event: Event): boolean {

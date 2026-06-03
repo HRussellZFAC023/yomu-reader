@@ -189,7 +189,11 @@ function renderKanjiFactPills(facts: KanjiFact[], language: InterfaceLanguage, e
     const visibleFacts = excludedFacts ? facts.filter(fact => !excludedFacts.has(fact.label)) : facts;
     if (!visibleFacts.length) return '';
     return `<div class="jpdb-reader-kanji-facts">
-        ${visibleFacts.map(fact => `<span title="${escapeHtml(fact.source)}"><strong>${escapeHtml(kanjiFactLabel(fact.label, language))}</strong>${escapeHtml(fact.value)}</span>`).join('')}
+        ${visibleFacts.map(fact => {
+            const label = kanjiFactLabel(fact.label, language);
+            const title = [fact.source, `${label}: ${fact.value}`].filter(Boolean).join(' · ');
+            return `<span title="${escapeHtml(title)}"><strong>${escapeHtml(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml(fact.value)}</span></span>`;
+        }).join('')}
     </div>`;
 }
 
@@ -996,11 +1000,11 @@ function spreadOutboundComponents(nodes: OriginGraphNode[], currentId: string): 
 function originNodeGeometryAnchor(node: OriginGraphNode, reference?: OriginGeometryReference): { x: number; y: number } | undefined {
     const geometry = node.geometry;
     if (!geometry || !Number.isFinite(geometry.x) || !Number.isFinite(geometry.y)) return undefined;
-    const x = 14 + clampGraphValue(geometry.x, 0, 1) * 72;
-    const y = 14 + clampGraphValue(geometry.y, 0, 1) * 72;
+    const x = 10 + clampGraphValue(geometry.x, 0, 1) * 80;
+    const y = 10 + clampGraphValue(geometry.y, 0, 1) * 80;
     const anchor = {
-        x: clampGraphValue(x, 12, 88),
-        y: clampGraphValue(y, 12, 88),
+        x: clampGraphValue(x, 10, 90),
+        y: clampGraphValue(y, 10, 90),
     };
     return reference ? separateOriginGeometryAnchor(node, anchor, reference) : anchor;
 }
@@ -1104,12 +1108,12 @@ function outboundZoneAnchor(zone: OriginComponentZone, index: number, total: num
 type ZoneAnchorSpec = { x: number; y: number; offsetAxis: 'x' | 'y' };
 
 const INBOUND_ZONE_ANCHORS: Record<OriginComponentZone, ZoneAnchorSpec> = {
-    top: { x: 50, y: 19, offsetAxis: 'x' },
+    top: { x: 50, y: 16, offsetAxis: 'x' },
     upper: { x: 58, y: 35, offsetAxis: 'x' },
-    left: { x: 21, y: 50, offsetAxis: 'y' },
-    right: { x: 79, y: 50, offsetAxis: 'y' },
+    left: { x: 17, y: 50, offsetAxis: 'y' },
+    right: { x: 83, y: 50, offsetAxis: 'y' },
     lower: { x: 58, y: 65, offsetAxis: 'x' },
-    bottom: { x: 50, y: 82, offsetAxis: 'x' },
+    bottom: { x: 50, y: 84, offsetAxis: 'x' },
     center: { x: 24, y: 50, offsetAxis: 'y' },
 };
 
@@ -1219,7 +1223,7 @@ function expandedAttribute(initiallyExpanded: boolean): string {
 function renderJpdbKanjiFactSection(facts: string[][]): string {
     if (!facts.length) return '';
     return `<div class="jpdb-reader-kanji-facts">
-        ${facts.map(([label, value]) => `<span title="JPDB"><strong>${escapeHtml(label)}</strong>${escapeHtml(value)}</span>`).join('')}
+        ${facts.map(([label, value]) => `<span title="${escapeHtml(`JPDB · ${label}: ${value}`)}"><strong>${escapeHtml(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml(value)}</span></span>`).join('')}
     </div>`;
 }
 
@@ -1356,7 +1360,9 @@ export function cardPronunciationReading(card: Pick<JPDBCard, 'reading' | 'spell
     const reading = cleanPronunciationReading(card.reading);
     if (reading && !containsKanji(reading)) return reading;
     const rubyReading = cleanPronunciationReading(readingFromWordWithReading(card.wordWithReading ?? ''));
-    return rubyReading && !containsKanji(rubyReading) ? rubyReading : '';
+    if (rubyReading && !containsKanji(rubyReading)) return rubyReading;
+    const kanaSpelling = cleanPronunciationReading(card.spelling);
+    return isKanaPronunciation(kanaSpelling) ? kanaSpelling : '';
 }
 
 export function uniqueKanji(value: string): string[] {
@@ -1374,6 +1380,10 @@ function containsKanji(value: string): boolean {
 
 function cleanPronunciationReading(value: string): string {
     return value.replace(/\s+/g, '').trim();
+}
+
+function isKanaPronunciation(value: string): boolean {
+    return /^[\u3040-\u30ff]+$/u.test(value);
 }
 
 function readingFromWordWithReading(value: string): string {

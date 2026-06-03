@@ -17,7 +17,16 @@
         --bg: #5ea780;
         --ink: #142019;
         --surface: #fbfcf8;
+        --surface-glass: rgba(251, 252, 248, .72);
+        --surface-glass-soft: rgba(251, 252, 248, .58);
+        --line: rgba(20, 32, 25, .18);
+        --line-soft: rgba(20, 32, 25, .14);
+        --line-control: rgba(20, 32, 25, .16);
+        --active-ink: #2e6648;
+        --muted: rgba(20, 32, 25, .72);
+        --subtle: rgba(20, 32, 25, .78);
         --shadow: rgba(18, 28, 23, .2);
+        --shadow-soft: rgba(18, 28, 23, .12);
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
@@ -61,11 +70,11 @@
       .jpdb-reader-newtab-overflow {
         width: 40px;
         height: 40px;
-        border: 1px solid rgba(20, 32, 25, .18);
+        border: 1px solid var(--line);
         border-radius: 999px;
         display: grid;
         place-items: center;
-        background: rgba(251, 252, 248, .72);
+        background: var(--surface-glass);
         color: inherit;
         box-shadow: 0 10px 28px var(--shadow);
         text-decoration: none;
@@ -117,9 +126,9 @@
         grid-template-columns: repeat(2, minmax(72px, 1fr));
         gap: 4px;
         padding: 4px;
-        border: 1px solid rgba(20, 32, 25, .14);
+        border: 1px solid var(--line-soft);
         border-radius: 999px;
-        background: rgba(251, 252, 248, .58);
+        background: var(--surface-glass-soft);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
       }
@@ -142,8 +151,8 @@
 
       .jpdb-reader-newtab-mode button[data-active="true"] {
         background: var(--surface);
-        color: #2e6648;
-        box-shadow: 0 4px 14px rgba(18, 28, 23, .12);
+        color: var(--active-ink);
+        box-shadow: 0 4px 14px var(--shadow-soft);
       }
 
       .jpdb-reader-newtab-study {
@@ -159,7 +168,7 @@
 
       .jpdb-reader-newtab-count,
       .jpdb-reader-newtab-status {
-        color: rgba(20, 32, 25, .72);
+        color: var(--muted);
         font-size: 11px;
         line-height: 1.2;
         font-weight: 760;
@@ -205,7 +214,7 @@
 
       .jpdb-reader-newtab-meaning {
         max-width: min(520px, 100%);
-        color: rgba(20, 32, 25, .78);
+        color: var(--subtle);
         font-size: clamp(15px, 2.4vw, 22px);
         font-weight: 650;
         line-height: 1.42;
@@ -220,9 +229,9 @@
 
       .jpdb-reader-newtab-controls button {
         min-height: 44px;
-        border: 1px solid rgba(20, 32, 25, .16);
-        background: rgba(251, 252, 248, .72);
-        box-shadow: 0 8px 22px rgba(18, 28, 23, .12);
+        border: 1px solid var(--line-control);
+        background: var(--surface-glass);
+        box-shadow: 0 8px 22px var(--shadow-soft);
         backdrop-filter: blur(14px);
         -webkit-backdrop-filter: blur(14px);
       }

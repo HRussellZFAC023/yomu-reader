@@ -6,7 +6,7 @@ import type { InterfaceLanguage } from './types';
 
 const log = Logger.scope('StudyRender');
 
-export async function renderStudyToolResult(button: HTMLButtonElement, action: string, sentence?: string, grammarHints?: GrammarHint[], language: InterfaceLanguage = 'en'): Promise<void> {
+export async function renderStudyToolResult(button: HTMLButtonElement, action: string, sentence?: string, grammarHints?: GrammarHint[], language: InterfaceLanguage = 'en', options: { audioEnabled?: boolean } = {}): Promise<void> {
     const panel = button.closest('.jpdb-reader-study-tools')?.querySelector<HTMLElement>('[data-study-panel]');
     if (!panel || !sentence) return;
     panel.hidden = false;
@@ -28,7 +28,7 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
         done();
         return;
     }
-    setInnerHtml(panel, await renderGrammarHints(hints, sentence, undefined, language));
+    setInnerHtml(panel, await renderGrammarHints(hints, sentence, undefined, language, { audioEnabled: options.audioEnabled }));
     done();
 }
 
@@ -40,26 +40,26 @@ function resolvedGrammarHints(sentence: string, grammarHints: GrammarHint[] | un
     return grammarHints ?? detectGrammarHints(sentence);
 }
 
-export function handleStudyGrammarAction(button: HTMLButtonElement, sentence?: string, language: InterfaceLanguage = 'en'): boolean {
+export function handleStudyGrammarAction(button: HTMLButtonElement, sentence?: string, language: InterfaceLanguage = 'en', options: { audioEnabled?: boolean } = {}): boolean {
     if (!sentence) return false;
     if (button.dataset.action === 'study-grammar-toggle-known') {
         const ruleId = button.dataset.grammarRuleId;
         if (!ruleId) return false;
         setGrammarRuleKnown(ruleId, button.dataset.grammarKnown !== 'true');
-        void rerenderGrammarPanel(button, sentence, language);
+        void rerenderGrammarPanel(button, sentence, language, options);
         return true;
     }
     if (button.dataset.action === 'study-grammar-toggle-known-visibility') {
         setKnownGrammarVisible(button.getAttribute('aria-pressed') !== 'true');
-        void rerenderGrammarPanel(button, sentence, language);
+        void rerenderGrammarPanel(button, sentence, language, options);
         return true;
     }
     return false;
 }
 
-async function rerenderGrammarPanel(button: HTMLButtonElement, sentence: string, language: InterfaceLanguage): Promise<void> {
+async function rerenderGrammarPanel(button: HTMLButtonElement, sentence: string, language: InterfaceLanguage, options: { audioEnabled?: boolean }): Promise<void> {
     const panel = button.closest<HTMLElement>('.jpdb-reader-study-panel');
     if (!panel) return;
     const hints = detectGrammarHints(sentence);
-    setInnerHtml(panel, await renderGrammarHints(hints, sentence, undefined, language));
+    setInnerHtml(panel, await renderGrammarHints(hints, sentence, undefined, language, { audioEnabled: options.audioEnabled }));
 }

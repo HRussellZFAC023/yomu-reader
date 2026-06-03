@@ -183,6 +183,92 @@ describe('YouTube immersion filter', () => {
         expect(cards).toEqual([card('outer-video')]);
     });
 
+    it('collects and filters mobile video-with-context media items', async () => {
+        vi.useFakeTimers();
+        stubOEmbedTitles({
+            'mweb-en': 'Desk setup tour',
+            'mweb-jp': '東京散歩',
+            'mweb-original-jp': '朝のルーティン',
+        });
+        document.body.innerHTML = `
+            <main>
+                <ytm-video-with-context-renderer data-case="mobile-english">
+                    <ytm-media-item>
+                        <a class="media-item-thumbnail-container" href="/watch?v=mweb-en&pp=abc">12:34</a>
+                        <div class="media-channel"><a href="/@nihongo" aria-label="Go to channel 日本語チャンネル"></a></div>
+                        <h3 class="media-item-headline">
+                            <a href="/watch?v=mweb-en&pp=abc" aria-label="Desk setup tour by 日本語チャンネル">Desk setup tour</a>
+                        </h3>
+                    </ytm-media-item>
+                </ytm-video-with-context-renderer>
+                <ytm-video-with-context-renderer data-case="mobile-jp">
+                    <ytm-media-item>
+                        <a class="media-item-thumbnail-container" href="/watch?v=mweb-jp">8:00</a>
+                        <h3 class="media-item-headline"><a href="/watch?v=mweb-jp">東京散歩</a></h3>
+                    </ytm-media-item>
+                </ytm-video-with-context-renderer>
+                <ytm-video-with-context-renderer data-case="mobile-original-jp">
+                    <ytm-media-item>
+                        <a class="media-item-thumbnail-container" href="/watch?v=mweb-original-jp">6:00</a>
+                        <h3 class="media-item-headline"><a href="/watch?v=mweb-original-jp">Morning routine</a></h3>
+                    </ytm-media-item>
+                </ytm-video-with-context-renderer>
+            </main>
+        `;
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            youtubeImmersionEnabled: true,
+            youtubeShowFilterNotice: true,
+        };
+        const filter = new YoutubeImmersionFilter({
+            getSettings: () => settings,
+            isActivePage: () => true,
+        });
+
+        filter.init();
+        await runInitialFilterScan();
+
+        expect(collectYouTubeVideoCards(document).map(element => element.dataset.case)).toEqual(['mobile-english', 'mobile-jp', 'mobile-original-jp']);
+        expect(card('mobile-english').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('mobile-jp').classList.contains('jpdb-youtube-filtered')).toBe(false);
+        expect(card('mobile-original-jp').classList.contains('jpdb-youtube-filtered')).toBe(false);
+
+        filter.destroy();
+    });
+
+    it('filters mobile shorts lockup cards outside the Shorts watch feed', async () => {
+        vi.useFakeTimers();
+        stubOEmbedTitles({ 'short-en': 'Desk setup' });
+        document.body.innerHTML = `
+            <main>
+                <ytm-shorts-lockup-view-model data-case="mobile-short">
+                    <a class="shortsLockupViewModelHostEndpoint reel-item-endpoint" href="/shorts/short-en">
+                        <h3 class="shortsLockupViewModelHostMetadataTitle" aria-label="Desk setup, 10K views, Example Channel, 1 day ago - play Short">
+                            <span>Desk setup</span>
+                        </h3>
+                    </a>
+                </ytm-shorts-lockup-view-model>
+            </main>
+        `;
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            youtubeImmersionEnabled: true,
+            youtubeShowFilterNotice: true,
+        };
+        const filter = new YoutubeImmersionFilter({
+            getSettings: () => settings,
+            isActivePage: () => true,
+        });
+
+        filter.init();
+        await runInitialFilterScan();
+
+        expect(collectYouTubeVideoCards(document)).toEqual([card('mobile-short')]);
+        expect(card('mobile-short').classList.contains('jpdb-youtube-filtered')).toBe(true);
+
+        filter.destroy();
+    });
+
     it('hides the outer rich-grid slot for nested modern lockup cards', async () => {
         vi.useFakeTimers();
         stubOEmbedTitles({ modern: '10 habits for studying' });
@@ -341,9 +427,15 @@ describe('YouTube immersion filter', () => {
             const watchUrl = new URL(url.searchParams.get('url') ?? 'https://www.youtube.com/watch');
             const videoId = watchUrl.searchParams.get('v') ?? '';
             if (videoId === 'translated') return translated.promise;
+            const titles: Record<string, string> = {
+                jp: '日本語で花の名前を覚える',
+                en: '10 habits for studying',
+                channel: 'study with me',
+                modern: '東京カフェで朝ごはん',
+            };
             return {
                 ok: true,
-                json: async () => ({ title: videoId === 'modern' ? '東京カフェで朝ごはん' : '日本語で花の名前を覚える' }),
+                json: async () => ({ title: titles[videoId] ?? '' }),
             };
         });
         vi.stubGlobal('fetch', fetchMock);
@@ -364,7 +456,7 @@ describe('YouTube immersion filter', () => {
         expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(card('channel-only').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(card('translated-english').classList.contains('jpdb-youtube-filtered')).toBe(false);
-        expect(fetchMock).toHaveBeenCalledTimes(3);
+        expect(fetchMock).toHaveBeenCalledTimes(5);
 
         translated.resolve({
             ok: true,
@@ -576,6 +668,42 @@ describe('YouTube immersion filter', () => {
         await vi.advanceTimersByTimeAsync(0);
 
         expect(card('shorts-feed').classList.contains('jpdb-youtube-filtered')).toBe(false);
+        expect(collectYouTubeVideoCards(document)).toHaveLength(0);
+        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
+
+        filter.destroy();
+    });
+
+    it('leaves mobile Shorts watch lockups visible so snap scrolling can continue', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('location', {
+            href: 'https://m.youtube.com/shorts/mobileShort',
+            origin: 'https://m.youtube.com',
+            hostname: 'm.youtube.com',
+            pathname: '/shorts/mobileShort',
+            search: '',
+        });
+        document.body.innerHTML = `
+            <ytm-shorts-lockup-view-model data-case="mobile-shorts-feed" class="jpdb-youtube-filtered" data-yomu-youtube-filtered="true">
+                <a class="shortsLockupViewModelHostEndpoint reel-item-endpoint" href="/shorts/mobileShort">
+                    <h3 class="shortsLockupViewModelHostMetadataTitle">English short</h3>
+                </a>
+            </ytm-shorts-lockup-view-model>
+        `;
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            youtubeImmersionEnabled: true,
+            youtubeShowFilterNotice: true,
+        };
+        const filter = new YoutubeImmersionFilter({
+            getSettings: () => settings,
+            isActivePage: () => true,
+        });
+
+        filter.init();
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(card('mobile-shorts-feed').classList.contains('jpdb-youtube-filtered')).toBe(false);
         expect(collectYouTubeVideoCards(document)).toHaveLength(0);
         expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
 

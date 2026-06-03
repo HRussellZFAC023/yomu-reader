@@ -21,7 +21,7 @@ export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: Sou
     const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language, card);
     if (!meanings && !extras) return '';
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID))}>
+        <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID), true)}>
             <summary class="jpdb-reader-local-title">JPDB</summary>
             ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}
             ${extras}
@@ -36,7 +36,7 @@ function jpdbDefinitionMeanings(card: JPDBCard, info: JpdbVocabularyInfo | null)
 
 function renderJpdbVocabularyExtras(info: JpdbVocabularyInfo | null, sourceAttributes: SourceAttributes, language: InterfaceLanguage, card: CardHighlightTarget): string {
     if (!hasJpdbVocabularyExtras(info)) return '';
-    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info)}${renderJpdbUsedInVocabulary(info, sourceAttributes, language)}${renderJpdbExamples(info, sourceAttributes, language, card)}</div>`;
+    return `<div class="jpdb-reader-jpdb-extras">${renderJpdbCompounds(info, language)}${renderJpdbUsedInVocabulary(info, sourceAttributes, language)}${renderJpdbExamples(info, sourceAttributes, language, card)}</div>`;
 }
 
 function shouldPreferCardMeanings(card: JPDBCard): boolean {
@@ -54,26 +54,28 @@ function hasJpdbVocabularyExtras(info: JpdbVocabularyInfo | null): info is JpdbV
     return Boolean(info && (info.compounds.length || (info.usedInVocabulary?.length ?? 0) || info.examples.length));
 }
 
-function renderJpdbCompounds(info: JpdbVocabularyInfo): string {
+function renderJpdbCompounds(info: JpdbVocabularyInfo, language: InterfaceLanguage): string {
     return info.compounds.length ? `
         <section class="jpdb-reader-jpdb-extra">
             <ul class="jpdb-reader-jpdb-compounds">
                 ${info.compounds.map(compound => `
-                    <li>
-                        <a
-                            class="gloss-link jpdb-reader-jpdb-compound"
-                            href="#jpdb-reader-dictionary-lookup"
-                            data-dictionary-lookup="${escapeHtml(compound.term)}"
-                            data-dictionary-reading="${escapeHtml(compound.reading)}"
-                            data-dictionary="JPDB"
-                            data-external="false"
-                        >
-                            <span class="jpdb-reader-jpdb-compound-head">
-                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-parseable" data-dictionary="JPDB" data-jpdb-reader-suppress-ruby>${escapeHtml(compound.term)}</span>
-                                ${compound.reading && compound.reading !== compound.term ? `<span class="jpdb-reader-jpdb-compound-reading">${escapeHtml(compound.reading)}</span>` : ''}
-                            </span>
-                        </a>
-                        ${compound.meaning ? `<small>${escapeHtml(compound.meaning)}</small>` : ''}
+                    <li class="jpdb-reader-jpdb-compound-row${compound.audioIds?.length ? ' has-audio' : ''}">
+                        ${renderJpdbExampleAudioButton(compound.audioIds, compound.term, language)}
+                        <span class="jpdb-reader-jpdb-compound-main">
+                            <a
+                                class="gloss-link jpdb-reader-jpdb-compound"
+                                href="#jpdb-reader-dictionary-lookup"
+                                data-dictionary-lookup="${escapeHtml(compound.term)}"
+                                data-dictionary-reading="${escapeHtml(compound.reading)}"
+                                data-dictionary="JPDB"
+                                data-external="false"
+                            >
+                                <span class="jpdb-reader-jpdb-compound-head">
+                                    ${renderJpdbRelatedTerm(compound.term, compound.reading, 'jpdb-reader-jpdb-compound-term')}
+                                </span>
+                            </a>
+                            ${compound.meaning ? `<small>${escapeHtml(compound.meaning)}</small>` : ''}
+                        </span>
                     </li>
                 `).join('')}
             </ul>
@@ -92,20 +94,12 @@ function renderJpdbUsedInVocabulary(info: JpdbVocabularyInfo, sourceAttributes: 
             <div class="jpdb-reader-local-glossary">
                 <ul class="jpdb-reader-jpdb-used-in">
                 ${entries.map(entry => `
-                    <li class="jpdb-reader-jpdb-used-in-item">
-                        <a
-                            class="gloss-link jpdb-reader-jpdb-used-in-link"
-                            href="#jpdb-reader-dictionary-lookup"
-                            data-dictionary-lookup="${escapeHtml(entry.term)}"
-                            data-dictionary-reading="${escapeHtml(entry.reading)}"
-                            data-dictionary="JPDB"
-                            data-external="false"
-                        >
-                            <span class="jpdb-reader-jpdb-compound-head">
-                                <span class="jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term jpdb-reader-parseable" data-dictionary="JPDB">${escapeHtml(entry.term)}</span>
-                            </span>
-                        </a>
-                        ${entry.meaning ? `<small>${escapeHtml(entry.meaning)}</small>` : ''}
+                    <li class="jpdb-reader-jpdb-used-in-row${entry.audioIds?.length ? ' has-audio' : ''}">
+                        ${renderJpdbExampleAudioButton(entry.audioIds, entry.term, language)}
+                        <span class="jpdb-reader-jpdb-used-in-main">
+                            <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml(entry.term)}" data-dictionary-reading="${escapeHtml(entry.reading)}" data-dictionary="JPDB" data-external="false"><span class="jpdb-reader-jpdb-compound-head">${renderJpdbUsedInTerm(entry.term, entry.reading, entry.url)}</span></a>
+                            ${entry.meaning ? `<small>${escapeHtml(entry.meaning)}</small>` : ''}
+                        </span>
                     </li>
                 `).join('')}
                 </ul>
@@ -143,17 +137,47 @@ function renderJpdbExamples(info: JpdbVocabularyInfo, sourceAttributes: SourceAt
 function renderJpdbExampleAudioButton(audioIds: string[] | undefined, sentence: string, language: InterfaceLanguage): string {
     const audio = audioIds?.join(',') ?? '';
     const label = uiText(language, 'playJpdbExampleAudio');
-    return audio ? `
-        <button
-            class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio"
-            type="button"
-            data-action="jpdb-example-audio"
-            data-jpdb-audio="${escapeHtml(audio)}"
-            data-jpdb-example-sentence="${escapeHtml(sentence)}"
-            title="${escapeHtml(label)}"
-            aria-label="${escapeHtml(label)}"
-        >${speakerIcon()}</button>
-    ` : '';
+    return audio ? `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio" type="button" data-action="jpdb-example-audio" data-jpdb-audio="${escapeHtml(audio)}" data-jpdb-example-sentence="${escapeHtml(sentence)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${speakerIcon()}</button>` : '';
+}
+
+function renderJpdbRelatedTerm(term: string, reading: string, className: string, extraAttributes = '', showReading = true): string {
+    const readingText = visibleJpdbRelatedReading(term, reading);
+    const base = `<span class="${escapeHtml(`${className} jpdb-reader-parseable`)}" data-dictionary="JPDB"${extraAttributes}>${escapeHtml(term)}</span>`;
+    if (!showReading || !readingText) return base;
+    return `<span class="jpdb-reader-jpdb-term-with-reading"><span class="jpdb-reader-furi jpdb-reader-jpdb-term-furi" data-jpdb-reader-surface-ignore="true" aria-hidden="true">${escapeHtml(readingText)}</span>${base}</span>`;
+}
+
+function renderJpdbUsedInTerm(term: string, reading: string, url: string): string {
+    return `<span class="jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term" data-dictionary="JPDB">${renderPassiveJpdbRelatedWord(term, reading, url)}</span>`;
+}
+
+function renderPassiveJpdbRelatedWord(term: string, reading: string, url: string): string {
+    const vid = jpdbVocabularyVidFromUrl(url);
+    const identityAttributes = vid === null ? '' : ` data-vid="${vid}" data-sid="0"`;
+    const readingAttribute = reading ? ` data-reading="${escapeHtml(reading)}"` : '';
+    const visibleReading = visibleJpdbRelatedReading(term, reading);
+    const classes = `jpdb-reader-word jpdb-reader-passive-word${visibleReading ? ' jpdb-reader-has-furi' : ''}`;
+    const content = visibleReading
+        ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml(term)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(visibleReading)}</rt><rp>)</rp></ruby>`
+        : escapeHtml(term);
+    return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-pitch-class="" data-sentence="${escapeHtml(term)}" data-expression="${escapeHtml(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
+}
+
+function jpdbVocabularyVidFromUrl(value: string): number | null {
+    try {
+        const parts = new URL(value, 'https://jpdb.io').pathname.split('/').filter(Boolean);
+        if (parts[0] !== 'vocabulary') return null;
+        const vid = Number.parseInt(parts[1] ?? '', 10);
+        return Number.isFinite(vid) && vid > 0 ? vid : null;
+    } catch {
+        return null;
+    }
+}
+
+function visibleJpdbRelatedReading(term: string, reading: string): string {
+    const normalizedTerm = term.trim();
+    const normalizedReading = reading.trim();
+    return normalizedReading && normalizedReading !== normalizedTerm ? normalizedReading : '';
 }
 
 export function renderLocalDefinitionSourcesSection(

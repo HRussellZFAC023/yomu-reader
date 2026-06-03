@@ -4,7 +4,7 @@ import {
     type FragmentTextTarget,
     type ScanTextTarget,
 } from './dom';
-import { APP_REPOSITORY_NAME } from './constants';
+import { isYomuHostedPassivePage, isYomuHostedVideoPlayerPage } from './app-pages';
 
 export interface SiteParserProfile {
     id: string;
@@ -16,6 +16,7 @@ export interface SiteParserProfile {
     allowUiText?: boolean;
     minLength?: number;
     includeUiChrome?: boolean;
+    includeFormChrome?: boolean;
     includeGenericPageText?: boolean;
     fallbackToWholePage?: boolean;
     visibleOnly?: boolean;
@@ -47,7 +48,7 @@ const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
     '#more',
     '#less',
 ].join(',');
-const DEFAULT_SCAN_TARGET_LIMIT = 2000;
+const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
 const GENERIC_PROSE_ROOTS = [
     'main h1',
     '[role="main"] h1',
@@ -76,6 +77,7 @@ const GENERIC_PROSE_EXCLUDE = [
     'button',
     'a[role="button"]',
     '[role="complementary"]',
+    '[title]',
     '[class*="audio" i]',
     '[class*="aside" i]',
     '[class*="banner" i]',
@@ -134,6 +136,7 @@ const SAFE_UI_CHROME_EXCLUDE = [
     'rp',
     '[disabled]',
     '[aria-disabled="true"]',
+    '[title]',
     '[contenteditable="true"]',
     '[role="checkbox"]',
     '[role="radio"]',
@@ -148,25 +151,80 @@ const SAFE_UI_CHROME_EXCLUDE = [
     '[class*="voice" i]',
 ].join(',');
 const SAFE_UI_CHROME_MAX_COMPACT_LENGTH = 80;
-export const YOMU_DEMO_LOOKUP_PARSER_ID = 'yomu-demo-lookup-parser';
+export const YOMU_HOSTED_DOCS_PARSER_ID = 'yomu-hosted-docs-parser';
+const JPDB_PARSER_ID = 'jpdb-parser';
+const YOMU_HOSTED_DOCS_ROOTS = [
+    '.VPHero .heading',
+    '.VPHero .name',
+    '.VPHero .text',
+    '.VPHero .tagline',
+    '.VPHero .main',
+    '.VPHomeHero .heading',
+    '.VPHomeHero .name',
+    '.VPHomeHero .text',
+    '.VPHomeHero .tagline',
+    '.VPHomeHero .main',
+    '.VPFeatures .item',
+    '.yomu-install-panel',
+    '.yomu-hosted-overflow-group',
+    '.yomu-link-grid',
+    '.vp-doc',
+];
+const YOMU_HOSTED_DOCS_PASSIVE_INTERACTION = [
+    'a[href]',
+    'button',
+    'summary',
+    '[role="button"]',
+    '[role="link"]',
+].join(',');
+const YOMU_VIDEO_PLAYER_ROOTS = [
+    '.brand strong',
+    '[data-yomu-video-frame] .empty strong',
+    '[data-yomu-video-frame] .empty [data-status]',
+    '.file-button',
+    '[data-subtitle-open]',
+    '[data-settings-trigger]',
+    '[data-overflow-menu]',
+];
+const YOMU_VIDEO_PLAYER_PASSIVE_INTERACTION = [
+    'a[href]',
+    'button',
+    'label',
+    'summary',
+    '[role="button"]',
+].join(',');
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
-        id: YOMU_DEMO_LOOKUP_PARSER_ID,
-        name: 'Yomu demo lookup',
-        description: 'Hosted Yomu docs Try Me text.',
-        roots: ['[data-yomu-demo-lookup] h3', '[data-yomu-demo-lookup] p'],
+        id: YOMU_HOSTED_DOCS_PARSER_ID,
+        name: 'Yomu hosted docs',
+        description: 'Hosted Yomu docs Japanese text.',
+        roots: YOMU_HOSTED_DOCS_ROOTS,
         exclude: COMMON_EXCLUDE,
+        passiveInteraction: YOMU_HOSTED_DOCS_PASSIVE_INTERACTION,
         allowUiText: true,
         heading: true,
         minLength: 1,
         includeUiChrome: true,
+        includeGenericPageText: true,
         visibleOnly: false,
-        scanLimit: 20,
-        matches: url => Boolean(document.querySelector('[data-yomu-demo-lookup]'))
-            && url.pathname.startsWith(`/${APP_REPOSITORY_NAME}/`),
+        matches: url => isYomuHostedPassivePage(url.href),
     },
     {
-        id: 'jpdb-parser',
+        id: 'yomu-video-player-parser',
+        name: 'Yomu video player',
+        description: 'Hosted Yomu video-player Japanese controls and empty-state text.',
+        roots: YOMU_VIDEO_PLAYER_ROOTS,
+        exclude: COMMON_EXCLUDE,
+        passiveInteraction: YOMU_VIDEO_PLAYER_PASSIVE_INTERACTION,
+        allowUiText: true,
+        heading: true,
+        minLength: 1,
+        includeUiChrome: true,
+        includeFormChrome: true,
+        matches: url => isYomuHostedVideoPlayerPage(url.href),
+    },
+    {
+        id: JPDB_PARSER_ID,
         name: 'JPDB',
         description: 'JPDB dictionary, review, and search result Japanese text.',
         roots: [
@@ -309,7 +367,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         ],
         allowUiText: true,
         passiveInteraction: YOUTUBE_PASSIVE_INTERACTION_SELECTOR,
-        includeGenericPageText: true,
         scanLimit: 80,
         matches: url => url.hostname === 'youtube.com'
             || url.hostname.endsWith('.youtube.com')
@@ -345,7 +402,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         id: 'wikipedia-parser',
         name: 'Japanese Wikipedia',
         description: 'Japanese Wikipedia article text and previews.',
-        roots: ['#firstHeading', '#mw-content-text .mw-parser-output > *', '.mwe-popups-extract > *'],
+        roots: ['#firstHeading', '#mw-content-text', '.mwe-popups-extract'],
         exclude: [
             COMMON_EXCLUDE,
             '.p-lang-btn',
@@ -354,7 +411,11 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             '.vector-page-toolbar',
             '.mw-editsection',
             'sup.reference',
+            '.legend',
         ].join(','),
+        allowUiText: true,
+        minLength: 1,
+        heading: true,
         matches: url => url.hostname === 'ja.wikipedia.org' || url.hostname === 'ja.m.wikipedia.org',
     },
     {
@@ -363,6 +424,8 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         description: 'Satori Reader article text.',
         roots: ['#article-content'],
         exclude: [COMMON_EXCLUDE, '.play-button-container', '.notes-button-container', '.fg', '.wpr'].join(','),
+        allowUiText: true,
+        minLength: 1,
         matches: url => url.hostname.endsWith('.satorireader.com') && url.pathname.includes('/articles/'),
     },
     {
@@ -470,6 +533,7 @@ function collectRootScanTargets(profile: SiteParserProfile, root: Element, conte
         allowUiText: profile.allowUiText,
         minLength: profile.minLength,
         includeUiChrome: profile.includeUiChrome,
+        includeFormChrome: profile.includeFormChrome,
         heading: profile.heading,
     });
     for (const target of collected) {
@@ -492,6 +556,7 @@ function collectPassiveInteractionScanTargets(profile: SiteParserProfile, root: 
             allowUiText: true,
             minLength: profile.minLength,
             includeUiChrome: true,
+            includeFormChrome: profile.includeFormChrome,
             heading: profile.heading,
         });
         for (const target of collected) {
@@ -518,20 +583,36 @@ function addUniqueSiteScanTarget(
     context: SiteScanContext,
     options: { passiveInteraction?: boolean } = {},
 ): boolean {
-    const firstNode = target.fragments[0]?.node;
-    if (!firstNode || context.seen.has(firstNode)) return false;
-    context.seen.add(firstNode);
+    const nodes = textNodesForFragmentTarget(target);
+    if (!nodes.length || nodes.some(node => context.seen.has(node))) return false;
+    nodes.forEach(node => context.seen.add(node));
     context.targets.push(siteScanTargetWithProfileOptions(profile, target, options));
     return true;
 }
 
 function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: FragmentTextTarget, options: { passiveInteraction?: boolean }): FragmentTextTarget {
-    if (!options.passiveInteraction) return { ...target, parserId: profile.id };
-    return {
+    const profiledTarget = !options.passiveInteraction ? { ...target, parserId: profile.id } : {
         ...target,
         parserId: profile.id,
-        suppressRuby: true,
         passiveInteraction: true,
+    };
+    return shouldActivateJpdbPageTarget(profile, options)
+        ? activeJpdbPageTarget(profiledTarget)
+        : profiledTarget;
+}
+
+function shouldActivateJpdbPageTarget(profile: SiteParserProfile, options: { passiveInteraction?: boolean }): boolean {
+    return profile.id === JPDB_PARSER_ID && !options.passiveInteraction;
+}
+
+function activeJpdbPageTarget(target: FragmentTextTarget): FragmentTextTarget {
+    return {
+        ...target,
+        passiveInteraction: false,
+        fragments: target.fragments.map(fragment => ({
+            ...fragment,
+            passiveInteraction: false,
+        })),
     };
 }
 
@@ -609,7 +690,7 @@ function collectGenericProseTargets(limit: number, existingTargets: ScanTextTarg
 
 function seenTextNodes(targets: ScanTextTarget[]): Set<Text> {
     return new Set(targets.flatMap(target => {
-        if ('fragments' in target) return target.fragments[0]?.node ? [target.fragments[0].node] : [];
+        if ('fragments' in target) return textNodesForFragmentTarget(target);
         return [target.node];
     }));
 }
@@ -646,7 +727,6 @@ function collectSafeUiChromeTargetsFromRoot(root: HTMLElement, collection: Gener
         appendGenericProseTarget(collection.targets, collection.seen, {
             ...target,
             parserId: 'safe-ui-chrome-parser',
-            suppressRuby: true,
             passiveInteraction: true,
         });
         if (genericProseCollectionFull(collection)) break;
@@ -675,12 +755,20 @@ function genericProseCollectionFull(collection: GenericProseCollection): boolean
 }
 
 function appendGenericProseTarget(targets: FragmentTextTarget[], seen: Set<Text>, target: FragmentTextTarget): boolean {
-    const firstNode = target.fragments[0]?.node;
-    if (!firstNode) return false;
-    if (seen.has(firstNode)) return false;
-    seen.add(firstNode);
+    const nodes = textNodesForFragmentTarget(target);
+    if (!nodes.length) return false;
+    if (nodes.some(node => seen.has(node))) return false;
+    nodes.forEach(node => seen.add(node));
     targets.push({ ...target, parserId: 'generic-prose-parser' });
     return true;
+}
+
+function textNodesForFragmentTarget(target: FragmentTextTarget): Text[] {
+    const nodes: Text[] = [];
+    for (const fragment of target.fragments) {
+        if (!nodes.includes(fragment.node)) nodes.push(fragment.node);
+    }
+    return nodes;
 }
 
 function isUsefulGenericProseRoot(root: HTMLElement): boolean {
@@ -712,8 +800,7 @@ function queryParserRoots(profile: SiteParserProfile): HTMLElement[] {
     for (const selector of profile.roots) {
         roots.push(...Array.from(document.querySelectorAll<HTMLElement>(selector)));
     }
-    const result = uniqueVisibleRoots(roots);
-    return result;
+    return uniqueVisibleRoots(roots);
 }
 
 function uniqueVisibleRoots(roots: HTMLElement[]): HTMLElement[] {

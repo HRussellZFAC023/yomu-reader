@@ -15,7 +15,7 @@ A userscript is a small helper that a browser extension runs for you. You instal
 - **Yomitan dictionary:** a downloadable dictionary ZIP. よむ can import these so definitions stay local in your browser.
 - **Mining:** saving a useful word, sentence, subtitle, or image context for later study.
 - **OCR:** image text reading. This is what lets you tap Japanese inside manga panels or screenshots.
-- **Anki / AnkiConnect:** Anki is a flashcard app. AnkiConnect is the desktop add-on that lets よむ create Anki cards.
+- **Anki / AnkiConnect:** Anki is a flashcard app. AnkiConnect is the desktop add-on that gives よむ full Anki access, including existing-card status, updates, deck scans, and reviews.
 - **Local server:** a helper app running on your own computer, often for audio, OCR, or Anki.
 - **localhost:** the device you are using right now. On an iPhone, `localhost` means the iPhone, not your desktop.
 
@@ -172,15 +172,19 @@ On phones and tablets, tapping is usually easier than hover. On desktop, hover i
 - Dictionaries: choose the Dictionaries tab in Settings when you want local dictionary study words. よむ downloads JMdict into local browser storage when the userscript request bridge is available; you can also import any Yomitan ZIP dictionary or settings export manually.
 - Images: enable OCR to tap Japanese text inside manga panels or screenshots.
 - Video: enable subtitles to mine words from Japanese subtitle lines. For local files, use the [Yomu video player](./video-player/index.html). On iPhone, the transcript opens as a bottom panel so it does not crush the video. On desktop and iPad, move it left, right, or below from the transcript header.
-- Anki: enable Anki mining. Desktop uses AnkiConnect; iPhone, iPad, and Android use the mobile Anki handoff when direct AnkiConnect is not available.
+- Anki: enable Anki mining. Desktop AnkiConnect is the full path: it can create or update cards, check existing-card status, scan your decks and note types, and feed Anki reviews into the new-tab page. iPhone, iPad, and Android can use mobile Anki handoff when AnkiConnect is not available, but handoff creates new notes only.
 - New tab: use the よむ [new-tab page](./newtab/index.html) as a study screen; opening it turns the study page on automatically.
 - Audio: the easiest hosted setup is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). If you want to self-host the audio files instead, the commonly shared files are here: [nyaa.si/view/1957972](https://nyaa.si/view/1957972).
 
-## 8. iPhone And iPad Notes
+For existing Anki libraries, open Settings > Anki and use **Check AnkiConnect** to verify the connection, **Create Yomu note type** to prepare a clean よむ deck and note type, or **Scan existing decks** to inspect Core, RTK, anime-card, or other nonstandard note types and suggest field mappings. Scanning helps よむ place expression, reading, meaning, sentence, audio, and image data into familiar fields, but it needs AnkiConnect and does not make mobile handoff pull status or review queues.
 
-iPhone and iPad Safari can run よむ through a userscript app, but local desktop bridges are different there. JPDB lookup, local dictionaries, OCR, subtitle taps, the hosted video player, the new-tab study page, and the AnkiMobile handoff are the friendly mobile paths. Direct AnkiConnect and localhost audio helpers still need a desktop computer that is reachable from the device, for example on the same Wi-Fi or through Tailscale.
+## 8. Mobile Notes
 
-Localhost on iPhone means the phone itself, not your desktop. If you run AnkiConnect, a local audio server, or OCR on a computer, use that computer's LAN/Tailscale address in よむ settings. Safari can also block autoplay and protected/cross-origin video capture, so subtitle lookup, copying, JPDB mining, and dictionary fallback remain the reliable mobile path.
+iPhone, iPad, and Android browsers can run よむ through a userscript app, but local desktop bridges are different there. JPDB lookup, local dictionaries, OCR, subtitle taps, the hosted video player, the new-tab study page, and mobile Anki handoff are the friendly mobile paths. Direct AnkiConnect and localhost audio helpers still need a desktop computer that is reachable from the device, for example on the same Wi-Fi or through Tailscale.
+
+Mobile Anki handoff is one-way: it opens AnkiMobile or AnkiDroid so you can create a new note. It does not read your existing collection, show existing-card status, update old notes, scan decks, adapt field mappings, or provide Anki review queues. Use AnkiConnect for those features. There is no current Android bridge in よむ for existing-card features; the settings copy mentions a future bridge only as the kind of native Android integration that would be needed.
+
+Localhost on a phone or tablet means that device, not your desktop. If you run AnkiConnect, a local audio server, or OCR on a computer, use that computer's LAN/Tailscale address in よむ settings. Mobile browsers can also block autoplay and protected/cross-origin video capture, so subtitle lookup, copying, JPDB mining, and dictionary fallback remain the reliable mobile path.
 
 If a setup step mentions leaving a terminal window or local server running, treat it as optional power-user setup. The hosted audio path, JPDB mining, imported dictionaries, and the new-tab page are simpler on mobile.
 
