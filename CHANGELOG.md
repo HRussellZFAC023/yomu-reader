@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added explicit lookup grading targets for JPDB and individual Anki cards so words that exist in both systems, or in multiple Anki notes/cards, can be graded deliberately.
+- Added Anki scan confidence chips in settings field mapping so nonstandard decks make it clearer which fields were auto-detected with high, medium, or low confidence.
+
+### Changed
+
+- Existing Anki rendered cards now keep multiple card sides separated behind collapsible Anki card headers, preserve Anki card bodies without extra Yomu labels, and cap oversized template fonts.
+
+### Fixed
+
+- Fixed word lookup popover grade buttons so selected JPDB/Anki/card targets submit from ordinary word popovers as well as kanji popovers.
+
 ## [0.5.0] - 2026-06-02
 
 ### Added

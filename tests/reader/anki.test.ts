@@ -91,6 +91,17 @@ describe('Anki rendered card scroll behavior', () => {
             .toMatch(/\.jpdb-reader-anki-existing-note-title small\s*\{[^}]*text-overflow:\s*ellipsis;/);
     });
 
+    it('keeps multiple rendered Anki cards collapsible without adding labels to card bodies', () => {
+        expect(LOCAL_DICTIONARY_CSS)
+            .toMatch(/\.jpdb-reader-anki-rendered-card-title\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*20px;/);
+        expect(LOCAL_DICTIONARY_CSS)
+            .toMatch(/\.jpdb-reader-anki-rendered-card-title::after\s*\{[^}]*content:\s*"\+";/);
+        expect(LOCAL_DICTIONARY_CSS)
+            .toMatch(/\.jpdb-reader-anki-rendered-card\[open\]\s*>\s*\.jpdb-reader-anki-rendered-card-title::after\s*\{[^}]*content:\s*"-";/);
+        expect(LOCAL_DICTIONARY_CSS)
+            .toMatch(/\.jpdb-reader-anki-rendered-side-body :is\(h1, h2, h3, h4, h5, h6\)\s*\{[^}]*font-size:\s*clamp\(16px,\s*1\.35em,\s*30px\);/);
+    });
+
     it('caps rendered-card media and keeps Anki audio as separate controls', () => {
         expect(LOCAL_DICTIONARY_CSS)
             .toMatch(/\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*font-size:\s*14px;/);
@@ -140,6 +151,46 @@ describe('Anki rendered card details', () => {
         expect(renderedBody?.textContent).not.toContain('[sound:nihongo.mp3]');
         expect(audio?.textContent).toBe('Card audio');
         expect(audio?.title).toBe('Audio nihongo.mp3');
+    });
+
+    it('renders multiple Anki cards as collapsible separators while preserving card content', () => {
+        const note = existingAnkiNote({
+            primaryCardId: 456,
+            cardIds: [123, 456],
+            renderedCards: [
+                { cardId: 123, deckName: 'Mining', question: '<div>日本語</div>', answer: '<div>Japanese</div>' },
+                { cardId: 456, deckName: 'Mining', question: '<div>Japanese</div>', answer: '<div>日本語</div>' },
+            ],
+        });
+        const section = renderExistingAnkiSection(note);
+        const renderedCards = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-anki-rendered-card')];
+        const summaries = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-anki-rendered-card-title')];
+
+        expect(renderedCards).toHaveLength(2);
+        expect(renderedCards.map(element => element.dataset.ankiRenderedCardId)).toEqual(['456', '123']);
+        expect(renderedCards[0]?.tagName).toBe('DETAILS');
+        expect(renderedCards[0]?.hasAttribute('open')).toBe(true);
+        expect(renderedCards[1]?.hasAttribute('open')).toBe(false);
+        expect(summaries).toHaveLength(2);
+        expect(section.querySelector('.jpdb-reader-anki-rendered-side-body')?.textContent).toContain('Japanese');
+    });
+
+    it('caps oversized Anki inline font declarations without flattening normal card text', () => {
+        const note = existingAnkiNote({
+            renderedCards: [{
+                cardId: 789,
+                deckName: 'Mining',
+                question: '<div style="font-size: 96px">Big</div><p style="font: 72px serif">Huge</p><span>Normal</span>',
+                answer: '',
+            }],
+        });
+        const section = renderExistingAnkiSection(note);
+        const body = section.querySelector<HTMLElement>('.jpdb-reader-anki-rendered-side-body')!;
+
+        expect(body.innerHTML).toContain('font-size: 30px');
+        expect(body.innerHTML).not.toContain('96px');
+        expect(body.innerHTML).not.toContain('72px');
+        expect(body.textContent).toContain('Normal');
     });
 });
 

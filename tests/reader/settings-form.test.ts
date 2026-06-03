@@ -579,6 +579,8 @@ describe('settings form localization', () => {
             },
         });
         expect(form.querySelector<HTMLElement>('[data-anki-library-adapter]')?.textContent).toContain('Existing library adapter');
+        expect(form.querySelector<HTMLElement>('[data-anki-library-choices-title]')?.textContent).toBe('Deck and note type');
+        expect(form.querySelector<HTMLElement>('[data-anki-template-settings-title]')?.textContent).toBe('Yomu card template');
         expect(form.querySelector<HTMLSelectElement>('select[data-anki-field-role="expression"]')?.value).toBe('Headword');
         expect(form.querySelector<HTMLSelectElement>('select[data-anki-field-role="reading"]')?.value).toBe('Kana');
         expect(form.querySelector<HTMLSelectElement>('select[data-anki-field-role="meaning"]')?.value).toBe('Glossary');
@@ -699,6 +701,8 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')?.textContent).toBe('既存デッキをスキャン');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiMobile/AnkiDroidへの受け渡しはオン');
         expect(form.querySelector<HTMLElement>('[data-anki-library-availability]')?.textContent).toContain('RTK/Core系');
+        expect(form.querySelector<HTMLElement>('[data-anki-library-choices-title]')?.textContent).toBe('デッキとノートタイプ');
+        expect(form.querySelector<HTMLElement>('[data-anki-template-settings-title]')?.textContent).toBe('よむカードテンプレート');
         expect(form.querySelector<HTMLElement>('[data-theme-switch]')?.title).toBe('ダークテーマに切り替え');
         expect(form.querySelector<HTMLElement>('[data-theme-switch]')?.getAttribute('aria-describedby')).toBe('jpdb-reader-theme-label');
         expect(form.querySelector('[data-help-links-title]')?.textContent).toBe('便利なページ');

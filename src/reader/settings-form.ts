@@ -24,6 +24,8 @@ export interface SettingsStatusLine {
     message: string;
     tone: SettingsStatusTone;
 }
+type AnkiMappingConfidence = 'high' | 'medium' | 'low';
+type AnkiMappingConfidenceByRole = Partial<Record<AnkiFieldMappingRole, AnkiMappingConfidence>>;
 const DISABLED_SETTINGS_CONTROL_DESCRIPTION_ID = 'jpdb-reader-disabled-control-description';
 const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
 const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
@@ -628,6 +630,7 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
                 <legend>Anki</legend>
                 <input type="hidden" name="ankiFieldMappings" value="${escapeHtml(JSON.stringify(settings.ankiFieldMappings))}">
                 <input type="hidden" data-anki-scan-fields value="{}">
+                <input type="hidden" data-anki-scan-confidence value="{}">
                 <div class="jpdb-reader-anki-layout">
                     <div class="jpdb-reader-anki-main">
                         <div class="grid jpdb-reader-anki-connection-grid">
@@ -642,20 +645,31 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
                             <div id="settings-help-anki" class="jpdb-reader-help" data-anki-setup-help></div>
                             <div class="jpdb-reader-settings-actions jpdb-reader-anki-actions">
                                 <button class="jpdb-reader-btn" type="button" data-action="test-anki">Check</button>
-                                <button class="jpdb-reader-btn secondary" type="button" data-action="prepare-anki">Create</button>
                                 <button class="jpdb-reader-btn secondary" type="button" data-action="scan-anki">Scan</button>
+                                <button class="jpdb-reader-btn secondary" type="button" data-action="prepare-anki">Create</button>
                             </div>
                         </div>
-                        <div class="jpdb-reader-anki-choice-grid">
-                            <label><span class="jpdb-reader-settings-label-text">Anki deck</span><select name="ankiDeck" data-anki-deck-options>${renderAnkiLibraryOptions([settings.ankiDeck].filter(Boolean), settings.ankiDeck, settings.interfaceLanguage)}</select></label>
-                            <label><span class="jpdb-reader-settings-label-text">Anki note type</span><select name="ankiModel" data-anki-model-options>${renderAnkiLibraryOptions([settings.ankiModel, ...Object.keys(settings.ankiFieldMappings)].filter(Boolean), settings.ankiModel, settings.interfaceLanguage)}</select></label>
+                        <div class="jpdb-reader-settings-subsection jpdb-reader-anki-library-choice">
+                            <div class="jpdb-reader-local-title" data-anki-library-choices-title>${escapeHtml(uiText(settings.interfaceLanguage, 'ankiLibraryChoices'))}</div>
+                            <div class="jpdb-reader-help" data-anki-library-choices-help>${escapeHtml(uiText(settings.interfaceLanguage, 'ankiLibraryChoicesHelp'))}</div>
+                            <div class="jpdb-reader-anki-choice-grid">
+                                <label><span class="jpdb-reader-settings-label-text">Anki deck</span><select name="ankiDeck" data-anki-deck-options>${renderAnkiLibraryOptions([settings.ankiDeck].filter(Boolean), settings.ankiDeck, settings.interfaceLanguage)}</select></label>
+                                <label><span class="jpdb-reader-settings-label-text">Anki note type</span><select name="ankiModel" data-anki-model-options>${renderAnkiLibraryOptions([settings.ankiModel, ...Object.keys(settings.ankiFieldMappings)].filter(Boolean), settings.ankiModel, settings.interfaceLanguage)}</select></label>
+                            </div>
                         </div>
-                        <div class="grid jpdb-reader-anki-card-grid">
-                            ${select('ankiTemplateMode', 'Anki card template', settings.ankiTemplateMode, [['recognition', 'Word first'], ['context', 'Sentence first']])}
-                            ${checkbox('ankiFrontReading', 'Word-first front: show reading', settings.ankiFrontReading)}
-                            ${checkbox('ankiFrontSentence', 'Word-first front: show sentence', settings.ankiFrontSentence)}
-                            ${checkbox('ankiFrontImage', 'Show image on front', settings.ankiFrontImage)}
-                            ${input('ankiTags', 'Tags', settings.ankiTags)}
+                        <div class="jpdb-reader-settings-subsection jpdb-reader-anki-template-settings">
+                            <div class="jpdb-reader-local-title" data-anki-template-settings-title>${escapeHtml(uiText(settings.interfaceLanguage, 'ankiTemplateSettings'))}</div>
+                            <div class="jpdb-reader-help" data-anki-template-settings-help>${escapeHtml(uiText(settings.interfaceLanguage, 'ankiTemplateSettingsHelp'))}</div>
+                            <div class="grid jpdb-reader-anki-card-grid">
+                                ${select('ankiTemplateMode', 'Anki card template', settings.ankiTemplateMode, [['recognition', 'Word first'], ['context', 'Sentence first']])}
+                                ${checkbox('ankiFrontReading', 'Word-first front: show reading', settings.ankiFrontReading)}
+                                ${checkbox('ankiFrontSentence', 'Word-first front: show sentence', settings.ankiFrontSentence)}
+                                ${checkbox('ankiFrontImage', 'Show image on front', settings.ankiFrontImage)}
+                                ${input('ankiTags', 'Tags', settings.ankiTags)}
+                            </div>
+                            <div data-anki-template-preview>
+                                ${renderAnkiTemplatePreview(settings)}
+                            </div>
                         </div>
                     </div>
                     <div class="jpdb-reader-settings-subsection jpdb-reader-anki-adapter" data-anki-library-adapter>
@@ -665,9 +679,6 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
                             ${renderAnkiFieldMappingEditor(settings, settings.ankiModel, [], settings.interfaceLanguage)}
                         </div>
                     </div>
-                </div>
-                <div data-anki-template-preview>
-                    ${renderAnkiTemplatePreview(settings)}
                 </div>
             </fieldset>
     `;
@@ -683,7 +694,13 @@ function formatStatusTemplate(template: string, values: Record<string, string>):
     return template.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? '');
 }
 
-export function renderAnkiFieldMappingEditor(settings: ReaderSettings, modelName = settings.ankiModel, scannedFields: string[] = [], language: InterfaceLanguage = settings.interfaceLanguage): string {
+export function renderAnkiFieldMappingEditor(
+    settings: ReaderSettings,
+    modelName = settings.ankiModel,
+    scannedFields: string[] = [],
+    language: InterfaceLanguage = settings.interfaceLanguage,
+    confidenceByRole: AnkiMappingConfidenceByRole = {},
+): string {
     const model = modelName.trim();
     const mapping = model ? settings.ankiFieldMappings[model] ?? {} : {};
     const fields = uniqueStrings([...scannedFields, ...Object.values(mapping).filter(Boolean)]);
@@ -694,9 +711,13 @@ export function renderAnkiFieldMappingEditor(settings: ReaderSettings, modelName
     const rows = ANKI_FIELD_MAPPING_ROLES.map(role => {
         const value = mapping[role] ?? '';
         const roleLabel = ankiFieldMappingRoleLabel(role, language);
+        const confidence = value ? confidenceByRole[role] : undefined;
         return `
                 <label>
-                    ${escapeHtml(roleLabel)}
+                    <span class="jpdb-reader-anki-field-role-row">
+                        <span>${escapeHtml(roleLabel)}</span>
+                        ${confidence ? renderAnkiMappingConfidence(confidence, language) : ''}
+                    </span>
                     <select data-anki-field-role="${escapeHtml(role)}" aria-label="${escapeHtml(uiText(language, 'ankiFieldMappingSelect').replace('{role}', roleLabel))}">
                         ${options(value)}
                     </select>
@@ -710,9 +731,15 @@ export function renderAnkiFieldMappingEditor(settings: ReaderSettings, modelName
                 <div class="grid">
                     ${rows}
                 </div>
+                ${fields.length ? `<div class="jpdb-reader-help">${escapeHtml(uiText(language, 'ankiMappingConfidenceHelp'))}</div>` : ''}
                 ${emptyState}
             </div>
     `;
+}
+
+function renderAnkiMappingConfidence(confidence: AnkiMappingConfidence, language: InterfaceLanguage): string {
+    const key = confidence === 'high' ? 'ankiMappingHighConfidence' : confidence === 'medium' ? 'ankiMappingMediumConfidence' : 'ankiMappingLowConfidence';
+    return `<span class="jpdb-reader-anki-confidence" data-confidence="${confidence}">${escapeHtml(uiText(language, key))}</span>`;
 }
 
 function ankiFieldMappingRoleLabel(role: AnkiFieldMappingRole, language: InterfaceLanguage): string {
@@ -1205,6 +1232,16 @@ function localizeMiningSettingsSelects(form: HTMLFormElement, text: SettingsText
         ['recognition', text('wordFirst')],
         ['context', text('sentenceFirst')],
     ]);
+    form.querySelector<HTMLElement>('[data-anki-library-choices-title]')?.replaceChildren(text('ankiLibraryChoices'));
+    form.querySelector<HTMLElement>('[data-anki-library-choices-help]')?.replaceChildren(text('ankiLibraryChoicesHelp'));
+    form.querySelector<HTMLElement>('[data-anki-template-settings-title]')?.replaceChildren(text('ankiTemplateSettings'));
+    form.querySelector<HTMLElement>('[data-anki-template-settings-help]')?.replaceChildren(text('ankiTemplateSettingsHelp'));
+    form.querySelectorAll<HTMLElement>('[data-confidence]').forEach(chip => {
+        const confidence = chip.dataset.confidence;
+        if (confidence === 'high') chip.replaceChildren(text('ankiMappingHighConfidence'));
+        else if (confidence === 'medium') chip.replaceChildren(text('ankiMappingMediumConfidence'));
+        else if (confidence === 'low') chip.replaceChildren(text('ankiMappingLowConfidence'));
+    });
 }
 
 function localizeSettingsShortcuts(form: HTMLFormElement, text: SettingsText): void {

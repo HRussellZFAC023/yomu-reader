@@ -176,10 +176,14 @@ function renderAnkiRenderedCardPreview(note: AnkiExistingNote, card: AnkiRendere
     const question = renderAnkiRenderedSide(card.question, soundFilenames, language, card.mediaDataUrls);
     const answer = renderAnkiRenderedSide(card.answer, soundFilenames, language, card.mediaDataUrls);
     if (!question && !answer) return '';
-    return `<div class="jpdb-reader-anki-rendered-card" data-anki-rendered-card-id="${card.cardId}">
-        ${showHeading ? `<div class="jpdb-reader-anki-rendered-card-title">${escapeHtml(renderedCardTitle(card, index))}</div>` : ''}
-        ${question}${answer}
-    </div>`;
+    const content = `${question}${answer}`;
+    if (!showHeading) {
+        return `<div class="jpdb-reader-anki-rendered-card" data-anki-rendered-card-id="${card.cardId}">${content}</div>`;
+    }
+    return `<details class="jpdb-reader-anki-rendered-card" data-anki-rendered-card-id="${card.cardId}"${index === 0 ? ' open' : ''}>
+        <summary class="jpdb-reader-anki-rendered-card-title">${escapeHtml(renderedCardTitle(card, index))}</summary>
+        ${content}
+    </details>`;
 }
 
 function orderedRenderedCards(note: AnkiExistingNote): AnkiRenderedCard[] {
@@ -302,9 +306,15 @@ function rewriteAnkiCardMediaAttribute(element: Element, name: string, value: st
 }
 
 function capAnkiCardInlineStyle(element: Element): void {
-    const style = element.getAttribute('style');
-    if (!style || !/font-size/i.test(style)) return;
-    element.setAttribute('style', style.replace(/font-size\s*:\s*([^;]+)/gi, (_all, rawValue: string) => `font-size: ${cappedFontSizeValue(rawValue)}`));
+    if (!(element instanceof HTMLElement)) return;
+    const originalStyle = element.getAttribute('style');
+    if (!originalStyle || !/(?:^|;)\s*font(?:-size)?\s*:/i.test(originalStyle)) return;
+    const capped = cappedFontSizeValue(element.style.fontSize);
+    if (capped) element.style.fontSize = capped;
+    const updatedStyle = element.getAttribute('style');
+    if (updatedStyle && /(?:^|;)\s*font\s*:/i.test(updatedStyle)) {
+        element.setAttribute('style', updatedStyle.replace(/(^|;)\s*font\s*:[^;]+;?/gi, '$1').trim());
+    }
 }
 
 function cappedFontSizeValue(rawValue: string): string {
