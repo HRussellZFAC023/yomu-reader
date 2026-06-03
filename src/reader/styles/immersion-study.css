@@ -42,6 +42,9 @@
   background: transparent;
 }
 .jpdb-reader-example-card.has-image .jpdb-reader-example-media {
+  justify-self: center;
+  width: fit-content;
+  max-width: 100%;
   overflow: hidden;
 }
 .jpdb-reader-example-body {
