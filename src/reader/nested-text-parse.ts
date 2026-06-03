@@ -31,6 +31,7 @@ const SETTINGS_PARSE_ROOT_SELECTOR = [
     '[data-settings-panel]:not([hidden]) legend',
     '[data-settings-panel]:not([hidden]) label',
     '[data-settings-panel]:not([hidden]) .jpdb-reader-local-title',
+    '[data-settings-panel]:not([hidden]) .jpdb-reader-help:not(.jpdb-reader-status-line)',
     `[data-settings-panel]:not([hidden]) ${SETTINGS_SELECT_OPTIONS_META_SELECTOR}`,
 ].join(',');
 

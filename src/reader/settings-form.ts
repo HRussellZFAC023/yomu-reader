@@ -44,27 +44,25 @@ function escapedUiText(language: InterfaceLanguage, key: Parameters<typeof uiTex
 
 export function renderHelpLinksPanel(): string {
     return `
-        <div class="jpdb-reader-help-card jpdb-reader-help-links-card">
-            <div>
-                <div class="jpdb-reader-help-title" data-help-links-title>Useful pages</div>
-                <p data-help-links-copy>Open the hosted reader tools and docs from here.</p>
-            </div>
-            <div class="jpdb-reader-help-actions">
-                <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">${externalButtonLabel('Video Player')}</a>
-                <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">${externalButtonLabel('New Tab')}</a>
-                <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}" target="_blank" rel="noopener" data-help-link="docs">${externalButtonLabel('Docs')}</a>
-                <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="factory-reset" data-help-link="factory-reset">Factory Reset</button>
-            </div>
-            <div class="jpdb-reader-help-support">
-                <div>
-                    <div class="jpdb-reader-help-title" data-help-support-title>Support よむ</div>
-                    <p data-help-support-copy>${escapeHtml(SUPPORT_COPY)}</p>
-                    <p data-help-support-copy-extra>${escapeHtml(SUPPORT_COPY_EXTRA)}</p>
-                </div>
+        <div class="jpdb-reader-help-links-card">
+            <div class="jpdb-reader-settings-subsection">
+                <div class="jpdb-reader-local-title" data-help-links-title>Useful pages</div>
+                <div class="jpdb-reader-help" data-help-links-copy>Open the hosted reader tools and docs from here.</div>
                 <div class="jpdb-reader-help-actions">
-                    <a class="jpdb-reader-btn jpdb-reader-help-donate" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">${externalButtonLabel('Donate')}</a>
+                    <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">${externalButtonLabel('Video Player')}</a>
+                    <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">${externalButtonLabel('New Tab')}</a>
+                    <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}" target="_blank" rel="noopener" data-help-link="docs">${externalButtonLabel('Docs')}</a>
+                    <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="factory-reset" data-help-link="factory-reset">Factory Reset</button>
+                </div>
+            </div>
+            <div class="jpdb-reader-settings-subsection">
+                <div class="jpdb-reader-local-title" data-help-support-title>Support よむ</div>
+                <div class="jpdb-reader-help" data-help-support-copy>${escapeHtml(SUPPORT_COPY)}</div>
+                <div class="jpdb-reader-help" data-help-support-copy-extra>${escapeHtml(SUPPORT_COPY_EXTRA)}</div>
+                <div class="jpdb-reader-help-actions">
+                    <a class="jpdb-reader-btn" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">${externalButtonLabel('Donate')}</a>
                     <a class="jpdb-reader-btn" href="${GITHUB_REPOSITORY_URL}/issues" target="_blank" rel="noopener" data-help-link="issues">${externalButtonLabel('Issues')}</a>
-                    <a class="jpdb-reader-btn jpdb-reader-help-discord" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener" data-help-link="discord">${externalButtonLabel('Discord')}</a>
+                    <a class="jpdb-reader-btn" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener" data-help-link="discord">${externalButtonLabel('Discord')}</a>
                 </div>
             </div>
         </div>

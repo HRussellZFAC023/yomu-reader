@@ -51,7 +51,7 @@ describe('nested text parse plans', () => {
             token('で', 13),
             token('した', 14, 'した', 'heiban'),
             token('ので', 16, 'ので', 'heiban'),
-        ]], DEFAULT_SETTINGS);
+        ]], { ...DEFAULT_SETTINGS, ankiEnabled: false });
 
         const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-sentence mark .jpdb-reader-word');
         expect(word?.textContent).toBe('日本語');
@@ -77,7 +77,7 @@ describe('nested text parse plans', () => {
         applyNestedParsePlan(plan, [[
             token('日本語', 0, 'にほんご', 'heiban'),
             token('分かりません', 4, 'わかりません', 'heiban'),
-        ]], DEFAULT_SETTINGS);
+        ]], { ...DEFAULT_SETTINGS, ankiEnabled: false });
 
         const sentence = root.querySelector<HTMLElement>('.jpdb-reader-example-sentence')!;
         const words = Array.from(sentence.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
@@ -118,7 +118,7 @@ describe('nested text parse plans', () => {
         expect(plan?.targets.map(target => target.text)).toEqual(['青空の下で本を読みます。', '読みます']);
     });
 
-    it('collects Japanese settings labels, headings, and select metadata without parsing help prose or hidden controls', () => {
+    it('collects Japanese settings labels, headings, help prose, and select metadata without parsing status lines or hidden controls', () => {
         document.body.innerHTML = `
             <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
                 <h2>よむ 設定</h2>
@@ -143,7 +143,7 @@ describe('nested text parse plans', () => {
         const plan = nestedSettingsTextParsePlan(root, 24);
         const texts = plan?.targets.map(target => target.text) ?? [];
 
-        expect(texts).not.toContain('日本語の説明を読む');
+        expect(texts).toContain('日本語の説明を読む');
         expect(texts).not.toContain('JPDB APIキーがありません。公開検索は使えます。');
         expect(texts).toContain('よむ 設定');
         expect(texts).toContain('基本');
