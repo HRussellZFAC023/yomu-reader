@@ -353,6 +353,7 @@ export class NewTabRuntime {
         this.factoryReset.destroy();
         this.newTab?.destroy();
         this.anki.destroy?.();
+        this.jpdbReviewBridge.close();
         this.dictionaryStyles.remove();
         this.parseContentCache.clear();
         this.dismiss();

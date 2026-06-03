@@ -110,21 +110,16 @@ export class JpdbClient {
         const id = normalizeDeckRequestId(deckId);
         const maxCards = Math.max(1, Math.floor(limit));
         const done = log.time('listDeckCards', { deckId, limit: maxCards, scheduledOnly: options.scheduledOnly, scanLimit: options.scanLimit });
-        const response = await this.api.request<JpdbDeckVocabularyResponse>('deck/list-vocabulary', {
-            id,
-            fetch_occurences: false,
-        });
-        const pairs = deckVocabularyPairsForRequest(normalizeVocabularyPairs(response.vocabulary), maxCards, options);
-        if (!pairs.length) {
+        try {
+            const pairs = await this.listDeckVocabularyPairsByRequestId(id);
+            return await this.cardsFromDeckVocabularyPairs(pairs, maxCards, options);
+        } catch (error) {
+            if (id !== JPDB_ALL_DECKS_ID) throw error;
+            log.warn('JPDB all-decks list failed; falling back to listed deck scan', error);
+            return await this.listCardsFromListedDecks(maxCards, options);
+        } finally {
             done();
-            return [];
         }
-
-        const cards = options.scheduledOnly
-            ? await this.lookupScheduledDeckCards(pairs, maxCards)
-            : await this.lookupDeckVocabularyCards(pairs);
-        done();
-        return cards;
     }
 
     async isInUserDeckPool(card: JPDBCard): Promise<boolean> {
@@ -257,14 +252,52 @@ export class JpdbClient {
         return pool;
     }
 
+    private async listCardsFromListedDecks(limit: number, options: JpdbListDeckCardsOptions): Promise<JPDBCard[]> {
+        const decks = await this.listDecks();
+        const cards: JPDBCard[] = [];
+        const seen = new Set<string>();
+        for (const deck of decks) {
+            if (cards.length >= limit) break;
+            const pairs = await this.listDeckVocabularyPairs(deck.id).catch(error => {
+                log.warn('JPDB listed-deck scan skipped a deck', { deckId: deck.id }, error);
+                return [] as Array<[number, number]>;
+            });
+            const deckCards = await this.cardsFromDeckVocabularyPairs(pairs, limit - cards.length, options);
+            for (const card of deckCards) {
+                const key = cardKey(card.vid, card.sid);
+                if (seen.has(key)) continue;
+                seen.add(key);
+                cards.push(card);
+                if (cards.length >= limit) break;
+            }
+        }
+        return cards.slice(0, limit);
+    }
+
+    private async cardsFromDeckVocabularyPairs(
+        rawPairs: Array<[number, number]>,
+        limit: number,
+        options: JpdbListDeckCardsOptions,
+    ): Promise<JPDBCard[]> {
+        const pairs = deckVocabularyPairsForRequest(rawPairs, limit, options);
+        if (!pairs.length) return [];
+        return options.scheduledOnly
+            ? await this.lookupScheduledDeckCards(pairs, limit)
+            : await this.lookupDeckVocabularyCards(pairs);
+    }
+
     private async fetchDeckVocabularyPairSet(deckId: string): Promise<Set<string>> {
         const pairs = await this.listDeckVocabularyPairs(deckId);
         return new Set(pairs.map(([vid, sid]) => deckMembershipKey(vid, sid)));
     }
 
     private async listDeckVocabularyPairs(deckId: string): Promise<Array<[number, number]>> {
+        return this.listDeckVocabularyPairsByRequestId(normalizeDeckRequestId(deckId));
+    }
+
+    private async listDeckVocabularyPairsByRequestId(id: string | number): Promise<Array<[number, number]>> {
         const response = await this.api.request<JpdbDeckVocabularyResponse>('deck/list-vocabulary', {
-            id: normalizeDeckRequestId(deckId),
+            id,
             fetch_occurences: false,
         });
         return normalizeVocabularyPairs(response.vocabulary);
