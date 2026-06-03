@@ -1,14 +1,15 @@
 # Changelog
 
-## [Unreleased]
-
 ## [0.6.1] - 2026-06-03
 
 ### Fixed
 
 - Kept the hosted app on the userscript request bridge for local AnkiConnect, with clearer Anki setup guidance and a direct AnkiConnect add-on link in settings.
 - Restored a readable Greasy Fork build by using a pinned fflate `@require` instead of post-build compaction/minification.
-- Avoided jsdom media-play stalls in tests when reserving silent gesture audio.
+- Opened mobile Anki handoff immediately from card actions instead of waiting on hosted AnkiConnect/detail-provider probes.
+- Improved existing Anki card rendering for RRTK/Core/Yomu-style templates by removing nested card scroll traps, capping imported template fonts, separating Anki media controls, and avoiding duplicated Anki fronts when the answer already contains the question.
+- Added realistic Anki template QA fixtures and a Chromium smoke check for dark/light popover rendering.
+- Split CI into typecheck, sharded Vitest, and build/docs jobs, and stopped the generated-userscript workflow from rerunning the full test suite after CI.
 
 ## [0.6.0] - 2026-06-03
 

@@ -27,7 +27,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run check
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run verify
+      - run: node scripts/sync-docs-userscript.cjs
+      - run: npm run docs:build
       - name: Commit bundled userscript
         run: |
           git config user.name "github-actions[bot]"

@@ -160,7 +160,7 @@ Check current bundle size evidence:
 npm run size:bundle
 ```
 
-The release budget is 2,000,000 raw bytes for `dist/yomu.user.js`. The current built userscript is below that limit at 1,986,075 bytes / 1939.5 KiB raw, with JavaScript and CSS minification disabled.
+Greasy Fork's upload budget is 2,000,000 raw bytes for `dist/yomu.user.js`. The hosted release build remains readable and non-minified; when it is over that upload budget, `npm run verify` warns and the Greasy Fork prefill script blocks upload until source-level trimming brings it back under the limit.
 
 Copy `.env.example` to `.env` for local secrets. `.env` is ignored by Git. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you want the secret-leak guard and live JPDB smoke path. Real screenshot capture also reads `.env`; set `YOMU_CAPTURE_API_KEY` when subtitle/store screenshots need JPDB mining status colors:
 
@@ -246,7 +246,7 @@ https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.use
 
 After that, pushes to `main` rebuild the userscript and GreasyFork can pick up the new raw file through its sync/webhook flow.
 
-GreasyFork requires posted code to stay readable and non-minified. The release build disables JavaScript and CSS minification, formats the embedded CSS literal back into readable lines, and keeps the verifier checking for one-line/minified-looking output. Do not re-enable minifiers to fit the 2 MB limit; remove duplication or move non-code data out of the userscript instead. Official rule: https://greasyfork.org/en/help/code-rules
+GreasyFork requires posted code to stay readable and non-minified. The release build disables JavaScript and CSS minification, formats the embedded CSS literal back into readable lines, and keeps the verifier checking for one-line/minified-looking output. Do not re-enable minifiers to fit the 2 MB limit; remove duplication or move non-code data out of the userscript instead. The ZIP helper library is pinned through `@require` so the userscript stays readable. Official rule: https://greasyfork.org/en/help/code-rules
 
 For the first manual publish, this helper opens a local page that posts the current built script to GreasyFork's official prefill form:
 
@@ -317,7 +317,7 @@ Donation note: よむ has already cost more in AI/API tokens than donations are 
 | [The Kanji Map](https://thekanjimap.com/) / [source](https://github.com/gabor-kovacs/the-kanji-map) | MIT for the app; underlying data/media keep their upstream terms. よむ uses it as inspiration and fetches compact public per-kanji data at runtime when enabled. |
 | [Uchisen](https://uchisen.com/) | Optional external runtime service for kanji mnemonic images, component cues, and user-published mnemonic generation; よむ does not bundle its image/story content |
 | [Yomitan](https://github.com/yomidevs/yomitan) | GPL-3.0-or-later; used for interoperable dictionary formats, structured glossary behavior, audio-source conventions, and UX reference |
-| [fflate](https://github.com/101arrowz/fflate) | MIT; bundled for compressed ZIP dictionary import fallback when browser-native decompression is unavailable |
+| [fflate](https://github.com/101arrowz/fflate) | MIT; pinned through userscript `@require` for compressed ZIP dictionary import fallback when browser-native decompression is unavailable |
 | [JPDB Custom Dictionary Mod](https://gitlab.com/nakura/jpdb_cdm) | MIT license file; JPDB/Yomitan dictionary-on-JPDB UX reference only, with no code copied |
 | [asbplayer](https://github.com/asbplayer/asbplayer) | MIT; used as a subtitle-mining and video-reader UX reference |
 | [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader) | MIT; used as a JPDB reader behavior and parser-edge-case reference |

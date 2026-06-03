@@ -6,6 +6,7 @@ import { createPageMediaUrl } from './page-media-url';
 import { DEFAULT_YOMU_PUBLIC_PROXY_URL, isKnownCorsBlockedPublicAudioCdnUrl } from './proxy-fetch';
 import { requestBlob, requestText } from './reader-http';
 import { uniqueStrings } from './string-utils';
+import { getUserscriptHttpRequest } from './userscript';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from './types';
 
 interface AudioCandidate {
@@ -1218,19 +1219,12 @@ function shouldReserveGestureAudioElement(request: AudioPlaybackRequest): boolea
 }
 
 function playSilentReservationAudio(audio: HTMLAudioElement): void {
-    if (isUnimplementedJsdomMediaPlay(audio)) return;
     try {
         void audio.play().catch(() => undefined);
     } catch {
         // jsdom throws synchronously for HTMLMediaElement.play(), while browsers return
         // a rejected promise when playback cannot start.
     }
-}
-
-function isUnimplementedJsdomMediaPlay(audio: HTMLAudioElement): boolean {
-    return navigator.userAgent.includes('jsdom')
-        && audio.play === HTMLMediaElement.prototype.play
-        && !/\[native code\]/.test(String(HTMLMediaElement.prototype.play));
 }
 
 function preloadableAudioSources(sources: AudioSourceSetting[], settings: ReaderSettings): AudioSourceSetting[] {
@@ -1634,12 +1628,20 @@ function jpdbAudioPageSourceUrl(audioId: string): string {
 }
 
 async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = ''): Promise<string[]> {
+    if (shouldSkipJishoLookup(proxyUrl)) return [];
     const url = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
-    const response = await requestUrl(url, 'text', timeoutMs, { proxyUrl: jishoLookupProxyUrl(proxyUrl) }).catch(() => '');
+    const response = await requestUrl(url, 'text', timeoutMs, {
+        proxyUrl: jishoLookupProxyUrl(proxyUrl),
+        preferFetch: false,
+    }).catch(() => '');
     if (typeof response !== 'string') return [];
 
     const audioHtml = findHtmlElementById(response, 'audio', `audio_${card.spelling}:${card.reading}`) ?? findHtmlElement(response, 'audio');
     return audioHtml ? extractAudioSourceUrls(audioHtml, url).slice(0, 1) : findAudioUrls(response, url).slice(0, 1);
+}
+
+function shouldSkipJishoLookup(proxyUrl: string): boolean {
+    return !jishoLookupProxyUrl(proxyUrl) && !getUserscriptHttpRequest();
 }
 
 function jishoLookupProxyUrl(proxyUrl: string): string {

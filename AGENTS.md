@@ -23,7 +23,7 @@ For look-and-feel acceptance, do not use mocked fixture screenshots as proof. Fi
 
 ## Constraints
 
-- Keep the userscript self-contained; do not add `@require`.
+- Keep the userscript readable and mostly self-contained. A pinned, documented `@require` is allowed only for small, audited runtime libraries such as `fflate` when it avoids minification/packing and preserves Greasy Fork readability.
 - Do not add a backend service for default functionality.
 - Do not hardcode API keys, Tailnet URLs, or user secrets.
 - Always push completed changes and trigger the relevant redeploy before finishing, unless the user explicitly says not to.
@@ -33,7 +33,7 @@ For look-and-feel acceptance, do not use mocked fixture screenshots as proof. Fi
 - Keep visible product naming as `よむ` and the built userscript as `dist/yomu.user.js`.
 - When adding user-visible app or website copy, add both English and Japanese entries in `src/reader/i18n.ts`, verify Japanese mode does not show `未翻訳`, and rebuild/sync hosted assets so `docs/public/newtab/app.js` carries the new copy.
 - Update `dist/yomu.user.js` by running the build when source changes affect the bundle.
-- Greasy Fork limits scripts to 2 MB. Keep `dist/yomu.user.js` under 2,000,000 bytes and rely on `npm run verify` as the guardrail. Do not minify, compress, pack, or obfuscate the userscript to fit the limit; Greasy Fork forbids that. If size gets tight, remove duplication, purge unused CSS, prefer runtime/hosted assets for nonessential media such as icons, and avoid bundling large datasets.
+- Greasy Fork limits scripts to 2 MB. `npm run verify` warns when the readable hosted build exceeds that limit, and Greasy Fork upload scripts must still reject oversized uploads. Do not minify, compress, pack, or obfuscate the userscript to fit the limit; Greasy Fork forbids that. If size gets tight, remove duplication, purge unused CSS, prefer runtime/hosted assets for nonessential media such as icons, and avoid bundling large datasets.
 - Treat bundle size as architecture, not bookkeeping. Ask: what is the smallest amount of code needed to preserve the feature? Keep common reader behavior generic, and do not add page-specific layout handling unless usage evidence shows it is needed. When code handles a special website shape, isolate it behind a named Adapter and keep the generic path simple.
 - Fight long-files syndrome. Prefer focused Modules with explicit Interfaces over files that accumulate unrelated behavior. If a file grows because it owns several jobs, split by responsibility before adding more branches.
 - Remove dead or stale code only after confirming with usage search. For verbose code, prefer deleting duplication, debug-only chatter, unused edge-case branches, and over-specific guards before adding helpers. Every cleanup should make the Implementation smaller, deeper, or easier to reason about.

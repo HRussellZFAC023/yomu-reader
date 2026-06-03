@@ -2785,6 +2785,9 @@ button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
   max-width: 100%;
   max-height: min(70vh, 420px);
 }
+.jpdb-reader-anki-rendered-side-body :where(*) {
+  font-size: min(1em, 30px);
+}
 .jpdb-reader-anki-rendered-side-body :is(h1, h2, h3, h4, h5, h6) {
   font-size: clamp(16px, 1.35em, 30px);
   line-height: 1.2;
@@ -2914,6 +2917,9 @@ button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
   background: transparent;
 }
 .jpdb-reader-example-card.has-image .jpdb-reader-example-media {
+  justify-self: center;
+  width: fit-content;
+  max-width: 100%;
   overflow: hidden;
 }
 .jpdb-reader-example-body {
@@ -5371,6 +5377,7 @@ html.jpdb-reader-doodle-active * {
   overflow-wrap: break-word;
 }
 .jpdb-reader-settings .jpdb-reader-word {
+  display: inline !important;
   white-space: normal;
   word-break: normal;
   overflow-wrap: normal !important;
@@ -5391,10 +5398,12 @@ html.jpdb-reader-doodle-active * {
   line-height: inherit;
 }
 .jpdb-reader-select-options-meta {
+  display: block;
   min-width: 0;
   color: var(--jpdb-reader-faint);
   font: 800 10.5px/1.45 var(--jpdb-reader-font);
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 .jpdb-reader-font-family-control {
   display: grid;
@@ -5680,6 +5689,7 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings .jpdb-reader-help {
   font-size: 12px;
   line-height: 1.45;
+  margin-top: 8px;
 }
 .jpdb-reader-settings-wide {
   grid-column: 1 / -1;
@@ -5985,30 +5995,12 @@ html.jpdb-reader-doodle-active * {
   box-shadow: 0 6px 16px
     color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
 }
-.jpdb-reader-help-card {
-  display: grid;
-  gap: 12px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  padding: 14px;
-}
-.jpdb-reader-help-title {
-  color: var(--jpdb-reader-text);
-  font-size: 15px;
-  font-weight: 850;
-}
-.jpdb-reader-help-card p {
-  margin: 8px 0 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 13px;
-  line-height: 1.45;
-}
 .jpdb-reader-help-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
+  margin-top: 12px;
 }
 .jpdb-reader-help-actions .jpdb-reader-btn {
   flex: 1 1 auto;
@@ -6059,12 +6051,7 @@ html.jpdb-reader-doodle-active * {
   border-color: var(--jpdb-reader-danger-readable);
   color: var(--jpdb-reader-danger-readable) !important;
 }
-.jpdb-reader-help-support {
-  display: grid;
-  gap: 10px;
-  padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
-}
+
 .jpdb-reader-help-discord {
   display: inline-flex;
   align-items: center;
@@ -6252,6 +6239,17 @@ html.jpdb-reader-doodle-active * {
   align-items: center;
   min-width: 0;
 }
+.jpdb-reader-audio-source-choice select {
+  grid-column: 1;
+  grid-row: 1;
+}
+.jpdb-reader-audio-source-choice .jpdb-reader-icon-mini {
+  grid-column: 2;
+  grid-row: 1;
+}
+.jpdb-reader-audio-source-choice .jpdb-reader-select-options-meta {
+  grid-column: 1 / -1;
+}
 .jpdb-reader-audio-source-fields {
   display: grid;
   gap: 6px;
@@ -6432,13 +6430,8 @@ html.jpdb-reader-doodle-active * {
   }
 
   .jpdb-reader-settings-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .jpdb-reader-settings-tabs::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
 }
 
@@ -6465,13 +6458,8 @@ html.jpdb-reader-doodle-active * {
 
 @media (max-width: 699px) {
   .jpdb-reader-settings-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .jpdb-reader-settings-tabs::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
 
   .jpdb-reader-settings input[type="number"] {

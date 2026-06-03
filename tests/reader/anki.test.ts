@@ -47,7 +47,7 @@ describe('AnkiConnect browser fetch eligibility', () => {
             'http://127.0.0.1:8765',
             'https://hrussellzfac023.github.io/yomu-reader/newtab/',
         )).toBe(true);
-        expect(uiText('en', 'ankiHostedCorsHint')).toContain('Enable the userscript on this page');
+        expect(uiText('en', 'ankiHostedCorsHint')).toContain('enable the よむ userscript on this page');
         expect(uiText('en', 'ankiHostedCorsHint')).toContain('Advanced fallback');
         expect(needsHostedAnkiConnectSetupHint(
             'http://127.0.0.1:8765',
@@ -119,6 +119,8 @@ describe('Anki rendered card scroll behavior', () => {
             .toMatch(/\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*font-size:\s*14px;/);
         expect(LOCAL_DICTIONARY_CSS)
             .toMatch(/\.jpdb-reader-anki-rendered-side-body\s*\*\s*\{[^}]*max-height:\s*min\(70vh,\s*420px\);/);
+        expect(LOCAL_DICTIONARY_CSS)
+            .toMatch(/\.jpdb-reader-anki-rendered-side-body :where\(\*\)\s*\{[^}]*font-size:\s*min\(1em,\s*30px\);/);
         expect(LOCAL_DICTIONARY_CSS)
             .toMatch(/\.jpdb-reader-anki-rendered-side-body audio\[data-anki-media-name\]\s*\{[^}]*display:\s*none;/);
         expect(LOCAL_DICTIONARY_CSS)
@@ -244,6 +246,60 @@ describe('Anki rendered card details', () => {
         expect(body.innerHTML).not.toContain('96px');
         expect(body.innerHTML).not.toContain('72px');
         expect(body.textContent).toContain('Normal');
+    });
+
+    it('does not duplicate Anki fronts when an answer already contains the question', () => {
+        const note = existingAnkiNote({
+            modelName: 'RRTK Recognition Remembering The Kanji v2',
+            deckNames: ['RRTK Recognition Remembering The Kanji v2'],
+            fields: {
+                Kanji: '読',
+                Keyword: 'read',
+                Story: "People will say almost anything to sell you something; don't believe everything you read.",
+            },
+            renderedCards: [{
+                cardId: 1300,
+                deckName: 'RRTK Recognition Remembering The Kanji v2',
+                question: '<div class="rtk-kanji" style="font-size: 96px">読 読</div><div class="rtk-kanji" style="font-size: 96px">読 読</div>',
+                answer: '<div class="rtk-kanji" style="font-size: 96px">読 読</div><div class="rtk-kanji" style="font-size: 96px">読 読</div><hr><strong>read</strong><p>People will say almost anything to <em>sell</em> you something; do not believe everything you <strong>read</strong>.</p>',
+            }],
+        });
+        const section = renderExistingAnkiSection(note);
+        const bodies = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-anki-rendered-side-body')];
+
+        expect(bodies).toHaveLength(1);
+        expect(bodies[0]?.textContent).toContain('read');
+        expect(bodies[0]?.innerHTML).not.toContain('96px');
+        expect(section.querySelector('.jpdb-reader-anki-existing > summary')?.textContent).toContain('RRTK Recognition Remembering The Kanji v2');
+    });
+
+    it('keeps Core-style Anki card media and audio distinct from lookup audio', () => {
+        const note = existingAnkiNote({
+            modelName: 'Core 2k/6k Optimized Japanese Vocabulary',
+            deckNames: ['Vocab 2k'],
+            fields: {
+                Expression: '始める',
+                Reading: 'はじめる',
+                Meaning: 'to start',
+                Audio: '[sound:core-start.mp3]',
+            },
+            renderedCards: [{
+                cardId: 2050,
+                deckName: 'Vocab 2k',
+                question: '<div class="expression">始める</div><button>[sound:core-start.mp3]</button><img src="start.jpg">',
+                answer: '<div class="expression">始める</div><button>[sound:core-start.mp3]</button><img src="start.jpg"><hr><div>Please start the test.</div>',
+                mediaDataUrls: {
+                    'start.jpg': 'data:image/jpeg;base64,start',
+                },
+            }],
+        });
+        const section = renderExistingAnkiSection(note);
+        const body = section.querySelector<HTMLElement>('.jpdb-reader-anki-rendered-side-body')!;
+
+        expect(body.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"][data-anki-media-name="core-start.mp3"]')).not.toBeNull();
+        expect(body.querySelector<HTMLImageElement>('img')?.src).toBe('data:image/jpeg;base64,start');
+        expect(body.textContent).toContain('Please start the test.');
+        expect(section.textContent).not.toContain('WORD AUDIO');
     });
 
     it('summarizes multiple existing Anki matches by deck model kind and status', () => {

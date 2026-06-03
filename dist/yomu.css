@@ -2785,6 +2785,9 @@ button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
   max-width: 100%;
   max-height: min(70vh, 420px);
 }
+.jpdb-reader-anki-rendered-side-body :where(*) {
+  font-size: min(1em, 30px);
+}
 .jpdb-reader-anki-rendered-side-body :is(h1, h2, h3, h4, h5, h6) {
   font-size: clamp(16px, 1.35em, 30px);
   line-height: 1.2;
@@ -5374,6 +5377,7 @@ html.jpdb-reader-doodle-active * {
   overflow-wrap: break-word;
 }
 .jpdb-reader-settings .jpdb-reader-word {
+  display: inline !important;
   white-space: normal;
   word-break: normal;
   overflow-wrap: normal !important;
@@ -5394,10 +5398,12 @@ html.jpdb-reader-doodle-active * {
   line-height: inherit;
 }
 .jpdb-reader-select-options-meta {
+  display: block;
   min-width: 0;
   color: var(--jpdb-reader-faint);
   font: 800 10.5px/1.45 var(--jpdb-reader-font);
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 .jpdb-reader-font-family-control {
   display: grid;
@@ -6233,6 +6239,17 @@ html.jpdb-reader-doodle-active * {
   align-items: center;
   min-width: 0;
 }
+.jpdb-reader-audio-source-choice select {
+  grid-column: 1;
+  grid-row: 1;
+}
+.jpdb-reader-audio-source-choice .jpdb-reader-icon-mini {
+  grid-column: 2;
+  grid-row: 1;
+}
+.jpdb-reader-audio-source-choice .jpdb-reader-select-options-meta {
+  grid-column: 1 / -1;
+}
 .jpdb-reader-audio-source-fields {
   display: grid;
   gap: 6px;
@@ -6413,13 +6430,8 @@ html.jpdb-reader-doodle-active * {
   }
 
   .jpdb-reader-settings-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .jpdb-reader-settings-tabs::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
 }
 
@@ -6446,13 +6458,8 @@ html.jpdb-reader-doodle-active * {
 
 @media (max-width: 699px) {
   .jpdb-reader-settings-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .jpdb-reader-settings-tabs::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
 
   .jpdb-reader-settings input[type="number"] {

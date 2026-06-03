@@ -33,6 +33,7 @@ interface CardPopoverRenderView {
     language: InterfaceLanguage;
     hasJpdb: boolean;
     miningActions: string;
+    miningInitiallyExpanded: boolean;
     ankiActions: string;
     reviewButtons: string;
     metaItems: string[];
@@ -93,6 +94,7 @@ export class CardPopoverRenderer {
         const hasJpdb = this.dependencies.isJpdbBackedCard(card);
         const selectedDeckLabel = jpdbDeckLabel(settings, settings.miningDeck.trim() || 'forq', data.jpdbDecks);
         const reviewBlockReason = !data.ankiLookup.primary?.primaryCardId ? this.reviewBlockReason(cardStates, language) : '';
+        const miningActions = this.renderJpdbMiningActions(cardStates, language, data, hasJpdb);
         return {
             cardStates,
             state,
@@ -102,7 +104,8 @@ export class CardPopoverRenderer {
             cardPosDetails: formatPartOfSpeechDetails(card.partOfSpeech),
             language,
             hasJpdb,
-            miningActions: this.renderJpdbMiningActions(cardStates, language, data, hasJpdb),
+            miningActions,
+            miningInitiallyExpanded: Boolean(miningActions && reviewBlockReason),
             ankiActions: data.loading ? '' : renderAnkiActionRow(data.ankiLookup, settings),
             reviewButtons: this.renderReviewButtons(card, cardStates, data, hasJpdb, selectedDeckLabel, reviewBlockReason, language),
             metaItems: this.renderMetaItems(card, hasJpdb, state, data),
@@ -164,8 +167,11 @@ export class CardPopoverRenderer {
     private renderActions(view: CardPopoverRenderView): string {
         const hasMiningPanel = Boolean(view.miningActions);
         const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : '';
-        return `<div class="jpdb-reader-actions${hasMiningPanel ? ' jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed' : ''}">
-            ${renderMiningGutter(miningPanel, view.language)}
+        const miningClass = hasMiningPanel
+            ? ` jpdb-reader-actions-has-mining${view.miningInitiallyExpanded ? '' : ' jpdb-reader-actions-mining-collapsed'}`
+            : '';
+        return `<div class="jpdb-reader-actions${miningClass}">
+            ${renderMiningGutter(miningPanel, view.language, view.miningInitiallyExpanded)}
             ${miningPanel}
             ${hasMiningPanel ? '' : view.ankiActions}
             ${view.reviewButtons}
@@ -302,9 +308,10 @@ function renderMeta(metaItems: string[]): string {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : '';
 }
 
-function renderMiningGutter(miningActions: string, language: InterfaceLanguage): string {
+function renderMiningGutter(miningActions: string, language: InterfaceLanguage, expanded = false): string {
+    const label = uiText(language, expanded ? 'hideMiningActions' : 'showMiningActions');
     return miningActions
-        ? `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml(uiText(language, 'showMiningActions'))}" aria-label="${escapeHtml(uiText(language, 'showMiningActions'))}"></button></div>`
+        ? `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="${String(expanded)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"></button></div>`
         : '';
 }
 

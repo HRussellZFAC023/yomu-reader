@@ -202,10 +202,9 @@ function renderAnkiRenderedCard(note: AnkiExistingNote, language: InterfaceLangu
 
 function renderAnkiRenderedCardPreview(note: AnkiExistingNote, card: AnkiRenderedCard, language: InterfaceLanguage, showHeading: boolean, index: number): string {
     const soundFilenames = ankiSoundFilenames(note);
-    const question = renderAnkiRenderedSide(card.question, soundFilenames, language, card.mediaDataUrls);
-    const answer = renderAnkiRenderedSide(card.answer, soundFilenames, language, card.mediaDataUrls);
-    if (!question && !answer) return '';
-    const content = `${question}${answer}`;
+    const sides = renderAnkiRenderedSides(card, soundFilenames, language);
+    if (!sides.length) return '';
+    const content = sides.join('');
     if (!showHeading) {
         return `<div class="jpdb-reader-anki-rendered-card" data-anki-rendered-card-id="${card.cardId}">${content}</div>`;
     }
@@ -225,12 +224,39 @@ function renderedCardTitle(card: AnkiRenderedCard, index: number): string {
     return [card.deckName, `#${card.cardId || index + 1}`].filter(Boolean).join(' ');
 }
 
-function renderAnkiRenderedSide(value: string, soundFilenames: string[], language: InterfaceLanguage, mediaDataUrls: Record<string, string> | undefined): string {
-    const html = sanitizeAnkiCardHtml(value, soundFilenames, language, mediaDataUrls);
+function renderAnkiRenderedSides(card: AnkiRenderedCard, soundFilenames: string[], language: InterfaceLanguage): string[] {
+    const questionHtml = sanitizeAnkiCardHtml(card.question, soundFilenames, language, card.mediaDataUrls);
+    const answerHtml = sanitizeAnkiCardHtml(card.answer, soundFilenames, language, card.mediaDataUrls);
+    const question = hasRenderableAnkiCardContent(questionHtml) ? renderAnkiRenderedSideBody(questionHtml) : '';
+    const answer = hasRenderableAnkiCardContent(answerHtml) ? renderAnkiRenderedSideBody(answerHtml) : '';
+    if (!question) return answer ? [answer] : [];
+    if (!answer) return [question];
+    if (renderedAnkiAnswerIncludesQuestion(questionHtml, answerHtml)) return [answer];
+    return [question, answer];
+}
+
+function renderAnkiRenderedSideBody(html: string): string {
     if (!html || !hasRenderableAnkiCardContent(html)) return '';
     return `<section class="jpdb-reader-anki-rendered-side">
         <div class="jpdb-reader-anki-rendered-side-body jpdb-reader-parseable">${html}</div>
     </section>`;
+}
+
+function renderedAnkiAnswerIncludesQuestion(questionHtml: string, answerHtml: string): boolean {
+    const question = normalizedAnkiRenderedText(questionHtml);
+    const answer = normalizedAnkiRenderedText(answerHtml);
+    if (!question || !answer) return false;
+    if (answer === question) return true;
+    if (!answer.startsWith(question)) return false;
+    const remainder = answer.slice(question.length).trim();
+    return Boolean(remainder);
+}
+
+function normalizedAnkiRenderedText(html: string): string {
+    if (typeof document === 'undefined') return html.replace(/\s+/g, ' ').trim();
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    return template.content.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 }
 
 function hasRenderableAnkiCardContent(html: string): boolean {
@@ -341,7 +367,7 @@ function sanitizeAnkiCardElement(element: Element, mediaDataUrls: Record<string,
         }
         rewriteAnkiCardMediaAttribute(element, attr.name, attr.value, mediaDataUrls);
     }
-    capAnkiCardInlineStyle(element);
+    sanitizeAnkiCardInlineStyle(element);
 }
 
 function rewriteAnkiCardMediaAttribute(element: Element, name: string, value: string, mediaDataUrls: Record<string, string>): void {
@@ -353,16 +379,25 @@ function rewriteAnkiCardMediaAttribute(element: Element, name: string, value: st
     if (dataUrl) element.setAttribute(name, dataUrl);
 }
 
-function capAnkiCardInlineStyle(element: Element): void {
+function sanitizeAnkiCardInlineStyle(element: Element): void {
     if (!(element instanceof HTMLElement)) return;
     const originalStyle = element.getAttribute('style');
-    if (!originalStyle || !/(?:^|;)\s*font(?:-size)?\s*:/i.test(originalStyle)) return;
-    const capped = cappedFontSizeValue(element.style.fontSize);
-    if (capped) element.style.fontSize = capped;
+    if (!originalStyle) return;
+    if (/(?:^|;)\s*font(?:-size)?\s*:/i.test(originalStyle)) {
+        const capped = cappedFontSizeValue(element.style.fontSize);
+        if (capped) element.style.fontSize = capped;
+    }
+    removeNestedScrollInlineStyle(element);
     const updatedStyle = element.getAttribute('style');
     if (updatedStyle && /(?:^|;)\s*font\s*:/i.test(updatedStyle)) {
         element.setAttribute('style', updatedStyle.replace(/(^|;)\s*font\s*:[^;]+;?/gi, '$1').trim());
     }
+    if (!element.getAttribute('style')?.trim()) element.removeAttribute('style');
+}
+
+function removeNestedScrollInlineStyle(element: HTMLElement): void {
+    ['max-height', 'overflow', 'overflow-x', 'overflow-y', 'overscroll-behavior', 'overscroll-behavior-x', 'overscroll-behavior-y']
+        .forEach(property => element.style.removeProperty(property));
 }
 
 function cappedFontSizeValue(rawValue: string): string {

@@ -221,8 +221,11 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('background: var(--jpdb-reader-accent-text);');
         expect(normalizedCss).toContain('@media (pointer: coarse) and (min-width: 700px) and (max-width: 900px)');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings-tabs { flex-wrap: wrap; overflow-x: visible; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-settings-field-number, .jpdb-reader-settings .grid > .jpdb-reader-settings-field-color { display: grid; grid-template-columns: minmax(0, 1fr) auto;');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-word { display: inline !important;');
+        expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice .jpdb-reader-icon-mini { grid-column: 2; grid-row: 1; }');
+        expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice .jpdb-reader-select-options-meta { grid-column: 1 / -1; }');
     });
 
     it('shows Immersion Kit reveal audio autoplay enabled by default', () => {
@@ -762,6 +765,33 @@ describe('settings form localization', () => {
         expect(languageSelect.parentElement?.querySelector('[data-settings-select-options-meta]')).toBeNull();
     });
 
+    it('keeps parsed audio source metadata out of the preview button column', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        localizeSettingsForm(form, 'ja');
+        activateSettingsPanel(form, 'media');
+        const sourceChoice = form.querySelector<HTMLElement>('[data-audio-source-row] .jpdb-reader-audio-source-choice')!;
+        const meta = sourceChoice.querySelector<HTMLElement>('[data-settings-select-options-meta]')!;
+
+        expect(meta.textContent).toContain('ブラウザ読み上げ');
+
+        const plan = nestedSettingsTextParsePlan(form, 640)!;
+        const targetIndex = plan.targets.findIndex(target => target.text === meta.textContent);
+        expect(targetIndex).toBeGreaterThanOrEqual(0);
+        const parsed = plan.targets.map(() => [] as JPDBToken[]);
+        const browserStart = meta.textContent!.indexOf('ブラウザ読み上げ');
+        parsed[targetIndex] = [
+            settingsToken('選択肢', 0, 'せんたくし'),
+            settingsToken('ブラウザ', browserStart),
+            settingsToken('読み上げ', browserStart + 'ブラウザ'.length, 'よみあげ'),
+        ];
+
+        applyNestedParsePlan(plan, parsed, DEFAULT_SETTINGS);
+
+        expect(sourceChoice.querySelector<HTMLElement>('.jpdb-reader-icon-mini')?.nextElementSibling).toBeNull();
+        expect(meta.querySelectorAll('.jpdb-reader-word')).toHaveLength(3);
+    });
+
     it('unwraps stale parsed settings labels before relocalizing', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
@@ -804,24 +834,24 @@ describe('settings form localization', () => {
     });
 });
 
-function settingsToken(surface: string, start: number): JPDBToken {
+function settingsToken(surface: string, start: number, reading = surface): JPDBToken {
     return {
-        card: settingsCard(surface),
+        card: settingsCard(surface, reading),
         start,
         end: start + surface.length,
         length: surface.length,
-        rubies: [],
+        rubies: reading === surface ? [] : [{ text: reading, start, end: start + surface.length, length: surface.length }],
         pitchClass: '',
     };
 }
 
-function settingsCard(spelling: string): JPDBCard {
+function settingsCard(spelling: string, reading = spelling): JPDBCard {
     return {
         vid: 1464530,
         sid: 0,
         rid: 0,
         spelling,
-        reading: spelling,
+        reading,
         frequencyRank: null,
         partOfSpeech: [],
         meanings: [],

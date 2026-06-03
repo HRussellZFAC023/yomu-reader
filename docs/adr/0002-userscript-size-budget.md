@@ -2,21 +2,20 @@
 
 ## Status
 
-Accepted.
+Amended 2026-06-03.
 
 ## Context
 
 Greasy Fork limits scripts to 2 MB. The build verification already warns as the bundle approaches that ceiling.
 
-Current release state: the built `dist/yomu.user.js` is under the budget without minification. The latest size report measured
-`dist/yomu.user.js` at 1941.8 KiB raw, 439.0 KiB gzip, and 331.5 KiB brotli.
+Current release state: the readable hosted build can exceed Greasy Fork's 2 MB upload limit while staying non-minified. `npm run verify` warns loudly in that state, and `scripts/open-greasyfork-prefill.cjs` still blocks Greasy Fork upload because Greasy Fork will reject it.
 
 ## Decision
 
-Treat 2,000,000 bytes as a hard budget for `dist/yomu.user.js`. Do not minify, compress, pack, or obfuscate the userscript to fit the limit.
+Treat 2,000,000 bytes as a hard budget for Greasy Fork upload. Do not minify, compress, pack, or obfuscate the userscript to fit the limit. Hosted releases may ship a readable build above the limit only when the release notes and verifier warning make that tradeoff explicit.
 
 ## Consequences
 
 - Cleanup should remove duplicate rendering, CSS, parsing, and provider logic before adding dependencies.
 - Large datasets, heavy media, and nonessential assets should stay hosted, user-imported, or optional.
-- `npm run verify` is the guardrail for release readiness.
+- `npm run verify` is the guardrail for hosted release readiness; Greasy Fork upload remains blocked while the built userscript is over 2 MB.
