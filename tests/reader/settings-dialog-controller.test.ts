@@ -414,7 +414,7 @@ describe('settings dialog keyboard dismissal', () => {
                 suggestions: [
                     { role: 'expression', fieldName: 'Vocabulary-Kanji', confidence: 'high' },
                     { role: 'reading', fieldName: 'Vocabulary-Kana', confidence: 'high' },
-                    { role: 'meaning', fieldName: 'Glossary', confidence: 'high' },
+                    { role: 'meaning', fieldName: 'Glossary', confidence: 'medium' },
                 ],
             }],
             suggestedModel: {
@@ -424,7 +424,7 @@ describe('settings dialog keyboard dismissal', () => {
                 suggestions: [
                     { role: 'expression', fieldName: 'Vocabulary-Kanji', confidence: 'high' },
                     { role: 'reading', fieldName: 'Vocabulary-Kana', confidence: 'high' },
-                    { role: 'meaning', fieldName: 'Glossary', confidence: 'high' },
+                    { role: 'meaning', fieldName: 'Glossary', confidence: 'medium' },
                 ],
             },
         });
@@ -445,6 +445,18 @@ describe('settings dialog keyboard dismissal', () => {
         expect(form.querySelector<HTMLSelectElement>('select[data-anki-field-role="expression"]')?.value).toBe('Vocabulary-Kanji');
         expect(form.querySelector<HTMLSelectElement>('select[data-anki-field-role="reading"]')?.value).toBe('Vocabulary-Kana');
         expect(form.querySelector<HTMLSelectElement>('select[data-anki-field-role="meaning"]')?.value).toBe('Glossary');
+        expect(Array.from(form.querySelectorAll<HTMLElement>('[data-confidence]')).map(chip => `${chip.dataset.confidence}:${chip.textContent}`)).toEqual([
+            'high:High',
+            'high:High',
+            'medium:Medium',
+        ]);
+        expect(JSON.parse(form.querySelector<HTMLInputElement>('[data-anki-scan-confidence]')?.value ?? '{}')).toEqual({
+            'Imported Japanese': {
+                expression: 'high',
+                reading: 'high',
+                meaning: 'medium',
+            },
+        });
         expect(form.querySelector('[data-newtab-anki-decks]')).toBeNull();
         expect(form.querySelector<HTMLInputElement>('input[name="newTabAnkiDisabledDecks"]')?.value).toBe('');
         expect(JSON.parse(form.querySelector<HTMLInputElement>('input[name="ankiFieldMappings"]')?.value ?? '{}')).toEqual({

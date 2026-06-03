@@ -737,8 +737,28 @@
   border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
 }
 .jpdb-reader-anki-rendered-card-title {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
   color: var(--jpdb-reader-muted);
   font: 800 11px/1.25 var(--jpdb-reader-font);
+}
+.jpdb-reader-anki-rendered-card-title::-webkit-details-marker {
+  display: none;
+}
+.jpdb-reader-anki-rendered-card-title::after {
+  content: "+";
+  display: inline-grid;
+  place-items: center;
+  color: var(--jpdb-reader-muted);
+  font-size: 14px;
+  line-height: 1;
+}
+.jpdb-reader-anki-rendered-card[open] > .jpdb-reader-anki-rendered-card-title::after {
+  content: "-";
 }
 .jpdb-reader-anki-rendered-side {
   display: grid;
@@ -765,6 +785,10 @@
 .jpdb-reader-anki-rendered-side-body * {
   max-width: 100%;
   max-height: min(70vh, 420px);
+}
+.jpdb-reader-anki-rendered-side-body :is(h1, h2, h3, h4, h5, h6) {
+  font-size: clamp(16px, 1.35em, 30px);
+  line-height: 1.2;
 }
 .jpdb-reader-anki-rendered-side-body img,
 .jpdb-reader-anki-rendered-side-body video,

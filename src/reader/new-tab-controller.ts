@@ -501,6 +501,18 @@ interface NewTabGradeTarget {
 type QueuedNewTabGradeTarget = 'anki' | 'jpdb-api';
 type NewTabReviewTarget = QueuedNewTabGradeTarget | 'jpdb-live';
 
+export interface NewTabLookupReviewTarget {
+    id: string;
+    kind: 'jpdb' | 'anki';
+    label: string;
+    ankiCardId?: number;
+}
+
+export interface NewTabLookupReviewTargetSelection {
+    kind: 'jpdb' | 'anki';
+    ankiCardId?: number;
+}
+
 interface NewTabGradeFailure {
     target: NewTabReviewTarget;
     error: unknown;
@@ -811,12 +823,25 @@ export class NewTabController {
         return this.isCurrentLookupGradeCard(card) ? newTabGradeOptions(this.dependencies.getSettings()) : [];
     }
 
+    lookupReviewTargets(card: JPDBCard, data?: CardRenderData | null): NewTabLookupReviewTarget[] {
+        if (!this.isCurrentLookupGradeCard(card)) return [];
+        const current = this.visibleWords[this.index] ?? card;
+        const targets = this.reviewTargetsForCard(current);
+        const result: NewTabLookupReviewTarget[] = [];
+        if (targets.some(target => target === 'jpdb-api' || target === 'jpdb-live')) {
+            result.push({ id: 'jpdb', kind: 'jpdb', label: this.text('gradeTargetJpdb') });
+        }
+        const ankiTargets = this.dependencies.getSettings().newTabAnkiEnabled ? this.lookupAnkiReviewTargets(current, data) : [];
+        if (targets.includes('anki') || ankiTargets.length) result.push(...ankiTargets);
+        return result;
+    }
+
     lookupGradeTargetLabel(card: JPDBCard): string {
         return this.isCurrentLookupGradeCard(card) ? this.gradeTargetLabel(card) : '';
     }
 
-    async gradeFromLookup(grade: JPDBGrade): Promise<void> {
-        await this.gradeCurrentCard(grade);
+    async gradeFromLookup(grade: JPDBGrade, target?: NewTabLookupReviewTargetSelection): Promise<void> {
+        await this.gradeCurrentCard(grade, target);
     }
 
     private isCurrentLookupGradeCard(card: JPDBCard): boolean {
@@ -6050,7 +6075,30 @@ export class NewTabController {
     }
 
     private ankiReviewTargetLabel(card: JPDBCard): string {
-        return `(${[card.ankiDeckNames?.join(', ') || card.ankiModelName || 'Anki', this.ankiCardIdForReview(card) ? `#${this.ankiCardIdForReview(card)}` : ''].filter(Boolean).join(' ')})`;
+        return [card.ankiDeckNames?.join(', ') || card.ankiModelName || 'Anki', this.ankiCardIdForReview(card) ? `#${this.ankiCardIdForReview(card)}` : ''].filter(Boolean).join(' ');
+    }
+
+    private lookupAnkiReviewTargets(card: JPDBCard, data?: CardRenderData | null): NewTabLookupReviewTarget[] {
+        const candidates = new Map<number, string>();
+        const add = (cardId: number | null | undefined, label: string): void => {
+            const id = Number(cardId);
+            if (!Number.isFinite(id) || id <= 0 || candidates.has(id)) return;
+            candidates.set(id, [label.trim() || 'Anki', `#${id}`].filter(Boolean).join(' '));
+        };
+        add(this.ankiCardIdForReview(card), card.ankiDeckNames?.join(', ') || card.ankiModelName || 'Anki');
+        const notes = data?.ankiLookup.notes ?? [];
+        notes.forEach(note => {
+            const noteLabel = note.deckNames.join(', ') || note.modelName || 'Anki';
+            add(note.primaryCardId, noteLabel);
+            note.renderedCards?.forEach(rendered => add(rendered.cardId, rendered.deckName || noteLabel));
+            note.cardIds.forEach(cardId => add(cardId, noteLabel));
+        });
+        return Array.from(candidates, ([cardId, label]) => ({
+            id: `anki:${cardId}`,
+            kind: 'anki',
+            ankiCardId: cardId,
+            label: this.formatNewTabText('gradeTargetAnki', { target: label }),
+        }));
     }
 
     private formatNewTabText(key: NewTabCopyKey, values: Record<string, string>): string {
@@ -6089,7 +6137,7 @@ export class NewTabController {
         this.setStatus(root, this.text('jpdbKanjiUpdated'));
     }
 
-    private async gradeCurrentCard(grade: JPDBGrade): Promise<void> {
+    private async gradeCurrentCard(grade: JPDBGrade, selectedTarget?: NewTabLookupReviewTargetSelection): Promise<void> {
         const target = this.currentGradeTarget();
         if (!target) return;
         if (!this.canReviewCard(target.card)) return;
@@ -6104,7 +6152,7 @@ export class NewTabController {
         }
         try {
             this.setStatus(target.root, this.text('grading'));
-            await this.submitGrade(target.card, grade);
+            await this.submitGrade(target.card, grade, selectedTarget);
             this.invalidateReviewSourceCache(target.card);
             this.setStatus(target.root, passingNewTabGrade(grade) ? '✓' : '✕');
             this.advanceAfterGrade(target.root, target.card);
@@ -6132,7 +6180,11 @@ export class NewTabController {
         return root && card ? { root, card } : null;
     }
 
-    private async submitGrade(card: JPDBCard, grade: JPDBGrade): Promise<void> {
+    private async submitGrade(card: JPDBCard, grade: JPDBGrade, selectedTarget?: NewTabLookupReviewTargetSelection): Promise<void> {
+        if (selectedTarget) {
+            await this.submitSelectedLookupTarget(card, selectedTarget, grade);
+            return;
+        }
         const targets = this.reviewTargetsForCard(card);
         if (!targets.length) throw new Error(this.text('couldNotSubmitGrade'));
         const failures: NewTabGradeFailure[] = [];
@@ -6144,6 +6196,16 @@ export class NewTabController {
             }
         }
         if (failures.length) throw new NewTabGradeSubmissionError(failures);
+    }
+
+    private async submitSelectedLookupTarget(card: JPDBCard, selectedTarget: NewTabLookupReviewTargetSelection, grade: JPDBGrade): Promise<void> {
+        if (selectedTarget.kind === 'anki') {
+            await this.submitAnkiGrade(card, grade, selectedTarget.ankiCardId);
+            return;
+        }
+        const jpdbTarget = this.reviewTargetsForCard(card).find(target => target === 'jpdb-api' || target === 'jpdb-live');
+        if (!jpdbTarget) throw new Error(this.text('couldNotSubmitGrade'));
+        await this.submitReviewTarget(card, jpdbTarget, grade);
     }
 
     private async submitReviewTarget(card: JPDBCard, target: NewTabReviewTarget, grade: JPDBGrade): Promise<void> {
@@ -6174,8 +6236,8 @@ export class NewTabController {
         await this.dependencies.jpdb.reviewCard(card, grade);
     }
 
-    private async submitAnkiGrade(card: JPDBCard, grade: JPDBGrade): Promise<void> {
-        const cardId = this.ankiCardIdForReview(card);
+    private async submitAnkiGrade(card: JPDBCard, grade: JPDBGrade, explicitCardId?: number): Promise<void> {
+        const cardId = explicitCardId ?? this.ankiCardIdForReview(card);
         if (!cardId) throw new Error(this.text('missingAnkiCardId'));
         await this.dependencies.anki.answerCard(cardId, grade);
     }

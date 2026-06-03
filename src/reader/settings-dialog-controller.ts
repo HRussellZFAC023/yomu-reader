@@ -1088,6 +1088,15 @@ export class SettingsDialogController {
         if (fieldsInput) {
             fieldsInput.value = JSON.stringify(Object.fromEntries(scan.models.map(model => [model.modelName, model.fields])));
         }
+        const confidenceInput = form.querySelector<HTMLInputElement>('[data-anki-scan-confidence]');
+        if (confidenceInput) {
+            confidenceInput.value = JSON.stringify(Object.fromEntries(scan.models.map(model => [
+                model.modelName,
+                Object.fromEntries(model.suggestions.flatMap(suggestion =>
+                    suggestion.fieldName ? [[suggestion.role, suggestion.confidence]] : [],
+                )),
+            ])));
+        }
         this.renderAnkiFieldMappingEditor(form);
     }
 
@@ -1096,7 +1105,13 @@ export class SettingsDialogController {
         if (!container) return;
         const settings = readFormSettings(new FormData(form), this.settings);
         const modelName = namedSettingsControl<HTMLInputElement | HTMLSelectElement>(form, 'ankiModel')?.value.trim() || settings.ankiModel;
-        setInnerHtml(container, renderAnkiFieldMappingEditor(settings, modelName, this.ankiScanFieldsForModel(form, modelName), getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+        setInnerHtml(container, renderAnkiFieldMappingEditor(
+            settings,
+            modelName,
+            this.ankiScanFieldsForModel(form, modelName),
+            getFormInterfaceLanguage(form, this.settings.interfaceLanguage),
+            this.ankiScanConfidenceForModel(form, modelName),
+        ));
     }
 
     private syncAnkiFieldMappingsFromEditor(form: HTMLFormElement): void {
@@ -1126,6 +1141,23 @@ export class SettingsDialogController {
             return Array.isArray(fields) ? fields.map(String).filter(Boolean) : [];
         } catch {
             return [];
+        }
+    }
+
+    private ankiScanConfidenceForModel(form: HTMLFormElement, modelName: string): Partial<Record<AnkiFieldMappingRole, 'high' | 'medium' | 'low'>> {
+        const input = form.querySelector<HTMLInputElement>('[data-anki-scan-confidence]');
+        if (!input?.value.trim()) return {};
+        try {
+            const parsed = JSON.parse(input.value) as Record<string, Partial<Record<AnkiFieldMappingRole, unknown>>>;
+            const confidence = parsed[modelName] ?? {};
+            return Object.fromEntries(Object.entries(confidence).flatMap(([role, value]) =>
+                (role === 'expression' || role === 'reading' || role === 'meaning' || role === 'sentence' || role === 'audio' || role === 'image')
+                    && (value === 'high' || value === 'medium' || value === 'low')
+                    ? [[role, value]]
+                    : [],
+            ));
+        } catch {
+            return {};
         }
     }
 

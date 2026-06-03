@@ -47,7 +47,7 @@ import {
     type MiningContext,
 } from './mining-context';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from './nested-text-parse';
-import { NewTabController, newTabKanjiSourceTitle } from './new-tab-controller';
+import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTarget, type NewTabLookupReviewTargetSelection } from './new-tab-controller';
 import { NEW_TAB_CSS } from './newtab-styles';
 import { installOriginGraphInteractions } from './origin-graph-interactions';
 import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, popoverMaxHeightSetting, refreshForcedReaderPopoverSurface } from './popover-shell';
@@ -136,6 +136,15 @@ function isNewTabDefinitionSourceOptions(value: Record<string, string> | { inclu
     return 'includeStudySources' in value;
 }
 
+function newTabLookupReviewTargetSelection(button: HTMLButtonElement): NewTabLookupReviewTargetSelection | undefined {
+    if (button.dataset.newtabReviewTarget === 'jpdb') return { kind: 'jpdb' };
+    if (button.dataset.newtabReviewTarget !== 'anki') return undefined;
+    const ankiCardId = Number(button.dataset.ankiCardId);
+    return Number.isFinite(ankiCardId) && ankiCardId > 0
+        ? { kind: 'anki', ankiCardId }
+        : { kind: 'anki' };
+}
+
 export function bootNewTabRuntime(): void {
     const app = new NewTabRuntime();
     void app.init().catch(error => {
@@ -197,7 +206,7 @@ export class NewTabRuntime {
         renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, extraSections) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, extraSections),
         dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
         dictionaryLabel: name => this.dictionaryLabel(name),
-        renderReviewButtonsFallback: card => this.renderNewTabLookupReviewButtons(card),
+        renderReviewButtonsFallback: (card, data) => this.renderNewTabLookupReviewButtons(card, data),
     });
     private activeLookupPopover?: HTMLElement;
     private activeLookupBackdrop?: HTMLElement;
@@ -879,17 +888,25 @@ export class NewTabRuntime {
         return this.renderNewTabLookupReviewButtons(card);
     }
 
-    private renderNewTabLookupReviewButtons(card: JPDBCard): string {
+    private renderNewTabLookupReviewButtons(card: JPDBCard, data?: CardRenderData | null): string {
         const grades = this.newTab?.lookupGradeOptions(card) ?? [];
         if (!grades.length) return '';
-        const targetLabel = this.newTab?.lookupGradeTargetLabel(card) ?? '';
-        const target = targetLabel ? `<div class="jpdb-reader-newtab-grade-target" data-newtab-grade-target>${escapeHtml(targetLabel)}</div>` : '';
+        const targets = this.newTab?.lookupReviewTargets(card, data) ?? [];
+        if (targets.length) return targets.map(target => this.renderLookupReviewTargetButtons(target, grades)).join('');
+        const fallbackLabel = this.newTab?.lookupGradeTargetLabel(card) ?? '';
+        return this.renderLookupReviewTargetButtons({ id: 'current', kind: 'jpdb', label: fallbackLabel }, grades);
+    }
+
+    private renderLookupReviewTargetButtons(target: NewTabLookupReviewTarget, grades: Array<[JPDBGrade, string]>): string {
+        const targetLabel = target.label;
+        const label = targetLabel ? `<div class="jpdb-reader-newtab-grade-target" data-newtab-grade-target>${escapeHtml(targetLabel)}</div>` : '';
+        const targetAttrs = ` data-newtab-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}`;
         return `
-            <div class="jpdb-reader-row${grades.length === 5 ? ' jpdb-reader-grades' : ''}" style="--cols: ${grades.length}">
-                ${target}
-                ${grades.map(([grade, label]) => {
-                    const title = targetLabel ? ` title="${escapeHtml(targetLabel)}" aria-label="${escapeHtml(`${label}: ${targetLabel}`)}"` : '';
-                    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${title}>${escapeHtml(label)}</button>`;
+            <div class="jpdb-reader-row${grades.length === 5 ? ' jpdb-reader-grades' : ''}" style="--cols: ${grades.length}" data-newtab-review-target-row="${escapeHtml(target.id)}">
+                ${label}
+                ${grades.map(([grade, buttonLabel]) => {
+                    const title = targetLabel ? ` title="${escapeHtml(targetLabel)}" aria-label="${escapeHtml(`${buttonLabel}: ${targetLabel}`)}"` : '';
+                    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${title}>${escapeHtml(buttonLabel)}</button>`;
                 }).join('')}
             </div>
         `;
@@ -994,16 +1011,16 @@ export class NewTabRuntime {
             }
             if (action === 'grade') {
                 const grade = button.dataset.grade as JPDBGrade | undefined;
-                if (grade) void this.gradeCurrentCardFromKanjiLookup(button, grade);
+                if (grade) void this.gradeCurrentCardFromKanjiLookup(button, grade, newTabLookupReviewTargetSelection(button));
             }
         }, { signal });
     }
 
-    private async gradeCurrentCardFromKanjiLookup(button: HTMLButtonElement, grade: JPDBGrade): Promise<void> {
+    private async gradeCurrentCardFromKanjiLookup(button: HTMLButtonElement, grade: JPDBGrade, target?: NewTabLookupReviewTargetSelection): Promise<void> {
         if (!this.newTab || button.disabled) return;
         button.disabled = true;
         try {
-            await this.newTab.gradeFromLookup(grade);
+            await this.newTab.gradeFromLookup(grade, target);
             this.dismissLookupPopover();
         } catch (error) {
             log.warn('New tab kanji lookup grade failed', { grade }, error);
@@ -1320,12 +1337,31 @@ export class NewTabRuntime {
                 this.toggleMiningControls(button);
                 return;
             }
+            if (button.dataset.action === 'grade') {
+                const grade = button.dataset.grade as JPDBGrade | undefined;
+                if (grade) void this.gradeCurrentCardFromLookup(button, grade, newTabLookupReviewTargetSelection(button));
+                return;
+            }
             if (button.dataset.action === 'deck-picker') {
                 if (this.openDeckPickerForAdd(button, card, sentence)) return;
             }
             if (button.dataset.action === 'add' && this.openDeckPickerForAdd(button, card, sentence)) return;
             void this.handleCardAction(button, card, sentence, anchor);
         }, { signal });
+    }
+
+    private async gradeCurrentCardFromLookup(button: HTMLButtonElement, grade: JPDBGrade, target?: NewTabLookupReviewTargetSelection): Promise<void> {
+        if (!this.newTab || button.disabled) return;
+        button.disabled = true;
+        try {
+            await this.newTab.gradeFromLookup(grade, target);
+            this.dismissLookupPopover();
+        } catch (error) {
+            log.warn('New tab lookup grade failed', { grade }, error);
+            this.toast(this.text('couldNotSubmitGrade'));
+        } finally {
+            button.disabled = false;
+        }
     }
 
     private handleLookupPopoverDictionaryLink(event: MouseEvent, popover: HTMLElement): boolean {
