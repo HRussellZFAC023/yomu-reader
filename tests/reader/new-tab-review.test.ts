@@ -913,20 +913,20 @@ describe('new tab review helpers', () => {
         expect(cards[0]?.ankiRenderedCards?.[0]).toMatchObject({ cardId: 501, deckName: 'Imported' });
     });
 
-    it('adapts Core, Jlab, and RRTK note shapes for Anki new-tab reviews', async () => {
+    it('adapts Core, Jlab, RRTK, and kana note shapes for Anki new-tab reviews', async () => {
         vi.stubGlobal('fetch', async (_url: string, init?: RequestInit) => {
             const request = JSON.parse(String(init?.body ?? '{}')) as { action: string; params: Record<string, unknown> };
             const cards = Array.isArray(request.params.cards) ? request.params.cards.map(Number) : [];
             const notes = Array.isArray(request.params.notes) ? request.params.notes.map(Number) : [];
             const result = (() => {
                 if (request.action === 'version') return 6;
-                if (request.action === 'deckNames') return ['Core', 'Jlab', 'RRTK'];
-                if (request.action === 'findCards') return [6101, 6201, 6301];
+                if (request.action === 'deckNames') return ['Core', 'Jlab', 'RRTK', 'Kana'];
+                if (request.action === 'findCards') return [6101, 6201, 6301, 6401];
                 if (request.action === 'areDue') return cards.map(() => true);
                 if (request.action === 'cardsInfo') return cards.map(cardId => ({
                     cardId,
                     note: cardId,
-                    deckName: cardId === 6101 ? 'Core' : cardId === 6201 ? 'Jlab' : 'RRTK',
+                    deckName: cardId === 6101 ? 'Core' : cardId === 6201 ? 'Jlab' : cardId === 6301 ? 'RRTK' : 'Kana',
                     queue: 2,
                     type: 2,
                     due: cardId,
@@ -965,15 +965,29 @@ describe('new tab review helpers', () => {
                         },
                     };
                     }
-                    return {
+                    if (noteId === 6301) return {
                         noteId,
                         modelName: 'Heisig 書き方-28680',
                         tags: [],
                         cards: [noteId],
                         fields: {
                             Kanji: { value: '一' },
+                            On: { value: 'イチ' },
+                            Kun: { value: 'ひと' },
                             Keyword: { value: 'one' },
                             'Heisig Number': { value: '1' },
+                        },
+                    };
+                    return {
+                        noteId,
+                        modelName: 'Kana Drill',
+                        tags: [],
+                        cards: [noteId],
+                        fields: {
+                            Katakana: { value: 'カ' },
+                            Hiragana: { value: 'か' },
+                            Mnemonic: { value: 'katakana ka' },
+                            Audio: { value: '[sound:ka.mp3]' },
                         },
                     };
                 });
@@ -989,12 +1003,12 @@ describe('new tab review helpers', () => {
             ankiModel: '',
         };
         const client = new AnkiConnectClient(() => settings);
-        const cards = await listNewTabAnkiCards(client, settings, 3);
+        const cards = await listNewTabAnkiCards(client, settings, 4);
 
-        expect(cards.map(card => card.spelling)).toEqual(['私', '始める', '一']);
-        expect(cards.map(card => card.reading)).toEqual(['わたし', 'はじめる', '一']);
-        expect(cards.map(card => card.meanings[0]?.glosses)).toEqual([['I', 'me'], ['to start'], ['one']]);
-        expect(cards.map(card => card.ankiDeckNames?.[0])).toEqual(['Core', 'Jlab', 'RRTK']);
+        expect(cards.map(card => card.spelling)).toEqual(['私', '始める', '一', 'カ']);
+        expect(cards.map(card => card.reading)).toEqual(['わたし', 'はじめる', 'イチ', 'か']);
+        expect(cards.map(card => card.meanings[0]?.glosses)).toEqual([['I', 'me'], ['to start'], ['one'], ['katakana ka']]);
+        expect(cards.map(card => card.ankiDeckNames?.[0])).toEqual(['Core', 'Jlab', 'RRTK', 'Kana']);
     });
 
     it('keeps paging Anki candidates when early cards cannot be adapted for reviews', async () => {

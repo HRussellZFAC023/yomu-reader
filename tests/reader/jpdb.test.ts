@@ -16969,6 +16969,157 @@ describe('reader helpers', () => {
         }
     });
 
+    it('recognizes representative nonstandard Japanese deck field aliases without samples', async () => {
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                const modelName = String(request.params?.modelName ?? '');
+                const resultByAction: Record<string, unknown> = {
+                    deckNames: [
+                        'Yomu Compat Test::Animecards Lapis Shape',
+                        'Yomu Compat Test::Base Mining Shape',
+                        'Yomu Compat Test::Genki Quiz Shape',
+                        'Yomu Compat Test::JLPT Kanji Shape',
+                        'Yomu Compat Test::Kana Shape',
+                    ],
+                    modelNames: [
+                        'Yomu Compat - Animecards Lapis Shape',
+                        'Yomu Compat - Base Mining Shape',
+                        'Yomu Compat - Genki Quiz Shape',
+                        'Yomu Compat - JLPT Kanji Shape',
+                        'Yomu Compat - Kana Shape',
+                        'Heisigs RTK 6th Best',
+                    ],
+                    modelFieldNames: {
+                        'Yomu Compat - Animecards Lapis Shape': [
+                            'Expression',
+                            'ExpressionFurigana',
+                            'ExpressionReading',
+                            'ExpressionAudio',
+                            'SelectionText',
+                            'MainDefinition',
+                            'Sentence',
+                            'SentenceFurigana',
+                            'SentenceAudio',
+                            'Screenshot',
+                            'PitchPosition',
+                            'Frequency',
+                        ],
+                        'Yomu Compat - Base Mining Shape': [
+                            'Word',
+                            'Reading',
+                            'Glossary',
+                            'Sentence',
+                            'Picture',
+                            'Audio',
+                            'SentenceAudio',
+                            'Graph',
+                            'Hint',
+                        ],
+                        'Yomu Compat - Genki Quiz Shape': [
+                            'Learnable',
+                            'Reading',
+                            'Definition',
+                            'Example',
+                            'Choices',
+                            'Mems',
+                            'Audio',
+                        ],
+                        'Yomu Compat - JLPT Kanji Shape': [
+                            'Kanji',
+                            'Keyword',
+                            'On',
+                            'Kun',
+                            'StrokeOrder',
+                            'Examples',
+                        ],
+                        'Yomu Compat - Kana Shape': [
+                            'Katakana',
+                            'Hiragana',
+                            'Audio',
+                            'Mnemonic',
+                        ],
+                        'Heisigs RTK 6th Best': [
+                            'id',
+                            'frameNoV4',
+                            'frameNoV6',
+                            'keyword',
+                            'kanji',
+                            'strokeDiagram',
+                            'hint',
+                            'constituent',
+                            'strokeCount',
+                            'lessonNo',
+                            'heisigStory',
+                            'heisigComment',
+                            'koohiiStory1',
+                            'koohiiStory2',
+                            'jouYou',
+                            'jlpt',
+                            'onYomi',
+                            'kunYomi',
+                            'words',
+                            'readingExamples',
+                        ],
+                    }[modelName] ?? [],
+                    findNotes: [],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            const scan = await client.scanLibrary();
+            const suggestionsFor = (modelName: string): Record<string, string | null> => Object.fromEntries(
+                scan.models.find(model => model.modelName === modelName)?.suggestions.map(suggestion => [suggestion.role, suggestion.fieldName]) ?? [],
+            );
+
+            expect(suggestionsFor('Yomu Compat - Animecards Lapis Shape')).toMatchObject({
+                expression: 'Expression',
+                reading: 'ExpressionReading',
+                meaning: 'MainDefinition',
+                sentence: 'Sentence',
+                audio: 'ExpressionAudio',
+                image: 'Screenshot',
+            });
+            expect(suggestionsFor('Yomu Compat - Base Mining Shape')).toMatchObject({
+                expression: 'Word',
+                reading: 'Reading',
+                meaning: 'Glossary',
+                sentence: 'Sentence',
+                audio: 'Audio',
+                image: 'Picture',
+            });
+            expect(suggestionsFor('Yomu Compat - Genki Quiz Shape')).toMatchObject({
+                expression: 'Learnable',
+                reading: 'Reading',
+                meaning: 'Definition',
+                sentence: 'Example',
+                audio: 'Audio',
+            });
+            expect(suggestionsFor('Yomu Compat - JLPT Kanji Shape')).toMatchObject({
+                expression: 'Kanji',
+                reading: 'On',
+                meaning: 'Keyword',
+            });
+            expect(suggestionsFor('Yomu Compat - Kana Shape')).toMatchObject({
+                expression: 'Katakana',
+                reading: 'Hiragana',
+                meaning: 'Mnemonic',
+                audio: 'Audio',
+            });
+            expect(suggestionsFor('Heisigs RTK 6th Best')).toMatchObject({
+                expression: 'kanji',
+                reading: 'onYomi',
+                meaning: 'keyword',
+                image: null,
+            });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('samples Anki note contents to infer roles for opaque imported fields', async () => {
         const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
         vi.stubGlobal('GM', {

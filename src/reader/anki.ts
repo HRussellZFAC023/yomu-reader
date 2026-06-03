@@ -2831,6 +2831,8 @@ export const ANKI_EXPRESSION_FIELD_NAMES = [
     'Japanese Expression',
     'Japanese Word',
     'Kanji',
+    'Katakana',
+    'Learnable',
     'Lemma',
     'Primary',
     'Search Term',
@@ -2857,6 +2859,12 @@ export const ANKI_READING_FIELD_NAMES = [
     'Japanese Reading',
     'Kana',
     'Kana Reading',
+    'On',
+    'On Reading',
+    'Onyomi',
+    'Kun',
+    'Kun Reading',
+    'Kunyomi',
     'Pronunciation',
     'Reading',
     'Readings',
@@ -2889,7 +2897,10 @@ export const ANKI_MEANING_FIELD_NAMES = [
     'Gloss',
     'Glosses',
     'Glossary',
+    'Keyword',
+    'MainDefinition',
     'Meanings',
+    'Mnemonic',
     'Back',
     'DictionaryDefinitions',
     'Sense',
@@ -3127,7 +3138,7 @@ function ankiFieldAllowedForRole(fieldName: string, role: AnkiFieldRole): boolea
     const audioLike = /(?:audio|sound|voice)/.test(normalized);
     const imageLike = /(?:image|picture|screenshot|snapshot|photo|frame|still)/.test(normalized);
     if (role === 'audio') return audioLike && !imageLike;
-    if (role === 'image') return imageLike && !audioLike;
+    if (role === 'image') return imageLike && !audioLike && !/^frame(?:id|no|num|number|v?\d)/.test(normalized);
     return !audioLike && !imageLike;
 }
 
