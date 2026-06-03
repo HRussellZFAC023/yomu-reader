@@ -6,7 +6,7 @@ import {
     type AnkiConnectClient,
 } from './anki';
 import { Logger } from './logger';
-import type { AnkiFieldMapping, CardState, JPDBCard, ReaderSettings } from './types';
+import type { AnkiCardKind, AnkiFieldMapping, CardState, JPDBCard, ReaderSettings } from './types';
 
 const log = Logger.scope('AnkiNewTab');
 const ANKI_CARD_INFO_CHUNK_SIZE = 250;
@@ -75,6 +75,7 @@ interface AnkiNoteCardFields {
     meaning: string;
     partOfSpeech: string;
     sentence: string;
+    kind: AnkiCardKind;
 }
 
 type AnkiNewTabQueryKind = 'due' | 'new';
@@ -338,6 +339,7 @@ function ankiNoteToCard(note: AnkiNoteInfo, cards: AnkiCardInfo[], settings: Rea
         ankiNoteId: note.noteId,
         ankiDeckNames: unique(cards.map(card => card.deckName).filter((deckName): deckName is string => Boolean(deckName))),
         ankiModelName: note.modelName,
+        ankiCardKind: fields.kind,
         ankiReps: primaryCard?.reps ?? 0,
         ankiLapses: primaryCard?.lapses ?? 0,
         ankiRenderedCards: cards
@@ -364,7 +366,50 @@ function ankiNoteCardFields(note: AnkiNoteInfo, settings: ReaderSettings): AnkiN
         meaning: mappedField(fields, mapping, 'meaning') || firstField(fields, ANKI_NEW_TAB_MEANING_FIELD_NAMES),
         partOfSpeech: firstField(fields, ['PartOfSpeech', 'Part of Speech', 'POS']),
         sentence: mappedField(fields, mapping, 'sentence') || firstField(fields, ANKI_SENTENCE_FIELD_NAMES),
+        kind: classifyAnkiNoteCard(fields, spelling, note.modelName),
     };
+}
+
+function classifyAnkiNoteCard(fields: Record<string, string>, spelling: string, modelName: string): AnkiCardKind {
+    const fieldNames = Object.keys(fields).map(normalizeAnkiFieldName);
+    const normalizedModel = normalizeAnkiFieldName(modelName);
+    const normalizedSpelling = spelling.replace(/\s+/g, '').trim();
+    const japaneseLength = japaneseCharacterCount(normalizedSpelling);
+    const kanaLength = kanaCharacterCount(normalizedSpelling);
+    const singleKanji = japaneseLength === 1 && kanjiCharacterCount(normalizedSpelling) === 1 && Array.from(normalizedSpelling).length === 1;
+    const kanjiDeckLike = fieldNames.some(name => /^(?:kanji|keyword|onyomi|kunyomi|on|kun|heisig|frame(?:no|number)?|stroke(?:order|diagram|count)?)$/.test(name))
+        || /(?:rtk|heisig|kanji)/.test(normalizedModel);
+    if (kanjiDeckLike && (singleKanji || !fieldNames.some(name => /vocab|vocabulary|expression|word|term|headword/.test(name)))) {
+        return 'kanji';
+    }
+    if (kanaLength > 0 && kanaLength === japaneseLength && normalizedSpelling.length <= 3 && fieldNames.some(name => /^(?:katakana|hiragana|kana|mnemonic)$/.test(name))) {
+        return 'kana';
+    }
+    if (japaneseSentenceLike(spelling) || (
+        fieldNames.some(name => /^(?:sentence|sentkanji|sentencetext|japanesesentence|selectiontext|contextsentence)$/.test(name))
+        && japaneseCharacterCount(spelling) >= 8
+    )) {
+        return 'sentence';
+    }
+    return japaneseLength ? 'word' : 'other';
+}
+
+function japaneseCharacterCount(value: string): number {
+    return (value.match(/[\u3040-\u30ff\u3400-\u9fff]/gu) ?? []).length;
+}
+
+function kanjiCharacterCount(value: string): number {
+    return (value.match(/[\u3400-\u9fff]/gu) ?? []).length;
+}
+
+function kanaCharacterCount(value: string): number {
+    return (value.match(/[\u3040-\u30ff]/gu) ?? []).length;
+}
+
+function japaneseSentenceLike(value: string): boolean {
+    if (/[。！？!?]/u.test(value)) return true;
+    if (japaneseCharacterCount(value) >= 12) return true;
+    return /(?:^|[\s　]).{2,}[\s　].{2,}/u.test(value) && japaneseCharacterCount(value) >= 8;
 }
 
 function flattenNoteFields(fields: AnkiNoteInfo['fields']): Record<string, string> {

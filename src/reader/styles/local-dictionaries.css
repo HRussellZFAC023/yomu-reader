@@ -721,6 +721,39 @@
   display: grid;
   gap: 8px;
 }
+.jpdb-reader-anki-match-summary {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+  padding: 7px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 70%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface-muted) 58%, transparent);
+}
+.jpdb-reader-anki-match-summary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12px;
+}
+.jpdb-reader-anki-match-summary-row > span,
+.jpdb-reader-anki-match-summary-row > small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jpdb-reader-anki-match-summary-row > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--jpdb-reader-text);
+}
+.jpdb-reader-anki-match-summary-row > small {
+  color: var(--jpdb-reader-muted);
+}
 .jpdb-reader-anki-stored-fields {
   display: grid;
   gap: 8px;

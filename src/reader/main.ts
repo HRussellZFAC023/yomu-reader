@@ -634,6 +634,7 @@ export class ReaderApp {
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
         toast: message => this.toast(message),
         invalidateCardData: () => this.cardRenderData.clear(),
+        onAnkiStatusChanged: card => this.scheduleRenderedAnkiStatusRefresh(card),
     });
     private immersionPopover = new ImmersionPopoverController({
         getSettings: () => this.settings,
@@ -844,6 +845,27 @@ export class ReaderApp {
             if (typeof requestIdle === 'function') requestIdle(run, { timeout: 5_000 });
             else run();
         }, 1_000);
+    }
+
+    private scheduleRenderedAnkiStatusRefresh(card: JPDBCard): void {
+        if (!shouldLookupAnkiStatus(this.settings)) return;
+        window.setTimeout(() => {
+            void this.refreshRenderedAnkiStatusAfterMutation(card);
+        }, 0);
+    }
+
+    private async refreshRenderedAnkiStatusAfterMutation(card: JPDBCard): Promise<void> {
+        if (this.isDestroyed || !shouldLookupAnkiStatus(this.settings)) return;
+        try {
+            const lookup = await this.anki.findExistingCards(card);
+            if (this.isDestroyed || !shouldLookupAnkiStatus(this.settings)) return;
+            this.applyAnkiLookupToRenderedWords(card, lookup);
+        } catch (error) {
+            log.warnOnce('anki-mutation-recolor-failed', 'Anki status recolor after mutation failed', error);
+            await this.recolorRenderedAnkiWordsFromCache().catch(cacheError => {
+                log.warnOnce('anki-mutation-cache-recolor-failed', 'Cached Anki recolor after mutation failed', cacheError);
+            });
+        }
     }
 
     private shouldScanInitialPage(): boolean {

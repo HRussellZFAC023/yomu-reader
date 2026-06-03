@@ -2548,7 +2548,7 @@ function statusIndexKeysForNote(note: AnkiNoteInfo, settings: ReaderSettings): s
 }
 
 function statusIndexFieldValues(fields: Record<string, string>, mapping?: AnkiFieldMapping): string[] {
-    const expression = mappedNoteField(fields, mapping, 'expression') || firstNoteField(fields, ANKI_EXPRESSION_FIELD_NAMES);
+    const expression = firstNoteExpressionValue(fields, mapping);
     const reading = mappedNoteField(fields, mapping, 'reading') || firstNoteReading(fields);
     const preferred = (expression ? [expression] : [reading])
         .map(value => value.replace(/\s+/g, ' ').trim())
@@ -2760,11 +2760,12 @@ function noteHasExactTarget(fields: Record<string, string>, exactTargets: string
 }
 
 function noteExpressionContainsTarget(fields: Record<string, string>, exactTargets: string[], mapping?: AnkiFieldMapping): boolean {
-    const expressions = unique([
-        mappedNoteField(fields, mapping, 'expression'),
-        firstNoteField(fields, ANKI_EXPRESSION_FIELD_NAMES),
-    ].filter(Boolean));
-    return expressions.some(expression => exactTargets.some(target => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression, target)));
+    const expressions = noteExpressionCandidates(fields, mapping);
+    return expressions.some(expression => exactTargets.some(target =>
+        target.length >= 2
+        && japaneseFieldContainsStandaloneTarget(expression.value, target)
+        && (!expression.generic || genericExpressionLooksLikeHeadword(expression.value, target)),
+    ));
 }
 
 function firstNoteField(fields: Record<string, string>, names: string[]): string {
@@ -2789,10 +2790,35 @@ function noteReadingContainsTarget(fields: Record<string, string>, card: JPDBCar
 }
 
 function noteExpressionValues(fields: Record<string, string>, mapping?: AnkiFieldMapping): string[] {
-    return unique([
-        mappedNoteField(fields, mapping, 'expression'),
-        firstNoteField(fields, ANKI_EXPRESSION_FIELD_NAMES),
-    ].filter(Boolean));
+    return unique(noteExpressionCandidates(fields, mapping).map(candidate => candidate.value).filter(Boolean));
+}
+
+function firstNoteExpressionValue(fields: Record<string, string>, mapping?: AnkiFieldMapping): string {
+    return noteExpressionCandidates(fields, mapping)[0]?.value ?? '';
+}
+
+function noteExpressionCandidates(fields: Record<string, string>, mapping?: AnkiFieldMapping): Array<{ value: string; generic: boolean }> {
+    const candidates: Array<{ value: string; generic: boolean }> = [];
+    const mapped = mappedNoteField(fields, mapping, 'expression');
+    if (mapped) candidates.push({ value: mapped, generic: false });
+    const headword = firstNoteField(fields, ANKI_HEADWORD_FIELD_NAMES);
+    if (headword) candidates.push({ value: headword, generic: false });
+    const generic = firstNoteField(fields, ANKI_GENERIC_EXPRESSION_FIELD_NAMES);
+    if (generic) candidates.push({ value: generic, generic: true });
+    const seen = new Set<string>();
+    return candidates.filter(candidate => {
+        const key = normalizeStatusIndexValue(candidate.value);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+function genericExpressionLooksLikeHeadword(value: string, target: string): boolean {
+    const normalizedValue = value.replace(/\s+/g, ' ').trim();
+    if (normalizedValue === target) return true;
+    if (/[。！？!?]/u.test(normalizedValue)) return false;
+    return japaneseCharacterCount(normalizedValue) <= japaneseCharacterCount(target) + 4;
 }
 
 function lookupKeyTermsForCard(card: JPDBCard): string[] {
@@ -2849,6 +2875,42 @@ export const ANKI_EXPRESSION_FIELD_NAMES = [
     'Word',
     'Word Expression',
     'Word Kanji',
+];
+
+const ANKI_HEADWORD_FIELD_NAMES = [
+    'Base Form',
+    'Dictionary Form',
+    'Expression Reading',
+    'Expression Text',
+    'Headword',
+    'Headword Kanji',
+    'Japanese Expression',
+    'Japanese Word',
+    'Learnable',
+    'Lemma',
+    'Primary',
+    'Search Term',
+    'Target Word',
+    'Term',
+    'Term Kanji',
+    'Term Text',
+    'Vocab',
+    'Vocab Kanji',
+    'Vocabulary',
+    'Vocabulary Expression',
+    'Vocabulary Kanji',
+    'Vocabulary-Kanji',
+    'Word',
+    'Word Expression',
+    'Word Kanji',
+];
+
+const ANKI_GENERIC_EXPRESSION_FIELD_NAMES = [
+    'Expression',
+    'Front',
+    'Japanese',
+    'Kanji',
+    'Katakana',
 ];
 
 export const ANKI_READING_FIELD_NAMES = [
@@ -3156,7 +3218,9 @@ function firstMatchingAnkiField(fields: string[], names: string[]): string {
 }
 
 function firstFuzzyAnkiField(fields: string[], names: string[]): string {
-    const normalizedNames = names.map(normalizeAnkiFieldName);
+    const normalizedNames = names
+        .map(normalizeAnkiFieldName)
+        .filter(name => name.length >= 4);
     return fields.find(field => {
         const normalized = normalizeAnkiFieldName(field);
         return normalizedNames.some(name => normalized.includes(name));

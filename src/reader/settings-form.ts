@@ -97,7 +97,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
 
 function renderSettingsTabs(): string {
     return `
-            <div class="jpdb-reader-settings-tabs" role="toolbar" aria-label="Settings sections">
+            <div class="jpdb-reader-settings-tabs" role="tablist" aria-label="Settings sections">
                 ${settingsTabButton('jpdb', 'JPDB', true)}
                 ${settingsTabButton('newTab', 'New tab')}
                 ${settingsTabButton('appearance', 'Appearance')}
@@ -126,7 +126,7 @@ function renderSettingsSearch(language: InterfaceLanguage): string {
 function renderJpdbSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: string): string {
     const jpdbStatus = renderJpdbStatusLine(settings);
     return `
-            <fieldset data-settings-panel="jpdb" data-legend-key="jpdb">
+            <fieldset id="jpdb-reader-settings-panel-jpdb" role="tabpanel" data-settings-panel="jpdb" data-legend-key="jpdb">
                 <legend>JPDB</legend>
                 ${input('apiKey', `API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, settings.apiKey, 'password')}
                 ${jpdbStatus}
@@ -210,7 +210,7 @@ function ankiStatusLineFromValues(ankiEnabled: boolean, ankiConnectUrl: string, 
 
 function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
     return `
-            <fieldset data-settings-panel="appearance" data-legend-key="appearance">
+            <fieldset id="jpdb-reader-settings-panel-appearance" role="tabpanel" data-settings-panel="appearance" data-legend-key="appearance">
                 <legend>Appearance</legend>
                 <div class="grid">
                     ${select('interfaceLanguage', 'Settings language', settings.interfaceLanguage, [['auto', 'Automatic'], ['en', 'English'], ['ja', '日本語']])}
@@ -242,7 +242,7 @@ function renderStickyBottomSheetControl(settings: ReaderSettings): string {
 
 function renderNewTabSettingsPanel(settings: ReaderSettings): string {
     return `
-            <fieldset data-settings-panel="newTab" data-legend-key="newTab" hidden>
+            <fieldset id="jpdb-reader-settings-panel-newtab" role="tabpanel" data-settings-panel="newTab" data-legend-key="newTab" hidden>
                 <legend>New tab</legend>
                 ${renderNewTabSettingsSubsection(settings)}
             </fieldset>
@@ -280,38 +280,6 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
 function renderNewTabAnkiDisabledDecksInput(settings: ReaderSettings): string {
     const disabled = canonicalNewTabAnkiDisabledDecks(settings.newTabAnkiDisabledDecks);
     return `<input type="hidden" name="newTabAnkiDisabledDecks" value="${escapeHtml(disabled.join(', '))}">`;
-}
-
-export function renderNewTabAnkiDeckToggles(settings: ReaderSettings, deckNames: string[] = []): string {
-    const disabled = canonicalNewTabAnkiDisabledDecks(settings.newTabAnkiDisabledDecks);
-    const decks = [...new Set(deckNames.map(deck => deck.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-    const staleDisabled = disabled.filter(deck => !decks.includes(deck));
-    const toggles = decks.length
-        ? decks.map(deck => {
-            const checked = !isNewTabAnkiDeckDisabled(deck, disabled);
-            return `
-                            <label class="jpdb-reader-settings-deck-toggle" data-active="${checked ? 'true' : 'false'}">
-                                <input type="checkbox" data-newtab-anki-deck="${escapeHtml(deck)}" ${checked ? 'checked' : ''}>
-                                <span>${escapeHtml(deck)}</span>
-                            </label>`;
-        }).join('')
-        : `<div class="jpdb-reader-help">Scan Anki to load deck toggles. All decks are included by default.</div>`;
-    const stale = staleDisabled.length
-        ? `<div class="jpdb-reader-help">Skipped decks not currently loaded: ${escapeHtml(staleDisabled.join(', '))}</div>`
-        : '';
-    return `
-                        <div class="jpdb-reader-settings-wide" data-newtab-anki-decks>
-                            <input type="hidden" name="newTabAnkiDisabledDecks" value="${escapeHtml(disabled.join(', '))}">
-                            ${staleDisabled.map(deck => `<input type="hidden" data-newtab-anki-retained-disabled-deck value="${escapeHtml(deck)}">`).join('')}
-                            <div class="jpdb-reader-settings-label-text">Anki review decks</div>
-                            <div class="jpdb-reader-settings-deck-grid">
-${toggles}
-                            </div>
-                            ${stale}
-                            <div class="jpdb-reader-settings-actions jpdb-reader-settings-actions-single">
-                                <button class="jpdb-reader-btn secondary" type="button" data-action="scan-anki">Scan Anki library</button>
-                            </div>
-                        </div>`;
 }
 
 function renderWordColorSettingsSubsection(settings: ReaderSettings): string {
@@ -384,15 +352,17 @@ function renderColorChannelSettingsSubsection(settings: ReaderSettings): string 
 
 function renderAudioSettingsPanel(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
+    const autoPlayMode = settings.audioAutoPlayMode === 'off' ? 'all' : settings.audioAutoPlayMode;
     return `
-            <fieldset data-settings-panel="media" data-legend-key="audio" aria-describedby="settings-help-audio" hidden>
+            <fieldset id="jpdb-reader-settings-panel-audio" role="tabpanel" data-settings-panel="media" data-legend-key="audio" aria-describedby="settings-help-audio" hidden>
                 <legend>${escapeHtml(uiText(language, 'audio'))}</legend>
                 <div class="grid">
                     ${checkbox('audioEnabled', uiText(language, 'audioEnabled'), settings.audioEnabled)}
+                    ${checkbox('autoPlayAudio', uiText(language, 'autoPlayAudio'), settings.autoPlayAudio)}
+                    ${audioAutoPlayModeSelect(language, autoPlayMode, !settings.autoPlayAudio)}
                     ${checkbox('suppressAutoAudioOnVideo', uiText(language, 'suppressAutoAudioOnVideo'), settings.suppressAutoAudioOnVideo)}
                     ${checkbox('audioEnableDefaultSources', uiText(language, 'audioEnableDefaultSources'), settings.audioEnableDefaultSources)}
                     ${checkbox('audioFallbackChimeEnabled', uiText(language, 'audioFallbackChimeEnabled'), settings.audioFallbackChimeEnabled)}
-                    ${select('audioAutoPlayMode', uiText(language, 'audioAutoPlayMode'), settings.autoPlayAudio ? settings.audioAutoPlayMode : 'off', [['off', uiText(language, 'off')], ['all', uiText(language, 'audioAutoPlayAll')], ['hover', uiText(language, 'audioAutoPlayHover')], ['tap', uiText(language, 'audioAutoPlayTap')]])}
                     ${select('audioSelectionMode', uiText(language, 'audioSelectionMode'), settings.audioSelectionMode, [['first', uiText(language, 'firstAudio')], ['random', uiText(language, 'randomAudio')]])}
                     ${select('audioTtsMode', uiText(language, 'audioTtsMode'), settings.audioTtsMode, [['fallback', uiText(language, 'audioTtsFallback')], ['source-order', uiText(language, 'audioTtsSourceOrder')]])}
                     ${input('audioTimeoutMs', uiText(language, 'audioTimeoutMs'), String(settings.audioTimeoutMs), 'number', { min: 1000, max: 30000, step: 500 })}
@@ -407,10 +377,27 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
     `;
 }
 
+function audioAutoPlayModeSelect(language: InterfaceLanguage, value: Exclude<ReaderSettings['audioAutoPlayMode'], 'off'>, disabled: boolean): string {
+    const options: [Exclude<ReaderSettings['audioAutoPlayMode'], 'off'>, string][] = [
+        ['all', uiText(language, 'audioAutoPlayAll')],
+        ['hover', uiText(language, 'audioAutoPlayHover')],
+        ['tap', uiText(language, 'audioAutoPlayTap')],
+    ];
+    return `<label>${escapeHtml(uiText(language, 'audioAutoPlayMode'))}<select name="audioAutoPlayMode" ${disabled ? 'disabled' : ''}>${options.map(([optionValue, text]) =>
+        `<option value="${escapeHtml(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(text)}</option>`,
+    ).join('')}</select>${disabled ? `<input type="hidden" name="audioAutoPlayMode" value="${escapeHtml(value)}">` : ''}</label>`;
+}
+
 function renderProxySetupGuide(language: InterfaceLanguage): string {
     return `
                 <details class="jpdb-reader-proxy-guide">
-                    <summary>${escapeHtml(uiText(language, 'audioProxyGuideSummary'))}</summary>
+                    <summary>
+                        <span data-proxy-guide-summary>${escapeHtml(uiText(language, 'audioProxyGuideSummary'))}</span>
+                        <span class="jpdb-reader-proxy-guide-toggle" aria-hidden="true">
+                            <span data-proxy-guide-show>${escapeHtml(uiText(language, 'show'))}</span>
+                            <span data-proxy-guide-hide>${escapeHtml(uiText(language, 'hide'))}</span>
+                        </span>
+                    </summary>
                     <div class="jpdb-reader-proxy-guide-body">
                         <p>${escapeHtml(uiText(language, 'audioProxyGuideIntro'))}</p>
                         <ol>
@@ -436,7 +423,7 @@ function renderProxySetupGuide(language: InterfaceLanguage): string {
 function renderImmersionKitSettingsPanel(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     return `
-            <fieldset data-settings-panel="media" data-legend-key="immersionKit" aria-describedby="settings-help-immersion-kit" hidden>
+            <fieldset id="jpdb-reader-settings-panel-immersion-kit" role="tabpanel" data-settings-panel="media" data-legend-key="immersionKit" aria-describedby="settings-help-immersion-kit" hidden>
                 <legend>${escapeHtml(uiText(language, 'immersionKit'))}</legend>
                 <div class="grid">
                     ${checkbox('immersionKitEnabled', uiText(language, 'immersionKitEnabled'), settings.immersionKitEnabled)}
@@ -481,7 +468,7 @@ function usesNadeshikoExamples(source: ImmersionExampleSource): boolean {
 
 function renderReaderSettingsPanel(settings: ReaderSettings): string {
     return `
-            <fieldset data-settings-panel="reading" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
+            <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="reading" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>Reader</legend>
                 <div class="grid">
                     ${checkbox('parseSelection', 'Look up selected text', settings.parseSelection)}
@@ -514,7 +501,7 @@ function renderHoverLookupSettingsSubsection(settings: ReaderSettings): string {
 
 function renderKanjiSettingsPanel(settings: ReaderSettings): string {
     return `
-            <fieldset data-settings-panel="reading" data-legend-key="kanji" aria-describedby="settings-help-kanji" hidden>
+            <fieldset id="jpdb-reader-settings-panel-kanji" role="tabpanel" data-settings-panel="reading" data-legend-key="kanji" aria-describedby="settings-help-kanji" hidden>
                 <legend>Kanji</legend>
                 <div class="jpdb-reader-kanji-priorities" data-source-editor>
                     ${renderKanjiSourceRows(settings)}
@@ -534,7 +521,7 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
     const localOcrHidden = settings.ocrProvider === 'local-service' ? '' : 'hidden';
     const cloudOcrHidden = settings.ocrProvider === 'cloud-vision' ? '' : 'hidden';
     return `
-            <fieldset data-settings-panel="media" data-legend-key="images" aria-describedby="settings-help-ocr" hidden>
+            <fieldset id="jpdb-reader-settings-panel-ocr" role="tabpanel" data-settings-panel="media" data-legend-key="images" aria-describedby="settings-help-ocr" hidden>
                 <legend>Image text (OCR)</legend>
                 <div class="grid">
                     ${checkbox('ocrEnabled', 'Read text in images', settings.ocrEnabled)}
@@ -565,7 +552,7 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
 
 function renderVideoSettingsPanel(settings: ReaderSettings): string {
     return `
-            <fieldset data-settings-panel="media" data-legend-key="video" hidden>
+            <fieldset id="jpdb-reader-settings-panel-video" role="tabpanel" data-settings-panel="media" data-legend-key="video" hidden>
                 <legend>Video</legend>
                 <div class="grid">
                     ${checkbox('subtitlePlayerEnabled', 'Enable video subtitle player', settings.subtitlePlayerEnabled)}
@@ -611,7 +598,7 @@ function renderSubtitlePreview(): string {
 
 function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
     return `
-            <fieldset data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
+            <fieldset id="jpdb-reader-settings-panel-youtube" role="tabpanel" data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
                 <legend>YouTube</legend>
                 <div class="grid">
                     ${checkbox('youtubeImmersionEnabled', 'Only show Japanese YouTube videos', settings.youtubeImmersionEnabled)}
@@ -626,7 +613,7 @@ function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
 function renderMiningSettingsPanel(settings: ReaderSettings): string {
     const ankiStatus = ankiStatusLineForSettings(settings, settings.interfaceLanguage);
     return `
-            <fieldset data-settings-panel="mining" data-legend-key="anki" aria-describedby="settings-help-anki" hidden>
+            <fieldset id="jpdb-reader-settings-panel-mining" role="tabpanel" data-settings-panel="mining" data-legend-key="anki" aria-describedby="settings-help-anki" hidden>
                 <legend>Anki</legend>
                 <input type="hidden" name="ankiFieldMappings" value="${escapeHtml(JSON.stringify(settings.ankiFieldMappings))}">
                 <input type="hidden" data-anki-scan-fields value="{}">
@@ -755,7 +742,7 @@ function ankiFieldMappingRoleLabel(role: AnkiFieldMappingRole, language: Interfa
 
 function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
     return `
-            <fieldset data-settings-panel="dictionaries" data-legend-key="dictionaries" hidden>
+            <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="dictionaries" hidden>
                 <legend>Dictionaries</legend>
                 <div class="grid">
                     ${checkbox('jpdbDefinitionsEnabled', 'Show JPDB definitions', settings.jpdbDefinitionsEnabled)}
@@ -792,7 +779,7 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
 
 function renderShortcutSettingsPanel(settings: ReaderSettings): string {
     return `
-            <fieldset data-settings-panel="shortcuts" data-legend-key="shortcuts" hidden>
+            <fieldset id="jpdb-reader-settings-panel-shortcuts" role="tabpanel" data-settings-panel="shortcuts" data-legend-key="shortcuts" hidden>
                 <legend>Shortcuts</legend>
                 <div class="grid">
                     ${shortcutInput('shortcuts.scanPage', 'Scan page', settings.shortcuts.scanPage)}
@@ -815,7 +802,7 @@ function renderShortcutSettingsPanel(settings: ReaderSettings): string {
 
 function renderHelpSettingsPanel(settings: ReaderSettings): string {
     return `
-            <fieldset data-settings-panel="help" data-legend-key="help" hidden>
+            <fieldset id="jpdb-reader-settings-panel-help" role="tabpanel" data-settings-panel="help" data-legend-key="help" hidden>
                 <legend>Help</legend>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title" data-diagnostics-title>Diagnostics</div>
@@ -845,7 +832,9 @@ function input(name: string, label: string, value: string, type = 'text', attrib
     const attributeHtml = Object.entries(attributes)
         .map(([key, attributeValue]) => ` ${key}="${escapeHtml(String(attributeValue))}"`)
         .join('');
-    return `<label>${label}<input name="${name}" type="${type}" value="${escapeHtml(value)}" autocomplete="off"${attributeHtml}></label>`;
+    const fieldClass = ['jpdb-reader-settings-field'];
+    if (type === 'number' || type === 'color') fieldClass.push(`jpdb-reader-settings-field-${type}`);
+    return `<label class="${fieldClass.join(' ')}">${label}<input name="${name}" type="${type}" value="${escapeHtml(value)}" autocomplete="off"${attributeHtml}></label>`;
 }
 
 function shortcutInput(name: string, label: string, value: string, placeholder = 'Press keys'): string {
@@ -902,11 +891,11 @@ function radioGroup(name: string, label: string, value: string, options: [string
 function themeSegmentedControl(value: ReaderSettings['theme']): string {
     const isDark = value === 'dark';
     return `
-        <label class="jpdb-reader-theme-field" data-theme-field>
+        <div class="jpdb-reader-theme-field" data-theme-field>
             <span class="jpdb-reader-theme-title" id="jpdb-reader-theme-label" data-theme-title>Theme</span>
             <input type="hidden" name="theme" value="${escapeHtml(value)}" data-theme-value>
             <div class="VPNavBarAppearance appearance jpdb-reader-theme-appearance">
-                <button class="VPSwitch VPSwitchAppearance jpdb-reader-theme-switch" type="button" role="switch" data-theme-switch data-newtab-action="theme" aria-label="${isDark ? 'Switch to light theme' : 'Switch to dark theme'}" aria-describedby="jpdb-reader-theme-label" aria-checked="${isDark}" title="${isDark ? 'Switch to light theme' : 'Switch to dark theme'}">
+                <button class="VPSwitch VPSwitchAppearance jpdb-reader-theme-switch" type="button" role="switch" data-theme-switch data-newtab-action="theme" aria-label="${isDark ? 'Switch to light theme' : 'Switch to dark theme'}" aria-labelledby="jpdb-reader-theme-label" aria-describedby="jpdb-reader-theme-label" aria-checked="${isDark}" title="${isDark ? 'Switch to light theme' : 'Switch to dark theme'}">
                     <span class="check">
                         <span class="icon">
                             <span class="vpi-sun sun" aria-hidden="true"></span>
@@ -915,7 +904,7 @@ function themeSegmentedControl(value: ReaderSettings['theme']): string {
                     </span>
                 </button>
             </div>
-        </label>
+        </div>
     `;
 }
 
@@ -1069,6 +1058,9 @@ function localizeSettingsSectionTitles(form: HTMLFormElement, text: SettingsText
     form.querySelector<HTMLElement>('[data-color-channels-help]')?.replaceChildren(text('colorChannelsHelp'));
     form.querySelector<HTMLElement>('[data-jpdb-page-enhancements-help]')?.replaceChildren(text('jpdbPageEnhancementsHelp'));
     form.querySelector<HTMLElement>('[data-subtitle-preview] .jpdb-subtitle-secondary')?.replaceChildren(text('subtitlePreview'));
+    form.querySelector<HTMLElement>('[data-proxy-guide-summary]')?.replaceChildren(text('audioProxyGuideSummary'));
+    form.querySelector<HTMLElement>('[data-proxy-guide-show]')?.replaceChildren(text('show'));
+    form.querySelector<HTMLElement>('[data-proxy-guide-hide]')?.replaceChildren(text('hide'));
 }
 
 function replaceLocalTitle(form: HTMLFormElement, pattern: RegExp, value: string): void {
@@ -1155,7 +1147,6 @@ function localizeColorSourceSelects(form: HTMLFormElement, text: SettingsText): 
 
 function localizeMediaSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
     setSelectOptionLabels(form, 'audioAutoPlayMode', [
-        ['off', text('off')],
         ['all', text('audioAutoPlayAll')],
         ['hover', text('audioAutoPlayHover')],
         ['tap', text('audioAutoPlayTap')],
@@ -1382,6 +1373,14 @@ function localizeLookupLinkEditor(form: HTMLFormElement, text: SettingsText): vo
     form.querySelectorAll<HTMLInputElement>('input[name^="dictionaryLookupLinks."][name$=".urlTemplate"]').forEach((input, index) => {
         input.setAttribute('aria-label', text('lookupUrlTemplateNumber').replace('{number}', String(index + 1)));
     });
+    form.querySelectorAll<HTMLInputElement>('[data-lookup-link-enable-toggle]').forEach(input => {
+        const row = input.closest<HTMLElement>('[data-lookup-link-row]');
+        const name = row?.querySelector<HTMLInputElement>('input[name$=".label"]')?.value.trim()
+            || row?.querySelector<HTMLElement>('.jpdb-reader-lookup-link-note')?.textContent?.trim()
+            || input.closest('label')?.textContent?.trim()
+            || '';
+        input.setAttribute('aria-label', text('enableLookupPillName').replace('{name}', name));
+    });
     form.querySelectorAll<HTMLElement>('.jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools').forEach(row => {
         row.setAttribute('aria-label', text('lookupPillOrder'));
     });
@@ -1436,6 +1435,13 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
     replaceSourceHelp(form, /Remembering the Kanji/, text('sourceHelpRtk'));
     replaceSourceHelp(form, /Uchisen mnemonic/, text('sourceHelpUchisen'));
     replaceSourceHelp(form, /Imported Yomitan kanji dictionary/, text('sourceHelpImportedKanjiDictionary'));
+    form.querySelectorAll<HTMLInputElement>('[data-source-enable-toggle]').forEach(input => {
+        const row = input.closest<HTMLElement>('[data-dictionary-source-row]');
+        const name = row?.querySelector<HTMLElement>('.jpdb-reader-field-display')?.textContent?.trim()
+            || input.closest('label')?.textContent?.trim()
+            || '';
+        input.setAttribute('aria-label', text('enableSourceName').replace('{name}', name));
+    });
 }
 
 function localizeSourceHead(head: Element, text: SettingsText): void {
@@ -1648,6 +1654,7 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
         ['kanjiOriginRadicalImagesEnabled', 'kanjiOriginRadicalImagesEnabled'],
         ['similarKanjiWordLimit', 'similarKanjiWordLimit'],
         ['audioEnabled', 'audioEnabled'],
+        ['autoPlayAudio', 'autoPlayAudio'],
         ['suppressAutoAudioOnVideo', 'suppressAutoAudioOnVideo'],
         ['audioAutoPlayMode', 'audioAutoPlayMode'],
         ['audioEnableDefaultSources', 'audioEnableDefaultSources'],
@@ -1941,7 +1948,7 @@ export function activateSettingsPanel(form: HTMLFormElement, panel: string): voi
     });
     form.querySelectorAll<HTMLButtonElement>('[data-action="settings-panel"]').forEach(button => {
         const active = button.dataset.panel === normalizedPanel;
-        button.setAttribute('aria-pressed', String(active));
+        button.setAttribute('aria-selected', String(active));
         button.tabIndex = active ? 0 : -1;
     });
 }
@@ -1975,13 +1982,13 @@ function activateSettingsPanelWithoutClearingSearch(form: HTMLFormElement, panel
     });
     form.querySelectorAll<HTMLButtonElement>('[data-action="settings-panel"]').forEach(button => {
         const active = button.dataset.panel === normalizedPanel;
-        button.setAttribute('aria-pressed', String(active));
+        button.setAttribute('aria-selected', String(active));
         button.tabIndex = active ? 0 : -1;
     });
 }
 
 function activeSettingsPanel(form: HTMLFormElement): string {
-    return form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][aria-pressed="true"]')?.dataset.panel ?? 'jpdb';
+    return form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? 'jpdb';
 }
 
 function normalizeSettingsPanel(panel: string): string {
@@ -2197,7 +2204,7 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[]): string {
             return `
                 <div class="jpdb-reader-lookup-link-row jpdb-reader-order-row" data-source-row data-lookup-link-row data-source-id="lookup-link-${index}" data-index="${index}">
                     <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
-                        <input name="dictionaryLookupLinks.${index}.enabled" type="checkbox" ${link.enabled ? 'checked' : ''}>
+                        <input name="dictionaryLookupLinks.${index}.enabled" type="checkbox" data-lookup-link-enable-toggle ${link.enabled ? 'checked' : ''}>
                         <span>${index + 1}</span>
                     </label>
                     <input name="dictionaryLookupLinks.${index}.label" type="text" value="${escapeHtml(link.label)}" aria-label="Lookup pill label">
@@ -2538,7 +2545,21 @@ function deckSelect(name: string, label: string, value: string, options: [string
 }
 
 function settingsTabButton(panel: string, label: string, active = false): string {
-    return `<button class="jpdb-reader-settings-tab" type="button" data-action="settings-panel" data-panel="${escapeHtml(panel)}" aria-pressed="${active ? 'true' : 'false'}" tabindex="${active ? '0' : '-1'}">${escapeHtml(label)}</button>`;
+    return `<button class="jpdb-reader-settings-tab" type="button" role="tab" data-action="settings-panel" data-panel="${escapeHtml(panel)}" aria-controls="${settingsTabControls(panel)}" aria-selected="${active ? 'true' : 'false'}" tabindex="${active ? '0' : '-1'}">${escapeHtml(label)}</button>`;
+}
+
+function settingsTabControls(panel: string): string {
+    return {
+        jpdb: 'jpdb-reader-settings-panel-jpdb',
+        newTab: 'jpdb-reader-settings-panel-newtab',
+        appearance: 'jpdb-reader-settings-panel-appearance',
+        reading: 'jpdb-reader-settings-panel-reader jpdb-reader-settings-panel-kanji',
+        dictionaries: 'jpdb-reader-settings-panel-dictionaries',
+        media: 'jpdb-reader-settings-panel-audio jpdb-reader-settings-panel-immersion-kit jpdb-reader-settings-panel-ocr jpdb-reader-settings-panel-video jpdb-reader-settings-panel-youtube',
+        mining: 'jpdb-reader-settings-panel-mining',
+        shortcuts: 'jpdb-reader-settings-panel-shortcuts',
+        help: 'jpdb-reader-settings-panel-help',
+    }[panel] ?? 'jpdb-reader-settings-panel-jpdb';
 }
 
 export function renderAnkiTemplatePreview(settings: ReaderSettings): string {
@@ -2624,7 +2645,7 @@ function renderSourceRowsList(rows: SettingsSourceRow[], options: { sourceLabel:
         return `
             <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${layoutClass}" data-source-row data-dictionary-source-row data-source-id="${escapeHtml(row.id)}">
                 <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
-                    <input name="${row.prefix}.enabled" type="checkbox" ${row.enabled ? 'checked' : ''}>
+                    <input name="${row.prefix}.enabled" type="checkbox" data-source-enable-toggle ${row.enabled ? 'checked' : ''}>
                     <span>${index + 1}</span>
                 </label>
                 ${sourceField(sourceRowDisplayName(row, options.showAlias), row.name, row.prefix, 'name', options.sourceLabel, keys?.nameKey)}
@@ -2632,7 +2653,7 @@ function renderSourceRowsList(rows: SettingsSourceRow[], options: { sourceLabel:
                     ? sourceField(row.alias, row.alias, row.prefix, 'alias', 'Display name', keys?.nameKey)
                     : `<input name="${row.prefix}.alias" type="text" value="${escapeHtml(row.alias)}" aria-label="Dictionary display name" placeholder="${escapeHtml(row.name)}">`) : ''}
                 <div class="jpdb-reader-row-tools jpdb-reader-row-order-tools">
-                    <input name="${row.prefix}.priority" type="hidden" value="${index}" aria-label="${escapeHtml(options.sourceLabel)} priority">
+                    <input name="${row.prefix}.priority" type="hidden" value="${index}">
                     <button type="button" class="jpdb-reader-icon-mini jpdb-reader-drag-handle" data-source-drag-handle tabindex="-1" title="Drag to reorder" aria-label="Drag to reorder">${miniIcon('drag')}</button>
                     <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-up" title="Move up" aria-label="Move up">${miniIcon('up')}</button>
                     <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-down" title="Move down" aria-label="Move down">${miniIcon('down')}</button>

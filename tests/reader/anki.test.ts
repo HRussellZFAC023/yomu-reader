@@ -89,6 +89,8 @@ describe('Anki rendered card scroll behavior', () => {
             .toMatch(/\.jpdb-reader-anki-existing-note\[open\]\s*>\s*\.jpdb-reader-anki-existing-note-title::after\s*\{[^}]*content:\s*"-";/);
         expect(LOCAL_DICTIONARY_CSS)
             .toMatch(/\.jpdb-reader-anki-existing-note-title small\s*\{[^}]*text-overflow:\s*ellipsis;/);
+        expect(LOCAL_DICTIONARY_CSS)
+            .toMatch(/\.jpdb-reader-anki-match-summary-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto;/);
     });
 
     it('keeps multiple rendered Anki cards collapsible without adding labels to card bodies', () => {
@@ -132,6 +134,47 @@ describe('Anki rendered card details', () => {
         expect(section.querySelector('.jpdb-reader-anki-stored-fields')?.textContent).toContain('Japanese language');
         const audio = section.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"][data-anki-media-name="nihongo.mp3"]');
         expect(audio?.textContent).toBe('Card audio');
+    });
+
+    it('falls back to stored fields when a rendered card is only an empty template shell', () => {
+        const note = existingAnkiNote({
+            fields: {
+                Expression: '泳ぐ',
+                Reading: 'およぐ',
+                Meaning: 'to swim',
+            },
+            renderedCards: [{
+                cardId: 321,
+                deckName: 'Sentence Mining',
+                question: '<div class="card"><span class="front"></span></div><script>renderCard()</script>',
+                answer: '<section><div></div></section>',
+            }],
+        });
+        const section = renderExistingAnkiSection(note);
+
+        expect(section.querySelector('.jpdb-reader-anki-rendered-card')).toBeNull();
+        expect(section.querySelector('.jpdb-reader-anki-details-pending')).toBeNull();
+        expect(section.querySelector('.jpdb-reader-anki-stored-fields')?.textContent).toContain('to swim');
+    });
+
+    it('keeps media-only rendered cards visible instead of falling back to fields', () => {
+        const note = existingAnkiNote({
+            fields: {
+                Expression: '写真',
+                Meaning: 'photo',
+            },
+            renderedCards: [{
+                cardId: 654,
+                deckName: 'Visual Mining',
+                question: '<div><img src="photo.jpg" alt=""></div>',
+                answer: '',
+            }],
+        });
+        const section = renderExistingAnkiSection(note);
+
+        expect(section.querySelector('.jpdb-reader-anki-rendered-card')).not.toBeNull();
+        expect(section.querySelector('.jpdb-reader-anki-stored-fields')).toBeNull();
+        expect(section.querySelector<HTMLImageElement>('img')?.dataset.ankiMediaName).toBe('photo.jpg');
     });
 
     it('turns literal sound markers in rendered card HTML into Anki audio controls', () => {
@@ -191,6 +234,37 @@ describe('Anki rendered card details', () => {
         expect(body.innerHTML).not.toContain('96px');
         expect(body.innerHTML).not.toContain('72px');
         expect(body.textContent).toContain('Normal');
+    });
+
+    it('summarizes multiple existing Anki matches by deck model kind and status', () => {
+        const word = existingAnkiNote({
+            noteId: 101,
+            modelName: 'Core 2k',
+            deckNames: ['Vocab 2k'],
+            state: 'due',
+            reps: 12,
+        });
+        const kanji = existingAnkiNote({
+            noteId: 102,
+            modelName: 'RRTK Recognition',
+            deckNames: ['RRTK'],
+            state: 'new',
+            fields: {
+                Kanji: '下',
+                On: 'カ',
+                Keyword: 'below',
+            },
+            reps: 0,
+        });
+        const lookup: AnkiLookupResult = { state: 'due', primary: word, notes: [word, kanji], trusted: true };
+        const container = document.createElement('div');
+        container.innerHTML = renderAnkiExistingSection(lookup, null, ankiRenderSettings());
+
+        const summary = container.querySelector<HTMLElement>('.jpdb-reader-anki-match-summary');
+        expect(summary?.textContent).toContain('Vocab 2k · Core 2k · Word');
+        expect(summary?.textContent).toContain('RRTK · RRTK Recognition · Kanji');
+        expect(summary?.textContent).toContain('Due');
+        expect(summary?.textContent).toContain('New');
     });
 });
 

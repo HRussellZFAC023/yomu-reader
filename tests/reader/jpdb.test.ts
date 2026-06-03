@@ -3087,6 +3087,8 @@ describe('reader helpers', () => {
     it('does not submit JPDB review grades when JPDB writes are disabled', async () => {
         const reviewCard = vi.fn(async () => undefined);
         const answerCard = vi.fn(async () => undefined);
+        const invalidateCardData = vi.fn();
+        const onAnkiStatusChanged = vi.fn();
         const controller = new CardActionController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -3108,18 +3110,26 @@ describe('reader helpers', () => {
             detectGrammarHints: vi.fn(),
             parsePopoverJapanese: vi.fn(),
             toast: vi.fn(),
+            invalidateCardData,
+            onAnkiStatusChanged,
         });
 
         await expect(controller.reviewGrade('okay', card)).rejects.toThrow('JPDB actions are disabled');
         expect(reviewCard).not.toHaveBeenCalled();
+        expect(invalidateCardData).not.toHaveBeenCalled();
+        expect(onAnkiStatusChanged).not.toHaveBeenCalled();
 
         await expect(controller.reviewGrade('okay', card, undefined, { ankiCardId: 20 })).resolves.toBeUndefined();
         expect(answerCard).toHaveBeenCalledWith(20, 'okay');
+        expect(invalidateCardData).toHaveBeenCalledTimes(1);
+        expect(onAnkiStatusChanged).toHaveBeenCalledWith(card);
     });
 
     it('does not submit locked JPDB review grades but allows explicit Anki card grading', async () => {
         const reviewCard = vi.fn(async () => undefined);
         const answerCard = vi.fn(async () => undefined);
+        const invalidateCardData = vi.fn();
+        const onAnkiStatusChanged = vi.fn();
         const controller = new CardActionController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -3141,13 +3151,20 @@ describe('reader helpers', () => {
             detectGrammarHints: vi.fn(),
             parsePopoverJapanese: vi.fn(),
             toast: vi.fn(),
+            invalidateCardData,
+            onAnkiStatusChanged,
         });
 
-        await expect(controller.reviewGrade('okay', { ...card, cardState: ['locked'] })).rejects.toThrow('JPDB card is locked');
+        const lockedCard: JPDBCard = { ...card, cardState: ['locked'] };
+        await expect(controller.reviewGrade('okay', lockedCard)).rejects.toThrow('JPDB card is locked');
         expect(reviewCard).not.toHaveBeenCalled();
+        expect(invalidateCardData).not.toHaveBeenCalled();
+        expect(onAnkiStatusChanged).not.toHaveBeenCalled();
 
-        await expect(controller.reviewGrade('okay', { ...card, cardState: ['locked'] }, undefined, { ankiCardId: 20 })).resolves.toBeUndefined();
+        await expect(controller.reviewGrade('okay', lockedCard, undefined, { ankiCardId: 20 })).resolves.toBeUndefined();
         expect(answerCard).toHaveBeenCalledWith(20, 'okay');
+        expect(invalidateCardData).toHaveBeenCalledTimes(1);
+        expect(onAnkiStatusChanged).toHaveBeenCalledWith(lockedCard);
     });
 
     it('opens and closes mining controls from the drawer bar by click or drag', () => {
@@ -15047,6 +15064,83 @@ describe('reader helpers', () => {
             expect(requests[1]?.params).toEqual({ notes: [55] });
             expect(requests[2]?.params).toEqual({ cards: [7701] });
             expect(requests[3]?.params).toEqual({ cards: [7701] });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not match Core-style sentence context when a dedicated vocab field points at another word', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                if (request.action === 'multi') {
+                    const actions = request.params.actions as Array<{ action: string; params: { query: string } }>;
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: actions.map(action => ({
+                                result: action.params.query.includes('日本語')
+                                    || action.params.query.includes('勉強')
+                                    || action.params.query.includes('べんきょう')
+                                    ? [101]
+                                    : [],
+                                error: null,
+                            })),
+                            error: null,
+                        },
+                    });
+                }
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 101,
+                        modelName: 'Japanese',
+                        tags: [],
+                        fields: {
+                            'Vocabulary-Kanji': { value: '勉強' },
+                            'Vocabulary-Kana': { value: 'べんきょう' },
+                            'Vocabulary-English': { value: 'study' },
+                            Expression: { value: '私は日本語を<b>勉強</b>しています。' },
+                            Reading: { value: '私[わたし]は 日本語[にほんご]を<b> 勉強[べんきょう]</b>しています。' },
+                        },
+                        cards: [8101],
+                    }],
+                    cardsInfo: [{
+                        cardId: 8101,
+                        note: 101,
+                        deckName: 'Core 2k/6k',
+                        queue: 0,
+                        type: 0,
+                        reps: 0,
+                        lapses: 0,
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            const [contextOnly, vocab] = await client.findExistingCardsBatch([
+                { ...card, spelling: '日本語', reading: 'にほんご' },
+                { ...card, spelling: '勉強', reading: 'べんきょう' },
+            ]);
+
+            expect(contextOnly).toEqual({ state: 'not-in-deck', notes: [], primary: null });
+            expect(vocab).toMatchObject({
+                state: 'new',
+                primary: {
+                    noteId: 101,
+                    primaryCardId: 8101,
+                    deckNames: ['Core 2k/6k'],
+                    fields: {
+                        'Vocabulary-Kanji': '勉強',
+                        Expression: '私は日本語を勉強しています。',
+                    },
+                },
+            });
+            expect(requests.map(request => request.action)).toEqual(['multi', 'notesInfo', 'cardsInfo']);
         } finally {
             vi.unstubAllGlobals();
         }

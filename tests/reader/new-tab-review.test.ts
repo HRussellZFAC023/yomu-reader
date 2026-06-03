@@ -1009,6 +1009,7 @@ describe('new tab review helpers', () => {
         expect(cards.map(card => card.reading)).toEqual(['わたし', 'はじめる', 'イチ', 'か']);
         expect(cards.map(card => card.meanings[0]?.glosses)).toEqual([['I', 'me'], ['to start'], ['one'], ['katakana ka']]);
         expect(cards.map(card => card.ankiDeckNames?.[0])).toEqual(['Core', 'Jlab', 'RRTK', 'Kana']);
+        expect(cards.map(card => card.ankiCardKind)).toEqual(['word', 'word', 'kanji', 'kana']);
     });
 
     it('keeps paging Anki candidates when early cards cannot be adapted for reviews', async () => {
@@ -1900,6 +1901,77 @@ describe('new tab review helpers', () => {
         } finally {
             root.remove();
             restoreCanvas();
+        }
+    });
+
+    it('renders a localized empty review state when JPDB live review has no current card', () => {
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        const liveCard = newTabTestCard({
+            spelling: '読む',
+            reading: 'よむ',
+            source: 'jpdb',
+            reviewSource: 'jpdb-live',
+            jpdbReviewId: 'v,1',
+        });
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'ja',
+                jpdbMiningEnabled: true,
+                newTabSource: 'jpdb',
+                newTabJpdbReviewMode: 'live-review',
+                immersionKitEnabled: false,
+                newTabParsingEnabled: false,
+                newTabFrontSentenceEnabled: false,
+            }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+                latestStatus: () => ({ connected: true, card: null }),
+                requestCurrent: vi.fn(),
+            } as never,
+            parser: { cacheCards: vi.fn() } as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        document.body.append(root);
+        try {
+            Object.assign(controller as unknown as {
+                allWords: JPDBCard[];
+                sourceLabel: string;
+                reviewCountMode: boolean;
+                state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            }, {
+                allWords: [liveCard],
+                sourceLabel: 'JPDB ライブレビュー',
+                reviewCountMode: true,
+                state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
+            });
+            (controller as unknown as { applyWords(root: HTMLElement, preferStoredWord: boolean): void }).applyWords(root, false);
+
+            (controller as unknown as { applyJpdbBridgeStatus(status: { connected: boolean; card: null }): void }).applyJpdbBridgeStatus({
+                connected: true,
+                card: null,
+            });
+
+            expect((controller as unknown as { allWords: JPDBCard[] }).allWords).toEqual([]);
+            expect(root.querySelector('[data-newtab-answer]')?.textContent).toBe('復習する単語カードは今ありません。');
+            expect(root.textContent).not.toContain('No review cards ready.');
+            expect(root.textContent).not.toContain('Looking for more words');
+        } finally {
+            root.remove();
         }
     });
 
@@ -4030,7 +4102,8 @@ describe('new tab review helpers', () => {
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
 
             expect(root.querySelectorAll('[data-grade]').length).toBeGreaterThan(0);
-            expect(root.querySelector('[data-newtab-grade-target]')?.textContent).toBe('Grades Anki card: Anki #404');
+            expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Anki card: Anki #404');
+            expect(root.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('Anki');
 
             await (controller as unknown as { gradeCurrentCard(grade: 'pass'): Promise<void> }).gradeCurrentCard('pass');
 
@@ -4222,6 +4295,11 @@ describe('new tab review helpers', () => {
             source: 'jpdb',
             reviewSource: 'jpdb-api',
             ankiCardId: 404,
+            ankiDeckNames: ['Core'],
+            ankiRenderedCards: [
+                { cardId: 404, deckName: 'Core', question: '日本語', answer: 'Japanese' },
+                { cardId: 405, deckName: 'Core', question: 'Japanese', answer: '日本語' },
+            ],
         });
         const reviewCard = vi.fn(async () => {});
         const answerCard = vi.fn(async () => {});
@@ -4273,7 +4351,8 @@ describe('new tab review helpers', () => {
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
 
         try {
-            expect(root.querySelector('[data-newtab-grade-target]')?.textContent).toBe('Grades JPDB + Anki card: Anki #404');
+            expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades JPDB + Anki card: Core #404');
+            expect(root.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('Both');
 
             await (controller as unknown as { gradeCurrentCard(grade: 'okay'): Promise<void> }).gradeCurrentCard('okay');
 
@@ -4294,6 +4373,11 @@ describe('new tab review helpers', () => {
             source: 'jpdb',
             reviewSource: 'jpdb-api',
             ankiCardId: 404,
+            ankiDeckNames: ['Core'],
+            ankiRenderedCards: [
+                { cardId: 404, deckName: 'Core', question: '日本語', answer: 'Japanese' },
+                { cardId: 405, deckName: 'Core', question: 'Japanese', answer: '日本語' },
+            ],
         });
         const reviewCard = vi.fn(async () => {});
         const answerCard = vi.fn(async () => { throw new Error('anki offline'); });
@@ -7419,7 +7503,7 @@ describe('new tab review helpers', () => {
             settings: typeof DEFAULT_SETTINGS;
             newTab: {
                 lookupGradeOptions(card: JPDBCard): Array<['fail' | 'pass', string]>;
-                lookupReviewTargets(card: JPDBCard): Array<{ id: string; kind: 'jpdb' | 'anki'; label: string; ankiCardId?: number }>;
+                lookupReviewTargets(card: JPDBCard): Array<{ id: string; kind: 'jpdb' | 'anki'; label: string; shortLabel: string; ankiCardId?: number }>;
                 lookupGradeTargetLabel(card: JPDBCard): string;
                 destroy(): void;
             };
@@ -7439,7 +7523,7 @@ describe('new tab review helpers', () => {
             };
             internals.newTab = {
                 lookupGradeOptions: () => [['fail', 'Fail'], ['pass', 'Pass']],
-                lookupReviewTargets: () => [{ id: 'anki:404', kind: 'anki', label: 'Grades Anki card: Core #404', ankiCardId: 404 }],
+                lookupReviewTargets: () => [{ id: 'anki:404', kind: 'anki', label: 'Grades Anki card: Core #404', shortLabel: 'Anki #404', ankiCardId: 404 }],
                 lookupGradeTargetLabel: () => 'Grades Anki card: Core #404',
                 destroy: vi.fn(),
             };
@@ -7455,7 +7539,8 @@ describe('new tab review helpers', () => {
 
             await vi.waitFor(() => {
                 const pass = document.querySelector<HTMLButtonElement>('[data-grade="pass"]');
-                expect(document.querySelector('[data-newtab-grade-target]')?.textContent).toBe('Grades Anki card: Core #404');
+                expect(document.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Anki card: Core #404');
+                expect(document.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('Anki #404');
                 expect(pass?.dataset.newtabReviewTarget).toBe('anki');
                 expect(pass?.dataset.ankiCardId).toBe('404');
                 expect(pass?.getAttribute('aria-label')).toBe('Pass: Grades Anki card: Core #404');
@@ -7475,6 +7560,11 @@ describe('new tab review helpers', () => {
             source: 'jpdb',
             reviewSource: 'jpdb-api',
             ankiCardId: 404,
+            ankiDeckNames: ['Core'],
+            ankiRenderedCards: [
+                { cardId: 404, deckName: 'Core', question: '日本語', answer: 'Japanese' },
+                { cardId: 405, deckName: 'Core', question: 'Japanese', answer: '日本語' },
+            ],
         });
         const renderData = {
             localEntries: [],
@@ -7489,7 +7579,7 @@ describe('new tab review helpers', () => {
             settings: typeof DEFAULT_SETTINGS;
             newTab: {
                 lookupGradeOptions(card: JPDBCard): Array<['fail' | 'pass', string]>;
-                lookupReviewTargets(card: JPDBCard): Array<{ id: string; kind: 'jpdb' | 'anki'; label: string; ankiCardId?: number }>;
+                lookupReviewTargets(card: JPDBCard): Array<{ id: string; kind: 'jpdb' | 'anki'; label: string; shortLabel: string; ankiCardId?: number }>;
                 lookupGradeTargetLabel(card: JPDBCard): string;
                 destroy(): void;
             };
@@ -7510,9 +7600,9 @@ describe('new tab review helpers', () => {
             internals.newTab = {
                 lookupGradeOptions: () => [['fail', 'Fail'], ['pass', 'Pass']],
                 lookupReviewTargets: () => [
-                    { id: 'jpdb', kind: 'jpdb', label: 'Grades JPDB' },
-                    { id: 'anki:404', kind: 'anki', label: 'Grades Anki card: Core #404', ankiCardId: 404 },
-                    { id: 'anki:405', kind: 'anki', label: 'Grades Anki card: Core #405', ankiCardId: 405 },
+                    { id: 'jpdb', kind: 'jpdb', label: 'Grades JPDB', shortLabel: 'JPDB' },
+                    { id: 'anki:404', kind: 'anki', label: 'Grades Anki card: Core #404', shortLabel: 'Anki #404', ankiCardId: 404 },
+                    { id: 'anki:405', kind: 'anki', label: 'Grades Anki card: Core #405', shortLabel: 'Anki #405', ankiCardId: 405 },
                 ],
                 lookupGradeTargetLabel: () => 'Grades JPDB + Anki card: Core #404',
                 destroy: vi.fn(),
@@ -7528,10 +7618,15 @@ describe('new tab review helpers', () => {
             await internals.showLookupCard(card, '日本語を読みます。');
 
             await vi.waitFor(() => {
-                expect(Array.from(document.querySelectorAll('[data-newtab-grade-target]'), element => element.textContent)).toEqual([
+                expect(Array.from(document.querySelectorAll('[data-newtab-grade-target-text]'), element => element.textContent)).toEqual([
                     'Grades JPDB',
                     'Grades Anki card: Core #404',
                     'Grades Anki card: Core #405',
+                ]);
+                expect(Array.from(document.querySelectorAll('[data-newtab-grade-target-chip]'), element => element.textContent)).toEqual([
+                    'JPDB',
+                    'Anki #404',
+                    'Anki #405',
                 ]);
             });
 
@@ -7553,6 +7648,104 @@ describe('new tab review helpers', () => {
             source: 'jpdb',
             reviewSource: 'jpdb-api',
             ankiCardId: 404,
+            ankiDeckNames: ['Core'],
+            ankiRenderedCards: [
+                { cardId: 404, deckName: 'Core', question: '日本語', answer: 'Japanese' },
+                { cardId: 405, deckName: 'Core', question: 'Japanese', answer: '日本語' },
+            ],
+        });
+        const reviewCard = vi.fn(async () => {});
+        const answerCard = vi.fn(async () => {});
+        const refreshedLookup: AnkiLookupResult = {
+            state: 'known',
+            notes: [{
+                noteId: 777,
+                modelName: 'Core',
+                deckNames: ['Core'],
+                cardIds: [404, 405],
+                primaryCardId: 405,
+                state: 'known',
+                fields: { Expression: '日本語', Meaning: 'Japanese language' },
+                renderedCards: [{ cardId: 405, deckName: 'Core', question: 'Japanese', answer: '日本語' }],
+                tags: [],
+                reps: 3,
+                lapses: 0,
+            }],
+            primary: null,
+        };
+        refreshedLookup.primary = refreshedLookup.notes[0] ?? null;
+        const findExistingCards = vi.fn(async () => refreshedLookup);
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'jpdb-key',
+                jpdbMiningEnabled: true,
+                newTabAnkiEnabled: true,
+                enableReviews: true,
+                immersionKitEnabled: false,
+                newTabParsingEnabled: false,
+                newTabFrontSentenceEnabled: false,
+            }),
+            anki: { answerCard, findExistingCards } as never,
+            jpdb: { reviewCard } as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        document.body.append(root);
+        Object.assign(controller as unknown as {
+            visibleWords: JPDBCard[];
+            index: number;
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        }, {
+            visibleWords: [card],
+            index: 0,
+            sourceLabel: 'JPDB + Anki',
+            state: { mode: 'word', sort: 'random', filter: 'study', source: 'auto', revealAnswer: true },
+        });
+
+        try {
+            const result = await controller.gradeFromLookup('okay', { kind: 'anki', ankiCardId: 405 });
+
+            expect(result).toEqual({ preserveLookup: true });
+            expect(answerCard).toHaveBeenCalledWith(405, 'okay');
+            expect(findExistingCards).toHaveBeenCalledWith(card);
+            expect(reviewCard).not.toHaveBeenCalled();
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('✓ Anki #405 · Known');
+            expect(card.cardState).toEqual(['known']);
+            expect(card.ankiCardId).toBe(405);
+            expect(card.ankiNoteId).toBe(777);
+            expect(card.ankiReps).toBe(3);
+            expect(card.ankiRenderedCards).toEqual([{ cardId: 405, deckName: 'Core', question: 'Japanese', answer: '日本語' }]);
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('rejects a lookup-selected Anki target that is not one of the rendered review targets', async () => {
+        const card = newTabTestCard({
+            vid: 251,
+            sid: 1,
+            rid: 2,
+            spelling: '日本語',
+            reading: 'にほんご',
+            source: 'jpdb',
+            reviewSource: 'jpdb-api',
+            ankiCardId: 404,
+            ankiDeckNames: ['Core'],
         });
         const reviewCard = vi.fn(async () => {});
         const answerCard = vi.fn(async () => {});
@@ -7599,10 +7792,14 @@ describe('new tab review helpers', () => {
         });
 
         try {
-            await controller.gradeFromLookup('okay', { kind: 'anki', ankiCardId: 405 });
+            const result = await controller.gradeFromLookup('okay', { kind: 'anki', ankiCardId: 405 });
 
-            expect(answerCard).toHaveBeenCalledWith(405, 'okay');
+            expect(result).toEqual({ preserveLookup: true });
+            expect(answerCard).not.toHaveBeenCalled();
             expect(reviewCard).not.toHaveBeenCalled();
+            await waitForExpect(() => {
+                expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('Could not submit grade.');
+            });
         } finally {
             root.remove();
         }

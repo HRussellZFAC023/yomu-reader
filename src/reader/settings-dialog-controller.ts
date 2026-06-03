@@ -425,6 +425,11 @@ export class SettingsDialogController {
         form.querySelectorAll<HTMLInputElement>('input[name^="wordColor"], input[name^="pitchColor"]').forEach(input => {
             input.addEventListener('input', () => this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings)));
         });
+        const autoPlayAudio = form.querySelector<HTMLInputElement>('input[name="autoPlayAudio"]');
+        const audioAutoPlayMode = form.querySelector<HTMLSelectElement>('select[name="audioAutoPlayMode"]');
+        autoPlayAudio?.addEventListener('change', () => {
+            if (audioAutoPlayMode) audioAutoPlayMode.disabled = !autoPlayAudio.checked;
+        });
         this.syncThemeSwitch(form);
         form.querySelector<HTMLButtonElement>('[data-theme-switch]')?.addEventListener('click', event => {
             event.preventDefault();

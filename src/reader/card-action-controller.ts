@@ -37,6 +37,7 @@ interface CardActionControllerOptions {
     parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
     toast: (message: string) => void;
     invalidateCardData?: () => void;
+    onAnkiStatusChanged?: (card: JPDBCard) => void;
 }
 
 type StudyActionHandler = () => boolean | Promise<boolean>;
@@ -266,7 +267,7 @@ export class CardActionController {
             sourceTitle: ankiSourceTitle(context.sourceTitle),
             sourceUrl: ankiSourceUrl(context.sourceUrl),
         });
-        this.options.invalidateCardData?.();
+        this.notifyAnkiStatusChanged(card);
         this.options.toast(ankiMergeToast(result, settings));
         await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
             autoPlay: false,
@@ -293,7 +294,11 @@ export class CardActionController {
     async reviewGrade(grade: JPDBGrade, card: JPDBCard, sentence?: string, options: { ankiCardId?: number; deckId?: string } = {}): Promise<void> {
         const settings = this.options.getSettings();
         if (!settings.enableReviews) throw new Error(uiText(settings.interfaceLanguage, 'reviewActionsDisabled'));
-        if (options.ankiCardId) return this.options.anki.answerCard(options.ankiCardId, grade);
+        if (options.ankiCardId) {
+            await this.options.anki.answerCard(options.ankiCardId, grade);
+            this.notifyAnkiStatusChanged(card);
+            return;
+        }
 
         this.assertJpdbReviewAllowed(card, uiText(settings.interfaceLanguage, 'addJpdbApiKeyReview'));
         const states = normalizeCardStates(card.cardState);
@@ -342,11 +347,17 @@ export class CardActionController {
                 this.options.toast(uiText(settings.interfaceLanguage, 'openedMobileAnkiHandoff'));
                 return;
             }
+            this.notifyAnkiStatusChanged(card);
         } catch (error) {
             if (isAnkiDuplicateNoteError(error)) return this.showExistingAnkiCard(card, sentence);
             throw error;
         }
         this.options.toast(ankiSentToast(context, settings, Boolean(wordAudio?.dataUrl || wordAudio?.url)));
+    }
+
+    private notifyAnkiStatusChanged(card: JPDBCard): void {
+        this.options.invalidateCardData?.();
+        this.options.onAnkiStatusChanged?.(card);
     }
 
     private async showExistingAnkiCard(card: JPDBCard, sentence?: string): Promise<void> {
