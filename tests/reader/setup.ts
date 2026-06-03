@@ -1,9 +1,10 @@
-import { afterEach, beforeEach } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
 import { applyPreferredJapaneseSiteLanguage } from '../../src/reader/preferred-site-language';
 
 const TEST_LANGUAGE = 'en-US';
 const TEST_LANGUAGES = ['en-US', 'en'] as const;
 const PREFERRED_SITE_LANGUAGE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
+let mediaMethodRestorers: Array<() => void> = [];
 
 function resetPreferredSiteLanguage(): void {
     applyPreferredJapaneseSiteLanguage(false);
@@ -38,5 +39,29 @@ function resetLocaleState(): void {
     setDefaultNavigatorLanguage();
 }
 
-beforeEach(resetLocaleState);
-afterEach(resetLocaleState);
+function stubJsdomMediaElementMethods(): void {
+    if (typeof HTMLMediaElement === 'undefined') return;
+    const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    const loadSpy = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+    mediaMethodRestorers = [
+        () => playSpy.mockRestore(),
+        () => pauseSpy.mockRestore(),
+        () => loadSpy.mockRestore(),
+    ];
+}
+
+function restoreJsdomMediaElementMethods(): void {
+    for (const restore of mediaMethodRestorers) restore();
+    mediaMethodRestorers = [];
+}
+
+beforeEach(() => {
+    resetLocaleState();
+    stubJsdomMediaElementMethods();
+});
+
+afterEach(() => {
+    resetLocaleState();
+    restoreJsdomMediaElementMethods();
+});
