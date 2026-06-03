@@ -282,7 +282,7 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Anki mining disabled');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiMobile/AnkiDroid handoff is on for creating new notes only');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('review queues require AnkiConnect or a future Android bridge');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('review queues require desktop Anki with AnkiConnect');
 
         form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', enableReviews: false, jpdbMiningEnabled: false }, 'https://jpdb.io/settings');
         expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.dataset.statusTone).toBe('pending');
@@ -326,11 +326,12 @@ describe('settings form localization', () => {
         expect(status.closest('.jpdb-reader-settings-wide')).not.toBeNull();
         expect(status.textContent).toContain('Checking AnkiConnect at http://192.168.1.8:8765');
         expect(status.textContent).toContain('AnkiMobile/AnkiDroid handoff is off');
-        expect(status.textContent).toContain('review queues require AnkiConnect or a future Android bridge');
+        expect(status.textContent).toContain('review queues require desktop Anki with AnkiConnect');
         expect(adapter.textContent).toContain('Use Scan after AnkiConnect is reachable');
         expect(adapter.textContent).toContain('RTK/Core-style decks');
         const helpLink = form.querySelector<HTMLAnchorElement>('[data-anki-setup-help] a[href="https://ankiweb.net/shared/info/2055492159"]');
         expect(helpLink?.textContent).toContain('Open AnkiConnect add-on');
+        expect(form.querySelector<HTMLElement>('[data-anki-setup-help]')?.textContent).toContain('keep the よむ userscript enabled');
         expect(form.textContent).not.toContain('Scan Anki to choose from your decks and note types');
     });
 
@@ -622,7 +623,7 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLButtonElement>('[data-action="prepare-anki"]')?.textContent).toBe('Create Yomu note type');
         expect(form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')?.textContent).toBe('Scan existing decks');
         expect(form.querySelector<HTMLElement>('[data-anki-setup-help]')?.textContent).toContain('Core/RTK-style or other nonstandard decks');
-        expect(form.querySelector<HTMLElement>('[data-anki-setup-help]')?.textContent).toContain('mobile handoff only creates new notes');
+        expect(form.querySelector<HTMLElement>('[data-anki-setup-help]')?.textContent).toContain('Mobile handoff only creates new notes');
     });
 
     it('keeps top-level section legends attached to their panels', () => {

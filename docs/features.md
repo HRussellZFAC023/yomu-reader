@@ -99,7 +99,7 @@ The temporary notice shows how many cards were hidden and disappears after a few
 
 Anki support is optional. With AnkiConnect reachable, よむ can create cards from popup lookups, subtitles, and OCR; detect existing cards; update matching notes; scan decks and note types; and power Anki-backed review/status features in the new-tab page.
 
-Mobile handoff is deliberately narrower. On iPhone, iPad, and Android, よむ can open AnkiMobile or AnkiDroid to create a new note when AnkiConnect is not available. Handoff does not read your collection, pull existing-card status, update existing notes, scan fields, or provide review queues. Those features need AnkiConnect today, or a future Android bridge.
+Mobile handoff is deliberately narrower. On iPhone, iPad, and Android, よむ can open AnkiMobile or AnkiDroid to create a new note when AnkiConnect is not available. Handoff does not read your collection, pull existing-card status, update existing notes, scan fields, or provide review queues. Those features need desktop Anki with AnkiConnect.
 
 If you already use RTK, Core, anime-card, or other nonstandard Japanese decks, use Settings > Anki > Scan after AnkiConnect is reachable. よむ inspects existing decks and note types, suggests field mappings for expression, reading, meaning, sentence, audio, and image fields, and lets you mine into that shape when it can infer a fit. If the scan cannot infer enough fields, the cleanest route is to use the よむ note type or adjust mappings before mining.
 

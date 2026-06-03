@@ -2084,8 +2084,9 @@ function audioHelpHtml(language: InterfaceLanguage): string {
 
 function ankiSetupHelpHtml(language: InterfaceLanguage): string {
     const copy = uiText(language, 'ankiHelp');
+    const hostedHint = uiText(language, 'ankiHostedCorsHint');
     const linkLabel = language === 'ja' ? 'AnkiConnectアドオンを開く' : 'Open AnkiConnect add-on';
-    return `${escapeHtml(copy)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(linkLabel)}</a>`;
+    return `${escapeHtml(copy)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(linkLabel)}</a> ${escapeHtml(hostedHint)}`;
 }
 
 function audioUrlPlaceholder(type: AudioSourceSetting['type'], language: InterfaceLanguage): string {

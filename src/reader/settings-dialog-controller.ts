@@ -1,5 +1,5 @@
 import { AudioPlayer } from './audio';
-import { AnkiConnectClient, canUseMobileAnkiHandoff, needsHostedAnkiConnectSetupHint } from './anki';
+import { AnkiConnectClient, canUseMobileAnkiHandoff } from './anki';
 import { copyText } from './browser-ui';
 import { createAudioPreviewCard } from './card-utils';
 import { NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from './constants';
@@ -1192,9 +1192,7 @@ export class SettingsDialogController {
     }
 
     private ankiUnreachableMessage(language: InterfaceLanguage): string {
-        const message = uiText(language, 'ankiUnreachable');
-        if (!needsHostedAnkiConnectSetupHint(this.settings.ankiConnectUrl)) return message;
-        return `${message} ${uiText(language, 'ankiHostedCorsHint')}`;
+        return uiText(language, 'ankiUnreachable');
     }
 
     private ankiConnectionErrorMessage(error: unknown, language: InterfaceLanguage): string {
