@@ -10,6 +10,7 @@ import { exampleSentenceLookupTokens } from './example-sentence-tokens';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from './immersion-kit';
 import { localizedImmersionProviderLabel, localizedImmersionSourceTitle } from './immersion-labels';
 import { waitForIdle as waitForBrowserIdle } from './idle';
+import type { AnkiLookupResult } from './anki';
 import {
     IMMERSION_FALLBACK_QUERY_LIMIT,
     immersionFallbackFragments,
@@ -167,6 +168,7 @@ export interface NewTabControllerDependencies {
     anki: {
         listNewTabCards: (limit?: number) => Promise<JPDBCard[]>;
         answerCard: (cardId: number, grade: JPDBGrade) => Promise<void>;
+        findExistingCards?: (card: JPDBCard) => Promise<AnkiLookupResult>;
         invoke: <T>(action: string, params?: Record<string, unknown>) => Promise<T>;
         requestPermission: () => Promise<unknown>;
     };
@@ -358,10 +360,23 @@ function isPositiveJpdbCard(card: JPDBCard): boolean {
 }
 
 function newTabCardSourceLabel(card: JPDBCard, language: ReaderSettings['interfaceLanguage']): string {
-    if (card.source === 'anki' || card.reviewSource === 'anki') return 'Anki';
+    if (card.source === 'anki' || card.reviewSource === 'anki') return ankiReviewSourceLabel(card, language);
     if (card.source === 'local' || card.source === 'fallback' || card.reviewSource === 'dictionary') return uiText(language, 'dictionary');
     if (card.source === 'jpdb' || card.reviewSource === 'jpdb-api' || card.reviewSource === 'jpdb-live') return 'JPDB';
     return card.vid > 0 && card.sid > 0 ? 'JPDB' : uiText(language, 'dictionary');
+}
+
+function ankiReviewSourceLabel(card: JPDBCard, language: ReaderSettings['interfaceLanguage']): string {
+    const kind = ankiCardKindLabel(card, language);
+    return kind ? `Anki ${kind}` : 'Anki';
+}
+
+function ankiCardKindLabel(card: JPDBCard, language: ReaderSettings['interfaceLanguage']): string {
+    if (card.ankiCardKind === 'kanji') return uiText(language, 'kanji');
+    if (card.ankiCardKind === 'kana') return language === 'ja' ? 'かな' : 'Kana';
+    if (card.ankiCardKind === 'sentence') return language === 'ja' ? '文' : 'Sentence';
+    if (card.ankiCardKind === 'other') return language === 'ja' ? 'その他' : 'Other';
+    return '';
 }
 
 function newTabPitchClass(card: JPDBCard): string {
@@ -505,6 +520,7 @@ export interface NewTabLookupReviewTarget {
     id: string;
     kind: 'jpdb' | 'anki';
     label: string;
+    shortLabel: string;
     ankiCardId?: number;
 }
 
@@ -826,22 +842,16 @@ export class NewTabController {
     lookupReviewTargets(card: JPDBCard, data?: CardRenderData | null): NewTabLookupReviewTarget[] {
         if (!this.isCurrentLookupGradeCard(card)) return [];
         const current = this.visibleWords[this.index] ?? card;
-        const targets = this.reviewTargetsForCard(current);
-        const result: NewTabLookupReviewTarget[] = [];
-        if (targets.some(target => target === 'jpdb-api' || target === 'jpdb-live')) {
-            result.push({ id: 'jpdb', kind: 'jpdb', label: this.text('gradeTargetJpdb') });
-        }
-        const ankiTargets = this.dependencies.getSettings().newTabAnkiEnabled ? this.lookupAnkiReviewTargets(current, data) : [];
-        if (targets.includes('anki') || ankiTargets.length) result.push(...ankiTargets);
-        return result;
+        return this.lookupReviewTargetsForCard(current, data);
     }
 
     lookupGradeTargetLabel(card: JPDBCard): string {
         return this.isCurrentLookupGradeCard(card) ? this.gradeTargetLabel(card) : '';
     }
 
-    async gradeFromLookup(grade: JPDBGrade, target?: NewTabLookupReviewTargetSelection): Promise<void> {
+    async gradeFromLookup(grade: JPDBGrade, target?: NewTabLookupReviewTargetSelection): Promise<{ preserveLookup: boolean }> {
         await this.gradeCurrentCard(grade, target);
+        return { preserveLookup: Boolean(target) };
     }
 
     private isCurrentLookupGradeCard(card: JPDBCard): boolean {
@@ -1934,7 +1944,7 @@ export class NewTabController {
     private renderStatsAnkiDeckToggles(source: StatsSourceSnapshot): HTMLElement | null {
         if (!source.deckNames?.length) return null;
         const activeDecks = new Set(source.activeDeckNames ?? source.deckNames);
-        return el('div', { class: 'jpdb-reader-stats-decks', role: 'group', 'aria-label': 'Anki decks' },
+        return el('div', { class: 'jpdb-reader-stats-decks', role: 'group', 'aria-label': this.text('statsAnkiDecks') },
             source.deckNames.map(deck => {
                 const active = activeDecks.has(deck);
                 return el('label', { class: 'jpdb-reader-stats-deck-toggle', dataset: { active } },
@@ -2128,7 +2138,7 @@ export class NewTabController {
         }
         try {
             const cards = await this.loadJpdbStatsCards();
-            return statsFromJpdbCards(cards, cards.length ? 'JPDB card states loaded.' : this.text('statsNoData'));
+            return statsFromJpdbCards(cards, cards.length ? this.text('statsJpdbLoaded') : this.text('statsNoData'));
         } catch (error) {
             log.warn('JPDB stats failed', error);
             return emptyStatsSource('jpdb', 'JPDB', error instanceof Error ? error.message : this.text('couldNotLoadWords'), 'error');
@@ -2214,10 +2224,18 @@ export class NewTabController {
     }
 
     private statsAnkiDeckSelectionMessage(activeDeckCount: number, totalDeckCount: number): string {
-        if (!totalDeckCount) return 'Connected to Anki.';
-        if (!activeDeckCount) return `Connected to Anki. 0 of ${totalDeckCount} decks selected.`;
-        if (activeDeckCount === totalDeckCount) return `Connected to ${totalDeckCount} deck${totalDeckCount === 1 ? '' : 's'}.`;
-        return `Connected to ${activeDeckCount} of ${totalDeckCount} decks.`;
+        if (!totalDeckCount) return this.text('statsAnkiConnected');
+        if (!activeDeckCount) return this.formatNewTabText('statsAnkiNoDecksSelected', { total: String(totalDeckCount) });
+        if (activeDeckCount === totalDeckCount) {
+            return this.formatNewTabText('statsAnkiDecksSelected', {
+                count: String(totalDeckCount),
+                plural: totalDeckCount === 1 ? '' : 's',
+            });
+        }
+        return this.formatNewTabText('statsAnkiPartialDecksSelected', {
+            count: String(activeDeckCount),
+            total: String(totalDeckCount),
+        });
     }
 
     private async importJpdbStatsFile(root: HTMLElement, file: File): Promise<void> {
@@ -3123,7 +3141,7 @@ export class NewTabController {
             if (!labels.includes(label)) labels.push(label);
         };
         for (const target of this.reviewTargetsForCard(card)) {
-            if (target === 'anki') add('Anki');
+            if (target === 'anki') add(ankiReviewSourceLabel(card, this.language()));
             else add('JPDB');
         }
         return labels;
@@ -5958,7 +5976,8 @@ export class NewTabController {
         if (card.source === 'local') return uiText(language, 'dictionary');
         if (card.source === 'anki' || card.reviewSource === 'anki') {
             const state = primaryCardState(card.cardState);
-            return state === 'known' ? 'Anki' : `Anki ${searchCardStateLabel(state, language)}`;
+            const label = ankiReviewSourceLabel(card, language);
+            return state === 'known' ? label : `${label} ${searchCardStateLabel(state, language)}`;
         }
         if (ankiLookup?.primary) return `Anki ${searchCardStateLabel(ankiLookup.state, language)}`;
         const state = primaryCardState(card.cardState);
@@ -6053,7 +6072,7 @@ export class NewTabController {
     private gradeControlButtons(card: JPDBCard): HTMLElement[] {
         const targetLabel = this.gradeTargetLabel(card);
         return [
-            el('div', { class: 'jpdb-reader-newtab-grade-target', dataset: { newtabGradeTarget: true } }, targetLabel),
+            this.renderGradeTargetLabel(card, targetLabel),
             ...newTabGradeOptions(this.dependencies.getSettings())
                 .map(([grade, label]) => el('button', {
                     type: 'button',
@@ -6062,6 +6081,24 @@ export class NewTabController {
                     'aria-label': `${label}: ${targetLabel}`,
                 }, label)),
         ];
+    }
+
+    private renderGradeTargetLabel(card: JPDBCard, label: string): HTMLElement {
+        return el('div', { class: 'jpdb-reader-newtab-grade-target', dataset: { newtabGradeTarget: true } },
+            this.gradeTargetChip(card),
+            el('span', { dataset: { newtabGradeTargetText: true } }, label),
+        );
+    }
+
+    private gradeTargetChip(card: JPDBCard): HTMLElement {
+        const targets = this.reviewTargetsForCard(card);
+        const hasJpdb = targets.some(target => target === 'jpdb-api' || target === 'jpdb-live');
+        const hasAnki = targets.includes('anki');
+        const label = hasJpdb && hasAnki
+            ? this.text('gradeTargetBoth')
+            : hasAnki ? 'Anki' : 'JPDB';
+        const source = hasJpdb && hasAnki ? 'both' : hasAnki ? 'anki' : 'jpdb';
+        return el('span', { class: 'jpdb-reader-newtab-grade-target-chip', dataset: { newtabGradeTargetChip: source } }, label);
     }
 
     private gradeTargetLabel(card: JPDBCard): string {
@@ -6075,7 +6112,24 @@ export class NewTabController {
     }
 
     private ankiReviewTargetLabel(card: JPDBCard): string {
-        return [card.ankiDeckNames?.join(', ') || card.ankiModelName || 'Anki', this.ankiCardIdForReview(card) ? `#${this.ankiCardIdForReview(card)}` : ''].filter(Boolean).join(' ');
+        const base = card.ankiDeckNames?.join(', ') || card.ankiModelName || 'Anki';
+        const kind = ankiCardKindLabel(card, this.language());
+        const cardId = this.ankiCardIdForReview(card);
+        return [
+            [base, kind].filter(Boolean).join(' · '),
+            cardId ? `#${cardId}` : '',
+        ].filter(Boolean).join(' ');
+    }
+
+    private lookupReviewTargetsForCard(card: JPDBCard, data?: CardRenderData | null): NewTabLookupReviewTarget[] {
+        const targets = this.reviewTargetsForCard(card);
+        const result: NewTabLookupReviewTarget[] = [];
+        if (targets.some(target => target === 'jpdb-api' || target === 'jpdb-live')) {
+            result.push({ id: 'jpdb', kind: 'jpdb', label: this.text('gradeTargetJpdb'), shortLabel: 'JPDB' });
+        }
+        const ankiTargets = this.dependencies.getSettings().newTabAnkiEnabled ? this.lookupAnkiReviewTargets(card, data) : [];
+        if (targets.includes('anki') || ankiTargets.length) result.push(...ankiTargets);
+        return result;
     }
 
     private lookupAnkiReviewTargets(card: JPDBCard, data?: CardRenderData | null): NewTabLookupReviewTarget[] {
@@ -6086,6 +6140,7 @@ export class NewTabController {
             candidates.set(id, [label.trim() || 'Anki', `#${id}`].filter(Boolean).join(' '));
         };
         add(this.ankiCardIdForReview(card), card.ankiDeckNames?.join(', ') || card.ankiModelName || 'Anki');
+        card.ankiRenderedCards?.forEach(rendered => add(rendered.cardId, rendered.deckName || card.ankiDeckNames?.join(', ') || card.ankiModelName || 'Anki'));
         const notes = data?.ankiLookup.notes ?? [];
         notes.forEach(note => {
             const noteLabel = note.deckNames.join(', ') || note.modelName || 'Anki';
@@ -6098,6 +6153,7 @@ export class NewTabController {
             kind: 'anki',
             ankiCardId: cardId,
             label: this.formatNewTabText('gradeTargetAnki', { target: label }),
+            shortLabel: `Anki #${cardId}`,
         }));
     }
 
@@ -6152,19 +6208,24 @@ export class NewTabController {
         }
         try {
             this.setStatus(target.root, this.text('grading'));
-            await this.submitGrade(target.card, grade, selectedTarget);
+            const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget);
             this.invalidateReviewSourceCache(target.card);
-            this.setStatus(target.root, passingNewTabGrade(grade) ? '✓' : '✕');
-            this.advanceAfterGrade(target.root, target.card);
+            this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
+            if (!selectedTarget) this.advanceAfterGrade(target.root, target.card);
         } catch (error) {
             log.warn('New tab grade failed', { term: target.card.spelling, source: target.card.source, grade }, error);
-            if (await this.queueOfflineGrade(target.card, grade, this.queueableFailedGradeTargets(error))) {
+            if (!selectedTarget && await this.queueOfflineGrade(target.card, grade, this.queueableFailedGradeTargets(error))) {
                 this.setStatus(target.root, this.text('offlineGradeReconnect'));
                 this.advanceAfterGrade(target.root, target.card);
                 return;
             }
             this.setStatus(target.root, this.text('couldNotSubmitGrade'));
         }
+    }
+
+    private gradeSuccessStatus(grade: JPDBGrade, selectedTarget: NewTabLookupReviewTarget | null): string {
+        const mark = passingNewTabGrade(grade) ? '✓' : '✕';
+        return selectedTarget ? `${mark} ${selectedTarget.shortLabel}` : mark;
     }
 
     private queueableFailedGradeTargets(error: unknown): QueuedNewTabGradeTarget[] | undefined {
@@ -6180,10 +6241,9 @@ export class NewTabController {
         return root && card ? { root, card } : null;
     }
 
-    private async submitGrade(card: JPDBCard, grade: JPDBGrade, selectedTarget?: NewTabLookupReviewTargetSelection): Promise<void> {
+    private async submitGrade(card: JPDBCard, grade: JPDBGrade, selectedTarget?: NewTabLookupReviewTargetSelection): Promise<NewTabLookupReviewTarget | null> {
         if (selectedTarget) {
-            await this.submitSelectedLookupTarget(card, selectedTarget, grade);
-            return;
+            return await this.submitSelectedLookupTarget(card, selectedTarget, grade);
         }
         const targets = this.reviewTargetsForCard(card);
         if (!targets.length) throw new Error(this.text('couldNotSubmitGrade'));
@@ -6196,16 +6256,28 @@ export class NewTabController {
             }
         }
         if (failures.length) throw new NewTabGradeSubmissionError(failures);
+        return null;
     }
 
-    private async submitSelectedLookupTarget(card: JPDBCard, selectedTarget: NewTabLookupReviewTargetSelection, grade: JPDBGrade): Promise<void> {
-        if (selectedTarget.kind === 'anki') {
-            await this.submitAnkiGrade(card, grade, selectedTarget.ankiCardId);
-            return;
+    private async submitSelectedLookupTarget(card: JPDBCard, selectedTarget: NewTabLookupReviewTargetSelection, grade: JPDBGrade): Promise<NewTabLookupReviewTarget> {
+        const target = this.lookupReviewTargetForSelection(card, selectedTarget);
+        if (!target) throw new Error(this.text('couldNotSubmitGrade'));
+        if (target.kind === 'anki') {
+            const refreshed = await this.submitAnkiGrade(card, grade, target.ankiCardId);
+            return refreshed ? this.lookupReviewTargetWithAnkiState(target, refreshed.state) : target;
         }
-        const jpdbTarget = this.reviewTargetsForCard(card).find(target => target === 'jpdb-api' || target === 'jpdb-live');
+        const jpdbTarget = this.reviewTargetsForCard(card).find(candidate => candidate === 'jpdb-api' || candidate === 'jpdb-live');
         if (!jpdbTarget) throw new Error(this.text('couldNotSubmitGrade'));
         await this.submitReviewTarget(card, jpdbTarget, grade);
+        return target;
+    }
+
+    private lookupReviewTargetForSelection(card: JPDBCard, selectedTarget: NewTabLookupReviewTargetSelection): NewTabLookupReviewTarget | null {
+        const targets = this.lookupReviewTargetsForCard(card);
+        if (selectedTarget.kind === 'jpdb') return targets.find(target => target.kind === 'jpdb') ?? null;
+        const selectedCardId = Number(selectedTarget.ankiCardId);
+        if (!Number.isFinite(selectedCardId) || selectedCardId <= 0) return null;
+        return targets.find(target => target.kind === 'anki' && target.ankiCardId === selectedCardId) ?? null;
     }
 
     private async submitReviewTarget(card: JPDBCard, target: NewTabReviewTarget, grade: JPDBGrade): Promise<void> {
@@ -6236,10 +6308,52 @@ export class NewTabController {
         await this.dependencies.jpdb.reviewCard(card, grade);
     }
 
-    private async submitAnkiGrade(card: JPDBCard, grade: JPDBGrade, explicitCardId?: number): Promise<void> {
+    private async submitAnkiGrade(card: JPDBCard, grade: JPDBGrade, explicitCardId?: number): Promise<AnkiLookupResult | null> {
         const cardId = explicitCardId ?? this.ankiCardIdForReview(card);
         if (!cardId) throw new Error(this.text('missingAnkiCardId'));
         await this.dependencies.anki.answerCard(cardId, grade);
+        return await this.refreshAnkiReviewCardState(card);
+    }
+
+    private async refreshAnkiReviewCardState(card: JPDBCard): Promise<AnkiLookupResult | null> {
+        if (!this.dependencies.anki.findExistingCards) return null;
+        const lookup = await this.dependencies.anki.findExistingCards(card);
+        this.applyAnkiLookupToReviewCard(card, lookup);
+        return lookup;
+    }
+
+    private applyAnkiLookupToReviewCard(card: JPDBCard, lookup: AnkiLookupResult): void {
+        card.cardState = [lookup.state];
+        if (!lookup.primary) {
+            card.ankiCardId = undefined;
+            card.ankiNoteId = undefined;
+            card.ankiDeckNames = undefined;
+            card.ankiModelName = undefined;
+            card.ankiReps = undefined;
+            card.ankiLapses = undefined;
+            card.ankiRenderedCards = undefined;
+            return;
+        }
+        const primary = lookup.primary;
+        card.ankiCardId = primary.primaryCardId ?? card.ankiCardId;
+        card.ankiNoteId = primary.noteId;
+        card.ankiDeckNames = primary.deckNames;
+        card.ankiModelName = primary.modelName;
+        card.ankiReps = primary.reps;
+        card.ankiLapses = primary.lapses;
+        card.ankiRenderedCards = primary.renderedCards?.map(rendered => ({
+            cardId: rendered.cardId,
+            deckName: rendered.deckName,
+            question: rendered.question,
+            answer: rendered.answer,
+        }));
+    }
+
+    private lookupReviewTargetWithAnkiState(target: NewTabLookupReviewTarget, state: CardState): NewTabLookupReviewTarget {
+        return {
+            ...target,
+            shortLabel: `${target.shortLabel} · ${searchCardStateLabel(state, this.language())}`,
+        };
     }
 
     private invalidateReviewSourceCache(card: JPDBCard): void {
@@ -6353,7 +6467,10 @@ export class NewTabController {
         this.liveJpdbStatus = status;
         const root = this.jpdbBridgeRoot();
         if (!root) return;
-        if (!status.card) return;
+        if (!status.card) {
+            this.clearLiveJpdbReviewCard(root);
+            return;
+        }
         if (this.isPendingLiveJpdbCard(status.card)) return;
         const card = this.cardFromLiveJpdb(status.card);
         if (!card) return;
@@ -6365,6 +6482,16 @@ export class NewTabController {
         this.upsertLiveJpdbCard(card);
         if (preservePreviousVisibleCard) this.keepVisibleCardInQueue(previousVisibleCard);
         this.applyWords(root, true, preferredCardKey);
+    }
+
+    private clearLiveJpdbReviewCard(root: HTMLElement): void {
+        if (!this.allWords.some(card => card.reviewSource === 'jpdb-live')) return;
+        const previousKey = this.currentVisibleWordKey();
+        this.allWords = this.allWords.filter(card => card.reviewSource !== 'jpdb-live');
+        this.visibleWords = this.visibleWords.filter(card => card.reviewSource !== 'jpdb-live');
+        this.liveCards.clear();
+        this.visiblePoolSignature = '';
+        this.applyWords(root, true, previousKey);
     }
 
     private shouldPreserveVisibleCardAfterLiveJpdbUpdate(previous: JPDBCard | undefined, nextLiveCard: JPDBCard): boolean {
@@ -6818,6 +6945,7 @@ function mergeDedupeCardMetadata(primary: JPDBCard, secondary: JPDBCard): JPDBCa
         ankiNoteId: primary.ankiNoteId ?? secondary.ankiNoteId,
         ankiDeckNames: mergeOptionalStrings(primary.ankiDeckNames, secondary.ankiDeckNames),
         ankiModelName: primary.ankiModelName ?? secondary.ankiModelName,
+        ankiCardKind: primary.ankiCardKind ?? secondary.ankiCardKind,
         ankiReps: primary.ankiReps ?? secondary.ankiReps,
         ankiLapses: primary.ankiLapses ?? secondary.ankiLapses,
         ankiRenderedCards: mergeAnkiRenderedCards(primary.ankiRenderedCards, secondary.ankiRenderedCards),

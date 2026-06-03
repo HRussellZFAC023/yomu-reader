@@ -389,6 +389,7 @@ export class NewTabRuntime {
             anki: {
                 listNewTabCards: limit => listNewTabAnkiCards(this.anki, this.settings, limit),
                 answerCard: (cardId, grade) => this.anki.answerCard(cardId, grade),
+                findExistingCards: card => this.anki.findExistingCards(card),
                 invoke: (action, params) => this.anki.invoke(action, params),
                 requestPermission: () => this.anki.invoke('requestPermission'),
             },
@@ -894,12 +895,17 @@ export class NewTabRuntime {
         const targets = this.newTab?.lookupReviewTargets(card, data) ?? [];
         if (targets.length) return targets.map(target => this.renderLookupReviewTargetButtons(target, grades)).join('');
         const fallbackLabel = this.newTab?.lookupGradeTargetLabel(card) ?? '';
-        return this.renderLookupReviewTargetButtons({ id: 'current', kind: 'jpdb', label: fallbackLabel }, grades);
+        return this.renderLookupReviewTargetButtons({ id: 'current', kind: 'jpdb', label: fallbackLabel, shortLabel: 'JPDB' }, grades);
     }
 
     private renderLookupReviewTargetButtons(target: NewTabLookupReviewTarget, grades: Array<[JPDBGrade, string]>): string {
         const targetLabel = target.label;
-        const label = targetLabel ? `<div class="jpdb-reader-newtab-grade-target" data-newtab-grade-target>${escapeHtml(targetLabel)}</div>` : '';
+        const chip = target.shortLabel
+            ? `<span class="jpdb-reader-newtab-grade-target-chip" data-newtab-grade-target-chip="${escapeHtml(target.kind)}">${escapeHtml(target.shortLabel)}</span>`
+            : '';
+        const label = targetLabel
+            ? `<div class="jpdb-reader-newtab-grade-target" data-newtab-grade-target>${chip}<span data-newtab-grade-target-text>${escapeHtml(targetLabel)}</span></div>`
+            : '';
         const targetAttrs = ` data-newtab-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}`;
         return `
             <div class="jpdb-reader-row${grades.length === 5 ? ' jpdb-reader-grades' : ''}" style="--cols: ${grades.length}" data-newtab-review-target-row="${escapeHtml(target.id)}">
@@ -1020,8 +1026,8 @@ export class NewTabRuntime {
         if (!this.newTab || button.disabled) return;
         button.disabled = true;
         try {
-            await this.newTab.gradeFromLookup(grade, target);
-            this.dismissLookupPopover();
+            const result = await this.newTab.gradeFromLookup(grade, target);
+            if (!result.preserveLookup) this.dismissLookupPopover();
         } catch (error) {
             log.warn('New tab kanji lookup grade failed', { grade }, error);
             this.toast(this.text('couldNotSubmitGrade'));
@@ -1354,8 +1360,8 @@ export class NewTabRuntime {
         if (!this.newTab || button.disabled) return;
         button.disabled = true;
         try {
-            await this.newTab.gradeFromLookup(grade, target);
-            this.dismissLookupPopover();
+            const result = await this.newTab.gradeFromLookup(grade, target);
+            if (!result.preserveLookup) this.dismissLookupPopover();
         } catch (error) {
             log.warn('New tab lookup grade failed', { grade }, error);
             this.toast(this.text('couldNotSubmitGrade'));

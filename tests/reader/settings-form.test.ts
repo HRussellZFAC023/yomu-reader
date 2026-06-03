@@ -103,26 +103,27 @@ describe('settings form localization', () => {
 
         applySettingsSearch(form, '');
 
-        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="jpdb"]')?.getAttribute('aria-pressed')).toBe('true');
+        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="jpdb"]')?.getAttribute('aria-selected')).toBe('true');
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="jpdb"]')?.hidden).toBe(false);
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="audio"]')?.hidden).toBe(true);
     });
 
-    it('uses pressed toolbar buttons instead of invalid tab roles for settings sections', () => {
+    it('uses roving tabs for settings sections', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
-        const toolbar = form.querySelector<HTMLElement>('.jpdb-reader-settings-tabs')!;
-        const buttons = Array.from(toolbar.querySelectorAll<HTMLButtonElement>('[data-action="settings-panel"]'));
+        const tablist = form.querySelector<HTMLElement>('.jpdb-reader-settings-tabs')!;
+        const buttons = Array.from(tablist.querySelectorAll<HTMLButtonElement>('[data-action="settings-panel"]'));
 
-        expect(toolbar.getAttribute('role')).toBe('toolbar');
-        expect(buttons.every(button => button.getAttribute('role') !== 'tab')).toBe(true);
+        expect(tablist.getAttribute('role')).toBe('tablist');
+        expect(buttons.every(button => button.getAttribute('role') === 'tab')).toBe(true);
         expect(buttons.map(button => button.dataset.panel)).toContain('jpdb');
         expect(buttons.map(button => button.dataset.panel)).toContain('newTab');
         expect(buttons.map(button => button.dataset.panel)).toContain('appearance');
         expect(buttons.map(button => button.dataset.panel)).toContain('reading');
-        expect(buttons[0]?.getAttribute('aria-pressed')).toBe('true');
+        expect(buttons.find(button => button.dataset.panel === 'media')?.getAttribute('aria-controls')).toContain('jpdb-reader-settings-panel-audio');
+        expect(buttons[0]?.getAttribute('aria-selected')).toBe('true');
         expect(buttons[0]?.tabIndex).toBe(0);
-        expect(buttons.slice(1).every(button => button.getAttribute('aria-pressed') === 'false' && button.tabIndex === -1)).toBe(true);
+        expect(buttons.slice(1).every(button => button.getAttribute('aria-selected') === 'false' && button.tabIndex === -1)).toBe(true);
     });
 
     it('gives New tab settings their own top-level section', () => {
@@ -146,7 +147,7 @@ describe('settings form localization', () => {
 
         activateSettingsPanel(form, 'basics');
 
-        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="jpdb"]')?.getAttribute('aria-pressed')).toBe('true');
+        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="jpdb"]')?.getAttribute('aria-selected')).toBe('true');
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="jpdb"]')?.hidden).toBe(false);
     });
 
@@ -221,7 +222,7 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('@media (pointer: coarse) and (min-width: 700px) and (max-width: 900px)');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }');
         expect(normalizedCss).toContain('.jpdb-reader-settings-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:has(> input[type="number"]), .jpdb-reader-settings .grid > label:has(> input[type="color"]) { display: grid; grid-template-columns: minmax(0, max-content) max-content;');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-settings-field-number, .jpdb-reader-settings .grid > .jpdb-reader-settings-field-color { display: grid; grid-template-columns: minmax(0, 1fr) auto;');
     });
 
     it('shows Immersion Kit reveal audio autoplay enabled by default', () => {
@@ -234,16 +235,19 @@ describe('settings form localization', () => {
         expect(toggle?.closest('label')?.textContent).toContain('reveal');
     });
 
-    it('uses one audio auto-play select with an Off option', () => {
+    it('places auto-play trigger under the auto-play toggle and disables it when off', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, autoPlayAudio: false, audioAutoPlayMode: 'hover' }, 'https://jpdb.io/settings');
+        const toggle = form.querySelector<HTMLInputElement>('input[name="autoPlayAudio"]')!;
         const select = form.querySelector<HTMLSelectElement>('select[name="audioAutoPlayMode"]')!;
         const timeout = form.querySelector<HTMLInputElement>('input[name="audioTimeoutMs"]')!;
         const proxyUrl = form.querySelector<HTMLInputElement>('input[name="corsProxyUrl"]')!;
 
-        expect(form.querySelector<HTMLInputElement>('input[name="autoPlayAudio"]')).toBeNull();
-        expect(optionText(form, 'audioAutoPlayMode', 'off')).toBe('Off');
-        expect(select.value).toBe('off');
+        expect(toggle.checked).toBe(false);
+        expect(toggle.closest('label')?.nextElementSibling).toBe(select.closest('label'));
+        expect(optionText(form, 'audioAutoPlayMode', 'off')).toBe('');
+        expect(select.disabled).toBe(true);
+        expect(select.value).toBe('hover');
         expect(timeout.min).toBe('1000');
         expect(timeout.max).toBe('30000');
         expect(timeout.step).toBe('500');
@@ -251,8 +255,10 @@ describe('settings form localization', () => {
 
         let saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
         expect(saved.autoPlayAudio).toBe(false);
-        expect(saved.audioAutoPlayMode).toBe('off');
+        expect(saved.audioAutoPlayMode).toBe('hover');
 
+        toggle.checked = true;
+        select.disabled = false;
         select.value = 'tap';
         timeout.value = '99999';
         saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
@@ -428,6 +434,8 @@ describe('settings form localization', () => {
         const guide = form.querySelector<HTMLElement>('.jpdb-reader-proxy-guide')!;
 
         expect(guide.textContent).toContain('Make your own Cloudflare proxy');
+        expect(guide.querySelector('[data-proxy-guide-show]')?.textContent).toBe('Show');
+        expect(guide.querySelector('[data-proxy-guide-hide]')?.textContent).toBe('Hide');
         expect(guide.textContent).toContain('Worker source');
         expect(guide.textContent).toContain('Deploy guide');
         expect(guide.querySelector('.jpdb-reader-proxy-guide-code')).toBeNull();
@@ -491,6 +499,7 @@ describe('settings form localization', () => {
             ankiEnabled: false,
             ankiSectionEnabled: true,
         }, 'https://jpdb.io/settings');
+        localizeSettingsForm(form, 'en');
         const dictionariesPanel = form.querySelector<HTMLElement>('[data-settings-panel="dictionaries"]')!;
         const ankiRow = dictionariesPanel.querySelector<HTMLElement>(`[data-source-id="${ANKI_SOURCE_ID}"]`)!;
         const sourceToggle = ankiRow.querySelector<HTMLInputElement>('input[name="ankiSection.enabled"]')!;
@@ -507,6 +516,7 @@ describe('settings form localization', () => {
         expect(ankiRow.querySelector<HTMLButtonElement>('[data-action="dictionary-source-up"]')).not.toBeNull();
         expect(ankiRow.querySelector<HTMLButtonElement>('[data-action="dictionary-source-down"]')).not.toBeNull();
         expect(sourceToggle.checked).toBe(true);
+        expect(sourceToggle.getAttribute('aria-label')).toBe('Enable source: Anki');
         expect(miningToggle.checked).toBe(false);
 
         sourceToggle.checked = false;
@@ -704,7 +714,11 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLElement>('[data-anki-library-choices-title]')?.textContent).toBe('デッキとノートタイプ');
         expect(form.querySelector<HTMLElement>('[data-anki-template-settings-title]')?.textContent).toBe('よむカードテンプレート');
         expect(form.querySelector<HTMLElement>('[data-theme-switch]')?.title).toBe('ダークテーマに切り替え');
+        expect(form.querySelector<HTMLElement>('[data-theme-switch]')?.getAttribute('aria-labelledby')).toBe('jpdb-reader-theme-label');
         expect(form.querySelector<HTMLElement>('[data-theme-switch]')?.getAttribute('aria-describedby')).toBe('jpdb-reader-theme-label');
+        expect(form.querySelector('[data-proxy-guide-show]')?.textContent).toBe('表示');
+        expect(form.querySelector('[data-proxy-guide-hide]')?.textContent).toBe('隠す');
+        expect(form.querySelector<HTMLInputElement>('[data-lookup-link-enable-toggle]')?.getAttribute('aria-label')).toContain('検索ピル');
         expect(form.querySelector('[data-help-links-title]')?.textContent).toBe('便利なページ');
         expect(form.querySelector('[data-help-support-title]')?.textContent).toBe('よむをサポート');
         expect(form.querySelector('[data-help-link="factory-reset"]')?.textContent).toBe('初期状態に戻す');

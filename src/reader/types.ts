@@ -94,6 +94,8 @@ export interface JPDBMeaning {
     partOfSpeech: string[];
 }
 
+export type AnkiCardKind = 'word' | 'kanji' | 'kana' | 'sentence' | 'other';
+
 export interface JPDBCard {
     vid: number;
     sid: number;
@@ -113,6 +115,7 @@ export interface JPDBCard {
     ankiNoteId?: number;
     ankiDeckNames?: string[];
     ankiModelName?: string;
+    ankiCardKind?: AnkiCardKind;
     ankiReps?: number;
     ankiLapses?: number;
     ankiRenderedCards?: Array<{

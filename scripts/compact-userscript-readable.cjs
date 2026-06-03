@@ -37,14 +37,16 @@ function compactBodyWhitespace(code) {
   const header = code.slice(0, bodyStart);
   const body = code.slice(bodyStart);
   try {
-    // Greasy Fork enforces a hard 2 MB script limit, so release builds minify
-    // identifiers after the compliance annotation pass has added review notes.
+    // Keep identifiers intact for Greasy Fork review, but allow syntax folding
+    // so release builds stay as compact as possible without obfuscation.
     const transformed = esbuild.transformSync(body, {
       loader: 'js',
+      charset: 'utf8',
       minifyWhitespace: true,
-      minifyIdentifiers: true,
+      minifyIdentifiers: false,
       minifySyntax: true,
       legalComments: 'none',
+      lineLimit: 2000,
     }).code.replace('(function(){', '(function (){');
     return `${header}${transformed}`;
   } catch {

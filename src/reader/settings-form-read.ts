@@ -146,7 +146,7 @@ function readAudioFormSettings(reader: SettingsFormReader, current: ReaderSettin
     const audioAutoPlayMode = readOption(get('audioAutoPlayMode'), ['off', 'all', 'hover', 'tap'] as const, current.audioAutoPlayMode);
     return {
         audioEnabled: has('audioEnabled'),
-        autoPlayAudio: audioAutoPlayMode !== 'off',
+        autoPlayAudio: has('autoPlayAudio') && audioAutoPlayMode !== 'off',
         suppressAutoAudioOnVideo: has('suppressAutoAudioOnVideo'),
         audioAutoPlayMode,
         audioSources,

@@ -2687,6 +2687,39 @@ button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
   display: grid;
   gap: 8px;
 }
+.jpdb-reader-anki-match-summary {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+  padding: 7px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 70%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface-muted) 58%, transparent);
+}
+.jpdb-reader-anki-match-summary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12px;
+}
+.jpdb-reader-anki-match-summary-row > span,
+.jpdb-reader-anki-match-summary-row > small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jpdb-reader-anki-match-summary-row > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--jpdb-reader-text);
+}
+.jpdb-reader-anki-match-summary-row > small {
+  color: var(--jpdb-reader-muted);
+}
 .jpdb-reader-anki-stored-fields {
   display: grid;
   gap: 8px;
@@ -5248,7 +5281,7 @@ html.jpdb-reader-doodle-active * {
   white-space: nowrap;
   transform: translateY(-0.01rem);
 }
-.jpdb-reader-settings-tab[aria-pressed="true"] {
+.jpdb-reader-settings-tab[aria-selected="true"] {
   border-color: var(--jpdb-reader-accent);
   color: var(--jpdb-reader-accent-readable);
   background: var(--jpdb-reader-accent-soft);
@@ -5268,7 +5301,7 @@ html.jpdb-reader-doodle-active * {
   }
 }
 @media (hover: none), (pointer: coarse) {
-  .jpdb-reader-settings-tab:not([aria-pressed="true"]):hover {
+  .jpdb-reader-settings-tab:not([aria-selected="true"]):hover {
     border-color: var(--jpdb-reader-border);
     background: var(--jpdb-reader-surface);
     color: var(--jpdb-reader-muted);
@@ -5590,22 +5623,21 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings .grid > * {
   min-width: 0;
 }
-.jpdb-reader-settings .grid > label:has(> input[type="number"]),
-.jpdb-reader-settings .grid > label:has(> input[type="color"]) {
+.jpdb-reader-settings .grid > .jpdb-reader-settings-field-number,
+.jpdb-reader-settings .grid > .jpdb-reader-settings-field-color {
   display: grid;
-  grid-template-columns: minmax(0, max-content) max-content;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: start;
   gap: 10px 12px;
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
 }
-.jpdb-reader-settings .grid > label:has(> input[type="number"]) > input[type="number"] {
+.jpdb-reader-settings .grid > .jpdb-reader-settings-field-number > input[type="number"] {
   width: 8ch;
   max-width: 8ch;
   min-width: 0;
 }
-.jpdb-reader-settings .grid > label:has(> input[type="color"]) > input[type="color"] {
+.jpdb-reader-settings .grid > .jpdb-reader-settings-field-color > input[type="color"] {
   width: 56px;
   min-width: 56px;
 }
@@ -5780,17 +5812,17 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-proxy-guide > summary::-webkit-details-marker {
   display: none;
 }
-.jpdb-reader-proxy-guide > summary::after {
-  content: "Show";
+.jpdb-reader-proxy-guide-toggle {
   color: var(--jpdb-reader-muted);
   font-size: 11px;
   font-weight: 800;
 }
+.jpdb-reader-proxy-guide[open] [data-proxy-guide-show],
+.jpdb-reader-proxy-guide:not([open]) [data-proxy-guide-hide] {
+  display: none;
+}
 .jpdb-reader-proxy-guide[open] > summary {
   border-bottom: 1px solid var(--jpdb-reader-border);
-}
-.jpdb-reader-proxy-guide[open] > summary::after {
-  content: "Hide";
 }
 .jpdb-reader-proxy-guide-body {
   display: grid;

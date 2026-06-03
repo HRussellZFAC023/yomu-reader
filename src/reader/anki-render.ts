@@ -36,6 +36,7 @@ export function renderAnkiExistingSection(ankiLookup: AnkiLookupResult, storedCo
                 <span><span class="jpdb-reader-state-dot anki-${primary.state}"></span>Anki${notes.length > 1 ? ` (${notes.length})` : ''}</span>
                 <small class="jpdb-reader-source-status">${escapeHtml(summary)}</small>
             </summary>
+            ${notes.length > 1 ? renderAnkiCollisionSummary(notes, language) : ''}
             ${notes.length === 1
                 ? renderAnkiExistingNote(primary, storedContext, settings, false, true)
                 : notes.map((note, index) => renderAnkiExistingNote(note, index === 0 ? storedContext : null, settings, true, index === 0)).join('')}
@@ -85,6 +86,15 @@ function ankiExistingSectionSummary(primary: AnkiExistingNote, count: number, la
     return count > 1 ? `${summary} · ${count} matches` : summary;
 }
 
+function renderAnkiCollisionSummary(notes: AnkiExistingNote[], language: InterfaceLanguage): string {
+    return `<div class="jpdb-reader-anki-match-summary" aria-label="${escapeHtml(uiText(language, 'ankiMatches'))}">
+        ${notes.map(note => `<div class="jpdb-reader-anki-match-summary-row">
+            <span><span class="jpdb-reader-state-dot anki-${note.state}"></span>${escapeHtml(ankiNoteIdentityLabel(note, language))}</span>
+            <small>${escapeHtml(ankiExistingSummary(note, language))}</small>
+        </div>`).join('')}
+    </div>`;
+}
+
 function renderAnkiExistingNote(note: AnkiExistingNote, storedContext: StoredMiningContext | null, settings: ReaderSettings, collapsible: boolean, open: boolean): string {
     const language = settings.interfaceLanguage;
     const preview = ankiExistingPreview(note, storedContext, language);
@@ -103,7 +113,7 @@ function renderAnkiExistingNote(note: AnkiExistingNote, storedContext: StoredMin
     }
     return `<details class="jpdb-reader-local-entry jpdb-reader-anki-card-preview jpdb-reader-anki-existing-note" data-anki-note-id="${note.noteId}"${open ? ' open' : ''}>
         <summary class="jpdb-reader-anki-existing-note-title">
-            <span><span class="jpdb-reader-state-dot anki-${note.state}"></span><strong>${escapeHtml(note.deckNames.join(', ') || note.modelName || 'Anki')}</strong></span>
+            <span><span class="jpdb-reader-state-dot anki-${note.state}"></span><strong>${escapeHtml(ankiNoteIdentityLabel(note, language))}</strong></span>
             <small>${escapeHtml(preview.summary)}</small>
         </summary>
         ${content}
@@ -152,6 +162,25 @@ function ankiExistingSummary(note: AnkiExistingNote, language: InterfaceLanguage
     ].filter(Boolean).join(' · ') || 'Anki';
 }
 
+function ankiNoteIdentityLabel(note: AnkiExistingNote, language: InterfaceLanguage): string {
+    return [
+        note.deckNames.length ? note.deckNames.join(', ') : '',
+        note.modelName,
+        ankiNoteKindLabel(note, language),
+    ].filter(Boolean).join(' · ') || 'Anki';
+}
+
+function ankiNoteKindLabel(note: AnkiExistingNote, language: InterfaceLanguage): string {
+    const fields = Object.keys(note.fields).map(name => name.replace(/[_\s-]+/g, '').toLowerCase());
+    const model = note.modelName.replace(/[_\s-]+/g, '').toLowerCase();
+    if (fields.some(name => /^(?:kanji|keyword|onyomi|kunyomi|on|kun|heisig|frame(?:no|number)?|stroke(?:order|diagram|count)?)$/.test(name)) || /(?:rtk|heisig|kanji)/.test(model)) {
+        return uiText(language, 'kanji');
+    }
+    if (fields.some(name => /^(?:katakana|hiragana|kana|mnemonic)$/.test(name))) return language === 'ja' ? 'かな' : 'Kana';
+    if (fields.some(name => /sentence|selectiontext|contextsentence/.test(name))) return language === 'ja' ? '文' : 'Sentence';
+    return uiText(language, 'word');
+}
+
 function ankiReviewMetricsLabel(note: AnkiExistingNote, language: InterfaceLanguage): string {
     const parts = [
         note.reps ? `${note.reps} ${uiText(language, note.reps === 1 ? 'ankiReviewSingular' : 'ankiReviewPlural')}` : '',
@@ -198,10 +227,29 @@ function renderedCardTitle(card: AnkiRenderedCard, index: number): string {
 
 function renderAnkiRenderedSide(value: string, soundFilenames: string[], language: InterfaceLanguage, mediaDataUrls: Record<string, string> | undefined): string {
     const html = sanitizeAnkiCardHtml(value, soundFilenames, language, mediaDataUrls);
-    if (!html) return '';
+    if (!html || !hasRenderableAnkiCardContent(html)) return '';
     return `<section class="jpdb-reader-anki-rendered-side">
         <div class="jpdb-reader-anki-rendered-side-body jpdb-reader-parseable">${html}</div>
     </section>`;
+}
+
+function hasRenderableAnkiCardContent(html: string): boolean {
+    if (typeof document === 'undefined') return Boolean(html.trim());
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    const text = template.content.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    if (text) return true;
+    return Boolean(template.content.querySelector([
+        'img[src]',
+        'audio[src]',
+        'audio source[src]',
+        'video[src]',
+        'video source[src]',
+        'svg',
+        'canvas',
+        '[data-anki-media-name]',
+        '.jpdb-reader-anki-sound',
+    ].join(',')));
 }
 
 function renderAnkiFields(note: AnkiExistingNote, language: InterfaceLanguage): string {
