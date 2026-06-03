@@ -14,37 +14,67 @@
     <style>
       :root {
         color-scheme: light dark;
-        --accent: #5ea780;
-        --bg: #181b20;
-        --ink: #f2f4f8;
-        --muted: #aab2c0;
-        --faint: #6f7a89;
-        --surface: #20242b;
-        --surface-2: #282e37;
-        --border: rgba(255, 255, 255, .12);
+        --theme-accent: #5ea780;
+        --theme-light-bg: #fbfcfe;
+        --theme-light-ink: #17202a;
+        --theme-light-muted: #4f5968;
+        --theme-light-faint: #687384;
+        --theme-light-surface: #f4f7fa;
+        --theme-light-surface-2: #e8edf3;
+        --theme-light-border: rgba(37, 52, 73, .18);
+        --theme-dark-bg: #181b20;
+        --theme-dark-ink: #f2f4f8;
+        --theme-dark-muted: #aab2c0;
+        --theme-dark-faint: #6f7a89;
+        --theme-dark-surface: #20242b;
+        --theme-dark-surface-2: #282e37;
+        --theme-dark-border: rgba(255, 255, 255, .12);
+        --switch-shadow: rgba(0, 0, 0, .28);
+        --prompt-shadow: rgba(0, 0, 0, .18);
+        --accent: var(--theme-accent);
+        --bg: var(--theme-light-bg);
+        --ink: var(--theme-light-ink);
+        --muted: var(--theme-light-muted);
+        --faint: var(--theme-light-faint);
+        --surface: var(--theme-light-surface);
+        --surface-2: var(--theme-light-surface-2);
+        --border: var(--theme-light-border);
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
       :root.jpdb-reader-theme-light {
         color-scheme: light;
-        --bg: #ffffff;
-        --ink: #171a1f;
-        --muted: #596272;
-        --faint: #7b8493;
-        --surface: #f7f8fa;
-        --surface-2: #eef1f4;
-        --border: rgba(20, 30, 45, .16);
+        --bg: var(--theme-light-bg);
+        --ink: var(--theme-light-ink);
+        --muted: var(--theme-light-muted);
+        --faint: var(--theme-light-faint);
+        --surface: var(--theme-light-surface);
+        --surface-2: var(--theme-light-surface-2);
+        --border: var(--theme-light-border);
       }
 
       :root.jpdb-reader-theme-dark {
         color-scheme: dark;
-        --bg: #181b20;
-        --ink: #f2f4f8;
-        --muted: #aab2c0;
-        --faint: #6f7a89;
-        --surface: #20242b;
-        --surface-2: #282e37;
-        --border: rgba(255, 255, 255, .12);
+        --bg: var(--theme-dark-bg);
+        --ink: var(--theme-dark-ink);
+        --muted: var(--theme-dark-muted);
+        --faint: var(--theme-dark-faint);
+        --surface: var(--theme-dark-surface);
+        --surface-2: var(--theme-dark-surface-2);
+        --border: var(--theme-dark-border);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root:not(.jpdb-reader-theme-light) {
+          color-scheme: dark;
+          --bg: var(--theme-dark-bg);
+          --ink: var(--theme-dark-ink);
+          --muted: var(--theme-dark-muted);
+          --faint: var(--theme-dark-faint);
+          --surface: var(--theme-dark-surface);
+          --surface-2: var(--theme-dark-surface-2);
+          --border: var(--theme-dark-border);
+        }
       }
 
       * {
@@ -188,7 +218,7 @@
         height: 20px;
         border-radius: 999px;
         background: var(--bg);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, .28);
+        box-shadow: 0 1px 3px var(--switch-shadow);
         transition: transform .18s ease, background .18s ease;
       }
 
@@ -271,7 +301,7 @@
         text-align: center;
         overflow-wrap: anywhere;
         text-wrap: balance;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, .18);
+        text-shadow: 0 1px 2px var(--prompt-shadow);
       }
 
       .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {

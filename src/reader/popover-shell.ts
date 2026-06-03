@@ -860,7 +860,7 @@ export function installMiningDrawerHandle(
 export function shouldUseSheet(settings: ReaderSettings): boolean {
     if (settings.popupMode === 'sheet') return true;
     if (settings.popupMode === 'popover') return false;
-    return window.innerWidth <= 768 || matchMedia('(pointer: coarse)').matches;
+    return window.innerWidth <= 768 || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
 }
 
 function sheetMinHeight(viewportHeight: number): number {

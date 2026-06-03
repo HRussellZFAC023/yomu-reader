@@ -5,10 +5,11 @@ import { runLimited } from './async-utils';
 import { copyText, positionPopover } from './browser-ui';
 import { CardActionController } from './card-action-controller';
 import { CardPopoverRenderer } from './card-popover-renderer';
-import { CardRenderDataLoader, loadingCardRenderData } from './card-render-data';
+import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from './card-render-data';
 import { highlightCardTargetScopes } from './card-highlight';
+import { normalizeCardStates, primaryCardState } from './card-state';
 import { cardKey } from './card-utils';
-import { APP_NAME, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from './constants';
+import { ANKI_SOURCE_ID, APP_NAME, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from './constants';
 import {
     kanjiSourceStateKey,
     definitionSourceStateKey,
@@ -53,6 +54,7 @@ import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, i
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from './popup-navigation';
 import {
     buildRtkComponentSummaries,
+    cardPronunciationReading,
     isKanjiCharacter,
     pickTokenForSelection,
     renderJpdbKanjiInfo,
@@ -63,12 +65,13 @@ import {
     renderPitch,
     renderRtkInfo,
 } from './popup-render';
-import { ReaderParser, jpdbFirstParseOptions } from './reader-parser';
+import { ReaderParser, fallbackLookupTermsForCard, jpdbFirstParseOptions } from './reader-parser';
 import { RtkClient, type RtkInfo } from './rtk';
 import {
     DEFAULT_SETTINGS,
     loadSettings,
     saveSettings,
+    shouldLookupAnkiStatus,
 } from './settings';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from './reader-theme';
 import { ReaderAudioActions } from './reader-audio-actions';
@@ -98,7 +101,6 @@ const NEW_TAB_POPOVER_PARSE_TIMEOUT_MS = 1_200;
 const NEW_TAB_STUDY_PARSE_TIMEOUT_MS = 15_000;
 const NEW_TAB_LOCAL_LOOKUP_TIMEOUT_MS = 450;
 const NEW_TAB_REMOTE_LOOKUP_TIMEOUT_MS = 8_000;
-const NEW_TAB_ANKI_ENRICHMENT_LIMIT = 16;
 const NEW_TAB_PITCH_ENRICHMENT_LIMIT = 12;
 const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
 const NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
@@ -128,6 +130,10 @@ interface NewTabKanjiLookupOptions {
 interface NewTabParseContentOptions {
     jpdbTimeoutMs?: number;
     allowJpdbTimeoutFallback?: boolean;
+}
+
+function isNewTabDefinitionSourceOptions(value: Record<string, string> | { includeStudySources?: boolean }): value is { includeStudySources?: boolean } {
+    return 'includeStudySources' in value;
 }
 
 export function bootNewTabRuntime(): void {
@@ -188,7 +194,7 @@ export class NewTabRuntime {
             isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         }),
-        renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo),
+        renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, extraSections) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, extraSections),
         dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
         dictionaryLabel: name => this.dictionaryLabel(name),
         renderReviewButtonsFallback: card => this.renderNewTabLookupReviewButtons(card),
@@ -337,6 +343,7 @@ export class NewTabRuntime {
         this.externalRefreshController = undefined;
         this.factoryReset.destroy();
         this.newTab?.destroy();
+        this.anki.destroy?.();
         this.dictionaryStyles.remove();
         this.parseContentCache.clear();
         this.dismiss();
@@ -359,6 +366,9 @@ export class NewTabRuntime {
         this.externalRefreshController?.abort();
         const controller = new AbortController();
         addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => {
+            this.audio.clearCaches();
+            this.jpdbVocabulary.clear();
+            this.cardRenderData.clear();
             if (this.newTab?.isCurrentPage()) void this.newTab.refreshExternalData();
         }, { signal: controller.signal });
         this.externalRefreshController = controller;
@@ -539,22 +549,41 @@ export class NewTabRuntime {
         if (requestId !== this.lookupRenderRequest) return;
         this.maybePreloadLookupCardAudio(card);
         const renderData = this.cardRenderData.load(card);
-        const fallbackAnkiLookup: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
+        const fallbackAnkiLookup: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null, trusted: false };
+        let currentAnkiLookup = fallbackAnkiLookup;
         const renderState = { fullRenderCompleted: false };
         let metaEntriesValue: YomitanMetaEntry[] = [];
         let renderedPitchKey = card.pitchAccent.join('|');
         clearNestedParseState(popover);
-        setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', loadingCardRenderData([], fallbackAnkiLookup)));
+        this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData([], fallbackAnkiLookup));
         this.localizeLookupPopoverChrome(popover);
         this.activateLookupRenderSurface(popover, anchor, reused, options);
         this.immersionPopover.rememberPageMiningContext(card, sentence, anchor);
         this.installLookupPopoverHandlers(popover, card, sentence, anchor);
         this.installLookupPopoverSources(popover, card, sentence);
         this.maybeAutoPlayLookupCard(card, options);
+        if (renderData.ankiLookup) {
+            void renderData.ankiLookup.then(ankiLookup => {
+                if (!this.isCurrentLookupRender(popover, requestId)) return;
+                if (!ankiLookup.primary && !currentAnkiLookup.primary && ankiLookup.trusted !== false) return;
+                currentAnkiLookup = ankiLookup;
+                this.applyAnkiLookupToRenderedWords(card, ankiLookup);
+                if (renderState.fullRenderCompleted) return;
+                clearNestedParseState(popover);
+                this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData([], ankiLookup, metaEntriesValue));
+                this.localizeLookupPopoverChrome(popover);
+                this.dictionarySourceState.installTracking(popover);
+                void this.parseNewTabContent(popover);
+                this.installLookupPopoverSources(popover, card, sentence);
+                this.repositionLookupPopover();
+            }).catch(error => {
+                log.warn('Fast Anki lookup failed while rendering new-tab popup', { term: card.spelling }, error);
+            });
+        }
         void renderData.localEntries.then(localEntries => {
             if (renderState.fullRenderCompleted || !this.isCurrentLookupRender(popover, requestId)) return;
             clearNestedParseState(popover);
-            setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', loadingCardRenderData(localEntries, fallbackAnkiLookup)));
+            this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData(localEntries, currentAnkiLookup));
             this.localizeLookupPopoverChrome(popover);
             this.dictionarySourceState.installTracking(popover);
             void this.parseNewTabContent(popover);
@@ -568,7 +597,7 @@ export class NewTabRuntime {
                 this.applyPitchAccentToRenderedWords(card);
                 renderedPitchKey = card.pitchAccent.join('|');
                 clearNestedParseState(popover);
-                setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', loadingCardRenderData(localEntries, fallbackAnkiLookup, metaEntries)));
+                this.renderLookupPopoverContent(popover, card, sentence, loadingCardRenderData(localEntries, currentAnkiLookup, metaEntries));
                 this.localizeLookupPopoverChrome(popover);
                 this.dictionarySourceState.installTracking(popover);
                 void this.parseNewTabContent(popover);
@@ -592,14 +621,118 @@ export class NewTabRuntime {
             renderedPitchKey = card.pitchAccent.join('|');
             this.applyPitchAccentToRenderedWords(card);
             clearNestedParseState(popover);
-            setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', { ...data, loading: false }));
+            const renderedData = currentAnkiLookup.primary && !data.ankiLookup.primary
+                ? { ...data, ankiLookup: currentAnkiLookup }
+                : data;
+            this.renderLookupPopoverContent(popover, card, sentence, { ...renderedData, loading: false });
             this.localizeLookupPopoverChrome(popover);
             this.dictionarySourceState.installTracking(popover);
             void this.parseNewTabContent(popover);
-            this.installLookupPopoverSources(popover, card, sentence, data.jpdbVocabularyInfo);
+            this.installLookupPopoverSources(popover, card, sentence, renderedData.jpdbVocabularyInfo);
             this.repositionLookupPopover();
+            this.renderHydratedLookupAnki(popover, card, sentence, renderedData, renderData, requestId);
         });
         void this.parseNewTabContent(popover);
+    }
+
+    private renderLookupPopoverContent(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        data: CardRenderData & { loading: boolean },
+    ): void {
+        setInnerHtml(popover, this.lookupPopoverRenderer.render(card, sentence, 'modal', data));
+        this.refreshNewTabLookupHeader(popover, card, data);
+    }
+
+    private refreshNewTabLookupHeader(popover: HTMLElement, card: JPDBCard, data: CardRenderData & { loading: boolean }): void {
+        const titleRow = popover.querySelector<HTMLElement>('.jpdb-reader-title-row');
+        if (!titleRow) return;
+        this.ensureNewTabLookupReading(titleRow, card);
+        this.refreshNewTabLookupMeta(titleRow, card, data);
+    }
+
+    private ensureNewTabLookupReading(titleRow: HTMLElement, card: JPDBCard): void {
+        const reading = cardPronunciationReading(card) || card.reading.trim();
+        if (!reading) return;
+        let readingElement = titleRow.querySelector<HTMLElement>('.jpdb-reader-reading');
+        if (!readingElement) {
+            readingElement = document.createElement('div');
+            readingElement.className = 'jpdb-reader-reading';
+            const spelling = titleRow.querySelector<HTMLElement>('.jpdb-reader-spelling');
+            spelling?.after(readingElement);
+            if (!readingElement.isConnected) titleRow.prepend(readingElement);
+        }
+        readingElement.dataset.newtabLookupReading = 'true';
+        readingElement.textContent = reading;
+    }
+
+    private refreshNewTabLookupMeta(titleRow: HTMLElement, card: JPDBCard, data: CardRenderData & { loading: boolean }): void {
+        const items = this.newTabLookupMetaItems(card, data);
+        const existingMeta = titleRow.querySelector<HTMLElement>('.jpdb-reader-meta');
+        if (!items.length) {
+            existingMeta?.remove();
+            return;
+        }
+        const meta = existingMeta ?? document.createElement('div');
+        meta.className = 'jpdb-reader-meta';
+        meta.replaceChildren(...items);
+        if (!existingMeta) titleRow.append(meta);
+    }
+
+    private newTabLookupMetaItems(card: JPDBCard, data: CardRenderData & { loading: boolean }): HTMLElement[] {
+        const items: HTMLElement[] = [];
+        if (card.frequencyRank) items.push(newLookupMetaLabel(`#${card.frequencyRank}`));
+        const jpdbLabel = this.newTabLookupJpdbStatusLabel(card);
+        if (jpdbLabel) items.push(newLookupMetaLabel(jpdbLabel, `jpdb-${this.newTabLookupJpdbState(card)}`));
+        const ankiLabel = this.newTabLookupAnkiStatusLabel(data.ankiLookup);
+        if (ankiLabel) items.push(newLookupMetaLabel(ankiLabel, `anki-${data.ankiLookup.state}`));
+        return items;
+    }
+
+    private newTabLookupJpdbStatusLabel(card: JPDBCard): string {
+        if (!this.parser.isJpdbBackedCard(card)) return '';
+        if (!this.settings.apiKey.trim()) return '';
+        return `JPDB ${lookupStateLabel(this.newTabLookupJpdbState(card), this.settings.interfaceLanguage)}`;
+    }
+
+    private newTabLookupJpdbState(card: JPDBCard): string {
+        return primaryCardState(normalizeCardStates(card.cardState));
+    }
+
+    private newTabLookupAnkiStatusLabel(ankiLookup: AnkiLookupResult): string {
+        if (!this.settings.ankiEnabled && !this.settings.ankiSectionEnabled) return '';
+        if (ankiLookup.trusted === false && !ankiLookup.primary) return '';
+        return `Anki ${lookupStateLabel(ankiLookup.state, this.settings.interfaceLanguage)}`;
+    }
+
+    private renderHydratedLookupAnki(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        data: CardRenderData,
+        renderData: CardRenderDataLoad,
+        requestId: number,
+    ): void {
+        const hydrateAnkiLookup = renderData.hydrateAnkiLookup;
+        if (!hydrateAnkiLookup) return;
+        void hydrateAnkiLookup()
+            .then(ankiLookup => {
+                const resolvesPendingMiss = data.ankiLookup.trusted === false && ankiLookup.trusted !== false;
+                if (!ankiLookup.primary && !data.ankiLookup.primary && !resolvesPendingMiss) return;
+                if (!this.isCurrentLookupRender(popover, requestId)) return;
+                clearNestedParseState(popover);
+                this.renderLookupPopoverContent(popover, card, sentence, { ...data, ankiLookup, loading: false });
+                this.applyAnkiLookupToRenderedWords(card, ankiLookup);
+                this.localizeLookupPopoverChrome(popover);
+                this.dictionarySourceState.installTracking(popover);
+                void this.parseNewTabContent(popover);
+                this.installLookupPopoverSources(popover, card, sentence, data.jpdbVocabularyInfo);
+                this.repositionLookupPopover();
+            })
+            .catch(error => {
+                log.warn('Anki card detail hydration failed while rendering new-tab popup', { term: card.spelling }, error);
+            });
     }
 
     private updateDeferredLookupPitch(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
@@ -749,9 +882,15 @@ export class NewTabRuntime {
     private renderNewTabLookupReviewButtons(card: JPDBCard): string {
         const grades = this.newTab?.lookupGradeOptions(card) ?? [];
         if (!grades.length) return '';
+        const targetLabel = this.newTab?.lookupGradeTargetLabel(card) ?? '';
+        const target = targetLabel ? `<div class="jpdb-reader-newtab-grade-target" data-newtab-grade-target>${escapeHtml(targetLabel)}</div>` : '';
         return `
             <div class="jpdb-reader-row${grades.length === 5 ? ' jpdb-reader-grades' : ''}" style="--cols: ${grades.length}">
-                ${grades.map(([grade, label]) => `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}">${escapeHtml(label)}</button>`).join('')}
+                ${target}
+                ${grades.map(([grade, label]) => {
+                    const title = targetLabel ? ` title="${escapeHtml(targetLabel)}" aria-label="${escapeHtml(`${label}: ${targetLabel}`)}"` : '';
+                    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${title}>${escapeHtml(label)}</button>`;
+                }).join('')}
             </div>
         `;
     }
@@ -1369,6 +1508,7 @@ export class NewTabRuntime {
 
     private shouldAutoPlayForTrigger(trigger: 'modal' | 'hover'): boolean {
         const mode = this.settings.audioAutoPlayMode;
+        if (mode === 'off') return false;
         if (mode === 'all') return true;
         return mode === 'hover' ? trigger === 'hover' : trigger === 'modal';
     }
@@ -1383,8 +1523,8 @@ export class NewTabRuntime {
             activeContext,
             storedContext,
             sourceKind: inferMiningSourceKind(),
-            fetchImageDataUrl: (imageUrl, timeoutMs) => this.immersionKit.fetchDataUrl(imageUrl, timeoutMs, this.settings.corsProxyUrl),
-            fetchAudioDataUrl: (audioUrls, timeoutMs) => this.immersionKit.fetchDataUrl(audioUrls, timeoutMs, this.settings.corsProxyUrl),
+            fetchImageDataUrl: (imageUrl, timeoutMs) => this.immersionKit.fetchDataUrl(imageUrl, timeoutMs, this.settings.corsProxyUrl, this.settings.interfaceLanguage),
+            fetchAudioDataUrl: (audioUrls, timeoutMs) => this.immersionKit.fetchDataUrl(audioUrls, timeoutMs, this.settings.corsProxyUrl, this.settings.interfaceLanguage),
         });
     }
 
@@ -1393,16 +1533,27 @@ export class NewTabRuntime {
         if (localEntry) return this.parser.localCardFromEntry(localEntry);
         const publicCard = await this.publicLookupCard(term, true);
         if (publicCard) return publicCard;
+        const fallbackCard = this.parser.fallbackCardFromText(term);
+        const fallbackPublicCard = await this.publicLookupFallbackCard(fallbackCard);
+        if (fallbackPublicCard) return fallbackPublicCard;
         const parsed = await this.parser.parse([term], jpdbFirstParseOptions()).catch(() => [[]]);
         const token = pickTokenForSelection(parsed[0] ?? [], term);
         if (token) return token.card;
-        return this.parser.fallbackCardFromText(term);
+        return fallbackCard;
     }
 
     private async publicLookupCard(term: string, exact = false): Promise<JPDBCard | undefined> {
         if (!this.settings.jpdbDefinitionsEnabled) return undefined;
         const cards = await this.jpdbVocabulary.search(term, 1).catch(() => []);
         return cards.find(card => card.spelling === term) ?? (exact ? undefined : cards[0]);
+    }
+
+    private async publicLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined> {
+        for (const term of fallbackLookupTermsForCard(card)) {
+            const publicCard = await this.publicLookupCard(term, true);
+            if (publicCard) return publicCard;
+        }
+        return undefined;
     }
 
     private async localLookupEntry(term: string, reading: string): Promise<YomitanTermEntry | undefined> {
@@ -1559,8 +1710,10 @@ export class NewTabRuntime {
         entries: YomitanTermEntry[],
         sentence?: string,
         jpdbVocabularyInfo: JpdbVocabularyInfo | null = null,
-        options: { includeStudySources?: boolean } = {},
+        extraSectionsOrOptions: Record<string, string> | { includeStudySources?: boolean } = {},
     ): string {
+        const options = isNewTabDefinitionSourceOptions(extraSectionsOrOptions) ? extraSectionsOrOptions : {};
+        const extraSections = isNewTabDefinitionSourceOptions(extraSectionsOrOptions) ? {} : extraSectionsOrOptions;
         const grouped = groupTermEntriesByDictionary(entries);
         const sourceIds = orderedDefinitionSourceIds(this.settings, [...grouped.keys()]);
         const dictionarySourceIds = sourceIds.filter(sourceId => grouped.has(sourceId));
@@ -1570,6 +1723,7 @@ export class NewTabRuntime {
             if (sourceId === JPDB_DEFINITION_SOURCE_ID) {
                 return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded), jpdbVocabularyInfo);
             }
+            if (sourceId === ANKI_SOURCE_ID) return extraSections[ANKI_SOURCE_ID] ?? '';
             if (sourceId === STUDY_TRANSLATION_SOURCE_ID) return includeStudySources ? this.studySources.renderTranslationSource(sentence) : '';
             if (sourceId === STUDY_GRAMMAR_SOURCE_ID) return includeStudySources ? this.studySources.renderGrammarSource(sentence) : '';
             if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderImmersionKitMount();
@@ -1632,22 +1786,23 @@ export class NewTabRuntime {
         return Boolean(root.isConnected && this.activeLookupPopover && (root === this.activeLookupPopover || this.activeLookupPopover.contains(root)));
     }
 
-    private async enrichAnkiWords(tokens: JPDBToken[]): Promise<void> {
-        if (!this.settings.ankiEnabled) return;
+    private async enrichAnkiWords(tokens: JPDBToken[], roots?: ParentNode[]): Promise<void> {
+        if (!shouldLookupAnkiStatus(this.settings)) return;
         const seen = new Set<string>();
         const uniqueTokens = tokens.filter(token => {
             const key = cardKey(token.card);
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
-        }).slice(0, NEW_TAB_ANKI_ENRICHMENT_LIMIT);
-        if (!uniqueTokens.length) return;
-        // One batched AnkiConnect round-trip for all words, instead of a per-word
-        // findExistingCards request (which fanned out N notesInfo/cardsInfo calls).
-        const lookups = await this.anki.findExistingCardsBatch(uniqueTokens.map(token => token.card)).catch(() => [] as AnkiLookupResult[]);
+        });
+        const empty = (): AnkiLookupResult => ({ state: 'not-in-deck', notes: [], primary: null, trusted: false });
+        const lookups = await this.anki.findCachedStatusBatch(uniqueTokens.map(token => token.card))
+            .catch(error => {
+                log.warnOnce('background-anki-coloring-failed', 'Anki background coloring failed', error);
+                return uniqueTokens.map(() => empty());
+            });
         uniqueTokens.forEach((token, index) => {
-            const lookup = lookups[index];
-            if (lookup) this.applyAnkiLookupToRenderedWords(token.card, lookup);
+            this.applyAnkiLookupToRenderedWords(token.card, lookups[index] ?? empty(), roots);
         });
     }
 
@@ -1682,7 +1837,7 @@ export class NewTabRuntime {
         }).slice(0, NEW_TAB_PITCH_ENRICHMENT_LIMIT);
 
         await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
-            const card = await this.publicLookupCard(token.card.spelling, true);
+            const card = await this.publicLookupFallbackCard(token.card);
             if (!card) {
                 this.unwrapRenderedFallbackWords(token.card);
                 return;
@@ -1693,14 +1848,19 @@ export class NewTabRuntime {
         });
     }
 
-    private applyAnkiLookupToRenderedWords(card: JPDBCard, ankiLookup: AnkiLookupResult): void {
-        if (!ankiLookup.primary) return;
+    private applyAnkiLookupToRenderedWords(card: JPDBCard, ankiLookup: AnkiLookupResult, roots?: ParentNode[]): void {
         const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
-        this.activeLookupPopover?.querySelectorAll<HTMLElement>(selector).forEach(word => {
-            word.classList.add(`anki-${ankiLookup.state}`);
-            word.dataset.ankiState = ankiLookup.state;
-            word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(', ') ?? '';
-            word.title = `Anki: ${this.cardStateText(ankiLookup.state)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ''}`;
+        const targetRoots = roots?.length ? roots : (this.activeLookupPopover ? [this.activeLookupPopover] : []);
+        targetRoots.forEach(root => {
+            root.querySelectorAll<HTMLElement>(selector).forEach(word => {
+                if (!ankiLookup.primary && ankiLookup.trusted === false) return;
+                clearRenderedWordAnkiState(word);
+                if (!ankiLookup.primary) return;
+                word.classList.add(`anki-${ankiLookup.state}`);
+                word.dataset.ankiState = ankiLookup.state;
+                word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(', ') ?? '';
+                word.title = `Anki: ${this.cardStateText(ankiLookup.state)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ''}`;
+            });
         });
     }
 
@@ -1756,6 +1916,7 @@ export class NewTabRuntime {
             locked: 'stateLocked',
             blacklisted: 'stateBlacklisted',
             redundant: 'stateRedundant',
+            'in-deck': 'stateInDeck',
             'not-in-deck': 'stateNotInDeck',
         };
         const key = keys[state];
@@ -1815,8 +1976,10 @@ export class NewTabRuntime {
             applyNestedParsePlan(plan, parsed, this.settings);
             highlightCardTargetScopes(root);
             root.dataset.jpdbReaderParseKey = plan.parseKey;
-            void this.enrichPublicVocabularyWords(parsed.flat());
-            void this.enrichPitchWords(parsed.flat());
+            const tokens = parsed.flat();
+            void this.enrichPublicVocabularyWords(tokens);
+            void this.enrichPitchWords(tokens);
+            void this.enrichAnkiWords(tokens, [root]);
         } catch {
         } finally {
             clearNestedParseLoadingKey(root, plan.parseKey, parseLoadingId);
@@ -1828,6 +1991,7 @@ export class NewTabRuntime {
             jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
             allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? false,
             includeLocalPitch: false,
+            allowSegmentedFallback: !this.settings.apiKey.trim(),
         };
         const key = this.parseContentCacheKey(texts, parseOptions);
         const now = Date.now();
@@ -1850,7 +2014,7 @@ export class NewTabRuntime {
 
     private parseContentCacheKey(
         texts: string[],
-        options: { jpdbTimeoutMs: number; allowJpdbTimeoutFallback: boolean; includeLocalPitch: boolean },
+        options: { jpdbTimeoutMs: number; allowJpdbTimeoutFallback: boolean; includeLocalPitch: boolean; allowSegmentedFallback: boolean },
     ): string {
         return JSON.stringify({
             texts,
@@ -1916,6 +2080,46 @@ export class NewTabRuntime {
 function markNewTabRuntime(): void {
     (window as YomuNewTabWindow).__YOMU_READER_RUNTIME__ = 'newtab';
 }
+
+function clearRenderedWordAnkiState(word: HTMLElement): void {
+    Array.from(word.classList)
+        .filter(className => className.startsWith('anki-'))
+        .forEach(className => word.classList.remove(className));
+    delete word.dataset.ankiState;
+    delete word.dataset.ankiDecks;
+    if (word.title.startsWith('Anki:')) word.removeAttribute('title');
+}
+
+function newLookupMetaLabel(label: string, stateClass = ''): HTMLElement {
+    const item = document.createElement('span');
+    if (stateClass) {
+        const dot = document.createElement('span');
+        dot.className = `jpdb-reader-state-dot ${stateClass}`;
+        item.append(dot);
+    }
+    item.append(document.createTextNode(label));
+    return item;
+}
+
+function lookupStateLabel(state: string, language: ReaderSettings['interfaceLanguage']): string {
+    const key = LOOKUP_STATE_LABEL_KEYS[state];
+    return key ? uiText(language, key) : state;
+}
+
+const LOOKUP_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
+    new: 'stateNew',
+    learning: 'stateLearning',
+    known: 'stateKnown',
+    due: 'stateDue',
+    failed: 'stateFailed',
+    locked: 'stateLocked',
+    'never-forget': 'stateNeverForget',
+    blacklisted: 'stateBlacklisted',
+    suspended: 'stateSuspended',
+    'in-deck': 'stateInDeck',
+    'not-in-deck': 'stateNotInDeck',
+    redundant: 'stateRedundant',
+};
 
 function refreshableNoop(): { refresh: () => void } {
     return { refresh: () => undefined };

@@ -77,7 +77,7 @@ interface ImmersionPopoverControllerOptions {
     canParseJapanese: () => boolean;
     parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
     enrichPitchWords: (tokens: JPDBToken[]) => void | Promise<void>;
-    enrichAnkiWords: (tokens: JPDBToken[]) => void | Promise<void>;
+    enrichAnkiWords: (tokens: JPDBToken[], roots?: ParentNode[]) => void | Promise<void>;
     repositionPopover: () => void;
     setImmersionTranslationBlurred: (blurred: boolean) => void;
     toast: (message: string) => void;
@@ -327,7 +327,7 @@ export class ImmersionPopoverController {
             }
             const action = button.dataset.immersionAction;
             if (action === 'previous') render(index - 1, this.shouldAutoPlayCarouselAudio(), true);
-            if (action === 'next') render(index + 1, this.shouldPlayCarouselNavigationAudio(), true);
+            if (action === 'next') render(index + 1, this.shouldAutoPlayCarouselAudio(), true);
             if (action === 'audio') void this.playExampleAudio(examples[index]);
         });
         container.addEventListener('keydown', event => {
@@ -385,10 +385,6 @@ export class ImmersionPopoverController {
             && settings.immersionKitAutoPlayAudio
             && !this.shouldSuppressAutoAudioForVideo()
             && canAttemptAudiblePlayback(true);
-    }
-
-    private shouldPlayCarouselNavigationAudio(): boolean {
-        return !this.shouldSuppressAutoAudioForVideo();
     }
 
     private shouldSuppressAutoAudioForVideo(): boolean {
@@ -696,7 +692,7 @@ export class ImmersionPopoverController {
         const sentenceHtml = this.renderExampleSentenceContent(example.sentence, card, settings);
         const translation = renderExampleTranslation(example.translation, settings);
         const sourceLabel = immersionExampleSourceLabel(card, example, searchQuery, language);
-        const sentence = renderExampleSentenceHtml(sentenceHtml);
+        const sentence = renderExampleSentenceHtml(sentenceHtml, Boolean(imageUrl));
         const image = renderExampleImageHtml(container, imageUrl, sentence);
         return `
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
@@ -747,7 +743,8 @@ export class ImmersionPopoverController {
                 }
                 const currentSrc = imageElement.currentSrc || imageElement.src;
                 const requestId = ++imageRequestId;
-                this.options.client.fetchBlobUrl(fallbackUrl, this.options.getSettings().audioTimeoutMs, this.options.getSettings().corsProxyUrl)
+                const settings = this.options.getSettings();
+                this.options.client.fetchBlobUrl(fallbackUrl, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
                     .then(displayUrl => {
                         if (requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
                         if (!holdUntilReady || currentSrc === displayUrl) {
@@ -791,6 +788,9 @@ export class ImmersionPopoverController {
         const sentence = media?.querySelector<HTMLElement>('.jpdb-reader-example-sentence');
         if (sentence) {
             sentence.classList.remove('jpdb-subtitle-primary');
+            sentence.querySelectorAll<HTMLElement>('.jpdb-subtitle-primary').forEach(element => {
+                element.classList.remove('jpdb-subtitle-primary');
+            });
             media?.after(sentence);
         }
         media?.remove();
@@ -828,7 +828,7 @@ export class ImmersionPopoverController {
         }
         this.highlightTarget(sentence, card);
         void this.options.enrichPitchWords(lookupTokens);
-        void this.options.enrichAnkiWords(lookupTokens);
+        void this.options.enrichAnkiWords(lookupTokens, [container]);
         this.options.repositionPopover();
     }
 
@@ -839,7 +839,7 @@ export class ImmersionPopoverController {
         if (cached) return cached.tokens ? Promise.resolve(cached.tokens) : cached.promise;
 
         const entry: ParsedSentenceCacheEntry = { promise: Promise.resolve([]) };
-        entry.promise = this.options.parseJapanese([sentence], jpdbFirstParseOptions())
+        entry.promise = this.options.parseJapanese([sentence], this.exampleSentenceParseOptions())
             .then(([tokens]) => {
                 const parsed = tokens ?? [];
                 if (shouldCacheParsedExampleSentenceTokens(parsed)) entry.tokens = parsed;
@@ -853,6 +853,13 @@ export class ImmersionPopoverController {
         this.parsedSentenceCache.set(key, entry);
         pruneOldestCacheEntries(this.parsedSentenceCache, IMMERSION_PARSED_SENTENCE_CACHE_LIMIT);
         return entry.promise;
+    }
+
+    private exampleSentenceParseOptions(): ReaderParserParseOptions {
+        const settings = this.options.getSettings();
+        return jpdbFirstParseOptions(settings.apiKey.trim()
+            ? {}
+            : { allowSegmentedFallback: true, includeLocalPitch: true });
     }
 
     private cachedParsedExampleSentenceTokens(sentence: string): JPDBToken[] | undefined {
@@ -897,7 +904,8 @@ export class ImmersionPopoverController {
         requestId: number,
         isCurrent: () => boolean,
     ): Promise<void> {
-        const src = await this.options.client.fetchBlobUrl(source.urls, this.options.getSettings().audioTimeoutMs, this.options.getSettings().corsProxyUrl);
+        const settings = this.options.getSettings();
+        const src = await this.options.client.fetchBlobUrl(source.urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage);
         if (!this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent)) {
             this.clearAudioRequestIfCurrent(requestId, source.key);
             return;
@@ -919,7 +927,7 @@ export class ImmersionPopoverController {
     private handleExampleAudioError(example: ImmersionKitExample, quiet: boolean, requestId: number, error: unknown): void {
         if (this.shouldClearAudioAfterExampleError(requestId)) this.clearAudio();
         log.warn('Immersion example audio failed', { provider: immersionExampleProviderLabel(example, 'en'), sourceTitle: example.sourceTitle, quiet }, error);
-        if (!quiet) this.options.toast(error instanceof Error ? error.message : uiText(this.options.getSettings().interfaceLanguage, 'audioSourceReturnedNoAudio'));
+        if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, 'audioSourceReturnedNoAudio'));
     }
 
     private shouldClearAudioAfterExampleError(requestId: number): boolean {
@@ -1134,8 +1142,16 @@ function renderExampleImageHtml(container: HTMLElement, imageUrl: string, overla
     return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml(imageUrl)}"${heldExampleImageAttributes(heldImage)} alt="" loading="eager" decoding="async" referrerpolicy="no-referrer">${overlay}</div>`;
 }
 
-function renderExampleSentenceHtml(sentenceHtml: string): string {
-    return `<div class="jpdb-reader-example-sentence jpdb-reader-parseable" data-immersion-sentence-render>${sentenceHtml}</div>`;
+function renderExampleSentenceHtml(sentenceHtml: string, primarySubtitle = false): string {
+    const classes = [
+        'jpdb-reader-example-sentence',
+        'jpdb-reader-parseable',
+        'jpdb-reader-subtitle-surface',
+    ].filter(Boolean).join(' ');
+    if (primarySubtitle) {
+        return `<div class="${classes}"><span class="jpdb-subtitle-primary" data-immersion-sentence-render>${sentenceHtml}</span></div>`;
+    }
+    return `<div class="${classes}" data-immersion-sentence-render>${sentenceHtml}</div>`;
 }
 
 function renderExampleActionsHtml(hasAudio: boolean, language: ReaderSettings['interfaceLanguage']): string {

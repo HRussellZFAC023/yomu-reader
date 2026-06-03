@@ -1,17 +1,26 @@
 .jpdb-reader-word {
-  --jpdb-reader-word-underline: transparent;
-  --jpdb-reader-source-status-color: var(--jpdb-reader-status-color, currentColor);
+  --jpdb-reader-word-color-source: currentColor;
+  --jpdb-reader-word-decoration-source: transparent;
+  --jpdb-reader-word-highlight-source: transparent;
+  --jpdb-reader-word-highlight-shadow-source: none;
+  --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
+  --jpdb-reader-source-status-color: var(--jpdb-reader-status-readable, var(--jpdb-reader-status-color, currentColor));
   --jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);
   --jpdb-reader-source-status-soft: var(--jpdb-reader-status-soft, transparent);
-  --jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-color, currentColor);
+  --jpdb-reader-source-status-highlight: var(--jpdb-reader-status-highlight, var(--jpdb-reader-source-status-soft, transparent));
+  --jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-readable, var(--jpdb-reader-jpdb-color, currentColor));
   --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-jpdb-color, transparent);
   --jpdb-reader-source-jpdb-soft: var(--jpdb-reader-jpdb-soft, transparent);
-  --jpdb-reader-source-anki-color: var(--jpdb-reader-anki-color, currentColor);
+  --jpdb-reader-source-jpdb-highlight: var(--jpdb-reader-jpdb-highlight, var(--jpdb-reader-source-jpdb-soft, transparent));
+  --jpdb-reader-source-anki-color: var(--jpdb-reader-anki-readable, var(--jpdb-reader-anki-color, currentColor));
   --jpdb-reader-source-anki-decoration: var(--jpdb-reader-anki-color, transparent);
   --jpdb-reader-source-anki-soft: var(--jpdb-reader-anki-soft, transparent);
-  --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-color, currentColor);
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown, #94a3b8));
+  --jpdb-reader-source-anki-highlight: var(--jpdb-reader-anki-highlight, var(--jpdb-reader-source-anki-soft, transparent));
+  --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-pitch-color, currentColor));
+  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown));
   --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-soft, var(--jpdb-reader-pitch-unknown-soft, transparent));
+  --jpdb-reader-source-pitch-highlight: var(--jpdb-reader-pitch-highlight, var(--jpdb-reader-source-pitch-soft, transparent));
+  --jpdb-reader-source-pitch-highlight-shadow: var(--jpdb-reader-pitch-highlight-shadow, none);
   position: static;
   display: inline;
   white-space: nowrap;
@@ -54,125 +63,290 @@
 
 .jpdb-reader-word:hover,
 .jpdb-reader-word:focus {
-  background: var(--jpdb-reader-hover) !important;
+  background: linear-gradient(var(--jpdb-reader-hover), var(--jpdb-reader-hover)), var(--jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent)) !important;
+  box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
   outline: none;
 }
 
-.jpdb-reader-word:is(.jpdb-new, .jpdb-suspended, .jpdb-not-in-deck) {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);
-  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, 0.16));
+.jpdb-reader-word.jpdb-reader-keyboard-active {
+  background: var(--jpdb-reader-accent-soft) !important;
+  outline: 2px solid var(--jpdb-reader-accent);
+  outline-offset: 2px;
+}
+
+.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck) {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-new-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft);
 }
 .jpdb-reader-word.jpdb-learning {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);
-  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, 0.16));
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-learning-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-learning-soft);
 }
 .jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant) {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);
-  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16));
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-known-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-known-soft);
 }
 .jpdb-reader-word.jpdb-due {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);
-  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, 0.16));
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-due);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-due-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-due-soft);
 }
 .jpdb-reader-word.jpdb-failed {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-failed, #ff6b6b);
-  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, 0.16));
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-failed);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-failed-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-failed-soft);
+}
+.jpdb-reader-word.jpdb-suspended {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-ignored);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-ignored-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-ignored-soft);
 }
 .jpdb-reader-word:is(.jpdb-blacklisted, .jpdb-locked) {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-ignored, #b8a7ff);
-  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-ignored-soft, rgba(184, 167, 255, 0.16));
-  --jpdb-reader-status-color: var(--jpdb-reader-state-ignored, #b8a7ff);
-  --jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft, rgba(184, 167, 255, 0.16));
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-ignored);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-ignored-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-ignored-soft);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-ignored);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-ignored-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft);
   opacity: 0.82 !important;
 }
-.jpdb-reader-word:is(.anki-new, .anki-suspended) {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-new, #58a6ff);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, 0.16));
+.jpdb-reader-word.anki-new {
+  --jpdb-reader-anki-color: var(--jpdb-reader-state-new);
+  --jpdb-reader-anki-readable: var(--jpdb-reader-state-new-readable);
+  --jpdb-reader-anki-soft: var(--jpdb-reader-state-new-soft);
 }
 .jpdb-reader-word.anki-learning {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-learning, #ffd166);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, 0.16));
+  --jpdb-reader-anki-color: var(--jpdb-reader-state-learning);
+  --jpdb-reader-anki-readable: var(--jpdb-reader-state-learning-readable);
+  --jpdb-reader-anki-soft: var(--jpdb-reader-state-learning-soft);
 }
 .jpdb-reader-word.anki-known {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-known, #7bd88f);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16));
+  --jpdb-reader-anki-color: var(--jpdb-reader-state-known);
+  --jpdb-reader-anki-readable: var(--jpdb-reader-state-known-readable);
+  --jpdb-reader-anki-soft: var(--jpdb-reader-state-known-soft);
 }
 .jpdb-reader-word.anki-due {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-due, #5fb3b3);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, 0.16));
+  --jpdb-reader-anki-color: var(--jpdb-reader-state-due);
+  --jpdb-reader-anki-readable: var(--jpdb-reader-state-due-readable);
+  --jpdb-reader-anki-soft: var(--jpdb-reader-state-due-soft);
 }
 .jpdb-reader-word.anki-failed {
-  --jpdb-reader-anki-color: var(--jpdb-reader-state-failed, #ff6b6b);
-  --jpdb-reader-anki-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, 0.16));
+  --jpdb-reader-anki-color: var(--jpdb-reader-state-failed);
+  --jpdb-reader-anki-readable: var(--jpdb-reader-state-failed-readable);
+  --jpdb-reader-anki-soft: var(--jpdb-reader-state-failed-soft);
 }
-.jpdb-reader-word:is(.jpdb-new, .jpdb-suspended, .jpdb-not-in-deck, .anki-new, .anki-suspended) {
-  --jpdb-reader-status-color: var(--jpdb-reader-state-new, #58a6ff);
-  --jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft, rgba(88, 166, 255, 0.16));
+.jpdb-reader-word.anki-suspended {
+  --jpdb-reader-anki-color: var(--jpdb-reader-state-ignored);
+  --jpdb-reader-anki-readable: var(--jpdb-reader-state-ignored-readable);
+  --jpdb-reader-anki-soft: var(--jpdb-reader-state-ignored-soft);
+}
+.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck, .anki-new) {
+  --jpdb-reader-status-color: var(--jpdb-reader-state-new);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-new-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft);
 }
 .jpdb-reader-word:is(.jpdb-learning, .anki-learning) {
-  --jpdb-reader-status-color: var(--jpdb-reader-state-learning, #ffd166);
-  --jpdb-reader-status-soft: var(--jpdb-reader-state-learning-soft, rgba(255, 209, 102, 0.16));
+  --jpdb-reader-status-color: var(--jpdb-reader-state-learning);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-learning-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-learning-soft);
 }
 .jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant, .anki-known) {
-  --jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f);
-  --jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft, rgba(123, 216, 143, 0.16));
+  --jpdb-reader-status-color: var(--jpdb-reader-state-known);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-known-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft);
 }
 .jpdb-reader-word:is(.jpdb-due, .anki-due) {
-  --jpdb-reader-status-color: var(--jpdb-reader-state-due, #5fb3b3);
-  --jpdb-reader-status-soft: var(--jpdb-reader-state-due-soft, rgba(95, 179, 179, 0.16));
+  --jpdb-reader-status-color: var(--jpdb-reader-state-due);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-due-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-due-soft);
 }
 .jpdb-reader-word:is(.jpdb-failed, .anki-failed) {
-  --jpdb-reader-status-color: var(--jpdb-reader-state-failed, #ff6b6b);
-  --jpdb-reader-status-soft: var(--jpdb-reader-state-failed-soft, rgba(255, 107, 107, 0.16));
+  --jpdb-reader-status-color: var(--jpdb-reader-state-failed);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-failed-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-failed-soft);
+}
+.jpdb-reader-word:is(.jpdb-suspended, .anki-suspended) {
+  --jpdb-reader-status-color: var(--jpdb-reader-state-ignored);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-ignored-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft);
+}
+.jpdb-reader-word:is(
+  .jpdb-new,
+  .jpdb-suspended,
+  .jpdb-in-deck,
+  .jpdb-learning,
+  .jpdb-known,
+  .jpdb-never-forget,
+  .jpdb-redundant,
+  .jpdb-due,
+  .jpdb-failed,
+  .jpdb-blacklisted,
+  .jpdb-locked
+) {
+  --jpdb-reader-jpdb-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-jpdb-color) 36%,
+    var(--jpdb-reader-highlight-backdrop)
+  );
+}
+.jpdb-reader-word:is(
+  .anki-new,
+  .anki-suspended,
+  .anki-learning,
+  .anki-known,
+  .anki-due,
+  .anki-failed
+) {
+  --jpdb-reader-anki-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-anki-color) 36%,
+    var(--jpdb-reader-highlight-backdrop)
+  );
+}
+.jpdb-reader-word:is(
+  .jpdb-new,
+  .jpdb-suspended,
+  .jpdb-in-deck,
+  .jpdb-learning,
+  .jpdb-known,
+  .jpdb-never-forget,
+  .jpdb-redundant,
+  .jpdb-due,
+  .jpdb-failed,
+  .jpdb-blacklisted,
+  .jpdb-locked,
+  .anki-new,
+  .anki-suspended,
+  .anki-learning,
+  .anki-known,
+  .anki-due,
+  .anki-failed
+) {
+  --jpdb-reader-status-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-status-color) 36%,
+    var(--jpdb-reader-highlight-backdrop)
+  );
 }
 .jpdb-reader-word.jpdb-pitch-heiban {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff);
-  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-heiban-soft, rgba(53, 158, 255, 0.14));
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-heiban-readable);
+  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-heiban-soft);
 }
 .jpdb-reader-word.jpdb-pitch-atamadaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);
-  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-atamadaka-soft, rgba(254, 75, 116, 0.14));
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-atamadaka-readable);
+  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-atamadaka-soft);
 }
 .jpdb-reader-word.jpdb-pitch-nakadaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840);
-  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-nakadaka-soft, rgba(251, 168, 64, 0.16));
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-nakadaka-readable);
+  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-nakadaka-soft);
 }
 .jpdb-reader-word.jpdb-pitch-odaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7);
-  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-odaka-soft, rgba(87, 204, 183, 0.14));
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-odaka-readable);
+  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-odaka-soft);
 }
 .jpdb-reader-word.jpdb-pitch-kifuku {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-kifuku, #9050f6);
-  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-kifuku-soft, rgba(144, 80, 246, 0.14));
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-kifuku);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-kifuku-readable);
+  --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-kifuku-soft);
 }
 .jpdb-reader-word.jpdb-pitch-unknown {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown, #94a3b8);
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-unknown-readable);
   --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent);
 }
-.jpdb-reader-word-highlight-status { --jpdb-reader-word-highlight: var(--jpdb-reader-source-status-soft, transparent); }
-.jpdb-reader-word-highlight-jpdb { --jpdb-reader-word-highlight: var(--jpdb-reader-source-jpdb-soft, transparent); }
-.jpdb-reader-word-highlight-anki { --jpdb-reader-word-highlight: var(--jpdb-reader-source-anki-soft, transparent); }
-.jpdb-reader-word-highlight-pitch { --jpdb-reader-word-highlight: var(--jpdb-reader-source-pitch-soft, transparent); }
-.jpdb-reader-word-underline-status { --jpdb-reader-word-decoration: var(--jpdb-reader-source-status-decoration, transparent); }
-.jpdb-reader-word-underline-jpdb { --jpdb-reader-word-decoration: var(--jpdb-reader-source-jpdb-decoration, transparent); }
-.jpdb-reader-word-underline-anki { --jpdb-reader-word-decoration: var(--jpdb-reader-source-anki-decoration, transparent); }
-.jpdb-reader-word-underline-pitch { --jpdb-reader-word-decoration: var(--jpdb-reader-source-pitch-decoration, transparent); }
-.jpdb-reader-word-text-status { --jpdb-reader-word-color: var(--jpdb-reader-source-status-color, currentColor); }
-.jpdb-reader-word-text-jpdb { --jpdb-reader-word-color: var(--jpdb-reader-source-jpdb-color, currentColor); }
-.jpdb-reader-word-text-anki { --jpdb-reader-word-color: var(--jpdb-reader-source-anki-color, currentColor); }
-.jpdb-reader-word-text-pitch { --jpdb-reader-word-color: var(--jpdb-reader-source-pitch-color, currentColor); }
-.jpdb-reader-word-highlight-status .jpdb-reader-word { background: var(--jpdb-reader-source-status-soft, transparent) !important; }
-.jpdb-reader-word-highlight-jpdb .jpdb-reader-word { background: var(--jpdb-reader-source-jpdb-soft, transparent) !important; }
-.jpdb-reader-word-highlight-anki .jpdb-reader-word { background: var(--jpdb-reader-source-anki-soft, transparent) !important; }
-.jpdb-reader-word-highlight-pitch .jpdb-reader-word { background: var(--jpdb-reader-source-pitch-soft, transparent) !important; }
-.jpdb-reader-word-underline-status .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent); }
-.jpdb-reader-word-underline-jpdb .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent); }
-.jpdb-reader-word-underline-anki .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-anki-decoration, transparent); }
-.jpdb-reader-word-underline-pitch .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); }
-.jpdb-reader-word-text-status .jpdb-reader-word { color: var(--jpdb-reader-source-status-color, currentColor) !important; }
-.jpdb-reader-word-text-jpdb .jpdb-reader-word { color: var(--jpdb-reader-source-jpdb-color, currentColor) !important; }
-.jpdb-reader-word-text-anki .jpdb-reader-word { color: var(--jpdb-reader-source-anki-color, currentColor) !important; }
-.jpdb-reader-word-text-pitch .jpdb-reader-word { color: var(--jpdb-reader-source-pitch-color, currentColor) !important; }
+.jpdb-reader-word:is(
+  .jpdb-pitch-heiban,
+  .jpdb-pitch-atamadaka,
+  .jpdb-pitch-nakadaka,
+  .jpdb-pitch-odaka,
+  .jpdb-pitch-kifuku
+) {
+  --jpdb-reader-pitch-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-pitch-color) 36%,
+    var(--jpdb-reader-highlight-backdrop)
+  );
+  --jpdb-reader-pitch-highlight-shadow:
+    0 0 0 1px color-mix(in srgb, var(--jpdb-reader-pitch-color) 72%, transparent),
+    var(--jpdb-reader-highlight-shadow);
+}
+.jpdb-reader-word-highlight-status .jpdb-reader-word {
+  --jpdb-reader-word-highlight-source: var(--jpdb-reader-source-status-highlight, transparent);
+}
+.jpdb-reader-word-highlight-jpdb .jpdb-reader-word {
+  --jpdb-reader-word-highlight-source: var(--jpdb-reader-source-jpdb-highlight, transparent);
+}
+.jpdb-reader-word-highlight-anki .jpdb-reader-word {
+  --jpdb-reader-word-highlight-source: var(--jpdb-reader-source-anki-highlight, transparent);
+}
+.jpdb-reader-word-highlight-pitch .jpdb-reader-word {
+  --jpdb-reader-word-highlight-source: var(--jpdb-reader-source-pitch-highlight, transparent);
+  --jpdb-reader-word-highlight-shadow-source: var(--jpdb-reader-source-pitch-highlight-shadow, none);
+}
+:is(
+  .jpdb-reader-word-highlight-status,
+  .jpdb-reader-word-highlight-jpdb,
+  .jpdb-reader-word-highlight-anki,
+  .jpdb-reader-word-highlight-pitch
+) .jpdb-reader-word {
+  background: var(
+    --jpdb-reader-word-accessible-highlight,
+    var(--jpdb-reader-word-highlight-source, transparent)
+  ) !important;
+  box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
+  color: var(
+    --jpdb-reader-word-accessible-color,
+    var(--jpdb-reader-word-color-source, currentColor)
+  ) !important;
+  text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
+}
+.jpdb-reader-word-underline-status .jpdb-reader-word {
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-status-decoration, transparent);
+  --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent));
+}
+.jpdb-reader-word-underline-jpdb .jpdb-reader-word {
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-jpdb-decoration, transparent);
+  --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent));
+}
+.jpdb-reader-word-underline-anki .jpdb-reader-word {
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-anki-decoration, transparent);
+  --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent));
+}
+.jpdb-reader-word-underline-pitch .jpdb-reader-word {
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent);
+  --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent));
+}
+.jpdb-reader-word-text-status .jpdb-reader-word {
+  --jpdb-reader-word-color-source: var(--jpdb-reader-source-status-color, currentColor);
+  color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
+  text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
+}
+.jpdb-reader-word-text-jpdb .jpdb-reader-word {
+  --jpdb-reader-word-color-source: var(--jpdb-reader-source-jpdb-color, currentColor);
+  color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
+  text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
+}
+.jpdb-reader-word-text-anki .jpdb-reader-word {
+  --jpdb-reader-word-color-source: var(--jpdb-reader-source-anki-color, currentColor);
+  color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
+  text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
+}
+.jpdb-reader-word-text-pitch .jpdb-reader-word {
+  --jpdb-reader-word-color-source: var(--jpdb-reader-source-pitch-color, currentColor);
+  color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
+  text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
+}
+:is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)
+  .jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) {
+  color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
+}
 :is(.jpdb-reader-word-highlight-pitch, .jpdb-reader-word-underline-pitch, .jpdb-reader-word-text-pitch) .jpdb-reader-word {
   opacity: 1 !important;
 }
@@ -198,6 +372,12 @@
   text-decoration-thickness: inherit !important;
   text-underline-offset: inherit !important;
 }
+.jpdb-reader-ruby-base {
+  display: inline;
+  border-radius: 3px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
 .jpdb-reader-word rp {
   display: none;
 }
@@ -215,7 +395,7 @@
   text-align: center;
 }
 .jpdb-reader-hide-known
-  .jpdb-reader-word:is(.jpdb-known, .jpdb-due, .jpdb-never-forget)
+  .jpdb-reader-word:is(.jpdb-known, .jpdb-due, .jpdb-never-forget):not(.jpdb-reader-example-target)
   .jpdb-reader-furi {
   display: none;
 }
@@ -228,26 +408,11 @@
   overflow: hidden;
   contain: layout style;
 }
-.jpdb-ocr-status,
 .jpdb-ocr-line {
   pointer-events: auto;
   box-sizing: border-box;
   font-family: var(--jpdb-reader-font);
   -webkit-tap-highlight-color: transparent;
-}
-.jpdb-ocr-status {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(24, 27, 32, 0.82);
-  color: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24);
-  font-size: 11px;
-  font-weight: 700;
 }
 .jpdb-ocr-line {
   position: absolute;
@@ -296,41 +461,49 @@
   flex-wrap: wrap;
 }
 .jpdb-ocr-line-visible {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(24, 27, 32, 0.14);
-  box-shadow:
-    0 6px 16px rgba(0, 0, 0, 0.2),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
 }
-.jpdb-ocr-line:hover,
-.jpdb-ocr-line:focus,
-.jpdb-ocr-line.jpdb-ocr-line-active {
-  color: var(--jpdb-ocr-text-color, #fff);
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
+  color: var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text));
   text-shadow:
-    0 2px 2px var(--jpdb-ocr-outline-color, #000),
-    0 0 3px var(--jpdb-ocr-outline-color, #000),
-    0 0 10px var(--jpdb-ocr-outline-color, #000);
-  background: var(--jpdb-ocr-background-active-rgba, rgba(24, 27, 32, 0.48));
-  border-color: rgba(255, 255, 255, 0.18);
+    0 2px 2px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
+    0 0 3px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
+    0 0 10px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline));
+  background: var(--jpdb-ocr-background-active-rgba, var(--jpdb-reader-ocr-active-bg));
+  border-color: var(--jpdb-reader-ocr-active-border);
   box-shadow:
-    0 10px 24px rgba(0, 0, 0, 0.24),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    0 10px 24px var(--jpdb-reader-shadow),
+    inset 0 0 0 1px var(--jpdb-reader-ocr-active-inset);
   outline: none;
   z-index: 2;
 }
-.jpdb-ocr-line .jpdb-reader-word {
+.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word {
   background: transparent !important;
   --jpdb-reader-word-underline: transparent;
-  text-decoration: none !important;
+  box-shadow: none !important;
+  text-decoration-line: underline !important;
+  text-decoration-style: solid !important;
+  text-decoration-color: var(
+    --jpdb-reader-word-underline,
+    transparent
+  ) !important;
+  text-decoration-thickness: 0.12em !important;
+  text-underline-offset: 0.12em !important;
   color: inherit !important;
-  pointer-events: none;
+  pointer-events: auto;
   cursor: pointer;
   line-height: 1 !important;
 }
-.jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi {
+.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 1 !important;
 }
-.jpdb-ocr-line[data-has-furi="true"] .jpdb-reader-word {
+.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.jpdb-ocr-layer .jpdb-ocr-line[data-has-furi="true"] .jpdb-reader-word {
   display: inline-flex;
   align-items: flex-end;
 }
@@ -340,10 +513,21 @@
   line-height: 1;
   white-space: pre;
 }
-.jpdb-ocr-line:hover .jpdb-reader-word,
-.jpdb-ocr-line:focus .jpdb-reader-word,
-.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-reader-word {
-  pointer-events: auto;
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word {
+  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);
+  --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
+  background: var(--jpdb-reader-word-highlight-source, transparent) !important;
+  box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important;
+  color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important;
+}
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base {
+  background: var(--jpdb-reader-word-highlight-source, transparent) !important;
+  border-radius: 3px;
+  box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important;
 }
 .jpdb-ocr-ruby {
   position: relative;
@@ -373,45 +557,11 @@
   transform: translateX(-50%);
   white-space: nowrap;
 }
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-new,
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-suspended,
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-not-in-deck {
-  color: var(--jpdb-reader-state-new, #58a6ff) !important;
-}
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-learning {
-  color: var(--jpdb-reader-state-learning, #ffd166) !important;
-}
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-known,
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-never-forget,
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-redundant {
-  color: var(--jpdb-reader-state-known, #7bd88f) !important;
-}
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-due {
-  color: var(--jpdb-reader-state-due, #5fb3b3) !important;
-}
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-failed {
-  color: var(--jpdb-reader-state-failed, #ff6b6b) !important;
-}
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-blacklisted,
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
-  .jpdb-reader-word.jpdb-locked {
-  color: var(--jpdb-reader-state-ignored, #b8a7ff) !important;
-}
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-ocr-furi {
+.jpdb-ocr-line:is(:hover, :focus) .jpdb-ocr-furi {
   opacity: 0.9;
   text-shadow:
-    0 1px 1px var(--jpdb-ocr-outline-color, #000),
-    0 0 5px var(--jpdb-ocr-outline-color, #000);
+    0 1px 1px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
+    0 0 5px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline));
 }
 
 .asbplayer-subtitles-container-bottom {
@@ -420,6 +570,7 @@
 .asbplayer-subtitles-container-bottom .jpdb-reader-word {
   --jpdb-reader-subtitle-fallback: currentColor;
   background: transparent !important;
+  box-shadow: none;
   --jpdb-reader-word-underline: transparent;
   text-decoration-line: underline !important;
   text-decoration-style: solid !important;
@@ -444,7 +595,7 @@
   border-radius: 50%;
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 10px 28px var(--jpdb-reader-shadow);
   opacity: 0.78;
   font: 700 14px/1 var(--jpdb-reader-font);
   cursor: pointer;
@@ -454,7 +605,7 @@
 .jpdb-reader-fab:hover,
 .jpdb-reader-fab:focus-visible {
   border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
   opacity: 1;
   outline: none;
 }

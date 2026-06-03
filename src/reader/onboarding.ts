@@ -21,6 +21,8 @@ export class OnboardingController {
     private panel?: HTMLElement;
     private backdrop?: HTMLElement;
     private languageSelect?: HTMLSelectElement;
+    private youtubeImmersionInput?: HTMLInputElement;
+    private preferJapaneseSiteLanguageInput?: HTMLInputElement;
 
     constructor(private readonly options: OnboardingOptions) {}
 
@@ -97,6 +99,18 @@ export class OnboardingController {
         });
         language.append(languageText, this.languageSelect);
 
+        const immersionOptions = document.createElement('fieldset');
+        immersionOptions.className = 'jpdb-reader-onboarding-options';
+        const immersionLegend = document.createElement('legend');
+        immersionLegend.textContent = uiText(this.options.getSettings().interfaceLanguage, 'onboardingImmersionOptions');
+        this.youtubeImmersionInput = checkboxInput('youtubeImmersionEnabled', this.options.getSettings().youtubeImmersionEnabled);
+        this.preferJapaneseSiteLanguageInput = checkboxInput('preferJapaneseSiteLanguage', this.options.getSettings().preferJapaneseSiteLanguage);
+        immersionOptions.append(
+            immersionLegend,
+            checkboxLabel(this.youtubeImmersionInput, uiText(this.options.getSettings().interfaceLanguage, 'youtubeImmersionEnabled')),
+            checkboxLabel(this.preferJapaneseSiteLanguageInput, uiText(this.options.getSettings().interfaceLanguage, 'preferJapaneseSiteLanguage')),
+        );
+
         const actions = document.createElement('div');
         actions.className = 'jpdb-reader-onboarding-actions';
         const setup = button(uiText(this.options.getSettings().interfaceLanguage, 'onboardingAddApiKey'));
@@ -116,7 +130,7 @@ export class OnboardingController {
             this.localize(language);
         });
 
-        this.panel.append(closeButton, eyebrow, title, copy, language, actions, featureGrid);
+        this.panel.append(closeButton, eyebrow, title, copy, language, immersionOptions, actions, featureGrid);
         document.body.append(this.backdrop, this.panel);
         this.panel.focus();
     }
@@ -129,6 +143,9 @@ export class OnboardingController {
         const copy = panel.querySelector('p');
         copy?.replaceChildren(uiText(language, 'onboardingCopy'));
         panel.querySelector('.jpdb-reader-onboarding-language span')?.replaceChildren(uiText(language, 'onboardingLanguage'));
+        panel.querySelector('.jpdb-reader-onboarding-options legend')?.replaceChildren(uiText(language, 'onboardingImmersionOptions'));
+        panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, 'youtubeImmersionEnabled'));
+        panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, 'preferJapaneseSiteLanguage'));
         const options: Array<[string, string]> = [
             ['auto', uiText(language, 'automatic')],
             ['en', uiText(language, 'english')],
@@ -181,6 +198,8 @@ export class OnboardingController {
             onboardingSeen: true,
             jpdbDefinitionsEnabled: true,
             localDictionariesEnabled: openSettings !== true,
+            youtubeImmersionEnabled: this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled,
+            preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
             dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? 'jpdb' : 'local'),
             interfaceLanguage: selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage),
         };
@@ -197,6 +216,8 @@ export class OnboardingController {
         this.panel = undefined;
         this.backdrop = undefined;
         this.languageSelect = undefined;
+        this.youtubeImmersionInput = undefined;
+        this.preferJapaneseSiteLanguageInput = undefined;
     }
 }
 
@@ -216,6 +237,30 @@ function button(text: string): HTMLButtonElement {
     node.type = 'button';
     node.textContent = text;
     return node;
+}
+
+function checkboxInput(name: keyof Pick<ReaderSettings, 'preferJapaneseSiteLanguage' | 'youtubeImmersionEnabled'>, checked: boolean): HTMLInputElement {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.name = name;
+    input.checked = checked;
+    input.setAttribute('aria-labelledby', onboardingCopyId(name));
+    return input;
+}
+
+function checkboxLabel(input: HTMLInputElement, text: string): HTMLLabelElement {
+    const label = document.createElement('label');
+    label.className = 'inline';
+    const copy = document.createElement('span');
+    copy.id = onboardingCopyId(input.name);
+    copy.dataset.onboardingCopy = input.name;
+    copy.textContent = text;
+    label.append(input, copy);
+    return label;
+}
+
+function onboardingCopyId(name: string): string {
+    return `jpdb-reader-onboarding-${name}`;
 }
 
 function closeIcon(): string {

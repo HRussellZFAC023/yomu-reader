@@ -8,13 +8,15 @@ import {
     sanitizeAccentColor,
 } from './settings';
 import { contrastRatio, isHexColor, mixHex, readableOnAll } from './color-utils';
+import { READER_THEME_COLOR_TOKENS } from './color-tokens';
 import type { ReaderColorSource, ReaderSettings } from './types';
 
-const COLOR_SOURCE_CLASSES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
+const COLOR_SOURCE_CLASSES: Exclude<ReaderColorSource, 'auto'>[] = ['status', 'jpdb', 'anki', 'pitch', 'off'];
 const COLOR_CHANNELS = ['highlight', 'underline', 'text'] as const;
 type ColorChannel = typeof COLOR_CHANNELS[number];
 type AppliedColorSource = Exclude<ReaderColorSource, 'auto'>;
 type ColorSourceMap = Record<ColorChannel, AppliedColorSource>;
+const READER_THEME_COLORS = READER_THEME_COLOR_TOKENS;
 
 export interface AppliedReaderTheme {
     furiganaMode: ReturnType<typeof effectiveFuriganaMode>;
@@ -28,11 +30,43 @@ export function applyReaderTheme(settings: ReaderSettings, root = document.docum
     root.classList.toggle('jpdb-reader-theme-light', settings.theme === 'light');
     applyReaderAccentColor(settings.accentColor, root);
     applyReaderWordColors(settings, root);
+    applyReaderImageTextOverlaySettings(settings, root);
+    applyReaderSubtitleSettings(settings, root);
+    applyReaderFontSettings(settings, root);
+    applyPopupFontSettings(settings, root);
     root.classList.toggle('jpdb-reader-hide-known', theme.furiganaMode === 'known-status');
     root.classList.remove('jpdb-reader-highlight-status', 'jpdb-reader-highlight-pitch', 'jpdb-reader-highlight-off');
     applyReaderColorSourceClasses(root, 'word', theme.wordColorSources);
     applyReaderColorSourceClasses(root, 'subtitle', theme.subtitleColorSources);
     return theme;
+}
+
+function applyReaderFontSettings(settings: ReaderSettings, root: HTMLElement): void {
+    root.style.setProperty('--jpdb-reader-font', settings.readerFontFamily);
+}
+
+function applyPopupFontSettings(settings: ReaderSettings, root: HTMLElement): void {
+    root.style.setProperty('--jpdb-reader-popup-font', settings.popupFontFamily);
+    root.style.setProperty('--jpdb-reader-popup-font-weight', String(settings.popupFontWeight));
+}
+
+function applyReaderImageTextOverlaySettings(settings: ReaderSettings, root: HTMLElement): void {
+    const background = sanitizeAccentColor(settings.ocrBackgroundColor);
+    const opacity = settings.ocrBackgroundOpacity;
+    root.style.setProperty('--jpdb-ocr-text-color', sanitizeAccentColor(settings.ocrTextColor));
+    root.style.setProperty('--jpdb-ocr-outline-color', sanitizeAccentColor(settings.ocrOutlineColor));
+    root.style.setProperty('--jpdb-ocr-background-rgba', accentToRgba(background, opacity));
+    root.style.setProperty('--jpdb-ocr-background-active-rgba', accentToRgba(background, Math.min(1, opacity + 0.12)));
+}
+
+function applyReaderSubtitleSettings(settings: ReaderSettings, root: HTMLElement): void {
+    const background = sanitizeAccentColor(settings.subtitleBackgroundColor);
+    root.style.setProperty('--subtitle-font-size-target', `${settings.subtitleFontSize}px`);
+    root.style.setProperty('--subtitle-color', sanitizeAccentColor(settings.subtitleTextColor));
+    root.style.setProperty('--subtitle-outline', sanitizeAccentColor(settings.subtitleOutlineColor));
+    root.style.setProperty('--subtitle-background-rgba', accentToRgba(background, settings.subtitleBackgroundOpacity));
+    root.style.setProperty('--subtitle-family', settings.subtitleFontFamily);
+    root.style.setProperty('--subtitle-weight', String(settings.subtitleFontWeight));
 }
 
 export function applyReaderAccentColor(color: string, root = document.documentElement): void {
@@ -46,11 +80,13 @@ export function applyReaderAccentColor(color: string, root = document.documentEl
 export function applyReaderWordColors(settings: ReaderSettings, root = document.documentElement): void {
     Object.entries(readerStateColors(settings)).forEach(([state, color]) => {
         root.style.setProperty(`--jpdb-reader-state-${state}`, color);
+        root.style.setProperty(`--jpdb-reader-state-${state}-readable`, readableThemeColorOnSurface(color, root));
         root.style.setProperty(`--jpdb-reader-state-${state}-soft`, accentToRgba(color, 0.16));
         root.style.setProperty(`--jpdb-reader-state-${state}-strong`, accentToRgba(color, 0.28));
     });
     Object.entries(readerPitchColors(settings)).forEach(([pattern, { color, alpha }]) => {
         root.style.setProperty(`--jpdb-reader-pitch-${pattern}`, color);
+        root.style.setProperty(`--jpdb-reader-pitch-${pattern}-readable`, readableThemeColorOnSurface(color, root));
         root.style.setProperty(`--jpdb-reader-pitch-${pattern}-soft`, alpha > 0 ? accentToRgba(color, alpha) : 'transparent');
     });
 }
@@ -59,14 +95,14 @@ function appliedReaderTheme(settings: ReaderSettings): AppliedReaderTheme {
     return {
         furiganaMode: effectiveFuriganaMode(settings),
         wordColorSources: {
-            highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource, 'pitch'),
-            underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, 'jpdb'),
-            text: effectiveReaderTextColorSource(settings, settings.wordTextColorSource, 'off'),
+            highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource, 'jpdb'),
+            underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, 'pitch'),
+            text: effectiveReaderTextColorSource(settings, settings.wordTextColorSource, 'anki'),
         },
         subtitleColorSources: {
             highlight: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleHighlightColorSource, 'jpdb')),
             underline: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleUnderlineColorSource, 'pitch')),
-            text: appliedSubtitleColorSource(settings, effectiveSubtitleTextColorSource(settings, settings.subtitleTextColorSource, 'jpdb')),
+            text: appliedSubtitleColorSource(settings, effectiveSubtitleTextColorSource(settings, settings.subtitleTextColorSource, 'anki')),
         },
     };
 }
@@ -106,19 +142,25 @@ function applyReaderColorSourceClasses(root: HTMLElement, scope: 'word' | 'subti
 }
 
 function readableAccentOnSurface(accentColor: string, root: HTMLElement): string {
+    return readableThemeColorOnSurface(accentColor, root);
+}
+
+function readableThemeColorOnSurface(color: string, root: HTMLElement): string {
     const surface = readerSurfaceColor(root);
-    const safeAccent = sanitizeAccentColor(accentColor);
-    return readableOnAll(safeAccent, [
+    const safeColor = sanitizeAccentColor(color);
+    return readableOnAll(safeColor, [
         surface,
-        mixHex(surface, safeAccent, 0.18),
-        mixHex(surface, safeAccent, 0.26),
+        readerBackgroundColor(root),
+        readerElevatedSurfaceColor(root),
+        mixHex(surface, safeColor, 0.18),
+        mixHex(surface, safeColor, 0.26),
     ], 4.5);
 }
 
 function readableTextOnAccent(accentColor: string): string {
-    const darkText = '#11161d';
-    const lightText = '#ffffff';
-    return contrastRatio(accentColor, darkText) >= contrastRatio(accentColor, lightText) ? darkText : lightText;
+    return contrastRatio(accentColor, READER_THEME_COLORS.dark.accentText) >= contrastRatio(accentColor, READER_THEME_COLORS.light.accentText)
+        ? READER_THEME_COLORS.dark.accentText
+        : READER_THEME_COLORS.light.accentText;
 }
 
 function readerSurfaceColor(root: HTMLElement): string {
@@ -126,8 +168,29 @@ function readerSurfaceColor(root: HTMLElement): string {
         ? getComputedStyle(root).getPropertyValue('--jpdb-reader-surface').trim()
         : '';
     if (isHexColor(computed)) return sanitizeAccentColor(computed);
-    if (root.classList.contains('jpdb-reader-theme-light')) return '#f7f8fa';
-    return prefersLightMode() ? '#f7f8fa' : '#20242b';
+    if (root.classList.contains('jpdb-reader-theme-dark')) return READER_THEME_COLORS.dark.surface;
+    if (root.classList.contains('jpdb-reader-theme-light')) return READER_THEME_COLORS.light.surface;
+    return prefersLightMode() ? READER_THEME_COLORS.light.surface : READER_THEME_COLORS.dark.surface;
+}
+
+function readerBackgroundColor(root: HTMLElement): string {
+    const computed = typeof getComputedStyle === 'function'
+        ? getComputedStyle(root).getPropertyValue('--jpdb-reader-bg').trim()
+        : '';
+    if (isHexColor(computed)) return sanitizeAccentColor(computed);
+    if (root.classList.contains('jpdb-reader-theme-dark')) return READER_THEME_COLORS.dark.bg;
+    if (root.classList.contains('jpdb-reader-theme-light')) return READER_THEME_COLORS.light.bg;
+    return prefersLightMode() ? READER_THEME_COLORS.light.bg : READER_THEME_COLORS.dark.bg;
+}
+
+function readerElevatedSurfaceColor(root: HTMLElement): string {
+    const computed = typeof getComputedStyle === 'function'
+        ? getComputedStyle(root).getPropertyValue('--jpdb-reader-surface-2').trim()
+        : '';
+    if (isHexColor(computed)) return sanitizeAccentColor(computed);
+    if (root.classList.contains('jpdb-reader-theme-dark')) return READER_THEME_COLORS.dark.surface2;
+    if (root.classList.contains('jpdb-reader-theme-light')) return READER_THEME_COLORS.light.surface2;
+    return prefersLightMode() ? READER_THEME_COLORS.light.surface2 : READER_THEME_COLORS.dark.surface2;
 }
 
 function prefersLightMode(): boolean {

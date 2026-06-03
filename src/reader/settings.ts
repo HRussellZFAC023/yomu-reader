@@ -1,7 +1,8 @@
 import { Logger } from './logger';
 import { SETTINGS_CHANGE_EVENT } from './constants';
+import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from './color-tokens';
 import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists } from './storage';
-import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, DictionaryLookupLink, DictionaryPreference, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from './types';
+import type { AnkiFieldMapping, AnkiFieldMappingRole, AnkiFieldMappings, AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, DictionaryLookupLink, DictionaryPreference, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from './types';
 
 export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 export const LEGACY_SETTINGS_STORAGE_KEYS = [
@@ -20,43 +21,34 @@ let settingsResetInProgress = false;
 export const DEFAULT_AUDIO_URL =
     'http://localhost:9090/?term={term}&reading={reading}';
 
-export const DEFAULT_ACCENT_COLOR = '#5ea780';
+export const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
+export const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
+export const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
+export const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
+export const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+export const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
+export const DEFAULT_SUBTITLE_FONT_FAMILY = DEFAULT_READER_FONT_FAMILY;
 
-export const DEFAULT_WORD_COLORS = {
-    new: '#58a6ff',
-    learning: '#ffd166',
-    known: '#7bd88f',
-    due: '#5fb3b3',
-    failed: '#ff6b6b',
-    ignored: '#b8a7ff',
-} as const;
+export const DEFAULT_WORD_COLORS = DEFAULT_WORD_COLOR_TOKENS;
 
-export const DEFAULT_PITCH_COLORS = {
-    heiban: '#359eff',
-    atamadaka: '#fe4b74',
-    nakadaka: '#fba840',
-    odaka: '#57ccb7',
-    kifuku: '#9050f6',
-    unknown: '#94a3b8',
-} as const;
+export const DEFAULT_PITCH_COLORS = DEFAULT_PITCH_COLOR_TOKENS;
 
 export const AUDIO_GUIDE_URL = 'https://yomitan.wiki/advanced/#audio';
 
-export const AUDIO_SOURCE_LABELS: Record<AudioSourceType, string> = {
-    jpod101: 'JapanesePod101',
-    'language-pod-101': 'LanguagePod101',
-    jisho: 'Jisho.org',
-    'lingua-libre': '(Commons) Lingua Libre',
-    wiktionary: '(Commons) Wiktionary',
-    'jpdb-tts': 'JPDB text-to-speech',
-    'text-to-speech': 'Text-to-speech',
-    'text-to-speech-reading': 'Text-to-speech (Kana reading)',
-    custom: 'Custom direct audio file URL',
-    'custom-json': 'Custom URL',
-};
+export const AUDIO_SOURCE_TYPE_VALUES: AudioSourceType[] = [
+    'jpod101',
+    'language-pod-101',
+    'jisho',
+    'lingua-libre',
+    'wiktionary',
+    'jpdb-tts',
+    'text-to-speech',
+    'text-to-speech-reading',
+    'custom',
+    'custom-json',
+];
 
-export const AUDIO_SOURCE_OPTIONS = Object.entries(AUDIO_SOURCE_LABELS) as [AudioSourceType, string][];
-export const AUDIO_SOURCE_UI_OPTIONS = AUDIO_SOURCE_OPTIONS.filter(([type]) => type !== 'custom');
+export const AUDIO_SOURCE_UI_TYPE_VALUES = AUDIO_SOURCE_TYPE_VALUES.filter(type => type !== 'custom');
 
 export const DEFAULT_AUDIO_SOURCES: AudioSourceSetting[] = [
     { type: 'jpod101', url: '', voice: '', enabled: true },
@@ -104,7 +96,7 @@ const LEGACY_DEFAULT_LOOKUP_LINK_SET: LegacyLookupLinkSpec[] = [
     COPY_LOOKUP_LINK,
 ];
 
-const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_OPTIONS.map(([value]) => value));
+const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_TYPE_VALUES);
 const LEGACY_DEFAULT_AUDIO_SOURCE_TYPES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'text-to-speech'];
 const READER_COLOR_SOURCES = new Set<ReaderColorSource>(['auto', 'status', 'jpdb', 'anki', 'pitch', 'off']);
 const EXPLICIT_FURIGANA_MODES = new Set<FuriganaMode>(['all', 'difficult-kanji', 'known-status']);
@@ -125,12 +117,12 @@ type ConcreteReaderColorSource = Exclude<ReaderColorSource, 'auto'>;
 type LegacyWordHighlightMode = 'auto' | 'status' | 'pitch' | 'off';
 
 const DEFAULT_COLOR_CHANNELS: Record<ReaderColorChannelKey, ConcreteReaderColorSource> = {
-    wordHighlightColorSource: 'pitch',
-    wordUnderlineColorSource: 'jpdb',
-    wordTextColorSource: 'off',
+    wordHighlightColorSource: 'jpdb',
+    wordUnderlineColorSource: 'pitch',
+    wordTextColorSource: 'anki',
     subtitleHighlightColorSource: 'jpdb',
     subtitleUnderlineColorSource: 'pitch',
-    subtitleTextColorSource: 'jpdb',
+    subtitleTextColorSource: 'anki',
 };
 
 const LEGACY_COLOR_CHANNEL_DEFAULTS: Record<ReaderColorChannelKey, ReaderColorSource> = {
@@ -223,11 +215,10 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     hoverCloseDelayMs: 80,
     popupActivationMode: 'hover',
     scanModifierKey: 'shift',
-    autoScanJapanese: true,
-    scanVisiblePage: true,
     showFloatingButton: true,
     newTabEnabled: false,
     newTabAnkiEnabled: true,
+    newTabAnkiDisabledDecks: [],
     newTabSource: 'auto',
     newTabJpdbDeck: 'all',
     newTabJpdbReviewMode: 'auto',
@@ -257,9 +248,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ocrMinImageArea: 45000,
     ocrMaxImagesPerPage: 3,
     ocrPrefetchMargin: 700,
-    ocrTextColor: '#ffffff',
-    ocrOutlineColor: '#000000',
-    ocrBackgroundColor: '#181b20',
+    ocrTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
+    ocrOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
+    ocrBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
     ocrBackgroundOpacity: 0.36,
     ocrFontScale: 1,
     localDictionariesEnabled: true,
@@ -276,23 +267,27 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleNativeBlurred: true,
     subtitleKaraokeMode: true,
     subtitleTranscriptVisible: false,
+    subtitlePausePanel: false,
     subtitleTranscriptPlacement: 'right',
     subtitleTranscriptAutoScroll: true,
     subtitleAutoCopyLine: false,
     subtitleControlsMode: 'auto',
     subtitleFontSize: 28,
     subtitleBottomOffset: 12,
-    subtitleTextColor: '#ffffff',
-    subtitleOutlineColor: '#000000',
-    subtitleBackgroundColor: '#181b20',
+    subtitleTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
+    subtitleOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
+    subtitleBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
     subtitleBackgroundOpacity: 0,
-    subtitleFontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    subtitleFontFamily: DEFAULT_SUBTITLE_FONT_FAMILY,
     subtitleFontWeight: 760,
     subtitleMiningPause: false,
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
+    preferJapaneseSiteLanguage: true,
     ankiEnabled: false,
+    ankiSectionEnabled: true,
+    ankiSectionPriority: 5,
     ankiConnectUrl: 'http://127.0.0.1:8765',
     ankiDeck: 'よむ',
     ankiModel: 'よむ Japanese',
@@ -307,13 +302,17 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ankiTags: 'yomu',
     ankiMineWithJpdb: false,
     ankiCaptureScreenshot: true,
+    ankiFieldMappings: {},
     theme: 'auto',
-    popupMode: 'auto',
+    popupMode: 'popover',
     stickyBottomSheet: false,
     popoverBackdropEnabled: true,
     popoverWidth: 520,
     popoverHeight: 540,
     popoverHeightMode: 'fixed',
+    readerFontFamily: DEFAULT_READER_FONT_FAMILY,
+    popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
+    popupFontWeight: 400,
     jpdbMiningEnabled: true,
     miningDeck: 'forq',
     neverForgetDeck: 'never-forget',
@@ -329,6 +328,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
         openSettings: 'Alt+Shift+J',
         playAudio: 'A',
         closePopup: 'Escape',
+        previousLookupWord: 'Alt+Shift+ArrowLeft',
+        nextLookupWord: 'Alt+Shift+ArrowRight',
         previousSubtitle: 'Alt+ArrowLeft',
         nextSubtitle: 'Alt+ArrowRight',
         copySubtitle: 'Alt+C',
@@ -347,10 +348,10 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
 
 function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
     const audio = normalizeAudioSettings(value);
-    const settingsWithoutLegacyWordHighlightMode = stripLegacyWordHighlightMode(value);
+    const supportedSettings = stripUnsupportedSettings(value);
     return {
         ...DEFAULT_SETTINGS,
-        ...(settingsWithoutLegacyWordHighlightMode ?? {}),
+        ...(supportedSettings ?? {}),
         ...normalizeLookupSettings(value),
         ...normalizeNewTabSettings(value),
         ...normalizeReaderDisplaySettings(value),
@@ -371,20 +372,24 @@ export function normalizeReaderSettings(value: Partial<ReaderSettings> | null | 
     return mergeSettings(value as LegacyReaderSettings | null);
 }
 
-function stripLegacyWordHighlightMode<T extends object>(value: T | null | undefined): Omit<T, 'wordHighlightMode'> | null {
+function stripUnsupportedSettings(value: LegacyReaderSettings | null | undefined): Partial<ReaderSettings> | null {
     if (!value) return null;
-    const { wordHighlightMode: _legacyWordHighlightMode, ...settings } = value as T & { wordHighlightMode?: unknown };
-    return settings;
+    const supportedKeys = new Set(Object.keys(DEFAULT_SETTINGS));
+    return Object.fromEntries(
+        Object.entries(value).filter(([key]) => supportedKeys.has(key)),
+    ) as Partial<ReaderSettings>;
 }
 
-function normalizeAudioSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'suppressAutoAudioOnVideo' | 'audioAutoPlayMode' | 'audioSources' | 'audioSourceUrl' | 'audioTtsMode'> {
+function normalizeAudioSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'autoPlayAudio' | 'suppressAutoAudioOnVideo' | 'audioAutoPlayMode' | 'audioSources' | 'audioSourceUrl' | 'audioTtsMode'> {
     const hasSavedAudioSources = hasOwn(value, 'audioSources');
     const audioSources = hasSavedAudioSources || value?.audioSourceUrl
         ? normalizeAudioSources(value?.audioSources, value?.audioSourceUrl)
         : DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
+    const audioAutoPlayMode = normalizeAudioAutoPlayMode(value?.audioAutoPlayMode);
     return {
+        autoPlayAudio: audioAutoPlayMode === 'off' ? false : booleanSetting(value, 'autoPlayAudio'),
         suppressAutoAudioOnVideo: booleanSetting(value, 'suppressAutoAudioOnVideo'),
-        audioAutoPlayMode: normalizeAudioAutoPlayMode(value?.audioAutoPlayMode),
+        audioAutoPlayMode,
         audioSources,
         audioSourceUrl: audioSources.find(source => source.url)?.url ?? value?.audioSourceUrl ?? DEFAULT_AUDIO_URL,
         audioTtsMode: normalizeAudioTtsMode(value?.audioTtsMode),
@@ -431,6 +436,7 @@ function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial
     return {
         newTabEnabled: booleanSetting(value, 'newTabEnabled'),
         newTabAnkiEnabled: booleanSetting(value, 'newTabAnkiEnabled'),
+        newTabAnkiDisabledDecks: normalizeStringList(value?.newTabAnkiDisabledDecks),
         newTabSource: normalizeNewTabSource(value?.newTabSource),
         newTabJpdbDeck: normalizeDeckIdSetting(value?.newTabJpdbDeck, DEFAULT_SETTINGS.newTabJpdbDeck),
         newTabJpdbReviewMode: normalizeNewTabJpdbReviewMode(value?.newTabJpdbReviewMode),
@@ -489,6 +495,8 @@ function normalizeKanjiSettings(value: Partial<ReaderSettings> | null): Partial<
 
 function normalizeAnkiAndStudySettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
+        ankiSectionEnabled: typeof value?.ankiSectionEnabled === 'boolean' ? value.ankiSectionEnabled : DEFAULT_SETTINGS.ankiSectionEnabled,
+        ankiSectionPriority: clampNumber(value?.ankiSectionPriority, 0, 999, DEFAULT_SETTINGS.ankiSectionPriority),
         ankiConnectUrl: normalizeUrl(value?.ankiConnectUrl, DEFAULT_SETTINGS.ankiConnectUrl),
         ankiDeck: normalizeAnkiName(value?.ankiDeck, DEFAULT_SETTINGS.ankiDeck, 'Yomu'),
         ankiModel: normalizeAnkiName(value?.ankiModel, DEFAULT_SETTINGS.ankiModel, 'Yomu Japanese'),
@@ -496,6 +504,7 @@ function normalizeAnkiAndStudySettings(value: Partial<ReaderSettings> | null): P
         ankiFrontReading: typeof value?.ankiFrontReading === 'boolean' ? value.ankiFrontReading : DEFAULT_SETTINGS.ankiFrontReading,
         ankiFrontSentence: typeof value?.ankiFrontSentence === 'boolean' ? value.ankiFrontSentence : DEFAULT_SETTINGS.ankiFrontSentence,
         ankiFrontImage: typeof value?.ankiFrontImage === 'boolean' ? value.ankiFrontImage : DEFAULT_SETTINGS.ankiFrontImage,
+        ankiFieldMappings: normalizeAnkiFieldMappings(value?.ankiFieldMappings),
         ankiMobileHandoff: typeof value?.ankiMobileHandoff === 'boolean' ? value.ankiMobileHandoff : DEFAULT_SETTINGS.ankiMobileHandoff,
         studyTranslationEnabled: typeof value?.studyTranslationEnabled === 'boolean' ? value.studyTranslationEnabled : DEFAULT_SETTINGS.studyTranslationEnabled,
         studyTranslationPriority: clampNumber(value?.studyTranslationPriority, 0, 999, DEFAULT_SETTINGS.studyTranslationPriority),
@@ -514,6 +523,9 @@ function normalizePresentationSettings(value: Partial<ReaderSettings> | null): P
         popoverWidth: clampNumber(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
         popoverHeight: clampNumber(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
         popoverHeightMode: normalizePopoverHeightMode(value?.popoverHeightMode),
+        readerFontFamily: normalizeFontFamily(value?.readerFontFamily, DEFAULT_SETTINGS.readerFontFamily),
+        popupFontFamily: normalizeFontFamily(value?.popupFontFamily, DEFAULT_SETTINGS.popupFontFamily),
+        popupFontWeight: clampNumber(value?.popupFontWeight, 300, 900, DEFAULT_SETTINGS.popupFontWeight),
     };
 }
 
@@ -564,6 +576,7 @@ function normalizeSubtitleSettings(value: Partial<ReaderSettings> | null): Parti
     return {
         subtitleNativeBlurred: booleanSetting(value, 'subtitleNativeBlurred'),
         subtitleKaraokeMode: booleanSetting(value, 'subtitleKaraokeMode'),
+        subtitlePausePanel: booleanSetting(value, 'subtitlePausePanel'),
         subtitleAutoCopyLine: booleanSetting(value, 'subtitleAutoCopyLine'),
         subtitleControlsMode: normalizeSubtitleControlsMode(value?.subtitleControlsMode),
         subtitleTranscriptPlacement: normalizeSubtitleTranscriptPlacement(value?.subtitleTranscriptPlacement),
@@ -576,6 +589,10 @@ function normalizeSubtitleSettings(value: Partial<ReaderSettings> | null): Parti
     };
 }
 
+function normalizeFontFamily(value: unknown, fallback: string): string {
+    return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
 function normalizeOptionalCoordinate(value: unknown): number | undefined {
     const number = Number(value);
     return Number.isFinite(number) && number >= 0 ? number : undefined;
@@ -583,6 +600,33 @@ function normalizeOptionalCoordinate(value: unknown): number | undefined {
 
 function hasOwn(value: unknown, key: PropertyKey): boolean {
     return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function normalizeStringList(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return [...new Set(value
+        .map(item => typeof item === 'string' ? item.trim() : '')
+        .filter(Boolean))];
+}
+
+const ANKI_FIELD_MAPPING_ROLES: readonly AnkiFieldMappingRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'image'];
+
+function normalizeAnkiFieldMappings(value: unknown): AnkiFieldMappings {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    const out: AnkiFieldMappings = {};
+    Object.entries(value as Record<string, unknown>).forEach(([modelName, mapping]) => {
+        const normalizedModelName = modelName.trim();
+        if (!normalizedModelName || !mapping || typeof mapping !== 'object' || Array.isArray(mapping)) return;
+        const normalizedMapping: AnkiFieldMapping = {};
+        for (const role of ANKI_FIELD_MAPPING_ROLES) {
+            const fieldName = (mapping as Record<string, unknown>)[role];
+            if (typeof fieldName !== 'string') continue;
+            const normalizedFieldName = fieldName.trim();
+            if (normalizedFieldName) normalizedMapping[role] = normalizedFieldName;
+        }
+        if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
+    });
+    return out;
 }
 
 function normalizeAnkiName(value: unknown, fallback: string, oldDefault: string): string {
@@ -613,7 +657,7 @@ function normalizePopoverHeightMode(value: unknown): ReaderSettings['popoverHeig
 }
 
 function normalizeAudioAutoPlayMode(value: unknown): AudioAutoPlayMode {
-    return value === 'all' || value === 'hover' || value === 'tap' ? value : DEFAULT_SETTINGS.audioAutoPlayMode;
+    return value === 'off' || value === 'all' || value === 'hover' || value === 'tap' ? value : DEFAULT_SETTINGS.audioAutoPlayMode;
 }
 
 function normalizeAudioTtsMode(value: unknown): AudioTtsMode {
@@ -721,13 +765,13 @@ function isLegacyDefaultColorChannelSettings(value: LegacyReaderSettings | null 
 }
 
 function normalizeReaderColorSource(value: unknown, fallback: ReaderColorSource, autoFallback = fallback): ReaderColorSource {
-    if (value === 'auto') return autoFallback;
-    return READER_COLOR_SOURCES.has(value as ReaderColorSource) ? value as ReaderColorSource : fallback;
+    const source = value === 'auto' ? autoFallback : value;
+    return READER_COLOR_SOURCES.has(source as ReaderColorSource) ? source as ReaderColorSource : fallback;
 }
 
 function legacyReaderColorSourceForAuto(settings: LegacyReaderSettings | null | undefined, fallback: Exclude<ReaderColorSource, 'auto'>): Exclude<ReaderColorSource, 'auto'> {
     const mode = legacyEffectiveWordHighlightMode(settings);
-    return mode ?? fallback;
+    return mode === 'status' ? fallback : mode ?? fallback;
 }
 
 function legacySubtitleColorSourceForAuto(settings: LegacyReaderSettings | null | undefined, fallback: Exclude<ReaderColorSource, 'auto'>): Exclude<ReaderColorSource, 'auto'> {
@@ -766,12 +810,13 @@ function normalizeDeckIdSetting(value: unknown, fallback: string): string {
 }
 
 export function hasPersonalizedFuriganaSource(settings: ReaderSettings): boolean {
-    return shouldLookupAnkiStatus(settings) || Boolean(settings.apiKey.trim());
+    return Boolean(settings.apiKey.trim() || settings.ankiEnabled);
 }
 
 export function shouldLookupAnkiStatus(settings: Partial<ReaderSettings>): boolean {
     return Boolean(
         settings.ankiEnabled
+        || settings.ankiSectionEnabled
         || settings.furiganaMode === 'known-status'
         || hasRequestedAnkiColorSource(settings)
     );
@@ -783,7 +828,7 @@ export function effectiveReaderColorSource(
     fallback: ConcreteReaderColorSource = DEFAULT_COLOR_CHANNELS.wordHighlightColorSource,
 ): ConcreteReaderColorSource {
     const concrete = source === 'auto' ? legacyReaderColorSourceForAuto(settings, fallback) : source;
-    return effectiveAvailableColorSource(settings, concrete);
+    return effectiveAvailableColorSource(settings, concrete, fallback);
 }
 
 export function effectiveReaderTextColorSource(
@@ -816,8 +861,14 @@ function effectiveTextColorSource(settings: LegacyReaderSettings, source: Concre
     return effectiveAvailableColorSource(settings, source);
 }
 
-function effectiveAvailableColorSource(settings: LegacyReaderSettings, source: ConcreteReaderColorSource): ConcreteReaderColorSource {
-    if (source === 'jpdb' && !hasJpdbStatusSource(settings)) return 'off';
+function effectiveAvailableColorSource(
+    settings: LegacyReaderSettings,
+    source: ConcreteReaderColorSource,
+    fallback: ConcreteReaderColorSource = 'off',
+): ConcreteReaderColorSource {
+    if (source === 'jpdb' && !hasJpdbStatusSource(settings)) {
+        return fallback === 'jpdb' ? 'off' : effectiveAvailableColorSource(settings, fallback, 'off');
+    }
     if (source === 'anki') return 'anki';
     if (source === 'status') return effectiveAvailableStatusSource(settings, true);
     return source;
@@ -866,7 +917,7 @@ function isExplicitFuriganaMode(value: FuriganaMode): value is Exclude<FuriganaM
     return EXPLICIT_FURIGANA_MODES.has(value);
 }
 
-export function sanitizeAccentColor(value: unknown, fallback = DEFAULT_ACCENT_COLOR): string {
+export function sanitizeAccentColor(value: unknown, fallback: string = DEFAULT_ACCENT_COLOR): string {
     if (typeof value !== 'string') return fallback;
     const trimmed = value.trim();
     if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
@@ -975,7 +1026,7 @@ export async function saveSettings(settings: ReaderSettings): Promise<void> {
         return;
     }
     try {
-        const storedSettings = stripLegacyWordHighlightMode(settings) ?? settings;
+        const storedSettings = stripUnsupportedSettings(settings) ?? settings;
         await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
         dispatchSettingsChange(storedSettings);
     } catch (error) {
@@ -1196,7 +1247,7 @@ export function normalizeDictionaryPreferences(value: unknown): DictionaryPrefer
 export function defaultDictionaryLookupLinks(mode: 'jpdb' | 'local' = 'local'): DictionaryLookupLink[] {
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map(link => ({
         ...link,
-        enabled: mode === 'jpdb' ? link.id === 'jpdb' : link.enabled,
+        enabled: mode === 'jpdb' ? link.id === 'jpdb' || link.id === 'jisho' : link.enabled,
     }));
 }
 

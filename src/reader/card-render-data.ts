@@ -1,4 +1,5 @@
-import { canUseMobileAnkiHandoff, type AnkiConnectClient, type AnkiLookupResult } from './anki';
+import { ankiLookupWithUnavailableDetails, type AnkiConnectClient, type AnkiExistingNote, type AnkiLookupResult } from './anki';
+import { normalizeCardStates, primaryCardState } from './card-state';
 import { cardKey } from './card-utils';
 import type { JpdbClient } from './jpdb';
 import type { JpdbPublicPitchClient } from './jpdb-public-pitch';
@@ -14,8 +15,9 @@ const CARD_RENDER_DATA_CACHE_TTL_MS = 30_000;
 const CARD_RENDER_DATA_CACHE_LIMIT = 120;
 const CARD_RENDER_LOCAL_TIMEOUT_MS = 2_500;
 const CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS = 4_000;
-const CARD_RENDER_ANKI_TIMEOUT_MS = 2_500;
+const CARD_RENDER_ANKI_TIMEOUT_MS = 4_000;
 const CARD_RENDER_DECK_TIMEOUT_MS = 1_500;
+const CARD_RENDER_DECK_POOL_TIMEOUT_MS = 4_000;
 const CARD_RENDER_PITCH_TIMEOUT_MS = 6_500;
 const CARD_RENDER_LOCAL_PITCH_GRACE_MS = 120;
 const CARD_RENDER_SHARED_DECK_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -35,6 +37,7 @@ export interface CardRenderDataLoad {
     localMetaEntries?: Promise<YomitanMetaEntry[]>;
     pitchAccent?: Promise<string[]>;
     ankiLookup?: Promise<AnkiLookupResult>;
+    hydrateAnkiLookup?: () => Promise<AnkiLookupResult>;
     jpdbVocabularyInfo?: Promise<JpdbVocabularyInfo | null>;
     all: Promise<CardRenderData>;
 }
@@ -105,11 +108,18 @@ export class CardRenderDataLoader {
             if (!card.pitchAccent.length && publicPitch.length) card.pitchAccent = publicPitch;
             return publicPitch;
         });
-        const ankiLookup = this.loadAnkiLookup(card);
+        const fastAnkiLookup = this.loadFastAnkiLookup(card);
+        let detailedAnkiLookup: Promise<AnkiLookupResult> | undefined;
+        const hydrateAnkiLookup = () => {
+            detailedAnkiLookup ??= this.loadDetailedAnkiLookup(card, fastAnkiLookup);
+            return detailedAnkiLookup;
+        };
+        const jpdbDeckMembership = this.loadJpdbDeckMembership(card);
         const jpdbVocabularyInfo = this.loadJpdbVocabularyInfo(card);
         void pitchAccent.catch(() => undefined);
-        const all = this.loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbVocabularyInfo);
-        return { localEntries, localMetaEntries, pitchAccent, ankiLookup, jpdbVocabularyInfo, all };
+        void jpdbDeckMembership.catch(() => undefined);
+        const all = this.loadAll(card, localEntries, localMetaEntries, fastAnkiLookup, jpdbDeckMembership, jpdbVocabularyInfo);
+        return { localEntries, localMetaEntries, pitchAccent, ankiLookup: fastAnkiLookup, hydrateAnkiLookup, jpdbVocabularyInfo, all };
     }
 
     private withFallback<T>(card: JPDBCard, timeoutMs: number, detail: string, promise: Promise<T>, fallback: T): Promise<T> {
@@ -166,13 +176,34 @@ export class CardRenderDataLoader {
         }), null as JpdbVocabularyInfo | null);
     }
 
-    private loadAnkiLookup(card: JPDBCard): Promise<AnkiLookupResult> {
-        const fallback: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
-        if (!shouldLookupAnkiStatus(this.settings()) || canUseMobileAnkiHandoff(this.settings())) return Promise.resolve(fallback);
-        return this.withFallback(card, CARD_RENDER_ANKI_TIMEOUT_MS, 'Anki existing cards', this.dependencies.anki.findExistingCards(card).catch(error => {
+    private loadFastAnkiLookup(card: JPDBCard): Promise<AnkiLookupResult> {
+        const fallback = ankiLookupFromSourceCard(card) ?? emptyAnkiLookupResult();
+        if (!shouldLookupAnkiStatus(this.settings())) return Promise.resolve(fallback);
+        if (typeof this.dependencies.anki.findCachedStatusBatch !== 'function') return Promise.resolve(fallback);
+        return this.dependencies.anki.findCachedStatusBatch([card])
+            .then(([lookup]) => lookup ?? fallback)
+            .catch(error => {
+                log.warn('Cached Anki status lookup failed while rendering card', { term: card.spelling }, error);
+                return fallback;
+            });
+    }
+
+    private loadDetailedAnkiLookup(card: JPDBCard, fastLookup: Promise<AnkiLookupResult>): Promise<AnkiLookupResult> {
+        if (!shouldLookupAnkiStatus(this.settings())) return fastLookup;
+        return fastLookup.then(fallback => this.withFallback(card, CARD_RENDER_ANKI_TIMEOUT_MS, 'Anki existing cards', this.loadAnkiLookupWhenAvailable(card, fallback).catch(error => {
             log.warn('Anki lookup failed while rendering card', { term: card.spelling }, error);
-            return fallback;
-        }), fallback);
+            return ankiLookupWithUnavailableDetails(fallback);
+        }), ankiLookupWithUnavailableDetails(fallback)));
+    }
+
+    private async loadAnkiLookupWhenAvailable(card: JPDBCard, fallback: AnkiLookupResult): Promise<AnkiLookupResult> {
+        if (typeof this.dependencies.anki.isAvailableForBackground === 'function'
+            && !await this.dependencies.anki.isAvailableForBackground()) {
+            return ankiLookupWithUnavailableDetails(fallback);
+        }
+        const lookup = await this.dependencies.anki.findExistingCards(card);
+        const resolved = lookup.primary || lookup.trusted !== false ? lookup : fallback;
+        return ankiLookupWithUnavailableDetails(resolved);
     }
 
     private loadJpdbDecks(card: JPDBCard): Promise<JPDBDeck[]> {
@@ -185,11 +216,23 @@ export class CardRenderDataLoader {
     }
 
     private loadAnkiDecks(card: JPDBCard): Promise<string[]> {
-        if (!this.settings().ankiEnabled || canUseMobileAnkiHandoff(this.settings())) return Promise.resolve([]);
+        if (!this.settings().ankiEnabled) return Promise.resolve([]);
         return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, 'Anki deck list', this.cachedAnkiDecks(this.settings()).catch(error => {
             log.warn('Anki deck list failed while rendering card', { term: card.spelling }, error);
             return [];
         }), [] as string[]);
+    }
+
+    private loadJpdbDeckMembership(card: JPDBCard): Promise<boolean> {
+        const settings = this.settings();
+        if (!normalizeCardStates(card.cardState).includes('not-in-deck')) return Promise.resolve(false);
+        if (!settings.jpdbMiningEnabled || !settings.apiKey.trim() || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve(false);
+        const isInUserDeckPool = this.dependencies.jpdb.isInUserDeckPool?.bind(this.dependencies.jpdb);
+        if (typeof isInUserDeckPool !== 'function') return Promise.resolve(false);
+        return this.withFallback(card, CARD_RENDER_DECK_POOL_TIMEOUT_MS, 'JPDB pooled deck membership', isInUserDeckPool(card).catch(error => {
+            log.warn('JPDB pooled deck membership failed while rendering card', { term: card.spelling }, error);
+            return false;
+        }), false);
     }
 
     private loadAll(
@@ -197,17 +240,21 @@ export class CardRenderDataLoader {
         localEntries: Promise<YomitanTermEntry[]>,
         localMetaEntries: Promise<YomitanMetaEntry[]>,
         ankiLookup: Promise<AnkiLookupResult>,
+        jpdbDeckMembership: Promise<boolean>,
         jpdbVocabularyInfo: Promise<JpdbVocabularyInfo | null>,
     ): Promise<CardRenderData> {
+        const ankiDecks = ankiLookup.then(lookup => lookup.primary ? [] : this.loadAnkiDecks(card));
         return Promise.all([
             localEntries,
             this.loadLocalKanjiEntries(card),
             localMetaEntries,
             ankiLookup,
             this.loadJpdbDecks(card),
-            this.loadAnkiDecks(card),
+            ankiDecks,
+            jpdbDeckMembership,
             jpdbVocabularyInfo,
-        ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo]) => {
+        ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbDeckMembership, jpdbVocabularyInfo]) => {
+            if (jpdbDeckMembership) this.applyPooledJpdbDeckState(card);
             return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo };
         });
     }
@@ -216,6 +263,11 @@ export class CardRenderDataLoader {
         if (card.pitchAccent.length) return;
         const pitch = localPitchPatternFromMeta(card.reading, metaEntries);
         if (pitch) card.pitchAccent = [pitch];
+    }
+
+    private applyPooledJpdbDeckState(card: JPDBCard): void {
+        const states = normalizeCardStates(card.cardState).filter(state => state !== 'not-in-deck');
+        card.cardState = states.length ? states : ['in-deck'];
     }
 
     private cachedJpdbDecks(settings: ReaderSettings): Promise<JPDBDeck[]> {
@@ -251,6 +303,7 @@ export class CardRenderDataLoader {
             max: settings.localDictionaryMaxResults,
             pitch: settings.showPitchAccent,
             anki: settings.ankiEnabled,
+            ankiSection: settings.ankiSectionEnabled,
             ankiStatus: shouldLookupAnkiStatus(settings),
             ankiConnectUrl: settings.ankiConnectUrl,
             ankiMobileHandoff: settings.ankiMobileHandoff,
@@ -268,6 +321,53 @@ export class CardRenderDataLoader {
     private settings(): ReaderSettings {
         return this.dependencies.getSettings();
     }
+}
+
+function emptyAnkiLookupResult(): AnkiLookupResult {
+    return { state: 'not-in-deck', notes: [], primary: null };
+}
+
+function ankiLookupFromSourceCard(card: JPDBCard): AnkiLookupResult | null {
+    if (card.source !== 'anki' && card.reviewSource !== 'anki') return null;
+    const primaryCardId = Number(card.ankiCardId ?? card.rid);
+    if (!Number.isFinite(primaryCardId) || primaryCardId <= 0) return null;
+    const state = primaryCardState(normalizeCardStates(card.cardState));
+    const noteId = Number(card.ankiNoteId ?? 0);
+    const renderedCards = card.ankiRenderedCards?.length
+        ? card.ankiRenderedCards
+        : [{
+            cardId: primaryCardId,
+            deckName: card.ankiDeckNames?.[0] ?? '',
+            question: card.spelling,
+            answer: ankiFieldsFromSourceCard(card).Meaning,
+        }];
+    const note: AnkiExistingNote = {
+        noteId: Number.isFinite(noteId) ? noteId : 0,
+        modelName: card.ankiModelName ?? '',
+        deckNames: card.ankiDeckNames ?? [],
+        cardIds: [primaryCardId],
+        primaryCardId,
+        state,
+        fields: ankiFieldsFromSourceCard(card),
+        renderedCards,
+        tags: [],
+        reps: card.ankiReps ?? 0,
+        lapses: card.ankiLapses ?? 0,
+    };
+    return {
+        state,
+        notes: [note],
+        primary: note,
+    };
+}
+
+function ankiFieldsFromSourceCard(card: JPDBCard): Record<string, string> {
+    return {
+        Expression: card.spelling,
+        Reading: card.reading,
+        Meaning: card.meanings.flatMap(meaning => meaning.glosses).join('; '),
+        Sentence: card.sentence ?? '',
+    };
 }
 
 function cardRenderDetailWithFallback<T>(detail: string, card: JPDBCard, promise: Promise<T>, fallback: T, timeoutMs: number): Promise<T> {

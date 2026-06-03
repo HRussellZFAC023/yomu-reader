@@ -19,6 +19,7 @@ export default defineConfig({
         plugins: [jpdbAudioDevProxyPlugin()],
     },
     head: [
+        ['link', { rel: 'preload', href: `${base}yomu-icon.svg`, as: 'image', type: 'image/svg+xml', fetchpriority: 'high' }],
         ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}yomu-icon.svg` }],
         ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: `${base}favicon-32x32.png` }],
         ['link', { rel: 'icon', type: 'image/png', sizes: '16x16', href: `${base}favicon-16x16.png` }],

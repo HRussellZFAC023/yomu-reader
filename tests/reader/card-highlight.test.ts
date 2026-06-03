@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { cardHighlightScopeAttributes, highlightCardTargetScopes, isCardHighlightWord, renderCardHighlightedTextHtml } from '../../src/reader/card-highlight';
+import { readerWordSurfaceText } from '../../src/reader/dom';
 import { applyNestedParsePlan, nestedTextParsePlan } from '../../src/reader/nested-text-parse';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/types';
@@ -30,7 +31,7 @@ describe('card highlight helpers', () => {
         highlightCardTargetScopes(root);
 
         const words = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
-        expect(words.map(word => [word.textContent, word.classList.contains('jpdb-reader-example-target')])).toEqual([
+        expect(words.map(word => [readerWordSurfaceText(word), word.classList.contains('jpdb-reader-example-target')])).toEqual([
             ['昨日', false],
             ['日本語', true],
             ['読んだ', false],

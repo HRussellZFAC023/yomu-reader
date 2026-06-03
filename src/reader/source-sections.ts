@@ -1,5 +1,6 @@
-import { IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from './constants';
-import type { ReaderSettings } from './types';
+import { ANKI_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from './constants';
+import { uiText, type UiCopyKey } from './i18n';
+import type { InterfaceLanguage, ReaderSettings } from './types';
 
 export const KANJI_STROKE_SOURCE_ID = '__kanji_stroke__';
 export const KANJI_JPDB_SOURCE_ID = '__kanji_jpdb__';
@@ -24,6 +25,7 @@ export interface SettingsSourceRow {
 }
 
 export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
+    const language = settings.interfaceLanguage;
     const builtInRows: SettingsSourceRow[] = [
         {
             id: JPDB_DEFINITION_SOURCE_ID,
@@ -33,37 +35,47 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
             priority: settings.jpdbDefinitionsPriority,
             prefix: 'jpdbDefinitions',
             readonly: true,
-            help: 'JPDB meanings shown directly from the current card.',
+            help: uiText(language, 'sourceHelpJpdb'),
         },
         {
             id: STUDY_TRANSLATION_SOURCE_ID,
-            name: 'Translation',
-            alias: 'Translation',
+            name: uiText(language, 'sourceNameTranslation'),
+            alias: uiText(language, 'sourceNameTranslation'),
             enabled: settings.studyTranslationEnabled,
             priority: settings.studyTranslationPriority,
             prefix: 'studyTranslation',
             readonly: true,
-            help: 'Automatic sentence translation for the current lookup context.',
+            help: uiText(language, 'sourceHelpTranslation'),
+        },
+        {
+            id: ANKI_SOURCE_ID,
+            name: 'Anki',
+            alias: 'Anki',
+            enabled: settings.ankiSectionEnabled,
+            priority: settings.ankiSectionPriority,
+            prefix: 'ankiSection',
+            readonly: true,
+            help: uiText(language, 'sourceHelpAnki'),
         },
         {
             id: STUDY_GRAMMAR_SOURCE_ID,
-            name: 'Grammar',
-            alias: 'Grammar',
+            name: uiText(language, 'sourceNameGrammar'),
+            alias: uiText(language, 'sourceNameGrammar'),
             enabled: settings.studyGrammarEnabled,
             priority: settings.studyGrammarPriority,
             prefix: 'studyGrammar',
             readonly: true,
-            help: 'Automatic local grammar hints for the current lookup context.',
+            help: uiText(language, 'sourceHelpGrammar'),
         },
         {
             id: IMMERSION_KIT_SOURCE_ID,
-            name: 'Immersion Kit',
-            alias: 'Immersion Kit',
+            name: uiText(language, 'sourceNameImmersionKit'),
+            alias: uiText(language, 'sourceNameImmersionKit'),
             enabled: settings.immersionKitEnabled,
             priority: settings.immersionKitPriority,
             prefix: 'immersionKit',
             readonly: true,
-            help: 'Example sentences, images, and audio for the looked-up word.',
+            help: uiText(language, 'sourceHelpImmersionKit'),
         },
     ];
 
@@ -89,6 +101,7 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
 }
 
 export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
+    const language = settings.interfaceLanguage;
     const kanjiDictionaryRows = settings.dictionaryPreferences.filter(preference => preference.type === 'kanji').map(preference => ({
         id: kanjiDictionarySourceId(preference.name),
         name: preference.name,
@@ -99,28 +112,28 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
         readonly: false,
         removable: true,
         dictionaryType: 'kanji' as const,
-        help: 'Imported Yomitan kanji dictionary.',
+        help: uiText(language, 'sourceHelpImportedKanjiDictionary'),
     }));
     return [
         {
             id: KANJI_STROKE_SOURCE_ID,
-            name: 'Stroke practice',
-            alias: 'Stroke practice',
+            name: uiText(language, 'sourceNameStrokePractice'),
+            alias: uiText(language, 'sourceNameStrokePractice'),
             enabled: settings.kanjivgEnabled,
             priority: settings.kanjivgPriority,
             prefix: 'kanjivg',
             readonly: true,
-            help: 'Stroke order preview and drawing pad.',
+            help: uiText(language, 'sourceHelpStrokePractice'),
         },
         {
             id: KANJI_JPDB_SOURCE_ID,
-            name: 'Readings and components',
-            alias: 'Readings and components',
+            name: uiText(language, 'readingsComponents'),
+            alias: uiText(language, 'readingsComponents'),
             enabled: settings.jpdbKanjiEnabled,
             priority: settings.jpdbKanjiPriority,
             prefix: 'jpdbKanji',
             readonly: true,
-            help: 'JPDB readings, components, and mnemonic when available.',
+            help: uiText(language, 'sourceHelpReadingsComponents'),
         },
         {
             id: KANJI_RTK_SOURCE_ID,
@@ -130,17 +143,17 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
             priority: settings.rtkPriority,
             prefix: 'rtk',
             readonly: true,
-            help: 'Remembering the Kanji keywords, elements, and stories.',
+            help: uiText(language, 'sourceHelpRtk'),
         },
         {
             id: IMMERSION_KIT_SOURCE_ID,
-            name: 'Immersion Kit',
-            alias: 'Immersion Kit',
+            name: uiText(language, 'sourceNameImmersionKit'),
+            alias: uiText(language, 'sourceNameImmersionKit'),
             enabled: settings.kanjiImmersionKitEnabled,
             priority: settings.kanjiImmersionKitPriority,
             prefix: 'kanjiImmersionKit',
             readonly: true,
-            help: 'Example sentences, images, and audio for the selected kanji.',
+            help: uiText(language, 'sourceHelpImmersionKit'),
         },
         {
             id: KANJI_UCHISEN_SOURCE_ID,
@@ -150,38 +163,38 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
             priority: settings.uchisenPriority,
             prefix: 'uchisen',
             readonly: true,
-            help: 'Uchisen mnemonic image carousel.',
+            help: uiText(language, 'sourceHelpUchisen'),
         },
         ...(kanjiDictionaryRows.length ? [] : [{
             id: KANJI_DICTIONARIES_SOURCE_ID,
-            name: 'Imported kanji dictionaries',
-            alias: 'Imported kanji dictionaries',
+            name: uiText(language, 'sourceNameImportedKanjiDictionaries'),
+            alias: uiText(language, 'sourceNameImportedKanjiDictionaries'),
             enabled: settings.localDictionaryShowKanji,
             priority: settings.kanjiDictionariesPriority,
             prefix: 'kanjiDictionaries',
             readonly: true,
-            help: 'Kanji entries from imported Yomitan dictionaries.',
+            help: uiText(language, 'sourceHelpImportedKanjiDictionaries'),
         }]),
         ...kanjiDictionaryRows,
         {
             id: KANJI_SIMILAR_WORDS_SOURCE_ID,
-            name: 'Words using this kanji',
-            alias: 'Words using this kanji',
+            name: uiText(language, 'sourceNameWordsUsingKanji'),
+            alias: uiText(language, 'sourceNameWordsUsingKanji'),
             enabled: settings.similarKanjiWords,
             priority: settings.similarKanjiWordsPriority,
             prefix: 'similarKanjiWords',
             readonly: true,
-            help: 'Related JPDB and imported-dictionary vocabulary.',
+            help: uiText(language, 'sourceHelpWordsUsingKanji'),
         },
         {
             id: KANJI_ORIGINS_SOURCE_ID,
-            name: 'Component graph',
-            alias: 'Component graph',
+            name: uiText(language, 'originStructure'),
+            alias: uiText(language, 'originStructure'),
             enabled: settings.kanjiOriginsEnabled,
             priority: settings.kanjiOriginsPriority,
             prefix: 'kanjiOrigins',
             readonly: true,
-            help: 'Compact facts, component graph, and radical images.',
+            help: uiText(language, 'sourceHelpComponentGraph'),
         },
     ].sort(compareSourceRows);
 }
@@ -194,6 +207,12 @@ export function orderedDefinitionSourceIds(settings: ReaderSettings, dictionaryN
             enabled: settings.jpdbDefinitionsEnabled,
             priority: settings.jpdbDefinitionsPriority,
             name: 'JPDB',
+        },
+        {
+            id: ANKI_SOURCE_ID,
+            enabled: settings.ankiSectionEnabled,
+            priority: settings.ankiSectionPriority,
+            name: 'Anki',
         },
         {
             id: STUDY_TRANSLATION_SOURCE_ID,
@@ -239,9 +258,9 @@ export function orderedKanjiSourceIds(settings: ReaderSettings): string[] {
         .map(row => row.id);
 }
 
-export function kanjiSourceLabel(settings: ReaderSettings, sourceId: string, fallback = ''): string {
+export function kanjiSourceLabel(settings: ReaderSettings, sourceId: string, fallback = '', language: InterfaceLanguage = settings.interfaceLanguage): string {
     const row = kanjiSourceRows(settings).find(candidate => candidate.id === sourceId);
-    return row?.alias || row?.name || fallback;
+    return localizedSourceRowLabel(row, language) || fallback;
 }
 
 export function kanjiDictionarySourceId(name: string): string {
@@ -260,4 +279,23 @@ function compareSourceRows(a: SettingsSourceRow, b: SettingsSourceRow): number {
 
 function compareSourceOrder(a: { priority: number; name: string }, b: { priority: number; name: string }): number {
     return a.priority - b.priority || a.name.localeCompare(b.name);
+}
+
+function localizedSourceRowLabel(row: SettingsSourceRow | undefined, language: InterfaceLanguage): string {
+    if (!row) return '';
+    const key = builtInSourceNameKey(row.id);
+    return key ? uiText(language, key) : row.alias || row.name;
+}
+
+function builtInSourceNameKey(sourceId: string): UiCopyKey | undefined {
+    if (sourceId === ANKI_SOURCE_ID) return 'sourceNameAnki';
+    if (sourceId === STUDY_TRANSLATION_SOURCE_ID) return 'sourceNameTranslation';
+    if (sourceId === STUDY_GRAMMAR_SOURCE_ID) return 'sourceNameGrammar';
+    if (sourceId === IMMERSION_KIT_SOURCE_ID) return 'sourceNameImmersionKit';
+    if (sourceId === KANJI_STROKE_SOURCE_ID) return 'sourceNameStrokePractice';
+    if (sourceId === KANJI_JPDB_SOURCE_ID) return 'readingsComponents';
+    if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return 'sourceNameImportedKanjiDictionaries';
+    if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) return 'sourceNameWordsUsingKanji';
+    if (sourceId === KANJI_ORIGINS_SOURCE_ID) return 'originStructure';
+    return undefined;
 }

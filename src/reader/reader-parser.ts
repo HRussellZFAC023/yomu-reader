@@ -1,4 +1,5 @@
 import { JpdbClient } from './jpdb';
+import { deinflectJapaneseTerm, type DeinflectedTerm } from './deinflect';
 import { getPitchClass } from './jpdb-parser';
 import { Logger } from './logger';
 import { localPitchPatternFromMeta } from './pitch-meta';
@@ -12,6 +13,15 @@ const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6_000;
 const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
 const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
 const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
+const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
+const FALLBACK_INFLECTION_MAX_LENGTH = 18;
+const FALLBACK_LOOKUP_TERM_LIMIT = 8;
+const INFLECTION_BOUNDARY_SEGMENTS = new Set(['は', 'が', 'を', 'に', 'へ', 'と', 'で', 'の', 'や', 'から', 'まで', 'より', 'だけ', 'しか', 'など']);
+const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
+const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
+const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
+const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
+const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
 const log = Logger.scope('ReaderParser');
 
 export interface ReaderParserParseOptions {
@@ -131,6 +141,7 @@ export class ReaderParser {
     fallbackCardFromText(text: string): JPDBCard {
         const spelling = normalizeFallbackTerm(text);
         const id = -stableLocalId(`fallback\n${spelling}`);
+        const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
         const card: JPDBCard = {
             vid: id,
             sid: id,
@@ -144,6 +155,7 @@ export class ReaderParser {
             pitchAccent: [],
             wordWithReading: null,
             source: 'fallback',
+            ...(fallbackLookupTerms.length ? { fallbackLookupTerms } : {}),
         };
         this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
         return card;
@@ -177,7 +189,11 @@ export class ReaderParser {
     private async parseLocalOrSegmentedTextUncached(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
         if (this.canUseLocalDictionaryFallback()) {
             const tokens = await this.parseLocalDictionaryText(text, options);
-            if (tokens.length) return tokens;
+            if (tokens.length) {
+                return options.allowSegmentedFallback === true
+                    ? this.fillSegmentedFallbackGaps(text, tokens)
+                    : tokens;
+            }
         }
         return options.allowSegmentedFallback === true ? this.parseSegmentedText(text) : [];
     }
@@ -236,9 +252,16 @@ export class ReaderParser {
     }
 
     private fillSegmentedFallbackGaps(text: string, tokens: JPDBToken[]): JPDBToken[] {
-        const fallbackTokens = this.parseSegmentedText(text)
-            .filter(fallback => !tokens.some(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
-        return fallbackTokens.length ? [...tokens, ...fallbackTokens].sort(compareTokensByOffset) : tokens;
+        const fallbackTokens = this.parseSegmentedText(text);
+        const replacementTokens = fallbackTokens
+            .filter(fallback => shouldPreferInflectedFallbackToken(fallback, tokens));
+        const keptTokens = replacementTokens.length
+            ? tokens.filter(token => !replacementTokens.some(fallback => tokenInsideRange(token, fallback.start, fallback.end)))
+            : tokens;
+        const extraFallbackTokens = fallbackTokens
+            .filter(fallback => replacementTokens.includes(fallback)
+                || !keptTokens.some(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
+        return extraFallbackTokens.length ? [...keptTokens, ...extraFallbackTokens].sort(compareTokensByOffset) : tokens;
     }
 
     private async localPitchPattern(card: JPDBCard, options: ReaderParserParseOptions): Promise<string> {
@@ -325,6 +348,17 @@ function rangesOverlap(start: number, end: number, otherStart: number, otherEnd:
     return start < otherEnd && otherStart < end;
 }
 
+function tokenInsideRange(token: JPDBToken, start: number, end: number): boolean {
+    return token.start >= start && token.end <= end;
+}
+
+function shouldPreferInflectedFallbackToken(fallback: JPDBToken, tokens: JPDBToken[]): boolean {
+    if (!fallback.card.fallbackLookupTerms?.length) return false;
+    const overlapping = tokens.filter(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end));
+    return overlapping.length === 1
+        && overlapping.every(token => tokenInsideRange(token, fallback.start, fallback.end) && token.length < fallback.length);
+}
+
 function compareTokensByOffset(a: JPDBToken, b: JPDBToken): number {
     return a.start - b.start || b.length - a.length;
 }
@@ -346,7 +380,7 @@ function cardCacheKey(vid: number, sid: number): string {
     return `${vid}:${sid}`;
 }
 
-type JapaneseTextSegment = { surface: string; start: number; end: number };
+export type JapaneseTextSegment = { surface: string; start: number; end: number };
 type IntlSegmentRecord = { segment: string; index: number; isWordLike?: boolean };
 type IntlSegmenter = { segment(value: string): Iterable<IntlSegmentRecord> };
 type IntlSegmenterConstructor = new (
@@ -355,6 +389,10 @@ type IntlSegmenterConstructor = new (
 ) => IntlSegmenter;
 let cachedSegmenterConstructor: IntlSegmenterConstructor | null | undefined;
 let cachedJapaneseWordSegmenter: IntlSegmenter | null | undefined;
+
+export function fallbackJapaneseSegments(text: string): JapaneseTextSegment[] {
+    return segmentJapaneseText(text);
+}
 
 function segmentJapaneseText(text: string): JapaneseTextSegment[] {
     const segmenter = japaneseWordSegmenter();
@@ -371,13 +409,81 @@ function segmentJapaneseText(text: string): JapaneseTextSegment[] {
 }
 
 function segmentJapaneseRun(text: string, offset: number, segmenter: IntlSegmenter): JapaneseTextSegment[] {
-    return mergeAdjacentKanjiSegments(Array.from(segmenter.segment(text))
+    const segments = Array.from(segmenter.segment(text))
         .filter(isUsefulJapaneseSegment)
         .map(segment => ({
             surface: segment.segment,
             start: offset + segment.index,
             end: offset + segment.index + segment.segment.length,
-        })));
+        }));
+    return mergeInflectedFallbackSegments(segments);
+}
+
+function mergeInflectedFallbackSegments(segments: JapaneseTextSegment[]): JapaneseTextSegment[] {
+    const merged: JapaneseTextSegment[] = [];
+    for (let index = 0; index < segments.length;) {
+        const span = inflectedFallbackSpanAt(segments, index);
+        if (span) {
+            merged.push(span.segment);
+            index = span.nextIndex;
+            continue;
+        }
+        merged.push(segments[index]);
+        index += 1;
+    }
+    return merged;
+}
+
+function inflectedFallbackSpanAt(
+    segments: JapaneseTextSegment[],
+    startIndex: number,
+): { segment: JapaneseTextSegment; nextIndex: number } | null {
+    const first = segments[startIndex];
+    if (!first || isInflectionBoundarySegment(first.surface)) return null;
+    let surface = '';
+    let best: { segment: JapaneseTextSegment; nextIndex: number } | null = null;
+    for (let index = startIndex; index < Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS); index += 1) {
+        const current = segments[index];
+        if (!current || current.start !== (index === startIndex ? first.start : segments[index - 1]?.end)) break;
+        if (index > startIndex && isInflectionBoundarySegment(current.surface)) break;
+        if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) break;
+        surface += current.surface;
+        if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
+        const lookupTerms = fallbackLookupTermsForText(surface);
+        if (index === startIndex || lookupTerms.length <= 1) continue;
+        if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) continue;
+        best = {
+            segment: { surface, start: first.start, end: current.end },
+            nextIndex: index + 1,
+        };
+    }
+    return best;
+}
+
+function isInflectionBoundarySegment(surface: string): boolean {
+    return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
+}
+
+function isInflectionContinuationSegment(surface: string): boolean {
+    return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
+}
+
+function canContinueInflectedFallbackSpan(currentSurface: string, nextSurface: string): boolean {
+    return isInflectionContinuationSegment(nextSurface)
+        || (HIRAGANA_SEGMENT_RE.test(nextSurface) && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface));
+}
+
+function shouldKeepSuruAuxiliaryBoundary(
+    segments: JapaneseTextSegment[],
+    startIndex: number,
+    surface: string,
+    lookupTerms: string[],
+): boolean {
+    const first = segments[startIndex]?.surface ?? '';
+    if (!first || !SURU_STEM_SEGMENT_RE.test(first)) return false;
+    const suffix = surface.slice(first.length);
+    return SURU_AUXILIARY_SUFFIX_RE.test(suffix)
+        && lookupTerms.some(term => term.endsWith('する'));
 }
 
 function japaneseWordSegmenter(): IntlSegmenter | null {
@@ -396,26 +502,7 @@ function japaneseWordSegmenter(): IntlSegmenter | null {
 
 function isUsefulJapaneseSegment(segment: IntlSegmentRecord): boolean {
     const surface = segment.segment.trim();
-    return segment.isWordLike !== false
-        && JAPANESE_CHARACTER_RE.test(surface);
-}
-
-function mergeAdjacentKanjiSegments(segments: JapaneseTextSegment[]): JapaneseTextSegment[] {
-    const merged: JapaneseTextSegment[] = [];
-    for (const segment of segments) {
-        const previous = merged.at(-1);
-        if (previous && previous.end === segment.start && isKanjiOnlySegment(previous.surface) && isKanjiOnlySegment(segment.surface)) {
-            previous.surface += segment.surface;
-            previous.end = segment.end;
-            continue;
-        }
-        merged.push({ ...segment });
-    }
-    return merged;
-}
-
-function isKanjiOnlySegment(surface: string): boolean {
-    return /^[\u3400-\u9fff々〆ヵヶ]+$/u.test(surface);
+    return JAPANESE_CHARACTER_RE.test(surface);
 }
 
 function intlSegmenter(): IntlSegmenterConstructor | null {
@@ -428,6 +515,53 @@ function fallbackJapaneseRunSegment(text: string, offset: number): JapaneseTextS
     if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
     const start = offset + text.indexOf(surface);
     return [{ surface, start, end: start + surface.length }];
+}
+
+export function fallbackLookupTermsForText(text: string): string[] {
+    const source = normalizeFallbackTerm(text);
+    if (!source) return [];
+    const terms = deinflectJapaneseTerm(source)
+        .filter(isUsefulFallbackLookupCandidate)
+        .sort(compareFallbackLookupCandidates)
+        .map(candidate => normalizeFallbackTerm(candidate.term))
+        .filter(Boolean);
+    return uniqueStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
+}
+
+export function fallbackLookupTermsForCard(card: JPDBCard): string[] {
+    return uniqueStrings([card.spelling, ...(card.fallbackLookupTerms ?? [])]
+        .map(normalizeFallbackTerm)
+        .filter(Boolean));
+}
+
+function isUsefulFallbackLookupCandidate(candidate: DeinflectedTerm): boolean {
+    return candidate.depth > 0
+        && JAPANESE_CHARACTER_RE.test(candidate.term)
+        && candidate.term.length > 1;
+}
+
+function compareFallbackLookupCandidates(a: DeinflectedTerm, b: DeinflectedTerm): number {
+    return a.depth - b.depth
+        || fallbackRulePriority(a) - fallbackRulePriority(b)
+        || b.term.length - a.term.length
+        || a.term.localeCompare(b.term);
+}
+
+function fallbackRulePriority(candidate: DeinflectedTerm): number {
+    if (candidate.rules.some(rule => rule === 'vs' || rule === 'vs-s' || rule === 'suru' || rule === 'vk' || rule === 'kuru')) return 0;
+    if (candidate.rules.some(rule => rule === 'v1')) return 1;
+    if (candidate.rules.some(rule => rule.startsWith('v5') || rule === 'v5')) return 1;
+    if (candidate.rules.some(rule => rule === 'adj-i' || rule === 'i-adj')) return 2;
+    return 3;
+}
+
+function uniqueStrings(values: string[]): string[] {
+    const seen = new Set<string>();
+    return values.filter(value => {
+        if (seen.has(value)) return false;
+        seen.add(value);
+        return true;
+    });
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorFactory: () => Error): Promise<T> {

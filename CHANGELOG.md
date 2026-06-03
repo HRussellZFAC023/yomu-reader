@@ -2,13 +2,66 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-02
+
+### Added
+
+- Added a scalable Anki status index backed by browser storage so large Anki libraries can color parsed page words from cached lookup keys, with detailed AnkiConnect hydration deferred until interaction.
+- Added Anki review support on the new-tab study page, including merged due/new queues across enabled decks and deck-disable settings for users with multiple decks.
+- Added existing-library adaptation for Anki notes, including scanned note fields, per-note-type field mappings, existing-card content in popovers, and merge/update actions when a word is already in Anki.
+- Added automatic Anki deck-shape handling for Core 2k/6k, Jlab, Kaishi, RRTK, Vocab 2k, Yomu, and よむ-style note fields, including RTK keyword-only kanji cards.
+- Added Anki smoke coverage for reader mining, Japanese Wikipedia coloring, new-tab source toggling, multi-deck review order, and JPDB/Anki popover hydration.
+- Added expanded hosted-docs setup guidance for desktop, iPhone, iPad, mobile handoff, local services, reading-site recommendations, and localized hosted navigation.
+
 ### Changed
 
 - New tab no longer shows the "Start with a dictionary" setup screen. When no local dictionary is installed, both the Dictionary source and the Auto fallback skip straight to public JPDB lookup, which works without an API key. Add Yomitan dictionaries any time from Settings → Dictionaries.
+- Hosted docs now use the same generic page parser as normal websites, including the Try Me sample, current VitePress hero text, and route-mounted docs content.
+- Anki and JPDB status labels in popovers and new-tab lookup metadata now show actual review state more consistently, while JPDB status is hidden when no JPDB API key is configured.
+- Existing Anki cards in dictionary popovers and new-tab lookup now use Anki-rendered card HTML without Yomu-added front/back or raw field labels, keep multiple matching notes collapsible, and expose Anki as a reorderable popover source.
+- Review controls now show whether they will grade JPDB, Anki, or a specific Anki card so same-reading words and multiple Anki entries are less ambiguous.
+- Reader page scanning is now core behavior rather than a pair of user-facing toggles; obsolete saved scan settings are ignored and stripped on settings save.
+- The settings Anki area now emphasizes connection/status, deck/model choices, field mapping, and library scanning instead of free-form fields and duplicated setup prose.
+- Hosted docs localization now preserves research links and updates visible route content without leaving stale parsed spans behind.
 
 ### Removed
 
 - Removed the dedicated new-tab dictionary-setup screen along with its now-unused rendering, cached-setup state, `load-dictionary` action, and setup-only copy.
+- Removed the old "auto-scan Japanese" and "scan visible page on load" settings because parsing Japanese text is the point of the app and should not be presented as optional duplicate behavior.
+- Removed demo-specific reader paths, including `isDemo`/Try Me special cases and ruby suppression hooks, so docs samples are treated like ordinary page text.
+
+### Fixed
+
+- Fixed Anki-colored words losing their Anki state/color on hover or click.
+- Fixed slow Anki parsing on large pages by avoiding eager detailed card hydration during initial coloring and relying on cached status data first.
+- Fixed known Anki words incorrectly showing "Add to Anki" in popovers when an existing card is present in a non-standard deck or note shape.
+- Fixed Anki rendered-card previews trapping scroll, oversized card fonts, confusing raw all-caps fallback labels, and card audio playback buttons that did not clearly use Anki media.
+- Fixed existing Anki detail hydration so slow or empty AnkiConnect card-detail responses fall back to cached status instead of leaving the popover stuck on a loading message.
+- Fixed long rendered-card Anki audio files blocking card details by hydrating image media immediately while leaving Anki audio lazy and playable from its own Anki media button.
+- Fixed public JPDB vocabulary furigana on hosted docs when automatic furigana mode resolves through JPDB/API settings.
+- Fixed hosted docs text that failed to receive ruby, pitch/status coloring, or click targets after VitePress route changes.
+- Fixed settings help/status rows being parsed into awkward ruby text, including the JPDB API status message.
+- Fixed new-tab source toggling so JPDB and Anki review modes switch promptly and preserve the intended target.
+
+## [0.4.62] - 2026-05-31
+
+### Added
+
+- Added previous/next word lookup shortcuts that can move through parsed words without mouse hover and stay inside selected text when a selection is active.
+- Added popup Japanese font family and weight settings with a jpdb.io-matched default font stack.
+- Added a pause-only subtitle side panel option and a visible Subtitles button on the hosted local video player for adding tracks.
+
+### Changed
+
+- Routed popup, kanji, new-tab, example sentence, grammar, and local dictionary Japanese text surfaces through the popup Japanese font settings.
+- Renamed the hosted subtitle track action from primary subtitles to Japanese subtitles so new users know where to load external Japanese subtitle files.
+
+### Fixed
+
+- Sent Jisho search-page lookups through the Jina text fallback instead of the hosted worker, avoiding visible Cloudflare 525 failures during audio discovery.
+- Cloned userscript bridge event payloads in Firefox so hosted-app requests do not trip XrayWrapper cross-origin object errors.
+- Pointed local VitePress new-tab guidance at `/yomu-reader/newtab/index.html` so local docs do not accidentally load the VitePress shell at `/yomu-reader/newtab/`.
+- Kept the keyboard-selected lookup word visibly highlighted while its popup finishes loading.
 
 ## [0.4.61] - 2026-05-31
 

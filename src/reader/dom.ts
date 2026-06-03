@@ -1,9 +1,12 @@
 import { primaryCardState } from './card-state';
+import { CORE_COLOR_TOKENS } from './color-tokens';
 import { effectiveFuriganaMode } from './settings';
 import type { JPDBToken, ReaderSettings } from './types';
 
 export const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
 const KANJI_RE = /[\u3400-\u9fff]/u;
+const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
+const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
 const EASY_FURIGANA_KANJI = new Set(
     '一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒'
         .split(''),
@@ -52,6 +55,7 @@ const SKIP_SELECTOR = [
 const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const READABLE_IGNORED_TAGS = new Set(['RT', 'RP', 'SCRIPT', 'STYLE']);
 const PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifuku']);
+const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
 
 const FRAGMENT_SKIP_SELECTOR = [
     'script',
@@ -170,6 +174,15 @@ const COMPACT_PASSIVE_INTERACTION_SELECTOR = [
 ].join(',');
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const PROSE_TAGS = new Set(['P', 'LI', 'DD', 'DT', 'TD', 'TH', 'BLOCKQUOTE', 'FIGCAPTION']);
+const READER_RENDERED_TEXT_BLOCK_TAGS = new Set([
+    ...PROSE_TAGS,
+    'H1',
+    'H2',
+    'H3',
+    'H4',
+    'H5',
+    'H6',
+]);
 const BLOCK_TAGS = new Set([
     'ADDRESS',
     'ARTICLE',
@@ -280,7 +293,6 @@ export interface TextTarget {
     text: string;
     parent: HTMLElement;
     hasNativeRuby?: boolean;
-    suppressRuby?: boolean;
     passiveInteraction?: boolean;
 }
 
@@ -289,7 +301,6 @@ export interface TextFragment {
     start: number;
     end: number;
     hasNativeRuby: boolean;
-    suppressRuby: boolean;
     passiveInteraction?: boolean;
 }
 
@@ -298,7 +309,6 @@ export interface FragmentTextTarget {
     parent: HTMLElement;
     fragments: TextFragment[];
     parserId?: string;
-    suppressRuby?: boolean;
     passiveInteraction?: boolean;
 }
 
@@ -307,6 +317,20 @@ export type ScanTextTarget = TextTarget | FragmentTextTarget;
 interface KanjiNavigationRenderOptions {
     enabled: boolean;
     label: string;
+}
+
+interface RubyKanaAnchor {
+    text: string;
+    baseStart: number;
+    baseEnd: number;
+    readingStart: number;
+    readingEnd: number;
+}
+
+interface RubyBaseKanaRun {
+    text: string;
+    baseStart: number;
+    baseEnd: number;
 }
 
 interface TextTargetCollectionOptions {
@@ -467,7 +491,6 @@ function textTargetFromAcceptedNode(node: Node): TextTarget | null {
         text: nodeTextContent(node).trim(),
         parent,
         hasNativeRuby: Boolean(parent.closest('ruby')),
-        suppressRuby: shouldSuppressInjectedRuby(parent) || passiveInteraction,
         passiveInteraction,
     };
 }
@@ -496,7 +519,6 @@ export function collectFragmentTextTargetsIn(
         const text = fragmentText(trimmedFragments);
         const compactText = text.replace(/\s+/g, '');
         const hasNativeRuby = trimmedFragments.some(fragment => fragment.hasNativeRuby);
-        const suppressRuby = trimmedFragments.some(fragment => fragment.suppressRuby);
         const passiveInteraction = trimmedFragments.every(fragment => fragment.passiveInteraction);
         if (HAS_JAPANESE.test(text) && (compactText.length >= (options.minLength ?? 2) || hasNativeRuby)) {
             const parent = trimmedFragments[0]?.node.parentElement;
@@ -505,7 +527,6 @@ export function collectFragmentTextTargetsIn(
                     text,
                     parent,
                     fragments: trimmedFragments,
-                    suppressRuby: suppressRuby || passiveInteraction,
                     passiveInteraction,
                 });
             }
@@ -513,7 +534,7 @@ export function collectFragmentTextTargetsIn(
         fragments.length = 0;
     }
 
-    function visit(node: Node, hasNativeRuby = false): void {
+    function visit(node: Node, hasNativeRuby = false, isRoot = false): void {
         if (targets.length >= limit) return;
 
         if (node.nodeType === Node.TEXT_NODE) {
@@ -524,7 +545,6 @@ export function collectFragmentTextTargetsIn(
                 start: 0,
                 end: text.length,
                 hasNativeRuby,
-                suppressRuby: parent ? shouldSuppressInjectedRuby(parent) : false,
                 passiveInteraction: parent ? isFragmentPassiveInteractionElement(parent, options) : false,
             });
             return;
@@ -535,7 +555,7 @@ export function collectFragmentTextTargetsIn(
         const tagName = element.tagName;
         if (tagName === 'RT' || tagName === 'RP') return;
         if (!options.includeReaderRoot && element.closest('[data-jpdb-reader-root]')) return;
-        if (shouldSkipFragmentElement(element, options) || (excludeSelector && element.matches(excludeSelector))) {
+        if ((excludeSelector && element.matches(excludeSelector)) || (!isRoot && shouldSkipFragmentElement(element, options))) {
             flush();
             return;
         }
@@ -552,6 +572,10 @@ export function collectFragmentTextTargetsIn(
             flush();
             return;
         }
+        if (isReaderRenderedTextBlock(element)) {
+            flush();
+            return;
+        }
 
         const isBlock = isFragmentParagraphBoundary(element, options) && !isInlineSentenceListItem(element);
         if (isBlock) flush();
@@ -565,7 +589,7 @@ export function collectFragmentTextTargetsIn(
         if (isBlock) flush();
     }
 
-    visit(root);
+    visit(root, false, true);
     flush();
     return targets;
 }
@@ -588,6 +612,25 @@ function isFragmentParagraphBoundary(
 
 function isInlineSentenceListItem(element: HTMLElement): boolean {
     return element.tagName === 'LI' && Boolean(element.closest('.japanese_sentence'));
+}
+
+function isReaderRenderedTextBlock(element: HTMLElement): boolean {
+    return READER_RENDERED_TEXT_BLOCK_TAGS.has(element.tagName)
+        && Boolean(element.querySelector('.jpdb-reader-word'))
+        && !hasRawJapaneseOutsideReaderWords(element);
+}
+
+function hasRawJapaneseOutsideReaderWords(element: HTMLElement): boolean {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+            const parent = node.parentElement;
+            if (!parent || parent.closest('.jpdb-reader-word,[data-jpdb-reader-root],script,style,noscript,rt,rp')) {
+                return NodeFilter.FILTER_REJECT;
+            }
+            return HAS_JAPANESE.test(node.textContent ?? '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        },
+    });
+    return Boolean(walker.nextNode());
 }
 
 export function isPassiveInteractionElement(element: Element): boolean {
@@ -706,10 +749,12 @@ export function nearestReadableSentenceForElement(element: HTMLElement, fallback
 }
 
 function ocrLineSentenceForElement(ocrLine: HTMLElement, surface: string, cleanFallback: string): string {
-    const multi = cleanReadableSentence(ocrLine.dataset.sentence || ocrLine.dataset.ocrText || ocrLine.getAttribute('aria-label') || cleanFallback);
+    const line = cleanReadableSentence(ocrLine.dataset.ocrText || ocrLine.getAttribute('aria-label') || '');
+    if (line && (!surface || textIncludesSearch(line, surface))) return line;
+    const multi = cleanReadableSentence(ocrLine.dataset.sentence || line || cleanFallback);
     const local = surface ? sentenceAroundSurface(multi, surface, cleanFallback) : '';
     if (local) return local;
-    return cleanReadableSentence(ocrLine.dataset.ocrText || multi || surface || cleanFallback);
+    return cleanReadableSentence(line || multi || surface || cleanFallback);
 }
 
 function nearestReadableAncestorSentence(element: HTMLElement, surface: string, cleanFallback: string): string {
@@ -1002,7 +1047,7 @@ function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], se
         appendPlainTextBeforeToken(fragment, target.text, offset, token.start);
         const tokenWithSentence = tokenWithReadableSentence(token, target.text, token.sentence);
         fragment.append(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
-            allowRuby: target.passiveInteraction !== true && !target.hasNativeRuby && !target.suppressRuby,
+            allowRuby: !target.hasNativeRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
             passiveInteraction: target.passiveInteraction,
@@ -1033,9 +1078,98 @@ function hasFragmentTokenWork(target: FragmentTextTarget, tokens: JPDBToken[]): 
 
 function applyTokensToIndexedFragmentTarget(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings, sentence: string): void {
     const indexedFragments = indexTextFragments(target.fragments);
+    const singleFragmentPlans = singleFragmentTokenPlans(target, indexedFragments, tokens, sentence);
+    if (singleFragmentPlans.length) {
+        const grouped = groupSingleFragmentTokenPlans(singleFragmentPlans);
+        for (const group of grouped) replaceSingleFragmentTokenNode(target, group.fragment, group.plans, settings);
+        if (singleFragmentPlans.length === tokens.length) return;
+        return;
+    }
     for (let index = tokens.length - 1; index >= 0; index--) {
         applyTokenToIndexedFragments(target, indexedFragments, tokens[index], settings, sentence);
     }
+}
+
+interface SingleFragmentTokenPlan {
+    fragment: IndexedTextFragment;
+    localStart: number;
+    localEnd: number;
+    token: JPDBToken;
+    tokenWithSentence: JPDBToken;
+    passiveInteraction: boolean;
+}
+
+function singleFragmentTokenPlans(
+    target: FragmentTextTarget,
+    indexedFragments: IndexedTextFragment[],
+    tokens: JPDBToken[],
+    sentence: string,
+): SingleFragmentTokenPlan[] {
+    const plans: SingleFragmentTokenPlan[] = [];
+    for (const token of tokens) {
+        const start = findFragmentBoundary(indexedFragments, token.start, 'start');
+        const end = findFragmentBoundary(indexedFragments, token.end, 'end');
+        const bounds = attachableFragmentRange(start, end);
+        if (!bounds || bounds.start.fragment !== bounds.end.fragment) continue;
+        plans.push({
+            fragment: bounds.start.fragment,
+            localStart: bounds.start.localOffset,
+            localEnd: bounds.end.localOffset,
+            token,
+            tokenWithSentence: tokenWithReadableSentence(token, target.text, token.sentence ?? sentence),
+            passiveInteraction: target.passiveInteraction === true
+                || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end),
+        });
+    }
+    return plans;
+}
+
+function groupSingleFragmentTokenPlans(plans: SingleFragmentTokenPlan[]): { fragment: IndexedTextFragment; plans: SingleFragmentTokenPlan[] }[] {
+    const groups: { fragment: IndexedTextFragment; plans: SingleFragmentTokenPlan[] }[] = [];
+    for (const plan of plans) {
+        let group = groups.find(candidate => candidate.fragment === plan.fragment);
+        if (!group) {
+            group = { fragment: plan.fragment, plans: [] };
+            groups.push(group);
+        }
+        group.plans.push(plan);
+    }
+    groups.forEach(group => group.plans.sort((a, b) => a.localStart - b.localStart));
+    return groups.sort((a, b) => b.fragment.globalStart - a.fragment.globalStart);
+}
+
+function replaceSingleFragmentTokenNode(
+    target: FragmentTextTarget,
+    fragment: IndexedTextFragment,
+    plans: SingleFragmentTokenPlan[],
+    settings: ReaderSettings,
+): void {
+    if (!fragment.node.parentNode || !plans.length) return;
+    const replacement = document.createDocumentFragment();
+    const text = fragment.node.data;
+    let offset = 0;
+    for (const plan of plans) {
+        appendPlainTextBeforeToken(replacement, text, offset, plan.localStart);
+        replacement.append(renderSingleFragmentToken(target, fragment, plan, settings));
+        offset = plan.localEnd;
+    }
+    appendPlainTextBeforeToken(replacement, text, offset, text.length);
+    fragment.node.replaceWith(replacement);
+}
+
+function renderSingleFragmentToken(
+    target: FragmentTextTarget,
+    fragment: TextFragment,
+    plan: SingleFragmentTokenPlan,
+    settings: ReaderSettings,
+): HTMLElement {
+    const allowRuby = !fragment.hasNativeRuby;
+    return renderToken(fragment.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
+        allowRuby,
+        kanjiNavigation: kanjiNavigationForElement(target.parent),
+        scanWord: true,
+        passiveInteraction: plan.passiveInteraction,
+    });
 }
 
 function applyTokenToIndexedFragments(
@@ -1054,20 +1188,39 @@ function applyTokenToIndexedFragments(
     const isSingleFragment = bounds.start.fragment === bounds.end.fragment;
     const passiveInteraction = target.passiveInteraction === true
         || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end);
+    if (isSingleFragment) {
+        insertSingleFragmentToken(
+            target,
+            bounds.start.fragment,
+            bounds.start.localOffset,
+            bounds.end.localOffset,
+            token,
+            tokenWithSentence,
+            settings,
+            passiveInteraction,
+        );
+        return;
+    }
+
     const range = document.createRange();
     range.setStart(bounds.start.fragment.node, bounds.start.localOffset);
     range.setEnd(bounds.end.fragment.node, bounds.end.localOffset);
-
-    if (isSingleFragment) insertSingleFragmentToken(range, target, bounds.start.fragment, token, tokenWithSentence, settings, passiveInteraction);
-    else insertMultiFragmentToken(range, tokenWithSentence, {
+    insertMultiFragmentToken(range, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
         scanWord: true,
         passiveInteraction,
+        allowRuby: !fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end),
     });
     range.detach();
 }
 
 function fragmentRangeHasPassiveInteraction(fragments: IndexedTextFragment[], start: number, end: number): boolean {
     return fragments.some(fragment => fragment.passiveInteraction === true
+        && fragment.globalStart < end
+        && fragment.globalEnd > start);
+}
+
+function fragmentRangeHasNativeRuby(fragments: IndexedTextFragment[], start: number, end: number): boolean {
+    return fragments.some(fragment => fragment.hasNativeRuby
         && fragment.globalStart < end
         && fragment.globalEnd > start);
 }
@@ -1094,25 +1247,41 @@ function attachedFragmentBoundary(boundary: FragmentBoundaryMatch | null): Fragm
 }
 
 function insertSingleFragmentToken(
-    range: Range,
     target: FragmentTextTarget,
     fragment: TextFragment,
+    start: number,
+    end: number,
     token: JPDBToken,
     tokenWithSentence: JPDBToken,
     settings: ReaderSettings,
     passiveInteraction: boolean,
 ): void {
-    const allowRuby = !passiveInteraction && !fragment.hasNativeRuby && !fragment.suppressRuby && !target.suppressRuby;
-    range.deleteContents();
-    range.insertNode(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
+    const allowRuby = !fragment.hasNativeRuby;
+    const surface = fragment.node.data.slice(start, end);
+    const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
         allowRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
         passiveInteraction,
-    }));
+    });
+    replaceTextNodeRange(fragment.node, start, end, rendered);
 }
 
-function insertMultiFragmentToken(range: Range, token: JPDBToken, options: TokenRenderOptions = {}): void {
+function replaceTextNodeRange(node: Text, start: number, end: number, replacement: Node): void {
+    if (!node.parentNode || end <= start || start < 0 || end > node.data.length) return;
+    const after = node.splitText(end);
+    const selected = node.splitText(start);
+    selected.replaceWith(replacement);
+    if (!node.data) node.remove();
+    if (!after.data) after.remove();
+}
+
+function insertMultiFragmentToken(range: Range, surface: string, token: JPDBToken, settings: ReaderSettings, options: TokenRenderOptions = {}): void {
+    if (shouldRenderRuby(surface, token, settings, options.allowRuby)) {
+        range.deleteContents();
+        range.insertNode(renderToken(surface, token, settings, options));
+        return;
+    }
     const shell = renderTokenShell(token, options);
     shell.append(range.extractContents());
     range.insertNode(shell);
@@ -1343,9 +1512,9 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${expression}${reading} tabindex="0">${content}</span>`;
 }
 
-function shouldRenderRuby(surface: string, token: JPDBToken, settings: ReaderSettings, allowRuby = true): boolean {
+export function shouldRenderRuby(surface: string, token: JPDBToken, settings: ReaderSettings, allowRuby = true): boolean {
     if (!allowRuby) return false;
-    if (!token.rubies.length) return false;
+    if (!effectiveTokenRubies(surface, token).length) return false;
     return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface);
 }
 
@@ -1363,6 +1532,10 @@ function hasDifficultKanji(surface: string): boolean {
 
 function readerWordClassName(state: string, token: JPDBToken): string {
     const classes = ['jpdb-reader-word'];
+    if (token.card.partOfSpeech.includes('prt') || PARTICLE_SURFACE_RE.test(token.card.spelling.trim())) {
+        classes.push('jpdb-reader-particle');
+        return classes.join(' ');
+    }
     if (hasKnownCardState(token.card)) classes.push(`jpdb-${state}`);
     classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
     return classes.join(' ');
@@ -1379,15 +1552,212 @@ function safePitchClass(value: string): string {
 export function renderRuby(surface: string, token: JPDBToken, kanjiNavigation?: KanjiNavigationRenderOptions): string {
     let html = '';
     let localOffset = 0;
-    for (const ruby of token.rubies) {
+    for (const ruby of effectiveTokenRubies(surface, token)) {
         const start = ruby.start - token.start;
         const end = ruby.end - token.start;
         html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-        html += `<ruby>${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}<rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
+        html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
         localOffset = end;
     }
     html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
     return html;
+}
+
+export function inferredInflectedSurfaceRubies(surface: string, spelling: string, reading: string): JPDBToken['rubies'] {
+    const visibleSurface = surface.trim();
+    const baseSpelling = spelling.trim();
+    const baseReading = reading.trim();
+    if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
+    if (!KANJI_RE.test(visibleSurface) || !KANA_RE.test(baseReading) || baseReading === baseSpelling) return [];
+
+    for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
+        if (!baseReading.endsWith(spellingSuffix)) continue;
+        const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
+        if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
+        const surfaceSuffix = visibleSurface.slice(spellingStem.length);
+        if (!surfaceSuffix || !KANA_RE.test(surfaceSuffix)) continue;
+        const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
+        if (rubies.length) return rubies;
+    }
+    return [];
+}
+
+function trailingKanaSuffixes(value: string): string[] {
+    const suffixes: string[] = [];
+    for (let index = 0; index < value.length; index += 1) {
+        const suffix = value.slice(index);
+        if (suffix && KANA_RE.test(suffix)) suffixes.push(suffix);
+    }
+    return suffixes.sort((first, second) => second.length - first.length);
+}
+
+function stemRubiesForInflectedSurface(surfaceStem: string, readingStem: string): JPDBToken['rubies'] {
+    const trimmed = trimSharedKanaAffixes(surfaceStem, readingStem);
+    if (!trimmed.surface || !trimmed.reading) return [];
+    if (!KANJI_RE.test(trimmed.surface) || !KANA_RE.test(trimmed.reading)) return [];
+    return [{
+        text: trimmed.reading,
+        start: trimmed.offset,
+        end: trimmed.offset + trimmed.surface.length,
+        length: trimmed.surface.length,
+    }];
+}
+
+function trimSharedKanaAffixes(surface: string, reading: string): { surface: string; reading: string; offset: number } {
+    let trimmedSurface = surface;
+    let trimmedReading = reading;
+    let offset = 0;
+    while (trimmedSurface && trimmedReading && sameKanaCharacter(trimmedSurface[0], trimmedReading[0])) {
+        trimmedSurface = trimmedSurface.slice(1);
+        trimmedReading = trimmedReading.slice(1);
+        offset += 1;
+    }
+    while (trimmedSurface && trimmedReading && sameKanaCharacter(
+        trimmedSurface[trimmedSurface.length - 1],
+        trimmedReading[trimmedReading.length - 1],
+    )) {
+        trimmedSurface = trimmedSurface.slice(0, -1);
+        trimmedReading = trimmedReading.slice(0, -1);
+    }
+    return { surface: trimmedSurface, reading: trimmedReading, offset };
+}
+
+function sameKanaCharacter(first: string | undefined, second: string | undefined): boolean {
+    return Boolean(first && second && first === second && KANA_RE.test(first));
+}
+
+function effectiveTokenRubies(surface: string, token: JPDBToken): JPDBToken['rubies'] {
+    return sourceTokenRubies(surface, token)
+        .flatMap(ruby => kanjiOnlyRubySegments(surface, token, ruby));
+}
+
+function sourceTokenRubies(surface: string, token: JPDBToken): JPDBToken['rubies'] {
+    if (token.rubies.length) return token.rubies;
+
+    const reading = token.card.reading.trim();
+    if (!surface || !KANJI_RE.test(surface) || !reading || reading === surface || !KANA_RE.test(reading)) return [];
+    return [{ text: reading, start: token.start, end: token.end, length: token.length }];
+}
+
+function kanjiOnlyRubySegments(surface: string, token: JPDBToken, ruby: JPDBToken['rubies'][number]): JPDBToken['rubies'] {
+    const range = localRubyRange(surface, token, ruby);
+    if (!range) return [];
+
+    return kanjiRubyParts(surface.slice(range.start, range.end), ruby.text.trim()).map(part => ({
+        text: part.text,
+        start: token.start + range.start + part.start,
+        end: token.start + range.start + part.end,
+        length: part.end - part.start,
+    }));
+}
+
+function localRubyRange(surface: string, token: JPDBToken, ruby: JPDBToken['rubies'][number]): { start: number; end: number } | null {
+    const start = ruby.start - token.start;
+    const end = ruby.end - token.start;
+    if (start < 0 || end > surface.length || end <= start) return null;
+    return { start, end };
+}
+
+function kanjiRubyParts(base: string, reading: string): Array<{ text: string; start: number; end: number }> {
+    if (!base || !reading || !KANJI_RE.test(base)) return [];
+    if (!KANA_RE.test(reading)) return [{ text: reading, start: 0, end: base.length }];
+
+    const anchors = alignRubyKanaAnchors(base, reading);
+    if (!anchors) return trimRubyPartToKanji(base, reading);
+
+    const parts: Array<{ text: string; start: number; end: number }> = [];
+    let baseOffset = 0;
+    let readingOffset = 0;
+    for (const anchor of anchors) {
+        appendRubyGap(parts, base, baseOffset, anchor.baseStart, reading.slice(readingOffset, anchor.readingStart));
+        baseOffset = anchor.baseEnd;
+        readingOffset = anchor.readingEnd;
+    }
+    appendRubyGap(parts, base, baseOffset, base.length, reading.slice(readingOffset));
+    return parts.length ? parts : trimRubyPartToKanji(base, reading);
+}
+
+function appendRubyGap(parts: Array<{ text: string; start: number; end: number }>, base: string, start: number, end: number, reading: string): void {
+    const part = trimRubyPartToKanji(base.slice(start, end), reading)[0];
+    if (part) parts.push({ text: part.text, start: start + part.start, end: start + part.end });
+}
+
+function trimRubyPartToKanji(base: string, reading: string): Array<{ text: string; start: number; end: number }> {
+    const trimmed = trimSharedKanaAffixes(base, reading);
+    if (!trimmed.surface || !trimmed.reading || !KANJI_RE.test(trimmed.surface)) return [];
+    return [{
+        text: trimmed.reading,
+        start: trimmed.offset,
+        end: trimmed.offset + trimmed.surface.length,
+    }];
+}
+
+function alignRubyKanaAnchors(base: string, reading: string): RubyKanaAnchor[] | null {
+    const runs = rubyBaseKanaRuns(base);
+    if (!runs.length) return [];
+    return findRubyKanaAnchorPlan(base, reading, runs, 0, 0, []);
+}
+
+function findRubyKanaAnchorPlan(
+    base: string,
+    reading: string,
+    runs: RubyBaseKanaRun[],
+    index: number,
+    readingOffset: number,
+    anchors: RubyKanaAnchor[],
+): RubyKanaAnchor[] | null {
+    if (index >= runs.length) return rubyKanaAnchorPlanIsValid(base, reading, anchors) ? anchors : null;
+
+    const run = runs[index];
+    for (const readingStart of readingRunOccurrences(reading, run.text, readingOffset)) {
+        const nextAnchors = anchors.concat({
+            ...run,
+            readingStart,
+            readingEnd: readingStart + run.text.length,
+        });
+        const plan = findRubyKanaAnchorPlan(base, reading, runs, index + 1, readingStart + run.text.length, nextAnchors);
+        if (plan) return plan;
+    }
+    return null;
+}
+
+function readingRunOccurrences(reading: string, text: string, offset: number): number[] {
+    const occurrences: number[] = [];
+    let index = reading.indexOf(text, offset);
+    while (index >= 0) {
+        occurrences.push(index);
+        index = reading.indexOf(text, index + 1);
+    }
+    return occurrences;
+}
+
+function rubyKanaAnchorPlanIsValid(base: string, reading: string, anchors: RubyKanaAnchor[]): boolean {
+    let baseOffset = 0;
+    let readingOffset = 0;
+    for (const anchor of anchors) {
+        if (!rubyGapCanOwnReading(base.slice(baseOffset, anchor.baseStart), reading.slice(readingOffset, anchor.readingStart))) return false;
+        baseOffset = anchor.baseEnd;
+        readingOffset = anchor.readingEnd;
+    }
+    return rubyGapCanOwnReading(base.slice(baseOffset), reading.slice(readingOffset));
+}
+
+function rubyGapCanOwnReading(base: string, reading: string): boolean {
+    return KANJI_RE.test(base) ? reading.length > 0 : reading.length === 0;
+}
+
+function rubyBaseKanaRuns(base: string): RubyBaseKanaRun[] {
+    const runs: RubyBaseKanaRun[] = [];
+    let start = -1;
+    for (let index = 0; index <= base.length; index += 1) {
+        const isKana = index < base.length && KANA_CHAR_RE.test(base[index]);
+        if (isKana && start < 0) start = index;
+        if ((!isKana || index === base.length) && start >= 0) {
+            runs.push({ text: base.slice(start, index), baseStart: start, baseEnd: index });
+            start = -1;
+        }
+    }
+    return runs;
 }
 
 function kanjiNavigationForElement(element: HTMLElement): KanjiNavigationRenderOptions | undefined {
@@ -1399,7 +1769,7 @@ function kanjiNavigationForElement(element: HTMLElement): KanjiNavigationRenderO
     };
 }
 
-function renderKanjiNavigationText(value: string, options?: KanjiNavigationRenderOptions): string {
+export function renderKanjiNavigationText(value: string, options?: KanjiNavigationRenderOptions): string {
     if (!options?.enabled) return escapeHtml(value);
     return Array.from(value).map(character => isKanjiForInlineNavigation(character)
         ? renderKanjiNavigationCharacter(character, options.label)
@@ -1612,53 +1982,9 @@ function isReadableArticleHeading(element: HTMLElement, compactLength: number): 
     return compactLength >= 4 && Boolean(element.closest('article, main, [role="main"]'));
 }
 
-function shouldSuppressInjectedRuby(element: HTMLElement): boolean {
-    let current: HTMLElement | null = element;
-    while (current) {
-        if (current === document.body) break;
-        if (shouldSuppressRubyAtAncestor(current)) return true;
-        current = current.parentElement;
-    }
-    return false;
-}
-
-function shouldSuppressRubyAtAncestor(element: HTMLElement): boolean {
-    return element.hasAttribute('data-jpdb-reader-suppress-ruby')
-        || DISPLAY_HEADING_RE.test(element.tagName)
-        || isClippedLineBox(element);
-}
-
-function isClippedLineBox(element: HTMLElement): boolean {
-    const style = getComputedStyle(element);
-    if (hasWebkitLineClamp(style)) return true;
-    if (!hasClippedOverflow(style)) return false;
-    return hasFourLineHeightLimit(style);
-}
-
-function hasWebkitLineClamp(style: CSSStyleDeclaration): boolean {
-    const webkitLineClamp = style.getPropertyValue('-webkit-line-clamp') || (style as CSSStyleDeclaration & { webkitLineClamp?: string }).webkitLineClamp;
-    return Boolean(webkitLineClamp && webkitLineClamp !== 'none' && webkitLineClamp !== '0');
-}
-
-function hasClippedOverflow(style: CSSStyleDeclaration): boolean {
-    return /(hidden|clip)/.test(`${style.overflow} ${style.overflowX} ${style.overflowY}`);
-}
-
-function hasFourLineHeightLimit(style: CSSStyleDeclaration): boolean {
-    const maxHeight = cssPixels(style.maxHeight);
-    const explicitHeight = cssPixels(style.height);
-    const lineHeight = cssPixels(style.lineHeight) || cssPixels(style.fontSize) * 1.25;
-    if (lineHeight <= 0) return false;
-    return isWithinFourLines(maxHeight, lineHeight) || isWithinFourLines(explicitHeight, lineHeight);
-}
-
-function isWithinFourLines(size: number, lineHeight: number): boolean {
-    return size > 0 && size <= lineHeight * 4;
-}
-
 function hasUiBox(style: CSSStyleDeclaration): boolean {
     return [
-        style.backgroundColor !== 'rgba(0, 0, 0, 0)',
+        style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack,
         style.borderTopStyle !== 'none',
         Number(style.borderTopWidth.replace('px', '')) > 0,
         Number(style.borderBottomWidth.replace('px', '')) > 0,
@@ -1738,7 +2064,7 @@ function hasControlLinkDisplay(display: string): boolean {
 }
 
 function hasVisibleControlLinkBox(style: CSSStyleDeclaration): boolean {
-    return style.backgroundColor !== 'rgba(0, 0, 0, 0)'
+    return style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack
         || style.borderTopStyle !== 'none'
         || style.borderBottomStyle !== 'none';
 }

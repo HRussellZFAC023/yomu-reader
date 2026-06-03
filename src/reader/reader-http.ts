@@ -6,7 +6,10 @@ export interface ReaderHttpOptions extends Omit<ProxyFetchOptions, 'body'> {
     proxyUrl?: string;
     responseType?: 'text' | 'blob' | 'json' | 'arraybuffer';
     failureLabel?: string;
+    failureMessage?: string;
+    statusFailureMessage?: (status: number) => string;
     timeoutLabel?: string;
+    blobFailureMessage?: string;
     preferFetch?: boolean;
     anonymous?: boolean;
     withCredentials?: boolean;
@@ -21,7 +24,8 @@ export async function requestText(url: string, options: ReaderHttpOptions = {}):
 export async function requestBlob(url: string, options: ReaderHttpOptions = {}): Promise<Blob> {
     const value = await requestHttp(url, { ...options, responseType: 'blob' });
     if (value instanceof Blob) return value;
-    throw new Error(`${options.failureLabel ?? 'Request'} did not return a blob.`);
+    if (isBlobLike(value)) return new Blob([await value.arrayBuffer()], { type: value.type });
+    throw new Error(options.blobFailureMessage ?? `${options.failureLabel ?? 'Request'} did not return a blob.`);
 }
 
 export async function requestJson(url: string, options: ReaderHttpOptions = {}): Promise<unknown> {
@@ -64,7 +68,7 @@ function requestViaUserscript(
         const tryAbort = () => { try { handle?.abort?.(); } catch { /* ignore */ } };
         const handleLoad = (response: UserscriptHttpResponse) => {
             if (response.status < 200 || response.status >= 300) {
-                reject(new Error(`${options.failureLabel ?? 'Request'} failed (${response.status}).`));
+                reject(new Error(formatStatusFailure(options, response.status)));
                 return;
             }
             try {
@@ -89,14 +93,14 @@ function requestViaUserscript(
             withCredentials: options.withCredentials,
             cookie: options.cookie,
             onload: handleLoad,
-            onerror: error => reject(error instanceof Error ? error : new Error(`${options.failureLabel ?? 'Request'} failed.`)),
+            onerror: error => reject(error instanceof Error ? error : new Error(formatFailure(options))),
             ontimeout: () => {
                 tryAbort();
                 reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? 'Request'} timed out.`));
             },
         });
         if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-            (result as Promise<UserscriptHttpResponse>).then(handleLoad, error => reject(error instanceof Error ? error : new Error(`${options.failureLabel ?? 'Request'} failed.`)));
+            (result as Promise<UserscriptHttpResponse>).then(handleLoad, error => reject(error instanceof Error ? error : new Error(formatFailure(options))));
         } else if (result && typeof (result as UserscriptHttpRequestHandle).abort === 'function') {
             handle = result as UserscriptHttpRequestHandle;
         }
@@ -119,6 +123,13 @@ function normalizeUserscriptResponse(response: UserscriptHttpResponse, responseT
     return String(response.responseText ?? response.response ?? '');
 }
 
+function isBlobLike(value: unknown): value is { arrayBuffer: () => Promise<ArrayBuffer>; type: string } {
+    return Boolean(value
+        && typeof value === 'object'
+        && typeof (value as { arrayBuffer?: unknown }).arrayBuffer === 'function'
+        && typeof (value as { type?: unknown }).type === 'string');
+}
+
 async function requestViaFetch(url: string, options: ReaderHttpOptions): Promise<unknown> {
     const response = await fetchWithCorsFallbacks(url, options.proxyUrl ?? '', {
         method: options.method ?? 'GET',
@@ -133,11 +144,19 @@ async function requestViaFetch(url: string, options: ReaderHttpOptions): Promise
         allowDirectCrossOrigin: options.allowDirectCrossOrigin,
         signal: options.signal,
     });
-    if (!response.ok) throw new Error(`${options.failureLabel ?? 'Request'} failed (${response.status}).`);
+    if (!response.ok) throw new Error(formatStatusFailure(options, response.status));
     if (options.responseType === 'blob') return response.blob();
     if (options.responseType === 'arraybuffer') return response.arrayBuffer();
     if (options.responseType === 'json') return response.json();
     return response.text();
+}
+
+function formatFailure(options: ReaderHttpOptions): string {
+    return options.failureMessage ?? `${options.failureLabel ?? 'Request'} failed.`;
+}
+
+function formatStatusFailure(options: ReaderHttpOptions, status: number): string {
+    return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? 'Request'} failed (${status}).`;
 }
 
 function shouldRetryWithFetch(error: unknown): boolean {

@@ -28,8 +28,7 @@ export class NativeTitleGuard {
 
     private suppressRelatedTitles(popover: HTMLElement, anchor?: HTMLElement): void {
         this.suppressElementAndDescendants(popover);
-        this.suppressElementAncestors(anchor);
-        this.suppressHoveredTitles(popover);
+        this.suppressReaderOwnedTitles(anchor);
     }
 
     private observePopover(popover: HTMLElement, anchor?: HTMLElement): void {
@@ -41,7 +40,7 @@ export class NativeTitleGuard {
                 }
                 mutation.addedNodes.forEach(node => this.suppressNodeTitles(node));
             }
-            this.suppressElementAncestors(anchor);
+            this.suppressReaderOwnedTitles(anchor);
         });
         this.observer.observe(popover, {
             attributes: true,
@@ -60,21 +59,22 @@ export class NativeTitleGuard {
         element.querySelectorAll<HTMLElement>('[title]').forEach(item => this.suppressElement(item));
     }
 
-    private suppressElementAncestors(element: HTMLElement | undefined): void {
-        let current: HTMLElement | null | undefined = element;
-        while (current && current !== document.body && current !== document.documentElement) {
-            this.suppressElement(current);
-            current = current.parentElement;
+    private suppressReaderOwnedTitles(anchor: HTMLElement | undefined): void {
+        if (!anchor) return;
+        const readerRoot = anchor.closest<HTMLElement>('[data-jpdb-reader-root]');
+        if (readerRoot) {
+            this.suppressAnchorPath(anchor, readerRoot);
+            return;
         }
+        if (anchor.classList.contains('jpdb-reader-word')) this.suppressElement(anchor);
     }
 
-    private suppressHoveredTitles(popover: HTMLElement): void {
-        try {
-            document.querySelectorAll<HTMLElement>(':hover[title]').forEach(element => {
-                if (!popover.contains(element)) this.suppressElement(element);
-            });
-        } catch {
-            // Some userscript host pages have selector shims that reject dynamic pseudo-classes.
+    private suppressAnchorPath(anchor: HTMLElement, root: HTMLElement): void {
+        let current: HTMLElement | null = anchor;
+        while (current && current !== root.parentElement && current !== document.body && current !== document.documentElement) {
+            this.suppressElement(current);
+            if (current === root) break;
+            current = current.parentElement;
         }
     }
 

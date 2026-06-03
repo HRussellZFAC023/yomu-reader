@@ -7,18 +7,21 @@ const root = join(__dirname, '..');
 const source = join(root, 'dist', 'yomu.user.js');
 const target = join(root, 'docs', 'public', 'yomu.user.js');
 
-if (!existsSync(source)) {
-  console.error(`Missing built userscript: ${source}`);
-  process.exit(1);
-}
-
-mkdirSync(dirname(target), { recursive: true });
-copyFileSync(source, target);
-console.log(`Synced ${target}`);
-
 copyBuiltAsset('dist/newtab/app.js', 'docs/public/newtab/app.js');
 copyBuiltAsset('dist/yomu.css', 'docs/public/yomu.css');
 syncNewTabIndex();
+syncUserscript();
+
+function syncUserscript() {
+  if (!existsSync(source)) {
+    console.error(`Missing built userscript: ${source}`);
+    process.exit(1);
+  }
+
+  mkdirSync(dirname(target), { recursive: true });
+  copyFileSync(source, target);
+  console.log(`Synced ${target}`);
+}
 
 function copyBuiltAsset(sourcePath, targetPath) {
   const assetSource = join(root, sourcePath);

@@ -1,10 +1,11 @@
 import { pruneOldestCacheEntries } from './cache-utils';
+import { formatUiText, uiText } from './i18n';
 import { Logger } from './logger';
 import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
 import { requestBlob as requestReaderBlob, requestJson as requestReaderJson } from './reader-http';
 import { uniqueTrimmedStrings as uniqueStrings } from './string-utils';
-import type { ReaderSettings } from './types';
+import type { InterfaceLanguage, ReaderSettings } from './types';
 
 const API_BASE = 'https://apiv2express.immersionkit.com';
 const LEGACY_API_BASE = 'https://apiv2.immersionkit.com';
@@ -241,8 +242,8 @@ export class ImmersionKitClient {
     }
 
     private searchImmersionKit(query: string, settings: ReaderSettings, options: ImmersionKitSearchOptions): Promise<ImmersionKitExample[]> {
-        this.assertImmersionKitSearchAllowed();
-        return requestJson(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal)
+        this.assertImmersionKitSearchAllowed(settings.interfaceLanguage);
+        return requestJson(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal, settings.interfaceLanguage)
             .then(data => {
                 this.resetImmersionKitBackoff();
                 return filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), 'immersion-kit');
@@ -253,9 +254,9 @@ export class ImmersionKitClient {
             });
     }
 
-    private assertImmersionKitSearchAllowed(): void {
+    private assertImmersionKitSearchAllowed(language: InterfaceLanguage): void {
         if (Date.now() < this.immersionKitRateLimitedUntil) {
-            throw new Error('Immersion Kit is temporarily rate-limited; retrying later.');
+            throw new Error(uiText(language, 'immersionKitRateLimited'));
         }
     }
 
@@ -285,8 +286,10 @@ export class ImmersionKitClient {
             allowConfiguredProxy: false,
             preferFetch: shouldPreferFetchForImmersionKitRequests(),
             signal: options.signal,
-            failureLabel: 'Nadeshiko request',
-            timeoutLabel: 'Nadeshiko request timed out.',
+            failureLabel: uiText(settings.interfaceLanguage, 'nadeshikoRequest'),
+            failureMessage: uiText(settings.interfaceLanguage, 'nadeshikoRequestFailed'),
+            statusFailureMessage: status => formatUiText(settings.interfaceLanguage, 'nadeshikoRequestFailedWithStatus', { status }),
+            timeoutLabel: uiText(settings.interfaceLanguage, 'nadeshikoRequestTimedOut'),
         }).then(data => filterNadeshikoExamples(data, query, settings, this.minimumSentenceLength(settings)));
     }
 
@@ -366,7 +369,7 @@ export class ImmersionKitClient {
                 for (const example of examples.slice(0, 1)) {
                     const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, 'image') : [];
                     if (imageUrls.length) {
-                        void this.fetchBlobUrl(imageUrls, settings.audioTimeoutMs, settings.corsProxyUrl)
+                        void this.fetchBlobUrl(imageUrls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
                             .then(url => {
                                 const image = new Image();
                                 image.decoding = 'async';
@@ -378,7 +381,7 @@ export class ImmersionKitClient {
 
                     const soundUrls = this.mediaUrls(example, 'sound');
                     if (soundUrls.length) {
-                        void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs, settings.corsProxyUrl)
+                        void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
                             .then(() => undefined)
                             .catch(() => undefined);
                     }
@@ -387,18 +390,18 @@ export class ImmersionKitClient {
             .catch(() => undefined);
     }
 
-    async fetchBlobUrl(url: string | string[], timeoutMs: number, proxyUrl = ''): Promise<string> {
+    async fetchBlobUrl(url: string | string[], timeoutMs: number, proxyUrl = '', language: InterfaceLanguage = 'en'): Promise<string> {
         const urls = urlCandidates(url);
         const key = urls.join('\u0001');
         return this.mediaBlobUrlCache.getOrCreate(key, async () => {
-            const blob = await requestFirstBlob(url, timeoutMs, proxyUrl);
+            const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
             const blobUrl = await createPageMediaUrl(blob);
             return blobUrl;
         });
     }
 
-    async fetchDataUrl(url: string | string[], timeoutMs: number, proxyUrl = ''): Promise<string> {
-        const blob = await requestFirstBlob(url, timeoutMs, proxyUrl);
+    async fetchDataUrl(url: string | string[], timeoutMs: number, proxyUrl = '', language: InterfaceLanguage = 'en'): Promise<string> {
+        const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
         return blobToDataUrl(blob);
     }
 }
@@ -757,17 +760,17 @@ function normalizeForSurfaceMatch(value: string): string {
     return value.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
 }
 
-async function requestJson(url: string | string[], timeoutMs: number, proxyUrl = '', signal?: AbortSignal): Promise<unknown> {
+async function requestJson(url: string | string[], timeoutMs: number, proxyUrl = '', signal?: AbortSignal, language: InterfaceLanguage = 'en'): Promise<unknown> {
     let lastError: unknown;
     for (const candidate of urlCandidates(url)) {
         try {
-            return await requestJsonCandidate(candidate, timeoutMs, proxyUrl, signal);
+            return await requestJsonCandidate(candidate, timeoutMs, proxyUrl, signal, language);
         } catch (error) {
             if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
             lastError = error;
         }
     }
-    throw requestError(lastError, 'Immersion Kit request failed.');
+    throw requestError(lastError, uiText(language, 'immersionKitRequestFailed'));
 }
 
 function urlCandidates(url: string | string[]): string[] {
@@ -778,7 +781,7 @@ function requestError(error: unknown, fallback: string): Error {
     return error instanceof Error ? error : new Error(fallback);
 }
 
-function requestJsonCandidate(url: string, timeoutMs: number, proxyUrl = '', signal?: AbortSignal): Promise<unknown> {
+function requestJsonCandidate(url: string, timeoutMs: number, proxyUrl = '', signal?: AbortSignal, language: InterfaceLanguage = 'en'): Promise<unknown> {
     return requestReaderJson(url, {
         proxyUrl,
         timeoutMs,
@@ -786,15 +789,17 @@ function requestJsonCandidate(url: string, timeoutMs: number, proxyUrl = '', sig
         allowPublicProxies: false,
         preferFetch: shouldPreferFetchForImmersionKitRequests(),
         signal,
-        failureLabel: 'Immersion Kit request',
-        timeoutLabel: 'Immersion Kit request timed out.',
+        failureLabel: uiText(language, 'immersionKitRequest'),
+        failureMessage: uiText(language, 'immersionKitRequestFailed'),
+        statusFailureMessage: status => formatUiText(language, 'immersionKitRequestFailedWithStatus', { status }),
+        timeoutLabel: uiText(language, 'immersionKitRequestTimedOut'),
     }).catch(error => {
         if (isAbortError(error)) throw error;
         if (isImmersionKitRateLimitError(error)) throw error;
         if (error instanceof Error && /blocked|cross-origin|cors/i.test(error.message)) {
-            throw new Error('Immersion Kit search is blocked in this browser. Configure browser/CORS or use the built-in fallback settings.');
+            throw new Error(uiText(language, 'immersionKitSearchBlocked'));
         }
-        throw requestError(error, 'Immersion Kit request failed.');
+        throw requestError(error, uiText(language, 'immersionKitRequestFailed'));
     });
 }
 
@@ -812,31 +817,34 @@ export function isImmersionKitRateLimitError(error: unknown): boolean {
     return error instanceof Error && /\b(?:429|too many requests|rate[- ]?limited)\b/i.test(error.message);
 }
 
-function requestBlob(url: string, timeoutMs: number, proxyUrl = ''): Promise<Blob> {
+function requestBlob(url: string, timeoutMs: number, proxyUrl = '', language: InterfaceLanguage = 'en'): Promise<Blob> {
     return requestReaderBlob(url, {
         proxyUrl,
         timeoutMs,
         allowDirectCrossOrigin: true,
         preferFetch: shouldPreferFetchForImmersionKitRequests(),
-        failureLabel: 'Media request',
-        timeoutLabel: 'Media request timed out.',
+        failureLabel: uiText(language, 'immersionKitMediaRequest'),
+        failureMessage: uiText(language, 'immersionKitMediaRequestFailed'),
+        statusFailureMessage: status => formatUiText(language, 'immersionKitMediaRequestFailedWithStatus', { status }),
+        timeoutLabel: uiText(language, 'immersionKitMediaRequestTimedOut'),
+        blobFailureMessage: uiText(language, 'immersionKitMediaRequestReturnedNonMedia'),
     }).then(blob => {
-        if (isErrorDocumentBlob(blob)) throw new Error('Media request returned an error document instead of audio or image.');
+        if (isErrorDocumentBlob(blob)) throw new Error(uiText(language, 'immersionKitMediaRequestReturnedNonMedia'));
         return blob;
     });
 }
 
-async function requestFirstBlob(urls: string | string[], timeoutMs: number, proxyUrl = ''): Promise<Blob> {
+async function requestFirstBlob(urls: string | string[], timeoutMs: number, proxyUrl = '', language: InterfaceLanguage = 'en'): Promise<Blob> {
     const candidates = prioritizeMediaCandidates(urlCandidates(urls)).slice(0, MEDIA_CANDIDATE_LIMIT);
     let lastError: unknown;
     for (const candidate of candidates) {
         try {
-            return await requestBlob(candidate, timeoutMs, proxyUrl);
+            return await requestBlob(candidate, timeoutMs, proxyUrl, language);
         } catch (error) {
             lastError = error;
         }
     }
-    throw requestError(lastError, 'No Immersion Kit media candidate could be loaded.');
+    throw requestError(lastError, uiText(language, 'immersionKitNoMediaCandidate'));
 }
 
 function prioritizeMediaCandidates(urls: string[]): string[] {

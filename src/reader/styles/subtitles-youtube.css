@@ -9,8 +9,8 @@
   --subtitle-font-size-target: 28px;
   --subtitle-font-size: var(--subtitle-font-size-target);
   --subtitle-bottom: 12%;
-  --subtitle-color: #fff;
-  --subtitle-outline: #000;
+  --subtitle-color: var(--jpdb-reader-video-text);
+  --subtitle-outline: var(--jpdb-reader-video-outline);
   --subtitle-background-rgba: transparent;
   --subtitle-family: var(--jpdb-reader-font);
   --subtitle-weight: 760;
@@ -26,8 +26,8 @@
   text-shadow:
     0 1px 2px var(--subtitle-outline),
     0 0 3px var(--subtitle-outline),
-    0 0 8px rgba(0,0,0,.92),
-    0 3px 12px rgba(0,0,0,.72);
+    0 0 8px var(--jpdb-reader-video-shadow-strong),
+    0 3px 12px var(--jpdb-reader-video-shadow);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: keep-all;
@@ -43,6 +43,11 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+.jpdb-subtitle-video-out-of-view .jpdb-subtitle-text,
+.jpdb-subtitle-video-out-of-view .jpdb-subtitle-rail {
+  display: none !important;
+  pointer-events: none !important;
 }
 .jpdb-subtitle-primary {
   display: inline;
@@ -68,13 +73,13 @@
   padding: 0;
   border: 0 !important;
   background: transparent !important;
-  color: rgba(255,255,255,.82);
+  color: var(--jpdb-reader-video-text-muted);
   font-size: .62em;
   font-family: inherit;
   font-weight: 650;
   line-height: 1.25;
   min-height: 24px;
-  text-shadow: 0 2px 2px #000, 0 0 7px rgba(0,0,0,.86);
+  text-shadow: 0 2px 2px var(--jpdb-reader-black), 0 0 7px var(--jpdb-reader-video-shadow-heavy);
   cursor: pointer;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -103,9 +108,9 @@
   color: var(--subtitle-color);
 }
 .jpdb-subtitle-word-spoken {
-  color: color-mix(in srgb, var(--jpdb-reader-accent, #5ea780) 58%, var(--subtitle-color));
+  color: color-mix(in srgb, var(--jpdb-reader-accent) 58%, var(--subtitle-color));
   text-decoration-line: underline;
-  text-decoration-color: var(--jpdb-reader-accent, #5ea780);
+  text-decoration-color: var(--jpdb-reader-accent);
   text-decoration-thickness: .09em;
   text-underline-offset: .16em;
 }
@@ -119,10 +124,11 @@
   --jpdb-reader-subtitle-fallback: var(--subtitle-color);
   --jpdb-reader-subtitle-highlight-default: color-mix(
     in srgb,
-    var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 24%,
+    var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 24%,
     transparent
   );
   background: transparent !important;
+  box-shadow: none;
   color: var(--subtitle-color) !important;
   --jpdb-reader-word-underline: transparent;
   text-decoration-line: underline !important;
@@ -134,58 +140,115 @@
   text-shadow:
     0 1px 2px var(--subtitle-outline),
     0 0 3px var(--subtitle-outline),
-    0 0 8px rgba(0,0,0,.92),
-    0 3px 12px rgba(0,0,0,.72);
+    0 0 8px var(--jpdb-reader-video-shadow-strong),
+    0 3px 12px var(--jpdb-reader-video-shadow);
   -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline) 78%, transparent);
   paint-order: stroke fill;
 }
 .jpdb-subtitle-primary .jpdb-reader-word:hover,
 .jpdb-subtitle-primary .jpdb-reader-word:focus-visible {
-  background: rgba(255,255,255,.14) !important;
+  background: var(--jpdb-reader-video-control-hover) !important;
 }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 1.48;
 }
-:is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
-  --jpdb-reader-subtitle-status-color: var(--jpdb-reader-status-color, var(--jpdb-reader-state-new, #58a6ff));
-  --jpdb-reader-subtitle-jpdb-color: var(--jpdb-reader-jpdb-color, var(--jpdb-reader-state-new, #58a6ff));
-  --jpdb-reader-subtitle-anki-color: var(--jpdb-reader-anki-color, var(--jpdb-reader-state-new, #58a6ff));
-  --jpdb-reader-subtitle-pitch-color: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown, #94a3b8));
+:is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  --jpdb-reader-subtitle-status-color: var(--jpdb-reader-status-color, var(--jpdb-reader-state-new));
+  --jpdb-reader-subtitle-status-text: var(--jpdb-reader-status-readable, var(--jpdb-reader-subtitle-status-color));
+  --jpdb-reader-subtitle-jpdb-color: var(--jpdb-reader-jpdb-color, var(--jpdb-reader-state-new));
+  --jpdb-reader-subtitle-jpdb-text: var(--jpdb-reader-jpdb-readable, var(--jpdb-reader-subtitle-jpdb-color));
+  --jpdb-reader-subtitle-anki-color: var(--jpdb-reader-anki-color, var(--jpdb-reader-state-new));
+  --jpdb-reader-subtitle-anki-text: var(--jpdb-reader-anki-readable, var(--jpdb-reader-subtitle-anki-color));
+  --jpdb-reader-subtitle-pitch-color: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown));
+  --jpdb-reader-subtitle-pitch-text: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-subtitle-pitch-color));
   --jpdb-reader-subtitle-source-status-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-status-color) 32%, transparent);
   --jpdb-reader-subtitle-source-jpdb-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-jpdb-color) 32%, transparent);
   --jpdb-reader-subtitle-source-anki-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-anki-color) 32%, transparent);
   --jpdb-reader-subtitle-source-pitch-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-color) 30%, transparent);
   --jpdb-reader-subtitle-highlight-default: color-mix(
     in srgb,
-    var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 24%,
+    var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 24%,
     transparent
   );
   --jpdb-reader-word-underline: transparent;
   background: transparent !important;
+  box-shadow: none;
   color: var(--jpdb-reader-subtitle-fallback, currentColor) !important;
   text-decoration-line: underline !important;
   text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
 }
-.jpdb-reader-subtitle-highlight-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-status-soft, var(--jpdb-reader-source-status-soft, var(--jpdb-reader-subtitle-highlight-default))); }
-.jpdb-reader-subtitle-highlight-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-jpdb-soft, var(--jpdb-reader-source-jpdb-soft, var(--jpdb-reader-subtitle-highlight-default))); }
-.jpdb-reader-subtitle-highlight-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-anki-soft, var(--jpdb-reader-source-anki-soft, var(--jpdb-reader-subtitle-highlight-default))); }
-.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-pitch-soft, var(--jpdb-reader-source-pitch-soft, var(--jpdb-reader-subtitle-highlight-default))); }
-.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-status-color); }
-.jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-color); }
-.jpdb-reader-subtitle-underline-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-anki-color); }
-.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-color); }
-.jpdb-reader-subtitle-text-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-status-color); }
-.jpdb-reader-subtitle-text-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-jpdb-color); }
-.jpdb-reader-subtitle-text-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-anki-color); }
-.jpdb-reader-subtitle-text-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-pitch-color); }
-:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+.jpdb-reader-subtitle-highlight-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-status-soft, var(--jpdb-reader-source-status-soft, var(--jpdb-reader-subtitle-highlight-default))); }
+.jpdb-reader-subtitle-highlight-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-jpdb-soft, var(--jpdb-reader-source-jpdb-soft, var(--jpdb-reader-subtitle-highlight-default))); }
+.jpdb-reader-subtitle-highlight-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-anki-soft, var(--jpdb-reader-source-anki-soft, var(--jpdb-reader-subtitle-highlight-default))); }
+.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-pitch-soft, var(--jpdb-reader-source-pitch-soft, var(--jpdb-reader-subtitle-highlight-default))); }
+.jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-status-color); }
+.jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-color); }
+.jpdb-reader-subtitle-underline-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-anki-color); }
+.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-color); }
+.jpdb-reader-subtitle-text-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-status-text); }
+.jpdb-reader-subtitle-text-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-jpdb-text); }
+.jpdb-reader-subtitle-text-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-anki-text); }
+.jpdb-reader-subtitle-text-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-pitch-text); }
+:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
   background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important;
 }
-:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word.jpdb-reader-has-furi {
+  background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important;
+}
+:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-reader-ruby-base {
+  background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important;
+  border-radius: 3px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-subtitle-pitch-color) 36%,
+    var(--jpdb-reader-highlight-backdrop)
+  ) !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-color) 72%, transparent),
+    var(--jpdb-reader-highlight-shadow);
+}
+.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word.jpdb-reader-has-furi {
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-subtitle-pitch-color) 36%,
+    var(--jpdb-reader-highlight-backdrop)
+  ) !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-color) 72%, transparent),
+    var(--jpdb-reader-highlight-shadow);
+}
+.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-reader-ruby-base {
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-subtitle-pitch-color) 36%,
+    var(--jpdb-reader-highlight-backdrop)
+  ) !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-color) 72%, transparent),
+    var(--jpdb-reader-highlight-shadow);
+}
+:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
   text-decoration-line: underline !important;
 }
-:is(.jpdb-reader-subtitle-text-status, .jpdb-reader-subtitle-text-jpdb, .jpdb-reader-subtitle-text-anki, .jpdb-reader-subtitle-text-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  text-decoration-thickness: .12em !important;
+  text-underline-offset: .12em !important;
+}
+:is(.jpdb-reader-subtitle-text-status, .jpdb-reader-subtitle-text-jpdb, .jpdb-reader-subtitle-text-anki, .jpdb-reader-subtitle-text-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
   color: var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
+}
+:is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)
+  :is(.jpdb-reader-newtab-immersion, [data-immersion-kit])
+  .jpdb-reader-example-sentence.jpdb-reader-subtitle-surface
+  .jpdb-reader-word {
+  color: var(
+    --jpdb-reader-word-accessible-color,
+    var(--jpdb-reader-word-color-source, var(--jpdb-reader-subtitle-fallback, currentColor))
+  ) !important;
 }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending { opacity: .42; }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken {
@@ -198,10 +261,22 @@
   --jpdb-reader-word-underline: transparent;
   background: color-mix(
     in srgb,
-    var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent, #5ea780)) 34%,
-    rgb(0 0 0 / 38%)
+    var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%,
+    var(--jpdb-reader-video-target-backdrop)
   ) !important;
   text-decoration-color: transparent !important;
+}
+.jpdb-subtitle-primary
+  .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi
+  .jpdb-reader-ruby-base {
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%,
+    var(--jpdb-reader-video-target-backdrop)
+  ) !important;
+  border-radius: 0.22em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending {
   filter: saturate(.72);
@@ -212,7 +287,33 @@
   text-shadow:
     0 1px 1px var(--subtitle-outline),
     0 0 3px var(--subtitle-outline),
-    0 0 7px rgba(0,0,0,.86);
+    0 0 7px var(--jpdb-reader-video-shadow-heavy);
+}
+.jpdb-reader-popover [data-immersion-kit] .jpdb-reader-example-card.has-image .jpdb-reader-example-media {
+  --subtitle-font-size: clamp(13px, 3.5cqw, min(var(--subtitle-font-size-target, 18px), 18px));
+}
+.jpdb-reader-popover [data-immersion-kit] .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.jpdb-reader-popover [data-immersion-kit] .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-subtitle-primary {
+  color: var(--subtitle-color);
+  font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+  text-wrap: wrap;
+  background: var(--subtitle-background-rgba);
+  box-shadow: none;
+  text-shadow:
+    0 1px 2px var(--subtitle-outline),
+    0 0 3px var(--subtitle-outline),
+    0 0 8px var(--jpdb-reader-video-shadow-strong),
+    0 3px 12px var(--jpdb-reader-video-shadow);
+  -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline) 78%, transparent);
+  paint-order: stroke fill;
 }
 .jpdb-subtitle-primary-loading {
   opacity: .78;
@@ -224,8 +325,8 @@
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 10px;
   background:
-    linear-gradient(135deg, rgba(255,255,255,.10) 25%, transparent 25% 50%, rgba(255,255,255,.10) 50% 75%, transparent 75%) 0 0 / 28px 28px,
-    #1c222b;
+    linear-gradient(135deg, var(--jpdb-reader-video-grid-line) 25%, transparent 25% 50%, var(--jpdb-reader-video-grid-line) 50% 75%, transparent 75%) 0 0 / 28px 28px,
+    var(--jpdb-reader-video-panel);
   display: grid;
   place-items: center;
   text-align: center;
@@ -235,46 +336,64 @@
   text-shadow:
     0 1px 2px var(--subtitle-outline),
     0 0 3px var(--subtitle-outline),
-    0 0 8px rgba(0,0,0,.86);
+    0 0 8px var(--jpdb-reader-video-shadow-heavy);
 }
 .jpdb-reader-subtitle-preview .jpdb-subtitle-primary {
   display: inline;
 }
 .jpdb-reader-subtitle-preview .jpdb-reader-word {
-  --jpdb-reader-source-status-color: var(--jpdb-reader-status-color, var(--jpdb-reader-state-new, #58a6ff));
+  --jpdb-reader-source-status-color: var(--jpdb-reader-status-readable, var(--jpdb-reader-status-color, var(--jpdb-reader-state-new)));
   --jpdb-reader-source-status-decoration: var(--jpdb-reader-source-status-color);
-  --jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-color, var(--jpdb-reader-state-new, #58a6ff));
+  --jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-readable, var(--jpdb-reader-jpdb-color, var(--jpdb-reader-state-new)));
   --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-source-jpdb-color);
-  --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown, #94a3b8));
+  --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown)));
   --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-source-pitch-color);
 }
-.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-new, .jpdb-suspended, .jpdb-not-in-deck) {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new, #58a6ff);
-  --jpdb-reader-status-color: var(--jpdb-reader-state-new, #58a6ff);
+.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck) {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-new-readable);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-new);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-new-readable);
+}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-suspended {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-ignored);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-ignored-readable);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-ignored);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-ignored-readable);
 }
 .jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-learning {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning, #ffd166);
-  --jpdb-reader-status-color: var(--jpdb-reader-state-learning, #ffd166);
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-learning-readable);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-learning);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-learning-readable);
 }
 .jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant) {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known, #7bd88f);
-  --jpdb-reader-status-color: var(--jpdb-reader-state-known, #7bd88f);
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-known-readable);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-known);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-known-readable);
 }
 .jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-due {
-  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-due, #5fb3b3);
-  --jpdb-reader-status-color: var(--jpdb-reader-state-due, #5fb3b3);
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-due);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-due-readable);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-due);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-due-readable);
 }
 .jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-heiban {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban, #359eff);
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-heiban-readable);
 }
 .jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-atamadaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka, #fe4b74);
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-atamadaka-readable);
 }
 .jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-nakadaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka, #fba840);
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-nakadaka-readable);
 }
 .jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-odaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka, #57ccb7);
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-odaka-readable);
 }
 .jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-status .jpdb-subtitle-primary .jpdb-reader-word {
   color: var(--jpdb-reader-source-status-color, var(--subtitle-color)) !important;
@@ -309,31 +428,26 @@
   gap: 4px;
   max-width: calc(100% - 20px);
   padding: 4px;
-  border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));
+  border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 82%, transparent);
-  box-shadow: 0 12px 30px rgba(0,0,0,.22);
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 82%, transparent);
+  box-shadow: 0 12px 30px var(--jpdb-reader-shadow);
   backdrop-filter: blur(14px);
   pointer-events: auto;
   opacity: .78;
+  transform: translateY(0);
+  transition: opacity .16s ease, transform .16s ease;
 }
 .jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {
-  opacity: .88;
-  pointer-events: auto;
-}
-.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail button[data-action="previous"],
-.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail button[data-action="next"] {
   opacity: 0;
   pointer-events: none;
+  transform: translateY(-4px);
 }
 .jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: .72; }
 .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
-  opacity: .88;
-}
-.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="previous"],
-.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="next"] {
   opacity: 0;
   pointer-events: none;
+  transform: translateY(-4px);
 }
 .jpdb-subtitle-controls-always .jpdb-subtitle-rail {
   opacity: 1;
@@ -344,10 +458,10 @@
 }
 .jpdb-subtitle-rail button,
 .jpdb-subtitle-list button {
-  border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.16));
+  border: 1px solid var(--jpdb-reader-border);
   border-radius: 7px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 86%, transparent);
-  color: var(--jpdb-reader-text, #fff);
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 86%, transparent);
+  color: var(--jpdb-reader-text);
   box-shadow: none;
   font: 700 12px/1 var(--jpdb-reader-font);
   pointer-events: auto;
@@ -372,8 +486,8 @@
   padding-bottom: 2px;
 }
 .jpdb-subtitle-panel-toggle {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border, rgba(255,255,255,.22))) !important;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface, #20242b)) !important;
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border)) !important;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface)) !important;
 }
 .jpdb-subtitle-icon {
   width: 17px;
@@ -385,9 +499,9 @@
   stroke-linejoin: round;
 }
 .jpdb-subtitle-panel-toggle[aria-pressed="false"] {
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.72));
-  border-color: var(--jpdb-reader-border, rgba(255,255,255,.18)) !important;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 86%, transparent) !important;
+  color: var(--jpdb-reader-muted);
+  border-color: var(--jpdb-reader-border) !important;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 86%, transparent) !important;
 }
 .jpdb-subtitle-rail button[hidden] {
   display: none !important;
@@ -412,8 +526,8 @@
 .jpdb-subtitle-list[hidden] { display: none; }
 .jpdb-subtitle-track-row button[aria-pressed="true"] {
   border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-text, #fff);
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface, #20242b));
+  color: var(--jpdb-reader-text);
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
 }
 .jpdb-subtitle-list {
   position: fixed;
@@ -425,15 +539,45 @@
   overflow: hidden;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border, rgba(255,255,255,.18)) 88%, rgba(255,255,255,.10));
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 88%, var(--jpdb-reader-video-grid-line));
   border-radius: 22px;
-  background: color-mix(in srgb, var(--jpdb-reader-bg, #181b20) 94%, rgba(255,255,255,.06));
-  color: var(--jpdb-reader-text, #fff);
-  box-shadow: 0 24px 56px rgba(0,0,0,.32);
+  background: color-mix(in srgb, var(--jpdb-reader-bg) 94%, color-mix(in srgb, var(--jpdb-reader-white) 6%, transparent));
+  color: var(--jpdb-reader-text);
+  box-shadow: 0 24px 56px var(--jpdb-reader-shadow);
   pointer-events: auto;
   backdrop-filter: blur(18px) saturate(1.08);
   -webkit-backdrop-filter: blur(18px) saturate(1.08);
   transform: translateZ(0);
+  opacity: 1;
+  transition: opacity .16s ease, transform .16s ease;
+}
+.jpdb-subtitle-list.jpdb-subtitle-panel-entering,
+.jpdb-subtitle-list.jpdb-subtitle-panel-closing {
+  opacity: 0;
+}
+.jpdb-subtitle-list.jpdb-subtitle-transcript-right.jpdb-subtitle-panel-entering,
+.jpdb-subtitle-list.jpdb-subtitle-transcript-right.jpdb-subtitle-panel-closing {
+  transform: translate3d(10px, 0, 0);
+}
+.jpdb-subtitle-list.jpdb-subtitle-transcript-left.jpdb-subtitle-panel-entering,
+.jpdb-subtitle-list.jpdb-subtitle-transcript-left.jpdb-subtitle-panel-closing {
+  transform: translate3d(-10px, 0, 0);
+}
+.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom.jpdb-subtitle-panel-entering,
+.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom.jpdb-subtitle-panel-closing {
+  transform: translate3d(0, 10px, 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .jpdb-subtitle-rail,
+  .jpdb-subtitle-list {
+    transition: none;
+  }
+  .jpdb-subtitle-list.jpdb-subtitle-panel-entering,
+  .jpdb-subtitle-list.jpdb-subtitle-panel-closing,
+  .jpdb-subtitle-controls-hidden .jpdb-subtitle-rail,
+  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
+    transform: none;
+  }
 }
 html.jpdb-subtitle-yomu-captions-active .ytp-caption-window-container,
 html.jpdb-subtitle-yomu-captions-active .caption-window,
@@ -503,7 +647,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   content: "";
   position: absolute;
   border-radius: 999px;
-  background: rgba(255,255,255,.22);
+  background: color-mix(in srgb, var(--jpdb-reader-white) 22%, transparent);
   opacity: .46;
 }
 .jpdb-subtitle-resize:hover::after,
@@ -573,8 +717,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   align-items: start;
   gap: 12px;
   padding: 14px 14px 12px;
-  border-bottom: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.12));
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 76%, transparent);
+  border-bottom: 1px solid var(--jpdb-reader-border);
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 76%, transparent);
 }
 .jpdb-subtitle-transcript-bottom .jpdb-subtitle-drawer-head {
   padding-top: 40px;
@@ -586,13 +730,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 }
 .jpdb-subtitle-drawer-title {
   min-width: 0;
-  color: var(--jpdb-reader-text, #fff);
+  color: var(--jpdb-reader-text);
   font: 800 15px/1.2 var(--jpdb-reader-font);
   letter-spacing: .01em;
 }
 .jpdb-subtitle-drawer-meta {
   min-width: 0;
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.78));
+  color: var(--jpdb-reader-muted);
   font: 700 11px/1.35 var(--jpdb-reader-font);
   white-space: nowrap;
   overflow: hidden;
@@ -605,9 +749,39 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   align-items: center;
   gap: 8px;
 }
+.jpdb-subtitle-drawer-auto {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 58px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0 10px !important;
+  border-radius: 12px !important;
+  font-size: 11px;
+  font-weight: 800;
+}
+.jpdb-subtitle-drawer-auto[aria-pressed="true"] {
+  border-color: var(--jpdb-reader-accent);
+  background: var(--jpdb-reader-accent-soft);
+  color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
+}
+.jpdb-subtitle-drawer-auto svg,
 .jpdb-subtitle-drawer-close {
   display: inline-grid;
   place-items: center;
+}
+.jpdb-subtitle-drawer-auto svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.jpdb-subtitle-drawer-close {
   min-width: 34px;
   width: 34px;
   min-height: 34px;
@@ -633,9 +807,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   align-items: center;
   gap: 2px;
   padding: 2px;
-  border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));
+  border: 1px solid var(--jpdb-reader-border);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 82%, transparent);
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 82%, transparent);
 }
 .jpdb-subtitle-panel-mode button {
   min-height: 30px;
@@ -649,8 +823,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   font-weight: 700;
 }
 .jpdb-subtitle-panel-mode button[aria-pressed="true"] {
-  color: var(--jpdb-reader-text, #fff);
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface, #20242b));
+  color: var(--jpdb-reader-text);
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
 }
 .jpdb-subtitle-panel-mode button:disabled {
   opacity: .42;
@@ -693,7 +867,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   min-height: 76px;
   padding: 16px 18px;
   border: 0;
-  border-bottom: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.15));
+  border-bottom: 1px solid var(--jpdb-reader-border);
   border-radius: 0;
   background: transparent;
   cursor: pointer;
@@ -718,7 +892,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   grid-template-columns: 30px auto;
   align-items: center;
   gap: 12px;
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.82));
+  color: var(--jpdb-reader-muted);
 }
 .jpdb-subtitle-row-copy {
   display: inline-grid;
@@ -731,39 +905,42 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.82)) !important;
+  color: var(--jpdb-reader-muted) !important;
 }
 .jpdb-subtitle-list-row.active {
-  border-color: var(--jpdb-reader-border, rgba(255,255,255,.16));
+  border-color: var(--jpdb-reader-border);
   background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, transparent);
   box-shadow: inset 2px 0 0 var(--jpdb-reader-accent);
 }
 .jpdb-subtitle-row-time {
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.82));
-  font-size: 16px;
-  line-height: 1.2;
-  font-weight: 760;
+  color: var(--jpdb-reader-muted);
+  font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 700;
   white-space: nowrap;
 }
 .jpdb-subtitle-row-text {
   min-width: 0;
   max-width: 100%;
   grid-column: 1;
-  color: var(--jpdb-reader-text, #fff);
+  color: var(--jpdb-reader-text);
   overflow-wrap: anywhere;
   word-break: break-word;
   white-space: normal;
-  font-weight: 600;
+  font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
+  font-weight: var(--jpdb-reader-popup-font-weight, 400);
   line-height: 1.45;
-  font-size: 22px;
+  font-size: 16px;
   letter-spacing: 0;
-  text-shadow: 0 1px 1px rgba(0,0,0,.38);
+  text-shadow: none;
 }
 .jpdb-subtitle-row-text .jpdb-reader-word {
-  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text, #fff);
+  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);
   color: inherit;
   background: transparent;
   text-decoration-color: var(--jpdb-reader-word-underline, transparent);
+  box-shadow: none;
   text-decoration-thickness: .08em;
   text-underline-offset: .16em;
   border-radius: 4px;
@@ -773,6 +950,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   word-break: break-word;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
+  font-weight: inherit;
 }
 .jpdb-subtitle-row-text ruby,
 .jpdb-subtitle-row-text rt,
@@ -781,14 +959,14 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 }
 .jpdb-subtitle-row-text .jpdb-reader-word:hover,
 .jpdb-subtitle-row-text .jpdb-reader-word:focus-visible {
-  background: var(--jpdb-reader-hover, rgba(255,255,255,.14));
-  outline: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.28));
+  background: var(--jpdb-reader-hover, var(--jpdb-reader-video-control-hover));
+  outline: 1px solid var(--jpdb-reader-border);
 }
 .jpdb-subtitle-row-translation {
   grid-column: 1;
   min-width: 0;
   margin-top: 3px;
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.68));
+  color: var(--jpdb-reader-muted);
   overflow-wrap: anywhere;
   font-style: normal;
   font-weight: 650;
@@ -802,12 +980,12 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 3px 8px;
   padding: 7px 8px;
-  border: 1px solid var(--jpdb-reader-border, rgba(255,255,255,.14));
+  border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: transparent;
 }
 .jpdb-subtitle-track-row.active {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 68%, var(--jpdb-reader-border, rgba(255,255,255,.14)));
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 68%, var(--jpdb-reader-border));
   background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, transparent);
 }
 .jpdb-subtitle-track-row strong {
@@ -826,14 +1004,14 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-track-title span {
   padding: 1px 5px;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 86%, transparent);
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.72));
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 86%, transparent);
+  color: var(--jpdb-reader-muted);
   font-size: 8px;
   text-transform: uppercase;
 }
 .jpdb-subtitle-track-row span {
   grid-column: 1;
-  color: var(--jpdb-reader-faint, rgba(255,255,255,.62));
+  color: var(--jpdb-reader-faint);
   font-size: 9px;
   font-weight: 700;
 }
@@ -873,21 +1051,21 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-track-summary {
   margin: 0 0 3px;
   padding: 5px 7px;
-  border: 1px dashed var(--jpdb-reader-border, rgba(255,255,255,.16));
+  border: 1px dashed var(--jpdb-reader-border);
   border-radius: 8px;
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.72));
+  color: var(--jpdb-reader-muted);
   background: transparent;
   font: 750 11px/1.3 var(--jpdb-reader-font);
 }
 .jpdb-subtitle-track-hint {
   margin: -1px 0 4px;
   padding: 0 2px;
-  color: var(--jpdb-reader-faint, rgba(255,255,255,.6));
+  color: var(--jpdb-reader-faint);
   font: 700 10px/1.35 var(--jpdb-reader-font);
 }
 .jpdb-subtitle-list-empty {
   padding: 12px;
-  color: var(--jpdb-reader-muted, rgba(255,255,255,.72));
+  color: var(--jpdb-reader-muted);
   font: 700 12px/1.35 var(--jpdb-reader-font);
 }
 .jpdb-subtitle-hidden .jpdb-subtitle-text { display: none; }

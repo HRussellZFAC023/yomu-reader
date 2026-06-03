@@ -1,8 +1,10 @@
 import { Logger } from './logger';
 import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from './settings';
-import type { AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, ReaderColorSource, ReaderSettings } from './types';
+import type { AnkiFieldMapping, AnkiFieldMappingRole, AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, ReaderColorSource, ReaderSettings } from './types';
 
 const log = Logger.scope('SettingsForm');
+export const CUSTOM_FONT_FAMILY_VALUE = '__custom_font_family__';
+type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
 export type SelectableReaderColorSource = Exclude<ReaderColorSource, 'auto'>;
 export type ColorSourceSettingName =
     | 'wordHighlightColorSource'
@@ -14,19 +16,19 @@ export type ColorSourceSettingName =
 
 export const COLOR_SOURCE_VALUES: readonly SelectableReaderColorSource[] = ['status', 'jpdb', 'anki', 'pitch', 'off'];
 export const COLOR_SOURCE_OPTIONS: [SelectableReaderColorSource, string][] = [
-    ['status', 'Available status'],
+    ['status', 'JPDB + Anki status'],
     ['jpdb', 'JPDB status'],
     ['anki', 'Anki status'],
     ['pitch', 'Pitch accent'],
     ['off', 'Off'],
 ];
 const DEFAULT_COLOR_SOURCE_VALUES: Record<ColorSourceSettingName, SelectableReaderColorSource> = {
-    wordHighlightColorSource: 'pitch',
-    wordUnderlineColorSource: 'jpdb',
-    wordTextColorSource: 'off',
+    wordHighlightColorSource: 'jpdb',
+    wordUnderlineColorSource: 'pitch',
+    wordTextColorSource: 'anki',
     subtitleHighlightColorSource: 'jpdb',
     subtitleUnderlineColorSource: 'pitch',
-    subtitleTextColorSource: 'jpdb',
+    subtitleTextColorSource: 'anki',
 };
 
 interface SettingsFormReader {
@@ -141,17 +143,18 @@ function readKanjiAddonFormSettings(reader: SettingsFormReader, current: ReaderS
 
 function readAudioFormSettings(reader: SettingsFormReader, current: ReaderSettings, audioSources: AudioSourceSetting[]): Partial<ReaderSettings> {
     const { get, has, number } = reader;
+    const audioAutoPlayMode = readOption(get('audioAutoPlayMode'), ['off', 'all', 'hover', 'tap'] as const, current.audioAutoPlayMode);
     return {
         audioEnabled: has('audioEnabled'),
-        autoPlayAudio: has('autoPlayAudio'),
+        autoPlayAudio: audioAutoPlayMode !== 'off',
         suppressAutoAudioOnVideo: has('suppressAutoAudioOnVideo'),
-        audioAutoPlayMode: readOption(get('audioAutoPlayMode'), ['all', 'hover', 'tap'] as const, current.audioAutoPlayMode),
+        audioAutoPlayMode,
         audioSources,
         audioEnableDefaultSources: has('audioEnableDefaultSources'),
         audioSourceUrl: audioSources.find(source => source.url.trim())?.url.trim() ?? current.audioSourceUrl,
         audioViaBlob: current.audioViaBlob,
         audioFallbackChimeEnabled: has('audioFallbackChimeEnabled'),
-        audioTimeoutMs: Math.max(1000, number('audioTimeoutMs', current.audioTimeoutMs)),
+        audioTimeoutMs: Math.max(1000, Math.min(30000, number('audioTimeoutMs', current.audioTimeoutMs))),
         audioSelectionMode: readOption(get('audioSelectionMode'), ['first', 'random'] as const, current.audioSelectionMode),
         audioTtsMode: readOption(get('audioTtsMode'), ['fallback', 'source-order'] as const, current.audioTtsMode),
     };
@@ -193,8 +196,6 @@ function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: Rea
         hoverCloseDelayMs: Math.max(0, Math.min(3000, number('hoverCloseDelayMs', current.hoverCloseDelayMs))),
         popupActivationMode: current.popupActivationMode,
         scanModifierKey: current.scanModifierKey,
-        autoScanJapanese: has('autoScanJapanese'),
-        scanVisiblePage: has('scanVisiblePage'),
         showFloatingButton: has('showFloatingButton'),
     };
 }
@@ -204,6 +205,7 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
     return {
         newTabEnabled: has('newTabEnabled'),
         newTabAnkiEnabled: has('newTabAnkiEnabled'),
+        newTabAnkiDisabledDecks: get('newTabAnkiDisabledDecks').split(',').map(deck => deck.trim()).filter(Boolean),
         newTabSource: readOption(get('newTabSource'), ['auto', 'jpdb', 'anki', 'dictionary'] as const, current.newTabSource),
         newTabJpdbDeck: get('newTabJpdbDeck').trim() || current.newTabJpdbDeck,
         newTabJpdbReviewMode: readOption(get('newTabJpdbReviewMode'), ['auto', 'api-vocabulary', 'live-review'] as const, current.newTabJpdbReviewMode),
@@ -244,8 +246,11 @@ function readLocalDictionaryFormSettings(reader: SettingsFormReader, current: Re
 
 function readAnkiFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has } = reader;
+    const sectionRowPresent = Boolean(get('ankiSection.name') || get('ankiSection.priority') || has('ankiSection.enabled'));
     return {
         ankiEnabled: has('ankiEnabled'),
+        ankiSectionEnabled: sectionRowPresent ? has('ankiSection.enabled') : current.ankiSectionEnabled,
+        ankiSectionPriority: sectionRowPresent ? Math.max(0, Math.min(999, reader.number('ankiSection.priority', current.ankiSectionPriority))) : current.ankiSectionPriority,
         ankiConnectUrl: get('ankiConnectUrl').trim() || current.ankiConnectUrl,
         ankiDeck: get('ankiDeck').trim() || current.ankiDeck,
         ankiModel: get('ankiModel').trim() || current.ankiModel,
@@ -253,11 +258,38 @@ function readAnkiFormSettings(reader: SettingsFormReader, current: ReaderSetting
         ankiFrontReading: has('ankiFrontReading'),
         ankiFrontSentence: has('ankiFrontSentence'),
         ankiFrontImage: has('ankiFrontImage'),
+        ankiFieldMappings: readAnkiFieldMappings(get('ankiFieldMappings'), current.ankiFieldMappings),
         ankiTags: get('ankiTags').trim(),
         ankiMineWithJpdb: has('ankiMineWithJpdb'),
         ankiCaptureScreenshot: has('ankiCaptureScreenshot'),
         ankiMobileHandoff: has('ankiMobileHandoff'),
     };
+}
+
+const ANKI_FIELD_MAPPING_ROLES: readonly AnkiFieldMappingRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'image'];
+
+function readAnkiFieldMappings(value: string, fallback: AnkiFieldMappings): AnkiFieldMappings {
+    if (!value.trim()) return fallback;
+    try {
+        const parsed = JSON.parse(value) as unknown;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return fallback;
+        const out: AnkiFieldMappings = {};
+        Object.entries(parsed as Record<string, unknown>).forEach(([modelName, mapping]) => {
+            const normalizedModelName = modelName.trim();
+            if (!normalizedModelName || !mapping || typeof mapping !== 'object' || Array.isArray(mapping)) return;
+            const normalizedMapping: AnkiFieldMapping = {};
+            for (const role of ANKI_FIELD_MAPPING_ROLES) {
+                const fieldName = (mapping as Record<string, unknown>)[role];
+                if (typeof fieldName !== 'string') continue;
+                const normalizedFieldName = fieldName.trim();
+                if (normalizedFieldName) normalizedMapping[role] = normalizedFieldName;
+            }
+            if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
+        });
+        return out;
+    } catch {
+        return fallback;
+    }
 }
 
 function readStudyToolFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
@@ -276,12 +308,21 @@ function readPopupFormSettings(reader: SettingsFormReader, current: ReaderSettin
     return {
         theme: readOption(get('theme'), ['auto', 'dark', 'light'] as const, current.theme),
         popupMode,
-        stickyBottomSheet: popupMode !== 'popover' && has('stickyBottomSheet'),
+        stickyBottomSheet: has('stickyBottomSheet'),
         popoverBackdropEnabled: has('popoverBackdropEnabled'),
         popoverWidth: Math.max(280, Math.min(900, number('popoverWidth', current.popoverWidth))),
         popoverHeight: Math.max(220, Math.min(900, number('popoverHeight', current.popoverHeight))),
         popoverHeightMode: readOption(get('popoverHeightMode'), ['available', 'fixed'] as const, current.popoverHeightMode),
+        readerFontFamily: readFontFamilySetting(reader, 'readerFontFamily', current.readerFontFamily),
+        popupFontFamily: readFontFamilySetting(reader, 'popupFontFamily', current.popupFontFamily),
+        popupFontWeight: Math.max(300, Math.min(900, number('popupFontWeight', current.popupFontWeight))),
     };
+}
+
+function readFontFamilySetting(reader: SettingsFormReader, name: FontFamilySettingName, fallback: string): string {
+    const value = reader.get(name).trim();
+    if (value === CUSTOM_FONT_FAMILY_VALUE) return reader.get(`${name}Custom`).trim() || fallback;
+    return value || fallback;
 }
 
 function readMiningFormSettings(reader: SettingsFormReader): Partial<ReaderSettings> {
@@ -330,6 +371,7 @@ function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSet
         subtitleNativeBlurred: has('subtitleNativeBlurred'),
         subtitleKaraokeMode: has('subtitleKaraokeMode'),
         subtitleTranscriptVisible: has('subtitleTranscriptVisible'),
+        subtitlePausePanel: has('subtitlePausePanel'),
         subtitleTranscriptPlacement: readOption(get('subtitleTranscriptPlacement'), ['right', 'left', 'bottom'] as const, current.subtitleTranscriptPlacement),
         subtitleTranscriptAutoScroll: has('subtitleTranscriptAutoScroll'),
         subtitleAutoCopyLine: has('subtitleAutoCopyLine'),
@@ -340,7 +382,7 @@ function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSet
         subtitleOutlineColor: sanitizeAccentColor(get('subtitleOutlineColor'), current.subtitleOutlineColor),
         subtitleBackgroundColor: sanitizeAccentColor(get('subtitleBackgroundColor'), current.subtitleBackgroundColor),
         subtitleBackgroundOpacity: Math.max(0, Math.min(1, number('subtitleBackgroundOpacity', current.subtitleBackgroundOpacity))),
-        subtitleFontFamily: get('subtitleFontFamily').trim() || current.subtitleFontFamily,
+        subtitleFontFamily: readFontFamilySetting(reader, 'subtitleFontFamily', current.subtitleFontFamily),
         subtitleFontWeight: Math.max(100, Math.min(900, number('subtitleFontWeight', current.subtitleFontWeight))),
         subtitleMiningPause: has('subtitleMiningPause'),
         subtitleSeekPadding: Math.max(-2, Math.min(2, number('subtitleSeekPadding', current.subtitleSeekPadding))),
@@ -378,6 +420,7 @@ function readYoutubeFormSettings(reader: SettingsFormReader): Partial<ReaderSett
     const { has } = reader;
     return {
         youtubeImmersionEnabled: has('youtubeImmersionEnabled'),
+        preferJapaneseSiteLanguage: has('preferJapaneseSiteLanguage'),
         youtubeShowFilterNotice: has('youtubeShowFilterNotice'),
     };
 }
@@ -390,6 +433,8 @@ function readShortcutFormSettings(reader: SettingsFormReader): ReaderSettings['s
         openSettings: get('shortcuts.openSettings'),
         playAudio: get('shortcuts.playAudio'),
         closePopup: get('shortcuts.closePopup'),
+        previousLookupWord: get('shortcuts.previousLookupWord'),
+        nextLookupWord: get('shortcuts.nextLookupWord'),
         previousSubtitle: get('shortcuts.previousSubtitle'),
         nextSubtitle: get('shortcuts.nextSubtitle'),
         copySubtitle: get('shortcuts.copySubtitle'),

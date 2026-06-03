@@ -96,7 +96,7 @@ const devMetadata = () => {
         ...connects.map(connect => metadataLine('connect', connect)),
         ...grants.map(grant => metadataLine('grant', grant)),
         metadataLine('inject-into', 'content'),
-        metadataLine('run-at', 'document-idle'),
+        metadataLine('run-at', 'document-start'),
         '// ==/UserScript==',
     ];
 
@@ -189,7 +189,7 @@ const listen = () => server.listen(port, host, () => {
     console.log(`[yomu-dev] serving ${origin}`);
     console.log(`[yomu-dev] install ${origin}/yomu.user.js`);
     console.log(`[yomu-dev] Vite is rebuilding ${path.relative(process.cwd(), distUserscript)} on changes`);
-    console.log(`[yomu-dev] docs are served by VitePress; open the printed VitePress URL for /yomu-reader/newtab/`);
+    console.log(`[yomu-dev] docs are served by VitePress; open the printed VitePress URL for /yomu-reader/newtab/index.html`);
 });
 
 server.on('error', error => {

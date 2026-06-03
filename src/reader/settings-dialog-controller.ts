@@ -2,7 +2,7 @@ import { AudioPlayer } from './audio';
 import { AnkiConnectClient, canUseMobileAnkiHandoff, needsHostedAnkiConnectSetupHint } from './anki';
 import { copyText } from './browser-ui';
 import { createAudioPreviewCard } from './card-utils';
-import { NEW_TAB_PAGE_URL, SETTINGS_TITLE } from './constants';
+import { NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from './constants';
 import { readerWordSurfaceText, setInnerHtml } from './dom';
 import { JpdbClient } from './jpdb';
 import { configureLogger, Logger, loggingSettingsSummary } from './logger';
@@ -13,18 +13,26 @@ import { mergeDictionaryPreferences, normalizeReaderSettings, saveSettings } fro
 import { exportManagedStoredValues, importStoredValues } from './storage';
 import {
     activateSettingsPanel,
+    applySettingsSearch,
+    ankiStatusLineForSettings,
     getFormInterfaceLanguage,
+    formatSettingsStatusLine,
     installSourceRowDrag,
     installShortcutCapture,
     localizeSettingsForm,
     readFormSettings,
+    renderAnkiFieldMappingEditor,
+    renderAnkiLibraryOptions,
     renderAnkiTemplatePreview,
     renderDeckControls,
     renderDictionarySourceRows,
     renderRecommendedDictionaries,
     renderSettingsForm,
+    jpdbStatusLineForSettings,
     syncAudioSourceRow,
     syncBrowserTtsVoiceOptions,
+    syncDisabledSettingsControlDescriptions,
+    syncFontFamilyControls,
     syncJpdbMiningDependentSettings,
     syncReviewSettingsVisibility,
     syncStickyBottomSheetAvailability,
@@ -33,8 +41,8 @@ import {
     updateDictionaryLookupLinkEditor,
     updateSourceRowEditor,
 } from './settings-form';
-import { dateStamp, downloadBlob, getReaderSettingsExport, pickFile, recommendedDictionaryFilename } from './settings-file-io';
-import type { InterfaceLanguage, ReaderSettings } from './types';
+import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, readerDictionaryExportHasData, recommendedDictionaryFilename } from './settings-file-io';
+import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from './types';
 import { uiText } from './i18n';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from './yomitan';
 
@@ -82,6 +90,7 @@ interface DictionaryStatusElements {
 
 type RecommendedDictionary = (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number];
 type RecommendedDictionaryInstallState = 'queued' | 'installing';
+type ModalSiblingState = Array<{ element: HTMLElement; ariaHidden: string | null; inert: boolean }>;
 
 interface RecommendedDictionaryOperationState {
     state: RecommendedDictionaryInstallState;
@@ -90,6 +99,15 @@ interface RecommendedDictionaryOperationState {
 
 const log = Logger.scope('SettingsDialog');
 const JPDB_SETTINGS_URL = 'https://jpdb.io/settings';
+const SETTINGS_FOCUSABLE_SELECTOR = [
+    'button:not([disabled])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    'a[href]',
+    'summary',
+    '[tabindex]:not([tabindex="-1"])',
+].join(',');
 
 function settingsStatusSetter(status: HTMLElement | null): SettingsStatusSetter {
     return message => {
@@ -125,8 +143,24 @@ function settingsActionButton(control: HTMLElement | null | undefined): HTMLButt
     return control instanceof HTMLButtonElement ? control : control?.closest<HTMLButtonElement>('button') ?? null;
 }
 
+function namedSettingsControl<T extends HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(form: HTMLFormElement, name: string): T | null {
+    const control = form.elements.namedItem(name);
+    return control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement
+        ? control as T
+        : null;
+}
+
 function selectedSettingsPanel(control: HTMLElement | null | undefined): string {
-    return control?.dataset.panel ?? 'basics';
+    return control?.dataset.panel ?? 'jpdb';
+}
+
+function nextSettingsTabIndex(key: string, currentIndex: number, tabCount: number): number {
+    if (currentIndex < 0 || tabCount <= 0) return -1;
+    if (key === 'ArrowRight' || key === 'ArrowDown') return (currentIndex + 1) % tabCount;
+    if (key === 'ArrowLeft' || key === 'ArrowUp') return (currentIndex - 1 + tabCount) % tabCount;
+    if (key === 'Home') return 0;
+    if (key === 'End') return tabCount - 1;
+    return -1;
 }
 
 function handleSettingsActionError(
@@ -187,25 +221,49 @@ export class SettingsDialogController {
     private pendingDictionaryOperations = 0;
     private recommendedDictionaryOperations = new Map<string, RecommendedDictionaryOperationState>();
     private currentForm?: HTMLFormElement;
+    private previouslyFocusedElement?: HTMLElement;
+    private modalSiblingState?: ModalSiblingState;
     private saveRequestId = 0;
+    private ankiConnectionProbeId = 0;
 
     constructor(private readonly dependencies: SettingsDialogDependencies) {}
 
     open(panel?: string): void {
         log.info('Opening settings', { panel: panel ?? 'default' });
+        this.previouslyFocusedElement = document.activeElement instanceof HTMLElement
+            && !document.activeElement.closest('.jpdb-reader-settings')
+            ? document.activeElement
+            : undefined;
         const form = this.createSettingsForm(panel);
         const backdrop = this.dependencies.createBackdrop();
         this.bindFormSubmit(form);
+        this.bindSettingsSearch(form);
+        this.bindSettingsTabs(form);
         this.bindLivePreview(form);
         this.bindEditorControls(form);
         this.currentForm = form;
         this.dependencies.mountDialog(backdrop, form);
+        this.hideBackgroundForModal(backdrop);
         installSettingsDrawerHandle(form, uiText(this.settings.interfaceLanguage, 'resizeSettings'));
         this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
         this.syncRecommendedDictionaryInstallControls(form);
         this.syncDictionaryOperationState(form);
+        this.syncJpdbStatus(form);
+        void this.refreshAnkiConnectionStatus(form);
         void this.refreshDictionaryStatus(form);
         void this.refreshDeckControls(form);
+        this.refreshSettingsJapaneseParse(form);
+    }
+
+    refreshLanguage(language = this.settings.interfaceLanguage): void {
+        const form = this.currentForm;
+        if (!form?.isConnected) return;
+        localizeSettingsForm(form, language);
+        this.syncRecommendedDictionaryInstallControls(form);
+        this.syncDictionaryOperationState(form);
+        this.syncJpdbStatus(form);
+        void this.refreshAnkiConnectionStatus(form);
+        syncSubtitlePreview(form);
         this.refreshSettingsJapaneseParse(form);
     }
 
@@ -251,12 +309,94 @@ export class SettingsDialogController {
                     this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, 'settingsSaveFailed')));
                 });
         });
-        form.querySelector('[data-action="cancel"]')?.addEventListener('click', () => this.dependencies.dismiss());
+        form.querySelector('[data-action="cancel"]')?.addEventListener('click', () => this.dismissSettings());
         form.addEventListener('keydown', event => {
             if (event.key !== 'Escape' || event.isComposing) return;
             event.preventDefault();
             event.stopPropagation();
-            this.dependencies.dismiss();
+            this.dismissSettings();
+        });
+        form.addEventListener('keydown', event => {
+            if (event.key !== 'Tab' || event.isComposing) return;
+            this.trapFocus(form, event);
+        });
+    }
+
+    private dismissSettings(): void {
+        const restoreTarget = this.previouslyFocusedElement;
+        this.previouslyFocusedElement = undefined;
+        this.restoreBackgroundFromModal();
+        this.dependencies.dismiss();
+        if (restoreTarget?.isConnected) restoreTarget.focus({ preventScroll: true });
+    }
+
+    private hideBackgroundForModal(backdrop: HTMLElement): void {
+        this.restoreBackgroundFromModal();
+        const dialogRoot = backdrop.isConnected ? backdrop : this.currentForm;
+        const directRoot = dialogRoot?.parentElement === document.body ? dialogRoot : this.currentForm?.parentElement;
+        if (!directRoot) return;
+        this.modalSiblingState = Array.from(document.body.children)
+            .filter((element): element is HTMLElement => element instanceof HTMLElement && element !== directRoot && !element.contains(this.currentForm ?? null))
+            .map(element => {
+                const state = {
+                    element,
+                    ariaHidden: element.getAttribute('aria-hidden'),
+                    inert: element.inert,
+                };
+                element.setAttribute('aria-hidden', 'true');
+                element.inert = true;
+                return state;
+            });
+    }
+
+    private restoreBackgroundFromModal(): void {
+        this.modalSiblingState?.forEach(({ element, ariaHidden, inert }) => {
+            if (ariaHidden === null) element.removeAttribute('aria-hidden');
+            else element.setAttribute('aria-hidden', ariaHidden);
+            element.inert = inert;
+        });
+        this.modalSiblingState = undefined;
+    }
+
+    private trapFocus(form: HTMLFormElement, event: KeyboardEvent): void {
+        const focusable = Array.from(form.querySelectorAll<HTMLElement>(SETTINGS_FOCUSABLE_SELECTOR))
+            .filter(element => !element.closest('[hidden]') && element.getAttribute('aria-hidden') !== 'true');
+        if (!focusable.length) {
+            event.preventDefault();
+            form.focus();
+            return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement;
+        if (event.shiftKey && (active === first || active === form)) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && active === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
+
+    private bindSettingsSearch(form: HTMLFormElement): void {
+        const input = form.querySelector<HTMLInputElement>('[data-settings-search]');
+        input?.addEventListener('input', () => {
+            applySettingsSearch(form, input.value);
+            this.refreshSettingsJapaneseParse(form);
+        });
+    }
+
+    private bindSettingsTabs(form: HTMLFormElement): void {
+        form.querySelector<HTMLElement>('.jpdb-reader-settings-tabs')?.addEventListener('keydown', event => {
+            if (!(event.target instanceof HTMLButtonElement) || event.target.dataset.action !== 'settings-panel') return;
+            const tabs = Array.from(form.querySelectorAll<HTMLButtonElement>('[data-action="settings-panel"]'));
+            const currentIndex = tabs.indexOf(event.target);
+            const nextIndex = nextSettingsTabIndex(event.key, currentIndex, tabs.length);
+            if (nextIndex < 0) return;
+            event.preventDefault();
+            tabs[nextIndex]?.focus();
+            activateSettingsPanel(form, tabs[nextIndex]?.dataset.panel ?? 'jpdb');
+            this.refreshSettingsJapaneseParse(form);
         });
     }
 
@@ -271,7 +411,7 @@ export class SettingsDialogController {
         this.dependencies.youtube.refresh();
         if (this.currentForm !== form || !form.isConnected || this.saveRequestId !== saveRequestId) return;
         this.dependencies.clearSettingsPreview();
-        this.dependencies.dismiss();
+        this.dismissSettings();
         this.dependencies.scheduleDictionaryRescan();
         this.dependencies.refreshNewTabIfCurrent();
         this.dependencies.toast(uiText(this.settings.interfaceLanguage, 'settingsSaved'));
@@ -295,12 +435,28 @@ export class SettingsDialogController {
             this.settings.theme = next;
             applyThemePreview();
             this.syncThemeSwitch(form);
+            publishThemeSettingsChange(next, { preview: true });
+        });
+        window.addEventListener(SETTINGS_CHANGE_EVENT, event => {
+            if (this.currentForm !== form || !form.isConnected) return;
+            const theme = themeFromSettingsChangeEvent(event);
+            if (!theme) return;
+            const input = form.querySelector<HTMLInputElement>('[data-theme-value]');
+            if (!input || input.value === theme) return;
+            input.value = theme;
+            this.settings.theme = theme;
+            applyThemePreview();
+            this.syncThemeSwitch(form);
         });
         syncSubtitlePreview(form);
+        syncFontFamilyControls(form);
         form.addEventListener('input', event => {
             if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
         });
         form.addEventListener('change', event => {
+            if (this.isFontFamilyControl(event.target)) syncFontFamilyControls(form);
+            if (this.isAnkiFieldMappingControl(event.target)) this.syncAnkiFieldMappingsFromEditor(form);
+            if (this.isAnkiModelControl(event.target)) this.renderAnkiFieldMappingEditor(form);
             if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
             if (this.isColorSourceControl(event.target) || this.isReaderDisplayControl(event.target)) applyThemePreview();
         });
@@ -312,6 +468,7 @@ export class SettingsDialogController {
             if (!translations || !reveal) return;
             reveal.disabled = !translations.checked;
             if (!translations.checked) reveal.checked = false;
+            syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         };
         form.querySelector<HTMLInputElement>('input[name="immersionKitShowTranslation"]')?.addEventListener('change', syncImmersionTranslationReveal);
         syncImmersionTranslationReveal();
@@ -336,6 +493,7 @@ export class SettingsDialogController {
             const enabled = form.querySelector<HTMLInputElement>('input[name="immersionKitLimitEnabled"][value="on"]')?.checked ?? false;
             const limit = form.querySelector<HTMLInputElement>('input[name="immersionKitLimit"]');
             if (limit) limit.disabled = !enabled;
+            syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         };
         form.querySelectorAll<HTMLInputElement>('input[name="immersionKitLimitEnabled"]').forEach(input => {
             input.addEventListener('change', syncImmersionLimit);
@@ -345,12 +503,8 @@ export class SettingsDialogController {
             const value = (event.currentTarget as HTMLSelectElement).value;
             if (value !== 'auto' && value !== 'en' && value !== 'ja') return;
             this.settings.interfaceLanguage = value;
-            localizeSettingsForm(form, value);
-            this.syncRecommendedDictionaryInstallControls(form);
-            this.syncDictionaryOperationState(form);
-            syncSubtitlePreview(form);
+            this.refreshLanguage(value);
             this.dependencies.installFab();
-            this.refreshSettingsJapaneseParse(form);
         });
         form.querySelector<HTMLSelectElement>('select[name="ocrProvider"]')?.addEventListener('change', event => {
             const value = (event.currentTarget as HTMLSelectElement).value;
@@ -364,11 +518,25 @@ export class SettingsDialogController {
         if ('speechSynthesis' in window) {
             window.speechSynthesis.addEventListener('voiceschanged', () => syncBrowserTtsVoiceOptions(form), { once: true });
         }
-        form.querySelector<HTMLInputElement>('input[name="enableReviews"]')?.addEventListener('change', () => syncReviewSettingsVisibility(form));
+        form.querySelector<HTMLInputElement>('input[name="enableReviews"]')?.addEventListener('change', () => {
+            syncReviewSettingsVisibility(form);
+            syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+            this.syncJpdbStatus(form);
+        });
         form.querySelector<HTMLSelectElement>('select[name="twoButtonReviews"]')?.addEventListener('change', () => syncReviewSettingsVisibility(form));
-        form.querySelector<HTMLInputElement>('input[name="jpdbMiningEnabled"]')?.addEventListener('change', () => syncJpdbMiningDependentSettings(form));
+        form.querySelector<HTMLInputElement>('input[name="jpdbMiningEnabled"]')?.addEventListener('change', () => {
+            syncJpdbMiningDependentSettings(form);
+            syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+            this.syncJpdbStatus(form);
+        });
         syncJpdbMiningDependentSettings(form);
-        form.querySelector<HTMLInputElement>('input[name="apiKey"]')?.addEventListener('change', () => void this.refreshDeckControls(form));
+        syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+        const apiKeyInput = form.querySelector<HTMLInputElement>('input[name="apiKey"]');
+        apiKeyInput?.addEventListener('input', () => this.syncJpdbStatus(form));
+        apiKeyInput?.addEventListener('change', () => void this.refreshDeckControls(form));
+        form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
+        form.querySelector<HTMLInputElement>('input[name="ankiMobileHandoff"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
+        form.querySelector<HTMLInputElement>('input[name="ankiConnectUrl"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
         form.addEventListener('change', event => this.handleSettingsFormChange(form, event));
         installShortcutCapture(form);
         installSourceRowDrag(form);
@@ -405,10 +573,11 @@ export class SettingsDialogController {
             syncAudioSourceRow(sourceSelect.closest('[data-audio-source-row]'), sourceSelect.value);
             syncBrowserTtsVoiceOptions(form);
         }
-        const templateSelect = (event.target as HTMLElement).closest<HTMLSelectElement>('select[name="ankiTemplateMode"]');
-        if (!templateSelect) return;
-        const preview = form.querySelector<HTMLElement>('[data-anki-template-preview]');
-        if (preview) setInnerHtml(preview, renderAnkiTemplatePreview(readFormSettings(new FormData(form), this.settings)));
+        const templateControl = (event.target as HTMLElement).closest<HTMLElement>('select[name="ankiTemplateMode"], input[name="ankiFrontReading"], input[name="ankiFrontSentence"], input[name="ankiFrontImage"]');
+        if (templateControl) {
+            const preview = form.querySelector<HTMLElement>('[data-anki-template-preview]');
+            if (preview) setInnerHtml(preview, renderAnkiTemplatePreview(readFormSettings(new FormData(form), this.settings)));
+        }
     }
 
     private syncThemeSwitch(form: HTMLFormElement): void {
@@ -418,7 +587,7 @@ export class SettingsDialogController {
         const theme = this.effectiveTheme(input?.value as ReaderSettings['theme'] | undefined);
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         const label = uiText(language, theme === 'dark' ? 'switchToLightTheme' : 'switchToDarkTheme');
-        button.setAttribute('aria-checked', String(theme === 'light'));
+        button.setAttribute('aria-checked', String(theme === 'dark'));
         button.setAttribute('aria-label', label);
         button.title = label;
     }
@@ -431,6 +600,11 @@ export class SettingsDialogController {
     private isSubtitleControl(target: EventTarget | null): boolean {
         const name = (target as HTMLInputElement | HTMLSelectElement | null)?.name ?? '';
         return name.startsWith('subtitle');
+    }
+
+    private isFontFamilyControl(target: EventTarget | null): boolean {
+        const name = (target as HTMLInputElement | HTMLSelectElement | null)?.name ?? '';
+        return name === 'readerFontFamily' || name === 'popupFontFamily' || name === 'subtitleFontFamily';
     }
 
     private isColorSourceControl(target: EventTarget | null): boolean {
@@ -447,15 +621,24 @@ export class SettingsDialogController {
 
     private isReaderDisplayControl(target: EventTarget | null): boolean {
         const name = (target as HTMLInputElement | HTMLSelectElement | null)?.name ?? '';
-        return name === 'furiganaMode' || name === 'theme';
+        return ['furiganaMode', 'theme', 'readerFontFamily', 'readerFontFamilyCustom', 'popupFontFamily', 'popupFontFamilyCustom', 'popupFontWeight'].includes(name);
+    }
+
+    private isAnkiFieldMappingControl(target: EventTarget | null): boolean {
+        return Boolean((target as HTMLElement | null)?.closest?.('[data-anki-field-role]'));
+    }
+
+    private isAnkiModelControl(target: EventTarget | null): boolean {
+        return Boolean((target as HTMLElement | null)?.closest?.('[name="ankiModel"]'));
     }
 
     private async refreshDeckControls(form: HTMLFormElement): Promise<void> {
         const container = form.querySelector<HTMLElement>('[data-jpdb-decks]');
         if (!container) return;
+        this.syncJpdbStatus(form);
         const apiKey = form.querySelector<HTMLInputElement>('input[name="apiKey"]')?.value.trim() ?? this.settings.apiKey.trim();
         if (!apiKey) {
-            setInnerHtml(container, renderDeckControls(this.settings, [], false));
+            setInnerHtml(container, renderDeckControls(this.settings, [], false, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
             this.refreshSettingsJapaneseParse(form);
             return;
@@ -465,15 +648,65 @@ export class SettingsDialogController {
         this.settings.apiKey = apiKey;
         try {
             const decks = await this.dependencies.jpdb.listDecks();
-            setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), decks, true));
+            setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), decks, true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
         } catch (error) {
             log.warn('Deck controls failed to load', error);
-            setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), [], true));
+            setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), [], true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
         } finally {
             this.settings.apiKey = originalKey;
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
             this.refreshSettingsJapaneseParse(form);
         }
+    }
+
+    private syncJpdbStatus(form: HTMLFormElement): void {
+        const status = form.querySelector<HTMLElement>('[data-jpdb-status]');
+        if (!status) return;
+        const line = jpdbStatusLineForSettings(
+            readFormSettings(new FormData(form), this.settings),
+            getFormInterfaceLanguage(form, this.settings.interfaceLanguage),
+        );
+        status.dataset.statusTone = line.tone;
+        status.textContent = formatSettingsStatusLine(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    }
+
+    private async refreshAnkiConnectionStatus(form: HTMLFormElement): Promise<void> {
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        const formSettings = readFormSettings(new FormData(form), this.settings);
+        const initialLine = ankiStatusLineForSettings(formSettings, language);
+        const requestId = ++this.ankiConnectionProbeId;
+        this.setAnkiStatus(form, initialLine.message, initialLine.tone);
+        if (!formSettings.ankiEnabled) return;
+
+        const previous = this.settings;
+        this.settings = formSettings;
+        try {
+            const connected = await this.dependencies.anki.isConnected();
+            if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
+            if (connected) {
+                this.setAnkiStatus(form, uiText(language, 'ankiConnectionReady'), 'success');
+            } else if (canUseMobileAnkiHandoff(formSettings)) {
+                this.setAnkiStatus(form, uiText(language, 'mobileAnkiReady'), 'pending');
+            } else {
+                this.setAnkiStatus(form, this.ankiUnreachableMessage(language), 'error');
+            }
+        } catch (error) {
+            if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
+            this.setAnkiStatus(form, this.ankiConnectionErrorMessage(error, language), 'error');
+        } finally {
+            this.settings = previous;
+        }
+    }
+
+    private shouldApplyAnkiConnectionProbe(form: HTMLFormElement, requestId: number): boolean {
+        return this.currentForm === form && form.isConnected && requestId === this.ankiConnectionProbeId;
+    }
+
+    private setAnkiStatus(form: HTMLFormElement, message: string, tone: 'pending' | 'success' | 'error'): void {
+        const status = form.querySelector<HTMLElement>('[data-anki-status]');
+        if (!status) return;
+        status.textContent = formatSettingsStatusLine({ message, tone }, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+        status.dataset.statusTone = tone;
     }
 
     private async refreshDictionaryStatus(form: HTMLFormElement): Promise<void> {
@@ -746,7 +979,7 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsConnectionAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<boolean> {
-        if (action !== 'test-anki') return false;
+        if (action !== 'test-anki' && action !== 'prepare-anki' && action !== 'scan-anki') return false;
         const ankiStatus = form.querySelector<HTMLElement>('[data-anki-status]');
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         const button = settingsActionButton(control);
@@ -758,17 +991,32 @@ export class SettingsDialogController {
         const previous = this.settings;
         this.settings = readFormSettings(new FormData(form), this.settings);
         button?.setAttribute('disabled', 'true');
-        setAnkiStatus(uiText(language, 'ankiTesting'), 'pending');
+        const pendingKey = action === 'scan-anki' ? 'ankiScanning' : action === 'prepare-anki' ? 'ankiPreparing' : 'ankiTesting';
+        setAnkiStatus(uiText(language, pendingKey), 'pending');
         try {
-            if (canUseMobileAnkiHandoff(this.settings)) {
-                setAnkiStatus(uiText(language, 'mobileAnkiReady'), 'success');
+            const connected = await this.dependencies.anki.isConnected();
+            if (!connected) {
+                if (canUseMobileAnkiHandoff(this.settings)) {
+                    setAnkiStatus(uiText(language, 'mobileAnkiReady'), 'pending');
+                    return true;
+                }
+                throw new Error(this.ankiUnreachableMessage(language));
+            }
+            if (action === 'scan-anki') {
+                const scan = await this.dependencies.anki.scanLibrary();
+                this.applyAnkiScanToForm(form, scan);
+                setAnkiStatus(this.ankiScanMessage(scan, language), 'success');
+                log.info('Anki library scan succeeded', { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
                 return true;
             }
-            const connected = await this.dependencies.anki.isConnected();
-            if (!connected) throw new Error(this.ankiUnreachableMessage(language));
+            if (action === 'test-anki') {
+                setAnkiStatus(uiText(language, 'ankiConnectionReady'), 'success');
+                log.info('Anki settings connection test succeeded', { url: this.settings.ankiConnectUrl });
+                return true;
+            }
             await this.dependencies.anki.ensureDeckAndModel();
             setAnkiStatus(this.ankiReadyMessage(language), 'success');
-            log.info('Anki settings test succeeded', { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
+            log.info('Anki settings prepare succeeded', { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
         } catch (error) {
             const message = this.ankiConnectionErrorMessage(error, language);
             log.warn('Anki settings test failed', error);
@@ -779,6 +1027,124 @@ export class SettingsDialogController {
             button?.removeAttribute('disabled');
         }
         return true;
+    }
+
+    private applyAnkiScanToForm(form: HTMLFormElement, scan: Awaited<ReturnType<AnkiConnectClient['scanLibrary']>>): void {
+        this.applyAnkiFieldMappingsToForm(form, scan);
+        const modelInput = namedSettingsControl<HTMLInputElement | HTMLSelectElement>(form, 'ankiModel');
+        const deckInput = namedSettingsControl<HTMLInputElement | HTMLSelectElement>(form, 'ankiDeck');
+        const nextModel = scan.suggestedModel?.modelName || modelInput?.value.trim() || '';
+        let nextDeck = deckInput?.value.trim() || '';
+        if (deckInput && scan.deckNames.length) {
+            const currentDeck = deckInput.value.trim();
+            if (!scan.deckNames.includes(currentDeck)
+                && (scan.deckNames.length === 1 || !currentDeck || currentDeck === 'よむ' || currentDeck === 'Yomu')) {
+                nextDeck = scan.deckNames[0] ?? currentDeck;
+            }
+        }
+        this.applyAnkiScanControlsToForm(form, scan, { selectedDeck: nextDeck, selectedModel: nextModel });
+        if (modelInput && nextModel) {
+            modelInput.value = nextModel;
+            modelInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (deckInput && nextDeck) {
+            deckInput.value = nextDeck;
+            deckInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        this.renderAnkiFieldMappingEditor(form);
+    }
+
+    private applyAnkiFieldMappingsToForm(form: HTMLFormElement, scan: Awaited<ReturnType<AnkiConnectClient['scanLibrary']>>): void {
+        const input = namedSettingsControl<HTMLInputElement>(form, 'ankiFieldMappings');
+        if (!input) return;
+        const existing = readFormSettings(new FormData(form), this.settings).ankiFieldMappings;
+        const next = { ...existing };
+        for (const model of scan.models) {
+            const mapping = Object.fromEntries(model.suggestions.flatMap(suggestion => {
+                const fieldName = suggestion.fieldName?.trim();
+                return fieldName ? [[suggestion.role, fieldName] as const] : [];
+            }));
+            if (Object.keys(mapping).length) next[model.modelName] = mapping;
+        }
+        input.value = JSON.stringify(next);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    private applyAnkiScanControlsToForm(
+        form: HTMLFormElement,
+        scan: Awaited<ReturnType<AnkiConnectClient['scanLibrary']>>,
+        selected: { selectedDeck?: string; selectedModel?: string } = {},
+    ): void {
+        const deckOptions = form.querySelector<HTMLElement>('[data-anki-deck-options]');
+        const currentDeck = selected.selectedDeck ?? namedSettingsControl<HTMLInputElement | HTMLSelectElement>(form, 'ankiDeck')?.value.trim() ?? '';
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        if (deckOptions) setInnerHtml(deckOptions, renderAnkiLibraryOptions([currentDeck, ...scan.deckNames].filter(Boolean), currentDeck, language));
+        const modelOptions = form.querySelector<HTMLElement>('[data-anki-model-options]');
+        if (modelOptions) {
+            const currentModel = selected.selectedModel ?? namedSettingsControl<HTMLInputElement | HTMLSelectElement>(form, 'ankiModel')?.value.trim() ?? '';
+            setInnerHtml(modelOptions, renderAnkiLibraryOptions([currentModel, ...scan.models.map(model => model.modelName)].filter(Boolean), currentModel, language));
+        }
+        const fieldsInput = form.querySelector<HTMLInputElement>('[data-anki-scan-fields]');
+        if (fieldsInput) {
+            fieldsInput.value = JSON.stringify(Object.fromEntries(scan.models.map(model => [model.modelName, model.fields])));
+        }
+        this.renderAnkiFieldMappingEditor(form);
+    }
+
+    private renderAnkiFieldMappingEditor(form: HTMLFormElement): void {
+        const container = form.querySelector<HTMLElement>('[data-anki-field-mapping-editor]');
+        if (!container) return;
+        const settings = readFormSettings(new FormData(form), this.settings);
+        const modelName = namedSettingsControl<HTMLInputElement | HTMLSelectElement>(form, 'ankiModel')?.value.trim() || settings.ankiModel;
+        setInnerHtml(container, renderAnkiFieldMappingEditor(settings, modelName, this.ankiScanFieldsForModel(form, modelName), getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+    }
+
+    private syncAnkiFieldMappingsFromEditor(form: HTMLFormElement): void {
+        const input = namedSettingsControl<HTMLInputElement>(form, 'ankiFieldMappings');
+        const modelName = namedSettingsControl<HTMLInputElement | HTMLSelectElement>(form, 'ankiModel')?.value.trim();
+        if (!input || !modelName) return;
+        const settings = readFormSettings(new FormData(form), this.settings);
+        const next = { ...settings.ankiFieldMappings };
+        const mapping: Partial<Record<AnkiFieldMappingRole, string>> = {};
+        form.querySelectorAll<HTMLSelectElement>('[data-anki-field-role]').forEach(select => {
+            const role = select.dataset.ankiFieldRole as AnkiFieldMappingRole | undefined;
+            const value = select.value.trim();
+            if (role && value) mapping[role] = value;
+        });
+        if (Object.keys(mapping).length) next[modelName] = mapping;
+        else delete next[modelName];
+        input.value = JSON.stringify(next);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    private ankiScanFieldsForModel(form: HTMLFormElement, modelName: string): string[] {
+        const input = form.querySelector<HTMLInputElement>('[data-anki-scan-fields]');
+        if (!input?.value.trim()) return [];
+        try {
+            const parsed = JSON.parse(input.value) as Record<string, unknown>;
+            const fields = parsed[modelName];
+            return Array.isArray(fields) ? fields.map(String).filter(Boolean) : [];
+        } catch {
+            return [];
+        }
+    }
+
+    private ankiScanMessage(scan: Awaited<ReturnType<AnkiConnectClient['scanLibrary']>>, language: InterfaceLanguage): string {
+        if (!scan.suggestedModel) {
+            return formatUiTemplate(uiText(language, 'ankiScanNoModels'), {
+                decks: String(scan.deckNames.length),
+            });
+        }
+        const fields = scan.suggestedModel.suggestions
+            .filter(suggestion => suggestion.fieldName)
+            .map(suggestion => `${suggestion.role}: ${suggestion.fieldName}`)
+            .join(', ');
+        return formatUiTemplate(uiText(language, 'ankiScanSummary'), {
+            decks: String(scan.deckNames.length),
+            models: String(scan.models.length),
+            model: scan.suggestedModel.modelName,
+            fields: formatUiTemplate(uiText(language, 'ankiScanFieldSummary'), { fields }),
+        });
     }
 
     private ankiReadyMessage(language: InterfaceLanguage): string {
@@ -1004,35 +1370,14 @@ function getReaderStorageExport(value: unknown): unknown {
         : null;
 }
 
-function getReaderDictionaryExport(value: unknown): unknown {
-    if (!value || typeof value !== 'object') return null;
-    const record = value as { formatName?: string; dictionaries?: unknown; dictionaryData?: unknown };
-    if (record.formatName !== 'yomu-reader-settings' && record.formatName !== 'jpdb-popup-reader-settings') return null;
-    return isReaderDictionaryExport(record.dictionaries) ? record.dictionaries : record.dictionaryData;
+function publishThemeSettingsChange(theme: ReaderSettings['theme'], options: { preview?: boolean } = {}): void {
+    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+    window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { preview: options.preview === true, settings: { theme } } }));
 }
 
-function readerDictionaryExportHasData(value: unknown): boolean {
-    if (!isReaderDictionaryExport(value)) return false;
-    const record = value as {
-        dictionaries?: unknown[];
-        terms?: unknown[];
-        kanji?: unknown[];
-        termMeta?: unknown[];
-        kanjiMeta?: unknown[];
-    };
-    return arrayHasItems(record.dictionaries)
-        || arrayHasItems(record.terms)
-        || arrayHasItems(record.kanji)
-        || arrayHasItems(record.termMeta)
-        || arrayHasItems(record.kanjiMeta);
-}
-
-function isReaderDictionaryExport(value: unknown): boolean {
-    return Boolean(value && typeof value === 'object' && (value as { formatName?: unknown }).formatName === 'yomu-yomitan-dictionaries');
-}
-
-function arrayHasItems(value: unknown): value is unknown[] {
-    return Array.isArray(value) && value.length > 0;
+function themeFromSettingsChangeEvent(event: Event): ReaderSettings['theme'] | undefined {
+    const theme = (event as CustomEvent<{ settings?: { theme?: unknown } }>).detail?.settings?.theme;
+    return theme === 'auto' || theme === 'dark' || theme === 'light' ? theme : undefined;
 }
 
 function importSettingsStatus(restoredValues: number, dictionarySummary: ImportSummary | null, language: InterfaceLanguage): string {

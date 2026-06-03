@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   z-index: 2147483646;
-  background: rgba(12, 16, 22, 0.74);
+  background: var(--jpdb-reader-backdrop);
 }
 
 .jpdb-reader-popover,
@@ -13,10 +13,10 @@
   background: var(--jpdb-reader-bg);
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 12px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.34);
+  box-shadow: 0 16px 48px var(--jpdb-reader-shadow);
   color: var(--jpdb-reader-text);
   color-scheme: light dark;
-  font: 14px/1.45 var(--jpdb-reader-font);
+  font: 14px/1.45 var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
 }
 
 .jpdb-reader-popover {
@@ -27,6 +27,24 @@
   padding: 14px;
   container-type: inline-size;
   scrollbar-gutter: stable;
+}
+
+.jpdb-reader-popover
+  :is(
+    .jpdb-reader-parseable,
+    .jpdb-reader-spelling,
+    .jpdb-reader-reading,
+    .jpdb-reader-kanji-inline,
+    .jpdb-reader-jpdb-compound-term,
+    .jpdb-reader-jpdb-compound-reading,
+    .jpdb-reader-jpdb-used-in-term,
+    .jpdb-reader-example-sentence,
+    .jpdb-reader-kanji-char,
+    .jpdb-reader-kanji-readings,
+    .jpdb-reader-local-expression,
+    .jpdb-reader-local-reading
+  ) {
+  font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
 }
 
 .jpdb-reader-popover.jpdb-reader-sheet {
@@ -106,9 +124,9 @@
   height: 32px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, #20242b) 88%, transparent);
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, transparent);
   color: var(--jpdb-reader-text);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
+  box-shadow: 0 8px 20px var(--jpdb-reader-shadow);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -116,7 +134,7 @@
 .jpdb-reader-sheet-close:hover,
 .jpdb-reader-sheet-close:focus-visible {
   border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
   outline: none;
 }
 
@@ -163,7 +181,7 @@
   border-radius: 16px 16px 0 0;
   background: color-mix(
     in srgb,
-    var(--jpdb-reader-surface, #20242b) 72%,
+    var(--jpdb-reader-surface) 72%,
     transparent
   );
   margin: -14px -16px 10px;
@@ -232,12 +250,25 @@
   border-color: var(--jpdb-reader-accent);
   box-shadow: 0 8px 18px
     color-mix(in srgb, var(--jpdb-reader-accent) 26%, transparent);
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
   transform: translateY(-0.25rem);
   outline: none;
 }
 .jpdb-reader-icon-btn:active {
   transform: scale(0.98);
+}
+.jpdb-reader-icon-btn:disabled,
+.jpdb-reader-icon-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+}
+.jpdb-reader-icon-btn:disabled:hover,
+.jpdb-reader-icon-btn[aria-disabled="true"]:hover {
+  border-color: var(--jpdb-reader-border);
+  box-shadow: none;
+  color: var(--jpdb-reader-text);
+  transform: none;
 }
 
 .jpdb-reader-onboarding {
@@ -261,7 +292,7 @@
     ),
     var(--jpdb-reader-bg);
   color: var(--jpdb-reader-text);
-  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 26px 70px var(--jpdb-reader-shadow);
   color-scheme: light dark;
   font: 15px/1.5 var(--jpdb-reader-font);
 }
@@ -283,7 +314,7 @@
   color: var(--jpdb-reader-muted);
 }
 .jpdb-reader-onboarding-eyebrow {
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
   font-size: 11px;
   font-weight: 850;
   letter-spacing: 0.08em;
@@ -331,6 +362,36 @@
   color: var(--jpdb-reader-text);
   padding: 8px 10px;
   font: 750 14px/1.2 var(--jpdb-reader-font);
+}
+.jpdb-reader-onboarding-options {
+  display: grid;
+  gap: 8px;
+  max-width: 520px;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+}
+.jpdb-reader-onboarding-options legend {
+  padding: 0 4px;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+.jpdb-reader-onboarding-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--jpdb-reader-text);
+  font-size: 13px;
+  font-weight: 750;
+}
+.jpdb-reader-onboarding-options input {
+  width: 24px;
+  height: 24px;
+  accent-color: var(--jpdb-reader-accent);
+  flex: 0 0 24px;
 }
 .jpdb-reader-onboarding-actions {
   display: flex;
@@ -385,7 +446,7 @@
     var(--jpdb-reader-accent) 62%,
     var(--jpdb-reader-border)
   );
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
   cursor: progress;
 }
 .jpdb-reader-popover[data-audio-loading="true"]
@@ -417,7 +478,7 @@
 .jpdb-reader-spelling {
   color: var(--jpdb-reader-text);
   font-size: 24px;
-  font-weight: 750;
+  font-weight: var(--jpdb-reader-popup-font-weight, 400);
   line-height: 1.16;
   text-decoration: none;
   word-break: keep-all;
@@ -446,6 +507,8 @@
   color: inherit !important;
   cursor: pointer;
   font: inherit !important;
+  font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font)) !important;
+  font-weight: var(--jpdb-reader-popup-font-weight, 400) !important;
   line-height: inherit !important;
   text-align: inherit !important;
   vertical-align: baseline !important;
@@ -475,7 +538,7 @@
   border-radius: 999px !important;
   color: var(--chip-text, var(--jpdb-reader-text)) !important;
   background: var(--chip-bg, var(--jpdb-reader-surface-2)) !important;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.18) !important;
+  box-shadow: 0 1px 1px var(--jpdb-reader-shadow) !important;
   font-size: 11px !important;
   font-weight: 700 !important;
   line-height: 1 !important;
@@ -620,6 +683,10 @@ button.jpdb-reader-action-pill {
   min-height: 22px;
 }
 .jpdb-reader-status-line[data-status-tone] {
+  --jpdb-reader-status-light: var(--jpdb-reader-faint);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   margin-top: 8px;
   padding: 8px 10px;
   border: 1px solid var(--jpdb-reader-border);
@@ -627,10 +694,22 @@ button.jpdb-reader-action-pill {
   background: var(--jpdb-reader-surface-2);
   color: var(--jpdb-reader-text);
 }
+.jpdb-reader-status-line[data-status-tone]::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin-top: 0.35em;
+  border-radius: 50%;
+  background: var(--jpdb-reader-status-light);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-status-light) 18%, transparent);
+}
 .jpdb-reader-status-line[data-status-tone="pending"] {
+  --jpdb-reader-status-light: var(--jpdb-reader-muted);
   color: var(--jpdb-reader-muted);
 }
 .jpdb-reader-status-line[data-status-tone="success"] {
+  --jpdb-reader-status-light: var(--jpdb-reader-accent);
   border-color: color-mix(
     in srgb,
     var(--jpdb-reader-accent) 52%,
@@ -641,12 +720,13 @@ button.jpdb-reader-action-pill {
     var(--jpdb-reader-accent) 11%,
     var(--jpdb-reader-surface-2)
   );
-  color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
 }
 .jpdb-reader-status-line[data-status-tone="error"] {
-  border-color: color-mix(in srgb, #e55353 52%, var(--jpdb-reader-border));
-  background: color-mix(in srgb, #e55353 11%, var(--jpdb-reader-surface-2));
-  color: #ff8c8c;
+  --jpdb-reader-status-light: var(--jpdb-reader-danger);
+  border-color: color-mix(in srgb, var(--jpdb-reader-danger) 52%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-danger) 11%, var(--jpdb-reader-surface-2));
+  color: var(--jpdb-reader-danger-readable);
 }
 .jpdb-reader-meanings {
   margin: 9px 0;
@@ -660,7 +740,7 @@ button.jpdb-reader-action-pill {
 }
 .jpdb-reader-jpdb-extras {
   display: grid;
-  gap: 10px;
+  gap: 14px;
   margin: 10px 0 0;
 }
 .jpdb-reader-jpdb-extras .jpdb-reader-jpdb-examples-group,
@@ -673,7 +753,7 @@ button.jpdb-reader-action-pill {
 .jpdb-reader-jpdb-extras
   :is(.jpdb-reader-jpdb-examples-group, .jpdb-reader-jpdb-used-in-group)
   > .jpdb-reader-local-glossary {
-  padding: 0 8px 8px;
+  padding: 0 10px 10px;
 }
 .jpdb-reader-jpdb-extra {
   display: grid;
@@ -692,19 +772,22 @@ button.jpdb-reader-action-pill {
 .jpdb-reader-jpdb-used-in,
 .jpdb-reader-jpdb-examples {
   display: grid;
-  gap: 6px;
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
+.jpdb-reader-jpdb-compounds {
+  padding: 0 10px;
+}
 .jpdb-reader-jpdb-example {
-  padding: 2px 0;
+  padding: 0;
   color: var(--jpdb-reader-text);
   line-height: 1.3;
 }
 .jpdb-reader-jpdb-example-row.has-audio {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   align-items: start;
   gap: 8px;
 }
@@ -718,7 +801,7 @@ button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini {
   height: 28px !important;
   min-height: 28px !important;
   max-height: 28px !important;
-  margin-top: 2px;
+  margin-top: 1px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--jpdb-reader-surface-2) 88%, transparent);
 }
@@ -727,18 +810,40 @@ button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
   height: 14px;
   stroke-width: 2.6;
 }
-.jpdb-reader-jpdb-compounds li,
-.jpdb-reader-jpdb-used-in li {
+.jpdb-reader-jpdb-compound-row,
+.jpdb-reader-jpdb-used-in-row {
   display: grid;
   grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
   align-items: baseline;
   gap: 8px;
   min-width: 0;
 }
+.jpdb-reader-jpdb-compound-row.has-audio,
+.jpdb-reader-jpdb-used-in-row.has-audio {
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+}
+.jpdb-reader-jpdb-compound-row:not(.has-audio),
+.jpdb-reader-jpdb-used-in-row:not(.has-audio) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.jpdb-reader-jpdb-compound-main,
+.jpdb-reader-jpdb-used-in-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+  padding-top: 3px;
+}
+.jpdb-reader-jpdb-compound-main small,
+.jpdb-reader-jpdb-used-in-main small {
+  min-width: 0;
+}
 .jpdb-reader-jpdb-compound,
 .jpdb-reader-jpdb-used-in-link {
   display: inline-flex;
-  align-items: flex-start;
+  align-items: baseline;
   min-width: 0;
   color: inherit !important;
   text-decoration: none;
@@ -752,8 +857,26 @@ button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
 }
 .jpdb-reader-jpdb-compound-head {
   display: grid;
-  gap: 2px;
+  gap: 0;
   max-width: 100%;
+}
+.jpdb-reader-jpdb-term-with-reading {
+  display: inline-grid;
+  grid-template-rows: auto auto;
+  justify-items: center;
+  align-items: end;
+  min-width: 0;
+  line-height: 1;
+  vertical-align: middle;
+}
+.jpdb-reader-jpdb-term-furi {
+  display: block;
+  max-width: 100%;
+  margin-bottom: -1px;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .jpdb-reader-jpdb-compound-term {
   display: inline-block;
@@ -761,31 +884,84 @@ button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
   max-width: 100%;
   font-size: 17px;
   line-height: 1.1;
-  font-weight: 850;
+  font-weight: var(--jpdb-reader-popup-font-weight, 400);
   white-space: nowrap;
 }
 .jpdb-reader-jpdb-used-in-term {
   font-size: 14.5px;
-  font-weight: 760;
+  font-weight: var(--jpdb-reader-popup-font-weight, 400);
   line-height: 1.25;
 }
-.jpdb-reader-jpdb-used-in-source-item {
-  grid-template-columns: minmax(0, 1fr) !important;
-  align-items: start !important;
-  gap: 2px !important;
+.jpdb-reader-jpdb-used-in-term .jpdb-reader-word {
+  --jpdb-reader-word-decoration-source: transparent;
+  --jpdb-reader-word-underline: transparent;
+  text-decoration-color: transparent !important;
 }
-.jpdb-reader-jpdb-used-in-source-link {
-  display: block;
+.jpdb-reader-theme-light .jpdb-reader-jpdb-used-in-term .jpdb-reader-word {
+  --jpdb-reader-jpdb-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-jpdb-color, var(--jpdb-reader-accent)) 22%,
+    var(--jpdb-reader-paper) 78%
+  );
+  --jpdb-reader-status-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-status-color, var(--jpdb-reader-accent)) 22%,
+    var(--jpdb-reader-paper) 78%
+  );
+  --jpdb-reader-pitch-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-pitch-color, var(--jpdb-reader-accent)) 20%,
+    var(--jpdb-reader-paper) 80%
+  );
+  --jpdb-reader-pitch-highlight-shadow: none;
+  box-shadow: 0 0 0 1px
+    color-mix(
+      in srgb,
+      var(--jpdb-reader-word-highlight-source, transparent) 58%,
+      transparent
+    ) !important;
+  color: var(--jpdb-reader-text) !important;
+  text-shadow: none !important;
 }
-.jpdb-reader-jpdb-used-in-source-title {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  font-weight: 760;
-  line-height: 1.25;
+.jpdb-reader-theme-light .jpdb-reader-jpdb-used-in-term .jpdb-reader-furi {
+  color: color-mix(in srgb, var(--jpdb-reader-text) 64%, var(--jpdb-reader-muted)) !important;
+  font-weight: 650;
+}
+@media (prefers-color-scheme: light) {
+  :root:not(.jpdb-reader-theme-dark)
+    .jpdb-reader-jpdb-used-in-term
+    .jpdb-reader-word {
+    --jpdb-reader-jpdb-highlight: color-mix(
+      in srgb,
+      var(--jpdb-reader-jpdb-color, var(--jpdb-reader-accent)) 22%,
+      var(--jpdb-reader-paper) 78%
+    );
+    --jpdb-reader-status-highlight: color-mix(
+      in srgb,
+      var(--jpdb-reader-status-color, var(--jpdb-reader-accent)) 22%,
+      var(--jpdb-reader-paper) 78%
+    );
+    --jpdb-reader-pitch-highlight: color-mix(
+      in srgb,
+      var(--jpdb-reader-pitch-color, var(--jpdb-reader-accent)) 20%,
+      var(--jpdb-reader-paper) 80%
+    );
+    --jpdb-reader-pitch-highlight-shadow: none;
+    box-shadow: 0 0 0 1px
+      color-mix(
+        in srgb,
+        var(--jpdb-reader-word-highlight-source, transparent) 58%,
+        transparent
+      ) !important;
+    color: var(--jpdb-reader-text) !important;
+    text-shadow: none !important;
+  }
+  :root:not(.jpdb-reader-theme-dark)
+    .jpdb-reader-jpdb-used-in-term
+    .jpdb-reader-furi {
+    color: color-mix(in srgb, var(--jpdb-reader-text) 64%, var(--jpdb-reader-muted)) !important;
+    font-weight: 650;
+  }
 }
 .jpdb-reader-jpdb-compound-reading,
 .jpdb-reader-jpdb-compounds small,
@@ -797,6 +973,16 @@ button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
 }
 .jpdb-reader-jpdb-compound-reading {
   white-space: nowrap;
+}
+.jpdb-reader-theme-light .jpdb-reader-jpdb-used-in-main small {
+  color: color-mix(in srgb, var(--jpdb-reader-text) 84%, var(--jpdb-reader-muted));
+  font-weight: 500;
+}
+@media (prefers-color-scheme: light) {
+  :root:not(.jpdb-reader-theme-dark) .jpdb-reader-jpdb-used-in-main small {
+    color: color-mix(in srgb, var(--jpdb-reader-text) 84%, var(--jpdb-reader-muted));
+    font-weight: 500;
+  }
 }
 .jpdb-reader-jpdb-compound:has(.jpdb-reader-word) .jpdb-reader-jpdb-compound-reading {
   display: none;
@@ -837,25 +1023,31 @@ button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
   margin-right: 4px;
 }
 .jpdb-reader-state-dot.jpdb-new,
-.jpdb-reader-state-dot.jpdb-suspended,
-.jpdb-reader-state-dot.jpdb-not-in-deck {
-  background: var(--jpdb-reader-state-new, #58a6ff);
+.jpdb-reader-state-dot.jpdb-in-deck,
+.jpdb-reader-state-dot.anki-new {
+  background: var(--jpdb-reader-state-new);
 }
-.jpdb-reader-state-dot.jpdb-learning {
-  background: var(--jpdb-reader-state-learning, #ffd166);
+.jpdb-reader-state-dot.jpdb-learning,
+.jpdb-reader-state-dot.anki-learning {
+  background: var(--jpdb-reader-state-learning);
 }
 .jpdb-reader-state-dot.jpdb-known,
 .jpdb-reader-state-dot.jpdb-never-forget,
-.jpdb-reader-state-dot.jpdb-redundant {
-  background: var(--jpdb-reader-state-known, #7bd88f);
+.jpdb-reader-state-dot.jpdb-redundant,
+.jpdb-reader-state-dot.anki-known {
+  background: var(--jpdb-reader-state-known);
 }
-.jpdb-reader-state-dot.jpdb-due {
-  background: var(--jpdb-reader-state-due, #5fb3b3);
+.jpdb-reader-state-dot.jpdb-due,
+.jpdb-reader-state-dot.anki-due {
+  background: var(--jpdb-reader-state-due);
 }
-.jpdb-reader-state-dot.jpdb-failed {
-  background: var(--jpdb-reader-state-failed, #ff6b6b);
+.jpdb-reader-state-dot.jpdb-failed,
+.jpdb-reader-state-dot.anki-failed {
+  background: var(--jpdb-reader-state-failed);
 }
 .jpdb-reader-state-dot.jpdb-blacklisted,
-.jpdb-reader-state-dot.jpdb-locked {
-  background: var(--jpdb-reader-state-ignored, #b8a7ff);
+.jpdb-reader-state-dot.jpdb-locked,
+.jpdb-reader-state-dot.jpdb-suspended,
+.jpdb-reader-state-dot.anki-suspended {
+  background: var(--jpdb-reader-state-ignored);
 }

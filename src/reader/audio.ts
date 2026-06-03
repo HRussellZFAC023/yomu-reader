@@ -39,6 +39,13 @@ interface AudioRequestOptions {
     language?: ReaderSettings['interfaceLanguage'];
     allowDirectCrossOrigin?: boolean;
     preferFetch?: boolean;
+    credentials?: RequestCredentials;
+    withCredentials?: boolean;
+}
+
+interface JpdbAudioPlaybackCandidate {
+    audioIds: string[];
+    deckId: string;
 }
 
 interface AudioSourcePlayResult {
@@ -115,6 +122,7 @@ const JPDB_AUDIO_BASE_URL = 'https://jpdb.io/static/v';
 const JPDB_AUDIO_ACCESS_HEADER = "please don't steal these files";
 const JPDB_AUDIO_XOR_BYTES = [0x06, 0x23, 0x54, 0x0f] as const;
 const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
+const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1000;
 const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const AUDIO_PRECONNECT_RELS = ['preconnect', 'dns-prefetch'] as const;
 const preconnectedAudioOrigins = new Set<string>();
@@ -137,8 +145,17 @@ export class AudioPlayer {
     private blobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS);
     private jpdbAudioBlobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS);
     private readyAudioCache = new Map<string, { expiresAt: number; promise: Promise<HTMLAudioElement> }>();
+    private unavailableJpdbAudioIds = new Map<string, number>();
 
     constructor(private getSettings: () => ReaderSettings) {}
+
+    clearCaches(): void {
+        this.candidateCache.clear();
+        this.blobUrlCache.clear();
+        this.jpdbAudioBlobUrlCache.clear();
+        this.readyAudioCache.clear();
+        this.unavailableJpdbAudioIds.clear();
+    }
 
     async play(card: JPDBCard, options: AudioPlaybackOptions = {}): Promise<boolean> {
         const request = this.audioPlaybackRequest(options);
@@ -213,9 +230,12 @@ export class AudioPlayer {
             return { state: result, errors };
         }
 
-        const realAudioSources = sources.filter(source => !isBrowserTextToSpeechSource(source));
+        const realAudioSources = sources.filter(source => !isTextToSpeechFallbackSource(source));
         const realAudioResult = await this.playGreedyAudioSources(orderAudioSources(realAudioSources, settings.audioSelectionMode, card, this.shuffledAudio), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
         if (realAudioResult !== 'miss') return { state: realAudioResult, errors };
+
+        const jpdbWordAudioResult = await this.playOrderedSources(orderAudioSources(sources.filter(isJpdbWordAudioSource), settings.audioSelectionMode, card, this.shuffledAudio), card, settings, requestId, triedUrls, isCurrent, errors);
+        if (jpdbWordAudioResult !== 'miss') return { state: jpdbWordAudioResult, errors };
 
         const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), card, settings, requestId, triedUrls, isCurrent, errors);
         return { state: textToSpeechResult, errors };
@@ -302,6 +322,7 @@ export class AudioPlayer {
         promise = this.prepareSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent)
             .catch(error => {
                 errors.push(error instanceof Error ? error.message : String(error));
+                this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
                 return { state: 'miss' as const };
             })
             .then(result => ({ promise, result }));
@@ -321,12 +342,17 @@ export class AudioPlayer {
         const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: 'superseded' };
         const bagKey = getAudioBagKey(source, card);
-        for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
-            if (!registerAudioAttempt(triedUrls, candidate)) continue;
+        for (const { candidate, id } of orderAudioCandidates(candidates, audioCandidateSelectionMode(source.type, settings.audioSelectionMode), bagKey, this.shuffledAudio)) {
+            if (!registerAudioAttempt(triedUrls, candidate)) {
+                this.shuffledAudio.markSkipped(bagKey, id);
+                continue;
+            }
             const audio = await Promise.resolve(this.createPlayableAudio(candidate, source.type, settings)).catch(() => null);
             if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: 'superseded' };
             if (audio) return { state: 'ready', prepared: { audio, candidate, id, bagKey, sourceType: source.type, sourceId: sourceEntry.id, sourceBagKey: sourceEntry.bagKey } };
+            this.shuffledAudio.markSkipped(bagKey, id);
         }
+        this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
         return { state: 'miss' };
     }
 
@@ -370,10 +396,12 @@ export class AudioPlayer {
             const played = await this.playFromSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent, reservedAudio);
             const result = this.audioSourceAttemptResult(played, requestId, isCurrent);
             if (result === 'played') this.shuffledAudio.markPlayed(sourceEntry.bagKey, sourceEntry.id);
+            else if (result === 'miss') this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
             return result;
         } catch (error) {
             errors.push(error instanceof Error ? error.message : String(error));
             if (error instanceof AudioPlaybackAttemptError) return 'playback-error';
+            this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
             return 'miss';
         }
     }
@@ -399,7 +427,7 @@ export class AudioPlayer {
             void this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl)
                 .then(candidates => {
                     const triedUrls = new Set<string>();
-                    for (const { candidate } of orderAudioCandidates(candidates, settings.audioSelectionMode, getAudioBagKey(source, card), this.shuffledAudio).slice(0, candidateLimit)) {
+                    for (const { candidate } of orderAudioCandidates(candidates, audioCandidateSelectionMode(source.type, settings.audioSelectionMode), getAudioBagKey(source, card), this.shuffledAudio).slice(0, candidateLimit)) {
                         const candidateKey = normalizeAttemptedAudioUrl(candidate.url);
                         if (triedUrls.has(candidateKey)) continue;
                         triedUrls.add(candidateKey);
@@ -433,22 +461,26 @@ export class AudioPlayer {
         const settings = this.getSettings();
         this.ensureAudioEnabled(settings);
         if (!canAttemptAudiblePlayback(options.userGesture)) return false;
-        const ids = normalizeJpdbAudioIds(audioIds);
-        if (!ids.length) throw new Error(uiText(settings.interfaceLanguage, 'jpdbExampleAudioUnavailable'));
+        const candidates = this.availableJpdbPlaybackCandidates(jpdbAudioPlaybackCandidates(audioIds));
+        if (!candidates.length) throw new Error(uiText(settings.interfaceLanguage, 'jpdbExampleAudioUnavailable'));
 
         const requestId = ++this.playRequestId;
         this.stopCurrent();
         const reservedAudio = this.reserveJpdbGestureAudioElement(options.userGesture);
         const isCurrent = () => true;
-        for (const audioId of ids) {
+        const bagKey = getJpdbAudioBagKey(candidates.map(candidate => candidate.deckId));
+        const byDeckId = new Map(candidates.map(candidate => [candidate.deckId, candidate]));
+        for (const deckId of this.shuffledAudio.order(bagKey, candidates.map(candidate => candidate.deckId))) {
+            const candidate = byDeckId.get(deckId);
+            if (!candidate) continue;
             try {
-                const audioUrl = await this.jpdbAudioBlobUrl(audioId, settings);
-                if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-                const audio = reservedAudio
-                    ? await this.createReadyAudio(audioUrl, reservedAudio)
-                    : await this.createReadyAudio(audioUrl);
-                if (await this.playPreparedAudio(audio, requestId, isCurrent)) return true;
+                if (await this.playJpdbAudioCandidate(candidate, settings, requestId, isCurrent, reservedAudio)) {
+                    this.shuffledAudio.markPlayed(bagKey, deckId);
+                    return true;
+                }
             } catch {
+                candidate.audioIds.forEach(audioId => this.markJpdbAudioUnavailable(audioId));
+                this.shuffledAudio.markSkipped(bagKey, deckId);
                 // Try the next JPDB candidate when a page lists more than one.
             }
         }
@@ -487,11 +519,62 @@ export class AudioPlayer {
                 headers: request.headers,
                 proxyUrl: settings.corsProxyUrl,
                 language: settings.interfaceLanguage,
-                preferFetch: false,
+                credentials: 'same-origin',
+                withCredentials: true,
             });
             if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, 'jpdbAudioPlayableFileMissing'));
             return createPageMediaUrl(await decodeJpdbAudioBlob(response, request.encoded));
         });
+    }
+
+    private async playJpdbAudioCandidate(
+        candidate: JpdbAudioPlaybackCandidate,
+        settings: ReaderSettings,
+        requestId: number,
+        isCurrent: () => boolean,
+        reservedAudio?: HTMLAudioElement,
+    ): Promise<boolean> {
+        return await this.playJpdbAudioSegment(candidate.audioIds, 0, settings, requestId, isCurrent, reservedAudio);
+    }
+
+    private async playJpdbAudioSegment(
+        audioIds: string[],
+        index: number,
+        settings: ReaderSettings,
+        requestId: number,
+        isCurrent: () => boolean,
+        reservedAudio?: HTMLAudioElement,
+    ): Promise<boolean> {
+        const audioId = audioIds[index];
+        if (!audioId) return false;
+        const audioUrl = await this.jpdbAudioBlobUrl(audioId, settings);
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+        const audio = reservedAudio
+            ? await this.createReadyAudio(audioUrl, reservedAudio)
+            : await this.createReadyAudio(audioUrl);
+        if (!(await this.playPreparedAudio(audio, requestId, isCurrent))) return false;
+        this.queueNextJpdbAudioSegment(audio, audioIds, index + 1, settings, requestId, isCurrent);
+        return true;
+    }
+
+    private queueNextJpdbAudioSegment(
+        audio: HTMLAudioElement,
+        audioIds: string[],
+        index: number,
+        settings: ReaderSettings,
+        requestId: number,
+        isCurrent: () => boolean,
+    ): void {
+        if (index >= audioIds.length) return;
+        audio.addEventListener('ended', () => {
+            if (!this.isPlaybackCurrent(requestId, isCurrent)) return;
+            void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent)
+                .catch(error => {
+                    const audioId = audioIds[index];
+                    if (audioId) this.markJpdbAudioUnavailable(audioId);
+                    log.warn('JPDB grouped audio segment failed', { audioId }, error);
+                });
+        }, { once: true });
     }
 
     private stopCurrent(): void {
@@ -541,9 +624,14 @@ export class AudioPlayer {
         bagKey: string,
         reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
-        for (const { candidate, id } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, this.shuffledAudio)) {
-            if (!registerAudioAttempt(triedUrls, candidate)) continue;
+        const playableCandidates = this.availableAudioCandidates(sourceType, candidates);
+        for (const { candidate, id } of orderAudioCandidates(playableCandidates, audioCandidateSelectionMode(sourceType, settings.audioSelectionMode), bagKey, this.shuffledAudio)) {
+            if (!registerAudioAttempt(triedUrls, candidate)) {
+                this.shuffledAudio.markSkipped(bagKey, id);
+                continue;
+            }
             if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, reservedAudio)) return true;
+            this.shuffledAudio.markSkipped(bagKey, id);
         }
         return false;
     }
@@ -562,6 +650,7 @@ export class AudioPlayer {
         try {
             audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
         } catch {
+            if (sourceType === 'jpdb-tts' && candidate.jpdbAudioId) this.markJpdbAudioUnavailable(candidate.jpdbAudioId);
             return false;
         }
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
@@ -574,6 +663,31 @@ export class AudioPlayer {
         if (!played) return false;
         this.shuffledAudio.markPlayed(bagKey, id);
         return true;
+    }
+
+    private availableAudioCandidates(sourceType: AudioSourceType, candidates: AudioCandidate[]): AudioCandidate[] {
+        if (sourceType !== 'jpdb-tts') return candidates;
+        const available = candidates.filter(candidate =>
+            !candidate.jpdbAudioId || !this.isJpdbAudioUnavailable(candidate.jpdbAudioId)
+        );
+        return available.length ? available : candidates;
+    }
+
+    private availableJpdbPlaybackCandidates(candidates: JpdbAudioPlaybackCandidate[]): JpdbAudioPlaybackCandidate[] {
+        const available = candidates.filter(candidate => candidate.audioIds.every(audioId => !this.isJpdbAudioUnavailable(audioId)));
+        return available.length ? available : candidates;
+    }
+
+    private markJpdbAudioUnavailable(audioId: string): void {
+        this.unavailableJpdbAudioIds.set(audioId, Date.now() + JPDB_AUDIO_UNAVAILABLE_TTL_MS);
+    }
+
+    private isJpdbAudioUnavailable(audioId: string): boolean {
+        const expiresAt = this.unavailableJpdbAudioIds.get(audioId);
+        if (!expiresAt) return false;
+        if (expiresAt > Date.now()) return true;
+        this.unavailableJpdbAudioIds.delete(audioId);
+        return false;
     }
 
     private createPlayableAudio(candidate: AudioCandidate, sourceType: AudioSourceType, settings: ReaderSettings, reservedAudio?: HTMLAudioElement): Promise<HTMLAudioElement> | HTMLAudioElement {
@@ -667,7 +781,12 @@ export class AudioPlayer {
 
         let promise!: Promise<AudioCandidate[]>;
         promise = getAudioCandidates(source, card, timeoutMs, proxyUrl)
-            .then(candidates => cloneAudioCandidates(candidates))
+            .then(candidates => {
+                if (!shouldCacheAudioCandidates(source, candidates) && this.candidateCache.get(key)?.promise === promise) {
+                    this.candidateCache.delete(key);
+                }
+                return cloneAudioCandidates(candidates);
+            })
             .catch(error => {
                 if (this.candidateCache.get(key)?.promise === promise) this.candidateCache.delete(key);
                 throw error;
@@ -818,7 +937,7 @@ export class ShuffledAudioDeck {
 
     private buildAudioBag(ids: string[], signature: string, current: ShuffledAudioBag | undefined): ShuffledAudioBag {
         const remaining = this.shuffle(ids);
-        const lastPlayed = current?.signature === signature ? current.lastPlayed : undefined;
+        const lastPlayed = current?.lastPlayed;
         rotateRepeatedAudioLead(remaining, lastPlayed);
         return { signature, remaining, lastPlayed };
     }
@@ -827,9 +946,14 @@ export class ShuffledAudioDeck {
         const current = this.bags.get(key);
         if (!current) return;
 
-        const index = current.remaining.indexOf(id);
-        if (index >= 0) current.remaining.splice(index, 1);
+        removeAudioDeckId(current.remaining, id);
         current.lastPlayed = id;
+    }
+
+    markSkipped(key: string, id: string): void {
+        const current = this.bags.get(key);
+        if (!current) return;
+        removeAudioDeckId(current.remaining, id);
     }
 
     private shuffle(values: string[]): string[] {
@@ -862,6 +986,11 @@ function audioDeckOrderWithFallbacks(remaining: string[], ids: string[]): string
 
 function rotateRepeatedAudioLead(ids: string[], lastPlayed: string | undefined): void {
     if (lastPlayed && ids.length > 1 && ids[0] === lastPlayed) ids.push(ids.shift()!);
+}
+
+function removeAudioDeckId(ids: string[], id: string): void {
+    const index = ids.indexOf(id);
+    if (index >= 0) ids.splice(index, 1);
 }
 
 export function formatAudioUrl(template: string, card: JPDBCard): string {
@@ -946,7 +1075,8 @@ async function jpdbAudioDataUrl(audioId: string, settings: ReaderSettings): Prom
         headers: request.headers,
         proxyUrl: settings.corsProxyUrl,
         language: settings.interfaceLanguage,
-        preferFetch: false,
+        credentials: 'same-origin',
+        withCredentials: true,
     });
     if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, 'jpdbAudioPlayableFileMissing'));
     return blobToDataUrl(await decodeJpdbAudioBlob(response, request.encoded, settings.interfaceLanguage), settings.interfaceLanguage);
@@ -1056,8 +1186,8 @@ async function assertPlayableAudioBlob(response: Blob, url: string, sourceUrl: s
 }
 
 function formatNonAudioResponseMessage(language: ReaderSettings['interfaceLanguage'], contentType: string): string {
-    const label = contentType || (language === 'ja' ? '不明なコンテンツ種別' : 'an unknown content type');
-    return `${uiText(language, 'audioRequestReturnedNonAudio')}: ${label}.`;
+    const label = contentType || uiText(language, 'audioUnknownContentType');
+    return uiText(language, 'audioRequestReturnedNonAudioWithType').replace('{type}', label);
 }
 
 function isErrorDocumentAudioBlob(blob: Blob): boolean {
@@ -1120,6 +1250,10 @@ async function getAudioCandidates(source: AudioSourceSetting, card: JPDBCard, ti
     return await (AUDIO_CANDIDATE_LOADERS[source.type] ?? loadNoAudioCandidates)(source, card, timeoutMs, proxyUrl);
 }
 
+function shouldCacheAudioCandidates(source: AudioSourceSetting, candidates: AudioCandidate[]): boolean {
+    return source.type !== 'jpdb-tts' || candidates.length > 1;
+}
+
 type AudioCandidateLoader = (source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string) => Promise<AudioCandidate[]>;
 
 const AUDIO_CANDIDATE_LOADERS: Partial<Record<AudioSourceType, AudioCandidateLoader>> = {
@@ -1166,7 +1300,7 @@ function urlsToAudioCandidates(urls: string[]): AudioCandidate[] {
 }
 
 function jpdbAudioIdsToCandidates(audioIds: string[]): AudioCandidate[] {
-    return audioIds.map(audioId => ({
+    return normalizeJpdbAudioIds(audioIds).map(audioId => ({
         url: jpdbAudioRequest(audioId).url,
         sourceUrl: jpdbAudioPageSourceUrl(audioId),
         jpdbAudioId: audioId,
@@ -1181,7 +1315,7 @@ function orderAudioCandidates(
 ): Array<{ candidate: AudioCandidate; id: string }> {
     const entries = candidates.map((candidate, index) => ({
         candidate,
-        id: `${index}\u0000${candidate.url}\u0000${candidate.sourceUrl}`,
+        id: audioCandidateDeckId(candidate, index),
     }));
     if (mode !== 'random' || entries.length < 2) return entries;
 
@@ -1189,6 +1323,19 @@ function orderAudioCandidates(
     return shuffledAudio.order(bagKey, entries.map(entry => entry.id))
         .map(id => byId.get(id))
         .filter((entry): entry is { candidate: AudioCandidate; id: string } => Boolean(entry));
+}
+
+function audioCandidateDeckId(candidate: AudioCandidate, index: number): string {
+    if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
+    return [
+        normalizeAttemptedAudioUrl(candidate.url),
+        normalizeAttemptedAudioUrl(candidate.sourceUrl),
+        index,
+    ].join('\u0000');
+}
+
+function audioCandidateSelectionMode(sourceType: AudioSourceType, mode: AudioSelectionMode): AudioSelectionMode {
+    return sourceType === 'jpdb-tts' ? 'random' : mode;
 }
 
 function orderAudioSources(
@@ -1215,6 +1362,14 @@ function isBrowserTextToSpeechSource(source: AudioSourceSetting): boolean {
     return source.type === 'text-to-speech' || source.type === 'text-to-speech-reading';
 }
 
+function isJpdbWordAudioSource(source: AudioSourceSetting): boolean {
+    return source.type === 'jpdb-tts';
+}
+
+function isTextToSpeechFallbackSource(source: AudioSourceSetting): boolean {
+    return isJpdbWordAudioSource(source) || isBrowserTextToSpeechSource(source);
+}
+
 function registerAudioAttempt(triedUrls: Set<string>, candidate: AudioCandidate): boolean {
     const candidateKey = normalizeAttemptedAudioUrl(candidate.url);
     if (triedUrls.has(candidateKey)) {
@@ -1231,6 +1386,13 @@ function getAudioBagKey(source: AudioSourceSetting, card: JPDBCard): string {
         source.voice,
         card.spelling,
         card.reading,
+    ].join('\u0001');
+}
+
+function getJpdbAudioBagKey(audioIds: string[]): string {
+    return [
+        'jpdb-audio',
+        ...[...audioIds].sort(),
     ].join('\u0001');
 }
 
@@ -1298,7 +1460,7 @@ function isJapanesePod101Url(value: string): boolean {
 
 async function getJpdbTtsAudioIds(card: JPDBCard, timeoutMs: number, proxyUrl = ''): Promise<string[]> {
     for (const url of jpdbVocabularyAudioLookupUrls(card)) {
-        const response = await requestUrl(url, 'text', timeoutMs, { proxyUrl }).catch(() => '');
+        const response = await requestUrl(url, 'text', timeoutMs, { proxyUrl, credentials: 'same-origin', withCredentials: true }).catch(() => '');
         if (typeof response !== 'string') continue;
         const audioIds = extractJpdbVocabularyAudioIds(response, card, url);
         if (audioIds.length) return audioIds;
@@ -1506,10 +1668,27 @@ interface JpdbAudioRequest {
 }
 
 export function normalizeJpdbAudioIds(value: string | string[]): string[] {
-    const values = Array.isArray(value) ? value : value.split(/[,+]/);
+    return uniqueAudioUrls(normalizeJpdbAudioGroups(value)
+        .flatMap(group => group.split('+')));
+}
+
+export function normalizeJpdbAudioGroups(value: string | string[]): string[] {
+    const values = Array.isArray(value) ? value : value.split(',');
     return uniqueAudioUrls(values
+        .map(normalizeJpdbAudioGroup)
+        .filter(Boolean));
+}
+
+function normalizeJpdbAudioGroup(value: string): string {
+    const ids = value.split('+')
         .map(item => item.trim())
-        .filter(isValidJpdbAudioId));
+        .filter(Boolean);
+    return ids.length && ids.every(isValidJpdbAudioId) ? ids.join('+') : '';
+}
+
+function jpdbAudioPlaybackCandidates(value: string | string[]): JpdbAudioPlaybackCandidate[] {
+    const groups = normalizeJpdbAudioGroups(value);
+    return groups.map(group => ({ audioIds: group.split('+'), deckId: `jpdb:${group}` }));
 }
 
 export function jpdbAudioRequest(audioId: string, language: ReaderSettings['interfaceLanguage'] = 'en'): JpdbAudioRequest {
@@ -1685,6 +1864,8 @@ function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutM
         proxyUrl: options.proxyUrl,
         allowDirectCrossOrigin: options.allowDirectCrossOrigin ?? true,
         preferFetch: options.preferFetch ?? shouldPreferFetchForAudioRequests(),
+        credentials: options.credentials,
+        withCredentials: options.withCredentials,
         timeoutMs,
         failureLabel: uiText(language, 'audioRequest'),
         timeoutLabel: uiText(language, 'audioRequestTimedOut'),

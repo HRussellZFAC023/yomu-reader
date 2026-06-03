@@ -20,6 +20,8 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 
 - JPDB popup dictionary on selected text, scanned page text, OCR text, and subtitles.
 - JPDB popup lookup can be used with or without JPDB mining actions; add, Never Forget, blacklist, and review grades are configurable.
+- Popup Japanese text defaults to the same font stack as jpdb.io, with separate font family and weight settings for kanji, readings, example sentences, grammar snippets, and dictionary terms.
+- Keyboard lookup navigation can move to the previous or next parsed word, staying inside selected text when a selection is active.
 - JPDB kanji drilldown from popup headwords, with study facts, a compact 2D origin/component map, radical images, stroke-order tracing, a drawing pad, Uchisen mnemonic images, RTK keywords, stories, components, local kanji dictionaries, and related words.
 - Optional Anki mining through AnkiConnect on desktop and mobile Anki handoff on iPhone, iPad, and Android, with a customizable よむ note type created automatically where the bridge supports it.
 - Yomitan dictionary imports: JMdict download from Settings, settings JSON, dictionary ZIPs, and Dexie exports.
@@ -31,8 +33,8 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - Yomitan-compatible audio sources, including JapanesePod101, LanguagePod101, Jisho.org, JPDB word audio, browser text-to-speech, and custom URLs.
 - iOS-friendly Blob audio playback and optional audio autoplay.
 - Manga/image OCR from embedded page metadata or a local OCR app/server for MangaOCR, PaddleOCR, Apple Vision, and YomiNinja-style results.
-- ASB-style video subtitle overlay with Japanese and native subtitle tracks, plus a transcript panel that can sit left, right, or below the video and keeps visible lines lookup-ready.
-- Hosted local video player at `https://hrussellzfac023.github.io/yomu-reader/video-player/index.html` for opening browser-supported local video and subtitle files without a desktop bridge.
+- ASB-style video subtitle overlay with Japanese and native subtitle tracks, plus a transcript panel that can sit left, right, below, or open only while paused and keeps visible lines lookup-ready.
+- Hosted local video player at `https://hrussellzfac023.github.io/yomu-reader/video-player/index.html` for opening browser-supported local video and subtitle files without a desktop bridge, with a visible Subtitles button for adding tracks.
 - Tap subtitle words or OCR text directly to mine; no keyboard required.
 - Optional new-tab study page at `https://hrussellzfac023.github.io/yomu-reader/newtab/`, with accessible accent-color theming and Anki, JPDB, or local dictionary words.
 - YouTube immersion mode hides non-Japanese-looking video cards on YouTube by default. It checks original YouTube titles when available, has an `Alt+Y` toggle shortcut, and includes temporary reveal and notice-hiding controls.
@@ -85,7 +87,7 @@ Open the hosted video player from the userscript menu or this URL:
 https://hrussellzfac023.github.io/yomu-reader/video-player/index.html
 ```
 
-Drop a local video file into the page, add Japanese or native subtitle files, and よむ can read the resulting browser video/text tracks with the same overlay and transcript workflow used on streaming pages. The files stay local to the browser tab.
+Drop a local video file into the page, use the Subtitles button to add Japanese or native subtitle files, and よむ can read the resulting browser video/text tracks with the same overlay and transcript workflow used on streaming pages. The files stay local to the browser tab.
 
 ## New Tab
 
@@ -95,7 +97,7 @@ Use this address as a browser new-tab/home-page URL or add it to the iPad Home S
 https://hrussellzfac023.github.io/yomu-reader/newtab/
 ```
 
-The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect or mobile handoff is enabled, otherwise from the configured JPDB deck, otherwise from imported dictionary words. If no local dictionary exists yet, よむ sends you to Settings > Dictionaries to download JMdict or import a Yomitan ZIP into local browser storage. Tapping a word opens the same popup dictionary used on normal pages. On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests. Browsers that allow direct local requests without the bridge also need `https://hrussellzfac023.github.io` in AnkiConnect's `webCorsOriginList`.
+The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect or mobile handoff is enabled, otherwise from the configured JPDB deck, otherwise from public JPDB lookup and imported dictionary words. Public JPDB lookup works without an API key; local Yomitan dictionaries are optional and add offline study cards plus local definitions. Tapping a word opens the same popup dictionary used on normal pages. On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests. Browsers that allow direct local requests without the bridge also need `https://hrussellzfac023.github.io` in AnkiConnect's `webCorsOriginList`.
 
 ## OCR
 
@@ -158,7 +160,7 @@ Check current bundle size evidence:
 npm run size:bundle
 ```
 
-The release budget is 2,000,000 raw bytes for `dist/yomu.user.js`. The current built userscript is below that limit at 1905.2 KiB raw, with JavaScript and CSS minification disabled.
+The release budget is 2,000,000 raw bytes for `dist/yomu.user.js`. The current built userscript is below that limit at 1,986,075 bytes / 1939.5 KiB raw, with JavaScript and CSS minification disabled.
 
 Copy `.env.example` to `.env` for local secrets. `.env` is ignored by Git. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you want the secret-leak guard and live JPDB smoke path. Real screenshot capture also reads `.env`; set `YOMU_CAPTURE_API_KEY` when subtitle/store screenshots need JPDB mining status colors:
 
@@ -180,10 +182,24 @@ Run the local development server:
 npm run dev
 ```
 
-Then install the local userscript or open the local app. If 5174 is busy, use the port printed by Vite:
+Then install the local userscript from the helper server and open the hosted/static new-tab app from the VitePress URL. If 5174 is busy, use the helper-server port printed by `npm run dev`; if 5173 is busy, use the VitePress port it prints:
 
 ```text
-http://127.0.0.1:5174/
+http://127.0.0.1:5174/yomu.user.js
+http://127.0.0.1:5173/yomu-reader/newtab/index.html
+```
+
+Use `/yomu-reader/newtab/index.html` for local VitePress. The shorter `/yomu-reader/newtab/` path is a production/GitHub Pages URL and can load the VitePress shell in local dev.
+
+For the plain Vite app/new-tab dev server, run:
+
+```bash
+npm run dev:vite
+```
+
+Then open the Vite port it prints, usually:
+
+```text
 http://127.0.0.1:5174/newtab/
 ```
 
@@ -195,7 +211,7 @@ npm run dev:ipad
 
 That command lets Vite choose a free port when `5174` is already busy, publishes the chosen localhost port with Tailscale Serve, and prints the exact iPad links to open. Use the root URL it prints, not `/yomu-reader/`; that path is for the production GitHub Pages site.
 
-`npm run dev` is the normal Vite dev server, like the ASMR.one harness. Vite handles reloads, the root page gives the vite-plugin-monkey install link, and `/newtab/` is served from the TypeScript entry. Dev builds enable console logging automatically; production builds still follow the Settings toggle. Chrome may require Tampermonkey's user scripts permission to be enabled before local dev installs can run.
+`npm run dev` is the userscript/docs harness: it rebuilds the userscript, serves the install file, and starts VitePress docs. `npm run dev:vite` is the plain Vite dev server; it serves `/newtab/` from the TypeScript entry. Dev builds enable console logging automatically; production builds still follow the Settings toggle. Chrome may require Tampermonkey's user scripts permission to be enabled before local dev installs can run.
 
 The production userscript is written to:
 

@@ -37,7 +37,12 @@ describe('VisiblePageScanner', () => {
             expect(parseJapanese.mock.calls[0]?.[0]).toHaveLength(80);
             expect(parseJapanese.mock.calls[1]?.[0]).toHaveLength(80);
             expect(parseJapanese.mock.calls[2]?.[0]).toHaveLength(10);
-            expect(parseJapanese.mock.calls[0]?.[1]).toEqual({ jpdbTimeoutMs: 1200, includeLocalPitch: false });
+            expect(parseJapanese.mock.calls[0]?.[1]).toEqual({
+                jpdbTimeoutMs: 450,
+                allowJpdbTimeoutFallback: true,
+                includeLocalPitch: false,
+                allowSegmentedFallback: true,
+            });
             expect(pauseMutationObserver).toHaveBeenCalledTimes(11);
         } finally {
             HTMLElement.prototype.getBoundingClientRect = originalRect;
@@ -122,9 +127,9 @@ describe('VisiblePageScanner', () => {
             toJSON: () => ({}),
         } as DOMRect);
         window.history.pushState({}, '', '/yomu-reader/');
-        const heading = '青空の下で日本語を読む';
+        const heading = '青空の下で本を読む';
         document.body.innerHTML = `
-            <main data-yomu-demo-lookup>
+            <main class="hosted-text-fixture">
                 <h3>${heading}</h3>
                 <p>今日は静かな喫茶店で新しい本を読みました。</p>
             </main>
@@ -146,7 +151,7 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: true });
 
-            const words = [...document.querySelectorAll<HTMLElement>('[data-yomu-demo-lookup] .jpdb-reader-word')];
+            const words = [...document.querySelectorAll<HTMLElement>('.hosted-text-fixture .jpdb-reader-word')];
             expect(words.map(word => word.textContent)).toContain('下');
             const down = words.find(word => word.textContent === '下');
             expect(down?.dataset.expression).toBe('下');
@@ -155,6 +160,212 @@ describe('VisiblePageScanner', () => {
         } finally {
             HTMLElement.prototype.getBoundingClientRect = originalRect;
             window.history.pushState({}, '', '/');
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('does not rescan or grow hosted Japanese docs markup on repeated scans', async () => {
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = () => ({
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 20,
+            top: 0,
+            right: 100,
+            bottom: 20,
+            left: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        window.history.pushState({}, '', '/yomu-reader/');
+        const heading = '青空の下で本を読む';
+        document.body.innerHTML = `
+            <main class="hosted-text-fixture">
+                <h3>${heading}</h3>
+                <p>日本語</p>
+            </main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => {
+            if (text === heading) return [rubyToken(text, text, 'あおぞらのしたでほんをよむ', 0, text.length)];
+            return [rubyToken(text, text, readingForText(text), 0, text.length)];
+        }));
+        const scanner = new VisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'ja', furiganaMode: 'all' }),
+            parseJapanese,
+            pauseMutationObserver: callback => callback(),
+            preloadParsedTokens: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords: vi.fn(),
+            toast: vi.fn(),
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+            const hostedBlock = document.querySelector<HTMLElement>('.hosted-text-fixture')!;
+            const htmlAfterFirstScan = hostedBlock.innerHTML;
+            const wordCountAfterFirstScan = hostedBlock.querySelectorAll('.jpdb-reader-word').length;
+            const rubyTextAfterFirstScan = [...hostedBlock.querySelectorAll('rt')].map(rt => rt.textContent);
+
+            await scanner.scanVisiblePage({ silent: true });
+
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(hostedBlock.innerHTML).toBe(htmlAfterFirstScan);
+            expect(hostedBlock.querySelectorAll('.jpdb-reader-word')).toHaveLength(wordCountAfterFirstScan);
+            expect(hostedBlock.querySelectorAll('.jpdb-reader-word .jpdb-reader-word')).toHaveLength(0);
+            expect([...hostedBlock.querySelectorAll('rt')].map(rt => rt.textContent)).toEqual(rubyTextAfterFirstScan);
+        } finally {
+            scanner.destroy();
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            window.history.pushState({}, '', '/');
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('keeps hosted docs prose stable when VitePress content roots overlap', async () => {
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = () => ({
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 20,
+            top: 0,
+            right: 100,
+            bottom: 20,
+            left: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        window.history.pushState({}, '', '/yomu-reader/getting-started/');
+        const first = 'A userscript is a small helper. Add よむ to that manager. After that, よむ appears on Japanese pages.';
+        const second = 'Short version: install よむ, open any Japanese page, then tap or hover a word.';
+        document.body.innerHTML = `
+            <main>
+                <div class="content">
+                    <div class="vp-doc">
+                        <h1>使い始める</h1>
+                        <p>${first}</p>
+                        <p>${second}</p>
+                    </div>
+                </div>
+            </main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForHostedDocsText));
+        const scanner = new VisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'ja', furiganaMode: 'all' }),
+            parseJapanese,
+            pauseMutationObserver: callback => callback(),
+            preloadParsedTokens: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords: vi.fn(),
+            toast: vi.fn(),
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+            const paragraphs = [...document.querySelectorAll<HTMLParagraphElement>('.vp-doc p')];
+            const htmlAfterFirstScan = document.querySelector<HTMLElement>('.vp-doc')!.innerHTML;
+
+            await scanner.scanVisiblePage({ silent: true });
+
+            const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(parsedTexts.filter(text => text.includes('A userscript'))).toHaveLength(1);
+            expect(parsedTexts.filter(text => text.includes('Short version'))).toHaveLength(1);
+            expect(paragraphs[0]?.textContent).toBe(first);
+            expect(paragraphs[1]?.textContent).toBe(second);
+            expect(document.querySelector<HTMLElement>('.vp-doc')!.innerHTML).toBe(htmlAfterFirstScan);
+            expect(document.querySelectorAll('.vp-doc .jpdb-reader-word .jpdb-reader-word')).toHaveLength(0);
+        } finally {
+            scanner.destroy();
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            window.history.pushState({}, '', '/');
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('enables segmented fallback on normal page scans when no API key or dictionaries are available', async () => {
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = () => ({
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 20,
+            top: 0,
+            right: 100,
+            bottom: 20,
+            left: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = '<main><p>青空の下で日本語を読む</p></main>';
+        const parseJapanese = vi.fn(async (paragraphs: string[], options?: { allowSegmentedFallback?: boolean }) => {
+            expect(options?.allowSegmentedFallback).toBe(true);
+            return paragraphs.map(text => [testToken(text, '日本語', 5, 8)]);
+        });
+        const refreshWordContrast = vi.fn();
+        const scanner = new VisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
+            parseJapanese,
+            pauseMutationObserver: callback => callback(),
+            preloadParsedTokens: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords: vi.fn(),
+            refreshWordContrast,
+            toast: vi.fn(),
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            expect(parseJapanese).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ allowSegmentedFallback: true }));
+            expect(document.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.expression).toBe('日本語');
+            expect(refreshWordContrast).toHaveBeenCalledWith(document.querySelector('p'));
+        } finally {
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('uses bounded JPDB parsing with segmented fallback for API-backed page scans', async () => {
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = () => ({
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 20,
+            top: 0,
+            right: 100,
+            bottom: 20,
+            left: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = '<main><p>先生いつもありがとうございました。</p></main>';
+        const parseJapanese = vi.fn(async (paragraphs: string[], options?: {
+            jpdbTimeoutMs?: number;
+            allowJpdbTimeoutFallback?: boolean;
+            allowSegmentedFallback?: boolean;
+        }) => {
+            expect(options).toEqual(expect.objectContaining({
+                jpdbTimeoutMs: 450,
+                allowJpdbTimeoutFallback: true,
+                allowSegmentedFallback: true,
+            }));
+            return paragraphs.map(text => [testToken(text, '先生', 0, 2)]);
+        });
+        const scanner = new VisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'api-key', localDictionariesEnabled: true }),
+            parseJapanese,
+            pauseMutationObserver: callback => callback(),
+            preloadParsedTokens: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords: vi.fn(),
+            toast: vi.fn(),
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            expect(document.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.expression).toBe('先生');
+        } finally {
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
             document.body.innerHTML = '';
         }
     });
@@ -307,4 +518,44 @@ function testToken(sentence: string, spelling: string, start: number, end: numbe
         pitchClass: '',
         sentence,
     };
+}
+
+function rubyToken(sentence: string, spelling: string, reading: string, start: number, end: number): JPDBToken {
+    return {
+        card: {
+            vid: -start - 1,
+            sid: -start - 1,
+            rid: 0,
+            spelling,
+            reading,
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [],
+            cardState: ['not-in-deck'],
+            pitchAccent: ['LH'],
+            wordWithReading: null,
+            source: 'fallback',
+        },
+        start,
+        end,
+        length: end - start,
+        rubies: [{ text: reading, start, end, length: end - start }],
+        pitchClass: 'heiban',
+        sentence,
+    };
+}
+
+function readingForText(text: string): string {
+    return text === '青空' ? 'あおぞら' : 'にほんご';
+}
+
+function tokensForHostedDocsText(text: string): JPDBToken[] {
+    if (text === '使い始める') return [rubyToken(text, '使い', 'つかい', 0, 2), rubyToken(text, '始める', 'はじめる', 2, 5)];
+    const tokens: JPDBToken[] = [];
+    let index = text.indexOf('よむ');
+    while (index >= 0) {
+        tokens.push(testToken(text, 'よむ', index, index + 2));
+        index = text.indexOf('よむ', index + 2);
+    }
+    return tokens;
 }

@@ -41,6 +41,10 @@ describe('storage reset', () => {
             }],
             ['jpdb-reader-settings', { apiKey: 'legacy-secret' }],
             ['jpdb-reader-transcript-panel-size', { sideWidth: 720, bottomHeight: 360 }],
+            ['jpdb-reader-newtab-jpdb-stats-history', { importedAt: 123 }],
+            ['jpdb-reader-newtab-disabled-anki-decks', ['Archive']],
+            ['yomu:anki-status-index:v1', { version: 1, entries: {} }],
+            ['yomu:prefer-japanese-site-language', true],
         ]);
         vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => gmValues.has(key) ? gmValues.get(key) : fallback));
         vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => {
@@ -57,6 +61,27 @@ describe('storage reset', () => {
         expect(localStorage.getItem('jpdb-popup-reader-settings')).toBeNull();
         expect(sessionStorage.getItem('jpdb-reader-transcript-panel-size')).toBeNull();
         expect(localStorage.getItem('unrelated-site-setting')).toBe('keep me');
+    });
+
+    it('factory reset deletes the Anki status IndexedDB cache', async () => {
+        const deleteDatabase = vi.fn((_name: string) => {
+            const request: {
+                onsuccess: ((event: Event) => void) | null;
+                onerror: ((event: Event) => void) | null;
+                onblocked: ((event: Event) => void) | null;
+            } = {
+                onsuccess: null,
+                onerror: null,
+                onblocked: null,
+            };
+            queueMicrotask(() => request.onsuccess?.(new Event('success')));
+            return request as unknown as IDBOpenDBRequest;
+        });
+        vi.stubGlobal('indexedDB', { deleteDatabase });
+
+        await clearManagedStoredValues();
+
+        expect(deleteDatabase).toHaveBeenCalledWith('yomu-anki-status-index');
     });
 
     it('factory reset deletes modern GM storage values', async () => {
@@ -149,6 +174,25 @@ describe('managed storage backup', () => {
         await expect(exportManagedStoredValues()).resolves.toEqual({
             'jpdb-reader-newtab-ui': { mode: 'kanji' },
             'yomu-mining-context:test': { term: 'test' },
+        });
+    });
+
+    it('exports known GM-only data when storage keys cannot be listed', async () => {
+        const gmValues = new Map<string, unknown>([
+            ['jpdb-reader-newtab-jpdb-stats-history', { importedAt: 123 }],
+            ['jpdb-reader-newtab-disabled-anki-decks', ['Archive']],
+            ['yomu:anki-status-index:v1', { version: 1, entries: {} }],
+            ['yomu:prefer-japanese-site-language', true],
+            ['unrelated-key', 'ignore'],
+        ]);
+        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => gmValues.has(key) ? gmValues.get(key) : fallback));
+        vi.stubGlobal('GM_listValues', undefined);
+
+        await expect(exportManagedStoredValues()).resolves.toEqual({
+            'jpdb-reader-newtab-disabled-anki-decks': ['Archive'],
+            'jpdb-reader-newtab-jpdb-stats-history': { importedAt: 123 },
+            'yomu:anki-status-index:v1': { version: 1, entries: {} },
+            'yomu:prefer-japanese-site-language': true,
         });
     });
 

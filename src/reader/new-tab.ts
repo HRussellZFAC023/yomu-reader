@@ -1,4 +1,5 @@
 import type { UiCopyKey } from './i18n';
+import { NEW_TAB_COLOR_TOKENS } from './color-tokens';
 import { hexToRgba, mixHex, readableOn } from './color-utils';
 import { Logger } from './logger';
 import { sanitizeAccentColor } from './settings';
@@ -99,15 +100,15 @@ function browserRuntime(): { getURL?: (path: string) => string } | undefined {
 
 export function buildNewTabPalette(accentColor: string): NewTabPalette {
     const accent = sanitizeAccentColor(accentColor);
-    const background = mixHex('#f6f8f5', accent, 0.08);
-    const backgroundText = readableOn('#141b17', background, 4.5);
-    const surface = '#fbfcf8';
-    const surfaceText = '#15171c';
+    const background = mixHex(NEW_TAB_COLOR_TOKENS.backgroundBase, accent, 0.08);
+    const backgroundText = readableOn(NEW_TAB_COLOR_TOKENS.backgroundReadableSeed, background, 4.5);
+    const surface = NEW_TAB_COLOR_TOKENS.surface;
+    const surfaceText = NEW_TAB_COLOR_TOKENS.surfaceText;
     const accentText = readableOn(accent, surface, 4.5);
-    const border = hexToRgba(mixHex(accent, '#15171c', 0.36), 0.24);
-    const softBorder = hexToRgba(mixHex(accent, '#15171c', 0.18), 0.18);
+    const border = hexToRgba(mixHex(accent, NEW_TAB_COLOR_TOKENS.surfaceText, 0.36), 0.24);
+    const softBorder = hexToRgba(mixHex(accent, NEW_TAB_COLOR_TOKENS.surfaceText, 0.18), 0.18);
     const surfaceMuted = mixHex(surface, accent, 0.05);
-    const shadow = 'rgba(18, 28, 23, .20)';
+    const shadow = NEW_TAB_COLOR_TOKENS.shadow;
     const palette = { accent, background, backgroundText, surface, surfaceText, accentText, border, softBorder, surfaceMuted, shadow };
     return palette;
 }

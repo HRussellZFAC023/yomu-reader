@@ -1,5 +1,6 @@
 import { pruneOldestCacheEntries } from './cache-utils';
 import { escapeHtml } from './dom';
+import { speakerIcon } from './icons';
 import { grammarRuleText, uiText, type UiCopyKey } from './i18n';
 import { Logger } from './logger';
 import { requestJson as requestReaderJson } from './reader-http';
@@ -62,6 +63,13 @@ export interface LocalGrammarRuleExample {
     example: GrammarExample;
 }
 
+export interface LocalGrammarRuleSummary {
+    ruleId: string;
+    name: string;
+    level: GrammarLevel;
+    exampleCount: number;
+}
+
 const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
 const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
 const GRAMMAR_PREFERENCES_KEY = 'yomu.grammarPreferences.v1';
@@ -94,31 +102,39 @@ function ex(japanese: string, english: string, note?: string): GrammarExample[] 
 
 const GRAMMAR_PATTERNS: GrammarPattern[] = [
     gp("potential-koto-ga-dekiru", "N4", "ことができる", `${FORM_CHUNK}ことができ(?:る|ます|ない|ません|た|ました|なかった|ませんでした)?`, "Potential expression", "can do something", "Turns the action before こと into an ability or possibility: \"can do...\"", "https://www.tofugu.com/japanese-grammar/koto-ga-dekiru/", ex("日本語を話すことができます。", "I can speak Japanese.", "Verb + ことができる marks ability."), "high", 5),
+    gp("potential-dekiru", "N4", "できる", `${PARTICLE_CHUNK}でき(?:る|ます|た|ました|ない|ません|なかった|ませんでした)`, "Potential expression", "can do or be possible", "Uses できる to show that an action is possible, often after a する noun.", "", ex("一人で勉強できます。", "I can study by myself.", "Noun + できる often marks the potential form of a する verb."), "high", 8),
     gp("obligation-nakereba-naranai", "N4", "なければならない", `${FORM_CHUNK}(?:なければならない|なければなりません|なくてはならない|なくてはなりません|なくてはいけない|なくてはいけません|なければいけない|なければいけません|なきゃ(?:いけない|だめ)?|なくちゃ(?:いけない|だめ)?|ないといけない|ねばならない)`, "Obligation", "must or have to do", "Says an action is necessary or required. Casual forms like なきゃ and なくちゃ carry the same basic idea.", "https://www.tofugu.com/japanese-grammar/nakereba-naranai/", ex("明日までに払わなければならない。", "I have to pay by tomorrow.", "The first clause is required."), "high", 4),
     gp("permission-not-required-nakutemo-ii", "N5", "なくてもいい", `${FORM_CHUNK}なくても(?:いい|よい|大丈夫)(?:です)?`, "Permission / no obligation", "do not have to", "Says the action is not required, or that not doing it is okay.", "", ex("今日は来なくてもいいです。", "You do not have to come today.", "Negative て-form + もいい removes obligation."), "high", 4),
-    gp("prohibition-tewa-ikenai", "N4", "てはいけない", `${FORM_CHUNK}(?:(?:[てで]は|ちゃ|じゃ)いけ(?:ない|ません|なかった|ませんでした)|(?:[てで]は|ちゃ|じゃ)だめ(?:だ|です)?)`, "Prohibition", "must not do", "Marks an action as not allowed or unacceptable. Casual ちゃだめ and じゃだめ are included.", "https://www.tofugu.com/japanese-grammar/tewa-ikenai/", ex("ここで写真を撮ってはいけません。", "You must not take photos here.", "てはいけない is a direct prohibition."), "high", 5),
-    gp("permission-temo-ii", "N5", "てもいい", `${FORM_CHUNK}[てで]も(?:いい|よい|よかった|よくない|よくありません)(?:です)?`, "Permission", "permission or approval", "Means it is okay to do the action before てもいい. Negative variants can ask or say whether it is not okay.", "https://www.tofugu.com/japanese-grammar/temoii/", ex("水を飲んでもいいです。", "It is okay to drink water.", "て-form + もいい grants permission."), "high", 5),
+    gp("prohibition-tewa-ikenai", "N4", "てはいけない", `${FORM_CHUNK}(?:(?:[てで]は|ちゃ|じゃ)いけ(?:ない|ません|なかった|ませんでした)|(?:[てで]は|ちゃ|じゃ)なら(?:ない|ません)|(?:[てで]は|ちゃ|じゃ)だめ(?:だ|です)?)`, "Prohibition", "must not do", "Marks an action as not allowed or unacceptable. Casual ちゃだめ and じゃだめ are included.", "https://www.tofugu.com/japanese-grammar/tewa-ikenai/", ex("ここで写真を撮ってはいけません。", "You must not take photos here.", "てはいけない is a direct prohibition."), "high", 5),
+    gp("permission-temo-ii", "N5", "てもいい", `${FORM_CHUNK}[てで]も(?:いい|よい|よかった|よくない|よくありません|大丈夫(?:です)?|かまわない|かまいません|構わない|構いません)(?:です)?`, "Permission", "permission or approval", "Means it is okay to do the action before てもいい. Negative variants can ask or say whether it is not okay.", "https://www.tofugu.com/japanese-grammar/temoii/", ex("水を飲んでもいいです。", "It is okay to drink water.", "て-form + もいい grants permission."), "high", 5),
     gp("request-te-kudasai", "N5", "てください", `${FORM_CHUNK}[てで]ください(?:ませんか)?`, "Request", "please do", "Makes a direct but polite request. くださいませんか is softer.", "", ex("ゆっくり話してください。", "Please speak slowly.", "て-form + ください requests an action."), "high", 6),
     gp("polite-request-te-itadakemasen-ka", "N4", "ていただけませんか", `${FORM_CHUNK}[てで](?:いただけませんか|くださいませんか)`, "Polite request", "could you please do", "A softer request that asks someone to do something for you politely.", "", ex("もう一度説明していただけませんか。", "Could you please explain it one more time?", "ていただけませんか is a polite request form."), "high", 6),
     gp("request-naide-kudasai", "N5", "ないでください", `${FORM_CHUNK}ないでください`, "Negative request", "please do not do", "Politely asks someone not to do an action.", "", ex("ここで走らないでください。", "Please do not run here.", "ないでください is the negative request form."), "high", 5),
     gp("advice-hou-ga-ii", "N4", "方がいい", `${FORM_CHUNK}ほうが(?:いい|よい)(?:です)?`, "Advice", "better to do", "Gives advice or says one option is better.", "", ex("早く寝たほうがいいです。", "It is better to go to bed early.", "Often follows past tense for advice."), "high", 6),
     gp("command-nasai", "N4", "なさい", `${FORM_CHUNK}なさい`, "Command", "do this", "A command form often used by adults toward children or in instructions.", "", ex("宿題をしなさい。", "Do your homework.", "Stem + なさい gives an instruction."), "high", 6),
     gp("experience-ta-koto-ga-aru", "N4", "たことがある", `${FORM_CHUNK}たことが(?:あ(?:る|ります|った|りました|りません|りませんでした)|ない|なかった|ありません|ありませんでした)`, "Experience", "has done before", "Uses a past verb plus ことがある to talk about having had an experience.", "https://www.tofugu.com/japanese-grammar/ta-koto-ga-aru/", ex("京都に行ったことがあります。", "I have been to Kyoto.", "Past verb + ことがある marks experience."), "high", 6),
-    gp("completion-te-shimau", "N4", "てしまう", `(?:${FORM_CHUNK}[てで]しま(?:う|います|った|いました|わない|いません)|${FORM_CHUNK}(?:ちゃう|ちゃいます|ちゃった|ちゃいました|じゃう|じゃいます|じゃった|じゃいました))`, "Completion / regret", "do completely or unfortunately", "Can show that an action is completed, often with a feeling of regret, surprise, or accident.", "https://www.tofugu.com/japanese-grammar/te-shimau/", ex("財布を忘れてしまいました。", "I unfortunately forgot my wallet.", "てしまう can add regret or completion."), "high", 6),
-    gp("attempt-te-miru", "N4", "てみる", `${FORM_CHUNK}[てで]み(?:る|ます|た|ました|たい|ない|ません)`, "Attempt", "try doing", "Means to try an action and see what happens.", "https://www.tofugu.com/japanese-grammar/te-miru/", ex("新しい店で食べてみます。", "I will try eating at the new shop.", "て-form + みる is experimental trying."), "high", 6),
-    gp("preparation-te-oku", "N4", "ておく", `(?:${FORM_CHUNK}[てで]お(?:く|きます|いた|きました|かない|きません)|${FORM_CHUNK}(?:とく|ときます|といた|ときました|どく|どきます|どいた|どきました))`, "Preparation", "do in advance or leave as is", "Often marks an action done ahead of time, or a state intentionally left alone. Casual とく and どく are included.", "https://www.tofugu.com/japanese-grammar/teoku/", ex("旅行の前に予約しておきます。", "I will make a reservation before the trip.", "ておく prepares for later."), "high", 6),
-    gp("desire-other-te-hoshii", "N4", "てほしい", `${FORM_CHUNK}[てで]ほしい`, "Desire / request", "want someone to do", "Says the speaker wants someone else to do the action.", "", ex("もう少し待ってほしいです。", "I want you to wait a little longer.", "てほしい points desire at someone else's action."), "high", 7),
-    gp("benefactive-te-kureru-morau", "N4", "てくれる / てもらう", `${FORM_CHUNK}[てで](?:くれ(?:る|ます|た|ました|ない|ません)|くださ(?:る|います|った|いました)|あげ(?:る|ます|た|ました)|や(?:る|ります|った|りました)|もら(?:う|います|った|いました)|いただ(?:く|きます|いた|きました))`, "Giving and receiving", "favor done for someone", "Combines て-form with giving or receiving verbs to show who benefits from an action.", "https://www.tofugu.com/japanese-grammar/te-kureru/", ex("先生が説明してくださいました。", "The teacher kindly explained it.", "The helper verb shows benefit and direction."), "medium", 8),
-    gp("change-you-ni-naru", "N4", "ようになる", `${FORM_CHUNK}ようにな(?:る|ります|った|りました|らない|りません)`, "Change over time", "come to do or become so that", "Shows a new ability, habit, or state developing over time.", "https://www.tofugu.com/japanese-grammar/you-ni-naru/", ex("漢字が読めるようになりました。", "I became able to read kanji.", "Often describes gradual change."), "high", 8),
-    gp("habit-you-ni-suru", "N4", "ようにする", `${FORM_CHUNK}ように(?:す(?:る|ます|た|ました)|し(?:ている|ています|た|ました))`, "Effort / habit", "make sure to do", "Shows an intentional effort to make an action happen regularly or reliably.", "https://www.tofugu.com/japanese-grammar/you-ni-suru/", ex("毎日復習するようにしています。", "I try to review every day.", "ようにする describes deliberate effort."), "high", 8),
-    gp("voice-causative-passive", "N3", "させられる", `${FORM_CHUNK}(?:させられ(?:る|ます|た|ました)|[かがさざただなばまらわ]せられ(?:る|ます|た|ました)|[かがさざただなばまらわ]され(?:る|ます|た|ました))`, "Causative-passive", "be made to do", "Combines causative and passive meaning: someone is made to do an action, often unwillingly.", "https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/", ex("子どものころ、野菜を食べさせられました。", "When I was a child, I was made to eat vegetables.", "Regex can only flag the form; context decides the exact verb."), "medium", 8),
-    gp("voice-causative", "N4", "させる", `${FORM_CHUNK}(?:させ(?:る|ます|た|ました)|[かがさざただなばまらわ]せ(?:る|ます|た|ました))`, "Causative", "make or let someone do", "Adds a causer: someone makes, lets, or has someone else do the action.", "https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/", ex("母は子どもを遊ばせた。", "The mother let the child play.", "Causative can mean make or let."), "medium", 9),
-    gp("voice-passive-potential", "N4", "れる / られる", `${FORM_CHUNK}(?:られる|られます|[かがさざただなばまわ]れる|[かがさざただなばまわ]れます)`, "Passive / potential", "passive, potential, or honorific form", "This ending can mark passive voice, ability, or respectful speech; context decides which reading fits.", "https://www.tofugu.com/japanese-grammar/verb-passive-form-rareru/", ex("この漢字はよく見られます。", "This kanji is often seen.", "Surface regex cannot fully disambiguate passive, potential, and honorific."), "medium", 9),
-    gp("evidence-rashii-mitai", "N4", "らしい / みたい", `(?:${FORM_CHUNK}らしい|${FORM_CHUNK}みたい(?:だ|です|に|な))`, "Hearsay / likeness", "seems like or apparently", "Expresses appearance, hearsay, tendency, or resemblance depending on the form and context.", "https://www.tofugu.com/japanese-grammar/rashii/", ex("明日は雨らしいです。", "Apparently it will rain tomorrow.", "らしい often reports what one has heard."), "medium", 9),
+    gp("completion-te-shimau", "N4", "てしまう", `(?:${FORM_CHUNK}[てで]しま(?:う|います|った|いました|わない|いません|わなかった|いませんでした)|${FORM_CHUNK}(?:ちゃう|ちゃいます|ちゃった|ちゃいました|ちゃわない|ちゃいません|ちゃわなかった|ちゃいませんでした|じゃう|じゃいます|じゃった|じゃいました|じゃわない|じゃいません|じゃわなかった|じゃいませんでした))`, "Completion / regret", "do completely or unfortunately", "Can show that an action is completed, often with a feeling of regret, surprise, or accident.", "https://www.tofugu.com/japanese-grammar/te-shimau/", ex("財布を忘れてしまいました。", "I unfortunately forgot my wallet.", "てしまう can add regret or completion."), "high", 6),
+    gp("attempt-te-miru", "N4", "てみる", `${FORM_CHUNK}[てで]み(?:る|ます|た|ました|たい|ない|ません|なかった|ませんでした)`, "Attempt", "try doing", "Means to try an action and see what happens.", "https://www.tofugu.com/japanese-grammar/te-miru/", ex("新しい店で食べてみます。", "I will try eating at the new shop.", "て-form + みる is experimental trying."), "high", 6),
+    gp("preparation-te-oku", "N4", "ておく", `(?:${FORM_CHUNK}[てで]お(?:く|きます|いた|きました|かない|きません|かなかった|きませんでした)|${FORM_CHUNK}(?:とく|ときます|といた|ときました|とかない|ときません|とかなかった|ときませんでした|どく|どきます|どいた|どきました|どかない|どきません|どかなかった|どきませんでした))`, "Preparation", "do in advance or leave as is", "Often marks an action done ahead of time, or a state intentionally left alone. Casual とく and どく are included.", "https://www.tofugu.com/japanese-grammar/teoku/", ex("旅行の前に予約しておきます。", "I will make a reservation before the trip.", "ておく prepares for later."), "high", 6),
+    gp("desire-other-te-hoshii", "N4", "てほしい", `${FORM_CHUNK}[てで]ほし(?:い|いです|かった|かったです|くない|くありません|くなかった|くありませんでした)`, "Desire / request", "want someone to do", "Says the speaker wants someone else to do the action.", "", ex("もう少し待ってほしいです。", "I want you to wait a little longer.", "てほしい points desire at someone else's action."), "high", 7),
+    gp("benefactive-te-kureru-morau", "N4", "てくれる / てもらう", `${FORM_CHUNK}[てで](?:くれ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|くださ(?:る|います|った|いました|らない|いません|らなかった|いませんでした)|あげ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|や(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)|もら(?:う|います|った|いました|わない|いません|わなかった|いませんでした|え(?:る|ます|た|ました|ない|ません|なかった|ませんでした))|いただ(?:く|きます|いた|きました|かない|きません|かなかった|きませんでした|け(?:る|ます|た|ました|ない|ません|なかった|ませんでした)))`, "Giving and receiving", "favor done for someone", "Combines て-form with giving or receiving verbs to show who benefits from an action.", "https://www.tofugu.com/japanese-grammar/te-kureru/", ex("先生が説明してくださいました。", "The teacher kindly explained it.", "The helper verb shows benefit and direction."), "medium", 8),
+    gp("change-you-ni-naru", "N4", "ようになる", `${FORM_CHUNK}ようにな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています|っていない|っていません)`, "Change over time", "come to do or become so that", "Shows a new ability, habit, or state developing over time.", "https://www.tofugu.com/japanese-grammar/you-ni-naru/", ex("漢字が読めるようになりました。", "I became able to read kanji.", "Often describes gradual change."), "high", 8),
+    gp("habit-you-ni-suru", "N4", "ようにする", `${FORM_CHUNK}ように(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした))`, "Effort / habit", "make sure to do", "Shows an intentional effort to make an action happen regularly or reliably.", "https://www.tofugu.com/japanese-grammar/you-ni-suru/", ex("毎日復習するようにしています。", "I try to review every day.", "ようにする describes deliberate effort."), "high", 8),
+    gp("verb-suru", "N5", "する", `(?:${PARTICLE_CHUNK}を)?${PARTICLE_CHUNK}(?:す(?:る|れば|るな|るの|ること|るため|る前|る後)|し(?:ます|ました|ません|ませんでした|た|て|ない|なかった|なければ|よう|ろ)|され(?:る|ます|た|ました)|させ(?:る|ます|た|ました)|でき(?:る|ます|た|ました|ない|ません))`, "Verb", "do, make, or perform", "Flags する as a core irregular verb and as the helper that turns many nouns into actions.", "https://www.tofugu.com/japanese-grammar/suru/", ex("質問する答えを探す。", "Find answers to questions.", "する can attach to a noun to create an action verb."), "high", 49),
+    gp("choice-ni-suru", "N4", "にする", `${PARTICLE_CHUNK}に(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))`, "Choice / change", "choose or make something into", "Marks a choice or an intentional change into the state before にする.", "", ex("飲み物はお茶にします。", "I will have tea.", "Noun + にする is used for choosing or making something a certain way."), "high", 10),
+    gp("change-ku-suru", "N4", "くする", `${PARTICLE_CHUNK}く(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))`, "Intentional change", "make something adjective", "Uses an i-adjective adverbial form plus する to make something become that quality.", "", ex("部屋を明るくしました。", "I made the room brighter.", "い-adjective stem + くする marks intentional change."), "high", 10),
+    gp("change-ku-naru-ni-naru", "N5", "くなる / になる", `(?:${PARTICLE_CHUNK}くな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)|${PARTICLE_CHUNK}(?<!よう)にな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)|${PARTICLE_CHUNK}とな(?:る|ります|った|りました))`, "Change of state", "become", "Shows that something becomes a new quality or state.", "", ex("日本語が少し上手になりました。", "My Japanese got a little better.", "Noun/な-adjective + になる and い-adjective + くなる mark change."), "high", 10),
+    gp("copula-desu-da", "N5", "です / だ", `(?:です|でした|だ|だった)(?=$|[、。！？!?よねな])`, "Copula", "is or was", "Links a noun or adjective to a statement in plain or polite style.", "https://www.tofugu.com/japanese-grammar/desu/", ex("今日は休みです。", "Today is a day off.", "です is the polite copula."), "high", 43),
+    gp("negative-copula-dewa-nai", "N5", "ではない / じゃない", `(?:では|じゃ)(?:ない|ありません|なかった|ありませんでした)`, "Negative copula", "is not or was not", "Negates a noun or な-adjective statement.", "", ex("これは私の本じゃない。", "This is not my book.", "じゃない is the casual contraction of ではない."), "high", 12),
+    gp("formal-copula-de-aru", "N3", "である", `であ(?:る|ります|った|りました)`, "Written copula", "is or was", "A formal written-style copula often used in essays, explanations, and news.", "", ex("これは重要な問題である。", "This is an important problem.", "である is a formal version of だ/です."), "high", 20),
+    gp("voice-causative-passive", "N3", "させられる", `${FORM_CHUNK}(?:させられ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]せられ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]され(?:る|ます|た|ました|ない|ません|なかった|ませんでした))`, "Causative-passive", "be made to do", "Combines causative and passive meaning: someone is made to do an action, often unwillingly.", "https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/", ex("子どものころ、野菜を食べさせられました。", "When I was a child, I was made to eat vegetables.", "Regex can only flag the form; context decides the exact verb."), "medium", 8),
+    gp("voice-causative", "N4", "させる", `${FORM_CHUNK}(?:させ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]せ(?:る|ます|た|ました|ない|ません|なかった|ませんでした))`, "Causative", "make or let someone do", "Adds a causer: someone makes, lets, or has someone else do the action.", "https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/", ex("母は子どもを遊ばせた。", "The mother let the child play.", "Causative can mean make or let."), "medium", 9),
+    gp("voice-passive-potential", "N4", "れる / られる", `${FORM_CHUNK}(?:られ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまわ]れ(?:る|ます|た|ました|ない|ません|なかった|ませんでした))`, "Passive / potential", "passive, potential, or honorific form", "This ending can mark passive voice, ability, or respectful speech; context decides which reading fits.", "https://www.tofugu.com/japanese-grammar/verb-passive-form-rareru/", ex("この漢字はよく見られます。", "This kanji is often seen.", "Surface regex cannot fully disambiguate passive, potential, and honorific."), "medium", 9),
+    gp("evidence-rashii-mitai", "N4", "らしい / みたい", `(?:${FORM_CHUNK}らし(?:い|かった|くない|く)|${FORM_CHUNK}みたい(?:だ|です|でした|じゃない|ではない|に|な)?(?=$|[、。！？!?ねよ]))`, "Hearsay / likeness", "seems like or apparently", "Expresses appearance, hearsay, tendency, or resemblance depending on the form and context.", "https://www.tofugu.com/japanese-grammar/rashii/", ex("明日は雨らしいです。", "Apparently it will rain tomorrow.", "らしい often reports what one has heard."), "medium", 9),
     gp("modality-kamoshirenai", "N4", "かもしれない", "(?:かもしれない|かもしれません|かも)", "Possibility", "might or maybe", "Softens a statement into a possibility rather than a firm claim.", "https://www.tofugu.com/japanese-grammar/kamoshirenai/", ex("彼は来ないかもしれません。", "He might not come.", "かも is a casual short form."), "high", 9),
     gp("modality-deshou-darou", "N5", "でしょう / だろう", "(?:でしょう|でしょうか|だろう|だろうか)", "Probability", "probably or right?", "Adds probability, expectation, or a confirmation-seeking tone.", "https://www.tofugu.com/japanese-grammar/deshou/", ex("明日は晴れるでしょう。", "It will probably be sunny tomorrow.", "でしょう is polite; だろう is plainer."), "high", 10),
-    gp("quotation-to-omou", "N4", "と思う", `${FORM_CHUNK}と思(?:う|います|った|いました|っている|っています)`, "Quotation / thought", "think that...", "Marks the content of a thought or statement before 思う.", "https://www.tofugu.com/japanese-grammar/to-omou/", ex("これは便利だと思います。", "I think this is convenient.", "The phrase before と is the thought content."), "high", 10),
-    gp("attempt-you-to-suru", "N3", "ようとする", `${FORM_CHUNK}ようと(?:す(?:る|ます|た|ました|ている|ています)|し(?:た|ました|ている|ています))`, "Attempt / about to", "try to or be about to", "Uses the volitional form plus とする for an attempted action or something about to happen.", "https://www.tofugu.com/japanese-grammar/verb-volitional-form-you/", ex("出かけようとした時、電話が鳴った。", "Just as I was about to go out, the phone rang.", "Volitional + とする marks trying or being about to act."), "medium", 11),
+    gp("quotation-to-omou", "N4", "と思う", `${FORM_CHUNK}と思(?:う|います|った|いました|っている|っています|わない|いません|わなかった|いませんでした)`, "Quotation / thought", "think that...", "Marks the content of a thought or statement before 思う.", "https://www.tofugu.com/japanese-grammar/to-omou/", ex("これは便利だと思います。", "I think this is convenient.", "The phrase before と is the thought content."), "high", 10),
+    gp("attempt-you-to-suru", "N3", "ようとする", `${FORM_CHUNK}ようと(?:す(?:る|ます|た|ました|ている|ています)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))`, "Attempt / about to", "try to or be about to", "Uses the volitional form plus とする for an attempted action or something about to happen.", "https://www.tofugu.com/japanese-grammar/verb-volitional-form-you/", ex("出かけようとした時、電話が鳴った。", "Just as I was about to go out, the phone rang.", "Volitional + とする marks trying or being about to act."), "medium", 11),
     gp("plan-tsumori-yotei", "N4", "つもり / 予定", `${FORM_CHUNK}(?:つもり|予定)(?:だ|です|だった|でした)?`, "Plan / intention", "intend or plan to do", "つもり points to intention, while 予定 points to a plan or schedule.", "https://www.tofugu.com/japanese-grammar/tsumori/", ex("来年日本へ行くつもりです。", "I intend to go to Japan next year.", "つもり is intention; 予定 is a plan."), "medium", 12),
     gp("expectation-hazu", "N4", "はず", `${FORM_CHUNK}はず(?:だ|です|だった|でした|がない|はない)?`, "Expectation", "should be or expected to", "Marks a strong expectation based on what the speaker knows.", "https://www.tofugu.com/japanese-grammar/hazu/", ex("彼はもう着いたはずです。", "He should have arrived already.", "はず signals a reasoned expectation."), "high", 12),
     gp("reasoning-wake", "N3", "わけ", `${FORM_CHUNK}わけ(?:ではない|じゃない|がない|にはいかない|だ|です)?`, "Reasoning", "reason, conclusion, or not necessarily", "Points to a logical reason or conclusion, with negative forms often meaning not necessarily or cannot reasonably.", "https://www.tofugu.com/japanese-grammar/wake/", ex("高いわけではありません。", "It is not necessarily expensive.", "Specific わけ forms may be more precise if also detected."), "medium", 24),
@@ -128,21 +144,22 @@ const GRAMMAR_PATTERNS: GrammarPattern[] = [
     gp("purpose-tame-ni", "N4", "ために", `${FORM_CHUNK}ために`, "Purpose / benefit", "for the sake of or in order to", "Links an action or noun to a purpose, goal, or beneficiary.", "https://www.tofugu.com/japanese-grammar/tame-ni/", ex("家族のために働いています。", "I work for my family.", "ために marks purpose or benefit."), "high", 12),
     gp("purpose-you-ni", "N4", "ように", `${FORM_CHUNK}ように`, "Purpose / manner", "so that or in the way that", "Can mark a goal, desired result, or manner of doing something.", "https://www.tofugu.com/japanese-grammar/you-ni/", ex("忘れないようにメモします。", "I will write a note so I do not forget.", "This is broader than ようになる and ようにする."), "medium", 28),
     gp("timing-tokoro", "N4", "ところ", `${FORM_CHUNK}ところ(?:だ|です|だった|でした|で|に)?`, "Timing / situation", "point in time or situation", "Frames an action as about to happen, happening now, just happened, or as a situation.", "https://www.tofugu.com/japanese/tokoro-bakari/", ex("今、出かけるところです。", "I am just about to go out.", "ところ focuses on the moment or situation."), "medium", 14),
-    gp("simultaneous-nagara", "N4", "ながら", `${FORM_CHUNK}ながら`, "Simultaneous action", "while doing", "Connects two actions done at the same time by the same subject.", "https://www.tofugu.com/japanese-grammar/nagara/", ex("音楽を聞きながら勉強します。", "I study while listening to music.", "ながら joins simultaneous actions."), "high", 14),
+    gp("simultaneous-nagara", "N4", "ながら", `${FORM_CHUNK}(?<!残念)ながら`, "Simultaneous action", "while doing", "Connects two actions done at the same time by the same subject.", "https://www.tofugu.com/japanese-grammar/nagara/", ex("音楽を聞きながら勉強します。", "I study while listening to music.", "ながら joins simultaneous actions."), "high", 14),
     gp("state-mama", "N3", "まま", `${FORM_CHUNK}まま`, "Unchanged state", "as is or while still", "Keeps a state unchanged while another action or situation continues.", "https://www.tofugu.com/japanese-grammar/mama/", ex("電気をつけたまま寝てしまった。", "I fell asleep with the light still on.", "まま preserves the previous state."), "medium", 15),
-    gp("list-tari", "N5", "たり", `${FORM_CHUNK}たり`, "Representative list", "doing things like...", "Lists example actions without claiming the list is complete.", "https://www.tofugu.com/japanese-grammar/tari/", ex("週末は映画を見たり本を読んだりします。", "On weekends I do things like watch movies and read books.", "たり usually appears in pairs but can be single."), "medium", 16),
+    gp("list-tari", "N5", "たり", `(?:[^、。！？!?\\s]{1,30}?[だた]り[^、。！？!?\\s]{1,30}?[だた]り(?:する|します|した|しました|しない|しません|しなかった|しませんでした)?|${FORM_CHUNK}[だた]り(?:する|します|した|しました|しない|しません|しなかった|しませんでした))`, "Representative list", "doing things like...", "Lists example actions without claiming the list is complete.", "https://www.tofugu.com/japanese-grammar/tari/", ex("週末は映画を見たり本を読んだりします。", "On weekends I do things like watch movies and read books.", "たり usually appears in pairs but can be single."), "medium", 16),
     gp("limitation-bakari", "N4", "ばかり", `${FORM_CHUNK}ばかり`, "Limitation / recent action", "only, just did, or nothing but", "Can mark a recent completed action or a sense of only or nothing but depending on context.", "https://www.tofugu.com/japanese/tokoro-bakari/", ex("彼はゲームばかりしています。", "He does nothing but play games.", "ばかり can also mean just did after past tense."), "medium", 16),
+    gp("recent-ta-bakari", "N4", "たばかり", `${FORM_CHUNK}たばかり(?:だ|です|だった|でした)?`, "Recent action", "just did", "Uses a past form plus ばかり to say something has just happened recently from the speaker's point of view.", "https://www.tofugu.com/japanese/tokoro-bakari/", ex("日本に来たばかりです。", "I just came to Japan.", "Past form + ばかり focuses on recent completion."), "high", 12),
     gp("limitation-dake-shika", "N5", "だけ / しか", `${FORM_CHUNK}(?:だけ|しか)`, "Limitation", "only or nothing but", "だけ means only; しか usually pairs with a negative ending to mean nothing but.", "https://www.tofugu.com/japanese-grammar/dake/", ex("百円しかありません。", "I have only 100 yen.", "しか expects a negative predicate."), "medium", 18),
     gp("degree-hodo-kurai", "N4", "ほど / くらい", `${FORM_CHUNK}(?:ほど|くらい|ぐらい)`, "Degree / approximation", "extent or about", "Marks approximate amount or the degree to which something is true.", "https://www.tofugu.com/japanese-grammar/hodo/", ex("一時間ぐらい待ちました。", "I waited about an hour.", "ほど often emphasizes degree; くらい can be approximate."), "medium", 18),
     gp("role-toshite", "N3", "として", `${FORM_CHUNK}として`, "Role / standpoint", "as or in the role of", "Marks the role, capacity, or standpoint from which something is true.", "", ex("医者として働いています。", "I work as a doctor.", "として marks role or capacity."), "high", 18),
-    gp("relation-ni-yotte", "N3", "によって", `${FORM_CHUNK}によって`, "Means / cause / by", "by, depending on, or because of", "Can mark means, agent in passive sentences, cause, or variation depending on context.", "", ex("国によって習慣が違います。", "Customs differ depending on the country.", "によって is highly context-dependent."), "medium", 18),
+    gp("relation-ni-yotte", "N3", "によって", `${FORM_CHUNK}によ(?:って|る)`, "Means / cause / by", "by, depending on, or because of", "Can mark means, agent in passive sentences, cause, or variation depending on context.", "", ex("国によって習慣が違います。", "Customs differ depending on the country.", "によって is highly context-dependent."), "medium", 18),
     gp("topic-ni-tsuite", "N3", "について", `${FORM_CHUNK}について`, "Topic", "about or concerning", "Marks the topic being discussed, considered, or investigated.", "", ex("日本の歴史について調べています。", "I am researching Japanese history.", "について is a topic marker."), "high", 18),
-    gp("target-ni-taishite", "N3", "に対して", `${FORM_CHUNK}に対して`, "Target / contrast", "toward, against, or in contrast to", "Marks the target of an attitude or action, or sets up a contrast.", "", ex("子どもに対して優しい。", "She is kind toward children.", "に対して points at the target."), "medium", 18),
+    gp("target-ni-taishite", "N3", "に対して", `${FORM_CHUNK}に対(?:して|する|し)`, "Target / contrast", "toward, against, or in contrast to", "Marks the target of an attitude or action, or sets up a contrast.", "", ex("子どもに対して優しい。", "She is kind toward children.", "に対して points at the target."), "medium", 18),
     gp("concession-ni-mo-kakawarazu", "N2", "にもかかわらず", `${FORM_CHUNK}にもかかわらず`, "Concession", "despite or even though", "Connects two facts when the second happens despite the first.", "", ex("雨にもかかわらず試合は行われた。", "The game was held despite the rain.", "Formal concessive connector."), "high", 18),
     gp("concession-kuse-ni", "N3", "くせに", `${FORM_CHUNK}くせに`, "Blame / contradiction", "even though, with criticism", "Marks a contradiction with a blaming or critical tone.", "", ex("知らないくせに文句を言う。", "He complains even though he does not know.", "くせに often sounds critical."), "medium", 18),
     gp("suffix-tachi", "N5", "たち / 達", `${PARTICLE_CHUNK}(?:たち|(?<!友)達)`, "Plural / group suffix", "marks a group or plural set", "Attaches to a person, pronoun, or animate noun to point to that person and their group, or to a plural group.", "", ex("私たちは学生です。", "We are students.", "Often used for people or animate groups."), "medium", 50),
     gp("particle-wa", "N5", "は", `${PARTICLE_CHUNK}は(?!ず)`, "Topic particle", "sets the topic or contrast", "Read it as as for and look to the rest of the sentence for the new information.", "https://www.tofugu.com/japanese-grammar/particle-wa/", ex("私は学生です。", "I am a student.", "は marks the topic, not always the grammatical subject."), "high", 55),
-    gp("particle-ga", "N5", "が", `${PARTICLE_CHUNK}が`, "Subject particle", "marks the doer or focus", "Highlights the subject of the clause, often when that subject is new or important.", "https://www.tofugu.com/japanese-grammar/particle-ga/", ex("猫がいます。", "There is a cat.", "が often introduces or focuses a subject."), "high", 55),
+    gp("particle-ga", "N5", "が", `${PARTICLE_CHUNK}が`, "Subject particle", "marks the doer or focus", "Highlights the subject of the clause, often when that subject is new or important.", "https://www.tofugu.com/japanese-grammar/particle-ga/", ex("猫が走ります。", "The cat runs.", "が often introduces or focuses a subject."), "high", 55),
     gp("particle-wo", "N5", "を", `${PARTICLE_CHUNK}を`, "Object particle", "marks what receives the action", "The phrase before を is usually what the following verb acts on.", "https://www.tofugu.com/japanese-grammar/particle-wo/", ex("水を飲みます。", "I drink water.", "を marks the direct object."), "high", 55),
     gp("particle-de", "N5", "で", `${PARTICLE_CHUNK}(?<![まん])で(?!き|す|し)`, "Context particle", "marks where or how an action happens", "Often points to the setting, tool, method, or conditions for the action.", "https://www.tofugu.com/japanese-grammar/particle-de/", ex("駅で待ちます。", "I will wait at the station.", "で marks place, means, cause, or context."), "medium", 55),
     gp("particle-ni", "N5", "に", `${PARTICLE_CHUNK}に(?!なる)`, "Target particle", "marks a target, point, time, or adverbial role", "Think of に as pinning the action to a destination, time, target, or manner.", "https://www.tofugu.com/japanese-grammar/particle-ni/", ex("駅に行きます。", "I go to the station.", "に anchors time, target, or direction."), "medium", 55),
@@ -152,12 +169,12 @@ const GRAMMAR_PATTERNS: GrammarPattern[] = [
     gp("particle-mo", "N5", "も", `${PARTICLE_CHUNK}も`, "Inclusion particle", "also or too", "Adds the marked item to a set, or emphasizes extent with quantities.", "", ex("私も行きます。", "I will go too.", "も adds another item to the conversation."), "medium", 55),
     gp("particle-ya", "N5", "や", `${PARTICLE_CHUNK}や`, "Open list particle", "and things like", "Lists examples without implying the list is complete.", "", ex("パンや卵を買いました。", "I bought bread, eggs, and things like that.", "や creates a non-exhaustive list."), "medium", 55),
     gp("aspect-te-iru", "N5", "ている", `${FORM_CHUNK}[てで](?:いる|います|いた|いました|いない|いません|いなかった|いませんでした|る|た)`, "Verb form", "ongoing action or resulting state", "Shows an action in progress, or a state that remains after something changed.", "https://www.tofugu.com/japanese-grammar/verb-continuous-form-teiru/", ex("今、本を読んでいます。", "I am reading a book now.", "ている can be progressive or resultative."), "high", 40),
-    gp("aspect-te-aru", "N4", "てある", `${FORM_CHUNK}[てで]あ(?:る|ります|った|りました)`, "Resulting state", "has been done and remains", "Shows a result intentionally left in place after an action.", "", ex("窓が開けてあります。", "The window has been opened and left that way.", "てある suggests an intentional prepared state."), "high", 12),
-    gp("aspect-te-kuru", "N4", "てくる", `${FORM_CHUNK}[てで](?:くる|きます|きた|きました)`, "Movement / development", "come to do or develop toward now", "Shows movement toward the speaker or a change developing up to now.", "", ex("雨が降ってきました。", "It has started raining.", "てくる can be physical or temporal."), "medium", 20),
-    gp("aspect-te-iku", "N4", "ていく", `${FORM_CHUNK}[てで]い(?:く|きます|った|きました)`, "Movement / development", "go on doing or develop away", "Shows movement away from the speaker or a change continuing into the future.", "", ex("これからも勉強していきます。", "I will keep studying from now on.", "ていく often looks forward or outward."), "medium", 20),
+    gp("aspect-te-aru", "N4", "てある", `${FORM_CHUNK}[てで]あ(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)`, "Resulting state", "has been done and remains", "Shows a result intentionally left in place after an action.", "", ex("窓が開けてあります。", "The window has been opened and left that way.", "てある suggests an intentional prepared state."), "high", 12),
+    gp("aspect-te-kuru", "N4", "てくる", `${FORM_CHUNK}[てで](?:くる|きます|きた|きました|こない|きません|こなかった|きませんでした)`, "Movement / development", "come to do or develop toward now", "Shows movement toward the speaker or a change developing up to now.", "", ex("雨が降ってきました。", "It has started raining.", "てくる can be physical or temporal."), "medium", 20),
+    gp("aspect-te-iku", "N4", "ていく", `${FORM_CHUNK}[てで]い(?:く|きます|った|きました|かない|きません|かなかった|きませんでした)`, "Movement / development", "go on doing or develop away", "Shows movement away from the speaker or a change continuing into the future.", "", ex("これからも勉強していきます。", "I will keep studying from now on.", "ていく often looks forward or outward."), "medium", 20),
     gp("desire-tai", "N5", "たい", `${FORM_CHUNK}(?:たい(?:です)?|たく(?:ない|ありません|なかった|ありませんでした)|たかった(?:です)?)`, "Verb ending", "want to do something", "Attaches to a verb stem to say the speaker wants to do that action.", "https://www.tofugu.com/japanese-grammar/tai-form/", ex("日本へ行きたいです。", "I want to go to Japan.", "たい describes the speaker's desire."), "high", 44),
     gp("ease-yasui-nikui", "N4", "やすい / にくい", `${FORM_CHUNK}(?:やすい|にくい|づらい)`, "Ease / difficulty", "easy or hard to do", "Shows that an action is easy, difficult, or psychologically hard to do.", "", ex("この本は読みやすいです。", "This book is easy to read.", "Stem + やすい or にくい describes ease."), "high", 22),
-    gp("excess-sugiru", "N4", "すぎる", `${FORM_CHUNK}すぎ(?:る|ます|た|ました|ない)`, "Excess", "too much", "Shows that something goes beyond a suitable amount or degree.", "", ex("食べすぎました。", "I ate too much.", "Stem/adjective + すぎる marks excess."), "high", 22),
+    gp("excess-sugiru", "N4", "すぎる", `${FORM_CHUNK}すぎ(?:る|ます|た|ました|て|ない|ません|なかった|ませんでした|だ|です)`, "Excess", "too much", "Shows that something goes beyond a suitable amount or degree.", "", ex("食べすぎました。", "I ate too much.", "Stem/adjective + すぎる marks excess."), "high", 22),
     gp("method-kata", "N5", "方", `${FORM_CHUNK}方`, "Method", "way of doing", "Attaches to a verb stem to mean the way to do that action.", "", ex("使い方を教えてください。", "Please teach me how to use it.", "Stem + 方 creates a method noun."), "medium", 48),
     gp("negative-nai", "N5", "ない", `${FORM_CHUNK}(?:ない|ません|なかった|ませんでした)`, "Verb ending", "negative form", "Turns the verb or expression into do not, is not, or did not.", "https://www.tofugu.com/japanese-grammar/verb-negative-nai-form/", ex("今日は行きません。", "I will not go today.", "ない and ません are negative endings."), "medium", 46),
     gp("polite-past-mashita", "N5", "ました", `${FORM_CHUNK}ました`, "Polite past", "polite completed action", "A polite ます-form verb in the past tense: did or was/were.", "https://www.tofugu.com/japanese-grammar/masu/", ex("昨日、勉強しました。", "I studied yesterday.", "ました is polite past."), "high", 44),
@@ -165,10 +182,13 @@ const GRAMMAR_PATTERNS: GrammarPattern[] = [
     gp("conditional-tara", "N4", "たら", `${FORM_CHUNK}たら`, "Clause linker", "conditional or time sequence", "Turns the first clause into the condition or timing for what follows: if, when, or after.", "https://www.tofugu.com/japanese-grammar/conditional-form-tara/", ex("雨が降ったら、行きません。", "If it rains, I will not go.", "たら can mean if, when, or after."), "high", 17),
     gp("conditional-ba", "N4", "ば", `${FORM_CHUNK}(?:えば|ければ)`, "Conditional", "conditional if", "Marks the condition that needs to be true for the next clause to happen.", "https://www.tofugu.com/japanese-grammar/verb-conditional-form-ba/", ex("安ければ買います。", "If it is cheap, I will buy it.", "ば creates a conditional clause."), "high", 18),
     gp("conditional-ba-ii", "N4", "ばいい / ばよかった", `${FORM_CHUNK}(?:えば|ければ|[えけげせてねべめれ]ば)(?:いい|よい|よかった)(?:です)?`, "Advice / regret", "should do or should have done", "Can give advice, ask what to do, or express regret about what should have happened.", "", ex("もっと早く聞けばよかった。", "I should have asked earlier.", "ばよかった often expresses regret."), "medium", 13),
-    gp("reason-node", "N4", "ので", "(?:なので|ので)", "Clause linker", "reason or cause", "Gives the reason or cause for the following statement, usually with a softer tone than から.", "https://www.tofugu.com/japanese-grammar/conjunctive-particle-node/", ex("電車が遅れたので、遅刻しました。", "The train was late, so I was late.", "ので is often softer than から."), "high", 22),
+    gp("conditional-nara", "N4", "なら", `${FORM_CHUNK}なら(?:ば)?`, "Conditional / topic", "if it is the case that", "Sets up a condition, topic, or assumption before giving advice or a result.", "", ex("日本へ行くなら、春がいいです。", "If you are going to Japan, spring is good.", "なら often responds to or narrows a topic."), "high", 18),
+    gp("conditional-to", "N4", "と", `${FORM_CHUNK}と(?=、)`, "Conditional", "when or if", "Marks a natural, automatic, or expected result that follows from the first clause.", "", ex("このボタンを押すと、音が出ます。", "When you press this button, a sound plays.", "と conditionals often describe predictable results."), "medium", 38),
+    gp("concession-temo-demo", "N4", "ても / でも", `${FORM_CHUNK}[てで]も`, "Concession", "even if or even though", "Adds a condition that does not change the result.", "https://www.tofugu.com/japanese-grammar/temo/", ex("雨が降っても行きます。", "I will go even if it rains.", "て-form + も creates even if."), "medium", 28),
+    gp("reason-node", "N4", "ので", "(?:なので|ので)(?!は)", "Clause linker", "reason or cause", "Gives the reason or cause for the following statement, usually with a softer tone than から.", "https://www.tofugu.com/japanese-grammar/conjunctive-particle-node/", ex("電車が遅れたので、遅刻しました。", "The train was late, so I was late.", "ので is often softer than から."), "high", 22),
     gp("reason-kara", "N5", "から", `${FORM_CHUNK}から`, "Particle / linker", "reason, source, or starting point", "Can mean because, from, or after, depending on what surrounds it.", "https://www.tofugu.com/japanese-grammar/particle-kara/", ex("寒いから、上着を着ます。", "It is cold, so I will wear a jacket.", "から is broad and context-dependent."), "medium", 35),
-    gp("appearance-sou", "N4", "そう", `${FORM_CHUNK}そう(?:に|な)?`, "Appearance / hearsay", "looks like or I heard", "Describes how something seems from appearance, or reports hearsay when attached to a full clause.", "https://www.tofugu.com/japanese-grammar/verb-sou/", ex("このケーキはおいしそうです。", "This cake looks delicious.", "そう is ambiguous; context decides appearance or hearsay."), "medium", 30),
-    gp("hearsay-sou-da", "N4", "そうだ", `${FORM_CHUNK}そう(?:だ|です)`, "Hearsay", "I hear that", "Reports information heard from another source.", "", ex("ニュースによると、雪が降るそうです。", "According to the news, it will snow.", "This overlaps with appearance そう, so context matters."), "medium", 19),
+    gp("appearance-sou", "N4", "そう", `${FORM_CHUNK}そう(?:に|な)?`, "Appearance", "looks like or seems likely", "Describes how something seems from appearance, or that an action looks likely to happen.", "https://www.tofugu.com/japanese-grammar/verb-sou/", ex("このケーキはおいしそうです。", "This cake looks delicious.", "そう describes appearance when attached to a stem."), "medium", 30),
+    gp("hearsay-sou-da", "N4", "そうだ", `${FORM_CHUNK}(?:る|い|だ|た|ない)そう(?:だ|です)`, "Hearsay", "I hear that", "Reports information heard from another source.", "", ex("ニュースによると、雪が降るそうです。", "According to the news, it will snow.", "Plain-form clause + そうだ reports hearsay."), "medium", 19),
     gp("volitional-you", "N5", "よう", `${FORM_CHUNK}(?:よう|ろう)`, "Volitional", "volition, proposal, or invitation", "Often expresses let us, I will, or a suggestion to do something together.", "https://www.tofugu.com/japanese-grammar/verb-volitional-form-you/", ex("一緒に帰ろう。", "Let us go home together.", "Volitional forms can be proposals or intentions."), "medium", 45),
     gp("concession-noni", "N4", "のに", "のに", "Clause linker", "although, despite, or frustrated expectation", "Connects two ideas when the second one is surprising or disappointing given the first.", "https://www.tofugu.com/japanese-grammar/conjunctive-particle-noni/", ex("勉強したのに、忘れました。", "Even though I studied, I forgot.", "のに often carries disappointment."), "high", 20),
     gp("nominalizer-koto", "N5", "こと", "こと(?:が|を|に|は|も)", "Nominalizer", "abstract thing or nominalizer", "Turns an action or idea into a noun-like concept that particles can attach to.", "https://www.tofugu.com/japanese-grammar/koto/", ex("泳ぐことが好きです。", "I like swimming.", "こと nominalizes actions or ideas."), "medium", 42),
@@ -176,25 +196,68 @@ const GRAMMAR_PATTERNS: GrammarPattern[] = [
     gp("sequence-te-kara", "N5", "てから", `${FORM_CHUNK}[てで]から`, "Sequence", "after doing", "Says one action happens after another action is completed.", "", ex("手を洗ってから食べます。", "I eat after washing my hands.", "てから emphasizes the first action is completed first."), "high", 13),
     gp("time-mae-ni", "N5", "前に", `${FORM_CHUNK}前に`, "Time relation", "before doing", "Marks an action or event that happens before another.", "", ex("寝る前に歯を磨きます。", "I brush my teeth before sleeping.", "Dictionary form + 前に means before doing."), "medium", 22),
     gp("time-ato-de-ni", "N5", "後で / 後に", `${FORM_CHUNK}後(?:で|に)`, "Time relation", "after doing", "Marks an action or event that happens after another.", "", ex("仕事の後で会いましょう。", "Let us meet after work.", "後で is common for after."), "medium", 22),
-    gp("time-toki", "N5", "とき", `${FORM_CHUNK}(?:とき|時)`, "Time relation", "when", "Marks the time or occasion when something happens.", "", ex("困ったとき、友だちに相談します。", "When I am in trouble, I consult a friend.", "とき marks the time of a situation."), "medium", 22),
+    gp("time-toki", "N5", "とき", `${FORM_CHUNK}とき`, "Time relation", "when", "Marks the time or occasion when something happens.", "", ex("困ったとき、友だちに相談します。", "When I am in trouble, I consult a friend.", "とき marks the time of a situation."), "medium", 22),
     gp("limit-made-made-ni", "N5", "まで / までに", `${FORM_CHUNK}まで(?:に)?`, "Limit", "until or by", "まで marks an endpoint; までに marks a deadline.", "", ex("五時までに帰ります。", "I will return by five.", "までに means by a deadline."), "medium", 28),
     gp("comparison-yori-nohou", "N5", "より / の方が", `${FORM_CHUNK}(?:より|のほうが|の方が)`, "Comparison", "than or more than", "Compares two things; より marks the thing being compared against, while の方が marks the preferred or greater side.", "", ex("犬より猫の方が好きです。", "I like cats more than dogs.", "Comparison often uses both より and 方が."), "medium", 30),
     gp("superlative-ichiban", "N5", "一番", "一番", "Superlative", "the most", "Marks the highest degree among a group.", "", ex("寿司が一番好きです。", "I like sushi the most.", "一番 marks the top choice or degree."), "high", 22),
     gp("question-ka-douka", "N4", "かどうか", `${FORM_CHUNK}かどうか`, "Embedded question", "whether or not", "Embeds a yes-or-no question inside a larger sentence.", "", ex("行くかどうかまだ決めていません。", "I have not decided whether I will go.", "かどうか embeds uncertainty."), "high", 13),
+    gp("purpose-masu-stem-ni-iku", "N5", "に行く / に来る", `${FORM_CHUNK}[いきぎしじちにびみりえけげせてねべめ見寝出]に(?:行(?:く|きます|った|きました)|来(?:る|ます|た|ました)|帰(?:る|ります|った|りました))`, "Purpose of movement", "go or come to do", "Uses a verb stem plus に行く, に来る, or に帰る to show the purpose of movement.", "", ex("映画を見に行きます。", "I will go to see a movie.", "The stem before に marks what someone goes to do."), "high", 14),
+    gp("nominalizer-no", "N5", "の", `${FORM_CHUNK}の(?=[はがをにも])`, "Nominalizer", "doing something as a noun", "Turns a verb or adjective phrase into a noun-like idea before a particle.", "https://www.tofugu.com/japanese-grammar/no-nominalizer/", ex("泳ぐのは楽しいです。", "Swimming is fun.", "の nominalizes the action before は."), "medium", 18),
     gp("quotation-to-iu", "N4", "という", `${FORM_CHUNK}という`, "Quotation / naming", "called or saying that", "Marks a name, definition, quote, or explanation.", "", ex("田中さんという人に会いました。", "I met a person called Tanaka.", "という connects quoted, named, or defined content."), "medium", 14),
     gp("casual-tte", "N4", "って", `${FORM_CHUNK}って(?=(?:言|聞|思|呼|書|いう|こと|、|。|？|!|！|$))`, "Casual quote / topic", "casual quote or topic marker", "Casual marker for quoting, naming, or setting a topic.", "", ex("明日来るって聞きました。", "I heard that he is coming tomorrow.", "って is casual and broad."), "medium", 24),
     gp("explanation-n-desu", "N5", "んです / のです", `${FORM_CHUNK}(?:ん|の)です`, "Explanation", "explanatory tone", "Adds an explanatory or context-seeking tone.", "", ex("頭が痛いんです。", "The thing is, my head hurts.", "んです often explains or asks for explanation."), "medium", 22),
+    gp("explanation-no-da", "N4", "のだ / んだ", `${FORM_CHUNK}(?:の|ん)(?:だ|だった|じゃない|ではない)`, "Explanation", "explanatory plain form", "Adds explanatory force in plain speech, similar to んです in polite speech.", "", ex("今日は行けないんだ。", "The thing is, I cannot go today.", "んだ gives the statement explanatory context."), "medium", 22),
+    gp("existence-ga-aru-iru", "N5", "がある / がいる", `${PARTICLE_CHUNK}が(?:あ(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)|い(?:る|ます|た|ました|ない|ません|なかった|ませんでした))`, "Existence", "there is or have", "Uses ある for inanimate existence and いる for animate existence.", "", ex("机の上に本があります。", "There is a book on the desk.", "がある marks existence or possession."), "high", 24),
+    gp("skill-ga-suki-jouzu-heta", "N5", "が好き / が上手 / が下手", `${PARTICLE_CHUNK}が(?:好き|すき|上手|じょうず|下手|へた)(?:だ|です|ではない|じゃない)?`, "Preference / skill", "like, good at, or poor at", "Uses が to mark the thing liked or the skill being evaluated.", "", ex("妹は料理が上手です。", "My younger sister is good at cooking.", "The evaluated skill or liked thing is marked with が."), "high", 18),
+    gp("skill-no-ga-suki", "N5", "のが好き", `${FORM_CHUNK}のが(?:好き|すき|嫌い|きらい|上手|じょうず|下手|へた|得意|苦手)(?:だ|です|ではない|じゃない)?`, "Preference / skill", "like or be good at doing", "Uses の to nominalize an action before saying someone likes, dislikes, or is skilled at it.", "", ex("走るのが好きです。", "I like running.", "の turns the action into the thing being evaluated."), "high", 16),
+    gp("invitation-mashou", "N5", "ましょう / ましょうか", `${FORM_CHUNK}ましょう(?:か)?`, "Invitation / volition", "let us or shall I", "A polite way to suggest doing something together, or to offer help with ましょうか.", "", ex("一緒に帰りましょう。", "Let's go home together.", "ます-stem + ましょう makes a polite invitation."), "high", 12),
+    gp("invitation-masen-ka", "N5", "ませんか", `${FORM_CHUNK}ませんか`, "Invitation", "would you like to", "Uses a polite negative question to invite someone or make a gentle suggestion.", "", ex("コーヒーを飲みませんか。", "Would you like to drink coffee?", "ませんか is a common polite invitation."), "high", 11),
+    gp("relief-te-yokatta", "N4", "てよかった", `${FORM_CHUNK}[てで]よかった(?:です)?`, "Relief", "glad that", "Expresses relief or happiness that an action or situation happened.", "", ex("会えてよかったです。", "I'm glad I could see you.", "てよかった means it was good that the action happened."), "high", 10),
+    gp("without-zuni", "N4", "ずに", `${FORM_CHUNK}ずに`, "Without doing", "without doing", "Connects another action done without doing the first action.", "", ex("朝ご飯を食べずに出た。", "I left without eating breakfast.", "ずに is a formal/literary negative connector."), "high", 12),
+    gp("without-naide", "N4", "ないで", `${FORM_CHUNK}ないで(?!ください)`, "Without doing", "without doing", "Connects another action done without doing the first action.", "", ex("傘を持たないで出かけた。", "I went out without taking an umbrella.", "ないで can mean without doing."), "high", 16),
+    gp("apology-te-sumimasen", "N4", "てすみません", `${FORM_CHUNK}[てで]すみません`, "Apology", "sorry for doing", "Apologizes for the action or state before てすみません.", "", ex("遅れてすみません。", "I'm sorry for being late.", "てすみません gives the reason for the apology."), "high", 10),
+    gp("necessity-ga-hitsuyou", "N4", "が必要", `${PARTICLE_CHUNK}が必要(?:だ|です|だった|でした)?`, "Necessity", "need or necessary", "Marks something as needed or necessary.", "", ex("予約が必要です。", "A reservation is necessary.", "が marks the thing that is needed."), "high", 15),
+    gp("sensation-ga-suru", "N4", "がする", `${PARTICLE_CHUNK}が(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))`, "Sensation", "sense, smell, sound, or feeling", "Uses する with sensory nouns such as sound, smell, taste, or feeling.", "", ex("いい匂いがする。", "It smells good.", "がする often marks a perceived sensation."), "high", 13),
+    gp("case-baai", "N4", "場合", `${FORM_CHUNK}場合(?:は|には)?`, "Case / situation", "in case or situation", "Frames the condition or situation in which the next statement applies.", "", ex("雨の場合は中止です。", "In case of rain, it will be cancelled.", "場合 means case or situation."), "high", 16),
+    gp("examples-nado", "N4", "など", `${PARTICLE_CHUNK}など`, "Examples", "such as or and so on", "Marks an example or non-exhaustive set.", "", ex("本などを読みます。", "I read books and things like that.", "など softens or leaves the list open."), "high", 16),
+    gp("examples-toka", "N4", "とか", `${FORM_CHUNK}とか(?:${FORM_CHUNK}とか)?`, "Examples", "things like", "Casually lists examples without making a complete list.", "", ex("週末は映画とか見ます。", "On weekends I watch things like movies.", "とか is a casual example marker."), "medium", 18),
+    gp("hearsay-to-iwarete-iru", "N4", "と言われている", `${FORM_CHUNK}と言われてい(?:る|ます|ない|ません)|${FORM_CHUNK}と言われ(?:た|ました)`, "Hearsay", "it is said that", "Reports what people generally say or said about something.", "", ex("彼は天才と言われている。", "He is said to be a genius.", "と言われている reports a common statement."), "high", 10),
+    gp("hearsay-to-kiita", "N4", "と聞いた", `${FORM_CHUNK}と聞(?:いた|きました|いている|いています)`, "Hearsay", "heard that", "Reports information the speaker heard.", "", ex("明日は雨だと聞きました。", "I heard that it will rain tomorrow.", "と聞いた marks the heard content."), "high", 12),
+    gp("similarity-you-da", "N4", "ようだ / ような", `${FORM_CHUNK}よう(?:だ|です|な|に)`, "Similarity / appearance", "seems or like", "Expresses resemblance, appearance, or a manner like something.", "", ex("彼は疲れているようだ。", "He seems tired.", "ようだ can mean seems like or resembles."), "medium", 29),
     gp("permission-sasete-kudasai", "N4", "させてください", `${FORM_CHUNK}させてください`, "Permission request", "please let me do", "Asks permission to do something.", "", ex("少し考えさせてください。", "Please let me think for a bit.", "Causative て-form + ください asks to be allowed."), "high", 5),
-    gp("decision-koto-ni-suru", "N4", "ことにする", `${FORM_CHUNK}ことに(?:す(?:る|ます|た|ました|ている|ています)|し(?:ます|た|ました|ている|ています))`, "Decision", "decide to do", "Shows that someone decides on an action or policy.", "", ex("毎朝走ることにしました。", "I decided to run every morning.", "ことにする marks personal decision."), "high", 9),
-    gp("arrangement-koto-ni-naru", "N4", "ことになる", `${FORM_CHUNK}ことにな(?:る|ります|った|りました|っている|っています)`, "Decision / arrangement", "it has been decided", "Shows an arrangement or outcome decided by circumstances or others.", "", ex("来月転勤することになりました。", "It has been decided that I will transfer next month.", "Often implies an external decision."), "high", 9),
-    gp("honorific-o-go-ni-naru-suru", "N3", "お〜になる / お〜する", `(?:お|ご)${FORM_CHUNK}(?:になる|になります|する|します|いたす|いたします|ください)`, "Honorific / humble", "respectful or humble set phrase", "Uses お or ご with a verb noun or stem for respectful or humble speech.", "", ex("社長がお帰りになります。", "The president will return.", "Regex can flag the construction, but politeness role depends on the verb."), "medium", 18),
-    gp("polite-gozaimasu", "N5", "ございます", `${FORM_CHUNK}ございます`, "Polite speech", "polite equivalent of ある", "A very polite form related to ある or です in set expressions.", "", ex("質問がございます。", "I have a question.", "ございます is very polite."), "medium", 30),
+    gp("decision-koto-ni-suru", "N4", "ことにする", `${FORM_CHUNK}ことに(?:す(?:る|ます|た|ました|ている|ています)|し(?:ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした))`, "Decision", "decide to do", "Shows that someone decides on an action or policy.", "", ex("毎朝走ることにしました。", "I decided to run every morning.", "ことにする marks personal decision."), "high", 9),
+    gp("arrangement-koto-ni-naru", "N4", "ことになる", `${FORM_CHUNK}ことにな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)`, "Decision / arrangement", "it has been decided", "Shows an arrangement or outcome decided by circumstances or others.", "", ex("来月転勤することになりました。", "It has been decided that I will transfer next month.", "Often implies an external decision."), "high", 9),
+    gp("honorific-o-go-ni-naru-suru", "N3", "お〜になる / お〜する", `(?:お|ご)${FORM_CHUNK}(?:になる|になります|する|します|いたす|いたします|ください)`, "Honorific / humble", "respectful or humble set phrase", "Uses お or ご with a verb noun or stem for respectful or humble speech.", "", ex("社長がお帰りになります。", "The president will return.", "Regex can flag the construction, but politeness role depends on the verb."), "medium", 8),
+    gp("polite-gozaimasu", "N5", "ございます", `${FORM_CHUNK}ござい(?:ます|ました|ません|ませんでした)`, "Polite speech", "polite equivalent of ある", "A very polite form related to ある or です in set expressions.", "", ex("質問がございます。", "I have a question.", "ございます is very polite."), "medium", 30),
     gp("advice-beki", "N3", "べき", `${FORM_CHUNK}べき(?:だ|です|ではない|じゃない)?`, "Norm / advice", "should do", "Expresses what is proper, expected, or advisable.", "", ex("約束は守るべきです。", "You should keep promises.", "べき is stronger and more formal than 方がいい."), "high", 15),
     gp("time-aida-aida-ni", "N4", "間 / 間に", `${FORM_CHUNK}間(?:に|は)?`, "Time span", "while or during", "Marks a period during which something happens.", "", ex("夏休みの間に本を三冊読みました。", "I read three books during summer vacation.", "間に focuses on something happening within the interval."), "medium", 22),
     gp("time-uchi-ni", "N3", "うちに", `${FORM_CHUNK}うちに`, "Time limit", "while still or before it changes", "Says to act while a condition still holds.", "", ex("明るいうちに帰りましょう。", "Let us go home while it is still light.", "うちに warns the condition may change."), "medium", 14),
     gp("time-saichuu-ni", "N3", "最中に", `${FORM_CHUNK}最中に`, "Middle of action", "right in the middle of", "Marks that something happens right in the middle of another action.", "", ex("会議の最中に電話が鳴った。", "The phone rang in the middle of the meeting.", "最中に emphasizes interruption during an event."), "high", 16),
     gp("repetition-tabi-ni", "N3", "たびに", `${FORM_CHUNK}たびに`, "Repetition", "every time", "Marks something that happens each time another thing occurs.", "", ex("彼に会うたびに元気をもらう。", "Every time I meet him, I feel encouraged.", "たびに repeats with each occurrence."), "high", 14),
     gp("incidental-tsuide-ni", "N3", "ついでに", `${FORM_CHUNK}ついでに`, "Incidental action", "while you are at it", "Adds an extra action done along with the main action.", "", ex("買い物のついでに郵便局へ行きます。", "I will go to the post office while I am out shopping.", "ついでに adds a convenient side task."), "medium", 14),
+    gp("phase-compound-verb", "N4", "始める / 続ける / 終わる", `${FORM_CHUNK}(?:(?:始め|続け)(?:る|ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした)|(?:出し|終わ)(?:る|ます|た|ました))`, "Compound verb phase", "begin, start, continue, or finish doing", "Adds a phase such as beginning, starting suddenly, continuing, or finishing to a verb stem.", "", ex("雨が降り始めました。", "It started raining.", "Verb stem + 始める marks the start of an action."), "medium", 18),
+    gp("state-ppanashi", "N3", "っぱなし", `${FORM_CHUNK}っぱなし`, "Left as is", "left on or left undone", "Says something remains in a state, often because it was left that way.", "", ex("電気をつけっぱなしにした。", "I left the light on.", "っぱなし often has a negative nuance."), "high", 14),
+    gp("covered-darake", "N3", "だらけ", `${FORM_CHUNK}だらけ`, "Covered / full of", "covered with or full of", "Says something is full of an undesirable thing.", "", ex("服が泥だらけだ。", "My clothes are covered in mud.", "だらけ often marks an unpleasant abundance."), "high", 15),
+    gp("fresh-tate", "N3", "たて", `${FORM_CHUNK}たて`, "Freshly done", "freshly or just done", "Describes something that has just been made or done.", "", ex("焼きたてのパンを買った。", "I bought freshly baked bread.", "たて attaches to a verb stem."), "medium", 18),
+    gp("elapsed-buri-ni", "N3", "ぶりに", `${FORM_CHUNK}ぶりに`, "After an interval", "for the first time in", "Marks that something happens after a stated interval.", "", ex("三年ぶりに友だちに会った。", "I met my friend for the first time in three years.", "ぶりに measures time since the previous occurrence."), "high", 14),
+    gp("interval-goto-ni", "N3", "ごとに", `${FORM_CHUNK}ごとに`, "Each / every", "each or every time", "Marks a repeated interval or every member of a set.", "", ex("会うごとに日本語が上手になる。", "Every time we meet, your Japanese gets better.", "ごとに means each or every."), "high", 14),
+    gp("interval-oki-ni", "N3", "おきに", `${FORM_CHUNK}おきに`, "Interval", "at intervals of", "Marks regular intervals between events.", "", ex("一日おきに運動します。", "I exercise every other day.", "おきに marks spacing between occurrences."), "high", 15),
+    gp("emphasis-kara-koso", "N3", "からこそ", `${FORM_CHUNK}からこそ`, "Emphatic reason", "precisely because", "Emphasizes the reason before からこそ as the key cause.", "", ex("大切だからこそ厳しく言う。", "I say it strictly precisely because it is important.", "からこそ strengthens the reason."), "high", 12),
+    gp("source-ni-yoru-to", "N3", "によると / によれば", `${FORM_CHUNK}によ(?:ると|れば)`, "Source", "according to", "Marks the source of information or a report.", "", ex("ニュースによると雪です。", "According to the news, it will snow.", "によると introduces the information source."), "high", 12),
+    gp("topic-ni-kansuru", "N3", "に関する", `${FORM_CHUNK}に関する`, "Topic / relation", "related to", "Modifies a noun by saying what it is about or related to.", "", ex("環境に関する問題を話し合う。", "We discuss problems related to the environment.", "に関する is the noun-modifying form of に関して."), "high", 13),
+    gp("context-ni-okeru", "N3", "における", `${FORM_CHUNK}における`, "Context", "in or at", "Formal noun-modifying marker for field, time, place, or context.", "", ex("現代における課題です。", "It is an issue in the present day.", "における modifies a following noun."), "high", 13),
+    gp("standard-ni-shite-wa", "N3", "にしては", `${FORM_CHUNK}にしては`, "Unexpected standard", "considering or for", "Judges something as unexpected compared with the marked standard.", "", ex("子どもにしては上手です。", "For a child, they are skilled.", "にしては compares against expectations."), "high", 14),
+    gp("simultaneous-to-douji-ni", "N3", "と同時に", `${FORM_CHUNK}と同時に`, "Same time", "at the same time as", "Marks two things happening at the same time, or two simultaneous qualities.", "", ex("卒業と同時に働き始めた。", "I started working at the same time as graduation.", "と同時に links simultaneous events."), "high", 12),
+    gp("supposition-to-shitara", "N3", "としたら / とすれば", `${FORM_CHUNK}と(?:したら|すれば|すると)`, "Supposition", "supposing that", "Sets up a hypothetical assumption before giving a result or judgment.", "", ex("行くとしたら明日です。", "If I were to go, it would be tomorrow.", "としたら sets a supposition."), "high", 13),
+    gp("almost-tokoro-datta", "N3", "ところだった", `${FORM_CHUNK}ところ(?:だった|でした)`, "Almost happened", "almost did", "Says something nearly happened, often something undesirable.", "", ex("電車に遅れるところだった。", "I almost missed the train.", "ところだった marks a near event."), "high", 12),
+    gp("nonlimiting-wa-mochiron", "N3", "はもちろん", `${FORM_CHUNK}はもちろん`, "Not only", "not only or of course", "Marks something as obvious and adds more beyond it.", "", ex("日本語はもちろん英語も必要です。", "English is necessary, not only Japanese.", "はもちろん often pairs with も."), "high", 14),
+    gp("pretend-furi-wo-suru", "N3", "ふりをする", `${FORM_CHUNK}ふりを(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています))`, "Pretending", "pretend to", "Describes pretending or acting as if something is true.", "", ex("知らないふりをした。", "I pretended not to know.", "ふりをする means to pretend."), "high", 12),
+    gp("instant-ta-totan-ni", "N3", "たとたんに", `${FORM_CHUNK}たとたん(?:に)?`, "Instant sequence", "the moment", "Says something happened immediately after another action.", "", ex("外に出たとたん雨が降った。", "The moment I went outside, it started raining.", "たとたんに marks an immediate result."), "high", 12),
+    gp("difficulty-gatai", "N3", "がたい", `${FORM_CHUNK}がたい`, "Hard to do", "hard to do", "Says an action is difficult to do, often psychologically or emotionally.", "", ex("信じがたい話です。", "It is a hard-to-believe story.", "がたい attaches to a verb stem."), "high", 18),
+    gp("only-shika-nai", "N3", "しかない", `${FORM_CHUNK}しか(?:ない|ありません|なかった|ありませんでした)`, "Only choice", "have no choice but", "Says there is no option other than doing or choosing the marked thing.", "", ex("やるしかない。", "There is nothing to do but do it.", "しかない creates a strong only-choice meaning."), "high", 12),
+    gp("emphasis-sae", "N3", "さえ / でさえ", `[^、。！？!?\s]{1,24}(?:で)?さえ`, "Even", "even", "Emphasizes an extreme or surprising example.", "", ex("子どもでさえ知っています。", "Even children know it.", "さえ highlights an unexpected minimum or extreme."), "medium", 18),
+    gp("emphasis-koso", "N3", "こそ", `${PARTICLE_CHUNK}こそ`, "Emphasis", "precisely or especially", "Strongly emphasizes the marked word as the important one.", "", ex("今こそ始めよう。", "Now is exactly the time to begin.", "こそ gives focused emphasis."), "medium", 18),
+    gp("try-te-goran", "N3", "てごらん", `${FORM_CHUNK}[てで]ごらん`, "Suggestion", "try doing", "A casual or gentle instruction to try doing something.", "", ex("食べてごらん。", "Try eating it.", "てごらん is often used by adults toward children or close listeners."), "high", 13),
     gp("cause-sei-okage-de", "N3", "せいで / おかげで", `${FORM_CHUNK}(?:せい|おかげ)で`, "Cause", "because of, thanks to", "せいで gives a negative cause; おかげで gives a beneficial cause.", "", ex("先生のおかげで合格できました。", "Thanks to my teacher, I was able to pass.", "おかげで is positive; せいで is negative."), "high", 14),
     gp("manner-toori", "N3", "とおり", `${FORM_CHUNK}(?:とおり|通り)(?:に|だ|です)?`, "Manner", "as or just as", "Says something happens in the same way as a model or statement.", "", ex("説明のとおりに操作してください。", "Please operate it as explained.", "とおり means following a model."), "high", 16),
     gp("certainty-ni-chigai-nai", "N3", "に違いない", `${FORM_CHUNK}に違い(?:ない|ありません)`, "Certainty", "must be true", "Shows strong certainty based on evidence or reasoning.", "", ex("彼は医者に違いない。", "He must be a doctor.", "に違いない is strong certainty."), "high", 15),
@@ -221,19 +284,25 @@ const GRAMMAR_PATTERNS: GrammarPattern[] = [
     gp("negative-youni-nai", "N3", "ようがない", `${FORM_CHUNK}ようが(?:ない|ありません)`, "Impossibility", "no way to do", "Says there is no method or possibility for doing something.", "", ex("壊れすぎて直しようがない。", "It is too broken to fix.", "Stem + ようがない means no way to do."), "high", 16),
     gp("impossible-kkonai", "N3", "っこない", `${FORM_CHUNK}っこない`, "Impossibility", "no chance of doing", "Casually says something will not or cannot happen.", "", ex("彼が負けっこない。", "There is no way he will lose.", "っこない is casual and emphatic."), "medium", 18),
     gp("condition-kara-ni-wa", "N2", "からには", `${FORM_CHUNK}からには`, "Commitment condition", "now that / since", "Sets a condition that creates obligation, resolve, or expectation.", "", ex("やるからには最後までやります。", "Since I am doing it, I will do it to the end.", "からには often implies commitment."), "high", 12),
+    gp("qualification-kara-to-itte", "N2", "からといって", `${FORM_CHUNK}からといって`, "Qualification", "just because does not mean", "Introduces a reason that is not enough to justify the following conclusion.", "", ex("安いからといって、買うとは限らない。", "Just because it is cheap does not mean I will buy it.", "Often pairs with a negative or limiting conclusion."), "high", 12),
+    gp("condition-nai-kagiri", "N2", "ない限り", `${FORM_CHUNK}ない限り`, "Condition", "unless / as long as not", "Says the following result holds unless the negative condition changes.", "", ex("雨が降らない限り、試合は行われます。", "Unless it rains, the match will be held.", "ない限り means unless."), "high", 12),
     gp("condition-ijou-wa", "N2", "以上は", `${FORM_CHUNK}以上は`, "Commitment condition", "now that / as long as", "Sets a condition that creates obligation or consequence.", "", ex("約束した以上は守るべきだ。", "Since you promised, you should keep it.", "以上は is formal and firm."), "high", 11),
     gp("condition-ue-wa", "N2", "上は", `${FORM_CHUNK}上は`, "Commitment condition", "now that", "Means now that something is true, a certain responsibility follows.", "", ex("引き受けた上は全力を尽くします。", "Now that I have accepted, I will do my best.", "上は is formal."), "high", 12),
     gp("sequence-ue-de", "N2", "上で", `${FORM_CHUNK}上で`, "After / basis", "after doing or on the basis of", "Means after doing something, or after considering something as a basis.", "", ex("内容を確認した上で署名します。", "I will sign after confirming the contents.", "上で often means after careful action."), "high", 13),
     gp("addition-ue-ni", "N2", "上に", `${FORM_CHUNK}上に`, "Addition", "on top of that", "Adds another fact, often intensifying the evaluation.", "", ex("彼は親切な上に面白い。", "He is kind and, on top of that, funny.", "上に stacks positive or negative facts."), "high", 13),
     gp("viewpoint-kara-miru-to", "N2", "から見ると / からすると", `${FORM_CHUNK}から(?:見ると|見れば|すると|すれば|言うと|言えば)`, "Viewpoint", "from the point of view of", "Marks the standpoint or basis for judgment.", "", ex("専門家から見ると簡単です。", "From an expert's view, it is simple.", "から見ると introduces a viewpoint."), "medium", 16),
     gp("starting-kara-shite", "N2", "からして", `${FORM_CHUNK}からして`, "Even starting with", "judging from or even", "Marks a representative starting point for judgment.", "", ex("名前からして怪しい。", "Even the name sounds suspicious.", "からして can mean judging from or even."), "medium", 16),
+    gp("concession-ni-shitemo-toshitemo", "N2", "にしても / としても", `${FORM_CHUNK}(?:にしても|としても)`, "Concession / supposition", "even if or whether", "Sets up an assumed case and says the next point still applies.", "", ex("行くにしても、早めに連絡してください。", "Even if you go, please contact me early.", "にしても and としても introduce a conceded case."), "high", 14),
+    gp("concession-ni-shiro-ni-seyo", "N2", "にしろ / にせよ", `${FORM_CHUNK}に(?:しろ|せよ)`, "Concession / alternatives", "whether or even if", "Marks a conceded case or one side of an alternative pair.", "", ex("賛成にせよ反対にせよ、理由を説明してください。", "Whether you agree or disagree, please explain why.", "Often repeats for A or B alternatives."), "high", 14),
+    gp("after-all-ageku", "N2", "あげく", `${FORM_CHUNK}あげく(?:に)?`, "Outcome after effort", "after all that", "Marks a final, often disappointing result after a long process.", "", ex("長く迷ったあげく、買わないことにした。", "After much hesitation, I decided not to buy it.", "あげく often carries a negative result."), "high", 13),
+    gp("after-effort-sue-ni", "N2", "末に", `${FORM_CHUNK}末に`, "After a process", "after / as a result of", "Marks a result reached after effort, discussion, or time.", "", ex("何度も話し合った末に、計画を変更した。", "After many discussions, we changed the plan.", "末に emphasizes the process before the result."), "high", 13),
     gp("only-ni-suginai", "N2", "にすぎない", `${FORM_CHUNK}にすぎ(?:ない|ません)`, "Limitation", "nothing more than", "Says something is only a certain thing and should not be overestimated.", "", ex("これは一例にすぎません。", "This is nothing more than one example.", "にすぎない minimizes."), "high", 14),
     gp("essence-ni-hoka-naranai", "N2", "にほかならない", `${FORM_CHUNK}にほかならない`, "Essence / conclusion", "nothing other than", "States the true identity or central cause of something.", "", ex("成功は努力の結果にほかならない。", "Success is nothing other than the result of effort.", "Formal emphatic conclusion."), "high", 14),
     gp("necessity-zaru-wo-enai", "N2", "ざるを得ない", `${FORM_CHUNK}ざるを得(?:ない|ません)`, "Necessity", "have no choice but to", "Says there is no choice but to do something.", "", ex("予定を変更せざるを得ない。", "We have no choice but to change the plan.", "ざるを得ない is formal necessity."), "high", 10),
     gp("compulsion-zu-ni-wa-irarenai", "N2", "ずにはいられない", `${FORM_CHUNK}(?:ずには|ないでは)いられ(?:ない|ません|なかった|ませんでした)`, "Compulsion", "cannot help doing", "Says one cannot resist doing or feeling something.", "", ex("笑わずにはいられなかった。", "I could not help laughing.", "Often used for emotions or impulses."), "high", 10),
-    gp("possibility-eru-enai", "N2", "得る / 得ない", `${FORM_CHUNK}得(?:る|ます|ない|ません)`, "Possibility", "can happen / cannot happen", "Marks something as possible or impossible, often in formal writing.", "", ex("事故は起こり得る。", "An accident can happen.", "得る is read うる or える depending on form."), "medium", 20),
+    gp("possibility-eru-enai", "N2", "得る / 得ない", `${FORM_CHUNK}得(?:る|ます|た|ました|ない|ません|なかった|ませんでした)`, "Possibility", "can happen / cannot happen", "Marks something as possible or impossible, often in formal writing.", "", ex("事故は起こり得る。", "An accident can happen.", "得る is read うる or える depending on form."), "medium", 20),
     gp("risk-kanenai", "N2", "かねない", `${FORM_CHUNK}かね(?:ない|ません)`, "Risk", "might happen, usually bad", "Warns that a negative result could happen.", "", ex("このままでは失敗しかねない。", "At this rate, we might fail.", "かねない is used for undesirable possibilities."), "high", 14),
-    gp("difficulty-kaneru", "N2", "かねる", `${FORM_CHUNK}かね(?:る|ます)`, "Difficulty / refusal", "unable to do", "Politely says something is difficult or impossible to do.", "", ex("その質問には答えかねます。", "I am unable to answer that question.", "Often used in formal refusal."), "high", 14),
+    gp("difficulty-kaneru", "N2", "かねる", `${FORM_CHUNK}かね(?:る|ます|た|ました)`, "Difficulty / refusal", "unable to do", "Politely says something is difficult or impossible to do.", "", ex("その質問には答えかねます。", "I am unable to answer that question.", "Often used in formal refusal."), "high", 14),
     gp("emotion-te-naranai", "N2", "てならない", `${FORM_CHUNK}[てで]ならない`, "Strong feeling", "cannot help feeling", "Expresses a strong spontaneous feeling or state.", "", ex("心配でならない。", "I cannot help being worried.", "Used with feelings and sensations."), "medium", 14),
     gp("emotion-te-tamaranai", "N2", "てたまらない", `${FORM_CHUNK}[てで]たまらない`, "Strong feeling", "unbearably", "Expresses an intense feeling or sensation.", "", ex("眠くてたまらない。", "I am unbearably sleepy.", "てたまらない intensifies feeling."), "medium", 14),
     gp("emotion-te-shouganai", "N2", "てしょうがない", `${FORM_CHUNK}[てで](?:しょうがない|仕方がない)`, "Strong feeling", "cannot help / extremely", "Expresses an uncontrollable or very strong feeling.", "", ex("楽しみでしょうがない。", "I am extremely excited.", "Casual form of intense feeling."), "medium", 14),
@@ -268,7 +337,7 @@ const GRAMMAR_PATTERNS: GrammarPattern[] = [
     gp("relative-wari-ni", "N2", "わりに", `${FORM_CHUNK}わりに`, "Unexpected comparison", "considering / for", "Shows something is unexpected relative to a standard.", "", ex("値段のわりにおいしい。", "It is tasty considering the price.", "わりに compares against expectation."), "medium", 18),
     gp("memory-kke", "N2", "っけ", `${FORM_CHUNK}っけ`, "Memory check", "what was it again?", "Casually checks memory or confirms something.", "", ex("明日の会議は何時だっけ。", "What time was tomorrow's meeting again?", "っけ is casual recollection."), "medium", 28),
     gp("quote-to-iu-yori", "N2", "というより", `${FORM_CHUNK}というより`, "Correction", "rather than", "Corrects or reframes the previous description.", "", ex("彼は静かというより無口だ。", "He is not so much quiet as taciturn.", "というより adjusts the label."), "medium", 18),
-    gp("example-to-itta", "N2", "といった", `${FORM_CHUNK}といった`, "Examples", "such as", "Introduces representative examples.", "", ex("京都や奈良といった古い町。", "Old cities such as Kyoto and Nara.", "といった lists examples."), "medium", 20),
+    gp("example-to-itta", "N2", "といった", `${FORM_CHUNK}といった(?=[^、。！？!?\\s])`, "Examples", "such as", "Introduces representative examples.", "", ex("京都や奈良といった古い町。", "Old cities such as Kyoto and Nara.", "といった lists examples."), "medium", 20),
     gp("topic-to-ieba", "N2", "といえば", `${FORM_CHUNK}といえば`, "Speaking of", "speaking of", "Introduces something associated with a topic.", "", ex("日本の食べ物といえば寿司です。", "Speaking of Japanese food, sushi comes to mind.", "といえば sets up an association."), "medium", 20),
     gp("thing-mono-da", "N2", "ものだ", `${FORM_CHUNK}もの(?:だ|です)`, "General truth / emotion", "it is natural / used to", "Can express general truths, emotional reflection, or past habits.", "", ex("時間が経つのは早いものです。", "Time really does pass quickly.", "ものだ is context-sensitive."), "medium", 24),
     gp("cause-mono-dakara", "N2", "ものだから", `${FORM_CHUNK}ものだから`, "Excuse / reason", "because", "Gives a reason, often as an excuse or explanation.", "", ex("道が混んでいたものだから遅れました。", "I was late because the road was crowded.", "ものだから softens an explanation."), "medium", 16),
@@ -316,7 +385,7 @@ const GRAMMAR_PATTERNS: GrammarPattern[] = [
     gp("surprise-tomo-arou-mono-ga", "N1", "ともあろうものが", `${FORM_CHUNK}ともあろうものが`, "Role disappointment", "of all people", "Expresses criticism or surprise that someone of a status did something.", "", ex("医者ともあろうものが不注意だった。", "A doctor, of all people, was careless.", "Critical surprise."), "high", 12),
     gp("stage-tomo-naru-to", "N1", "ともなると", `${FORM_CHUNK}ともなると`, "Stage / status", "when it comes to", "Says that once something reaches a level, things change.", "", ex("大人ともなると責任が増える。", "Once you become an adult, responsibilities increase.", "Marks a stage or status."), "medium", 14),
     gp("any-de-are", "N1", "であれ", `${FORM_CHUNK}であれ`, "Regardless / even if", "whoever or whatever", "Formal marker meaning even if or no matter what.", "", ex("理由が何であれ、許されない。", "Whatever the reason, it is not allowed.", "Often pairs with repeated alternatives."), "medium", 16),
-    gp("pair-to-ii-to-ii", "N1", "といい", `${FORM_CHUNK}といい`, "Pair evaluation", "both...and", "Picks two examples to evaluate the whole.", "", ex("デザインといい性能といい素晴らしい。", "Both the design and performance are excellent.", "Usually repeats といい."), "medium", 18),
+    gp("pair-to-ii-to-ii", "N1", "といい", `[^、。！？!?\\s]{1,24}といい[^、。！？!?\\s]{1,24}といい`, "Pair evaluation", "both...and", "Picks two examples to evaluate the whole.", "", ex("デザインといい性能といい素晴らしい。", "Both the design and performance are excellent.", "Usually repeats といい."), "medium", 18),
     gp("concession-to-wa-ie", "N1", "とはいえ", `${FORM_CHUNK}とはいえ`, "Concession", "although / be that as it may", "Acknowledges a fact but introduces a contrasting point.", "", ex("春とはいえ、まだ寒い。", "Although it is spring, it is still cold.", "Formal concession."), "high", 14),
     gp("without-nakushite", "N1", "なくして", `${FORM_CHUNK}なくして`, "Without", "without / without which", "Says something cannot happen without the marked thing.", "", ex("努力なくして成功はない。", "There is no success without effort.", "Formal without-condition."), "high", 13),
     gp("basis-atte-no", "N1", "あっての", `${FORM_CHUNK}あっての`, "Dependent on", "possible because of", "Says something exists thanks to another thing.", "", ex("皆さんの協力あっての成功です。", "This success is thanks to everyone's cooperation.", "AあってのB = B exists because of A."), "medium", 13),
@@ -352,6 +421,15 @@ export function listLocalGrammarRuleExamples(): LocalGrammarRuleExample[] {
         level: rule.level,
         example,
     })));
+}
+
+export function listLocalGrammarRules(): LocalGrammarRuleSummary[] {
+    return GRAMMAR_PATTERNS.map(rule => ({
+        ruleId: rule.ruleId,
+        name: rule.name,
+        level: rule.level,
+        exampleCount: rule.examples.length,
+    }));
 }
 
 export function detectGrammarHints(sentence: string): GrammarHint[] {
@@ -417,6 +495,7 @@ function compareGrammarHints(a: GrammarHint, b: GrammarHint): number {
 function shouldSuppressOverlappingGrammarHint(existing: RankedGrammarHint, next: RankedGrammarHint): boolean {
     if (!grammarHintRangesOverlap(existing, next)) return false;
     if (sameGrammarHintLocation(existing, next)) return true;
+    if (existing.ruleId === 'copula-desu-da' && next.priority < 50) return false;
     if (existing.priority < 40 && next.priority < 40) return false;
     const nextIsLooseEndingOrParticle = next.priority >= 40;
     if (nextIsLooseEndingOrParticle && existing.priority < next.priority) return true;
@@ -534,16 +613,17 @@ function normalizeSentenceForTranslationRequest(sentence: string): string {
         .replace(/[」』]/g, '"');
 }
 
-export async function renderGrammarHints(hints: GrammarHint[], sentence: string, preferences = readGrammarPreferences(), language: InterfaceLanguage = 'en'): Promise<string> {
+export async function renderGrammarHints(hints: GrammarHint[], sentence: string, preferences = readGrammarPreferences(), language: InterfaceLanguage = 'en', options: { audioEnabled?: boolean } = {}): Promise<string> {
     if (!hints.length) return '';
     const knownRuleIds = new Set(preferences.knownRuleIds);
     const visibleHints = visibleGrammarHints(hints, knownRuleIds, preferences.showKnown);
     const visibleGroups = groupGrammarHintsByRule(visibleHints);
     const knownCount = countKnownGrammarHints(hints, knownRuleIds);
+    const audioEnabled = options.audioEnabled ?? true;
     return `
-        ${renderGrammarSentence(sentence)}
+        ${renderGrammarSentence(sentence, language, audioEnabled)}
         ${renderGrammarToolbar(visibleGroups.length, knownCount, preferences.showKnown, language)}
-        ${await renderGrammarHintList(visibleGroups, knownRuleIds, language)}`;
+        ${await renderGrammarHintList(visibleGroups, knownRuleIds, language, audioEnabled)}`;
 }
 
 function visibleGrammarHints(hints: GrammarHint[], knownRuleIds: Set<string>, showKnown: boolean): GrammarHint[] {
@@ -567,10 +647,14 @@ function groupGrammarHintsByRule(hints: GrammarHint[]): GroupedGrammarHint[] {
     return Array.from(groups.values());
 }
 
-function renderGrammarSentence(sentence: string): string {
+function renderGrammarSentence(sentence: string, language: InterfaceLanguage, audioEnabled: boolean): string {
+    const readSentence = uiText(language, audioEnabled ? 'readSentenceAloud' : 'audioPlaybackDisabled');
     return `
         <div class="jpdb-reader-study-block jpdb-reader-study-sentence-block" data-grammar-sentence>
-            <div class="jpdb-reader-study-original jpdb-reader-parseable">${escapeHtml(sentence)}</div>
+            <div class="jpdb-reader-study-label-row jpdb-reader-study-sentence-row">
+                <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml(sentence)}</div>
+                <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" type="button" title="${escapeHtml(readSentence)}" aria-label="${escapeHtml(readSentence)}"${audioEnabled ? '' : ' disabled'}>${speakerIcon()}</button>
+            </div>
         </div>`;
 }
 
@@ -589,15 +673,15 @@ function renderGrammarKnownVisibilityButton(knownCount: number, showKnown: boole
     return `<button class="jpdb-reader-grammar-toggle" type="button" data-action="study-grammar-toggle-known-visibility" aria-pressed="${showKnown ? 'true' : 'false'}">${label}</button>`;
 }
 
-async function renderGrammarHintList(visibleGroups: GroupedGrammarHint[], knownRuleIds: Set<string>, language: InterfaceLanguage): Promise<string> {
+async function renderGrammarHintList(visibleGroups: GroupedGrammarHint[], knownRuleIds: Set<string>, language: InterfaceLanguage, audioEnabled: boolean): Promise<string> {
     if (!visibleGroups.length) return `<div class="jpdb-reader-study-empty">${escapeHtml(uiText(language, 'allDetectedGrammarKnown'))}</div>`;
-    const items = await Promise.all(visibleGroups.map(group => renderGrammarHintItem(group, knownRuleIds.has(group.hint.ruleId), language)));
+    const items = await Promise.all(visibleGroups.map(group => renderGrammarHintItem(group, knownRuleIds.has(group.hint.ruleId), language, audioEnabled)));
     return `<ol class="jpdb-reader-study-list" data-grammar-list>
         ${items.join('')}
         </ol>`;
 }
 
-async function renderGrammarHintItem(group: GroupedGrammarHint, known: boolean, language: InterfaceLanguage): Promise<string> {
+async function renderGrammarHintItem(group: GroupedGrammarHint, known: boolean, language: InterfaceLanguage, audioEnabled: boolean): Promise<string> {
     const { hint, count } = group;
     const copy = await grammarHintCopy(hint, language);
     const displayName = grammarDisplayName(hint, language);
@@ -620,7 +704,7 @@ async function renderGrammarHintItem(group: GroupedGrammarHint, known: boolean, 
                         <summary>${escapeHtml(uiText(language, 'grammarDetails'))}</summary>
                         <div class="jpdb-reader-study-detail jpdb-reader-parseable">${escapeHtml(copy.detail)}</div>
                         <div class="jpdb-reader-study-match"><span>${escapeHtml(uiText(language, 'grammarFoundIn'))}</span><span class="jpdb-reader-study-match-text jpdb-reader-parseable">${escapeHtml(hint.match)}</span></div>
-                        ${renderGrammarHintExamples(hint, language)}
+                        ${renderGrammarHintExamples(hint, language, audioEnabled)}
                         ${renderGrammarHintGuide(hint, language)}
                     </details>
                 </div>
@@ -662,24 +746,109 @@ function interpolateUiText(language: InterfaceLanguage, key: UiCopyKey, values: 
     return uiText(language, key).replace(/\{(\w+)}/g, (_, name: string) => values[name] ?? '');
 }
 
-function renderGrammarHintExamples(hint: GrammarHint, language: InterfaceLanguage): string {
+function renderGrammarHintExamples(hint: GrammarHint, language: InterfaceLanguage, audioEnabled: boolean): string {
     const examples = (hint.examples ?? []).slice(0, 2);
     if (!examples.length) return '';
-    return `<div class="jpdb-reader-grammar-examples"><span>${escapeHtml(uiText(language, 'grammarExample'))}</span>${examples.map(example => renderGrammarExample(example, language)).join('')}</div>`;
+    return `<div class="jpdb-reader-grammar-examples"><span>${escapeHtml(uiText(language, 'grammarExample'))}</span>${examples.map(example => renderGrammarExample(example, language, audioEnabled)).join('')}</div>`;
 }
 
-function renderGrammarExample(example: GrammarExample, language: InterfaceLanguage): string {
+function renderGrammarExample(example: GrammarExample, language: InterfaceLanguage, audioEnabled: boolean): string {
     const english = language === 'ja' || !example.english ? '' : `<div>${escapeHtml(example.english)}</div>`;
     const note = language === 'ja' || !example.note || ENGLISH_TEXT_RE.test(example.note) ? '' : `<div>${escapeHtml(example.note)}</div>`;
-    return `<div class="jpdb-reader-grammar-example jpdb-reader-parseable"><div>${escapeHtml(example.japanese)}</div>${english}${note}</div>`;
+    const readSentence = uiText(language, audioEnabled ? 'readSentenceAloud' : 'audioPlaybackDisabled');
+    return `<div class="jpdb-reader-grammar-example jpdb-reader-parseable">
+        <div class="jpdb-reader-grammar-example-japanese">
+            <span class="jpdb-reader-parseable">${escapeHtml(example.japanese)}</span>
+            <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" data-study-sentence="${escapeHtml(example.japanese)}" type="button" title="${escapeHtml(readSentence)}" aria-label="${escapeHtml(readSentence)}"${audioEnabled ? '' : ' disabled'}>${speakerIcon()}</button>
+        </div>
+        ${english}${note}
+    </div>`;
 }
 
 function renderGrammarHintGuide(hint: GrammarHint, language: InterfaceLanguage): string {
     return hint.url ? `<a class="jpdb-reader-study-guide" href="${escapeHtml(hint.url)}" target="_blank" rel="noopener">${escapeHtml(uiText(language, 'grammarGuide'))}</a>` : '';
 }
 
+const BARE_MITAI_DESIRE_FALSE_POSITIVE_RE = /(?:読み|飲み|住み|休み|頼み|望み|悩み|包み|噛み|組み|編み|摘み|進み|歩み|楽しみ|悲しみ|苦しみ|試み)たい$/u;
+const LEXICAL_DESIRE_TAI_RE = /^(?:いたい|痛い|冷たい|重たい|やたい)(?:です)?$/u;
+const LEXICAL_NEGATIVE_NAI_RE = /(?:少ない|危ない|まかない|何気ない|さりげない|なにげない)$/u;
+const LEXICAL_METHOD_KATA_RE = /(?:夕方|地方|親方|行方|方法|の方)$/u;
+const LEXICAL_SUFFIX_GE_RE = /(?:からあげ|おかげ|さりげ|なにげ)$/u;
+const LEXICAL_SUFFIX_MEKU_RE = /(?:きめき|きらめく|ひらめき|うごめく)$/u;
+const LEXICAL_POSSIBILITY_ERU_RE = /^(?:得る|得ます|得た|得ました|得ない|得ません|得なかった|得ませんでした)$/u;
+const PRONOUN_POSSESSIVE_NOMINALIZER_RE = /(?:私|僕|俺|彼|彼女|誰|何)の$/u;
+
+function shouldSkipGrammarMatch(item: GrammarPattern, sentence: string, match: RegExpMatchArray): boolean {
+    const rawMatch = match[0];
+    const start = match.index ?? 0;
+    const end = start + rawMatch.length;
+    const before = sentence.slice(Math.max(0, start - 4), start);
+    const following = sentence.slice(end, end + 6);
+    switch (item.ruleId) {
+        case 'appearance-sou':
+            return rawMatch === 'そう' || /(?:かわいそう|ごちそう)$/u.test(rawMatch);
+        case 'hearsay-sou-da':
+            return /(?:かわいそう|ごちそう)/u.test(rawMatch);
+        case 'volitional-you':
+            return rawMatch === 'よう' || rawMatch === 'さよう';
+        case 'similarity-you-da':
+            return rawMatch.startsWith('さよう');
+        case 'conditional-nara':
+            return rawMatch.endsWith('さようなら');
+        case 'desire-tai':
+            return LEXICAL_DESIRE_TAI_RE.test(rawMatch);
+        case 'without-naide':
+            return rawMatch.endsWith('ないで') && following.startsWith('す');
+        case 'negative-nai':
+            return LEXICAL_NEGATIVE_NAI_RE.test(rawMatch);
+        case 'method-kata':
+            return LEXICAL_METHOD_KATA_RE.test(rawMatch)
+                || (rawMatch === '方' && (following.startsWith('法') || before.endsWith('の') || /[夕地親行]/u.test(before.slice(-1))));
+        case 'suffix-ge':
+            return LEXICAL_SUFFIX_GE_RE.test(rawMatch);
+        case 'state-mama':
+            return rawMatch.includes('わがまま') || (rawMatch === 'まま' && before.endsWith('わが'));
+        case 'difficulty-gatai':
+            return rawMatch.endsWith('ありがたい');
+        case 'substitution-kawari-ni':
+            return rawMatch.endsWith('おかわりに');
+        case 'suffix-meku':
+            return LEXICAL_SUFFIX_MEKU_RE.test(rawMatch);
+        case 'possibility-eru-enai':
+            return LEXICAL_POSSIBILITY_ERU_RE.test(rawMatch) || rawMatch.startsWith('心得');
+        case 'suffix-gimi':
+            return rawMatch.endsWith('不気味');
+        case 'fresh-tate':
+            return rawMatch === 'たて';
+        case 'elapsed-buri-ni':
+            return rawMatch.endsWith('すぶりに');
+        case 'ease-yasui-nikui':
+            return rawMatch === 'やすい';
+        case 'examples-toka':
+            return following.startsWith('言') || following.startsWith('聞') || following.startsWith('思');
+        case 'explanation-no-da':
+            return /(?:私|僕|俺|彼|彼女|誰|何)の(?:だ|だった|じゃない|ではない)$/u.test(rawMatch);
+        case 'skill-no-ga-suki':
+        case 'nominalizer-no':
+            return PRONOUN_POSSESSIVE_NOMINALIZER_RE.test(rawMatch);
+        case 'sensation-ga-suru':
+            return /(?:彼|彼女|私|僕|俺|君|あなた|先生|友だち|子ども)がす/u.test(rawMatch);
+        case 'standard-ni-shite-wa':
+            return /^(?:いけ|なら|だめ)/u.test(following);
+        case 'emphasis-sae':
+            return rawMatch.endsWith('ささえ');
+        case 'emphasis-koso':
+            return rawMatch.endsWith('ようこそ');
+        case 'evidence-rashii-mitai':
+            return BARE_MITAI_DESIRE_FALSE_POSITIVE_RE.test(rawMatch);
+        default:
+            return false;
+    }
+}
+
 function grammarMatches(item: GrammarPattern, sentence: string): RankedGrammarHint[] {
     return Array.from(sentence.matchAll(item.pattern))
+        .filter(match => !shouldSkipGrammarMatch(item, sentence, match))
         .map(match => {
             const rawMatch = match[0];
             const learnerFacingMatch = learnerMatch(item.name, rawMatch);

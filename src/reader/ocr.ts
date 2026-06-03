@@ -1,5 +1,5 @@
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
-import { resolveUiLanguage, uiText } from './i18n';
+import { uiText } from './i18n';
 import { waitForIdle } from './idle';
 import { Logger } from './logger';
 import {
@@ -13,7 +13,9 @@ import {
     type OcrResult,
 } from './ocr-response';
 import { accentToRgba } from './settings';
-import type { JPDBToken, ReaderSettings } from './types';
+import { fallbackJapaneseSegments } from './reader-parser';
+import type { ReaderParserParseOptions } from './reader-parser';
+import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 
 type OcrRecognizer = (image: HTMLImageElement, settings: ReaderSettings) => Promise<OcrResult | null>;
@@ -21,7 +23,6 @@ type OcrRecognizer = (image: HTMLImageElement, settings: ReaderSettings) => Prom
 interface ImageState {
     image: HTMLImageElement;
     overlay: HTMLElement;
-    status: HTMLElement;
     key: string;
     result?: OcrResult;
     loading: boolean;
@@ -39,10 +40,12 @@ interface OcrRenderedImageFrame {
 
 interface OcrControllerOptions {
     getSettings: () => ReaderSettings;
-    parseJapanese: (text: string) => Promise<JPDBToken[]>;
+    parseJapanese: (text: string, options?: ReaderParserParseOptions) => Promise<JPDBToken[]>;
     onToast: (message: string) => void;
     shouldAutoScan?: () => boolean;
-    enrichPitchTokens?: (tokens: JPDBToken[]) => void;
+    enrichTokensBeforeRender?: (tokens: JPDBToken[]) => void | Promise<void>;
+    enrichRenderedTokens?: (tokens: JPDBToken[], root: ParentNode) => void | Promise<void>;
+    fallbackCardFromText?: (text: string) => JPDBCard;
 }
 
 const MAX_CACHE_ITEMS = 36;
@@ -87,11 +90,6 @@ function isOcrImageStateIdle(state: ImageState): boolean {
     return !state.result && !state.loading && !state.autoSkipped;
 }
 
-function showOcrReadingStatus(state: ImageState, settings: ReaderSettings): void {
-    state.status.hidden = false;
-    state.status.textContent = uiText(settings.interfaceLanguage, 'ocrReadingImage');
-}
-
 interface OcrScanContext {
     provider: string;
     done: () => void;
@@ -111,8 +109,6 @@ function beginOcrScan(
     manualRequested: boolean,
 ): OcrScanContext {
     state.loading = true;
-    state.status.hidden = !state.overlayRequested;
-    state.status.textContent = uiText(settings.interfaceLanguage, 'ocrReadingImage');
     const provider = inlineProviderLabel(settings);
     return {
         provider,
@@ -127,28 +123,16 @@ function finishOcrScan(state: ImageState): void {
 
 function renderNoOcrLines(state: ImageState): void {
     state.autoSkipped = true;
-    state.status.textContent = '';
-    state.status.hidden = true;
     state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
 }
 
-function renderOcrErrorStatus(state: ImageState, settings: ReaderSettings, provider: string, manualRequested: boolean, error: unknown): void {
-    state.status.textContent = ocrVisibleErrorMessage(settings, error);
+function logOcrFailure(state: ImageState, provider: string, manualRequested: boolean, error: unknown): void {
     state.autoSkipped = !manualRequested;
-    state.status.hidden = !state.overlayRequested || state.autoSkipped;
     if (isLocalOcrUnavailableError(error)) {
         log.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, 'Local OCR endpoint unavailable; pausing requests', { provider, endpoint: error.endpointUrl });
         return;
     }
     log.warn('OCR scan failed', { provider, manualRequested }, error);
-}
-
-function ocrVisibleErrorMessage(settings: ReaderSettings, error: unknown): string {
-    if (settings.ocrProvider === 'local-service' && isLocalOcrConnectionError(error)) {
-        return uiText(settings.interfaceLanguage, 'localOcrUnavailable');
-    }
-    if (resolveUiLanguage(settings.interfaceLanguage) === 'ja') return uiText(settings.interfaceLanguage, 'ocrFailed');
-    return error instanceof Error ? error.message : uiText(settings.interfaceLanguage, 'ocrFailed');
 }
 
 export class ImageOcrController {
@@ -246,8 +230,16 @@ export class ImageOcrController {
     }
 
     private shouldSkipRefresh(settings: ReaderSettings, options: { userRequested?: boolean }): boolean {
-        return !options.userRequested
-            && (!settings.ocrAutoScanImages || this.options.shouldAutoScan?.() === false);
+        if (options.userRequested) return false;
+        if (this.canAutoScanImage(settings)) return false;
+        return !settings.ocrAutoScanImages || !this.hasVisibleInlineOcrFallback(settings);
+    }
+
+    private hasVisibleInlineOcrFallback(settings: ReaderSettings): boolean {
+        return Array.from(document.images).some(image => {
+            if (!readFallbackOcrResult(image, false)) return false;
+            return isCandidateImage(image, settings) && shouldObserveImage(image, settings);
+        });
     }
 
     private refreshImages(settings: ReaderSettings): HTMLImageElement[] {
@@ -269,7 +261,7 @@ export class ImageOcrController {
     }
 
     private shouldAutoEnqueueImage(image: HTMLImageElement, state: ImageState, settings: ReaderSettings): boolean {
-        return this.canAutoScanImage(settings)
+        return (this.canAutoScanImage(settings) || (settings.ocrAutoScanImages && hasInlineOcrFallback(image)))
             && isOcrImageStateIdle(state)
             && isNearViewport(image, settings.ocrPrefetchMargin);
     }
@@ -306,6 +298,13 @@ export class ImageOcrController {
         return image;
     }
 
+    pinLineForElement(element: Element | null): void {
+        const line = element?.closest?.<HTMLElement>('.jpdb-ocr-line');
+        if (!line) return;
+        const state = [...this.states.values()].find(candidate => candidate.overlay.contains(line));
+        if (state) this.pinLine(state, line);
+    }
+
     private ensureObserver(settings: ReaderSettings): void {
         const rootMargin = `${settings.ocrPrefetchMargin}px 0px`;
         if (this.observer && this.observerMargin === rootMargin) return;
@@ -334,15 +333,9 @@ export class ImageOcrController {
         overlay.className = 'jpdb-ocr-layer';
         overlay.dataset.jpdbReaderRoot = 'true';
 
-        const status = document.createElement('div');
-        status.className = 'jpdb-ocr-status';
-        status.dataset.jpdbReaderSurfaceIgnore = 'true';
-        status.hidden = true;
-
-        overlay.append(status);
         document.body.append(overlay);
 
-        const state = { image, overlay, status, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
+        const state = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
         image.addEventListener('load', () => {
             this.resetStateIfImageChanged(state);
             this.schedulePosition();
@@ -352,7 +345,7 @@ export class ImageOcrController {
         if (image.complete && image.naturalWidth > 0) {
             this.schedulePosition();
             const settings = this.options.getSettings();
-            if (settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false) this.enqueue(image);
+            if (this.canAutoScanImage(settings) || (settings.ocrAutoScanImages && hasInlineOcrFallback(image))) this.enqueue(image);
         }
         return state;
     }
@@ -360,7 +353,7 @@ export class ImageOcrController {
     private enqueue(image: HTMLImageElement, userRequested = false): void {
         const state = this.states.get(image) ?? this.ensureState(image);
         if (!this.shouldQueueOcrRequest(state, image, userRequested)) return;
-        this.queueOcrRequest(image, state, userRequested);
+        this.queueOcrRequest(image);
     }
 
     private shouldQueueOcrRequest(state: ImageState, image: HTMLImageElement, userRequested: boolean): boolean {
@@ -371,9 +364,8 @@ export class ImageOcrController {
         return !state.loading;
     }
 
-    private queueOcrRequest(image: HTMLImageElement, state: ImageState, userRequested: boolean): void {
+    private queueOcrRequest(image: HTMLImageElement): void {
         this.queueImageForOcr(image);
-        if (userRequested) showOcrReadingStatus(state, this.options.getSettings());
         this.drainQueue();
     }
 
@@ -474,7 +466,7 @@ export class ImageOcrController {
             await this.renderResult(state, fallback);
             return;
         }
-        renderOcrErrorStatus(state, this.options.getSettings(), provider, manualRequested, error);
+        logOcrFailure(state, provider, manualRequested, error);
     }
 
     private recognizeImage(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
@@ -519,30 +511,36 @@ export class ImageOcrController {
 
     private async renderResult(state: ImageState, result: OcrResult, forceOverlay = false): Promise<void> {
         state.result = result;
-        state.status.hidden = true;
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
 
         const settings = this.options.getSettings();
         const showText = settings.ocrShowTextOverlay || forceOverlay;
 
-        const initialParsed = await this.parseOcrLines(result.lines, settings);
+        const initialParsed = await this.parseOcrLines(result.lines);
         const lines = cleanOcrLookupLines(result.lines, initialParsed);
         const parsed = ocrLinesChanged(result.lines, lines)
-            ? await this.parseOcrLines(lines, settings)
+            ? await this.parseOcrLines(lines)
             : initialParsed;
         const sentence = lines.map(line => line.text).join('\n');
+        const renderedTokens = lines.map((line, index) => ocrTokensWithFallbackGaps(
+            line.text,
+            parsed[index] ?? [],
+            this.options.fallbackCardFromText ?? ocrFallbackCardFromText,
+        ));
+        const flatTokens = renderedTokens.flat();
+        await this.options.enrichTokensBeforeRender?.(flatTokens);
         applyOcrOverlayStyle(state.overlay, settings);
 
         for (const [index, line] of lines.entries()) {
-            state.overlay.append(this.renderOcrLineElement(state, result, line, parsed[index] ?? [], sentence, showText, settings));
+            state.overlay.append(this.renderOcrLineElement(state, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
         }
         this.positionState(state.image);
-        this.options.enrichPitchTokens?.(parsed.flat());
+        void this.options.enrichRenderedTokens?.(flatTokens, state.overlay);
     }
 
-    private async parseOcrLines(lines: OcrLine[], settings: ReaderSettings): Promise<JPDBToken[][]> {
-        if (!settings.apiKey.trim() && !settings.localDictionariesEnabled) return lines.map(() => []);
-        return Promise.all(lines.map(line => this.options.parseJapanese(line.text).catch(() => {
+    private async parseOcrLines(lines: OcrLine[]): Promise<JPDBToken[][]> {
+        const options = ocrParseOptions();
+        return Promise.all(lines.map(line => this.options.parseJapanese(line.text, options).catch(() => {
             return [];
         })));
     }
@@ -562,15 +560,19 @@ export class ImageOcrController {
     }
 
     private toggleOcrLinePinned(state: ImageState, element: HTMLElement, event: MouseEvent): void {
-        if ((event.target as HTMLElement).closest('.jpdb-reader-word[data-vid]')) return;
-        event.preventDefault();
-        event.stopPropagation();
+        const word = (event.target as HTMLElement).closest('.jpdb-reader-word[data-vid]');
         if (element.dataset.pinned === 'true') {
             this.unpinLine(element);
+            if (word) return;
+            event.preventDefault();
+            event.stopPropagation();
             return;
         }
         element.focus({ preventScroll: true });
         this.pinLine(state, element);
+        if (word) return;
+        event.preventDefault();
+        event.stopPropagation();
     }
 
     private pinLine(state: ImageState, element: HTMLElement): void {
@@ -615,7 +617,6 @@ export class ImageOcrController {
         state.manualRequested = false;
         state.autoSkipped = false;
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
-        state.status.hidden = true;
     }
 
     private remember(key: string, result: OcrResult): void {
@@ -702,7 +703,7 @@ export class ImageOcrController {
         const left = clampNumber(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
         const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
         const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
-        const top = clampNumber(!vertical ? baselineAlignedTop : centeredTop, minTop, maxTop);
+        const top = clampNumber(shouldCenterOcrText(element.dataset.ocrText ?? '', vertical) ? centeredTop : baselineAlignedTop, minTop, maxTop);
 
         element.style.left = `${left}px`;
         element.style.top = `${top}px`;
@@ -739,6 +740,88 @@ function applyOcrOverlayStyle(overlay: HTMLElement, settings: ReaderSettings): v
     overlay.style.setProperty('--jpdb-ocr-background-active-rgba', accentToRgba(settings.ocrBackgroundColor, Math.min(1, settings.ocrBackgroundOpacity + 0.12)));
 }
 
+function ocrParseOptions(): ReaderParserParseOptions {
+    return {
+        allowSegmentedFallback: true,
+        includeLocalPitch: true,
+    };
+}
+
+function ocrTokensWithFallbackGaps(
+    text: string,
+    tokens: JPDBToken[],
+    fallbackCardFromText: (text: string) => JPDBCard,
+): JPDBToken[] {
+    const safeTokens = tokens.filter(token => isRenderableOcrToken(token, text.length));
+    const fallbackTokens = fallbackJapaneseSegments(text)
+        .filter(segment => !safeTokens.some(token => rangesOverlap(segment.start, segment.end, token.start, token.end)))
+        .map(segment => ocrFallbackToken(text, segment, fallbackCardFromText));
+    return fallbackTokens.length
+        ? [...safeTokens, ...fallbackTokens].sort(compareOcrTokens)
+        : safeTokens;
+}
+
+function isRenderableOcrToken(token: JPDBToken, textLength: number): boolean {
+    return Number.isFinite(token.start)
+        && Number.isFinite(token.end)
+        && token.start >= 0
+        && token.end <= textLength
+        && token.end > token.start;
+}
+
+function ocrFallbackToken(
+    sentence: string,
+    segment: { surface: string; start: number; end: number },
+    fallbackCardFromText: (text: string) => JPDBCard,
+): JPDBToken {
+    const card = fallbackCardFromText(segment.surface);
+    return {
+        card,
+        start: segment.start,
+        end: segment.end,
+        length: segment.end - segment.start,
+        rubies: [],
+        pitchClass: '',
+        sentence,
+    };
+}
+
+function rangesOverlap(start: number, end: number, otherStart: number, otherEnd: number): boolean {
+    return start < otherEnd && otherStart < end;
+}
+
+function compareOcrTokens(first: JPDBToken, second: JPDBToken): number {
+    return first.start - second.start || second.length - first.length;
+}
+
+function ocrFallbackCardFromText(text: string): JPDBCard {
+    const spelling = text.replace(/\s+/g, ' ').trim().slice(0, 80);
+    const id = -stableOcrFallbackId(`ocr-fallback\n${spelling}`);
+    return {
+        vid: id,
+        sid: id,
+        rid: 0,
+        spelling,
+        reading: '',
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: ['not-in-deck'],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'fallback',
+    };
+}
+
+function stableOcrFallbackId(value: string): number {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) || 1;
+}
+
 function createOcrLineElement(
     result: OcrResult,
     line: OcrLine,
@@ -748,9 +831,8 @@ function createOcrLineElement(
     settings: ReaderSettings,
 ): HTMLElement {
     const element = document.createElement('div');
-    element.className = showText ? 'jpdb-ocr-line jpdb-reader-word jpdb-ocr-line-visible' : 'jpdb-ocr-line jpdb-reader-word';
+    element.className = showText ? 'jpdb-ocr-line jpdb-ocr-line-visible' : 'jpdb-ocr-line';
     setOcrLineDataset(element, result, line, sentence);
-    element.title = line.text;
     element.tabIndex = 0;
     element.style.writingMode = line.vertical ? 'vertical-rl' : 'horizontal-tb';
     element.setAttribute('aria-label', line.text);
@@ -775,8 +857,7 @@ function createOcrLineText(line: OcrLine, tokens: JPDBToken[], settings: ReaderS
     const textElement = document.createElement('span');
     textElement.className = 'jpdb-ocr-line-text';
     setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml(line.text));
-    normalizeOcrRuby(textElement);
-    normalizeOcrPlainText(textElement);
+    normalizeOcrRenderedText(textElement);
     return textElement;
 }
 
@@ -995,6 +1076,15 @@ function visualTextLength(text: string): number {
         if (/[\u0000-\u00ff]/.test(char)) return total + 0.62;
         return total + 1;
     }, 0);
+}
+
+function shouldCenterOcrText(text: string, vertical: boolean): boolean {
+    return vertical || visualTextLength(text) <= 1.5;
+}
+
+export function normalizeOcrRenderedText(root: HTMLElement): void {
+    normalizeOcrRuby(root);
+    normalizeOcrPlainText(root);
 }
 
 function normalizeOcrRuby(root: HTMLElement): void {
@@ -1372,6 +1462,10 @@ function shouldObserveImage(image: HTMLImageElement, settings: ReaderSettings): 
     if (settings.ocrProvider === 'local-service') return true;
     if (settings.ocrProvider === 'cloud-vision') return Boolean(settings.ocrCloudVisionApiKey.trim());
     return settings.ocrProvider === 'google-lens';
+}
+
+function hasInlineOcrFallback(image: HTMLImageElement): boolean {
+    return Boolean(readFallbackOcrResult(image, false));
 }
 
 function isNearViewport(element: Element, margin: number): boolean {

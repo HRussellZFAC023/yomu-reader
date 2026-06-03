@@ -7,10 +7,14 @@ const JPDB_SEARCH_URL = 'https://jpdb.io/search';
 const REQUEST_TIMEOUT_MS = 6000;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_LIMIT = 600;
+const REQUEST_BACKOFF_INITIAL_MS = 30_000;
+const REQUEST_BACKOFF_MAX_MS = 5 * 60_000;
 const log = Logger.scope('JpdbPublicPitch');
 
 export class JpdbPublicPitchClient {
     private cache = new Map<string, { expiresAt: number; promise: Promise<string[]> }>();
+    private requestBackoffUntil = 0;
+    private requestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
 
     constructor(private readonly getCorsProxyUrl: () => string = () => '') {}
 
@@ -47,19 +51,44 @@ export class JpdbPublicPitchClient {
     }
 
     private async fetchPitch(spelling: string, reading: string): Promise<string[]> {
+        if (this.isBackedOff()) return [];
         for (const query of unique([spelling, reading].filter(Boolean))) {
             const url = `${JPDB_SEARCH_URL}?q=${encodeURIComponent(query)}`;
             const html = await requestText(url, this.getCorsProxyUrl()).catch(error => {
-                log.warn('Public JPDB pitch request failed', { query }, error);
+                this.noteRequestFailure('Public JPDB pitch request failed', { query }, error);
                 return '';
             });
+            if (html) this.noteRequestSuccess();
             const pitch = html ? parseJpdbPublicPitchHtml(html, spelling, reading) : [];
             if (pitch.length) {
                 return pitch;
             }
+            if (this.isBackedOff()) break;
         }
         return [];
     }
+
+    private isBackedOff(): boolean {
+        return Date.now() < this.requestBackoffUntil;
+    }
+
+    private noteRequestSuccess(): void {
+        this.requestBackoffUntil = 0;
+        this.requestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
+    }
+
+    private noteRequestFailure(message: string, context: Record<string, unknown>, error: unknown): void {
+        if (isPublicLookupBackoffError(error)) {
+            this.requestBackoffUntil = Date.now() + this.requestBackoffMs;
+            this.requestBackoffMs = Math.min(this.requestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS);
+        }
+        log.warn(message, context, error);
+    }
+}
+
+function isPublicLookupBackoffError(error: unknown): boolean {
+    return error instanceof Error
+        && /\b(?:429|525|too many requests|rate[- ]?limited)\b|cloudflare/i.test(error.message);
 }
 
 export function parseJpdbPublicPitchHtml(html: string, spelling = '', reading = ''): string[] {

@@ -6,6 +6,9 @@ export const AUTO_SCAN_OBSERVER_OPTIONS: MutationObserverInit = {
     attributeFilter: ['class', 'style', 'hidden', 'open', 'aria-hidden', 'aria-expanded'],
 };
 const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
+const MUTATION_TEXT_SCAN_LIMIT = 4000;
+const MUTATION_TEXT_NODE_SCAN_LIMIT = 80;
+const TEXT_REVEAL_ATTRIBUTES = new Set(['hidden', 'open', 'aria-hidden', 'aria-expanded']);
 const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR = [
     '.result.vocabulary',
@@ -55,9 +58,33 @@ export function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
 }
 
 export function mutationMayContainJapaneseText(mutation: MutationRecord): boolean {
-    if (mutation.type === 'characterData') return HAS_JAPANESE.test(mutation.target.textContent ?? '');
-    if (mutation.type === 'attributes') return HAS_JAPANESE.test(mutation.target.textContent ?? '');
-    return Array.from(mutation.addedNodes).some(node => HAS_JAPANESE.test(node.textContent ?? ''));
+    if (mutation.type === 'characterData') return nodeTextMayContainJapanese(mutation.target);
+    if (mutation.type === 'attributes') {
+        if (!TEXT_REVEAL_ATTRIBUTES.has(mutation.attributeName ?? '')) return false;
+        return nodeTextMayContainJapanese(mutation.target);
+    }
+    return Array.from(mutation.addedNodes).some(nodeTextMayContainJapanese);
+}
+
+function nodeTextMayContainJapanese(node: Node): boolean {
+    if (node.nodeType === Node.TEXT_NODE) return HAS_JAPANESE.test(node.textContent ?? '');
+    const root = node.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? node : mutationNodeElement(node);
+    return root ? nodeTreeTextMayContainJapanese(root) : false;
+}
+
+function nodeTreeTextMayContainJapanese(root: Node): boolean {
+    let inspectedLength = 0;
+    let inspectedNodes = 0;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+        const text = node.textContent ?? '';
+        inspectedNodes += 1;
+        inspectedLength += text.length;
+        if (HAS_JAPANESE.test(text)) return true;
+        if (inspectedLength >= MUTATION_TEXT_SCAN_LIMIT || inspectedNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT) break;
+    }
+    return false;
 }
 
 export function mutationMayAffectJpdbPageEnhancements(mutation: MutationRecord): boolean {

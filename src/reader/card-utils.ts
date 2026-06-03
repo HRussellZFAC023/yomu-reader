@@ -6,7 +6,7 @@ export function cardKey(card: JPDBCard): string {
 
 export function createAudioPreviewCard(): JPDBCard {
     return {
-        vid: 0,
+        vid: 1456360,
         sid: 0,
         rid: 0,
         spelling: '読む',
@@ -17,6 +17,6 @@ export function createAudioPreviewCard(): JPDBCard {
         cardState: [],
         pitchAccent: [],
         wordWithReading: null,
-        source: 'fallback',
+        source: 'jpdb',
     };
 }

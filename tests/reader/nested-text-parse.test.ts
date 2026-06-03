@@ -118,7 +118,7 @@ describe('nested text parse plans', () => {
         expect(plan?.targets.map(target => target.text)).toEqual(['青空の下で本を読みます。', '読みます']);
     });
 
-    it('collects Japanese settings labels, headings, select metadata, and help prose without parsing hidden controls', () => {
+    it('collects Japanese settings labels, headings, and select metadata without parsing help prose or hidden controls', () => {
         document.body.innerHTML = `
             <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
                 <h2>よむ 設定</h2>
@@ -127,6 +127,7 @@ describe('nested text parse plans', () => {
                     <label>設定言語<select><option>日本語</option></select><div data-settings-select-options-meta>選択肢: 自動 / 日本語</div></label>
                     <div class="jpdb-reader-local-title">新規タブ</div>
                     <div class="jpdb-reader-help">日本語の説明を読む</div>
+                    <div class="jpdb-reader-status-line">JPDB APIキーがありません。公開検索は使えます。</div>
                 </div>
                 <div data-settings-panel="media" hidden>
                     <label>隠れた設定</label>
@@ -142,7 +143,8 @@ describe('nested text parse plans', () => {
         const plan = nestedSettingsTextParsePlan(root, 24);
         const texts = plan?.targets.map(target => target.text) ?? [];
 
-        expect(texts).toContain('日本語の説明を読む');
+        expect(texts).not.toContain('日本語の説明を読む');
+        expect(texts).not.toContain('JPDB APIキーがありません。公開検索は使えます。');
         expect(texts).toContain('よむ 設定');
         expect(texts).toContain('基本');
         expect(texts).toContain('設定言語');

@@ -1,89 +1,123 @@
 import { appendToDocumentHead } from './dom';
-import { Logger } from './logger';
 import { ReaderApp } from './main';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent } from './window-events';
 
-type YomuRuntimeKind = 'demo' | 'userscript' | 'extension';
+type YomuRuntimeKind = 'page' | 'dev' | 'userscript' | 'extension';
 
 type YomuBootWindow = typeof window & {
     __yomuReaderAppInitialized?: boolean;
-    __jpdbPopupReaderInitialized?: boolean;
-    __yomuDemoApp?: ReaderApp;
     __yomuRealApp?: ReaderApp;
     __yomuRuntimeKind?: YomuRuntimeKind;
     __yomuRuntimeOwnerId?: string;
+    __yomuDevRuntime?: boolean;
 };
 
-const log = Logger.scope('ReaderBoot');
-const RUNTIME_MARKER_ID = 'jpdb-reader-runtime-owner';
-
-export function bootReaderApp(): void {
-    const bootWindow = window as YomuBootWindow;
-    const runtimeKind = detectYomuRuntimeKind();
-    const ownerId = claimYomuRuntime(runtimeKind);
-    if (!ownerId) return;
-    const isRealRuntime = runtimeKind !== 'demo';
-
-    discardDemoRuntimeForRealBoot(bootWindow, isRealRuntime);
-    if (!canReplaceExistingRuntime(bootWindow, runtimeKind)) return;
-    destroyExistingRuntimeApps(bootWindow);
-
-    bootWindow.__yomuReaderAppInitialized = true;
-    bootWindow.__jpdbPopupReaderInitialized = true;
-    bootWindow.__yomuRuntimeKind = runtimeKind;
-    bootWindow.__yomuRuntimeOwnerId = ownerId;
-    const app = new ReaderApp();
-    bindRuntimeClaims(app, ownerId, runtimeKind);
-    registerBootedRuntime(bootWindow, app, isRealRuntime);
-    startBootedRuntime(app, ownerId, runtimeKind, isRealRuntime);
+interface ActiveRuntime {
+    app: ReaderApp;
+    isRealRuntime: boolean;
+    kind: YomuRuntimeKind;
+    ownerId: string;
 }
 
-function discardDemoRuntimeForRealBoot(bootWindow: YomuBootWindow, isRealRuntime: boolean): void {
-    if (!bootWindow.__yomuReaderAppInitialized || !bootWindow.__yomuDemoApp || !isRealRuntime) return;
-    bootWindow.__yomuDemoApp.destroy({ preservePageWords: true });
-    delete bootWindow.__yomuDemoApp;
-    bootWindow.__yomuReaderAppInitialized = false;
+const RUNTIME_MARKER_ID = 'jpdb-reader-runtime-owner';
+const RUNTIME_MARKER_OBSERVER_OPTIONS: MutationObserverInit = {
+    attributes: true,
+    attributeFilter: ['data-yomu-runtime-kind', 'data-yomu-runtime-owner'],
+};
+let activeRuntime: ActiveRuntime | undefined;
+
+export function bootReaderApp(): void {
+    reconcileActiveRuntimeMarker();
+    const bootWindow = window as YomuBootWindow;
+    const runtimeKind = detectRuntimeKind();
+    const ownerId = claimRuntime(runtimeKind);
+    if (!ownerId) return;
+    const isRealRuntime = runtimeKind === 'userscript' || runtimeKind === 'extension';
+
+    discardPageRuntimeForRealBoot(isRealRuntime);
+    if (!canReplaceExistingRuntime(bootWindow, runtimeKind)) return;
+    destroyExistingApps(bootWindow);
+
+    const app = new ReaderApp();
+    activeRuntime = { app, isRealRuntime, kind: runtimeKind, ownerId };
+    writeBootWindowOwner(bootWindow, activeRuntime);
+    bindClaims(app, ownerId, runtimeKind);
+    registerRuntime(bootWindow, app, runtimeKind, isRealRuntime);
+    startRuntime(app, ownerId, runtimeKind);
+}
+
+function reconcileActiveRuntimeMarker(): void {
+    if (!activeRuntime) return;
+    const marker = document.getElementById(RUNTIME_MARKER_ID) as HTMLElement | null;
+    if (marker?.dataset.yomuRuntimeOwner === activeRuntime.ownerId) return;
+    activeRuntime = undefined;
+}
+
+function discardPageRuntimeForRealBoot(isRealRuntime: boolean): void {
+    if (activeRuntime && !activeRuntime.isRealRuntime && isRealRuntime) {
+        const runtime = activeRuntime;
+        runtime.app.destroy({ preservePageWords: true });
+        clearBootWindowOwner(runtime.app, runtime.ownerId);
+        return;
+    }
 }
 
 function canReplaceExistingRuntime(bootWindow: YomuBootWindow, runtimeKind: YomuRuntimeKind): boolean {
+    if (activeRuntime) return priority(activeRuntime.kind) < priority(runtimeKind);
     if (!bootWindow.__yomuReaderAppInitialized) return true;
-    const existingPriority = runtimePriority(bootWindow.__yomuRuntimeKind ?? 'demo');
-    return existingPriority < runtimePriority(runtimeKind);
+    const existingPriority = priority(bootWindow.__yomuRuntimeKind ?? 'page');
+    return existingPriority < priority(runtimeKind);
 }
 
-function destroyExistingRuntimeApps(bootWindow: YomuBootWindow): void {
+function destroyExistingApps(bootWindow: YomuBootWindow): void {
+    if (activeRuntime) {
+        activeRuntime.app.destroy({ preservePageWords: true });
+        activeRuntime = undefined;
+    }
     if (!bootWindow.__yomuReaderAppInitialized) return;
     bootWindow.__yomuRealApp?.destroy({ preservePageWords: true });
-    bootWindow.__yomuDemoApp?.destroy({ preservePageWords: true });
 }
 
-function registerBootedRuntime(bootWindow: YomuBootWindow, app: ReaderApp, isRealRuntime: boolean): void {
+function writeBootWindowOwner(bootWindow: YomuBootWindow, runtime: ActiveRuntime): void {
+    setBootWindowValue(bootWindow, '__yomuReaderAppInitialized', true);
+    setBootWindowValue(bootWindow, '__yomuRuntimeKind', runtime.kind);
+    setBootWindowValue(bootWindow, '__yomuRuntimeOwnerId', runtime.ownerId);
+}
+
+function setBootWindowValue<K extends keyof YomuBootWindow>(bootWindow: YomuBootWindow, key: K, value: YomuBootWindow[K]): void {
+    try {
+        bootWindow[key] = value;
+    } catch {
+        // Some hosted/dev browser contexts expose a non-extensible window. The module-local
+        // activeRuntime state remains authoritative for this script instance.
+    }
+}
+
+function registerRuntime(bootWindow: YomuBootWindow, app: ReaderApp, runtimeKind: YomuRuntimeKind, isRealRuntime: boolean): void {
     if (isRealRuntime) {
-        bootWindow.__yomuRealApp = app;
+        setBootWindowValue(bootWindow, '__yomuRealApp', app);
         dispatchWindowEvent(createWindowCustomEvent('yomu-extension-loaded'));
         return;
     }
-    bootWindow.__yomuDemoApp = app;
+    if (runtimeKind === 'dev') return;
     addWindowEventListener('yomu-extension-loaded', () => {
-        if (bootWindow.__yomuDemoApp === app) {
+        if (activeRuntime?.app === app) {
             app.destroy({ preservePageWords: true });
-            delete bootWindow.__yomuDemoApp;
+            clearActiveRuntime(app, activeRuntime?.ownerId);
         }
     });
 }
 
-function startBootedRuntime(app: ReaderApp, ownerId: string, runtimeKind: YomuRuntimeKind, isRealRuntime: boolean): void {
+function startRuntime(app: ReaderApp, ownerId: string, runtimeKind: YomuRuntimeKind): void {
     void app.init({
-        isDemo: !isRealRuntime,
         showWelcome: runtimeKind === 'userscript',
     }).catch(error => {
-        releaseYomuRuntime(ownerId);
-        log.error('Initialization failed', error);
+        releaseRuntime(ownerId);
         throw error;
     });
 }
 
-function detectYomuRuntimeKind(): YomuRuntimeKind {
+function detectRuntimeKind(): YomuRuntimeKind {
     const global = globalThis as {
         chrome?: { runtime?: { id?: string } };
         browser?: { runtime?: { id?: string } };
@@ -93,69 +127,111 @@ function detectYomuRuntimeKind(): YomuRuntimeKind {
             xmlhttpRequest?: unknown;
         };
         GM_info?: unknown;
+        __yomuDevRuntime?: unknown;
     };
+    if (global.__yomuDevRuntime === true) return 'dev';
     if (global.chrome?.runtime?.id || global.browser?.runtime?.id) return 'extension';
     if (typeof GM_getValue === 'function'
         || typeof global.GM?.getValue === 'function'
         || typeof global.GM?.xmlHttpRequest === 'function'
         || typeof global.GM?.xmlhttpRequest === 'function'
         || Boolean(global.GM_info)) return 'userscript';
-    return 'demo';
+    return 'page';
 }
 
-function runtimePriority(kind: YomuRuntimeKind): number {
+function priority(kind: unknown): number {
+    if (kind === 'dev') return 4;
     if (kind === 'extension') return 3;
     if (kind === 'userscript') return 2;
     return 1;
 }
 
-function claimYomuRuntime(kind: YomuRuntimeKind): string | null {
+function claimRuntime(kind: YomuRuntimeKind): string | null {
     const ownerId = `${kind}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-    const existing = document.getElementById(RUNTIME_MARKER_ID) as HTMLElement | null;
-    const existingKind = normalizeRuntimeKind(existing?.dataset.yomuRuntimeKind);
-    if (existing && runtimePriority(existingKind) >= runtimePriority(kind)) {
+    const existing = liveOrClearedRuntimeMarker();
+    if (existing && !canClaimOverExistingRuntime(existing.dataset.yomuRuntimeKind, kind)) {
         return null;
     }
 
-    dispatchWindowEvent(createWindowCustomEvent('yomu-reader-runtime-claim', { ownerId, kind, priority: runtimePriority(kind) }));
+    dispatchWindowEvent(createWindowCustomEvent('yomu-reader-runtime-claim', { ownerId, kind, priority: priority(kind) }));
     const marker = existing ?? document.createElement('meta');
     marker.id = RUNTIME_MARKER_ID;
     marker.dataset.yomuRuntimeKind = kind;
     marker.dataset.yomuRuntimeOwner = ownerId;
-    marker.setAttribute('name', RUNTIME_MARKER_ID);
-    marker.setAttribute('content', kind);
     if (!marker.isConnected) appendToDocumentHead(marker);
     return ownerId;
 }
 
-function bindRuntimeClaims(app: ReaderApp, ownerId: string, kind: YomuRuntimeKind): void {
+function canClaimOverExistingRuntime(existingKind: unknown, nextKind: YomuRuntimeKind): boolean {
+    const existingPriority = priority(existingKind);
+    const nextPriority = priority(nextKind);
+    if (existingPriority < nextPriority) return true;
+    return existingKind === 'dev' && nextKind === 'dev';
+}
+
+function liveOrClearedRuntimeMarker(): HTMLElement | null {
+    const existing = document.getElementById(RUNTIME_MARKER_ID) as HTMLElement | null;
+    if (!existing || !isStaleRuntimeMarker(existing)) return existing;
+    existing.remove();
+    return null;
+}
+
+function isStaleRuntimeMarker(marker: HTMLElement): boolean {
+    const bootWindow = window as YomuBootWindow;
+    if (activeRuntime) return false;
+    if (bootWindow.__yomuReaderAppInitialized || bootWindow.__yomuRealApp) return false;
+    if (marker.dataset.yomuRuntimeKind === 'dev') return true;
+    return Boolean(bootWindow.__yomuRuntimeOwnerId && marker.dataset.yomuRuntimeOwner === bootWindow.__yomuRuntimeOwnerId);
+}
+
+function bindClaims(app: ReaderApp, ownerId: string, kind: YomuRuntimeKind): void {
+    let released = false;
+    const release = () => {
+        if (released) return;
+        released = true;
+        markerObserver?.disconnect();
+        app.destroy({ preservePageWords: true });
+        releaseRuntime(ownerId);
+        clearActiveRuntime(app, ownerId);
+        clearBootWindowOwner(app, ownerId);
+    };
+    const markerObserver = observeRuntimeMarker(ownerId, kind, release);
     addWindowEventListener('yomu-reader-runtime-claim', event => {
         const detail = (event as CustomEvent).detail as Partial<{ ownerId: string; kind: YomuRuntimeKind; priority: number }> | undefined;
         if (!detail || detail.ownerId === ownerId) return;
-        const nextKind = normalizeRuntimeKind(detail.kind);
-        if (runtimePriority(nextKind) < runtimePriority(kind)) return;
-        log.info('Yielding to another Yomu runtime', { current: kind, next: nextKind });
-        app.destroy({ preservePageWords: true });
-        releaseYomuRuntime(ownerId);
-        clearBootWindowOwner(app, ownerId);
+        if (priority(detail.kind) < priority(kind)) return;
+        release();
     });
+}
+
+function observeRuntimeMarker(ownerId: string, kind: YomuRuntimeKind, release: () => void): MutationObserver | undefined {
+    if (typeof MutationObserver === 'undefined') return undefined;
+    const marker = document.getElementById(RUNTIME_MARKER_ID) as HTMLElement | null;
+    if (!marker) return undefined;
+    const observer = new MutationObserver(() => {
+        if (marker.dataset.yomuRuntimeOwner === ownerId) return;
+        if (priority(marker.dataset.yomuRuntimeKind) < priority(kind)) return;
+        release();
+    });
+    observer.observe(marker, RUNTIME_MARKER_OBSERVER_OPTIONS);
+    return observer;
 }
 
 function clearBootWindowOwner(app: ReaderApp, ownerId: string): void {
     const bootWindow = window as YomuBootWindow;
+    clearActiveRuntime(app, ownerId);
     if (bootWindow.__yomuRuntimeOwnerId !== ownerId) return;
-    bootWindow.__yomuReaderAppInitialized = false;
+    setBootWindowValue(bootWindow, '__yomuReaderAppInitialized', false);
     delete bootWindow.__yomuRuntimeOwnerId;
     delete bootWindow.__yomuRuntimeKind;
-    if (bootWindow.__yomuDemoApp === app) delete bootWindow.__yomuDemoApp;
     if (bootWindow.__yomuRealApp === app) delete bootWindow.__yomuRealApp;
 }
 
-function releaseYomuRuntime(ownerId: string): void {
-    const marker = document.getElementById(RUNTIME_MARKER_ID) as HTMLElement | null;
-    if (marker?.dataset.yomuRuntimeOwner === ownerId) marker.remove();
+function clearActiveRuntime(app: ReaderApp, ownerId: string | undefined): void {
+    if (activeRuntime?.app === app && (!ownerId || activeRuntime.ownerId === ownerId)) activeRuntime = undefined;
 }
 
-function normalizeRuntimeKind(value: unknown): YomuRuntimeKind {
-    return value === 'extension' || value === 'userscript' || value === 'demo' ? value : 'demo';
+function releaseRuntime(ownerId: string): void {
+    const marker = document.getElementById(RUNTIME_MARKER_ID) as HTMLElement | null;
+    if (marker?.dataset.yomuRuntimeOwner === ownerId) marker.remove();
 }

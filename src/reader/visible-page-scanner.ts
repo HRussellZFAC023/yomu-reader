@@ -1,16 +1,17 @@
 import { applyTokensToScanTarget, collectTextTargetsIn, isFragmentTextTarget, type ScanTextTarget } from './dom';
 import { uiText } from './i18n';
 import { Logger } from './logger';
-import { collectScanTargets, YOMU_DEMO_LOOKUP_PARSER_ID } from './site-parsers';
+import { collectScanTargets } from './site-parsers';
 import type { JPDBToken, ReaderSettings } from './types';
 
 const log = Logger.scope('VisiblePageScanner');
 const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
 const VISIBLE_SCAN_APPLY_BATCH_SIZE = 16;
-const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 1_200;
+const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
 
 interface VisibleScanParseOptions {
     jpdbTimeoutMs?: number;
+    allowJpdbTimeoutFallback?: boolean;
     includeLocalPitch?: boolean;
     allowSegmentedFallback?: boolean;
 }
@@ -21,7 +22,8 @@ export interface VisiblePageScannerDependencies {
     pauseMutationObserver: <T>(callback: () => T) => T;
     preloadParsedTokens: (tokens: JPDBToken[]) => void;
     enrichPitchWords: (tokens: JPDBToken[]) => Promise<void> | void;
-    enrichAnkiWords: (tokens: JPDBToken[]) => Promise<void> | void;
+    enrichAnkiWords: (tokens: JPDBToken[], roots?: ParentNode[]) => Promise<void> | void;
+    refreshWordContrast?: (root: ParentNode) => void;
     toast: (message: string) => void;
 }
 
@@ -63,8 +65,8 @@ export class VisiblePageScanner {
         try {
             const parsed = await this.dependencies.parseJapanese(targets.map(target => target.text), scanParseOptions(this.dependencies.getSettings()));
             if (this.destroyed) return;
-            await this.applyTokens(targets, parsed);
-            this.preloadParsed(parsed);
+            const changedRoots = await this.applyTokens(targets, parsed);
+            this.preloadParsed(parsed, changedRoots);
         } catch {
             // External subtitle overlays update frequently; the regular popup path still reports API errors.
         }
@@ -98,35 +100,43 @@ export class VisiblePageScanner {
             const batch = targets.slice(index, index + VISIBLE_SCAN_PARSE_BATCH_SIZE);
             const parsed = await this.dependencies.parseJapanese(batch.map(target => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
             if (this.destroyed) return;
-            await this.applyTokens(batch, parsed);
-            this.preloadParsed(parsed);
+            const changedRoots = await this.applyTokens(batch, parsed);
+            this.preloadParsed(parsed, changedRoots);
             if (index + VISIBLE_SCAN_PARSE_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
         }
     }
 
-    private async applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][]): Promise<void> {
+    private async applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][]): Promise<ParentNode[]> {
+        const allChangedRoots = new Set<ParentNode>();
         for (let index = 0; index < targets.length; index += VISIBLE_SCAN_APPLY_BATCH_SIZE) {
-            if (this.destroyed) return;
+            if (this.destroyed) return [...allChangedRoots];
             const start = index;
             const batch = targets.slice(start, start + VISIBLE_SCAN_APPLY_BATCH_SIZE);
             this.dependencies.pauseMutationObserver(() => {
                 if (this.destroyed) return;
+                const changedRoots = new Set<ParentNode>();
                 batch.forEach((target, offset) => {
                     if (this.destroyed) return;
                     if (!isCurrentScanTarget(target)) return;
                     applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings());
+                    changedRoots.add(target.parent);
+                });
+                changedRoots.forEach(root => {
+                    allChangedRoots.add(root);
+                    this.dependencies.refreshWordContrast?.(root);
                 });
             });
             if (index + VISIBLE_SCAN_APPLY_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
         }
+        return [...allChangedRoots];
     }
 
-    private preloadParsed(parsed: JPDBToken[][]): void {
+    private preloadParsed(parsed: JPDBToken[][], changedRoots: ParentNode[] = []): void {
         if (this.destroyed) return;
         const tokens = parsed.flat();
         this.dependencies.preloadParsedTokens(tokens);
         void this.dependencies.enrichPitchWords(tokens);
-        void this.dependencies.enrichAnkiWords(tokens);
+        void this.dependencies.enrichAnkiWords(tokens, changedRoots);
     }
 
     private handleEmptyVisiblePageScan(silent: boolean): void {
@@ -175,14 +185,11 @@ function isCurrentFragmentScanTarget(target: Extract<ScanTextTarget, { fragments
         && text.join('') === target.text;
 }
 
-function scanParseOptions(_settings: ReaderSettings, targets: ScanTextTarget[] = []): VisibleScanParseOptions {
+function scanParseOptions(_settings: ReaderSettings, _targets: ScanTextTarget[] = []): VisibleScanParseOptions {
     return {
         jpdbTimeoutMs: VISIBLE_SCAN_PARSE_TIMEOUT_MS,
+        allowJpdbTimeoutFallback: true,
         includeLocalPitch: false,
-        ...(targets.some(isHostedDemoLookupTarget) ? { allowSegmentedFallback: true } : {}),
+        allowSegmentedFallback: true,
     };
-}
-
-function isHostedDemoLookupTarget(target: ScanTextTarget): boolean {
-    return isFragmentTextTarget(target) && target.parserId === YOMU_DEMO_LOOKUP_PARSER_ID;
 }

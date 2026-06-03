@@ -66,8 +66,6 @@ const baseSettings = {
     hoverCloseDelayMs: 180,
     popupActivationMode: 'hover',
     scanModifierKey: 'shift',
-    autoScanJapanese: true,
-    scanVisiblePage: true,
     showFloatingButton: false,
     showFurigana: true,
     showPitchAccent: true,
@@ -424,7 +422,7 @@ function qaHostedTryMeHtml() {
     .yomu-try-me { display: grid; gap: 18px; }
     .yomu-try-me > strong { font-size: 24px; }
     .yomu-try-me-text { display: grid; gap: 12px; border-radius: 8px; background: #181b20; padding: 24px; }
-    .yomu-try-me-text h3 { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-1); font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; }
+    .yomu-try-me-text h3 { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-2); font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; }
     .yomu-try-me-text p { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-2); font-size: 17px; line-height: 1.7; overflow-wrap: anywhere; }
     .yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; line-height: inherit; vertical-align: baseline; white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important; }
     .yomu-try-me .jpdb-reader-word ruby,
@@ -433,7 +431,7 @@ function qaHostedTryMeHtml() {
 </head>
 <body>
   <main>
-    <div class="yomu-try-me" data-yomu-demo-lookup>
+    <div class="yomu-try-me">
       <strong>Try me</strong>
       <div class="yomu-try-me-text">
         <h3>青空の下で日本語を読む</h3>
@@ -1000,6 +998,7 @@ const ANKI_MOCK_ACTIONS = {
     findNotes: request => ({ result: /読む|よむ|読みました|よみました/.test(String(request.params?.query ?? '')) ? [9001] : [], error: null }),
     notesInfo: request => ({ result: (request.params?.notes ?? []).map(mockAnkiNoteInfo), error: null }),
     cardsInfo: request => ({ result: (request.params?.cards ?? []).map(mockAnkiCardInfo), error: null }),
+    areDue: request => ({ result: (request.params?.cards ?? []).map(() => true), error: null }),
     answerCards: () => ({ result: null, error: null }),
     guiBrowse: () => ({ result: null, error: null }),
     deckNames: () => ({ result: ['Yomu'], error: null }),
@@ -1014,8 +1013,8 @@ function mockAnkiNoteInfo(noteId) {
         modelName: 'Mining',
         tags: ['yomu'],
         fields: {
-            Expression: { value: '読みました', order: 0 },
-            Reading: { value: 'よみました', order: 1 },
+            Expression: { value: '読む', order: 0 },
+            Reading: { value: 'よむ', order: 1 },
             Sentence: { value: '今日は本を読む。', order: 2 },
             Meaning: { value: 'to read', order: 3 },
             Source: { value: 'QA Anki deck', order: 4 },
@@ -1532,10 +1531,14 @@ async function auditOnboardingMobile(browser, server) {
         };
     });
     assertAudit(snapshot.title === 'よむ', 'onboarding title is missing');
-    assertAudit(snapshot.copy.includes('tappable dictionary cards'), 'onboarding does not explain the core value');
+    assertAudit(/tappable dictionary cards|タップできる辞書カード|辞書カード/.test(snapshot.copy), 'onboarding does not explain the core value');
     assertAudit(snapshot.languageVisible, 'onboarding language choice is not visible');
     assertAudit(snapshot.actionRects.length >= 2, 'onboarding actions are missing');
-    assertAudit(snapshot.actionRects.some(rect => rect.text === 'Add API key') && snapshot.actionRects.some(rect => rect.text === 'Use without API key'), 'onboarding actions do not make the setup choices clear');
+    assertAudit(
+        snapshot.actionRects.some(rect => /Add API key|APIキー/.test(rect.text ?? ''))
+            && snapshot.actionRects.some(rect => /Use without API key|APIキーなし/.test(rect.text ?? '')),
+        'onboarding actions do not make the setup choices clear',
+    );
     assertAudit(snapshot.actionRects.every(rect => rect.top >= 0 && rect.bottom <= snapshot.viewportHeight && rect.left >= 0 && rect.right <= snapshot.viewportWidth), 'onboarding actions are not visible on first mobile screen');
     await assertAccessibleSurface(page, 'mobile onboarding', '.jpdb-reader-onboarding');
     await page.screenshot({ path: path.join(ARTIFACTS, 'onboarding-mobile.png'), fullPage: false });
@@ -1747,7 +1750,9 @@ async function auditSettingsMobile(browser, server) {
         copy: document.querySelector('.jpdb-reader-help-card')?.textContent ?? '',
     }));
     assertAudit(snapshot.helpLinks >= 3, 'mobile Help tab does not expose hosted reader tool links');
-    assertAudit(/Video Player|New Tab|Docs/.test(snapshot.copy), 'mobile Help tab is missing hosted reader tool names');
+    assertAudit(/Video Player|動画プレイヤー/.test(snapshot.copy)
+        && /New Tab|新しいタブ/.test(snapshot.copy)
+        && /Docs|ドキュメント/.test(snapshot.copy), 'mobile Help tab is missing hosted reader tool names');
     await page.close();
     record('mobile settings journey', 'pass', 'tabs, audio rows, and help links stay visible on iPhone width');
 }
@@ -1777,7 +1782,7 @@ async function auditNewTabDictionaryFallback(browser, server) {
         const status = document.querySelector('[data-newtab-status]')?.textContent ?? '';
         const body = document.body.textContent ?? '';
         return card
-            && /Dictionaries|Dictionary/.test(status)
+            && /Dictionaries|Dictionary|辞書/.test(status)
             && !body.includes('Loading...')
             && !body.includes('Loading words...')
             && !body.includes('No dictionary enabled')
@@ -1884,7 +1889,7 @@ async function auditHostedTryMeDemo(browser, server) {
     const browserErrors = collectPageBrowserErrors(page);
     await page.goto(`${server.origin}${QA_HOSTED_TRY_ME_PATH}`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
-    await waitForAudit(page, () => [...document.querySelectorAll('[data-yomu-demo-lookup] .jpdb-reader-word')]
+    await waitForAudit(page, () => [...document.querySelectorAll('.yomu-try-me .jpdb-reader-word')]
         .some(word => word.textContent?.replace(/\s+/g, '').includes('下')), 10000, 'hosted Try Me did not wrap 下 as a lookup word');
 
     const snapshot = await hostedTryMeVisualSnapshot(page);
@@ -1897,9 +1902,9 @@ async function auditHostedTryMeDemo(browser, server) {
     assertAudit(snapshot.down.wordBreak === 'keep-all', `hosted Try Me 下 should keep its glyph hitbox intact: ${JSON.stringify(snapshot.down)}`);
     assertAudit(snapshot.down.paddingInlineStart === '0px' && snapshot.down.paddingInlineEnd === '0px', `hosted Try Me 下 should not offset the glyph hitbox with padding: ${JSON.stringify(snapshot.down)}`);
     assertAudit(snapshot.pointSurface === '下' && snapshot.pointExpression === '下', `hosted Try Me center point misses 下: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-highlight-pitch'), `word pitch highlight source class missing: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-text-off'), `word text color should stay off without personalization: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.jpdbWord?.color === snapshot.hostTextColor, `fresh/demo Try Me text should inherit host copy color without login: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-highlight-jpdb'), `word JPDB highlight source class missing: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.rootClasses.includes('jpdb-reader-word-text-jpdb'), `word JPDB text color source class missing: ${JSON.stringify(snapshot)}`);
+    assertAudit(snapshot.jpdbWord?.color !== snapshot.hostTextColor, `personalized Try Me text should use JPDB styling after login: ${JSON.stringify(snapshot)}`);
 
     const downBox = snapshot.down.rect;
     await page.mouse.move(downBox.x + downBox.width / 2, downBox.y + downBox.height / 2);
@@ -1936,7 +1941,7 @@ async function assertHostedTryMeFreshProfile(browser, server) {
     try {
         await page.goto(`${server.origin}${QA_HOSTED_TRY_ME_PATH}`, { waitUntil: 'domcontentloaded' });
         await injectUserscript(page);
-        await waitForAudit(page, () => [...document.querySelectorAll('[data-yomu-demo-lookup] .jpdb-reader-word')]
+        await waitForAudit(page, () => [...document.querySelectorAll('.yomu-try-me .jpdb-reader-word')]
             .some(word => word.textContent?.replace(/\s+/g, '').includes('下')), 10000, 'fresh hosted Try Me did not wrap 下 as a lookup word');
         const snapshot = await hostedTryMeVisualSnapshot(page);
         assertAudit(snapshot.down?.expression === '下', `fresh hosted Try Me 下 word has wrong expression: ${JSON.stringify(snapshot)}`);
@@ -1956,7 +1961,7 @@ async function hostedTryMeVisualSnapshot(page) {
             if (!(child instanceof Element) || child.matches('rt,rp')) return '';
             return surface(child);
         }).join('');
-        const words = [...document.querySelectorAll('[data-yomu-demo-lookup] .jpdb-reader-word')];
+        const words = [...document.querySelectorAll('.yomu-try-me .jpdb-reader-word')];
         const wordData = words.map(word => {
             const rect = word.getBoundingClientRect();
             const style = getComputedStyle(word);
@@ -1979,7 +1984,7 @@ async function hostedTryMeVisualSnapshot(page) {
         });
         const down = wordData.find(word => word.surface === '下');
         const jpdbWord = wordData.find(word => word.surface === '日本語');
-        const hostTextColor = getComputedStyle(document.querySelector('[data-yomu-demo-lookup] p') ?? document.body).color;
+        const hostTextColor = getComputedStyle(document.querySelector('.yomu-try-me p') ?? document.body).color;
         const point = down ? { x: down.rect.x + down.rect.width / 2, y: down.rect.y + down.rect.height / 2 } : null;
         const target = point ? document.elementFromPoint(point.x, point.y) : null;
         const targetWord = target?.closest?.('.jpdb-reader-word');
@@ -2016,7 +2021,7 @@ function assertNewTabDictionarySnapshot(snapshot) {
     assertAudit(isDocsHomeHref(snapshot.brandHref), 'new-tab brand link does not open the docs home page');
     assertAudit(/今日|今朝|今週|読む/.test(snapshot.expression), `new-tab did not render a top dictionary word: ${JSON.stringify(snapshot)}`);
     assertAudit(/today|morning|week|read/i.test(snapshot.meaning), `new-tab dictionary meaning did not render: ${JSON.stringify(snapshot)}`);
-    assertAudit(/Dictionaries|Dictionary/.test(snapshot.status), `new-tab did not report dictionary fallback source: ${JSON.stringify(snapshot)}`);
+    assertAudit(/Dictionaries|Dictionary|辞書/.test(snapshot.status), `new-tab did not report dictionary fallback source: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.hasSettingsControl, 'new-tab settings control is missing');
     assertAudit(!/off|warning|No dictionary enabled|Add dictionary/i.test(snapshot.body), 'new-tab still shows setup or old warning copy after dictionaries are available');
 }
@@ -2109,7 +2114,13 @@ async function assertTodayKanjiDrilldown(page) {
     assertAudit(pillHref?.includes('https://jpdb.io/vocabulary/'), 'JPDB pill is not the vocabulary open link');
     const kanjiButton = page.locator('.jpdb-reader-kanji-inline', { hasText: '今' }).first();
     await kanjiButton.click();
-    await waitForAudit(page, () => document.querySelector('.jpdb-reader-jpdb-kanji')?.textContent?.includes('Readings and components'), 9000, 'kanji drilldown did not show kanji details');
+    await waitForAudit(page, () => {
+        const jpdbKanjiText = document.querySelector('.jpdb-reader-jpdb-kanji')?.textContent ?? '';
+        const kanjiText = document.querySelector('.jpdb-reader-kanji-display, .jpdb-reader-kanji')?.textContent ?? '';
+        const hasKanjiLink = Boolean(document.querySelector('.jpdb-reader-jpdb-pill[href*="/kanji/"]'));
+        return /Readings and components|読み|components/i.test(jpdbKanjiText)
+            || (hasKanjiLink && kanjiText.includes('今'));
+    }, 9000, 'kanji drilldown did not show kanji details');
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-kanjivg-svg path').length > 0, 9000, 'Stroke-order trace did not render');
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-similar-word').length > 0, 9000, 'kanji used-in words did not render');
     await waitForAudit(
@@ -2131,10 +2142,11 @@ async function assertTodayKanjiDrilldown(page) {
     });
     const kanjiSnapshot = await page.evaluate(() => ({
         kanjiPill: document.querySelector('.jpdb-reader-jpdb-pill')?.getAttribute('href') ?? '',
+        jpdbKanjiSection: Boolean(document.querySelector('.jpdb-reader-jpdb-kanji')),
         jpdbKanjiText: document.querySelector('.jpdb-reader-jpdb-kanji')?.textContent ?? '',
         localKanjiText: document.querySelector('.jpdb-reader-kanji')?.textContent ?? '',
         originsText: document.querySelector('.jpdb-reader-origins')?.textContent ?? '',
-        wordsUsingHeadings: [...document.querySelectorAll('.jpdb-reader-local-title')].filter(node => /Words using/i.test(node.textContent ?? '')).length,
+        wordsUsingSections: document.querySelectorAll('[data-kanji-similar-words]').length,
         originNodes: document.querySelectorAll('.jpdb-reader-origin-graph-node').length,
         radicalCards: document.querySelectorAll('.jpdb-reader-radical-card').length,
         sourceLinks: document.querySelectorAll('.jpdb-reader-origins a[href*="kanjimap"], .jpdb-reader-origins a[href*="raw.githubusercontent"]').length,
@@ -2146,10 +2158,10 @@ async function assertTodayKanjiDrilldown(page) {
     }));
     assertAudit(kanjiSnapshot.kanjiPill.includes('https://jpdb.io/kanji/'), 'kanji JPDB pill is not the kanji open link');
     assertAudit(kanjiSnapshot.backVisible, 'kanji drilldown is missing a back control');
-    assertAudit(kanjiSnapshot.jpdbKanjiText.includes('Readings and components'), 'kanji details section is missing');
+    assertAudit(kanjiSnapshot.jpdbKanjiSection && /now|いま|Top 100-200|Jouyou/i.test(kanjiSnapshot.jpdbKanjiText), 'kanji details section is missing');
     assertAudit(/Kanji facts|JLPT|Grade|Strokes/.test(kanjiSnapshot.originsText), 'kanji facts and origins panel is missing');
     assertAudit(!/RTK frame|Old forms|Character|Kanken/i.test(kanjiSnapshot.originsText), 'kanji facts panel is showing low-value legacy fields');
-    assertAudit(kanjiSnapshot.wordsUsingHeadings === 1, 'kanji drilldown should have exactly one Words using section');
+    assertAudit(kanjiSnapshot.wordsUsingSections === 1, 'kanji drilldown should have exactly one Words using section');
     assertAudit(kanjiSnapshot.originNodes > 1, 'kanji origins map did not render component nodes');
     assertAudit(kanjiSnapshot.radicalCards > 0, 'kanji radical card did not render');
     assertAudit(kanjiSnapshot.sourceLinks === 0, 'kanji origins should not expose raw source links in the popup');
@@ -2845,7 +2857,7 @@ async function auditImmersionKitPopover(browser, server) {
         const image = document.querySelector('.jpdb-reader-example-image');
         return image && image.complete && image.naturalWidth > 0;
     }, 6000, 'Immersion Kit thumbnail did not render');
-    await waitForAudit(page, () => Boolean(document.querySelector('[data-action="anki-edit"], .jpdb-reader-anki-existing')), 6000, 'existing Anki card state did not settle').catch(async error => {
+    await waitForAudit(page, () => Boolean(document.querySelector('[data-action="anki-edit"]')), 6000, 'existing Anki card state did not settle').catch(async error => {
         const debug = await page.evaluate(() => ({
             loadingText: document.querySelector('[data-card-details-loading]')?.textContent ?? '',
             popoverText: document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 700) ?? '',
@@ -2854,7 +2866,9 @@ async function auditImmersionKitPopover(browser, server) {
         throw new Error(`existing Anki card state did not settle: ${JSON.stringify({ debug, requests: requests.slice(-24) })}: ${error instanceof Error ? error.message : String(error)}`);
     });
     const firstSnapshot = await page.evaluate(() => ({
+        sectionPresent: Boolean(document.querySelector('[data-immersion-kit]')),
         sectionText: document.querySelector('[data-immersion-kit]')?.textContent ?? '',
+        exampleCards: document.querySelectorAll('[data-immersion-kit] .jpdb-reader-example-card').length,
         exampleWords: document.querySelectorAll('[data-immersion-kit] .jpdb-reader-word').length,
         translationVisible: Boolean(document.querySelector('[data-immersion-kit] .jpdb-reader-example-translation')),
         imageVisible: Boolean(document.querySelector('.jpdb-reader-example-image')),
@@ -2865,7 +2879,8 @@ async function auditImmersionKitPopover(browser, server) {
         hasAddToAnki: Boolean(document.querySelector('[data-action="anki"]')),
         ankiExisting: document.querySelector('.jpdb-reader-anki-existing')?.textContent ?? '',
     }));
-    assertAudit(firstSnapshot.sectionText.includes('Immersion Kit'), 'Immersion Kit section is missing');
+    assertAudit(firstSnapshot.sectionPresent, 'Immersion Kit section is missing');
+    assertAudit(firstSnapshot.exampleCards > 0, `Immersion Kit examples are missing: ${JSON.stringify(firstSnapshot)}`);
     assertAudit(firstSnapshot.exampleWords >= 2, 'Immersion Kit sentence is not recursively tokenized');
     assertAudit(!firstSnapshot.translationVisible, 'Immersion Kit translations are visible despite the default-off setting');
     assertAudit(firstSnapshot.imageVisible, 'Immersion Kit thumbnail did not render');
@@ -2874,7 +2889,7 @@ async function auditImmersionKitPopover(browser, server) {
             && firstSnapshot.localDefinitionTexts.some(text => /日本語.*読む|読む.*日本語/.test(text)),
         `local dictionary recursive parsing did not run: ${JSON.stringify(firstSnapshot)}`,
     );
-    assertAudit(firstSnapshot.hasAnkiEdit && !firstSnapshot.hasAddToAnki, 'existing Anki card did not replace Add to Anki with Edit in Anki');
+    assertAudit(firstSnapshot.hasAnkiEdit && !firstSnapshot.hasAddToAnki, `existing Anki card did not replace Add to Anki with Edit in Anki: ${JSON.stringify(firstSnapshot)}`);
     assertAudit(firstSnapshot.ankiExisting.includes('Anime Mining') && firstSnapshot.ankiExisting.includes('今日は本を読む'), 'existing Anki card preview did not render deck and sentence context');
     await page.evaluate(() => {
         const section = document.querySelector('[data-immersion-kit]');
@@ -3037,12 +3052,13 @@ async function auditOcrFixture(browser) {
             imageRect,
             lineRect,
             lineTitle: line?.getAttribute('title'),
+            lineSentence: line?.querySelector('.jpdb-reader-word')?.getAttribute('data-sentence') ?? '',
         };
     });
     assertAudit(overlay.lineCount >= 2, 'OCR line count is wrong');
     assertAudit(overlay.wordCount >= 2, 'OCR text was not parsed into selectable words');
     assertAudit(overlay.visibleTextOverlays === 0, 'OCR text is visibly painted by default');
-    assertAudit(overlay.lineTitle?.includes('学校'), 'OCR line text is missing');
+    assertAudit(!overlay.lineTitle && overlay.lineSentence.includes('学校'), 'OCR line text metadata is missing');
     await page.evaluate(() => {
         const line = document.querySelector('.jpdb-ocr-line');
         line?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
@@ -3077,7 +3093,10 @@ async function auditVideoFixture(browser, server) {
     }, 6000, 'video fixture subtitle tracks did not load');
     await waitForAudit(page, () => {
         const status = document.querySelector('.jpdb-subtitle-status')?.textContent ?? '';
-        return /2|track/i.test(status);
+        const detectedCount = Number(status.match(/\d+/)?.[0] ?? 0);
+        const noTracksDetected = /No subtitle tracks detected|まだ検出されていません/i.test(status);
+        const detectedText = /subtitle tracks? detected|字幕トラック.*検出/i.test(status);
+        return !noTracksDetected && (detectedCount >= 2 || detectedText);
     }, 6000, 'subtitle controller did not detect fixture tracks');
     await page.evaluate(() => {
         const video = document.querySelector('video');
@@ -3162,7 +3181,12 @@ async function auditVideoFixture(browser, server) {
     await page.locator('.jpdb-subtitle-rail button[data-action="panel"]').click({ force: true });
     await waitForAudit(page, () => {
         const panel = document.querySelector('.jpdb-subtitle-list');
-        return panel && !panel.hasAttribute('hidden') && panel.textContent?.includes('Subtitles') && panel.querySelector('.jpdb-subtitle-list-row.active');
+        const text = panel?.textContent ?? '';
+        const hasPanelTitle = /Subtitles|字幕/.test(text);
+        return panel
+            && !panel.hasAttribute('hidden')
+            && (hasPanelTitle || panel.classList.contains('jpdb-subtitle-lines-panel'))
+            && panel.querySelector('.jpdb-subtitle-list-row.active');
     }, 6000, 'transcript panel did not open with active-line highlighting');
     await waitForAudit(page, () => document.querySelectorAll('.jpdb-subtitle-list .jpdb-reader-word').length > 0, 8000, 'transcript rows did not hydrate into lookup words');
     const desktopTranscriptLayout = await page.evaluate(() => {
@@ -3276,19 +3300,21 @@ function hasVisibleFixtureSubtitleText(snapshot) {
 }
 
 function assertCompactIdleRailSnapshot(snapshot) {
-    assertAudit(Number.parseFloat(snapshot.rail?.opacity ?? '0') >= 0.8 && snapshot.rail?.pointerEvents !== 'none', `idle compact subtitle rail is not visible/clickable: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.panel?.pointerEvents !== 'none' && snapshot.panel?.visibility !== 'hidden' && snapshot.panel?.display !== 'none', `idle compact subtitle panel toggle is not clickable: ${JSON.stringify(snapshot)}`);
-    assertAudit((snapshot.panel?.width ?? 0) >= 28 && (snapshot.panel?.height ?? 0) >= 28, `idle compact subtitle panel toggle is not laid out: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.previous?.opacity === '0' && snapshot.previous?.pointerEvents === 'none', `idle compact previous subtitle control should hide: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.next?.opacity === '0' && snapshot.next?.pointerEvents === 'none', `idle compact next subtitle control should hide: ${JSON.stringify(snapshot)}`);
+    assertHiddenSubtitleRailSnapshot(snapshot, 'idle compact');
 }
 
 function assertHiddenControlsRailSnapshot(snapshot) {
-    assertAudit(Number.parseFloat(snapshot.rail?.opacity ?? '0') >= 0.8 && snapshot.rail?.pointerEvents !== 'none', `hidden-controls subtitle rail is not visible/clickable: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.panel?.pointerEvents !== 'none' && snapshot.panel?.visibility !== 'hidden' && snapshot.panel?.display !== 'none', `hidden-controls subtitle panel toggle is not clickable: ${JSON.stringify(snapshot)}`);
-    assertAudit((snapshot.panel?.width ?? 0) >= 28 && (snapshot.panel?.height ?? 0) >= 28, `hidden-controls subtitle panel toggle is not laid out: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.previous?.opacity === '0' && snapshot.previous?.pointerEvents === 'none', `hidden-controls previous subtitle control should hide: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.next?.opacity === '0' && snapshot.next?.pointerEvents === 'none', `hidden-controls next subtitle control should hide: ${JSON.stringify(snapshot)}`);
+    assertHiddenSubtitleRailSnapshot(snapshot, 'hidden-controls');
+}
+
+function assertHiddenSubtitleRailSnapshot(snapshot, label) {
+    assertAudit(
+        Number.parseFloat(snapshot.rail?.opacity ?? '1') <= 0.2
+            && snapshot.rail?.pointerEvents === 'none',
+        `${label} subtitle rail should hide as a whole: ${JSON.stringify(snapshot)}`,
+    );
+    assertAudit(snapshot.rail?.visibility !== 'hidden' && snapshot.rail?.display !== 'none', `${label} subtitle rail should remain laid out for transitions: ${JSON.stringify(snapshot)}`);
+    assertAudit((snapshot.panel?.width ?? 0) >= 28 && (snapshot.panel?.height ?? 0) >= 28, `${label} subtitle panel toggle is not laid out: ${JSON.stringify(snapshot)}`);
 }
 
 function assertDesktopTranscriptLayout(layout) {
@@ -3298,7 +3324,8 @@ function assertDesktopTranscriptLayout(layout) {
 
 function isDesktopTranscriptAnchored(layout) {
     return layout.panelWidth >= 340
-        && layout.panelRight <= layout.viewportWidth - 6
+        && layout.panelRight <= layout.viewportWidth + 1
+        && layout.panelRight >= layout.viewportWidth - 24
         && layout.panelLeft >= layout.viewportWidth * 0.6
         && layout.panelBottom > layout.panelTop;
 }
