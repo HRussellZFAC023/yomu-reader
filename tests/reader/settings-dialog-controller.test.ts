@@ -370,9 +370,10 @@ describe('settings dialog keyboard dismissal', () => {
         await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone === 'error');
 
         expect(isConnected).toHaveBeenCalledTimes(2);
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect is not connected yet');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect is not connected');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open Anki');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('check again');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Check AnkiConnect');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('webCorsOriginList');
     });
 
     it('updates the JPDB status light when the API key field changes', () => {
@@ -621,7 +622,7 @@ describe('settings dialog keyboard dismissal', () => {
             expect(isConnected).toHaveBeenCalledOnce();
             expect(scanLibrary).not.toHaveBeenCalled();
             expect(fallbackText).toContain('new notes only');
-            expect(fallbackText).toContain('Android bridge');
+            expect(fallbackText).toContain('desktop Anki with AnkiConnect');
         } finally {
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
         }

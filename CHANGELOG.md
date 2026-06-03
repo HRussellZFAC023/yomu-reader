@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.2] - 2026-06-03
+
+### Fixed
+
+- Made the AnkiConnect settings error shorter and more actionable, moving hosted userscript bridge/CORS guidance into the normal setup help with the AnkiConnect add-on link.
+- Reworded mobile Anki handoff limitations around the current desktop AnkiConnect requirement instead of speculative future bridge copy.
+- Split CI tests across eight Vitest shards with an explicit timeout so large JPDB/new-tab coverage no longer leaves one long-running shard looking stuck.
+
 ## [0.6.1] - 2026-06-03
 
 ### Fixed
