@@ -2914,6 +2914,9 @@ button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
   background: transparent;
 }
 .jpdb-reader-example-card.has-image .jpdb-reader-example-media {
+  justify-self: center;
+  width: fit-content;
+  max-width: 100%;
   overflow: hidden;
 }
 .jpdb-reader-example-body {
