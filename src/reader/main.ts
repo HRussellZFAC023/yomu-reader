@@ -178,6 +178,7 @@ const RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 800;
 // This is not an Anki cache/card cap.
 const ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD = 24;
 const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 2;
+const SUBTITLE_SURFACE_SELECTOR = '.jpdb-subtitle-player, .jpdb-subtitle-list';
 const SINGLE_HIRAGANA_MORA_RE = /^[\u3040-\u309fー]$/u;
 const SUBSTANTIVE_LOCAL_EXPANSION_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
 type ReviewShortcutKey = keyof ReaderSettings['shortcuts'];
@@ -331,8 +332,18 @@ function audioPreloadLimits(options: ReaderAudioPreloadOptions): ReaderAudioPrel
     };
 }
 
+// Bounded insertion-ordered cache eviction shared by the Map- and Set-backed reader caches.
+// Both Map.keys() and Set.keys() yield entries in insertion order, so the oldest survivor is always first.
+function evictOldestStringKeysWhileOverLimit(cache: { size: number; keys(): IterableIterator<string>; delete(key: string): unknown }, limit: number): void {
+    while (cache.size > limit) {
+        const oldest = cache.keys().next().value;
+        if (typeof oldest !== 'string') break;
+        cache.delete(oldest);
+    }
+}
+
 function shouldPauseVideoForSubtitleHover(word: HTMLElement, settings: ReaderSettings): boolean {
-    return settings.subtitleMiningPause && Boolean(word.closest('.jpdb-subtitle-player, .jpdb-subtitle-list'));
+    return settings.subtitleMiningPause && Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
 }
 
 function cardDisplayTrigger(options: CardDisplayOptions): 'modal' | 'hover' {
@@ -1398,7 +1409,7 @@ export class ReaderApp {
                 return;
             }
             const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
-            const insideSubtitlePlayer = Boolean(word.closest('.jpdb-subtitle-player, .jpdb-subtitle-list'));
+            const insideSubtitlePlayer = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
             if (!this.settings.lookupOnClick && !insideReaderPopup && !insideSubtitlePlayer) return;
 
             event.preventDefault();
@@ -1685,7 +1696,7 @@ export class ReaderApp {
         this.hoverLookupTimer = undefined;
         this.hoverPendingWord = undefined;
         this.hoverPendingLookupKey = '';
-        if (word.closest('.jpdb-subtitle-player, .jpdb-subtitle-list') && this.settings.subtitleMiningPause) pauseActiveVideo();
+        if (word.closest(SUBTITLE_SURFACE_SELECTOR) && this.settings.subtitleMiningPause) pauseActiveVideo();
         const hoverLookupGeneration = this.nextHoverLookupGeneration();
         void this.showWord(word, { trigger: 'hover', hoverLookupGeneration });
     }
@@ -4016,7 +4027,7 @@ export class ReaderApp {
 
     private shouldSuppressAutoAudioForVideo(anchor?: HTMLElement): boolean {
         return this.settings.suppressAutoAudioOnVideo
-            && (Boolean(anchor?.closest('.jpdb-subtitle-player, .jpdb-subtitle-list')) || hasVisiblePageVideo());
+            && (Boolean(anchor?.closest(SUBTITLE_SURFACE_SELECTOR)) || hasVisiblePageVideo());
     }
 
     private shouldAutoPlayForTrigger(trigger: 'modal' | 'hover'): boolean {
@@ -5036,18 +5047,18 @@ export class ReaderApp {
         }
     }
 
+    private async fillCardPitchFromLocalDictionary(card: JPDBCard): Promise<void> {
+        if (card.pitchAccent.length) return;
+        const localPitch = await this.localPitchAccentForCard(card);
+        if (localPitch.length) card.pitchAccent = localPitch;
+    }
+
     private async enrichPitchToken(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookup'> = {}): Promise<void> {
         const fallback = token.card;
         let card = fallback;
-        if (!card.pitchAccent.length) {
-            const localPitch = await this.localPitchAccentForCard(card);
-            if (localPitch.length) card.pitchAccent = localPitch;
-        }
+        await this.fillCardPitchFromLocalDictionary(card);
         if (!card.pitchAccent.length && options.publicLookup !== false) card = await this.resolveRenderedFallbackVocabulary(fallback) ?? fallback;
-        if (!card.pitchAccent.length && card !== fallback) {
-            const localPitch = await this.localPitchAccentForCard(card);
-            if (localPitch.length) card.pitchAccent = localPitch;
-        }
+        if (card !== fallback) await this.fillCardPitchFromLocalDictionary(card);
         const pitchAccent = card.pitchAccent.length
             ? card.pitchAccent
             : options.publicLookup === false
@@ -5107,11 +5118,7 @@ export class ReaderApp {
 
     private rememberLocalPitchEnrichment(key: string, promise: Promise<string>): void {
         this.pitchEnrichmentLocalCache.set(key, promise);
-        while (this.pitchEnrichmentLocalCache.size > PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT) {
-            const oldest = this.pitchEnrichmentLocalCache.keys().next().value;
-            if (typeof oldest !== 'string') break;
-            this.pitchEnrichmentLocalCache.delete(oldest);
-        }
+        evictOldestStringKeysWhileOverLimit(this.pitchEnrichmentLocalCache, PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT);
     }
 
     private async resolveRenderedFallbackVocabulary(card: JPDBCard): Promise<JPDBCard | undefined> {
@@ -5131,11 +5138,7 @@ export class ReaderApp {
         const key = cardKey(fallback);
         this.resolvedFallbackVocabularyCache.delete(key);
         this.resolvedFallbackVocabularyCache.set(key, card);
-        while (this.resolvedFallbackVocabularyCache.size > RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT) {
-            const oldest = this.resolvedFallbackVocabularyCache.keys().next().value;
-            if (typeof oldest !== 'string') break;
-            this.resolvedFallbackVocabularyCache.delete(oldest);
-        }
+        evictOldestStringKeysWhileOverLimit(this.resolvedFallbackVocabularyCache, RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT);
         this.scheduleCachedPublicVocabularyHydration(document);
     }
 
@@ -5164,11 +5167,7 @@ export class ReaderApp {
 
     private rememberPreloadedTermAudioKey(key: string): void {
         this.preloadedTermAudioKeys.add(key);
-        while (this.preloadedTermAudioKeys.size > PRELOADED_TERM_AUDIO_KEY_LIMIT) {
-            const oldest = this.preloadedTermAudioKeys.values().next().value;
-            if (typeof oldest !== 'string') break;
-            this.preloadedTermAudioKeys.delete(oldest);
-        }
+        evictOldestStringKeysWhileOverLimit(this.preloadedTermAudioKeys, PRELOADED_TERM_AUDIO_KEY_LIMIT);
     }
 
     private dictionaryLabel(name: string): string {
@@ -5442,7 +5441,7 @@ export class ReaderApp {
             storedContext: storedImmersionContext,
             sourceKind: inferMiningSourceKind({
                 hostname: location.hostname,
-                hasVideo: Boolean(anchor?.closest('.jpdb-subtitle-player, .jpdb-subtitle-list')) || Boolean(document.querySelector('video')),
+                hasVideo: Boolean(anchor?.closest(SUBTITLE_SURFACE_SELECTOR)) || Boolean(document.querySelector('video')),
             }),
             imageDataUrl: this.settings.ankiCaptureScreenshot ? this.ocr.captureSourceImageForElement(anchor ?? null) : undefined,
             videoImageDataUrl: this.settings.ankiCaptureScreenshot ? captureActiveVideoFrame() : undefined,

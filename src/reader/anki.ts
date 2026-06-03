@@ -391,7 +391,7 @@ export class AnkiConnectClient {
         const models: AnkiModelScanResult[] = [];
         await runLimited(modelNames, ANKI_MODEL_SCAN_CONCURRENCY, async modelName => {
             const [fields, sampleNotes] = await Promise.all([
-                this.invoke<string[]>('modelFieldNames', { modelName }).catch((): string[] => []),
+                this.invokeOrDefault<string[]>('modelFieldNames', { modelName }, []),
                 this.sampleModelNotes(modelName),
             ]);
             models.push(scanAnkiModelFields(modelName, fields, sampleNotes));
@@ -405,12 +405,12 @@ export class AnkiConnectClient {
     }
 
     private async sampleModelNotes(modelName: string): Promise<AnkiNoteInfo[]> {
-        const noteIds = await this.invoke<number[]>('findNotes', { query: `note:${quoteAnkiSearch(modelName)}` }).catch((): number[] => []);
+        const noteIds = await this.invokeOrDefault<number[]>('findNotes', { query: `note:${quoteAnkiSearch(modelName)}` }, []);
         const sampleIds = Array.isArray(noteIds)
             ? unique(noteIds.map(Number).filter(Number.isFinite)).slice(0, ANKI_MODEL_SCAN_SAMPLE_NOTE_LIMIT)
             : [];
         if (!sampleIds.length) return [];
-        return await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: sampleIds }).catch((): AnkiNoteInfo[] => []);
+        return await this.invokeOrDefault<AnkiNoteInfo[]>('notesInfo', { notes: sampleIds }, []);
     }
 
     warmStatusIndex(): Promise<AnkiStatusIndex | null> {
@@ -700,7 +700,7 @@ export class AnkiConnectClient {
     private async collectionCardCountFromDeckStats(): Promise<number | null> {
         const deckNames = await this.deckNames().catch((): string[] => []);
         if (!Array.isArray(deckNames) || !deckNames.length) return null;
-        const stats = await this.invoke<Record<string, AnkiDeckStats>>('getDeckStats', { decks: deckNames }).catch(() => null);
+        const stats = await this.invokeOrDefault<Record<string, AnkiDeckStats> | null>('getDeckStats', { decks: deckNames }, null);
         if (!stats || typeof stats !== 'object') return null;
         const totals = Object.values(stats)
             .map(deck => Number(deck?.total_in_deck))
@@ -721,7 +721,7 @@ export class AnkiConnectClient {
         if (this.isDestroyed) return null;
         if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
         const noteIds = allCardIds.length
-            ? await this.invoke<number[]>('findNotes', { query: 'deck:*' }).catch((): number[] => [])
+            ? await this.invokeOrDefault<number[]>('findNotes', { query: 'deck:*' }, [])
             : [];
         if (this.isDestroyed) return null;
         if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
@@ -745,7 +745,7 @@ export class AnkiConnectClient {
         const noteChunks = chunkArray(noteIds, ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE);
         const notesByChunk: AnkiNoteInfo[][] = Array.from({ length: noteChunks.length }, () => []);
         await runLimited(noteChunks, ANKI_STATUS_INDEX_NOTE_CONCURRENCY, async (chunk, index) => {
-            notesByChunk[index] = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: chunk }).catch((): AnkiNoteInfo[] => []);
+            notesByChunk[index] = await this.invokeOrDefault<AnkiNoteInfo[]>('notesInfo', { notes: chunk }, []);
             if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
         });
         const notes = notesByChunk.flat();
@@ -783,7 +783,7 @@ export class AnkiConnectClient {
             const noteChunks = chunkArray(noteIds, ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE);
             let writeQueue = Promise.resolve();
             await runLimited(noteChunks, ANKI_STATUS_INDEX_NOTE_CONCURRENCY, async chunk => {
-                const notes = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: chunk }).catch((): AnkiNoteInfo[] => []);
+                const notes = await this.invokeOrDefault<AnkiNoteInfo[]>('notesInfo', { notes: chunk }, []);
                 if (this.isDestroyed) return;
                 if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
                 const entries = statusIndexEntriesForNotes(notes, cardData, settings);
@@ -842,7 +842,7 @@ export class AnkiConnectClient {
     }
 
     private async findCardIdSet(query: string): Promise<Set<number>> {
-        const cardIds = await this.invoke<number[]>('findCards', { query }).catch((): number[] => []);
+        const cardIds = await this.invokeOrDefault<number[]>('findCards', { query }, []);
         return new Set(cardIds.map(Number).filter(Number.isFinite));
     }
 
@@ -855,7 +855,7 @@ export class AnkiConnectClient {
         const cardChunks = chunkArray(unique(allCardIds).map(Number).filter(Number.isFinite), ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE);
         const cardsByChunk: AnkiCardInfo[][] = Array.from({ length: cardChunks.length }, () => []);
         await runLimited(cardChunks, ANKI_STATUS_INDEX_NOTE_CONCURRENCY, async (chunk, index) => {
-            const cards = await this.invoke<AnkiCardInfo[]>('cardsInfo', { cards: chunk }).catch((): AnkiCardInfo[] => []);
+            const cards = await this.invokeOrDefault<AnkiCardInfo[]>('cardsInfo', { cards: chunk }, []);
             cardsByChunk[index] = Array.isArray(cards) ? cards.map(card => statusIndexCardWithSetState(card, cardSets)) : [];
             if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
         });
@@ -1035,7 +1035,7 @@ export class AnkiConnectClient {
         if (this.isDestroyed) return new Map();
         const cardIds = unique(notes.flatMap(note => note.cards ?? []));
         const cards = cardIds.length
-            ? await this.invoke<AnkiCardInfo[]>('cardsInfo', { cards: cardIds }).catch((): AnkiCardInfo[] => [])
+            ? await this.invokeOrDefault<AnkiCardInfo[]>('cardsInfo', { cards: cardIds }, [])
             : [];
         if (this.isDestroyed) return new Map();
         return cardsByNoteId(await this.annotateDueCards(cards));
@@ -1048,7 +1048,7 @@ export class AnkiConnectClient {
             .map(card => Number(card.cardId))
             .filter(Number.isFinite);
         if (!reviewCardIds.length) return cards;
-        const dueFlags = await this.invoke<boolean[]>('areDue', { cards: reviewCardIds }).catch((): boolean[] => []);
+        const dueFlags = await this.invokeOrDefault<boolean[]>('areDue', { cards: reviewCardIds }, []);
         if (this.isDestroyed) return cards;
         const dueByCardId = new Map(reviewCardIds.map((cardId, index) => [cardId, dueFlags[index]]));
         return cards.map(card => card.queue === 2 && dueByCardId.has(Number(card.cardId))
@@ -1211,7 +1211,7 @@ export class AnkiConnectClient {
             await this.createYomuModel(note.modelName, settings);
             return note;
         }
-        const fieldNames = await this.invoke<string[]>('modelFieldNames', { modelName: note.modelName }).catch((): string[] => []);
+        const fieldNames = await this.invokeOrDefault<string[]>('modelFieldNames', { modelName: note.modelName }, []);
         if (shouldTreatExistingModelAsYomuManaged(note.modelName, settings, fieldNames)) {
             await this.updateExistingModel(note.modelName, settings);
             return note;
@@ -1298,9 +1298,7 @@ export class AnkiConnectClient {
     }
 
     private async ensureDeck(deckName: string): Promise<void> {
-        await this.invoke<null>('createDeck', { deck: deckName }).catch(() => {
-            return null;
-        });
+        await this.invokeOrDefault<null>('createDeck', { deck: deckName }, null);
     }
 
     private async updateExistingModel(modelName: string, settings: ReaderSettings): Promise<void> {
@@ -1326,7 +1324,7 @@ export class AnkiConnectClient {
     }
 
     private async ensureModelFields(modelName: string): Promise<void> {
-        const fieldNames = await this.invoke<string[]>('modelFieldNames', { modelName }).catch((): string[] => []);
+        const fieldNames = await this.invokeOrDefault<string[]>('modelFieldNames', { modelName }, []);
         const existing = new Set(fieldNames);
         for (const fieldName of YOMU_MODEL_FIELDS) {
             if (!existing.has(fieldName)) {
@@ -1337,6 +1335,10 @@ export class AnkiConnectClient {
 
     async invoke<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {
         return this.invokeWithTimeout<T>(action, params, ANKI_CONNECT_REQUEST_TIMEOUT_MS);
+    }
+
+    private async invokeOrDefault<T>(action: string, params: Record<string, unknown>, fallback: T): Promise<T> {
+        return this.invoke<T>(action, params).catch(() => fallback);
     }
 
     private async invokeWithTimeout<T>(action: string, params: Record<string, unknown>, timeoutMs: number): Promise<T> {
@@ -2047,6 +2049,7 @@ const YOMU_FIELD_ALIASES: Record<string, string> = {
     expressiontext: 'Expression',
     headword: 'Expression',
     headwordkanji: 'Expression',
+    jlabkanji: 'Expression',
     japaneseword: 'Expression',
     japaneseexpression: 'Expression',
     lemma: 'Expression',
@@ -2068,6 +2071,7 @@ const YOMU_FIELD_ALIASES: Record<string, string> = {
     furigana: 'Reading',
     furiganareading: 'Reading',
     hiragana: 'Reading',
+    jlabhiragana: 'Reading',
     japanesereading: 'Reading',
     kanareading: 'Reading',
     readings: 'Reading',
@@ -2095,14 +2099,21 @@ const YOMU_FIELD_ALIASES: Record<string, string> = {
     gloss: 'Meaning',
     glosses: 'Meaning',
     glossary: 'Meaning',
+    jlabdictionarylookup: 'Meaning',
+    jlabremarks: 'Meaning',
+    jlabtranslation: 'Meaning',
     meaningenglish: 'Meaning',
     meanings: 'Meaning',
+    otherback: 'Meaning',
+    remarksback: 'Meaning',
     sense: 'Meaning',
     termmeaning: 'Meaning',
     translation: 'Meaning',
     translation1: 'Meaning',
     vocabdef: 'Meaning',
     vocabdefinition: 'Meaning',
+    vocabularyenglish: 'Meaning',
+    vocabularymeaning: 'Meaning',
     wordmeaning: 'Meaning',
     back: 'Meaning',
     example: 'Sentence',
@@ -2313,20 +2324,32 @@ function parseAnkiAudioDataUrl(dataUrl: string): ParsedAnkiAudioDataUrl | null {
     return match ? { extension: ankiAudioExtension(match[1]), data: match[2] } : null;
 }
 
+const ANKI_IMAGE_EXTENSION_ALIASES: Record<string, string> = {
+    'jpeg': 'jpg',
+    'svg+xml': 'svg',
+};
+
 function ankiImageExtension(rawExtension: string): string {
     const extension = rawExtension.toLowerCase();
-    if (extension === 'jpeg') return 'jpg';
-    return extension === 'svg+xml' ? 'svg' : extension;
+    return ANKI_IMAGE_EXTENSION_ALIASES[extension] ?? extension;
 }
 
+const ANKI_AUDIO_EXTENSION_ALIASES: Record<string, string> = {
+    'mpeg': 'mp3',
+    'mp3': 'mp3',
+    'wav': 'wav',
+    'wave': 'wav',
+    'x-wav': 'wav',
+    'ogg': 'ogg',
+    'oga': 'ogg',
+    'webm': 'webm',
+    'mp4': 'mp4',
+    'aac': 'aac',
+    'flac': 'flac',
+};
+
 function ankiAudioExtension(rawExtension: string): string {
-    const extension = rawExtension.toLowerCase();
-    if (extension === 'mpeg' || extension === 'mp3') return 'mp3';
-    if (extension === 'wav' || extension === 'wave' || extension === 'x-wav') return 'wav';
-    if (extension === 'ogg' || extension === 'oga') return 'ogg';
-    if (extension === 'webm') return 'webm';
-    if (extension === 'mp4' || extension === 'aac' || extension === 'flac') return extension;
-    return 'mp3';
+    return ANKI_AUDIO_EXTENSION_ALIASES[rawExtension.toLowerCase()] ?? 'mp3';
 }
 
 function audioUrlExtension(url: string): string {
@@ -2340,22 +2363,33 @@ function audioUrlExtension(url: string): string {
     return '.mp3';
 }
 
+const ANKI_MEDIA_MIME_TYPES: Record<string, string> = {
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'jfif': 'image/jpeg',
+    'pjpeg': 'image/jpeg',
+    'pjp': 'image/jpeg',
+    'webp': 'image/webp',
+    'gif': 'image/gif',
+    'bmp': 'image/bmp',
+    'avif': 'image/avif',
+    'svg': 'image/svg+xml',
+    'mp3': 'audio/mpeg',
+    'wav': 'audio/wav',
+    'ogg': 'audio/ogg',
+    'oga': 'audio/ogg',
+    'opus': 'audio/ogg',
+    'webm': 'audio/webm',
+    'm4a': 'audio/mp4',
+    'mp4': 'audio/mp4',
+    'aac': 'audio/mp4',
+    'flac': 'audio/flac',
+};
+
 function ankiMediaMimeType(filename: string): string {
     const extension = filename.split('.').pop()?.toLowerCase() ?? '';
-    if (extension === 'png') return 'image/png';
-    if (extension === 'jpg' || extension === 'jpeg' || extension === 'jfif' || extension === 'pjpeg' || extension === 'pjp') return 'image/jpeg';
-    if (extension === 'webp') return 'image/webp';
-    if (extension === 'gif') return 'image/gif';
-    if (extension === 'bmp') return 'image/bmp';
-    if (extension === 'avif') return 'image/avif';
-    if (extension === 'svg') return 'image/svg+xml';
-    if (extension === 'mp3') return 'audio/mpeg';
-    if (extension === 'wav') return 'audio/wav';
-    if (extension === 'ogg' || extension === 'oga' || extension === 'opus') return 'audio/ogg';
-    if (extension === 'webm') return 'audio/webm';
-    if (extension === 'm4a' || extension === 'mp4' || extension === 'aac') return 'audio/mp4';
-    if (extension === 'flac') return 'audio/flac';
-    return 'audio/mpeg';
+    return ANKI_MEDIA_MIME_TYPES[extension] ?? 'audio/mpeg';
 }
 
 function safeAnkiMediaName(card: JPDBCard): string {
@@ -2845,17 +2879,26 @@ function mappedNoteField(fields: Record<string, string>, mapping: AnkiFieldMappi
 }
 
 export const ANKI_EXPRESSION_FIELD_NAMES = [
+    'Vocabulary-Kanji',
+    'Vocabulary Kanji',
+    'Vocab Kanji',
+    'Jlab-Kanji',
+    'Japanese_Word',
+    'Word',
+    'Word Kanji',
+    'Japanese Word',
+    'Headword',
+    'Headword Kanji',
+    'Term Kanji',
+    'Term Text',
+    'Expression Text',
     'Base Form',
     'Dictionary Form',
     'Expression',
     'Expression Reading',
-    'Expression Text',
     'Front',
-    'Headword',
-    'Headword Kanji',
     'Japanese',
     'Japanese Expression',
-    'Japanese Word',
     'Kanji',
     'Katakana',
     'Learnable',
@@ -2864,45 +2907,40 @@ export const ANKI_EXPRESSION_FIELD_NAMES = [
     'Search Term',
     'Target Word',
     'Term',
-    'Term Kanji',
-    'Term Text',
     'Vocab',
-    'Vocab Kanji',
     'Vocabulary',
     'Vocabulary Expression',
-    'Vocabulary Kanji',
-    'Vocabulary-Kanji',
-    'Word',
     'Word Expression',
-    'Word Kanji',
 ];
 
 const ANKI_HEADWORD_FIELD_NAMES = [
+    'Vocabulary-Kanji',
+    'Vocabulary Kanji',
+    'Vocab Kanji',
+    'Jlab-Kanji',
+    'Japanese_Word',
+    'Word',
+    'Word Kanji',
+    'Japanese Word',
+    'Headword',
+    'Headword Kanji',
+    'Term Kanji',
+    'Term Text',
+    'Expression Text',
     'Base Form',
     'Dictionary Form',
     'Expression Reading',
-    'Expression Text',
-    'Headword',
-    'Headword Kanji',
     'Japanese Expression',
-    'Japanese Word',
     'Learnable',
     'Lemma',
     'Primary',
     'Search Term',
     'Target Word',
     'Term',
-    'Term Kanji',
-    'Term Text',
     'Vocab',
-    'Vocab Kanji',
     'Vocabulary',
     'Vocabulary Expression',
-    'Vocabulary Kanji',
-    'Vocabulary-Kanji',
-    'Word',
     'Word Expression',
-    'Word Kanji',
 ];
 
 const ANKI_GENERIC_EXPRESSION_FIELD_NAMES = [
@@ -2914,6 +2952,14 @@ const ANKI_GENERIC_EXPRESSION_FIELD_NAMES = [
 ];
 
 export const ANKI_READING_FIELD_NAMES = [
+    'Vocabulary-Kana',
+    'Vocabulary Kana',
+    'Vocabulary-Furigana',
+    'Vocabulary Furigana',
+    'Vocab Kana',
+    'Vocab Furigana',
+    'Jlab-Hiragana',
+    'Readings',
     'Expression Reading',
     'Furigana',
     'Furigana Reading',
@@ -2929,16 +2975,10 @@ export const ANKI_READING_FIELD_NAMES = [
     'Kunyomi',
     'Pronunciation',
     'Reading',
-    'Readings',
     'Ruby',
     'Term Kana',
     'Term Reading',
-    'Vocab Furigana',
-    'Vocab Kana',
     'Vocab Reading',
-    'Vocabulary Furigana',
-    'Vocabulary Kana',
-    'Vocabulary-Kana',
     'Vocabulary Reading',
     'Word Kana',
     'Word Reading',
@@ -2946,6 +2986,16 @@ export const ANKI_READING_FIELD_NAMES = [
 ];
 
 export const ANKI_MEANING_FIELD_NAMES = [
+    'Vocabulary-English',
+    'Vocabulary English',
+    'Vocabulary-Meaning',
+    'Vocabulary Meaning',
+    'Translation_1',
+    'Jlab-Translation',
+    'RemarksBack',
+    'Jlab-Remarks',
+    'Other-Back',
+    'Jlab-DictionaryLookup',
     'Meaning',
     'Def',
     'Defs',
@@ -2994,7 +3044,7 @@ export const ANKI_SENTENCE_FIELD_NAMES = [
     'Source Text',
 ];
 
-export const ANKI_AUDIO_FIELD_NAMES = [
+const ANKI_AUDIO_FIELD_NAMES = [
     'Audio',
     'Context Audio',
     'Example Audio',
@@ -3012,7 +3062,7 @@ export const ANKI_AUDIO_FIELD_NAMES = [
     'PronunciationAudio',
 ];
 
-export const ANKI_IMAGE_FIELD_NAMES = [
+const ANKI_IMAGE_FIELD_NAMES = [
     'Context Image',
     'Example Image',
     'Frame',
@@ -3066,13 +3116,17 @@ function suggestAnkiField(
     samples: AnkiFieldContentSamples = {},
 ): AnkiFieldSuggestion {
     const candidates = ANKI_FIELD_ROLE_CANDIDATES[role];
-    const availableFields = fields.filter(field => !usedFields.has(field) && (
-        ankiFieldAllowedForRole(field, role)
-        || ankiFieldContentRoleScore(role, samples[field] ?? []) >= 50
-    ));
+    const availableFields = fields.filter(field => !usedFields.has(field)
+        && !ankiFieldDisallowedForRole(field, role)
+        && (
+            ankiFieldAllowedForRole(field, role)
+            || ankiFieldContentRoleScore(role, samples[field] ?? []) >= 50
+        ));
     const exact = firstMatchingAnkiField(availableFields, candidates);
     const content = suggestAnkiFieldFromContent(role, availableFields, samples);
+    const exactContentScore = exact ? ankiFieldContentRoleScore(role, samples[exact] ?? []) : 0;
     if (content.fieldName && (!exact || isGenericAnkiFieldName(exact))) return content;
+    if (content.fieldName && exact && content.fieldName !== exact && exactContentScore === 0 && content.confidence === 'high') return content;
     if (exact) return { role, fieldName: exact, confidence: 'high' };
     const fuzzy = firstFuzzyAnkiField(availableFields, candidates);
     if (content.fieldName && (!fuzzy || content.confidence === 'high')) return content;
@@ -3114,6 +3168,40 @@ function ankiFieldContentRoleScore(role: AnkiFieldRole, samples: AnkiFieldConten
     return Math.min(100, strongest + Math.min(15, second / 3) + Math.min(10, scores.length * 2));
 }
 
+interface AnkiTextRoleMetrics {
+    length: number;
+    japaneseLength: number;
+    hasJapanese: boolean;
+    hasKanji: boolean;
+    kanaLength: number;
+    hasLatin: boolean;
+    sentenceLike: boolean;
+}
+
+type AnkiTextRole = Extract<AnkiFieldRole, 'expression' | 'reading' | 'meaning' | 'sentence'>;
+
+const ANKI_TEXT_ROLE_SCORERS: Record<AnkiTextRole, (metrics: AnkiTextRoleMetrics) => number> = {
+    expression({ length, hasJapanese, hasKanji, kanaLength, sentenceLike }) {
+        if (!hasJapanese || sentenceLike || length > 40) return 0;
+        return 28 + (hasKanji ? 24 : 0) + (kanaLength && hasKanji ? 8 : 0) + Math.max(0, 12 - Math.floor(length / 2));
+    },
+    reading({ length, japaneseLength, hasJapanese, hasKanji, kanaLength }) {
+        if (!hasJapanese || hasKanji || length > 40) return 0;
+        const mostlyKana = kanaLength >= Math.max(1, japaneseLength - 1);
+        return mostlyKana ? 54 + Math.max(0, 10 - Math.floor(length / 4)) : 20;
+    },
+    meaning({ length, hasJapanese, hasLatin }) {
+        if (hasJapanese) return 0;
+        if (hasLatin) return 54 + (length > 8 ? 6 : 0);
+        return length >= 2 ? 24 : 0;
+    },
+    sentence({ length, hasJapanese, sentenceLike }) {
+        if (!hasJapanese) return 0;
+        if (sentenceLike) return 65 + (length > 20 ? 8 : 0);
+        return length >= 14 ? 42 : 0;
+    },
+};
+
 function ankiFieldContentSampleRoleScore(role: AnkiFieldRole, sample: AnkiFieldContentSample): number {
     const raw = sample.raw.trim();
     const text = sample.text.replace(/\s+/g, ' ').trim();
@@ -3121,32 +3209,18 @@ function ankiFieldContentSampleRoleScore(role: AnkiFieldRole, sample: AnkiFieldC
     if (role === 'image') return ankiImageFieldContentScore(raw, text);
     if (ankiAudioFieldContentScore(raw, text) || ankiImageFieldContentScore(raw, text)) return 0;
     if (!text) return 0;
+    const scorer = ANKI_TEXT_ROLE_SCORERS[role as AnkiTextRole];
+    if (!scorer) return 0;
     const japaneseLength = japaneseCharacterCount(text);
-    const hasJapanese = japaneseLength > 0;
-    const hasKanji = /[\u3400-\u9fff]/u.test(text);
-    const kanaLength = kanaCharacterCount(text);
-    const hasLatin = /[A-Za-z]/.test(text);
-    const sentenceLike = japaneseSentenceLike(text);
-    if (role === 'expression') {
-        if (!hasJapanese || sentenceLike || text.length > 40) return 0;
-        return 28 + (hasKanji ? 24 : 0) + (kanaLength && hasKanji ? 8 : 0) + Math.max(0, 12 - Math.floor(text.length / 2));
-    }
-    if (role === 'reading') {
-        if (!hasJapanese || hasKanji || text.length > 40) return 0;
-        const mostlyKana = kanaLength >= Math.max(1, japaneseLength - 1);
-        return mostlyKana ? 54 + Math.max(0, 10 - Math.floor(text.length / 4)) : 20;
-    }
-    if (role === 'meaning') {
-        if (hasJapanese) return 0;
-        if (hasLatin) return 54 + (text.length > 8 ? 6 : 0);
-        return text.length >= 2 ? 24 : 0;
-    }
-    if (role === 'sentence') {
-        if (!hasJapanese) return 0;
-        if (sentenceLike) return 65 + (text.length > 20 ? 8 : 0);
-        return text.length >= 14 ? 42 : 0;
-    }
-    return 0;
+    return scorer({
+        length: text.length,
+        japaneseLength,
+        hasJapanese: japaneseLength > 0,
+        hasKanji: /[\u3400-\u9fff]/u.test(text),
+        kanaLength: kanaCharacterCount(text),
+        hasLatin: /[A-Za-z]/.test(text),
+        sentenceLike: japaneseSentenceLike(text),
+    });
 }
 
 function ankiAudioFieldContentScore(raw: string, text: string): number {
@@ -3202,6 +3276,12 @@ function ankiFieldAllowedForRole(fieldName: string, role: AnkiFieldRole): boolea
     if (role === 'audio') return audioLike && !imageLike;
     if (role === 'image') return imageLike && !audioLike && !/^frame(?:id|no|num|number|v?\d)/.test(normalized);
     return !audioLike && !imageLike;
+}
+
+function ankiFieldDisallowedForRole(fieldName: string, role: AnkiFieldRole): boolean {
+    if (role === 'audio' || role === 'image') return false;
+    const normalized = normalizeAnkiFieldName(fieldName);
+    return /^(?:source|sourceurl|url|origin|originurl|link|deck|deckname|model|modelname|tags?|remarksfront|frontremarks)$/.test(normalized);
 }
 
 function firstMatchingAnkiField(fields: string[], names: string[]): string {

@@ -862,7 +862,7 @@ const COPY = {
         customAdvanced: '{label} (advanced)',
         importLocalDefinitionsHelp: 'Import Yomitan dictionaries to add local or native-language definitions alongside JPDB and Immersion Kit examples.',
         frequencyMetadataHelp: 'Frequency, pitch, and kanji metadata dictionaries are detected automatically and shown as popup badges or kanji data instead of definition source cards.',
-        sourceHelpJpdb: 'JPDB definitions shown directly from the current card.',
+        sourceHelpJpdb: 'JPDB meanings shown directly from the current card.',
         sourceHelpAnki: 'Existing Anki card contents and status for the looked-up word.',
         sourceHelpTranslation: 'Automatic sentence translation for the current lookup context.',
         sourceHelpGrammar: 'Automatic local grammar hints for the current lookup context.',

@@ -5736,6 +5736,8 @@ describe('reader helpers', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm({
             ...DEFAULT_SETTINGS,
+            // The control only renders enabled in sheet-capable popup modes.
+            popupMode: 'sheet',
             stickyBottomSheet: true,
         }, 'https://jpdb.io/settings');
 
@@ -14602,10 +14604,12 @@ describe('reader helpers', () => {
     it('detects plain past tense in NHK-style talk sentences', () => {
         const hints = detectGrammarHints('トランプ大統領と習近平国家主席が会って話をした');
 
+        // Rule copy (kind/short/detail) now loads from the hosted
+        // grammar-rule data; the synchronous hint carries a placeholder kind.
         expect(hints.find(hint => hint.name === 'た')).toMatchObject({
             ruleId: 'plain-past-ta',
             level: 'N5',
-            kind: 'Plain past',
+            kind: 'Grammar',
             match: 'した',
         });
     });
@@ -17208,6 +17212,85 @@ describe('reader helpers', () => {
                 reading: 'onYomi',
                 meaning: 'keyword',
                 image: null,
+            });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('prefers dedicated Core and Jlab headword fields over sentence-like generic fields when scanning Anki models', async () => {
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                const modelName = String(request.params?.modelName ?? '');
+                if (request.action === 'notesInfo') {
+                    const notes = request.params.notes as number[];
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: notes.map(noteId => noteId === 6101
+                                ? {
+                                    noteId,
+                                    modelName: 'Core 2k/6k Optimized',
+                                    tags: [],
+                                    cards: [6101],
+                                    fields: {
+                                        Expression: { value: '私はアンです。' },
+                                        Reading: { value: 'わたしはアンです。' },
+                                        'Vocabulary-Kanji': { value: '私' },
+                                        'Vocabulary-Furigana': { value: 'わたし' },
+                                        'Vocabulary-English': { value: 'I; me' },
+                                    },
+                                }
+                                : {
+                                    noteId,
+                                    modelName: 'JlabNote-JlabConverted-1',
+                                    tags: [],
+                                    cards: [6201],
+                                    fields: {
+                                        'Jlab-Kanji': { value: '始める' },
+                                        'Jlab-Hiragana': { value: 'はじめる' },
+                                        'Jlab-Translation': { value: '' },
+                                        RemarksBack: { value: 'to start' },
+                                        Source: { value: 'Jlab beginner course' },
+                                        RemarksFront: { value: 'Read the prompt and choose the answer.' },
+                                    },
+                                }),
+                            error: null,
+                        },
+                    });
+                }
+                const query = String(request.params?.query ?? '');
+                const resultByAction: Record<string, unknown> = {
+                    deckNames: ['Core', 'Jlab'],
+                    modelNames: ['Core 2k/6k Optimized', 'JlabNote-JlabConverted-1'],
+                    modelFieldNames: modelName === 'Core 2k/6k Optimized'
+                        ? ['Expression', 'Reading', 'Vocabulary-Kanji', 'Vocabulary-Furigana', 'Vocabulary-English']
+                        : ['Jlab-Kanji', 'Jlab-Hiragana', 'Jlab-Translation', 'RemarksBack', 'Source', 'RemarksFront'],
+                    findNotes: query.includes('Core 2k/6k Optimized') ? [6101] : [6201],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            const scan = await client.scanLibrary();
+            const suggestionsFor = (modelName: string): Record<string, string | null> => Object.fromEntries(
+                scan.models.find(model => model.modelName === modelName)?.suggestions.map(suggestion => [suggestion.role, suggestion.fieldName]) ?? [],
+            );
+
+            expect(suggestionsFor('Core 2k/6k Optimized')).toMatchObject({
+                expression: 'Vocabulary-Kanji',
+                reading: 'Vocabulary-Furigana',
+                meaning: 'Vocabulary-English',
+                sentence: 'Expression',
+            });
+            expect(suggestionsFor('JlabNote-JlabConverted-1')).toMatchObject({
+                expression: 'Jlab-Kanji',
+                reading: 'Jlab-Hiragana',
+                meaning: 'RemarksBack',
+                sentence: null,
             });
         } finally {
             vi.unstubAllGlobals();

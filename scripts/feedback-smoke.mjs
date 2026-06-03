@@ -212,7 +212,9 @@ async function openSettings(page, panel = 'basics') {
 async function verifySettingsDiscoverability(page, baseUrl) {
     await page.goto(`${baseUrl}/reader-fixture.html`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
-    await openSettings(page, 'basics');
+    // The popup font controls live on the appearance panel since the 0.5.0
+    // settings polish; 'basics' aliases to the JPDB panel and hides them.
+    await openSettings(page, 'appearance');
     await page.locator('select[name="popupFontFamily"], input[name="popupFontFamily"]').first().scrollIntoViewIfNeeded();
     await page.locator('.jpdb-reader-settings').screenshot({ path: path.join(ARTIFACTS, 'feedback-settings-font.png') });
 

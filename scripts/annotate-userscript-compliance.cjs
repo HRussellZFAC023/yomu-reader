@@ -31,5 +31,8 @@ const insertAt = markerIndex + endMarker.length;
 const before = code.slice(0, insertAt);
 const after = code.slice(insertAt).replace(/^\n+/, '\n');
 
-fs.writeFileSync(file, `${before}${notice}${after}`);
+// Guard a trailing external-global invocation so the bundle also loads outside userscript managers.
+const guardedAfter = after.replace(/\}\)\(fflate\);\s*$/, '})(typeof fflate === "undefined" ? undefined : fflate);\n');
+
+fs.writeFileSync(file, `${before}${notice}${guardedAfter}`);
 console.log(`Annotated ${file} with Greasy Fork compliance notes.`);

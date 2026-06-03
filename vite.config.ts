@@ -121,5 +121,11 @@ export default defineConfig(({ command, mode }) => ({
         include: ['tests/reader/**/*.test.ts'],
         setupFiles: ['tests/reader/setup.ts'],
         globals: true,
+        pool: 'forks',
+        poolOptions: {
+            forks: {
+                maxForks: 10,
+            },
+        },
     },
 }));
