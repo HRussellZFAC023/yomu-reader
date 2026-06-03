@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-06-03
+
+### Fixed
+
+- Kept the hosted app on the userscript request bridge for local AnkiConnect, with clearer Anki setup guidance and a direct AnkiConnect add-on link in settings.
+- Restored a readable Greasy Fork build by using a pinned fflate `@require` instead of post-build compaction/minification.
+- Avoided jsdom media-play stalls in tests when reserving silent gesture audio.
+
 ## [0.6.0] - 2026-06-03
 
 ### Added

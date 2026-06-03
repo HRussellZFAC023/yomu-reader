@@ -352,10 +352,9 @@ describe('settings dialog keyboard dismissal', () => {
         await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone === 'error');
 
         expect(isConnected).toHaveBeenCalledTimes(2);
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect is not reachable');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Troubleshooting');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect is not connected yet');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open Anki');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Press Check AnkiConnect again');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('check again');
     });
 
     it('updates the JPDB status light when the API key field changes', () => {
@@ -392,9 +391,12 @@ describe('settings dialog keyboard dismissal', () => {
     });
 
     it('prepares the Yomu Anki deck and note type only from the explicit prepare action', async () => {
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
         const isConnected = vi.fn().mockResolvedValue(true);
         const ensureDeckAndModel = vi.fn().mockResolvedValue(undefined);
         const { form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
             anki: {
                 isConnected,
                 ensureDeckAndModel,

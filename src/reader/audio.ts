@@ -188,7 +188,7 @@ export class AudioPlayer {
         const audio = this.createAudioElement(SILENT_AUDIO_DATA_URL);
         audio.loop = true;
         this.current = audio;
-        void audio.play().catch(() => undefined);
+        playSilentReservationAudio(audio);
         return audio;
     }
 
@@ -508,7 +508,7 @@ export class AudioPlayer {
         const audio = this.createAudioElement(SILENT_AUDIO_DATA_URL);
         audio.loop = true;
         this.current = audio;
-        void audio.play().catch(() => undefined);
+        playSilentReservationAudio(audio);
         return audio;
     }
 
@@ -1215,6 +1215,22 @@ function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSetting[] 
 function shouldReserveGestureAudioElement(request: AudioPlaybackRequest): boolean {
     return request.userGesture
         && request.sources.some(source => !isBrowserTextToSpeechSource(source));
+}
+
+function playSilentReservationAudio(audio: HTMLAudioElement): void {
+    if (isUnimplementedJsdomMediaPlay(audio)) return;
+    try {
+        void audio.play().catch(() => undefined);
+    } catch {
+        // jsdom throws synchronously for HTMLMediaElement.play(), while browsers return
+        // a rejected promise when playback cannot start.
+    }
+}
+
+function isUnimplementedJsdomMediaPlay(audio: HTMLAudioElement): boolean {
+    return navigator.userAgent.includes('jsdom')
+        && audio.play === HTMLMediaElement.prototype.play
+        && !/\[native code\]/.test(String(HTMLMediaElement.prototype.play));
 }
 
 function preloadableAudioSources(sources: AudioSourceSetting[], settings: ReaderSettings): AudioSourceSetting[] {

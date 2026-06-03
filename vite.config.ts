@@ -8,6 +8,8 @@ const repoUrl = `https://github.com/${githubOwner}/${pkg.name}`;
 const docsUrl = `https://${githubOwner.toLowerCase()}.github.io/${pkg.name}/`;
 const rawReaderCssUrl = `https://raw.githubusercontent.com/${githubOwner}/${pkg.name}/main/dist/yomu.css`;
 const userscriptIcon = `${docsUrl}yomu-icon.svg`;
+const fflateVersion = String(pkg.dependencies.fflate).replace(/^[~^]/, '');
+const fflateRequireUrl = `https://cdn.jsdelivr.net/npm/fflate@${fflateVersion}/umd/index.js`;
 const broadUserscriptMatch = ['*://*/*', 'file:///*'];
 const userscriptConnect = [
     'jpdb.io',
@@ -95,6 +97,9 @@ export default defineConfig(({ command, mode }) => ({
             },
             build: {
                 fileName: 'yomu.user.js',
+                externalGlobals: {
+                    fflate: ['fflate', fflateRequireUrl],
+                },
             },
         }),
     ],

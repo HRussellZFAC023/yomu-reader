@@ -7,6 +7,7 @@ export const GITHUB_OWNER = 'HRussellZFAC023';
 export const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
 export const DOCS_BASE_URL = `${GITHUB_PAGES_ORIGIN}/${APP_REPOSITORY_NAME}/`;
 export const GITHUB_REPOSITORY_URL = `https://github.com/${GITHUB_OWNER}/${APP_REPOSITORY_NAME}`;
+export const ANKI_CONNECT_ADDON_URL = 'https://ankiweb.net/shared/info/2055492159';
 export const DISCORD_INVITE_URL = 'https://discord.gg/WvDt57uk5';
 export const DONATE_URL = 'https://paypal.me/HenryRussell163';
 export const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;

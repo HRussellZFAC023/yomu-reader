@@ -326,6 +326,8 @@ describe('settings form localization', () => {
         expect(status.textContent).toContain('review queues require AnkiConnect or a future Android bridge');
         expect(adapter.textContent).toContain('Use Scan after AnkiConnect is reachable');
         expect(adapter.textContent).toContain('RTK/Core-style decks');
+        const helpLink = form.querySelector<HTMLAnchorElement>('[data-anki-setup-help] a[href="https://ankiweb.net/shared/info/2055492159"]');
+        expect(helpLink?.textContent).toContain('Open AnkiConnect add-on');
         expect(form.textContent).not.toContain('Scan Anki to choose from your decks and note types');
     });
 
