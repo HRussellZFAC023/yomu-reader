@@ -2072,7 +2072,7 @@ describe('reader helpers', () => {
             });
             document.body.innerHTML = render();
             expect(document.querySelector<HTMLButtonElement>('[data-action="anki"]')?.textContent).toBe('Send to AnkiDroid');
-            expect(document.querySelector('.jpdb-reader-anki-handoff-hint')?.textContent).toContain('Android bridge');
+            expect(document.querySelector('.jpdb-reader-anki-handoff-hint')?.textContent).toContain('desktop Anki with AnkiConnect');
         } finally {
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
             document.body.innerHTML = '';
