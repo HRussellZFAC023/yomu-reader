@@ -13,18 +13,21 @@ if (markerIndex === -1) {
   process.exit(1);
 }
 
-if (code.includes('Bundled library source information')) {
+if (code.includes('External library source information')) {
   console.log('Userscript compliance notes already present.');
   process.exit(0);
 }
+
+const fflateVersion = String(pkg.dependencies.fflate).replace(/^[~^]/, '');
+const fflateRequireUrl = `https://cdn.jsdelivr.net/npm/fflate@${fflateVersion}/umd/index.js`;
 
 const notice = `
 
 /*
 Greasy Fork compliance notes:
-- Reader UI CSS is declared as @resource yomuCss; no external JavaScript is loaded.
-- Bundled library source information:
-  - fflate ${pkg.dependencies.fflate}: https://github.com/101arrowz/fflate (MIT)
+- Reader UI CSS is declared as @resource yomuCss.
+- External library source information:
+  - fflate ${pkg.dependencies.fflate}: https://github.com/101arrowz/fflate (MIT), pinned with @require ${fflateRequireUrl}
 */
 `;
 const insertAt = markerIndex + endMarker.length;

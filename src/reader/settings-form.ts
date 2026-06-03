@@ -1,4 +1,4 @@
-import { DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from './constants';
+import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from './constants';
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from './dom';
 import { audioSourceLabel, resolveUiLanguage, uiText } from './i18n';
 import { externalLinkIcon, speakerIcon } from './icons';
@@ -1252,7 +1252,8 @@ function localizeSettingsHelpText(form: HTMLFormElement, text: SettingsText): vo
     localizeNewTabHelp(form, text);
     localizeDictionaryImportHelp(form, text);
     localizeLookupPillsHelp(form, text);
-    form.querySelector<HTMLElement>('[data-anki-setup-help]')?.replaceChildren(text('ankiHelp'));
+    const ankiHelp = form.querySelector<HTMLElement>('[data-anki-setup-help]');
+    if (ankiHelp) setInnerHtml(ankiHelp, ankiSetupHelpHtml(resolveUiLanguageFromText(text)));
     form.querySelector<HTMLElement>('[data-anki-library-availability]')?.replaceChildren(text('ankiLibraryAdapterStatus'));
     form.querySelector<HTMLElement>('[data-diagnostics-help]')?.replaceChildren(text('diagnosticsHelp'));
     form.querySelector<HTMLElement>('details[data-local-ocr] > summary')?.replaceChildren(text('ocrCustomLocalServer'));
@@ -2079,6 +2080,12 @@ function audioHelpHtml(language: InterfaceLanguage): string {
     const linkLabel = uiText(language, 'audioGuideLinkLabel');
     const [before, after = ''] = copy.split(linkLabel);
     return `${escapeHtml(before)}<a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">${escapeHtml(linkLabel)}</a>${escapeHtml(after)}`;
+}
+
+function ankiSetupHelpHtml(language: InterfaceLanguage): string {
+    const copy = uiText(language, 'ankiHelp');
+    const linkLabel = language === 'ja' ? 'AnkiConnectアドオンを開く' : 'Open AnkiConnect add-on';
+    return `${escapeHtml(copy)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(linkLabel)}</a>`;
 }
 
 function audioUrlPlaceholder(type: AudioSourceSetting['type'], language: InterfaceLanguage): string {

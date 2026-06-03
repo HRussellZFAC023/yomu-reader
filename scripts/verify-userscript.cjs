@@ -8,6 +8,10 @@ const MIN_READABLE_LINE_COUNT = 1_000;
 const MAX_READABLE_LINE_LENGTH = 500_000;
 const file = path.join(__dirname, '..', 'dist', 'yomu.user.js');
 const cssResourceFile = path.join(__dirname, '..', 'dist', 'yomu.css');
+const fflateVersion = String(pkg.dependencies.fflate).replace(/^[~^]/, '');
+const allowedRequireUrls = new Set([
+  `https://cdn.jsdelivr.net/npm/fflate@${fflateVersion}/umd/index.js`,
+]);
 const code = fs.readFileSync(file, 'utf8');
 const size = Buffer.byteLength(code, 'utf8');
 const lines = code.split(/\r?\n/);
@@ -30,12 +34,13 @@ if (!code.includes('// @inject-into  content')) fail('Violentmonkey content-worl
 const requireUrls = lines
   .map(line => line.match(/^\/\/ @require\s+(.+)$/)?.[1]?.trim())
   .filter(Boolean);
-if (requireUrls.length) fail(`userscript must be self-contained and cannot use @require metadata; found: ${requireUrls.join(', ')}`);
-if (!code.includes('fflate') || !code.includes('inflateSync')) fail('the fflate library does not appear to be bundled inline.');
-if (/\}\)\(fflate\);\s*$/.test(code)) fail('the bundle still invokes an external fflate global; fflate must be bundled inline.');
+const unexpectedRequireUrls = requireUrls.filter(url => !allowedRequireUrls.has(url));
+if (unexpectedRequireUrls.length) fail(`userscript has unexpected @require metadata; found: ${unexpectedRequireUrls.join(', ')}`);
+if (!requireUrls.includes([...allowedRequireUrls][0])) fail('userscript must @require the pinned fflate UMD build.');
+if (!code.includes('fflate') || !code.includes('inflateSync')) fail('the fflate import/global does not appear in the generated userscript.');
 if (code.includes('// @downloadURL')) fail('Greasy Fork build should not advertise an alternate download URL.');
 if (code.includes('// @updateURL')) fail('Greasy Fork build should not advertise an alternate update URL.');
-if (!code.includes('Bundled library source information') || !code.includes('fflate')) fail('bundled library source/version notice is missing.');
+if (!code.includes('External library source information') || !code.includes('fflate')) fail('external library source/version notice is missing.');
 if (!fs.existsSync(cssResourceFile)) fail('dist/yomu.css is missing; the @resource yomuCss URL must point at a shipped file.');
 const cssResource = fs.readFileSync(cssResourceFile, 'utf8');
 for (const selector of [
