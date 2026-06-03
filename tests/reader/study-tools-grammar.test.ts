@@ -5,6 +5,7 @@ import { nestedTextParsePlan } from '../../src/reader/nested-text-parse';
 import { detectGrammarHints, listLocalGrammarRuleExamples, listLocalGrammarRules, renderGrammarHints, type GrammarHint } from '../../src/reader/study-tools';
 
 const ENGLISH_WORD_RE = /\b[A-Za-z]{3,}\b/u;
+const EN_GRAMMAR_RULE_COPY = fs.readFileSync(path.resolve('docs/public/data/en-grammar-rule-copy.json'), 'utf8');
 const JA_GRAMMAR_RULE_COPY = fs.readFileSync(path.resolve('docs/public/data/ja-grammar-rule-copy.json'), 'utf8');
 
 function detectedNames(sentence: string): string[] {
@@ -36,10 +37,14 @@ function grammarHint(overrides: Partial<GrammarHint> & Pick<GrammarHint, 'ruleId
 
 describe('local Japanese grammar hints', () => {
     beforeAll(() => {
-        vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JA_GRAMMAR_RULE_COPY, {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        }))));
+        vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+            const url = String(input instanceof Request ? input.url : input);
+            const body = url.includes('/data/en-grammar-rule-copy.json') ? EN_GRAMMAR_RULE_COPY : JA_GRAMMAR_RULE_COPY;
+            return Promise.resolve(new Response(body, {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            }));
+        }));
     });
 
     it('loads Japanese grammar copy through the userscript request path when page fetch is blocked', async () => {

@@ -1,0 +1,3742 @@
+{
+  "potential-koto-ga-dekiru": {
+    "kind": "Potential expression",
+    "short": "can do something",
+    "detail": "Turns the action before こと into an ability or possibility: \"can do...\"",
+    "url": "https://www.tofugu.com/japanese-grammar/koto-ga-dekiru/",
+    "examples": [
+      {
+        "japanese": "日本語を話すことができます。",
+        "english": "I can speak Japanese.",
+        "note": "Verb + ことができる marks ability."
+      }
+    ]
+  },
+  "potential-dekiru": {
+    "kind": "Potential expression",
+    "short": "can do or be possible",
+    "detail": "Uses できる to show that an action is possible, often after a する noun.",
+    "examples": [
+      {
+        "japanese": "一人で勉強できます。",
+        "english": "I can study by myself.",
+        "note": "Noun + できる often marks the potential form of a する verb."
+      }
+    ]
+  },
+  "obligation-nakereba-naranai": {
+    "kind": "Obligation",
+    "short": "must or have to do",
+    "detail": "Says an action is necessary or required. Casual forms like なきゃ and なくちゃ carry the same basic idea.",
+    "url": "https://www.tofugu.com/japanese-grammar/nakereba-naranai/",
+    "examples": [
+      {
+        "japanese": "明日までに払わなければならない。",
+        "english": "I have to pay by tomorrow.",
+        "note": "The first clause is required."
+      }
+    ]
+  },
+  "permission-not-required-nakutemo-ii": {
+    "kind": "Permission / no obligation",
+    "short": "do not have to",
+    "detail": "Says the action is not required, or that not doing it is okay.",
+    "examples": [
+      {
+        "japanese": "今日は来なくてもいいです。",
+        "english": "You do not have to come today.",
+        "note": "Negative て-form + もいい removes obligation."
+      }
+    ]
+  },
+  "prohibition-tewa-ikenai": {
+    "kind": "Prohibition",
+    "short": "must not do",
+    "detail": "Marks an action as not allowed or unacceptable. Casual ちゃだめ and じゃだめ are included.",
+    "url": "https://www.tofugu.com/japanese-grammar/tewa-ikenai/",
+    "examples": [
+      {
+        "japanese": "ここで写真を撮ってはいけません。",
+        "english": "You must not take photos here.",
+        "note": "てはいけない is a direct prohibition."
+      }
+    ]
+  },
+  "permission-temo-ii": {
+    "kind": "Permission",
+    "short": "permission or approval",
+    "detail": "Means it is okay to do the action before てもいい. Negative variants can ask or say whether it is not okay.",
+    "url": "https://www.tofugu.com/japanese-grammar/temoii/",
+    "examples": [
+      {
+        "japanese": "水を飲んでもいいです。",
+        "english": "It is okay to drink water.",
+        "note": "て-form + もいい grants permission."
+      }
+    ]
+  },
+  "request-te-kudasai": {
+    "kind": "Request",
+    "short": "please do",
+    "detail": "Makes a direct but polite request. くださいませんか is softer.",
+    "examples": [
+      {
+        "japanese": "ゆっくり話してください。",
+        "english": "Please speak slowly.",
+        "note": "て-form + ください requests an action."
+      }
+    ]
+  },
+  "polite-request-te-itadakemasen-ka": {
+    "kind": "Polite request",
+    "short": "could you please do",
+    "detail": "A softer request that asks someone to do something for you politely.",
+    "examples": [
+      {
+        "japanese": "もう一度説明していただけませんか。",
+        "english": "Could you please explain it one more time?",
+        "note": "ていただけませんか is a polite request form."
+      }
+    ]
+  },
+  "request-naide-kudasai": {
+    "kind": "Negative request",
+    "short": "please do not do",
+    "detail": "Politely asks someone not to do an action.",
+    "examples": [
+      {
+        "japanese": "ここで走らないでください。",
+        "english": "Please do not run here.",
+        "note": "ないでください is the negative request form."
+      }
+    ]
+  },
+  "advice-hou-ga-ii": {
+    "kind": "Advice",
+    "short": "better to do",
+    "detail": "Gives advice or says one option is better.",
+    "examples": [
+      {
+        "japanese": "早く寝たほうがいいです。",
+        "english": "It is better to go to bed early.",
+        "note": "Often follows past tense for advice."
+      }
+    ]
+  },
+  "command-nasai": {
+    "kind": "Command",
+    "short": "do this",
+    "detail": "A command form often used by adults toward children or in instructions.",
+    "examples": [
+      {
+        "japanese": "宿題をしなさい。",
+        "english": "Do your homework.",
+        "note": "Stem + なさい gives an instruction."
+      }
+    ]
+  },
+  "experience-ta-koto-ga-aru": {
+    "kind": "Experience",
+    "short": "has done before",
+    "detail": "Uses a past verb plus ことがある to talk about having had an experience.",
+    "url": "https://www.tofugu.com/japanese-grammar/ta-koto-ga-aru/",
+    "examples": [
+      {
+        "japanese": "京都に行ったことがあります。",
+        "english": "I have been to Kyoto.",
+        "note": "Past verb + ことがある marks experience."
+      }
+    ]
+  },
+  "completion-te-shimau": {
+    "kind": "Completion / regret",
+    "short": "do completely or unfortunately",
+    "detail": "Can show that an action is completed, often with a feeling of regret, surprise, or accident.",
+    "url": "https://www.tofugu.com/japanese-grammar/te-shimau/",
+    "examples": [
+      {
+        "japanese": "財布を忘れてしまいました。",
+        "english": "I unfortunately forgot my wallet.",
+        "note": "てしまう can add regret or completion."
+      }
+    ]
+  },
+  "attempt-te-miru": {
+    "kind": "Attempt",
+    "short": "try doing",
+    "detail": "Means to try an action and see what happens.",
+    "url": "https://www.tofugu.com/japanese-grammar/te-miru/",
+    "examples": [
+      {
+        "japanese": "新しい店で食べてみます。",
+        "english": "I will try eating at the new shop.",
+        "note": "て-form + みる is experimental trying."
+      }
+    ]
+  },
+  "preparation-te-oku": {
+    "kind": "Preparation",
+    "short": "do in advance or leave as is",
+    "detail": "Often marks an action done ahead of time, or a state intentionally left alone. Casual とく and どく are included.",
+    "url": "https://www.tofugu.com/japanese-grammar/teoku/",
+    "examples": [
+      {
+        "japanese": "旅行の前に予約しておきます。",
+        "english": "I will make a reservation before the trip.",
+        "note": "ておく prepares for later."
+      }
+    ]
+  },
+  "desire-other-te-hoshii": {
+    "kind": "Desire / request",
+    "short": "want someone to do",
+    "detail": "Says the speaker wants someone else to do the action.",
+    "examples": [
+      {
+        "japanese": "もう少し待ってほしいです。",
+        "english": "I want you to wait a little longer.",
+        "note": "てほしい points desire at someone else's action."
+      }
+    ]
+  },
+  "benefactive-te-kureru-morau": {
+    "kind": "Giving and receiving",
+    "short": "favor done for someone",
+    "detail": "Combines て-form with giving or receiving verbs to show who benefits from an action.",
+    "url": "https://www.tofugu.com/japanese-grammar/te-kureru/",
+    "examples": [
+      {
+        "japanese": "先生が説明してくださいました。",
+        "english": "The teacher kindly explained it.",
+        "note": "The helper verb shows benefit and direction."
+      }
+    ]
+  },
+  "change-you-ni-naru": {
+    "kind": "Change over time",
+    "short": "come to do or become so that",
+    "detail": "Shows a new ability, habit, or state developing over time.",
+    "url": "https://www.tofugu.com/japanese-grammar/you-ni-naru/",
+    "examples": [
+      {
+        "japanese": "漢字が読めるようになりました。",
+        "english": "I became able to read kanji.",
+        "note": "Often describes gradual change."
+      }
+    ]
+  },
+  "habit-you-ni-suru": {
+    "kind": "Effort / habit",
+    "short": "make sure to do",
+    "detail": "Shows an intentional effort to make an action happen regularly or reliably.",
+    "url": "https://www.tofugu.com/japanese-grammar/you-ni-suru/",
+    "examples": [
+      {
+        "japanese": "毎日復習するようにしています。",
+        "english": "I try to review every day.",
+        "note": "ようにする describes deliberate effort."
+      }
+    ]
+  },
+  "verb-suru": {
+    "kind": "Verb",
+    "short": "do, make, or perform",
+    "detail": "Flags する as a core irregular verb and as the helper that turns many nouns into actions.",
+    "url": "https://www.tofugu.com/japanese-grammar/suru/",
+    "examples": [
+      {
+        "japanese": "質問する答えを探す。",
+        "english": "Find answers to questions.",
+        "note": "する can attach to a noun to create an action verb."
+      }
+    ]
+  },
+  "choice-ni-suru": {
+    "kind": "Choice / change",
+    "short": "choose or make something into",
+    "detail": "Marks a choice or an intentional change into the state before にする.",
+    "examples": [
+      {
+        "japanese": "飲み物はお茶にします。",
+        "english": "I will have tea.",
+        "note": "Noun + にする is used for choosing or making something a certain way."
+      }
+    ]
+  },
+  "change-ku-suru": {
+    "kind": "Intentional change",
+    "short": "make something adjective",
+    "detail": "Uses an i-adjective adverbial form plus する to make something become that quality.",
+    "examples": [
+      {
+        "japanese": "部屋を明るくしました。",
+        "english": "I made the room brighter.",
+        "note": "い-adjective stem + くする marks intentional change."
+      }
+    ]
+  },
+  "change-ku-naru-ni-naru": {
+    "kind": "Change of state",
+    "short": "become",
+    "detail": "Shows that something becomes a new quality or state.",
+    "examples": [
+      {
+        "japanese": "日本語が少し上手になりました。",
+        "english": "My Japanese got a little better.",
+        "note": "Noun/な-adjective + になる and い-adjective + くなる mark change."
+      }
+    ]
+  },
+  "copula-desu-da": {
+    "kind": "Copula",
+    "short": "is or was",
+    "detail": "Links a noun or adjective to a statement in plain or polite style.",
+    "url": "https://www.tofugu.com/japanese-grammar/desu/",
+    "examples": [
+      {
+        "japanese": "今日は休みです。",
+        "english": "Today is a day off.",
+        "note": "です is the polite copula."
+      }
+    ]
+  },
+  "negative-copula-dewa-nai": {
+    "kind": "Negative copula",
+    "short": "is not or was not",
+    "detail": "Negates a noun or な-adjective statement.",
+    "examples": [
+      {
+        "japanese": "これは私の本じゃない。",
+        "english": "This is not my book.",
+        "note": "じゃない is the casual contraction of ではない."
+      }
+    ]
+  },
+  "formal-copula-de-aru": {
+    "kind": "Written copula",
+    "short": "is or was",
+    "detail": "A formal written-style copula often used in essays, explanations, and news.",
+    "examples": [
+      {
+        "japanese": "これは重要な問題である。",
+        "english": "This is an important problem.",
+        "note": "である is a formal version of だ/です."
+      }
+    ]
+  },
+  "voice-causative-passive": {
+    "kind": "Causative-passive",
+    "short": "be made to do",
+    "detail": "Combines causative and passive meaning: someone is made to do an action, often unwillingly.",
+    "url": "https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/",
+    "examples": [
+      {
+        "japanese": "子どものころ、野菜を食べさせられました。",
+        "english": "When I was a child, I was made to eat vegetables.",
+        "note": "Regex can only flag the form; context decides the exact verb."
+      }
+    ]
+  },
+  "voice-causative": {
+    "kind": "Causative",
+    "short": "make or let someone do",
+    "detail": "Adds a causer: someone makes, lets, or has someone else do the action.",
+    "url": "https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/",
+    "examples": [
+      {
+        "japanese": "母は子どもを遊ばせた。",
+        "english": "The mother let the child play.",
+        "note": "Causative can mean make or let."
+      }
+    ]
+  },
+  "voice-passive-potential": {
+    "kind": "Passive / potential",
+    "short": "passive, potential, or honorific form",
+    "detail": "This ending can mark passive voice, ability, or respectful speech; context decides which reading fits.",
+    "url": "https://www.tofugu.com/japanese-grammar/verb-passive-form-rareru/",
+    "examples": [
+      {
+        "japanese": "この漢字はよく見られます。",
+        "english": "This kanji is often seen.",
+        "note": "Surface regex cannot fully disambiguate passive, potential, and honorific."
+      }
+    ]
+  },
+  "evidence-rashii-mitai": {
+    "kind": "Hearsay / likeness",
+    "short": "seems like or apparently",
+    "detail": "Expresses appearance, hearsay, tendency, or resemblance depending on the form and context.",
+    "url": "https://www.tofugu.com/japanese-grammar/rashii/",
+    "examples": [
+      {
+        "japanese": "明日は雨らしいです。",
+        "english": "Apparently it will rain tomorrow.",
+        "note": "らしい often reports what one has heard."
+      }
+    ]
+  },
+  "modality-kamoshirenai": {
+    "kind": "Possibility",
+    "short": "might or maybe",
+    "detail": "Softens a statement into a possibility rather than a firm claim.",
+    "url": "https://www.tofugu.com/japanese-grammar/kamoshirenai/",
+    "examples": [
+      {
+        "japanese": "彼は来ないかもしれません。",
+        "english": "He might not come.",
+        "note": "かも is a casual short form."
+      }
+    ]
+  },
+  "modality-deshou-darou": {
+    "kind": "Probability",
+    "short": "probably or right?",
+    "detail": "Adds probability, expectation, or a confirmation-seeking tone.",
+    "url": "https://www.tofugu.com/japanese-grammar/deshou/",
+    "examples": [
+      {
+        "japanese": "明日は晴れるでしょう。",
+        "english": "It will probably be sunny tomorrow.",
+        "note": "でしょう is polite; だろう is plainer."
+      }
+    ]
+  },
+  "quotation-to-omou": {
+    "kind": "Quotation / thought",
+    "short": "think that...",
+    "detail": "Marks the content of a thought or statement before 思う.",
+    "url": "https://www.tofugu.com/japanese-grammar/to-omou/",
+    "examples": [
+      {
+        "japanese": "これは便利だと思います。",
+        "english": "I think this is convenient.",
+        "note": "The phrase before と is the thought content."
+      }
+    ]
+  },
+  "attempt-you-to-suru": {
+    "kind": "Attempt / about to",
+    "short": "try to or be about to",
+    "detail": "Uses the volitional form plus とする for an attempted action or something about to happen.",
+    "url": "https://www.tofugu.com/japanese-grammar/verb-volitional-form-you/",
+    "examples": [
+      {
+        "japanese": "出かけようとした時、電話が鳴った。",
+        "english": "Just as I was about to go out, the phone rang.",
+        "note": "Volitional + とする marks trying or being about to act."
+      }
+    ]
+  },
+  "plan-tsumori-yotei": {
+    "kind": "Plan / intention",
+    "short": "intend or plan to do",
+    "detail": "つもり points to intention, while 予定 points to a plan or schedule.",
+    "url": "https://www.tofugu.com/japanese-grammar/tsumori/",
+    "examples": [
+      {
+        "japanese": "来年日本へ行くつもりです。",
+        "english": "I intend to go to Japan next year.",
+        "note": "つもり is intention; 予定 is a plan."
+      }
+    ]
+  },
+  "expectation-hazu": {
+    "kind": "Expectation",
+    "short": "should be or expected to",
+    "detail": "Marks a strong expectation based on what the speaker knows.",
+    "url": "https://www.tofugu.com/japanese-grammar/hazu/",
+    "examples": [
+      {
+        "japanese": "彼はもう着いたはずです。",
+        "english": "He should have arrived already.",
+        "note": "はず signals a reasoned expectation."
+      }
+    ]
+  },
+  "reasoning-wake": {
+    "kind": "Reasoning",
+    "short": "reason, conclusion, or not necessarily",
+    "detail": "Points to a logical reason or conclusion, with negative forms often meaning not necessarily or cannot reasonably.",
+    "url": "https://www.tofugu.com/japanese-grammar/wake/",
+    "examples": [
+      {
+        "japanese": "高いわけではありません。",
+        "english": "It is not necessarily expensive.",
+        "note": "Specific わけ forms may be more precise if also detected."
+      }
+    ]
+  },
+  "reasoning-wake-dewa-nai": {
+    "kind": "Qualification",
+    "short": "not necessarily",
+    "detail": "Says a statement is not fully or necessarily true.",
+    "examples": [
+      {
+        "japanese": "嫌いなわけではない。",
+        "english": "It is not that I dislike it.",
+        "note": "Often softens or qualifies a previous implication."
+      }
+    ]
+  },
+  "impossibility-wake-ga-nai": {
+    "kind": "Impossibility",
+    "short": "there is no way",
+    "detail": "Strongly denies possibility or reasonableness.",
+    "examples": [
+      {
+        "japanese": "彼が知らないわけがない。",
+        "english": "There is no way he does not know.",
+        "note": "わけがない rejects the possibility."
+      }
+    ]
+  },
+  "constraint-wake-ni-wa-ikanai": {
+    "kind": "Social constraint",
+    "short": "cannot reasonably do",
+    "detail": "Says one cannot do something because of duty, social pressure, or circumstances.",
+    "examples": [
+      {
+        "japanese": "約束を破るわけにはいかない。",
+        "english": "I cannot break the promise.",
+        "note": "The barrier is often social or practical."
+      }
+    ]
+  },
+  "purpose-tame-ni": {
+    "kind": "Purpose / benefit",
+    "short": "for the sake of or in order to",
+    "detail": "Links an action or noun to a purpose, goal, or beneficiary.",
+    "url": "https://www.tofugu.com/japanese-grammar/tame-ni/",
+    "examples": [
+      {
+        "japanese": "家族のために働いています。",
+        "english": "I work for my family.",
+        "note": "ために marks purpose or benefit."
+      }
+    ]
+  },
+  "purpose-you-ni": {
+    "kind": "Purpose / manner",
+    "short": "so that or in the way that",
+    "detail": "Can mark a goal, desired result, or manner of doing something.",
+    "url": "https://www.tofugu.com/japanese-grammar/you-ni/",
+    "examples": [
+      {
+        "japanese": "忘れないようにメモします。",
+        "english": "I will write a note so I do not forget.",
+        "note": "This is broader than ようになる and ようにする."
+      }
+    ]
+  },
+  "timing-tokoro": {
+    "kind": "Timing / situation",
+    "short": "point in time or situation",
+    "detail": "Frames an action as about to happen, happening now, just happened, or as a situation.",
+    "url": "https://www.tofugu.com/japanese/tokoro-bakari/",
+    "examples": [
+      {
+        "japanese": "今、出かけるところです。",
+        "english": "I am just about to go out.",
+        "note": "ところ focuses on the moment or situation."
+      }
+    ]
+  },
+  "simultaneous-nagara": {
+    "kind": "Simultaneous action",
+    "short": "while doing",
+    "detail": "Connects two actions done at the same time by the same subject.",
+    "url": "https://www.tofugu.com/japanese-grammar/nagara/",
+    "examples": [
+      {
+        "japanese": "音楽を聞きながら勉強します。",
+        "english": "I study while listening to music.",
+        "note": "ながら joins simultaneous actions."
+      }
+    ]
+  },
+  "state-mama": {
+    "kind": "Unchanged state",
+    "short": "as is or while still",
+    "detail": "Keeps a state unchanged while another action or situation continues.",
+    "url": "https://www.tofugu.com/japanese-grammar/mama/",
+    "examples": [
+      {
+        "japanese": "電気をつけたまま寝てしまった。",
+        "english": "I fell asleep with the light still on.",
+        "note": "まま preserves the previous state."
+      }
+    ]
+  },
+  "list-tari": {
+    "kind": "Representative list",
+    "short": "doing things like...",
+    "detail": "Lists example actions without claiming the list is complete.",
+    "url": "https://www.tofugu.com/japanese-grammar/tari/",
+    "examples": [
+      {
+        "japanese": "週末は映画を見たり本を読んだりします。",
+        "english": "On weekends I do things like watch movies and read books.",
+        "note": "たり usually appears in pairs but can be single."
+      }
+    ]
+  },
+  "limitation-bakari": {
+    "kind": "Limitation / recent action",
+    "short": "only, just did, or nothing but",
+    "detail": "Can mark a recent completed action or a sense of only or nothing but depending on context.",
+    "url": "https://www.tofugu.com/japanese/tokoro-bakari/",
+    "examples": [
+      {
+        "japanese": "彼はゲームばかりしています。",
+        "english": "He does nothing but play games.",
+        "note": "ばかり can also mean just did after past tense."
+      }
+    ]
+  },
+  "recent-ta-bakari": {
+    "kind": "Recent action",
+    "short": "just did",
+    "detail": "Uses a past form plus ばかり to say something has just happened recently from the speaker's point of view.",
+    "url": "https://www.tofugu.com/japanese/tokoro-bakari/",
+    "examples": [
+      {
+        "japanese": "日本に来たばかりです。",
+        "english": "I just came to Japan.",
+        "note": "Past form + ばかり focuses on recent completion."
+      }
+    ]
+  },
+  "limitation-dake-shika": {
+    "kind": "Limitation",
+    "short": "only or nothing but",
+    "detail": "だけ means only; しか usually pairs with a negative ending to mean nothing but.",
+    "url": "https://www.tofugu.com/japanese-grammar/dake/",
+    "examples": [
+      {
+        "japanese": "百円しかありません。",
+        "english": "I have only 100 yen.",
+        "note": "しか expects a negative predicate."
+      }
+    ]
+  },
+  "degree-hodo-kurai": {
+    "kind": "Degree / approximation",
+    "short": "extent or about",
+    "detail": "Marks approximate amount or the degree to which something is true.",
+    "url": "https://www.tofugu.com/japanese-grammar/hodo/",
+    "examples": [
+      {
+        "japanese": "一時間ぐらい待ちました。",
+        "english": "I waited about an hour.",
+        "note": "ほど often emphasizes degree; くらい can be approximate."
+      }
+    ]
+  },
+  "role-toshite": {
+    "kind": "Role / standpoint",
+    "short": "as or in the role of",
+    "detail": "Marks the role, capacity, or standpoint from which something is true.",
+    "examples": [
+      {
+        "japanese": "医者として働いています。",
+        "english": "I work as a doctor.",
+        "note": "として marks role or capacity."
+      }
+    ]
+  },
+  "relation-ni-yotte": {
+    "kind": "Means / cause / by",
+    "short": "by, depending on, or because of",
+    "detail": "Can mark means, agent in passive sentences, cause, or variation depending on context.",
+    "examples": [
+      {
+        "japanese": "国によって習慣が違います。",
+        "english": "Customs differ depending on the country.",
+        "note": "によって is highly context-dependent."
+      }
+    ]
+  },
+  "topic-ni-tsuite": {
+    "kind": "Topic",
+    "short": "about or concerning",
+    "detail": "Marks the topic being discussed, considered, or investigated.",
+    "examples": [
+      {
+        "japanese": "日本の歴史について調べています。",
+        "english": "I am researching Japanese history.",
+        "note": "について is a topic marker."
+      }
+    ]
+  },
+  "target-ni-taishite": {
+    "kind": "Target / contrast",
+    "short": "toward, against, or in contrast to",
+    "detail": "Marks the target of an attitude or action, or sets up a contrast.",
+    "examples": [
+      {
+        "japanese": "子どもに対して優しい。",
+        "english": "She is kind toward children.",
+        "note": "に対して points at the target."
+      }
+    ]
+  },
+  "concession-ni-mo-kakawarazu": {
+    "kind": "Concession",
+    "short": "despite or even though",
+    "detail": "Connects two facts when the second happens despite the first.",
+    "examples": [
+      {
+        "japanese": "雨にもかかわらず試合は行われた。",
+        "english": "The game was held despite the rain.",
+        "note": "Formal concessive connector."
+      }
+    ]
+  },
+  "concession-kuse-ni": {
+    "kind": "Blame / contradiction",
+    "short": "even though, with criticism",
+    "detail": "Marks a contradiction with a blaming or critical tone.",
+    "examples": [
+      {
+        "japanese": "知らないくせに文句を言う。",
+        "english": "He complains even though he does not know.",
+        "note": "くせに often sounds critical."
+      }
+    ]
+  },
+  "suffix-tachi": {
+    "kind": "Plural / group suffix",
+    "short": "marks a group or plural set",
+    "detail": "Attaches to a person, pronoun, or animate noun to point to that person and their group, or to a plural group.",
+    "examples": [
+      {
+        "japanese": "私たちは学生です。",
+        "english": "We are students.",
+        "note": "Often used for people or animate groups."
+      }
+    ]
+  },
+  "particle-wa": {
+    "kind": "Topic particle",
+    "short": "sets the topic or contrast",
+    "detail": "Read it as as for and look to the rest of the sentence for the new information.",
+    "url": "https://www.tofugu.com/japanese-grammar/particle-wa/",
+    "examples": [
+      {
+        "japanese": "私は学生です。",
+        "english": "I am a student.",
+        "note": "は marks the topic, not always the grammatical subject."
+      }
+    ]
+  },
+  "particle-ga": {
+    "kind": "Subject particle",
+    "short": "marks the doer or focus",
+    "detail": "Highlights the subject of the clause, often when that subject is new or important.",
+    "url": "https://www.tofugu.com/japanese-grammar/particle-ga/",
+    "examples": [
+      {
+        "japanese": "猫が走ります。",
+        "english": "The cat runs.",
+        "note": "が often introduces or focuses a subject."
+      }
+    ]
+  },
+  "particle-wo": {
+    "kind": "Object particle",
+    "short": "marks what receives the action",
+    "detail": "The phrase before を is usually what the following verb acts on.",
+    "url": "https://www.tofugu.com/japanese-grammar/particle-wo/",
+    "examples": [
+      {
+        "japanese": "水を飲みます。",
+        "english": "I drink water.",
+        "note": "を marks the direct object."
+      }
+    ]
+  },
+  "particle-de": {
+    "kind": "Context particle",
+    "short": "marks where or how an action happens",
+    "detail": "Often points to the setting, tool, method, or conditions for the action.",
+    "url": "https://www.tofugu.com/japanese-grammar/particle-de/",
+    "examples": [
+      {
+        "japanese": "駅で待ちます。",
+        "english": "I will wait at the station.",
+        "note": "で marks place, means, cause, or context."
+      }
+    ]
+  },
+  "particle-ni": {
+    "kind": "Target particle",
+    "short": "marks a target, point, time, or adverbial role",
+    "detail": "Think of に as pinning the action to a destination, time, target, or manner.",
+    "url": "https://www.tofugu.com/japanese-grammar/particle-ni/",
+    "examples": [
+      {
+        "japanese": "駅に行きます。",
+        "english": "I go to the station.",
+        "note": "に anchors time, target, or direction."
+      }
+    ]
+  },
+  "particle-e": {
+    "kind": "Direction particle",
+    "short": "toward or to",
+    "detail": "Marks the direction or destination of movement.",
+    "examples": [
+      {
+        "japanese": "学校へ行きます。",
+        "english": "I go to school.",
+        "note": "へ emphasizes direction more than arrival."
+      }
+    ]
+  },
+  "particle-to": {
+    "kind": "Quote / partner particle",
+    "short": "marks with, and, or quoted content",
+    "detail": "Can mark who someone does something with, exact quoted content, comparison, or a complete list.",
+    "url": "https://www.tofugu.com/japanese-grammar/particle-to/",
+    "examples": [
+      {
+        "japanese": "友だちと話します。",
+        "english": "I talk with my friend.",
+        "note": "と has several basic particle uses."
+      }
+    ]
+  },
+  "particle-no": {
+    "kind": "Noun linker",
+    "short": "connects or labels nouns",
+    "detail": "The phrase before の modifies or belongs with the noun that follows.",
+    "url": "https://www.tofugu.com/japanese-grammar/particle-no-noun-modifier/",
+    "examples": [
+      {
+        "japanese": "私の本です。",
+        "english": "It is my book.",
+        "note": "の links nouns or nominalizes phrases."
+      }
+    ]
+  },
+  "particle-mo": {
+    "kind": "Inclusion particle",
+    "short": "also or too",
+    "detail": "Adds the marked item to a set, or emphasizes extent with quantities.",
+    "examples": [
+      {
+        "japanese": "私も行きます。",
+        "english": "I will go too.",
+        "note": "も adds another item to the conversation."
+      }
+    ]
+  },
+  "particle-ya": {
+    "kind": "Open list particle",
+    "short": "and things like",
+    "detail": "Lists examples without implying the list is complete.",
+    "examples": [
+      {
+        "japanese": "パンや卵を買いました。",
+        "english": "I bought bread, eggs, and things like that.",
+        "note": "や creates a non-exhaustive list."
+      }
+    ]
+  },
+  "aspect-te-iru": {
+    "kind": "Verb form",
+    "short": "ongoing action or resulting state",
+    "detail": "Shows an action in progress, or a state that remains after something changed.",
+    "url": "https://www.tofugu.com/japanese-grammar/verb-continuous-form-teiru/",
+    "examples": [
+      {
+        "japanese": "今、本を読んでいます。",
+        "english": "I am reading a book now.",
+        "note": "ている can be progressive or resultative."
+      }
+    ]
+  },
+  "aspect-te-aru": {
+    "kind": "Resulting state",
+    "short": "has been done and remains",
+    "detail": "Shows a result intentionally left in place after an action.",
+    "examples": [
+      {
+        "japanese": "窓が開けてあります。",
+        "english": "The window has been opened and left that way.",
+        "note": "てある suggests an intentional prepared state."
+      }
+    ]
+  },
+  "aspect-te-kuru": {
+    "kind": "Movement / development",
+    "short": "come to do or develop toward now",
+    "detail": "Shows movement toward the speaker or a change developing up to now.",
+    "examples": [
+      {
+        "japanese": "雨が降ってきました。",
+        "english": "It has started raining.",
+        "note": "てくる can be physical or temporal."
+      }
+    ]
+  },
+  "aspect-te-iku": {
+    "kind": "Movement / development",
+    "short": "go on doing or develop away",
+    "detail": "Shows movement away from the speaker or a change continuing into the future.",
+    "examples": [
+      {
+        "japanese": "これからも勉強していきます。",
+        "english": "I will keep studying from now on.",
+        "note": "ていく often looks forward or outward."
+      }
+    ]
+  },
+  "desire-tai": {
+    "kind": "Verb ending",
+    "short": "want to do something",
+    "detail": "Attaches to a verb stem to say the speaker wants to do that action.",
+    "url": "https://www.tofugu.com/japanese-grammar/tai-form/",
+    "examples": [
+      {
+        "japanese": "日本へ行きたいです。",
+        "english": "I want to go to Japan.",
+        "note": "たい describes the speaker's desire."
+      }
+    ]
+  },
+  "ease-yasui-nikui": {
+    "kind": "Ease / difficulty",
+    "short": "easy or hard to do",
+    "detail": "Shows that an action is easy, difficult, or psychologically hard to do.",
+    "examples": [
+      {
+        "japanese": "この本は読みやすいです。",
+        "english": "This book is easy to read.",
+        "note": "Stem + やすい or にくい describes ease."
+      }
+    ]
+  },
+  "excess-sugiru": {
+    "kind": "Excess",
+    "short": "too much",
+    "detail": "Shows that something goes beyond a suitable amount or degree.",
+    "examples": [
+      {
+        "japanese": "食べすぎました。",
+        "english": "I ate too much.",
+        "note": "Stem/adjective + すぎる marks excess."
+      }
+    ]
+  },
+  "method-kata": {
+    "kind": "Method",
+    "short": "way of doing",
+    "detail": "Attaches to a verb stem to mean the way to do that action.",
+    "examples": [
+      {
+        "japanese": "使い方を教えてください。",
+        "english": "Please teach me how to use it.",
+        "note": "Stem + 方 creates a method noun."
+      }
+    ]
+  },
+  "negative-nai": {
+    "kind": "Verb ending",
+    "short": "negative form",
+    "detail": "Turns the verb or expression into do not, is not, or did not.",
+    "url": "https://www.tofugu.com/japanese-grammar/verb-negative-nai-form/",
+    "examples": [
+      {
+        "japanese": "今日は行きません。",
+        "english": "I will not go today.",
+        "note": "ない and ません are negative endings."
+      }
+    ]
+  },
+  "polite-past-mashita": {
+    "kind": "Polite past",
+    "short": "polite completed action",
+    "detail": "A polite ます-form verb in the past tense: did or was/were.",
+    "url": "https://www.tofugu.com/japanese-grammar/masu/",
+    "examples": [
+      {
+        "japanese": "昨日、勉強しました。",
+        "english": "I studied yesterday.",
+        "note": "ました is polite past."
+      }
+    ]
+  },
+  "polite-masu": {
+    "kind": "Polite form",
+    "short": "polite non-past verb",
+    "detail": "Softens the verb into polite speech; tense depends on the surrounding sentence.",
+    "url": "https://www.tofugu.com/japanese-grammar/masu/",
+    "examples": [
+      {
+        "japanese": "毎日勉強します。",
+        "english": "I study every day.",
+        "note": "ます is polite non-past."
+      }
+    ]
+  },
+  "conditional-tara": {
+    "kind": "Clause linker",
+    "short": "conditional or time sequence",
+    "detail": "Turns the first clause into the condition or timing for what follows: if, when, or after.",
+    "url": "https://www.tofugu.com/japanese-grammar/conditional-form-tara/",
+    "examples": [
+      {
+        "japanese": "雨が降ったら、行きません。",
+        "english": "If it rains, I will not go.",
+        "note": "たら can mean if, when, or after."
+      }
+    ]
+  },
+  "conditional-ba": {
+    "kind": "Conditional",
+    "short": "conditional if",
+    "detail": "Marks the condition that needs to be true for the next clause to happen.",
+    "url": "https://www.tofugu.com/japanese-grammar/verb-conditional-form-ba/",
+    "examples": [
+      {
+        "japanese": "安ければ買います。",
+        "english": "If it is cheap, I will buy it.",
+        "note": "ば creates a conditional clause."
+      }
+    ]
+  },
+  "conditional-ba-ii": {
+    "kind": "Advice / regret",
+    "short": "should do or should have done",
+    "detail": "Can give advice, ask what to do, or express regret about what should have happened.",
+    "examples": [
+      {
+        "japanese": "もっと早く聞けばよかった。",
+        "english": "I should have asked earlier.",
+        "note": "ばよかった often expresses regret."
+      }
+    ]
+  },
+  "conditional-nara": {
+    "kind": "Conditional / topic",
+    "short": "if it is the case that",
+    "detail": "Sets up a condition, topic, or assumption before giving advice or a result.",
+    "examples": [
+      {
+        "japanese": "日本へ行くなら、春がいいです。",
+        "english": "If you are going to Japan, spring is good.",
+        "note": "なら often responds to or narrows a topic."
+      }
+    ]
+  },
+  "conditional-to": {
+    "kind": "Conditional",
+    "short": "when or if",
+    "detail": "Marks a natural, automatic, or expected result that follows from the first clause.",
+    "examples": [
+      {
+        "japanese": "このボタンを押すと、音が出ます。",
+        "english": "When you press this button, a sound plays.",
+        "note": "と conditionals often describe predictable results."
+      }
+    ]
+  },
+  "concession-temo-demo": {
+    "kind": "Concession",
+    "short": "even if or even though",
+    "detail": "Adds a condition that does not change the result.",
+    "url": "https://www.tofugu.com/japanese-grammar/temo/",
+    "examples": [
+      {
+        "japanese": "雨が降っても行きます。",
+        "english": "I will go even if it rains.",
+        "note": "て-form + も creates even if."
+      }
+    ]
+  },
+  "reason-node": {
+    "kind": "Clause linker",
+    "short": "reason or cause",
+    "detail": "Gives the reason or cause for the following statement, usually with a softer tone than から.",
+    "url": "https://www.tofugu.com/japanese-grammar/conjunctive-particle-node/",
+    "examples": [
+      {
+        "japanese": "電車が遅れたので、遅刻しました。",
+        "english": "The train was late, so I was late.",
+        "note": "ので is often softer than から."
+      }
+    ]
+  },
+  "reason-kara": {
+    "kind": "Particle / linker",
+    "short": "reason, source, or starting point",
+    "detail": "Can mean because, from, or after, depending on what surrounds it.",
+    "url": "https://www.tofugu.com/japanese-grammar/particle-kara/",
+    "examples": [
+      {
+        "japanese": "寒いから、上着を着ます。",
+        "english": "It is cold, so I will wear a jacket.",
+        "note": "から is broad and context-dependent."
+      }
+    ]
+  },
+  "appearance-sou": {
+    "kind": "Appearance",
+    "short": "looks like or seems likely",
+    "detail": "Describes how something seems from appearance, or that an action looks likely to happen.",
+    "url": "https://www.tofugu.com/japanese-grammar/verb-sou/",
+    "examples": [
+      {
+        "japanese": "このケーキはおいしそうです。",
+        "english": "This cake looks delicious.",
+        "note": "そう describes appearance when attached to a stem."
+      }
+    ]
+  },
+  "hearsay-sou-da": {
+    "kind": "Hearsay",
+    "short": "I hear that",
+    "detail": "Reports information heard from another source.",
+    "examples": [
+      {
+        "japanese": "ニュースによると、雪が降るそうです。",
+        "english": "According to the news, it will snow.",
+        "note": "Plain-form clause + そうだ reports hearsay."
+      }
+    ]
+  },
+  "volitional-you": {
+    "kind": "Volitional",
+    "short": "volition, proposal, or invitation",
+    "detail": "Often expresses let us, I will, or a suggestion to do something together.",
+    "url": "https://www.tofugu.com/japanese-grammar/verb-volitional-form-you/",
+    "examples": [
+      {
+        "japanese": "一緒に帰ろう。",
+        "english": "Let us go home together.",
+        "note": "Volitional forms can be proposals or intentions."
+      }
+    ]
+  },
+  "concession-noni": {
+    "kind": "Clause linker",
+    "short": "although, despite, or frustrated expectation",
+    "detail": "Connects two ideas when the second one is surprising or disappointing given the first.",
+    "url": "https://www.tofugu.com/japanese-grammar/conjunctive-particle-noni/",
+    "examples": [
+      {
+        "japanese": "勉強したのに、忘れました。",
+        "english": "Even though I studied, I forgot.",
+        "note": "のに often carries disappointment."
+      }
+    ]
+  },
+  "nominalizer-koto": {
+    "kind": "Nominalizer",
+    "short": "abstract thing or nominalizer",
+    "detail": "Turns an action or idea into a noun-like concept that particles can attach to.",
+    "url": "https://www.tofugu.com/japanese-grammar/koto/",
+    "examples": [
+      {
+        "japanese": "泳ぐことが好きです。",
+        "english": "I like swimming.",
+        "note": "こと nominalizes actions or ideas."
+      }
+    ]
+  },
+  "plain-past-ta": {
+    "kind": "Plain past",
+    "short": "plain completed action or past state",
+    "detail": "Marks a plain past-tense action or state. Common verb endings include した, った, いた, いだ, and んだ.",
+    "examples": [
+      {
+        "japanese": "昨日、映画を見た。",
+        "english": "I watched a movie yesterday.",
+        "note": "This is a broad detector for past forms."
+      }
+    ]
+  },
+  "sequence-te-kara": {
+    "kind": "Sequence",
+    "short": "after doing",
+    "detail": "Says one action happens after another action is completed.",
+    "examples": [
+      {
+        "japanese": "手を洗ってから食べます。",
+        "english": "I eat after washing my hands.",
+        "note": "てから emphasizes the first action is completed first."
+      }
+    ]
+  },
+  "time-mae-ni": {
+    "kind": "Time relation",
+    "short": "before doing",
+    "detail": "Marks an action or event that happens before another.",
+    "examples": [
+      {
+        "japanese": "寝る前に歯を磨きます。",
+        "english": "I brush my teeth before sleeping.",
+        "note": "Dictionary form + 前に means before doing."
+      }
+    ]
+  },
+  "time-ato-de-ni": {
+    "kind": "Time relation",
+    "short": "after doing",
+    "detail": "Marks an action or event that happens after another.",
+    "examples": [
+      {
+        "japanese": "仕事の後で会いましょう。",
+        "english": "Let us meet after work.",
+        "note": "後で is common for after."
+      }
+    ]
+  },
+  "time-toki": {
+    "kind": "Time relation",
+    "short": "when",
+    "detail": "Marks the time or occasion when something happens.",
+    "examples": [
+      {
+        "japanese": "困ったとき、友だちに相談します。",
+        "english": "When I am in trouble, I consult a friend.",
+        "note": "とき marks the time of a situation."
+      }
+    ]
+  },
+  "limit-made-made-ni": {
+    "kind": "Limit",
+    "short": "until or by",
+    "detail": "まで marks an endpoint; までに marks a deadline.",
+    "examples": [
+      {
+        "japanese": "五時までに帰ります。",
+        "english": "I will return by five.",
+        "note": "までに means by a deadline."
+      }
+    ]
+  },
+  "comparison-yori-nohou": {
+    "kind": "Comparison",
+    "short": "than or more than",
+    "detail": "Compares two things; より marks the thing being compared against, while の方が marks the preferred or greater side.",
+    "examples": [
+      {
+        "japanese": "犬より猫の方が好きです。",
+        "english": "I like cats more than dogs.",
+        "note": "Comparison often uses both より and 方が."
+      }
+    ]
+  },
+  "superlative-ichiban": {
+    "kind": "Superlative",
+    "short": "the most",
+    "detail": "Marks the highest degree among a group.",
+    "examples": [
+      {
+        "japanese": "寿司が一番好きです。",
+        "english": "I like sushi the most.",
+        "note": "一番 marks the top choice or degree."
+      }
+    ]
+  },
+  "question-ka-douka": {
+    "kind": "Embedded question",
+    "short": "whether or not",
+    "detail": "Embeds a yes-or-no question inside a larger sentence.",
+    "examples": [
+      {
+        "japanese": "行くかどうかまだ決めていません。",
+        "english": "I have not decided whether I will go.",
+        "note": "かどうか embeds uncertainty."
+      }
+    ]
+  },
+  "purpose-masu-stem-ni-iku": {
+    "kind": "Purpose of movement",
+    "short": "go or come to do",
+    "detail": "Uses a verb stem plus に行く, に来る, or に帰る to show the purpose of movement.",
+    "examples": [
+      {
+        "japanese": "映画を見に行きます。",
+        "english": "I will go to see a movie.",
+        "note": "The stem before に marks what someone goes to do."
+      }
+    ]
+  },
+  "nominalizer-no": {
+    "kind": "Nominalizer",
+    "short": "doing something as a noun",
+    "detail": "Turns a verb or adjective phrase into a noun-like idea before a particle.",
+    "url": "https://www.tofugu.com/japanese-grammar/no-nominalizer/",
+    "examples": [
+      {
+        "japanese": "泳ぐのは楽しいです。",
+        "english": "Swimming is fun.",
+        "note": "の nominalizes the action before は."
+      }
+    ]
+  },
+  "quotation-to-iu": {
+    "kind": "Quotation / naming",
+    "short": "called or saying that",
+    "detail": "Marks a name, definition, quote, or explanation.",
+    "examples": [
+      {
+        "japanese": "田中さんという人に会いました。",
+        "english": "I met a person called Tanaka.",
+        "note": "という connects quoted, named, or defined content."
+      }
+    ]
+  },
+  "casual-tte": {
+    "kind": "Casual quote / topic",
+    "short": "casual quote or topic marker",
+    "detail": "Casual marker for quoting, naming, or setting a topic.",
+    "examples": [
+      {
+        "japanese": "明日来るって聞きました。",
+        "english": "I heard that he is coming tomorrow.",
+        "note": "って is casual and broad."
+      }
+    ]
+  },
+  "explanation-n-desu": {
+    "kind": "Explanation",
+    "short": "explanatory tone",
+    "detail": "Adds an explanatory or context-seeking tone.",
+    "examples": [
+      {
+        "japanese": "頭が痛いんです。",
+        "english": "The thing is, my head hurts.",
+        "note": "んです often explains or asks for explanation."
+      }
+    ]
+  },
+  "explanation-no-da": {
+    "kind": "Explanation",
+    "short": "explanatory plain form",
+    "detail": "Adds explanatory force in plain speech, similar to んです in polite speech.",
+    "examples": [
+      {
+        "japanese": "今日は行けないんだ。",
+        "english": "The thing is, I cannot go today.",
+        "note": "んだ gives the statement explanatory context."
+      }
+    ]
+  },
+  "existence-ga-aru-iru": {
+    "kind": "Existence",
+    "short": "there is or have",
+    "detail": "Uses ある for inanimate existence and いる for animate existence.",
+    "examples": [
+      {
+        "japanese": "机の上に本があります。",
+        "english": "There is a book on the desk.",
+        "note": "がある marks existence or possession."
+      }
+    ]
+  },
+  "skill-ga-suki-jouzu-heta": {
+    "kind": "Preference / skill",
+    "short": "like, good at, or poor at",
+    "detail": "Uses が to mark the thing liked or the skill being evaluated.",
+    "examples": [
+      {
+        "japanese": "妹は料理が上手です。",
+        "english": "My younger sister is good at cooking.",
+        "note": "The evaluated skill or liked thing is marked with が."
+      }
+    ]
+  },
+  "skill-no-ga-suki": {
+    "kind": "Preference / skill",
+    "short": "like or be good at doing",
+    "detail": "Uses の to nominalize an action before saying someone likes, dislikes, or is skilled at it.",
+    "examples": [
+      {
+        "japanese": "走るのが好きです。",
+        "english": "I like running.",
+        "note": "の turns the action into the thing being evaluated."
+      }
+    ]
+  },
+  "invitation-mashou": {
+    "kind": "Invitation / volition",
+    "short": "let us or shall I",
+    "detail": "A polite way to suggest doing something together, or to offer help with ましょうか.",
+    "examples": [
+      {
+        "japanese": "一緒に帰りましょう。",
+        "english": "Let's go home together.",
+        "note": "ます-stem + ましょう makes a polite invitation."
+      }
+    ]
+  },
+  "invitation-masen-ka": {
+    "kind": "Invitation",
+    "short": "would you like to",
+    "detail": "Uses a polite negative question to invite someone or make a gentle suggestion.",
+    "examples": [
+      {
+        "japanese": "コーヒーを飲みませんか。",
+        "english": "Would you like to drink coffee?",
+        "note": "ませんか is a common polite invitation."
+      }
+    ]
+  },
+  "relief-te-yokatta": {
+    "kind": "Relief",
+    "short": "glad that",
+    "detail": "Expresses relief or happiness that an action or situation happened.",
+    "examples": [
+      {
+        "japanese": "会えてよかったです。",
+        "english": "I'm glad I could see you.",
+        "note": "てよかった means it was good that the action happened."
+      }
+    ]
+  },
+  "without-zuni": {
+    "kind": "Without doing",
+    "short": "without doing",
+    "detail": "Connects another action done without doing the first action.",
+    "examples": [
+      {
+        "japanese": "朝ご飯を食べずに出た。",
+        "english": "I left without eating breakfast.",
+        "note": "ずに is a formal/literary negative connector."
+      }
+    ]
+  },
+  "without-naide": {
+    "kind": "Without doing",
+    "short": "without doing",
+    "detail": "Connects another action done without doing the first action.",
+    "examples": [
+      {
+        "japanese": "傘を持たないで出かけた。",
+        "english": "I went out without taking an umbrella.",
+        "note": "ないで can mean without doing."
+      }
+    ]
+  },
+  "apology-te-sumimasen": {
+    "kind": "Apology",
+    "short": "sorry for doing",
+    "detail": "Apologizes for the action or state before てすみません.",
+    "examples": [
+      {
+        "japanese": "遅れてすみません。",
+        "english": "I'm sorry for being late.",
+        "note": "てすみません gives the reason for the apology."
+      }
+    ]
+  },
+  "necessity-ga-hitsuyou": {
+    "kind": "Necessity",
+    "short": "need or necessary",
+    "detail": "Marks something as needed or necessary.",
+    "examples": [
+      {
+        "japanese": "予約が必要です。",
+        "english": "A reservation is necessary.",
+        "note": "が marks the thing that is needed."
+      }
+    ]
+  },
+  "sensation-ga-suru": {
+    "kind": "Sensation",
+    "short": "sense, smell, sound, or feeling",
+    "detail": "Uses する with sensory nouns such as sound, smell, taste, or feeling.",
+    "examples": [
+      {
+        "japanese": "いい匂いがする。",
+        "english": "It smells good.",
+        "note": "がする often marks a perceived sensation."
+      }
+    ]
+  },
+  "case-baai": {
+    "kind": "Case / situation",
+    "short": "in case or situation",
+    "detail": "Frames the condition or situation in which the next statement applies.",
+    "examples": [
+      {
+        "japanese": "雨の場合は中止です。",
+        "english": "In case of rain, it will be cancelled.",
+        "note": "場合 means case or situation."
+      }
+    ]
+  },
+  "examples-nado": {
+    "kind": "Examples",
+    "short": "such as or and so on",
+    "detail": "Marks an example or non-exhaustive set.",
+    "examples": [
+      {
+        "japanese": "本などを読みます。",
+        "english": "I read books and things like that.",
+        "note": "など softens or leaves the list open."
+      }
+    ]
+  },
+  "examples-toka": {
+    "kind": "Examples",
+    "short": "things like",
+    "detail": "Casually lists examples without making a complete list.",
+    "examples": [
+      {
+        "japanese": "週末は映画とか見ます。",
+        "english": "On weekends I watch things like movies.",
+        "note": "とか is a casual example marker."
+      }
+    ]
+  },
+  "hearsay-to-iwarete-iru": {
+    "kind": "Hearsay",
+    "short": "it is said that",
+    "detail": "Reports what people generally say or said about something.",
+    "examples": [
+      {
+        "japanese": "彼は天才と言われている。",
+        "english": "He is said to be a genius.",
+        "note": "と言われている reports a common statement."
+      }
+    ]
+  },
+  "hearsay-to-kiita": {
+    "kind": "Hearsay",
+    "short": "heard that",
+    "detail": "Reports information the speaker heard.",
+    "examples": [
+      {
+        "japanese": "明日は雨だと聞きました。",
+        "english": "I heard that it will rain tomorrow.",
+        "note": "と聞いた marks the heard content."
+      }
+    ]
+  },
+  "similarity-you-da": {
+    "kind": "Similarity / appearance",
+    "short": "seems or like",
+    "detail": "Expresses resemblance, appearance, or a manner like something.",
+    "examples": [
+      {
+        "japanese": "彼は疲れているようだ。",
+        "english": "He seems tired.",
+        "note": "ようだ can mean seems like or resembles."
+      }
+    ]
+  },
+  "permission-sasete-kudasai": {
+    "kind": "Permission request",
+    "short": "please let me do",
+    "detail": "Asks permission to do something.",
+    "examples": [
+      {
+        "japanese": "少し考えさせてください。",
+        "english": "Please let me think for a bit.",
+        "note": "Causative て-form + ください asks to be allowed."
+      }
+    ]
+  },
+  "decision-koto-ni-suru": {
+    "kind": "Decision",
+    "short": "decide to do",
+    "detail": "Shows that someone decides on an action or policy.",
+    "examples": [
+      {
+        "japanese": "毎朝走ることにしました。",
+        "english": "I decided to run every morning.",
+        "note": "ことにする marks personal decision."
+      }
+    ]
+  },
+  "arrangement-koto-ni-naru": {
+    "kind": "Decision / arrangement",
+    "short": "it has been decided",
+    "detail": "Shows an arrangement or outcome decided by circumstances or others.",
+    "examples": [
+      {
+        "japanese": "来月転勤することになりました。",
+        "english": "It has been decided that I will transfer next month.",
+        "note": "Often implies an external decision."
+      }
+    ]
+  },
+  "honorific-o-go-ni-naru-suru": {
+    "kind": "Honorific / humble",
+    "short": "respectful or humble set phrase",
+    "detail": "Uses お or ご with a verb noun or stem for respectful or humble speech.",
+    "examples": [
+      {
+        "japanese": "社長がお帰りになります。",
+        "english": "The president will return.",
+        "note": "Regex can flag the construction, but politeness role depends on the verb."
+      }
+    ]
+  },
+  "polite-gozaimasu": {
+    "kind": "Polite speech",
+    "short": "polite equivalent of ある",
+    "detail": "A very polite form related to ある or です in set expressions.",
+    "examples": [
+      {
+        "japanese": "質問がございます。",
+        "english": "I have a question.",
+        "note": "ございます is very polite."
+      }
+    ]
+  },
+  "advice-beki": {
+    "kind": "Norm / advice",
+    "short": "should do",
+    "detail": "Expresses what is proper, expected, or advisable.",
+    "examples": [
+      {
+        "japanese": "約束は守るべきです。",
+        "english": "You should keep promises.",
+        "note": "べき is stronger and more formal than 方がいい."
+      }
+    ]
+  },
+  "time-aida-aida-ni": {
+    "kind": "Time span",
+    "short": "while or during",
+    "detail": "Marks a period during which something happens.",
+    "examples": [
+      {
+        "japanese": "夏休みの間に本を三冊読みました。",
+        "english": "I read three books during summer vacation.",
+        "note": "間に focuses on something happening within the interval."
+      }
+    ]
+  },
+  "time-uchi-ni": {
+    "kind": "Time limit",
+    "short": "while still or before it changes",
+    "detail": "Says to act while a condition still holds.",
+    "examples": [
+      {
+        "japanese": "明るいうちに帰りましょう。",
+        "english": "Let us go home while it is still light.",
+        "note": "うちに warns the condition may change."
+      }
+    ]
+  },
+  "time-saichuu-ni": {
+    "kind": "Middle of action",
+    "short": "right in the middle of",
+    "detail": "Marks that something happens right in the middle of another action.",
+    "examples": [
+      {
+        "japanese": "会議の最中に電話が鳴った。",
+        "english": "The phone rang in the middle of the meeting.",
+        "note": "最中に emphasizes interruption during an event."
+      }
+    ]
+  },
+  "repetition-tabi-ni": {
+    "kind": "Repetition",
+    "short": "every time",
+    "detail": "Marks something that happens each time another thing occurs.",
+    "examples": [
+      {
+        "japanese": "彼に会うたびに元気をもらう。",
+        "english": "Every time I meet him, I feel encouraged.",
+        "note": "たびに repeats with each occurrence."
+      }
+    ]
+  },
+  "incidental-tsuide-ni": {
+    "kind": "Incidental action",
+    "short": "while you are at it",
+    "detail": "Adds an extra action done along with the main action.",
+    "examples": [
+      {
+        "japanese": "買い物のついでに郵便局へ行きます。",
+        "english": "I will go to the post office while I am out shopping.",
+        "note": "ついでに adds a convenient side task."
+      }
+    ]
+  },
+  "phase-compound-verb": {
+    "kind": "Compound verb phase",
+    "short": "begin, start, continue, or finish doing",
+    "detail": "Adds a phase such as beginning, starting suddenly, continuing, or finishing to a verb stem.",
+    "examples": [
+      {
+        "japanese": "雨が降り始めました。",
+        "english": "It started raining.",
+        "note": "Verb stem + 始める marks the start of an action."
+      }
+    ]
+  },
+  "state-ppanashi": {
+    "kind": "Left as is",
+    "short": "left on or left undone",
+    "detail": "Says something remains in a state, often because it was left that way.",
+    "examples": [
+      {
+        "japanese": "電気をつけっぱなしにした。",
+        "english": "I left the light on.",
+        "note": "っぱなし often has a negative nuance."
+      }
+    ]
+  },
+  "covered-darake": {
+    "kind": "Covered / full of",
+    "short": "covered with or full of",
+    "detail": "Says something is full of an undesirable thing.",
+    "examples": [
+      {
+        "japanese": "服が泥だらけだ。",
+        "english": "My clothes are covered in mud.",
+        "note": "だらけ often marks an unpleasant abundance."
+      }
+    ]
+  },
+  "fresh-tate": {
+    "kind": "Freshly done",
+    "short": "freshly or just done",
+    "detail": "Describes something that has just been made or done.",
+    "examples": [
+      {
+        "japanese": "焼きたてのパンを買った。",
+        "english": "I bought freshly baked bread.",
+        "note": "たて attaches to a verb stem."
+      }
+    ]
+  },
+  "elapsed-buri-ni": {
+    "kind": "After an interval",
+    "short": "for the first time in",
+    "detail": "Marks that something happens after a stated interval.",
+    "examples": [
+      {
+        "japanese": "三年ぶりに友だちに会った。",
+        "english": "I met my friend for the first time in three years.",
+        "note": "ぶりに measures time since the previous occurrence."
+      }
+    ]
+  },
+  "interval-goto-ni": {
+    "kind": "Each / every",
+    "short": "each or every time",
+    "detail": "Marks a repeated interval or every member of a set.",
+    "examples": [
+      {
+        "japanese": "会うごとに日本語が上手になる。",
+        "english": "Every time we meet, your Japanese gets better.",
+        "note": "ごとに means each or every."
+      }
+    ]
+  },
+  "interval-oki-ni": {
+    "kind": "Interval",
+    "short": "at intervals of",
+    "detail": "Marks regular intervals between events.",
+    "examples": [
+      {
+        "japanese": "一日おきに運動します。",
+        "english": "I exercise every other day.",
+        "note": "おきに marks spacing between occurrences."
+      }
+    ]
+  },
+  "emphasis-kara-koso": {
+    "kind": "Emphatic reason",
+    "short": "precisely because",
+    "detail": "Emphasizes the reason before からこそ as the key cause.",
+    "examples": [
+      {
+        "japanese": "大切だからこそ厳しく言う。",
+        "english": "I say it strictly precisely because it is important.",
+        "note": "からこそ strengthens the reason."
+      }
+    ]
+  },
+  "source-ni-yoru-to": {
+    "kind": "Source",
+    "short": "according to",
+    "detail": "Marks the source of information or a report.",
+    "examples": [
+      {
+        "japanese": "ニュースによると雪です。",
+        "english": "According to the news, it will snow.",
+        "note": "によると introduces the information source."
+      }
+    ]
+  },
+  "topic-ni-kansuru": {
+    "kind": "Topic / relation",
+    "short": "related to",
+    "detail": "Modifies a noun by saying what it is about or related to.",
+    "examples": [
+      {
+        "japanese": "環境に関する問題を話し合う。",
+        "english": "We discuss problems related to the environment.",
+        "note": "に関する is the noun-modifying form of に関して."
+      }
+    ]
+  },
+  "context-ni-okeru": {
+    "kind": "Context",
+    "short": "in or at",
+    "detail": "Formal noun-modifying marker for field, time, place, or context.",
+    "examples": [
+      {
+        "japanese": "現代における課題です。",
+        "english": "It is an issue in the present day.",
+        "note": "における modifies a following noun."
+      }
+    ]
+  },
+  "standard-ni-shite-wa": {
+    "kind": "Unexpected standard",
+    "short": "considering or for",
+    "detail": "Judges something as unexpected compared with the marked standard.",
+    "examples": [
+      {
+        "japanese": "子どもにしては上手です。",
+        "english": "For a child, they are skilled.",
+        "note": "にしては compares against expectations."
+      }
+    ]
+  },
+  "simultaneous-to-douji-ni": {
+    "kind": "Same time",
+    "short": "at the same time as",
+    "detail": "Marks two things happening at the same time, or two simultaneous qualities.",
+    "examples": [
+      {
+        "japanese": "卒業と同時に働き始めた。",
+        "english": "I started working at the same time as graduation.",
+        "note": "と同時に links simultaneous events."
+      }
+    ]
+  },
+  "supposition-to-shitara": {
+    "kind": "Supposition",
+    "short": "supposing that",
+    "detail": "Sets up a hypothetical assumption before giving a result or judgment.",
+    "examples": [
+      {
+        "japanese": "行くとしたら明日です。",
+        "english": "If I were to go, it would be tomorrow.",
+        "note": "としたら sets a supposition."
+      }
+    ]
+  },
+  "almost-tokoro-datta": {
+    "kind": "Almost happened",
+    "short": "almost did",
+    "detail": "Says something nearly happened, often something undesirable.",
+    "examples": [
+      {
+        "japanese": "電車に遅れるところだった。",
+        "english": "I almost missed the train.",
+        "note": "ところだった marks a near event."
+      }
+    ]
+  },
+  "nonlimiting-wa-mochiron": {
+    "kind": "Not only",
+    "short": "not only or of course",
+    "detail": "Marks something as obvious and adds more beyond it.",
+    "examples": [
+      {
+        "japanese": "日本語はもちろん英語も必要です。",
+        "english": "English is necessary, not only Japanese.",
+        "note": "はもちろん often pairs with も."
+      }
+    ]
+  },
+  "pretend-furi-wo-suru": {
+    "kind": "Pretending",
+    "short": "pretend to",
+    "detail": "Describes pretending or acting as if something is true.",
+    "examples": [
+      {
+        "japanese": "知らないふりをした。",
+        "english": "I pretended not to know.",
+        "note": "ふりをする means to pretend."
+      }
+    ]
+  },
+  "instant-ta-totan-ni": {
+    "kind": "Instant sequence",
+    "short": "the moment",
+    "detail": "Says something happened immediately after another action.",
+    "examples": [
+      {
+        "japanese": "外に出たとたん雨が降った。",
+        "english": "The moment I went outside, it started raining.",
+        "note": "たとたんに marks an immediate result."
+      }
+    ]
+  },
+  "difficulty-gatai": {
+    "kind": "Hard to do",
+    "short": "hard to do",
+    "detail": "Says an action is difficult to do, often psychologically or emotionally.",
+    "examples": [
+      {
+        "japanese": "信じがたい話です。",
+        "english": "It is a hard-to-believe story.",
+        "note": "がたい attaches to a verb stem."
+      }
+    ]
+  },
+  "only-shika-nai": {
+    "kind": "Only choice",
+    "short": "have no choice but",
+    "detail": "Says there is no option other than doing or choosing the marked thing.",
+    "examples": [
+      {
+        "japanese": "やるしかない。",
+        "english": "There is nothing to do but do it.",
+        "note": "しかない creates a strong only-choice meaning."
+      }
+    ]
+  },
+  "emphasis-sae": {
+    "kind": "Even",
+    "short": "even",
+    "detail": "Emphasizes an extreme or surprising example.",
+    "examples": [
+      {
+        "japanese": "子どもでさえ知っています。",
+        "english": "Even children know it.",
+        "note": "さえ highlights an unexpected minimum or extreme."
+      }
+    ]
+  },
+  "emphasis-koso": {
+    "kind": "Emphasis",
+    "short": "precisely or especially",
+    "detail": "Strongly emphasizes the marked word as the important one.",
+    "examples": [
+      {
+        "japanese": "今こそ始めよう。",
+        "english": "Now is exactly the time to begin.",
+        "note": "こそ gives focused emphasis."
+      }
+    ]
+  },
+  "try-te-goran": {
+    "kind": "Suggestion",
+    "short": "try doing",
+    "detail": "A casual or gentle instruction to try doing something.",
+    "examples": [
+      {
+        "japanese": "食べてごらん。",
+        "english": "Try eating it.",
+        "note": "てごらん is often used by adults toward children or close listeners."
+      }
+    ]
+  },
+  "cause-sei-okage-de": {
+    "kind": "Cause",
+    "short": "because of, thanks to",
+    "detail": "せいで gives a negative cause; おかげで gives a beneficial cause.",
+    "examples": [
+      {
+        "japanese": "先生のおかげで合格できました。",
+        "english": "Thanks to my teacher, I was able to pass.",
+        "note": "おかげで is positive; せいで is negative."
+      }
+    ]
+  },
+  "manner-toori": {
+    "kind": "Manner",
+    "short": "as or just as",
+    "detail": "Says something happens in the same way as a model or statement.",
+    "examples": [
+      {
+        "japanese": "説明のとおりに操作してください。",
+        "english": "Please operate it as explained.",
+        "note": "とおり means following a model."
+      }
+    ]
+  },
+  "certainty-ni-chigai-nai": {
+    "kind": "Certainty",
+    "short": "must be true",
+    "detail": "Shows strong certainty based on evidence or reasoning.",
+    "examples": [
+      {
+        "japanese": "彼は医者に違いない。",
+        "english": "He must be a doctor.",
+        "note": "に違いない is strong certainty."
+      }
+    ]
+  },
+  "certainty-ni-kimatte-iru": {
+    "kind": "Certainty",
+    "short": "obviously must be",
+    "detail": "Expresses strong, often emphatic certainty.",
+    "examples": [
+      {
+        "japanese": "彼なら勝つに決まっている。",
+        "english": "If it is him, he is sure to win.",
+        "note": "Often sounds emphatic or subjective."
+      }
+    ]
+  },
+  "qualification-to-wa-kagiranai": {
+    "kind": "Qualification",
+    "short": "not necessarily",
+    "detail": "Says something is not always or not necessarily true.",
+    "examples": [
+      {
+        "japanese": "高いものが良いとは限りません。",
+        "english": "Expensive things are not necessarily good.",
+        "note": "とは限らない denies universality."
+      }
+    ]
+  },
+  "contrast-ippou-de": {
+    "kind": "Contrast / one side",
+    "short": "on the other hand or while",
+    "detail": "Marks contrast, parallel facts, or one aspect of a situation.",
+    "examples": [
+      {
+        "japanese": "収入が増えた一方で、忙しくなった。",
+        "english": "My income increased, but on the other hand I became busier.",
+        "note": "一方で compares two sides."
+      }
+    ]
+  },
+  "contrast-hanmen": {
+    "kind": "Contrast",
+    "short": "on the other hand",
+    "detail": "Contrasts one side of something with another side.",
+    "examples": [
+      {
+        "japanese": "便利な反面、危険もある。",
+        "english": "It is convenient, but on the other hand there are dangers.",
+        "note": "反面 marks the opposite side."
+      }
+    ]
+  },
+  "substitution-kawari-ni": {
+    "kind": "Substitution / tradeoff",
+    "short": "instead of or in exchange for",
+    "detail": "Marks a substitute action or a tradeoff.",
+    "examples": [
+      {
+        "japanese": "映画に行くかわりに家で休みます。",
+        "english": "Instead of going to a movie, I will rest at home.",
+        "note": "かわりに marks replacement or exchange."
+      }
+    ]
+  },
+  "topic-ni-kanshite": {
+    "kind": "Topic",
+    "short": "about or concerning",
+    "detail": "Marks the topic of discussion or concern.",
+    "examples": [
+      {
+        "japanese": "仕事に関して相談があります。",
+        "english": "I have something to discuss about work.",
+        "note": "に関して is formal topic marking."
+      }
+    ]
+  },
+  "comparison-ni-kurabete": {
+    "kind": "Comparison",
+    "short": "compared with",
+    "detail": "Marks the basis for comparison.",
+    "examples": [
+      {
+        "japanese": "去年に比べて暑いです。",
+        "english": "It is hot compared with last year.",
+        "note": "に比べて sets comparison baseline."
+      }
+    ]
+  },
+  "basis-ni-motozuite": {
+    "kind": "Basis",
+    "short": "based on",
+    "detail": "Marks the basis or evidence for an action or judgment.",
+    "examples": [
+      {
+        "japanese": "データに基づいて判断します。",
+        "english": "We will decide based on data.",
+        "note": "に基づいて is formal."
+      }
+    ]
+  },
+  "following-ni-sotte": {
+    "kind": "Following",
+    "short": "along with or in line with",
+    "detail": "Shows that something follows a rule, plan, or path.",
+    "examples": [
+      {
+        "japanese": "計画に沿って進めます。",
+        "english": "We will proceed according to the plan.",
+        "note": "に沿って follows a route or plan."
+      }
+    ]
+  },
+  "following-change-ni-shitagatte": {
+    "kind": "Following / change",
+    "short": "following or as",
+    "detail": "Marks following a rule, person, or gradual change.",
+    "examples": [
+      {
+        "japanese": "説明に従って操作してください。",
+        "english": "Please operate it according to the instructions.",
+        "note": "Can also mean as something changes."
+      }
+    ]
+  },
+  "change-ni-tsurete": {
+    "kind": "Gradual change",
+    "short": "as something changes",
+    "detail": "Shows one change happening together with another.",
+    "examples": [
+      {
+        "japanese": "寒くなるにつれて人が減った。",
+        "english": "As it got colder, fewer people came.",
+        "note": "につれて links gradual changes."
+      }
+    ]
+  },
+  "together-to-tomo-ni": {
+    "kind": "Together / change",
+    "short": "together with or as",
+    "detail": "Marks doing something together or a change occurring alongside another.",
+    "examples": [
+      {
+        "japanese": "時代とともに言葉も変わる。",
+        "english": "Language changes along with the times.",
+        "note": "Formal together/change marker."
+      }
+    ]
+  },
+  "context-ni-oite": {
+    "kind": "Context",
+    "short": "in or at",
+    "detail": "Formal marker for place, field, time, or context.",
+    "examples": [
+      {
+        "japanese": "現代社会において重要です。",
+        "english": "It is important in modern society.",
+        "note": "において is formal and written."
+      }
+    ]
+  },
+  "means-wo-tsuujite-tooshite": {
+    "kind": "Means / span",
+    "short": "through or throughout",
+    "detail": "Marks a means, mediator, or time span.",
+    "examples": [
+      {
+        "japanese": "一年を通して暖かいです。",
+        "english": "It is warm throughout the year.",
+        "note": "を通じて/通して can mean through or throughout."
+      }
+    ]
+  },
+  "representative-wo-hajime": {
+    "kind": "Representative example",
+    "short": "starting with",
+    "detail": "Introduces a leading example from a larger group.",
+    "examples": [
+      {
+        "japanese": "東京をはじめ多くの都市で行われた。",
+        "english": "It was held in many cities, starting with Tokyo.",
+        "note": "をはじめ introduces a representative item."
+      }
+    ]
+  },
+  "limit-ni-kagiru-kagirazu": {
+    "kind": "Limit / recommendation",
+    "short": "limited to, not limited to, or best",
+    "detail": "Marks limitation, non-limitation, special cases, or a strong recommendation.",
+    "examples": [
+      {
+        "japanese": "疲れた時は寝るに限る。",
+        "english": "When tired, sleeping is best.",
+        "note": "に限る can also recommend the best option."
+      }
+    ]
+  },
+  "suffix-gachi": {
+    "kind": "Tendency",
+    "short": "tend to",
+    "detail": "Shows a repeated tendency, often negative.",
+    "examples": [
+      {
+        "japanese": "忙しいと食事を忘れがちです。",
+        "english": "When busy, I tend to forget meals.",
+        "note": "がち often marks an undesirable tendency."
+      }
+    ]
+  },
+  "suffix-gimi": {
+    "kind": "Slight tendency",
+    "short": "a little, somewhat",
+    "detail": "Shows that something is a little in a certain state.",
+    "examples": [
+      {
+        "japanese": "今日は疲れ気味です。",
+        "english": "I am a bit tired today.",
+        "note": "気味 is a slight tendency or condition."
+      }
+    ]
+  },
+  "suffix-ge": {
+    "kind": "Appearance suffix",
+    "short": "seeming",
+    "detail": "Adds a sense that someone or something appears a certain way.",
+    "examples": [
+      {
+        "japanese": "彼は寂しげに笑った。",
+        "english": "He smiled sadly.",
+        "note": "げ often describes visible mood."
+      }
+    ]
+  },
+  "suffix-ppoi": {
+    "kind": "Tendency / likeness",
+    "short": "-ish or prone to",
+    "detail": "Shows something seems like, is prone to, or has a quality.",
+    "examples": [
+      {
+        "japanese": "この服は子どもっぽい。",
+        "english": "These clothes look childish.",
+        "note": "っぽい is casual and broad."
+      }
+    ]
+  },
+  "negative-youni-nai": {
+    "kind": "Impossibility",
+    "short": "no way to do",
+    "detail": "Says there is no method or possibility for doing something.",
+    "examples": [
+      {
+        "japanese": "壊れすぎて直しようがない。",
+        "english": "It is too broken to fix.",
+        "note": "Stem + ようがない means no way to do."
+      }
+    ]
+  },
+  "impossible-kkonai": {
+    "kind": "Impossibility",
+    "short": "no chance of doing",
+    "detail": "Casually says something will not or cannot happen.",
+    "examples": [
+      {
+        "japanese": "彼が負けっこない。",
+        "english": "There is no way he will lose.",
+        "note": "っこない is casual and emphatic."
+      }
+    ]
+  },
+  "condition-kara-ni-wa": {
+    "kind": "Commitment condition",
+    "short": "now that / since",
+    "detail": "Sets a condition that creates obligation, resolve, or expectation.",
+    "examples": [
+      {
+        "japanese": "やるからには最後までやります。",
+        "english": "Since I am doing it, I will do it to the end.",
+        "note": "からには often implies commitment."
+      }
+    ]
+  },
+  "qualification-kara-to-itte": {
+    "kind": "Qualification",
+    "short": "just because does not mean",
+    "detail": "Introduces a reason that is not enough to justify the following conclusion.",
+    "examples": [
+      {
+        "japanese": "安いからといって、買うとは限らない。",
+        "english": "Just because it is cheap does not mean I will buy it.",
+        "note": "Often pairs with a negative or limiting conclusion."
+      }
+    ]
+  },
+  "condition-nai-kagiri": {
+    "kind": "Condition",
+    "short": "unless / as long as not",
+    "detail": "Says the following result holds unless the negative condition changes.",
+    "examples": [
+      {
+        "japanese": "雨が降らない限り、試合は行われます。",
+        "english": "Unless it rains, the match will be held.",
+        "note": "ない限り means unless."
+      }
+    ]
+  },
+  "condition-ijou-wa": {
+    "kind": "Commitment condition",
+    "short": "now that / as long as",
+    "detail": "Sets a condition that creates obligation or consequence.",
+    "examples": [
+      {
+        "japanese": "約束した以上は守るべきだ。",
+        "english": "Since you promised, you should keep it.",
+        "note": "以上は is formal and firm."
+      }
+    ]
+  },
+  "condition-ue-wa": {
+    "kind": "Commitment condition",
+    "short": "now that",
+    "detail": "Means now that something is true, a certain responsibility follows.",
+    "examples": [
+      {
+        "japanese": "引き受けた上は全力を尽くします。",
+        "english": "Now that I have accepted, I will do my best.",
+        "note": "上は is formal."
+      }
+    ]
+  },
+  "sequence-ue-de": {
+    "kind": "After / basis",
+    "short": "after doing or on the basis of",
+    "detail": "Means after doing something, or after considering something as a basis.",
+    "examples": [
+      {
+        "japanese": "内容を確認した上で署名します。",
+        "english": "I will sign after confirming the contents.",
+        "note": "上で often means after careful action."
+      }
+    ]
+  },
+  "addition-ue-ni": {
+    "kind": "Addition",
+    "short": "on top of that",
+    "detail": "Adds another fact, often intensifying the evaluation.",
+    "examples": [
+      {
+        "japanese": "彼は親切な上に面白い。",
+        "english": "He is kind and, on top of that, funny.",
+        "note": "上に stacks positive or negative facts."
+      }
+    ]
+  },
+  "viewpoint-kara-miru-to": {
+    "kind": "Viewpoint",
+    "short": "from the point of view of",
+    "detail": "Marks the standpoint or basis for judgment.",
+    "examples": [
+      {
+        "japanese": "専門家から見ると簡単です。",
+        "english": "From an expert's view, it is simple.",
+        "note": "から見ると introduces a viewpoint."
+      }
+    ]
+  },
+  "starting-kara-shite": {
+    "kind": "Even starting with",
+    "short": "judging from or even",
+    "detail": "Marks a representative starting point for judgment.",
+    "examples": [
+      {
+        "japanese": "名前からして怪しい。",
+        "english": "Even the name sounds suspicious.",
+        "note": "からして can mean judging from or even."
+      }
+    ]
+  },
+  "concession-ni-shitemo-toshitemo": {
+    "kind": "Concession / supposition",
+    "short": "even if or whether",
+    "detail": "Sets up an assumed case and says the next point still applies.",
+    "examples": [
+      {
+        "japanese": "行くにしても、早めに連絡してください。",
+        "english": "Even if you go, please contact me early.",
+        "note": "にしても and としても introduce a conceded case."
+      }
+    ]
+  },
+  "concession-ni-shiro-ni-seyo": {
+    "kind": "Concession / alternatives",
+    "short": "whether or even if",
+    "detail": "Marks a conceded case or one side of an alternative pair.",
+    "examples": [
+      {
+        "japanese": "賛成にせよ反対にせよ、理由を説明してください。",
+        "english": "Whether you agree or disagree, please explain why.",
+        "note": "Often repeats for A or B alternatives."
+      }
+    ]
+  },
+  "after-all-ageku": {
+    "kind": "Outcome after effort",
+    "short": "after all that",
+    "detail": "Marks a final, often disappointing result after a long process.",
+    "examples": [
+      {
+        "japanese": "長く迷ったあげく、買わないことにした。",
+        "english": "After much hesitation, I decided not to buy it.",
+        "note": "あげく often carries a negative result."
+      }
+    ]
+  },
+  "after-effort-sue-ni": {
+    "kind": "After a process",
+    "short": "after / as a result of",
+    "detail": "Marks a result reached after effort, discussion, or time.",
+    "examples": [
+      {
+        "japanese": "何度も話し合った末に、計画を変更した。",
+        "english": "After many discussions, we changed the plan.",
+        "note": "末に emphasizes the process before the result."
+      }
+    ]
+  },
+  "only-ni-suginai": {
+    "kind": "Limitation",
+    "short": "nothing more than",
+    "detail": "Says something is only a certain thing and should not be overestimated.",
+    "examples": [
+      {
+        "japanese": "これは一例にすぎません。",
+        "english": "This is nothing more than one example.",
+        "note": "にすぎない minimizes."
+      }
+    ]
+  },
+  "essence-ni-hoka-naranai": {
+    "kind": "Essence / conclusion",
+    "short": "nothing other than",
+    "detail": "States the true identity or central cause of something.",
+    "examples": [
+      {
+        "japanese": "成功は努力の結果にほかならない。",
+        "english": "Success is nothing other than the result of effort.",
+        "note": "Formal emphatic conclusion."
+      }
+    ]
+  },
+  "necessity-zaru-wo-enai": {
+    "kind": "Necessity",
+    "short": "have no choice but to",
+    "detail": "Says there is no choice but to do something.",
+    "examples": [
+      {
+        "japanese": "予定を変更せざるを得ない。",
+        "english": "We have no choice but to change the plan.",
+        "note": "ざるを得ない is formal necessity."
+      }
+    ]
+  },
+  "compulsion-zu-ni-wa-irarenai": {
+    "kind": "Compulsion",
+    "short": "cannot help doing",
+    "detail": "Says one cannot resist doing or feeling something.",
+    "examples": [
+      {
+        "japanese": "笑わずにはいられなかった。",
+        "english": "I could not help laughing.",
+        "note": "Often used for emotions or impulses."
+      }
+    ]
+  },
+  "possibility-eru-enai": {
+    "kind": "Possibility",
+    "short": "can happen / cannot happen",
+    "detail": "Marks something as possible or impossible, often in formal writing.",
+    "examples": [
+      {
+        "japanese": "事故は起こり得る。",
+        "english": "An accident can happen.",
+        "note": "得る is read うる or える depending on form."
+      }
+    ]
+  },
+  "risk-kanenai": {
+    "kind": "Risk",
+    "short": "might happen, usually bad",
+    "detail": "Warns that a negative result could happen.",
+    "examples": [
+      {
+        "japanese": "このままでは失敗しかねない。",
+        "english": "At this rate, we might fail.",
+        "note": "かねない is used for undesirable possibilities."
+      }
+    ]
+  },
+  "difficulty-kaneru": {
+    "kind": "Difficulty / refusal",
+    "short": "unable to do",
+    "detail": "Politely says something is difficult or impossible to do.",
+    "examples": [
+      {
+        "japanese": "その質問には答えかねます。",
+        "english": "I am unable to answer that question.",
+        "note": "Often used in formal refusal."
+      }
+    ]
+  },
+  "emotion-te-naranai": {
+    "kind": "Strong feeling",
+    "short": "cannot help feeling",
+    "detail": "Expresses a strong spontaneous feeling or state.",
+    "examples": [
+      {
+        "japanese": "心配でならない。",
+        "english": "I cannot help being worried.",
+        "note": "Used with feelings and sensations."
+      }
+    ]
+  },
+  "emotion-te-tamaranai": {
+    "kind": "Strong feeling",
+    "short": "unbearably",
+    "detail": "Expresses an intense feeling or sensation.",
+    "examples": [
+      {
+        "japanese": "眠くてたまらない。",
+        "english": "I am unbearably sleepy.",
+        "note": "てたまらない intensifies feeling."
+      }
+    ]
+  },
+  "emotion-te-shouganai": {
+    "kind": "Strong feeling",
+    "short": "cannot help / extremely",
+    "detail": "Expresses an uncontrollable or very strong feeling.",
+    "examples": [
+      {
+        "japanese": "楽しみでしょうがない。",
+        "english": "I am extremely excited.",
+        "note": "Casual form of intense feeling."
+      }
+    ]
+  },
+  "timing-shidai": {
+    "kind": "Timing / dependence",
+    "short": "as soon as or depending on",
+    "detail": "Can mean as soon as something happens, or depending on something.",
+    "examples": [
+      {
+        "japanese": "準備ができ次第、出発します。",
+        "english": "We will leave as soon as preparations are ready.",
+        "note": "次第 is context-dependent."
+      }
+    ]
+  },
+  "time-sai-ni": {
+    "kind": "Occasion",
+    "short": "on the occasion of",
+    "detail": "Formal marker for when doing something or when something happens.",
+    "examples": [
+      {
+        "japanese": "申し込む際に必要です。",
+        "english": "It is needed when applying.",
+        "note": "際に is formal when/occasion."
+      }
+    ]
+  },
+  "occasion-ni-atatte": {
+    "kind": "Occasion / preparation",
+    "short": "when doing",
+    "detail": "Formal marker for a special occasion, often with preparation.",
+    "examples": [
+      {
+        "japanese": "開始にあたって説明します。",
+        "english": "I will explain before we begin.",
+        "note": "にあたって often marks an important occasion."
+      }
+    ]
+  },
+  "occasion-ni-saishite": {
+    "kind": "Occasion",
+    "short": "on the occasion of",
+    "detail": "Formal marker for a special time or event.",
+    "examples": [
+      {
+        "japanese": "卒業に際して一言述べます。",
+        "english": "I will say a few words on the occasion of graduation.",
+        "note": "に際して is formal."
+      }
+    ]
+  },
+  "prior-ni-sakidatte": {
+    "kind": "Prior action",
+    "short": "before / prior to",
+    "detail": "Marks something done before an event.",
+    "examples": [
+      {
+        "japanese": "会議に先立って資料を配った。",
+        "english": "Materials were distributed before the meeting.",
+        "note": "Formal prior-to marker."
+      }
+    ]
+  },
+  "trigger-wo-kikkake-ni": {
+    "kind": "Trigger",
+    "short": "triggered by",
+    "detail": "Marks an event that becomes the trigger for change.",
+    "examples": [
+      {
+        "japanese": "留学をきっかけに日本語を始めた。",
+        "english": "Studying abroad triggered me to start Japanese.",
+        "note": "きっかけ is a trigger or opportunity."
+      }
+    ]
+  },
+  "trigger-wo-keiki-ni": {
+    "kind": "Trigger",
+    "short": "taking as an opportunity",
+    "detail": "Formal version of using something as a turning point or trigger.",
+    "examples": [
+      {
+        "japanese": "受賞を契機に仕事が増えた。",
+        "english": "After the award, work increased.",
+        "note": "契機 is formal turning point."
+      }
+    ]
+  },
+  "span-ni-watatte": {
+    "kind": "Span",
+    "short": "over / across",
+    "detail": "Marks a span of time, place, or range.",
+    "examples": [
+      {
+        "japanese": "会議は三日間にわたって行われた。",
+        "english": "The conference was held over three days.",
+        "note": "にわたって emphasizes breadth or duration."
+      }
+    ]
+  },
+  "accompany-ni-tomonatte": {
+    "kind": "Accompanying change",
+    "short": "along with",
+    "detail": "Shows one change accompanying another.",
+    "examples": [
+      {
+        "japanese": "人口の増加に伴って問題も増えた。",
+        "english": "Problems increased along with the population.",
+        "note": "に伴って is formal."
+      }
+    ]
+  },
+  "response-ni-oujite": {
+    "kind": "Response / variation",
+    "short": "according to or depending on",
+    "detail": "Shows something changes in response to a condition.",
+    "examples": [
+      {
+        "japanese": "年齢に応じて料金が変わります。",
+        "english": "The fee changes according to age.",
+        "note": "に応じて means responding to a condition."
+      }
+    ]
+  },
+  "basis-wo-fumaete": {
+    "kind": "Basis",
+    "short": "based on / taking into account",
+    "detail": "Marks information used as a basis for judgment or action.",
+    "examples": [
+      {
+        "japanese": "結果を踏まえて改善します。",
+        "english": "We will improve based on the results.",
+        "note": "を踏まえて means taking into account."
+      }
+    ]
+  },
+  "merit-dake-atte": {
+    "kind": "As expected",
+    "short": "as expected of",
+    "detail": "Says a result is natural given the quality or status.",
+    "examples": [
+      {
+        "japanese": "有名なだけあって、おいしい。",
+        "english": "As expected from its fame, it is delicious.",
+        "note": "だけあって praises or acknowledges a reason."
+      }
+    ]
+  },
+  "because-dake-ni": {
+    "kind": "Because / all the more",
+    "short": "precisely because",
+    "detail": "Shows a result is especially true because of the reason.",
+    "examples": [
+      {
+        "japanese": "大切なだけに失敗したくない。",
+        "english": "Because it is important, I do not want to fail.",
+        "note": "だけに intensifies the reason."
+      }
+    ]
+  },
+  "concession-youga-maiga": {
+    "kind": "Indifference / concession",
+    "short": "whether or not",
+    "detail": "Says that the result is the same regardless of which condition occurs.",
+    "examples": [
+      {
+        "japanese": "雨が降ろうが降るまいが行きます。",
+        "english": "I will go whether it rains or not.",
+        "note": "Volitional-like form + が pairs with まいが."
+      }
+    ]
+  },
+  "concession-nagara-mo": {
+    "kind": "Concession",
+    "short": "although",
+    "detail": "Connects a fact with a contrasting result.",
+    "examples": [
+      {
+        "japanese": "狭いながらも快適な部屋です。",
+        "english": "It is a small but comfortable room.",
+        "note": "ながらも is concessive."
+      }
+    ]
+  },
+  "continuation-tsutsu": {
+    "kind": "Continuation / contrast",
+    "short": "while or gradually",
+    "detail": "Can mean while doing, although, or gradually developing with つつある.",
+    "examples": [
+      {
+        "japanese": "状況は改善しつつある。",
+        "english": "The situation is gradually improving.",
+        "note": "つつある marks ongoing change."
+      }
+    ]
+  },
+  "cause-bakari-ni": {
+    "kind": "Regrettable cause",
+    "short": "just because",
+    "detail": "Marks a cause that led to an unfortunate result.",
+    "examples": [
+      {
+        "japanese": "一言言ったばかりに誤解された。",
+        "english": "Just because I said one word, I was misunderstood.",
+        "note": "ばかりに usually has regret."
+      }
+    ]
+  },
+  "contrast-dokoro-ka": {
+    "kind": "Strong contrast",
+    "short": "far from / not just",
+    "detail": "Rejects one idea and gives a stronger or opposite fact.",
+    "examples": [
+      {
+        "japanese": "暇どころか、忙しすぎます。",
+        "english": "Far from being free, I am too busy.",
+        "note": "どころか heightens contrast."
+      }
+    ]
+  },
+  "impossible-dokoro-dewa-nai": {
+    "kind": "No time for",
+    "short": "this is no time for",
+    "detail": "Says the situation makes something impossible or inappropriate.",
+    "examples": [
+      {
+        "japanese": "遊ぶどころではない。",
+        "english": "This is no time to play.",
+        "note": "どころではない rejects possibility due to circumstances."
+      }
+    ]
+  },
+  "nonlimiting-dake-denaku": {
+    "kind": "Addition",
+    "short": "not only",
+    "detail": "Adds another thing beyond the first.",
+    "examples": [
+      {
+        "japanese": "彼は日本語だけでなく韓国語も話せる。",
+        "english": "He can speak not only Japanese but also Korean.",
+        "note": "Often pairs with も."
+      }
+    ]
+  },
+  "regardless-ni-kakawarazu": {
+    "kind": "Regardless",
+    "short": "regardless of",
+    "detail": "Says the result is the same regardless of a condition.",
+    "examples": [
+      {
+        "japanese": "年齢にかかわらず参加できます。",
+        "english": "You can participate regardless of age.",
+        "note": "Do not confuse with にもかかわらず (despite)."
+      }
+    ]
+  },
+  "contrary-ni-hanshite": {
+    "kind": "Contrary to",
+    "short": "against / contrary to",
+    "detail": "Marks a result contrary to expectation, rule, or intention.",
+    "examples": [
+      {
+        "japanese": "予想に反して売れた。",
+        "english": "It sold contrary to expectations.",
+        "note": "に反して means against or contrary to."
+      }
+    ]
+  },
+  "addition-ni-kuwaete": {
+    "kind": "Addition",
+    "short": "in addition to",
+    "detail": "Adds another item or fact.",
+    "examples": [
+      {
+        "japanese": "家賃に加えて光熱費も必要です。",
+        "english": "Utilities are needed in addition to rent.",
+        "note": "に加えて is formal addition."
+      }
+    ]
+  },
+  "target-ni-kotaete": {
+    "kind": "Response",
+    "short": "in response to",
+    "detail": "Acts in response to expectations, requests, or support.",
+    "examples": [
+      {
+        "japanese": "期待に応えて頑張ります。",
+        "english": "I will work hard in response to expectations.",
+        "note": "に応えて responds to people or expectations."
+      }
+    ]
+  },
+  "center-wo-chuushin-ni": {
+    "kind": "Center",
+    "short": "centered on",
+    "detail": "Marks the central person, place, or topic.",
+    "examples": [
+      {
+        "japanese": "東京を中心に活動しています。",
+        "english": "We operate mainly around Tokyo.",
+        "note": "を中心に marks the center."
+      }
+    ]
+  },
+  "regardless-wo-toyazu": {
+    "kind": "Regardless",
+    "short": "regardless of",
+    "detail": "Says a distinction does not matter.",
+    "examples": [
+      {
+        "japanese": "経験を問わず応募できます。",
+        "english": "You can apply regardless of experience.",
+        "note": "を問わず is formal."
+      }
+    ]
+  },
+  "topic-wo-megutte": {
+    "kind": "Surrounding issue",
+    "short": "over / concerning",
+    "detail": "Marks an issue around which discussion, conflict, or movement occurs.",
+    "examples": [
+      {
+        "japanese": "予算をめぐって議論が続いた。",
+        "english": "Debate continued over the budget.",
+        "note": "Often used with disputes or discussion."
+      }
+    ]
+  },
+  "direction-muke-muki": {
+    "kind": "Target audience / suitability",
+    "short": "for or suitable for",
+    "detail": "向け means aimed at; 向き means suitable for.",
+    "examples": [
+      {
+        "japanese": "これは初心者向けの本です。",
+        "english": "This is a book for beginners.",
+        "note": "向け targets; 向き suits."
+      }
+    ]
+  },
+  "relative-wari-ni": {
+    "kind": "Unexpected comparison",
+    "short": "considering / for",
+    "detail": "Shows something is unexpected relative to a standard.",
+    "examples": [
+      {
+        "japanese": "値段のわりにおいしい。",
+        "english": "It is tasty considering the price.",
+        "note": "わりに compares against expectation."
+      }
+    ]
+  },
+  "memory-kke": {
+    "kind": "Memory check",
+    "short": "what was it again?",
+    "detail": "Casually checks memory or confirms something.",
+    "examples": [
+      {
+        "japanese": "明日の会議は何時だっけ。",
+        "english": "What time was tomorrow's meeting again?",
+        "note": "っけ is casual recollection."
+      }
+    ]
+  },
+  "quote-to-iu-yori": {
+    "kind": "Correction",
+    "short": "rather than",
+    "detail": "Corrects or reframes the previous description.",
+    "examples": [
+      {
+        "japanese": "彼は静かというより無口だ。",
+        "english": "He is not so much quiet as taciturn.",
+        "note": "というより adjusts the label."
+      }
+    ]
+  },
+  "example-to-itta": {
+    "kind": "Examples",
+    "short": "such as",
+    "detail": "Introduces representative examples.",
+    "examples": [
+      {
+        "japanese": "京都や奈良といった古い町。",
+        "english": "Old cities such as Kyoto and Nara.",
+        "note": "といった lists examples."
+      }
+    ]
+  },
+  "topic-to-ieba": {
+    "kind": "Speaking of",
+    "short": "speaking of",
+    "detail": "Introduces something associated with a topic.",
+    "examples": [
+      {
+        "japanese": "日本の食べ物といえば寿司です。",
+        "english": "Speaking of Japanese food, sushi comes to mind.",
+        "note": "といえば sets up an association."
+      }
+    ]
+  },
+  "thing-mono-da": {
+    "kind": "General truth / emotion",
+    "short": "it is natural / used to",
+    "detail": "Can express general truths, emotional reflection, or past habits.",
+    "examples": [
+      {
+        "japanese": "時間が経つのは早いものです。",
+        "english": "Time really does pass quickly.",
+        "note": "ものだ is context-sensitive."
+      }
+    ]
+  },
+  "cause-mono-dakara": {
+    "kind": "Excuse / reason",
+    "short": "because",
+    "detail": "Gives a reason, often as an excuse or explanation.",
+    "examples": [
+      {
+        "japanese": "道が混んでいたものだから遅れました。",
+        "english": "I was late because the road was crowded.",
+        "note": "ものだから softens an explanation."
+      }
+    ]
+  },
+  "concession-mono-no": {
+    "kind": "Concession",
+    "short": "although",
+    "detail": "States a fact but contrasts it with an unexpected result.",
+    "examples": [
+      {
+        "japanese": "買ったものの、まだ使っていない。",
+        "english": "Although I bought it, I have not used it yet.",
+        "note": "ものの is written-style concession."
+      }
+    ]
+  },
+  "advice-koto-da": {
+    "kind": "Advice / importance",
+    "short": "should do",
+    "detail": "Gives advice or states what is important.",
+    "examples": [
+      {
+        "japanese": "上達したいなら練習することだ。",
+        "english": "If you want to improve, you should practice.",
+        "note": "ことだ can be advice."
+      }
+    ]
+  },
+  "unnecessary-koto-wa-nai": {
+    "kind": "No need",
+    "short": "there is no need to",
+    "detail": "Says there is no need to do something.",
+    "examples": [
+      {
+        "japanese": "そんなに心配することはない。",
+        "english": "There is no need to worry so much.",
+        "note": "ことはない removes necessity."
+      }
+    ]
+  },
+  "double-negative-nai-koto-wa-nai": {
+    "kind": "Qualified possibility",
+    "short": "it is not impossible",
+    "detail": "Double negative that gives a qualified yes.",
+    "examples": [
+      {
+        "japanese": "できないことはない。",
+        "english": "It is not that I cannot do it.",
+        "note": "Often means possible, but not easily or enthusiastically."
+      }
+    ]
+  },
+  "explanation-to-iu-koto-da": {
+    "kind": "Explanation / hearsay",
+    "short": "it means / I heard",
+    "detail": "Explains a conclusion or reports information.",
+    "examples": [
+      {
+        "japanese": "つまり中止ということです。",
+        "english": "In other words, it means it is cancelled.",
+        "note": "Can be explanation or hearsay."
+      }
+    ]
+  },
+  "nature-to-iu-mono-da": {
+    "kind": "Evaluation",
+    "short": "that is what X is",
+    "detail": "States a general evaluation or conclusion.",
+    "examples": [
+      {
+        "japanese": "それが親切というものだ。",
+        "english": "That is what kindness is.",
+        "note": "Often makes a normative evaluation."
+      }
+    ]
+  },
+  "not-nature-to-iu-mono-dewa-nai": {
+    "kind": "Qualification",
+    "short": "not necessarily",
+    "detail": "Says something is not simply or always the case.",
+    "examples": [
+      {
+        "japanese": "高ければ良いというものではない。",
+        "english": "Expensive does not necessarily mean good.",
+        "note": "否定 of というものだ."
+      }
+    ]
+  },
+  "wish-nai-mono-ka": {
+    "kind": "Wish",
+    "short": "is there no way?",
+    "detail": "Expresses a wish that something could happen.",
+    "examples": [
+      {
+        "japanese": "もっと簡単にできないものか。",
+        "english": "Is there no way to do it more easily?",
+        "note": "Often expresses longing for a solution."
+      }
+    ]
+  },
+  "instant-ga-hayai-ka": {
+    "kind": "Immediate sequence",
+    "short": "no sooner than",
+    "detail": "Shows one action happens immediately after another.",
+    "examples": [
+      {
+        "japanese": "ドアを開けるが早いか、犬が飛び出した。",
+        "english": "No sooner had I opened the door than the dog jumped out.",
+        "note": "Literary immediate sequence."
+      }
+    ]
+  },
+  "instant-ya-inaya": {
+    "kind": "Immediate sequence",
+    "short": "as soon as",
+    "detail": "Shows an action happens immediately after another.",
+    "examples": [
+      {
+        "japanese": "ベルが鳴るや否や、生徒が立ち上がった。",
+        "english": "As soon as the bell rang, the students stood up.",
+        "note": "Formal/literary immediate sequence."
+      }
+    ]
+  },
+  "instant-nari": {
+    "kind": "Immediate sequence",
+    "short": "as soon as",
+    "detail": "Shows one action immediately follows another, often unexpectedly.",
+    "examples": [
+      {
+        "japanese": "彼は帰るなり寝てしまった。",
+        "english": "As soon as he got home, he fell asleep.",
+        "note": "N1 なり differs from listing なり."
+      }
+    ]
+  },
+  "repetition-soba-kara": {
+    "kind": "Repeated frustration",
+    "short": "as soon as, repeatedly",
+    "detail": "Shows something happens repeatedly right after another action, often frustratingly.",
+    "examples": [
+      {
+        "japanese": "覚えたそばから忘れる。",
+        "english": "I forget things as soon as I learn them.",
+        "note": "Often negative or frustrating."
+      }
+    ]
+  },
+  "unexpected-ka-to-omoi-kiya": {
+    "kind": "Unexpected turn",
+    "short": "just when I thought",
+    "detail": "Introduces an unexpected result contrary to what one thought.",
+    "examples": [
+      {
+        "japanese": "終わったかと思いきや、また問題が出た。",
+        "english": "Just when I thought it was over, another problem appeared.",
+        "note": "思いきや signals reversal."
+      }
+    ]
+  },
+  "incidental-katagata": {
+    "kind": "Combined purpose",
+    "short": "also as",
+    "detail": "Marks an action done also for another purpose, often formal visits or thanks.",
+    "examples": [
+      {
+        "japanese": "お礼かたがた伺いました。",
+        "english": "I visited also to express my thanks.",
+        "note": "Formal combined purpose."
+      }
+    ]
+  },
+  "incidental-gatera": {
+    "kind": "While doing",
+    "short": "while / on the same occasion",
+    "detail": "Marks doing something while also doing another activity.",
+    "examples": [
+      {
+        "japanese": "散歩がてら買い物に行く。",
+        "english": "I will go shopping while taking a walk.",
+        "note": "がてら is like ついでに but more lexical."
+      }
+    ]
+  },
+  "starting-wo-kawakiri-ni": {
+    "kind": "Starting point",
+    "short": "starting with",
+    "detail": "Marks the first in a series.",
+    "examples": [
+      {
+        "japanese": "東京を皮切りに全国で上映される。",
+        "english": "Starting with Tokyo, it will be shown nationwide.",
+        "note": "皮切り is the opening event."
+      }
+    ]
+  },
+  "endpoint-wo-kagiri-ni": {
+    "kind": "Final point",
+    "short": "as of / ending with",
+    "detail": "Marks a final point or last occurrence.",
+    "examples": [
+      {
+        "japanese": "今日を限りに退職します。",
+        "english": "As of today, I will resign.",
+        "note": "を限りに marks an endpoint."
+      }
+    ]
+  },
+  "means-wo-motte": {
+    "kind": "Formal means / endpoint",
+    "short": "by means of / as of",
+    "detail": "Formal marker for means, reason, or endpoint.",
+    "examples": [
+      {
+        "japanese": "本日をもって終了します。",
+        "english": "This ends as of today.",
+        "note": "をもって is formal."
+      }
+    ]
+  },
+  "turning-wo-sakai-ni": {
+    "kind": "Turning point",
+    "short": "from / since",
+    "detail": "Marks a boundary after which things change.",
+    "examples": [
+      {
+        "japanese": "結婚を境に生活が変わった。",
+        "english": "My life changed after marriage.",
+        "note": "境 marks a boundary."
+      }
+    ]
+  },
+  "range-ni-itaru-made": {
+    "kind": "Range",
+    "short": "all the way to",
+    "detail": "Emphasizes a range reaching even to a point.",
+    "examples": [
+      {
+        "japanese": "細部に至るまで確認した。",
+        "english": "I checked everything down to the details.",
+        "note": "に至るまで emphasizes breadth."
+      }
+    ]
+  },
+  "stage-ni-itatte": {
+    "kind": "Stage",
+    "short": "only when / at the stage of",
+    "detail": "Marks reaching a serious or notable stage.",
+    "examples": [
+      {
+        "japanese": "事態がここに至っては手遅れだ。",
+        "english": "At this stage, it is too late.",
+        "note": "に至っては emphasizes a reached state."
+      }
+    ]
+  },
+  "context-ni-atte": {
+    "kind": "In a situation",
+    "short": "in / under",
+    "detail": "Formal marker for being in a special situation or position.",
+    "examples": [
+      {
+        "japanese": "困難な状況にあって冷静だった。",
+        "english": "He was calm in a difficult situation.",
+        "note": "Formal written expression."
+      }
+    ]
+  },
+  "standard-ni-sokushite": {
+    "kind": "According to",
+    "short": "in line with",
+    "detail": "Shows action follows facts, rules, or reality closely.",
+    "examples": [
+      {
+        "japanese": "現実に即して考える。",
+        "english": "Think in line with reality.",
+        "note": "に即して is formal."
+      }
+    ]
+  },
+  "exclusive-wo-oite": {
+    "kind": "Exclusivity",
+    "short": "except for / no one but",
+    "detail": "Says there is no better or other option than the marked item.",
+    "examples": [
+      {
+        "japanese": "彼をおいて適任者はいない。",
+        "english": "There is no one more suitable than him.",
+        "note": "Often used with いない or ない."
+      }
+    ]
+  },
+  "defiance-wo-mono-to-mo-sezu": {
+    "kind": "Defiance",
+    "short": "in defiance of",
+    "detail": "Says someone acts without being daunted by difficulty.",
+    "examples": [
+      {
+        "japanese": "悪天候をものともせず進んだ。",
+        "english": "They advanced despite the bad weather.",
+        "note": "Heroic or formal tone."
+      }
+    ]
+  },
+  "forced-wo-yogi-naku-sareru": {
+    "kind": "Forced result",
+    "short": "be forced to",
+    "detail": "Says someone is forced by circumstances into a result.",
+    "examples": [
+      {
+        "japanese": "計画の変更を余儀なくされた。",
+        "english": "We were forced to change the plan.",
+        "note": "Noun + を余儀なくされる."
+      }
+    ]
+  },
+  "force-wo-yogi-naku-saseru": {
+    "kind": "Force result",
+    "short": "force someone to",
+    "detail": "Says circumstances force someone into a result.",
+    "examples": [
+      {
+        "japanese": "大雪が中止を余儀なくさせた。",
+        "english": "Heavy snow forced the cancellation.",
+        "note": "Cause version of 余儀なくされる."
+      }
+    ]
+  },
+  "emotion-ni-taenai": {
+    "kind": "Deep feeling",
+    "short": "cannot bear / deeply",
+    "detail": "Can express unbearable negativity or deep positive emotion depending on noun.",
+    "examples": [
+      {
+        "japanese": "感謝に堪えません。",
+        "english": "I cannot thank you enough.",
+        "note": "Often formal with 感謝 or 遺憾."
+      }
+    ]
+  },
+  "reluctance-ni-shinobinai": {
+    "kind": "Reluctance",
+    "short": "cannot bear to",
+    "detail": "Says one cannot bring oneself to do something emotionally.",
+    "examples": [
+      {
+        "japanese": "彼に真実を言うに忍びない。",
+        "english": "I cannot bear to tell him the truth.",
+        "note": "Emotional reluctance."
+      }
+    ]
+  },
+  "easy-inference-ni-katagunai": {
+    "kind": "Easy inference",
+    "short": "not hard to imagine",
+    "detail": "Says something is easy to imagine or understand.",
+    "examples": [
+      {
+        "japanese": "彼の苦労は想像に難くない。",
+        "english": "His hardship is not hard to imagine.",
+        "note": "Usually with 想像 or 理解."
+      }
+    ]
+  },
+  "worthy-ni-ataru": {
+    "kind": "Worthiness",
+    "short": "worthy of",
+    "detail": "Marks something as deserving an evaluation or action.",
+    "examples": [
+      {
+        "japanese": "この本は読むに値する。",
+        "english": "This book is worth reading.",
+        "note": "に値する means worth doing/evaluating."
+      }
+    ]
+  },
+  "sufficient-ni-taru": {
+    "kind": "Sufficiency",
+    "short": "enough to / worthy of",
+    "detail": "Shows something is sufficient or worthy for a judgment.",
+    "examples": [
+      {
+        "japanese": "信頼に足る人物です。",
+        "english": "He is a person worthy of trust.",
+        "note": "Formal sufficiency/worth."
+      }
+    ]
+  },
+  "utmost-no-itari": {
+    "kind": "Utmost",
+    "short": "the height of",
+    "detail": "Expresses an extreme degree, often in set phrases.",
+    "examples": [
+      {
+        "japanese": "光栄の至りです。",
+        "english": "It is the height of honor.",
+        "note": "Formal set expression."
+      }
+    ]
+  },
+  "extreme-kiwamaru-kiwamarinai": {
+    "kind": "Extreme degree",
+    "short": "extremely",
+    "detail": "Expresses an extreme degree, often negative or formal.",
+    "examples": [
+      {
+        "japanese": "失礼極まりない態度だ。",
+        "english": "That is an extremely rude attitude.",
+        "note": "N1 formal intensifier."
+      }
+    ]
+  },
+  "deep-wish-te-yamanai": {
+    "kind": "Deep wish / feeling",
+    "short": "sincerely",
+    "detail": "Expresses a deep, continuing wish or feeling.",
+    "examples": [
+      {
+        "japanese": "成功を願ってやみません。",
+        "english": "I sincerely wish for your success.",
+        "note": "Formal with wishes and feelings."
+      }
+    ]
+  },
+  "since-te-kara-to-iu-mono": {
+    "kind": "Since then",
+    "short": "ever since",
+    "detail": "Says that after an event, a state has continued.",
+    "examples": [
+      {
+        "japanese": "犬を飼ってからというもの、毎日が楽しい。",
+        "english": "Ever since getting a dog, every day has been fun.",
+        "note": "Emphasizes lasting change."
+      }
+    ]
+  },
+  "consequence-zu-ni-wa-okanai": {
+    "kind": "Inevitable action",
+    "short": "will surely / cannot not",
+    "detail": "Says something will inevitably cause an action or reaction.",
+    "examples": [
+      {
+        "japanese": "この映画は人を感動させずにはおかない。",
+        "english": "This movie is sure to move people.",
+        "note": "Often means cannot fail to affect."
+      }
+    ]
+  },
+  "consequence-zu-ni-wa-sumanai": {
+    "kind": "Unavoidable duty",
+    "short": "must / cannot avoid",
+    "detail": "Says one cannot get away without doing something.",
+    "examples": [
+      {
+        "japanese": "謝らずにはすまない。",
+        "english": "I cannot avoid apologizing.",
+        "note": "Duty or consequence cannot be avoided."
+      }
+    ]
+  },
+  "prohibition-bekarazu": {
+    "kind": "Prohibition",
+    "short": "must not",
+    "detail": "Old/formal prohibition often seen on signs or set phrases.",
+    "examples": [
+      {
+        "japanese": "ここに入るべからず。",
+        "english": "Do not enter here.",
+        "note": "Literary/formal prohibition."
+      }
+    ]
+  },
+  "improper-majiki": {
+    "kind": "Improper",
+    "short": "unbecoming / must not",
+    "detail": "Marks behavior as inappropriate for a role or status.",
+    "examples": [
+      {
+        "japanese": "教師にあるまじき行為だ。",
+        "english": "That is behavior unbecoming of a teacher.",
+        "note": "Formal judgment of impropriety."
+      }
+    ]
+  },
+  "role-taru-mono": {
+    "kind": "Role standard",
+    "short": "one who is",
+    "detail": "States what is expected of someone in a role.",
+    "examples": [
+      {
+        "japanese": "リーダーたるもの責任を持つべきだ。",
+        "english": "A leader should take responsibility.",
+        "note": "Formal role-based expectation."
+      }
+    ]
+  },
+  "surprise-tomo-arou-mono-ga": {
+    "kind": "Role disappointment",
+    "short": "of all people",
+    "detail": "Expresses criticism or surprise that someone of a status did something.",
+    "examples": [
+      {
+        "japanese": "医者ともあろうものが不注意だった。",
+        "english": "A doctor, of all people, was careless.",
+        "note": "Critical surprise."
+      }
+    ]
+  },
+  "stage-tomo-naru-to": {
+    "kind": "Stage / status",
+    "short": "when it comes to",
+    "detail": "Says that once something reaches a level, things change.",
+    "examples": [
+      {
+        "japanese": "大人ともなると責任が増える。",
+        "english": "Once you become an adult, responsibilities increase.",
+        "note": "Marks a stage or status."
+      }
+    ]
+  },
+  "any-de-are": {
+    "kind": "Regardless / even if",
+    "short": "whoever or whatever",
+    "detail": "Formal marker meaning even if or no matter what.",
+    "examples": [
+      {
+        "japanese": "理由が何であれ、許されない。",
+        "english": "Whatever the reason, it is not allowed.",
+        "note": "Often pairs with repeated alternatives."
+      }
+    ]
+  },
+  "pair-to-ii-to-ii": {
+    "kind": "Pair evaluation",
+    "short": "both...and",
+    "detail": "Picks two examples to evaluate the whole.",
+    "examples": [
+      {
+        "japanese": "デザインといい性能といい素晴らしい。",
+        "english": "Both the design and performance are excellent.",
+        "note": "Usually repeats といい."
+      }
+    ]
+  },
+  "concession-to-wa-ie": {
+    "kind": "Concession",
+    "short": "although / be that as it may",
+    "detail": "Acknowledges a fact but introduces a contrasting point.",
+    "examples": [
+      {
+        "japanese": "春とはいえ、まだ寒い。",
+        "english": "Although it is spring, it is still cold.",
+        "note": "Formal concession."
+      }
+    ]
+  },
+  "without-nakushite": {
+    "kind": "Without",
+    "short": "without / without which",
+    "detail": "Says something cannot happen without the marked thing.",
+    "examples": [
+      {
+        "japanese": "努力なくして成功はない。",
+        "english": "There is no success without effort.",
+        "note": "Formal without-condition."
+      }
+    ]
+  },
+  "basis-atte-no": {
+    "kind": "Dependent on",
+    "short": "possible because of",
+    "detail": "Says something exists thanks to another thing.",
+    "examples": [
+      {
+        "japanese": "皆さんの協力あっての成功です。",
+        "english": "This success is thanks to everyone's cooperation.",
+        "note": "AあってのB = B exists because of A."
+      }
+    ]
+  },
+  "unique-nara-dewa": {
+    "kind": "Unique to",
+    "short": "unique to",
+    "detail": "Marks something as unique to the source.",
+    "examples": [
+      {
+        "japanese": "京都ならではの雰囲気。",
+        "english": "An atmosphere unique to Kyoto.",
+        "note": "Often positive uniqueness."
+      }
+    ]
+  },
+  "covered-mamire": {
+    "kind": "Covered in",
+    "short": "covered with",
+    "detail": "Says something is covered in an unpleasant substance.",
+    "examples": [
+      {
+        "japanese": "泥まみれになった。",
+        "english": "I got covered in mud.",
+        "note": "Often negative physical covering."
+      }
+    ]
+  },
+  "full-zukume": {
+    "kind": "Full of",
+    "short": "all / nothing but",
+    "detail": "Says everything is of one kind, often color or events.",
+    "examples": [
+      {
+        "japanese": "今日はいいことずくめだった。",
+        "english": "Today was full of good things.",
+        "note": "ずくめ means entirely filled with."
+      }
+    ]
+  },
+  "depending-ikan": {
+    "kind": "Depending / regardless",
+    "short": "depending on / regardless of",
+    "detail": "Formal expression for depending on how something is, or regardless of it.",
+    "examples": [
+      {
+        "japanese": "結果いかんで判断します。",
+        "english": "We will decide depending on the result.",
+        "note": "いかん is formal and noun-based."
+      }
+    ]
+  },
+  "result-shimatsu-da": {
+    "kind": "Bad result",
+    "short": "ended up",
+    "detail": "Describes a bad final result after a sequence of events.",
+    "examples": [
+      {
+        "japanese": "最後には怒り出す始末だ。",
+        "english": "In the end, he even got angry.",
+        "note": "Often negative outcome."
+      }
+    ]
+  },
+  "rhetorical-denakute-nandarou": {
+    "kind": "Rhetorical emphasis",
+    "short": "what else could it be?",
+    "detail": "Strongly asserts that something is exactly the named thing.",
+    "examples": [
+      {
+        "japanese": "これが愛でなくてなんだろう。",
+        "english": "What could this be if not love?",
+        "note": "Rhetorical affirmation."
+      }
+    ]
+  },
+  "extreme-to-ittara-nai": {
+    "kind": "Extreme degree",
+    "short": "indescribably",
+    "detail": "Expresses an extreme degree that is hard to describe.",
+    "examples": [
+      {
+        "japanese": "うれしいといったらない。",
+        "english": "I was indescribably happy.",
+        "note": "Casual/emphatic extreme degree."
+      }
+    ]
+  },
+  "extreme-tara-aryashinai": {
+    "kind": "Extreme degree",
+    "short": "extremely",
+    "detail": "Casual emphatic expression meaning extremely.",
+    "examples": [
+      {
+        "japanese": "面倒くさいったらありゃしない。",
+        "english": "It is unbelievably troublesome.",
+        "note": "Often colloquial."
+      }
+    ]
+  },
+  "best-ni-koshita-koto-wa-nai": {
+    "kind": "Best option",
+    "short": "nothing is better than",
+    "detail": "Says that a certain option is best if possible.",
+    "examples": [
+      {
+        "japanese": "早いに越したことはない。",
+        "english": "The earlier, the better.",
+        "note": "に越したことはない recommends ideal condition."
+      }
+    ]
+  },
+  "excess-ni-mo-hodo-ga-aru": {
+    "kind": "Excess criticism",
+    "short": "there is a limit",
+    "detail": "Criticizes something as going too far.",
+    "examples": [
+      {
+        "japanese": "冗談にもほどがある。",
+        "english": "There is a limit to joking.",
+        "note": "Used for criticism."
+      }
+    ]
+  },
+  "emphatic-no-nanno": {
+    "kind": "Extreme emphasis",
+    "short": "extremely",
+    "detail": "Casual emphatic expression for a strong feeling or state.",
+    "examples": [
+      {
+        "japanese": "忙しいのなんの。",
+        "english": "I was incredibly busy.",
+        "note": "Colloquial intensity."
+      }
+    ]
+  },
+  "minimal-tari-tomo": {
+    "kind": "Even one",
+    "short": "not even",
+    "detail": "Emphasizes even the smallest amount, often with negatives.",
+    "examples": [
+      {
+        "japanese": "一秒たりとも無駄にしない。",
+        "english": "I will not waste even one second.",
+        "note": "Strong minimal emphasis."
+      }
+    ]
+  },
+  "minimal-dani": {
+    "kind": "Even / just",
+    "short": "even just",
+    "detail": "Literary marker often in set phrases like 想像だにしない.",
+    "examples": [
+      {
+        "japanese": "想像だにしなかった。",
+        "english": "I had not even imagined it.",
+        "note": "Literary and limited use."
+      }
+    ]
+  },
+  "minimal-sura": {
+    "kind": "Even",
+    "short": "even",
+    "detail": "Emphasizes an extreme or minimal example.",
+    "examples": [
+      {
+        "japanese": "彼は名前すら書けない。",
+        "english": "He cannot even write his name.",
+        "note": "すら is similar to さえ but formal/literary."
+      }
+    ]
+  },
+  "comparison-gotoki": {
+    "kind": "Like / such as",
+    "short": "like or such a",
+    "detail": "Formal/literary expression meaning like, or dismissively such as.",
+    "examples": [
+      {
+        "japanese": "私ごときには無理です。",
+        "english": "It is impossible for someone like me.",
+        "note": "Often humble or dismissive."
+      }
+    ]
+  },
+  "suffix-meku": {
+    "kind": "Become like",
+    "short": "take on the air of",
+    "detail": "Means to become like or show signs of something.",
+    "examples": [
+      {
+        "japanese": "春めいてきました。",
+        "english": "It has started to feel like spring.",
+        "note": "Often seasonal or atmospheric."
+      }
+    ]
+  },
+  "unnecessary-made-mo-nai": {
+    "kind": "No need",
+    "short": "no need to",
+    "detail": "Says something is so obvious or unnecessary that it need not be done.",
+    "examples": [
+      {
+        "japanese": "言うまでもない。",
+        "english": "It goes without saying.",
+        "note": "までもない removes need."
+      }
+    ]
+  },
+  "unnecessary-ni-wa-oyobanai": {
+    "kind": "No need / cannot match",
+    "short": "no need or not equal to",
+    "detail": "Can mean no need to do, or not reaching the level of something.",
+    "examples": [
+      {
+        "japanese": "心配するには及びません。",
+        "english": "There is no need to worry.",
+        "note": "Formal expression."
+      }
+    ]
+  },
+  "situation-tokoro-wo": {
+    "kind": "At a moment",
+    "short": "at a time when",
+    "detail": "Politely acknowledges someone's situation, often in thanks or apology.",
+    "examples": [
+      {
+        "japanese": "お忙しいところをありがとうございます。",
+        "english": "Thank you despite being busy.",
+        "note": "Common polite set pattern."
+      }
+    ]
+  }
+}

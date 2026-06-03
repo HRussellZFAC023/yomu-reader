@@ -26,7 +26,13 @@ if (!code.includes('// @grant        GM.xmlHttpRequest')) fail('GM.xmlHttpReques
 if (!code.includes('// @grant        GM_getResourceText')) fail('GM_getResourceText grant is missing.');
 if (!code.includes('// @resource     yomuCss ')) fail('reader CSS resource metadata is missing.');
 if (!code.includes('// @inject-into  content')) fail('Violentmonkey content-world injection metadata is missing.');
-if (code.includes('// @require')) fail('userscript must be self-contained and cannot use @require.');
+
+const requireUrls = lines
+  .map(line => line.match(/^\/\/ @require\s+(.+)$/)?.[1]?.trim())
+  .filter(Boolean);
+if (requireUrls.length) fail(`userscript must be self-contained and cannot use @require metadata; found: ${requireUrls.join(', ')}`);
+if (!code.includes('fflate') || !code.includes('inflateSync')) fail('the fflate library does not appear to be bundled inline.');
+if (/\}\)\(fflate\);\s*$/.test(code)) fail('the bundle still invokes an external fflate global; fflate must be bundled inline.');
 if (code.includes('// @downloadURL')) fail('Greasy Fork build should not advertise an alternate download URL.');
 if (code.includes('// @updateURL')) fail('Greasy Fork build should not advertise an alternate update URL.');
 if (!code.includes('Bundled library source information') || !code.includes('fflate')) fail('bundled library source/version notice is missing.');

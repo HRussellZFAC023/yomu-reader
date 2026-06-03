@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "よむ: a small JPDB/Yomitan popup dictionary and subtitle miner userscript.",
@@ -42,6 +42,7 @@
     "qa": "npm run check && node scripts/qa-audit.mjs && node scripts/docs-a11y-audit.mjs && node scripts/complexity-audit.mjs",
     "qa:live": "node scripts/jpdb-live-smoke.mjs",
     "size:bundle": "node scripts/bundle-size-report.mjs",
+    "size:modules": "vite build --config vite.size.config.ts",
     "publish:greasyfork": "node scripts/open-greasyfork-prefill.cjs"
   },
   "dependencies": {

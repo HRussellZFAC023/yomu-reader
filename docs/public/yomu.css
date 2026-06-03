@@ -5764,34 +5764,6 @@ html.jpdb-reader-doodle-active * {
   grid-template-columns: repeat(3, minmax(88px, 1fr));
   gap: 10px 12px;
 }
-.jpdb-reader-settings-deck-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-}
-.jpdb-reader-settings label.jpdb-reader-settings-deck-toggle {
-  display: inline-grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  width: auto;
-  min-height: 34px;
-  margin: 0;
-  padding: 6px 10px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface) 86%, transparent);
-}
-.jpdb-reader-settings label.jpdb-reader-settings-deck-toggle[data-active="true"] {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 54%, var(--jpdb-reader-border));
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 12%, var(--jpdb-reader-surface));
-}
-.jpdb-reader-settings-deck-toggle span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-weight: 700;
-}
 .jpdb-reader-proxy-guide {
   margin: 12px 0 4px;
   border: 1px solid var(--jpdb-reader-border);

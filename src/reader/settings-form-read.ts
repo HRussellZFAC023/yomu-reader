@@ -35,6 +35,7 @@ interface SettingsFormReader {
     get: (key: string) => string;
     has: (key: string) => boolean;
     number: (key: string, fallback: number) => number;
+    clamped: (key: string, min: number, max: number, fallback: number) => number;
     colorSource: (key: string, fallback: ReaderColorSource) => ReaderColorSource;
 }
 
@@ -47,11 +48,13 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const get = (key: string) => String(data.get(key) ?? '');
     const has = (key: string) => data.has(key);
     const number = (key: string, fallback: number) => readNumber(get(key), fallback);
+    const clamped = (key: string, min: number, max: number, fallback: number) =>
+        Math.max(min, Math.min(max, number(key, fallback)));
     const audioSources = readAudioSources(data);
     const furiganaMode = readOption(get('furiganaMode'), ['auto', 'all', 'difficult-kanji', 'known-status', 'off'] as const, current.furiganaMode);
     const colorSource = (key: string, fallback: ReaderColorSource) =>
         readOption(get(key), COLOR_SOURCE_VALUES, colorSourceFallback(key, fallback));
-    const reader: SettingsFormReader = { get, has, number, colorSource };
+    const reader: SettingsFormReader = { get, has, number, clamped, colorSource };
     const jpdbDefinitionsRowPresent = hasJpdbDefinitionsRow(has);
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter(preference => preference.type === 'kanji');
@@ -106,11 +109,11 @@ function hasJpdbDefinitionsRow(has: (key: string) => boolean): boolean {
 }
 
 function readJpdbFormSettings(reader: SettingsFormReader, current: ReaderSettings, definitionsRowPresent: boolean): Partial<ReaderSettings> {
-    const { has, number } = reader;
+    const { has, clamped } = reader;
     const jpdbPageEnhancementsEnabled = has('jpdbPageEnhancementsEnabled');
     return {
         jpdbDefinitionsEnabled: definitionsRowPresent ? has('jpdbDefinitions.enabled') : has('jpdbDefinitionsEnabled'),
-        jpdbDefinitionsPriority: Math.max(0, Math.min(999, number('jpdbDefinitions.priority', current.jpdbDefinitionsPriority))),
+        jpdbDefinitionsPriority: clamped('jpdbDefinitions.priority', 0, 999, current.jpdbDefinitionsPriority),
         jpdbPageEnhancementsEnabled,
         jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has('jpdbPageWordEnhancementsEnabled'),
         jpdbPageKanjiEnhancementsEnabled: jpdbPageEnhancementsEnabled && has('jpdbPageKanjiEnhancementsEnabled'),
@@ -118,31 +121,31 @@ function readJpdbFormSettings(reader: SettingsFormReader, current: ReaderSetting
 }
 
 function readKanjiAddonFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
-    const { has, number } = reader;
+    const { has, clamped } = reader;
     return {
         jpdbKanjiEnabled: has('jpdbKanji.enabled'),
-        jpdbKanjiPriority: Math.max(0, Math.min(999, number('jpdbKanji.priority', current.jpdbKanjiPriority))),
+        jpdbKanjiPriority: clamped('jpdbKanji.priority', 0, 999, current.jpdbKanjiPriority),
         kanjiImmersionKitEnabled: has('kanjiImmersionKit.enabled'),
-        kanjiImmersionKitPriority: Math.max(0, Math.min(999, number('kanjiImmersionKit.priority', current.kanjiImmersionKitPriority))),
+        kanjiImmersionKitPriority: clamped('kanjiImmersionKit.priority', 0, 999, current.kanjiImmersionKitPriority),
         uchisenEnabled: has('uchisen.enabled'),
-        uchisenPriority: Math.max(0, Math.min(999, number('uchisen.priority', current.uchisenPriority))),
+        uchisenPriority: clamped('uchisen.priority', 0, 999, current.uchisenPriority),
         rtkEnabled: has('rtk.enabled'),
-        rtkPriority: Math.max(0, Math.min(999, number('rtk.priority', current.rtkPriority))),
+        rtkPriority: clamped('rtk.priority', 0, 999, current.rtkPriority),
         kanjivgEnabled: has('kanjivg.enabled'),
-        kanjivgPriority: Math.max(0, Math.min(999, number('kanjivg.priority', current.kanjivgPriority))),
+        kanjivgPriority: clamped('kanjivg.priority', 0, 999, current.kanjivgPriority),
         kanjiOriginsEnabled: has('kanjiOrigins.enabled'),
-        kanjiOriginsPriority: Math.max(0, Math.min(999, number('kanjiOrigins.priority', current.kanjiOriginsPriority))),
+        kanjiOriginsPriority: clamped('kanjiOrigins.priority', 0, 999, current.kanjiOriginsPriority),
         kanjiOriginKanjiMapEnabled: has('kanjiOriginKanjiMapEnabled'),
         kanjiOriginGraphEnabled: has('kanjiOriginGraphEnabled'),
         kanjiOriginRadicalImagesEnabled: has('kanjiOriginRadicalImagesEnabled'),
         similarKanjiWords: has('similarKanjiWords.enabled'),
-        similarKanjiWordsPriority: Math.max(0, Math.min(999, number('similarKanjiWords.priority', current.similarKanjiWordsPriority))),
-        similarKanjiWordLimit: Math.max(2, Math.min(24, number('similarKanjiWordLimit', current.similarKanjiWordLimit))),
+        similarKanjiWordsPriority: clamped('similarKanjiWords.priority', 0, 999, current.similarKanjiWordsPriority),
+        similarKanjiWordLimit: clamped('similarKanjiWordLimit', 2, 24, current.similarKanjiWordLimit),
     };
 }
 
 function readAudioFormSettings(reader: SettingsFormReader, current: ReaderSettings, audioSources: AudioSourceSetting[]): Partial<ReaderSettings> {
-    const { get, has, number } = reader;
+    const { get, has, clamped } = reader;
     const audioAutoPlayMode = readOption(get('audioAutoPlayMode'), ['off', 'all', 'hover', 'tap'] as const, current.audioAutoPlayMode);
     return {
         audioEnabled: has('audioEnabled'),
@@ -154,7 +157,7 @@ function readAudioFormSettings(reader: SettingsFormReader, current: ReaderSettin
         audioSourceUrl: audioSources.find(source => source.url.trim())?.url.trim() ?? current.audioSourceUrl,
         audioViaBlob: current.audioViaBlob,
         audioFallbackChimeEnabled: has('audioFallbackChimeEnabled'),
-        audioTimeoutMs: Math.max(1000, Math.min(30000, number('audioTimeoutMs', current.audioTimeoutMs))),
+        audioTimeoutMs: clamped('audioTimeoutMs', 1000, 30000, current.audioTimeoutMs),
         audioSelectionMode: readOption(get('audioSelectionMode'), ['first', 'random'] as const, current.audioSelectionMode),
         audioTtsMode: readOption(get('audioTtsMode'), ['fallback', 'source-order'] as const, current.audioTtsMode),
     };
@@ -186,14 +189,14 @@ function readColorFormSettings(reader: SettingsFormReader, current: ReaderSettin
 }
 
 function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
-    const { has, number } = reader;
+    const { has, clamped } = reader;
     return {
         parseSelection: has('parseSelection'),
         lookupOnClick: has('lookupOnClick'),
         lookupOnHover: has('lookupOnHover'),
         lookupOnMiddleMouse: has('lookupOnMiddleMouse'),
-        hoverOpenDelayMs: Math.max(0, Math.min(1500, number('hoverOpenDelayMs', current.hoverOpenDelayMs))),
-        hoverCloseDelayMs: Math.max(0, Math.min(3000, number('hoverCloseDelayMs', current.hoverCloseDelayMs))),
+        hoverOpenDelayMs: clamped('hoverOpenDelayMs', 0, 1500, current.hoverOpenDelayMs),
+        hoverCloseDelayMs: clamped('hoverCloseDelayMs', 0, 3000, current.hoverCloseDelayMs),
         popupActivationMode: current.popupActivationMode,
         scanModifierKey: current.scanModifierKey,
         showFloatingButton: has('showFloatingButton'),
@@ -201,7 +204,7 @@ function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: Rea
 }
 
 function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
-    const { get, has, number } = reader;
+    const { get, has, clamped } = reader;
     return {
         newTabEnabled: has('newTabEnabled'),
         newTabAnkiEnabled: has('newTabAnkiEnabled'),
@@ -214,7 +217,7 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
         newTabParsingEnabled: has('newTabParsingEnabled'),
         newTabFrontSentenceEnabled: has('newTabFrontSentenceEnabled'),
         newTabOfflineEnabled: has('newTabOfflineEnabled'),
-        newTabOfflineLimit: Math.max(0, Math.min(500, number('newTabOfflineLimit', current.newTabOfflineLimit))),
+        newTabOfflineLimit: clamped('newTabOfflineLimit', 0, 500, current.newTabOfflineLimit),
         newTabKanjiAutogradeEnabled: has('newTabKanjiAutogradeEnabled'),
         newTabKanjiAutoSubmit: has('newTabKanjiAutoSubmit'),
     };
@@ -234,23 +237,23 @@ function readReadingDisplayFormSettings(
 }
 
 function readLocalDictionaryFormSettings(reader: SettingsFormReader, current: ReaderSettings, kanjiPreferences: DictionaryPreference[]): Partial<ReaderSettings> {
-    const { has, number } = reader;
+    const { has, clamped } = reader;
     return {
         localDictionariesEnabled: has('localDictionariesEnabled'),
         localDictionaryShowKanji: has('kanjiDictionaries.enabled') || kanjiPreferences.some(preference => preference.enabled),
-        kanjiDictionariesPriority: Math.max(0, Math.min(999, number('kanjiDictionaries.priority', current.kanjiDictionariesPriority))),
+        kanjiDictionariesPriority: clamped('kanjiDictionaries.priority', 0, 999, current.kanjiDictionariesPriority),
         dictionarySourcesInitiallyExpanded: has('dictionarySourcesInitiallyExpanded'),
-        localDictionaryMaxResults: Math.max(1, Math.min(64, number('localDictionaryMaxResults', current.localDictionaryMaxResults))),
+        localDictionaryMaxResults: clamped('localDictionaryMaxResults', 1, 64, current.localDictionaryMaxResults),
     };
 }
 
 function readAnkiFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
-    const { get, has } = reader;
+    const { get, has, clamped } = reader;
     const sectionRowPresent = Boolean(get('ankiSection.name') || get('ankiSection.priority') || has('ankiSection.enabled'));
     return {
         ankiEnabled: has('ankiEnabled'),
         ankiSectionEnabled: sectionRowPresent ? has('ankiSection.enabled') : current.ankiSectionEnabled,
-        ankiSectionPriority: sectionRowPresent ? Math.max(0, Math.min(999, reader.number('ankiSection.priority', current.ankiSectionPriority))) : current.ankiSectionPriority,
+        ankiSectionPriority: sectionRowPresent ? clamped('ankiSection.priority', 0, 999, current.ankiSectionPriority) : current.ankiSectionPriority,
         ankiConnectUrl: get('ankiConnectUrl').trim() || current.ankiConnectUrl,
         ankiDeck: get('ankiDeck').trim() || current.ankiDeck,
         ankiModel: get('ankiModel').trim() || current.ankiModel,
@@ -293,29 +296,29 @@ function readAnkiFieldMappings(value: string, fallback: AnkiFieldMappings): Anki
 }
 
 function readStudyToolFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
-    const { has, number } = reader;
+    const { has, clamped } = reader;
     return {
         studyTranslationEnabled: has('studyTranslation.enabled'),
-        studyTranslationPriority: Math.max(0, Math.min(999, number('studyTranslation.priority', current.studyTranslationPriority))),
+        studyTranslationPriority: clamped('studyTranslation.priority', 0, 999, current.studyTranslationPriority),
         studyGrammarEnabled: has('studyGrammar.enabled'),
-        studyGrammarPriority: Math.max(0, Math.min(999, number('studyGrammar.priority', current.studyGrammarPriority))),
+        studyGrammarPriority: clamped('studyGrammar.priority', 0, 999, current.studyGrammarPriority),
     };
 }
 
 function readPopupFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
-    const { get, has, number } = reader;
+    const { get, has, clamped } = reader;
     const popupMode = readOption(get('popupMode'), ['auto', 'sheet', 'popover'] as const, current.popupMode);
     return {
         theme: readOption(get('theme'), ['auto', 'dark', 'light'] as const, current.theme),
         popupMode,
         stickyBottomSheet: has('stickyBottomSheet'),
         popoverBackdropEnabled: has('popoverBackdropEnabled'),
-        popoverWidth: Math.max(280, Math.min(900, number('popoverWidth', current.popoverWidth))),
-        popoverHeight: Math.max(220, Math.min(900, number('popoverHeight', current.popoverHeight))),
+        popoverWidth: clamped('popoverWidth', 280, 900, current.popoverWidth),
+        popoverHeight: clamped('popoverHeight', 220, 900, current.popoverHeight),
         popoverHeightMode: readOption(get('popoverHeightMode'), ['available', 'fixed'] as const, current.popoverHeightMode),
         readerFontFamily: readFontFamilySetting(reader, 'readerFontFamily', current.readerFontFamily),
         popupFontFamily: readFontFamilySetting(reader, 'popupFontFamily', current.popupFontFamily),
-        popupFontWeight: Math.max(300, Math.min(900, number('popupFontWeight', current.popupFontWeight))),
+        popupFontWeight: clamped('popupFontWeight', 300, 900, current.popupFontWeight),
     };
 }
 
@@ -339,7 +342,7 @@ function readMiningFormSettings(reader: SettingsFormReader): Partial<ReaderSetti
 }
 
 function readOcrFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
-    const { get, has, number } = reader;
+    const { get, has, clamped } = reader;
     return {
         ocrEnabled: has('ocrEnabled'),
         ocrAutoScanImages: has('ocrAutoScanImages'),
@@ -349,20 +352,20 @@ function readOcrFormSettings(reader: SettingsFormReader, current: ReaderSettings
         ocrEngine: get('ocrEngine').trim() || 'auto',
         ocrCloudVisionApiKey: get('ocrCloudVisionApiKey').trim(),
         ocrLanguage: get('ocrLanguage').trim() || 'ja-JP',
-        ocrMaxImagePixels: Math.max(160000, Math.min(2800000, number('ocrMaxImagePixels', current.ocrMaxImagePixels))),
-        ocrMinImageArea: Math.max(10000, Math.min(800000, number('ocrMinImageArea', current.ocrMinImageArea))),
-        ocrMaxImagesPerPage: Math.max(1, Math.min(30, number('ocrMaxImagesPerPage', current.ocrMaxImagesPerPage))),
-        ocrPrefetchMargin: Math.max(0, Math.min(3000, number('ocrPrefetchMargin', current.ocrPrefetchMargin))),
+        ocrMaxImagePixels: clamped('ocrMaxImagePixels', 160000, 2800000, current.ocrMaxImagePixels),
+        ocrMinImageArea: clamped('ocrMinImageArea', 10000, 800000, current.ocrMinImageArea),
+        ocrMaxImagesPerPage: clamped('ocrMaxImagesPerPage', 1, 30, current.ocrMaxImagesPerPage),
+        ocrPrefetchMargin: clamped('ocrPrefetchMargin', 0, 3000, current.ocrPrefetchMargin),
         ocrTextColor: sanitizeAccentColor(get('ocrTextColor'), current.ocrTextColor),
         ocrOutlineColor: sanitizeAccentColor(get('ocrOutlineColor'), current.ocrOutlineColor),
         ocrBackgroundColor: sanitizeAccentColor(get('ocrBackgroundColor'), current.ocrBackgroundColor),
-        ocrBackgroundOpacity: Math.max(0, Math.min(1, number('ocrBackgroundOpacity', current.ocrBackgroundOpacity))),
-        ocrFontScale: Math.max(0.7, Math.min(1.8, number('ocrFontScale', current.ocrFontScale))),
+        ocrBackgroundOpacity: clamped('ocrBackgroundOpacity', 0, 1, current.ocrBackgroundOpacity),
+        ocrFontScale: clamped('ocrFontScale', 0.7, 1.8, current.ocrFontScale),
     };
 }
 
 function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
-    const { get, has, number } = reader;
+    const { get, has, clamped } = reader;
     return {
         subtitlePlayerEnabled: has('subtitlePlayerEnabled'),
         subtitleAutoDetect: has('subtitleAutoDetect'),
@@ -376,21 +379,21 @@ function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSet
         subtitleTranscriptAutoScroll: has('subtitleTranscriptAutoScroll'),
         subtitleAutoCopyLine: has('subtitleAutoCopyLine'),
         subtitleControlsMode: readOption(get('subtitleControlsMode'), ['auto', 'always', 'hidden'] as const, current.subtitleControlsMode),
-        subtitleFontSize: Math.max(16, Math.min(64, number('subtitleFontSize', current.subtitleFontSize))),
-        subtitleBottomOffset: Math.max(2, Math.min(40, number('subtitleBottomOffset', current.subtitleBottomOffset))),
+        subtitleFontSize: clamped('subtitleFontSize', 16, 64, current.subtitleFontSize),
+        subtitleBottomOffset: clamped('subtitleBottomOffset', 2, 40, current.subtitleBottomOffset),
         subtitleTextColor: sanitizeAccentColor(get('subtitleTextColor'), current.subtitleTextColor),
         subtitleOutlineColor: sanitizeAccentColor(get('subtitleOutlineColor'), current.subtitleOutlineColor),
         subtitleBackgroundColor: sanitizeAccentColor(get('subtitleBackgroundColor'), current.subtitleBackgroundColor),
-        subtitleBackgroundOpacity: Math.max(0, Math.min(1, number('subtitleBackgroundOpacity', current.subtitleBackgroundOpacity))),
+        subtitleBackgroundOpacity: clamped('subtitleBackgroundOpacity', 0, 1, current.subtitleBackgroundOpacity),
         subtitleFontFamily: readFontFamilySetting(reader, 'subtitleFontFamily', current.subtitleFontFamily),
-        subtitleFontWeight: Math.max(100, Math.min(900, number('subtitleFontWeight', current.subtitleFontWeight))),
+        subtitleFontWeight: clamped('subtitleFontWeight', 100, 900, current.subtitleFontWeight),
         subtitleMiningPause: has('subtitleMiningPause'),
-        subtitleSeekPadding: Math.max(-2, Math.min(2, number('subtitleSeekPadding', current.subtitleSeekPadding))),
+        subtitleSeekPadding: clamped('subtitleSeekPadding', -2, 2, current.subtitleSeekPadding),
     };
 }
 
 function readImmersionKitFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
-    const { get, has, number } = reader;
+    const { get, has, clamped } = reader;
     const mediaEnabled = has('immersionKitEnabled');
     const sourceRowPresent = Boolean(get('immersionKit.name') || get('immersionKit.priority'));
     const sourceEnabled = sourceRowPresent ? has('immersionKit.enabled') : true;
@@ -398,11 +401,11 @@ function readImmersionKitFormSettings(reader: SettingsFormReader, current: Reade
         immersionKitEnabled: mediaEnabled && sourceEnabled,
         immersionKitExampleSource: readOption(get('immersionKitExampleSource'), ['immersion-kit', 'nadeshiko', 'combined'] as const, current.immersionKitExampleSource),
         nadeshikoApiKey: get('nadeshikoApiKey').trim(),
-        immersionKitPriority: Math.max(0, Math.min(999, number('immersionKit.priority', current.immersionKitPriority))),
+        immersionKitPriority: clamped('immersionKit.priority', 0, 999, current.immersionKitPriority),
         immersionKitLimitEnabled: get('immersionKitLimitEnabled') === 'on',
-        immersionKitLimit: Math.max(1, Math.min(12, number('immersionKitLimit', current.immersionKitLimit))),
-        immersionKitMinLength: Math.max(0, Math.min(120, number('immersionKitMinLength', current.immersionKitMinLength))),
-        immersionKitMaxLength: Math.max(0, Math.min(240, number('immersionKitMaxLength', current.immersionKitMaxLength))),
+        immersionKitLimit: clamped('immersionKitLimit', 1, 12, current.immersionKitLimit),
+        immersionKitMinLength: clamped('immersionKitMinLength', 0, 120, current.immersionKitMinLength),
+        immersionKitMaxLength: clamped('immersionKitMaxLength', 0, 240, current.immersionKitMaxLength),
         immersionKitCategory: readOption(get('immersionKitCategory'), ['all', 'anime', 'drama', 'games'] as const, current.immersionKitCategory),
         immersionKitSort: readOption(get('immersionKitSort'), ['sentence_length:asc', 'sentence_length:desc'] as const, current.immersionKitSort),
         immersionKitExactMatch: has('immersionKitExactMatch'),
@@ -412,7 +415,7 @@ function readImmersionKitFormSettings(reader: SettingsFormReader, current: Reade
         immersionKitAutoPlayAudio: has('immersionKitAutoPlayAudio'),
         immersionKitPlayOnHover: has('immersionKitPlayOnHover'),
         immersionKitPlayOnImageClick: has('immersionKitPlayOnImageClick'),
-        immersionKitPlaybackRate: Math.max(0.5, Math.min(2, number('immersionKitPlaybackRate', current.immersionKitPlaybackRate))),
+        immersionKitPlaybackRate: clamped('immersionKitPlaybackRate', 0.5, 2, current.immersionKitPlaybackRate),
     };
 }
 

@@ -1,4 +1,4 @@
-import { DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, VIDEO_PLAYER_PAGE_URL } from './constants';
+import { DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from './constants';
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from './dom';
 import { audioSourceLabel, resolveUiLanguage, uiText } from './i18n';
 import { externalLinkIcon, speakerIcon } from './icons';
@@ -38,6 +38,10 @@ const FONT_FAMILY_PRESETS = [
     { value: DEFAULT_READER_FONT_FAMILY, labelKey: 'fontPresetSystemUi', fallbackLabel: 'System UI' },
 ] as const satisfies readonly { value: string; labelKey: Parameters<typeof uiText>[1]; fallbackLabel: string }[];
 
+function escapedUiText(language: InterfaceLanguage, key: Parameters<typeof uiText>[1]): string {
+    return escapeHtml(uiText(language, key));
+}
+
 export function renderHelpLinksPanel(): string {
     return `
         <div class="jpdb-reader-help-card jpdb-reader-help-links-card">
@@ -54,8 +58,8 @@ export function renderHelpLinksPanel(): string {
             <div class="jpdb-reader-help-support">
                 <div>
                     <div class="jpdb-reader-help-title" data-help-support-title>Support よむ</div>
-                    <p data-help-support-copy>よむ brings popup lookup, JPDB, OCR, subtitles, dictionaries, and Anki.</p>
-                    <p data-help-support-copy-extra>Donations are optional.</p>
+                    <p data-help-support-copy>${escapeHtml(SUPPORT_COPY)}</p>
+                    <p data-help-support-copy-extra>${escapeHtml(SUPPORT_COPY_EXTRA)}</p>
                 </div>
                 <div class="jpdb-reader-help-actions">
                     <a class="jpdb-reader-btn jpdb-reader-help-donate" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">${externalButtonLabel('Donate')}</a>
@@ -115,11 +119,11 @@ function renderSettingsSearch(language: InterfaceLanguage): string {
     return `
             <div class="jpdb-reader-settings-search">
                 <label>
-                    <span class="jpdb-reader-settings-label-text">${escapeHtml(uiText(language, 'settingsSearch'))}</span>
-                    <input type="search" data-settings-search placeholder="${escapeHtml(uiText(language, 'settingsSearchPlaceholder'))}" autocomplete="off">
+                    <span class="jpdb-reader-settings-label-text">${escapedUiText(language, 'settingsSearch')}</span>
+                    <input type="search" data-settings-search placeholder="${escapedUiText(language, 'settingsSearchPlaceholder')}" autocomplete="off">
                 </label>
             </div>
-            <div class="jpdb-reader-settings-search-empty" data-settings-search-empty hidden>${escapeHtml(uiText(language, 'settingsSearchNoResults'))}</div>
+            <div class="jpdb-reader-settings-search-empty" data-settings-search-empty hidden>${escapedUiText(language, 'settingsSearchNoResults')}</div>
     `;
 }
 
@@ -182,7 +186,7 @@ export function ankiStatusLineForSettings(settings: Pick<ReaderSettings, 'ankiEn
 }
 
 export function formatSettingsStatusLine(line: SettingsStatusLine, language: InterfaceLanguage): string {
-    return `${escapeHtml(uiText(language, settingsStatusToneLabelKey(line.tone)))}: ${escapeHtml(line.message)}`;
+    return `${escapedUiText(language, settingsStatusToneLabelKey(line.tone))}: ${escapeHtml(line.message)}`;
 }
 
 function settingsStatusToneLabelKey(tone: SettingsStatusTone): Parameters<typeof uiText>[1] {
@@ -236,7 +240,7 @@ function renderStickyBottomSheetControl(settings: ReaderSettings): string {
     const unavailable = settings.popupMode === 'popover';
     return `
                     <div data-sticky-bottom-sheet-field ${unavailable ? 'hidden' : ''}>
-                        ${checkbox('stickyBottomSheet', 'Keep bottom sheet open until closed', settings.stickyBottomSheet)}
+                        ${checkbox('stickyBottomSheet', 'Keep bottom sheet open until closed', settings.stickyBottomSheet && !unavailable, { disabled: unavailable })}
                     </div>`;
 }
 
@@ -309,10 +313,6 @@ export function canonicalNewTabAnkiDisabledDecks(deckNames: string[]): string[] 
     return unique.filter(deck => !unique.some(parent => parent !== deck && isAnkiSubdeckOf(deck, parent)));
 }
 
-export function isNewTabAnkiDeckDisabled(deck: string, disabledDecks: string[]): boolean {
-    return disabledDecks.some(disabled => deck === disabled || isAnkiSubdeckOf(deck, disabled));
-}
-
 function isAnkiSubdeckOf(deck: string, parent: string): boolean {
     return Boolean(parent && deck.startsWith(`${parent}::`));
 }
@@ -355,7 +355,7 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
     const autoPlayMode = settings.audioAutoPlayMode === 'off' ? 'all' : settings.audioAutoPlayMode;
     return `
             <fieldset id="jpdb-reader-settings-panel-audio" role="tabpanel" data-settings-panel="media" data-legend-key="audio" aria-describedby="settings-help-audio" hidden>
-                <legend>${escapeHtml(uiText(language, 'audio'))}</legend>
+                <legend>${escapedUiText(language, 'audio')}</legend>
                 <div class="grid">
                     ${checkbox('audioEnabled', uiText(language, 'audioEnabled'), settings.audioEnabled)}
                     ${checkbox('autoPlayAudio', uiText(language, 'autoPlayAudio'), settings.autoPlayAudio)}
@@ -383,7 +383,7 @@ function audioAutoPlayModeSelect(language: InterfaceLanguage, value: Exclude<Rea
         ['hover', uiText(language, 'audioAutoPlayHover')],
         ['tap', uiText(language, 'audioAutoPlayTap')],
     ];
-    return `<label>${escapeHtml(uiText(language, 'audioAutoPlayMode'))}<select name="audioAutoPlayMode" ${disabled ? 'disabled' : ''}>${options.map(([optionValue, text]) =>
+    return `<label>${escapedUiText(language, 'audioAutoPlayMode')}<select name="audioAutoPlayMode" ${disabled ? 'disabled' : ''}>${options.map(([optionValue, text]) =>
         `<option value="${escapeHtml(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(text)}</option>`,
     ).join('')}</select>${disabled ? `<input type="hidden" name="audioAutoPlayMode" value="${escapeHtml(value)}">` : ''}</label>`;
 }
@@ -392,25 +392,25 @@ function renderProxySetupGuide(language: InterfaceLanguage): string {
     return `
                 <details class="jpdb-reader-proxy-guide">
                     <summary>
-                        <span data-proxy-guide-summary>${escapeHtml(uiText(language, 'audioProxyGuideSummary'))}</span>
+                        <span data-proxy-guide-summary>${escapedUiText(language, 'audioProxyGuideSummary')}</span>
                         <span class="jpdb-reader-proxy-guide-toggle" aria-hidden="true">
-                            <span data-proxy-guide-show>${escapeHtml(uiText(language, 'show'))}</span>
-                            <span data-proxy-guide-hide>${escapeHtml(uiText(language, 'hide'))}</span>
+                            <span data-proxy-guide-show>${escapedUiText(language, 'show')}</span>
+                            <span data-proxy-guide-hide>${escapedUiText(language, 'hide')}</span>
                         </span>
                     </summary>
                     <div class="jpdb-reader-proxy-guide-body">
-                        <p>${escapeHtml(uiText(language, 'audioProxyGuideIntro'))}</p>
+                        <p>${escapedUiText(language, 'audioProxyGuideIntro')}</p>
                         <ol>
-                            <li>${escapeHtml(uiText(language, 'audioProxyGuideCloudflare'))}</li>
-                            <li>${escapeHtml(uiText(language, 'audioProxyGuideWorkers'))}</li>
-                            <li>${escapeHtml(uiText(language, 'audioProxyGuideCreateWorker'))}</li>
-                            <li>${escapeHtml(uiText(language, 'audioProxyGuideEditCode'))}</li>
-                            <li>${escapeHtml(uiText(language, 'audioProxyGuideDeploy'))}</li>
-                            <li>${escapeHtml(uiText(language, 'audioProxyGuideCopyUrl'))}</li>
-                            <li>${escapeHtml(uiText(language, 'audioProxyGuidePasteUrl'))}</li>
-                            <li>${escapeHtml(uiText(language, 'audioProxyGuideTest'))}</li>
+                            <li>${escapedUiText(language, 'audioProxyGuideCloudflare')}</li>
+                            <li>${escapedUiText(language, 'audioProxyGuideWorkers')}</li>
+                            <li>${escapedUiText(language, 'audioProxyGuideCreateWorker')}</li>
+                            <li>${escapedUiText(language, 'audioProxyGuideEditCode')}</li>
+                            <li>${escapedUiText(language, 'audioProxyGuideDeploy')}</li>
+                            <li>${escapedUiText(language, 'audioProxyGuideCopyUrl')}</li>
+                            <li>${escapedUiText(language, 'audioProxyGuidePasteUrl')}</li>
+                            <li>${escapedUiText(language, 'audioProxyGuideTest')}</li>
                         </ol>
-                        <p>${escapeHtml(uiText(language, 'audioProxyGuideNote'))}</p>
+                        <p>${escapedUiText(language, 'audioProxyGuideNote')}</p>
                         <div class="jpdb-reader-help-actions">
                             <a class="jpdb-reader-btn" href="${PROXY_WORKER_SOURCE_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, 'audioProxyWorkerSource'))}</a>
                             <a class="jpdb-reader-btn" href="${PROXY_WORKER_README_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, 'audioProxyDeployGuide'))}</a>
@@ -424,7 +424,7 @@ function renderImmersionKitSettingsPanel(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     return `
             <fieldset id="jpdb-reader-settings-panel-immersion-kit" role="tabpanel" data-settings-panel="media" data-legend-key="immersionKit" aria-describedby="settings-help-immersion-kit" hidden>
-                <legend>${escapeHtml(uiText(language, 'immersionKit'))}</legend>
+                <legend>${escapedUiText(language, 'immersionKit')}</legend>
                 <div class="grid">
                     ${checkbox('immersionKitEnabled', uiText(language, 'immersionKitEnabled'), settings.immersionKitEnabled)}
                     ${select('immersionKitExampleSource', uiText(language, 'immersionKitExampleSource'), settings.immersionKitExampleSource, [['immersion-kit', uiText(language, 'immersionKit')], ['nadeshiko', 'Nadeshiko'], ['combined', uiText(language, 'immersionKitAndNadeshiko')]])}
@@ -442,14 +442,14 @@ function renderImmersionKitSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('immersionKitExactMatch', uiText(language, 'immersionKitExactMatch'), settings.immersionKitExactMatch)}
                 </div>
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">${escapeHtml(uiText(language, 'audioPlayback'))}</div>
+                    <div class="jpdb-reader-local-title">${escapedUiText(language, 'audioPlayback')}</div>
                     <div class="grid">
                         ${checkbox('immersionKitAutoPlayAudio', uiText(language, 'immersionKitAutoPlayAudio'), settings.immersionKitAutoPlayAudio)}
                         ${checkbox('immersionKitPlayOnHover', uiText(language, 'immersionKitPlayOnHover'), settings.immersionKitPlayOnHover)}
                         ${checkbox('immersionKitPlayOnImageClick', uiText(language, 'immersionKitPlayOnImageClick'), settings.immersionKitPlayOnImageClick)}
                     </div>
                 </div>
-                <div id="settings-help-immersion-kit" class="jpdb-reader-help" data-help-key="immersionKitHelp">${escapeHtml(uiText(language, 'immersionKitHelp'))}</div>
+                <div id="settings-help-immersion-kit" class="jpdb-reader-help" data-help-key="immersionKitHelp">${escapedUiText(language, 'immersionKitHelp')}</div>
             </fieldset>
     `;
 }
@@ -458,7 +458,7 @@ function renderNadeshikoApiKeyField(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     return `
                     <div data-nadeshiko-api-key-field ${usesNadeshikoExamples(settings.immersionKitExampleSource) ? '' : 'hidden'}>
-                        ${input('nadeshikoApiKey', `${escapeHtml(uiText(language, 'nadeshikoApiKey'))} <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, 'getNadeshikoKey'))}</a>`, settings.nadeshikoApiKey, 'password')}
+                        ${input('nadeshikoApiKey', `${escapedUiText(language, 'nadeshikoApiKey')} <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, 'getNadeshikoKey'))}</a>`, settings.nadeshikoApiKey, 'password')}
                     </div>`;
 }
 
@@ -637,16 +637,16 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
                             </div>
                         </div>
                         <div class="jpdb-reader-settings-subsection jpdb-reader-anki-library-choice">
-                            <div class="jpdb-reader-local-title" data-anki-library-choices-title>${escapeHtml(uiText(settings.interfaceLanguage, 'ankiLibraryChoices'))}</div>
-                            <div class="jpdb-reader-help" data-anki-library-choices-help>${escapeHtml(uiText(settings.interfaceLanguage, 'ankiLibraryChoicesHelp'))}</div>
+                            <div class="jpdb-reader-local-title" data-anki-library-choices-title>${escapedUiText(settings.interfaceLanguage, 'ankiLibraryChoices')}</div>
+                            <div class="jpdb-reader-help" data-anki-library-choices-help>${escapedUiText(settings.interfaceLanguage, 'ankiLibraryChoicesHelp')}</div>
                             <div class="jpdb-reader-anki-choice-grid">
                                 <label><span class="jpdb-reader-settings-label-text">Anki deck</span><select name="ankiDeck" data-anki-deck-options>${renderAnkiLibraryOptions([settings.ankiDeck].filter(Boolean), settings.ankiDeck, settings.interfaceLanguage)}</select></label>
                                 <label><span class="jpdb-reader-settings-label-text">Anki note type</span><select name="ankiModel" data-anki-model-options>${renderAnkiLibraryOptions([settings.ankiModel, ...Object.keys(settings.ankiFieldMappings)].filter(Boolean), settings.ankiModel, settings.interfaceLanguage)}</select></label>
                             </div>
                         </div>
                         <div class="jpdb-reader-settings-subsection jpdb-reader-anki-template-settings">
-                            <div class="jpdb-reader-local-title" data-anki-template-settings-title>${escapeHtml(uiText(settings.interfaceLanguage, 'ankiTemplateSettings'))}</div>
-                            <div class="jpdb-reader-help" data-anki-template-settings-help>${escapeHtml(uiText(settings.interfaceLanguage, 'ankiTemplateSettingsHelp'))}</div>
+                            <div class="jpdb-reader-local-title" data-anki-template-settings-title>${escapedUiText(settings.interfaceLanguage, 'ankiTemplateSettings')}</div>
+                            <div class="jpdb-reader-help" data-anki-template-settings-help>${escapedUiText(settings.interfaceLanguage, 'ankiTemplateSettingsHelp')}</div>
                             <div class="grid jpdb-reader-anki-card-grid">
                                 ${select('ankiTemplateMode', 'Anki card template', settings.ankiTemplateMode, [['recognition', 'Word first'], ['context', 'Sentence first']])}
                                 ${checkbox('ankiFrontReading', 'Word-first front: show reading', settings.ankiFrontReading)}
@@ -674,7 +674,7 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
 export function renderAnkiLibraryOptions(options: string[], value: string, language: InterfaceLanguage = 'en'): string {
     const values = uniqueStrings([value, ...options].filter(Boolean));
     const rows = values.map(option => `<option value="${escapeHtml(option)}" ${option === value ? 'selected' : ''}>${escapeHtml(option)}</option>`);
-    return rows.length ? rows.join('') : `<option value="" selected>${escapeHtml(uiText(language, 'scanAnkiFirst'))}</option>`;
+    return rows.length ? rows.join('') : `<option value="" selected>${escapedUiText(language, 'scanAnkiFirst')}</option>`;
 }
 
 function formatStatusTemplate(template: string, values: Record<string, string>): string {
@@ -692,7 +692,7 @@ export function renderAnkiFieldMappingEditor(
     const mapping = model ? settings.ankiFieldMappings[model] ?? {} : {};
     const fields = uniqueStrings([...scannedFields, ...Object.values(mapping).filter(Boolean)]);
     const options = (selected = '') => [
-        `<option value="" ${selected ? '' : 'selected'}>${escapeHtml(uiText(language, 'notMapped'))}</option>`,
+        `<option value="" ${selected ? '' : 'selected'}>${escapedUiText(language, 'notMapped')}</option>`,
         ...fields.map(field => `<option value="${escapeHtml(field)}" ${field === selected ? 'selected' : ''}>${escapeHtml(field)}</option>`),
     ].join('');
     const rows = ANKI_FIELD_MAPPING_ROLES.map(role => {
@@ -711,14 +711,14 @@ export function renderAnkiFieldMappingEditor(
                 </label>
         `;
     }).join('');
-    const emptyState = fields.length ? '' : `<div class="jpdb-reader-help">${escapeHtml(uiText(language, 'noScannedFields'))}</div>`;
+    const emptyState = fields.length ? '' : `<div class="jpdb-reader-help">${escapedUiText(language, 'noScannedFields')}</div>`;
     return `
             <div data-anki-field-mapping-model="${escapeHtml(model)}">
                 <div class="jpdb-reader-help">${escapeHtml(uiText(language, 'mappingForNoteType').replace('{model}', model || uiText(language, 'currentNoteType')))}</div>
                 <div class="grid">
                     ${rows}
                 </div>
-                ${fields.length ? `<div class="jpdb-reader-help">${escapeHtml(uiText(language, 'ankiMappingConfidenceHelp'))}</div>` : ''}
+                ${fields.length ? `<div class="jpdb-reader-help">${escapedUiText(language, 'ankiMappingConfidenceHelp')}</div>` : ''}
                 ${emptyState}
             </div>
     `;
@@ -726,7 +726,7 @@ export function renderAnkiFieldMappingEditor(
 
 function renderAnkiMappingConfidence(confidence: AnkiMappingConfidence, language: InterfaceLanguage): string {
     const key = confidence === 'high' ? 'ankiMappingHighConfidence' : confidence === 'medium' ? 'ankiMappingMediumConfidence' : 'ankiMappingLowConfidence';
-    return `<span class="jpdb-reader-anki-confidence" data-confidence="${confidence}">${escapeHtml(uiText(language, key))}</span>`;
+    return `<span class="jpdb-reader-anki-confidence" data-confidence="${confidence}">${escapedUiText(language, key)}</span>`;
 }
 
 function ankiFieldMappingRoleLabel(role: AnkiFieldMappingRole, language: InterfaceLanguage): string {
@@ -2002,14 +2002,14 @@ function normalizeSettingsSearchText(value: string): string {
 export function renderAudioSourceEditor(sources: AudioSourceSetting[], language: InterfaceLanguage = 'en'): string {
     return `
         <div class="jpdb-reader-audio-source-head jpdb-reader-order-head">
-            <span>${escapeHtml(uiText(language, 'enabledHeader'))}</span>
-            <span>${escapeHtml(uiText(language, 'audioSource'))}</span>
-            <span>${escapeHtml(uiText(language, 'urlVoice'))}</span>
-            <span>${escapeHtml(uiText(language, 'orderHeader'))}</span>
-            <span>${escapeHtml(uiText(language, 'removeHeader'))}</span>
+            <span>${escapedUiText(language, 'enabledHeader')}</span>
+            <span>${escapedUiText(language, 'audioSource')}</span>
+            <span>${escapedUiText(language, 'urlVoice')}</span>
+            <span>${escapedUiText(language, 'orderHeader')}</span>
+            <span>${escapedUiText(language, 'removeHeader')}</span>
         </div>
         ${renderAudioSourceRows(audioSourceRowsForSettings(sources), language)}
-        <button class="jpdb-reader-btn" type="button" data-action="audio-source-add">${escapeHtml(uiText(language, 'addAudioSource'))}</button>
+        <button class="jpdb-reader-btn" type="button" data-action="audio-source-add">${escapedUiText(language, 'addAudioSource')}</button>
     `;
 }
 
@@ -2040,7 +2040,7 @@ function renderAudioSourceRows(rows: AudioSourceSetting[], language: InterfaceLa
                             `<option value="${escapeHtml(optionValue)}" ${optionValue === source.type ? 'selected' : ''}>${escapeHtml(text)}</option>`,
                         ).join('')}
                     </select>
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="preview-audio" title="${escapeHtml(uiText(language, 'previewAudio'))}" aria-label="${escapeHtml(uiText(language, 'previewAudio'))}">${speakerIcon()}</button>
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="preview-audio" title="${escapedUiText(language, 'previewAudio')}" aria-label="${escapedUiText(language, 'previewAudio')}">${speakerIcon()}</button>
                 </div>
                 <div class="jpdb-reader-audio-source-fields">
                     <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml(source.url)}" placeholder="${escapeHtml(audioUrlPlaceholder(source.type, language))}" ${audioSourceUsesUrl(source.type) ? '' : 'hidden'}>
@@ -2048,13 +2048,13 @@ function renderAudioSourceRows(rows: AudioSourceSetting[], language: InterfaceLa
                         <option value="${escapeHtml(source.voice)}">${escapeHtml(source.voice || uiText(language, 'automaticBrowserVoice'))}</option>
                     </select>
                 </div>
-                <div class="jpdb-reader-row-tools jpdb-reader-row-order-tools" aria-label="${escapeHtml(uiText(language, 'audioSourceOrder'))}">
-                    <button type="button" class="jpdb-reader-icon-mini jpdb-reader-drag-handle" data-source-drag-handle tabindex="-1" title="${escapeHtml(uiText(language, 'dragToReorder'))}" aria-label="${escapeHtml(uiText(language, 'dragToReorder'))}">${miniIcon('drag')}</button>
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-up" title="${escapeHtml(uiText(language, 'moveUp'))}" aria-label="${escapeHtml(uiText(language, 'moveUp'))}">${miniIcon('up')}</button>
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-down" title="${escapeHtml(uiText(language, 'moveDown'))}" aria-label="${escapeHtml(uiText(language, 'moveDown'))}">${miniIcon('down')}</button>
+                <div class="jpdb-reader-row-tools jpdb-reader-row-order-tools" aria-label="${escapedUiText(language, 'audioSourceOrder')}">
+                    <button type="button" class="jpdb-reader-icon-mini jpdb-reader-drag-handle" data-source-drag-handle tabindex="-1" title="${escapedUiText(language, 'dragToReorder')}" aria-label="${escapedUiText(language, 'dragToReorder')}">${miniIcon('drag')}</button>
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-up" title="${escapedUiText(language, 'moveUp')}" aria-label="${escapedUiText(language, 'moveUp')}">${miniIcon('up')}</button>
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-down" title="${escapedUiText(language, 'moveDown')}" aria-label="${escapedUiText(language, 'moveDown')}">${miniIcon('down')}</button>
                 </div>
                 <div class="jpdb-reader-row-tools jpdb-reader-row-remove-tools">
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-remove" title="${escapeHtml(uiText(language, 'remove'))}" aria-label="${escapeHtml(uiText(language, 'remove'))}">${miniIcon('remove')}</button>
+                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-remove" title="${escapedUiText(language, 'remove')}" aria-label="${escapedUiText(language, 'remove')}">${miniIcon('remove')}</button>
                 </div>
             </div>
         `).join('')}
@@ -2706,7 +2706,7 @@ export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]
 
     return `
         <div class="jpdb-reader-recommended-title">Recommended dictionaries</div>
-        <div class="jpdb-reader-help jpdb-reader-recommended-note" data-recommended-dictionary-help>${escapeHtml(uiText('en', 'dictionaryInstallQueueHelp'))}</div>
+        <div class="jpdb-reader-help jpdb-reader-recommended-note" data-recommended-dictionary-help>${escapedUiText('en', 'dictionaryInstallQueueHelp')}</div>
         ${groups.map(([category, label]) => {
             const dictionaries = RECOMMENDED_JAPANESE_DICTIONARIES.filter(dictionary => dictionary.category === category);
             if (!dictionaries.length) return '';
@@ -2729,7 +2729,7 @@ function renderRecommendedDictionary(dictionary: RecommendedDictionary, installe
                     <span>${escapeHtml(dictionary.name)}</span>
                     <a href="${dictionary.homepage}" target="_blank" rel="noopener">Homepage</a>
                 </div>
-                <div class="jpdb-reader-help">${escapeHtml(uiText('en', dictionary.descriptionKey))}</div>
+                <div class="jpdb-reader-help">${escapedUiText('en', dictionary.descriptionKey)}</div>
                 <div class="jpdb-reader-recommended-status" data-recommended-dictionary-status role="status" aria-live="polite" hidden></div>
             </div>
             <button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">

@@ -2,18 +2,26 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-03
+
 ### Added
 
 - Added explicit lookup grading targets for JPDB and individual Anki cards so words that exist in both systems, or in multiple Anki notes/cards, can be graded deliberately.
 - Added Anki scan confidence chips in settings field mapping so nonstandard decks make it clearer which fields were auto-detected with high, medium, or low confidence.
+- Added many more local grammar rules, with rule explanations and examples now loaded from hosted grammar-rule data (English and Japanese) instead of being embedded in the script.
+- Added passive scan coverage for dictionary hyperlink text, UI chrome labels after prose, compact onclick controls in whole-page fallback scans, and hosted video-player empty-state and control text, keeping links clickable while words stay tappable.
 
 ### Changed
 
 - Existing Anki rendered cards now keep multiple card sides separated behind collapsible Anki card headers, preserve Anki card bodies without extra Yomu labels, and cap oversized template fonts.
+- The userscript now ships as a single self-contained file: fflate is bundled inline, no code is downloaded at install time, and compact-readable formatting keeps the build inside Greasy Fork's 2 MB limit with identifiers intact.
+- The sticky bottom-sheet option now only renders enabled in sheet-capable popup modes, and saved popover-mode settings stay usable with Japanese interface copy.
+- Explicit furigana over kanji-containing words is preserved verbatim during scans, while kana-only words no longer repeat their reading as ruby.
 
 ### Fixed
 
 - Fixed word lookup popover grade buttons so selected JPDB/Anki/card targets submit from ordinary word popovers as well as kanji popovers.
+- Fixed the bundled script failing to load in pages without a userscript manager (browser extension builds and test harnesses) when fflate was externalized.
 
 ## [0.5.0] - 2026-06-02
 

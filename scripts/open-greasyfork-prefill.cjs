@@ -7,6 +7,11 @@ const codePath = path.join(__dirname, '..', 'dist', 'yomu.user.js');
 const code = fs.readFileSync(codePath, 'utf8');
 const action = process.argv[2] || 'https://greasyfork.org/en/script_versions/prefill';
 
+if (Buffer.byteLength(code, 'utf8') > 2_000_000) {
+  console.error("dist/yomu.user.js exceeds Greasy Fork's 2 MB limit; Greasy Fork will reject this upload.");
+  process.exit(1);
+}
+
 function escapeHtml(value) {
   return value
     .replace(/&/g, '&amp;')

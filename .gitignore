@@ -14,3 +14,6 @@ test-results/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 .DS_Store
+.module-sizes-baseline.json
+.module-sizes.json
+.size-report/

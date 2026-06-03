@@ -22,24 +22,19 @@ type TrustedTypesGlobal = typeof globalThis & {
 
 let trustedHtmlPolicy: { createHTML: (value: string) => unknown } | null | undefined;
 
-const SKIP_SELECTOR = [
+// Shared building blocks for the four skip-selector lists below. Each list composes the common
+// BASE entries with whichever extra clusters apply; the joined string must stay set-equal to the
+// hand-written original for each list (entry order does not affect matching).
+const BASE_SKIP_SELECTOR_ENTRIES = [
     'script',
     'style',
     'noscript',
-    'form',
-    'label',
-    'fieldset',
-    'legend',
     'textarea',
     'input',
     'select',
-    'button',
     'option',
-    'summary',
     'svg',
     'use',
-    'rt',
-    'rp',
     '[contenteditable="true"]',
     '[role="checkbox"]',
     '[role="radio"]',
@@ -49,8 +44,19 @@ const SKIP_SELECTOR = [
     '[class*="sound" i]',
     '[class*="speaker" i]',
     '[class*="voice" i]',
-    '[aria-hidden="true"]',
     '.jpdb-reader-word',
+];
+const FORM_BOUNDARY_SKIP_ENTRIES = ['form', 'label', 'fieldset', 'legend'];
+const PLAYER_CHROME_SKIP_ENTRIES = ['[class*="control" i]', '[class*="toggle" i]', '[class*="player" i]'];
+
+const SKIP_SELECTOR = [
+    ...BASE_SKIP_SELECTOR_ENTRIES,
+    ...FORM_BOUNDARY_SKIP_ENTRIES,
+    'button',
+    'summary',
+    'rt',
+    'rp',
+    '[aria-hidden="true"]',
 ].join(',');
 const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const READABLE_IGNORED_TAGS = new Set(['RT', 'RP', 'SCRIPT', 'STYLE']);
@@ -58,90 +64,26 @@ const PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifu
 const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
 
 const FRAGMENT_SKIP_SELECTOR = [
-    'script',
-    'style',
-    'noscript',
-    'form',
-    'label',
-    'fieldset',
-    'legend',
-    'textarea',
-    'input',
-    'select',
+    ...BASE_SKIP_SELECTOR_ENTRIES,
+    ...FORM_BOUNDARY_SKIP_ENTRIES,
     'button',
-    'option',
     'summary',
-    'svg',
-    'use',
-    '[contenteditable="true"]',
-    '[role="checkbox"]',
-    '[role="radio"]',
-    '[role="tab"]',
-    '[data-audio]',
-    '[class*="audio" i]',
-    '[class*="sound" i]',
-    '[class*="speaker" i]',
-    '[class*="voice" i]',
     '[aria-hidden="true"]',
     '[data-jpdb-reader-root]',
-    '.jpdb-reader-word',
 ].join(',');
 const HARD_FRAGMENT_SKIP_SELECTOR = [
-    'script',
-    'style',
-    'noscript',
-    'form',
-    'label',
-    'fieldset',
-    'legend',
-    'textarea',
-    'input',
-    'select',
-    'option',
-    'svg',
-    'use',
-    '[contenteditable="true"]',
-    '[role="checkbox"]',
-    '[role="radio"]',
-    '[role="tab"]',
-    '[data-audio]',
+    ...BASE_SKIP_SELECTOR_ENTRIES,
+    ...FORM_BOUNDARY_SKIP_ENTRIES,
+    ...PLAYER_CHROME_SKIP_ENTRIES,
     '[data-jpdb-reader-root]',
-    '[class*="audio" i]',
-    '[class*="sound" i]',
-    '[class*="speaker" i]',
-    '[class*="control" i]',
-    '[class*="toggle" i]',
-    '[class*="player" i]',
-    '[class*="voice" i]',
-    '.jpdb-reader-word',
 ].join(',');
 const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = [
-    'script',
-    'style',
-    'noscript',
-    'textarea',
-    'input',
-    'select',
+    ...BASE_SKIP_SELECTOR_ENTRIES,
+    ...PLAYER_CHROME_SKIP_ENTRIES,
     'button',
-    'option',
     'summary',
     'a[href]',
-    'svg',
-    'use',
-    '[contenteditable="true"]',
     '[role="button"]',
-    '[role="checkbox"]',
-    '[role="radio"]',
-    '[role="tab"]',
-    '[data-audio]',
-    '[class*="audio" i]',
-    '[class*="sound" i]',
-    '[class*="speaker" i]',
-    '[class*="control" i]',
-    '[class*="toggle" i]',
-    '[class*="player" i]',
-    '[class*="voice" i]',
-    '.jpdb-reader-word',
 ].join(',');
 const FORM_CHROME_BOUNDARY_TAGS = new Set(['FORM', 'LABEL', 'FIELDSET', 'LEGEND']);
 const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
@@ -1051,6 +993,7 @@ function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], se
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
             passiveInteraction: target.passiveInteraction,
+            preserveTokenRubies: true,
         }));
         offset = token.end;
     }
@@ -1169,6 +1112,7 @@ function renderSingleFragmentToken(
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
         passiveInteraction: plan.passiveInteraction,
+        preserveTokenRubies: true,
     });
 }
 
@@ -1209,6 +1153,7 @@ function applyTokenToIndexedFragments(
         scanWord: true,
         passiveInteraction,
         allowRuby: !fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end),
+        preserveTokenRubies: true,
     });
     range.detach();
 }
@@ -1263,6 +1208,7 @@ function insertSingleFragmentToken(
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
         passiveInteraction,
+        preserveTokenRubies: true,
     });
     replaceTextNodeRange(fragment.node, start, end, rendered);
 }
@@ -1277,7 +1223,7 @@ function replaceTextNodeRange(node: Text, start: number, end: number, replacemen
 }
 
 function insertMultiFragmentToken(range: Range, surface: string, token: JPDBToken, settings: ReaderSettings, options: TokenRenderOptions = {}): void {
-    if (shouldRenderRuby(surface, token, settings, options.allowRuby)) {
+    if (shouldRenderRuby(surface, token, settings, options.allowRuby, options.preserveTokenRubies)) {
         range.deleteContents();
         range.insertNode(renderToken(surface, token, settings, options));
         return;
@@ -1448,22 +1394,13 @@ function renderToken(
     settings: ReaderSettings,
     options: TokenRenderOptions = {},
 ): HTMLElement {
-    const span = document.createElement('span');
-    const state = primaryCardState(token.card.cardState);
-    span.className = readerWordClassName(state, token);
-    applyTokenRenderOptions(span, options);
-    span.dataset.vid = String(token.card.vid);
-    span.dataset.sid = String(token.card.sid);
-    span.dataset.pitchClass = safePitchClass(token.pitchClass);
-    span.dataset.sentence = token.sentence ?? '';
-    if (token.card.spelling) span.dataset.expression = token.card.spelling;
-    if (token.card.reading) span.dataset.reading = token.card.reading;
+    const span = createReaderWordSpan(token, options);
     if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = 0;
 
-    const hasRuby = shouldRenderRuby(surface, token, settings, options.allowRuby);
+    const hasRuby = shouldRenderRuby(surface, token, settings, options.allowRuby, options.preserveTokenRubies);
     if (hasRuby) {
         span.classList.add('jpdb-reader-has-furi');
-        setInnerHtml(span, renderRuby(surface, token, options.kanjiNavigation));
+        setInnerHtml(span, renderRuby(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
     } else if (options.kanjiNavigation?.enabled) {
         setInnerHtml(span, renderKanjiNavigationText(surface, options.kanjiNavigation));
     } else {
@@ -1477,9 +1414,20 @@ interface TokenRenderOptions {
     kanjiNavigation?: KanjiNavigationRenderOptions;
     scanWord?: boolean;
     passiveInteraction?: boolean;
+    // Scan-word renders keep the JPDB-provided ruby spans intact (e.g. 読む -> よむ) instead of
+    // re-centering furigana onto bare kanji, which is reserved for the popup token renderers.
+    preserveTokenRubies?: boolean;
 }
 
 function renderTokenShell(token: JPDBToken, options: TokenRenderOptions = {}): HTMLElement {
+    const span = createReaderWordSpan(token, options);
+    if (options.passiveInteraction !== true) span.tabIndex = 0;
+    return span;
+}
+
+// Builds the bare reader-word <span> (class + identity/pitch/sentence dataset) shared by every token renderer.
+// Callers add the tabindex and content afterward, since those vary by render mode.
+function createReaderWordSpan(token: JPDBToken, options: TokenRenderOptions): HTMLElement {
     const span = document.createElement('span');
     const state = primaryCardState(token.card.cardState);
     span.className = readerWordClassName(state, token);
@@ -1490,7 +1438,6 @@ function renderTokenShell(token: JPDBToken, options: TokenRenderOptions = {}): H
     span.dataset.sentence = token.sentence ?? '';
     if (token.card.spelling) span.dataset.expression = token.card.spelling;
     if (token.card.reading) span.dataset.reading = token.card.reading;
-    if (options.passiveInteraction !== true) span.tabIndex = 0;
     return span;
 }
 
@@ -1512,9 +1459,9 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${expression}${reading} tabindex="0">${content}</span>`;
 }
 
-export function shouldRenderRuby(surface: string, token: JPDBToken, settings: ReaderSettings, allowRuby = true): boolean {
+export function shouldRenderRuby(surface: string, token: JPDBToken, settings: ReaderSettings, allowRuby = true, preserveTokenRubies = false): boolean {
     if (!allowRuby) return false;
-    if (!effectiveTokenRubies(surface, token).length) return false;
+    if (!effectiveTokenRubies(surface, token, preserveTokenRubies).length) return false;
     return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface);
 }
 
@@ -1549,10 +1496,10 @@ function safePitchClass(value: string): string {
     return PITCH_CLASSES.has(value) ? value : 'unknown';
 }
 
-export function renderRuby(surface: string, token: JPDBToken, kanjiNavigation?: KanjiNavigationRenderOptions): string {
+export function renderRuby(surface: string, token: JPDBToken, kanjiNavigation?: KanjiNavigationRenderOptions, preserveTokenRubies = false): string {
     let html = '';
     let localOffset = 0;
-    for (const ruby of effectiveTokenRubies(surface, token)) {
+    for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
         const start = ruby.start - token.start;
         const end = ruby.end - token.start;
         html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
@@ -1626,9 +1573,18 @@ function sameKanaCharacter(first: string | undefined, second: string | undefined
     return Boolean(first && second && first === second && KANA_RE.test(first));
 }
 
-function effectiveTokenRubies(surface: string, token: JPDBToken): JPDBToken['rubies'] {
-    return sourceTokenRubies(surface, token)
-        .flatMap(ruby => kanjiOnlyRubySegments(surface, token, ruby));
+function effectiveTokenRubies(surface: string, token: JPDBToken, preserveTokenRubies = false): JPDBToken['rubies'] {
+    const sources = sourceTokenRubies(surface, token);
+    if (preserveTokenRubies) {
+        // Preserve explicit rubies verbatim over kanji-containing bases; a
+        // kana-only base never needs furigana (the ruby would just repeat
+        // the visible word).
+        return sources.filter(ruby => {
+            const range = localRubyRange(surface, token, ruby);
+            return range !== null && KANJI_RE.test(surface.slice(range.start, range.end));
+        });
+    }
+    return sources.flatMap(ruby => kanjiOnlyRubySegments(surface, token, ruby));
 }
 
 function sourceTokenRubies(surface: string, token: JPDBToken): JPDBToken['rubies'] {
