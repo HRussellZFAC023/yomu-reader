@@ -346,7 +346,16 @@ function mockFloatingButtonRects(left = 700, top = 500, width = 52, height = 52)
         const y = Number.isFinite(styleTop) ? styleTop : top;
         return new DOMRect(x, y, width, height);
     });
-    return () => spy.mockRestore();
+    return () => {
+        spy.mockRestore();
+        // getBoundingClientRect is inherited, so spying it on HTMLButtonElement.prototype
+        // leaves a lingering own property after mockRestore. That would shadow the
+        // HTMLElement.prototype rect spies later tests rely on (making every <button>
+        // report a 0x0 rect), so remove it to fully restore the inherited lookup.
+        if (Object.prototype.hasOwnProperty.call(HTMLButtonElement.prototype, 'getBoundingClientRect')) {
+            delete (HTMLButtonElement.prototype as unknown as Record<string, unknown>).getBoundingClientRect;
+        }
+    };
 }
 
 function sizedPopover(width: number, height: number): HTMLElement {

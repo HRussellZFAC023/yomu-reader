@@ -18,6 +18,7 @@ const PROXY_CONTROL_REQUEST_HEADERS = new Set([
   'access-control-request-method',
 ]);
 const BROWSER_FETCH_METADATA_RE = /^(?:cf-|sec-fetch-)/i;
+const RETRYABLE_UPSTREAM_STATUSES = new Set([500, 502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 527]);
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -30,7 +31,8 @@ export default {
     if (!target) return corsText(request, 'Missing url parameter.', 400);
     if (!isAllowedPublicProxyTarget(request.method, target, env)) return corsText(request, 'Target is not proxyable.', 400);
 
-    return withCors(request, await fetchProxyTarget(request, target), target);
+    const response = await fetchProxyTarget(request, target);
+    return withCors(request, response, target);
   },
 };
 
@@ -52,11 +54,29 @@ export function isAllowedPublicProxyTarget(method: string, target: URL, _env: En
 }
 
 async function fetchProxyTarget(request: Request, target: URL): Promise<Response> {
-  return await fetch(new Request(target.href, upstreamInit(request, target)));
+  let lastError: unknown;
+  for (const init of upstreamAttempts(request, target)) {
+    try {
+      const response = await fetch(new Request(target.href, init));
+      if (!isRetryableUpstreamResponse(response)) return response;
+      lastError = new Error(`Upstream request failed with ${response.status}.`);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  return proxyFailureResponse(lastError);
 }
 
-function upstreamInit(request: Request, target: URL): RequestInit {
-  const headers = upstreamHeaders(request, target);
+function upstreamAttempts(request: Request, target: URL): RequestInit[] {
+  const attempts = [upstreamInit(request, target)];
+  if (isIdempotentRequest(request)) {
+    attempts.push(upstreamInit(request, target, { minimalHeaders: true }));
+  }
+  return attempts;
+}
+
+function upstreamInit(request: Request, target: URL, options: { minimalHeaders?: boolean } = {}): RequestInit {
+  const headers = options.minimalHeaders ? minimalUpstreamHeaders(request, target) : upstreamHeaders(request, target);
   const init: RequestInit & { duplex?: 'half' } = {
     method: request.method,
     headers,
@@ -65,6 +85,18 @@ function upstreamInit(request: Request, target: URL): RequestInit {
   };
   if (init.body) init.duplex = 'half';
   return init;
+}
+
+function minimalUpstreamHeaders(request: Request, target: URL): Headers {
+  const headers = new Headers();
+  const range = request.headers.get('range');
+  if (range) headers.set('range', range);
+  if (isJpdbAudioTarget(target)) {
+    headers.set('x-access', request.headers.get('x-access') || JPDB_AUDIO_ACCESS_HEADER);
+    const forceCaf = jpdbAudioForceCaf(request, target);
+    if (forceCaf) headers.set('x-forcecaf', forceCaf);
+  }
+  return headers;
 }
 
 function upstreamHeaders(request: Request, target: URL): Headers {
@@ -85,6 +117,26 @@ function shouldForwardRequestHeader(name: string): boolean {
   return !HOP_BY_HOP_REQUEST_HEADERS.has(key)
     && !PROXY_CONTROL_REQUEST_HEADERS.has(key)
     && !BROWSER_FETCH_METADATA_RE.test(key);
+}
+
+function isIdempotentRequest(request: Request): boolean {
+  return request.method === 'GET' || request.method === 'HEAD';
+}
+
+function isRetryableUpstreamResponse(response: Response): boolean {
+  return RETRYABLE_UPSTREAM_STATUSES.has(response.status);
+}
+
+function proxyFailureResponse(error: unknown): Response {
+  const detail = error instanceof Error && error.message ? error.message : 'Unknown upstream error.';
+  return new Response(`Upstream request failed. ${detail}`, {
+    status: 502,
+    statusText: 'Bad Gateway',
+    headers: {
+      'content-type': 'text/plain; charset=utf-8',
+      'x-yomu-proxy-error': 'upstream',
+    },
+  });
 }
 
 function isJpdbAudioTarget(target: URL): boolean {

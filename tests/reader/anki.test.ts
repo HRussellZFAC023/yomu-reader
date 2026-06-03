@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { canFetchAnkiConnectFrom, needsHostedAnkiConnectSetupHint, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki';
 import { renderAnkiExistingSection } from '../../src/reader/anki-render';
+import { uiText } from '../../src/reader/i18n';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { ReaderSettings } from '../../src/reader/types';
 
@@ -46,6 +47,8 @@ describe('AnkiConnect browser fetch eligibility', () => {
             'http://127.0.0.1:8765',
             'https://hrussellzfac023.github.io/yomu-reader/newtab/',
         )).toBe(true);
+        expect(uiText('en', 'ankiHostedCorsHint')).toContain('Enable the userscript on this page');
+        expect(uiText('en', 'ankiHostedCorsHint')).toContain('Advanced fallback');
         expect(needsHostedAnkiConnectSetupHint(
             'http://127.0.0.1:8765',
             'http://127.0.0.1:5174/newtab/',

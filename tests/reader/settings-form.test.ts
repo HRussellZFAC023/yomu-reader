@@ -269,7 +269,7 @@ describe('settings form localization', () => {
 
     it('renders JPDB and Anki connection status lights in settings', () => {
         const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key' }, 'https://jpdb.io/settings');
+        form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', ankiEnabled: false }, 'https://jpdb.io/settings');
 
         expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.dataset.statusTone).toBe('success');
         expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.textContent).toContain('Ready:');

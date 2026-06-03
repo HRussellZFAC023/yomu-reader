@@ -8638,7 +8638,7 @@ describe('new tab review helpers', () => {
         const example = { ...newTabImmersionExample('中学生'), sentence };
         const parse = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [newTabSentenceToken(card, text)]));
         const search = vi.fn(async () => [example]);
-        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }, {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: false, ankiEnabled: false }, {
             immersionKit: {
                 search,
                 mediaUrls: vi.fn(() => []),
@@ -8720,7 +8720,7 @@ describe('new tab review helpers', () => {
         const parse = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [
             newTabSentenceToken(text.includes('書く') ? second : first, text),
         ]));
-        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }, {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: false, ankiEnabled: false }, {
             immersionKit: {
                 search: vi.fn(async (query: string) => examplesByQuery.get(query) ?? []),
                 mediaUrls: vi.fn(() => []),

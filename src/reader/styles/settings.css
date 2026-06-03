@@ -511,6 +511,7 @@
 .jpdb-reader-settings .jpdb-reader-help {
   font-size: 12px;
   line-height: 1.45;
+  margin-top: 8px;
 }
 .jpdb-reader-settings-wide {
   grid-column: 1 / -1;
@@ -816,30 +817,12 @@
   box-shadow: 0 6px 16px
     color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
 }
-.jpdb-reader-help-card {
-  display: grid;
-  gap: 12px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  padding: 14px;
-}
-.jpdb-reader-help-title {
-  color: var(--jpdb-reader-text);
-  font-size: 15px;
-  font-weight: 850;
-}
-.jpdb-reader-help-card p {
-  margin: 8px 0 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 13px;
-  line-height: 1.45;
-}
 .jpdb-reader-help-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
+  margin-top: 12px;
 }
 .jpdb-reader-help-actions .jpdb-reader-btn {
   flex: 1 1 auto;
@@ -890,12 +873,7 @@
   border-color: var(--jpdb-reader-danger-readable);
   color: var(--jpdb-reader-danger-readable) !important;
 }
-.jpdb-reader-help-support {
-  display: grid;
-  gap: 10px;
-  padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
-}
+
 .jpdb-reader-help-discord {
   display: inline-flex;
   align-items: center;

@@ -280,9 +280,12 @@ describe('settings dialog keyboard dismissal', () => {
     });
 
     it('tests Anki with a read-only connection check', async () => {
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
         const isConnected = vi.fn().mockResolvedValue(true);
         const ensureDeckAndModel = vi.fn().mockResolvedValue(undefined);
         const { form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
             anki: {
                 isConnected,
                 ensureDeckAndModel,
@@ -298,8 +301,11 @@ describe('settings dialog keyboard dismissal', () => {
     });
 
     it('shows disabled Anki status without probing when Anki mining is off', async () => {
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
         const isConnected = vi.fn().mockResolvedValue(true);
         const { form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
             anki: { isConnected },
         });
 
@@ -347,6 +353,9 @@ describe('settings dialog keyboard dismissal', () => {
 
         expect(isConnected).toHaveBeenCalledTimes(2);
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect is not reachable');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Troubleshooting');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open Anki');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Press Check AnkiConnect again');
     });
 
     it('updates the JPDB status light when the API key field changes', () => {
@@ -515,6 +524,7 @@ describe('settings dialog keyboard dismissal', () => {
             configurable: true,
         });
         const isConnected = vi.fn().mockResolvedValue(true);
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
         const scanLibrary = vi.fn().mockResolvedValue({
             deckNames: ['Android Bridge'],
             models: [{
@@ -539,6 +549,8 @@ describe('settings dialog keyboard dismissal', () => {
             },
         });
         const { form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
             anki: {
                 isConnected,
                 scanLibrary,
@@ -566,7 +578,10 @@ describe('settings dialog keyboard dismissal', () => {
         });
         const isConnected = vi.fn().mockResolvedValue(false);
         const scanLibrary = vi.fn().mockResolvedValue({ deckNames: [], models: [], suggestedModel: null });
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
         const { form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
             anki: {
                 isConnected,
                 scanLibrary,
