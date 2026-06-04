@@ -17,7 +17,7 @@
   --jpdb-reader-source-anki-soft: var(--jpdb-reader-anki-soft, transparent);
   --jpdb-reader-source-anki-highlight: var(--jpdb-reader-anki-highlight, var(--jpdb-reader-source-anki-soft, transparent));
   --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-pitch-color, currentColor));
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown));
+  --jpdb-reader-source-pitch-decoration: transparent;
   --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-soft, var(--jpdb-reader-pitch-unknown-soft, transparent));
   --jpdb-reader-source-pitch-highlight: var(--jpdb-reader-pitch-highlight, var(--jpdb-reader-source-pitch-soft, transparent));
   --jpdb-reader-source-pitch-highlight-shadow: var(--jpdb-reader-pitch-highlight-shadow, none);
@@ -268,6 +268,7 @@
   .jpdb-pitch-odaka,
   .jpdb-pitch-kifuku
 ) {
+  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, transparent);
   --jpdb-reader-pitch-highlight: color-mix(
     in srgb,
     var(--jpdb-reader-pitch-color) 36%,
@@ -519,11 +520,19 @@
   white-space: pre;
 }
 .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word {
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);
   --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
   background: var(--jpdb-reader-word-highlight-source, transparent) !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important;
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important;
+}
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word:is(
+  .jpdb-pitch-heiban,
+  .jpdb-pitch-atamadaka,
+  .jpdb-pitch-nakadaka,
+  .jpdb-pitch-odaka,
+  .jpdb-pitch-kifuku
+) {
+  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);
 }
 .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi {
   background: transparent !important;

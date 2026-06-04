@@ -127,6 +127,8 @@ const ANKI_MODEL_SCAN_SAMPLE_NOTE_LIMIT = 24;
 const ANKI_MODEL_SCAN_CONCURRENCY = 3;
 const ANKI_RENDERED_MEDIA_LIMIT = 12;
 const ANKI_RENDERED_MEDIA_CONCURRENCY = 3;
+const ANKI_MOBILE_FALLBACK_DECK = 'Default';
+const YOMU_DEFAULT_DECK_NAMES = new Set(['よむ', 'yomu']);
 const log = Logger.scope('Anki');
 const ANKI_EASE_BY_GRADE: Record<JPDBGrade, number> = {
     nothing: 1,
@@ -1843,13 +1845,18 @@ function mobileAnkiHandoffPrompt(note: AnkiNote, appName: string): string {
 function iosAnkiMobileUrl(note: AnkiNote): string {
     const params = new URLSearchParams();
     params.set('type', note.modelName);
-    params.set('deck', note.deckName);
+    params.set('deck', iosAnkiMobileDeckName(note.deckName));
     if (note.tags?.length) params.set('tags', note.tags.join(' '));
     Object.entries(iosAnkiMobileFields(note)).forEach(([field, value]) => {
         const handoffValue = iosAnkiMobileFieldValue(field, value);
         if (handoffValue !== null) params.set(`fld${field}`, handoffValue);
     });
     return `anki://x-callback-url/addnote?${params.toString()}`;
+}
+
+function iosAnkiMobileDeckName(deckName: string): string {
+    const trimmed = deckName.trim();
+    return YOMU_DEFAULT_DECK_NAMES.has(trimmed.toLowerCase()) ? ANKI_MOBILE_FALLBACK_DECK : trimmed || ANKI_MOBILE_FALLBACK_DECK;
 }
 
 function iosAnkiMobileFields(note: AnkiNote): Record<string, string> {

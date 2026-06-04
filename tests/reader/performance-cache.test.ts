@@ -386,6 +386,48 @@ describe('performance cache bounds', () => {
         }
     });
 
+    it('keeps popover body scroll stable across Immersion carousel renders', async () => {
+        const search = vi.fn(async () => [
+            { ...immersionExample('単語1'), id: 'example-1' },
+            { ...immersionExample('単語1'), id: 'example-2', sentence: 'また単語1を聞いた。' },
+        ]);
+        const controller = createImmersionController({
+            search,
+            preload: vi.fn(),
+            mediaUrls: vi.fn(() => []),
+        } as unknown as ImmersionKitClient);
+        const popover = document.createElement('div');
+        popover.innerHTML = '<div class="jpdb-reader-popover-body"><details data-immersion-kit open></details></div>';
+        document.body.append(popover);
+
+        try {
+            await controller.loadExamples(popover, cardFor(1));
+            const body = popover.querySelector<HTMLElement>('.jpdb-reader-popover-body')!;
+            const container = popover.querySelector<HTMLElement>('[data-immersion-kit]')!;
+            const nativeInnerHtml = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML')
+                ?? Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'innerHTML');
+            Object.defineProperty(container, 'innerHTML', {
+                configurable: true,
+                get(this: HTMLElement) {
+                    return nativeInnerHtml?.get?.call(this) ?? '';
+                },
+                set(this: HTMLElement, value: string) {
+                    nativeInnerHtml?.set?.call(this, value);
+                    body.scrollTop = 0;
+                },
+            });
+            body.scrollTop = 260;
+
+            popover.querySelector<HTMLButtonElement>('[data-immersion-action="next"]')?.click();
+            await new Promise(resolve => requestAnimationFrame(resolve));
+
+            expect(body.scrollTop).toBe(260);
+            expect(popover.querySelector('.jpdb-reader-example-count')?.textContent).toBe('2/2');
+        } finally {
+            popover.remove();
+        }
+    });
+
     it('scopes Immersion example Anki enrichment to the rendered example container', () => {
         const token: JPDBToken = {
             card: cardFor(1),

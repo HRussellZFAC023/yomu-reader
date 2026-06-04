@@ -50,7 +50,7 @@ import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTarget, type NewTabLookupReviewTargetSelection } from './new-tab-controller';
 import { NEW_TAB_CSS } from './newtab-styles';
 import { installOriginGraphInteractions } from './origin-graph-interactions';
-import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, popoverMaxHeightSetting, refreshForcedReaderPopoverSurface } from './popover-shell';
+import { capturePopoverScrollFrame, createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, popoverBodyActionElement, popoverMaxHeightSetting, refreshForcedReaderPopoverSurface, restorePopoverScrollFrameSoon } from './popover-shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from './popup-navigation';
 import {
     buildRtkComponentSummaries,
@@ -1740,9 +1740,16 @@ export class NewTabRuntime {
         popover.dataset.jpdbReaderBodyStabilizers = 'true';
         popover.addEventListener('click', event => {
             const target = event.target instanceof HTMLElement ? event.target : null;
+            if (!target) return;
+            const scrollBody = popover.querySelector<HTMLElement>('.jpdb-reader-popover-body') ?? popover;
+            if (!scrollBody.contains(target)) return;
             const summary = target?.closest<HTMLElement>('summary');
-            if (!summary || !popover.contains(summary)) return;
-            this.stabilizeLookupPopoverBodyAround(popover, summary);
+            if (summary && scrollBody.contains(summary)) {
+                this.stabilizeLookupPopoverBodyAround(popover, summary);
+                return;
+            }
+            if (!popoverBodyActionElement(target, scrollBody)) return;
+            restorePopoverScrollFrameSoon(capturePopoverScrollFrame(scrollBody));
         }, true);
     }
 

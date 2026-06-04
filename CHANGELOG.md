@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.14] - 2026-06-04
+
+### Fixed
+
+- Made AnkiMobile handoff use Anki's built-in Default deck for Yomu's built-in deck names when AnkiConnect is unavailable, avoiding missing-deck errors on iPad.
+- Kept Default available in the Anki deck picker even before the desktop Anki library can be scanned.
+
+## [0.6.13] - 2026-06-04
+
+### Fixed
+
+- Let settings saves close the dialog immediately instead of waiting on dictionary-style refreshes, avoiding apparent freezes after changing settings.
+- Prevented pitch accent underline styling from leaking onto OCR and subtitle words that do not have pitch accent classes, including stale mobile settings states.
+
 ## [0.6.12] - 2026-06-04
 
 ### Added

@@ -309,7 +309,7 @@
   --jpdb-reader-source-anki-soft: var(--jpdb-reader-anki-soft, transparent);
   --jpdb-reader-source-anki-highlight: var(--jpdb-reader-anki-highlight, var(--jpdb-reader-source-anki-soft, transparent));
   --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-pitch-color, currentColor));
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown));
+  --jpdb-reader-source-pitch-decoration: transparent;
   --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-soft, var(--jpdb-reader-pitch-unknown-soft, transparent));
   --jpdb-reader-source-pitch-highlight: var(--jpdb-reader-pitch-highlight, var(--jpdb-reader-source-pitch-soft, transparent));
   --jpdb-reader-source-pitch-highlight-shadow: var(--jpdb-reader-pitch-highlight-shadow, none);
@@ -560,6 +560,7 @@
   .jpdb-pitch-odaka,
   .jpdb-pitch-kifuku
 ) {
+  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, transparent);
   --jpdb-reader-pitch-highlight: color-mix(
     in srgb,
     var(--jpdb-reader-pitch-color) 36%,
@@ -811,11 +812,19 @@
   white-space: pre;
 }
 .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word {
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);
   --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
   background: var(--jpdb-reader-word-highlight-source, transparent) !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important;
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important;
+}
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word:is(
+  .jpdb-pitch-heiban,
+  .jpdb-pitch-atamadaka,
+  .jpdb-pitch-nakadaka,
+  .jpdb-pitch-odaka,
+  .jpdb-pitch-kifuku
+) {
+  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);
 }
 .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi {
   background: transparent !important;
@@ -1602,12 +1611,16 @@ button.jpdb-reader-action-pill {
   display: flex;
   align-items: flex-start;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
   margin-top: 8px;
   padding: 8px 10px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: var(--jpdb-reader-surface-2);
   color: var(--jpdb-reader-text);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .jpdb-reader-status-line[data-status-tone]::before {
   content: "";
@@ -6037,6 +6050,18 @@ html.jpdb-reader-doodle-active * {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+.jpdb-reader-settings a:not(.jpdb-reader-btn) svg {
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  margin-left: 0.2em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -0.12em;
+}
 .jpdb-reader-settings-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6989,7 +7014,7 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-status-color); }
 .jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-color); }
 .jpdb-reader-subtitle-underline-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-anki-color); }
-.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-color); }
+.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku) { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-color); }
 .jpdb-reader-subtitle-text-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-status-text); }
 .jpdb-reader-subtitle-text-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-jpdb-text); }
 .jpdb-reader-subtitle-text-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-anki-text); }
@@ -7152,7 +7177,7 @@ html.jpdb-reader-doodle-active * {
   --jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-readable, var(--jpdb-reader-jpdb-color, var(--jpdb-reader-state-new)));
   --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-source-jpdb-color);
   --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown)));
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-source-pitch-color);
+  --jpdb-reader-source-pitch-decoration: transparent;
 }
 .jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new);
@@ -7200,6 +7225,9 @@ html.jpdb-reader-doodle-active * {
   --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka);
   --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-odaka-readable);
 }
+.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku) {
+  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-source-pitch-color, transparent);
+}
 .jpdb-reader-subtitle-preview.jpdb-reader-subtitle-text-status .jpdb-subtitle-primary .jpdb-reader-word {
   color: var(--jpdb-reader-source-status-color, var(--subtitle-color)) !important;
 }
@@ -7219,7 +7247,7 @@ html.jpdb-reader-doodle-active * {
   text-decoration-line: underline !important;
   text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
 }
-.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word {
+.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku) {
   --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);
   text-decoration-line: underline !important;
   text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;

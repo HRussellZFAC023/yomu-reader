@@ -10,6 +10,7 @@ const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     '[data-settings-preview-lookup]',
     '[hidden]',
     '[aria-hidden="true"]',
+    '[data-anki-setup-help]',
     'a[href]',
     'button',
     'input',

@@ -21,6 +21,7 @@ const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = 
 const ANKI_FIELD_MAPPING_ROLES: AnkiFieldMappingRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'image'];
 const PROXY_WORKER_SOURCE_URL = `${GITHUB_REPOSITORY_URL}/blob/main/workers/jpdb-public-proxy/src/index.ts`;
 const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb-public-proxy`;
+const ANKI_MOBILE_FALLBACK_DECK = 'Default';
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
 export type SettingsStatusTone = 'pending' | 'success' | 'error';
 export interface SettingsStatusLine {
@@ -677,7 +678,7 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
                             <div class="jpdb-reader-local-title" data-anki-library-choices-title>${escapedUiText(settings.interfaceLanguage, 'ankiLibraryChoices')}</div>
                             <div class="jpdb-reader-help" data-anki-library-choices-help>${escapedUiText(settings.interfaceLanguage, 'ankiLibraryChoicesHelp')}</div>
                             <div class="jpdb-reader-anki-choice-grid">
-                                <label><span class="jpdb-reader-settings-label-text">Anki deck</span><select name="ankiDeck" data-anki-deck-options>${renderAnkiLibraryOptions([settings.ankiDeck].filter(Boolean), settings.ankiDeck, settings.interfaceLanguage)}</select></label>
+                                <label><span class="jpdb-reader-settings-label-text">Anki deck</span><select name="ankiDeck" data-anki-deck-options>${renderAnkiDeckLibraryOptions([settings.ankiDeck].filter(Boolean), settings.ankiDeck, settings.interfaceLanguage)}</select></label>
                                 <label><span class="jpdb-reader-settings-label-text">Anki note type</span><select name="ankiModel" data-anki-model-options>${renderAnkiLibraryOptions([settings.ankiModel, ...Object.keys(settings.ankiFieldMappings)].filter(Boolean), settings.ankiModel, settings.interfaceLanguage)}</select></label>
                             </div>
                         </div>
@@ -712,6 +713,10 @@ export function renderAnkiLibraryOptions(options: string[], value: string, langu
     const values = uniqueStrings([value, ...options].filter(Boolean));
     const rows = values.map(option => `<option value="${escapeHtml(option)}" ${option === value ? 'selected' : ''}>${escapeHtml(option)}</option>`);
     return rows.length ? rows.join('') : `<option value="" selected>${escapedUiText(language, 'scanAnkiFirst')}</option>`;
+}
+
+export function renderAnkiDeckLibraryOptions(options: string[], value: string, language: InterfaceLanguage = 'en'): string {
+    return renderAnkiLibraryOptions([...options, ANKI_MOBILE_FALLBACK_DECK], value, language);
 }
 
 function formatStatusTemplate(template: string, values: Record<string, string>): string {

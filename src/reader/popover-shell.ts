@@ -19,6 +19,58 @@ const SETTINGS_DRAWER_KEYBOARD_STEP_PX = 56;
 const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
 const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
 const FORCED_POPOVER_SURFACE_DATA_KEY = 'jpdbReaderForcedPopoverSurface';
+const POPOVER_BODY_ACTION_SELECTOR = [
+    'button',
+    '[role="button"]',
+    'input',
+    'select',
+    'textarea',
+    '[data-action]',
+    '[data-immersion-action]',
+    '[data-yomu-immersion-action]',
+    '[data-uchisen-action]',
+].join(',');
+
+export interface PopoverScrollFrame {
+    scrollBody: HTMLElement;
+    scrollTop: number;
+}
+
+export function popoverScrollBody(popover: HTMLElement): HTMLElement {
+    return popover.querySelector<HTMLElement>('.jpdb-reader-popover-body') ?? popover;
+}
+
+export function capturePopoverScrollFrame(target: HTMLElement): PopoverScrollFrame {
+    const popover = target.closest<HTMLElement>('.jpdb-reader-popover') ?? target;
+    const scrollBody = target.closest<HTMLElement>('.jpdb-reader-popover-body') ?? popoverScrollBody(popover);
+    return { scrollBody, scrollTop: scrollBody.scrollTop };
+}
+
+export function restorePopoverScrollFrame(frame: PopoverScrollFrame): void {
+    if (!frame.scrollBody.isConnected) return;
+    if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
+}
+
+export function restorePopoverScrollFrameSoon(frame: PopoverScrollFrame): void {
+    restorePopoverScrollFrame(frame);
+    requestAnimationFrame(() => restorePopoverScrollFrame(frame));
+}
+
+export function stabilizePopoverBodyAround(popover: HTMLElement, anchor: HTMLElement): void {
+    const scrollBody = popoverScrollBody(popover);
+    const scrollTop = scrollBody.scrollTop;
+    const anchorTop = anchor.getBoundingClientRect().top;
+    requestAnimationFrame(() => {
+        if (!popover.isConnected || !anchor.isConnected) return;
+        const delta = anchor.getBoundingClientRect().top - anchorTop;
+        if (Math.abs(delta) > 0.5) scrollBody.scrollTop = scrollTop + delta;
+    });
+}
+
+export function popoverBodyActionElement(target: HTMLElement, scrollBody: HTMLElement): HTMLElement | null {
+    const action = target.closest<HTMLElement>(POPOVER_BODY_ACTION_SELECTOR);
+    return action && scrollBody.contains(action) ? action : null;
+}
 
 export function createReaderPopover(appName: string, settings: ReaderSettings): HTMLElement {
     const popover = document.createElement('div');

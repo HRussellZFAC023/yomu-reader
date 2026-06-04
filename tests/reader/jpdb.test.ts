@@ -1137,7 +1137,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('text-decoration-color: inherit !important;');
         expect(normalizedCss).toContain('--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-jpdb-soft, transparent);');
         expect(normalizedCss).toContain('--jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);');
-        expect(normalizedCss).toContain('--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown));');
+        expect(normalizedCss).toContain('--jpdb-reader-source-pitch-decoration: transparent;');
         expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new);');
         expect(normalizedCss).toContain('--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft);');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-suspended { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-ignored);');
@@ -1151,6 +1151,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('--jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft);');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-pitch-unknown { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown);');
         expect(normalizedCss).toContain('--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent);');
+        expect(normalizedCss).toMatch(/\.jpdb-reader-word:is\(\s*\.jpdb-pitch-heiban,\s*\.jpdb-pitch-atamadaka,\s*\.jpdb-pitch-nakadaka,\s*\.jpdb-pitch-odaka,\s*\.jpdb-pitch-kifuku\s*\) \{ --jpdb-reader-source-pitch-decoration: var\(--jpdb-reader-pitch-color, transparent\);/);
         expect(normalizedCss).toContain('--jpdb-reader-source-status-highlight: var(--jpdb-reader-status-highlight, var(--jpdb-reader-source-status-soft, transparent));');
         expect(normalizedCss).toMatch(/--jpdb-reader-jpdb-highlight: color-mix\(\s*in srgb, var\(--jpdb-reader-jpdb-color\) 36%, var\(--jpdb-reader-highlight-backdrop\)\s*\);/);
         expect(normalizedCss).toMatch(/--jpdb-reader-pitch-highlight: color-mix\(\s*in srgb, var\(--jpdb-reader-pitch-color\) 36%, var\(--jpdb-reader-highlight-backdrop\)\s*\);/);
@@ -1166,7 +1167,9 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word { background: transparent !important;');
         expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; box-shadow: none !important; text-decoration-line: underline !important;');
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: transparent !important; box-shadow: none !important; }');
-        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor); --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background: var(--jpdb-reader-word-highlight-source, transparent) !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; }');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background: var(--jpdb-reader-word-highlight-source, transparent) !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; }');
+        expect(normalizedCss).toMatch(/\.jpdb-ocr-line:is\(:hover, :focus, \.jpdb-ocr-line-active\) \.jpdb-reader-word:is\(\s*\.jpdb-pitch-heiban,\s*\.jpdb-pitch-atamadaka,\s*\.jpdb-pitch-nakadaka,\s*\.jpdb-pitch-odaka,\s*\.jpdb-pitch-kifuku\s*\) \{ --jpdb-reader-source-pitch-decoration: var\(--jpdb-reader-pitch-color, currentColor\); \}/);
+        expect(normalizedCss).not.toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-highlight-jpdb .jpdb-ocr-layer');
         expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi { background: transparent !important; box-shadow: none !important; }');
         expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: var(--jpdb-reader-word-highlight-source, transparent) !important; border-radius: 3px; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; }');
@@ -1207,13 +1210,16 @@ describe('reader helpers', () => {
     it('resolves subtitle color channels on each parsed word', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
         const subtitleSurfaces = ':is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom)';
+        const pitchClassSelector = ':is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku)';
 
         expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--subtitle-color); --jpdb-reader-subtitle-highlight-default: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 24%, transparent ); background: transparent !important;');
         expect(normalizedCss).toContain(`${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-subtitle-status-color: var(--jpdb-reader-status-color, var(--jpdb-reader-state-new));`);
         expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-pitch-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-color) 30%, transparent);');
         expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; background: transparent !important; box-shadow: none; color: var(--jpdb-reader-subtitle-fallback, currentColor) !important; text-decoration-line: underline !important; text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;');
         expect(normalizedCss).toContain(`.jpdb-reader-subtitle-highlight-pitch ${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-pitch-soft, var(--jpdb-reader-source-pitch-soft, var(--jpdb-reader-subtitle-highlight-default))); }`);
-        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-pitch ${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-color); }`);
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-pitch ${subtitleSurfaces} .jpdb-reader-word${pitchClassSelector} { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-color); }`);
+        expect(normalizedCss).toContain('.jpdb-reader-subtitle-preview .jpdb-reader-word { --jpdb-reader-source-status-color: var(--jpdb-reader-status-readable, var(--jpdb-reader-status-color, var(--jpdb-reader-state-new))); --jpdb-reader-source-status-decoration: var(--jpdb-reader-source-status-color); --jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-readable, var(--jpdb-reader-jpdb-color, var(--jpdb-reader-state-new))); --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-source-jpdb-color); --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown))); --jpdb-reader-source-pitch-decoration: transparent; }');
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word${pitchClassSelector} { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);`);
         expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) ${subtitleSurfaces} .jpdb-reader-word { background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important; }`);
         expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) ${subtitleSurfaces} .jpdb-reader-word.jpdb-reader-has-furi { background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important; }`);
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important;');
@@ -1516,6 +1522,42 @@ describe('reader helpers', () => {
 
             expect(hover.classList.contains('jpdb-reader-sheet-sticky')).toBe(false);
             expect(hover.querySelector('[data-jpdb-reader-sheet-close="true"]')).toBeNull();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('keeps sheet popover body scroll stable after in-body control actions', async () => {
+        const app = new ReaderApp();
+        const settings = { ...DEFAULT_SETTINGS, popupMode: 'sheet' as const };
+        const internals = app as unknown as {
+            settings: typeof settings;
+            mountPopover(popover: HTMLElement, anchor?: HTMLElement, options?: { mode?: 'modal' | 'hover' }): void;
+        };
+        internals.settings = settings;
+        const popover = createReaderPopover('よむ', settings);
+        popover.innerHTML = `
+            <div class="jpdb-reader-sheet-handle"></div>
+            <div class="jpdb-reader-popover-body">
+                <div style="height: 900px"></div>
+                <button type="button" data-action="test-scroll-reset">Update</button>
+            </div>
+        `;
+        const body = popover.querySelector<HTMLElement>('.jpdb-reader-popover-body')!;
+        const button = popover.querySelector<HTMLButtonElement>('[data-action="test-scroll-reset"]')!;
+        button.addEventListener('click', () => {
+            body.scrollTop = 0;
+        });
+
+        try {
+            internals.mountPopover(popover, undefined, { mode: 'modal' });
+            body.scrollTop = 320;
+
+            button.click();
+            await new Promise(resolve => requestAnimationFrame(resolve));
+
+            expect(body.scrollTop).toBe(320);
         } finally {
             app.destroy();
             document.body.replaceChildren();
@@ -15198,6 +15240,64 @@ describe('reader helpers', () => {
         expect(document.querySelector<HTMLElement>('[data-study-panel]')?.hidden).toBe(false);
     });
 
+    it('keeps popover body scroll stable after grammar known rerenders', async () => {
+        const sentence = '毎日読んでいるので、もっと読みたい。';
+        localStorage.removeItem('yomu.grammarPreferences.v1');
+        const html = await renderGrammarHints(detectGrammarHints(sentence), sentence);
+        document.body.innerHTML = `
+            <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
+                <div class="jpdb-reader-popover-body">
+                    <div style="height: 900px"></div>
+                    <div class="jpdb-reader-study-tools">
+                        <div class="jpdb-reader-study-panel" data-study-panel>${html}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+        const body = document.querySelector<HTMLElement>('.jpdb-reader-popover-body')!;
+        const panel = document.querySelector<HTMLElement>('[data-study-panel]')!;
+        const button = panel.querySelector<HTMLButtonElement>('[data-action="study-grammar-toggle-known"][data-grammar-rule-id="aspect-te-iru"]')!;
+        const nativeInnerHtml = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML')
+            ?? Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'innerHTML');
+        Object.defineProperty(panel, 'innerHTML', {
+            configurable: true,
+            get(this: HTMLElement) {
+                return nativeInnerHtml?.get?.call(this) ?? '';
+            },
+            set(this: HTMLElement, value: string) {
+                nativeInnerHtml?.set?.call(this, value);
+                body.scrollTop = 0;
+            },
+        });
+        const parsePopoverJapanese = vi.fn(async (target: HTMLElement) => {
+            expect(target).toBe(popover);
+        });
+        const controller = new CardActionController({
+            getSettings: () => DEFAULT_SETTINGS,
+            detectGrammarHints: async (value: string) => detectGrammarHints(value),
+            parsePopoverJapanese,
+            playAudio: vi.fn(),
+            playSentenceAudio: vi.fn(),
+            showSettings: vi.fn(),
+            toast: vi.fn(),
+        } as unknown as ConstructorParameters<typeof CardActionController>[0]);
+
+        try {
+            body.scrollTop = 280;
+
+            await controller.perform('study-grammar-toggle-known', button, card, sentence);
+
+            await waitForExpect(() => {
+                expect(panel.querySelector('[data-grammar-rule-id="aspect-te-iru"]')).toBeNull();
+            });
+            expect(body.scrollTop).toBe(280);
+        } finally {
+            localStorage.removeItem('yomu.grammarPreferences.v1');
+            document.body.replaceChildren();
+        }
+    });
+
     it('flattens Yomitan structured glossary content for the compact popup', () => {
         expect(glossaryToText({ type: 'structured-content', content: ['to read ', { tag: 'ruby', content: ['読', { tag: 'rt', content: 'よ' }] }] }))
             .toContain('to read');
@@ -18891,6 +18991,42 @@ describe('reader helpers', () => {
             expect(params.get('fldMeaning')).toContain('to read');
             expect(params.get('fldAudio')).toBe('https://media.example.test/yomu/read.mp3');
             expect(params.get('fldImage')).toBeNull();
+        } finally {
+            confirmSpy.mockRestore();
+            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses Default for built-in Yomu deck names in AnkiMobile handoff URLs', async () => {
+        const originalUserAgent = navigator.userAgent;
+        Object.defineProperty(window.navigator, 'userAgent', {
+            value: 'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+            configurable: true,
+        });
+        const locationStub = { href: 'https://reader.test/article', origin: 'https://reader.test', hostname: 'reader.test' };
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        vi.stubGlobal('location', locationStub);
+
+        try {
+            for (const ankiDeck of ['よむ', 'Yomu', 'yomu']) {
+                const client = new AnkiConnectClient(() => ({
+                    ...DEFAULT_SETTINGS,
+                    ankiEnabled: true,
+                    ankiMobileHandoff: true,
+                    ankiDeck,
+                    ankiModel: 'Yomu Japanese',
+                }));
+                await client.addCardViaMobileHandoff({
+                    ...card,
+                    spelling: '読む',
+                    reading: 'よむ',
+                    meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
+                }, '今日は本を読む。');
+
+                expect(new URL(locationStub.href).searchParams.get('deck')).toBe('Default');
+                locationStub.href = 'https://reader.test/article';
+            }
         } finally {
             confirmSpy.mockRestore();
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
