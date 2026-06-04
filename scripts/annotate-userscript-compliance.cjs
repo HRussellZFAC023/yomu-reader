@@ -13,29 +13,23 @@ if (markerIndex === -1) {
   process.exit(1);
 }
 
-if (code.includes('External library source information')) {
-  console.log('Userscript compliance notes already present.');
-  process.exit(0);
+if (code.includes('Bundled dependency source information')) {
+    console.log('Userscript compliance notes already present.');
+    process.exit(0);
 }
-
-const fflateVersion = String(pkg.dependencies.fflate).replace(/^[~^]/, '');
-const fflateRequireUrl = `https://cdn.jsdelivr.net/npm/fflate@${fflateVersion}/umd/index.js`;
 
 const notice = `
 
 /*
 Greasy Fork compliance notes:
-- Reader UI CSS is declared as @resource yomuCss.
-- External library source information:
-  - fflate ${pkg.dependencies.fflate}: https://github.com/101arrowz/fflate (MIT), pinned with @require ${fflateRequireUrl}
+- Reader UI CSS is declared as @resource yomuCss; no remote JavaScript is loaded.
+- Bundled dependency source information:
+  - fflate ${pkg.dependencies.fflate}: https://github.com/101arrowz/fflate (MIT), bundled locally for ZIP dictionary import support.
 */
 `;
 const insertAt = markerIndex + endMarker.length;
 const before = code.slice(0, insertAt);
 const after = code.slice(insertAt).replace(/^\n+/, '\n');
 
-// Guard a trailing external-global invocation so the bundle also loads outside userscript managers.
-const guardedAfter = after.replace(/\}\)\(fflate\);\s*$/, '})(typeof fflate === "undefined" ? undefined : fflate);\n');
-
-fs.writeFileSync(file, `${before}${notice}${guardedAfter}`);
+fs.writeFileSync(file, `${before}${notice}${after}`);
 console.log(`Annotated ${file} with Greasy Fork compliance notes.`);

@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { isYomuHostedAppUrl, isYomuHostedPassivePage } from '../../src/reader/app-pages';
 import { AnkiConnectClient, AnkiDuplicateNoteError, buildYomuAnkiFields, YOMU_MODEL_FIELDS, type AnkiLookupResult } from '../../src/reader/anki';
-import { AudioPlayer, decodeJpdbAudioBlob, findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod101Audio, jpdbAudioRequest, normalizeJpdbAudioIds, resolveAnkiWordAudio, ShuffledAudioDeck } from '../../src/reader/audio';
+import { resolveAnkiWordAudio } from '../../src/reader/anki-audio';
+import { AudioPlayer, decodeJpdbAudioBlob, findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod101Audio, jpdbAudioRequest, normalizeJpdbAudioIds, ShuffledAudioDeck } from '../../src/reader/audio';
 import { positionPopover } from '../../src/reader/browser-ui';
 import { CardActionController } from '../../src/reader/card-action-controller';
 import { CardPopoverRenderer } from '../../src/reader/card-popover-renderer';
@@ -1157,9 +1158,11 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('--jpdb-reader-word-accessible-highlight');
         expect(normalizedCss).toContain('color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ) !important;');
         expect(normalizedCss).toContain('.jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) { color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important; }');
-        expect(normalizedCss).toContain('.jpdb-reader-word-underline-status .jpdb-reader-word { --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-status-decoration, transparent); --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent)); }');
-        expect(normalizedCss).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-word { --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent); --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent)); }');
-        expect(normalizedCss).toContain('.jpdb-reader-word-text-jpdb .jpdb-reader-word { --jpdb-reader-word-color-source: var(--jpdb-reader-source-jpdb-color, currentColor); color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;');
+        expect(normalizedCss).toContain('.jpdb-reader-word-underline-status .jpdb-reader-word { --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-status-decoration, transparent); }');
+        expect(normalizedCss).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-word { --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent); }');
+        expect(normalizedCss).toMatch(/:is\(\s*\.jpdb-reader-word-underline-status,\s*\.jpdb-reader-word-underline-jpdb,\s*\.jpdb-reader-word-underline-anki,\s*\.jpdb-reader-word-underline-pitch\s*\) \.jpdb-reader-word \{ --jpdb-reader-word-underline: var\(--jpdb-reader-word-accessible-underline, var\(--jpdb-reader-word-decoration-source, transparent\)\); \}/);
+        expect(normalizedCss).toContain('.jpdb-reader-word-text-jpdb .jpdb-reader-word { --jpdb-reader-word-color-source: var(--jpdb-reader-source-jpdb-color, currentColor); }');
+        expect(normalizedCss).toMatch(/:is\(\s*\.jpdb-reader-word-text-status,\s*\.jpdb-reader-word-text-jpdb,\s*\.jpdb-reader-word-text-anki,\s*\.jpdb-reader-word-text-pitch\s*\) \.jpdb-reader-word \{ color: var\(--jpdb-reader-word-accessible-color, var\(--jpdb-reader-word-color-source, currentColor\)\) !important; text-shadow: var\(--jpdb-reader-word-contrast-shadow, none\); \}/);
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word { background: transparent !important;');
         expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; box-shadow: none !important; text-decoration-line: underline !important;');
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: transparent !important; box-shadow: none !important; }');
@@ -6668,7 +6671,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('tries Jisho public-proxy audio lookup before browser speech when no userscript bridge is available', async () => {
+    it('skips Jisho lookup without a userscript bridge and falls back to browser speech', async () => {
         const spoken: string[] = [];
         class FakeSpeechSynthesisUtterance {
             lang = '';
@@ -6696,7 +6699,8 @@ describe('reader helpers', () => {
             await expect(player.play(card)).resolves.toBe(true);
 
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
-            expect(urls).toContain(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`);
+            expect(urls.some(url => url.includes('jisho.org/search/'))).toBe(false);
+            expect(urls.some(url => url.startsWith('https://yomu-jpdb-public-proxy.') && url.includes('jisho.org%2Fsearch'))).toBe(false);
             expect(urls.some(url => url.startsWith('https://r.jina.ai/'))).toBe(false);
             expect(spoken).toEqual([card.spelling]);
         } finally {
@@ -7083,7 +7087,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('plays Jisho audio through the public proxy on hosted pages without a userscript bridge', async () => {
+    it('skips Jisho audio on hosted pages when only the default public proxy is available', async () => {
         const played: string[] = [];
         const requested: string[] = [];
         const restoreMedia = mockHtmlAudioPlayback(played);
@@ -7128,15 +7132,12 @@ describe('reader helpers', () => {
 
             const result = await player.play({ ...card, spelling: '猫', reading: 'ねこ' }, { userGesture: true });
 
-            expect(result, JSON.stringify({ played, requested })).toBe(true);
+            expect(result, JSON.stringify({ played, requested })).toBe(false);
             expect(played).toEqual([
                 expect.stringMatching(/^data:audio\/wav;base64,/),
-                'blob:https://hrussellzfac023.github.io/yomu-reader/jisho-audio',
             ]);
-            expect(requested).toEqual([
-                `${DEFAULT_YOMU_PUBLIC_PROXY_URL}/?url=${encodeURIComponent('https://jisho.org/search/%E7%8C%AB')}`,
-                `${DEFAULT_YOMU_PUBLIC_PROXY_URL}/?url=${encodeURIComponent('https://d1vjc5dkcd3yh2.cloudfront.net/audio/6b96f918b54d9a75a6bd12a8fb98c48e.mp3')}`,
-            ]);
+            expect(requested).toEqual([]);
+            expect(fetch).not.toHaveBeenCalled();
         } finally {
             Object.defineProperty(URL, 'createObjectURL', {
                 configurable: true,

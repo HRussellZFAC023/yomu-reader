@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.11] - 2026-06-04
+
+### Changed
+
+- Split the Anki, audio, settings, new-tab review, subtitle, and reader-runtime code paths into smaller modules so the mining and review experience has room to grow without one-file bottlenecks.
+- Kept the userscript offline/self-contained for executed code by bundling ZIP support locally, removing remote `@require` JavaScript, and loading reader CSS through a userscript `@resource`.
+- Added readable generated-whitespace compaction plus stricter release verification so the userscript stays under Greasy Fork's 2 MB limit without identifier or syntax minification.
+
+### Fixed
+
+- Fixed Jisho audio fallback so hosted/no-bridge pages do not try the broken default public-proxy Jisho path before browser speech.
+- Fixed dictionary preference saving after the settings-form split by routing dictionary priorities through the shared form reader.
+- Preserved hover/status coloring, stale nested-parse guards, and generic page scanning across the parser/CSS refactor.
+
 ## [0.6.10] - 2026-06-04
 
 ### Fixed

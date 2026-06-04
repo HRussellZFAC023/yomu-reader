@@ -3,7 +3,10 @@ import { escapeHtml, setInnerHtml, unwrapReaderWords } from './dom';
 import { audioSourceLabel, resolveUiLanguage, uiText } from './i18n';
 import { externalLinkIcon, speakerIcon } from './icons';
 import { AUDIO_GUIDE_URL, AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_POPUP_FONT_FAMILY, DEFAULT_READER_FONT_FAMILY, MAX_DICTIONARY_LOOKUP_LINKS, accentToRgba, formatShortcutEvent, normalizeDictionaryLookupLinks, sanitizeAccentColor } from './settings';
+import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, miniIcon, radioGroup, select, settingsTabButton, shortcutInput } from './settings-form-controls';
+import { moveSourceRow } from './settings-form-order';
 import { COLOR_SOURCE_OPTIONS, COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, readAudioSources, readDictionaryLookupLinks, readOption, settingsColorSourceValue } from './settings-form-read';
+import { renderAnkiTagsEditor } from './settings-form-tags';
 import { uniqueStrings } from './string-utils';
 import type { AnkiFieldMappingRole, AudioSourceSetting, DictionaryLookupLink, ImmersionExampleSource, InterfaceLanguage, JPDBDeck, ReaderColorSource, ReaderSettings } from './types';
 import type { RecommendedDictionary } from './recommended-dictionaries';
@@ -12,8 +15,8 @@ import { definitionSourceRows, kanjiSourceRows, type SettingsSourceRow } from '.
 import type { YomitanDictionaryInfo } from './yomitan';
 
 export { readAudioSources, readDictionaryLookupLinks, readFormSettings } from './settings-form-read';
+export { installSourceRowDrag, updateSourceRowEditor } from './settings-form-order';
 
-const SETTINGS_LABEL_TEXT_CLASS = 'jpdb-reader-settings-label-text';
 const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
 const ANKI_FIELD_MAPPING_ROLES: AnkiFieldMappingRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'image'];
 const PROXY_WORKER_SOURCE_URL = `${GITHUB_REPOSITORY_URL}/blob/main/workers/jpdb-public-proxy/src/index.ts`;
@@ -713,31 +716,6 @@ export function renderAnkiLibraryOptions(options: string[], value: string, langu
     return rows.length ? rows.join('') : `<option value="" selected>${escapedUiText(language, 'scanAnkiFirst')}</option>`;
 }
 
-function renderAnkiTagsEditor(value: string, language: InterfaceLanguage): string {
-    const tags = ankiTagList(value);
-    const chips = tags.map(tag => `
-        <button class="jpdb-reader-tag-chip" type="button" data-action="anki-tag-remove" data-tag="${escapeHtml(tag)}" aria-label="${escapeHtml((language === 'ja' ? 'タグを削除: ' : 'Remove tag: ') + tag)}">
-            <span>${escapeHtml(tag)}</span>
-            <span aria-hidden="true">×</span>
-        </button>
-    `).join('');
-    return `
-        <div class="jpdb-reader-tag-editor" data-anki-tags-editor>
-            <input type="hidden" name="ankiTags" value="${escapeHtml(tags.join(' '))}">
-            <label class="jpdb-reader-settings-label-text" for="jpdb-reader-anki-tag-input">${escapedUiText(language, 'ankiTags')}</label>
-            <div class="jpdb-reader-tag-chip-list" data-anki-tag-chips>${chips}</div>
-            <div class="jpdb-reader-tag-add-row">
-                <input id="jpdb-reader-anki-tag-input" type="text" data-anki-tag-input autocomplete="off" placeholder="${escapeHtml(language === 'ja' ? 'タグを追加' : 'Add tag')}">
-                <button class="jpdb-reader-btn secondary" type="button" data-action="anki-tag-add">${escapeHtml(language === 'ja' ? '追加' : 'Add')}</button>
-            </div>
-        </div>
-    `;
-}
-
-function ankiTagList(value: string): string[] {
-    return uniqueStrings(value.split(/[\s,]+/u).map(tag => tag.trim()).filter(Boolean));
-}
-
 function formatStatusTemplate(template: string, values: Record<string, string>): string {
     return template.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? '');
 }
@@ -887,35 +865,6 @@ function renderSettingsFooter(): string {
     `;
 }
 
-// Settings labels should use sentence case, action-first verbs for toggles,
-// and explicit unit suffixes such as (px), (ms), (%), or (s) where relevant.
-function input(name: string, label: string, value: string, type = 'text', attributes: Record<string, string | number> = {}): string {
-    const attributeHtml = Object.entries(attributes)
-        .map(([key, attributeValue]) => ` ${key}="${escapeHtml(String(attributeValue))}"`)
-        .join('');
-    const fieldClass = ['jpdb-reader-settings-field'];
-    if (type === 'number' || type === 'color') fieldClass.push(`jpdb-reader-settings-field-${type}`);
-    return `<label class="${fieldClass.join(' ')}">${label}<input name="${name}" type="${type}" value="${escapeHtml(value)}" autocomplete="off"${attributeHtml}></label>`;
-}
-
-function shortcutInput(name: string, label: string, value: string, placeholder = 'Press keys'): string {
-    return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" autocomplete="off" inputmode="none" aria-label="${escapeHtml(label)}"></label>`;
-}
-
-function checkbox(name: string, label: string, checked: boolean, attributes: Record<string, boolean> = {}): string {
-    const attributeHtml = Object.entries(attributes)
-        .filter(([, value]) => value)
-        .map(([key]) => ` ${key}`)
-        .join('');
-    return `<label class="inline"><input name="${name}" type="checkbox" ${checked ? 'checked' : ''}${attributeHtml}>${label}</label>`;
-}
-
-function select(name: string, label: string, value: string, options: [string, string][]): string {
-    return `<label>${label}<select name="${name}">${options.map(([optionValue, text]) =>
-        `<option value="${escapeHtml(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(text)}</option>`,
-    ).join('')}</select></label>`;
-}
-
 function fontFamilyControl(name: FontFamilySettingName, label: string, value: string): string {
     const selectedValue = fontFamilyPresetValue(value);
     return `
@@ -941,12 +890,6 @@ function fontFamilyOptions(text?: SettingsText): [string, string][] {
         ] as [string, string]),
         [CUSTOM_FONT_FAMILY_VALUE, text ? text('fontPresetCustom') : 'Custom...'],
     ];
-}
-
-function radioGroup(name: string, label: string, value: string, options: [string, string][]): string {
-    return `<fieldset class="jpdb-reader-radio-group"><legend>${label}</legend>${options.map(([optionValue, text]) =>
-        `<label class="inline"><input name="${name}" type="radio" value="${escapeHtml(optionValue)}" ${optionValue === value ? 'checked' : ''}>${escapeHtml(text)}</label>`,
-    ).join('')}</fieldset>`;
 }
 
 function themeSegmentedControl(value: ReaderSettings['theme']): string {
@@ -2095,16 +2038,6 @@ export function renderAudioSourceEditor(sources: AudioSourceSetting[], language:
     `;
 }
 
-function miniIcon(name: 'drag' | 'up' | 'down' | 'remove'): string {
-    const paths = {
-        drag: '<path d="M9 5h.01"></path><path d="M15 5h.01"></path><path d="M9 12h.01"></path><path d="M15 12h.01"></path><path d="M9 19h.01"></path><path d="M15 19h.01"></path>',
-        up: '<path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path>',
-        down: '<path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path>',
-        remove: '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>',
-    } satisfies Record<typeof name, string>;
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
-}
-
 function renderAudioSourceRows(rows: AudioSourceSetting[], language: InterfaceLanguage): string {
     const count = rows.length;
 
@@ -2351,165 +2284,6 @@ function moveDictionaryLookupLink(links: DictionaryLookupLink[], from: number, t
     links.splice(to, 0, link);
 }
 
-export function updateSourceRowEditor(action: string, control?: HTMLElement | null): void {
-    const row = control?.closest<HTMLElement>('[data-source-row]');
-    const container = row?.closest<HTMLElement>('[data-source-editor]');
-    if (!container || !row) return;
-    const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-source-row]'));
-    const index = rows.indexOf(row);
-    const targetIndex = action === 'dictionary-source-up' ? index - 1 : index + 1;
-    moveSourceRow(container, index, targetIndex);
-}
-
-export function installSourceRowDrag(root: HTMLElement): void {
-    let drag: SourceRowDragState | null = null;
-    const dragDocument = root.ownerDocument;
-
-    root.addEventListener('pointerdown', event => {
-        if (drag) return;
-        if (event.pointerType === 'mouse' && event.button !== 0) return;
-        const handle = (event.target as HTMLElement).closest<HTMLElement>('[data-source-drag-handle]');
-        if (!handle || !root.contains(handle)) return;
-        const row = handle.closest<HTMLElement>('[data-source-row]');
-        const container = row?.closest<HTMLElement>('[data-source-editor]');
-        if (!row || !container) return;
-        event.preventDefault();
-        setSourceRowPointerCapture(handle, event.pointerId);
-        drag = { active: false, container, handle, pointerId: event.pointerId, row, startY: event.clientY };
-        row.classList.add('jpdb-reader-order-row-drag-pending');
-        dragDocument.addEventListener('pointermove', moveDrag);
-        dragDocument.addEventListener('pointerup', finishDrag);
-        dragDocument.addEventListener('pointercancel', finishDrag);
-    });
-
-    const moveDrag = (event: PointerEvent): void => {
-        if (!drag || event.pointerId !== drag.pointerId) return;
-        if (!drag.active && Math.abs(event.clientY - drag.startY) < 4) return;
-        event.preventDefault();
-        drag.active = true;
-        drag.row.classList.add('jpdb-reader-order-row-dragging');
-        moveSourceRowToPointer(drag.container, drag.row, event.clientY);
-    };
-
-    const finishDrag = (event: PointerEvent): void => {
-        if (!drag || event.pointerId !== drag.pointerId) return;
-        releaseSourceRowPointerCapture(drag.handle, event.pointerId);
-        drag.row.classList.remove('jpdb-reader-order-row-drag-pending', 'jpdb-reader-order-row-dragging');
-        syncSourceRowOrder(drag.container);
-        drag = null;
-        dragDocument.removeEventListener('pointermove', moveDrag);
-        dragDocument.removeEventListener('pointerup', finishDrag);
-        dragDocument.removeEventListener('pointercancel', finishDrag);
-    };
-    root.addEventListener('pointermove', moveDrag);
-    root.addEventListener('pointerup', finishDrag);
-    root.addEventListener('pointercancel', finishDrag);
-}
-
-interface SourceRowDragState {
-    active: boolean;
-    container: HTMLElement;
-    handle: HTMLElement;
-    pointerId: number;
-    row: HTMLElement;
-    startY: number;
-}
-
-function setSourceRowPointerCapture(handle: HTMLElement, pointerId: number): void {
-    try {
-        handle.setPointerCapture?.(pointerId);
-    } catch {
-        // Some iPad/Safari contexts expose pointer events without reliable capture.
-    }
-}
-
-function releaseSourceRowPointerCapture(handle: HTMLElement, pointerId: number): void {
-    try {
-        handle.releasePointerCapture?.(pointerId);
-    } catch {
-        // Matching the guarded capture path above keeps drag cleanup best-effort.
-    }
-}
-
-function moveSourceRowToPointer(container: HTMLElement, row: HTMLElement, clientY: number): void {
-    const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-source-row]'))
-        .filter(candidate => candidate !== row);
-    const target = rows.find(candidate => {
-        const rect = candidate.getBoundingClientRect();
-        return clientY < rect.top + rect.height / 2;
-    });
-    if (target) container.insertBefore(row, target);
-    else container.appendChild(row);
-    syncSourceRowOrder(container);
-}
-
-function moveSourceRow(container: HTMLElement, index: number, targetIndex: number): void {
-    const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-source-row]'));
-    if (!canMoveSourceRow(index, targetIndex, rows.length)) return;
-    const row = rows[index];
-    const target = rows[targetIndex];
-    if (targetIndex < index) container.insertBefore(row, target);
-    else container.insertBefore(row, target.nextSibling);
-    syncSourceRowOrder(container);
-}
-
-function canMoveSourceRow(index: number, targetIndex: number, rowCount: number): boolean {
-    return index >= 0
-        && targetIndex >= 0
-        && index < rowCount
-        && targetIndex < rowCount
-        && index !== targetIndex;
-}
-
-function syncSourceRowOrder(container: HTMLElement): void {
-    const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-source-row]'));
-    rows.forEach((row, index) => {
-        const priority = row.querySelector<HTMLInputElement>('input[name$=".priority"]');
-        if (priority) priority.value = String(index);
-        const indexLabel = row.querySelector('.jpdb-reader-order-toggle span');
-        if (indexLabel) indexLabel.textContent = String(index + 1);
-    });
-    if (container.matches('[data-audio-source-editor]')) syncAudioSourceIndexes(container, rows);
-    if (container.classList.contains('jpdb-reader-lookup-links')) syncDictionaryLookupLinkIndexes(container, rows);
-}
-
-function syncAudioSourceIndexes(container: HTMLElement, rows = Array.from(container.querySelectorAll<HTMLElement>('[data-audio-source-row]'))): void {
-    const language = settingsLanguageForElement(container);
-    rows.forEach((row, index) => {
-        row.dataset.sourceId = `audio-${index}`;
-        row.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[name^="audioSources."]').forEach(control => {
-            control.name = control.name.replace(/^audioSources\.\d+\./, `audioSources.${index}.`);
-            if (control instanceof HTMLSelectElement && control.name.endsWith('.type')) {
-                control.setAttribute('aria-label', uiText(language, 'audioSourceNumber').replace('{number}', String(index + 1)));
-            }
-            if (control instanceof HTMLInputElement && control.name.endsWith('.enabled')) {
-                control.setAttribute('aria-label', uiText(language, 'enableAudioSourceNumber').replace('{number}', String(index + 1)));
-            }
-            if (control instanceof HTMLSelectElement && control.name.endsWith('.voice')) {
-                control.setAttribute('aria-label', uiText(language, 'textToSpeechVoiceNumber').replace('{number}', String(index + 1)));
-            }
-        });
-    });
-}
-
-function syncDictionaryLookupLinkIndexes(container: HTMLElement, rows = Array.from(container.querySelectorAll<HTMLElement>('[data-lookup-link-row]'))): void {
-    const language = settingsLanguageForElement(container);
-    rows.forEach((row, index) => {
-        row.dataset.index = String(index);
-        row.dataset.sourceId = `lookup-link-${index}`;
-        row.querySelectorAll<HTMLInputElement>('[name^="dictionaryLookupLinks."]').forEach(control => {
-            control.name = control.name.replace(/^dictionaryLookupLinks\.\d+\./, `dictionaryLookupLinks.${index}.`);
-            if (control.name.endsWith('.label')) control.setAttribute('aria-label', uiText(language, 'lookupPillLabelNumber').replace('{number}', String(index + 1)));
-            if (control.name.endsWith('.urlTemplate')) control.setAttribute('aria-label', uiText(language, 'lookupUrlTemplateNumber').replace('{number}', String(index + 1)));
-        });
-    });
-}
-
-function settingsLanguageForElement(element: HTMLElement): InterfaceLanguage {
-    const form = element.closest<HTMLFormElement>('form');
-    return form ? getFormInterfaceLanguage(form, 'en') : 'en';
-}
-
 export function installShortcutCapture(root: HTMLElement): void {
     root.querySelectorAll<HTMLInputElement>('[data-shortcut-input]').forEach(inputEl => {
         inputEl.addEventListener('keydown', event => {
@@ -2631,24 +2405,6 @@ function deckSelect(name: string, label: string, value: string, options: [string
         </select>
         ${disabled ? `<input type="hidden" name="${name}" value="${escapeHtml(value)}">` : ''}
     </label>`;
-}
-
-function settingsTabButton(panel: string, label: string, active = false): string {
-    return `<button class="jpdb-reader-settings-tab" type="button" role="tab" data-action="settings-panel" data-panel="${escapeHtml(panel)}" aria-controls="${settingsTabControls(panel)}" aria-selected="${active ? 'true' : 'false'}" tabindex="${active ? '0' : '-1'}">${escapeHtml(label)}</button>`;
-}
-
-function settingsTabControls(panel: string): string {
-    return {
-        jpdb: 'jpdb-reader-settings-panel-jpdb',
-        newTab: 'jpdb-reader-settings-panel-newtab',
-        appearance: 'jpdb-reader-settings-panel-appearance',
-        reading: 'jpdb-reader-settings-panel-reader jpdb-reader-settings-panel-kanji',
-        dictionaries: 'jpdb-reader-settings-panel-dictionaries',
-        media: 'jpdb-reader-settings-panel-audio jpdb-reader-settings-panel-immersion-kit jpdb-reader-settings-panel-ocr jpdb-reader-settings-panel-video jpdb-reader-settings-panel-youtube',
-        mining: 'jpdb-reader-settings-panel-mining',
-        shortcuts: 'jpdb-reader-settings-panel-shortcuts',
-        help: 'jpdb-reader-settings-panel-help',
-    }[panel] ?? 'jpdb-reader-settings-panel-jpdb';
 }
 
 export function renderAnkiTemplatePreview(settings: ReaderSettings): string {

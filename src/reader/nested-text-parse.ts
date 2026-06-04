@@ -1,4 +1,4 @@
-import { applyTokensToScanTarget, collectFragmentTextTargetsIn, HAS_JAPANESE, readerWordSurfaceText, unwrapReaderWords, type ScanTextTarget } from './dom';
+import { applyTokensToScanTarget, collectFragmentTextTargetsIn, HAS_JAPANESE, isCurrentScanTarget, readerWordSurfaceText, unwrapReaderWords, type ScanTextTarget } from './dom';
 import type { JPDBToken, ReaderSettings } from './types';
 
 const PARSEABLE_SELECTOR = '.jpdb-reader-parseable';
@@ -89,7 +89,9 @@ export function nestedParseAlreadyScheduled(root: HTMLElement, parseKey: string)
 }
 
 export function applyNestedParsePlan(plan: NestedParsePlan, parsed: JPDBToken[][], settings: ReaderSettings): void {
-    plan.targets.forEach((target, index) => applyTokensToScanTarget(target, parsed[index] ?? [], settings));
+    plan.targets.forEach((target, index) => {
+        if (isCurrentScanTarget(target)) applyTokensToScanTarget(target, parsed[index] ?? [], settings);
+    });
 }
 
 export function clearNestedParseLoadingKey(root: HTMLElement, parseKey: string, parseLoadingId?: string): void {

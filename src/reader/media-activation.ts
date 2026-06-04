@@ -1,6 +1,8 @@
 let activationTrackingInstalled = false;
 let pageHasUserActivation = false;
 
+const SILENT_AUDIO_DATA_URL = 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==';
+
 export function canAttemptAudiblePlayback(userGesture = false): boolean {
     installPageActivationTracking();
     if (userGesture) {
@@ -33,6 +35,22 @@ function browserUserActivationState(): boolean | undefined {
 
 function isFirefoxLikeBrowser(): boolean {
     return typeof navigator !== 'undefined' && /firefox|iceweasel|fxios/i.test(navigator.userAgent ?? '');
+}
+
+export function reserveGestureAudioElement(createAudioElement: (audioUrl: string) => HTMLAudioElement): HTMLAudioElement {
+    const audio = createAudioElement(SILENT_AUDIO_DATA_URL);
+    audio.loop = true;
+    playSilentReservationAudio(audio);
+    return audio;
+}
+
+function playSilentReservationAudio(audio: HTMLAudioElement): void {
+    try {
+        void audio.play().catch(() => undefined);
+    } catch {
+        // jsdom throws synchronously for HTMLMediaElement.play(), while browsers return
+        // a rejected promise when playback cannot start.
+    }
 }
 
 installPageActivationTracking();

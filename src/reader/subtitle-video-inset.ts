@@ -1,4 +1,5 @@
 import { createWindowEvent, dispatchWindowEvent } from './window-events';
+import { setStylePropertyIfChanged } from './subtitle-surface';
 
 export type SubtitleVideoInsetSide = 'left' | 'right' | 'bottom';
 
@@ -441,11 +442,6 @@ function setRestoredStyleProperty(element: HTMLElement, property: string, value:
     } else {
         element.style.removeProperty(property);
     }
-}
-
-function setStylePropertyIfChanged(element: HTMLElement, property: string, value: string): void {
-    if (element.style.getPropertyValue(property) === value) return;
-    element.style.setProperty(property, value);
 }
 
 function usableVideoRect(rect?: DOMRect): rect is DOMRect {

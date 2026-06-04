@@ -644,6 +644,24 @@ export function isFragmentTextTarget(target: ScanTextTarget): target is Fragment
     return 'fragments' in target;
 }
 
+export function isCurrentScanTarget(target: ScanTextTarget): boolean {
+    if (isFragmentTextTarget(target)) return isCurrentFragmentScanTarget(target);
+    return target.parent.isConnected
+        && target.node.isConnected
+        && target.node.parentElement === target.parent
+        && (target.node.textContent ?? '').trim() === target.text;
+}
+
+function isCurrentFragmentScanTarget(target: FragmentTextTarget): boolean {
+    if (!target.parent.isConnected || !target.fragments.length) return false;
+    const text = target.fragments.map(fragment => {
+        if (!fragment.node.isConnected || !fragment.node.parentElement) return null;
+        return fragment.node.data.slice(fragment.start, fragment.end);
+    });
+    return text.every((value): value is string => value !== null)
+        && text.join('') === target.text;
+}
+
 export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
     if (isFragmentTextTarget(target)) applyTokensToFragmentTarget(target, tokens, settings);
     else applyTokensToTextNode(target, tokens, settings);

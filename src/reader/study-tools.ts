@@ -1,10 +1,15 @@
 import { pruneOldestCacheEntries } from './cache-utils';
 import { DOCS_BASE_URL } from './constants';
 import { escapeHtml } from './dom';
-import { speakerIcon } from './icons';
 import { grammarRuleText, uiText, type UiCopyKey } from './i18n';
 import { Logger } from './logger';
 import { requestJson as requestReaderJson } from './reader-http';
+import {
+    renderStudyEmpty,
+    renderStudyList,
+    renderStudySentenceAudioButton,
+    renderStudySentenceBlock,
+} from './study-section-render';
 import type { InterfaceLanguage } from './types';
 
 const log = Logger.scope('StudyTools');
@@ -2801,14 +2806,7 @@ function groupGrammarHintsByRule(hints: GrammarHint[]): GroupedGrammarHint[] {
 }
 
 function renderGrammarSentence(sentence: string, language: InterfaceLanguage, audioEnabled: boolean): string {
-    const readSentence = uiText(language, audioEnabled ? 'readSentenceAloud' : 'audioPlaybackDisabled');
-    return `
-        <div class="jpdb-reader-study-block jpdb-reader-study-sentence-block" data-grammar-sentence>
-            <div class="jpdb-reader-study-label-row jpdb-reader-study-sentence-row">
-                <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml(sentence)}</div>
-                <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" type="button" title="${escapeHtml(readSentence)}" aria-label="${escapeHtml(readSentence)}"${audioEnabled ? '' : ' disabled'}>${speakerIcon()}</button>
-            </div>
-        </div>`;
+    return renderStudySentenceBlock(sentence, language, { audioEnabled }, 'data-grammar-sentence');
 }
 
 function renderGrammarToolbar(visibleCount: number, knownCount: number, showKnown: boolean, language: InterfaceLanguage): string {
@@ -2827,11 +2825,9 @@ function renderGrammarKnownVisibilityButton(knownCount: number, showKnown: boole
 }
 
 async function renderGrammarHintList(visibleGroups: GroupedGrammarHint[], knownRuleIds: Set<string>, language: InterfaceLanguage, audioEnabled: boolean): Promise<string> {
-    if (!visibleGroups.length) return `<div class="jpdb-reader-study-empty">${escapeHtml(uiText(language, 'allDetectedGrammarKnown'))}</div>`;
+    if (!visibleGroups.length) return renderStudyEmpty(uiText(language, 'allDetectedGrammarKnown'));
     const items = await Promise.all(visibleGroups.map(group => renderGrammarHintItem(group, knownRuleIds.has(group.hint.ruleId), language, audioEnabled)));
-    return `<ol class="jpdb-reader-study-list" data-grammar-list>
-        ${items.join('')}
-        </ol>`;
+    return renderStudyList(items, 'data-grammar-list');
 }
 
 async function renderGrammarHintItem(group: GroupedGrammarHint, known: boolean, language: InterfaceLanguage, audioEnabled: boolean): Promise<string> {
@@ -2923,11 +2919,10 @@ function renderGrammarHintExamples(examples: GrammarExample[], language: Interfa
 function renderGrammarExample(example: GrammarExample, language: InterfaceLanguage, audioEnabled: boolean): string {
     const english = language === 'ja' || !example.english ? '' : `<div>${escapeHtml(example.english)}</div>`;
     const note = language === 'ja' || !example.note || ENGLISH_TEXT_RE.test(example.note) ? '' : `<div>${escapeHtml(example.note)}</div>`;
-    const readSentence = uiText(language, audioEnabled ? 'readSentenceAloud' : 'audioPlaybackDisabled');
     return `<div class="jpdb-reader-grammar-example jpdb-reader-parseable">
         <div class="jpdb-reader-grammar-example-japanese">
             <span class="jpdb-reader-parseable">${escapeHtml(example.japanese)}</span>
-            <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" data-study-sentence="${escapeHtml(example.japanese)}" type="button" title="${escapeHtml(readSentence)}" aria-label="${escapeHtml(readSentence)}"${audioEnabled ? '' : ' disabled'}>${speakerIcon()}</button>
+            ${renderStudySentenceAudioButton(language, { audioEnabled, sentence: example.japanese })}
         </div>
         ${english}${note}
     </div>`;

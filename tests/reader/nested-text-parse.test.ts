@@ -60,6 +60,19 @@ describe('nested text parse plans', () => {
         expect(word?.closest('mark')?.classList.contains('jpdb-reader-example-target')).toBe(true);
     });
 
+    it('skips stale nested parse targets when source text changes before apply', () => {
+        document.body.innerHTML = '<section><p class="jpdb-reader-parseable">今日はいい天気です。</p></section>';
+        const root = document.body.querySelector<HTMLElement>('section')!;
+        const plan = nestedTextParsePlan(root, 24)!;
+        const textNode = root.querySelector('p')?.firstChild as Text;
+
+        textNode.data = '明日は雨です。';
+        applyNestedParsePlan(plan, [[token('今日', 0, 'きょう', 'heiban')]], { ...DEFAULT_SETTINGS, ankiEnabled: false });
+
+        expect(root.querySelector('.jpdb-reader-word')).toBeNull();
+        expect(root.textContent).toBe('明日は雨です。');
+    });
+
     it('replans partially parsed reader-owned example sentences as one stable sentence', () => {
         document.body.innerHTML = `
             <section data-jpdb-reader-root="true" data-jpdb-reader-parse-key="stale">

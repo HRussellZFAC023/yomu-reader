@@ -1,5 +1,6 @@
 import { Logger } from './logger';
 import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from './settings';
+import { createSettingsFormReader, type SettingsFormReader } from './settings-form-data';
 import type { AnkiFieldMapping, AnkiFieldMappingRole, AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, ReaderColorSource, ReaderSettings } from './types';
 
 const log = Logger.scope('SettingsForm');
@@ -31,32 +32,20 @@ const DEFAULT_COLOR_SOURCE_VALUES: Record<ColorSourceSettingName, SelectableRead
     subtitleTextColorSource: 'anki',
 };
 
-interface SettingsFormReader {
-    get: (key: string) => string;
-    has: (key: string) => boolean;
-    number: (key: string, fallback: number) => number;
-    clamped: (key: string, min: number, max: number, fallback: number) => number;
-    colorSource: (key: string, fallback: ReaderColorSource) => ReaderColorSource;
-}
-
 export function settingsColorSourceValue(settings: ReaderSettings, name: ColorSourceSettingName): SelectableReaderColorSource {
     const source = settings[name];
     return source === 'auto' ? DEFAULT_COLOR_SOURCE_VALUES[name] : source;
 }
 
 export function readFormSettings(data: FormData, current: ReaderSettings): ReaderSettings {
-    const get = (key: string) => String(data.get(key) ?? '');
-    const has = (key: string) => data.has(key);
-    const number = (key: string, fallback: number) => readNumber(get(key), fallback);
-    const clamped = (key: string, min: number, max: number, fallback: number) =>
-        Math.max(min, Math.min(max, number(key, fallback)));
+    const colorSource = (key: string, fallback: ReaderColorSource) =>
+        readOption(String(data.get(key) ?? ''), COLOR_SOURCE_VALUES, colorSourceFallback(key, fallback));
+    const reader = createSettingsFormReader(data, colorSource);
+    const { get, has } = reader;
     const audioSources = readAudioSources(data);
     const furiganaMode = readOption(get('furiganaMode'), ['auto', 'all', 'difficult-kanji', 'known-status', 'off'] as const, current.furiganaMode);
-    const colorSource = (key: string, fallback: ReaderColorSource) =>
-        readOption(get(key), COLOR_SOURCE_VALUES, colorSourceFallback(key, fallback));
-    const reader: SettingsFormReader = { get, has, number, clamped, colorSource };
     const jpdbDefinitionsRowPresent = hasJpdbDefinitionsRow(has);
-    const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences);
+    const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter(preference => preference.type === 'kanji');
     const settings: ReaderSettings = {
         ...current,
@@ -454,17 +443,11 @@ function readShortcutFormSettings(reader: SettingsFormReader): ReaderSettings['s
     };
 }
 
-function readNumber(value: string, fallback: number): number {
-    if (!value.trim()) return fallback;
-    const number = Number(value);
-    return Number.isFinite(number) ? number : fallback;
-}
-
 export function readOption<T extends string>(value: string, allowed: readonly T[], fallback: T): T {
     return allowed.includes(value as T) ? value as T : fallback;
 }
 
-function readDictionaryPreferences(data: FormData, current: DictionaryPreference[]): DictionaryPreference[] {
+function readDictionaryPreferences(data: FormData, current: DictionaryPreference[], reader: SettingsFormReader): DictionaryPreference[] {
     const get = (key: string) => String(data.get(key) ?? '');
     const count = Math.max(0, Number(get('dictionaryPreferenceCount')) || 0);
     if (!count) return current;
@@ -473,7 +456,7 @@ function readDictionaryPreferences(data: FormData, current: DictionaryPreference
         name: get(`dictionaryPreferences.${index}.name`).trim(),
         alias: get(`dictionaryPreferences.${index}.alias`).trim() || get(`dictionaryPreferences.${index}.name`).trim(),
         enabled: data.has(`dictionaryPreferences.${index}.enabled`),
-        priority: readNumber(get(`dictionaryPreferences.${index}.priority`), index),
+        priority: reader.number(`dictionaryPreferences.${index}.priority`, index),
         type: readDictionaryType(get(`dictionaryPreferences.${index}.type`)),
     }))
         .filter(item => item.name)

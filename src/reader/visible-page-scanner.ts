@@ -1,4 +1,4 @@
-import { applyTokensToScanTarget, collectTextTargetsIn, isFragmentTextTarget, type ScanTextTarget } from './dom';
+import { applyTokensToScanTarget, collectTextTargetsIn, isCurrentScanTarget, type ScanTextTarget } from './dom';
 import { uiText } from './i18n';
 import { Logger } from './logger';
 import { collectScanTargets } from './site-parsers';
@@ -165,24 +165,6 @@ export class VisiblePageScanner {
 
 function waitForVisibleScanTurn(): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, 0));
-}
-
-function isCurrentScanTarget(target: ScanTextTarget): boolean {
-    if (isFragmentTextTarget(target)) return isCurrentFragmentScanTarget(target);
-    return target.parent.isConnected
-        && target.node.isConnected
-        && target.node.parentElement === target.parent
-        && (target.node.textContent ?? '').trim() === target.text;
-}
-
-function isCurrentFragmentScanTarget(target: Extract<ScanTextTarget, { fragments: unknown }>): boolean {
-    if (!target.parent.isConnected || !target.fragments.length) return false;
-    const text = target.fragments.map(fragment => {
-        if (!fragment.node.isConnected || !fragment.node.parentElement) return null;
-        return fragment.node.data.slice(fragment.start, fragment.end);
-    });
-    return text.every((value): value is string => value !== null)
-        && text.join('') === target.text;
 }
 
 function scanParseOptions(_settings: ReaderSettings, _targets: ScanTextTarget[] = []): VisibleScanParseOptions {

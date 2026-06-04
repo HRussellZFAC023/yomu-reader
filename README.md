@@ -248,7 +248,7 @@ https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.use
 
 After that, pushes to `main` rebuild the userscript and GreasyFork can pick up the new raw file through its sync/webhook flow.
 
-GreasyFork requires posted code to stay readable and non-minified. The release build disables JavaScript and CSS minification, formats the embedded CSS literal back into readable lines, and keeps the verifier checking for one-line/minified-looking output. Do not re-enable minifiers to fit the 2 MB limit; remove duplication or move non-code data out of the userscript instead. The ZIP helper library is pinned through `@require` so the userscript stays readable. Official rule: https://greasyfork.org/en/help/code-rules
+GreasyFork requires posted code to stay readable and non-minified. The release build disables JavaScript/CSS minification, keeps identifiers intact, and only compacts generated whitespace so the verifier can enforce the 2 MB upload budget. Do not move executed code to a CDN to fit the limit; remove duplication, split responsibilities, or move non-code data out of the userscript instead. The ZIP helper library is bundled locally, and reader CSS is declared as a userscript `@resource` so managers cache styling separately from executable code. Official rule: https://greasyfork.org/en/help/code-rules
 
 For the first manual publish, this helper opens a local page that posts the current built script to GreasyFork's official prefill form:
 
@@ -319,7 +319,7 @@ Donation note: よむ has already cost more in AI/API tokens than donations are 
 | [The Kanji Map](https://thekanjimap.com/) / [source](https://github.com/gabor-kovacs/the-kanji-map) | MIT for the app; underlying data/media keep their upstream terms. よむ uses it as inspiration and fetches compact public per-kanji data at runtime when enabled. |
 | [Uchisen](https://uchisen.com/) | Optional external runtime service for kanji mnemonic images, component cues, and user-published mnemonic generation; よむ does not bundle its image/story content |
 | [Yomitan](https://github.com/yomidevs/yomitan) | GPL-3.0-or-later; used for interoperable dictionary formats, structured glossary behavior, audio-source conventions, and UX reference |
-| [fflate](https://github.com/101arrowz/fflate) | MIT; pinned through userscript `@require` for compressed ZIP dictionary import fallback when browser-native decompression is unavailable |
+| [fflate](https://github.com/101arrowz/fflate) | MIT; bundled locally for compressed ZIP dictionary import fallback when browser-native decompression is unavailable |
 | [JPDB Custom Dictionary Mod](https://gitlab.com/nakura/jpdb_cdm) | MIT license file; JPDB/Yomitan dictionary-on-JPDB UX reference only, with no code copied |
 | [asbplayer](https://github.com/asbplayer/asbplayer) | MIT; used as a subtitle-mining and video-reader UX reference |
 | [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader) | MIT; used as a JPDB reader behavior and parser-edge-case reference |

@@ -3,18 +3,17 @@ import { isYomuHostedAppUrl } from './app-pages';
 import { AnkiConnectClient, ankiLookupWithUnavailableDetails, captureActiveVideoFrame, type AnkiLookupResult } from './anki';
 import { renderReviewButtons } from './anki-render';
 import { runLimited } from './async-utils';
-import { copyText, hasVisiblePageVideo, isEditableTarget, normalizePressedKey, pauseActiveVideo, positionPopover } from './browser-ui';
+import { copyText, isEditableTarget, normalizePressedKey, pauseActiveVideo, positionPopover } from './browser-ui';
 import { CardActionController } from './card-action-controller';
 import { CardPopoverRenderer } from './card-popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from './card-render-data';
 import { highlightCardTargetScopes } from './card-highlight';
 import { cardKey } from './card-utils';
 import { normalizeCardStates } from './card-state';
-import { ANKI_SOURCE_ID, APP_NAME, IMMERSION_KIT_SOURCE_ID, INTERFACE_LANGUAGE_CHANGE_EVENT, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, OPEN_SETTINGS_EVENT, SETTINGS_CHANGE_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT, VIDEO_PLAYER_PAGE_URL } from './constants';
+import { ANKI_SOURCE_ID, APP_NAME, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, SETTINGS_CHANGE_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from './constants';
 import { DictionarySourceStateController } from './dictionary-source-state';
 import { DictionaryStyleController } from './dictionary-styles';
 import { FactoryResetCoordinator, FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS } from './factory-reset-coordinator';
-import { canAttemptAudiblePlayback } from './media-activation';
 import {
     HAS_JAPANESE,
     appendToDocumentHead,
@@ -67,13 +66,12 @@ import {
     type JpdbTermTarget,
     type LocalDictionaryTarget,
 } from './jpdb-page-targets';
-import { initJpdbReviewPageBridge } from './jpdb-review-bridge';
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from './jpdb-vocabulary';
 import { buildKanjiFacts, buildKanjiOriginGraph, KanjiOriginClient, type KanjiSourceInfo } from './kanji-origin';
 import { installKanjiPracticeDoodle } from './kanji-practice-grader';
 import { KanjiVGClient, type KanjiVGInfo } from './kanjivg';
 import { groupTermEntriesByDictionary } from './local-dictionary-groups';
-import { configureLogger, Logger, loggingSettingsSummary } from './logger';
+import { configureLogger, Logger } from './logger';
 import {
     inferMiningSourceKind,
     resolveMiningContext as resolveStoredMiningContext,
@@ -113,12 +111,15 @@ import {
 } from './popup-render';
 import { RtkClient, type RtkInfo } from './rtk';
 import { ReaderAudioActions } from './reader-audio-actions';
+import { canAttemptReaderAutoAudio } from './reader-audio-activation';
+import { registerReaderMenuCommands } from './reader-menu-commands';
+import { bindReaderRuntimeEvents } from './reader-runtime-events';
+import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions } from './reader-startup';
+import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './reader-status-warmup';
 import { refreshReaderWordContrast, refreshReaderWordContrastForWord } from './reader-word-contrast';
 import { ReaderParser, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from './reader-parser';
 import {
     DEFAULT_SETTINGS,
-    applyUrlBootstrapSettings,
-    loadSettings,
     matchesShortcut,
     saveSettings,
     shortcutIsPressed,
@@ -181,13 +182,7 @@ const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 2;
 const SUBTITLE_SURFACE_SELECTOR = '.jpdb-subtitle-player, .jpdb-subtitle-list';
 const SINGLE_HIRAGANA_MORA_RE = /^[\u3040-\u309fー]$/u;
 const SUBSTANTIVE_LOCAL_EXPANSION_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
-const ANKI_STATUS_WARMUP_DELAY_MS = 1_000;
-const ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS = 5_000;
 type ReviewShortcutKey = keyof ReaderSettings['shortcuts'];
-type InterfaceLanguageChangeDetail = Partial<{ language: unknown; interfaceLanguage: unknown }>;
-type OpenSettingsEventDetail = Partial<{ panel: unknown; tab: unknown }>;
-type SettingsChangeEventDetail = Partial<{ preview: unknown; settings: Partial<{ theme: unknown }> }>;
-type UserscriptMenuCommandRegister = (name: string, fn: () => void) => void;
 
 const TWO_BUTTON_REVIEW_SHORTCUTS: Array<[ReviewShortcutKey, JPDBGrade]> = [
     ['gradeFail', 'fail'],
@@ -208,29 +203,6 @@ function matchedReviewShortcutGrade(
     candidates: Array<[ReviewShortcutKey, JPDBGrade]>,
 ): JPDBGrade | null {
     return candidates.find(([key]) => matchesShortcut(event, shortcuts[key]))?.[1] ?? null;
-}
-
-function interfaceLanguageChangeDetail(detail: InterfaceLanguageChangeDetail | undefined): InterfaceLanguage | null {
-    const value = detail?.language ?? detail?.interfaceLanguage;
-    return value === 'auto' || value === 'en' || value === 'ja' ? value : null;
-}
-
-function openSettingsPanelDetail(detail: OpenSettingsEventDetail | undefined): string | undefined {
-    const value = detail?.panel ?? detail?.tab;
-    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
-}
-
-function settingsThemeChangeDetail(detail: SettingsChangeEventDetail | undefined): ReaderSettings['theme'] | null {
-    const value = detail?.settings?.theme;
-    return value === 'auto' || value === 'dark' || value === 'light' ? value : null;
-}
-
-function userscriptMenuCommandRegister(): UserscriptMenuCommandRegister | null {
-    if (typeof GM_registerMenuCommand === 'function') return GM_registerMenuCommand;
-    if (typeof GM !== 'undefined' && typeof GM?.registerMenuCommand === 'function') {
-        return (name, fn) => GM.registerMenuCommand?.(name, fn);
-    }
-    return null;
 }
 
 function normalizedLookupText(text: string): string {
@@ -542,10 +514,6 @@ interface PopoverMountState {
     previousHoverPointerPosition?: { x: number; y: number };
 }
 
-interface ReaderAppInitOptions {
-    showWelcome?: boolean;
-}
-
 interface ReaderAppDestroyOptions {
     preservePageWords?: boolean;
 }
@@ -814,14 +782,13 @@ export class ReaderApp {
 
     private async loadInitialSettings(options?: ReaderAppInitOptions): Promise<boolean> {
         this.factoryReset.bind();
-        this.settings = await loadSettings();
-        const shouldShowWelcome = options?.showWelcome ?? true;
-        this.settings = applyUrlBootstrapSettings(this.settings);
+        const startup = await loadReaderStartupSettings(options);
+        this.settings = startup.settings;
         this.applyPreferredJapaneseSiteLanguage();
         configureLogger({ forceEnabled: this.settings.enableLogging });
-        this.pageHasJapaneseText = documentHasJapaneseText();
-        log.info('Settings loaded', loggingSettingsSummary(this.settings));
-        return shouldShowWelcome;
+        this.pageHasJapaneseText = detectReaderStartupJapaneseText();
+        log.info('Settings loaded', startup.settingsSummary);
+        return startup.shouldShowWelcome;
     }
 
     private async installCoreSurfaces(): Promise<void> {
@@ -830,7 +797,7 @@ export class ReaderApp {
         await this.refreshDictionaryStyles();
         this.registerMenuCommands();
         this.bindEvents();
-        initJpdbReviewPageBridge();
+        installReaderStartupBridge();
     }
 
     private async initReaderPage(shouldShowWelcome: boolean): Promise<void> {
@@ -840,7 +807,7 @@ export class ReaderApp {
         this.youtube.init();
         this.setupAutoScan();
         this.initJpdbPageEnhancements();
-        if (shouldShowWelcome && !isYomuHostedAppUrl(location.href)) await this.onboarding.showIfNeeded();
+        if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
         if (this.shouldScanInitialPage()) {
             void this.pageScanner.scanVisiblePage({ silent: true })
                 .finally(() => this.scheduleAnkiStatusWarmup());
@@ -850,30 +817,19 @@ export class ReaderApp {
     }
 
     private scheduleAnkiStatusWarmup(): void {
-        if (!shouldLookupAnkiStatus(this.settings)) return;
-        const run = () => {
-            if (this.isDestroyed || !shouldLookupAnkiStatus(this.settings)) return;
-            void this.anki.warmStatusIndex().then(index => {
-                if (!index || this.isDestroyed || !shouldLookupAnkiStatus(this.settings)) return;
-                void this.recolorRenderedAnkiWordsFromCache().catch(error => {
-                    log.warnOnce('anki-cache-recolor-failed', 'Anki cache recolor failed', error);
-                });
-            });
-        };
-        window.setTimeout(() => {
-            const requestIdle = (window as Window & {
-                requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
-            }).requestIdleCallback;
-            if (typeof requestIdle === 'function') requestIdle(run, { timeout: ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS });
-            else run();
-        }, ANKI_STATUS_WARMUP_DELAY_MS);
+        scheduleReaderAnkiStatusWarmup({
+            getSettings: () => this.settings,
+            isDestroyed: () => this.isDestroyed,
+            warmStatusIndex: () => this.anki.warmStatusIndex(),
+            recolorRenderedAnkiWordsFromCache: () => this.recolorRenderedAnkiWordsFromCache(),
+            onRecolorError: error => {
+                log.warnOnce('anki-cache-recolor-failed', 'Anki cache recolor failed', error);
+            },
+        });
     }
 
     private scheduleRenderedAnkiStatusRefresh(card: JPDBCard): void {
-        if (!shouldLookupAnkiStatus(this.settings)) return;
-        window.setTimeout(() => {
-            void this.refreshRenderedAnkiStatusAfterMutation(card);
-        }, 0);
+        scheduleReaderAnkiStatusRefresh(this.settings, () => this.refreshRenderedAnkiStatusAfterMutation(card));
     }
 
     private async refreshRenderedAnkiStatusAfterMutation(card: JPDBCard): Promise<void> {
@@ -896,31 +852,17 @@ export class ReaderApp {
     }
 
     private registerMenuCommands(): void {
-        const register = userscriptMenuCommandRegister();
-        if (!register) return;
-        register(`${APP_NAME} settings`, () => this.showSettings());
-        register(`${APP_NAME} open new tab`, () => this.openNewTabPage());
-        register(`${APP_NAME} open video player`, () => this.openVideoPlayer());
-        register(`${APP_NAME} toggle YouTube filter`, () => void this.toggleYoutubeImmersion());
-        register(`${APP_NAME} toggle puck`, () => {
-            this.settings.showFloatingButton = !this.settings.showFloatingButton;
-            void saveSettings(this.settings).then(() => this.installFab());
+        registerReaderMenuCommands({
+            getSettings: () => this.settings,
+            saveSettings: settings => saveSettings(settings),
+            installFloatingButton: () => this.installFab(),
+            showSettings: () => this.showSettings(),
+            toggleYoutubeImmersion: () => this.toggleYoutubeImmersion(),
+            factoryReset: () => void this.factoryReset.resetAllData(),
+            logInfo: (message, details) => {
+                log.info(message, details);
+            },
         });
-        register(`${APP_NAME} Factory Reset`, () => void this.factoryReset.resetAllData());
-    }
-
-    private openNewTabPage(): void {
-        const opened = window.open(NEW_TAB_PAGE_URL, '_blank');
-        if (opened) opened.opener = null;
-        if (!opened) location.href = NEW_TAB_PAGE_URL;
-        log.info('New tab page opened', { url: NEW_TAB_PAGE_URL });
-    }
-
-    private openVideoPlayer(): void {
-        const opened = window.open(VIDEO_PLAYER_PAGE_URL, '_blank');
-        if (opened) opened.opener = null;
-        if (!opened) location.href = VIDEO_PLAYER_PAGE_URL;
-        log.info('Video player page opened', { url: VIDEO_PLAYER_PAGE_URL });
     }
 
     private async toggleYoutubeImmersion(): Promise<void> {
@@ -1018,6 +960,12 @@ export class ReaderApp {
 
     private async refreshDictionaryStyles(): Promise<void> {
         await this.dictionaryStyles.refresh();
+    }
+
+    private clearBridgeBackedCaches(): void {
+        this.audio.clearCaches();
+        this.jpdbVocabulary.clear();
+        this.cardRenderData.clear();
     }
 
     private scheduleDictionaryRescan(): void {
@@ -1354,32 +1302,18 @@ export class ReaderApp {
     }
 
     private bindEvents(): void {
-        addWindowEventListener(OPEN_SETTINGS_EVENT, event => {
-            if (this.isDestroyed) return;
-            this.showSettings(openSettingsPanelDetail((event as CustomEvent<OpenSettingsEventDetail>).detail));
-        }, { signal: this.abortController.signal });
-
-        addWindowEventListener(INTERFACE_LANGUAGE_CHANGE_EVENT, event => {
-            if (this.isDestroyed) return;
-            const language = interfaceLanguageChangeDetail((event as CustomEvent<InterfaceLanguageChangeDetail>).detail);
-            if (language) void this.setInterfaceLanguage(language);
-        }, { signal: this.abortController.signal });
-
-        addWindowEventListener(SETTINGS_CHANGE_EVENT, event => {
-            if (this.isDestroyed) return;
-            const detail = (event as CustomEvent<SettingsChangeEventDetail>).detail;
-            const theme = settingsThemeChangeDetail(detail);
-            if (!theme || this.settings.theme === theme) return;
-            this.settings.theme = theme;
-            this.applyTheme();
-            if (detail?.preview !== true) void saveSettings(this.settings);
-        }, { signal: this.abortController.signal });
-
-        addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => {
-            this.audio.clearCaches();
-            this.jpdbVocabulary.clear();
-            this.cardRenderData.clear();
-        }, { signal: this.abortController.signal });
+        bindReaderRuntimeEvents({
+            getSettings: () => this.settings,
+            setSettings: settings => {
+                this.settings = settings;
+            },
+            isDestroyed: () => this.isDestroyed,
+            showSettings: panel => this.showSettings(panel),
+            setInterfaceLanguage: language => this.setInterfaceLanguage(language),
+            applyTheme: () => this.applyTheme(),
+            saveSettings: settings => saveSettings(settings),
+            clearBridgeCaches: () => this.clearBridgeBackedCaches(),
+        }, this.abortController.signal);
 
         document.addEventListener('click', event => {
             if (this.isDestroyed) return;
@@ -4026,10 +3960,13 @@ export class ReaderApp {
     }
 
     private shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture = false, anchor?: HTMLElement): boolean {
-        if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return false;
-        if (this.shouldSuppressAutoAudioForVideo(anchor)) return false;
-        if (!this.shouldAutoPlayForTrigger(trigger)) return false;
-        if (!canAttemptAudiblePlayback(userGesture)) return false;
+        if (!canAttemptReaderAutoAudio({
+            anchor,
+            settings: this.settings,
+            subtitleSurfaceSelector: SUBTITLE_SURFACE_SELECTOR,
+            trigger,
+            userGesture,
+        })) return false;
         const key = `${card.vid}:${card.sid}`;
         const now = Date.now();
         if (!userGesture) {
@@ -4038,18 +3975,6 @@ export class ReaderApp {
             this.lastAutoAudioAt = now;
         }
         return true;
-    }
-
-    private shouldSuppressAutoAudioForVideo(anchor?: HTMLElement): boolean {
-        return this.settings.suppressAutoAudioOnVideo
-            && (Boolean(anchor?.closest(SUBTITLE_SURFACE_SELECTOR)) || hasVisiblePageVideo());
-    }
-
-    private shouldAutoPlayForTrigger(trigger: 'modal' | 'hover'): boolean {
-        const mode = this.settings.audioAutoPlayMode;
-        if (mode === 'off') return false;
-        if (mode === 'all') return true;
-        return mode === 'hover' ? trigger === 'hover' : trigger === 'modal';
     }
 
     private async showKanjiCard(card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement, options: { navigation?: CardNavigationMode; preservePosition?: boolean } = {}): Promise<void> {

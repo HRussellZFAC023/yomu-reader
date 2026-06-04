@@ -309,37 +309,42 @@
 }
 .jpdb-reader-word-underline-status .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-status-decoration, transparent);
-  --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent));
 }
 .jpdb-reader-word-underline-jpdb .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-jpdb-decoration, transparent);
-  --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent));
 }
 .jpdb-reader-word-underline-anki .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-anki-decoration, transparent);
-  --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent));
 }
 .jpdb-reader-word-underline-pitch .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent);
+}
+:is(
+  .jpdb-reader-word-underline-status,
+  .jpdb-reader-word-underline-jpdb,
+  .jpdb-reader-word-underline-anki,
+  .jpdb-reader-word-underline-pitch
+) .jpdb-reader-word {
   --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent));
 }
 .jpdb-reader-word-text-status .jpdb-reader-word {
   --jpdb-reader-word-color-source: var(--jpdb-reader-source-status-color, currentColor);
-  color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
-  text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
 }
 .jpdb-reader-word-text-jpdb .jpdb-reader-word {
   --jpdb-reader-word-color-source: var(--jpdb-reader-source-jpdb-color, currentColor);
-  color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
-  text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
 }
 .jpdb-reader-word-text-anki .jpdb-reader-word {
   --jpdb-reader-word-color-source: var(--jpdb-reader-source-anki-color, currentColor);
-  color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
-  text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
 }
 .jpdb-reader-word-text-pitch .jpdb-reader-word {
   --jpdb-reader-word-color-source: var(--jpdb-reader-source-pitch-color, currentColor);
+}
+:is(
+  .jpdb-reader-word-text-status,
+  .jpdb-reader-word-text-jpdb,
+  .jpdb-reader-word-text-anki,
+  .jpdb-reader-word-text-pitch
+) .jpdb-reader-word {
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
   text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
 }

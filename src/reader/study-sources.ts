@@ -3,8 +3,8 @@ import { pruneOldestCacheEntries } from './cache-utils';
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { uiText } from './i18n';
 import { Logger } from './logger';
-import { speakerIcon } from './icons';
 import { definitionSourceStateKey } from './definition-source-render';
+import { renderStudyMeaningBlock, renderStudySentenceBlock } from './study-section-render';
 import {
     detectGrammarHints as detectLocalGrammarHints,
     preloadGrammarResources,
@@ -93,19 +93,10 @@ export class StudySourceController {
     private renderTranslationPanel(sentence: string): string {
         const settings = this.settings();
         const language = settings.interfaceLanguage;
-        const readSentence = uiText(language, settings.audioEnabled ? 'readSentenceAloud' : 'audioPlaybackDisabled');
         return `
             <div class="jpdb-reader-study-panel jpdb-reader-study-translation-panel">
-                <div class="jpdb-reader-study-block jpdb-reader-study-sentence-block">
-                    <div class="jpdb-reader-study-label-row jpdb-reader-study-sentence-row">
-                        <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml(sentence)}</div>
-                        <button class="jpdb-reader-icon-mini" data-action="study-read-sentence" type="button" title="${escapeHtml(readSentence)}" aria-label="${escapeHtml(readSentence)}"${settings.audioEnabled ? '' : ' disabled'}>${speakerIcon()}</button>
-                    </div>
-                </div>
-                <div class="jpdb-reader-study-block jpdb-reader-study-meaning-block">
-                    <div class="jpdb-reader-study-label">${escapeHtml(uiText(language, 'meaning'))}</div>
-                    <div class="jpdb-reader-study-translation" data-study-translation-result>${escapeHtml(uiText(language, 'openSectionToTranslate'))}</div>
-                </div>
+                ${renderStudySentenceBlock(sentence, language, { audioEnabled: settings.audioEnabled })}
+                ${renderStudyMeaningBlock(uiText(language, 'openSectionToTranslate'), language, 'data-study-translation-result')}
             </div>
         `;
     }
