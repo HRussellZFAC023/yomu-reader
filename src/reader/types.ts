@@ -124,6 +124,7 @@ export interface JPDBCard {
         question: string;
         answer: string;
     }>;
+    ankiAudioFilenames?: string[];
     jpdbReviewId?: string;
     kanjiKeyword?: string;
     sourceCardKey?: string;

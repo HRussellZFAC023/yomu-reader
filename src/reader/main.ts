@@ -3692,7 +3692,7 @@ export class ReaderApp {
         if (renderData.ankiLookup) {
             void renderData.ankiLookup.then(ankiLookup => {
                 this.lastAnkiLookup = ankiLookup;
-                this.applyAnkiLookupToRenderedWords(card, ankiLookup, { preserveExistingEmpty: true });
+                this.applyAnkiLookupToRenderedWords(card, ankiLookup, { preserveExistingEmpty: trigger === 'hover' });
                 renderLoading();
             });
         }
@@ -3741,7 +3741,7 @@ export class ReaderApp {
         data: CardRenderData,
     ): void {
         this.lastAnkiLookup = data.ankiLookup;
-        this.applyAnkiLookupToRenderedWords(card, data.ankiLookup, { preserveExistingEmpty: true });
+        this.applyAnkiLookupToRenderedWords(card, data.ankiLookup, { preserveExistingEmpty: trigger === 'hover' });
         this.applyPitchAccentToRenderedWords(card);
         const preservedImmersion = this.preserveImmersionMountForRerender(popover);
         clearNestedParseState(popover);
@@ -5230,10 +5230,11 @@ export class ReaderApp {
     private applyAnkiLookupToRenderedWord(
         word: HTMLElement,
         ankiLookup: AnkiLookupResult,
-        _options: { preserveExistingEmpty?: boolean } = {},
+        options: { preserveExistingEmpty?: boolean } = {},
     ): void {
         if (!ankiLookup.primary) {
             if (ankiLookup.trusted === false) return;
+            if (options.preserveExistingEmpty && renderedWordHasAnkiState(word)) return;
             clearRenderedWordAnkiState(word);
             word.classList.add(`anki-${ankiLookup.state}`);
             word.dataset.ankiState = ankiLookup.state;
@@ -5932,6 +5933,12 @@ function clearRenderedWordAnkiState(word: HTMLElement): void {
     word.style.removeProperty('--jpdb-reader-word-highlight-text');
     word.style.removeProperty('--jpdb-reader-word-contrast-shadow');
     if (word.title.startsWith('Anki:')) word.removeAttribute('title');
+}
+
+function renderedWordHasAnkiState(word: HTMLElement): boolean {
+    return Boolean(word.dataset.ankiState
+        || word.dataset.ankiDecks
+        || Array.from(word.classList).some(className => className.startsWith('anki-')));
 }
 
 function renderedWordCardKey(vid: number, sid: number): string {

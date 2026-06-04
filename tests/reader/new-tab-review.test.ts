@@ -51,6 +51,7 @@ function newTabTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         ankiReps: overrides.ankiReps,
         ankiLapses: overrides.ankiLapses,
         ankiRenderedCards: overrides.ankiRenderedCards,
+        ankiAudioFilenames: overrides.ankiAudioFilenames,
         sentence: overrides.sentence,
         kanjiKeyword: overrides.kanjiKeyword,
         jpdbReviewId: overrides.jpdbReviewId,
@@ -883,6 +884,7 @@ describe('new tab review helpers', () => {
                         Furigana: { value: 'よむ' },
                         English: { value: 'to read' },
                         'Example Sentence': { value: '今日は本を読む。' },
+                        'Word Audio': { value: '[sound:yomu-read.mp3]' },
                     },
                 }));
                 return null;
@@ -911,6 +913,7 @@ describe('new tab review helpers', () => {
         });
         expect(cards[0]?.meanings[0]?.glosses).toEqual(['to read']);
         expect(cards[0]?.ankiRenderedCards?.[0]).toMatchObject({ cardId: 501, deckName: 'Imported' });
+        expect(cards[0]?.ankiAudioFilenames).toEqual(['yomu-read.mp3']);
     });
 
     it('adapts Core, Jlab, RRTK, and kana note shapes for Anki new-tab reviews', async () => {
@@ -4505,6 +4508,105 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('lets the main new-tab grade bar split JPDB and individual Anki targets while keeping Both as the default', async () => {
+        const card = newTabTestCard({
+            vid: 250,
+            sid: 1,
+            rid: 2,
+            spelling: '日本語',
+            reading: 'にほんご',
+            source: 'jpdb',
+            reviewSource: 'jpdb-api',
+            ankiCardId: 404,
+            ankiDeckNames: ['Core'],
+            ankiRenderedCards: [
+                { cardId: 404, deckName: 'Core', question: '日本語', answer: 'Japanese' },
+                { cardId: 405, deckName: 'Core', question: 'Japanese', answer: '日本語' },
+            ],
+        });
+        const reviewCard = vi.fn(async () => {});
+        const answerCard = vi.fn(async () => {});
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'jpdb-key',
+                jpdbMiningEnabled: true,
+                newTabAnkiEnabled: true,
+                enableReviews: true,
+                immersionKitEnabled: false,
+                newTabParsingEnabled: false,
+                newTabFrontSentenceEnabled: false,
+            }),
+            anki: { answerCard } as never,
+            jpdb: { reviewCard } as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as { renderEnabledContent(): DocumentFragment }).renderEnabledContent());
+        document.body.append(root);
+        Object.assign(controller as unknown as {
+            allWords: JPDBCard[];
+            visibleWords: JPDBCard[];
+            index: number;
+            reviewCountMode: boolean;
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        }, {
+            allWords: [card],
+            visibleWords: [card],
+            index: 0,
+            reviewCountMode: true,
+            sourceLabel: 'JPDB + Anki',
+            state: { mode: 'word', sort: 'random', filter: 'study', source: 'auto', revealAnswer: true },
+        });
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void; renderWord(root: HTMLElement, card: JPDBCard): void }).bindRootEvents(root);
+        (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
+
+        try {
+            const options = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-newtab-grade-target-option]'));
+            expect(options.map(option => option.textContent)).toEqual(['Both', 'JPDB', 'Anki #404', 'Anki #405']);
+            expect(options[0]?.getAttribute('aria-pressed')).toBe('true');
+            expect(root.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('Both');
+            expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades JPDB + Anki card: Core #404');
+
+            options[1]?.click();
+            expect(root.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('JPDB');
+            expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades JPDB');
+            expect(root.querySelector<HTMLButtonElement>('[data-grade="okay"]')?.getAttribute('aria-label')).toBe('Okay: Grades JPDB');
+            root.querySelector<HTMLButtonElement>('[data-grade="okay"]')?.click();
+
+            await waitForExpect(() => {
+                expect(reviewCard).toHaveBeenCalledWith(card, 'okay');
+            });
+            expect(answerCard).not.toHaveBeenCalled();
+
+            options[3]?.click();
+            expect(root.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('Anki #405');
+            expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Anki card: Core #405');
+            expect(root.querySelector<HTMLButtonElement>('[data-grade="easy"]')?.getAttribute('aria-label')).toBe('Easy: Grades Anki card: Core #405');
+            root.querySelector<HTMLButtonElement>('[data-grade="easy"]')?.click();
+
+            await waitForExpect(() => {
+                expect(answerCard).toHaveBeenCalledWith(405, 'easy');
+            });
+            expect(reviewCard).toHaveBeenCalledTimes(1);
+        } finally {
+            root.remove();
+        }
+    });
+
     it('queues only the failed provider when one half of a dual-source review grade is offline', async () => {
         const card = newTabTestCard({
             vid: 250,
@@ -5036,6 +5138,62 @@ describe('new tab review helpers', () => {
         expect(prompt?.querySelector('.jpdb-reader-newtab-term .jpdb-reader-word')?.classList.contains('jpdb-pitch-heiban')).toBe(true);
         expect(prompt?.querySelector('.jpdb-reader-newtab-sentence')?.textContent).toBe(sentence);
         expect(prompt?.querySelector('.jpdb-reader-newtab-sentence .jpdb-reader-word')?.textContent).toBe('難波');
+    });
+
+    it('renders Anki review cards from their original rendered front and back', () => {
+        const card = newTabTestCard({
+            spelling: '日本語',
+            reading: 'にほんご',
+            source: 'anki',
+            reviewSource: 'anki',
+            ankiCardId: 404,
+            ankiDeckNames: ['Core'],
+            ankiAudioFilenames: ['nihongo-front.mp3'],
+            ankiRenderedCards: [
+                {
+                    cardId: 404,
+                    deckName: 'Core',
+                    question: '<div class="front" style="font-size:96px">日本語 [anki:play:q:0]</div>',
+                    answer: '<div class="back">Japanese language</div><script>window.bad = true</script>',
+                },
+                {
+                    cardId: 405,
+                    deckName: 'Core',
+                    question: '<div>Reverse card should stay hidden</div>',
+                    answer: '<div>日本語</div>',
+                },
+            ],
+        });
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false });
+        const root = renderNewTabWordFront(controller, card);
+
+        try {
+            const front = root.querySelector<HTMLElement>('[data-newtab-prompt]')!;
+            expect(front.classList.contains('jpdb-reader-newtab-prompt-anki-card')).toBe(true);
+            expect(front.querySelector<HTMLElement>('.jpdb-reader-anki-rendered-card')?.dataset.ankiRenderedCardId).toBe('404');
+            expect(front.textContent).toContain('日本語');
+            expect(front.textContent).toContain('Card audio');
+            expect(front.textContent).not.toContain('Japanese language');
+            expect(front.textContent).not.toContain('Reverse card should stay hidden');
+            expect(front.innerHTML).toContain('font-size: 30px');
+            expect(front.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"]')?.dataset.ankiMediaName).toBe('nihongo-front.mp3');
+            expect(root.querySelector('[data-newtab-reading]')?.textContent).toBe('');
+            expect(root.querySelector('[data-newtab-meaning]')?.textContent).toBe('');
+
+            (controller as unknown as { state: { revealAnswer: boolean } }).state.revealAnswer = true;
+            (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
+
+            const revealed = root.querySelector<HTMLElement>('[data-newtab-prompt]')!;
+            expect(revealed.querySelectorAll('.jpdb-reader-anki-rendered-side-body')).toHaveLength(2);
+            expect(revealed.textContent).toContain('日本語');
+            expect(revealed.textContent).toContain('Japanese language');
+            expect(revealed.textContent).not.toContain('Reverse card should stay hidden');
+            expect(revealed.querySelector('script')).toBeNull();
+            expect(root.querySelector('[data-newtab-reading]')?.textContent).toBe('');
+            expect(root.querySelector('[data-newtab-meaning]')?.textContent).toBe('');
+        } finally {
+            root.remove();
+        }
     });
 
     it('enriches new-tab word pitch from local dictionary metadata without a JPDB API key', async () => {

@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.6.12] - 2026-06-04
+
+### Added
+
+- Added a live browser smoke check for hosted cache-busting, userscript bridge Jisho audio, local AnkiConnect, and hosted Anki bridge requests.
+- Added compact new-tab grade target controls so cards present in both JPDB and Anki can grade both by default, or just JPDB / a specific Anki card when needed.
+
+### Changed
+
+- New-tab Anki reviews now render the selected Anki card's original front and back HTML, with sanitized media/audio controls and capped card styling instead of oversized generated labels.
+- Mobile Anki setup guidance now lives in the docs, including beginner-friendly Tailscale instructions for reaching desktop AnkiConnect from a phone or tablet.
+- Local CI now prepares generated JPDB shards once and reuses them across bounded parallel shard runs, with deterministic Vitest API ports.
+
+### Fixed
+
+- Preserved existing Anki word color on hover while allowing trusted modal misses and post-grade refreshes to repaint stale status.
+- Made Jisho audio bridge QA deterministic and verified blob playback without relying on live Jisho or CloudFront during the smoke.
+- Kept mobile settings inputs at no-zoom size after shared input styling, and removed the crowded mobile-handoff disclaimer from the Mining drawer.
+- Kept first-run Anki mining and the Anki popover section enabled by default while removing the manual scan button from settings.
+
 ## [0.6.11] - 2026-06-04
 
 ### Changed

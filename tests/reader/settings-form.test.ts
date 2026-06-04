@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ANKI_SOURCE_ID } from '../../src/reader/constants';
 import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/nested-text-parse';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings';
 import { activateSettingsPanel, applySettingsSearch, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm } from '../../src/reader/settings-form';
 import { CUSTOM_FONT_FAMILY_VALUE } from '../../src/reader/settings-form-read';
 import { orderedDefinitionSourceIds } from '../../src/reader/source-sections';
@@ -151,6 +151,28 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="jpdb"]')?.hidden).toBe(false);
     });
 
+    it('renders first-run Anki and popover controls without legacy scan affordances', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+        expect(DEFAULT_SETTINGS.ankiEnabled).toBe(true);
+        expect(DEFAULT_SETTINGS.popupMode).toBe('auto');
+        expect(normalizeReaderSettings({}).ankiEnabled).toBe(true);
+        expect(normalizeReaderSettings({}).popupMode).toBe('auto');
+        expect(form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.checked).toBe(true);
+        expect(form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.value).toBe('auto');
+        expect(form.querySelector<HTMLInputElement>('input[name="ankiTags"]')?.value).toBe('yomu');
+        expect(form.querySelector<HTMLElement>('[data-anki-tag-chips] .jpdb-reader-tag-chip')?.textContent).toContain('yomu');
+        expect(form.querySelector<HTMLElement>(`[data-source-id="${ANKI_SOURCE_ID}"]`)).not.toBeNull();
+        expect(form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')).toBeNull();
+        expect(form.textContent).not.toContain('Scan Anki');
+
+        const saved = readFormSettings(new FormData(form), { ...DEFAULT_SETTINGS, ankiEnabled: false, popupMode: 'popover' });
+        expect(saved.ankiEnabled).toBe(true);
+        expect(saved.popupMode).toBe('auto');
+        expect(saved.ankiTags).toBe('yomu');
+    });
+
     it('keeps hover lookup timing with Reader settings', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
@@ -230,6 +252,15 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice .jpdb-reader-select-options-meta { grid-column: 1 / -1; }');
     });
 
+    it('keeps mobile settings text controls at iOS no-zoom size after base input styling', () => {
+        const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
+        const baseControlFontIndex = normalizedCss.indexOf('.jpdb-reader-settings input, .jpdb-reader-settings select, .jpdb-reader-field-display');
+        const noZoomFontIndex = normalizedCss.indexOf('@media (hover: none), (pointer: coarse) { .jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), .jpdb-reader-settings select, .jpdb-reader-settings textarea { font-size: max(16px, 1em); } }');
+
+        expect(baseControlFontIndex).toBeGreaterThanOrEqual(0);
+        expect(noZoomFontIndex).toBeGreaterThan(baseControlFontIndex);
+    });
+
     it('shows Immersion Kit reveal audio autoplay enabled by default', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
@@ -283,8 +314,8 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.textContent).toContain('Deck changes: enabled');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Anki mining disabled');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Mobile Anki handoff is on for new-note fallback');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Full Anki features use desktop AnkiConnect');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('Mobile Anki handoff');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('Full Anki features use desktop AnkiConnect');
 
         form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', enableReviews: false, jpdbMiningEnabled: false }, 'https://jpdb.io/settings');
         expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.dataset.statusTone).toBe('pending');
@@ -313,7 +344,7 @@ describe('settings form localization', () => {
         expect(description?.textContent).toContain('currently unavailable because another setting controls it');
     });
 
-    it('shows AnkiConnect and mobile handoff availability in the Anki settings panel', () => {
+    it('shows AnkiConnect and library availability in the Anki settings panel', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm({
             ...DEFAULT_SETTINGS,
@@ -327,8 +358,8 @@ describe('settings form localization', () => {
 
         expect(status.closest('.jpdb-reader-settings-wide')).not.toBeNull();
         expect(status.textContent).toContain('Checking AnkiConnect at http://192.168.1.8:8765');
-        expect(status.textContent).toContain('Mobile Anki handoff is off');
-        expect(status.textContent).toContain('Full Anki features use desktop AnkiConnect');
+        expect(status.textContent).not.toContain('Mobile Anki handoff');
+        expect(status.textContent).not.toContain('Full Anki features use desktop AnkiConnect');
         expect(adapter.textContent).toContain('automatically inspects existing decks');
         expect(adapter.textContent).toContain('RTK/Core-style decks');
         const helpLink = form.querySelector<HTMLAnchorElement>('[data-anki-setup-help] a[href="https://ankiweb.net/shared/info/2055492159"]');
@@ -618,7 +649,7 @@ describe('settings form localization', () => {
         });
     });
 
-    it('labels mobile Anki handoff as a fallback and keeps new-note-only details in help', () => {
+    it('keeps mobile Anki handoff compact in Mining and points setup details to docs', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
 
@@ -631,6 +662,9 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')).toBeNull();
         expect(form.querySelector<HTMLElement>('[data-anki-setup-help]')?.textContent).toContain('Core/RTK-style or other nonstandard decks');
         expect(form.querySelector<HTMLElement>('[data-anki-setup-help]')?.textContent).toContain('Mobile setup help is in Getting Started');
+        expect(form.textContent).not.toContain('Mobile handoff creates new notes only');
+        expect(form.textContent).not.toContain('Handoff does not read your existing collection');
+        expect(form.textContent).not.toContain('review queues require desktop Anki');
     });
 
     it('keeps top-level section legends attached to their panels', () => {
@@ -722,7 +756,8 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.textContent).toBe('AnkiConnectを確認');
         expect(form.querySelector<HTMLButtonElement>('[data-action="prepare-anki"]')?.textContent).toBe('よむノートタイプを作成');
         expect(form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')).toBeNull();
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('モバイルAnki受け渡しは新規ノートの代替手段としてオン');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnectを確認中');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('モバイルAnki受け渡し');
         expect(form.querySelector<HTMLElement>('[data-anki-library-availability]')?.textContent).toContain('RTK/Core系');
         expect(form.querySelector<HTMLElement>('[data-anki-library-choices-title]')?.textContent).toBe('デッキとノートタイプ');
         expect(form.querySelector<HTMLElement>('[data-anki-template-settings-title]')?.textContent).toBe('よむカードテンプレート');

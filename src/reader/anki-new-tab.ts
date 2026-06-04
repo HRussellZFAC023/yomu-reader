@@ -315,7 +315,8 @@ function ankiDueValue(card: AnkiCardInfo): number {
 }
 
 function ankiNoteToCard(note: AnkiNoteInfo, cards: AnkiCardInfo[], settings: ReaderSettings): JPDBCard | null {
-    const fields = ankiNoteCardFields(note, settings);
+    const noteFields = flattenNoteFields(note.fields);
+    const fields = ankiNoteCardFields(note, settings, noteFields);
     if (!fields) return null;
     const primaryCard = pickPrimaryCard(cards);
     const primaryCardId = primaryCard?.cardId ?? note.cards?.[0];
@@ -350,11 +351,11 @@ function ankiNoteToCard(note: AnkiNoteInfo, cards: AnkiCardInfo[], settings: Rea
                 question: card.question ?? '',
                 answer: card.answer ?? '',
             })),
+        ankiAudioFilenames: ankiAudioFilenamesFromFields(noteFields),
     };
 }
 
-function ankiNoteCardFields(note: AnkiNoteInfo, settings: ReaderSettings): AnkiNoteCardFields | null {
-    const fields = flattenNoteFields(note.fields);
+function ankiNoteCardFields(note: AnkiNoteInfo, settings: ReaderSettings, fields = flattenNoteFields(note.fields)): AnkiNoteCardFields | null {
     const mapping = settings.ankiFieldMappings?.[note.modelName];
     const spelling = mappedField(fields, mapping, 'expression')
         || firstField(fields, ANKI_NEW_TAB_EXPRESSION_FIELD_NAMES)
@@ -368,6 +369,13 @@ function ankiNoteCardFields(note: AnkiNoteInfo, settings: ReaderSettings): AnkiN
         sentence: mappedField(fields, mapping, 'sentence') || firstField(fields, ANKI_SENTENCE_FIELD_NAMES),
         kind: classifyAnkiNoteCard(fields, spelling, note.modelName),
     };
+}
+
+function ankiAudioFilenamesFromFields(fields: Record<string, string>): string[] | undefined {
+    const filenames = unique(Object.values(fields)
+        .flatMap(value => Array.from(value.matchAll(/\[sound:([^\]]+)]/gi), match => match[1]?.trim() ?? ''))
+        .filter(Boolean));
+    return filenames.length ? filenames : undefined;
 }
 
 function classifyAnkiNoteCard(fields: Record<string, string>, spelling: string, modelName: string): AnkiCardKind {

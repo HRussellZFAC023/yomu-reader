@@ -24,7 +24,7 @@ import type { JpdbPublicPitchClient } from './jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from './jpdb-vocabulary';
 import { buildKanjiFacts, buildKanjiOriginGraph } from './kanji-origin';
 import { installKanjiDoodle, KANJI_DOODLE_CLEAR_EVENT, type DoodleStroke } from './kanji-doodle';
-import { renderAnkiExistingSection } from './anki-render';
+import { renderAnkiExistingSection, renderAnkiRenderedCardStudyBody } from './anki-render';
 import { assessKanjiStrokes, rankKanjiStrokeCandidates, type KanjiShapeCandidate, type KanjiStrokeAssessment } from './kanji-stroke-grader';
 import type { KanjiVGClient, KanjiVGInfo } from './kanjivg';
 import { formatLookupUrl } from './local-dictionary-display';
@@ -424,6 +424,14 @@ export interface NewTabLookupReviewTarget {
 
 export interface NewTabLookupReviewTargetSelection {
     kind: 'jpdb' | 'anki';
+    ankiCardId?: number;
+}
+
+interface NewTabMainGradeTargetOption {
+    id: string;
+    kind: 'both' | 'jpdb' | 'anki';
+    label: string;
+    shortLabel: string;
     ankiCardId?: number;
 }
 
@@ -1130,10 +1138,15 @@ export class NewTabController {
             this.toggleReveal(root);
             return true;
         }
+        if (action === 'grade-target') {
+            event.preventDefault();
+            this.selectMainGradeTarget(root, target);
+            return true;
+        }
         if (action === 'grade') {
             event.preventDefault();
             const grade = target.closest<HTMLElement>('[data-grade]')?.dataset.grade as JPDBGrade | undefined;
-            if (grade) void this.gradeCurrentCard(grade);
+            if (grade) void this.gradeCurrentCard(grade, this.selectedMainGradeTarget(root));
             return true;
         }
         if (action === 'jpdb-kanji-action') {
@@ -3190,6 +3203,7 @@ export class NewTabController {
         if (!prompt) return;
         prompt.lang = this.state.revealAnswer ? 'ja' : 'en';
         prompt.dataset.newtabExpression = 'true';
+        prompt.classList.remove('jpdb-reader-newtab-prompt-anki-card');
         if (this.state.revealAnswer) replaceChildrenWith(prompt, this.kanjiPopoverButton(kanji));
         else replaceChildrenWith(prompt, this.renderKanjiPromptKeywords(keywords));
     }
@@ -3259,6 +3273,7 @@ export class NewTabController {
     }
 
     private renderWordPrompt(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>): void {
+        if (this.renderAnkiRenderedWordPrompt(slots, card)) return;
         if (slots.prompt) {
             const sentence = this.frontSentenceFromCard(card);
             this.renderWordPromptContent(slots.prompt, card, state, sentence);
@@ -3281,6 +3296,31 @@ export class NewTabController {
         else meaning.replaceChildren();
     }
 
+    private renderAnkiRenderedWordPrompt(slots: NewTabStudySlots, card: JPDBCard): boolean {
+        if (card.source !== 'anki' && card.reviewSource !== 'anki') return false;
+        const renderedCard = this.ankiRenderedStudyCard(card);
+        if (!renderedCard || !slots.prompt) return false;
+        const html = renderAnkiRenderedCardStudyBody(renderedCard, this.state.revealAnswer, this.language(), card.ankiAudioFilenames ?? []);
+        if (!html) return false;
+        slots.prompt.lang = '';
+        slots.prompt.classList.remove('jpdb-reader-newtab-prompt-has-sentence');
+        slots.prompt.classList.add('jpdb-reader-newtab-prompt-anki-card');
+        delete slots.prompt.dataset.newtabExpression;
+        delete slots.prompt.dataset.newtabSentenceRequest;
+        delete slots.prompt.dataset.newtabPromptParseRequest;
+        setInnerHtml(slots.prompt, html);
+        slots.answer?.replaceChildren();
+        slots.meaning?.replaceChildren();
+        return true;
+    }
+
+    private ankiRenderedStudyCard(card: JPDBCard): NonNullable<JPDBCard['ankiRenderedCards']>[number] | null {
+        const cards = card.ankiRenderedCards ?? [];
+        if (!cards.length) return null;
+        const primaryCardId = Number(card.ankiCardId ?? card.rid);
+        return cards.find(rendered => rendered.cardId === primaryCardId) ?? cards[0] ?? null;
+    }
+
     private renderWordPromptContent(
         prompt: HTMLElement,
         card: JPDBCard,
@@ -3289,6 +3329,7 @@ export class NewTabController {
     ): void {
         prompt.lang = 'ja';
         prompt.dataset.newtabExpression = 'true';
+        prompt.classList.remove('jpdb-reader-newtab-prompt-anki-card');
         prompt.classList.toggle('jpdb-reader-newtab-prompt-has-sentence', Boolean(sentence));
         delete prompt.dataset.newtabSentenceRequest;
         delete prompt.dataset.newtabPromptParseRequest;
@@ -5957,8 +5998,10 @@ export class NewTabController {
 
     private gradeControlButtons(card: JPDBCard): HTMLElement[] {
         const targetLabel = this.gradeTargetLabel(card);
+        const targetOptions = this.mainGradeTargetOptions(card);
         return [
             this.renderGradeTargetLabel(card, targetLabel),
+            ...(targetOptions.length > 1 ? [this.renderMainGradeTargetSelector(targetOptions)] : []),
             ...newTabGradeOptions(this.dependencies.getSettings())
                 .map(([grade, label]) => el('button', {
                     type: 'button',
@@ -5974,6 +6017,90 @@ export class NewTabController {
             this.gradeTargetChip(card),
             el('span', { dataset: { newtabGradeTargetText: true } }, label),
         );
+    }
+
+    private mainGradeTargetOptions(card: JPDBCard): NewTabMainGradeTargetOption[] {
+        const targets = this.lookupReviewTargetsForCard(card);
+        const hasJpdb = targets.some(target => target.kind === 'jpdb');
+        const ankiTargets = targets.filter(target => target.kind === 'anki' && target.ankiCardId);
+        if (!hasJpdb || !ankiTargets.length) return [];
+        return [
+            {
+                id: 'both',
+                kind: 'both',
+                label: this.gradeTargetLabel(card),
+                shortLabel: this.text('gradeTargetBoth'),
+            },
+            ...targets.map(target => ({
+                id: target.id,
+                kind: target.kind,
+                label: target.label,
+                shortLabel: target.shortLabel,
+                ankiCardId: target.ankiCardId,
+            })),
+        ];
+    }
+
+    private renderMainGradeTargetSelector(options: NewTabMainGradeTargetOption[]): HTMLElement {
+        return el('div', {
+            class: 'jpdb-reader-newtab-grade-target-selector',
+            role: 'group',
+            'aria-label': this.text('gradeTargetSelector'),
+            dataset: { newtabGradeTargetSelector: true },
+        }, ...options.map((option, index) => el('button', {
+            type: 'button',
+            class: 'jpdb-reader-newtab-grade-target-option',
+            dataset: {
+                newtabAction: 'grade-target',
+                newtabGradeTargetOption: true,
+                newtabReviewTarget: option.kind,
+                newtabGradeTargetLabel: option.label,
+                ...(option.ankiCardId ? { ankiCardId: String(option.ankiCardId) } : {}),
+            },
+            title: option.label,
+            'aria-pressed': index === 0 ? 'true' : 'false',
+        }, option.shortLabel)));
+    }
+
+    private selectMainGradeTarget(root: HTMLElement, target: HTMLElement): void {
+        const button = target.closest<HTMLButtonElement>('[data-newtab-grade-target-option]');
+        const selector = button?.closest<HTMLElement>('[data-newtab-grade-target-selector]');
+        if (!button || !selector) return;
+        selector.querySelectorAll<HTMLButtonElement>('[data-newtab-grade-target-option]').forEach(option => {
+            option.setAttribute('aria-pressed', option === button ? 'true' : 'false');
+        });
+        this.updateMainGradeTargetLabel(root, button);
+    }
+
+    private selectedMainGradeTarget(root: HTMLElement): NewTabLookupReviewTargetSelection | undefined {
+        const button = root.querySelector<HTMLButtonElement>('[data-newtab-grade-target-selector] [data-newtab-grade-target-option][aria-pressed="true"]');
+        if (!button) return undefined;
+        if (button.dataset.newtabReviewTarget === 'jpdb') return { kind: 'jpdb' };
+        if (button.dataset.newtabReviewTarget !== 'anki') return undefined;
+        const ankiCardId = Number(button.dataset.ankiCardId);
+        return Number.isFinite(ankiCardId) && ankiCardId > 0
+            ? { kind: 'anki', ankiCardId }
+            : undefined;
+    }
+
+    private updateMainGradeTargetLabel(root: HTMLElement, button: HTMLButtonElement): void {
+        const label = button.dataset.newtabGradeTargetLabel ?? '';
+        const kind = button.dataset.newtabReviewTarget === 'jpdb' || button.dataset.newtabReviewTarget === 'anki'
+            ? button.dataset.newtabReviewTarget
+            : 'both';
+        const target = root.querySelector<HTMLElement>('[data-newtab-grade-target]');
+        const chip = target?.querySelector<HTMLElement>('[data-newtab-grade-target-chip]');
+        const text = target?.querySelector<HTMLElement>('[data-newtab-grade-target-text]');
+        if (chip) {
+            chip.dataset.newtabGradeTargetChip = kind;
+            chip.textContent = button.textContent?.trim() || this.text('gradeTargetBoth');
+        }
+        if (text) text.textContent = label;
+        root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"][data-grade]').forEach(gradeButton => {
+            const gradeLabel = gradeButton.textContent?.trim() || '';
+            gradeButton.title = label;
+            gradeButton.setAttribute('aria-label', gradeLabel ? `${gradeLabel}: ${label}` : label);
+        });
     }
 
     private gradeTargetChip(card: JPDBCard): HTMLElement {
