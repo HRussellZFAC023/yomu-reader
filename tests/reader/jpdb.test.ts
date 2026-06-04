@@ -8347,7 +8347,8 @@ describe('reader helpers', () => {
         expect(html).toContain('data-action="jpdb-example-audio"');
         expect(html).toContain('data-jpdb-audio="m1/used-in-audio"');
         expect(html).toContain('data-jpdb-example-sentence="国家主義"');
-        expect(html).toContain('<rt class="jpdb-reader-furi">こっかしゅぎ</rt>');
+        expect(html).toContain('data-reading="こっかしゅぎ"');
+        expect(html).not.toContain('<rt class="jpdb-reader-furi">こっかしゅぎ</rt>');
         expect(html).not.toContain('<span class="jpdb-reader-jpdb-compound-reading">こっかしゅぎ</span>');
         expect(html).toContain('jpdb-reader-example-count');
         expect(html).not.toContain('jpdb-reader-jpdb-compound-ruby');
