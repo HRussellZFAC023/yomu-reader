@@ -21,9 +21,11 @@ import {
     installShortcutCapture,
     localizeSettingsForm,
     readFormSettings,
+    canonicalNewTabAnkiDisabledDecks,
     renderAnkiFieldMappingEditor,
     renderAnkiLibraryOptions,
     renderAnkiTemplatePreview,
+    renderNewTabAnkiDeckSelector,
     renderDeckControls,
     renderDictionarySourceRows,
     renderRecommendedDictionaries,
@@ -148,6 +150,15 @@ function namedSettingsControl<T extends HTMLInputElement | HTMLSelectElement | H
     return control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement
         ? control as T
         : null;
+}
+
+function readNewTabAnkiDisabledDecks(form: HTMLFormElement): string[] {
+    return canonicalNewTabAnkiDisabledDecks(
+        namedSettingsControl<HTMLInputElement>(form, 'newTabAnkiDisabledDecks')?.value
+            .split(',')
+            .map(deck => deck.trim())
+            .filter(Boolean) ?? [],
+    );
 }
 
 function selectedSettingsPanel(control: HTMLElement | null | undefined): string {
@@ -583,6 +594,8 @@ export class SettingsDialogController {
             const preview = form.querySelector<HTMLElement>('[data-anki-template-preview]');
             if (preview) setInnerHtml(preview, renderAnkiTemplatePreview(readFormSettings(new FormData(form), this.settings)));
         }
+        const newTabAnkiDeckToggle = (event.target as HTMLElement).closest<HTMLInputElement>('[data-newtab-anki-deck-toggle]');
+        if (newTabAnkiDeckToggle) this.syncNewTabAnkiDeckToggles(form);
     }
 
     private syncThemeSwitch(form: HTMLFormElement): void {
@@ -1093,6 +1106,7 @@ export class SettingsDialogController {
         const currentDeck = selected.selectedDeck ?? namedSettingsControl<HTMLInputElement | HTMLSelectElement>(form, 'ankiDeck')?.value.trim() ?? '';
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         if (deckOptions) setInnerHtml(deckOptions, renderAnkiLibraryOptions([currentDeck, ...scan.deckNames].filter(Boolean), currentDeck, language));
+        this.renderNewTabAnkiDeckToggles(form, scan.deckNames, language);
         const modelOptions = form.querySelector<HTMLElement>('[data-anki-model-options]');
         if (modelOptions) {
             const currentModel = selected.selectedModel ?? namedSettingsControl<HTMLInputElement | HTMLSelectElement>(form, 'ankiModel')?.value.trim() ?? '';
@@ -1112,6 +1126,41 @@ export class SettingsDialogController {
             ])));
         }
         this.renderAnkiFieldMappingEditor(form);
+    }
+
+    private renderNewTabAnkiDeckToggles(
+        form: HTMLFormElement,
+        deckNames: string[],
+        language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage),
+        disabledDecks = readNewTabAnkiDisabledDecks(form),
+    ): void {
+        const container = form.querySelector<HTMLElement>('[data-newtab-anki-decks]');
+        if (!container) return;
+        const html = renderNewTabAnkiDeckSelector(disabledDecks, deckNames, language);
+        container.hidden = !html;
+        setInnerHtml(container, html);
+    }
+
+    private syncNewTabAnkiDeckToggles(form: HTMLFormElement): void {
+        const hidden = namedSettingsControl<HTMLInputElement>(form, 'newTabAnkiDisabledDecks');
+        if (!hidden) return;
+        const toggles = Array.from(form.querySelectorAll<HTMLInputElement>('[data-newtab-anki-deck-toggle]'));
+        const visibleDecks = toggles.map(toggle => toggle.dataset.newtabAnkiDeck?.trim() ?? '').filter(Boolean);
+        const visibleDeckSet = new Set(visibleDecks);
+        const previousDisabled = readNewTabAnkiDisabledDecks(form);
+        const previousDisabledSet = new Set(previousDisabled);
+        const visibleDisabled = toggles
+            .filter(toggle => !toggle.checked)
+            .map(toggle => toggle.dataset.newtabAnkiDeck?.trim() ?? '')
+            .filter(Boolean);
+        const visibleDisabledSet = new Set(visibleDisabled);
+        const disabled = canonicalNewTabAnkiDisabledDecks([
+            ...previousDisabled.filter(deck => !visibleDeckSet.has(deck) || visibleDisabledSet.has(deck)),
+            ...visibleDisabled.filter(deck => !previousDisabledSet.has(deck)),
+        ]);
+        hidden.value = disabled.join(', ');
+        hidden.dispatchEvent(new Event('input', { bubbles: true }));
+        this.renderNewTabAnkiDeckToggles(form, visibleDecks, getFormInterfaceLanguage(form, this.settings.interfaceLanguage), disabled);
     }
 
     private renderAnkiFieldMappingEditor(form: HTMLFormElement): void {

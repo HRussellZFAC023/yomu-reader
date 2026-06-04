@@ -258,7 +258,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                     <div class="grid">
                         ${checkbox('newTabEnabled', 'Use Yomu new tab study page', settings.newTabEnabled)}
                         ${checkbox('newTabAnkiEnabled', 'Use Anki cards on new tab', settings.newTabAnkiEnabled)}
-                        ${renderNewTabAnkiDisabledDecksInput(settings)}
+                        ${renderNewTabAnkiDeckControls(settings)}
                         ${select('newTabSource', 'New tab review source', settings.newTabSource, [['auto', 'Auto: Anki if no JPDB'], ['jpdb', 'JPDB'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
                         ${select('newTabJpdbReviewMode', 'JPDB review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
                         ${select('newTabKanjiKeywordSource', 'Kanji keyword source', settings.newTabKanjiKeywordSource, [['auto', 'Auto: RTK, then JPDB, then local'], ['rtk', 'RTK / Heisig'], ['jpdb', 'JPDB'], ['local', 'Local card meaning']])}
@@ -279,9 +279,48 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
     `;
 }
 
-function renderNewTabAnkiDisabledDecksInput(settings: ReaderSettings): string {
+function renderNewTabAnkiDeckControls(settings: ReaderSettings): string {
     const disabled = canonicalNewTabAnkiDisabledDecks(settings.newTabAnkiDisabledDecks);
+    const selector = renderNewTabAnkiDeckSelector(disabled, disabled, settings.interfaceLanguage);
+    return `
+                        ${renderNewTabAnkiDisabledDecksInput(disabled)}
+                        <div class="jpdb-reader-newtab-anki-decks jpdb-reader-settings-wide" data-newtab-anki-decks ${selector ? '' : 'hidden'}>
+                            ${selector}
+                        </div>`;
+}
+
+function renderNewTabAnkiDisabledDecksInput(disabled: string[]): string {
     return `<input type="hidden" name="newTabAnkiDisabledDecks" value="${escapeHtml(disabled.join(', '))}">`;
+}
+
+export function renderNewTabAnkiDeckSelector(
+    disabledDecks: string[],
+    deckNames: string[],
+    language: InterfaceLanguage,
+): string {
+    const disabled = canonicalNewTabAnkiDisabledDecks(disabledDecks);
+    const decks = uniqueStrings([...deckNames, ...disabled]).map(deck => deck.trim()).filter(Boolean);
+    if (!decks.length) return '';
+    return `
+                            <div class="jpdb-reader-newtab-anki-decks-head">
+                                <div class="jpdb-reader-newtab-anki-decks-title" data-newtab-anki-decks-title>${escapedUiText(language, 'newTabAnkiReviewDecks')}</div>
+                                <div class="jpdb-reader-help" data-newtab-anki-decks-help>${escapedUiText(language, 'newTabAnkiReviewDecksHelp')}</div>
+                            </div>
+                            <div class="jpdb-reader-newtab-anki-deck-list" data-newtab-anki-deck-list>
+                                ${decks.map(deck => renderNewTabAnkiDeckToggle(deck, !isNewTabAnkiDeckDisabled(deck, disabled))).join('')}
+                            </div>`;
+}
+
+function renderNewTabAnkiDeckToggle(deck: string, checked: boolean): string {
+    return `
+                                <label class="jpdb-reader-newtab-anki-deck-toggle" data-newtab-anki-deck-row data-active="${checked ? 'true' : 'false'}">
+                                    <input type="checkbox" data-newtab-anki-deck-toggle data-newtab-anki-deck="${escapeHtml(deck)}" ${checked ? 'checked' : ''}>
+                                    <span>${escapeHtml(deck)}</span>
+                                </label>`;
+}
+
+function isNewTabAnkiDeckDisabled(deck: string, disabledDecks: string[]): boolean {
+    return disabledDecks.some(disabled => disabled === deck || isAnkiSubdeckOf(deck, disabled));
 }
 
 function renderWordColorSettingsSubsection(settings: ReaderSettings): string {
@@ -1262,6 +1301,8 @@ function localizeSettingsHelpText(form: HTMLFormElement, text: SettingsText): vo
 function localizeNewTabHelp(form: HTMLFormElement, text: SettingsText): void {
     const subsection = getNamedControl<HTMLInputElement>(form, 'newTabUrl')?.closest<HTMLElement>('.jpdb-reader-settings-subsection');
     subsection?.querySelector<HTMLElement>(':scope > .jpdb-reader-help')?.replaceChildren(text('newTabOfflineHelp'));
+    form.querySelector<HTMLElement>('[data-newtab-anki-decks-title]')?.replaceChildren(text('newTabAnkiReviewDecks'));
+    form.querySelector<HTMLElement>('[data-newtab-anki-decks-help]')?.replaceChildren(text('newTabAnkiReviewDecksHelp'));
 }
 
 function resolveUiLanguageFromText(text: SettingsText): 'en' | 'ja' {
@@ -1759,10 +1800,16 @@ function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
 }
 
 function getNamedControl<T extends HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(form: HTMLFormElement, name: string): T | null {
-    return Array.from(form.elements).find((element): element is T =>
-        (element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement)
-        && element.name === name,
-    ) ?? null;
+    const item = form.elements.namedItem(name);
+    if (item instanceof HTMLInputElement || item instanceof HTMLSelectElement || item instanceof HTMLTextAreaElement) {
+        return item as T;
+    }
+    if (item instanceof RadioNodeList) {
+        return Array.from(form.elements).find((element): element is T =>
+            element instanceof HTMLInputElement && element.name === name,
+        ) ?? null;
+    }
+    return null;
 }
 
 function setControlLabel(form: HTMLFormElement, name: string, label: string): void {
@@ -1849,7 +1896,9 @@ function setRadioLabel(form: HTMLFormElement, name: string, value: string, label
 }
 
 function setSelectOptionLabels(form: HTMLFormElement, name: string, options: Array<[string, string]>): void {
-    const selectElement = getNamedControl<HTMLSelectElement>(form, name);
+    const selectElement = Array.from(form.elements).find((element): element is HTMLSelectElement =>
+        element instanceof HTMLSelectElement && element.name === name,
+    ) ?? null;
     if (!selectElement) return;
     options.forEach(([value, label]) => {
         const option = Array.from(selectElement.options).find(item => item.value === value);
@@ -1861,16 +1910,27 @@ function syncSettingsSelectOptionMeta(form: HTMLFormElement, language: Interface
     const showMeta = resolveUiLanguage(language) === 'ja';
     form.querySelectorAll<HTMLSelectElement>('select').forEach(selectElement => {
         const existing = selectElement.nextElementSibling;
-        if (existing instanceof HTMLElement && existing.matches('[data-settings-select-options-meta]')) existing.remove();
-        if (!showMeta) return;
+        const existingMeta = existing instanceof HTMLElement && existing.matches('[data-settings-select-options-meta]') ? existing : null;
+        if (!showMeta) {
+            existingMeta?.remove();
+            return;
+        }
         const labels = Array.from(selectElement.options)
             .map(option => option.textContent?.replace(/\s+/g, ' ').trim() ?? '')
             .filter(label => /[\u3040-\u30ff\u3400-\u9fff]/.test(label));
-        if (!labels.length) return;
+        if (!labels.length) {
+            existingMeta?.remove();
+            return;
+        }
+        const text = `${uiText(language, 'selectOptions')}: ${labels.join(' / ')}`;
+        if (existingMeta) {
+            if (existingMeta.textContent !== text) existingMeta.textContent = text;
+            return;
+        }
         const meta = document.createElement('div');
         meta.className = 'jpdb-reader-select-options-meta';
         meta.dataset.settingsSelectOptionsMeta = '';
-        meta.textContent = `${uiText(language, 'selectOptions')}: ${labels.join(' / ')}`;
+        meta.textContent = text;
         selectElement.insertAdjacentElement('afterend', meta);
     });
 }

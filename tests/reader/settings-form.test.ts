@@ -534,7 +534,7 @@ describe('settings form localization', () => {
         expect(saved.ankiEnabled).toBe(false);
     });
 
-    it('stores Anki new-tab deck skips through the hidden toggle value', () => {
+    it('shows saved Anki new-tab deck skips without adding a second scan action', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm({
             ...DEFAULT_SETTINGS,
@@ -542,12 +542,15 @@ describe('settings form localization', () => {
         }, 'https://jpdb.io/settings');
         const hidden = form.querySelector<HTMLInputElement>('input[name="newTabAnkiDisabledDecks"]');
         const newTabPanel = form.querySelector<HTMLElement>('[data-settings-panel="newTab"]')!;
+        const deckControls = Array.from(newTabPanel.querySelectorAll<HTMLInputElement>('[data-newtab-anki-deck-toggle]'));
 
         expect(hidden?.type).toBe('hidden');
         expect(hidden?.value).toBe('Archive, Old Mining');
-        expect(newTabPanel.textContent).not.toContain('Anki review decks');
+        expect(newTabPanel.textContent).toContain('Anki review decks');
         expect(newTabPanel.textContent).not.toContain('Scan Anki to load deck toggles');
-        expect(newTabPanel.querySelector('[data-newtab-anki-decks]')).toBeNull();
+        expect(newTabPanel.querySelector<HTMLElement>('[data-newtab-anki-decks]')?.hidden).toBe(false);
+        expect(deckControls.map(input => input.dataset.newtabAnkiDeck)).toEqual(['Archive', 'Old Mining']);
+        expect(deckControls.map(input => input.checked)).toEqual([false, false]);
         expect(newTabPanel.querySelector('[data-action="scan-anki"]')).toBeNull();
 
         hidden!.value = 'Archive';
@@ -563,9 +566,11 @@ describe('settings form localization', () => {
             newTabAnkiDisabledDecks: ['Japanese::Old', 'Japanese', 'Archive'],
         }, 'https://jpdb.io/settings');
         const hidden = form.querySelector<HTMLInputElement>('input[name="newTabAnkiDisabledDecks"]');
+        const deckControls = Array.from(form.querySelectorAll<HTMLInputElement>('[data-newtab-anki-deck-toggle]'));
 
         expect(hidden?.value).toBe('Japanese, Archive');
-        expect(form.querySelector('[data-newtab-anki-decks]')).toBeNull();
+        expect(deckControls.map(input => input.dataset.newtabAnkiDeck)).toEqual(['Japanese', 'Archive']);
+        expect(deckControls.map(input => input.checked)).toEqual([false, false]);
 
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
         expect(saved.newTabAnkiDisabledDecks).toEqual(['Japanese', 'Archive']);
