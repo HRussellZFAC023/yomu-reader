@@ -1,5 +1,5 @@
 import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiDuplicateNoteError, type AnkiAudioMergeMode, type AnkiLookupResult, type AnkiMergeYomuResult } from './anki';
-import { resolveAnkiWordAudio } from './audio';
+import { resolveAnkiWordAudio } from './anki-audio';
 import { copyText } from './browser-ui';
 import { normalizeCardStates } from './card-state';
 import { readerWordSurfaceText } from './dom';

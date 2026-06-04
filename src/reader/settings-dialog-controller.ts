@@ -43,6 +43,7 @@ import {
     updateDictionaryLookupLinkEditor,
     updateSourceRowEditor,
 } from './settings-form';
+import { updateAnkiTagsEditor } from './settings-form-tags';
 import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, readerDictionaryExportHasData, recommendedDictionaryFilename } from './settings-file-io';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from './types';
 import { uiText } from './i18n';
@@ -159,54 +160,6 @@ function readNewTabAnkiDisabledDecks(form: HTMLFormElement): string[] {
             .map(deck => deck.trim())
             .filter(Boolean) ?? [],
     );
-}
-
-function updateAnkiTagsEditor(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined): void {
-    const editor = control?.closest<HTMLElement>('[data-anki-tags-editor]') ?? form.querySelector<HTMLElement>('[data-anki-tags-editor]');
-    const hidden = editor?.querySelector<HTMLInputElement>('input[name="ankiTags"]');
-    if (!editor || !hidden) return;
-    const language = getFormInterfaceLanguage(form, 'en');
-    const tags = ankiTagList(hidden.value);
-    if (action === 'anki-tag-add') {
-        const input = editor.querySelector<HTMLInputElement>('[data-anki-tag-input]');
-        ankiTagList(input?.value ?? '').forEach(tag => {
-            if (!tags.includes(tag)) tags.push(tag);
-        });
-        if (input) input.value = '';
-    } else {
-        const tag = control?.dataset.tag?.trim();
-        if (tag) {
-            const index = tags.indexOf(tag);
-            if (index >= 0) tags.splice(index, 1);
-        }
-    }
-    hidden.value = tags.join(' ');
-    hidden.dispatchEvent(new Event('input', { bubbles: true }));
-    renderAnkiTagChips(editor, tags, language);
-}
-
-function renderAnkiTagChips(editor: HTMLElement, tags: string[], language: InterfaceLanguage): void {
-    const list = editor.querySelector<HTMLElement>('[data-anki-tag-chips]');
-    if (!list) return;
-    list.replaceChildren(...tags.map(tag => {
-        const button = document.createElement('button');
-        button.className = 'jpdb-reader-tag-chip';
-        button.type = 'button';
-        button.dataset.action = 'anki-tag-remove';
-        button.dataset.tag = tag;
-        button.setAttribute('aria-label', `${uiText(language, 'remove')}: ${tag}`);
-        const label = document.createElement('span');
-        label.textContent = tag;
-        const remove = document.createElement('span');
-        remove.textContent = '×';
-        remove.setAttribute('aria-hidden', 'true');
-        button.append(label, remove);
-        return button;
-    }));
-}
-
-function ankiTagList(value: string): string[] {
-    return Array.from(new Set(value.split(/[\s,]+/u).map(tag => tag.trim()).filter(Boolean)));
 }
 
 function selectedSettingsPanel(control: HTMLElement | null | undefined): string {

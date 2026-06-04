@@ -1,7 +1,8 @@
-import { escapeHtml, setInnerHtml } from './dom';
+import { setInnerHtml } from './dom';
 import { uiText } from './i18n';
 import { Logger } from './logger';
 import { detectGrammarHints, renderGrammarHints, setGrammarRuleKnown, setKnownGrammarVisible, translateJapaneseSentence, type GrammarHint } from './study-tools';
+import { renderStudyMeaningBlock } from './study-section-render';
 import type { InterfaceLanguage } from './types';
 
 const log = Logger.scope('StudyRender');
@@ -15,7 +16,7 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
     if (action === 'study-translate') {
         try {
             const translated = await translateJapaneseSentence(sentence, language);
-            setInnerHtml(panel, `<div class="jpdb-reader-study-block jpdb-reader-study-meaning-block"><div class="jpdb-reader-study-label">${escapeHtml(uiText(language, 'meaning'))}</div><div class="jpdb-reader-study-translation">${escapeHtml(translated)}</div></div>`);
+            setInnerHtml(panel, renderStudyMeaningBlock(translated, language));
             return;
         } finally {
             done();

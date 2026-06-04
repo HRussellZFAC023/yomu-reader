@@ -1,47 +1,39 @@
 import { uiText } from './i18n';
 import { Logger } from './logger';
-import { canAttemptAudiblePlayback } from './media-activation';
+import { ShuffledAudioDeck } from './audio-playback-queue';
+import { requestAudioUrl as requestUrl, type AudioRequestOptions } from './audio-request';
+import {
+    audioCandidateSelectionMode,
+    audioPreloadLimits,
+    cloneAudioCandidates,
+    getAudioBagKey,
+    getAudioCandidateCacheKey,
+    getJpdbAudioBagKey,
+    getOrderedAudioSources,
+    isBrowserTextToSpeechSource,
+    isJpdbWordAudioSource,
+    isTextToSpeechFallbackSource,
+    normalizeAttemptedAudioUrl,
+    orderAudioCandidates,
+    orderAudioSources,
+    preparedAudioCacheKey,
+    preloadableAudioSources,
+    registerAudioAttempt,
+    type AudioCandidate,
+    type AudioPreloadOptions,
+    type OrderedAudioSource,
+} from './audio-source-resolution';
+import { canAttemptAudiblePlayback, reserveGestureAudioElement } from './media-activation';
 import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
-import { isKnownCorsBlockedPublicAudioCdnUrl } from './proxy-fetch';
-import { requestBlob, requestText } from './reader-http';
+import { DEFAULT_YOMU_PUBLIC_PROXY_URL, isKnownCorsBlockedPublicAudioCdnUrl } from './proxy-fetch';
 import { uniqueStrings } from './string-utils';
 import { getUserscriptHttpRequest } from './userscript';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from './types';
 
-interface AudioCandidate {
-    url: string;
-    sourceUrl: string;
-    jpdbAudioId?: string;
-}
-
 interface AudioPlaybackOptions {
     isCurrent?: () => boolean;
     userGesture?: boolean;
-}
-
-interface AudioPreloadOptions {
-    sourceLimit?: number;
-    candidateLimit?: number;
-    prepareAudio?: boolean;
-}
-
-interface AudioPreloadLimits {
-    sourceLimit: number;
-    candidateLimit: number;
-    prepareAudio: boolean;
-}
-
-interface AudioRequestOptions {
-    method?: 'GET' | 'POST';
-    headers?: Record<string, string>;
-    data?: string;
-    proxyUrl?: string;
-    language?: ReaderSettings['interfaceLanguage'];
-    allowDirectCrossOrigin?: boolean;
-    preferFetch?: boolean;
-    credentials?: RequestCredentials;
-    withCredentials?: boolean;
 }
 
 interface JpdbAudioPlaybackCandidate {
@@ -52,12 +44,6 @@ interface JpdbAudioPlaybackCandidate {
 interface AudioSourcePlayResult {
     state: 'played' | 'superseded' | 'miss' | 'playback-error';
     errors: string[];
-}
-
-interface OrderedAudioSource {
-    source: AudioSourceSetting;
-    id: string;
-    bagKey: string;
 }
 
 interface PreparedAudioCandidate {
@@ -97,12 +83,6 @@ interface SoftChimeNote {
     gain: number;
 }
 
-export interface AnkiWordAudioMedia {
-    dataUrl?: string;
-    url?: string;
-}
-
-const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'jpdb-tts', 'text-to-speech'];
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
 const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -116,7 +96,6 @@ const SOFT_CHIME_NOTES: SoftChimeNote[] = [
     { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 },
 ];
-const SILENT_AUDIO_DATA_URL = 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==';
 const JPDB_VOCABULARY_BASE_URL = 'https://jpdb.io/vocabulary';
 const JPDB_SEARCH_URL = 'https://jpdb.io/search';
 const JPDB_AUDIO_BASE_URL = 'https://jpdb.io/static/v';
@@ -128,6 +107,8 @@ const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const AUDIO_PRECONNECT_RELS = ['preconnect', 'dns-prefetch'] as const;
 const preconnectedAudioOrigins = new Set<string>();
 const log = Logger.scope('Audio');
+
+export { ShuffledAudioDeck } from './audio-playback-queue';
 
 class AudioPlaybackAttemptError extends Error {
     constructor(error: unknown) {
@@ -186,10 +167,8 @@ export class AudioPlayer {
 
     private reserveGestureAudioElement(request: AudioPlaybackRequest): HTMLAudioElement | undefined {
         if (!shouldReserveGestureAudioElement(request)) return undefined;
-        const audio = this.createAudioElement(SILENT_AUDIO_DATA_URL);
-        audio.loop = true;
+        const audio = reserveGestureAudioElement(audioUrl => this.createAudioElement(audioUrl));
         this.current = audio;
-        playSilentReservationAudio(audio);
         return audio;
     }
 
@@ -506,10 +485,8 @@ export class AudioPlayer {
 
     private reserveJpdbGestureAudioElement(userGesture = false): HTMLAudioElement | undefined {
         if (!userGesture) return undefined;
-        const audio = this.createAudioElement(SILENT_AUDIO_DATA_URL);
-        audio.loop = true;
+        const audio = reserveGestureAudioElement(audioUrl => this.createAudioElement(audioUrl));
         this.current = audio;
-        playSilentReservationAudio(audio);
         return audio;
     }
 
@@ -915,85 +892,6 @@ function waitForSoftChime(): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, 460));
 }
 
-/**
- * Keeps a shuffled bag per audio key. This is intentionally not IID random
- * selection: every candidate in the current bag is offered before a reshuffle.
- */
-export class ShuffledAudioDeck {
-    private bags = new Map<string, ShuffledAudioBag>();
-
-    constructor(private random: () => number = Math.random) {}
-
-    order(key: string, ids: string[]): string[] {
-        if (ids.length < 2) return ids;
-
-        const signature = ids.join('\u0000');
-        const current = this.bags.get(key);
-        if (reusableAudioBag(current, signature)) return audioDeckOrderWithFallbacks(current.remaining, ids);
-
-        const next = this.buildAudioBag(ids, signature, current);
-        this.bags.set(key, next);
-        return audioDeckOrderWithFallbacks(next.remaining, ids);
-    }
-
-    private buildAudioBag(ids: string[], signature: string, current: ShuffledAudioBag | undefined): ShuffledAudioBag {
-        const remaining = this.shuffle(ids);
-        const lastPlayed = current?.lastPlayed;
-        rotateRepeatedAudioLead(remaining, lastPlayed);
-        return { signature, remaining, lastPlayed };
-    }
-
-    markPlayed(key: string, id: string): void {
-        const current = this.bags.get(key);
-        if (!current) return;
-
-        removeAudioDeckId(current.remaining, id);
-        current.lastPlayed = id;
-    }
-
-    markSkipped(key: string, id: string): void {
-        const current = this.bags.get(key);
-        if (!current) return;
-        removeAudioDeckId(current.remaining, id);
-    }
-
-    private shuffle(values: string[]): string[] {
-        const shuffled = [...values];
-        for (let index = shuffled.length - 1; index > 0; index--) {
-            const swapIndex = Math.floor(this.random() * (index + 1));
-            [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-        }
-        return shuffled;
-    }
-}
-
-interface ShuffledAudioBag {
-    signature: string;
-    remaining: string[];
-    lastPlayed?: string;
-}
-
-function reusableAudioBag(bag: ShuffledAudioBag | undefined, signature: string): bag is ShuffledAudioBag {
-    return Boolean(bag && bag.signature === signature && bag.remaining.length);
-}
-
-function audioDeckOrderWithFallbacks(remaining: string[], ids: string[]): string[] {
-    const unplayed = new Set(remaining);
-    return [
-        ...remaining,
-        ...ids.filter(id => !unplayed.has(id)),
-    ];
-}
-
-function rotateRepeatedAudioLead(ids: string[], lastPlayed: string | undefined): void {
-    if (lastPlayed && ids.length > 1 && ids[0] === lastPlayed) ids.push(ids.shift()!);
-}
-
-function removeAudioDeckId(ids: string[], id: string): void {
-    const index = ids.indexOf(id);
-    if (index >= 0) ids.splice(index, 1);
-}
-
 export function formatAudioUrl(template: string, card: JPDBCard): string {
     const replacements: Record<string, string> = {
         term: card.spelling,
@@ -1017,85 +915,7 @@ export function findAudioUrls(value: unknown, sourceUrl?: string): string[] {
     return direct ?? [];
 }
 
-export async function resolveAnkiWordAudio(card: JPDBCard, settings: ReaderSettings): Promise<AnkiWordAudioMedia | null> {
-    if (!settings.audioEnabled) return null;
-    const sources = orderAudioSources(
-        getOrderedAudioSources(settings).filter(source => !isBrowserTextToSpeechSource(source)),
-        settings.audioSelectionMode,
-        card,
-        new ShuffledAudioDeck(),
-    );
-    const triedUrls = new Set<string>();
-    for (const { source } of sources) {
-        const audio = await resolveAnkiWordAudioFromSource(source, card, settings, triedUrls).catch(() => null);
-        if (audio) return audio;
-    }
-    return null;
-}
-
-async function resolveAnkiWordAudioFromSource(
-    source: AudioSourceSetting,
-    card: JPDBCard,
-    settings: ReaderSettings,
-    triedUrls: Set<string>,
-): Promise<AnkiWordAudioMedia | null> {
-    const candidates = await getAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
-    const bagKey = getAudioBagKey(source, card);
-    const shuffled = new ShuffledAudioDeck();
-    for (const { candidate } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, shuffled)) {
-        if (!registerAudioAttempt(triedUrls, candidate)) continue;
-        const audio = await ankiAudioMediaFromCandidate(candidate, source.type, settings).catch(() => null);
-        if (audio) return audio;
-    }
-    return null;
-}
-
-async function ankiAudioMediaFromCandidate(candidate: AudioCandidate, sourceType: AudioSourceType, settings: ReaderSettings): Promise<AnkiWordAudioMedia | null> {
-    if (candidate.url.startsWith('data:audio/')) return { dataUrl: candidate.url };
-    if (candidate.jpdbAudioId) return { dataUrl: await jpdbAudioDataUrl(candidate.jpdbAudioId, settings) };
-    try {
-        const dataUrl = await fetchAudioDataUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode, settings.corsProxyUrl, settings.interfaceLanguage);
-        if (dataUrl) return { dataUrl };
-    } catch (error) {
-        if (!canUseAnkiRemoteAudioFallback(candidate, sourceType, error)) return null;
-    }
-    return /^https?:\/\//i.test(candidate.url) ? { url: candidate.url } : null;
-}
-
-function canUseAnkiRemoteAudioFallback(candidate: AudioCandidate, sourceType: AudioSourceType, error: unknown): boolean {
-    if (!/^https?:\/\//i.test(candidate.url)) return false;
-    if (sourceType === 'jpod101' || isJapanesePod101Url(candidate.url) || isJapanesePod101Url(candidate.sourceUrl)) return false;
-    const message = error instanceof Error ? error.message : String(error);
-    if (/instead of audio|no audio|failed \(\d{3}\)/i.test(message)) return false;
-    return true;
-}
-
-async function jpdbAudioDataUrl(audioId: string, settings: ReaderSettings): Promise<string> {
-    const request = jpdbAudioRequest(audioId, settings.interfaceLanguage);
-    const response = await requestUrl(request.url, 'blob', settings.audioTimeoutMs, {
-        headers: request.headers,
-        proxyUrl: settings.corsProxyUrl,
-        language: settings.interfaceLanguage,
-        credentials: 'same-origin',
-        withCredentials: true,
-    });
-    if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, 'jpdbAudioPlayableFileMissing'));
-    return blobToDataUrl(await decodeJpdbAudioBlob(response, request.encoded, settings.interfaceLanguage), settings.interfaceLanguage);
-}
-
-async function fetchAudioDataUrl(url: string, sourceUrl: string, timeoutMs: number, mode: AudioSelectionMode, proxyUrl: string, language: ReaderSettings['interfaceLanguage']): Promise<string> {
-    const response = await requestUrl(url, 'blob', timeoutMs, { proxyUrl, language });
-    if (isJsonAudioResponse(response)) {
-        const nestedUrl = findAudioUrl(JSON.parse(await response.text()), sourceUrl, mode);
-        if (!nestedUrl) throw new Error(uiText(language, 'audioJsonMissingPlayableUrl'));
-        return fetchAudioDataUrl(nestedUrl, sourceUrl, timeoutMs, mode, proxyUrl, language);
-    }
-    if (!(response instanceof Blob)) throw new Error(uiText(language, 'audioSourceReturnedNoAudio'));
-    await assertPlayableAudioBlob(response, url, sourceUrl, language);
-    return blobToDataUrl(response, language);
-}
-
-function blobToDataUrl(blob: Blob, language: ReaderSettings['interfaceLanguage'] = 'en'): Promise<string> {
+export function blobToDataUrl(blob: Blob, language: ReaderSettings['interfaceLanguage'] = 'en'): Promise<string> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result || ''));
@@ -1173,11 +993,11 @@ export async function isUnavailableJapanesePod101Audio(blob: Blob): Promise<bool
     }
 }
 
-function isJsonAudioResponse(response: unknown): response is Blob {
+export function isJsonAudioResponse(response: unknown): response is Blob {
     return response instanceof Blob && response.type.includes('json');
 }
 
-async function assertPlayableAudioBlob(response: Blob, url: string, sourceUrl: string, language: ReaderSettings['interfaceLanguage'] = 'en'): Promise<void> {
+export async function assertPlayableAudioBlob(response: Blob, url: string, sourceUrl: string, language: ReaderSettings['interfaceLanguage'] = 'en'): Promise<void> {
     if (isErrorDocumentAudioBlob(response) || (!isLikelyAudioBlob(response) && !isLikelyAudioUrl(url) && !isLikelyAudioUrl(sourceUrl))) {
         throw new Error(formatNonAudioResponseMessage(language, response.type));
     }
@@ -1200,45 +1020,9 @@ function isLikelyAudioBlob(blob: Blob): boolean {
     return blob.type.toLowerCase().startsWith('audio/');
 }
 
-function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSetting[] {
-    const sources = settings.audioSources.filter(source => source.enabled);
-    if (!settings.audioEnableDefaultSources) return sources;
-
-    const configuredTypes = new Set(settings.audioSources.map(source => source.type));
-    return [
-        ...sources,
-        ...REQUIRED_JA_AUDIO_SOURCES
-            .filter(type => !configuredTypes.has(type))
-            .map(type => ({ type, url: '', voice: '', enabled: true })),
-    ];
-}
-
 function shouldReserveGestureAudioElement(request: AudioPlaybackRequest): boolean {
     return request.userGesture
         && request.sources.some(source => !isBrowserTextToSpeechSource(source));
-}
-
-function playSilentReservationAudio(audio: HTMLAudioElement): void {
-    try {
-        void audio.play().catch(() => undefined);
-    } catch {
-        // jsdom throws synchronously for HTMLMediaElement.play(), while browsers return
-        // a rejected promise when playback cannot start.
-    }
-}
-
-function preloadableAudioSources(sources: AudioSourceSetting[], settings: ReaderSettings): AudioSourceSetting[] {
-    return settings.audioTtsMode === 'source-order'
-        ? sources.filter(source => !isBrowserTextToSpeechSource(source))
-        : sources.filter(source => !isBrowserTextToSpeechSource(source) && source.type !== 'jpdb-tts');
-}
-
-function audioPreloadLimits(options: AudioPreloadOptions): AudioPreloadLimits {
-    return {
-        sourceLimit: Math.max(1, options.sourceLimit ?? 1),
-        candidateLimit: Math.max(1, options.candidateLimit ?? 1),
-        prepareAudio: options.prepareAudio !== false,
-    };
 }
 
 function delayAudioSourceRace(ms: number): Promise<null> {
@@ -1256,7 +1040,7 @@ function pruneTimedCache<T>(cache: Map<string, { expiresAt: number; promise: Pro
     }
 }
 
-async function getAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<AudioCandidate[]> {
+export async function getAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<AudioCandidate[]> {
     return await (AUDIO_CANDIDATE_LOADERS[source.type] ?? loadNoAudioCandidates)(source, card, timeoutMs, proxyUrl);
 }
 
@@ -1317,139 +1101,6 @@ function jpdbAudioIdsToCandidates(audioIds: string[]): AudioCandidate[] {
     }));
 }
 
-function orderAudioCandidates(
-    candidates: AudioCandidate[],
-    mode: AudioSelectionMode,
-    bagKey: string,
-    shuffledAudio: ShuffledAudioDeck,
-): Array<{ candidate: AudioCandidate; id: string }> {
-    const entries = candidates.map((candidate, index) => ({
-        candidate,
-        id: audioCandidateDeckId(candidate, index),
-    }));
-    if (mode !== 'random' || entries.length < 2) return entries;
-
-    const byId = new Map(entries.map(entry => [entry.id, entry]));
-    return shuffledAudio.order(bagKey, entries.map(entry => entry.id))
-        .map(id => byId.get(id))
-        .filter((entry): entry is { candidate: AudioCandidate; id: string } => Boolean(entry));
-}
-
-function audioCandidateDeckId(candidate: AudioCandidate, index: number): string {
-    if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
-    return [
-        normalizeAttemptedAudioUrl(candidate.url),
-        normalizeAttemptedAudioUrl(candidate.sourceUrl),
-        index,
-    ].join('\u0000');
-}
-
-function audioCandidateSelectionMode(sourceType: AudioSourceType, mode: AudioSelectionMode): AudioSelectionMode {
-    return sourceType === 'jpdb-tts' ? 'random' : mode;
-}
-
-function orderAudioSources(
-    sources: AudioSourceSetting[],
-    mode: AudioSelectionMode,
-    card: JPDBCard,
-    shuffledAudio: ShuffledAudioDeck,
-): OrderedAudioSource[] {
-    const bagKey = getAudioSourceBagKey(sources, card);
-    const entries = sources.map((source, index) => ({
-        source,
-        id: getAudioSourceDeckId(source, index),
-        bagKey,
-    }));
-    if (mode !== 'random' || entries.length < 2) return entries;
-
-    const byId = new Map(entries.map(entry => [entry.id, entry]));
-    return shuffledAudio.order(bagKey, entries.map(entry => entry.id))
-        .map(id => byId.get(id))
-        .filter((entry): entry is OrderedAudioSource => Boolean(entry));
-}
-
-function isBrowserTextToSpeechSource(source: AudioSourceSetting): boolean {
-    return source.type === 'text-to-speech' || source.type === 'text-to-speech-reading';
-}
-
-function isJpdbWordAudioSource(source: AudioSourceSetting): boolean {
-    return source.type === 'jpdb-tts';
-}
-
-function isTextToSpeechFallbackSource(source: AudioSourceSetting): boolean {
-    return isJpdbWordAudioSource(source) || isBrowserTextToSpeechSource(source);
-}
-
-function registerAudioAttempt(triedUrls: Set<string>, candidate: AudioCandidate): boolean {
-    const candidateKey = normalizeAttemptedAudioUrl(candidate.url);
-    if (triedUrls.has(candidateKey)) {
-        return false;
-    }
-    triedUrls.add(candidateKey);
-    return true;
-}
-
-function getAudioBagKey(source: AudioSourceSetting, card: JPDBCard): string {
-    return [
-        source.type,
-        source.url,
-        source.voice,
-        card.spelling,
-        card.reading,
-    ].join('\u0001');
-}
-
-function getJpdbAudioBagKey(audioIds: string[]): string {
-    return [
-        'jpdb-audio',
-        ...[...audioIds].sort(),
-    ].join('\u0001');
-}
-
-function getAudioSourceBagKey(sources: AudioSourceSetting[], card: JPDBCard): string {
-    return [
-        'audio-sources',
-        card.spelling,
-        card.reading,
-        ...sources.map(getAudioSourceSignature),
-    ].join('\u0001');
-}
-
-function getAudioSourceDeckId(source: AudioSourceSetting, index: number): string {
-    return `${index}\u0000${getAudioSourceSignature(source)}`;
-}
-
-function getAudioSourceSignature(source: AudioSourceSetting): string {
-    return [
-        source.type,
-        source.url.trim(),
-        source.voice.trim(),
-    ].join('\u0000');
-}
-
-function getAudioCandidateCacheKey(source: AudioSourceSetting, card: JPDBCard): string {
-    return [
-        source.type,
-        source.url.trim(),
-        source.voice.trim(),
-        card.spelling,
-        card.reading,
-    ].join('\u0001');
-}
-
-function preparedAudioCacheKey(candidate: AudioCandidate, mode: AudioSelectionMode, audioViaBlob: boolean): string {
-    return [
-        normalizeAttemptedAudioUrl(candidate.url),
-        normalizeAttemptedAudioUrl(candidate.sourceUrl),
-        mode,
-        audioViaBlob ? 'blob' : 'direct',
-    ].join('\u0001');
-}
-
-function cloneAudioCandidates(candidates: AudioCandidate[]): AudioCandidate[] {
-    return candidates.map(candidate => ({ ...candidate }));
-}
-
 function getJapanesePod101Url(card: JPDBCard): string {
     const spelling = card.spelling.trim();
     const reading = card.reading.trim() || spelling;
@@ -1459,7 +1110,7 @@ function getJapanesePod101Url(card: JPDBCard): string {
     return `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?${params.toString()}`;
 }
 
-function isJapanesePod101Url(value: string): boolean {
+export function isJapanesePod101Url(value: string): boolean {
     try {
         const url = new URL(value);
         return url.hostname === 'assets.languagepod101.com' && url.pathname.endsWith('/audiomp3.php');
@@ -1645,7 +1296,16 @@ function shouldSkipJishoLookup(proxyUrl: string): boolean {
 }
 
 function jishoLookupProxyUrl(proxyUrl: string): string {
-    return proxyUrl;
+    return isDefaultYomuPublicProxyUrl(proxyUrl) ? '' : proxyUrl;
+}
+
+function isDefaultYomuPublicProxyUrl(proxyUrl: string): boolean {
+    if (!proxyUrl.trim()) return false;
+    try {
+        return new URL(proxyUrl).origin === new URL(DEFAULT_YOMU_PUBLIC_PROXY_URL).origin;
+    } catch {
+        return false;
+    }
 }
 
 function findJishoAudioElement(html: string, card: JPDBCard): string | null {
@@ -1888,31 +1548,6 @@ function commonsImageInfoUrls(info: string, title: string, term: string, source:
         .map(image => image?.url ?? '');
 }
 
-function requestUrl(responseUrl: string, responseType: 'blob' | 'text', timeoutMs: number, options: AudioRequestOptions = {}): Promise<unknown> {
-    const language = options.language ?? 'en';
-    const requestOptions = {
-        method: options.method ?? 'GET',
-        headers: options.headers,
-        data: options.data,
-        proxyUrl: options.proxyUrl,
-        allowDirectCrossOrigin: options.allowDirectCrossOrigin ?? true,
-        preferFetch: options.preferFetch ?? shouldPreferFetchForAudioRequests(),
-        credentials: options.credentials,
-        withCredentials: options.withCredentials,
-        timeoutMs,
-        failureLabel: uiText(language, 'audioRequest'),
-        timeoutLabel: uiText(language, 'audioRequestTimedOut'),
-    };
-    return responseType === 'blob'
-        ? requestBlob(responseUrl, requestOptions)
-        : requestText(responseUrl, requestOptions);
-}
-
-function shouldPreferFetchForAudioRequests(): boolean {
-    return typeof window !== 'undefined'
-        && (window as typeof window & { __YOMU_READER_RUNTIME__?: string }).__YOMU_READER_RUNTIME__ === 'newtab';
-}
-
 function findHtmlElementById(html: string, tag: string, id: string): string | null {
     return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp(id)}\\1`, 'i'));
 }
@@ -2040,16 +1675,6 @@ function isLoopbackAudioHost(hostname: string): boolean {
 
 function normalizeAudioUrlSlashes(value: string): string {
     return value.replace(/\\/g, '/');
-}
-
-function normalizeAttemptedAudioUrl(value: string): string {
-    try {
-        const url = new URL(value, location.href);
-        url.hash = '';
-        return url.href;
-    } catch {
-        return value;
-    }
 }
 
 function isLikelyAudioRecord(record: Record<string, unknown>): boolean {

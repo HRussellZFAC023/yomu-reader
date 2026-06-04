@@ -1,16 +1,13 @@
 import { runLimited } from './async-utils';
 import { escapeHtml } from './dom';
-import type { AnkiWordAudioMedia } from './audio';
+import type { AnkiWordAudioMedia } from './anki-audio';
 import { ANKI_CARD_COLOR_TOKENS } from './color-tokens';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
-import { isYomuHostedAppUrl } from './app-pages';
-import { GITHUB_PAGES_ORIGIN } from './constants';
 import { resolveUiLanguage, uiText } from './i18n';
 import { formatMetaFrequency, groupTermEntriesByDictionary } from './local-dictionary-groups';
 import { Logger } from './logger';
-import { gmStorageDeleteSync, gmStorageGet, gmStorageGetSync, gmStorageSet, gmStorageSetSync } from './storage';
-import type { AnkiFieldMapping, AnkiFieldMappings, CardState, DictionaryPreference, JPDBCard, JPDBGrade, ReaderSettings } from './types';
-import { getUserscriptHttpRequest } from './userscript';
+import { gmStorageGet, gmStorageGetSync, gmStorageSet } from './storage';
+import type { AnkiFieldMapping, DictionaryPreference, JPDBCard, JPDBGrade, ReaderSettings } from './types';
 import {
     glossaryToHtml,
     glossaryToText,
@@ -18,22 +15,109 @@ import {
     type YomitanMetaEntry,
     type YomitanTermEntry,
 } from './yomitan';
+import {
+    ANKI_FIELD_ROLES,
+    type AnkiAudioMergeMode,
+    type AnkiCardContext,
+    type AnkiCardInfo,
+    type AnkiDeckStats,
+    type AnkiExistingNote,
+    type AnkiFieldContext,
+    type AnkiFieldRole,
+    type AnkiLibraryScanResult,
+    type AnkiLookupResult,
+    type AnkiMediaFile,
+    type AnkiMergeYomuResult,
+    type AnkiModelScanResult,
+    type AnkiMultiAction,
+    type AnkiNote,
+    type AnkiNoteInfo,
+    type AnkiNoteUpdate,
+    type AnkiPicture,
+    type AnkiResponse,
+    type AnkiStatusIndex,
+    type AnkiStatusIndexCardData,
+    type AnkiStatusIndexCardSets,
+    type AnkiStatusIndexEntry,
+    type ParsedAnkiAudioDataUrl,
+    type ParsedAnkiImageDataUrl,
+} from './anki-types';
+import {
+    isAnkiConnectAvailabilityError,
+    postAnkiJson,
+} from './anki-transport';
+import {
+    ankiFieldMappingForModel,
+    ankiFieldMappingsSettingsKey,
+    fieldNameForRole,
+    flattenNoteFields,
+    lookupKeyTermsForCard,
+    mappedRoleForField,
+    noteLooksLikeCard,
+    scanAnkiModelFields,
+    stripHtml,
+    yomuFieldForRole,
+} from './anki-field-mapping';
+import {
+    ankiExistingNoteFromInfo,
+    ankiMediaMimeType,
+    ankiNoteHasRenderableDetails,
+    ankiRenderedCardMediaFilenames,
+    cardsByNoteId,
+    emptyAnkiLookupResult,
+    pickPrimaryExistingNote,
+    stateFromExistingNotes,
+    untrustedAnkiLookupResult,
+} from './anki-card-details';
+import {
+    ANKI_STATUS_INDEX_COUNT_CHECK_MS,
+    ANKI_STATUS_INDEX_MAX_STALE_MS,
+    ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE,
+    ANKI_STATUS_INDEX_NOTE_CONCURRENCY,
+    ANKI_STATUS_INDEX_STORAGE_KEY,
+    ANKI_STATUS_INDEX_VERSION,
+    activeAnkiStatusIndexRebuildLease,
+    ankiStatusIndexMeta,
+    canUseIndexedDb,
+    claimAnkiStatusIndexRebuildLease,
+    clearAnkiStatusIndexStores,
+    countAnkiStatusIndexEntries,
+    loadAnkiStatusIndexEntriesFromIndexedDb,
+    loadAnkiStatusIndexFromIndexedDb,
+    openAnkiStatusIndexDb,
+    putAnkiStatusIndexMeta,
+    putBestAnkiStatusIndexEntries,
+    releaseAnkiStatusIndexRebuildLease,
+    saveAnkiStatusIndex,
+    saveAnkiStatusIndexCheckedAt,
+    saveAnkiStatusIndexDirtyMarker,
+    statusIndexEntriesForNotes,
+    statusIndexEntryForCard,
+    statusIndexKeysForCard,
+    touchAnkiStatusIndexRebuildLease,
+} from './anki-status-index';
+
+export type {
+    AnkiAudioMergeMode,
+    AnkiCardContext,
+    AnkiExistingNote,
+    AnkiFieldRole,
+    AnkiLibraryScanResult,
+    AnkiLookupResult,
+    AnkiMergeYomuResult,
+    AnkiModelScanResult,
+    AnkiRenderedCard,
+} from './anki-types';
+export { canFetchAnkiConnectFrom, isAnkiConnectAvailabilityError, needsHostedAnkiConnectSetupHint } from './anki-transport';
+export {
+    ANKI_EXPRESSION_FIELD_NAMES,
+    ANKI_MEANING_FIELD_NAMES,
+    ANKI_READING_FIELD_NAMES,
+    ANKI_SENTENCE_FIELD_NAMES,
+} from './anki-field-mapping';
+export { ankiMediaFilenameFromCardUrl } from './anki-card-details';
 
 const ANKI_VERSION = 6;
-const ANKI_STATUS_INDEX_STORAGE_KEY = 'yomu:anki-status-index:v1';
-const ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY = 'yomu:anki-status-index-rebuild:v1';
-const ANKI_STATUS_INDEX_VERSION = 1;
-const ANKI_STATUS_INDEX_COUNT_CHECK_MS = 5 * 60 * 1000;
-const ANKI_STATUS_INDEX_MAX_STALE_MS = 30 * 60 * 1000;
-const ANKI_STATUS_INDEX_REBUILD_LEASE_TTL_MS = 15 * 60 * 1000;
-const ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE = 500;
-const ANKI_STATUS_INDEX_NOTE_CONCURRENCY = 3;
-const ANKI_STATUS_INDEX_DB_NAME = 'yomu-anki-status-index';
-const ANKI_STATUS_INDEX_DB_VERSION = 1;
-const ANKI_STATUS_INDEX_META_STORE = 'meta';
-const ANKI_STATUS_INDEX_ENTRY_STORE = 'entries';
-const ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE = 500;
-const ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE = 1000;
 const ANKI_STATUS_ONLY_LOOKUP_TERM_CHUNK_SIZE = 120;
 const ANKI_CONNECT_REQUEST_TIMEOUT_MS = 5_000;
 const ANKI_BACKGROUND_REQUEST_TIMEOUT_MS = 1_500;
@@ -71,110 +155,6 @@ export const YOMU_MODEL_FIELDS = [
     'Source',
 ];
 
-interface AnkiResponse<T> {
-    result: T;
-    error: string | null;
-}
-
-interface AnkiNote {
-    deckName: string;
-    modelName: string;
-    fields: Record<string, string>;
-    tags?: string[];
-    options?: {
-        allowDuplicate?: boolean;
-        duplicateScope?: string;
-    };
-    picture?: Array<{
-        filename: string;
-        data: string;
-        fields: string[];
-    }>;
-    audio?: AnkiMediaFile[];
-}
-
-type AnkiPicture = NonNullable<AnkiNote['picture']>[number];
-
-interface AnkiMediaFile {
-    filename: string;
-    fields: string[];
-    data?: string;
-    url?: string;
-    skipHash?: string;
-}
-
-interface AnkiNoteInfo {
-    noteId: number;
-    modelName: string;
-    tags: string[];
-    fields: Record<string, { value: string; order?: number }>;
-    cards: number[];
-}
-
-interface AnkiCardInfo {
-    cardId: number;
-    deckName: string;
-    queue: number;
-    type: number;
-    isDue?: boolean;
-    question?: string;
-    answer?: string;
-    due?: number;
-    reps?: number;
-    lapses?: number;
-    interval?: number;
-    note?: number;
-}
-
-interface AnkiDeckStats {
-    total_in_deck?: number;
-}
-
-interface AnkiMultiAction {
-    action: string;
-    params?: Record<string, unknown>;
-}
-
-export interface AnkiRenderedCard {
-    cardId: number;
-    deckName: string;
-    question: string;
-    answer: string;
-    mediaDataUrls?: Record<string, string>;
-}
-
-export type AnkiAudioMergeMode = 'both' | 'theirs' | 'ours';
-
-export interface AnkiMergeYomuResult {
-    noteId: number;
-    modelName: string;
-    updatedFields: string[];
-    audioAdded: boolean;
-    imageAdded: boolean;
-}
-
-export interface AnkiExistingNote {
-    noteId: number;
-    modelName: string;
-    deckNames: string[];
-    cardIds: number[];
-    primaryCardId: number | null;
-    state: CardState;
-    fields: Record<string, string>;
-    renderedCards?: AnkiRenderedCard[];
-    detailsUnavailable?: boolean;
-    tags: string[];
-    reps: number;
-    lapses: number;
-}
-
-export interface AnkiLookupResult {
-    state: CardState;
-    notes: AnkiExistingNote[];
-    primary: AnkiExistingNote | null;
-    trusted?: boolean;
-}
-
 export function ankiLookupWithUnavailableDetails(lookup: AnkiLookupResult): AnkiLookupResult {
     const mark = (note: AnkiExistingNote): AnkiExistingNote => ankiNoteHasRenderableDetails(note)
         ? note
@@ -194,127 +174,6 @@ export class AnkiDuplicateNoteError extends Error {
 export function isAnkiDuplicateNoteError(error: unknown): error is AnkiDuplicateNoteError {
     return error instanceof AnkiDuplicateNoteError;
 }
-
-export type AnkiFieldRole = 'expression' | 'reading' | 'meaning' | 'sentence' | 'audio' | 'image';
-const ANKI_FIELD_ROLES: AnkiFieldRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'image'];
-
-export interface AnkiFieldSuggestion {
-    role: AnkiFieldRole;
-    fieldName: string | null;
-    confidence: 'high' | 'medium' | 'low';
-}
-
-export interface AnkiModelScanResult {
-    modelName: string;
-    fields: string[];
-    suggestions: AnkiFieldSuggestion[];
-    score: number;
-}
-
-export interface AnkiLibraryScanResult {
-    deckNames: string[];
-    models: AnkiModelScanResult[];
-    suggestedModel: AnkiModelScanResult | null;
-}
-
-export interface AnkiCardContext {
-    deckName?: string;
-    imageDataUrl?: string;
-    audioDataUrl?: string;
-    audioUrl?: string;
-    wordAudioDataUrl?: string;
-    wordAudioUrl?: string;
-    localEntries?: YomitanTermEntry[];
-    kanjiEntries?: YomitanKanjiEntry[];
-    metaEntries?: YomitanMetaEntry[];
-    dictionaryPreferences?: DictionaryPreference[];
-    sourceUrl?: string;
-    sourceTitle?: string;
-    interfaceLanguage?: ReaderSettings['interfaceLanguage'];
-}
-
-interface AnkiFieldContext {
-    localEntries: YomitanTermEntry[];
-    kanjiEntries: YomitanKanjiEntry[];
-    metaEntries: YomitanMetaEntry[];
-    dictionaryPreferences: DictionaryPreference[];
-    sourceUrl: string;
-    sourceTitle: string;
-    interfaceLanguage: ReaderSettings['interfaceLanguage'];
-}
-
-interface ParsedAnkiImageDataUrl {
-    extension: string;
-    data: string;
-}
-
-interface ParsedAnkiAudioDataUrl {
-    extension: string;
-    data: string;
-}
-
-interface AnkiNoteUpdate {
-    id: number;
-    fields: Record<string, string>;
-    audio?: AnkiMediaFile[];
-    picture?: AnkiPicture[];
-}
-
-interface AnkiStatusIndexEntry {
-    state: CardState;
-    noteId: number;
-    primaryCardId: number | null;
-    deckNames: string[];
-    reps: number;
-    lapses: number;
-    modelName: string;
-}
-
-interface AnkiStatusIndex {
-    version: number;
-    settingsKey: string;
-    syncedAt: number;
-    checkedAt: number;
-    cardCount: number;
-    entryCount?: number;
-    entries: Record<string, AnkiStatusIndexEntry>;
-    entryStore?: 'indexeddb';
-    readingKeys?: true;
-}
-
-interface AnkiStatusIndexRebuildLease {
-    owner: string;
-    settingsKey: string;
-    startedAt: number;
-    expiresAt: number;
-}
-
-type StoredAnkiStatusIndexMeta = Omit<AnkiStatusIndex, 'entries'> & { id: 'current'; entries?: Record<string, never> };
-
-interface StoredAnkiStatusIndexEntry {
-    key: string;
-    entry: AnkiStatusIndexEntry;
-}
-
-interface AnkiStatusIndexCardSets {
-    all: Set<number>;
-    due: Set<number>;
-    learning: Set<number>;
-    new: Set<number>;
-    suspended: Set<number>;
-}
-
-interface AnkiStatusIndexCardData {
-    sets: AnkiStatusIndexCardSets;
-    cardsByNote: Map<number, AnkiCardInfo[]>;
-}
-
-interface AnkiFieldContentSample {
-    raw: string;
-    text: string;
-}
-
-type AnkiFieldContentSamples = Record<string, AnkiFieldContentSample[]>;
 
 export class AnkiConnectClient {
     private lookupCache = new Map<string, { at: number; result: AnkiLookupResult }>();
@@ -1332,7 +1191,7 @@ export class AnkiConnectClient {
         const settings = this.getSettings();
         const url = settings.ankiConnectUrl || 'http://127.0.0.1:8765';
         const body = JSON.stringify({ action, version: ANKI_VERSION, params });
-        const response = await postJson<AnkiResponse<T>>(url, body, timeoutMs).catch(error => {
+        const response = await postAnkiJson<AnkiResponse<T>>(url, body, timeoutMs).catch(error => {
             if (isAnkiConnectAvailabilityError(error)) this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
             throw this.localizedConnectError(error);
         });
@@ -1417,336 +1276,12 @@ export function captureActiveVideoFrame(): string | undefined {
     }
 }
 
-function postJson<T>(url: string, body: string, timeoutMs = ANKI_CONNECT_REQUEST_TIMEOUT_MS): Promise<T> {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        return new Promise((resolve, reject) => {
-            const handleLoad = (response: UserscriptHttpResponse) => {
-                if (response.status >= 200 && response.status < 300) resolve(response.response as T);
-                else reject(new Error(`AnkiConnect request failed (${response.status}).`));
-            };
-            const result = userscriptRequest({
-                method: 'POST',
-                url,
-                headers: { 'Content-Type': 'application/json' },
-                data: body,
-                responseType: 'json',
-                timeout: timeoutMs,
-                onload: handleLoad,
-                onerror: error => reject(error instanceof Error ? error : new Error('AnkiConnect request failed.')),
-                ontimeout: () => reject(new Error('AnkiConnect timed out.')),
-            });
-            if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-                (result as Promise<UserscriptHttpResponse>).then(handleLoad, reject);
-            }
-        });
-    }
-
-    if (!canFetchAnkiConnect(url)) {
-        return Promise.reject(new Error('AnkiConnect needs the userscript request bridge on content pages.'));
-    }
-
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-    return fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-        signal: controller.signal,
-    }).then(async response => {
-        if (!response.ok) throw new Error(`AnkiConnect request failed (${response.status}).`);
-        return response.json() as Promise<T>;
-    }).catch(error => {
-        if (error instanceof DOMException && error.name === 'AbortError') throw new Error('AnkiConnect timed out.');
-        throw error;
-    }).finally(() => {
-        window.clearTimeout(timeoutId);
-    });
-}
-
-
 function resolvedAnkiDeckName(deckOverride: string | undefined, settings: ReaderSettings): string {
     return deckOverride?.trim() || settings.ankiDeck || 'よむ';
 }
 
 function resolvedAnkiModelName(settings: ReaderSettings): string {
     return settings.ankiModel || 'よむ Japanese';
-}
-
-function activeAnkiStatusIndexRebuildLease(settingsKey?: string, now = Date.now()): AnkiStatusIndexRebuildLease | null {
-    const lease = gmStorageGetSync<unknown>(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, null);
-    if (!isAnkiStatusIndexRebuildLease(lease)) return null;
-    if (lease.expiresAt <= now) {
-        gmStorageDeleteSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY);
-        return null;
-    }
-    if (settingsKey && lease.settingsKey !== settingsKey) return null;
-    return lease;
-}
-
-function claimAnkiStatusIndexRebuildLease(settingsKey: string, now = Date.now()): string | null {
-    if (activeAnkiStatusIndexRebuildLease(undefined, now)) return null;
-    const owner = createAnkiStatusIndexRebuildLeaseOwner();
-    const lease: AnkiStatusIndexRebuildLease = {
-        owner,
-        settingsKey,
-        startedAt: now,
-        expiresAt: now + ANKI_STATUS_INDEX_REBUILD_LEASE_TTL_MS,
-    };
-    gmStorageSetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, lease);
-    return activeAnkiStatusIndexRebuildLease(undefined, now)?.owner === owner ? owner : null;
-}
-
-function touchAnkiStatusIndexRebuildLease(owner: string, settingsKey: string, now = Date.now()): void {
-    const lease = activeAnkiStatusIndexRebuildLease(undefined, now);
-    if (!lease || lease.owner !== owner) return;
-    gmStorageSetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, {
-        ...lease,
-        settingsKey,
-        expiresAt: now + ANKI_STATUS_INDEX_REBUILD_LEASE_TTL_MS,
-    });
-}
-
-function releaseAnkiStatusIndexRebuildLease(owner: string): void {
-    const lease = gmStorageGetSync<unknown>(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, null);
-    if (isAnkiStatusIndexRebuildLease(lease) && lease.owner === owner) {
-        gmStorageDeleteSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY);
-    }
-}
-
-function isAnkiStatusIndexRebuildLease(value: unknown): value is AnkiStatusIndexRebuildLease {
-    if (!value || typeof value !== 'object') return false;
-    const lease = value as Partial<AnkiStatusIndexRebuildLease>;
-    return typeof lease.owner === 'string'
-        && typeof lease.settingsKey === 'string'
-        && typeof lease.startedAt === 'number'
-        && typeof lease.expiresAt === 'number';
-}
-
-function createAnkiStatusIndexRebuildLeaseOwner(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-}
-
-function canFetchAnkiConnect(url: string): boolean {
-    return canFetchAnkiConnectFrom(url, safeLocationHref());
-}
-
-async function saveAnkiStatusIndex(index: AnkiStatusIndex): Promise<void> {
-    try {
-        await saveAnkiStatusIndexToIndexedDb(index);
-        await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
-    } catch (error) {
-        log.warn('IndexedDB Anki status index save failed; falling back to browser value storage', error);
-        await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: undefined });
-    }
-}
-
-async function saveAnkiStatusIndexCheckedAt(index: AnkiStatusIndex): Promise<void> {
-    if (index.entryStore !== 'indexeddb') {
-        await saveAnkiStatusIndex(index);
-        return;
-    }
-    const meta = ankiStatusIndexMeta(index);
-    try {
-        await putStoredAnkiStatusIndexMeta(meta);
-        await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
-    } catch (error) {
-        log.warn('IndexedDB Anki status index metadata update failed', error);
-        await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
-    }
-}
-
-async function saveAnkiStatusIndexDirtyMarker(index: AnkiStatusIndex): Promise<void> {
-    const dirty: AnkiStatusIndex = { ...index, syncedAt: 0, checkedAt: 0 };
-    if (dirty.entryStore !== 'indexeddb') {
-        gmStorageSetSync(ANKI_STATUS_INDEX_STORAGE_KEY, { ...dirty, entryStore: undefined });
-        return;
-    }
-    const meta = ankiStatusIndexMeta(dirty);
-    gmStorageSetSync(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
-    await putStoredAnkiStatusIndexMeta(meta);
-}
-
-async function loadAnkiStatusIndexFromIndexedDb(): Promise<AnkiStatusIndex | null> {
-    if (!canUseIndexedDb()) return null;
-    const db = await openAnkiStatusIndexDb();
-    try {
-        const meta = await idbRequest<StoredAnkiStatusIndexMeta | undefined>(
-            db.transaction(ANKI_STATUS_INDEX_META_STORE, 'readonly')
-                .objectStore(ANKI_STATUS_INDEX_META_STORE)
-                .get('current'),
-        );
-        if (!meta) return null;
-        return {
-            version: meta.version,
-            settingsKey: meta.settingsKey,
-            syncedAt: meta.syncedAt,
-            checkedAt: meta.checkedAt,
-            cardCount: meta.cardCount,
-            entryCount: meta.entryCount,
-            entryStore: 'indexeddb',
-            entries: {},
-            readingKeys: meta.readingKeys,
-        };
-    } finally {
-        db.close();
-    }
-}
-
-async function loadAnkiStatusIndexEntriesFromIndexedDb(keys: string[]): Promise<Map<string, AnkiStatusIndexEntry>> {
-    if (!canUseIndexedDb()) return new Map();
-    const db = await openAnkiStatusIndexDb();
-    try {
-        const records: Array<readonly [string, StoredAnkiStatusIndexEntry | undefined]> = [];
-        for (const chunk of chunkArray(unique(keys), ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE)) {
-            const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, 'readonly');
-            const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
-            const chunkRecords = await Promise.all(chunk.map(key => (
-                idbRequest<StoredAnkiStatusIndexEntry | undefined>(store.get(key)).then(record => [key, record] as const)
-            )));
-            await idbTransactionDone(tx);
-            records.push(...chunkRecords);
-        }
-        return new Map(records
-            .filter((record): record is readonly [string, StoredAnkiStatusIndexEntry] => Boolean(record[1]))
-            .map(([key, record]) => [key, record.entry]));
-    } finally {
-        db.close();
-    }
-}
-
-async function saveAnkiStatusIndexToIndexedDb(index: AnkiStatusIndex): Promise<void> {
-    if (!canUseIndexedDb()) throw new Error('IndexedDB is unavailable.');
-    const db = await openAnkiStatusIndexDb();
-    try {
-        await clearAnkiStatusIndexStores(db);
-        const entries = Object.entries(index.entries).map(([key, entry]) => ({ key, entry }));
-        for (const chunk of chunkArray(entries, ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE)) {
-            await putAnkiStatusIndexEntries(db, chunk);
-        }
-        await putAnkiStatusIndexMeta(db, ankiStatusIndexMeta(index));
-    } finally {
-        db.close();
-    }
-}
-
-function ankiStatusIndexMeta(index: AnkiStatusIndex): StoredAnkiStatusIndexMeta {
-    return {
-        id: 'current',
-        version: index.version,
-        settingsKey: index.settingsKey,
-        syncedAt: index.syncedAt,
-        checkedAt: index.checkedAt,
-        cardCount: index.cardCount,
-        entryCount: index.entryCount ?? Object.keys(index.entries).length,
-        entryStore: 'indexeddb',
-        entries: {},
-        readingKeys: index.readingKeys,
-    };
-}
-
-function clearAnkiStatusIndexStores(db: IDBDatabase): Promise<void> {
-    const tx = db.transaction([ANKI_STATUS_INDEX_META_STORE, ANKI_STATUS_INDEX_ENTRY_STORE], 'readwrite');
-    tx.objectStore(ANKI_STATUS_INDEX_META_STORE).clear();
-    tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE).clear();
-    return idbTransactionDone(tx);
-}
-
-function putAnkiStatusIndexMeta(db: IDBDatabase, meta: StoredAnkiStatusIndexMeta): Promise<void> {
-    const tx = db.transaction(ANKI_STATUS_INDEX_META_STORE, 'readwrite');
-    tx.objectStore(ANKI_STATUS_INDEX_META_STORE).put(meta);
-    return idbTransactionDone(tx);
-}
-
-async function putStoredAnkiStatusIndexMeta(meta: StoredAnkiStatusIndexMeta): Promise<void> {
-    if (!canUseIndexedDb()) throw new Error('IndexedDB is unavailable.');
-    const db = await openAnkiStatusIndexDb();
-    try {
-        await putAnkiStatusIndexMeta(db, meta);
-    } finally {
-        db.close();
-    }
-}
-
-function putAnkiStatusIndexEntries(db: IDBDatabase, entries: StoredAnkiStatusIndexEntry[]): Promise<void> {
-    const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, 'readwrite');
-    const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
-    entries.forEach(entry => store.put(entry));
-    return idbTransactionDone(tx);
-}
-
-function putBestAnkiStatusIndexEntries(db: IDBDatabase, entries: StoredAnkiStatusIndexEntry[]): Promise<void> {
-    if (!entries.length) return Promise.resolve();
-    const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, 'readwrite');
-    const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
-    entries.forEach(candidate => {
-        const request = store.get(candidate.key);
-        request.onsuccess = () => {
-            const current = (request.result as StoredAnkiStatusIndexEntry | undefined)?.entry;
-            if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate.entry)) store.put(candidate);
-        };
-    });
-    return idbTransactionDone(tx);
-}
-
-function countAnkiStatusIndexEntries(db: IDBDatabase): Promise<number> {
-    const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, 'readonly');
-    const done = idbTransactionDone(tx);
-    const count = idbRequest<number>(tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE).count());
-    return count.then(async value => {
-        await done;
-        return value;
-    });
-}
-
-function openAnkiStatusIndexDb(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(ANKI_STATUS_INDEX_DB_NAME, ANKI_STATUS_INDEX_DB_VERSION);
-        request.onerror = () => reject(request.error ?? new Error('Could not open Anki status index database.'));
-        request.onblocked = () => reject(new Error('Anki status index database upgrade was blocked.'));
-        request.onupgradeneeded = () => {
-            const db = request.result;
-            if (!db.objectStoreNames.contains(ANKI_STATUS_INDEX_META_STORE)) {
-                db.createObjectStore(ANKI_STATUS_INDEX_META_STORE, { keyPath: 'id' });
-            }
-            if (!db.objectStoreNames.contains(ANKI_STATUS_INDEX_ENTRY_STORE)) {
-                db.createObjectStore(ANKI_STATUS_INDEX_ENTRY_STORE, { keyPath: 'key' });
-            }
-        };
-        request.onsuccess = () => {
-            const db = request.result;
-            db.onversionchange = () => db.close();
-            resolve(db);
-        };
-    });
-}
-
-function idbRequest<T>(request: IDBRequest<T>): Promise<T> {
-    return new Promise((resolve, reject) => {
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error ?? new Error('IndexedDB request failed.'));
-    });
-}
-
-function idbTransactionDone(tx: IDBTransaction): Promise<void> {
-    return new Promise((resolve, reject) => {
-        tx.oncomplete = () => resolve();
-        tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted.'));
-        tx.onerror = () => reject(tx.error ?? new Error('IndexedDB transaction failed.'));
-    });
-}
-
-function canUseIndexedDb(): boolean {
-    return typeof indexedDB !== 'undefined';
-}
-
-export function isAnkiConnectAvailabilityError(error: unknown): boolean {
-    if (error instanceof Error && error.cause && error.cause !== error) {
-        return isAnkiConnectAvailabilityError(error.cause);
-    }
-    if (!(error instanceof Error)) return false;
-    return /timed out|failed to fetch|networkerror|request bridge/i.test(error.message);
 }
 
 function isMobileHandoffRecoverableAddError(error: unknown): boolean {
@@ -1756,43 +1291,6 @@ function isMobileHandoffRecoverableAddError(error: unknown): boolean {
     }
     if (!(error instanceof Error)) return false;
     return /unsupported action|action.*unsupported|unknown action|invalid action|not supported/i.test(error.message);
-}
-
-export function canFetchAnkiConnectFrom(url: string, currentHref: string): boolean {
-    const current = readAnkiUrl(currentHref);
-    if (!current) return false;
-    const target = readAnkiUrl(url, current.href);
-    if (!target) return false;
-    if (target.origin === current.origin) return true;
-    if (isLoopbackHostname(current.hostname)) return true;
-    // The hosted app cannot use AnkiConnect's default localhost-only CORS path.
-    // Keep loopback AnkiConnect traffic on the userscript request bridge, while
-    // still allowing explicitly configured non-local endpoints such as Tailnet hosts.
-    return isYomuHostedAppUrl(current.href) && isHttpUrl(target) && !isLoopbackHostname(target.hostname);
-}
-
-export function needsHostedAnkiConnectSetupHint(url: string, currentHref = safeLocationHref()): boolean {
-    if (getUserscriptHttpRequest()) return false;
-    const current = readAnkiUrl(currentHref);
-    if (!current || current.origin !== GITHUB_PAGES_ORIGIN || !isYomuHostedAppUrl(current.href)) return false;
-    const target = readAnkiUrl(url, current.href);
-    return Boolean(target && target.origin !== current.origin && isHttpUrl(target));
-}
-
-function readAnkiUrl(value: string, base?: string): URL | null {
-    try {
-        return new URL(value, base);
-    } catch {
-        return null;
-    }
-}
-
-function isHttpUrl(url: URL): boolean {
-    return url.protocol === 'http:' || url.protocol === 'https:';
-}
-
-function isLoopbackHostname(hostname: string): boolean {
-    return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(hostname);
 }
 
 export function buildYomuAnkiFields(card: JPDBCard, sentence = '', context: AnkiCardContext = {}): Record<string, string> {
@@ -1941,47 +1439,6 @@ function retargetYomuFieldsToExistingModel(yomuFields: Record<string, string>, f
     return fields;
 }
 
-function fieldNameForRole(fieldNames: string[], role: AnkiFieldRole, mapping?: AnkiFieldMapping): string {
-    const mapped = mappedFieldName(fieldNames, mapping, role);
-    if (mapped) return mapped;
-    return suggestAnkiField(role, fieldNames, new Set()).fieldName ?? '';
-}
-
-function ankiFieldMappingForModel(settings: ReaderSettings, modelName: string, fieldNames: string[]): AnkiFieldMapping | undefined {
-    const mapping = settings.ankiFieldMappings?.[modelName];
-    if (!mapping) return undefined;
-    const normalized: AnkiFieldMapping = {};
-    for (const role of ANKI_FIELD_ROLES) {
-        const fieldName = mappedFieldName(fieldNames, mapping, role);
-        if (fieldName) normalized[role] = fieldName;
-    }
-    return Object.keys(normalized).length ? normalized : undefined;
-}
-
-function mappedFieldName(fieldNames: string[], mapping: AnkiFieldMapping | undefined, role: AnkiFieldRole): string {
-    const fieldName = mapping?.[role]?.trim();
-    if (!fieldName) return '';
-    const exact = fieldNames.find(candidate => candidate === fieldName);
-    if (exact) return exact;
-    const normalizedFieldName = normalizeAnkiFieldName(fieldName);
-    return fieldNames.find(candidate => normalizeAnkiFieldName(candidate) === normalizedFieldName) ?? '';
-}
-
-function ankiFieldMappingsSettingsKey(mappings: AnkiFieldMappings | undefined): Record<string, AnkiFieldMapping> {
-    const normalized: Record<string, AnkiFieldMapping> = {};
-    for (const modelName of Object.keys(mappings ?? {}).sort()) {
-        const mapping = mappings?.[modelName];
-        if (!mapping) continue;
-        const modelMapping: AnkiFieldMapping = {};
-        for (const role of ANKI_FIELD_ROLES) {
-            const fieldName = mapping[role]?.trim();
-            if (fieldName) modelMapping[role] = fieldName;
-        }
-        if (Object.keys(modelMapping).length) normalized[modelName] = modelMapping;
-    }
-    return normalized;
-}
-
 function imageFromDataUrl(dataUrl: string, card: JPDBCard): AnkiPicture | null {
     const parsed = parseAnkiImageDataUrl(dataUrl);
     if (!parsed) return null;
@@ -2007,27 +1464,6 @@ function yomuValueForExistingField(fieldName: string, yomuFields: Record<string,
     const mappedRole = mappedRoleForField(fieldName, mapping);
     if (mappedRole) return yomuFields[yomuFieldForRole(mappedRole)] ?? '';
     return yomuFields[fieldName] ?? yomuFields[yomuFieldAlias(fieldName)] ?? '';
-}
-
-function mappedRoleForField(fieldName: string, mapping?: AnkiFieldMapping): AnkiFieldRole | null {
-    if (!mapping) return null;
-    const normalized = normalizeAnkiFieldName(fieldName);
-    for (const role of ANKI_FIELD_ROLES) {
-        const mapped = mapping[role];
-        if (mapped && normalizeAnkiFieldName(mapped) === normalized) return role;
-    }
-    return null;
-}
-
-function yomuFieldForRole(role: AnkiFieldRole): string {
-    return {
-        expression: 'Expression',
-        reading: 'Reading',
-        meaning: 'Meaning',
-        sentence: 'Sentence',
-        audio: 'Audio',
-        image: 'Image',
-    }[role];
 }
 
 function yomuFieldAlias(fieldName: string): string {
@@ -2355,35 +1791,6 @@ function audioUrlExtension(url: string): string {
     return '.mp3';
 }
 
-const ANKI_MEDIA_MIME_TYPES: Record<string, string> = {
-    'png': 'image/png',
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'jfif': 'image/jpeg',
-    'pjpeg': 'image/jpeg',
-    'pjp': 'image/jpeg',
-    'webp': 'image/webp',
-    'gif': 'image/gif',
-    'bmp': 'image/bmp',
-    'avif': 'image/avif',
-    'svg': 'image/svg+xml',
-    'mp3': 'audio/mpeg',
-    'wav': 'audio/wav',
-    'ogg': 'audio/ogg',
-    'oga': 'audio/ogg',
-    'opus': 'audio/ogg',
-    'webm': 'audio/webm',
-    'm4a': 'audio/mp4',
-    'mp4': 'audio/mp4',
-    'aac': 'audio/mp4',
-    'flac': 'audio/flac',
-};
-
-function ankiMediaMimeType(filename: string): string {
-    const extension = filename.split('.').pop()?.toLowerCase() ?? '';
-    return ANKI_MEDIA_MIME_TYPES[extension] ?? 'audio/mpeg';
-}
-
 function safeAnkiMediaName(card: JPDBCard): string {
     return card.spelling.replace(/[^\p{L}\p{N}-]+/gu, '_').slice(0, 24) || 'yomu';
 }
@@ -2519,889 +1926,6 @@ function chunkArray<T>(items: T[], size: number): T[][] {
     const chunks: T[][] = [];
     for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
     return chunks;
-}
-
-function flattenNoteFields(fields: AnkiNoteInfo['fields']): Record<string, string> {
-    const out: Record<string, string> = {};
-    Object.entries(fields ?? {}).forEach(([name, value]) => {
-        out[name] = stripHtml(String(value?.value ?? ''));
-    });
-    return out;
-}
-
-function emptyAnkiLookupResult(): AnkiLookupResult {
-    return { state: 'not-in-deck', notes: [], primary: null };
-}
-
-function untrustedAnkiLookupResult(): AnkiLookupResult {
-    return { ...emptyAnkiLookupResult(), trusted: false };
-}
-
-function normalizeStatusIndexValue(value: string): string {
-    return value.replace(/\s+/g, ' ').trim();
-}
-
-function statusIndexKey(value: string): string {
-    return normalizeStatusIndexValue(value).toLocaleLowerCase();
-}
-
-function statusIndexReadingKey(value: string): string {
-    return `reading:${statusIndexKey(value)}`;
-}
-
-function statusIndexEntriesForNotes(notes: AnkiNoteInfo[], cardData: AnkiStatusIndexCardData, settings: ReaderSettings): StoredAnkiStatusIndexEntry[] {
-    const entries = new Map<string, AnkiStatusIndexEntry>();
-    for (const note of notes) {
-        const existing = ankiExistingNoteFromStatusData(note, cardData);
-        const candidate = statusIndexEntryFromExisting(existing);
-        for (const key of statusIndexKeysForNote(note, settings)) {
-            const current = entries.get(key);
-            if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate)) entries.set(key, candidate);
-        }
-    }
-    return [...entries].map(([key, entry]) => ({ key, entry }));
-}
-
-function statusIndexKeysForNote(note: AnkiNoteInfo, settings: ReaderSettings): string[] {
-    const fields = flattenNoteFields(note.fields);
-    const mapping = ankiFieldMappingForModel(settings, note.modelName, Object.keys(fields));
-    const keys = new Set<string>();
-    for (const value of statusIndexFieldValues(fields, mapping)) {
-        if (value.length <= 80) keys.add(statusIndexKey(value));
-        value
-            .split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u)
-            .map(statusIndexKey)
-            .filter(value => value.length >= 2)
-            .forEach(value => keys.add(value));
-    }
-    for (const value of statusIndexReadingFieldValues(fields, mapping)) {
-        if (value.length <= 80) keys.add(statusIndexReadingKey(value));
-        value
-            .split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u)
-            .map(statusIndexReadingKey)
-            .filter(value => value.length >= 'reading:'.length + 2)
-            .forEach(value => keys.add(value));
-    }
-    return [...keys].filter(Boolean);
-}
-
-function statusIndexFieldValues(fields: Record<string, string>, mapping?: AnkiFieldMapping): string[] {
-    const expression = firstNoteExpressionValue(fields, mapping);
-    const reading = mappedNoteField(fields, mapping, 'reading') || firstNoteReading(fields);
-    const preferred = (expression ? [expression] : [reading])
-        .map(value => value.replace(/\s+/g, ' ').trim())
-        .filter(Boolean);
-    if (preferred.length) return unique(preferred);
-    return noteFieldValues(fields).filter(value => value.length <= 80 && /[\u3040-\u30ff\u3400-\u9fff]/.test(value));
-}
-
-function statusIndexReadingFieldValues(fields: Record<string, string>, mapping?: AnkiFieldMapping): string[] {
-    return unique([
-        mappedNoteField(fields, mapping, 'reading'),
-        firstNoteReading(fields),
-    ]
-        .map(value => value.replace(/\s+/g, ' ').trim())
-        .filter(value => value.length >= 2));
-}
-
-function statusIndexKeysForCard(card: JPDBCard): string[] {
-    const keys = noteCardExpressionTargets(card).map(statusIndexKey);
-    if (shouldUseStatusReadingKey(card)) keys.push(statusIndexReadingKey(card.reading || card.spelling));
-    return unique(keys);
-}
-
-function shouldUseStatusReadingKey(card: JPDBCard): boolean {
-    const reading = (card.reading || '').replace(/\s+/g, ' ').trim();
-    const spelling = (card.spelling || '').replace(/\s+/g, ' ').trim();
-    const readingTarget = reading || (isKanaStatusLookupSurface(spelling) ? spelling : '');
-    if (!readingTarget || readingTarget.length < 2) return false;
-    if (!spelling || spelling.length < 2) return false;
-    return spelling === readingTarget || isKanaStatusLookupSurface(spelling);
-}
-
-function isKanaStatusLookupSurface(value: string): boolean {
-    return /[\u3040-\u30ff]/u.test(value) && !/[\u3400-\u9fff]/u.test(value);
-}
-
-function statusIndexEntryForCard(
-    index: AnkiStatusIndex,
-    card: JPDBCard,
-    entries?: Map<string, AnkiStatusIndexEntry> | null,
-): AnkiStatusIndexEntry | null {
-    return statusIndexKeysForCard(card)
-        .map(key => entries?.get(key) ?? index.entries[key])
-        .find(Boolean) ?? null;
-}
-
-function statusIndexEntryFromExisting(note: AnkiExistingNote): AnkiStatusIndexEntry {
-    return {
-        state: note.state,
-        noteId: note.noteId,
-        primaryCardId: note.primaryCardId,
-        deckNames: note.deckNames,
-        reps: note.reps,
-        lapses: note.lapses,
-        modelName: note.modelName,
-    };
-}
-
-function ankiExistingNoteFromStatusData(note: AnkiNoteInfo, cardData: AnkiStatusIndexCardData): AnkiExistingNote {
-    const noteCards = cardData.cardsByNote.get(note.noteId) ?? [];
-    if (noteCards.length) return ankiExistingNoteFromInfo(note, noteCards);
-    return ankiExistingNoteFromStatusSets(note, cardData.sets);
-}
-
-function ankiExistingNoteFromStatusSets(note: AnkiNoteInfo, cardSets: AnkiStatusIndexCardSets): AnkiExistingNote {
-    const cardIds = (note.cards ?? []).map(Number).filter(Number.isFinite);
-    const primaryCardId = pickPrimaryCardIdFromStatusSets(cardIds, cardSets);
-    const state = stateFromStatusIndexCardIds(cardIds, cardSets);
-    return {
-        noteId: note.noteId,
-        modelName: note.modelName,
-        deckNames: [],
-        cardIds,
-        primaryCardId,
-        state,
-        fields: flattenNoteFields(note.fields),
-        tags: note.tags ?? [],
-        reps: 0,
-        lapses: 0,
-    };
-}
-
-function stateFromStatusIndexCardIds(cardIds: number[], cardSets: AnkiStatusIndexCardSets): CardState {
-    if (!cardIds.length) return 'known';
-    if (cardIds.some(cardId => cardSets.due.has(cardId))) return 'due';
-    if (cardIds.some(cardId => cardSets.learning.has(cardId))) return 'learning';
-    if (cardIds.some(cardId => cardSets.new.has(cardId))) return 'new';
-    if (cardIds.every(cardId => cardSets.suspended.has(cardId))) return 'suspended';
-    return 'known';
-}
-
-function pickPrimaryCardIdFromStatusSets(cardIds: number[], cardSets: AnkiStatusIndexCardSets): number | null {
-    const orderedSets = [cardSets.due, cardSets.learning, cardSets.new, cardSets.all, cardSets.suspended];
-    for (const set of orderedSets) {
-        const match = cardIds.find(cardId => set.has(cardId));
-        if (match !== undefined) return match;
-    }
-    return cardIds[0] ?? null;
-}
-
-function ankiStatusIndexStateRank(state: CardState): number {
-    const order: CardState[] = ['failed', 'due', 'learning', 'new', 'known', 'suspended', 'in-deck', 'not-in-deck'];
-    const index = order.indexOf(state);
-    return index < 0 ? order.length : index;
-}
-
-function shouldReplaceAnkiStatusIndexEntry(current: AnkiStatusIndexEntry, candidate: AnkiStatusIndexEntry): boolean {
-    return ankiStatusIndexStateRank(candidate.state) < ankiStatusIndexStateRank(current.state);
-}
-
-function cardsByNoteId(cards: AnkiCardInfo[]): Map<number, AnkiCardInfo[]> {
-    const cardsByNote = new Map<number, AnkiCardInfo[]>();
-    for (const cardInfo of cards) addCardInfoByNoteId(cardsByNote, cardInfo);
-    return cardsByNote;
-}
-
-function addCardInfoByNoteId(cardsByNote: Map<number, AnkiCardInfo[]>, cardInfo: AnkiCardInfo): void {
-    const noteId = Number(cardInfo.note);
-    if (!Number.isFinite(noteId)) return;
-    const list = cardsByNote.get(noteId) ?? [];
-    list.push(cardInfo);
-    cardsByNote.set(noteId, list);
-}
-
-function ankiExistingNoteFromInfo(note: AnkiNoteInfo, noteCards: AnkiCardInfo[]): AnkiExistingNote {
-    const state = stateFromAnkiCards(noteCards);
-    return {
-        noteId: note.noteId,
-        modelName: note.modelName,
-        deckNames: ankiNoteDeckNames(noteCards),
-        cardIds: note.cards ?? [],
-        primaryCardId: ankiNotePrimaryCardId(note, noteCards),
-        state,
-        fields: flattenNoteFields(note.fields),
-        renderedCards: ankiRenderedCards(noteCards),
-        tags: note.tags ?? [],
-        ...ankiNoteReviewMetrics(noteCards),
-    };
-}
-
-function ankiNoteHasRenderableDetails(note: AnkiExistingNote): boolean {
-    if (note.renderedCards?.some(card => card.question.trim() || card.answer.trim())) return true;
-    return Object.values(note.fields).some(value => value.trim());
-}
-
-function ankiRenderedCards(noteCards: AnkiCardInfo[]): AnkiRenderedCard[] {
-    return noteCards
-        .filter(card => card.question || card.answer)
-        .map(card => ({
-            cardId: card.cardId,
-            deckName: card.deckName,
-            question: String(card.question ?? ''),
-            answer: String(card.answer ?? ''),
-        }));
-}
-
-function ankiRenderedCardMediaFilenames(card: AnkiRenderedCard): string[] {
-    return unique([card.question, card.answer]
-        .flatMap(ankiCardHtmlMediaFilenames)
-        .filter(shouldHydrateRenderedAnkiMedia));
-}
-
-function ankiCardHtmlMediaFilenames(html: string): string[] {
-    return Array.from(html.matchAll(/\b(?:src|poster)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi), match =>
-        ankiMediaFilenameFromCardUrl(match[1] ?? match[2] ?? match[3] ?? ''),
-    ).filter((filename): filename is string => Boolean(filename));
-}
-
-function shouldHydrateRenderedAnkiMedia(filename: string): boolean {
-    return ankiMediaMimeType(filename).startsWith('image/');
-}
-
-export function ankiMediaFilenameFromCardUrl(value: string): string | null {
-    const trimmed = value.trim();
-    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('/') || trimmed.startsWith('\\')) return null;
-    if (/^(?:https?|data|blob|file|mailto|tel|javascript|vbscript):/i.test(trimmed)) return null;
-    const filename = trimmed.split(/[?#]/, 1)[0]?.replace(/^\.\//, '') ?? '';
-    if (!filename || filename.includes('..') || /^[a-z][a-z0-9+.-]*:/i.test(filename)) return null;
-    try {
-        return decodeURIComponent(filename);
-    } catch {
-        return filename;
-    }
-}
-
-function ankiNoteDeckNames(noteCards: AnkiCardInfo[]): string[] {
-    return unique(noteCards.map(item => item.deckName).filter(Boolean));
-}
-
-function ankiNotePrimaryCardId(note: AnkiNoteInfo, noteCards: AnkiCardInfo[]): number | null {
-    return pickPrimaryCard(noteCards)?.cardId ?? note.cards?.[0] ?? null;
-}
-
-function ankiNoteReviewMetrics(noteCards: AnkiCardInfo[]): Pick<AnkiExistingNote, 'reps' | 'lapses'> {
-    return {
-        reps: sumAnkiCardMetric(noteCards, 'reps'),
-        lapses: sumAnkiCardMetric(noteCards, 'lapses'),
-    };
-}
-
-function sumAnkiCardMetric(cards: AnkiCardInfo[], metric: 'reps' | 'lapses'): number {
-    return cards.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
-}
-
-function noteLooksLikeCard(note: AnkiNoteInfo, card: JPDBCard, settings?: ReaderSettings): boolean {
-    const fields = flattenNoteFields(note.fields);
-    const mapping = settings ? ankiFieldMappingForModel(settings, note.modelName, Object.keys(fields)) : undefined;
-    const expressionTargets = noteCardExpressionTargets(card);
-    return noteHasExactTarget(fields, expressionTargets)
-        || noteExpressionContainsTarget(fields, expressionTargets, mapping)
-        || noteReadingContainsTarget(fields, card, mapping, expressionTargets);
-}
-
-function noteCardExpressionTargets(card: JPDBCard): string[] {
-    return unique([card.spelling, ...(card.fallbackLookupTerms ?? [])]
-        .map(value => value?.replace(/\s+/g, ' ').trim() ?? '')
-        .filter(Boolean));
-}
-
-function noteFieldValues(fields: Record<string, string>): string[] {
-    return Object.values(fields).map(value => value.replace(/\s+/g, ' ').trim()).filter(Boolean);
-}
-
-function noteHasExactTarget(fields: Record<string, string>, exactTargets: string[]): boolean {
-    const values = noteFieldValues(fields);
-    return exactTargets.some(target => values.some(value => value === target));
-}
-
-function noteExpressionContainsTarget(fields: Record<string, string>, exactTargets: string[], mapping?: AnkiFieldMapping): boolean {
-    const expressions = noteExpressionCandidates(fields, mapping);
-    return expressions.some(expression => exactTargets.some(target =>
-        target.length >= 2
-        && japaneseFieldContainsStandaloneTarget(expression.value, target)
-        && (!expression.generic || genericExpressionLooksLikeHeadword(expression.value, target)),
-    ));
-}
-
-function firstNoteField(fields: Record<string, string>, names: string[]): string {
-    const exact = names.map(name => fields[name]).find(Boolean);
-    if (exact) return exact;
-    const normalizedNames = new Set(names.map(normalizeAnkiFieldName));
-    return Object.entries(fields).find(([name, value]) => normalizedNames.has(normalizeAnkiFieldName(name)) && Boolean(value))?.[1] ?? '';
-}
-
-function noteReadingContainsTarget(fields: Record<string, string>, card: JPDBCard, mapping: AnkiFieldMapping | undefined, expressionTargets: string[]): boolean {
-    const spelling = card.spelling.replace(/\s+/g, ' ').trim();
-    const readingTarget = (card.reading || (isKanaStatusLookupSurface(spelling) ? spelling : '')).replace(/\s+/g, ' ').trim();
-    const expressionValues = noteExpressionValues(fields, mapping);
-    if (expressionValues.length && !expressionValues.some(expression =>
-        expressionTargets.some(target => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression, target)),
-    ) && !isKanaStatusLookupSurface(spelling)) {
-        return false;
-    }
-    const readings = unique([
-        mappedNoteField(fields, mapping, 'reading'),
-        firstNoteReading(fields),
-    ].filter(Boolean));
-    return Boolean(readingTarget && readingTarget.length >= 2 && readings.some(reading => japaneseFieldContainsStandaloneTarget(reading, readingTarget)));
-}
-
-function noteExpressionValues(fields: Record<string, string>, mapping?: AnkiFieldMapping): string[] {
-    return unique(noteExpressionCandidates(fields, mapping).map(candidate => candidate.value).filter(Boolean));
-}
-
-function firstNoteExpressionValue(fields: Record<string, string>, mapping?: AnkiFieldMapping): string {
-    return noteExpressionCandidates(fields, mapping)[0]?.value ?? '';
-}
-
-function noteExpressionCandidates(fields: Record<string, string>, mapping?: AnkiFieldMapping): Array<{ value: string; generic: boolean }> {
-    const candidates: Array<{ value: string; generic: boolean }> = [];
-    const mapped = mappedNoteField(fields, mapping, 'expression');
-    if (mapped) candidates.push({ value: mapped, generic: false });
-    const headword = firstNoteField(fields, ANKI_HEADWORD_FIELD_NAMES);
-    if (headword) candidates.push({ value: headword, generic: false });
-    const generic = firstNoteField(fields, ANKI_GENERIC_EXPRESSION_FIELD_NAMES);
-    if (generic) candidates.push({ value: generic, generic: true });
-    const seen = new Set<string>();
-    return candidates.filter(candidate => {
-        const key = normalizeStatusIndexValue(candidate.value);
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    });
-}
-
-function genericExpressionLooksLikeHeadword(value: string, target: string): boolean {
-    const normalizedValue = value.replace(/\s+/g, ' ').trim();
-    if (normalizedValue === target) return true;
-    if (/[。！？!?]/u.test(normalizedValue)) return false;
-    return japaneseCharacterCount(normalizedValue) <= japaneseCharacterCount(target) + 4;
-}
-
-function lookupKeyTermsForCard(card: JPDBCard): string[] {
-    return unique([card.spelling, card.reading, ...(card.fallbackLookupTerms ?? [])]
-        .map(value => value?.replace(/\s+/g, ' ').trim() ?? '')
-        .filter(Boolean));
-}
-
-function japaneseFieldContainsStandaloneTarget(value: string, target: string): boolean {
-    const normalizedValue = value.replace(/\s+/g, ' ').trim();
-    if (normalizedValue === target) return true;
-    return normalizedValue
-        .split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u)
-        .some(part => part === target);
-}
-
-function firstNoteReading(fields: Record<string, string>): string {
-    return firstNoteField(fields, ANKI_READING_FIELD_NAMES);
-}
-
-function mappedNoteField(fields: Record<string, string>, mapping: AnkiFieldMapping | undefined, role: AnkiFieldRole): string {
-    const fieldName = mappedFieldName(Object.keys(fields), mapping, role);
-    return fieldName ? fields[fieldName] ?? '' : '';
-}
-
-export const ANKI_EXPRESSION_FIELD_NAMES = [
-    'Vocabulary-Kanji',
-    'Vocabulary Kanji',
-    'Vocab Kanji',
-    'Jlab-Kanji',
-    'Japanese_Word',
-    'Word',
-    'Word Kanji',
-    'Japanese Word',
-    'Headword',
-    'Headword Kanji',
-    'Term Kanji',
-    'Term Text',
-    'Expression Text',
-    'Base Form',
-    'Dictionary Form',
-    'Expression',
-    'Expression Reading',
-    'Front',
-    'Japanese',
-    'Japanese Expression',
-    'Kanji',
-    'Katakana',
-    'Learnable',
-    'Lemma',
-    'Primary',
-    'Search Term',
-    'Target Word',
-    'Term',
-    'Vocab',
-    'Vocabulary',
-    'Vocabulary Expression',
-    'Word Expression',
-];
-
-const ANKI_HEADWORD_FIELD_NAMES = [
-    'Vocabulary-Kanji',
-    'Vocabulary Kanji',
-    'Vocab Kanji',
-    'Jlab-Kanji',
-    'Japanese_Word',
-    'Word',
-    'Word Kanji',
-    'Japanese Word',
-    'Headword',
-    'Headword Kanji',
-    'Term Kanji',
-    'Term Text',
-    'Expression Text',
-    'Base Form',
-    'Dictionary Form',
-    'Expression Reading',
-    'Japanese Expression',
-    'Learnable',
-    'Lemma',
-    'Primary',
-    'Search Term',
-    'Target Word',
-    'Term',
-    'Vocab',
-    'Vocabulary',
-    'Vocabulary Expression',
-    'Word Expression',
-];
-
-const ANKI_GENERIC_EXPRESSION_FIELD_NAMES = [
-    'Expression',
-    'Front',
-    'Japanese',
-    'Kanji',
-    'Katakana',
-];
-
-export const ANKI_READING_FIELD_NAMES = [
-    'Vocabulary-Kana',
-    'Vocabulary Kana',
-    'Vocabulary-Furigana',
-    'Vocabulary Furigana',
-    'Vocab Kana',
-    'Vocab Furigana',
-    'Jlab-Hiragana',
-    'Readings',
-    'Expression Reading',
-    'Furigana',
-    'Furigana Reading',
-    'Hiragana',
-    'Japanese Reading',
-    'Kana',
-    'Kana Reading',
-    'On',
-    'On Reading',
-    'Onyomi',
-    'Kun',
-    'Kun Reading',
-    'Kunyomi',
-    'Pronunciation',
-    'Reading',
-    'Ruby',
-    'Term Kana',
-    'Term Reading',
-    'Vocab Reading',
-    'Vocabulary Reading',
-    'Word Kana',
-    'Word Reading',
-    'Yomi',
-];
-
-export const ANKI_MEANING_FIELD_NAMES = [
-    'Vocabulary-English',
-    'Vocabulary English',
-    'Vocabulary-Meaning',
-    'Vocabulary Meaning',
-    'Translation_1',
-    'Jlab-Translation',
-    'RemarksBack',
-    'Jlab-Remarks',
-    'Other-Back',
-    'Jlab-DictionaryLookup',
-    'Meaning',
-    'Def',
-    'Defs',
-    'Definition',
-    'Definition 1',
-    'Definition English',
-    'Definitions',
-    'English',
-    'English Definition',
-    'English Meaning',
-    'Gloss',
-    'Glosses',
-    'Glossary',
-    'Keyword',
-    'MainDefinition',
-    'Meanings',
-    'Mnemonic',
-    'Back',
-    'DictionaryDefinitions',
-    'Sense',
-    'Term Meaning',
-    'Translation',
-    'Translation 1',
-    'Vocab Def',
-    'Vocab Definition',
-    'Word Meaning',
-];
-
-export const ANKI_SENTENCE_FIELD_NAMES = [
-    'Sentence',
-    'Example',
-    'Example Sentence',
-    'Example Sentence Text',
-    'Context',
-    'Context Sentence',
-    'Context Text',
-    'ExpressionSentence',
-    'Japanese Sentence',
-    'Mining Sentence',
-    'SentKanji',
-    'Sentence Furigana',
-    'Sentence Kanji',
-    'Sentence-Kanji',
-    'Sentence Text',
-    'Source Sentence',
-    'Source Text',
-];
-
-const ANKI_AUDIO_FIELD_NAMES = [
-    'Audio',
-    'Context Audio',
-    'Example Audio',
-    'Expression Audio',
-    'SentAudio',
-    'Sentence Audio',
-    'Sentence Sound',
-    'SentenceAudio',
-    'Sound',
-    'Term Audio',
-    'Voice',
-    'Vocab Audio',
-    'Vocabulary Audio',
-    'Word Audio',
-    'PronunciationAudio',
-];
-
-const ANKI_IMAGE_FIELD_NAMES = [
-    'Context Image',
-    'Example Image',
-    'Frame',
-    'Image',
-    'Image File',
-    'Photo',
-    'Picture',
-    'Snapshot',
-    'Screenshot',
-    'Sentence Image',
-    'Sentence Screenshot',
-    'SentencePicture',
-    'Still',
-    'Source Image',
-    'Term Image',
-    'Vocab Image',
-    'Vocabulary Image',
-    'Word Image',
-];
-
-const ANKI_FIELD_ROLE_CANDIDATES: Record<AnkiFieldRole, string[]> = {
-    expression: ANKI_EXPRESSION_FIELD_NAMES,
-    reading: ANKI_READING_FIELD_NAMES,
-    meaning: ANKI_MEANING_FIELD_NAMES,
-    sentence: ANKI_SENTENCE_FIELD_NAMES,
-    audio: ANKI_AUDIO_FIELD_NAMES,
-    image: ANKI_IMAGE_FIELD_NAMES,
-};
-
-function scanAnkiModelFields(modelName: string, fields: string[], sampleNotes: AnkiNoteInfo[] = []): AnkiModelScanResult {
-    const usedFields = new Set<string>();
-    const samples = ankiFieldContentSamples(fields, sampleNotes);
-    const suggestions = (Object.keys(ANKI_FIELD_ROLE_CANDIDATES) as AnkiFieldRole[])
-        .map(role => {
-            const suggestion = suggestAnkiField(role, fields, usedFields, samples);
-            if (suggestion.fieldName) usedFields.add(suggestion.fieldName);
-            return suggestion;
-        });
-    return {
-        modelName,
-        fields,
-        suggestions,
-        score: ankiModelScanScore(suggestions),
-    };
-}
-
-function suggestAnkiField(
-    role: AnkiFieldRole,
-    fields: string[],
-    usedFields: Set<string>,
-    samples: AnkiFieldContentSamples = {},
-): AnkiFieldSuggestion {
-    const candidates = ANKI_FIELD_ROLE_CANDIDATES[role];
-    const availableFields = fields.filter(field => !usedFields.has(field)
-        && !ankiFieldDisallowedForRole(field, role)
-        && (
-            ankiFieldAllowedForRole(field, role)
-            || ankiFieldContentRoleScore(role, samples[field] ?? []) >= 50
-        ));
-    const exact = firstMatchingAnkiField(availableFields, candidates);
-    const content = suggestAnkiFieldFromContent(role, availableFields, samples);
-    const exactContentScore = exact ? ankiFieldContentRoleScore(role, samples[exact] ?? []) : 0;
-    if (content.fieldName && (!exact || isGenericAnkiFieldName(exact))) return content;
-    if (content.fieldName && exact && content.fieldName !== exact && exactContentScore === 0 && content.confidence === 'high') return content;
-    if (exact) return { role, fieldName: exact, confidence: 'high' };
-    const fuzzy = firstFuzzyAnkiField(availableFields, candidates);
-    if (content.fieldName && (!fuzzy || content.confidence === 'high')) return content;
-    if (fuzzy) return { role, fieldName: fuzzy, confidence: 'medium' };
-    if (content.fieldName) return content;
-    return { role, fieldName: null, confidence: 'low' };
-}
-
-function suggestAnkiFieldFromContent(
-    role: AnkiFieldRole,
-    fields: string[],
-    samples: AnkiFieldContentSamples,
-): AnkiFieldSuggestion {
-    const ranked = fields
-        .map(fieldName => ({
-            fieldName,
-            score: ankiFieldContentRoleScore(role, samples[fieldName] ?? []),
-        }))
-        .filter(item => item.score > 0)
-        .sort((a, b) => b.score - a.score || fields.indexOf(a.fieldName) - fields.indexOf(b.fieldName));
-    const best = ranked[0];
-    if (!best) return { role, fieldName: null, confidence: 'low' };
-    return {
-        role,
-        fieldName: best.fieldName,
-        confidence: best.score >= 50 ? 'high' : 'medium',
-    };
-}
-
-function ankiFieldContentRoleScore(role: AnkiFieldRole, samples: AnkiFieldContentSample[]): number {
-    if (!samples.length) return 0;
-    const scores = samples
-        .map(sample => ankiFieldContentSampleRoleScore(role, sample))
-        .filter(score => score > 0)
-        .sort((a, b) => b - a);
-    if (!scores.length) return 0;
-    const strongest = scores[0] ?? 0;
-    const second = scores[1] ?? 0;
-    return Math.min(100, strongest + Math.min(15, second / 3) + Math.min(10, scores.length * 2));
-}
-
-interface AnkiTextRoleMetrics {
-    length: number;
-    japaneseLength: number;
-    hasJapanese: boolean;
-    hasKanji: boolean;
-    kanaLength: number;
-    hasLatin: boolean;
-    sentenceLike: boolean;
-}
-
-type AnkiTextRole = Extract<AnkiFieldRole, 'expression' | 'reading' | 'meaning' | 'sentence'>;
-
-const ANKI_TEXT_ROLE_SCORERS: Record<AnkiTextRole, (metrics: AnkiTextRoleMetrics) => number> = {
-    expression({ length, hasJapanese, hasKanji, kanaLength, sentenceLike }) {
-        if (!hasJapanese || sentenceLike || length > 40) return 0;
-        return 28 + (hasKanji ? 24 : 0) + (kanaLength && hasKanji ? 8 : 0) + Math.max(0, 12 - Math.floor(length / 2));
-    },
-    reading({ length, japaneseLength, hasJapanese, hasKanji, kanaLength }) {
-        if (!hasJapanese || hasKanji || length > 40) return 0;
-        const mostlyKana = kanaLength >= Math.max(1, japaneseLength - 1);
-        return mostlyKana ? 54 + Math.max(0, 10 - Math.floor(length / 4)) : 20;
-    },
-    meaning({ length, hasJapanese, hasLatin }) {
-        if (hasJapanese) return 0;
-        if (hasLatin) return 54 + (length > 8 ? 6 : 0);
-        return length >= 2 ? 24 : 0;
-    },
-    sentence({ length, hasJapanese, sentenceLike }) {
-        if (!hasJapanese) return 0;
-        if (sentenceLike) return 65 + (length > 20 ? 8 : 0);
-        return length >= 14 ? 42 : 0;
-    },
-};
-
-function ankiFieldContentSampleRoleScore(role: AnkiFieldRole, sample: AnkiFieldContentSample): number {
-    const raw = sample.raw.trim();
-    const text = sample.text.replace(/\s+/g, ' ').trim();
-    if (role === 'audio') return ankiAudioFieldContentScore(raw, text);
-    if (role === 'image') return ankiImageFieldContentScore(raw, text);
-    if (ankiAudioFieldContentScore(raw, text) || ankiImageFieldContentScore(raw, text)) return 0;
-    if (!text) return 0;
-    const scorer = ANKI_TEXT_ROLE_SCORERS[role as AnkiTextRole];
-    if (!scorer) return 0;
-    const japaneseLength = japaneseCharacterCount(text);
-    return scorer({
-        length: text.length,
-        japaneseLength,
-        hasJapanese: japaneseLength > 0,
-        hasKanji: /[\u3400-\u9fff]/u.test(text),
-        kanaLength: kanaCharacterCount(text),
-        hasLatin: /[A-Za-z]/.test(text),
-        sentenceLike: japaneseSentenceLike(text),
-    });
-}
-
-function ankiAudioFieldContentScore(raw: string, text: string): number {
-    const value = `${raw} ${text}`.toLowerCase();
-    if (/\[sound:[^\]]+\]/.test(value)) return 90;
-    if (/<audio\b/.test(value)) return 85;
-    if (/\.(?:mp3|m4a|ogg|oga|wav|flac)(?:[?#"'\s>]|$)/.test(value)) return 75;
-    return 0;
-}
-
-function ankiImageFieldContentScore(raw: string, text: string): number {
-    const value = `${raw} ${text}`.toLowerCase();
-    if (/<img\b/.test(value)) return 90;
-    if (/\.(?:png|jpe?g|gif|webp|avif|bmp|svg)(?:[?#"'\s>]|$)/.test(value)) return 75;
-    return 0;
-}
-
-function ankiFieldContentSamples(fields: string[], notes: AnkiNoteInfo[]): AnkiFieldContentSamples {
-    const out: AnkiFieldContentSamples = Object.fromEntries(fields.map(field => [field, []]));
-    for (const note of notes) {
-        for (const fieldName of fields) {
-            const raw = String(note.fields?.[fieldName]?.value ?? '');
-            if (!raw.trim()) continue;
-            out[fieldName]?.push({ raw, text: stripHtml(raw) });
-        }
-    }
-    return out;
-}
-
-function isGenericAnkiFieldName(fieldName: string): boolean {
-    const normalized = normalizeAnkiFieldName(fieldName);
-    return /^(?:front|back|primary|secondary|text|field\d+|f\d+)$/.test(normalized);
-}
-
-function japaneseCharacterCount(value: string): number {
-    return (value.match(/[\u3040-\u30ff\u3400-\u9fff]/gu) ?? []).length;
-}
-
-function kanaCharacterCount(value: string): number {
-    return (value.match(/[\u3040-\u30ff]/gu) ?? []).length;
-}
-
-function japaneseSentenceLike(value: string): boolean {
-    if (/[。！？!?]/u.test(value)) return true;
-    if (japaneseCharacterCount(value) >= 12) return true;
-    return /(?:^|[\s　]).{2,}[\s　].{2,}/u.test(value) && japaneseCharacterCount(value) >= 8;
-}
-
-function ankiFieldAllowedForRole(fieldName: string, role: AnkiFieldRole): boolean {
-    const normalized = normalizeAnkiFieldName(fieldName);
-    const audioLike = /(?:audio|sound|voice)/.test(normalized);
-    const imageLike = /(?:image|picture|screenshot|snapshot|photo|frame|still)/.test(normalized);
-    if (role === 'audio') return audioLike && !imageLike;
-    if (role === 'image') return imageLike && !audioLike && !/^frame(?:id|no|num|number|v?\d)/.test(normalized);
-    return !audioLike && !imageLike;
-}
-
-function ankiFieldDisallowedForRole(fieldName: string, role: AnkiFieldRole): boolean {
-    if (role === 'audio' || role === 'image') return false;
-    const normalized = normalizeAnkiFieldName(fieldName);
-    return /^(?:source|sourceurl|url|origin|originurl|link|deck|deckname|model|modelname|tags?|remarksfront|frontremarks)$/.test(normalized);
-}
-
-function firstMatchingAnkiField(fields: string[], names: string[]): string {
-    const fieldByName = new Map<string, string>();
-    fields.forEach(field => {
-        const normalized = normalizeAnkiFieldName(field);
-        if (!fieldByName.has(normalized)) fieldByName.set(normalized, field);
-    });
-    for (const name of names) {
-        const match = fieldByName.get(normalizeAnkiFieldName(name));
-        if (match) return match;
-    }
-    return '';
-}
-
-function firstFuzzyAnkiField(fields: string[], names: string[]): string {
-    const normalizedNames = names
-        .map(normalizeAnkiFieldName)
-        .filter(name => name.length >= 4);
-    return fields.find(field => {
-        const normalized = normalizeAnkiFieldName(field);
-        return normalizedNames.some(name => normalized.includes(name));
-    }) ?? '';
-}
-
-function ankiModelScanScore(suggestions: AnkiFieldSuggestion[]): number {
-    return suggestions.reduce((score, suggestion) => {
-        if (!suggestion.fieldName) return score;
-        const roleWeight = suggestion.role === 'expression' ? 6
-            : suggestion.role === 'meaning' ? 4
-                : suggestion.role === 'reading' || suggestion.role === 'sentence' ? 3
-                    : 1;
-        const confidenceWeight = suggestion.confidence === 'high' ? 2 : 1;
-        return score + roleWeight * confidenceWeight;
-    }, 0);
-}
-
-function normalizeAnkiFieldName(value: string): string {
-    return value.replace(/[_\s-]+/g, '').toLowerCase();
-}
-
-function stripHtml(value: string): string {
-    return value
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<[^>]+>/g, '')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&amp;/g, '&')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .trim();
-}
-
-function stateFromAnkiCards(cards: AnkiCardInfo[]): CardState {
-    if (!cards.length) return 'known';
-    if (cards.some(card => card.type === 3 || card.queue === 3)) return 'failed';
-    if (cards.some(isAnkiCardDue)) return 'due';
-    if (cards.some(card => card.queue === 1 || card.type === 1)) return 'learning';
-    if (cards.some(card => card.queue === 0 || card.type === 0)) return 'new';
-    if (cards.every(card => card.queue === -1)) return 'suspended';
-    return 'known';
-}
-
-function stateFromExistingNotes(notes: AnkiExistingNote[]): CardState {
-    const order: CardState[] = ['failed', 'due', 'learning', 'new', 'known', 'suspended'];
-    return order.find(state => notes.some(note => note.state === state)) ?? (notes.length ? 'known' : 'not-in-deck');
-}
-
-function pickPrimaryCard(cards: AnkiCardInfo[]): AnkiCardInfo | null {
-    const order = (card: AnkiCardInfo) => {
-        if (card.type === 3 || card.queue === 3) return 0;
-        if (isAnkiCardDue(card)) return 1;
-        if (card.queue === 1 || card.type === 1) return 2;
-        if (card.queue === 0 || card.type === 0) return 3;
-        return 4;
-    };
-    return [...cards].sort((a, b) => order(a) - order(b))[0] ?? null;
-}
-
-function isAnkiCardDue(card: AnkiCardInfo): boolean {
-    if (card.queue !== 2) return false;
-    if (typeof card.isDue === 'boolean') return card.isDue;
-    return Number(card.due ?? 0) <= 0;
-}
-
-function pickPrimaryExistingNote(notes: AnkiExistingNote[]): AnkiExistingNote | null {
-    const order = (note: AnkiExistingNote) => {
-        if (note.state === 'failed') return 0;
-        if (note.state === 'due') return 1;
-        if (note.state === 'learning') return 2;
-        if (note.state === 'new') return 3;
-        if (note.state === 'known') return 4;
-        return 5;
-    };
-    return [...notes].sort((a, b) => order(a) - order(b))[0] ?? null;
 }
 
 function ankiEaseFromGrade(grade: JPDBGrade): number {

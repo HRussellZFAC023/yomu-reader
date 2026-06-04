@@ -278,6 +278,28 @@ describe('settings dialog keyboard dismissal', () => {
         expect(preview.textContent).not.toContain('Image appears on the front');
     });
 
+    it('keeps Anki tag chips and hidden form value in sync', () => {
+        const { form } = createSettingsDialog();
+        const hidden = form.querySelector<HTMLInputElement>('input[name="ankiTags"]')!;
+        const input = form.querySelector<HTMLInputElement>('[data-anki-tag-input]')!;
+        const add = form.querySelector<HTMLButtonElement>('[data-action="anki-tag-add"]')!;
+
+        expect(hidden.value).toBe('yomu');
+
+        input.value = 'core, yomu immersion';
+        add.click();
+
+        expect(hidden.value).toBe('yomu core immersion');
+        expect(Array.from(form.querySelectorAll<HTMLElement>('[data-anki-tag-chips] .jpdb-reader-tag-chip'))
+            .map(chip => chip.dataset.tag)).toEqual(['yomu', 'core', 'immersion']);
+
+        form.querySelector<HTMLButtonElement>('[data-action="anki-tag-remove"][data-tag="core"]')?.click();
+
+        expect(hidden.value).toBe('yomu immersion');
+        expect(Array.from(form.querySelectorAll<HTMLElement>('[data-anki-tag-chips] .jpdb-reader-tag-chip'))
+            .map(chip => chip.dataset.tag)).toEqual(['yomu', 'immersion']);
+    });
+
     it('does not dismiss or toast from a stale save after settings is reopened', async () => {
         const refresh = deferred<void>();
         const refreshDictionaryStyles = vi.fn(() => refresh.promise);

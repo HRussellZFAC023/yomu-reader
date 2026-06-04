@@ -1,14 +1,13 @@
 import { primaryCardState } from './card-state';
 import { copyText } from './browser-ui';
 import type { CardRenderData } from './card-render-data';
-import { cardHighlightTargets, isCardHighlightWord, normalizedJapaneseCardReading, renderCardHighlightedTextHtml } from './card-highlight';
+import { isCardHighlightWord, normalizedJapaneseCardReading } from './card-highlight';
 import { pruneOldestCacheEntries } from './cache-utils';
 import { ANKI_SOURCE_ID, APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from './constants';
-import { escapeHtml, htmlToFirstElement, renderTokensToHtml, setInnerHtml } from './dom';
-import { el, fragment, replaceChildrenWith, type DomAttrs } from './dom-builder';
-import { exampleSentenceLookupTokens } from './example-sentence-tokens';
+import { escapeHtml, htmlToFirstElement, setInnerHtml } from './dom';
+import { el, fragment, replaceChildrenWith } from './dom-builder';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from './immersion-kit';
-import { localizedImmersionProviderLabel, localizedImmersionSourceTitle } from './immersion-labels';
+import { localizedImmersionSourceTitle } from './immersion-labels';
 import { waitForIdle as waitForBrowserIdle } from './idle';
 import type { AnkiLookupResult } from './anki';
 import {
@@ -56,7 +55,58 @@ import {
     type NewTabMode,
     type NewTabUiState,
 } from './new-tab';
+import {
+    decodeNewTabImmersionImage,
+    newTabImmersionAudioUrls,
+    newTabImmersionImageUrl,
+    newTabImmersionProviderLabel,
+    renderNewTabFrontSentence,
+    renderNewTabImmersionImage,
+    renderNewTabImmersionSentence,
+    renderNewTabImmersionTranslation,
+    renderNewTabSentenceHtml,
+    setNewTabImmersionTranslationBlurred,
+    syncNewTabImmersionFrameSubtitleSize,
+} from './new-tab-card-view';
 import { renderNewTabKanjiInfoSection } from './new-tab-kanji-render';
+import {
+    appendNewTabLoadResult,
+    autoReviewSourceResults,
+    emptyNewTabLoadAccumulator,
+    emptyNewTabLoadResult,
+    interleavedNewTabLoadAccumulator,
+    mergeDedupeCardMetadata,
+    mergeEmptyNewTabLoadResults,
+    newTabLoadAccumulatorFromResult,
+    newTabLoadResult,
+    type NewTabLoadAccumulator,
+    type NewTabLoadResult,
+} from './new-tab-source-orchestrator';
+import {
+    newTabCardHighlightTargets,
+    newTabCardOptionalReading,
+    newTabCardReading,
+    normalizeNewTabCard,
+    promoteCardByKey,
+    selectNewTabStudyPool,
+    sentenceForCard,
+} from './new-tab-study-queue';
+import {
+    ankiCardKindLabel,
+    ankiReviewSourceLabel,
+    isLockedJpdbReviewCard,
+    isPositiveJpdbCard,
+    isReviewSource,
+    newTabCardSourceLabel,
+    NewTabGradeSubmissionError,
+    newTabGradeOptions,
+    passingNewTabGrade,
+    queueableNewTabReviewTargets,
+    reviewTargetsForNewTabCard,
+    type NewTabGradeFailure,
+    type NewTabReviewTarget,
+    type QueuedNewTabGradeTarget,
+} from './new-tab-review-targets';
 import { uniqueTrimmedStrings as uniqueStrings } from './string-utils';
 import {
     applyJpdbReviewImport,
@@ -108,6 +158,8 @@ import type { CardNavigationMode, PopupNavigationEntry } from './popup-navigatio
 import { DEFAULT_OVERLAY_BACKGROUND_COLOR, JISHO_LOOKUP_LINK, JPDB_LOOKUP_LINK } from './settings';
 import { installUchisenCarousel, loadUchisenData, type UchisenData } from './uchisen';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from './yomitan';
+
+export { selectNewTabStudyPool } from './new-tab-study-queue';
 
 const NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS = 1_200;
 const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 6;
@@ -204,117 +256,6 @@ export interface NewTabControllerDependencies {
     dismiss: (options?: { suppressHoverTarget?: boolean }) => void;
 }
 
-function renderNewTabImmersionSentence(card: JPDBCard, example: ImmersionKitExample, settings: ReaderSettings, tokens?: JPDBToken[]): HTMLElement {
-    const sentence = document.createElement('div');
-    sentence.className = 'jpdb-reader-example-sentence jpdb-reader-parseable';
-    sentence.lang = 'ja';
-    sentence.dataset.immersionSentenceRender = '';
-    sentence.dataset.newtabSentenceText = example.sentence;
-    setInnerHtml(sentence, renderNewTabSentenceHtml(example.sentence, card, settings, tokens));
-    return sentence;
-}
-
-function renderNewTabFrontSentence(card: JPDBCard, sentence: string, settings: ReaderSettings, tokens?: JPDBToken[]): HTMLElement {
-    const sentenceWrap = el('span', {
-        class: 'jpdb-reader-newtab-sentence jpdb-reader-parseable',
-        lang: 'ja',
-        dataset: { newtabSentenceRender: true, newtabSentenceText: sentence },
-    });
-    setInnerHtml(sentenceWrap, renderNewTabSentenceHtml(sentence, card, settings, tokens));
-    return sentenceWrap;
-}
-
-function renderNewTabSentenceHtml(sentence: string, card: JPDBCard, settings: ReaderSettings, tokens?: JPDBToken[]): string {
-    return tokens && tokens.length
-        ? renderTokensToHtml(sentence, exampleSentenceLookupTokens(tokens, card), settings)
-        : renderCardHighlightedTextHtml(sentence, card);
-}
-
-function renderNewTabImmersionTranslation(example: ImmersionKitExample, settings: ReaderSettings): HTMLElement | null {
-    if (!shouldRenderNewTabImmersionTranslation(example, settings)) return null;
-    return el('div', newTabImmersionTranslationAttributes(settings), example.translation);
-}
-
-function shouldRenderNewTabImmersionTranslation(example: ImmersionKitExample, settings: ReaderSettings): boolean {
-    return settings.immersionKitShowTranslation && Boolean(example.translation);
-}
-
-function newTabImmersionTranslationAttributes(settings: ReaderSettings): DomAttrs {
-    return {
-        class: 'jpdb-reader-example-translation',
-        dataset: newTabImmersionTranslationDataset(settings),
-        ...newTabImmersionTranslationRevealAttributes(settings),
-    };
-}
-
-function newTabImmersionTranslationRevealAttributes(settings: ReaderSettings): DomAttrs {
-    return settings.immersionKitRevealTranslationOnClick
-        ? { role: 'button', tabindex: '0', 'aria-label': uiText(settings.interfaceLanguage, 'revealTranslation') }
-        : {};
-}
-
-function newTabImmersionTranslationDataset(settings: ReaderSettings): Record<string, boolean> | undefined {
-    return settings.immersionKitRevealTranslationOnClick ? { yomuImmersionTranslationBlurred: true } : undefined;
-}
-
-function setNewTabImmersionTranslationBlurred(element: HTMLElement, blurred: boolean, language: ReaderSettings['interfaceLanguage']): void {
-    if (blurred) {
-        element.dataset.yomuImmersionTranslationBlurred = 'true';
-        element.setAttribute('role', 'button');
-        element.setAttribute('tabindex', '0');
-        element.setAttribute('aria-label', uiText(language, 'revealTranslation'));
-        return;
-    }
-    delete element.dataset.yomuImmersionTranslationBlurred;
-    element.removeAttribute('tabindex');
-    element.removeAttribute('role');
-    element.removeAttribute('aria-label');
-}
-
-function newTabImmersionImageUrl(
-    example: ImmersionKitExample,
-    settings: ReaderSettings,
-    client: ImmersionKitClient,
-): string {
-    const urls = settings.immersionKitShowImages ? client.mediaUrls(example, 'image') : [];
-    return urls[0] ?? '';
-}
-
-function newTabImmersionAudioUrls(example: ImmersionKitExample, client: ImmersionKitClient): string[] {
-    return client.mediaUrls(example, 'sound');
-}
-
-function newTabImmersionProviderLabel(example: ImmersionKitExample, language: ReaderSettings['interfaceLanguage']): string {
-    return localizedImmersionProviderLabel(example, language);
-}
-
-function renderNewTabImmersionImage(imageUrl: string, overlay: HTMLElement | null = null): HTMLElement | null {
-    if (!imageUrl) return null;
-    return el('div', { class: 'jpdb-reader-example-media' },
-        el('img', { class: 'jpdb-reader-example-image', src: imageUrl, alt: '', loading: 'eager', decoding: 'async', referrerPolicy: 'no-referrer', dataset: { yomuImmersionImageSrc: imageUrl } }),
-        overlay,
-    );
-}
-
-function syncNewTabImmersionFrameSubtitleSize(root: HTMLElement): void {
-    const media = root.querySelector<HTMLElement>('.jpdb-reader-example-card.has-image .jpdb-reader-example-media');
-    if (!media) return;
-    const rect = media.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return;
-    const scale = Math.sqrt(Math.min(rect.width / 1280, rect.height / 720));
-    const size = Math.max(13, Math.min(18, Math.round(22 * Math.max(0.55, scale))));
-    media.style.setProperty('--subtitle-font-size', `${size}px`);
-}
-
-async function decodeNewTabImmersionImage(src: string): Promise<void> {
-    if (!src || typeof Image === 'undefined') return;
-    const image = new Image();
-    image.decoding = 'async';
-    image.referrerPolicy = 'no-referrer';
-    image.src = src;
-    if (typeof image.decode === 'function') await image.decode().catch(() => undefined);
-}
-
 function renderSearchHandwritingPanel(language: ReaderSettings['interfaceLanguage']): HTMLElement {
     return el('details', { id: 'jpdb-reader-newtab-handwriting', class: 'jpdb-reader-newtab-handwriting', dataset: { newtabHandwriting: true } },
         el('summary', {}, newTabText(language, 'drawKanji')),
@@ -349,34 +290,6 @@ function readerWordSurfaceText(word: HTMLElement): string {
 
 function shouldResolveInitialWordIndex(poolChanged: boolean, preferStoredWord: boolean): boolean {
     return poolChanged || preferStoredWord;
-}
-
-function isReviewSource(source: JPDBCard['reviewSource']): boolean {
-    return source === 'anki' || source === 'jpdb-api' || source === 'jpdb-live';
-}
-
-function isPositiveJpdbCard(card: JPDBCard): boolean {
-    return card.source === 'jpdb' && card.vid > 0 && card.sid > 0;
-}
-
-function newTabCardSourceLabel(card: JPDBCard, language: ReaderSettings['interfaceLanguage']): string {
-    if (card.source === 'anki' || card.reviewSource === 'anki') return ankiReviewSourceLabel(card, language);
-    if (card.source === 'local' || card.source === 'fallback' || card.reviewSource === 'dictionary') return uiText(language, 'dictionary');
-    if (card.source === 'jpdb' || card.reviewSource === 'jpdb-api' || card.reviewSource === 'jpdb-live') return 'JPDB';
-    return card.vid > 0 && card.sid > 0 ? 'JPDB' : uiText(language, 'dictionary');
-}
-
-function ankiReviewSourceLabel(card: JPDBCard, language: ReaderSettings['interfaceLanguage']): string {
-    const kind = ankiCardKindLabel(card, language);
-    return kind ? `Anki ${kind}` : 'Anki';
-}
-
-function ankiCardKindLabel(card: JPDBCard, language: ReaderSettings['interfaceLanguage']): string {
-    if (card.ankiCardKind === 'kanji') return uiText(language, 'kanji');
-    if (card.ankiCardKind === 'kana') return language === 'ja' ? 'かな' : 'Kana';
-    if (card.ankiCardKind === 'sentence') return language === 'ja' ? '文' : 'Sentence';
-    if (card.ankiCardKind === 'other') return language === 'ja' ? 'その他' : 'Other';
-    return '';
 }
 
 function newTabPitchClass(card: JPDBCard): string {
@@ -443,20 +356,6 @@ function oldFormsFact(fullInfo: JpdbKanjiInfo | null): string {
     return fullInfo?.oldForms.length ? fullInfo.oldForms.join(', ') : '';
 }
 
-interface NewTabLoadResult {
-    cards: JPDBCard[];
-    sourceLabel: string;
-    reviewCountMode?: boolean;
-    emptyMessageKey?: NewTabTextKey;
-}
-
-interface NewTabLoadAccumulator {
-    cards: JPDBCard[];
-    labels: string[];
-    reviewCountMode: boolean;
-    emptyMessageKey?: NewTabTextKey;
-}
-
 interface NewTabSourceCacheEntry {
     signature: string;
     result: NewTabLoadResult;
@@ -515,9 +414,6 @@ interface NewTabGradeTarget {
     card: JPDBCard;
 }
 
-type QueuedNewTabGradeTarget = 'anki' | 'jpdb-api';
-type NewTabReviewTarget = QueuedNewTabGradeTarget | 'jpdb-live';
-
 export interface NewTabLookupReviewTarget {
     id: string;
     kind: 'jpdb' | 'anki';
@@ -529,18 +425,6 @@ export interface NewTabLookupReviewTarget {
 export interface NewTabLookupReviewTargetSelection {
     kind: 'jpdb' | 'anki';
     ankiCardId?: number;
-}
-
-interface NewTabGradeFailure {
-    target: NewTabReviewTarget;
-    error: unknown;
-}
-
-class NewTabGradeSubmissionError extends Error {
-    constructor(readonly failures: NewTabGradeFailure[]) {
-        super(failures.map(failure => failure.error instanceof Error ? failure.error.message : String(failure.error)).join('; '));
-        this.name = 'NewTabGradeSubmissionError';
-    }
 }
 
 interface QueuedNewTabGrade {
@@ -6056,27 +5940,11 @@ export class NewTabController {
     }
 
     private reviewTargetsForCard(card: JPDBCard): NewTabReviewTarget[] {
-        const settings = this.dependencies.getSettings();
-        if (!settings.enableReviews) return [];
-        const targets: NewTabReviewTarget[] = [];
-        const add = (target: NewTabReviewTarget): void => {
-            if (!targets.includes(target)) targets.push(target);
-        };
-        if (card.reviewSource === 'jpdb-live') {
-            if (settings.jpdbMiningEnabled) add('jpdb-live');
-        } else if (!isLockedJpdbReviewCard(card)
-            && (card.reviewSource === 'jpdb-api' || isPositiveJpdbCard(card))
-            && settings.jpdbMiningEnabled
-            && Boolean(settings.apiKey.trim())) {
-            add('jpdb-api');
-        }
-        if (settings.newTabAnkiEnabled && this.ankiCardIdForReview(card)) add('anki');
-        return targets;
+        return reviewTargetsForNewTabCard(card, this.dependencies.getSettings(), this.ankiCardIdForReview(card));
     }
 
     private offlineGradeTargets(card: JPDBCard): QueuedNewTabGradeTarget[] {
-        return this.reviewTargetsForCard(card)
-            .filter((target): target is QueuedNewTabGradeTarget => target === 'anki' || target === 'jpdb-api');
+        return queueableNewTabReviewTargets(this.reviewTargetsForCard(card));
     }
 
     private navigationControlButtons(revealLabel: string): HTMLElement[] {
@@ -6248,9 +6116,7 @@ export class NewTabController {
 
     private queueableFailedGradeTargets(error: unknown): QueuedNewTabGradeTarget[] | undefined {
         if (!(error instanceof NewTabGradeSubmissionError)) return undefined;
-        return error.failures
-            .map(failure => failure.target)
-            .filter((target): target is QueuedNewTabGradeTarget => target === 'anki' || target === 'jpdb-api');
+        return queueableNewTabReviewTargets(error.failures.map(failure => failure.target));
     }
 
     private currentGradeTarget(): NewTabGradeTarget | null {
@@ -6386,7 +6252,7 @@ export class NewTabController {
     }
 
     private async queueOfflineGrade(card: JPDBCard, grade: JPDBGrade, targets = this.offlineGradeTargets(card)): Promise<boolean> {
-        const queueTargets = targets.filter((target): target is QueuedNewTabGradeTarget => target === 'anki' || target === 'jpdb-api');
+        const queueTargets = queueableNewTabReviewTargets(targets);
         if (!queueTargets.length || !this.dependencies.getSettings().newTabOfflineEnabled) return false;
         const queue = await this.readQueuedGrades();
         const entries = queueTargets.map((target): QueuedNewTabGrade => ({
@@ -6822,124 +6688,6 @@ function consumeNestedLookupEvent(event: MouseEvent): void {
     event.stopPropagation();
 }
 
-function normalizeNewTabCard(card: JPDBCard): JPDBCard {
-    const reading = newTabCardReading(card);
-    return reading === card.reading ? card : { ...card, reading };
-}
-
-function newTabCardReading(card: JPDBCard): string {
-    return normalizedJapaneseCardReading(card.spelling, card.reading);
-}
-
-function newTabCardOptionalReading(card: JPDBCard): string {
-    const reading = newTabCardReading(card);
-    return reading && reading !== card.spelling ? reading : '';
-}
-
-function newTabCardHighlightTargets(card: JPDBCard): string[] {
-    return cardHighlightTargets(card);
-}
-
-function appendLoadedWords(result: NewTabLoadResult, cards: JPDBCard[], labels: string[]): void {
-    if (!result.cards.length) return;
-    cards.push(...result.cards);
-    if (result.sourceLabel && !labels.includes(result.sourceLabel)) labels.push(result.sourceLabel);
-}
-
-function emptyNewTabLoadAccumulator(): NewTabLoadAccumulator {
-    return { cards: [], labels: [], reviewCountMode: false };
-}
-
-function newTabLoadAccumulatorFromResult(result: NewTabLoadResult): NewTabLoadAccumulator {
-    const accumulator = emptyNewTabLoadAccumulator();
-    appendNewTabLoadResult(accumulator, result);
-    return accumulator;
-}
-
-function emptyNewTabLoadResult(sourceLabel = ''): NewTabLoadResult {
-    return { cards: [], sourceLabel, reviewCountMode: false };
-}
-
-function mergeEmptyNewTabLoadResults(previous: NewTabLoadResult, next: NewTabLoadResult): NewTabLoadResult {
-    return {
-        cards: [],
-        sourceLabel: next.sourceLabel || previous.sourceLabel,
-        reviewCountMode: previous.reviewCountMode === true || next.reviewCountMode === true,
-        emptyMessageKey: next.emptyMessageKey ?? previous.emptyMessageKey,
-    };
-}
-
-function appendNewTabLoadResult(accumulator: NewTabLoadAccumulator, result: NewTabLoadResult): void {
-    accumulator.reviewCountMode ||= result.reviewCountMode === true;
-    accumulator.emptyMessageKey = result.emptyMessageKey ?? accumulator.emptyMessageKey;
-    appendLoadedWords(result, accumulator.cards, accumulator.labels);
-    if (!result.cards.length && result.reviewCountMode === true && result.sourceLabel && !accumulator.labels.includes(result.sourceLabel)) {
-        accumulator.labels.push(result.sourceLabel);
-    }
-}
-
-function autoReviewSourceResults(jpdbResult: NewTabLoadResult, ankiResult: NewTabLoadResult): NewTabLoadResult[] {
-    if (!jpdbResult.cards.length || !ankiResult.cards.length) return [jpdbResult, ankiResult];
-    const ankiByKey = new Map<string, JPDBCard>();
-    for (const card of ankiResult.cards) {
-        const key = autoReviewMergeKey(card);
-        if (key && !ankiByKey.has(key)) ankiByKey.set(key, card);
-    }
-    if (!ankiByKey.size) return [jpdbResult, ankiResult];
-
-    const matchedAnkiKeys = new Set<string>();
-    const cards = jpdbResult.cards.map(card => {
-        const key = autoReviewMergeKey(card);
-        const ankiCard = key ? ankiByKey.get(key) : undefined;
-        if (!ankiCard) return card;
-        matchedAnkiKeys.add(key);
-        return mergeDedupeCardMetadata(card, ankiCard);
-    });
-    if (!matchedAnkiKeys.size) return [jpdbResult, ankiResult];
-
-    return [
-        { ...jpdbResult, cards },
-        { ...ankiResult, cards: ankiResult.cards.filter(card => !matchedAnkiKeys.has(autoReviewMergeKey(card))) },
-    ];
-}
-
-function autoReviewMergeKey(card: JPDBCard): string {
-    const spelling = card.spelling.trim();
-    if (!spelling) return '';
-    return `${spelling}\n${newTabCardReading(card)}`;
-}
-
-function interleavedNewTabLoadAccumulator(results: NewTabLoadResult[]): NewTabLoadAccumulator {
-    const accumulator = emptyNewTabLoadAccumulator();
-    accumulator.reviewCountMode = results.some(result => result.reviewCountMode === true);
-    accumulator.emptyMessageKey = results.find(result => result.emptyMessageKey)?.emptyMessageKey;
-    const activeResults = results.filter(result => result.cards.length > 0);
-    accumulator.cards.push(...interleaveNewTabCards(activeResults.map(result => result.cards)));
-    accumulator.labels.push(...activeResults.map(result => result.sourceLabel));
-    return accumulator;
-}
-
-function interleaveNewTabCards(groups: JPDBCard[][]): JPDBCard[] {
-    const maxLength = Math.max(0, ...groups.map(group => group.length));
-    const cards: JPDBCard[] = [];
-    for (let index = 0; index < maxLength; index++) {
-        for (const group of groups) {
-            const card = group[index];
-            if (card) cards.push(card);
-        }
-    }
-    return cards;
-}
-
-function newTabLoadResult(accumulator: NewTabLoadAccumulator, language: ReaderSettings['interfaceLanguage']): NewTabLoadResult {
-    return {
-        cards: accumulator.cards,
-        sourceLabel: accumulator.labels.length ? accumulator.labels.join(' + ') : newTabText(language, 'noSource'),
-        reviewCountMode: accumulator.reviewCountMode,
-        emptyMessageKey: accumulator.emptyMessageKey,
-    };
-}
-
 function setOptionalText(element: HTMLElement | null, text: string): void {
     if (element) element.textContent = text;
 }
@@ -6958,39 +6706,6 @@ function dedupeWords(cards: JPDBCard[]): JPDBCard[] {
         seen.set(key, mergeDedupeCardMetadata(primary, secondary));
     }
     return [...seen.values()];
-}
-
-function mergeDedupeCardMetadata(primary: JPDBCard, secondary: JPDBCard): JPDBCard {
-    return {
-        ...primary,
-        ankiCardId: primary.ankiCardId ?? secondary.ankiCardId,
-        ankiNoteId: primary.ankiNoteId ?? secondary.ankiNoteId,
-        ankiDeckNames: mergeOptionalStrings(primary.ankiDeckNames, secondary.ankiDeckNames),
-        ankiModelName: primary.ankiModelName ?? secondary.ankiModelName,
-        ankiCardKind: primary.ankiCardKind ?? secondary.ankiCardKind,
-        ankiReps: primary.ankiReps ?? secondary.ankiReps,
-        ankiLapses: primary.ankiLapses ?? secondary.ankiLapses,
-        ankiRenderedCards: mergeAnkiRenderedCards(primary.ankiRenderedCards, secondary.ankiRenderedCards),
-        fallbackLookupTerms: mergeOptionalStrings(primary.fallbackLookupTerms, [
-            secondary.spelling,
-            secondary.reading,
-            ...(secondary.fallbackLookupTerms ?? []),
-        ]),
-    };
-}
-
-function mergeOptionalStrings(first: string[] | undefined, second: string[] | undefined): string[] | undefined {
-    const merged = uniqueStrings([...(first ?? []), ...(second ?? [])].filter(Boolean));
-    return merged.length ? merged : undefined;
-}
-
-function mergeAnkiRenderedCards(
-    first: JPDBCard['ankiRenderedCards'],
-    second: JPDBCard['ankiRenderedCards'],
-): JPDBCard['ankiRenderedCards'] {
-    const merged = new Map<number, NonNullable<JPDBCard['ankiRenderedCards']>[number]>();
-    for (const card of [...(first ?? []), ...(second ?? [])]) merged.set(card.cardId, card);
-    return merged.size ? [...merged.values()] : undefined;
 }
 
 function dedupeSearchWords(cards: JPDBCard[]): JPDBCard[] {
@@ -7119,16 +6834,6 @@ function sourcePriority(card: JPDBCard): number {
     if (!card.source || card.source === 'jpdb') return 0;
     if (card.source === 'anki') return 1;
     return 2;
-}
-
-function promoteCardByKey(cards: JPDBCard[], key: string): JPDBCard[] {
-    if (!key) return cards;
-    const index = cards.findIndex(card => cardKey(card) === key);
-    if (index <= 0) return cards;
-    const promoted = [...cards];
-    const [card] = promoted.splice(index, 1);
-    if (card) promoted.unshift(card);
-    return promoted;
 }
 
 function markJpdbApiReviewCards(cards: JPDBCard[]): JPDBCard[] {
@@ -7381,30 +7086,6 @@ function yomuRuntimeOwnerMarker(): HTMLElement | null {
         : null;
 }
 
-function shouldShowInStudyQueue(card: JPDBCard): boolean {
-    if (card.source === 'local' || card.source === 'fallback') return true;
-    if (card.reviewSource === 'jpdb-live') return true;
-    const states = card.cardState ?? [];
-    return states.some(state => state === 'new' || state === 'learning' || state === 'due' || state === 'failed' || state === 'locked' || state === 'not-in-deck');
-}
-
-function isLockedJpdbReviewCard(card: JPDBCard): boolean {
-    return card.cardState.includes('locked') && (card.source === 'jpdb' || card.reviewSource === 'jpdb-api' || card.reviewSource === 'jpdb-live');
-}
-
-export function selectNewTabStudyPool(cards: JPDBCard[]): JPDBCard[] {
-    const studyCards = cards.filter(shouldShowInStudyQueue);
-    return studyCards;
-}
-
-function sentenceForCard(card: JPDBCard): string {
-    const sentence = card.sentence?.replace(/\s+/g, ' ').trim();
-    if (sentence) return sentence;
-    const withReading = card.wordWithReading?.replace(/\s+/g, ' ').trim();
-    if (withReading && withReading.includes(card.spelling)) return withReading;
-    return card.spelling;
-}
-
 function normalizePromptContextSentence(value: string | undefined, card: JPDBCard): string {
     const sentence = value?.replace(/\s+/g, ' ').trim() ?? '';
     return isPromptContextSentence(sentence, card) ? sentence : '';
@@ -7570,22 +7251,6 @@ function paintDoodlePreview(context: CanvasRenderingContext2D, snapshot: HTMLCan
 function doodlePreviewBackground(canvas: HTMLCanvasElement): string {
     const stage = canvas.closest<HTMLElement>('.jpdb-reader-doodle-stage');
     return getComputedStyle(stage ?? canvas).backgroundColor || DEFAULT_OVERLAY_BACKGROUND_COLOR;
-}
-
-function passingNewTabGrade(grade: JPDBGrade): boolean {
-    return grade === 'pass' || grade === 'easy' || grade === 'okay';
-}
-
-function newTabGradeOptions(settings: ReaderSettings): Array<[JPDBGrade, string]> {
-    return settings.twoButtonReviews
-        ? [['fail', uiText(settings.interfaceLanguage, 'gradeFailLabel')], ['pass', uiText(settings.interfaceLanguage, 'gradePassLabel')]]
-        : [
-            ['nothing', uiText(settings.interfaceLanguage, 'gradeNothingLabel')],
-            ['something', uiText(settings.interfaceLanguage, 'gradeSomethingLabel')],
-            ['hard', uiText(settings.interfaceLanguage, 'gradeHardLabel')],
-            ['okay', uiText(settings.interfaceLanguage, 'gradeOkayLabel')],
-            ['easy', uiText(settings.interfaceLanguage, 'gradeEasyLabel')],
-        ];
 }
 
 function liveJpdbCardFromBridgeCard(card: JpdbReviewBridgeCard, spelling: string): JPDBCard {

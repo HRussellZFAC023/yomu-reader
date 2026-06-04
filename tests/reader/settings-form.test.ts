@@ -776,6 +776,7 @@ describe('settings form localization', () => {
     it('keeps parsed audio source metadata out of the preview button column', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        document.body.append(form);
         localizeSettingsForm(form, 'ja');
         activateSettingsPanel(form, 'media');
         const sourceChoice = form.querySelector<HTMLElement>('[data-audio-source-row] .jpdb-reader-audio-source-choice')!;
@@ -823,6 +824,7 @@ describe('settings form localization', () => {
     it('keeps parsed Japanese inline labels inside one grid item', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        document.body.append(form);
         localizeSettingsForm(form, 'ja');
         const label = form.querySelector<HTMLInputElement>('input[name="jpdbMiningEnabled"]')!.closest('label')!;
         const labelText = label.querySelector<HTMLElement>(':scope > .jpdb-reader-settings-label-text');
