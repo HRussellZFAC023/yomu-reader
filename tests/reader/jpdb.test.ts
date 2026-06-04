@@ -9,7 +9,7 @@ import { CardActionController } from '../../src/reader/card-action-controller';
 import { CardPopoverRenderer } from '../../src/reader/card-popover-renderer';
 import { CardRenderDataLoader, type CardRenderData } from '../../src/reader/card-render-data';
 import { createAudioPreviewCard } from '../../src/reader/card-utils';
-import { IMMERSION_KIT_SOURCE_ID, SETTINGS_CHANGE_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../../src/reader/constants';
+import { IMMERSION_KIT_SOURCE_ID, SETTINGS_CHANGE_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/constants';
 import { deinflectJapaneseTerm, termRulesMatch } from '../../src/reader/deinflect';
 import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../src/reader/definition-source-render';
 import { DictionarySourceStateController } from '../../src/reader/dictionary-source-state';
@@ -62,7 +62,7 @@ import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isJapaneseSubtitle
 import { loadSubtitleTrackCues } from '../../src/reader/subtitle-track-loader';
 import { renderSubtitlePrimary } from '../../src/reader/subtitle-rendering';
 import { planTranscriptHydrationIndexes } from '../../src/reader/subtitle-transcript-hydration';
-import { getUserscriptHttpRequest, installUserscriptHttpBridge } from '../../src/reader/userscript';
+import { getUserscriptHttpRequest, installUserscriptHttpBridge, installUserscriptHttpBridgeWhenReady } from '../../src/reader/userscript';
 import { renderWordPills } from '../../src/reader/word-pills';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport, renderDictionaryScopedStyles, type YomitanTermEntry } from '../../src/reader/yomitan';
 import { glossaryValueToSearchText } from '../../src/reader/yomitan-glossary-text';
@@ -14148,6 +14148,72 @@ describe('reader helpers', () => {
             expect(response?.responseText).toBe('raw-ok');
         } finally {
             delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('retries hosted bridge installation when the userscript request API appears after document-start', async () => {
+        vi.useFakeTimers();
+        const request = vi.fn((options: Parameters<UserscriptHttpRequest>[0]) => {
+            options.onload?.({
+                status: 200,
+                response: 'late-ok',
+                responseText: 'late-ok',
+                finalUrl: options.url,
+            });
+        });
+
+        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html' });
+        vi.stubGlobal('GM_xmlhttpRequest', undefined);
+        delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+
+        try {
+            installUserscriptHttpBridgeWhenReady();
+            expect(document.documentElement.dataset.yomuUserscriptHttpBridge).toBeUndefined();
+
+            vi.stubGlobal('GM_xmlhttpRequest', request);
+            await vi.runAllTimersAsync();
+
+            expect(document.documentElement.dataset.yomuUserscriptHttpBridge).toBe('true');
+            vi.stubGlobal('GM_xmlhttpRequest', undefined);
+            const bridgeRequest = getUserscriptHttpRequest();
+            expect(bridgeRequest).toBeDefined();
+
+            await bridgeRequest?.({
+                url: 'http://127.0.0.1:8765',
+                method: 'POST',
+            }) as Promise<UserscriptHttpResponse> | undefined;
+
+            expect(request).toHaveBeenCalledTimes(1);
+            expect(request.mock.calls[0][0].url).toBe('http://127.0.0.1:8765');
+            expect(request.mock.calls[0][0].method).toBe('POST');
+        } finally {
+            delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+            vi.useRealTimers();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not repeat the bridge-ready event after a successful immediate install', async () => {
+        vi.useFakeTimers();
+        const request = vi.fn();
+        const ready = vi.fn();
+
+        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html' });
+        vi.stubGlobal('GM_xmlhttpRequest', request);
+        delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+        window.addEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, ready);
+
+        try {
+            installUserscriptHttpBridgeWhenReady();
+            await vi.runAllTimersAsync();
+
+            expect(document.documentElement.dataset.yomuUserscriptHttpBridge).toBe('true');
+            expect(ready).toHaveBeenCalledTimes(1);
+        } finally {
+            window.removeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, ready);
+            delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+            vi.useRealTimers();
             vi.unstubAllGlobals();
         }
     });

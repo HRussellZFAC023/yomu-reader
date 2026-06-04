@@ -1,10 +1,10 @@
 import { bootReaderApp } from './reader-boot';
 import { isYomuNewTabUrl } from './new-tab-url';
 import { installPreferredJapaneseSiteLanguageFromStoredSettings } from './preferred-site-language';
-import { installUserscriptHttpBridge } from './userscript';
+import { installUserscriptHttpBridgeWhenReady } from './userscript';
 
 installPreferredJapaneseSiteLanguageFromStoredSettings();
-installUserscriptHttpBridge();
+installUserscriptHttpBridgeWhenReady();
 if (!isYomuNewTabUrl(location.href)) bootWhenDocumentIsReady();
 
 function bootWhenDocumentIsReady(): void {

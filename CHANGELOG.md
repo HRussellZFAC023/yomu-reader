@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.7] - 2026-06-04
+
+### Fixed
+
+- Retried hosted-page Anki bridge installation when userscript request APIs appear shortly after document start, so local AnkiConnect status can show up without a manual refresh.
+- Guarded hosted Anki bridge refresh events so settings and popovers do not recheck Anki repeatedly after a successful bridge install.
+
 ## [0.6.6] - 2026-06-04
 
 ### Fixed
