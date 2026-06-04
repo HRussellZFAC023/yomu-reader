@@ -748,7 +748,7 @@ function normalizeNewTabKanjiKeywordSource(value: unknown): ReaderSettings['newT
 
 function normalizeReaderColorChannelSettings(value: LegacyReaderSettings | null): Pick<ReaderSettings, ReaderColorChannelKey> {
     if (isLegacyDefaultColorChannelSettings(value)) return { ...DEFAULT_COLOR_CHANNELS };
-    return {
+    const channels: Pick<ReaderSettings, ReaderColorChannelKey> = {
         wordHighlightColorSource: normalizeReaderColorSource(value?.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource, legacyHighlightColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource)),
         wordUnderlineColorSource: normalizeReaderColorSource(value?.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource)),
         wordTextColorSource: normalizeReaderColorSource(value?.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordTextColorSource)),
@@ -756,6 +756,7 @@ function normalizeReaderColorChannelSettings(value: LegacyReaderSettings | null)
         subtitleUnderlineColorSource: normalizeReaderColorSource(value?.subtitleUnderlineColorSource, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource)),
         subtitleTextColorSource: normalizeReaderColorSource(value?.subtitleTextColorSource, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource)),
     };
+    return normalizeStaleDoublePitchHighlightChannels(value, channels);
 }
 
 function isLegacyDefaultColorChannelSettings(value: LegacyReaderSettings | null | undefined): boolean {
@@ -767,6 +768,40 @@ function isLegacyDefaultColorChannelSettings(value: LegacyReaderSettings | null 
 function normalizeReaderColorSource(value: unknown, fallback: ReaderColorSource, autoFallback = fallback): ReaderColorSource {
     const source = value === 'auto' ? autoFallback : value;
     return READER_COLOR_SOURCES.has(source as ReaderColorSource) ? source as ReaderColorSource : fallback;
+}
+
+function normalizeStaleDoublePitchHighlightChannels(
+    settings: LegacyReaderSettings | null | undefined,
+    channels: Pick<ReaderSettings, ReaderColorChannelKey>,
+): Pick<ReaderSettings, ReaderColorChannelKey> {
+    if (!hasStaleDoublePitchHighlightChannels(settings, channels)) return channels;
+    return {
+        ...channels,
+        wordHighlightColorSource: channels.wordHighlightColorSource === 'pitch' && channels.wordUnderlineColorSource === 'pitch'
+            ? DEFAULT_COLOR_CHANNELS.wordHighlightColorSource
+            : channels.wordHighlightColorSource,
+        subtitleHighlightColorSource: channels.subtitleHighlightColorSource === 'pitch' && channels.subtitleUnderlineColorSource === 'pitch'
+            ? DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource
+            : channels.subtitleHighlightColorSource,
+    };
+}
+
+function hasStaleDoublePitchHighlightChannels(
+    settings: LegacyReaderSettings | null | undefined,
+    channels: Pick<ReaderSettings, ReaderColorChannelKey>,
+): boolean {
+    if (!settings) return false;
+    if (settings.wordHighlightMode === 'pitch') return true;
+    return isRawPitchPair(settings, 'wordHighlightColorSource', 'wordUnderlineColorSource')
+        && isRawPitchPair(settings, 'subtitleHighlightColorSource', 'subtitleUnderlineColorSource')
+        && channels.wordHighlightColorSource === 'pitch'
+        && channels.wordUnderlineColorSource === 'pitch'
+        && channels.subtitleHighlightColorSource === 'pitch'
+        && channels.subtitleUnderlineColorSource === 'pitch';
+}
+
+function isRawPitchPair(settings: LegacyReaderSettings, highlight: ReaderColorChannelKey, underline: ReaderColorChannelKey): boolean {
+    return settings[highlight] === 'pitch' && settings[underline] === 'pitch';
 }
 
 function legacyHighlightColorSourceForAuto(settings: LegacyReaderSettings | null | undefined, fallback: Exclude<ReaderColorSource, 'auto'>): Exclude<ReaderColorSource, 'auto'> {

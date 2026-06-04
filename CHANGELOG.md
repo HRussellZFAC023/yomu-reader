@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.9] - 2026-06-04
+
+### Fixed
+
+- Cleaned up stale saved color-channel settings from earlier builds that could leave mobile users seeing pitch accent as both a highlight and an underline after updating.
+
 ## [0.6.8] - 2026-06-04
 
 ### Added
