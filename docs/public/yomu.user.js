@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.6
+// @version      0.6.7
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -4253,11 +4253,34 @@ Greasy Fork compliance notes:
     });
     dispatchUserscriptBridgeReady();
   }
+  function installUserscriptHttpBridgeWhenReady() {
+    installUserscriptHttpBridge();
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (!shouldInstallUserscriptHttpBridge()) return;
+    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] === "true") return;
+    scheduleUserscriptHttpBridgeRetry();
+  }
   function shouldInstallUserscriptHttpBridge() {
     try {
       return typeof location !== "undefined" && isYomuHostedAppUrl(location.href);
     } catch {
       return false;
+    }
+  }
+  function scheduleUserscriptHttpBridgeRetry() {
+    const retry = () => {
+      if (bridgeMarkerDataset()?.[BRIDGE_MARKER] === "true") return;
+      installUserscriptHttpBridge();
+    };
+    if (typeof queueMicrotask === "function") {
+      queueMicrotask(retry);
+    } else {
+      void Promise.resolve().then(retry);
+    }
+    window.setTimeout(retry, 0);
+    window.setTimeout(retry, 250);
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", retry, { once: true });
     }
   }
   function dispatchUserscriptBridgeReady() {
@@ -49585,7 +49608,7 @@ ${spelling}`);
     if (marker?.dataset.yomuRuntimeOwner === ownerId) marker.remove();
   }
   installPreferredJapaneseSiteLanguageFromStoredSettings();
-  installUserscriptHttpBridge();
+  installUserscriptHttpBridgeWhenReady();
   if (!isYomuNewTabUrl(location.href)) bootWhenDocumentIsReady();
   function bootWhenDocumentIsReady() {
     if (document.readyState === "loading") {

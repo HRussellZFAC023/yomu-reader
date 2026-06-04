@@ -78,11 +78,36 @@ export function installUserscriptHttpBridge(): void {
     dispatchUserscriptBridgeReady();
 }
 
+export function installUserscriptHttpBridgeWhenReady(): void {
+    installUserscriptHttpBridge();
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (!shouldInstallUserscriptHttpBridge()) return;
+    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] === 'true') return;
+    scheduleUserscriptHttpBridgeRetry();
+}
+
 function shouldInstallUserscriptHttpBridge(): boolean {
     try {
         return typeof location !== 'undefined' && isYomuHostedAppUrl(location.href);
     } catch {
         return false;
+    }
+}
+
+function scheduleUserscriptHttpBridgeRetry(): void {
+    const retry = () => {
+        if (bridgeMarkerDataset()?.[BRIDGE_MARKER] === 'true') return;
+        installUserscriptHttpBridge();
+    };
+    if (typeof queueMicrotask === 'function') {
+        queueMicrotask(retry);
+    } else {
+        void Promise.resolve().then(retry);
+    }
+    window.setTimeout(retry, 0);
+    window.setTimeout(retry, 250);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', retry, { once: true });
     }
 }
 
