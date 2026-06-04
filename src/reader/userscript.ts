@@ -25,6 +25,7 @@ const BRIDGE_REQUEST_EVENT = 'yomu-userscript-http-request';
 const BRIDGE_RESPONSE_EVENT = 'yomu-userscript-http-response';
 const BRIDGE_MARKER = 'yomuUserscriptHttpBridge';
 const BRIDGE_TIMEOUT_MS = 30000;
+let bridgeRequestListenerCleanup: (() => void) | undefined;
 
 export function getUserscriptHttpRequest(): UserscriptHttpRequest | undefined {
     for (const candidate of userscriptRequestCandidates()) {
@@ -45,14 +46,16 @@ export function installUserscriptHttpBridge(): void {
     if (!bridgeCandidate?.request) return;
     const markerDataset = bridgeMarkerDataset();
     if (!markerDataset) return;
-    if (markerDataset[BRIDGE_MARKER] === 'true') {
+    if (markerDataset[BRIDGE_MARKER] === 'true' && bridgeRequestListenerCleanup) {
         dispatchUserscriptBridgeReady();
         return;
     }
+    bridgeRequestListenerCleanup?.();
+    bridgeRequestListenerCleanup = undefined;
     const request = bridgeCandidate.request.bind(bridgeCandidate.candidate.thisArg);
     const handledRequestIds = new Set<string>();
     markerDataset[BRIDGE_MARKER] = 'true';
-    addBridgeEventListener(BRIDGE_REQUEST_EVENT, event => {
+    bridgeRequestListenerCleanup = addBridgeEventListener(BRIDGE_REQUEST_EVENT, event => {
         const detail = bridgeRequestDetail(event);
         if (!detail) return;
         if (handledRequestIds.has(detail.id)) return;
@@ -167,10 +170,11 @@ function addBridgeEventListener(
 }
 
 function dispatchBridgeEvent<T>(type: string, detail?: T): boolean {
-    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, detail));
+    const eventDetail = bridgeEventDetail(detail);
+    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
     const documentTarget = bridgeDocumentTarget();
     if (documentTarget) {
-        dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, detail)) || dispatched;
+        dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
     }
     return dispatched;
 }
@@ -219,14 +223,14 @@ function callDispatchEvent(target: EventTarget, event: Event): boolean {
 }
 
 function bridgeRequestDetail(event: Event): BridgeRequestDetail | undefined {
-    const detail = safeEventDetail(event);
+    const detail = normalizedBridgeEventDetail(event);
     const id = safeReadString(detail, 'id');
     const options = safeReadProperty(detail, 'options') as Parameters<UserscriptHttpRequest>[0] | undefined;
     return id && options ? { id, options } : undefined;
 }
 
 function bridgeResponseEventDetail(event: Event): BridgeResponseDetail | undefined {
-    const detail = safeEventDetail(event);
+    const detail = normalizedBridgeEventDetail(event);
     const id = safeReadString(detail, 'id');
     const kind = safeReadString(detail, 'kind');
     if (!id || (kind !== 'load' && kind !== 'error' && kind !== 'timeout')) return undefined;
@@ -283,6 +287,49 @@ function bridgeRequestBody(
     value: Parameters<UserscriptHttpRequest>[0]['data'],
 ): Parameters<UserscriptHttpRequest>[0]['data'] {
     return bridgeBody(value) as Parameters<UserscriptHttpRequest>[0]['data'];
+}
+
+function bridgeEventDetail<T>(detail: T | undefined): T | string | undefined {
+    if (detail === undefined) return undefined;
+    const json = bridgeEventJsonDetail(detail);
+    return json ?? detail;
+}
+
+function bridgeEventJsonDetail(detail: unknown): string | undefined {
+    let unsupported = false;
+    try {
+        const json = JSON.stringify(detail, (_key, value) => {
+            if (isUnsupportedBridgeJsonValue(value)) {
+                unsupported = true;
+                return undefined;
+            }
+            return value;
+        });
+        return unsupported || typeof json !== 'string' ? undefined : json;
+    } catch {
+        return undefined;
+    }
+}
+
+function normalizedBridgeEventDetail(event: Event): unknown {
+    const detail = safeEventDetail(event);
+    if (typeof detail !== 'string') return detail;
+    try {
+        return JSON.parse(detail) as unknown;
+    } catch {
+        return detail;
+    }
+}
+
+function isUnsupportedBridgeJsonValue(value: unknown): boolean {
+    if (typeof value === 'function' || typeof value === 'symbol') return true;
+    if (typeof ArrayBuffer !== 'undefined') {
+        if (value instanceof ArrayBuffer) return true;
+        if (ArrayBuffer.isView(value)) return true;
+    }
+    if (typeof Blob !== 'undefined' && value instanceof Blob) return true;
+    if (typeof FormData !== 'undefined' && value instanceof FormData) return true;
+    return false;
 }
 
 function safeEventDetail(event: Event): unknown {

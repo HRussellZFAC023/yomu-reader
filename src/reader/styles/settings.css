@@ -139,6 +139,12 @@
     box-shadow: none;
     transform: none;
   }
+
+  .jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+  .jpdb-reader-settings select,
+  .jpdb-reader-settings textarea {
+    font-size: max(16px, 1em);
+  }
 }
 .jpdb-reader-settings-tab:active {
   transform: scale(0.98);
@@ -457,12 +463,19 @@
 .jpdb-reader-settings .grid > * {
   min-width: 0;
 }
-.jpdb-reader-settings .grid > .jpdb-reader-settings-field-number,
-.jpdb-reader-settings .grid > .jpdb-reader-settings-field-color {
+.jpdb-reader-settings .grid > .jpdb-reader-settings-field-number {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px 12px;
+  width: 100%;
+  max-width: 100%;
+}
+.jpdb-reader-settings .grid > .jpdb-reader-settings-field-color {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
   width: 100%;
   max-width: 100%;
 }
@@ -472,8 +485,9 @@
   min-width: 0;
 }
 .jpdb-reader-settings .grid > .jpdb-reader-settings-field-color > input[type="color"] {
-  width: 56px;
-  min-width: 56px;
+  width: 100%;
+  min-width: 0;
+  height: 40px;
 }
 .jpdb-reader-settings .grid > label.inline {
   align-items: start;
@@ -940,6 +954,54 @@
   color: var(--jpdb-reader-danger-readable) !important;
 }
 
+.jpdb-reader-tag-editor {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.jpdb-reader-tag-chip-list,
+.jpdb-reader-tag-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.jpdb-reader-tag-chip {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 54%, var(--jpdb-reader-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 15%, var(--jpdb-reader-surface-2));
+  color: var(--jpdb-reader-accent-readable);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 6px 10px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.jpdb-reader-tag-chip span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jpdb-reader-tag-add-row input {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.jpdb-reader-tag-add-row .jpdb-reader-btn {
+  flex: 0 0 auto;
+}
+
 .jpdb-reader-help-discord {
   display: inline-flex;
   align-items: center;
@@ -1345,6 +1407,12 @@
 }
 
 @media (max-width: 699px) {
+  .jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+  .jpdb-reader-settings select,
+  .jpdb-reader-settings textarea {
+    font-size: max(16px, 1em);
+  }
+
   .jpdb-reader-settings-tabs {
     flex-wrap: wrap;
     overflow-x: visible;

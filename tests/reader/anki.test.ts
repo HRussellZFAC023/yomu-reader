@@ -47,8 +47,8 @@ describe('AnkiConnect browser fetch eligibility', () => {
             'http://127.0.0.1:8765',
             'https://hrussellzfac023.github.io/yomu-reader/newtab/',
         )).toBe(true);
-        expect(uiText('en', 'ankiHostedCorsHint')).toContain('keep the よむ userscript enabled');
-        expect(uiText('en', 'ankiHostedCorsHint')).toContain('Direct browser access is optional');
+        expect(uiText('en', 'ankiHostedCorsHint')).toContain('Optional advanced setup');
+        expect(uiText('en', 'ankiHostedCorsHint')).toContain('webCorsOriginList');
         expect(needsHostedAnkiConnectSetupHint(
             'http://127.0.0.1:8765',
             'http://127.0.0.1:5174/newtab/',

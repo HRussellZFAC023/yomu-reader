@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.6.8] - 2026-06-04
+
+### Added
+
+- Added beginner-friendly desktop AnkiConnect/Tailscale setup guidance for using a home computer's Anki library from mobile devices.
+- Added Anki tag chips in settings, with inline add/remove controls instead of a confusing free-form tags field.
+- Added beginner-facing update and stale-cache guidance for the hosted new-tab page, mobile shortcuts, and userscript updates.
+
+### Changed
+
+- Made the release test path use the same sharded JPDB runner as CI, avoiding the long single-file JPDB test stall.
+- Shortened AnkiConnect setup messages in settings and moved advanced hosted/CORS guidance out of the crowded drawer copy.
+- Let new-tab Anki reviews work independently from the reader's Anki mining toggle.
+
+### Fixed
+
+- Fixed hosted Firefox userscript bridge event details so live AnkiConnect status can cross the page/userscript boundary.
+- Fixed kana-only Anki status cache hits such as `よむ` matching existing cards whose expression is kanji and reading is kana.
+- Fixed explicit popover Anki card hydration being skipped by an overly short background availability probe.
+- Fixed Jisho audio lookup through the public proxy and matched Jisho audio by the requested reading instead of the first same-spelling source.
+- Fixed automatic Anki library scans in settings, removed the manual scan button, and guarded stale scans from overwriting newer connection status.
+- Fixed confusing new-tab JPDB to Anki source toggles when Anki is unavailable by showing Anki connection guidance.
+- Fixed mobile/settings polish around no-zoom text inputs, full-width color swatches, donate accent styling, puck restoration, legacy pitch-highlight migration, and stale Yomitan import test isolation.
+
 ## [0.6.7] - 2026-06-04
 
 ### Fixed

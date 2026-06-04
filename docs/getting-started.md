@@ -15,7 +15,8 @@ A userscript is a small helper that a browser extension runs for you. You instal
 - **Yomitan dictionary:** a downloadable dictionary ZIP. よむ can import these so definitions stay local in your browser.
 - **Mining:** saving a useful word, sentence, subtitle, or image context for later study.
 - **OCR:** image text reading. This is what lets you tap Japanese inside manga panels or screenshots.
-- **Anki / AnkiConnect:** Anki is a flashcard app. [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the desktop add-on that gives よむ full Anki access, including existing-card status, updates, deck scans, and reviews.
+- **Anki / AnkiConnect:** Anki is a flashcard app. [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the desktop add-on that gives よむ full Anki access, including existing-card status, updates, and review queues.
+- **Tailscale:** an easy private network for reaching your desktop from a phone or iPad when both devices are signed in.
 - **Local server:** a helper app running on your own computer, often for audio, OCR, or Anki.
 - **localhost:** the device you are using right now. On an iPhone, `localhost` means the iPhone, not your desktop.
 
@@ -72,6 +73,8 @@ That's the setup done. Jump to step 3 to install よむ.
 **On desktop (Chrome, Edge, Firefox):**
 
 Open the link above. Tampermonkey should show an install screen for a script named よむ. Press Install, then open a page with Japanese text.
+
+To update later, open the same install link again and let your userscript manager replace the old よむ script. If a fix was just released and the old settings or defaults are still visible, update the userscript first, then refresh the Japanese page you were reading.
 
 **On iPhone or iPad (Userscripts app):**
 
@@ -172,17 +175,31 @@ On phones and tablets, tapping is usually easier than hover. On desktop, hover i
 - Dictionaries: choose the Dictionaries tab in Settings when you want local dictionary study words. よむ downloads JMdict into local browser storage when the userscript request bridge is available; you can also import any Yomitan ZIP dictionary or settings export manually.
 - Images: enable OCR to tap Japanese text inside manga panels or screenshots.
 - Video: enable subtitles to mine words from Japanese subtitle lines. For local files, use the [Yomu video player](./video-player/index.html). On iPhone, the transcript opens as a bottom panel so it does not crush the video. On desktop and iPad, move it left, right, or below from the transcript header.
-- Anki: enable Anki mining. Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full path: it can create or update cards, check existing-card status, scan your decks and note types, and feed Anki reviews into the new-tab page. iPhone, iPad, and Android can use mobile Anki handoff when AnkiConnect is not available, but handoff creates new notes only.
+- Anki: enable Anki mining. Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full path: it can create or update cards, check existing-card status, adapt to existing decks and note types, and feed Anki reviews into the new-tab page. iPhone, iPad, and Android can use mobile Anki handoff when AnkiConnect is not available, but handoff creates new notes only.
 - New tab: use the よむ [new-tab page](./newtab/index.html) as a study screen; opening it turns the study page on automatically.
 - Audio: the easiest hosted setup is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). If you want to self-host the audio files instead, the commonly shared files are here: [nyaa.si/view/1957972](https://nyaa.si/view/1957972).
 
-For existing Anki libraries, open Settings > Anki and use **Check AnkiConnect** to verify the connection, **Create Yomu note type** to prepare a clean よむ deck and note type, or **Scan existing decks** to inspect Core, RTK, anime-card, or other nonstandard note types and suggest field mappings. Scanning helps よむ place expression, reading, meaning, sentence, audio, and image data into familiar fields, but it needs AnkiConnect and does not make mobile handoff pull status, discover mappings, or provide review queues.
+For existing Anki libraries, open Settings > Anki and use **Check AnkiConnect** to verify the connection. よむ can use reachable desktop AnkiConnect to work with Core, RTK, anime-card, or other nonstandard note types and place expression, reading, meaning, sentence, audio, and image data into familiar fields when it can infer a fit. **Create Yomu note type** prepares a clean よむ deck and note type if you prefer the default setup.
 
 ## 8. Mobile Notes
 
 iPhone, iPad, and Android browsers can run よむ through a userscript app, but local desktop bridges are different there. JPDB lookup, local dictionaries, OCR, subtitle taps, the hosted video player, the new-tab study page, and mobile Anki handoff are the friendly mobile paths. Direct AnkiConnect and localhost audio helpers still need a desktop computer that is reachable from the device, for example on the same Wi-Fi or through Tailscale.
 
-Mobile Anki handoff is one-way: it opens AnkiMobile or AnkiDroid so you can create a new note. It does not read your existing collection, show existing-card status, update old notes, scan decks, discover field mappings, or provide Anki review queues. Saved mappings can still shape AnkiMobile add-note links; use desktop Anki with AnkiConnect for discovery, updates, status, and reviews.
+### Use desktop Anki from a phone or iPad
+
+You do not need AnkiMobile to get full Anki status in よむ on mobile. The full path is: your phone or iPad runs よむ, while your desktop runs Anki and AnkiConnect.
+
+The simplest private-network setup is [Tailscale](https://tailscale.com/). Tailscale has official downloads and install guides for [macOS, Windows, Linux, iOS, iPadOS, and Android](https://tailscale.com/downloads).
+
+1. On your desktop, install Anki and the [AnkiConnect add-on](https://ankiweb.net/shared/info/2055492159).
+2. Open Anki on the desktop and leave it running.
+3. Install Tailscale on the desktop and sign in.
+4. Install Tailscale on your phone or iPad and sign in to the same Tailscale account.
+5. In the Tailscale app, find your desktop's device name or `100.x.y.z` address.
+6. In よむ settings on mobile, open Mining and set **AnkiConnect URL** to `http://desktop-name.tailnet-name.ts.net:8765` or `http://100.x.y.z:8765`.
+7. Press **Check AnkiConnect**. If it connects, よむ can show existing-card status, update cards, adapt to your decks, and use Anki review queues from mobile.
+
+Mobile Anki handoff is one-way: it opens AnkiMobile or AnkiDroid so you can create a new note. It does not read your existing collection, show existing-card status, update old notes, adapt to existing decks, or provide Anki review queues. Saved mappings can still shape AnkiMobile add-note links; use reachable desktop Anki with AnkiConnect for updates, status, and reviews.
 
 Localhost on a phone or tablet means that device, not your desktop. If you run AnkiConnect, a local audio server, or OCR on a computer, use that computer's LAN/Tailscale address in よむ settings. Mobile browsers can also block autoplay and protected/cross-origin video capture, so subtitle lookup, copying, JPDB mining, and dictionary fallback remain the reliable mobile path.
 
@@ -194,4 +211,8 @@ After setup, go to Settings > Dictionaries and use Export settings JSON. This gi
 
 ## If Something Does Not Work
 
-The most common fixes are enabling the userscript manager for the current site, refreshing the page after changing settings, checking that a JPDB key was pasted correctly, and remembering that `localhost` on an iPhone means the iPhone itself rather than your desktop computer. If the install link or hosted tools are down, check [Support](/support) for reinstall, Discord, and issue-report options.
+The most common fixes are enabling the userscript manager for the current site, refreshing the page after changing settings, checking that a JPDB key was pasted correctly, and remembering that `localhost` on an iPhone means the iPhone itself rather than your desktop computer.
+
+If the hosted new-tab page or mobile Home Screen shortcut still looks like an old release after updating, open `https://hrussellzfac023.github.io/yomu-reader/newtab/index.html` directly, refresh once, then close and reopen the tab or shortcut. よむ's new-tab page checks a small `version.json` file and reloads itself when the hosted build changes, but iOS, Android, and browser service workers can sometimes keep an old copy until the page is reopened. If it is still stale, remove and recreate the Home Screen shortcut, or clear site data for `hrussellzfac023.github.io` and sign in/paste keys again.
+
+If the install link or hosted tools are down, check [Support](/support) for reinstall, Discord, and issue-report options.

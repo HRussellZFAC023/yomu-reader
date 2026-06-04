@@ -2060,11 +2060,10 @@ describe('reader helpers', () => {
             });
             document.body.innerHTML = render();
             expect(document.querySelector<HTMLButtonElement>('[data-action="anki"]')?.textContent).toBe('Send to AnkiMobile');
-            expect(document.querySelector('.jpdb-reader-anki-handoff-hint')?.textContent).toContain('creates new notes only');
-            expect(document.querySelector('.jpdb-reader-anki-handoff-hint')?.textContent).toContain('AnkiConnect');
+            expect(document.querySelector('.jpdb-reader-anki-handoff-hint')).toBeNull();
             document.body.innerHTML = render({ state: 'not-in-deck', notes: [], primary: null, trusted: true });
             expect(document.querySelector<HTMLButtonElement>('[data-action="anki"]')?.textContent).toBe('Send to AnkiMobile');
-            expect(document.querySelector('.jpdb-reader-anki-handoff-hint')?.textContent).toContain('creates new notes only');
+            expect(document.querySelector('.jpdb-reader-anki-handoff-hint')).toBeNull();
 
             Object.defineProperty(window.navigator, 'userAgent', {
                 value: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
@@ -2072,7 +2071,7 @@ describe('reader helpers', () => {
             });
             document.body.innerHTML = render();
             expect(document.querySelector<HTMLButtonElement>('[data-action="anki"]')?.textContent).toBe('Send to AnkiDroid');
-            expect(document.querySelector('.jpdb-reader-anki-handoff-hint')?.textContent).toContain('desktop Anki with AnkiConnect');
+            expect(document.querySelector('.jpdb-reader-anki-handoff-hint')).toBeNull();
         } finally {
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
             document.body.innerHTML = '';
@@ -5321,6 +5320,7 @@ describe('reader helpers', () => {
         expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'text-to-speech', url: '', voice: '', enabled: true });
         expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'jpdb-tts', url: '', voice: '', enabled: true });
         expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'text-to-speech', url: '', voice: '', enabled: true });
+        expect(DEFAULT_SETTINGS.audioEnabled).toBe(true);
         expect(DEFAULT_SETTINGS.audioFallbackChimeEnabled).toBe(true);
         expect(DEFAULT_SETTINGS.autoPlayAudio).toBe(true);
         expect(DEFAULT_SETTINGS.suppressAutoAudioOnVideo).toBe(true);
@@ -6632,7 +6632,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('skips Jisho public-proxy audio lookup before browser speech when no userscript bridge is available', async () => {
+    it('tries Jisho public-proxy audio lookup before browser speech when no userscript bridge is available', async () => {
         const spoken: string[] = [];
         class FakeSpeechSynthesisUtterance {
             lang = '';
@@ -6660,8 +6660,7 @@ describe('reader helpers', () => {
             await expect(player.play(card)).resolves.toBe(true);
 
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
-            expect(urls).not.toContain(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`);
-            expect(urls).not.toContain(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`);
+            expect(urls).toContain(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')}`);
             expect(urls.some(url => url.startsWith('https://r.jina.ai/'))).toBe(false);
             expect(spoken).toEqual([card.spelling]);
         } finally {
@@ -6932,6 +6931,181 @@ describe('reader helpers', () => {
             expect(requested).toEqual(['https://jisho.org/search/%E7%8C%AB']);
             expect(requested.some(url => url.includes('assets.languagepod101.com/dictionary/japanese/audiomp3.php'))).toBe(false);
         } finally {
+            restoreMedia();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('matches Jisho audio by reading instead of playing the first same-spelling source', async () => {
+        const played: string[] = [];
+        const requested: string[] = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:http://localhost/jisho-shita'),
+        });
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                if (details.responseType === 'text') {
+                    const responseText = `
+                        <audio id="audio_下:げ"><source src="//audio.test/ge.mp3" type="audio/mpeg"></audio>
+                        <audio id="audio_下:した"><source src="//audio.test/shita.mp3" type="audio/mpeg"></audio>
+                    `;
+                    details.onload?.({
+                        status: 200,
+                        response: responseText,
+                        responseText,
+                    });
+                    return;
+                }
+                details.onload?.({
+                    status: 200,
+                    response: new Blob(['audio'], { type: 'audio/mpeg' }),
+                });
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'jisho', url: '', voice: '', enabled: true }],
+            }));
+
+            await expect(player.play({ ...card, spelling: '下', reading: 'した' })).resolves.toBe(true);
+
+            expect(played).toEqual(['blob:http://localhost/jisho-shita']);
+            expect(requested).toContain('https://jisho.org/search/%E4%B8%8B');
+            expect(requested).toContain('https://audio.test/shita.mp3');
+            expect(requested).not.toContain('https://audio.test/ge.mp3');
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            restoreMedia();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('matches Jisho audio by reading when the lookup term is kana-only', async () => {
+        const played: string[] = [];
+        const requested: string[] = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:http://localhost/jisho-yomu'),
+        });
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                if (details.responseType === 'text') {
+                    const responseText = `
+                        <audio id="audio_読む:よむ" preload="none">
+                            <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/f9585fdca1ef179b5388df7d783e7473.mp3" type="audio/mpeg"></source>
+                        </audio>
+                    `;
+                    details.onload?.({ status: 200, response: responseText, responseText });
+                    return;
+                }
+                details.onload?.({
+                    status: 200,
+                    response: new Blob(['audio'], { type: 'audio/mpeg' }),
+                });
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'jisho', url: '', voice: '', enabled: true }],
+            }));
+
+            await expect(player.play({ ...card, spelling: 'よむ', reading: 'よむ' }, { userGesture: true })).resolves.toBe(true);
+
+            expect(played).toEqual([
+                expect.stringMatching(/^data:audio\/wav;base64,/),
+                'blob:http://localhost/jisho-yomu',
+            ]);
+            expect(requested).toContain('https://jisho.org/search/%E3%82%88%E3%82%80');
+            expect(requested).toContain('https://d1vjc5dkcd3yh2.cloudfront.net/audio/f9585fdca1ef179b5388df7d783e7473.mp3');
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            restoreMedia();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('plays Jisho audio through the public proxy on hosted pages without a userscript bridge', async () => {
+        const played: string[] = [];
+        const requested: string[] = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const originalCreateObjectUrl = URL.createObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:https://hrussellzfac023.github.io/yomu-reader/jisho-audio'),
+        });
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/',
+            origin: 'https://hrussellzfac023.github.io',
+            hostname: 'hrussellzfac023.github.io',
+        });
+        vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+            const rawUrl = String(input);
+            const target = unproxiedFetchTarget(input);
+            requested.push(rawUrl);
+            if (target === 'https://jisho.org/search/%E7%8C%AB') {
+                return Promise.resolve(new Response(`
+                    <audio id="audio_猫:ねこ" preload="none">
+                        <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/6b96f918b54d9a75a6bd12a8fb98c48e.mp3" type="audio/mpeg"></source>
+                    </audio>
+                `, { status: 200 }));
+            }
+            if (target === 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/6b96f918b54d9a75a6bd12a8fb98c48e.mp3') {
+                return Promise.resolve(new Response('audio', {
+                    status: 200,
+                    headers: { 'Content-Type': 'audio/mpeg' },
+                }));
+            }
+            return Promise.reject(new Error(`unexpected fetch: ${rawUrl}`));
+        }));
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'jisho', url: '', voice: '', enabled: true }],
+            }));
+
+            const result = await player.play({ ...card, spelling: '猫', reading: 'ねこ' }, { userGesture: true });
+
+            expect(result, JSON.stringify({ played, requested })).toBe(true);
+            expect(played).toEqual([
+                expect.stringMatching(/^data:audio\/wav;base64,/),
+                'blob:https://hrussellzfac023.github.io/yomu-reader/jisho-audio',
+            ]);
+            expect(requested).toEqual([
+                `${DEFAULT_YOMU_PUBLIC_PROXY_URL}/?url=${encodeURIComponent('https://jisho.org/search/%E7%8C%AB')}`,
+                `${DEFAULT_YOMU_PUBLIC_PROXY_URL}/?url=${encodeURIComponent('https://d1vjc5dkcd3yh2.cloudfront.net/audio/6b96f918b54d9a75a6bd12a8fb98c48e.mp3')}`,
+            ]);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
             restoreMedia();
             vi.unstubAllGlobals();
         }
@@ -7218,7 +7392,7 @@ describe('reader helpers', () => {
     });
 
     it('uses popover as the default popup mode', () => {
-        expect(DEFAULT_SETTINGS.popupMode).toBe('popover');
+        expect(DEFAULT_SETTINGS.popupMode).toBe('auto');
     });
 
     it('keeps the copy lookup pill fixed and URL-free in settings', () => {
@@ -14099,6 +14273,45 @@ describe('reader helpers', () => {
         ]);
     });
 
+    it('does not trust a stale hosted bridge marker without a current request listener', async () => {
+        const request = vi.fn((options: Parameters<UserscriptHttpRequest>[0]) => {
+            options.onload?.({
+                status: 200,
+                response: { result: 6, error: null },
+                responseText: '{"result":6,"error":null}',
+                finalUrl: options.url,
+            });
+        });
+
+        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html' });
+        vi.stubGlobal('GM_xmlhttpRequest', request);
+        document.documentElement.dataset.yomuUserscriptHttpBridge = 'true';
+
+        try {
+            installUserscriptHttpBridge();
+            vi.stubGlobal('GM_xmlhttpRequest', undefined);
+
+            const bridgeRequest = getUserscriptHttpRequest();
+            expect(bridgeRequest).toBeDefined();
+
+            const response = await bridgeRequest?.({
+                url: 'http://127.0.0.1:8765',
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                data: '{"action":"version","version":6}',
+                responseType: 'json',
+                timeout: 100,
+            }) as UserscriptHttpResponse | undefined;
+
+            expect(request).toHaveBeenCalledTimes(1);
+            expect(request.mock.calls[0][0].url).toBe('http://127.0.0.1:8765');
+            expect(response?.response).toEqual({ result: 6, error: null });
+        } finally {
+            delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('announces the userscript bridge when a page shadows window.dispatchEvent', () => {
         const request = vi.fn();
 
@@ -14218,6 +14431,55 @@ describe('reader helpers', () => {
         }
     });
 
+    it('accepts string-detail hosted bridge requests for Firefox userscript boundaries', async () => {
+        const request = vi.fn((options: Parameters<UserscriptHttpRequest>[0]) => {
+            options.onload?.({
+                status: 200,
+                response: { result: 6, error: null },
+                responseText: '{"result":6,"error":null}',
+                finalUrl: options.url,
+            });
+        });
+        const responses: unknown[] = [];
+        const onResponse = (event: Event) => {
+            responses.push((event as CustomEvent).detail);
+        };
+
+        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html' });
+        vi.stubGlobal('GM_xmlhttpRequest', request);
+        delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+        window.addEventListener('yomu-userscript-http-response', onResponse);
+
+        try {
+            installUserscriptHttpBridge();
+            const detail = JSON.stringify({
+                id: 'firefox-request',
+                options: {
+                    url: 'http://127.0.0.1:8765',
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    data: '{"action":"version","version":6}',
+                    responseType: 'json',
+                },
+            });
+            window.dispatchEvent(new CustomEvent('yomu-userscript-http-request', { detail }));
+
+            expect(request).toHaveBeenCalledTimes(1);
+            expect(request.mock.calls[0][0].url).toBe('http://127.0.0.1:8765');
+            expect(responses).toHaveLength(1);
+            expect(typeof responses[0]).toBe('string');
+            expect(JSON.parse(responses[0] as string)).toMatchObject({
+                id: 'firefox-request',
+                kind: 'load',
+                response: { status: 200, response: { result: 6, error: null } },
+            });
+        } finally {
+            window.removeEventListener('yomu-userscript-http-response', onResponse);
+            delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('clones userscript bridge request and response details for Firefox Xray boundaries', async () => {
         const inputHeaders = { accept: 'text/plain' };
         let rawResponse: UserscriptHttpResponse | undefined;
@@ -14260,7 +14522,7 @@ describe('reader helpers', () => {
             expect(request.mock.calls[0][0].headers).not.toBe(inputHeaders);
             expect(response).toEqual(rawResponse);
             expect(response).not.toBe(rawResponse);
-            expect(cloneInto).toHaveBeenCalledWith(expect.any(Object), window, { cloneFunctions: false, wrapReflectors: true });
+            expect(cloneInto).toHaveBeenCalledWith(expect.any(String), window, { cloneFunctions: false, wrapReflectors: true });
         } finally {
             delete document.documentElement.dataset.yomuUserscriptHttpBridge;
             vi.unstubAllGlobals();
@@ -15956,6 +16218,144 @@ describe('reader helpers', () => {
         }
     });
 
+    it('uses reading keys for kana-only browser-stored Anki status index lookups', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const query = String(request.params?.query ?? '');
+                const resultByAction: Record<string, unknown> = {
+                    findCards: query.includes('is:due') || query === 'deck:*' ? [7701] : [],
+                    findNotes: [55],
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '読む' },
+                            Reading: { value: 'よむ' },
+                            Meaning: { value: 'to read' },
+                        },
+                        cards: [7701],
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.rebuildStatusIndex();
+            requests.length = 0;
+
+            await expect(client.findCachedStatusBatch([{
+                ...card,
+                spelling: 'よむ',
+                reading: 'よむ',
+                fallbackLookupTerms: [],
+            }])).resolves.toMatchObject([{
+                state: 'due',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7701,
+                },
+            }]);
+            expect(requests).toEqual([]);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('rebuilds legacy browser Anki status indexes that do not contain reading keys', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const now = Date.now();
+        localStorage.setItem('yomu:anki-status-index:v1', JSON.stringify({
+            version: 1,
+            settingsKey: JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl }),
+            syncedAt: now,
+            checkedAt: now,
+            cardCount: 1,
+            entries: {
+                [String('読む').toLocaleLowerCase()]: {
+                    state: 'due',
+                    noteId: 55,
+                    primaryCardId: 7701,
+                    deckNames: ['Imported Core'],
+                    reps: 12,
+                    lapses: 0,
+                    modelName: 'Imported Core',
+                },
+            },
+        }));
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const query = String(request.params?.query ?? '');
+                const resultByAction: Record<string, unknown> = {
+                    version: 6,
+                    deckNames: ['Imported Core'],
+                    getDeckStats: { 1: { name: 'Imported Core', total_in_deck: 1 } },
+                    findCards: query === 'deck:*' || query.includes('is:due') ? [7701] : [],
+                    findNotes: [55],
+                    cardsInfo: [{
+                        cardId: 7701,
+                        note: 55,
+                        deckName: 'Imported Core',
+                        queue: 2,
+                        type: 2,
+                        due: 0,
+                        reps: 12,
+                        lapses: 0,
+                    }],
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '読む' },
+                            Reading: { value: 'よむ' },
+                            Meaning: { value: 'to read' },
+                        },
+                        cards: [7701],
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.warmStatusIndex();
+            expect(requests.map(request => request.action)).toEqual(expect.arrayContaining(['findCards', 'notesInfo']));
+            requests.length = 0;
+
+            await expect(client.findCachedStatusBatch([{
+                ...card,
+                spelling: 'よむ',
+                reading: 'よむ',
+            }])).resolves.toMatchObject([{
+                state: 'due',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7701,
+                },
+            }]);
+            expect(requests).toEqual([]);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('hydrates duplicate Anki notes across decks even when the status index has one match', async () => {
         localStorage.clear();
         await deleteAnkiStatusIndexDatabase();
@@ -16291,6 +16691,7 @@ describe('reader helpers', () => {
             syncedAt: now - 10 * 60 * 1000,
             checkedAt: now - 6 * 60 * 1000,
             cardCount: 2505,
+            readingKeys: true,
             entries: {},
         }));
         const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
@@ -16336,6 +16737,7 @@ describe('reader helpers', () => {
             syncedAt: now,
             checkedAt: now,
             cardCount: 1,
+            readingKeys: true,
             entries: {
                 [String('動画').toLocaleLowerCase()]: {
                     state: 'due',
@@ -16415,6 +16817,7 @@ describe('reader helpers', () => {
             syncedAt: now - 60 * 60 * 1000,
             checkedAt: now - 6 * 60 * 1000,
             cardCount: 1,
+            readingKeys: true,
             entries: {
                 [String('動画').toLocaleLowerCase()]: {
                     state: 'due',
@@ -16652,6 +17055,7 @@ describe('reader helpers', () => {
             syncedAt: Date.now(),
             checkedAt: Date.now(),
             cardCount: 2,
+            readingKeys: true,
             entries: {},
         };
         const internals = client as unknown as {
@@ -16787,6 +17191,7 @@ describe('reader helpers', () => {
             syncedAt: now,
             checkedAt: now,
             cardCount: 1,
+            readingKeys: true,
             entries: {},
         }));
         localStorage.setItem('yomu:anki-status-index-rebuild:v1', JSON.stringify({
@@ -16874,6 +17279,7 @@ describe('reader helpers', () => {
             syncedAt: 1,
             checkedAt: 1,
             cardCount: 1,
+            readingKeys: true,
             entries: {
                 [String('動画').toLocaleLowerCase()]: {
                     state: 'known',

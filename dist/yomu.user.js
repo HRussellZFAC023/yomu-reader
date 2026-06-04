@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.7
+// @version      0.6.8
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -1116,7 +1116,7 @@ Greasy Fork compliance notes:
     ankiCaptureScreenshot: true,
     ankiFieldMappings: {},
     theme: "auto",
-    popupMode: "popover",
+    popupMode: "auto",
     stickyBottomSheet: false,
     popoverBackdropEnabled: true,
     popoverWidth: 520,
@@ -1498,10 +1498,10 @@ Greasy Fork compliance notes:
   function normalizeReaderColorChannelSettings(value) {
     if (isLegacyDefaultColorChannelSettings(value)) return { ...DEFAULT_COLOR_CHANNELS };
     return {
-      wordHighlightColorSource: normalizeReaderColorSource(value?.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource)),
+      wordHighlightColorSource: normalizeReaderColorSource(value?.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource, legacyHighlightColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource)),
       wordUnderlineColorSource: normalizeReaderColorSource(value?.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource)),
       wordTextColorSource: normalizeReaderColorSource(value?.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordTextColorSource)),
-      subtitleHighlightColorSource: normalizeReaderColorSource(value?.subtitleHighlightColorSource, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource)),
+      subtitleHighlightColorSource: normalizeReaderColorSource(value?.subtitleHighlightColorSource, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource, legacySubtitleHighlightColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource)),
       subtitleUnderlineColorSource: normalizeReaderColorSource(value?.subtitleUnderlineColorSource, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource)),
       subtitleTextColorSource: normalizeReaderColorSource(value?.subtitleTextColorSource, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource))
     };
@@ -1514,9 +1514,19 @@ Greasy Fork compliance notes:
     const source = value === "auto" ? autoFallback : value;
     return READER_COLOR_SOURCES.has(source) ? source : fallback;
   }
+  function legacyHighlightColorSourceForAuto(settings, fallback) {
+    const mode = legacyEffectiveWordHighlightMode(settings);
+    if (mode === "pitch") return fallback;
+    return legacyReaderColorSourceForAuto(settings, fallback);
+  }
   function legacyReaderColorSourceForAuto(settings, fallback) {
     const mode = legacyEffectiveWordHighlightMode(settings);
     return mode === "status" ? fallback : mode ?? fallback;
+  }
+  function legacySubtitleHighlightColorSourceForAuto(settings, fallback) {
+    const mode = legacyEffectiveWordHighlightMode(settings);
+    if (mode === "pitch") return fallback;
+    return legacySubtitleColorSourceForAuto(settings, fallback);
   }
   function legacySubtitleColorSourceForAuto(settings, fallback) {
     const mode = legacyEffectiveWordHighlightMode(settings);
@@ -4205,6 +4215,7 @@ Greasy Fork compliance notes:
   const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
   const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
   const BRIDGE_TIMEOUT_MS = 3e4;
+  let bridgeRequestListenerCleanup;
   function getUserscriptHttpRequest() {
     for (const candidate of userscriptRequestCandidates()) {
       const request = asUserscriptRequest(candidate.request);
@@ -4221,14 +4232,16 @@ Greasy Fork compliance notes:
     if (!bridgeCandidate?.request) return;
     const markerDataset = bridgeMarkerDataset();
     if (!markerDataset) return;
-    if (markerDataset[BRIDGE_MARKER] === "true") {
+    if (markerDataset[BRIDGE_MARKER] === "true" && bridgeRequestListenerCleanup) {
       dispatchUserscriptBridgeReady();
       return;
     }
+    bridgeRequestListenerCleanup?.();
+    bridgeRequestListenerCleanup = void 0;
     const request = bridgeCandidate.request.bind(bridgeCandidate.candidate.thisArg);
     const handledRequestIds = /* @__PURE__ */ new Set();
     markerDataset[BRIDGE_MARKER] = "true";
-    addBridgeEventListener(BRIDGE_REQUEST_EVENT, (event) => {
+    bridgeRequestListenerCleanup = addBridgeEventListener(BRIDGE_REQUEST_EVENT, (event) => {
       const detail = bridgeRequestDetail(event);
       if (!detail) return;
       if (handledRequestIds.has(detail.id)) return;
@@ -4333,10 +4346,11 @@ Greasy Fork compliance notes:
     };
   }
   function dispatchBridgeEvent(type, detail) {
-    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, detail));
+    const eventDetail = bridgeEventDetail(detail);
+    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
     const documentTarget = bridgeDocumentTarget();
     if (documentTarget) {
-      dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, detail)) || dispatched;
+      dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
     }
     return dispatched;
   }
@@ -4371,13 +4385,13 @@ Greasy Fork compliance notes:
     }
   }
   function bridgeRequestDetail(event) {
-    const detail = safeEventDetail(event);
+    const detail = normalizedBridgeEventDetail(event);
     const id = safeReadString(detail, "id");
     const options = safeReadProperty(detail, "options");
     return id && options ? { id, options } : void 0;
   }
   function bridgeResponseEventDetail(event) {
-    const detail = safeEventDetail(event);
+    const detail = normalizedBridgeEventDetail(event);
     const id = safeReadString(detail, "id");
     const kind = safeReadString(detail, "kind");
     if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
@@ -4422,6 +4436,45 @@ Greasy Fork compliance notes:
   }
   function bridgeRequestBody(value) {
     return bridgeBody(value);
+  }
+  function bridgeEventDetail(detail) {
+    if (detail === void 0) return void 0;
+    const json = bridgeEventJsonDetail(detail);
+    return json ?? detail;
+  }
+  function bridgeEventJsonDetail(detail) {
+    let unsupported = false;
+    try {
+      const json = JSON.stringify(detail, (_key, value) => {
+        if (isUnsupportedBridgeJsonValue(value)) {
+          unsupported = true;
+          return void 0;
+        }
+        return value;
+      });
+      return unsupported || typeof json !== "string" ? void 0 : json;
+    } catch {
+      return void 0;
+    }
+  }
+  function normalizedBridgeEventDetail(event) {
+    const detail = safeEventDetail(event);
+    if (typeof detail !== "string") return detail;
+    try {
+      return JSON.parse(detail);
+    } catch {
+      return detail;
+    }
+  }
+  function isUnsupportedBridgeJsonValue(value) {
+    if (typeof value === "function" || typeof value === "symbol") return true;
+    if (typeof ArrayBuffer !== "undefined") {
+      if (value instanceof ArrayBuffer) return true;
+      if (ArrayBuffer.isView(value)) return true;
+    }
+    if (typeof Blob !== "undefined" && value instanceof Blob) return true;
+    if (typeof FormData !== "undefined" && value instanceof FormData) return true;
+    return false;
   }
   function safeEventDetail(event) {
     try {
@@ -5052,9 +5105,9 @@ Greasy Fork compliance notes:
       recallMeaning: "Recall the meaning first.",
       ankiBackIncludes: "Includes dictionary, kanji, pitch, frequency, source, and image fields when available.",
       exampleMeaning: "to read",
-      scanAnkiFirst: "Scan Anki first",
+      scanAnkiFirst: "Connect Anki first",
       notMapped: "Not mapped",
-      noScannedFields: "No scanned fields yet. Use Scan existing decks.",
+      noScannedFields: "Fields fill automatically after AnkiConnect is reachable.",
       mappingForNoteType: "Mapping for {model}",
       currentNoteType: "current note type",
       ankiFieldMappingSelect: "{role} field",
@@ -5066,31 +5119,30 @@ Greasy Fork compliance notes:
       ankiRoleImage: "Image",
       testAnki: "Check AnkiConnect",
       prepareAnki: "Create Yomu note type",
-      scanAnki: "Scan existing decks",
       ankiCheckingConnection: "Checking AnkiConnect at {url}. {handoff}",
       ankiMiningDisabledStatus: "Anki mining disabled. {handoff}",
-      ankiMobileHandoffEnabledStatus: "AnkiMobile/AnkiDroid handoff is on for creating new notes only. Existing-card status, updates, library scanning, mapping discovery, and review queues require desktop Anki with AnkiConnect.",
-      ankiMobileHandoffDisabledStatus: "AnkiMobile/AnkiDroid handoff is off. Existing-card status, updates, library scanning, mapping discovery, and review queues require desktop Anki with AnkiConnect.",
+      ankiMobileHandoffEnabledStatus: "Mobile Anki handoff is on for new-note fallback. Full Anki features use desktop AnkiConnect.",
+      ankiMobileHandoffDisabledStatus: "Mobile Anki handoff is off. Full Anki features use desktop AnkiConnect.",
       ankiTesting: "Checking AnkiConnect...",
       ankiPreparing: "Creating or refreshing the Yomu deck and note type...",
       ankiScanning: "Scanning existing Anki decks, note types, and fields...",
       ankiScanSummary: "Found {decks} decks and {models} note types. Best match: {model}. {fields}",
       ankiScanNoModels: "Found {decks} decks, but no note types were returned.",
       ankiScanFieldSummary: "Fields: {fields}",
-      ankiUnreachable: "AnkiConnect is not connected yet. Open Anki on this computer, install or enable the AnkiConnect add-on, then press Check AnkiConnect.",
-      ankiHostedBridgeMissing: "Hosted page: AnkiConnect needs the よむ userscript here. Enable or update the userscript on this page, refresh, then press Check AnkiConnect.",
-      ankiHostedCorsHint: "Hosted page: keep the よむ userscript enabled on this page, refresh, then press Check. Direct browser access is optional and requires adding https://hrussellzfac023.github.io to AnkiConnect's webCorsOriginList.",
+      ankiUnreachable: "AnkiConnect is not connected. Open Anki and make sure AnkiConnect is installed, then press Check AnkiConnect.",
+      ankiHostedBridgeMissing: "Hosted page: enable the よむ userscript here, refresh, then press Check AnkiConnect.",
+      ankiHostedCorsHint: "Optional advanced setup: direct browser access needs https://hrussellzfac023.github.io in AnkiConnect's webCorsOriginList.",
       ankiLibraryAdapter: "Existing library adapter",
-      ankiLibraryAdapterStatus: "Use Scan after AnkiConnect is reachable to inspect existing decks and note types, including RTK/Core-style decks, and suggest field mappings. Mobile handoff cannot read existing-card status or review queues.",
+      ankiLibraryAdapterStatus: "When AnkiConnect is reachable, よむ automatically inspects existing decks and note types, including RTK/Core-style decks, and suggests field mappings.",
       ankiLibraryChoices: "Deck and note type",
-      ankiLibraryChoicesHelp: "Scan fills these choices from your real Anki library. All decks are available for review by default; choose the deck and note type Yomu should create or update when mining.",
+      ankiLibraryChoicesHelp: "When AnkiConnect is reachable, these choices fill from your real Anki library. All decks are available for review by default; choose the deck and note type Yomu should create or update when mining.",
       ankiTemplateSettings: "Yomu card template",
       ankiTemplateSettingsHelp: "These controls shape cards created with the Yomu note type. Existing imported decks keep their own Anki templates; field mapping controls which fields Yomu can read or update.",
       ankiMappingConfidenceHelp: "Confidence comes from scanned field names and sample card content. Low-confidence mappings are safe to change before saving.",
       ankiMappingHighConfidence: "High",
       ankiMappingMediumConfidence: "Medium",
       ankiMappingLowConfidence: "Low",
-      ankiHelp: "Desktop Anki: install AnkiConnect, keep Anki open, then press Check. Use Scan after it connects to adapt existing Core/RTK-style or other nonstandard decks. Create prepares the Yomu deck and note type. Mobile handoff only creates new notes.",
+      ankiHelp: "Desktop Anki: install AnkiConnect, keep Anki open, then press Check. よむ then adapts existing Core/RTK-style or other nonstandard decks automatically. Create prepares the Yomu deck and note type. Mobile setup help is in Getting Started.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
       localDictionariesEnabled: "Show imported dictionary definitions",
       dictionarySourcesInitiallyExpanded: "Open popup sources by default",
@@ -5422,7 +5474,7 @@ Greasy Fork compliance notes:
       addToAnki: "Add to Anki",
       checkingAnki: "Checking Anki...",
       sendToMobileAnki: "Send to {app}",
-      mobileAnkiActionHint: "Mobile handoff creates new notes only. Existing-card status, updates, library scanning, mapping discovery, and review queues require desktop Anki with AnkiConnect. Saved field mappings can still shape AnkiMobile add-note links.",
+      mobileAnkiActionHint: "Opens mobile Anki to create a new note.",
       ankiAudioFileNotFound: "Anki audio file not found.",
       ankiAudioPlaybackUnavailable: "Anki audio playback is not available here.",
       ankiAudioUnavailablePreview: "Audio not available in preview",
@@ -5466,7 +5518,7 @@ Greasy Fork compliance notes:
       ankiConnectRequestFailed: "AnkiConnect request failed.",
       ankiConnectTimedOut: "AnkiConnect timed out.",
       ankiConnectNeedsBridge: "AnkiConnect needs the userscript request bridge on content pages.",
-      mobileAnkiReady: "AnkiConnect is not connected yet. Mobile handoff can still create new notes only; existing-card status, updates, library scanning, mapping discovery, and review queues require desktop Anki with AnkiConnect.",
+      mobileAnkiReady: "AnkiConnect is not connected. Mobile handoff can still create new notes.",
       ankiConnectionReady: "Connected. AnkiConnect is reachable.",
       ankiConnectedReady: 'Connected. Deck "{deck}" and note type "{model}" are ready.',
       ankiPromptRecallWord: "Recall the highlighted word.",
@@ -5970,9 +6022,9 @@ Greasy Fork compliance notes:
     ankiConnectRequestFailed: "AnkiConnectリクエストに失敗しました。",
     ankiConnectTimedOut: "AnkiConnectがタイムアウトしました。",
     ankiConnectNeedsBridge: "コンテンツページでAnkiConnectを使うには、ユーザースクリプトのリクエストブリッジが必要です。",
-    ankiHostedBridgeMissing: "ホスト版ページ: AnkiConnectには、このページのよむユーザースクリプトが必要です。このページでユーザースクリプトを有効化または更新し、再読み込みしてから「AnkiConnectを確認」を押してください。",
-    ankiHostedCorsHint: "ホスト版ページ: このページでよむユーザースクリプトを有効にし、再読み込みしてから「確認」を押してください。直接接続したい場合のみ、AnkiConnectのwebCorsOriginListに https://hrussellzfac023.github.io を追加してください。",
-    mobileAnkiReady: "AnkiConnectにまだ接続できていません。モバイル受け渡しでは新規ノートのみ作成できます。既存カード状態、更新、ライブラリスキャン、対応付けの検出、復習キューにはデスクトップAnkiとAnkiConnectが必要です。",
+    ankiHostedBridgeMissing: "ホスト版ページ: このページでよむユーザースクリプトを有効にし、再読み込みしてから「AnkiConnectを確認」を押してください。",
+    ankiHostedCorsHint: "任意の上級設定: 直接接続する場合のみ、AnkiConnectのwebCorsOriginListに https://hrussellzfac023.github.io を追加します。",
+    mobileAnkiReady: "AnkiConnectに未接続です。モバイル受け渡しでは新規ノートを作成できます。",
     ankiConnectionReady: "接続しました。AnkiConnectに到達できます。",
     ankiConnectedReady: "接続しました。デッキ「{deck}」とノートタイプ「{model}」の準備ができています。",
     ankiPromptRecallWord: "ハイライトされた単語を思い出してください。",
@@ -6393,9 +6445,9 @@ Greasy Fork compliance notes:
     recallMeaning: "まず意味を思い出します。",
     ankiBackIncludes: "辞書、漢字、ピッチ、頻度、出典、利用可能な画像フィールドを含みます。",
     exampleMeaning: "読む",
-    scanAnkiFirst: "先にAnkiをスキャン",
+    scanAnkiFirst: "先にAnkiConnectに接続",
     notMapped: "対応付けなし",
-    noScannedFields: "スキャン済みフィールドはまだありません。「既存デッキをスキャン」を使ってください。",
+    noScannedFields: "AnkiConnectに接続できるとフィールド候補が自動で入ります。",
     mappingForNoteType: "{model} の対応付け",
     currentNoteType: "現在のノートタイプ",
     ankiFieldMappingSelect: "{role}フィールド",
@@ -6407,29 +6459,28 @@ Greasy Fork compliance notes:
     ankiRoleImage: "画像",
     testAnki: "AnkiConnectを確認",
     prepareAnki: "よむノートタイプを作成",
-    scanAnki: "既存デッキをスキャン",
     ankiCheckingConnection: "{url} のAnkiConnectを確認中。{handoff}",
     ankiMiningDisabledStatus: "Ankiマイニングは無効です。{handoff}",
-    ankiMobileHandoffEnabledStatus: "AnkiMobile/AnkiDroidへの受け渡しはオンです（新規ノート作成のみ）。既存カード状態、更新、ライブラリスキャン、対応付けの検出、復習キューにはデスクトップAnkiとAnkiConnectが必要です。",
-    ankiMobileHandoffDisabledStatus: "AnkiMobile/AnkiDroidへの受け渡しはオフです。既存カード状態、更新、ライブラリスキャン、対応付けの検出、復習キューにはデスクトップAnkiとAnkiConnectが必要です。",
+    ankiMobileHandoffEnabledStatus: "モバイルAnki受け渡しは新規ノートの代替手段としてオンです。Ankiの全機能にはデスクトップAnkiConnectが必要です。",
+    ankiMobileHandoffDisabledStatus: "モバイルAnki受け渡しはオフです。Ankiの全機能にはデスクトップAnkiConnectが必要です。",
     ankiTesting: "AnkiConnectを確認中...",
     ankiPreparing: "よむデッキとノートタイプを作成または更新中...",
     ankiScanning: "既存Ankiデッキ、ノートタイプ、フィールドをスキャン中...",
     ankiScanSummary: "{decks}件のデッキと{models}件のノートタイプを検出しました。最有力: {model}。{fields}",
     ankiScanNoModels: "{decks}件のデッキを検出しましたが、ノートタイプは取得できませんでした。",
     ankiScanFieldSummary: "フィールド: {fields}",
-    ankiUnreachable: "AnkiConnectにまだ接続できていません。このPCでAnkiを開き、AnkiConnectをインストールまたは有効化してから「AnkiConnectを確認」を押してください。",
+    ankiUnreachable: "AnkiConnectに未接続です。Ankiを開き、AnkiConnectが有効か確認してから「AnkiConnectを確認」を押してください。",
     ankiLibraryAdapter: "既存ライブラリアダプター",
-    ankiLibraryAdapterStatus: "AnkiConnect接続後にスキャンすると、RTK/Core系などの既存デッキや非標準ノートタイプを調べ、フィールド対応付けを提案します。モバイル受け渡しでは既存カード状態や復習キューは取得できません。",
+    ankiLibraryAdapterStatus: "AnkiConnectに接続できると、よむはRTK/Core系などの既存デッキやノートタイプを自動で調べ、フィールド対応付けを提案します。",
     ankiLibraryChoices: "デッキとノートタイプ",
-    ankiLibraryChoicesHelp: "スキャンすると実際のAnkiライブラリから選択肢を読み込みます。復習では全デッキが標準で対象になります。採掘時によむが作成・更新するデッキとノートタイプを選んでください。",
+    ankiLibraryChoicesHelp: "AnkiConnectに接続できると、実際のAnkiライブラリから選択肢を読み込みます。復習では全デッキが標準で対象になります。採掘時によむが作成・更新するデッキとノートタイプを選んでください。",
     ankiTemplateSettings: "よむカードテンプレート",
     ankiTemplateSettingsHelp: "この設定は、よむノートタイプで作成するカードの形を決めます。既存のインポート済みデッキはAnki側のテンプレートをそのまま使い、フィールド対応付けでよむが読める・更新できる項目を決めます。",
     ankiMappingConfidenceHelp: "信頼度はスキャンしたフィールド名とカード内容のサンプルから判断します。信頼度が低い対応付けは保存前に変更できます。",
     ankiMappingHighConfidence: "高",
     ankiMappingMediumConfidence: "中",
     ankiMappingLowConfidence: "低",
-    ankiHelp: "デスクトップAnki: AnkiConnectを入れ、Ankiを開いたまま「確認」を押します。接続後の「スキャン」はCore/RTK系など既存・非標準デッキのフィールド対応付け、「作成」はよむ用デッキとノートタイプの準備です。モバイル受け渡しは新規ノート作成のみです。",
+    ankiHelp: "デスクトップAnki: AnkiConnectを入れ、Ankiを開いたまま「確認」を押します。よむは接続後にCore/RTK系など既存デッキへ自動で合わせます。「作成」はよむ用デッキとノートタイプの準備です。モバイル設定はGetting Startedを参照してください。",
     jpdbDefinitionsEnabled: "JPDB定義を表示",
     localDictionariesEnabled: "インポート済み辞書の定義を表示",
     dictionarySourcesInitiallyExpanded: "ポップアップのソースを標準で開く",
@@ -7916,14 +7967,26 @@ Greasy Fork compliance notes:
       preferFetch: false
     }).catch(() => "");
     if (typeof response !== "string") return [];
-    const audioHtml = findHtmlElementById(response, "audio", `audio_${card.spelling}:${card.reading}`) ?? findHtmlElement(response, "audio");
-    return audioHtml ? extractAudioSourceUrls(audioHtml, url).slice(0, 1) : findAudioUrls(response, url).slice(0, 1);
+    const audioHtml = findJishoAudioElement(response, card);
+    return audioHtml ? extractAudioSourceUrls(audioHtml, url).slice(0, 1) : [];
   }
   function shouldSkipJishoLookup(proxyUrl) {
     return !jishoLookupProxyUrl(proxyUrl) && !getUserscriptHttpRequest();
   }
   function jishoLookupProxyUrl(proxyUrl) {
-    return proxyUrl.trim() === DEFAULT_YOMU_PUBLIC_PROXY_URL ? "" : proxyUrl;
+    return proxyUrl;
+  }
+  function findJishoAudioElement(html, card) {
+    const exact = findHtmlElementById(html, "audio", `audio_${card.spelling}:${card.reading}`);
+    if (exact) return exact;
+    if (!card.reading.trim()) return findHtmlElement(html, "audio");
+    return findHtmlElements(html, "audio").find((element2) => jishoAudioReading(element2) === card.reading) ?? null;
+  }
+  function jishoAudioReading(audioHtml) {
+    const id = htmlAttributeValue(audioHtml, "id") ?? "";
+    const marker = id.startsWith("audio_") ? id.slice("audio_".length) : "";
+    const colon = marker.lastIndexOf(":");
+    return colon >= 0 ? marker.slice(colon + 1) : "";
   }
   async function getLanguagePod101AudioUrls(card, timeoutMs, proxyUrl = "") {
     const url = "https://www.japanesepod101.com/learningcenter/reference/dictionary_post";
@@ -8121,6 +8184,10 @@ Greasy Fork compliance notes:
   }
   function findHtmlElementById(html, tag, id) {
     return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp$3(id)}\\1`, "i"));
+  }
+  function htmlAttributeValue(html, attribute) {
+    const match = new RegExp(`\\b${escapeRegExp$3(attribute)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(html);
+    return match?.[2] ?? null;
   }
   function findHtmlElementByClass(html, tag, className) {
     return findHtmlElementsByClass(html, tag, className)[0] ?? null;
@@ -12701,13 +12768,14 @@ ${entry.reading}`;
         const index = await this.loadStatusIndex();
         if (this.isDestroyed) return null;
         const now = Date.now();
-        if (index && now - index.checkedAt < ANKI_STATUS_INDEX_COUNT_CHECK_MS) return index;
+        const needsReadingKeyRefresh = Boolean(index && !index.readingKeys);
+        if (index && !needsReadingKeyRefresh && now - index.checkedAt < ANKI_STATUS_INDEX_COUNT_CHECK_MS) return index;
         if (!index && !options.rebuildIfMissing) return null;
         if (!await this.isAvailableForBackground()) return index;
         if (this.isDestroyed) return null;
         const deckStatsCardCount = index ? await this.collectionCardCountFromDeckStats() : null;
         if (this.isDestroyed) return null;
-        if (index && deckStatsCardCount !== null && deckStatsCardCount === index.cardCount && now - index.syncedAt < ANKI_STATUS_INDEX_MAX_STALE_MS) {
+        if (index && !needsReadingKeyRefresh && deckStatsCardCount !== null && deckStatsCardCount === index.cardCount && now - index.syncedAt < ANKI_STATUS_INDEX_MAX_STALE_MS) {
           const checked = { ...index, checkedAt: now };
           this.statusIndex = checked;
           await saveAnkiStatusIndexCheckedAt(checked);
@@ -12721,7 +12789,7 @@ ${entry.reading}`;
           const cardIds = await this.invoke("findCards", { query: "deck:*" });
           touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
           if (this.isDestroyed) return null;
-          if (index && cardIds.length === index.cardCount && rebuildStartedAt - index.syncedAt < ANKI_STATUS_INDEX_MAX_STALE_MS) {
+          if (index && !needsReadingKeyRefresh && cardIds.length === index.cardCount && rebuildStartedAt - index.syncedAt < ANKI_STATUS_INDEX_MAX_STALE_MS) {
             const checked = { ...index, checkedAt: rebuildStartedAt };
             this.statusIndex = checked;
             await saveAnkiStatusIndexCheckedAt(checked);
@@ -12815,7 +12883,8 @@ ${entry.reading}`;
         checkedAt: now,
         cardCount: allCardIds.length,
         entryCount: Object.keys(entries).length,
-        entries
+        entries,
+        readingKeys: true
       };
       this.statusIndex = index;
       this.statusLookupCache.clear();
@@ -12849,7 +12918,8 @@ ${entry.reading}`;
           cardCount,
           entryCount,
           entryStore: "indexeddb",
-          entries: {}
+          entries: {},
+          readingKeys: true
         };
         await putAnkiStatusIndexMeta(db, ankiStatusIndexMeta(index));
         await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
@@ -13526,7 +13596,8 @@ ${entry.reading}`;
         cardCount: meta.cardCount,
         entryCount: meta.entryCount,
         entryStore: "indexeddb",
-        entries: {}
+        entries: {},
+        readingKeys: meta.readingKeys
       };
     } finally {
       db.close();
@@ -13573,7 +13644,8 @@ ${entry.reading}`;
       cardCount: index.cardCount,
       entryCount: index.entryCount ?? Object.keys(index.entries).length,
       entryStore: "indexeddb",
-      entries: {}
+      entries: {},
+      readingKeys: index.readingKeys
     };
   }
   function clearAnkiStatusIndexStores(db) {
@@ -14357,6 +14429,9 @@ ${entry.reading}`;
   function statusIndexKey(value) {
     return normalizeStatusIndexValue(value).toLocaleLowerCase();
   }
+  function statusIndexReadingKey(value) {
+    return `reading:${statusIndexKey(value)}`;
+  }
   function statusIndexEntriesForNotes(notes, cardData, settings) {
     const entries = /* @__PURE__ */ new Map();
     for (const note of notes) {
@@ -14377,6 +14452,10 @@ ${entry.reading}`;
       if (value.length <= 80) keys.add(statusIndexKey(value));
       value.split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u).map(statusIndexKey).filter((value2) => value2.length >= 2).forEach((value2) => keys.add(value2));
     }
+    for (const value of statusIndexReadingFieldValues(fields, mapping)) {
+      if (value.length <= 80) keys.add(statusIndexReadingKey(value));
+      value.split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u).map(statusIndexReadingKey).filter((value2) => value2.length >= "reading:".length + 2).forEach((value2) => keys.add(value2));
+    }
     return [...keys].filter(Boolean);
   }
   function statusIndexFieldValues(fields, mapping) {
@@ -14386,8 +14465,26 @@ ${entry.reading}`;
     if (preferred.length) return unique$2(preferred);
     return noteFieldValues(fields).filter((value) => value.length <= 80 && /[\u3040-\u30ff\u3400-\u9fff]/.test(value));
   }
+  function statusIndexReadingFieldValues(fields, mapping) {
+    return unique$2([
+      mappedNoteField(fields, mapping, "reading"),
+      firstNoteReading(fields)
+    ].map((value) => value.replace(/\s+/g, " ").trim()).filter((value) => value.length >= 2));
+  }
   function statusIndexKeysForCard(card) {
-    return unique$2(noteCardExpressionTargets(card).map(statusIndexKey));
+    const keys = noteCardExpressionTargets(card).map(statusIndexKey);
+    if (shouldUseStatusReadingKey(card)) keys.push(statusIndexReadingKey(card.reading || card.spelling));
+    return unique$2(keys);
+  }
+  function shouldUseStatusReadingKey(card) {
+    const reading = (card.reading || "").replace(/\s+/g, " ").trim();
+    const spelling = (card.spelling || "").replace(/\s+/g, " ").trim();
+    if (!reading || reading.length < 2) return false;
+    if (!spelling || spelling.length < 2) return false;
+    return spelling === reading || isKanaStatusLookupSurface(spelling);
+  }
+  function isKanaStatusLookupSurface(value) {
+    return /[\u3040-\u30ff]/u.test(value) && !/[\u3400-\u9fff]/u.test(value);
   }
   function statusIndexEntryForCard(index, card, entries) {
     return statusIndexKeysForCard(card).map((key) => entries?.get(key) ?? index.entries[key]).find(Boolean) ?? null;
@@ -15299,8 +15396,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const mobileHandoff = shouldRenderMobileAnkiHandoffAction(ankiLookup, settings);
     if (!mobileHandoff && ankiLookup.trusted === false) return "";
     const label = mobileHandoff ? formatUiText(settings.interfaceLanguage, "sendToMobileAnki", { app: mobileAnkiHandoffAppName() }) : uiText(settings.interfaceLanguage, "addToAnki");
-    const hint = mobileHandoff ? `<div class="jpdb-reader-help jpdb-reader-anki-handoff-hint">${escapeHtml$1(uiText(settings.interfaceLanguage, "mobileAnkiActionHint"))}</div>` : "";
-    return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${escapeHtml$1(label)}</button></div>${hint}`;
+    return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${escapeHtml$1(label)}</button></div>`;
   }
   function shouldRenderMobileAnkiHandoffAction(ankiLookup, settings) {
     return canUseMobileAnkiHandoff(settings) && !ankiLookup.primary;
@@ -20579,9 +20675,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       }), ankiLookupWithUnavailableDetails(fallback)));
     }
     async loadAnkiLookupWhenAvailable(card, fallback) {
-      if (typeof this.dependencies.anki.isAvailableForBackground === "function" && !await this.dependencies.anki.isAvailableForBackground()) {
-        return ankiLookupWithUnavailableDetails(fallback);
-      }
       const lookup = await this.dependencies.anki.findExistingCards(card);
       const resolved = lookup.primary || lookup.trusted !== false ? lookup : fallback;
       return ankiLookupWithUnavailableDetails(resolved);
@@ -32774,7 +32867,7 @@ ${spelling}`);
                 <div class="jpdb-reader-help" data-help-support-copy>${escapeHtml$1(SUPPORT_COPY)}</div>
                 <div class="jpdb-reader-help" data-help-support-copy-extra>${escapeHtml$1(SUPPORT_COPY_EXTRA)}</div>
                 <div class="jpdb-reader-help-actions">
-                    <a class="jpdb-reader-btn" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">${externalButtonLabel("Donate")}</a>
+                    <a class="jpdb-reader-btn jpdb-reader-help-donate" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">${externalButtonLabel("Donate")}</a>
                     <a class="jpdb-reader-btn" href="${GITHUB_REPOSITORY_URL}/issues" target="_blank" rel="noopener" data-help-link="issues">${externalButtonLabel("Issues")}</a>
                     <a class="jpdb-reader-btn" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener" data-help-link="discord">${externalButtonLabel("Discord")}</a>
                 </div>
@@ -33337,7 +33430,6 @@ ${spelling}`);
                             <div id="settings-help-anki" class="jpdb-reader-help" data-anki-setup-help></div>
                             <div class="jpdb-reader-settings-actions jpdb-reader-anki-actions">
                                 <button class="jpdb-reader-btn" type="button" data-action="test-anki">Check</button>
-                                <button class="jpdb-reader-btn secondary" type="button" data-action="scan-anki">Scan</button>
                                 <button class="jpdb-reader-btn secondary" type="button" data-action="prepare-anki">Create</button>
                             </div>
                         </div>
@@ -33357,7 +33449,7 @@ ${spelling}`);
                                 ${checkbox("ankiFrontReading", "Word-first front: show reading", settings.ankiFrontReading)}
                                 ${checkbox("ankiFrontSentence", "Word-first front: show sentence", settings.ankiFrontSentence)}
                                 ${checkbox("ankiFrontImage", "Show image on front", settings.ankiFrontImage)}
-                                ${input("ankiTags", "Tags", settings.ankiTags)}
+                                ${renderAnkiTagsEditor(settings.ankiTags, settings.interfaceLanguage)}
                             </div>
                             <div data-anki-template-preview>
                                 ${renderAnkiTemplatePreview(settings)}
@@ -33379,6 +33471,29 @@ ${spelling}`);
     const values = uniqueStrings$1([value, ...options].filter(Boolean));
     const rows = values.map((option) => `<option value="${escapeHtml$1(option)}" ${option === value ? "selected" : ""}>${escapeHtml$1(option)}</option>`);
     return rows.length ? rows.join("") : `<option value="" selected>${escapedUiText(language, "scanAnkiFirst")}</option>`;
+  }
+  function renderAnkiTagsEditor(value, language) {
+    const tags = ankiTagList$1(value);
+    const chips = tags.map((tag) => `
+        <button class="jpdb-reader-tag-chip" type="button" data-action="anki-tag-remove" data-tag="${escapeHtml$1(tag)}" aria-label="${escapeHtml$1((language === "ja" ? "タグを削除: " : "Remove tag: ") + tag)}">
+            <span>${escapeHtml$1(tag)}</span>
+            <span aria-hidden="true">×</span>
+        </button>
+    `).join("");
+    return `
+        <div class="jpdb-reader-tag-editor" data-anki-tags-editor>
+            <input type="hidden" name="ankiTags" value="${escapeHtml$1(tags.join(" "))}">
+            <label class="jpdb-reader-settings-label-text" for="jpdb-reader-anki-tag-input">${escapedUiText(language, "ankiTags")}</label>
+            <div class="jpdb-reader-tag-chip-list" data-anki-tag-chips>${chips}</div>
+            <div class="jpdb-reader-tag-add-row">
+                <input id="jpdb-reader-anki-tag-input" type="text" data-anki-tag-input autocomplete="off" placeholder="${escapeHtml$1(language === "ja" ? "タグを追加" : "Add tag")}">
+                <button class="jpdb-reader-btn secondary" type="button" data-action="anki-tag-add">${escapeHtml$1(language === "ja" ? "追加" : "Add")}</button>
+            </div>
+        </div>
+    `;
+  }
+  function ankiTagList$1(value) {
+    return uniqueStrings$1(value.split(/[\s,]+/u).map((tag) => tag.trim()).filter(Boolean));
   }
   function formatStatusTemplate(template, values) {
     return template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
@@ -33937,7 +34052,6 @@ ${spelling}`);
   function localizeSettingsActions(form, text2) {
     form.querySelectorAll('[data-action="test-anki"]').forEach((button2) => button2.replaceChildren(text2("testAnki")));
     form.querySelectorAll('[data-action="prepare-anki"]').forEach((button2) => button2.replaceChildren(text2("prepareAnki")));
-    form.querySelectorAll('[data-action="scan-anki"]').forEach((button2) => button2.replaceChildren(text2("scanAnki")));
     form.querySelector('[data-action="copy-newtab-url"]')?.replaceChildren(text2("copyAddress"));
     form.querySelector("[data-newtab-url-link]")?.replaceChildren(text2("openNewTabPage"));
     form.querySelector('[data-action="import-yomitan-settings"]')?.replaceChildren(text2("importSettings"));
@@ -35375,6 +35489,51 @@ ${spelling}`);
       namedSettingsControl(form, "newTabAnkiDisabledDecks")?.value.split(",").map((deck) => deck.trim()).filter(Boolean) ?? []
     );
   }
+  function updateAnkiTagsEditor(form, action, control) {
+    const editor = control?.closest("[data-anki-tags-editor]") ?? form.querySelector("[data-anki-tags-editor]");
+    const hidden = editor?.querySelector('input[name="ankiTags"]');
+    if (!editor || !hidden) return;
+    const language = getFormInterfaceLanguage(form, "en");
+    const tags = ankiTagList(hidden.value);
+    if (action === "anki-tag-add") {
+      const input2 = editor.querySelector("[data-anki-tag-input]");
+      ankiTagList(input2?.value ?? "").forEach((tag) => {
+        if (!tags.includes(tag)) tags.push(tag);
+      });
+      if (input2) input2.value = "";
+    } else {
+      const tag = control?.dataset.tag?.trim();
+      if (tag) {
+        const index = tags.indexOf(tag);
+        if (index >= 0) tags.splice(index, 1);
+      }
+    }
+    hidden.value = tags.join(" ");
+    hidden.dispatchEvent(new Event("input", { bubbles: true }));
+    renderAnkiTagChips(editor, tags, language);
+  }
+  function renderAnkiTagChips(editor, tags, language) {
+    const list = editor.querySelector("[data-anki-tag-chips]");
+    if (!list) return;
+    list.replaceChildren(...tags.map((tag) => {
+      const button2 = document.createElement("button");
+      button2.className = "jpdb-reader-tag-chip";
+      button2.type = "button";
+      button2.dataset.action = "anki-tag-remove";
+      button2.dataset.tag = tag;
+      button2.setAttribute("aria-label", `${uiText(language, "remove")}: ${tag}`);
+      const label = document.createElement("span");
+      label.textContent = tag;
+      const remove = document.createElement("span");
+      remove.textContent = "×";
+      remove.setAttribute("aria-hidden", "true");
+      button2.append(label, remove);
+      return button2;
+    }));
+  }
+  function ankiTagList(value) {
+    return Array.from(new Set(value.split(/[\s,]+/u).map((tag) => tag.trim()).filter(Boolean)));
+  }
   function selectedSettingsPanel(control) {
     return control?.dataset.panel ?? "jpdb";
   }
@@ -35436,6 +35595,7 @@ ${spelling}`);
     modalSiblingState;
     saveRequestId = 0;
     ankiConnectionProbeId = 0;
+    ankiLibraryScanId = 0;
     open(panel) {
       log$4.info("Opening settings", { panel: panel ?? "default" });
       this.previouslyFocusedElement = document.activeElement instanceof HTMLElement && !document.activeElement.closest(".jpdb-reader-settings") ? document.activeElement : void 0;
@@ -35746,6 +35906,10 @@ ${spelling}`);
         void this.handleSettingsAction(form, action, control);
       });
       form.addEventListener("keydown", (event) => {
+        if (this.handleAnkiTagInputKeydown(form, event)) {
+          event.preventDefault();
+          return;
+        }
         if (event.key !== "Enter" && event.key !== " ") return;
         if (this.handleSettingsPreviewLookup(event)) event.preventDefault();
       });
@@ -35859,6 +36023,7 @@ ${spelling}`);
       const formSettings = readFormSettings(new FormData(form), this.settings);
       const initialLine = ankiStatusLineForSettings(formSettings, language);
       const requestId = ++this.ankiConnectionProbeId;
+      this.ankiLibraryScanId++;
       this.setAnkiStatus(form, initialLine.message, initialLine.tone);
       if (!formSettings.ankiEnabled) return;
       const previous = this.settings;
@@ -35868,6 +36033,7 @@ ${spelling}`);
         if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
         if (connected) {
           this.setAnkiStatus(form, uiText(language, "ankiConnectionReady"), "success");
+          this.queueAutomaticAnkiLibraryScan(form, language);
         } else if (canUseMobileAnkiHandoff(formSettings)) {
           this.setAnkiStatus(form, uiText(language, "mobileAnkiReady"), "pending");
         } else {
@@ -35883,6 +36049,34 @@ ${spelling}`);
     }
     shouldApplyAnkiConnectionProbe(form, requestId) {
       return this.currentForm === form && form.isConnected && requestId === this.ankiConnectionProbeId;
+    }
+    queueAutomaticAnkiLibraryScan(form, language) {
+      const requestId = ++this.ankiLibraryScanId;
+      window.setTimeout(() => {
+        void this.refreshAnkiLibraryScan(form, requestId, language);
+      }, 0);
+    }
+    async refreshAnkiLibraryScan(form, requestId, language) {
+      if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+      const previous = this.settings;
+      this.settings = readFormSettings(new FormData(form), this.settings);
+      this.setAnkiStatus(form, uiText(language, "ankiScanning"), "pending");
+      try {
+        const scan = await this.dependencies.anki.scanLibrary();
+        if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+        this.applyAnkiScanToForm(form, scan);
+        this.setAnkiStatus(form, this.ankiScanMessage(scan, language), "success");
+        log$4.info("Automatic Anki library scan succeeded", { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
+      } catch (error) {
+        if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+        log$4.warn("Automatic Anki library scan failed", error);
+        this.setAnkiStatus(form, uiText(language, "ankiConnectionReady"), "success");
+      } finally {
+        this.settings = previous;
+      }
+    }
+    shouldApplyAnkiLibraryScan(form, requestId) {
+      return this.currentForm === form && form.isConnected && requestId === this.ankiLibraryScanId;
     }
     setAnkiStatus(form, message, tone) {
       const status = form.querySelector("[data-anki-status]");
@@ -36054,7 +36248,18 @@ ${spelling}`);
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         return true;
       }
+      if (action === "anki-tag-add" || action === "anki-tag-remove") {
+        updateAnkiTagsEditor(form, action, control);
+        return true;
+      }
       return false;
+    }
+    handleAnkiTagInputKeydown(form, event) {
+      if (event.key !== "Enter") return false;
+      const input2 = event.target?.closest("[data-anki-tag-input]");
+      if (!input2) return false;
+      updateAnkiTagsEditor(form, "anki-tag-add", input2);
+      return true;
     }
     async handleSettingsAudioAction(form, action, control) {
       if (action !== "preview-audio") return false;
@@ -36129,7 +36334,7 @@ ${spelling}`);
       return readerDictionaryExportHasData(json) ? json : void 0;
     }
     async handleSettingsConnectionAction(form, action, control) {
-      if (action !== "test-anki" && action !== "prepare-anki" && action !== "scan-anki") return false;
+      if (action !== "test-anki" && action !== "prepare-anki") return false;
       const ankiStatus = form.querySelector("[data-anki-status]");
       const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
       const button2 = settingsActionButton(control);
@@ -36141,7 +36346,7 @@ ${spelling}`);
       const previous = this.settings;
       this.settings = readFormSettings(new FormData(form), this.settings);
       button2?.setAttribute("disabled", "true");
-      const pendingKey = action === "scan-anki" ? "ankiScanning" : action === "prepare-anki" ? "ankiPreparing" : "ankiTesting";
+      const pendingKey = action === "prepare-anki" ? "ankiPreparing" : "ankiTesting";
       setAnkiStatus(uiText(language, pendingKey), "pending");
       try {
         let connected = false;
@@ -36158,13 +36363,6 @@ ${spelling}`);
             return true;
           }
           setAnkiStatus(this.ankiUnreachableMessage(language), "pending");
-          return true;
-        }
-        if (action === "scan-anki") {
-          const scan = await this.dependencies.anki.scanLibrary();
-          this.applyAnkiScanToForm(form, scan);
-          setAnkiStatus(this.ankiScanMessage(scan, language), "success");
-          log$4.info("Anki library scan succeeded", { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
           return true;
         }
         if (action === "test-anki") {

@@ -3,7 +3,7 @@ import { Logger } from './logger';
 import { canAttemptAudiblePlayback } from './media-activation';
 import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
-import { DEFAULT_YOMU_PUBLIC_PROXY_URL, isKnownCorsBlockedPublicAudioCdnUrl } from './proxy-fetch';
+import { isKnownCorsBlockedPublicAudioCdnUrl } from './proxy-fetch';
 import { requestBlob, requestText } from './reader-http';
 import { uniqueStrings } from './string-utils';
 import { getUserscriptHttpRequest } from './userscript';
@@ -1636,8 +1636,8 @@ async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = '
     }).catch(() => '');
     if (typeof response !== 'string') return [];
 
-    const audioHtml = findHtmlElementById(response, 'audio', `audio_${card.spelling}:${card.reading}`) ?? findHtmlElement(response, 'audio');
-    return audioHtml ? extractAudioSourceUrls(audioHtml, url).slice(0, 1) : findAudioUrls(response, url).slice(0, 1);
+    const audioHtml = findJishoAudioElement(response, card);
+    return audioHtml ? extractAudioSourceUrls(audioHtml, url).slice(0, 1) : [];
 }
 
 function shouldSkipJishoLookup(proxyUrl: string): boolean {
@@ -1645,7 +1645,22 @@ function shouldSkipJishoLookup(proxyUrl: string): boolean {
 }
 
 function jishoLookupProxyUrl(proxyUrl: string): string {
-    return proxyUrl.trim() === DEFAULT_YOMU_PUBLIC_PROXY_URL ? '' : proxyUrl;
+    return proxyUrl;
+}
+
+function findJishoAudioElement(html: string, card: JPDBCard): string | null {
+    const exact = findHtmlElementById(html, 'audio', `audio_${card.spelling}:${card.reading}`);
+    if (exact) return exact;
+    if (!card.reading.trim()) return findHtmlElement(html, 'audio');
+    return findHtmlElements(html, 'audio')
+        .find(element => jishoAudioReading(element) === card.reading) ?? null;
+}
+
+function jishoAudioReading(audioHtml: string): string {
+    const id = htmlAttributeValue(audioHtml, 'id') ?? '';
+    const marker = id.startsWith('audio_') ? id.slice('audio_'.length) : '';
+    const colon = marker.lastIndexOf(':');
+    return colon >= 0 ? marker.slice(colon + 1) : '';
 }
 
 async function getLanguagePod101AudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = ''): Promise<string[]> {
@@ -1900,6 +1915,11 @@ function shouldPreferFetchForAudioRequests(): boolean {
 
 function findHtmlElementById(html: string, tag: string, id: string): string | null {
     return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp(id)}\\1`, 'i'));
+}
+
+function htmlAttributeValue(html: string, attribute: string): string | null {
+    const match = new RegExp(`\\b${escapeRegExp(attribute)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, 'i').exec(html);
+    return match?.[2] ?? null;
 }
 
 function findHtmlElementByClass(html: string, tag: string, className: string): string | null {

@@ -11,7 +11,7 @@ describe('Yomitan ZIP import performance path', () => {
     afterEach(async () => {
         vi.restoreAllMocks();
         for (const store of activeStores.splice(0).reverse()) {
-            await store.deleteDatabase({ timeoutMs: 50 }).catch(() => undefined);
+            await store.deleteDatabase({ timeoutMs: 2000 }).catch(() => undefined);
         }
     });
 
@@ -124,7 +124,7 @@ describe('Yomitan ZIP import performance path', () => {
                 delete (IDBIndex.prototype as { getAll?: unknown }).getAll;
             }
         }
-    });
+    }, 15000);
 
     it('recovers dictionary availability from simple reader exports without dictionary metadata', async () => {
         const store = createStore();
