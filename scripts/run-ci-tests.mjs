@@ -24,7 +24,14 @@ function runRegularShard(currentShard, shardTotal) {
     const files = collectTestFiles(join(ROOT, 'tests/reader'))
         .filter(file => file !== JPDB_TEST)
         .filter(file => !file.includes('/.vitest-jpdb-shards/'));
-    runVitest(['run', ...files.map(file => relative(ROOT, file)), `--shard=${currentShard}/${shardTotal}`]);
+    const maxWorkers = readPositiveInt(process.env.YOMU_CI_REGULAR_MAX_WORKERS ?? '4', 'YOMU_CI_REGULAR_MAX_WORKERS');
+    runVitest([
+        'run',
+        ...files.map(file => relative(ROOT, file)),
+        `--shard=${currentShard}/${shardTotal}`,
+        '--minWorkers=1',
+        `--maxWorkers=${maxWorkers}`,
+    ]);
 }
 
 function runJpdbShard(currentShard, shardTotal, reuseGenerated = false) {

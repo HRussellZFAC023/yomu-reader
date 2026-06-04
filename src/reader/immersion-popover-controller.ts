@@ -35,6 +35,7 @@ import {
     type StoredMiningContext,
 } from './mining-context';
 import { speakerIcon } from './icons';
+import { capturePopoverScrollFrame, restorePopoverScrollFrameSoon } from './popover-shell';
 import { jpdbFirstParseOptions, type ReaderParserParseOptions } from './reader-parser';
 import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 
@@ -646,9 +647,11 @@ export class ImmersionPopoverController {
 
         this.rememberExampleMiningContext(card, example, index, examples.length, contextImageUrl, audioUrls, promoteMiningContext);
         delete container.dataset.immersionEmpty;
+        const scrollFrame = capturePopoverScrollFrame(container);
         setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio));
         this.loadRenderedExampleImages(container, imageUrls, isCurrent);
         this.options.repositionPopover();
+        restorePopoverScrollFrameSoon(scrollFrame);
         if (playAudio) void this.playExampleAudio(example, true);
         if (cachedTokens) this.applyParsedExampleSentence(container, card, example, cachedTokens, { updateHtml: false });
         else this.parseRenderedExampleSentence(container, card, example, isCurrent);

@@ -22,6 +22,7 @@ import {
     localizeSettingsForm,
     readFormSettings,
     canonicalNewTabAnkiDisabledDecks,
+    renderAnkiDeckLibraryOptions,
     renderAnkiFieldMappingEditor,
     renderAnkiLibraryOptions,
     renderAnkiTemplatePreview,
@@ -413,21 +414,30 @@ export class SettingsDialogController {
         });
     }
 
-    private async afterSettingsSaved(form: HTMLFormElement, saveRequestId: number): Promise<void> {
+    private afterSettingsSaved(form: HTMLFormElement, saveRequestId: number): void {
+        if (this.currentForm !== form || !form.isConnected || this.saveRequestId !== saveRequestId) return;
         log.info('Settings saved', loggingSettingsSummary(this.settings));
         this.dependencies.jpdb.clear();
         this.dependencies.applyTheme();
-        await this.dependencies.refreshDictionaryStyles();
         this.dependencies.installFab();
         this.dependencies.subtitles.refresh();
         this.dependencies.ocr.refresh();
         this.dependencies.youtube.refresh();
-        if (this.currentForm !== form || !form.isConnected || this.saveRequestId !== saveRequestId) return;
         this.dependencies.clearSettingsPreview();
         this.dismissSettings();
         this.dependencies.scheduleDictionaryRescan();
         this.dependencies.refreshNewTabIfCurrent();
         this.dependencies.toast(uiText(this.settings.interfaceLanguage, 'settingsSaved'));
+        void this.refreshDictionaryStylesAfterSave();
+    }
+
+    private async refreshDictionaryStylesAfterSave(): Promise<void> {
+        try {
+            await this.dependencies.refreshDictionaryStyles();
+        } catch (error) {
+            log.warn('Dictionary styles refresh failed after settings save', error);
+            this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, 'actionFailed')));
+        }
     }
 
     private bindLivePreview(form: HTMLFormElement): void {
@@ -1149,7 +1159,7 @@ export class SettingsDialogController {
         const deckOptions = form.querySelector<HTMLElement>('[data-anki-deck-options]');
         const currentDeck = selected.selectedDeck ?? namedSettingsControl<HTMLInputElement | HTMLSelectElement>(form, 'ankiDeck')?.value.trim() ?? '';
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-        if (deckOptions) setInnerHtml(deckOptions, renderAnkiLibraryOptions([currentDeck, ...scan.deckNames].filter(Boolean), currentDeck, language));
+        if (deckOptions) setInnerHtml(deckOptions, renderAnkiDeckLibraryOptions([currentDeck, ...scan.deckNames].filter(Boolean), currentDeck, language));
         this.renderNewTabAnkiDeckToggles(form, scan.deckNames, language);
         const modelOptions = form.querySelector<HTMLElement>('[data-anki-model-options]');
         if (modelOptions) {

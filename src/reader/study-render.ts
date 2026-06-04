@@ -1,6 +1,7 @@
 import { setInnerHtml } from './dom';
 import { uiText } from './i18n';
 import { Logger } from './logger';
+import { capturePopoverScrollFrame, restorePopoverScrollFrameSoon } from './popover-shell';
 import { detectGrammarHints, renderGrammarHints, setGrammarRuleKnown, setKnownGrammarVisible, translateJapaneseSentence, type GrammarHint } from './study-tools';
 import { renderStudyMeaningBlock } from './study-section-render';
 import type { InterfaceLanguage } from './types';
@@ -16,7 +17,7 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
     if (action === 'study-translate') {
         try {
             const translated = await translateJapaneseSentence(sentence, language);
-            setInnerHtml(panel, renderStudyMeaningBlock(translated, language));
+            replaceStudyPanelHtml(panel, renderStudyMeaningBlock(translated, language));
             return;
         } finally {
             done();
@@ -29,7 +30,7 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
         done();
         return;
     }
-    setInnerHtml(panel, await renderGrammarHints(hints, sentence, undefined, language, { audioEnabled: options.audioEnabled }));
+    replaceStudyPanelHtml(panel, await renderGrammarHints(hints, sentence, undefined, language, { audioEnabled: options.audioEnabled }));
     done();
 }
 
@@ -62,5 +63,11 @@ async function rerenderGrammarPanel(button: HTMLButtonElement, sentence: string,
     const panel = button.closest<HTMLElement>('.jpdb-reader-study-panel');
     if (!panel) return;
     const hints = detectGrammarHints(sentence);
-    setInnerHtml(panel, await renderGrammarHints(hints, sentence, undefined, language, { audioEnabled: options.audioEnabled }));
+    replaceStudyPanelHtml(panel, await renderGrammarHints(hints, sentence, undefined, language, { audioEnabled: options.audioEnabled }));
+}
+
+function replaceStudyPanelHtml(panel: HTMLElement, html: string): void {
+    const scrollFrame = capturePopoverScrollFrame(panel);
+    setInnerHtml(panel, html);
+    restorePopoverScrollFrameSoon(scrollFrame);
 }

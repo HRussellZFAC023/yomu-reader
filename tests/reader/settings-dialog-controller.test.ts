@@ -300,10 +300,10 @@ describe('settings dialog keyboard dismissal', () => {
             .map(chip => chip.dataset.tag)).toEqual(['yomu', 'immersion']);
     });
 
-    it('does not dismiss or toast from a stale save after settings is reopened', async () => {
+    it('dismisses and toasts without waiting for dictionary styles to refresh', async () => {
         const refresh = deferred<void>();
         const refreshDictionaryStyles = vi.fn(() => refresh.promise);
-        const { controller, dependencies, dismiss, form } = createSettingsDialog({
+        const { dependencies, dismiss, form } = createSettingsDialog({
             dictionaries: {
                 summary: vi.fn(() => new Promise(() => undefined)),
             },
@@ -311,11 +311,26 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-        await waitForCondition(() => refreshDictionaryStyles.mock.calls.length === 1);
+        await waitForCondition(() => dismiss.mock.calls.length === 1);
+
+        expect(refreshDictionaryStyles).toHaveBeenCalled();
+        expect(dependencies.toast).toHaveBeenCalledWith('Settings saved.');
+
+        refresh.resolve();
+    });
+
+    it('does not dismiss or toast from a stale save after settings is reopened', async () => {
+        const storage = deferred<void>();
+        const setValue = vi.fn(() => storage.promise);
+        vi.stubGlobal('GM_setValue', setValue);
+        const { controller, dependencies, dismiss, form } = createSettingsDialog();
+
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await waitForCondition(() => setValue.mock.calls.length === 1);
         form.remove();
         controller.open();
 
-        refresh.resolve();
+        storage.resolve();
         await flushPromises();
         await flushPromises();
 
@@ -544,6 +559,7 @@ describe('settings dialog keyboard dismissal', () => {
             },
         });
         const { form } = createSettingsDialog({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true }),
             anki: {
                 isConnected,
                 scanLibrary,
@@ -554,7 +570,7 @@ describe('settings dialog keyboard dismissal', () => {
 
         expect(form.querySelector<HTMLSelectElement>('select[name="ankiDeck"]')?.value).toBe('Anime Mining');
         expect(form.querySelector<HTMLSelectElement>('select[name="ankiModel"]')?.value).toBe('Imported Japanese');
-        expect(Array.from(form.querySelectorAll<HTMLOptionElement>('[data-anki-deck-options] option')).map(option => option.value)).toEqual(['Anime Mining']);
+        expect(Array.from(form.querySelectorAll<HTMLOptionElement>('[data-anki-deck-options] option')).map(option => option.value)).toEqual(['Anime Mining', 'Default']);
         expect(Array.from(form.querySelectorAll<HTMLOptionElement>('[data-anki-model-options] option')).map(option => option.value)).toEqual(['Imported Japanese']);
         expect(form.querySelector<HTMLSelectElement>('select[data-anki-field-role="expression"]')?.value).toBe('Vocabulary-Kanji');
         expect(form.querySelector<HTMLSelectElement>('select[data-anki-field-role="reading"]')?.value).toBe('Vocabulary-Kana');
@@ -599,6 +615,7 @@ describe('settings dialog keyboard dismissal', () => {
         const scanLibrary = vi.fn().mockRejectedValue(new Error('AnkiConnect needs the userscript request bridge on content pages.'));
         const toast = vi.fn();
         const { form } = createSettingsDialog({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true }),
             anki: {
                 isConnected,
                 scanLibrary,
@@ -650,6 +667,7 @@ describe('settings dialog keyboard dismissal', () => {
         });
         const isConnected = vi.fn().mockResolvedValue(false);
         const { form } = createSettingsDialog({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true }),
             anki: { isConnected },
         });
 
@@ -667,6 +685,7 @@ describe('settings dialog keyboard dismissal', () => {
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
+            ankiEnabled: true,
             newTabAnkiDisabledDecks: ['Missing Deck', 'Archive'],
         };
         const isConnected = vi.fn().mockResolvedValue(true);

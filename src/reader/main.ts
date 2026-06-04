@@ -94,7 +94,7 @@ import {
     type ActivePointerTextLookup,
     type PointerTextLookup,
 } from './pointer-text-lookup';
-import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, popoverMaxHeightSetting, refreshForcedReaderPopoverSurface, shouldUseSheet } from './popover-shell';
+import { capturePopoverScrollFrame, createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, popoverBodyActionElement, popoverMaxHeightSetting, refreshForcedReaderPopoverSurface, restorePopoverScrollFrameSoon, shouldUseSheet } from './popover-shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from './popup-navigation';
 import {
     buildRtkComponentSummaries,
@@ -5539,12 +5539,12 @@ export class ReaderApp {
     }
 
     private installMountedPopoverSurface(popover: HTMLElement, state: PopoverMountState): void {
+        this.installPopoverBodyStabilizers(popover);
         if (!popover.classList.contains('jpdb-reader-sheet')) {
             if (typeof ResizeObserver === 'function') {
                 this.activePopoverResizeObserver = new ResizeObserver(() => this.repositionActivePopover());
                 this.activePopoverResizeObserver.observe(popover);
             }
-            this.installPopoverBodyStabilizers(popover);
             if (state.mode !== 'hover' && state.previousPopoverRect) {
                 this.lockActivePopoverPosition(state.previousPopoverRect);
                 this.placeActivePopoverWithoutMoving(popover, state.previousPopoverRect);
@@ -5688,9 +5688,16 @@ export class ReaderApp {
         popover.dataset.jpdbReaderBodyStabilizers = 'true';
         popover.addEventListener('click', event => {
             const target = event.target instanceof HTMLElement ? event.target : null;
+            if (!target) return;
+            const scrollBody = this.popoverScrollBody(popover);
+            if (!scrollBody.contains(target)) return;
             const summary = target?.closest<HTMLElement>('summary');
-            if (!summary || !popover.contains(summary)) return;
-            this.stabilizePopoverBodyAround(popover, summary);
+            if (summary && scrollBody.contains(summary)) {
+                this.stabilizePopoverBodyAround(popover, summary);
+                return;
+            }
+            if (!popoverBodyActionElement(target, scrollBody)) return;
+            restorePopoverScrollFrameSoon(capturePopoverScrollFrame(scrollBody));
         }, true);
     }
 

@@ -687,12 +687,16 @@ button.jpdb-reader-action-pill {
   display: flex;
   align-items: flex-start;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
   margin-top: 8px;
   padding: 8px 10px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: var(--jpdb-reader-surface-2);
   color: var(--jpdb-reader-text);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .jpdb-reader-status-line[data-status-tone]::before {
   content: "";

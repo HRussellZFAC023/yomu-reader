@@ -140,6 +140,7 @@ describe('nested text parse plans', () => {
                     <label>設定言語<select><option>日本語</option></select><div data-settings-select-options-meta>選択肢: 自動 / 日本語</div></label>
                     <div class="jpdb-reader-local-title">新規タブ</div>
                     <div class="jpdb-reader-help">日本語の説明を読む</div>
+                    <div class="jpdb-reader-help" data-anki-setup-help>デスクトップAnkiの説明を読む</div>
                     <div class="jpdb-reader-status-line">JPDB APIキーがありません。公開検索は使えます。</div>
                 </div>
                 <div data-settings-panel="media" hidden>
@@ -157,6 +158,7 @@ describe('nested text parse plans', () => {
         const texts = plan?.targets.map(target => target.text) ?? [];
 
         expect(texts).toContain('日本語の説明を読む');
+        expect(texts).not.toContain('デスクトップAnkiの説明を読む');
         expect(texts).not.toContain('JPDB APIキーがありません。公開検索は使えます。');
         expect(texts).toContain('よむ 設定');
         expect(texts).toContain('基本');

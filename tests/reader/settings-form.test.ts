@@ -252,6 +252,14 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice .jpdb-reader-select-options-meta { grid-column: 1 / -1; }');
     });
 
+    it('keeps inline settings link icons from expanding into content', () => {
+        const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('.jpdb-reader-settings a:not(.jpdb-reader-btn) svg { display: inline-block; width: 0.95em; height: 0.95em;');
+        expect(normalizedCss).toContain('fill: none; stroke: currentColor; stroke-width: 2.2;');
+        expect(normalizedCss).toContain('stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.12em;');
+    });
+
     it('keeps mobile settings text controls at iOS no-zoom size after base input styling', () => {
         const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
         const baseControlFontIndex = normalizedCss.indexOf('.jpdb-reader-settings input, .jpdb-reader-settings select, .jpdb-reader-field-display');
@@ -657,6 +665,7 @@ describe('settings form localization', () => {
 
         expect(labelForControl(form, 'ankiMobileHandoff')).toContain('mobile Anki handoff fallback');
         expect(labelForControl(form, 'ankiMobileHandoff')).not.toContain('AnkiConnect is unavailable');
+        expect(optionText(form, 'ankiDeck', 'Default')).toBe('Default');
         expect(form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.textContent).toBe('Check AnkiConnect');
         expect(form.querySelector<HTMLButtonElement>('[data-action="prepare-anki"]')?.textContent).toBe('Create Yomu note type');
         expect(form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')).toBeNull();
