@@ -881,7 +881,7 @@ async function runMobileAnkiHandoffSmoke(browser, baseUrl) {
     await targetWord.click({ force: true });
     await page.waitForFunction(() => {
         const popover = document.querySelector('.jpdb-reader-popover');
-        return Boolean(popover?.textContent?.includes('Send to AnkiMobile') && popover.textContent.includes('creates new notes only'));
+        return Boolean(popover?.textContent?.includes('Send to AnkiMobile'));
     }, null, { timeout: 12000 });
 
     const mobilePopover = await page.evaluate(() => ({
@@ -891,10 +891,9 @@ async function runMobileAnkiHandoffSmoke(browser, baseUrl) {
     assert(mobilePopover.hasButton, 'Mobile Anki handoff button was missing', mobilePopover);
     assert(mobilePopover.text.includes('Send to AnkiMobile'), 'Mobile handoff action did not name AnkiMobile', mobilePopover);
     const mobileHandoffText = mobilePopover.text.toLowerCase();
-    assert(mobileHandoffText.includes('creates new notes only')
-        && mobileHandoffText.includes('existing-card status')
-        && mobileHandoffText.includes('review queues')
-        && mobileHandoffText.includes('ankiconnect'), 'Mobile handoff limitations were missing from the popover', mobilePopover);
+    assert(!mobileHandoffText.includes('existing-card status')
+        && !mobileHandoffText.includes('review queues')
+        && !mobileHandoffText.includes('ankiconnect'), 'Mobile handoff limitations should live in docs/settings help, not the popover', mobilePopover);
 
     await page.screenshot({ path: path.join(ARTIFACTS, 'anki-mobile-handoff-smoke.png'), fullPage: false });
     const actionCountBefore = requests.length;
@@ -935,7 +934,7 @@ async function runAndroidAnkiDroidHandoffSmoke(browser, baseUrl) {
     await targetWord.click({ force: true });
     await page.waitForFunction(() => {
         const popover = document.querySelector('.jpdb-reader-popover');
-        return Boolean(popover?.textContent?.includes('Send to AnkiDroid') && popover.textContent.includes('creates new notes only'));
+        return Boolean(popover?.textContent?.includes('Send to AnkiDroid'));
     }, null, { timeout: 12000 });
 
     const mobilePopover = await page.evaluate(() => ({
@@ -946,10 +945,9 @@ async function runAndroidAnkiDroidHandoffSmoke(browser, baseUrl) {
     assert(mobilePopover.text.includes('Send to AnkiDroid'), 'Android handoff action did not name AnkiDroid', mobilePopover);
     const androidHandoffText = mobilePopover.text.toLowerCase();
     assert(
-        androidHandoffText.includes('creates new notes only')
-            && androidHandoffText.includes('ankiconnect')
-            && androidHandoffText.includes('review queues'),
-        'Android handoff limitations were missing from the popover',
+        !androidHandoffText.includes('ankiconnect')
+            && !androidHandoffText.includes('review queues'),
+        'Android handoff limitations should live in docs/settings help, not the popover',
         mobilePopover,
     );
 
@@ -1307,7 +1305,7 @@ async function main() {
     assertBuiltArtifacts();
     mkdirSync(ARTIFACTS, { recursive: true });
     const { server, baseUrl } = await createFixtureServer();
-    const browser = await chromium.launch({ headless: true });
+    const browser = await launchSmokeBrowser({ headless: true });
     try {
         const reader = await runReaderMiningSmoke(browser, baseUrl);
         const localRoot = await runLocalRootReaderSmoke(browser, baseUrl);
@@ -1320,6 +1318,17 @@ async function main() {
     } finally {
         await browser.close().catch(() => undefined);
         await new Promise(resolve => server.close(resolve));
+    }
+}
+
+async function launchSmokeBrowser(options) {
+    const configuredChannel = process.env.YOMU_PLAYWRIGHT_CHANNEL;
+    if (configuredChannel) return chromium.launch({ ...options, channel: configuredChannel });
+    try {
+        return await chromium.launch(options);
+    } catch (error) {
+        if (!String(error?.message ?? '').includes("Executable doesn't exist")) throw error;
+        return chromium.launch({ ...options, channel: 'chrome' });
     }
 }
 

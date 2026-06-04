@@ -68,7 +68,7 @@ That's the setup done. Jump to step 3 to install よむ.
 
 ## 3. Install よむ
 
-[Install よむ userscript](https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js)
+[Install よむ userscript](https://hrussellzfac023.github.io/yomu-reader/yomu.user.js)
 
 **On desktop (Chrome, Edge, Firefox):**
 

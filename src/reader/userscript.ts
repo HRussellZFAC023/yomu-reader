@@ -46,7 +46,7 @@ export function installUserscriptHttpBridge(): void {
     if (!bridgeCandidate?.request) return;
     const markerDataset = bridgeMarkerDataset();
     if (!markerDataset) return;
-    if (markerDataset[BRIDGE_MARKER] === 'true' && bridgeRequestListenerCleanup) {
+    if (hasInstalledUserscriptHttpBridge(markerDataset)) {
         dispatchUserscriptBridgeReady();
         return;
     }
@@ -85,8 +85,15 @@ export function installUserscriptHttpBridgeWhenReady(): void {
     installUserscriptHttpBridge();
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
     if (!shouldInstallUserscriptHttpBridge()) return;
-    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] === 'true') return;
+    if (hasInstalledUserscriptHttpBridge()) return;
     scheduleUserscriptHttpBridgeRetry();
+}
+
+export function uninstallUserscriptHttpBridge(): void {
+    bridgeRequestListenerCleanup?.();
+    bridgeRequestListenerCleanup = undefined;
+    const markerDataset = bridgeMarkerDataset();
+    if (markerDataset) delete markerDataset[BRIDGE_MARKER];
 }
 
 function shouldInstallUserscriptHttpBridge(): boolean {
@@ -99,7 +106,7 @@ function shouldInstallUserscriptHttpBridge(): boolean {
 
 function scheduleUserscriptHttpBridgeRetry(): void {
     const retry = () => {
-        if (bridgeMarkerDataset()?.[BRIDGE_MARKER] === 'true') return;
+        if (hasInstalledUserscriptHttpBridge()) return;
         installUserscriptHttpBridge();
     };
     if (typeof queueMicrotask === 'function') {
@@ -112,6 +119,10 @@ function scheduleUserscriptHttpBridgeRetry(): void {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', retry, { once: true });
     }
+}
+
+function hasInstalledUserscriptHttpBridge(markerDataset = bridgeMarkerDataset()): boolean {
+    return Boolean(markerDataset?.[BRIDGE_MARKER] === 'true' && bridgeRequestListenerCleanup);
 }
 
 function dispatchUserscriptBridgeReady(): void {

@@ -15,7 +15,7 @@ hero:
   actions:
     - theme: brand
       text: Install よむ
-      link: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
+      link: https://hrussellzfac023.github.io/yomu-reader/yomu.user.js
       target: _self
     - theme: alt
       text: Setup Guide
@@ -48,7 +48,7 @@ features:
   </div>
   <div class="yomu-install-steps" aria-label="Install steps">
     <a class="yomu-install-step-link" href="https://www.tampermonkey.net/" target="_blank" rel="noopener" aria-label="Open the Tampermonkey install page for your browser"><b>1</b> <span>Add manager</span></a>
-    <a class="yomu-install-step-link" href="https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js" aria-label="Install the よむ userscript"><b>2</b> <span>Install よむ</span></a>
+    <a class="yomu-install-step-link" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js" aria-label="Install the よむ userscript"><b>2</b> <span>Install よむ</span></a>
     <a class="yomu-install-step-link" href="getting-started#_6-try-your-first-lookup" aria-label="Open first lookup instructions after refreshing a Japanese page"><b>3</b> <span>Refresh page</span></a>
   </div>
 </div>

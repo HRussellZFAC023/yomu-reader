@@ -1,4 +1,4 @@
-const APP_HASH = '95d8d4a1daf8';
+const APP_HASH = '367265374b71';
 const CACHE_NAME = `yomu-newtab-${APP_HASH}`;
 const SHELL = ['./', './index.html', './app.js', '../yomu.user.js'];
 
@@ -9,7 +9,9 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)))),
+    caches.keys().then(keys => Promise.all(keys
+      .filter(key => key.startsWith('yomu-newtab-') && key !== CACHE_NAME)
+      .map(key => caches.delete(key)))),
   );
   self.clients.claim();
 });

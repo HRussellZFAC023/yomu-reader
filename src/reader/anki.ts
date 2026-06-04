@@ -446,7 +446,7 @@ export class AnkiConnectClient {
         const statusIndex = await this.loadStatusIndex();
         if (this.isDestroyed) return cards.map(() => untrustedEmpty);
         if (!statusIndex) {
-            this.queueStatusIndexRefresh({ rebuildIfMissing: true });
+            this.queueStatusIndexRefresh();
         } else if (this.statusIndexNeedsCountCheck(statusIndex)) {
             this.queueStatusIndexRefresh();
         }
@@ -825,12 +825,10 @@ export class AnkiConnectClient {
         settingsKey: string,
     ): Promise<AnkiStatusIndexCardData> {
         const sets = await this.loadStatusIndexCardSets(allCardIds);
-        if (this.isDestroyed) return { sets, cardsByNote: new Map() };
         if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-        const cards = await this.loadStatusIndexCards(allCardIds, sets, rebuildLeaseOwner, settingsKey);
         return {
             sets,
-            cardsByNote: cardsByNoteId(cards),
+            cardsByNote: new Map(),
         };
     }
 
@@ -849,22 +847,6 @@ export class AnkiConnectClient {
     private async findCardIdSet(query: string): Promise<Set<number>> {
         const cardIds = await this.invokeOrDefault<number[]>('findCards', { query }, []);
         return new Set(cardIds.map(Number).filter(Number.isFinite));
-    }
-
-    private async loadStatusIndexCards(
-        allCardIds: number[],
-        cardSets: AnkiStatusIndexCardSets,
-        rebuildLeaseOwner: string | undefined,
-        settingsKey: string,
-    ): Promise<AnkiCardInfo[]> {
-        const cardChunks = chunkArray(unique(allCardIds).map(Number).filter(Number.isFinite), ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE);
-        const cardsByChunk: AnkiCardInfo[][] = Array.from({ length: cardChunks.length }, () => []);
-        await runLimited(cardChunks, ANKI_STATUS_INDEX_NOTE_CONCURRENCY, async (chunk, index) => {
-            const cards = await this.invokeOrDefault<AnkiCardInfo[]>('cardsInfo', { cards: chunk }, []);
-            cardsByChunk[index] = Array.isArray(cards) ? cards.map(card => statusIndexCardWithSetState(card, cardSets)) : [];
-            if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-        });
-        return cardsByChunk.flat();
     }
 
     private isLookupCoolingDown(): boolean {
@@ -2631,9 +2613,10 @@ function statusIndexKeysForCard(card: JPDBCard): string[] {
 function shouldUseStatusReadingKey(card: JPDBCard): boolean {
     const reading = (card.reading || '').replace(/\s+/g, ' ').trim();
     const spelling = (card.spelling || '').replace(/\s+/g, ' ').trim();
-    if (!reading || reading.length < 2) return false;
+    const readingTarget = reading || (isKanaStatusLookupSurface(spelling) ? spelling : '');
+    if (!readingTarget || readingTarget.length < 2) return false;
     if (!spelling || spelling.length < 2) return false;
-    return spelling === reading || isKanaStatusLookupSurface(spelling);
+    return spelling === readingTarget || isKanaStatusLookupSurface(spelling);
 }
 
 function isKanaStatusLookupSurface(value: string): boolean {
@@ -2660,12 +2643,6 @@ function statusIndexEntryFromExisting(note: AnkiExistingNote): AnkiStatusIndexEn
         lapses: note.lapses,
         modelName: note.modelName,
     };
-}
-
-function statusIndexCardWithSetState(card: AnkiCardInfo, cardSets: AnkiStatusIndexCardSets): AnkiCardInfo {
-    const cardId = Number(card.cardId);
-    if (!Number.isFinite(cardId)) return card;
-    return card.queue === 2 ? { ...card, isDue: cardSets.due.has(cardId) } : card;
 }
 
 function ankiExistingNoteFromStatusData(note: AnkiNoteInfo, cardData: AnkiStatusIndexCardData): AnkiExistingNote {
@@ -2855,17 +2832,19 @@ function firstNoteField(fields: Record<string, string>, names: string[]): string
 }
 
 function noteReadingContainsTarget(fields: Record<string, string>, card: JPDBCard, mapping: AnkiFieldMapping | undefined, expressionTargets: string[]): boolean {
+    const spelling = card.spelling.replace(/\s+/g, ' ').trim();
+    const readingTarget = (card.reading || (isKanaStatusLookupSurface(spelling) ? spelling : '')).replace(/\s+/g, ' ').trim();
     const expressionValues = noteExpressionValues(fields, mapping);
     if (expressionValues.length && !expressionValues.some(expression =>
         expressionTargets.some(target => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression, target)),
-    )) {
+    ) && !isKanaStatusLookupSurface(spelling)) {
         return false;
     }
     const readings = unique([
         mappedNoteField(fields, mapping, 'reading'),
         firstNoteReading(fields),
     ].filter(Boolean));
-    return Boolean(card.reading && card.reading.length >= 2 && readings.some(reading => japaneseFieldContainsStandaloneTarget(reading, card.reading)));
+    return Boolean(readingTarget && readingTarget.length >= 2 && readings.some(reading => japaneseFieldContainsStandaloneTarget(reading, readingTarget)));
 }
 
 function noteExpressionValues(fields: Record<string, string>, mapping?: AnkiFieldMapping): string[] {

@@ -1296,7 +1296,7 @@ const JA_COPY: Partial<Record<UiCopyKey, string>> = {
     addToAnki: 'Ankiに追加',
     checkingAnki: 'Ankiを確認中...',
     sendToMobileAnki: '{app}へ送る',
-    mobileAnkiActionHint: 'モバイル受け渡しで作成できるのは新規ノートのみです。既存カード状態、更新、ライブラリスキャン、対応付けの検出、復習キューにはデスクトップAnkiとAnkiConnectが必要です。保存済みフィールド対応付けはAnkiMobile追加リンクにも反映できます。',
+    mobileAnkiActionHint: 'モバイルAnkiで新規ノートを作成します。',
     ankiAudioFileNotFound: 'Anki音声ファイルが見つかりません。',
     ankiAudioPlaybackUnavailable: 'ここではAnki音声を再生できません。',
     ankiAudioUnavailablePreview: 'プレビューで音声を利用できません',

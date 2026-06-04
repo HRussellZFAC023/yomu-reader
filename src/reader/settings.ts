@@ -774,30 +774,47 @@ function normalizeStaleDoublePitchHighlightChannels(
     settings: LegacyReaderSettings | null | undefined,
     channels: Pick<ReaderSettings, ReaderColorChannelKey>,
 ): Pick<ReaderSettings, ReaderColorChannelKey> {
-    if (!hasStaleDoublePitchHighlightChannels(settings, channels)) return channels;
+    const staleWordHighlight = hasStaleWordPitchHighlight(settings, channels);
+    const staleSubtitleHighlight = hasStaleSubtitlePitchHighlight(settings, channels);
+    if (!staleWordHighlight && !staleSubtitleHighlight) return channels;
     return {
         ...channels,
-        wordHighlightColorSource: channels.wordHighlightColorSource === 'pitch' && channels.wordUnderlineColorSource === 'pitch'
+        wordHighlightColorSource: staleWordHighlight
             ? DEFAULT_COLOR_CHANNELS.wordHighlightColorSource
             : channels.wordHighlightColorSource,
-        subtitleHighlightColorSource: channels.subtitleHighlightColorSource === 'pitch' && channels.subtitleUnderlineColorSource === 'pitch'
+        subtitleHighlightColorSource: staleSubtitleHighlight
             ? DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource
             : channels.subtitleHighlightColorSource,
     };
 }
 
-function hasStaleDoublePitchHighlightChannels(
+function hasStaleWordPitchHighlight(
     settings: LegacyReaderSettings | null | undefined,
     channels: Pick<ReaderSettings, ReaderColorChannelKey>,
 ): boolean {
     if (!settings) return false;
     if (settings.wordHighlightMode === 'pitch') return true;
-    return isRawPitchPair(settings, 'wordHighlightColorSource', 'wordUnderlineColorSource')
-        && isRawPitchPair(settings, 'subtitleHighlightColorSource', 'subtitleUnderlineColorSource')
-        && channels.wordHighlightColorSource === 'pitch'
-        && channels.wordUnderlineColorSource === 'pitch'
-        && channels.subtitleHighlightColorSource === 'pitch'
-        && channels.subtitleUnderlineColorSource === 'pitch';
+    return hasStalePitchHighlightPair(settings, channels, 'wordHighlightColorSource', 'wordUnderlineColorSource');
+}
+
+function hasStaleSubtitlePitchHighlight(
+    settings: LegacyReaderSettings | null | undefined,
+    channels: Pick<ReaderSettings, ReaderColorChannelKey>,
+): boolean {
+    if (!settings) return false;
+    if (settings.wordHighlightMode === 'pitch') return true;
+    return hasStalePitchHighlightPair(settings, channels, 'subtitleHighlightColorSource', 'subtitleUnderlineColorSource');
+}
+
+function hasStalePitchHighlightPair(
+    settings: LegacyReaderSettings,
+    channels: Pick<ReaderSettings, ReaderColorChannelKey>,
+    highlight: ReaderColorChannelKey,
+    underline: ReaderColorChannelKey,
+): boolean {
+    return isRawPitchPair(settings, highlight, underline)
+        && channels[highlight] === 'pitch'
+        && channels[underline] === 'pitch';
 }
 
 function isRawPitchPair(settings: LegacyReaderSettings, highlight: ReaderColorChannelKey, underline: ReaderColorChannelKey): boolean {

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { isYomuHostedAppUrl, isYomuHostedPassivePage } from '../../src/reader/app-pages';
 import { AnkiConnectClient, AnkiDuplicateNoteError, buildYomuAnkiFields, YOMU_MODEL_FIELDS, type AnkiLookupResult } from '../../src/reader/anki';
@@ -62,7 +62,7 @@ import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isJapaneseSubtitle
 import { loadSubtitleTrackCues } from '../../src/reader/subtitle-track-loader';
 import { renderSubtitlePrimary } from '../../src/reader/subtitle-rendering';
 import { planTranscriptHydrationIndexes } from '../../src/reader/subtitle-transcript-hydration';
-import { getUserscriptHttpRequest, installUserscriptHttpBridge, installUserscriptHttpBridgeWhenReady } from '../../src/reader/userscript';
+import { getUserscriptHttpRequest, installUserscriptHttpBridge, installUserscriptHttpBridgeWhenReady, uninstallUserscriptHttpBridge } from '../../src/reader/userscript';
 import { renderWordPills } from '../../src/reader/word-pills';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport, renderDictionaryScopedStyles, type YomitanTermEntry } from '../../src/reader/yomitan';
 import { glossaryValueToSearchText } from '../../src/reader/yomitan-glossary-text';
@@ -83,6 +83,10 @@ const card: JPDBCard = {
     pitchAccent: ['LHH'],
     wordWithReading: null,
 };
+
+afterEach(() => {
+    uninstallUserscriptHttpBridge();
+});
 const READER_WORD_CSS = readerCssNeedsFallback(READER_CSS) ? readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8') : READER_CSS;
 const IMMERSION_STUDY_CSS = readFileSync('src/reader/styles/immersion-study.css', 'utf8');
 const LOCAL_DICTIONARY_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
@@ -5640,6 +5644,38 @@ describe('reader helpers', () => {
         } finally {
             controller.destroy();
             restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('keeps the settings puck reachable on coarse-pointer mobile even if stale settings hid it', () => {
+        const controller = new FloatingButtonController();
+        const restoreRects = mockFloatingButtonRects(24, 24);
+        vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+            matches: query === '(pointer: coarse)',
+            media: query,
+            onchange: null,
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+        })));
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            showFloatingButton: false,
+        };
+
+        try {
+            withViewport(390, 844, () => withImmediateAnimationFrame(() => {
+                controller.install(settings, vi.fn(), vi.fn());
+            }));
+
+            expect(document.querySelector('.jpdb-reader-fab')).not.toBeNull();
+        } finally {
+            controller.destroy();
+            restoreRects();
+            vi.unstubAllGlobals();
             document.body.innerHTML = '';
         }
     });
@@ -14407,6 +14443,44 @@ describe('reader helpers', () => {
         }
     });
 
+    it('retries hosted bridge installation when a stale marker exists before the request API appears', async () => {
+        vi.useFakeTimers();
+        const request = vi.fn((options: Parameters<UserscriptHttpRequest>[0]) => {
+            options.onload?.({
+                status: 200,
+                response: 'late-stale-ok',
+                responseText: 'late-stale-ok',
+                finalUrl: options.url,
+            });
+        });
+
+        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html' });
+        vi.stubGlobal('GM_xmlhttpRequest', undefined);
+        document.documentElement.dataset.yomuUserscriptHttpBridge = 'true';
+
+        try {
+            installUserscriptHttpBridgeWhenReady();
+
+            vi.stubGlobal('GM_xmlhttpRequest', request);
+            await vi.runAllTimersAsync();
+
+            const bridgeRequest = getUserscriptHttpRequest();
+            expect(bridgeRequest).toBeDefined();
+
+            await bridgeRequest?.({
+                url: 'http://127.0.0.1:8765',
+                method: 'POST',
+            }) as Promise<UserscriptHttpResponse> | undefined;
+
+            expect(request).toHaveBeenCalledTimes(1);
+            expect(request.mock.calls[0][0].url).toBe('http://127.0.0.1:8765');
+        } finally {
+            delete document.documentElement.dataset.yomuUserscriptHttpBridge;
+            vi.useRealTimers();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('does not repeat the bridge-ready event after a successful immediate install', async () => {
         vi.useFakeTimers();
         const request = vi.fn();
@@ -15848,6 +15922,85 @@ describe('reader helpers', () => {
         }
     });
 
+    it('cold-finds kanji Anki cards by reading when the clicked reader surface is kana-only', async () => {
+        localStorage.clear();
+        await deleteAnkiStatusIndexDatabase();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                if (request.action === 'multi') {
+                    const actions = request.params.actions as Array<{ action: string; params: { query: string } }>;
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: actions.map(action => ({
+                                result: action.params.query.includes('よむ') ? [55] : [],
+                                error: null,
+                            })),
+                            error: null,
+                        },
+                    });
+                }
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '読む' },
+                            Reading: { value: 'よむ' },
+                            Meaning: { value: 'to read' },
+                        },
+                        cards: [7701],
+                    }],
+                    cardsInfo: [{
+                        cardId: 7701,
+                        note: 55,
+                        deckName: 'Anime::Mining',
+                        queue: 2,
+                        type: 2,
+                        due: 0,
+                        reps: 14,
+                        lapses: 0,
+                    }],
+                    areDue: [true],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await expect(client.findExistingCards({
+                ...card,
+                spelling: 'よむ',
+                reading: 'よむ',
+                fallbackLookupTerms: [],
+            })).resolves.toMatchObject({
+                state: 'due',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7701,
+                    fields: {
+                        Word: '読む',
+                        Reading: 'よむ',
+                    },
+                },
+            });
+
+            const searches = requests
+                .filter(request => request.action === 'multi')
+                .flatMap(request => (request.params.actions as Array<{ params: { query: string } }>).map(action => action.params.query));
+            expect(searches.some(query => query.includes('よむ'))).toBe(true);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('accepts raw AnkiConnect multi results when finding existing Anki cards', async () => {
         const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
         vi.stubGlobal('GM', {
@@ -16090,7 +16243,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('stores card deck and review metrics in the browser Anki status index', async () => {
+    it('stores browser Anki status without hydrating every card detail', async () => {
         localStorage.clear();
         await deleteAnkiStatusIndexDatabase();
         const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
@@ -16106,23 +16259,6 @@ describe('reader helpers', () => {
                             ? [7702]
                             : [],
                     findNotes: [55],
-                    cardsInfo: [{
-                        cardId: 7701,
-                        note: 55,
-                        deckName: 'Core',
-                        queue: 2,
-                        type: 2,
-                        reps: 10,
-                        lapses: 0,
-                    }, {
-                        cardId: 7702,
-                        note: 55,
-                        deckName: 'Mining',
-                        queue: 2,
-                        type: 2,
-                        reps: 4,
-                        lapses: 1,
-                    }],
                     notesInfo: [{
                         noteId: 55,
                         modelName: 'Imported Core',
@@ -16134,6 +16270,9 @@ describe('reader helpers', () => {
                         cards: [7701, 7702],
                     }],
                 };
+                if (request.action === 'cardsInfo') {
+                    throw new Error('The browser Anki status index should not hydrate every card detail.');
+                }
                 return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
             },
         });
@@ -16141,7 +16280,7 @@ describe('reader helpers', () => {
         try {
             const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
             await client.rebuildStatusIndex();
-            expect(requests.map(request => request.action)).toContain('cardsInfo');
+            expect(requests.map(request => request.action)).not.toContain('cardsInfo');
             vi.unstubAllGlobals();
             vi.stubGlobal('GM', {
                 xmlHttpRequest: () => Promise.reject(new Error('cached status lookup should not call AnkiConnect')),
@@ -16153,9 +16292,9 @@ describe('reader helpers', () => {
                 primary: {
                     noteId: 55,
                     primaryCardId: 7702,
-                    deckNames: ['Core', 'Mining'],
-                    reps: 14,
-                    lapses: 1,
+                    deckNames: [],
+                    reps: 0,
+                    lapses: 0,
                 },
             }]);
         } finally {
@@ -16496,6 +16635,7 @@ describe('reader helpers', () => {
             });
             expect(noteInfoBatchSizes.reduce((sum, size) => sum + size, 0)).toBe(totalCards);
             expect(Math.max(...noteInfoBatchSizes)).toBeLessThanOrEqual(500);
+            expect(requests.map(request => request.action)).not.toContain('cardsInfo');
 
             requests.length = 0;
             const getSpy = vi.spyOn(IDBObjectStore.prototype, 'get');
@@ -16992,7 +17132,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps cold-cache page coloring misses untrusted without per-word Anki searches', async () => {
+    it('keeps disabled cold-cache page coloring misses untrusted without Anki requests', async () => {
         localStorage.clear();
         await deleteAnkiStatusIndexDatabase();
         const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
@@ -17035,8 +17175,6 @@ describe('reader helpers', () => {
             ]);
 
             expect(requests.map(request => request.action)).toEqual([]);
-            await vi.waitFor(() => expect(requests.map(request => request.action)).toContain('findCards'));
-            expect(requests.map(request => request.action)).toEqual(['version', 'findCards']);
             client.destroy();
         } finally {
             localStorage.clear();
@@ -17097,7 +17235,7 @@ describe('reader helpers', () => {
         }]);
     });
 
-    it('queues a background status index rebuild instead of targeted cold-cache lookups', async () => {
+    it('keeps cold-cache status coloring quiet until explicit Anki status warmup', async () => {
         localStorage.clear();
         await deleteAnkiStatusIndexDatabase();
         const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
@@ -17165,6 +17303,7 @@ describe('reader helpers', () => {
             }]);
 
             expect(requests.map(request => request.action)).toEqual([]);
+            void client.warmStatusIndex();
             await vi.waitFor(() => expect(requests.map(request => request.action)).toContain('findCards'));
 
             const actions = requests.map(request => request.action);

@@ -620,6 +620,27 @@ describe('settings dialog keyboard dismissal', () => {
         vi.unstubAllGlobals();
     });
 
+    it('shows hosted userscript setup guidance when the hosted Anki probe returns disconnected', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
+            origin: 'https://hrussellzfac023.github.io',
+            hostname: 'hrussellzfac023.github.io',
+        });
+        const isConnected = vi.fn().mockResolvedValue(false);
+        const { form } = createSettingsDialog({
+            anki: { isConnected },
+        });
+
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Hosted page') ?? false);
+
+        const status = form.querySelector<HTMLElement>('[data-anki-status]');
+        expect(status?.dataset.statusTone).toBe('pending');
+        expect(status?.textContent).toContain('enable the よむ userscript');
+        expect(status?.textContent).toContain('refresh');
+        expect(status?.textContent).not.toContain('Mobile');
+        vi.unstubAllGlobals();
+    });
+
     it('preserves disabled Anki deck preferences while scanning Anki library metadata', async () => {
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,

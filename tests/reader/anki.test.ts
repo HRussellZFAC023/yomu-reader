@@ -1,13 +1,17 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { canFetchAnkiConnectFrom, needsHostedAnkiConnectSetupHint, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki';
+import { AnkiConnectClient, canFetchAnkiConnectFrom, needsHostedAnkiConnectSetupHint, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki';
 import { renderAnkiExistingSection } from '../../src/reader/anki-render';
 import { uiText } from '../../src/reader/i18n';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { ReaderSettings } from '../../src/reader/types';
+import type { JPDBCard, ReaderSettings } from '../../src/reader/types';
 
 const LOCAL_DICTIONARY_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
+
+afterEach(() => {
+    vi.restoreAllMocks();
+});
 
 describe('AnkiConnect browser fetch eligibility', () => {
     it('keeps hosted loopback AnkiConnect requests on the userscript bridge path', () => {
@@ -53,6 +57,121 @@ describe('AnkiConnect browser fetch eligibility', () => {
             'http://127.0.0.1:8765',
             'http://127.0.0.1:5174/newtab/',
         )).toBe(false);
+    });
+});
+
+describe('Anki existing-card lookup', () => {
+    it('matches a kana page term to an existing kanji Anki note by reading', async () => {
+        const ankiConnectUrl = `${window.location.origin}/anki-connect`;
+        const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+            const body = JSON.parse(String(init?.body ?? '{}')) as { action: string; params?: Record<string, unknown> };
+            const resultForAction = (): unknown => {
+                if (body.action === 'multi') {
+                    const actions = body.params?.actions as Array<{ action: string; params?: Record<string, unknown> }>;
+                    return actions.map(action => ({
+                        result: action.action === 'findNotes' && action.params?.query === '"よむ"' ? [959] : [],
+                        error: null,
+                    }));
+                }
+                if (body.action === 'notesInfo') {
+                    return [{
+                        noteId: 959,
+                        modelName: 'Simple Model',
+                        tags: ['core'],
+                        cards: [123],
+                        fields: {
+                            Japanese_Word: { value: '読む' },
+                            Readings: { value: 'よむ' },
+                            Translation_1: { value: 'to read' },
+                        },
+                    }];
+                }
+                if (body.action === 'cardsInfo') {
+                    return [{
+                        cardId: 123,
+                        note: 959,
+                        deckName: 'Vocab 2k',
+                        queue: 2,
+                        type: 2,
+                        due: 0,
+                        reps: 12,
+                        lapses: 1,
+                        question: '<div>読む</div>',
+                        answer: '<div>to read</div>',
+                    }];
+                }
+                if (body.action === 'areDue') return [true];
+                throw new Error(`Unexpected Anki action: ${body.action}`);
+            };
+            return new Response(JSON.stringify({ result: resultForAction(), error: null }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', ankiConnectUrl }));
+        const result = await client.findExistingCards(jpdbCard({ spelling: 'よむ', reading: '' }));
+
+        expect(result.state).toBe('due');
+        expect(result.primary?.noteId).toBe(959);
+        expect(result.primary?.fields.Japanese_Word).toBe('読む');
+        expect(result.primary?.fields.Readings).toBe('よむ');
+        expect(fetchMock).toHaveBeenCalledWith(
+            ankiConnectUrl,
+            expect.objectContaining({ method: 'POST' }),
+        );
+    });
+
+    it('does not match a kanji page term to a different expression with the same reading', async () => {
+        const ankiConnectUrl = `${window.location.origin}/anki-connect`;
+        vi.stubGlobal('fetch', vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+            const body = JSON.parse(String(init?.body ?? '{}')) as { action: string; params?: Record<string, unknown> };
+            const resultForAction = (): unknown => {
+                if (body.action === 'multi') {
+                    const actions = body.params?.actions as Array<{ action: string; params?: Record<string, unknown> }>;
+                    return actions.map(action => ({
+                        result: action.action === 'findNotes' && action.params?.query === '"うる"' ? [960] : [],
+                        error: null,
+                    }));
+                }
+                if (body.action === 'notesInfo') {
+                    return [{
+                        noteId: 960,
+                        modelName: 'Simple Model',
+                        tags: [],
+                        cards: [124],
+                        fields: {
+                            Japanese_Word: { value: '得る' },
+                            Readings: { value: 'うる' },
+                            Translation_1: { value: 'to obtain' },
+                        },
+                    }];
+                }
+                if (body.action === 'cardsInfo') {
+                    return [{
+                        cardId: 124,
+                        note: 960,
+                        deckName: 'Vocab 2k',
+                        queue: 2,
+                        type: 2,
+                        due: 0,
+                    }];
+                }
+                if (body.action === 'areDue') return [true];
+                throw new Error(`Unexpected Anki action: ${body.action}`);
+            };
+            return new Response(JSON.stringify({ result: resultForAction(), error: null }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        }));
+
+        const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', ankiConnectUrl }));
+        const result = await client.findExistingCards(jpdbCard({ spelling: '売る', reading: 'うる' }));
+
+        expect(result.state).toBe('not-in-deck');
+        expect(result.primary).toBeNull();
     });
 });
 
@@ -368,6 +487,24 @@ function existingAnkiNote(overrides: Partial<AnkiExistingNote> = {}): AnkiExisti
         tags: [],
         reps: 3,
         lapses: 0,
+        ...overrides,
+    };
+}
+
+function jpdbCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
+    return {
+        vid: 1,
+        sid: 0,
+        rid: 0,
+        spelling: '日本語',
+        reading: 'にほんご',
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [{ glosses: ['Japanese language'], partOfSpeech: [] }],
+        cardState: ['not-in-deck'],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'local',
         ...overrides,
     };
 }
