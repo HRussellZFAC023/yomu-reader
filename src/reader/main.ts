@@ -1,6 +1,6 @@
 import { AudioPlayer } from './audio';
 import { isYomuHostedAppUrl } from './app-pages';
-import { AnkiConnectClient, captureActiveVideoFrame, type AnkiLookupResult } from './anki';
+import { AnkiConnectClient, ankiLookupWithUnavailableDetails, captureActiveVideoFrame, type AnkiLookupResult } from './anki';
 import { renderReviewButtons } from './anki-render';
 import { runLimited } from './async-utils';
 import { copyText, hasVisiblePageVideo, isEditableTarget, normalizePressedKey, pauseActiveVideo, positionPopover } from './browser-ui';
@@ -3837,6 +3837,10 @@ export class ReaderApp {
                 })
                 .catch(error => {
                     log.warn('Anki card detail hydration failed while rendering popup', { term: card.spelling }, error);
+                    if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+                    const ankiLookup = ankiLookupWithUnavailableDetails(data.ankiLookup);
+                    if (!ankiLookup.primary) return;
+                    this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup });
                 });
         };
         if (trigger === 'hover') {

@@ -22625,6 +22625,99 @@ describe('reader helpers', () => {
         }
     });
 
+    it('renders cached popup Anki status as unavailable when detail hydration fails', async () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772205,
+            sid: 0,
+            spelling: '始める',
+            reading: 'はじめる',
+            source: 'jpdb',
+        };
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const cachedLookup: AnkiLookupResult = {
+            state: 'due',
+            notes: [],
+            primary: {
+                noteId: 56,
+                primaryCardId: 7702,
+                cardIds: [7702],
+                state: 'due',
+                deckNames: ['Vocab 2k'],
+                modelName: 'Imported Core',
+                fields: {},
+                tags: ['cached'],
+                reps: 5,
+                lapses: 0,
+            },
+        };
+        const hydrateAnkiLookup = vi.fn(async (): Promise<AnkiLookupResult> => {
+            throw new Error('AnkiConnect unavailable');
+        });
+        const renderCompletedCardPopover = vi.fn();
+        const data: CardRenderData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: cachedLookup,
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+        };
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            renderCompletedCardPopover: typeof renderCompletedCardPopover;
+            renderHydratedCardAnkiLookup(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                trigger: 'modal' | 'hover',
+                data: CardRenderData,
+                renderData: { hydrateAnkiLookup?: () => Promise<AnkiLookupResult> },
+                requestId: number,
+                isCurrentHoverCard: () => boolean,
+            ): void;
+        };
+        internals.activePopover = popover;
+        internals.renderCompletedCardPopover = renderCompletedCardPopover;
+
+        try {
+            internals.renderHydratedCardAnkiLookup(
+                popover,
+                lookupCard,
+                'テストを始めてください。',
+                'modal',
+                data,
+                { hydrateAnkiLookup },
+                1,
+                () => true,
+            );
+
+            await vi.waitFor(() => expect(renderCompletedCardPopover).toHaveBeenCalled());
+            expect(hydrateAnkiLookup).toHaveBeenCalledTimes(1);
+            expect(renderCompletedCardPopover).toHaveBeenCalledWith(
+                popover,
+                lookupCard,
+                'テストを始めてください。',
+                'modal',
+                expect.objectContaining({
+                    ankiLookup: expect.objectContaining({
+                        primary: expect.objectContaining({
+                            noteId: 56,
+                            detailsUnavailable: true,
+                        }),
+                    }),
+                }),
+            );
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
     it('hydrates popup out of pending Anki miss when cache confirms no existing card', async () => {
         const app = new ReaderApp();
         const lookupCard: JPDBCard = {
@@ -22872,6 +22965,113 @@ describe('reader helpers', () => {
             }));
             expect(popover.textContent).toContain('Anki Known');
             expect(applyAnkiLookupToRenderedWords).toHaveBeenCalledWith(lookupCard, hydratedLookup);
+        } finally {
+            popover.remove();
+            runtime.destroy();
+        }
+    });
+
+    it('renders cached newtab Anki status as unavailable when detail hydration fails', async () => {
+        const runtime = new NewTabRuntime();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772206,
+            sid: 0,
+            spelling: '始める',
+            reading: 'はじめる',
+            source: 'jpdb',
+        };
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const cachedLookup: AnkiLookupResult = {
+            state: 'due',
+            notes: [],
+            primary: {
+                noteId: 57,
+                primaryCardId: 7703,
+                cardIds: [7703],
+                state: 'due',
+                deckNames: ['Vocab 2k'],
+                modelName: 'Imported Core',
+                fields: {},
+                tags: ['cached'],
+                reps: 5,
+                lapses: 0,
+            },
+        };
+        const data: CardRenderData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: cachedLookup,
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+        };
+        const hydrateAnkiLookup = vi.fn(async (): Promise<AnkiLookupResult> => {
+            throw new Error('AnkiConnect unavailable');
+        });
+        const render = vi.fn(() => '<div class="jpdb-reader-popover-body"><div class="jpdb-reader-meta">Anki Due</div><div>Card details did not arrive</div></div>');
+        const applyAnkiLookupToRenderedWords = vi.fn();
+        const installTracking = vi.fn();
+        const parseNewTabContent = vi.fn(async () => undefined);
+        const installLookupPopoverSources = vi.fn();
+        const repositionLookupPopover = vi.fn();
+        const internals = runtime as unknown as {
+            activeLookupPopover: HTMLElement;
+            lookupRenderRequest: number;
+            lookupPopoverRenderer: { render: typeof render };
+            applyAnkiLookupToRenderedWords: typeof applyAnkiLookupToRenderedWords;
+            localizeLookupPopoverChrome: () => void;
+            dictionarySourceState: { installTracking: typeof installTracking };
+            parseNewTabContent: typeof parseNewTabContent;
+            installLookupPopoverSources: typeof installLookupPopoverSources;
+            repositionLookupPopover: typeof repositionLookupPopover;
+            renderHydratedLookupAnki(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                data: CardRenderData,
+                renderData: { hydrateAnkiLookup?: () => Promise<AnkiLookupResult> },
+                requestId: number,
+            ): void;
+        };
+        internals.activeLookupPopover = popover;
+        internals.lookupRenderRequest = 8;
+        internals.lookupPopoverRenderer = { render };
+        internals.applyAnkiLookupToRenderedWords = applyAnkiLookupToRenderedWords;
+        internals.localizeLookupPopoverChrome = vi.fn();
+        internals.dictionarySourceState = { installTracking };
+        internals.parseNewTabContent = parseNewTabContent;
+        internals.installLookupPopoverSources = installLookupPopoverSources;
+        internals.repositionLookupPopover = repositionLookupPopover;
+
+        try {
+            internals.renderHydratedLookupAnki(
+                popover,
+                lookupCard,
+                'テストを始めてください。',
+                data,
+                { hydrateAnkiLookup },
+                8,
+            );
+
+            await vi.waitFor(() => expect(render).toHaveBeenCalled());
+            expect(hydrateAnkiLookup).toHaveBeenCalledTimes(1);
+            expect(render).toHaveBeenCalledWith(lookupCard, 'テストを始めてください。', 'modal', expect.objectContaining({
+                ankiLookup: expect.objectContaining({
+                    primary: expect.objectContaining({
+                        noteId: 57,
+                        detailsUnavailable: true,
+                    }),
+                }),
+                loading: false,
+            }));
+            expect(applyAnkiLookupToRenderedWords).toHaveBeenCalledWith(lookupCard, expect.objectContaining({
+                primary: expect.objectContaining({ detailsUnavailable: true }),
+            }));
+            expect(popover.textContent).toContain('Card details did not arrive');
         } finally {
             popover.remove();
             runtime.destroy();
