@@ -55,6 +55,32 @@ describe('Anki realistic rendered card QA fixtures', () => {
         expectNoNestedScrollStyles(section);
     });
 
+    it('renders Jlab-style cards from template HTML without leaking fallback fields', () => {
+        const section = renderExistingAnkiLookup([jlabBeginnerNote()]);
+        const bodies = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-anki-rendered-side-body')];
+        const audioControls = [...section.querySelectorAll<HTMLButtonElement>('[data-action="anki-media-audio"]')];
+        const image = section.querySelector<HTMLImageElement>('img[data-anki-media-name="jlab-start.png"]');
+
+        expectReadableRenderedAnkiSection(section);
+        expect(bodies).toHaveLength(2);
+        expect(section.textContent).toContain('始める');
+        expect(section.textContent).toContain('Please start.');
+        expect(section.textContent).toContain('Jlab beginner course');
+        expect(section.querySelector('.jpdb-reader-anki-stored-fields')).toBeNull();
+        expect(section.querySelector('.jpdb-reader-anki-field')).toBeNull();
+        expect(section.textContent).not.toContain('Jlab-Translation');
+        expect(section.textContent).not.toContain('sentence-like generic field should not win');
+        expect(audioControls.map(button => button.dataset.ankiMediaName)).toEqual([
+            'jlab-hajimeru-word.mp3',
+            'jlab-hajimeru-sentence.mp3',
+        ]);
+        expect(image?.src).toBe('data:image/png;base64,jlab');
+        expect(section.querySelector('script')).toBeNull();
+        expect(section.querySelector('style')).toBeNull();
+        expectNoNestedScrollStyles(section);
+        expectNoHugeInlineFontLeak(section);
+    });
+
     it('separates Yomu notes from other matches and keeps generated labels natural-case', () => {
         const section = renderExistingAnkiLookup([yomuJapaneseNote(), core2kVocabNote(), rrtkKanjiNote()]);
         const noteEntries = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-anki-existing-note')];
@@ -214,6 +240,53 @@ function core2kVocabNote(): AnkiExistingNote {
                     <audio src="tanoshii-sentence.mp3"></audio>
                     [anki:play:q:1]
                 </div>
+            `,
+        }],
+    });
+}
+
+function jlabBeginnerNote(): AnkiExistingNote {
+    return existingAnkiNote({
+        noteId: 840,
+        modelName: 'JlabNote-JlabConverted-1',
+        deckNames: ["Jlab's beginner course::Part 2: Reading practice"],
+        cardIds: [8401],
+        primaryCardId: 8401,
+        state: 'new',
+        fields: {
+            Expression: 'sentence-like generic field should not win',
+            Reading: 'generic reading',
+            'Jlab-Kanji': '始める',
+            'Jlab-Hiragana': 'はじめる',
+            'Jlab-Translation': 'Please start.',
+            RemarksFront: 'Jlab beginner course',
+            RemarksBack: 'Extra grammar note',
+            Audio: '[sound:jlab-hajimeru-word.mp3]',
+            SentenceAudio: '[sound:jlab-hajimeru-sentence.mp3]',
+            Picture: '<img src="jlab-start.png">',
+        },
+        renderedCards: [{
+            cardId: 8401,
+            deckName: "Jlab's beginner course::Part 2: Reading practice",
+            mediaDataUrls: {
+                'jlab-start.png': 'data:image/png;base64,jlab',
+            },
+            question: `
+                <style>.jlab-expression { font-size: 88px; overflow-y: scroll; max-height: 120px; }</style>
+                <script>window.bad = true;</script>
+                <main class="jlab-card" style="overflow: auto; max-height: 180px;">
+                    <div class="jlab-expression" style="font-size: 72px">始める</div>
+                    <div class="jlab-reading">はじめる [sound:jlab-hajimeru-word.mp3]</div>
+                    <p>Jlab beginner course</p>
+                </main>
+            `,
+            answer: `
+                <section class="jlab-answer" style="overflow-y: scroll; max-height: 160px;">
+                    <p>Please start.</p>
+                    <p>テストを始めてください。</p>
+                    <img src="jlab-start.png" alt="start context">
+                    [sound:jlab-hajimeru-sentence.mp3]
+                </section>
             `,
         }],
     });

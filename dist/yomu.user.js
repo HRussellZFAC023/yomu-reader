@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.4
+// @version      0.6.5
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -47377,6 +47377,10 @@ ${spelling}`);
           this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup });
         }).catch((error) => {
           log.warn("Anki card detail hydration failed while rendering popup", { term: card.spelling }, error);
+          if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+          const ankiLookup = ankiLookupWithUnavailableDetails(data.ankiLookup);
+          if (!ankiLookup.primary) return;
+          this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup });
         });
       };
       if (trigger === "hover") {

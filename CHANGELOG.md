@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.5] - 2026-06-04
+
+### Fixed
+
+- Re-render cached Anki matches as "details unavailable" when full AnkiConnect card-detail hydration fails, instead of leaving popovers stuck on a loading message.
+- Added Jlab-style rendered-card QA coverage for Anki template HTML, media controls, font caps, and fallback-field hiding.
+
 ## [0.6.4] - 2026-06-04
 
 ### Added

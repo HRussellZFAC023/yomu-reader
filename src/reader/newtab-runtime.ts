@@ -1,5 +1,5 @@
 import { AudioPlayer } from './audio';
-import { AnkiConnectClient, type AnkiLookupResult } from './anki';
+import { AnkiConnectClient, ankiLookupWithUnavailableDetails, type AnkiLookupResult } from './anki';
 import { listNewTabAnkiCards } from './anki-new-tab';
 import { runLimited } from './async-utils';
 import { copyText, positionPopover } from './browser-ui';
@@ -743,6 +743,17 @@ export class NewTabRuntime {
             })
             .catch(error => {
                 log.warn('Anki card detail hydration failed while rendering new-tab popup', { term: card.spelling }, error);
+                if (!this.isCurrentLookupRender(popover, requestId)) return;
+                const ankiLookup = ankiLookupWithUnavailableDetails(data.ankiLookup);
+                if (!ankiLookup.primary) return;
+                clearNestedParseState(popover);
+                this.renderLookupPopoverContent(popover, card, sentence, { ...data, ankiLookup, loading: false });
+                this.applyAnkiLookupToRenderedWords(card, ankiLookup);
+                this.localizeLookupPopoverChrome(popover);
+                this.dictionarySourceState.installTracking(popover);
+                void this.parseNewTabContent(popover);
+                this.installLookupPopoverSources(popover, card, sentence, data.jpdbVocabularyInfo);
+                this.repositionLookupPopover();
             });
     }
 
