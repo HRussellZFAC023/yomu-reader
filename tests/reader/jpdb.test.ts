@@ -8461,8 +8461,9 @@ describe('reader helpers', () => {
             expect(usedInWords[0]?.dataset.expression).toBe('年下');
             expect(usedInWords[0]?.dataset.reading).toBe('としした');
             expect(usedInWords[0]?.dataset.vid).toBe('1419500');
-            expect(usedInWords[0]?.classList.contains('jpdb-reader-has-furi')).toBe(true);
-            expect(popover.querySelector<HTMLElement>('.jpdb-reader-jpdb-used-in .jpdb-reader-furi')?.textContent).toBe('としした');
+            expect(usedInWords[0]?.classList.contains('jpdb-reader-has-furi')).toBe(false);
+            expect(usedInWords[0]?.textContent).toBe('年下');
+            expect(popover.querySelector<HTMLElement>('.jpdb-reader-jpdb-used-in .jpdb-reader-furi')).toBeNull();
             expect(Array.from(popover.querySelectorAll<HTMLElement>('.jpdb-reader-jpdb-example .jpdb-reader-word')).map(word => readerWordSurfaceText(word))).toEqual(['年', '下']);
 
             let handled = false;

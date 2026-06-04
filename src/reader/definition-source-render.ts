@@ -148,14 +148,14 @@ function renderJpdbRelatedTerm(term: string, reading: string, className: string,
 }
 
 function renderJpdbUsedInTerm(term: string, reading: string, url: string): string {
-    return `<span class="jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term" data-dictionary="JPDB">${renderPassiveJpdbRelatedWord(term, reading, url)}</span>`;
+    return `<span class="jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term" data-dictionary="JPDB">${renderPassiveJpdbRelatedWord(term, reading, url, { showReading: false })}</span>`;
 }
 
-function renderPassiveJpdbRelatedWord(term: string, reading: string, url: string): string {
+function renderPassiveJpdbRelatedWord(term: string, reading: string, url: string, options: { showReading?: boolean } = {}): string {
     const vid = jpdbVocabularyVidFromUrl(url);
     const identityAttributes = vid === null ? '' : ` data-vid="${vid}" data-sid="0"`;
     const readingAttribute = reading ? ` data-reading="${escapeHtml(reading)}"` : '';
-    const visibleReading = visibleJpdbRelatedReading(term, reading);
+    const visibleReading = options.showReading === false ? '' : visibleJpdbRelatedReading(term, reading);
     const classes = `jpdb-reader-word jpdb-reader-passive-word${visibleReading ? ' jpdb-reader-has-furi' : ''}`;
     const content = visibleReading
         ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml(term)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(visibleReading)}</rt><rp>)</rp></ruby>`
