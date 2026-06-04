@@ -758,10 +758,8 @@ export class SettingsDialogController {
             if (connected) {
                 this.setAnkiStatus(form, uiText(language, 'ankiConnectionReady'), 'success');
                 this.queueAutomaticAnkiLibraryScan(form, language);
-            } else if (canUseMobileAnkiHandoff(formSettings)) {
-                this.setAnkiStatus(form, uiText(language, 'mobileAnkiReady'), 'pending');
             } else {
-                this.setAnkiStatus(form, this.ankiUnreachableMessage(language), 'pending');
+                this.setAnkiStatus(form, this.ankiSetupUnavailableMessage(formSettings, language), 'pending');
             }
         } catch (error) {
             if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
@@ -1120,11 +1118,7 @@ export class SettingsDialogController {
                 return true;
             }
             if (!connected) {
-                if (canUseMobileAnkiHandoff(this.settings)) {
-                    setAnkiStatus(uiText(language, 'mobileAnkiReady'), 'pending');
-                    return true;
-                }
-                setAnkiStatus(this.ankiUnreachableMessage(language), 'pending');
+                setAnkiStatus(this.ankiSetupUnavailableMessage(this.settings, language), 'pending');
                 return true;
             }
             if (action === 'test-anki') {

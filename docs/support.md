@@ -26,7 +26,7 @@ Donations are optional. They help cover the time, testing devices, services, mai
 ## Quick Actions
 
 <div class="yomu-cta-grid yomu-support-actions">
-  <a class="yomu-cta-button primary" href="https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js">Install userscript</a>
+  <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install userscript</a>
   <a class="yomu-cta-button" href="https://github.com/HRussellZFAC023/yomu-reader/issues">Report a bug</a>
   <a class="yomu-cta-button" href="https://discord.gg/WvDt57uk5">Join Discord</a>
   <a class="yomu-cta-button" href="https://paypal.me/HenryRussell163">Donate</a>

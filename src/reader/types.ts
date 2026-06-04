@@ -435,6 +435,7 @@ declare global {
         listValues?: () => string[] | Promise<string[]>;
         xmlHttpRequest?: UserscriptHttpRequest;
         xmlhttpRequest?: UserscriptHttpRequest;
+        registerMenuCommand?: (name: string, fn: () => void) => void;
     };
     const GM_info: undefined | Record<string, unknown>;
     const GM_setValue: undefined | ((key: string, value: unknown) => void | Promise<void>);

@@ -105,6 +105,8 @@ const NEW_TAB_PITCH_ENRICHMENT_LIMIT = 12;
 const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
 const NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
 const NEW_TAB_PARSE_CONTENT_CACHE_LIMIT = 160;
+const NEW_TAB_ANKI_STATUS_WARMUP_DELAY_MS = 1_000;
+const NEW_TAB_ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS = 5_000;
 type NewTabRuntimeTextKey = UiCopyKey | NewTabCopyKey;
 
 type YomuNewTabWindow = typeof window & {
@@ -343,6 +345,26 @@ export class NewTabRuntime {
                 if (!this.isDestroyed) void this.dictionaries.prepareTermSearchIndex();
             }, 1500);
         }
+        this.scheduleAnkiStatusWarmup();
+    }
+
+    private scheduleAnkiStatusWarmup(): void {
+        if (!shouldLookupAnkiStatus(this.settings)) return;
+        const run = () => {
+            if (this.isDestroyed || !shouldLookupAnkiStatus(this.settings)) return;
+            void this.anki.warmStatusIndex().catch(error => {
+                log.warnOnce('newtab-anki-status-warmup-failed', 'New tab Anki status warmup failed', error);
+                return null;
+            });
+        };
+        window.setTimeout(() => {
+            if (this.isDestroyed || !shouldLookupAnkiStatus(this.settings)) return;
+            const requestIdle = (window as Window & {
+                requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+            }).requestIdleCallback;
+            if (typeof requestIdle === 'function') requestIdle(run, { timeout: NEW_TAB_ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS });
+            else run();
+        }, NEW_TAB_ANKI_STATUS_WARMUP_DELAY_MS);
     }
 
     destroy(): void {

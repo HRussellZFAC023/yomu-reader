@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.9
+// @version      0.6.10
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -31,6 +31,7 @@
 // @grant        GM.deleteValue
 // @grant        GM.getValue
 // @grant        GM.listValues
+// @grant        GM.registerMenuCommand
 // @grant        GM.setValue
 // @grant        GM.xmlHttpRequest
 // @grant        GM_addValueChangeListener
@@ -1516,17 +1517,27 @@ Greasy Fork compliance notes:
     return READER_COLOR_SOURCES.has(source) ? source : fallback;
   }
   function normalizeStaleDoublePitchHighlightChannels(settings, channels) {
-    if (!hasStaleDoublePitchHighlightChannels(settings, channels)) return channels;
+    const staleWordHighlight = hasStaleWordPitchHighlight(settings, channels);
+    const staleSubtitleHighlight = hasStaleSubtitlePitchHighlight(settings, channels);
+    if (!staleWordHighlight && !staleSubtitleHighlight) return channels;
     return {
       ...channels,
-      wordHighlightColorSource: channels.wordHighlightColorSource === "pitch" && channels.wordUnderlineColorSource === "pitch" ? DEFAULT_COLOR_CHANNELS.wordHighlightColorSource : channels.wordHighlightColorSource,
-      subtitleHighlightColorSource: channels.subtitleHighlightColorSource === "pitch" && channels.subtitleUnderlineColorSource === "pitch" ? DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource : channels.subtitleHighlightColorSource
+      wordHighlightColorSource: staleWordHighlight ? DEFAULT_COLOR_CHANNELS.wordHighlightColorSource : channels.wordHighlightColorSource,
+      subtitleHighlightColorSource: staleSubtitleHighlight ? DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource : channels.subtitleHighlightColorSource
     };
   }
-  function hasStaleDoublePitchHighlightChannels(settings, channels) {
+  function hasStaleWordPitchHighlight(settings, channels) {
     if (!settings) return false;
     if (settings.wordHighlightMode === "pitch") return true;
-    return isRawPitchPair(settings, "wordHighlightColorSource", "wordUnderlineColorSource") && isRawPitchPair(settings, "subtitleHighlightColorSource", "subtitleUnderlineColorSource") && channels.wordHighlightColorSource === "pitch" && channels.wordUnderlineColorSource === "pitch" && channels.subtitleHighlightColorSource === "pitch" && channels.subtitleUnderlineColorSource === "pitch";
+    return hasStalePitchHighlightPair(settings, channels, "wordHighlightColorSource", "wordUnderlineColorSource");
+  }
+  function hasStaleSubtitlePitchHighlight(settings, channels) {
+    if (!settings) return false;
+    if (settings.wordHighlightMode === "pitch") return true;
+    return hasStalePitchHighlightPair(settings, channels, "subtitleHighlightColorSource", "subtitleUnderlineColorSource");
+  }
+  function hasStalePitchHighlightPair(settings, channels, highlight, underline) {
+    return isRawPitchPair(settings, highlight, underline) && channels[highlight] === "pitch" && channels[underline] === "pitch";
   }
   function isRawPitchPair(settings, highlight, underline) {
     return settings[highlight] === "pitch" && settings[underline] === "pitch";
@@ -4249,7 +4260,7 @@ Greasy Fork compliance notes:
     if (!bridgeCandidate?.request) return;
     const markerDataset = bridgeMarkerDataset();
     if (!markerDataset) return;
-    if (markerDataset[BRIDGE_MARKER] === "true" && bridgeRequestListenerCleanup) {
+    if (hasInstalledUserscriptHttpBridge(markerDataset)) {
       dispatchUserscriptBridgeReady();
       return;
     }
@@ -4287,7 +4298,7 @@ Greasy Fork compliance notes:
     installUserscriptHttpBridge();
     if (typeof window === "undefined" || typeof document === "undefined") return;
     if (!shouldInstallUserscriptHttpBridge()) return;
-    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] === "true") return;
+    if (hasInstalledUserscriptHttpBridge()) return;
     scheduleUserscriptHttpBridgeRetry();
   }
   function shouldInstallUserscriptHttpBridge() {
@@ -4299,7 +4310,7 @@ Greasy Fork compliance notes:
   }
   function scheduleUserscriptHttpBridgeRetry() {
     const retry = () => {
-      if (bridgeMarkerDataset()?.[BRIDGE_MARKER] === "true") return;
+      if (hasInstalledUserscriptHttpBridge()) return;
       installUserscriptHttpBridge();
     };
     if (typeof queueMicrotask === "function") {
@@ -4312,6 +4323,9 @@ Greasy Fork compliance notes:
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", retry, { once: true });
     }
+  }
+  function hasInstalledUserscriptHttpBridge(markerDataset = bridgeMarkerDataset()) {
+    return Boolean(markerDataset?.[BRIDGE_MARKER] === "true" && bridgeRequestListenerCleanup);
   }
   function dispatchUserscriptBridgeReady() {
     dispatchBridgeEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT);
@@ -6021,7 +6035,7 @@ Greasy Fork compliance notes:
     addToAnki: "Ankiに追加",
     checkingAnki: "Ankiを確認中...",
     sendToMobileAnki: "{app}へ送る",
-    mobileAnkiActionHint: "モバイル受け渡しで作成できるのは新規ノートのみです。既存カード状態、更新、ライブラリスキャン、対応付けの検出、復習キューにはデスクトップAnkiとAnkiConnectが必要です。保存済みフィールド対応付けはAnkiMobile追加リンクにも反映できます。",
+    mobileAnkiActionHint: "モバイルAnkiで新規ノートを作成します。",
     ankiAudioFileNotFound: "Anki音声ファイルが見つかりません。",
     ankiAudioPlaybackUnavailable: "ここではAnki音声を再生できません。",
     ankiAudioUnavailablePreview: "プレビューで音声を利用できません",
@@ -12628,7 +12642,7 @@ ${entry.reading}`;
       const statusIndex = await this.loadStatusIndex();
       if (this.isDestroyed) return cards.map(() => untrustedEmpty);
       if (!statusIndex) {
-        this.queueStatusIndexRefresh({ rebuildIfMissing: true });
+        this.queueStatusIndexRefresh();
       } else if (this.statusIndexNeedsCountCheck(statusIndex)) {
         this.queueStatusIndexRefresh();
       }
@@ -12949,12 +12963,10 @@ ${entry.reading}`;
     }
     async loadStatusIndexCardData(allCardIds, rebuildLeaseOwner, settingsKey) {
       const sets = await this.loadStatusIndexCardSets(allCardIds);
-      if (this.isDestroyed) return { sets, cardsByNote: /* @__PURE__ */ new Map() };
       if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-      const cards = await this.loadStatusIndexCards(allCardIds, sets, rebuildLeaseOwner, settingsKey);
       return {
         sets,
-        cardsByNote: cardsByNoteId(cards)
+        cardsByNote: /* @__PURE__ */ new Map()
       };
     }
     async loadStatusIndexCardSets(allCardIds) {
@@ -12971,16 +12983,6 @@ ${entry.reading}`;
     async findCardIdSet(query) {
       const cardIds = await this.invokeOrDefault("findCards", { query }, []);
       return new Set(cardIds.map(Number).filter(Number.isFinite));
-    }
-    async loadStatusIndexCards(allCardIds, cardSets, rebuildLeaseOwner, settingsKey) {
-      const cardChunks = chunkArray(unique$2(allCardIds).map(Number).filter(Number.isFinite), ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE);
-      const cardsByChunk = Array.from({ length: cardChunks.length }, () => []);
-      await runLimited(cardChunks, ANKI_STATUS_INDEX_NOTE_CONCURRENCY, async (chunk, index) => {
-        const cards = await this.invokeOrDefault("cardsInfo", { cards: chunk }, []);
-        cardsByChunk[index] = Array.isArray(cards) ? cards.map((card) => statusIndexCardWithSetState(card, cardSets)) : [];
-        if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-      });
-      return cardsByChunk.flat();
     }
     isLookupCoolingDown() {
       if (Date.now() >= this.unavailableUntil) return false;
@@ -14496,9 +14498,10 @@ ${entry.reading}`;
   function shouldUseStatusReadingKey(card) {
     const reading = (card.reading || "").replace(/\s+/g, " ").trim();
     const spelling = (card.spelling || "").replace(/\s+/g, " ").trim();
-    if (!reading || reading.length < 2) return false;
+    const readingTarget = reading || (isKanaStatusLookupSurface(spelling) ? spelling : "");
+    if (!readingTarget || readingTarget.length < 2) return false;
     if (!spelling || spelling.length < 2) return false;
-    return spelling === reading || isKanaStatusLookupSurface(spelling);
+    return spelling === readingTarget || isKanaStatusLookupSurface(spelling);
   }
   function isKanaStatusLookupSurface(value) {
     return /[\u3040-\u30ff]/u.test(value) && !/[\u3400-\u9fff]/u.test(value);
@@ -14516,11 +14519,6 @@ ${entry.reading}`;
       lapses: note.lapses,
       modelName: note.modelName
     };
-  }
-  function statusIndexCardWithSetState(card, cardSets) {
-    const cardId = Number(card.cardId);
-    if (!Number.isFinite(cardId)) return card;
-    return card.queue === 2 ? { ...card, isDue: cardSets.due.has(cardId) } : card;
   }
   function ankiExistingNoteFromStatusData(note, cardData) {
     const noteCards = cardData.cardsByNote.get(note.noteId) ?? [];
@@ -14675,17 +14673,19 @@ ${entry.reading}`;
     return Object.entries(fields).find(([name, value]) => normalizedNames.has(normalizeAnkiFieldName(name)) && Boolean(value))?.[1] ?? "";
   }
   function noteReadingContainsTarget(fields, card, mapping, expressionTargets) {
+    const spelling = card.spelling.replace(/\s+/g, " ").trim();
+    const readingTarget = (card.reading || (isKanaStatusLookupSurface(spelling) ? spelling : "")).replace(/\s+/g, " ").trim();
     const expressionValues = noteExpressionValues(fields, mapping);
     if (expressionValues.length && !expressionValues.some(
       (expression) => expressionTargets.some((target) => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression, target))
-    )) {
+    ) && !isKanaStatusLookupSurface(spelling)) {
       return false;
     }
     const readings2 = unique$2([
       mappedNoteField(fields, mapping, "reading"),
       firstNoteReading(fields)
     ].filter(Boolean));
-    return Boolean(card.reading && card.reading.length >= 2 && readings2.some((reading) => japaneseFieldContainsStandaloneTarget(reading, card.reading)));
+    return Boolean(readingTarget && readingTarget.length >= 2 && readings2.some((reading) => japaneseFieldContainsStandaloneTarget(reading, readingTarget)));
   }
   function noteExpressionValues(fields, mapping) {
     return unique$2(noteExpressionCandidates(fields, mapping).map((candidate) => candidate.value).filter(Boolean));
@@ -23546,7 +23546,7 @@ ${spelling}`);
     install(settings, saveSettings2, openSettings) {
       this.destroy();
       document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-fab").forEach((element2) => element2.remove());
-      if (!settings.showFloatingButton) return;
+      if (!shouldShowFloatingButton(settings)) return;
       const button2 = document.createElement("button");
       button2.className = "jpdb-reader-fab";
       button2.type = "button";
@@ -23634,6 +23634,17 @@ ${spelling}`);
       button2.addEventListener("pointerup", finishDrag);
       button2.addEventListener("pointercancel", finishDrag);
     }
+  }
+  function shouldShowFloatingButton(settings) {
+    return settings.showFloatingButton || isCoarsePointerDevice$1();
+  }
+  function isCoarsePointerDevice$1() {
+    try {
+      const media = window.matchMedia?.("(pointer: coarse)");
+      if (media) return media.matches;
+    } catch {
+    }
+    return false;
   }
   function avoidVideoOverlap(button2, settings, saveSettings2) {
     if (!canAvoidVideoOverlap(button2)) return;
@@ -36051,10 +36062,8 @@ ${spelling}`);
         if (connected) {
           this.setAnkiStatus(form, uiText(language, "ankiConnectionReady"), "success");
           this.queueAutomaticAnkiLibraryScan(form, language);
-        } else if (canUseMobileAnkiHandoff(formSettings)) {
-          this.setAnkiStatus(form, uiText(language, "mobileAnkiReady"), "pending");
         } else {
-          this.setAnkiStatus(form, this.ankiUnreachableMessage(language), "pending");
+          this.setAnkiStatus(form, this.ankiSetupUnavailableMessage(formSettings, language), "pending");
         }
       } catch (error) {
         if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
@@ -36375,11 +36384,7 @@ ${spelling}`);
           return true;
         }
         if (!connected) {
-          if (canUseMobileAnkiHandoff(this.settings)) {
-            setAnkiStatus(uiText(language, "mobileAnkiReady"), "pending");
-            return true;
-          }
-          setAnkiStatus(this.ankiUnreachableMessage(language), "pending");
+          setAnkiStatus(this.ankiSetupUnavailableMessage(this.settings, language), "pending");
           return true;
         }
         if (action === "test-anki") {
@@ -44763,6 +44768,8 @@ ${spelling}`);
   const SUBTITLE_SURFACE_SELECTOR = ".jpdb-subtitle-player, .jpdb-subtitle-list";
   const SINGLE_HIRAGANA_MORA_RE = /^[\u3040-\u309fー]$/u;
   const SUBSTANTIVE_LOCAL_EXPANSION_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
+  const ANKI_STATUS_WARMUP_DELAY_MS = 1e3;
+  const ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS = 5e3;
   const TWO_BUTTON_REVIEW_SHORTCUTS = [
     ["gradeFail", "fail"],
     ["gradePass", "pass"]
@@ -44788,6 +44795,13 @@ ${spelling}`);
   function settingsThemeChangeDetail(detail) {
     const value = detail?.settings?.theme;
     return value === "auto" || value === "dark" || value === "light" ? value : null;
+  }
+  function userscriptMenuCommandRegister() {
+    if (typeof GM_registerMenuCommand === "function") return GM_registerMenuCommand;
+    if (typeof GM !== "undefined" && typeof GM?.registerMenuCommand === "function") {
+      return (name, fn) => GM.registerMenuCommand?.(name, fn);
+    }
+    return null;
   }
   function normalizedLookupText(text2) {
     return text2.replace(/\s+/g, " ").trim();
@@ -45220,9 +45234,9 @@ ${spelling}`);
       };
       window.setTimeout(() => {
         const requestIdle = window.requestIdleCallback;
-        if (typeof requestIdle === "function") requestIdle(run, { timeout: 5e3 });
+        if (typeof requestIdle === "function") requestIdle(run, { timeout: ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS });
         else run();
-      }, 1e3);
+      }, ANKI_STATUS_WARMUP_DELAY_MS);
     }
     scheduleRenderedAnkiStatusRefresh(card) {
       if (!shouldLookupAnkiStatus(this.settings)) return;
@@ -45247,17 +45261,17 @@ ${spelling}`);
       return this.canParseJapanese() && (this.pageHasJapaneseText || hasVisibleSiteScanTargets());
     }
     registerMenuCommands() {
-      if (typeof GM_registerMenuCommand === "function") {
-        GM_registerMenuCommand(`${APP_NAME} settings`, () => this.showSettings());
-        GM_registerMenuCommand(`${APP_NAME} open new tab`, () => this.openNewTabPage());
-        GM_registerMenuCommand(`${APP_NAME} open video player`, () => this.openVideoPlayer());
-        GM_registerMenuCommand(`${APP_NAME} toggle YouTube filter`, () => void this.toggleYoutubeImmersion());
-        GM_registerMenuCommand(`${APP_NAME} toggle puck`, () => {
-          this.settings.showFloatingButton = !this.settings.showFloatingButton;
-          void saveSettings(this.settings).then(() => this.installFab());
-        });
-        GM_registerMenuCommand(`${APP_NAME} Factory Reset`, () => void this.factoryReset.resetAllData());
-      }
+      const register = userscriptMenuCommandRegister();
+      if (!register) return;
+      register(`${APP_NAME} settings`, () => this.showSettings());
+      register(`${APP_NAME} open new tab`, () => this.openNewTabPage());
+      register(`${APP_NAME} open video player`, () => this.openVideoPlayer());
+      register(`${APP_NAME} toggle YouTube filter`, () => void this.toggleYoutubeImmersion());
+      register(`${APP_NAME} toggle puck`, () => {
+        this.settings.showFloatingButton = !this.settings.showFloatingButton;
+        void saveSettings(this.settings).then(() => this.installFab());
+      });
+      register(`${APP_NAME} Factory Reset`, () => void this.factoryReset.resetAllData());
     }
     openNewTabPage() {
       const opened = window.open(NEW_TAB_PAGE_URL, "_blank");

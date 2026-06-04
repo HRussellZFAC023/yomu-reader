@@ -557,6 +557,31 @@ describe('reader theme', () => {
         expect(applied.subtitleColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch' });
     });
 
+    it('cleans up partial stale word pitch highlight tuples without requiring subtitle settings to match', async () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-api-key',
+            wordHighlightColorSource: 'pitch',
+            wordUnderlineColorSource: 'pitch',
+            subtitleHighlightColorSource: 'jpdb',
+            subtitleUnderlineColorSource: 'pitch',
+        }));
+
+        const settings = await loadSettings();
+        const applied = applyReaderTheme(settings);
+        const root = document.documentElement;
+
+        expect(settings.wordHighlightColorSource).toBe('jpdb');
+        expect(settings.wordUnderlineColorSource).toBe('pitch');
+        expect(settings.subtitleHighlightColorSource).toBe('jpdb');
+        expect(settings.subtitleUnderlineColorSource).toBe('pitch');
+        expect(root.classList.contains('jpdb-reader-word-highlight-pitch')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-word-underline-pitch')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-subtitle-highlight-pitch')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-subtitle-underline-pitch')).toBe(true);
+        expect(applied.wordColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch' });
+    });
+
     it('strips legacy wordHighlightMode when saving settings', async () => {
         await saveSettings({
             ...DEFAULT_SETTINGS,

@@ -61,7 +61,7 @@ function assert(condition, message, details = {}) {
 
 mkdirSync(ARTIFACTS, { recursive: true });
 
-const browser = await chromium.launch({ headless: true });
+const browser = await launchSmokeBrowser({ headless: true });
 const context = await browser.newContext({
     bypassCSP: true,
     viewport: { width: 1360, height: 900 },
@@ -321,6 +321,17 @@ console.log(JSON.stringify(report, null, 2));
 
 await context.close();
 await browser.close();
+
+async function launchSmokeBrowser(options) {
+    const configuredChannel = process.env.YOMU_PLAYWRIGHT_CHANNEL;
+    if (configuredChannel) return chromium.launch({ ...options, channel: configuredChannel });
+    try {
+        return await chromium.launch(options);
+    } catch (error) {
+        if (!String(error?.message ?? '').includes("Executable doesn't exist")) throw error;
+        return chromium.launch({ ...options, channel: 'chrome' });
+    }
+}
 
 function isMockedApiOrigin(url) {
     return url.origin === ANKI_URL || url.origin === 'https://jpdb.io';

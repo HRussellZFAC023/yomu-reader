@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.10] - 2026-06-04
+
+### Fixed
+
+- Fixed stale hosted userscript bridge markers so the live page retries AnkiConnect bridge setup instead of staying in a confusing disconnected state.
+- Fixed hosted settings guidance so both automatic and manual AnkiConnect checks show the userscript setup path when the live page cannot reach local Anki.
+- Fixed kana-only page terms such as `よむ` matching existing kanji Anki notes by reading, while keeping homophone guards for kanji terms.
+- Fixed partial stale pitch-highlight settings that could leave mobile page words both highlighted and underlined by pitch after updating.
+- Made Anki status-cache warmup prompt and scalable by indexing note fields plus review-state card sets instead of hydrating every card detail up front.
+- Kept the settings puck reachable on coarse-pointer mobile devices even when stale saved settings had hidden it.
+- Registered settings menu commands through both classic `GM_registerMenuCommand` and modern `GM.registerMenuCommand` userscript APIs.
+- Narrowed new-tab service-worker cache cleanup to Yomu newtab caches only.
+- Pointed docs install links at the stable hosted userscript URL so userscript managers keep normal install/update behavior.
+- Rebuilt generated userscript/docs assets so mobile cache-busting metadata and the shorter mobile Anki handoff copy ship with the release.
+
 ## [0.6.9] - 2026-06-04
 
 ### Fixed

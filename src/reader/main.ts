@@ -181,10 +181,13 @@ const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 2;
 const SUBTITLE_SURFACE_SELECTOR = '.jpdb-subtitle-player, .jpdb-subtitle-list';
 const SINGLE_HIRAGANA_MORA_RE = /^[\u3040-\u309fー]$/u;
 const SUBSTANTIVE_LOCAL_EXPANSION_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
+const ANKI_STATUS_WARMUP_DELAY_MS = 1_000;
+const ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS = 5_000;
 type ReviewShortcutKey = keyof ReaderSettings['shortcuts'];
 type InterfaceLanguageChangeDetail = Partial<{ language: unknown; interfaceLanguage: unknown }>;
 type OpenSettingsEventDetail = Partial<{ panel: unknown; tab: unknown }>;
 type SettingsChangeEventDetail = Partial<{ preview: unknown; settings: Partial<{ theme: unknown }> }>;
+type UserscriptMenuCommandRegister = (name: string, fn: () => void) => void;
 
 const TWO_BUTTON_REVIEW_SHORTCUTS: Array<[ReviewShortcutKey, JPDBGrade]> = [
     ['gradeFail', 'fail'],
@@ -220,6 +223,14 @@ function openSettingsPanelDetail(detail: OpenSettingsEventDetail | undefined): s
 function settingsThemeChangeDetail(detail: SettingsChangeEventDetail | undefined): ReaderSettings['theme'] | null {
     const value = detail?.settings?.theme;
     return value === 'auto' || value === 'dark' || value === 'light' ? value : null;
+}
+
+function userscriptMenuCommandRegister(): UserscriptMenuCommandRegister | null {
+    if (typeof GM_registerMenuCommand === 'function') return GM_registerMenuCommand;
+    if (typeof GM !== 'undefined' && typeof GM?.registerMenuCommand === 'function') {
+        return (name, fn) => GM.registerMenuCommand?.(name, fn);
+    }
+    return null;
 }
 
 function normalizedLookupText(text: string): string {
@@ -853,9 +864,9 @@ export class ReaderApp {
             const requestIdle = (window as Window & {
                 requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
             }).requestIdleCallback;
-            if (typeof requestIdle === 'function') requestIdle(run, { timeout: 5_000 });
+            if (typeof requestIdle === 'function') requestIdle(run, { timeout: ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS });
             else run();
-        }, 1_000);
+        }, ANKI_STATUS_WARMUP_DELAY_MS);
     }
 
     private scheduleRenderedAnkiStatusRefresh(card: JPDBCard): void {
@@ -885,17 +896,17 @@ export class ReaderApp {
     }
 
     private registerMenuCommands(): void {
-        if (typeof GM_registerMenuCommand === 'function') {
-            GM_registerMenuCommand(`${APP_NAME} settings`, () => this.showSettings());
-            GM_registerMenuCommand(`${APP_NAME} open new tab`, () => this.openNewTabPage());
-            GM_registerMenuCommand(`${APP_NAME} open video player`, () => this.openVideoPlayer());
-            GM_registerMenuCommand(`${APP_NAME} toggle YouTube filter`, () => void this.toggleYoutubeImmersion());
-            GM_registerMenuCommand(`${APP_NAME} toggle puck`, () => {
-                this.settings.showFloatingButton = !this.settings.showFloatingButton;
-                void saveSettings(this.settings).then(() => this.installFab());
-            });
-            GM_registerMenuCommand(`${APP_NAME} Factory Reset`, () => void this.factoryReset.resetAllData());
-        }
+        const register = userscriptMenuCommandRegister();
+        if (!register) return;
+        register(`${APP_NAME} settings`, () => this.showSettings());
+        register(`${APP_NAME} open new tab`, () => this.openNewTabPage());
+        register(`${APP_NAME} open video player`, () => this.openVideoPlayer());
+        register(`${APP_NAME} toggle YouTube filter`, () => void this.toggleYoutubeImmersion());
+        register(`${APP_NAME} toggle puck`, () => {
+            this.settings.showFloatingButton = !this.settings.showFloatingButton;
+            void saveSettings(this.settings).then(() => this.installFab());
+        });
+        register(`${APP_NAME} Factory Reset`, () => void this.factoryReset.resetAllData());
     }
 
     private openNewTabPage(): void {

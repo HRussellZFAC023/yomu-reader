@@ -12,7 +12,7 @@ export class FloatingButtonController {
     ): void {
         this.destroy();
         document.querySelectorAll<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-fab').forEach(element => element.remove());
-        if (!settings.showFloatingButton) return;
+        if (!shouldShowFloatingButton(settings)) return;
 
         const button = document.createElement('button');
         button.className = 'jpdb-reader-fab';
@@ -104,6 +104,20 @@ export class FloatingButtonController {
         button.addEventListener('pointerup', finishDrag);
         button.addEventListener('pointercancel', finishDrag);
     }
+}
+
+function shouldShowFloatingButton(settings: ReaderSettings): boolean {
+    return settings.showFloatingButton || isCoarsePointerDevice();
+}
+
+function isCoarsePointerDevice(): boolean {
+    try {
+        const media = window.matchMedia?.('(pointer: coarse)');
+        if (media) return media.matches;
+    } catch {
+        // Ignore browser-specific matchMedia failures and fall back below.
+    }
+    return false;
 }
 
 function avoidVideoOverlap(button: HTMLButtonElement, settings: ReaderSettings, saveSettings: () => void): void {
