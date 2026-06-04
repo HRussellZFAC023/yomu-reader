@@ -1,5 +1,5 @@
 import { AudioPlayer } from './audio';
-import { AnkiConnectClient, canUseMobileAnkiHandoff } from './anki';
+import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiConnectAvailabilityError, needsHostedAnkiConnectSetupHint } from './anki';
 import { copyText } from './browser-ui';
 import { createAudioPreviewCard } from './card-utils';
 import { NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from './constants';
@@ -1045,6 +1045,12 @@ export class SettingsDialogController {
             setAnkiStatus(this.ankiReadyMessage(language), 'success');
             log.info('Anki settings prepare succeeded', { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
         } catch (error) {
+            if (isAnkiConnectAvailabilityError(error)) {
+                const message = this.ankiSetupUnavailableMessage(this.settings, language);
+                log.warn('Anki settings action unavailable', error);
+                setAnkiStatus(message, 'pending');
+                return true;
+            }
             const message = this.ankiConnectionErrorMessage(error, language);
             log.warn('Anki settings test failed', error);
             setAnkiStatus(message, 'error');
@@ -1254,6 +1260,9 @@ export class SettingsDialogController {
     }
 
     private ankiSetupUnavailableMessage(settings: ReaderSettings, language: InterfaceLanguage): string {
+        if (needsHostedAnkiConnectSetupHint(settings.ankiConnectUrl)) {
+            return uiText(language, 'ankiHostedBridgeMissing');
+        }
         return canUseMobileAnkiHandoff(settings)
             ? uiText(language, 'mobileAnkiReady')
             : this.ankiUnreachableMessage(language);
