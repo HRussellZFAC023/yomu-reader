@@ -23,7 +23,7 @@ After the GreasyFork page is live, install from GreasyFork so normal users get t
 - Popup Japanese text defaults to the same font stack as jpdb.io, with separate font family and weight settings for kanji, readings, example sentences, grammar snippets, and dictionary terms.
 - Keyboard lookup navigation can move to the previous or next parsed word, staying inside selected text when a selection is active.
 - JPDB kanji drilldown from popup headwords, with study facts, a compact 2D origin/component map, radical images, stroke-order tracing, a drawing pad, Uchisen mnemonic images, RTK keywords, stories, components, local kanji dictionaries, and related words.
-- Optional Anki mining through AnkiConnect on desktop and mobile Anki handoff on iPhone, iPad, and Android, with a customizable よむ note type created automatically where the bridge supports it.
+- Optional Anki mining through desktop AnkiConnect, plus one-way mobile handoff on iPhone, iPad, and supported Android browsers. AnkiConnect can create/update the よむ note type and read existing cards; mobile handoff only starts new-note creation in AnkiMobile/AnkiDroid.
 - Yomitan dictionary imports: JMdict download from Settings, settings JSON, dictionary ZIPs, and Dexie exports.
 - Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
 - Drag/drop dictionary source order, so JPDB definitions can be first, lower priority, or disabled while imported native-language dictionaries stay visible.
@@ -97,7 +97,7 @@ Use this address as a browser new-tab/home-page URL or add it to the iPad Home S
 https://hrussellzfac023.github.io/yomu-reader/newtab/
 ```
 
-The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect or mobile handoff is enabled, otherwise from the configured JPDB deck, otherwise from public JPDB lookup and imported dictionary words. Public JPDB lookup works without an API key; local Yomitan dictionaries are optional and add offline study cards plus local definitions. Tapping a word opens the same popup dictionary used on normal pages. On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests. Browsers that allow direct local requests without the bridge also need `https://hrussellzfac023.github.io` in AnkiConnect's `webCorsOriginList`.
+The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect is reachable and new-tab Anki cards are enabled; mobile handoff only creates new notes and does not provide Anki review queues. Otherwise it uses the configured JPDB deck, public JPDB lookup, and imported dictionary words. Public JPDB lookup works without an API key; local Yomitan dictionaries are optional and add offline study cards plus local definitions. Tapping a word opens the same popup dictionary used on normal pages. On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests. Browsers that allow direct local requests without the bridge also need `https://hrussellzfac023.github.io` in AnkiConnect's `webCorsOriginList`.
 
 ## OCR
 

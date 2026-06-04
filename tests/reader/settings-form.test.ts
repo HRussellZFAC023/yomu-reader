@@ -286,13 +286,13 @@ describe('settings form localization', () => {
 
         form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', enableReviews: false, jpdbMiningEnabled: false }, 'https://jpdb.io/settings');
         expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.textContent).toContain('Needs attention:');
+        expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.textContent).toContain('Needs setup:');
         expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.textContent).toContain('Review buttons: disabled');
         expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.textContent).toContain('Deck changes: disabled');
 
         form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, apiKey: '' }, 'https://jpdb.io/settings');
         expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.textContent).toContain('Needs attention:');
+        expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.textContent).toContain('Needs setup:');
         expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.textContent).toContain('JPDB API key missing');
         expect(form.querySelector<HTMLElement>('[data-jpdb-status]')?.textContent).toContain('Public lookup still works');
     });
