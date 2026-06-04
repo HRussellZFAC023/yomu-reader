@@ -72,6 +72,28 @@ const ankiFixture = String.raw`
   </details>
   <details class="jpdb-reader-local-entry jpdb-reader-anki-card-preview jpdb-reader-anki-existing-note">
     <summary class="jpdb-reader-anki-existing-note-title">
+      <span><span class="jpdb-reader-state-dot anki-new"></span><strong>Kaishi 1.5k · Kaishi 1.5k · Word</strong></span>
+      <small>New · #8601</small>
+    </summary>
+    <div class="jpdb-reader-anki-existing-note-body">
+      <div class="jpdb-reader-anki-rendered-card" data-anki-rendered-card-id="8601">
+        <section class="jpdb-reader-anki-rendered-side">
+          <div class="jpdb-reader-anki-rendered-side-body jpdb-reader-parseable">
+            <div class="kaishi-card" style="font-size: 30px; text-align: center;">
+              <ruby><rb>始</rb><rt>はじ</rt></ruby>める
+              <div style="font-size: 25px;">テストを<b><ruby><rb>始</rb><rt>はじ</rt></ruby>めて</b>ください。</div>
+              <div style="font-size: 25px;">Please start the test.</div>
+              <button class="jpdb-reader-anki-sound" type="button" data-action="anki-media-audio" data-anki-media-name="0e5a0bcb94d981c08ea2552a0716e02b-c8aca572ab508c03a1942de4757f535945a90c5a.mp3">Card audio</button>
+              <button class="jpdb-reader-anki-sound" type="button" data-action="anki-media-audio" data-anki-media-name="e79a8072345e2d2560af1e7ca2540eee-1bd2024a27767f03ad514d91142e19a4e6e77ac6.mp3">Card audio</button>
+              <img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" alt="">
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </details>
+  <details class="jpdb-reader-local-entry jpdb-reader-anki-card-preview jpdb-reader-anki-existing-note">
+    <summary class="jpdb-reader-anki-existing-note-title">
       <span><span class="jpdb-reader-state-dot anki-known"></span><strong>Yomu · よむ Japanese · Word</strong></span>
       <small>Known · 7 reviews</small>
     </summary>
@@ -149,13 +171,14 @@ try {
     await page.setContent(html);
     const dark = await measure(page);
     assert(dark.maxFontSize <= 30.5, 'Anki template font size exceeded popover cap in dark mode.', dark);
-    assert(dark.renderedCards === 3, 'Expected RRTK, Core, and Yomu rendered card fixtures.', dark);
+    assert(dark.renderedCards === 4, 'Expected RRTK, Core, Kaishi, and Yomu rendered card fixtures.', dark);
     assert(dark.openNotes === 1, 'Only the primary Anki note should be expanded by default.', dark);
-    assert(dark.audioButtons === 1, 'Anki card audio should render as its own control.', dark);
-    assert(dark.images === 1, 'Core-style card image should remain visible.', dark);
+    assert(dark.audioButtons === 3, 'Anki card audio should render as its own controls.', dark);
+    assert(dark.images === 2, 'Core and Kaishi card images should remain visible.', dark);
     assert(dark.scrollBodies === 0, 'Rendered Anki sides should not create nested scroll regions.', dark);
     assert(dark.text.includes('RRTK Recognition Remembering The Kanji v2'), 'RRTK deck label should remain visible.', dark);
     assert(dark.text.includes('Please start the test.'), 'Core example sentence should remain visible.', dark);
+    assert(!dark.text.includes('0e5a0bcb94d981c08ea2552a0716e02b'), 'Kaishi audio filename should stay out of visible text.', dark);
     await page.screenshot({ path: path.join(ARTIFACTS, 'anki-template-popover-dark.png'), fullPage: true });
 
     await page.evaluate(() => document.body.classList.add('fixture-light'));

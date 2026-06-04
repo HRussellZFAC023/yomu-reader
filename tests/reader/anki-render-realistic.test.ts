@@ -81,6 +81,37 @@ describe('Anki realistic rendered card QA fixtures', () => {
         expectNoHugeInlineFontLeak(section);
     });
 
+    it('renders Kaishi 1.5k cards without long audio filenames or fallback labels', () => {
+        const section = renderExistingAnkiLookup([kaishiVocabNote()]);
+        const bodies = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-anki-rendered-side-body')];
+        const audioControls = [...section.querySelectorAll<HTMLButtonElement>('[data-action="anki-media-audio"]')];
+        const image = section.querySelector<HTMLImageElement>('img[data-anki-media-name="button_start2.webp"]');
+
+        expectReadableRenderedAnkiSection(section);
+        expect(bodies).toHaveLength(2);
+        expect(section.textContent).toContain('始める');
+        expect(section.textContent).toContain('テストを始めてください。');
+        expect(section.textContent).toContain('to start');
+        expect(section.textContent).toContain('Please start the test.');
+        expect(section.querySelector('.jpdb-reader-anki-stored-fields')).toBeNull();
+        expect(section.querySelector('.jpdb-reader-anki-field')).toBeNull();
+        expect(section.textContent).not.toContain('Word Audio');
+        expect(section.textContent).not.toContain('Sentence Audio');
+        expect(section.textContent).not.toContain('0e5a0bcb94d981c08ea2552a0716e02b');
+        expect(section.textContent).not.toMatch(/\[anki:play:[^\]]+]/i);
+        expect(audioControls).toHaveLength(2);
+        expect(audioControls.map(button => button.textContent?.trim())).toEqual(['Card audio', 'Card audio']);
+        expect(audioControls.map(button => button.dataset.ankiMediaName)).toEqual([
+            '0e5a0bcb94d981c08ea2552a0716e02b-c8aca572ab508c03a1942de4757f535945a90c5a.mp3',
+            'e79a8072345e2d2560af1e7ca2540eee-1bd2024a27767f03ad514d91142e19a4e6e77ac6.mp3',
+        ]);
+        expect(image?.src).toBe('data:image/webp;base64,kaishi');
+        expect(section.querySelector('script')).toBeNull();
+        expect(section.querySelector('style')).toBeNull();
+        expectNoNestedScrollStyles(section);
+        expectNoHugeInlineFontLeak(section);
+    });
+
     it('separates Yomu notes from other matches and keeps generated labels natural-case', () => {
         const section = renderExistingAnkiLookup([yomuJapaneseNote(), core2kVocabNote(), rrtkKanjiNote()]);
         const noteEntries = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-anki-existing-note')];
@@ -287,6 +318,61 @@ function jlabBeginnerNote(): AnkiExistingNote {
                     <img src="jlab-start.png" alt="start context">
                     [sound:jlab-hajimeru-sentence.mp3]
                 </section>
+            `,
+        }],
+    });
+}
+
+function kaishiVocabNote(): AnkiExistingNote {
+    return existingAnkiNote({
+        noteId: 860,
+        modelName: 'Kaishi 1.5k',
+        deckNames: ['Kaishi 1.5k'],
+        cardIds: [8601],
+        primaryCardId: 8601,
+        state: 'new',
+        fields: {
+            Word: '始める',
+            'Word Reading': 'はじめる',
+            'Word Meaning': 'to start',
+            'Word Furigana': '始[はじ]める',
+            'Word Audio': '[sound:0e5a0bcb94d981c08ea2552a0716e02b-c8aca572ab508c03a1942de4757f535945a90c5a.mp3]',
+            Sentence: 'テストを<b>始めて</b>ください。',
+            'Sentence Meaning': 'Please start the test.',
+            'Sentence Furigana': 'テストを<b>始[はじ]めて</b>ください。',
+            'Sentence Audio': '[sound:e79a8072345e2d2560af1e7ca2540eee-1bd2024a27767f03ad514d91142e19a4e6e77ac6.mp3]',
+            'Pitch Accent': 'ハ<span style="display:inline-block;position:relative;">ジメル</span>',
+            Frequency: '240',
+            Picture: '<img src="button_start2.webp">',
+        },
+        renderedCards: [{
+            cardId: 8601,
+            deckName: 'Kaishi 1.5k',
+            mediaDataUrls: {
+                'button_start2.webp': 'data:image/webp;base64,kaishi',
+            },
+            question: `
+                <style>
+                    .card { font-size: 44px; text-align: center; overflow: hidden; }
+                    img { max-width: 300px; max-height: 250px; }
+                    b { color: #5586cd; }
+                </style>
+                <div lang="ja" class="card" style="overflow: hidden;">
+                    始める
+                    <div style="font-size: 20px;">テストを<b>始めて</b>ください。</div>
+                </div>
+            `,
+            answer: `
+                <style>.card { font-size: 44px; text-align: center; overflow: hidden; }</style>
+                <div lang="ja" class="card" style="overflow: hidden;">
+                    <ruby><rb>始</rb><rt>はじ</rt></ruby>める
+                    <div style="font-size: 25px; padding-bottom:20px">to start</div>
+                    <div style="font-size: 25px;">テストを<b><ruby><rb>始</rb><rt>はじ</rt></ruby>めて</b>ください。</div>
+                    <div style="font-size: 25px; padding-bottom:10px">Please start the test.</div>
+                    [anki:play:a:0]
+                    [anki:play:a:1]
+                    <img alt="start button" src="button_start2.webp">
+                </div>
             `,
         }],
     });
