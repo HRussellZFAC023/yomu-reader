@@ -12,10 +12,12 @@ const args = parseArgs(process.argv.slice(2));
 const kind = args.kind ?? 'regular';
 const shard = readPositiveInt(args.shard ?? process.env.CI_TEST_SHARD ?? '1', 'shard');
 const total = readPositiveInt(args.total ?? process.env.CI_TEST_TOTAL ?? '1', 'total');
+const apiPort = args['api-port'] ?? process.env.YOMU_VITEST_API_PORT ?? defaultApiPort(kind, shard);
 if (shard > total) throw new Error(`shard ${shard} cannot be greater than total ${total}`);
 
 if (kind === 'regular') runRegularShard(shard, total);
-else if (kind === 'jpdb') runJpdbShard(shard, total);
+else if (kind === 'jpdb' && args.prepare) generateJpdbShardFiles(total);
+else if (kind === 'jpdb') runJpdbShard(shard, total, Boolean(args.reuse));
 else throw new Error(`Unknown CI test kind: ${kind}`);
 
 function runRegularShard(currentShard, shardTotal) {
@@ -25,12 +27,30 @@ function runRegularShard(currentShard, shardTotal) {
     runVitest(['run', ...files.map(file => relative(ROOT, file)), `--shard=${currentShard}/${shardTotal}`]);
 }
 
-function runJpdbShard(currentShard, shardTotal) {
-    const generated = generateJpdbShardFiles(shardTotal);
+function runJpdbShard(currentShard, shardTotal, reuseGenerated = false) {
+    const generated = reuseGenerated ? existingJpdbShardFiles(shardTotal) : generateJpdbShardFiles(shardTotal);
     runVitest(
         ['run', relative(ROOT, generated[currentShard - 1]), '--minWorkers=1', '--maxWorkers=1', '--no-file-parallelism'],
         { YOMU_INCLUDE_GENERATED_JPDB_SHARDS: '1' },
     );
+}
+
+function existingJpdbShardFiles(shardTotal) {
+    const files = Array.from({ length: shardTotal }, (_, index) => join(GENERATED_DIR, `jpdb.generated.${index + 1}.test.ts`));
+    const missing = files.filter(file => !readableFile(file));
+    if (missing.length) {
+        throw new Error(`Generated JPDB shard files are missing. Run with --prepare first. Missing: ${missing.map(file => relative(ROOT, file)).join(', ')}`);
+    }
+    return files;
+}
+
+function readableFile(file) {
+    try {
+        readFileSync(file, 'utf8');
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 function generateJpdbShardFiles(shardTotal) {
@@ -117,12 +137,18 @@ function collectTestFiles(dir) {
 }
 
 function runVitest(vitestArgs, envOverrides = {}) {
-    const result = spawnSync(process.execPath, [join(ROOT, 'node_modules/vitest/vitest.mjs'), ...vitestArgs], {
+    const apiArgs = apiPort ? ['--api', String(apiPort)] : [];
+    const result = spawnSync(process.execPath, [join(ROOT, 'node_modules/vitest/vitest.mjs'), ...vitestArgs, ...apiArgs], {
         cwd: ROOT,
         stdio: 'inherit',
         env: { ...process.env, ...envOverrides },
     });
     process.exit(result.status ?? 1);
+}
+
+function defaultApiPort(testKind, currentShard) {
+    const base = testKind === 'jpdb' ? 55300 : 55280;
+    return String(base + currentShard);
 }
 
 function parseArgs(rawArgs) {
@@ -132,9 +158,11 @@ function parseArgs(rawArgs) {
         if (!arg.startsWith('--')) continue;
         const keyValue = arg.slice(2).split('=');
         const key = keyValue[0];
-        const value = keyValue.length > 1 ? keyValue.slice(1).join('=') : rawArgs[index + 1];
+        const nextValue = rawArgs[index + 1];
+        const hasExplicitNextValue = typeof nextValue === 'string' && !nextValue.startsWith('--');
+        const value = keyValue.length > 1 ? keyValue.slice(1).join('=') : hasExplicitNextValue ? nextValue : true;
         parsed[key] = value;
-        if (keyValue.length === 1) index += 1;
+        if (keyValue.length === 1 && hasExplicitNextValue) index += 1;
     }
     return parsed;
 }

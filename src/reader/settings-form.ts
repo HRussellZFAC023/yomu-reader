@@ -182,8 +182,8 @@ function jpdbStatusLineFromValues(hasApiKey: boolean, reviewsEnabled: boolean, d
     };
 }
 
-export function ankiStatusLineForSettings(settings: Pick<ReaderSettings, 'ankiEnabled' | 'ankiConnectUrl' | 'ankiMobileHandoff'>, language: InterfaceLanguage): SettingsStatusLine {
-    return ankiStatusLineFromValues(settings.ankiEnabled, settings.ankiConnectUrl, settings.ankiMobileHandoff, language);
+export function ankiStatusLineForSettings(settings: Pick<ReaderSettings, 'ankiEnabled' | 'ankiConnectUrl'>, language: InterfaceLanguage): SettingsStatusLine {
+    return ankiStatusLineFromValues(settings.ankiEnabled, settings.ankiConnectUrl, language);
 }
 
 export function formatSettingsStatusLine(line: SettingsStatusLine, language: InterfaceLanguage): string {
@@ -196,18 +196,16 @@ function settingsStatusToneLabelKey(tone: SettingsStatusTone): Parameters<typeof
     return 'statusAttention';
 }
 
-function ankiStatusLineFromValues(ankiEnabled: boolean, ankiConnectUrl: string, mobileHandoffEnabled: boolean, language: InterfaceLanguage): SettingsStatusLine {
-    const handoff = uiText(language, mobileHandoffEnabled ? 'ankiMobileHandoffEnabledStatus' : 'ankiMobileHandoffDisabledStatus');
+function ankiStatusLineFromValues(ankiEnabled: boolean, ankiConnectUrl: string, language: InterfaceLanguage): SettingsStatusLine {
     if (!ankiEnabled) {
         return {
-            message: formatStatusTemplate(uiText(language, 'ankiMiningDisabledStatus'), { handoff }),
+            message: uiText(language, 'ankiMiningDisabledStatus'),
             tone: 'pending',
         };
     }
     return {
         message: formatStatusTemplate(uiText(language, 'ankiCheckingConnection'), {
             url: ankiConnectUrl.trim(),
-            handoff,
         }),
         tone: 'pending',
     };
@@ -1581,8 +1579,7 @@ function localizeInitialAnkiStatus(form: HTMLFormElement, text: SettingsText): v
     if (!status || !isInitialAnkiSettingsStatus(status.textContent ?? '')) return;
     const ankiEnabled = form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.checked ?? false;
     const ankiConnectUrl = form.querySelector<HTMLInputElement>('input[name="ankiConnectUrl"]')?.value ?? '';
-    const mobileHandoffEnabled = form.querySelector<HTMLInputElement>('input[name="ankiMobileHandoff"]')?.checked ?? false;
-    const line = ankiStatusLineFromValues(ankiEnabled, ankiConnectUrl, mobileHandoffEnabled, resolveUiLanguageFromText(text));
+    const line = ankiStatusLineFromValues(ankiEnabled, ankiConnectUrl, resolveUiLanguageFromText(text));
     status.dataset.statusTone = line.tone;
     status.replaceChildren(line.message);
 }

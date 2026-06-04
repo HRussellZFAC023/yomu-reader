@@ -24155,7 +24155,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('clears stale rendered Anki color when popover fast lookup resolves a trusted miss', () => {
+    it('clears stale rendered Anki color when modal popover fast lookup resolves a trusted miss', () => {
         const app = new ReaderApp();
         const lookupCard: JPDBCard = {
             ...card,
@@ -24196,7 +24196,7 @@ describe('reader helpers', () => {
         internals.parsePopoverJapanese = parsePopoverJapanese;
 
         try {
-            internals.renderCompletedCardPopover(popover, lookupCard, '使用します。', 'hover', {
+            internals.renderCompletedCardPopover(popover, lookupCard, '使用します。', 'modal', {
                 localEntries: [],
                 kanjiEntries: [],
                 metaEntries: [],
@@ -24212,6 +24212,71 @@ describe('reader helpers', () => {
             expect(word.dataset.ankiDecks).toBeUndefined();
             expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).not.toBe('#58a6ff');
             expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-underline')).not.toBe('#58a6ff');
+        } finally {
+            word.remove();
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('preserves rendered Anki color when hover fast lookup only has an empty status', () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 784,
+            sid: 2,
+            rid: 0,
+            spelling: '維持',
+            reading: 'いじ',
+            source: 'jpdb',
+            pitchAccent: [],
+        };
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-not-in-deck anki-known';
+        word.dataset.vid = String(lookupCard.vid);
+        word.dataset.sid = String(lookupCard.sid);
+        word.dataset.ankiState = 'known';
+        word.dataset.ankiDecks = 'Mining';
+        word.style.setProperty('--jpdb-reader-word-accessible-color', '#58a6ff');
+        word.style.setProperty('--jpdb-reader-word-accessible-underline', '#58a6ff');
+        word.textContent = lookupCard.spelling;
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(word, popover);
+        const parsePopoverJapanese = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            settings: typeof DEFAULT_SETTINGS;
+            parsePopoverJapanese: typeof parsePopoverJapanese;
+            renderCompletedCardPopover(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                trigger: 'modal' | 'hover',
+                data: CardRenderData,
+            ): void;
+        };
+        internals.activePopover = popover;
+        internals.settings = { ...DEFAULT_SETTINGS, wordTextColorSource: 'anki' };
+        internals.parsePopoverJapanese = parsePopoverJapanese;
+
+        try {
+            internals.renderCompletedCardPopover(popover, lookupCard, '維持します。', 'hover', {
+                localEntries: [],
+                kanjiEntries: [],
+                metaEntries: [],
+                ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+                jpdbDecks: [],
+                ankiDecks: [],
+                jpdbVocabularyInfo: null,
+            });
+
+            expect(word.classList.contains('anki-known')).toBe(true);
+            expect(word.classList.contains('anki-not-in-deck')).toBe(false);
+            expect(word.dataset.ankiState).toBe('known');
+            expect(word.dataset.ankiDecks).toBe('Mining');
+            expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).toBe('#58a6ff');
+            expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-underline')).toBe('#58a6ff');
         } finally {
             word.remove();
             popover.remove();
@@ -24277,6 +24342,69 @@ describe('reader helpers', () => {
         } finally {
             querySelectorAll.mockRestore();
             container.remove();
+            app.destroy();
+        }
+    });
+
+    it('refreshes rendered Anki color after grading updates the card status', async () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 902101,
+            sid: 18,
+            rid: 0,
+            spelling: '採点',
+            reading: 'さいてん',
+            source: 'jpdb',
+        };
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-not-in-deck anki-due';
+        word.dataset.vid = String(lookupCard.vid);
+        word.dataset.sid = String(lookupCard.sid);
+        word.dataset.ankiState = 'due';
+        word.dataset.ankiDecks = 'Mining';
+        word.textContent = lookupCard.spelling;
+        document.body.append(word);
+        const refreshedLookup: AnkiLookupResult = {
+            state: 'known',
+            notes: [],
+            primary: {
+                noteId: 92,
+                primaryCardId: 93,
+                cardIds: [93],
+                state: 'known',
+                deckNames: ['Mining'],
+                modelName: 'Imported Core',
+                fields: { Word: lookupCard.spelling },
+                tags: [],
+                reps: 13,
+                lapses: 0,
+            },
+        };
+        const findExistingCards = vi.fn(async (): Promise<AnkiLookupResult> => refreshedLookup);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            anki: { findExistingCards: typeof findExistingCards };
+            refreshRenderedAnkiStatusAfterMutation(card: JPDBCard): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            wordTextColorSource: 'anki',
+        };
+        internals.anki = { findExistingCards };
+
+        try {
+            await internals.refreshRenderedAnkiStatusAfterMutation(lookupCard);
+
+            expect(findExistingCards).toHaveBeenCalledWith(lookupCard);
+            expect(word.classList.contains('anki-due')).toBe(false);
+            expect(word.classList.contains('anki-known')).toBe(true);
+            expect(word.dataset.ankiState).toBe('known');
+            expect(word.dataset.ankiDecks).toBe('Mining');
+            expect(word.title).toBe('Anki: Known (Mining)');
+        } finally {
+            word.remove();
             app.destroy();
         }
     });

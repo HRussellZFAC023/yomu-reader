@@ -139,12 +139,6 @@
     box-shadow: none;
     transform: none;
   }
-
-  .jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
-  .jpdb-reader-settings select,
-  .jpdb-reader-settings textarea {
-    font-size: max(16px, 1em);
-  }
 }
 .jpdb-reader-settings-tab:active {
   transform: scale(0.98);
@@ -259,6 +253,13 @@
   height: 38px;
   min-width: 0;
   padding: 8px;
+}
+@media (hover: none), (pointer: coarse) {
+  .jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+  .jpdb-reader-settings select,
+  .jpdb-reader-settings textarea {
+    font-size: max(16px, 1em);
+  }
 }
 .jpdb-reader-btn {
   display: inline-flex;
@@ -1407,12 +1408,6 @@
 }
 
 @media (max-width: 699px) {
-  .jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
-  .jpdb-reader-settings select,
-  .jpdb-reader-settings textarea {
-    font-size: max(16px, 1em);
-  }
-
   .jpdb-reader-settings-tabs {
     flex-wrap: wrap;
     overflow-x: visible;

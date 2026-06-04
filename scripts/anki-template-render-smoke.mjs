@@ -165,7 +165,7 @@ async function measure(page) {
     });
 }
 
-const browser = await chromium.launch();
+const browser = await launchSmokeBrowser({ headless: true });
 try {
     const page = await browser.newPage({ viewport: { width: 900, height: 900 } });
     await page.setContent(html);
@@ -189,4 +189,15 @@ try {
     console.log('Anki template render smoke passed.');
 } finally {
     await browser.close();
+}
+
+async function launchSmokeBrowser(options) {
+    const configuredChannel = process.env.YOMU_PLAYWRIGHT_CHANNEL;
+    if (configuredChannel) return chromium.launch({ ...options, channel: configuredChannel });
+    try {
+        return await chromium.launch(options);
+    } catch (error) {
+        if (!String(error?.message ?? '').includes("Executable doesn't exist")) throw error;
+        return chromium.launch({ ...options, channel: 'chrome' });
+    }
 }

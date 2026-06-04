@@ -113,6 +113,7 @@ export function mergeDedupeCardMetadata(primary: JPDBCard, secondary: JPDBCard):
         ankiReps: primary.ankiReps ?? secondary.ankiReps,
         ankiLapses: primary.ankiLapses ?? secondary.ankiLapses,
         ankiRenderedCards: mergeAnkiRenderedCards(primary.ankiRenderedCards, secondary.ankiRenderedCards),
+        ankiAudioFilenames: mergeOptionalStrings(primary.ankiAudioFilenames, secondary.ankiAudioFilenames),
         fallbackLookupTerms: mergeOptionalStrings(primary.fallbackLookupTerms, [
             secondary.spelling,
             secondary.reading,

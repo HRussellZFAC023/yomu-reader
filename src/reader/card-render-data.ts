@@ -363,6 +363,7 @@ function ankiFieldsFromSourceCard(card: JPDBCard): Record<string, string> {
         Reading: card.reading,
         Meaning: card.meanings.flatMap(meaning => meaning.glosses).join('; '),
         Sentence: card.sentence ?? '',
+        Audio: card.ankiAudioFilenames?.map(filename => `[sound:${filename}]`).join(' ') ?? '',
     };
 }
 

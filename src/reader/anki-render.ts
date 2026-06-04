@@ -239,6 +239,14 @@ function renderAnkiRenderedSideBody(html: string): string {
     </section>`;
 }
 
+export function renderAnkiRenderedCardStudyBody(card: AnkiRenderedCard, revealed: boolean, language: InterfaceLanguage, soundFilenames: string[] = []): string {
+    const questionHtml = sanitizeAnkiCardHtml(card.question, soundFilenames, language, card.mediaDataUrls);
+    const question = hasRenderableAnkiCardContent(questionHtml) ? renderAnkiRenderedSideBody(questionHtml) : '';
+    const sides = revealed ? renderAnkiRenderedSides(card, soundFilenames, language) : [question].filter(Boolean);
+    if (!sides.length) return '';
+    return `<div class="jpdb-reader-anki-rendered-card jpdb-reader-anki-study-card" data-anki-rendered-card-id="${card.cardId}">${sides.join('')}</div>`;
+}
+
 function renderedAnkiAnswerIncludesQuestion(questionHtml: string, answerHtml: string): boolean {
     const question = normalizedAnkiRenderedText(questionHtml);
     const answer = normalizedAnkiRenderedText(answerHtml);

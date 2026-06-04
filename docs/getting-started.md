@@ -183,23 +183,23 @@ For existing Anki libraries, open Settings > Anki and use **Check AnkiConnect** 
 
 ## 8. Mobile Notes
 
-iPhone, iPad, and Android browsers can run よむ through a userscript app, but local desktop bridges are different there. JPDB lookup, local dictionaries, OCR, subtitle taps, the hosted video player, the new-tab study page, and mobile Anki handoff are the friendly mobile paths. Direct AnkiConnect and localhost audio helpers still need a desktop computer that is reachable from the device, for example on the same Wi-Fi or through Tailscale.
+iPhone, iPad, and Android browsers can run よむ through a userscript app, but local desktop bridges are different there. JPDB lookup, local dictionaries, OCR, subtitle taps, the hosted video player, the new-tab study page, and mobile Anki handoff are the friendly mobile paths. Full Anki features still need desktop Anki with AnkiConnect. Your phone can reach that desktop on the same Wi-Fi, or through Tailscale when you are away from home.
 
 ### Use desktop Anki from a phone or iPad
 
-You do not need AnkiMobile to get full Anki status in よむ on mobile. The full path is: your phone or iPad runs よむ, while your desktop runs Anki and AnkiConnect.
+You do not need AnkiMobile to get full Anki status in よむ on mobile. The full path is simple: your phone or iPad runs よむ, while your desktop runs Anki and AnkiConnect.
 
-The simplest private-network setup is [Tailscale](https://tailscale.com/). Tailscale has official downloads and install guides for [macOS, Windows, Linux, iOS, iPadOS, and Android](https://tailscale.com/downloads).
+The easiest private setup is [Tailscale](https://tailscale.com/). Think of it as a private connection between your own devices. You do not need to open your router, expose Anki to the public internet, or use the command line. Tailscale has official downloads and install guides for [macOS, Windows, Linux, iOS, iPadOS, and Android](https://tailscale.com/downloads).
 
 1. On your desktop, install Anki and the [AnkiConnect add-on](https://ankiweb.net/shared/info/2055492159).
 2. Open Anki on the desktop and leave it running.
 3. Install Tailscale on the desktop and sign in.
 4. Install Tailscale on your phone or iPad and sign in to the same Tailscale account.
-5. In the Tailscale app, find your desktop's device name or `100.x.y.z` address.
+5. In the Tailscale app on your phone, find your desktop. Use its device name if it shows one, or copy its `100.x.y.z` address.
 6. In よむ settings on mobile, open Mining and set **AnkiConnect URL** to `http://desktop-name.tailnet-name.ts.net:8765` or `http://100.x.y.z:8765`.
-7. Press **Check AnkiConnect**. If it connects, よむ can show existing-card status, update cards, adapt to your decks, and use Anki review queues from mobile.
+7. Press **Check AnkiConnect**. If it connects, よむ automatically inspects your desktop Anki library, fills deck/note-type choices, shows existing-card status, updates cards, and can use Anki review queues from mobile.
 
-Mobile Anki handoff is one-way: it opens AnkiMobile or AnkiDroid so you can create a new note. It does not read your existing collection, show existing-card status, update old notes, adapt to existing decks, or provide Anki review queues. Saved mappings can still shape AnkiMobile add-note links; use reachable desktop Anki with AnkiConnect for updates, status, and reviews.
+Mobile Anki handoff is one-way: it opens AnkiMobile or AnkiDroid so you can create a new note. Handoff alone cannot scan existing decks, read your existing collection, show existing-card status, update old notes, adapt to existing deck formats, or provide Anki review queues. Saved mappings can still shape AnkiMobile add-note links; use reachable desktop Anki with AnkiConnect for scanning, updates, status, and reviews.
 
 Localhost on a phone or tablet means that device, not your desktop. If you run AnkiConnect, a local audio server, or OCR on a computer, use that computer's LAN/Tailscale address in よむ settings. Mobile browsers can also block autoplay and protected/cross-origin video capture, so subtitle lookup, copying, JPDB mining, and dictionary fallback remain the reliable mobile path.
 
