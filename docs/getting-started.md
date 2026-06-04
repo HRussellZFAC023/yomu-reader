@@ -15,7 +15,7 @@ A userscript is a small helper that a browser extension runs for you. You instal
 - **Yomitan dictionary:** a downloadable dictionary ZIP. よむ can import these so definitions stay local in your browser.
 - **Mining:** saving a useful word, sentence, subtitle, or image context for later study.
 - **OCR:** image text reading. This is what lets you tap Japanese inside manga panels or screenshots.
-- **Anki / AnkiConnect:** Anki is a flashcard app. AnkiConnect is the desktop add-on that gives よむ full Anki access, including existing-card status, updates, deck scans, and reviews.
+- **Anki / AnkiConnect:** Anki is a flashcard app. [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the desktop add-on that gives よむ full Anki access, including existing-card status, updates, deck scans, and reviews.
 - **Local server:** a helper app running on your own computer, often for audio, OCR, or Anki.
 - **localhost:** the device you are using right now. On an iPhone, `localhost` means the iPhone, not your desktop.
 
@@ -172,7 +172,7 @@ On phones and tablets, tapping is usually easier than hover. On desktop, hover i
 - Dictionaries: choose the Dictionaries tab in Settings when you want local dictionary study words. よむ downloads JMdict into local browser storage when the userscript request bridge is available; you can also import any Yomitan ZIP dictionary or settings export manually.
 - Images: enable OCR to tap Japanese text inside manga panels or screenshots.
 - Video: enable subtitles to mine words from Japanese subtitle lines. For local files, use the [Yomu video player](./video-player/index.html). On iPhone, the transcript opens as a bottom panel so it does not crush the video. On desktop and iPad, move it left, right, or below from the transcript header.
-- Anki: enable Anki mining. Desktop AnkiConnect is the full path: it can create or update cards, check existing-card status, scan your decks and note types, and feed Anki reviews into the new-tab page. iPhone, iPad, and Android can use mobile Anki handoff when AnkiConnect is not available, but handoff creates new notes only.
+- Anki: enable Anki mining. Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full path: it can create or update cards, check existing-card status, scan your decks and note types, and feed Anki reviews into the new-tab page. iPhone, iPad, and Android can use mobile Anki handoff when AnkiConnect is not available, but handoff creates new notes only.
 - New tab: use the よむ [new-tab page](./newtab/index.html) as a study screen; opening it turns the study page on automatically.
 - Audio: the easiest hosted setup is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). If you want to self-host the audio files instead, the commonly shared files are here: [nyaa.si/view/1957972](https://nyaa.si/view/1957972).
 

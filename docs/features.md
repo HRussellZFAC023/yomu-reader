@@ -97,7 +97,7 @@ The temporary notice shows how many cards were hidden and disappears after a few
 
 ## Anki And Mobile Handoff
 
-Anki support is optional. With AnkiConnect reachable, よむ can create cards from popup lookups, subtitles, and OCR; detect existing cards; update matching notes; scan decks and note types; and power Anki-backed review/status features in the new-tab page.
+Anki support is optional. With [AnkiConnect](https://ankiweb.net/shared/info/2055492159) reachable, よむ can create cards from popup lookups, subtitles, and OCR; detect existing cards; update matching notes; scan decks and note types; and power Anki-backed review/status features in the new-tab page.
 
 Mobile handoff is deliberately narrower. On iPhone, iPad, and Android, よむ can open AnkiMobile or AnkiDroid to create a new note when AnkiConnect is not available. Handoff does not read your collection, pull existing-card status, update existing notes, scan fields, discover mappings, or provide review queues. Saved mappings can still shape AnkiMobile add-note links; discovery, updates, status, and reviews need desktop Anki with AnkiConnect.
 
