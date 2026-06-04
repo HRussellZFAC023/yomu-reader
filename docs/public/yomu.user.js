@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.8
+// @version      0.6.9
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -1497,7 +1497,7 @@ Greasy Fork compliance notes:
   }
   function normalizeReaderColorChannelSettings(value) {
     if (isLegacyDefaultColorChannelSettings(value)) return { ...DEFAULT_COLOR_CHANNELS };
-    return {
+    const channels = {
       wordHighlightColorSource: normalizeReaderColorSource(value?.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource, legacyHighlightColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource)),
       wordUnderlineColorSource: normalizeReaderColorSource(value?.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource)),
       wordTextColorSource: normalizeReaderColorSource(value?.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordTextColorSource)),
@@ -1505,6 +1505,7 @@ Greasy Fork compliance notes:
       subtitleUnderlineColorSource: normalizeReaderColorSource(value?.subtitleUnderlineColorSource, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource)),
       subtitleTextColorSource: normalizeReaderColorSource(value?.subtitleTextColorSource, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource))
     };
+    return normalizeStaleDoublePitchHighlightChannels(value, channels);
   }
   function isLegacyDefaultColorChannelSettings(value) {
     if (!value) return false;
@@ -1513,6 +1514,22 @@ Greasy Fork compliance notes:
   function normalizeReaderColorSource(value, fallback, autoFallback = fallback) {
     const source = value === "auto" ? autoFallback : value;
     return READER_COLOR_SOURCES.has(source) ? source : fallback;
+  }
+  function normalizeStaleDoublePitchHighlightChannels(settings, channels) {
+    if (!hasStaleDoublePitchHighlightChannels(settings, channels)) return channels;
+    return {
+      ...channels,
+      wordHighlightColorSource: channels.wordHighlightColorSource === "pitch" && channels.wordUnderlineColorSource === "pitch" ? DEFAULT_COLOR_CHANNELS.wordHighlightColorSource : channels.wordHighlightColorSource,
+      subtitleHighlightColorSource: channels.subtitleHighlightColorSource === "pitch" && channels.subtitleUnderlineColorSource === "pitch" ? DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource : channels.subtitleHighlightColorSource
+    };
+  }
+  function hasStaleDoublePitchHighlightChannels(settings, channels) {
+    if (!settings) return false;
+    if (settings.wordHighlightMode === "pitch") return true;
+    return isRawPitchPair(settings, "wordHighlightColorSource", "wordUnderlineColorSource") && isRawPitchPair(settings, "subtitleHighlightColorSource", "subtitleUnderlineColorSource") && channels.wordHighlightColorSource === "pitch" && channels.wordUnderlineColorSource === "pitch" && channels.subtitleHighlightColorSource === "pitch" && channels.subtitleUnderlineColorSource === "pitch";
+  }
+  function isRawPitchPair(settings, highlight, underline) {
+    return settings[highlight] === "pitch" && settings[underline] === "pitch";
   }
   function legacyHighlightColorSourceForAuto(settings, fallback) {
     const mode = legacyEffectiveWordHighlightMode(settings);
