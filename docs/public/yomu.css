@@ -5694,6 +5694,69 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings-wide {
   grid-column: 1 / -1;
 }
+.jpdb-reader-newtab-anki-decks {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 10px;
+  margin: 2px 0 4px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 84%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 54%, transparent);
+}
+.jpdb-reader-newtab-anki-decks[hidden] {
+  display: none;
+}
+.jpdb-reader-newtab-anki-decks-head {
+  display: grid;
+  gap: 2px;
+}
+.jpdb-reader-newtab-anki-decks-title {
+  color: var(--jpdb-reader-text);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.jpdb-reader-newtab-anki-decks-head .jpdb-reader-help {
+  margin: 0;
+}
+.jpdb-reader-newtab-anki-deck-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.jpdb-reader-newtab-anki-deck-toggle {
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: min(100%, 180px);
+  max-width: 100%;
+  min-height: 34px;
+  margin: 0 !important;
+  padding: 6px 9px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 88%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 76%, transparent);
+  color: var(--jpdb-reader-muted) !important;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+.jpdb-reader-newtab-anki-deck-toggle[data-active="true"] {
+  border-color: color-mix(in srgb, var(--jpdb-reader-success) 54%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-success) 12%, var(--jpdb-reader-surface));
+  color: var(--jpdb-reader-text) !important;
+}
+.jpdb-reader-newtab-anki-deck-toggle input[type="checkbox"] {
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+}
+.jpdb-reader-newtab-anki-deck-toggle span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .jpdb-reader-anki-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.9fr);

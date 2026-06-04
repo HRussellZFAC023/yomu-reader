@@ -101,6 +101,13 @@ function recommendedStatus(form: HTMLFormElement, id: string): HTMLElement {
         .querySelector<HTMLElement>('[data-recommended-dictionary-status]')!;
 }
 
+function newTabAnkiDeckToggle(form: HTMLFormElement, deck: string): HTMLInputElement {
+    const toggle = Array.from(form.querySelectorAll<HTMLInputElement>('[data-newtab-anki-deck-toggle]'))
+        .find(input => input.dataset.newtabAnkiDeck === deck);
+    if (!toggle) throw new Error(`Missing Anki new-tab deck toggle for ${deck}`);
+    return toggle;
+}
+
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason?: unknown) => void } {
     let resolve!: (value: T) => void;
     let reject!: (reason?: unknown) => void;
@@ -540,7 +547,8 @@ describe('settings dialog keyboard dismissal', () => {
                 meaning: 'medium',
             },
         });
-        expect(form.querySelector('[data-newtab-anki-decks]')).toBeNull();
+        expect(form.querySelector<HTMLElement>('[data-newtab-anki-decks]')?.hidden).toBe(false);
+        expect(newTabAnkiDeckToggle(form, 'Anime Mining').checked).toBe(true);
         expect(form.querySelector<HTMLInputElement>('input[name="newTabAnkiDisabledDecks"]')?.value).toBe('');
         expect(JSON.parse(form.querySelector<HTMLInputElement>('input[name="ankiFieldMappings"]')?.value ?? '{}')).toEqual({
             'Imported Japanese': {
@@ -587,8 +595,19 @@ describe('settings dialog keyboard dismissal', () => {
         await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Found 2 decks') === true);
 
         expect(scanLibrary).toHaveBeenCalled();
-        expect(form.querySelector('[data-newtab-anki-decks]')).toBeNull();
+        expect(form.querySelector<HTMLElement>('[data-newtab-anki-decks]')?.hidden).toBe(false);
+        expect(newTabAnkiDeckToggle(form, 'Missing Deck').checked).toBe(false);
+        expect(newTabAnkiDeckToggle(form, 'Archive').checked).toBe(false);
+        expect(newTabAnkiDeckToggle(form, 'Mining').checked).toBe(true);
         expect(form.querySelector<HTMLInputElement>('input[name="newTabAnkiDisabledDecks"]')?.value).toBe('Missing Deck, Archive');
+
+        newTabAnkiDeckToggle(form, 'Mining').checked = false;
+        newTabAnkiDeckToggle(form, 'Mining').dispatchEvent(new Event('change', { bubbles: true }));
+        expect(form.querySelector<HTMLInputElement>('input[name="newTabAnkiDisabledDecks"]')?.value).toBe('Missing Deck, Archive, Mining');
+
+        newTabAnkiDeckToggle(form, 'Archive').checked = true;
+        newTabAnkiDeckToggle(form, 'Archive').dispatchEvent(new Event('change', { bubbles: true }));
+        expect(form.querySelector<HTMLInputElement>('input[name="newTabAnkiDisabledDecks"]')?.value).toBe('Missing Deck, Mining');
     });
 
     it('scans Anki through AnkiConnect on mobile handoff devices when a bridge is reachable', async () => {

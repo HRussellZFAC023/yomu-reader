@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.3
+// @version      0.6.4
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -4748,6 +4748,8 @@ Greasy Fork compliance notes:
       newTab: "New tab",
       newTabEnabled: "Enable Yomu new tab study page",
       newTabAnkiEnabled: "Enable Anki cards on new tab",
+      newTabAnkiReviewDecks: "Anki review decks",
+      newTabAnkiReviewDecksHelp: "Newly scanned decks are included automatically. Uncheck only the decks you do not want mixed into the Anki review queue.",
       newTabSource: "New tab review source",
       newTabAuto: "Auto: Anki if no JPDB",
       dictionaryFallback: "Dictionary fallback",
@@ -6113,6 +6115,8 @@ Greasy Fork compliance notes:
     newTab: "新規タブ",
     newTabEnabled: "よむの新規タブ学習ページを有効にする",
     newTabAnkiEnabled: "新規タブのAnkiカードを有効にする",
+    newTabAnkiReviewDecks: "Anki復習デッキ",
+    newTabAnkiReviewDecksHelp: "新しく見つかったデッキは自動で対象になります。Anki復習キューに混ぜたくないデッキだけ外してください。",
     newTabSource: "新規タブの復習ソース",
     newTabAuto: "自動: JPDBがなければAnki",
     dictionaryFallback: "辞書フォールバック",
@@ -32921,7 +32925,7 @@ ${spelling}`);
                     <div class="grid">
                         ${checkbox("newTabEnabled", "Use Yomu new tab study page", settings.newTabEnabled)}
                         ${checkbox("newTabAnkiEnabled", "Use Anki cards on new tab", settings.newTabAnkiEnabled)}
-                        ${renderNewTabAnkiDisabledDecksInput(settings)}
+                        ${renderNewTabAnkiDeckControls(settings)}
                         ${select("newTabSource", "New tab review source", settings.newTabSource, [["auto", "Auto: Anki if no JPDB"], ["jpdb", "JPDB"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}
                         ${select("newTabJpdbReviewMode", "JPDB review mode", settings.newTabJpdbReviewMode, [["auto", "Auto: live kanji + API vocabulary"], ["live-review", "Live JPDB review session"], ["api-vocabulary", "API vocabulary only"]])}
                         ${select("newTabKanjiKeywordSource", "Kanji keyword source", settings.newTabKanjiKeywordSource, [["auto", "Auto: RTK, then JPDB, then local"], ["rtk", "RTK / Heisig"], ["jpdb", "JPDB"], ["local", "Local card meaning"]])}
@@ -32941,9 +32945,40 @@ ${spelling}`);
                 </div>
     `;
   }
-  function renderNewTabAnkiDisabledDecksInput(settings) {
+  function renderNewTabAnkiDeckControls(settings) {
     const disabled = canonicalNewTabAnkiDisabledDecks(settings.newTabAnkiDisabledDecks);
+    const selector = renderNewTabAnkiDeckSelector(disabled, disabled, settings.interfaceLanguage);
+    return `
+                        ${renderNewTabAnkiDisabledDecksInput(disabled)}
+                        <div class="jpdb-reader-newtab-anki-decks jpdb-reader-settings-wide" data-newtab-anki-decks ${selector ? "" : "hidden"}>
+                            ${selector}
+                        </div>`;
+  }
+  function renderNewTabAnkiDisabledDecksInput(disabled) {
     return `<input type="hidden" name="newTabAnkiDisabledDecks" value="${escapeHtml$1(disabled.join(", "))}">`;
+  }
+  function renderNewTabAnkiDeckSelector(disabledDecks, deckNames, language) {
+    const disabled = canonicalNewTabAnkiDisabledDecks(disabledDecks);
+    const decks = uniqueStrings$1([...deckNames, ...disabled]).map((deck) => deck.trim()).filter(Boolean);
+    if (!decks.length) return "";
+    return `
+                            <div class="jpdb-reader-newtab-anki-decks-head">
+                                <div class="jpdb-reader-newtab-anki-decks-title" data-newtab-anki-decks-title>${escapedUiText(language, "newTabAnkiReviewDecks")}</div>
+                                <div class="jpdb-reader-help" data-newtab-anki-decks-help>${escapedUiText(language, "newTabAnkiReviewDecksHelp")}</div>
+                            </div>
+                            <div class="jpdb-reader-newtab-anki-deck-list" data-newtab-anki-deck-list>
+                                ${decks.map((deck) => renderNewTabAnkiDeckToggle(deck, !isNewTabAnkiDeckDisabled(deck, disabled))).join("")}
+                            </div>`;
+  }
+  function renderNewTabAnkiDeckToggle(deck, checked) {
+    return `
+                                <label class="jpdb-reader-newtab-anki-deck-toggle" data-newtab-anki-deck-row data-active="${checked ? "true" : "false"}">
+                                    <input type="checkbox" data-newtab-anki-deck-toggle data-newtab-anki-deck="${escapeHtml$1(deck)}" ${checked ? "checked" : ""}>
+                                    <span>${escapeHtml$1(deck)}</span>
+                                </label>`;
+  }
+  function isNewTabAnkiDeckDisabled(deck, disabledDecks) {
+    return disabledDecks.some((disabled) => disabled === deck || isAnkiSubdeckOf(deck, disabled));
   }
   function renderWordColorSettingsSubsection(settings) {
     return `
@@ -33839,6 +33874,8 @@ ${spelling}`);
   function localizeNewTabHelp(form, text2) {
     const subsection = getNamedControl(form, "newTabUrl")?.closest(".jpdb-reader-settings-subsection");
     subsection?.querySelector(":scope > .jpdb-reader-help")?.replaceChildren(text2("newTabOfflineHelp"));
+    form.querySelector("[data-newtab-anki-decks-title]")?.replaceChildren(text2("newTabAnkiReviewDecks"));
+    form.querySelector("[data-newtab-anki-decks-help]")?.replaceChildren(text2("newTabAnkiReviewDecksHelp"));
   }
   function resolveUiLanguageFromText(text2) {
     return text2("save") === "保存" ? "ja" : "en";
@@ -34293,9 +34330,16 @@ ${spelling}`);
     ];
   }
   function getNamedControl(form, name) {
-    return Array.from(form.elements).find(
-      (element2) => (element2 instanceof HTMLInputElement || element2 instanceof HTMLSelectElement || element2 instanceof HTMLTextAreaElement) && element2.name === name
-    ) ?? null;
+    const item = form.elements.namedItem(name);
+    if (item instanceof HTMLInputElement || item instanceof HTMLSelectElement || item instanceof HTMLTextAreaElement) {
+      return item;
+    }
+    if (item instanceof RadioNodeList) {
+      return Array.from(form.elements).find(
+        (element2) => element2 instanceof HTMLInputElement && element2.name === name
+      ) ?? null;
+    }
+    return null;
   }
   function setControlLabel(form, name, label) {
     const control = getNamedControl(form, name);
@@ -34368,7 +34412,9 @@ ${spelling}`);
     if (labelElement) setInlineLabelText(labelElement, label);
   }
   function setSelectOptionLabels(form, name, options) {
-    const selectElement = getNamedControl(form, name);
+    const selectElement = Array.from(form.elements).find(
+      (element2) => element2 instanceof HTMLSelectElement && element2.name === name
+    ) ?? null;
     if (!selectElement) return;
     options.forEach(([value, label]) => {
       const option = Array.from(selectElement.options).find((item) => item.value === value);
@@ -34379,14 +34425,25 @@ ${spelling}`);
     const showMeta = resolveUiLanguage(language) === "ja";
     form.querySelectorAll("select").forEach((selectElement) => {
       const existing = selectElement.nextElementSibling;
-      if (existing instanceof HTMLElement && existing.matches("[data-settings-select-options-meta]")) existing.remove();
-      if (!showMeta) return;
+      const existingMeta = existing instanceof HTMLElement && existing.matches("[data-settings-select-options-meta]") ? existing : null;
+      if (!showMeta) {
+        existingMeta?.remove();
+        return;
+      }
       const labels = Array.from(selectElement.options).map((option) => option.textContent?.replace(/\s+/g, " ").trim() ?? "").filter((label) => /[\u3040-\u30ff\u3400-\u9fff]/.test(label));
-      if (!labels.length) return;
+      if (!labels.length) {
+        existingMeta?.remove();
+        return;
+      }
+      const text2 = `${uiText(language, "selectOptions")}: ${labels.join(" / ")}`;
+      if (existingMeta) {
+        if (existingMeta.textContent !== text2) existingMeta.textContent = text2;
+        return;
+      }
       const meta = document.createElement("div");
       meta.className = "jpdb-reader-select-options-meta";
       meta.dataset.settingsSelectOptionsMeta = "";
-      meta.textContent = `${uiText(language, "selectOptions")}: ${labels.join(" / ")}`;
+      meta.textContent = text2;
       selectElement.insertAdjacentElement("afterend", meta);
     });
   }
@@ -35281,6 +35338,11 @@ ${spelling}`);
     const control = form.elements.namedItem(name);
     return control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement ? control : null;
   }
+  function readNewTabAnkiDisabledDecks(form) {
+    return canonicalNewTabAnkiDisabledDecks(
+      namedSettingsControl(form, "newTabAnkiDisabledDecks")?.value.split(",").map((deck) => deck.trim()).filter(Boolean) ?? []
+    );
+  }
   function selectedSettingsPanel(control) {
     return control?.dataset.panel ?? "jpdb";
   }
@@ -35678,6 +35740,8 @@ ${spelling}`);
         const preview = form.querySelector("[data-anki-template-preview]");
         if (preview) setInnerHtml(preview, renderAnkiTemplatePreview(readFormSettings(new FormData(form), this.settings)));
       }
+      const newTabAnkiDeckToggle = event.target.closest("[data-newtab-anki-deck-toggle]");
+      if (newTabAnkiDeckToggle) this.syncNewTabAnkiDeckToggles(form);
     }
     syncThemeSwitch(form) {
       const input2 = form.querySelector("[data-theme-value]");
@@ -36133,6 +36197,7 @@ ${spelling}`);
       const currentDeck = selected.selectedDeck ?? namedSettingsControl(form, "ankiDeck")?.value.trim() ?? "";
       const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
       if (deckOptions) setInnerHtml(deckOptions, renderAnkiLibraryOptions([currentDeck, ...scan.deckNames].filter(Boolean), currentDeck, language));
+      this.renderNewTabAnkiDeckToggles(form, scan.deckNames, language);
       const modelOptions = form.querySelector("[data-anki-model-options]");
       if (modelOptions) {
         const currentModel = selected.selectedModel ?? namedSettingsControl(form, "ankiModel")?.value.trim() ?? "";
@@ -36152,6 +36217,31 @@ ${spelling}`);
         ])));
       }
       this.renderAnkiFieldMappingEditor(form);
+    }
+    renderNewTabAnkiDeckToggles(form, deckNames, language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage), disabledDecks = readNewTabAnkiDisabledDecks(form)) {
+      const container = form.querySelector("[data-newtab-anki-decks]");
+      if (!container) return;
+      const html = renderNewTabAnkiDeckSelector(disabledDecks, deckNames, language);
+      container.hidden = !html;
+      setInnerHtml(container, html);
+    }
+    syncNewTabAnkiDeckToggles(form) {
+      const hidden = namedSettingsControl(form, "newTabAnkiDisabledDecks");
+      if (!hidden) return;
+      const toggles = Array.from(form.querySelectorAll("[data-newtab-anki-deck-toggle]"));
+      const visibleDecks = toggles.map((toggle) => toggle.dataset.newtabAnkiDeck?.trim() ?? "").filter(Boolean);
+      const visibleDeckSet = new Set(visibleDecks);
+      const previousDisabled = readNewTabAnkiDisabledDecks(form);
+      const previousDisabledSet = new Set(previousDisabled);
+      const visibleDisabled = toggles.filter((toggle) => !toggle.checked).map((toggle) => toggle.dataset.newtabAnkiDeck?.trim() ?? "").filter(Boolean);
+      const visibleDisabledSet = new Set(visibleDisabled);
+      const disabled = canonicalNewTabAnkiDisabledDecks([
+        ...previousDisabled.filter((deck) => !visibleDeckSet.has(deck) || visibleDisabledSet.has(deck)),
+        ...visibleDisabled.filter((deck) => !previousDisabledSet.has(deck))
+      ]);
+      hidden.value = disabled.join(", ");
+      hidden.dispatchEvent(new Event("input", { bubbles: true }));
+      this.renderNewTabAnkiDeckToggles(form, visibleDecks, getFormInterfaceLanguage(form, this.settings.interfaceLanguage), disabled);
     }
     renderAnkiFieldMappingEditor(form) {
       const container = form.querySelector("[data-anki-field-mapping-editor]");

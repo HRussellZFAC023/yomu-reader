@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.4] - 2026-06-04
+
+### Added
+
+- Added Anki review deck toggles in New tab settings after an existing-deck scan, with newly scanned decks included automatically and saved exclusions preserved.
+
+### Fixed
+
+- Made settings relocalization faster by using direct form-control lookups and avoiding repeated select metadata rebuilds in large settings forms.
+
 ## [0.6.3] - 2026-06-04
 
 ### Fixed
