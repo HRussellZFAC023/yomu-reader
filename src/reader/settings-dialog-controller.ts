@@ -693,11 +693,12 @@ export class SettingsDialogController {
             } else if (canUseMobileAnkiHandoff(formSettings)) {
                 this.setAnkiStatus(form, uiText(language, 'mobileAnkiReady'), 'pending');
             } else {
-                this.setAnkiStatus(form, this.ankiUnreachableMessage(language), 'error');
+                this.setAnkiStatus(form, this.ankiUnreachableMessage(language), 'pending');
             }
         } catch (error) {
             if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
-            this.setAnkiStatus(form, this.ankiConnectionErrorMessage(error, language), 'error');
+            log.warn('Anki settings connection probe failed', error);
+            this.setAnkiStatus(form, this.ankiSetupUnavailableMessage(formSettings, language), 'pending');
         } finally {
             this.settings = previous;
         }
@@ -999,13 +1000,21 @@ export class SettingsDialogController {
         const pendingKey = action === 'scan-anki' ? 'ankiScanning' : action === 'prepare-anki' ? 'ankiPreparing' : 'ankiTesting';
         setAnkiStatus(uiText(language, pendingKey), 'pending');
         try {
-            const connected = await this.dependencies.anki.isConnected();
+            let connected = false;
+            try {
+                connected = await this.dependencies.anki.isConnected();
+            } catch (error) {
+                log.warn('Anki settings connection check failed', error);
+                setAnkiStatus(this.ankiSetupUnavailableMessage(this.settings, language), 'pending');
+                return true;
+            }
             if (!connected) {
                 if (canUseMobileAnkiHandoff(this.settings)) {
                     setAnkiStatus(uiText(language, 'mobileAnkiReady'), 'pending');
                     return true;
                 }
-                throw new Error(this.ankiUnreachableMessage(language));
+                setAnkiStatus(this.ankiUnreachableMessage(language), 'pending');
+                return true;
             }
             if (action === 'scan-anki') {
                 const scan = await this.dependencies.anki.scanLibrary();
@@ -1193,6 +1202,12 @@ export class SettingsDialogController {
 
     private ankiUnreachableMessage(language: InterfaceLanguage): string {
         return uiText(language, 'ankiUnreachable');
+    }
+
+    private ankiSetupUnavailableMessage(settings: ReaderSettings, language: InterfaceLanguage): string {
+        return canUseMobileAnkiHandoff(settings)
+            ? uiText(language, 'mobileAnkiReady')
+            : this.ankiUnreachableMessage(language);
     }
 
     private ankiConnectionErrorMessage(error: unknown, language: InterfaceLanguage): string {

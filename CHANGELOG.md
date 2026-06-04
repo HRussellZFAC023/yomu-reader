@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.3] - 2026-06-04
+
+### Fixed
+
+- Kept failed AnkiConnect checks in the settings setup tone instead of presenting normal hosted-page connection setup as a hard error.
+- Clarified desktop AnkiConnect versus mobile Anki handoff behavior across settings, docs, and smoke checks so users know which features require local Anki access.
+
 ## [0.6.2] - 2026-06-03
 
 ### Fixed

@@ -99,7 +99,7 @@ The temporary notice shows how many cards were hidden and disappears after a few
 
 Anki support is optional. With AnkiConnect reachable, よむ can create cards from popup lookups, subtitles, and OCR; detect existing cards; update matching notes; scan decks and note types; and power Anki-backed review/status features in the new-tab page.
 
-Mobile handoff is deliberately narrower. On iPhone, iPad, and Android, よむ can open AnkiMobile or AnkiDroid to create a new note when AnkiConnect is not available. Handoff does not read your collection, pull existing-card status, update existing notes, scan fields, or provide review queues. Those features need desktop Anki with AnkiConnect.
+Mobile handoff is deliberately narrower. On iPhone, iPad, and Android, よむ can open AnkiMobile or AnkiDroid to create a new note when AnkiConnect is not available. Handoff does not read your collection, pull existing-card status, update existing notes, scan fields, discover mappings, or provide review queues. Saved mappings can still shape AnkiMobile add-note links; discovery, updates, status, and reviews need desktop Anki with AnkiConnect.
 
 If you already use RTK, Core, anime-card, or other nonstandard Japanese decks, use Settings > Anki > Scan after AnkiConnect is reachable. よむ inspects existing decks and note types, suggests field mappings for expression, reading, meaning, sentence, audio, and image fields, and lets you mine into that shape when it can infer a fit. If the scan cannot infer enough fields, the cleanest route is to use the よむ note type or adjust mappings before mining.
 
@@ -107,7 +107,7 @@ If you do not use Anki, leave it off. JPDB mining and local dictionary lookup st
 
 ## New Tab Study Page
 
-よむ includes an optional [new-tab page](./newtab/index.html). Use the full address after opening that local or hosted page as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries study words from Anki first, then JPDB, then local dictionary words. A new install starts by sending you to Settings > Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local browser storage.
+よむ includes an optional [new-tab page](./newtab/index.html). Use the full address after opening that local or hosted page as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries Anki study words when AnkiConnect is reachable, then JPDB, then local dictionary words. A new install starts by sending you to Settings > Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local browser storage.
 
 On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests. Browsers that allow direct local requests without the bridge also need `https://hrussellzfac023.github.io` in AnkiConnect's `webCorsOriginList`.
 

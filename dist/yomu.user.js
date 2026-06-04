@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.2
+// @version      0.6.3
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -4697,7 +4697,7 @@ Greasy Fork compliance notes:
       statusEnabled: "enabled",
       statusDisabled: "disabled",
       statusReady: "Ready",
-      statusAttention: "Needs attention",
+      statusAttention: "Needs setup",
       statusError: "Error",
       disabledControlDescription: "This setting is currently unavailable because another setting controls it.",
       jpdbMiningEnabled: "Allow JPDB review/deck changes",
@@ -5044,15 +5044,15 @@ Greasy Fork compliance notes:
       scanAnki: "Scan existing decks",
       ankiCheckingConnection: "Checking AnkiConnect at {url}. {handoff}",
       ankiMiningDisabledStatus: "Anki mining disabled. {handoff}",
-      ankiMobileHandoffEnabledStatus: "AnkiMobile/AnkiDroid handoff is on for creating new notes only. Existing-card status, updates, deck scans, field mapping, and review queues require desktop Anki with AnkiConnect.",
-      ankiMobileHandoffDisabledStatus: "AnkiMobile/AnkiDroid handoff is off. Existing-card status, updates, deck scans, field mapping, and review queues require desktop Anki with AnkiConnect.",
+      ankiMobileHandoffEnabledStatus: "AnkiMobile/AnkiDroid handoff is on for creating new notes only. Existing-card status, updates, library scanning, mapping discovery, and review queues require desktop Anki with AnkiConnect.",
+      ankiMobileHandoffDisabledStatus: "AnkiMobile/AnkiDroid handoff is off. Existing-card status, updates, library scanning, mapping discovery, and review queues require desktop Anki with AnkiConnect.",
       ankiTesting: "Checking AnkiConnect...",
       ankiPreparing: "Creating or refreshing the Yomu deck and note type...",
       ankiScanning: "Scanning existing Anki decks, note types, and fields...",
       ankiScanSummary: "Found {decks} decks and {models} note types. Best match: {model}. {fields}",
       ankiScanNoModels: "Found {decks} decks, but no note types were returned.",
       ankiScanFieldSummary: "Fields: {fields}",
-      ankiUnreachable: "AnkiConnect is not connected. Open Anki on this computer, then press Check AnkiConnect.",
+      ankiUnreachable: "AnkiConnect is not connected yet. Open Anki on this computer, confirm the AnkiConnect add-on is installed and enabled, then press Check AnkiConnect.",
       ankiHostedCorsHint: "Hosted page: keep the よむ userscript enabled on this page so it can bridge to local Anki. Direct browser access is optional and requires adding https://hrussellzfac023.github.io to AnkiConnect's webCorsOriginList.",
       ankiLibraryAdapter: "Existing library adapter",
       ankiLibraryAdapterStatus: "Use Scan after AnkiConnect is reachable to inspect existing decks and note types, including RTK/Core-style decks, and suggest field mappings. Mobile handoff cannot read existing-card status or review queues.",
@@ -5396,7 +5396,7 @@ Greasy Fork compliance notes:
       addToAnki: "Add to Anki",
       checkingAnki: "Checking Anki...",
       sendToMobileAnki: "Send to {app}",
-      mobileAnkiActionHint: "Mobile handoff creates new notes only. Existing-card status, updates, library scanning, field mapping, and review queues require desktop Anki with AnkiConnect.",
+      mobileAnkiActionHint: "Mobile handoff creates new notes only. Existing-card status, updates, library scanning, mapping discovery, and review queues require desktop Anki with AnkiConnect. Saved field mappings can still shape AnkiMobile add-note links.",
       ankiAudioFileNotFound: "Anki audio file not found.",
       ankiAudioPlaybackUnavailable: "Anki audio playback is not available here.",
       ankiAudioUnavailablePreview: "Audio not available in preview",
@@ -5440,7 +5440,7 @@ Greasy Fork compliance notes:
       ankiConnectRequestFailed: "AnkiConnect request failed.",
       ankiConnectTimedOut: "AnkiConnect timed out.",
       ankiConnectNeedsBridge: "AnkiConnect needs the userscript request bridge on content pages.",
-      mobileAnkiReady: "AnkiConnect is not reachable. Mobile handoff can still create new notes only; existing-card status, updates, deck scans, field mapping, and review queues require desktop Anki with AnkiConnect.",
+      mobileAnkiReady: "AnkiConnect is not connected yet. Mobile handoff can still create new notes only; existing-card status, updates, library scanning, mapping discovery, and review queues require desktop Anki with AnkiConnect.",
       ankiConnectionReady: "Connected. AnkiConnect is reachable.",
       ankiConnectedReady: 'Connected. Deck "{deck}" and note type "{model}" are ready.',
       ankiPromptRecallWord: "Recall the highlighted word.",
@@ -5926,7 +5926,7 @@ Greasy Fork compliance notes:
     addToAnki: "Ankiに追加",
     checkingAnki: "Ankiを確認中...",
     sendToMobileAnki: "{app}へ送る",
-    mobileAnkiActionHint: "モバイル受け渡しで作成できるのは新規ノートのみです。既存カード状態、更新、ライブラリスキャン、フィールド対応付け、復習キューにはデスクトップAnkiとAnkiConnectが必要です。",
+    mobileAnkiActionHint: "モバイル受け渡しで作成できるのは新規ノートのみです。既存カード状態、更新、ライブラリスキャン、対応付けの検出、復習キューにはデスクトップAnkiとAnkiConnectが必要です。保存済みフィールド対応付けはAnkiMobile追加リンクにも反映できます。",
     ankiAudioFileNotFound: "Anki音声ファイルが見つかりません。",
     ankiAudioPlaybackUnavailable: "ここではAnki音声を再生できません。",
     ankiAudioUnavailablePreview: "プレビューで音声を利用できません",
@@ -5945,7 +5945,7 @@ Greasy Fork compliance notes:
     ankiConnectTimedOut: "AnkiConnectがタイムアウトしました。",
     ankiConnectNeedsBridge: "コンテンツページでAnkiConnectを使うには、ユーザースクリプトのリクエストブリッジが必要です。",
     ankiHostedCorsHint: "ホスト版ページ: このページでよむユーザースクリプトを有効にしておくと、ローカルAnkiへ橋渡しできます。ブラウザから直接接続したい場合のみ、AnkiConnectのwebCorsOriginListに https://hrussellzfac023.github.io を追加してください。",
-    mobileAnkiReady: "AnkiConnectに到達できません。モバイル受け渡しでは新規ノートのみ作成できます。既存カード状態、更新、デッキスキャン、フィールド対応付け、復習キューにはデスクトップAnkiとAnkiConnectが必要です。",
+    mobileAnkiReady: "AnkiConnectにまだ接続できていません。モバイル受け渡しでは新規ノートのみ作成できます。既存カード状態、更新、ライブラリスキャン、対応付けの検出、復習キューにはデスクトップAnkiとAnkiConnectが必要です。",
     ankiConnectionReady: "接続しました。AnkiConnectに到達できます。",
     ankiConnectedReady: "接続しました。デッキ「{deck}」とノートタイプ「{model}」の準備ができています。",
     ankiPromptRecallWord: "ハイライトされた単語を思い出してください。",
@@ -6067,7 +6067,7 @@ Greasy Fork compliance notes:
     statusEnabled: "有効",
     statusDisabled: "無効",
     statusReady: "準備完了",
-    statusAttention: "確認が必要",
+    statusAttention: "設定が必要",
     statusError: "エラー",
     disabledControlDescription: "この設定は、別の設定に制御されているため現在利用できません。",
     jpdbMiningEnabled: "JPDBの復習・デッキ変更を許可",
@@ -6381,15 +6381,15 @@ Greasy Fork compliance notes:
     scanAnki: "既存デッキをスキャン",
     ankiCheckingConnection: "{url} のAnkiConnectを確認中。{handoff}",
     ankiMiningDisabledStatus: "Ankiマイニングは無効です。{handoff}",
-    ankiMobileHandoffEnabledStatus: "AnkiMobile/AnkiDroidへの受け渡しはオンです（新規ノート作成のみ）。既存カード状態、更新、デッキスキャン、フィールド対応付け、復習キューにはデスクトップAnkiとAnkiConnectが必要です。",
-    ankiMobileHandoffDisabledStatus: "AnkiMobile/AnkiDroidへの受け渡しはオフです。既存カード状態、更新、デッキスキャン、フィールド対応付け、復習キューにはデスクトップAnkiとAnkiConnectが必要です。",
+    ankiMobileHandoffEnabledStatus: "AnkiMobile/AnkiDroidへの受け渡しはオンです（新規ノート作成のみ）。既存カード状態、更新、ライブラリスキャン、対応付けの検出、復習キューにはデスクトップAnkiとAnkiConnectが必要です。",
+    ankiMobileHandoffDisabledStatus: "AnkiMobile/AnkiDroidへの受け渡しはオフです。既存カード状態、更新、ライブラリスキャン、対応付けの検出、復習キューにはデスクトップAnkiとAnkiConnectが必要です。",
     ankiTesting: "AnkiConnectを確認中...",
     ankiPreparing: "よむデッキとノートタイプを作成または更新中...",
     ankiScanning: "既存Ankiデッキ、ノートタイプ、フィールドをスキャン中...",
     ankiScanSummary: "{decks}件のデッキと{models}件のノートタイプを検出しました。最有力: {model}。{fields}",
     ankiScanNoModels: "{decks}件のデッキを検出しましたが、ノートタイプは取得できませんでした。",
     ankiScanFieldSummary: "フィールド: {fields}",
-    ankiUnreachable: "AnkiConnectに接続できません。このPCでAnkiを開き、「AnkiConnectを確認」を押してください。",
+    ankiUnreachable: "AnkiConnectにまだ接続できていません。このPCでAnkiを開き、AnkiConnectアドオンがインストール済みで有効になっていることを確認してから、「AnkiConnectを確認」を押してください。",
     ankiLibraryAdapter: "既存ライブラリアダプター",
     ankiLibraryAdapterStatus: "AnkiConnect接続後にスキャンすると、RTK/Core系などの既存デッキや非標準ノートタイプを調べ、フィールド対応付けを提案します。モバイル受け渡しでは既存カード状態や復習キューは取得できません。",
     ankiLibraryChoices: "デッキとノートタイプ",
@@ -33299,7 +33299,7 @@ ${spelling}`);
                     </div>
                     <div class="jpdb-reader-settings-subsection jpdb-reader-anki-adapter" data-anki-library-adapter>
                         <div class="jpdb-reader-local-title" data-anki-library-adapter-title>Existing library adapter</div>
-                        <div class="jpdb-reader-help" data-anki-library-availability>AnkiConnect availability controls deck scans, field mapping, existing-note updates, and new-tab Anki reviews. AnkiMobile/AnkiDroid handoff can only create new notes.</div>
+                        <div class="jpdb-reader-help" data-anki-library-availability>${escapedUiText(settings.interfaceLanguage, "ankiLibraryAdapterStatus")}</div>
                         <div data-anki-field-mapping-editor>
                             ${renderAnkiFieldMappingEditor(settings, settings.ankiModel, [], settings.interfaceLanguage)}
                         </div>
@@ -35775,11 +35775,12 @@ ${spelling}`);
         } else if (canUseMobileAnkiHandoff(formSettings)) {
           this.setAnkiStatus(form, uiText(language, "mobileAnkiReady"), "pending");
         } else {
-          this.setAnkiStatus(form, this.ankiUnreachableMessage(language), "error");
+          this.setAnkiStatus(form, this.ankiUnreachableMessage(language), "pending");
         }
       } catch (error) {
         if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
-        this.setAnkiStatus(form, this.ankiConnectionErrorMessage(error, language), "error");
+        log$4.warn("Anki settings connection probe failed", error);
+        this.setAnkiStatus(form, this.ankiSetupUnavailableMessage(formSettings, language), "pending");
       } finally {
         this.settings = previous;
       }
@@ -36047,13 +36048,21 @@ ${spelling}`);
       const pendingKey = action === "scan-anki" ? "ankiScanning" : action === "prepare-anki" ? "ankiPreparing" : "ankiTesting";
       setAnkiStatus(uiText(language, pendingKey), "pending");
       try {
-        const connected = await this.dependencies.anki.isConnected();
+        let connected = false;
+        try {
+          connected = await this.dependencies.anki.isConnected();
+        } catch (error) {
+          log$4.warn("Anki settings connection check failed", error);
+          setAnkiStatus(this.ankiSetupUnavailableMessage(this.settings, language), "pending");
+          return true;
+        }
         if (!connected) {
           if (canUseMobileAnkiHandoff(this.settings)) {
             setAnkiStatus(uiText(language, "mobileAnkiReady"), "pending");
             return true;
           }
-          throw new Error(this.ankiUnreachableMessage(language));
+          setAnkiStatus(this.ankiUnreachableMessage(language), "pending");
+          return true;
         }
         if (action === "scan-anki") {
           const scan = await this.dependencies.anki.scanLibrary();
@@ -36220,6 +36229,9 @@ ${spelling}`);
     }
     ankiUnreachableMessage(language) {
       return uiText(language, "ankiUnreachable");
+    }
+    ankiSetupUnavailableMessage(settings, language) {
+      return canUseMobileAnkiHandoff(settings) ? uiText(language, "mobileAnkiReady") : this.ankiUnreachableMessage(language);
     }
     ankiConnectionErrorMessage(error, language) {
       return error instanceof Error ? error.message : uiText(language, "ankiUnreachable");

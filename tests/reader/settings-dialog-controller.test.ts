@@ -7,6 +7,18 @@ import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { ReaderSettings } from '../../src/reader/types';
 import type { ImportSummary } from '../../src/reader/yomitan';
 
+vi.mock('../../src/reader/settings-form', async importOriginal => {
+    const actual = await importOriginal<typeof import('../../src/reader/settings-form')>();
+    return {
+        ...actual,
+        // Controller tests exercise settings dialog behavior; full localization and
+        // parsed-settings ruby coverage lives in settings-form/nested-text tests.
+        localizeSettingsForm: vi.fn((form: HTMLFormElement, language: ReaderSettings['interfaceLanguage']) => {
+            form.lang = language === 'ja' ? 'ja' : 'en';
+        }),
+    };
+});
+
 type SettingsDialogControllerConstructor = new (dependencies: Record<string, unknown>) => SettingsDialogController;
 type RefreshableSettingsDialogController = {
     refreshDeckControls: (form: HTMLFormElement) => Promise<void>;
@@ -367,13 +379,54 @@ describe('settings dialog keyboard dismissal', () => {
 
         url.value = 'http://127.0.0.1:9999';
         url.dispatchEvent(new Event('change', { bubbles: true }));
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone === 'error');
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect is not connected') ?? false);
 
         expect(isConnected).toHaveBeenCalledTimes(2);
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect is not connected');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open Anki');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Check AnkiConnect');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('webCorsOriginList');
+    });
+
+    it('keeps a failed manual AnkiConnect check in the setup tone instead of showing a hard error', async () => {
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true };
+        const isConnected = vi.fn().mockResolvedValue(false);
+        const toast = vi.fn();
+        const { form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            anki: { isConnected },
+            toast,
+        });
+
+        form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect is not connected') ?? false);
+
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open Anki');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Check AnkiConnect');
+        expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('AnkiConnect is not connected'));
+    });
+
+    it('keeps a thrown AnkiConnect probe in the setup tone instead of showing a hard error', async () => {
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true };
+        const isConnected = vi.fn().mockRejectedValue(new Error('AnkiConnect request failed.'));
+        const toast = vi.fn();
+        const { form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            anki: { isConnected },
+            toast,
+        });
+
+        form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect is not connected yet') ?? false);
+
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect add-on');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('request failed');
+        expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('AnkiConnect request failed'));
     });
 
     it('updates the JPDB status light when the API key field changes', () => {
@@ -614,7 +667,7 @@ describe('settings dialog keyboard dismissal', () => {
             let fallbackText = '';
             await waitForCondition(() => {
                 const text = form.querySelector<HTMLElement>('[data-anki-status]')?.textContent ?? '';
-                if (!text.includes('AnkiConnect is not reachable')) return false;
+                if (!text.includes('AnkiConnect is not connected yet')) return false;
                 fallbackText = text;
                 return true;
             });

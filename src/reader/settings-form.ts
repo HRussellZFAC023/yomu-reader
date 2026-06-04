@@ -659,7 +659,7 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
                     </div>
                     <div class="jpdb-reader-settings-subsection jpdb-reader-anki-adapter" data-anki-library-adapter>
                         <div class="jpdb-reader-local-title" data-anki-library-adapter-title>Existing library adapter</div>
-                        <div class="jpdb-reader-help" data-anki-library-availability>AnkiConnect availability controls deck scans, field mapping, existing-note updates, and new-tab Anki reviews. AnkiMobile/AnkiDroid handoff can only create new notes.</div>
+                        <div class="jpdb-reader-help" data-anki-library-availability>${escapedUiText(settings.interfaceLanguage, 'ankiLibraryAdapterStatus')}</div>
                         <div data-anki-field-mapping-editor>
                             ${renderAnkiFieldMappingEditor(settings, settings.ankiModel, [], settings.interfaceLanguage)}
                         </div>

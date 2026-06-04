@@ -935,7 +935,7 @@ async function runAndroidAnkiDroidHandoffSmoke(browser, baseUrl) {
     await targetWord.click({ force: true });
     await page.waitForFunction(() => {
         const popover = document.querySelector('.jpdb-reader-popover');
-        return Boolean(popover?.textContent?.includes('Send to AnkiDroid') && popover.textContent.includes('Android bridge'));
+        return Boolean(popover?.textContent?.includes('Send to AnkiDroid') && popover.textContent.includes('creates new notes only'));
     }, null, { timeout: 12000 });
 
     const mobilePopover = await page.evaluate(() => ({
@@ -945,7 +945,13 @@ async function runAndroidAnkiDroidHandoffSmoke(browser, baseUrl) {
     assert(mobilePopover.hasButton, 'Android AnkiDroid handoff button was missing', mobilePopover);
     assert(mobilePopover.text.includes('Send to AnkiDroid'), 'Android handoff action did not name AnkiDroid', mobilePopover);
     const androidHandoffText = mobilePopover.text.toLowerCase();
-    assert(androidHandoffText.includes('creates new notes only') && androidHandoffText.includes('android bridge'), 'Android handoff limitations were missing from the popover', mobilePopover);
+    assert(
+        androidHandoffText.includes('creates new notes only')
+            && androidHandoffText.includes('ankiconnect')
+            && androidHandoffText.includes('review queues'),
+        'Android handoff limitations were missing from the popover',
+        mobilePopover,
+    );
 
     const actionCountBefore = requests.length;
     await page.locator('.jpdb-reader-popover [data-action="anki"]').click().catch(() => undefined);
