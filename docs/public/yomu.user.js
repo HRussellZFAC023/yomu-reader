@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.5
+// @version      0.6.6
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -5054,8 +5054,9 @@ Greasy Fork compliance notes:
       ankiScanSummary: "Found {decks} decks and {models} note types. Best match: {model}. {fields}",
       ankiScanNoModels: "Found {decks} decks, but no note types were returned.",
       ankiScanFieldSummary: "Fields: {fields}",
-      ankiUnreachable: "AnkiConnect is not connected yet. Open Anki on this computer, confirm the AnkiConnect add-on is installed and enabled, then press Check AnkiConnect.",
-      ankiHostedCorsHint: "Hosted page: keep the よむ userscript enabled on this page so it can bridge to local Anki. Direct browser access is optional and requires adding https://hrussellzfac023.github.io to AnkiConnect's webCorsOriginList.",
+      ankiUnreachable: "AnkiConnect is not connected yet. Open Anki on this computer, install or enable the AnkiConnect add-on, then press Check AnkiConnect.",
+      ankiHostedBridgeMissing: "Hosted page: AnkiConnect needs the よむ userscript here. Enable or update the userscript on this page, refresh, then press Check AnkiConnect.",
+      ankiHostedCorsHint: "Hosted page: keep the よむ userscript enabled on this page, refresh, then press Check. Direct browser access is optional and requires adding https://hrussellzfac023.github.io to AnkiConnect's webCorsOriginList.",
       ankiLibraryAdapter: "Existing library adapter",
       ankiLibraryAdapterStatus: "Use Scan after AnkiConnect is reachable to inspect existing decks and note types, including RTK/Core-style decks, and suggest field mappings. Mobile handoff cannot read existing-card status or review queues.",
       ankiLibraryChoices: "Deck and note type",
@@ -5946,7 +5947,8 @@ Greasy Fork compliance notes:
     ankiConnectRequestFailed: "AnkiConnectリクエストに失敗しました。",
     ankiConnectTimedOut: "AnkiConnectがタイムアウトしました。",
     ankiConnectNeedsBridge: "コンテンツページでAnkiConnectを使うには、ユーザースクリプトのリクエストブリッジが必要です。",
-    ankiHostedCorsHint: "ホスト版ページ: このページでよむユーザースクリプトを有効にしておくと、ローカルAnkiへ橋渡しできます。ブラウザから直接接続したい場合のみ、AnkiConnectのwebCorsOriginListに https://hrussellzfac023.github.io を追加してください。",
+    ankiHostedBridgeMissing: "ホスト版ページ: AnkiConnectには、このページのよむユーザースクリプトが必要です。このページでユーザースクリプトを有効化または更新し、再読み込みしてから「AnkiConnectを確認」を押してください。",
+    ankiHostedCorsHint: "ホスト版ページ: このページでよむユーザースクリプトを有効にし、再読み込みしてから「確認」を押してください。直接接続したい場合のみ、AnkiConnectのwebCorsOriginListに https://hrussellzfac023.github.io を追加してください。",
     mobileAnkiReady: "AnkiConnectにまだ接続できていません。モバイル受け渡しでは新規ノートのみ作成できます。既存カード状態、更新、ライブラリスキャン、対応付けの検出、復習キューにはデスクトップAnkiとAnkiConnectが必要です。",
     ankiConnectionReady: "接続しました。AnkiConnectに到達できます。",
     ankiConnectedReady: "接続しました。デッキ「{deck}」とノートタイプ「{model}」の準備ができています。",
@@ -6393,7 +6395,7 @@ Greasy Fork compliance notes:
     ankiScanSummary: "{decks}件のデッキと{models}件のノートタイプを検出しました。最有力: {model}。{fields}",
     ankiScanNoModels: "{decks}件のデッキを検出しましたが、ノートタイプは取得できませんでした。",
     ankiScanFieldSummary: "フィールド: {fields}",
-    ankiUnreachable: "AnkiConnectにまだ接続できていません。このPCでAnkiを開き、AnkiConnectアドオンがインストール済みで有効になっていることを確認してから、「AnkiConnectを確認」を押してください。",
+    ankiUnreachable: "AnkiConnectにまだ接続できていません。このPCでAnkiを開き、AnkiConnectをインストールまたは有効化してから「AnkiConnectを確認」を押してください。",
     ankiLibraryAdapter: "既存ライブラリアダプター",
     ankiLibraryAdapterStatus: "AnkiConnect接続後にスキャンすると、RTK/Core系などの既存デッキや非標準ノートタイプを調べ、フィールド対応付けを提案します。モバイル受け渡しでは既存カード状態や復習キューは取得できません。",
     ankiLibraryChoices: "デッキとノートタイプ",
@@ -13659,6 +13661,13 @@ ${entry.reading}`;
     if (target.origin === current.origin) return true;
     if (isLoopbackHostname(current.hostname)) return true;
     return isYomuHostedAppUrl(current.href) && isHttpUrl(target) && !isLoopbackHostname(target.hostname);
+  }
+  function needsHostedAnkiConnectSetupHint(url, currentHref = safeLocationHref$1()) {
+    if (getUserscriptHttpRequest()) return false;
+    const current = readAnkiUrl(currentHref);
+    if (!current || current.origin !== GITHUB_PAGES_ORIGIN || !isYomuHostedAppUrl(current.href)) return false;
+    const target = readAnkiUrl(url, current.href);
+    return Boolean(target && target.origin !== current.origin && isHttpUrl(target));
   }
   function readAnkiUrl(value, base) {
     try {
@@ -36144,6 +36153,12 @@ ${spelling}`);
         setAnkiStatus(this.ankiReadyMessage(language), "success");
         log$4.info("Anki settings prepare succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
       } catch (error) {
+        if (isAnkiConnectAvailabilityError(error)) {
+          const message2 = this.ankiSetupUnavailableMessage(this.settings, language);
+          log$4.warn("Anki settings action unavailable", error);
+          setAnkiStatus(message2, "pending");
+          return true;
+        }
         const message = this.ankiConnectionErrorMessage(error, language);
         log$4.warn("Anki settings test failed", error);
         setAnkiStatus(message, "error");
@@ -36321,6 +36336,9 @@ ${spelling}`);
       return uiText(language, "ankiUnreachable");
     }
     ankiSetupUnavailableMessage(settings, language) {
+      if (needsHostedAnkiConnectSetupHint(settings.ankiConnectUrl)) {
+        return uiText(language, "ankiHostedBridgeMissing");
+      }
       return canUseMobileAnkiHandoff(settings) ? uiText(language, "mobileAnkiReady") : this.ankiUnreachableMessage(language);
     }
     ankiConnectionErrorMessage(error, language) {

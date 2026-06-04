@@ -147,6 +147,7 @@ describe('settings dialog keyboard dismissal', () => {
         document.body.replaceChildren();
         localStorage.clear();
         vi.restoreAllMocks();
+        vi.unstubAllGlobals();
     });
 
     it('closes when Escape is pressed from a settings text field', () => {
@@ -568,6 +569,53 @@ describe('settings dialog keyboard dismissal', () => {
             },
         });
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('expression: Vocabulary-Kanji');
+    });
+
+    it('keeps unavailable Anki scan failures in the setup tone', async () => {
+        const isConnected = vi.fn().mockResolvedValue(true);
+        const scanLibrary = vi.fn().mockRejectedValue(new Error('AnkiConnect needs the userscript request bridge on content pages.'));
+        const toast = vi.fn();
+        const { form } = createSettingsDialog({
+            anki: {
+                isConnected,
+                scanLibrary,
+            },
+            toast,
+        });
+
+        form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')?.click();
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect is not connected yet') ?? false);
+
+        const status = form.querySelector<HTMLElement>('[data-anki-status]');
+        expect(status?.dataset.statusTone).toBe('pending');
+        expect(status?.textContent).toContain('Open Anki');
+        expect(status?.textContent).not.toContain('request bridge');
+        expect(toast).not.toHaveBeenCalled();
+    });
+
+    it('shows hosted userscript setup guidance when the hosted page cannot see the bridge', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
+            origin: 'https://hrussellzfac023.github.io',
+            hostname: 'hrussellzfac023.github.io',
+        });
+        const isConnected = vi.fn().mockRejectedValue(new Error('AnkiConnect needs the userscript request bridge on content pages.'));
+        const toast = vi.fn();
+        const { form } = createSettingsDialog({
+            anki: { isConnected },
+            toast,
+        });
+
+        form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Hosted page') ?? false);
+
+        const status = form.querySelector<HTMLElement>('[data-anki-status]');
+        expect(status?.dataset.statusTone).toBe('pending');
+        expect(status?.textContent).toContain('Enable or update the userscript');
+        expect(status?.textContent).toContain('refresh');
+        expect(status?.textContent).not.toContain('request bridge');
+        expect(toast).not.toHaveBeenCalled();
+        vi.unstubAllGlobals();
     });
 
     it('preserves disabled Anki deck preferences while scanning Anki library metadata', async () => {

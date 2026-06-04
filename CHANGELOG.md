@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.6] - 2026-06-04
+
+### Fixed
+
+- Show hosted-page AnkiConnect setup as a normal setup state when the よむ userscript bridge is missing, instead of surfacing raw request-bridge errors.
+- Exclude generated JPDB shard files from default Vitest discovery while keeping explicit CI JPDB shards runnable.
+
 ## [0.6.5] - 2026-06-04
 
 ### Fixed

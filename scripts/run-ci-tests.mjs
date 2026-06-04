@@ -27,7 +27,10 @@ function runRegularShard(currentShard, shardTotal) {
 
 function runJpdbShard(currentShard, shardTotal) {
     const generated = generateJpdbShardFiles(shardTotal);
-    runVitest(['run', relative(ROOT, generated[currentShard - 1]), '--minWorkers=1', '--maxWorkers=1', '--no-file-parallelism']);
+    runVitest(
+        ['run', relative(ROOT, generated[currentShard - 1]), '--minWorkers=1', '--maxWorkers=1', '--no-file-parallelism'],
+        { YOMU_INCLUDE_GENERATED_JPDB_SHARDS: '1' },
+    );
 }
 
 function generateJpdbShardFiles(shardTotal) {
@@ -113,11 +116,11 @@ function collectTestFiles(dir) {
         .sort();
 }
 
-function runVitest(vitestArgs) {
+function runVitest(vitestArgs, envOverrides = {}) {
     const result = spawnSync(process.execPath, [join(ROOT, 'node_modules/vitest/vitest.mjs'), ...vitestArgs], {
         cwd: ROOT,
         stdio: 'inherit',
-        env: process.env,
+        env: { ...process.env, ...envOverrides },
     });
     process.exit(result.status ?? 1);
 }

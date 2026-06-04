@@ -1752,7 +1752,7 @@ function canUseIndexedDb(): boolean {
     return typeof indexedDB !== 'undefined';
 }
 
-function isAnkiConnectAvailabilityError(error: unknown): boolean {
+export function isAnkiConnectAvailabilityError(error: unknown): boolean {
     if (error instanceof Error && error.cause && error.cause !== error) {
         return isAnkiConnectAvailabilityError(error.cause);
     }
