@@ -447,12 +447,14 @@ interface NewTabLoadResult {
     cards: JPDBCard[];
     sourceLabel: string;
     reviewCountMode?: boolean;
+    emptyMessageKey?: NewTabTextKey;
 }
 
 interface NewTabLoadAccumulator {
     cards: JPDBCard[];
     labels: string[];
     reviewCountMode: boolean;
+    emptyMessageKey?: NewTabTextKey;
 }
 
 interface NewTabSourceCacheEntry {
@@ -707,6 +709,7 @@ export class NewTabController {
     private immersionAudioKey = '';
     private immersionAudioRequestId = 0;
     private reviewCountMode = false;
+    private emptyLoadMessageKey: NewTabTextKey | null = null;
     private loadGeneration = 0;
     private sourceSwitchGeneration = 0;
     private searchGeneration = 0;
@@ -903,6 +906,7 @@ export class NewTabController {
         this.visiblePoolSignature = '';
         this.navigationSupplementPromise = null;
         this.reviewCountMode = false;
+        this.emptyLoadMessageKey = null;
         this.searchGeneration++;
         this.clearSearchDebounce();
         this.searchQuery = '';
@@ -1592,6 +1596,7 @@ export class NewTabController {
             result,
         );
         this.reviewCountMode = result.reviewCountMode === true;
+        this.emptyLoadMessageKey = result.emptyMessageKey ?? null;
         this.sourceLabel = statsStudyFilter === 'trouble'
             ? `${result.sourceLabel} · ${this.text('statsStudyTroubleCards')}`
             : result.sourceLabel;
@@ -1653,6 +1658,7 @@ export class NewTabController {
         if (!this.isCurrentLoad(loadGeneration) || !cached.cards.length || !this.canPrimeWithOfflineCache(cached.cards)) return false;
         this.allWords = cached.cards;
         this.reviewCountMode = false;
+        this.emptyLoadMessageKey = null;
         this.sourceLabel = this.offlineSourceLabel(cached.sourceLabel);
         this.dependencies.parser.cacheCards?.(this.allWords);
         this.applyWords(root, preferStoredWord);
@@ -1679,12 +1685,13 @@ export class NewTabController {
         if (!this.isCurrentLoad(loadGeneration) || !cached.cards.length) return;
         this.allWords = cached.cards;
         this.reviewCountMode = false;
+        this.emptyLoadMessageKey = null;
         this.sourceLabel = this.offlineSourceLabel(cached.sourceLabel);
         this.setStatus(root, this.text('offlineCache'));
     }
 
     private async renderEmptyWordLoad(root: HTMLElement): Promise<void> {
-        this.renderEmpty(root, APP_NAME, this.text(this.emptyStudyMessageKey()));
+        this.renderEmpty(root, APP_NAME, this.text(this.emptyLoadMessageKey ?? this.emptyStudyMessageKey()));
     }
 
     private renderStats(root: HTMLElement): void {
@@ -2298,6 +2305,7 @@ export class NewTabController {
         if (cached.cards.length) {
             this.allWords = cached.cards;
             this.reviewCountMode = false;
+            this.emptyLoadMessageKey = null;
             this.sourceLabel = this.offlineSourceLabel(cached.sourceLabel);
             this.dependencies.parser.cacheCards(this.allWords);
             this.applyWords(root, preferStoredWord);
@@ -2461,7 +2469,6 @@ export class NewTabController {
             jpdbMiningEnabled: settings.jpdbMiningEnabled,
             jpdbReviewMode: settings.newTabJpdbReviewMode,
             jpdbDeck: settings.newTabJpdbDeck,
-            ankiEnabled: settings.ankiEnabled,
             ankiNewTabEnabled: settings.newTabAnkiEnabled,
             ankiDeck: settings.ankiDeck,
             ankiModel: settings.ankiModel,
@@ -2474,16 +2481,25 @@ export class NewTabController {
     private async loadAnkiWords(timeoutMs = NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, limit = NEW_TAB_WORD_LIMIT): Promise<NewTabLoadResult> {
         const settings = this.dependencies.getSettings();
         if (!settings.newTabAnkiEnabled) {
-            return { cards: [], sourceLabel: 'Anki', reviewCountMode: true };
+            return { cards: [], sourceLabel: 'Anki', reviewCountMode: true, emptyMessageKey: 'ankiUnreachable' };
         }
         const cardLimit = Math.max(1, Math.floor(limit));
-        const cards = await this.remoteSourceWithFallback(
-            'Anki',
+        let unavailable = false;
+        const cards = await promiseWithTimeout(
             this.dependencies.anki.listNewTabCards(cardLimit),
-            [] as JPDBCard[],
             timeoutMs,
-        );
-        return { cards, sourceLabel: cards.length ? 'Anki' : 'Anki', reviewCountMode: true };
+            'Anki timed out.',
+        ).catch(error => {
+            unavailable = true;
+            log.warn('New tab Anki source failed', { error });
+            return [] as JPDBCard[];
+        });
+        return {
+            cards,
+            sourceLabel: 'Anki',
+            reviewCountMode: true,
+            emptyMessageKey: unavailable ? 'ankiUnreachable' : undefined,
+        };
     }
 
     private async loadDictionaryWords(_onProgress?: (message: string) => void, limit = NEW_TAB_WORD_LIMIT): Promise<NewTabLoadResult> {
@@ -2778,6 +2794,7 @@ export class NewTabController {
         this.index = 0;
         this.sourceLabel = '';
         this.reviewCountMode = false;
+        this.emptyLoadMessageKey = null;
         this.persistState();
     }
 
@@ -2815,6 +2832,7 @@ export class NewTabController {
             this.index = 0;
             this.sourceLabel = '';
             this.reviewCountMode = false;
+            this.emptyLoadMessageKey = null;
             this.setStatus(root, this.text('loading'));
             await this.loadWordsInto(root, false, { useOfflineCache: false });
             return;
@@ -6847,11 +6865,13 @@ function mergeEmptyNewTabLoadResults(previous: NewTabLoadResult, next: NewTabLoa
         cards: [],
         sourceLabel: next.sourceLabel || previous.sourceLabel,
         reviewCountMode: previous.reviewCountMode === true || next.reviewCountMode === true,
+        emptyMessageKey: next.emptyMessageKey ?? previous.emptyMessageKey,
     };
 }
 
 function appendNewTabLoadResult(accumulator: NewTabLoadAccumulator, result: NewTabLoadResult): void {
     accumulator.reviewCountMode ||= result.reviewCountMode === true;
+    accumulator.emptyMessageKey = result.emptyMessageKey ?? accumulator.emptyMessageKey;
     appendLoadedWords(result, accumulator.cards, accumulator.labels);
     if (!result.cards.length && result.reviewCountMode === true && result.sourceLabel && !accumulator.labels.includes(result.sourceLabel)) {
         accumulator.labels.push(result.sourceLabel);
@@ -6892,6 +6912,7 @@ function autoReviewMergeKey(card: JPDBCard): string {
 function interleavedNewTabLoadAccumulator(results: NewTabLoadResult[]): NewTabLoadAccumulator {
     const accumulator = emptyNewTabLoadAccumulator();
     accumulator.reviewCountMode = results.some(result => result.reviewCountMode === true);
+    accumulator.emptyMessageKey = results.find(result => result.emptyMessageKey)?.emptyMessageKey;
     const activeResults = results.filter(result => result.cards.length > 0);
     accumulator.cards.push(...interleaveNewTabCards(activeResults.map(result => result.cards)));
     accumulator.labels.push(...activeResults.map(result => result.sourceLabel));
@@ -6915,6 +6936,7 @@ function newTabLoadResult(accumulator: NewTabLoadAccumulator, language: ReaderSe
         cards: accumulator.cards,
         sourceLabel: accumulator.labels.length ? accumulator.labels.join(' + ') : newTabText(language, 'noSource'),
         reviewCountMode: accumulator.reviewCountMode,
+        emptyMessageKey: accumulator.emptyMessageKey,
     };
 }
 

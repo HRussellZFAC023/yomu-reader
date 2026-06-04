@@ -161,6 +161,54 @@ function readNewTabAnkiDisabledDecks(form: HTMLFormElement): string[] {
     );
 }
 
+function updateAnkiTagsEditor(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined): void {
+    const editor = control?.closest<HTMLElement>('[data-anki-tags-editor]') ?? form.querySelector<HTMLElement>('[data-anki-tags-editor]');
+    const hidden = editor?.querySelector<HTMLInputElement>('input[name="ankiTags"]');
+    if (!editor || !hidden) return;
+    const language = getFormInterfaceLanguage(form, 'en');
+    const tags = ankiTagList(hidden.value);
+    if (action === 'anki-tag-add') {
+        const input = editor.querySelector<HTMLInputElement>('[data-anki-tag-input]');
+        ankiTagList(input?.value ?? '').forEach(tag => {
+            if (!tags.includes(tag)) tags.push(tag);
+        });
+        if (input) input.value = '';
+    } else {
+        const tag = control?.dataset.tag?.trim();
+        if (tag) {
+            const index = tags.indexOf(tag);
+            if (index >= 0) tags.splice(index, 1);
+        }
+    }
+    hidden.value = tags.join(' ');
+    hidden.dispatchEvent(new Event('input', { bubbles: true }));
+    renderAnkiTagChips(editor, tags, language);
+}
+
+function renderAnkiTagChips(editor: HTMLElement, tags: string[], language: InterfaceLanguage): void {
+    const list = editor.querySelector<HTMLElement>('[data-anki-tag-chips]');
+    if (!list) return;
+    list.replaceChildren(...tags.map(tag => {
+        const button = document.createElement('button');
+        button.className = 'jpdb-reader-tag-chip';
+        button.type = 'button';
+        button.dataset.action = 'anki-tag-remove';
+        button.dataset.tag = tag;
+        button.setAttribute('aria-label', `${uiText(language, 'remove')}: ${tag}`);
+        const label = document.createElement('span');
+        label.textContent = tag;
+        const remove = document.createElement('span');
+        remove.textContent = '×';
+        remove.setAttribute('aria-hidden', 'true');
+        button.append(label, remove);
+        return button;
+    }));
+}
+
+function ankiTagList(value: string): string[] {
+    return Array.from(new Set(value.split(/[\s,]+/u).map(tag => tag.trim()).filter(Boolean)));
+}
+
 function selectedSettingsPanel(control: HTMLElement | null | undefined): string {
     return control?.dataset.panel ?? 'jpdb';
 }
@@ -236,6 +284,7 @@ export class SettingsDialogController {
     private modalSiblingState?: ModalSiblingState;
     private saveRequestId = 0;
     private ankiConnectionProbeId = 0;
+    private ankiLibraryScanId = 0;
 
     constructor(private readonly dependencies: SettingsDialogDependencies) {}
 
@@ -566,6 +615,10 @@ export class SettingsDialogController {
             void this.handleSettingsAction(form, action, control);
         });
         form.addEventListener('keydown', event => {
+            if (this.handleAnkiTagInputKeydown(form, event)) {
+                event.preventDefault();
+                return;
+            }
             if (event.key !== 'Enter' && event.key !== ' ') return;
             if (this.handleSettingsPreviewLookup(event)) event.preventDefault();
         });
@@ -693,6 +746,7 @@ export class SettingsDialogController {
         const formSettings = readFormSettings(new FormData(form), this.settings);
         const initialLine = ankiStatusLineForSettings(formSettings, language);
         const requestId = ++this.ankiConnectionProbeId;
+        this.ankiLibraryScanId++;
         this.setAnkiStatus(form, initialLine.message, initialLine.tone);
         if (!formSettings.ankiEnabled) return;
 
@@ -703,6 +757,7 @@ export class SettingsDialogController {
             if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
             if (connected) {
                 this.setAnkiStatus(form, uiText(language, 'ankiConnectionReady'), 'success');
+                this.queueAutomaticAnkiLibraryScan(form, language);
             } else if (canUseMobileAnkiHandoff(formSettings)) {
                 this.setAnkiStatus(form, uiText(language, 'mobileAnkiReady'), 'pending');
             } else {
@@ -719,6 +774,37 @@ export class SettingsDialogController {
 
     private shouldApplyAnkiConnectionProbe(form: HTMLFormElement, requestId: number): boolean {
         return this.currentForm === form && form.isConnected && requestId === this.ankiConnectionProbeId;
+    }
+
+    private queueAutomaticAnkiLibraryScan(form: HTMLFormElement, language: InterfaceLanguage): void {
+        const requestId = ++this.ankiLibraryScanId;
+        window.setTimeout(() => {
+            void this.refreshAnkiLibraryScan(form, requestId, language);
+        }, 0);
+    }
+
+    private async refreshAnkiLibraryScan(form: HTMLFormElement, requestId: number, language: InterfaceLanguage): Promise<void> {
+        if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+        const previous = this.settings;
+        this.settings = readFormSettings(new FormData(form), this.settings);
+        this.setAnkiStatus(form, uiText(language, 'ankiScanning'), 'pending');
+        try {
+            const scan = await this.dependencies.anki.scanLibrary();
+            if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+            this.applyAnkiScanToForm(form, scan);
+            this.setAnkiStatus(form, this.ankiScanMessage(scan, language), 'success');
+            log.info('Automatic Anki library scan succeeded', { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
+        } catch (error) {
+            if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+            log.warn('Automatic Anki library scan failed', error);
+            this.setAnkiStatus(form, uiText(language, 'ankiConnectionReady'), 'success');
+        } finally {
+            this.settings = previous;
+        }
+    }
+
+    private shouldApplyAnkiLibraryScan(form: HTMLFormElement, requestId: number): boolean {
+        return this.currentForm === form && form.isConnected && requestId === this.ankiLibraryScanId;
     }
 
     private setAnkiStatus(form: HTMLFormElement, message: string, tone: 'pending' | 'success' | 'error'): void {
@@ -917,7 +1003,19 @@ export class SettingsDialogController {
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
             return true;
         }
+        if (action === 'anki-tag-add' || action === 'anki-tag-remove') {
+            updateAnkiTagsEditor(form, action, control);
+            return true;
+        }
         return false;
+    }
+
+    private handleAnkiTagInputKeydown(form: HTMLFormElement, event: KeyboardEvent): boolean {
+        if (event.key !== 'Enter') return false;
+        const input = (event.target as HTMLElement | null)?.closest<HTMLInputElement>('[data-anki-tag-input]');
+        if (!input) return false;
+        updateAnkiTagsEditor(form, 'anki-tag-add', input);
+        return true;
     }
 
     private async handleSettingsAudioAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<boolean> {
@@ -998,7 +1096,7 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsConnectionAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<boolean> {
-        if (action !== 'test-anki' && action !== 'prepare-anki' && action !== 'scan-anki') return false;
+        if (action !== 'test-anki' && action !== 'prepare-anki') return false;
         const ankiStatus = form.querySelector<HTMLElement>('[data-anki-status]');
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         const button = settingsActionButton(control);
@@ -1010,7 +1108,7 @@ export class SettingsDialogController {
         const previous = this.settings;
         this.settings = readFormSettings(new FormData(form), this.settings);
         button?.setAttribute('disabled', 'true');
-        const pendingKey = action === 'scan-anki' ? 'ankiScanning' : action === 'prepare-anki' ? 'ankiPreparing' : 'ankiTesting';
+        const pendingKey = action === 'prepare-anki' ? 'ankiPreparing' : 'ankiTesting';
         setAnkiStatus(uiText(language, pendingKey), 'pending');
         try {
             let connected = false;
@@ -1027,13 +1125,6 @@ export class SettingsDialogController {
                     return true;
                 }
                 setAnkiStatus(this.ankiUnreachableMessage(language), 'pending');
-                return true;
-            }
-            if (action === 'scan-anki') {
-                const scan = await this.dependencies.anki.scanLibrary();
-                this.applyAnkiScanToForm(form, scan);
-                setAnkiStatus(this.ankiScanMessage(scan, language), 'success');
-                log.info('Anki library scan succeeded', { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
                 return true;
             }
             if (action === 'test-anki') {

@@ -279,6 +279,7 @@ interface AnkiStatusIndex {
     entryCount?: number;
     entries: Record<string, AnkiStatusIndexEntry>;
     entryStore?: 'indexeddb';
+    readingKeys?: true;
 }
 
 interface AnkiStatusIndexRebuildLease {
@@ -630,13 +631,15 @@ export class AnkiConnectClient {
             const index = await this.loadStatusIndex();
             if (this.isDestroyed) return null;
             const now = Date.now();
-            if (index && now - index.checkedAt < ANKI_STATUS_INDEX_COUNT_CHECK_MS) return index;
+            const needsReadingKeyRefresh = Boolean(index && !index.readingKeys);
+            if (index && !needsReadingKeyRefresh && now - index.checkedAt < ANKI_STATUS_INDEX_COUNT_CHECK_MS) return index;
             if (!index && !options.rebuildIfMissing) return null;
             if (!await this.isAvailableForBackground()) return index;
             if (this.isDestroyed) return null;
             const deckStatsCardCount = index ? await this.collectionCardCountFromDeckStats() : null;
             if (this.isDestroyed) return null;
             if (index
+                && !needsReadingKeyRefresh
                 && deckStatsCardCount !== null
                 && deckStatsCardCount === index.cardCount
                 && now - index.syncedAt < ANKI_STATUS_INDEX_MAX_STALE_MS) {
@@ -653,7 +656,7 @@ export class AnkiConnectClient {
                 const cardIds = await this.invoke<number[]>('findCards', { query: 'deck:*' });
                 touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
                 if (this.isDestroyed) return null;
-                if (index && cardIds.length === index.cardCount && rebuildStartedAt - index.syncedAt < ANKI_STATUS_INDEX_MAX_STALE_MS) {
+                if (index && !needsReadingKeyRefresh && cardIds.length === index.cardCount && rebuildStartedAt - index.syncedAt < ANKI_STATUS_INDEX_MAX_STALE_MS) {
                     const checked = { ...index, checkedAt: rebuildStartedAt };
                     this.statusIndex = checked;
                     await saveAnkiStatusIndexCheckedAt(checked);
@@ -760,6 +763,7 @@ export class AnkiConnectClient {
             cardCount: allCardIds.length,
             entryCount: Object.keys(entries).length,
             entries,
+            readingKeys: true,
         };
         this.statusIndex = index;
         this.statusLookupCache.clear();
@@ -803,6 +807,7 @@ export class AnkiConnectClient {
                 entryCount,
                 entryStore: 'indexeddb',
                 entries: {},
+                readingKeys: true,
             };
             await putAnkiStatusIndexMeta(db, ankiStatusIndexMeta(index));
             await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
@@ -1600,6 +1605,7 @@ async function loadAnkiStatusIndexFromIndexedDb(): Promise<AnkiStatusIndex | nul
             entryCount: meta.entryCount,
             entryStore: 'indexeddb',
             entries: {},
+            readingKeys: meta.readingKeys,
         };
     } finally {
         db.close();
@@ -1654,6 +1660,7 @@ function ankiStatusIndexMeta(index: AnkiStatusIndex): StoredAnkiStatusIndexMeta 
         entryCount: index.entryCount ?? Object.keys(index.entries).length,
         entryStore: 'indexeddb',
         entries: {},
+        readingKeys: index.readingKeys,
     };
 }
 
@@ -2556,6 +2563,10 @@ function statusIndexKey(value: string): string {
     return normalizeStatusIndexValue(value).toLocaleLowerCase();
 }
 
+function statusIndexReadingKey(value: string): string {
+    return `reading:${statusIndexKey(value)}`;
+}
+
 function statusIndexEntriesForNotes(notes: AnkiNoteInfo[], cardData: AnkiStatusIndexCardData, settings: ReaderSettings): StoredAnkiStatusIndexEntry[] {
     const entries = new Map<string, AnkiStatusIndexEntry>();
     for (const note of notes) {
@@ -2581,6 +2592,14 @@ function statusIndexKeysForNote(note: AnkiNoteInfo, settings: ReaderSettings): s
             .filter(value => value.length >= 2)
             .forEach(value => keys.add(value));
     }
+    for (const value of statusIndexReadingFieldValues(fields, mapping)) {
+        if (value.length <= 80) keys.add(statusIndexReadingKey(value));
+        value
+            .split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u)
+            .map(statusIndexReadingKey)
+            .filter(value => value.length >= 'reading:'.length + 2)
+            .forEach(value => keys.add(value));
+    }
     return [...keys].filter(Boolean);
 }
 
@@ -2594,8 +2613,31 @@ function statusIndexFieldValues(fields: Record<string, string>, mapping?: AnkiFi
     return noteFieldValues(fields).filter(value => value.length <= 80 && /[\u3040-\u30ff\u3400-\u9fff]/.test(value));
 }
 
+function statusIndexReadingFieldValues(fields: Record<string, string>, mapping?: AnkiFieldMapping): string[] {
+    return unique([
+        mappedNoteField(fields, mapping, 'reading'),
+        firstNoteReading(fields),
+    ]
+        .map(value => value.replace(/\s+/g, ' ').trim())
+        .filter(value => value.length >= 2));
+}
+
 function statusIndexKeysForCard(card: JPDBCard): string[] {
-    return unique(noteCardExpressionTargets(card).map(statusIndexKey));
+    const keys = noteCardExpressionTargets(card).map(statusIndexKey);
+    if (shouldUseStatusReadingKey(card)) keys.push(statusIndexReadingKey(card.reading || card.spelling));
+    return unique(keys);
+}
+
+function shouldUseStatusReadingKey(card: JPDBCard): boolean {
+    const reading = (card.reading || '').replace(/\s+/g, ' ').trim();
+    const spelling = (card.spelling || '').replace(/\s+/g, ' ').trim();
+    if (!reading || reading.length < 2) return false;
+    if (!spelling || spelling.length < 2) return false;
+    return spelling === reading || isKanaStatusLookupSurface(spelling);
+}
+
+function isKanaStatusLookupSurface(value: string): boolean {
+    return /[\u3040-\u30ff]/u.test(value) && !/[\u3400-\u9fff]/u.test(value);
 }
 
 function statusIndexEntryForCard(

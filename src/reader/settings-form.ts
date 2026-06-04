@@ -60,7 +60,7 @@ export function renderHelpLinksPanel(): string {
                 <div class="jpdb-reader-help" data-help-support-copy>${escapeHtml(SUPPORT_COPY)}</div>
                 <div class="jpdb-reader-help" data-help-support-copy-extra>${escapeHtml(SUPPORT_COPY_EXTRA)}</div>
                 <div class="jpdb-reader-help-actions">
-                    <a class="jpdb-reader-btn" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">${externalButtonLabel('Donate')}</a>
+                    <a class="jpdb-reader-btn jpdb-reader-help-donate" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">${externalButtonLabel('Donate')}</a>
                     <a class="jpdb-reader-btn" href="${GITHUB_REPOSITORY_URL}/issues" target="_blank" rel="noopener" data-help-link="issues">${externalButtonLabel('Issues')}</a>
                     <a class="jpdb-reader-btn" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener" data-help-link="discord">${externalButtonLabel('Discord')}</a>
                 </div>
@@ -669,7 +669,6 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
                             <div id="settings-help-anki" class="jpdb-reader-help" data-anki-setup-help></div>
                             <div class="jpdb-reader-settings-actions jpdb-reader-anki-actions">
                                 <button class="jpdb-reader-btn" type="button" data-action="test-anki">Check</button>
-                                <button class="jpdb-reader-btn secondary" type="button" data-action="scan-anki">Scan</button>
                                 <button class="jpdb-reader-btn secondary" type="button" data-action="prepare-anki">Create</button>
                             </div>
                         </div>
@@ -689,7 +688,7 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
                                 ${checkbox('ankiFrontReading', 'Word-first front: show reading', settings.ankiFrontReading)}
                                 ${checkbox('ankiFrontSentence', 'Word-first front: show sentence', settings.ankiFrontSentence)}
                                 ${checkbox('ankiFrontImage', 'Show image on front', settings.ankiFrontImage)}
-                                ${input('ankiTags', 'Tags', settings.ankiTags)}
+                                ${renderAnkiTagsEditor(settings.ankiTags, settings.interfaceLanguage)}
                             </div>
                             <div data-anki-template-preview>
                                 ${renderAnkiTemplatePreview(settings)}
@@ -712,6 +711,31 @@ export function renderAnkiLibraryOptions(options: string[], value: string, langu
     const values = uniqueStrings([value, ...options].filter(Boolean));
     const rows = values.map(option => `<option value="${escapeHtml(option)}" ${option === value ? 'selected' : ''}>${escapeHtml(option)}</option>`);
     return rows.length ? rows.join('') : `<option value="" selected>${escapedUiText(language, 'scanAnkiFirst')}</option>`;
+}
+
+function renderAnkiTagsEditor(value: string, language: InterfaceLanguage): string {
+    const tags = ankiTagList(value);
+    const chips = tags.map(tag => `
+        <button class="jpdb-reader-tag-chip" type="button" data-action="anki-tag-remove" data-tag="${escapeHtml(tag)}" aria-label="${escapeHtml((language === 'ja' ? 'タグを削除: ' : 'Remove tag: ') + tag)}">
+            <span>${escapeHtml(tag)}</span>
+            <span aria-hidden="true">×</span>
+        </button>
+    `).join('');
+    return `
+        <div class="jpdb-reader-tag-editor" data-anki-tags-editor>
+            <input type="hidden" name="ankiTags" value="${escapeHtml(tags.join(' '))}">
+            <label class="jpdb-reader-settings-label-text" for="jpdb-reader-anki-tag-input">${escapedUiText(language, 'ankiTags')}</label>
+            <div class="jpdb-reader-tag-chip-list" data-anki-tag-chips>${chips}</div>
+            <div class="jpdb-reader-tag-add-row">
+                <input id="jpdb-reader-anki-tag-input" type="text" data-anki-tag-input autocomplete="off" placeholder="${escapeHtml(language === 'ja' ? 'タグを追加' : 'Add tag')}">
+                <button class="jpdb-reader-btn secondary" type="button" data-action="anki-tag-add">${escapeHtml(language === 'ja' ? '追加' : 'Add')}</button>
+            </div>
+        </div>
+    `;
+}
+
+function ankiTagList(value: string): string[] {
+    return uniqueStrings(value.split(/[\s,]+/u).map(tag => tag.trim()).filter(Boolean));
 }
 
 function formatStatusTemplate(template: string, values: Record<string, string>): string {
@@ -1340,7 +1364,6 @@ function localizeDictionaryImportHelp(form: HTMLFormElement, text: SettingsText)
 function localizeSettingsActions(form: HTMLFormElement, text: SettingsText): void {
     form.querySelectorAll<HTMLButtonElement>('[data-action="test-anki"]').forEach(button => button.replaceChildren(text('testAnki')));
     form.querySelectorAll<HTMLButtonElement>('[data-action="prepare-anki"]').forEach(button => button.replaceChildren(text('prepareAnki')));
-    form.querySelectorAll<HTMLButtonElement>('[data-action="scan-anki"]').forEach(button => button.replaceChildren(text('scanAnki')));
     form.querySelector<HTMLButtonElement>('[data-action="copy-newtab-url"]')?.replaceChildren(text('copyAddress'));
     form.querySelector<HTMLAnchorElement>('[data-newtab-url-link]')?.replaceChildren(text('openNewTabPage'));
     form.querySelector<HTMLButtonElement>('[data-action="import-yomitan-settings"]')?.replaceChildren(text('importSettings'));

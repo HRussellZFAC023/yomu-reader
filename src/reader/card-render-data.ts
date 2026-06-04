@@ -197,10 +197,6 @@ export class CardRenderDataLoader {
     }
 
     private async loadAnkiLookupWhenAvailable(card: JPDBCard, fallback: AnkiLookupResult): Promise<AnkiLookupResult> {
-        if (typeof this.dependencies.anki.isAvailableForBackground === 'function'
-            && !await this.dependencies.anki.isAvailableForBackground()) {
-            return ankiLookupWithUnavailableDetails(fallback);
-        }
         const lookup = await this.dependencies.anki.findExistingCards(card);
         const resolved = lookup.primary || lookup.trusted !== false ? lookup : fallback;
         return ankiLookupWithUnavailableDetails(resolved);

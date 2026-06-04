@@ -2325,6 +2325,148 @@ describe('new tab review helpers', () => {
         sessionStorage.removeItem('jpdb-reader-newtab-current-word');
     });
 
+    it('shows Anki connection guidance when the status footer toggles to unavailable Anki', async () => {
+        document.body.replaceChildren();
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        localStorage.removeItem('jpdb-reader-newtab-card-cache');
+        sessionStorage.removeItem('jpdb-reader-newtab-current-word');
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+            ankiEnabled: true,
+            newTabAnkiEnabled: true,
+            newTabSource: 'jpdb' as const,
+            newTabJpdbDeck: 'deck',
+            newTabJpdbReviewMode: 'api-vocabulary' as const,
+            immersionKitEnabled: false,
+        };
+        const jpdbCard = newTabTestCard({ vid: 1, sid: 1, spelling: '日本語', reading: 'にほんご', source: 'jpdb' });
+        const listNewTabCards = vi.fn(async () => {
+            throw new Error('AnkiConnect is not reachable.');
+        });
+        const controller = new NewTabController({
+            getSettings: () => settings,
+            anki: {
+                listNewTabCards,
+            } as never,
+            jpdb: {
+                listDeckCards: vi.fn(async () => [jpdbCard]),
+            } as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+                latestStatus: () => ({ connected: false }),
+                requestCurrent: vi.fn(),
+            } as never,
+            parser: {
+                cacheCards: vi.fn(),
+            } as never,
+            dictionaries: {
+                summary: vi.fn(async () => ({ dictionaries: [], dictionaryTypes: {} })),
+                listRandomTopTerms: vi.fn(async () => []),
+            } as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+
+        await controller.renderPage();
+        const status = document.querySelector<HTMLButtonElement>('[data-newtab-status]')!;
+        expect(status.textContent).toContain('JPDB ⇄');
+        expect(status.dataset.sourceToggleTarget).toBe('anki');
+
+        status.click();
+
+        await waitForExpect(() => {
+            expect(settings.newTabSource).toBe('anki');
+            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('よむ');
+            expect(document.querySelector('[data-newtab-answer]')?.textContent).toContain('AnkiConnect is not connected');
+            expect(document.querySelector('[data-newtab-answer]')?.textContent).toContain('Check AnkiConnect');
+        });
+        expect(listNewTabCards).toHaveBeenCalledOnce();
+
+        document.body.replaceChildren();
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        localStorage.removeItem('jpdb-reader-newtab-card-cache');
+        sessionStorage.removeItem('jpdb-reader-newtab-current-word');
+    });
+
+    it('uses cached unavailable Anki guidance after auto review loads JPDB first', async () => {
+        document.body.replaceChildren();
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        localStorage.removeItem('jpdb-reader-newtab-card-cache');
+        sessionStorage.removeItem('jpdb-reader-newtab-current-word');
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+            ankiEnabled: false,
+            newTabAnkiEnabled: true,
+            newTabSource: 'auto' as const,
+            newTabJpdbDeck: 'deck',
+            newTabJpdbReviewMode: 'api-vocabulary' as const,
+            immersionKitEnabled: false,
+        };
+        const jpdbCard = newTabTestCard({ vid: 1, sid: 1, spelling: '日本語', reading: 'にほんご', source: 'jpdb', reviewSource: 'jpdb-api' });
+        const listNewTabCards = vi.fn(async () => {
+            throw new Error('AnkiConnect is not reachable.');
+        });
+        const controller = new NewTabController({
+            getSettings: () => settings,
+            anki: {
+                listNewTabCards,
+            } as never,
+            jpdb: {
+                listDeckCards: vi.fn(async () => [jpdbCard]),
+            } as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+                latestStatus: () => ({ connected: false }),
+                requestCurrent: vi.fn(),
+            } as never,
+            parser: {
+                cacheCards: vi.fn(),
+            } as never,
+            dictionaries: {
+                summary: vi.fn(async () => ({ dictionaries: [], dictionaryTypes: {} })),
+                listRandomTopTerms: vi.fn(async () => []),
+            } as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+
+        await controller.renderPage();
+        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('日本語');
+        expect(listNewTabCards).toHaveBeenCalledOnce();
+        const status = document.querySelector<HTMLButtonElement>('[data-newtab-status]')!;
+        expect(status.textContent).toContain('JPDB ⇄');
+        expect(status.dataset.sourceToggleTarget).toBe('anki');
+
+        status.click();
+
+        await waitForExpect(() => {
+            expect(settings.newTabSource).toBe('anki');
+            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('よむ');
+            expect(document.querySelector('[data-newtab-answer]')?.textContent).toContain('AnkiConnect is not connected');
+            expect(document.querySelector('[data-newtab-answer]')?.textContent).toContain('Check AnkiConnect');
+        });
+        expect(listNewTabCards).toHaveBeenCalledOnce();
+
+        document.body.replaceChildren();
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        localStorage.removeItem('jpdb-reader-newtab-card-cache');
+        sessionStorage.removeItem('jpdb-reader-newtab-current-word');
+    });
+
     it('ignores stale Anki source switch completions after switching back to JPDB', async () => {
         const settings = {
             ...DEFAULT_SETTINGS,

@@ -97,11 +97,11 @@ The temporary notice shows how many cards were hidden and disappears after a few
 
 ## Anki And Mobile Handoff
 
-Anki support is optional. With [AnkiConnect](https://ankiweb.net/shared/info/2055492159) reachable, よむ can create cards from popup lookups, subtitles, and OCR; detect existing cards; update matching notes; scan decks and note types; and power Anki-backed review/status features in the new-tab page.
+Anki support is optional. With [AnkiConnect](https://ankiweb.net/shared/info/2055492159) reachable, よむ can create cards from popup lookups, subtitles, and OCR; detect existing cards; update matching notes; adapt to existing decks and note types; and power Anki-backed review/status features in the new-tab page.
 
-Mobile handoff is deliberately narrower. On iPhone, iPad, and Android, よむ can open AnkiMobile or AnkiDroid to create a new note when AnkiConnect is not available. Handoff does not read your collection, pull existing-card status, update existing notes, scan fields, discover mappings, or provide review queues. Saved mappings can still shape AnkiMobile add-note links; discovery, updates, status, and reviews need desktop Anki with AnkiConnect.
+Mobile handoff is deliberately narrower. On iPhone, iPad, and Android, よむ can open AnkiMobile or AnkiDroid to create a new note when AnkiConnect is not available. Handoff does not read your collection, pull existing-card status, update existing notes, adapt to existing decks, or provide review queues. For full Anki on mobile, keep desktop Anki open with [AnkiConnect](https://ankiweb.net/shared/info/2055492159) and point よむ at that desktop through Wi-Fi or [Tailscale](https://tailscale.com/downloads).
 
-If you already use RTK, Core, anime-card, or other nonstandard Japanese decks, use Settings > Anki > Scan after AnkiConnect is reachable. よむ inspects existing decks and note types, suggests field mappings for expression, reading, meaning, sentence, audio, and image fields, and lets you mine into that shape when it can infer a fit. If the scan cannot infer enough fields, the cleanest route is to use the よむ note type or adjust mappings before mining.
+If you already use RTK, Core, anime-card, or other nonstandard Japanese decks, keep desktop AnkiConnect reachable. よむ inspects existing Anki shapes automatically, suggests field mappings for expression, reading, meaning, sentence, audio, and image fields, and mines into that shape when it can infer a fit. If matching is not enough, the cleanest route is to use the よむ note type or adjust mappings before mining.
 
 If you do not use Anki, leave it off. JPDB mining and local dictionary lookup still work without it.
 
@@ -111,7 +111,9 @@ If you do not use Anki, leave it off. JPDB mining and local dictionary lookup st
 
 On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests. Browsers that allow direct local requests without the bridge also need `https://hrussellzfac023.github.io` in AnkiConnect's `webCorsOriginList`.
 
-On iPhone and iPad, this is often the easiest daily-review surface because it avoids desktop-only bridges. If AnkiConnect or JPDB is not available, dictionary-backed words keep the page useful once a dictionary is installed.
+On iPhone and iPad, this is often the easiest daily-review surface. For full Anki status, updates, and review queues, keep desktop Anki running with AnkiConnect and use a reachable LAN or Tailscale URL in よむ, such as `http://desktop-name.tailnet-name.ts.net:8765`. If AnkiConnect or JPDB is not available, dictionary-backed words keep the page useful once a dictionary is installed. The step-by-step mobile Anki setup is in [Getting Started](./getting-started.md#use-desktop-anki-from-a-phone-or-ipad).
+
+The hosted new-tab page carries a build id and checks for a fresh `version.json` on load. If a mobile shortcut keeps showing an older settings screen after a release, open the full new-tab URL in the browser, refresh, then close and reopen the shortcut. The troubleshooting steps in [Getting Started](./getting-started.md#if-something-does-not-work) cover the heavier reset path.
 
 <figure class="yomu-feature-shot">
   <img :src="'/yomu-reader/screenshots/real-newtab.png'" alt="The よむ new-tab study page loaded with a real JPDB study card.">

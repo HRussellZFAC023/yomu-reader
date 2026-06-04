@@ -13,10 +13,7 @@ export function renderAnkiActionRow(ankiLookup: AnkiLookupResult, settings: Read
     const label = mobileHandoff
         ? formatUiText(settings.interfaceLanguage, 'sendToMobileAnki', { app: mobileAnkiHandoffAppName() })
         : uiText(settings.interfaceLanguage, 'addToAnki');
-    const hint = mobileHandoff
-        ? `<div class="jpdb-reader-help jpdb-reader-anki-handoff-hint">${escapeHtml(uiText(settings.interfaceLanguage, 'mobileAnkiActionHint'))}</div>`
-        : '';
-    return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${escapeHtml(label)}</button></div>${hint}`;
+    return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${escapeHtml(label)}</button></div>`;
 }
 
 function shouldRenderMobileAnkiHandoffAction(ankiLookup: AnkiLookupResult, settings: ReaderSettings): boolean {

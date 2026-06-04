@@ -125,6 +125,7 @@ function flushPromises(): Promise<void> {
 async function waitForCondition(predicate: () => boolean): Promise<void> {
     for (let attempt = 0; attempt < 30; attempt++) {
         await flushPromises();
+        await new Promise(resolve => window.setTimeout(resolve, 0));
         if (predicate()) return;
     }
     throw new Error('Condition was not met.');
@@ -429,10 +430,11 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect is not connected yet') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect is not connected') ?? false);
 
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect add-on');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open Anki');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Check AnkiConnect');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('request failed');
         expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('AnkiConnect request failed'));
     });
@@ -526,7 +528,6 @@ describe('settings dialog keyboard dismissal', () => {
             },
         });
 
-        form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')?.click();
         await waitForCondition(() => form.querySelector<HTMLSelectElement>('select[name="ankiModel"]')?.value === 'Imported Japanese');
 
         expect(form.querySelector<HTMLSelectElement>('select[name="ankiDeck"]')?.value).toBe('Anime Mining');
@@ -583,12 +584,13 @@ describe('settings dialog keyboard dismissal', () => {
             toast,
         });
 
-        form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect is not connected yet') ?? false);
+        await waitForCondition(() =>
+            scanLibrary.mock.calls.length > 0
+            && (form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Connected. AnkiConnect is reachable') ?? false));
 
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
-        expect(status?.dataset.statusTone).toBe('pending');
-        expect(status?.textContent).toContain('Open Anki');
+        expect(status?.dataset.statusTone).toBe('success');
+        expect(status?.textContent).toContain('Connected');
         expect(status?.textContent).not.toContain('request bridge');
         expect(toast).not.toHaveBeenCalled();
     });
@@ -611,7 +613,7 @@ describe('settings dialog keyboard dismissal', () => {
 
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
         expect(status?.dataset.statusTone).toBe('pending');
-        expect(status?.textContent).toContain('Enable or update the userscript');
+        expect(status?.textContent).toContain('enable the よむ userscript');
         expect(status?.textContent).toContain('refresh');
         expect(status?.textContent).not.toContain('request bridge');
         expect(toast).not.toHaveBeenCalled();
@@ -639,7 +641,6 @@ describe('settings dialog keyboard dismissal', () => {
             },
         });
 
-        form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')?.click();
         await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Found 2 decks') === true);
 
         expect(scanLibrary).toHaveBeenCalled();
@@ -665,7 +666,7 @@ describe('settings dialog keyboard dismissal', () => {
             configurable: true,
         });
         const isConnected = vi.fn().mockResolvedValue(true);
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true };
         const scanLibrary = vi.fn().mockResolvedValue({
             deckNames: ['Android Bridge'],
             models: [{
@@ -699,7 +700,6 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         try {
-            form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')?.click();
             await waitForCondition(() => form.querySelector<HTMLSelectElement>('select[name="ankiModel"]')?.value === 'Bridge Japanese');
 
             expect(isConnected).toHaveBeenCalledOnce();
@@ -719,7 +719,7 @@ describe('settings dialog keyboard dismissal', () => {
         });
         const isConnected = vi.fn().mockResolvedValue(false);
         const scanLibrary = vi.fn().mockResolvedValue({ deckNames: [], models: [], suggestedModel: null });
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true };
         const { form } = createSettingsDialog({
             getSettings: () => settings,
             setSettings: (next: ReaderSettings) => { settings = next; },
@@ -730,19 +730,17 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         try {
-            form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')?.click();
             let fallbackText = '';
             await waitForCondition(() => {
                 const text = form.querySelector<HTMLElement>('[data-anki-status]')?.textContent ?? '';
-                if (!text.includes('AnkiConnect is not connected yet')) return false;
+                if (!text.includes('AnkiConnect is not connected')) return false;
                 fallbackText = text;
                 return true;
             });
 
             expect(isConnected).toHaveBeenCalledOnce();
             expect(scanLibrary).not.toHaveBeenCalled();
-            expect(fallbackText).toContain('new notes only');
-            expect(fallbackText).toContain('desktop Anki with AnkiConnect');
+            expect(fallbackText).toContain('create new notes');
         } finally {
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
         }
