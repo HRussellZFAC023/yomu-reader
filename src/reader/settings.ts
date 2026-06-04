@@ -285,7 +285,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
     preferJapaneseSiteLanguage: true,
-    ankiEnabled: false,
+    ankiEnabled: true,
     ankiSectionEnabled: true,
     ankiSectionPriority: 90,
     ankiConnectUrl: 'http://127.0.0.1:8765',

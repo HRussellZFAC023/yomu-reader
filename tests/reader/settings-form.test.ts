@@ -151,15 +151,15 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="jpdb"]')?.hidden).toBe(false);
     });
 
-    it('renders first-run Anki disabled and popover controls without legacy scan affordances', () => {
+    it('renders first-run Anki enabled and popover controls without legacy scan affordances', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
 
-        expect(DEFAULT_SETTINGS.ankiEnabled).toBe(false);
+        expect(DEFAULT_SETTINGS.ankiEnabled).toBe(true);
         expect(DEFAULT_SETTINGS.popupMode).toBe('auto');
-        expect(normalizeReaderSettings({}).ankiEnabled).toBe(false);
+        expect(normalizeReaderSettings({}).ankiEnabled).toBe(true);
         expect(normalizeReaderSettings({}).popupMode).toBe('auto');
-        expect(form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.checked).toBe(false);
+        expect(form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.checked).toBe(true);
         expect(form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.value).toBe('auto');
         expect(form.querySelector<HTMLInputElement>('input[name="ankiTags"]')?.value).toBe('yomu');
         expect(form.querySelector<HTMLElement>('[data-anki-tag-chips] .jpdb-reader-tag-chip')?.textContent).toContain('yomu');
@@ -168,7 +168,7 @@ describe('settings form localization', () => {
         expect(form.textContent).not.toContain('Scan Anki');
 
         const saved = readFormSettings(new FormData(form), { ...DEFAULT_SETTINGS, ankiEnabled: false, popupMode: 'popover' });
-        expect(saved.ankiEnabled).toBe(false);
+        expect(saved.ankiEnabled).toBe(true);
         expect(saved.popupMode).toBe('auto');
         expect(saved.ankiTags).toBe('yomu');
     });

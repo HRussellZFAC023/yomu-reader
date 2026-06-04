@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.15] - 2026-06-04
+
+### Fixed
+
+- Restored first-run Anki mining to enabled by default so Anki status and the Anki dictionary section appear without extra setup when Anki is available.
+
 ## [0.6.14] - 2026-06-04
 
 ### Fixed
