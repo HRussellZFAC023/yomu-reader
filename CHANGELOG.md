@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.18] - 2026-06-05
+
+### Fixed
+
+- Kept scanned card titles, clipped text, and fixed-size overlay text lookupable without injecting furigana that can change the host page layout and cause blinking or swapping.
+
 ## [0.6.17] - 2026-06-05
 
 ### Changed
