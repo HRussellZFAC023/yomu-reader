@@ -1,0 +1,101 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const pkg = require('../package.json');
+
+const ROOT = path.join(__dirname, '..');
+const USERSCRIPT_RELATIVE_PATH = 'dist/yomu.user.js';
+const READER_CSS_RELATIVE_PATH = 'dist/yomu.css';
+const DIST_USERSCRIPT_PATH = path.join(ROOT, USERSCRIPT_RELATIVE_PATH);
+const DIST_READER_CSS_PATH = path.join(ROOT, READER_CSS_RELATIVE_PATH);
+const DOCS_USERSCRIPT_PATH = path.join(ROOT, 'docs', 'public', 'yomu.user.js');
+const USERSCRIPT_METADATA_END = '// ==/UserScript==';
+const BUNDLED_DEPENDENCY_NOTICE_MARKER = 'Bundled dependency source information';
+const GREASY_FORK_SIZE_LIMIT_BYTES = 2_000_000;
+const GREASY_FORK_SIZE_WARNING_RATIO = 0.9;
+
+function fail(message) {
+  console.error(message);
+  process.exit(1);
+}
+
+function readText(file) {
+  return fs.readFileSync(file, 'utf8');
+}
+
+function writeText(file, value) {
+  fs.writeFileSync(file, value);
+}
+
+function fileExists(file) {
+  return fs.existsSync(file);
+}
+
+function readBuiltUserscript() {
+  return readText(DIST_USERSCRIPT_PATH);
+}
+
+function byteLengthUtf8(value) {
+  return Buffer.byteLength(value, 'utf8');
+}
+
+function formatCount(value) {
+  return value.toLocaleString();
+}
+
+function userscriptMetadataValues(code, key) {
+  const pattern = new RegExp(`^// @${escapeRegExp(key)}\\s+(.+)$`, 'gm');
+  return Array.from(code.matchAll(pattern), match => match[1].trim());
+}
+
+function assertNoRemoteExecutableMetadata(code) {
+  const requireUrls = userscriptMetadataValues(code, 'require');
+  if (requireUrls.length) {
+    fail(`userscript must not download remote executed code with @require; found: ${requireUrls.join(', ')}`);
+  }
+}
+
+function failIfGreasyForkSizeExceeded(size) {
+  if (size > GREASY_FORK_SIZE_LIMIT_BYTES) {
+    fail(`${USERSCRIPT_RELATIVE_PATH} is ${formatCount(size)} bytes, over Greasy Fork's 2 MB script limit (${formatCount(GREASY_FORK_SIZE_LIMIT_BYTES)} bytes).`);
+  }
+}
+
+function warnIfNearGreasyForkSizeLimit(size) {
+  if (size > GREASY_FORK_SIZE_LIMIT_BYTES * GREASY_FORK_SIZE_WARNING_RATIO) {
+    console.warn(`Warning: ${USERSCRIPT_RELATIVE_PATH} is ${formatCount(size)} bytes, above 90% of Greasy Fork's 2 MB script limit.`);
+  }
+}
+
+function packageVersion() {
+  return pkg.version || 'dev';
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+}
+
+module.exports = {
+  BUNDLED_DEPENDENCY_NOTICE_MARKER,
+  DIST_READER_CSS_PATH,
+  DIST_USERSCRIPT_PATH,
+  DOCS_USERSCRIPT_PATH,
+  GREASY_FORK_SIZE_LIMIT_BYTES,
+  GREASY_FORK_SIZE_WARNING_RATIO,
+  READER_CSS_RELATIVE_PATH,
+  ROOT,
+  USERSCRIPT_METADATA_END,
+  USERSCRIPT_RELATIVE_PATH,
+  assertNoRemoteExecutableMetadata,
+  byteLengthUtf8,
+  fail,
+  failIfGreasyForkSizeExceeded,
+  fileExists,
+  formatCount,
+  packageJson: pkg,
+  packageVersion,
+  readBuiltUserscript,
+  readText,
+  userscriptMetadataValues,
+  warnIfNearGreasyForkSizeLimit,
+  writeText,
+};

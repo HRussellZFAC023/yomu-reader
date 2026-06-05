@@ -347,12 +347,12 @@ export function noteLooksLikeCard(note: AnkiNoteInfo, card: JPDBCard, settings?:
 
 export function noteCardExpressionTargets(card: JPDBCard): string[] {
     return unique([card.spelling, ...(card.fallbackLookupTerms ?? [])]
-        .map(value => value?.replace(/\s+/g, ' ').trim() ?? '')
+        .map(value => normalizeFieldValue(value ?? ''))
         .filter(Boolean));
 }
 
 export function noteFieldValues(fields: Record<string, string>): string[] {
-    return Object.values(fields).map(value => value.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    return Object.values(fields).map(normalizeFieldValue).filter(Boolean);
 }
 
 export function firstNoteReading(fields: Record<string, string>): string {
@@ -370,7 +370,7 @@ export function mappedNoteField(fields: Record<string, string>, mapping: AnkiFie
 
 export function lookupKeyTermsForCard(card: JPDBCard): string[] {
     return unique([card.spelling, card.reading, ...(card.fallbackLookupTerms ?? [])]
-        .map(value => value?.replace(/\s+/g, ' ').trim() ?? '')
+        .map(value => normalizeFieldValue(value ?? ''))
         .filter(Boolean));
 }
 
@@ -379,7 +379,7 @@ export function isKanaStatusLookupSurface(value: string): boolean {
 }
 
 export function japaneseFieldContainsStandaloneTarget(value: string, target: string): boolean {
-    const normalizedValue = value.replace(/\s+/g, ' ').trim();
+    const normalizedValue = normalizeFieldValue(value);
     if (normalizedValue === target) return true;
     return normalizedValue
         .split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u)
@@ -476,7 +476,7 @@ const ANKI_TEXT_ROLE_SCORERS: Record<AnkiTextRole, (metrics: AnkiTextRoleMetrics
 
 function ankiFieldContentSampleRoleScore(role: AnkiFieldRole, sample: AnkiFieldContentSample): number {
     const raw = sample.raw.trim();
-    const text = sample.text.replace(/\s+/g, ' ').trim();
+    const text = normalizeFieldValue(sample.text);
     if (role === 'audio') return ankiAudioFieldContentScore(raw, text);
     if (role === 'image') return ankiImageFieldContentScore(raw, text);
     if (ankiAudioFieldContentScore(raw, text) || ankiImageFieldContentScore(raw, text)) return 0;
@@ -609,8 +609,8 @@ function firstNoteField(fields: Record<string, string>, names: string[]): string
 }
 
 function noteReadingContainsTarget(fields: Record<string, string>, card: JPDBCard, mapping: AnkiFieldMapping | undefined, expressionTargets: string[]): boolean {
-    const spelling = card.spelling.replace(/\s+/g, ' ').trim();
-    const readingTarget = (card.reading || (isKanaStatusLookupSurface(spelling) ? spelling : '')).replace(/\s+/g, ' ').trim();
+    const spelling = normalizeFieldValue(card.spelling);
+    const readingTarget = normalizeFieldValue(card.reading || (isKanaStatusLookupSurface(spelling) ? spelling : ''));
     const expressionValues = noteExpressionValues(fields, mapping);
     if (expressionValues.length && !expressionValues.some(expression =>
         expressionTargets.some(target => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression, target)),
@@ -646,13 +646,13 @@ function noteExpressionCandidates(fields: Record<string, string>, mapping?: Anki
 }
 
 function genericExpressionLooksLikeHeadword(value: string, target: string): boolean {
-    const normalizedValue = value.replace(/\s+/g, ' ').trim();
+    const normalizedValue = normalizeFieldValue(value);
     if (normalizedValue === target) return true;
     if (/[。！？!?]/u.test(normalizedValue)) return false;
     return japaneseCharacterCount(normalizedValue) <= japaneseCharacterCount(target) + 4;
 }
 
-function normalizeFieldValue(value: string): string {
+export function normalizeFieldValue(value: string): string {
     return value.replace(/\s+/g, ' ').trim();
 }
 

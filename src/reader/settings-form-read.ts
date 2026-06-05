@@ -31,6 +31,53 @@ const DEFAULT_COLOR_SOURCE_VALUES: Record<ColorSourceSettingName, SelectableRead
     subtitleUnderlineColorSource: 'pitch',
     subtitleTextColorSource: 'anki',
 };
+const ACCENT_COLOR_SETTING_NAMES = [
+    'accentColor',
+    'wordColorNew',
+    'wordColorLearning',
+    'wordColorKnown',
+    'wordColorDue',
+    'wordColorFailed',
+    'wordColorIgnored',
+    'pitchColorHeiban',
+    'pitchColorAtamadaka',
+    'pitchColorNakadaka',
+    'pitchColorOdaka',
+    'pitchColorKifuku',
+    'pitchColorUnknown',
+] as const satisfies readonly (keyof ReaderSettings & string)[];
+type AccentColorSettingName = typeof ACCENT_COLOR_SETTING_NAMES[number];
+type ShortcutSettingName = keyof ReaderSettings['shortcuts'] & string;
+const COLOR_SOURCE_SETTING_NAMES = [
+    'wordHighlightColorSource',
+    'wordUnderlineColorSource',
+    'wordTextColorSource',
+    'subtitleHighlightColorSource',
+    'subtitleUnderlineColorSource',
+    'subtitleTextColorSource',
+] as const satisfies readonly ColorSourceSettingName[];
+const SHORTCUT_SETTING_NAMES = [
+    'scanPage',
+    'hoverLookup',
+    'openSettings',
+    'playAudio',
+    'closePopup',
+    'previousLookupWord',
+    'nextLookupWord',
+    'previousSubtitle',
+    'nextSubtitle',
+    'copySubtitle',
+    'toggleOcr',
+    'toggleYoutubeImmersion',
+    'scanImages',
+    'gradeNothing',
+    'gradeSomething',
+    'gradeHard',
+    'gradeOkay',
+    'gradeEasy',
+    'gradeFail',
+    'gradePass',
+] as const satisfies readonly ShortcutSettingName[];
 
 export function settingsColorSourceValue(settings: ReaderSettings, name: ColorSourceSettingName): SelectableReaderColorSource {
     const source = settings[name];
@@ -154,28 +201,26 @@ function readAudioFormSettings(reader: SettingsFormReader, current: ReaderSettin
 }
 
 function readColorFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
-    const { get, colorSource } = reader;
     return {
-        accentColor: sanitizeAccentColor(get('accentColor'), current.accentColor),
-        wordColorNew: sanitizeAccentColor(get('wordColorNew'), current.wordColorNew),
-        wordColorLearning: sanitizeAccentColor(get('wordColorLearning'), current.wordColorLearning),
-        wordColorKnown: sanitizeAccentColor(get('wordColorKnown'), current.wordColorKnown),
-        wordColorDue: sanitizeAccentColor(get('wordColorDue'), current.wordColorDue),
-        wordColorFailed: sanitizeAccentColor(get('wordColorFailed'), current.wordColorFailed),
-        wordColorIgnored: sanitizeAccentColor(get('wordColorIgnored'), current.wordColorIgnored),
-        pitchColorHeiban: sanitizeAccentColor(get('pitchColorHeiban'), current.pitchColorHeiban),
-        pitchColorAtamadaka: sanitizeAccentColor(get('pitchColorAtamadaka'), current.pitchColorAtamadaka),
-        pitchColorNakadaka: sanitizeAccentColor(get('pitchColorNakadaka'), current.pitchColorNakadaka),
-        pitchColorOdaka: sanitizeAccentColor(get('pitchColorOdaka'), current.pitchColorOdaka),
-        pitchColorKifuku: sanitizeAccentColor(get('pitchColorKifuku'), current.pitchColorKifuku),
-        pitchColorUnknown: sanitizeAccentColor(get('pitchColorUnknown'), current.pitchColorUnknown),
-        wordHighlightColorSource: colorSource('wordHighlightColorSource', current.wordHighlightColorSource),
-        wordUnderlineColorSource: colorSource('wordUnderlineColorSource', current.wordUnderlineColorSource),
-        wordTextColorSource: colorSource('wordTextColorSource', current.wordTextColorSource),
-        subtitleHighlightColorSource: colorSource('subtitleHighlightColorSource', current.subtitleHighlightColorSource),
-        subtitleUnderlineColorSource: colorSource('subtitleUnderlineColorSource', current.subtitleUnderlineColorSource),
-        subtitleTextColorSource: colorSource('subtitleTextColorSource', current.subtitleTextColorSource),
+        ...readAccentColorSettings(reader, current),
+        ...readColorSourceSettings(reader, current),
     };
+}
+
+function readAccentColorSettings(reader: SettingsFormReader, current: ReaderSettings): Pick<ReaderSettings, AccentColorSettingName> {
+    const settings = {} as Pick<ReaderSettings, AccentColorSettingName>;
+    ACCENT_COLOR_SETTING_NAMES.forEach(name => {
+        settings[name] = sanitizeAccentColor(reader.get(name), current[name]);
+    });
+    return settings;
+}
+
+function readColorSourceSettings(reader: SettingsFormReader, current: ReaderSettings): Pick<ReaderSettings, ColorSourceSettingName> {
+    const settings = {} as Pick<ReaderSettings, ColorSourceSettingName>;
+    COLOR_SOURCE_SETTING_NAMES.forEach(name => {
+        settings[name] = reader.colorSource(name, current[name]);
+    });
+    return settings;
 }
 
 function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
@@ -419,29 +464,7 @@ function readYoutubeFormSettings(reader: SettingsFormReader): Partial<ReaderSett
 }
 
 function readShortcutFormSettings(reader: SettingsFormReader): ReaderSettings['shortcuts'] {
-    const { get } = reader;
-    return {
-        scanPage: get('shortcuts.scanPage'),
-        hoverLookup: get('shortcuts.hoverLookup'),
-        openSettings: get('shortcuts.openSettings'),
-        playAudio: get('shortcuts.playAudio'),
-        closePopup: get('shortcuts.closePopup'),
-        previousLookupWord: get('shortcuts.previousLookupWord'),
-        nextLookupWord: get('shortcuts.nextLookupWord'),
-        previousSubtitle: get('shortcuts.previousSubtitle'),
-        nextSubtitle: get('shortcuts.nextSubtitle'),
-        copySubtitle: get('shortcuts.copySubtitle'),
-        toggleOcr: get('shortcuts.toggleOcr'),
-        toggleYoutubeImmersion: get('shortcuts.toggleYoutubeImmersion'),
-        scanImages: get('shortcuts.scanImages'),
-        gradeNothing: get('shortcuts.gradeNothing'),
-        gradeSomething: get('shortcuts.gradeSomething'),
-        gradeHard: get('shortcuts.gradeHard'),
-        gradeOkay: get('shortcuts.gradeOkay'),
-        gradeEasy: get('shortcuts.gradeEasy'),
-        gradeFail: get('shortcuts.gradeFail'),
-        gradePass: get('shortcuts.gradePass'),
-    };
+    return Object.fromEntries(SHORTCUT_SETTING_NAMES.map(name => [name, reader.get(`shortcuts.${name}`)])) as ReaderSettings['shortcuts'];
 }
 
 export function readOption<T extends string>(value: string, allowed: readonly T[], fallback: T): T {

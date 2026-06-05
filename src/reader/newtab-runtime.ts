@@ -469,6 +469,7 @@ export class NewTabRuntime {
             preloadWordAudio: card => this.preloadCurrentStudyWordAudio(card),
             playWordAudio: card => this.audioActions.playTermAudio(card, { userGesture: true }),
             playJpdbExampleAudio: (audioIds, fallbackSentence) => this.audioActions.playJpdbExampleAudio(audioIds, fallbackSentence),
+            performCardAction: (button, card, sentence, anchor) => this.handleCardAction(button, card, sentence, anchor),
             setImmersionTranslationBlurred: blurred => this.setImmersionTranslationBlurred(blurred),
             dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
             isDictionarySourceOpen: (key, initiallyExpanded) => this.dictionarySourceState.isOpen(key, initiallyExpanded),

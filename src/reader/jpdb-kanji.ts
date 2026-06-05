@@ -1,6 +1,7 @@
 import { Logger } from './logger';
 import { requestText as requestReaderText } from './reader-http';
 import { parseHtmlDocument } from './dom';
+import { absoluteJpdbUrl, cleanText, JAPANESE_RE, parseJpdbVocabularyUrl } from './jpdb-text';
 
 export interface JpdbKanjiReading {
     reading: string;
@@ -53,7 +54,6 @@ export interface JpdbKanjiInfo {
 }
 
 const JPDB_KANJI_BASE_URL = 'https://jpdb.io/kanji';
-const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const log = Logger.scope('JpdbKanji');
 
 export class JpdbKanjiClient {
@@ -175,7 +175,7 @@ function kanjiActions(doc: Document, kanji: string): JpdbKanjiAction[] {
 
     menu.querySelectorAll<HTMLFormElement>('form').forEach(form => {
         const method = ((form.getAttribute('method') || 'GET').toUpperCase() === 'POST' ? 'POST' : 'GET') as 'GET' | 'POST';
-        const url = absoluteJpdbUrl(form.getAttribute('action') || `/kanji/${encodeURIComponent(kanji)}`);
+        const url = absoluteJpdbUrl(form.getAttribute('action') || `/kanji/${encodeURIComponent(kanji)}`, 'https://jpdb.io/');
         const submitters = Array.from(form.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button, input[type="submit"], input[type="button"]'))
             .filter(submitter => cleanText(labelForControl(submitter)) && submitter.getAttribute('type')?.toLowerCase() !== 'button');
         const controls = submitters.length ? submitters : [form];
@@ -199,7 +199,7 @@ function kanjiActions(doc: Document, kanji: string): JpdbKanjiAction[] {
         if (link.closest('form')) return;
         const label = cleanText(labelForControl(link));
         if (!label) return;
-        const url = absoluteJpdbUrl(link.getAttribute('href') ?? '');
+        const url = absoluteJpdbUrl(link.getAttribute('href') ?? '', 'https://jpdb.io/');
         push({
             kanji,
             label,
@@ -266,14 +266,6 @@ function isDisabled(element: Element): boolean {
         || element.getAttribute('aria-disabled') === 'true'
         || element.classList.contains('disabled')
         || element.classList.contains('is-disabled');
-}
-
-function absoluteJpdbUrl(value: string): string {
-    try {
-        return new URL(value || '/', 'https://jpdb.io').toString();
-    } catch {
-        return 'https://jpdb.io/';
-    }
 }
 
 function sectionText(doc: Document, label: string): string {
@@ -345,7 +337,9 @@ function vocabulary(doc: Document): JpdbKanjiVocabulary[] {
     doc.querySelectorAll('.subsection-used-in .used-in').forEach(element => {
         const link = element.querySelector<HTMLAnchorElement>('.jp a[href^="/vocabulary/"]');
         if (!link) return;
-        const { expression, reading } = vocabularyFromHref(link.getAttribute('href') ?? '');
+        const identity = parseJpdbVocabularyUrl(link.getAttribute('href') ?? '');
+        const expression = identity?.expression ?? '';
+        const reading = identity?.reading ?? '';
         const fallbackExpression = expression || textWithoutRuby(link);
         const meaning = cleanText(element.querySelector('.en')?.textContent ?? '');
         if (!JAPANESE_RE.test(fallbackExpression) || !meaning) return;
@@ -353,28 +347,10 @@ function vocabulary(doc: Document): JpdbKanjiVocabulary[] {
             expression: fallbackExpression,
             reading,
             meaning,
-            url: new URL(link.getAttribute('href') ?? '', 'https://jpdb.io').toString(),
+            url: absoluteJpdbUrl(link.getAttribute('href') ?? ''),
         });
     });
     return entries;
-}
-
-function vocabularyFromHref(href: string): { expression: string; reading: string } {
-    const path = href.split('#')[0] ?? href;
-    const parts = path.split('/').filter(Boolean);
-    if (parts[0] !== 'vocabulary') return { expression: '', reading: '' };
-    return {
-        expression: decodePathPart(parts[2] ?? ''),
-        reading: decodePathPart(parts[3] ?? ''),
-    };
-}
-
-function decodePathPart(value: string): string {
-    try {
-        return decodeURIComponent(value);
-    } catch {
-        return value;
-    }
 }
 
 function textWithoutRuby(element: Element): string {
@@ -387,10 +363,6 @@ function metaKeyword(doc: Document, kanji: string): string {
     const description = doc.querySelector<HTMLMetaElement>('meta[name="description"]')?.content ?? '';
     const match = new RegExp(`${escapeRegExp(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
     return cleanText(match?.[1] ?? '');
-}
-
-function cleanText(value: string): string {
-    return value.replace(/\s+/g, ' ').trim();
 }
 
 function cleanInfoTableValue(cell: Element): string {

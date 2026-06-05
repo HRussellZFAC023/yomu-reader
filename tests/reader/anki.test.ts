@@ -410,7 +410,7 @@ describe('Anki rendered card scroll behavior', () => {
         expect(LOCAL_DICTIONARY_CSS)
             .toMatch(/\.jpdb-reader-anki-rendered-side-body audio\[data-anki-media-name\]\s*\{[^}]*display:\s*none;/);
         expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-sound\s*\{[^}]*display:\s*inline-flex;/);
+            .toMatch(/\.jpdb-reader-anki-sound svg\s*\{[^}]*stroke-width:\s*2\.6;/);
         expect(LOCAL_DICTIONARY_CSS)
             .toMatch(/\.jpdb-reader-anki-sound\s*\{[^}]*background:\s*color-mix\(in srgb,\s*var\(--jpdb-reader-surface\)\s*78%,\s*var\(--jpdb-reader-state-known\)\s*22%\);/);
     });
@@ -431,7 +431,9 @@ describe('Anki rendered card details', () => {
         expect(section.querySelector('.jpdb-reader-anki-details-pending')).toBeNull();
         expect(section.querySelector('.jpdb-reader-anki-stored-fields')?.textContent).toContain('Japanese language');
         const audio = section.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"][data-anki-media-name="nihongo.mp3"]');
-        expect(audio?.textContent).toBe('Card audio');
+        expect(audio?.classList.contains('jpdb-reader-audio-control')).toBe(true);
+        expect(audio?.querySelector('svg')).not.toBeNull();
+        expect(audio?.getAttribute('aria-label')).toBe('Audio nihongo.mp3');
     });
 
     it('falls back to stored fields when a rendered card is only an empty template shell', () => {
@@ -490,8 +492,10 @@ describe('Anki rendered card details', () => {
         const audio = renderedBody?.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"][data-anki-media-name="nihongo.mp3"]');
 
         expect(renderedBody?.textContent).not.toContain('[sound:nihongo.mp3]');
-        expect(audio?.textContent).toBe('Card audio');
+        expect(audio?.textContent?.trim()).toBe('');
+        expect(audio?.querySelector('svg')).not.toBeNull();
         expect(audio?.title).toBe('Audio nihongo.mp3');
+        expect(audio?.getAttribute('aria-label')).toBe('Audio nihongo.mp3');
     });
 
     it('renders multiple Anki cards as collapsible separators while preserving card content', () => {

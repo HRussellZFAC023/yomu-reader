@@ -1,4 +1,4 @@
-import { escapeHtml } from './dom';
+import { escapeHtml, setInnerHtml } from './dom';
 import { uiText } from './i18n';
 import { uniqueStrings } from './string-utils';
 import type { InterfaceLanguage } from './types';
@@ -58,21 +58,7 @@ function renderAnkiTagChipHtml(tags: string[], language: InterfaceLanguage): str
 function renderAnkiTagChips(editor: HTMLElement, tags: string[], language: InterfaceLanguage): void {
     const list = editor.querySelector<HTMLElement>('[data-anki-tag-chips]');
     if (!list) return;
-    list.replaceChildren(...tags.map(tag => {
-        const button = document.createElement('button');
-        button.className = 'jpdb-reader-tag-chip';
-        button.type = 'button';
-        button.dataset.action = 'anki-tag-remove';
-        button.dataset.tag = tag;
-        button.setAttribute('aria-label', tagRemoveLabel(tag, language));
-        const label = document.createElement('span');
-        label.textContent = tag;
-        const remove = document.createElement('span');
-        remove.textContent = '×';
-        remove.setAttribute('aria-hidden', 'true');
-        button.append(label, remove);
-        return button;
-    }));
+    setInnerHtml(list, renderAnkiTagChipHtml(tags, language));
 }
 
 function tagRemoveLabel(tag: string, language: InterfaceLanguage): string {

@@ -60,16 +60,10 @@ export function orderAudioCandidates(
     bagKey: string,
     shuffledAudio: ShuffledAudioDeck,
 ): Array<{ candidate: AudioCandidate; id: string }> {
-    const entries = candidates.map((candidate, index) => ({
+    return orderAudioDeckEntries(candidates.map((candidate, index) => ({
         candidate,
         id: audioCandidateDeckId(candidate, index),
-    }));
-    if (mode !== 'random' || entries.length < 2) return entries;
-
-    const byId = new Map(entries.map(entry => [entry.id, entry]));
-    return shuffledAudio.order(bagKey, entries.map(entry => entry.id))
-        .map(id => byId.get(id))
-        .filter((entry): entry is { candidate: AudioCandidate; id: string } => Boolean(entry));
+    })), mode, bagKey, shuffledAudio);
 }
 
 export function audioCandidateSelectionMode(sourceType: AudioSourceType, mode: AudioSelectionMode): AudioSelectionMode {
@@ -83,17 +77,11 @@ export function orderAudioSources(
     shuffledAudio: ShuffledAudioDeck,
 ): OrderedAudioSource[] {
     const bagKey = getAudioSourceBagKey(sources, card);
-    const entries = sources.map((source, index) => ({
+    return orderAudioDeckEntries(sources.map((source, index) => ({
         source,
         id: getAudioSourceDeckId(source, index),
         bagKey,
-    }));
-    if (mode !== 'random' || entries.length < 2) return entries;
-
-    const byId = new Map(entries.map(entry => [entry.id, entry]));
-    return shuffledAudio.order(bagKey, entries.map(entry => entry.id))
-        .map(id => byId.get(id))
-        .filter((entry): entry is OrderedAudioSource => Boolean(entry));
+    })), mode, bagKey, shuffledAudio);
 }
 
 export function isBrowserTextToSpeechSource(source: AudioSourceSetting): boolean {
@@ -172,6 +160,23 @@ function audioCandidateDeckId(candidate: AudioCandidate, index: number): string 
         normalizeAttemptedAudioUrl(candidate.sourceUrl),
         index,
     ].join('\u0000');
+}
+
+function orderAudioDeckEntries<T extends { id: string }>(
+    entries: T[],
+    mode: AudioSelectionMode,
+    bagKey: string,
+    shuffledAudio: ShuffledAudioDeck,
+): T[] {
+    if (mode !== 'random' || entries.length < 2) return entries;
+
+    const byId = new Map(entries.map(entry => [entry.id, entry]));
+    const ordered: T[] = [];
+    for (const id of shuffledAudio.order(bagKey, entries.map(entry => entry.id))) {
+        const entry = byId.get(id);
+        if (entry) ordered.push(entry);
+    }
+    return ordered;
 }
 
 function getAudioSourceBagKey(sources: AudioSourceSetting[], card: JPDBCard): string {

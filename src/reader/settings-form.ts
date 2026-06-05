@@ -6,6 +6,7 @@ import { AUDIO_GUIDE_URL, AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES, DE
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, miniIcon, radioGroup, select, settingsTabButton, shortcutInput } from './settings-form-controls';
 import { moveSourceRow } from './settings-form-order';
 import { COLOR_SOURCE_OPTIONS, COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, readAudioSources, readDictionaryLookupLinks, readOption, settingsColorSourceValue } from './settings-form-read';
+import type { ColorSourceSettingName } from './settings-form-read';
 import { renderAnkiTagsEditor } from './settings-form-tags';
 import { uniqueStrings } from './string-utils';
 import type { AnkiFieldMappingRole, AudioSourceSetting, DictionaryLookupLink, ImmersionExampleSource, InterfaceLanguage, JPDBDeck, ReaderColorSource, ReaderSettings } from './types';
@@ -23,6 +24,8 @@ const PROXY_WORKER_SOURCE_URL = `${GITHUB_REPOSITORY_URL}/blob/main/workers/jpdb
 const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb-public-proxy`;
 const ANKI_MOBILE_FALLBACK_DECK = 'Default';
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
+type StringReaderSettingName = { [K in keyof ReaderSettings & string]: ReaderSettings[K] extends string ? K : never }[keyof ReaderSettings & string];
+type ColorInputField = readonly [StringReaderSettingName, string];
 export type SettingsStatusTone = 'pending' | 'success' | 'error';
 export interface SettingsStatusLine {
     message: string;
@@ -41,6 +44,51 @@ const FONT_FAMILY_PRESETS = [
     { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: 'fontPresetJapaneseSerif', fallbackLabel: 'Japanese serif' },
     { value: DEFAULT_READER_FONT_FAMILY, labelKey: 'fontPresetSystemUi', fallbackLabel: 'System UI' },
 ] as const satisfies readonly { value: string; labelKey: Parameters<typeof uiText>[1]; fallbackLabel: string }[];
+const SETTINGS_TABS: readonly { panel: string; label: string; active?: boolean }[] = [
+    { panel: 'jpdb', label: 'JPDB', active: true },
+    { panel: 'newTab', label: 'New tab' },
+    { panel: 'appearance', label: 'Appearance' },
+    { panel: 'reading', label: 'Reading' },
+    { panel: 'dictionaries', label: 'Dictionaries' },
+    { panel: 'media', label: 'Media' },
+    { panel: 'mining', label: 'Mining' },
+    { panel: 'shortcuts', label: 'Shortcuts' },
+    { panel: 'help', label: 'Help' },
+];
+const WORD_COLOR_FIELDS = [
+    ['wordColorNew', 'New and in deck'],
+    ['wordColorLearning', 'Learning'],
+    ['wordColorKnown', 'Known and never forget'],
+    ['wordColorDue', 'Due'],
+    ['wordColorFailed', 'Failed'],
+    ['wordColorIgnored', 'Ignored, suspended, and blacklisted'],
+] as const satisfies readonly ColorInputField[];
+const PITCH_COLOR_FIELDS = [
+    ['pitchColorHeiban', 'Heiban (flat)'],
+    ['pitchColorAtamadaka', 'Atamadaka (head-high)'],
+    ['pitchColorNakadaka', 'Nakadaka (middle-high)'],
+    ['pitchColorOdaka', 'Odaka (tail-high)'],
+    ['pitchColorKifuku', 'Kifuku (variable)'],
+    ['pitchColorUnknown', 'Unknown / inherited'],
+] as const satisfies readonly ColorInputField[];
+const OCR_COLOR_FIELDS = [
+    ['ocrTextColor', 'Image text color'],
+    ['ocrOutlineColor', 'Image text outline'],
+    ['ocrBackgroundColor', 'Image highlight background'],
+] as const satisfies readonly ColorInputField[];
+const SUBTITLE_COLOR_FIELDS = [
+    ['subtitleTextColor', 'Subtitle color'],
+    ['subtitleOutlineColor', 'Subtitle outline'],
+    ['subtitleBackgroundColor', 'Subtitle background'],
+] as const satisfies readonly ColorInputField[];
+const COLOR_CHANNEL_FIELDS = [
+    ['wordHighlightColorSource', 'Word highlight color'],
+    ['wordUnderlineColorSource', 'Word underline color'],
+    ['wordTextColorSource', 'Word text color'],
+    ['subtitleHighlightColorSource', 'Subtitle highlight color'],
+    ['subtitleUnderlineColorSource', 'Subtitle underline color'],
+    ['subtitleTextColorSource', 'Subtitle text color'],
+] as const satisfies readonly [ColorSourceSettingName, string][];
 
 function escapedUiText(language: InterfaceLanguage, key: Parameters<typeof uiText>[1]): string {
     return escapeHtml(uiText(language, key));
@@ -104,15 +152,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
 function renderSettingsTabs(): string {
     return `
             <div class="jpdb-reader-settings-tabs" role="tablist" aria-label="Settings sections">
-                ${settingsTabButton('jpdb', 'JPDB', true)}
-                ${settingsTabButton('newTab', 'New tab')}
-                ${settingsTabButton('appearance', 'Appearance')}
-                ${settingsTabButton('reading', 'Reading')}
-                ${settingsTabButton('dictionaries', 'Dictionaries')}
-                ${settingsTabButton('media', 'Media')}
-                ${settingsTabButton('mining', 'Mining')}
-                ${settingsTabButton('shortcuts', 'Shortcuts')}
-                ${settingsTabButton('help', 'Help')}
+                ${SETTINGS_TABS.map(tab => settingsTabButton(tab.panel, tab.label, Boolean(tab.active))).join('')}
             </div>
     `;
 }
@@ -326,19 +366,7 @@ function isNewTabAnkiDeckDisabled(deck: string, disabledDecks: string[]): boolea
 }
 
 function renderWordColorSettingsSubsection(settings: ReaderSettings): string {
-    return `
-                <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">Word colors</div>
-                    <div class="grid jpdb-reader-color-grid">
-                        ${input('wordColorNew', 'New and in deck', settings.wordColorNew, 'color')}
-                        ${input('wordColorLearning', 'Learning', settings.wordColorLearning, 'color')}
-                        ${input('wordColorKnown', 'Known and never forget', settings.wordColorKnown, 'color')}
-                        ${input('wordColorDue', 'Due', settings.wordColorDue, 'color')}
-                        ${input('wordColorFailed', 'Failed', settings.wordColorFailed, 'color')}
-                        ${input('wordColorIgnored', 'Ignored, suspended, and blacklisted', settings.wordColorIgnored, 'color')}
-                    </div>
-                </div>
-    `;
+    return renderColorSettingsSubsection('Word colors', WORD_COLOR_FIELDS, settings);
 }
 
 export function canonicalNewTabAnkiDisabledDecks(deckNames: string[]): string[] {
@@ -357,19 +385,7 @@ function isAnkiSubdeckOf(deck: string, parent: string): boolean {
 }
 
 function renderPitchColorSettingsSubsection(settings: ReaderSettings): string {
-    return `
-                <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">Pitch accent colors</div>
-                    <div class="grid jpdb-reader-color-grid">
-                        ${input('pitchColorHeiban', 'Heiban (flat)', settings.pitchColorHeiban, 'color')}
-                        ${input('pitchColorAtamadaka', 'Atamadaka (head-high)', settings.pitchColorAtamadaka, 'color')}
-                        ${input('pitchColorNakadaka', 'Nakadaka (middle-high)', settings.pitchColorNakadaka, 'color')}
-                        ${input('pitchColorOdaka', 'Odaka (tail-high)', settings.pitchColorOdaka, 'color')}
-                        ${input('pitchColorKifuku', 'Kifuku (variable)', settings.pitchColorKifuku, 'color')}
-                        ${input('pitchColorUnknown', 'Unknown / inherited', settings.pitchColorUnknown, 'color')}
-                    </div>
-                </div>
-    `;
+    return renderColorSettingsSubsection('Pitch accent colors', PITCH_COLOR_FIELDS, settings);
 }
 
 function renderColorChannelSettingsSubsection(settings: ReaderSettings): string {
@@ -377,16 +393,26 @@ function renderColorChannelSettingsSubsection(settings: ReaderSettings): string 
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Color channels</div>
                     <div class="grid">
-                        ${select('wordHighlightColorSource', 'Word highlight color', settingsColorSourceValue(settings, 'wordHighlightColorSource'), COLOR_SOURCE_OPTIONS)}
-                        ${select('wordUnderlineColorSource', 'Word underline color', settingsColorSourceValue(settings, 'wordUnderlineColorSource'), COLOR_SOURCE_OPTIONS)}
-                        ${select('wordTextColorSource', 'Word text color', settingsColorSourceValue(settings, 'wordTextColorSource'), COLOR_SOURCE_OPTIONS)}
-                        ${select('subtitleHighlightColorSource', 'Subtitle highlight color', settingsColorSourceValue(settings, 'subtitleHighlightColorSource'), COLOR_SOURCE_OPTIONS)}
-                        ${select('subtitleUnderlineColorSource', 'Subtitle underline color', settingsColorSourceValue(settings, 'subtitleUnderlineColorSource'), COLOR_SOURCE_OPTIONS)}
-                        ${select('subtitleTextColorSource', 'Subtitle text color', settingsColorSourceValue(settings, 'subtitleTextColorSource'), COLOR_SOURCE_OPTIONS)}
+                        ${COLOR_CHANNEL_FIELDS.map(([name, label]) => select(name, label, settingsColorSourceValue(settings, name), COLOR_SOURCE_OPTIONS)).join('')}
                     </div>
                     <div class="jpdb-reader-help" data-color-channels-help>Each channel uses the source shown here. Defaults keep page text readable, show mining status in highlights, and keep subtitle status and pitch visible.</div>
                 </div>
     `;
+}
+
+function renderColorSettingsSubsection(title: string, fields: readonly ColorInputField[], settings: ReaderSettings): string {
+    return `
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title">${escapeHtml(title)}</div>
+                    <div class="grid jpdb-reader-color-grid">
+                        ${renderColorInputs(fields, settings)}
+                    </div>
+                </div>
+    `;
+}
+
+function renderColorInputs(fields: readonly ColorInputField[], settings: ReaderSettings): string {
+    return fields.map(([name, label]) => input(name, label, settings[name], 'color')).join('');
 }
 
 function renderAudioSettingsPanel(settings: ReaderSettings): string {
@@ -572,9 +598,7 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                     ${select('ocrMaxImagesPerPage', 'Images to read per page', String(settings.ocrMaxImagesPerPage), [['3', 'Light'], ['8', 'Normal'], ['16', 'More']])}
                     ${select('ocrMinImageArea', 'Smallest image to read', String(settings.ocrMinImageArea), [['80000', 'Large images only'], ['45000', 'Normal'], ['15000', 'Include small images']])}
                     ${select('ocrMaxImagePixels', 'Image detail', String(settings.ocrMaxImagePixels), [['640000', 'Faster'], ['1200000', 'Balanced'], ['2000000', 'Sharper']])}
-                    ${input('ocrTextColor', 'Image text color', settings.ocrTextColor, 'color')}
-                    ${input('ocrOutlineColor', 'Image text outline', settings.ocrOutlineColor, 'color')}
-                    ${input('ocrBackgroundColor', 'Image highlight background', settings.ocrBackgroundColor, 'color')}
+                    ${renderColorInputs(OCR_COLOR_FIELDS, settings)}
                     ${input('ocrBackgroundOpacity', 'Image highlight opacity', String(settings.ocrBackgroundOpacity), 'number')}
                     ${input('ocrFontScale', 'Image text scale', String(settings.ocrFontScale), 'number')}
                     <div data-local-ocr ${localOcrHidden}>${select('ocrEngine', 'Local OCR engine', settings.ocrEngine, [['auto', 'Automatic'], ['MangaOCR', 'MangaOCR'], ['PaddleOCR', 'PaddleOCR'], ['AppleVision', 'Apple Vision']])}</div>
@@ -610,9 +634,7 @@ function renderVideoSettingsPanel(settings: ReaderSettings): string {
                     ${select('subtitleControlsMode', 'Subtitle controls', settings.subtitleControlsMode, [['auto', 'Compact controls'], ['hidden', 'Hide controls'], ['always', 'Always visible']])}
                     ${input('subtitleFontSize', 'Subtitle font size (px)', String(settings.subtitleFontSize), 'number')}
                     ${input('subtitleBottomOffset', 'Subtitle bottom offset (%)', String(settings.subtitleBottomOffset), 'number')}
-                    ${input('subtitleTextColor', 'Subtitle color', settings.subtitleTextColor, 'color')}
-                    ${input('subtitleOutlineColor', 'Subtitle outline', settings.subtitleOutlineColor, 'color')}
-                    ${input('subtitleBackgroundColor', 'Subtitle background', settings.subtitleBackgroundColor, 'color')}
+                    ${renderColorInputs(SUBTITLE_COLOR_FIELDS, settings)}
                     ${input('subtitleBackgroundOpacity', 'Subtitle background opacity', String(settings.subtitleBackgroundOpacity), 'number')}
                     ${fontFamilyControl('subtitleFontFamily', 'Subtitle font family', settings.subtitleFontFamily)}
                     ${input('subtitleFontWeight', 'Subtitle font weight', String(settings.subtitleFontWeight), 'number')}

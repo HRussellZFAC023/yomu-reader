@@ -5,8 +5,11 @@ import {
     type AnkiLookupResult,
     type AnkiNoteInfo,
     type AnkiRenderedCard,
+    type AnkiStatusIndexEntry,
 } from './anki-types';
 import { flattenNoteFields } from './anki-field-mapping';
+
+const ANKI_CARD_STATE_PRIORITY: CardState[] = ['failed', 'due', 'learning', 'new', 'known', 'suspended', 'in-deck', 'not-in-deck'];
 
 export function emptyAnkiLookupResult(): AnkiLookupResult {
     return { state: 'not-in-deck', notes: [], primary: null };
@@ -23,18 +26,22 @@ export function cardsByNoteId(cards: AnkiCardInfo[]): Map<number, AnkiCardInfo[]
 }
 
 export function ankiExistingNoteFromInfo(note: AnkiNoteInfo, noteCards: AnkiCardInfo[]): AnkiExistingNote {
-    const state = stateFromAnkiCards(noteCards);
     return {
         noteId: note.noteId,
         modelName: note.modelName,
-        deckNames: ankiNoteDeckNames(noteCards),
         cardIds: note.cards ?? [],
-        primaryCardId: ankiNotePrimaryCardId(note, noteCards),
-        state,
         fields: flattenNoteFields(note.fields),
         renderedCards: ankiRenderedCards(noteCards),
         tags: note.tags ?? [],
-        ...ankiNoteReviewMetrics(noteCards),
+        ...ankiCardDetailSummary(note, noteCards),
+    };
+}
+
+export function ankiStatusIndexEntryFromInfo(note: AnkiNoteInfo, noteCards: AnkiCardInfo[]): AnkiStatusIndexEntry {
+    return {
+        noteId: note.noteId,
+        modelName: note.modelName,
+        ...ankiCardDetailSummary(note, noteCards),
     };
 }
 
@@ -78,8 +85,9 @@ export function stateFromAnkiCards(cards: AnkiCardInfo[]): CardState {
 }
 
 export function stateFromExistingNotes(notes: AnkiExistingNote[]): CardState {
-    const order: CardState[] = ['failed', 'due', 'learning', 'new', 'known', 'suspended'];
-    return order.find(state => notes.some(note => note.state === state)) ?? (notes.length ? 'known' : 'not-in-deck');
+    return ANKI_CARD_STATE_PRIORITY
+        .slice(0, 6)
+        .find(state => notes.some(note => note.state === state)) ?? (notes.length ? 'known' : 'not-in-deck');
 }
 
 export function pickPrimaryCard(cards: AnkiCardInfo[]): AnkiCardInfo | null {
@@ -100,15 +108,12 @@ export function isAnkiCardDue(card: AnkiCardInfo): boolean {
 }
 
 export function pickPrimaryExistingNote(notes: AnkiExistingNote[]): AnkiExistingNote | null {
-    const order = (note: AnkiExistingNote) => {
-        if (note.state === 'failed') return 0;
-        if (note.state === 'due') return 1;
-        if (note.state === 'learning') return 2;
-        if (note.state === 'new') return 3;
-        if (note.state === 'known') return 4;
-        return 5;
-    };
-    return [...notes].sort((a, b) => order(a) - order(b))[0] ?? null;
+    return [...notes].sort((a, b) => ankiCardStateRank(a.state) - ankiCardStateRank(b.state))[0] ?? null;
+}
+
+export function ankiCardStateRank(state: CardState): number {
+    const index = ANKI_CARD_STATE_PRIORITY.indexOf(state);
+    return index < 0 ? ANKI_CARD_STATE_PRIORITY.length : index;
 }
 
 function addCardInfoByNoteId(cardsByNote: Map<number, AnkiCardInfo[]>, cardInfo: AnkiCardInfo): void {
@@ -146,6 +151,15 @@ function ankiNoteDeckNames(noteCards: AnkiCardInfo[]): string[] {
 
 function ankiNotePrimaryCardId(note: AnkiNoteInfo, noteCards: AnkiCardInfo[]): number | null {
     return pickPrimaryCard(noteCards)?.cardId ?? note.cards?.[0] ?? null;
+}
+
+function ankiCardDetailSummary(note: AnkiNoteInfo, noteCards: AnkiCardInfo[]): Pick<AnkiExistingNote, 'deckNames' | 'primaryCardId' | 'state' | 'reps' | 'lapses'> {
+    return {
+        deckNames: ankiNoteDeckNames(noteCards),
+        primaryCardId: ankiNotePrimaryCardId(note, noteCards),
+        state: stateFromAnkiCards(noteCards),
+        ...ankiNoteReviewMetrics(noteCards),
+    };
 }
 
 function ankiNoteReviewMetrics(noteCards: AnkiCardInfo[]): Pick<AnkiExistingNote, 'reps' | 'lapses'> {

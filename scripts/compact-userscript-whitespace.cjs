@@ -1,10 +1,14 @@
 #!/usr/bin/env node
-const fs = require('node:fs');
-const path = require('node:path');
 const esbuild = require('esbuild');
+const {
+  DIST_USERSCRIPT_PATH,
+  byteLengthUtf8,
+  formatCount,
+  readBuiltUserscript,
+  writeText,
+} = require('./userscript-build-utils.cjs');
 
-const file = path.join(__dirname, '..', 'dist', 'yomu.user.js');
-const original = fs.readFileSync(file, 'utf8');
+const original = readBuiltUserscript();
 const MAX_COMPACTION_PASSES = 4;
 const MAX_READABLE_LINE_LENGTH = 1_800;
 let compacted = original;
@@ -21,9 +25,9 @@ if (compacted === original) {
   process.exit(0);
 }
 
-fs.writeFileSync(file, compacted);
-const saved = Buffer.byteLength(original, 'utf8') - Buffer.byteLength(compacted, 'utf8');
-console.log(`Compacted generated userscript whitespace in ${file} over ${passes.toLocaleString()} pass${passes === 1 ? '' : 'es'} (saved ${saved.toLocaleString()} bytes).`);
+writeText(DIST_USERSCRIPT_PATH, compacted);
+const saved = byteLengthUtf8(original) - byteLengthUtf8(compacted);
+console.log(`Compacted generated userscript whitespace in ${DIST_USERSCRIPT_PATH} over ${formatCount(passes)} pass${passes === 1 ? '' : 'es'} (saved ${formatCount(saved)} bytes).`);
 
 function compactGeneratedWhitespace(code) {
   const bodyStart = code.indexOf('(function');
