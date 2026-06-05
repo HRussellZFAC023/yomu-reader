@@ -20,6 +20,7 @@ export interface SiteParserProfile {
     includeGenericPageText?: boolean;
     fallbackToWholePage?: boolean;
     visibleOnly?: boolean;
+    mergeBlockFragments?: boolean;
     scanLimit?: number;
     heading?: boolean;
     matches(url: URL): boolean;
@@ -395,6 +396,10 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         name: 'Mokuro',
         description: 'Mokuro manga text boxes.',
         roots: ['.textBox', '#manga-panel .textBox', '#pagesContainer .textBox'],
+        allowUiText: true,
+        minLength: 1,
+        mergeBlockFragments: true,
+        visibleOnly: false,
         matches: url => url.hostname === 'reader.mokuro.app'
             || (url.protocol === 'file:' && /mokuro/i.test(decodeURIComponent(url.pathname))),
     },
@@ -534,6 +539,7 @@ function collectRootScanTargets(profile: SiteParserProfile, root: Element, conte
         minLength: profile.minLength,
         includeUiChrome: profile.includeUiChrome,
         includeFormChrome: profile.includeFormChrome,
+        mergeBlockFragments: profile.mergeBlockFragments,
         heading: profile.heading,
     });
     for (const target of collected) {
@@ -557,6 +563,7 @@ function collectPassiveInteractionScanTargets(profile: SiteParserProfile, root: 
             minLength: profile.minLength,
             includeUiChrome: true,
             includeFormChrome: profile.includeFormChrome,
+            mergeBlockFragments: profile.mergeBlockFragments,
             heading: profile.heading,
         });
         for (const target of collected) {

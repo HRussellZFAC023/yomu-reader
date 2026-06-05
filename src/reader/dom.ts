@@ -289,6 +289,7 @@ interface FragmentTextTargetCollectionOptions {
     includeUiChrome?: boolean;
     includeFormChrome?: boolean;
     heading?: boolean;
+    mergeBlockFragments?: boolean;
     readerRootPassiveInteractions?: boolean;
 }
 
@@ -487,6 +488,7 @@ export function collectFragmentTextTargetsIn(
 
         if (node.nodeType === Node.TEXT_NODE) {
             const text = node.textContent ?? '';
+            if (options.mergeBlockFragments && !text.trim()) return;
             const parent = node.parentElement;
             if (text) fragments.push({
                 node: node as Text,
@@ -526,7 +528,9 @@ export function collectFragmentTextTargetsIn(
             return;
         }
 
-        const isBlock = isFragmentParagraphBoundary(element, options) && !isInlineSentenceListItem(element);
+        const isBlock = !options.mergeBlockFragments
+            && isFragmentParagraphBoundary(element, options)
+            && !isInlineSentenceListItem(element);
         if (isBlock) flush();
 
         const nextHasNativeRuby = hasNativeRuby || tagName === 'RUBY' || tagName === 'RB';
@@ -756,6 +760,58 @@ export function readerWordSurfaceText(element: Element): string {
         text += readerWordSurfaceText(child);
     });
     return text;
+}
+
+export function readerWordAtPointInScope(
+    scope: ParentNode,
+    x: number,
+    y: number,
+    accepts: (word: HTMLElement) => boolean = () => true,
+): HTMLElement | null {
+    let best: { word: HTMLElement; score: number } | null = null;
+    for (const word of readerWordsInScope(scope)) {
+        if (!accepts(word)) continue;
+        const score = readerWordPointScore(word, x, y);
+        if (score === null) continue;
+        if (!best || score < best.score) best = { word, score };
+    }
+    return best?.word ?? null;
+}
+
+function readerWordsInScope(scope: ParentNode): HTMLElement[] {
+    const ownWord = scope instanceof HTMLElement && scope.matches('.jpdb-reader-word') ? [scope] : [];
+    return [...ownWord, ...Array.from(scope.querySelectorAll<HTMLElement>('.jpdb-reader-word'))];
+}
+
+function readerWordPointScore(word: HTMLElement, x: number, y: number): number | null {
+    let best: number | null = null;
+    for (const rect of Array.from(word.getClientRects())) {
+        const score = rectPointScore(rect, x, y);
+        if (score === null) continue;
+        if (best === null || score < best) best = score;
+    }
+    return best;
+}
+
+function rectPointScore(rect: DOMRect, x: number, y: number): number | null {
+    const right = rect.right || rect.left + rect.width;
+    const bottom = rect.bottom || rect.top + rect.height;
+    if (!hasPositiveRectArea(rect, right, bottom)) return null;
+
+    const slack = 0.75;
+    if (!coordinateInRange(x, rect.left, right, slack) || !coordinateInRange(y, rect.top, bottom, slack)) return null;
+
+    const centerX = rect.left + (right - rect.left) / 2;
+    const centerY = rect.top + (bottom - rect.top) / 2;
+    return Math.hypot(x - centerX, y - centerY);
+}
+
+function hasPositiveRectArea(rect: DOMRect, right: number, bottom: number): boolean {
+    return right > rect.left && bottom > rect.top;
+}
+
+function coordinateInRange(value: number, start: number, end: number, slack: number): boolean {
+    return value >= start - slack && value <= end + slack;
 }
 
 export function nearestReadableSentenceForElement(element: HTMLElement, fallback = ''): string {
@@ -1099,7 +1155,7 @@ function hasFragmentTokenWork(target: FragmentTextTarget, tokens: JPDBToken[]): 
 function applyTokensToIndexedFragmentTarget(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings, sentence: string): void {
     const indexedFragments = indexTextFragments(target.fragments);
     const singleFragmentPlans = singleFragmentTokenPlans(target, indexedFragments, tokens, sentence);
-    if (singleFragmentPlans.length) {
+    if (singleFragmentPlans.length && !tokens.some(token => shouldSplitLayoutSensitiveFragmentToken(indexedFragments, token))) {
         const grouped = groupSingleFragmentTokenPlans(singleFragmentPlans);
         for (const group of grouped) replaceSingleFragmentTokenNode(target, group.fragment, group.plans, settings);
         if (singleFragmentPlans.length === tokens.length) return;
@@ -1228,6 +1284,10 @@ function applyTokenToIndexedFragments(
         );
         return;
     }
+    if (layoutSensitive) {
+        insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction);
+        return;
+    }
 
     const range = document.createRange();
     range.setStart(bounds.start.fragment.node, bounds.start.localOffset);
@@ -1239,6 +1299,56 @@ function applyTokenToIndexedFragments(
         preserveTokenRubies: true,
     });
     range.detach();
+}
+
+function shouldSplitLayoutSensitiveFragmentToken(indexedFragments: IndexedTextFragment[], token: JPDBToken): boolean {
+    const start = findFragmentBoundary(indexedFragments, token.start, 'start');
+    const end = findFragmentBoundary(indexedFragments, token.end, 'end');
+    const bounds = attachableFragmentRange(start, end);
+    return Boolean(bounds
+        && bounds.start.fragment !== bounds.end.fragment
+        && fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end));
+}
+
+function insertSplitFragmentTokenPieces(
+    target: FragmentTextTarget,
+    indexedFragments: IndexedTextFragment[],
+    token: JPDBToken,
+    tokenWithSentence: JPDBToken,
+    settings: ReaderSettings,
+    passiveInteraction: boolean,
+): void {
+    const pieces = indexedFragments
+        .map(fragment => splitFragmentTokenPiece(fragment, token.start, token.end))
+        .filter((piece): piece is { fragment: IndexedTextFragment; start: number; end: number } => piece !== null)
+        .reverse();
+    for (const piece of pieces) {
+        const surface = piece.fragment.node.data.slice(piece.start, piece.end);
+        if (!surface) continue;
+        const rendered = renderToken(surface, tokenWithSentence, settings, {
+            allowRuby: false,
+            kanjiNavigation: kanjiNavigationForElement(target.parent),
+            scanWord: true,
+            passiveInteraction,
+            preserveTokenRubies: true,
+        });
+        replaceTextNodeRange(piece.fragment.node, piece.start, piece.end, rendered);
+    }
+}
+
+function splitFragmentTokenPiece(
+    fragment: IndexedTextFragment,
+    tokenStart: number,
+    tokenEnd: number,
+): { fragment: IndexedTextFragment; start: number; end: number } | null {
+    const start = Math.max(tokenStart, fragment.globalStart);
+    const end = Math.min(tokenEnd, fragment.globalEnd);
+    if (end <= start) return null;
+    return {
+        fragment,
+        start: fragment.start + start - fragment.globalStart,
+        end: fragment.start + end - fragment.globalStart,
+    };
 }
 
 function fragmentRangeHasPassiveInteraction(fragments: IndexedTextFragment[], start: number, end: number): boolean {

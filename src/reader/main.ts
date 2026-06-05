@@ -27,6 +27,7 @@ import {
     inferredInflectedSurfaceRubies,
     isPassiveInteractionElement,
     nearestReadableSentenceForElement,
+    readerWordAtPointInScope,
     readerWordSurfaceText,
     renderRuby,
     sentenceAroundRange,
@@ -1959,12 +1960,24 @@ export class ReaderApp {
         const target = event.target instanceof Element ? event.target : null;
         const direct = target?.closest?.('.jpdb-reader-word') as HTMLElement | null;
         if (direct) return direct;
-        return this.ocrLineWordForPointer(target, event.clientX, event.clientY);
+        return this.ocrLineWordForPointer(target, event.clientX, event.clientY)
+            ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY);
     }
 
     private ocrLineWordForPointer(target: Element | null, x: number, y: number): HTMLElement | null {
         const line = target?.closest?.('.jpdb-ocr-line') as HTMLElement | null;
         return line ? ocrLineWordAtPoint(line, x, y) : null;
+    }
+
+    private readerWordFromRenderedGeometry(target: Element | null, x: number, y: number): HTMLElement | null {
+        const scope = this.readerWordGeometryScope(target);
+        return scope ? readerWordAtPointInScope(scope, x, y, word => this.canLookupReaderWord(word)) : null;
+    }
+
+    private readerWordGeometryScope(target: Element | null): ParentNode | null {
+        if (!target) return null;
+        const scope = target.closest<HTMLElement>('.textBox,.ocr-line,p,li,blockquote,td,th,article,main,[data-jpdb-reader-root]');
+        return scope && scope.querySelector('.jpdb-reader-word') ? scope : null;
     }
 
     private handlePointerTextHover(event: PointerEvent): void {

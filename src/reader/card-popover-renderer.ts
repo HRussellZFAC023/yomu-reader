@@ -271,7 +271,6 @@ export class CardPopoverRenderer {
     private reviewBlockReason(cardStates: ReturnType<typeof normalizeCardStates>, language: InterfaceLanguage): string {
         if (cardStates.includes('blacklisted')) return uiText(language, 'reviewBlockedBlacklisted');
         if (cardStates.includes('never-forget')) return uiText(language, 'reviewBlockedNeverForget');
-        if (cardStates.includes('locked')) return uiText(language, 'reviewBlockedLocked');
         return '';
     }
 
