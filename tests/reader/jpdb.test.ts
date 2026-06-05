@@ -25562,13 +25562,14 @@ describe('reader helpers', () => {
         expect(document.querySelector('h1 rt')?.textContent).toBe('しんそつ');
     });
 
-    it('injects furigana in clipped prose boxes like any other scanned text', () => {
+    it('keeps clipped prose boxes lookupable without adding layout-changing furigana', () => {
         document.body.innerHTML = `
             <div style="overflow:hidden;max-height:48px;line-height:24px">
                 今日は新卒エンジニアとして仕事終わりに勉強する。
             </div>
         `;
         const [target] = collectTextTargetsIn(document.body, 10, false);
+        expect(target.layoutSensitive).toBe(true);
 
         applyTokensToTextNode(target, [{
             card: { ...card, cardState: ['known'], spelling: '新卒', reading: 'しんそつ' },
@@ -25581,7 +25582,54 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         expect(readerWordSurfaceText(document.querySelector('.jpdb-reader-word.jpdb-known')!)).toBe('新卒');
-        expect(document.querySelector('rt')?.textContent).toBe('しんそつ');
+        expect(document.querySelector('rt')).toBeNull();
+    });
+
+    it('keeps line-clamped card titles lookupable without mutating their vertical layout', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 240,
+            top: 0,
+            bottom: 40,
+            width: 240,
+            height: 40,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <main>
+                <div class="volume-card" onclick="window.openVolume?.()">
+                    <div class="volume-card__cover"></div>
+                    <div class="volume-card__info">
+                        <div class="volume-card__title" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden;max-height:34px;line-height:17px">
+                            終わりのセラフ
+                        </div>
+                    </div>
+                </div>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://mokuro.moe/catalog/');
+        rectSpy.mockRestore();
+        const target = targets.find(candidate => candidate.text === '終わりのセラフ');
+        expect(target).toBeTruthy();
+        expect(target && 'layoutSensitive' in target ? target.layoutSensitive : false).toBe(true);
+
+        applyTokensToScanTarget(target!, [{
+            card: { ...card, cardState: ['known'], spelling: '終わり', reading: 'おわり' },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [{ text: 'おわり', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '終わりのセラフ',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('.volume-card__title .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(word)).toBe('終わり');
+        expect(word.classList.contains('jpdb-reader-scan-word')).toBe(true);
+        expect(document.querySelector('.volume-card__title rt')).toBeNull();
     });
 
     it('marks scanned page words with wrapping CSS so furigana cannot create a page-wide line', () => {

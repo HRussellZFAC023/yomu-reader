@@ -235,6 +235,7 @@ export interface TextTarget {
     text: string;
     parent: HTMLElement;
     hasNativeRuby?: boolean;
+    layoutSensitive?: boolean;
     passiveInteraction?: boolean;
 }
 
@@ -243,6 +244,7 @@ export interface TextFragment {
     start: number;
     end: number;
     hasNativeRuby: boolean;
+    layoutSensitive?: boolean;
     passiveInteraction?: boolean;
 }
 
@@ -251,6 +253,7 @@ export interface FragmentTextTarget {
     parent: HTMLElement;
     fragments: TextFragment[];
     parserId?: string;
+    layoutSensitive?: boolean;
     passiveInteraction?: boolean;
 }
 
@@ -433,6 +436,7 @@ function textTargetFromAcceptedNode(node: Node): TextTarget | null {
         text: nodeTextContent(node).trim(),
         parent,
         hasNativeRuby: Boolean(parent.closest('ruby')),
+        layoutSensitive: isLayoutSensitiveScanElement(parent),
         passiveInteraction,
     };
 }
@@ -461,6 +465,7 @@ export function collectFragmentTextTargetsIn(
         const text = fragmentText(trimmedFragments);
         const compactText = text.replace(/\s+/g, '');
         const hasNativeRuby = trimmedFragments.some(fragment => fragment.hasNativeRuby);
+        const layoutSensitive = trimmedFragments.some(fragment => fragment.layoutSensitive);
         const passiveInteraction = trimmedFragments.every(fragment => fragment.passiveInteraction);
         if (HAS_JAPANESE.test(text) && (compactText.length >= (options.minLength ?? 2) || hasNativeRuby)) {
             const parent = trimmedFragments[0]?.node.parentElement;
@@ -469,6 +474,7 @@ export function collectFragmentTextTargetsIn(
                     text,
                     parent,
                     fragments: trimmedFragments,
+                    layoutSensitive,
                     passiveInteraction,
                 });
             }
@@ -487,6 +493,7 @@ export function collectFragmentTextTargetsIn(
                 start: 0,
                 end: text.length,
                 hasNativeRuby,
+                layoutSensitive: parent ? isLayoutSensitiveScanElement(parent) : false,
                 passiveInteraction: parent ? isFragmentPassiveInteractionElement(parent, options) : false,
             });
             return;
@@ -589,6 +596,58 @@ function isFragmentPassiveInteractionElement(element: Element, options: Fragment
     return Boolean(options.readerRootPassiveInteractions
         && element.closest(READER_ROOT_SELECTOR)
         && element.closest(PASSIVE_INTERACTION_SELECTOR));
+}
+
+function isLayoutSensitiveScanElement(element: HTMLElement | null): boolean {
+    let current: HTMLElement | null = element;
+    while (current && current !== document.body && current !== document.documentElement) {
+        if (isLayoutSensitiveTextBox(current)) return true;
+        current = current.parentElement;
+    }
+    return false;
+}
+
+function isLayoutSensitiveTextBox(element: HTMLElement): boolean {
+    const style = getComputedStyle(element);
+    return hasLineClamp(style)
+        || hasClippedTextConstraint(style)
+        || isPositionedTextOverlay(style);
+}
+
+function hasLineClamp(style: CSSStyleDeclaration): boolean {
+    const clamp = style.getPropertyValue('-webkit-line-clamp').trim();
+    return Boolean(clamp && clamp !== 'none' && clamp !== '0');
+}
+
+function hasClippedTextConstraint(style: CSSStyleDeclaration): boolean {
+    if (!clipsOverflow(style)) return false;
+    return hasDefiniteCssSize(style.height)
+        || hasDefiniteCssSize(style.maxHeight)
+        || style.display === '-webkit-box';
+}
+
+function isPositionedTextOverlay(style: CSSStyleDeclaration): boolean {
+    return (style.position === 'absolute' || style.position === 'fixed')
+        && (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight))
+        && (hasDefiniteCssSize(style.width) || hasDefiniteCssSize(style.maxWidth));
+}
+
+function clipsOverflow(style: CSSStyleDeclaration): boolean {
+    return style.overflow === 'hidden'
+        || style.overflow === 'clip'
+        || style.overflowY === 'hidden'
+        || style.overflowY === 'clip';
+}
+
+function hasDefiniteCssSize(value: string): boolean {
+    const normalized = value.trim().toLowerCase();
+    return Boolean(normalized
+        && normalized !== 'auto'
+        && normalized !== 'none'
+        && normalized !== 'normal'
+        && normalized !== 'initial'
+        && normalized !== 'inherit'
+        && normalized !== 'unset');
 }
 
 function trimTextFragments(fragments: TextFragment[]): TextFragment[] {
@@ -1007,7 +1066,7 @@ function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], se
         appendPlainTextBeforeToken(fragment, target.text, offset, token.start);
         const tokenWithSentence = tokenWithReadableSentence(token, target.text, token.sentence);
         fragment.append(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
-            allowRuby: !target.hasNativeRuby,
+            allowRuby: scanTargetAllowsRuby(target) && !target.hasNativeRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
             passiveInteraction: target.passiveInteraction,
@@ -1057,6 +1116,7 @@ interface SingleFragmentTokenPlan {
     localEnd: number;
     token: JPDBToken;
     tokenWithSentence: JPDBToken;
+    layoutSensitive: boolean;
     passiveInteraction: boolean;
 }
 
@@ -1078,6 +1138,8 @@ function singleFragmentTokenPlans(
             localEnd: bounds.end.localOffset,
             token,
             tokenWithSentence: tokenWithReadableSentence(token, target.text, token.sentence ?? sentence),
+            layoutSensitive: target.layoutSensitive === true
+                || fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end),
             passiveInteraction: target.passiveInteraction === true
                 || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end),
         });
@@ -1124,7 +1186,7 @@ function renderSingleFragmentToken(
     plan: SingleFragmentTokenPlan,
     settings: ReaderSettings,
 ): HTMLElement {
-    const allowRuby = !fragment.hasNativeRuby;
+    const allowRuby = !fragment.hasNativeRuby && !plan.layoutSensitive;
     return renderToken(fragment.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
         allowRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -1150,6 +1212,8 @@ function applyTokenToIndexedFragments(
     const isSingleFragment = bounds.start.fragment === bounds.end.fragment;
     const passiveInteraction = target.passiveInteraction === true
         || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end);
+    const layoutSensitive = target.layoutSensitive === true
+        || fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end);
     if (isSingleFragment) {
         insertSingleFragmentToken(
             target,
@@ -1160,6 +1224,7 @@ function applyTokenToIndexedFragments(
             tokenWithSentence,
             settings,
             passiveInteraction,
+            layoutSensitive,
         );
         return;
     }
@@ -1170,7 +1235,7 @@ function applyTokenToIndexedFragments(
     insertMultiFragmentToken(range, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
         scanWord: true,
         passiveInteraction,
-        allowRuby: !fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end),
+        allowRuby: !layoutSensitive && !fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end),
         preserveTokenRubies: true,
     });
     range.detach();
@@ -1178,6 +1243,12 @@ function applyTokenToIndexedFragments(
 
 function fragmentRangeHasPassiveInteraction(fragments: IndexedTextFragment[], start: number, end: number): boolean {
     return fragments.some(fragment => fragment.passiveInteraction === true
+        && fragment.globalStart < end
+        && fragment.globalEnd > start);
+}
+
+function fragmentRangeHasLayoutSensitive(fragments: IndexedTextFragment[], start: number, end: number): boolean {
+    return fragments.some(fragment => fragment.layoutSensitive === true
         && fragment.globalStart < end
         && fragment.globalEnd > start);
 }
@@ -1218,8 +1289,9 @@ function insertSingleFragmentToken(
     tokenWithSentence: JPDBToken,
     settings: ReaderSettings,
     passiveInteraction: boolean,
+    layoutSensitive: boolean,
 ): void {
-    const allowRuby = !fragment.hasNativeRuby;
+    const allowRuby = !fragment.hasNativeRuby && !layoutSensitive;
     const surface = fragment.node.data.slice(start, end);
     const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
         allowRuby,
@@ -1229,6 +1301,10 @@ function insertSingleFragmentToken(
         preserveTokenRubies: true,
     });
     replaceTextNodeRange(fragment.node, start, end, rendered);
+}
+
+function scanTargetAllowsRuby(target: ScanTextTarget): boolean {
+    return target.layoutSensitive !== true;
 }
 
 function replaceTextNodeRange(node: Text, start: number, end: number, replacement: Node): void {
