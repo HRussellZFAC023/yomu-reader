@@ -46,7 +46,7 @@ describe('reader boot', () => {
             expect(() => bootReaderApp()).not.toThrow();
         });
 
-        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
 
@@ -55,7 +55,7 @@ describe('reader boot', () => {
 
         bootReaderApp();
 
-        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: false });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('extension');
     });
 
@@ -65,7 +65,38 @@ describe('reader boot', () => {
 
         bootReaderApp();
 
-        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
+        expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
+    });
+
+    it('does not boot ordinary embedded frames', () => {
+        withWindowProperty('top', {} as Window, () => {
+            bootReaderApp();
+        });
+
+        expect(appMocks.init).not.toHaveBeenCalled();
+        expect(document.getElementById('jpdb-reader-runtime-owner')).toBeNull();
+    });
+
+    it('boots YouTube embedded frames in restricted mode', () => {
+        withWindowProperty('top', {} as Window, () => {
+            withWindowProperty('location', new URL('https://www.youtube.com/embed/abc123') as unknown as Location, () => {
+                bootReaderApp();
+            });
+        });
+
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+        expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
+    });
+
+    it('boots privacy-enhanced YouTube embedded frames in restricted mode', () => {
+        withWindowProperty('top', {} as Window, () => {
+            withWindowProperty('location', new URL('https://www.youtube-nocookie.com/embed/abc123') as unknown as Location, () => {
+                bootReaderApp();
+            });
+        });
+
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
 
@@ -88,8 +119,8 @@ describe('reader boot', () => {
         vi.stubGlobal('GM_getValue', vi.fn());
         bootReaderApp();
 
-        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: false });
-        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: true });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
@@ -102,7 +133,7 @@ describe('reader boot', () => {
         bootReaderApp();
 
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
-        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: false });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('extension');
     });
 
@@ -114,7 +145,7 @@ describe('reader boot', () => {
         bootReaderApp();
 
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
-        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: false });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('dev');
     });
 
@@ -128,7 +159,7 @@ describe('reader boot', () => {
 
         bootReaderApp();
 
-        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: false });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeOwner).not.toBe('dev-stale');
     });
 
@@ -142,7 +173,7 @@ describe('reader boot', () => {
         bootReaderApp();
 
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
-        expect(appMocks.init).toHaveBeenCalledWith({ showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: false });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('dev');
     });
 

@@ -1413,7 +1413,7 @@ function renderToken(
     options: TokenRenderOptions = {},
 ): HTMLElement {
     const span = createReaderWordSpan(token, options);
-    if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = 0;
+    if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = -1;
 
     const hasRuby = shouldRenderRuby(surface, token, settings, options.allowRuby, options.preserveTokenRubies);
     if (hasRuby) {
@@ -1439,7 +1439,7 @@ interface TokenRenderOptions {
 
 function renderTokenShell(token: JPDBToken, options: TokenRenderOptions = {}): HTMLElement {
     const span = createReaderWordSpan(token, options);
-    if (options.passiveInteraction !== true) span.tabIndex = 0;
+    if (options.passiveInteraction !== true) span.tabIndex = -1;
     return span;
 }
 
@@ -1474,7 +1474,7 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const classes = [readerWordClassName(state, token), hasRuby ? 'jpdb-reader-has-furi' : ''].filter(Boolean).join(' ');
     const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : '';
     const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : '';
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${expression}${reading} tabindex="0">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${expression}${reading} tabindex="-1">${content}</span>`;
 }
 
 export function shouldRenderRuby(surface: string, token: JPDBToken, settings: ReaderSettings, allowRuby = true, preserveTokenRubies = false): boolean {

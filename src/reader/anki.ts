@@ -91,6 +91,7 @@ import {
     saveAnkiStatusIndex,
     saveAnkiStatusIndexCheckedAt,
     saveAnkiStatusIndexDirtyMarker,
+    shouldReplaceAnkiStatusIndexEntry,
     statusIndexEntriesForNotes,
     statusIndexEntryForCard,
     statusIndexKeysForCard,
@@ -175,6 +176,12 @@ export class AnkiDuplicateNoteError extends Error {
 
 export function isAnkiDuplicateNoteError(error: unknown): error is AnkiDuplicateNoteError {
     return error instanceof AnkiDuplicateNoteError;
+}
+
+interface PendingAnkiLookupGroup {
+    card: JPDBCard;
+    indexes: number[];
+    cacheKey: string;
 }
 
 export class AnkiConnectClient {
@@ -277,7 +284,7 @@ export class AnkiConnectClient {
 
     warmStatusIndex(): Promise<AnkiStatusIndex | null> {
         if (this.isDestroyed) return Promise.resolve(null);
-        return this.refreshStatusIndexIfNeeded({ rebuildIfMissing: true }) ?? Promise.resolve(this.statusIndex ?? null);
+        return this.refreshStatusIndexIfNeeded() ?? this.loadStatusIndex();
     }
 
     async findExistingCards(card: JPDBCard): Promise<AnkiLookupResult> {
@@ -289,19 +296,11 @@ export class AnkiConnectClient {
         const untrustedEmpty = untrustedAnkiLookupResult();
         if (!cards.length) return [];
         if (this.isDestroyed) return cards.map(() => untrustedEmpty);
+        if (!this.getSettings().ankiEnabled) return cards.map(() => untrustedEmpty);
         if (this.isLookupCoolingDown()) return cards.map(() => untrustedEmpty);
 
         const results: AnkiLookupResult[] = cards.map(() => untrustedEmpty);
-        const pending: Array<{ card: JPDBCard; index: number; cacheKey: string }> = [];
-        cards.forEach((card, index) => {
-            const cacheKey = this.lookupCacheKey(card);
-            const cached = this.readStatusLookupCache(cacheKey);
-            if (cached) {
-                results[index] = cached;
-                return;
-            }
-            pending.push({ card, index, cacheKey });
-        });
+        const pending = this.collectPendingLookupGroups(cards, results, cacheKey => this.readStatusLookupCache(cacheKey));
         if (!pending.length) return results;
 
         const statusIndex = await this.loadStatusIndex();
@@ -314,28 +313,69 @@ export class AnkiConnectClient {
         const statusEntries = await this.loadStatusEntriesForCards(statusIndex, pending.map(item => item.card));
         if (this.isDestroyed) return results;
         const indexNeedsRefresh = Boolean(statusIndex && this.statusIndexNeedsCountCheck(statusIndex));
-        const canUseStatusIndexHits = Boolean(statusIndex && statusIndex.syncedAt > 0);
+        const canUseStatusIndexHits = Boolean(statusIndex && this.statusIndexHasEntries(statusIndex));
         const hasActiveRebuildLease = Boolean(activeAnkiStatusIndexRebuildLease(statusIndex?.settingsKey));
         const canTrustStatusMiss = Boolean(statusIndex
             && canUseStatusIndexHits
+            && statusIndex.syncedAt > 0
             && !this.statusIndexRefresh
             && !this.statusIndexRefreshQueued
             && !indexNeedsRefresh
             && !hasActiveRebuildLease
             && (statusIndex.entryStore !== 'indexeddb' || statusEntries));
-        pending.forEach(({ card, index, cacheKey }) => {
+        const unresolved: PendingAnkiLookupGroup[] = [];
+        pending.forEach(group => {
+            const { card, indexes, cacheKey } = group;
             const indexed = canUseStatusIndexHits ? this.lookupStatusIndex(statusIndex, card, statusEntries) : null;
             if (!indexed) {
                 if (canTrustStatusMiss) {
                     this.writeStatusLookupCache(cacheKey, empty);
-                    results[index] = empty;
+                    this.applyLookupGroupResult(results, indexes, empty);
+                } else {
+                    unresolved.push(group);
                 }
                 return;
             }
             this.writeStatusLookupCache(cacheKey, indexed);
-            results[index] = indexed;
+            this.applyLookupGroupResult(results, indexes, indexed);
         });
+        if (!unresolved.length || hasActiveRebuildLease) return results;
+        try {
+            const unresolvedByCacheKey = new Map(unresolved.map(group => [group.cacheKey, group]));
+            const lazy = await this.findStatusOnlyCardsBatchUncached(unresolved, empty);
+            if (this.isDestroyed) return results;
+            for (const [cacheKey, lookup] of lazy) {
+                this.writeStatusLookupCache(cacheKey, lookup);
+                const indexes = unresolvedByCacheKey.get(cacheKey)?.indexes;
+                if (indexes) this.applyLookupGroupResult(results, indexes, lookup);
+            }
+        } catch (error) {
+            log.warn('Anki status-only lookup failed; keeping untrusted misses', { terms: unresolved.length }, error);
+        }
         return results;
+    }
+
+    private collectPendingLookupGroups(
+        cards: JPDBCard[],
+        results: AnkiLookupResult[],
+        readCache: (cacheKey: string) => AnkiLookupResult | null,
+    ): PendingAnkiLookupGroup[] {
+        const pendingByCacheKey = new Map<string, PendingAnkiLookupGroup>();
+        cards.forEach((card, index) => {
+            const cacheKey = this.lookupCacheKey(card);
+            const cached = readCache(cacheKey);
+            if (cached) {
+                results[index] = cached;
+                return;
+            }
+            let pending = pendingByCacheKey.get(cacheKey);
+            if (!pending) {
+                pending = { card, indexes: [], cacheKey };
+                pendingByCacheKey.set(cacheKey, pending);
+            }
+            pending.indexes.push(index);
+        });
+        return [...pendingByCacheKey.values()];
     }
 
     async findExistingCardsBatch(cards: JPDBCard[]): Promise<AnkiLookupResult[]> {
@@ -344,37 +384,25 @@ export class AnkiConnectClient {
         if (this.isDestroyed) return cards.map(() => empty);
         if (this.isLookupCoolingDown()) return cards.map(() => empty);
         const results: AnkiLookupResult[] = cards.map(() => empty);
-        const pending = new Map<string, { card: JPDBCard; indexes: number[] }>();
-        cards.forEach((card, index) => {
-            const cacheKey = this.lookupCacheKey(card);
-            const cached = this.readLookupCache(cacheKey);
-            if (cached) {
-                results[index] = cached;
-                return;
-            }
-            const group = pending.get(cacheKey) ?? { card, indexes: [] };
-            group.indexes.push(index);
-            pending.set(cacheKey, group);
-        });
-        if (!pending.size) return results;
+        const pending = this.collectPendingLookupGroups(cards, results, cacheKey => this.readLookupCache(cacheKey));
+        if (!pending.length) return results;
 
-        const inFlight: Array<[string, { indexes: number[] }, Promise<AnkiLookupResult>]> = [];
-        const uncached: Array<[string, { card: JPDBCard; indexes: number[] }]> = [];
-        for (const [cacheKey, group] of pending) {
-            const promise = this.lookupInflight.get(cacheKey);
-            if (promise) inFlight.push([cacheKey, group, promise]);
-            else uncached.push([cacheKey, group]);
+        const inFlight: Array<[PendingAnkiLookupGroup, Promise<AnkiLookupResult>]> = [];
+        const uncached: PendingAnkiLookupGroup[] = [];
+        const pendingByCacheKey = new Map(pending.map(group => [group.cacheKey, group]));
+        for (const group of pending) {
+            const promise = this.lookupInflight.get(group.cacheKey);
+            if (promise) inFlight.push([group, promise]);
+            else uncached.push(group);
         }
 
         try {
-            const done = log.time('findExistingCardsBatch', { terms: pending.size, inFlight: inFlight.length });
-            await Promise.all(inFlight.map(async ([cacheKey, group, promise]) => {
+            const done = log.time('findExistingCardsBatch', { terms: pending.length, inFlight: inFlight.length });
+            await Promise.all(inFlight.map(async ([group, promise]) => {
                 const result = await promise;
                 if (this.isDestroyed) return;
-                this.writeLookupCache(cacheKey, result);
-                group.indexes.forEach(index => {
-                    results[index] = result;
-                });
+                this.writeLookupCache(group.cacheKey, result);
+                this.applyLookupGroupResult(results, group.indexes, result);
             }));
             if (this.isDestroyed) return results;
             const resolved = uncached.length
@@ -383,14 +411,13 @@ export class AnkiConnectClient {
             if (this.isDestroyed) return results;
             for (const [cacheKey, result] of resolved) {
                 this.writeLookupCache(cacheKey, result);
-                pending.get(cacheKey)?.indexes.forEach(index => {
-                    results[index] = result;
-                });
+                const indexes = pendingByCacheKey.get(cacheKey)?.indexes;
+                if (indexes) this.applyLookupGroupResult(results, indexes, result);
             }
             done();
             return results;
         } catch (error) {
-            log.warn('Anki batch lookup failed; entering cooldown', { terms: pending.size }, error);
+            log.warn('Anki batch lookup failed; entering cooldown', { terms: pending.length }, error);
             this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
             return results;
         }
@@ -398,6 +425,12 @@ export class AnkiConnectClient {
 
     private lookupCacheKey(card: JPDBCard): string {
         return lookupKeyTermsForCard(card).join('|');
+    }
+
+    private applyLookupGroupResult(results: AnkiLookupResult[], indexes: number[], result: AnkiLookupResult): void {
+        indexes.forEach(index => {
+            results[index] = result;
+        });
     }
 
     private statusIndexSettingsKey(settings = this.getSettings()): string {
@@ -485,6 +518,10 @@ export class AnkiConnectClient {
         };
     }
 
+    private statusIndexHasEntries(index: AnkiStatusIndex): boolean {
+        return (index.entryCount ?? Object.keys(index.entries).length) > 0;
+    }
+
     private refreshStatusIndexIfNeeded(options: { rebuildIfMissing?: boolean } = {}): Promise<AnkiStatusIndex | null> | null {
         if (this.isDestroyed || this.isLookupCoolingDown()) return null;
         if (this.statusIndexRefresh) return this.statusIndexRefresh;
@@ -503,8 +540,19 @@ export class AnkiConnectClient {
                 && !needsReadingKeyRefresh
                 && deckStatsCardCount !== null
                 && deckStatsCardCount === index.cardCount
-                && now - index.syncedAt < ANKI_STATUS_INDEX_MAX_STALE_MS) {
+                && (index.syncedAt === 0 || now - index.syncedAt < ANKI_STATUS_INDEX_MAX_STALE_MS)) {
                 const checked = { ...index, checkedAt: now };
+                this.statusIndex = checked;
+                await saveAnkiStatusIndexCheckedAt(checked);
+                return checked;
+            }
+            if (index && !needsReadingKeyRefresh && !options.rebuildIfMissing) {
+                const checked = {
+                    ...index,
+                    checkedAt: now,
+                    ...(deckStatsCardCount !== null ? { cardCount: deckStatsCardCount } : {}),
+                    ...(deckStatsCardCount !== null && deckStatsCardCount !== index.cardCount ? { syncedAt: 0 } : {}),
+                };
                 this.statusIndex = checked;
                 await saveAnkiStatusIndexCheckedAt(checked);
                 return checked;
@@ -736,12 +784,12 @@ export class AnkiConnectClient {
     }
 
     private async findExistingCardsBatchUncachedWithInflight(
-        groups: Array<[string, { card: JPDBCard }]>,
+        groups: PendingAnkiLookupGroup[],
         fallback: AnkiLookupResult,
     ): Promise<Map<string, AnkiLookupResult>> {
-        if (this.isDestroyed) return new Map(groups.map(([cacheKey]) => [cacheKey, fallback]));
+        if (this.isDestroyed) return new Map(groups.map(group => [group.cacheKey, fallback]));
         const batch = this.findExistingCardsBatchUncached(groups);
-        for (const [cacheKey] of groups) {
+        for (const { cacheKey } of groups) {
             const promise = batch
                 .then(results => results.get(cacheKey) ?? fallback)
                 .finally(() => {
@@ -753,11 +801,11 @@ export class AnkiConnectClient {
         return batch;
     }
 
-    private async findExistingCardsBatchUncached(groups: Array<[string, { card: JPDBCard }]>): Promise<Map<string, AnkiLookupResult>> {
+    private async findExistingCardsBatchUncached(groups: PendingAnkiLookupGroup[]): Promise<Map<string, AnkiLookupResult>> {
         const empty = emptyAnkiLookupResult();
-        if (this.isDestroyed) return new Map(groups.map(([cacheKey]) => [cacheKey, empty]));
+        if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
         const statusNoteIdsByKey = await this.findStatusIndexNoteIdsByLookupKey(groups);
-        if (this.isDestroyed) return new Map(groups.map(([cacheKey]) => [cacheKey, empty]));
+        if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
         const noteIdsByKey = new Map([...statusNoteIdsByKey].map(([cacheKey, noteIds]) => [cacheKey, new Set(noteIds)]));
         const searchedNoteIds = await this.findCandidateNoteIdsByLookupKey(groups);
         for (const [cacheKey, noteIds] of searchedNoteIds) {
@@ -765,18 +813,18 @@ export class AnkiConnectClient {
             noteIds.forEach(noteId => merged.add(noteId));
             noteIdsByKey.set(cacheKey, merged);
         }
-        if (this.isDestroyed) return new Map(groups.map(([cacheKey]) => [cacheKey, empty]));
+        if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
         const allNoteIds = unique(Array.from(noteIdsByKey.values()).flatMap(noteIds => [...noteIds]));
         if (!allNoteIds.length) {
-            return new Map(groups.map(([cacheKey]) => [cacheKey, empty]));
+            return this.emptyLookupResultsForGroups(groups, empty);
         }
 
         const notes = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: allNoteIds });
-        if (this.isDestroyed) return new Map(groups.map(([cacheKey]) => [cacheKey, empty]));
+        if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
         const notesById = new Map(notes.map(note => [note.noteId, note]));
         const matchingNotesByKey = new Map<string, AnkiNoteInfo[]>();
         const matchingNotesById = new Map<number, AnkiNoteInfo>();
-        for (const [cacheKey, { card }] of groups) {
+        for (const { cacheKey, card } of groups) {
             const candidateIds = noteIdsByKey.get(cacheKey) ?? new Set<number>();
             const trustedStatusIds = statusNoteIdsByKey.get(cacheKey) ?? new Set<number>();
             const matchingNotes = [...candidateIds]
@@ -788,9 +836,9 @@ export class AnkiConnectClient {
             matchingNotes.forEach(note => matchingNotesById.set(note.noteId, note));
         }
         const cardsByNote = await this.loadCardsByNote([...matchingNotesById.values()]);
-        if (this.isDestroyed) return new Map(groups.map(([cacheKey]) => [cacheKey, empty]));
+        if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
         const results = new Map<string, AnkiLookupResult>();
-        for (const [cacheKey] of groups) {
+        for (const { cacheKey } of groups) {
             const matchingNotes = matchingNotesByKey.get(cacheKey) ?? [];
             const existing = matchingNotes.map(note => ankiExistingNoteFromInfo(note, cardsByNote.get(note.noteId) ?? []));
             if (existing.length) await this.hydrateExistingNoteRenderedMedia(existing);
@@ -803,24 +851,152 @@ export class AnkiConnectClient {
         return results;
     }
 
-    private async findStatusIndexNoteIdsByLookupKey(groups: Array<[string, { card: JPDBCard }]>): Promise<Map<string, Set<number>>> {
-        const noteIdsByKey = new Map(groups.map(([cacheKey]) => [cacheKey, new Set<number>()]));
+    private async findStatusOnlyCardsBatchUncached(
+        groups: PendingAnkiLookupGroup[],
+        fallback: AnkiLookupResult,
+    ): Promise<Map<string, AnkiLookupResult>> {
+        if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, fallback);
+        if (!await this.isAvailableForBackground()) return this.emptyLookupResultsForGroups(groups, fallback);
+        const noteIdsByKey = await this.findCandidateNoteIdsByLookupKey(groups);
+        if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, fallback);
+        const allNoteIds = unique(Array.from(noteIdsByKey.values()).flatMap(noteIds => [...noteIds]));
+        if (!allNoteIds.length) return this.emptyLookupResultsForGroups(groups, emptyAnkiLookupResult());
+
+        const notes = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: allNoteIds });
+        if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, fallback);
+        const notesById = new Map(notes.map(note => [note.noteId, note]));
+        const matchingNotesByKey = new Map<string, AnkiNoteInfo[]>();
+        const matchingNotesById = new Map<number, AnkiNoteInfo>();
+        for (const { cacheKey, card } of groups) {
+            const matchingNotes = [...(noteIdsByKey.get(cacheKey) ?? [])]
+                .map(noteId => notesById.get(noteId))
+                .filter((note): note is AnkiNoteInfo => Boolean(note && noteLooksLikeCard(note, card, this.getSettings())));
+            matchingNotesByKey.set(cacheKey, matchingNotes);
+            matchingNotes.forEach(note => matchingNotesById.set(note.noteId, note));
+        }
+        const cardsByNote = await this.loadCardsByNote([...matchingNotesById.values()]);
+        if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, fallback);
+        await this.rememberStatusIndexNotes([...matchingNotesById.values()], cardsByNote);
+
+        const results = new Map<string, AnkiLookupResult>();
+        for (const { cacheKey } of groups) {
+            const matchingNotes = matchingNotesByKey.get(cacheKey) ?? [];
+            const existing = matchingNotes.map(note => this.statusOnlyExistingNote(
+                ankiExistingNoteFromInfo(note, cardsByNote.get(note.noteId) ?? []),
+            ));
+            results.set(cacheKey, existing.length ? {
+                state: stateFromExistingNotes(existing),
+                notes: existing,
+                primary: pickPrimaryExistingNote(existing),
+            } : emptyAnkiLookupResult());
+        }
+        return results;
+    }
+
+    private statusOnlyExistingNote(note: AnkiExistingNote): AnkiExistingNote {
+        return {
+            noteId: note.noteId,
+            modelName: note.modelName,
+            deckNames: note.deckNames,
+            cardIds: note.cardIds,
+            primaryCardId: note.primaryCardId,
+            state: note.state,
+            fields: {},
+            tags: [],
+            reps: note.reps,
+            lapses: note.lapses,
+        };
+    }
+
+    private async rememberStatusIndexNotes(notes: AnkiNoteInfo[], cardsByNote: Map<number, AnkiCardInfo[]>): Promise<void> {
+        if (!notes.length || this.isDestroyed) return;
+        const settings = this.getSettings();
+        const settingsKey = this.statusIndexSettingsKey(settings);
+        const entries = statusIndexEntriesForNotes(notes, {
+            cardsByNote,
+            sets: emptyAnkiStatusIndexCardSets(),
+        }, settings);
+        if (!entries.length || this.isDestroyed) return;
+        const now = Date.now();
+        const current = this.validStatusIndex(await this.loadStatusIndex());
+        const base: AnkiStatusIndex = current ?? {
+            version: ANKI_STATUS_INDEX_VERSION,
+            settingsKey,
+            syncedAt: 0,
+            checkedAt: now,
+            cardCount: await this.collectionCardCountFromDeckStats() ?? 0,
+            entryCount: 0,
+            entries: {},
+            readingKeys: true,
+        };
+        const checkedAt = Math.max(base.checkedAt, now);
+        if (base.entryStore === 'indexeddb' || (!current && canUseIndexedDb())) {
+            await this.rememberIndexedDbStatusIndexEntries({ ...base, checkedAt, entryStore: 'indexeddb', entries: {} }, entries);
+            return;
+        }
+        const mergedEntries = { ...base.entries };
+        for (const candidate of entries) {
+            const currentEntry = mergedEntries[candidate.key];
+            if (!currentEntry || shouldReplaceAnkiStatusIndexEntry(currentEntry, candidate.entry)) {
+                mergedEntries[candidate.key] = candidate.entry;
+            }
+        }
+        const index: AnkiStatusIndex = {
+            ...base,
+            checkedAt,
+            entryCount: Object.keys(mergedEntries).length,
+            entries: mergedEntries,
+            readingKeys: true,
+        };
+        this.statusIndex = index;
+        await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, index);
+    }
+
+    private async rememberIndexedDbStatusIndexEntries(
+        index: AnkiStatusIndex,
+        entries: ReturnType<typeof statusIndexEntriesForNotes>,
+    ): Promise<void> {
+        const db = await openAnkiStatusIndexDb();
+        try {
+            await putBestAnkiStatusIndexEntries(db, entries);
+            const entryCount = await countAnkiStatusIndexEntries(db);
+            const next: AnkiStatusIndex = {
+                ...index,
+                entryStore: 'indexeddb',
+                entries: {},
+                entryCount,
+                readingKeys: true,
+            };
+            await putAnkiStatusIndexMeta(db, ankiStatusIndexMeta(next));
+            await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(next));
+            this.statusIndex = next;
+        } finally {
+            db.close();
+        }
+    }
+
+    private emptyLookupResultsForGroups(groups: PendingAnkiLookupGroup[], empty: AnkiLookupResult): Map<string, AnkiLookupResult> {
+        return new Map(groups.map(group => [group.cacheKey, empty]));
+    }
+
+    private async findStatusIndexNoteIdsByLookupKey(groups: PendingAnkiLookupGroup[]): Promise<Map<string, Set<number>>> {
+        const noteIdsByKey = new Map(groups.map(group => [group.cacheKey, new Set<number>()]));
         const statusIndex = await this.loadStatusIndex();
         if (!statusIndex || this.isDestroyed) return noteIdsByKey;
-        const statusEntries = await this.loadStatusEntriesForCards(statusIndex, groups.map(([, { card }]) => card));
+        const statusEntries = await this.loadStatusEntriesForCards(statusIndex, groups.map(group => group.card));
         if (this.isDestroyed) return noteIdsByKey;
-        for (const [cacheKey, { card }] of groups) {
+        for (const { cacheKey, card } of groups) {
             const noteId = Number(this.lookupStatusIndex(statusIndex, card, statusEntries)?.primary?.noteId);
             if (Number.isFinite(noteId) && noteId > 0) noteIdsByKey.get(cacheKey)?.add(noteId);
         }
         return noteIdsByKey;
     }
 
-    private async findCandidateNoteIdsByLookupKey(groups: Array<[string, { card: JPDBCard }]>): Promise<Map<string, Set<number>>> {
-        const noteIdsByKey = new Map(groups.map(([cacheKey]) => [cacheKey, new Set<number>()]));
+    private async findCandidateNoteIdsByLookupKey(groups: PendingAnkiLookupGroup[]): Promise<Map<string, Set<number>>> {
+        const noteIdsByKey = new Map(groups.map(group => [group.cacheKey, new Set<number>()]));
         if (this.isDestroyed) return noteIdsByKey;
         const keysByTerm = new Map<string, Set<string>>();
-        for (const [cacheKey, { card }] of groups) {
+        for (const { cacheKey, card } of groups) {
             for (const term of lookupKeyTermsForCard(card)) {
                 const keys = keysByTerm.get(term) ?? new Set<string>();
                 keys.add(cacheKey);
@@ -1252,6 +1428,16 @@ function isAnkiMultiActionResponse<T>(value: T | AnkiResponse<T>): value is Anki
         && !Array.isArray(value)
         && Object.prototype.hasOwnProperty.call(value, 'result')
         && Object.prototype.hasOwnProperty.call(value, 'error');
+}
+
+function emptyAnkiStatusIndexCardSets(): AnkiStatusIndexCardSets {
+    return {
+        all: new Set(),
+        due: new Set(),
+        learning: new Set(),
+        new: new Set(),
+        suspended: new Set(),
+    };
 }
 
 export function captureActiveVideoFrame(): string | undefined {

@@ -5,16 +5,30 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+const REGULAR_SHARD_TOTAL = readPositiveInt(process.env.YOMU_CI_REGULAR_SHARDS ?? '4', 'YOMU_CI_REGULAR_SHARDS');
 const SHARD_TOTAL = readPositiveInt(process.env.YOMU_CI_JPDB_SHARDS ?? '8', 'YOMU_CI_JPDB_SHARDS');
+const REGULAR_CONCURRENCY = readPositiveInt(
+    process.env.YOMU_CI_REGULAR_CONCURRENCY ?? String(Math.max(1, Math.min(4, REGULAR_SHARD_TOTAL, availableParallelism()))),
+    'YOMU_CI_REGULAR_CONCURRENCY',
+);
 const JPDB_CONCURRENCY = readPositiveInt(
     process.env.YOMU_CI_JPDB_CONCURRENCY ?? String(Math.max(1, Math.min(4, SHARD_TOTAL, availableParallelism()))),
     'YOMU_CI_JPDB_CONCURRENCY',
 );
 const VITEST_API_BASE_PORT = readPositiveInt(process.env.YOMU_CI_VITEST_API_BASE_PORT ?? '55200', 'YOMU_CI_VITEST_API_BASE_PORT');
 
-runShard('regular', 1, 1, ['--api-port', String(VITEST_API_BASE_PORT)]);
+runShard('regular', 1, REGULAR_SHARD_TOTAL, ['--prepare']);
+await runParallelShards('regular', REGULAR_SHARD_TOTAL, REGULAR_CONCURRENCY, shard => [
+    '--reuse',
+    '--api-port',
+    String(VITEST_API_BASE_PORT + shard),
+]);
 runShard('jpdb', 1, SHARD_TOTAL, ['--prepare']);
-await runJpdbShards();
+await runParallelShards('jpdb', SHARD_TOTAL, JPDB_CONCURRENCY, shard => [
+    '--reuse',
+    '--api-port',
+    String(VITEST_API_BASE_PORT + REGULAR_SHARD_TOTAL + shard),
+]);
 
 function runShard(kind, shard, total, extraArgs = []) {
     const result = spawnSync(process.execPath, [
@@ -31,14 +45,14 @@ function runShard(kind, shard, total, extraArgs = []) {
     if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-async function runJpdbShards() {
-    const pending = Array.from({ length: SHARD_TOTAL }, (_, index) => index + 1);
+async function runParallelShards(kind, total, concurrency, extraArgsForShard = () => []) {
+    const pending = Array.from({ length: total }, (_, index) => index + 1);
     const active = new Set();
     let failureStatus = 0;
     await new Promise(resolve => {
         const maybeStart = () => {
             if (failureStatus) pending.length = 0;
-            while (!failureStatus && active.size < JPDB_CONCURRENCY && pending.length) {
+            while (!failureStatus && active.size < concurrency && pending.length) {
                 startShard(pending.shift(), maybeStart);
             }
             if (!active.size && !pending.length) resolve();
@@ -50,11 +64,10 @@ async function runJpdbShards() {
     function startShard(shard, onDone) {
         const child = spawn(process.execPath, [
             join(ROOT, 'scripts/run-ci-tests.mjs'),
-            '--kind', 'jpdb',
+            '--kind', kind,
             '--shard', String(shard),
-            '--total', String(SHARD_TOTAL),
-            '--reuse',
-            '--api-port', String(VITEST_API_BASE_PORT + shard),
+            '--total', String(total),
+            ...extraArgsForShard(shard),
         ], {
             cwd: ROOT,
             stdio: 'inherit',

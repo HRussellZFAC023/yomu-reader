@@ -464,6 +464,9 @@
 .jpdb-reader-settings .grid > * {
   min-width: 0;
 }
+.jpdb-reader-settings .jpdb-reader-color-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+}
 .jpdb-reader-settings .grid > .jpdb-reader-settings-field-number {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -614,7 +617,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .jpdb-reader-anki-actions {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 10px 0 0;
 }
 .jpdb-reader-anki-actions .jpdb-reader-btn {
@@ -884,7 +887,7 @@
   min-width: 0;
 }
 .jpdb-reader-settings .jpdb-reader-anki-actions {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .jpdb-reader-settings-actions .jpdb-reader-btn[data-newtab-url-link] {
   border-color: color-mix(
@@ -967,22 +970,25 @@
   color: var(--jpdb-reader-danger-readable) !important;
 }
 
-.jpdb-reader-tag-editor {
+.jpdb-reader-settings .jpdb-reader-tag-editor {
   grid-column: 1 / -1;
   display: grid;
   gap: 8px;
   min-width: 0;
 }
 
-.jpdb-reader-tag-chip-list,
-.jpdb-reader-tag-add-row {
+.jpdb-reader-settings .jpdb-reader-tag-chip-list,
+.jpdb-reader-settings .jpdb-reader-tag-add-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
 }
+.jpdb-reader-settings .jpdb-reader-tag-add-row {
+  align-items: stretch;
+}
 
-.jpdb-reader-tag-chip {
+.jpdb-reader-settings .jpdb-reader-tag-chip {
   appearance: none;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 54%, var(--jpdb-reader-border));
   border-radius: 999px;
@@ -998,21 +1004,31 @@
   font-weight: 700;
   cursor: pointer;
 }
+.jpdb-reader-settings .jpdb-reader-tag-chip:hover,
+.jpdb-reader-settings .jpdb-reader-tag-chip:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 24%, var(--jpdb-reader-surface-2));
+  color: var(--jpdb-reader-accent-readable);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
+}
 
-.jpdb-reader-tag-chip span:first-child {
+.jpdb-reader-settings .jpdb-reader-tag-chip span:first-child {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.jpdb-reader-tag-add-row input {
+.jpdb-reader-settings .jpdb-reader-tag-add-row input {
   flex: 1 1 180px;
   min-width: 0;
 }
 
-.jpdb-reader-tag-add-row .jpdb-reader-btn {
+.jpdb-reader-settings .jpdb-reader-tag-add-row .jpdb-reader-btn {
   flex: 0 0 auto;
+  min-width: 86px;
+  padding-inline: 14px;
 }
 
 .jpdb-reader-help-discord {
@@ -1504,6 +1520,11 @@
     min-height: 40px;
     padding-inline: 6px;
     font-size: 11px;
+  }
+
+  .jpdb-reader-settings .jpdb-reader-tag-add-row input,
+  .jpdb-reader-settings .jpdb-reader-tag-add-row .jpdb-reader-btn {
+    flex-basis: 100%;
   }
 
   .jpdb-reader-order-head {

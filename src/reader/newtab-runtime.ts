@@ -1473,6 +1473,7 @@ export class NewTabRuntime {
         const wrapper = picker.closest<HTMLElement>('.jpdb-reader-mining-details');
         const toggle = wrapper?.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title');
         if (picker.classList.contains('jpdb-reader-add-deck-select-open')) {
+            picker.hidden = false;
             picker.focus();
             return true;
         }
@@ -1481,6 +1482,7 @@ export class NewTabRuntime {
         const cleanup = (): void => {
             controller.abort();
             picker.classList.remove('jpdb-reader-add-deck-select-open');
+            picker.hidden = true;
             wrapper?.classList.remove('jpdb-reader-deck-picker-open');
             toggle?.setAttribute('aria-expanded', 'false');
             picker.selectedIndex = 0;
@@ -1509,6 +1511,7 @@ export class NewTabRuntime {
             }, 180);
         }, { once: true, signal: controller.signal });
 
+        picker.hidden = false;
         picker.classList.add('jpdb-reader-add-deck-select-open');
         wrapper?.classList.add('jpdb-reader-deck-picker-open');
         toggle?.setAttribute('aria-expanded', 'true');
@@ -2023,6 +2026,8 @@ export class NewTabRuntime {
         const toast = document.createElement('div');
         toast.className = 'jpdb-reader-toast';
         toast.dataset.jpdbReaderRoot = 'true';
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('aria-live', 'polite');
         toast.textContent = message;
         document.body.append(toast);
         window.setTimeout(() => toast.remove(), 3000);

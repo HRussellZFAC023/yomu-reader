@@ -6,6 +6,7 @@ const esbuild = require('esbuild');
 const file = path.join(__dirname, '..', 'dist', 'yomu.user.js');
 const original = fs.readFileSync(file, 'utf8');
 const MAX_COMPACTION_PASSES = 4;
+const MAX_READABLE_LINE_LENGTH = 1_800;
 let compacted = original;
 let passes = 0;
 
@@ -37,10 +38,63 @@ function compactGeneratedWhitespace(code) {
       minifyIdentifiers: false,
       minifySyntax: false,
       legalComments: 'none',
-      lineLimit: 500,
+      lineLimit: 480,
     }).code.replace('(function(){', '(function (){');
-    return `${header}${transformed}`;
+    return `${header}${splitLongGeneratedLines(transformed, MAX_READABLE_LINE_LENGTH)}`;
   } catch {
     return code;
   }
+}
+
+function splitLongGeneratedLines(code, maxLength) {
+  return code
+    .split('\n')
+    .flatMap(line => splitLongGeneratedLine(line, maxLength))
+    .join('\n');
+}
+
+function splitLongGeneratedLine(line, maxLength) {
+  if (line.length <= maxLength) return [line];
+  const parts = [];
+  let start = 0;
+  let quote = '';
+  let escaped = false;
+  let parenDepth = 0;
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === quote) {
+        quote = '';
+      }
+      continue;
+    }
+    if (char === '"' || char === "'" || char === '`') {
+      quote = char;
+      continue;
+    }
+    if (char === '(') parenDepth += 1;
+    else if (char === ')') parenDepth = Math.max(0, parenDepth - 1);
+    else if (char === '{') braceDepth += 1;
+    else if (char === '}') braceDepth = Math.max(0, braceDepth - 1);
+    else if (char === '[') bracketDepth += 1;
+    else if (char === ']') bracketDepth = Math.max(0, bracketDepth - 1);
+    if (
+      char === ';'
+      && parenDepth === 0
+      && braceDepth === 0
+      && bracketDepth === 0
+      && index - start >= maxLength / 2
+    ) {
+      parts.push(line.slice(start, index + 1));
+      start = index + 1;
+    }
+  }
+  parts.push(line.slice(start));
+  return parts;
 }

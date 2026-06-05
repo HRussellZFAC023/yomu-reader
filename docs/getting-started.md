@@ -16,7 +16,7 @@ A userscript is a small helper that a browser extension runs for you. You instal
 - **Mining:** saving a useful word, sentence, subtitle, or image context for later study.
 - **OCR:** image text reading. This is what lets you tap Japanese inside manga panels or screenshots.
 - **Anki / AnkiConnect:** Anki is a flashcard app. [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the desktop add-on that gives よむ full Anki access, including existing-card status, updates, and review queues.
-- **Tailscale:** an easy private network for reaching your desktop from a phone or iPad when both devices are signed in.
+- **Tailscale:** an easy private network for reaching your desktop from a phone, tablet, or iPad when both devices are signed in.
 - **Local server:** a helper app running on your own computer, often for audio, OCR, or Anki.
 - **localhost:** the device you are using right now. On an iPhone, `localhost` means the iPhone, not your desktop.
 
@@ -175,7 +175,7 @@ On phones and tablets, tapping is usually easier than hover. On desktop, hover i
 - Dictionaries: choose the Dictionaries tab in Settings when you want local dictionary study words. よむ downloads JMdict into local browser storage when the userscript request bridge is available; you can also import any Yomitan ZIP dictionary or settings export manually.
 - Images: enable OCR to tap Japanese text inside manga panels or screenshots.
 - Video: enable subtitles to mine words from Japanese subtitle lines. For local files, use the [Yomu video player](./video-player/index.html). On iPhone, the transcript opens as a bottom panel so it does not crush the video. On desktop and iPad, move it left, right, or below from the transcript header.
-- Anki: enable Anki mining. Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full path: it can create or update cards, check existing-card status, adapt to existing decks and note types, and feed Anki reviews into the new-tab page. iPhone, iPad, and Android can use mobile Anki handoff when AnkiConnect is not available, but handoff creates new notes only.
+- Anki: enable Anki mining when you want flashcards. Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full path: it can create or update notes, check existing-card status, adapt to existing decks and note types, and feed Anki reviews into the new-tab page. Phones and tablets can either reach that desktop AnkiConnect over Wi-Fi/Tailscale or use mobile Anki handoff for new-note drafts only.
 - New tab: use the よむ [new-tab page](./newtab/index.html) as a study screen; opening it turns the study page on automatically.
 - Audio: the easiest hosted setup is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). If you want to self-host the audio files instead, the commonly shared files are here: [nyaa.si/view/1957972](https://nyaa.si/view/1957972).
 
@@ -183,23 +183,52 @@ For existing Anki libraries, open Settings > Anki and use **Check AnkiConnect** 
 
 ## 8. Mobile Notes
 
-iPhone, iPad, and Android browsers can run よむ through a userscript app, but local desktop bridges are different there. JPDB lookup, local dictionaries, OCR, subtitle taps, the hosted video player, the new-tab study page, and mobile Anki handoff are the friendly mobile paths. Full Anki features still need desktop Anki with AnkiConnect. Your phone can reach that desktop on the same Wi-Fi, or through Tailscale when you are away from home.
+iPhone, iPad, and Android browsers can run よむ through a userscript app, but local desktop bridges are different there. JPDB lookup, local dictionaries, OCR, subtitle taps, the hosted video player, the new-tab study page, and mobile Anki handoff are the friendly mobile paths. For fewer compromises with Anki, keep desktop Anki running with AnkiConnect and point mobile よむ at that desktop over the same Wi-Fi or through Tailscale.
 
-### Use desktop Anki from a phone or iPad
+The floating よむ puck stays reachable on phones and tablets so you can always get back into Settings, even if you hide the puck for desktop reading. Settings text fields are sized to avoid iOS input zoom.
 
-You do not need AnkiMobile to get full Anki status in よむ on mobile. The full path is simple: your phone or iPad runs よむ, while your desktop runs Anki and AnkiConnect.
+### Use desktop Anki from a phone, iPad, or Android
+
+You do not need AnkiMobile or AnkiDroid to get full Anki status in よむ on mobile. The full path is simple: your phone, tablet, or iPad runs よむ, while your desktop runs Anki and AnkiConnect. The phone is only the reading screen; all deck scans, note updates, card status, media writes, and review queues still happen through desktop AnkiConnect.
 
 The easiest private setup is [Tailscale](https://tailscale.com/). Think of it as a private connection between your own devices. You do not need to open your router, expose Anki to the public internet, or use the command line. Tailscale has official downloads and install guides for [macOS, Windows, Linux, iOS, iPadOS, and Android](https://tailscale.com/downloads).
 
 1. On your desktop, install Anki and the [AnkiConnect add-on](https://ankiweb.net/shared/info/2055492159).
-2. Open Anki on the desktop and leave it running.
-3. Install Tailscale on the desktop and sign in.
-4. Install Tailscale on your phone or iPad and sign in to the same Tailscale account.
-5. In the Tailscale app on your phone, find your desktop. Use its device name if it shows one, or copy its `100.x.y.z` address.
-6. In よむ settings on mobile, open Mining and set **AnkiConnect URL** to `http://desktop-name.tailnet-name.ts.net:8765` or `http://100.x.y.z:8765`.
-7. Press **Check AnkiConnect**. If it connects, よむ automatically inspects your desktop Anki library, fills deck/note-type choices, shows existing-card status, updates cards, and can use Anki review queues from mobile.
+2. Install Tailscale on the desktop, sign in, and note the desktop's Tailscale address. It looks like `100.x.y.z`; MagicDNS may also show a name like `desktop-name.tailnet-name.ts.net`.
+3. Install Tailscale on your phone, tablet, or iPad and sign in to the same Tailscale account.
+4. Open Anki on the desktop, then open **Tools > Add-ons > AnkiConnect > Config**.
+5. Change `webBindAddress` from `127.0.0.1` to the desktop's Tailscale `100.x.y.z` address. If you also want same-Wi-Fi LAN access, use `0.0.0.0` instead and rely on your home network/firewall. Keep `webBindPort` as `8765`.
+6. Add `https://hrussellzfac023.github.io` to `webCorsOriginList` so the hosted よむ tools can make direct browser checks when the userscript request bridge is not active. Keep any existing origins you already use.
 
-Mobile Anki handoff is one-way: it opens AnkiMobile or AnkiDroid so you can create a new note. Handoff alone cannot scan existing decks, read your existing collection, show existing-card status, update old notes, adapt to existing deck formats, or provide Anki review queues. Saved mappings can still shape AnkiMobile add-note links; use reachable desktop Anki with AnkiConnect for scanning, updates, status, and reviews.
+```json
+{
+  "apiKey": null,
+  "apiLogPath": null,
+  "ignoreOriginList": [],
+  "webBindAddress": "100.x.y.z",
+  "webBindPort": 8765,
+  "webCorsOriginList": [
+    "http://localhost",
+    "https://hrussellzfac023.github.io"
+  ]
+}
+```
+
+7. Save the AnkiConnect config, restart Anki, and leave Anki running.
+8. On mobile, keep Tailscale connected. As a quick network check, open `http://100.x.y.z:8765` in the mobile browser. A small AnkiConnect response is good; a timeout means the desktop listener, firewall, or Tailscale connection is not reachable yet.
+9. Make sure the よむ userscript is enabled for `https://hrussellzfac023.github.io` and for the reading sites where you use よむ. The userscript request bridge is the reliable mobile path for HTTP AnkiConnect URLs such as Tailscale and LAN addresses.
+10. In よむ settings on mobile, open Mining and set **AnkiConnect URL** to `http://desktop-name.tailnet-name.ts.net:8765` or `http://100.x.y.z:8765`. On the same Wi-Fi, a LAN address such as `http://192.168.1.23:8765` can also work when AnkiConnect is bound to a LAN interface or `0.0.0.0`.
+11. Press **Check AnkiConnect**. If it connects, よむ automatically inspects your desktop Anki library, fills deck/note-type choices, shows existing-card status, updates cards, and can use Anki review queues from mobile.
+
+If the Tailscale name does not work, use the `100.x.y.z` address. If the LAN address does not work, use Tailscale instead. Do not put AnkiConnect on the public internet, do not forward port `8765` on your router, and do not use `0.0.0.0` on untrusted networks.
+
+You can leave **Mobile Anki add-note fallback** enabled or disabled. It is only the fallback path for opening AnkiMobile or AnkiDroid when AnkiConnect is unavailable; it is not what gives よむ full existing-card status, updates, deck scanning, or review queues.
+
+### Mobile Anki handoff limits
+
+Mobile Anki handoff is one-way: it opens AnkiMobile or AnkiDroid so you can create a new note. Handoff alone cannot scan existing decks, read your existing collection, show existing-card status, update old notes, adapt to existing deck formats, or provide Anki review queues.
+
+AnkiMobile add-note links can carry deck, note type, tags, and field values when the installed app accepts them. AnkiDroid handoff uses Android's add/share flow with a front/back text draft, so it cannot preserve full よむ field mappings, deck/model choices, media handling, status sync, or updates. Use reachable desktop Anki with AnkiConnect for scanning, updates, status, reviews, and fewer compromises.
 
 Localhost on a phone or tablet means that device, not your desktop. If you run AnkiConnect, a local audio server, or OCR on a computer, use that computer's LAN/Tailscale address in よむ settings. Mobile browsers can also block autoplay and protected/cross-origin video capture, so subtitle lookup, copying, JPDB mining, and dictionary fallback remain the reliable mobile path.
 

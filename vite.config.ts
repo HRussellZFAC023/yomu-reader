@@ -119,9 +119,10 @@ export default defineConfig(({ command, mode }) => ({
     test: {
         environment: 'jsdom',
         include: ['tests/reader/**/*.test.ts'],
-        exclude: process.env.YOMU_INCLUDE_GENERATED_JPDB_SHARDS === '1'
-            ? []
-            : ['tests/reader/.vitest-jpdb-shards/**'],
+        exclude: [
+            ...(process.env.YOMU_INCLUDE_GENERATED_JPDB_SHARDS === '1' ? [] : ['tests/reader/.vitest-jpdb-shards/**']),
+            ...(process.env.YOMU_INCLUDE_GENERATED_SETTINGS_SHARDS === '1' ? [] : ['tests/reader/.vitest-settings-shards/**']),
+        ],
         setupFiles: ['tests/reader/setup.ts'],
         globals: true,
         pool: 'forks',

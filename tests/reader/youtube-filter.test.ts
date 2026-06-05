@@ -743,6 +743,42 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
+    it('hides watch recommendations without rendering a video-covering notice', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=current',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/watch',
+            search: '?v=current',
+        });
+        document.body.innerHTML = `
+            <div id="movie_player"></div>
+            <div id="secondary">
+                <ytd-compact-video-renderer data-case="watch-english">
+                    <a id="video-title" href="/watch?v=en">A long English interview</a>
+                </ytd-compact-video-renderer>
+            </div>
+        `;
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            youtubeImmersionEnabled: true,
+            youtubeShowFilterNotice: true,
+        };
+        const filter = new YoutubeImmersionFilter({
+            getSettings: () => settings,
+            isActivePage: () => true,
+        });
+
+        filter.init();
+        await flushPendingFilterWork();
+
+        expect(card('watch-english').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
+
+        filter.destroy();
+    });
+
     it('does not observe or clear YouTube cards while the filter is disabled', async () => {
         vi.useFakeTimers();
         stubOEmbedTitles({

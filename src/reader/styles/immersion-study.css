@@ -369,12 +369,12 @@ mark.jpdb-reader-example-target {
 }
 @media (pointer: coarse) {
   .jpdb-reader-example-actions .jpdb-reader-icon-mini {
-    width: 34px !important;
-    min-width: 34px !important;
-    max-width: 34px !important;
-    height: 34px !important;
-    min-height: 34px !important;
-    max-height: 34px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
   }
 }
 .jpdb-reader-study-tools {
@@ -705,6 +705,26 @@ mark.jpdb-reader-example-target {
 .jpdb-reader-grammar-more[open] > summary::after {
   content: "-";
 }
+
+@media (pointer: coarse) {
+  .jpdb-reader-study-label-row .jpdb-reader-icon-mini,
+  .jpdb-reader-grammar-example-japanese .jpdb-reader-icon-mini {
+    flex-basis: 44px;
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+  }
+
+  .jpdb-reader-grammar-known,
+  .jpdb-reader-grammar-toggle,
+  .jpdb-reader-grammar-more > summary {
+    min-height: 44px;
+  }
+}
+
 .jpdb-reader-grammar-examples {
   display: grid;
   row-gap: 6px;

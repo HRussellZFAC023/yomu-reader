@@ -229,6 +229,13 @@ function errorMessage(error: unknown, fallback: string): string {
     return fallback;
 }
 
+function isAnkiConnectSetupError(error: unknown): boolean {
+    if (isAnkiConnectAvailabilityError(error)) return true;
+    const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+    return /AnkiConnect/i.test(message)
+        && /(not reachable|request failed|timed out|failed to fetch|networkerror|request bridge|CORS)/i.test(message);
+}
+
 export class SettingsDialogController {
     private dictionaryOperationQueue: Promise<void> = Promise.resolve();
     private pendingDictionaryOperations = 0;
@@ -746,11 +753,13 @@ export class SettingsDialogController {
 
     private async refreshAnkiLibraryScan(form: HTMLFormElement, requestId: number, language: InterfaceLanguage): Promise<void> {
         if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+        const scanLibrary = this.dependencies.anki.scanLibrary;
+        if (typeof scanLibrary !== 'function') return;
         const previous = this.settings;
         this.settings = readFormSettings(new FormData(form), this.settings);
         this.setAnkiStatus(form, uiText(language, 'ankiScanning'), 'pending');
         try {
-            const scan = await this.dependencies.anki.scanLibrary();
+            const scan = await scanLibrary.call(this.dependencies.anki);
             if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
             this.applyAnkiScanToForm(form, scan);
             this.setAnkiStatus(form, this.ankiScanMessage(scan, language), 'success');
@@ -1086,14 +1095,16 @@ export class SettingsDialogController {
             }
             if (action === 'test-anki') {
                 setAnkiStatus(uiText(language, 'ankiConnectionReady'), 'success');
+                this.queueAutomaticAnkiLibraryScan(form, language);
                 log.info('Anki settings connection test succeeded', { url: this.settings.ankiConnectUrl });
                 return true;
             }
             await this.dependencies.anki.ensureDeckAndModel();
             setAnkiStatus(this.ankiReadyMessage(language), 'success');
+            this.queueAutomaticAnkiLibraryScan(form, language);
             log.info('Anki settings prepare succeeded', { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
         } catch (error) {
-            if (isAnkiConnectAvailabilityError(error)) {
+            if (isAnkiConnectAvailabilityError(error) || isAnkiConnectSetupError(error)) {
                 const message = this.ankiSetupUnavailableMessage(this.settings, language);
                 log.warn('Anki settings action unavailable', error);
                 setAnkiStatus(message, 'pending');

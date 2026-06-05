@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ANKI_SOURCE_ID } from '../../src/reader/constants';
 import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/nested-text-parse';
 import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings';
-import { activateSettingsPanel, applySettingsSearch, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm } from '../../src/reader/settings-form';
+import { activateSettingsPanel, applySettingsSearch, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings-form';
 import { CUSTOM_FONT_FAMILY_VALUE } from '../../src/reader/settings-form-read';
 import { orderedDefinitionSourceIds } from '../../src/reader/source-sections';
 import type { JPDBCard, JPDBToken } from '../../src/reader/types';
@@ -245,6 +245,7 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }');
         expect(normalizedCss).toContain('.jpdb-reader-settings-tabs { flex-wrap: wrap; overflow-x: visible; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-settings-field-number { display: grid; grid-template-columns: minmax(0, 1fr) auto;');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-color-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-settings-field-color { display: grid; grid-template-columns: minmax(0, 1fr);');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-settings-field-color > input[type="color"] { width: 100%;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-word { display: inline !important;');
@@ -267,6 +268,8 @@ describe('settings form localization', () => {
 
         expect(baseControlFontIndex).toBeGreaterThanOrEqual(0);
         expect(noZoomFontIndex).toBeGreaterThan(baseControlFontIndex);
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip:hover, .jpdb-reader-settings .jpdb-reader-tag-chip:focus-visible { border-color: var(--jpdb-reader-accent);');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-add-row input, .jpdb-reader-settings .jpdb-reader-tag-add-row .jpdb-reader-btn { flex-basis: 100%; }');
     });
 
     it('shows Immersion Kit reveal audio autoplay enabled by default', () => {
@@ -368,11 +371,12 @@ describe('settings form localization', () => {
         expect(status.textContent).toContain('Checking AnkiConnect at http://192.168.1.8:8765');
         expect(status.textContent).not.toContain('Mobile Anki handoff');
         expect(status.textContent).not.toContain('Full Anki features use desktop AnkiConnect');
-        expect(adapter.textContent).toContain('automatically inspects existing decks');
-        expect(adapter.textContent).toContain('RTK/Core-style decks');
+        expect(adapter.textContent).toContain('scans existing decks');
+        expect(adapter.textContent).toContain('Core/RTK-style decks');
         const helpLink = form.querySelector<HTMLAnchorElement>('[data-anki-setup-help] a[href="https://ankiweb.net/shared/info/2055492159"]');
         expect(helpLink?.textContent).toContain('Open AnkiConnect add-on');
-        expect(form.querySelector<HTMLElement>('[data-anki-setup-help]')?.textContent).toContain('Optional advanced setup');
+        expect(form.querySelector<HTMLElement>('[data-anki-setup-help]')?.textContent).toContain('LAN/Tailscale');
+        expect(form.querySelector<HTMLElement>('[data-anki-setup-help]')?.textContent).not.toContain('webCorsOriginList');
         expect(form.textContent).not.toContain('Scan Anki to choose from your decks and note types');
     });
 
@@ -390,6 +394,29 @@ describe('settings form localization', () => {
 
         localizeSettingsForm(form, 'ja');
         expect(optionText(form, 'wordTextColorSource', 'status')).toContain('Anki');
+    });
+
+    it('keeps subtitle preview color classes and status regions accessible', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            subtitleHighlightColorSource: 'status',
+            subtitleUnderlineColorSource: 'pitch',
+            subtitleTextColorSource: 'anki',
+        }, 'https://jpdb.io/settings');
+
+        syncSubtitlePreview(form);
+
+        const preview = form.querySelector<HTMLElement>('[data-subtitle-preview]')!;
+        const previewWords = Array.from(preview.querySelectorAll<HTMLElement>('[data-settings-preview-lookup]'));
+        const dictionaryStatus = form.querySelector<HTMLElement>('[data-dictionary-status]')!;
+        expect(preview.classList.contains('jpdb-reader-subtitle-highlight-status')).toBe(true);
+        expect(preview.classList.contains('jpdb-reader-subtitle-underline-pitch')).toBe(true);
+        expect(preview.classList.contains('jpdb-reader-subtitle-text-anki')).toBe(true);
+        expect(previewWords.length).toBeGreaterThan(0);
+        expect(previewWords.every(word => word.tabIndex === -1)).toBe(true);
+        expect(dictionaryStatus.getAttribute('role')).toBe('status');
+        expect(dictionaryStatus.getAttribute('aria-live')).toBe('polite');
     });
 
     it('exposes video-safe autoplay and popover dimming settings', () => {
@@ -657,23 +684,34 @@ describe('settings form localization', () => {
         });
     });
 
-    it('keeps mobile Anki handoff compact in Mining and points setup details to docs', () => {
+    it('keeps mobile Anki handoff compact in Mining and points full setup to desktop AnkiConnect', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
 
         localizeSettingsForm(form, 'en');
 
-        expect(labelForControl(form, 'ankiMobileHandoff')).toContain('mobile Anki handoff fallback');
+        expect(labelForControl(form, 'ankiMobileHandoff')).toContain('Mobile Anki add-note fallback');
         expect(labelForControl(form, 'ankiMobileHandoff')).not.toContain('AnkiConnect is unavailable');
         expect(optionText(form, 'ankiDeck', 'Default')).toBe('Default');
         expect(form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.textContent).toBe('Check AnkiConnect');
         expect(form.querySelector<HTMLButtonElement>('[data-action="prepare-anki"]')?.textContent).toBe('Create Yomu note type');
         expect(form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')).toBeNull();
-        expect(form.querySelector<HTMLElement>('[data-anki-setup-help]')?.textContent).toContain('Core/RTK-style or other nonstandard decks');
-        expect(form.querySelector<HTMLElement>('[data-anki-setup-help]')?.textContent).toContain('Mobile setup help is in Getting Started');
-        expect(form.textContent).not.toContain('Mobile handoff creates new notes only');
+        expect(form.querySelector<HTMLElement>('[data-anki-setup-help]')?.textContent).toContain('LAN/Tailscale');
+        expect(form.querySelector<HTMLElement>('[data-anki-setup-help]')?.textContent).toContain('hand off new notes to AnkiMobile/AnkiDroid');
+        expect(form.querySelector<HTMLElement>('[data-anki-setup-help]')?.textContent).not.toContain('webCorsOriginList');
         expect(form.textContent).not.toContain('Handoff does not read your existing collection');
         expect(form.textContent).not.toContain('review queues require desktop Anki');
+    });
+
+    it('explains the mobile settings puck and preserves no-zoom intent in Reader settings', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+        localizeSettingsForm(form, 'en');
+
+        expect(labelForControl(form, 'showFloatingButton')).toBe('Show settings puck');
+        expect(form.querySelector<HTMLElement>('[data-settings-puck-help]')?.textContent).toContain('phones and tablets');
+        expect(form.querySelector<HTMLElement>('[data-settings-puck-help]')?.textContent).toContain('avoid iOS zoom');
     });
 
     it('keeps top-level section legends attached to their panels', () => {
@@ -767,7 +805,7 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')).toBeNull();
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnectを確認中');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('モバイルAnki受け渡し');
-        expect(form.querySelector<HTMLElement>('[data-anki-library-availability]')?.textContent).toContain('RTK/Core系');
+        expect(form.querySelector<HTMLElement>('[data-anki-library-availability]')?.textContent).toContain('Core/RTK系');
         expect(form.querySelector<HTMLElement>('[data-anki-library-choices-title]')?.textContent).toBe('デッキとノートタイプ');
         expect(form.querySelector<HTMLElement>('[data-anki-template-settings-title]')?.textContent).toBe('よむカードテンプレート');
         expect(form.querySelector<HTMLElement>('[data-theme-switch]')?.title).toBe('ダークテーマに切り替え');

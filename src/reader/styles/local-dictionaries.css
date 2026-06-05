@@ -50,6 +50,7 @@
   gap: 8px;
   min-height: 34px;
   padding: 6px 0;
+  position: relative;
   cursor: pointer;
   list-style: none;
 }
@@ -84,6 +85,22 @@
   > summary.jpdb-reader-local-title::after {
   content: "";
 }
+
+@media (pointer: coarse) {
+  .jpdb-reader-source-card > summary.jpdb-reader-local-title,
+  .jpdb-reader-study-source > summary.jpdb-reader-local-title {
+    touch-action: manipulation;
+  }
+
+  .jpdb-reader-source-card > summary.jpdb-reader-local-title::before,
+  .jpdb-reader-study-source > summary.jpdb-reader-local-title::before {
+    content: "";
+    position: absolute;
+    inset: -5px 0;
+    border-radius: 8px;
+  }
+}
+
 .jpdb-reader-source-card > :not(summary) {
   margin-left: 0;
   margin-right: 0;
@@ -638,8 +655,12 @@
   background: transparent;
   padding: 8px 0 0;
 }
+.jpdb-reader-anki-existing-note {
+  border-left: 2px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
+  padding-left: 8px;
+}
 .jpdb-reader-anki-existing-note + .jpdb-reader-anki-existing-note {
-  margin-top: 4px;
+  margin-top: 8px;
   border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
   padding-top: 8px;
 }
@@ -708,7 +729,9 @@
 .jpdb-reader-anki-context > strong {
   color: var(--jpdb-reader-muted);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .jpdb-reader-anki-field > span,
 .jpdb-reader-anki-context > span,
@@ -815,9 +838,8 @@
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
-.jpdb-reader-anki-rendered-side-body * {
+.jpdb-reader-anki-rendered-side-body :where(*) {
   max-width: 100%;
-  max-height: min(70vh, 420px);
 }
 .jpdb-reader-anki-rendered-side-body :where(*) {
   font-size: min(1em, 30px);
@@ -831,6 +853,9 @@
 .jpdb-reader-anki-rendered-side-body audio {
   max-width: 100%;
   height: auto;
+}
+.jpdb-reader-anki-rendered-side-body :is(img, video, canvas, svg) {
+  max-height: min(70vh, 420px);
 }
 .jpdb-reader-anki-rendered-side-body img {
   display: block;

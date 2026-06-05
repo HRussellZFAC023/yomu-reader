@@ -6,6 +6,7 @@ import { applyUrlBootstrapSettings, loadSettings } from './settings';
 import type { ReaderSettings } from './types';
 
 export interface ReaderAppInitOptions {
+    embeddedFrame?: boolean;
     showWelcome?: boolean;
 }
 

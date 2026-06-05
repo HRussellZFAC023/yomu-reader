@@ -913,6 +913,7 @@ html.jpdb-reader-doodle-active * {
   cursor: grabbing;
 }
 .jpdb-reader-mining-collapse {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -931,6 +932,8 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-mining-collapse::before {
   content: "";
+  position: relative;
+  z-index: 1;
   display: block;
   width: 42px;
   height: 5px;
@@ -1184,16 +1187,36 @@ html.jpdb-reader-doodle-active * {
     gap: 3px;
   }
   .jpdb-reader-mining-action-row .jpdb-reader-btn {
-    min-height: 38px;
+    min-height: 44px;
     padding-inline: 3px;
     border-radius: 8px;
     font-size: 9.5px;
   }
   .jpdb-reader-grades .jpdb-reader-btn {
-    min-height: 38px;
+    min-height: 44px;
     padding-inline: 1px;
     border-radius: 8px;
     font-size: 8.8px;
+  }
+}
+
+@media (pointer: coarse) {
+  .jpdb-reader-rtk-elements > button,
+  .jpdb-reader-btn.jpdb-reader-doodle-control,
+  .jpdb-reader-mining-action-row .jpdb-reader-btn,
+  .jpdb-reader-grades .jpdb-reader-btn {
+    min-height: 44px !important;
+  }
+
+  .jpdb-reader-mining-collapse::after {
+    content: "";
+    position: absolute;
+    inset: -16px 0 0;
+    border-radius: 999px;
+  }
+
+  .jpdb-reader-rtk-elements > button {
+    padding-block: 6px;
   }
 }
 
@@ -1299,6 +1322,16 @@ html.jpdb-reader-doodle-active * {
   height: 28px !important;
   min-height: 28px !important;
   max-height: 28px !important;
+}
+@media (pointer: coarse) {
+  .yomu-jpdb-uchisen-summary-controls .jpdb-reader-icon-mini {
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+  }
 }
 .yomu-jpdb-uchisen-summary-link {
   gap: 4px;

@@ -24,10 +24,14 @@ const RUNTIME_MARKER_OBSERVER_OPTIONS: MutationObserverInit = {
     attributes: true,
     attributeFilter: ['data-yomu-runtime-kind', 'data-yomu-runtime-owner'],
 };
+const YOUTUBE_PLAYBACK_HOST_RE = /(^|\.)youtube(?:-nocookie)?\.com$/i;
+const YOUTUBE_PLAYBACK_PATH_RE = /^\/(?:embed|watch|shorts)(?:[/?#]|$)/i;
 let activeRuntime: ActiveRuntime | undefined;
 
 export function bootReaderApp(): void {
     reconcileActiveRuntimeMarker();
+    const embeddedFrame = isEmbeddedFrameWindow();
+    if (embeddedFrame && !shouldBootEmbeddedFrame()) return;
     const bootWindow = window as YomuBootWindow;
     const runtimeKind = detectRuntimeKind();
     const ownerId = claimRuntime(runtimeKind);
@@ -43,7 +47,7 @@ export function bootReaderApp(): void {
     writeBootWindowOwner(bootWindow, activeRuntime);
     bindClaims(app, ownerId, runtimeKind);
     registerRuntime(bootWindow, app, runtimeKind, isRealRuntime);
-    startRuntime(app, ownerId, runtimeKind);
+    startRuntime(app, ownerId, runtimeKind, embeddedFrame);
 }
 
 function reconcileActiveRuntimeMarker(): void {
@@ -108,13 +112,31 @@ function registerRuntime(bootWindow: YomuBootWindow, app: ReaderApp, runtimeKind
     });
 }
 
-function startRuntime(app: ReaderApp, ownerId: string, runtimeKind: YomuRuntimeKind): void {
+function startRuntime(app: ReaderApp, ownerId: string, runtimeKind: YomuRuntimeKind, embeddedFrame: boolean): void {
     void app.init({
+        embeddedFrame,
         showWelcome: runtimeKind === 'userscript',
     }).catch(error => {
         releaseRuntime(ownerId);
         throw error;
     });
+}
+
+function isEmbeddedFrameWindow(): boolean {
+    try {
+        return window.self !== window.top;
+    } catch {
+        return true;
+    }
+}
+
+function shouldBootEmbeddedFrame(): boolean {
+    return isYouTubeMediaFrame();
+}
+
+function isYouTubeMediaFrame(): boolean {
+    return YOUTUBE_PLAYBACK_HOST_RE.test(location.hostname)
+        && YOUTUBE_PLAYBACK_PATH_RE.test(location.pathname);
 }
 
 function detectRuntimeKind(): YomuRuntimeKind {

@@ -236,6 +236,7 @@ await page.waitForFunction(() => {
 }, null, { timeout: 45_000 }).catch(() => undefined);
 const initialAnkiActions = ankiActions(requests);
 const initialAnkiActionCount = initialAnkiActions.length;
+const initialAnkiRequests = requests.filter(item => item.kind === 'anki').slice(0, initialAnkiActionCount);
 const statusStorage = await readAnkiStatusStorage(page);
 
 const firstKnownWord = page.locator('.jpdb-reader-word.anki-due').filter({ hasText: '日本語' }).first();
@@ -298,7 +299,19 @@ assert(pageState.renderedWords > 0 && pageState.ankiColoredWords > 0, 'Wikipedia
 assert(pageState.unwrappedVisibleKnownSamples.length === 0, 'Wikipedia left visible mocked vocabulary unwrapped on initial scan', pageState);
 assert(viewportSamples.every(item => item.samples.length === 0), 'Wikipedia left mocked vocabulary unwrapped after scrolling into view', { viewportSamples });
 assert(firstAnkiColorMs < 15_000, 'Wikipedia Anki coloring was not prompt after userscript injection', { firstAnkiColorMs, initialAnkiActions });
-assert(!initialAnkiActions.includes('multi') && !initialAnkiActions.includes('areDue'), 'Wikipedia initial coloring performed detailed Anki hydration before interaction', { initialAnkiActions });
+assert(
+    initialAnkiActions.includes('multi') && initialAnkiActions.includes('notesInfo') && initialAnkiActions.includes('cardsInfo'),
+    'Wikipedia initial coloring did not perform exact Anki status lookup',
+    { initialAnkiActions },
+);
+assert(
+    !initialAnkiRequests.some(item => (
+        (item.action === 'findCards' || item.action === 'findNotes')
+        && String(item.params?.query ?? '') === 'deck:*'
+    )),
+    'Wikipedia initial coloring scanned the whole Anki collection before interaction',
+    { initialAnkiRequests },
+);
 assert(clickAnkiActions.includes('multi') && clickAnkiActions.includes('areDue'), 'Wikipedia click did not lazily hydrate detailed Anki status', { initialAnkiActions, clickAnkiActions });
 assertAnkiStatusStorage(statusStorage, 1);
 

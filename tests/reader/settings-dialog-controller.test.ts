@@ -370,10 +370,12 @@ describe('settings dialog keyboard dismissal', () => {
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
         await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent === 'Connected. AnkiConnect is reachable.');
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone === 'success');
 
         expect(isConnected).toHaveBeenCalledOnce();
         expect(ensureDeckAndModel).not.toHaveBeenCalled();
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('success');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toBe('Connected. AnkiConnect is reachable.');
     });
 
     it('shows disabled Anki status without probing when Anki mining is off', async () => {
@@ -425,13 +427,13 @@ describe('settings dialog keyboard dismissal', () => {
 
         url.value = 'http://127.0.0.1:9999';
         url.dispatchEvent(new Event('change', { bubbles: true }));
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect is not connected') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Anki is not connected yet') ?? false);
 
         expect(isConnected).toHaveBeenCalledTimes(2);
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect is not connected');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open Anki');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Check AnkiConnect');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Anki is not connected yet');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('desktop Anki');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('LAN/Tailscale');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('webCorsOriginList');
     });
 
@@ -447,12 +449,12 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect is not connected') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Anki is not connected yet') ?? false);
 
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open Anki');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Check AnkiConnect');
-        expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('AnkiConnect is not connected'));
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('desktop Anki');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('LAN/Tailscale');
+        expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('Anki is not connected yet'));
     });
 
     it('keeps a thrown AnkiConnect probe in the setup tone instead of showing a hard error', async () => {
@@ -467,11 +469,11 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect is not connected') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Anki is not connected yet') ?? false);
 
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open Anki');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Check AnkiConnect');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('desktop Anki');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('LAN/Tailscale');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('request failed');
         expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('AnkiConnect request failed'));
     });
@@ -531,6 +533,53 @@ describe('settings dialog keyboard dismissal', () => {
 
         expect(isConnected).toHaveBeenCalledOnce();
         expect(ensureDeckAndModel).toHaveBeenCalledOnce();
+    });
+
+    it('scans the Anki library after an explicit Check succeeds', async () => {
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
+        const isConnected = vi.fn().mockResolvedValue(true);
+        const scanLibrary = vi.fn().mockResolvedValue({
+            deckNames: ['Checked Mining'],
+            models: [{
+                modelName: 'Checked Japanese',
+                fields: ['Expression', 'Reading', 'Meaning'],
+                score: 9,
+                suggestions: [
+                    { role: 'expression', fieldName: 'Expression', confidence: 'high' },
+                    { role: 'reading', fieldName: 'Reading', confidence: 'high' },
+                    { role: 'meaning', fieldName: 'Meaning', confidence: 'high' },
+                ],
+            }],
+            suggestedModel: {
+                modelName: 'Checked Japanese',
+                fields: ['Expression', 'Reading', 'Meaning'],
+                score: 9,
+                suggestions: [
+                    { role: 'expression', fieldName: 'Expression', confidence: 'high' },
+                    { role: 'reading', fieldName: 'Reading', confidence: 'high' },
+                    { role: 'meaning', fieldName: 'Meaning', confidence: 'high' },
+                ],
+            },
+        });
+        const { form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            anki: {
+                isConnected,
+                scanLibrary,
+            },
+        });
+        const enabled = form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')!;
+        enabled.checked = true;
+        enabled.dispatchEvent(new Event('change', { bubbles: true }));
+
+        form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
+        await waitForCondition(() => scanLibrary.mock.calls.length === 1);
+        await waitForCondition(() => form.querySelector<HTMLSelectElement>('select[name="ankiModel"]')?.value === 'Checked Japanese');
+
+        expect(isConnected).toHaveBeenCalled();
+        expect(form.querySelector<HTMLSelectElement>('select[name="ankiDeck"]')?.value).toBe('Checked Mining');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Checked Japanese');
     });
 
     it('applies the best scanned Anki deck and note type to the settings form', async () => {
@@ -610,7 +659,7 @@ describe('settings dialog keyboard dismissal', () => {
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('expression: Vocabulary-Kanji');
     });
 
-    it('keeps unavailable Anki scan failures in the setup tone', async () => {
+    it('keeps unavailable automatic Anki scan failures quiet after a successful connection', async () => {
         const isConnected = vi.fn().mockResolvedValue(true);
         const scanLibrary = vi.fn().mockRejectedValue(new Error('AnkiConnect needs the userscript request bridge on content pages.'));
         const toast = vi.fn();
@@ -648,11 +697,11 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Hosted page') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('hosted page') ?? false);
 
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
         expect(status?.dataset.statusTone).toBe('pending');
-        expect(status?.textContent).toContain('enable the よむ userscript');
+        expect(status?.textContent).toContain('Enable the よむ userscript');
         expect(status?.textContent).toContain('refresh');
         expect(status?.textContent).not.toContain('request bridge');
         expect(toast).not.toHaveBeenCalled();
@@ -671,11 +720,11 @@ describe('settings dialog keyboard dismissal', () => {
             anki: { isConnected },
         });
 
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Hosted page') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('hosted page') ?? false);
 
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
         expect(status?.dataset.statusTone).toBe('pending');
-        expect(status?.textContent).toContain('enable the よむ userscript');
+        expect(status?.textContent).toContain('Enable the よむ userscript');
         expect(status?.textContent).toContain('refresh');
         expect(status?.textContent).not.toContain('Mobile');
         vi.unstubAllGlobals();
@@ -795,7 +844,7 @@ describe('settings dialog keyboard dismissal', () => {
             let fallbackText = '';
             await waitForCondition(() => {
                 const text = form.querySelector<HTMLElement>('[data-anki-status]')?.textContent ?? '';
-                if (!text.includes('AnkiConnect is not connected')) return false;
+                if (!text.includes('Anki is not connected yet')) return false;
                 fallbackText = text;
                 return true;
             });

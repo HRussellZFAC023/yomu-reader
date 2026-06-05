@@ -1,5 +1,5 @@
 import { Logger } from './logger';
-import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor } from './settings';
+import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './settings';
 import { createSettingsFormReader, type SettingsFormReader } from './settings-form-data';
 import type { AnkiFieldMapping, AnkiFieldMappingRole, AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, ReaderColorSource, ReaderSettings } from './types';
 
@@ -72,16 +72,17 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ...readMiningFormSettings(reader),
         shortcuts: readShortcutFormSettings(reader),
     };
+    const normalized = normalizeReaderSettings(settings);
     log.info('Read settings form data', {
-        enableLogging: settings.enableLogging,
-        dictionaries: settings.dictionaryPreferences.length,
-        lookupLinks: settings.dictionaryLookupLinks.length,
-        audioSources: settings.audioSources.length,
-        ocrEnabled: settings.ocrEnabled,
-        subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
-        ankiEnabled: settings.ankiEnabled,
+        enableLogging: normalized.enableLogging,
+        dictionaries: normalized.dictionaryPreferences.length,
+        lookupLinks: normalized.dictionaryLookupLinks.length,
+        audioSources: normalized.audioSources.length,
+        ocrEnabled: normalized.ocrEnabled,
+        subtitlePlayerEnabled: normalized.subtitlePlayerEnabled,
+        ankiEnabled: normalized.ankiEnabled,
     });
-    return settings;
+    return normalized;
 }
 
 function colorSourceFallback(key: string, fallback: ReaderColorSource): SelectableReaderColorSource {

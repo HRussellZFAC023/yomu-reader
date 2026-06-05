@@ -9,7 +9,7 @@ import { el, fragment, replaceChildrenWith } from './dom-builder';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from './immersion-kit';
 import { localizedImmersionSourceTitle } from './immersion-labels';
 import { waitForIdle as waitForBrowserIdle } from './idle';
-import type { AnkiLookupResult } from './anki';
+import type { AnkiExistingNote, AnkiLookupResult } from './anki';
 import {
     IMMERSION_FALLBACK_QUERY_LIMIT,
     immersionFallbackFragments,
@@ -433,6 +433,12 @@ interface NewTabMainGradeTargetOption {
     label: string;
     shortLabel: string;
     ankiCardId?: number;
+}
+
+interface NewTabReviewSourceSummary {
+    targets: NewTabReviewTarget[];
+    hasJpdb: boolean;
+    hasAnki: boolean;
 }
 
 interface QueuedNewTabGrade {
@@ -974,6 +980,12 @@ export class NewTabController {
         }, { signal: controller.signal });
 
         root.addEventListener('change', event => {
+            const target = eventTargetElement(event.target);
+            const targetSelect = target?.closest<HTMLSelectElement>('[data-newtab-grade-target-select]');
+            if (targetSelect && root.contains(targetSelect)) {
+                this.updateMainGradeTargetLabel(root, targetSelect.selectedOptions[0] ?? null);
+                return;
+            }
             const input = event.target instanceof HTMLInputElement
                 ? event.target.closest<HTMLInputElement>('[data-stats-jpdb-file]')
                 : null;
@@ -1138,11 +1150,6 @@ export class NewTabController {
             this.toggleReveal(root);
             return true;
         }
-        if (action === 'grade-target') {
-            event.preventDefault();
-            this.selectMainGradeTarget(root, target);
-            return true;
-        }
         if (action === 'grade') {
             event.preventDefault();
             const grade = target.closest<HTMLElement>('[data-grade]')?.dataset.grade as JPDBGrade | undefined;
@@ -1168,57 +1175,88 @@ export class NewTabController {
     }
 
     private handleStatsClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
-        if (!action?.startsWith('stats-')) return false;
+        const chartDayTarget = action ? null : this.nearestStatsChartDayTarget(root, target, event);
+        const resolvedAction = action ?? chartDayTarget?.dataset.newtabAction;
+        if (!resolvedAction?.startsWith('stats-')) return false;
         event.preventDefault();
-        if (action === 'stats-source') {
+        if (resolvedAction === 'stats-source') {
             const source = target.closest<HTMLElement>('[data-stats-source]')?.dataset.statsSource;
             this.statsSelectedSource = source === 'jpdb' || source === 'anki' || source === 'combined' ? source : 'combined';
             this.renderStats(root);
             return true;
         }
-        if (action === 'stats-activity-metric') {
+        if (resolvedAction === 'stats-activity-metric') {
             const metric = target.closest<HTMLElement>('[data-stats-activity-metric]')?.dataset.statsActivityMetric;
             this.statsActivityMetric = this.normalizeStatsActivityMetric(metric);
             this.renderStats(root);
             return true;
         }
-        if (action === 'stats-select-day') {
-            const date = target.closest<HTMLElement>('[data-stats-day]')?.dataset.statsDay;
+        if (resolvedAction === 'stats-select-day') {
+            const date = target.closest<HTMLElement>('[data-stats-day]')?.dataset.statsDay ?? chartDayTarget?.dataset.statsDay;
             if (this.isStatsDateKey(date)) {
                 this.statsSelectedDate = date;
                 this.renderStats(root);
             }
             return true;
         }
-        if (action === 'stats-study-trouble') {
+        if (resolvedAction === 'stats-study-trouble') {
             this.studyStatsTroubleCards(root);
             return true;
         }
-        if (action === 'stats-refresh') {
+        if (resolvedAction === 'stats-refresh') {
             void this.loadStatsInto(root, true);
             return true;
         }
-        if (action === 'stats-toggle-anki-deck') {
+        if (resolvedAction === 'stats-toggle-anki-deck') {
             this.toggleStatsAnkiDeck(root, target);
             return true;
         }
-        if (action === 'stats-connect-anki') {
+        if (resolvedAction === 'stats-connect-anki') {
             void this.connectAnkiStats(root);
             return true;
         }
-        if (action === 'stats-open-jpdb-settings') {
+        if (resolvedAction === 'stats-open-jpdb-settings') {
             this.dependencies.showSettings('jpdb');
             return true;
         }
-        if (action === 'stats-open-anki-settings') {
+        if (resolvedAction === 'stats-open-anki-settings') {
             this.dependencies.showSettings('mining');
             return true;
         }
-        if (action === 'stats-import-jpdb') {
+        if (resolvedAction === 'stats-import-jpdb') {
             root.querySelector<HTMLInputElement>('[data-stats-jpdb-file]')?.click();
             return true;
         }
         return false;
+    }
+
+    private nearestStatsChartDayTarget(root: HTMLElement, target: HTMLElement, event: MouseEvent): HTMLElement | null {
+        if (!this.hasCoarsePointer()) return null;
+        const chart = target.closest<HTMLElement>('.jpdb-reader-stats-bars, .jpdb-reader-stats-heatmap-grid');
+        if (!chart || !root.contains(chart)) return null;
+        const days = Array.from(chart.querySelectorAll<HTMLElement>('[data-newtab-action="stats-select-day"][data-stats-day]'));
+        if (!days.length) return null;
+        const x = event.clientX;
+        const y = event.clientY;
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+        let nearest: HTMLElement | null = null;
+        let nearestDistance = Number.POSITIVE_INFINITY;
+        for (const day of days) {
+            const rect = day.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) continue;
+            const dx = x < rect.left ? rect.left - x : x > rect.right ? x - rect.right : 0;
+            const dy = y < rect.top ? rect.top - y : y > rect.bottom ? y - rect.bottom : 0;
+            const distance = dx * dx + dy * dy;
+            if (distance < nearestDistance) {
+                nearest = day;
+                nearestDistance = distance;
+            }
+        }
+        return nearest;
+    }
+
+    private hasCoarsePointer(): boolean {
+        return typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
     }
 
     private acceptPointerNavigation(action: 'next' | 'previous', event: MouseEvent): boolean {
@@ -2377,7 +2415,7 @@ export class NewTabController {
 
     private async loadAnkiWords(timeoutMs = NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, limit = NEW_TAB_WORD_LIMIT): Promise<NewTabLoadResult> {
         const settings = this.dependencies.getSettings();
-        if (!settings.newTabAnkiEnabled) {
+        if (!settings.newTabAnkiEnabled || typeof this.dependencies.anki.listNewTabCards !== 'function') {
             return { cards: [], sourceLabel: 'Anki', reviewCountMode: true, emptyMessageKey: 'ankiUnreachable' };
         }
         const cardLimit = Math.max(1, Math.floor(limit));
@@ -3051,14 +3089,13 @@ export class NewTabController {
     }
 
     private reviewTargetSourceLabels(card: JPDBCard): string[] {
+        const summary = this.reviewSourceSummary(card);
         const labels: string[] = [];
         const add = (label: string): void => {
             if (!labels.includes(label)) labels.push(label);
         };
-        for (const target of this.reviewTargetsForCard(card)) {
-            if (target === 'anki') add(ankiReviewSourceLabel(card, this.language()));
-            else add('JPDB');
-        }
+        if (summary.hasJpdb) add('JPDB');
+        if (summary.hasAnki) add(summary.hasJpdb ? 'Anki' : ankiReviewSourceLabel(card, this.language()));
         return labels;
     }
 
@@ -3099,14 +3136,13 @@ export class NewTabController {
     }
 
     private reviewTargetSources(card: JPDBCard): Array<'jpdb' | 'anki'> {
+        const summary = this.reviewSourceSummary(card);
         const sources: Array<'jpdb' | 'anki'> = [];
         const add = (source: 'jpdb' | 'anki'): void => {
             if (!sources.includes(source)) sources.push(source);
         };
-        for (const target of this.reviewTargetsForCard(card)) {
-            if (target === 'anki') add('anki');
-            else add('jpdb');
-        }
+        if (summary.hasJpdb) add('jpdb');
+        if (summary.hasAnki) add('anki');
         return sources;
     }
 
@@ -3135,7 +3171,12 @@ export class NewTabController {
             if (!sources.includes(source)) sources.push(source);
         };
         if (this.canUseJpdbSource() || current === 'jpdb' || this.state.source === 'jpdb') add('jpdb');
-        if (this.canUseAnkiSource() || current === 'anki' || this.state.source === 'anki') add('anki');
+        if (
+            this.canUseAnkiSource()
+            || current === 'anki'
+            || this.state.source === 'anki'
+            || (this.canOfferAnkiSource() && (current === 'jpdb' || this.state.source === 'jpdb'))
+        ) add('anki');
         if (sources.length < 2 || current === 'dictionary' || this.state.source === 'dictionary') add('dictionary');
         return sources;
     }
@@ -3150,7 +3191,6 @@ export class NewTabController {
         const settings = this.dependencies.getSettings();
         if (settings.apiKey.trim()) return true;
         if (settings.newTabJpdbReviewMode === 'api-vocabulary') return false;
-        if (typeof this.dependencies.jpdbVocabulary?.search === 'function') return true;
         const status = this.liveJpdbStatus ?? this.dependencies.jpdbReviewBridge.latestStatus?.();
         return settings.jpdbMiningEnabled && Boolean(status?.card);
     }
@@ -3158,6 +3198,10 @@ export class NewTabController {
     private canUseAnkiSource(settings = this.dependencies.getSettings()): boolean {
         return settings.newTabAnkiEnabled
             && typeof this.dependencies.anki.listNewTabCards === 'function';
+    }
+
+    private canOfferAnkiSource(settings = this.dependencies.getSettings()): boolean {
+        return settings.newTabAnkiEnabled;
     }
 
     private cardReviewSource(card: JPDBCard): 'jpdb' | 'anki' | 'dictionary' {
@@ -5977,11 +6021,24 @@ export class NewTabController {
 
     private canReviewCard(card: JPDBCard): boolean {
         if (this.isOfflineSourceLabel(this.sourceLabel) && !this.offlineGradeTargets(card).length) return false;
-        return this.reviewTargetsForCard(card).length > 0;
+        return this.reviewSourceSummary(card).targets.length > 0;
     }
 
     private reviewTargetsForCard(card: JPDBCard): NewTabReviewTarget[] {
         return reviewTargetsForNewTabCard(card, this.dependencies.getSettings(), this.ankiCardIdForReview(card));
+    }
+
+    private reviewSourceSummary(card: JPDBCard): NewTabReviewSourceSummary {
+        const targets = this.reviewTargetsForCard(card);
+        return {
+            targets,
+            hasJpdb: targets.some(target => this.isJpdbReviewTarget(target)),
+            hasAnki: targets.includes('anki'),
+        };
+    }
+
+    private isJpdbReviewTarget(target: NewTabReviewTarget): boolean {
+        return target === 'jpdb-api' || target === 'jpdb-live';
     }
 
     private offlineGradeTargets(card: JPDBCard): QueuedNewTabGradeTarget[] {
@@ -5997,10 +6054,10 @@ export class NewTabController {
     }
 
     private gradeControlButtons(card: JPDBCard): HTMLElement[] {
-        const targetLabel = this.gradeTargetLabel(card);
         const targetOptions = this.mainGradeTargetOptions(card);
+        const targetLabel = targetOptions[0]?.label ?? this.gradeTargetLabel(card);
         return [
-            this.renderGradeTargetLabel(card, targetLabel),
+            this.renderGradeTargetLabel(card, targetLabel, targetOptions[0]),
             ...(targetOptions.length > 1 ? [this.renderMainGradeTargetSelector(targetOptions)] : []),
             ...newTabGradeOptions(this.dependencies.getSettings())
                 .map(([grade, label]) => el('button', {
@@ -6012,9 +6069,9 @@ export class NewTabController {
         ];
     }
 
-    private renderGradeTargetLabel(card: JPDBCard, label: string): HTMLElement {
+    private renderGradeTargetLabel(card: JPDBCard, label: string, selectedOption?: NewTabMainGradeTargetOption): HTMLElement {
         return el('div', { class: 'jpdb-reader-newtab-grade-target', dataset: { newtabGradeTarget: true } },
-            this.gradeTargetChip(card),
+            this.gradeTargetChip(card, selectedOption),
             el('span', { dataset: { newtabGradeTargetText: true } }, label),
         );
     }
@@ -6023,77 +6080,75 @@ export class NewTabController {
         const targets = this.lookupReviewTargetsForCard(card);
         const hasJpdb = targets.some(target => target.kind === 'jpdb');
         const ankiTargets = targets.filter(target => target.kind === 'anki' && target.ankiCardId);
-        if (!hasJpdb || !ankiTargets.length) return [];
-        return [
+        const options = targets.map(target => this.mainGradeTargetOptionFromLookupTarget(target));
+        if (hasJpdb && ankiTargets.length) return [
             {
                 id: 'both',
                 kind: 'both',
                 label: this.gradeTargetLabel(card),
                 shortLabel: this.text('gradeTargetBoth'),
             },
-            ...targets.map(target => ({
-                id: target.id,
-                kind: target.kind,
-                label: target.label,
-                shortLabel: target.shortLabel,
-                ankiCardId: target.ankiCardId,
-            })),
+            ...options,
         ];
+        return ankiTargets.length > 1 ? options.filter(option => option.kind === 'anki') : [];
+    }
+
+    private mainGradeTargetOptionFromLookupTarget(target: NewTabLookupReviewTarget): NewTabMainGradeTargetOption {
+        return {
+            id: target.id,
+            kind: target.kind,
+            label: target.label,
+            shortLabel: target.shortLabel,
+            ankiCardId: target.ankiCardId,
+        };
     }
 
     private renderMainGradeTargetSelector(options: NewTabMainGradeTargetOption[]): HTMLElement {
-        return el('div', {
+        return el('label', {
             class: 'jpdb-reader-newtab-grade-target-selector',
-            role: 'group',
-            'aria-label': this.text('gradeTargetSelector'),
             dataset: { newtabGradeTargetSelector: true },
-        }, ...options.map((option, index) => el('button', {
-            type: 'button',
-            class: 'jpdb-reader-newtab-grade-target-option',
-            dataset: {
-                newtabAction: 'grade-target',
-                newtabGradeTargetOption: true,
-                newtabReviewTarget: option.kind,
-                newtabGradeTargetLabel: option.label,
-                ...(option.ankiCardId ? { ankiCardId: String(option.ankiCardId) } : {}),
-            },
-            title: option.label,
-            'aria-pressed': index === 0 ? 'true' : 'false',
-        }, option.shortLabel)));
-    }
-
-    private selectMainGradeTarget(root: HTMLElement, target: HTMLElement): void {
-        const button = target.closest<HTMLButtonElement>('[data-newtab-grade-target-option]');
-        const selector = button?.closest<HTMLElement>('[data-newtab-grade-target-selector]');
-        if (!button || !selector) return;
-        selector.querySelectorAll<HTMLButtonElement>('[data-newtab-grade-target-option]').forEach(option => {
-            option.setAttribute('aria-pressed', option === button ? 'true' : 'false');
-        });
-        this.updateMainGradeTargetLabel(root, button);
+        },
+            el('span', { class: 'jpdb-reader-newtab-grade-target-selector-label' }, this.text('gradeTargetSelector')),
+            el('select', {
+                class: 'jpdb-reader-newtab-grade-target-select',
+                dataset: { newtabGradeTargetSelect: true },
+                'aria-label': this.text('gradeTargetSelector'),
+            }, ...options.map((option, index) => el('option', {
+                value: option.id,
+                selected: index === 0,
+                dataset: {
+                    newtabReviewTarget: option.kind,
+                    newtabGradeTargetLabel: option.label,
+                    newtabGradeTargetShortLabel: option.shortLabel,
+                    ...(option.ankiCardId ? { ankiCardId: String(option.ankiCardId) } : {}),
+                },
+            }, option.shortLabel))),
+        );
     }
 
     private selectedMainGradeTarget(root: HTMLElement): NewTabLookupReviewTargetSelection | undefined {
-        const button = root.querySelector<HTMLButtonElement>('[data-newtab-grade-target-selector] [data-newtab-grade-target-option][aria-pressed="true"]');
-        if (!button) return undefined;
-        if (button.dataset.newtabReviewTarget === 'jpdb') return { kind: 'jpdb' };
-        if (button.dataset.newtabReviewTarget !== 'anki') return undefined;
-        const ankiCardId = Number(button.dataset.ankiCardId);
+        const option = root.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]')?.selectedOptions[0] ?? null;
+        if (!option) return undefined;
+        if (option.dataset.newtabReviewTarget === 'jpdb') return { kind: 'jpdb' };
+        if (option.dataset.newtabReviewTarget !== 'anki') return undefined;
+        const ankiCardId = Number(option.dataset.ankiCardId);
         return Number.isFinite(ankiCardId) && ankiCardId > 0
             ? { kind: 'anki', ankiCardId }
             : undefined;
     }
 
-    private updateMainGradeTargetLabel(root: HTMLElement, button: HTMLButtonElement): void {
-        const label = button.dataset.newtabGradeTargetLabel ?? '';
-        const kind = button.dataset.newtabReviewTarget === 'jpdb' || button.dataset.newtabReviewTarget === 'anki'
-            ? button.dataset.newtabReviewTarget
+    private updateMainGradeTargetLabel(root: HTMLElement, option: HTMLOptionElement | null): void {
+        if (!option) return;
+        const label = option.dataset.newtabGradeTargetLabel ?? '';
+        const kind = option.dataset.newtabReviewTarget === 'jpdb' || option.dataset.newtabReviewTarget === 'anki'
+            ? option.dataset.newtabReviewTarget
             : 'both';
         const target = root.querySelector<HTMLElement>('[data-newtab-grade-target]');
         const chip = target?.querySelector<HTMLElement>('[data-newtab-grade-target-chip]');
         const text = target?.querySelector<HTMLElement>('[data-newtab-grade-target-text]');
         if (chip) {
             chip.dataset.newtabGradeTargetChip = kind;
-            chip.textContent = button.textContent?.trim() || this.text('gradeTargetBoth');
+            chip.textContent = option.dataset.newtabGradeTargetShortLabel || option.textContent?.trim() || this.text('gradeTargetBoth');
         }
         if (text) text.textContent = label;
         root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"][data-grade]').forEach(gradeButton => {
@@ -6103,10 +6158,14 @@ export class NewTabController {
         });
     }
 
-    private gradeTargetChip(card: JPDBCard): HTMLElement {
-        const targets = this.reviewTargetsForCard(card);
-        const hasJpdb = targets.some(target => target === 'jpdb-api' || target === 'jpdb-live');
-        const hasAnki = targets.includes('anki');
+    private gradeTargetChip(card: JPDBCard, selectedOption?: NewTabMainGradeTargetOption): HTMLElement {
+        if (selectedOption) {
+            return el('span', {
+                class: 'jpdb-reader-newtab-grade-target-chip',
+                dataset: { newtabGradeTargetChip: selectedOption.kind },
+            }, selectedOption.shortLabel);
+        }
+        const { hasJpdb, hasAnki } = this.reviewSourceSummary(card);
         const label = hasJpdb && hasAnki
             ? this.text('gradeTargetBoth')
             : hasAnki ? 'Anki' : 'JPDB';
@@ -6115,9 +6174,7 @@ export class NewTabController {
     }
 
     private gradeTargetLabel(card: JPDBCard): string {
-        const targets = this.reviewTargetsForCard(card);
-        const hasJpdb = targets.some(target => target === 'jpdb-api' || target === 'jpdb-live');
-        const hasAnki = targets.includes('anki');
+        const { hasJpdb, hasAnki } = this.reviewSourceSummary(card);
         const ankiTarget = hasAnki ? this.ankiReviewTargetLabel(card) : '';
         if (hasJpdb && hasAnki) return this.formatNewTabText('gradeTargetJpdbAndAnki', { target: ankiTarget });
         if (hasAnki) return this.formatNewTabText('gradeTargetAnki', { target: ankiTarget });
@@ -6166,8 +6223,15 @@ export class NewTabController {
             kind: 'anki',
             ankiCardId: cardId,
             label: this.formatNewTabText('gradeTargetAnki', { target: label }),
-            shortLabel: `Anki #${cardId}`,
+            shortLabel: this.compactAnkiGradeTargetLabel(label, cardId),
         }));
+    }
+
+    private compactAnkiGradeTargetLabel(label: string, cardId: number): string {
+        const suffix = `#${cardId}`;
+        const clean = label.replace(/\s+/g, ' ').trim();
+        if (!clean) return `Anki ${suffix}`;
+        return clean.endsWith(suffix) ? clean : `${clean} ${suffix}`;
     }
 
     private formatNewTabText(key: NewTabCopyKey, values: Record<string, string>): string {
@@ -6275,7 +6339,8 @@ export class NewTabController {
         if (!target) throw new Error(this.text('couldNotSubmitGrade'));
         if (target.kind === 'anki') {
             const refreshed = await this.submitAnkiGrade(card, grade, target.ankiCardId);
-            return refreshed ? this.lookupReviewTargetWithAnkiState(target, refreshed.state) : target;
+            const state = refreshed ? this.ankiLookupStateForCardId(refreshed, target.ankiCardId) ?? refreshed.state : null;
+            return state ? this.lookupReviewTargetWithAnkiState(target, state) : target;
         }
         const jpdbTarget = this.reviewTargetsForCard(card).find(candidate => candidate === 'jpdb-api' || candidate === 'jpdb-live');
         if (!jpdbTarget) throw new Error(this.text('couldNotSubmitGrade'));
@@ -6323,19 +6388,20 @@ export class NewTabController {
         const cardId = explicitCardId ?? this.ankiCardIdForReview(card);
         if (!cardId) throw new Error(this.text('missingAnkiCardId'));
         await this.dependencies.anki.answerCard(cardId, grade);
-        return await this.refreshAnkiReviewCardState(card);
+        return await this.refreshAnkiReviewCardState(card, cardId);
     }
 
-    private async refreshAnkiReviewCardState(card: JPDBCard): Promise<AnkiLookupResult | null> {
+    private async refreshAnkiReviewCardState(card: JPDBCard, preferredCardId?: number): Promise<AnkiLookupResult | null> {
         if (!this.dependencies.anki.findExistingCards) return null;
         const lookup = await this.dependencies.anki.findExistingCards(card);
-        this.applyAnkiLookupToReviewCard(card, lookup);
+        this.applyAnkiLookupToReviewCard(card, lookup, preferredCardId);
         return lookup;
     }
 
-    private applyAnkiLookupToReviewCard(card: JPDBCard, lookup: AnkiLookupResult): void {
-        card.cardState = [lookup.state];
-        if (!lookup.primary) {
+    private applyAnkiLookupToReviewCard(card: JPDBCard, lookup: AnkiLookupResult, preferredCardId?: number): void {
+        const primary = this.ankiLookupNoteForCardId(lookup, preferredCardId) ?? lookup.primary;
+        card.cardState = [primary?.state ?? lookup.state];
+        if (!primary) {
             card.ankiCardId = undefined;
             card.ankiNoteId = undefined;
             card.ankiDeckNames = undefined;
@@ -6345,8 +6411,8 @@ export class NewTabController {
             card.ankiRenderedCards = undefined;
             return;
         }
-        const primary = lookup.primary;
-        card.ankiCardId = primary.primaryCardId ?? card.ankiCardId;
+        const preferredCard = Number(preferredCardId);
+        card.ankiCardId = this.ankiNoteHasCardId(primary, preferredCard) ? preferredCard : primary.primaryCardId ?? card.ankiCardId;
         card.ankiNoteId = primary.noteId;
         card.ankiDeckNames = primary.deckNames;
         card.ankiModelName = primary.modelName;
@@ -6357,7 +6423,28 @@ export class NewTabController {
             deckName: rendered.deckName,
             question: rendered.question,
             answer: rendered.answer,
+            ...(rendered.mediaDataUrls ? { mediaDataUrls: rendered.mediaDataUrls } : {}),
         }));
+    }
+
+    private ankiLookupStateForCardId(lookup: AnkiLookupResult, cardId: number | undefined): CardState | null {
+        return this.ankiLookupNoteForCardId(lookup, cardId)?.state ?? null;
+    }
+
+    private ankiLookupNoteForCardId(lookup: AnkiLookupResult, cardId: number | undefined): AnkiExistingNote | null {
+        const target = Number(cardId);
+        if (!Number.isFinite(target) || target <= 0) return null;
+        return lookup.notes.find(note => this.ankiNoteHasCardId(note, target)) ?? null;
+    }
+
+    private ankiNoteHasCardId(note: AnkiExistingNote, cardId: number): boolean {
+        return Number.isFinite(cardId)
+            && cardId > 0
+            && (
+                note.primaryCardId === cardId
+                || note.cardIds.includes(cardId)
+                || Boolean(note.renderedCards?.some(rendered => rendered.cardId === cardId))
+            );
     }
 
     private lookupReviewTargetWithAnkiState(target: NewTabLookupReviewTarget, state: CardState): NewTabLookupReviewTarget {
@@ -6597,7 +6684,7 @@ export class NewTabController {
                 pitchClass,
                 sentence,
             },
-            tabIndex: 0,
+            tabIndex: -1,
         }, text);
     }
 

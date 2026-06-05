@@ -96,7 +96,7 @@
 }
 
 .jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining {
-  padding-top: 37px;
+  padding-top: 31px;
 }
 
 .jpdb-reader-popover.jpdb-reader-sheet.jpdb-reader-sheet-expanded {
@@ -799,6 +799,7 @@ button.jpdb-reader-action-pill {
   min-width: 0;
 }
 button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini {
+  position: relative;
   width: 28px !important;
   min-width: 28px !important;
   max-width: 28px !important;
@@ -808,11 +809,35 @@ button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini {
   margin-top: 1px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--jpdb-reader-surface-2) 88%, transparent);
+  overflow: visible;
 }
 button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
   width: 14px;
   height: 14px;
   stroke-width: 2.6;
+}
+
+@media (pointer: coarse) {
+  .jpdb-reader-sheet-close,
+  .jpdb-reader-audio-control {
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+  }
+
+  button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini {
+    touch-action: manipulation;
+  }
+
+  button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+    border-radius: 999px;
+  }
 }
 .jpdb-reader-jpdb-compound-row,
 .jpdb-reader-jpdb-used-in-row {

@@ -15,6 +15,7 @@ const JAPANESE_SURFACE_CSS = [
     'src/reader/styles/local-dictionaries.css',
     'src/reader/styles/new-tab.css',
 ].map(path => readFileSync(path, 'utf8')).join('\n');
+const READER_WORD_CSS = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
 
 describe('reader theme', () => {
     afterEach(() => {
@@ -38,7 +39,7 @@ describe('reader theme', () => {
         expect(applied.subtitleColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'anki' });
     });
 
-    it('adjusts page word colors against the actual website background', () => {
+    it('adjusts page word colors and highlights against the actual website background', () => {
         document.body.innerHTML = `
             <p style="background: rgb(255, 255, 255); color: rgb(255, 255, 255);">
                 <span class="jpdb-reader-word" style="background: rgb(255, 240, 200); color: rgb(255, 209, 102); text-decoration-color: rgb(255, 209, 102);">読む</span>
@@ -49,9 +50,49 @@ describe('reader theme', () => {
         refreshReaderWordContrastForWord(word);
 
         const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        const highlight = word.style.getPropertyValue('--jpdb-reader-word-accessible-highlight');
         const underline = word.style.getPropertyValue('--jpdb-reader-word-accessible-underline');
-        expect(contrastRatio(text, '#fff0c8')).toBeGreaterThanOrEqual(4.5);
-        expect(contrastRatio(underline, '#fff0c8')).toBeGreaterThanOrEqual(3);
+        expect(highlight).not.toBe('');
+        expect(highlight).not.toBe('#fff0c8');
+        expect(word.style.getPropertyValue('--jpdb-reader-highlight-backdrop')).toBe('rgb(255, 255, 255)');
+        expect(contrastRatio(highlight, '#ffffff')).toBeGreaterThanOrEqual(1.45);
+        expect(contrastRatio(text, highlight)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(underline, highlight)).toBeGreaterThanOrEqual(3);
+    });
+
+    it('keeps generated furigana readable without changing native page text', () => {
+        document.body.innerHTML = `
+            <p style="background: rgb(255, 255, 255); color: rgb(32, 40, 52);">
+                <span class="jpdb-reader-word">
+                    <ruby>読<rt class="jpdb-reader-furi" style="color: rgb(170, 178, 192);">よ</rt></ruby>む
+                </span>
+            </p>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        refreshReaderWordContrastForWord(word);
+
+        const furi = word.style.getPropertyValue('--jpdb-reader-furi-accessible-color');
+        expect(furi).not.toBe('');
+        expect(furi).not.toBe('#aab2c0');
+        expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-highlight')).toBe('');
+        expect(contrastRatio(furi, '#ffffff')).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it('leaves ASBPlayer subtitle overlays to subtitle-aware color styling', () => {
+        document.body.innerHTML = `
+            <div class="asbplayer-subtitles-container-bottom">
+                <span class="jpdb-reader-word jpdb-known" style="color: rgb(255, 209, 102);">読む</span>
+            </div>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        word.style.setProperty('--jpdb-reader-highlight-backdrop', 'rgb(255, 255, 255)');
+
+        refreshReaderWordContrastForWord(word);
+
+        expect(word.style.getPropertyValue('--jpdb-reader-highlight-backdrop')).toBe('');
+        expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).toBe('');
+        expect(word.style.getPropertyValue('--jpdb-reader-word-contrast-shadow')).toBe('');
     });
 
     it('uses the default light canvas without inventing underlines', () => {
@@ -415,6 +456,16 @@ describe('reader theme', () => {
         expect(JAPANESE_SURFACE_CSS.match(/font-weight: var\(--jpdb-reader-popup-font-weight/g)?.length).toBeGreaterThanOrEqual(8);
     });
 
+    it('wires reader word accessible colors without expanding adjacent word hitboxes', () => {
+        const normalizedCss = READER_WORD_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('background: var( --jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent) ) !important;');
+        expect(normalizedCss).toContain('color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted));');
+        expect(normalizedCss).toContain('touch-action: manipulation;');
+        expect(normalizedCss).toContain('.jpdb-reader-word::after { content: none; }');
+        expect(normalizedCss).not.toContain('.jpdb-reader-word:not(.jpdb-reader-passive-word)::after');
+    });
+
     it('lets color channels drive theme classes instead of legacy word highlight mode', () => {
         const settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
@@ -582,7 +633,47 @@ describe('reader theme', () => {
         expect(applied.wordColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch' });
     });
 
-    it('strips legacy wordHighlightMode when saving settings', async () => {
+    it('does not apply double pitch channels from stale in-memory settings', () => {
+        const applied = applyReaderTheme({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-api-key',
+            wordHighlightColorSource: 'pitch',
+            wordUnderlineColorSource: 'pitch',
+            subtitleHighlightColorSource: 'pitch',
+            subtitleUnderlineColorSource: 'pitch',
+        });
+        const root = document.documentElement;
+
+        expect(applied.wordColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch' });
+        expect(applied.subtitleColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch' });
+        expect(root.classList.contains('jpdb-reader-word-highlight-pitch')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-word-underline-pitch')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-subtitle-highlight-pitch')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-subtitle-underline-pitch')).toBe(true);
+    });
+
+    it('falls stale pitch highlights back to off when no status source is available', () => {
+        const applied = applyReaderTheme({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            ankiEnabled: false,
+            ankiSectionEnabled: false,
+            wordHighlightColorSource: 'pitch',
+            wordUnderlineColorSource: 'pitch',
+            subtitleHighlightColorSource: 'pitch',
+            subtitleUnderlineColorSource: 'pitch',
+        });
+        const root = document.documentElement;
+
+        expect(applied.wordColorSources).toMatchObject({ highlight: 'off', underline: 'pitch' });
+        expect(applied.subtitleColorSources).toMatchObject({ highlight: 'off', underline: 'pitch' });
+        expect(root.classList.contains('jpdb-reader-word-highlight-pitch')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-word-highlight-off')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-subtitle-highlight-pitch')).toBe(false);
+        expect(root.classList.contains('jpdb-reader-subtitle-highlight-off')).toBe(true);
+    });
+
+    it('strips legacy wordHighlightMode and persists normalized color channels when saving settings', async () => {
         await saveSettings({
             ...DEFAULT_SETTINGS,
             wordHighlightMode: 'off',
@@ -592,6 +683,7 @@ describe('reader theme', () => {
         const stored = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}');
 
         expect(stored.wordHighlightMode).toBeUndefined();
-        expect(stored.wordHighlightColorSource).toBe('pitch');
+        expect(stored.wordHighlightColorSource).toBe('jpdb');
+        expect(stored.wordUnderlineColorSource).toBe('pitch');
     });
 });

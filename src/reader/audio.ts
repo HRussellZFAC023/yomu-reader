@@ -92,6 +92,7 @@ const AUDIO_CANDIDATE_CACHE_LIMIT = 600;
 const READY_AUDIO_CACHE_LIMIT = 160;
 const AUDIO_SOURCE_RACE_STAGGER_MS = 120;
 const LOOPBACK_AUDIO_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
 const SOFT_CHIME_NOTES: SoftChimeNote[] = [
     { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 },
@@ -1288,7 +1289,9 @@ async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = '
     if (typeof response !== 'string') return [];
 
     const audioHtml = findJishoAudioElement(response, card);
-    return audioHtml ? extractAudioSourceUrls(audioHtml, url).slice(0, 1) : [];
+    return audioHtml
+        ? extractAudioSourceUrls(audioHtml, url).filter(isLikelyAudioUrl).slice(0, 1)
+        : [];
 }
 
 function shouldSkipJishoLookup(proxyUrl: string): boolean {
@@ -1311,9 +1314,20 @@ function isDefaultYomuPublicProxyUrl(proxyUrl: string): boolean {
 function findJishoAudioElement(html: string, card: JPDBCard): string | null {
     const exact = findHtmlElementById(html, 'audio', `audio_${card.spelling}:${card.reading}`);
     if (exact) return exact;
-    if (!card.reading.trim()) return findHtmlElement(html, 'audio');
-    return findHtmlElements(html, 'audio')
-        .find(element => jishoAudioReading(element) === card.reading) ?? null;
+    if (!canUseKanaJishoAudioFallback(card)) return null;
+    return findUniqueJishoReadingAudioElement(html, card.reading.trim());
+}
+
+function canUseKanaJishoAudioFallback(card: JPDBCard): boolean {
+    const spelling = card.spelling.trim();
+    const reading = card.reading.trim();
+    return Boolean(spelling && reading && KANA_ONLY_RE.test(spelling));
+}
+
+function findUniqueJishoReadingAudioElement(html: string, reading: string): string | null {
+    const matches = findHtmlElements(html, 'audio')
+        .filter(element => jishoAudioReading(element).trim() === reading);
+    return matches.length === 1 ? matches[0] : null;
 }
 
 function jishoAudioReading(audioHtml: string): string {
@@ -1614,9 +1628,18 @@ function extractAudioSourceUrls(html: string, baseUrl: string): string[] {
     let match: RegExpExecArray | null;
     while ((match = sourcePattern.exec(html))) {
         const src = getHtmlAttribute(match[1] ?? '', 'src');
-        if (src) urls.push(new URL(src, baseUrl).href);
+        const url = src ? resolveAudioSourceUrl(src, baseUrl) : '';
+        if (url) urls.push(url);
     }
     return uniqueAudioUrls(urls);
+}
+
+function resolveAudioSourceUrl(src: string, baseUrl: string): string {
+    try {
+        return new URL(src, baseUrl).href;
+    } catch {
+        return '';
+    }
 }
 
 function getHtmlAttribute(attributes: string, name: string): string | null {

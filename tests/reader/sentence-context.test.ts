@@ -49,6 +49,8 @@ describe('reader sentence context', () => {
 
         expect(document.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.sentence)
             .toBe('今日は静かな喫茶店で日本語を読みました。');
+        expect(document.querySelector<HTMLElement>('.jpdb-reader-word')?.getAttribute('tabindex')).toBe('-1');
+        expect(document.querySelector<HTMLElement>('.jpdb-reader-word')?.hasAttribute('role')).toBe(false);
     });
 
     it('uses the clicked rendered word occurrence when a surface appears more than once', () => {

@@ -741,3 +741,31 @@
     min-height: 104px;
   }
 }
+
+@media (pointer: coarse) {
+  .jpdb-reader-stats-refresh,
+  .jpdb-reader-stats-tabs button,
+  .jpdb-reader-stats-activity-tabs button,
+  .jpdb-reader-stats-panel-button,
+  .jpdb-reader-stats-deck-toggle,
+  .jpdb-reader-stats-connection-actions button {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .jpdb-reader-stats-refresh {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+  }
+
+  .jpdb-reader-stats-bar,
+  .jpdb-reader-stats-heatmap-cell {
+    touch-action: manipulation;
+  }
+
+  .jpdb-reader-stats-bars,
+  .jpdb-reader-stats-heatmap-grid {
+    touch-action: manipulation;
+  }
+}

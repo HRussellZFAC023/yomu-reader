@@ -93,6 +93,7 @@ const IMMERSION_STUDY_CSS = readFileSync('src/reader/styles/immersion-study.css'
 const LOCAL_DICTIONARY_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
 const KANJI_CSS = readFileSync('src/reader/styles/kanji.css', 'utf8');
 const NEW_TAB_CSS = readFileSync('src/reader/styles/new-tab.css', 'utf8');
+const STATS_CSS = readFileSync('src/reader/styles/stats.css', 'utf8');
 const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf8');
 const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
 const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
@@ -1213,19 +1214,29 @@ describe('reader helpers', () => {
         const pitchClassSelector = ':is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku)';
 
         expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--subtitle-color); --jpdb-reader-subtitle-highlight-default: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 24%, transparent ); background: transparent !important;');
-        expect(normalizedCss).toContain(`${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-subtitle-status-color: var(--jpdb-reader-status-color, var(--jpdb-reader-state-new));`);
-        expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-pitch-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-color) 30%, transparent);');
+        expect(normalizedCss).toContain(`${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-subtitle-status-color: var(--jpdb-reader-status-color, transparent);`);
+        expect(normalizedCss).toContain('--jpdb-reader-subtitle-status-decoration: var(--jpdb-reader-status-readable, var(--jpdb-reader-status-color, transparent));');
+        expect(normalizedCss).toContain('--jpdb-reader-subtitle-jpdb-decoration: var(--jpdb-reader-jpdb-readable, var(--jpdb-reader-jpdb-color, transparent));');
+        expect(normalizedCss).toContain('--jpdb-reader-subtitle-anki-decoration: var(--jpdb-reader-anki-readable, var(--jpdb-reader-anki-color, transparent));');
+        expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-status-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-status-decoration) 28%, transparent);');
+        expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-jpdb-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-jpdb-decoration) 28%, transparent);');
+        expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-anki-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-anki-decoration) 28%, transparent);');
+        expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-pitch-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-text) 30%, transparent);');
         expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; background: transparent !important; box-shadow: none; color: var(--jpdb-reader-subtitle-fallback, currentColor) !important; text-decoration-line: underline !important; text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;');
-        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-highlight-pitch ${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-pitch-soft, var(--jpdb-reader-source-pitch-soft, var(--jpdb-reader-subtitle-highlight-default))); }`);
-        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-pitch ${subtitleSurfaces} .jpdb-reader-word${pitchClassSelector} { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-color); }`);
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-highlight-pitch ${subtitleSurfaces} .jpdb-reader-word${pitchClassSelector} { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-pitch-soft, var(--jpdb-reader-source-pitch-soft, var(--jpdb-reader-subtitle-highlight-default))); }`);
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-status ${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-status-decoration); }`);
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-jpdb ${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-decoration); }`);
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-anki ${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-anki-decoration); }`);
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-pitch ${subtitleSurfaces} .jpdb-reader-word${pitchClassSelector} { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-decoration); }`);
         expect(normalizedCss).toContain('.jpdb-reader-subtitle-preview .jpdb-reader-word { --jpdb-reader-source-status-color: var(--jpdb-reader-status-readable, var(--jpdb-reader-status-color, var(--jpdb-reader-state-new))); --jpdb-reader-source-status-decoration: var(--jpdb-reader-source-status-color); --jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-readable, var(--jpdb-reader-jpdb-color, var(--jpdb-reader-state-new))); --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-source-jpdb-color); --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown))); --jpdb-reader-source-pitch-decoration: transparent; }');
         expect(normalizedCss).toContain(`.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word${pitchClassSelector} { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);`);
-        expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) ${subtitleSurfaces} .jpdb-reader-word { background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important; }`);
-        expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) ${subtitleSurfaces} .jpdb-reader-word.jpdb-reader-has-furi { background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important; }`);
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important;');
-        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-highlight-pitch ${subtitleSurfaces} .jpdb-reader-word { background: color-mix( in srgb, var(--jpdb-reader-subtitle-pitch-color) 36%, var(--jpdb-reader-highlight-backdrop) ) !important; box-shadow:`);
-        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-highlight-pitch ${subtitleSurfaces} .jpdb-reader-word.jpdb-reader-has-furi { background: color-mix( in srgb, var(--jpdb-reader-subtitle-pitch-color) 36%, var(--jpdb-reader-highlight-backdrop) ) !important; box-shadow:`);
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: color-mix( in srgb, var(--jpdb-reader-subtitle-pitch-color) 36%, var(--jpdb-reader-highlight-backdrop) ) !important; box-shadow:');
+        expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) ${subtitleSurfaces} .jpdb-reader-word { background: var(--jpdb-reader-subtitle-highlight, transparent) !important; }`);
+        expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) ${subtitleSurfaces} .jpdb-reader-word.jpdb-reader-has-furi { background: var(--jpdb-reader-subtitle-highlight, transparent) !important; }`);
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: var(--jpdb-reader-subtitle-highlight, transparent) !important;');
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-highlight-pitch ${subtitleSurfaces} .jpdb-reader-word${pitchClassSelector} { background: color-mix( in srgb, var(--jpdb-reader-subtitle-pitch-text) 30%, var(--jpdb-reader-highlight-backdrop) ) !important; box-shadow:`);
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-highlight-pitch ${subtitleSurfaces} .jpdb-reader-word.jpdb-reader-has-furi${pitchClassSelector} { background: color-mix( in srgb, var(--jpdb-reader-subtitle-pitch-text) 30%, var(--jpdb-reader-highlight-backdrop) ) !important; box-shadow:`);
+        expect(normalizedCss).toContain(`.jpdb-reader-word.jpdb-reader-has-furi${pitchClassSelector} .jpdb-reader-ruby-base { background: color-mix( in srgb, var(--jpdb-reader-subtitle-pitch-text) 30%, var(--jpdb-reader-highlight-backdrop) ) !important; box-shadow:`);
+        expect(normalizedCss).toContain('0 0 0 1px color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-text) 56%, transparent)');
         expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important; border-radius: 0.22em;');
         expect(normalizedCss).toContain(':is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch) :is(.jpdb-reader-newtab-immersion, [data-immersion-kit]) .jpdb-reader-example-sentence.jpdb-reader-subtitle-surface .jpdb-reader-word { color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-reader-subtitle-fallback, currentColor)) ) !important; }');
         expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) ${subtitleSurfaces} .jpdb-reader-word { text-decoration-line: underline !important; }`);
@@ -1245,6 +1256,7 @@ describe('reader helpers', () => {
     it('uses configurable pitch colors in graphs and visible new-tab target highlights', () => {
         const normalizedKanjiCss = KANJI_CSS.replace(/\s+/g, ' ');
         const normalizedNewTabCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
+        const normalizedStatsCss = STATS_CSS.replace(/\s+/g, ' ');
         const normalizedImmersionCss = IMMERSION_STUDY_CSS.replace(/\s+/g, ' ');
         const html = renderPitch({ ...card, spelling: '読む', reading: 'よむ', pitchAccent: ['HLL'] });
 
@@ -1257,6 +1269,17 @@ describe('reader helpers', () => {
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) ) !important;');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
+        expect(normalizedNewTabCss).toContain('@media (pointer: coarse) { .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode) .jpdb-reader-newtab-shell { padding-bottom: max(124px, calc(30px + env(safe-area-inset-bottom))); } .jpdb-reader-language-toggle, .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini { width: 44px !important; min-width: 44px !important; height: 44px !important; }');
+        expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-revealed .jpdb-reader-newtab-shell { padding-bottom: max(148px');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-appearance, .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch, .jpdb-reader-newtab .jpdb-reader-newtab-overflow, .jpdb-reader-newtab-more-menu button, .jpdb-reader-newtab-mode button, button.jpdb-reader-newtab-status:not(:disabled), .jpdb-reader-language-toggle, .jpdb-reader-newtab-searchbox button, .jpdb-reader-newtab-grade-target-select, .jpdb-reader-newtab-controls button:not([data-grade]), .jpdb-reader-newtab-search-links a, .jpdb-reader-newtab-search-links button, .jpdb-reader-newtab-handwriting summary, .jpdb-reader-newtab-handwriting-candidates button, .jpdb-reader-newtab-doodle-actions button, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action, .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini, .jpdb-reader-newtab-install { min-height: 44px !important; }');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-controls:has(button[data-grade]) button { position: relative; min-height: 38px !important; overflow: visible; touch-action: manipulation; } .jpdb-reader-newtab-controls:has(button[data-grade]) button::after { content: ""; position: absolute; inset: -3px 0; border-radius: 10px; }');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch { min-height: 24px !important; } .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch::after { content: ""; position: absolute; inset: -10px 0; border-radius: 999px; }');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-install { justify-self: end; display: inline-flex; align-items: center;');
+        expect(normalizedStatsCss).toContain('@media (pointer: coarse) { .jpdb-reader-stats-refresh, .jpdb-reader-stats-tabs button, .jpdb-reader-stats-activity-tabs button, .jpdb-reader-stats-panel-button, .jpdb-reader-stats-deck-toggle, .jpdb-reader-stats-connection-actions button { min-height: 44px; touch-action: manipulation; }');
+        expect(normalizedStatsCss).toContain('.jpdb-reader-stats-refresh { width: 44px; min-width: 44px; height: 44px; }');
+        expect(normalizedStatsCss).not.toContain('.jpdb-reader-stats-bars { grid-template-columns: repeat(30, minmax(24px, 1fr)); overflow-x: auto; }');
+        expect(normalizedStatsCss).not.toContain('.jpdb-reader-stats-month-strip { grid-auto-columns: 180px; }');
+        expect(normalizedStatsCss).toContain('.jpdb-reader-stats-bar, .jpdb-reader-stats-heatmap-cell { touch-action: manipulation; }');
         expect(normalizedImmersionCss).toContain('.jpdb-reader-example-target { padding: 0 0.08em; border-radius: 0.22em; background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) );');
         expect(normalizedImmersionCss).toContain('background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg)); box-shadow: 0 6px 16px var(--jpdb-reader-shadow), inset 0 0 0 1px var(--jpdb-reader-ocr-inset);');
         expect(normalizedImmersionCss).toContain('.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
@@ -2003,6 +2026,11 @@ describe('reader helpers', () => {
         expect(html).toContain('aria-label="Show mining actions"');
         expect(html).not.toContain('>+</button>');
         expect(KANJI_CSS).toContain('.jpdb-reader-mining-collapse::before');
+        const normalizedKanjiCss = KANJI_CSS.replace(/\s+/g, ' ');
+        const normalizedPopoverCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
+        expect(normalizedKanjiCss).toContain('.jpdb-reader-mining-collapse::after { content: ""; position: absolute; inset: -16px 0 0; border-radius: 999px; }');
+        expect(normalizedKanjiCss).not.toContain('.jpdb-reader-actions-has-mining { padding-top: 45px; }');
+        expect(normalizedPopoverCss).toContain('.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining { padding-top: 31px; }');
     });
 
     it('keeps Add to Anki inside the expandable mining drawer panel', () => {
@@ -2413,6 +2441,9 @@ describe('reader helpers', () => {
         expect(jpdbOnly).toContain('aria-expanded="true"');
         expect(jpdbOnly).toContain('Hide mining actions');
         expect(jpdbOnly).toContain('This JPDB card is locked');
+        const container = document.createElement('div');
+        container.innerHTML = jpdbOnly;
+        expect(container.querySelector<HTMLSelectElement>('[data-add-deck-select]')?.hidden).toBe(true);
 
         const ankiBacked = renderer.render({ ...card, cardState: ['locked'] }, '食べる。', 'modal', {
             ...baseData,
@@ -4909,7 +4940,7 @@ describe('reader helpers', () => {
             document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
             expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
 
-            line.querySelector<HTMLElement>('.jpdb-ocr-line-text')!.innerHTML = '<span class="jpdb-reader-word jpdb-not-in-deck" data-vid="10" data-sid="20" data-sentence="日本語を読む" tabindex="0">日本語</span>を読む';
+            line.querySelector<HTMLElement>('.jpdb-ocr-line-text')!.innerHTML = '<span class="jpdb-reader-word jpdb-not-in-deck" data-vid="10" data-sid="20" data-sentence="日本語を読む" tabindex="-1">日本語</span>を読む';
             const word = line.querySelector<HTMLElement>('.jpdb-reader-word[data-vid]')!;
             lookupText.mockClear();
             word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 130, clientY: 120 }));
@@ -16970,7 +17001,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('marks the Anki status index stale after reviews even when the card count is unchanged', async () => {
+    it('keeps review-triggered Anki status refreshes cheap when the card count is unchanged', async () => {
         localStorage.clear();
         await deleteAnkiStatusIndexDatabase();
         const now = Date.now();
@@ -17026,22 +17057,15 @@ describe('reader helpers', () => {
         try {
             const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
             await client.answerCard(7701, 'okay');
-            await vi.waitFor(() => expect(requests.map(request => request.action)).toContain('notesInfo'));
-            await vi.waitFor(() => {
-                const stored = JSON.parse(localStorage.getItem('yomu:anki-status-index:v1') ?? '{}') as { entryStore?: string; syncedAt?: number };
-                expect(stored.entryStore).toBe('indexeddb');
-                expect(stored.syncedAt).toBeGreaterThan(0);
-            });
+            await vi.waitFor(() => expect(requests.map(request => request.action)).toEqual(
+                expect.arrayContaining(['answerCards', 'deckNames', 'getDeckStats']),
+            ));
 
-            expect(requests.some(request => request.action === 'findCards' && request.params.query === 'deck:*')).toBe(true);
-            const refreshedClient = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
-            await expect(refreshedClient.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toMatchObject([{
-                state: 'known',
-                primary: {
-                    noteId: 55,
-                    primaryCardId: 7701,
-                },
-            }]);
+            expect(requests.some(request => request.action === 'findCards' && request.params.query === 'deck:*')).toBe(false);
+            expect(requests.some(request => request.action === 'notesInfo')).toBe(false);
+            const stored = JSON.parse(localStorage.getItem('yomu:anki-status-index:v1') ?? '{}') as { checkedAt?: number; syncedAt?: number };
+            expect(stored.checkedAt).toBeGreaterThan(0);
+            expect(stored.syncedAt).toBe(0);
         } finally {
             localStorage.clear();
             await deleteAnkiStatusIndexDatabase();
@@ -17286,9 +17310,54 @@ describe('reader helpers', () => {
         }
     });
 
-    it('does not cache Anki status misses while the status index is refreshing', async () => {
+    it('uses exact Anki status lookups while the status index is refreshing', async () => {
         localStorage.clear();
         await deleteAnkiStatusIndexDatabase();
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                if (request.action === 'version') {
+                    return Promise.resolve({ status: 200, response: { result: 6, error: null } });
+                }
+                if (request.action === 'multi') {
+                    const actions = request.params.actions as Array<{ action: string; params?: { query?: string } }>;
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: actions.map(action => ({
+                                result: /動画|どうが/.test(String(action.params?.query ?? '')) ? [55] : [],
+                                error: null,
+                            })),
+                            error: null,
+                        },
+                    });
+                }
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '動画' },
+                            Reading: { value: 'どうが' },
+                        },
+                        cards: [7701],
+                    }],
+                    cardsInfo: [{
+                        cardId: 7701,
+                        note: 55,
+                        deckName: 'Anime::Mining',
+                        queue: 0,
+                        type: 0,
+                        reps: 0,
+                        lapses: 0,
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
         const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
         const index = {
             version: 1,
@@ -17306,39 +17375,47 @@ describe('reader helpers', () => {
         internals.statusIndex = index;
         internals.statusIndexRefresh = new Promise(() => undefined);
 
-        await expect(client.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toEqual([{
-            state: 'not-in-deck',
-            notes: [],
-            primary: null,
-            trusted: false,
-        }]);
-
-        internals.statusIndexRefresh = undefined;
-        internals.statusIndex = {
-            ...index,
-            entries: {
-                [String('動画').toLocaleLowerCase()]: {
-                    state: 'due',
+        try {
+            await expect(client.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toMatchObject([{
+                state: 'new',
+                primary: {
                     noteId: 55,
                     primaryCardId: 7701,
-                    deckNames: ['Anime::Mining'],
-                    reps: 14,
-                    lapses: 0,
-                    modelName: 'Imported Core',
                 },
-            },
-        };
+            }]);
+            expect(requests.map(request => request.action)).not.toContain('findCards');
 
-        await expect(client.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toMatchObject([{
-            state: 'due',
-            primary: {
-                noteId: 55,
-                primaryCardId: 7701,
-            },
-        }]);
+            internals.statusIndexRefresh = undefined;
+            internals.statusIndex = {
+                ...index,
+                entries: {
+                    [String('動画').toLocaleLowerCase()]: {
+                        state: 'due',
+                        noteId: 55,
+                        primaryCardId: 7701,
+                        deckNames: ['Anime::Mining'],
+                        reps: 14,
+                        lapses: 0,
+                        modelName: 'Imported Core',
+                    },
+                },
+            };
+
+            await expect(client.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toMatchObject([{
+                state: 'new',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7701,
+                },
+            }]);
+        } finally {
+            localStorage.clear();
+            await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
+        }
     });
 
-    it('keeps cold-cache status coloring quiet until explicit Anki status warmup', async () => {
+    it('uses exact Anki status lookups for cold-cache page coloring without broad scans', async () => {
         localStorage.clear();
         await deleteAnkiStatusIndexDatabase();
         const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
@@ -17347,9 +17424,6 @@ describe('reader helpers', () => {
                 const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
                 requests.push(request);
                 const query = String(request.params?.query ?? '');
-                if (request.action === 'cardsInfo') {
-                    throw new Error('Status-only Anki coloring should not hydrate card fronts/backs.');
-                }
                 if (request.action === 'version') {
                     return Promise.resolve({ status: 200, response: { result: 6, error: null } });
                 }
@@ -17367,53 +17441,53 @@ describe('reader helpers', () => {
                         },
                     });
                 }
-                if (request.action === 'notesInfo') {
-                    return Promise.resolve({
-                        status: 200,
-                        response: {
-                            result: [{
-                                noteId: 55,
-                                modelName: 'Imported Core',
-                                tags: [],
-                                fields: {
-                                    Word: { value: '動画' },
-                                    Reading: { value: 'どうが' },
-                                },
-                                cards: [7701],
-                            }],
-                            error: null,
+                const resultByAction: Record<string, unknown> = {
+                    deckNames: ['Anime::Mining'],
+                    getDeckStats: {
+                        1: { name: 'Anime::Mining', total_in_deck: 1 },
+                    },
+                    findCards: query === 'deck:*' ? [7701] : [],
+                    notesInfo: [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '動画' },
+                            Reading: { value: 'どうが' },
                         },
-                    });
-                }
-                if (request.action === 'findCards') {
-                    return Promise.resolve({
-                        status: 200,
-                        response: { result: query.includes('is:due') ? [7701] : [], error: null },
-                    });
-                }
-                return Promise.resolve({ status: 200, response: { result: [], error: null } });
+                        cards: [7701],
+                    }],
+                    cardsInfo: [{
+                        cardId: 7701,
+                        note: 55,
+                        deckName: 'Anime::Mining',
+                        queue: 2,
+                        type: 2,
+                        reps: 14,
+                        lapses: 0,
+                    }],
+                    areDue: [true],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? [], error: null } });
             },
         });
 
         try {
             const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
 
-            await expect(client.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toEqual([{
-                state: 'not-in-deck',
-                notes: [],
-                primary: null,
-                trusted: false,
+            await expect(client.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toMatchObject([{
+                state: 'due',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7701,
+                },
             }]);
 
-            expect(requests.map(request => request.action)).toEqual([]);
-            void client.warmStatusIndex();
-            await vi.waitFor(() => expect(requests.map(request => request.action)).toContain('findCards'));
-
+            await vi.waitFor(() => expect(requests.map(request => request.action)).toContain('deckNames'));
             const actions = requests.map(request => request.action);
-            expect(actions).toEqual(['version', 'findCards']);
-            expect(actions).not.toContain('multi');
-            expect(actions).not.toContain('notesInfo');
-            expect(actions).not.toContain('cardsInfo');
+            expect(actions).toEqual(expect.arrayContaining(['version', 'multi', 'notesInfo', 'cardsInfo', 'areDue']));
+            expect(actions).toEqual(expect.arrayContaining(['deckNames', 'getDeckStats']));
+            expect(requests.some(request => request.action === 'findCards' && request.params.query === 'deck:*')).toBe(false);
             client.destroy();
         } finally {
             localStorage.clear();
@@ -17422,7 +17496,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps Anki status misses untrusted while another page rebuilds the status index', async () => {
+    it('keeps Anki status misses untrusted only while another page rebuilds the status index', async () => {
         localStorage.clear();
         await deleteAnkiStatusIndexDatabase();
         const now = Date.now();
@@ -17442,6 +17516,51 @@ describe('reader helpers', () => {
             startedAt: now,
             expiresAt: now + 60 * 1000,
         }));
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                if (request.action === 'version') {
+                    return Promise.resolve({ status: 200, response: { result: 6, error: null } });
+                }
+                if (request.action === 'multi') {
+                    const actions = request.params.actions as Array<{ action: string; params?: { query?: string } }>;
+                    return Promise.resolve({
+                        status: 200,
+                        response: {
+                            result: actions.map(action => ({
+                                result: /難波|なにわ/.test(String(action.params?.query ?? '')) ? [77] : [],
+                                error: null,
+                            })),
+                            error: null,
+                        },
+                    });
+                }
+                const resultByAction: Record<string, unknown> = {
+                    notesInfo: [{
+                        noteId: 77,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '難波' },
+                            Reading: { value: 'なにわ' },
+                        },
+                        cards: [7707],
+                    }],
+                    cardsInfo: [{
+                        cardId: 7707,
+                        note: 77,
+                        deckName: 'Vocab 2k',
+                        queue: 0,
+                        type: 0,
+                        reps: 0,
+                        lapses: 0,
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
 
         try {
             const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
@@ -17452,16 +17571,21 @@ describe('reader helpers', () => {
                 primary: null,
                 trusted: false,
             }]);
+            expect(requests).toHaveLength(0);
 
             localStorage.removeItem('yomu:anki-status-index-rebuild:v1');
-            await expect(client.findCachedStatusBatch([{ ...card, spelling: '難波', reading: 'なにわ' }])).resolves.toEqual([{
-                state: 'not-in-deck',
-                notes: [],
-                primary: null,
+            await expect(client.findCachedStatusBatch([{ ...card, spelling: '難波', reading: 'なにわ' }])).resolves.toMatchObject([{
+                state: 'new',
+                primary: {
+                    noteId: 77,
+                    primaryCardId: 7707,
+                },
             }]);
+            expect(requests.map(request => request.action)).not.toContain('findCards');
         } finally {
             localStorage.clear();
             await deleteAnkiStatusIndexDatabase();
+            vi.unstubAllGlobals();
         }
     });
 
@@ -17512,7 +17636,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('periodically refreshes stale Anki status indexes even when the card count is unchanged', async () => {
+    it('periodically checks stale Anki status indexes without rebuilding when the card count is unchanged', async () => {
         localStorage.clear();
         await deleteAnkiStatusIndexDatabase();
         localStorage.setItem('yomu:anki-status-index:v1', JSON.stringify({
@@ -17541,6 +17665,11 @@ describe('reader helpers', () => {
                 requests.push(request);
                 const query = String(request.params?.query ?? '');
                 const resultByAction: Record<string, unknown> = {
+                    version: 6,
+                    deckNames: ['Anime::Mining'],
+                    getDeckStats: {
+                        1: { name: 'Anime::Mining', total_in_deck: 1 },
+                    },
                     findCards: query === 'deck:*' || query.includes('is:due') ? [7701] : [],
                     findNotes: [55],
                     notesInfo: [{
@@ -17565,14 +17694,16 @@ describe('reader helpers', () => {
                 state: 'known',
             }]);
 
-            client.warmStatusIndex();
-            await vi.waitFor(() => expect(requests.map(request => request.action)).toContain('notesInfo'));
+            await client.warmStatusIndex();
+            expect(requests.map(request => request.action)).toEqual(['version', 'deckNames', 'getDeckStats']);
+            expect(requests.some(request => request.action === 'findCards' && request.params.query === 'deck:*')).toBe(false);
+            expect(requests.map(request => request.action)).not.toContain('notesInfo');
 
-            const refreshed = JSON.parse(localStorage.getItem('yomu:anki-status-index:v1') ?? '{}') as { entryStore?: string };
-            expect(refreshed.entryStore).toBe('indexeddb');
+            const refreshed = JSON.parse(localStorage.getItem('yomu:anki-status-index:v1') ?? '{}') as { checkedAt?: number };
+            expect(refreshed.checkedAt).toBeGreaterThan(1);
             const persistedClient = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
             await expect(persistedClient.findCachedStatusBatch([{ ...card, spelling: '動画', reading: 'どうが' }])).resolves.toMatchObject([{
-                state: 'due',
+                state: 'known',
             }]);
         } finally {
             localStorage.clear();
@@ -17600,13 +17731,14 @@ describe('reader helpers', () => {
         try {
             const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
             client.warmStatusIndex();
-            await vi.waitFor(() => expect(requests.map(request => request.action)).toEqual(['version']));
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(requests.map(request => request.action)).toEqual([]);
 
             client.destroy();
             resolveVersion?.({ status: 200, response: { result: 6, error: null } });
             await new Promise(resolve => setTimeout(resolve, 0));
 
-            expect(requests.map(request => request.action)).toEqual(['version']);
+            expect(requests.map(request => request.action)).toEqual([]);
         } finally {
             localStorage.clear();
             vi.unstubAllGlobals();
@@ -21924,6 +22056,23 @@ describe('reader helpers', () => {
         }
     });
 
+    it('announces main reader toasts politely', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as { toast(message: string): void };
+
+        try {
+            internals.toast('Copied word.');
+
+            const toast = document.querySelector<HTMLElement>('.jpdb-reader-toast');
+            expect(toast?.textContent).toBe('Copied word.');
+            expect(toast?.getAttribute('role')).toBe('status');
+            expect(toast?.getAttribute('aria-live')).toBe('polite');
+        } finally {
+            document.body.replaceChildren();
+            app.destroy();
+        }
+    });
+
     it('opens a kanji card when clicking a single kanji OCR word', async () => {
         const app = new ReaderApp();
         const line = document.createElement('div');
@@ -23158,7 +23307,7 @@ describe('reader helpers', () => {
                     <div class="jpdb-reader-heading">
                         <div class="jpdb-reader-title-row">
                             <div class="jpdb-reader-spelling jpdb-known jpdb-reader-parseable">
-                                <span class="jpdb-reader-word jpdb-pitch-unknown" data-vid="${lookupCard.vid}" data-sid="${lookupCard.sid}" tabindex="0">青空</span>
+                                <span class="jpdb-reader-word jpdb-pitch-unknown" data-vid="${lookupCard.vid}" data-sid="${lookupCard.sid}" tabindex="-1">青空</span>
                             </div>
                         </div>
                     </div>
@@ -23249,7 +23398,7 @@ describe('reader helpers', () => {
                     <div class="jpdb-reader-heading">
                         <div class="jpdb-reader-title-row">
                             <div class="jpdb-reader-spelling jpdb-known jpdb-reader-parseable">
-                                <span class="jpdb-reader-word jpdb-pitch-unknown" data-vid="${lookupCard.vid}" data-sid="${lookupCard.sid}" tabindex="0">青空</span>
+                                <span class="jpdb-reader-word jpdb-pitch-unknown" data-vid="${lookupCard.vid}" data-sid="${lookupCard.sid}" tabindex="-1">青空</span>
                             </div>
                         </div>
                     </div>
@@ -24310,8 +24459,17 @@ describe('reader helpers', () => {
         word.dataset.sid = String(lookupCard.sid);
         word.dataset.ankiState = 'known';
         word.dataset.ankiDecks = 'Mining';
-        word.style.setProperty('--jpdb-reader-word-accessible-color', '#58a6ff');
-        word.style.setProperty('--jpdb-reader-word-accessible-underline', '#58a6ff');
+        const staleContrastVars = [
+            '--jpdb-reader-page-bg',
+            '--jpdb-reader-highlight-backdrop',
+            '--jpdb-reader-furi-accessible-color',
+            '--jpdb-reader-word-accessible-color',
+            '--jpdb-reader-word-accessible-highlight',
+            '--jpdb-reader-word-accessible-underline',
+            '--jpdb-reader-word-highlight-text',
+            '--jpdb-reader-word-contrast-shadow',
+        ];
+        staleContrastVars.forEach(name => word.style.setProperty(name, '#58a6ff'));
         word.textContent = lookupCard.spelling;
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
@@ -24348,8 +24506,9 @@ describe('reader helpers', () => {
             expect(word.classList.contains('anki-not-in-deck')).toBe(true);
             expect(word.dataset.ankiState).toBe('not-in-deck');
             expect(word.dataset.ankiDecks).toBeUndefined();
-            expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).not.toBe('#58a6ff');
-            expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-underline')).not.toBe('#58a6ff');
+            staleContrastVars.forEach(name => {
+                expect(word.style.getPropertyValue(name)).not.toBe('#58a6ff');
+            });
         } finally {
             word.remove();
             popover.remove();
@@ -25170,7 +25329,7 @@ describe('reader helpers', () => {
         popover.className = 'jpdb-reader-popover';
         popover.innerHTML = `
             <div class="jpdb-reader-example-sentence">
-                <span class="jpdb-reader-word jpdb-known" data-vid="91" data-sid="92" data-sentence="甘言蜜語だ。" tabindex="0">甘言蜜語</span>
+                <span class="jpdb-reader-word jpdb-known" data-vid="91" data-sid="92" data-sentence="甘言蜜語だ。" tabindex="-1">甘言蜜語</span>
             </div>
         `;
         document.body.append(popover);
@@ -25258,7 +25417,7 @@ describe('reader helpers', () => {
                     <summary>Immersion Kit Princess Mononoke 2/6 ‹ ›</summary>
                     <div class="jpdb-reader-example-card" data-immersion-sentence="うでが痛むんで？">
                         <div class="jpdb-reader-example-sentence jpdb-reader-parseable">
-                            う<span class="jpdb-reader-word jpdb-reader-example-target" data-expression="で" tabindex="0">で</span>が痛むんで？
+                            う<span class="jpdb-reader-word jpdb-reader-example-target" data-expression="で" tabindex="-1">で</span>が痛むんで？
                         </div>
                     </div>
                 </details>
@@ -25337,7 +25496,7 @@ describe('reader helpers', () => {
             hoverPopover.querySelector<HTMLElement>('.jpdb-reader-popover-body')?.insertAdjacentHTML('beforeend', `
                 <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>
                     Grammar また、PDFファイルをダウンロードしたり、印刷して本にすることもできます。
-                    <span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban" data-vid="${nestedCard.vid}" data-sid="${nestedCard.sid}" data-sentence="Grammar また、PDFファイルをダウンロードしたり、印刷して本にすることもできます。" tabindex="0">技術</span>
+                    <span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban" data-vid="${nestedCard.vid}" data-sid="${nestedCard.sid}" data-sentence="Grammar また、PDFファイルをダウンロードしたり、印刷して本にすることもできます。" tabindex="-1">技術</span>
                 </div>
             `);
 
@@ -25602,7 +25761,7 @@ describe('reader helpers', () => {
         expect(linkWord.tabIndex).toBe(-1);
         expect(linkWord.querySelector('rt')?.textContent).toBe('あおぞら');
         expect(proseWord.dataset.jpdbReaderPassive).toBeUndefined();
-        expect(proseWord.tabIndex).toBe(0);
+        expect(proseWord.tabIndex).toBe(-1);
         expect(proseWord.querySelector('rt')?.textContent).toBe('よむ');
 
         const app = new ReaderApp();
@@ -26056,7 +26215,7 @@ describe('reader helpers', () => {
         const activeWord = document.querySelector<HTMLElement>('p > .jpdb-reader-word')!;
         const linkWord = document.querySelector<HTMLElement>('a[href="/more"] .jpdb-reader-word')!;
         expect(activeWord.dataset.jpdbReaderPassive).toBeUndefined();
-        expect(activeWord.tabIndex).toBe(0);
+        expect(activeWord.tabIndex).toBe(-1);
         expect(activeWord.querySelector('rt')?.textContent).toBe('きょう');
         expect(linkWord.dataset.jpdbReaderPassive).toBe('true');
         expect(linkWord.tabIndex).toBe(-1);
@@ -26565,7 +26724,7 @@ describe('reader helpers', () => {
 
         try {
             expect(word.dataset.jpdbReaderPassive).toBeUndefined();
-            expect(word.tabIndex).toBe(0);
+            expect(word.tabIndex).toBe(-1);
 
             const wordClick = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 80, clientY: 24 });
             expect(word.dispatchEvent(wordClick)).toBe(false);
@@ -26830,7 +26989,7 @@ describe('reader helpers', () => {
         const commentWord = document.querySelector<HTMLElement>('#content-text .jpdb-reader-word')!;
         const moreWord = document.querySelector<HTMLElement>('.more-button .jpdb-reader-word')!;
         expect(commentWord.dataset.jpdbReaderPassive).toBeUndefined();
-        expect(commentWord.tabIndex).toBe(0);
+        expect(commentWord.tabIndex).toBe(-1);
         expect(moreWord.dataset.jpdbReaderPassive).toBe('true');
         expect(moreWord.tabIndex).toBe(-1);
     });

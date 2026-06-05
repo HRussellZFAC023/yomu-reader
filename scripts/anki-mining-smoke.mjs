@@ -714,6 +714,7 @@ async function runReaderMiningSmoke(browser, baseUrl) {
     const firstAnkiColorMs = Date.now() - coloringStartedAt;
     const initialAnkiActions = ankiActions(requests);
     const initialAnkiActionCount = initialAnkiActions.length;
+    const initialAnkiRequests = requests.filter(item => item.kind === 'anki').slice(0, initialAnkiActionCount);
     const statusStorage = await readAnkiStatusStorage(page);
 
     const beforeHover = await knownWord.evaluate(element => ({
@@ -746,7 +747,19 @@ async function runReaderMiningSmoke(browser, baseUrl) {
     assert(afterHover.classes.includes('anki-due'), 'Hover removed rendered Anki due class', { beforeHover, afterHover });
     assert(afterHover.color === beforeHover.color, 'Hover changed Anki word color', { beforeHover, afterHover });
     assert(firstAnkiColorMs < 8_000, 'Reader Anki coloring was not prompt after userscript injection', { firstAnkiColorMs, initialAnkiActions });
-    assert(!initialAnkiActions.includes('multi') && !initialAnkiActions.includes('areDue'), 'Reader initial coloring performed detailed Anki hydration before hover', { initialAnkiActions });
+    assert(
+        initialAnkiActions.includes('multi') && initialAnkiActions.includes('notesInfo') && initialAnkiActions.includes('cardsInfo'),
+        'Reader initial coloring did not perform exact Anki status lookup',
+        { initialAnkiActions },
+    );
+    assert(
+        !initialAnkiRequests.some(item => (
+            (item.action === 'findCards' || item.action === 'findNotes')
+            && String(item.params?.query ?? '') === 'deck:*'
+        )),
+        'Reader initial coloring scanned the whole Anki collection before hover',
+        { initialAnkiRequests },
+    );
     assert(hoverAnkiActions.includes('multi') && hoverAnkiActions.includes('areDue'), 'Reader hover did not lazily hydrate detailed Anki status', { initialAnkiActions, hoverAnkiActions });
     assert(hoverHydrationMs < 8_000, 'Reader hover Anki hydration was too slow', { hoverHydrationMs, hoverAnkiActions });
     assertAnkiStatusStorage(statusStorage, 2);

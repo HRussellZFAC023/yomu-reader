@@ -1,10 +1,11 @@
 import { CORE_COLOR_TOKENS, PAGE_WORD_COLOR_TOKENS } from './color-tokens';
-import { blendRgba, contrastRatio, cssColorToHex, cssColorToRgba, readableOn, rgbaToHex, type RgbaColor } from './color-utils';
+import { blendRgba, contrastRatio, cssColorToHex, cssColorToRgba, mixHex, readableOn, rgbaToHex, type RgbaColor } from './color-utils';
 
 const PAGE_WORD_SELECTOR = '.jpdb-reader-word';
-const YOMU_SURFACE_SELECTOR = '[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list';
+const YOMU_SURFACE_SELECTOR = '[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen';
 const TEXT_CONTRAST = 4.5;
 const DECORATION_CONTRAST = 3;
+const HIGHLIGHT_CONTRAST = 1.45;
 const COLORED_READER_WORD_CLASSES = new Set([
     'jpdb-new',
     'jpdb-in-deck',
@@ -32,7 +33,9 @@ const COLORED_READER_WORD_CLASSES = new Set([
 const CONTRAST_VARS = [
     '--jpdb-reader-page-bg',
     '--jpdb-reader-highlight-backdrop',
+    '--jpdb-reader-furi-accessible-color',
     '--jpdb-reader-word-accessible-color',
+    '--jpdb-reader-word-accessible-highlight',
     '--jpdb-reader-word-accessible-underline',
     '--jpdb-reader-word-highlight-text',
     '--jpdb-reader-word-contrast-shadow',
@@ -43,6 +46,10 @@ interface PageBackground {
     css: string;
     hex: string;
     rgba: RgbaColor;
+}
+
+interface WordBackground extends PageBackground {
+    hasPaint: boolean;
 }
 
 export function refreshReaderWordContrast(root: ParentNode = document): void {
@@ -72,13 +79,17 @@ export function refreshReaderWordContrastForWord(word: HTMLElement): void {
     word.style.setProperty('--jpdb-reader-highlight-backdrop', background.css);
     word.style.removeProperty('--jpdb-reader-word-contrast-shadow');
 
-    const paintBackground = renderedWordBackground(word, background);
+    const sourcePaintBackground = renderedWordBackground(word, background);
+    const paintBackground = accessibleWordBackground(word, sourcePaintBackground, background);
     const sourceText = measuredWordTextColor(word, paintBackground.rgba);
     const nativeText = cssColorToHex(parentTextColor(word), paintBackground.rgba) ?? bestTextColor(paintBackground.hex);
     const decoration = measuredDecorationColor(word, paintBackground.rgba);
+    const furiText = measuredFuriTextColor(word, paintBackground.rgba);
 
     word.style.setProperty('--jpdb-reader-word-highlight-text', readableOn(nativeText, paintBackground.hex, TEXT_CONTRAST));
     word.style.setProperty('--jpdb-reader-word-accessible-color', readableOn(sourceText ?? nativeText, paintBackground.hex, TEXT_CONTRAST));
+    if (furiText) word.style.setProperty('--jpdb-reader-furi-accessible-color', readableOn(furiText, paintBackground.hex, TEXT_CONTRAST));
+    else word.style.removeProperty('--jpdb-reader-furi-accessible-color');
     if (decoration) word.style.setProperty('--jpdb-reader-word-accessible-underline', readableOn(decoration, paintBackground.hex, DECORATION_CONTRAST));
     else word.style.removeProperty('--jpdb-reader-word-accessible-underline');
 }
@@ -135,11 +146,26 @@ function pageBackgroundFor(word: HTMLElement): PageBackground | null {
     return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
 }
 
-function renderedWordBackground(word: HTMLElement, pageBackground: PageBackground): PageBackground {
-    const color = cssColorToRgba(getComputedStyle(word).backgroundColor);
-    const rgba = color && color.alpha > 0 ? blendRgba(color, pageBackground.rgba) : pageBackground.rgba;
-    const hex = rgbaToHex(rgba);
-    return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
+function renderedWordBackground(word: HTMLElement, pageBackground: PageBackground): WordBackground {
+    return withContrastVarsDisabled(word, () => {
+        const color = cssColorToRgba(getComputedStyle(word).backgroundColor);
+        const hasPaint = Boolean(color && color.alpha > 0);
+        const rgba = color && color.alpha > 0 ? blendRgba(color, pageBackground.rgba) : pageBackground.rgba;
+        const hex = rgbaToHex(rgba);
+        return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba, hasPaint };
+    });
+}
+
+function accessibleWordBackground(word: HTMLElement, paintBackground: WordBackground, pageBackground: PageBackground): PageBackground {
+    if (!paintBackground.hasPaint) {
+        word.style.removeProperty('--jpdb-reader-word-accessible-highlight');
+        return paintBackground;
+    }
+
+    const color = readableHighlightBackground(paintBackground.hex, pageBackground.hex);
+    word.style.setProperty('--jpdb-reader-word-accessible-highlight', color);
+    const rgba = cssColorToRgba(color) ?? paintBackground.rgba;
+    return { css: color, hex: rgbaToHex(rgba), rgba };
 }
 
 function measuredWordTextColor(word: HTMLElement, backdrop: RgbaColor): string | null {
@@ -154,6 +180,12 @@ function measuredDecorationColor(word: HTMLElement, backdrop: RgbaColor): string
     });
 }
 
+function measuredFuriTextColor(word: HTMLElement, backdrop: RgbaColor): string | null {
+    const furi = word.querySelector<HTMLElement>('rt.jpdb-reader-furi');
+    if (!furi) return null;
+    return withContrastVarsDisabled(word, () => cssColorToHex(getComputedStyle(furi).color, backdrop));
+}
+
 function parentTextColor(word: HTMLElement): string {
     return getComputedStyle(word.parentElement ?? word).color;
 }
@@ -164,10 +196,24 @@ function bestTextColor(background: string): string {
         : CORE_COLOR_TOKENS.white;
 }
 
+function readableHighlightBackground(color: string, background: string): string {
+    if (contrastRatio(color, background) >= HIGHLIGHT_CONTRAST) return color;
+    const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white)
+        ? CORE_COLOR_TOKENS.black
+        : CORE_COLOR_TOKENS.white;
+    for (let amount = 0.04; amount <= 0.24; amount += 0.04) {
+        const mixed = mixHex(color, toward, amount);
+        if (contrastRatio(mixed, background) >= HIGHLIGHT_CONTRAST) return mixed;
+    }
+    return color;
+}
+
 function applyUnknownBackgroundFallback(word: HTMLElement): void {
     word.style.removeProperty('--jpdb-reader-page-bg');
     word.style.removeProperty('--jpdb-reader-highlight-backdrop');
+    word.style.removeProperty('--jpdb-reader-furi-accessible-color');
     word.style.removeProperty('--jpdb-reader-word-accessible-color');
+    word.style.removeProperty('--jpdb-reader-word-accessible-highlight');
     word.style.removeProperty('--jpdb-reader-word-accessible-underline');
     word.style.removeProperty('--jpdb-reader-word-highlight-text');
     word.style.setProperty('--jpdb-reader-word-contrast-shadow', PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);

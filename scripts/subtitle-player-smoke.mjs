@@ -157,11 +157,43 @@ async function dismissYouTubeConsent(page) {
 
 async function showTranscriptLines(page) {
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-player')?.classList.contains('jpdb-subtitle-has-lines'), null, { timeout: 45000 });
+    await ensureSubtitlePanelOpen(page);
     for (let attempt = 0; attempt < 6; attempt += 1) {
         await page.locator('.jpdb-subtitle-panel-mode [data-action="panel-lines"]').click({ force: true }).catch(() => undefined);
         await page.waitForTimeout(500);
         if (await page.locator('.jpdb-subtitle-list-row').count()) return;
     }
+}
+
+async function ensureSubtitlePanelOpen(page) {
+    const open = await page.evaluate(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        return Boolean(panel && !panel.hidden);
+    });
+    if (!open) {
+        await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click({ force: true });
+    }
+    await page.waitForFunction(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        return Boolean(panel && !panel.hidden);
+    }, null, { timeout: 5000 });
+}
+
+async function showSubtitleTracks(page) {
+    await ensureSubtitlePanelOpen(page);
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+        await page.locator('.jpdb-subtitle-panel-mode [data-action="panel-tracks"]').click({ force: true }).catch(() => undefined);
+        await page.waitForTimeout(500);
+        if (await page.locator('.jpdb-subtitle-track-tools [data-action="load"]').count()) return;
+    }
+}
+
+async function chooseSubtitleFile(page, action, filePath) {
+    await showSubtitleTracks(page);
+    const chooserPromise = page.waitForEvent('filechooser');
+    await page.locator(`.jpdb-subtitle-track-tools [data-action="${action}"]`).click({ force: true });
+    const chooser = await chooserPromise;
+    await chooser.setFiles(filePath);
 }
 
 async function ensureUserscript(page) {
@@ -212,16 +244,12 @@ async function runLocalSmoke(browser) {
         video.load();
     }, fixtureVideoUrl);
     await ensureUserscript(page);
-    await page.setInputFiles('.jpdb-subtitle-player input[data-file="primary"]', primaryPath);
+    await chooseSubtitleFile(page, 'load', primaryPath);
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-player')?.classList.contains('jpdb-subtitle-has-lines'), null, { timeout: 12000 });
-    await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click({ force: true });
-    await page.waitForFunction(() => {
-        const panel = document.querySelector('.jpdb-subtitle-list');
-        return Boolean(panel && !panel.hidden);
-    }, null, { timeout: 5000 });
     await showTranscriptLines(page);
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length > 1, null, { timeout: 20000 });
-    await page.setInputFiles('.jpdb-subtitle-player input[data-file="secondary"]', secondaryPath);
+    await chooseSubtitleFile(page, 'load-secondary', secondaryPath);
+    await showTranscriptLines(page);
     await page.evaluate(() => { document.querySelector('video').currentTime = 1.4; });
     await page.waitForTimeout(600);
 
@@ -335,7 +363,7 @@ async function runYouTubeSmoke(browser) {
     return { ...state, layout };
 }
 
-const browser = await chromium.launch({ headless: true });
+const browser = await launchSmokeBrowser({ headless: true });
 try {
     const local = await runLocalSmoke(browser);
     const result = { local };
@@ -343,4 +371,15 @@ try {
     console.log(JSON.stringify(result, null, 2));
 } finally {
     await browser.close();
+}
+
+async function launchSmokeBrowser(options) {
+    const configuredChannel = process.env.YOMU_PLAYWRIGHT_CHANNEL;
+    if (configuredChannel) return chromium.launch({ ...options, channel: configuredChannel });
+    try {
+        return await chromium.launch(options);
+    } catch (error) {
+        if (!String(error?.message ?? '').includes("Executable doesn't exist")) throw error;
+        return chromium.launch({ ...options, channel: 'chrome' });
+    }
 }
