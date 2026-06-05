@@ -47,7 +47,6 @@ type JpdbDeckState = 'never-forget' | 'blacklisted';
 function assertReviewableJpdbCardState(states: string[], settings: ReaderSettings): void {
     if (states.includes('blacklisted')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedBlacklisted'));
     if (states.includes('never-forget')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedNeverForget'));
-    if (states.includes('locked')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedLocked'));
 }
 
 export class CardActionController {

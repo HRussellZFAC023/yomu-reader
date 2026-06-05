@@ -94,7 +94,6 @@ import {
 import {
     ankiCardKindLabel,
     ankiReviewSourceLabel,
-    isLockedJpdbReviewCard,
     isPositiveJpdbCard,
     isReviewSource,
     newTabCardSourceLabel,
@@ -6389,7 +6388,6 @@ export class NewTabController {
     }
 
     private async submitJpdbApiGrade(card: JPDBCard, grade: JPDBGrade): Promise<void> {
-        if (isLockedJpdbReviewCard(card)) return;
         if (card.source !== 'jpdb' && card.reviewSource !== 'jpdb-api') throw new Error(this.text('couldNotSubmitGrade'));
         const settings = this.dependencies.getSettings();
         if (!settings.jpdbMiningEnabled) throw new Error(this.text('jpdbActionsDisabled'));
@@ -6526,7 +6524,6 @@ export class NewTabController {
             await this.submitAnkiGrade(item.card, item.grade);
             return true;
         }
-        if (isLockedJpdbReviewCard(item.card)) return false;
         await this.submitJpdbApiGrade(item.card, item.grade);
         return true;
     }

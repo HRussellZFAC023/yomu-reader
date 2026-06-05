@@ -14,7 +14,7 @@ import { IMMERSION_KIT_SOURCE_ID, SETTINGS_CHANGE_EVENT, STUDY_GRAMMAR_SOURCE_ID
 import { deinflectJapaneseTerm, termRulesMatch } from '../../src/reader/deinflect';
 import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../src/reader/definition-source-render';
 import { DictionarySourceStateController } from '../../src/reader/dictionary-source-state';
-import { applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, nearestReadableSentenceForElement, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords } from '../../src/reader/dom';
+import { applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, nearestReadableSentenceForElement, readerWordAtPointInScope, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords } from '../../src/reader/dom';
 import { FloatingButtonController } from '../../src/reader/floating-button';
 import { ImmersionKitClient, type ImmersionKitExample } from '../../src/reader/immersion-kit';
 import type { MiningContext } from '../../src/reader/mining-context';
@@ -2404,7 +2404,7 @@ describe('reader helpers', () => {
         expect(ankiBacked).not.toContain('jpdb-reader-actions-has-mining');
     });
 
-    it('blocks locked JPDB review buttons while keeping Anki review available', () => {
+    it('allows locked JPDB review buttons while keeping Anki review available', () => {
         const renderer = new CardPopoverRenderer({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -2434,13 +2434,12 @@ describe('reader helpers', () => {
             ...baseData,
             ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
         });
-        expect(jpdbOnly).not.toContain('data-action="grade"');
+        expect(jpdbOnly).toContain('data-action="grade"');
         expect(jpdbOnly).toContain('jpdb-reader-actions-has-mining');
-        expect(jpdbOnly).not.toContain('jpdb-reader-actions-mining-collapsed');
+        expect(jpdbOnly).toContain('jpdb-reader-actions-mining-collapsed');
         expect(jpdbOnly).toContain('data-action="deck-picker"');
-        expect(jpdbOnly).toContain('aria-expanded="true"');
-        expect(jpdbOnly).toContain('Hide mining actions');
-        expect(jpdbOnly).toContain('This JPDB card is locked');
+        expect(jpdbOnly).toContain('Grades JPDB card');
+        expect(jpdbOnly).not.toContain('This JPDB card is locked');
         const container = document.createElement('div');
         container.innerHTML = jpdbOnly;
         expect(container.querySelector<HTMLSelectElement>('[data-add-deck-select]')?.hidden).toBe(true);
@@ -3281,7 +3280,7 @@ describe('reader helpers', () => {
         expect(onAnkiStatusChanged).toHaveBeenCalledWith(card);
     });
 
-    it('does not submit locked JPDB review grades but allows explicit Anki card grading', async () => {
+    it('submits locked JPDB review grades and allows explicit Anki card grading', async () => {
         const reviewCard = vi.fn(async () => undefined);
         const answerCard = vi.fn(async () => undefined);
         const invalidateCardData = vi.fn();
@@ -3312,8 +3311,8 @@ describe('reader helpers', () => {
         });
 
         const lockedCard: JPDBCard = { ...card, cardState: ['locked'] };
-        await expect(controller.reviewGrade('okay', lockedCard)).rejects.toThrow('JPDB card is locked');
-        expect(reviewCard).not.toHaveBeenCalled();
+        await expect(controller.reviewGrade('okay', lockedCard)).resolves.toBeUndefined();
+        expect(reviewCard).toHaveBeenCalledWith(lockedCard, 'okay');
         expect(invalidateCardData).not.toHaveBeenCalled();
         expect(onAnkiStatusChanged).not.toHaveBeenCalled();
 
@@ -25630,6 +25629,81 @@ describe('reader helpers', () => {
         expect(readerWordSurfaceText(word)).toBe('終わり');
         expect(word.classList.contains('jpdb-reader-scan-word')).toBe(true);
         expect(document.querySelector('.volume-card__title rt')).toBeNull();
+    });
+
+    it('collects each Mokuro text box as one automatic scan target', () => {
+        document.body.innerHTML = `
+            <div id="manga-panel">
+                <div class="textBox" style="position:absolute;width:120px;height:80px">
+                    <p>ぴっ</p>
+                    <p>たりよね</p>
+                </div>
+            </div>
+        `;
+
+        const targets = collectScanTargets(10, 'https://reader.mokuro.app/reader/example');
+        expect(targets.map(target => target.text)).toEqual(['ぴったりよね']);
+        const target = targets[0];
+        expect(target && 'layoutSensitive' in target ? target.layoutSensitive : false).toBe(true);
+    });
+
+    it('keeps Mokuro words clickable when JPDB tokens cross OCR line fragments', () => {
+        document.body.innerHTML = `
+            <div id="manga-panel">
+                <div class="textBox" style="position:absolute;width:120px;height:80px">
+                    <p>ぴっ</p>
+                    <p>たりよね</p>
+                </div>
+            </div>
+        `;
+        const [target] = collectScanTargets(10, 'https://reader.mokuro.app/reader/example');
+
+        applyTokensToScanTarget(target!, [
+            {
+                card: { ...card, cardState: ['known'], spelling: 'ぴったり', reading: 'ぴったり' },
+                start: 0,
+                end: 4,
+                length: 4,
+                rubies: [],
+                pitchClass: 'heiban',
+                sentence: 'ぴったりよね',
+            },
+            {
+                card: { ...card, cardState: ['known'], spelling: 'よね', reading: 'よね' },
+                start: 4,
+                end: 6,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence: 'ぴったりよね',
+            },
+        ], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const words = Array.from(document.querySelectorAll<HTMLElement>('.textBox .jpdb-reader-word'));
+        expect(words.map(word => readerWordSurfaceText(word))).toEqual(['ぴっ', 'たり', 'よね']);
+        expect(words.slice(0, 2).map(word => word.dataset.expression)).toEqual(['ぴったり', 'ぴったり']);
+        expect(document.querySelector('.textBox rt')).toBeNull();
+    });
+
+    it('resolves Mokuro vertical text clicks from rendered word geometry', () => {
+        document.body.innerHTML = `
+            <div class="textBox" style="writing-mode:vertical-rl">
+                <span class="jpdb-reader-word" data-expression="びったり">びったり</span>
+                <span class="jpdb-reader-word" data-expression="よね">よね</span>
+            </div>
+        `;
+        const box = document.querySelector<HTMLElement>('.textBox')!;
+        const [bittari, yone] = Array.from(box.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        bittari.getClientRects = () => domRectList([
+            { left: 724, top: 892, width: 74, height: 169 },
+            { left: 668, top: 723, width: 74, height: 56 },
+        ]);
+        yone.getClientRects = () => domRectList([
+            { left: 668, top: 780, width: 74, height: 112 },
+        ]);
+
+        expect(readerWordAtPointInScope(box, 761, 976)?.dataset.expression).toBe('びったり');
+        expect(readerWordAtPointInScope(box, 705, 836)?.dataset.expression).toBe('よね');
     });
 
     it('marks scanned page words with wrapping CSS so furigana cannot create a page-wide line', () => {

@@ -3418,7 +3418,7 @@ describe('new tab review helpers', () => {
         expect(result.cards[0]?.reviewSource).toBe('jpdb-api');
     });
 
-    it('keeps locked JPDB API cards in deck order without making them gradeable', async () => {
+    it('keeps locked JPDB API cards in deck order and makes them gradeable', async () => {
         const locked = newTabTestCard({ spelling: '未解禁', reading: 'みかいきん', source: 'jpdb', cardState: ['locked'] });
         const due = newTabTestCard({ spelling: '復習', reading: 'ふくしゅう', source: 'jpdb', cardState: ['due'] });
         const reviewCard = vi.fn(async () => undefined);
@@ -3480,12 +3480,16 @@ describe('new tab review helpers', () => {
             expect(result.cards.map(card => card.spelling)).toEqual(['未解禁', '復習']);
             expect(result.cards.map(card => card.reviewSource)).toEqual(['jpdb-api', 'jpdb-api']);
             expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['未解禁', '復習']);
-            expect(root.querySelector('[data-grade]')).toBeNull();
-            expect(Array.from(root.querySelectorAll<HTMLElement>('[data-newtab-controls] [data-newtab-action]'))
-                .map(element => element.dataset.newtabAction)).toEqual(['previous', 'reveal', 'next']);
+            expect(root.querySelectorAll('[data-grade]')).toHaveLength(5);
+            expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades JPDB');
 
             await (controller as unknown as { gradeCurrentCard(grade: 'okay'): Promise<void> }).gradeCurrentCard('okay');
-            expect(reviewCard).not.toHaveBeenCalled();
+            expect(reviewCard).toHaveBeenCalledWith(expect.objectContaining({
+                spelling: '未解禁',
+                reading: 'みかいきん',
+                cardState: ['locked'],
+                reviewSource: 'jpdb-api',
+            }), 'okay');
         } finally {
             root.remove();
         }
@@ -3999,7 +4003,7 @@ describe('new tab review helpers', () => {
         expect(localStorage.getItem(NEW_TAB_GRADE_QUEUE_KEY)).toBeNull();
     });
 
-    it('drops stale queued locked JPDB grades without submitting them', async () => {
+    it('submits queued locked JPDB grades', async () => {
         const card = newTabTestCard({ vid: 1, sid: 1, spelling: '未解禁', reading: 'みかいきん', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['locked'] });
         localStorage.setItem(NEW_TAB_GRADE_QUEUE_KEY, JSON.stringify([{
             id: 'jpdb-api:1:1:未解禁:みかいきん',
@@ -4029,7 +4033,7 @@ describe('new tab review helpers', () => {
 
         await (controller as unknown as { flushQueuedGrades(): Promise<void> }).flushQueuedGrades();
 
-        expect(reviewCard).not.toHaveBeenCalled();
+        expect(reviewCard).toHaveBeenCalledWith(card, 'easy');
         expect(localStorage.getItem(NEW_TAB_GRADE_QUEUE_KEY)).toBeNull();
     });
 

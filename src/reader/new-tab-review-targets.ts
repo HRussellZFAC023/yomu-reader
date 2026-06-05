@@ -44,10 +44,6 @@ export function ankiCardKindLabel(card: JPDBCard, language: ReaderSettings['inte
     return '';
 }
 
-export function isLockedJpdbReviewCard(card: JPDBCard): boolean {
-    return card.cardState.includes('locked') && (card.source === 'jpdb' || card.reviewSource === 'jpdb-api' || card.reviewSource === 'jpdb-live');
-}
-
 export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSettings, ankiCardId: number | null): NewTabReviewTarget[] {
     if (!settings.enableReviews) return [];
     const targets: NewTabReviewTarget[] = [];
@@ -56,8 +52,7 @@ export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSetti
     };
     if (card.reviewSource === 'jpdb-live') {
         if (settings.jpdbMiningEnabled) add('jpdb-live');
-    } else if (!isLockedJpdbReviewCard(card)
-        && (card.reviewSource === 'jpdb-api' || isPositiveJpdbCard(card))
+    } else if ((card.reviewSource === 'jpdb-api' || isPositiveJpdbCard(card))
         && settings.jpdbMiningEnabled
         && Boolean(settings.apiKey.trim())) {
         add('jpdb-api');

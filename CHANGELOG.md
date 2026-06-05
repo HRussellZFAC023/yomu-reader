@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.19] - 2026-06-05
+
+### Fixed
+
+- Made Mokuro scans parse each manga text box as one target, preserving full words across OCR line fragments without adding ruby that changes the page layout.
+- Fixed Mokuro vertical-text clicks so rendered Yomu word geometry is used before raw text fallback, preventing neighboring suffixes from opening instead of the clicked word.
+- Allowed locked JPDB cards to be graded in the popup and new-tab reviewer while keeping blacklisted and never-forget cards blocked.
+
 ## [0.6.18] - 2026-06-05
 
 ### Fixed
