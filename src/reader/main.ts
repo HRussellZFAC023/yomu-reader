@@ -765,6 +765,7 @@ export class ReaderApp {
     private suppressWordClickUntil = 0;
     private suppressPenHoverUntil = 0;
     private pageHasJapaneseText = false;
+    private embeddedFrame = false;
     private pressLookup?: PressLookupState;
     private suppressMiddleAuxClickUntil = 0;
 
@@ -774,6 +775,7 @@ export class ReaderApp {
 
     async init(options?: ReaderAppInitOptions): Promise<void> {
         const done = log.time('init', { href: location.href, devMode: Logger.isDevMode() });
+        this.embeddedFrame = options?.embeddedFrame === true;
         const shouldShowWelcome = await this.loadInitialSettings(options);
         await this.installCoreSurfaces();
         await this.initReaderPage(shouldShowWelcome);
@@ -795,12 +797,17 @@ export class ReaderApp {
         this.installStyles();
         this.applyTheme();
         await this.refreshDictionaryStyles();
+        if (this.embeddedFrame) return;
         this.registerMenuCommands();
         this.bindEvents();
         installReaderStartupBridge();
     }
 
     private async initReaderPage(shouldShowWelcome: boolean): Promise<void> {
+        if (this.embeddedFrame) {
+            this.subtitles.init();
+            return;
+        }
         this.installFab();
         this.subtitles.init();
         this.ocr.init();
@@ -3881,6 +3888,7 @@ export class ReaderApp {
         const wrapper = picker.closest<HTMLElement>('.jpdb-reader-mining-details');
         const toggle = wrapper?.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title');
         if (picker.classList.contains('jpdb-reader-add-deck-select-open')) {
+            picker.hidden = false;
             picker.focus();
             return true;
         }
@@ -3889,6 +3897,7 @@ export class ReaderApp {
         const cleanup = (): void => {
             controller.abort();
             picker.classList.remove('jpdb-reader-add-deck-select-open');
+            picker.hidden = true;
             wrapper?.classList.remove('jpdb-reader-deck-picker-open');
             toggle?.setAttribute('aria-expanded', 'false');
             picker.selectedIndex = 0;
@@ -3917,6 +3926,7 @@ export class ReaderApp {
             }, 180);
         }, { once: true, signal: controller.signal });
 
+        picker.hidden = false;
         picker.classList.add('jpdb-reader-add-deck-select-open');
         wrapper?.classList.add('jpdb-reader-deck-picker-open');
         toggle?.setAttribute('aria-expanded', 'true');
@@ -5935,7 +5945,11 @@ function clearRenderedWordAnkiState(word: HTMLElement): void {
         .forEach(className => word.classList.remove(className));
     delete word.dataset.ankiState;
     delete word.dataset.ankiDecks;
+    word.style.removeProperty('--jpdb-reader-page-bg');
+    word.style.removeProperty('--jpdb-reader-highlight-backdrop');
+    word.style.removeProperty('--jpdb-reader-furi-accessible-color');
     word.style.removeProperty('--jpdb-reader-word-accessible-color');
+    word.style.removeProperty('--jpdb-reader-word-accessible-highlight');
     word.style.removeProperty('--jpdb-reader-word-accessible-underline');
     word.style.removeProperty('--jpdb-reader-word-highlight-text');
     word.style.removeProperty('--jpdb-reader-word-contrast-shadow');

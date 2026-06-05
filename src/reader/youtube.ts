@@ -290,7 +290,7 @@ export class YoutubeImmersionFilter {
         const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
         result.decisions.forEach(decision => this.applyFilterDecision(decision));
 
-        if (settings.youtubeShowFilterNotice) {
+        if (settings.youtubeShowFilterNotice && shouldShowFilterNoticeForRoute()) {
             this.renderNotice(result.filteredCount, result.shownCount, settings);
         } else {
             this.bar?.remove();
@@ -643,6 +643,10 @@ function isNearPageBottom(): boolean {
 
 function isYouTubeWatchPage(): boolean {
     return location.pathname === '/watch';
+}
+
+function shouldShowFilterNoticeForRoute(): boolean {
+    return !isYouTubeWatchPage();
 }
 
 function unwrapYouTubeWatchTitleReaderWords(): void {

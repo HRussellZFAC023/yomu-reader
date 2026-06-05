@@ -77,7 +77,7 @@ describe('nested text parse plans', () => {
         document.body.innerHTML = `
             <section data-jpdb-reader-root="true" data-jpdb-reader-parse-key="stale">
                 <div class="jpdb-reader-example-sentence jpdb-reader-parseable">
-                    <mark class="jpdb-reader-example-target"><span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban jpdb-reader-example-target" data-vid="1464530" data-sid="0" tabindex="0">日本語</span></mark>は分かりません。
+                    <mark class="jpdb-reader-example-target"><span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban jpdb-reader-example-target" data-vid="1464530" data-sid="0" tabindex="-1">日本語</span></mark>は分かりません。
                 </div>
             </section>
         `;

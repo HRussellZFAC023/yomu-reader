@@ -1090,7 +1090,8 @@ export async function saveSettings(settings: ReaderSettings): Promise<void> {
         return;
     }
     try {
-        const storedSettings = stripUnsupportedSettings(settings) ?? settings;
+        const normalizedSettings = mergeSettings(settings as LegacyReaderSettings);
+        const storedSettings = stripUnsupportedSettings(normalizedSettings) ?? normalizedSettings;
         await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
         dispatchSettingsChange(storedSettings);
     } catch (error) {

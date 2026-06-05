@@ -92,23 +92,42 @@ export function applyReaderWordColors(settings: ReaderSettings, root = document.
 }
 
 function appliedReaderTheme(settings: ReaderSettings): AppliedReaderTheme {
+    const wordColorSources = normalizedAppliedColorSources(settings, {
+        highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource, 'jpdb'),
+        underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, 'pitch'),
+        text: effectiveReaderTextColorSource(settings, settings.wordTextColorSource, 'anki'),
+    }, 'word');
+    const subtitleColorSources = normalizedAppliedColorSources(settings, {
+        highlight: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleHighlightColorSource, 'jpdb')),
+        underline: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleUnderlineColorSource, 'pitch')),
+        text: appliedSubtitleColorSource(settings, effectiveSubtitleTextColorSource(settings, settings.subtitleTextColorSource, 'anki')),
+    }, 'subtitle');
     return {
         furiganaMode: effectiveFuriganaMode(settings),
-        wordColorSources: {
-            highlight: effectiveReaderColorSource(settings, settings.wordHighlightColorSource, 'jpdb'),
-            underline: effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, 'pitch'),
-            text: effectiveReaderTextColorSource(settings, settings.wordTextColorSource, 'anki'),
-        },
-        subtitleColorSources: {
-            highlight: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleHighlightColorSource, 'jpdb')),
-            underline: appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, settings.subtitleUnderlineColorSource, 'pitch')),
-            text: appliedSubtitleColorSource(settings, effectiveSubtitleTextColorSource(settings, settings.subtitleTextColorSource, 'anki')),
-        },
+        wordColorSources,
+        subtitleColorSources,
     };
 }
 
 function appliedSubtitleColorSource(settings: ReaderSettings, source: AppliedColorSource): AppliedColorSource {
     return source === 'status' ? effectiveReaderColorSource(settings, 'status', 'status') : source;
+}
+
+function normalizedAppliedColorSources(
+    settings: ReaderSettings,
+    sources: ColorSourceMap,
+    scope: 'word' | 'subtitle',
+): ColorSourceMap {
+    if (sources.highlight !== 'pitch' || sources.underline !== 'pitch') return sources;
+    return {
+        ...sources,
+        highlight: defaultHighlightSource(settings, scope),
+    };
+}
+
+function defaultHighlightSource(settings: ReaderSettings, scope: 'word' | 'subtitle'): AppliedColorSource {
+    if (scope === 'word') return effectiveReaderColorSource(settings, 'jpdb', 'jpdb');
+    return appliedSubtitleColorSource(settings, effectiveSubtitleColorSource(settings, 'jpdb', 'jpdb'));
 }
 
 function readerStateColors(settings: ReaderSettings): Record<string, string> {

@@ -249,6 +249,7 @@ const TRANSCRIPT_PANEL_MIN_SIDE_PLAYER_WIDTH = 560;
 const TRANSCRIPT_PANEL_MIN_SIDE_PLAYER_RATIO = 0.52;
 const TRANSCRIPT_PANEL_ANIMATION_MS = 180;
 const TRANSCRIPT_PANEL_KEYBOARD_STEP_PX = 48;
+const SUBTITLE_FILE_ACCEPT = '.srt,.vtt,.ass,.ssa,text/vtt';
 const log = Logger.scope('Subtitles');
 const TRACK_LOAD_OPTIONS: Omit<SubtitleTrackLoadOptions<SubtitleTrackOption>, 'tracks' | 'transcriptEligible'> = {
     requestText: defaultRequestSubtitleText,
@@ -361,8 +362,6 @@ export class SubtitlePlayerController {
     private subtitleEl?: HTMLElement;
     private transcriptPanel?: HTMLElement;
     private abortController?: AbortController;
-    private primaryFileInput?: HTMLInputElement;
-    private secondaryFileInput?: HTMLInputElement;
     private video?: HTMLVideoElement;
     private cues: SubtitleCue[] = [];
     private secondaryCues: SubtitleCue[] = [];
@@ -432,8 +431,8 @@ export class SubtitlePlayerController {
         next: () => this.seekSubtitle(1),
         copy: () => { void this.copySubtitle(); },
         'copy-row': target => { void this.copyTranscriptRow(this.rowIndexFromTarget(target)); },
-        load: () => this.primaryFileInput?.click(),
-        'load-secondary': () => this.secondaryFileInput?.click(),
+        load: () => this.openSubtitleFilePicker('primary'),
+        'load-secondary': () => this.openSubtitleFilePicker('secondary'),
         panel: () => this.toggleTranscriptDrawer(),
         'panel-lines': () => this.openLinesPanel(),
         'panel-tracks': () => this.openTracksPanel(),
@@ -505,8 +504,6 @@ export class SubtitlePlayerController {
         this.root = undefined;
         this.subtitleEl = undefined;
         this.transcriptPanel = undefined;
-        this.primaryFileInput = undefined;
-        this.secondaryFileInput = undefined;
         this.video = undefined;
     }
 
@@ -581,8 +578,6 @@ export class SubtitlePlayerController {
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>
             </div>
             <div class="jpdb-subtitle-list" hidden></div>
-            <input hidden type="file" data-file="primary" accept=".srt,.vtt,.ass,.ssa,text/vtt">
-            <input hidden type="file" data-file="secondary" accept=".srt,.vtt,.ass,.ssa,text/vtt">
         `);
         root.addEventListener('click', event => this.handleClick(event));
         this.subtitleEl = root.querySelector('.jpdb-subtitle-text') as HTMLElement;
@@ -590,10 +585,6 @@ export class SubtitlePlayerController {
         this.transcriptPanel.dataset.jpdbReaderRoot = 'true';
         this.transcriptPanel.addEventListener('click', event => this.handleClick(event), this.eventOptions());
         this.transcriptPanel.addEventListener('keydown', event => this.handleTranscriptPanelKeydown(event), this.eventOptions());
-        this.primaryFileInput = root.querySelector('input[data-file="primary"]') as HTMLInputElement;
-        this.secondaryFileInput = root.querySelector('input[data-file="secondary"]') as HTMLInputElement;
-        this.primaryFileInput.addEventListener('change', () => void this.loadSubtitleFile('primary'), this.eventOptions());
-        this.secondaryFileInput.addEventListener('change', () => void this.loadSubtitleFile('secondary'), this.eventOptions());
         document.body.appendChild(root);
         document.body.appendChild(this.transcriptPanel);
         this.root = root;
@@ -939,8 +930,14 @@ export class SubtitlePlayerController {
         this.refreshSubtitleSourcesForTick();
         this.refreshNativeCueLists();
         this.updateFromLoadedCues();
+        this.syncPlayerChromeIdleState();
         if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
         if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
+    }
+
+    private syncPlayerChromeIdleState(): void {
+        if (!this.root || !this.shouldAutoIdleControls() || !this.videoPlayerChromeHidden()) return;
+        this.hideControlsImmediately();
     }
 
     private refreshSubtitleSourcesForTick(): void {
@@ -1712,7 +1709,6 @@ export class SubtitlePlayerController {
     private shouldAutoIdleControls(): boolean {
         const settings = this.options.getSettings();
         if (!this.hasAutoIdleMode(settings)) return false;
-        if (isCoarsePointerDevice()) return false;
         if (!this.canIdleSubtitleControls()) return false;
         return !this.video || this.videoIsLargeEnoughForIdleControls();
     }
@@ -1744,7 +1740,15 @@ export class SubtitlePlayerController {
         if (this.pointInElement(this.root.querySelector('.jpdb-subtitle-rail'), x, y)) return true;
         if (this.pointInOpenTranscriptPanel(x, y)) return true;
         if (!this.video) return true;
+        if (this.videoPlayerChromeHidden()) return false;
         return pointInRect(x, y, this.video.getBoundingClientRect());
+    }
+
+    private videoPlayerChromeHidden(): boolean {
+        const player = this.video?.closest<HTMLElement>('#movie_player, .html5-video-player');
+        return Boolean(player?.classList.contains('ytp-autohide')
+            || player?.classList.contains('ytp-hide-controls')
+            || player?.classList.contains('ytp-player-minimized'));
     }
 
     private pointInOpenTranscriptPanel(x: number, y: number): boolean {
@@ -1877,9 +1881,22 @@ export class SubtitlePlayerController {
             .catch(error => log.warn('Subtitle auto-copy failed', error));
     }
 
-    private async loadSubtitleFile(kind: 'primary' | 'secondary'): Promise<void> {
-        const input = kind === 'primary' ? this.primaryFileInput : this.secondaryFileInput;
-        const file = input?.files?.[0];
+    private openSubtitleFilePicker(kind: 'primary' | 'secondary'): void {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = SUBTITLE_FILE_ACCEPT;
+        input.style.setProperty('display', 'none', 'important');
+        input.addEventListener('change', () => {
+            const file = input.files?.[0];
+            input.remove();
+            if (file) void this.loadSubtitleFile(kind, file);
+        }, { once: true });
+        input.addEventListener('cancel', () => input.remove(), { once: true });
+        (document.body || document.documentElement).appendChild(input);
+        input.click();
+    }
+
+    private async loadSubtitleFile(kind: 'primary' | 'secondary', file: File): Promise<void> {
         if (!file) return;
         const text = await file.text();
         const cues = normalizeSubtitleCues(parseSubtitleText(text), { transcriptEligible: kind === 'primary' });
@@ -1892,7 +1909,6 @@ export class SubtitlePlayerController {
         this.tracks.push(track);
         if (kind === 'primary') await this.selectTrack(track.id);
         else await this.selectSecondaryTrack(track.id);
-        if (input) input.value = '';
         this.updateFromLoadedCues();
         log.info('Subtitle file loaded', { kind, name: file.name, cues: cues.length });
     }
@@ -3361,12 +3377,7 @@ function hasSubtitlePlaybackSurface(video: HTMLVideoElement | undefined, cues: S
 }
 
 function shouldKeepIdleControlClass(root: HTMLElement, settings: ReaderSettings): boolean {
-    if (isCoarsePointerDevice()) return false;
     return settings.subtitleControlsMode === 'auto' && root.classList.contains('jpdb-subtitle-controls-idle');
-}
-
-function isCoarsePointerDevice(): boolean {
-    return window.matchMedia?.('(pointer: coarse)').matches ?? false;
 }
 
 function trackLanguageLabel(track: SubtitleTrackOption, language: InterfaceLanguage): string {

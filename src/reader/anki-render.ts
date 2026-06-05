@@ -4,6 +4,23 @@ import type { StoredMiningContext } from './mining-context';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from './types';
 import { formatUiText, uiText, type UiCopyKey } from './i18n';
 
+interface AnkiCardSanitizeOptions {
+    maxFontPx: number;
+    maxFontPt: number;
+    maxFontRelative: number;
+}
+
+const POPOVER_ANKI_SANITIZE: AnkiCardSanitizeOptions = {
+    maxFontPx: 30,
+    maxFontPt: 22,
+    maxFontRelative: 1.8,
+};
+const STUDY_ANKI_SANITIZE: AnkiCardSanitizeOptions = {
+    maxFontPx: 52,
+    maxFontPt: 39,
+    maxFontRelative: 3.1,
+};
+
 export function renderAnkiActionRow(ankiLookup: AnkiLookupResult, settings: ReaderSettings): string {
     if (!settings.ankiEnabled) return '';
     if (ankiLookup.primary) return '';
@@ -61,15 +78,17 @@ export function renderAnkiNewCardPreview(card: JPDBCard, sentence: string | unde
 
 function orderedExistingAnkiNotes(ankiLookup: AnkiLookupResult): AnkiExistingNote[] {
     const notes: AnkiExistingNote[] = [];
-    appendUniqueAnkiNote(notes, ankiLookup.primary);
-    (ankiLookup.notes ?? []).forEach(note => appendUniqueAnkiNote(notes, note));
+    const seen = new Set<string>();
+    appendUniqueAnkiNote(notes, seen, ankiLookup.primary);
+    (ankiLookup.notes ?? []).forEach(note => appendUniqueAnkiNote(notes, seen, note));
     return notes;
 }
 
-function appendUniqueAnkiNote(notes: AnkiExistingNote[], note: AnkiExistingNote | null | undefined): void {
+function appendUniqueAnkiNote(notes: AnkiExistingNote[], seen: Set<string>, note: AnkiExistingNote | null | undefined): void {
     if (!note) return;
     const key = ankiNoteKey(note);
-    if (notes.some(existing => ankiNoteKey(existing) === key)) return;
+    if (seen.has(key)) return;
+    seen.add(key);
     notes.push(note);
 }
 
@@ -221,11 +240,11 @@ function renderedCardTitle(card: AnkiRenderedCard, index: number): string {
     return [card.deckName, `#${card.cardId || index + 1}`].filter(Boolean).join(' ');
 }
 
-function renderAnkiRenderedSides(card: AnkiRenderedCard, soundFilenames: string[], language: InterfaceLanguage): string[] {
-    const questionHtml = sanitizeAnkiCardHtml(card.question, soundFilenames, language, card.mediaDataUrls);
-    const answerHtml = sanitizeAnkiCardHtml(card.answer, soundFilenames, language, card.mediaDataUrls);
-    const question = hasRenderableAnkiCardContent(questionHtml) ? renderAnkiRenderedSideBody(questionHtml) : '';
-    const answer = hasRenderableAnkiCardContent(answerHtml) ? renderAnkiRenderedSideBody(answerHtml) : '';
+function renderAnkiRenderedSides(card: AnkiRenderedCard, soundFilenames: string[], language: InterfaceLanguage, options = POPOVER_ANKI_SANITIZE): string[] {
+    const questionHtml = sanitizeAnkiCardHtml(card.question, soundFilenames, language, card.mediaDataUrls, options);
+    const answerHtml = sanitizeAnkiCardHtml(card.answer, soundFilenames, language, card.mediaDataUrls, options);
+    const question = renderAnkiRenderedSideBody(questionHtml);
+    const answer = renderAnkiRenderedSideBody(answerHtml);
     if (!question) return answer ? [answer] : [];
     if (!answer) return [question];
     if (renderedAnkiAnswerIncludesQuestion(questionHtml, answerHtml)) return [answer];
@@ -240,9 +259,9 @@ function renderAnkiRenderedSideBody(html: string): string {
 }
 
 export function renderAnkiRenderedCardStudyBody(card: AnkiRenderedCard, revealed: boolean, language: InterfaceLanguage, soundFilenames: string[] = []): string {
-    const questionHtml = sanitizeAnkiCardHtml(card.question, soundFilenames, language, card.mediaDataUrls);
-    const question = hasRenderableAnkiCardContent(questionHtml) ? renderAnkiRenderedSideBody(questionHtml) : '';
-    const sides = revealed ? renderAnkiRenderedSides(card, soundFilenames, language) : [question].filter(Boolean);
+    const questionHtml = sanitizeAnkiCardHtml(card.question, soundFilenames, language, card.mediaDataUrls, STUDY_ANKI_SANITIZE);
+    const question = renderAnkiRenderedSideBody(questionHtml);
+    const sides = revealed ? renderAnkiRenderedSides(card, soundFilenames, language, STUDY_ANKI_SANITIZE) : [question].filter(Boolean);
     if (!sides.length) return '';
     return `<div class="jpdb-reader-anki-rendered-card jpdb-reader-anki-study-card" data-anki-rendered-card-id="${card.cardId}">${sides.join('')}</div>`;
 }
@@ -346,25 +365,31 @@ function noteHasAudio(note: AnkiExistingNote): boolean {
     );
 }
 
-function sanitizeAnkiCardHtml(value: string, soundFilenames: string[], language: InterfaceLanguage, mediaDataUrls: Record<string, string> = {}): string {
+function sanitizeAnkiCardHtml(
+    value: string,
+    soundFilenames: string[],
+    language: InterfaceLanguage,
+    mediaDataUrls: Record<string, string> = {},
+    options = POPOVER_ANKI_SANITIZE,
+): string {
     const trimmed = value.trim();
     if (!trimmed) return '';
     if (typeof document === 'undefined') return escapeHtml(trimmed);
     const template = document.createElement('template');
     template.innerHTML = trimmed;
-    sanitizeAnkiCardFragment(template.content, mediaDataUrls);
+    sanitizeAnkiCardFragment(template.content, mediaDataUrls, options);
     installAnkiMediaFallbackButtons(template.content, language);
     replaceAnkiSoundMarkers(template.content, language);
     replaceAnkiPlaybackMarkers(template.content, soundFilenames, language);
     return template.innerHTML.trim();
 }
 
-function sanitizeAnkiCardFragment(fragment: DocumentFragment, mediaDataUrls: Record<string, string>): void {
+function sanitizeAnkiCardFragment(fragment: DocumentFragment, mediaDataUrls: Record<string, string>, options: AnkiCardSanitizeOptions): void {
     fragment.querySelectorAll('script, style, link, iframe, object, embed, base, meta').forEach(node => node.remove());
-    fragment.querySelectorAll('*').forEach(node => sanitizeAnkiCardElement(node, mediaDataUrls));
+    fragment.querySelectorAll('*').forEach(node => sanitizeAnkiCardElement(node, mediaDataUrls, options));
 }
 
-function sanitizeAnkiCardElement(element: Element, mediaDataUrls: Record<string, string>): void {
+function sanitizeAnkiCardElement(element: Element, mediaDataUrls: Record<string, string>, options: AnkiCardSanitizeOptions): void {
     for (const attr of Array.from(element.attributes)) {
         if (shouldRemoveAnkiCardAttribute(attr.name, attr.value)) {
             element.removeAttribute(attr.name);
@@ -372,7 +397,7 @@ function sanitizeAnkiCardElement(element: Element, mediaDataUrls: Record<string,
         }
         rewriteAnkiCardMediaAttribute(element, attr.name, attr.value, mediaDataUrls);
     }
-    sanitizeAnkiCardInlineStyle(element);
+    sanitizeAnkiCardInlineStyle(element, options);
 }
 
 function rewriteAnkiCardMediaAttribute(element: Element, name: string, value: string, mediaDataUrls: Record<string, string>): void {
@@ -384,19 +409,18 @@ function rewriteAnkiCardMediaAttribute(element: Element, name: string, value: st
     if (dataUrl) element.setAttribute(name, dataUrl);
 }
 
-function sanitizeAnkiCardInlineStyle(element: Element): void {
+function sanitizeAnkiCardInlineStyle(element: Element, options: AnkiCardSanitizeOptions): void {
     if (!(element instanceof HTMLElement)) return;
     const originalStyle = element.getAttribute('style');
     if (!originalStyle) return;
-    if (/(?:^|;)\s*font(?:-size)?\s*:/i.test(originalStyle)) {
-        const capped = cappedFontSizeValue(element.style.fontSize);
+    if (/(?:^|;)\s*font\s*:/i.test(originalStyle)) {
+        element.setAttribute('style', capFontShorthandDeclarations(originalStyle, options));
+    }
+    if (/(?:^|;)\s*font-size\s*:/i.test(element.getAttribute('style') ?? '')) {
+        const capped = cappedFontSizeValue(element.style.fontSize, options);
         if (capped) element.style.fontSize = capped;
     }
     removeNestedScrollInlineStyle(element);
-    const updatedStyle = element.getAttribute('style');
-    if (updatedStyle && /(?:^|;)\s*font\s*:/i.test(updatedStyle)) {
-        element.setAttribute('style', updatedStyle.replace(/(^|;)\s*font\s*:[^;]+;?/gi, '$1').trim());
-    }
     if (!element.getAttribute('style')?.trim()) element.removeAttribute('style');
 }
 
@@ -405,16 +429,35 @@ function removeNestedScrollInlineStyle(element: HTMLElement): void {
         .forEach(property => element.style.removeProperty(property));
 }
 
-function cappedFontSizeValue(rawValue: string): string {
+function capFontShorthandDeclarations(style: string, options: AnkiCardSanitizeOptions): string {
+    return style.replace(/(^|;)(\s*font\s*:\s*)([^;]+)/gi, (_, separator: string, prefix: string, value: string) => {
+        return `${separator}${prefix}${capFontShorthandValue(value, options)}`;
+    });
+}
+
+function capFontShorthandValue(value: string, options: AnkiCardSanitizeOptions): string {
+    return value.replace(/(\d+(?:\.\d+)?)(\s*)(px|pt|em|rem)(\s*\/\s*[^\s;]+)?/i, (
+        match: string,
+        amount: string,
+        _space: string,
+        unit: string,
+        lineHeight: string | undefined,
+    ) => {
+        const capped = cappedFontSizeValue(`${amount}${unit}`, options);
+        return capped ? `${capped}${lineHeight ?? ''}` : match;
+    });
+}
+
+function cappedFontSizeValue(rawValue: string, options: AnkiCardSanitizeOptions): string {
     const value = rawValue.trim();
     const match = /^([\d.]+)\s*(px|pt|em|rem)$/i.exec(value);
     if (!match) return value;
     const amount = Number(match[1]);
     const unit = match[2].toLowerCase();
     if (!Number.isFinite(amount)) return value;
-    if (unit === 'px') return `${Math.min(amount, 30)}px`;
-    if (unit === 'pt') return `${Math.min(amount, 22)}pt`;
-    if (unit === 'em' || unit === 'rem') return `${Math.min(amount, 1.8)}${unit}`;
+    if (unit === 'px') return `${Math.min(amount, options.maxFontPx)}px`;
+    if (unit === 'pt') return `${Math.min(amount, options.maxFontPt)}pt`;
+    if (unit === 'em' || unit === 'rem') return `${Math.min(amount, options.maxFontRelative)}${unit}`;
     return value;
 }
 

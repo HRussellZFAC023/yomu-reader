@@ -29,6 +29,29 @@ function withViewport<T>(width: number, height: number, callback: () => T): T {
     }
 }
 
+async function withMatchMedia<T>(matches: (query: string) => boolean, callback: () => T | Promise<T>): Promise<T> {
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+    Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        value: (query: string) => ({
+            matches: matches(query),
+            media: query,
+            onchange: null,
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+        }),
+    });
+    try {
+        return await callback();
+    } finally {
+        if (descriptor) Object.defineProperty(window, 'matchMedia', descriptor);
+        else delete (window as unknown as Record<string, unknown>).matchMedia;
+    }
+}
+
 function mockElementRect(element: Element, rect: DOMRect): void {
     Object.defineProperty(element, 'getBoundingClientRect', {
         configurable: true,
@@ -107,6 +130,42 @@ describe('SubtitlePlayerController', () => {
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="toggle"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="list"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
+    });
+
+    it('does not mount native subtitle file inputs inside the floating player', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+        const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined);
+
+        try {
+            (controller as unknown as { install: () => void; openTracksPanel: () => void }).install();
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+
+            expect(root.querySelector('input[type="file"]')).toBeNull();
+
+            (controller as unknown as { openTracksPanel: () => void }).openTracksPanel();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-list [data-action="load"]')!.click();
+
+            const picker = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+            expect(root.querySelector('input[type="file"]')).toBeNull();
+            expect(picker.style.getPropertyValue('display')).toBe('none');
+            expect(picker.style.getPropertyPriority('display')).toBe('important');
+            expect(clickSpy).toHaveBeenCalledTimes(1);
+
+            picker.dispatchEvent(new Event('cancel'));
+            expect(document.querySelector('input[type="file"]')).toBeNull();
+        } finally {
+            clickSpy.mockRestore();
+            controller.destroy();
+        }
     });
 
     it('opens and closes the transcript drawer from the rail panel toggle', async () => {
@@ -530,6 +589,89 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('returns subtitle controls to idle on coarse pointer devices', async () => {
+        vi.useFakeTimers();
+        await withMatchMedia(query => query === '(pointer: coarse)', async () => {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                localDictionariesEnabled: false,
+            };
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async () => [],
+                onSettingsChange: () => undefined,
+            });
+
+            try {
+                (controller as unknown as { install: () => void }).install();
+                const video = document.createElement('video');
+                Object.defineProperty(video, 'getBoundingClientRect', {
+                    configurable: true,
+                    value: () => new DOMRect(0, 0, 390, 240),
+                });
+                (controller as unknown as { video: HTMLVideoElement }).video = video;
+                controller.refresh();
+
+                const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+
+                (controller as unknown as { handlePointerActivity: (event: Pick<PointerEvent, 'clientX' | 'clientY'>) => void })
+                    .handlePointerActivity({ clientX: 100, clientY: 100 });
+
+                expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
+
+                await vi.advanceTimersByTimeAsync(2600);
+
+                expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
+    it('keeps subtitle controls idle when YouTube player chrome is autohidden', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+
+        try {
+            document.body.innerHTML = '<div id="movie_player" class="html5-video-player ytp-autohide"><video></video></div>';
+            (controller as unknown as { install: () => void }).install();
+            const player = document.querySelector<HTMLElement>('#movie_player')!;
+            const video = document.querySelector<HTMLVideoElement>('video')!;
+            Object.defineProperty(video, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(0, 0, 640, 360),
+            });
+            (controller as unknown as { video: HTMLVideoElement }).video = video;
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+
+            (controller as unknown as { handlePointerActivity: (event: Pick<PointerEvent, 'clientX' | 'clientY'>) => void })
+                .handlePointerActivity({ clientX: 100, clientY: 100 });
+
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+
+            player.classList.remove('ytp-autohide');
+            (controller as unknown as { handlePointerActivity: (event: Pick<PointerEvent, 'clientX' | 'clientY'>) => void })
+                .handlePointerActivity({ clientX: 100, clientY: 100 });
+
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('lets video rail controls auto-hide while the transcript panel is open', async () => {
         vi.useFakeTimers();
         const settings = {
@@ -654,11 +796,41 @@ describe('SubtitlePlayerController', () => {
             .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="previous"],');
     });
 
+    it('keeps auto-idle subtitle rails discoverable on coarse pointers', () => {
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('@media (max-width: 768px), (pointer: coarse) {');
+        expect(normalizedCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not( .jpdb-subtitle-panel-open ) .jpdb-subtitle-rail:not(:focus-within) { opacity: 0.72; pointer-events: auto; transform: none; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-rail button::after { content: ""; position: absolute; inset: -5px; border-radius: 9px; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-rail button { padding: 0; font-size: 11px; touch-action: manipulation; }');
+    });
+
     it('hides the whole subtitle rail when subtitle controls are hidden', () => {
         expect(SUBTITLES_YOUTUBE_CSS)
             .toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {\n  opacity: 0;\n  pointer-events: none;\n  transform: translateY(-4px);\n}');
         expect(SUBTITLES_YOUTUBE_CSS)
             .not.toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail button[data-action="previous"],');
+    });
+
+    it('does not default live subtitle status colors to blue without a real status source', () => {
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .toContain('--jpdb-reader-subtitle-status-color: var(--jpdb-reader-status-color, transparent);');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .toContain('--jpdb-reader-subtitle-jpdb-color: var(--jpdb-reader-jpdb-color, transparent);');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .toContain('--jpdb-reader-subtitle-anki-color: var(--jpdb-reader-anki-color, transparent);');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .not.toContain('--jpdb-reader-subtitle-anki-color: var(--jpdb-reader-anki-color, var(--jpdb-reader-state-new));');
+        expect(normalizedCss)
+            .toContain('.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku)');
+        expect(normalizedCss)
+            .not.toContain('.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight');
+        expect(normalizedCss)
+            .toContain('background: var(--jpdb-reader-subtitle-highlight, transparent) !important;');
+        expect(normalizedCss)
+            .not.toContain('background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important;');
     });
 
     it('keeps the tracks panel open after choosing a primary track so Lines is an explicit next step', async () => {
@@ -1972,7 +2144,7 @@ describe('SubtitlePlayerController', () => {
 
         internals.openLinesPanel();
         const row = document.querySelector<HTMLElement>('.jpdb-subtitle-list-row')!;
-        row.querySelector<HTMLElement>('.jpdb-subtitle-row-text')!.innerHTML = '<span class="jpdb-reader-word" data-vid="1" data-sid="2" tabindex="0">日本語</span>の行';
+        row.querySelector<HTMLElement>('.jpdb-subtitle-row-text')!.innerHTML = '<span class="jpdb-reader-word" data-vid="1" data-sid="2" tabindex="-1">日本語</span>の行';
         row.querySelector<HTMLElement>('.jpdb-reader-word')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         expect(video.currentTime).toBe(0);
 

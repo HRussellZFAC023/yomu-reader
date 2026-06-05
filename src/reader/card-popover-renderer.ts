@@ -205,7 +205,7 @@ export class CardPopoverRenderer {
     private renderAddDeckSelect(data: CardRenderData & { loading: boolean }, language: InterfaceLanguage): string {
         const deckOptions = renderDeckChoiceOptions(this.settings(), data.jpdbDecks, data.ankiDecks, true);
         if (!deckOptions) return '';
-        return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}">${deckOptions}</select>`;
+        return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}" hidden>${deckOptions}</select>`;
     }
 
     private renderJpdbMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string): string {

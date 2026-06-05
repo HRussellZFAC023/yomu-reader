@@ -329,7 +329,7 @@ function renderWordColorSettingsSubsection(settings: ReaderSettings): string {
     return `
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Word colors</div>
-                    <div class="grid">
+                    <div class="grid jpdb-reader-color-grid">
                         ${input('wordColorNew', 'New and in deck', settings.wordColorNew, 'color')}
                         ${input('wordColorLearning', 'Learning', settings.wordColorLearning, 'color')}
                         ${input('wordColorKnown', 'Known and never forget', settings.wordColorKnown, 'color')}
@@ -360,7 +360,7 @@ function renderPitchColorSettingsSubsection(settings: ReaderSettings): string {
     return `
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Pitch accent colors</div>
-                    <div class="grid">
+                    <div class="grid jpdb-reader-color-grid">
                         ${input('pitchColorHeiban', 'Heiban (flat)', settings.pitchColorHeiban, 'color')}
                         ${input('pitchColorAtamadaka', 'Atamadaka (head-high)', settings.pitchColorAtamadaka, 'color')}
                         ${input('pitchColorNakadaka', 'Nakadaka (middle-high)', settings.pitchColorNakadaka, 'color')}
@@ -506,6 +506,7 @@ function usesNadeshikoExamples(source: ImmersionExampleSource): boolean {
 }
 
 function renderReaderSettingsPanel(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
     return `
             <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="reading" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>Reader</legend>
@@ -514,10 +515,11 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('lookupOnClick', 'Look up on tap or click', settings.lookupOnClick)}
                     ${checkbox('lookupOnHover', 'Look up on hover', settings.lookupOnHover)}
                     ${checkbox('lookupOnMiddleMouse', 'Look up with middle-mouse hold', settings.lookupOnMiddleMouse)}
-                    ${checkbox('showFloatingButton', 'Toggle floating puck on pages', settings.showFloatingButton)}
+                    ${checkbox('showFloatingButton', uiText(settings.interfaceLanguage, 'showFloatingButton'), settings.showFloatingButton)}
                     ${select('furiganaMode', 'Furigana', settings.furiganaMode, [['auto', 'Automatic'], ['difficult-kanji', 'Difficult kanji only'], ['known-status', 'Hide known words'], ['all', 'All parsed words'], ['off', 'Off']])}
                     ${checkbox('showPitchAccent', 'Show pitch accent', settings.showPitchAccent)}
                 </div>
+                <div class="jpdb-reader-help" data-settings-puck-help>${escapedUiText(language, 'settingsPuckHelp')}</div>
                 ${renderPitchColorSettingsSubsection(settings)}
                 ${renderHoverLookupSettingsSubsection(settings)}
                 <div id="settings-help-reader" class="jpdb-reader-help" data-help-key="readerHelp">Hover lookup uses the Hold while hovering shortcut in this panel. Leave it blank for plain hover. Middle-button scanning blocks browser autoscroll while held, but still leaves normal middle-clicks on links alone.</div>
@@ -625,10 +627,10 @@ function renderSubtitlePreview(): string {
     return `
                 <div class="jpdb-reader-subtitle-preview" data-subtitle-preview>
                     <div class="jpdb-subtitle-primary">
-                        <span class="jpdb-reader-word jpdb-new jpdb-pitch-heiban" data-settings-preview-lookup="新しい" data-sentence="新しい言葉を読む" tabindex="0">新しい</span>
-                        <span class="jpdb-reader-word jpdb-learning jpdb-pitch-atamadaka" data-settings-preview-lookup="言葉" data-sentence="新しい言葉を読む" tabindex="0">言葉</span>
-                        <span class="jpdb-reader-word jpdb-known jpdb-pitch-nakadaka" data-settings-preview-lookup="を" data-sentence="新しい言葉を読む" tabindex="0">を</span>
-                        <span class="jpdb-reader-word jpdb-due jpdb-pitch-odaka" data-settings-preview-lookup="読む" data-sentence="新しい言葉を読む" tabindex="0">読む</span>
+                        <span class="jpdb-reader-word jpdb-new jpdb-pitch-heiban" data-settings-preview-lookup="新しい" data-sentence="新しい言葉を読む" tabindex="-1">新しい</span>
+                        <span class="jpdb-reader-word jpdb-learning jpdb-pitch-atamadaka" data-settings-preview-lookup="言葉" data-sentence="新しい言葉を読む" tabindex="-1">言葉</span>
+                        <span class="jpdb-reader-word jpdb-known jpdb-pitch-nakadaka" data-settings-preview-lookup="を" data-sentence="新しい言葉を読む" tabindex="-1">を</span>
+                        <span class="jpdb-reader-word jpdb-due jpdb-pitch-odaka" data-settings-preview-lookup="読む" data-sentence="新しい言葉を読む" tabindex="-1">読む</span>
                     </div>
                     <div class="jpdb-subtitle-secondary">Live subtitle preview</div>
                 </div>
@@ -663,15 +665,15 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
                             ${checkbox('ankiEnabled', 'Enable Anki mining', settings.ankiEnabled)}
                             ${checkbox('ankiMineWithJpdb', 'Also add to Anki when adding to JPDB', settings.jpdbMiningEnabled && settings.ankiMineWithJpdb, { disabled: !settings.jpdbMiningEnabled })}
                             ${checkbox('ankiCaptureScreenshot', 'Attach context image when possible', settings.ankiCaptureScreenshot)}
-                            <div class="jpdb-reader-settings-wide">${checkbox('ankiMobileHandoff', 'Use mobile Anki handoff fallback', settings.ankiMobileHandoff)}</div>
+                            <div class="jpdb-reader-settings-wide">${checkbox('ankiMobileHandoff', 'Mobile Anki add-note fallback', settings.ankiMobileHandoff)}</div>
                             ${input('ankiConnectUrl', 'AnkiConnect URL', settings.ankiConnectUrl)}
                             <div class="jpdb-reader-settings-wide jpdb-reader-help jpdb-reader-status-line" data-anki-status data-status-tone="${ankiStatus.tone}" role="status" aria-live="polite">${formatSettingsStatusLine(ankiStatus, settings.interfaceLanguage)}</div>
                         </div>
                         <div class="jpdb-reader-settings-subsection">
                             <div id="settings-help-anki" class="jpdb-reader-help" data-anki-setup-help></div>
                             <div class="jpdb-reader-settings-actions jpdb-reader-anki-actions">
-                                <button class="jpdb-reader-btn" type="button" data-action="test-anki">Check</button>
-                                <button class="jpdb-reader-btn secondary" type="button" data-action="prepare-anki">Create</button>
+                                <button class="jpdb-reader-btn" type="button" data-action="test-anki">${escapedUiText(settings.interfaceLanguage, 'testAnki')}</button>
+                                <button class="jpdb-reader-btn secondary" type="button" data-action="prepare-anki">${escapedUiText(settings.interfaceLanguage, 'prepareAnki')}</button>
                             </div>
                         </div>
                         <div class="jpdb-reader-settings-subsection jpdb-reader-anki-library-choice">
@@ -792,7 +794,7 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('dictionarySourcesInitiallyExpanded', 'Open popup sources by default', settings.dictionarySourcesInitiallyExpanded)}
                     ${input('localDictionaryMaxResults', 'Dictionary result limit', String(settings.localDictionaryMaxResults), 'number')}
                 </div>
-                <div class="jpdb-reader-dictionary-status" data-dictionary-status>Checking imported dictionaries...</div>
+                <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">Checking imported dictionaries...</div>
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor>
                     ${renderDictionarySourceRows(settings)}
                 </div>
@@ -1068,6 +1070,7 @@ function localizeSettingsSectionTitles(form: HTMLFormElement, text: SettingsText
     form.querySelector<HTMLElement>('[data-proxy-guide-summary]')?.replaceChildren(text('audioProxyGuideSummary'));
     form.querySelector<HTMLElement>('[data-proxy-guide-show]')?.replaceChildren(text('show'));
     form.querySelector<HTMLElement>('[data-proxy-guide-hide]')?.replaceChildren(text('hide'));
+    form.querySelector<HTMLElement>('[data-settings-puck-help]')?.replaceChildren(text('settingsPuckHelp'));
 }
 
 function replaceLocalTitle(form: HTMLFormElement, pattern: RegExp, value: string): void {
@@ -2102,9 +2105,8 @@ function audioHelpHtml(language: InterfaceLanguage): string {
 
 function ankiSetupHelpHtml(language: InterfaceLanguage): string {
     const copy = uiText(language, 'ankiHelp');
-    const hostedHint = uiText(language, 'ankiHostedCorsHint');
     const linkLabel = language === 'ja' ? 'AnkiConnectアドオンを開く' : 'Open AnkiConnect add-on';
-    return `${escapeHtml(copy)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(linkLabel)}</a> ${escapeHtml(hostedHint)}`;
+    return `${escapeHtml(copy)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(linkLabel)}</a>`;
 }
 
 function audioUrlPlaceholder(type: AudioSourceSetting['type'], language: InterfaceLanguage): string {

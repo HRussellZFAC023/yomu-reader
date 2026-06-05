@@ -28,6 +28,7 @@
   overflow-wrap: normal !important;
   border-radius: 3px;
   cursor: pointer;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   text-decoration-line: underline !important;
   text-decoration-style: solid !important;
@@ -361,7 +362,7 @@
 }
 .jpdb-reader-furi {
   font-size: 0.52em;
-  color: var(--jpdb-reader-muted);
+  color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted));
   line-height: 1;
   user-select: none;
 }

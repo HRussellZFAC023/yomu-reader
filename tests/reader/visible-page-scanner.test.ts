@@ -113,7 +113,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('enables segmented fallback for hosted Try Me text when no dictionary data is available', async () => {
+    it('enables segmented fallback for hosted Japanese text when no dictionary data is available', async () => {
         const originalRect = HTMLElement.prototype.getBoundingClientRect;
         HTMLElement.prototype.getBoundingClientRect = () => ({
             x: 0,
@@ -156,7 +156,7 @@ describe('VisiblePageScanner', () => {
             const down = words.find(word => word.textContent === '下');
             expect(down?.dataset.expression).toBe('下');
             expect(down?.classList.contains('jpdb-not-in-deck')).toBe(true);
-            expect(down?.tabIndex).toBe(0);
+            expect(down?.tabIndex).toBe(-1);
         } finally {
             HTMLElement.prototype.getBoundingClientRect = originalRect;
             window.history.pushState({}, '', '/');

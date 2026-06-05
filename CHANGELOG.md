@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.16] - 2026-06-05
+
+### Changed
+
+- Made Anki status lookups scale by using cached status hits plus exact lazy lookups for visible words instead of broad routine collection scans.
+- Refined the new-tab Anki/JPDB review flow with clearer Anki setup states, compact grade-target controls, and safer multi-card Anki grading.
+- Improved Anki card rendering in the popup and new tab with original card content, clearer multi-entry separation, capped card typography, and separate lookup-vs-card audio handling.
+
+### Fixed
+
+- Fixed Anki-disabled coloring so page highlights stay untrusted and silent when the Anki section is off.
+- Fixed Jisho audio matching for exact term/reading audio and ambiguous homophones.
+- Normalized saved settings so stale pitch highlight/underline combinations cannot leak across page scans or subtitles.
+- Made the CI suite faster and less flaky by sharding generated settings tests and assigning deterministic Vitest API ports.
+
 ## [0.6.15] - 2026-06-04
 
 ### Fixed

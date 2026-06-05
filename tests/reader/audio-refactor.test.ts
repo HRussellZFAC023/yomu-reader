@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
+import { renderAnkiExistingSection } from '../../src/reader/anki-render';
 import { resolveAnkiWordAudio } from '../../src/reader/anki-audio';
 import { getAudioCandidates } from '../../src/reader/audio';
 import { getOrderedAudioSources } from '../../src/reader/audio-source-resolution';
 import { reserveGestureAudioElement } from '../../src/reader/media-activation';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import type { AnkiExistingNote, AnkiLookupResult } from '../../src/reader/anki';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/types';
 
 describe('audio module boundaries', () => {
@@ -41,23 +43,13 @@ describe('audio module boundaries', () => {
 
     it('extracts Jisho candidates through the userscript path without executing remote HTML', async () => {
         let executed = false;
-        const requested: string[] = [];
         (window as typeof window & { __yomuJishoScriptRan?: () => void }).__yomuJishoScriptRan = () => { executed = true; };
-        vi.stubGlobal('GM', {
-            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
-                requested.push(details.url);
-                details.onload?.({
-                    status: 200,
-                    responseText: `
-                        <script>window.__yomuJishoScriptRan()</script>
-                        <audio id="audio_読む:よむ" preload="none">
-                            <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3" type="audio/mpeg">
-                        </audio>
-                    `,
-                    response: '',
-                });
-            },
-        });
+        const requested = stubJishoHtml(`
+            <script>window.__yomuJishoScriptRan()</script>
+            <audio id="audio_読む:よむ" preload="none">
+                <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3" type="audio/mpeg">
+            </audio>
+        `);
 
         try {
             await expect(getAudioCandidates({ type: 'jisho', url: '', voice: '', enabled: true }, card('読む', 'よむ'), 1000, ''))
@@ -71,6 +63,118 @@ describe('audio module boundaries', () => {
             delete (window as typeof window & { __yomuJishoScriptRan?: () => void }).__yomuJishoScriptRan;
             vi.unstubAllGlobals();
         }
+    });
+
+    it('matches Jisho audio by exact term and reading id instead of reading-only fallbacks', async () => {
+        stubJishoHtml(`
+            <audio id="audio_違う:よむ" preload="none">
+                <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/wrong.mp3" type="audio/mpeg">
+            </audio>
+        `);
+
+        try {
+            await expect(getAudioCandidates({ type: 'jisho', url: '', voice: '', enabled: true }, card('読む', 'よむ'), 1000, ''))
+                .resolves.toEqual([]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('allows kana-only Jisho lookups to use the matching reading audio id', async () => {
+        stubJishoHtml(`
+            <audio id="audio_読む:よむ" preload="none">
+                <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3" type="audio/mpeg">
+            </audio>
+        `);
+
+        try {
+            await expect(getAudioCandidates({ type: 'jisho', url: '', voice: '', enabled: true }, card('よむ', 'よむ'), 1000, ''))
+                .resolves.toEqual([{
+                    url: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3',
+                    sourceUrl: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3',
+                }]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('skips ambiguous kana-only Jisho reading matches instead of choosing a homophone', async () => {
+        stubJishoHtml(`
+            <audio id="audio_読む:よむ" preload="none">
+                <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/read.mp3" type="audio/mpeg">
+            </audio>
+            <audio id="audio_詠む:よむ" preload="none">
+                <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/recite.mp3" type="audio/mpeg">
+            </audio>
+        `);
+
+        try {
+            await expect(getAudioCandidates({ type: 'jisho', url: '', voice: '', enabled: true }, card('よむ', 'よむ'), 1000, ''))
+                .resolves.toEqual([]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('ignores non-audio Jisho source URLs from remote HTML', async () => {
+        stubJishoHtml(`
+            <audio id="audio_読む:よむ" preload="none">
+                <source src="javascript:window.__yomuJishoScriptRan()" type="audio/mpeg">
+                <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3" type="audio/mpeg">
+            </audio>
+        `);
+
+        try {
+            await expect(getAudioCandidates({ type: 'jisho', url: '', voice: '', enabled: true }, card('読む', 'よむ'), 1000, ''))
+                .resolves.toEqual([{
+                    url: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3',
+                    sourceUrl: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3',
+                }]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('ignores malformed Jisho source URLs without failing the exact match', async () => {
+        stubJishoHtml(`
+            <audio id="audio_読む:よむ" preload="none">
+                <source src="http://[not-valid" type="audio/mpeg">
+                <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3" type="audio/mpeg">
+            </audio>
+        `);
+
+        try {
+            await expect(getAudioCandidates({ type: 'jisho', url: '', voice: '', enabled: true }, card('読む', 'よむ'), 1000, ''))
+                .resolves.toEqual([{
+                    url: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3',
+                    sourceUrl: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3',
+                }]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps rendered Anki card audio separate from lookup audio actions', () => {
+        const note = existingAnkiNote({
+            fields: { Audio: '[sound:core-start.mp3]' },
+            renderedCards: [{
+                cardId: 2050,
+                deckName: 'Core',
+                question: '<div>始める [sound:core-start.mp3]</div><audio src="core-start.mp3"></audio>',
+                answer: '<div>to start</div>',
+            }],
+        });
+        const container = document.createElement('div');
+        const lookup: AnkiLookupResult = { state: note.state, primary: note, notes: [note], trusted: true };
+        container.innerHTML = renderAnkiExistingSection(lookup, null, {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            ankiSectionEnabled: true,
+        });
+
+        expect(container.querySelector('[data-action="anki-media-audio"][data-anki-media-name="core-start.mp3"]')).not.toBeNull();
+        expect(container.querySelector('[data-action="search-word-audio"], [data-action="jpdb-example-audio"], [data-action="audio"]')).toBeNull();
+        expect(container.textContent).not.toContain('[sound:core-start.mp3]');
     });
 
     it('reserves a reusable silent audio element for gesture-gated playback', () => {
@@ -102,5 +206,41 @@ function card(spelling: string, reading: string): JPDBCard {
         cardState: ['new'],
         wordWithReading: null,
         source: 'jpdb',
+    };
+}
+
+function stubJishoHtml(responseText: string): string[] {
+    const requested: string[] = [];
+    vi.stubGlobal('GM', {
+        xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+            requested.push(details.url);
+            details.onload?.({
+                status: 200,
+                responseText,
+                response: '',
+            });
+        },
+    });
+    return requested;
+}
+
+function existingAnkiNote(overrides: Partial<AnkiExistingNote> = {}): AnkiExistingNote {
+    return {
+        noteId: 99,
+        modelName: 'Core 2k',
+        deckNames: ['Mining'],
+        cardIds: [2050],
+        primaryCardId: 2050,
+        state: 'due',
+        fields: {
+            Expression: '始める',
+            Reading: 'はじめる',
+            Meaning: 'to start',
+        },
+        renderedCards: [],
+        tags: [],
+        reps: 3,
+        lapses: 0,
+        ...overrides,
     };
 }

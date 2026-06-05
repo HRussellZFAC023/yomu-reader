@@ -1,37 +1,47 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const JPDB_TEST = join(ROOT, 'tests/reader/jpdb.test.ts');
+const SETTINGS_FORM_TEST = join(ROOT, 'tests/reader/settings-form.test.ts');
 const GENERATED_DIR = join(ROOT, 'tests/reader/.vitest-jpdb-shards');
+const GENERATED_SETTINGS_DIR = join(ROOT, 'tests/reader/.vitest-settings-shards');
 
 const args = parseArgs(process.argv.slice(2));
 const kind = args.kind ?? 'regular';
 const shard = readPositiveInt(args.shard ?? process.env.CI_TEST_SHARD ?? '1', 'shard');
 const total = readPositiveInt(args.total ?? process.env.CI_TEST_TOTAL ?? '1', 'total');
-const apiPort = args['api-port'] ?? process.env.YOMU_VITEST_API_PORT ?? defaultApiPort(kind, shard);
+const apiPort = args['api-port'] ?? process.env.YOMU_VITEST_API_PORT ?? '';
 if (shard > total) throw new Error(`shard ${shard} cannot be greater than total ${total}`);
 
-if (kind === 'regular') runRegularShard(shard, total);
+if (kind === 'regular' && args.prepare) generateSettingsShardFiles(total);
+else if (kind === 'regular') runRegularShard(shard, total, Boolean(args.reuse));
 else if (kind === 'jpdb' && args.prepare) generateJpdbShardFiles(total);
 else if (kind === 'jpdb') runJpdbShard(shard, total, Boolean(args.reuse));
 else throw new Error(`Unknown CI test kind: ${kind}`);
 
-function runRegularShard(currentShard, shardTotal) {
+function runRegularShard(currentShard, shardTotal, reuseGenerated = false) {
     const files = collectTestFiles(join(ROOT, 'tests/reader'))
         .filter(file => file !== JPDB_TEST)
-        .filter(file => !file.includes('/.vitest-jpdb-shards/'));
+        .filter(file => file !== SETTINGS_FORM_TEST)
+        .filter(file => !file.includes('/.vitest-jpdb-shards/'))
+        .filter(file => !file.includes('/.vitest-settings-shards/'));
+    const generatedSettings = reuseGenerated ? existingSettingsShardFiles(shardTotal) : generateSettingsShardFiles(shardTotal);
+    const regularBuckets = sizeBalancedBuckets(files, shardTotal, fileSize);
+    const filesForShard = [
+        ...regularBuckets[currentShard - 1],
+        generatedSettings[currentShard - 1],
+    ].filter(Boolean);
     const maxWorkers = readPositiveInt(process.env.YOMU_CI_REGULAR_MAX_WORKERS ?? '4', 'YOMU_CI_REGULAR_MAX_WORKERS');
     runVitest([
         'run',
-        ...files.map(file => relative(ROOT, file)),
-        `--shard=${currentShard}/${shardTotal}`,
+        ...filesForShard.map(file => relative(ROOT, file)),
         '--minWorkers=1',
         `--maxWorkers=${maxWorkers}`,
-    ]);
+    ], { YOMU_INCLUDE_GENERATED_SETTINGS_SHARDS: '1' });
 }
 
 function runJpdbShard(currentShard, shardTotal, reuseGenerated = false) {
@@ -43,10 +53,18 @@ function runJpdbShard(currentShard, shardTotal, reuseGenerated = false) {
 }
 
 function existingJpdbShardFiles(shardTotal) {
-    const files = Array.from({ length: shardTotal }, (_, index) => join(GENERATED_DIR, `jpdb.generated.${index + 1}.test.ts`));
+    return existingShardFiles(GENERATED_DIR, 'jpdb.generated', shardTotal, 'JPDB');
+}
+
+function existingSettingsShardFiles(shardTotal) {
+    return existingShardFiles(GENERATED_SETTINGS_DIR, 'settings-form.generated', shardTotal, 'settings form');
+}
+
+function existingShardFiles(generatedDir, filenamePrefix, shardTotal, label) {
+    const files = Array.from({ length: shardTotal }, (_, index) => join(generatedDir, `${filenamePrefix}.${index + 1}.test.ts`));
     const missing = files.filter(file => !readableFile(file));
     if (missing.length) {
-        throw new Error(`Generated JPDB shard files are missing. Run with --prepare first. Missing: ${missing.map(file => relative(ROOT, file)).join(', ')}`);
+        throw new Error(`Generated ${label} shard files are missing. Run with --prepare first. Missing: ${missing.map(file => relative(ROOT, file)).join(', ')}`);
     }
     return files;
 }
@@ -103,6 +121,63 @@ function generateJpdbShardFiles(shardTotal) {
     });
 }
 
+function generateSettingsShardFiles(shardTotal) {
+    return generateItBlockShardFiles({
+        sourceFile: SETTINGS_FORM_TEST,
+        generatedDir: GENERATED_SETTINGS_DIR,
+        filenamePrefix: 'settings-form.generated',
+        describeName: 'settings form generated shard',
+        tailStartMarker: '\nfunction settingsToken',
+        shardTotal,
+    });
+}
+
+function generateItBlockShardFiles({ sourceFile, generatedDir, filenamePrefix, describeName, tailStartMarker, shardTotal }) {
+    rmSync(generatedDir, { recursive: true, force: true });
+    mkdirSync(generatedDir, { recursive: true });
+
+    const source = readFileSync(sourceFile, 'utf8');
+    const describeStart = source.indexOf('describe(');
+    const tailStart = source.indexOf(tailStartMarker);
+    if (describeStart === -1 || tailStart === -1 || tailStart <= describeStart) {
+        throw new Error(`Could not locate test body in ${relative(ROOT, sourceFile)}`);
+    }
+
+    const prelude = rewriteGeneratedImports(source.slice(0, describeStart));
+    const body = source.slice(describeStart, tailStart);
+    const tail = rewriteGeneratedImports(source.slice(tailStart));
+    const blocks = extractIndentedItBlocks(body);
+    if (!blocks.length) throw new Error(`No tests found to shard in ${relative(ROOT, sourceFile)}`);
+
+    const shards = contiguousBuckets(blocks, shardTotal);
+    return shards.map((blocksForShard, index) => {
+        const filename = join(generatedDir, `${filenamePrefix}.${index + 1}.test.ts`);
+        const contents = [
+            prelude.trimEnd(),
+            '',
+            `describe('${describeName} ${index + 1}', () => {`,
+            ...blocksForShard.map(block => block.trimEnd()),
+            '});',
+            '',
+            tail.trimStart(),
+        ].join('\n');
+        writeFileSync(filename, contents);
+        return filename;
+    });
+}
+
+function extractIndentedItBlocks(contents) {
+    const starts = [...contents.matchAll(/^    it\(/gm)].map(match => match.index ?? 0);
+    return starts.map(start => {
+        const remaining = contents.slice(start);
+        const close = remaining.match(/^    \}\);\s*$/m);
+        if (!close || close.index === undefined) {
+            throw new Error('Could not locate the end of an indented it(...) block');
+        }
+        return remaining.slice(0, close.index + close[0].length);
+    });
+}
+
 function contiguousBuckets(blocks, count) {
     const totalSize = blocks.reduce((sum, block) => sum + block.length, 0);
     const targetSize = Math.ceil(totalSize / count);
@@ -124,6 +199,21 @@ function contiguousBuckets(blocks, count) {
         buckets.push(bucket);
     }
     return buckets;
+}
+
+function sizeBalancedBuckets(items, count, sizeForItem) {
+    const buckets = Array.from({ length: count }, () => ({ size: 0, items: [] }));
+    const sorted = [...items].sort((left, right) => sizeForItem(right) - sizeForItem(left));
+    for (const item of sorted) {
+        const bucket = buckets.reduce((smallest, candidate) => candidate.size < smallest.size ? candidate : smallest, buckets[0]);
+        bucket.items.push(item);
+        bucket.size += sizeForItem(item);
+    }
+    return buckets.map(bucket => bucket.items.sort());
+}
+
+function fileSize(file) {
+    return statSync(file).size;
 }
 
 function rewriteGeneratedImports(contents) {
@@ -151,11 +241,6 @@ function runVitest(vitestArgs, envOverrides = {}) {
         env: { ...process.env, ...envOverrides },
     });
     process.exit(result.status ?? 1);
-}
-
-function defaultApiPort(testKind, currentShard) {
-    const base = testKind === 'jpdb' ? 55300 : 55280;
-    return String(base + currentShard);
 }
 
 function parseArgs(rawArgs) {
