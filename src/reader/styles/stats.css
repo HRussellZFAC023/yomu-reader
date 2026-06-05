@@ -693,7 +693,7 @@
 }
 
 @media (max-width: 760px) {
-  .jpdb-reader-newtab-mode {
+  .jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-mode {
     grid-template-columns: repeat(2, minmax(70px, 1fr));
   }
 

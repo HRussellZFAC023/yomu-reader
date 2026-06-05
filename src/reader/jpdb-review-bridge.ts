@@ -1,4 +1,5 @@
 import { parseJpdbReviewCardValue } from './jpdb-page-targets';
+import { cleanText, firstJapaneseRunOrEmpty } from './jpdb-text';
 import type { JPDBGrade } from './types';
 
 export const JPDB_REVIEW_BRIDGE_CHANNEL = 'yomu-jpdb-review-bridge';
@@ -198,7 +199,7 @@ function reviewCardTextFields(
 }
 
 function reviewCardSpelling(isKanji: boolean, kanji: string, highlighted: string, sentence: string, plain: string): string {
-    return isKanji ? kanji : highlighted || firstJapaneseRun(sentence) || plain;
+    return isKanji ? kanji : highlighted || firstJapaneseRunOrEmpty(sentence) || plain;
 }
 
 function reviewCardPrompt(isKanji: boolean, keyword: string, plain: string, kanji: string, sentence: string, spelling: string): string {
@@ -356,16 +357,8 @@ function itemsLeft(doc: Document): number | null {
     return Number.isFinite(value) ? value : null;
 }
 
-function firstJapaneseRun(value: string): string {
-    return cleanText(value.match(/[\u3040-\u30ff\u3400-\u9fff々〆ー]+/u)?.[0] ?? '');
-}
-
 function firstKanji(value: string): string {
     return Array.from(value).find(character => /[\u3400-\u9fff々〆]/u.test(character)) ?? '';
-}
-
-function cleanText(value: string): string {
-    return value.replace(/\s+/g, ' ').trim();
 }
 
 function safeUrl(value: string): URL | null {

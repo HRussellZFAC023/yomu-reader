@@ -2,6 +2,7 @@ import { Logger } from './logger';
 import { requestText as requestReaderText } from './reader-http';
 import { parseHtmlDocument } from './dom';
 import { readJpdbPitchPatterns } from './jpdb-public-pitch';
+import { absoluteJpdbUrl, cleanText, JAPANESE_RE, parseJpdbVocabularyUrl } from './jpdb-text';
 import type { JPDBCard } from './types';
 
 export interface JpdbVocabularyCompound {
@@ -34,7 +35,6 @@ const JPDB_EXAMPLE_LIMIT = 3;
 const JPDB_USED_IN_AUDIO_REQUEST_TIMEOUT_MS = 2500;
 const REQUEST_BACKOFF_INITIAL_MS = 30_000;
 const REQUEST_BACKOFF_MAX_MS = 5 * 60_000;
-const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
 
 type VocabularySupplementKind = 'details' | 'examples' | 'used-in-vocabulary';
@@ -145,7 +145,7 @@ export class JpdbVocabularyClient {
 
     private async vocabularyEntryWithAudio(entry: JpdbVocabularyCompound, failureLabel: string): Promise<JpdbVocabularyCompound> {
         if (!shouldRefreshVocabularyEntryAudio(entry) || this.isBackedOff()) return entry;
-        if (!vocabularyIdentityFromUrl(entry.url)) return entry;
+        if (!parseJpdbVocabularyUrl(entry.url)) return entry;
         const url = absoluteJpdbUrl(entry.url);
         if (!url) return entry;
         const html = await requestText(url, this.getCorsProxyUrl(), JPDB_USED_IN_AUDIO_REQUEST_TIMEOUT_MS).catch(error => {
@@ -232,9 +232,9 @@ function searchResultCard(root: HTMLElement, doc: Document): JPDBCard | null {
 function searchResultIdentity(root: ParentNode, doc: Document): { vid: number; expression: string; reading: string } | null {
     const links = Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]'));
     const details = links.find(link => /more details/i.test(cleanText(link.textContent ?? '')));
-    const detailIdentity = details ? vocabularyEntryFromUrl(details.href || details.getAttribute('href') || '') : null;
+    const detailIdentity = details ? parseJpdbVocabularyUrl(details.href || details.getAttribute('href') || '') : null;
     const canonicalIdentity = documentVocabularyEntry(doc);
-    const linkIdentities = links.map(link => vocabularyEntryFromUrl(link.href || link.getAttribute('href') || ''))
+    const linkIdentities = links.map(link => parseJpdbVocabularyUrl(link.href || link.getAttribute('href') || ''))
         .filter((entry): entry is { vid: number; expression: string; reading: string } => entry !== null);
     return bestVocabularyIdentity([
         detailIdentity,
@@ -243,26 +243,9 @@ function searchResultIdentity(root: ParentNode, doc: Document): { vid: number; e
     ]);
 }
 
-function vocabularyEntryFromUrl(value: string): { vid: number; expression: string; reading: string } | null {
-    if (!value) return null;
-    try {
-        const parsed = new URL(value, 'https://jpdb.io');
-        const parts = parsed.pathname.split('/').filter(Boolean);
-        if (parts[0] !== 'vocabulary') return null;
-        const vid = Number.parseInt(parts[1] ?? '', 10);
-        return {
-            vid: Number.isFinite(vid) ? vid : 0,
-            expression: decodePathPart(parts[2] ?? ''),
-            reading: vocabularyPathReading(parts),
-        };
-    } catch {
-        return null;
-    }
-}
-
 function documentVocabularyEntry(doc: Document): { vid: number; expression: string; reading: string } | null {
     const canonical = doc.querySelector<HTMLLinkElement>('link[rel="canonical"][href*="/vocabulary/"]')?.href ?? '';
-    return vocabularyEntryFromUrl(canonical);
+    return parseJpdbVocabularyUrl(canonical);
 }
 
 function bestVocabularyIdentity(entries: Array<{ vid: number; expression: string; reading: string } | null>): { vid: number; expression: string; reading: string } | null {
@@ -397,39 +380,15 @@ function vocabularyRootMatches(root: Element, spelling: string, reading: string)
 
 function documentMatchesVocabulary(doc: Document, spelling: string, reading: string): boolean {
     const canonical = doc.querySelector<HTMLLinkElement>('link[rel="canonical"][href*="/vocabulary/"]')?.href ?? '';
-    const identity = vocabularyIdentityFromUrl(canonical);
+    const identity = parseJpdbVocabularyUrl(canonical);
     return identity ? vocabularyIdentityMatches(identity, spelling, reading) : false;
 }
 
 function vocabularyIdentities(root: ParentNode): Array<{ expression: string; reading: string }> {
     return Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]'))
         .filter(link => !link.closest('.subsection-used-in, .subsection-examples'))
-        .map(link => vocabularyIdentityFromUrl(link.href || link.getAttribute('href') || ''))
-        .filter((identity): identity is { expression: string; reading: string } => identity !== null);
-}
-
-function vocabularyIdentityFromUrl(value: string): { expression: string; reading: string } | null {
-    if (!value) return null;
-    try {
-        const parsed = new URL(value, 'https://jpdb.io');
-        return vocabularyIdentityFromPath(parsed.pathname);
-    } catch {
-        return null;
-    }
-}
-
-function vocabularyIdentityFromPath(pathname: string): { expression: string; reading: string } | null {
-    const parts = pathname.split('/').filter(Boolean);
-    if (parts[0] !== 'vocabulary') return null;
-    return {
-        expression: decodePathPart(parts[2] ?? ''),
-        reading: vocabularyPathReading(parts),
-    };
-}
-
-function vocabularyPathReading(parts: string[]): string {
-    const reading = decodePathPart(parts[3] ?? '');
-    return JAPANESE_RE.test(reading) ? reading : '';
+        .map(link => parseJpdbVocabularyUrl(link.href || link.getAttribute('href') || ''))
+        .filter((identity): identity is NonNullable<ReturnType<typeof parseJpdbVocabularyUrl>> => identity !== null);
 }
 
 function vocabularyIdentityMatches(identity: { expression: string; reading: string }, spelling: string, reading: string): boolean {
@@ -513,7 +472,7 @@ function extractUsedInVocabulary(root: ParentNode): JpdbVocabularyCompound[] {
         usedInRows(section).forEach(row => {
             const link = vocabularyLink(row);
             if (!link) return;
-            const identity = vocabularyIdentityFromUrl(link.href || link.getAttribute('href') || '');
+            const identity = parseJpdbVocabularyUrl(link.href || link.getAttribute('href') || '');
             const term = cleanText(identity?.expression ?? '') || cleanText(baseText(link)) || cleanText(link.textContent ?? '');
             const reading = cleanText(identity?.reading ?? '') || cleanText(readingText(link)) || term;
             if (!term || !JAPANESE_RE.test(term) || entries.some(entry => entry.term === term && entry.reading === reading)) return;
@@ -543,7 +502,7 @@ function vocabularyLink(root: HTMLElement): HTMLAnchorElement | null {
 }
 
 function isVocabularyLink(link: HTMLAnchorElement): boolean {
-    return vocabularyIdentityFromUrl(link.href || link.getAttribute('href') || '') !== null;
+    return parseJpdbVocabularyUrl(link.href || link.getAttribute('href') || '') !== null;
 }
 
 function extractExamples(root: ParentNode): JpdbVocabularyExample[] {
@@ -615,7 +574,7 @@ function normalizeJpdbAudioGroup(value: string): string {
 }
 
 function shouldRefreshVocabularyEntryAudio(entry: JpdbVocabularyCompound): boolean {
-    return Boolean(entry.url && vocabularyIdentityFromUrl(entry.url) && jpdbAudioVoiceCount(entry.audioIds ?? []) < 2);
+    return Boolean(entry.url && parseJpdbVocabularyUrl(entry.url) && jpdbAudioVoiceCount(entry.audioIds ?? []) < 2);
 }
 
 function isBetterJpdbAudioIds(candidate: string[], current: string[]): boolean {
@@ -682,32 +641,12 @@ function rubyReadingText(element: Element): string {
     return text + base || baseText(element);
 }
 
-function cleanText(value: string): string {
-    return value.replace(/\s+/g, ' ').trim();
-}
-
 function cleanMeaning(value: string): string {
     return cleanText(value).replace(/^\d+\.\s*/, '');
 }
 
 function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function decodePathPart(value: string): string {
-    try {
-        return decodeURIComponent(value);
-    } catch {
-        return value;
-    }
-}
-
-function absoluteJpdbUrl(value: string): string {
-    try {
-        return new URL(value, 'https://jpdb.io').toString();
-    } catch {
-        return '';
-    }
 }
 
 function unique<T>(values: T[]): T[] {

@@ -2,10 +2,16 @@
 const { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } = require('node:fs');
 const { createHash } = require('node:crypto');
 const { dirname, join } = require('node:path');
+const {
+  DIST_USERSCRIPT_PATH,
+  DOCS_USERSCRIPT_PATH,
+  ROOT: root,
+  fail,
+  packageVersion,
+} = require('./userscript-build-utils.cjs');
 
-const root = join(__dirname, '..');
-const source = join(root, 'dist', 'yomu.user.js');
-const target = join(root, 'docs', 'public', 'yomu.user.js');
+const source = DIST_USERSCRIPT_PATH;
+const target = DOCS_USERSCRIPT_PATH;
 
 copyBuiltAsset('dist/newtab/app.js', 'docs/public/newtab/app.js');
 copyBuiltAsset('dist/yomu.css', 'docs/public/yomu.css');
@@ -14,8 +20,7 @@ syncUserscript();
 
 function syncUserscript() {
   if (!existsSync(source)) {
-    console.error(`Missing built userscript: ${source}`);
-    process.exit(1);
+    fail(`Missing built userscript: ${source}`);
   }
 
   mkdirSync(dirname(target), { recursive: true });
@@ -27,8 +32,7 @@ function copyBuiltAsset(sourcePath, targetPath) {
   const assetSource = join(root, sourcePath);
   const assetTarget = join(root, targetPath);
   if (!existsSync(assetSource)) {
-    console.error(`Missing built asset: ${assetSource}`);
-    process.exit(1);
+    fail(`Missing built asset: ${assetSource}`);
   }
   mkdirSync(dirname(assetTarget), { recursive: true });
   copyFileSync(assetSource, assetTarget);
@@ -41,12 +45,10 @@ function syncNewTabIndex() {
   const indexDist = join(root, 'dist', 'newtab', 'index.html');
   const indexTarget = join(root, 'docs', 'public', 'newtab', 'index.html');
   if (!existsSync(appSource)) {
-    console.error(`Missing built new-tab app: ${appSource}`);
-    process.exit(1);
+    fail(`Missing built new-tab app: ${appSource}`);
   }
   if (!existsSync(indexSource)) {
-    console.error(`Missing new-tab HTML template: ${indexSource}`);
-    process.exit(1);
+    fail(`Missing new-tab HTML template: ${indexSource}`);
   }
   const hash = createHash('sha256').update(readFileSync(appSource)).digest('hex').slice(0, 12);
   const buildId = `${packageVersion()}-${hash}`;
@@ -72,11 +74,6 @@ function syncNewTabVersion(hash, buildId) {
   mkdirSync(dirname(versionTarget), { recursive: true });
   writeFileSync(versionTarget, version);
   console.log(`Synced ${versionTarget}`);
-}
-
-function packageVersion() {
-  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-  return pkg.version || 'dev';
 }
 
 function syncNewTabServiceWorker(hash) {

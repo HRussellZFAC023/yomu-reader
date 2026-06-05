@@ -1,12 +1,9 @@
 import {
-    assertPlayableAudioBlob,
     blobToDataUrl,
-    decodeJpdbAudioBlob,
-    findAudioUrl,
+    fetchAudioBlob,
+    fetchJpdbAudioBlob,
     getAudioCandidates,
     isJapanesePod101Url,
-    isJsonAudioResponse,
-    jpdbAudioRequest,
 } from './audio';
 import {
     getAudioBagKey,
@@ -18,8 +15,6 @@ import {
     type AudioCandidate,
 } from './audio-source-resolution';
 import { ShuffledAudioDeck } from './audio-playback-queue';
-import { requestAudioUrl } from './audio-request';
-import { uiText } from './i18n';
 import type { AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from './types';
 
 export interface AnkiWordAudioMedia {
@@ -81,26 +76,9 @@ function canUseAnkiRemoteAudioFallback(candidate: AudioCandidate, sourceType: Au
 }
 
 async function jpdbAudioDataUrl(audioId: string, settings: ReaderSettings): Promise<string> {
-    const request = jpdbAudioRequest(audioId, settings.interfaceLanguage);
-    const response = await requestAudioUrl(request.url, 'blob', settings.audioTimeoutMs, {
-        headers: request.headers,
-        proxyUrl: settings.corsProxyUrl,
-        language: settings.interfaceLanguage,
-        credentials: 'same-origin',
-        withCredentials: true,
-    });
-    if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, 'jpdbAudioPlayableFileMissing'));
-    return blobToDataUrl(await decodeJpdbAudioBlob(response, request.encoded, settings.interfaceLanguage), settings.interfaceLanguage);
+    return blobToDataUrl(await fetchJpdbAudioBlob(audioId, settings), settings.interfaceLanguage);
 }
 
 async function fetchAudioDataUrl(url: string, sourceUrl: string, timeoutMs: number, mode: ReaderSettings['audioSelectionMode'], proxyUrl: string, language: ReaderSettings['interfaceLanguage']): Promise<string> {
-    const response = await requestAudioUrl(url, 'blob', timeoutMs, { proxyUrl, language });
-    if (isJsonAudioResponse(response)) {
-        const nestedUrl = findAudioUrl(JSON.parse(await response.text()), sourceUrl, mode);
-        if (!nestedUrl) throw new Error(uiText(language, 'audioJsonMissingPlayableUrl'));
-        return fetchAudioDataUrl(nestedUrl, sourceUrl, timeoutMs, mode, proxyUrl, language);
-    }
-    if (!(response instanceof Blob)) throw new Error(uiText(language, 'audioSourceReturnedNoAudio'));
-    await assertPlayableAudioBlob(response, url, sourceUrl, language);
-    return blobToDataUrl(response, language);
+    return blobToDataUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, proxyUrl, language), language);
 }

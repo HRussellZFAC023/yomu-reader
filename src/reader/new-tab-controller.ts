@@ -245,6 +245,7 @@ export interface NewTabControllerDependencies {
     preloadWordAudio?: (card: JPDBCard) => void;
     playWordAudio?: (card: JPDBCard) => Promise<void> | void;
     playJpdbExampleAudio?: (audioIds: string, fallbackSentence: string) => Promise<void> | void;
+    performCardAction?: (button: HTMLButtonElement, card: JPDBCard, sentence?: string, anchor?: HTMLElement) => Promise<void> | void;
     parseContent?: (root: HTMLElement, options?: NewTabParseContentOptions) => Promise<void> | void;
     setImmersionTranslationBlurred?: (blurred: boolean) => void;
     dictionarySourceAttributes?: (sourceStateKey: string, initiallyExpanded?: boolean) => string;
@@ -1383,6 +1384,9 @@ export class NewTabController {
         if (action === 'search-word-audio') {
             return this.handleSearchWordAudioAction(actionTarget, event);
         }
+        if (action === 'anki-media-audio') {
+            return this.handleNestedAnkiMediaAudioAction(actionTarget, event);
+        }
         return false;
     }
 
@@ -1432,6 +1436,15 @@ export class NewTabController {
         if (!button || !card) return false;
         consumeNestedLookupEvent(event);
         void this.dependencies.playWordAudio?.(card);
+        return true;
+    }
+
+    private handleNestedAnkiMediaAudioAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
+        const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest<HTMLButtonElement>('button');
+        const card = this.visibleWords[this.index];
+        if (!button || !card || !this.dependencies.performCardAction) return false;
+        consumeNestedLookupEvent(event);
+        void this.dependencies.performCardAction(button, card, sentenceForCard(card), button);
         return true;
     }
 

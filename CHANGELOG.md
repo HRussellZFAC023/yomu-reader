@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.17] - 2026-06-05
+
+### Changed
+
+- Refactored Anki status/detail, JPDB, audio, settings-form, and userscript build helpers to reduce duplication while keeping the userscript self-contained for offline installs and extension packaging.
+- Kept the generated userscript release checks shared and stricter so bundle-size, readable-code, and no-remote-executable-code constraints are enforced from one path.
+
+### Fixed
+
+- Fixed Anki rendered-card audio on the new-tab page so card media buttons use the same icon control pattern as dictionary audio and route through AnkiConnect media playback instead of doing nothing.
+- Fixed the mobile new-tab header so Word/Kanji/Search/Stats stays in a compact single row; the two-column rule now applies only to Stats mode.
+
 ## [0.6.16] - 2026-06-05
 
 ### Changed

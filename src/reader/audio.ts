@@ -168,6 +168,10 @@ export class AudioPlayer {
 
     private reserveGestureAudioElement(request: AudioPlaybackRequest): HTMLAudioElement | undefined {
         if (!shouldReserveGestureAudioElement(request)) return undefined;
+        return this.reserveCurrentGestureAudioElement();
+    }
+
+    private reserveCurrentGestureAudioElement(): HTMLAudioElement {
         const audio = reserveGestureAudioElement(audioUrl => this.createAudioElement(audioUrl));
         this.current = audio;
         return audio;
@@ -409,9 +413,7 @@ export class AudioPlayer {
                 .then(candidates => {
                     const triedUrls = new Set<string>();
                     for (const { candidate } of orderAudioCandidates(candidates, audioCandidateSelectionMode(source.type, settings.audioSelectionMode), getAudioBagKey(source, card), this.shuffledAudio).slice(0, candidateLimit)) {
-                        const candidateKey = normalizeAttemptedAudioUrl(candidate.url);
-                        if (triedUrls.has(candidateKey)) continue;
-                        triedUrls.add(candidateKey);
+                        if (!registerAudioAttempt(triedUrls, candidate)) continue;
                         preconnectAudioUrl(candidate.url);
                         if (!prepareAudio) continue;
                         void this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, true)
@@ -486,23 +488,12 @@ export class AudioPlayer {
 
     private reserveJpdbGestureAudioElement(userGesture = false): HTMLAudioElement | undefined {
         if (!userGesture) return undefined;
-        const audio = reserveGestureAudioElement(audioUrl => this.createAudioElement(audioUrl));
-        this.current = audio;
-        return audio;
+        return this.reserveCurrentGestureAudioElement();
     }
 
     private jpdbAudioBlobUrl(audioId: string, settings: ReaderSettings): Promise<string> {
-        const request = jpdbAudioRequest(audioId);
         return this.jpdbAudioBlobUrlCache.getOrCreate(audioId, async () => {
-            const response = await requestUrl(request.url, 'blob', settings.audioTimeoutMs, {
-                headers: request.headers,
-                proxyUrl: settings.corsProxyUrl,
-                language: settings.interfaceLanguage,
-                credentials: 'same-origin',
-                withCredentials: true,
-            });
-            if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, 'jpdbAudioPlayableFileMissing'));
-            return createPageMediaUrl(await decodeJpdbAudioBlob(response, request.encoded));
+            return createPageMediaUrl(await fetchJpdbAudioBlob(audioId, settings));
         });
     }
 
@@ -528,9 +519,7 @@ export class AudioPlayer {
         if (!audioId) return false;
         const audioUrl = await this.jpdbAudioBlobUrl(audioId, settings);
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-        const audio = reservedAudio
-            ? await this.createReadyAudio(audioUrl, reservedAudio)
-            : await this.createReadyAudio(audioUrl);
+        const audio = await this.createReadyAudio(audioUrl, reservedAudio);
         if (!(await this.playPreparedAudio(audio, requestId, isCurrent))) return false;
         this.queueNextJpdbAudioSegment(audio, audioIds, index + 1, settings, requestId, isCurrent);
         return true;
@@ -681,7 +670,7 @@ export class AudioPlayer {
 
     private async preparePlayableJpdbAudio(audioId: string, settings: ReaderSettings, reservedAudio?: HTMLAudioElement): Promise<HTMLAudioElement> {
         const audioUrl = await this.jpdbAudioBlobUrl(audioId, settings);
-        return reservedAudio ? this.createReadyAudio(audioUrl, reservedAudio) : this.createReadyAudio(audioUrl);
+        return this.createReadyAudio(audioUrl, reservedAudio);
     }
 
     private isPlaybackCurrent(requestId: number, isCurrent: () => boolean): boolean {
@@ -777,20 +766,7 @@ export class AudioPlayer {
 
     private async fetchAudioAsBlobUrl(url: string, sourceUrl: string, timeoutMs: number, mode: AudioSelectionMode): Promise<string> {
         const settings = this.getSettings();
-        const response = await requestUrl(url, 'blob', timeoutMs, { proxyUrl: settings.corsProxyUrl, language: settings.interfaceLanguage });
-        if (isJsonAudioResponse(response)) return this.fetchNestedAudioBlobUrl(response, sourceUrl, timeoutMs, mode, settings);
-
-        if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, 'audioSourceReturnedNoAudio'));
-        await assertPlayableAudioBlob(response, url, sourceUrl, settings.interfaceLanguage);
-        const blobUrl = await createPageMediaUrl(response);
-        return blobUrl;
-    }
-
-    private async fetchNestedAudioBlobUrl(response: Blob, sourceUrl: string, timeoutMs: number, mode: AudioSelectionMode, settings: ReaderSettings): Promise<string> {
-        const json = JSON.parse(await response.text()) as unknown;
-        const nestedUrl = findAudioUrl(json, sourceUrl, mode);
-        if (!nestedUrl) throw new Error(uiText(settings.interfaceLanguage, 'audioJsonMissingPlayableUrl'));
-        return this.fetchAudioAsBlobUrl(nestedUrl, sourceUrl, timeoutMs, mode);
+        return createPageMediaUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, settings.corsProxyUrl, settings.interfaceLanguage));
     }
 
     private playTextToSpeech(text: string, voiceName: string): Promise<void> {
@@ -923,6 +899,25 @@ export function blobToDataUrl(blob: Blob, language: ReaderSettings['interfaceLan
         reader.onerror = () => reject(reader.error ?? new Error(uiText(language, 'couldNotReadAudio')));
         reader.readAsDataURL(blob);
     });
+}
+
+export async function fetchAudioBlob(
+    url: string,
+    sourceUrl: string,
+    timeoutMs: number,
+    mode: AudioSelectionMode,
+    proxyUrl: string,
+    language: ReaderSettings['interfaceLanguage'] = 'en',
+): Promise<Blob> {
+    const response = await requestUrl(url, 'blob', timeoutMs, { proxyUrl, language });
+    if (isJsonAudioResponse(response)) {
+        const nestedUrl = findAudioUrl(JSON.parse(await response.text()), sourceUrl, mode);
+        if (!nestedUrl) throw new Error(uiText(language, 'audioJsonMissingPlayableUrl'));
+        return fetchAudioBlob(nestedUrl, sourceUrl, timeoutMs, mode, proxyUrl, language);
+    }
+    if (!(response instanceof Blob)) throw new Error(uiText(language, 'audioSourceReturnedNoAudio'));
+    await assertPlayableAudioBlob(response, url, sourceUrl, language);
+    return response;
 }
 
 function directAudioUrlsForValue(value: unknown, sourceUrl?: string): string[] | null {
@@ -1416,6 +1411,19 @@ export function jpdbAudioRequest(audioId: string, language: ReaderSettings['inte
         headers: jpdbAudioHeaders(),
         encoded: true,
     };
+}
+
+export async function fetchJpdbAudioBlob(audioId: string, settings: ReaderSettings): Promise<Blob> {
+    const request = jpdbAudioRequest(audioId, settings.interfaceLanguage);
+    const response = await requestUrl(request.url, 'blob', settings.audioTimeoutMs, {
+        headers: request.headers,
+        proxyUrl: settings.corsProxyUrl,
+        language: settings.interfaceLanguage,
+        credentials: 'same-origin',
+        withCredentials: true,
+    });
+    if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, 'jpdbAudioPlayableFileMissing'));
+    return decodeJpdbAudioBlob(response, request.encoded, settings.interfaceLanguage);
 }
 
 export async function decodeJpdbAudioBlob(response: Blob, encoded: boolean, language: ReaderSettings['interfaceLanguage'] = 'en'): Promise<Blob> {

@@ -5446,13 +5446,16 @@ describe('new tab review helpers', () => {
             expect(front.classList.contains('jpdb-reader-newtab-prompt-anki-card')).toBe(true);
             expect(front.querySelector<HTMLElement>('.jpdb-reader-anki-rendered-card')?.dataset.ankiRenderedCardId).toBe('404');
             expect(front.textContent).toContain('日本語');
-            expect(front.textContent).toContain('Card audio');
+            expect(front.textContent).not.toContain('Card audio');
             expect(front.textContent).not.toContain('Japanese language');
             expect(front.textContent).not.toContain('Reverse card should stay hidden');
             expect(front.querySelector<HTMLElement>('.front')?.getAttribute('style') ?? '')
                 .toMatch(/font:\s*italic\s+700\s+52px\/1\.2\s+serif/i);
             expect(front.innerHTML).not.toContain('96px');
-            expect(front.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"]')?.dataset.ankiMediaName).toBe('nihongo-front.mp3');
+            const audio = front.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"]');
+            expect(audio?.dataset.ankiMediaName).toBe('nihongo-front.mp3');
+            expect(audio?.classList.contains('jpdb-reader-audio-control')).toBe(true);
+            expect(audio?.getAttribute('aria-label')).toBe('Audio nihongo-front.mp3');
             expect(root.querySelector('[data-newtab-reading]')?.textContent).toBe('');
             expect(root.querySelector('[data-newtab-meaning]')?.textContent).toBe('');
 
@@ -5467,6 +5470,42 @@ describe('new tab review helpers', () => {
             expect(revealed.querySelector('script')).toBeNull();
             expect(root.querySelector('[data-newtab-reading]')?.textContent).toBe('');
             expect(root.querySelector('[data-newtab-meaning]')?.textContent).toBe('');
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('routes Anki rendered-card audio controls through the newtab card action handler', () => {
+        const card = newTabTestCard({
+            spelling: '日本語',
+            reading: 'にほんご',
+            sentence: '日本語を読みます。',
+            source: 'anki',
+            reviewSource: 'anki',
+            ankiCardId: 404,
+            ankiDeckNames: ['Core'],
+            ankiAudioFilenames: ['nihongo-front.mp3'],
+            ankiRenderedCards: [{
+                cardId: 404,
+                deckName: 'Core',
+                question: '<div>日本語 [anki:play:q:0]</div>',
+                answer: '<div>Japanese language</div>',
+            }],
+        });
+        const performCardAction = vi.fn();
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false }, {
+            performCardAction,
+        });
+        const root = renderNewTabWordFront(controller, card);
+
+        try {
+            (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+            const audio = root.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"]')!;
+            const clickWasNotCanceled = audio.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+            expect(clickWasNotCanceled).toBe(false);
+            expect(performCardAction).toHaveBeenCalledOnce();
+            expect(performCardAction).toHaveBeenCalledWith(audio, card, card.sentence, audio);
         } finally {
             root.remove();
         }

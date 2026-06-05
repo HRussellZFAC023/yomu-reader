@@ -976,6 +976,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   margin: 0 auto;
 }
 
+.jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-sound {
+  justify-self: start;
+}
+
 .jpdb-reader-newtab-front {
   display: grid;
   justify-items: center;
@@ -2472,13 +2476,13 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 @media (max-width: 640px) {
   .jpdb-reader-newtab-shell {
-    width: min(100vw - 18px, 560px);
-    gap: 14px;
+    width: min(100vw - 16px, 560px);
+    gap: 12px;
   }
 
   .jpdb-reader-newtab-topbar {
-    grid-template-columns: 32px minmax(0, auto) auto;
-    gap: 6px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
   }
 
   .jpdb-reader-newtab-brand {
@@ -2494,8 +2498,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   }
 
   .jpdb-reader-newtab-mode {
-    width: min(184px, calc(100vw - 206px));
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    max-width: 300px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    justify-self: center;
   }
 
   .jpdb-reader-newtab-mode button {
@@ -2562,6 +2568,11 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-newtab-prompt {
     font-size: clamp(1.9rem, 9.8vw, 2.62rem);
     line-height: 1.02;
+  }
+
+  .jpdb-reader-newtab-prompt-anki-card {
+    width: min(100%, 480px);
+    padding-inline: clamp(10px, 3vw, 16px);
   }
 
   .jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-prompt {

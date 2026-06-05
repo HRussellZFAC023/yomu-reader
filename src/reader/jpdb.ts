@@ -125,7 +125,7 @@ export class JpdbClient {
     async isInUserDeckPool(card: JPDBCard): Promise<boolean> {
         if (!isDeckMembershipCard(card)) return false;
         const pool = await this.cachedUserDeckPool();
-        return pool.has(deckMembershipKey(card.vid, card.sid));
+        return pool.has(vocabularyPairKey(card.vid, card.sid));
     }
 
     async removeFromDeck(deckId: string, card: JPDBCard): Promise<void> {
@@ -139,7 +139,7 @@ export class JpdbClient {
     }
 
     getCard(vid: number, sid: number): JPDBCard | undefined {
-        return this.cardCache.get(cardKey(vid, sid));
+        return this.cardCache.get(vocabularyPairKey(vid, sid));
     }
 
     clear(): void {
@@ -188,13 +188,13 @@ export class JpdbClient {
             return;
         }
 
-        this.cardCache.set(cardKey(card.vid, card.sid), fresh);
+        this.cardCache.set(vocabularyPairKey(card.vid, card.sid), fresh);
         Object.assign(card, fresh);
     }
 
     private cacheCards(cards: JPDBCard[]): void {
         for (const card of cards) {
-            this.cardCache.set(cardKey(card.vid, card.sid), card);
+            this.cardCache.set(vocabularyPairKey(card.vid, card.sid), card);
         }
     }
 
@@ -247,7 +247,7 @@ export class JpdbClient {
         const pool = new Set<string>();
         await runLimited(decks, USER_DECK_POOL_CONCURRENCY, async deck => {
             const pairs = await this.listDeckVocabularyPairs(deck.id).catch((): Array<[number, number]> => []);
-            for (const [vid, sid] of pairs) pool.add(deckMembershipKey(vid, sid));
+            for (const [vid, sid] of pairs) pool.add(vocabularyPairKey(vid, sid));
         });
         return pool;
     }
@@ -264,7 +264,7 @@ export class JpdbClient {
             });
             const deckCards = await this.cardsFromDeckVocabularyPairs(pairs, limit - cards.length, options);
             for (const card of deckCards) {
-                const key = cardKey(card.vid, card.sid);
+                const key = vocabularyPairKey(card.vid, card.sid);
                 if (seen.has(key)) continue;
                 seen.add(key);
                 cards.push(card);
@@ -288,7 +288,7 @@ export class JpdbClient {
 
     private async fetchDeckVocabularyPairSet(deckId: string): Promise<Set<string>> {
         const pairs = await this.listDeckVocabularyPairs(deckId);
-        return new Set(pairs.map(([vid, sid]) => deckMembershipKey(vid, sid)));
+        return new Set(pairs.map(([vid, sid]) => vocabularyPairKey(vid, sid)));
     }
 
     private async listDeckVocabularyPairs(deckId: string): Promise<Array<[number, number]>> {
@@ -397,11 +397,7 @@ function parseParagraphRequestBytes(paragraph: string): number {
     return utf8Encoder.encode(paragraph).length + PARSE_PARAGRAPH_JSON_OVERHEAD_BYTES;
 }
 
-function cardKey(vid: number, sid: number): string {
-    return `${vid}/${sid}`;
-}
-
-function deckMembershipKey(vid: number, sid: number): string {
+function vocabularyPairKey(vid: number, sid: number): string {
     return `${vid}/${sid}`;
 }
 
@@ -434,9 +430,9 @@ function deckVocabularyPairsForRequest(pairs: Array<[number, number]>, limit: nu
 }
 
 function orderJpdbCardsByPairs(cards: JPDBCard[], pairs: Array<[number, number]>): JPDBCard[] {
-    const byPair = new Map(cards.map(card => [cardKey(card.vid, card.sid), card]));
+    const byPair = new Map(cards.map(card => [vocabularyPairKey(card.vid, card.sid), card]));
     return pairs
-        .map(([vid, sid]) => byPair.get(cardKey(vid, sid)))
+        .map(([vid, sid]) => byPair.get(vocabularyPairKey(vid, sid)))
         .filter((card): card is JPDBCard => Boolean(card));
 }
 

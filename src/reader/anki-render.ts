@@ -1,5 +1,6 @@
 import { ankiMediaFilenameFromCardUrl, buildYomuAnkiPreviewFields, canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiCardContext, type AnkiExistingNote, type AnkiLookupResult, type AnkiRenderedCard } from './anki';
 import { escapeHtml } from './dom';
+import { speakerIcon } from './icons';
 import type { StoredMiningContext } from './mining-context';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from './types';
 import { formatUiText, uiText, type UiCopyKey } from './i18n';
@@ -331,9 +332,8 @@ function renderFieldText(value: string, language: InterfaceLanguage, options: { 
 }
 
 function renderAnkiSoundChip(filename: string, language: InterfaceLanguage): string {
-    const label = uiText(language, 'ankiCardAudio');
     const title = ankiAudioLabel(filename, language);
-    return `<button class="jpdb-reader-anki-sound" type="button" data-action="anki-media-audio" data-anki-media-name="${escapeHtml(filename)}" title="${escapeHtml(title)}">${escapeHtml(label)}</button>`;
+    return `<button class="jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-audio-control" type="button" data-action="anki-media-audio" data-anki-media-name="${escapeHtml(filename)}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${speakerIcon()}</button>`;
 }
 
 function renderAnkiNoteActions(note: AnkiExistingNote, language: InterfaceLanguage): string {
@@ -512,11 +512,12 @@ function ankiSoundMarkerNode(value: string, language: InterfaceLanguage): HTMLEl
     if (!filename) return null;
     const chip = document.createElement('button');
     chip.type = 'button';
-    chip.className = 'jpdb-reader-anki-sound';
+    chip.className = 'jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-audio-control';
     chip.dataset.action = 'anki-media-audio';
     chip.dataset.ankiMediaName = filename;
     chip.title = ankiAudioLabel(filename, language);
-    chip.textContent = uiText(language, 'ankiCardAudio');
+    chip.setAttribute('aria-label', chip.title);
+    chip.innerHTML = speakerIcon();
     return chip;
 }
 
@@ -526,12 +527,13 @@ function ankiPlaybackMarkerNode(value: string, soundFilenames: string[], languag
     const filename = soundFilenames[Number(match[1])] ?? soundFilenames[0] ?? '';
     const chip = document.createElement('button');
     chip.type = 'button';
-    chip.className = 'jpdb-reader-anki-sound jpdb-reader-anki-playback-marker';
+    chip.className = 'jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-anki-playback-marker jpdb-reader-audio-control';
     chip.dataset.action = 'anki-media-audio';
     if (filename) chip.dataset.ankiMediaName = filename;
     chip.title = filename ? ankiAudioLabel(filename, language) : uiText(language, 'ankiAudioUnavailablePreview');
+    chip.setAttribute('aria-label', chip.title);
     chip.disabled = !filename;
-    chip.textContent = uiText(language, 'ankiCardAudio');
+    chip.innerHTML = speakerIcon();
     return chip;
 }
 

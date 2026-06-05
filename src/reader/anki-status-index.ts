@@ -2,7 +2,6 @@ import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSet, gmStorageSetSync }
 import { Logger } from './logger';
 import type { AnkiFieldMapping, CardState, JPDBCard, ReaderSettings } from './types';
 import {
-    type AnkiExistingNote,
     type AnkiNoteInfo,
     type AnkiStatusIndex,
     type AnkiStatusIndexCardData,
@@ -19,10 +18,11 @@ import {
     flattenNoteFields,
     isKanaStatusLookupSurface,
     mappedNoteField,
+    normalizeFieldValue,
     noteCardExpressionTargets,
     noteFieldValues,
 } from './anki-field-mapping';
-import { ankiExistingNoteFromInfo } from './anki-card-details';
+import { ankiCardStateRank, ankiStatusIndexEntryFromInfo } from './anki-card-details';
 
 export const ANKI_STATUS_INDEX_STORAGE_KEY = 'yomu:anki-status-index:v1';
 export const ANKI_STATUS_INDEX_VERSION = 1;
@@ -263,8 +263,7 @@ export function canUseIndexedDb(): boolean {
 export function statusIndexEntriesForNotes(notes: AnkiNoteInfo[], cardData: AnkiStatusIndexCardData, settings: ReaderSettings): StoredAnkiStatusIndexEntry[] {
     const entries = new Map<string, AnkiStatusIndexEntry>();
     for (const note of notes) {
-        const existing = ankiExistingNoteFromStatusData(note, cardData);
-        const candidate = statusIndexEntryFromExisting(existing);
+        const candidate = statusIndexEntryFromStatusData(note, cardData);
         for (const key of statusIndexKeysForNote(note, settings)) {
             const current = entries.get(key);
             if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate)) entries.set(key, candidate);
@@ -289,14 +288,14 @@ export function statusIndexEntryForCard(
         .find(Boolean) ?? null;
 }
 
-export function ankiExistingNoteFromStatusData(note: AnkiNoteInfo, cardData: AnkiStatusIndexCardData): AnkiExistingNote {
+function statusIndexEntryFromStatusData(note: AnkiNoteInfo, cardData: AnkiStatusIndexCardData): AnkiStatusIndexEntry {
     const noteCards = cardData.cardsByNote.get(note.noteId) ?? [];
-    if (noteCards.length) return ankiExistingNoteFromInfo(note, noteCards);
-    return ankiExistingNoteFromStatusSets(note, cardData.sets);
+    if (noteCards.length) return ankiStatusIndexEntryFromInfo(note, noteCards);
+    return statusIndexEntryFromStatusSets(note, cardData.sets);
 }
 
 export function shouldReplaceAnkiStatusIndexEntry(current: AnkiStatusIndexEntry, candidate: AnkiStatusIndexEntry): boolean {
-    return ankiStatusIndexStateRank(candidate.state) < ankiStatusIndexStateRank(current.state);
+    return ankiCardStateRank(candidate.state) < ankiCardStateRank(current.state);
 }
 
 function putAnkiStatusIndexEntries(db: IDBDatabase, entries: StoredAnkiStatusIndexEntry[]): Promise<void> {
@@ -345,12 +344,8 @@ function createAnkiStatusIndexRebuildLeaseOwner(): string {
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-function normalizeStatusIndexValue(value: string): string {
-    return value.replace(/\s+/g, ' ').trim();
-}
-
 function statusIndexKey(value: string): string {
-    return normalizeStatusIndexValue(value).toLocaleLowerCase();
+    return normalizeFieldValue(value).toLocaleLowerCase();
 }
 
 function statusIndexReadingKey(value: string): string {
@@ -384,7 +379,7 @@ function statusIndexFieldValues(fields: Record<string, string>, mapping?: AnkiFi
     const expression = firstNoteExpressionValue(fields, mapping);
     const reading = mappedNoteField(fields, mapping, 'reading') || firstNoteReading(fields);
     const preferred = (expression ? [expression] : [reading])
-        .map(value => value.replace(/\s+/g, ' ').trim())
+        .map(normalizeFieldValue)
         .filter(Boolean);
     if (preferred.length) return unique(preferred);
     return noteFieldValues(fields).filter(value => value.length <= 80 && /[\u3040-\u30ff\u3400-\u9fff]/.test(value));
@@ -395,32 +390,20 @@ function statusIndexReadingFieldValues(fields: Record<string, string>, mapping?:
         mappedNoteField(fields, mapping, 'reading'),
         firstNoteReading(fields),
     ]
-        .map(value => value.replace(/\s+/g, ' ').trim())
+        .map(normalizeFieldValue)
         .filter(value => value.length >= 2));
 }
 
 function shouldUseStatusReadingKey(card: JPDBCard): boolean {
-    const reading = (card.reading || '').replace(/\s+/g, ' ').trim();
-    const spelling = (card.spelling || '').replace(/\s+/g, ' ').trim();
+    const reading = normalizeFieldValue(card.reading || '');
+    const spelling = normalizeFieldValue(card.spelling || '');
     const readingTarget = reading || (isKanaStatusLookupSurface(spelling) ? spelling : '');
     if (!readingTarget || readingTarget.length < 2) return false;
     if (!spelling || spelling.length < 2) return false;
     return spelling === readingTarget || isKanaStatusLookupSurface(spelling);
 }
 
-function statusIndexEntryFromExisting(note: AnkiExistingNote): AnkiStatusIndexEntry {
-    return {
-        state: note.state,
-        noteId: note.noteId,
-        primaryCardId: note.primaryCardId,
-        deckNames: note.deckNames,
-        reps: note.reps,
-        lapses: note.lapses,
-        modelName: note.modelName,
-    };
-}
-
-function ankiExistingNoteFromStatusSets(note: AnkiNoteInfo, cardSets: AnkiStatusIndexCardSets): AnkiExistingNote {
+function statusIndexEntryFromStatusSets(note: AnkiNoteInfo, cardSets: AnkiStatusIndexCardSets): AnkiStatusIndexEntry {
     const cardIds = (note.cards ?? []).map(Number).filter(Number.isFinite);
     const primaryCardId = pickPrimaryCardIdFromStatusSets(cardIds, cardSets);
     const state = stateFromStatusIndexCardIds(cardIds, cardSets);
@@ -428,11 +411,8 @@ function ankiExistingNoteFromStatusSets(note: AnkiNoteInfo, cardSets: AnkiStatus
         noteId: note.noteId,
         modelName: note.modelName,
         deckNames: [],
-        cardIds,
         primaryCardId,
         state,
-        fields: flattenNoteFields(note.fields),
-        tags: note.tags ?? [],
         reps: 0,
         lapses: 0,
     };
@@ -454,12 +434,6 @@ function pickPrimaryCardIdFromStatusSets(cardIds: number[], cardSets: AnkiStatus
         if (match !== undefined) return match;
     }
     return cardIds[0] ?? null;
-}
-
-function ankiStatusIndexStateRank(state: CardState): number {
-    const order: CardState[] = ['failed', 'due', 'learning', 'new', 'known', 'suspended', 'in-deck', 'not-in-deck'];
-    const index = order.indexOf(state);
-    return index < 0 ? order.length : index;
 }
 
 function unique<T>(items: T[]): T[] {

@@ -3075,7 +3075,7 @@ describe('reader helpers', () => {
         expect(preview.textContent).not.toContain('raw alternate stored gloss should stay hidden');
         expect(preview.textContent).not.toContain('Front');
         expect(preview.textContent).not.toContain('Back');
-        expect(preview.textContent).toContain('Card audio');
+        expect(preview.textContent).not.toContain('Card audio');
         expect(preview.querySelector('.jpdb-reader-anki-rendered-side-body')?.textContent).toContain('女');
         expect(preview.querySelector('.jpdb-reader-anki-rendered-side-body')?.classList.contains('jpdb-reader-parseable')).toBe(true);
         expect(preview.querySelector<HTMLImageElement>('.jpdb-reader-anki-rendered-side-body img')?.getAttribute('src')).toBe('data:image/png;base64,front-data');
@@ -3086,6 +3086,7 @@ describe('reader helpers', () => {
         expect(preview.querySelector<HTMLButtonElement>('.jpdb-reader-anki-playback-marker')?.dataset.ankiMediaName).toBe('h2k-167.mp3');
         expect(preview.querySelector<HTMLButtonElement>('.jpdb-reader-anki-playback-marker')?.title).toBe('Audio h2k-167.mp3');
         expect(preview.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"]')?.tagName).toBe('BUTTON');
+        expect(preview.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"]')?.classList.contains('jpdb-reader-audio-control')).toBe(true);
         expect(preview.innerHTML).not.toContain('<script');
         expect(preview.innerHTML).not.toContain('javascript:bad');
     });
@@ -24063,7 +24064,7 @@ describe('reader helpers', () => {
 
             expect(preview.textContent).toContain('写真');
             expect(preview.textContent).toContain('photograph');
-            expect(preview.textContent).toContain('Card audio');
+            expect(preview.textContent).not.toContain('Card audio');
             expect(preview.querySelector('.jpdb-reader-anki-rendered-card')).not.toBeNull();
             expect(preview.querySelector('.jpdb-reader-anki-stored-fields')).toBeNull();
             expect(preview.querySelector('.jpdb-reader-anki-field')).toBeNull();

@@ -1,21 +1,24 @@
 #!/usr/bin/env node
-const fs = require('node:fs');
-const path = require('node:path');
-const pkg = require('../package.json');
+const {
+  BUNDLED_DEPENDENCY_NOTICE_MARKER,
+  DIST_USERSCRIPT_PATH,
+  USERSCRIPT_METADATA_END,
+  fail,
+  packageJson,
+  readBuiltUserscript,
+  writeText,
+} = require('./userscript-build-utils.cjs');
 
-const file = path.join(__dirname, '..', 'dist', 'yomu.user.js');
-const code = fs.readFileSync(file, 'utf8');
-const endMarker = '// ==/UserScript==';
-const markerIndex = code.indexOf(endMarker);
+const code = readBuiltUserscript();
+const markerIndex = code.indexOf(USERSCRIPT_METADATA_END);
 
 if (markerIndex === -1) {
-  console.error('dist/yomu.user.js is missing the userscript metadata end marker.');
-  process.exit(1);
+  fail('dist/yomu.user.js is missing the userscript metadata end marker.');
 }
 
-if (code.includes('Bundled dependency source information')) {
-    console.log('Userscript compliance notes already present.');
-    process.exit(0);
+if (code.includes(BUNDLED_DEPENDENCY_NOTICE_MARKER)) {
+  console.log('Userscript compliance notes already present.');
+  process.exit(0);
 }
 
 const notice = `
@@ -24,12 +27,12 @@ const notice = `
 Greasy Fork compliance notes:
 - Reader UI CSS is declared as @resource yomuCss; no remote JavaScript is loaded.
 - Bundled dependency source information:
-  - fflate ${pkg.dependencies.fflate}: https://github.com/101arrowz/fflate (MIT), bundled locally for ZIP dictionary import support.
+  - fflate ${packageJson.dependencies.fflate}: https://github.com/101arrowz/fflate (MIT), bundled locally for ZIP dictionary import support.
 */
 `;
-const insertAt = markerIndex + endMarker.length;
+const insertAt = markerIndex + USERSCRIPT_METADATA_END.length;
 const before = code.slice(0, insertAt);
 const after = code.slice(insertAt).replace(/^\n+/, '\n');
 
-fs.writeFileSync(file, `${before}${notice}${after}`);
-console.log(`Annotated ${file} with Greasy Fork compliance notes.`);
+writeText(DIST_USERSCRIPT_PATH, `${before}${notice}${after}`);
+console.log(`Annotated ${DIST_USERSCRIPT_PATH} with Greasy Fork compliance notes.`);

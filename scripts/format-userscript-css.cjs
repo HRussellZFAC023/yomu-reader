@@ -1,9 +1,12 @@
 #!/usr/bin/env node
-const fs = require('node:fs');
-const path = require('node:path');
+const {
+  DIST_USERSCRIPT_PATH,
+  USERSCRIPT_RELATIVE_PATH,
+  readBuiltUserscript,
+  writeText,
+} = require('./userscript-build-utils.cjs');
 
-const file = path.join(__dirname, '..', 'dist', 'yomu.user.js');
-const code = fs.readFileSync(file, 'utf8');
+const code = readBuiltUserscript();
 
 let replacements = 0;
 const formatted = code.replace(/\bconst\s+([A-Za-z_$][\w$]*Css)\s*=\s*('(?:\\.|[^'\\])*');/g, (match, name, literal) => {
@@ -15,12 +18,12 @@ const formatted = code.replace(/\bconst\s+([A-Za-z_$][\w$]*Css)\s*=\s*('(?:\\.|[
 });
 
 if (replacements === 0) {
-  console.log('No inline CSS literals needed formatting in dist/yomu.user.js.');
+  console.log(`No inline CSS literals needed formatting in ${USERSCRIPT_RELATIVE_PATH}.`);
   process.exit(0);
 }
 
-fs.writeFileSync(file, formatted);
-console.log(`Formatted ${replacements} inline CSS literal(s) in ${file}`);
+writeText(DIST_USERSCRIPT_PATH, formatted);
+console.log(`Formatted ${replacements} inline CSS literal(s) in ${DIST_USERSCRIPT_PATH}`);
 
 function escapeTemplateLiteral(value) {
   return value

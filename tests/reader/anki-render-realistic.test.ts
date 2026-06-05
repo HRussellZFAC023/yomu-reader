@@ -100,7 +100,9 @@ describe('Anki realistic rendered card QA fixtures', () => {
         expect(section.textContent).not.toContain('0e5a0bcb94d981c08ea2552a0716e02b');
         expect(section.textContent).not.toMatch(/\[anki:play:[^\]]+]/i);
         expect(audioControls).toHaveLength(2);
-        expect(audioControls.map(button => button.textContent?.trim())).toEqual(['Card audio', 'Card audio']);
+        expect(audioControls.every(button => button.classList.contains('jpdb-reader-audio-control'))).toBe(true);
+        expect(audioControls.map(button => button.textContent?.trim())).toEqual(['', '']);
+        expect(audioControls.every(button => button.querySelector('svg'))).toBe(true);
         expect(audioControls.map(button => button.dataset.ankiMediaName)).toEqual([
             '0e5a0bcb94d981c08ea2552a0716e02b-c8aca572ab508c03a1942de4757f535945a90c5a.mp3',
             'e79a8072345e2d2560af1e7ca2540eee-1bd2024a27767f03ad514d91142e19a4e6e77ac6.mp3',

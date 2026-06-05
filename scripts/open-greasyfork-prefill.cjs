@@ -1,16 +1,17 @@
-const fs = require('node:fs');
 const http = require('node:http');
-const path = require('node:path');
 const { execFile } = require('node:child_process');
+const {
+  assertNoRemoteExecutableMetadata,
+  byteLengthUtf8,
+  failIfGreasyForkSizeExceeded,
+  readBuiltUserscript,
+} = require('./userscript-build-utils.cjs');
 
-const codePath = path.join(__dirname, '..', 'dist', 'yomu.user.js');
-const code = fs.readFileSync(codePath, 'utf8');
+const code = readBuiltUserscript();
 const action = process.argv[2] || 'https://greasyfork.org/en/script_versions/prefill';
 
-if (Buffer.byteLength(code, 'utf8') > 2_000_000) {
-  console.error("dist/yomu.user.js exceeds Greasy Fork's 2 MB limit; Greasy Fork will reject this upload.");
-  process.exit(1);
-}
+assertNoRemoteExecutableMetadata(code);
+failIfGreasyForkSizeExceeded(byteLengthUtf8(code));
 
 function escapeHtml(value) {
   return value
