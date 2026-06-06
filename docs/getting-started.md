@@ -59,7 +59,7 @@ This is the part people get stuck on, so here's exactly what happens.
    ```text
    // ==UserScript==
    // @name         よむ
-   // @version      0.6.25
+   // @version      0.6.26
    // @match        *://*/*
    // ==/UserScript==
    (function () { "use strict"; ...
@@ -185,23 +185,11 @@ Below, replace every `100.x.y.z` with your computer's Tailscale address. All Ank
 2. Install Tailscale on the computer, sign in, and note its address (`100.x.y.z`, or a MagicDNS name like `desktop-name.tailnet-name.ts.net`).
 3. Install Tailscale on the phone or tablet and sign in to the **same** account.
 4. In Anki, open **Tools → Add-ons → AnkiConnect → Config**.
-5. Change `webBindAddress` from `127.0.0.1` to your `100.x.y.z` address, and keep `webBindPort` as `8765`. (For same-Wi-Fi access instead, use `0.0.0.0` and rely on your home network — never on untrusted networks.)
-6. Add `https://hrussellzfac023.github.io` to `webCorsOriginList`, keeping any origins you already have:
-
-   ```json
-   {
-     "webBindAddress": "100.x.y.z",
-     "webBindPort": 8765,
-     "webCorsOriginList": [
-       "http://localhost",
-       "https://hrussellzfac023.github.io"
-     ]
-   }
-   ```
-
+5. Set `webBindAddress` to your computer's Tailscale address and keep `webBindPort` as `8765`. If you use same-Wi-Fi access instead, bind to your home-network address or `0.0.0.0` only on a trusted network.
+6. If AnkiConnect has an allowed-origins list, keep the existing entries and add `https://hrussellzfac023.github.io`.
 7. Save, restart Anki, and leave it running.
 8. On the phone, keep Tailscale connected. As a quick check, open `http://100.x.y.z:8765` in the mobile browser — a small AnkiConnect response means it's reachable; a timeout means the listener, firewall, or Tailscale isn't ready yet.
-9. In よむ settings → Mining, set **AnkiConnect URL** to `http://desktop-name.tailnet-name.ts.net:8765` or `http://100.x.y.z:8765`. A same-Wi-Fi address like `http://192.168.1.23:8765` also works when Anki is bound to that interface.
+9. In よむ settings → Mining, set **AnkiConnect URL** to the same desktop address, such as `http://desktop-name.tailnet-name.ts.net:8765` or `http://100.x.y.z:8765`.
 10. Press **Check AnkiConnect**. On success, よむ reads your decks and note types, shows existing-card status, updates cards, and can pull Anki reviews into the study page.
 
 If the MagicDNS name doesn't connect, use the `100.x.y.z` address. Don't put AnkiConnect on the public internet or forward port `8765` on your router.

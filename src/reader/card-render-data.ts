@@ -1,13 +1,15 @@
 import { ankiLookupWithUnavailableDetails, type AnkiConnectClient, type AnkiLookupResult } from './anki';
 import { applyPooledJpdbDeckState, cardNeedsJpdbDeckPoolLookup, sourceCardAnkiLookupOrEmpty } from './card-render-state';
 import { cardKey } from './card-utils';
+import type { JitenApiClient } from './jiten';
 import type { JpdbClient } from './jpdb';
 import type { JpdbPublicPitchClient } from './jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from './jpdb-vocabulary';
 import { Logger } from './logger';
 import { localPitchPatternFromMeta } from './pitch-meta';
 import { shouldLookupAnkiStatus } from './settings';
-import type { JPDBCard, JPDBDeck, ReaderSettings } from './types';
+import { isApiMiningEnabled } from './srs-providers';
+import type { ApiDeck, JPDBCard, JPDBDeck, ReaderSettings } from './types';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from './yomitan';
 
 const log = Logger.scope('CardRenderData');
@@ -28,6 +30,7 @@ export interface CardRenderData {
     metaEntries: YomitanMetaEntry[];
     ankiLookup: AnkiLookupResult;
     jpdbDecks: JPDBDeck[];
+    jitenDecks?: ApiDeck[];
     ankiDecks: string[];
     jpdbVocabularyInfo: JpdbVocabularyInfo | null;
 }
@@ -49,6 +52,7 @@ export interface CardRenderDataLoaderDependencies {
     jpdbVocabulary: JpdbVocabularyClient;
     anki: AnkiConnectClient;
     jpdb: JpdbClient;
+    jiten?: JitenApiClient;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
 }
 
@@ -64,6 +68,7 @@ export function loadingCardRenderData(
         metaEntries,
         ankiLookup,
         jpdbDecks: [],
+        jitenDecks: [],
         ankiDecks: [],
         jpdbVocabularyInfo,
         loading: true,
@@ -73,6 +78,7 @@ export function loadingCardRenderData(
 export class CardRenderDataLoader {
     private cache = new Map<string, { expiresAt: number; load: CardRenderDataLoad }>();
     private jpdbDecksCache?: { key: string; expiresAt: number; promise: Promise<JPDBDeck[]> };
+    private jitenDecksCache?: { key: string; expiresAt: number; promise: Promise<ApiDeck[]> };
     private ankiDecksCache?: { key: string; expiresAt: number; promise: Promise<string[]> };
 
     constructor(private readonly dependencies: CardRenderDataLoaderDependencies) {}
@@ -80,6 +86,7 @@ export class CardRenderDataLoader {
     clear(): void {
         this.cache.clear();
         this.jpdbDecksCache = undefined;
+        this.jitenDecksCache = undefined;
         this.ankiDecksCache = undefined;
     }
 
@@ -130,7 +137,7 @@ export class CardRenderDataLoader {
         const settings = this.settings();
         if (!settings.localDictionariesEnabled) return Promise.resolve([]);
         return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, 'local term dictionary', this.dependencies.dictionaries.lookup(card.spelling, card.reading, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(error => {
-            log.warn('Local term lookup failed while rendering card', { term: card.spelling }, error);
+            log.warn('Local term lookup failed', { term: card.spelling }, error);
             return [];
         }), [] as YomitanTermEntry[]);
     }
@@ -139,7 +146,7 @@ export class CardRenderDataLoader {
         const settings = this.settings();
         if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji) return Promise.resolve([]);
         return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, 'local kanji dictionary', this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(error => {
-            log.warn('Local kanji lookup failed while rendering card', { term: card.spelling }, error);
+            log.warn('Local kanji lookup failed', { term: card.spelling }, error);
             return [];
         }), [] as YomitanKanjiEntry[]);
     }
@@ -148,7 +155,7 @@ export class CardRenderDataLoader {
         const settings = this.settings();
         if (!settings.localDictionariesEnabled) return Promise.resolve([]);
         return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, 'local metadata dictionary', this.dependencies.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch(error => {
-            log.warn('Local metadata lookup failed while rendering card', { term: card.spelling }, error);
+            log.warn('Local metadata lookup failed', { term: card.spelling }, error);
             return [];
         }), [] as YomitanMetaEntry[]);
     }
@@ -157,7 +164,7 @@ export class CardRenderDataLoader {
         const settings = this.settings();
         if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
         return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, 'JPDB public pitch', this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(error => {
-            log.warn('Public JPDB pitch lookup failed while rendering card', { term: card.spelling }, error);
+            log.warn('Public pitch lookup failed', { term: card.spelling }, error);
             return [];
         }), [] as string[]);
     }
@@ -171,7 +178,7 @@ export class CardRenderDataLoader {
         const settings = this.settings();
         if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
         return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, 'JPDB vocabulary details', this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch(error => {
-            log.warn('JPDB vocabulary page lookup failed while rendering card', { term: card.spelling }, error);
+            log.warn('JPDB page lookup failed', { term: card.spelling }, error);
             return null;
         }), null as JpdbVocabularyInfo | null);
     }
@@ -183,7 +190,7 @@ export class CardRenderDataLoader {
         return this.dependencies.anki.findCachedStatusBatch([card])
             .then(([lookup]) => lookup ?? fallback)
             .catch(error => {
-                log.warn('Cached Anki status lookup failed while rendering card', { term: card.spelling }, error);
+                log.warn('Cached Anki status failed', { term: card.spelling }, error);
                 return fallback;
             });
     }
@@ -191,7 +198,7 @@ export class CardRenderDataLoader {
     private loadDetailedAnkiLookup(card: JPDBCard, fastLookup: Promise<AnkiLookupResult>): Promise<AnkiLookupResult> {
         if (!shouldLookupAnkiStatus(this.settings())) return fastLookup;
         return fastLookup.then(fallback => this.withFallback(card, CARD_RENDER_ANKI_TIMEOUT_MS, 'Anki existing cards', this.loadAnkiLookupWhenAvailable(card, fallback).catch(error => {
-            log.warn('Anki lookup failed while rendering card', { term: card.spelling }, error);
+            log.warn('Anki lookup failed', { term: card.spelling }, error);
             return ankiLookupWithUnavailableDetails(fallback);
         }), ankiLookupWithUnavailableDetails(fallback)));
     }
@@ -204,9 +211,9 @@ export class CardRenderDataLoader {
 
     private loadJpdbDecks(card: JPDBCard): Promise<JPDBDeck[]> {
         const settings = this.settings();
-        if (!settings.jpdbMiningEnabled || !settings.apiKey.trim() || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
+        if (!isApiMiningEnabled(settings) || !settings.apiKey.trim() || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
         return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, 'JPDB deck list', this.cachedJpdbDecks(settings).catch(error => {
-            log.warn('JPDB deck list failed while rendering card', { term: card.spelling }, error);
+            log.warn('JPDB deck list failed', { term: card.spelling }, error);
             return [];
         }), [] as JPDBDeck[]);
     }
@@ -214,19 +221,28 @@ export class CardRenderDataLoader {
     private loadAnkiDecks(card: JPDBCard): Promise<string[]> {
         if (!this.settings().ankiEnabled) return Promise.resolve([]);
         return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, 'Anki deck list', this.cachedAnkiDecks(this.settings()).catch(error => {
-            log.warn('Anki deck list failed while rendering card', { term: card.spelling }, error);
+            log.warn('Anki deck list failed', { term: card.spelling }, error);
             return [];
         }), [] as string[]);
+    }
+
+    private loadJitenDecks(card: JPDBCard): Promise<ApiDeck[]> {
+        const settings = this.settings();
+        if (!isApiMiningEnabled(settings) || card.source !== 'jiten' || !settings.jitenApiKey.trim()) return Promise.resolve([]);
+        return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, 'Jiten deck list', this.cachedJitenDecks(settings).catch(error => {
+            log.warn('Jiten deck list failed', { term: card.spelling }, error);
+            return [];
+        }), [] as ApiDeck[]);
     }
 
     private loadJpdbDeckMembership(card: JPDBCard): Promise<boolean> {
         const settings = this.settings();
         if (!cardNeedsJpdbDeckPoolLookup(card)) return Promise.resolve(false);
-        if (!settings.jpdbMiningEnabled || !settings.apiKey.trim() || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve(false);
+        if (!isApiMiningEnabled(settings) || !settings.apiKey.trim() || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve(false);
         const isInUserDeckPool = this.dependencies.jpdb.isInUserDeckPool?.bind(this.dependencies.jpdb);
         if (typeof isInUserDeckPool !== 'function') return Promise.resolve(false);
         return this.withFallback(card, CARD_RENDER_DECK_POOL_TIMEOUT_MS, 'JPDB pooled deck membership', isInUserDeckPool(card).catch(error => {
-            log.warn('JPDB pooled deck membership failed while rendering card', { term: card.spelling }, error);
+            log.warn('JPDB pool lookup failed', { term: card.spelling }, error);
             return false;
         }), false);
     }
@@ -246,12 +262,13 @@ export class CardRenderDataLoader {
             localMetaEntries,
             ankiLookup,
             this.loadJpdbDecks(card),
+            this.loadJitenDecks(card),
             ankiDecks,
             jpdbDeckMembership,
             jpdbVocabularyInfo,
-        ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbDeckMembership, jpdbVocabularyInfo]) => {
+        ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, jitenDecks, ankiDecks, jpdbDeckMembership, jpdbVocabularyInfo]) => {
             if (jpdbDeckMembership) applyPooledJpdbDeckState(card);
-            return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, ankiDecks, jpdbVocabularyInfo };
+            return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, jitenDecks, ankiDecks, jpdbVocabularyInfo };
         });
     }
 
@@ -270,6 +287,21 @@ export class CardRenderDataLoader {
             throw error;
         });
         this.jpdbDecksCache = { key, expiresAt: now + CARD_RENDER_SHARED_DECK_CACHE_TTL_MS, promise };
+        return promise;
+    }
+
+    private cachedJitenDecks(settings: ReaderSettings): Promise<ApiDeck[]> {
+        if (!this.dependencies.jiten) return Promise.resolve([]);
+        const key = `jiten:${settings.jitenApiKey.trim()}`;
+        const now = Date.now();
+        if (this.jitenDecksCache?.key === key && this.jitenDecksCache.expiresAt > now) return this.jitenDecksCache.promise;
+        const promise = this.dependencies.jiten.listReaderStudyDecks()
+            .then(decks => decks.map(deck => ({ id: String(deck.userStudyDeckId), name: deck.name })))
+            .catch(error => {
+                if (this.jitenDecksCache?.promise === promise) this.jitenDecksCache = undefined;
+                throw error;
+            });
+        this.jitenDecksCache = { key, expiresAt: now + CARD_RENDER_SHARED_DECK_CACHE_TTL_MS, promise };
         return promise;
     }
 
@@ -299,8 +331,9 @@ export class CardRenderDataLoader {
             ankiConnectUrl: settings.ankiConnectUrl,
             ankiMobileHandoff: settings.ankiMobileHandoff,
             jpdbDefinitions: settings.jpdbDefinitionsEnabled,
-            jpdbMining: settings.jpdbMiningEnabled,
+            apiMining: isApiMiningEnabled(settings),
             hasApiKey: Boolean(settings.apiKey.trim()),
+            hasJitenApiKey: Boolean(settings.jitenApiKey.trim()),
             dictionaries: settings.dictionaryPreferences.map(preference => ({
                 name: preference.name,
                 enabled: preference.enabled,

@@ -1,4 +1,4 @@
-import { APP_NAME, DOCS_BASE_URL, JA_SUPPORT_COPY, JA_SUPPORT_COPY_EXTRA, SUPPORT_COPY, SUPPORT_COPY_EXTRA } from './constants';
+import { APP_NAME, DOCS_BASE_URL, SUPPORT_COPY, SUPPORT_COPY_EXTRA } from './constants';
 import { requestJson } from './reader-http';
 import type { AudioSourceType, InterfaceLanguage } from './types';
 
@@ -26,7 +26,8 @@ const COPY = {
         featureControlBody: 'Tune features, shortcuts, and color.',
         scanPage: 'Scan page',
         noUnscannedJapaneseText: 'No unscanned Japanese text found.',
-        jpdbScanFailed: 'JPDB scan failed.',
+        jpdbScanFailed: 'Page scan failed.',
+        pageCoverageSummary: 'Coverage {percent}% known · {known}/{total} words · {unknown} new · {iPlusOne} i+1',
         settings: 'Settings',
         settingsSaved: 'Settings saved.',
         settingsSaveFailed: 'Settings save failed.',
@@ -55,17 +56,28 @@ const COPY = {
         youTube: 'YouTube',
         anki: 'Anki',
         jpdb: 'JPDB',
+        api: 'API',
         apiKey: 'API key',
+        jitenApiKey: 'Jiten API key',
+        apiAccess: 'API access',
+        apiAccessHelp: 'Add a JPDB API key or a Jiten API key. JPDB-backed cards use the JPDB key; Jiten-backed cards use the Jiten key.',
         jpdbSettings: 'JPDB settings',
+        jitenSettings: 'Jiten settings',
         jpdbApiKeyConfigured: 'JPDB key set. Reviews: {reviews}. Deck changes: {deckSync}.',
         jpdbApiKeyMissing: 'No JPDB key. Public lookup works; reviews and deck changes do not.',
+        jitenApiKeyConfigured: 'Jiten key configured. Check the connection before using Jiten Reader API workflows.',
+        jitenApiKeyMissing: 'Add a Jiten API key to use Jiten Reader API workflows.',
+        checkJitenApi: 'Check Jiten connection',
+        jitenCheckingConnection: 'Checking Jiten connection...',
+        jitenConnectionReady: 'Connected. Jiten Reader API is reachable.',
+        jitenConnectionFailed: 'Jiten connection failed.',
         statusEnabled: 'enabled',
         statusDisabled: 'disabled',
         statusReady: 'Ready',
         statusAttention: 'Needs setup',
         statusError: 'Error',
         disabledControlDescription: 'Controlled by another setting.',
-        jpdbMiningEnabled: 'Allow JPDB review/deck changes',
+        jpdbMiningEnabled: 'Allow API review/deck changes',
         addToForq: 'Also copy JPDB adds to forq',
         enableReviews: 'Show review buttons',
         reviewRatingScale: 'Review rating scale',
@@ -116,7 +128,8 @@ const COPY = {
         newTabAnkiReviewDecks: 'Anki review decks',
         newTabAnkiReviewDecksHelp: 'New decks are included automatically. Uncheck decks to skip.',
         newTabSource: 'New tab review source',
-        newTabAuto: 'Auto: Anki if no JPDB',
+        newTabAuto: 'Auto: API/Anki, then study words',
+        newTabApiSrs: 'API SRS (JPDB / Jiten)',
         dictionaryFallback: 'Dictionary fallback',
         newTabJpdbReviewMode: 'JPDB review mode',
         newTabJpdbReviewAuto: 'Auto: live kanji + API vocabulary',
@@ -224,6 +237,7 @@ const COPY = {
         audioSourceJisho: 'Jisho.org',
         audioSourceLinguaLibre: '(Commons) Lingua Libre',
         audioSourceWiktionary: '(Commons) Wiktionary',
+        audioSourceJitenTts: 'Jiten text-to-speech',
         audioSourceJpdbTts: 'JPDB text-to-speech',
         audioSourceTextToSpeech: 'Text-to-speech',
         audioSourceTextToSpeechReading: 'Text-to-speech (Kana reading)',
@@ -360,7 +374,6 @@ const COPY = {
         youtubeImmersionEnabled: 'Only show Japanese YouTube videos',
         preferJapaneseSiteLanguage: 'Prefer Japanese site language and location',
         youtubeShowFilterNotice: 'Show a temporary hidden-video notice',
-        youtubeShowChannelRecommendations: 'Show Japanese channel suggestions',
         youtubeHelp: 'Requests Japanese UI and Japan-local content where possible.',
         youtubeFilterOn: 'YouTube filter on',
         youtubeFilterOff: 'YouTube filter off',
@@ -370,20 +383,10 @@ const COPY = {
         youtubeFilterShowing: '{appName} is showing {count} hidden YouTube item{plural}',
         youtubeFilterHid: '{appName} hid {count} non-Japanese-looking YouTube item{plural}',
         youtubeFilterVisible: '{count} Japanese-looking items stayed visible.',
-        youtubeChannelGuideEyebrow: '{count} curated channels',
-        youtubeChannelGuideTitle: 'Start your Japanese YouTube feed',
-        youtubeChannelGuideCopy: 'Subscribe to a few channels so YouTube learns that Japanese is what you watch here.',
-        youtubeChannelGuideLater: 'Later',
-        youtubeChannelGuideNever: 'Never show',
-        youtubeChannelGuideMore: 'Show all',
-        youtubeChannelGuideLess: 'Show fewer',
-        youtubeChannelSubscribe: 'Subscribe',
-        youtubeChannelOpen: 'Open channel',
-        youtubeChannelSource: 'Suggested from {source}.',
         youtubeToggleToastOn: 'YouTube immersion filter enabled.',
         youtubeToggleToastOff: 'YouTube immersion filter disabled.',
         ankiEnabled: 'Enable Anki mining',
-        ankiMineWithJpdb: 'Also add to Anki when adding to JPDB',
+        ankiMineWithJpdb: 'Also add to Anki when adding via API',
         ankiCaptureScreenshot: 'Attach context image when possible',
         ankiConnectUrl: 'AnkiConnect URL',
         ankiDeck: 'Anki deck',
@@ -428,10 +431,16 @@ const COPY = {
         ankiScanSummary: 'Decks {decks}, note types {models}. Best: {model}. {fields}',
         ankiScanNoModels: 'Found {decks} decks. Note types unavailable.',
         ankiScanFieldSummary: 'Fields: {fields}',
-        ankiUnreachable: 'Open desktop Anki, enable AnkiConnect, then check again.',
-        ankiSettingsUnreachable: 'AnkiConnect not reached. Desktop: open Anki and the add-on. Mobile: use your desktop LAN/Tailscale URL or enable handoff.',
-        ankiHostedBridgeMissing: 'Hosted Anki checks need the Yomu userscript bridge. Enable it here, refresh, then check again.',
-        ankiHostedCorsHint: 'Optional advanced setup: direct browser access needs this origin in AnkiConnect webCorsOriginList.',
+        ankiUnreachable: 'Open desktop Anki and check AnkiConnect.',
+        ankiSettingsUnreachable: 'AnkiConnect not reached.',
+        ankiHostedBridgeMissing: `Hosted Anki bridge not found.`,
+        ankiStatusOpenDesktop: 'Open desktop Anki',
+        ankiStatusInstallAddon: 'Install/enable AnkiConnect',
+        ankiStatusMobileDocs: 'Mobile setup docs',
+        ankiStatusUseDesktopUrl: 'Use the LAN/Tailscale URL on mobile',
+        ankiStatusEnableUserscript: `Enable the installed ${APP_NAME} userscript`,
+        ankiStatusRefreshAndCheck: 'Refresh, then check again',
+        ankiHostedCorsHint: 'Advanced: direct browser access needs this origin in AnkiConnect webCorsOriginList.',
         ankiLibraryAdapter: 'Existing library adapter',
         ankiLibraryAdapterStatus: 'Scans decks and note types, then suggests mappings.',
         ankiLibraryChoices: 'Deck and note type',
@@ -442,7 +451,7 @@ const COPY = {
         ankiMappingHighConfidence: 'High',
         ankiMappingMediumConfidence: 'Medium',
         ankiMappingLowConfidence: 'Low',
-        ankiHelp: 'Full Anki uses LAN/Tailscale. Handoff opens mobile Anki for new notes.',
+        ankiHelp: 'Full Anki uses desktop AnkiConnect over LAN/Tailscale. Handoff only creates new notes.',
         jpdbDefinitionsEnabled: 'Show JPDB definitions',
         localDictionariesEnabled: 'Show imported dictionary definitions',
         dictionarySourcesInitiallyExpanded: 'Open popup sources by default',
@@ -665,8 +674,9 @@ const COPY = {
         hideMiningActions: 'Hide mining actions',
         jpdbKanjiUpdated: 'JPDB kanji updated.',
         jpdbKanjiUpdateFailedRuntime: 'Could not update JPDB kanji. Check JPDB kanji reviews are enabled.',
-        jpdbActionsDisabled: 'JPDB actions are disabled in settings.',
+        apiSrsActionsDisabled: 'API mining actions are disabled in settings.',
         addJpdbApiKeyReview: 'Add a JPDB API key to review JPDB cards.',
+        addJitenApiKeyReview: 'Add a Jiten API key to review Jiten cards.',
         actionFailed: 'Action failed.',
         dictionary: 'Dictionary',
         dictionariesExported: 'Dictionaries exported.',
@@ -839,6 +849,10 @@ const COPY = {
         jpdbDeckStateApiKeyRequired: 'Add a JPDB API key to change JPDB deck state.',
         jpdbAddApiKeyRequired: 'Add a JPDB API key to add cards to JPDB, or use Add to Anki.',
         addedToJpdb: 'Added to JPDB.',
+        jitenDeckStateApiKeyRequired: 'Add a Jiten API key to change Jiten vocabulary state.',
+        jitenAddApiKeyRequired: 'Add a Jiten API key to add cards to Jiten, or use Add to Anki.',
+        chooseJitenStudyDeck: 'Choose a Jiten study deck first.',
+        addedToJiten: 'Added to Jiten.',
         kanjiDetailsUnavailable: 'Kanji details are not available yet.',
         loadingDictionaryDetails: 'Loading dictionary details...',
         sourceSingular: 'source',
@@ -966,972 +980,1012 @@ const COPY = {
 
 export type UiCopyKey = keyof typeof COPY.en;
 
-const JA_COPY: Partial<Record<UiCopyKey, string>> = {
-    settingsTitle: `${APP_NAME} 設定`,
-    welcomeLabel: `${APP_NAME} ようこそ`,
-    onboardingEyebrow: '日本語がある場所ならどこでも',
-    onboardingCopy: '本文、字幕、画像の日本語をタップ可能にします。',
-    onboardingLanguage: '表示言語',
-    onboardingImmersionOptions: '没入設定の初期値',
-    onboardingAddApiKey: 'APIキーを追加',
-    onboardingAddLocalDictionaries: 'ローカル辞書を追加',
-    onboardingUseWithoutApiKey: 'APIキーなしで使う',
-    closeOnboarding: 'ようこそ画面を閉じる',
-    featureText: 'テキスト',
-    featureTextBody: 'スキャン後、日本語をホバー/タップできます。',
-    featureImages: '画像',
-    featureImagesBody: '近くの画像テキストを検出します。',
-    featureVideo: '動画',
-    featureVideoBody: '字幕がある場合、字幕内の単語もタップできます。',
-    featureControl: '調整',
-    featureControlBody: '機能、ショートカット、色を調整できます。',
-    automatic: '自動',
-    english: '英語',
-    japanese: '日本語',
-    settings: '設定',
-    settingsSaved: '設定を保存しました。',
-    settingsSaveFailed: '設定を保存できませんでした。',
-    dictionaries: '辞書',
-    localWordSingular: '項目',
-    localWordPlural: '項目',
-    kanji: '漢字',
-    audio: '音声',
-    front: '表面',
-    back: '裏面',
-    newTabPage: '新しいタブ',
-    word: '単語',
-    search: '検索',
-    statsImportJpdbHistory: 'JPDB復習履歴を読み込む',
-    switchToLightTheme: 'ライトテーマに切り替え',
-    switchToDarkTheme: 'ダークテーマに切り替え',
-    openYomuSettings: `${APP_NAME}の設定を開く`,
-    newTabAddressCopied: '新規タブのアドレスをコピーしました。',
-    getApp: `${APP_NAME}を入手`,
-    loading: '読み込み中...',
-    refreshing: '更新中...',
-    reveal: '表示',
-    revealTranslation: '翻訳を表示',
-    immersionExampleControls: 'イマージョンキット例文の操作',
-    loadingKanjiDetails: '漢字情報を読み込み中...',
-    loadingMnemonicImages: '覚え方画像を読み込み中...',
-    lookupDialog: `${APP_NAME}検索`,
-    resizeLookupSheet: '検索シートのサイズ変更。タップで閉じます',
-    showMiningActions: 'マイニング操作を表示',
-    hideMiningActions: 'マイニング操作を隠す',
-    closeDrawer: 'ドロワーを閉じる',
-    copiedWord: '単語をコピーしました。',
-    jpdbKanjiUpdated: 'JPDB漢字を更新しました。',
-    jpdbKanjiUpdateFailedRuntime: 'JPDB漢字を更新できません。設定を確認してください。',
-    jpdbActionsDisabled: '設定でJPDB操作が無効です。',
-    addJpdbApiKeyReview: 'JPDBレビューにはAPIキーが必要です。',
-    actionFailed: '操作に失敗しました。',
-    noDefinitions: '有効な定義ソースから結果が返りませんでした。',
-    dictionary: '辞書',
-    dictionariesExported: '辞書をエクスポートしました。',
-    saveAfterInstall: 'インストール後に保存',
-    dictionaryDownloading: 'ダウンロード中',
-    dictionaryReadingZip: '辞書ZIPを読み取り中...',
-    dictionaryCheckingIndex: '辞書インデックスを確認中...',
-    dictionaryBanksFound: '{count}件の辞書バンクが見つかりました。',
-    dictionaryRemovingExisting: '既存項目を削除中',
-    dictionaryReadingBank: '読み取り中',
-    dictionaryParsingBank: '解析中',
-    dictionarySavingBank: '保存中',
-    dictionaryImporting: 'インポート中',
-    importingBundledDictionaries: '同梱辞書をインポート中...',
-    dictionaryImported: 'インポート済み',
-    dictionaryPreparingImport: 'インポート準備中',
-    dictionaryRecords: '辞書レコード',
-    dictionaryEntries: '件',
-    dictionaryTotal: '合計',
-    dictionaryDownloadProgress: '辞書をダウンロード中',
-    dictionaryStatusSummary: '辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}。',
-    dictionaryStatusUnavailable: '辞書状態を取得できません。',
-    noLocalDictionariesImported: 'ローカル辞書はまだインポートされていません。',
-    dictionaryDownloadFailed: '辞書のダウンロードに失敗しました。',
-    dictionaryDownloadTimedOut: '辞書のダウンロードがタイムアウトしました。',
-    dictionaryDownloadNotZip: 'ダウンロード結果がZIPではありません。',
-    dictionaryDownloadNeedsBridge: 'ダウンロードにはブリッジが必要です。失敗時はZIPを追加してください。',
-    dictionaryDownloadBlocked: 'ダウンロードがブロックされています。ZIPを追加してください。',
-    dictionaryManualDownloadHint: 'ユーザースクリプトを有効にするか、ZIPを追加してください。',
-    dictionaryInstallQueueHelp: 'インストールには数分かかります。完了後に保存できます。',
-    dictionaryInstallQueued: '{dictionary}を待機中です。',
-    dictionaryInstallSaveBlocked: '辞書インポート中です。完了すると保存できます。',
-    dictionaryImportQueueStatus: '{count}件インストール中です。完了後に保存できます。',
-    dictionaryRemoveConfirm: '「{dictionary}」を削除しますか？',
-    dictionaryRemoving: '{dictionary}を削除中...',
-    dictionaryRemoved: '{dictionary}を削除しました。',
-    dictionaryImportComplete: '{sources}ソースから{records}件インポートしました。',
-    dictionaryRecordsImported: '{dictionary}: {records}件インポートしました。',
-    settingsImported: '設定をインポートしました。',
-    settingsImportedWithDetails: '設定をインポートしました。{details}',
-    settingsExported: '設定をエクスポートしました。',
-    restoredStoredChoices: '保存済み選択肢を{count}件復元',
-    importedDictionaryRecordCount: '辞書レコードを{count}件インポート',
-    dictionaryNoSupportedBanks: '対応しているYomitan辞書バンクが見つかりません。',
-    dictionaryUnsupportedJson: 'Yomitan Dexie、辞書ZIP、リーダー出力を使ってください。',
-    dictionaryZipMissingIndex: 'Yomitan辞書ZIPにindex.jsonがありません。',
-    yomitanSettingsInvalid: 'Yomitan設定エクスポートではないようです。',
-    local: 'ローカル',
-    dict: '辞書',
-    scanPage: 'ページをスキャン',
-    noUnscannedJapaneseText: '未スキャンの日本語テキストはありません。',
-    jpdbScanFailed: 'JPDBスキャンに失敗しました。',
-    noImmersionExamples: 'イマージョンキットの例文が見つかりません。',
-    noImmersionExamplesCompact: '例文なし',
-    noLocalDictionaries: 'ローカル辞書は未導入です。JMdictかYomitan ZIPを追加してください。',
-    kanjiMapData: '漢字マップデータ',
-    kanjiAlive: 'カンジアライブ',
-    wiktionary: 'ウィクショナリー',
-    fallbackSetupTitle: '辞書から始める',
-    fallbackSetupCopy: 'JPDBキーなしでも検索できます。辞書でオフライン対応。',
-    fallbackSetupDictionaries: '辞書を追加',
-    fallbackSetupJpdb: 'JPDBキーを追加',
-    offlineCacheGradesDisabled: 'オフラインです。採点は再接続時に同期されます。',
-    recognizing: '認識中...',
-    noHandwritingMatch: '候補がありません。漢字を入力/貼り付けてください。',
-    yourKanjiDrawing: 'あなたの手書き',
-    jpdbKanjiActions: 'JPDB漢字操作',
-    couldNotSearchLocalDictionaries: 'ローカル辞書を検索できませんでした。',
-    subtitlePanel: '字幕',
-    lines: '行',
-    tracks: 'トラック',
-    currentLineWillAppear: '字幕が利用可能になると現在行が表示されます。',
-    native: '母語',
-    unsetJapanese: '日本語を解除',
-    unsetNative: '母語字幕を解除',
-    options: '件',
-    option: '件',
-    line: '行',
-    subtitleTrackDetected: '字幕トラックを検出',
-    filterStudy: '学習',
-    filterAll: 'すべて',
-    sourceAuto: '自動',
-    sortRandom: 'ランダム',
-    sortFrequency: '頻度',
-    sortState: '状態',
-    stateNew: '新規',
-    stateLearning: '学習中',
-    stateDue: '復習予定',
-    stateFailed: '失敗',
-    stateKnown: '既知',
-    stateNeverForget: '忘れない',
-    stateSuspended: '停止中',
-    stateLocked: 'ロック中',
-    stateBlacklisted: 'ブラックリスト',
-    stateRedundant: '重複',
-    stateInDeck: 'デッキ内',
-    stateNotInDeck: 'デッキ外',
-    gradeAnkiCardTarget: 'Ankiカードを採点: {target}',
-    gradeJpdbCardTarget: 'JPDBカードを採点',
-    ankiReviewSingular: '回復習',
-    ankiReviewPlural: '回復習',
-    ankiLapseSingular: '回失敗',
-    ankiLapsePlural: '回失敗',
-    gradeNothingLabel: '全然',
-    gradeSomethingLabel: '少し',
-    gradeHardLabel: '難しい',
-    gradeOkayLabel: 'OK',
-    gradeEasyLabel: '簡単',
-    gradeFailLabel: '失敗',
-    gradePassLabel: '合格',
-    gradeNothing: '採点: 全然',
-    gradeSomething: '採点: 少し',
-    gradeHard: '採点: 難しい',
-    gradeOkay: '採点: OK',
-    gradeEasy: '採点: 簡単',
-    gradeFail: '合否: 失敗',
-    gradePass: '合否: 合格',
-    factKeyword: 'キーワード',
-    factType: '種類',
-    factFrequency: '頻度',
-    factMeaning: '意味',
-    factGrade: '学年',
-    factOldForms: '旧字体',
-    loadingSimilarWords: '単語を読み込み中...',
-    openToLoadSimilarWords: '開くと単語を読み込みます。',
-    noSimilarWords: '追加の単語は見つかりませんでした。',
-    loadingExamples: '例文を読み込み中...',
-    immersionKitRateLimited: 'Immersion Kitは一時制限中です。あとで再試行します。',
-    immersionKitRequest: 'Immersion Kitリクエスト',
-    immersionKitRequestFailed: 'Immersion Kitリクエストに失敗しました。',
-    immersionKitRequestFailedWithStatus: 'Immersion Kitリクエストに失敗しました（{status}）。',
-    immersionKitRequestTimedOut: 'Immersion Kitリクエストがタイムアウトしました。',
-    immersionKitSearchBlocked: 'Immersion Kit検索がブロック中です。CORSか代替設定を使ってください。',
-    immersionKitMediaRequest: 'メディアリクエスト',
-    immersionKitMediaRequestFailed: 'メディアリクエストに失敗しました。',
-    immersionKitMediaRequestFailedWithStatus: 'メディアリクエストに失敗しました（{status}）。',
-    immersionKitMediaRequestTimedOut: 'メディアリクエストがタイムアウトしました。',
-    immersionKitMediaRequestReturnedNonMedia: 'メディアリクエストがエラードキュメントを返しました。',
-    immersionKitNoMediaCandidate: '読み込めるImmersion Kitメディア候補がありませんでした。',
-    nadeshikoRequest: 'Nadeshikoリクエスト',
-    nadeshikoRequestFailed: 'Nadeshikoリクエストに失敗しました。',
-    nadeshikoRequestFailedWithStatus: 'Nadeshikoリクエストに失敗しました（{status}）。',
-    nadeshikoRequestTimedOut: 'Nadeshikoリクエストがタイムアウトしました。',
-    previousExample: '前の例文',
-    nextExample: '次の例文',
-    playExampleAudio: '例文音声を再生',
-    openOnJpdb: 'JPDBで開く',
-    openOnLookup: '{label}で開く',
-    copyWord: 'コピー',
-    copyWordTitle: '単語をコピー',
-    backToWord: '単語に戻る',
-    backToKanji: '漢字に戻る',
-    previousKanji: '前の漢字',
-    nextKanji: '次の漢字',
-    openKanjiOnJpdb: 'JPDBで漢字を開く',
-    playAudio: '音声を再生',
-    audioPlaybackDisabled: '音声再生は無効です',
-    audioPlaybackDisabledToast: '音声再生は無効です。',
-    audioPlaybackFailed: '音声の再生に失敗しました。',
-    noSentenceToRead: '読み上げる例文がありません。',
-    noTextToRead: '読み上げるテキストがありません。',
-    jpdbExampleAudioUnavailable: 'この例文で使えるJPDB音声がありません。',
-    jpdbAudioPlayableFileMissing: 'JPDB音声から再生可能ファイルを取得できません。',
-    jpdbAudioResponseNotPlayable: 'JPDB音声の応答は再生可能ファイルではありません。',
-    audioSourceReturnedNoAudio: '音声ソースから音声を取得できませんでした。',
-    audioJsonMissingPlayableUrl: '音声JSONに再生可能なURLがありません。',
-    textToSpeechUnavailable: 'このブラウザーでは読み上げ機能を利用できません。',
-    textToSpeechFailed: '読み上げに失敗しました。',
-    audioRequest: '音声リクエスト',
-    audioRequestTimedOut: '音声リクエストがタイムアウトしました。',
-    audioRequestReturnedNonAudio: '音声リクエストが音声ではない応答を返しました',
-    audioRequestReturnedNonAudioWithType: '音声ではない応答です: {type}。',
-    audioUnknownContentType: '不明なコンテンツ種別',
-    japanesePod101NoAudio: 'JapanesePod101にこの語の音声はありません。',
-    invalidJpdbAudioId: 'JPDB音声IDが無効です。',
-    couldNotReadAudio: '音声を読み取れませんでした。',
-    couldNotReadAudioBlob: '音声データを読み取れませんでした。',
-    previousSubtitle: '前の字幕',
-    nextSubtitle: '次の字幕',
-    copySubtitle: '字幕をコピー',
-    subtitleFallbackLabel: '字幕',
-    subtitlesTitle: '字幕',
-    openSubtitlePanel: '字幕パネルを開く',
-    closeSubtitlePanel: '字幕パネルを閉じる',
-    closeSubtitleDrawer: '字幕ドロワーを閉じる',
-    enableSubtitleAutoHide: '再生中はパネルを自動で隠す',
-    disableSubtitleAutoHide: '再生中もパネルを開いたままにする',
-    subtitleAutoHideShort: '自動',
-    loadJapaneseSubtitles: '日本語字幕を読み込む',
-    loadPrimarySubtitles: '主字幕を読み込む',
-    loadNativeSubtitles: '母語字幕を読み込む',
-    toggleNativeSubtitleBlur: '母語字幕のぼかしを切り替え',
-    subtitleTrackDetectedSingular: '字幕トラックを1件検出',
-    subtitleTracksDetected: '件の字幕トラックを検出',
-    noSubtitleTracksDetected: '字幕トラックはまだ検出されていません。',
-    resizeTranscriptPanel: '文字起こしパネルのサイズ変更',
-    resizeSubtitleTracksPanel: '字幕トラックパネルのサイズ変更',
-    subtitleNavigation: '字幕ナビゲーション',
-    subtitlePanelMode: '字幕パネル表示',
-    subtitleLines: '行',
-    subtitleTracks: 'トラック',
-    copySubtitleLine: '字幕行をコピー',
-    loadingSubtitleLines: '字幕行を読み込み中',
-    waitingForCaptionLines: '字幕行を待機中',
-    subtitleCurrentLineWillAppear: '字幕が利用可能になると現在行が表示されます。',
-    seekSubtitleLine: '字幕行へ移動',
-    subtitleTracksHint: '主字幕を選び、「行」で一覧と移動を使います。',
-    noAutoDetectedSubtitleTracks: '',
-    autoDetectedTracksWillAppear: '字幕トラックはここに表示されます。',
-    autoDetectedOptionSingular: '字幕オプション1件',
-    autoDetectedOptions: '件の字幕オプション',
-    detected: '検出済み',
-    japaneseOverlay: '日本語オーバーレイ',
-    primaryOverlay: '主字幕オーバーレイ',
-    nativeOverlay: '母語オーバーレイ',
-    unsetJapaneseSubtitles: '日本語を解除',
-    unsetPrimarySubtitles: '主字幕を解除',
-    japaneseSubtitles: '日本語',
-    primarySubtitles: '主字幕',
-    unsetNativeSubtitles: '母語を解除',
-    nativeSubtitles: '母語',
-    chooseJapaneseSubtitles: '日本語字幕を選択',
-    choosePrimarySubtitles: '主字幕を選択',
-    transcript: '文字起こし',
-    subtitleOptionSingular: '件',
-    subtitleOptionPlural: '件',
-    subtitleLineSingular: '行',
-    subtitleLinePlural: '行',
-    trackKindPageTrack: 'ページ内トラック',
-    trackKindPageFile: 'ページ内ファイル',
-    trackKindYouTubeCaptions: 'YouTube字幕',
-    youTubeSubtitles: 'YouTube字幕',
-    autoGeneratedSubtitle: '自動生成',
-    trackKindLoadedFile: '読み込んだファイル',
-    trackStatusLoading: '読み込み中',
-    trackStatusWaiting: '字幕待機中',
-    trackStatusFailed: '失敗',
-    ocrEnabledToast: '画像読み取りを有効にしました。',
-    ocrHiddenToast: '画像読み取りを非表示にしました。',
-    ocrNoReadableImages: '近くに読み取れる画像がありません。',
-    showKanji: '漢字を表示',
-    strokePractice: '筆順と練習',
-    practiceDrawing: '手書き練習',
-    strokes: '画',
-    textTrace: '筆順ガイド',
-    hideTrace: 'ガイドを隠す',
-    showTrace: 'ガイドを表示',
-    clear: 'クリア',
-    originStructure: '部品グラフ',
-    originMapLabel: '2D漢字由来・部品マップ',
-    originShowSubcomponents: '下位部品',
-    originShowOutbound: '派生先',
-    radical: '部首',
-    readingsComponents: '読みと部品',
-    jpdbMnemonic: 'JPDBの覚え方',
-    rtkComponentKeywords: 'RTK部品キーワード',
-    onReading: '音',
-    kunReading: '訓',
-    heisigStory: 'Heisigストーリー',
-    heisigComment: 'Heisigコメント',
-    koohiiStories: 'Koohiiストーリー',
-    add: '追加',
-    addToDeck: 'デッキに追加',
-    addToDeckHint: '選択したJPDBデッキにこのカードを追加します。',
-    deck: 'デッキ',
-    deckActions: 'デッキ操作',
-    reviewAddsToDeck: 'レビューすると新しい単語を追加します:',
-    reviewBlockedBlacklisted: 'ブラックリスト入りです。解除するとレビューできます。',
-    reviewBlockedNeverForget: '「忘れない」設定です。解除するとレビューできます。',
-    reviewBlockedLocked: 'JPDBでロック中です。解除するとレビューできます。',
-    forget: '忘れる',
-    never: '忘れない',
-    neverHint: '忘れないデッキへ移動します。',
-    forgetHint: '忘れないデッキから外します。',
-    unlist: '解除',
-    unlistHint: 'ブラックリストから外します。',
-    blacklist: 'ブラックリスト',
-    blacklistHint: 'この単語を無視します。',
-    addToAnki: 'Ankiに追加',
-    checkingAnki: 'Ankiを確認中...',
-    sendToMobileAnki: '{app}へ送る',
-    mobileAnkiActionHint: 'モバイルAnkiで新規ノートを作成します。',
-    ankiAudioFileNotFound: 'Anki音声ファイルが見つかりません。',
-    ankiAudioPlaybackUnavailable: 'ここではAnki音声を再生できません。',
-    ankiAudioUnavailablePreview: 'プレビューで音声を利用できません',
-    ankiAudioFilenameLabel: 'Anki 音声 {filename}',
-    ankiStoredFields: '保存フィールド',
-    ankiCardDetailsPending: 'Ankiで一致。カード詳細を読み込み中...',
-    ankiCardDetailsUnavailable: 'Ankiで一致。キャッシュ状態を表示します。',
-    ankiNewCard: '新規カード',
-    ankiMatches: 'Ankiの一致',
-    ankiMergeNeedsDesktop: 'ノート統合にはデスクトップAnkiConnectが必要です。',
-    ankiNoteNotFound: 'Ankiノートが見つかりません。',
-    ankiHandoffCancelled: 'Ankiへの受け渡しがキャンセルされました。',
-    ankiConnectActionFailed: 'AnkiConnectの操作に失敗しました。',
-    ankiConnectRequestFailed: 'AnkiConnectリクエストに失敗しました。',
-    ankiConnectTimedOut: 'AnkiConnectがタイムアウトしました。',
-    ankiConnectNeedsBridge: 'AnkiConnectにはブリッジが必要です。',
-    ankiHostedCorsHint: '任意の上級者向け設定: ブラウザから直接接続する場合は、このオリジンをAnkiConnectのwebCorsOriginListに追加してください。',
-    mobileAnkiReady: 'Anki未接続。モバイル受け渡しは使えます。',
-    ankiConnectionReady: '接続しました。AnkiConnectに到達できます。',
-    ankiConnectedReady: '接続済み。デッキ「{deck}」、ノート「{model}」。',
-    ankiPromptRecallWord: 'ハイライトされた単語を思い出してください。',
-    ankiMeaningHeading: '意味',
-    ankiPitchHeading: 'ピッチ',
-    ankiPartOfSpeechHeading: '品詞',
-    ankiLinksHeading: 'リンク',
-    ankiSourceHeading: '出典',
-    ankiTemplateContext: '文脈',
-    ankiTemplateRecognition: '認識',
-    ankiLocalDictionaryStatus: 'ローカル辞書',
-    mergeYomu: 'Yomuを統合',
-    mergeYomuTitle: '一致フィールドを更新し、Yomuメディアを追加',
-    editInAnki: 'Ankiで編集',
-    keepBothAudio: '両方残す',
-    keepAnkiAudio: 'Ankiを残す',
-    useYomuAudio: 'Yomuを使う',
-    lastSeen: '最後に見た場所',
-    unavailable: '利用不可',
-    openedInAnki: 'Ankiで開きました。',
-    addedToDeckAndReviewed: 'デッキに追加してレビューしました。',
-    sentToAnki: 'Ankiに送信しました。',
-    openedMobileAnkiHandoff: 'モバイルAnki受け渡しを開きました。',
-    alreadyInAnki: 'すでにAnkiにあります。編集はAnkiで行います。',
-    removedFromDeck: 'デッキから削除しました。',
-    addedToDeckToast: 'デッキに追加しました。',
-    sentToAnkiWithContextImageAndAudio: '文脈画像と音声付きでAnkiに送信しました。',
-    sentToAnkiWithContextImage: '文脈画像付きでAnkiに送信しました。',
-    sentToAnkiWithAudio: '音声付きでAnkiに送信しました。',
-    ankiMergeNoNewData: 'Ankiノートに利用可能なYomuデータは反映済みです。',
-    ankiMergeFieldSingular: 'フィールド',
-    ankiMergeFieldPlural: 'フィールド',
-    ankiMergeAudio: '音声',
-    ankiMergeImage: '画像',
-    ankiMergeComplete: 'YomuデータをAnkiに統合しました ({parts})。',
-    selection: '選択範囲',
-    parsedFrom: '解析元',
-    imageReadingEnabled: '画像読み取りを有効にしました。',
-    imageReadingHidden: '画像読み取りを非表示にしました。',
-    reviewFailed: 'レビューに失敗しました。',
-    reviewActionsDisabled: '設定でレビュー操作が無効です。',
-    jpdbLookupFailed: 'JPDB検索に失敗しました。',
-    jpdbDeckStateApiKeyRequired: 'JPDBデッキ変更にはAPIキーが必要です。',
-    jpdbAddApiKeyRequired: 'JPDB追加にはAPIキーかAnki追加が必要です。',
-    addedToJpdb: 'JPDBに追加しました。',
-    kanjiDetailsUnavailable: '漢字情報はまだ利用できません。',
-    loadingDictionaryDetails: '辞書詳細を読み込み中...',
-    sourceSingular: 'ソース',
-    sourcePlural: 'ソース',
-    usedInVocabulary: '使われる単語',
-    exampleSentences: '例文',
-    playJpdbExampleAudio: 'JPDB例文音声を再生',
-    wordsUsingKanji: '{kanji}を使う単語',
-    kanjiDictionaries: '漢字辞書',
-    sourceNameWordsUsingKanji: 'この漢字を使う単語',
-    contextVideo: '動画',
-    contextImage: '画像',
-    contextCurrentPage: '現在のページ',
-    jpdbKanjiActionMine: '追加',
-    jpdbKanjiActionKnown: '既知',
-    jpdbKanjiActionNeverForget: '忘れない',
-    jpdbKanjiActionForget: '忘れる',
-    jpdbKanjiActionBlacklist: 'ブラックリスト',
-    jpdbKanjiActionReview: 'レビュー',
-    immersionKit: 'イマージョンキット',
-    translation: '翻訳',
-    grammar: '文法',
-    meaning: '意味',
-    japaneseLabel: '日本語',
-    readSentenceAloud: '文を読み上げ',
-    openSectionToTranslate: 'このセクションを開くと翻訳します。',
-    translationUnavailable: '翻訳を利用できません。',
-    translating: '翻訳中...',
-    findingGrammar: '文法を検索中...',
-    grammarKnown: '既知',
-    grammarReview: '復習',
-    grammarDetails: '詳細',
-    grammarFoundIn: '検出箇所',
-    grammarExample: '例',
-    grammarGuide: 'ガイド',
-    grammarHideKnown: '既知を隠す',
-    grammarShowKnown: '既知を表示',
-    allDetectedGrammarKnown: '検出文法はすべて既知です。',
-    grammarShown: '件表示',
-    grammarKnownHidden: '件の既知を非表示',
-    grammarGenericShort: '文法項目: {name}',
-    grammarGenericDetail: 'この文では「{match}」に「{name}」が使われています。',
-    grammarKindHanabira: 'Hanabira文法',
-    grammarLevelCore: '基本',
+export const CARD_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
+    new: 'stateNew',
+    learning: 'stateLearning',
+    known: 'stateKnown',
+    due: 'stateDue',
+    failed: 'stateFailed',
+    locked: 'stateLocked',
+    'never-forget': 'stateNeverForget',
+    blacklisted: 'stateBlacklisted',
+    suspended: 'stateSuspended',
+    'in-deck': 'stateInDeck',
+    'not-in-deck': 'stateNotInDeck',
+    redundant: 'stateRedundant',
 };
 
-const JA_SETTINGS_COPY: Partial<Record<UiCopyKey, string>> = {
-    settingsTitle: `${APP_NAME} 設定`,
-    settingsSections: '設定セクション',
-    settingsSearch: '設定を検索',
-    settingsSearchPlaceholder: '設定を検索',
-    settingsSearchNoResults: '一致する設定はありません。',
-    selectOptions: '選択肢',
-    save: '保存',
-    cancel: 'キャンセル',
-    show: '表示',
-    hide: '隠す',
-    appearance: '外観',
-    reading: '読解',
-    media: 'メディア',
-    mining: '採掘',
-    shortcuts: 'ショートカット',
-    help: 'ヘルプ',
-    interface: 'インターフェイス',
-    reader: 'リーダー',
-    images: '画像テキスト (OCR)',
-    video: '動画',
-    youTube: 'YouTube',
-    anki: 'Anki',
-    jpdb: 'JPDB',
-    apiKey: 'APIキー',
-    jpdbSettings: 'JPDB設定',
-    jpdbApiKeyConfigured: 'JPDBキーあり。復習: {reviews}。デッキ変更: {deckSync}。',
-    jpdbApiKeyMissing: 'JPDBキーなし。公開検索のみ使えます。',
-    statusEnabled: '有効',
-    statusDisabled: '無効',
-    statusReady: '準備完了',
-    statusAttention: '設定が必要',
-    statusError: 'エラー',
-    disabledControlDescription: '別の設定に制御されています。',
-    jpdbMiningEnabled: 'JPDBの復習・デッキ変更を許可',
-    addToForq: 'JPDB追加時にforqにもコピー',
-    enableReviews: '復習ボタンを表示',
-    reviewRatingScale: '復習評価の段階',
-    jpdbPageEnhancements: 'JPDBページ拡張',
-    jpdbPageEnhancementsEnabled: 'JPDBページを拡張',
-    jpdbPageWordEnhancementsEnabled: 'JPDBの単語・検索ページにソースを追加',
-    jpdbPageKanjiEnhancementsEnabled: 'JPDBの漢字ページにソースを追加',
-    jpdbPageEnhancementsHelp: '辞書と漢字パネルのソース順を使います。',
-    fivePoint: '5段階: 全く覚えていないから簡単まで',
-    twoPoint: '2段階: 失敗 / 合格',
-    settingsLanguage: '設定の表示言語',
-    theme: 'テーマ',
-    auto: '自動',
-    dark: 'ダーク',
-    light: 'ライト',
-    popupMode: 'ポップアップ表示',
-    bottomSheet: '下部シート',
-    popover: 'ポップオーバー',
-    stickyBottomSheet: '閉じるまで下部シートを開いたままにする',
-    popoverBackdropEnabled: 'ポップオーバーの背後を暗くする',
-    popoverWidth: 'ポップオーバー幅 (px)',
-    popoverHeight: 'ポップオーバー高さ (px)',
-    popoverHeightMode: 'ポップオーバー高さの動作',
-    popoverHeightAvailable: '空き領域まで広げる',
-    popoverHeightFixed: '高さ設定を使う',
-    readerFontFamily: 'リーダーUIフォント',
-    popupFontFamily: 'ポップアップの日本語フォント',
-    fontPresetYomuDefault: 'よむ既定',
-    fontPresetJapaneseSans: '日本語サンセリフ',
-    fontPresetHiraginoYuGothic: 'ヒラギノ / 游ゴシック',
-    fontPresetJapaneseSerif: '日本語明朝',
-    fontPresetSystemUi: 'システムUI',
-    fontPresetCustom: 'カスタム...',
-    customFontFamily: 'カスタムフォントスタック',
-    popupFontWeight: 'ポップアップの日本語の太さ',
-    enableLogging: '診断ログを有効にする',
-    diagnostics: '診断',
-    diagnosticsHelp: '診断情報をブラウザコンソールへ出力します。',
-    accentColor: 'アクセントカラー',
-    newTab: '新規タブ',
-    newTabEnabled: 'よむの新規タブ学習ページを有効にする',
-    newTabAnkiEnabled: '新規タブのAnkiカードを有効にする',
-    newTabAnkiReviewDecks: 'Anki復習デッキ',
-    newTabAnkiReviewDecksHelp: '新しいデッキは自動対象です。不要なものだけ外します。',
-    newTabSource: '新規タブの復習ソース',
-    newTabAuto: '自動: JPDBがなければAnki',
-    dictionaryFallback: '辞書フォールバック',
-    newTabJpdbReviewMode: 'JPDB復習モード',
-    newTabJpdbReviewAuto: '自動: ライブ漢字 + API語彙',
-    newTabLiveReview: 'ライブJPDB復習セッション',
-    newTabApiVocabulary: 'API語彙のみ',
-    corsProxyUrl: 'クロスオリジンプロキシURL',
-    newTabKanjiKeywordSource: '漢字キーワードのソース',
-    newTabKanjiKeywordAuto: '自動: RTK、JPDB、ローカルの順',
-    newTabKanjiKeywordRtk: 'RTK / Heisig',
-    newTabKanjiKeywordLocal: 'ローカルカードの意味',
-    newTabParsingEnabled: '新規タブの文解析を有効にする',
-    newTabFrontSentenceEnabled: '単語カード表面に文を表示',
-    newTabKanjiAutogradeEnabled: '漢字の書き取りを自動採点',
-    newTabKanjiAutoSubmit: '漢字評価を自動送信',
-    newTabOfflineEnabled: '新規タブをオフライン用にキャッシュ',
-    newTabOfflineLimit: 'オフライン復習キャッシュ上限',
-    newTabUrl: '新規タブのアドレス',
-    newTabOfflineHelp: '新規タブ/iPad用。オンライン更新、オフライン採点を同期。',
-    newTabJpdbDeck: '新規タブのJPDBデッキ',
-    openNewTabPage: '新規タブページを開く',
-    copyAddress: 'アドレスをコピー',
-    wordColors: '単語の色',
-    wordColorNew: '新規・デッキ内',
-    wordColorLearning: '学習中',
-    wordColorKnown: '既知・忘れない',
-    wordColorDue: '期限到来',
-    wordColorFailed: '失敗',
-    wordColorIgnored: '無視・保留・ブラックリスト',
-    pitchAccentColors: 'ピッチアクセントの色',
-    pitchColorHeiban: '平板',
-    pitchColorAtamadaka: '頭高',
-    pitchColorNakadaka: '中高',
-    pitchColorOdaka: '尾高',
-    pitchColorKifuku: '起伏',
-    pitchColorUnknown: '不明 / 継承',
-    colorChannels: '色チャンネル',
-    wordHighlightColorSource: '単語ハイライトの色',
-    wordUnderlineColorSource: '単語下線の色',
-    wordTextColorSource: '単語テキストの色',
-    subtitleHighlightColorSource: '字幕ハイライトの色',
-    subtitleUnderlineColorSource: '字幕下線の色',
-    subtitleTextColorSource: '字幕テキストの色',
-    colorSourceStatus: 'JPDB + Ankiの状態',
-    colorSourceJpdb: 'JPDBの状態',
-    colorSourceAnki: 'Ankiの状態',
-    colorSourcePitch: 'ピッチアクセント',
-    colorChannelsHelp: '各表示に使う状態色を選びます。',
-    interfaceHelp: '',
-    parseSelection: '選択テキストを検索',
-    lookupOnClick: 'タップまたはクリックで検索',
-    lookupOnHover: 'ホバーで検索',
-    lookupOnMiddleMouse: '中央ボタン長押しで検索',
-    showFloatingButton: '設定ボタンを表示',
-    settingsPuckHelp: 'スマホやタブレットで設定ボタンを残します。',
-    showFurigana: 'ふりがな注釈を有効にする',
-    furiganaMode: 'ふりがな',
-    furiganaDifficultKanji: '難しい漢字のみ',
-    furiganaHideKnown: '既知語を非表示',
-    furiganaAllParsed: '解析済みの全単語',
-    showPitchAccent: 'ピッチアクセントを表示',
-    hideKnownFurigana: '既知カードのみふりがなを非表示',
-    readerHelp: 'ホバー用キーを設定。空欄なら通常ホバーです。',
-    hoverLookupSettings: 'ホバー検索',
-    kanjiOriginKanjiMapEnabled: '漢字情報と部品グラフを表示',
-    kanjiOriginGraphEnabled: '部品グラフを表示',
-    kanjiOriginRadicalImagesEnabled: '部首画像を表示',
-    similarKanjiWordLimit: '類似語の上限',
-    kanjiHelp: 'ポップアップ内の漢字で詳細表示。ソースも並べ替えます。',
-    audioEnabled: '語句の音声を有効にする',
-    autoPlayAudio: '語句の音声を自動再生する',
-    suppressAutoAudioOnVideo: '動画ページでは検索音声の自動再生を無効にする',
-    audioAutoPlayMode: '自動再生のきっかけ',
-    audioEnableDefaultSources: '内蔵音声ソースを有効にする',
-    audioFallbackChimeEnabled: 'フォールバックチャイムを有効にする',
-    audioSelectionMode: '複数のソースやクリップがあるとき',
-    audioPlayback: '音声再生',
-    firstAudio: '最初の音声',
-    randomAudio: 'シャッフル音声',
-    audioTtsMode: '読み上げの扱い',
-    audioTtsFallback: '録音音声の後のフォールバック',
-    audioTtsSourceOrder: 'ソース順/シャッフルに含める',
-    audioTimeoutMs: '音声タイムアウト (ms)',
-    previewAudio: '音声を試聴',
-    audioHelp: '{term}、{reading}、{language}が使えます。詳しくはYomitan音声ガイドへ。',
-    audioSource: '音声ソース',
-    urlVoice: 'URL / 音声',
-    addAudioSource: '音声ソースを追加',
-    audioAutoPlayAll: 'ホバーとタップ/クリック',
-    audioAutoPlayHover: 'ホバーのみ',
-    audioAutoPlayTap: 'タップ/クリックのみ',
-    automaticBrowserVoice: 'ブラウザの自動音声',
-    savedVoice: '保存済み音声',
-    savedVoiceLabel: '保存済み音声: {voice}',
-    audioSourceOrder: '音声ソースの順序',
-    audioSourceNumber: '音声ソース {number}',
-    enableAudioSourceNumber: '音声ソース {number} を有効にする',
-    enableLookupPillName: '検索ピル「{name}」を有効にする',
-    enableSourceName: 'ソース「{name}」を有効にする',
-    textToSpeechVoiceNumber: '読み上げ音声 {number}',
-    audioSourceJpod101: 'JapanesePod101',
-    audioSourceLanguagePod101: 'LanguagePod101',
-    audioSourceJisho: 'Jisho.org',
-    audioSourceLinguaLibre: '(Commons) Lingua Libre',
-    audioSourceWiktionary: '(Commons) Wiktionary',
-    audioSourceJpdbTts: 'JPDB読み上げ',
-    audioSourceTextToSpeech: 'ブラウザ読み上げ',
-    audioSourceTextToSpeechReading: 'ブラウザ読み上げ (かな読み)',
-    audioSourceCustom: '直接音声ファイルURL',
-    audioSourceCustomJson: 'カスタムURL',
-    audioCustomJsonPlaceholder: 'YomitanまたはUltimateの音声ソースURL',
-    audioCustomUrlPlaceholder: '直接音声ファイルURL',
-    audioBuiltInPlaceholder: '内蔵ソースのためURL不要',
-    defaultVoiceSuffix: '標準',
-    audioGuideLinkLabel: 'Yomitan音声ガイド',
-    audioProxyGuideSummary: 'Cloudflareプロキシを自作する',
-    audioProxyGuideIntro: '標準プロキシで十分です。専用ならWorkerへ。',
-    audioProxyGuideCloudflare: 'Cloudflare Dashboardを開きます。',
-    audioProxyGuideWorkers: 'Workers & PagesでCreateします。',
-    audioProxyGuideCreateWorker: 'Workerを選び、名前を付けてDeployします。',
-    audioProxyGuideEditCode: 'Edit codeでYomu Workerソースを貼ります。',
-    audioProxyGuideDeploy: 'Deployします。',
-    audioProxyGuideCopyUrl: 'Worker URLをコピーします。例: https://yomu-proxy.yourname.workers.dev',
-    audioProxyGuidePasteUrl: 'Cross-origin proxy URLに貼ります。?url=は不要です。',
-    audioProxyGuideTest: '保存後、検索・インポート・音声で確認します。',
-    audioProxyGuideNote: 'Workerソースはリポジトリ内です。共有前にホストを絞ります。',
-    audioProxyWorkerSource: 'Workerソース',
-    audioProxyDeployGuide: 'デプロイガイド',
-    immersionKitEnabled: 'イマージョンキット例文を表示',
-    immersionKitExampleSource: '例文プロバイダー',
-    immersionKitAndNadeshiko: 'イマージョンキット + なでしこ',
-    nadeshikoApiKey: 'なでしこAPIキー',
-    getNadeshikoKey: 'キーを取得',
-    immersionKitShowTranslation: '例文の翻訳を表示',
-    immersionKitRevealTranslationOnClick: 'クリックするまで例文の翻訳をぼかす',
-    immersionKitShowImages: '例文サムネイルを表示',
-    immersionKitAutoPlayAudio: '表示後または前後移動時に例文音声を再生',
-    immersionKitPlayOnHover: 'サムネイルをホバーしたら例文音声を再生',
-    immersionKitPlayOnImageClick: 'サムネイルをクリックしたら例文音声を再生',
-    immersionKitCategory: '例文ソース',
-    immersionKitSort: '例文の並び順',
-    immersionKitLimitEnabled: '単語ごとの例文数制限',
-    allExamples: 'すべての例文',
-    limitExamples: '例文数を制限',
-    immersionKitLimit: '単語ごとの例文数',
-    immersionKitMinLength: '最小文長',
-    immersionKitMaxLength: '最大文長',
-    immersionKitPlaybackRate: '例文音声速度',
-    immersionKitExactMatch: '完全一致を優先',
-    immersionKitHelp: '例文をポップアップとJPDBに表示。Nadeshikoはキーが必要です。',
-    allCategories: 'すべて',
-    anime: 'アニメ',
-    drama: 'ドラマ',
-    games: 'ゲーム',
-    shortestFirst: '短い順',
-    longestFirst: '長い順',
-    randomOrder: 'ランダム',
-    ocrEnabled: '画像内テキストを読む',
-    ocrAutoScanImages: '画像を自動で読む',
-    ocrShowTextOverlay: '認識した画像テキスト領域を表示',
-    ocrProvider: '画像読み取り',
-    googleLens: 'Google Lens (おすすめ)',
-    cloudVision: 'Google Cloud Vision',
-    localOcr: 'ローカルOCRエンジン',
-    off: 'オフ',
-    ocrMaxImagesPerPage: 'ページごとに読む画像数',
-    ocrMinImageArea: '読む画像の最小サイズ',
-    ocrMaxImagePixels: '画像の精細さ',
-    lightWork: '軽め',
-    normal: '標準',
-    more: '多め',
-    largeOnly: '大きい画像のみ',
-    includeSmall: '小さい画像も含める',
-    faster: '高速',
-    balanced: 'バランス',
-    sharper: '高精細',
-    ocrTextColor: '画像テキストの色',
-    ocrOutlineColor: '画像テキストの縁取り',
-    ocrBackgroundColor: '画像ハイライト背景',
-    ocrBackgroundOpacity: '画像ハイライト不透明度',
-    ocrFontScale: '画像テキスト倍率',
-    ocrEndpointUrl: 'カスタムローカルOCR URL',
-    ocrCustomLocalServer: 'カスタムローカルOCRサーバー',
-    ocrEngine: 'ローカルOCRエンジン',
-    cloudVisionApiKey: 'Cloud Vision APIキー',
-    ocrHelp: '近くの画像を読み取ります。Cloud Visionはキーが必要です。',
-    subtitlePlayerEnabled: '動画字幕プレイヤーを有効にする',
-    subtitleAutoDetect: 'ページの字幕を自動検出',
-    subtitleOverlayVisible: '字幕オーバーレイを表示',
-    subtitleSecondaryVisible: '利用可能ならネイティブ字幕を表示',
-    subtitleNativeBlurred: 'ホバーするまでネイティブ字幕をぼかす',
-    subtitleKaraokeMode: 'カラオケ風の単語タイミング',
-    subtitleTranscriptVisible: '文字起こしパネルを標準で開く',
-    subtitlePausePanel: '一時停止時にサイドパネルを開く',
-    subtitleTranscriptPlacement: '文字起こしパネル位置',
-    subtitleTranscriptAutoScroll: '再生に合わせて文字起こしをスクロール',
-    subtitleAutoCopyLine: '各字幕行を再生時に自動コピー',
-    subtitleMiningPause: '字幕を採掘するとき動画を一時停止',
-    subtitleControlsMode: '字幕コントロール',
-    right: '右',
-    left: '左',
-    bottom: '下',
-    showWhenNeeded: 'コンパクト表示',
-    hideControls: 'コントロールを隠す',
-    alwaysVisible: '常に表示',
-    subtitleFontSize: '字幕フォントサイズ (px)',
-    subtitleBottomOffset: '字幕下端オフセット (%)',
-    subtitleTextColor: '字幕の色',
-    subtitleOutlineColor: '字幕の縁取り',
-    subtitleBackgroundColor: '字幕背景',
-    subtitleBackgroundOpacity: '字幕背景の不透明度',
-    subtitleFontFamily: '字幕フォントファミリー',
-    subtitleFontWeight: '字幕フォントの太さ',
-    subtitleSeekPadding: '字幕シーク余白 (s)',
-    subtitlePreview: '字幕ライブプレビュー',
-    youtubeImmersionEnabled: '日本語のYouTube動画だけ表示',
-    preferJapaneseSiteLanguage: 'サイトの言語と地域を日本優先にする',
-    youtubeShowFilterNotice: '非表示動画の通知を一時的に出す',
-    youtubeShowChannelRecommendations: '日本語チャンネル候補を表示',
-    youtubeHelp: '可能な範囲で日本語UIと日本向け内容を要求します。',
-    youtubeFilterOn: 'YouTubeフィルター: オン',
-    youtubeFilterOff: 'YouTubeフィルター: オフ',
-    youtubeShowHiddenVideos: '非表示動画を表示',
-    youtubeHideHiddenVideos: '非表示動画を隠す',
-    youtubeHideNotice: '通知を隠す',
-    youtubeFilterShowing: '{appName}は非表示のYouTube項目{count}件を表示中',
-    youtubeFilterHid: '{appName}は日本語らしくないYouTube項目{count}件を非表示',
-    youtubeFilterVisible: '日本語らしい項目{count}件は表示したままです。',
-    youtubeChannelGuideEyebrow: '厳選チャンネル{count}件',
-    youtubeChannelGuideTitle: '日本語のYouTubeフィードを始める',
-    youtubeChannelGuideCopy: 'いくつか登録すると、YouTubeがこの環境では日本語を見たいと学習しやすくなります。',
-    youtubeChannelGuideLater: '後で',
-    youtubeChannelGuideNever: '今後表示しない',
-    youtubeChannelGuideMore: 'すべて表示',
-    youtubeChannelGuideLess: '少なく表示',
-    youtubeChannelSubscribe: '登録',
-    youtubeChannelOpen: 'チャンネルを開く',
-    youtubeChannelSource: '{source}からの候補です。',
-    youtubeToggleToastOn: 'YouTube没入フィルターをオンにしました。',
-    youtubeToggleToastOff: 'YouTube没入フィルターをオフにしました。',
-    ankiEnabled: 'Anki採掘を有効にする',
-    ankiMineWithJpdb: 'JPDBへ追加するときAnkiにも追加',
-    ankiCaptureScreenshot: '可能なら文脈画像を添付',
-    ankiConnectUrl: 'AnkiConnect URL',
-    ankiDeck: 'Ankiデッキ',
-    ankiModel: 'Ankiノートタイプ',
-    mobileAnkiHandoff: 'モバイルAnki新規ノート作成',
-    ankiTemplateMode: 'Ankiカードテンプレート',
-    ankiFrontReading: '単語優先の表面に読みを表示',
-    ankiFrontSentence: '単語優先の表面に文を表示',
-    ankiFrontImage: '表面に画像を表示',
-    wordFirst: '単語を先に表示',
-    sentenceFirst: '文を先に表示',
-    ankiTags: 'タグ',
-    sentenceFirstPreset: '文を先に表示するプリセット',
-    wordFirstPreset: '単語を先に表示するプリセット',
-    imageAbovePrompt: '画像があれば問題文の上に表示します。',
-    recallHighlightedWord: '文脈からハイライト語を思い出します。',
-    imageOnFront: '利用可能な場合、画像は表面に表示されます。',
-    recallMeaning: 'まず意味を思い出します。',
-    ankiBackIncludes: '辞書、漢字、ピッチ、頻度、出典、画像を含みます。',
-    exampleMeaning: '読む',
-    scanAnkiFirst: '先にAnkiConnectに接続',
-    notMapped: '対応付けなし',
-    noScannedFields: 'AnkiConnect接続後にフィールド候補が入ります。',
-    mappingForNoteType: '{model} の対応付け',
-    currentNoteType: '現在のノートタイプ',
-    ankiFieldMappingSelect: '{role}フィールド',
-    ankiRoleExpression: '表記',
-    ankiRoleReading: '読み',
-    ankiRoleMeaning: '意味',
-    ankiRoleSentence: '文',
-    ankiRoleAudio: '音声',
-    ankiRoleImage: '画像',
-    testAnki: 'AnkiConnectを確認',
-    prepareAnki: 'よむノートタイプを作成',
-    ankiCheckingConnection: '{url} のAnkiConnectを確認中。',
-    ankiMiningDisabledStatus: 'Ankiマイニングは無効です。',
-    ankiTesting: 'AnkiConnectを確認中...',
-    ankiPreparing: 'よむデッキとノートタイプを作成または更新中...',
-    ankiScanning: 'Ankiデッキ、ノートタイプ、フィールドを読み込み中...',
-    ankiScanSummary: 'デッキ{decks}件、ノート{models}件。候補: {model}。{fields}',
-    ankiScanNoModels: 'デッキ{decks}件を検出。ノートタイプは未取得です。',
-    ankiScanFieldSummary: 'フィールド: {fields}',
-    ankiUnreachable: 'Anki未接続です。デスクトップAnkiとAnkiConnectを確認。',
-    ankiSettingsUnreachable: 'AnkiConnectに接続できません。デスクトップではAnkiとアドオンを起動。モバイルではLAN/TailscaleのデスクトップURLか受け渡しを使います。',
-    ankiHostedBridgeMissing: 'ホスト版のAnki確認にはよむユーザースクリプトのブリッジが必要です。ここで有効化し、再読み込みしてください。',
-    ankiLibraryAdapter: '既存ライブラリアダプター',
-    ankiLibraryAdapterStatus: '既存デッキとノートタイプから対応付けを提案します。',
-    ankiLibraryChoices: 'デッキとノートタイプ',
-    ankiLibraryChoicesHelp: 'AnkiConnectから読み込み、作成・更新先を選びます。',
-    ankiTemplateSettings: 'よむカードテンプレート',
-    ankiTemplateSettingsHelp: 'よむノートタイプ用。既存テンプレートはAnkiに残ります。',
-    ankiMappingConfidenceHelp: 'フィールド名とサンプルで判断。低信頼度は変更できます。',
-    ankiMappingHighConfidence: '高',
-    ankiMappingMediumConfidence: '中',
-    ankiMappingLowConfidence: '低',
-    ankiHelp: '完全なAnki機能はLAN/Tailscale。受け渡しは新規ノート用。',
-    jpdbDefinitionsEnabled: 'JPDB定義を表示',
-    localDictionariesEnabled: 'インポート済み辞書の定義を表示',
-    dictionarySourcesInitiallyExpanded: 'ポップアップのソースを標準で開く',
-    localDictionaryMaxResults: '辞書結果の上限',
-    importSettings: '設定JSONをインポート',
-    exportSettings: '設定JSONをエクスポート',
-    importDictionaries: '辞書をインポート',
-    exportDictionaries: '辞書をエクスポート',
-    dictionaryImportHelp: 'Yomitan設定、辞書ZIP、バックアップを読み込みます。',
-    lookupPills: '検索ピル',
-    lookupPillsHelp: '外部辞書リンクです。{query}、{word}、{reading}が使えます。',
-    copiesCurrentWord: '現在の単語をコピーします',
-    lookupPillLabel: '検索ピルのラベル',
-    lookupPillLabelNumber: '検索ピル{number}のラベル',
-    lookupUrlTemplate: '検索URLテンプレート',
-    lookupUrlTemplateNumber: '検索ピル{number}のURLテンプレート',
-    lookupPillOrder: '検索ピルの順序',
-    builtInAction: '内蔵アクション',
-    recommendedDownloads: 'おすすめ辞書',
-    termDictionaries: '語句辞書',
-    kanjiDictionaries: '漢字辞書',
-    frequencyDictionaries: '頻度辞書',
-    homepage: 'ホームページ',
-    install: 'インストール',
-    installing: 'インストール中',
-    queued: '待機中',
-    download: 'ダウンロード',
-    downloadAndImport: 'ダウンロードしてよむにインポート',
-    update: '更新',
-    checkingDictionaries: 'インポート済み辞書を確認中...',
-    dictionaryOnlyJpdb: '定義ソースはJPDBのみです。Yomitan辞書でローカル定義を追加。',
-    localDictionaryText: '辞書テキスト',
-    localSenseSingular: '意味',
-    localSensePlural: '意味',
-    decksLoaded: 'JPDBアカウントからデッキを読み込みました。',
-    decksUnavailable: 'まだデッキを読み込めません。保存済みIDは保持します。',
-    addApiKeyChooseDecks: 'デッキを選ぶにはJPDB APIキーを追加してください。',
-    miningDeck: '採掘デッキ',
-    neverForgetDeck: '忘れないデッキ',
-    blacklistDeck: 'ブラックリストデッキ',
-    allStudyDecks: 'すべての学習デッキ',
-    savedValue: '保存済み: {value}',
-    holdWhileHovering: 'ホバー中に押すキー',
-    hoverOpenDelayMs: 'ホバーで開く遅延 (ms)',
-    hoverCloseDelayMs: 'ホバーを閉じる遅延 (ms)',
-    pressKeys: 'キーを押してください',
-    blankPlainHover: '空欄ならキーなしホバー',
-    openSettings: '設定を開く',
-    resizeSettings: '設定パネルのサイズ変更',
-    closePopup: 'ポップアップを閉じる',
-    previousLookupWord: '前の単語',
-    nextLookupWord: '次の単語',
-    playingAudioPreview: `${APP_NAME}を再生中...`,
-    audioPreviewFailed: '音声プレビューに失敗しました。',
-    previousSubtitle: '前の字幕',
-    nextSubtitle: '次の字幕',
-    copySubtitle: '字幕をコピー',
-    toggleImageReading: '画像読み取りを切り替え',
-    toggleYoutubeImmersion: 'YouTubeフィルターを切り替え',
-    readImagesNow: '今すぐ画像を読む',
-    helpLinksTitle: '便利なページ',
-    helpLinksCopy: 'リーダーツールとドキュメントをここから開けます。',
-    helpSupportTitle: 'よむをサポート',
-    helpSupportCopy: JA_SUPPORT_COPY,
-    helpSupportCopyExtra: JA_SUPPORT_COPY_EXTRA,
-    videoPlayer: '動画プレイヤー',
-    docs: 'ドキュメント',
-    factoryReset: '初期状態に戻す',
-    factoryResetConfirm: '{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書、保存データを削除します。',
-    factoryResetFailed: 'リセットに失敗しました。',
-    factoryResetDictionaryWarning: '設定をリセットしました。他のよむタブを閉じて辞書を確認してください。',
-    factoryResetOtherTabReloading: '別のタブでよむがリセットされました。再読み込みします...',
-    factoryResetDeleteSettingsFailed: '保存済み設定を削除できません。他のよむタブを閉じて再試行。',
-    issues: 'Issue',
-    donate: '寄付',
-    discord: 'Discord',
-    documentation: 'ドキュメント',
-    addToMining: 'デッキに追加',
-    addToMiningHint: 'このカードを選択中のJPDBデッキに追加します。',
-    enabledHeader: '有効',
-    labelHeader: 'ラベル',
-    displayName: '表示名',
-    orderHeader: '順序',
-    removeHeader: '削除',
-    definitionSource: '定義ソース',
-    kanjiSection: '漢字セクション',
-    dictionaryDisplayName: '辞書表示名',
-    sourcePriority: '{source}の優先度',
-    dragToReorder: 'ドラッグして並べ替え',
-    moveUp: '上へ移動',
-    moveDown: '下へ移動',
-    remove: '削除',
-    removeImportedDictionary: 'インポート済み辞書を削除',
-    customAdvanced: '{label} (詳細)',
-    importLocalDefinitionsHelp: 'ローカル定義にはYomitan辞書をインポートします。',
-    frequencyMetadataHelp: '頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。',
-    sourceHelpJpdb: '現在のカードのJPDB定義です。',
-    sourceHelpAnki: '一致するAnkiカード内容と状態です。',
-    sourceHelpTranslation: '文の自動翻訳です。',
-    sourceHelpGrammar: 'ローカル文法ヒントです。',
-    sourceHelpImmersionKit: '例文、画像、音声です。',
-    sourceNameImmersionKit: 'イマージョンキット',
-    sourceNameAnki: 'Anki',
-    sourceNameTranslation: '翻訳',
-    sourceNameGrammar: '文法',
-    sourceNameStrokePractice: '筆順練習',
-    sourceNameImportedKanjiDictionaries: 'インポート済み漢字辞書',
-    sourceNameWordsUsingKanji: 'この漢字を使う単語',
-    sourceHelpImportedKanjiDictionary: 'インポート済みYomitan漢字辞書です。',
-    sourceHelpStrokePractice: '筆順プレビューと書き取りパッドです。',
-    sourceHelpReadingsComponents: 'JPDBの読み、部品、語呂合わせです。',
-    sourceHelpRtk: 'RTKキーワード、要素、ストーリーです。',
-    sourceHelpUchisen: 'Uchisen語呂合わせ画像カルーセルです。',
-    uchisenMnemonicImages: 'Uchisen語呂合わせ画像',
-    uchisenMnemonicFor: '{kanji}のUchisen語呂合わせ',
-    noUchisenImagesYet: 'Uchisen画像はまだありません。',
-    generateUchisenImage: '画像を生成',
-    generateUchisenImageToggle: '画像を生成 +',
-    uchisenMnemonicStory: '語呂合わせストーリー',
-    uchisenImagePrompt: '画像プロンプト',
-    uchisenGenerateHint: 'ストーリーとプロンプトを編集し、Uchisen画像を公開します。',
-    uchisenGeneratingImage: '画像を生成中...',
-    uchisenPublishingMnemonic: '語呂合わせを公開中...',
-    uchisenGeneratedImage: 'Uchisen画像を公開しました。',
-    uchisenGenerateFailed: 'Uchisen画像を生成できませんでした。',
-    uchisenLoginRequired: '画像生成にはUchisenへのログインが必要です。',
-    noStoryAvailable: 'ストーリーはありません',
-    sourceHelpImportedKanjiDictionaries: 'インポート済み漢字項目です。',
-    sourceHelpWordsUsingKanji: '関連語彙です。',
-    sourceHelpComponentGraph: '漢字情報、部品グラフ、部首画像です。',
-    recommendedJitendex: '例文とメモ付きの日英辞書です。',
-    recommendedJmdict: 'Yomitan向けの基本日英辞書です。',
-    recommendedJmnedict: '日本語固有名詞辞書です。',
-    recommendedKanjidic: '漢字の読み、意味、画数、レベル、頻度です。',
-    recommendedJpdbv2Kana: 'JPDB頻度データです。',
-    recommendedBccwj: 'BCCWJ頻度データです。',
-    recommendedJiten: 'jiten.moe頻度データです。',
-};
+function parseUiCopyTable(rows: string): Partial<Record<UiCopyKey, string>> {
+    const copy: Partial<Record<UiCopyKey, string>> = {};
+    rows.trim().split('\n').forEach(row => {
+        const tab = row.indexOf('\t');
+        if (tab <= 0) return;
+        copy[row.slice(0, tab) as UiCopyKey] = row.slice(tab + 1).replaceAll('{APP_NAME}', APP_NAME);
+    });
+    return copy;
+}
+
+const JA_COPY: Partial<Record<UiCopyKey, string>> = parseUiCopyTable(String.raw`
+settingsTitle	{APP_NAME} 設定
+welcomeLabel	{APP_NAME} ようこそ
+onboardingEyebrow	日本語がある場所ならどこでも
+onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
+onboardingLanguage	表示言語
+onboardingImmersionOptions	没入設定の初期値
+onboardingAddApiKey	APIキーを追加
+onboardingAddLocalDictionaries	ローカル辞書を追加
+onboardingUseWithoutApiKey	APIキーなしで使う
+closeOnboarding	ようこそ画面を閉じる
+featureText	テキスト
+featureTextBody	スキャン後、日本語をホバー/タップできます。
+featureImages	画像
+featureImagesBody	近くの画像テキストを検出します。
+featureVideo	動画
+featureVideoBody	字幕がある場合、字幕内の単語もタップできます。
+featureControl	調整
+featureControlBody	機能、ショートカット、色を調整できます。
+automatic	自動
+english	英語
+japanese	日本語
+settings	設定
+settingsSaved	設定を保存しました。
+settingsSaveFailed	設定を保存できませんでした。
+dictionaries	辞書
+localWordSingular	項目
+localWordPlural	項目
+kanji	漢字
+audio	音声
+front	表面
+back	裏面
+newTabPage	新しいタブ
+word	単語
+search	検索
+statsImportJpdbHistory	JPDB復習履歴を読み込む
+switchToLightTheme	ライトテーマに切り替え
+switchToDarkTheme	ダークテーマに切り替え
+openYomuSettings	{APP_NAME}の設定を開く
+newTabAddressCopied	新規タブのアドレスをコピーしました。
+getApp	{APP_NAME}を入手
+loading	読み込み中...
+refreshing	更新中...
+reveal	表示
+revealTranslation	翻訳を表示
+immersionExampleControls	イマージョンキット例文の操作
+loadingKanjiDetails	漢字情報を読み込み中...
+loadingMnemonicImages	覚え方画像を読み込み中...
+lookupDialog	{APP_NAME}検索
+resizeLookupSheet	検索シートのサイズ変更。タップで閉じます
+showMiningActions	マイニング操作を表示
+hideMiningActions	マイニング操作を隠す
+closeDrawer	ドロワーを閉じる
+copiedWord	単語をコピーしました。
+jpdbKanjiUpdated	JPDB漢字を更新しました。
+jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。設定を確認してください。
+apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
+addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
+addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
+actionFailed	操作に失敗しました。
+noDefinitions	有効な定義ソースから結果が返りませんでした。
+dictionary	辞書
+dictionariesExported	辞書をエクスポートしました。
+saveAfterInstall	インストール後に保存
+dictionaryDownloading	ダウンロード中
+dictionaryReadingZip	辞書ZIPを読み取り中...
+dictionaryCheckingIndex	辞書インデックスを確認中...
+dictionaryBanksFound	{count}件の辞書バンクが見つかりました。
+dictionaryRemovingExisting	既存項目を削除中
+dictionaryReadingBank	読み取り中
+dictionaryParsingBank	解析中
+dictionarySavingBank	保存中
+dictionaryImporting	インポート中
+importingBundledDictionaries	同梱辞書をインポート中...
+dictionaryImported	インポート済み
+dictionaryPreparingImport	インポート準備中
+dictionaryRecords	辞書レコード
+dictionaryEntries	件
+dictionaryTotal	合計
+dictionaryDownloadProgress	辞書をダウンロード中
+dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}。
+dictionaryStatusUnavailable	辞書状態を取得できません。
+noLocalDictionariesImported	ローカル辞書はまだインポートされていません。
+dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
+dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
+dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
+dictionaryDownloadNeedsBridge	ダウンロードにはブリッジが必要です。失敗時はZIPを追加してください。
+dictionaryDownloadBlocked	ダウンロードがブロックされています。ZIPを追加してください。
+dictionaryManualDownloadHint	ユーザースクリプトを有効にするか、ZIPを追加してください。
+dictionaryInstallQueueHelp	インストールには数分かかります。完了後に保存できます。
+dictionaryInstallQueued	{dictionary}を待機中です。
+dictionaryInstallSaveBlocked	辞書インポート中です。完了すると保存できます。
+dictionaryImportQueueStatus	{count}件インストール中です。完了後に保存できます。
+dictionaryRemoveConfirm	「{dictionary}」を削除しますか？
+dictionaryRemoving	{dictionary}を削除中...
+dictionaryRemoved	{dictionary}を削除しました。
+dictionaryImportComplete	{sources}ソースから{records}件インポートしました。
+dictionaryRecordsImported	{dictionary}: {records}件インポートしました。
+settingsImported	設定をインポートしました。
+settingsImportedWithDetails	設定をインポートしました。{details}
+settingsExported	設定をエクスポートしました。
+restoredStoredChoices	保存済み選択肢を{count}件復元
+importedDictionaryRecordCount	辞書レコードを{count}件インポート
+dictionaryNoSupportedBanks	対応しているYomitan辞書バンクが見つかりません。
+dictionaryUnsupportedJson	Yomitan Dexie、辞書ZIP、リーダー出力を使ってください。
+dictionaryZipMissingIndex	Yomitan辞書ZIPにindex.jsonがありません。
+yomitanSettingsInvalid	Yomitan設定エクスポートではないようです。
+local	ローカル
+dict	辞書
+scanPage	ページをスキャン
+noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
+jpdbScanFailed	ページスキャンに失敗しました。
+pageCoverageSummary	既知率{percent}%・{known}/{total}語・新規{unknown}・i+1 {iPlusOne}
+noImmersionExamples	イマージョンキットの例文が見つかりません。
+noImmersionExamplesCompact	例文なし
+noLocalDictionaries	ローカル辞書は未導入です。JMdictかYomitan ZIPを追加してください。
+kanjiMapData	漢字マップデータ
+kanjiAlive	カンジアライブ
+wiktionary	ウィクショナリー
+fallbackSetupTitle	辞書から始める
+fallbackSetupCopy	JPDBキーなしでも検索できます。辞書でオフライン対応。
+fallbackSetupDictionaries	辞書を追加
+fallbackSetupJpdb	JPDBキーを追加
+offlineCacheGradesDisabled	オフラインです。採点は再接続時に同期されます。
+recognizing	認識中...
+noHandwritingMatch	候補がありません。漢字を入力/貼り付けてください。
+yourKanjiDrawing	あなたの手書き
+jpdbKanjiActions	JPDB漢字操作
+couldNotSearchLocalDictionaries	ローカル辞書を検索できませんでした。
+subtitlePanel	字幕
+lines	行
+tracks	トラック
+currentLineWillAppear	字幕が利用可能になると現在行が表示されます。
+native	母語
+unsetJapanese	日本語を解除
+unsetNative	母語字幕を解除
+options	件
+option	件
+line	行
+subtitleTrackDetected	字幕トラックを検出
+filterStudy	学習
+filterAll	すべて
+sourceAuto	自動
+sortRandom	ランダム
+sortFrequency	頻度
+sortState	状態
+stateNew	新規
+stateLearning	学習中
+stateDue	復習予定
+stateFailed	失敗
+stateKnown	既知
+stateNeverForget	忘れない
+stateSuspended	停止中
+stateLocked	ロック中
+stateBlacklisted	ブラックリスト
+stateRedundant	重複
+stateInDeck	デッキ内
+stateNotInDeck	デッキ外
+gradeAnkiCardTarget	Ankiカードを採点: {target}
+gradeJpdbCardTarget	JPDBカードを採点
+ankiReviewSingular	回復習
+ankiReviewPlural	回復習
+ankiLapseSingular	回失敗
+ankiLapsePlural	回失敗
+gradeNothingLabel	全然
+gradeSomethingLabel	少し
+gradeHardLabel	難しい
+gradeOkayLabel	OK
+gradeEasyLabel	簡単
+gradeFailLabel	失敗
+gradePassLabel	合格
+gradeNothing	採点: 全然
+gradeSomething	採点: 少し
+gradeHard	採点: 難しい
+gradeOkay	採点: OK
+gradeEasy	採点: 簡単
+gradeFail	合否: 失敗
+gradePass	合否: 合格
+factKeyword	キーワード
+factType	種類
+factFrequency	頻度
+factMeaning	意味
+factGrade	学年
+factOldForms	旧字体
+loadingSimilarWords	単語を読み込み中...
+openToLoadSimilarWords	開くと単語を読み込みます。
+noSimilarWords	追加の単語は見つかりませんでした。
+loadingExamples	例文を読み込み中...
+immersionKitRateLimited	Immersion Kitは一時制限中です。あとで再試行します。
+immersionKitRequest	Immersion Kitリクエスト
+immersionKitRequestFailed	Immersion Kitリクエストに失敗しました。
+immersionKitRequestFailedWithStatus	Immersion Kitリクエストに失敗しました（{status}）。
+immersionKitRequestTimedOut	Immersion Kitリクエストがタイムアウトしました。
+immersionKitSearchBlocked	Immersion Kit検索がブロック中です。CORSか代替設定を使ってください。
+immersionKitMediaRequest	メディアリクエスト
+immersionKitMediaRequestFailed	メディアリクエストに失敗しました。
+immersionKitMediaRequestFailedWithStatus	メディアリクエストに失敗しました（{status}）。
+immersionKitMediaRequestTimedOut	メディアリクエストがタイムアウトしました。
+immersionKitMediaRequestReturnedNonMedia	メディアリクエストがエラードキュメントを返しました。
+immersionKitNoMediaCandidate	読み込めるImmersion Kitメディア候補がありませんでした。
+nadeshikoRequest	Nadeshikoリクエスト
+nadeshikoRequestFailed	Nadeshikoリクエストに失敗しました。
+nadeshikoRequestFailedWithStatus	Nadeshikoリクエストに失敗しました（{status}）。
+nadeshikoRequestTimedOut	Nadeshikoリクエストがタイムアウトしました。
+previousExample	前の例文
+nextExample	次の例文
+playExampleAudio	例文音声を再生
+openOnJpdb	JPDBで開く
+openOnLookup	{label}で開く
+copyWord	コピー
+copyWordTitle	単語をコピー
+backToWord	単語に戻る
+backToKanji	漢字に戻る
+previousKanji	前の漢字
+nextKanji	次の漢字
+openKanjiOnJpdb	JPDBで漢字を開く
+playAudio	音声を再生
+audioPlaybackDisabled	音声再生は無効です
+audioPlaybackDisabledToast	音声再生は無効です。
+audioPlaybackFailed	音声の再生に失敗しました。
+noSentenceToRead	読み上げる例文がありません。
+noTextToRead	読み上げるテキストがありません。
+jpdbExampleAudioUnavailable	この例文で使えるJPDB音声がありません。
+jpdbAudioPlayableFileMissing	JPDB音声から再生可能ファイルを取得できません。
+jpdbAudioResponseNotPlayable	JPDB音声の応答は再生可能ファイルではありません。
+audioSourceReturnedNoAudio	音声ソースから音声を取得できませんでした。
+audioJsonMissingPlayableUrl	音声JSONに再生可能なURLがありません。
+textToSpeechUnavailable	このブラウザーでは読み上げ機能を利用できません。
+textToSpeechFailed	読み上げに失敗しました。
+audioRequest	音声リクエスト
+audioRequestTimedOut	音声リクエストがタイムアウトしました。
+audioRequestReturnedNonAudio	音声リクエストが音声ではない応答を返しました
+audioRequestReturnedNonAudioWithType	音声ではない応答です: {type}。
+audioUnknownContentType	不明なコンテンツ種別
+japanesePod101NoAudio	JapanesePod101にこの語の音声はありません。
+invalidJpdbAudioId	JPDB音声IDが無効です。
+couldNotReadAudio	音声を読み取れませんでした。
+couldNotReadAudioBlob	音声データを読み取れませんでした。
+previousSubtitle	前の字幕
+nextSubtitle	次の字幕
+copySubtitle	字幕をコピー
+subtitleFallbackLabel	字幕
+subtitlesTitle	字幕
+openSubtitlePanel	字幕パネルを開く
+closeSubtitlePanel	字幕パネルを閉じる
+closeSubtitleDrawer	字幕ドロワーを閉じる
+enableSubtitleAutoHide	再生中はパネルを自動で隠す
+disableSubtitleAutoHide	再生中もパネルを開いたままにする
+subtitleAutoHideShort	自動
+loadJapaneseSubtitles	日本語字幕を読み込む
+loadPrimarySubtitles	主字幕を読み込む
+loadNativeSubtitles	母語字幕を読み込む
+toggleNativeSubtitleBlur	母語字幕のぼかしを切り替え
+subtitleTrackDetectedSingular	字幕トラックを1件検出
+subtitleTracksDetected	件の字幕トラックを検出
+noSubtitleTracksDetected	字幕トラックはまだ検出されていません。
+resizeTranscriptPanel	文字起こしパネルのサイズ変更
+resizeSubtitleTracksPanel	字幕トラックパネルのサイズ変更
+subtitleNavigation	字幕ナビゲーション
+subtitlePanelMode	字幕パネル表示
+subtitleLines	行
+subtitleTracks	トラック
+copySubtitleLine	字幕行をコピー
+loadingSubtitleLines	字幕行を読み込み中
+waitingForCaptionLines	字幕行を待機中
+subtitleCurrentLineWillAppear	字幕が利用可能になると現在行が表示されます。
+seekSubtitleLine	字幕行へ移動
+subtitleTracksHint	主字幕を選び、「行」で一覧と移動を使います。
+noAutoDetectedSubtitleTracks	自動検出された字幕トラックはありません。
+autoDetectedTracksWillAppear	字幕トラックはここに表示されます。
+autoDetectedOptionSingular	字幕オプション1件
+autoDetectedOptions	件の字幕オプション
+detected	検出済み
+japaneseOverlay	日本語オーバーレイ
+primaryOverlay	主字幕オーバーレイ
+nativeOverlay	母語オーバーレイ
+unsetJapaneseSubtitles	日本語を解除
+unsetPrimarySubtitles	主字幕を解除
+japaneseSubtitles	日本語
+primarySubtitles	主字幕
+unsetNativeSubtitles	母語を解除
+nativeSubtitles	母語
+chooseJapaneseSubtitles	日本語字幕を選択
+choosePrimarySubtitles	主字幕を選択
+transcript	文字起こし
+subtitleOptionSingular	件
+subtitleOptionPlural	件
+subtitleLineSingular	行
+subtitleLinePlural	行
+trackKindPageTrack	ページ内トラック
+trackKindPageFile	ページ内ファイル
+trackKindYouTubeCaptions	YouTube字幕
+youTubeSubtitles	YouTube字幕
+autoGeneratedSubtitle	自動生成
+trackKindLoadedFile	読み込んだファイル
+trackStatusLoading	読み込み中
+trackStatusWaiting	字幕待機中
+trackStatusFailed	失敗
+ocrEnabledToast	画像読み取りを有効にしました。
+ocrHiddenToast	画像読み取りを非表示にしました。
+ocrNoReadableImages	近くに読み取れる画像がありません。
+showKanji	漢字を表示
+strokePractice	筆順と練習
+practiceDrawing	手書き練習
+strokes	画
+textTrace	筆順ガイド
+hideTrace	ガイドを隠す
+showTrace	ガイドを表示
+clear	クリア
+originStructure	部品グラフ
+originMapLabel	2D漢字由来・部品マップ
+originShowSubcomponents	下位部品
+originShowOutbound	派生先
+radical	部首
+readingsComponents	読みと部品
+jpdbMnemonic	JPDBの覚え方
+rtkComponentKeywords	RTK部品キーワード
+onReading	音
+kunReading	訓
+heisigStory	Heisigストーリー
+heisigComment	Heisigコメント
+koohiiStories	Koohiiストーリー
+add	追加
+addToDeck	デッキに追加
+addToDeckHint	選択したJPDBデッキにこのカードを追加します。
+deck	デッキ
+deckActions	デッキ操作
+reviewAddsToDeck	レビューすると新しい単語を追加します:
+reviewBlockedBlacklisted	ブラックリスト入りです。解除するとレビューできます。
+reviewBlockedNeverForget	「忘れない」設定です。解除するとレビューできます。
+reviewBlockedLocked	JPDBでロック中です。解除するとレビューできます。
+forget	忘れる
+never	忘れない
+neverHint	忘れないデッキへ移動します。
+forgetHint	忘れないデッキから外します。
+unlist	解除
+unlistHint	ブラックリストから外します。
+blacklist	ブラックリスト
+blacklistHint	この単語を無視します。
+addToAnki	Ankiに追加
+checkingAnki	Ankiを確認中...
+sendToMobileAnki	{app}へ送る
+mobileAnkiActionHint	モバイルAnkiで新規ノートを作成します。
+ankiAudioFileNotFound	Anki音声ファイルが見つかりません。
+ankiAudioPlaybackUnavailable	ここではAnki音声を再生できません。
+ankiAudioUnavailablePreview	プレビューで音声を利用できません
+ankiAudioFilenameLabel	Anki 音声 {filename}
+ankiStoredFields	保存フィールド
+ankiCardDetailsPending	Ankiで一致。カード詳細を読み込み中...
+ankiCardDetailsUnavailable	Ankiで一致。キャッシュ状態を表示します。
+ankiNewCard	新規カード
+ankiMatches	Ankiの一致
+ankiMergeNeedsDesktop	ノート統合にはデスクトップAnkiConnectが必要です。
+ankiNoteNotFound	Ankiノートが見つかりません。
+ankiHandoffCancelled	Ankiへの受け渡しがキャンセルされました。
+ankiConnectActionFailed	AnkiConnectの操作に失敗しました。
+ankiConnectRequestFailed	AnkiConnectリクエストに失敗しました。
+ankiConnectTimedOut	AnkiConnectがタイムアウトしました。
+ankiConnectNeedsBridge	AnkiConnectにはブリッジが必要です。
+ankiHostedCorsHint	上級: 直接接続にはこのオリジンをAnkiConnectのwebCorsOriginListに追加してください。
+mobileAnkiReady	Anki未接続。モバイル受け渡しは使えます。
+ankiConnectionReady	接続しました。AnkiConnectに到達できます。
+ankiConnectedReady	接続済み。デッキ「{deck}」、ノート「{model}」。
+ankiPromptRecallWord	ハイライトされた単語を思い出してください。
+ankiMeaningHeading	意味
+ankiPitchHeading	ピッチ
+ankiPartOfSpeechHeading	品詞
+ankiLinksHeading	リンク
+ankiSourceHeading	出典
+ankiTemplateContext	文脈
+ankiTemplateRecognition	認識
+ankiLocalDictionaryStatus	ローカル辞書
+mergeYomu	Yomuを統合
+mergeYomuTitle	一致フィールドを更新し、Yomuメディアを追加
+editInAnki	Ankiで編集
+keepBothAudio	両方残す
+keepAnkiAudio	Ankiを残す
+useYomuAudio	Yomuを使う
+lastSeen	最後に見た場所
+unavailable	利用不可
+openedInAnki	Ankiで開きました。
+addedToDeckAndReviewed	デッキに追加してレビューしました。
+sentToAnki	Ankiに送信しました。
+openedMobileAnkiHandoff	モバイルAnki受け渡しを開きました。
+alreadyInAnki	すでにAnkiにあります。編集はAnkiで行います。
+removedFromDeck	デッキから削除しました。
+addedToDeckToast	デッキに追加しました。
+sentToAnkiWithContextImageAndAudio	文脈画像と音声付きでAnkiに送信しました。
+sentToAnkiWithContextImage	文脈画像付きでAnkiに送信しました。
+sentToAnkiWithAudio	音声付きでAnkiに送信しました。
+ankiMergeNoNewData	Ankiノートに利用可能なYomuデータは反映済みです。
+ankiMergeFieldSingular	フィールド
+ankiMergeFieldPlural	フィールド
+ankiMergeAudio	音声
+ankiMergeImage	画像
+ankiMergeComplete	YomuデータをAnkiに統合しました ({parts})。
+selection	選択範囲
+parsedFrom	解析元
+imageReadingEnabled	画像読み取りを有効にしました。
+imageReadingHidden	画像読み取りを非表示にしました。
+reviewFailed	レビューに失敗しました。
+reviewActionsDisabled	設定でレビュー操作が無効です。
+jpdbLookupFailed	JPDB検索に失敗しました。
+jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
+jpdbAddApiKeyRequired	JPDB追加にはAPIキーかAnki追加が必要です。
+addedToJpdb	JPDBに追加しました。
+jitenDeckStateApiKeyRequired	Jiten語彙状態の変更にはJiten APIキーが必要です。
+jitenAddApiKeyRequired	Jiten追加にはJiten APIキーかAnki追加が必要です。
+chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
+addedToJiten	Jitenに追加しました。
+kanjiDetailsUnavailable	漢字情報はまだ利用できません。
+loadingDictionaryDetails	辞書詳細を読み込み中...
+sourceSingular	ソース
+sourcePlural	ソース
+usedInVocabulary	使われる単語
+exampleSentences	例文
+playJpdbExampleAudio	JPDB例文音声を再生
+wordsUsingKanji	{kanji}を使う単語
+kanjiDictionaries	漢字辞書
+sourceNameWordsUsingKanji	この漢字を使う単語
+contextVideo	動画
+contextImage	画像
+contextCurrentPage	現在のページ
+jpdbKanjiActionMine	追加
+jpdbKanjiActionKnown	既知
+jpdbKanjiActionNeverForget	忘れない
+jpdbKanjiActionForget	忘れる
+jpdbKanjiActionBlacklist	ブラックリスト
+jpdbKanjiActionReview	レビュー
+immersionKit	イマージョンキット
+translation	翻訳
+grammar	文法
+meaning	意味
+japaneseLabel	日本語
+readSentenceAloud	文を読み上げ
+openSectionToTranslate	このセクションを開くと翻訳します。
+translationUnavailable	翻訳を利用できません。
+translating	翻訳中...
+findingGrammar	文法を検索中...
+grammarKnown	既知
+grammarReview	復習
+grammarDetails	詳細
+grammarFoundIn	検出箇所
+grammarExample	例
+grammarGuide	ガイド
+grammarHideKnown	既知を隠す
+grammarShowKnown	既知を表示
+allDetectedGrammarKnown	検出文法はすべて既知です。
+grammarShown	件表示
+grammarKnownHidden	件の既知を非表示
+grammarGenericShort	文法項目: {name}
+grammarGenericDetail	この文では「{match}」に「{name}」が使われています。
+grammarKindHanabira	Hanabira文法
+grammarLevelCore	基本
+`);
+
+const JA_SETTINGS_COPY: Partial<Record<UiCopyKey, string>> = parseUiCopyTable(String.raw`
+settingsTitle	{APP_NAME} 設定
+settingsSections	設定セクション
+settingsSearch	設定を検索
+settingsSearchPlaceholder	設定を検索
+settingsSearchNoResults	一致する設定はありません。
+selectOptions	選択肢
+save	保存
+cancel	キャンセル
+show	表示
+hide	隠す
+appearance	外観
+reading	読解
+media	メディア
+mining	採掘
+shortcuts	ショートカット
+help	ヘルプ
+interface	インターフェイス
+interfaceHelp	インターフェイス設定です。
+reader	リーダー
+images	画像テキスト (OCR)
+video	動画
+youTube	YouTube
+anki	Anki
+jpdb	JPDB
+api	API
+apiKey	APIキー
+jitenApiKey	Jiten APIキー
+apiAccess	APIアクセス
+apiAccessHelp	JPDBまたはJiten APIキーを追加できます。JPDB由来のカードにはJPDBキー、Jiten由来のカードにはJitenキーを使います。
+jpdbSettings	JPDB設定
+jitenSettings	Jiten設定
+jpdbApiKeyConfigured	JPDBキーあり。復習: {reviews}。デッキ変更: {deckSync}。
+jpdbApiKeyMissing	JPDBキーなし。公開検索のみ使えます。
+jitenApiKeyConfigured	Jitenキーあり。Jiten Reader APIワークフローを使う前に接続を確認してください。
+jitenApiKeyMissing	Jiten Reader APIワークフローを使うにはJiten APIキーを追加してください。
+checkJitenApi	Jiten接続を確認
+jitenCheckingConnection	Jiten接続を確認中...
+jitenConnectionReady	接続しました。Jiten Reader APIに到達できます。
+jitenConnectionFailed	Jiten接続に失敗しました。
+statusEnabled	有効
+statusDisabled	無効
+statusReady	準備完了
+statusAttention	設定が必要
+statusError	エラー
+disabledControlDescription	別の設定に制御されています。
+jpdbMiningEnabled	APIの復習・デッキ変更を許可
+addToForq	JPDB追加時にforqにもコピー
+enableReviews	復習ボタンを表示
+reviewRatingScale	復習評価の段階
+jpdbPageEnhancements	JPDBページ拡張
+jpdbPageEnhancementsEnabled	JPDBページを拡張
+jpdbPageWordEnhancementsEnabled	JPDBの単語・検索ページにソースを追加
+jpdbPageKanjiEnhancementsEnabled	JPDBの漢字ページにソースを追加
+jpdbPageEnhancementsHelp	辞書と漢字パネルのソース順を使います。
+fivePoint	5段階: 全く覚えていないから簡単まで
+twoPoint	2段階: 失敗 / 合格
+settingsLanguage	設定の表示言語
+theme	テーマ
+auto	自動
+dark	ダーク
+light	ライト
+popupMode	ポップアップ表示
+bottomSheet	下部シート
+popover	ポップオーバー
+stickyBottomSheet	閉じるまで下部シートを開いたままにする
+popoverBackdropEnabled	ポップオーバーの背後を暗くする
+popoverWidth	ポップオーバー幅 (px)
+popoverHeight	ポップオーバー高さ (px)
+popoverHeightMode	ポップオーバー高さの動作
+popoverHeightAvailable	空き領域まで広げる
+popoverHeightFixed	高さ設定を使う
+readerFontFamily	リーダーUIフォント
+popupFontFamily	ポップアップの日本語フォント
+fontPresetYomuDefault	よむ既定
+fontPresetJapaneseSans	日本語サンセリフ
+fontPresetHiraginoYuGothic	ヒラギノ / 游ゴシック
+fontPresetJapaneseSerif	日本語明朝
+fontPresetSystemUi	システムUI
+fontPresetCustom	カスタム...
+customFontFamily	カスタムフォントスタック
+popupFontWeight	ポップアップの日本語の太さ
+enableLogging	診断ログを有効にする
+diagnostics	診断
+diagnosticsHelp	診断情報をブラウザコンソールへ出力します。
+accentColor	アクセントカラー
+newTab	新規タブ
+newTabEnabled	よむの新規タブ学習ページを有効にする
+newTabAnkiEnabled	新規タブのAnkiカードを有効にする
+newTabAnkiReviewDecks	Anki復習デッキ
+newTabAnkiReviewDecksHelp	新しいデッキは自動対象です。不要なものだけ外します。
+newTabSource	新規タブの復習ソース
+newTabAuto	自動: API/Anki、その後に学習語
+newTabApiSrs	API SRS（JPDB / Jiten）
+dictionaryFallback	辞書フォールバック
+newTabJpdbReviewMode	JPDB復習モード
+newTabJpdbReviewAuto	自動: ライブ漢字 + API語彙
+newTabLiveReview	ライブJPDB復習セッション
+newTabApiVocabulary	API語彙のみ
+corsProxyUrl	クロスオリジンプロキシURL
+newTabKanjiKeywordSource	漢字キーワードのソース
+newTabKanjiKeywordAuto	自動: RTK、JPDB、ローカルの順
+newTabKanjiKeywordRtk	RTK / Heisig
+newTabKanjiKeywordLocal	ローカルカードの意味
+newTabParsingEnabled	新規タブの文解析を有効にする
+newTabFrontSentenceEnabled	単語カード表面に文を表示
+newTabKanjiAutogradeEnabled	漢字の書き取りを自動採点
+newTabKanjiAutoSubmit	漢字評価を自動送信
+newTabOfflineEnabled	新規タブをオフライン用にキャッシュ
+newTabOfflineLimit	オフライン復習キャッシュ上限
+newTabUrl	新規タブのアドレス
+newTabOfflineHelp	新規タブ/iPad用。オンライン更新、オフライン採点を同期。
+newTabJpdbDeck	新規タブのJPDBデッキ
+openNewTabPage	新規タブページを開く
+copyAddress	アドレスをコピー
+wordColors	単語の色
+wordColorNew	新規・デッキ内
+wordColorLearning	学習中
+wordColorKnown	既知・忘れない
+wordColorDue	期限到来
+wordColorFailed	失敗
+wordColorIgnored	無視・保留・ブラックリスト
+pitchAccentColors	ピッチアクセントの色
+pitchColorHeiban	平板
+pitchColorAtamadaka	頭高
+pitchColorNakadaka	中高
+pitchColorOdaka	尾高
+pitchColorKifuku	起伏
+pitchColorUnknown	不明 / 継承
+colorChannels	色チャンネル
+wordHighlightColorSource	単語ハイライトの色
+wordUnderlineColorSource	単語下線の色
+wordTextColorSource	単語テキストの色
+subtitleHighlightColorSource	字幕ハイライトの色
+subtitleUnderlineColorSource	字幕下線の色
+subtitleTextColorSource	字幕テキストの色
+colorSourceStatus	JPDB + Ankiの状態
+colorSourceJpdb	JPDBの状態
+colorSourceAnki	Ankiの状態
+colorSourcePitch	ピッチアクセント
+colorChannelsHelp	各表示に使う状態色を選びます。
+interfaceHelp	インターフェイス設定です。
+parseSelection	選択テキストを検索
+lookupOnClick	タップまたはクリックで検索
+lookupOnHover	ホバーで検索
+lookupOnMiddleMouse	中央ボタン長押しで検索
+showFloatingButton	設定ボタンを表示
+settingsPuckHelp	スマホやタブレットで設定ボタンを残します。
+showFurigana	ふりがな注釈を有効にする
+furiganaMode	ふりがな
+furiganaDifficultKanji	難しい漢字のみ
+furiganaHideKnown	既知語を非表示
+furiganaAllParsed	解析済みの全単語
+showPitchAccent	ピッチアクセントを表示
+hideKnownFurigana	既知カードのみふりがなを非表示
+readerHelp	ホバー用キーを設定。空欄なら通常ホバーです。
+hoverLookupSettings	ホバー検索
+kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
+kanjiOriginGraphEnabled	部品グラフを表示
+kanjiOriginRadicalImagesEnabled	部首画像を表示
+similarKanjiWordLimit	類似語の上限
+kanjiHelp	ポップアップ内の漢字で詳細表示。ソースも並べ替えます。
+audioEnabled	語句の音声を有効にする
+autoPlayAudio	語句の音声を自動再生する
+suppressAutoAudioOnVideo	動画ページでは検索音声の自動再生を無効にする
+audioAutoPlayMode	自動再生のきっかけ
+audioEnableDefaultSources	内蔵音声ソースを有効にする
+audioFallbackChimeEnabled	フォールバックチャイムを有効にする
+audioSelectionMode	複数のソースやクリップがあるとき
+audioPlayback	音声再生
+firstAudio	最初の音声
+randomAudio	シャッフル音声
+audioTtsMode	読み上げの扱い
+audioTtsFallback	録音音声の後のフォールバック
+audioTtsSourceOrder	ソース順/シャッフルに含める
+audioTimeoutMs	音声タイムアウト (ms)
+previewAudio	音声を試聴
+audioHelp	{term}、{reading}、{language}が使えます。詳しくはYomitan音声ガイドへ。
+audioSource	音声ソース
+urlVoice	URL / 音声
+addAudioSource	音声ソースを追加
+audioAutoPlayAll	ホバーとタップ/クリック
+audioAutoPlayHover	ホバーのみ
+audioAutoPlayTap	タップ/クリックのみ
+automaticBrowserVoice	ブラウザの自動音声
+savedVoice	保存済み音声
+savedVoiceLabel	保存済み音声: {voice}
+audioSourceOrder	音声ソースの順序
+audioSourceNumber	音声ソース {number}
+enableAudioSourceNumber	音声ソース {number} を有効にする
+enableLookupPillName	検索ピル「{name}」を有効にする
+enableSourceName	ソース「{name}」を有効にする
+textToSpeechVoiceNumber	読み上げ音声 {number}
+audioSourceJpod101	JapanesePod101
+audioSourceLanguagePod101	LanguagePod101
+audioSourceJisho	Jisho.org
+audioSourceLinguaLibre	(Commons) Lingua Libre
+audioSourceWiktionary	(Commons) Wiktionary
+audioSourceJitenTts	Jiten読み上げ
+audioSourceJpdbTts	JPDB読み上げ
+audioSourceTextToSpeech	ブラウザ読み上げ
+audioSourceTextToSpeechReading	ブラウザ読み上げ (かな読み)
+audioSourceCustom	直接音声ファイルURL
+audioSourceCustomJson	カスタムURL
+audioCustomJsonPlaceholder	YomitanまたはUltimateの音声ソースURL
+audioCustomUrlPlaceholder	直接音声ファイルURL
+audioBuiltInPlaceholder	内蔵ソースのためURL不要
+defaultVoiceSuffix	標準
+audioGuideLinkLabel	Yomitan音声ガイド
+audioProxyGuideSummary	Cloudflareプロキシを自作する
+audioProxyGuideIntro	標準プロキシで十分です。専用ならWorkerへ。
+audioProxyGuideCloudflare	Cloudflare Dashboardを開きます。
+audioProxyGuideWorkers	Workers & PagesでCreateします。
+audioProxyGuideCreateWorker	Workerを選び、名前を付けてDeployします。
+audioProxyGuideEditCode	Edit codeでYomu Workerソースを貼ります。
+audioProxyGuideDeploy	Deployします。
+audioProxyGuideCopyUrl	Worker URLをコピーします。例: https://yomu-proxy.yourname.workers.dev
+audioProxyGuidePasteUrl	Cross-origin proxy URLに貼ります。?url=は不要です。
+audioProxyGuideTest	保存後、検索・インポート・音声で確認します。
+audioProxyGuideNote	Workerソースはリポジトリ内です。共有前にホストを絞ります。
+audioProxyWorkerSource	Workerソース
+audioProxyDeployGuide	デプロイガイド
+immersionKitEnabled	イマージョンキット例文を表示
+immersionKitExampleSource	例文プロバイダー
+immersionKitAndNadeshiko	イマージョンキット + なでしこ
+nadeshikoApiKey	なでしこAPIキー
+getNadeshikoKey	キーを取得
+immersionKitShowTranslation	例文の翻訳を表示
+immersionKitRevealTranslationOnClick	クリックするまで例文の翻訳をぼかす
+immersionKitShowImages	例文サムネイルを表示
+immersionKitAutoPlayAudio	表示後または前後移動時に例文音声を再生
+immersionKitPlayOnHover	サムネイルをホバーしたら例文音声を再生
+immersionKitPlayOnImageClick	サムネイルをクリックしたら例文音声を再生
+immersionKitCategory	例文ソース
+immersionKitSort	例文の並び順
+immersionKitLimitEnabled	単語ごとの例文数制限
+allExamples	すべての例文
+limitExamples	例文数を制限
+immersionKitLimit	単語ごとの例文数
+immersionKitMinLength	最小文長
+immersionKitMaxLength	最大文長
+immersionKitPlaybackRate	例文音声速度
+immersionKitExactMatch	完全一致を優先
+immersionKitHelp	例文をポップアップとJPDBに表示。Nadeshikoはキーが必要です。
+allCategories	すべて
+anime	アニメ
+drama	ドラマ
+games	ゲーム
+shortestFirst	短い順
+longestFirst	長い順
+randomOrder	ランダム
+ocrEnabled	画像内テキストを読む
+ocrAutoScanImages	画像を自動で読む
+ocrShowTextOverlay	認識した画像テキスト領域を表示
+ocrProvider	画像読み取り
+googleLens	Google Lens (おすすめ)
+cloudVision	Google Cloud Vision
+localOcr	ローカルOCRエンジン
+off	オフ
+ocrMaxImagesPerPage	ページごとに読む画像数
+ocrMinImageArea	読む画像の最小サイズ
+ocrMaxImagePixels	画像の精細さ
+lightWork	軽め
+normal	標準
+more	多め
+largeOnly	大きい画像のみ
+includeSmall	小さい画像も含める
+faster	高速
+balanced	バランス
+sharper	高精細
+ocrTextColor	画像テキストの色
+ocrOutlineColor	画像テキストの縁取り
+ocrBackgroundColor	画像ハイライト背景
+ocrBackgroundOpacity	画像ハイライト不透明度
+ocrFontScale	画像テキスト倍率
+ocrEndpointUrl	カスタムローカルOCR URL
+ocrCustomLocalServer	カスタムローカルOCRサーバー
+ocrEngine	ローカルOCRエンジン
+cloudVisionApiKey	Cloud Vision APIキー
+ocrHelp	近くの画像を読み取ります。Cloud Visionはキーが必要です。
+subtitlePlayerEnabled	動画字幕プレイヤーを有効にする
+subtitleAutoDetect	ページの字幕を自動検出
+subtitleOverlayVisible	字幕オーバーレイを表示
+subtitleSecondaryVisible	利用可能ならネイティブ字幕を表示
+subtitleNativeBlurred	ホバーするまでネイティブ字幕をぼかす
+subtitleKaraokeMode	カラオケ風の単語タイミング
+subtitleTranscriptVisible	文字起こしパネルを標準で開く
+subtitlePausePanel	一時停止時にサイドパネルを開く
+subtitleTranscriptPlacement	文字起こしパネル位置
+subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
+subtitleAutoCopyLine	各字幕行を再生時に自動コピー
+subtitleMiningPause	字幕を採掘するとき動画を一時停止
+subtitleControlsMode	字幕コントロール
+right	右
+left	左
+bottom	下
+showWhenNeeded	コンパクト表示
+hideControls	コントロールを隠す
+alwaysVisible	常に表示
+subtitleFontSize	字幕フォントサイズ (px)
+subtitleBottomOffset	字幕下端オフセット (%)
+subtitleTextColor	字幕の色
+subtitleOutlineColor	字幕の縁取り
+subtitleBackgroundColor	字幕背景
+subtitleBackgroundOpacity	字幕背景の不透明度
+subtitleFontFamily	字幕フォントファミリー
+subtitleFontWeight	字幕フォントの太さ
+subtitleSeekPadding	字幕シーク余白 (s)
+subtitlePreview	字幕ライブプレビュー
+youtubeImmersionEnabled	日本語のYouTube動画だけ表示
+preferJapaneseSiteLanguage	サイトの言語と地域を日本優先にする
+youtubeShowFilterNotice	非表示動画の通知を一時的に出す
+youtubeHelp	可能な範囲で日本語UIと日本向け内容を要求します。
+youtubeFilterOn	YouTubeフィルター: オン
+youtubeFilterOff	YouTubeフィルター: オフ
+youtubeShowHiddenVideos	非表示動画を表示
+youtubeHideHiddenVideos	非表示動画を隠す
+youtubeHideNotice	通知を隠す
+youtubeFilterShowing	{appName}は非表示のYouTube項目{count}件を表示中
+youtubeFilterHid	{appName}は日本語らしくないYouTube項目{count}件を非表示
+youtubeFilterVisible	日本語らしい項目{count}件は表示したままです。
+youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
+youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
+ankiEnabled	Anki採掘を有効にする
+ankiMineWithJpdb	API経由で追加するときAnkiにも追加
+ankiCaptureScreenshot	可能なら文脈画像を添付
+ankiConnectUrl	AnkiConnect URL
+ankiDeck	Ankiデッキ
+ankiModel	Ankiノートタイプ
+mobileAnkiHandoff	モバイルAnki新規ノート作成
+ankiTemplateMode	Ankiカードテンプレート
+ankiFrontReading	単語優先の表面に読みを表示
+ankiFrontSentence	単語優先の表面に文を表示
+ankiFrontImage	表面に画像を表示
+wordFirst	単語を先に表示
+sentenceFirst	文を先に表示
+ankiTags	タグ
+sentenceFirstPreset	文を先に表示するプリセット
+wordFirstPreset	単語を先に表示するプリセット
+imageAbovePrompt	画像があれば問題文の上に表示します。
+recallHighlightedWord	文脈からハイライト語を思い出します。
+imageOnFront	利用可能な場合、画像は表面に表示されます。
+recallMeaning	まず意味を思い出します。
+ankiBackIncludes	辞書、漢字、ピッチ、頻度、出典、画像を含みます。
+exampleMeaning	読む
+scanAnkiFirst	先にAnkiConnectに接続
+notMapped	対応付けなし
+noScannedFields	AnkiConnect接続後にフィールド候補が入ります。
+mappingForNoteType	{model} の対応付け
+currentNoteType	現在のノートタイプ
+ankiFieldMappingSelect	{role}フィールド
+ankiRoleExpression	表記
+ankiRoleReading	読み
+ankiRoleMeaning	意味
+ankiRoleSentence	文
+ankiRoleAudio	音声
+ankiRoleImage	画像
+testAnki	AnkiConnectを確認
+prepareAnki	よむノートタイプを作成
+ankiCheckingConnection	{url} のAnkiConnectを確認中。
+ankiMiningDisabledStatus	Ankiマイニングは無効です。
+ankiTesting	AnkiConnectを確認中...
+ankiPreparing	よむデッキとノートタイプを作成または更新中...
+ankiScanning	Ankiデッキ、ノートタイプ、フィールドを読み込み中...
+ankiScanSummary	デッキ{decks}件、ノート{models}件。候補: {model}。{fields}
+ankiScanNoModels	デッキ{decks}件を検出。ノートタイプは未取得です。
+ankiScanFieldSummary	フィールド: {fields}
+ankiUnreachable	デスクトップAnkiとAnkiConnectを確認してください。
+ankiSettingsUnreachable	AnkiConnectに接続できません。
+ankiHostedBridgeMissing	ホスト版Ankiブリッジが見つかりません。
+ankiStatusOpenDesktop	デスクトップAnkiを開く
+ankiStatusInstallAddon	AnkiConnectをインストール/有効化
+ankiStatusMobileDocs	モバイル設定ドキュメント
+ankiStatusUseDesktopUrl	モバイルではLAN/Tailscale URLを使う
+ankiStatusEnableUserscript	インストール済みのよむユーザースクリプトを有効化
+ankiStatusRefreshAndCheck	再読み込みして再確認
+ankiLibraryAdapter	既存ライブラリアダプター
+ankiLibraryAdapterStatus	既存デッキとノートタイプから対応付けを提案します。
+ankiLibraryChoices	デッキとノートタイプ
+ankiLibraryChoicesHelp	AnkiConnectから読み込み、作成・更新先を選びます。
+ankiTemplateSettings	よむカードテンプレート
+ankiTemplateSettingsHelp	よむノートタイプ用。既存テンプレートはAnkiに残ります。
+ankiMappingConfidenceHelp	フィールド名とサンプルで判断。低信頼度は変更できます。
+ankiMappingHighConfidence	高
+ankiMappingMediumConfidence	中
+ankiMappingLowConfidence	低
+ankiHelp	完全なAnki機能はデスクトップAnkiConnectをLAN/Tailscaleで使います。受け渡しは新規ノート作成のみ。
+jpdbDefinitionsEnabled	JPDB定義を表示
+localDictionariesEnabled	インポート済み辞書の定義を表示
+dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
+localDictionaryMaxResults	辞書結果の上限
+importSettings	設定JSONをインポート
+exportSettings	設定JSONをエクスポート
+importDictionaries	辞書をインポート
+exportDictionaries	辞書をエクスポート
+dictionaryImportHelp	Yomitan設定、辞書ZIP、バックアップを読み込みます。
+lookupPills	検索ピル
+lookupPillsHelp	外部辞書リンクです。{query}、{word}、{reading}が使えます。
+copiesCurrentWord	現在の単語をコピーします
+lookupPillLabel	検索ピルのラベル
+lookupPillLabelNumber	検索ピル{number}のラベル
+lookupUrlTemplate	検索URLテンプレート
+lookupUrlTemplateNumber	検索ピル{number}のURLテンプレート
+lookupPillOrder	検索ピルの順序
+builtInAction	内蔵アクション
+recommendedDownloads	おすすめ辞書
+termDictionaries	語句辞書
+kanjiDictionaries	漢字辞書
+frequencyDictionaries	頻度辞書
+homepage	ホームページ
+install	インストール
+installing	インストール中
+queued	待機中
+download	ダウンロード
+downloadAndImport	ダウンロードしてよむにインポート
+update	更新
+checkingDictionaries	インポート済み辞書を確認中...
+dictionaryOnlyJpdb	定義ソースはJPDBのみです。Yomitan辞書でローカル定義を追加。
+localDictionaryText	辞書テキスト
+localSenseSingular	意味
+localSensePlural	意味
+decksLoaded	JPDBアカウントからデッキを読み込みました。
+decksUnavailable	まだデッキを読み込めません。保存済みIDは保持します。
+addApiKeyChooseDecks	デッキを選ぶにはJPDB APIキーを追加してください。
+miningDeck	採掘デッキ
+neverForgetDeck	忘れないデッキ
+blacklistDeck	ブラックリストデッキ
+allStudyDecks	すべての学習デッキ
+savedValue	保存済み: {value}
+holdWhileHovering	ホバー中に押すキー
+hoverOpenDelayMs	ホバーで開く遅延 (ms)
+hoverCloseDelayMs	ホバーを閉じる遅延 (ms)
+pressKeys	キーを押してください
+blankPlainHover	空欄ならキーなしホバー
+openSettings	設定を開く
+resizeSettings	設定パネルのサイズ変更
+closePopup	ポップアップを閉じる
+previousLookupWord	前の単語
+nextLookupWord	次の単語
+playingAudioPreview	{APP_NAME}を再生中...
+audioPreviewFailed	音声プレビューに失敗しました。
+previousSubtitle	前の字幕
+nextSubtitle	次の字幕
+copySubtitle	字幕をコピー
+toggleImageReading	画像読み取りを切り替え
+toggleYoutubeImmersion	YouTubeフィルターを切り替え
+readImagesNow	今すぐ画像を読む
+helpLinksTitle	便利なページ
+helpLinksCopy	リーダーツールとドキュメントをここから開けます。
+helpSupportTitle	よむをサポート
+helpSupportCopy	よむはポップアップ検索、JPDB採掘、辞書、OCR、字幕、Ankiを無料でまとめたユーザースクリプトです。
+helpSupportCopyExtra	寄付は任意です。開発、端末、サービス、保守、API費用を支えます。
+videoPlayer	動画プレイヤー
+docs	ドキュメント
+factoryReset	初期状態に戻す
+factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書、保存データを削除します。
+factoryResetFailed	リセットに失敗しました。
+factoryResetDictionaryWarning	設定をリセットしました。他のよむタブを閉じて辞書を確認してください。
+factoryResetOtherTabReloading	別のタブでよむがリセットされました。再読み込みします...
+factoryResetDeleteSettingsFailed	保存済み設定を削除できません。他のよむタブを閉じて再試行。
+issues	Issue
+donate	寄付
+discord	Discord
+documentation	ドキュメント
+addToMining	デッキに追加
+addToMiningHint	このカードを選択中のJPDBデッキに追加します。
+enabledHeader	有効
+labelHeader	ラベル
+displayName	表示名
+orderHeader	順序
+removeHeader	削除
+definitionSource	定義ソース
+kanjiSection	漢字セクション
+dictionaryDisplayName	辞書表示名
+sourcePriority	{source}の優先度
+dragToReorder	ドラッグして並べ替え
+moveUp	上へ移動
+moveDown	下へ移動
+remove	削除
+removeImportedDictionary	インポート済み辞書を削除
+customAdvanced	{label} (詳細)
+importLocalDefinitionsHelp	ローカル定義にはYomitan辞書をインポートします。
+frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
+sourceHelpJpdb	現在のカードのJPDB定義です。
+sourceHelpAnki	一致するAnkiカード内容と状態です。
+sourceHelpTranslation	文の自動翻訳です。
+sourceHelpGrammar	ローカル文法ヒントです。
+sourceHelpImmersionKit	例文、画像、音声です。
+sourceNameImmersionKit	イマージョンキット
+sourceNameAnki	Anki
+sourceNameTranslation	翻訳
+sourceNameGrammar	文法
+sourceNameStrokePractice	筆順練習
+sourceNameImportedKanjiDictionaries	インポート済み漢字辞書
+sourceNameWordsUsingKanji	この漢字を使う単語
+sourceHelpImportedKanjiDictionary	インポート済みYomitan漢字辞書です。
+sourceHelpStrokePractice	筆順プレビューと書き取りパッドです。
+sourceHelpReadingsComponents	JPDBの読み、部品、語呂合わせです。
+sourceHelpRtk	RTKキーワード、要素、ストーリーです。
+sourceHelpUchisen	Uchisen語呂合わせ画像カルーセルです。
+uchisenMnemonicImages	Uchisen語呂合わせ画像
+uchisenMnemonicFor	{kanji}のUchisen語呂合わせ
+noUchisenImagesYet	Uchisen画像はまだありません。
+generateUchisenImage	画像を生成
+generateUchisenImageToggle	画像を生成 +
+uchisenMnemonicStory	語呂合わせストーリー
+uchisenImagePrompt	画像プロンプト
+uchisenGenerateHint	ストーリーとプロンプトを編集し、Uchisen画像を公開します。
+uchisenGeneratingImage	画像を生成中...
+uchisenPublishingMnemonic	語呂合わせを公開中...
+uchisenGeneratedImage	Uchisen画像を公開しました。
+uchisenGenerateFailed	Uchisen画像を生成できませんでした。
+uchisenLoginRequired	画像生成にはUchisenへのログインが必要です。
+noStoryAvailable	ストーリーはありません
+sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
+sourceHelpWordsUsingKanji	関連語彙です。
+sourceHelpComponentGraph	漢字情報、部品グラフ、部首画像です。
+recommendedJitendex	例文とメモ付きの日英辞書です。
+recommendedJmdict	Yomitan向けの基本日英辞書です。
+recommendedJmnedict	日本語固有名詞辞書です。
+recommendedKanjidic	漢字の読み、意味、画数、レベル、頻度です。
+recommendedJpdbv2Kana	JPDB頻度データです。
+recommendedBccwj	BCCWJ頻度データです。
+recommendedJiten	jiten.moe頻度データです。
+`);
 
 export interface GrammarRuleCopy {
     kind: string;
@@ -1978,6 +2032,11 @@ export function uiText(language: InterfaceLanguage, key: UiCopyKey): string {
         : COPY.en[key];
 }
 
+export function cardStateLabel(state: string, language: InterfaceLanguage, fallback = state): string {
+    const key = CARD_STATE_LABEL_KEYS[state];
+    return key ? uiText(language, key) : fallback;
+}
+
 export function audioSourceLabel(language: InterfaceLanguage, type: AudioSourceType): string {
     return uiText(language, AUDIO_SOURCE_LABEL_KEYS[type]);
 }
@@ -1999,6 +2058,7 @@ const AUDIO_SOURCE_LABEL_KEYS: Record<AudioSourceType, UiCopyKey> = {
     jisho: 'audioSourceJisho',
     'lingua-libre': 'audioSourceLinguaLibre',
     wiktionary: 'audioSourceWiktionary',
+    'jiten-tts': 'audioSourceJitenTts',
     'jpdb-tts': 'audioSourceJpdbTts',
     'text-to-speech': 'audioSourceTextToSpeech',
     'text-to-speech-reading': 'audioSourceTextToSpeechReading',

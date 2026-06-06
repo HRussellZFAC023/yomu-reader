@@ -1,10 +1,25 @@
 import { escapeHtml } from './dom';
 import { uiText } from './i18n';
-import type { JPDBDeck, ReaderSettings } from './types';
+import type { ApiDeck, JPDBDeck, ReaderSettings } from './types';
 
-export function renderDeckChoiceOptions(settings: ReaderSettings, jpdbDecks: JPDBDeck[], ankiDecks: string[], includeJpdb: boolean): string {
+type SrsDeckSource = 'jpdb' | 'jiten' | 'anki';
+
+export interface DeckChoiceRenderOptions {
+    includeJpdb?: boolean;
+    includeJiten?: boolean;
+    jitenDecks?: ApiDeck[];
+}
+
+export function renderDeckChoiceOptions(
+    settings: ReaderSettings,
+    jpdbDecks: JPDBDeck[],
+    ankiDecks: string[],
+    optionsOrIncludeJpdb: DeckChoiceRenderOptions | boolean = {},
+): string {
+    const renderOptions = normalizeDeckChoiceRenderOptions(optionsOrIncludeJpdb);
     const options: Array<[string, string]> = [];
-    if (includeJpdb) addJpdbDeckChoiceOptions(settings, options, jpdbDecks);
+    if (renderOptions.includeJpdb) addJpdbDeckChoiceOptions(settings, options, jpdbDecks);
+    if (renderOptions.includeJiten) addJitenDeckChoiceOptions(options, renderOptions.jitenDecks ?? []);
     if (settings.ankiEnabled) addAnkiDeckChoiceOptions(settings, options, ankiDecks);
     if (!options.length) return '';
     return deckChoicePlaceholderOption(settings) + options.map(renderDeckChoiceOption).join('');
@@ -26,6 +41,10 @@ function addJpdbDeckChoiceOptions(settings: ReaderSettings, options: Array<[stri
     }
 }
 
+function addJitenDeckChoiceOptions(options: Array<[string, string]>, jitenDecks: ApiDeck[]): void {
+    for (const deck of jitenDecks) addDeckChoiceOption(options, 'jiten', deck.id, `Jiten: ${deck.name}`);
+}
+
 function addAnkiDeckChoiceOptions(settings: ReaderSettings, options: Array<[string, string]>, ankiDecks: string[]): void {
     const configuredDeck = settings.ankiDeck || 'よむ';
     addDeckChoiceOption(options, 'anki', configuredDeck, `Anki: ${configuredDeck}`);
@@ -34,7 +53,7 @@ function addAnkiDeckChoiceOptions(settings: ReaderSettings, options: Array<[stri
 
 function addDeckChoiceOption(
     options: Array<[string, string]>,
-    source: 'jpdb' | 'anki',
+    source: SrsDeckSource,
     value: string,
     label: string,
 ): void {
@@ -59,4 +78,8 @@ function isSpecialJpdbDeck(settings: ReaderSettings, deck: JPDBDeck): boolean {
     const blacklistDeck = settings.blacklistDeck.trim();
     if (deck.id === neverForgetDeck || deck.id === blacklistDeck) return true;
     return /never\s*-?\s*forget|blacklist|suspend/i.test(`${deck.id} ${deck.name}`);
+}
+
+function normalizeDeckChoiceRenderOptions(value: DeckChoiceRenderOptions | boolean): DeckChoiceRenderOptions {
+    return typeof value === 'boolean' ? { includeJpdb: value } : value;
 }

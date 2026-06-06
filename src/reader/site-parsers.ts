@@ -151,6 +151,49 @@ const SAFE_UI_CHROME_EXCLUDE = [
     '[class*="toggle" i]',
     '[class*="voice" i]',
 ].join(',');
+const DICTIONARY_SITE_EXCLUDE = [
+    COMMON_EXCLUDE,
+    'nav',
+    'header',
+    'footer',
+    'aside',
+    'form',
+    'fieldset',
+    'legend',
+    'label',
+    'button',
+    'summary',
+    'a[role="button"]',
+    'input',
+    'select',
+    'textarea',
+    'option',
+    'script',
+    'style',
+    'svg',
+    'canvas',
+    'rt',
+    'rp',
+    '[hidden]',
+    '[aria-hidden="true"]',
+    '[aria-controls]',
+    '[aria-expanded]',
+    '[data-audio]',
+    '[onclick]',
+    '[role="button"]',
+    '[role="tab"]',
+    '[aria-label*="audio" i]',
+    '[aria-label*="tts" i]',
+    '[aria-label*="音声" i]',
+    '[class*="audio" i]',
+    '[class*="control" i]',
+    '[class*="sound" i]',
+    '[class*="speaker" i]',
+    '[class*="tts" i]',
+    '[class*="voice" i]',
+    '.pi',
+    '.p-button-icon',
+].join(',');
 const SAFE_UI_CHROME_MAX_COMPACT_LENGTH = 80;
 const YOMU_HOSTED_DOCS_PARSER_ID = 'yomu-hosted-docs-parser';
 const JPDB_PARSER_ID = 'jpdb-parser';
@@ -287,6 +330,87 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         allowUiText: true,
         minLength: 1,
         matches: url => url.hostname === 'jisho.org' || url.hostname.endsWith('.jisho.org'),
+    },
+    {
+        id: 'jiten-parser',
+        name: 'Jiten',
+        description: 'Jiten dictionary, parse, vocabulary, and example sentence text.',
+        roots: [
+            '[lang="ja"]',
+            'blockquote',
+            '.p-card',
+            '.rounded-lg.overflow-hidden',
+            'main',
+            'article',
+        ],
+        exclude: DICTIONARY_SITE_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
+        matches: url => url.hostname === 'jiten.moe' || url.hostname.endsWith('.jiten.moe'),
+    },
+    {
+        id: 'weblio-parser',
+        name: 'Weblio',
+        description: 'Weblio dictionary result text.',
+        roots: ['#main', '#mainContents', '.mainBlock', '.NetDicBody', '.kiji', 'main', 'article'],
+        exclude: DICTIONARY_SITE_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
+        matches: url => url.hostname === 'weblio.jp' || url.hostname.endsWith('.weblio.jp'),
+    },
+    {
+        id: 'goo-dictionary-parser',
+        name: 'goo dictionary',
+        description: 'goo dictionary result text.',
+        roots: ['#NR-main-in', '#main', '.content-box', '.contents', 'main', 'article'],
+        exclude: DICTIONARY_SITE_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
+        matches: url => url.hostname === 'dictionary.goo.ne.jp',
+    },
+    {
+        id: 'kotobank-parser',
+        name: 'Kotobank',
+        description: 'Kotobank dictionary and encyclopedia result text.',
+        roots: ['main', 'article', '.description', '.ex.cf', '.dictype', '.articleBody'],
+        exclude: DICTIONARY_SITE_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
+        matches: url => url.hostname === 'kotobank.jp' || url.hostname.endsWith('.kotobank.jp'),
+    },
+    {
+        id: 'takoboto-parser',
+        name: 'Takoboto',
+        description: 'Takoboto dictionary result and example sentence text.',
+        roots: ['#SearchResultList', '#results', '#main', '.result', '.entry', 'main', 'article'],
+        exclude: DICTIONARY_SITE_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
+        fallbackToWholePage: true,
+        matches: url => url.hostname === 'takoboto.jp' || url.hostname.endsWith('.takoboto.jp'),
+    },
+    {
+        id: 'wiktionary-ja-parser',
+        name: 'Japanese Wiktionary',
+        description: 'Japanese Wiktionary entry text.',
+        roots: ['#firstHeading', '#mw-content-text .mw-parser-output'],
+        exclude: [
+            DICTIONARY_SITE_EXCLUDE,
+            '.mw-editsection',
+            'sup.reference',
+            '.reference',
+            '.references',
+            '.toc',
+            '.navbox',
+            '.metadata',
+            '.noprint',
+            '.catlinks',
+            '.thumb',
+        ].join(','),
+        allowUiText: true,
+        minLength: 1,
+        heading: true,
+        matches: url => url.hostname === 'ja.wiktionary.org' || url.hostname === 'ja.m.wiktionary.org',
     },
     {
         id: 'luna-translator-parser',
@@ -555,21 +679,30 @@ function siteScanExcludeSelector(profile: SiteParserProfile): string {
 }
 
 function collectPassiveInteractionScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext): void {
-    if (!profile.passiveInteraction || !siteScanHasRoom(context)) return;
-    for (const passiveRoot of passiveInteractionRoots(root, profile.passiveInteraction)) {
+    const selector = profile.passiveInteraction;
+    if (!selector || !siteScanHasRoom(context)) return;
+    collectPassiveInteractionRoots(profile, passiveInteractionRoots(root, selector), context);
+}
+
+function collectPassiveInteractionRoots(profile: SiteParserProfile, roots: Element[], context: SiteScanContext): void {
+    for (const passiveRoot of roots) {
         if (!siteScanHasRoom(context)) break;
-        const collected = collectFragmentTextTargetsIn(passiveRoot, siteScanRemaining(context), profile.visibleOnly ?? true, profile.exclude ?? COMMON_EXCLUDE, {
-            allowUiText: true,
-            minLength: profile.minLength,
-            includeUiChrome: true,
-            includeFormChrome: profile.includeFormChrome,
-            mergeBlockFragments: profile.mergeBlockFragments,
-            heading: profile.heading,
-        });
-        for (const target of collected) {
-            if (!addUniqueSiteScanTarget(profile, target, context, { passiveInteraction: true })) continue;
-            if (!siteScanHasRoom(context)) break;
-        }
+        collectPassiveInteractionRootTargets(profile, passiveRoot, context);
+    }
+}
+
+function collectPassiveInteractionRootTargets(profile: SiteParserProfile, passiveRoot: Element, context: SiteScanContext): void {
+    const collected = collectFragmentTextTargetsIn(passiveRoot, siteScanRemaining(context), profile.visibleOnly ?? true, profile.exclude ?? COMMON_EXCLUDE, {
+        allowUiText: true,
+        minLength: profile.minLength,
+        includeUiChrome: true,
+        includeFormChrome: profile.includeFormChrome,
+        mergeBlockFragments: profile.mergeBlockFragments,
+        heading: profile.heading,
+    });
+    for (const target of collected) {
+        if (!addUniqueSiteScanTarget(profile, target, context, { passiveInteraction: true })) continue;
+        if (!siteScanHasRoom(context)) break;
     }
 }
 

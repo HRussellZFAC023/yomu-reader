@@ -86,9 +86,16 @@ You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and m
 
 ## YouTube Immersion Filter
 
-The YouTube filter is on by default so recommendations stay focused on Japanese. よむ checks the original YouTube title through oEmbed when a video id is available, then hides cards that do not look Japanese across recommendations, search results, and sidebars. YouTube playback, subtitles, and よむ controls keep working.
+The YouTube filter is on by default so recommendations stay focused on Japanese. よむ checks the original YouTube title through oEmbed when a video id is available, keeps Japanese-learning and comprehensible-input titles visible even when they are written in English, then hides cards that do not look Japanese across recommendations, search results, and sidebars. YouTube playback, subtitles, and よむ controls keep working.
 
 The temporary notice shows how many cards were hidden and disappears after a few seconds. Use **Show hidden videos** to reveal them, **Hide hidden videos** to filter them again, **Hide notice** to stop showing that notice while keeping the filter enabled, or `Alt+Y` to toggle the filter itself.
+
+On the YouTube home feed, when よむ hides enough English-heavy recommendations, it can also offer a dismissible starter guide of Japanese YouTube channels. Use **Later** to hide it for the current page, **Never show** to turn it off, or **Show all** to browse the full 100-channel list with direct subscribe links.
+
+<figure class="yomu-feature-shot">
+  <img :src="'/yomu-reader/screenshots/real-youtube-search-results.png'" alt="A real YouTube results page where よむ keeps beginner Japanese comprehensible-input videos and Shorts visible.">
+  <figcaption>Search results stay usable for beginner Japanese comprehensible input, including English-titled videos and Shorts.</figcaption>
+</figure>
 
 <figure class="yomu-feature-shot">
   <img :src="'/yomu-reader/screenshots/real-youtube-filter.png'" alt="A real YouTube page with よむ hiding non-Japanese-looking recommendation cards and showing the filter notice.">
@@ -111,7 +118,7 @@ If you do not use Anki, leave it off. JPDB mining and local dictionary lookup st
 
 よむ includes an optional [new-tab page](./newtab/index.html). Use the full address after opening that local or hosted page as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries Anki study words when AnkiConnect is reachable, then JPDB, then local dictionary words. A new install starts by sending you to Settings > Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local browser storage.
 
-On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests. Browsers that allow direct local requests without the bridge also need `https://hrussellzfac023.github.io` in AnkiConnect's `webCorsOriginList`.
+On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests. For phone and tablet setup, follow the Tailscale steps in [Getting Started](./getting-started.md#use-desktop-anki-from-a-phone-ipad-or-android) instead of pointing mobile よむ at `localhost`.
 
 On iPhone, iPad, and Android, this is often the easiest daily-review surface. For full Anki status, updates, automatic deck scanning, and review queues, keep desktop Anki running with AnkiConnect and use a reachable LAN or Tailscale URL in よむ, such as `http://desktop-name.tailnet-name.ts.net:8765`. If AnkiConnect still uses its default `127.0.0.1` bind address, mobile devices cannot reach it. If AnkiConnect or JPDB is not available, dictionary-backed words keep the page useful once a dictionary is installed. The step-by-step mobile Anki setup is in [Getting Started](./getting-started.md#use-desktop-anki-from-a-phone-ipad-or-android).
 

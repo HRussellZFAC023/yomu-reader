@@ -4,6 +4,7 @@ import { copyText } from './browser-ui';
 import { createAudioPreviewCard } from './card-utils';
 import { NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from './constants';
 import { readerWordSurfaceText, setInnerHtml } from './dom';
+import { JitenApiClient } from './jiten';
 import { JpdbClient } from './jpdb';
 import { configureLogger, Logger, loggingSettingsSummary } from './logger';
 import { clearNewTabOfflineCache } from './new-tab-cache';
@@ -17,6 +18,7 @@ import {
     ankiStatusLineForSettings,
     getFormInterfaceLanguage,
     formatSettingsStatusLine,
+    renderAnkiStatusHtml,
     installSourceRowDrag,
     installShortcutCapture,
     localizeSettingsForm,
@@ -31,6 +33,7 @@ import {
     renderDictionarySourceRows,
     renderRecommendedDictionaries,
     renderSettingsForm,
+    jitenStatusLineForSettings,
     jpdbStatusLineForSettings,
     syncAudioSourceRow,
     syncBrowserTtsVoiceOptions,
@@ -44,6 +47,7 @@ import {
     updateDictionaryLookupLinkEditor,
     updateSourceRowEditor,
 } from './settings-form';
+import type { SettingsStatusAction, SettingsStatusLine } from './settings-form';
 import { updateAnkiTagsEditor } from './settings-form-tags';
 import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, readerDictionaryExportHasData, recommendedDictionaryFilename } from './settings-file-io';
 import type { AnkiLibraryScanResult } from './anki-types';
@@ -99,7 +103,8 @@ type ModalSiblingState = Array<{ element: HTMLElement; ariaHidden: string | null
 type AnkiScanSelectableInput = HTMLInputElement | HTMLSelectElement;
 type AnkiConnectionAction = 'test-anki' | 'prepare-anki';
 type AnkiStatusTone = 'pending' | 'success' | 'error';
-type AnkiStatusSetter = (message: string, tone: AnkiStatusTone) => void;
+type AnkiStatusSetter = (message: string, tone: AnkiStatusTone, action?: SettingsStatusAction) => void;
+type SettingsToneStatusSetter = (message: string, tone: SettingsStatusLine['tone']) => void;
 type AnkiScanConfidence = 'high' | 'medium' | 'low';
 
 interface AnkiScanFormControls {
@@ -119,6 +124,7 @@ interface RecommendedDictionaryOperationState {
 
 const log = Logger.scope('SettingsDialog');
 const JPDB_SETTINGS_URL = 'https://jpdb.io/settings';
+const JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
 const AUTO_REPLACE_ANKI_DECK_NAMES = new Set(['', 'よむ', 'Yomu']);
 const ANKI_FIELD_MAPPING_ROLES = new Set<AnkiFieldMappingRole>(['expression', 'reading', 'meaning', 'sentence', 'audio', 'image']);
 const ANKI_SCAN_CONFIDENCE_VALUES = new Set<AnkiScanConfidence>(['high', 'medium', 'low']);
@@ -131,6 +137,13 @@ const SETTINGS_FOCUSABLE_SELECTOR = [
     'summary',
     '[tabindex]:not([tabindex="-1"])',
 ].join(',');
+const SETTINGS_FOCUS_SCROLL_SELECTOR = [
+    'input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="hidden"])',
+    'select',
+    'textarea',
+].join(',');
+const SETTINGS_FOCUS_SCROLL_MARGIN_PX = 16;
+const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
 
 function settingsStatusSetter(status: HTMLElement | null): SettingsStatusSetter {
     return message => {
@@ -218,11 +231,23 @@ function ankiConnectionPendingKey(action: AnkiConnectionAction): 'ankiPreparing'
 }
 
 function ankiStatusSetter(status: HTMLElement | null): AnkiStatusSetter {
+    return (message, tone, action) => {
+        if (!status) return;
+        status.dataset.statusTone = tone;
+        setInnerHtml(status, renderAnkiStatusHtml({ message, tone, action }, statusLanguage(status)));
+    };
+}
+
+function settingsToneStatusSetter(status: HTMLElement | null): SettingsToneStatusSetter {
     return (message, tone) => {
         if (!status) return;
-        status.textContent = message;
         status.dataset.statusTone = tone;
+        status.textContent = formatSettingsStatusLine({ message, tone }, statusLanguage(status));
     };
+}
+
+function statusLanguage(status: HTMLElement): InterfaceLanguage {
+    return (status.closest<HTMLFormElement>('form')?.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')?.value as InterfaceLanguage | undefined) ?? 'en';
 }
 
 function isAnkiFieldMappingRole(role: string): role is AnkiFieldMappingRole {
@@ -251,7 +276,108 @@ function readNewTabAnkiDisabledDecks(form: HTMLFormElement): string[] {
 }
 
 function selectedSettingsPanel(control: HTMLElement | null | undefined): string {
-    return control?.dataset.panel ?? 'jpdb';
+    return control?.dataset.panel ?? 'api';
+}
+
+function focusedSettingsControl(target: EventTarget | null, form: HTMLFormElement): HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null {
+    if (!(target instanceof HTMLElement)) return null;
+    const control = target.closest(SETTINGS_FOCUS_SCROLL_SELECTOR);
+    if (
+        (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)
+        && form.contains(control)
+    ) {
+        return control;
+    }
+    return null;
+}
+
+function requestSettingsControlVisibility(form: HTMLFormElement, control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): void {
+    const run = () => scrollSettingsControlIntoView(form, control);
+    requestFrame(() => requestFrame(run));
+    window.setTimeout(run, SETTINGS_FOCUS_SCROLL_RETRY_MS);
+}
+
+function requestFrame(callback: () => void): void {
+    if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => callback());
+        return;
+    }
+    window.setTimeout(callback, 16);
+}
+
+function scrollSettingsControlIntoView(form: HTMLFormElement, control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): void {
+    const geometry = settingsControlScrollGeometry(form, control);
+    if (geometry) applySettingsControlScroll(geometry);
+}
+
+interface SettingsControlScrollGeometry {
+    bottomLimit: number;
+    controlRect: DOMRect;
+    scroll: HTMLElement;
+    topLimit: number;
+}
+
+function settingsControlScrollGeometry(form: HTMLFormElement, control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): SettingsControlScrollGeometry | null {
+    if (!canScrollFocusedSettingsControl(form, control)) return null;
+    const scroll = settingsControlScrollContainer(form, control);
+    if (!scroll) return null;
+    const scrollRect = scroll.getBoundingClientRect();
+    const controlRect = control.getBoundingClientRect();
+    if (!hasMeasuredRect(scrollRect) || !hasMeasuredRect(controlRect)) return null;
+    const limits = settingsControlScrollLimits(form, scrollRect);
+    return limits ? { scroll, controlRect, ...limits } : null;
+}
+
+function canScrollFocusedSettingsControl(form: HTMLFormElement, control: HTMLElement): boolean {
+    return form.isConnected && control.isConnected && document.activeElement === control;
+}
+
+function settingsControlScrollContainer(form: HTMLFormElement, control: HTMLElement): HTMLElement | null {
+    const scroll = control.closest<HTMLElement>('.jpdb-reader-settings-scroll');
+    return scroll && form.contains(scroll) ? scroll : null;
+}
+
+function settingsControlScrollLimits(form: HTMLFormElement, scrollRect: DOMRect): { bottomLimit: number; topLimit: number } | null {
+    const viewport = settingsControlViewportBounds(scrollRect);
+    const topLimit = Math.max(scrollRect.top, viewport.top) + SETTINGS_FOCUS_SCROLL_MARGIN_PX;
+    const bottomLimit = Math.min(scrollRect.bottom, viewport.bottom, measuredSettingsFooterTop(form)) - SETTINGS_FOCUS_SCROLL_MARGIN_PX;
+    return validSettingsControlScrollLimits(bottomLimit, topLimit);
+}
+
+function settingsControlViewportBounds(scrollRect: DOMRect): { bottom: number; top: number } {
+    const top = Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0));
+    const height = Math.max(0, Math.round(window.visualViewport?.height ?? settingsControlViewportHeightFallback(scrollRect)));
+    return { bottom: top + height, top };
+}
+
+function settingsControlViewportHeightFallback(scrollRect: DOMRect): number {
+    if (window.innerHeight) return window.innerHeight;
+    if (document.documentElement.clientHeight) return document.documentElement.clientHeight;
+    return scrollRect.bottom;
+}
+
+function measuredSettingsFooterTop(form: HTMLFormElement): number {
+    const footerRect = form.querySelector<HTMLElement>('.footer')?.getBoundingClientRect();
+    if (!footerRect || !hasMeasuredRect(footerRect)) return Number.POSITIVE_INFINITY;
+    return footerRect.top;
+}
+
+function validSettingsControlScrollLimits(bottomLimit: number, topLimit: number): { bottomLimit: number; topLimit: number } | null {
+    return bottomLimit > topLimit ? { bottomLimit, topLimit } : null;
+}
+
+function applySettingsControlScroll({ bottomLimit, controlRect, scroll, topLimit }: SettingsControlScrollGeometry): void {
+    if (controlRect.bottom > bottomLimit) {
+        scroll.scrollTop += Math.ceil(controlRect.bottom - bottomLimit);
+        return;
+    }
+    if (controlRect.top < topLimit) {
+        scroll.scrollTop -= Math.ceil(topLimit - controlRect.top);
+    }
+}
+
+function hasMeasuredRect(rect: DOMRect): boolean {
+    return Boolean(rect.width || rect.height || rect.top || rect.right || rect.bottom || rect.left);
 }
 
 function nextSettingsTabIndex(key: string, currentIndex: number, tabCount: number): number {
@@ -345,6 +471,7 @@ export class SettingsDialogController {
         const form = this.createSettingsForm(panel);
         const backdrop = this.dependencies.createBackdrop();
         this.bindFormSubmit(form);
+        this.bindFocusedControlScrolling(form);
         this.bindSettingsSearch(form);
         this.bindSettingsTabs(form);
         this.bindLivePreview(form);
@@ -357,6 +484,7 @@ export class SettingsDialogController {
         this.syncRecommendedDictionaryInstallControls(form);
         this.syncDictionaryOperationState(form);
         this.syncJpdbStatus(form);
+        this.syncJitenStatus(form);
         void this.refreshAnkiConnectionStatus(form);
         void this.refreshDictionaryStatus(form);
         void this.refreshDeckControls(form);
@@ -370,6 +498,7 @@ export class SettingsDialogController {
         this.syncRecommendedDictionaryInstallControls(form);
         this.syncDictionaryOperationState(form);
         this.syncJpdbStatus(form);
+        this.syncJitenStatus(form);
         void this.refreshAnkiConnectionStatus(form);
         syncSubtitlePreview(form);
         this.refreshSettingsJapaneseParse(form);
@@ -391,7 +520,7 @@ export class SettingsDialogController {
         form.setAttribute('aria-modal', 'true');
         form.setAttribute('aria-label', SETTINGS_TITLE);
         form.tabIndex = -1;
-        setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL));
+        setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL));
         localizeSettingsForm(form, this.settings.interfaceLanguage);
         if (panel) activateSettingsPanel(form, panel);
         return form;
@@ -494,6 +623,14 @@ export class SettingsDialogController {
         });
     }
 
+    private bindFocusedControlScrolling(form: HTMLFormElement): void {
+        form.addEventListener('focusin', event => {
+            const control = focusedSettingsControl(event.target, form);
+            if (!control) return;
+            requestSettingsControlVisibility(form, control);
+        });
+    }
+
     private bindSettingsTabs(form: HTMLFormElement): void {
         form.querySelector<HTMLElement>('.jpdb-reader-settings-tabs')?.addEventListener('keydown', event => {
             if (!(event.target instanceof HTMLButtonElement) || event.target.dataset.action !== 'settings-panel') return;
@@ -503,7 +640,7 @@ export class SettingsDialogController {
             if (nextIndex < 0) return;
             event.preventDefault();
             tabs[nextIndex]?.focus();
-            activateSettingsPanel(form, tabs[nextIndex]?.dataset.panel ?? 'jpdb');
+            activateSettingsPanel(form, tabs[nextIndex]?.dataset.panel ?? 'api');
             this.refreshSettingsJapaneseParse(form);
         });
     }
@@ -529,7 +666,7 @@ export class SettingsDialogController {
         try {
             await this.dependencies.refreshDictionaryStyles();
         } catch (error) {
-            log.warn('Dictionary styles refresh failed after settings save', error);
+            log.warn('Dictionary style refresh failed', error);
             this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, 'actionFailed')));
         }
     }
@@ -656,6 +793,10 @@ export class SettingsDialogController {
         const apiKeyInput = form.querySelector<HTMLInputElement>('input[name="apiKey"]');
         apiKeyInput?.addEventListener('input', () => this.syncJpdbStatus(form));
         apiKeyInput?.addEventListener('change', () => void this.refreshDeckControls(form));
+        form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')?.addEventListener('input', () => {
+            this.syncJpdbStatus(form);
+            this.syncJitenStatus(form);
+        });
         form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
         form.querySelector<HTMLInputElement>('input[name="ankiMobileHandoff"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
         form.querySelector<HTMLInputElement>('input[name="ankiConnectUrl"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
@@ -798,13 +939,22 @@ export class SettingsDialogController {
         status.textContent = formatSettingsStatusLine(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
     }
 
+    private syncJitenStatus(form: HTMLFormElement): void {
+        const status = form.querySelector<HTMLElement>('[data-jiten-status]');
+        if (!status) return;
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        const line = jitenStatusLineForSettings(readFormSettings(new FormData(form), this.settings), language);
+        status.dataset.statusTone = line.tone;
+        status.textContent = formatSettingsStatusLine(line, language);
+    }
+
     private async refreshAnkiConnectionStatus(form: HTMLFormElement): Promise<void> {
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         const formSettings = readFormSettings(new FormData(form), this.settings);
         const initialLine = ankiStatusLineForSettings(formSettings, language);
         const requestId = ++this.ankiConnectionProbeId;
         this.ankiLibraryScanId++;
-        this.setAnkiStatus(form, initialLine.message, initialLine.tone);
+        this.setAnkiStatus(form, initialLine.message, initialLine.tone, initialLine.action);
         if (!formSettings.ankiEnabled) return;
 
         const previous = this.settings;
@@ -816,12 +966,12 @@ export class SettingsDialogController {
                 this.setAnkiStatus(form, uiText(language, 'ankiConnectionReady'), 'success');
                 this.queueAutomaticAnkiLibraryScan(form, language);
             } else {
-                this.setAnkiStatus(form, this.ankiSetupUnavailableMessage(formSettings, language), 'pending');
+                this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language));
             }
         } catch (error) {
             if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
-            log.warn('Anki settings connection probe failed', error);
-            this.setAnkiStatus(form, this.ankiSetupUnavailableMessage(formSettings, language), 'pending');
+            log.warn('Anki settings probe failed', error);
+            this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language));
         } finally {
             this.settings = previous;
         }
@@ -850,7 +1000,7 @@ export class SettingsDialogController {
             if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
             this.applyAnkiScanToForm(form, scan);
             this.setAnkiStatus(form, this.ankiScanMessage(scan, language), 'success');
-            log.info('Automatic Anki library scan succeeded', { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
+            log.info('Auto Anki scan ok', { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
         } catch (error) {
             if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
             log.warn('Automatic Anki library scan failed', error);
@@ -864,11 +1014,15 @@ export class SettingsDialogController {
         return this.currentForm === form && form.isConnected && requestId === this.ankiLibraryScanId;
     }
 
-    private setAnkiStatus(form: HTMLFormElement, message: string, tone: 'pending' | 'success' | 'error'): void {
+    private setAnkiStatusLine(form: HTMLFormElement, line: SettingsStatusLine): void {
+        this.setAnkiStatus(form, line.message, line.tone, line.action);
+    }
+
+    private setAnkiStatus(form: HTMLFormElement, message: string, tone: 'pending' | 'success' | 'error', action?: SettingsStatusAction): void {
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
         if (!status) return;
-        status.textContent = formatSettingsStatusLine({ message, tone }, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         status.dataset.statusTone = tone;
+        setInnerHtml(status, renderAnkiStatusHtml({ message, tone, action }, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
     }
 
     private async refreshDictionaryStatus(form: HTMLFormElement): Promise<void> {
@@ -1034,8 +1188,39 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsConnectionOrSupportAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
+        if (await this.handleJitenConnectionAction(form, action, control)) return true;
         if (await this.handleSettingsConnectionAction(form, action, control)) return true;
         return await this.handleSettingsSupportAction(action, control, setStatus);
+    }
+
+    private async handleJitenConnectionAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<boolean> {
+        if (action !== 'check-jiten-api') return false;
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        const button = settingsActionButton(control);
+        const setJitenStatus = settingsToneStatusSetter(form.querySelector<HTMLElement>('[data-jiten-status]'));
+        const formSettings = readFormSettings(new FormData(form), this.settings);
+        if (!formSettings.jitenApiKey.trim()) {
+            setJitenStatus(uiText(language, 'jitenApiKeyMissing'), 'pending');
+            return true;
+        }
+
+        button?.setAttribute('disabled', 'true');
+        setJitenStatus(uiText(language, 'jitenCheckingConnection'), 'pending');
+        try {
+            await new JitenApiClient(() => formSettings.jitenApiKey, {
+                proxyUrl: () => formSettings.corsProxyUrl,
+            }).ping();
+            setJitenStatus(uiText(language, 'jitenConnectionReady'), 'success');
+            log.info('Jiten settings check ok');
+        } catch (error) {
+            const message = errorMessage(error, uiText(language, 'jitenConnectionFailed'));
+            log.warn('Jiten settings check failed', error);
+            setJitenStatus(message, 'error');
+            this.dependencies.toast(message);
+        } finally {
+            button?.removeAttribute('disabled');
+        }
+        return true;
     }
 
     private handleSettingsEditorAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): boolean {
@@ -1182,16 +1367,17 @@ export class SettingsDialogController {
         try {
             if (await this.dependencies.anki.isConnected()) return true;
         } catch (error) {
-            log.warn('Anki settings connection check failed', error);
+            log.warn('Anki settings check failed', error);
         }
-        setAnkiStatus(this.ankiSetupUnavailableMessage(this.settings, language), 'pending');
+        const line = this.ankiSetupUnavailableStatus(this.settings, language);
+        setAnkiStatus(line.message, line.tone, line.action);
         return false;
     }
 
     private finishAnkiConnectionTest(form: HTMLFormElement, setAnkiStatus: AnkiStatusSetter, language: InterfaceLanguage): void {
         setAnkiStatus(uiText(language, 'ankiConnectionReady'), 'success');
         this.queueAutomaticAnkiLibraryScan(form, language);
-        log.info('Anki settings connection test succeeded', { url: this.settings.ankiConnectUrl });
+        log.info('Anki settings check ok', { url: this.settings.ankiConnectUrl });
     }
 
     private async prepareAnkiConnectionAction(form: HTMLFormElement, setAnkiStatus: AnkiStatusSetter, language: InterfaceLanguage): Promise<void> {
@@ -1203,9 +1389,9 @@ export class SettingsDialogController {
 
     private handleAnkiConnectionActionError(error: unknown, setAnkiStatus: AnkiStatusSetter, language: InterfaceLanguage): void {
         if (isAnkiConnectAvailabilityError(error) || isAnkiConnectSetupError(error)) {
-            const message = this.ankiSetupUnavailableMessage(this.settings, language);
+            const line = this.ankiSetupUnavailableStatus(this.settings, language);
             log.warn('Anki settings action unavailable', error);
-            setAnkiStatus(message, 'pending');
+            setAnkiStatus(line.message, line.tone, line.action);
             return;
         }
         const message = this.ankiConnectionErrorMessage(error, language);
@@ -1391,13 +1577,14 @@ export class SettingsDialogController {
         return uiText(language, 'ankiSettingsUnreachable');
     }
 
-    private ankiSetupUnavailableMessage(settings: ReaderSettings, language: InterfaceLanguage): string {
+    private ankiSetupUnavailableStatus(settings: ReaderSettings, language: InterfaceLanguage): SettingsStatusLine {
         if (needsHostedAnkiConnectSetupHint(settings.ankiConnectUrl)) {
-            return uiText(language, 'ankiHostedBridgeMissing');
+            return { message: uiText(language, 'ankiHostedBridgeMissing'), tone: 'pending', action: 'anki-hosted-bridge' };
         }
-        return canUseMobileAnkiHandoff(settings)
-            ? uiText(language, 'mobileAnkiReady')
-            : this.ankiUnreachableMessage(language);
+        if (canUseMobileAnkiHandoff(settings)) {
+            return { message: uiText(language, 'mobileAnkiReady'), tone: 'pending' };
+        }
+        return { message: this.ankiUnreachableMessage(language), tone: 'pending', action: 'anki-unreachable' };
     }
 
     private ankiConnectionErrorMessage(error: unknown, language: InterfaceLanguage): string {

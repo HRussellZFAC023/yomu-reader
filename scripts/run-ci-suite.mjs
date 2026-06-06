@@ -16,6 +16,9 @@ const JPDB_CONCURRENCY = readPositiveInt(
     'YOMU_CI_JPDB_CONCURRENCY',
 );
 const VITEST_API_BASE_PORT = readPositiveInt(process.env.YOMU_CI_VITEST_API_BASE_PORT ?? '55200', 'YOMU_CI_VITEST_API_BASE_PORT');
+const TEST_TIMEOUT_MS = readPositiveInt(process.env.YOMU_CI_TEST_TIMEOUT_MS ?? '540000', 'YOMU_CI_TEST_TIMEOUT_MS');
+const SUITE_CHILD_TIMEOUT_MS = readPositiveInt(process.env.YOMU_CI_SUITE_CHILD_TIMEOUT_MS ?? String(TEST_TIMEOUT_MS + 30000), 'YOMU_CI_SUITE_CHILD_TIMEOUT_MS');
+const SUITE_CHILD_KILL_GRACE_MS = readPositiveInt(process.env.YOMU_CI_SUITE_CHILD_KILL_GRACE_MS ?? '5000', 'YOMU_CI_SUITE_CHILD_KILL_GRACE_MS');
 
 runShard('regular', 1, REGULAR_SHARD_TOTAL, ['--prepare']);
 await runParallelShards('regular', REGULAR_SHARD_TOTAL, REGULAR_CONCURRENCY, shard => [
@@ -47,7 +50,7 @@ function runShard(kind, shard, total, extraArgs = []) {
 
 async function runParallelShards(kind, total, concurrency, extraArgsForShard = () => []) {
     const pending = Array.from({ length: total }, (_, index) => index + 1);
-    const active = new Set();
+    const active = new Map();
     let failureStatus = 0;
     await new Promise(resolve => {
         const maybeStart = () => {
@@ -60,6 +63,9 @@ async function runParallelShards(kind, total, concurrency, extraArgsForShard = (
     if (failureStatus) process.exit(failureStatus);
 
     function startShard(shard, onDone) {
+        const label = `${kind} shard ${shard}/${total}`;
+        const startedAt = Date.now();
+        console.log(`[ci-suite] Starting ${label}.`);
         const child = spawn(process.execPath, [
             join(ROOT, 'scripts/run-ci-tests.mjs'),
             '--kind', kind,
@@ -71,18 +77,49 @@ async function runParallelShards(kind, total, concurrency, extraArgsForShard = (
             stdio: 'inherit',
             env: process.env,
         });
-        active.add(child);
+        const context = { label, startedAt, timeout: undefined, killTimer: undefined, timedOut: false, stoppingAfterFailure: false };
+        context.timeout = setTimeout(() => {
+            context.timedOut = true;
+            console.error(`[ci-suite] ${label} exceeded ${formatDuration(SUITE_CHILD_TIMEOUT_MS)}; terminating.`);
+            child.kill('SIGTERM');
+            context.killTimer = setTimeout(() => child.kill('SIGKILL'), SUITE_CHILD_KILL_GRACE_MS);
+            context.killTimer.unref?.();
+        }, SUITE_CHILD_TIMEOUT_MS);
+        context.timeout.unref?.();
+        active.set(child, context);
         child.on('exit', code => {
+            clearTimeout(context.timeout);
+            clearTimeout(context.killTimer);
             active.delete(child);
-            if (code !== 0 && !failureStatus) failureStatus = code ?? 1;
+            const status = context.timedOut ? 124 : code ?? 1;
+            const suffix = context.timedOut ? 'timed out' : code === 0 ? 'passed' : `failed with exit ${status}`;
+            console.log(`[ci-suite] Finished ${label} in ${formatDuration(Date.now() - startedAt)} (${suffix}).`);
+            if (status !== 0 && !failureStatus) {
+                failureStatus = status;
+                stopOtherActiveShards(active, child);
+            }
             onDone();
         });
         child.on('error', error => {
+            clearTimeout(context.timeout);
+            clearTimeout(context.killTimer);
             active.delete(child);
             console.error(error);
-            if (!failureStatus) failureStatus = 1;
+            if (!failureStatus) {
+                failureStatus = 1;
+                stopOtherActiveShards(active, child);
+            }
             onDone();
         });
+    }
+}
+
+function stopOtherActiveShards(active, failedChild) {
+    for (const [child, context] of active) {
+        if (child === failedChild || context.stoppingAfterFailure) continue;
+        context.stoppingAfterFailure = true;
+        console.error(`[ci-suite] Stopping ${context.label} because another shard failed.`);
+        child.kill('SIGTERM');
     }
 }
 
@@ -100,4 +137,13 @@ function readPositiveInt(value, label) {
     const parsed = Number.parseInt(String(value), 10);
     if (!Number.isInteger(parsed) || parsed < 1) throw new Error(`${label} must be a positive integer`);
     return parsed;
+}
+
+function formatDuration(ms) {
+    if (ms < 1000) return `${ms}ms`;
+    const seconds = Math.round(ms / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
 }

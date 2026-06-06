@@ -38,6 +38,8 @@ const ICHIDAN_RULES = [
     ['たくなかった', 'る', 'desiderative negative past'],
     ['たくない', 'る', 'desiderative negative'],
     ['たい', 'る', 'desiderative'],
+    ['なさい', 'る', 'polite request'],
+    ['すぎる', 'る', 'excessive'],
     ['られなかった', 'る', 'potential/passive negative past'],
     ['られない', 'る', 'potential/passive negative'],
     ['られて', 'る', 'potential/passive te-form'],
@@ -79,6 +81,8 @@ const SURU_RULES = [
     ['しなくて', 'する', 'negative te-form'],
     ['しなければ', 'する', 'negative conditional'],
     ['しない', 'する', 'negative'],
+    ['しなさい', 'する', 'polite request'],
+    ['しすぎる', 'する', 'excessive'],
     ['された', 'する', 'passive past'],
     ['されて', 'する', 'passive te-form'],
     ['される', 'する', 'passive'],
@@ -106,6 +110,8 @@ const KURU_RULES = [
     ['来なかった', '来る', 'negative past'],
     ['来なくて', '来る', 'negative te-form'],
     ['来ない', '来る', 'negative'],
+    ['来なさい', '来る', 'polite request'],
+    ['来すぎる', '来る', 'excessive'],
     ['来られた', '来る', 'potential/passive past'],
     ['来られて', '来る', 'potential/passive te-form'],
     ['来られる', '来る', 'potential/passive'],
@@ -121,6 +127,8 @@ const KURU_RULES = [
     ['こなかった', 'くる', 'negative past'],
     ['こなくて', 'くる', 'negative te-form'],
     ['こない', 'くる', 'negative'],
+    ['きなさい', 'くる', 'polite request'],
+    ['きすぎる', 'くる', 'excessive'],
     ['こられた', 'くる', 'potential/passive past'],
     ['こられて', 'くる', 'potential/passive te-form'],
     ['こられる', 'くる', 'potential/passive'],
@@ -131,14 +139,58 @@ const KURU_RULES = [
     ['きて', 'くる', 'te-form'],
 ] satisfies Array<[string, string, string]>;
 
+const TE_ASPECT_SUFFIXES = [
+    ['いる', 'progressive'],
+    ['います', 'polite progressive'],
+    ['いました', 'polite progressive past'],
+    ['いません', 'polite progressive negative'],
+    ['いませんでした', 'polite progressive negative past'],
+    ['いた', 'progressive past'],
+    ['いて', 'progressive te-form'],
+    ['いない', 'progressive negative'],
+    ['いなかった', 'progressive negative past'],
+    ['いれば', 'progressive conditional'],
+    ['る', 'contracted progressive'],
+    ['ます', 'contracted polite progressive'],
+    ['ました', 'contracted polite progressive past'],
+    ['た', 'contracted progressive past'],
+    ['て', 'contracted progressive te-form'],
+    ['ない', 'contracted progressive negative'],
+    ['なかった', 'contracted progressive negative past'],
+] satisfies Array<[string, string]>;
+
+const TE_COMPLETION_SUFFIXES = [
+    ['しまう', 'completion'],
+    ['しまった', 'completion past'],
+    ['しまって', 'completion te-form'],
+    ['しまわない', 'completion negative'],
+    ['しまいます', 'polite completion'],
+    ['しまいました', 'polite completion past'],
+] satisfies Array<[string, string]>;
+
+const CONTRACTED_COMPLETION_SUFFIXES = [
+    ['う', 'contracted completion'],
+    ['った', 'contracted completion past'],
+    ['って', 'contracted completion te-form'],
+    ['わない', 'contracted completion negative'],
+    ['います', 'contracted polite completion'],
+    ['いました', 'contracted polite completion past'],
+] satisfies Array<[string, string]>;
+
 const RULES: DeinflectionRule[] = [
     ...ICHIDAN_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ['v1'] })),
+    ...teCompoundRules('て', 'る', ['v1']),
     ...I_ADJECTIVE_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ['adj-i', 'i-adj'] })),
     ...SURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ['vs', 'vs-s', 'suru'] })),
+    ...teCompoundRules('して', 'する', ['vs', 'vs-s', 'suru']),
     ...KURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ['vk', 'kuru'] })),
+    ...teCompoundRules('来て', '来る', ['vk', 'kuru']),
+    ...teCompoundRules('きて', 'くる', ['vk', 'kuru']),
     ...GODAN_ROWS.flatMap(row => godanRules(row)),
     { from: '行って', to: '行く', reason: 'te-form', rules: ['v5k', 'v5'] },
     { from: '行った', to: '行く', reason: 'past', rules: ['v5k', 'v5'] },
+    { from: '行っちゃう', to: '行く', reason: 'contracted completion', rules: ['v5k', 'v5'] },
+    { from: '行っちゃった', to: '行く', reason: 'contracted completion past', rules: ['v5k', 'v5'] },
 ];
 
 export function deinflectJapaneseTerm(source: string): DeinflectedTerm[] {
@@ -229,6 +281,7 @@ const TERM_RULE_MATCHERS: Array<(rule: string, entryRuleSet: Set<string>) => boo
 function godanRules(row: typeof GODAN_ROWS[number]): DeinflectionRule[] {
     const rules = row.rules;
     return [
+        ...teCompoundRules(row.te, row.ending, rules),
         { from: row.te, to: row.ending, reason: 'te-form', rules },
         { from: row.ta, to: row.ending, reason: 'past', rules },
         { from: `${row.a}なかった`, to: row.ending, reason: 'negative past', rules },
@@ -244,6 +297,8 @@ function godanRules(row: typeof GODAN_ROWS[number]): DeinflectionRule[] {
         { from: `${row.i}たくなかった`, to: row.ending, reason: 'desiderative negative past', rules },
         { from: `${row.i}たくない`, to: row.ending, reason: 'desiderative negative', rules },
         { from: `${row.i}たい`, to: row.ending, reason: 'desiderative', rules },
+        { from: `${row.i}なさい`, to: row.ending, reason: 'polite request', rules },
+        { from: `${row.i}すぎる`, to: row.ending, reason: 'excessive', rules },
         { from: `${row.e}ば`, to: row.ending, reason: 'conditional', rules },
         { from: `${row.o}う`, to: row.ending, reason: 'volitional', rules },
         { from: `${row.e}なかった`, to: row.ending, reason: 'potential negative past', rules },
@@ -262,6 +317,27 @@ function godanRules(row: typeof GODAN_ROWS[number]): DeinflectionRule[] {
         { from: `${row.a}せる`, to: row.ending, reason: 'causative', rules },
         { from: row.e, to: row.ending, reason: 'imperative', rules },
     ];
+}
+
+function teCompoundRules(te: string, to: string, rules: string[]): DeinflectionRule[] {
+    return [
+        ...TE_ASPECT_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
+        ...TE_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
+        ...contractedCompletionRules(te, to, rules),
+    ];
+}
+
+function contractedCompletionRules(te: string, to: string, rules: string[]): DeinflectionRule[] {
+    const stem = contractedCompletionStem(te);
+    return stem
+        ? CONTRACTED_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${stem}${suffix}`, to, reason, rules }))
+        : [];
+}
+
+function contractedCompletionStem(te: string): string {
+    if (te.endsWith('て')) return `${te.slice(0, -1)}ちゃ`;
+    if (te.endsWith('で')) return `${te.slice(0, -1)}じゃ`;
+    return '';
 }
 
 function candidateKey(candidate: DeinflectedTerm): string {

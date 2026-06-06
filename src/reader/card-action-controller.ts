@@ -1,5 +1,5 @@
 import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiDuplicateNoteError, type AnkiAudioMergeMode, type AnkiCardContext, type AnkiLookupResult, type AnkiMergeYomuResult } from './anki';
-import { resolveAnkiWordAudio } from './anki-audio';
+import { resolveAnkiWordAudio } from './anki/audio';
 import { copyText } from './browser-ui';
 import { normalizeCardStates } from './card-state';
 import { readerWordSurfaceText } from './dom';
@@ -7,6 +7,15 @@ import { JpdbClient } from './jpdb';
 import { handleStudyGrammarAction, renderStudyToolResult } from './study-render';
 import { formatUiText, uiList, uiText } from './i18n';
 import type { MiningContext } from './mining-context';
+import type { JitenApiClient } from './jiten';
+import {
+    createApiSrsProviderAdapters,
+    isApiMiningEnabled,
+    shouldMineAnkiAlongsideApi,
+    type ApiSrsDeckSource,
+    type ApiSrsDeckState,
+    type ApiSrsProviderAdapter,
+} from './srs-providers';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from './types';
 import { YomitanDictionaryStore } from './yomitan';
 import type { GrammarHint } from './study-tools';
@@ -21,6 +30,7 @@ interface ShowCardOptions {
 interface CardActionControllerOptions {
     getSettings: () => ReaderSettings;
     jpdb: JpdbClient;
+    jiten?: JitenApiClient;
     anki: AnkiConnectClient;
     dictionaries: YomitanDictionaryStore;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
@@ -40,11 +50,20 @@ interface CardActionControllerOptions {
     onAnkiStatusChanged?: (card: JPDBCard) => void;
 }
 
+interface CardActionContext {
+    sentenceTarget?: string;
+}
+
 type StudyActionHandler = () => boolean | Promise<boolean>;
 type MiningActionHandler = () => Promise<void>;
-type JpdbDeckState = 'never-forget' | 'blacklisted';
+type SrsDeckSource = ApiSrsDeckSource | 'anki';
 type AnkiAddResult = number | null | 'duplicate';
 type ResolvedAnkiWordAudio = Awaited<ReturnType<typeof resolveAnkiWordAudio>>;
+
+interface SelectedDeckChoice {
+    source: SrsDeckSource;
+    id: string;
+}
 
 interface PreparedAnkiAdd {
     context: MiningContext;
@@ -53,7 +72,7 @@ interface PreparedAnkiAdd {
     sentence: string | undefined;
 }
 
-function assertReviewableJpdbCardState(states: string[], settings: ReaderSettings): void {
+function assertReviewableApiCardState(states: string[], settings: ReaderSettings): void {
     if (states.includes('blacklisted')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedBlacklisted'));
     if (states.includes('never-forget')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedNeverForget'));
 }
@@ -61,14 +80,14 @@ function assertReviewableJpdbCardState(states: string[], settings: ReaderSetting
 export class CardActionController {
     constructor(private options: CardActionControllerOptions) {}
 
-    async perform(action: string | undefined, button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<boolean> {
+    async perform(action: string | undefined, button: HTMLButtonElement, card: JPDBCard, sentence?: string, context: CardActionContext = {}): Promise<boolean> {
         const studyAction = this.performStudyAction(action, button, sentence);
         if (studyAction !== undefined) return await studyAction;
 
         const readerAction = this.performReaderAction(action, card);
         if (readerAction !== undefined) return await readerAction;
 
-        const miningAction = await this.performMiningAction(action, button, card, sentence);
+        const miningAction = await this.performMiningAction(action, button, card, sentence, context);
         if (miningAction !== undefined) return miningAction;
 
         return Boolean(action);
@@ -145,7 +164,7 @@ export class CardActionController {
             'copy-word': () => this.copyWord(card),
             audio: () => this.playCardAudio(card),
             'setup-dictionaries': () => this.openSettingsPanel('dictionaries'),
-            'setup-jpdb': () => this.openSettingsPanel('jpdb'),
+            'setup-jpdb': () => this.openSettingsPanel('api'),
         };
         return handlers[action]?.();
     }
@@ -166,32 +185,32 @@ export class CardActionController {
         return false;
     }
 
-    private async performMiningAction(action: string | undefined, button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<boolean | undefined> {
+    private async performMiningAction(action: string | undefined, button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<boolean | undefined> {
         if (!action) return undefined;
-        const handler = this.miningActionHandler(action, button, card, sentence);
+        const handler = this.miningActionHandler(action, button, card, sentence, context);
         if (handler) return this.finishMiningAction(handler());
-        return this.performJpdbDeckMiningAction(action, card);
+        return this.performApiDeckStateAction(action, card);
     }
 
-    private miningActionHandler(action: string, button: HTMLButtonElement, card: JPDBCard, sentence?: string): MiningActionHandler | undefined {
+    private miningActionHandler(action: string, button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, context: CardActionContext): MiningActionHandler | undefined {
         const handlers: Record<string, MiningActionHandler> = {
-            add: () => this.addToSelectedDeck(button, card, sentence),
-            anki: () => this.addToAnki(card, sentence),
+            add: () => this.addToSelectedDeck(button, card, sentence, context),
+            anki: () => this.addToAnki(card, sentence, undefined, context),
             'anki-edit': () => this.openAnkiNote(button),
-            'anki-merge': () => this.mergeExistingAnkiCard(button, card, sentence),
+            'anki-merge': () => this.mergeExistingAnkiCard(button, card, sentence, context),
             grade: () => this.gradeCard(button, card, sentence),
         };
         return handlers[action];
     }
 
-    private async performJpdbDeckMiningAction(action: string | undefined, card: JPDBCard): Promise<boolean | undefined> {
+    private async performApiDeckStateAction(action: string | undefined, card: JPDBCard): Promise<boolean | undefined> {
         if (action === 'neverforget') {
             const settings = this.options.getSettings();
-            return this.finishMiningAction(this.changeJpdbDeckState(card, 'never-forget', settings.neverForgetDeck, uiText(settings.interfaceLanguage, 'jpdbDeckStateApiKeyRequired')));
+            return this.finishMiningAction(this.changeProviderDeckState(card, 'never-forget', settings.neverForgetDeck));
         }
         if (action === 'blacklist') {
             const settings = this.options.getSettings();
-            return this.finishMiningAction(this.changeJpdbDeckState(card, 'blacklisted', settings.blacklistDeck, uiText(settings.interfaceLanguage, 'jpdbDeckStateApiKeyRequired')));
+            return this.finishMiningAction(this.changeProviderDeckState(card, 'blacklisted', settings.blacklistDeck));
         }
         return undefined;
     }
@@ -210,32 +229,50 @@ export class CardActionController {
         await this.options.parsePopoverJapanese(popover);
     }
 
-    private assertJpdbActionAllowed(card: JPDBCard, message: string): void {
-        const settings = this.options.getSettings();
-        if (!settings.jpdbMiningEnabled) throw new Error(uiText(settings.interfaceLanguage, 'jpdbActionsDisabled'));
-        if (!settings.apiKey.trim()) throw new Error(message);
-        if (!this.options.isJpdbBackedCard(card)) throw new Error(message);
+    private apiProviders(settings: ReaderSettings = this.options.getSettings()): ApiSrsProviderAdapter[] {
+        return createApiSrsProviderAdapters({
+            jpdb: this.options.jpdb,
+            jiten: this.options.jiten,
+            isJpdbBackedCard: this.options.isJpdbBackedCard,
+        }, settings);
     }
 
-    private assertJpdbReviewAllowed(card: JPDBCard, message: string): void {
+    private apiProviderForCard(card: JPDBCard, settings: ReaderSettings = this.options.getSettings()): ApiSrsProviderAdapter | null {
+        return this.apiProviders(settings).find(provider => provider.supportsCard(card)) ?? null;
+    }
+
+    private apiProviderForDeckSource(source: ApiSrsDeckSource, card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null {
+        return this.apiProviders(settings).find(provider => provider.deckSource === source && provider.supportsCard(card)) ?? null;
+    }
+
+    private assertApiProviderActionAllowed(provider: ApiSrsProviderAdapter | null, message: string): asserts provider is ApiSrsProviderAdapter {
+        const settings = this.options.getSettings();
+        if (!isApiMiningEnabled(settings)) throw new Error(uiText(settings.interfaceLanguage, 'apiSrsActionsDisabled'));
+        if (!provider?.hasApiKey) throw new Error(message);
+    }
+
+    private assertApiProviderReviewAllowed(provider: ApiSrsProviderAdapter | null, message: string): asserts provider is ApiSrsProviderAdapter {
         const settings = this.options.getSettings();
         if (!settings.enableReviews) throw new Error(uiText(settings.interfaceLanguage, 'reviewActionsDisabled'));
-        if (!settings.jpdbMiningEnabled) throw new Error(uiText(settings.interfaceLanguage, 'jpdbActionsDisabled'));
-        if (!settings.apiKey.trim()) throw new Error(message);
-        if (!this.options.isJpdbBackedCard(card)) throw new Error(message);
+        this.assertApiProviderActionAllowed(provider, message);
     }
 
-    private async addToSelectedDeck(button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {
+    private async addToSelectedDeck(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<void> {
         const settings = this.options.getSettings();
         const deck = selectedDeckChoice(button, settings);
         if (deck.source === 'anki') {
-            await this.addToAnki(card, sentence, deck.id);
+            await this.addToAnki(card, sentence, deck.id, context);
             return;
         }
-        this.assertJpdbActionAllowed(card, uiText(settings.interfaceLanguage, 'jpdbAddApiKeyRequired'));
-        await this.addToSelectedJpdbDeck(card, sentence, deck.id);
-        if (shouldMineAnkiAlongsideJpdb(settings)) await this.addToAnki(card, sentence, settings.ankiDeck);
-        this.options.toast(uiText(settings.interfaceLanguage, 'addedToJpdb'));
+
+        const provider = this.apiProviderForDeckSource(deck.source, card, settings);
+        const fallbackKey = deck.source === 'jiten' ? 'jitenAddApiKeyRequired' : 'jpdbAddApiKeyRequired';
+        this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.addApiKeyRequiredKey ?? fallbackKey));
+        const selectedDeckId = provider.selectedDeckId(deck.id, settings);
+        if (!selectedDeckId) throw new Error(uiText(settings.interfaceLanguage, 'chooseJitenStudyDeck'));
+        await provider.addToDeck(selectedDeckId, card, sentence, { sourceTitle: document.title });
+        if (shouldMineAnkiAlongsideApi(settings)) await this.addToAnki(card, sentence, settings.ankiDeck, context);
+        this.options.toast(uiText(settings.interfaceLanguage, provider.addedToastKey));
     }
 
     private async openAnkiNote(button: HTMLButtonElement): Promise<void> {
@@ -254,7 +291,7 @@ export class CardActionController {
         await this.options.playMediaUrl(await this.options.anki.mediaFileDataUrl(filename));
     }
 
-    private async mergeExistingAnkiCard(button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {
+    private async mergeExistingAnkiCard(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, actionContext: CardActionContext): Promise<void> {
         const settings = this.options.getSettings();
         const noteId = Number(button.dataset.noteId);
         if (!Number.isFinite(noteId)) throw new Error(uiText(settings.interfaceLanguage, 'ankiNoteNotFound'));
@@ -272,6 +309,7 @@ export class CardActionController {
             audioMergeMode: selectedAnkiAudioMergeMode(button),
             ...dictionaryContext,
             dictionaryPreferences: settings.dictionaryPreferences,
+            sentenceTarget: actionContext.sentenceTarget,
             sourceTitle: ankiSourceTitle(context.sourceTitle),
             sourceUrl: ankiSourceUrl(context.sourceUrl),
         });
@@ -285,9 +323,13 @@ export class CardActionController {
         });
     }
 
-    private async changeJpdbDeckState(card: JPDBCard, state: JpdbDeckState, deck: string, message: string): Promise<void> {
-        this.assertJpdbActionAllowed(card, message);
-        await this.toggleDeck(card, state, deck);
+    private async changeProviderDeckState(card: JPDBCard, state: ApiSrsDeckState, deck: string): Promise<void> {
+        const settings = this.options.getSettings();
+        const provider = this.apiProviderForCard(card, settings);
+        this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.deckStateApiKeyRequiredKey ?? 'jpdbDeckStateApiKeyRequired'));
+        const wasSet = normalizeCardStates(card.cardState).includes(state);
+        await provider.setDeckState(card, state, deck);
+        this.options.toast(uiText(settings.interfaceLanguage, wasSet ? 'removedFromDeck' : 'addedToDeckToast'));
     }
 
     private async gradeCard(button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {
@@ -308,25 +350,24 @@ export class CardActionController {
             return;
         }
 
-        this.assertJpdbReviewAllowed(card, uiText(settings.interfaceLanguage, 'addJpdbApiKeyReview'));
+        const provider = this.apiProviderForCard(card, settings);
+        this.assertApiProviderReviewAllowed(provider, uiText(settings.interfaceLanguage, provider?.reviewApiKeyRequiredKey ?? 'addJpdbApiKeyReview'));
         const states = normalizeCardStates(card.cardState);
-        assertReviewableJpdbCardState(states, settings);
-        const wasNotInDeck = states.includes('not-in-deck');
-        if (wasNotInDeck) await this.addToSelectedJpdbDeck(card, sentence, this.reviewDeckId(options));
-        await this.options.jpdb.reviewCard(card, grade);
-        if (wasNotInDeck) this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
+        assertReviewableApiCardState(states, settings);
+        const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
+        if (result.addedBeforeReview) this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
     }
 
     private reviewDeckId(options: { deckId?: string }): string {
         return options.deckId || this.options.getSettings().miningDeck || 'forq';
     }
 
-    private async addToAnki(card: JPDBCard, sentence?: string, deckName?: string): Promise<void> {
+    private async addToAnki(card: JPDBCard, sentence?: string, deckName?: string, context: CardActionContext = {}): Promise<void> {
         const settings = this.options.getSettings();
-        if (await this.addToAnkiViaMobileHandoff(card, sentence, deckName, settings)) return;
+        if (await this.addToAnkiViaMobileHandoff(card, sentence, deckName, settings, context)) return;
         if (await this.showExistingAnkiCardIfPresent(card, sentence)) return;
 
-        const prepared = await this.prepareAnkiAdd(card, sentence, deckName, settings);
+        const prepared = await this.prepareAnkiAdd(card, sentence, deckName, settings, context);
         const noteId = await this.addPreparedAnkiCard(card, prepared);
         if (noteId === 'duplicate') return this.showExistingAnkiCard(card, sentence);
         if (noteId === null) return this.toastMobileAnkiHandoff(settings);
@@ -335,11 +376,12 @@ export class CardActionController {
         this.options.toast(ankiSentToast(prepared.context, settings, prepared.hasWordAudio));
     }
 
-    private async addToAnkiViaMobileHandoff(card: JPDBCard, sentence: string | undefined, deckName: string | undefined, settings: ReaderSettings): Promise<boolean> {
+    private async addToAnkiViaMobileHandoff(card: JPDBCard, sentence: string | undefined, deckName: string | undefined, settings: ReaderSettings, context: CardActionContext): Promise<boolean> {
         if (!canUseMobileAnkiHandoff(settings)) return false;
         await this.options.anki.addCardViaMobileHandoff(card, mobileAnkiSentence(card, sentence), {
             deckName,
             dictionaryPreferences: settings.dictionaryPreferences,
+            sentenceTarget: context.sentenceTarget,
         });
         this.toastMobileAnkiHandoff(settings);
         return true;
@@ -352,7 +394,7 @@ export class CardActionController {
         return true;
     }
 
-    private async prepareAnkiAdd(card: JPDBCard, sentence: string | undefined, deckName: string | undefined, settings: ReaderSettings): Promise<PreparedAnkiAdd> {
+    private async prepareAnkiAdd(card: JPDBCard, sentence: string | undefined, deckName: string | undefined, settings: ReaderSettings, actionContext: CardActionContext): Promise<PreparedAnkiAdd> {
         const [dictionaryContext, context, wordAudio] = await Promise.all([
             this.loadAnkiDictionaryContext(card, settings),
             this.options.resolveMiningContext(card, sentence),
@@ -369,6 +411,7 @@ export class CardActionController {
                 wordAudioUrl: wordAudio?.url,
                 ...dictionaryContext,
                 dictionaryPreferences: settings.dictionaryPreferences,
+                sentenceTarget: actionContext.sentenceTarget,
                 sourceTitle: ankiSourceTitle(context.sourceTitle),
                 sourceUrl: ankiSourceUrl(context.sourceUrl),
             },
@@ -431,27 +474,6 @@ export class CardActionController {
             : Promise.resolve([]);
     }
 
-    private async toggleDeck(card: JPDBCard, state: JpdbDeckState, deck: string): Promise<void> {
-        if (normalizeCardStates(card.cardState).includes(state)) {
-            await this.options.jpdb.removeFromDeck(deck, card);
-            this.options.toast(uiText(this.options.getSettings().interfaceLanguage, 'removedFromDeck'));
-        } else {
-            await this.options.jpdb.addToDeck(deck, card);
-            this.options.toast(uiText(this.options.getSettings().interfaceLanguage, 'addedToDeckToast'));
-        }
-    }
-
-    private async addToSelectedJpdbDeck(card: JPDBCard, sentence: string | undefined, deckId: string): Promise<void> {
-        const settings = this.options.getSettings();
-        const targetDeck = selectedJpdbDeckId(deckId, settings);
-        await this.options.jpdb.addToDeck(targetDeck, card, sentence);
-        if (shouldAlsoAddToForq(settings, targetDeck)) await this.options.jpdb.addToDeck('forq', card, sentence);
-    }
-}
-
-interface SelectedDeckChoice {
-    source: 'jpdb' | 'anki';
-    id: string;
 }
 
 function miningSentenceForAnki(contextSentence: string | undefined, fallbackSentence: string | undefined): string | undefined {
@@ -516,6 +538,7 @@ function selectedDeckChoice(button: HTMLButtonElement, settings: ReaderSettings)
 
 function selectedDeckSource(button: HTMLButtonElement): SelectedDeckChoice['source'] {
     if (button.dataset.deckSource === 'anki') return 'anki';
+    if (button.dataset.deckSource === 'jiten') return 'jiten';
     return 'jpdb';
 }
 
@@ -527,6 +550,7 @@ function selectedDeckId(button: HTMLButtonElement, settings: ReaderSettings, sou
 
 function defaultDeckIdForSource(source: SelectedDeckChoice['source'], settings: ReaderSettings): string {
     if (source === 'anki') return defaultAnkiDeckName(settings);
+    if (source === 'jiten') return '';
     return defaultJpdbDeckId(settings);
 }
 
@@ -536,20 +560,4 @@ function defaultAnkiDeckName(settings: ReaderSettings): string {
 
 function defaultJpdbDeckId(settings: ReaderSettings): string {
     return settings.miningDeck.trim() || 'forq';
-}
-
-function selectedJpdbDeckId(deckId: string, settings: ReaderSettings): string {
-    const selectedDeckId = deckId.trim();
-    if (selectedDeckId) return selectedDeckId;
-    return defaultJpdbDeckId(settings);
-}
-
-function shouldAlsoAddToForq(settings: ReaderSettings, targetDeck: string): boolean {
-    if (!settings.addToForq) return false;
-    return targetDeck !== 'forq';
-}
-
-function shouldMineAnkiAlongsideJpdb(settings: ReaderSettings): boolean {
-    if (!settings.ankiEnabled) return false;
-    return settings.ankiMineWithJpdb;
 }

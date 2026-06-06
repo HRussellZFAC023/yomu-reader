@@ -6,42 +6,82 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const JPDB_TEST = join(ROOT, 'tests/reader/jpdb.test.ts');
+const NEW_TAB_REVIEW_TEST = join(ROOT, 'tests/reader/new-tab-review.test.ts');
 const SETTINGS_FORM_TEST = join(ROOT, 'tests/reader/settings-form.test.ts');
+const SUBTITLES_CONTROLLER_TEST = join(ROOT, 'tests/reader/subtitles-controller.test.ts');
 const GENERATED_DIR = join(ROOT, 'tests/reader/.vitest-jpdb-shards');
+const GENERATED_NEW_TAB_REVIEW_DIR = join(ROOT, 'tests/reader/.vitest-new-tab-review-shards');
 const GENERATED_SETTINGS_DIR = join(ROOT, 'tests/reader/.vitest-settings-shards');
+const GENERATED_SUBTITLES_CONTROLLER_DIR = join(ROOT, 'tests/reader/.vitest-subtitles-controller-shards');
+const REGULAR_SHARD_DIRECT_EXCLUDES = new Set([JPDB_TEST, NEW_TAB_REVIEW_TEST, SETTINGS_FORM_TEST, SUBTITLES_CONTROLLER_TEST]);
+const REGULAR_SHARD_GENERATED_DIRS = [
+    '/.vitest-jpdb-shards/',
+    '/.vitest-new-tab-review-shards/',
+    '/.vitest-settings-shards/',
+    '/.vitest-subtitles-controller-shards/',
+];
 
 const args = parseArgs(process.argv.slice(2));
 const kind = args.kind ?? 'regular';
 const shard = readPositiveInt(args.shard ?? process.env.CI_TEST_SHARD ?? '1', 'shard');
 const total = readPositiveInt(args.total ?? process.env.CI_TEST_TOTAL ?? '1', 'total');
-const apiPort = args['api-port'] ?? process.env.YOMU_VITEST_API_PORT ?? '';
+const apiPort = args['no-api'] ? '' : args['api-port'] ?? process.env.YOMU_VITEST_API_PORT ?? defaultApiPort(kind, shard);
+const testTimeoutMs = readPositiveInt(args['timeout-ms'] ?? process.env.YOMU_CI_TEST_TIMEOUT_MS ?? '540000', 'YOMU_CI_TEST_TIMEOUT_MS');
 if (shard > total) throw new Error(`shard ${shard} cannot be greater than total ${total}`);
 
-if (kind === 'regular' && args.prepare) generateSettingsShardFiles(total);
+if (kind === 'regular' && args.prepare) {
+    generateSettingsShardFiles(total);
+    generateNewTabReviewShardFiles(total);
+    generateSubtitlesControllerShardFiles(total);
+}
 else if (kind === 'regular') runRegularShard(shard, total, Boolean(args.reuse));
 else if (kind === 'jpdb' && args.prepare) generateJpdbShardFiles(total);
 else if (kind === 'jpdb') runJpdbShard(shard, total, Boolean(args.reuse));
 else throw new Error(`Unknown CI test kind: ${kind}`);
 
 function runRegularShard(currentShard, shardTotal, reuseGenerated = false) {
-    const files = collectTestFiles(join(ROOT, 'tests/reader'))
-        .filter(file => file !== JPDB_TEST)
-        .filter(file => file !== SETTINGS_FORM_TEST)
-        .filter(file => !file.includes('/.vitest-jpdb-shards/'))
-        .filter(file => !file.includes('/.vitest-settings-shards/'));
-    const generatedSettings = reuseGenerated ? existingSettingsShardFiles(shardTotal) : generateSettingsShardFiles(shardTotal);
+    const files = regularShardSourceFiles();
+    const generated = regularGeneratedShardFiles(shardTotal, reuseGenerated);
     const regularBuckets = sizeBalancedBuckets(files, shardTotal, fileSize);
     const filesForShard = [
         ...regularBuckets[currentShard - 1],
-        generatedSettings[currentShard - 1],
+        ...generated.map(files => files[currentShard - 1]),
     ].filter(Boolean);
     const maxWorkers = readPositiveInt(process.env.YOMU_CI_REGULAR_MAX_WORKERS ?? '4', 'YOMU_CI_REGULAR_MAX_WORKERS');
-    runVitest([
-        'run',
-        ...filesForShard.map(file => relative(ROOT, file)),
-        '--minWorkers=1',
-        `--maxWorkers=${maxWorkers}`,
-    ], { YOMU_INCLUDE_GENERATED_SETTINGS_SHARDS: '1' });
+    runVitest(
+        [
+            'run',
+            ...filesForShard.map(file => relative(ROOT, file)),
+            '--minWorkers=1',
+            `--maxWorkers=${maxWorkers}`,
+        ],
+        {
+            YOMU_INCLUDE_GENERATED_NEW_TAB_REVIEW_SHARDS: '1',
+            YOMU_INCLUDE_GENERATED_SETTINGS_SHARDS: '1',
+            YOMU_INCLUDE_GENERATED_SUBTITLES_CONTROLLER_SHARDS: '1',
+        },
+        {
+            label: `regular shard ${currentShard}/${shardTotal}`,
+            files: filesForShard,
+        },
+    );
+}
+
+function regularShardSourceFiles() {
+    return collectTestFiles(join(ROOT, 'tests/reader')).filter(isRegularShardSourceFile);
+}
+
+function isRegularShardSourceFile(file) {
+    if (REGULAR_SHARD_DIRECT_EXCLUDES.has(file)) return false;
+    return !REGULAR_SHARD_GENERATED_DIRS.some(dir => file.includes(dir));
+}
+
+function regularGeneratedShardFiles(shardTotal, reuseGenerated) {
+    return [
+        reuseGenerated ? existingSettingsShardFiles(shardTotal) : generateSettingsShardFiles(shardTotal),
+        reuseGenerated ? existingNewTabReviewShardFiles(shardTotal) : generateNewTabReviewShardFiles(shardTotal),
+        reuseGenerated ? existingSubtitlesControllerShardFiles(shardTotal) : generateSubtitlesControllerShardFiles(shardTotal),
+    ];
 }
 
 function runJpdbShard(currentShard, shardTotal, reuseGenerated = false) {
@@ -49,6 +89,10 @@ function runJpdbShard(currentShard, shardTotal, reuseGenerated = false) {
     runVitest(
         ['run', relative(ROOT, generated[currentShard - 1]), '--minWorkers=1', '--maxWorkers=1', '--no-file-parallelism'],
         { YOMU_INCLUDE_GENERATED_JPDB_SHARDS: '1' },
+        {
+            label: `JPDB shard ${currentShard}/${shardTotal}`,
+            files: [generated[currentShard - 1]],
+        },
     );
 }
 
@@ -56,8 +100,16 @@ function existingJpdbShardFiles(shardTotal) {
     return existingShardFiles(GENERATED_DIR, 'jpdb.generated', shardTotal, 'JPDB');
 }
 
+function existingNewTabReviewShardFiles(shardTotal) {
+    return existingShardFiles(GENERATED_NEW_TAB_REVIEW_DIR, 'new-tab-review.generated', shardTotal, 'new tab review');
+}
+
 function existingSettingsShardFiles(shardTotal) {
     return existingShardFiles(GENERATED_SETTINGS_DIR, 'settings-form.generated', shardTotal, 'settings form');
+}
+
+function existingSubtitlesControllerShardFiles(shardTotal) {
+    return existingShardFiles(GENERATED_SUBTITLES_CONTROLLER_DIR, 'subtitles-controller.generated', shardTotal, 'subtitles controller');
 }
 
 function existingShardFiles(generatedDir, filenamePrefix, shardTotal, label) {
@@ -88,21 +140,16 @@ function generateJpdbShardFiles(shardTotal) {
     const body = source.slice(range.bodyStart, range.describeEnd);
     const tail = rewriteGeneratedImports(source.slice(range.tailStart));
     const { prefix, blocks } = splitJpdbTestBlocks(body);
-    const shards = contiguousBuckets(blocks, shardTotal);
-    return shards.map((blocksForShard, index) => {
-        const filename = join(GENERATED_DIR, `jpdb.generated.${index + 1}.test.ts`);
-        const contents = [
-            prelude.trimEnd(),
-            '',
-            "describe('reader helpers', () => {",
-            prefix.trimEnd(),
-            ...blocksForShard.map(block => block.trimEnd()),
-            '});',
-            '',
-            tail.trimStart(),
-        ].join('\n');
-        writeFileSync(filename, contents);
-        return filename;
+    return writeGeneratedShardFiles({
+        generatedDir: GENERATED_DIR,
+        filenamePrefix: 'jpdb.generated',
+        describeName: 'reader helpers',
+        prelude,
+        prefix,
+        blocks,
+        tail,
+        shardTotal,
+        includeShardIndex: false,
     });
 }
 
@@ -144,6 +191,60 @@ function generateSettingsShardFiles(shardTotal) {
     });
 }
 
+function generateNewTabReviewShardFiles(shardTotal) {
+    return generateTopLevelDescribeShardFiles({
+        sourceFile: NEW_TAB_REVIEW_TEST,
+        generatedDir: GENERATED_NEW_TAB_REVIEW_DIR,
+        filenamePrefix: 'new-tab-review.generated',
+        describeName: 'new tab review generated shard',
+        describeStartText: "describe('new tab review helpers', () => {",
+        shardTotal,
+    });
+}
+
+function generateSubtitlesControllerShardFiles(shardTotal) {
+    return generateTopLevelDescribeShardFiles({
+        sourceFile: SUBTITLES_CONTROLLER_TEST,
+        generatedDir: GENERATED_SUBTITLES_CONTROLLER_DIR,
+        filenamePrefix: 'subtitles-controller.generated',
+        describeName: 'subtitles controller generated shard',
+        describeStartText: "describe('SubtitlePlayerController', () => {",
+        shardTotal,
+    });
+}
+
+function generateTopLevelDescribeShardFiles({ sourceFile, generatedDir, filenamePrefix, describeName, describeStartText, shardTotal }) {
+    rmSync(generatedDir, { recursive: true, force: true });
+    mkdirSync(generatedDir, { recursive: true });
+
+    const { prelude, body, tail } = readTopLevelDescribeShardSections(sourceFile, describeStartText);
+    const { prefix, blocks } = splitIndentedItBlocks(body);
+    return writeGeneratedShardFiles({
+        generatedDir,
+        filenamePrefix,
+        describeName,
+        prelude,
+        prefix,
+        blocks: assertHasShardBlocks(blocks, `No tests found to shard in ${relative(ROOT, sourceFile)}`),
+        tail,
+        shardTotal,
+    });
+}
+
+function readTopLevelDescribeShardSections(sourceFile, describeStartText) {
+    const source = readFileSync(sourceFile, 'utf8');
+    const describeStart = source.indexOf(describeStartText);
+    const bodyStart = source.indexOf('\n', describeStart) + 1;
+    const describeEnd = source.lastIndexOf('\n});');
+    assertValidSourceRange(describeStart, describeEnd, `Could not locate top-level describe block in ${relative(ROOT, sourceFile)}`);
+    assertValidSourceRange(bodyStart, describeEnd, `Could not locate test body in ${relative(ROOT, sourceFile)}`);
+    return {
+        prelude: rewriteGeneratedImports(source.slice(0, describeStart)),
+        body: source.slice(bodyStart, describeEnd),
+        tail: rewriteGeneratedImports(source.slice(describeEnd + '\n});'.length)),
+    };
+}
+
 function generateItBlockShardFiles({ sourceFile, generatedDir, filenamePrefix, describeName, tailStartMarker, shardTotal }) {
     rmSync(generatedDir, { recursive: true, force: true });
     mkdirSync(generatedDir, { recursive: true });
@@ -153,13 +254,27 @@ function generateItBlockShardFiles({ sourceFile, generatedDir, filenamePrefix, d
         extractIndentedItBlocks(body),
         `No tests found to shard in ${relative(ROOT, sourceFile)}`,
     );
+    return writeGeneratedShardFiles({
+        generatedDir,
+        filenamePrefix,
+        describeName,
+        prelude,
+        blocks,
+        tail,
+        shardTotal,
+    });
+}
+
+function writeGeneratedShardFiles({ generatedDir, filenamePrefix, describeName, prelude, prefix, blocks, tail, shardTotal, includeShardIndex = true }) {
     const shards = contiguousBuckets(blocks, shardTotal);
     return shards.map((blocksForShard, index) => {
         const filename = join(generatedDir, `${filenamePrefix}.${index + 1}.test.ts`);
+        const describeTitle = includeShardIndex ? `${describeName} ${index + 1}` : describeName;
         const contents = [
             prelude.trimEnd(),
             '',
-            `describe('${describeName} ${index + 1}', () => {`,
+            `describe('${describeTitle}', () => {`,
+            ...(prefix === undefined ? [] : [prefix.trimEnd()]),
             ...blocksForShard.map(block => block.trimEnd()),
             '});',
             '',
@@ -192,15 +307,25 @@ function assertHasShardBlocks(blocks, message) {
 }
 
 function extractIndentedItBlocks(contents) {
+    return splitIndentedItBlocks(contents).blocks;
+}
+
+function splitIndentedItBlocks(contents) {
     const starts = [...contents.matchAll(/^    it\(/gm)].map(match => match.index ?? 0);
-    return starts.map(start => {
-        const remaining = contents.slice(start);
-        const close = remaining.match(/^    \}\);\s*$/m);
-        if (!close || close.index === undefined) {
-            throw new Error('Could not locate the end of an indented it(...) block');
-        }
-        return remaining.slice(0, close.index + close[0].length);
-    });
+    assertHasShardBlocks(starts, 'No indented it(...) blocks found');
+    return {
+        prefix: contents.slice(0, starts[0]),
+        blocks: starts.map(start => extractIndentedItBlock(contents, start)),
+    };
+}
+
+function extractIndentedItBlock(contents, start) {
+    const remaining = contents.slice(start);
+    const close = remaining.match(/^    \}\);\s*$/m);
+    if (!close || close.index === undefined) {
+        throw new Error('Could not locate the end of an indented it(...) block');
+    }
+    return remaining.slice(0, close.index + close[0].length);
 }
 
 function contiguousBuckets(blocks, count) {
@@ -274,14 +399,55 @@ function collectTestFiles(dir) {
         .sort();
 }
 
-function runVitest(vitestArgs, envOverrides = {}) {
+function defaultApiPort(testKind, currentShard) {
+    const basePort = readPositiveInt(process.env.YOMU_CI_VITEST_API_BASE_PORT ?? '55200', 'YOMU_CI_VITEST_API_BASE_PORT');
+    const kindOffset = testKind === 'jpdb' ? 100 : 0;
+    return String(basePort + kindOffset + currentShard);
+}
+
+function runVitest(vitestArgs, envOverrides = {}, context = {}) {
     const apiArgs = apiPort ? ['--api', String(apiPort)] : [];
-    const result = spawnSync(process.execPath, [join(ROOT, 'node_modules/vitest/vitest.mjs'), ...vitestArgs, ...apiArgs], {
+    const commandArgs = [join(ROOT, 'node_modules/vitest/vitest.mjs'), ...vitestArgs, ...apiArgs];
+    logVitestRun(context, commandArgs);
+    const result = spawnSync(process.execPath, commandArgs, {
         cwd: ROOT,
         stdio: 'inherit',
         env: { ...process.env, ...envOverrides },
+        timeout: testTimeoutMs,
     });
+    if (result.error) {
+        if (result.error.code === 'ETIMEDOUT') {
+            console.error(`[ci-tests] ${context.label ?? 'Vitest shard'} timed out after ${formatDuration(testTimeoutMs)}.`);
+            logShardFiles(context.files);
+            process.exit(124);
+        }
+        console.error(`[ci-tests] Failed to run ${context.label ?? 'Vitest shard'}:`);
+        console.error(result.error);
+        process.exit(1);
+    }
+    if (result.signal) {
+        console.error(`[ci-tests] ${context.label ?? 'Vitest shard'} exited from signal ${result.signal}.`);
+        process.exit(1);
+    }
     process.exit(result.status ?? 1);
+}
+
+function logVitestRun(context, commandArgs) {
+    console.log(`[ci-tests] Running ${context.label ?? 'Vitest shard'} with timeout ${formatDuration(testTimeoutMs)}.`);
+    logShardFiles(context.files);
+    console.log(`[ci-tests] Command: ${[process.execPath, ...commandArgs].map(shellQuote).join(' ')}`);
+}
+
+function logShardFiles(files = []) {
+    if (!files.length) return;
+    console.log('[ci-tests] Shard files:');
+    for (const file of files) {
+        console.log(`  - ${relative(ROOT, file)}`);
+    }
+}
+
+function shellQuote(value) {
+    return /^[A-Za-z0-9_./:=@-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`;
 }
 
 function parseArgs(rawArgs) {
@@ -315,4 +481,13 @@ function readPositiveInt(value, label) {
     const parsed = Number.parseInt(String(value), 10);
     if (!Number.isInteger(parsed) || parsed < 1) throw new Error(`${label} must be a positive integer`);
     return parsed;
+}
+
+function formatDuration(ms) {
+    if (ms < 1000) return `${ms}ms`;
+    const seconds = Math.round(ms / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
 }

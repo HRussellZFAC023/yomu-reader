@@ -8,7 +8,7 @@ import type { InterfaceLanguage, JPDBCard, ReaderSettings } from './types';
 import { glossaryToHtml, glossaryToText, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from './yomitan';
 import type { JpdbKanjiVocabulary } from './jpdb-kanji';
 
-export { renderJpdbDefinitionSource } from './jpdb-definition-source-render';
+export { renderJpdbDefinitionSource } from './jpdb/jpdb-definition-source-render';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 type DictionaryLabel = (name: string) => string;

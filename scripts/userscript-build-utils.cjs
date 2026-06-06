@@ -54,6 +54,20 @@ function assertNoRemoteExecutableMetadata(code) {
   }
 }
 
+function assertNoRemoteExecutableLoaders(code) {
+  const disallowed = [
+    [/\bimport\s*\(/, 'dynamic import()'],
+    [/\beval\s*\(/, 'eval()'],
+    [/\bFunction\s*\(/, 'Function constructor'],
+    [/createElement\(["']script["']\)[\s\S]{0,800}\.src\s*=/, 'script element src loader'],
+  ];
+  for (const [pattern, label] of disallowed) {
+    if (pattern.test(code)) {
+      fail(`userscript must not load or evaluate executable code at runtime; found ${label}.`);
+    }
+  }
+}
+
 function failIfGreasyForkSizeExceeded(size) {
   if (size > GREASY_FORK_SIZE_LIMIT_BYTES) {
     fail(`${USERSCRIPT_RELATIVE_PATH} is ${formatCount(size)} bytes, over Greasy Fork's 2 MB script limit (${formatCount(GREASY_FORK_SIZE_LIMIT_BYTES)} bytes).`);
@@ -61,12 +75,13 @@ function failIfGreasyForkSizeExceeded(size) {
 }
 
 function warnIfNearGreasyForkSizeLimit(size) {
+  const remaining = GREASY_FORK_SIZE_LIMIT_BYTES - size;
   if (size > GREASY_FORK_SIZE_LIMIT_BYTES) {
-    console.warn(`Warning: ${USERSCRIPT_RELATIVE_PATH} is ${formatCount(size)} bytes, over Greasy Fork's 2 MB script limit (${formatCount(GREASY_FORK_SIZE_LIMIT_BYTES)} bytes). Greasy Fork publishing remains blocked by the publish script.`);
+    console.warn(`Warning: ${USERSCRIPT_RELATIVE_PATH} is ${formatCount(size)} bytes, over Greasy Fork's 2 MB script limit (${formatCount(GREASY_FORK_SIZE_LIMIT_BYTES)} bytes) by ${formatCount(Math.abs(remaining))} bytes. Greasy Fork publishing remains blocked by the publish script.`);
     return;
   }
   if (size > GREASY_FORK_SIZE_LIMIT_BYTES * GREASY_FORK_SIZE_WARNING_RATIO) {
-    console.warn(`Warning: ${USERSCRIPT_RELATIVE_PATH} is ${formatCount(size)} bytes, above 90% of Greasy Fork's 2 MB script limit.`);
+    console.warn(`Warning: ${USERSCRIPT_RELATIVE_PATH} is ${formatCount(size)} bytes, above 90% of Greasy Fork's 2 MB script limit (${formatCount(remaining)} bytes remaining).`);
   }
 }
 
@@ -87,6 +102,7 @@ module.exports = {
   ROOT,
   USERSCRIPT_METADATA_END,
   USERSCRIPT_RELATIVE_PATH,
+  assertNoRemoteExecutableLoaders,
   assertNoRemoteExecutableMetadata,
   byteLengthUtf8,
   fail,

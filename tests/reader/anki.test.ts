@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { AnkiConnectClient, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, needsHostedAnkiConnectSetupHint, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki';
+import { AnkiConnectClient, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, needsHostedAnkiConnectSetupHint, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki';
 import { renderAnkiExistingSection } from '../../src/reader/anki-render';
-import { ANKI_STATUS_INDEX_STORAGE_KEY, shouldReplaceAnkiStatusIndexEntry } from '../../src/reader/anki-status-index';
+import { ANKI_STATUS_INDEX_STORAGE_KEY, shouldReplaceAnkiStatusIndexEntry } from '../../src/reader/anki/status-index';
+import { USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/constants';
 import { uiText } from '../../src/reader/i18n';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/types';
@@ -13,6 +14,131 @@ const LOCAL_DICTIONARY_CSS = readFileSync('src/reader/styles/local-dictionaries.
 afterEach(() => {
     vi.restoreAllMocks();
 });
+
+type MockAnkiAction = {
+    action: string;
+    params?: { actions?: Array<{ action: string; params?: Record<string, unknown> }>; notes?: number[]; cards?: number[]; decks?: string[] };
+};
+
+function parseMockAnkiAction(init?: RequestInit): MockAnkiAction {
+    return JSON.parse(String(init?.body ?? '{}')) as MockAnkiAction;
+}
+
+function ankiJsonResponse(result: unknown) {
+    return new Response(JSON.stringify({ result, error: null }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+    });
+}
+
+function statusIndexWarmupActionResult(
+    body: MockAnkiAction,
+    query: string,
+    cardIds: number[],
+    totalCards: number,
+    cardInfoChunkSizes: number[],
+    noteInfoChunkSizes: number[],
+): unknown {
+    const handlers: Record<string, () => unknown> = {
+        version: () => 6,
+        findCards: () => statusIndexFindCardsResult(query, cardIds, totalCards),
+        cardsInfo: () => statusIndexCardsInfoResult(body.params?.cards ?? [], totalCards, cardInfoChunkSizes),
+        notesInfo: () => statusIndexNotesInfoResult(body.params?.notes ?? [], noteInfoChunkSizes),
+    };
+    const handler = handlers[body.action];
+    if (handler) return handler();
+    throw new Error(`Unexpected Anki action: ${body.action}`);
+}
+
+function statusIndexFindCardsResult(query: string, cardIds: number[], totalCards: number): number[] {
+    return ({
+        'deck:*': cardIds,
+        'deck:* is:due': [totalCards],
+        'deck:* is:new': [7],
+        'deck:* is:learn': [],
+        'deck:* is:suspended': [],
+    } as Record<string, number[]>)[query] ?? [];
+}
+
+function statusIndexCardsInfoResult(cards: number[], totalCards: number, chunkSizes: number[]) {
+    chunkSizes.push(cards.length);
+    return cards.map(cardId => statusIndexCardInfo(cardId, totalCards));
+}
+
+function statusIndexCardInfo(cardId: number, totalCards: number) {
+    const isNewCard = cardId === 7;
+    return {
+        cardId,
+        note: 10000 + cardId,
+        deckName: 'Big Mining',
+        queue: isNewCard ? 0 : 2,
+        type: isNewCard ? 0 : 2,
+        due: cardId === totalCards ? 0 : 999999,
+        reps: cardId,
+        lapses: cardId % 3,
+    };
+}
+
+function statusIndexNotesInfoResult(notes: number[], chunkSizes: number[]) {
+    chunkSizes.push(notes.length);
+    return notes.map(statusIndexNoteInfo);
+}
+
+function statusIndexNoteInfo(noteId: number) {
+    const cardId = noteId - 10000;
+    return {
+        noteId,
+        modelName: 'Core 2k',
+        tags: ['core'],
+        cards: [cardId],
+        fields: {
+            Expression: { value: `単語${cardId}` },
+            Reading: { value: `たんご${cardId}` },
+            Meaning: { value: `word ${cardId}` },
+        },
+    };
+}
+
+function mockAnkiNoteInfo({ noteId, word, reading, cardId }: { noteId: number; word: string; reading: string; cardId: number }) {
+    return {
+        noteId,
+        modelName: 'Imported Core',
+        tags: [],
+        fields: {
+            Word: { value: word },
+            Reading: { value: reading },
+        },
+        cards: [cardId],
+    };
+}
+
+function mockAnkiCardInfo({
+    cardId,
+    noteId,
+    deckName,
+    queue,
+    type,
+    reps,
+    lapses = 0,
+}: {
+    cardId: number;
+    noteId: number;
+    deckName: string;
+    queue: number;
+    type: number;
+    reps: number;
+    lapses?: number;
+}) {
+    return {
+        cardId,
+        note: noteId,
+        deckName,
+        queue,
+        type,
+        reps,
+        lapses,
+    };
+}
 
 describe('AnkiConnect browser fetch eligibility', () => {
     it('keeps mobile Anki handoff hidden until Anki and handoff are both enabled', () => {
@@ -57,6 +183,22 @@ describe('AnkiConnect browser fetch eligibility', () => {
             'http://127.0.0.1:8765',
             'http://127.0.0.1:5174/newtab/',
         )).toBe(true);
+        expect(canFetchAnkiConnectFrom(
+            'http://127.0.0.1:8765',
+            'http://0.0.0.0:5174/yomu-reader/newtab/',
+        )).toBe(true);
+        expect(canFetchAnkiConnectFrom(
+            'http://127.0.0.1:8765',
+            'http://0.0.0.0:5174/yomu-reader/',
+        )).toBe(true);
+        expect(canFetchAnkiConnectFrom(
+            'http://127.0.0.1:8765',
+            'file:///Users/heru/Documents/Projects/yomu/apps/yomu-reader/public/newtab/index.html',
+        )).toBe(true);
+        expect(canFetchAnkiConnectFrom(
+            'http://127.0.0.1:8765',
+            'http://0.0.0.0:5174/article',
+        )).toBe(false);
     });
 
     it('shows the hosted setup hint only for standalone hosted AnkiConnect requests', () => {
@@ -64,12 +206,285 @@ describe('AnkiConnect browser fetch eligibility', () => {
             'http://127.0.0.1:8765',
             'https://hrussellzfac023.github.io/yomu-reader/newtab/',
         )).toBe(true);
-        expect(uiText('en', 'ankiHostedCorsHint')).toContain('Optional advanced setup');
+        expect(uiText('en', 'ankiHostedCorsHint')).toContain('Advanced');
         expect(uiText('en', 'ankiHostedCorsHint')).toContain('webCorsOriginList');
         expect(needsHostedAnkiConnectSetupHint(
             'http://127.0.0.1:8765',
             'http://127.0.0.1:5174/newtab/',
         )).toBe(false);
+        expect(needsHostedAnkiConnectSetupHint(
+            'http://tailscale-host.ts.net:8765',
+            'https://hrussellzfac023.github.io/yomu-reader/newtab/',
+        )).toBe(false);
+    });
+
+    it('uses direct fetch for local file-preview AnkiConnect checks when no bridge exists', async () => {
+        vi.stubGlobal('location', {
+            href: 'file:///Users/heru/Documents/Projects/yomu/apps/yomu-reader/public/newtab/index.html',
+        });
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({ result: 6, error: null }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
+
+            await expect(client.isConnected()).resolves.toBe(true);
+            expect(fetchMock).toHaveBeenCalledWith(
+                'http://127.0.0.1:8765',
+                expect.objectContaining({ method: 'POST' }),
+            );
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses direct fetch for local app-root AnkiConnect checks when no bridge exists', async () => {
+        vi.stubGlobal('location', {
+            href: 'http://0.0.0.0:5174/yomu-reader/',
+        });
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({ result: 6, error: null }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
+
+            await expect(client.isConnected()).resolves.toBe(true);
+            expect(fetchMock).toHaveBeenCalledWith(
+                'http://127.0.0.1:8765',
+                expect.objectContaining({ method: 'POST' }),
+            );
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not direct-fetch hosted loopback AnkiConnect checks when no bridge exists', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
+        });
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({ result: 6, error: null }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
+            const connected = client.isConnected();
+            await vi.advanceTimersByTimeAsync(1600);
+
+            await expect(connected).resolves.toBe(false);
+            expect(fetchMock).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('waits briefly for the hosted userscript bridge before marking loopback Anki unavailable', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
+        });
+        const fetchMock = vi.fn(async () => {
+            throw new Error('hosted bridge requests should not direct-fetch loopback AnkiConnect');
+        });
+        const bridgeRequest = vi.fn(async () => ({
+            status: 200,
+            response: { result: 6, error: null },
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
+            const connected = client.isConnected();
+            vi.stubGlobal('GM', { xmlHttpRequest: bridgeRequest });
+            window.dispatchEvent(new CustomEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT));
+
+            await expect(connected).resolves.toBe(true);
+            expect(bridgeRequest).toHaveBeenCalledWith(expect.objectContaining({
+                method: 'POST',
+                url: 'http://127.0.0.1:8765',
+            }));
+            expect(fetchMock).not.toHaveBeenCalled();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('prefers the userscript bridge over direct hosted fetch when the bridge exists', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
+        });
+        const fetchMock = vi.fn(async () => {
+            throw new Error('hosted bridge requests should not fall through to fetch');
+        });
+        const bridgeRequest = vi.fn(async () => ({
+            status: 200,
+            response: { result: 6, error: null },
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+        vi.stubGlobal('GM', { xmlHttpRequest: bridgeRequest });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
+
+            await expect(client.isConnected()).resolves.toBe(true);
+            expect(bridgeRequest).toHaveBeenCalledWith(expect.objectContaining({
+                method: 'POST',
+                url: 'http://127.0.0.1:8765',
+            }));
+            expect(fetchMock).not.toHaveBeenCalled();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses a newly available bridge for word lookup even after a background cooldown', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
+        });
+        const bridgeRequest = vi.fn(async ({ data }: { data: string }) => {
+            const body = JSON.parse(data) as MockAnkiAction;
+            const handlers: Record<string, () => unknown> = {
+                multi: () => (body.params?.actions ?? []).map(action => ({
+                    result: /動画|どうが/.test(String(action.params?.query ?? '')) ? [55] : [],
+                    error: null,
+                })),
+                notesInfo: () => [mockAnkiNoteInfo({ noteId: 55, word: '動画', reading: 'どうが', cardId: 7701 })],
+                cardsInfo: () => [mockAnkiCardInfo({
+                    cardId: 7701,
+                    noteId: 55,
+                    deckName: 'Anime::Mining',
+                    queue: 2,
+                    type: 2,
+                    reps: 16,
+                })],
+                areDue: () => [false],
+            };
+            const handler = handlers[body.action];
+            if (!handler) throw new Error(`Unexpected Anki action: ${body.action}`);
+            return {
+                status: 200,
+                response: { result: handler(), error: null },
+            };
+        });
+        vi.stubGlobal('GM', { xmlHttpRequest: bridgeRequest });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
+            (client as unknown as { unavailableUntil: number }).unavailableUntil = Date.now() + 60_000;
+
+            await expect(client.findExistingCards(jpdbCard({ spelling: '動画', reading: 'どうが' }))).resolves.toMatchObject({
+                state: 'known',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7701,
+                    reps: 16,
+                },
+            });
+            expect(bridgeRequest).toHaveBeenCalled();
+            client.destroy();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+});
+
+describe('Anki note creation', () => {
+    it('checks duplicates without media before adding the media-bearing note', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const resultByAction: Record<string, unknown> = {
+                    createDeck: null,
+                    modelNames: ['よむ Japanese'],
+                    modelFieldNames: YOMU_MODEL_FIELDS,
+                    updateModelTemplates: null,
+                    updateModelStyling: null,
+                    canAddNotes: [true],
+                    addNote: 42,
+                    notesInfo: [{
+                        noteId: 42,
+                        modelName: 'よむ Japanese',
+                        tags: [],
+                        fields: {
+                            Expression: { value: '日本語' },
+                            Reading: { value: 'にほんご' },
+                        },
+                        cards: [99],
+                    }],
+                    cardsInfo: [{
+                        cardId: 99,
+                        note: 42,
+                        deckName: 'よむ',
+                        queue: 0,
+                        type: 0,
+                        reps: 0,
+                        lapses: 0,
+                    }],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.addCard(jpdbCard(), '日本語を読む。', {
+                wordAudioDataUrl: 'data:audio/mpeg;base64,word-audio',
+                imageDataUrl: 'data:image/png;base64,image-data',
+            });
+
+            const canAddNote = (requests.find(request => request.action === 'canAddNotes')?.params.notes as Array<Record<string, unknown>>)[0];
+            const addNote = requests.find(request => request.action === 'addNote')?.params.note as {
+                audio?: Array<Record<string, unknown>>;
+                picture?: Array<Record<string, unknown>>;
+                fields: Record<string, string>;
+            };
+            expect(requests.findIndex(request => request.action === 'canAddNotes')).toBeLessThan(requests.findIndex(request => request.action === 'addNote'));
+            expect(canAddNote.audio).toBeUndefined();
+            expect(canAddNote.picture).toBeUndefined();
+            expect(canAddNote.fields).toMatchObject({ Expression: '日本語', Reading: 'にほんご' });
+            expect(addNote.audio?.[0]).toMatchObject({ data: 'word-audio', fields: ['Audio'] });
+            expect(addNote.picture?.[0]).toMatchObject({ data: 'image-data', fields: ['Image'] });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('stops before addNote when Anki reports the note is a duplicate', async () => {
+        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                requests.push(request);
+                const resultByAction: Record<string, unknown> = {
+                    createDeck: null,
+                    modelNames: ['よむ Japanese'],
+                    modelFieldNames: YOMU_MODEL_FIELDS,
+                    updateModelTemplates: null,
+                    updateModelStyling: null,
+                    canAddNotes: [false],
+                };
+                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            },
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await expect(client.addCard(jpdbCard(), '日本語を読む。')).rejects.toThrow('Already in Anki');
+            expect(requests.map(request => request.action)).not.toContain('addNote');
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 });
 
@@ -280,123 +695,164 @@ describe('Anki status-only lookup cache', () => {
         expect(loadStatusEntriesForCards.mock.calls[0]?.[1]).toEqual([first, missing]);
     });
 
-    it('does not run a broad collection rebuild during routine warmup', async () => {
+    it('warms a complete status index automatically without a 2k cap', async () => {
+        localStorage.clear();
+        const totalCards = 2050;
+        const cardIds = Array.from({ length: totalCards }, (_, index) => index + 1);
+        const actions: string[] = [];
+        const cardInfoChunkSizes: number[] = [];
+        const noteInfoChunkSizes: number[] = [];
+        const ankiConnectUrl = `${window.location.origin}/anki-full-status`;
         const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
-            const body = JSON.parse(String(init?.body ?? '{}')) as { action: string };
-            if (body.action === 'findCards') throw new Error('warmup should not call findCards');
-            return new Response(JSON.stringify({ result: body.action === 'version' ? 6 : [], error: null }), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-            });
+            const body = parseMockAnkiAction(init);
+            const query = String((body.params as { query?: string } | undefined)?.query ?? '');
+            actions.push(body.action === 'findCards' ? `findCards:${query}` : body.action);
+            return ankiJsonResponse(statusIndexWarmupActionResult(body, query, cardIds, totalCards, cardInfoChunkSizes, noteInfoChunkSizes));
         });
+        vi.stubGlobal('indexedDB', undefined);
         vi.stubGlobal('fetch', fetchMock);
 
-        const client = new AnkiConnectClient(() => ({
-            ...DEFAULT_SETTINGS,
-            ankiEnabled: true,
-            ankiConnectUrl: `${window.location.origin}/anki-warmup-no-rebuild`,
-        }));
+        try {
+            const settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, ankiConnectUrl };
+            const client = new AnkiConnectClient(() => settings);
+            const index = await client.warmStatusIndex();
 
-        await expect(client.warmStatusIndex()).resolves.toBeNull();
-        expect(fetchMock).not.toHaveBeenCalled();
+            expect(index?.cardCount).toBe(totalCards);
+            expect(actions).toEqual(expect.arrayContaining([
+                'version',
+                'findCards:deck:*',
+                'findCards:deck:* is:due',
+                'findCards:deck:* is:new',
+                'findCards:deck:* is:learn',
+                'findCards:deck:* is:suspended',
+                'cardsInfo',
+                'notesInfo',
+            ]));
+            expect(actions).not.toContain('findNotes');
+            expect(Math.max(...cardInfoChunkSizes)).toBeLessThanOrEqual(500);
+            expect(Math.max(...noteInfoChunkSizes)).toBeLessThanOrEqual(500);
+            client.destroy();
+
+            vi.unstubAllGlobals();
+            vi.stubGlobal('indexedDB', undefined);
+            vi.stubGlobal('fetch', vi.fn(async () => {
+                throw new Error('complete warmed Anki status index should be served from storage');
+            }));
+            const persistedClient = new AnkiConnectClient(() => settings);
+            await expect(persistedClient.findCachedStatusBatch([
+                jpdbCard({ vid: totalCards, sid: totalCards, spelling: `単語${totalCards}`, reading: `たんご${totalCards}` }),
+            ])).resolves.toMatchObject([{
+                state: 'due',
+                primary: {
+                    noteId: 10000 + totalCards,
+                    deckNames: ['Big Mining'],
+                    reps: totalCards,
+                },
+            }]);
+            persistedClient.destroy();
+        } finally {
+            localStorage.clear();
+            vi.unstubAllGlobals();
+        }
     });
 
-    it('lazily persists exact status hits without broad deck searches', async () => {
+    it('rebuilds recently checked dirty status indexes instead of trusting checkedAt', async () => {
+        localStorage.clear();
         const actions: string[] = [];
-        const ankiConnectUrl = `${window.location.origin}/anki-lazy-status`;
+        const ankiConnectUrl = `${window.location.origin}/anki-dirty-rebuild`;
+        const settingsKey = JSON.stringify({ url: ankiConnectUrl });
+        const now = Date.now();
+        localStorage.setItem(ANKI_STATUS_INDEX_STORAGE_KEY, JSON.stringify({
+            version: 1,
+            settingsKey,
+            syncedAt: 0,
+            checkedAt: now,
+            dirtyAt: now - 1,
+            cardCount: 1,
+            entryCount: 1,
+            readingKeys: true,
+            entries: {
+                [String('動画').toLocaleLowerCase()]: {
+                    state: 'due',
+                    noteId: 55,
+                    primaryCardId: 7701,
+                    deckNames: ['Anime::Mining'],
+                    reps: 14,
+                    lapses: 0,
+                    modelName: 'Imported Core',
+                    updatedAt: now - 1,
+                },
+            },
+        }));
         const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
-            const body = JSON.parse(String(init?.body ?? '{}')) as {
-                action: string;
-                params?: { actions?: Array<{ action: string; params?: Record<string, unknown> }>; decks?: string[]; notes?: number[]; cards?: number[] };
+            const body = parseMockAnkiAction(init);
+            const query = String((body.params as { query?: string } | undefined)?.query ?? '');
+            actions.push(body.action === 'findCards' ? `findCards:${query}` : body.action);
+            const actionHandlers: Record<string, () => unknown> = {
+                version: () => 6,
+                deckNames: () => ['Anime::Mining'],
+                getDeckStats: () => ({ 1: { name: 'Anime::Mining', total_in_deck: 1 } }),
+                findCards: () => ({
+                    'deck:*': [7701],
+                    'deck:* is:due': [],
+                    'deck:* is:new': [],
+                    'deck:* is:learn': [],
+                    'deck:* is:suspended': [],
+                } as Record<string, number[]>)[query] ?? [],
+                cardsInfo: () => {
+                    expect(body.params?.cards).toEqual([7701]);
+                    return [mockAnkiCardInfo({
+                        cardId: 7701,
+                        noteId: 55,
+                        deckName: 'Anime::Mining',
+                        queue: 2,
+                        type: 2,
+                        reps: 15,
+                    })];
+                },
+                notesInfo: () => {
+                    expect(body.params?.notes).toEqual([55]);
+                    return [mockAnkiNoteInfo({ noteId: 55, word: '動画', reading: 'どうが', cardId: 7701 })];
+                },
             };
-            actions.push(body.action);
-            const resultForMultiAction = () => (body.params?.actions ?? []).map(action => {
-                actions.push(`${action.action}:${String(action.params?.query ?? '')}`);
-                const query = String(action.params?.query ?? '');
-                return {
-                    result: action.action === 'findNotes' && query === '"動画"' ? [310] : [],
-                    error: null,
-                };
-            });
-            const resultForNotesInfo = () => {
-                expect(body.params?.notes).toEqual([310]);
-                return [{
-                    noteId: 310,
-                    modelName: 'Core 2k',
-                    tags: ['core'],
-                    cards: [710],
-                    fields: {
-                        Expression: { value: '動画' },
-                        Reading: { value: 'どうが' },
-                        Meaning: { value: 'video' },
-                    },
-                }];
-            };
-            const resultForCardsInfo = () => {
-                expect(body.params?.cards).toEqual([710]);
-                return [{
-                    cardId: 710,
-                    note: 310,
-                    deckName: 'Vocab 2k',
-                    queue: 2,
-                    type: 2,
-                    due: 0,
-                    reps: 22,
-                    lapses: 1,
-                }];
-            };
-            const resultForAction = (): unknown => {
-                const responses: Record<string, () => unknown> = {
-                    version: () => 6,
-                    deckNames: () => ['Vocab 2k'],
-                    getDeckStats: () => ({ 'Vocab 2k': { total_in_deck: 2400 } }),
-                    findCards: () => { throw new Error('status lookup should not call findCards'); },
-                    multi: resultForMultiAction,
-                    notesInfo: resultForNotesInfo,
-                    cardsInfo: resultForCardsInfo,
-                    areDue: () => [true],
-                };
-                const response = responses[body.action];
-                if (!response) throw new Error(`Unexpected Anki action: ${body.action}`);
-                return response();
-            };
-            return new Response(JSON.stringify({ result: resultForAction(), error: null }), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-            });
+            const handler = actionHandlers[body.action];
+            if (!handler) throw new Error(`Unexpected Anki action: ${body.action}`);
+            return ankiJsonResponse(handler());
         });
+        vi.stubGlobal('indexedDB', undefined);
         vi.stubGlobal('fetch', fetchMock);
 
-        const settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, ankiConnectUrl };
-        const client = new AnkiConnectClient(() => settings);
-        const first = jpdbCard({ vid: 10, sid: 1, spelling: '動画', reading: 'どうが' });
-        const missing = jpdbCard({ vid: 11, sid: 2, spelling: '字幕', reading: 'じまく' });
+        try {
+            const settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, ankiConnectUrl };
+            const client = new AnkiConnectClient(() => settings);
+            const index = await client.warmStatusIndex();
 
-        const results = await client.findCachedStatusBatch([first, missing]);
-
-        expect(results.map(result => result.state)).toEqual(['due', 'not-in-deck']);
-        expect(results[0]?.primary?.noteId).toBe(310);
-        expect(actions).not.toContain('findCards');
-        expect(actions).toEqual(expect.arrayContaining([
-            'multi',
-            'findNotes:"動画"',
-            'findNotes:"どうが"',
-            'findNotes:"字幕"',
-            'findNotes:"じまく"',
-            'notesInfo',
-            'cardsInfo',
-            'areDue',
-            'deckNames',
-            'getDeckStats',
-        ]));
-
-        actions.length = 0;
-        const persistedClient = new AnkiConnectClient(() => settings);
-        await expect(persistedClient.findCachedStatusBatch([first])).resolves.toMatchObject([{
-            state: 'due',
-            primary: { noteId: 310 },
-        }]);
-        expect(actions).toEqual([]);
+            expect(index?.syncedAt).toBeGreaterThan(0);
+            expect(index?.cardCount).toBe(1);
+            expect(actions).toEqual(expect.arrayContaining([
+                'version',
+                'deckNames',
+                'getDeckStats',
+                'findCards:deck:*',
+                'findCards:deck:* is:due',
+                'cardsInfo',
+                'notesInfo',
+            ]));
+            expect(actions).not.toContain('findNotes');
+            await expect(client.findCachedStatusBatch([
+                jpdbCard({ vid: 10, sid: 1, spelling: '動画', reading: 'どうが' }),
+            ])).resolves.toMatchObject([{
+                state: 'known',
+                primary: {
+                    noteId: 55,
+                    reps: 15,
+                },
+            }]);
+            client.destroy();
+        } finally {
+            localStorage.clear();
+            vi.unstubAllGlobals();
+        }
     });
 
     it('trusts complete empty status indexes without AnkiConnect fallback', async () => {
@@ -442,62 +898,66 @@ describe('Anki status-only lookup cache', () => {
         }
     });
 
-    it('keeps misses from max-stale status indexes on exact lazy lookups', async () => {
+    it('uses a batched exact lookup for missing status indexes without broad scans', async () => {
+        vi.useFakeTimers();
+        localStorage.clear();
+        const ankiConnectUrl = `${window.location.origin}/anki-missing-status`;
         const actions: string[] = [];
-        const ankiConnectUrl = `${window.location.origin}/anki-stale-status`;
         const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
-            const body = JSON.parse(String(init?.body ?? '{}')) as {
-                action: string;
-                params?: { actions?: Array<{ action: string; params?: Record<string, unknown> }>; notes?: number[]; cards?: number[] };
-            };
-            actions.push(body.action);
-            const resultForAction = (): unknown => {
-                if (body.action === 'version') return 6;
-                if (body.action === 'multi') {
-                    return (body.params?.actions ?? []).map(action => {
-                        actions.push(`${action.action}:${String(action.params?.query ?? '')}`);
-                        return {
-                            result: /難波|なにわ/.test(String(action.params?.query ?? '')) ? [77] : [],
-                            error: null,
-                        };
-                    });
-                }
-                if (body.action === 'notesInfo') {
-                    expect(body.params?.notes).toEqual([77]);
-                    return [{
-                        noteId: 77,
-                        modelName: 'Imported Core',
-                        tags: [],
-                        fields: {
-                            Word: { value: '難波' },
-                            Reading: { value: 'なにわ' },
-                        },
-                        cards: [7707],
-                    }];
-                }
-                if (body.action === 'cardsInfo') {
-                    expect(body.params?.cards).toEqual([7707]);
-                    return [{
-                        cardId: 7707,
-                        note: 77,
-                        deckName: 'Vocab 2k',
-                        queue: 0,
-                        type: 0,
-                        reps: 0,
-                        lapses: 0,
-                    }];
-                }
-                throw new Error(`Unexpected Anki action: ${body.action}`);
-            };
-            return new Response(JSON.stringify({ result: resultForAction(), error: null }), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-            });
+            const body = parseMockAnkiAction(init);
+            const query = String((body.params as { query?: string } | undefined)?.query ?? '');
+            actions.push(body.action === 'findCards' ? `findCards:${query}` : body.action);
+            if (body.action === 'multi') {
+                return ankiJsonResponse((body.params?.actions ?? []).map(() => ({ result: [], error: null })));
+            }
+            if (body.action === 'findCards' && query === 'deck:*') {
+                throw new Error('missing status index lookup should not scan deck:*');
+            }
+            throw new Error(`Unexpected Anki action: ${body.action}`);
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiConnectUrl }));
+        const internals = client as unknown as { statusIndexRefreshQueued: boolean };
+
+        try {
+            await expect(client.findCachedStatusBatch([
+                jpdbCard({ vid: 13, sid: 4, spelling: '読む', reading: 'よむ' }),
+            ])).resolves.toMatchObject([{
+                state: 'not-in-deck',
+                primary: null,
+            }]);
+            expect(actions).toEqual(['multi']);
+            expect(actions).not.toContain('findCards:deck:*');
+            expect(internals.statusIndexRefreshQueued).toBe(true);
+        } finally {
+            client.destroy();
+            localStorage.clear();
+            vi.useRealTimers();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses a batched exact lookup for max-stale status misses without broad scans', async () => {
+        vi.useFakeTimers();
+        const ankiConnectUrl = `${window.location.origin}/anki-stale-status`;
+        const actions: string[] = [];
+        const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+            const body = parseMockAnkiAction(init);
+            const query = String((body.params as { query?: string } | undefined)?.query ?? '');
+            actions.push(body.action === 'findCards' ? `findCards:${query}` : body.action);
+            if (body.action === 'multi') {
+                return ankiJsonResponse((body.params?.actions ?? []).map(() => ({ result: [], error: null })));
+            }
+            if (body.action === 'findCards' && query === 'deck:*') {
+                throw new Error('stale status miss lookup should not scan deck:*');
+            }
+            throw new Error(`Unexpected Anki action: ${body.action}`);
         });
         vi.stubGlobal('fetch', fetchMock);
         const now = Date.now();
         const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiConnectUrl }));
         const internals = client as unknown as {
+            statusIndexRefreshQueued: boolean;
             statusIndex?: {
                 version: number;
                 settingsKey: string;
@@ -540,28 +1000,20 @@ describe('Anki status-only lookup cache', () => {
 
         try {
             await expect(client.findCachedStatusBatch([jpdbCard({ vid: 13, sid: 4, spelling: '難波', reading: 'なにわ' })])).resolves.toMatchObject([{
-                state: 'new',
-                primary: {
-                    noteId: 77,
-                    primaryCardId: 7707,
-                },
+                state: 'not-in-deck',
+                primary: null,
             }]);
-            expect(actions).toEqual(expect.arrayContaining([
-                'version',
-                'multi',
-                'findNotes:"難波"',
-                'findNotes:"なにわ"',
-                'notesInfo',
-                'cardsInfo',
-            ]));
-            expect(actions).not.toContain('findCards');
+            expect(actions).toEqual(['multi']);
+            expect(actions).not.toContain('findCards:deck:*');
+            expect(internals.statusIndexRefreshQueued).toBe(true);
         } finally {
             client.destroy();
+            vi.useRealTimers();
             vi.unstubAllGlobals();
         }
     });
 
-    it('refreshes dirty indexed status hits lazily after Anki reviews without scanning the deck', async () => {
+    it('refreshes dirty indexed status hits from detailed lookups after Anki reviews without scanning the deck', async () => {
         localStorage.clear();
         const actions: string[] = [];
         const ankiConnectUrl = `${window.location.origin}/anki-dirty-status`;
@@ -590,54 +1042,39 @@ describe('Anki status-only lookup cache', () => {
             },
         }));
         const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
-            const body = JSON.parse(String(init?.body ?? '{}')) as {
-                action: string;
-                params?: { actions?: Array<{ action: string; params?: Record<string, unknown> }>; notes?: number[]; cards?: number[] };
-            };
+            const body = parseMockAnkiAction(init);
             actions.push(body.action);
-            const resultForAction = (): unknown => {
-                if (body.action === 'version') return 6;
-                if (body.action === 'deckNames') return ['Anime::Mining'];
-                if (body.action === 'getDeckStats') return { 1: { name: 'Anime::Mining', total_in_deck: 1 } };
-                if (body.action === 'findCards') throw new Error('dirty status refresh should not scan deck:*');
-                if (body.action === 'multi') {
-                    return (body.params?.actions ?? []).map(action => ({
-                        result: /動画|どうが/.test(String(action.params?.query ?? '')) ? [55] : [],
-                        error: null,
-                    }));
-                }
-                if (body.action === 'notesInfo') {
+            const actionHandlers: Record<string, () => unknown> = {
+                deckNames: () => ['Anime::Mining'],
+                getDeckStats: () => ({ 1: { name: 'Anime::Mining', total_in_deck: 1 } }),
+                findCards: () => { throw new Error('dirty status refresh should not scan deck:*'); },
+                multi: () => (body.params?.actions ?? []).map(action => ({
+                    result: /動画|どうが/.test(String(action.params?.query ?? '')) ? [55] : [],
+                    error: null,
+                })),
+                notesInfo: () => {
                     expect(body.params?.notes).toEqual([55]);
-                    return [{
-                        noteId: 55,
-                        modelName: 'Imported Core',
-                        tags: [],
-                        fields: {
-                            Word: { value: '動画' },
-                            Reading: { value: 'どうが' },
-                        },
-                        cards: [7701],
-                    }];
-                }
-                if (body.action === 'cardsInfo') {
+                    return [mockAnkiNoteInfo({ noteId: 55, word: '動画', reading: 'どうが', cardId: 7701 })];
+                },
+                cardsInfo: () => {
                     expect(body.params?.cards).toEqual([7701]);
-                    return [{
+                    return [mockAnkiCardInfo({
                         cardId: 7701,
-                        note: 55,
+                        noteId: 55,
                         deckName: 'Anime::Mining',
                         queue: 2,
                         type: 2,
                         reps: 15,
-                        lapses: 0,
-                    }];
-                }
-                if (body.action === 'areDue') return [false];
+                    })];
+                },
+                areDue: () => [false],
+            };
+            const resultForAction = (): unknown => {
+                const handler = actionHandlers[body.action];
+                if (handler) return handler();
                 throw new Error(`Unexpected Anki action: ${body.action}`);
             };
-            return new Response(JSON.stringify({ result: resultForAction(), error: null }), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-            });
+            return ankiJsonResponse(resultForAction());
         });
         vi.stubGlobal('fetch', fetchMock);
 
@@ -645,16 +1082,19 @@ describe('Anki status-only lookup cache', () => {
             const settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, ankiConnectUrl };
             const lookupCard = jpdbCard({ vid: 10, sid: 1, spelling: '動画', reading: 'どうが' });
             const client = new AnkiConnectClient(() => settings);
-            await expect(client.findCachedStatusBatch([lookupCard])).resolves.toMatchObject([{
+            await expect(client.findExistingCards(lookupCard)).resolves.toMatchObject({
                 state: 'known',
                 primary: {
                     noteId: 55,
                     primaryCardId: 7701,
                     reps: 15,
                 },
-            }]);
-            expect(actions).toEqual(expect.arrayContaining(['version', 'multi', 'notesInfo', 'cardsInfo', 'areDue']));
+            });
+            expect(actions).toEqual(expect.arrayContaining(['multi', 'notesInfo', 'cardsInfo', 'areDue']));
+            expect(actions).not.toContain('version');
             expect(actions).not.toContain('findCards');
+            expect(actions).not.toContain('deckNames');
+            expect(actions).not.toContain('getDeckStats');
             client.destroy();
 
             vi.unstubAllGlobals();

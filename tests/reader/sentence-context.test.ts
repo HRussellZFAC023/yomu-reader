@@ -2,8 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     applyTokensToScanTarget,
+    applyTokensToTextNode,
     collectFragmentTextTargetsIn,
+    collectTextTargetsIn,
     nearestReadableSentenceForElement,
+    renderTokensToHtml,
     sentenceAroundRange,
 } from '../../src/reader/dom';
 import { ReaderApp } from '../../src/reader/main';
@@ -51,6 +54,69 @@ describe('reader sentence context', () => {
             .toBe('今日は静かな喫茶店で日本語を読みました。');
         expect(document.querySelector<HTMLElement>('.jpdb-reader-word')?.getAttribute('tabindex')).toBe('-1');
         expect(document.querySelector<HTMLElement>('.jpdb-reader-word')?.hasAttribute('role')).toBe(false);
+    });
+
+    it('marks the only mineable unknown token in a sentence as i+1', () => {
+        const sentence = '今日本読む';
+        const tokens = [
+            token('今日', 0, sentence, { vid: 10, sid: 1, cardState: ['known'] }),
+            token('本', 2, sentence, { vid: 11, sid: 1, cardState: ['new'] }),
+            token('読む', 3, sentence, { vid: 12, sid: 1, cardState: ['known'] }),
+        ];
+
+        document.body.innerHTML = renderTokensToHtml(sentence, tokens, DEFAULT_SETTINGS);
+
+        const insight = document.querySelector<HTMLElement>('.jpdb-reader-i-plus-one')!;
+        expect(insight?.textContent).toBe('本');
+        expect(insight?.dataset.miningInsight).toBe('i-plus-one');
+    });
+
+    it('does not mark i+1 when a sentence has multiple unknown cards', () => {
+        const sentence = '今日本読む';
+        const tokens = [
+            token('今日', 0, sentence, { vid: 10, sid: 1, cardState: ['known'] }),
+            token('本', 2, sentence, { vid: 11, sid: 1, cardState: ['new'] }),
+            token('読む', 3, sentence, { vid: 12, sid: 1, cardState: ['not-in-deck'] }),
+        ];
+
+        document.body.innerHTML = renderTokensToHtml(sentence, tokens, DEFAULT_SETTINGS);
+
+        expect(document.querySelector('.jpdb-reader-i-plus-one')).toBeNull();
+    });
+
+    it('marks i+1 during live text-node rendering', () => {
+        const sentence = '今日本読む';
+        document.body.innerHTML = `<p>${sentence}</p>`;
+        const [target] = collectTextTargetsIn(document.querySelector('p')!, 6, false);
+        const tokens = [
+            token('今日', 0, sentence, { vid: 10, sid: 1, cardState: ['known'] }),
+            token('本', 2, sentence, { vid: 11, sid: 1, cardState: ['new'] }),
+            token('読む', 3, sentence, { vid: 12, sid: 1, cardState: ['known'] }),
+        ];
+
+        applyTokensToTextNode(target, tokens, DEFAULT_SETTINGS);
+
+        expect(document.querySelector<HTMLElement>('.jpdb-reader-i-plus-one')?.textContent).toBe('本');
+    });
+
+    it('adds provider-neutral card metadata while preserving legacy ids', () => {
+        const html = renderTokensToHtml('読む', [
+            token('読む', 0, '読む', {
+                source: 'jiten',
+                vid: 999,
+                sid: 9,
+                jitenWordId: 42,
+                jitenReadingIndex: 2,
+            }),
+        ], DEFAULT_SETTINGS);
+
+        document.body.innerHTML = html;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(word.dataset.vid).toBe('999');
+        expect(word.dataset.sid).toBe('9');
+        expect(word.dataset.cardSource).toBe('jiten');
+        expect(word.dataset.cardId).toBe('42');
+        expect(word.dataset.readingIndex).toBe('2');
     });
 
     it('uses the clicked rendered word occurrence when a surface appears more than once', () => {
@@ -156,9 +222,9 @@ describe('reader sentence context', () => {
     });
 });
 
-function token(surface: string, start: number, sentence: string): JPDBToken {
+function token(surface: string, start: number, sentence: string, cardOverrides: Partial<JPDBCard> = {}): JPDBToken {
     return {
-        card: card(surface),
+        card: { ...card(surface), ...cardOverrides },
         start,
         end: start + surface.length,
         length: surface.length,

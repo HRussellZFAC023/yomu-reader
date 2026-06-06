@@ -11,6 +11,9 @@ on:
 permissions:
   contents: read
 
+env:
+  YOMU_CI_TEST_TIMEOUT_MS: 540000
+
 jobs:
   fallow:
     runs-on: ubuntu-latest
@@ -80,6 +83,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - run: npm run verify
       - run: node scripts/sync-docs-userscript.cjs
       - run: npm run docs:build
+      - run: npm run verify

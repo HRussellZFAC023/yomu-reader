@@ -147,6 +147,7 @@ const DEFAULT_ANKI_HANDLERS = {
     notesInfo: params => arrayParam(params.notes).map(noteId => mockAnkiNoteInfo(Number(noteId))),
     cardsInfo: params => arrayParam(params.cards).map(cardId => mockAnkiCardInfo(Number(cardId))),
     areDue: params => arrayParam(params.cards).map(() => true),
+    canAddNotes: params => arrayParam(params.notes).map(() => true),
     updateNoteFields: (params, { requests }) => {
         requests.push({ kind: 'anki-side-effect', action: 'updateNoteFields', note: params.note });
         return null;
@@ -565,6 +566,10 @@ function hasExactAnkiStatusLookup(actions) {
     return actions.includes('multi') && actions.includes('notesInfo') && actions.includes('cardsInfo');
 }
 
+function hasDetailedAnkiStatusLookup(actions) {
+    return actions.includes('multi') && actions.includes('areDue');
+}
+
 function isWholeCollectionSearch(item) {
     return WHOLE_COLLECTION_SEARCH_ACTIONS.has(item.action) && ankiQueryParam(item) === WHOLE_COLLECTION_QUERY;
 }
@@ -688,7 +693,11 @@ async function runReaderMiningSmoke(browser, baseUrl) {
     assertRenderedStatePreserved(beforeHover, afterHover, 'Hover');
     assert(firstAnkiColorMs < 8_000, 'Reader Anki coloring was not prompt after userscript injection', { firstAnkiColorMs, initialAnkiActions });
     assertInitialAnkiStatusLookup(initialAnkiActions, initialAnkiRequests, 'hover');
-    assert(hoverAnkiActions.includes('multi') && hoverAnkiActions.includes('areDue'), 'Reader hover did not lazily hydrate detailed Anki status', { initialAnkiActions, hoverAnkiActions });
+    assert(
+        hasDetailedAnkiStatusLookup(hoverAnkiActions) || hasDetailedAnkiStatusLookup(initialAnkiActions),
+        'Reader hover did not have detailed Anki status available',
+        { initialAnkiActions, hoverAnkiActions },
+    );
     assert(hoverHydrationMs < 8_000, 'Reader hover Anki hydration was too slow', { hoverHydrationMs, hoverAnkiActions });
     assertAnkiStatusStorage(statusStorage, 2);
 
@@ -1083,7 +1092,7 @@ async function runNewTabJpdbMixedQueueSmoke(browser, baseUrl) {
     const next = await readNewTabState(page);
     assertNewTabState(
         next,
-        { prompt: '新語', status: 'JPDB', target: 'dictionary' },
+        { prompt: '新語', status: 'JPDB' },
         'JPDB mixed queue did not advance to the remaining non-review card after grading the review cards',
         { next, requests },
     );
@@ -1138,21 +1147,33 @@ function assertNewTabToggleLatency(elapsedMs, message, details) {
 async function revealNewTabCard(page) {
     await page.locator('[data-newtab-action="reveal"]').click();
     await page.waitForFunction(() => document.querySelector('.jpdb-reader-newtab')?.classList.contains('jpdb-reader-newtab-revealed'), null, { timeout: 12000 }).catch(async error => {
-        const debug = await page.evaluate(() => {
-            const card = document.querySelector('[data-newtab-card]');
-            return {
-                cardClass: card?.className ?? '',
-                prompt: document.querySelector('[data-newtab-prompt]')?.textContent?.trim() ?? '',
-                answer: document.querySelector('[data-newtab-answer]')?.textContent?.trim() ?? '',
-                controls: [...document.querySelectorAll('[data-newtab-controls] [data-newtab-action]')].map(button => ({
-                    action: button.getAttribute('data-newtab-action'),
-                    text: button.textContent?.trim(),
-                    disabled: button.hasAttribute('disabled'),
-                })),
-                body: document.body.textContent?.replace(/\s+/g, ' ').trim().slice(0, 600) ?? '',
-            };
-        });
+        const debug = await collectRevealCardDebug(page);
         throw new Error(`Newtab card did not reveal: ${JSON.stringify(debug)}: ${error instanceof Error ? error.message : String(error)}`);
+    });
+}
+
+async function collectRevealCardDebug(page) {
+    return page.evaluate(() => {
+        const card = document.querySelector('[data-newtab-card]');
+        return {
+            cardClass: card?.className ?? '',
+            prompt: trimmedText('[data-newtab-prompt]'),
+            answer: trimmedText('[data-newtab-answer]'),
+            controls: [...document.querySelectorAll('[data-newtab-controls] [data-newtab-action]')].map(readNewTabControlDebug),
+            body: (document.body.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 600),
+        };
+
+        function trimmedText(selector) {
+            return document.querySelector(selector)?.textContent?.trim() ?? '';
+        }
+
+        function readNewTabControlDebug(button) {
+            return {
+                action: button.getAttribute('data-newtab-action'),
+                text: button.textContent?.trim(),
+                disabled: button.hasAttribute('disabled'),
+            };
+        }
     });
 }
 

@@ -14,6 +14,7 @@ const source = DIST_USERSCRIPT_PATH;
 const target = DOCS_USERSCRIPT_PATH;
 
 copyBuiltAsset('dist/newtab/app.js', 'docs/public/newtab/app.js');
+copyBuiltAsset('dist/newtab/styles.css', 'docs/public/newtab/styles.css');
 copyBuiltAsset('dist/yomu.css', 'docs/public/yomu.css');
 syncNewTabIndex();
 syncUserscript();
@@ -41,6 +42,7 @@ function copyBuiltAsset(sourcePath, targetPath) {
 
 function syncNewTabIndex() {
   const appSource = join(root, 'dist', 'newtab', 'app.js');
+  const cssSource = join(root, 'dist', 'newtab', 'styles.css');
   const indexSource = join(root, 'public', 'newtab', 'index.html');
   const indexDist = join(root, 'dist', 'newtab', 'index.html');
   const indexTarget = join(root, 'docs', 'public', 'newtab', 'index.html');
@@ -50,11 +52,16 @@ function syncNewTabIndex() {
   if (!existsSync(indexSource)) {
     fail(`Missing new-tab HTML template: ${indexSource}`);
   }
+  if (!existsSync(cssSource)) {
+    fail(`Missing built new-tab CSS: ${cssSource}`);
+  }
   const hash = createHash('sha256').update(readFileSync(appSource)).digest('hex').slice(0, 12);
+  const cssHash = createHash('sha256').update(readFileSync(cssSource)).digest('hex').slice(0, 12);
   const buildId = `${packageVersion()}-${hash}`;
   const html = readFileSync(indexSource, 'utf8')
     .replaceAll('__YOMU_NEW_TAB_APP_HASH__', hash)
     .replaceAll('__YOMU_NEW_TAB_BUILD_ID__', buildId)
+    .replaceAll('__YOMU_NEW_TAB_CSS_HASH__', cssHash)
     .replace(/<script src="\.\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script src="./app.js?v=${hash}"></script>`);
   mkdirSync(dirname(indexDist), { recursive: true });
   writeFileSync(indexDist, html);

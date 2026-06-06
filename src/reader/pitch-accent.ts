@@ -1,7 +1,17 @@
 const PITCH_LEVELS = new Set(['H', 'L']);
 const SMALL_KANA = new Set('ゃゅょぁぃぅぇぉャュョァィゥェォ');
 
-export function normalizePitchPatternForReading(pattern: string, reading: string): string {
+export type PitchClassName = 'atamadaka' | 'odaka' | 'heiban' | 'nakadaka' | 'kifuku';
+
+interface PitchProfile {
+    reading: string;
+    morae: string[];
+    pitchNumber: number | null;
+    pattern: string;
+    className: PitchClassName | '';
+}
+
+function normalizePitchPatternForReading(pattern: string, reading: string): string {
     const levels = pitchLevels(pattern);
     if (!levels.length) return '';
     return normalizePitchLevelsForReading(levels, reading).join('');
@@ -17,7 +27,7 @@ export function pitchLevelsForDisplay(pattern: string, reading: string): string[
     return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split('');
 }
 
-export function pitchLevels(pattern: string): string[] {
+function pitchLevels(pattern: string): string[] {
     return Array.from(pattern).filter(level => PITCH_LEVELS.has(level));
 }
 
@@ -30,8 +40,72 @@ export function splitMorae(reading: string): string[] {
     return morae;
 }
 
-export function countMorae(reading: string): number {
+function countMorae(reading: string): number {
     return splitMorae(reading).length;
+}
+
+export function pitchPatternFromPosition(reading: string, position: number): string {
+    const moraCount = countMorae(reading);
+    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return '';
+    if (position === 0) return `L${'H'.repeat(moraCount)}`;
+    if (position === 1) return `H${'L'.repeat(moraCount)}`;
+    const highMorae = position - 1;
+    const lowTail = moraCount - position + 1;
+    return `L${'H'.repeat(highMorae)}${'L'.repeat(lowTail)}`;
+}
+
+function pitchProfileForPattern(pattern: string, reading: string): PitchProfile {
+    const normalized = normalizePitchPatternForReading(pattern, reading);
+    const morae = splitMorae(reading);
+    const pitchNumber = pitchNumberFromPattern(normalized, reading);
+    return {
+        reading,
+        morae,
+        pitchNumber,
+        pattern: normalized,
+        className: pitchClassNameFromProfile(normalized, morae.length, pitchNumber),
+    };
+}
+
+export function pitchClassNameForPattern(pattern: string, reading: string): PitchClassName | '' {
+    return pitchProfileForPattern(pattern, reading).className;
+}
+
+function pitchNumberFromPattern(pattern: string, reading: string): number | null {
+    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
+    const moraCount = countMorae(reading);
+    if (!moraCount) return null;
+    if (levels.length < moraCount) {
+        return looksLikeShortHeibanPattern(levels) ? 0 : null;
+    }
+    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === 'H' && level === 'L');
+    if (dropAt === -1) return levels[0] === 'L' ? 0 : null;
+    return dropAt;
+}
+
+function looksLikeShortHeibanPattern(levels: string[]): boolean {
+    return levels.length >= 2 && levels[0] === 'L' && levels.slice(1).every(level => level === 'H');
+}
+
+function pitchClassNameFromProfile(pattern: string, moraCount: number, pitchNumber: number | null): PitchClassName | '' {
+    if (pitchNumber === 0) return 'heiban';
+    if (pitchNumber === 1) return 'atamadaka';
+    if (pitchNumber != null && pitchNumber === moraCount) return 'odaka';
+    if (pitchNumber != null && pitchNumber > 1 && pitchNumber < moraCount) return 'nakadaka';
+    return hasComplexPitchShape(pattern) ? 'kifuku' : '';
+}
+
+function hasComplexPitchShape(pattern: string): boolean {
+    const levels = pitchLevels(pattern);
+    return countPitchTransitions(levels, 'L', 'H') > 1 || countPitchTransitions(levels, 'H', 'L') > 1;
+}
+
+function countPitchTransitions(levels: string[], from: string, to: string): number {
+    let count = 0;
+    for (let index = 1; index < levels.length; index++) {
+        if (levels[index - 1] === from && levels[index] === to) count++;
+    }
+    return count;
 }
 
 function normalizePitchLevelsForReading(levels: string[], reading: string): string[] {

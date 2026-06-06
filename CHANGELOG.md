@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.6.27] - 2026-06-06
+
+### Fixed
+
+- Kept stale Anki new-tab selections from showing an empty review queue after Anki is turned off, falling back to study words instead.
+- Rechecked local AnkiConnect transport, exact Anki status hydration, no-key kana lookup, new-tab source toggling, and Jiten/Anki queue smokes against the current package.
+- Kept the generated userscript self-contained and readable while preserving Greasy Fork size headroom.
+
+## [0.6.26] - 2026-06-06
+
+### Fixed
+
+- Removed the transcript drawer header close button so the player rail icon is the single open/close control.
+- Added in-drawer left, below, and right docking controls for transcript and track panels.
+- Kept oversized side-panel resizing from falling back below when the player can remain usable, and capped below-panel height so wide layouts do not shrink the video too far.
+- Kept Japanese-learning YouTube searches usable by preserving English-titled comprehensible-input videos and Shorts, while moving the channel starter guide to a gentler home-feed-only trigger.
+- Kept iPad kana taps falling back to the full tapped surface when JPDB/pitch lookup is disabled, instead of replacing kana-only lookups with kanji spellings.
+
+## [0.6.25] - 2026-06-06
+
+### Fixed
+
+- Keep Send to Anki off after fresh installs and factory resets so Anki stays opt-in and mobile popups do not reserve space for an app the user may not have.
+- Show Anki setup guidance on the new-tab page when AnkiConnect is unavailable, instead of making the JPDB/Anki source toggle look like it did nothing.
+- Refresh new-tab popup Anki status and cached card details after Anki add, merge, update, or grade actions.
+- Prefer Kaishi-style word audio fields over sentence audio when automatically mapping existing Anki note types.
+- Check Anki duplicates before attaching audio or images to a new desktop Anki note, keeping duplicate mining failures cleaner and avoiding unnecessary media writes.
+
 ## [0.6.24] - 2026-06-06
 
 ### Fixed

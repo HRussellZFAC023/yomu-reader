@@ -1,12 +1,12 @@
-import { pruneOldestCacheEntries } from './cache-utils';
-import { readBlobAsDataUrl } from './blob-data-url';
+import { pruneOldestCacheEntries } from './core/cache-utils';
+import { readBlobAsDataUrl } from './core/blob-data-url';
 import { formatUiText, uiText } from './i18n';
 import { Logger } from './logger';
-import { ObjectUrlCache } from './object-url-cache';
+import { ObjectUrlCache } from './core/object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
 import { requestBlob as requestReaderBlob, requestJson as requestReaderJson } from './reader-http';
-import { stableHash32, stableHashBase36, stablePositiveHashId } from './stable-hash';
-import { uniqueTrimmedStrings as uniqueStrings } from './string-utils';
+import { stableHash32, stableHashBase36, stablePositiveHashId } from './core/stable-hash';
+import { uniqueTrimmedStrings as uniqueStrings } from './core/string-utils';
 import type { InterfaceLanguage, ReaderSettings } from './types';
 
 const API_BASE = 'https://apiv2express.immersionkit.com';

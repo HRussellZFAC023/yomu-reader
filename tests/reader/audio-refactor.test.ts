@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderAnkiExistingSection } from '../../src/reader/anki-render';
-import { resolveAnkiWordAudio } from '../../src/reader/anki-audio';
+import { resolveAnkiWordAudio } from '../../src/reader/anki/audio';
 import { getAudioCandidates } from '../../src/reader/audio';
 import { getOrderedAudioSources } from '../../src/reader/audio-source-resolution';
 import { reserveGestureAudioElement } from '../../src/reader/media-activation';

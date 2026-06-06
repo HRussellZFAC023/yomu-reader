@@ -932,6 +932,11 @@ button.jpdb-reader-newtab-status:disabled {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
 }
 
+.jpdb-reader-newtab-status-light[data-source="jiten"] {
+  background: var(--jpdb-reader-state-learning);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-state-learning) 18%, transparent);
+}
+
 .jpdb-reader-newtab-status-light[data-source="anki"] {
   background: var(--jpdb-reader-state-new-bright);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-state-new-bright) 18%, transparent);
@@ -1004,6 +1009,24 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   padding: 0;
   text-align: center;
   overflow-wrap: anywhere;
+}
+
+.jpdb-reader-newtab-prompt-anki-card
+  .jpdb-reader-anki-rendered-side-body
+  :where(*) {
+  max-width: 100%;
+  font-size: min(1em, 1.45rem) !important;
+  line-height: 1.35 !important;
+  overflow-wrap: anywhere;
+}
+
+.jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-rendered-side-body img,
+.jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-rendered-side-body video,
+.jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-rendered-side-body canvas,
+.jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-rendered-side-body svg {
+  max-width: min(100%, 340px) !important;
+  max-height: min(42vh, 260px) !important;
+  object-fit: contain;
 }
 
 .jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-sound {
@@ -2823,6 +2846,31 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   }
 }
 
+@media (max-width: 420px) {
+  .jpdb-reader-newtab-shell {
+    width: min(100vw - 12px, 420px);
+  }
+
+  .jpdb-reader-newtab-mode {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .jpdb-reader-newtab-mode button {
+    min-height: 30px;
+    padding-inline: 4px;
+    font-size: 10px;
+  }
+
+  .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode)
+    .jpdb-reader-newtab-shell {
+    padding-bottom: max(168px, calc(38px + env(safe-area-inset-bottom)));
+  }
+
+  .jpdb-reader-newtab-controls:has(button[data-grade]) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (pointer: coarse) {
   .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode)
     .jpdb-reader-newtab-shell {
@@ -2884,5 +2932,12 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     position: absolute;
     inset: -10px 0;
     border-radius: 999px;
+  }
+}
+
+@media (pointer: coarse) and (max-width: 420px) {
+  .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode)
+    .jpdb-reader-newtab-shell {
+    padding-bottom: max(168px, calc(38px + env(safe-area-inset-bottom)));
   }
 }

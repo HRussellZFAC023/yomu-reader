@@ -1,4 +1,4 @@
-import { splitMorae } from './pitch-accent';
+import { pitchPatternFromPosition } from './pitch-accent';
 import type { YomitanMetaEntry } from './yomitan';
 
 export function localPitchPatternFromMeta(reading: string, entries: YomitanMetaEntry[]): string {
@@ -56,18 +56,6 @@ function directPitchPositionValue(value: unknown): number | null {
 
 function validPitchPosition(value: number): number | null {
     return Number.isInteger(value) && value >= 0 ? value : null;
-}
-
-function pitchPatternFromPosition(reading: string, position: number): string {
-    const morae = splitMorae(reading);
-    if (!morae.length || position > morae.length) return '';
-    if (position === 0) return `L${'H'.repeat(morae.length)}`;
-    const levels = morae.map((_, index) => {
-        const moraPosition = index + 1;
-        if (position === 1) return moraPosition === 1 ? 'H' : 'L';
-        return moraPosition === 1 ? 'L' : moraPosition <= position ? 'H' : 'L';
-    });
-    return `${levels.join('')}L`;
 }
 
 function objectRecord(value: unknown): Record<string, unknown> | null {

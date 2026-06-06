@@ -12,7 +12,9 @@ artifacts/
 qa-artifacts/
 test-results/
 tests/reader/.vitest-jpdb-shards/
+tests/reader/.vitest-new-tab-review-shards/
 tests/reader/.vitest-settings-shards/
+tests/reader/.vitest-subtitles-controller-shards/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 .DS_Store

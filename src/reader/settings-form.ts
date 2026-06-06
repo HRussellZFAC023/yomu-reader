@@ -3,39 +3,51 @@ import { escapeHtml, setInnerHtml, unwrapReaderWords } from './dom';
 import { audioSourceLabel, resolveUiLanguage, uiText } from './i18n';
 import { externalLinkIcon } from './icons';
 import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_POPUP_FONT_FAMILY, DEFAULT_READER_FONT_FAMILY, accentToRgba, formatShortcutEvent, sanitizeAccentColor } from './settings';
-import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './settings-form-controls';
-import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './settings-form-editors';
-import { COLOR_SOURCE_OPTIONS, COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, readOption, settingsColorSourceValue } from './settings-form-read';
-import type { ColorSourceSettingName } from './settings-form-read';
-import { renderSourceRowsList } from './settings-form-source-rows';
-import { renderAnkiTagsEditor } from './settings-form-tags';
-import { uniqueStrings } from './string-utils';
-import type { AnkiFieldMappingRole, ImmersionExampleSource, InterfaceLanguage, JPDBDeck, ReaderColorSource, ReaderSettings } from './types';
+import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './settings/form-controls';
+import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './settings/form-editors';
+import { COLOR_SOURCE_OPTIONS, COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, readOption, settingsColorSourceValue } from './settings/form-read';
+import type { ColorSourceSettingName } from './settings/form-read';
+import { renderSourceRowsList } from './settings/form-source-rows';
+import { renderAnkiMiningSettingsPanel, renderDeckControls as renderJpdbDeckControls } from './settings/anki-mining-panel';
+import {
+    MOBILE_ANKI_SETUP_DOCS_URL,
+    ankiStatusLineForSettings,
+    localizeInitialAnkiStatus,
+    localizeJitenStatus,
+    localizeJpdbStatus,
+    renderAnkiStatusHtml,
+    renderJitenStatusLine,
+    renderJpdbStatusLine,
+} from './settings/status-lines';
+import { uniqueStrings } from './core/string-utils';
+import type { ImmersionExampleSource, InterfaceLanguage, ReaderColorSource, ReaderSettings } from './types';
 import type { RecommendedDictionary } from './recommended-dictionaries';
 import { RECOMMENDED_JAPANESE_DICTIONARIES } from './recommended-dictionaries';
 import { definitionSourceRows, kanjiSourceRows } from './source-sections';
 import type { YomitanDictionaryInfo } from './yomitan';
 
-export { readDictionaryLookupLinks, readFormSettings } from './settings-form-read';
-export { renderAudioSourceEditor, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './settings-form-editors';
-export { installSourceRowDrag, updateSourceRowEditor } from './settings-form-order';
+export { readDictionaryLookupLinks, readFormSettings } from './settings/form-read';
+export { renderAudioSourceEditor, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './settings/form-editors';
+export { installSourceRowDrag, updateSourceRowEditor } from './settings/form-order';
+export { renderAnkiDeckLibraryOptions, renderAnkiFieldMappingEditor, renderAnkiLibraryOptions, renderAnkiTemplatePreview, renderDeckControls } from './settings/anki-mining-panel';
+export { ankiStatusLineForSettings, formatSettingsStatusLine, jitenStatusLineForSettings, jpdbStatusLineForSettings, renderAnkiStatusHtml } from './settings/status-lines';
+export type { SettingsStatusAction, SettingsStatusLine } from './settings/status-lines';
 
 const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
-const ANKI_FIELD_MAPPING_ROLES: AnkiFieldMappingRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'image'];
+const DEFAULT_JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
 const PROXY_WORKER_SOURCE_URL = `${GITHUB_REPOSITORY_URL}/blob/main/workers/jpdb-public-proxy/src/index.ts`;
 const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb-public-proxy`;
-const ANKI_MOBILE_FALLBACK_DECK = 'Default';
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
 type StringReaderSettingName = { [K in keyof ReaderSettings & string]: ReaderSettings[K] extends string ? K : never }[keyof ReaderSettings & string];
 type ColorInputField = readonly [StringReaderSettingName, string];
-export type SettingsStatusTone = 'pending' | 'success' | 'error';
-export interface SettingsStatusLine {
-    message: string;
-    tone: SettingsStatusTone;
-}
-type AnkiMappingConfidence = 'high' | 'medium' | 'low';
-type AnkiMappingConfidenceByRole = Partial<Record<AnkiFieldMappingRole, AnkiMappingConfidence>>;
 const DISABLED_SETTINGS_CONTROL_DESCRIPTION_ID = 'jpdb-reader-disabled-control-description';
+const API_KEY_INPUT_ATTRIBUTES = {
+    autocapitalize: 'off',
+    autocorrect: 'off',
+    spellcheck: 'false',
+    enterkeyhint: 'done',
+} as const;
+const API_KEY_INPUT_ATTRIBUTE_HTML = ' autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done"';
 const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
 const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
 const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
@@ -46,8 +58,8 @@ const FONT_FAMILY_PRESETS = [
     { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: 'fontPresetJapaneseSerif', fallbackLabel: 'Japanese serif' },
     { value: DEFAULT_READER_FONT_FAMILY, labelKey: 'fontPresetSystemUi', fallbackLabel: 'System UI' },
 ] as const satisfies readonly { value: string; labelKey: Parameters<typeof uiText>[1]; fallbackLabel: string }[];
-const SETTINGS_TABS: readonly { panel: string; label: string; active?: boolean }[] = [
-    { panel: 'jpdb', label: 'JPDB', active: true },
+const SETTINGS_TABS: readonly { panel: string; label: string; labelKey?: SettingsTextKey; active?: boolean }[] = [
+    { panel: 'api', label: 'API', active: true },
     { panel: 'newTab', label: 'New tab' },
     { panel: 'appearance', label: 'Appearance' },
     { panel: 'reading', label: 'Reading' },
@@ -123,7 +135,7 @@ export function renderHelpLinksPanel(): string {
     `;
 }
 
-export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: string): string {
+export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: string, jitenSettingsUrl = DEFAULT_JITEN_SETTINGS_URL): string {
     return `
             <div class="jpdb-reader-settings-head">
                 <div class="jpdb-reader-settings-drag-handle"></div>
@@ -132,7 +144,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
             ${renderSettingsTabs()}
             ${renderSettingsSearch(settings.interfaceLanguage)}
             <div class="jpdb-reader-settings-scroll">
-            ${renderJpdbSettingsPanel(settings, jpdbSettingsUrl)}
+            ${renderApiSettingsPanel(settings, jpdbSettingsUrl, jitenSettingsUrl)}
             ${renderInterfaceSettingsPanel(settings)}
             ${renderNewTabSettingsPanel(settings)}
             ${renderAudioSettingsPanel(settings)}
@@ -171,17 +183,29 @@ function renderSettingsSearch(language: InterfaceLanguage): string {
     `;
 }
 
-function renderJpdbSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: string): string {
+function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: string, jitenSettingsUrl: string): string {
     const jpdbStatus = renderJpdbStatusLine(settings);
+    const jitenStatus = renderJitenStatusLine(settings);
     return `
-            <fieldset id="jpdb-reader-settings-panel-jpdb" role="tabpanel" data-settings-panel="jpdb" data-legend-key="jpdb">
-                <legend>JPDB</legend>
-                ${input('apiKey', `API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, settings.apiKey, 'password')}
+            <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api">
+                <legend>API</legend>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title">API access</div>
+                    <div class="grid">
+                        ${input('apiKey', `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, settings.apiKey, 'password', API_KEY_INPUT_ATTRIBUTES)}
+                        ${input('jitenApiKey', `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, settings.jitenApiKey, 'password', API_KEY_INPUT_ATTRIBUTES)}
+                    </div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Add a JPDB API key or a Jiten API key. JPDB-backed cards use the JPDB key; Jiten-backed cards use the Jiten key.</div>
+                    <div class="jpdb-reader-help-actions">
+                        <button class="jpdb-reader-btn" type="button" data-action="check-jiten-api">Check Jiten connection</button>
+                    </div>
+                    ${jitenStatus}
+                </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>
-                    ${renderDeckControls(settings, [], Boolean(settings.apiKey.trim()), settings.interfaceLanguage)}
+                    ${renderJpdbDeckControls(settings, [], Boolean(settings.apiKey.trim()), settings.interfaceLanguage)}
                 </div>
-                ${checkbox('jpdbMiningEnabled', 'Allow JPDB review/deck changes', settings.jpdbMiningEnabled)}
+                ${checkbox('jpdbMiningEnabled', 'Allow API review/deck changes', settings.jpdbMiningEnabled)}
                 ${checkbox('addToForq', 'Also copy JPDB adds to forq', settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
                 ${checkbox('enableReviews', 'Show review buttons', settings.enableReviews)}
                 <div data-review-config ${settings.enableReviews ? '' : 'hidden'}>
@@ -198,60 +222,6 @@ function renderJpdbSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: stri
                 </div>
             </fieldset>
     `;
-}
-
-function renderJpdbStatusLine(settings: ReaderSettings): string {
-    const { message, tone } = jpdbStatusLineForSettings(settings, settings.interfaceLanguage);
-    return `<div class="jpdb-reader-help jpdb-reader-status-line" data-jpdb-status data-status-tone="${tone}" role="status" aria-live="polite">${formatSettingsStatusLine({ message, tone }, settings.interfaceLanguage)}</div>`;
-}
-
-export function jpdbStatusLineForSettings(settings: Pick<ReaderSettings, 'apiKey' | 'enableReviews' | 'jpdbMiningEnabled'>, language: InterfaceLanguage): SettingsStatusLine {
-    return jpdbStatusLineFromValues(Boolean(settings.apiKey.trim()), settings.enableReviews, settings.jpdbMiningEnabled, language);
-}
-
-function jpdbStatusLineFromValues(hasApiKey: boolean, reviewsEnabled: boolean, deckSyncEnabled: boolean, language: InterfaceLanguage): SettingsStatusLine {
-    if (!hasApiKey) {
-        return {
-            message: uiText(language, 'jpdbApiKeyMissing'),
-            tone: 'pending',
-        };
-    }
-    return {
-        message: formatStatusTemplate(uiText(language, 'jpdbApiKeyConfigured'), {
-            reviews: uiText(language, reviewsEnabled ? 'statusEnabled' : 'statusDisabled'),
-            deckSync: uiText(language, deckSyncEnabled ? 'statusEnabled' : 'statusDisabled'),
-        }),
-        tone: reviewsEnabled || deckSyncEnabled ? 'success' : 'pending',
-    };
-}
-
-export function ankiStatusLineForSettings(settings: Pick<ReaderSettings, 'ankiEnabled' | 'ankiConnectUrl'>, language: InterfaceLanguage): SettingsStatusLine {
-    return ankiStatusLineFromValues(settings.ankiEnabled, settings.ankiConnectUrl, language);
-}
-
-export function formatSettingsStatusLine(line: SettingsStatusLine, language: InterfaceLanguage): string {
-    return `${escapedUiText(language, settingsStatusToneLabelKey(line.tone))}: ${escapeHtml(line.message)}`;
-}
-
-function settingsStatusToneLabelKey(tone: SettingsStatusTone): Parameters<typeof uiText>[1] {
-    if (tone === 'success') return 'statusReady';
-    if (tone === 'error') return 'statusError';
-    return 'statusAttention';
-}
-
-function ankiStatusLineFromValues(ankiEnabled: boolean, ankiConnectUrl: string, language: InterfaceLanguage): SettingsStatusLine {
-    if (!ankiEnabled) {
-        return {
-            message: uiText(language, 'ankiMiningDisabledStatus'),
-            tone: 'pending',
-        };
-    }
-    return {
-        message: formatStatusTemplate(uiText(language, 'ankiCheckingConnection'), {
-            url: ankiConnectUrl.trim(),
-        }),
-        tone: 'pending',
-    };
 }
 
 function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
@@ -303,7 +273,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                         ${checkbox('newTabEnabled', 'Use Yomu new tab study page', settings.newTabEnabled)}
                         ${checkbox('newTabAnkiEnabled', 'Use Anki cards on new tab', settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
-                        ${select('newTabSource', 'New tab review source', settings.newTabSource, [['auto', 'Auto: Anki if no JPDB'], ['jpdb', 'JPDB'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
+                        ${select('newTabSource', 'New tab review source', settings.newTabSource, [['auto', 'Auto: API/Anki, then study words'], ['jpdb', 'API SRS (JPDB / Jiten)'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
                         ${select('newTabJpdbReviewMode', 'JPDB review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
                         ${select('newTabKanjiKeywordSource', 'Kanji keyword source', settings.newTabKanjiKeywordSource, [['auto', 'Auto: RTK, then JPDB, then local'], ['rtk', 'RTK / Heisig'], ['jpdb', 'JPDB'], ['local', 'Local card meaning']])}
                         ${checkbox('newTabParsingEnabled', 'Parse sentences on new tab', settings.newTabParsingEnabled)}
@@ -594,7 +564,6 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                 <legend>Image text (OCR)</legend>
                 <div class="grid">
                     ${checkbox('ocrEnabled', 'Read text in images', settings.ocrEnabled)}
-                    ${checkbox('ocrAutoScanImages', 'Read images automatically', settings.ocrAutoScanImages)}
                     ${checkbox('ocrShowTextOverlay', 'Show recognized text on images', settings.ocrShowTextOverlay)}
                     ${select('ocrProvider', 'Image reading', settings.ocrProvider, [['google-lens', 'Google Lens (recommended)'], ['cloud-vision', 'Google Cloud Vision'], ['local-service', 'Local OCR engine'], ['off', 'Off']])}
                     ${select('ocrMaxImagesPerPage', 'Images to read per page', String(settings.ocrMaxImagesPerPage), [['3', 'Light'], ['8', 'Normal'], ['16', 'More']])}
@@ -608,7 +577,7 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                         <summary>Custom local OCR server</summary>
                         <label>Custom local OCR URL<input name="ocrEndpointUrl" type="url" value="${escapeHtml(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
                     </details>
-                    <label data-cloud-ocr ${cloudOcrHidden}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="password" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"></label>
+                    <label data-cloud-ocr ${cloudOcrHidden}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="password" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
                 </div>
@@ -669,7 +638,6 @@ function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('youtubeImmersionEnabled', 'Only show Japanese YouTube videos', settings.youtubeImmersionEnabled)}
                     ${checkbox('preferJapaneseSiteLanguage', 'Prefer Japanese site language and location', settings.preferJapaneseSiteLanguage)}
                     ${checkbox('youtubeShowFilterNotice', 'Show a temporary hidden-video notice', settings.youtubeShowFilterNotice)}
-                    ${checkbox('youtubeShowChannelRecommendations', 'Show Japanese channel suggestions', settings.youtubeShowChannelRecommendations)}
                 </div>
                 <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>On by default. The language preference asks sites for Japanese UI and Japan-local content where a userscript can.</div>
             </fieldset>
@@ -678,135 +646,10 @@ function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
 
 function renderMiningSettingsPanel(settings: ReaderSettings): string {
     const ankiStatus = ankiStatusLineForSettings(settings, settings.interfaceLanguage);
-    return `
-            <fieldset id="jpdb-reader-settings-panel-mining" role="tabpanel" data-settings-panel="mining" data-legend-key="anki" aria-describedby="settings-help-anki" hidden>
-                <legend>Anki</legend>
-                <input type="hidden" name="ankiFieldMappings" value="${escapeHtml(JSON.stringify(settings.ankiFieldMappings))}">
-                <input type="hidden" data-anki-scan-fields value="{}">
-                <input type="hidden" data-anki-scan-confidence value="{}">
-                <div class="jpdb-reader-anki-layout">
-                    <div class="jpdb-reader-anki-main">
-                        <div class="grid jpdb-reader-anki-connection-grid">
-                            ${checkbox('ankiEnabled', 'Enable Anki mining', settings.ankiEnabled)}
-                            ${checkbox('ankiMineWithJpdb', 'Also add to Anki when adding to JPDB', settings.jpdbMiningEnabled && settings.ankiMineWithJpdb, { disabled: !settings.jpdbMiningEnabled })}
-                            ${checkbox('ankiCaptureScreenshot', 'Attach context image when possible', settings.ankiCaptureScreenshot)}
-                            <div class="jpdb-reader-settings-wide">${checkbox('ankiMobileHandoff', 'Mobile Anki add-note fallback', settings.ankiMobileHandoff)}</div>
-                            ${input('ankiConnectUrl', 'AnkiConnect URL', settings.ankiConnectUrl)}
-                            <div class="jpdb-reader-settings-wide jpdb-reader-help jpdb-reader-status-line" data-anki-status data-status-tone="${ankiStatus.tone}" role="status" aria-live="polite">${formatSettingsStatusLine(ankiStatus, settings.interfaceLanguage)}</div>
-                        </div>
-                        <div class="jpdb-reader-settings-subsection">
-                            <div id="settings-help-anki" class="jpdb-reader-help" data-anki-setup-help></div>
-                            <div class="jpdb-reader-settings-actions jpdb-reader-anki-actions">
-                                <button class="jpdb-reader-btn" type="button" data-action="test-anki">${escapedUiText(settings.interfaceLanguage, 'testAnki')}</button>
-                                <button class="jpdb-reader-btn secondary" type="button" data-action="prepare-anki">${escapedUiText(settings.interfaceLanguage, 'prepareAnki')}</button>
-                            </div>
-                        </div>
-                        <div class="jpdb-reader-settings-subsection jpdb-reader-anki-library-choice">
-                            <div class="jpdb-reader-local-title" data-anki-library-choices-title>${escapedUiText(settings.interfaceLanguage, 'ankiLibraryChoices')}</div>
-                            <div class="jpdb-reader-help" data-anki-library-choices-help>${escapedUiText(settings.interfaceLanguage, 'ankiLibraryChoicesHelp')}</div>
-                            <div class="jpdb-reader-anki-choice-grid">
-                                <label><span class="jpdb-reader-settings-label-text">Anki deck</span><select name="ankiDeck" data-anki-deck-options>${renderAnkiDeckLibraryOptions([settings.ankiDeck].filter(Boolean), settings.ankiDeck, settings.interfaceLanguage)}</select></label>
-                                <label><span class="jpdb-reader-settings-label-text">Anki note type</span><select name="ankiModel" data-anki-model-options>${renderAnkiLibraryOptions([settings.ankiModel, ...Object.keys(settings.ankiFieldMappings)].filter(Boolean), settings.ankiModel, settings.interfaceLanguage)}</select></label>
-                            </div>
-                        </div>
-                        <div class="jpdb-reader-settings-subsection jpdb-reader-anki-template-settings">
-                            <div class="jpdb-reader-local-title" data-anki-template-settings-title>${escapedUiText(settings.interfaceLanguage, 'ankiTemplateSettings')}</div>
-                            <div class="jpdb-reader-help" data-anki-template-settings-help>${escapedUiText(settings.interfaceLanguage, 'ankiTemplateSettingsHelp')}</div>
-                            <div class="grid jpdb-reader-anki-card-grid">
-                                ${select('ankiTemplateMode', 'Anki card template', settings.ankiTemplateMode, [['recognition', 'Word first'], ['context', 'Sentence first']])}
-                                ${checkbox('ankiFrontReading', 'Word-first front: show reading', settings.ankiFrontReading)}
-                                ${checkbox('ankiFrontSentence', 'Word-first front: show sentence', settings.ankiFrontSentence)}
-                                ${checkbox('ankiFrontImage', 'Show image on front', settings.ankiFrontImage)}
-                                ${renderAnkiTagsEditor(settings.ankiTags, settings.interfaceLanguage)}
-                            </div>
-                            <div data-anki-template-preview>
-                                ${renderAnkiTemplatePreview(settings)}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="jpdb-reader-settings-subsection jpdb-reader-anki-adapter" data-anki-library-adapter>
-                        <div class="jpdb-reader-local-title" data-anki-library-adapter-title>Existing library adapter</div>
-                        <div class="jpdb-reader-help" data-anki-library-availability>${escapedUiText(settings.interfaceLanguage, 'ankiLibraryAdapterStatus')}</div>
-                        <div data-anki-field-mapping-editor>
-                            ${renderAnkiFieldMappingEditor(settings, settings.ankiModel, [], settings.interfaceLanguage)}
-                        </div>
-                    </div>
-                </div>
-            </fieldset>
-    `;
-}
-
-export function renderAnkiLibraryOptions(options: string[], value: string, language: InterfaceLanguage = 'en'): string {
-    const values = uniqueStrings([value, ...options].filter(Boolean));
-    const rows = values.map(option => `<option value="${escapeHtml(option)}" ${option === value ? 'selected' : ''}>${escapeHtml(option)}</option>`);
-    return rows.length ? rows.join('') : `<option value="" selected>${escapedUiText(language, 'scanAnkiFirst')}</option>`;
-}
-
-export function renderAnkiDeckLibraryOptions(options: string[], value: string, language: InterfaceLanguage = 'en'): string {
-    return renderAnkiLibraryOptions([...options, ANKI_MOBILE_FALLBACK_DECK], value, language);
-}
-
-function formatStatusTemplate(template: string, values: Record<string, string>): string {
-    return template.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? '');
-}
-
-export function renderAnkiFieldMappingEditor(
-    settings: ReaderSettings,
-    modelName = settings.ankiModel,
-    scannedFields: string[] = [],
-    language: InterfaceLanguage = settings.interfaceLanguage,
-    confidenceByRole: AnkiMappingConfidenceByRole = {},
-): string {
-    const model = modelName.trim();
-    const mapping = model ? settings.ankiFieldMappings[model] ?? {} : {};
-    const fields = uniqueStrings([...scannedFields, ...Object.values(mapping).filter(Boolean)]);
-    const options = (selected = '') => [
-        `<option value="" ${selected ? '' : 'selected'}>${escapedUiText(language, 'notMapped')}</option>`,
-        ...fields.map(field => `<option value="${escapeHtml(field)}" ${field === selected ? 'selected' : ''}>${escapeHtml(field)}</option>`),
-    ].join('');
-    const rows = ANKI_FIELD_MAPPING_ROLES.map(role => {
-        const value = mapping[role] ?? '';
-        const roleLabel = ankiFieldMappingRoleLabel(role, language);
-        const confidence = value ? confidenceByRole[role] : undefined;
-        return `
-                <label>
-                    <span class="jpdb-reader-anki-field-role-row">
-                        <span>${escapeHtml(roleLabel)}</span>
-                        ${confidence ? renderAnkiMappingConfidence(confidence, language) : ''}
-                    </span>
-                    <select data-anki-field-role="${escapeHtml(role)}" aria-label="${escapeHtml(uiText(language, 'ankiFieldMappingSelect').replace('{role}', roleLabel))}">
-                        ${options(value)}
-                    </select>
-                </label>
-        `;
-    }).join('');
-    const emptyState = fields.length ? '' : `<div class="jpdb-reader-help">${escapedUiText(language, 'noScannedFields')}</div>`;
-    return `
-            <div data-anki-field-mapping-model="${escapeHtml(model)}">
-                <div class="jpdb-reader-help">${escapeHtml(uiText(language, 'mappingForNoteType').replace('{model}', model || uiText(language, 'currentNoteType')))}</div>
-                <div class="grid">
-                    ${rows}
-                </div>
-                ${fields.length ? `<div class="jpdb-reader-help">${escapedUiText(language, 'ankiMappingConfidenceHelp')}</div>` : ''}
-                ${emptyState}
-            </div>
-    `;
-}
-
-function renderAnkiMappingConfidence(confidence: AnkiMappingConfidence, language: InterfaceLanguage): string {
-    const key = confidence === 'high' ? 'ankiMappingHighConfidence' : confidence === 'medium' ? 'ankiMappingMediumConfidence' : 'ankiMappingLowConfidence';
-    return `<span class="jpdb-reader-anki-confidence" data-confidence="${confidence}">${escapedUiText(language, key)}</span>`;
-}
-
-function ankiFieldMappingRoleLabel(role: AnkiFieldMappingRole, language: InterfaceLanguage): string {
-    return {
-        expression: uiText(language, 'ankiRoleExpression'),
-        reading: uiText(language, 'ankiRoleReading'),
-        meaning: uiText(language, 'ankiRoleMeaning'),
-        sentence: uiText(language, 'ankiRoleSentence'),
-        audio: uiText(language, 'ankiRoleAudio'),
-        image: uiText(language, 'ankiRoleImage'),
-    }[role];
+    return renderAnkiMiningSettingsPanel(settings, {
+        tone: ankiStatus.tone,
+        html: renderAnkiStatusHtml(ankiStatus, settings.interfaceLanguage),
+    });
 }
 
 function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
@@ -851,7 +694,6 @@ function renderShortcutSettingsPanel(settings: ReaderSettings): string {
             <fieldset id="jpdb-reader-settings-panel-shortcuts" role="tabpanel" data-settings-panel="shortcuts" data-legend-key="shortcuts" hidden>
                 <legend>Shortcuts</legend>
                 <div class="grid">
-                    ${shortcutInput('shortcuts.scanPage', 'Scan page', settings.shortcuts.scanPage)}
                     ${shortcutInput('shortcuts.openSettings', 'Open settings', settings.shortcuts.openSettings)}
                     ${shortcutInput('shortcuts.playAudio', 'Play audio', settings.shortcuts.playAudio)}
                     ${shortcutInput('shortcuts.closePopup', 'Close popup', settings.shortcuts.closePopup)}
@@ -999,6 +841,57 @@ function removeDescribedBy(control: HTMLElement, id: string): void {
 
 type SettingsText = (key: Parameters<typeof uiText>[1]) => string;
 type SettingsTextKey = Parameters<typeof uiText>[1];
+const LOCAL_TITLE_TEXT_KEYS = [
+    [/API access|APIアクセス/, 'apiAccess'],
+    [/Word colors|単語の色/, 'wordColors'],
+    [/Pitch accent colors|ピッチアクセント/, 'pitchAccentColors'],
+    [/Color channels|色チャンネル/, 'colorChannels'],
+    [/New tab|新規タブ/, 'newTab'],
+    [/JPDB page enhancements|JPDBページ拡張/, 'jpdbPageEnhancements'],
+    [/Lookup pills|検索ピル/, 'lookupPills'],
+] as const satisfies readonly (readonly [RegExp, SettingsTextKey])[];
+const SELECTOR_TEXT_KEYS = [
+    ['[data-hover-lookup-title]', 'hoverLookupSettings'],
+    ['[data-diagnostics-title]', 'diagnostics'],
+    ['[data-anki-library-adapter-title]', 'ankiLibraryAdapter'],
+    ['[data-color-channels-help]', 'colorChannelsHelp'],
+    ['[data-jpdb-page-enhancements-help]', 'jpdbPageEnhancementsHelp'],
+    ['[data-jpdb-api-key-help]', 'apiAccessHelp'],
+    ['[data-subtitle-preview] .jpdb-subtitle-secondary', 'subtitlePreview'],
+    ['[data-proxy-guide-summary]', 'audioProxyGuideSummary'],
+    ['[data-proxy-guide-show]', 'show'],
+    ['[data-proxy-guide-hide]', 'hide'],
+    ['[data-settings-puck-help]', 'settingsPuckHelp'],
+] as const satisfies readonly (readonly [string, SettingsTextKey])[];
+const SETTINGS_ACTION_TEXT_KEYS = [
+    ['[data-action="test-anki"]', 'testAnki'],
+    ['[data-action="prepare-anki"]', 'prepareAnki'],
+    ['[data-action="check-jiten-api"]', 'checkJitenApi'],
+    ['[data-action="copy-newtab-url"]', 'copyAddress'],
+    ['[data-newtab-url-link]', 'openNewTabPage'],
+    ['[data-action="import-yomitan-settings"]', 'importSettings'],
+    ['[data-action="export-reader-settings"]', 'exportSettings'],
+    ['[data-action="import-yomitan-dictionary"]', 'importDictionaries'],
+    ['[data-action="export-yomitan-dictionary"]', 'exportDictionaries'],
+    ['[data-action="audio-source-add"]', 'addAudioSource'],
+    ['[data-action="cancel"]', 'cancel'],
+] as const satisfies readonly (readonly [string, SettingsTextKey])[];
+const HELP_LINK_PANEL_TEXT_KEYS = [
+    ['[data-help-links-title]', 'helpLinksTitle'],
+    ['[data-help-links-copy]', 'helpLinksCopy'],
+    ['[data-help-support-title]', 'helpSupportTitle'],
+    ['[data-help-support-copy]', 'helpSupportCopy'],
+    ['[data-help-support-copy-extra]', 'helpSupportCopyExtra'],
+    ['[data-help-link="factory-reset"]', 'factoryReset'],
+] as const satisfies readonly (readonly [string, SettingsTextKey])[];
+const HELP_LINK_BUTTON_TEXT_KEYS = [
+    ['video-player', 'videoPlayer'],
+    ['new-tab', 'newTabPage'],
+    ['docs', 'docs'],
+    ['issues', 'issues'],
+    ['donate', 'donate'],
+    ['discord', 'discord'],
+] as const satisfies readonly (readonly [string, SettingsTextKey])[];
 const ANKI_TEMPLATE_PREVIEW_SMALL_TEXT_KEYS = [
     [/above the prompt/, 'imageAbovePrompt'],
     [/highlighted word/, 'recallHighlightedWord'],
@@ -1034,18 +927,8 @@ function localizeThemeSwitch(form: HTMLFormElement, text: SettingsText): void {
 }
 
 function localizeSettingsTabs(form: HTMLFormElement, text: SettingsText): void {
-    const tabLabels: Record<string, SettingsTextKey> = {
-        jpdb: 'jpdb',
-        newTab: 'newTab',
-        appearance: 'appearance',
-        reading: 'reading',
-        dictionaries: 'dictionaries',
-        media: 'media',
-        mining: 'mining',
-        shortcuts: 'shortcuts',
-        help: 'help',
-    };
-    Object.entries(tabLabels).forEach(([panel, key]) => {
+    SETTINGS_TABS.forEach(({ panel, labelKey }) => {
+        const key = labelKey ?? (panel as SettingsTextKey);
         form.querySelector<HTMLButtonElement>(`[data-action="settings-panel"][data-panel="${panel}"]`)?.replaceChildren(text(key));
     });
 }
@@ -1073,6 +956,8 @@ function localizeSettingsLabels(form: HTMLFormElement, text: SettingsText): void
     SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text(key)));
     const jpdbSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jpdb.io/settings"]');
     if (jpdbSettings) jpdbSettings.textContent = text('jpdbSettings');
+    const jitenSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jiten.moe/settings"]');
+    if (jitenSettings) jitenSettings.textContent = text('jitenSettings');
     const nadeshikoKeyLink = form.querySelector<HTMLAnchorElement>('label a[href*="nadeshiko.co/user/developer"]');
     if (nadeshikoKeyLink) nadeshikoKeyLink.textContent = text('getNadeshikoKey');
     localizeBlockControlLabel(form, 'ocrEndpointUrl', text('ocrEndpointUrl'));
@@ -1092,22 +977,10 @@ function localizeFontFamilyCustomLabels(form: HTMLFormElement, text: SettingsTex
 }
 
 function localizeSettingsSectionTitles(form: HTMLFormElement, text: SettingsText): void {
-    replaceLocalTitle(form, /Word colors|単語の色/, text('wordColors'));
-    replaceLocalTitle(form, /Pitch accent colors|ピッチアクセント/, text('pitchAccentColors'));
-    replaceLocalTitle(form, /Color channels|色チャンネル/, text('colorChannels'));
-    replaceLocalTitle(form, /New tab|新規タブ/, text('newTab'));
-    replaceLocalTitle(form, /JPDB page enhancements|JPDBページ拡張/, text('jpdbPageEnhancements'));
-    replaceLocalTitle(form, /Lookup pills|検索ピル/, text('lookupPills'));
-    form.querySelector<HTMLElement>('[data-hover-lookup-title]')?.replaceChildren(text('hoverLookupSettings'));
-    form.querySelector<HTMLElement>('[data-diagnostics-title]')?.replaceChildren(text('diagnostics'));
-    form.querySelector<HTMLElement>('[data-anki-library-adapter-title]')?.replaceChildren(text('ankiLibraryAdapter'));
-    form.querySelector<HTMLElement>('[data-color-channels-help]')?.replaceChildren(text('colorChannelsHelp'));
-    form.querySelector<HTMLElement>('[data-jpdb-page-enhancements-help]')?.replaceChildren(text('jpdbPageEnhancementsHelp'));
-    form.querySelector<HTMLElement>('[data-subtitle-preview] .jpdb-subtitle-secondary')?.replaceChildren(text('subtitlePreview'));
-    form.querySelector<HTMLElement>('[data-proxy-guide-summary]')?.replaceChildren(text('audioProxyGuideSummary'));
-    form.querySelector<HTMLElement>('[data-proxy-guide-show]')?.replaceChildren(text('show'));
-    form.querySelector<HTMLElement>('[data-proxy-guide-hide]')?.replaceChildren(text('hide'));
-    form.querySelector<HTMLElement>('[data-settings-puck-help]')?.replaceChildren(text('settingsPuckHelp'));
+    LOCAL_TITLE_TEXT_KEYS.forEach(([pattern, key]) => replaceLocalTitle(form, pattern, text(key)));
+    SELECTOR_TEXT_KEYS.forEach(([selector, key]) => {
+        form.querySelector<HTMLElement>(selector)?.replaceChildren(text(key));
+    });
 }
 
 function replaceLocalTitle(form: HTMLFormElement, pattern: RegExp, value: string): void {
@@ -1143,7 +1016,7 @@ function localizeBasicSettingsSelects(form: HTMLFormElement, text: SettingsText)
     setSelectOptionLabels(form, 'popupFontFamily', fontFamilyOptions(text));
     setSelectOptionLabels(form, 'newTabSource', [
         ['auto', text('newTabAuto')],
-        ['jpdb', 'JPDB'],
+        ['jpdb', text('newTabApiSrs')],
         ['anki', 'Anki'],
         ['dictionary', text('dictionaryFallback')],
     ]);
@@ -1348,16 +1221,9 @@ function localizeDictionaryImportHelp(form: HTMLFormElement, text: SettingsText)
 }
 
 function localizeSettingsActions(form: HTMLFormElement, text: SettingsText): void {
-    form.querySelectorAll<HTMLButtonElement>('[data-action="test-anki"]').forEach(button => button.replaceChildren(text('testAnki')));
-    form.querySelectorAll<HTMLButtonElement>('[data-action="prepare-anki"]').forEach(button => button.replaceChildren(text('prepareAnki')));
-    form.querySelector<HTMLButtonElement>('[data-action="copy-newtab-url"]')?.replaceChildren(text('copyAddress'));
-    form.querySelector<HTMLAnchorElement>('[data-newtab-url-link]')?.replaceChildren(text('openNewTabPage'));
-    form.querySelector<HTMLButtonElement>('[data-action="import-yomitan-settings"]')?.replaceChildren(text('importSettings'));
-    form.querySelector<HTMLButtonElement>('[data-action="export-reader-settings"]')?.replaceChildren(text('exportSettings'));
-    form.querySelector<HTMLButtonElement>('[data-action="import-yomitan-dictionary"]')?.replaceChildren(text('importDictionaries'));
-    form.querySelector<HTMLButtonElement>('[data-action="export-yomitan-dictionary"]')?.replaceChildren(text('exportDictionaries'));
-    form.querySelector<HTMLButtonElement>('[data-action="audio-source-add"]')?.replaceChildren(text('addAudioSource'));
-    form.querySelector<HTMLButtonElement>('[data-action="cancel"]')?.replaceChildren(text('cancel'));
+    SETTINGS_ACTION_TEXT_KEYS.forEach(([selector, key]) => {
+        form.querySelectorAll<HTMLElement>(selector).forEach(button => button.replaceChildren(text(key)));
+    });
     form.querySelector<HTMLButtonElement>('button[type="submit"]')?.replaceChildren(text('save'));
     localizePreviewAudioButtons(form, text);
 }
@@ -1383,8 +1249,10 @@ function localizeSettingsEditorChrome(form: HTMLFormElement, text: SettingsText)
     localizeOrderButtons(form, text);
     localizeLookupLinkEditor(form, text);
     localizeDeckControls(form, text);
-    localizeJpdbStatus(form, text);
-    localizeInitialAnkiStatus(form, text);
+    const statusLanguage = resolveUiLanguageFromText(text);
+    localizeJpdbStatus(form, statusLanguage);
+    localizeJitenStatus(form, statusLanguage);
+    localizeInitialAnkiStatus(form, statusLanguage);
     localizeSourceRows(form, text);
     localizeRecommendedDictionaryGroups(form, text);
     localizeRecommendedDictionaryDescriptions(form, text);
@@ -1604,33 +1472,8 @@ function localizeDictionaryStatus(form: HTMLFormElement, text: SettingsText): vo
     }
 }
 
-function localizeJpdbStatus(form: HTMLFormElement, text: SettingsText): void {
-    const status = form.querySelector<HTMLElement>('[data-jpdb-status]');
-    if (!status) return;
-    const hasApiKey = Boolean(form.querySelector<HTMLInputElement>('input[name="apiKey"]')?.value.trim());
-    const reviewsEnabled = form.querySelector<HTMLInputElement>('input[name="enableReviews"]')?.checked ?? true;
-    const deckSyncEnabled = form.querySelector<HTMLInputElement>('input[name="jpdbMiningEnabled"]')?.checked ?? true;
-    const line = jpdbStatusLineFromValues(hasApiKey, reviewsEnabled, deckSyncEnabled, resolveUiLanguageFromText(text));
-    status.dataset.statusTone = line.tone;
-    status.replaceChildren(line.message);
-}
-
-function localizeInitialAnkiStatus(form: HTMLFormElement, text: SettingsText): void {
-    const status = form.querySelector<HTMLElement>('[data-anki-status]');
-    if (!status || !isInitialAnkiSettingsStatus(status.textContent ?? '')) return;
-    const ankiEnabled = form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.checked ?? false;
-    const ankiConnectUrl = form.querySelector<HTMLInputElement>('input[name="ankiConnectUrl"]')?.value ?? '';
-    const line = ankiStatusLineFromValues(ankiEnabled, ankiConnectUrl, resolveUiLanguageFromText(text));
-    status.dataset.statusTone = line.tone;
-    status.replaceChildren(line.message);
-}
-
-function isInitialAnkiSettingsStatus(value: string): boolean {
-    return /Checking AnkiConnect|Anki mining disabled|AnkiConnect.*確認中|Ankiマイニングは無効/.test(value);
-}
-
 const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
-    'apiKey', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
+    'apiKey', 'jitenApiKey', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
     'jpdbMiningEnabled', 'addToForq', 'enableReviews', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
     'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'stickyBottomSheet', 'popoverBackdropEnabled', 'popoverWidth',
     'popoverHeight', 'popoverHeightMode', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',
@@ -1657,7 +1500,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'subtitleBackgroundColor', 'subtitleBackgroundOpacity', 'subtitleFontFamily', 'subtitleFontWeight', 'subtitleSeekPadding',
     'ankiEnabled', 'ankiMineWithJpdb', 'ankiCaptureScreenshot', 'ankiConnectUrl', 'ankiDeck',
     'ankiModel', 'ankiTemplateMode', 'ankiFrontReading', 'ankiFrontSentence', 'ankiFrontImage',
-    'ankiTags', 'youtubeImmersionEnabled', 'preferJapaneseSiteLanguage', 'youtubeShowFilterNotice', 'youtubeShowChannelRecommendations', 'jpdbDefinitionsEnabled',
+    'ankiTags', 'youtubeImmersionEnabled', 'preferJapaneseSiteLanguage', 'youtubeShowFilterNotice', 'jpdbDefinitionsEnabled',
     'localDictionariesEnabled', 'dictionarySourcesInitiallyExpanded', 'localDictionaryMaxResults', 'hoverOpenDelayMs', 'hoverCloseDelayMs',
 ] as const satisfies readonly SettingsTextKey[];
 
@@ -1848,18 +1691,12 @@ function localizeHelpLinksPanel(form: HTMLFormElement, language: InterfaceLangua
     const panel = form.querySelector<HTMLElement>('.jpdb-reader-help-links-card');
     if (!panel) return;
     const text = (key: Parameters<typeof uiText>[1]) => uiText(language, key);
-    panel.querySelector<HTMLElement>('[data-help-links-title]')?.replaceChildren(text('helpLinksTitle'));
-    panel.querySelector<HTMLElement>('[data-help-links-copy]')?.replaceChildren(text('helpLinksCopy'));
-    panel.querySelector<HTMLElement>('[data-help-support-title]')?.replaceChildren(text('helpSupportTitle'));
-    panel.querySelector<HTMLElement>('[data-help-support-copy]')?.replaceChildren(text('helpSupportCopy'));
-    panel.querySelector<HTMLElement>('[data-help-support-copy-extra]')?.replaceChildren(text('helpSupportCopyExtra'));
-    setExternalButtonLabel(panel.querySelector<HTMLElement>('[data-help-link="video-player"]'), text('videoPlayer'));
-    setExternalButtonLabel(panel.querySelector<HTMLElement>('[data-help-link="new-tab"]'), text('newTabPage'));
-    setExternalButtonLabel(panel.querySelector<HTMLElement>('[data-help-link="docs"]'), text('docs'));
-    panel.querySelector<HTMLElement>('[data-help-link="factory-reset"]')?.replaceChildren(text('factoryReset'));
-    setExternalButtonLabel(panel.querySelector<HTMLElement>('[data-help-link="issues"]'), text('issues'));
-    setExternalButtonLabel(panel.querySelector<HTMLElement>('[data-help-link="donate"]'), text('donate'));
-    setExternalButtonLabel(panel.querySelector<HTMLElement>('[data-help-link="discord"]'), text('discord'));
+    HELP_LINK_PANEL_TEXT_KEYS.forEach(([selector, key]) => {
+        panel.querySelector<HTMLElement>(selector)?.replaceChildren(text(key));
+    });
+    HELP_LINK_BUTTON_TEXT_KEYS.forEach(([link, key]) => {
+        setExternalButtonLabel(panel.querySelector<HTMLElement>(`[data-help-link="${link}"]`), text(key));
+    });
 }
 
 function externalButtonLabel(label: string): string {
@@ -1941,11 +1778,11 @@ function activateSettingsPanelWithoutClearingSearch(form: HTMLFormElement, panel
 }
 
 function activeSettingsPanel(form: HTMLFormElement): string {
-    return form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? 'jpdb';
+    return form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? 'api';
 }
 
 function normalizeSettingsPanel(panel: string): string {
-    return panel === 'basics' ? 'jpdb' : panel;
+    return panel === 'basics' || panel === 'jpdb' ? 'api' : panel;
 }
 
 function normalizeSettingsSearchText(value: string): string {
@@ -1961,8 +1798,9 @@ function audioHelpHtml(language: InterfaceLanguage): string {
 
 function ankiSetupHelpHtml(language: InterfaceLanguage): string {
     const copy = uiText(language, 'ankiHelp');
-    const linkLabel = language === 'ja' ? 'AnkiConnectアドオンを開く' : 'Open AnkiConnect add-on';
-    return `${escapeHtml(copy)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(linkLabel)}</a>`;
+    const addOnLabel = language === 'ja' ? 'AnkiConnectアドオンを開く' : 'Open AnkiConnect add-on';
+    const docsLabel = language === 'ja' ? 'モバイルAnki設定ドキュメント' : 'Mobile Anki setup docs';
+    return `${escapeHtml(copy)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(addOnLabel)}</a> <a href="${MOBILE_ANKI_SETUP_DOCS_URL}" target="_blank" rel="noopener">${externalButtonLabel(docsLabel)}</a>`;
 }
 
 export function installShortcutCapture(root: HTMLElement): void {
@@ -2058,65 +1896,6 @@ function syncSubtitlePreviewColorClasses(form: HTMLFormElement, preview: HTMLEle
             preview.classList.toggle(`jpdb-reader-subtitle-${channel}-${source}`, classes[channel] === source);
         });
     });
-}
-
-export function renderDeckControls(settings: ReaderSettings, decks: JPDBDeck[], hasApiKey: boolean, language: InterfaceLanguage = settings.interfaceLanguage): string {
-    const disabled = !hasApiKey || !decks.length;
-    const deckOptions = decks.map(deck => [deck.id, deck.name] as [string, string]);
-    const miningOptions = [['forq', 'FORQ'], ...deckOptions] as [string, string][];
-    const newTabOptions = [['all', 'All study decks'], ['never-forget', 'Never forget'], ...deckOptions] as [string, string][];
-    return `
-        <div class="grid">
-            ${deckSelect('miningDeck', 'Mining deck', settings.miningDeck, miningOptions, disabled, language)}
-            ${deckSelect('newTabJpdbDeck', 'New tab JPDB deck', settings.newTabJpdbDeck, newTabOptions, disabled, language)}
-            ${deckSelect('neverForgetDeck', 'Never forget deck', settings.neverForgetDeck, deckOptions, disabled, language)}
-            ${deckSelect('blacklistDeck', 'Blacklist deck', settings.blacklistDeck, deckOptions, disabled, language)}
-        </div>
-        <div class="jpdb-reader-help">${hasApiKey ? (decks.length ? 'Decks are loaded from your JPDB account.' : 'Could not load decks yet; saved deck IDs will be kept.') : 'Add your JPDB API key to choose decks.'}</div>
-    `;
-}
-
-function deckSelect(name: string, label: string, value: string, options: [string, string][], disabled: boolean, language: InterfaceLanguage): string {
-    const hasValue = options.some(([optionValue]) => optionValue === value);
-    const savedLabel = uiText(language, 'savedValue').replace('{value}', value);
-    const merged = hasValue || !value ? options : [[value, savedLabel] as [string, string], ...options];
-    return `<label>${label}
-        <select name="${name}" ${disabled ? 'disabled' : ''}>
-            ${merged.map(([optionValue, text]) => `<option value="${escapeHtml(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}
-        </select>
-        ${disabled ? `<input type="hidden" name="${name}" value="${escapeHtml(value)}">` : ''}
-    </label>`;
-}
-
-export function renderAnkiTemplatePreview(settings: ReaderSettings): string {
-    const contextMode = settings.ankiTemplateMode === 'context';
-    const front = contextMode
-        ? `${settings.ankiFrontImage ? '<small>Image appears above the prompt when available.</small>' : ''}<div class="jpdb-reader-template-sentence">今日は<span>本を読む</span>。</div><small>Recall the highlighted word from context.</small>`
-        : [
-            '<div class="jpdb-reader-template-expression">読む</div>',
-            settings.ankiFrontReading ? '<div class="jpdb-reader-template-reading">よむ</div>' : '',
-            settings.ankiFrontSentence ? '<div class="jpdb-reader-template-sentence">今日は<span>本を読む</span>。</div>' : '',
-            settings.ankiFrontImage ? '<small>Image appears on the front when available.</small>' : '',
-            '<small>Recall the meaning first.</small>',
-        ].filter(Boolean).join('');
-    return `
-        <div class="jpdb-reader-template-preview">
-            <div class="jpdb-reader-template-preview-title">${contextMode ? 'Sentence first preset' : 'Word first preset'}</div>
-            <div class="jpdb-reader-template-preview-grid">
-                <div>
-                    <strong>Front</strong>
-                    ${front}
-                </div>
-                <div>
-                    <strong>Back</strong>
-                    <div class="jpdb-reader-template-expression">読む</div>
-                    <div class="jpdb-reader-template-reading">よむ</div>
-                    <div class="jpdb-reader-template-meaning">to read</div>
-                    <small>Includes dictionary, kanji, pitch, frequency, source, and image fields when available.</small>
-                </div>
-            </div>
-        </div>
-    `;
 }
 
 export function renderDictionarySourceRows(settings: ReaderSettings): string {

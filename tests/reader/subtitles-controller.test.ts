@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OPEN_SUBTITLE_TRACKS_EVENT } from '../../src/reader/constants';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import { readPageCaptionText } from '../../src/reader/subtitle-dom-captions';
-import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles';
+import { readPageCaptionText } from '../../src/reader/subtitles/subtitle-dom-captions';
+import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles/controller';
 import type { JPDBToken, ReaderSettings } from '../../src/reader/types';
 
 const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
@@ -426,6 +426,134 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('clamps an oversized side drawer instead of falling back below on wide CIJ layouts', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://cijapanese.com/video/560') as unknown as Location,
+        });
+
+        try {
+            withViewport(1600, 900, () => {
+                const settings = {
+                    ...DEFAULT_SETTINGS,
+                    apiKey: '',
+                    localDictionariesEnabled: false,
+                    subtitleTranscriptVisible: false,
+                    subtitleTranscriptPlacement: 'right' as const,
+                };
+                const controller = new SubtitlePlayerController({
+                    getSettings: () => settings,
+                    parseJapanese: async () => [],
+                    onSettingsChange: () => undefined,
+                });
+
+                try {
+                    document.body.innerHTML = '<section class="lesson-player"><video></video></section>';
+                    const frame = document.querySelector<HTMLElement>('.lesson-player')!;
+                    const video = document.querySelector<HTMLVideoElement>('video')!;
+                    mockElementRect(frame, new DOMRect(70, 120, 1080, 700));
+                    mockElementRect(video, new DOMRect(90, 210, 960, 540));
+                    const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
+                    const internals = controller as unknown as {
+                        install: () => void;
+                        video: HTMLVideoElement;
+                        cues: Array<typeof cue>;
+                        currentCue: typeof cue;
+                        openLinesPanel: () => void;
+                        transcriptPanelSize: { sideWidth?: number };
+                    };
+                    internals.install();
+                    internals.video = video;
+                    internals.cues = [cue];
+                    internals.currentCue = cue;
+                    internals.transcriptPanelSize.sideWidth = 1200;
+
+                    internals.openLinesPanel();
+
+                    const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                    expect(panel.dataset.transcriptPlacement).toBe('right');
+                    expect(panel.style.width).toBe('930px');
+                    expect(panel.style.top).toBe('120px');
+                    expect(internals.transcriptPanelSize.sideWidth).toBe(1200);
+                } finally {
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('changes transcript docking from the drawer controls while the rail remains the close control', () => {
+        withViewport(1600, 900, () => {
+            const onSettingsChange = vi.fn();
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                localDictionariesEnabled: false,
+                subtitleTranscriptVisible: false,
+                subtitleTranscriptPlacement: 'right' as const,
+            };
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async () => [],
+                onSettingsChange,
+            });
+
+            try {
+                const video = document.createElement('video');
+                document.body.appendChild(video);
+                mockElementRect(video, new DOMRect(80, 80, 1040, 585));
+                const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
+                const internals = controller as unknown as {
+                    install: () => void;
+                    video: HTMLVideoElement;
+                    cues: Array<typeof cue>;
+                    currentCue: typeof cue;
+                    openLinesPanel: () => void;
+                    openTracksPanel: () => void;
+                };
+                internals.install();
+                internals.video = video;
+                internals.cues = [cue];
+                internals.currentCue = cue;
+
+                internals.openLinesPanel();
+
+                let panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                expect(panel.querySelector('[data-action="close-panel"]')).toBeNull();
+                expect(panel.querySelectorAll('[data-action="transcript-placement"][data-placement]')).toHaveLength(3);
+
+                panel.querySelector<HTMLButtonElement>('[data-action="transcript-placement"][data-placement="bottom"]')!.click();
+
+                panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                expect(settings.subtitleTranscriptPlacement).toBe('bottom');
+                expect(panel.dataset.transcriptPlacement).toBe('bottom');
+                expect(panel.querySelector<HTMLButtonElement>('[data-placement="bottom"]')?.getAttribute('aria-pressed')).toBe('true');
+
+                panel.querySelector<HTMLButtonElement>('[data-action="transcript-placement"][data-placement="right"]')!.click();
+
+                panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                expect(settings.subtitleTranscriptPlacement).toBe('right');
+                expect(panel.dataset.transcriptPlacement).toBe('right');
+                expect(panel.querySelector<HTMLButtonElement>('[data-placement="right"]')?.getAttribute('aria-pressed')).toBe('true');
+
+                internals.openTracksPanel();
+                panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
+                expect(panel.querySelector('[data-action="close-panel"]')).toBeNull();
+                expect(panel.querySelectorAll('[data-action="transcript-placement"][data-placement]')).toHaveLength(3);
+                expect(onSettingsChange).toHaveBeenCalled();
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
     it('opens the tracks drawer from the rail panel toggle when lines are unavailable', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -569,7 +697,8 @@ describe('SubtitlePlayerController', () => {
             expect(autoButton.textContent).toContain('Auto');
             expect(autoButton.getAttribute('aria-pressed')).toBe('false');
             expect(autoButton.getAttribute('aria-label')).toBe('Auto-hide panel while playing');
-            expect(panel.querySelector('[data-action="close-panel"]')).not.toBeNull();
+            expect(panel.querySelector('[data-action="close-panel"]')).toBeNull();
+            expect(panel.querySelectorAll('[data-action="transcript-placement"][data-placement]')).toHaveLength(3);
 
             autoButton.click();
 
@@ -1206,8 +1335,8 @@ describe('SubtitlePlayerController', () => {
 
                 handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
 
-                expect(panel.style.height).toBe('425px');
-                expect(handle.getAttribute('aria-valuenow')).toBe('425');
+                expect(panel.style.height).toBe('410px');
+                expect(handle.getAttribute('aria-valuenow')).toBe('410');
             } finally {
                 controller.destroy();
             }

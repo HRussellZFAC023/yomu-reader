@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { assert } from './smoke-harness.mjs';
+import { dragTranscriptResizeHandle } from './subtitle-layout-test-utils.mjs';
 
 const USERSCRIPT_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_USERSCRIPT ?? 'dist/yomu.user.js');
 const CSS_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_CSS ?? 'dist/yomu.css');
@@ -796,7 +797,7 @@ function rowFontShadow(rowFont) {
 }
 
 async function closePanelAndReadIdleControls(page) {
-    await page.locator('.jpdb-subtitle-list [data-action="close-panel"]').click();
+    await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click();
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 6000 });
     await page.mouse.move(4, 4);
     await page.waitForTimeout(350);
@@ -881,17 +882,13 @@ async function clickTeacherCommentWord(page) {
 }
 
 async function resizePanel(page, placement) {
-    const handle = await page.locator('[data-resize-transcript]').boundingBox();
-    assert(handle, 'Transcript resize handle is missing');
-    const x = handle.x + handle.width / 2;
-    const y = handle.y + handle.height / 2;
-    await page.mouse.move(x, y);
-    await page.mouse.down();
-    if (placement === 'left') await page.mouse.move(x + 120, y, { steps: 6 });
-    else if (placement === 'bottom') await page.mouse.move(x, y - 100, { steps: 6 });
-    else await page.mouse.move(x - 120, y, { steps: 6 });
-    await page.mouse.up();
-    await page.waitForTimeout(350);
+    await dragTranscriptResizeHandle(page, placement, {
+        assert,
+        bottomDelta: -100,
+        leftDelta: 120,
+        missingMessage: 'Transcript resize handle is missing',
+        rightDelta: -120,
+    });
 }
 
 function assertNonOverlappingLayout(layout, label) {

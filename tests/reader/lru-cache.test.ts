@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { LruCache } from '../../src/reader/lru-cache';
+import { LruCache } from '../../src/reader/core/lru-cache';
 
 describe('LruCache', () => {
     it('returns undefined for missing keys', () => {

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createAudioPreviewCard } from '../../src/reader/card-utils';
 import { SettingsDialogController } from '../../src/reader/settings-dialog-controller';
@@ -19,6 +19,22 @@ vi.mock('../../src/reader/settings-form', async importOriginal => {
         }),
     };
 });
+
+const { jitenPingMock, jitenApiClientMock, jitenApiClientConstructorMock } = vi.hoisted(() => ({
+    jitenPingMock: vi.fn(),
+    jitenApiClientMock: vi.fn(),
+    jitenApiClientConstructorMock: vi.fn(),
+}));
+vi.mock('../../src/reader/jiten', () => ({
+    JitenApiClient: jitenApiClientConstructorMock,
+}));
+
+function installJitenApiClientMock(): void {
+    jitenApiClientConstructorMock.mockImplementation((getApiKey: () => string, options?: { proxyUrl?: string | (() => string) }) => {
+        jitenApiClientMock({ apiKey: getApiKey(), proxyUrl: typeof options?.proxyUrl === 'function' ? options.proxyUrl() : options?.proxyUrl });
+        return { ping: jitenPingMock };
+    });
+}
 
 type SettingsDialogControllerConstructor = new (dependencies: Record<string, unknown>) => SettingsDialogController;
 type RefreshableSettingsDialogController = {
@@ -185,6 +201,49 @@ function flushPromises(): Promise<void> {
     return Promise.resolve();
 }
 
+function testRect(top: number, bottom: number, width = 320): DOMRect {
+    return {
+        x: 0,
+        y: top,
+        width,
+        height: bottom - top,
+        top,
+        right: width,
+        bottom,
+        left: 0,
+        toJSON: () => ({}),
+    } as DOMRect;
+}
+
+function ankiStatus(form: HTMLFormElement): HTMLElement {
+    return form.querySelector<HTMLElement>('[data-anki-status]')!;
+}
+
+function ankiStatusMainText(form: HTMLFormElement): string {
+    return form.querySelector<HTMLElement>('[data-anki-status] .jpdb-reader-status-main')!.textContent ?? '';
+}
+
+function ankiStatusLinkText(form: HTMLFormElement, hrefSelector: string): string {
+    return form.querySelector<HTMLAnchorElement>(`[data-anki-status] ${hrefSelector}`)!.textContent ?? '';
+}
+
+async function waitForAnkiStatusText(form: HTMLFormElement, text: string): Promise<void> {
+    await waitForCondition(() => ankiStatusText(form).includes(text));
+}
+
+function expectAnkiConnectSetupStatus(form: HTMLFormElement): void {
+    const text = ankiStatusText(form);
+    expect(ankiStatus(form).dataset.statusTone).toBe('pending');
+    expect(ankiStatusMainText(form)).toContain('Needs setup: AnkiConnect not reached');
+    expect(text).toContain('Open desktop Anki');
+    expect(ankiStatusLinkText(form, 'a[href="https://ankiweb.net/shared/info/2055492159"]')).toContain('Install/enable AnkiConnect');
+    expect(ankiStatusLinkText(form, 'a[href$="getting-started#use-desktop-anki-from-a-phone-ipad-or-android"]')).toContain('Mobile setup docs');
+    expect(text).toContain('Use the LAN/Tailscale URL on mobile');
+    expect(text).not.toContain('enable handoff');
+    expect(text).not.toContain('install or enable AnkiConnect, then check again');
+    expect(text).not.toContain('webCorsOriginList');
+}
+
 async function waitForCondition(predicate: () => boolean): Promise<void> {
     for (let attempt = 0; attempt < 30; attempt++) {
         await flushPromises();
@@ -207,9 +266,16 @@ function importSummary(dictionary: string): ImportSummary {
 }
 
 describe('settings dialog keyboard dismissal', () => {
+    beforeEach(() => {
+        installJitenApiClientMock();
+    });
+
     afterEach(() => {
         document.body.replaceChildren();
         localStorage.clear();
+        jitenPingMock.mockReset();
+        jitenApiClientMock.mockClear();
+        jitenApiClientConstructorMock.mockReset();
         vi.restoreAllMocks();
         vi.unstubAllGlobals();
     });
@@ -251,6 +317,51 @@ describe('settings dialog keyboard dismissal', () => {
 
         expect(backward.defaultPrevented).toBe(true);
         expect(document.activeElement).toBe(last);
+    });
+
+    it('scrolls focused settings controls above the mobile keyboard and footer', () => {
+        const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
+        const viewportDescriptor = Object.getOwnPropertyDescriptor(window, 'visualViewport');
+        const viewport = new EventTarget() as VisualViewport;
+        Object.defineProperties(viewport, {
+            height: { configurable: true, value: 460 },
+            width: { configurable: true, value: 390 },
+            offsetLeft: { configurable: true, value: 0 },
+            offsetTop: { configurable: true, value: 0 },
+            pageLeft: { configurable: true, value: 0 },
+            pageTop: { configurable: true, value: 0 },
+            scale: { configurable: true, value: 1 },
+        });
+        Object.defineProperty(window, 'requestAnimationFrame', {
+            configurable: true,
+            value: (callback: FrameRequestCallback) => {
+                callback(0);
+                return 1;
+            },
+        });
+        Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
+
+        try {
+            const { form } = createSettingsDialog();
+            const scroll = form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll')!;
+            const footer = form.querySelector<HTMLElement>('.footer')!;
+            const input = form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')!;
+
+            vi.spyOn(scroll, 'getBoundingClientRect').mockReturnValue(testRect(118, 374));
+            vi.spyOn(footer, 'getBoundingClientRect').mockReturnValue(testRect(390, 454));
+            vi.spyOn(input, 'getBoundingClientRect').mockReturnValue(testRect(360, 414));
+
+            input.focus();
+            scroll.scrollTop = 0;
+            input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+
+            expect(scroll.scrollTop).toBe(56);
+        } finally {
+            if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
+            else delete (window as unknown as Record<string, unknown>).requestAnimationFrame;
+            if (viewportDescriptor) Object.defineProperty(window, 'visualViewport', viewportDescriptor);
+            else delete (window as unknown as Record<string, unknown>).visualViewport;
+        }
     });
 
     it('lets shortcut fields record Escape without closing the dialog', () => {
@@ -432,13 +543,14 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent === 'Connected. AnkiConnect is reachable.');
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Connected. AnkiConnect is reachable.') ?? false);
         await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone === 'success');
 
         expect(isConnected).toHaveBeenCalledOnce();
         expect(ensureDeckAndModel).not.toHaveBeenCalled();
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('success');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toBe('Connected. AnkiConnect is reachable.');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Ready:');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Connected. AnkiConnect is reachable.');
     });
 
     it('shows disabled Anki status without probing when Anki mining is off', async () => {
@@ -490,14 +602,10 @@ describe('settings dialog keyboard dismissal', () => {
 
         url.value = 'http://127.0.0.1:9999';
         url.dispatchEvent(new Event('change', { bubbles: true }));
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect not reached') ?? false);
+        await waitForAnkiStatusText(form, 'AnkiConnect not reached');
 
         expect(isConnected).toHaveBeenCalledTimes(2);
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Desktop: open Anki and the add-on');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Mobile: use your desktop LAN/Tailscale URL or enable handoff');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('webCorsOriginList');
+        expectAnkiConnectSetupStatus(form);
     });
 
     it('keeps a failed manual AnkiConnect check in the setup tone instead of showing a hard error', async () => {
@@ -512,12 +620,9 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect not reached') ?? false);
+        await waitForAnkiStatusText(form, 'AnkiConnect not reached');
 
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Desktop: open Anki and the add-on');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Mobile: use your desktop LAN/Tailscale URL or enable handoff');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect');
+        expectAnkiConnectSetupStatus(form);
         expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('AnkiConnect not reached'));
     });
 
@@ -533,13 +638,10 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect not reached') ?? false);
+        await waitForAnkiStatusText(form, 'AnkiConnect not reached');
 
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Desktop: open Anki and the add-on');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Mobile: use your desktop LAN/Tailscale URL or enable handoff');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('request failed');
+        expectAnkiConnectSetupStatus(form);
+        expect(ankiStatusText(form)).not.toContain('request failed');
         expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('AnkiConnect request failed'));
     });
 
@@ -573,7 +675,65 @@ describe('settings dialog keyboard dismissal', () => {
         apiKey.dispatchEvent(new Event('input', { bubbles: true }));
 
         expect(status.dataset.statusTone).toBe('pending');
-        expect(status.textContent).toContain('No JPDB key');
+        expect(status.textContent).toContain('No JPDB or Jiten key');
+    });
+
+    it('updates the API status light when the Jiten API key field changes', () => {
+        const { form } = createSettingsDialog();
+        const status = form.querySelector<HTMLElement>('[data-jpdb-status]')!;
+        const jitenStatus = form.querySelector<HTMLElement>('[data-jiten-status]')!;
+        const jpdbApiKey = form.querySelector<HTMLInputElement>('input[name="apiKey"]')!;
+        const jitenApiKey = form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')!;
+
+        expect(status.dataset.statusTone).toBe('pending');
+        expect(jpdbApiKey.value).toBe('');
+
+        jitenApiKey.value = 'jiten-key';
+        jitenApiKey.dispatchEvent(new Event('input', { bubbles: true }));
+
+        expect(status.dataset.statusTone).toBe('success');
+        expect(status.textContent).toContain('Jiten key set');
+        expect(status.textContent).toContain('JPDB-backed cards need a JPDB key');
+        expect(jitenStatus.textContent).toContain('Jiten key configured');
+        expect(jpdbApiKey.value).toBe('');
+    });
+
+    it('checks the Jiten API key through the settings action', async () => {
+        jitenPingMock.mockResolvedValueOnce(true);
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', corsProxyUrl: 'https://proxy.example.test' };
+        const { form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+        });
+        const jitenApiKey = form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')!;
+        const status = form.querySelector<HTMLElement>('[data-jiten-status]')!;
+
+        jitenApiKey.value = '  jiten-key  ';
+        form.querySelector<HTMLButtonElement>('[data-action="check-jiten-api"]')?.click();
+        await waitForCondition(() => status.textContent?.includes('Jiten Reader API is reachable') ?? false);
+
+        expect(jitenApiClientMock).toHaveBeenCalledWith({ apiKey: 'jiten-key', proxyUrl: 'https://proxy.example.test' });
+        expect(jitenPingMock).toHaveBeenCalledOnce();
+        expect(status.dataset.statusTone).toBe('success');
+    });
+
+    it('shows a Jiten connection error without saving the form', async () => {
+        jitenPingMock.mockRejectedValueOnce(new Error('Jiten rejected the API key.'));
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '' };
+        const { dependencies, form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+        });
+        const jitenApiKey = form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')!;
+        const status = form.querySelector<HTMLElement>('[data-jiten-status]')!;
+
+        jitenApiKey.value = 'bad-key';
+        form.querySelector<HTMLButtonElement>('[data-action="check-jiten-api"]')?.click();
+        await waitForCondition(() => status.textContent?.includes('Jiten rejected the API key') ?? false);
+
+        expect(status.dataset.statusTone).toBe('error');
+        expect(dependencies.toast).toHaveBeenCalledWith('Jiten rejected the API key.');
+        expect(settings.jitenApiKey).toBe('');
     });
 
     it('prepares the Yomu Anki deck and note type only from the explicit prepare action', async () => {
@@ -736,13 +896,16 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Hosted Anki checks need the Yomu userscript bridge') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Hosted Anki bridge not found') ?? false);
 
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
         expect(status?.dataset.statusTone).toBe('pending');
-        expect(status?.textContent).toContain('Enable it here');
-        expect(status?.textContent).toContain('refresh');
+        expect(status?.querySelector<HTMLElement>('.jpdb-reader-status-main')?.textContent).toContain('Needs setup: Hosted Anki bridge not found');
+        expect(status?.textContent).toContain('Enable the installed');
+        expect(status?.textContent).toContain('userscript');
+        expect(status?.textContent).toContain('Refresh, then check again');
         expect(status?.textContent).not.toContain('request bridge');
+        expect(status?.textContent).not.toContain('webCorsOriginList');
         expect(toast).not.toHaveBeenCalled();
         vi.unstubAllGlobals();
     });
@@ -759,13 +922,16 @@ describe('settings dialog keyboard dismissal', () => {
             anki: { isConnected },
         });
 
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Hosted Anki checks need the Yomu userscript bridge') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Hosted Anki bridge not found') ?? false);
 
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
         expect(status?.dataset.statusTone).toBe('pending');
-        expect(status?.textContent).toContain('Enable it here');
-        expect(status?.textContent).toContain('refresh');
+        expect(status?.querySelector<HTMLElement>('.jpdb-reader-status-main')?.textContent).toContain('Needs setup: Hosted Anki bridge not found');
+        expect(status?.textContent).toContain('Enable the installed');
+        expect(status?.textContent).toContain('userscript');
+        expect(status?.textContent).toContain('Refresh, then check again');
         expect(status?.textContent).not.toContain('Mobile');
+        expect(status?.textContent).not.toContain('webCorsOriginList');
         vi.unstubAllGlobals();
     });
 

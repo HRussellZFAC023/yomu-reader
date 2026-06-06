@@ -791,9 +791,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   background: var(--jpdb-reader-accent-soft);
   color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
 }
-.jpdb-subtitle-drawer-auto svg,
-.jpdb-subtitle-drawer-close,
-.jpdb-subtitle-close {
+.jpdb-subtitle-drawer-auto svg {
   display: inline-grid;
   place-items: center;
 }
@@ -806,27 +804,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.jpdb-subtitle-drawer-close,
-.jpdb-subtitle-close {
-  min-width: 34px;
-  width: 34px;
-  min-height: 34px;
-  height: 34px;
-  padding: 0 !important;
-  border-radius: 12px !important;
-}
-.jpdb-subtitle-drawer-close svg,
-.jpdb-subtitle-close svg {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
 .jpdb-subtitle-panel-mode,
-.jpdb-subtitle-panel-nav {
+.jpdb-subtitle-panel-nav,
+.jpdb-subtitle-panel-placement {
   justify-self: start;
   width: max-content;
   display: inline-flex;
@@ -856,7 +836,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-panel-mode button:disabled {
   opacity: .42;
 }
-.jpdb-subtitle-panel-nav button {
+.jpdb-subtitle-panel-nav button,
+.jpdb-subtitle-panel-placement button {
   display: inline-grid;
   place-items: center;
   min-width: 32px;
@@ -871,6 +852,19 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   box-shadow: none;
   font-size: 19px;
   line-height: 0;
+}
+.jpdb-subtitle-panel-placement button[aria-pressed="true"] {
+  color: var(--jpdb-reader-text);
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
+}
+.jpdb-subtitle-panel-placement svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .jpdb-subtitle-panel-nav button:disabled {
   opacity: .38;
@@ -1146,9 +1140,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   .jpdb-subtitle-track-tools button {
     min-height: 44px;
   }
-  .jpdb-subtitle-drawer-close,
-  .jpdb-subtitle-close,
   .jpdb-subtitle-panel-nav button,
+  .jpdb-subtitle-panel-placement button,
   .jpdb-subtitle-row-copy {
     min-width: 44px;
     width: 44px;
