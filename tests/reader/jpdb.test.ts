@@ -24960,6 +24960,22 @@ describe('reader helpers', () => {
         ]);
     });
 
+    it('keeps split inline kana as one automatic scan target', () => {
+        const rectSpy = mockElementBoundingClientRect();
+        document.body.innerHTML = `
+            <main>
+                <article>
+                    <p><span>に</span><span>ほ</span><span>ん</span><span>ご</span><span>の</span><span>じ</span><span>か</span><span>ん</span></p>
+                </article>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://example.com/article');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(['にほんごのじかん']);
+    });
+
     it('does not cap default page scans at two thousand targets', () => {
         const rectSpy = mockElementBoundingClientRect();
         const paragraphs = Array.from({ length: 2005 }, (_, index) => `<p>日本語の文章${index}</p>`).join('');

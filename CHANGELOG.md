@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.22] - 2026-06-06
+
+### Fixed
+
+- Made raw page taps build lookup context across split inline kana nodes, so tapping any character in text like `にほんご` opens the full JPDB dictionary entry instead of fragment lookups like `ほん`.
+- Removed unused refactor leftovers and private-only exports so the CI dead-code gate passes again.
+
 ## [0.6.21] - 2026-06-06
 
 ### Fixed
