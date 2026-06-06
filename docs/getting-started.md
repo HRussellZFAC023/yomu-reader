@@ -208,7 +208,7 @@ If the MagicDNS name doesn't connect, use the `100.x.y.z` address. Don't put Ank
 
 ### Mobile handoff (new notes only)
 
-If you'd rather not run desktop Anki, よむ can hand a new note to **AnkiMobile** or **AnkiDroid**. This is one-way: it only starts a new note. It can't read your collection, show existing-card status, update old notes, or provide review queues — those need desktop AnkiConnect. Leave **Mobile Anki add-note fallback** on or off as you like; it's only this fallback path.
+If you'd rather not run desktop Anki, よむ can hand a new note to **AnkiMobile** or **AnkiDroid**. Mobile Anki handoff is one-way: it only starts a new note. It cannot scan existing decks, show existing-card status, update old notes, or provide review queues — those need desktop AnkiConnect. Leave **Mobile Anki add-note fallback** on or off as you like; it's only this fallback path.
 
 ## Back up your settings
 
