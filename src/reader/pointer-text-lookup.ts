@@ -259,7 +259,7 @@ export function pointerTextLookupFromTextNode(node: Text, characterOffset: numbe
     return contextual ?? local;
 }
 
-export function isLowValuePointerText(text: string, parent?: HTMLElement | null): boolean {
+function isLowValuePointerText(text: string, parent?: HTMLElement | null): boolean {
     const compact = text.replace(/\s+/g, '');
     if (!compact) return true;
     if (parent?.closest(YOUTUBE_METADATA_SELECTOR)) return true;

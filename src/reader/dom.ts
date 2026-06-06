@@ -703,7 +703,7 @@ function isWhitespaceAt(value: string, index: number): boolean {
     return /\s/u.test(value[index] ?? '');
 }
 
-export function isFragmentTextTarget(target: ScanTextTarget): target is FragmentTextTarget {
+function isFragmentTextTarget(target: ScanTextTarget): target is FragmentTextTarget {
     return 'fragments' in target;
 }
 
@@ -867,7 +867,7 @@ function canReadSentenceContextFrom(element: HTMLElement): boolean {
         || Boolean(element.closest('.jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer'));
 }
 
-export function sentenceAroundSurface(value: string, surface = '', fallback = ''): string {
+function sentenceAroundSurface(value: string, surface = '', fallback = ''): string {
     const text = cleanReadableSentence(value);
     if (!isJapaneseSentenceContext(text)) return '';
 
@@ -1138,7 +1138,7 @@ function appendPlainTextBeforeToken(fragment: DocumentFragment, text: string, st
     if (end > start) fragment.append(document.createTextNode(text.slice(start, end)));
 }
 
-export function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
+function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
     if (!hasFragmentTokenWork(target, tokens)) return;
 
     const safeTokens = nonOverlappingTokens(tokens, target.text.length);

@@ -152,7 +152,7 @@ const SAFE_UI_CHROME_EXCLUDE = [
     '[class*="voice" i]',
 ].join(',');
 const SAFE_UI_CHROME_MAX_COMPACT_LENGTH = 80;
-export const YOMU_HOSTED_DOCS_PARSER_ID = 'yomu-hosted-docs-parser';
+const YOMU_HOSTED_DOCS_PARSER_ID = 'yomu-hosted-docs-parser';
 const JPDB_PARSER_ID = 'jpdb-parser';
 const YOMU_HOSTED_DOCS_ROOTS = [
     '.VPHero .heading',
