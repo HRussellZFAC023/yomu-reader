@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ANKI_SOURCE_ID } from '../../src/reader/constants';
 import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/nested-text-parse';
-import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings';
+import { DEFAULT_SETTINGS, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings';
 import { activateSettingsPanel, applySettingsSearch, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings-form';
 import { CUSTOM_FONT_FAMILY_VALUE } from '../../src/reader/settings-form-read';
 import { orderedDefinitionSourceIds } from '../../src/reader/source-sections';
@@ -224,6 +224,9 @@ describe('settings form localization', () => {
         expect(normalizeReaderSettings({}).ankiMobileHandoff).toBe(false);
         expect(normalizeReaderSettings({}).ankiMineWithJpdb).toBe(false);
         expect(normalizeReaderSettings({}).popupMode).toBe('auto');
+        expect(shouldLookupAnkiStatus(DEFAULT_SETTINGS)).toBe(false);
+        expect(effectiveReaderTextColorSource(DEFAULT_SETTINGS, DEFAULT_SETTINGS.wordTextColorSource)).toBe('off');
+        expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, DEFAULT_SETTINGS.wordTextColorSource)).toBe('anki');
         expect(form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.checked).toBe(false);
         expect(form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.value).toBe('auto');
         expect(form.querySelector<HTMLInputElement>('input[name="ankiTags"]')?.value).toBe('yomu');

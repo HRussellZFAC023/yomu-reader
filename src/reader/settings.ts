@@ -890,8 +890,10 @@ export function shouldLookupAnkiStatus(settings: Partial<ReaderSettings>): boole
     return Boolean(
         settings.ankiEnabled
         || settings.ankiSectionEnabled
-        || settings.furiganaMode === 'known-status'
-        || hasRequestedAnkiColorSource(settings)
+        || (settings.ankiEnabled && (
+            settings.furiganaMode === 'known-status'
+            || hasRequestedAnkiColorSource(settings)
+        ))
     );
 }
 
@@ -942,6 +944,9 @@ function effectiveAvailableColorSource(
     if (source === 'jpdb' && !hasJpdbStatusSource(settings)) {
         return fallback === 'jpdb' ? 'off' : effectiveAvailableColorSource(settings, fallback, 'off');
     }
+    if (source === 'anki' && !hasAnkiStatusSource(settings)) {
+        return fallback === 'anki' ? 'off' : effectiveAvailableColorSource(settings, fallback, 'off');
+    }
     if (source === 'anki') return 'anki';
     if (source === 'status') return effectiveAvailableStatusSource(settings, true);
     return source;
@@ -949,7 +954,7 @@ function effectiveAvailableColorSource(
 
 function effectiveAvailableStatusSource(settings: LegacyReaderSettings, includeRequestedAnki = false): ConcreteReaderColorSource {
     const hasJpdb = hasJpdbStatusSource(settings);
-    const hasAnki = includeRequestedAnki || hasAnkiStatusSource(settings);
+    const hasAnki = hasAnkiStatusSource(settings) || Boolean(includeRequestedAnki && settings.ankiEnabled && hasRequestedAnkiColorSource(settings));
     if (hasJpdb && hasAnki) return 'status';
     if (hasJpdb) return 'jpdb';
     if (hasAnki) return 'anki';
@@ -961,7 +966,7 @@ function hasJpdbStatusSource(settings: LegacyReaderSettings): boolean {
 }
 
 function hasAnkiStatusSource(settings: LegacyReaderSettings): boolean {
-    return Boolean(settings.ankiEnabled || (!hasJpdbStatusSource(settings) && hasRequestedAnkiColorSource(settings)));
+    return Boolean(settings.ankiEnabled || settings.ankiSectionEnabled);
 }
 
 function hasRequestedAnkiColorSource(settings: Partial<ReaderSettings>): boolean {
