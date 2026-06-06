@@ -1,7 +1,16 @@
 import { uiText } from './i18n';
 import { Logger } from './logger';
 import { ShuffledAudioDeck } from './audio-playback-queue';
-import { requestAudioUrl as requestUrl, type AudioRequestOptions } from './audio-request';
+import {
+    fetchAudioBlob,
+    getAudioCandidates,
+    preconnectAudioUrl,
+    shouldCacheAudioCandidates,
+    shouldFetchCandidateAsBlob,
+    shouldFetchDirectMediaAsBlob,
+    shouldForceBlobAudioCandidate,
+    shouldForceBlobAudioPlayback,
+} from './audio-candidates';
 import {
     audioCandidateSelectionMode,
     audioPreloadLimits,
@@ -13,7 +22,6 @@ import {
     isBrowserTextToSpeechSource,
     isJpdbWordAudioSource,
     isTextToSpeechFallbackSource,
-    normalizeAttemptedAudioUrl,
     orderAudioCandidates,
     orderAudioSources,
     preparedAudioCacheKey,
@@ -24,11 +32,13 @@ import {
     type OrderedAudioSource,
 } from './audio-source-resolution';
 import { canAttemptAudiblePlayback, reserveGestureAudioElement } from './media-activation';
+import {
+    fetchJpdbAudioBlob,
+    jpdbAudioPlaybackCandidates,
+    type JpdbAudioPlaybackCandidate,
+} from './jpdb-audio-file';
 import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
-import { DEFAULT_YOMU_PUBLIC_PROXY_URL, isKnownCorsBlockedPublicAudioCdnUrl } from './proxy-fetch';
-import { uniqueStrings } from './string-utils';
-import { getUserscriptHttpRequest } from './userscript';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from './types';
 
 interface AudioPlaybackOptions {
@@ -36,14 +46,19 @@ interface AudioPlaybackOptions {
     userGesture?: boolean;
 }
 
-interface JpdbAudioPlaybackCandidate {
-    audioIds: string[];
-    deckId: string;
-}
-
 interface AudioSourcePlayResult {
     state: 'played' | 'superseded' | 'miss' | 'playback-error';
     errors: string[];
+}
+
+interface AudioSourcePlaybackContext {
+    card: JPDBCard;
+    settings: ReaderSettings;
+    requestId: number;
+    triedUrls: Set<string>;
+    isCurrent: () => boolean;
+    errors: string[];
+    reservedAudio?: HTMLAudioElement;
 }
 
 interface PreparedAudioCandidate {
@@ -83,33 +98,31 @@ interface SoftChimeNote {
     gain: number;
 }
 
-const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
-const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
 const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1000;
 const AUDIO_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1000;
 const AUDIO_CANDIDATE_CACHE_LIMIT = 600;
 const READY_AUDIO_CACHE_LIMIT = 160;
 const AUDIO_SOURCE_RACE_STAGGER_MS = 120;
-const LOOPBACK_AUDIO_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
-const KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
 const SOFT_CHIME_NOTES: SoftChimeNote[] = [
     { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 },
 ];
-const JPDB_VOCABULARY_BASE_URL = 'https://jpdb.io/vocabulary';
-const JPDB_SEARCH_URL = 'https://jpdb.io/search';
-const JPDB_AUDIO_BASE_URL = 'https://jpdb.io/static/v';
-const JPDB_AUDIO_ACCESS_HEADER = "please don't steal these files";
-const JPDB_AUDIO_XOR_BYTES = [0x06, 0x23, 0x54, 0x0f] as const;
-const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
 const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1000;
-const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-const AUDIO_PRECONNECT_RELS = ['preconnect', 'dns-prefetch'] as const;
-const preconnectedAudioOrigins = new Set<string>();
 const log = Logger.scope('Audio');
 
 export { ShuffledAudioDeck } from './audio-playback-queue';
+export { decodeJpdbAudioBlob, fetchJpdbAudioBlob, jpdbAudioRequest, normalizeJpdbAudioIds } from './jpdb-audio-file';
+export {
+    blobToDataUrl,
+    fetchAudioBlob,
+    findAudioUrl,
+    findAudioUrls,
+    formatAudioUrl,
+    getAudioCandidates,
+    isJapanesePod101Url,
+    isUnavailableJapanesePod101Audio,
+} from './audio-candidates';
 
 class AudioPlaybackAttemptError extends Error {
     constructor(error: unknown) {
@@ -210,34 +223,30 @@ export class AudioPlayer {
     ): Promise<AudioSourcePlayResult> {
         const errors: string[] = [];
         const triedUrls = new Set<string>();
+        const context: AudioSourcePlaybackContext = { card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio };
+        const fallbackContext: AudioSourcePlaybackContext = { ...context, reservedAudio: undefined };
         if (settings.audioTtsMode === 'source-order') {
-            const result = await this.playOrderedSources(orderAudioSources(sources, settings.audioSelectionMode, card, this.shuffledAudio), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+            const result = await this.playOrderedSources(orderAudioSources(sources, settings.audioSelectionMode, card, this.shuffledAudio), context);
             return { state: result, errors };
         }
 
         const realAudioSources = sources.filter(source => !isTextToSpeechFallbackSource(source));
-        const realAudioResult = await this.playGreedyAudioSources(orderAudioSources(realAudioSources, settings.audioSelectionMode, card, this.shuffledAudio), card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+        const realAudioResult = await this.playGreedyAudioSources(orderAudioSources(realAudioSources, settings.audioSelectionMode, card, this.shuffledAudio), context);
         if (realAudioResult !== 'miss') return { state: realAudioResult, errors };
 
-        const jpdbWordAudioResult = await this.playOrderedSources(orderAudioSources(sources.filter(isJpdbWordAudioSource), settings.audioSelectionMode, card, this.shuffledAudio), card, settings, requestId, triedUrls, isCurrent, errors);
+        const jpdbWordAudioResult = await this.playOrderedSources(orderAudioSources(sources.filter(isJpdbWordAudioSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
         if (jpdbWordAudioResult !== 'miss') return { state: jpdbWordAudioResult, errors };
 
-        const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), card, settings, requestId, triedUrls, isCurrent, errors);
+        const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
         return { state: textToSpeechResult, errors };
     }
 
     private async playOrderedSources(
         sources: OrderedAudioSource[],
-        card: JPDBCard,
-        settings: ReaderSettings,
-        requestId: number,
-        triedUrls: Set<string>,
-        isCurrent: () => boolean,
-        errors: string[],
-        reservedAudio?: HTMLAudioElement,
+        context: AudioSourcePlaybackContext,
     ): Promise<AudioSourcePlayResult['state']> {
         for (const sourceEntry of sources) {
-            const result = await this.playSourceWithErrors(sourceEntry, card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+            const result = await this.playSourceWithErrors(sourceEntry, context);
             if (result !== 'miss') return result;
         }
         return 'miss';
@@ -245,68 +254,46 @@ export class AudioPlayer {
 
     private async playGreedyAudioSources(
         sources: OrderedAudioSource[],
-        card: JPDBCard,
-        settings: ReaderSettings,
-        requestId: number,
-        triedUrls: Set<string>,
-        isCurrent: () => boolean,
-        errors: string[],
-        reservedAudio?: HTMLAudioElement,
+        context: AudioSourcePlaybackContext,
     ): Promise<AudioSourcePlayResult['state']> {
         if (sources.length <= 1) {
-            return await this.playOrderedSources(sources, card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio);
+            return await this.playOrderedSources(sources, context);
         }
 
-        const pending = new Set<PendingAudioSourcePreparation>();
-        let nextSourceIndex = 0;
-        const startNextSource = () => {
-            const sourceEntry = sources[nextSourceIndex++];
-            if (sourceEntry) pending.add(this.prepareSourceWithErrors(sourceEntry, card, settings, requestId, triedUrls, isCurrent, errors));
-        };
+        const race = new AudioSourcePreparationRace(sources, sourceEntry =>
+            this.prepareSourceWithErrors(sourceEntry, context),
+        );
 
-        while (pending.size || nextSourceIndex < sources.length) {
-            if (!pending.size) {
-                startNextSource();
-                continue;
-            }
-
-            const current = nextSourceIndex < sources.length
-                ? await Promise.race([
-                    ...pending,
-                    delayAudioSourceRace(AUDIO_SOURCE_RACE_STAGGER_MS),
-                ])
-                : await Promise.race(pending);
+        while (race.hasWork()) {
+            const current = await race.next();
             if (!current) {
-                startNextSource();
                 continue;
             }
-            pending.delete(current.promise);
-            if (current.result.state === 'superseded') return 'superseded';
-            if (current.result.state !== 'ready' || !current.result.prepared) continue;
 
-            const result = await this.playPreparedCandidate(current.result.prepared, settings, requestId, isCurrent, reservedAudio)
-                .catch(error => {
-                    errors.push(error instanceof Error ? error.message : String(error));
-                    return error instanceof AudioPlaybackAttemptError ? 'playback-error' as const : 'miss' as const;
-                });
+            const result = await this.playPreparedSourceResult(current.result, context);
             if (result !== 'miss') return result;
         }
         return 'miss';
     }
 
+    private async playPreparedSourceResult(
+        result: AudioSourcePrepareResult,
+        context: AudioSourcePlaybackContext,
+    ): Promise<AudioSourcePlayResult['state']> {
+        if (result.state === 'superseded') return 'superseded';
+        if (result.state !== 'ready' || !result.prepared) return 'miss';
+        return await this.playPreparedCandidate(result.prepared, context.settings, context.requestId, context.isCurrent, context.reservedAudio)
+            .catch(error => audioPlaybackAttemptResult(error, context.errors));
+    }
+
     private prepareSourceWithErrors(
         sourceEntry: OrderedAudioSource,
-        card: JPDBCard,
-        settings: ReaderSettings,
-        requestId: number,
-        triedUrls: Set<string>,
-        isCurrent: () => boolean,
-        errors: string[],
+        context: AudioSourcePlaybackContext,
     ): PendingAudioSourcePreparation {
         let promise!: PendingAudioSourcePreparation;
-        promise = this.prepareSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent)
+        promise = this.prepareSource(sourceEntry, context.card, context.settings, context.requestId, context.triedUrls, context.isCurrent)
             .catch(error => {
-                errors.push(error instanceof Error ? error.message : String(error));
+                context.errors.push(error instanceof Error ? error.message : String(error));
                 this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
                 return { state: 'miss' as const };
             })
@@ -366,25 +353,19 @@ export class AudioPlayer {
 
     private async playSourceWithErrors(
         sourceEntry: OrderedAudioSource,
-        card: JPDBCard,
-        settings: ReaderSettings,
-        requestId: number,
-        triedUrls: Set<string>,
-        isCurrent: () => boolean,
-        errors: string[],
-        reservedAudio?: HTMLAudioElement,
+        context: AudioSourcePlaybackContext,
     ): Promise<AudioSourcePlayResult['state']> {
-        if (!this.isPlaybackCurrent(requestId, isCurrent)) {
+        if (!this.isPlaybackCurrent(context.requestId, context.isCurrent)) {
             return 'superseded';
         }
         try {
-            const played = await this.playFromSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent, reservedAudio);
-            const result = this.audioSourceAttemptResult(played, requestId, isCurrent);
+            const played = await this.playFromSource(sourceEntry, context.card, context.settings, context.requestId, context.triedUrls, context.isCurrent, context.reservedAudio);
+            const result = this.audioSourceAttemptResult(played, context.requestId, context.isCurrent);
             if (result === 'played') this.shuffledAudio.markPlayed(sourceEntry.bagKey, sourceEntry.id);
             else if (result === 'miss') this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
             return result;
         } catch (error) {
-            errors.push(error instanceof Error ? error.message : String(error));
+            context.errors.push(error instanceof Error ? error.message : String(error));
             if (error instanceof AudioPlaybackAttemptError) return 'playback-error';
             this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
             return 'miss';
@@ -470,6 +451,8 @@ export class AudioPlayer {
         return await this.playMissingAudioFallback(settings, requestId, isCurrent);
     }
 
+    // Runtime audio adapter: ReaderAudioActions calls this through dependency injection.
+    // fallow-ignore-next-line unused-class-member
     async playMediaUrl(audioUrl: string): Promise<boolean> {
         const settings = this.getSettings();
         this.ensureAudioEnabled(settings);
@@ -823,6 +806,44 @@ export class AudioPlayer {
     }
 }
 
+class AudioSourcePreparationRace {
+    private pending = new Set<PendingAudioSourcePreparation>();
+    private nextSourceIndex = 0;
+
+    constructor(
+        private sources: OrderedAudioSource[],
+        private prepare: (source: OrderedAudioSource) => PendingAudioSourcePreparation,
+    ) {}
+
+    hasWork(): boolean {
+        return this.pending.size > 0 || this.hasQueuedSources();
+    }
+
+    async next(): Promise<CompletedAudioSourcePreparation | undefined> {
+        if (!this.pending.size) return this.startNextSource();
+        const current = await this.racePendingSources();
+        if (!current) return this.startNextSource();
+        this.pending.delete(current.promise);
+        return current;
+    }
+
+    private racePendingSources(): Promise<CompletedAudioSourcePreparation | null> {
+        return this.hasQueuedSources()
+            ? Promise.race([...this.pending, delayAudioSourceRace(AUDIO_SOURCE_RACE_STAGGER_MS)])
+            : Promise.race(this.pending);
+    }
+
+    private startNextSource(): undefined {
+        const sourceEntry = this.sources[this.nextSourceIndex++];
+        if (sourceEntry) this.pending.add(this.prepare(sourceEntry));
+        return undefined;
+    }
+
+    private hasQueuedSources(): boolean {
+        return this.nextSourceIndex < this.sources.length;
+    }
+}
+
 function getAudioContextConstructor(): typeof AudioContext | undefined {
     return window.AudioContext
         ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -869,153 +890,6 @@ function waitForSoftChime(): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, 460));
 }
 
-export function formatAudioUrl(template: string, card: JPDBCard): string {
-    const replacements: Record<string, string> = {
-        term: card.spelling,
-        reading: card.reading,
-        language: 'ja',
-    };
-
-    return template.replace(/\{(term|reading|language)\}/g, (_, key: string) =>
-        encodeURIComponent(replacements[key] ?? ''),
-    );
-}
-
-export function findAudioUrl(value: unknown, sourceUrl?: string, mode: AudioSelectionMode = 'first'): string | null {
-    const urls = findAudioUrls(value, sourceUrl);
-    if (!urls.length) return null;
-    return mode === 'random' ? urls[Math.floor(Math.random() * urls.length)] : urls[0];
-}
-
-export function findAudioUrls(value: unknown, sourceUrl?: string): string[] {
-    const direct = directAudioUrlsForValue(value, sourceUrl);
-    return direct ?? [];
-}
-
-export function blobToDataUrl(blob: Blob, language: ReaderSettings['interfaceLanguage'] = 'en'): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(reader.error ?? new Error(uiText(language, 'couldNotReadAudio')));
-        reader.readAsDataURL(blob);
-    });
-}
-
-export async function fetchAudioBlob(
-    url: string,
-    sourceUrl: string,
-    timeoutMs: number,
-    mode: AudioSelectionMode,
-    proxyUrl: string,
-    language: ReaderSettings['interfaceLanguage'] = 'en',
-): Promise<Blob> {
-    const response = await requestUrl(url, 'blob', timeoutMs, { proxyUrl, language });
-    if (isJsonAudioResponse(response)) {
-        const nestedUrl = findAudioUrl(JSON.parse(await response.text()), sourceUrl, mode);
-        if (!nestedUrl) throw new Error(uiText(language, 'audioJsonMissingPlayableUrl'));
-        return fetchAudioBlob(nestedUrl, sourceUrl, timeoutMs, mode, proxyUrl, language);
-    }
-    if (!(response instanceof Blob)) throw new Error(uiText(language, 'audioSourceReturnedNoAudio'));
-    await assertPlayableAudioBlob(response, url, sourceUrl, language);
-    return response;
-}
-
-function directAudioUrlsForValue(value: unknown, sourceUrl?: string): string[] | null {
-    if (!value) return [];
-    if (typeof value === 'string') return findAudioUrlsInString(value, sourceUrl);
-    return structuredAudioUrlsForValue(value, sourceUrl);
-}
-
-function shouldForceBlobAudioPlayback(sourceType: AudioSourceType): boolean {
-    return sourceType === 'jpod101';
-}
-
-function shouldForceBlobAudioCandidate(candidate: AudioCandidate): boolean {
-    return isKnownCorsBlockedPublicAudioCdnUrl(candidate.url)
-        || isKnownCorsBlockedPublicAudioCdnUrl(candidate.sourceUrl);
-}
-
-function shouldFetchDirectMediaAsBlob(url: string): boolean {
-    return /^https?:\/\//i.test(url);
-}
-
-function structuredAudioUrlsForValue(value: unknown, sourceUrl?: string): string[] | null {
-    if (Array.isArray(value)) return uniqueAudioUrls(value.flatMap(item => findAudioUrls(item, sourceUrl)));
-    return typeof value === 'object' ? findAudioUrlsInRecord(value as Record<string, unknown>, sourceUrl) : null;
-}
-
-function findAudioUrlsInString(value: string, sourceUrl?: string): string[] {
-    if (value.startsWith('data:audio/')) return [value];
-    if (/^https?:\/\//.test(value) && isLikelyAudioUrl(value)) return [normalizeAudioUrl(value, sourceUrl)];
-    return uniqueAudioUrls(Array.from(value.matchAll(/https?:\/\/[^\s)"'<>\]]+/gi))
-        .map(match => match[0])
-        .filter(isLikelyAudioUrl)
-        .map(url => normalizeAudioUrl(url, sourceUrl)));
-}
-
-function findAudioUrlsInRecord(record: Record<string, unknown>, sourceUrl?: string): string[] {
-    const known = uniqueAudioUrls([...preferredAudioRecordUrls(record, sourceUrl), ...directAudioRecordUrls(record, sourceUrl)]);
-    return known.length ? known : nestedAudioRecordUrls(record, sourceUrl);
-}
-
-function preferredAudioRecordUrls(record: Record<string, unknown>, sourceUrl?: string): string[] {
-    return ['audioSources', 'sources', 'audio', 'audioUrl', 'src', 'source']
-        .flatMap(key => findAudioUrls(record[key], sourceUrl));
-}
-
-function directAudioRecordUrls(record: Record<string, unknown>, sourceUrl?: string): string[] {
-    return typeof record.url === 'string' && isLikelyAudioRecord(record)
-        ? findAudioUrls(record.url, sourceUrl)
-        : [];
-}
-
-function nestedAudioRecordUrls(record: Record<string, unknown>, sourceUrl?: string): string[] {
-    const knownKeys = new Set(['url', 'audioSources', 'sources', 'audio', 'audioUrl', 'src', 'source']);
-    return uniqueAudioUrls(Object.entries(record)
-        .filter(([key]) => !knownKeys.has(key))
-        .flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
-}
-
-export async function isUnavailableJapanesePod101Audio(blob: Blob): Promise<boolean> {
-    if (blob.size !== JAPANESE_POD_101_UNAVAILABLE_SIZE) return false;
-    try {
-        const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
-        const hash = [...new Uint8Array(digest)]
-            .map(value => value.toString(16).padStart(2, '0'))
-            .join('');
-        return hash === JAPANESE_POD_101_UNAVAILABLE_SHA256;
-    } catch {
-        return true;
-    }
-}
-
-export function isJsonAudioResponse(response: unknown): response is Blob {
-    return response instanceof Blob && response.type.includes('json');
-}
-
-export async function assertPlayableAudioBlob(response: Blob, url: string, sourceUrl: string, language: ReaderSettings['interfaceLanguage'] = 'en'): Promise<void> {
-    if (isErrorDocumentAudioBlob(response) || (!isLikelyAudioBlob(response) && !isLikelyAudioUrl(url) && !isLikelyAudioUrl(sourceUrl))) {
-        throw new Error(formatNonAudioResponseMessage(language, response.type));
-    }
-    if ((isJapanesePod101Url(url) || isJapanesePod101Url(sourceUrl)) && await isUnavailableJapanesePod101Audio(response)) {
-        throw new Error(uiText(language, 'japanesePod101NoAudio'));
-    }
-}
-
-function formatNonAudioResponseMessage(language: ReaderSettings['interfaceLanguage'], contentType: string): string {
-    const label = contentType || uiText(language, 'audioUnknownContentType');
-    return uiText(language, 'audioRequestReturnedNonAudioWithType').replace('{type}', label);
-}
-
-function isErrorDocumentAudioBlob(blob: Blob): boolean {
-    const type = blob.type.toLowerCase();
-    return type.startsWith('text/') || ['html', 'xml', 'json'].some(marker => type.includes(marker));
-}
-
-function isLikelyAudioBlob(blob: Blob): boolean {
-    return blob.type.toLowerCase().startsWith('audio/');
-}
-
 function shouldReserveGestureAudioElement(request: AudioPlaybackRequest): boolean {
     return request.userGesture
         && request.sources.some(source => !isBrowserTextToSpeechSource(source));
@@ -1023,6 +897,11 @@ function shouldReserveGestureAudioElement(request: AudioPlaybackRequest): boolea
 
 function delayAudioSourceRace(ms: number): Promise<null> {
     return new Promise(resolve => window.setTimeout(() => resolve(null), ms));
+}
+
+function audioPlaybackAttemptResult(error: unknown, errors: string[]): AudioSourcePlayResult['state'] {
+    errors.push(error instanceof Error ? error.message : String(error));
+    return error instanceof AudioPlaybackAttemptError ? 'playback-error' : 'miss';
 }
 
 function pruneTimedCache<T>(cache: Map<string, { expiresAt: number; promise: Promise<T> }>, limit: number, now = Date.now()): void {
@@ -1034,764 +913,4 @@ function pruneTimedCache<T>(cache: Map<string, { expiresAt: number; promise: Pro
         if (typeof oldest !== 'string') break;
         cache.delete(oldest);
     }
-}
-
-export async function getAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<AudioCandidate[]> {
-    return await (AUDIO_CANDIDATE_LOADERS[source.type] ?? loadNoAudioCandidates)(source, card, timeoutMs, proxyUrl);
-}
-
-function shouldCacheAudioCandidates(source: AudioSourceSetting, candidates: AudioCandidate[]): boolean {
-    return source.type !== 'jpdb-tts' || candidates.length > 1;
-}
-
-type AudioCandidateLoader = (source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string) => Promise<AudioCandidate[]>;
-
-const AUDIO_CANDIDATE_LOADERS: Partial<Record<AudioSourceType, AudioCandidateLoader>> = {
-    custom: loadCustomAudioCandidates,
-    'custom-json': loadCustomJsonAudioCandidates,
-    jpod101: loadJapanesePod101AudioCandidates,
-    'language-pod-101': loadLanguagePod101AudioCandidates,
-    jisho: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getJishoAudioUrls(card, timeoutMs, proxyUrl)),
-    'lingua-libre': async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, 'lingua-libre', timeoutMs, proxyUrl)),
-    wiktionary: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, 'wiktionary', timeoutMs, proxyUrl)),
-    'jpdb-tts': async (_source, card, timeoutMs, proxyUrl) => jpdbAudioIdsToCandidates(await getJpdbTtsAudioIds(card, timeoutMs, proxyUrl)),
-};
-
-async function loadNoAudioCandidates(): Promise<AudioCandidate[]> {
-    return [];
-}
-
-async function loadCustomAudioCandidates(source: AudioSourceSetting, card: JPDBCard): Promise<AudioCandidate[]> {
-    if (!source.url.trim()) return [];
-    const url = formatAudioUrl(source.url, card);
-    return [{ url, sourceUrl: url }];
-}
-
-async function loadCustomJsonAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<AudioCandidate[]> {
-    if (!source.url.trim()) return [];
-    const sourceUrl = formatAudioUrl(source.url, card);
-    const response = await requestUrl(sourceUrl, 'text', timeoutMs, { proxyUrl });
-    const urls = typeof response === 'string' ? findAudioUrls(JSON.parse(response), sourceUrl) : [];
-    return urls.map(url => ({ url, sourceUrl }));
-}
-
-async function loadJapanesePod101AudioCandidates(_source: AudioSourceSetting, card: JPDBCard): Promise<AudioCandidate[]> {
-    const url = getJapanesePod101Url(card);
-    return [{ url, sourceUrl: url }];
-}
-
-async function loadLanguagePod101AudioCandidates(_source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<AudioCandidate[]> {
-    const urls = await getLanguagePod101AudioUrls(card, timeoutMs, proxyUrl);
-    return urlsToAudioCandidates(urls.length ? urls : [getJapanesePod101Url(card)]);
-}
-
-function urlsToAudioCandidates(urls: string[]): AudioCandidate[] {
-    return urls.map(url => ({ url, sourceUrl: url }));
-}
-
-function jpdbAudioIdsToCandidates(audioIds: string[]): AudioCandidate[] {
-    return normalizeJpdbAudioIds(audioIds).map(audioId => ({
-        url: jpdbAudioRequest(audioId).url,
-        sourceUrl: jpdbAudioPageSourceUrl(audioId),
-        jpdbAudioId: audioId,
-    }));
-}
-
-function getJapanesePod101Url(card: JPDBCard): string {
-    const spelling = card.spelling.trim();
-    const reading = card.reading.trim() || spelling;
-    const params = new URLSearchParams();
-    if (spelling && spelling !== reading) params.set('kanji', spelling);
-    params.set('kana', reading);
-    return `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?${params.toString()}`;
-}
-
-export function isJapanesePod101Url(value: string): boolean {
-    try {
-        const url = new URL(value);
-        return url.hostname === 'assets.languagepod101.com' && url.pathname.endsWith('/audiomp3.php');
-    } catch {
-        return false;
-    }
-}
-
-async function getJpdbTtsAudioIds(card: JPDBCard, timeoutMs: number, proxyUrl = ''): Promise<string[]> {
-    for (const url of jpdbVocabularyAudioLookupUrls(card)) {
-        const response = await requestUrl(url, 'text', timeoutMs, { proxyUrl, credentials: 'same-origin', withCredentials: true }).catch(() => '');
-        if (typeof response !== 'string') continue;
-        const audioIds = extractJpdbVocabularyAudioIds(response, card, url);
-        if (audioIds.length) return audioIds;
-    }
-    return [];
-}
-
-function jpdbVocabularyAudioLookupUrls(card: JPDBCard): string[] {
-    const urls: string[] = [];
-    if (card.vid > 0) urls.push(jpdbVocabularyUrl(card.vid, card.spelling, card.reading));
-    for (const query of uniqueStrings([card.spelling, card.reading].filter(Boolean))) {
-        urls.push(`${JPDB_SEARCH_URL}?q=${encodeURIComponent(query)}`);
-    }
-    return uniqueStrings(urls);
-}
-
-function jpdbVocabularyUrl(vid: number, spelling: string, reading: string): string {
-    return `${JPDB_VOCABULARY_BASE_URL}/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading || spelling)}`;
-}
-
-function extractJpdbVocabularyAudioIds(html: string, card: JPDBCard, sourceUrl = ''): string[] {
-    return uniqueStrings(jpdbVocabularyAudioHtmlBlocks(html, card, sourceUrl)
-        .flatMap(extractJpdbVocabularyAudioIdsFromHtml));
-}
-
-function jpdbVocabularyAudioHtmlBlocks(html: string, card: JPDBCard, sourceUrl = ''): string[] {
-    const resultBlocks = findHtmlBlocksByClass(html, 'result')
-        .filter(block => htmlBlockHasClass(block, 'vocabulary') && jpdbVocabularyBlockMatchesCard(block, card));
-    if (resultBlocks.length) return resultBlocks;
-    const singleSearchResultBlocks = findHtmlBlocksByClass(html, 'result')
-        .filter(block => htmlBlockHasClass(block, 'vocabulary'));
-    if (canUseSingleJpdbAliasAudioResult(singleSearchResultBlocks, card, sourceUrl)) return singleSearchResultBlocks;
-    return jpdbHtmlMatchesCard(html, card) ? [html] : [];
-}
-
-function canUseSingleJpdbAliasAudioResult(resultBlocks: string[], card: JPDBCard, sourceUrl: string): boolean {
-    return resultBlocks.length === 1
-        && isJpdbSearchUrl(sourceUrl)
-        && isJpdbAliasLookup(card, sourceUrl)
-        && extractJpdbVocabularyAudioIdsFromHtml(resultBlocks[0] ?? '').length > 0;
-}
-
-function isJpdbSearchUrl(value: string): boolean {
-    try {
-        const url = new URL(value, 'https://jpdb.io');
-        return url.hostname === 'jpdb.io' && url.pathname === '/search';
-    } catch {
-        return false;
-    }
-}
-
-function isJpdbAliasLookup(card: JPDBCard, sourceUrl: string): boolean {
-    const query = jpdbSearchQuery(sourceUrl);
-    if (!query || JAPANESE_TEXT_RE.test(query)) return false;
-    const normalizedQuery = cleanJpdbIdentityText(query);
-    return [card.spelling, card.reading]
-        .some(value => cleanJpdbIdentityText(value) === normalizedQuery);
-}
-
-function jpdbSearchQuery(value: string): string {
-    try {
-        return new URL(value, 'https://jpdb.io').searchParams.get('q')?.trim() ?? '';
-    } catch {
-        return '';
-    }
-}
-
-function jpdbVocabularyBlockMatchesCard(html: string, card: JPDBCard): boolean {
-    return jpdbVocabularyIdentities(html).some(identity => jpdbVocabularyIdentityMatches(identity, card));
-}
-
-function jpdbHtmlMatchesCard(html: string, card: JPDBCard): boolean {
-    if (jpdbVocabularyBlockMatchesCard(html, card)) return true;
-    const canonical = getHtmlAttributeFromOpeningTag(html, 'link', 'href', /\brel\s*=\s*(["'])canonical\1/i);
-    return canonical ? jpdbVocabularyIdentityMatches(jpdbVocabularyIdentityFromUrl(canonical), card) : false;
-}
-
-interface JpdbVocabularyIdentity {
-    vid: number;
-    expression: string;
-    reading: string;
-}
-
-function jpdbVocabularyIdentities(html: string): Array<JpdbVocabularyIdentity | null> {
-    const pattern = /\bhref\s*=\s*(["'])([\s\S]*?\/vocabulary\/[\s\S]*?)\1/gi;
-    const identities: Array<JpdbVocabularyIdentity | null> = [];
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(html))) identities.push(jpdbVocabularyIdentityFromUrl(match[2] ?? ''));
-    return identities;
-}
-
-function jpdbVocabularyIdentityFromUrl(value: string): JpdbVocabularyIdentity | null {
-    try {
-        const url = new URL(value, 'https://jpdb.io');
-        const parts = url.pathname.split('/').filter(Boolean);
-        if (parts[0] !== 'vocabulary') return null;
-        const vid = Number.parseInt(parts[1] ?? '', 10);
-        return {
-            vid: Number.isFinite(vid) ? vid : 0,
-            expression: decodeURIComponent(parts[2] ?? ''),
-            reading: decodeURIComponent(parts[3] ?? ''),
-        };
-    } catch {
-        return null;
-    }
-}
-
-function jpdbVocabularyIdentityMatches(identity: JpdbVocabularyIdentity | null, card: JPDBCard): boolean {
-    if (!identity) return false;
-    if (card.vid > 0 && identity.vid === card.vid) return true;
-    const requested = new Set([cleanJpdbIdentityText(card.spelling), cleanJpdbIdentityText(card.reading)].filter(Boolean));
-    const expression = cleanJpdbIdentityText(identity.expression);
-    const reading = cleanJpdbIdentityText(identity.reading);
-    if (!requested.size) return true;
-    if (!requested.has(expression) && !requested.has(reading)) return false;
-    const requestedReading = cleanJpdbIdentityText(card.reading);
-    return !requestedReading || reading === requestedReading || expression === requestedReading || expression === cleanJpdbIdentityText(card.spelling);
-}
-
-function cleanJpdbIdentityText(value: string): string {
-    return value.replace(/\s+/g, '').trim();
-}
-
-function extractJpdbVocabularyAudioIdsFromHtml(html: string): string[] {
-    const audioIds: string[] = [];
-    const pattern = /<a\b([^>]*)>/gi;
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(html))) {
-        const attributes = match[1] ?? '';
-        if (!attributesHaveClass(attributes, 'vocabulary-audio')) continue;
-        audioIds.push(...normalizeJpdbAudioIds(getHtmlAttribute(attributes, 'data-audio') ?? ''));
-    }
-    return audioIds;
-}
-
-function htmlBlockHasClass(html: string, className: string): boolean {
-    const opening = /^<[^/\s>]+\b([^>]*)>/i.exec(html)?.[1] ?? '';
-    return attributesHaveClass(opening, className);
-}
-
-function getHtmlAttributeFromOpeningTag(html: string, tag: string, attribute: string, attributePattern?: RegExp): string | null {
-    const pattern = new RegExp(`<${tag}\\b([^>]*)>`, 'gi');
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(html))) {
-        const attributes = match[1] ?? '';
-        if (attributes && (!attributePattern || attributePattern.test(attributes))) {
-            return getHtmlAttribute(attributes, attribute);
-        }
-    }
-    return null;
-}
-
-function jpdbAudioPageSourceUrl(audioId: string): string {
-    return audioId.startsWith('/static/user/') ? 'https://jpdb.io/' : JPDB_AUDIO_BASE_URL;
-}
-
-async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = ''): Promise<string[]> {
-    if (shouldSkipJishoLookup(proxyUrl)) return [];
-    const url = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
-    const response = await requestUrl(url, 'text', timeoutMs, {
-        proxyUrl: jishoLookupProxyUrl(proxyUrl),
-        preferFetch: false,
-    }).catch(() => '');
-    if (typeof response !== 'string') return [];
-
-    const audioHtml = findJishoAudioElement(response, card);
-    return audioHtml
-        ? extractAudioSourceUrls(audioHtml, url).filter(isLikelyAudioUrl).slice(0, 1)
-        : [];
-}
-
-function shouldSkipJishoLookup(proxyUrl: string): boolean {
-    return !jishoLookupProxyUrl(proxyUrl) && !getUserscriptHttpRequest();
-}
-
-function jishoLookupProxyUrl(proxyUrl: string): string {
-    return isDefaultYomuPublicProxyUrl(proxyUrl) ? '' : proxyUrl;
-}
-
-function isDefaultYomuPublicProxyUrl(proxyUrl: string): boolean {
-    if (!proxyUrl.trim()) return false;
-    try {
-        return new URL(proxyUrl).origin === new URL(DEFAULT_YOMU_PUBLIC_PROXY_URL).origin;
-    } catch {
-        return false;
-    }
-}
-
-function findJishoAudioElement(html: string, card: JPDBCard): string | null {
-    const exact = findHtmlElementById(html, 'audio', `audio_${card.spelling}:${card.reading}`);
-    if (exact) return exact;
-    if (!canUseKanaJishoAudioFallback(card)) return null;
-    return findUniqueJishoReadingAudioElement(html, card.reading.trim());
-}
-
-function canUseKanaJishoAudioFallback(card: JPDBCard): boolean {
-    const spelling = card.spelling.trim();
-    const reading = card.reading.trim();
-    return Boolean(spelling && reading && KANA_ONLY_RE.test(spelling));
-}
-
-function findUniqueJishoReadingAudioElement(html: string, reading: string): string | null {
-    const matches = findHtmlElements(html, 'audio')
-        .filter(element => jishoAudioReading(element).trim() === reading);
-    return matches.length === 1 ? matches[0] : null;
-}
-
-function jishoAudioReading(audioHtml: string): string {
-    const id = htmlAttributeValue(audioHtml, 'id') ?? '';
-    const marker = id.startsWith('audio_') ? id.slice('audio_'.length) : '';
-    const colon = marker.lastIndexOf(':');
-    return colon >= 0 ? marker.slice(colon + 1) : '';
-}
-
-async function getLanguagePod101AudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = ''): Promise<string[]> {
-    const url = 'https://www.japanesepod101.com/learningcenter/reference/dictionary_post';
-    const response = await requestUrl(url, 'text', timeoutMs, { ...languagePod101RequestOptions(card), proxyUrl }).catch(() => '');
-    if (typeof response !== 'string') return [];
-
-    const urls: string[] = [];
-    for (const row of findHtmlBlocksByClass(response, 'dc-result-row')) {
-        if (!languagePod101RowMatchesCard(row, card)) continue;
-        urls.push(...extractAudioSourceUrls(row, url));
-    }
-    return uniqueAudioUrls(urls);
-}
-
-function languagePod101RequestOptions(card: JPDBCard): AudioRequestOptions {
-    return {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        data: languagePod101RequestBody(card),
-    };
-}
-
-function languagePod101RequestBody(card: JPDBCard): string {
-    const searchQuery = card.spelling.trim() || card.reading;
-    return new URLSearchParams({
-        post: 'dictionary_reference',
-        match_type: 'exact',
-        search_query: searchQuery,
-        vulgar: 'true',
-    }).toString();
-}
-
-interface JpdbAudioRequest {
-    url: string;
-    headers?: Record<string, string>;
-    encoded: boolean;
-}
-
-export function normalizeJpdbAudioIds(value: string | string[]): string[] {
-    return uniqueAudioUrls(normalizeJpdbAudioGroups(value)
-        .flatMap(group => group.split('+')));
-}
-
-export function normalizeJpdbAudioGroups(value: string | string[]): string[] {
-    const values = Array.isArray(value) ? value : value.split(',');
-    return uniqueAudioUrls(values
-        .map(normalizeJpdbAudioGroup)
-        .filter(Boolean));
-}
-
-function normalizeJpdbAudioGroup(value: string): string {
-    const ids = value.split('+')
-        .map(item => item.trim())
-        .filter(Boolean);
-    return ids.length && ids.every(isValidJpdbAudioId) ? ids.join('+') : '';
-}
-
-function jpdbAudioPlaybackCandidates(value: string | string[]): JpdbAudioPlaybackCandidate[] {
-    const groups = normalizeJpdbAudioGroups(value);
-    return groups.map(group => ({ audioIds: group.split('+'), deckId: `jpdb:${group}` }));
-}
-
-export function jpdbAudioRequest(audioId: string, language: ReaderSettings['interfaceLanguage'] = 'en'): JpdbAudioRequest {
-    if (!isValidJpdbAudioId(audioId)) throw new Error(uiText(language, 'invalidJpdbAudioId'));
-    if (audioId.startsWith('/static/user/')) {
-        return { url: new URL(audioId, 'https://jpdb.io').toString(), encoded: false };
-    }
-    const devUrl = localDevJpdbAudioUrl(audioId);
-    if (devUrl) {
-        return {
-            url: devUrl,
-            headers: jpdbAudioHeaders(),
-            encoded: true,
-        };
-    }
-    return {
-        url: `${JPDB_AUDIO_BASE_URL}/${encodeJpdbAudioPath(audioId)}`,
-        headers: jpdbAudioHeaders(),
-        encoded: true,
-    };
-}
-
-export async function fetchJpdbAudioBlob(audioId: string, settings: ReaderSettings): Promise<Blob> {
-    const request = jpdbAudioRequest(audioId, settings.interfaceLanguage);
-    const response = await requestUrl(request.url, 'blob', settings.audioTimeoutMs, {
-        headers: request.headers,
-        proxyUrl: settings.corsProxyUrl,
-        language: settings.interfaceLanguage,
-        credentials: 'same-origin',
-        withCredentials: true,
-    });
-    if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, 'jpdbAudioPlayableFileMissing'));
-    return decodeJpdbAudioBlob(response, request.encoded, settings.interfaceLanguage);
-}
-
-export async function decodeJpdbAudioBlob(response: Blob, encoded: boolean, language: ReaderSettings['interfaceLanguage'] = 'en'): Promise<Blob> {
-    const bytes = new Uint8Array(await blobArrayBuffer(response, language));
-    const decoded = encoded ? decodeJpdbAudioBytes(bytes) : bytes;
-    const sniffedType = jpdbAudioMimeTypeForBytes(decoded);
-    if (!sniffedType) {
-        if (!encoded && isAudioBlobType(response.type)) return new Blob([blobPart(decoded)], { type: response.type });
-        throw new Error(uiText(language, 'jpdbAudioResponseNotPlayable'));
-    }
-    return new Blob([blobPart(decoded)], { type: sniffedType });
-}
-
-function blobArrayBuffer(blob: Blob, language: ReaderSettings['interfaceLanguage'] = 'en'): Promise<ArrayBuffer> {
-    if (typeof blob.arrayBuffer === 'function') return blob.arrayBuffer();
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.onerror = () => reject(reader.error ?? new Error(uiText(language, 'couldNotReadAudioBlob')));
-        reader.readAsArrayBuffer(blob);
-    });
-}
-
-function jpdbAudioHeaders(): Record<string, string> {
-    const headers: Record<string, string> = { 'X-Access': JPDB_AUDIO_ACCESS_HEADER };
-    if (shouldForceJpdbCafAudio()) headers['X-ForceCAF'] = '1';
-    return headers;
-}
-
-function shouldForceJpdbCafAudio(): boolean {
-    const audio = document.createElement('audio');
-    return audio.canPlayType('audio/ogg; codecs=opus') === ''
-        && audio.canPlayType('audio/x-caf') !== '';
-}
-
-function decodeJpdbAudioBytes(bytes: Uint8Array): Uint8Array {
-    const decoded = new Uint8Array(bytes);
-    JPDB_AUDIO_XOR_BYTES.forEach((mask, index) => {
-        if (index < decoded.length) decoded[index] = decoded[index] ^ mask;
-    });
-    return decoded;
-}
-
-function jpdbAudioMimeTypeForBytes(bytes: Uint8Array): string {
-    if (startsWithAscii(bytes, 'OggS')) return 'audio/ogg; codecs=opus';
-    if (startsWithAscii(bytes, 'caff')) return 'audio/x-caf';
-    if (startsWithAscii(bytes, 'RIFF')) return 'audio/wav';
-    if (startsWithAscii(bytes, 'ID3') || isMp3Frame(bytes)) return 'audio/mpeg';
-    if (asciiAt(bytes, 4, 'ftyp')) return 'audio/mp4';
-    return '';
-}
-
-function startsWithAscii(bytes: Uint8Array, signature: string): boolean {
-    return asciiAt(bytes, 0, signature);
-}
-
-function asciiAt(bytes: Uint8Array, offset: number, signature: string): boolean {
-    if (bytes.length < offset + signature.length) return false;
-    return Array.from(signature).every((char, index) => bytes[offset + index] === char.charCodeAt(0));
-}
-
-function isMp3Frame(bytes: Uint8Array): boolean {
-    return bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0;
-}
-
-function isAudioBlobType(type: string): boolean {
-    return /^audio\//i.test(type.trim());
-}
-
-function blobPart(bytes: Uint8Array): ArrayBuffer {
-    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-}
-
-function localDevJpdbAudioUrl(audioId: string): string {
-    if (!isLocalNewTabDevOrigin()) return '';
-    const url = new URL(`/__yomu-jpdb-audio/${encodeJpdbAudioPath(audioId)}`, location.href);
-    if (shouldForceJpdbCafAudio()) url.searchParams.set('force_caf', '1');
-    return url.toString();
-}
-
-function isLocalNewTabDevOrigin(): boolean {
-    if (typeof window === 'undefined' || typeof location === 'undefined') return false;
-    if ((window as typeof window & { __YOMU_READER_RUNTIME__?: string }).__YOMU_READER_RUNTIME__ !== 'newtab') return false;
-    return /^https?:$/.test(location.protocol)
-        && LOOPBACK_AUDIO_HOSTS.has(location.hostname.replace(/^\[|\]$/g, ''));
-}
-
-function encodeJpdbAudioPath(value: string): string {
-    return value.split('/').map(encodeURIComponent).join('/');
-}
-
-function isValidJpdbAudioId(value: string): boolean {
-    return Boolean(value && JPDB_AUDIO_ID_RE.test(value) && !value.includes('..') && !value.startsWith('//'));
-}
-
-function languagePod101RowMatchesCard(row: string, card: JPDBCard): boolean {
-    return card.reading === card.spelling || languagePod101RowKana(row) === card.reading;
-}
-
-function languagePod101RowKana(row: string): string {
-    const kanaHtml = findHtmlElementByClass(row, 'span', 'dc-vocab_kana');
-    return stripHtml(kanaHtml ?? '').trim();
-}
-
-async function getCommonsAudioUrls(term: string, source: 'lingua-libre' | 'wiktionary', timeoutMs: number, proxyUrl = ''): Promise<string[]> {
-    const apiUrl = commonsSearchApiUrl(term, source);
-    const response = await requestUrl(apiUrl, 'text', timeoutMs, { proxyUrl });
-    if (typeof response !== 'string') return [];
-
-    const urls: string[] = [];
-    for (const title of commonsSearchTitles(response)) {
-        urls.push(...await getCommonsAudioUrlsForTitle(title, term, source, timeoutMs, proxyUrl));
-    }
-    return urls;
-}
-
-function commonsSearchApiUrl(term: string, source: 'lingua-libre' | 'wiktionary'): string {
-    const search = source === 'lingua-libre'
-        ? `intitle:/-(${escapeRegExp(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"`
-        : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp(term)}[0123456789]*.ogg/i`;
-    return `https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srnamespace=6&origin=*&srsearch=${encodeURIComponent(search)}`;
-}
-
-function commonsSearchTitles(response: string): string[] {
-    const pages = (JSON.parse(response) as { query?: { search?: Array<{ title?: string }> } }).query?.search ?? [];
-    return pages.slice(0, 6).map(page => page.title).filter((title): title is string => Boolean(title));
-}
-
-async function getCommonsAudioUrlsForTitle(title: string, term: string, source: 'lingua-libre' | 'wiktionary', timeoutMs: number, proxyUrl = ''): Promise<string[]> {
-    const info = await requestUrl(commonsImageInfoUrl(title), 'text', timeoutMs, { proxyUrl }).catch(() => null);
-    if (typeof info !== 'string') return [];
-    return commonsImageInfoUrls(info, title, term, source);
-}
-
-function commonsImageInfoUrl(title: string): string {
-    return `https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=imageinfo&iiprop=url&origin=*&titles=${encodeURIComponent(title)}`;
-}
-
-function commonsImageInfoUrls(info: string, title: string, term: string, source: 'lingua-libre' | 'wiktionary'): string[] {
-    const filePages = (JSON.parse(info) as { query?: { pages?: Record<string, { imageinfo?: Array<{ url?: string; user?: string }> }> } }).query?.pages ?? {};
-    return Object.values(filePages)
-        .map(filePage => filePage.imageinfo?.[0])
-        .filter(image => Boolean(image?.url && isValidCommonsAudioFilename(title, image.user ?? '', term, source)))
-        .map(image => image?.url ?? '');
-}
-
-function findHtmlElementById(html: string, tag: string, id: string): string | null {
-    return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp(id)}\\1`, 'i'));
-}
-
-function htmlAttributeValue(html: string, attribute: string): string | null {
-    const match = new RegExp(`\\b${escapeRegExp(attribute)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, 'i').exec(html);
-    return match?.[2] ?? null;
-}
-
-function findHtmlElementByClass(html: string, tag: string, className: string): string | null {
-    return findHtmlElementsByClass(html, tag, className)[0] ?? null;
-}
-
-function findHtmlElementsByClass(html: string, tag: string, className: string): string[] {
-    return findHtmlElements(html, tag).filter(element => htmlElementHasClass(element, tag, className));
-}
-
-function findHtmlBlocksByClass(html: string, className: string): string[] {
-    const starts: number[] = [];
-    const startPattern = /<[^/!][^>]*>/gi;
-    let match: RegExpExecArray | null;
-    while ((match = startPattern.exec(html))) {
-        if (tagAttributesHaveClass(match[0], className)) starts.push(match.index);
-    }
-    return starts.map((start, index) => html.slice(start, starts[index + 1] ?? html.length));
-}
-
-function findHtmlElement(html: string, tag: string, attributePattern?: RegExp): string | null {
-    return findHtmlElements(html, tag, attributePattern)[0] ?? null;
-}
-
-function findHtmlElements(html: string, tag: string, attributePattern?: RegExp): string[] {
-    const pattern = new RegExp(`<${tag}\\b([^>]*)>[\\s\\S]*?<\\/${tag}>`, 'gi');
-    const matches: string[] = [];
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(html))) {
-        if (htmlElementMatchesAttributes(match, attributePattern)) matches.push(match[0]);
-    }
-    return matches;
-}
-
-function htmlElementMatchesAttributes(match: RegExpExecArray, attributePattern?: RegExp): boolean {
-    const attributes = match[1] ?? '';
-    return attributePattern ? attributePattern.test(attributes) : true;
-}
-
-function htmlElementHasClass(element: string, tag: string, className: string): boolean {
-    const opening = new RegExp(`^<${tag}\\b([^>]*)>`, 'i').exec(element)?.[1] ?? '';
-    return attributesHaveClass(opening, className);
-}
-
-function tagAttributesHaveClass(openingTag: string, className: string): boolean {
-    const attributes = /^<[^/\s>]+\b([^>]*)>/i.exec(openingTag)?.[1] ?? '';
-    return attributesHaveClass(attributes, className);
-}
-
-function attributesHaveClass(attributes: string, className: string): boolean {
-    return (getHtmlAttribute(attributes, 'class') ?? '').split(/\s+/).includes(className);
-}
-
-function extractAudioSourceUrls(html: string, baseUrl: string): string[] {
-    const urls: string[] = [];
-    const sourcePattern = /<source\b([^>]*)>/gi;
-    let match: RegExpExecArray | null;
-    while ((match = sourcePattern.exec(html))) {
-        const src = getHtmlAttribute(match[1] ?? '', 'src');
-        const url = src ? resolveAudioSourceUrl(src, baseUrl) : '';
-        if (url) urls.push(url);
-    }
-    return uniqueAudioUrls(urls);
-}
-
-function resolveAudioSourceUrl(src: string, baseUrl: string): string {
-    try {
-        return new URL(src, baseUrl).href;
-    } catch {
-        return '';
-    }
-}
-
-function getHtmlAttribute(attributes: string, name: string): string | null {
-    const match = new RegExp(`\\b${escapeRegExp(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, 'i').exec(attributes);
-    return match ? decodeHtmlAttribute(match[2]) : null;
-}
-
-function decodeHtmlAttribute(value: string): string {
-    return value
-        .replace(/&amp;/g, '&')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;|&apos;/g, "'")
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
-        .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(parseInt(code, 16)));
-}
-
-function stripHtml(value: string): string {
-    return decodeHtmlAttribute(value.replace(/<[^>]+>/g, ''));
-}
-
-function isValidCommonsAudioFilename(filename: string | undefined, fileUser: string, term: string, source: 'lingua-libre' | 'wiktionary'): boolean {
-    if (!filename) return false;
-    if (source === 'lingua-libre') {
-        return new RegExp(`^File:LL-Q\\d+\\s+\\(jpn\\)-${escapeRegExp(fileUser)}-${escapeRegExp(term)}\\.wav$`, 'i').test(filename);
-    }
-    return new RegExp(`^File:ja(-\\w\\w)?-${escapeRegExp(term)}\\d*\\.ogg$`, 'i').test(filename);
-}
-
-function normalizeAudioUrl(value: string, sourceUrl?: string): string {
-    try {
-        const nested = new URL(value);
-        if (sourceUrl) alignLoopbackAudioUrl(nested, new URL(sourceUrl));
-        return normalizeAudioUrlSlashes(nested.href);
-    } catch {
-        return normalizeAudioUrlSlashes(value);
-    }
-}
-
-function alignLoopbackAudioUrl(nested: URL, source: URL): void {
-    if (!shouldAlignLoopbackAudioUrl(nested, source)) return;
-    nested.protocol = source.protocol;
-    nested.hostname = source.hostname;
-}
-
-function shouldAlignLoopbackAudioUrl(nested: URL, source: URL): boolean {
-    return isLoopbackAudioHost(nested.hostname)
-        && !isLoopbackAudioHost(source.hostname)
-        && nested.port === source.port;
-}
-
-function isLoopbackAudioHost(hostname: string): boolean {
-    return LOOPBACK_AUDIO_HOSTS.has(hostname);
-}
-
-function normalizeAudioUrlSlashes(value: string): string {
-    return value.replace(/\\/g, '/');
-}
-
-function isLikelyAudioRecord(record: Record<string, unknown>): boolean {
-    return typeof record.url === 'string' && audioRecordHasPlayableSignal(record);
-}
-
-function audioRecordHasPlayableSignal(record: Record<string, unknown>): boolean {
-    return isLikelyAudioUrl(String(record.url))
-        || ['audio', 'audioSource'].includes(String(record.type ?? ''))
-        || typeof record.name === 'string';
-}
-
-function isLikelyAudioUrl(value: string): boolean {
-    if (value.startsWith('data:audio/')) return true;
-    try {
-        const url = new URL(value, location.href);
-        const pathname = url.pathname.toLowerCase();
-        return /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/.test(pathname)
-            || /(^|[-_/])(audio|sound|voice|pronunciation)([-_/]|$)/i.test(pathname);
-    } catch {
-        return /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)(?:$|[?#])/i.test(value);
-    }
-}
-
-function uniqueAudioUrls(urls: string[]): string[] {
-    const seen = new Set<string>();
-    return urls.filter(url => {
-        const key = normalizeAttemptedAudioUrl(url);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    });
-}
-
-function shouldFetchCandidateAsBlob(candidate: AudioCandidate, audioViaBlob: boolean): boolean {
-    if (!canFetchAudioCandidateAsBlob(candidate, audioViaBlob)) return false;
-    return isBlobFetchableAudioCandidate(candidate);
-}
-
-function canFetchAudioCandidateAsBlob(candidate: AudioCandidate, audioViaBlob: boolean): boolean {
-    return audioViaBlob
-        && !candidate.url.startsWith('blob:')
-        && !candidate.url.startsWith('data:audio/');
-}
-
-function isBlobFetchableAudioCandidate(candidate: AudioCandidate): boolean {
-    return /^https?:\/\//i.test(candidate.url)
-        || isAppleMobileBrowser()
-        || isJapanesePod101Url(candidate.url)
-        || isJapanesePod101Url(candidate.sourceUrl);
-}
-
-function isAppleMobileBrowser(): boolean {
-    const userAgent = navigator.userAgent;
-    const platform = navigator.platform;
-    return /iPad|iPhone|iPod/i.test(userAgent)
-        || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-}
-
-function preconnectAudioUrl(value: string): void {
-    const origin = audioPreconnectOrigin(value);
-    if (!origin || preconnectedAudioOrigins.has(origin)) return;
-    preconnectedAudioOrigins.add(origin);
-    appendAudioPreconnectLinks(origin);
-}
-
-function audioPreconnectOrigin(value: string): string | null {
-    try {
-        return new URL(value, location.href).origin;
-    } catch {
-        return null;
-    }
-}
-
-function appendAudioPreconnectLinks(origin: string): void {
-    for (const rel of AUDIO_PRECONNECT_RELS) appendAudioPreconnectLink(origin, rel);
-}
-
-function appendAudioPreconnectLink(origin: string, rel: (typeof AUDIO_PRECONNECT_RELS)[number]): void {
-    const link = document.createElement('link');
-    link.rel = rel;
-    link.href = origin;
-    if (rel === 'preconnect') link.crossOrigin = 'anonymous';
-    document.head?.append(link);
-}
-
-function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

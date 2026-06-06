@@ -8,7 +8,7 @@ export interface StudySentenceAudioOptions {
     sentence?: string;
 }
 
-export function renderStudyBlock(className: string, content: string, attrs = ''): string {
+function renderStudyBlock(className: string, content: string, attrs = ''): string {
     return `<div class="${studyBlockClassName(className)}"${studyAttrs(attrs)}>${content}</div>`;
 }
 

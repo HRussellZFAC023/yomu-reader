@@ -42,7 +42,7 @@ export function updateAnkiTagsEditor(form: HTMLFormElement, action: string, cont
     renderAnkiTagChips(editor, tags, language);
 }
 
-export function ankiTagList(value: string): string[] {
+function ankiTagList(value: string): string[] {
     return uniqueStrings(value.split(/[\s,]+/u).map(tag => tag.trim()).filter(Boolean));
 }
 

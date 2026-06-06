@@ -1,62 +1,51 @@
 import { Logger } from './logger';
-import { requestText as requestReaderText } from './reader-http';
 import { parseHtmlDocument } from './dom';
+import {
+    jpdbDocumentVocabularyIdentity,
+    JpdbPublicLookupBackoff,
+    jpdbSearchUrl,
+    unique,
+} from './jpdb-public-lookup';
 import { readJpdbPitchPatterns } from './jpdb-public-pitch';
-import { absoluteJpdbUrl, cleanText, JAPANESE_RE, parseJpdbVocabularyUrl } from './jpdb-text';
+import { absoluteJpdbUrl, cleanText, JAPANESE_RE, parseJpdbVocabularyUrl, type JpdbVocabularyUrlIdentity } from './jpdb-text';
+import {
+    isBetterJpdbAudioIds,
+    jpdbAudioIds,
+    jpdbVocabularyAudioIds,
+    shouldRefreshVocabularyEntryAudio,
+} from './jpdb-vocabulary-audio';
+import { JPDB_COMPOUND_LIMIT, JPDB_EXAMPLE_LIMIT, JPDB_USED_IN_AUDIO_REQUEST_TIMEOUT_MS, JPDB_USED_IN_VOCABULARY_LIMIT } from './jpdb-vocabulary-constants';
+import { baseText, cleanMeaning, escapeRegExp, isJapaneseTerm, optionalRichHtml, readingText, sectionLabel, uniqueBy } from './jpdb-vocabulary-dom';
+import { vocabularyRoot } from './jpdb-vocabulary-root';
+import { mergeVocabularyInfo, needsSupplement, requestText, vocabularyLookupUrls, vocabularySupplementUrls } from './jpdb-vocabulary-request';
+import type { JpdbVocabularyCompound, JpdbVocabularyExample, JpdbVocabularyInfo } from './jpdb-vocabulary-types';
 import type { JPDBCard } from './types';
 
-export interface JpdbVocabularyCompound {
-    term: string;
-    reading: string;
-    meaning: string;
-    url: string;
-    audioIds?: string[];
-}
-
-export interface JpdbVocabularyExample {
-    sentence: string;
-    translation: string;
-    audioIds?: string[];
-}
-
-export interface JpdbVocabularyInfo {
-    meanings: string[];
-    compounds: JpdbVocabularyCompound[];
-    usedInVocabulary?: JpdbVocabularyCompound[];
-    examples: JpdbVocabularyExample[];
-}
+export { parseJpdbAudioData } from './jpdb-vocabulary-audio';
+export type { JpdbVocabularyInfo } from './jpdb-vocabulary-types';
 
 const log = Logger.scope('JpdbVocabulary');
-const JPDB_VOCABULARY_BASE_URL = 'https://jpdb.io/vocabulary';
-const JPDB_SEARCH_URL = 'https://jpdb.io/search';
-const JPDB_COMPOUND_LIMIT = 8;
-const JPDB_USED_IN_VOCABULARY_LIMIT = 3;
-const JPDB_EXAMPLE_LIMIT = 3;
-const JPDB_USED_IN_AUDIO_REQUEST_TIMEOUT_MS = 2500;
-const REQUEST_BACKOFF_INITIAL_MS = 30_000;
-const REQUEST_BACKOFF_MAX_MS = 5 * 60_000;
-const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
 
-type VocabularySupplementKind = 'details' | 'examples' | 'used-in-vocabulary';
-
-interface VocabularySupplementUrl {
-    url: string;
-    kind: VocabularySupplementKind;
+interface SearchResultModel {
+    identity: JpdbVocabularyUrlIdentity | null;
+    spelling: string;
+    reading: string;
+    partOfSpeech: string[];
+    meanings: string[];
+    frequencyRank: number | null;
 }
 
 export class JpdbVocabularyClient {
     private cache = new Map<string, Promise<JpdbVocabularyInfo | null>>();
     private searchCache = new Map<string, Promise<JPDBCard[]>>();
-    private requestBackoffUntil = 0;
-    private requestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
+    private readonly requestBackoff = new JpdbPublicLookupBackoff();
 
     constructor(private readonly getCorsProxyUrl: () => string = () => '') {}
 
     clear(): void {
         this.cache.clear();
         this.searchCache.clear();
-        this.requestBackoffUntil = 0;
-        this.requestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
+        this.requestBackoff.reset();
     }
 
     lookup(vid: number, spelling: string, reading: string): Promise<JpdbVocabularyInfo | null> {
@@ -83,28 +72,28 @@ export class JpdbVocabularyClient {
     }
 
     private async fetchInfo(vid: number, spelling: string, reading: string): Promise<JpdbVocabularyInfo | null> {
-        if (this.isBackedOff()) return null;
+        if (this.requestBackoff.isActive()) return null;
         for (const url of vocabularyLookupUrls(vid, spelling, reading)) {
             const html = await requestText(url, this.getCorsProxyUrl()).catch(error => {
                 this.noteRequestFailure('Vocabulary page request failed', { vid, spelling, url }, error);
                 return '';
             });
-            if (html) this.noteRequestSuccess();
+            if (html) this.requestBackoff.noteSuccess();
             const info = html ? parseJpdbVocabularyHtml(html, spelling, reading) : null;
             if (info) return await this.fetchSupplementaryInfo(info, html, url, vid, spelling, reading);
-            if (this.isBackedOff()) break;
+            if (this.requestBackoff.isActive()) break;
         }
         return null;
     }
 
     private async fetchSearch(query: string, limit: number): Promise<JPDBCard[]> {
-        if (this.isBackedOff()) return [];
-        const url = `${JPDB_SEARCH_URL}?q=${encodeURIComponent(query)}`;
+        if (this.requestBackoff.isActive()) return [];
+        const url = jpdbSearchUrl(query);
         const html = await requestText(url, this.getCorsProxyUrl()).catch(error => {
             this.noteRequestFailure('Vocabulary search request failed', { query }, error);
             return '';
         });
-        if (html) this.noteRequestSuccess();
+        if (html) this.requestBackoff.noteSuccess();
         return html ? parseJpdbSearchHtml(html, limit) : [];
     }
 
@@ -118,13 +107,13 @@ export class JpdbVocabularyClient {
     ): Promise<JpdbVocabularyInfo> {
         let info = initialInfo;
         for (const supplement of vocabularySupplementUrls(html, spelling, reading, initialUrl)) {
-            if (this.isBackedOff()) break;
+            if (this.requestBackoff.isActive()) break;
             if (!needsSupplement(info, supplement.kind)) continue;
             const supplementHtml = await requestText(supplement.url, this.getCorsProxyUrl()).catch(error => {
                 this.noteRequestFailure('Vocabulary supplement request failed', { vid, spelling, url: supplement.url }, error);
                 return '';
             });
-            if (supplementHtml) this.noteRequestSuccess();
+            if (supplementHtml) this.requestBackoff.noteSuccess();
             const supplementalInfo = supplementHtml ? parseJpdbVocabularyHtml(supplementHtml, spelling, reading) : null;
             if (supplementalInfo) info = mergeVocabularyInfo(info, supplementalInfo);
         }
@@ -144,7 +133,7 @@ export class JpdbVocabularyClient {
     }
 
     private async vocabularyEntryWithAudio(entry: JpdbVocabularyCompound, failureLabel: string): Promise<JpdbVocabularyCompound> {
-        if (!shouldRefreshVocabularyEntryAudio(entry) || this.isBackedOff()) return entry;
+        if (!shouldRefreshVocabularyEntryAudio(entry) || this.requestBackoff.isActive()) return entry;
         if (!parseJpdbVocabularyUrl(entry.url)) return entry;
         const url = absoluteJpdbUrl(entry.url);
         if (!url) return entry;
@@ -152,32 +141,15 @@ export class JpdbVocabularyClient {
             this.noteRequestFailure(failureLabel, { term: entry.term, url }, error);
             return '';
         });
-        if (html) this.noteRequestSuccess();
+        if (html) this.requestBackoff.noteSuccess();
         const audioIds = html ? jpdbVocabularyAudioIds(html, entry.term, entry.reading) : [];
         return isBetterJpdbAudioIds(audioIds, entry.audioIds ?? []) ? { ...entry, audioIds } : entry;
     }
 
-    private isBackedOff(): boolean {
-        return Date.now() < this.requestBackoffUntil;
-    }
-
-    private noteRequestSuccess(): void {
-        this.requestBackoffUntil = 0;
-        this.requestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
-    }
-
     private noteRequestFailure(message: string, context: Record<string, unknown>, error: unknown): void {
-        if (isPublicLookupBackoffError(error)) {
-            this.requestBackoffUntil = Date.now() + this.requestBackoffMs;
-            this.requestBackoffMs = Math.min(this.requestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS);
-        }
+        this.requestBackoff.noteFailure(error);
         log.warn(message, context, error);
     }
-}
-
-function isPublicLookupBackoffError(error: unknown): boolean {
-    return error instanceof Error
-        && /\b(?:429|525|too many requests|rate[- ]?limited)\b|cloudflare/i.test(error.message);
 }
 
 export function parseJpdbVocabularyHtml(html: string, spelling = '', reading = ''): JpdbVocabularyInfo | null {
@@ -205,31 +177,73 @@ export function parseJpdbSearchHtml(html: string, limit = 10): JPDBCard[] {
 }
 
 function searchResultCard(root: HTMLElement, doc: Document): JPDBCard | null {
+    const model = searchResultModel(root, doc);
+    if (!model) return null;
+    return jpdbCardFromSearchResult(root, model);
+}
+
+function searchResultModel(root: HTMLElement, doc: Document): SearchResultModel | null {
     const identity = searchResultIdentity(root, doc);
-    const headword = root.querySelector<HTMLElement>('.subsection-headword .primary-spelling .spelling, .subsection-headword .spelling');
-    const spelling = cleanText(identity?.expression ?? '') || cleanText(headword ? baseText(headword) : '');
-    const reading = cleanText(identity?.reading ?? '') || cleanText(headword ? readingText(headword) : '') || metaDescriptionReading(doc, spelling) || spelling;
-    if (!spelling || !JAPANESE_RE.test(spelling)) return null;
-    const meanings = extractMeanings(root, doc, spelling, reading);
+    const { spelling, reading } = searchResultText(root, doc, identity);
+    if (!isJapaneseTerm(spelling)) return null;
     const partOfSpeech = extractPartOfSpeech(root);
+    const meanings = extractMeanings(root, doc, spelling, reading);
     return {
-        vid: identity?.vid ?? 0,
-        sid: 0,
-        rid: 0,
+        identity,
         spelling,
         reading,
-        frequencyRank: extractFrequencyRank(root),
         partOfSpeech,
-        meanings: meanings.map(meaning => ({ glosses: [meaning], partOfSpeech })),
+        meanings,
+        frequencyRank: extractFrequencyRank(root),
+    };
+}
+
+function searchResultText(root: HTMLElement, doc: Document, identity: JpdbVocabularyUrlIdentity | null): { spelling: string; reading: string } {
+    const headword = searchResultHeadword(root);
+    const spelling = searchResultSpelling(identity, headword);
+    return {
+        spelling,
+        reading: searchResultReading(doc, spelling, identity, headword),
+    };
+}
+
+function searchResultHeadword(root: HTMLElement): HTMLElement | null {
+    return root.querySelector<HTMLElement>('.subsection-headword .primary-spelling .spelling, .subsection-headword .spelling');
+}
+
+function searchResultSpelling(identity: JpdbVocabularyUrlIdentity | null, headword: HTMLElement | null): string {
+    const expression = cleanText(identity?.expression ?? '');
+    if (expression) return expression;
+    return cleanText(headword ? baseText(headword) : '');
+}
+
+function searchResultReading(doc: Document, spelling: string, identity: JpdbVocabularyUrlIdentity | null, headword: HTMLElement | null): string {
+    const identityReading = cleanText(identity?.reading ?? '');
+    if (identityReading) return identityReading;
+    const headwordReading = cleanText(headword ? readingText(headword) : '');
+    if (headwordReading) return headwordReading;
+    return metaDescriptionReading(doc, spelling) || spelling;
+}
+
+function jpdbCardFromSearchResult(root: HTMLElement, model: SearchResultModel): JPDBCard {
+    return {
+        vid: model.identity?.vid ?? 0,
+        sid: 0,
+        rid: 0,
+        spelling: model.spelling,
+        reading: model.reading,
+        frequencyRank: model.frequencyRank,
+        partOfSpeech: model.partOfSpeech,
+        meanings: model.meanings.map(meaning => ({ glosses: [meaning], partOfSpeech: model.partOfSpeech })),
         cardState: ['not-in-deck'],
         pitchAccent: readJpdbPitchPatterns(root),
         wordWithReading: null,
         source: 'jpdb',
-        sentence: spelling,
+        sentence: model.spelling,
     };
 }
 
-function searchResultIdentity(root: ParentNode, doc: Document): { vid: number; expression: string; reading: string } | null {
+function searchResultIdentity(root: ParentNode, doc: Document): JpdbVocabularyUrlIdentity | null {
     const links = Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]'));
     const details = links.find(link => /more details/i.test(cleanText(link.textContent ?? '')));
     const detailIdentity = details ? parseJpdbVocabularyUrl(details.href || details.getAttribute('href') || '') : null;
@@ -243,13 +257,12 @@ function searchResultIdentity(root: ParentNode, doc: Document): { vid: number; e
     ]);
 }
 
-function documentVocabularyEntry(doc: Document): { vid: number; expression: string; reading: string } | null {
-    const canonical = doc.querySelector<HTMLLinkElement>('link[rel="canonical"][href*="/vocabulary/"]')?.href ?? '';
-    return parseJpdbVocabularyUrl(canonical);
+function documentVocabularyEntry(doc: Document): JpdbVocabularyUrlIdentity | null {
+    return jpdbDocumentVocabularyIdentity(doc);
 }
 
-function bestVocabularyIdentity(entries: Array<{ vid: number; expression: string; reading: string } | null>): { vid: number; expression: string; reading: string } | null {
-    const candidates = entries.filter((entry): entry is { vid: number; expression: string; reading: string } => entry !== null);
+function bestVocabularyIdentity(entries: Array<JpdbVocabularyUrlIdentity | null>): JpdbVocabularyUrlIdentity | null {
+    const candidates = entries.filter((entry): entry is JpdbVocabularyUrlIdentity => entry !== null);
     return candidates.find(entry => entry.reading) ?? candidates[0] ?? null;
 }
 
@@ -278,146 +291,6 @@ function extractFrequencyRank(root: ParentNode): number | null {
     return null;
 }
 
-function vocabularyLookupUrls(vid: number, spelling: string, reading: string): string[] {
-    const urls: string[] = [];
-    if (vid > 0) {
-        urls.push(`${JPDB_VOCABULARY_BASE_URL}/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading || spelling)}`);
-    }
-    unique([spelling, reading].filter(Boolean))
-        .forEach(query => urls.push(`${JPDB_SEARCH_URL}?q=${encodeURIComponent(query)}`));
-    return unique(urls);
-}
-
-function vocabularySupplementUrls(html: string, spelling: string, reading: string, currentUrl = ''): VocabularySupplementUrl[] {
-    const doc = parseHtmlDocument(html);
-    const current = absoluteJpdbUrl(currentUrl);
-    return uniqueBy([
-        ...vocabularyDetailUrls(doc, spelling, reading),
-        ...vocabularyExpandUrls(doc),
-    ], supplement => `${supplement.kind}:${supplement.url}`)
-        .filter(supplement => !current || supplement.url !== current);
-}
-
-function vocabularyDetailUrls(doc: Document, spelling: string, reading: string): VocabularySupplementUrl[] {
-    if (!doc.querySelector('.results.search')) return [];
-    const root = vocabularyRoot(doc, spelling, reading);
-    if (!root) return [];
-    return Array.from(root.querySelectorAll<HTMLAnchorElement>('a.view-conjugations-link[href*="/vocabulary/"]'))
-        .filter(link => /more details/i.test(cleanText(link.textContent ?? '')))
-        .map(link => absoluteJpdbUrl(link.getAttribute('href') ?? link.href))
-        .filter(Boolean)
-        .map(url => ({ url, kind: 'details' as const }));
-}
-
-function vocabularyExpandUrls(doc: Document): VocabularySupplementUrl[] {
-    return Array.from(doc.querySelectorAll<HTMLAnchorElement>('a[href*="expand="]'))
-        .map(link => vocabularyExpandSupplement(link.getAttribute('href') ?? link.href))
-        .filter((supplement): supplement is VocabularySupplementUrl => supplement !== null);
-}
-
-function vocabularyExpandSupplement(value: string): VocabularySupplementUrl | null {
-    try {
-        const url = new URL(value, 'https://jpdb.io');
-        const expand = url.searchParams.get('expand') ?? '';
-        if (expand.includes('e')) return { url: url.toString(), kind: 'examples' };
-        if (expand.includes('v')) return { url: url.toString(), kind: 'used-in-vocabulary' };
-    } catch {
-        return null;
-    }
-    return null;
-}
-
-function needsSupplement(info: JpdbVocabularyInfo, kind: VocabularySupplementKind): boolean {
-    if (kind === 'details') {
-        return info.examples.length < JPDB_EXAMPLE_LIMIT
-            || (info.usedInVocabulary?.length ?? 0) < JPDB_USED_IN_VOCABULARY_LIMIT
-            || info.compounds.length < JPDB_COMPOUND_LIMIT;
-    }
-    if (kind === 'examples') return info.examples.length < JPDB_EXAMPLE_LIMIT;
-    return (info.usedInVocabulary?.length ?? 0) < JPDB_USED_IN_VOCABULARY_LIMIT;
-}
-
-function mergeVocabularyInfo(primary: JpdbVocabularyInfo, supplemental: JpdbVocabularyInfo): JpdbVocabularyInfo {
-    return {
-        meanings: unique([...primary.meanings, ...supplemental.meanings]).slice(0, 8),
-        compounds: mergeBy(primary.compounds, supplemental.compounds, compound => `${compound.term}\t${compound.reading}`, JPDB_COMPOUND_LIMIT),
-        usedInVocabulary: mergeBy(
-            primary.usedInVocabulary ?? [],
-            supplemental.usedInVocabulary ?? [],
-            entry => `${entry.term}\t${entry.reading}`,
-            JPDB_USED_IN_VOCABULARY_LIMIT,
-        ),
-        examples: mergeBy(primary.examples, supplemental.examples, example => example.sentence, JPDB_EXAMPLE_LIMIT),
-    };
-}
-
-function vocabularyRoot(doc: Document, spelling: string, reading: string): ParentNode | null {
-    const roots = Array.from(doc.querySelectorAll('.result.vocabulary'));
-    const matches = roots.filter(root => vocabularyRootMatches(root, spelling, reading));
-    const matched = firstVocabularyRoot(matches);
-    if (matched) return matched;
-    if (canUseFallbackVocabularyRoot(doc, roots, spelling, reading)) return roots[0] ?? doc;
-    return null;
-}
-
-function firstVocabularyRoot(matches: Element[]): Element | null {
-    return matches[0] ?? null;
-}
-
-function canUseGenericVocabularyRoot(roots: Element[], spelling: string, reading: string): boolean {
-    const hasRequestedIdentity = Boolean(cleanText(spelling) || cleanText(reading));
-    return !hasRequestedIdentity && roots.length <= 1;
-}
-
-function canUseFallbackVocabularyRoot(doc: Document, roots: Element[], spelling: string, reading: string): boolean {
-    return canUseGenericVocabularyRoot(roots, spelling, reading)
-        || documentMatchesVocabulary(doc, spelling, reading);
-}
-
-function vocabularyRootMatches(root: Element, spelling: string, reading: string): boolean {
-    return vocabularyIdentities(root).some(identity => vocabularyIdentityMatches(identity, spelling, reading));
-}
-
-function documentMatchesVocabulary(doc: Document, spelling: string, reading: string): boolean {
-    const canonical = doc.querySelector<HTMLLinkElement>('link[rel="canonical"][href*="/vocabulary/"]')?.href ?? '';
-    const identity = parseJpdbVocabularyUrl(canonical);
-    return identity ? vocabularyIdentityMatches(identity, spelling, reading) : false;
-}
-
-function vocabularyIdentities(root: ParentNode): Array<{ expression: string; reading: string }> {
-    return Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]'))
-        .filter(link => !link.closest('.subsection-used-in, .subsection-examples'))
-        .map(link => parseJpdbVocabularyUrl(link.href || link.getAttribute('href') || ''))
-        .filter((identity): identity is NonNullable<ReturnType<typeof parseJpdbVocabularyUrl>> => identity !== null);
-}
-
-function vocabularyIdentityMatches(identity: { expression: string; reading: string }, spelling: string, reading: string): boolean {
-    const requestedSpelling = cleanText(spelling);
-    const requestedReading = cleanText(reading);
-    const expression = cleanText(identity.expression);
-    const canonicalReading = cleanText(identity.reading);
-    const requested = new Set([requestedSpelling, requestedReading].filter(Boolean));
-    if (!requested.size) return true;
-    if (!vocabularyIdentityIntersectsRequest(requested, expression, canonicalReading)) return false;
-    if (!requestedReading) return true;
-    return vocabularyIdentityMatchesReading(expression, canonicalReading, requestedSpelling, requestedReading);
-}
-
-function vocabularyIdentityIntersectsRequest(requested: Set<string>, expression: string, canonicalReading: string): boolean {
-    return requested.has(expression) || requested.has(canonicalReading);
-}
-
-function vocabularyIdentityMatchesReading(
-    expression: string,
-    canonicalReading: string,
-    requestedSpelling: string,
-    requestedReading: string,
-): boolean {
-    return canonicalReading === requestedReading
-        || expression === requestedReading
-        || expression === requestedSpelling;
-}
-
 function extractMeanings(root: ParentNode, doc: Document, spelling: string, reading: string): string[] {
     const meanings = Array.from(root.querySelectorAll<HTMLElement>('.subsection-meanings .description'))
         .map(element => cleanMeaning(element.textContent ?? ''))
@@ -439,53 +312,130 @@ function metaDescriptionMeanings(doc: Document): string[] {
 
 function extractCompounds(root: ParentNode): JpdbVocabularyCompound[] {
     const entries: JpdbVocabularyCompound[] = [];
-    root.querySelectorAll<HTMLElement>('.subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji').forEach(section => {
-        const label = cleanText(section.querySelector<HTMLElement>('.subsection-label')?.textContent ?? '').toLowerCase();
-        if (label && !label.startsWith('composed of')) return;
-        section.querySelectorAll<HTMLElement>('.subsection > div, .subsection .used-in').forEach(row => addCompoundEntry(entries, row));
-    });
+    root.querySelectorAll<HTMLElement>('.subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji')
+        .forEach(section => addCompoundSectionEntries(entries, section));
     root.querySelectorAll<HTMLElement>('.subsection > .composed-of, .subsection .composed-of')
         .forEach(row => addCompoundEntry(entries, row));
     return entries.slice(0, JPDB_COMPOUND_LIMIT);
 }
 
+function addCompoundSectionEntries(entries: JpdbVocabularyCompound[], section: HTMLElement): void {
+    if (!isComposedOfSection(section)) return;
+    section.querySelectorAll<HTMLElement>('.subsection > div, .subsection .used-in')
+        .forEach(row => addCompoundEntry(entries, row));
+}
+
+function isComposedOfSection(section: HTMLElement): boolean {
+    const label = sectionLabel(section);
+    if (!label) return true;
+    return label.startsWith('composed of');
+}
+
 function addCompoundEntry(entries: JpdbVocabularyCompound[], row: HTMLElement): void {
+    const entry = compoundEntryFromRow(row);
+    if (!entry) return;
+    if (hasCompoundEntry(entries, entry)) return;
+    entries.push(entry);
+}
+
+function compoundEntryFromRow(row: HTMLElement): JpdbVocabularyCompound | null {
     const link = row.querySelector<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href^="/kanji/"]');
-    const spelling = row.querySelector<HTMLElement>('.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]') ?? link;
-    const term = cleanText(spelling ? baseText(spelling) : '') || cleanText(spelling?.textContent ?? '');
-    const reading = cleanText(spelling ? readingText(spelling) : '') || term;
-    if (!term || !JAPANESE_RE.test(term) || entries.some(entry => entry.term === term)) return;
-    entries.push({
+    const spelling = compoundSpelling(row, link);
+    const term = compoundTerm(spelling);
+    if (!isJapaneseTerm(term)) return null;
+    return {
         term,
-        reading,
+        reading: compoundReading(spelling, term),
         meaning: cleanText(row.querySelector<HTMLElement>('.description, .en, .meaning')?.textContent ?? ''),
         url: link?.getAttribute('href') ?? '',
         audioIds: jpdbAudioIds(row),
-    });
+        ...optionalRichHtml('termHtml', spelling),
+    };
+}
+
+function compoundSpelling(row: HTMLElement, link: HTMLAnchorElement | null): HTMLElement | null {
+    return row.querySelector<HTMLElement>('.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]') ?? link;
+}
+
+function compoundTerm(spelling: HTMLElement | null): string {
+    const base = cleanText(spelling ? baseText(spelling) : '');
+    if (base) return base;
+    return cleanText(spelling?.textContent ?? '');
+}
+
+function compoundReading(spelling: HTMLElement | null, term: string): string {
+    const reading = cleanText(spelling ? readingText(spelling) : '');
+    if (reading) return reading;
+    return term;
+}
+
+function hasCompoundEntry(entries: JpdbVocabularyCompound[], candidate: JpdbVocabularyCompound): boolean {
+    return entries.some(entry => entry.term === candidate.term);
 }
 
 function extractUsedInVocabulary(root: ParentNode): JpdbVocabularyCompound[] {
     const entries: JpdbVocabularyCompound[] = [];
-    root.querySelectorAll<HTMLElement>('.subsection-used-in, .subsection-used-in-vocabulary').forEach(section => {
-        const label = cleanText(section.querySelector<HTMLElement>('.subsection-label')?.textContent ?? '').toLowerCase();
-        if (label && !label.startsWith('used in')) return;
-        usedInRows(section).forEach(row => {
-            const link = vocabularyLink(row);
-            if (!link) return;
-            const identity = parseJpdbVocabularyUrl(link.href || link.getAttribute('href') || '');
-            const term = cleanText(identity?.expression ?? '') || cleanText(baseText(link)) || cleanText(link.textContent ?? '');
-            const reading = cleanText(identity?.reading ?? '') || cleanText(readingText(link)) || term;
-            if (!term || !JAPANESE_RE.test(term) || entries.some(entry => entry.term === term && entry.reading === reading)) return;
-            entries.push({
-                term,
-                reading,
-                meaning: cleanText(row.querySelector<HTMLElement>('.description, .en, .english, .meaning')?.textContent ?? ''),
-                url: link.getAttribute('href') ?? '',
-                audioIds: jpdbAudioIds(row),
-            });
-        });
-    });
+    root.querySelectorAll<HTMLElement>('.subsection-used-in, .subsection-used-in-vocabulary')
+        .forEach(section => addUsedInVocabularySection(entries, section));
     return entries.slice(0, JPDB_USED_IN_VOCABULARY_LIMIT);
+}
+
+function addUsedInVocabularySection(entries: JpdbVocabularyCompound[], section: HTMLElement): void {
+    if (!isUsedInVocabularySection(section)) return;
+    usedInRows(section).forEach(row => addUsedInVocabularyEntry(entries, row));
+}
+
+function isUsedInVocabularySection(section: HTMLElement): boolean {
+    const label = sectionLabel(section);
+    if (!label) return true;
+    return label.startsWith('used in');
+}
+
+function addUsedInVocabularyEntry(entries: JpdbVocabularyCompound[], row: HTMLElement): void {
+    const entry = usedInVocabularyEntryFromRow(row);
+    if (!entry) return;
+    if (hasUsedInVocabularyEntry(entries, entry)) return;
+    entries.push(entry);
+}
+
+function usedInVocabularyEntryFromRow(row: HTMLElement): JpdbVocabularyCompound | null {
+    const link = vocabularyLink(row);
+    if (!link) return null;
+    const identity = parseJpdbVocabularyUrl(link.href || link.getAttribute('href') || '');
+    const term = vocabularyTerm(identity, link);
+    if (!isJapaneseTerm(term)) return null;
+    return {
+        term,
+        reading: vocabularyReading(identity, link, term),
+        meaning: cleanText(row.querySelector<HTMLElement>('.description, .en, .english, .meaning')?.textContent ?? ''),
+        url: link.getAttribute('href') ?? '',
+        audioIds: jpdbAudioIds(row),
+        ...optionalRichHtml('termHtml', link),
+    };
+}
+
+function vocabularyTerm(identity: JpdbVocabularyUrlIdentity | null, link: HTMLAnchorElement): string {
+    const expression = cleanText(identity?.expression ?? '');
+    if (expression) return expression;
+    const base = cleanText(baseText(link));
+    if (base) return base;
+    return cleanText(link.textContent ?? '');
+}
+
+function vocabularyReading(identity: JpdbVocabularyUrlIdentity | null, link: HTMLAnchorElement, term: string): string {
+    const identityReading = cleanText(identity?.reading ?? '');
+    if (identityReading) return identityReading;
+    const linkReading = cleanText(readingText(link));
+    if (linkReading) return linkReading;
+    return term;
+}
+
+function hasUsedInVocabularyEntry(entries: JpdbVocabularyCompound[], candidate: JpdbVocabularyCompound): boolean {
+    return entries.some(entry => sameVocabularyEntry(entry, candidate));
+}
+
+function sameVocabularyEntry(entry: JpdbVocabularyCompound, candidate: JpdbVocabularyCompound): boolean {
+    return entry.term === candidate.term && entry.reading === candidate.reading;
 }
 
 function usedInRows(section: HTMLElement): HTMLElement[] {
@@ -518,6 +468,7 @@ function extractExamples(root: ParentNode): JpdbVocabularyExample[] {
                 sentence,
                 translation: cleanText(row.querySelector<HTMLElement>('.translation, .en, .english')?.textContent ?? ''),
                 audioIds: jpdbAudioIds(row),
+                ...optionalRichHtml('sentenceHtml', sentenceNode, { preserveHighlight: true }),
             });
         });
     });
@@ -540,140 +491,4 @@ function exampleSectionFromLabel(label: HTMLElement): HTMLElement | null {
         current = current.parentElement;
     }
     return label.parentElement;
-}
-
-export function jpdbAudioIds(root: ParentNode): string[] {
-    return unique(Array.from(root.querySelectorAll<HTMLElement>('[data-audio]'))
-        .flatMap(element => parseJpdbAudioData(element.dataset.audio ?? '')));
-}
-
-function jpdbVocabularyAudioIds(html: string, spelling: string, reading: string): string[] {
-    const doc = parseHtmlDocument(html);
-    const root = vocabularyRoot(doc, spelling, reading);
-    if (!root) return [];
-    return unique(Array.from(root.querySelectorAll<HTMLElement>('a.vocabulary-audio[data-audio], .subsection-headword [data-audio], .subsection-pitch-accent [data-audio]'))
-        .filter(element => !element.closest('.subsection-used-in, .subsection-examples'))
-        .flatMap(element => parseJpdbAudioData(element.dataset.audio ?? '')));
-}
-
-export function parseJpdbAudioData(value: string): string[] {
-    return value.split(',')
-        .map(normalizeJpdbAudioGroup)
-        .filter(Boolean);
-}
-
-function isValidJpdbAudioId(value: string): boolean {
-    return Boolean(value && JPDB_AUDIO_ID_RE.test(value) && !value.includes('..') && !value.startsWith('//'));
-}
-
-function normalizeJpdbAudioGroup(value: string): string {
-    const ids = value.split('+')
-        .map(item => item.trim())
-        .filter(Boolean);
-    return ids.length && ids.every(isValidJpdbAudioId) ? ids.join('+') : '';
-}
-
-function shouldRefreshVocabularyEntryAudio(entry: JpdbVocabularyCompound): boolean {
-    return Boolean(entry.url && parseJpdbVocabularyUrl(entry.url) && jpdbAudioVoiceCount(entry.audioIds ?? []) < 2);
-}
-
-function isBetterJpdbAudioIds(candidate: string[], current: string[]): boolean {
-    if (!candidate.length) return false;
-    return jpdbAudioVoiceCount(candidate) > jpdbAudioVoiceCount(current) || (!current.length && candidate.length > 0);
-}
-
-function jpdbAudioVoiceCount(audioIds: string[]): number {
-    const voices = new Set<string>();
-    audioIds.forEach(group => {
-        group.split('+').forEach(audioId => {
-            const voice = /^(m1|f1|m2|f2)\//.exec(audioId)?.[1];
-            if (voice) voices.add(voice);
-        });
-    });
-    return voices.size || audioIds.length;
-}
-
-function baseText(root: Node): string {
-    if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? '';
-    if (root.nodeType !== Node.ELEMENT_NODE) return '';
-    return baseElementText(root as HTMLElement);
-}
-
-function baseElementText(element: HTMLElement): string {
-    if (isRubyAnnotation(element)) return '';
-    return Array.from(element.childNodes).map(baseText).join('');
-}
-
-function readingText(root: Node): string {
-    if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? '';
-    if (root.nodeType !== Node.ELEMENT_NODE) return '';
-    return readingElementText(root as HTMLElement);
-}
-
-function readingElementText(element: HTMLElement): string {
-    if (isRubyAnnotation(element)) return '';
-    if (element.tagName === 'RUBY') return rubyReadingText(element);
-    return Array.from(element.childNodes).map(readingText).join('');
-}
-
-function isRubyAnnotation(element: Element): boolean {
-    return element.tagName === 'RT' || element.tagName === 'RP';
-}
-
-function rubyReadingText(element: Element): string {
-    let text = '';
-    let base = '';
-    element.childNodes.forEach(child => {
-        if (child.nodeType === Node.TEXT_NODE) {
-            base += child.textContent ?? '';
-            return;
-        }
-        if (child.nodeType !== Node.ELEMENT_NODE) return;
-        const childElement = child as Element;
-        if (childElement.tagName === 'RT') {
-            text += childElement.textContent || base;
-            base = '';
-            return;
-        }
-        if (childElement.tagName === 'RP') return;
-        base += baseText(childElement);
-    });
-    return text + base || baseText(element);
-}
-
-function cleanMeaning(value: string): string {
-    return cleanText(value).replace(/^\d+\.\s*/, '');
-}
-
-function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function unique<T>(values: T[]): T[] {
-    return [...new Set(values)];
-}
-
-function uniqueBy<T>(values: T[], key: (value: T) => string): T[] {
-    const seen = new Set<string>();
-    return values.filter(value => {
-        const current = key(value);
-        if (seen.has(current)) return false;
-        seen.add(current);
-        return true;
-    });
-}
-
-function mergeBy<T>(primary: T[], supplemental: T[], key: (value: T) => string, limit: number): T[] {
-    return uniqueBy([...primary, ...supplemental], key).slice(0, limit);
-}
-
-function requestText(url: string, proxyUrl = '', timeoutMs = 8000): Promise<string> {
-    return requestReaderText(url, {
-        proxyUrl,
-        timeoutMs,
-        credentials: 'same-origin',
-        withCredentials: true,
-        failureLabel: 'JPDB vocabulary request',
-        timeoutLabel: 'JPDB vocabulary request timed out.',
-    });
 }

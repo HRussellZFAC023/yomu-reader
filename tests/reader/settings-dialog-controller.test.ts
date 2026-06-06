@@ -4,6 +4,7 @@ import { createAudioPreviewCard } from '../../src/reader/card-utils';
 import { SettingsDialogController } from '../../src/reader/settings-dialog-controller';
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/constants';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import type { AnkiFieldSuggestion, AnkiLibraryScanResult } from '../../src/reader/anki-types';
 import type { ReaderSettings } from '../../src/reader/types';
 import type { ImportSummary } from '../../src/reader/yomitan';
 
@@ -106,6 +107,68 @@ function newTabAnkiDeckToggle(form: HTMLFormElement, deck: string): HTMLInputEle
         .find(input => input.dataset.newtabAnkiDeck === deck);
     if (!toggle) throw new Error(`Missing Anki new-tab deck toggle for ${deck}`);
     return toggle;
+}
+
+type AnkiSuggestionTuple = [
+    role: AnkiFieldSuggestion['role'],
+    fieldName: string,
+    confidence: AnkiFieldSuggestion['confidence'],
+];
+
+function singleModelAnkiScan(
+    deckName: string,
+    modelName: string,
+    fields: string[],
+    suggestions: AnkiSuggestionTuple[],
+): AnkiLibraryScanResult {
+    const model = {
+        modelName,
+        fields,
+        score: 9,
+        suggestions: suggestions.map(([role, fieldName, confidence]) => ({ role, fieldName, confidence })),
+    };
+    return {
+        deckNames: [deckName],
+        models: [model],
+        suggestedModel: model,
+    };
+}
+
+function settingsElement<T extends Element>(form: HTMLFormElement, selector: string): T {
+    const element = form.querySelector<T>(selector);
+    if (!element) throw new Error(`Missing settings element: ${selector}`);
+    return element;
+}
+
+function settingsSelectValue(form: HTMLFormElement, selector: string): string {
+    return settingsElement<HTMLSelectElement>(form, selector).value;
+}
+
+function settingsInputValue(form: HTMLFormElement, selector: string): string {
+    return settingsElement<HTMLInputElement>(form, selector).value;
+}
+
+function settingsOptionValues(form: HTMLFormElement, selector: string): string[] {
+    return Array.from(form.querySelectorAll<HTMLOptionElement>(selector), option => option.value);
+}
+
+function ankiFieldRoleValue(form: HTMLFormElement, role: AnkiFieldSuggestion['role']): string {
+    return settingsSelectValue(form, `select[data-anki-field-role="${role}"]`);
+}
+
+function ankiConfidenceValues(form: HTMLFormElement): string[] {
+    return Array.from(
+        form.querySelectorAll<HTMLElement>('[data-confidence]'),
+        chip => `${chip.dataset.confidence}:${chip.textContent}`,
+    );
+}
+
+function settingsJsonInputValue<T>(form: HTMLFormElement, selector: string): T {
+    return JSON.parse(settingsInputValue(form, selector)) as T;
+}
+
+function ankiStatusText(form: HTMLFormElement): string {
+    return settingsElement<HTMLElement>(form, '[data-anki-status]').textContent ?? '';
 }
 
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason?: unknown) => void } {
@@ -393,7 +456,7 @@ describe('settings dialog keyboard dismissal', () => {
     });
 
     it('checks AnkiConnect automatically when Anki mining is enabled on open', async () => {
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true };
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true, ankiMobileHandoff: true };
         const isConnected = vi.fn().mockResolvedValue(true);
         const { form } = createSettingsDialog({
             getSettings: () => settings,
@@ -427,18 +490,17 @@ describe('settings dialog keyboard dismissal', () => {
 
         url.value = 'http://127.0.0.1:9999';
         url.dispatchEvent(new Event('change', { bubbles: true }));
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Anki is not connected yet') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Open desktop Anki') ?? false);
 
         expect(isConnected).toHaveBeenCalledTimes(2);
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Anki is not connected yet');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('desktop Anki');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('LAN/Tailscale');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open desktop Anki');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('webCorsOriginList');
     });
 
     it('keeps a failed manual AnkiConnect check in the setup tone instead of showing a hard error', async () => {
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true };
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true, ankiMobileHandoff: true };
         const isConnected = vi.fn().mockResolvedValue(false);
         const toast = vi.fn();
         const { form } = createSettingsDialog({
@@ -449,12 +511,12 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Anki is not connected yet') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Open desktop Anki') ?? false);
 
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('desktop Anki');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('LAN/Tailscale');
-        expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('Anki is not connected yet'));
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open desktop Anki');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect');
+        expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('Open desktop Anki'));
     });
 
     it('keeps a thrown AnkiConnect probe in the setup tone instead of showing a hard error', async () => {
@@ -469,11 +531,11 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Anki is not connected yet') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Open desktop Anki') ?? false);
 
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('desktop Anki');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('LAN/Tailscale');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open desktop Anki');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('request failed');
         expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('AnkiConnect request failed'));
     });
@@ -491,13 +553,13 @@ describe('settings dialog keyboard dismissal', () => {
         apiKey.dispatchEvent(new Event('input', { bubbles: true }));
 
         expect(status.dataset.statusTone).toBe('success');
-        expect(status.textContent).toContain('JPDB API key available');
-        expect(status.textContent).toContain('Review buttons: enabled');
+        expect(status.textContent).toContain('JPDB key set');
+        expect(status.textContent).toContain('Reviews: enabled');
         expect(status.textContent).toContain('Deck changes: enabled');
 
         enableReviews.checked = false;
         enableReviews.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(status.textContent).toContain('Review buttons: disabled');
+        expect(status.textContent).toContain('Reviews: disabled');
 
         jpdbMiningEnabled.checked = false;
         jpdbMiningEnabled.dispatchEvent(new Event('change', { bubbles: true }));
@@ -508,7 +570,7 @@ describe('settings dialog keyboard dismissal', () => {
         apiKey.dispatchEvent(new Event('input', { bubbles: true }));
 
         expect(status.dataset.statusTone).toBe('pending');
-        expect(status.textContent).toContain('JPDB API key missing');
+        expect(status.textContent).toContain('No JPDB key');
     });
 
     it('prepares the Yomu Anki deck and note type only from the explicit prepare action', async () => {
@@ -538,29 +600,16 @@ describe('settings dialog keyboard dismissal', () => {
     it('scans the Anki library after an explicit Check succeeds', async () => {
         let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
         const isConnected = vi.fn().mockResolvedValue(true);
-        const scanLibrary = vi.fn().mockResolvedValue({
-            deckNames: ['Checked Mining'],
-            models: [{
-                modelName: 'Checked Japanese',
-                fields: ['Expression', 'Reading', 'Meaning'],
-                score: 9,
-                suggestions: [
-                    { role: 'expression', fieldName: 'Expression', confidence: 'high' },
-                    { role: 'reading', fieldName: 'Reading', confidence: 'high' },
-                    { role: 'meaning', fieldName: 'Meaning', confidence: 'high' },
-                ],
-            }],
-            suggestedModel: {
-                modelName: 'Checked Japanese',
-                fields: ['Expression', 'Reading', 'Meaning'],
-                score: 9,
-                suggestions: [
-                    { role: 'expression', fieldName: 'Expression', confidence: 'high' },
-                    { role: 'reading', fieldName: 'Reading', confidence: 'high' },
-                    { role: 'meaning', fieldName: 'Meaning', confidence: 'high' },
-                ],
-            },
-        });
+        const scanLibrary = vi.fn().mockResolvedValue(singleModelAnkiScan(
+            'Checked Mining',
+            'Checked Japanese',
+            ['Expression', 'Reading', 'Meaning'],
+            [
+                ['expression', 'Expression', 'high'],
+                ['reading', 'Reading', 'high'],
+                ['meaning', 'Meaning', 'high'],
+            ],
+        ));
         const { form } = createSettingsDialog({
             getSettings: () => settings,
             setSettings: (next: ReaderSettings) => { settings = next; },
@@ -575,38 +624,25 @@ describe('settings dialog keyboard dismissal', () => {
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
         await waitForCondition(() => scanLibrary.mock.calls.length === 1);
-        await waitForCondition(() => form.querySelector<HTMLSelectElement>('select[name="ankiModel"]')?.value === 'Checked Japanese');
+        await waitForCondition(() => settingsSelectValue(form, 'select[name="ankiModel"]') === 'Checked Japanese');
 
         expect(isConnected).toHaveBeenCalled();
-        expect(form.querySelector<HTMLSelectElement>('select[name="ankiDeck"]')?.value).toBe('Checked Mining');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Checked Japanese');
+        expect(settingsSelectValue(form, 'select[name="ankiDeck"]')).toBe('Checked Mining');
+        expect(ankiStatusText(form)).toContain('Checked Japanese');
     });
 
     it('applies the best scanned Anki deck and note type to the settings form', async () => {
         const isConnected = vi.fn().mockResolvedValue(true);
-        const scanLibrary = vi.fn().mockResolvedValue({
-            deckNames: ['Anime Mining'],
-            models: [{
-                modelName: 'Imported Japanese',
-                fields: ['Vocabulary-Kanji', 'Vocabulary-Kana', 'Glossary'],
-                score: 9,
-                suggestions: [
-                    { role: 'expression', fieldName: 'Vocabulary-Kanji', confidence: 'high' },
-                    { role: 'reading', fieldName: 'Vocabulary-Kana', confidence: 'high' },
-                    { role: 'meaning', fieldName: 'Glossary', confidence: 'medium' },
-                ],
-            }],
-            suggestedModel: {
-                modelName: 'Imported Japanese',
-                fields: ['Vocabulary-Kanji', 'Vocabulary-Kana', 'Glossary'],
-                score: 9,
-                suggestions: [
-                    { role: 'expression', fieldName: 'Vocabulary-Kanji', confidence: 'high' },
-                    { role: 'reading', fieldName: 'Vocabulary-Kana', confidence: 'high' },
-                    { role: 'meaning', fieldName: 'Glossary', confidence: 'medium' },
-                ],
-            },
-        });
+        const scanLibrary = vi.fn().mockResolvedValue(singleModelAnkiScan(
+            'Anime Mining',
+            'Imported Japanese',
+            ['Vocabulary-Kanji', 'Vocabulary-Kana', 'Glossary'],
+            [
+                ['expression', 'Vocabulary-Kanji', 'high'],
+                ['reading', 'Vocabulary-Kana', 'high'],
+                ['meaning', 'Glossary', 'medium'],
+            ],
+        ));
         const { form } = createSettingsDialog({
             getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true }),
             anki: {
@@ -615,48 +651,48 @@ describe('settings dialog keyboard dismissal', () => {
             },
         });
 
-        await waitForCondition(() => form.querySelector<HTMLSelectElement>('select[name="ankiModel"]')?.value === 'Imported Japanese');
+        await waitForCondition(() => settingsSelectValue(form, 'select[name="ankiModel"]') === 'Imported Japanese');
 
-        expect(form.querySelector<HTMLSelectElement>('select[name="ankiDeck"]')?.value).toBe('Anime Mining');
-        expect(form.querySelector<HTMLSelectElement>('select[name="ankiModel"]')?.value).toBe('Imported Japanese');
-        expect(Array.from(form.querySelectorAll<HTMLOptionElement>('[data-anki-deck-options] option')).map(option => option.value)).toEqual(['Anime Mining', 'Default']);
-        expect(Array.from(form.querySelectorAll<HTMLOptionElement>('[data-anki-model-options] option')).map(option => option.value)).toEqual(['Imported Japanese']);
-        expect(form.querySelector<HTMLSelectElement>('select[data-anki-field-role="expression"]')?.value).toBe('Vocabulary-Kanji');
-        expect(form.querySelector<HTMLSelectElement>('select[data-anki-field-role="reading"]')?.value).toBe('Vocabulary-Kana');
-        expect(form.querySelector<HTMLSelectElement>('select[data-anki-field-role="meaning"]')?.value).toBe('Glossary');
-        expect(Array.from(form.querySelectorAll<HTMLElement>('[data-confidence]')).map(chip => `${chip.dataset.confidence}:${chip.textContent}`)).toEqual([
+        expect(settingsSelectValue(form, 'select[name="ankiDeck"]')).toBe('Anime Mining');
+        expect(settingsSelectValue(form, 'select[name="ankiModel"]')).toBe('Imported Japanese');
+        expect(settingsOptionValues(form, '[data-anki-deck-options] option')).toEqual(['Anime Mining', 'Default']);
+        expect(settingsOptionValues(form, '[data-anki-model-options] option')).toEqual(['Imported Japanese']);
+        expect(ankiFieldRoleValue(form, 'expression')).toBe('Vocabulary-Kanji');
+        expect(ankiFieldRoleValue(form, 'reading')).toBe('Vocabulary-Kana');
+        expect(ankiFieldRoleValue(form, 'meaning')).toBe('Glossary');
+        expect(ankiConfidenceValues(form)).toEqual([
             'high:High',
             'high:High',
             'medium:Medium',
         ]);
-        expect(JSON.parse(form.querySelector<HTMLInputElement>('[data-anki-scan-confidence]')?.value ?? '{}')).toEqual({
+        expect(settingsJsonInputValue(form, '[data-anki-scan-confidence]')).toEqual({
             'Imported Japanese': {
                 expression: 'high',
                 reading: 'high',
                 meaning: 'medium',
             },
         });
-        expect(form.querySelector<HTMLElement>('[data-newtab-anki-decks]')?.hidden).toBe(false);
+        expect(settingsElement<HTMLElement>(form, '[data-newtab-anki-decks]').hidden).toBe(false);
         expect(newTabAnkiDeckToggle(form, 'Anime Mining').checked).toBe(true);
-        expect(form.querySelector<HTMLInputElement>('input[name="newTabAnkiDisabledDecks"]')?.value).toBe('');
-        expect(JSON.parse(form.querySelector<HTMLInputElement>('input[name="ankiFieldMappings"]')?.value ?? '{}')).toEqual({
+        expect(settingsInputValue(form, 'input[name="newTabAnkiDisabledDecks"]')).toBe('');
+        expect(settingsJsonInputValue(form, 'input[name="ankiFieldMappings"]')).toEqual({
             'Imported Japanese': {
                 expression: 'Vocabulary-Kanji',
                 reading: 'Vocabulary-Kana',
                 meaning: 'Glossary',
             },
         });
-        const meaning = form.querySelector<HTMLSelectElement>('select[data-anki-field-role="meaning"]')!;
+        const meaning = settingsElement<HTMLSelectElement>(form, 'select[data-anki-field-role="meaning"]');
         meaning.value = 'Vocabulary-Kana';
         meaning.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(JSON.parse(form.querySelector<HTMLInputElement>('input[name="ankiFieldMappings"]')?.value ?? '{}')).toEqual({
+        expect(settingsJsonInputValue(form, 'input[name="ankiFieldMappings"]')).toEqual({
             'Imported Japanese': {
                 expression: 'Vocabulary-Kanji',
                 reading: 'Vocabulary-Kana',
                 meaning: 'Vocabulary-Kana',
             },
         });
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('expression: Vocabulary-Kanji');
+        expect(ankiStatusText(form)).toContain('expression: Vocabulary-Kanji');
     });
 
     it('keeps unavailable automatic Anki scan failures quiet after a successful connection', async () => {
@@ -697,11 +733,11 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('hosted page') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Enable the userscript here') ?? false);
 
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
         expect(status?.dataset.statusTone).toBe('pending');
-        expect(status?.textContent).toContain('Enable the よむ userscript');
+        expect(status?.textContent).toContain('Enable the userscript here');
         expect(status?.textContent).toContain('refresh');
         expect(status?.textContent).not.toContain('request bridge');
         expect(toast).not.toHaveBeenCalled();
@@ -720,11 +756,11 @@ describe('settings dialog keyboard dismissal', () => {
             anki: { isConnected },
         });
 
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('hosted page') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Enable the userscript here') ?? false);
 
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
         expect(status?.dataset.statusTone).toBe('pending');
-        expect(status?.textContent).toContain('Enable the よむ userscript');
+        expect(status?.textContent).toContain('Enable the userscript here');
         expect(status?.textContent).toContain('refresh');
         expect(status?.textContent).not.toContain('Mobile');
         vi.unstubAllGlobals();
@@ -778,29 +814,16 @@ describe('settings dialog keyboard dismissal', () => {
         });
         const isConnected = vi.fn().mockResolvedValue(true);
         let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true };
-        const scanLibrary = vi.fn().mockResolvedValue({
-            deckNames: ['Android Bridge'],
-            models: [{
-                modelName: 'Bridge Japanese',
-                fields: ['Expression', 'Reading', 'Meaning'],
-                score: 9,
-                suggestions: [
-                    { role: 'expression', fieldName: 'Expression', confidence: 'high' },
-                    { role: 'reading', fieldName: 'Reading', confidence: 'high' },
-                    { role: 'meaning', fieldName: 'Meaning', confidence: 'high' },
-                ],
-            }],
-            suggestedModel: {
-                modelName: 'Bridge Japanese',
-                fields: ['Expression', 'Reading', 'Meaning'],
-                score: 9,
-                suggestions: [
-                    { role: 'expression', fieldName: 'Expression', confidence: 'high' },
-                    { role: 'reading', fieldName: 'Reading', confidence: 'high' },
-                    { role: 'meaning', fieldName: 'Meaning', confidence: 'high' },
-                ],
-            },
-        });
+        const scanLibrary = vi.fn().mockResolvedValue(singleModelAnkiScan(
+            'Android Bridge',
+            'Bridge Japanese',
+            ['Expression', 'Reading', 'Meaning'],
+            [
+                ['expression', 'Expression', 'high'],
+                ['reading', 'Reading', 'high'],
+                ['meaning', 'Meaning', 'high'],
+            ],
+        ));
         const { form } = createSettingsDialog({
             getSettings: () => settings,
             setSettings: (next: ReaderSettings) => { settings = next; },
@@ -811,12 +834,12 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         try {
-            await waitForCondition(() => form.querySelector<HTMLSelectElement>('select[name="ankiModel"]')?.value === 'Bridge Japanese');
+            await waitForCondition(() => settingsSelectValue(form, 'select[name="ankiModel"]') === 'Bridge Japanese');
 
             expect(isConnected).toHaveBeenCalledOnce();
             expect(scanLibrary).toHaveBeenCalledOnce();
-            expect(form.querySelector<HTMLSelectElement>('select[name="ankiDeck"]')?.value).toBe('Android Bridge');
-            expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Bridge Japanese');
+            expect(settingsSelectValue(form, 'select[name="ankiDeck"]')).toBe('Android Bridge');
+            expect(ankiStatusText(form)).toContain('Bridge Japanese');
         } finally {
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
         }
@@ -830,7 +853,7 @@ describe('settings dialog keyboard dismissal', () => {
         });
         const isConnected = vi.fn().mockResolvedValue(false);
         const scanLibrary = vi.fn().mockResolvedValue({ deckNames: [], models: [], suggestedModel: null });
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true };
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true, ankiMobileHandoff: true };
         const { form } = createSettingsDialog({
             getSettings: () => settings,
             setSettings: (next: ReaderSettings) => { settings = next; },
@@ -844,14 +867,14 @@ describe('settings dialog keyboard dismissal', () => {
             let fallbackText = '';
             await waitForCondition(() => {
                 const text = form.querySelector<HTMLElement>('[data-anki-status]')?.textContent ?? '';
-                if (!text.includes('Anki is not connected yet')) return false;
+                if (!text.includes('Anki is not connected.')) return false;
                 fallbackText = text;
                 return true;
             });
 
             expect(isConnected).toHaveBeenCalledOnce();
             expect(scanLibrary).not.toHaveBeenCalled();
-            expect(fallbackText).toContain('create new notes');
+            expect(fallbackText).toContain('create notes');
         } finally {
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
         }
@@ -896,11 +919,11 @@ describe('settings dialog dictionary imports', () => {
         expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
         expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.dataset.saveBlocked).toBe('dictionary-import');
         expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.textContent).toBe('Save after install');
-        expect(form.querySelector<HTMLElement>('[data-settings-save-status]')?.textContent).toContain('2 dictionary installs');
+        expect(form.querySelector<HTMLElement>('[data-settings-save-status]')?.textContent).toContain('2 installs running');
 
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 
-        expect(dependencies.toast).toHaveBeenCalledWith('Dictionary import is still running. Save will be available when it finishes.');
+        expect(dependencies.toast).toHaveBeenCalledWith('Dictionary import is running. Save unlocks when done.');
         expect(dismiss).not.toHaveBeenCalled();
 
         firstImport.resolve(importSummary('Jitendex'));
@@ -949,7 +972,7 @@ describe('settings dialog dictionary imports', () => {
 
         const status = form.querySelector<HTMLElement>('[data-import-status]')?.textContent ?? '';
         expect(status).toContain('Dictionary download is blocked in this browser.');
-        expect(status).toContain('download the ZIP manually');
+        expect(status).toContain('import the ZIP');
         expect(dependencies.toast).toHaveBeenCalledWith(status);
         expect(recommendedButton(form, 'jitendex').disabled).toBe(false);
     });

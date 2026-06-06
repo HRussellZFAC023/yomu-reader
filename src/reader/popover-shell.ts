@@ -18,6 +18,10 @@ const SETTINGS_DRAWER_TAP_MOVEMENT_PX = 8;
 const SETTINGS_DRAWER_KEYBOARD_STEP_PX = 56;
 const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
 const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
+const AUTO_SHEET_COMPACT_WIDTH_PX = 768;
+const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
+const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
+const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
 const FORCED_POPOVER_SURFACE_DATA_KEY = 'jpdbReaderForcedPopoverSurface';
 const POPOVER_BODY_ACTION_SELECTOR = [
     'button',
@@ -36,7 +40,7 @@ export interface PopoverScrollFrame {
     scrollTop: number;
 }
 
-export function popoverScrollBody(popover: HTMLElement): HTMLElement {
+function popoverScrollBody(popover: HTMLElement): HTMLElement {
     return popover.querySelector<HTMLElement>('.jpdb-reader-popover-body') ?? popover;
 }
 
@@ -46,7 +50,7 @@ export function capturePopoverScrollFrame(target: HTMLElement): PopoverScrollFra
     return { scrollBody, scrollTop: scrollBody.scrollTop };
 }
 
-export function restorePopoverScrollFrame(frame: PopoverScrollFrame): void {
+function restorePopoverScrollFrame(frame: PopoverScrollFrame): void {
     if (!frame.scrollBody.isConnected) return;
     if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
 }
@@ -56,20 +60,243 @@ export function restorePopoverScrollFrameSoon(frame: PopoverScrollFrame): void {
     requestAnimationFrame(() => restorePopoverScrollFrame(frame));
 }
 
-export function stabilizePopoverBodyAround(popover: HTMLElement, anchor: HTMLElement): void {
-    const scrollBody = popoverScrollBody(popover);
-    const scrollTop = scrollBody.scrollTop;
-    const anchorTop = anchor.getBoundingClientRect().top;
-    requestAnimationFrame(() => {
-        if (!popover.isConnected || !anchor.isConnected) return;
-        const delta = anchor.getBoundingClientRect().top - anchorTop;
-        if (Math.abs(delta) > 0.5) scrollBody.scrollTop = scrollTop + delta;
-    });
-}
-
 export function popoverBodyActionElement(target: HTMLElement, scrollBody: HTMLElement): HTMLElement | null {
     const action = target.closest<HTMLElement>(POPOVER_BODY_ACTION_SELECTOR);
     return action && scrollBody.contains(action) ? action : null;
+}
+
+type DragInput = 'pointer' | 'touch';
+
+interface HandleDragState {
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+    deltaX: number;
+    deltaY: number;
+}
+
+interface HandleDragOptions<THandle extends HTMLElement> {
+    tapMovementPx: number;
+    updateOnEnd?: boolean;
+    movementDistance?: (state: HandleDragState) => number;
+    onBegin?: (handle: THandle, state: HandleDragState, input: DragInput) => void;
+    onUpdate?: (state: HandleDragState, handle: THandle) => void;
+    onFinish: (state: HandleDragState, wasMoved: boolean, handle: THandle | null) => void;
+    onCancel?: (state: HandleDragState, handle: THandle | null) => void;
+}
+
+interface HandleDragController<THandle extends HTMLElement> {
+    isDragging(): boolean;
+    pointerDown(handle: THandle, event: PointerEvent): void;
+    touchStart(handle: THandle, event: TouchEvent): void;
+    cancel(): void;
+    cleanupListeners(): void;
+}
+
+function createHandleDragController<THandle extends HTMLElement>(options: HandleDragOptions<THandle>): HandleDragController<THandle> {
+    let state = initialDragState();
+    let pointerId = 0;
+    let touchId = 0;
+    let dragging = false;
+    let moved = false;
+    let activeInput: DragInput | null = null;
+    let activeHandle: THandle | null = null;
+
+    const movementDistance = options.movementDistance ?? (dragState => Math.hypot(dragState.deltaX, dragState.deltaY));
+    const setLastPoint = (point: { x: number; y: number }): void => {
+        state = {
+            ...state,
+            lastX: point.x,
+            lastY: point.y,
+            deltaX: point.x - state.startX,
+            deltaY: point.y - state.startY,
+        };
+    };
+    const updateDrag = (point: { x: number; y: number }): void => {
+        if (!activeHandle) return;
+        setLastPoint(point);
+        if (movementDistance(state) > options.tapMovementPx) moved = true;
+        options.onUpdate?.(state, activeHandle);
+    };
+    const beginDrag = (handle: THandle, point: { x: number; y: number }, input: DragInput): boolean => {
+        if (dragging || activeInput) return false;
+        state = {
+            startX: point.x,
+            startY: point.y,
+            lastX: point.x,
+            lastY: point.y,
+            deltaX: 0,
+            deltaY: 0,
+        };
+        dragging = true;
+        moved = false;
+        activeInput = input;
+        activeHandle = handle;
+        options.onBegin?.(handle, state, input);
+        return true;
+    };
+    const finishDrag = (): void => {
+        if (!dragging) return;
+        const wasMoved = moved;
+        const handle = activeHandle;
+        dragging = false;
+        moved = false;
+        activeInput = null;
+        activeHandle = null;
+        cleanupListeners();
+        releasePointerCapture(handle, pointerId);
+        options.onFinish(state, wasMoved, handle);
+    };
+
+    function cleanupListeners(): void {
+        if (typeof document === 'undefined') return;
+        document.removeEventListener('pointermove', handlePointerMove, true);
+        document.removeEventListener('pointerup', handlePointerUp, true);
+        document.removeEventListener('pointercancel', handlePointerCancel, true);
+        document.removeEventListener('touchmove', handleTouchMove, true);
+        document.removeEventListener('touchend', handleTouchEnd, true);
+        document.removeEventListener('touchcancel', handleTouchCancel, true);
+    }
+    function cancel(): void {
+        if (!dragging) return;
+        const handle = activeHandle;
+        dragging = false;
+        moved = false;
+        activeInput = null;
+        activeHandle = null;
+        cleanupListeners();
+        releasePointerCapture(handle, pointerId);
+        options.onCancel?.(state, handle);
+    }
+    function handlePointerMove(event: PointerEvent): void {
+        if (!dragging || activeInput !== 'pointer' || event.pointerId !== pointerId) return;
+        consumeDragEvent(event);
+        updateDrag({ x: event.clientX, y: event.clientY });
+    }
+    function handlePointerUp(event: PointerEvent): void {
+        if (!dragging || activeInput !== 'pointer' || event.pointerId !== pointerId) return;
+        consumeDragEvent(event);
+        if (options.updateOnEnd) updateDrag({ x: event.clientX, y: event.clientY });
+        else setLastPoint({ x: event.clientX, y: event.clientY });
+        finishDrag();
+    }
+    function handlePointerCancel(event: PointerEvent): void {
+        if (activeInput !== 'pointer' || event.pointerId !== pointerId) return;
+        cancel();
+    }
+    function handleTouchMove(event: TouchEvent): void {
+        if (!dragging || activeInput !== 'touch') return;
+        const touch = changedTouch(event, touchId);
+        if (!touch) return;
+        consumeDragEvent(event);
+        updateDrag({ x: touch.clientX, y: touch.clientY });
+    }
+    function handleTouchEnd(event: TouchEvent): void {
+        if (!dragging || activeInput !== 'touch') return;
+        const touch = changedTouch(event, touchId);
+        if (!touch) return;
+        consumeDragEvent(event);
+        if (options.updateOnEnd) updateDrag({ x: touch.clientX, y: touch.clientY });
+        else setLastPoint({ x: touch.clientX, y: touch.clientY });
+        finishDrag();
+    }
+    function handleTouchCancel(event: TouchEvent): void {
+        if (activeInput !== 'touch' || !changedTouch(event, touchId)) return;
+        cancel();
+    }
+
+    return {
+        isDragging: () => dragging,
+        pointerDown(handle: THandle, event: PointerEvent): void {
+            if (activeInput) return;
+            if (event.button !== undefined && event.button !== 0) return;
+            consumeDragEvent(event);
+            if (!beginDrag(handle, { x: event.clientX, y: event.clientY }, 'pointer')) return;
+            pointerId = event.pointerId;
+            setPointerCapture(handle, event.pointerId);
+            document.addEventListener('pointermove', handlePointerMove, { capture: true, passive: false });
+            document.addEventListener('pointerup', handlePointerUp, true);
+            document.addEventListener('pointercancel', handlePointerCancel, true);
+        },
+        touchStart(handle: THandle, event: TouchEvent): void {
+            if (activeInput) return;
+            const touch = firstChangedTouch(event);
+            if (!touch) return;
+            consumeDragEvent(event);
+            if (!beginDrag(handle, { x: touch.clientX, y: touch.clientY }, 'touch')) return;
+            touchId = touch.identifier;
+            document.addEventListener('touchmove', handleTouchMove, { capture: true, passive: false });
+            document.addEventListener('touchend', handleTouchEnd, true);
+            document.addEventListener('touchcancel', handleTouchCancel, true);
+        },
+        cancel,
+        cleanupListeners,
+    };
+}
+
+function initialDragState(): HandleDragState {
+    return {
+        startX: 0,
+        startY: 0,
+        lastX: 0,
+        lastY: 0,
+        deltaX: 0,
+        deltaY: 0,
+    };
+}
+
+function getContainedClosest<TElement extends HTMLElement>(
+    target: EventTarget | null,
+    root: HTMLElement,
+    selector: string,
+    onFound?: (element: TElement) => void,
+): TElement | null {
+    if (!(target instanceof Element)) return null;
+    const element = target.closest<TElement>(selector);
+    if (!element || !root.contains(element)) return null;
+    onFound?.(element);
+    return element;
+}
+
+function consumeDragEvent(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+}
+
+function changedTouch(event: TouchEvent, touchId: number): Touch | null {
+    for (const touch of Array.from(event.changedTouches)) {
+        if (touch.identifier === touchId) return touch;
+    }
+    return null;
+}
+
+function firstChangedTouch(event: TouchEvent): Touch | null {
+    return event.changedTouches.item(0);
+}
+
+function releasePointerCapture(handle: HTMLElement | null, id: number): void {
+    try {
+        handle?.releasePointerCapture?.(id);
+    } catch {
+        // Some iOS WebKit contexts expose pointer events without reliable capture.
+    }
+}
+
+function setPointerCapture(handle: HTMLElement, id: number): void {
+    try {
+        handle.setPointerCapture?.(id);
+    } catch {
+        // Document-level listeners keep the drag alive when capture is unavailable.
+    }
+}
+
+function addViewportChangeListeners(listener: EventListener, signal: AbortSignal): void {
+    const options: AddEventListenerOptions = { passive: true, signal };
+    window.addEventListener('resize', listener, options);
+    window.addEventListener('orientationchange', listener, options);
+    window.visualViewport?.addEventListener?.('resize', listener, options);
+    window.visualViewport?.addEventListener?.('scroll', listener, options);
 }
 
 export function createReaderPopover(appName: string, settings: ReaderSettings): HTMLElement {
@@ -180,161 +407,48 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void, 
         handleObserver.observe(popover, { childList: true, subtree: true });
     }
 
-    const getHandleFromEvent = (event: EventTarget | null): HTMLElement | null => {
-        if (!(event instanceof Element)) return null;
-        const handle = event.closest('.jpdb-reader-sheet-handle');
-        if (!handle) return null;
-        if (!popover.contains(handle)) return null;
-        syncHandle(handle as HTMLElement);
-        return handle as HTMLElement;
-    };
-    let startY = 0;
-    let lastY = 0;
-    let pointerId = 0;
-    let dragging = false;
-    let moved = false;
-    let activeInput: 'pointer' | 'touch' | null = null;
-    let touchId = 0;
     let suppressNextHandleClick = false;
-    let activeHandle: HTMLElement | null = null;
-
+    const getHandleFromEvent = (event: EventTarget | null): HTMLElement | null => (
+        getContainedClosest<HTMLElement>(event, popover, '.jpdb-reader-sheet-handle', syncHandle)
+    );
     const reset = () => {
         popover.style.transition = 'height .16s ease, max-height .16s ease, border-radius .16s ease, transform .16s ease';
         clearDragStyles();
         window.setTimeout(() => { popover.style.transition = ''; }, 180);
     };
-    const cleanupPointerListeners = () => {
-        if (typeof document === 'undefined') return;
-        document.removeEventListener('pointermove', handlePointerMove, true);
-        document.removeEventListener('pointerup', handlePointerUp, true);
-        document.removeEventListener('pointercancel', handlePointerCancel, true);
-    };
-    const cleanupTouchListeners = () => {
-        if (typeof document === 'undefined') return;
-        document.removeEventListener('touchmove', handleTouchMove, true);
-        document.removeEventListener('touchend', handleTouchEnd, true);
-        document.removeEventListener('touchcancel', handleTouchCancel, true);
-    };
-    const releasePointerCapture = (handle: HTMLElement | null, id: number): void => {
-        try {
-            handle?.releasePointerCapture?.(id);
-        } catch {
-            // Some iOS WebKit contexts expose pointer events without reliable capture.
-        }
-    };
-    const setPointerCapture = (handle: HTMLElement, id: number): void => {
-        try {
-            handle.setPointerCapture?.(id);
-        } catch {
-            // Document-level listeners keep the drag alive when capture is unavailable.
-        }
-    };
-    const finish = (closeOnTap = false) => {
-        if (!dragging) return;
-        const wasMoved = moved;
-        const handle = activeHandle;
-        const finishHeight = rawDragHeight;
-        dragging = false;
-        moved = false;
-        activeInput = null;
-        activeHandle = null;
-        popover.classList.remove('jpdb-reader-sheet-resizing');
-        cleanupPointerListeners();
-        cleanupTouchListeners();
-        releasePointerCapture(handle, pointerId);
-
-        if (!wasMoved && closeOnTap) {
+    const sheetDrag = createHandleDragController<HTMLElement>({
+        tapMovementPx: SHEET_TAP_MOVEMENT_PX,
+        movementDistance: state => Math.abs(state.deltaY),
+        onBegin: () => {
+            startHeight = sheetHeight || restoredSheetHeight(viewportHeight);
+            rawDragHeight = startHeight;
+            popover.style.transition = '';
+            popover.classList.add('jpdb-reader-sheet-resizing');
+        },
+        onUpdate: state => {
+            rawDragHeight = startHeight - state.deltaY;
+            applySheetHeight(rawDragHeight);
+        },
+        onFinish: (_state, wasMoved) => {
+            const finishHeight = rawDragHeight;
+            popover.classList.remove('jpdb-reader-sheet-resizing');
+            if (!wasMoved) {
+                suppressNextHandleClick = true;
+                onDismiss();
+                return;
+            }
             suppressNextHandleClick = true;
-            onDismiss();
-            return;
-        }
-        if (wasMoved) suppressNextHandleClick = true;
-        if (wasMoved && finishHeight < sheetMinHeight(viewportHeight) - SHEET_DISMISS_OVERSHOOT_PX) {
-            onDismiss();
-            return;
-        }
-        if (wasMoved) applySheetHeight(finishHeight, true);
-        reset();
-    };
-    const cancelDrag = () => {
-        if (!dragging) return;
-        dragging = false;
-        moved = false;
-        activeInput = null;
-        cleanupPointerListeners();
-        cleanupTouchListeners();
-        releasePointerCapture(activeHandle, pointerId);
-        activeHandle = null;
-        reset();
-    };
-    const updateDrag = (clientY: number): void => {
-        lastY = clientY;
-        const delta = startY - lastY;
-        rawDragHeight = startHeight + delta;
-        if (Math.abs(lastY - startY) > SHEET_TAP_MOVEMENT_PX) moved = true;
-        applySheetHeight(rawDragHeight);
-    };
-    const beginDrag = (handle: HTMLElement, clientY: number, input: 'pointer' | 'touch'): boolean => {
-        if (dragging || activeInput) return false;
-        startY = clientY;
-        lastY = clientY;
-        startHeight = sheetHeight || restoredSheetHeight(viewportHeight);
-        rawDragHeight = startHeight;
-        dragging = true;
-        moved = false;
-        activeInput = input;
-        activeHandle = handle;
-        popover.style.transition = '';
-        popover.classList.add('jpdb-reader-sheet-resizing');
-        return true;
-    };
-    const handlePointerMove = (event: PointerEvent) => {
-        if (!dragging || activeInput !== 'pointer' || event.pointerId !== pointerId) return;
-        event.preventDefault();
-        event.stopPropagation();
-        updateDrag(event.clientY);
-    };
-    const handlePointerUp = (event: PointerEvent) => {
-        if (!dragging || activeInput !== 'pointer' || event.pointerId !== pointerId) return;
-        event.preventDefault();
-        event.stopPropagation();
-        lastY = event.clientY;
-        finish(true);
-    };
-    const handlePointerCancel = (event: PointerEvent) => {
-        if (activeInput !== 'pointer' || event.pointerId !== pointerId) return;
-        cancelDrag();
-    };
-    const changedTouch = (event: TouchEvent): Touch | null => {
-        for (const touch of Array.from(event.changedTouches)) {
-            if (touch.identifier === touchId) return touch;
-        }
-        return null;
-    };
-    const firstChangedTouch = (event: TouchEvent): Touch | null => event.changedTouches.item(0);
-    const handleTouchMove = (event: TouchEvent) => {
-        if (!dragging || activeInput !== 'touch') return;
-        const touch = changedTouch(event);
-        if (!touch) return;
-        event.preventDefault();
-        event.stopPropagation();
-        updateDrag(touch.clientY);
-    };
-    const handleTouchEnd = (event: TouchEvent) => {
-        if (!dragging || activeInput !== 'touch') return;
-        const touch = changedTouch(event);
-        if (!touch) return;
-        event.preventDefault();
-        event.stopPropagation();
-        lastY = touch.clientY;
-        finish(true);
-    };
-    const handleTouchCancel = (event: TouchEvent) => {
-        if (activeInput !== 'touch' || !changedTouch(event)) return;
-        cancelDrag();
-    };
+            if (finishHeight < sheetMinHeight(viewportHeight) - SHEET_DISMISS_OVERSHOOT_PX) {
+                onDismiss();
+                return;
+            }
+            applySheetHeight(finishHeight, true);
+            reset();
+        },
+        onCancel: reset,
+    });
     const handleViewportChange = () => {
-        if (dragging) cancelDrag();
+        if (sheetDrag.isDragging()) sheetDrag.cancel();
         popover.style.transition = '';
         resetSheetLayout();
         syncHandleState();
@@ -345,8 +459,7 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void, 
     const dispose = (): void => {
         if (disposed) return;
         disposed = true;
-        cleanupPointerListeners();
-        cleanupTouchListeners();
+        sheetDrag.cleanupListeners();
         viewportController.abort();
         handleObserver?.disconnect();
         disposeObserver?.disconnect();
@@ -372,29 +485,12 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void, 
     popover.addEventListener('pointerdown', event => {
         const handle = getHandleFromEvent(event.target);
         if (!handle) return;
-        if (activeInput) return;
-        if (event.button !== undefined && event.button !== 0) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (!beginDrag(handle, event.clientY, 'pointer')) return;
-        pointerId = event.pointerId;
-        setPointerCapture(handle, event.pointerId);
-        document.addEventListener('pointermove', handlePointerMove, { capture: true, passive: false });
-        document.addEventListener('pointerup', handlePointerUp, true);
-        document.addEventListener('pointercancel', handlePointerCancel, true);
+        sheetDrag.pointerDown(handle, event);
     });
     popover.addEventListener('touchstart', event => {
         const handle = getHandleFromEvent(event.target);
-        if (!handle || activeInput) return;
-        const touch = firstChangedTouch(event);
-        if (!touch) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (!beginDrag(handle, touch.clientY, 'touch')) return;
-        touchId = touch.identifier;
-        document.addEventListener('touchmove', handleTouchMove, { capture: true, passive: false });
-        document.addEventListener('touchend', handleTouchEnd, true);
-        document.addEventListener('touchcancel', handleTouchCancel, true);
+        if (!handle) return;
+        sheetDrag.touchStart(handle, event);
     }, { capture: true, passive: false });
     popover.addEventListener('keydown', event => {
         const handle = getHandleFromEvent(event.target);
@@ -413,11 +509,7 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void, 
         if (event.key === 'Escape') onDismiss();
     });
 
-    const viewportListenerOptions: AddEventListenerOptions = { passive: true, signal: viewportController.signal };
-    window.addEventListener('resize', handleViewportChange, viewportListenerOptions);
-    window.addEventListener('orientationchange', handleViewportChange, viewportListenerOptions);
-    window.visualViewport?.addEventListener?.('resize', handleViewportChange, viewportListenerOptions);
-    window.visualViewport?.addEventListener?.('scroll', handleViewportChange, viewportListenerOptions);
+    addViewportChangeListeners(handleViewportChange, viewportController.signal);
 }
 
 export function installSheetCloseButton(popover: HTMLElement, onDismiss: () => void, label = 'Close drawer'): void {
@@ -474,14 +566,6 @@ export function installSettingsDrawerHandle(drawer: HTMLElement, label = 'Resize
     let drawerHeight = 0;
     let startHeight = 0;
     let rawDragHeight = 0;
-    let startY = 0;
-    let lastY = 0;
-    let pointerId = 0;
-    let dragging = false;
-    let moved = false;
-    let activeInput: 'pointer' | 'touch' | null = null;
-    let touchId = 0;
-    let activeHandle: HTMLElement | null = null;
     let suppressNextHandleClick = false;
     const isFullHeight = (): boolean => viewportHeight > 0 && drawerHeight >= viewportHeight - SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX;
 
@@ -523,134 +607,34 @@ export function installSettingsDrawerHandle(drawer: HTMLElement, label = 'Resize
         clearDragStyles();
         window.setTimeout(() => { drawer.style.transition = ''; }, 180);
     };
-    const getHandleFromEvent = (event: EventTarget | null): HTMLElement | null => {
-        if (!(event instanceof Element)) return null;
-        const handle = event.closest('.jpdb-reader-settings-drag-handle');
-        if (!handle || !drawer.contains(handle)) return null;
-        syncHandle(handle as HTMLElement);
-        return handle as HTMLElement;
-    };
-    const cleanupPointerListeners = () => {
-        if (typeof document === 'undefined') return;
-        document.removeEventListener('pointermove', handlePointerMove, true);
-        document.removeEventListener('pointerup', handlePointerUp, true);
-        document.removeEventListener('pointercancel', handlePointerCancel, true);
-    };
-    const cleanupTouchListeners = () => {
-        if (typeof document === 'undefined') return;
-        document.removeEventListener('touchmove', handleTouchMove, true);
-        document.removeEventListener('touchend', handleTouchEnd, true);
-        document.removeEventListener('touchcancel', handleTouchCancel, true);
-    };
-    const releasePointerCapture = (handle: HTMLElement | null, id: number): void => {
-        try {
-            handle?.releasePointerCapture?.(id);
-        } catch {
-        }
-    };
-    const setPointerCapture = (handle: HTMLElement, id: number): void => {
-        try {
-            handle.setPointerCapture?.(id);
-        } catch {
-        }
-    };
-    const updateDrag = (clientY: number): void => {
-        lastY = clientY;
-        const delta = startY - lastY;
-        rawDragHeight = startHeight + delta;
-        if (Math.abs(lastY - startY) > SETTINGS_DRAWER_TAP_MOVEMENT_PX) moved = true;
-        applyDrawerHeight(rawDragHeight);
-    };
-    const beginDrag = (handle: HTMLElement, clientY: number, input: 'pointer' | 'touch'): boolean => {
-        if (dragging || activeInput) return false;
-        startY = clientY;
-        lastY = clientY;
-        startHeight = drawerHeight || restoredSettingsDrawerHeight(viewportHeight);
-        rawDragHeight = startHeight;
-        dragging = true;
-        moved = false;
-        activeInput = input;
-        activeHandle = handle;
-        drawer.style.transition = '';
-        drawer.classList.add('jpdb-reader-settings-drawer-resizing');
-        return true;
-    };
-    const finish = () => {
-        if (!dragging) return;
-        const wasMoved = moved;
-        const handle = activeHandle;
-        const finishHeight = rawDragHeight;
-        dragging = false;
-        moved = false;
-        activeInput = null;
-        activeHandle = null;
-        cleanupPointerListeners();
-        cleanupTouchListeners();
-        releasePointerCapture(handle, pointerId);
-        if (wasMoved) {
-            suppressNextHandleClick = true;
-            applyDrawerHeight(finishHeight, true);
-        }
-        reset();
-    };
-    const cancelDrag = () => {
-        if (!dragging) return;
-        dragging = false;
-        moved = false;
-        activeInput = null;
-        cleanupPointerListeners();
-        cleanupTouchListeners();
-        releasePointerCapture(activeHandle, pointerId);
-        activeHandle = null;
-        reset();
-    };
-    const handlePointerMove = (event: PointerEvent) => {
-        if (!dragging || activeInput !== 'pointer' || event.pointerId !== pointerId) return;
-        event.preventDefault();
-        event.stopPropagation();
-        updateDrag(event.clientY);
-    };
-    const handlePointerUp = (event: PointerEvent) => {
-        if (!dragging || activeInput !== 'pointer' || event.pointerId !== pointerId) return;
-        event.preventDefault();
-        event.stopPropagation();
-        lastY = event.clientY;
-        finish();
-    };
-    const handlePointerCancel = (event: PointerEvent) => {
-        if (activeInput !== 'pointer' || event.pointerId !== pointerId) return;
-        cancelDrag();
-    };
-    const changedTouch = (event: TouchEvent): Touch | null => {
-        for (const touch of Array.from(event.changedTouches)) {
-            if (touch.identifier === touchId) return touch;
-        }
-        return null;
-    };
-    const firstChangedTouch = (event: TouchEvent): Touch | null => event.changedTouches.item(0);
-    const handleTouchMove = (event: TouchEvent) => {
-        if (!dragging || activeInput !== 'touch') return;
-        const touch = changedTouch(event);
-        if (!touch) return;
-        event.preventDefault();
-        event.stopPropagation();
-        updateDrag(touch.clientY);
-    };
-    const handleTouchEnd = (event: TouchEvent) => {
-        if (!dragging || activeInput !== 'touch') return;
-        const touch = changedTouch(event);
-        if (!touch) return;
-        event.preventDefault();
-        event.stopPropagation();
-        lastY = touch.clientY;
-        finish();
-    };
-    const handleTouchCancel = (event: TouchEvent) => {
-        if (activeInput !== 'touch' || !changedTouch(event)) return;
-        cancelDrag();
-    };
+    const getHandleFromEvent = (event: EventTarget | null): HTMLElement | null => (
+        getContainedClosest<HTMLElement>(event, drawer, '.jpdb-reader-settings-drag-handle', syncHandle)
+    );
+    const drawerDrag = createHandleDragController<HTMLElement>({
+        tapMovementPx: SETTINGS_DRAWER_TAP_MOVEMENT_PX,
+        movementDistance: state => Math.abs(state.deltaY),
+        onBegin: () => {
+            startHeight = drawerHeight || restoredSettingsDrawerHeight(viewportHeight);
+            rawDragHeight = startHeight;
+            drawer.style.transition = '';
+            drawer.classList.add('jpdb-reader-settings-drawer-resizing');
+        },
+        onUpdate: state => {
+            rawDragHeight = startHeight - state.deltaY;
+            applyDrawerHeight(rawDragHeight);
+        },
+        onFinish: (_state, wasMoved) => {
+            const finishHeight = rawDragHeight;
+            if (wasMoved) {
+                suppressNextHandleClick = true;
+                applyDrawerHeight(finishHeight, true);
+            }
+            reset();
+        },
+        onCancel: reset,
+    });
     const handleViewportChange = () => {
-        if (dragging) cancelDrag();
+        if (drawerDrag.isDragging()) drawerDrag.cancel();
         drawer.style.transition = '';
         applyViewportSize();
         clearDragStyles();
@@ -666,8 +650,7 @@ export function installSettingsDrawerHandle(drawer: HTMLElement, label = 'Resize
     const dispose = (): void => {
         if (disposed) return;
         disposed = true;
-        cleanupPointerListeners();
-        cleanupTouchListeners();
+        drawerDrag.cleanupListeners();
         viewportController.abort();
         disposeObserver?.disconnect();
     };
@@ -687,29 +670,13 @@ export function installSettingsDrawerHandle(drawer: HTMLElement, label = 'Resize
     });
     drawer.addEventListener('pointerdown', event => {
         const handle = getHandleFromEvent(event.target);
-        if (!handle || activeInput) return;
-        if (event.button !== undefined && event.button !== 0) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (!beginDrag(handle, event.clientY, 'pointer')) return;
-        pointerId = event.pointerId;
-        setPointerCapture(handle, event.pointerId);
-        document.addEventListener('pointermove', handlePointerMove, { capture: true, passive: false });
-        document.addEventListener('pointerup', handlePointerUp, true);
-        document.addEventListener('pointercancel', handlePointerCancel, true);
+        if (!handle) return;
+        drawerDrag.pointerDown(handle, event);
     });
     drawer.addEventListener('touchstart', event => {
         const handle = getHandleFromEvent(event.target);
-        if (!handle || activeInput) return;
-        const touch = firstChangedTouch(event);
-        if (!touch) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (!beginDrag(handle, touch.clientY, 'touch')) return;
-        touchId = touch.identifier;
-        document.addEventListener('touchmove', handleTouchMove, { capture: true, passive: false });
-        document.addEventListener('touchend', handleTouchEnd, true);
-        document.addEventListener('touchcancel', handleTouchCancel, true);
+        if (!handle) return;
+        drawerDrag.touchStart(handle, event);
     }, { capture: true, passive: false });
     drawer.addEventListener('keydown', event => {
         const handle = getHandleFromEvent(event.target);
@@ -722,11 +689,7 @@ export function installSettingsDrawerHandle(drawer: HTMLElement, label = 'Resize
         }
     });
 
-    const viewportListenerOptions: AddEventListenerOptions = { passive: true, signal: viewportController.signal };
-    window.addEventListener('resize', handleViewportChange, viewportListenerOptions);
-    window.addEventListener('orientationchange', handleViewportChange, viewportListenerOptions);
-    window.visualViewport?.addEventListener?.('resize', handleViewportChange, viewportListenerOptions);
-    window.visualViewport?.addEventListener?.('scroll', handleViewportChange, viewportListenerOptions);
+    addViewportChangeListeners(handleViewportChange, viewportController.signal);
 }
 
 export function installMiningDrawerHandle(
@@ -736,16 +699,6 @@ export function installMiningDrawerHandle(
     if (root.dataset.jpdbReaderMiningDrawerHandleInstalled === 'true') return;
     root.dataset.jpdbReaderMiningDrawerHandleInstalled = 'true';
 
-    let startX = 0;
-    let startY = 0;
-    let lastX = 0;
-    let lastY = 0;
-    let pointerId = 0;
-    let touchId = 0;
-    let dragging = false;
-    let moved = false;
-    let activeInput: 'pointer' | 'touch' | null = null;
-    let activeHandle: HTMLButtonElement | null = null;
     let suppressNextHandleClick = false;
 
     const getHandleFromEvent = (event: EventTarget | null): HTMLButtonElement | null => {
@@ -758,120 +711,23 @@ export function installMiningDrawerHandle(
         if (!handle) return null;
         return handle;
     };
-    const cleanupPointerListeners = (): void => {
-        document.removeEventListener('pointermove', handlePointerMove, true);
-        document.removeEventListener('pointerup', handlePointerUp, true);
-        document.removeEventListener('pointercancel', handlePointerCancel, true);
-    };
-    const cleanupTouchListeners = (): void => {
-        document.removeEventListener('touchmove', handleTouchMove, true);
-        document.removeEventListener('touchend', handleTouchEnd, true);
-        document.removeEventListener('touchcancel', handleTouchCancel, true);
-    };
-    const setPointerCapture = (handle: HTMLElement, id: number): void => {
-        try {
-            handle.setPointerCapture?.(id);
-        } catch {
-        }
-    };
-    const releasePointerCapture = (handle: HTMLElement | null, id: number): void => {
-        try {
-            handle?.releasePointerCapture?.(id);
-        } catch {
-        }
-    };
-    const beginDrag = (handle: HTMLButtonElement, clientX: number, clientY: number, input: 'pointer' | 'touch'): boolean => {
-        if (dragging || activeInput) return false;
-        startX = clientX;
-        startY = clientY;
-        lastX = clientX;
-        lastY = clientY;
-        dragging = true;
-        moved = false;
-        activeInput = input;
-        activeHandle = handle;
-        handle.closest<HTMLElement>('.jpdb-reader-actions')?.classList.add('jpdb-reader-mining-drawer-dragging');
-        return true;
-    };
-    const updateDrag = (clientX: number, clientY: number): void => {
-        lastX = clientX;
-        lastY = clientY;
-        if (Math.hypot(lastX - startX, lastY - startY) > MINING_DRAWER_TAP_MOVEMENT_PX) moved = true;
-    };
-    const finish = (): void => {
-        if (!dragging) return;
-        const wasMoved = moved;
-        const handle = activeHandle;
-        dragging = false;
-        moved = false;
-        activeInput = null;
-        activeHandle = null;
-        cleanupPointerListeners();
-        cleanupTouchListeners();
-        releasePointerCapture(handle, pointerId);
-        handle?.closest<HTMLElement>('.jpdb-reader-actions')?.classList.remove('jpdb-reader-mining-drawer-dragging');
-        if (!wasMoved || !handle) return;
-        suppressNextHandleClick = true;
-        const expanded = miningDrawerDragExpandedState(handle, lastX - startX, lastY - startY);
-        if (expanded !== undefined) setExpanded(handle, expanded);
-    };
-    const cancelDrag = (): void => {
-        if (!dragging) return;
-        const handle = activeHandle;
-        dragging = false;
-        moved = false;
-        activeInput = null;
-        activeHandle = null;
-        cleanupPointerListeners();
-        cleanupTouchListeners();
-        releasePointerCapture(handle, pointerId);
-        handle?.closest<HTMLElement>('.jpdb-reader-actions')?.classList.remove('jpdb-reader-mining-drawer-dragging');
-    };
-    const handlePointerMove = (event: PointerEvent): void => {
-        if (!dragging || activeInput !== 'pointer' || event.pointerId !== pointerId) return;
-        event.preventDefault();
-        event.stopPropagation();
-        updateDrag(event.clientX, event.clientY);
-    };
-    const handlePointerUp = (event: PointerEvent): void => {
-        if (!dragging || activeInput !== 'pointer' || event.pointerId !== pointerId) return;
-        event.preventDefault();
-        event.stopPropagation();
-        updateDrag(event.clientX, event.clientY);
-        finish();
-    };
-    const handlePointerCancel = (event: PointerEvent): void => {
-        if (activeInput !== 'pointer' || event.pointerId !== pointerId) return;
-        cancelDrag();
-    };
-    const changedTouch = (event: TouchEvent): Touch | null => {
-        for (const touch of Array.from(event.changedTouches)) {
-            if (touch.identifier === touchId) return touch;
-        }
-        return null;
-    };
-    const firstChangedTouch = (event: TouchEvent): Touch | null => event.changedTouches.item(0);
-    const handleTouchMove = (event: TouchEvent): void => {
-        if (!dragging || activeInput !== 'touch') return;
-        const touch = changedTouch(event);
-        if (!touch) return;
-        event.preventDefault();
-        event.stopPropagation();
-        updateDrag(touch.clientX, touch.clientY);
-    };
-    const handleTouchEnd = (event: TouchEvent): void => {
-        if (!dragging || activeInput !== 'touch') return;
-        const touch = changedTouch(event);
-        if (!touch) return;
-        event.preventDefault();
-        event.stopPropagation();
-        updateDrag(touch.clientX, touch.clientY);
-        finish();
-    };
-    const handleTouchCancel = (event: TouchEvent): void => {
-        if (activeInput !== 'touch' || !changedTouch(event)) return;
-        cancelDrag();
-    };
+    const miningDrag = createHandleDragController<HTMLButtonElement>({
+        tapMovementPx: MINING_DRAWER_TAP_MOVEMENT_PX,
+        updateOnEnd: true,
+        onBegin: handle => {
+            handle.closest<HTMLElement>('.jpdb-reader-actions')?.classList.add('jpdb-reader-mining-drawer-dragging');
+        },
+        onFinish: (state, wasMoved, handle) => {
+            handle?.closest<HTMLElement>('.jpdb-reader-actions')?.classList.remove('jpdb-reader-mining-drawer-dragging');
+            if (!wasMoved || !handle) return;
+            suppressNextHandleClick = true;
+            const expanded = miningDrawerDragExpandedState(handle, state.deltaX, state.deltaY);
+            if (expanded !== undefined) setExpanded(handle, expanded);
+        },
+        onCancel: (_state, handle) => {
+            handle?.closest<HTMLElement>('.jpdb-reader-actions')?.classList.remove('jpdb-reader-mining-drawer-dragging');
+        },
+    });
 
     root.addEventListener('click', event => {
         if (!suppressNextHandleClick) return;
@@ -883,36 +739,32 @@ export function installMiningDrawerHandle(
     }, true);
     root.addEventListener('pointerdown', event => {
         const handle = getHandleFromEvent(event.target);
-        if (!handle || activeInput) return;
-        if (event.button !== undefined && event.button !== 0) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (!beginDrag(handle, event.clientX, event.clientY, 'pointer')) return;
-        pointerId = event.pointerId;
-        setPointerCapture(handle, event.pointerId);
-        document.addEventListener('pointermove', handlePointerMove, { capture: true, passive: false });
-        document.addEventListener('pointerup', handlePointerUp, true);
-        document.addEventListener('pointercancel', handlePointerCancel, true);
+        if (!handle) return;
+        miningDrag.pointerDown(handle, event);
     });
     root.addEventListener('touchstart', event => {
         const handle = getHandleFromEvent(event.target);
-        if (!handle || activeInput) return;
-        const touch = firstChangedTouch(event);
-        if (!touch) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (!beginDrag(handle, touch.clientX, touch.clientY, 'touch')) return;
-        touchId = touch.identifier;
-        document.addEventListener('touchmove', handleTouchMove, { capture: true, passive: false });
-        document.addEventListener('touchend', handleTouchEnd, true);
-        document.addEventListener('touchcancel', handleTouchCancel, true);
+        if (!handle) return;
+        miningDrag.touchStart(handle, event);
     }, { capture: true, passive: false });
 }
 
 export function shouldUseSheet(settings: ReaderSettings): boolean {
     if (settings.popupMode === 'sheet') return true;
     if (settings.popupMode === 'popover') return false;
-    return window.innerWidth <= 768 || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
+    const { width, height } = lookupViewportSize();
+    const popoverWidth = Math.max(0, settings.popoverWidth || 0);
+    const requiredPopoverWidth = popoverWidth + AUTO_POPOVER_VIEWPORT_MARGIN_PX;
+    if (width <= AUTO_SHEET_COMPACT_WIDTH_PX || width < requiredPopoverWidth) return true;
+    if (height > 0 && height < AUTO_POPOVER_MIN_HEIGHT_PX) return true;
+    return height > width && width <= AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX;
+}
+
+function lookupViewportSize(): { width: number; height: number } {
+    const visual = window.visualViewport;
+    const width = Math.round(visual?.width ?? window.innerWidth ?? document.documentElement.clientWidth ?? 0);
+    const height = Math.round(visual?.height ?? window.innerHeight ?? document.documentElement.clientHeight ?? 0);
+    return { width: Math.max(0, width), height: Math.max(0, height) };
 }
 
 function sheetMinHeight(viewportHeight: number): number {

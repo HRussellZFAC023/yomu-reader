@@ -1,3 +1,4 @@
+import { stableHashBase36 } from './stable-hash';
 import type { ReaderSettings } from './types';
 
 const SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS = 1_200;
@@ -71,7 +72,7 @@ export function authoritativeSubtitleParseOptions(): SubtitleParseOptions {
     };
 }
 
-export function hasSubtitleParserSource(_settings: ReaderSettings): boolean {
+function hasSubtitleParserSource(_settings: ReaderSettings): boolean {
     return true;
 }
 
@@ -82,12 +83,7 @@ function hasRecentTranscriptParseAttempt(markerKey: string | undefined, markerAt
 }
 
 function stableSubtitleHash(value: string): string {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index++) {
-        hash ^= value.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-    }
-    return (hash >>> 0).toString(36);
+    return stableHashBase36(value);
 }
 
 function dictionaryPreferencesSignature(settings: ReaderSettings): string {

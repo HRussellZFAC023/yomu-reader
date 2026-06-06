@@ -74,7 +74,7 @@ export function ankiMediaMimeType(filename: string): string {
     return ANKI_MEDIA_MIME_TYPES[extension] ?? 'audio/mpeg';
 }
 
-export function stateFromAnkiCards(cards: AnkiCardInfo[]): CardState {
+function stateFromAnkiCards(cards: AnkiCardInfo[]): CardState {
     if (!cards.length) return 'known';
     if (cards.some(card => card.type === 3 || card.queue === 3)) return 'failed';
     if (cards.some(isAnkiCardDue)) return 'due';
@@ -90,7 +90,7 @@ export function stateFromExistingNotes(notes: AnkiExistingNote[]): CardState {
         .find(state => notes.some(note => note.state === state)) ?? (notes.length ? 'known' : 'not-in-deck');
 }
 
-export function pickPrimaryCard(cards: AnkiCardInfo[]): AnkiCardInfo | null {
+function pickPrimaryCard(cards: AnkiCardInfo[]): AnkiCardInfo | null {
     const order = (card: AnkiCardInfo) => {
         if (card.type === 3 || card.queue === 3) return 0;
         if (isAnkiCardDue(card)) return 1;
@@ -101,7 +101,7 @@ export function pickPrimaryCard(cards: AnkiCardInfo[]): AnkiCardInfo | null {
     return [...cards].sort((a, b) => order(a) - order(b))[0] ?? null;
 }
 
-export function isAnkiCardDue(card: AnkiCardInfo): boolean {
+function isAnkiCardDue(card: AnkiCardInfo): boolean {
     if (card.queue !== 2) return false;
     if (typeof card.isDue === 'boolean') return card.isDue;
     return Number(card.due ?? 0) <= 0;

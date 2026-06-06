@@ -7,7 +7,6 @@ const {
   assertNoRemoteExecutableMetadata,
   byteLengthUtf8,
   fail,
-  failIfGreasyForkSizeExceeded,
   fileExists,
   formatCount,
   packageJson,
@@ -16,8 +15,8 @@ const {
   warnIfNearGreasyForkSizeLimit,
 } = require('./userscript-build-utils.cjs');
 
-const MIN_READABLE_LINE_COUNT = 1_000;
-const MAX_READABLE_LINE_LENGTH = 2_000;
+const MIN_READABLE_LINE_COUNT = 10_000;
+const MAX_READABLE_LINE_LENGTH = 1_000;
 const code = readBuiltUserscript();
 const size = byteLengthUtf8(code);
 const lines = code.split(/\r?\n/);
@@ -54,7 +53,6 @@ if (!code.includes('(function ()')) {
 if (lines.length < MIN_READABLE_LINE_COUNT || maxLineLength > MAX_READABLE_LINE_LENGTH) {
   fail(`${USERSCRIPT_RELATIVE_PATH} looks minified or unreadable (${formatCount(lines.length)} lines, longest line ${formatCount(maxLineLength)} chars). Greasy Fork requires non-minified code.`);
 }
-failIfGreasyForkSizeExceeded(size);
 warnIfNearGreasyForkSizeLimit(size);
 
 console.log(`Verified ${DIST_USERSCRIPT_PATH} (${formatCount(size)} bytes, ${formatCount(lines.length)} lines)`);

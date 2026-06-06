@@ -180,18 +180,8 @@ function kanjiActions(doc: Document, kanji: string): JpdbKanjiAction[] {
             .filter(submitter => cleanText(labelForControl(submitter)) && submitter.getAttribute('type')?.toLowerCase() !== 'button');
         const controls = submitters.length ? submitters : [form];
         controls.forEach(control => {
-            const label = cleanText(control instanceof HTMLFormElement ? form.textContent ?? '' : labelForControl(control));
-            if (!label) return;
-            push({
-                kanji,
-                label,
-                role: classifyKanjiAction(label, `${url} ${control instanceof HTMLFormElement ? form.textContent ?? '' : control.getAttribute('value') ?? ''}`),
-                kind: 'form',
-                method,
-                url,
-                payload: formPayload(form, control instanceof HTMLFormElement ? null : control),
-                enabled: !(control instanceof HTMLFormElement) && isDisabled(control) ? false : !isDisabled(form),
-            });
+            const action = kanjiFormAction(form, control, kanji, method, url);
+            if (action) push(action);
         });
     });
 
@@ -220,6 +210,36 @@ function labelForControl(element: Element): string {
     return element.getAttribute('aria-label') || (element as HTMLElement).title || element.textContent || '';
 }
 
+function kanjiFormAction(
+    form: HTMLFormElement,
+    control: HTMLFormElement | HTMLButtonElement | HTMLInputElement,
+    kanji: string,
+    method: 'GET' | 'POST',
+    url: string,
+): Omit<JpdbKanjiAction, 'id'> | null {
+    const label = cleanText(control instanceof HTMLFormElement ? form.textContent ?? '' : labelForControl(control));
+    if (!label) return null;
+    return {
+        kanji,
+        label,
+        role: classifyKanjiAction(label, `${url} ${kanjiFormActionContext(form, control)}`),
+        kind: 'form',
+        method,
+        url,
+        payload: formPayload(form, control instanceof HTMLFormElement ? null : control),
+        enabled: kanjiFormActionEnabled(form, control),
+    };
+}
+
+function kanjiFormActionContext(form: HTMLFormElement, control: HTMLFormElement | HTMLButtonElement | HTMLInputElement): string {
+    return control instanceof HTMLFormElement ? form.textContent ?? '' : control.getAttribute('value') ?? '';
+}
+
+function kanjiFormActionEnabled(form: HTMLFormElement, control: HTMLFormElement | HTMLButtonElement | HTMLInputElement): boolean {
+    if (control instanceof HTMLFormElement) return !isDisabled(form);
+    return !isDisabled(control) && !isDisabled(form);
+}
+
 function classifyKanjiAction(label: string, context: string): JpdbKanjiActionRole {
     const labelText = label.toLowerCase();
     const text = `${label} ${context}`.toLowerCase();
@@ -244,15 +264,7 @@ const KANJI_ACTION_PATTERNS: Array<{ role: JpdbKanjiActionRole; pattern: RegExp 
 function formPayload(form: HTMLFormElement, submitter: Element | null): Record<string, string> {
     const payload: Record<string, string> = {};
     form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea').forEach(control => {
-        if (control instanceof HTMLInputElement) {
-            const type = control.type.toLowerCase();
-            if (!control.name || type === 'submit' || type === 'button' || type === 'image' || type === 'reset' || type === 'file') return;
-            if ((type === 'checkbox' || type === 'radio') && !control.checked) return;
-            payload[control.name] = control.value;
-            return;
-        }
-        if (!control.name) return;
-        payload[control.name] = control.value;
+        addFormControlPayload(payload, control);
     });
     if (submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) {
         const name = submitter.name;
@@ -260,6 +272,24 @@ function formPayload(form: HTMLFormElement, submitter: Element | null): Record<s
     }
     return payload;
 }
+
+function addFormControlPayload(payload: Record<string, string>, control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): void {
+    if (!control.name || !shouldIncludeFormControl(control)) return;
+    payload[control.name] = control.value;
+}
+
+function shouldIncludeFormControl(control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): boolean {
+    return !(control instanceof HTMLInputElement) || shouldIncludeInputControl(control);
+}
+
+function shouldIncludeInputControl(control: HTMLInputElement): boolean {
+    const type = control.type.toLowerCase();
+    if (IGNORED_FORM_INPUT_TYPES.has(type)) return false;
+    return !CHECKED_FORM_INPUT_TYPES.has(type) || control.checked;
+}
+
+const IGNORED_FORM_INPUT_TYPES = new Set(['submit', 'button', 'image', 'reset', 'file']);
+const CHECKED_FORM_INPUT_TYPES = new Set(['checkbox', 'radio']);
 
 function isDisabled(element: Element): boolean {
     return element.hasAttribute('disabled')
@@ -335,22 +365,45 @@ function kanjiSectionEntries(doc: Document, matchesLabel: (label: string) => boo
 function vocabulary(doc: Document): JpdbKanjiVocabulary[] {
     const entries: JpdbKanjiVocabulary[] = [];
     doc.querySelectorAll('.subsection-used-in .used-in').forEach(element => {
-        const link = element.querySelector<HTMLAnchorElement>('.jp a[href^="/vocabulary/"]');
-        if (!link) return;
-        const identity = parseJpdbVocabularyUrl(link.getAttribute('href') ?? '');
-        const expression = identity?.expression ?? '';
-        const reading = identity?.reading ?? '';
-        const fallbackExpression = expression || textWithoutRuby(link);
-        const meaning = cleanText(element.querySelector('.en')?.textContent ?? '');
-        if (!JAPANESE_RE.test(fallbackExpression) || !meaning) return;
-        entries.push({
-            expression: fallbackExpression,
-            reading,
-            meaning,
-            url: absoluteJpdbUrl(link.getAttribute('href') ?? ''),
-        });
+        const entry = jpdbKanjiVocabularyEntry(element);
+        if (entry) entries.push(entry);
     });
     return entries;
+}
+
+function jpdbKanjiVocabularyEntry(element: Element): JpdbKanjiVocabulary | null {
+    const link = element.querySelector<HTMLAnchorElement>('.jp a[href^="/vocabulary/"]');
+    if (!link) return null;
+    const expression = jpdbKanjiVocabularyExpression(link);
+    const meaning = jpdbKanjiVocabularyMeaning(element);
+    if (!isJpdbKanjiVocabularyEntry(expression, meaning)) return null;
+    return {
+        expression,
+        reading: jpdbKanjiVocabularyReading(link),
+        meaning,
+        url: absoluteJpdbUrl(jpdbKanjiVocabularyHref(link)),
+    };
+}
+
+function jpdbKanjiVocabularyExpression(link: HTMLAnchorElement): string {
+    const identity = parseJpdbVocabularyUrl(jpdbKanjiVocabularyHref(link));
+    return identity?.expression || textWithoutRuby(link);
+}
+
+function jpdbKanjiVocabularyReading(link: HTMLAnchorElement): string {
+    return parseJpdbVocabularyUrl(jpdbKanjiVocabularyHref(link))?.reading ?? '';
+}
+
+function jpdbKanjiVocabularyMeaning(element: Element): string {
+    return cleanText(element.querySelector('.en')?.textContent ?? '');
+}
+
+function jpdbKanjiVocabularyHref(link: HTMLAnchorElement): string {
+    return link.getAttribute('href') ?? '';
+}
+
+function isJpdbKanjiVocabularyEntry(expression: string, meaning: string): boolean {
+    return JAPANESE_RE.test(expression) && Boolean(meaning);
 }
 
 function textWithoutRuby(element: Element): string {

@@ -59,7 +59,7 @@ export function inferMiningSourceKind({ isImageSource, hasVideo, hostname = loca
     return 'page';
 }
 
-export function createStoredMiningContext(term: string, context: MiningContextDraft, updatedAt = Date.now()): StoredMiningContext | null {
+function createStoredMiningContext(term: string, context: MiningContextDraft, updatedAt = Date.now()): StoredMiningContext | null {
     const normalizedTerm = term.trim();
     const sentence = context.sentence.trim();
     if (!normalizedTerm || !sentence) return null;
@@ -181,7 +181,7 @@ function resolvePageMiningContext(term: string, sentence: string, sourceKind: Mi
     return result;
 }
 
-export function miningContextWithImage(term: string, sentence: string, sourceKind: 'image' | 'video', imageDataUrl: string): MiningContext {
+function miningContextWithImage(term: string, sentence: string, sourceKind: 'image' | 'video', imageDataUrl: string): MiningContext {
     const context = pageMiningContext(sentence, sourceKind);
     return {
         ...(saveMiningContext(term, context) ?? createFallbackMiningContext(term, context)),
@@ -282,7 +282,7 @@ function immersionContextLabel(context: StoredMiningContext | MiningContext): st
         : '';
 }
 
-export function shouldUseImmersionContext(settings: ReaderSettings, context: StoredMiningContext | null): context is StoredMiningContext {
+function shouldUseImmersionContext(settings: ReaderSettings, context: StoredMiningContext | null): context is StoredMiningContext {
     return Boolean(settings.immersionKitEnabled && context?.sourceKind === 'immersion-kit' && context.sentence.trim());
 }
 

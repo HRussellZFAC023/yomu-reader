@@ -48,19 +48,36 @@ async function readDistSize(relativePath) {
     const fileUrl = new URL(relativePath, ROOT);
     try {
         const buffer = await readFile(fileUrl);
-        return {
-            file: relativePath,
-            rawBytes: buffer.length,
-            gzipBytes: gzipSync(buffer).length,
-            brotliBytes: brotliCompressSync(buffer).length,
-        };
+        return distSizeRecord(relativePath, buffer);
     } catch (error) {
-        return {
-            file: relativePath,
-            missing: true,
-            error: String(error?.code || error?.message || error),
-        };
+        return missingDistSizeRecord(relativePath, error);
     }
+}
+
+function distSizeRecord(relativePath, buffer) {
+    return {
+        file: relativePath,
+        rawBytes: buffer.length,
+        gzipBytes: gzipSync(buffer).length,
+        brotliBytes: brotliCompressSync(buffer).length,
+    };
+}
+
+function missingDistSizeRecord(relativePath, error) {
+    return {
+        file: relativePath,
+        missing: true,
+        error: missingDistSizeError(error),
+    };
+}
+
+function missingDistSizeError(error) {
+    return errorProperty(error, 'code') || errorProperty(error, 'message') || String(error);
+}
+
+function errorProperty(error, property) {
+    if (!error || typeof error !== 'object' || !(property in error)) return '';
+    return String(error[property]);
 }
 
 async function listFiles(dirUrl) {
@@ -98,24 +115,35 @@ function printReport(report) {
     console.log('Yomu bundle size report');
     console.log('');
     console.log('Current dist artifacts');
-    console.log('| file | raw | gzip | brotli |');
-    console.log('| --- | ---: | ---: | ---: |');
-    for (const item of report.dist) {
-        if (item.missing) {
-            console.log(`| ${item.file} | missing | missing | missing |`);
-            continue;
-        }
-        console.log(`| ${item.file} | ${formatBytes(item.rawBytes)} | ${formatBytes(item.gzipBytes)} | ${formatBytes(item.brotliBytes)} |`);
-    }
+    printDistSizeTable(report.dist);
     console.log('');
     console.log('Source feature buckets');
+    printSourceBucketTable(report.sourceBuckets);
+    console.log('');
+    printReportNotes(report.notes);
+}
+
+function printDistSizeTable(dist) {
+    console.log('| file | raw | gzip | brotli |');
+    console.log('| --- | ---: | ---: | ---: |');
+    for (const item of dist) console.log(distSizeTableRow(item));
+}
+
+function distSizeTableRow(item) {
+    if (item.missing) return `| ${item.file} | missing | missing | missing |`;
+    return `| ${item.file} | ${formatBytes(item.rawBytes)} | ${formatBytes(item.gzipBytes)} | ${formatBytes(item.brotliBytes)} |`;
+}
+
+function printSourceBucketTable(sourceBuckets) {
     console.log('| feature | files | raw source |');
     console.log('| --- | ---: | ---: |');
-    for (const bucket of report.sourceBuckets) {
+    for (const bucket of sourceBuckets) {
         console.log(`| ${bucket.feature} | ${bucket.files} | ${formatBytes(bucket.rawBytes)} |`);
     }
-    console.log('');
-    for (const note of report.notes) console.log(`- ${note}`);
+}
+
+function printReportNotes(notes) {
+    for (const note of notes) console.log(`- ${note}`);
 }
 
 function formatBytes(bytes) {

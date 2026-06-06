@@ -1,6 +1,13 @@
 const APP_HASH = '__YOMU_NEW_TAB_APP_HASH__';
 const CACHE_NAME = `yomu-newtab-${APP_HASH}`;
 const SHELL = ['./', './index.html', './app.js', '../yomu.user.js'];
+const CACHEABLE_PATH_SUFFIXES = [
+  '/yomu.user.js',
+  '/yomu-icon.svg',
+  '/favicon-16x16.png',
+  '/favicon-32x32.png',
+  '/apple-touch-icon.png',
+];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).catch(() => undefined));
@@ -42,29 +49,40 @@ async function networkFirstIndex(request) {
 async function networkFirst(request) {
   try {
     const response = await fetch(request);
-    if (response.ok && isSameOrigin(request)) {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).catch(() => undefined);
-    }
+    cacheNetworkResponse(request, response);
     return response;
   } catch {
-    return await caches.match(request, { ignoreSearch: true })
-      || await caches.match('./index.html')
-      || Response.error();
+    return await cachedResponseFallback(request);
   }
+}
+
+function cacheNetworkResponse(request, response) {
+  if (!shouldStoreNetworkResponse(request, response)) return;
+  const copy = response.clone();
+  caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).catch(() => undefined);
+}
+
+function shouldStoreNetworkResponse(request, response) {
+  return response.ok && isSameOrigin(request);
+}
+
+async function cachedResponseFallback(request) {
+  return await caches.match(request, { ignoreSearch: true })
+    || await caches.match('./index.html')
+    || Response.error();
 }
 
 function shouldCacheRequest(request) {
   if (!isSameOrigin(request)) return false;
   const url = new URL(request.url);
-  return url.pathname.includes('/newtab/')
-    || url.pathname.endsWith('/yomu.user.js')
-    || url.pathname.endsWith('/yomu-icon.svg')
-    || url.pathname.endsWith('/favicon-16x16.png')
-    || url.pathname.endsWith('/favicon-32x32.png')
-    || url.pathname.endsWith('/apple-touch-icon.png');
+  return isNewTabPath(url.pathname)
+    || CACHEABLE_PATH_SUFFIXES.some(suffix => url.pathname.endsWith(suffix));
 }
 
 function isSameOrigin(request) {
   return new URL(request.url).origin === self.location.origin;
+}
+
+function isNewTabPath(pathname) {
+  return pathname.includes('/newtab/');
 }

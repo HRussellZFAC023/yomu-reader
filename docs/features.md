@@ -99,6 +99,8 @@ The temporary notice shows how many cards were hidden and disappears after a few
 
 Anki support is optional. With [AnkiConnect](https://ankiweb.net/shared/info/2055492159) reachable, よむ can create cards from popup lookups, subtitles, and OCR; detect existing cards; update matching notes; adapt to existing decks and note types; and power Anki-backed review/status features in the new-tab page. On mobile, the full path is still desktop AnkiConnect: keep desktop Anki open, bind AnkiConnect to a trusted Wi-Fi or [Tailscale](https://tailscale.com/downloads) address, and point よむ at that desktop URL.
 
+For a step-by-step phone, iPad, or Android setup, use [Getting Started](./getting-started.md#use-desktop-anki-from-a-phone-ipad-or-android).
+
 Mobile handoff is deliberately narrower. On iPhone, iPad, and Android, よむ can open AnkiMobile or AnkiDroid when AnkiConnect is not available, but that path creates new-note drafts only. AnkiMobile add-note links can carry deck, note type, tags, and fields when accepted by the app. AnkiDroid uses Android's add/share flow with front/back text, so full field mappings, media handling, existing-card status, note updates, deck scans, and review queues still need desktop AnkiConnect.
 
 If you already use RTK, Core, anime-card, or other nonstandard Japanese decks, keep desktop AnkiConnect reachable. よむ inspects existing Anki shapes automatically, suggests field mappings for expression, reading, meaning, sentence, audio, and image fields, and mines into that shape when it can infer a fit. If matching is not enough, the cleanest route is to use the よむ note type or adjust mappings before mining.

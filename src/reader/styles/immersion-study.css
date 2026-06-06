@@ -184,6 +184,50 @@
   padding-top: 2px;
   line-height: 1.75;
 }
+.yomu-jpdb-page-addon .jpdb-reader-immersion {
+  --jpdb-reader-example-media-max-height: clamp(170px, 42vh, 320px);
+  margin: 8px 0 4px;
+}
+.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-meta {
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-actions {
+  justify-self: end;
+  gap: 4px;
+}
+.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-body {
+  gap: 6px;
+}
+.yomu-jpdb-page-addon
+  .jpdb-reader-immersion
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-media {
+  width: min(100%, 720px);
+  overflow: visible;
+}
+.yomu-jpdb-page-addon
+  .jpdb-reader-immersion
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-sentence {
+  left: clamp(8px, 3%, 16px);
+  right: clamp(8px, 3%, 16px);
+  bottom: clamp(10px, 4%, 16px);
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-translation {
+  margin: 0;
+  line-height: 1.35;
+}
 .jpdb-reader-example-sentence .jpdb-reader-word {
   display: inline;
   -webkit-box-decoration-break: clone;
@@ -375,6 +419,10 @@ mark.jpdb-reader-example-target {
     height: 44px !important;
     min-height: 44px !important;
     max-height: 44px !important;
+  }
+
+  .yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 }
 .jpdb-reader-study-tools {

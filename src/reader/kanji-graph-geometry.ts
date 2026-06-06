@@ -13,12 +13,12 @@ export interface GraphEdgePath {
     points: Array<{ x: number; y: number }>;
 }
 
-export function graphEllipseOffset(dx: number, dy: number, rx: number, ry: number): number {
+function graphEllipseOffset(dx: number, dy: number, rx: number, ry: number): number {
     const denominator = Math.sqrt((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry));
     return denominator > 0 ? Math.min(0.48, 1 / denominator) : 0;
 }
 
-export function formatGraphCoordinate(value: number): string {
+function formatGraphCoordinate(value: number): string {
     return Number(value.toFixed(2)).toString();
 }
 

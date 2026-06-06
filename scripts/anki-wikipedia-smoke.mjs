@@ -2,47 +2,43 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import {
+    addGmStorageBridgeInitScript,
+    ankiActions,
+    arrayParam,
+    assert,
+    assertAnkiStatusStorage,
+    createAnkiSmokeSettings,
+    createSmokePaths,
+    DEFAULT_ANKI_CONNECT_URL,
+    jsonHttpResponse,
+    launchSmokeBrowser,
+    mockAnkiConnectResponse,
+    mockJpdbParseFromVocabulary,
+    newAutoClosingPage,
+    readAnkiStatusStorage,
+    readJsonBody,
+    resolveAnkiAction,
+    routeMockedHttpRequests,
+    YOMU_SETTINGS_KEY,
+} from './smoke-harness.mjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
-const DIST = path.join(ROOT, 'dist');
-const ARTIFACTS = path.join(ROOT, 'qa-artifacts');
-const SCRIPT_PATH = path.join(DIST, 'yomu.user.js');
-const CSS_PATH = path.join(DIST, 'yomu.css');
-const SETTINGS_KEY = 'jpdb-popup-reader-settings';
-const ANKI_URL = 'http://127.0.0.1:8765';
-const ANKI_STATUS_INDEX_STORAGE_KEY = 'yomu:anki-status-index:v1';
-const ANKI_STATUS_INDEX_DB_NAME = 'yomu-anki-status-index';
-const ANKI_STATUS_INDEX_ENTRY_STORE = 'entries';
+const {
+    artifacts: ARTIFACTS,
+    scriptPath: SCRIPT_PATH,
+    cssPath: CSS_PATH,
+} = createSmokePaths(import.meta.dirname);
+const SETTINGS_KEY = YOMU_SETTINGS_KEY;
+const ANKI_URL = DEFAULT_ANKI_CONNECT_URL;
+const JPDB_API_ORIGIN = 'https://jpdb.io';
+const JPDB_API_PREFIX = '/api/v1/';
 const TARGET_URL = process.env.YOMU_WIKIPEDIA_URL || 'https://ja.wikipedia.org/wiki/%E6%97%A5%E6%9C%AC%E8%AA%9E';
+const EXISTING_ANKI_SELECTOR = '.jpdb-reader-popover .jpdb-reader-anki-existing';
+const EXISTING_WIKIPEDIA_TERMS = ['Japanese language', 'Mining', '14'];
+const WHOLE_COLLECTION_QUERY = 'deck:*';
+const WHOLE_COLLECTION_SEARCH_ACTIONS = new Set(['findCards', 'findNotes']);
 
-const settings = {
-    onboardingSeen: true,
-    apiKey: 'mock-jpdb-token',
-    interfaceLanguage: 'en',
-    ankiEnabled: true,
-    ankiConnectUrl: ANKI_URL,
-    ankiDeck: 'Mining',
-    ankiModel: 'Imported Japanese',
-    ankiMobileHandoff: false,
-    jpdbMiningEnabled: false,
-    jpdbDefinitionsEnabled: false,
-    localDictionariesEnabled: false,
-    audioEnabled: false,
-    autoPlayAudio: false,
-    immersionKitEnabled: false,
-    studyTranslationEnabled: false,
-    studyGrammarEnabled: false,
-    lookupOnClick: true,
-    lookupOnHover: true,
-    hoverOpenDelayMs: 0,
-    hoverCloseDelayMs: 120,
-    popupActivationMode: 'click',
-    showFloatingButton: false,
-    wordTextColorSource: 'anki',
-    wordUnderlineColorSource: 'off',
-    wordHighlightColorSource: 'off',
-    enableLogging: false,
-};
+const settings = createAnkiSmokeSettings();
 
 const vocabulary = [
     ['日本語', '日本語', 'にほんご', 'Japanese language', ['n'], 250],
@@ -53,45 +49,36 @@ const vocabulary = [
     ['文法', '文法', 'ぶんぽう', 'grammar', ['n'], 1800],
 ];
 
-function assert(condition, message, details = {}) {
-    if (!condition) {
-        throw new Error(`${message}: ${JSON.stringify(details, null, 2)}`);
-    }
-}
+const WIKIPEDIA_ANKI_HANDLERS = {
+    version: () => 6,
+    deckNames: () => ['Mining'],
+    getDeckStats: () => ({ 1: { name: 'Mining', total_in_deck: 1 } }),
+    findCards: findWikipediaCards,
+    findNotes: findWikipediaNotes,
+    notesInfo: params => arrayParam(params.notes).map(() => mockWikipediaNoteInfo()),
+    cardsInfo: params => arrayParam(params.cards).map(() => mockWikipediaCardInfo()),
+    areDue: params => arrayParam(params.cards).map(() => true),
+    modelNames: () => ['Imported Japanese'],
+    modelFieldNames: () => ['Word', 'Reading', 'Meaning', 'Sentence'],
+    updateNoteFields: () => null,
+    guiBrowse: () => null,
+    answerCards: () => null,
+};
 
 mkdirSync(ARTIFACTS, { recursive: true });
 
-const browser = await launchSmokeBrowser({ headless: true });
-const context = await browser.newContext({
+const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
+const { context, page } = await newAutoClosingPage(browser, {
     bypassCSP: true,
     viewport: { width: 1360, height: 900 },
     deviceScaleFactor: 1,
 });
-const page = await context.newPage();
 const requests = [];
 
-await page.route('**/*', async route => {
-    const request = route.request();
-    const url = new URL(request.url());
-    if (request.method() === 'OPTIONS' && isMockedApiOrigin(url)) {
-        await route.fulfill({ status: 204, headers: corsHeaders() });
-        return;
-    }
-    const mocked = mockHttpRequest({
-        method: request.method(),
-        url: request.url(),
-        data: request.postData() ?? '',
-    }, requests);
-    if (!mocked) {
-        await route.continue();
-        return;
-    }
-    await route.fulfill({
-        status: mocked.status,
-        contentType: mocked.contentType,
-        body: mocked.responseText,
-        headers: corsHeaders(),
-    });
+await routeMockedHttpRequests(page, {
+    requests,
+    mockHttpRequest,
+    isMockedApiOrigin,
 });
 
 await page.exposeFunction('__yomuAnkiWikipediaRequest', async request => {
@@ -100,123 +87,14 @@ await page.exposeFunction('__yomuAnkiWikipediaRequest', async request => {
     return mocked;
 });
 
-await page.addInitScript(({ key, value, css }) => {
-    const memoryStore = new Map();
-    const readStoredValue = (storeKey, fallback) => {
-        if (memoryStore.has(storeKey)) return memoryStore.get(storeKey);
-        try {
-            const raw = localStorage.getItem(storeKey);
-            return raw == null ? fallback : JSON.parse(raw);
-        } catch {
-            return fallback;
-        }
-    };
-    const writeStoredValue = (storeKey, storedValue) => {
-        memoryStore.set(storeKey, storedValue);
-        try {
-            localStorage.setItem(storeKey, JSON.stringify(storedValue));
-        } catch {
-            // Ignore fixture storage failures.
-        }
-    };
-    writeStoredValue(key, value);
-    window.GM_getValue = (storeKey, fallback) => readStoredValue(storeKey, fallback);
-    window.GM_setValue = (storeKey, storedValue) => { writeStoredValue(storeKey, storedValue); };
-    window.GM_deleteValue = storeKey => {
-        memoryStore.delete(storeKey);
-        try {
-            localStorage.removeItem(storeKey);
-        } catch {
-            // Ignore fixture storage failures.
-        }
-    };
-    window.GM_listValues = () => {
-        const keys = new Set(memoryStore.keys());
-        try {
-            for (let index = 0; index < localStorage.length; index += 1) {
-                const storageKey = localStorage.key(index);
-                if (storageKey) keys.add(storageKey);
-            }
-        } catch {
-            // Ignore fixture storage failures.
-        }
-        return [...keys];
-    };
-    window.GM_addStyle = styleText => {
-        const style = document.createElement('style');
-        style.textContent = styleText;
-        (document.head || document.documentElement || document.body).append(style);
-        return style;
-    };
-    window.GM_getResourceText = name => name === 'yomuCss' ? css : '';
-    window.GM_registerMenuCommand = () => undefined;
-    window.unwrappedVisibleKnownWikipediaSamples = () => {
-        const root = document.querySelector('#mw-content-text');
-        if (!root) return [];
-        const knownTerms = ['日本語', '日本', '言語', '漢字', '文字', '文法'];
-        const samples = [];
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-            acceptNode(node) {
-                const parent = node.parentElement;
-                if (!parent) return NodeFilter.FILTER_REJECT;
-                if (parent.closest('.jpdb-reader-word,[data-jpdb-reader-root],script,style,noscript,a[href],button,input,textarea,select,sup.reference,.mw-editsection,.vector-page-toolbar,.vector-toc,.toc,.navbox,.metadata,.legend,.noprint')) {
-                    return NodeFilter.FILTER_REJECT;
-                }
-                if (!isVisibleForSmoke(parent)) return NodeFilter.FILTER_REJECT;
-                const text = node.nodeValue ?? '';
-                return knownTerms.some(term => text.includes(term)) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
-            },
-        });
-        for (let node = walker.nextNode(); node && samples.length < 8; node = walker.nextNode()) {
-            const text = (node.nodeValue ?? '').replace(/\s+/g, ' ').trim();
-            const term = knownTerms.find(value => text.includes(value));
-            if (!term) continue;
-            const parent = node.parentElement;
-            const ancestor = parent?.closest('p,li,td,th,figcaption,section,div');
-            samples.push({
-                term,
-                text: text.slice(0, 160),
-                parentTag: parent?.tagName ?? '',
-                parentClass: String(parent?.className ?? ''),
-                ancestor: ancestor?.tagName ?? '',
-                ancestorClass: String(ancestor?.className ?? ''),
-            });
-        }
-        return samples;
-    };
-    function isVisibleForSmoke(element) {
-        const rect = element.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0 || rect.bottom < 0 || rect.top > window.innerHeight) return false;
-        const style = getComputedStyle(element);
-        return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || '1') > 0;
-    }
-    window.GM_xmlhttpRequest = options => {
-        let settled = false;
-        const settle = callback => value => {
-            if (settled) return;
-            settled = true;
-            callback?.(value);
-        };
-        Promise.resolve(window.__yomuAnkiWikipediaRequest({
-            method: options.method || 'GET',
-            url: options.url,
-            headers: options.headers || {},
-            data: options.data ?? '',
-        })).then(result => {
-            const response = options.responseType === 'json'
-                ? JSON.parse(result.responseText || 'null')
-                : result.responseText;
-            settle(options.onload)({
-                status: result.status,
-                response,
-                responseText: result.responseText,
-            });
-        }).catch(error => {
-            settle(options.onerror)(error);
-        });
-    };
-    window.GM = { xmlHttpRequest: window.GM_xmlhttpRequest, xmlhttpRequest: window.GM_xmlhttpRequest };
-}, { key: SETTINGS_KEY, value: settings, css: readFileSync(CSS_PATH, 'utf8') });
+await addGmStorageBridgeInitScript(page, {
+    key: SETTINGS_KEY,
+    value: settings,
+    css: readFileSync(CSS_PATH, 'utf8'),
+    requestBridgeName: '__yomuAnkiWikipediaRequest',
+});
+
+await page.addInitScript(initWikipediaSmokeSampler);
 
 const startedAt = Date.now();
 await page.goto(TARGET_URL, { waitUntil: 'domcontentloaded', timeout: 45_000 });
@@ -247,11 +125,8 @@ const beforeClick = await firstKnownWord.evaluate(element => ({
     title: element.title,
 }));
 await firstKnownWord.click();
-await page.waitForSelector('.jpdb-reader-popover .jpdb-reader-anki-existing', { timeout: 12_000 });
-await page.waitForFunction(() => {
-    const text = document.querySelector('.jpdb-reader-popover .jpdb-reader-anki-existing')?.textContent ?? '';
-    return text.includes('Japanese language') || text.includes('Mining') || text.includes('14');
-}, null, { timeout: 12_000 });
+await page.waitForSelector(EXISTING_ANKI_SELECTOR, { timeout: 12_000 });
+await waitForSelectorTextIncludesAny(page, EXISTING_ANKI_SELECTOR, EXISTING_WIKIPEDIA_TERMS);
 const afterClick = await firstKnownWord.evaluate(element => ({
     state: element.dataset.ankiState,
     classes: [...element.classList],
@@ -305,10 +180,7 @@ assert(
     { initialAnkiActions },
 );
 assert(
-    !initialAnkiRequests.some(item => (
-        (item.action === 'findCards' || item.action === 'findNotes')
-        && String(item.params?.query ?? '') === 'deck:*'
-    )),
+    !initialAnkiRequests.some(isWholeCollectionSearch),
     'Wikipedia initial coloring scanned the whole Anki collection before interaction',
     { initialAnkiRequests },
 );
@@ -335,259 +207,191 @@ console.log(JSON.stringify(report, null, 2));
 await context.close();
 await browser.close();
 
-async function launchSmokeBrowser(options) {
-    const configuredChannel = process.env.YOMU_PLAYWRIGHT_CHANNEL;
-    if (configuredChannel) return chromium.launch({ ...options, channel: configuredChannel });
-    try {
-        return await chromium.launch(options);
-    } catch (error) {
-        if (!String(error?.message ?? '').includes("Executable doesn't exist")) throw error;
-        return chromium.launch({ ...options, channel: 'chrome' });
+function initWikipediaSmokeSampler() {
+    const knownTerms = ['日本語', '日本', '言語', '漢字', '文字', '文法'];
+    const ignoredSelector = '.jpdb-reader-word,[data-jpdb-reader-root],script,style,noscript,a[href],button,input,textarea,select,sup.reference,.mw-editsection,.vector-page-toolbar,.vector-toc,.toc,.navbox,.metadata,.legend,.noprint';
+
+    window.unwrappedVisibleKnownWikipediaSamples = () => {
+        const root = document.querySelector('#mw-content-text');
+        return root ? collectVisibleKnownSamples(root) : [];
+    };
+
+    function collectVisibleKnownSamples(root) {
+        const samples = [];
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode });
+        for (let node = walker.nextNode(); node && samples.length < 8; node = walker.nextNode()) {
+            const sample = sampleTextNode(node);
+            if (sample) samples.push(sample);
+        }
+        return samples;
+    }
+
+    function acceptNode(node) {
+        const parent = node.parentElement;
+        return isAcceptedTextNode(node, parent) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+
+    function isAcceptedTextNode(node, parent) {
+        const checks = [
+            hasSamplerParent,
+            isNotIgnoredSamplerElement,
+            isVisibleSamplerElement,
+            textNodeHasKnownTerm,
+        ];
+        return checks.every(check => check(node, parent));
+    }
+
+    function hasSamplerParent(_node, parent) {
+        return Boolean(parent);
+    }
+
+    function isNotIgnoredSamplerElement(_node, parent) {
+        return !parent.closest(ignoredSelector);
+    }
+
+    function isVisibleSamplerElement(_node, parent) {
+        return isVisibleForSmoke(parent);
+    }
+
+    function textNodeHasKnownTerm(node) {
+        const text = node.nodeValue ?? '';
+        return knownTerms.some(term => text.includes(term));
+    }
+
+    function sampleTextNode(node) {
+        const text = (node.nodeValue ?? '').replace(/\s+/g, ' ').trim();
+        const term = knownTerms.find(value => text.includes(value));
+        if (!term) return null;
+        const parent = node.parentElement;
+        const ancestor = parent ? parent.closest('p,li,td,th,figcaption,section,div') : null;
+        return {
+            term,
+            text: text.slice(0, 160),
+            parentTag: elementTag(parent),
+            parentClass: elementClass(parent),
+            ancestor: elementTag(ancestor),
+            ancestorClass: elementClass(ancestor),
+        };
+    }
+
+    function elementTag(element) {
+        return element ? element.tagName : '';
+    }
+
+    function elementClass(element) {
+        return element ? String(element.className) : '';
+    }
+
+    function isVisibleForSmoke(element) {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return hasVisibleBox(rect) && hasVisibleStyle(style);
+    }
+
+    function hasVisibleBox(rect) {
+        return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight;
+    }
+
+    function hasVisibleStyle(style) {
+        return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || '1') > 0;
     }
 }
 
 function isMockedApiOrigin(url) {
-    return url.origin === ANKI_URL || url.origin === 'https://jpdb.io';
-}
-
-function corsHeaders() {
-    return {
-        'access-control-allow-origin': '*',
-        'access-control-allow-headers': 'content-type, authorization',
-        'access-control-allow-methods': 'GET, POST, OPTIONS',
-    };
+    return url.origin === ANKI_URL || isJpdbApiUrl(url);
 }
 
 function mockHttpRequest(request, requests) {
     const url = new URL(request.url);
-    if (url.origin === 'https://jpdb.io' && url.pathname.startsWith('/api/v1/')) {
-        const endpoint = url.pathname.slice('/api/v1/'.length);
-        const body = readJsonBody(request.data);
-        const response = endpoint === 'parse' ? mockJpdbParse(body) : {};
-        requests.push({ kind: 'jpdb', endpoint, body });
-        return jsonHttpResponse(response);
-    }
-    if (url.origin === ANKI_URL) {
-        const body = readJsonBody(request.data);
-        const response = mockAnkiConnect(body);
-        requests.push({ kind: 'anki', action: body.action, params: body.params ?? {} });
-        return jsonHttpResponse(response);
-    }
-    return null;
+    return mockWikipediaJpdbRequest(url, request, requests) ?? mockWikipediaAnkiRequest(url, request, requests);
 }
 
-function jsonHttpResponse(value) {
-    const responseText = JSON.stringify(value);
-    return {
-        status: 200,
-        responseText,
-        contentType: 'application/json; charset=utf-8',
-    };
+function mockWikipediaJpdbRequest(url, request, requests) {
+    if (!isJpdbApiUrl(url)) return null;
+    const endpoint = url.pathname.slice(JPDB_API_PREFIX.length);
+    const body = readJsonBody(request.data);
+    requests.push({ kind: 'jpdb', endpoint, body });
+    return jsonHttpResponse(mockWikipediaJpdbResponse(endpoint, body));
 }
 
-function readJsonBody(data) {
-    if (!data) return {};
-    if (typeof data === 'string') return JSON.parse(data);
-    return data;
+function mockWikipediaJpdbResponse(endpoint, body) {
+    return endpoint === 'parse' ? mockJpdbParseFromVocabulary(body, vocabulary) : {};
 }
 
-function mockJpdbParse(body) {
-    const paragraphs = Array.isArray(body.text) ? body.text.map(value => String(value)) : [];
-    const parsedVocabulary = [];
-    const vocabIndexBySpelling = new Map();
-    const tokens = paragraphs.map(text => {
-        const paragraphTokens = [];
-        for (let index = 0; index < text.length;) {
-            const entry = vocabulary
-                .map(([surface, spelling, reading, gloss, partOfSpeech, frequency]) => ({
-                    surface,
-                    spelling,
-                    reading,
-                    gloss,
-                    partOfSpeech,
-                    frequency,
-                }))
-                .filter(item => text.startsWith(item.surface, index))
-                .sort((a, b) => b.surface.length - a.surface.length)[0];
-            if (!entry) {
-                index += 1;
-                continue;
-            }
-            let vocabularyIndex = vocabIndexBySpelling.get(entry.spelling);
-            if (vocabularyIndex === undefined) {
-                vocabularyIndex = parsedVocabulary.length;
-                vocabIndexBySpelling.set(entry.spelling, vocabularyIndex);
-                parsedVocabulary.push([
-                    1000 + vocabularyIndex,
-                    2000 + vocabularyIndex,
-                    0,
-                    entry.spelling,
-                    entry.reading,
-                    entry.frequency,
-                    entry.partOfSpeech,
-                    [[entry.gloss]],
-                    [entry.partOfSpeech],
-                    ['not-in-deck'],
-                    ['LHH'],
-                ]);
-            }
-            paragraphTokens.push([
-                vocabularyIndex,
-                index,
-                entry.surface.length,
-                [[entry.surface, entry.reading]],
-            ]);
-            index += entry.surface.length;
-        }
-        return paragraphTokens;
-    });
-    return { vocabulary: parsedVocabulary, tokens };
+function mockWikipediaAnkiRequest(url, request, requests) {
+    if (url.origin !== ANKI_URL) return null;
+    const body = readJsonBody(request.data);
+    requests.push({ kind: 'anki', action: body.action, params: body.params ?? {} });
+    return jsonHttpResponse(mockAnkiConnect(body));
+}
+
+function isJpdbApiUrl(url) {
+    const { origin, pathname } = url;
+    return origin === JPDB_API_ORIGIN && pathname.startsWith(JPDB_API_PREFIX);
 }
 
 function mockAnkiConnect(body) {
-    const action = body.action;
-    const params = body.params ?? {};
-    if (action === 'multi') {
-        const actions = Array.isArray(params.actions) ? params.actions : [];
-        return {
-            result: actions.map(item => mockAnkiConnect({ action: item.action, params: item.params ?? {} })),
-            error: null,
-        };
-    }
-    return { result: mockAnkiResult(action, params), error: null };
+    return mockAnkiConnectResponse(body, resolveWikipediaAnkiAction);
 }
 
-function mockAnkiResult(action, params) {
+function resolveWikipediaAnkiAction(action, params) {
+    return resolveAnkiAction(action, params, WIKIPEDIA_ANKI_HANDLERS);
+}
+
+async function waitForSelectorTextIncludesAny(page, selector, terms, timeout = 12_000) {
+    await page.waitForFunction(selectorTextIncludesAny, { selector, terms }, { timeout });
+}
+
+function selectorTextIncludesAny({ selector, terms }) {
+    const text = document.querySelector(selector)?.textContent ?? '';
+    return terms.some(term => text.includes(term));
+}
+
+function isWholeCollectionSearch(item) {
+    return WHOLE_COLLECTION_SEARCH_ACTIONS.has(item.action) && ankiQueryParam(item) === WHOLE_COLLECTION_QUERY;
+}
+
+function ankiQueryParam(item) {
+    return String(item.params?.query ?? '');
+}
+
+function findWikipediaCards(params) {
     const query = String(params.query ?? '');
-    switch (action) {
-        case 'version':
-            return 6;
-        case 'deckNames':
-            return ['Mining'];
-        case 'getDeckStats':
-            return { 1: { name: 'Mining', total_in_deck: 1 } };
-        case 'findCards':
-            if (query === 'deck:*' || query.includes('is:due')) return [8001];
-            return [];
-        case 'findNotes':
-            if (query === 'deck:*' || /日本語|にほんご/.test(query)) return [9001];
-            return [];
-        case 'notesInfo':
-            return (Array.isArray(params.notes) ? params.notes : []).map(() => ({
-                noteId: 9001,
-                modelName: 'Imported Japanese',
-                tags: ['existing'],
-                fields: {
-                    Word: { value: '日本語' },
-                    Reading: { value: 'にほんご' },
-                    Meaning: { value: 'Japanese language' },
-                    Sentence: { value: '日本語の記事を読む。' },
-                },
-                cards: [8001],
-            }));
-        case 'cardsInfo':
-            return (Array.isArray(params.cards) ? params.cards : []).map(() => ({
-                cardId: 8001,
-                note: 9001,
-                deckName: 'Mining',
-                queue: 2,
-                type: 2,
-                reps: 14,
-                lapses: 1,
-                question: '<div>日本語</div>',
-                answer: '<div>Japanese language</div>',
-            }));
-        case 'areDue':
-            return (Array.isArray(params.cards) ? params.cards : []).map(() => true);
-        case 'modelNames':
-            return ['Imported Japanese'];
-        case 'modelFieldNames':
-            return ['Word', 'Reading', 'Meaning', 'Sentence'];
-        case 'updateNoteFields':
-        case 'guiBrowse':
-        case 'answerCards':
-            return null;
-        default:
-            return null;
-    }
+    if (query === 'deck:*' || query.includes('is:due')) return [8001];
+    return [];
 }
 
-function ankiActions(requests) {
-    return requests.filter(item => item.kind === 'anki').map(item => item.action);
+function findWikipediaNotes(params) {
+    const query = String(params.query ?? '');
+    if (query === 'deck:*' || /日本語|にほんご/.test(query)) return [9001];
+    return [];
 }
 
-function assertAnkiStatusStorage(storage, expectedCardCount) {
-    assert(storage.cardCount === expectedCardCount, 'Anki status index card count did not match mocked collection total', storage);
-    assert(storage.entryCount >= expectedCardCount, 'Anki status index did not store a lookup entry for mocked cards', storage);
-    if (storage.entryStore === 'indexeddb') {
-        assert(storage.indexedDbEntryCount >= expectedCardCount, 'Anki status IndexedDB entry count did not match stored metadata', storage);
-    }
+function mockWikipediaNoteInfo() {
+    return {
+        noteId: 9001,
+        modelName: 'Imported Japanese',
+        tags: ['existing'],
+        fields: {
+            Word: { value: '日本語' },
+            Reading: { value: 'にほんご' },
+            Meaning: { value: 'Japanese language' },
+            Sentence: { value: '日本語の記事を読む。' },
+        },
+        cards: [8001],
+    };
 }
 
-async function readAnkiStatusStorage(page) {
-    return page.evaluate(async ({ storageKey, dbName, entryStore }) => {
-        const raw = localStorage.getItem(storageKey);
-        let meta = null;
-        try {
-            meta = raw ? JSON.parse(raw) : null;
-        } catch {
-            meta = null;
-        }
-        const indexedDbEntryCount = meta?.entryStore === 'indexeddb'
-            ? await countIndexedDbEntries(dbName, entryStore)
-            : null;
-        const valueEntryCount = meta?.entries && typeof meta.entries === 'object'
-            ? Object.keys(meta.entries).length
-            : 0;
-        return {
-            cardCount: Number(meta?.cardCount ?? 0),
-            entryCount: Number(meta?.entryCount ?? valueEntryCount),
-            entryStore: meta?.entryStore ?? 'value',
-            indexedDbEntryCount,
-            localStorageBytes: raw?.length ?? 0,
-        };
-
-        function countIndexedDbEntries(name, storeName) {
-            if (typeof indexedDB === 'undefined') return Promise.resolve(null);
-            return new Promise(resolve => {
-                let settled = false;
-                const done = value => {
-                    if (settled) return;
-                    settled = true;
-                    resolve(value);
-                };
-                const request = indexedDB.open(name);
-                request.onupgradeneeded = () => {
-                    request.transaction?.abort();
-                    done(null);
-                };
-                request.onerror = () => done(null);
-                request.onsuccess = () => {
-                    if (settled) {
-                        request.result.close();
-                        return;
-                    }
-                    const db = request.result;
-                    if (!db.objectStoreNames.contains(storeName)) {
-                        db.close();
-                        done(null);
-                        return;
-                    }
-                    const tx = db.transaction(storeName, 'readonly');
-                    const count = tx.objectStore(storeName).count();
-                    count.onsuccess = () => done(Number(count.result));
-                    count.onerror = () => done(null);
-                    tx.oncomplete = () => db.close();
-                    tx.onabort = () => {
-                        db.close();
-                        done(null);
-                    };
-                };
-            });
-        }
-    }, {
-        storageKey: ANKI_STATUS_INDEX_STORAGE_KEY,
-        dbName: ANKI_STATUS_INDEX_DB_NAME,
-        entryStore: ANKI_STATUS_INDEX_ENTRY_STORE,
-    });
+function mockWikipediaCardInfo() {
+    return {
+        cardId: 8001,
+        note: 9001,
+        deckName: 'Mining',
+        queue: 2,
+        type: 2,
+        reps: 14,
+        lapses: 1,
+        question: '<div>日本語</div>',
+        answer: '<div>Japanese language</div>',
+    };
 }

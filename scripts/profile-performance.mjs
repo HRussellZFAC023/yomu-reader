@@ -2,6 +2,11 @@
 import { chromium } from 'playwright';
 import process from 'node:process';
 import { readFile } from 'node:fs/promises';
+import {
+    addGmStorageBridgeInitScript,
+    gmRequestFetchBody,
+    mockJpdbParseFromVocabulary,
+} from './smoke-harness.mjs';
 
 const ORIGIN = process.env.YOMU_PROFILE_ORIGIN || 'http://127.0.0.1:5175';
 const SLOW_MS = Number(process.env.YOMU_PROFILE_SLOW_MS || 4500);
@@ -9,9 +14,20 @@ const LIVE = process.env.YOMU_PROFILE_LIVE === '1';
 const API_KEY = process.env.YOMU_PROFILE_API_KEY || process.env.YOMU_TEST_API_KEY || '';
 const USERSCRIPT_PATH = new URL('../dist/yomu.user.js', import.meta.url);
 const IMMERSION_API_HOSTS = new Set(['apiv2express.immersionkit.com', 'apiv2.immersionkit.com']);
+const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const PROFILE_FIXTURE_PATH = '/__yomu-profile-fixture/';
 const HOVER_WORD = '読みました';
 const CLICK_WORD = '今日';
+const NON_EMPTY_TEXT_PATTERN = String.raw`\S`;
+const KANJI_MOUNT_CHECKS = [
+    { name: 'keyword', selector: '[data-kanji-keyword-mount]', completePattern: NON_EMPTY_TEXT_PATTERN, rejectPattern: 'Loading kanji details' },
+    { name: 'jpdb', selector: '[data-kanji-jpdb-mount]', completePattern: NON_EMPTY_TEXT_PATTERN },
+    { name: 'rtk', selector: '[data-kanji-rtk-mount]', completePattern: NON_EMPTY_TEXT_PATTERN },
+    { name: 'localKanjiDictionary', selector: '[data-kanji-definitions-mount]', completePattern: 'Profile Kanji|now|read' },
+    { name: 'kanjiVg', selector: '.jpdb-reader-kanjivg', completePattern: 'Stroke order|Clear|Trace', completeSelector: '.jpdb-reader-kanjivg-svg' },
+    { name: 'origin', selector: '[data-kanji-origin-mount]', completePattern: NON_EMPTY_TEXT_PATTERN },
+    { name: 'similarWords', selector: '[data-kanji-similar-mount]', completePattern: NON_EMPTY_TEXT_PATTERN },
+];
 
 if (LIVE && !API_KEY) {
     console.error('Live profiling needs YOMU_PROFILE_API_KEY or YOMU_TEST_API_KEY so JPDB parse can run against the real API.');
@@ -94,15 +110,15 @@ const settings = {
 };
 
 const vocabulary = [
-    ['今日', 'きょう', 'today', ['n'], 100],
-    ['静か', 'しずか', 'quiet', ['adj-na'], 1700],
-    ['喫茶店', 'きっさてん', 'coffee shop', ['n'], 2400],
-    ['新しい', 'あたらしい', 'new', ['adj-i'], 700],
-    ['本', 'ほん', 'book', ['n'], 350],
-    ['読みました', 'よみました', 'read', ['v5m'], 401, '読む'],
-    ['読む', 'よむ', 'to read', ['v5m'], 400],
-    ['日本語', 'にほんご', 'Japanese language', ['n'], 250],
-].map(([surface, reading, gloss, partOfSpeech, frequency, spelling]) => ({ surface, spelling: spelling ?? surface, reading, gloss, partOfSpeech, frequency }));
+    ['今日', '今日', 'きょう', 'today', ['n'], 100],
+    ['静か', '静か', 'しずか', 'quiet', ['adj-na'], 1700],
+    ['喫茶店', '喫茶店', 'きっさてん', 'coffee shop', ['n'], 2400],
+    ['新しい', '新しい', 'あたらしい', 'new', ['adj-i'], 700],
+    ['本', '本', 'ほん', 'book', ['n'], 350],
+    ['読みました', '読む', 'よみました', 'read', ['v5m'], 401],
+    ['読む', '読む', 'よむ', 'to read', ['v5m'], 400],
+    ['日本語', '日本語', 'にほんご', 'Japanese language', ['n'], 250],
+];
 
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
@@ -134,7 +150,7 @@ async function profileBridgeRequest(request) {
     const response = await fetch(request.url, {
         method: request.method,
         headers: request.headers,
-        body: profileRequestBody(request.data),
+        body: gmRequestFetchBody(request),
     });
     const buffer = Buffer.from(await response.arrayBuffer());
     requests.push({
@@ -153,44 +169,8 @@ async function profileBridgeRequest(request) {
     };
 }
 
-function profileRequestBody(body) {
-    if (body?.kind === 'arraybuffer') return profileArrayBuffer(body);
-    if (body?.kind === 'formdata') return profileFormDataBody(body);
-    return body;
-}
-
-function profileArrayBuffer(body) {
-    return Buffer.from(body.bytes ?? []);
-}
-
-function profileFormDataBody(body) {
-    return profileFormData(body.entries ?? []);
-}
-
-function profileFormData(entries) {
-    const formData = new FormData();
-    for (const entry of entries) appendProfileFormDataEntry(formData, entry);
-    return formData;
-}
-
-function appendProfileFormDataEntry(formData, entry) {
-    if (entry.blob) {
-        formData.append(entry.name, profileBlob(entry.blob), profileBlobFilename(entry.blob));
-        return;
-    }
-    formData.append(entry.name, entry.value ?? '');
-}
-
-function profileBlob(blob) {
-    return new Blob([Buffer.from(blob.bytes ?? [])], { type: blob.type || 'application/octet-stream' });
-}
-
-function profileBlobFilename(blob) {
-    return blob.filename || 'file';
-}
-
-await page.addInitScript(({ settings, live }) => {
-    localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify(settings));
+await page.addInitScript(({ settings, settingsKey }) => {
+    localStorage.setItem(settingsKey, JSON.stringify(settings));
     window.__yomuProfileEvents = [];
     const push = (name, detail = {}) => window.__yomuProfileEvents.push({ name, t: performance.now(), detail });
     const originalPlay = HTMLMediaElement.prototype.play;
@@ -201,43 +181,16 @@ await page.addInitScript(({ settings, live }) => {
             throw error;
         });
     };
-    if (!live) return;
+}, { settings, settingsKey: SETTINGS_KEY });
 
-    const serializeBody = async data => {
-        if (data instanceof ArrayBuffer) return { kind: 'arraybuffer', bytes: [...new Uint8Array(data)] };
-        if (data instanceof Blob) return { kind: 'arraybuffer', bytes: [...new Uint8Array(await data.arrayBuffer())] };
-        if (data instanceof FormData) {
-            const entries = [];
-            for (const [name, value] of data.entries()) {
-                if (value instanceof Blob) {
-                    entries.push({ name, blob: { bytes: [...new Uint8Array(await value.arrayBuffer())], type: value.type, filename: value.name || 'blob' } });
-                } else {
-                    entries.push({ name, value: String(value) });
-                }
-            }
-            return { kind: 'formdata', entries };
-        }
-        return data;
-    };
-    window.GM_xmlhttpRequest = options => {
-        Promise.resolve(serializeBody(options.data)).then(data => window.__yomuProfileRequest({
-            method: options.method || 'GET',
-            url: options.url,
-            headers: options.headers || {},
-            data,
-        })).then(result => {
-            const bytes = new Uint8Array(result.bytes);
-            const response = options.responseType === 'arraybuffer'
-                ? bytes.buffer
-                : options.responseType === 'blob'
-                    ? new Blob([bytes], { type: result.contentType })
-                    : options.responseType === 'json'
-                        ? JSON.parse(result.responseText || 'null')
-                        : result.responseText;
-            options.onload?.({ status: result.status, response, responseText: result.responseText });
-        }).catch(error => options.onerror?.(error));
-    };
-}, { settings, live: LIVE });
+if (LIVE) {
+    await addGmStorageBridgeInitScript(page, {
+        key: SETTINGS_KEY,
+        value: settings,
+        css: '',
+        requestBridgeName: '__yomuProfileRequest',
+    });
+}
 
 if (!LIVE) await page.route('**/*', mockProfileRoute);
 
@@ -446,7 +399,16 @@ await browser.close();
 
 async function profileHoverPopover(page) {
     const startedAt = await page.evaluate(() => performance.now());
-    const profile = {
+    const profile = createHoverProfile(startedAt);
+    if (!await tryHoverProfileWord(page, profile)) return profile;
+    if (!await waitForHoverPopover(page, profile)) return profile;
+    await recordHoverAudioTiming(page, profile);
+    await recordHoverCloseTiming(page, profile);
+    return profile;
+}
+
+function createHoverProfile(startedAt) {
+    return {
         word: HOVER_WORD,
         startedAt,
         popoverAt: null,
@@ -458,29 +420,43 @@ async function profileHoverPopover(page) {
         skipped: false,
         reason: '',
     };
+}
+
+async function tryHoverProfileWord(page, profile) {
     const firstWord = await profileWordLocator(page, HOVER_WORD);
     try {
         await firstWord.hover({ timeout: 5000 });
+        return true;
     } catch (error) {
-        profile.skipped = true;
-        profile.reason = `Could not hover the profile word: ${String(error?.message || error)}`;
-        profile.debug = await collectPageDebug(page).catch(debugError => ({ error: String(debugError?.message || debugError) }));
-        return profile;
+        await skipHoverProfile(page, profile, `Could not hover the profile word: ${String(error?.message || error)}`);
+        return false;
     }
+}
 
+async function waitForHoverPopover(page, profile) {
     const opened = await page.waitForSelector('.jpdb-reader-popover', { timeout: 3000 })
         .then(() => true)
         .catch(() => false);
-    if (!opened) {
-        profile.skipped = true;
-        profile.reason = 'Hover did not open a popover before the profiler timeout.';
-        profile.debug = await collectPageDebug(page).catch(error => ({ error: String(error?.message || error) }));
-        return profile;
-    }
+    if (opened) return true;
+    await skipHoverProfile(page, profile, 'Hover did not open a popover before the profiler timeout.');
+    return false;
+}
 
+async function recordHoverAudioTiming(page, profile) {
     profile.popoverAt = await page.evaluate(() => performance.now());
-    await page.waitForFunction(start => window.__yomuProfileEvents.some(event => event.t >= start && (event.name === 'audio.play' || event.name === 'audio.play.failed')), startedAt, { timeout: 12000 }).catch(() => {});
-    profile.audioAt = await page.evaluate(start => window.__yomuProfileEvents.find(event => event.t >= start && event.name.startsWith('audio.play'))?.t ?? null, startedAt);
+    await page.waitForFunction(playedAudioSince, profile.startedAt, { timeout: 12000 }).catch(() => {});
+    profile.audioAt = await page.evaluate(audioEventTimeSince, profile.startedAt);
+}
+
+function playedAudioSince(start) {
+    return window.__yomuProfileEvents.some(event => event.t >= start && (event.name === 'audio.play' || event.name === 'audio.play.failed'));
+}
+
+function audioEventTimeSince(start) {
+    return window.__yomuProfileEvents.find(event => event.t >= start && event.name.startsWith('audio.play'))?.t ?? null;
+}
+
+async function recordHoverCloseTiming(page, profile) {
     profile.awayAt = await page.evaluate(() => performance.now());
     await page.mouse.move(1272, 892);
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover'), null, { timeout: 3000 }).catch(() => {});
@@ -488,7 +464,12 @@ async function profileHoverPopover(page) {
     profile.closeAt = hoverClosed ? await page.evaluate(() => performance.now()) : null;
     profile.closeDebug = hoverClosed ? null : await hoverCloseDebugSnapshot(page);
     if (!hoverClosed) await page.keyboard.press('Escape');
-    return profile;
+}
+
+async function skipHoverProfile(page, profile, reason) {
+    profile.skipped = true;
+    profile.reason = reason;
+    profile.debug = await collectPageDebug(page).catch(error => ({ error: String(error?.message || error) }));
 }
 
 async function hoverCloseDebugSnapshot(page) {
@@ -533,22 +514,30 @@ async function openProfileTarget(page, url) {
 async function tryOpenAndPrepareProfilePage(page, url, label, attempts) {
     const attempt = { label, url };
     attempts.push(attempt);
+    await updateProfileAttempt(page, url, attempt);
+    return attempt;
+}
+
+async function updateProfileAttempt(page, url, attempt) {
     try {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
         await prepareProfilePage(page);
-        attempt.ready = await waitForProfileWords(page, 5000);
-        if (!attempt.ready) attempt.debug = await collectPageDebug(page);
+        await markProfileAttemptReadiness(page, attempt);
     } catch (error) {
         attempt.ready = false;
         attempt.error = String(error?.message || error);
     }
-    return attempt;
+}
+
+async function markProfileAttemptReadiness(page, attempt) {
+    attempt.ready = await waitForProfileWords(page, 5000);
+    if (!attempt.ready) attempt.debug = await collectPageDebug(page);
 }
 
 async function prepareProfilePage(page) {
-    await page.evaluate(settings => {
-        localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify(settings));
-    }, settings);
+    await page.evaluate(({ settings, settingsKey }) => {
+        localStorage.setItem(settingsKey, JSON.stringify(settings));
+    }, { settings, settingsKey: SETTINGS_KEY });
     await seedProfileDictionaries(page);
     await page.waitForTimeout(100);
     await installReaderRuntimeIfNeeded(page);
@@ -562,44 +551,46 @@ async function installReaderRuntimeIfNeeded(page) {
 async function waitForProfileWords(page, timeout) {
     const deadline = Date.now() + timeout;
     while (Date.now() < deadline) {
-        const found = await page.evaluate(({ hoverWord, clickWord }) => {
-            const words = Array.from(document.querySelectorAll('.jpdb-reader-word'));
-            return words.some(word => profileWordMatches(word, hoverWord)) && words.some(word => profileWordMatches(word, clickWord));
-
-            function profileWordMatches(word, target) {
-                const text = word.textContent?.trim() || '';
-                const withoutRuby = text.replace(/\([^)]*\)/g, '');
-                return [
-                    word.getAttribute('data-expression') || '',
-                    word.getAttribute('data-reading') || '',
-                    text,
-                    withoutRuby,
-                ].some(value => value.includes(target));
-            }
-        }, { hoverWord: HOVER_WORD, clickWord: CLICK_WORD });
-        if (found) return true;
+        if (await profileWordsPresent(page, [HOVER_WORD, CLICK_WORD])) return true;
         await page.waitForTimeout(150);
     }
     return false;
 }
 
 async function profileWordLocator(page, target) {
-    const index = await page.evaluate(target => {
-        const words = Array.from(document.querySelectorAll('.jpdb-reader-word'));
-        return words.findIndex(word => {
-            const text = word.textContent?.trim() || '';
-            const withoutRuby = text.replace(/\([^)]*\)/g, '');
-            return [
-                word.getAttribute('data-expression') || '',
-                word.getAttribute('data-reading') || '',
-                text,
-                withoutRuby,
-            ].some(value => value.includes(target));
-        });
-    }, target);
+    const index = await profileWordIndex(page, target);
     return index >= 0
         ? page.locator('.jpdb-reader-word').nth(index)
         : page.locator('.jpdb-reader-word').filter({ hasText: target }).first();
+}
+
+async function profileWordsPresent(page, targets) {
+    return await page.evaluate(profileWordQueryInPage, { targets, requireAll: true });
+}
+
+async function profileWordIndex(page, target) {
+    return await page.evaluate(profileWordQueryInPage, { targets: [target], requireAll: false });
+}
+
+function profileWordQueryInPage({ targets, requireAll }) {
+    const words = Array.from(document.querySelectorAll('.jpdb-reader-word'));
+    const indexes = targets.map(target => words.findIndex(word => profileWordMatchesInPage(word, target)));
+    return requireAll ? indexes.every(index => index >= 0) : indexes[0] ?? -1;
+
+    function profileWordMatchesInPage(word, target) {
+        return profileWordValuesInPage(word).some(value => value.includes(target));
+    }
+
+    function profileWordValuesInPage(word) {
+        const text = word.textContent?.trim() || '';
+        const withoutRuby = text.replace(/\([^)]*\)/g, '');
+        return [
+            word.getAttribute('data-expression') || '',
+            word.getAttribute('data-reading') || '',
+            text,
+            withoutRuby,
+        ];
+    }
 }
 
 async function collectPageDebug(page) {
@@ -631,48 +622,85 @@ async function waitForDictionaryDetails(page, clickAt, popoverAt) {
 }
 
 async function waitForKanjiDetails(page, startAt) {
-    const mountChecks = [
-        ['keyword', '[data-kanji-keyword-mount]', text => text && !/Loading kanji details/i.test(text)],
-        ['jpdb', '[data-kanji-jpdb-mount]', text => Boolean(text)],
-        ['rtk', '[data-kanji-rtk-mount]', text => Boolean(text)],
-        ['localKanjiDictionary', '[data-kanji-definitions-mount]', text => /Profile Kanji|now|read/i.test(text)],
-        ['kanjiVg', '.jpdb-reader-kanjivg', text => /Stroke order|Clear|Trace/i.test(text)],
-        ['origin', '[data-kanji-origin-mount]', text => Boolean(text)],
-        ['similarWords', '[data-kanji-similar-mount]', text => Boolean(text)],
-    ];
     const mounts = {};
-    await Promise.all(mountChecks.map(async ([name, selector]) => {
-        const present = await page.locator(selector).count().then(count => count > 0).catch(() => false);
-        if (!present) {
-            mounts[name] = { selector, present: false, ms: null, complete: false };
-            return;
-        }
-        const complete = await page.waitForFunction(({ selector }) => {
-            const node = document.querySelector(selector);
-            const text = node?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
-            if (!node) return false;
-            if (selector === '[data-kanji-keyword-mount]') return text && !/Loading kanji details/i.test(text);
-            if (selector === '[data-kanji-definitions-mount]') return /Profile Kanji|now|read/i.test(text);
-            if (selector === '.jpdb-reader-kanjivg') return Boolean(node.querySelector('.jpdb-reader-kanjivg-svg')) || /Stroke order|Clear|Trace/i.test(text);
-            return Boolean(text);
-        }, { selector }, { timeout: SLOW_MS + 7000 }).then(() => true).catch(() => false);
-        const at = complete ? await page.evaluate(() => performance.now()) : null;
-        mounts[name] = {
-            selector,
-            present,
-            complete,
-            ms: at ? Math.round(at - startAt) : null,
-            text: complete ? undefined : await page.locator(selector).first().textContent().then(text => text?.replace(/\s+/g, ' ').trim().slice(0, 160) ?? '').catch(() => ''),
-        };
-    }));
+    await Promise.all(KANJI_MOUNT_CHECKS.map(check => recordKanjiMountStatus(page, startAt, mounts, check)));
+    return {
+        mounts,
+        completeAt: kanjiDetailsCompleteAt(mounts, startAt),
+        debug: needsKanjiDetailsDebug(mounts) ? await popoverDebugSnapshot(page) : null,
+    };
+}
+
+async function recordKanjiMountStatus(page, startAt, mounts, check) {
+    const present = await elementPresent(page, check.selector);
+    mounts[check.name] = present
+        ? await kanjiMountStatus(page, startAt, check)
+        : missingKanjiMount(check);
+}
+
+async function elementPresent(page, selector) {
+    return await page.locator(selector).count().then(count => count > 0).catch(() => false);
+}
+
+function missingKanjiMount(check) {
+    return { selector: check.selector, present: false, ms: null, complete: false };
+}
+
+async function kanjiMountStatus(page, startAt, check) {
+    const complete = await waitForKanjiMountComplete(page, check);
+    const at = complete ? await page.evaluate(() => performance.now()) : null;
+    return {
+        selector: check.selector,
+        present: true,
+        complete,
+        ms: at ? Math.round(at - startAt) : null,
+        text: complete ? undefined : await kanjiMountTextExcerpt(page, check.selector),
+    };
+}
+
+async function waitForKanjiMountComplete(page, check) {
+    return await page.waitForFunction(kanjiMountCompleteInPage, check, { timeout: SLOW_MS + 7000 })
+        .then(() => true)
+        .catch(() => false);
+}
+
+function kanjiMountCompleteInPage(check) {
+    const node = document.querySelector(check.selector);
+    return node ? kanjiMountNodeCompleteInPage(node, check) : false;
+}
+
+function kanjiMountNodeCompleteInPage(node, check) {
+    const text = node.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    if (patternMatchesInPage(text, check.rejectPattern)) return false;
+    if (selectorMatchesInPage(node, check.completeSelector)) return true;
+    return patternMatchesInPage(text, check.completePattern);
+}
+
+function patternMatchesInPage(text, pattern) {
+    if (!pattern) return false;
+    return new RegExp(pattern, 'i').test(text);
+}
+
+function selectorMatchesInPage(node, selector) {
+    if (!selector) return false;
+    return Boolean(node.querySelector(selector));
+}
+
+async function kanjiMountTextExcerpt(page, selector) {
+    return await page.locator(selector).first().textContent()
+        .then(text => text?.replace(/\s+/g, ' ').trim().slice(0, 160) ?? '')
+        .catch(() => '');
+}
+
+function kanjiDetailsCompleteAt(mounts, startAt) {
     const completeTimes = Object.values(mounts)
         .filter(mount => mount.present && mount.complete && mount.ms !== null)
         .map(mount => startAt + mount.ms);
-    return {
-        mounts,
-        completeAt: completeTimes.length ? Math.max(...completeTimes) : null,
-        debug: Object.values(mounts).some(mount => mount.present && !mount.complete) ? await popoverDebugSnapshot(page) : null,
-    };
+    return completeTimes.length ? Math.max(...completeTimes) : null;
+}
+
+function needsKanjiDetailsDebug(mounts) {
+    return Object.values(mounts).some(mount => mount.present && !mount.complete);
 }
 
 async function popoverDebugSnapshot(page) {
@@ -712,6 +740,13 @@ async function seedProfileDictionaries(page) {
     await page.evaluate(async () => {
         const DB_NAME = 'jpdb-popup-reader-yomitan';
         const DB_VERSION = 2;
+        const STORE_SPECS = [
+            { name: 'terms', options: { keyPath: 'id', autoIncrement: true }, indexes: [['expression', 'expression'], ['reading', 'reading'], ['dictionary', 'dictionary']] },
+            { name: 'kanji', options: { keyPath: 'id', autoIncrement: true }, indexes: [['character', 'character'], ['dictionary', 'dictionary']] },
+            { name: 'termMeta', options: { keyPath: 'id', autoIncrement: true }, indexes: [['expression', 'expression'], ['dictionary', 'dictionary']] },
+            { name: 'kanjiMeta', options: { keyPath: 'id', autoIncrement: true }, indexes: [['character', 'character'], ['dictionary', 'dictionary']] },
+            { name: 'dictionaryInfo', options: { keyPath: 'title' }, indexes: [] },
+        ];
         await new Promise(resolve => {
             const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
             deleteRequest.onsuccess = () => resolve();
@@ -720,31 +755,9 @@ async function seedProfileDictionaries(page) {
         });
         const db = await new Promise((resolve, reject) => {
             const request = indexedDB.open(DB_NAME, DB_VERSION);
-            request.onupgradeneeded = () => {
-                const db = request.result;
-                const ensureStore = (name, options) => db.objectStoreNames.contains(name)
-                    ? request.transaction.objectStore(name)
-                    : db.createObjectStore(name, options);
-                const ensureIndex = (store, name, keyPath) => {
-                    if (!store.indexNames.contains(name)) store.createIndex(name, keyPath);
-                };
-                const terms = ensureStore('terms', { keyPath: 'id', autoIncrement: true });
-                ensureIndex(terms, 'expression', 'expression');
-                ensureIndex(terms, 'reading', 'reading');
-                ensureIndex(terms, 'dictionary', 'dictionary');
-                const kanji = ensureStore('kanji', { keyPath: 'id', autoIncrement: true });
-                ensureIndex(kanji, 'character', 'character');
-                ensureIndex(kanji, 'dictionary', 'dictionary');
-                const termMeta = ensureStore('termMeta', { keyPath: 'id', autoIncrement: true });
-                ensureIndex(termMeta, 'expression', 'expression');
-                ensureIndex(termMeta, 'dictionary', 'dictionary');
-                const kanjiMeta = ensureStore('kanjiMeta', { keyPath: 'id', autoIncrement: true });
-                ensureIndex(kanjiMeta, 'character', 'character');
-                ensureIndex(kanjiMeta, 'dictionary', 'dictionary');
-                if (!db.objectStoreNames.contains('dictionaryInfo')) db.createObjectStore('dictionaryInfo', { keyPath: 'title' });
-            };
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
+            request.onupgradeneeded = () => installProfileStores(request, STORE_SPECS);
+            request.addEventListener('success', () => resolve(request.result), { once: true });
+            request.addEventListener('error', () => reject(request.error), { once: true });
         });
         await new Promise((resolve, reject) => {
             const tx = db.transaction(['dictionaryInfo', 'terms', 'kanji', 'termMeta'], 'readwrite');
@@ -770,33 +783,40 @@ async function seedProfileDictionaries(page) {
             };
             tx.onerror = () => reject(tx.error);
         });
+
+        function installProfileStores(request, specs) {
+            for (const spec of specs) installProfileStore(request, spec);
+        }
+
+        function installProfileStore(request, spec) {
+            const store = profileStoreForSpec(request, spec);
+            for (const [name, keyPath] of spec.indexes) ensureProfileIndex(store, name, keyPath);
+        }
+
+        function profileStoreForSpec(request, spec) {
+            const db = request.result;
+            return db.objectStoreNames.contains(spec.name)
+                ? request.transaction.objectStore(spec.name)
+                : db.createObjectStore(spec.name, spec.options);
+        }
+
+        function ensureProfileIndex(store, name, keyPath) {
+            if (!store.indexNames.contains(name)) store.createIndex(name, keyPath);
+        }
     });
 }
 
 function mockParse(body) {
-    const paragraphs = Array.isArray(body.text) ? body.text.map(String) : [];
-    const vocab = [];
-    const byKey = new Map();
-    const tokens = paragraphs.map(text => {
-        const paragraph = [];
-        for (let index = 0; index < text.length;) {
-            const entry = vocabulary.filter(item => text.startsWith(item.surface, index)).sort((a, b) => b.surface.length - a.surface.length)[0];
-            if (!entry) {
-                index += 1;
-                continue;
-            }
-            let vocabIndex = byKey.get(entry.spelling);
-            if (vocabIndex === undefined) {
-                vocabIndex = vocab.length;
-                byKey.set(entry.spelling, vocabIndex);
-                vocab.push([100000 + vocabIndex, 200000 + vocabIndex, 0, entry.spelling, entry.reading, entry.frequency, entry.partOfSpeech, [[entry.gloss]], [entry.partOfSpeech], ['not-in-deck'], ['LHHL']]);
-            }
-            paragraph.push([vocabIndex, index, entry.surface.length, /[\u3400-\u9fff]/u.test(entry.surface) ? [[entry.surface, entry.reading]] : null]);
-            index += entry.surface.length;
-        }
-        return paragraph;
+    return mockJpdbParseFromVocabulary(body, vocabulary, {
+        defaultPitch: ['LHHL'],
+        spellingIdBase: 200000,
+        tokenReading: profileTokenReading,
+        vocabularyIdBase: 100000,
     });
-    return { vocabulary: vocab, tokens };
+}
+
+function profileTokenReading(entry) {
+    return /[\u3400-\u9fff]/u.test(entry.surface) ? [[entry.surface, entry.reading]] : null;
 }
 
 function mockKanjiHtml(kanji) {

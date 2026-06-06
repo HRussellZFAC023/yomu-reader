@@ -20,7 +20,7 @@ export function newTabCardHighlightTargets(card: JPDBCard): string[] {
     return cardHighlightTargets(card);
 }
 
-export function shouldShowInStudyQueue(card: JPDBCard): boolean {
+function shouldShowInStudyQueue(card: JPDBCard): boolean {
     if (card.source === 'local' || card.source === 'fallback') return true;
     if (card.reviewSource === 'jpdb-live') return true;
     const states = card.cardState ?? [];

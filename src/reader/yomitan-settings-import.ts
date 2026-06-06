@@ -6,6 +6,19 @@ import type { YomitanSettingsImport } from './yomitan-types';
 
 const log = Logger.scope('YomitanSettingsImport');
 
+type ImportedSettings = YomitanSettingsImport['settings'];
+type ImportSection = Record<string, unknown> | undefined;
+type BooleanSettingImport = { sourceKey: string; targetKey: keyof ImportedSettings };
+
+const AUDIO_BOOLEAN_IMPORTS: BooleanSettingImport[] = [
+    { sourceKey: 'enabled', targetKey: 'audioEnabled' },
+    { sourceKey: 'autoPlay', targetKey: 'autoPlayAudio' },
+    { sourceKey: 'enableDefaultAudioSources', targetKey: 'audioEnableDefaultSources' },
+];
+const ANKI_BOOLEAN_IMPORTS: BooleanSettingImport[] = [
+    { sourceKey: 'enable', targetKey: 'ankiEnabled' },
+];
+
 export function parseYomitanSettingsExport(value: unknown, language: InterfaceLanguage = 'en'): YomitanSettingsImport {
     const done = log.time('Yomitan settings export parse');
     const profileOptions = getYomitanProfileOptions(value);
@@ -37,10 +50,10 @@ export function parseYomitanSettingsExport(value: unknown, language: InterfaceLa
 }
 
 function readYomitanProfileSections(profileOptions: Record<string, unknown>): {
-    audio: Record<string, unknown> | undefined;
-    general: Record<string, unknown> | undefined;
-    scanning: Record<string, unknown> | undefined;
-    anki: Record<string, unknown> | undefined;
+    audio: ImportSection;
+    general: ImportSection;
+    scanning: ImportSection;
+    anki: ImportSection;
     inputs: { hotkeys?: Array<Record<string, unknown>> } | undefined;
 } {
     return {
@@ -52,27 +65,79 @@ function readYomitanProfileSections(profileOptions: Record<string, unknown>): {
     };
 }
 
-function applyAudioSettings(settings: YomitanSettingsImport['settings'], audio: Record<string, unknown> | undefined): void {
-    if (typeof audio?.enabled === 'boolean') settings.audioEnabled = audio.enabled;
-    if (typeof audio?.autoPlay === 'boolean') settings.autoPlayAudio = audio.autoPlay;
-    if (typeof audio?.enableDefaultAudioSources === 'boolean') settings.audioEnableDefaultSources = audio.enableDefaultAudioSources;
-    if (typeof audio?.fallbackSoundType === 'string') settings.audioFallbackChimeEnabled = audio.fallbackSoundType !== 'none';
-    if (!Array.isArray(audio?.sources)) return;
-    settings.audioSources = audio.sources
+function applyAudioSettings(settings: ImportedSettings, audio: ImportSection): void {
+    applyBooleanSettingImports(settings, audio, AUDIO_BOOLEAN_IMPORTS);
+    applyAudioFallbackChimeSetting(settings, audio?.fallbackSoundType);
+    applyAudioSourceSettings(settings, audio?.sources);
+}
+
+function applyBooleanSettingImports(settings: ImportedSettings, source: ImportSection, imports: BooleanSettingImport[]): void {
+    for (const item of imports) {
+        if (typeof source?.[item.sourceKey] === 'boolean') assignImportedSetting(settings, item.targetKey, source[item.sourceKey]);
+    }
+}
+
+function applyTrimmedStringSetting(settings: ImportedSettings, value: unknown, targetKey: keyof ImportedSettings): void {
+    if (typeof value !== 'string') return;
+    const trimmed = value.trim();
+    if (trimmed) assignImportedSetting(settings, targetKey, trimmed);
+}
+
+function assignImportedSetting(settings: ImportedSettings, key: keyof ImportedSettings, value: unknown): void {
+    (settings as Record<string, unknown>)[key] = value;
+}
+
+function applyAudioFallbackChimeSetting(settings: ImportedSettings, value: unknown): void {
+    if (typeof value === 'string') settings.audioFallbackChimeEnabled = value !== 'none';
+}
+
+function applyAudioSourceSettings(settings: ImportedSettings, sources: unknown): void {
+    if (!Array.isArray(sources)) return;
+    settings.audioSources = sources
         .map(normalizeAudioSource)
         .filter((source): source is NonNullable<ReturnType<typeof normalizeAudioSource>> => source !== null);
     settings.audioSourceUrl = settings.audioSources.find(source => source.url)?.url;
 }
 
-function applyGeneralSettings(settings: YomitanSettingsImport['settings'], general: Record<string, unknown> | undefined): void {
-    const language = importedInterfaceLanguage(general?.language);
+function applyGeneralSettings(settings: ImportedSettings, general: ImportSection): void {
+    applyImportedLanguage(settings, general?.language);
+    applyImportedTheme(settings, general);
+    applyGeneralPopupSizeSettings(settings, general);
+    applyLocalDictionaryMaxResults(settings, general?.maxResults);
+    applyPitchDisplaySetting(settings, general);
+}
+
+function applyImportedLanguage(settings: ImportedSettings, value: unknown): void {
+    const language = importedInterfaceLanguage(value);
     if (language) settings.interfaceLanguage = language;
+}
+
+function applyImportedTheme(settings: ImportedSettings, general: ImportSection): void {
     const theme = importedPopupTheme(general);
     if (theme) settings.theme = theme;
-    if (hasPositiveNumber(general?.popupWidth)) settings.popoverWidth = clampNumber(general?.popupWidth, 280, 900);
-    if (hasPositiveNumber(general?.popupHeight)) settings.popoverHeight = clampNumber(general?.popupHeight, 220, 900);
+}
+
+function applyGeneralPopupSizeSettings(settings: ImportedSettings, general: ImportSection): void {
+    applyPositiveNumberSetting(settings, general?.popupWidth, 'popoverWidth', 280, 900);
+    applyPositiveNumberSetting(settings, general?.popupHeight, 'popoverHeight', 220, 900);
     if (hasPositiveNumber(general?.popupVerticalOffset)) settings.subtitleBottomOffset = importedPopupVerticalOffset(general);
-    if (typeof general?.maxResults === 'number') settings.localDictionaryMaxResults = Math.max(1, Math.min(64, general.maxResults));
+}
+
+function applyPositiveNumberSetting(
+    settings: ImportedSettings,
+    value: unknown,
+    targetKey: keyof ImportedSettings,
+    min: number,
+    max: number,
+): void {
+    if (hasPositiveNumber(value)) assignImportedSetting(settings, targetKey, clampNumber(value, min, max));
+}
+
+function applyLocalDictionaryMaxResults(settings: ImportedSettings, value: unknown): void {
+    if (typeof value === 'number') settings.localDictionaryMaxResults = Math.max(1, Math.min(64, value));
+}
+
+function applyPitchDisplaySetting(settings: ImportedSettings, general: ImportSection): void {
     const pitchEnabled = importedPitchDisplayEnabled(general);
     if (typeof pitchEnabled === 'boolean') settings.showPitchAccent = pitchEnabled;
 }
@@ -102,23 +167,33 @@ function importedPitchDisplayEnabled(general: Record<string, unknown> | undefine
     return values.length ? values.some(Boolean) : undefined;
 }
 
-function applyScanningSettings(settings: YomitanSettingsImport['settings'], scanning: Record<string, unknown> | undefined): void {
+function applyScanningSettings(settings: ImportedSettings, scanning: ImportSection): void {
     if (typeof scanning?.selectText === 'boolean') settings.parseSelection = scanning.selectText;
     if (typeof scanning?.delay === 'number') settings.hoverOpenDelayMs = clampNumber(scanning.delay, 0, 1500);
     if (typeof scanning?.hideDelay === 'number') settings.hoverCloseDelayMs = clampNumber(scanning.hideDelay, 0, 3000);
     applyScanInputSettings(settings, scanning);
 }
 
-function applyAnkiSettings(settings: YomitanSettingsImport['settings'], anki: Record<string, unknown> | undefined): void {
-    if (typeof anki?.enable === 'boolean') settings.ankiEnabled = anki.enable;
-    if (typeof anki?.server === 'string' && anki.server.trim()) settings.ankiConnectUrl = anki.server.trim();
-    if (Array.isArray(anki?.tags)) settings.ankiTags = anki.tags.map(tag => String(tag).trim()).filter(Boolean).join(' ');
-    const cardFormat = firstYomitanTermCardFormat(anki?.cardFormats);
-    if (cardFormat) {
-        if (typeof cardFormat.deck === 'string' && cardFormat.deck.trim()) settings.ankiDeck = cardFormat.deck.trim();
-        if (typeof cardFormat.model === 'string' && cardFormat.model.trim()) settings.ankiModel = cardFormat.model.trim();
-    }
-    if (isObjectRecord(anki?.screenshot)) settings.ankiCaptureScreenshot = true;
+function applyAnkiSettings(settings: ImportedSettings, anki: ImportSection): void {
+    applyBooleanSettingImports(settings, anki, ANKI_BOOLEAN_IMPORTS);
+    applyTrimmedStringSetting(settings, anki?.server, 'ankiConnectUrl');
+    applyAnkiTagsSetting(settings, anki?.tags);
+    applyAnkiCardFormatSettings(settings, firstYomitanTermCardFormat(anki?.cardFormats));
+    applyAnkiScreenshotSetting(settings, anki?.screenshot);
+}
+
+function applyAnkiTagsSetting(settings: ImportedSettings, value: unknown): void {
+    if (Array.isArray(value)) settings.ankiTags = value.map(tag => String(tag).trim()).filter(Boolean).join(' ');
+}
+
+function applyAnkiCardFormatSettings(settings: ImportedSettings, cardFormat: Record<string, unknown> | null): void {
+    if (!cardFormat) return;
+    applyTrimmedStringSetting(settings, cardFormat.deck, 'ankiDeck');
+    applyTrimmedStringSetting(settings, cardFormat.model, 'ankiModel');
+}
+
+function applyAnkiScreenshotSetting(settings: ImportedSettings, value: unknown): void {
+    if (isObjectRecord(value)) settings.ankiCaptureScreenshot = true;
 }
 
 function firstYomitanTermCardFormat(value: unknown): Record<string, unknown> | null {

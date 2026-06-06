@@ -7,6 +7,11 @@ interface CloudVisionState {
     lines: OcrLine[];
 }
 
+interface CloudVisionLineAccumulator {
+    text: string;
+    boxes: OcrRect[];
+}
+
 export function normalizeCloudVisionResponse(record: Record<string, unknown>, fallbackWidth: number, fallbackHeight: number): OcrResult | null {
     const state: CloudVisionState = { width: fallbackWidth, height: fallbackHeight, lines: [] };
     for (const response of cloudVisionResponses(record)) {
@@ -61,29 +66,50 @@ function appendCloudVisionTextAnnotations(response: unknown, state: CloudVisionS
 
 function pushCloudVisionParagraphLines(paragraph: Record<string, unknown>, lines: OcrLine[], width: number, height: number): void {
     const words = Array.isArray(paragraph.words) ? paragraph.words : [];
-    let text = '';
-    let boxes: OcrRect[] = [];
-    const pushLine = () => {
-        const value = cleanOcrText(text);
-        const box = unionBoxes(boxes);
-        pushJapaneseOcrLine(lines, value, box);
-        text = '';
-        boxes = [];
-    };
-
+    const current: CloudVisionLineAccumulator = { text: '', boxes: [] };
     for (const word of words) {
-        const symbols = Array.isArray((word as Record<string, unknown>).symbols) ? (word as Record<string, unknown>).symbols as unknown[] : [];
-        for (const symbol of symbols) {
-            const symbolRecord = symbol as Record<string, unknown>;
-            text += String(symbolRecord.text ?? '');
-            const box = normalizeCloudVisionVertices((symbolRecord.boundingBox as Record<string, unknown> | undefined)?.vertices, width, height);
-            if (box) boxes.push(box);
-            const breakType = ((symbolRecord.property as Record<string, unknown> | undefined)?.detectedBreak as Record<string, unknown> | undefined)?.type;
-            if (breakType === 'SPACE' || breakType === 'SURE_SPACE' || breakType === 'UNKNOWN') text += ' ';
-            if (breakType === 'LINE_BREAK' || breakType === 'EOL_SURE_SPACE' || breakType === 'HYPHEN') pushLine();
-        }
+        cloudVisionWordSymbols(word).forEach(symbol => appendCloudVisionSymbol(symbol, current, lines, width, height));
     }
-    pushLine();
+    pushCloudVisionLine(lines, current);
+}
+
+function cloudVisionWordSymbols(word: unknown): unknown[] {
+    const symbols = (word as Record<string, unknown>)?.symbols;
+    return Array.isArray(symbols) ? symbols : [];
+}
+
+function appendCloudVisionSymbol(
+    symbol: unknown,
+    current: CloudVisionLineAccumulator,
+    lines: OcrLine[],
+    width: number,
+    height: number,
+): void {
+    const symbolRecord = symbol as Record<string, unknown>;
+    current.text += String(symbolRecord.text ?? '');
+    const box = normalizeCloudVisionVertices((symbolRecord.boundingBox as Record<string, unknown> | undefined)?.vertices, width, height);
+    if (box) current.boxes.push(box);
+    const breakType = cloudVisionSymbolBreakType(symbolRecord);
+    if (cloudVisionBreakAddsSpace(breakType)) current.text += ' ';
+    if (cloudVisionBreakEndsLine(breakType)) pushCloudVisionLine(lines, current);
+}
+
+function cloudVisionSymbolBreakType(symbol: Record<string, unknown>): unknown {
+    return ((symbol.property as Record<string, unknown> | undefined)?.detectedBreak as Record<string, unknown> | undefined)?.type;
+}
+
+function cloudVisionBreakAddsSpace(breakType: unknown): boolean {
+    return breakType === 'SPACE' || breakType === 'SURE_SPACE' || breakType === 'UNKNOWN';
+}
+
+function cloudVisionBreakEndsLine(breakType: unknown): boolean {
+    return breakType === 'LINE_BREAK' || breakType === 'EOL_SURE_SPACE' || breakType === 'HYPHEN';
+}
+
+function pushCloudVisionLine(lines: OcrLine[], current: CloudVisionLineAccumulator): void {
+    pushJapaneseOcrLine(lines, cleanOcrText(current.text), unionBoxes(current.boxes));
+    current.text = '';
+    current.boxes = [];
 }
 
 function normalizeCloudVisionVertices(value: unknown, width: number, height: number): OcrRect | null {

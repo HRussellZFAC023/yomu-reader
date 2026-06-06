@@ -9,7 +9,7 @@ import {
     type AnkiNoteInfo,
 } from './anki-types';
 
-export const ANKI_EXPRESSION_FIELD_NAMES = [
+const ANKI_HEADWORD_FIELD_NAME_PREFIX = [
     'Vocabulary-Kanji',
     'Vocabulary Kanji',
     'Vocab Kanji',
@@ -25,43 +25,9 @@ export const ANKI_EXPRESSION_FIELD_NAMES = [
     'Expression Text',
     'Base Form',
     'Dictionary Form',
-    'Expression',
-    'Expression Reading',
-    'Front',
-    'Japanese',
-    'Japanese Expression',
-    'Kanji',
-    'Katakana',
-    'Learnable',
-    'Lemma',
-    'Primary',
-    'Search Term',
-    'Target Word',
-    'Term',
-    'Vocab',
-    'Vocabulary',
-    'Vocabulary Expression',
-    'Word Expression',
 ];
 
-const ANKI_HEADWORD_FIELD_NAMES = [
-    'Vocabulary-Kanji',
-    'Vocabulary Kanji',
-    'Vocab Kanji',
-    'Jlab-Kanji',
-    'Japanese_Word',
-    'Word',
-    'Word Kanji',
-    'Japanese Word',
-    'Headword',
-    'Headword Kanji',
-    'Term Kanji',
-    'Term Text',
-    'Expression Text',
-    'Base Form',
-    'Dictionary Form',
-    'Expression Reading',
-    'Japanese Expression',
+const ANKI_HEADWORD_FIELD_NAME_TAIL = [
     'Learnable',
     'Lemma',
     'Primary',
@@ -80,6 +46,25 @@ const ANKI_GENERIC_EXPRESSION_FIELD_NAMES = [
     'Japanese',
     'Kanji',
     'Katakana',
+];
+
+const ANKI_HEADWORD_FIELD_NAMES = [
+    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+    'Expression Reading',
+    'Japanese Expression',
+    ...ANKI_HEADWORD_FIELD_NAME_TAIL,
+];
+
+export const ANKI_EXPRESSION_FIELD_NAMES = [
+    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+    'Expression',
+    'Expression Reading',
+    'Front',
+    'Japanese',
+    'Japanese Expression',
+    'Kanji',
+    'Katakana',
+    ...ANKI_HEADWORD_FIELD_NAME_TAIL,
 ];
 
 export const ANKI_READING_FIELD_NAMES = [
@@ -240,30 +225,64 @@ export function scanAnkiModelFields(modelName: string, fields: string[], sampleN
     };
 }
 
-export function suggestAnkiField(
+function suggestAnkiField(
     role: AnkiFieldRole,
     fields: string[],
     usedFields: Set<string>,
     samples: AnkiFieldContentSamples = {},
 ): AnkiFieldSuggestion {
     const candidates = ANKI_FIELD_ROLE_CANDIDATES[role];
-    const availableFields = fields.filter(field => !usedFields.has(field)
-        && !ankiFieldDisallowedForRole(field, role)
-        && (
-            ankiFieldAllowedForRole(field, role)
-            || ankiFieldContentRoleScore(role, samples[field] ?? []) >= 50
-        ));
+    const availableFields = fields.filter(field => isAvailableAnkiFieldForRole(field, role, usedFields, samples));
     const exact = firstMatchingAnkiField(availableFields, candidates);
     const content = suggestAnkiFieldFromContent(role, availableFields, samples);
     const exactContentScore = exact ? ankiFieldContentRoleScore(role, samples[exact] ?? []) : 0;
-    if (content.fieldName && (!exact || isGenericAnkiFieldName(exact))) return content;
-    if (content.fieldName && exact && content.fieldName !== exact && exactContentScore === 0 && content.confidence === 'high') return content;
-    if (exact) return { role, fieldName: exact, confidence: 'high' };
     const fuzzy = firstFuzzyAnkiField(availableFields, candidates);
-    if (content.fieldName && (!fuzzy || content.confidence === 'high')) return content;
-    if (fuzzy) return { role, fieldName: fuzzy, confidence: 'medium' };
-    if (content.fieldName) return content;
-    return { role, fieldName: null, confidence: 'low' };
+    return bestAnkiFieldSuggestion(role, exact, fuzzy, content, exactContentScore);
+}
+
+function bestAnkiFieldSuggestion(
+    role: AnkiFieldRole,
+    exact: string,
+    fuzzy: string,
+    content: AnkiFieldSuggestion,
+    exactContentScore: number,
+): AnkiFieldSuggestion {
+    if (shouldPreferContentSuggestion(content, exact, exactContentScore)) return content;
+    const suggestions = [
+        exact ? { role, fieldName: exact, confidence: 'high' } : null,
+        contentBeforeFuzzyAnkiFieldSuggestion(content, fuzzy),
+        fuzzy ? { role, fieldName: fuzzy, confidence: 'medium' } : null,
+        content.fieldName ? content : null,
+        { role, fieldName: null, confidence: 'low' },
+    ];
+    return suggestions.find(Boolean) as AnkiFieldSuggestion;
+}
+
+function contentBeforeFuzzyAnkiFieldSuggestion(content: AnkiFieldSuggestion, fuzzy: string): AnkiFieldSuggestion | null {
+    if (!content.fieldName) return null;
+    return (!fuzzy || content.confidence === 'high') ? content : null;
+}
+
+function isAvailableAnkiFieldForRole(
+    field: string,
+    role: AnkiFieldRole,
+    usedFields: Set<string>,
+    samples: AnkiFieldContentSamples,
+): boolean {
+    if (usedFields.has(field)) return false;
+    if (ankiFieldDisallowedForRole(field, role)) return false;
+    return ankiFieldAllowedForRole(field, role)
+        || ankiFieldContentRoleScore(role, samples[field] ?? []) >= 50;
+}
+
+function shouldPreferContentSuggestion(
+    content: AnkiFieldSuggestion,
+    exact: string,
+    exactContentScore: number,
+): boolean {
+    if (!content.fieldName) return false;
+    if (!exact || isGenericAnkiFieldName(exact)) return true;
+    return content.fieldName !== exact && exactContentScore === 0 && content.confidence === 'high';
 }
 
 export function ankiFieldMappingForModel(settings: ReaderSettings, modelName: string, fieldNames: string[]): AnkiFieldMapping | undefined {
@@ -277,7 +296,7 @@ export function ankiFieldMappingForModel(settings: ReaderSettings, modelName: st
     return Object.keys(normalized).length ? normalized : undefined;
 }
 
-export function mappedFieldName(fieldNames: string[], mapping: AnkiFieldMapping | undefined, role: AnkiFieldRole): string {
+function mappedFieldName(fieldNames: string[], mapping: AnkiFieldMapping | undefined, role: AnkiFieldRole): string {
     const fieldName = mapping?.[role]?.trim();
     if (!fieldName) return '';
     const exact = fieldNames.find(candidate => candidate === fieldName);
@@ -378,7 +397,7 @@ export function isKanaStatusLookupSurface(value: string): boolean {
     return /[\u3040-\u30ff]/u.test(value) && !/[\u3400-\u9fff]/u.test(value);
 }
 
-export function japaneseFieldContainsStandaloneTarget(value: string, target: string): boolean {
+function japaneseFieldContainsStandaloneTarget(value: string, target: string): boolean {
     const normalizedValue = normalizeFieldValue(value);
     if (normalizedValue === target) return true;
     return normalizedValue
@@ -386,7 +405,7 @@ export function japaneseFieldContainsStandaloneTarget(value: string, target: str
         .some(part => part === target);
 }
 
-export function japaneseCharacterCount(value: string): number {
+function japaneseCharacterCount(value: string): number {
     return (value.match(/[\u3040-\u30ff\u3400-\u9fff]/gu) ?? []).length;
 }
 
@@ -532,9 +551,10 @@ function kanaCharacterCount(value: string): number {
 }
 
 function japaneseSentenceLike(value: string): boolean {
-    if (/[。！？!?]/u.test(value)) return true;
-    if (japaneseCharacterCount(value) >= 12) return true;
-    return /(?:^|[\s　]).{2,}[\s　].{2,}/u.test(value) && japaneseCharacterCount(value) >= 8;
+    const japaneseLength = japaneseCharacterCount(value);
+    return /[。！？!?]/u.test(value)
+        || japaneseLength >= 12
+        || (japaneseLength >= 8 && /(?:^|[\s　]).{2,}[\s　].{2,}/u.test(value));
 }
 
 function ankiFieldAllowedForRole(fieldName: string, role: AnkiFieldRole): boolean {
@@ -552,7 +572,7 @@ function ankiFieldDisallowedForRole(fieldName: string, role: AnkiFieldRole): boo
     return /^(?:source|sourceurl|url|origin|originurl|link|deck|deckname|model|modelname|tags?|remarksfront|frontremarks)$/.test(normalized);
 }
 
-function firstMatchingAnkiField(fields: string[], names: string[]): string {
+function firstMatchingAnkiField(fields: string[], names: readonly string[]): string {
     const fieldByName = new Map<string, string>();
     fields.forEach(field => {
         const normalized = normalizeAnkiFieldName(field);
@@ -565,7 +585,7 @@ function firstMatchingAnkiField(fields: string[], names: string[]): string {
     return '';
 }
 
-function firstFuzzyAnkiField(fields: string[], names: string[]): string {
+function firstFuzzyAnkiField(fields: string[], names: readonly string[]): string {
     const normalizedNames = names
         .map(normalizeAnkiFieldName)
         .filter(name => name.length >= 4);

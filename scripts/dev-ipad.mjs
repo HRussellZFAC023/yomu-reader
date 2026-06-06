@@ -40,19 +40,24 @@ async function getTailscaleAddress() {
         execFileText('tailscale', ['ip', '-4']),
         execFileText('tailscale', ['status', '--json']).catch(() => ''),
     ]);
-    const ip = ipOutput.split(/\r?\n/).map(line => line.trim()).find(Boolean);
-    let dnsName = '';
-
-    if (statusOutput) {
-        try {
-            dnsName = JSON.parse(statusOutput).Self?.DNSName?.replace(/\.$/, '') || '';
-        } catch {
-            dnsName = '';
-        }
-    }
+    const ip = firstTailscaleIp(ipOutput);
+    const dnsName = tailscaleDnsName(statusOutput);
 
     if (!ip) throw new Error('tailscale did not return an IPv4 address');
     return { ip, dnsName };
+}
+
+function firstTailscaleIp(output) {
+    return output.split(/\r?\n/).map(line => line.trim()).find(Boolean) || '';
+}
+
+function tailscaleDnsName(statusOutput) {
+    if (!statusOutput) return '';
+    try {
+        return JSON.parse(statusOutput).Self?.DNSName?.replace(/\.$/, '') || '';
+    } catch {
+        return '';
+    }
 }
 
 async function publishToTailnet(port) {
@@ -80,7 +85,7 @@ function maybePublish(chunk) {
     if (!Number.isFinite(port)) return;
 
     publishPromise = publishToTailnet(port).catch(error => {
-        const detail = firstLine(error.stderr) || firstLine(error.stdout) || error.message;
+        const detail = commandErrorSummary(error);
         console.error(`[dev:ipad] Could not publish through Tailscale Serve: ${detail}`);
         console.error('[dev:ipad] Vite is still running locally. Check that Tailscale is running, then retry.');
     });
@@ -88,20 +93,33 @@ function maybePublish(chunk) {
 
 async function cleanup() {
     if (cleanupPromise) return cleanupPromise;
-    cleanupPromise = (async () => {
-        if (publishPromise) await publishPromise.catch(() => {});
-        if (!publishedPort) return;
-
-        try {
-            await execFileText('tailscale', ['serve', `--tcp=${publishedPort}`, 'off']);
-            console.log(`[dev:ipad] Removed Tailscale proxy for port ${publishedPort}.`);
-        } catch (error) {
-            const detail = firstLine(error.stderr) || firstLine(error.stdout) || error.message;
-            console.error(`[dev:ipad] Could not remove Tailscale proxy for port ${publishedPort}: ${detail}`);
-            console.error(`[dev:ipad] You can remove it manually with: tailscale serve --tcp=${publishedPort} off`);
-        }
-    })();
+    cleanupPromise = runCleanup();
     return cleanupPromise;
+}
+
+async function runCleanup() {
+    await waitForPublishAttempt();
+    if (!publishedPort) return;
+    await removePublishedTailnetPort(publishedPort);
+}
+
+async function waitForPublishAttempt() {
+    if (publishPromise) await publishPromise.catch(() => {});
+}
+
+async function removePublishedTailnetPort(port) {
+    try {
+        await execFileText('tailscale', ['serve', `--tcp=${port}`, 'off']);
+        console.log(`[dev:ipad] Removed Tailscale proxy for port ${port}.`);
+    } catch (error) {
+        const detail = commandErrorSummary(error);
+        console.error(`[dev:ipad] Could not remove Tailscale proxy for port ${port}: ${detail}`);
+        console.error(`[dev:ipad] You can remove it manually with: tailscale serve --tcp=${port} off`);
+    }
+}
+
+function commandErrorSummary(error) {
+    return firstLine(error.stderr) || firstLine(error.stdout) || error.message;
 }
 
 const vite = spawn(viteBin, ['--host', '127.0.0.1', '--port', String(preferredPort)], {
@@ -127,11 +145,21 @@ vite.on('error', async error => {
 
 vite.on('exit', async (code, signal) => {
     await cleanup();
-    if (signal && shuttingDown) {
-        process.exit(signalExitCode[signal] || 1);
-    }
-    process.exit(code ?? 1);
+    process.exit(viteExitCode(code, signal));
 });
+
+function viteExitCode(code, signal) {
+    if (isShutdownSignal(signal)) return signalExitStatus(signal);
+    return code ?? 1;
+}
+
+function isShutdownSignal(signal) {
+    return Boolean(signal && shuttingDown);
+}
+
+function signalExitStatus(signal) {
+    return signalExitCode[signal] || 1;
+}
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
     process.on(signal, () => {

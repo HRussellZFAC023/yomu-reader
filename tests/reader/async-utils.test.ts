@@ -2,6 +2,20 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { runLimited } from '../../src/reader/async-utils';
 
+async function measureMaxConcurrentWorkers<T>(items: T[], concurrency: number): Promise<number> {
+    let active = 0;
+    let maxActive = 0;
+
+    await runLimited(items, concurrency, async () => {
+        active++;
+        maxActive = Math.max(maxActive, active);
+        await new Promise<void>(resolve => setTimeout(resolve, 1));
+        active--;
+    });
+
+    return maxActive;
+}
+
 describe('runLimited', () => {
     it('processes all items', async () => {
         const results: number[] = [];
@@ -18,16 +32,9 @@ describe('runLimited', () => {
     });
 
     it('respects concurrency by limiting simultaneous workers', async () => {
-        let active = 0;
-        let maxActive = 0;
         const concurrency = 3;
 
-        await runLimited([1, 2, 3, 4, 5, 6], concurrency, async () => {
-            active++;
-            maxActive = Math.max(maxActive, active);
-            await new Promise<void>(resolve => setTimeout(resolve, 1));
-            active--;
-        });
+        const maxActive = await measureMaxConcurrentWorkers([1, 2, 3, 4, 5, 6], concurrency);
 
         expect(maxActive).toBeLessThanOrEqual(concurrency);
     });
@@ -41,26 +48,12 @@ describe('runLimited', () => {
     });
 
     it('uses concurrency of 1 when a fractional value is given', async () => {
-        let maxActive = 0;
-        let active = 0;
-        await runLimited([1, 2, 3], 0.9, async () => {
-            active++;
-            maxActive = Math.max(maxActive, active);
-            await new Promise<void>(resolve => setTimeout(resolve, 1));
-            active--;
-        });
+        const maxActive = await measureMaxConcurrentWorkers([1, 2, 3], 0.9);
         expect(maxActive).toBe(1);
     });
 
     it('clamps concurrency to item count when concurrency exceeds items', async () => {
-        let maxActive = 0;
-        let active = 0;
-        await runLimited([1, 2], 100, async () => {
-            active++;
-            maxActive = Math.max(maxActive, active);
-            await new Promise<void>(resolve => setTimeout(resolve, 1));
-            active--;
-        });
+        const maxActive = await measureMaxConcurrentWorkers([1, 2], 100);
         expect(maxActive).toBeLessThanOrEqual(2);
     });
 

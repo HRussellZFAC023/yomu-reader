@@ -132,42 +132,65 @@ const buildReaderCss = (stdio = 'inherit') => new Promise((resolve, reject) => {
     });
 });
 
-const server = createServer(async (req, res) => {
+const DEV_ROUTE_HANDLERS = new Map([
+    ['/', redirectToDevUserscript],
+    ['/index.html', redirectToDevUserscript],
+    ['/yomu.user.js', serveDevUserscript],
+    ['/yomu.css', serveDevReaderCss],
+]);
+
+const server = createServer(handleDevServerRequest);
+
+async function handleDevServerRequest(req, res) {
     if (req.method === 'OPTIONS') {
         write(res, 204, '');
         return;
     }
 
     const requestUrl = new URL(req.url || '/', origin);
-    if (requestUrl.pathname === '/' || requestUrl.pathname === '/index.html') {
-        res.writeHead(302, {
-            'Cache-Control': 'no-store',
-            Location: '/yomu.user.js',
-        });
-        res.end();
-        return;
-    }
+    const handler = DEV_ROUTE_HANDLERS.get(requestUrl.pathname) || serveDevNotFound;
+    await handler(req, res);
+}
 
-    if (requestUrl.pathname === '/yomu.user.js') {
-        try {
-            write(res, 200, await devUserscript(), 'application/javascript; charset=utf-8');
-        } catch {
-            write(res, 503, `${path.relative(process.cwd(), distUserscript)} is not ready yet; wait for the first Vite build.`);
-        }
-        return;
-    }
+function redirectToDevUserscript(_req, res) {
+    res.writeHead(302, {
+        'Cache-Control': 'no-store',
+        Location: '/yomu.user.js',
+    });
+    res.end();
+}
 
-    if (requestUrl.pathname === '/yomu.css') {
-        try {
-            write(res, 200, await readFile(distReaderCss, 'utf8'), 'text/css; charset=utf-8');
-        } catch {
-            write(res, 503, `${path.relative(process.cwd(), distReaderCss)} is not ready yet; wait for the first CSS build.`);
-        }
-        return;
-    }
+async function serveDevUserscript(_req, res) {
+    await writeGeneratedAsset(
+        res,
+        devUserscript,
+        distUserscript,
+        'application/javascript; charset=utf-8',
+        'wait for the first Vite build.',
+    );
+}
 
+async function serveDevReaderCss(_req, res) {
+    await writeGeneratedAsset(
+        res,
+        () => readFile(distReaderCss, 'utf8'),
+        distReaderCss,
+        'text/css; charset=utf-8',
+        'wait for the first CSS build.',
+    );
+}
+
+async function writeGeneratedAsset(res, readAsset, filePath, contentType, hint) {
+    try {
+        write(res, 200, await readAsset(), contentType);
+    } catch {
+        write(res, 503, `${path.relative(process.cwd(), filePath)} is not ready yet; ${hint}`);
+    }
+}
+
+function serveDevNotFound(_req, res) {
     write(res, 404, 'Not found');
-});
+}
 
 await buildReaderCss();
 

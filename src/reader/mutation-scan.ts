@@ -23,6 +23,7 @@ const JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR = [
     '.subsection-used-in',
     '.cross-table',
 ].join(',');
+const JPDB_PAGE_ENHANCEMENT_TARGET_SELECTOR = `${JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR},${JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR}`;
 const JPDB_PAGE_ENHANCEMENT_DYNAMIC_IGNORE_SELECTOR = [
     READER_ROOT_SELECTOR,
     '[data-immersion-kit]',
@@ -106,9 +107,8 @@ function childListMutationMayAffectJpdbPageEnhancements(mutation: MutationRecord
 function childListTargetMayAffectJpdbPageEnhancements(node: Node): boolean {
     const element = mutationNodeElement(node);
     if (!element || element.closest(JPDB_PAGE_ENHANCEMENT_DYNAMIC_IGNORE_SELECTOR)) return false;
-    return element.matches(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR)
-        || element.matches(JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR)
-        || Boolean(element.closest(`${JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR},${JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR}`));
+    return elementMatchesJpdbPageEnhancementTarget(element)
+        || Boolean(element.closest(JPDB_PAGE_ENHANCEMENT_TARGET_SELECTOR));
 }
 
 function jpdbPageEnhancementAttributeMayAffect(mutation: MutationRecord): boolean {
@@ -119,14 +119,33 @@ function jpdbPageEnhancementAttributeMayAffect(mutation: MutationRecord): boolea
 function nodeMayAffectJpdbPageEnhancements(node: Node): boolean {
     const element = mutationNodeElement(node);
     if (!element || element.closest(JPDB_PAGE_ENHANCEMENT_DYNAMIC_IGNORE_SELECTOR)) return false;
-    if (node.nodeType === Node.TEXT_NODE) {
-        return HAS_JAPANESE.test(node.textContent ?? '')
-            && Boolean(element.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR));
-    }
+    if (node.nodeType === Node.TEXT_NODE) return textNodeMayAffectJpdbPageEnhancements(node, element);
+    return elementMayAffectJpdbPageEnhancements(element);
+}
+
+function textNodeMayAffectJpdbPageEnhancements(node: Node, parent: Element): boolean {
+    return HAS_JAPANESE.test(node.textContent ?? '')
+        && Boolean(parent.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR));
+}
+
+function elementMayAffectJpdbPageEnhancements(element: Element): boolean {
+    return elementMatchesJpdbPageEnhancementTarget(element)
+        || elementContainsJpdbPageEnhancementTarget(element)
+        || elementTextMayAffectJpdbPageEnhancements(element);
+}
+
+function elementMatchesJpdbPageEnhancementTarget(element: Element): boolean {
     return element.matches(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR)
-        || element.matches(JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR)
-        || Boolean(element.querySelector(`${JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR},${JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR}`))
-        || (HAS_JAPANESE.test(element.textContent ?? '') && Boolean(element.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR)));
+        || element.matches(JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR);
+}
+
+function elementContainsJpdbPageEnhancementTarget(element: Element): boolean {
+    return Boolean(element.querySelector(JPDB_PAGE_ENHANCEMENT_TARGET_SELECTOR));
+}
+
+function elementTextMayAffectJpdbPageEnhancements(element: Element): boolean {
+    return HAS_JAPANESE.test(element.textContent ?? '')
+        && Boolean(element.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR));
 }
 
 function mutationNodeElement(node: Node): Element | null {

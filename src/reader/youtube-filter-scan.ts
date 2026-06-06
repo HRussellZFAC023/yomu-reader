@@ -28,6 +28,15 @@ export interface YouTubeFilterScanDecision {
     visibleVideoIds: Set<string>;
 }
 
+type YouTubeFilterDecisionRule = (candidate: YouTubeFilterCandidate, options: { revealed: boolean }) => YouTubeFilterDecision | null;
+
+const YOUTUBE_FILTER_DECISION_RULES: YouTubeFilterDecisionRule[] = [
+    alwaysHiddenYouTubeFilterDecision,
+    missingTitleYouTubeFilterDecision,
+    missingFilterTextYouTubeFilterDecision,
+    japaneseYouTubeFilterDecision,
+];
+
 export function classifyYouTubeFilterCandidates(candidates: YouTubeFilterCandidate[], options: { revealed: boolean }): YouTubeFilterScanDecision {
     const decisions: YouTubeFilterDecision[] = [];
     const visibleVideoIds = new Set<string>();
@@ -56,6 +65,14 @@ export function isProbablyJapaneseYouTubeText(text: string): boolean {
 }
 
 function classifyYouTubeFilterCandidate(candidate: YouTubeFilterCandidate, options: { revealed: boolean }): YouTubeFilterDecision {
+    for (const rule of YOUTUBE_FILTER_DECISION_RULES) {
+        const decision = rule(candidate, options);
+        if (decision) return decision;
+    }
+    return nonJapaneseYouTubeFilterDecision(candidate, options);
+}
+
+function alwaysHiddenYouTubeFilterDecision(candidate: YouTubeFilterCandidate, options: { revealed: boolean }): YouTubeFilterDecision | null {
     if (candidate.alwaysHidden) {
         return {
             candidate,
@@ -63,7 +80,14 @@ function classifyYouTubeFilterCandidate(candidate: YouTubeFilterCandidate, optio
             reason: options.revealed ? 'always-hidden-revealed' : 'always-hidden',
         };
     }
-    if (!candidate.title) return { candidate, kind: 'skip', reason: 'missing-title' };
+    return null;
+}
+
+function missingTitleYouTubeFilterDecision(candidate: YouTubeFilterCandidate): YouTubeFilterDecision | null {
+    return candidate.title ? null : { candidate, kind: 'skip', reason: 'missing-title' };
+}
+
+function missingFilterTextYouTubeFilterDecision(candidate: YouTubeFilterCandidate, options: { revealed: boolean }): YouTubeFilterDecision | null {
     if (!candidate.filterText) {
         return {
             candidate,
@@ -71,7 +95,16 @@ function classifyYouTubeFilterCandidate(candidate: YouTubeFilterCandidate, optio
             reason: 'missing-filter-text',
         };
     }
-    if (isProbablyJapaneseYouTubeText(candidate.filterText)) return { candidate, kind: 'show', reason: 'japanese' };
+    return null;
+}
+
+function japaneseYouTubeFilterDecision(candidate: YouTubeFilterCandidate): YouTubeFilterDecision | null {
+    return isProbablyJapaneseYouTubeText(candidate.filterText)
+        ? { candidate, kind: 'show', reason: 'japanese' }
+        : null;
+}
+
+function nonJapaneseYouTubeFilterDecision(candidate: YouTubeFilterCandidate, options: { revealed: boolean }): YouTubeFilterDecision {
     return {
         candidate,
         kind: options.revealed ? 'show' : 'hide',

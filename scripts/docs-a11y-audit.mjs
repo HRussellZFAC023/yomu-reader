@@ -105,20 +105,22 @@ async function assertDocsAccessibility(page, label) {
     assertAudit(!violations.length, `${label} axe violations: ${JSON.stringify(violations)}`);
 
     const wcag = await page.evaluate(() => {
+        const hasVisibleBox = rect => rect.width > 0 && rect.height > 0;
+        const hasVisibleStyle = style => style.visibility !== 'hidden' && style.display !== 'none';
+        const hasVisibleOpacity = style => Number(style.opacity || 1) > 0.02;
         const visible = element => {
             const style = getComputedStyle(element);
             const rect = element.getBoundingClientRect();
-            return style.visibility !== 'hidden'
-                && style.display !== 'none'
-                && Number(style.opacity || 1) > 0.02
-                && rect.width > 0
-                && rect.height > 0;
+            return hasVisibleStyle(style) && hasVisibleOpacity(style) && hasVisibleBox(rect);
         };
-        const accessibleName = element => (element.getAttribute('aria-label')
-            || element.getAttribute('title')
-            || element.getAttribute('alt')
-            || element.textContent
-            || '').replace(/\s+/g, ' ').trim();
+        const accessibleNameValues = element => [
+            element.getAttribute('aria-label'),
+            element.getAttribute('title'),
+            element.getAttribute('alt'),
+            element.textContent,
+        ];
+        const normalizedAccessibleName = value => String(value ?? '').replace(/\s+/g, ' ').trim();
+        const accessibleName = element => normalizedAccessibleName(accessibleNameValues(element).find(Boolean));
         const inlineReaderWord = element => element.matches('.jpdb-reader-word') && element.closest('.yomu-try-me');
         const interactive = [...document.querySelectorAll('button,a[href],input,select,textarea,[role="button"],[tabindex]:not([tabindex="-1"])')]
             .filter(element => visible(element));

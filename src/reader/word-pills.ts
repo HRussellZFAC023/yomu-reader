@@ -29,28 +29,54 @@ export function renderWordPills(options: WordPillRenderOptions): string {
     const query = context.query;
     const language = options.settings.interfaceLanguage;
     const enabledLinks = options.settings.dictionaryLookupLinks.filter(link => link.enabled);
-    const linkPills = [
-        ...enabledLinks.map(link => {
-            const style = lookupPillStyle(link.id || link.label);
-            const styleAttribute = style ? ` style="${style}"` : '';
-            if (link.action === 'copy' || link.id === 'copy') {
-                return renderCopyPill(language, query, style);
-            }
-            const url = link.id === 'jpdb' && (Boolean(options.overrideQuery) || options.isJpdbBackedCard(options.card))
-                ? options.jpdbUrl
-                : formatLookupUrl(link.urlTemplate, context);
-            if (!url) return '';
-            const title = link.id === 'jpdb'
-                ? (options.overrideQuery ? uiText(language, 'openKanjiOnJpdb') : uiText(language, 'openOnJpdb'))
-                : uiText(language, 'openOnLookup').replace('{label}', link.label);
-            const classes = `jpdb-reader-pill jpdb-reader-action-pill${link.id === 'jpdb' ? ' jpdb-reader-jpdb-pill' : ''}`;
-            return `<a class="${classes}" href="${escapeHtml(url)}" target="_blank" rel="noopener"${styleAttribute} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</a>`;
-        }),
-    ]
+    const linkPills = enabledLinks
+        .map(link => renderLookupLinkPill(options, context, language, query, link))
         .filter(Boolean);
     const frequencyPills = renderFrequencyPills(options.metaEntries ?? [], options.settings, options.dictionaryLabel);
     const pills = [...linkPills, ...frequencyPills];
     return pills.length ? `<div class="jpdb-reader-word-pills">${pills.join('')}</div>` : '';
+}
+
+function renderLookupLinkPill(
+    options: WordPillRenderOptions,
+    context: WordPillContext,
+    language: ReaderSettings['interfaceLanguage'],
+    query: string,
+    link: ReaderSettings['dictionaryLookupLinks'][number],
+): string {
+    const style = lookupPillStyle(link.id || link.label);
+    if (link.action === 'copy' || link.id === 'copy') return renderCopyPill(language, query, style);
+    const url = lookupLinkPillUrl(options, context, link);
+    if (!url) return '';
+    const title = lookupLinkPillTitle(options, language, link);
+    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</a>`;
+}
+
+function lookupLinkPillUrl(
+    options: WordPillRenderOptions,
+    context: WordPillContext,
+    link: ReaderSettings['dictionaryLookupLinks'][number],
+): string {
+    return link.id === 'jpdb' && (Boolean(options.overrideQuery) || options.isJpdbBackedCard(options.card))
+        ? options.jpdbUrl
+        : formatLookupUrl(link.urlTemplate, context);
+}
+
+function lookupLinkPillTitle(
+    options: WordPillRenderOptions,
+    language: ReaderSettings['interfaceLanguage'],
+    link: ReaderSettings['dictionaryLookupLinks'][number],
+): string {
+    if (link.id !== 'jpdb') return uiText(language, 'openOnLookup').replace('{label}', link.label);
+    return options.overrideQuery ? uiText(language, 'openKanjiOnJpdb') : uiText(language, 'openOnJpdb');
+}
+
+function lookupLinkPillClass(id: string | undefined): string {
+    return `jpdb-reader-pill jpdb-reader-action-pill${id === 'jpdb' ? ' jpdb-reader-jpdb-pill' : ''}`;
+}
+
+function lookupPillStyleAttribute(style: string): string {
+    return style ? ` style="${style}"` : '';
 }
 
 function renderCopyPill(language: ReaderSettings['interfaceLanguage'], query: string, style = lookupPillStyle('copy')): string {

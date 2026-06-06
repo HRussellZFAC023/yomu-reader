@@ -1,4 +1,4 @@
-import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiDuplicateNoteError, type AnkiAudioMergeMode, type AnkiLookupResult, type AnkiMergeYomuResult } from './anki';
+import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiDuplicateNoteError, type AnkiAudioMergeMode, type AnkiCardContext, type AnkiLookupResult, type AnkiMergeYomuResult } from './anki';
 import { resolveAnkiWordAudio } from './anki-audio';
 import { copyText } from './browser-ui';
 import { normalizeCardStates } from './card-state';
@@ -43,6 +43,15 @@ interface CardActionControllerOptions {
 type StudyActionHandler = () => boolean | Promise<boolean>;
 type MiningActionHandler = () => Promise<void>;
 type JpdbDeckState = 'never-forget' | 'blacklisted';
+type AnkiAddResult = number | null | 'duplicate';
+type ResolvedAnkiWordAudio = Awaited<ReturnType<typeof resolveAnkiWordAudio>>;
+
+interface PreparedAnkiAdd {
+    context: MiningContext;
+    hasWordAudio: boolean;
+    options: AnkiCardContext;
+    sentence: string | undefined;
+}
 
 function assertReviewableJpdbCardState(states: string[], settings: ReaderSettings): void {
     if (states.includes('blacklisted')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedBlacklisted'));
@@ -314,24 +323,45 @@ export class CardActionController {
 
     private async addToAnki(card: JPDBCard, sentence?: string, deckName?: string): Promise<void> {
         const settings = this.options.getSettings();
-        if (canUseMobileAnkiHandoff(settings)) {
-            await this.options.anki.addCardViaMobileHandoff(card, sentence || card.sentence || '', {
-                deckName,
-                dictionaryPreferences: settings.dictionaryPreferences,
-            });
-            this.options.toast(uiText(settings.interfaceLanguage, 'openedMobileAnkiHandoff'));
-            return;
-        }
-        const existing: AnkiLookupResult = await this.options.anki.findExistingCards(card);
-        if (existing.primary) return this.showExistingAnkiCard(card, sentence);
+        if (await this.addToAnkiViaMobileHandoff(card, sentence, deckName, settings)) return;
+        if (await this.showExistingAnkiCardIfPresent(card, sentence)) return;
 
+        const prepared = await this.prepareAnkiAdd(card, sentence, deckName, settings);
+        const noteId = await this.addPreparedAnkiCard(card, prepared);
+        if (noteId === 'duplicate') return this.showExistingAnkiCard(card, sentence);
+        if (noteId === null) return this.toastMobileAnkiHandoff(settings);
+
+        this.notifyAnkiStatusChanged(card);
+        this.options.toast(ankiSentToast(prepared.context, settings, prepared.hasWordAudio));
+    }
+
+    private async addToAnkiViaMobileHandoff(card: JPDBCard, sentence: string | undefined, deckName: string | undefined, settings: ReaderSettings): Promise<boolean> {
+        if (!canUseMobileAnkiHandoff(settings)) return false;
+        await this.options.anki.addCardViaMobileHandoff(card, mobileAnkiSentence(card, sentence), {
+            deckName,
+            dictionaryPreferences: settings.dictionaryPreferences,
+        });
+        this.toastMobileAnkiHandoff(settings);
+        return true;
+    }
+
+    private async showExistingAnkiCardIfPresent(card: JPDBCard, sentence?: string): Promise<boolean> {
+        const existing: AnkiLookupResult = await this.options.anki.findExistingCards(card);
+        if (!existing.primary) return false;
+        await this.showExistingAnkiCard(card, sentence);
+        return true;
+    }
+
+    private async prepareAnkiAdd(card: JPDBCard, sentence: string | undefined, deckName: string | undefined, settings: ReaderSettings): Promise<PreparedAnkiAdd> {
         const [dictionaryContext, context, wordAudio] = await Promise.all([
             this.loadAnkiDictionaryContext(card, settings),
             this.options.resolveMiningContext(card, sentence),
             resolveAnkiWordAudio(card, settings).catch(() => null),
         ]);
-        try {
-            const noteId = await this.options.anki.addCard(card, miningSentenceForAnki(context.sentence, sentence), {
+        return {
+            context,
+            hasWordAudio: hasResolvedAnkiWordAudio(wordAudio),
+            options: {
                 deckName,
                 imageDataUrl: context.imageDataUrl,
                 audioDataUrl: context.audioDataUrl,
@@ -341,17 +371,21 @@ export class CardActionController {
                 dictionaryPreferences: settings.dictionaryPreferences,
                 sourceTitle: ankiSourceTitle(context.sourceTitle),
                 sourceUrl: ankiSourceUrl(context.sourceUrl),
-            });
-            if (noteId === null) {
-                this.options.toast(uiText(settings.interfaceLanguage, 'openedMobileAnkiHandoff'));
-                return;
-            }
-            this.notifyAnkiStatusChanged(card);
+            },
+            sentence: miningSentenceForAnki(context.sentence, sentence),
+        };
+    }
+
+    private async addPreparedAnkiCard(card: JPDBCard, prepared: PreparedAnkiAdd): Promise<AnkiAddResult> {
+        try {
+            return await this.options.anki.addCard(card, prepared.sentence, prepared.options);
         } catch (error) {
-            if (isAnkiDuplicateNoteError(error)) return this.showExistingAnkiCard(card, sentence);
-            throw error;
+            return duplicateAnkiAddResult(error);
         }
-        this.options.toast(ankiSentToast(context, settings, Boolean(wordAudio?.dataUrl || wordAudio?.url)));
+    }
+
+    private toastMobileAnkiHandoff(settings: ReaderSettings): void {
+        this.options.toast(uiText(settings.interfaceLanguage, 'openedMobileAnkiHandoff'));
     }
 
     private notifyAnkiStatusChanged(card: JPDBCard): void {
@@ -422,6 +456,19 @@ interface SelectedDeckChoice {
 
 function miningSentenceForAnki(contextSentence: string | undefined, fallbackSentence: string | undefined): string | undefined {
     return contextSentence || fallbackSentence;
+}
+
+function mobileAnkiSentence(card: JPDBCard, sentence: string | undefined): string {
+    return sentence || card.sentence || '';
+}
+
+function hasResolvedAnkiWordAudio(wordAudio: ResolvedAnkiWordAudio | null): boolean {
+    return Boolean(wordAudio?.dataUrl || wordAudio?.url);
+}
+
+function duplicateAnkiAddResult(error: unknown): AnkiAddResult {
+    if (isAnkiDuplicateNoteError(error)) return 'duplicate';
+    throw error;
 }
 
 function ankiSentToast(context: MiningContext, settings: ReaderSettings, hasWordAudio = false): string {

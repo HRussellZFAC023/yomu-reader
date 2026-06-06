@@ -1,4 +1,5 @@
 import { Logger } from './logger';
+import { isAppleTouchBrowser } from './browser-platform';
 import { getUserscriptHttpRequest } from './userscript';
 
 const API_BASE = 'https://jpdb.io/api/v1';
@@ -197,14 +198,6 @@ function isCrossOriginJpdbApiPage(): boolean {
     } catch {
         return false;
     }
-}
-
-function isAppleTouchBrowser(): boolean {
-    if (typeof navigator === 'undefined') return false;
-    const userAgent = navigator.userAgent ?? '';
-    const platform = navigator.platform ?? '';
-    return /iPad|iPhone|iPod/i.test(userAgent)
-        || (/Macintosh/i.test(userAgent) && /Mac/i.test(platform) && (navigator.maxTouchPoints ?? 0) > 1);
 }
 
 function postJsonWithUserscriptRequest(

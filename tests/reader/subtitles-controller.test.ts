@@ -59,6 +59,142 @@ function mockElementRect(element: Element, rect: DOMRect): void {
     });
 }
 
+type SubtitleControllerOptions = ConstructorParameters<typeof SubtitlePlayerController>[0];
+type SubtitleControllerHooks = Partial<Omit<SubtitleControllerOptions, 'getSettings'>>;
+
+function makeSubtitleSettings<TOverrides extends Partial<ReaderSettings> = Record<string, never>>(
+    overrides?: TOverrides,
+): ReaderSettings & TOverrides {
+    return {
+        ...DEFAULT_SETTINGS,
+        apiKey: '',
+        localDictionariesEnabled: false,
+        ...overrides,
+    } as ReaderSettings & TOverrides;
+}
+
+function controllerInternals<TInternals>(controller: SubtitlePlayerController): TInternals {
+    return controller as unknown as TInternals;
+}
+
+function createSubtitleController<TSettings extends ReaderSettings>(
+    settings: TSettings,
+    hooks: SubtitleControllerHooks = {},
+): { settings: TSettings; controller: SubtitlePlayerController } {
+    const controller = new SubtitlePlayerController({
+        getSettings: () => settings,
+        parseJapanese: hooks.parseJapanese ?? (async () => []),
+        ...(hooks.parseJapaneseBatch ? { parseJapaneseBatch: hooks.parseJapaneseBatch } : {}),
+        ...(hooks.afterParseTokens ? { afterParseTokens: hooks.afterParseTokens } : {}),
+        onSettingsChange: hooks.onSettingsChange ?? (() => undefined),
+    });
+    return { settings, controller };
+}
+
+function installController(controller: SubtitlePlayerController): void {
+    controllerInternals<{ install: () => void }>(controller).install();
+}
+
+function createInstalledSubtitleController<TOverrides extends Partial<ReaderSettings> = Record<string, never>>(
+    overrides?: TOverrides,
+    hooks: SubtitleControllerHooks = {},
+): { settings: ReaderSettings & TOverrides; controller: SubtitlePlayerController } {
+    const settings = makeSubtitleSettings(overrides);
+    const setup = createSubtitleController(settings, hooks);
+    installController(setup.controller);
+    return setup;
+}
+
+function attachVideo(
+    controller: SubtitlePlayerController,
+    options: { currentTime?: number; rect?: DOMRect; video?: HTMLVideoElement } = {},
+): HTMLVideoElement {
+    const video = options.video ?? document.createElement('video');
+    if (options.currentTime !== undefined) {
+        Object.defineProperty(video, 'currentTime', {
+            configurable: true,
+            value: options.currentTime,
+            writable: true,
+        });
+    }
+    if (options.rect) mockElementRect(video, options.rect);
+    controllerInternals<{ video: HTMLVideoElement }>(controller).video = video;
+    return video;
+}
+
+function setupInstalledVideoController(
+    rect: DOMRect,
+    overrides?: Partial<ReaderSettings>,
+): { controller: SubtitlePlayerController; root: HTMLElement; video: HTMLVideoElement } {
+    const { controller } = createInstalledSubtitleController(overrides);
+    const video = attachVideo(controller, { rect });
+    controller.refresh();
+    const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+    return { controller, root, video };
+}
+
+type TestSubtitleCue = { start: number; end: number; text: string; transcriptEligible: boolean };
+
+function setupTranscriptCueController<
+    TCue extends TestSubtitleCue,
+    TInternals extends object = Record<string, never>,
+>(
+    cues: TCue[],
+    options: {
+        currentCue?: TCue;
+        currentTime?: number;
+        hooks?: SubtitleControllerHooks;
+        selectedTrackId?: string;
+        settings?: Partial<ReaderSettings>;
+    } = {},
+): {
+    controller: SubtitlePlayerController;
+    internals: TInternals & {
+        cues: TCue[];
+        currentCue: TCue;
+        openLinesPanel: () => void;
+        selectedTrackId: string;
+    };
+    settings: ReaderSettings;
+    video: HTMLVideoElement;
+} {
+    const { controller, settings } = createInstalledSubtitleController(options.settings, options.hooks);
+    const video = attachVideo(controller, { currentTime: options.currentTime ?? 0.5 });
+    const internals = controllerInternals<TInternals & {
+        cues: TCue[];
+        currentCue: TCue;
+        openLinesPanel: () => void;
+        selectedTrackId: string;
+    }>(controller);
+    if (options.selectedTrackId !== undefined) internals.selectedTrackId = options.selectedTrackId;
+    internals.cues = cues;
+    internals.currentCue = options.currentCue ?? cues[0]!;
+    return { controller, internals, settings, video };
+}
+
+function handlePointerActivity(
+    controller: SubtitlePlayerController,
+    point: Pick<PointerEvent, 'clientX' | 'clientY'> = { clientX: 100, clientY: 100 },
+): void {
+    controllerInternals<{ handlePointerActivity: (event: Pick<PointerEvent, 'clientX' | 'clientY'>) => void }>(controller)
+        .handlePointerActivity(point);
+}
+
+async function expectSubtitleControlsReturnToIdle(
+    controller: SubtitlePlayerController,
+    root: HTMLElement,
+): Promise<void> {
+    expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+
+    handlePointerActivity(controller);
+
+    expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(2600);
+
+    expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+}
+
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason?: unknown) => void } {
     let resolve!: (value: T) => void;
     let reject!: (reason?: unknown) => void;
@@ -226,6 +362,67 @@ describe('SubtitlePlayerController', () => {
             expect(panel.classList.contains('jpdb-subtitle-panel-closing')).toBe(false);
         } finally {
             controller.destroy();
+        }
+    });
+
+    it('anchors the CIJ transcript drawer to the stable player frame instead of the centered video', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://cijapanese.com/video/560') as unknown as Location,
+        });
+
+        try {
+            withViewport(1600, 900, () => {
+                const settings = {
+                    ...DEFAULT_SETTINGS,
+                    apiKey: '',
+                    localDictionariesEnabled: false,
+                    subtitleTranscriptVisible: false,
+                    subtitleTranscriptPlacement: 'right' as const,
+                };
+                const controller = new SubtitlePlayerController({
+                    getSettings: () => settings,
+                    parseJapanese: async () => [],
+                    onSettingsChange: () => undefined,
+                });
+
+                try {
+                    document.body.innerHTML = '<section class="lesson-player"><video></video></section>';
+                    const frame = document.querySelector<HTMLElement>('.lesson-player')!;
+                    const video = document.querySelector<HTMLVideoElement>('video')!;
+                    mockElementRect(frame, new DOMRect(70, 120, 1080, 700));
+                    mockElementRect(video, new DOMRect(90, 210, 960, 540));
+                    const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
+                    const internals = controller as unknown as {
+                        install: () => void;
+                        video: HTMLVideoElement;
+                        cues: Array<typeof cue>;
+                        currentCue: typeof cue;
+                        openLinesPanel: () => void;
+                    };
+                    internals.install();
+                    internals.video = video;
+                    internals.cues = [cue];
+                    internals.currentCue = cue;
+
+                    internals.openLinesPanel();
+
+                    const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                    expect(panel.hidden).toBe(false);
+                    expect(panel.dataset.transcriptPlacement).toBe('right');
+                    expect(panel.style.top).toBe('120px');
+                    expect(panel.style.top).not.toBe('210px');
+                    expect(frame.style.height).toBe('700px');
+                } finally {
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
         }
     });
 
@@ -552,38 +749,10 @@ describe('SubtitlePlayerController', () => {
 
     it('returns compact subtitle controls to idle after pointer activity over video', async () => {
         vi.useFakeTimers();
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            localDictionariesEnabled: false,
-        };
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange: () => undefined,
-        });
+        const { controller, root } = setupInstalledVideoController(new DOMRect(0, 0, 1920, 1080));
 
         try {
-            (controller as unknown as { install: () => void }).install();
-            const video = document.createElement('video');
-            Object.defineProperty(video, 'getBoundingClientRect', {
-                configurable: true,
-                value: () => new DOMRect(0, 0, 1920, 1080),
-            });
-            (controller as unknown as { video: HTMLVideoElement }).video = video;
-            controller.refresh();
-
-            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
-            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
-
-            (controller as unknown as { handlePointerActivity: (event: Pick<PointerEvent, 'clientX' | 'clientY'>) => void })
-                .handlePointerActivity({ clientX: 100, clientY: 100 });
-
-            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
-
-            await vi.advanceTimersByTimeAsync(2600);
-
-            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+            await expectSubtitleControlsReturnToIdle(controller, root);
         } finally {
             controller.destroy();
         }
@@ -592,38 +761,10 @@ describe('SubtitlePlayerController', () => {
     it('returns subtitle controls to idle on coarse pointer devices', async () => {
         vi.useFakeTimers();
         await withMatchMedia(query => query === '(pointer: coarse)', async () => {
-            const settings = {
-                ...DEFAULT_SETTINGS,
-                apiKey: '',
-                localDictionariesEnabled: false,
-            };
-            const controller = new SubtitlePlayerController({
-                getSettings: () => settings,
-                parseJapanese: async () => [],
-                onSettingsChange: () => undefined,
-            });
+            const { controller, root } = setupInstalledVideoController(new DOMRect(0, 0, 390, 240));
 
             try {
-                (controller as unknown as { install: () => void }).install();
-                const video = document.createElement('video');
-                Object.defineProperty(video, 'getBoundingClientRect', {
-                    configurable: true,
-                    value: () => new DOMRect(0, 0, 390, 240),
-                });
-                (controller as unknown as { video: HTMLVideoElement }).video = video;
-                controller.refresh();
-
-                const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
-                expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
-
-                (controller as unknown as { handlePointerActivity: (event: Pick<PointerEvent, 'clientX' | 'clientY'>) => void })
-                    .handlePointerActivity({ clientX: 100, clientY: 100 });
-
-                expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
-
-                await vi.advanceTimersByTimeAsync(2600);
-
-                expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+                await expectSubtitleControlsReturnToIdle(controller, root);
             } finally {
                 controller.destroy();
             }
@@ -631,94 +772,51 @@ describe('SubtitlePlayerController', () => {
     });
 
     it('keeps subtitle controls idle when YouTube player chrome is autohidden', () => {
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            localDictionariesEnabled: false,
-        };
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange: () => undefined,
-        });
-
+        let controller: SubtitlePlayerController | undefined;
         try {
             document.body.innerHTML = '<div id="movie_player" class="html5-video-player ytp-autohide"><video></video></div>';
-            (controller as unknown as { install: () => void }).install();
+            controller = createInstalledSubtitleController().controller;
             const player = document.querySelector<HTMLElement>('#movie_player')!;
             const video = document.querySelector<HTMLVideoElement>('video')!;
-            Object.defineProperty(video, 'getBoundingClientRect', {
-                configurable: true,
-                value: () => new DOMRect(0, 0, 640, 360),
-            });
-            (controller as unknown as { video: HTMLVideoElement }).video = video;
+            attachVideo(controller, { video, rect: new DOMRect(0, 0, 640, 360) });
             controller.refresh();
 
             const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
             expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
 
-            (controller as unknown as { handlePointerActivity: (event: Pick<PointerEvent, 'clientX' | 'clientY'>) => void })
-                .handlePointerActivity({ clientX: 100, clientY: 100 });
+            handlePointerActivity(controller);
 
             expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
 
             player.classList.remove('ytp-autohide');
-            (controller as unknown as { handlePointerActivity: (event: Pick<PointerEvent, 'clientX' | 'clientY'>) => void })
-                .handlePointerActivity({ clientX: 100, clientY: 100 });
+            handlePointerActivity(controller);
 
             expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
         } finally {
-            controller.destroy();
+            controller?.destroy();
         }
     });
 
     it('lets video rail controls auto-hide while the transcript panel is open', async () => {
         vi.useFakeTimers();
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            localDictionariesEnabled: false,
-        };
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange: () => undefined,
-        });
+        const { controller, root } = setupInstalledVideoController(new DOMRect(0, 72, 960, 540));
 
         try {
-            (controller as unknown as { install: () => void }).install();
-            const video = document.createElement('video');
-            Object.defineProperty(video, 'getBoundingClientRect', {
-                configurable: true,
-                value: () => new DOMRect(0, 72, 960, 540),
-            });
-            const internals = controller as unknown as {
-                video: HTMLVideoElement;
+            const internals = controllerInternals<{
                 cues: Array<{ start: number; end: number; text: string; transcriptEligible: boolean }>;
                 openLinesPanel: () => void;
-            };
-            internals.video = video;
+            }>(controller);
             internals.cues = [
                 { start: 0, end: 1, text: '一番', transcriptEligible: true },
                 { start: 1, end: 2, text: '二番', transcriptEligible: true },
             ];
-            controller.refresh();
 
             internals.openLinesPanel();
 
-            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
             expect(document.querySelector<HTMLElement>('.jpdb-subtitle-list')?.hidden).toBe(false);
             expect(root.classList.contains('jpdb-subtitle-panel-open')).toBe(true);
-            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
 
-            (controller as unknown as { handlePointerActivity: (event: Pick<PointerEvent, 'clientX' | 'clientY'>) => void })
-                .handlePointerActivity({ clientX: 100, clientY: 100 });
-
-            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
-
-            await vi.advanceTimersByTimeAsync(2600);
-
-            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+            await expectSubtitleControlsReturnToIdle(controller, root);
         } finally {
             controller.destroy();
         }
@@ -757,30 +855,19 @@ describe('SubtitlePlayerController', () => {
 
     it('hides the rail and subtitles while the selected video is mostly out of view', () => {
         withViewport(1000, 800, () => {
-            const settings = {
-                ...DEFAULT_SETTINGS,
-                apiKey: '',
-                localDictionariesEnabled: false,
-                subtitleOverlayVisible: true,
-            };
-            const controller = new SubtitlePlayerController({
-                getSettings: () => settings,
-                parseJapanese: async () => [],
-                onSettingsChange: () => undefined,
-            });
+            const { controller, root, video } = setupInstalledVideoController(
+                new DOMRect(140, -520, 720, 600),
+                { subtitleOverlayVisible: true },
+            );
+            const internals = controllerInternals<{ alignToVideo: () => void }>(controller);
 
             try {
-                (controller as unknown as { install: () => void }).install();
-                const video = document.createElement('video');
-                mockElementRect(video, new DOMRect(140, -520, 720, 600));
-                (controller as unknown as { video: HTMLVideoElement }).video = video;
-                (controller as unknown as { alignToVideo: () => void }).alignToVideo();
+                internals.alignToVideo();
 
-                const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
                 expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(true);
 
                 mockElementRect(video, new DOMRect(140, 80, 720, 600));
-                (controller as unknown as { alignToVideo: () => void }).alignToVideo();
+                internals.alignToVideo();
 
                 expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(false);
             } finally {
@@ -796,6 +883,15 @@ describe('SubtitlePlayerController', () => {
             .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="previous"],');
     });
 
+    it('keeps the secondary subtitle line on the primary subtitle font', () => {
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss)
+            .toContain('.jpdb-subtitle-secondary { display: block; width: fit-content; max-width: 100%;');
+        expect(normalizedCss)
+            .toContain('font: var(--subtitle-weight) .62em/1.25 var(--subtitle-family);');
+    });
+
     it('keeps auto-idle subtitle rails discoverable on coarse pointers', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
@@ -803,6 +899,12 @@ describe('SubtitlePlayerController', () => {
         expect(normalizedCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not( .jpdb-subtitle-panel-open ) .jpdb-subtitle-rail:not(:focus-within) { opacity: 0.72; pointer-events: auto; transform: none; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail button::after { content: ""; position: absolute; inset: -5px; border-radius: 9px; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail button { padding: 0; font-size: 11px; touch-action: manipulation; }');
+    });
+
+    it('keeps compact auto-idle subtitle rails discoverable even when mobile media queries do not apply', () => {
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('.jpdb-subtitle-compact-video.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not( .jpdb-subtitle-panel-open ) .jpdb-subtitle-rail:not(:focus-within) { opacity: .72; pointer-events: auto; transform: none; }');
     });
 
     it('hides the whole subtitle rail when subtitle controls are hidden', () => {
@@ -1173,23 +1275,23 @@ describe('SubtitlePlayerController', () => {
         });
 
         try {
-            const settings = {
-                ...DEFAULT_SETTINGS,
+            const { controller } = createInstalledSubtitleController({
                 subtitleOverlayVisible: true,
                 subtitleSecondaryVisible: true,
-                apiKey: '',
-                localDictionariesEnabled: false,
-            };
-            const controller = new SubtitlePlayerController({
-                getSettings: () => settings,
-                parseJapanese: async () => [],
-                onSettingsChange: () => undefined,
             });
-            (controller as unknown as { install: () => void }).install();
+            attachVideo(controller, { currentTime: 0.5 });
 
-            const video = document.createElement('video');
-            Object.defineProperty(video, 'currentTime', { configurable: true, value: 0.5, writable: true });
-            (controller as unknown as { video: HTMLVideoElement }).video = video;
+            const internals = controllerInternals<{
+                tracks: Array<{ id: string; label: string; kind: 'native'; language: string; track: TextTrack }>;
+                selectSecondaryTrack: (id: string) => Promise<void>;
+                selectTrack: (id: string) => Promise<void>;
+                selectedTrackId: string;
+                secondaryTrackId: string;
+                cues: Array<{ text: string }>;
+                secondaryCues: Array<{ text: string }>;
+                secondaryCue?: { text: string };
+                updateFromLoadedCues: () => void;
+            }>(controller);
 
             const trackState = {
                 mode: 'disabled',
@@ -1197,9 +1299,7 @@ describe('SubtitlePlayerController', () => {
             };
             const track = trackState as unknown as TextTrack;
 
-            (controller as unknown as {
-                tracks: Array<{ id: string; label: string; kind: 'native'; language: string; track: TextTrack }>;
-            }).tracks = [{
+            internals.tracks = [{
                 id: 'native-0',
                 label: 'English captions',
                 kind: 'native',
@@ -1207,25 +1307,13 @@ describe('SubtitlePlayerController', () => {
                 track,
             }];
 
-            const secondarySelection = (controller as unknown as {
-                selectSecondaryTrack: (id: string) => Promise<void>;
-            }).selectSecondaryTrack('native-0');
-            const primarySelection = (controller as unknown as {
-                selectTrack: (id: string) => Promise<void>;
-            }).selectTrack('native-0');
+            const secondarySelection = internals.selectSecondaryTrack('native-0');
+            const primarySelection = internals.selectTrack('native-0');
 
             trackState.cues = [{ startTime: 0, endTime: 2, text: 'Hello there' }];
             await vi.advanceTimersByTimeAsync(1000);
             await Promise.all([secondarySelection, primarySelection]);
 
-            const internals = controller as unknown as {
-                selectedTrackId: string;
-                secondaryTrackId: string;
-                cues: Array<{ text: string }>;
-                secondaryCues: Array<{ text: string }>;
-                secondaryCue?: { text: string };
-                updateFromLoadedCues: () => void;
-            };
             internals.updateFromLoadedCues();
 
             expect(internals.selectedTrackId).toBe('native-0');
@@ -1315,25 +1403,16 @@ describe('SubtitlePlayerController', () => {
         });
 
         try {
-            const settings = {
-                ...DEFAULT_SETTINGS,
+            const { controller } = createInstalledSubtitleController({
                 subtitleOverlayVisible: true,
-                apiKey: '',
-                localDictionariesEnabled: false,
-            };
-            const controller = new SubtitlePlayerController({
-                getSettings: () => settings,
-                parseJapanese: async () => [],
-                onSettingsChange: () => undefined,
             });
-            (controller as unknown as { install: () => void }).install();
-            const internals = controller as unknown as {
+            const internals = controllerInternals<{
                 syncSubtitleSourceContext: () => boolean;
                 tracks: Array<{ id: string; label: string; kind: 'remote' | 'file'; language?: string; url?: string; sourceKey?: string; cues?: Array<{ text: string }> }>;
                 selectedTrackId: string;
                 cues: Array<{ text: string }>;
                 currentCue?: { text: string };
-            };
+            }>(controller);
             internals.tracks = [
                 {
                     id: 'remote-0',
@@ -1383,12 +1462,6 @@ describe('SubtitlePlayerController', () => {
         window.cancelAnimationFrame = ((id: number) => window.clearTimeout(id)) as typeof window.cancelAnimationFrame;
 
         try {
-            const settings = {
-                ...DEFAULT_SETTINGS,
-                subtitleTranscriptAutoScroll: false,
-                apiKey: 'test-key',
-                localDictionariesEnabled: false,
-            };
             const token: JPDBToken = {
                 card: {
                     vid: 1,
@@ -1411,27 +1484,15 @@ describe('SubtitlePlayerController', () => {
                 sentence: '読む',
             };
             const parseJapanese = vi.fn(async () => [token]);
-            const controller = new SubtitlePlayerController({
-                getSettings: () => settings,
-                parseJapanese,
-                onSettingsChange: () => undefined,
-            });
-            (controller as unknown as { install: () => void }).install();
-
-            const video = document.createElement('video');
-            Object.defineProperty(video, 'currentTime', { configurable: true, value: 0.5, writable: true });
             const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
-            const internals = controller as unknown as {
-                video: HTMLVideoElement;
-                selectedTrackId: string;
-                cues: Array<typeof cue>;
-                currentCue: typeof cue;
-                openLinesPanel: () => void;
-            };
-            internals.video = video;
-            internals.selectedTrackId = 'file-primary';
-            internals.cues = [cue];
-            internals.currentCue = cue;
+            const { internals } = setupTranscriptCueController([cue], {
+                hooks: { parseJapanese },
+                selectedTrackId: 'file-primary',
+                settings: {
+                    subtitleTranscriptAutoScroll: false,
+                    apiKey: 'test-key',
+                },
+            });
 
             internals.openLinesPanel();
             expect(document.querySelector('.jpdb-subtitle-row-text')?.innerHTML).toBe('読む');
@@ -1450,35 +1511,17 @@ describe('SubtitlePlayerController', () => {
     });
 
     it('updates transcript rows through the parse-key index instead of scanning every row', () => {
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            subtitleTranscriptAutoScroll: false,
-            apiKey: 'test-key',
-            localDictionariesEnabled: false,
-        };
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange: () => undefined,
-        });
-        (controller as unknown as { install: () => void }).install();
-
-        const video = document.createElement('video');
-        Object.defineProperty(video, 'currentTime', { configurable: true, value: 0.5, writable: true });
         const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
-        const internals = controller as unknown as {
-            video: HTMLVideoElement;
-            selectedTrackId: string;
-            cues: Array<typeof cue>;
-            currentCue: typeof cue;
-            openLinesPanel: () => void;
+        const { settings, internals } = setupTranscriptCueController<typeof cue, {
             parseCacheKey: (text: string, settings: typeof DEFAULT_SETTINGS) => string;
             updateTranscriptRowsForParseKey(key: string, html: string): void;
-        };
-        internals.video = video;
-        internals.selectedTrackId = 'file-primary';
-        internals.cues = [cue];
-        internals.currentCue = cue;
+        }>([cue], {
+            selectedTrackId: 'file-primary',
+            settings: {
+                subtitleTranscriptAutoScroll: false,
+                apiKey: 'test-key',
+            },
+        });
 
         internals.openLinesPanel();
         const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
@@ -1499,18 +1542,8 @@ describe('SubtitlePlayerController', () => {
     });
 
     it('uses visible word surface text for parsed subtitle karaoke timing', () => {
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            localDictionariesEnabled: false,
-        };
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange: () => undefined,
-        });
+        const { controller } = createInstalledSubtitleController();
         try {
-            (controller as unknown as { install: () => void }).install();
             const subtitle = document.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
             subtitle.innerHTML = `
                 <div class="jpdb-subtitle-primary">
@@ -1529,9 +1562,9 @@ describe('SubtitlePlayerController', () => {
                 transcriptEligible: true,
             };
 
-            (controller as unknown as {
+            controllerInternals<{
                 applyKaraokeStateToPrimary: (cueArg: unknown, time: number) => void;
-            }).applyKaraokeStateToPrimary(cue, 1.2);
+            }>(controller).applyKaraokeStateToPrimary(cue, 1.2);
 
             const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-subtitle-primary .jpdb-reader-word'));
             expect(words[0]?.classList.contains('jpdb-subtitle-word-spoken')).toBe(true);
@@ -1542,22 +1575,8 @@ describe('SubtitlePlayerController', () => {
     });
 
     it('does not apply karaoke state after parsed subtitle replacement', () => {
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            subtitleKaraokeMode: true,
-            apiKey: 'test-key',
-            localDictionariesEnabled: false,
-        };
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange: () => undefined,
-        });
-
+        let controller: SubtitlePlayerController | undefined;
         try {
-            (controller as unknown as { install: () => void }).install();
-            const video = document.createElement('video');
-            Object.defineProperty(video, 'currentTime', { configurable: true, value: 1.5, writable: true });
             const cue = {
                 start: 1,
                 end: 4,
@@ -1569,19 +1588,20 @@ describe('SubtitlePlayerController', () => {
                 wordTimingsExact: true,
                 transcriptEligible: true,
             };
-            const internals = controller as unknown as {
-                video: HTMLVideoElement;
-                selectedTrackId: string;
-                cues: Array<typeof cue>;
-                currentCue: typeof cue;
+            const setup = setupTranscriptCueController<typeof cue, {
                 subtitleEl: HTMLElement;
                 renderSerial: number;
                 replacePrimaryHtml(html: string, serial: number): void;
-            };
-            internals.video = video;
-            internals.selectedTrackId = 'youtube-0';
-            internals.cues = [cue];
-            internals.currentCue = cue;
+            }>([cue], {
+                currentTime: 1.5,
+                selectedTrackId: 'youtube-0',
+                settings: {
+                    subtitleKaraokeMode: true,
+                    apiKey: 'test-key',
+                },
+            });
+            controller = setup.controller;
+            const { internals } = setup;
             internals.renderSerial = 7;
             internals.subtitleEl.innerHTML = '<div class="jpdb-subtitle-primary">今日読む</div>';
 
@@ -1593,42 +1613,65 @@ describe('SubtitlePlayerController', () => {
             expect(parsedWord.classList.contains('jpdb-subtitle-word-spoken')).toBe(false);
             expect(parsedWord.classList.contains('jpdb-subtitle-word-pending')).toBe(false);
         } finally {
-            controller.destroy();
+            controller?.destroy();
+        }
+    });
+
+    it('renders cached provisional subtitle ruby and pitch on the first primary paint', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+
+        try {
+            const parseJapanese = vi.fn(async () => []);
+            const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
+            const { settings, internals } = setupTranscriptCueController<typeof cue, {
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+                provisionalParsedHtmlCache: Map<string, string>;
+                render: () => void;
+            }>([cue], {
+                hooks: { parseJapanese },
+                selectedTrackId: 'youtube-0',
+                settings: {
+                    apiKey: 'test-key',
+                    subtitleKaraokeMode: false,
+                },
+            });
+            const key = internals.parseCacheKey('読む', settings);
+            internals.provisionalParsedHtmlCache.set(
+                key,
+                '<span class="jpdb-reader-word jpdb-known jpdb-pitch-heiban jpdb-reader-has-furi"><ruby><span class="jpdb-reader-ruby-base">読</span><rt class="jpdb-reader-furi">よ</rt></ruby>む</span>',
+            );
+
+            internals.render();
+
+            const word = document.querySelector<HTMLElement>('.jpdb-subtitle-primary .jpdb-reader-word')!;
+            expect(word).not.toBeNull();
+            expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(word.querySelector('.jpdb-reader-furi')?.textContent).toBe('よ');
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(parseJapanese).toHaveBeenCalledWith('読む', { requireJpdb: true, includeLocalPitch: false });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
         }
     });
 
     it('updates the active transcript line without replacing existing rows', () => {
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            subtitleTranscriptAutoScroll: false,
-            apiKey: '',
-            localDictionariesEnabled: false,
-        };
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange: () => undefined,
-        });
-        (controller as unknown as { install: () => void }).install();
-
-        const video = document.createElement('video');
-        Object.defineProperty(video, 'currentTime', { configurable: true, value: 0.5, writable: true });
         const cues = [
             { start: 0, end: 1, text: '一番', transcriptEligible: true },
             { start: 1, end: 2, text: '二番', transcriptEligible: true },
         ];
-        const internals = controller as unknown as {
-            video: HTMLVideoElement;
-            selectedTrackId: string;
-            cues: typeof cues;
-            currentCue: typeof cues[number];
-            openLinesPanel: () => void;
+        const { internals, video } = setupTranscriptCueController<typeof cues[number], {
             renderTranscriptPanel(force?: boolean): void;
-        };
-        internals.video = video;
-        internals.selectedTrackId = 'file-primary';
-        internals.cues = cues;
-        internals.currentCue = cues[0]!;
+        }>(cues, {
+            selectedTrackId: 'file-primary',
+            settings: { subtitleTranscriptAutoScroll: false },
+        });
 
         internals.openLinesPanel();
         const initialRows = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row'));
@@ -2111,36 +2154,16 @@ describe('SubtitlePlayerController', () => {
     });
 
     it('seeks using the source cue index when transcript rows are filtered', () => {
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            subtitleTranscriptAutoScroll: false,
-            apiKey: '',
-            localDictionariesEnabled: false,
-        };
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange: () => undefined,
-        });
-        (controller as unknown as { install: () => void }).install();
-
-        const video = document.createElement('video');
-        Object.defineProperty(video, 'currentTime', { configurable: true, value: 0, writable: true });
         const cues = [
             { start: 2, end: 3, text: 'native line', transcriptEligible: false },
             { start: 90, end: 92, text: '日本語の行', transcriptEligible: true },
         ];
-        const internals = controller as unknown as {
-            video: HTMLVideoElement;
-            selectedTrackId: string;
-            cues: typeof cues;
-            currentCue: typeof cues[number];
-            openLinesPanel: () => void;
-        };
-        internals.video = video;
-        internals.selectedTrackId = 'youtube-0';
-        internals.cues = cues;
-        internals.currentCue = cues[1];
+        const { internals, video } = setupTranscriptCueController(cues, {
+            currentCue: cues[1],
+            currentTime: 0,
+            selectedTrackId: 'youtube-0',
+            settings: { subtitleTranscriptAutoScroll: false },
+        });
 
         internals.openLinesPanel();
         const row = document.querySelector<HTMLElement>('.jpdb-subtitle-list-row')!;
@@ -2159,18 +2182,7 @@ describe('SubtitlePlayerController', () => {
     });
 
     it('resumes a playing video after transcript row seeking pauses it', () => {
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            subtitleTranscriptAutoScroll: false,
-            apiKey: '',
-            localDictionariesEnabled: false,
-        };
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange: () => undefined,
-        });
-        (controller as unknown as { install: () => void }).install();
+        const { controller } = createInstalledSubtitleController({ subtitleTranscriptAutoScroll: false });
 
         const video = document.createElement('video');
         let currentTime = 0;
@@ -2191,13 +2203,12 @@ describe('SubtitlePlayerController', () => {
         Object.defineProperty(video, 'play', { configurable: true, value: play });
 
         const cues = [{ start: 12, end: 14, text: '日本語の行', transcriptEligible: true }];
-        const internals = controller as unknown as {
-            video: HTMLVideoElement;
+        const internals = controllerInternals<{
             cues: typeof cues;
             currentCue: typeof cues[number];
             openLinesPanel: () => void;
-        };
-        internals.video = video;
+        }>(controller);
+        attachVideo(controller, { video });
         internals.cues = cues;
         internals.currentCue = cues[0];
 

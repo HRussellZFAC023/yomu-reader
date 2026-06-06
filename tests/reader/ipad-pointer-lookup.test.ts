@@ -67,6 +67,8 @@ describe('iPad pointer lookup', () => {
 
         internals.settings = {
             ...DEFAULT_SETTINGS,
+            jpdbDefinitionsEnabled: false,
+            showPitchAccent: false,
             localDictionariesEnabled: false,
         };
         internals.parseJapanese = vi.fn(async () => [[token('よ', 0, 1), token('む', 1, 2)]]);

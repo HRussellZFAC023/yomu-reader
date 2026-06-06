@@ -21,6 +21,10 @@ const STUDY_ANKI_SANITIZE: AnkiCardSanitizeOptions = {
     maxFontPt: 39,
     maxFontRelative: 3.1,
 };
+const CONTEXT_SOURCE_LABEL_KEYS: Partial<Record<StoredMiningContext['sourceKind'], UiCopyKey>> = {
+    video: 'contextVideo',
+    image: 'contextImage',
+};
 
 export function renderAnkiActionRow(ankiLookup: AnkiLookupResult, settings: ReaderSettings): string {
     if (!settings.ankiEnabled) return '';
@@ -137,7 +141,7 @@ function renderAnkiExistingNote(note: AnkiExistingNote, storedContext: StoredMin
     </details>`;
 }
 
-export function ankiNewCardSummary(settings: ReaderSettings): string {
+function ankiNewCardSummary(settings: ReaderSettings): string {
     return [
         uiText(settings.interfaceLanguage, 'ankiNewCard'),
         settings.ankiDeck.trim() || 'よむ',
@@ -378,7 +382,7 @@ function sanitizeAnkiCardHtml(
     const template = document.createElement('template');
     template.innerHTML = trimmed;
     sanitizeAnkiCardFragment(template.content, mediaDataUrls, options);
-    installAnkiMediaFallbackButtons(template.content, language);
+    installAnkiMediaFallbackButtons(template.content, language, ankiPlaybackMarkerFilenames(template.content, soundFilenames));
     replaceAnkiSoundMarkers(template.content, language);
     replaceAnkiPlaybackMarkers(template.content, soundFilenames, language);
     return template.innerHTML.trim();
@@ -417,8 +421,7 @@ function sanitizeAnkiCardInlineStyle(element: Element, options: AnkiCardSanitize
         element.setAttribute('style', capFontShorthandDeclarations(originalStyle, options));
     }
     if (/(?:^|;)\s*font-size\s*:/i.test(element.getAttribute('style') ?? '')) {
-        const capped = cappedFontSizeValue(element.style.fontSize, options);
-        if (capped) element.style.fontSize = capped;
+        element.setAttribute('style', capFontSizeDeclarations(element.getAttribute('style') ?? '', options));
     }
     removeNestedScrollInlineStyle(element);
     if (!element.getAttribute('style')?.trim()) element.removeAttribute('style');
@@ -436,15 +439,12 @@ function capFontShorthandDeclarations(style: string, options: AnkiCardSanitizeOp
 }
 
 function capFontShorthandValue(value: string, options: AnkiCardSanitizeOptions): string {
-    return value.replace(/(\d+(?:\.\d+)?)(\s*)(px|pt|em|rem)(\s*\/\s*[^\s;]+)?/i, (
-        match: string,
-        amount: string,
-        _space: string,
-        unit: string,
-        lineHeight: string | undefined,
-    ) => {
-        const capped = cappedFontSizeValue(`${amount}${unit}`, options);
-        return capped ? `${capped}${lineHeight ?? ''}` : match;
+    return capFontLengthTokens(value, options);
+}
+
+function capFontSizeDeclarations(style: string, options: AnkiCardSanitizeOptions): string {
+    return style.replace(/(^|;)(\s*font-size\s*:\s*)([^;]+)/gi, (_, separator: string, prefix: string, value: string) => {
+        return `${separator}${prefix}${cappedFontSizeValue(value, options)}`;
     });
 }
 
@@ -461,11 +461,35 @@ function cappedFontSizeValue(rawValue: string, options: AnkiCardSanitizeOptions)
     return value;
 }
 
-function installAnkiMediaFallbackButtons(root: ParentNode, language: InterfaceLanguage): void {
+function capFontLengthTokens(value: string, options: AnkiCardSanitizeOptions): string {
+    const capped = value.replace(/(\d+(?:\.\d+)?)(\s*)(px|pt|em|rem)\b/gi, (
+        match: string,
+        amount: string,
+        _space: string,
+        unit: string,
+    ) => {
+        const cappedValue = cappedFontSizeValue(`${amount}${unit}`, options);
+        return cappedValue || match;
+    });
+    return shouldWrapViewportFontSize(capped)
+        ? `min(${capped}, ${options.maxFontPx}px)`
+        : capped;
+}
+
+function shouldWrapViewportFontSize(value: string): boolean {
+    const trimmed = value.trim();
+    if (/^(?:clamp|min)\(/i.test(trimmed)) return false;
+    return /\b\d+(?:\.\d+)?\s*(?:vw|vh|vmin|vmax|cqw|cqh|cqi|cqb|cqmin|cqmax)\b/i.test(trimmed)
+        || /^calc\(/i.test(trimmed)
+        || /^max\(/i.test(trimmed);
+}
+
+function installAnkiMediaFallbackButtons(root: ParentNode, language: InterfaceLanguage, playbackMarkerFilenames: Set<string> = new Set()): void {
     root.querySelectorAll<HTMLMediaElement>('audio, video').forEach(media => {
         const filename = ankiMediaFilenameFromElement(media);
         if (!filename) return;
         media.setAttribute('controls', '');
+        if (media.tagName === 'AUDIO' && playbackMarkerFilenames.has(filename)) return;
         media.insertAdjacentHTML('beforebegin', renderAnkiSoundChip(filename, language));
     });
 }
@@ -487,6 +511,19 @@ function replaceAnkiSoundMarkers(root: ParentNode, language: InterfaceLanguage):
 
 function replaceAnkiPlaybackMarkers(root: ParentNode, soundFilenames: string[], language: InterfaceLanguage): void {
     replaceAnkiTextMarkers(root, /\[anki:play:[^\]]+]/gi, marker => ankiPlaybackMarkerNode(marker, soundFilenames, language));
+}
+
+function ankiPlaybackMarkerFilenames(root: ParentNode, soundFilenames: string[]): Set<string> {
+    const filenames = new Set<string>();
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+        const text = walker.currentNode.textContent ?? '';
+        for (const match of text.matchAll(/\[anki:play:[^\]]+]/gi)) {
+            const filename = ankiPlaybackMarkerFilename(match[0], soundFilenames);
+            if (filename) filenames.add(filename);
+        }
+    }
+    return filenames;
 }
 
 function replaceAnkiTextMarkers(root: ParentNode, pattern: RegExp, markerNode: (marker: string) => HTMLElement | null): void {
@@ -522,9 +559,9 @@ function ankiSoundMarkerNode(value: string, language: InterfaceLanguage): HTMLEl
 }
 
 function ankiPlaybackMarkerNode(value: string, soundFilenames: string[], language: InterfaceLanguage): HTMLElement | null {
-    const match = /^\[anki:play:[^:\]]+:(\d+)]$/i.exec(value);
-    if (!match) return null;
-    const filename = soundFilenames[Number(match[1])] ?? soundFilenames[0] ?? '';
+    const audioIndex = ankiPlaybackMarkerIndex(value);
+    if (audioIndex === null) return null;
+    const filename = ankiPlaybackMarkerFilenameAtIndex(soundFilenames, audioIndex);
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-anki-playback-marker jpdb-reader-audio-control';
@@ -535,6 +572,20 @@ function ankiPlaybackMarkerNode(value: string, soundFilenames: string[], languag
     chip.disabled = !filename;
     chip.innerHTML = speakerIcon();
     return chip;
+}
+
+function ankiPlaybackMarkerFilename(value: string, soundFilenames: string[]): string {
+    const audioIndex = ankiPlaybackMarkerIndex(value);
+    return audioIndex === null ? '' : ankiPlaybackMarkerFilenameAtIndex(soundFilenames, audioIndex);
+}
+
+function ankiPlaybackMarkerIndex(value: string): number | null {
+    const match = /^\[anki:play:[^:\]]+:(\d+)]$/i.exec(value);
+    return match ? Number(match[1]) : null;
+}
+
+function ankiPlaybackMarkerFilenameAtIndex(soundFilenames: string[], index: number): string {
+    return soundFilenames[index] ?? soundFilenames[0] ?? '';
 }
 
 function ankiSoundFilenames(note: AnkiExistingNote): string[] {
@@ -561,13 +612,24 @@ function renderLastMiningContext(context: StoredMiningContext, language: Interfa
 }
 
 function localizedContextLabel(context: StoredMiningContext, language: InterfaceLanguage): string {
-    if (context.sourceKind === 'immersion-kit' && context.immersionIndex !== undefined && context.immersionTotal) {
-        return `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}`;
-    }
-    if (context.sourceKind === 'video' && context.sourceTitle) return `${uiText(language, 'contextVideo')}: ${context.sourceTitle}`;
-    if (context.sourceKind === 'image' && context.sourceTitle) return `${uiText(language, 'contextImage')}: ${context.sourceTitle}`;
-    if (context.sourceKind === 'jpdb' && context.sourceTitle) return `JPDB: ${context.sourceTitle}`;
+    const immersionLabel = localizedImmersionContextLabel(context);
+    if (immersionLabel) return immersionLabel;
+    const sourceLabel = localizedContextSourceLabel(context, language);
+    if (sourceLabel) return `${sourceLabel}: ${context.sourceTitle}`;
     return context.sourceTitle || context.sourceUrl || uiText(language, 'contextCurrentPage');
+}
+
+function localizedImmersionContextLabel(context: StoredMiningContext): string {
+    return context.sourceKind === 'immersion-kit' && context.immersionIndex !== undefined && context.immersionTotal
+        ? `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}`
+        : '';
+}
+
+function localizedContextSourceLabel(context: StoredMiningContext, language: InterfaceLanguage): string {
+    if (!context.sourceTitle) return '';
+    if (context.sourceKind === 'jpdb') return 'JPDB';
+    const labelKey = CONTEXT_SOURCE_LABEL_KEYS[context.sourceKind];
+    return labelKey ? uiText(language, labelKey) : '';
 }
 
 export function renderReviewButtons(

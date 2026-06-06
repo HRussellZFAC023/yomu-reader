@@ -57,6 +57,19 @@ const IMAGE_PROMPT_REPLACEMENTS = [
   [/\bskulls?\b/gi, 'round white mask'],
   [/\bbones?\b/gi, 'ivory-colored toy sticks'],
 ];
+const BOOLEAN_ARG_HANDLERS = new Map([
+  ['--live', parsed => { parsed.live = true; }],
+  ['--no-resume', parsed => { parsed.resume = false; }],
+  ['--retry-failed', parsed => { parsed.retryFailed = true; }],
+  ['--stop-on-error', parsed => { parsed.stopOnError = true; }],
+]);
+const VALUE_ARG_HANDLERS = new Map([
+  ['--input', (parsed, value) => { parsed.input = value; }],
+  ['--checkpoint', (parsed, value) => { parsed.checkpoint = value; }],
+  ['--limit', (parsed, value) => { parsed.limit = Number(value); }],
+  ['--delay-ms', (parsed, value) => { parsed.delayMs = Number(value); }],
+]);
+const FAILURE_SUCCESS_VALUES = new Set([false, 0, '0']);
 
 class CookieJar {
   constructor(initialCookie = '') {
@@ -76,15 +89,18 @@ class CookieJar {
   }
 
   store(headers) {
-    const setCookie = typeof headers.getSetCookie === 'function'
-      ? headers.getSetCookie()
-      : [headers.get('set-cookie')].filter(Boolean);
-    for (const cookie of setCookie) {
+    for (const cookie of setCookieHeaders(headers)) {
       const [pair] = cookie.split(';');
       const [name, ...value] = pair.split('=');
       if (name && value.length) this.cookies.set(name.trim(), value.join('=').trim());
     }
   }
+}
+
+function setCookieHeaders(headers) {
+  if (typeof headers.getSetCookie === 'function') return headers.getSetCookie();
+  const cookie = headers.get('set-cookie');
+  return cookie ? [cookie] : [];
 }
 
 const options = parseArgs(process.argv.slice(2));
@@ -147,11 +163,11 @@ for (const item of selected) {
 
 async function generateAndPublish(item, jar) {
   const referrer = `${UCHISEN_ORIGIN}/kanji/${encodeURIComponent(item.kanji)}`;
-  const imagePrompt = String(item.image_prompt ?? item.imagePrompt ?? '').trim();
-  const mnemonic = String(item.mnemonic ?? '').trim();
+  const imagePrompt = itemText(item, 'image_prompt', 'imagePrompt');
+  const mnemonic = itemText(item, 'mnemonic');
   const storyPrompt = storyBackedImagePrompt(mnemonic, imagePrompt);
   const safePrompt = safeImagePrompt(storyPrompt);
-  const kanjiId = String(item.kanji_id ?? item.kanjiId ?? '').trim();
+  const kanjiId = itemText(item, 'kanji_id', 'kanjiId');
 
   await primeKanjiPage(referrer, jar);
 
@@ -175,6 +191,17 @@ async function generateAndPublish(item, jar) {
     imageFilename,
     imageUrl: generation.imageUrl,
   };
+}
+
+function itemText(item, ...keys) {
+  return String(firstDefinedItemValue(item, keys) ?? '').trim();
+}
+
+function firstDefinedItemValue(item, keys) {
+  for (const key of keys) {
+    if (item[key] != null) return item[key];
+  }
+  return '';
 }
 
 async function generateImageWithRetry(imagePrompt, storyPrompt, safePrompt, kanjiId, referrer, jar) {
@@ -291,9 +318,17 @@ async function verifyLogin(jar) {
   });
   jar.store(dashboard.headers);
   const dashboardText = await dashboard.text();
-  if (dashboard.status >= 300 || /login/i.test(dashboard.headers.get('location') ?? '') || /login_script|name="password"/i.test(dashboardText)) {
+  if (isLoginPageResponse(dashboard, dashboardText)) {
     throw new Error('Uchisen login did not reach the dashboard; check the account credentials or cookie.');
   }
+}
+
+function isLoginPageResponse(response, text) {
+  return response.status >= 300 || hasLoginLocation(response) || /login_script|name="password"/i.test(text);
+}
+
+function hasLoginLocation(response) {
+  return /login/i.test(response.headers.get('location') ?? '');
 }
 
 async function postForm(url, fields, referrer, jar) {
@@ -319,16 +354,10 @@ async function postForm(url, fields, referrer, jar) {
 }
 
 function parseGenerationResponse(text) {
-  const parsed = parseJsonish(text);
-  if (!parsed || isGenerationFailure(parsed)) {
-    throw new Error(generationFailureMessage(parsed, text));
-  }
+  const parsed = requireGenerationPayload(text);
   const rawFilename = firstString(parsed.url, parsed.filename, parsed.file, parsed.img_src, parsed.image_url, parsed.imageUrl);
   const rawFullUrl = firstString(parsed.full_url, parsed.image_url, parsed.imageUrl);
-  const imageFilename = normalizeImageFilename(rawFilename);
-  if (!imageFilename) {
-    throw new Error(`Image generation did not return a filename: ${snippet(text)}`);
-  }
+  const imageFilename = requireGeneratedImageFilename(rawFilename, text);
   return {
     ...parsed,
     imageFilename,
@@ -336,13 +365,51 @@ function parseGenerationResponse(text) {
   };
 }
 
+function requireGenerationPayload(text) {
+  const parsed = parseJsonish(text);
+  if (isInvalidGenerationPayload(parsed)) throw new Error(generationFailureMessage(parsed, text));
+  return parsed;
+}
+
+function isInvalidGenerationPayload(parsed) {
+  return !parsed || isGenerationFailure(parsed);
+}
+
+function requireGeneratedImageFilename(rawFilename, text) {
+  const imageFilename = normalizeImageFilename(rawFilename);
+  if (!imageFilename) throw new Error(`Image generation did not return a filename: ${snippet(text)}`);
+  return imageFilename;
+}
+
 function generationFailureMessage(parsed, text) {
-  const message = firstString(parsed?.error_message, parsed?.error);
+  const message = generationErrorMessage(parsed);
   if (!message) return `Uchisen image backend rejected generation: ${snippet(text)}`;
-  if (/must be logged|not logged|login required/i.test(message)) return message;
-  const code = firstString(parsed?.error_code, parsed?.code, parsed?.exit_code);
-  const detail = code ? `${message} (code: ${code})` : message;
+  if (isLoginFailureMessage(message)) return message;
+  const detail = generationFailureDetail(message, parsed);
   return `Uchisen image backend rejected generation: ${detail}`;
+}
+
+function generationErrorMessage(parsed) {
+  return firstString(parsed?.error_message, parsed?.error);
+}
+
+function isLoginFailureMessage(message) {
+  return /must be logged|not logged|login required/i.test(message);
+}
+
+function generationFailureDetail(message, parsed) {
+  const code = generationFailureCode(parsed);
+  if (!code) return message;
+  return `${message} (code: ${code})`;
+}
+
+function generationFailureCode(parsed) {
+  return firstString(objectValue(parsed, 'error_code'), objectValue(parsed, 'code'), objectValue(parsed, 'exit_code'));
+}
+
+function objectValue(object, key) {
+  if (!object) return undefined;
+  return object[key];
 }
 
 function parseJsonish(text) {
@@ -360,10 +427,8 @@ function snippet(text) {
 }
 
 function isGenerationFailure(parsed) {
-  if (parsed.success === false || parsed.success === 0 || parsed.success === '0') return true;
-  if (typeof parsed.error_message === 'string' && parsed.error_message.trim()) return true;
-  if (typeof parsed.error === 'string' && parsed.error.trim()) return true;
-  return false;
+  return FAILURE_SUCCESS_VALUES.has(parsed.success)
+    || Boolean(generationErrorMessage(parsed));
 }
 
 function firstString(...values) {
@@ -375,12 +440,20 @@ function firstString(...values) {
 
 function normalizeImageFilename(value) {
   if (!value) return '';
+  const filename = lastPathSegment(imageReferencePath(value));
+  return filename || value;
+}
+
+function imageReferencePath(value) {
   try {
-    const url = new URL(value);
-    return url.pathname.split('/').filter(Boolean).pop() ?? value;
+    return new URL(value).pathname;
   } catch {
-    return value.split('/').filter(Boolean).pop() ?? value;
+    return value;
   }
+}
+
+function lastPathSegment(value) {
+  return value.split('/').filter(Boolean).pop();
 }
 
 function formatMnemonicHtml(text) {
@@ -429,14 +502,22 @@ async function readQueue(file) {
 async function readCheckpoint(file) {
   try {
     const parsed = JSON.parse(await fs.readFile(file, 'utf8'));
-    return {
-      completed: parsed.completed ?? {},
-      failed: parsed.failed ?? {},
-      dryRuns: parsed.dryRuns ?? {},
-    };
+    return normalizeCheckpoint(parsed);
   } catch {
-    return { completed: {}, failed: {}, dryRuns: {} };
+    return emptyCheckpoint();
   }
+}
+
+function normalizeCheckpoint(parsed) {
+  return {
+    completed: parsed.completed ?? {},
+    failed: parsed.failed ?? {},
+    dryRuns: parsed.dryRuns ?? {},
+  };
+}
+
+function emptyCheckpoint() {
+  return { completed: {}, failed: {}, dryRuns: {} };
 }
 
 async function writeCheckpoint(file, checkpoint) {
@@ -456,15 +537,22 @@ function parseArgs(args) {
   const parsed = { live: false, resume: true, retryFailed: false, delayMs: 6000, stopOnError: false };
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
-    if (arg === '--live') parsed.live = true;
-    else if (arg === '--no-resume') parsed.resume = false;
-    else if (arg === '--retry-failed') parsed.retryFailed = true;
-    else if (arg === '--stop-on-error') parsed.stopOnError = true;
-    else if (arg === '--input') parsed.input = args[++i];
-    else if (arg === '--checkpoint') parsed.checkpoint = args[++i];
-    else if (arg === '--limit') parsed.limit = Number(args[++i]);
-    else if (arg === '--delay-ms') parsed.delayMs = Number(args[++i]);
-    else throw new Error(`Unknown argument: ${arg}`);
+    const nextIndex = applyParsedArg(parsed, args, i);
+    if (nextIndex < 0) throw new Error(`Unknown argument: ${arg}`);
+    i = nextIndex;
   }
   return parsed;
+}
+
+function applyParsedArg(parsed, args, index) {
+  const arg = args[index];
+  const booleanHandler = BOOLEAN_ARG_HANDLERS.get(arg);
+  if (booleanHandler) {
+    booleanHandler(parsed);
+    return index;
+  }
+  const valueHandler = VALUE_ARG_HANDLERS.get(arg);
+  if (!valueHandler) return -1;
+  valueHandler(parsed, args[index + 1]);
+  return index + 1;
 }

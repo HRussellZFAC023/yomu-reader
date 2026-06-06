@@ -1,20 +1,43 @@
 #!/usr/bin/env node
-import { createServer } from 'node:http';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import {
+    addGmStorageBridgeInitScript,
+    ankiActions,
+    arrayParam,
+    assert,
+    assertAnkiStatusStorage,
+    assertBuiltArtifacts,
+    closeServer,
+    createAnkiSmokeSettings,
+    createSmokePaths,
+    DEFAULT_ANKI_CONNECT_URL,
+    jsonHttpResponse,
+    launchSmokeBrowser,
+    mockAnkiConnectResponse,
+    mockJpdbParseFromVocabulary,
+    newAutoClosingPage,
+    readAnkiStatusStorage,
+    readJsonBody,
+    resolveAnkiAction,
+    routeMockedHttpRequests,
+    serveFile,
+    startLoopbackServer,
+    YOMU_SETTINGS_KEY,
+} from './smoke-harness.mjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
-const DIST = path.join(ROOT, 'dist');
-const ARTIFACTS = path.join(ROOT, 'qa-artifacts');
-const SCRIPT_PATH = path.join(DIST, 'yomu.user.js');
-const CSS_PATH = path.join(DIST, 'yomu.css');
-const NEWTAB_DIR = path.join(DIST, 'newtab');
-const SETTINGS_KEY = 'jpdb-popup-reader-settings';
-const ANKI_URL = 'http://127.0.0.1:8765';
-const ANKI_STATUS_INDEX_STORAGE_KEY = 'yomu:anki-status-index:v1';
-const ANKI_STATUS_INDEX_DB_NAME = 'yomu-anki-status-index';
-const ANKI_STATUS_INDEX_ENTRY_STORE = 'entries';
+const {
+    root: ROOT,
+    artifacts: ARTIFACTS,
+    scriptPath: SCRIPT_PATH,
+    cssPath: CSS_PATH,
+    newTabDir: NEWTAB_DIR,
+} = createSmokePaths(import.meta.dirname);
+const SETTINGS_KEY = YOMU_SETTINGS_KEY;
+const ANKI_URL = DEFAULT_ANKI_CONNECT_URL;
+const JPDB_API_ORIGIN = 'https://jpdb.io';
+const JPDB_API_PREFIX = '/api/v1/';
 
 const YOMU_MODEL_FIELDS = [
     'Expression',
@@ -34,40 +57,17 @@ const YOMU_MODEL_FIELDS = [
     'Source',
 ];
 
-const baseSettings = {
-    onboardingSeen: true,
-    apiKey: 'mock-jpdb-token',
-    interfaceLanguage: 'en',
-    ankiEnabled: true,
-    ankiConnectUrl: ANKI_URL,
-    ankiDeck: 'Mining',
+const baseSettings = createAnkiSmokeSettings({
     ankiModel: 'よむ Japanese',
-    ankiMobileHandoff: false,
     jpdbMiningEnabled: true,
-    jpdbDefinitionsEnabled: false,
-    localDictionariesEnabled: false,
-    audioEnabled: false,
-    autoPlayAudio: false,
-    immersionKitEnabled: false,
-    studyTranslationEnabled: false,
-    studyGrammarEnabled: false,
-    lookupOnClick: true,
-    lookupOnHover: true,
-    hoverOpenDelayMs: 0,
-    hoverCloseDelayMs: 120,
     popupActivationMode: 'hover',
-    showFloatingButton: false,
-    wordTextColorSource: 'anki',
-    wordUnderlineColorSource: 'off',
-    wordHighlightColorSource: 'off',
     newTabEnabled: true,
     newTabSource: 'auto',
     newTabJpdbDeck: 'all',
     newTabJpdbReviewMode: 'api-vocabulary',
     newTabAnkiEnabled: true,
     newTabAnkiDisabledDecks: [],
-    enableLogging: false,
-};
+});
 
 const readerFixtureHtml = `<!doctype html>
 <html lang="ja">
@@ -123,410 +123,293 @@ const jpdbMixedReviewVocabulary = [
     [303, 403, 0, '新語', 'しんご', 700, ['n'], [['new word']], [['n']], ['new'], ['LHH']],
 ];
 
-function assert(condition, message, details = {}) {
-    if (!condition) {
-        const suffix = Object.keys(details).length ? `\n${JSON.stringify(details, null, 2)}` : '';
-        throw new Error(`${message}${suffix}`);
-    }
-}
-
-function assertBuiltArtifacts() {
-    for (const filePath of [SCRIPT_PATH, CSS_PATH, path.join(NEWTAB_DIR, 'index.html'), path.join(NEWTAB_DIR, 'app.js')]) {
-        assert(existsSync(filePath), `Missing built artifact: ${path.relative(ROOT, filePath)}. Run npm run build first.`);
-    }
-}
+const BUILT_ARTIFACTS = [SCRIPT_PATH, CSS_PATH, path.join(NEWTAB_DIR, 'index.html'), path.join(NEWTAB_DIR, 'app.js')];
+const JPDB_PARSE_OPTIONS = {
+    tokenReading: entry => /[\u3400-\u9fff]/u.test(entry.surface) ? [[entry.surface, entry.reading]] : null,
+};
+const NULL_ANKI_ACTIONS = [
+    'createDeck',
+    'createModel',
+    'updateModelTemplates',
+    'updateModelStyling',
+    'modelFieldAdd',
+    'guiBrowse',
+    'answerCards',
+];
+const DEFAULT_ANKI_HANDLERS = {
+    version: () => 6,
+    deckNames: () => ['Mining'],
+    getDeckStats: () => ({ 1: { name: 'Mining', total_in_deck: 2 } }),
+    modelNames: () => ['よむ Japanese'],
+    modelFieldNames: () => YOMU_MODEL_FIELDS,
+    findCards: findMiningCards,
+    findNotes: findMiningNotes,
+    notesInfo: params => arrayParam(params.notes).map(noteId => mockAnkiNoteInfo(Number(noteId))),
+    cardsInfo: params => arrayParam(params.cards).map(cardId => mockAnkiCardInfo(Number(cardId))),
+    areDue: params => arrayParam(params.cards).map(() => true),
+    updateNoteFields: (params, { requests }) => {
+        requests.push({ kind: 'anki-side-effect', action: 'updateNoteFields', note: params.note });
+        return null;
+    },
+    addNote: (params, { requests }) => {
+        requests.push({ kind: 'anki-side-effect', action: 'addNote', note: params.note });
+        return 9201;
+    },
+    ...Object.fromEntries(NULL_ANKI_ACTIONS.map(action => [action, () => null])),
+};
+const MULTI_DECK_NEW_TAB_ANKI_HANDLERS = {
+    version: () => 6,
+    deckNames: () => ['Core', 'Mining', 'Mining::Old', 'Archive'],
+    getDeckStats: () => ({
+        1: { name: 'Core', total_in_deck: 2 },
+        2: { name: 'Mining', total_in_deck: 2 },
+        3: { name: 'Mining::Old', total_in_deck: 1 },
+        4: { name: 'Archive', total_in_deck: 1 },
+    }),
+    findCards: findMultiDeckNewTabCards,
+    areDue: params => arrayParam(params.cards).map(cardId => Number(cardId) !== 7106),
+    cardsInfo: params => arrayParam(params.cards).map(cardId => mockMultiDeckNewTabCardInfo(Number(cardId))),
+    notesInfo: params => arrayParam(params.notes).map(noteId => mockMultiDeckNewTabNoteInfo(Number(noteId))),
+};
+const DEFAULT_JPDB_API_HANDLERS = {
+    parse: body => mockJpdbParseFromVocabulary(body, smokeVocabulary, JPDB_PARSE_OPTIONS),
+    'list-user-decks': () => ({ decks: [[1, 'Mining']] }),
+    'deck/list-vocabulary': () => ({ vocabulary: [[101, 201]] }),
+    'lookup-vocabulary': () => ({ vocabulary_info: jpdbReviewVocabulary }),
+    review: () => ({}),
+};
+const MIXED_JPDB_API_HANDLERS = {
+    parse: body => mockJpdbParseFromVocabulary(body, smokeVocabulary, JPDB_PARSE_OPTIONS),
+    'list-user-decks': () => ({ decks: [[1, 'Mixed Queue']] }),
+    'deck/list-vocabulary': () => ({ vocabulary: [[301, 401], [302, 402], [303, 403]] }),
+    'lookup-vocabulary': lookupMixedJpdbVocabulary,
+    review: () => ({}),
+};
+const MINING_CARD_QUERY_RULES = [
+    { matches: query => query === 'deck:*' || query === 'deck:* is:due', cards: [8001, 8101] },
+    { matches: query => ['deck:* is:learn', 'deck:* is:new', 'deck:* is:suspended'].includes(query), cards: [] },
+    { matches: query => queryIncludesAny(query, ['is:due', 'is:learn']), cards: [8101] },
+];
+const MINING_NOTE_QUERY_RULES = [
+    { matches: query => query === 'deck:*', notes: [9001, 9101] },
+    { matches: query => /読む|よむ|読みました|よみました/.test(query), notes: [9001] },
+    { matches: query => /暗記|あんき/.test(query), notes: [9101] },
+];
+const MULTI_DECK_CARD_QUERY_RULES = [
+    { needles: ['is:new'], cards: [7105, 7107] },
+    { needles: ['is:due', 'is:learn'], cards: [7102, 7104, 7101, 7106] },
+];
+const MULTI_DECK_CARD_INFO_OVERRIDES = {
+    7102: { note: 7202, deckName: 'Core', question: '順番', answer: 'order' },
+    7101: { note: 7201, deckName: 'Mining', question: '採掘', answer: 'mining' },
+    7104: { note: 7204, deckName: 'Mining::Old', question: '古い', answer: 'old' },
+    7105: { note: 7205, deckName: 'Core', queue: 0, type: 0, due: 0, reps: 0, interval: 0, question: '新規', answer: 'new' },
+    7107: { note: 7207, deckName: 'Archive', queue: 0, type: 0, due: 0, reps: 0, interval: 0, question: '保管', answer: 'archive' },
+};
+const FUTURE_MULTI_DECK_CARD_INFO = { note: 7206, deckName: 'Core', due: 999999, question: '未来', answer: 'future' };
+const READING_WORD_SELECTOR = 'main .jpdb-reader-word[data-expression="読む"]';
+const WRITING_WORD_SELECTOR = 'main .jpdb-reader-word[data-expression="書く"][data-reading="かきます"]';
+const VISIBLE_WRITING_POPOVER_SELECTOR = '.jpdb-reader-popover:visible';
+const ACTIVE_ANKI_BUTTON_SELECTOR = '[data-action="anki"]:not([disabled])';
+const NEWTAB_VIEWPORT = { width: 1280, height: 820 };
+const READER_FIXTURE_TEXT = '今日は日本語の記事を読みました。明日は例文を書きます。難波を歩きます。';
+const JPDB_MIXED_DECK_LIST = [[301, 401], [302, 402], [303, 403]];
+const JPDB_MIXED_DECK_LIST_JSON = JSON.stringify(JPDB_MIXED_DECK_LIST);
+const WHOLE_COLLECTION_QUERY = 'deck:*';
+const WHOLE_COLLECTION_SEARCH_ACTIONS = new Set(['findCards', 'findNotes']);
+const EXISTING_ANKI_SELECTOR = '.jpdb-reader-popover .jpdb-reader-anki-existing';
+const EXISTING_ANKI_STATUS_TERMS = ['Anki', 'Mining', '12'];
+const EXISTING_ANKI_RENDERED_TERMS = ['to read'];
+const EXISTING_ANKI_RAW_FIELD_TERMS = ['今日は本を読む', 'Sentence'];
+const MOBILE_HANDOFF_SETTINGS = {
+    ankiMobileHandoff: true,
+    wordTextColorSource: 'off',
+    wordUnderlineColorSource: 'off',
+    wordHighlightColorSource: 'off',
+};
+const FIXTURE_ROUTE_HANDLERS = [
+    serveReaderPage,
+    serveReaderAsset,
+    serveNewTabIndex,
+    serveNewTabAsset,
+];
+const NEWTAB_INDEX_PATHS = new Set(['/newtab/', '/newtab/index.html']);
 
 function createFixtureServer() {
-    const server = createServer((request, response) => {
-        const url = new URL(request.url ?? '/', 'http://127.0.0.1');
-        if (url.pathname === '/' || url.pathname === '/reader-anki.html') {
-            response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-            response.end(readerFixtureHtml);
-            return;
-        }
-        if (url.pathname === '/yomu.user.js') {
-            serveFile(response, SCRIPT_PATH, 'application/javascript; charset=utf-8');
-            return;
-        }
-        if (url.pathname === '/yomu.css') {
-            serveFile(response, CSS_PATH, 'text/css; charset=utf-8');
-            return;
-        }
-        if (url.pathname === '/newtab/' || url.pathname === '/newtab/index.html') {
-            serveFile(response, path.join(NEWTAB_DIR, 'index.html'), 'text/html; charset=utf-8');
-            return;
-        }
-        if (url.pathname.startsWith('/newtab/')) {
-            const filePath = path.join(NEWTAB_DIR, url.pathname.slice('/newtab/'.length));
-            if (existsSync(filePath)) {
-                const type = filePath.endsWith('.js')
-                    ? 'application/javascript; charset=utf-8'
-                    : filePath.endsWith('.css')
-                        ? 'text/css; charset=utf-8'
-                        : 'application/octet-stream';
-                serveFile(response, filePath, type);
-                return;
-            }
-        }
-        response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-        response.end('Not found');
-    });
-
-    return new Promise((resolve, reject) => {
-        server.once('error', reject);
-        server.listen(0, '127.0.0.1', () => {
-            const address = server.address();
-            if (!address || typeof address === 'string') reject(new Error('Could not bind Anki smoke server'));
-            else resolve({ server, baseUrl: `http://127.0.0.1:${address.port}` });
-        });
-    });
+    return startLoopbackServer(handleFixtureRequest, 'Could not bind Anki smoke server');
 }
 
-function serveFile(response, filePath, contentType) {
-    response.writeHead(200, { 'content-type': contentType });
-    response.end(readFileSync(filePath));
+function handleFixtureRequest(request, response) {
+    const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+    if (FIXTURE_ROUTE_HANDLERS.some(handler => handler(url, response))) return;
+    serveNotFound(response);
+}
+
+function serveNotFound(response) {
+    response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+    response.end('Not found');
+}
+
+function serveReaderPage(url, response) {
+    if (url.pathname !== '/' && url.pathname !== '/reader-anki.html') return false;
+    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    response.end(readerFixtureHtml);
+    return true;
+}
+
+function serveReaderAsset(url, response) {
+    if (url.pathname === '/yomu.user.js') {
+        serveFile(response, SCRIPT_PATH, 'application/javascript; charset=utf-8');
+        return true;
+    }
+    if (url.pathname === '/yomu.css') {
+        serveFile(response, CSS_PATH, 'text/css; charset=utf-8');
+        return true;
+    }
+    return false;
+}
+
+function serveNewTabIndex(url, response) {
+    if (!NEWTAB_INDEX_PATHS.has(url.pathname)) return false;
+    serveFile(response, path.join(NEWTAB_DIR, 'index.html'), 'text/html; charset=utf-8');
+    return true;
+}
+
+function serveNewTabAsset(url, response) {
+    if (!url.pathname.startsWith('/newtab/')) return false;
+    const filePath = path.join(NEWTAB_DIR, url.pathname.slice('/newtab/'.length));
+    return serveExistingNewTabAsset(response, filePath);
+}
+
+function serveExistingNewTabAsset(response, filePath) {
+    if (!existsSync(filePath)) return false;
+    serveFile(response, filePath, contentTypeForFile(filePath));
+    return true;
+}
+
+function contentTypeForFile(filePath) {
+    if (filePath.endsWith('.js')) return 'application/javascript; charset=utf-8';
+    if (filePath.endsWith('.css')) return 'text/css; charset=utf-8';
+    return 'application/octet-stream';
 }
 
 async function newMockedPage(browser, requests, settings = baseSettings, viewport = { width: 1360, height: 900 }, scenario = {}) {
-    const context = await browser.newContext({ viewport, deviceScaleFactor: 1, ...(scenario.contextOptions ?? {}) });
-    const page = await context.newPage();
-    page.once('close', () => {
-        if (context.pages().length === 0) void context.close().catch(() => undefined);
-    });
-    await page.route('**/*', async route => {
-        const routeUrl = new URL(route.request().url());
-        if (route.request().method() === 'OPTIONS' && isMockedApiOrigin(routeUrl)) {
-            await route.fulfill({ status: 204, headers: corsHeaders() });
-            return;
-        }
-        const mocked = mockHttpRequest({
-            method: route.request().method(),
-            url: route.request().url(),
-            data: route.request().postData() ?? '',
-        }, requests, scenario);
-        if (!mocked) {
-            await route.continue();
-            return;
-        }
-        await route.fulfill({
-            status: mocked.status,
-            contentType: mocked.contentType,
-            body: mocked.responseText,
-            headers: corsHeaders(),
-        });
+    const { page } = await newAutoClosingPage(browser, { viewport, deviceScaleFactor: 1, ...(scenario.contextOptions ?? {}) });
+    await routeMockedHttpRequests(page, {
+        requests,
+        mockHttpRequest,
+        isMockedApiOrigin,
+        scenario,
     });
     await page.exposeFunction('__yomuAnkiSmokeRequest', async request => {
         const mocked = mockHttpRequest(request, requests, scenario);
         if (!mocked) throw new Error(`Unexpected smoke request: ${request.method ?? 'GET'} ${request.url}`);
         return mocked;
     });
-    await page.addInitScript(({ key, value, css }) => {
-        const memoryStore = new Map();
-        const readStoredValue = (storeKey, fallback) => {
-            if (memoryStore.has(storeKey)) return memoryStore.get(storeKey);
-            try {
-                const raw = localStorage.getItem(storeKey);
-                return raw == null ? fallback : JSON.parse(raw);
-            } catch {
-                return fallback;
-            }
-        };
-        const writeStoredValue = (storeKey, storedValue) => {
-            memoryStore.set(storeKey, storedValue);
-            try {
-                localStorage.setItem(storeKey, JSON.stringify(storedValue));
-            } catch {
-                // Ignore fixture storage failures.
-            }
-        };
-        writeStoredValue(key, value);
-        window.GM_getValue = (storeKey, fallback) => readStoredValue(storeKey, fallback);
-        window.GM_setValue = (storeKey, storedValue) => { writeStoredValue(storeKey, storedValue); };
-        window.GM_deleteValue = storeKey => {
-            memoryStore.delete(storeKey);
-            try {
-                localStorage.removeItem(storeKey);
-            } catch {
-                // Ignore fixture storage failures.
-            }
-        };
-        window.GM_listValues = () => {
-            const keys = new Set(memoryStore.keys());
-            try {
-                for (let index = 0; index < localStorage.length; index += 1) {
-                    const storageKey = localStorage.key(index);
-                    if (storageKey) keys.add(storageKey);
-                }
-            } catch {
-                // Ignore fixture storage failures.
-            }
-            return [...keys];
-        };
-        window.GM_addStyle = styleText => {
-            const style = document.createElement('style');
-            style.textContent = styleText;
-            (document.head || document.documentElement || document.body).append(style);
-            return style;
-        };
-        window.GM_getResourceText = name => name === 'yomuCss' ? css : '';
-        window.GM_registerMenuCommand = () => undefined;
-        window.GM_xmlhttpRequest = options => {
-            let settled = false;
-            const settle = callback => value => {
-                if (settled) return;
-                settled = true;
-                callback?.(value);
-            };
-            Promise.resolve(window.__yomuAnkiSmokeRequest({
-                method: options.method || 'GET',
-                url: options.url,
-                headers: options.headers || {},
-                data: options.data ?? '',
-            })).then(result => {
-                const response = options.responseType === 'json'
-                    ? JSON.parse(result.responseText || 'null')
-                    : result.responseText;
-                settle(options.onload)({
-                    status: result.status,
-                    response,
-                    responseText: result.responseText,
-                });
-            }).catch(error => {
-                settle(options.onerror)(error);
-            });
-        };
-        window.GM = { xmlHttpRequest: window.GM_xmlhttpRequest, xmlhttpRequest: window.GM_xmlhttpRequest };
-    }, { key: SETTINGS_KEY, value: settings, css: readFileSync(CSS_PATH, 'utf8') });
+    await addGmStorageBridgeInitScript(page, {
+        key: SETTINGS_KEY,
+        value: settings,
+        css: readFileSync(CSS_PATH, 'utf8'),
+        requestBridgeName: '__yomuAnkiSmokeRequest',
+    });
     return page;
 }
 
 function isMockedApiOrigin(url) {
-    return url.origin === ANKI_URL || url.origin === 'https://jpdb.io';
-}
-
-function corsHeaders() {
-    return {
-        'access-control-allow-origin': '*',
-        'access-control-allow-headers': 'content-type, authorization',
-        'access-control-allow-methods': 'GET, POST, OPTIONS',
-    };
+    return url.origin === ANKI_URL || isJpdbApiUrl(url);
 }
 
 function mockHttpRequest(request, requests, scenario = {}) {
     const url = new URL(request.url);
-    if (url.origin === 'https://jpdb.io' && url.pathname.startsWith('/api/v1/')) {
-        const endpoint = url.pathname.slice('/api/v1/'.length);
-        const body = readJsonBody(request.data);
-        const response = mockJpdbApi(endpoint, body, scenario);
-        requests.push({ kind: 'jpdb', endpoint, body });
-        return jsonHttpResponse(response);
-    }
-    if (url.origin === ANKI_URL) {
-        const body = readJsonBody(request.data);
-        const response = mockAnkiConnect(body, requests, scenario);
-        requests.push({ kind: 'anki', action: body.action, params: body.params ?? {} });
-        return jsonHttpResponse(response);
-    }
-    return null;
+    return mockJpdbHttpRequest(url, request, requests, scenario)
+        ?? mockAnkiHttpRequest(url, request, requests, scenario);
 }
 
-function jsonHttpResponse(value) {
-    const responseText = JSON.stringify(value);
-    return {
-        status: 200,
-        responseText,
-        bytes: [...Buffer.from(responseText)],
-        contentType: 'application/json; charset=utf-8',
-    };
+function mockJpdbHttpRequest(url, request, requests, scenario) {
+    if (!isJpdbApiUrl(url)) return null;
+    const endpoint = jpdbEndpoint(url);
+    const body = readJsonBody(request.data);
+    requests.push({ kind: 'jpdb', endpoint, body });
+    return jsonHttpResponse(mockJpdbApi(endpoint, body, scenario));
 }
 
-function readJsonBody(data) {
-    if (!data) return {};
-    if (typeof data === 'string') return JSON.parse(data);
-    if (typeof data === 'object' && data.kind === 'arraybuffer') {
-        return JSON.parse(Buffer.from(data.bytes ?? []).toString('utf8'));
-    }
-    return data;
+function mockAnkiHttpRequest(url, request, requests, scenario) {
+    if (url.origin !== ANKI_URL) return null;
+    const body = readJsonBody(request.data);
+    const response = mockAnkiConnect(body, requests, scenario);
+    requests.push({ kind: 'anki', action: body.action, params: body.params ?? {} });
+    return jsonHttpResponse(response);
+}
+
+function isJpdbApiUrl(url) {
+    return url.origin === JPDB_API_ORIGIN && url.pathname.startsWith(JPDB_API_PREFIX);
+}
+
+function jpdbEndpoint(url) {
+    return url.pathname.slice(JPDB_API_PREFIX.length);
 }
 
 function mockJpdbApi(endpoint, body, scenario = {}) {
-    if (scenario.name === 'jpdb-mixed-newtab') return mockMixedNewTabJpdbApi(endpoint, body);
-    if (endpoint === 'parse') return mockJpdbParse(body);
-    if (endpoint === 'list-user-decks') return { decks: [[1, 'Mining']] };
-    if (endpoint === 'deck/list-vocabulary') return { vocabulary: [[101, 201]] };
-    if (endpoint === 'lookup-vocabulary') return { vocabulary_info: jpdbReviewVocabulary };
-    if (endpoint === 'review') return {};
-    return {};
+    const handlers = scenario.name === 'jpdb-mixed-newtab'
+        ? MIXED_JPDB_API_HANDLERS
+        : DEFAULT_JPDB_API_HANDLERS;
+    return resolveJpdbApiEndpoint(endpoint, body, handlers);
 }
 
-function mockMixedNewTabJpdbApi(endpoint, body) {
-    if (endpoint === 'parse') return mockJpdbParse(body);
-    if (endpoint === 'list-user-decks') return { decks: [[1, 'Mixed Queue']] };
-    if (endpoint === 'deck/list-vocabulary') return { vocabulary: [[301, 401], [302, 402], [303, 403]] };
-    if (endpoint === 'lookup-vocabulary') {
-        const requested = Array.isArray(body.list) ? body.list : [];
-        const byPair = new Map(jpdbMixedReviewVocabulary.map(item => [`${item[0]}:${item[1]}`, item]));
-        return {
-            vocabulary_info: requested
-                .slice()
-                .reverse()
-                .map(([vid, sid]) => byPair.get(`${Number(vid)}:${Number(sid)}`))
-                .filter(Boolean),
-        };
-    }
-    if (endpoint === 'review') return {};
-    return {};
+function resolveJpdbApiEndpoint(endpoint, body, handlers) {
+    const handler = handlers[endpoint];
+    return typeof handler === 'function' ? handler(body) : {};
 }
 
-function mockJpdbParse(body) {
-    const paragraphs = Array.isArray(body.text) ? body.text.map(value => String(value)) : [];
-    const vocabulary = [];
-    const vocabIndexBySpelling = new Map();
-    const tokens = paragraphs.map(text => {
-        const paragraphTokens = [];
-        for (let index = 0; index < text.length;) {
-            const entry = smokeVocabulary
-                .map(([surface, spelling, reading, gloss, partOfSpeech, frequency, state]) => ({
-                    surface,
-                    spelling,
-                    reading,
-                    gloss,
-                    partOfSpeech,
-                    frequency,
-                    state,
-                }))
-                .filter(item => text.startsWith(item.surface, index))
-                .sort((a, b) => b.surface.length - a.surface.length)[0];
-            if (!entry) {
-                index += 1;
-                continue;
-            }
-            let vocabularyIndex = vocabIndexBySpelling.get(entry.spelling);
-            if (vocabularyIndex === undefined) {
-                vocabularyIndex = vocabulary.length;
-                vocabIndexBySpelling.set(entry.spelling, vocabularyIndex);
-                vocabulary.push([
-                    1000 + vocabularyIndex,
-                    2000 + vocabularyIndex,
-                    0,
-                    entry.spelling,
-                    entry.reading,
-                    entry.frequency,
-                    entry.partOfSpeech,
-                    [[entry.gloss]],
-                    [entry.partOfSpeech],
-                    entry.state,
-                    ['LHH'],
-                ]);
-            }
-            paragraphTokens.push([
-                vocabularyIndex,
-                index,
-                entry.surface.length,
-                /[\u3400-\u9fff]/u.test(entry.surface) ? [[entry.surface, entry.reading]] : null,
-            ]);
-            index += entry.surface.length;
-        }
-        return paragraphTokens;
-    });
-    return { vocabulary, tokens };
+function lookupMixedJpdbVocabulary(body) {
+    const requested = Array.isArray(body.list) ? body.list : [];
+    const byPair = new Map(jpdbMixedReviewVocabulary.map(item => [`${item[0]}:${item[1]}`, item]));
+    return {
+        vocabulary_info: requested
+            .slice()
+            .reverse()
+            .map(([vid, sid]) => byPair.get(`${Number(vid)}:${Number(sid)}`))
+            .filter(Boolean),
+    };
 }
 
 function mockAnkiConnect(body, requests, scenario = {}) {
     if (scenario.name === 'mobile-handoff-unavailable') return { result: null, error: 'Failed to fetch' };
-    const action = body.action;
-    const params = body.params ?? {};
-    if (action === 'multi') {
-        const actions = Array.isArray(params.actions) ? params.actions : [];
-        return {
-            result: actions.map(item => mockAnkiConnect({
-                action: item.action,
-                params: item.params ?? {},
-            }, requests, scenario)),
-            error: null,
-        };
-    }
-    return { result: mockAnkiResult(action, params, requests, scenario), error: null };
+    return mockAnkiConnectResponse(body, resolveMiningAnkiAction, { requests, scenario });
 }
 
-function mockAnkiResult(action, params, requests, scenario = {}) {
-    if (scenario.name === 'multi-deck-newtab') return mockMultiDeckNewTabAnkiResult(action, params);
-    const query = String(params.query ?? '');
-    switch (action) {
-        case 'version':
-            return 6;
-        case 'deckNames':
-            return ['Mining'];
-        case 'getDeckStats':
-            return { 1: { name: 'Mining', total_in_deck: 2 } };
-        case 'modelNames':
-            return ['よむ Japanese'];
-        case 'modelFieldNames':
-            return YOMU_MODEL_FIELDS;
-        case 'findCards':
-            if (query === 'deck:*') return [8001, 8101];
-            if (query === 'deck:* is:due') return [8001, 8101];
-            if (query === 'deck:* is:learn' || query === 'deck:* is:new' || query === 'deck:* is:suspended') return [];
-            if (query.includes('is:due') || query.includes('is:learn')) return [8101];
-            if (query.includes('is:new')) return [];
-            return [];
-        case 'findNotes':
-            if (query === 'deck:*') return [9001, 9101];
-            if (/読む|よむ|読みました|よみました/.test(query)) return [9001];
-            if (/暗記|あんき/.test(query)) return [9101];
-            return [];
-        case 'notesInfo':
-            return (Array.isArray(params.notes) ? params.notes : []).map(noteId => mockAnkiNoteInfo(Number(noteId)));
-        case 'cardsInfo':
-            return (Array.isArray(params.cards) ? params.cards : []).map(cardId => mockAnkiCardInfo(Number(cardId)));
-        case 'areDue':
-            return (Array.isArray(params.cards) ? params.cards : []).map(() => true);
-        case 'updateNoteFields':
-            requests.push({ kind: 'anki-side-effect', action, note: params.note });
-            return null;
-        case 'addNote':
-            requests.push({ kind: 'anki-side-effect', action, note: params.note });
-            return 9201;
-        case 'createDeck':
-        case 'createModel':
-        case 'updateModelTemplates':
-        case 'updateModelStyling':
-        case 'modelFieldAdd':
-        case 'guiBrowse':
-        case 'answerCards':
-            return null;
-        default:
-            return null;
-    }
+function resolveMiningAnkiAction(action, params, context) {
+    const handlers = context.scenario?.name === 'multi-deck-newtab'
+        ? MULTI_DECK_NEW_TAB_ANKI_HANDLERS
+        : DEFAULT_ANKI_HANDLERS;
+    return resolveAnkiAction(action, params, handlers, context);
 }
 
-function mockMultiDeckNewTabAnkiResult(action, params) {
-    const query = String(params.query ?? '');
-    switch (action) {
-        case 'version':
-            return 6;
-        case 'deckNames':
-            return ['Core', 'Mining', 'Mining::Old', 'Archive'];
-        case 'getDeckStats':
-            return {
-                1: { name: 'Core', total_in_deck: 2 },
-                2: { name: 'Mining', total_in_deck: 2 },
-                3: { name: 'Mining::Old', total_in_deck: 1 },
-                4: { name: 'Archive', total_in_deck: 1 },
-            };
-        case 'findCards':
-            if (query.includes('is:new')) return [7105, 7107];
-            if (query.includes('is:due') || query.includes('is:learn')) return [7102, 7104, 7101, 7106];
-            return [];
-        case 'areDue':
-            return (Array.isArray(params.cards) ? params.cards : []).map(cardId => Number(cardId) !== 7106);
-        case 'cardsInfo':
-            return (Array.isArray(params.cards) ? params.cards : []).map(cardId => mockMultiDeckNewTabCardInfo(Number(cardId)));
-        case 'notesInfo':
-            return (Array.isArray(params.notes) ? params.notes : []).map(noteId => mockMultiDeckNewTabNoteInfo(Number(noteId)));
-        default:
-            return null;
-    }
+function findMiningCards(params) {
+    return firstMatchingRule(queryParam(params), MINING_CARD_QUERY_RULES, 'cards');
+}
+
+function findMiningNotes(params) {
+    return firstMatchingRule(queryParam(params), MINING_NOTE_QUERY_RULES, 'notes');
+}
+
+function findMultiDeckNewTabCards(params) {
+    const query = queryParam(params);
+    const rule = MULTI_DECK_CARD_QUERY_RULES.find(item => queryIncludesAny(query, item.needles));
+    return rule ? [...rule.cards] : [];
+}
+
+function firstMatchingRule(query, rules, propertyName) {
+    const rule = rules.find(item => item.matches(query));
+    return rule ? [...rule[propertyName]] : [];
+}
+
+function queryParam(params) {
+    return String(params.query ?? '');
+}
+
+function queryIncludesAny(query, needles) {
+    return needles.some(needle => query.includes(needle));
 }
 
 function mockMultiDeckNewTabCardInfo(cardId) {
@@ -542,38 +425,8 @@ function mockMultiDeckNewTabCardInfo(cardId) {
         question: '',
         answer: '',
     };
-    if (cardId === 7102) return { ...common, note: 7202, deckName: 'Core', question: '順番', answer: 'order' };
-    if (cardId === 7101) return { ...common, note: 7201, deckName: 'Mining', question: '採掘', answer: 'mining' };
-    if (cardId === 7104) return { ...common, note: 7204, deckName: 'Mining::Old', question: '古い', answer: 'old' };
-    if (cardId === 7105) {
-        return {
-            ...common,
-            note: 7205,
-            deckName: 'Core',
-            queue: 0,
-            type: 0,
-            due: 0,
-            reps: 0,
-            interval: 0,
-            question: '新規',
-            answer: 'new',
-        };
-    }
-    if (cardId === 7107) {
-        return {
-            ...common,
-            note: 7207,
-            deckName: 'Archive',
-            queue: 0,
-            type: 0,
-            due: 0,
-            reps: 0,
-            interval: 0,
-            question: '保管',
-            answer: 'archive',
-        };
-    }
-    return { ...common, note: 7206, deckName: 'Core', due: 999999, question: '未来', answer: 'future' };
+    const overrides = MULTI_DECK_CARD_INFO_OVERRIDES[cardId] ?? FUTURE_MULTI_DECK_CARD_INFO;
+    return { ...common, ...overrides };
 }
 
 function mockMultiDeckNewTabNoteInfo(noteId) {
@@ -697,6 +550,105 @@ async function injectUserscript(page) {
     await page.addScriptTag({ path: SCRIPT_PATH });
 }
 
+function assertRenderedStatePreserved(before, after, interaction) {
+    assert(before.state === 'due' && after.state === 'due', `${interaction} cleared rendered Anki state`, { before, after });
+    assert(after.classes.includes('anki-due'), `${interaction} removed rendered Anki due class`, { before, after });
+    assert(after.color === before.color, `${interaction} changed Anki word color`, { before, after });
+}
+
+function assertInitialAnkiStatusLookup(initialAnkiActions, initialAnkiRequests, interaction) {
+    assert(hasExactAnkiStatusLookup(initialAnkiActions), 'Reader initial coloring did not perform exact Anki status lookup', { initialAnkiActions });
+    assert(!initialAnkiRequests.some(isWholeCollectionSearch), `Reader initial coloring scanned the whole Anki collection before ${interaction}`, { initialAnkiRequests });
+}
+
+function hasExactAnkiStatusLookup(actions) {
+    return actions.includes('multi') && actions.includes('notesInfo') && actions.includes('cardsInfo');
+}
+
+function isWholeCollectionSearch(item) {
+    return WHOLE_COLLECTION_SEARCH_ACTIONS.has(item.action) && ankiQueryParam(item) === WHOLE_COLLECTION_QUERY;
+}
+
+function ankiQueryParam(item) {
+    return String(item.params?.query ?? '');
+}
+
+function assertExistingAnkiPopover(popover, requests) {
+    assert(popover.hasExisting, 'Existing Anki section was missing from popover', popover);
+    assert(popover.hasMerge && popover.hasEdit, 'Existing Anki card did not expose merge/edit actions', popover);
+    assert(!popover.hasAdd, 'Known Anki word still showed Add to Anki', popover);
+    assert(hasAnkiStatusDetails(popover.text), 'Popover did not include Anki status details', { existingPopover: popover, requests });
+    assert(popover.text.includes('to read'), 'Popover did not include existing Anki rendered card contents', { existingPopover: popover, requests });
+    assert(!hasRawStoredAnkiFields(popover.text), 'Popover exposed raw stored Anki fields instead of the rendered card', { existingPopover: popover, requests });
+}
+
+function hasAnkiStatusDetails(text) {
+    return /Anki/.test(text) && /Mining/.test(text) && /12/.test(text);
+}
+
+function hasRawStoredAnkiFields(text) {
+    return text.includes('今日は本を読む') || text.includes('Sentence');
+}
+
+async function waitForDueReadingWord(page) {
+    const knownWord = page.locator(READING_WORD_SELECTOR);
+    await knownWord.waitFor({ state: 'visible', timeout: 8000 });
+    await waitForDueReadingWordState(page);
+    return knownWord;
+}
+
+async function waitForDueReadingWordState(page) {
+    await page.waitForFunction(() => {
+        const word = [...document.querySelectorAll('.jpdb-reader-word')]
+            .find(element => element.dataset.expression === '読む' && (element.textContent ?? '').includes('読'));
+        return word instanceof HTMLElement && word.dataset.ankiState === 'due' && word.classList.contains('anki-due');
+    }, null, { timeout: 12000 });
+}
+
+function ankiRequestSnapshot(requests) {
+    const actions = ankiActions(requests);
+    return {
+        actions,
+        actionCount: actions.length,
+        requests: requests.filter(item => item.kind === 'anki').slice(0, actions.length),
+    };
+}
+
+async function waitForExistingAnkiStatusText(page) {
+    await waitForSelectorText(page, EXISTING_ANKI_SELECTOR, { includes: EXISTING_ANKI_STATUS_TERMS });
+}
+
+async function waitForRenderedExistingAnkiCardText(page) {
+    await waitForSelectorText(page, EXISTING_ANKI_SELECTOR, {
+        includes: EXISTING_ANKI_RENDERED_TERMS,
+        excludes: EXISTING_ANKI_RAW_FIELD_TERMS,
+    });
+}
+
+async function waitForSelectorText(page, selector, expectations, timeout = 12000) {
+    await page.waitForFunction(selectorTextMatches, { selector, ...expectations }, { timeout });
+}
+
+function selectorTextMatches({ selector, includes = [], excludes = [] }) {
+    const text = document.querySelector(selector)?.textContent ?? '';
+    return includes.every(term => text.includes(term)) && excludes.every(term => !text.includes(term));
+}
+
+function writingPopoverLocator(page) {
+    return page.locator(VISIBLE_WRITING_POPOVER_SELECTOR).filter({ hasText: '書く' }).first();
+}
+
+function writingAddButtonLocator(page) {
+    return writingPopoverLocator(page).locator(ACTIVE_ANKI_BUTTON_SELECTOR).first();
+}
+
+async function clickVisibleWritingAddButton(page) {
+    await writingAddButtonLocator(page).evaluate(element => {
+        if (!(element instanceof HTMLElement)) throw new Error('Visible Add to Anki button was not found.');
+        element.click();
+    });
+}
+
 async function runReaderMiningSmoke(browser, baseUrl) {
     const requests = [];
     const page = await newMockedPage(browser, requests);
@@ -704,17 +656,13 @@ async function runReaderMiningSmoke(browser, baseUrl) {
     const coloringStartedAt = Date.now();
     await injectUserscript(page);
 
-    const knownWord = page.locator('main .jpdb-reader-word[data-expression="読む"]');
-    await knownWord.waitFor({ state: 'visible', timeout: 8000 });
-    await page.waitForFunction(() => {
-        const word = [...document.querySelectorAll('.jpdb-reader-word')]
-            .find(element => element.dataset.expression === '読む' && (element.textContent ?? '').includes('読'));
-        return word instanceof HTMLElement && word.dataset.ankiState === 'due' && word.classList.contains('anki-due');
-    }, null, { timeout: 12000 });
+    const knownWord = await waitForDueReadingWord(page);
     const firstAnkiColorMs = Date.now() - coloringStartedAt;
-    const initialAnkiActions = ankiActions(requests);
-    const initialAnkiActionCount = initialAnkiActions.length;
-    const initialAnkiRequests = requests.filter(item => item.kind === 'anki').slice(0, initialAnkiActionCount);
+    const {
+        actions: initialAnkiActions,
+        actionCount: initialAnkiActionCount,
+        requests: initialAnkiRequests,
+    } = ankiRequestSnapshot(requests);
     const statusStorage = await readAnkiStatusStorage(page);
 
     const beforeHover = await knownWord.evaluate(element => ({
@@ -727,14 +675,8 @@ async function runReaderMiningSmoke(browser, baseUrl) {
     await knownWord.hover();
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 8000 });
     await page.waitForSelector('.jpdb-reader-popover .jpdb-reader-anki-existing', { timeout: 8000 });
-    await page.waitForFunction(() => {
-        const text = document.querySelector('.jpdb-reader-popover .jpdb-reader-anki-existing')?.textContent ?? '';
-        return /Anki/.test(text) && /Mining/.test(text) && /12/.test(text);
-    }, null, { timeout: 12000 });
-    await page.waitForFunction(() => {
-        const text = document.querySelector('.jpdb-reader-popover .jpdb-reader-anki-existing')?.textContent ?? '';
-        return text.includes('to read') && !text.includes('今日は本を読む') && !text.includes('Sentence');
-    }, null, { timeout: 12000 });
+    await waitForExistingAnkiStatusText(page);
+    await waitForRenderedExistingAnkiCardText(page);
     const hoverHydrationMs = Date.now() - hoverStartedAt;
     const hoverAnkiActions = ankiActions(requests).slice(initialAnkiActionCount);
     const afterHover = await knownWord.evaluate(element => ({
@@ -743,23 +685,9 @@ async function runReaderMiningSmoke(browser, baseUrl) {
         color: getComputedStyle(element).color,
         title: element.title,
     }));
-    assert(beforeHover.state === 'due' && afterHover.state === 'due', 'Hover cleared rendered Anki state', { beforeHover, afterHover });
-    assert(afterHover.classes.includes('anki-due'), 'Hover removed rendered Anki due class', { beforeHover, afterHover });
-    assert(afterHover.color === beforeHover.color, 'Hover changed Anki word color', { beforeHover, afterHover });
+    assertRenderedStatePreserved(beforeHover, afterHover, 'Hover');
     assert(firstAnkiColorMs < 8_000, 'Reader Anki coloring was not prompt after userscript injection', { firstAnkiColorMs, initialAnkiActions });
-    assert(
-        initialAnkiActions.includes('multi') && initialAnkiActions.includes('notesInfo') && initialAnkiActions.includes('cardsInfo'),
-        'Reader initial coloring did not perform exact Anki status lookup',
-        { initialAnkiActions },
-    );
-    assert(
-        !initialAnkiRequests.some(item => (
-            (item.action === 'findCards' || item.action === 'findNotes')
-            && String(item.params?.query ?? '') === 'deck:*'
-        )),
-        'Reader initial coloring scanned the whole Anki collection before hover',
-        { initialAnkiRequests },
-    );
+    assertInitialAnkiStatusLookup(initialAnkiActions, initialAnkiRequests, 'hover');
     assert(hoverAnkiActions.includes('multi') && hoverAnkiActions.includes('areDue'), 'Reader hover did not lazily hydrate detailed Anki status', { initialAnkiActions, hoverAnkiActions });
     assert(hoverHydrationMs < 8_000, 'Reader hover Anki hydration was too slow', { hoverHydrationMs, hoverAnkiActions });
     assertAnkiStatusStorage(statusStorage, 2);
@@ -771,36 +699,17 @@ async function runReaderMiningSmoke(browser, baseUrl) {
         hasAdd: Boolean(document.querySelector('.jpdb-reader-popover [data-action="anki"]')),
         text: document.querySelector('.jpdb-reader-popover')?.textContent ?? '',
     }));
-    assert(existingPopover.hasExisting, 'Existing Anki section was missing from popover', existingPopover);
-    assert(existingPopover.hasMerge && existingPopover.hasEdit, 'Existing Anki card did not expose merge/edit actions', existingPopover);
-    assert(!existingPopover.hasAdd, 'Known Anki word still showed Add to Anki', existingPopover);
-    assert(/Anki/.test(existingPopover.text) && /Mining/.test(existingPopover.text) && /12/.test(existingPopover.text), 'Popover did not include Anki status details', { existingPopover, requests });
-    assert(existingPopover.text.includes('to read'), 'Popover did not include existing Anki rendered card contents', { existingPopover, requests });
-    assert(!existingPopover.text.includes('今日は本を読む') && !existingPopover.text.includes('Sentence'), 'Popover exposed raw stored Anki fields instead of the rendered card', { existingPopover, requests });
+    assertExistingAnkiPopover(existingPopover, requests);
 
     await page.locator('.jpdb-reader-popover [data-action="anki-merge"]').click();
     await page.waitForFunction(() => window.__ankiMergeSeen === true, null, { timeout: 100 }).catch(() => undefined);
     assert(requests.some(item => item.kind === 'anki-side-effect' && item.action === 'updateNoteFields'), 'Merge did not call updateNoteFields', { requests });
 
     await closeVisiblePopovers(page);
-    const missingWord = page.locator('main .jpdb-reader-word[data-expression="書く"][data-reading="かきます"]');
+    const missingWord = page.locator(WRITING_WORD_SELECTOR);
     await missingWord.click({ force: true });
     await waitForVisibleAddButton(page, requests);
-    await page.evaluate(() => {
-        const visibleElements = (selector, root = document) => [...root.querySelectorAll(selector)].filter(element => {
-            const rect = element.getBoundingClientRect();
-            const style = getComputedStyle(element);
-            return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
-        });
-        const enabledActionButtons = (selector, root = document) => [...root.querySelectorAll(selector)].filter(element => {
-            const style = getComputedStyle(element);
-            return style.visibility !== 'hidden' && style.display !== 'none' && !(element instanceof HTMLButtonElement && element.disabled);
-        });
-        const popover = visibleElements('.jpdb-reader-popover').find(element => element.textContent?.includes('書く'));
-        const button = popover ? enabledActionButtons('[data-action="anki"]', popover)[0] : null;
-        if (!(button instanceof HTMLElement)) throw new Error('Visible Add to Anki button was not found.');
-        button.click();
-    });
+    await clickVisibleWritingAddButton(page);
     await waitForRecordedRequest(requests, item => item.kind === 'anki-side-effect' && item.action === 'addNote', 10000);
     assert(requests.some(item => item.kind === 'anki-side-effect' && item.action === 'addNote'), 'Add to Anki did not call addNote', { requests });
 
@@ -823,41 +732,16 @@ async function runLocalRootReaderSmoke(browser, baseUrl) {
     await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
 
-    const knownWord = page.locator('main .jpdb-reader-word[data-expression="読む"]');
-    await knownWord.waitFor({ state: 'visible', timeout: 8000 });
-    await page.waitForFunction(() => {
-        const word = [...document.querySelectorAll('.jpdb-reader-word')]
-            .find(element => element.dataset.expression === '読む' && (element.textContent ?? '').includes('読'));
-        return word instanceof HTMLElement && word.dataset.ankiState === 'due' && word.classList.contains('anki-due');
-    }, null, { timeout: 12000 });
+    await waitForDueReadingWord(page);
 
-    const state = await page.evaluate(() => ({
-        path: location.pathname,
-        renderedWords: document.querySelectorAll('main .jpdb-reader-word').length,
-        ankiStateWords: document.querySelectorAll('main .jpdb-reader-word[data-anki-state]').length,
-        dueWords: document.querySelectorAll('main .jpdb-reader-word.anki-due').length,
-        reading: document.querySelector('main .jpdb-reader-word[data-expression="読む"]')?.dataset.reading ?? '',
-        surface: document.querySelector('main .jpdb-reader-word[data-expression="読む"]')?.textContent ?? '',
-    }));
+    const state = await page.evaluate(localRootReaderState);
     assert(state.path === '/', 'Local root smoke did not run on the hosted root path', state);
-    assert(state.renderedWords >= 6 && state.ankiStateWords >= 1 && state.dueWords >= 1, 'Local root page did not wrap and color Anki-aware words', state);
+    assertWrappedAnkiAwareWords(state, 'Local root page did not wrap and color Anki-aware words');
 
-    await page.evaluate(text => {
-        const paragraph = document.querySelector('main p');
-        if (!paragraph) throw new Error('Local root fixture paragraph was missing.');
-        paragraph.textContent = text;
-    }, '今日は日本語の記事を読みました。明日は例文を書きます。難波を歩きます。');
-    await page.waitForFunction(() => {
-        const word = [...document.querySelectorAll('.jpdb-reader-word')]
-            .find(element => element.dataset.expression === '読む' && (element.textContent ?? '').includes('読'));
-        return word instanceof HTMLElement && word.dataset.ankiState === 'due' && word.classList.contains('anki-due');
-    }, null, { timeout: 12000 });
-    const rescannedState = await page.evaluate(() => ({
-        renderedWords: document.querySelectorAll('main .jpdb-reader-word').length,
-        ankiStateWords: document.querySelectorAll('main .jpdb-reader-word[data-anki-state]').length,
-        dueWords: document.querySelectorAll('main .jpdb-reader-word.anki-due').length,
-    }));
-    assert(rescannedState.renderedWords >= 6 && rescannedState.ankiStateWords >= 1 && rescannedState.dueWords >= 1, 'Hosted root scan event did not restore Anki-aware reader words after unwrapping', { state, rescannedState });
+    await page.evaluate(replaceLocalRootFixtureText, READER_FIXTURE_TEXT);
+    await waitForDueReadingWordState(page);
+    const rescannedState = await page.evaluate(localRootReaderState);
+    assertWrappedAnkiAwareWords(rescannedState, 'Hosted root scan event did not restore Anki-aware reader words after unwrapping', { state, rescannedState });
 
     await page.screenshot({ path: path.join(ARTIFACTS, 'anki-mining-local-root-smoke.png'), fullPage: false });
     await page.close();
@@ -869,106 +753,107 @@ async function runLocalRootReaderSmoke(browser, baseUrl) {
     };
 }
 
-async function runMobileAnkiHandoffSmoke(browser, baseUrl) {
-    const requests = [];
-    const page = await newMockedPage(browser, requests, {
-        ...baseSettings,
-        ankiMobileHandoff: true,
-        wordTextColorSource: 'off',
-        wordUnderlineColorSource: 'off',
-        wordHighlightColorSource: 'off',
-    }, { width: 390, height: 844 }, {
-        name: 'mobile-handoff-unavailable',
-        contextOptions: {
-            isMobile: true,
-            hasTouch: true,
-            userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
-        },
-    });
-    page.on('dialog', dialog => void dialog.accept());
-    await page.goto(`${baseUrl}/reader-anki.html`, { waitUntil: 'domcontentloaded' });
-    await injectUserscript(page);
-
-    const targetWord = page.locator('main .jpdb-reader-word[data-expression="書く"][data-reading="かきます"]');
-    await targetWord.waitFor({ state: 'visible', timeout: 8000 });
-    await targetWord.click({ force: true });
-    await page.waitForFunction(() => {
-        const popover = document.querySelector('.jpdb-reader-popover');
-        return Boolean(popover?.textContent?.includes('Send to AnkiMobile'));
-    }, null, { timeout: 12000 });
-
-    const mobilePopover = await page.evaluate(() => ({
-        hasButton: Boolean(document.querySelector('.jpdb-reader-popover [data-action="anki"]')),
-        text: document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-    }));
-    assert(mobilePopover.hasButton, 'Mobile Anki handoff button was missing', mobilePopover);
-    assert(mobilePopover.text.includes('Send to AnkiMobile'), 'Mobile handoff action did not name AnkiMobile', mobilePopover);
-    const mobileHandoffText = mobilePopover.text.toLowerCase();
-    assert(!mobileHandoffText.includes('existing-card status')
-        && !mobileHandoffText.includes('review queues')
-        && !mobileHandoffText.includes('ankiconnect'), 'Mobile handoff limitations should live in docs/settings help, not the popover', mobilePopover);
-
-    await page.screenshot({ path: path.join(ARTIFACTS, 'anki-mobile-handoff-smoke.png'), fullPage: false });
-    const actionCountBefore = requests.length;
-    await page.locator('.jpdb-reader-popover [data-action="anki"]').click().catch(() => undefined);
-    await page.waitForTimeout(250);
-    assert(!requests.some(item => item.kind === 'anki-side-effect' && item.action === 'addNote'), 'Mobile handoff unexpectedly called AnkiConnect addNote', { requests });
-
-    await page.close();
+function localRootReaderState() {
     return {
-        text: mobilePopover.text,
-        ankiActions: requests.filter(item => item.kind === 'anki').map(item => item.action),
-        requestCountAfterClick: requests.length - actionCountBefore,
+        path: location.pathname,
+        renderedWords: document.querySelectorAll('main .jpdb-reader-word').length,
+        ankiStateWords: document.querySelectorAll('main .jpdb-reader-word[data-anki-state]').length,
+        dueWords: document.querySelectorAll('main .jpdb-reader-word.anki-due').length,
+        reading: document.querySelector('main .jpdb-reader-word[data-expression="読む"]')?.dataset.reading ?? '',
+        surface: document.querySelector('main .jpdb-reader-word[data-expression="読む"]')?.textContent ?? '',
     };
+}
+
+function replaceLocalRootFixtureText(text) {
+    const paragraph = document.querySelector('main p');
+    if (!paragraph) throw new Error('Local root fixture paragraph was missing.');
+    paragraph.textContent = text;
+}
+
+function assertWrappedAnkiAwareWords(state, message, details = state) {
+    assert(hasWrappedAnkiAwareWords(state), message, details);
+}
+
+function hasWrappedAnkiAwareWords(state) {
+    return [
+        state.renderedWords >= 6,
+        state.ankiStateWords >= 1,
+        state.dueWords >= 1,
+    ].every(Boolean);
+}
+
+async function runMobileAnkiHandoffSmoke(browser, baseUrl) {
+    return runMobileHandoffSmoke(browser, baseUrl, {
+        name: 'mobile-handoff-unavailable',
+        viewport: { width: 390, height: 844 },
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+        actionLabel: 'Send to AnkiMobile',
+        buttonMissingMessage: 'Mobile Anki handoff button was missing',
+        actionLabelMessage: 'Mobile handoff action did not name AnkiMobile',
+        limitationsMessage: 'Mobile handoff limitations should live in docs/settings help, not the popover',
+        addNoteMessage: 'Mobile handoff unexpectedly called AnkiConnect addNote',
+        forbiddenTerms: ['existing-card status', 'review queues', 'ankiconnect'],
+        screenshot: 'anki-mobile-handoff-smoke.png',
+        screenshotBeforeClick: true,
+    });
 }
 
 async function runAndroidAnkiDroidHandoffSmoke(browser, baseUrl) {
+    return runMobileHandoffSmoke(browser, baseUrl, {
+        name: 'android-handoff-unavailable',
+        viewport: { width: 412, height: 915 },
+        userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+        actionLabel: 'Send to AnkiDroid',
+        buttonMissingMessage: 'Android AnkiDroid handoff button was missing',
+        actionLabelMessage: 'Android handoff action did not name AnkiDroid',
+        limitationsMessage: 'Android handoff limitations should live in docs/settings help, not the popover',
+        addNoteMessage: 'Android handoff unexpectedly called AnkiConnect addNote',
+        forbiddenTerms: ['ankiconnect', 'review queues'],
+        screenshot: 'anki-android-handoff-smoke.png',
+    });
+}
+
+async function runMobileHandoffSmoke(browser, baseUrl, spec) {
     const requests = [];
     const page = await newMockedPage(browser, requests, {
         ...baseSettings,
-        ankiMobileHandoff: true,
-        wordTextColorSource: 'off',
-        wordUnderlineColorSource: 'off',
-        wordHighlightColorSource: 'off',
-    }, { width: 412, height: 915 }, {
-        name: 'android-handoff-unavailable',
+        ...MOBILE_HANDOFF_SETTINGS,
+    }, spec.viewport, {
+        name: spec.name,
         contextOptions: {
             isMobile: true,
             hasTouch: true,
-            userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+            userAgent: spec.userAgent,
         },
     });
     page.on('dialog', dialog => void dialog.accept());
     await page.goto(`${baseUrl}/reader-anki.html`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
 
-    const targetWord = page.locator('main .jpdb-reader-word[data-expression="書く"][data-reading="かきます"]');
+    const targetWord = page.locator(WRITING_WORD_SELECTOR);
     await targetWord.waitFor({ state: 'visible', timeout: 8000 });
     await targetWord.click({ force: true });
-    await page.waitForFunction(() => {
+    await page.waitForFunction(actionLabel => {
         const popover = document.querySelector('.jpdb-reader-popover');
-        return Boolean(popover?.textContent?.includes('Send to AnkiDroid'));
-    }, null, { timeout: 12000 });
+        return Boolean(popover?.textContent?.includes(actionLabel));
+    }, spec.actionLabel, { timeout: 12000 });
 
     const mobilePopover = await page.evaluate(() => ({
         hasButton: Boolean(document.querySelector('.jpdb-reader-popover [data-action="anki"]')),
         text: document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
     }));
-    assert(mobilePopover.hasButton, 'Android AnkiDroid handoff button was missing', mobilePopover);
-    assert(mobilePopover.text.includes('Send to AnkiDroid'), 'Android handoff action did not name AnkiDroid', mobilePopover);
-    const androidHandoffText = mobilePopover.text.toLowerCase();
-    assert(
-        !androidHandoffText.includes('ankiconnect')
-            && !androidHandoffText.includes('review queues'),
-        'Android handoff limitations should live in docs/settings help, not the popover',
-        mobilePopover,
-    );
+    assert(mobilePopover.hasButton, spec.buttonMissingMessage, mobilePopover);
+    assert(mobilePopover.text.includes(spec.actionLabel), spec.actionLabelMessage, mobilePopover);
+    assertHandoffLimitationsStayHidden(mobilePopover, spec);
+
+    if (spec.screenshotBeforeClick) await screenshotHandoff(page, spec);
 
     const actionCountBefore = requests.length;
     await page.locator('.jpdb-reader-popover [data-action="anki"]').click().catch(() => undefined);
     await page.waitForTimeout(250);
-    assert(!requests.some(item => item.kind === 'anki-side-effect' && item.action === 'addNote'), 'Android handoff unexpectedly called AnkiConnect addNote', { requests });
-    await page.screenshot({ path: path.join(ARTIFACTS, 'anki-android-handoff-smoke.png'), fullPage: false });
+    assertNoMobileAddNote(requests, spec);
+    if (!spec.screenshotBeforeClick) await screenshotHandoff(page, spec);
+
     await page.close();
     return {
         text: mobilePopover.text,
@@ -977,84 +862,18 @@ async function runAndroidAnkiDroidHandoffSmoke(browser, baseUrl) {
     };
 }
 
-function ankiActions(requests) {
-    return requests.filter(item => item.kind === 'anki').map(item => item.action);
+function assertHandoffLimitationsStayHidden(mobilePopover, spec) {
+    const text = mobilePopover.text.toLowerCase();
+    assert(!spec.forbiddenTerms.some(term => text.includes(term)), spec.limitationsMessage, mobilePopover);
 }
 
-function assertAnkiStatusStorage(storage, expectedCardCount) {
-    assert(storage.cardCount === expectedCardCount, 'Anki status index card count did not match mocked collection total', storage);
-    assert(storage.entryCount >= expectedCardCount, 'Anki status index did not store lookup entries for mocked cards', storage);
-    if (storage.entryStore === 'indexeddb') {
-        assert(storage.indexedDbEntryCount >= expectedCardCount, 'Anki status IndexedDB entry count did not match stored metadata', storage);
-    }
+function assertNoMobileAddNote(requests, spec) {
+    const sideEffect = requests.some(item => item.kind === 'anki-side-effect' && item.action === 'addNote');
+    assert(!sideEffect, spec.addNoteMessage, { requests });
 }
 
-async function readAnkiStatusStorage(page) {
-    return page.evaluate(async ({ storageKey, dbName, entryStore }) => {
-        const raw = localStorage.getItem(storageKey);
-        let meta = null;
-        try {
-            meta = raw ? JSON.parse(raw) : null;
-        } catch {
-            meta = null;
-        }
-        const indexedDbEntryCount = meta?.entryStore === 'indexeddb'
-            ? await countIndexedDbEntries(dbName, entryStore)
-            : null;
-        const valueEntryCount = meta?.entries && typeof meta.entries === 'object'
-            ? Object.keys(meta.entries).length
-            : 0;
-        return {
-            cardCount: Number(meta?.cardCount ?? 0),
-            entryCount: Number(meta?.entryCount ?? valueEntryCount),
-            entryStore: meta?.entryStore ?? 'value',
-            indexedDbEntryCount,
-            localStorageBytes: raw?.length ?? 0,
-        };
-
-        function countIndexedDbEntries(name, storeName) {
-            if (typeof indexedDB === 'undefined') return Promise.resolve(null);
-            return new Promise(resolve => {
-                let settled = false;
-                const done = value => {
-                    if (settled) return;
-                    settled = true;
-                    resolve(value);
-                };
-                const request = indexedDB.open(name);
-                request.onupgradeneeded = () => {
-                    request.transaction?.abort();
-                    done(null);
-                };
-                request.onerror = () => done(null);
-                request.onsuccess = () => {
-                    if (settled) {
-                        request.result.close();
-                        return;
-                    }
-                    const db = request.result;
-                    if (!db.objectStoreNames.contains(storeName)) {
-                        db.close();
-                        done(null);
-                        return;
-                    }
-                    const tx = db.transaction(storeName, 'readonly');
-                    const count = tx.objectStore(storeName).count();
-                    count.onsuccess = () => done(Number(count.result));
-                    count.onerror = () => done(null);
-                    tx.oncomplete = () => db.close();
-                    tx.onabort = () => {
-                        db.close();
-                        done(null);
-                    };
-                };
-            });
-        }
-    }, {
-        storageKey: ANKI_STATUS_INDEX_STORAGE_KEY,
-        dbName: ANKI_STATUS_INDEX_DB_NAME,
-        entryStore: ANKI_STATUS_INDEX_ENTRY_STORE,
-    });
+async function screenshotHandoff(page, spec) {
+    await page.screenshot({ path: path.join(ARTIFACTS, spec.screenshot), fullPage: false });
 }
 
 async function waitForRecordedRequest(requests, predicate, timeoutMs) {
@@ -1067,63 +886,69 @@ async function waitForRecordedRequest(requests, predicate, timeoutMs) {
 
 async function waitForVisibleAddButton(page, requests) {
     try {
-        await page.waitForFunction(() => {
-            const visibleElements = (selector, root = document) => [...root.querySelectorAll(selector)].filter(element => {
-                const rect = element.getBoundingClientRect();
-                const style = getComputedStyle(element);
-                return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
-            });
-            const enabledActionButtons = (selector, root = document) => [...root.querySelectorAll(selector)].filter(element => {
-                const style = getComputedStyle(element);
-                return style.visibility !== 'hidden' && style.display !== 'none' && !(element instanceof HTMLButtonElement && element.disabled);
-            });
-            const popover = visibleElements('.jpdb-reader-popover').find(element => element.textContent?.includes('書く'));
-            return Boolean(popover && enabledActionButtons('[data-action="anki"]', popover).length);
-        }, null, { timeout: 8000 });
+        await page.waitForFunction(hasVisibleWritingAddButton, null, { timeout: 8000 });
     } catch (error) {
-        const debug = await page.evaluate(() => {
-            const visibleElements = (selector, root = document) => [...root.querySelectorAll(selector)].filter(element => {
-                const rect = element.getBoundingClientRect();
-                const style = getComputedStyle(element);
-                return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
-            });
-            return {
-                visiblePopoverCount: visibleElements('.jpdb-reader-popover').length,
-                popovers: [...document.querySelectorAll('.jpdb-reader-popover')].map(popover => ({
-                    visible: visibleElements('.jpdb-reader-popover').includes(popover),
-                    text: popover.textContent?.replace(/\s+/g, ' ').trim().slice(0, 500) ?? '',
-                })),
-                pageWords: [...document.querySelectorAll('main .jpdb-reader-word')].map(word => ({
-                    text: word.textContent,
-                    ankiState: word.dataset.ankiState,
-                })),
-                addButtons: [...document.querySelectorAll('[data-action="anki"]')].map(button => {
-                    const rect = button.getBoundingClientRect();
-                    const style = getComputedStyle(button);
-                    return {
-                        text: button.textContent,
-                        display: style.display,
-                        visibility: style.visibility,
-                        rect: { width: rect.width, height: rect.height },
-                    };
-                }),
-            };
-        });
+        const debug = await collectAddButtonDebug(page);
         throw new Error(`Visible Add to Anki button did not appear: ${JSON.stringify({ debug, requests: requests.slice(-32) })}: ${error instanceof Error ? error.message : String(error)}`);
     }
+}
+
+function hasVisibleWritingAddButton() {
+    const popover = visibleWritingPopover();
+    const button = popover?.querySelector('[data-action="anki"]');
+    return isActiveSmokeButton(button);
+
+    function visibleWritingPopover() {
+        return [...document.querySelectorAll('.jpdb-reader-popover')].find(isVisibleWritingPopover);
+    }
+
+    function isVisibleWritingPopover(element) {
+        return isVisibleSmokeElement(element) && element.textContent?.includes('書く');
+    }
+
+    function isActiveSmokeButton(button) {
+        if (!(button instanceof HTMLElement)) return false;
+        return isVisibleSmokeElement(button) && isEnabledSmokeButton(button);
+    }
+
+    function isEnabledSmokeButton(button) {
+        return !(button instanceof HTMLButtonElement && button.disabled);
+    }
+
+    function isVisibleSmokeElement(element) {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return hasVisibleSmokeBox(rect) && hasDisplayedSmokeStyle(style);
+    }
+
+    function hasVisibleSmokeBox(rect) {
+        return rect.width > 0 && rect.height > 0;
+    }
+
+    function hasDisplayedSmokeStyle(style) {
+        return style.visibility !== 'hidden' && style.display !== 'none';
+    }
+}
+
+async function collectAddButtonDebug(page) {
+    return page.evaluate(() => ({
+        visiblePopoverCount: [...document.querySelectorAll('.jpdb-reader-popover')]
+            .filter(popover => popover.getClientRects().length > 0).length,
+        popovers: [...document.querySelectorAll('.jpdb-reader-popover')].map(popover => ({
+            text: popover.textContent?.replace(/\s+/g, ' ').trim().slice(0, 500) ?? '',
+        })),
+        pageWords: [...document.querySelectorAll('main .jpdb-reader-word')].map(word => ({
+            text: word.textContent,
+            ankiState: word.dataset.ankiState,
+        })),
+        addButtons: [...document.querySelectorAll('[data-action="anki"]')].map(button => button.textContent),
+    }));
 }
 
 async function closeVisiblePopovers(page) {
     await page.mouse.move(12, 12);
     await page.keyboard.press('Escape');
-    await page.waitForFunction(() => {
-        const visibleElements = selector => [...document.querySelectorAll(selector)].filter(element => {
-            const rect = element.getBoundingClientRect();
-            const style = getComputedStyle(element);
-            return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
-        });
-        return visibleElements('.jpdb-reader-popover').length === 0;
-    }, null, { timeout: 1500 }).catch(() => undefined);
+    await page.locator('.jpdb-reader-popover:visible').first().waitFor({ state: 'hidden', timeout: 1500 }).catch(() => undefined);
 }
 
 async function runNewTabSourceToggleSmoke(browser, baseUrl) {
@@ -1131,29 +956,21 @@ async function runNewTabSourceToggleSmoke(browser, baseUrl) {
     const page = await newMockedPage(browser, requests, {
         ...baseSettings,
         newTabSource: 'auto',
-    }, { width: 1280, height: 820 });
-    await page.goto(`${baseUrl}/newtab/index.html`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('[data-newtab-card]', { timeout: 12000 });
-    await page.waitForFunction(() => document.querySelector('[data-newtab-prompt]')?.textContent?.includes('日本語'), null, { timeout: 12000 });
+    }, NEWTAB_VIEWPORT);
+    await loadNewTabPage(page, baseUrl, '日本語');
 
     const initial = await readNewTabState(page);
-    assert(initial.prompt.includes('日本語') && initial.status.includes('JPDB') && initial.target === 'anki', 'Newtab did not start on JPDB with an Anki toggle target', initial);
+    assertNewTabState(initial, { prompt: '日本語', status: 'JPDB', target: 'anki' }, 'Newtab did not start on JPDB with an Anki toggle target');
 
-    const jpdbToAnkiStartedAt = Date.now();
-    await page.locator('[data-newtab-status]').click();
-    await page.waitForFunction(() => document.querySelector('[data-newtab-prompt]')?.textContent?.includes('暗記'), null, { timeout: 12000 });
-    const jpdbToAnkiMs = Date.now() - jpdbToAnkiStartedAt;
-    const anki = await readNewTabState(page);
-    assert(anki.prompt.includes('暗記') && anki.status.includes('Anki') && anki.target === 'jpdb', 'Newtab source toggle did not switch to Anki', anki);
-    assert(jpdbToAnkiMs < 5_000, 'JPDB to Anki source toggle was too slow', { jpdbToAnkiMs, initial, anki, requests });
+    const jpdbToAnki = await toggleNewTabSource(page, '暗記');
+    const anki = jpdbToAnki.state;
+    assertNewTabState(anki, { prompt: '暗記', status: 'Anki', target: 'jpdb' }, 'Newtab source toggle did not switch to Anki');
+    assertNewTabToggleLatency(jpdbToAnki.elapsedMs, 'JPDB to Anki source toggle was too slow', { jpdbToAnkiMs: jpdbToAnki.elapsedMs, initial, anki, requests });
 
-    const ankiToJpdbStartedAt = Date.now();
-    await page.locator('[data-newtab-status]').click();
-    await page.waitForFunction(() => document.querySelector('[data-newtab-prompt]')?.textContent?.includes('日本語'), null, { timeout: 12000 });
-    const ankiToJpdbMs = Date.now() - ankiToJpdbStartedAt;
-    const jpdb = await readNewTabState(page);
-    assert(jpdb.prompt.includes('日本語') && jpdb.status.includes('JPDB') && jpdb.target === 'anki', 'Newtab source toggle did not switch back to JPDB', jpdb);
-    assert(ankiToJpdbMs < 5_000, 'Anki to JPDB source toggle was too slow', { ankiToJpdbMs, anki, jpdb, requests });
+    const ankiToJpdb = await toggleNewTabSource(page, '日本語');
+    const jpdb = ankiToJpdb.state;
+    assertNewTabState(jpdb, { prompt: '日本語', status: 'JPDB', target: 'anki' }, 'Newtab source toggle did not switch back to JPDB');
+    assertNewTabToggleLatency(ankiToJpdb.elapsedMs, 'Anki to JPDB source toggle was too slow', { ankiToJpdbMs: ankiToJpdb.elapsedMs, anki, jpdb, requests });
 
     await page.screenshot({ path: path.join(ARTIFACTS, 'anki-mining-newtab-smoke.png'), fullPage: false });
     await page.close();
@@ -1162,10 +979,10 @@ async function runNewTabSourceToggleSmoke(browser, baseUrl) {
         anki,
         jpdb,
         latencyMs: {
-            jpdbToAnki: jpdbToAnkiMs,
-            ankiToJpdb: ankiToJpdbMs,
+            jpdbToAnki: jpdbToAnki.elapsedMs,
+            ankiToJpdb: ankiToJpdb.elapsedMs,
         },
-        jpdbEndpoints: requests.filter(item => item.kind === 'jpdb').map(item => item.endpoint),
+        jpdbEndpoints: jpdbEndpoints(requests),
         ankiActions: ankiActions(requests),
     };
 }
@@ -1178,24 +995,28 @@ async function runNewTabMultiDeckAnkiSmoke(browser, baseUrl) {
         newTabSource: 'anki',
         newTabAnkiEnabled: true,
         newTabAnkiDisabledDecks: ['Mining::Old', 'Archive'],
-    }, { width: 1280, height: 820 }, { name: 'multi-deck-newtab' });
-    await page.goto(`${baseUrl}/newtab/index.html`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('[data-newtab-card]', { timeout: 12000 });
-    await page.waitForFunction(() => document.querySelector('[data-newtab-prompt]')?.textContent?.includes('採掘'), null, { timeout: 12000 });
+    }, NEWTAB_VIEWPORT, { name: 'multi-deck-newtab' });
+    await loadNewTabPage(page, baseUrl, '採掘');
 
     const first = await readNewTabState(page);
-    assert(first.prompt.includes('採掘') && first.status.includes('Anki'), 'Multi-deck newtab did not start from the merged Anki SRS due queue', { first, requests });
+    assertNewTabState(first, { prompt: '採掘', status: 'Anki' }, 'Multi-deck newtab did not start from the merged Anki SRS due queue', { first, requests });
 
     await page.locator('[data-newtab-action="next"]').click();
-    await page.waitForFunction(() => document.querySelector('[data-newtab-prompt]')?.textContent?.includes('順番'), null, { timeout: 12000 });
+    await waitForNewTabPrompt(page, '順番')
+        .catch(async error => {
+            const afterClick = await readNewTabState(page);
+            await page.evaluate(() => document.querySelector('[data-newtab-controls] [data-newtab-action="next"]')?.click());
+            const afterProgrammaticClick = await readNewTabState(page);
+            throw new Error(`Multi-deck newtab did not advance to the second due Anki card: ${JSON.stringify({ first, afterClick, afterProgrammaticClick, requests })}: ${error instanceof Error ? error.message : String(error)}`);
+        });
     const second = await readNewTabState(page);
-    assert(second.prompt.includes('順番') && second.status.includes('Anki'), 'Multi-deck newtab did not preserve Anki due order after filtering disabled decks', { first, second, requests });
+    assertNewTabState(second, { prompt: '順番', status: 'Anki' }, 'Multi-deck newtab did not preserve Anki due order after filtering disabled decks', { first, second, requests });
 
     await page.waitForTimeout(650);
     await page.locator('[data-newtab-action="next"]').click();
-    await page.waitForFunction(() => document.querySelector('[data-newtab-prompt]')?.textContent?.includes('新規'), null, { timeout: 12000 });
+    await waitForNewTabPrompt(page, '新規');
     const third = await readNewTabState(page);
-    assert(third.prompt.includes('新規') && third.status.includes('Anki'), 'Multi-deck newtab did not fill due queue with enabled new cards', { first, second, third, requests });
+    assertNewTabState(third, { prompt: '新規', status: 'Anki' }, 'Multi-deck newtab did not fill due queue with enabled new cards', { first, second, third, requests });
 
     const findQueries = requests
         .filter(item => item.kind === 'anki' && item.action === 'findCards')
@@ -1219,7 +1040,7 @@ async function runNewTabMultiDeckAnkiSmoke(browser, baseUrl) {
         third,
         findQueries,
         noteIds,
-        ankiActions: requests.filter(item => item.kind === 'anki').map(item => item.action),
+        ankiActions: ankiActions(requests),
     };
 }
 
@@ -1232,48 +1053,34 @@ async function runNewTabJpdbMixedQueueSmoke(browser, baseUrl) {
         newTabJpdbReviewMode: 'api-vocabulary',
         newTabAnkiEnabled: false,
         enableReviews: true,
-    }, { width: 1280, height: 820 }, { name: 'jpdb-mixed-newtab' });
-    await page.goto(`${baseUrl}/newtab/index.html`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('[data-newtab-card]', { timeout: 12000 });
-    await page.waitForFunction(() => document.querySelector('[data-newtab-prompt]')?.textContent?.includes('未解禁'), null, { timeout: 12000 });
+    }, NEWTAB_VIEWPORT, { name: 'jpdb-mixed-newtab' });
+    await loadNewTabPage(page, baseUrl, '未解禁');
 
     const lockedFront = await readNewTabState(page);
-    assert(lockedFront.prompt.includes('未解禁') && lockedFront.status.includes('JPDB'), 'JPDB mixed queue did not start on the locked card from deck order', { lockedFront, requests });
+    assertNewTabState(lockedFront, { prompt: '未解禁', status: 'JPDB' }, 'JPDB mixed queue did not start on the locked card from deck order', { lockedFront, requests });
 
-    await page.locator('[data-newtab-action="reveal"]').click();
-    await page.waitForFunction(() => document.querySelector('[data-newtab-controls]')?.textContent?.includes('Hide'), null, { timeout: 12000 });
+    await revealNewTabCard(page);
     const lockedRevealed = await readNewTabState(page);
     assert(lockedRevealed.gradeButtons.length === 0, 'Locked JPDB card exposed grade buttons in built newtab', lockedRevealed);
     assert(lockedRevealed.controls.join(',') === 'previous,reveal,next', 'Locked JPDB card did not fall back to navigation controls', lockedRevealed);
-    assert(!requests.some(item => item.kind === 'jpdb' && item.endpoint === 'review'), 'Locked JPDB card submitted a review before any grade action', requests);
+    assert(!jpdbReviewRequests(requests).length, 'Locked JPDB card submitted a review before any grade action', requests);
 
-    await page.waitForTimeout(650);
-    await page.locator('[data-newtab-action="next"]').click();
-    await page.waitForFunction(() => document.querySelector('[data-newtab-prompt]')?.textContent?.includes('復習'), null, { timeout: 12000 });
+    await advanceNewTabCard(page, '復習');
     const dueFront = await readNewTabState(page);
-    assert(dueFront.prompt.includes('復習') && dueFront.status.includes('2 / 3'), 'JPDB mixed queue did not preserve the due card as the second deck card', { lockedFront, lockedRevealed, dueFront, requests });
+    assertNewTabState(dueFront, { prompt: '復習', status: '2 / 3' }, 'JPDB mixed queue did not preserve the due card as the second deck card', { lockedFront, lockedRevealed, dueFront, requests });
 
-    if (!dueFront.gradeButtons.length) {
-        await page.locator('[data-newtab-action="reveal"]').click();
-        await page.waitForFunction(() => document.querySelectorAll('[data-newtab-action="grade"]').length > 0, null, { timeout: 12000 });
-    }
-    const dueRevealed = await readNewTabState(page);
+    const dueRevealed = await revealDueJpdbCard(page, dueFront);
     assert(dueRevealed.gradeButtons.includes('okay'), 'Due JPDB card did not expose grade buttons after reveal', dueRevealed);
 
-    await page.locator('[data-newtab-action="grade"][data-grade="okay"]').click();
-    await waitForRequest(requests, item => item.kind === 'jpdb' && item.endpoint === 'review');
-    const reviewRequests = requests.filter(item => item.kind === 'jpdb' && item.endpoint === 'review');
+    const reviewRequests = await submitJpdbGrade(page, requests, 'okay');
     assert(reviewRequests.length === 1, 'JPDB mixed queue submitted an unexpected number of review requests', { reviewRequests, requests });
-    assert(reviewRequests[0]?.body?.vid === 302 && reviewRequests[0]?.body?.sid === 402, 'JPDB mixed queue graded the wrong card', { reviewRequests, requests });
+    assert(isExpectedJpdbReview(reviewRequests[0]?.body), 'JPDB mixed queue graded the wrong card', { reviewRequests, requests });
 
-    await page.waitForFunction(() => document.querySelector('[data-newtab-prompt]')?.textContent?.includes('新語'), null, { timeout: 12000 });
+    await waitForNewTabPrompt(page, '新語');
     const next = await readNewTabState(page);
-    assert(next.prompt.includes('新語') && next.status.includes('2 / 2'), 'JPDB mixed queue did not advance to the remaining new card after grading the due card', { next, requests });
+    assertNewTabState(next, { prompt: '新語', status: '2 / 2' }, 'JPDB mixed queue did not advance to the remaining new card after grading the due card', { next, requests });
 
-    const lookupBodies = requests
-        .filter(item => item.kind === 'jpdb' && item.endpoint === 'lookup-vocabulary')
-        .map(item => item.body);
-    assert(lookupBodies.some(body => JSON.stringify(body.list) === JSON.stringify([[301, 401], [302, 402], [303, 403]])), 'JPDB mixed queue did not request vocabulary in deck/list order', { lookupBodies, requests });
+    assertMixedJpdbLookupOrder(requests);
 
     await page.screenshot({ path: path.join(ARTIFACTS, 'jpdb-newtab-mixed-queue-smoke.png'), fullPage: false });
     await page.close();
@@ -1284,8 +1091,83 @@ async function runNewTabJpdbMixedQueueSmoke(browser, baseUrl) {
         dueRevealed,
         next,
         reviewRequests: reviewRequests.map(item => item.body),
-        jpdbEndpoints: requests.filter(item => item.kind === 'jpdb').map(item => item.endpoint),
+        jpdbEndpoints: jpdbEndpoints(requests),
     };
+}
+
+async function loadNewTabPage(page, baseUrl, initialPrompt) {
+    await page.goto(`${baseUrl}/newtab/index.html`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('[data-newtab-card]', { timeout: 12000 });
+    await waitForNewTabPrompt(page, initialPrompt);
+}
+
+async function waitForNewTabPrompt(page, prompt, timeout = 12000) {
+    await page.waitForFunction(value => {
+        return document.querySelector('[data-newtab-prompt]')?.textContent?.includes(value);
+    }, prompt, { timeout });
+}
+
+async function toggleNewTabSource(page, expectedPrompt) {
+    const startedAt = Date.now();
+    await page.locator('[data-newtab-status]').click();
+    await waitForNewTabPrompt(page, expectedPrompt);
+    return {
+        elapsedMs: Date.now() - startedAt,
+        state: await readNewTabState(page),
+    };
+}
+
+function assertNewTabState(state, expected, message, details = state) {
+    const matched = Object.entries(expected).every(([property, value]) => String(state[property] ?? '').includes(value));
+    assert(matched, message, details);
+}
+
+function assertNewTabToggleLatency(elapsedMs, message, details) {
+    assert(elapsedMs < 5_000, message, details);
+}
+
+async function revealNewTabCard(page) {
+    await page.locator('[data-newtab-action="reveal"]').click();
+    await page.waitForFunction(() => document.querySelector('[data-newtab-controls]')?.textContent?.includes('Hide'), null, { timeout: 12000 });
+}
+
+async function advanceNewTabCard(page, expectedPrompt) {
+    await page.waitForTimeout(650);
+    await page.locator('[data-newtab-action="next"]').click();
+    await waitForNewTabPrompt(page, expectedPrompt);
+}
+
+async function revealDueJpdbCard(page, dueFront) {
+    if (!dueFront.gradeButtons.length) {
+        await page.locator('[data-newtab-action="reveal"]').click();
+        await page.waitForFunction(() => document.querySelectorAll('[data-newtab-action="grade"]').length > 0, null, { timeout: 12000 });
+    }
+    return readNewTabState(page);
+}
+
+async function submitJpdbGrade(page, requests, grade) {
+    await page.locator(`[data-newtab-action="grade"][data-grade="${grade}"]`).click();
+    await waitForRequest(requests, item => item.kind === 'jpdb' && item.endpoint === 'review');
+    return jpdbReviewRequests(requests);
+}
+
+function jpdbReviewRequests(requests) {
+    return requests.filter(item => item.kind === 'jpdb' && item.endpoint === 'review');
+}
+
+function isExpectedJpdbReview(body) {
+    return body?.vid === 302 && body?.sid === 402;
+}
+
+function assertMixedJpdbLookupOrder(requests) {
+    const lookupBodies = requests
+        .filter(item => item.kind === 'jpdb' && item.endpoint === 'lookup-vocabulary')
+        .map(item => item.body);
+    assert(lookupBodies.some(body => JSON.stringify(body.list) === JPDB_MIXED_DECK_LIST_JSON), 'JPDB mixed queue did not request vocabulary in deck/list order', { lookupBodies, requests });
+}
+
+function jpdbEndpoints(requests) {
+    return requests.filter(item => item.kind === 'jpdb').map(item => item.endpoint);
 }
 
 async function waitForRequest(requests, predicate, timeoutMs = 12000) {
@@ -1315,10 +1197,10 @@ async function readNewTabState(page) {
 }
 
 async function main() {
-    assertBuiltArtifacts();
+    assertBuiltArtifacts(BUILT_ARTIFACTS, ROOT);
     mkdirSync(ARTIFACTS, { recursive: true });
     const { server, baseUrl } = await createFixtureServer();
-    const browser = await launchSmokeBrowser({ headless: true });
+    const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
     try {
         const reader = await runReaderMiningSmoke(browser, baseUrl);
         const localRoot = await runLocalRootReaderSmoke(browser, baseUrl);
@@ -1330,18 +1212,7 @@ async function main() {
         console.log(JSON.stringify({ reader, localRoot, mobileHandoff, androidHandoff, newtab, newtabMultiDeck, jpdbMixedQueue }, null, 2));
     } finally {
         await browser.close().catch(() => undefined);
-        await new Promise(resolve => server.close(resolve));
-    }
-}
-
-async function launchSmokeBrowser(options) {
-    const configuredChannel = process.env.YOMU_PLAYWRIGHT_CHANNEL;
-    if (configuredChannel) return chromium.launch({ ...options, channel: configuredChannel });
-    try {
-        return await chromium.launch(options);
-    } catch (error) {
-        if (!String(error?.message ?? '').includes("Executable doesn't exist")) throw error;
-        return chromium.launch({ ...options, channel: 'chrome' });
+        await closeServer(server);
     }
 }
 

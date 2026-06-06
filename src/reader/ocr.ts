@@ -1,6 +1,7 @@
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { uiText } from './i18n';
 import { waitForIdle } from './idle';
+import { readBlobAsDataUrl } from './blob-data-url';
 import { Logger } from './logger';
 import {
     cleanOcrLookupLines,
@@ -15,6 +16,7 @@ import {
 import { accentToRgba } from './settings';
 import { fallbackJapaneseSegments } from './reader-parser';
 import type { ReaderParserParseOptions } from './reader-parser';
+import { stablePositiveHashId } from './stable-hash';
 import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 import { getUserscriptHttpRequest } from './userscript';
 
@@ -36,6 +38,11 @@ interface OcrRenderedImageFrame {
     imageTop: number;
     imageWidth: number;
     imageHeight: number;
+}
+
+interface OcrRenderableMediaMutationSummary {
+    touched: boolean;
+    addedImage: boolean;
 }
 
 interface OcrControllerOptions {
@@ -74,7 +81,7 @@ const OCR_PROVIDER_LABELS: Partial<Record<ReaderSettings['ocrProvider'], (settin
 };
 
 export { normalizeOcrResult, parseGoogleLensUploadHtml };
-export type { OcrLine, OcrRect, OcrResult };
+export type { OcrResult };
 
 function shouldSkipOcrRequest(state: ImageState, userRequested: boolean): boolean {
     return state.autoSkipped && !userRequested;
@@ -173,22 +180,7 @@ export class ImageOcrController {
             this.schedulePosition();
             this.scheduleRefresh(300);
         }, { passive: true });
-        this.mutationObserver = new MutationObserver(mutations => {
-            const settings = this.options.getSettings();
-            if (!settings.ocrEnabled) return;
-            let addedImage = false;
-            let touched = false;
-            for (const mutation of mutations) {
-                if (!mutationTouchesRenderableMedia(mutation)) continue;
-                touched = true;
-                if (mutation.type === 'childList' && [...mutation.addedNodes].some(nodeContainsRenderableMedia)) addedImage = true;
-                if (addedImage) break;
-            }
-            if (!touched) return;
-            this.schedulePosition();
-            if (!settings.ocrAutoScanImages || this.options.shouldAutoScan?.() === false) return;
-            this.scheduleRefresh(addedImage ? 0 : 40);
-        });
+        this.mutationObserver = new MutationObserver(mutations => this.handleRenderableMediaMutations(mutations));
         this.mutationObserver.observe(document.body, {
             childList: true,
             subtree: true,
@@ -235,6 +227,16 @@ export class ImageOcrController {
         return !settings.ocrAutoScanImages || !this.hasVisibleInlineOcrFallback(settings);
     }
 
+    private handleRenderableMediaMutations(mutations: MutationRecord[]): void {
+        const settings = this.options.getSettings();
+        if (!settings.ocrEnabled) return;
+        const summary = summarizeRenderableMediaMutations(mutations);
+        if (!summary.touched) return;
+        this.schedulePosition();
+        if (!canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) return;
+        this.scheduleRefresh(summary.addedImage ? 0 : 40);
+    }
+
     private hasVisibleInlineOcrFallback(settings: ReaderSettings): boolean {
         return Array.from(document.images).some(image => {
             if (!readFallbackOcrResult(image, false)) return false;
@@ -268,14 +270,6 @@ export class ImageOcrController {
 
     private canAutoScanImage(settings: ReaderSettings): boolean {
         return settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false;
-    }
-
-    toggle(): void {
-        const settings = this.options.getSettings();
-        settings.ocrEnabled = !settings.ocrEnabled;
-        this.options.onToast(uiText(settings.interfaceLanguage, settings.ocrEnabled ? 'ocrEnabledToast' : 'ocrHiddenToast'));
-        this.refresh();
-        log.info('OCR toggled', { enabled: settings.ocrEnabled });
     }
 
     async scanVisible(): Promise<void> {
@@ -796,7 +790,7 @@ function compareOcrTokens(first: JPDBToken, second: JPDBToken): number {
 
 function ocrFallbackCardFromText(text: string): JPDBCard {
     const spelling = text.replace(/\s+/g, ' ').trim().slice(0, 80);
-    const id = -stableOcrFallbackId(`ocr-fallback\n${spelling}`);
+    const id = -stablePositiveHashId(`ocr-fallback\n${spelling}`);
     return {
         vid: id,
         sid: id,
@@ -811,15 +805,6 @@ function ocrFallbackCardFromText(text: string): JPDBCard {
         wordWithReading: null,
         source: 'fallback',
     };
-}
-
-function stableOcrFallbackId(value: string): number {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index += 1) {
-        hash ^= value.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-    }
-    return (hash >>> 0) || 1;
 }
 
 function createOcrLineElement(
@@ -871,8 +856,7 @@ function setOcrLinePosition(element: HTMLElement, result: OcrResult, line: OcrLi
 function renderedOcrImageFrame(image: HTMLImageElement, rect: DOMRect, result: OcrResult | undefined): OcrRenderedImageFrame {
     const style = getComputedStyle(image);
     const content = imageContentBox(image, rect, style);
-    const sourceWidth = result?.width || image.naturalWidth || image.width || content.width || rect.width || 1;
-    const sourceHeight = result?.height || image.naturalHeight || image.height || content.height || rect.height || 1;
+    const { sourceWidth, sourceHeight } = ocrSourceDimensions(image, rect, content, result);
     const object = fittedObjectSize(style.objectFit, sourceWidth, sourceHeight, content.width, content.height);
     const offset = objectPositionOffset(style.objectPosition, content.width - object.width, content.height - object.height);
     return {
@@ -881,6 +865,23 @@ function renderedOcrImageFrame(image: HTMLImageElement, rect: DOMRect, result: O
         imageWidth: Math.max(1, object.width),
         imageHeight: Math.max(1, object.height),
     };
+}
+
+function ocrSourceDimensions(
+    image: HTMLImageElement,
+    rect: DOMRect,
+    content: OcrRect,
+    result: OcrResult | undefined,
+): { sourceWidth: number; sourceHeight: number } {
+    return {
+        sourceWidth: firstTruthyNumber(result?.width, image.naturalWidth, image.width, content.width, rect.width),
+        sourceHeight: firstTruthyNumber(result?.height, image.naturalHeight, image.height, content.height, rect.height),
+    };
+}
+
+function firstTruthyNumber(...values: Array<number | undefined>): number {
+    const value = values.find(candidate => Boolean(candidate));
+    return value === undefined ? 1 : value;
 }
 
 function imageContentBox(image: HTMLImageElement, rect: DOMRect, style: CSSStyleDeclaration): OcrRect {
@@ -1203,7 +1204,7 @@ function isOcrProviderConfigured(settings: ReaderSettings): boolean {
 
 async function imageToBase64Payload(image: HTMLImageElement, maxPixels: number): Promise<{ base64: string; width: number; height: number }> {
     const { canvas, blob } = await imageToBlobPayload(image, maxPixels, 'image/jpeg', 0.86);
-    return { base64: (await blobToDataUrl(blob)).split(',')[1] ?? '', width: canvas.width, height: canvas.height };
+    return { base64: (await readBlobAsDataUrl(blob, 'Blob read failed.')).split(',')[1] ?? '', width: canvas.width, height: canvas.height };
 }
 
 async function imageToBlobPayload(image: HTMLImageElement, maxPixels: number, type: string, quality: number): Promise<{ canvas: HTMLCanvasElement; blob: Blob }> {
@@ -1363,10 +1364,7 @@ function isIgnoredOcrImage(image: HTMLImageElement): boolean {
 }
 
 function isVisibleOcrImage(image: HTMLImageElement): boolean {
-    const style = getComputedStyle(image);
-    return style.visibility !== 'hidden'
-        && style.display !== 'none'
-        && Number(style.opacity || '1') > 0
+    return !isHiddenByCss(image)
         && !isInsideHiddenAncestor(image);
 }
 
@@ -1403,6 +1401,22 @@ function mutationTouchesRenderableMedia(mutation: MutationRecord): boolean {
     return mutation.target instanceof Element && nodeContainsRenderableMedia(mutation.target);
 }
 
+function summarizeRenderableMediaMutations(mutations: MutationRecord[]): OcrRenderableMediaMutationSummary {
+    let addedImage = false;
+    let touched = false;
+    for (const mutation of mutations) {
+        if (!mutationTouchesRenderableMedia(mutation)) continue;
+        touched = true;
+        if (mutation.type === 'childList' && [...mutation.addedNodes].some(nodeContainsRenderableMedia)) addedImage = true;
+        if (addedImage) break;
+    }
+    return { touched, addedImage };
+}
+
+function canAutoRefreshOcrAfterMutation(settings: ReaderSettings, shouldAutoScan: (() => boolean) | undefined): boolean {
+    return settings.ocrAutoScanImages && shouldAutoScan?.() !== false;
+}
+
 function nodeContainsRenderableMedia(node: Node): boolean {
     return node instanceof HTMLImageElement
         || node instanceof HTMLVideoElement
@@ -1426,17 +1440,12 @@ function isVisiblePeerVideo(video: HTMLVideoElement, image: HTMLImageElement, im
         && video.getRootNode() === imageRoot
         && !isSameMediaNode(video, image)
         && visibleVideoRect(video) !== null
-        && isVisibleElement(video);
+        && !isHiddenByCss(video);
 }
 
 function visibleVideoRect(video: HTMLVideoElement): DOMRect | null {
     const rect = video.getBoundingClientRect();
     return rect.width >= 2 && rect.height >= 2 ? rect : null;
-}
-
-function isVisibleElement(element: Element): boolean {
-    const style = getComputedStyle(element);
-    return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || '1') > 0;
 }
 
 function videoOccludesImage(video: HTMLVideoElement, imageRect: DOMRect, imageArea: number): boolean {
@@ -1457,11 +1466,8 @@ function intersectionArea(a: DOMRect, b: DOMRect): number {
 }
 
 function shouldObserveImage(image: HTMLImageElement, settings: ReaderSettings): boolean {
-    if (settings.ocrProvider === 'off') return false;
-    if (readFallbackOcrResult(image, false)) return true;
-    if (settings.ocrProvider === 'local-service') return true;
-    if (settings.ocrProvider === 'cloud-vision') return Boolean(settings.ocrCloudVisionApiKey.trim());
-    return settings.ocrProvider === 'google-lens';
+    return settings.ocrProvider !== 'off'
+        && (hasInlineOcrFallback(image) || isOcrProviderConfigured(settings));
 }
 
 function hasInlineOcrFallback(image: HTMLImageElement): boolean {
@@ -1540,24 +1546,15 @@ function randomBytes(length: number): Uint8Array {
 }
 
 function requestJson(url: string, data: string, timeout: number): Promise<unknown> {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        return new Promise((resolve, reject) => {
-            userscriptRequest({
-                method: 'POST',
-                url,
-                headers: { 'content-type': 'application/json' },
-                data,
-                responseType: 'json',
-                timeout,
-                onload: response => response.status >= 200 && response.status < 300
-                    ? resolve(response.response ?? (response.responseText ? JSON.parse(response.responseText) : null))
-                    : reject(new Error(`OCR endpoint returned ${response.status}.`)),
-                onerror: reject,
-                ontimeout: () => reject(new Error('OCR timed out.')),
-            });
-        });
-    }
+    const userscriptRequest = requestViaUserscript({
+        method: 'POST',
+        url,
+        headers: { 'content-type': 'application/json' },
+        data,
+        responseType: 'json',
+        timeout,
+    }, response => response.response ?? (response.responseText ? JSON.parse(response.responseText) : null), status => `OCR endpoint returned ${status}.`, 'OCR timed out.');
+    if (userscriptRequest) return userscriptRequest;
     return fetchJsonWithTimeout(url, data, timeout)
         .then(response => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
 }
@@ -1586,24 +1583,15 @@ function requestArrayBuffer(url: string, data: Uint8Array, timeout: number): Pro
         accept: '*/*',
         'accept-language': 'ja,en-US;q=0.9,en;q=0.8',
     };
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        return new Promise((resolve, reject) => {
-            userscriptRequest({
-                method: 'POST',
-                url,
-                headers,
-                data: body.buffer,
-                responseType: 'arraybuffer',
-                timeout,
-                onload: response => response.status >= 200 && response.status < 300
-                    ? resolve(response.response as ArrayBuffer)
-                    : reject(new Error(`Google Lens returned ${response.status}.`)),
-                onerror: reject,
-                ontimeout: () => reject(new Error('Google Lens timed out.')),
-            });
-        });
-    }
+    const userscriptRequest = requestViaUserscript<ArrayBuffer>({
+        method: 'POST',
+        url,
+        headers,
+        data: body.buffer as ArrayBuffer,
+        responseType: 'arraybuffer',
+        timeout,
+    }, response => response.response as ArrayBuffer, status => `Google Lens returned ${status}.`, 'Google Lens timed out.');
+    if (userscriptRequest) return userscriptRequest;
     return fetch(url, {
         method: 'POST',
         headers,
@@ -1612,43 +1600,50 @@ function requestArrayBuffer(url: string, data: Uint8Array, timeout: number): Pro
 }
 
 function requestTextForm(url: string, data: FormData, timeout: number): Promise<string> {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        return new Promise((resolve, reject) => {
-            userscriptRequest({
-                method: 'POST',
-                url,
-                data,
-                responseType: 'text',
-                timeout,
-                onload: response => response.status >= 200 && response.status < 300
-                    ? resolve(String(response.responseText ?? response.response ?? ''))
-                    : reject(new Error(`Google Lens upload returned ${response.status}.`)),
-                onerror: reject,
-                ontimeout: () => reject(new Error('Google Lens upload timed out.')),
-            });
-        });
-    }
+    const userscriptRequest = requestViaUserscript({
+        method: 'POST',
+        url,
+        data,
+        responseType: 'text',
+        timeout,
+    }, response => String(response.responseText ?? response.response ?? ''), status => `Google Lens upload returned ${status}.`, 'Google Lens upload timed out.');
+    if (userscriptRequest) return userscriptRequest;
     return fetch(url, { method: 'POST', body: data })
         .then(response => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
 }
 
 function requestBlob(url: string): Promise<Blob> {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) {
-        return new Promise((resolve, reject) => {
-            userscriptRequest({
-                method: 'GET',
-                url,
-                responseType: 'blob',
-                onload: response => response.status >= 200 && response.status < 300
-                    ? resolve(response.response as Blob)
-                    : reject(new Error(`Image fetch returned ${response.status}.`)),
-                onerror: reject,
-            });
-        });
-    }
+    const userscriptRequest = requestViaUserscript<Blob>({
+        method: 'GET',
+        url,
+        responseType: 'blob',
+    }, response => response.response as Blob, status => `Image fetch returned ${status}.`);
+    if (userscriptRequest) return userscriptRequest;
     return fetch(url).then(response => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
+}
+
+function requestViaUserscript<T>(
+    options: Parameters<UserscriptHttpRequest>[0],
+    readResponse: (response: UserscriptHttpResponse) => T,
+    statusMessage: (status: number) => string,
+    timeoutMessage?: string,
+): Promise<T> | null {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (!userscriptRequest) return null;
+    return new Promise((resolve, reject) => {
+        userscriptRequest({
+            ...options,
+            onload: response => isSuccessfulHttpStatus(response.status)
+                ? resolve(readResponse(response))
+                : reject(new Error(statusMessage(response.status))),
+            onerror: reject,
+            ...(timeoutMessage ? { ontimeout: () => reject(new Error(timeoutMessage)) } : {}),
+        });
+    });
+}
+
+function isSuccessfulHttpStatus(status: number): boolean {
+    return status >= 200 && status < 300;
 }
 
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -1663,15 +1658,6 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
     return new Promise((resolve, reject) => {
         canvas.toBlob(result => result ? resolve(result) : reject(new Error('Image encoding failed.')), type, quality);
-    });
-}
-
-function blobToDataUrl(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result ?? ''));
-        reader.onerror = () => reject(reader.error ?? new Error('Blob read failed.'));
-        reader.readAsDataURL(blob);
     });
 }
 

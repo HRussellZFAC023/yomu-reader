@@ -1,11 +1,10 @@
 import { deinflectJapaneseTerm, termRulesMatch, type DeinflectedTerm } from './deinflect';
 import { uiText } from './i18n';
 import { Logger } from './logger';
-import { fetchWithCorsFallbacks } from './proxy-fetch';
 import { normalizeDictionaryPreferences } from './settings';
 import type { DictionaryPreference, InterfaceLanguage } from './types';
-import { getUserscriptHttpRequest } from './userscript';
 import { readBlobText, readDexieTableRowCounts, streamDexieTables } from './yomitan-dexie-stream';
+import { fileSummary, filenameFromUrl, formatBytes, formatPercent, namedBlobFile, requestBlob, safeHost } from './yomitan-file-utils';
 import { renderDictionaryScopedStyles } from './yomitan-glossary';
 import { glossaryValueToSearchText, normalizeGlossarySearchText } from './yomitan-glossary-text';
 import { readZipArchive, type ZipArchive } from './zip';
@@ -62,6 +61,8 @@ const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const log = Logger.scope('Yomitan');
 
 type InternalStoreName = StoreName | 'termKanji';
+type UiTextKey = Parameters<typeof uiText>[1];
+type UiTextLookup = (key: UiTextKey) => string;
 
 interface TermMatchCandidatePosition {
     start: number;
@@ -90,6 +91,13 @@ interface GlossaryCursorSearchOptions {
     maxMs?: number;
 }
 
+interface StoreCursorScanOptions {
+    storeName: StoreName;
+    maxRows: number;
+    maxMs: number;
+    errorMessage: string;
+}
+
 interface TermSearchOptions {
     candidateLimit?: number;
     glossaryIndexMaxRows?: number;
@@ -111,7 +119,6 @@ export type {
     YomitanDictionaryInfo,
     YomitanKanjiEntry,
     YomitanMetaEntry,
-    YomitanSettingsImport,
     YomitanTermEntry,
     YomitanTermMatch,
 } from './yomitan-types';
@@ -152,21 +159,8 @@ export class YomitanDictionaryStore {
         private readonly getInterfaceLanguage: () => InterfaceLanguage = () => 'en',
     ) {}
 
-    private text(key: Parameters<typeof uiText>[1]): string {
+    private text(key: UiTextKey): string {
         return uiText(this.getInterfaceLanguage(), key);
-    }
-
-    async warm(preferences: DictionaryPreference[] = []): Promise<void> {
-        const done = log.time('Dictionary store warmup', { dictionaries: preferences.length });
-        try {
-            await this.summary();
-            if (preferences.length) await this.dictionaryStyleCss(preferences);
-        } catch (error) {
-            log.warn('Dictionary store warmup failed', { error });
-            throw error;
-        } finally {
-            done();
-        }
     }
 
     prepareTermSearchIndex(): Promise<void> {
@@ -309,6 +303,8 @@ export class YomitanDictionaryStore {
         );
     }
 
+    // NewTabController loads dictionary kanji through the injected store dependency.
+    // fallow-ignore-next-line unused-class-member
     async listKanjiCharacters(limit: number, preferences: DictionaryPreference[] = []): Promise<string[]> {
         const done = log.time('Kanji character list', { limit, dictionaries: preferences.length });
         try {
@@ -488,6 +484,8 @@ export class YomitanDictionaryStore {
         return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
     }
 
+    // NewTabController checks local dictionary availability through this injected store.
+    // fallow-ignore-next-line unused-class-member
     async hasDictionaries(): Promise<boolean> {
         const done = log.time('Dictionary presence check');
         try {
@@ -508,50 +506,16 @@ export class YomitanDictionaryStore {
             const rank = dictionaryRank(preferences);
             const reservoir: YomitanTermEntry[] = [];
             const seen = new Set<string>();
-            const startedAt = performance.now();
             const maxRows = options.maxRows ?? RANDOM_TERM_LIST_MAX_ROWS;
             const maxMs = options.maxMs ?? RANDOM_TERM_LIST_MAX_MS;
             let count = 0;
-            let visited = 0;
-
-            await new Promise<void>((resolve, reject) => {
-                const tx = db.transaction('terms', 'readonly');
-                const request = tx.objectStore('terms').openCursor();
-                request.onerror = () => reject(request.error ?? new Error('Could not list dictionary terms.'));
-                request.onsuccess = () => {
-                    const cursor = request.result;
-                    if (!cursor) {
-                        resolve();
-                        return;
-                    }
-                    if ((maxRows > 0 && visited >= maxRows)
-                        || (maxMs > 0 && performance.now() - startedAt >= maxMs)) {
-                        resolve();
-                        return;
-                    }
-                    visited++;
-                    const entry = cursor.value as YomitanTermEntry;
-                    if (
-                        entry.expression
-                        && JAPANESE_RE.test(entry.expression)
-                        && entry.expression.length <= 6
-                        && dictionaryEnabled(entry.dictionary, rank)
-                    ) {
-                        const key = `${entry.expression}\n${entry.reading}`;
-                        if (!seen.has(key)) {
-                            seen.add(key);
-                            count++;
-                            if (reservoir.length < limit) {
-                                reservoir.push(entry);
-                            } else {
-                                const index = Math.floor(Math.random() * count);
-                                if (index < limit) reservoir[index] = entry;
-                            }
-                        }
-                    }
-                    cursor.continue();
-                };
-            });
+            await scanObjectStoreCursor<YomitanTermEntry>(
+                db,
+                { storeName: 'terms', maxRows, maxMs, errorMessage: 'Could not list dictionary terms.' },
+                entry => {
+                    count = addRandomListTermToReservoir(entry, rank, seen, reservoir, limit, count);
+                },
+            );
 
             return reservoir;
         } catch (error) {
@@ -614,36 +578,15 @@ export class YomitanDictionaryStore {
         options: GlossaryCursorSearchOptions = {},
     ): Promise<Map<string, number>> {
         const expressions = new Map<string, number>();
-        const startedAt = performance.now();
         const maxRows = options.maxRows ?? RANDOM_TOP_TERM_LIST_MAX_ROWS;
         const maxMs = options.maxMs ?? RANDOM_TOP_TERM_LIST_MAX_MS;
-        let visited = 0;
-        await new Promise<void>((resolve, reject) => {
-            const tx = db.transaction('termMeta', 'readonly');
-            const request = tx.objectStore('termMeta').openCursor();
-            request.onerror = () => reject(request.error ?? new Error('Could not list dictionary term meta.'));
-            request.onsuccess = () => {
-                const cursor = request.result;
-                if (!cursor) {
-                    resolve();
-                    return;
-                }
-                if ((maxRows > 0 && visited >= maxRows)
-                    || (maxMs > 0 && performance.now() - startedAt >= maxMs)) {
-                    resolve();
-                    return;
-                }
-                visited++;
-                const entry = cursor.value as YomitanMetaEntry;
-                if (entry.mode === 'freq' && entry.expression && dictionaryEnabled(entry.dictionary, rank)) {
-                    const freq = extractFrequency(entry.data);
-                    if (freq !== undefined && freq <= maxRank) {
-                        expressions.set(entry.expression, Math.min(freq, expressions.get(entry.expression) ?? Number.POSITIVE_INFINITY));
-                    }
-                }
-                cursor.continue();
-            };
-        });
+        await scanObjectStoreCursor<YomitanMetaEntry>(
+            db,
+            { storeName: 'termMeta', maxRows, maxMs, errorMessage: 'Could not list dictionary term meta.' },
+            entry => {
+                addTopFrequencyExpression(expressions, entry, maxRank, rank);
+            },
+        );
         return expressions;
     }
 
@@ -693,44 +636,16 @@ export class YomitanDictionaryStore {
     ): Promise<YomitanTermEntry[]> {
         const reservoir: YomitanTermEntry[] = [];
         const seen = new Set<string>();
-        const startedAt = performance.now();
         const maxRows = options.maxRows ?? RANDOM_TERM_LIST_MAX_ROWS;
         const maxMs = options.maxMs ?? RANDOM_TERM_LIST_MAX_MS;
         let count = 0;
-        let visited = 0;
-        await new Promise<void>((resolve, reject) => {
-            const tx = db.transaction('terms', 'readonly');
-            const request = tx.objectStore('terms').openCursor();
-            request.onerror = () => reject(request.error ?? new Error('Could not list dictionary terms.'));
-            request.onsuccess = () => {
-                const cursor = request.result;
-                if (!cursor) {
-                    resolve();
-                    return;
-                }
-                if ((maxRows > 0 && visited >= maxRows)
-                    || (maxMs > 0 && performance.now() - startedAt >= maxMs)) {
-                    resolve();
-                    return;
-                }
-                visited++;
-                const entry = cursor.value as YomitanTermEntry;
-                if (isCommonDictionaryTerm(entry, rank)) {
-                    const key = `${entry.expression}\n${entry.reading}`;
-                    if (!seen.has(key)) {
-                        seen.add(key);
-                        count++;
-                        if (reservoir.length < limit) {
-                            reservoir.push(entry);
-                        } else {
-                            const index = Math.floor(Math.random() * count);
-                            if (index < limit) reservoir[index] = entry;
-                        }
-                    }
-                }
-                cursor.continue();
-            };
-        });
+        await scanObjectStoreCursor<YomitanTermEntry>(
+            db,
+            { storeName: 'terms', maxRows, maxMs, errorMessage: 'Could not list dictionary terms.' },
+            entry => {
+                count = addCommonTermToReservoir(entry, rank, seen, reservoir, limit, count);
+            },
+        );
         return reservoir;
     }
 
@@ -894,10 +809,12 @@ export class YomitanDictionaryStore {
         const batches: Record<EntryStoreName, unknown[]> = { terms: [], kanji: [], termMeta: [], kanjiMeta: [] };
         const progressAt: Record<EntryStoreName, number> = { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
 
+        const emitProgress = (message: string) => {
+            onProgress?.(message);
+        };
         const reportProgress = (store?: EntryStoreName, force = false) => {
             if (!store) {
-                if (totalRows > 0) onProgress?.(`${this.text('dictionaryImported')} ${summary.entries.toLocaleString()} / ${totalRows.toLocaleString()} ${this.text('dictionaryRecords')}...`);
-                else onProgress?.(`${this.text('dictionaryImported')} ${summary.entries.toLocaleString()} ${this.text('dictionaryRecords')}...`);
+                emitProgress(formatDexieImportProgress(this.text.bind(this), summary.entries, totalRows));
                 return;
             }
 
@@ -905,11 +822,7 @@ export class YomitanDictionaryStore {
             const tableTotal = rowCounts[store] ?? 0;
             if (!force && imported < progressAt[store]) return;
             progressAt[store] = imported + DEXIE_PROGRESS_INTERVAL;
-            if (tableTotal > 0 && totalRows > 0) {
-                onProgress?.(`${this.text('dictionaryImporting')} ${store}: ${imported.toLocaleString()} / ${tableTotal.toLocaleString()} ${this.text('dictionaryEntries')} (${summary.entries.toLocaleString()} / ${totalRows.toLocaleString()} ${this.text('dictionaryTotal')})...`);
-                return;
-            }
-            onProgress?.(`${this.text('dictionaryImporting')} ${store}: ${imported.toLocaleString()} ${this.text('dictionaryEntries')}...`);
+            emitProgress(formatDexieStoreImportProgress(this.text.bind(this), store, imported, tableTotal, summary.entries, totalRows));
         };
 
         const flush = async (store: EntryStoreName, forceProgress = false) => {
@@ -988,6 +901,8 @@ export class YomitanDictionaryStore {
         return summary;
     }
 
+    // SettingsDialogController exports dictionaries through the injected store dependency.
+    // fallow-ignore-next-line unused-class-member
     async exportJson(): Promise<Blob> {
         const done = log.time('Dictionary export');
         try {
@@ -1352,20 +1267,13 @@ export class YomitanDictionaryStore {
                     resolve(entries);
                     return;
                 }
-                if ((options.maxRows && visited >= options.maxRows)
-                    || (options.maxMs && performance.now() - startedAt >= options.maxMs)) {
+                if (optionalCursorScanLimitReached(options, visited, startedAt)) {
                     resolve(entries);
                     return;
                 }
                 visited++;
                 const entry = cursor.value as YomitanTermEntry;
-                if (entry.expression?.includes(character) && dictionaryEnabled(entry.dictionary, rank)) {
-                    const key = `${entry.expression}\n${entry.reading}`;
-                    if (!seen.has(key)) {
-                        seen.add(key);
-                        entries.push(entry);
-                    }
-                }
+                addSimilarTermByKanjiCandidate(entries, seen, entry, character, rank);
                 cursor.continue();
             };
         });
@@ -1416,25 +1324,34 @@ export class YomitanDictionaryStore {
         rank: Map<string, DictionaryPreference>,
         options: TermSearchOptions = {},
     ): Promise<TermSearchCandidate[]> {
-        if (hasStore(db, 'termSearch')) {
-            const indexed = await this.getGlossaryTermSearchIndexCandidates(db, query, candidateLimit, rank, {
-                maxRows: options.glossaryIndexMaxRows ?? TERM_SEARCH_INDEX_CURSOR_MAX_ROWS,
-                maxMs: options.glossaryIndexMaxMs ?? TERM_SEARCH_INDEX_CURSOR_MAX_MS,
-            });
-            if (indexed.length) return indexed;
-            const building = Boolean(this.termSearchIndexPromise);
-            const indexedCount = await this.countStore(db, 'termSearch');
-            if (indexedCount > 0 && !building) return indexed;
-            if (!building && options.prepareIndex !== false) {
-                void this.prepareTermSearchIndex();
-            }
-            if (building && options.fallbackWhileIndexing === false) return indexed;
-            return this.getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank, {
-                maxRows: options.glossaryFallbackMaxRows ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS,
-                maxMs: options.glossaryFallbackMaxMs ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_MS,
-            });
+        if (!hasStore(db, 'termSearch')) {
+            return this.getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank);
         }
-        return this.getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank);
+        return this.getGlossaryTermSearchCandidatesWithIndex(db, query, candidateLimit, rank, options);
+    }
+
+    private async getGlossaryTermSearchCandidatesWithIndex(
+        db: IDBDatabase,
+        query: string,
+        candidateLimit: number,
+        rank: Map<string, DictionaryPreference>,
+        options: TermSearchOptions,
+    ): Promise<TermSearchCandidate[]> {
+        const indexed = await this.getGlossaryTermSearchIndexCandidates(db, query, candidateLimit, rank, glossaryIndexSearchOptions(options));
+        if (indexed.length) return indexed;
+
+        const building = Boolean(this.termSearchIndexPromise);
+        const indexedCount = await this.countStore(db, 'termSearch');
+        if (hasReadyEmptyGlossarySearchIndex(indexedCount, building)) return indexed;
+        this.prepareTermSearchIndexIfIdle(building, options);
+        if (shouldSkipGlossaryFallback(building, options)) return indexed;
+        return this.getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank, glossaryFallbackSearchOptions(options));
+    }
+
+    private prepareTermSearchIndexIfIdle(building: boolean, options: TermSearchOptions): void {
+        if (building) return;
+        if (options.prepareIndex === false) return;
+        void this.prepareTermSearchIndex();
     }
 
     private async getGlossaryTermCursorSearchCandidates(
@@ -2013,26 +1930,182 @@ function countYomitanZipBanks(entries: ReturnType<ZipArchive['entries']>): numbe
     return entries.filter(entry => /^(term|kanji|term_meta|kanji_meta)_bank_\d+\.json$/i.test(entry.name)).length;
 }
 
-function formatPercent(loaded: number, total: number): string {
-    if (total <= 0) return '100%';
-    return `${Math.max(0, Math.min(100, Math.round((loaded / total) * 100)))}%`;
-}
-
-function formatBytes(value: number): string {
-    if (!Number.isFinite(value) || value <= 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB'] as const;
-    let size = value;
-    let unit = 0;
-    while (size >= 1024 && unit < units.length - 1) {
-        size /= 1024;
-        unit++;
-    }
-    const precision = unit === 0 || size >= 10 ? 0 : 1;
-    return `${size.toFixed(precision)} ${units[unit]}`;
-}
-
 function formatUiTemplate(template: string, values: Record<string, string>): string {
     return Object.entries(values).reduce((value, [key, replacement]) => value.replaceAll(`{${key}}`, replacement), template);
+}
+
+function cursorScanLimitReached(visited: number, startedAt: number, maxRows: number, maxMs: number): boolean {
+    return positiveLimitReached(maxRows, visited) || positiveLimitReached(maxMs, performance.now() - startedAt);
+}
+
+async function scanObjectStoreCursor<T>(
+    db: IDBDatabase,
+    { storeName, maxRows, maxMs, errorMessage }: StoreCursorScanOptions,
+    visit: (entry: T) => void,
+): Promise<void> {
+    const startedAt = performance.now();
+    let visited = 0;
+    await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const request = tx.objectStore(storeName).openCursor();
+        request.onerror = () => reject(request.error ?? new Error(errorMessage));
+        request.onsuccess = () => {
+            const cursor = request.result;
+            if (!cursor || cursorScanLimitReached(visited, startedAt, maxRows, maxMs)) {
+                resolve();
+                return;
+            }
+            visited++;
+            visit(cursor.value as T);
+            cursor.continue();
+        };
+    });
+}
+
+function optionalCursorScanLimitReached(options: GlossaryCursorSearchOptions, visited: number, startedAt: number): boolean {
+    return optionalLimitReached(options.maxRows, visited) || optionalLimitReached(options.maxMs, performance.now() - startedAt);
+}
+
+function positiveLimitReached(limit: number, value: number): boolean {
+    return limit > 0 && value >= limit;
+}
+
+function optionalLimitReached(limit: number | undefined, value: number): boolean {
+    return Boolean(limit && value >= limit);
+}
+
+function addRandomListTermToReservoir(
+    entry: YomitanTermEntry,
+    rank: Map<string, DictionaryPreference>,
+    seen: Set<string>,
+    reservoir: YomitanTermEntry[],
+    limit: number,
+    count: number,
+): number {
+    if (!isRandomListTerm(entry, rank)) return count;
+    return addUniqueTermToReservoir(entry, seen, reservoir, limit, count);
+}
+
+function addCommonTermToReservoir(
+    entry: YomitanTermEntry,
+    rank: Map<string, DictionaryPreference>,
+    seen: Set<string>,
+    reservoir: YomitanTermEntry[],
+    limit: number,
+    count: number,
+): number {
+    if (!isCommonDictionaryTerm(entry, rank)) return count;
+    return addUniqueTermToReservoir(entry, seen, reservoir, limit, count);
+}
+
+function addUniqueTermToReservoir(
+    entry: YomitanTermEntry,
+    seen: Set<string>,
+    reservoir: YomitanTermEntry[],
+    limit: number,
+    count: number,
+): number {
+    const key = termExpressionReadingKey(entry);
+    if (seen.has(key)) return count;
+    seen.add(key);
+    const nextCount = count + 1;
+    if (reservoir.length < limit) {
+        reservoir.push(entry);
+        return nextCount;
+    }
+    const index = Math.floor(Math.random() * nextCount);
+    if (index < limit) reservoir[index] = entry;
+    return nextCount;
+}
+
+function isRandomListTerm(entry: YomitanTermEntry, rank: Map<string, DictionaryPreference>): boolean {
+    if (!entry.expression) return false;
+    if (!JAPANESE_RE.test(entry.expression)) return false;
+    if (entry.expression.length > 6) return false;
+    return dictionaryEnabled(entry.dictionary, rank);
+}
+
+function addTopFrequencyExpression(
+    expressions: Map<string, number>,
+    entry: YomitanMetaEntry,
+    maxRank: number,
+    rank: Map<string, DictionaryPreference>,
+): void {
+    if (entry.mode !== 'freq') return;
+    if (!entry.expression) return;
+    if (!dictionaryEnabled(entry.dictionary, rank)) return;
+    const freq = extractFrequency(entry.data);
+    if (freq === undefined) return;
+    if (freq > maxRank) return;
+    expressions.set(entry.expression, Math.min(freq, expressions.get(entry.expression) ?? Number.POSITIVE_INFINITY));
+}
+
+function addSimilarTermByKanjiCandidate(
+    entries: YomitanTermEntry[],
+    seen: Set<string>,
+    entry: YomitanTermEntry,
+    character: string,
+    rank: Map<string, DictionaryPreference>,
+): void {
+    if (!entry.expression?.includes(character)) return;
+    if (!dictionaryEnabled(entry.dictionary, rank)) return;
+    addUniqueTermEntry(entries, seen, entry);
+}
+
+function addUniqueTermEntry(entries: YomitanTermEntry[], seen: Set<string>, entry: YomitanTermEntry): void {
+    const key = termExpressionReadingKey(entry);
+    if (seen.has(key)) return;
+    seen.add(key);
+    entries.push(entry);
+}
+
+function termExpressionReadingKey(entry: Pick<YomitanTermEntry, 'expression' | 'reading'>): string {
+    return `${entry.expression}\n${entry.reading}`;
+}
+
+function formatDexieImportProgress(text: UiTextLookup, imported: number, totalRows: number): string {
+    const importedCount = imported.toLocaleString();
+    if (totalRows > 0) {
+        return `${text('dictionaryImported')} ${importedCount} / ${totalRows.toLocaleString()} ${text('dictionaryRecords')}...`;
+    }
+    return `${text('dictionaryImported')} ${importedCount} ${text('dictionaryRecords')}...`;
+}
+
+function formatDexieStoreImportProgress(
+    text: UiTextLookup,
+    store: EntryStoreName,
+    imported: number,
+    tableTotal: number,
+    totalImported: number,
+    totalRows: number,
+): string {
+    const importedCount = imported.toLocaleString();
+    if (tableTotal > 0 && totalRows > 0) {
+        return `${text('dictionaryImporting')} ${store}: ${importedCount} / ${tableTotal.toLocaleString()} ${text('dictionaryEntries')} (${totalImported.toLocaleString()} / ${totalRows.toLocaleString()} ${text('dictionaryTotal')})...`;
+    }
+    return `${text('dictionaryImporting')} ${store}: ${importedCount} ${text('dictionaryEntries')}...`;
+}
+
+function glossaryIndexSearchOptions(options: TermSearchOptions): GlossaryCursorSearchOptions {
+    return {
+        maxRows: options.glossaryIndexMaxRows ?? TERM_SEARCH_INDEX_CURSOR_MAX_ROWS,
+        maxMs: options.glossaryIndexMaxMs ?? TERM_SEARCH_INDEX_CURSOR_MAX_MS,
+    };
+}
+
+function glossaryFallbackSearchOptions(options: TermSearchOptions): GlossaryCursorSearchOptions {
+    return {
+        maxRows: options.glossaryFallbackMaxRows ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS,
+        maxMs: options.glossaryFallbackMaxMs ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_MS,
+    };
+}
+
+function hasReadyEmptyGlossarySearchIndex(indexedCount: number, building: boolean): boolean {
+    return indexedCount > 0 && !building;
+}
+
+function shouldSkipGlossaryFallback(building: boolean, options: TermSearchOptions): boolean {
+    return building && options.fallbackWhileIndexing === false;
 }
 
 function yomitanZipDictionaryName(index: YomitanZipIndex, filename: string): string {
@@ -2498,210 +2571,6 @@ function hasReaderDictionaryExportRows(record: Partial<ReaderDictionaryExport>):
 
 function uniqueDictionaryNames(names: unknown[]): string[] {
     return [...new Set(names.filter((name): name is string => typeof name === 'string' && Boolean(name)))];
-}
-
-function filenameFromUrl(url: string): string {
-    try {
-        const parsed = new URL(url);
-        const pathName = parsed.pathname.split('/').filter(Boolean).pop();
-        return pathName && /\.zip$/i.test(pathName) ? decodeURIComponent(pathName) : 'dictionary.zip';
-    } catch {
-        return 'dictionary.zip';
-    }
-}
-
-function fileSummary(file: File, sourceUrl = ''): Record<string, unknown> {
-    return {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        sourceHost: sourceUrl ? safeHost(sourceUrl) : '',
-    };
-}
-
-function safeHost(url: string): string {
-    try {
-        return new URL(url, location.href).host;
-    } catch {
-        return '';
-    }
-}
-
-function namedBlobFile(blob: Blob, name: string, type: string): File {
-    if (typeof File === 'function') return new File([blob], name, { type });
-    Object.defineProperty(blob, 'name', { value: name, configurable: true });
-    Object.defineProperty(blob, 'lastModified', { value: Date.now(), configurable: true });
-    return blob as File;
-}
-
-async function requestBlob(url: string, proxyUrl: string, onProgress?: (message: string) => void, language: InterfaceLanguage = 'en'): Promise<Blob> {
-    const done = log.time('Dictionary download', { host: safeHost(url) });
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
-    return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language);
-}
-
-function requestBlobViaUserscript(
-    url: string,
-    userscriptRequest: NonNullable<ReturnType<typeof getUserscriptHttpRequest>>,
-    done: () => void,
-    onProgress?: (message: string) => void,
-    language: InterfaceLanguage = 'en',
-): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-            const handleLoad = (response: UserscriptHttpResponse) => {
-                if (response.response instanceof Blob && (response.status === 0 || (response.status >= 200 && response.status < 300))) {
-                    log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: response.response.size });
-                    done();
-                    resolve(response.response);
-                    return;
-                }
-                if (response.status < 200 || response.status >= 300) {
-                    log.warn('Dictionary download returned HTTP error', { host: safeHost(url), status: response.status });
-                    done();
-                    reject(new Error(formatDictionaryDownloadFailed(language, response.status)));
-                    return;
-                }
-                log.warn('Dictionary download returned unexpected payload', { host: safeHost(url), status: response.status });
-                done();
-                reject(new Error(uiText(language, 'dictionaryDownloadNotZip')));
-            };
-            const result = userscriptRequest({
-                method: 'GET',
-                url,
-                headers: { accept: 'application/zip,application/octet-stream,*/*' },
-                responseType: 'blob',
-                timeout: 120000,
-                onprogress: event => {
-                    if (event.lengthComputable && event.total > 0) {
-                        onProgress?.(`${uiText(language, 'dictionaryDownloadProgress')} ${Math.round((event.loaded / event.total) * 100)}%...`);
-                    }
-                },
-                onload: handleLoad,
-                onerror: () => {
-                    log.warn('Dictionary download failed', { host: safeHost(url) });
-                    done();
-                    reject(new Error(uiText(language, 'dictionaryDownloadFailed')));
-                },
-                ontimeout: () => {
-                    log.warn('Dictionary download timed out', { host: safeHost(url) });
-                    done();
-                    reject(new Error(uiText(language, 'dictionaryDownloadTimedOut')));
-                },
-            });
-            if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-                (result as Promise<UserscriptHttpResponse>).then(handleLoad, () => {
-                    log.warn('Dictionary download failed', { host: safeHost(url) });
-                    done();
-                    reject(new Error(uiText(language, 'dictionaryDownloadFailed')));
-                });
-            }
-        });
-}
-
-async function requestBlobViaFetch(
-    url: string,
-    proxyUrl: string,
-    done: () => void,
-    onProgress: ((message: string) => void) | undefined,
-    language: InterfaceLanguage,
-): Promise<Blob> {
-    const downloadUrl = dictionaryDownloadUrl(url);
-    if (!downloadUrl) return throwMissingDictionaryDownloadBridge(done, language);
-    try {
-        return await fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress, language);
-    } catch (error) {
-        return handleDictionaryFetchError(url, downloadUrl, error, done, language);
-    }
-}
-
-function throwMissingDictionaryDownloadBridge(done: () => void, language: InterfaceLanguage): never {
-    done();
-    throw new Error(uiText(language, 'dictionaryDownloadNeedsBridge'));
-}
-
-async function fetchDictionaryBlob(
-    url: string,
-    downloadUrl: string,
-    proxyUrl: string,
-    done: () => void,
-    onProgress: ((message: string) => void) | undefined,
-    language: InterfaceLanguage,
-): Promise<Blob> {
-    const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer', timeoutMs: 120000 });
-    if (!response.ok) throwDictionaryHttpError(url, response.status, language);
-    const blob = await responseBlobWithProgress(response, onProgress, language);
-    log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: blob.size });
-    done();
-    return blob;
-}
-
-async function responseBlobWithProgress(response: Response, onProgress: ((message: string) => void) | undefined, language: InterfaceLanguage): Promise<Blob> {
-    if (!response.body || !onProgress) return response.blob();
-    const total = Number(response.headers.get('content-length') ?? 0);
-    const type = response.headers.get('content-type') || 'application/zip';
-    const reader = response.body.getReader();
-    const chunks: Uint8Array[] = [];
-    let loaded = 0;
-    for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        loaded += value.byteLength;
-        onProgress(formatDictionaryDownloadProgress(language, loaded, total));
-    }
-    const bytes = new Uint8Array(loaded);
-    let offset = 0;
-    for (const chunk of chunks) {
-        bytes.set(chunk, offset);
-        offset += chunk.byteLength;
-    }
-    return new Blob([bytes.buffer.slice(0)], { type });
-}
-
-function formatDictionaryDownloadProgress(language: InterfaceLanguage, loaded: number, total: number): string {
-    const label = uiText(language, 'dictionaryDownloadProgress');
-    if (total > 0) return `${label} ${formatPercent(loaded, total)} (${formatBytes(loaded)} / ${formatBytes(total)})...`;
-    return `${label} ${formatBytes(loaded)}...`;
-}
-
-function throwDictionaryHttpError(url: string, status: number, language: InterfaceLanguage): never {
-    log.warn('Dictionary download returned HTTP error', { host: safeHost(url), status });
-    throw new Error(formatDictionaryDownloadFailed(language, status));
-}
-
-function handleDictionaryFetchError(url: string, downloadUrl: string, error: unknown, done: () => void, language: InterfaceLanguage): never {
-    const host = safeHost(url);
-    if (isDictionaryCorsError(error)) {
-        log.warn('Dictionary download failed due cross-origin restriction', { host, downloadUrl });
-        done();
-        throw new Error(uiText(language, 'dictionaryDownloadBlocked'));
-    }
-    log.warn('Dictionary download fetch failed', { host, error });
-    done();
-    throw language === 'ja' ? new Error(uiText(language, 'dictionaryDownloadFailed')) : error;
-}
-
-function formatDictionaryDownloadFailed(language: InterfaceLanguage, status: number): string {
-    return language === 'ja'
-        ? `${uiText(language, 'dictionaryDownloadFailed')}（${status}）`
-        : `Dictionary download failed (${status}).`;
-}
-
-function isDictionaryCorsError(error: unknown): boolean {
-    return error instanceof Error && error.name === 'TypeError';
-}
-
-function dictionaryDownloadUrl(url: string): string | null {
-    try {
-        const target = new URL(url, location.href);
-        const current = new URL(location.href);
-        if (target.origin === current.origin) return target.href;
-        if (target.protocol === 'https:' || target.protocol === 'http:') return target.href;
-        return null;
-    } catch {
-        return url;
-    }
 }
 
 function splitTags(value: unknown): string[] {

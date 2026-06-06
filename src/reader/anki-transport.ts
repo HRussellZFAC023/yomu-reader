@@ -62,7 +62,7 @@ export function isAnkiConnectAvailabilityError(error: unknown): boolean {
     return /timed out|failed to fetch|networkerror|request bridge/i.test(error.message);
 }
 
-export function canFetchAnkiConnect(url: string): boolean {
+function canFetchAnkiConnect(url: string): boolean {
     return canFetchAnkiConnectFrom(url, safeLocationHref());
 }
 

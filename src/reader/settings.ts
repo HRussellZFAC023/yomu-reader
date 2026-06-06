@@ -1,11 +1,15 @@
 import { Logger } from './logger';
 import { SETTINGS_CHANGE_EVENT } from './constants';
 import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from './color-tokens';
+import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './settings-dictionary';
+import { hasOwn, stringValue, trimmedText } from './settings-values';
 import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists } from './storage';
-import type { AnkiFieldMapping, AnkiFieldMappingRole, AnkiFieldMappings, AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, DictionaryLookupLink, DictionaryPreference, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from './types';
+import type { AnkiFieldMapping, AnkiFieldMappingRole, AnkiFieldMappings, AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from './types';
+export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './settings-shortcuts';
+export { COPY_LOOKUP_LINK, JISHO_LOOKUP_LINK, JPDB_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences } from './settings-dictionary';
 
 export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
-export const LEGACY_SETTINGS_STORAGE_KEYS = [
+const LEGACY_SETTINGS_STORAGE_KEYS = [
     'jpdb-reader-settings',
     'yomu-reader-settings',
     'yomu-settings',
@@ -18,24 +22,24 @@ export const SETTINGS_STORAGE_KEYS = [
 const log = Logger.scope('Settings');
 let settingsResetInProgress = false;
 
-export const DEFAULT_AUDIO_URL =
+const DEFAULT_AUDIO_URL =
     'http://localhost:9090/?term={term}&reading={reading}';
 
-export const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
+const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
 export const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
 export const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
 export const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
 export const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 export const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
-export const DEFAULT_SUBTITLE_FONT_FAMILY = DEFAULT_READER_FONT_FAMILY;
+const DEFAULT_SUBTITLE_FONT_FAMILY = DEFAULT_READER_FONT_FAMILY;
 
-export const DEFAULT_WORD_COLORS = DEFAULT_WORD_COLOR_TOKENS;
+const DEFAULT_WORD_COLORS = DEFAULT_WORD_COLOR_TOKENS;
 
-export const DEFAULT_PITCH_COLORS = DEFAULT_PITCH_COLOR_TOKENS;
+const DEFAULT_PITCH_COLORS = DEFAULT_PITCH_COLOR_TOKENS;
 
 export const AUDIO_GUIDE_URL = 'https://yomitan.wiki/advanced/#audio';
 
-export const AUDIO_SOURCE_TYPE_VALUES: AudioSourceType[] = [
+const AUDIO_SOURCE_TYPE_VALUES: AudioSourceType[] = [
     'jpod101',
     'language-pod-101',
     'jisho',
@@ -58,44 +62,6 @@ export const DEFAULT_AUDIO_SOURCES: AudioSourceSetting[] = [
     { type: 'text-to-speech', url: '', voice: '', enabled: true },
 ];
 
-export const MAX_DICTIONARY_LOOKUP_LINKS = 8;
-
-export const JPDB_LOOKUP_LINK: DictionaryLookupLink = {
-    id: 'jpdb',
-    label: 'JPDB',
-    urlTemplate: 'https://jpdb.io/search?q={query}',
-    enabled: true,
-};
-
-export const JISHO_LOOKUP_LINK: DictionaryLookupLink = {
-    id: 'jisho',
-    label: 'Jisho',
-    urlTemplate: 'https://jisho.org/search/{query}',
-    enabled: true,
-};
-
-export const COPY_LOOKUP_LINK: DictionaryLookupLink = {
-    id: 'copy',
-    label: 'Copy',
-    urlTemplate: '',
-    enabled: true,
-    action: 'copy',
-};
-
-export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
-    JPDB_LOOKUP_LINK,
-    JISHO_LOOKUP_LINK,
-    COPY_LOOKUP_LINK,
-];
-type LegacyLookupLinkSpec = Pick<DictionaryLookupLink, 'id' | 'label' | 'urlTemplate' | 'enabled'> & {
-    action?: DictionaryLookupLink['action'];
-};
-const LEGACY_DEFAULT_LOOKUP_LINK_SET: LegacyLookupLinkSpec[] = [
-    { ...JPDB_LOOKUP_LINK, enabled: false },
-    JISHO_LOOKUP_LINK,
-    COPY_LOOKUP_LINK,
-];
-
 const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_TYPE_VALUES);
 const LEGACY_DEFAULT_AUDIO_SOURCE_TYPES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'text-to-speech'];
 const READER_COLOR_SOURCES = new Set<ReaderColorSource>(['auto', 'status', 'jpdb', 'anki', 'pitch', 'off']);
@@ -113,6 +79,7 @@ type ReaderColorChannelKey =
     | 'subtitleHighlightColorSource'
     | 'subtitleUnderlineColorSource'
     | 'subtitleTextColorSource';
+type NumberSettingRange = { min: number; max: number };
 type ConcreteReaderColorSource = Exclude<ReaderColorSource, 'auto'>;
 type LegacyWordHighlightMode = 'auto' | 'status' | 'pitch' | 'off';
 
@@ -124,6 +91,37 @@ const DEFAULT_COLOR_CHANNELS: Record<ReaderColorChannelKey, ConcreteReaderColorS
     subtitleUnderlineColorSource: 'pitch',
     subtitleTextColorSource: 'anki',
 };
+const KANJI_BOOLEAN_SETTING_KEYS = [
+    'jpdbKanjiEnabled',
+    'kanjiImmersionKitEnabled',
+    'uchisenEnabled',
+] as const;
+const LOOKUP_PAGE_ENHANCEMENT_KEYS = [
+    'jpdbPageEnhancementsEnabled',
+    'jpdbPageWordEnhancementsEnabled',
+    'jpdbPageKanjiEnhancementsEnabled',
+] as const;
+const MINING_BOOLEAN_SETTING_KEYS = [
+    'jpdbMiningEnabled',
+    'dictionarySourcesInitiallyExpanded',
+] as const;
+const SUBTITLE_BOOLEAN_SETTING_KEYS = [
+    'subtitleNativeBlurred',
+    'subtitleKaraokeMode',
+    'subtitlePausePanel',
+    'subtitleAutoCopyLine',
+] as const;
+const KANJI_NUMBER_SETTING_RANGES = {
+    jpdbKanjiPriority: { min: 0, max: 999 },
+    kanjiImmersionKitPriority: { min: 0, max: 999 },
+    uchisenPriority: { min: 0, max: 999 },
+    rtkPriority: { min: 0, max: 999 },
+    kanjivgPriority: { min: 0, max: 999 },
+    kanjiOriginsPriority: { min: 0, max: 999 },
+    kanjiDictionariesPriority: { min: 0, max: 999 },
+    similarKanjiWordsPriority: { min: 0, max: 999 },
+    similarKanjiWordLimit: { min: 2, max: 24 },
+} as const;
 
 const LEGACY_COLOR_CHANNEL_DEFAULTS: Record<ReaderColorChannelKey, ReaderColorSource> = {
     wordHighlightColorSource: 'auto',
@@ -217,7 +215,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     scanModifierKey: 'shift',
     showFloatingButton: true,
     newTabEnabled: false,
-    newTabAnkiEnabled: true,
+    newTabAnkiEnabled: false,
     newTabAnkiDisabledDecks: [],
     newTabSource: 'auto',
     newTabJpdbDeck: 'all',
@@ -284,9 +282,10 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
+    youtubeShowChannelRecommendations: true,
     preferJapaneseSiteLanguage: true,
-    ankiEnabled: true,
-    ankiSectionEnabled: true,
+    ankiEnabled: false,
+    ankiSectionEnabled: false,
     ankiSectionPriority: 90,
     ankiConnectUrl: 'http://127.0.0.1:8765',
     ankiDeck: 'よむ',
@@ -295,12 +294,12 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ankiFrontReading: true,
     ankiFrontSentence: true,
     ankiFrontImage: true,
-    ankiMobileHandoff: true,
+    ankiMobileHandoff: false,
     studyTranslationEnabled: true,
     studyGrammarEnabled: true,
     enableLogging: false,
     ankiTags: 'yomu',
-    ankiMineWithJpdb: true,
+    ankiMineWithJpdb: false,
     ankiCaptureScreenshot: true,
     ankiFieldMappings: {},
     theme: 'auto',
@@ -380,20 +379,25 @@ function stripUnsupportedSettings(value: LegacyReaderSettings | null | undefined
     ) as Partial<ReaderSettings>;
 }
 
-function normalizeAudioSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'autoPlayAudio' | 'suppressAutoAudioOnVideo' | 'audioAutoPlayMode' | 'audioSources' | 'audioSourceUrl' | 'audioTtsMode'> {
-    const hasSavedAudioSources = hasOwn(value, 'audioSources');
-    const audioSources = hasSavedAudioSources || value?.audioSourceUrl
-        ? normalizeAudioSources(value?.audioSources, value?.audioSourceUrl)
+function normalizeAudioSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
+    const settings = value ?? {};
+    const hasSavedAudioSources = hasOwn(settings, 'audioSources') || Boolean(settings.audioSourceUrl);
+    const audioSources = hasSavedAudioSources
+        ? normalizeAudioSources(settings.audioSources, settings.audioSourceUrl)
         : DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
-    const audioAutoPlayMode = normalizeAudioAutoPlayMode(value?.audioAutoPlayMode);
+    const audioAutoPlayMode = normalizeAudioAutoPlayMode(settings.audioAutoPlayMode);
     return {
         autoPlayAudio: audioAutoPlayMode === 'off' ? false : booleanSetting(value, 'autoPlayAudio'),
         suppressAutoAudioOnVideo: booleanSetting(value, 'suppressAutoAudioOnVideo'),
         audioAutoPlayMode,
         audioSources,
-        audioSourceUrl: audioSources.find(source => source.url)?.url ?? value?.audioSourceUrl ?? DEFAULT_AUDIO_URL,
-        audioTtsMode: normalizeAudioTtsMode(value?.audioTtsMode),
+        audioSourceUrl: preferredAudioSourceUrl(audioSources, settings.audioSourceUrl),
+        audioTtsMode: normalizeAudioTtsMode(settings.audioTtsMode),
     };
+}
+
+function preferredAudioSourceUrl(audioSources: AudioSourceSetting[], fallback: string | undefined): string {
+    return audioSources.find(source => source.url)?.url ?? fallback ?? DEFAULT_AUDIO_URL;
 }
 
 function normalizeShortcutSettings(value: Partial<ReaderSettings> | null): ReaderSettings['shortcuts'] {
@@ -407,26 +411,14 @@ function normalizeShortcutSettings(value: Partial<ReaderSettings> | null): Reade
     return shortcuts;
 }
 
-function normalizeDictionaryLookupLinkSettings(value: Partial<ReaderSettings> | null): ReaderSettings['dictionaryLookupLinks'] {
-    const links = normalizeDictionaryLookupLinks(
-        value?.dictionaryLookupLinks,
-        !hasOwn(value, 'dictionaryLookupLinks') && Boolean(value?.apiKey?.trim()),
-    );
-    return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks)
-        ? links.map(link => link.id === JPDB_LOOKUP_LINK.id ? { ...link, enabled: true } : link)
-        : links;
-}
-
 function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
         interfaceLanguage: normalizeInterfaceLanguage(value?.interfaceLanguage),
         jpdbDefinitionsPriority: clampNumber(value?.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
-        jpdbPageEnhancementsEnabled: booleanSetting(value, 'jpdbPageEnhancementsEnabled'),
-        jpdbPageWordEnhancementsEnabled: booleanSetting(value, 'jpdbPageWordEnhancementsEnabled'),
-        jpdbPageKanjiEnhancementsEnabled: booleanSetting(value, 'jpdbPageKanjiEnhancementsEnabled'),
-        lookupOnClick: typeof value?.lookupOnClick === 'boolean' ? value.lookupOnClick : true,
-        lookupOnHover: typeof value?.lookupOnHover === 'boolean' ? value.lookupOnHover : value?.popupActivationMode !== 'click',
-        lookupOnMiddleMouse: typeof value?.lookupOnMiddleMouse === 'boolean' ? value.lookupOnMiddleMouse : true,
+        ...normalizeBooleanSettingGroup(value, LOOKUP_PAGE_ENHANCEMENT_KEYS),
+        lookupOnClick: booleanSettingWithFallback(value, 'lookupOnClick', true),
+        lookupOnHover: booleanSettingWithFallback(value, 'lookupOnHover', value?.popupActivationMode !== 'click'),
+        lookupOnMiddleMouse: booleanSettingWithFallback(value, 'lookupOnMiddleMouse', true),
         hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
         hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3000, DEFAULT_SETTINGS.hoverCloseDelayMs),
     };
@@ -452,65 +444,55 @@ function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial
 }
 
 function normalizeReaderDisplaySettings(value: LegacyReaderSettings | null): Partial<ReaderSettings> {
-    const colorChannels = normalizeReaderColorChannelSettings(value);
+    const settings = value ?? {};
     return {
-        accentColor: sanitizeAccentColor(value?.accentColor),
-        wordColorNew: sanitizeAccentColor(value?.wordColorNew, DEFAULT_SETTINGS.wordColorNew),
-        wordColorLearning: sanitizeAccentColor(value?.wordColorLearning, DEFAULT_SETTINGS.wordColorLearning),
-        wordColorKnown: sanitizeAccentColor(value?.wordColorKnown, DEFAULT_SETTINGS.wordColorKnown),
-        wordColorDue: sanitizeAccentColor(value?.wordColorDue, DEFAULT_SETTINGS.wordColorDue),
-        wordColorFailed: sanitizeAccentColor(value?.wordColorFailed, DEFAULT_SETTINGS.wordColorFailed),
-        wordColorIgnored: sanitizeAccentColor(value?.wordColorIgnored, DEFAULT_SETTINGS.wordColorIgnored),
-        pitchColorHeiban: sanitizeAccentColor(value?.pitchColorHeiban, DEFAULT_SETTINGS.pitchColorHeiban),
-        pitchColorAtamadaka: sanitizeAccentColor(value?.pitchColorAtamadaka, DEFAULT_SETTINGS.pitchColorAtamadaka),
-        pitchColorNakadaka: sanitizeAccentColor(value?.pitchColorNakadaka, DEFAULT_SETTINGS.pitchColorNakadaka),
-        pitchColorOdaka: sanitizeAccentColor(value?.pitchColorOdaka, DEFAULT_SETTINGS.pitchColorOdaka),
-        pitchColorKifuku: sanitizeAccentColor(value?.pitchColorKifuku, DEFAULT_SETTINGS.pitchColorKifuku),
-        pitchColorUnknown: sanitizeAccentColor(value?.pitchColorUnknown, DEFAULT_SETTINGS.pitchColorUnknown),
-        ...colorChannels,
-        puckPositionX: normalizeOptionalCoordinate(value?.puckPositionX),
-        puckPositionY: normalizeOptionalCoordinate(value?.puckPositionY),
-        showFurigana: typeof value?.showFurigana === 'boolean' ? value.showFurigana : DEFAULT_SETTINGS.showFurigana,
-        furiganaMode: normalizeFuriganaMode(value?.furiganaMode, value),
-        hideKnownFurigana: typeof value?.hideKnownFurigana === 'boolean' ? value.hideKnownFurigana : DEFAULT_SETTINGS.hideKnownFurigana,
+        accentColor: sanitizeAccentColor(settings.accentColor),
+        wordColorNew: sanitizeAccentColor(settings.wordColorNew, DEFAULT_SETTINGS.wordColorNew),
+        wordColorLearning: sanitizeAccentColor(settings.wordColorLearning, DEFAULT_SETTINGS.wordColorLearning),
+        wordColorKnown: sanitizeAccentColor(settings.wordColorKnown, DEFAULT_SETTINGS.wordColorKnown),
+        wordColorDue: sanitizeAccentColor(settings.wordColorDue, DEFAULT_SETTINGS.wordColorDue),
+        wordColorFailed: sanitizeAccentColor(settings.wordColorFailed, DEFAULT_SETTINGS.wordColorFailed),
+        wordColorIgnored: sanitizeAccentColor(settings.wordColorIgnored, DEFAULT_SETTINGS.wordColorIgnored),
+        pitchColorHeiban: sanitizeAccentColor(settings.pitchColorHeiban, DEFAULT_SETTINGS.pitchColorHeiban),
+        pitchColorAtamadaka: sanitizeAccentColor(settings.pitchColorAtamadaka, DEFAULT_SETTINGS.pitchColorAtamadaka),
+        pitchColorNakadaka: sanitizeAccentColor(settings.pitchColorNakadaka, DEFAULT_SETTINGS.pitchColorNakadaka),
+        pitchColorOdaka: sanitizeAccentColor(settings.pitchColorOdaka, DEFAULT_SETTINGS.pitchColorOdaka),
+        pitchColorKifuku: sanitizeAccentColor(settings.pitchColorKifuku, DEFAULT_SETTINGS.pitchColorKifuku),
+        pitchColorUnknown: sanitizeAccentColor(settings.pitchColorUnknown, DEFAULT_SETTINGS.pitchColorUnknown),
+        ...normalizeReaderColorChannelSettings(value),
+        puckPositionX: normalizeOptionalCoordinate(settings.puckPositionX),
+        puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
+        showFurigana: booleanSetting(value, 'showFurigana'),
+        furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+        hideKnownFurigana: booleanSetting(value, 'hideKnownFurigana'),
     };
 }
 
 function normalizeKanjiSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
-        jpdbKanjiEnabled: typeof value?.jpdbKanjiEnabled === 'boolean' ? value.jpdbKanjiEnabled : DEFAULT_SETTINGS.jpdbKanjiEnabled,
-        jpdbKanjiPriority: clampNumber(value?.jpdbKanjiPriority, 0, 999, DEFAULT_SETTINGS.jpdbKanjiPriority),
-        kanjiImmersionKitEnabled: typeof value?.kanjiImmersionKitEnabled === 'boolean' ? value.kanjiImmersionKitEnabled : DEFAULT_SETTINGS.kanjiImmersionKitEnabled,
-        kanjiImmersionKitPriority: clampNumber(value?.kanjiImmersionKitPriority, 0, 999, DEFAULT_SETTINGS.kanjiImmersionKitPriority),
-        uchisenEnabled: typeof value?.uchisenEnabled === 'boolean' ? value.uchisenEnabled : DEFAULT_SETTINGS.uchisenEnabled,
-        uchisenPriority: clampNumber(value?.uchisenPriority, 0, 999, DEFAULT_SETTINGS.uchisenPriority),
-        rtkPriority: clampNumber(value?.rtkPriority, 0, 999, DEFAULT_SETTINGS.rtkPriority),
-        kanjivgPriority: clampNumber(value?.kanjivgPriority, 0, 999, DEFAULT_SETTINGS.kanjivgPriority),
-        kanjiOriginsPriority: clampNumber(value?.kanjiOriginsPriority, 0, 999, DEFAULT_SETTINGS.kanjiOriginsPriority),
-        kanjiDictionariesPriority: clampNumber(value?.kanjiDictionariesPriority, 0, 999, DEFAULT_SETTINGS.kanjiDictionariesPriority),
-        similarKanjiWordsPriority: clampNumber(value?.similarKanjiWordsPriority, 0, 999, DEFAULT_SETTINGS.similarKanjiWordsPriority),
-        similarKanjiWordLimit: clampNumber(value?.similarKanjiWordLimit, 2, 24, DEFAULT_SETTINGS.similarKanjiWordLimit),
+        ...normalizeBooleanSettingGroup(value, KANJI_BOOLEAN_SETTING_KEYS),
+        ...normalizeNumberSettingGroup(value, KANJI_NUMBER_SETTING_RANGES),
     };
 }
 
 function normalizeAnkiAndStudySettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
-        ankiSectionEnabled: typeof value?.ankiSectionEnabled === 'boolean' ? value.ankiSectionEnabled : DEFAULT_SETTINGS.ankiSectionEnabled,
+        ankiSectionEnabled: booleanSetting(value, 'ankiSectionEnabled'),
         ankiSectionPriority: clampNumber(value?.ankiSectionPriority, 0, 999, DEFAULT_SETTINGS.ankiSectionPriority),
         ankiConnectUrl: normalizeUrl(value?.ankiConnectUrl, DEFAULT_SETTINGS.ankiConnectUrl),
         ankiDeck: normalizeAnkiName(value?.ankiDeck, DEFAULT_SETTINGS.ankiDeck, 'Yomu'),
         ankiModel: normalizeAnkiName(value?.ankiModel, DEFAULT_SETTINGS.ankiModel, 'Yomu Japanese'),
         ankiTemplateMode: normalizeAnkiTemplateMode(value?.ankiTemplateMode),
-        ankiFrontReading: typeof value?.ankiFrontReading === 'boolean' ? value.ankiFrontReading : DEFAULT_SETTINGS.ankiFrontReading,
-        ankiFrontSentence: typeof value?.ankiFrontSentence === 'boolean' ? value.ankiFrontSentence : DEFAULT_SETTINGS.ankiFrontSentence,
-        ankiFrontImage: typeof value?.ankiFrontImage === 'boolean' ? value.ankiFrontImage : DEFAULT_SETTINGS.ankiFrontImage,
+        ankiFrontReading: booleanSetting(value, 'ankiFrontReading'),
+        ankiFrontSentence: booleanSetting(value, 'ankiFrontSentence'),
+        ankiFrontImage: booleanSetting(value, 'ankiFrontImage'),
         ankiFieldMappings: normalizeAnkiFieldMappings(value?.ankiFieldMappings),
-        ankiMobileHandoff: typeof value?.ankiMobileHandoff === 'boolean' ? value.ankiMobileHandoff : DEFAULT_SETTINGS.ankiMobileHandoff,
-        studyTranslationEnabled: typeof value?.studyTranslationEnabled === 'boolean' ? value.studyTranslationEnabled : DEFAULT_SETTINGS.studyTranslationEnabled,
+        ankiMobileHandoff: booleanSetting(value, 'ankiMobileHandoff'),
+        studyTranslationEnabled: booleanSetting(value, 'studyTranslationEnabled'),
         studyTranslationPriority: clampNumber(value?.studyTranslationPriority, 0, 999, DEFAULT_SETTINGS.studyTranslationPriority),
-        studyGrammarEnabled: typeof value?.studyGrammarEnabled === 'boolean' ? value.studyGrammarEnabled : DEFAULT_SETTINGS.studyGrammarEnabled,
+        studyGrammarEnabled: booleanSetting(value, 'studyGrammarEnabled'),
         studyGrammarPriority: clampNumber(value?.studyGrammarPriority, 0, 999, DEFAULT_SETTINGS.studyGrammarPriority),
-        enableLogging: typeof value?.enableLogging === 'boolean' ? value.enableLogging : DEFAULT_SETTINGS.enableLogging,
+        enableLogging: booleanSetting(value, 'enableLogging'),
     };
 }
 
@@ -531,75 +513,64 @@ function normalizePresentationSettings(value: Partial<ReaderSettings> | null): P
 
 function normalizeMiningSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
-        ankiTags: typeof value?.ankiTags === 'string' ? value.ankiTags.trim() : DEFAULT_SETTINGS.ankiTags,
-        jpdbMiningEnabled: typeof value?.jpdbMiningEnabled === 'boolean' ? value.jpdbMiningEnabled : DEFAULT_SETTINGS.jpdbMiningEnabled,
+        ankiTags: trimmedStringSetting(value, 'ankiTags', DEFAULT_SETTINGS.ankiTags),
         miningDeck: normalizeDeckIdSetting(value?.miningDeck, DEFAULT_SETTINGS.miningDeck),
         neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
         blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
-        dictionarySourcesInitiallyExpanded: typeof value?.dictionarySourcesInitiallyExpanded === 'boolean'
-            ? value.dictionarySourcesInitiallyExpanded
-            : DEFAULT_SETTINGS.dictionarySourcesInitiallyExpanded,
+        ...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS),
     };
 }
 
 function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
+    const settings = value ?? {};
     return {
         audioViaBlob: booleanSetting(value, 'audioViaBlob'),
         audioFallbackChimeEnabled: booleanSetting(value, 'audioFallbackChimeEnabled'),
-        immersionKitExampleSource: normalizeImmersionExampleSource(value?.immersionKitExampleSource),
-        nadeshikoApiKey: typeof value?.nadeshikoApiKey === 'string' ? value.nadeshikoApiKey.trim() : DEFAULT_SETTINGS.nadeshikoApiKey,
-        immersionKitPriority: clampNumber(value?.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
-        immersionKitLimitEnabled: typeof value?.immersionKitLimitEnabled === 'boolean'
-            ? value.immersionKitLimitEnabled
-            : DEFAULT_SETTINGS.immersionKitLimitEnabled,
-        immersionKitLimit: clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
-        immersionKitMinLength: clampNumber(value?.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
-        immersionKitMaxLength: clampNumber(value?.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
-        immersionKitCategory: normalizeImmersionKitCategory(value?.immersionKitCategory),
-        immersionKitSort: normalizeImmersionKitSort(value?.immersionKitSort),
-        immersionKitPlaybackRate: clampNumber(value?.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
+        immersionKitExampleSource: normalizeImmersionExampleSource(settings.immersionKitExampleSource),
+        nadeshikoApiKey: trimmedStringSetting(value, 'nadeshikoApiKey', DEFAULT_SETTINGS.nadeshikoApiKey),
+        immersionKitPriority: clampNumber(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
+        immersionKitLimitEnabled: booleanSetting(value, 'immersionKitLimitEnabled'),
+        immersionKitLimit: clampNumber(settings.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
+        immersionKitMinLength: clampNumber(settings.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
+        immersionKitMaxLength: clampNumber(settings.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
+        immersionKitCategory: normalizeImmersionKitCategory(settings.immersionKitCategory),
+        immersionKitSort: normalizeImmersionKitSort(settings.immersionKitSort),
+        immersionKitPlaybackRate: clampNumber(settings.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
         immersionKitRevealTranslationOnClick: booleanSetting(value, 'immersionKitRevealTranslationOnClick'),
         immersionKitPlayOnHover: booleanSetting(value, 'immersionKitPlayOnHover'),
         immersionKitPlayOnImageClick: booleanSetting(value, 'immersionKitPlayOnImageClick'),
-        ocrProvider: normalizeOcrProvider(value?.ocrProvider, value),
-        ocrEngine: normalizeOcrEngine(value?.ocrEngine),
-        ocrCloudVisionApiKey: normalizeCloudVisionApiKey(value?.ocrCloudVisionApiKey),
-        ocrTextColor: sanitizeAccentColor(value?.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
-        ocrOutlineColor: sanitizeAccentColor(value?.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor),
-        ocrBackgroundColor: sanitizeAccentColor(value?.ocrBackgroundColor, DEFAULT_SETTINGS.ocrBackgroundColor),
-        ocrBackgroundOpacity: clampNumber(value?.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
-        ocrFontScale: clampNumber(value?.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale),
+        ocrProvider: normalizeOcrProvider(settings.ocrProvider, value),
+        ocrEngine: normalizeOcrEngine(settings.ocrEngine),
+        ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
+        ocrTextColor: sanitizeAccentColor(settings.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
+        ocrOutlineColor: sanitizeAccentColor(settings.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor),
+        ocrBackgroundColor: sanitizeAccentColor(settings.ocrBackgroundColor, DEFAULT_SETTINGS.ocrBackgroundColor),
+        ocrBackgroundOpacity: clampNumber(settings.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
+        ocrFontScale: clampNumber(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale),
     };
 }
 
 function normalizeSubtitleSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
-        subtitleNativeBlurred: booleanSetting(value, 'subtitleNativeBlurred'),
-        subtitleKaraokeMode: booleanSetting(value, 'subtitleKaraokeMode'),
-        subtitlePausePanel: booleanSetting(value, 'subtitlePausePanel'),
-        subtitleAutoCopyLine: booleanSetting(value, 'subtitleAutoCopyLine'),
+        ...normalizeBooleanSettingGroup(value, SUBTITLE_BOOLEAN_SETTING_KEYS),
         subtitleControlsMode: normalizeSubtitleControlsMode(value?.subtitleControlsMode),
         subtitleTranscriptPlacement: normalizeSubtitleTranscriptPlacement(value?.subtitleTranscriptPlacement),
         subtitleTextColor: sanitizeAccentColor(value?.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
         subtitleOutlineColor: sanitizeAccentColor(value?.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
         subtitleBackgroundColor: sanitizeAccentColor(value?.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
         subtitleBackgroundOpacity: clampNumber(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
-        subtitleFontFamily: typeof value?.subtitleFontFamily === 'string' && value.subtitleFontFamily.trim() ? value.subtitleFontFamily.trim() : DEFAULT_SETTINGS.subtitleFontFamily,
+        subtitleFontFamily: normalizeFontFamily(value?.subtitleFontFamily, DEFAULT_SETTINGS.subtitleFontFamily),
         subtitleFontWeight: clampNumber(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight),
     };
 }
 
 function normalizeFontFamily(value: unknown, fallback: string): string {
-    return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+    return trimmedText(value) || fallback;
 }
 
 function normalizeOptionalCoordinate(value: unknown): number | undefined {
     const number = Number(value);
     return Number.isFinite(number) && number >= 0 ? number : undefined;
-}
-
-function hasOwn(value: unknown, key: PropertyKey): boolean {
-    return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
 }
 
 function normalizeStringList(value: unknown): string[] {
@@ -703,11 +674,45 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
     return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
 }
 
+function normalizeBooleanSettingGroup<Key extends keyof ReaderSettings>(
+    value: Partial<ReaderSettings> | null | undefined,
+    keys: readonly Key[],
+): Pick<ReaderSettings, Key> {
+    const normalized = {} as Pick<ReaderSettings, Key>;
+    for (const key of keys) {
+        normalized[key] = booleanSetting(value, key) as ReaderSettings[Key];
+    }
+    return normalized;
+}
+
+function normalizeNumberSettingGroup<Key extends keyof ReaderSettings>(
+    value: Partial<ReaderSettings> | null | undefined,
+    ranges: Record<Key, NumberSettingRange>,
+): Pick<ReaderSettings, Key> {
+    const normalized = {} as Pick<ReaderSettings, Key>;
+    for (const key of Object.keys(ranges) as Key[]) {
+        const { min, max } = ranges[key];
+        const fallback = DEFAULT_SETTINGS[key];
+        normalized[key] = clampNumber(value?.[key], min, max, typeof fallback === 'number' ? fallback : 0) as ReaderSettings[Key];
+    }
+    return normalized;
+}
+
 function booleanSetting(value: Partial<ReaderSettings> | null | undefined, key: keyof ReaderSettings): boolean {
     const rawValue = value?.[key];
     const fallback = DEFAULT_SETTINGS[key];
     if (typeof rawValue === 'boolean') return rawValue;
     return typeof fallback === 'boolean' ? fallback : false;
+}
+
+function booleanSettingWithFallback(value: Partial<ReaderSettings> | null | undefined, key: keyof ReaderSettings, fallback: boolean): boolean {
+    const rawValue = value?.[key];
+    return typeof rawValue === 'boolean' ? rawValue : fallback;
+}
+
+function trimmedStringSetting(value: Partial<ReaderSettings> | null | undefined, key: keyof ReaderSettings, fallback: string): string {
+    const rawValue = value?.[key];
+    return typeof rawValue === 'string' ? rawValue.trim() : fallback;
 }
 
 function normalizeSubtitleControlsMode(value: unknown): ReaderSettings['subtitleControlsMode'] {
@@ -873,7 +878,7 @@ function normalizeDeckIdSetting(value: unknown, fallback: string): string {
     return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
-export function hasPersonalizedFuriganaSource(settings: ReaderSettings): boolean {
+function hasPersonalizedFuriganaSource(settings: ReaderSettings): boolean {
     return Boolean(settings.apiKey.trim() || settings.ankiEnabled);
 }
 
@@ -1064,7 +1069,7 @@ function isBlankLegacyLocalOcrSetting(value: unknown, settings: Partial<ReaderSe
     return !(typeof settings.ocrEndpointUrl === 'string' && settings.ocrEndpointUrl.trim());
 }
 
-export function normalizeOcrEngine(value: unknown): string {
+function normalizeOcrEngine(value: unknown): string {
     const normalized = normalizedOcrEngineInput(value);
     return normalized ? OCR_ENGINE_ALIASES.get(normalized) ?? normalized : DEFAULT_SETTINGS.ocrEngine;
 }
@@ -1129,112 +1134,7 @@ export async function settingsStorageKeysStillPresent(): Promise<string[]> {
     return keys;
 }
 
-export function matchesShortcut(event: KeyboardEvent, shortcut = ''): boolean {
-    if (!shortcut) return false;
-
-    const parts = parseShortcut(shortcut);
-    const key = parts.key?.toLowerCase();
-    if (!key) return false;
-
-    const eventKey = normalizeEventKey(event.key).toLowerCase();
-
-    return eventKey === key
-        && shortcutModifiersMatch(event, parts.modifiers);
-}
-
-function shortcutModifiersMatch(event: KeyboardEvent, modifiers: Set<string>): boolean {
-    return event.altKey === modifiers.has('alt')
-        && event.ctrlKey === modifiers.has('ctrl')
-        && event.metaKey === modifiers.has('meta')
-        && event.shiftKey === modifiers.has('shift');
-}
-
-export function formatShortcutEvent(event: KeyboardEvent): string {
-    const parts: string[] = [];
-    addShortcutModifierParts(parts, event);
-    addShortcutKeyPart(parts, normalizeEventKey(event.key));
-    return dedupeShortcutParts(parts).join('+');
-}
-
-function addShortcutModifierParts(parts: string[], event: KeyboardEvent): void {
-    if (event.ctrlKey) parts.push('Ctrl');
-    if (event.altKey) parts.push('Alt');
-    if (event.shiftKey) parts.push('Shift');
-    if (event.metaKey) parts.push('Meta');
-}
-
-function addShortcutKeyPart(parts: string[], key: string): void {
-    if (!isModifierKey(key)) parts.push(key);
-}
-
-export function shortcutIsPressed(shortcut = '', event: MouseEvent | KeyboardEvent, pressedKeys = new Set<string>()): boolean {
-    if (!shortcut.trim()) return true;
-    const parts = parseShortcut(shortcut);
-    if (!shortcutModifiersArePressed(parts.modifiers, event)) return false;
-    if (!parts.key) return parts.modifiers.size > 0;
-    return shortcutKeyIsPressed(parts.key, event, pressedKeys);
-}
-
-function shortcutModifiersArePressed(modifiers: Set<string>, event: MouseEvent | KeyboardEvent): boolean {
-    return modifiers.has('alt') === event.altKey
-        && modifiers.has('ctrl') === event.ctrlKey
-        && modifiers.has('meta') === event.metaKey
-        && modifiers.has('shift') === event.shiftKey;
-}
-
-function shortcutKeyIsPressed(key: string, event: MouseEvent | KeyboardEvent, pressedKeys: Set<string>): boolean {
-    const normalized = key.toLowerCase();
-    return pressedKeys.has(normalized)
-        || ('key' in event && normalizeEventKey(event.key).toLowerCase() === normalized);
-}
-
-function parseShortcut(shortcut: string): { key: string; modifiers: Set<string> } {
-    const parts = shortcut.split('+').map(part => normalizeShortcutPart(part)).filter(Boolean);
-    const modifiers = new Set(parts.filter(isModifierKey).map(part => part.toLowerCase()));
-    const key = [...parts].reverse().find(part => !isModifierKey(part)) ?? '';
-    return { key: key.toLowerCase(), modifiers };
-}
-
-function normalizeShortcutPart(part: string): string {
-    const value = part.trim();
-    if (!value) return '';
-    const lower = value.toLowerCase();
-    const alias = shortcutPartAlias(lower);
-    if (alias) return alias;
-    if (value.length === 1) return value.toUpperCase();
-    return value[0]?.toUpperCase() + value.slice(1);
-}
-
-function shortcutPartAlias(lower: string): string {
-    return SHORTCUT_PART_ALIASES.get(lower) ?? '';
-}
-
-const SHORTCUT_PART_ALIASES = new Map<string, string>([
-    ['control', 'Ctrl'],
-    ['cmd', 'Meta'],
-    ['command', 'Meta'],
-    ['win', 'Meta'],
-    ['windows', 'Meta'],
-    ['option', 'Alt'],
-    ['esc', 'Escape'],
-    ['spacebar', 'Space'],
-    [' ', 'Space'],
-]);
-
-function normalizeEventKey(key: string): string {
-    if (key === ' ') return 'Space';
-    return normalizeShortcutPart(key);
-}
-
-function isModifierKey(key: string): boolean {
-    return key === 'Alt' || key === 'Ctrl' || key === 'Meta' || key === 'Shift';
-}
-
-function dedupeShortcutParts(parts: string[]): string[] {
-    return parts.filter((part, index) => parts.indexOf(part) === index);
-}
-
-export function isAudioSourceType(value: unknown): value is AudioSourceType {
+function isAudioSourceType(value: unknown): value is AudioSourceType {
     return typeof value === 'string' && AUDIO_SOURCE_TYPES.has(value as AudioSourceType);
 }
 
@@ -1244,8 +1144,8 @@ export function normalizeAudioSource(value: unknown): AudioSourceSetting | null 
     if (!isAudioSourceType(record.type)) return null;
     return {
         type: record.type,
-        url: audioSourceText(record.url),
-        voice: audioSourceText(record.voice),
+        url: stringValue(record.url),
+        voice: stringValue(record.voice),
         enabled: audioSourceEnabled(record.enabled),
     };
 }
@@ -1254,10 +1154,6 @@ function audioSourceRecord(value: unknown): Partial<AudioSourceSetting> & { type
     return value && typeof value === 'object'
         ? value as Partial<AudioSourceSetting> & { type?: unknown; url?: unknown; voice?: unknown; enabled?: unknown }
         : null;
-}
-
-function audioSourceText(value: unknown): string {
-    return typeof value === 'string' ? value : '';
 }
 
 function audioSourceEnabled(value: unknown): boolean {
@@ -1287,194 +1183,4 @@ function migrateLegacyDefaultAudioSources(sources: AudioSourceSetting[]): AudioS
     if (insertIndex < 0) migrated.push(jpdbSource);
     else migrated.splice(insertIndex, 0, jpdbSource);
     return migrated;
-}
-
-export function normalizeDictionaryPreferences(value: unknown): DictionaryPreference[] {
-    if (!Array.isArray(value)) return [];
-    return value
-        .map((item, index): DictionaryPreference | null => {
-            if (!item || typeof item !== 'object') return null;
-            const record = item as Partial<DictionaryPreference> & { name?: unknown; alias?: unknown; enabled?: unknown; priority?: unknown; type?: unknown };
-            if (typeof record.name !== 'string' || !record.name.trim()) return null;
-            return {
-                name: record.name,
-                alias: typeof record.alias === 'string' && record.alias.trim() ? record.alias : record.name,
-                enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
-                priority: Number.isFinite(Number(record.priority)) ? Number(record.priority) : index,
-                allowSecondarySearches: typeof record.allowSecondarySearches === 'boolean' ? record.allowSecondarySearches : false,
-                type: normalizeDictionaryType(record.type, record.name),
-            };
-        })
-        .filter((item): item is DictionaryPreference => item !== null)
-        .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
-}
-
-export function defaultDictionaryLookupLinks(mode: 'jpdb' | 'local' = 'local'): DictionaryLookupLink[] {
-    return DEFAULT_DICTIONARY_LOOKUP_LINKS.map(link => ({
-        ...link,
-        enabled: mode === 'jpdb' ? link.id === 'jpdb' || link.id === 'jisho' : link.enabled,
-    }));
-}
-
-function isLegacyDefaultLookupLinkSet(value: unknown): boolean {
-    const links = normalizeLegacyLookupLinkSet(value);
-    return Boolean(links && LEGACY_DEFAULT_LOOKUP_LINK_SET.every((expected, index) => (
-        matchesLegacyLookupLink(links[index], expected)
-    )));
-}
-
-function normalizeLegacyLookupLinkSet(value: unknown): DictionaryLookupLink[] | null {
-    if (!Array.isArray(value) || value.length !== LEGACY_DEFAULT_LOOKUP_LINK_SET.length) return null;
-    const links = value.map(normalizeDictionaryLookupLink);
-    return links.every(isDictionaryLookupLink) ? links : null;
-}
-
-function isDictionaryLookupLink(link: DictionaryLookupLink | null): link is DictionaryLookupLink {
-    return link !== null;
-}
-
-function matchesLegacyLookupLink(link: DictionaryLookupLink | undefined, expected: LegacyLookupLinkSpec): boolean {
-    return Boolean(link
-        && link.id === expected.id
-        && link.label === expected.label
-        && link.urlTemplate === expected.urlTemplate
-        && link.enabled === expected.enabled
-        && (expected.action === undefined || link.action === expected.action));
-}
-
-export function normalizeDictionaryLookupLinks(value: unknown, preferJpdb = false): DictionaryLookupLink[] {
-    const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb));
-    if (!Array.isArray(value)) return builtIns;
-
-    const normalized: DictionaryLookupLink[] = [];
-    const seen = new Set<string>();
-    const add = (link: DictionaryLookupLink) => {
-        const id = link.id.trim();
-        if (!id || seen.has(id) || normalized.length >= MAX_DICTIONARY_LOOKUP_LINKS) return;
-        seen.add(id);
-        normalized.push({ ...link, id });
-    };
-
-    for (const item of value) {
-        const link = normalizeDictionaryLookupLink(item);
-        if (link) add(link);
-    }
-
-    appendMissingBuiltInLookupLinks(builtIns, seen, add);
-
-    return normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS);
-}
-
-function defaultLookupLinkMode(preferJpdb: boolean): 'jpdb' | 'local' {
-    return preferJpdb ? 'jpdb' : 'local';
-}
-
-function appendMissingBuiltInLookupLinks(builtIns: DictionaryLookupLink[], seen: Set<string>, add: (link: DictionaryLookupLink) => void): void {
-    for (const builtIn of builtIns) {
-        if (!seen.has(builtIn.id)) add(builtIn);
-    }
-}
-
-export function normalizeDictionaryLookupLink(value: unknown): DictionaryLookupLink | null {
-    if (!value || typeof value !== 'object') return null;
-    const record = value as Partial<DictionaryLookupLink> & { id?: unknown; label?: unknown; urlTemplate?: unknown; enabled?: unknown; action?: unknown };
-    const id = normalizedLookupLinkId(record);
-    const label = normalizedLookupLinkLabel(record, id);
-    const urlTemplate = normalizedLookupLinkUrlTemplate(record);
-    const action = normalizedLookupLinkAction(record, id);
-    if (!isUsableDictionaryLookupLink(id, label, urlTemplate, action)) return null;
-    return {
-        id,
-        label,
-        urlTemplate,
-        enabled: normalizedLookupLinkEnabled(record),
-        action,
-    };
-}
-
-function normalizedLookupLinkUrlTemplate(record: { urlTemplate?: unknown }): string {
-    return typeof record.urlTemplate === 'string' ? record.urlTemplate.trim() : '';
-}
-
-function normalizedLookupLinkEnabled(record: { enabled?: unknown }): boolean {
-    return typeof record.enabled === 'boolean' ? record.enabled : true;
-}
-
-function isUsableDictionaryLookupLink(
-    id: string,
-    label: string,
-    urlTemplate: string,
-    action: DictionaryLookupLink['action'],
-): boolean {
-    if (!id || !label) return false;
-    return action === 'copy' || Boolean(urlTemplate && isSafeLookupUrlTemplate(urlTemplate));
-}
-
-function normalizedLookupLinkId(record: { id?: unknown; label?: unknown }): string {
-    if (typeof record.id === 'string' && record.id.trim()) return record.id.trim();
-    return typeof record.label === 'string' ? `custom-${stableLookupLinkId(record.label)}` : '';
-}
-
-function normalizedLookupLinkLabel(record: { label?: unknown }, id: string): string {
-    return typeof record.label === 'string' && record.label.trim()
-        ? record.label.trim().slice(0, 24)
-        : id;
-}
-
-function normalizedLookupLinkAction(record: { action?: unknown }, id: string): DictionaryLookupLink['action'] {
-    return record.action === 'copy' || id === 'copy' ? 'copy' : 'open';
-}
-
-function stableLookupLinkId(value: string): string {
-    const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24);
-    return slug || 'lookup';
-}
-
-function isSafeLookupUrlTemplate(value: string): boolean {
-    try {
-        const url = new URL(value.replace(/\{[^}]+\}/g, 'x'));
-        return url.protocol === 'https:' || url.protocol === 'http:';
-    } catch {
-        return false;
-    }
-}
-
-export function mergeDictionaryPreferences(current: DictionaryPreference[], names: string[], types: Record<string, DictionaryPreference['type']> = {}): DictionaryPreference[] {
-    const merged = new Map(current.map(item => [item.name, item]));
-    for (const name of names) {
-        mergeDictionaryPreference(merged, name, types[name] ?? inferDictionaryTypeFromName(name));
-    }
-    return normalizeDictionaryPreferences([...merged.values()]);
-}
-
-function mergeDictionaryPreference(merged: Map<string, DictionaryPreference>, name: string, type: DictionaryPreference['type']): void {
-    const existing = merged.get(name);
-    if (!existing) {
-        merged.set(name, defaultDictionaryPreference(name, type, merged.size));
-        return;
-    }
-    if (!existing.type) merged.set(name, { ...existing, type });
-}
-
-function defaultDictionaryPreference(name: string, type: DictionaryPreference['type'], priority: number): DictionaryPreference {
-    return {
-        name,
-        alias: name,
-        enabled: true,
-        priority,
-        allowSecondarySearches: false,
-        type,
-    };
-}
-
-function normalizeDictionaryType(value: unknown, name = ''): DictionaryPreference['type'] {
-    if (value === 'terms' || value === 'kanji' || value === 'frequency' || value === 'metadata') return value;
-    return inferDictionaryTypeFromName(name);
-}
-
-function inferDictionaryTypeFromName(name: string): DictionaryPreference['type'] {
-    const normalized = name.toLowerCase();
-    if (/\b(?:frequency|freq|jpdbv?\d*|bccwj|jiten|cc100|kwdlc|aozora|netflix|novel|anime|vn)\b/.test(normalized)) return 'frequency';
-    if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return 'kanji';
-    return 'terms';
 }

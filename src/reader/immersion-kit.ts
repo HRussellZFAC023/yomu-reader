@@ -1,9 +1,11 @@
 import { pruneOldestCacheEntries } from './cache-utils';
+import { readBlobAsDataUrl } from './blob-data-url';
 import { formatUiText, uiText } from './i18n';
 import { Logger } from './logger';
 import { ObjectUrlCache } from './object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
 import { requestBlob as requestReaderBlob, requestJson as requestReaderJson } from './reader-http';
+import { stableHash32, stableHashBase36, stablePositiveHashId } from './stable-hash';
 import { uniqueTrimmedStrings as uniqueStrings } from './string-utils';
 import type { InterfaceLanguage, ReaderSettings } from './types';
 
@@ -18,7 +20,6 @@ const SEARCH_EXAMPLE_LIMIT = 250;
 const SEARCH_CACHE_LIMIT = 160;
 const SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS = 1_000;
 const SEARCH_RATE_LIMIT_MAX_BACKOFF_MS = 30_000;
-const PRELOAD_KEY_LIMIT = 300;
 const NADESHIKO_SEARCH_LIMIT = 25;
 const MIN_LEARNING_SENTENCE_LENGTH = 8;
 const DEFAULT_EXAMPLE_SORT = 'sentence_length:asc';
@@ -150,7 +151,6 @@ export interface ImmersionKitSearchOptions {
 export class ImmersionKitClient {
     private cache = new Map<string, ImmersionKitExample[]>();
     private inflight = new Map<string, Promise<ImmersionKitExample[]>>();
-    private preloadKeys = new Set<string>();
     private mediaBlobUrlCache = new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS);
     private immersionKitRateLimitedUntil = 0;
     private immersionKitBackoffMs = SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS;
@@ -345,6 +345,8 @@ export class ImmersionKitClient {
         return Math.max(settings.immersionKitMinLength, MIN_LEARNING_SENTENCE_LENGTH);
     }
 
+    // Compatibility helper for callers that still expect the first media candidate.
+    // fallow-ignore-next-line unused-class-member
     mediaUrl(example: ImmersionKitExample, kind: 'image' | 'sound'): string {
         return this.mediaUrls(example, kind)[0] ?? '';
     }
@@ -358,38 +360,8 @@ export class ImmersionKitClient {
         return mediaFileUrls(example, file).slice(0, MEDIA_CANDIDATE_LIMIT);
     }
 
-    preload(term: string, settings: ReaderSettings): void {
-        const query = term.trim();
-        if (!canSearchImmersionExamples(query, settings) || this.preloadKeys.has(query)) return;
-        this.preloadKeys.add(query);
-        pruneOldestCacheEntries(this.preloadKeys, PRELOAD_KEY_LIMIT);
-
-        void this.search(query, settings)
-            .then(examples => {
-                for (const example of examples.slice(0, 1)) {
-                    const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, 'image') : [];
-                    if (imageUrls.length) {
-                        void this.fetchBlobUrl(imageUrls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
-                            .then(url => {
-                                const image = new Image();
-                                image.decoding = 'async';
-                                image.loading = 'eager';
-                                image.src = url;
-                            })
-                            .catch(() => undefined);
-                    }
-
-                    const soundUrls = this.mediaUrls(example, 'sound');
-                    if (soundUrls.length) {
-                        void this.fetchBlobUrl(soundUrls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
-                            .then(() => undefined)
-                            .catch(() => undefined);
-                    }
-                }
-            })
-            .catch(() => undefined);
-    }
-
+    // ImmersionPopoverController loads media blobs through the injected client.
+    // fallow-ignore-next-line unused-class-member
     async fetchBlobUrl(url: string | string[], timeoutMs: number, proxyUrl = '', language: InterfaceLanguage = 'en'): Promise<string> {
         const urls = urlCandidates(url);
         const key = urls.join('\u0001');
@@ -402,7 +374,7 @@ export class ImmersionKitClient {
 
     async fetchDataUrl(url: string | string[], timeoutMs: number, proxyUrl = '', language: InterfaceLanguage = 'en'): Promise<string> {
         const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
-        return blobToDataUrl(blob);
+        return readBlobAsDataUrl(blob);
     }
 }
 
@@ -544,37 +516,71 @@ function nadeshikoMediaMap(response: Record<string, unknown>): Record<string, un
 
 function normalizeNadeshikoExample(value: unknown, mediaById: Record<string, unknown>): ImmersionKitExample | null {
     if (!isRecord(value)) return null;
-    const sentence = nestedText(value, 'textJa', ['content', 'text'])
-        || firstText(value, ['sentence', 'text', 'textJa']);
+    const sentence = nadeshikoSentence(value);
     if (!sentence) return null;
 
-    const publicId = firstText(value, ['publicId', 'public_id', 'id']);
-    const mediaPublicId = firstText(value, ['mediaPublicId', 'media_public_id', 'mediaId']);
-    const media: Record<string, unknown> = isRecord(mediaById[mediaPublicId]) ? mediaById[mediaPublicId] as Record<string, unknown> : {};
-    const urls: Record<string, unknown> = isRecord(value.urls) ? value.urls : {};
-    const sourceTitle = firstText(media, ['nameRomaji', 'name_romaji', 'titleRomaji', 'title_romaji', 'name', 'title', 'nameJa'])
-        || firstText(value, ['mediaName', 'sourceTitle', 'source', 'title'])
-        || 'Nadeshiko';
+    const ids = nadeshikoExampleIds(value);
+    const media = nadeshikoMediaRecord(mediaById, ids.mediaPublicId);
+    const urls = recordField(value.urls);
+    const sourceTitle = nadeshikoSourceTitle(value, media);
 
     return {
-        id: `nadeshiko_${publicId || mediaPublicId || hashString(sentence).toString(36)}`,
+        id: nadeshikoExampleId(sentence, ids),
         provider: 'nadeshiko',
         sentence,
         sentenceWithFurigana: firstText(value, ['furi_sentence', 'sentenceWithFurigana', 'sentence_with_furigana']),
-        translation: nestedText(value, 'textEn', ['content', 'text'])
-            || firstText(value, ['translation', 'translation_en', 'english']),
+        translation: nadeshikoTranslation(value),
         sourceTitle,
         titleSlug: slugFromTitle(sourceTitle),
-        category: firstText(media, ['type', 'category']) || firstText(value, ['category']) || 'anime',
+        category: nadeshikoCategory(value, media),
         soundFile: '',
         imageFile: '',
-        soundUrl: absoluteMediaUrl(firstText(urls, ['audioUrl', 'soundUrl', 'audio_url', 'sound_url'])
-            || firstText(value, ['audioUrl', 'soundUrl', 'audio_url', 'sound_url'])),
-        imageUrl: absoluteMediaUrl(firstText(urls, ['imageUrl', 'image_url'])
-            || firstText(value, ['imageUrl', 'image_url'])),
-        publicId,
-        mediaPublicId,
+        soundUrl: nadeshikoAbsoluteMediaUrl(value, urls, ['audioUrl', 'soundUrl', 'audio_url', 'sound_url']),
+        imageUrl: nadeshikoAbsoluteMediaUrl(value, urls, ['imageUrl', 'image_url']),
+        publicId: ids.publicId,
+        mediaPublicId: ids.mediaPublicId,
     };
+}
+
+function nadeshikoSentence(record: Record<string, unknown>): string {
+    return nestedText(record, 'textJa', ['content', 'text']) || firstText(record, ['sentence', 'text', 'textJa']);
+}
+
+function nadeshikoExampleIds(record: Record<string, unknown>): { publicId: string; mediaPublicId: string } {
+    return {
+        publicId: firstText(record, ['publicId', 'public_id', 'id']),
+        mediaPublicId: firstText(record, ['mediaPublicId', 'media_public_id', 'mediaId']),
+    };
+}
+
+function nadeshikoMediaRecord(mediaById: Record<string, unknown>, mediaPublicId: string): Record<string, unknown> {
+    return recordField(mediaById[mediaPublicId]);
+}
+
+function recordField(value: unknown): Record<string, unknown> {
+    return isRecord(value) ? value : {};
+}
+
+function nadeshikoSourceTitle(record: Record<string, unknown>, media: Record<string, unknown>): string {
+    return firstText(media, ['nameRomaji', 'name_romaji', 'titleRomaji', 'title_romaji', 'name', 'title', 'nameJa'])
+        || firstText(record, ['mediaName', 'sourceTitle', 'source', 'title'])
+        || 'Nadeshiko';
+}
+
+function nadeshikoExampleId(sentence: string, ids: { publicId: string; mediaPublicId: string }): string {
+    return `nadeshiko_${ids.publicId || ids.mediaPublicId || stableHashBase36(sentence)}`;
+}
+
+function nadeshikoTranslation(record: Record<string, unknown>): string {
+    return nestedText(record, 'textEn', ['content', 'text']) || firstText(record, ['translation', 'translation_en', 'english']);
+}
+
+function nadeshikoCategory(record: Record<string, unknown>, media: Record<string, unknown>): string {
+    return firstText(media, ['type', 'category']) || firstText(record, ['category']) || 'anime';
+}
+
+function nadeshikoAbsoluteMediaUrl(record: Record<string, unknown>, urls: Record<string, unknown>, keys: string[]): string {
+    return absoluteMediaUrl(firstText(urls, keys) || firstText(record, keys));
 }
 
 function nestedText(record: Record<string, unknown>, key: string, fields: string[]): string {
@@ -685,7 +691,7 @@ function titleFromMediaFile(file: string): string {
 
 function deterministicShuffle<T>(values: T[], seed: string): T[] {
     const result = [...values];
-    let state = hashString(seed) || 1;
+    let state = stablePositiveHashId(seed);
     for (let index = result.length - 1; index > 0; index--) {
         state = nextRandomState(state);
         const swapIndex = state % (index + 1);
@@ -719,16 +725,7 @@ function nextRandomState(value: number): number {
 
 function sensitiveFingerprint(value: string): string {
     const trimmed = value.trim();
-    return trimmed ? hashString(trimmed).toString(36) : '';
-}
-
-function hashString(value: string): number {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index++) {
-        hash ^= value.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
+    return trimmed ? stableHash32(trimmed).toString(36) : '';
 }
 
 function absoluteMediaUrl(value: string): string {
@@ -874,15 +871,6 @@ function isMediaBlobType(type: string): boolean {
 function shouldPreferFetchForImmersionKitRequests(): boolean {
     return typeof window !== 'undefined'
         && (window as typeof window & { __YOMU_READER_RUNTIME__?: string }).__YOMU_READER_RUNTIME__ === 'newtab';
-}
-
-function blobToDataUrl(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(reader.error ?? new Error('Could not read media.'));
-        reader.readAsDataURL(blob);
-    });
 }
 
 function apiUrls(path: string): string[] {

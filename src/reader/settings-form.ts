@@ -1,21 +1,23 @@
 import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from './constants';
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from './dom';
 import { audioSourceLabel, resolveUiLanguage, uiText } from './i18n';
-import { externalLinkIcon, speakerIcon } from './icons';
-import { AUDIO_GUIDE_URL, AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_POPUP_FONT_FAMILY, DEFAULT_READER_FONT_FAMILY, MAX_DICTIONARY_LOOKUP_LINKS, accentToRgba, formatShortcutEvent, normalizeDictionaryLookupLinks, sanitizeAccentColor } from './settings';
-import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, miniIcon, radioGroup, select, settingsTabButton, shortcutInput } from './settings-form-controls';
-import { moveSourceRow } from './settings-form-order';
-import { COLOR_SOURCE_OPTIONS, COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, readAudioSources, readDictionaryLookupLinks, readOption, settingsColorSourceValue } from './settings-form-read';
+import { externalLinkIcon } from './icons';
+import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_POPUP_FONT_FAMILY, DEFAULT_READER_FONT_FAMILY, accentToRgba, formatShortcutEvent, sanitizeAccentColor } from './settings';
+import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './settings-form-controls';
+import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './settings-form-editors';
+import { COLOR_SOURCE_OPTIONS, COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, readOption, settingsColorSourceValue } from './settings-form-read';
 import type { ColorSourceSettingName } from './settings-form-read';
+import { renderSourceRowsList } from './settings-form-source-rows';
 import { renderAnkiTagsEditor } from './settings-form-tags';
 import { uniqueStrings } from './string-utils';
-import type { AnkiFieldMappingRole, AudioSourceSetting, DictionaryLookupLink, ImmersionExampleSource, InterfaceLanguage, JPDBDeck, ReaderColorSource, ReaderSettings } from './types';
+import type { AnkiFieldMappingRole, ImmersionExampleSource, InterfaceLanguage, JPDBDeck, ReaderColorSource, ReaderSettings } from './types';
 import type { RecommendedDictionary } from './recommended-dictionaries';
 import { RECOMMENDED_JAPANESE_DICTIONARIES } from './recommended-dictionaries';
-import { definitionSourceRows, kanjiSourceRows, type SettingsSourceRow } from './source-sections';
+import { definitionSourceRows, kanjiSourceRows } from './source-sections';
 import type { YomitanDictionaryInfo } from './yomitan';
 
-export { readAudioSources, readDictionaryLookupLinks, readFormSettings } from './settings-form-read';
+export { readDictionaryLookupLinks, readFormSettings } from './settings-form-read';
+export { renderAudioSourceEditor, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './settings-form-editors';
 export { installSourceRowDrag, updateSourceRowEditor } from './settings-form-order';
 
 const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
@@ -667,6 +669,7 @@ function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('youtubeImmersionEnabled', 'Only show Japanese YouTube videos', settings.youtubeImmersionEnabled)}
                     ${checkbox('preferJapaneseSiteLanguage', 'Prefer Japanese site language and location', settings.preferJapaneseSiteLanguage)}
                     ${checkbox('youtubeShowFilterNotice', 'Show a temporary hidden-video notice', settings.youtubeShowFilterNotice)}
+                    ${checkbox('youtubeShowChannelRecommendations', 'Show Japanese channel suggestions', settings.youtubeShowChannelRecommendations)}
                 </div>
                 <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>On by default. The language preference asks sites for Japanese UI and Japan-local content where a userscript can.</div>
             </fieldset>
@@ -996,6 +999,18 @@ function removeDescribedBy(control: HTMLElement, id: string): void {
 
 type SettingsText = (key: Parameters<typeof uiText>[1]) => string;
 type SettingsTextKey = Parameters<typeof uiText>[1];
+const ANKI_TEMPLATE_PREVIEW_SMALL_TEXT_KEYS = [
+    [/above the prompt/, 'imageAbovePrompt'],
+    [/highlighted word/, 'recallHighlightedWord'],
+    [/front when available/, 'imageOnFront'],
+    [/meaning first/, 'recallMeaning'],
+    [/Includes dictionary/, 'ankiBackIncludes'],
+] as const satisfies readonly (readonly [RegExp, SettingsTextKey])[];
+const DECK_HELP_TEXT_KEYS = [
+    [/Decks are loaded|JPDBアカウント/, 'decksLoaded'],
+    [/Could not load decks|まだデッキ/, 'decksUnavailable'],
+    [/Add your JPDB API key|JPDB APIキー/, 'addApiKeyChooseDecks'],
+] as const satisfies readonly (readonly [RegExp, SettingsTextKey])[];
 
 function localizeSettingsShell(form: HTMLFormElement, language: InterfaceLanguage, text: SettingsText): void {
     form.lang = resolveUiLanguage(language);
@@ -1055,7 +1070,7 @@ function localizeSettingsLegends(form: HTMLFormElement, text: SettingsText): voi
 }
 
 function localizeSettingsLabels(form: HTMLFormElement, text: SettingsText): void {
-    settingsControlLabelKeys().forEach(([name, key]) => setControlLabel(form, name, text(key)));
+    SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text(key)));
     const jpdbSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jpdb.io/settings"]');
     if (jpdbSettings) jpdbSettings.textContent = text('jpdbSettings');
     const nadeshikoKeyLink = form.querySelector<HTMLAnchorElement>('label a[href*="nadeshiko.co/user/developer"]');
@@ -1427,10 +1442,8 @@ function localizeDeckControls(form: HTMLFormElement, text: SettingsText): void {
     ]);
     const deckHelp = form.querySelector<HTMLElement>('[data-jpdb-decks] .jpdb-reader-help');
     if (!deckHelp) return;
-    const content = deckHelp.textContent ?? '';
-    if (/Decks are loaded|JPDBアカウント/.test(content)) deckHelp.replaceChildren(text('decksLoaded'));
-    else if (/Could not load decks|まだデッキ/.test(content)) deckHelp.replaceChildren(text('decksUnavailable'));
-    else if (/Add your JPDB API key|JPDB APIキー/.test(content)) deckHelp.replaceChildren(text('addApiKeyChooseDecks'));
+    const key = textKeyForPattern(deckHelp.textContent ?? '', DECK_HELP_TEXT_KEYS);
+    if (key) deckHelp.replaceChildren(text(key));
 }
 
 function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
@@ -1528,13 +1541,13 @@ function localizeAnkiTemplatePreview(form: HTMLFormElement, text: SettingsText):
     headings[1]?.replaceChildren(text('back'));
     preview.querySelector<HTMLElement>('.jpdb-reader-template-meaning')?.replaceChildren(text('exampleMeaning'));
     preview.querySelectorAll('small').forEach(small => {
-        const value = small.textContent ?? '';
-        if (/above the prompt/.test(value)) small.replaceChildren(text('imageAbovePrompt'));
-        else if (/highlighted word/.test(value)) small.replaceChildren(text('recallHighlightedWord'));
-        else if (/front when available/.test(value)) small.replaceChildren(text('imageOnFront'));
-        else if (/meaning first/.test(value)) small.replaceChildren(text('recallMeaning'));
-        else if (/Includes dictionary/.test(value)) small.replaceChildren(text('ankiBackIncludes'));
+        const key = textKeyForPattern(small.textContent ?? '', ANKI_TEMPLATE_PREVIEW_SMALL_TEXT_KEYS);
+        if (key) small.replaceChildren(text(key));
     });
+}
+
+function textKeyForPattern(value: string, options: readonly (readonly [RegExp, SettingsTextKey])[]): SettingsTextKey | undefined {
+    return options.find(([pattern]) => pattern.test(value))?.[1];
 }
 
 function localizeAudioSourceFields(form: HTMLFormElement, text: SettingsText): void {
@@ -1566,9 +1579,7 @@ function localizeAudioSourceTypeOptions(select: HTMLSelectElement, text: Setting
 
 function localizedAudioUrlPlaceholder(input: HTMLInputElement, text: SettingsText): string {
     const type = input.closest<HTMLElement>('[data-audio-source-row]')?.querySelector<HTMLSelectElement>('select[name$=".type"]')?.value;
-    if (type === 'custom-json') return text('audioCustomJsonPlaceholder');
-    if (type === 'custom') return text('audioCustomUrlPlaceholder');
-    return text('audioBuiltInPlaceholder');
+    return text(audioUrlPlaceholderKey(type));
 }
 
 function localizeRecommendedDictionaryButtons(form: HTMLFormElement, text: SettingsText): void {
@@ -1618,179 +1629,69 @@ function isInitialAnkiSettingsStatus(value: string): boolean {
     return /Checking AnkiConnect|Anki mining disabled|AnkiConnect.*確認中|Ankiマイニングは無効/.test(value);
 }
 
-function settingsControlLabelKeys(): Array<[string, SettingsTextKey]> {
-    return [
-        ['apiKey', 'apiKey'],
-        ['miningDeck', 'miningDeck'],
-        ['newTabJpdbDeck', 'newTabJpdbDeck'],
-        ['neverForgetDeck', 'neverForgetDeck'],
-        ['blacklistDeck', 'blacklistDeck'],
-        ['jpdbMiningEnabled', 'jpdbMiningEnabled'],
-        ['addToForq', 'addToForq'],
-        ['enableReviews', 'enableReviews'],
-        ['twoButtonReviews', 'reviewRatingScale'],
-        ['jpdbPageEnhancementsEnabled', 'jpdbPageEnhancementsEnabled'],
-        ['jpdbPageWordEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled'],
-        ['jpdbPageKanjiEnhancementsEnabled', 'jpdbPageKanjiEnhancementsEnabled'],
-        ['interfaceLanguage', 'settingsLanguage'],
-        ['popupMode', 'popupMode'],
-        ['stickyBottomSheet', 'stickyBottomSheet'],
-        ['popoverBackdropEnabled', 'popoverBackdropEnabled'],
-        ['popoverWidth', 'popoverWidth'],
-        ['popoverHeight', 'popoverHeight'],
-        ['popoverHeightMode', 'popoverHeightMode'],
-        ['readerFontFamily', 'readerFontFamily'],
-        ['popupFontFamily', 'popupFontFamily'],
-        ['popupFontWeight', 'popupFontWeight'],
-        ['enableLogging', 'enableLogging'],
-        ['accentColor', 'accentColor'],
-        ['newTabEnabled', 'newTabEnabled'],
-        ['newTabAnkiEnabled', 'newTabAnkiEnabled'],
-        ['newTabSource', 'newTabSource'],
-        ['newTabJpdbReviewMode', 'newTabJpdbReviewMode'],
-        ['corsProxyUrl', 'corsProxyUrl'],
-        ['newTabKanjiKeywordSource', 'newTabKanjiKeywordSource'],
-        ['newTabParsingEnabled', 'newTabParsingEnabled'],
-        ['newTabFrontSentenceEnabled', 'newTabFrontSentenceEnabled'],
-        ['newTabKanjiAutogradeEnabled', 'newTabKanjiAutogradeEnabled'],
-        ['newTabKanjiAutoSubmit', 'newTabKanjiAutoSubmit'],
-        ['newTabOfflineEnabled', 'newTabOfflineEnabled'],
-        ['newTabOfflineLimit', 'newTabOfflineLimit'],
-        ['newTabUrl', 'newTabUrl'],
-        ['wordColorNew', 'wordColorNew'],
-        ['wordColorLearning', 'wordColorLearning'],
-        ['wordColorKnown', 'wordColorKnown'],
-        ['wordColorDue', 'wordColorDue'],
-        ['wordColorFailed', 'wordColorFailed'],
-        ['wordColorIgnored', 'wordColorIgnored'],
-        ['pitchColorHeiban', 'pitchColorHeiban'],
-        ['pitchColorAtamadaka', 'pitchColorAtamadaka'],
-        ['pitchColorNakadaka', 'pitchColorNakadaka'],
-        ['pitchColorOdaka', 'pitchColorOdaka'],
-        ['pitchColorKifuku', 'pitchColorKifuku'],
-        ['pitchColorUnknown', 'pitchColorUnknown'],
-        ['wordHighlightColorSource', 'wordHighlightColorSource'],
-        ['wordUnderlineColorSource', 'wordUnderlineColorSource'],
-        ['wordTextColorSource', 'wordTextColorSource'],
-        ['subtitleHighlightColorSource', 'subtitleHighlightColorSource'],
-        ['subtitleUnderlineColorSource', 'subtitleUnderlineColorSource'],
-        ['subtitleTextColorSource', 'subtitleTextColorSource'],
-        ['parseSelection', 'parseSelection'],
-        ['lookupOnClick', 'lookupOnClick'],
-        ['lookupOnHover', 'lookupOnHover'],
-        ['lookupOnMiddleMouse', 'lookupOnMiddleMouse'],
-        ['showFloatingButton', 'showFloatingButton'],
-        ['furiganaMode', 'furiganaMode'],
-        ['showPitchAccent', 'showPitchAccent'],
-        ['kanjiOriginKanjiMapEnabled', 'kanjiOriginKanjiMapEnabled'],
-        ['kanjiOriginGraphEnabled', 'kanjiOriginGraphEnabled'],
-        ['kanjiOriginRadicalImagesEnabled', 'kanjiOriginRadicalImagesEnabled'],
-        ['similarKanjiWordLimit', 'similarKanjiWordLimit'],
-        ['audioEnabled', 'audioEnabled'],
-        ['autoPlayAudio', 'autoPlayAudio'],
-        ['suppressAutoAudioOnVideo', 'suppressAutoAudioOnVideo'],
-        ['audioAutoPlayMode', 'audioAutoPlayMode'],
-        ['audioEnableDefaultSources', 'audioEnableDefaultSources'],
-        ['audioFallbackChimeEnabled', 'audioFallbackChimeEnabled'],
-        ['audioSelectionMode', 'audioSelectionMode'],
-        ['audioTtsMode', 'audioTtsMode'],
-        ['audioTimeoutMs', 'audioTimeoutMs'],
-        ['immersionKitEnabled', 'immersionKitEnabled'],
-        ['immersionKitExampleSource', 'immersionKitExampleSource'],
-        ['nadeshikoApiKey', 'nadeshikoApiKey'],
-        ['immersionKitShowTranslation', 'immersionKitShowTranslation'],
-        ['immersionKitRevealTranslationOnClick', 'immersionKitRevealTranslationOnClick'],
-        ['immersionKitShowImages', 'immersionKitShowImages'],
-        ['immersionKitAutoPlayAudio', 'immersionKitAutoPlayAudio'],
-        ['immersionKitPlayOnHover', 'immersionKitPlayOnHover'],
-        ['immersionKitPlayOnImageClick', 'immersionKitPlayOnImageClick'],
-        ['immersionKitCategory', 'immersionKitCategory'],
-        ['immersionKitSort', 'immersionKitSort'],
-        ['immersionKitLimit', 'immersionKitLimit'],
-        ['immersionKitMinLength', 'immersionKitMinLength'],
-        ['immersionKitMaxLength', 'immersionKitMaxLength'],
-        ['immersionKitPlaybackRate', 'immersionKitPlaybackRate'],
-        ['immersionKitExactMatch', 'immersionKitExactMatch'],
-        ['ocrEnabled', 'ocrEnabled'],
-        ['ocrAutoScanImages', 'ocrAutoScanImages'],
-        ['ocrShowTextOverlay', 'ocrShowTextOverlay'],
-        ['ocrProvider', 'ocrProvider'],
-        ['ocrMaxImagesPerPage', 'ocrMaxImagesPerPage'],
-        ['ocrMinImageArea', 'ocrMinImageArea'],
-        ['ocrMaxImagePixels', 'ocrMaxImagePixels'],
-        ['ocrTextColor', 'ocrTextColor'],
-        ['ocrOutlineColor', 'ocrOutlineColor'],
-        ['ocrBackgroundColor', 'ocrBackgroundColor'],
-        ['ocrBackgroundOpacity', 'ocrBackgroundOpacity'],
-        ['ocrFontScale', 'ocrFontScale'],
-        ['ocrEndpointUrl', 'ocrEndpointUrl'],
-        ['ocrEngine', 'ocrEngine'],
-        ['ocrCloudVisionApiKey', 'cloudVisionApiKey'],
-        ['subtitlePlayerEnabled', 'subtitlePlayerEnabled'],
-        ['subtitleAutoDetect', 'subtitleAutoDetect'],
-        ['subtitleOverlayVisible', 'subtitleOverlayVisible'],
-        ['subtitleSecondaryVisible', 'subtitleSecondaryVisible'],
-        ['subtitleNativeBlurred', 'subtitleNativeBlurred'],
-        ['subtitleKaraokeMode', 'subtitleKaraokeMode'],
-        ['subtitleTranscriptVisible', 'subtitleTranscriptVisible'],
-        ['subtitlePausePanel', 'subtitlePausePanel'],
-        ['subtitleTranscriptPlacement', 'subtitleTranscriptPlacement'],
-        ['subtitleTranscriptAutoScroll', 'subtitleTranscriptAutoScroll'],
-        ['subtitleAutoCopyLine', 'subtitleAutoCopyLine'],
-        ['subtitleMiningPause', 'subtitleMiningPause'],
-        ['subtitleControlsMode', 'subtitleControlsMode'],
-        ['subtitleFontSize', 'subtitleFontSize'],
-        ['subtitleBottomOffset', 'subtitleBottomOffset'],
-        ['subtitleTextColor', 'subtitleTextColor'],
-        ['subtitleOutlineColor', 'subtitleOutlineColor'],
-        ['subtitleBackgroundColor', 'subtitleBackgroundColor'],
-        ['subtitleBackgroundOpacity', 'subtitleBackgroundOpacity'],
-        ['subtitleFontFamily', 'subtitleFontFamily'],
-        ['subtitleFontWeight', 'subtitleFontWeight'],
-        ['subtitleSeekPadding', 'subtitleSeekPadding'],
-        ['ankiEnabled', 'ankiEnabled'],
-        ['ankiMineWithJpdb', 'ankiMineWithJpdb'],
-        ['ankiCaptureScreenshot', 'ankiCaptureScreenshot'],
-        ['ankiMobileHandoff', 'mobileAnkiHandoff'],
-        ['ankiConnectUrl', 'ankiConnectUrl'],
-        ['ankiDeck', 'ankiDeck'],
-        ['ankiModel', 'ankiModel'],
-        ['ankiTemplateMode', 'ankiTemplateMode'],
-        ['ankiFrontReading', 'ankiFrontReading'],
-        ['ankiFrontSentence', 'ankiFrontSentence'],
-        ['ankiFrontImage', 'ankiFrontImage'],
-        ['ankiTags', 'ankiTags'],
-        ['youtubeImmersionEnabled', 'youtubeImmersionEnabled'],
-        ['preferJapaneseSiteLanguage', 'preferJapaneseSiteLanguage'],
-        ['youtubeShowFilterNotice', 'youtubeShowFilterNotice'],
-        ['jpdbDefinitionsEnabled', 'jpdbDefinitionsEnabled'],
-        ['localDictionariesEnabled', 'localDictionariesEnabled'],
-        ['dictionarySourcesInitiallyExpanded', 'dictionarySourcesInitiallyExpanded'],
-        ['localDictionaryMaxResults', 'localDictionaryMaxResults'],
-        ['shortcuts.hoverLookup', 'holdWhileHovering'],
-        ['hoverOpenDelayMs', 'hoverOpenDelayMs'],
-        ['hoverCloseDelayMs', 'hoverCloseDelayMs'],
-        ['shortcuts.scanPage', 'scanPage'],
-        ['shortcuts.openSettings', 'openSettings'],
-        ['shortcuts.playAudio', 'playAudio'],
-        ['shortcuts.closePopup', 'closePopup'],
-        ['shortcuts.previousLookupWord', 'previousLookupWord'],
-        ['shortcuts.nextLookupWord', 'nextLookupWord'],
-        ['shortcuts.previousSubtitle', 'previousSubtitle'],
-        ['shortcuts.nextSubtitle', 'nextSubtitle'],
-        ['shortcuts.copySubtitle', 'copySubtitle'],
-        ['shortcuts.toggleOcr', 'toggleImageReading'],
-        ['shortcuts.toggleYoutubeImmersion', 'toggleYoutubeImmersion'],
-        ['shortcuts.scanImages', 'readImagesNow'],
-        ['shortcuts.gradeNothing', 'gradeNothing'],
-        ['shortcuts.gradeSomething', 'gradeSomething'],
-        ['shortcuts.gradeHard', 'gradeHard'],
-        ['shortcuts.gradeOkay', 'gradeOkay'],
-        ['shortcuts.gradeEasy', 'gradeEasy'],
-        ['shortcuts.gradeFail', 'gradeFail'],
-        ['shortcuts.gradePass', 'gradePass'],
-    ];
-}
+const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
+    'apiKey', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
+    'jpdbMiningEnabled', 'addToForq', 'enableReviews', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
+    'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'stickyBottomSheet', 'popoverBackdropEnabled', 'popoverWidth',
+    'popoverHeight', 'popoverHeightMode', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',
+    'enableLogging', 'accentColor', 'newTabEnabled', 'newTabAnkiEnabled', 'newTabSource',
+    'newTabJpdbReviewMode', 'corsProxyUrl', 'newTabKanjiKeywordSource', 'newTabParsingEnabled', 'newTabFrontSentenceEnabled',
+    'newTabKanjiAutogradeEnabled', 'newTabKanjiAutoSubmit', 'newTabOfflineEnabled', 'newTabOfflineLimit', 'newTabUrl',
+    'wordColorNew', 'wordColorLearning', 'wordColorKnown', 'wordColorDue', 'wordColorFailed',
+    'wordColorIgnored', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
+    'pitchColorKifuku', 'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
+    'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'parseSelection', 'lookupOnClick',
+    'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'furiganaMode', 'showPitchAccent',
+    'kanjiOriginKanjiMapEnabled', 'kanjiOriginGraphEnabled', 'kanjiOriginRadicalImagesEnabled', 'similarKanjiWordLimit', 'audioEnabled',
+    'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',
+    'audioSelectionMode', 'audioTtsMode', 'audioTimeoutMs', 'immersionKitEnabled', 'immersionKitExampleSource',
+    'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',
+    'immersionKitPlayOnHover', 'immersionKitPlayOnImageClick', 'immersionKitCategory', 'immersionKitSort', 'immersionKitLimit',
+    'immersionKitMinLength', 'immersionKitMaxLength', 'immersionKitPlaybackRate', 'immersionKitExactMatch', 'ocrEnabled',
+    'ocrAutoScanImages', 'ocrShowTextOverlay', 'ocrProvider', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
+    'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundColor', 'ocrBackgroundOpacity',
+    'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
+    'subtitleOverlayVisible', 'subtitleSecondaryVisible', 'subtitleNativeBlurred', 'subtitleKaraokeMode', 'subtitleTranscriptVisible',
+    'subtitlePausePanel', 'subtitleTranscriptPlacement', 'subtitleTranscriptAutoScroll', 'subtitleAutoCopyLine', 'subtitleMiningPause',
+    'subtitleControlsMode', 'subtitleFontSize', 'subtitleBottomOffset', 'subtitleTextColor', 'subtitleOutlineColor',
+    'subtitleBackgroundColor', 'subtitleBackgroundOpacity', 'subtitleFontFamily', 'subtitleFontWeight', 'subtitleSeekPadding',
+    'ankiEnabled', 'ankiMineWithJpdb', 'ankiCaptureScreenshot', 'ankiConnectUrl', 'ankiDeck',
+    'ankiModel', 'ankiTemplateMode', 'ankiFrontReading', 'ankiFrontSentence', 'ankiFrontImage',
+    'ankiTags', 'youtubeImmersionEnabled', 'preferJapaneseSiteLanguage', 'youtubeShowFilterNotice', 'youtubeShowChannelRecommendations', 'jpdbDefinitionsEnabled',
+    'localDictionariesEnabled', 'dictionarySourcesInitiallyExpanded', 'localDictionaryMaxResults', 'hoverOpenDelayMs', 'hoverCloseDelayMs',
+] as const satisfies readonly SettingsTextKey[];
+
+const SETTINGS_CONTROL_LABEL_ALIASES = [
+    ['twoButtonReviews', 'reviewRatingScale'],
+    ['interfaceLanguage', 'settingsLanguage'],
+    ['ocrCloudVisionApiKey', 'cloudVisionApiKey'],
+    ['ankiMobileHandoff', 'mobileAnkiHandoff'],
+    ['shortcuts.hoverLookup', 'holdWhileHovering'],
+    ['shortcuts.scanPage', 'scanPage'],
+    ['shortcuts.openSettings', 'openSettings'],
+    ['shortcuts.playAudio', 'playAudio'],
+    ['shortcuts.closePopup', 'closePopup'],
+    ['shortcuts.previousLookupWord', 'previousLookupWord'],
+    ['shortcuts.nextLookupWord', 'nextLookupWord'],
+    ['shortcuts.previousSubtitle', 'previousSubtitle'],
+    ['shortcuts.nextSubtitle', 'nextSubtitle'],
+    ['shortcuts.copySubtitle', 'copySubtitle'],
+    ['shortcuts.toggleOcr', 'toggleImageReading'],
+    ['shortcuts.toggleYoutubeImmersion', 'toggleYoutubeImmersion'],
+    ['shortcuts.scanImages', 'readImagesNow'],
+    ['shortcuts.gradeNothing', 'gradeNothing'],
+    ['shortcuts.gradeSomething', 'gradeSomething'],
+    ['shortcuts.gradeHard', 'gradeHard'],
+    ['shortcuts.gradeOkay', 'gradeOkay'],
+    ['shortcuts.gradeEasy', 'gradeEasy'],
+    ['shortcuts.gradeFail', 'gradeFail'],
+    ['shortcuts.gradePass', 'gradePass'],
+] as const satisfies readonly (readonly [string, SettingsTextKey])[];
+
+const SETTINGS_CONTROL_LABELS: readonly (readonly [string, SettingsTextKey])[] = [
+    ...DIRECT_SETTINGS_CONTROL_LABEL_KEYS.map(key => [key, key] as const),
+    ...SETTINGS_CONTROL_LABEL_ALIASES,
+];
 
 function getNamedControl<T extends HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(form: HTMLFormElement, name: string): T | null {
     const item = form.elements.namedItem(name);
@@ -2051,73 +1952,6 @@ function normalizeSettingsSearchText(value: string): string {
     return value.normalize('NFKC').toLocaleLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-export function renderAudioSourceEditor(sources: AudioSourceSetting[], language: InterfaceLanguage = 'en'): string {
-    return `
-        <div class="jpdb-reader-audio-source-head jpdb-reader-order-head">
-            <span>${escapedUiText(language, 'enabledHeader')}</span>
-            <span>${escapedUiText(language, 'audioSource')}</span>
-            <span>${escapedUiText(language, 'urlVoice')}</span>
-            <span>${escapedUiText(language, 'orderHeader')}</span>
-            <span>${escapedUiText(language, 'removeHeader')}</span>
-        </div>
-        ${renderAudioSourceRows(audioSourceRowsForSettings(sources), language)}
-        <button class="jpdb-reader-btn" type="button" data-action="audio-source-add">${escapedUiText(language, 'addAudioSource')}</button>
-    `;
-}
-
-function renderAudioSourceRows(rows: AudioSourceSetting[], language: InterfaceLanguage): string {
-    const count = rows.length;
-
-    return `
-        <input type="hidden" name="audioSourceCount" value="${count}">
-        ${rows.map((source, index) => `
-            <div class="jpdb-reader-audio-source-row jpdb-reader-order-row" data-source-row data-audio-source-row data-source-id="audio-${index}">
-                <label class="inline jpdb-reader-audio-index jpdb-reader-order-toggle">
-                    <input name="audioSources.${index}.enabled" type="checkbox" aria-label="${escapeHtml(uiText(language, 'enableAudioSourceNumber').replace('{number}', String(index + 1)))}" ${source.enabled ? 'checked' : ''}>
-                    <span>${index + 1}</span>
-                </label>
-                <div class="jpdb-reader-audio-source-choice">
-                    <select name="audioSources.${index}.type" aria-label="${escapeHtml(uiText(language, 'audioSourceNumber').replace('{number}', String(index + 1)))}">
-                        ${audioSourceSelectOptions(source.type, language).map(([optionValue, text]) =>
-                            `<option value="${escapeHtml(optionValue)}" ${optionValue === source.type ? 'selected' : ''}>${escapeHtml(text)}</option>`,
-                        ).join('')}
-                    </select>
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="preview-audio" title="${escapedUiText(language, 'previewAudio')}" aria-label="${escapedUiText(language, 'previewAudio')}">${speakerIcon()}</button>
-                </div>
-                <div class="jpdb-reader-audio-source-fields">
-                    <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml(source.url)}" placeholder="${escapeHtml(audioUrlPlaceholder(source.type, language))}" ${audioSourceUsesUrl(source.type) ? '' : 'hidden'}>
-                    <select data-audio-voice-field name="audioSources.${index}.voice" aria-label="${escapeHtml(uiText(language, 'textToSpeechVoiceNumber').replace('{number}', String(index + 1)))}" data-selected-voice="${escapeHtml(source.voice)}" ${audioSourceUsesVoice(source.type) ? '' : 'hidden'}>
-                        <option value="${escapeHtml(source.voice)}">${escapeHtml(source.voice || uiText(language, 'automaticBrowserVoice'))}</option>
-                    </select>
-                </div>
-                <div class="jpdb-reader-row-tools jpdb-reader-row-order-tools" aria-label="${escapedUiText(language, 'audioSourceOrder')}">
-                    <button type="button" class="jpdb-reader-icon-mini jpdb-reader-drag-handle" data-source-drag-handle tabindex="-1" title="${escapedUiText(language, 'dragToReorder')}" aria-label="${escapedUiText(language, 'dragToReorder')}">${miniIcon('drag')}</button>
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-up" title="${escapedUiText(language, 'moveUp')}" aria-label="${escapedUiText(language, 'moveUp')}">${miniIcon('up')}</button>
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-down" title="${escapedUiText(language, 'moveDown')}" aria-label="${escapedUiText(language, 'moveDown')}">${miniIcon('down')}</button>
-                </div>
-                <div class="jpdb-reader-row-tools jpdb-reader-row-remove-tools">
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="audio-source-remove" title="${escapedUiText(language, 'remove')}" aria-label="${escapedUiText(language, 'remove')}">${miniIcon('remove')}</button>
-                </div>
-            </div>
-        `).join('')}
-    `;
-}
-
-function audioSourceSelectOptions(type: AudioSourceSetting['type'], language: InterfaceLanguage): [AudioSourceSetting['type'], string][] {
-    if (type === 'custom') {
-        return [
-            ...AUDIO_SOURCE_UI_TYPE_VALUES.map(value => [value, audioSourceLabel(language, value)] as [AudioSourceSetting['type'], string]),
-            ['custom', uiText(language, 'customAdvanced').replace('{label}', audioSourceLabel(language, 'custom'))],
-        ];
-    }
-    return AUDIO_SOURCE_UI_TYPE_VALUES.map(value => [value, audioSourceLabel(language, value)] as [AudioSourceSetting['type'], string]);
-}
-
-function audioSourceRowsForSettings(sources: AudioSourceSetting[]): AudioSourceSetting[] {
-    const rows = sources.map(source => ({ ...source }));
-    return rows.length ? rows : DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
-}
-
 function audioHelpHtml(language: InterfaceLanguage): string {
     const copy = uiText(language, 'audioHelp');
     const linkLabel = uiText(language, 'audioGuideLinkLabel');
@@ -2129,185 +1963,6 @@ function ankiSetupHelpHtml(language: InterfaceLanguage): string {
     const copy = uiText(language, 'ankiHelp');
     const linkLabel = language === 'ja' ? 'AnkiConnectアドオンを開く' : 'Open AnkiConnect add-on';
     return `${escapeHtml(copy)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(linkLabel)}</a>`;
-}
-
-function audioUrlPlaceholder(type: AudioSourceSetting['type'], language: InterfaceLanguage): string {
-    if (type === 'custom-json') return uiText(language, 'audioCustomJsonPlaceholder');
-    if (type === 'custom') return uiText(language, 'audioCustomUrlPlaceholder');
-    return uiText(language, 'audioBuiltInPlaceholder');
-}
-
-function audioSourceUsesUrl(type: string): boolean {
-    return type === 'custom' || type === 'custom-json';
-}
-
-function audioSourceUsesVoice(type: string): boolean {
-    return type === 'text-to-speech' || type === 'text-to-speech-reading';
-}
-
-export function syncAudioSourceRow(row: Element | null, type: string): void {
-    if (!row) return;
-    row.querySelectorAll<HTMLElement>('[data-audio-url-field]').forEach(node => { node.hidden = !audioSourceUsesUrl(type); });
-    row.querySelectorAll<HTMLElement>('[data-audio-voice-field]').forEach(node => { node.hidden = !audioSourceUsesVoice(type); });
-}
-
-export function syncBrowserTtsVoiceOptions(form: HTMLFormElement): void {
-    const voices = 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : [];
-    const language: InterfaceLanguage = form.lang === 'ja' ? 'ja' : 'en';
-    const text = (key: SettingsTextKey) => uiText(language, key);
-    const sortedVoices = voices.slice().sort((a, b) => {
-        const aJapanese = a.lang.toLowerCase().startsWith('ja') ? 0 : 1;
-        const bJapanese = b.lang.toLowerCase().startsWith('ja') ? 0 : 1;
-        return aJapanese - bJapanese
-            || a.lang.localeCompare(b.lang)
-            || a.name.localeCompare(b.name);
-    });
-
-    form.querySelectorAll<HTMLSelectElement>('select[data-audio-voice-field]').forEach(select => {
-        const selected = select.value || select.dataset.selectedVoice || '';
-        const options = [
-            `<option value="" ${selected ? '' : 'selected'}>${escapeHtml(text('automaticBrowserVoice'))}</option>`,
-            ...sortedVoices.map(voice => {
-                const label = `${voice.name}${voice.lang ? ` (${voice.lang})` : ''}${voice.default ? ` - ${text('defaultVoiceSuffix')}` : ''}`;
-                return `<option value="${escapeHtml(voice.name)}" ${voice.name === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`;
-            }),
-        ];
-        if (selected && !sortedVoices.some(voice => voice.name === selected)) {
-            options.push(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(text('savedVoiceLabel').replace('{voice}', selected))}</option>`);
-        }
-        setInnerHtml(select, options.join(''));
-    });
-}
-
-function isAudioSourceTypeValue(value: string): value is AudioSourceSetting['type'] {
-    return (AUDIO_SOURCE_UI_TYPE_VALUES as readonly string[]).includes(value) || value === 'custom';
-}
-
-export function updateAudioSourceEditor(form: HTMLFormElement, action: string, control?: HTMLElement | null): void {
-    const container = form.querySelector<HTMLElement>('.jpdb-reader-audio-sources');
-    if (!container) return;
-    const row = control?.closest<HTMLElement>('[data-audio-source-row]');
-    const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-audio-source-row]'));
-    const index = row ? rows.indexOf(row) : -1;
-
-    if (isAudioSourceMoveAction(action)) {
-        moveSourceRow(container, index, audioSourceMoveTargetIndex(action, index));
-        return;
-    }
-
-    const sources = audioSourceRowsForSettings(readAudioSources(new FormData(form)));
-    updateAudioSourceRows(sources, action, index);
-    setInnerHtml(container, renderAudioSourceEditor(sources, form.lang === 'ja' ? 'ja' : 'en'));
-}
-
-function isAudioSourceMoveAction(action: string): boolean {
-    return action === 'audio-source-up' || action === 'audio-source-down';
-}
-
-function audioSourceMoveTargetIndex(action: string, index: number): number {
-    return action === 'audio-source-up' ? index - 1 : index + 1;
-}
-
-function updateAudioSourceRows(sources: AudioSourceSetting[], action: string, index: number): void {
-    if (action === 'audio-source-add') addAudioSourceRow(sources);
-    if (action === 'audio-source-remove') removeAudioSourceRow(sources, index);
-}
-
-function addAudioSourceRow(sources: AudioSourceSetting[]): void {
-    if (sources.length < 12) sources.push({ type: 'custom-json', url: '', voice: '', enabled: true });
-}
-
-function removeAudioSourceRow(sources: AudioSourceSetting[], index: number): void {
-    if (index >= 0 && sources.length > 1) sources.splice(index, 1);
-}
-
-export function renderDictionaryLookupLinkEditor(links: DictionaryLookupLink[]): string {
-    const rows = normalizeDictionaryLookupLinks(links);
-    return `
-        <div class="jpdb-reader-lookup-link-head jpdb-reader-order-head">
-            <span>On</span>
-            <span>Label</span>
-            <span>URL template</span>
-            <span>Order</span>
-            <span>Remove</span>
-        </div>
-        ${renderDictionaryLookupLinkRows(rows)}
-        <div class="jpdb-reader-lookup-link-actions">
-            <button class="jpdb-reader-btn add" type="button" data-action="lookup-link-add">Add</button>
-        </div>
-    `;
-}
-
-function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[]): string {
-    return `
-        <input type="hidden" name="dictionaryLookupLinkCount" value="${rows.length}">
-        ${rows.map((link, index) => {
-            const isCopyAction = link.action === 'copy';
-            const urlControl = isCopyAction
-                ? `<span class="jpdb-reader-lookup-link-note">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">`
-                : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">`;
-            const removeControl = isCopyAction
-                ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>'
-                : `<button type="button" class="jpdb-reader-icon-mini" data-action="lookup-link-remove" title="Remove" aria-label="Remove">${miniIcon('remove')}</button>`;
-            return `
-                <div class="jpdb-reader-lookup-link-row jpdb-reader-order-row" data-source-row data-lookup-link-row data-source-id="lookup-link-${index}" data-index="${index}">
-                    <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
-                        <input name="dictionaryLookupLinks.${index}.enabled" type="checkbox" data-lookup-link-enable-toggle ${link.enabled ? 'checked' : ''}>
-                        <span>${index + 1}</span>
-                    </label>
-                    <input name="dictionaryLookupLinks.${index}.label" type="text" value="${escapeHtml(link.label)}" aria-label="Lookup pill label">
-                    ${urlControl}
-                    <input name="dictionaryLookupLinks.${index}.id" type="hidden" value="${escapeHtml(link.id)}">
-                    <input name="dictionaryLookupLinks.${index}.action" type="hidden" value="${escapeHtml(link.action ?? 'open')}">
-                    <div class="jpdb-reader-row-tools jpdb-reader-row-order-tools" aria-label="Lookup pill order">
-                        <button type="button" class="jpdb-reader-icon-mini jpdb-reader-drag-handle" data-source-drag-handle tabindex="-1" title="Drag to reorder" aria-label="Drag to reorder">${miniIcon('drag')}</button>
-                        <button type="button" class="jpdb-reader-icon-mini" data-action="lookup-link-up" title="Move up" aria-label="Move up">${miniIcon('up')}</button>
-                        <button type="button" class="jpdb-reader-icon-mini" data-action="lookup-link-down" title="Move down" aria-label="Move down">${miniIcon('down')}</button>
-                    </div>
-                    <div class="jpdb-reader-row-tools jpdb-reader-row-remove-tools">
-                        ${removeControl}
-                    </div>
-                </div>
-            `;
-        }).join('')}
-    `;
-}
-
-export function updateDictionaryLookupLinkEditor(form: HTMLFormElement, action: string, control?: HTMLElement | null): void {
-    const container = form.querySelector<HTMLElement>('.jpdb-reader-lookup-links');
-    if (!container) return;
-    const links = readDictionaryLookupLinks(new FormData(form));
-    const row = control?.closest<HTMLElement>('[data-lookup-link-row]');
-    const index = row ? Array.from(container.querySelectorAll('[data-lookup-link-row]')).indexOf(row) : -1;
-    updateDictionaryLookupLinks(links, action, index);
-    setInnerHtml(container, renderDictionaryLookupLinkEditor(links));
-}
-
-function updateDictionaryLookupLinks(links: DictionaryLookupLink[], action: string, index: number): void {
-    if (action === 'lookup-link-add') addDictionaryLookupLink(links);
-    if (action === 'lookup-link-remove') removeDictionaryLookupLink(links, index);
-    if (action === 'lookup-link-up') moveDictionaryLookupLink(links, index, index - 1);
-    if (action === 'lookup-link-down') moveDictionaryLookupLink(links, index, index + 1);
-}
-
-function addDictionaryLookupLink(links: DictionaryLookupLink[]): void {
-    if (links.length >= MAX_DICTIONARY_LOOKUP_LINKS) return;
-    links.push({
-        id: `custom-${Date.now().toString(36)}`,
-        label: '',
-        urlTemplate: 'https://takoboto.jp/?q={query}',
-        enabled: true,
-    });
-}
-
-function removeDictionaryLookupLink(links: DictionaryLookupLink[], index: number): void {
-    if (index >= 0 && links.length > 1 && links[index]?.action !== 'copy') links.splice(index, 1);
-}
-
-function moveDictionaryLookupLink(links: DictionaryLookupLink[], from: number, to: number): void {
-    if (from < 0 || to < 0 || from >= links.length || to >= links.length) return;
-    const [link] = links.splice(from, 1);
-    links.splice(to, 0, link);
 }
 
 export function installShortcutCapture(root: HTMLElement): void {
@@ -2493,79 +2148,6 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
 
 export function renderKanjiSourceRows(settings: ReaderSettings): string {
     return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: 'Kanji section', showAlias: false });
-}
-
-function renderSourceRowsList(rows: SettingsSourceRow[], options: { sourceLabel: string; countName?: string; countValue?: number; showAlias: boolean }): string {
-    const removableCount = rows.filter(row => row.removable).length;
-    const showRemove = removableCount > 0;
-    const layoutClass = [
-        options.showAlias ? '' : 'compact',
-        showRemove ? 'has-remove' : 'no-remove',
-    ].filter(Boolean).join(' ');
-    return `
-        <div class="jpdb-reader-dictionary-head jpdb-reader-order-head ${layoutClass}">
-            <span>On</span>
-            <span>${escapeHtml(options.sourceLabel)}</span>
-            ${options.showAlias ? '<span>Display name</span>' : ''}
-            <span>Order</span>
-            ${showRemove ? '<span>Remove</span>' : ''}
-        </div>
-        ${options.countName ? `<input type="hidden" name="${escapeHtml(options.countName)}" value="${options.countValue ?? removableCount}">` : ''}
-        ${rows.map((row, index) => {
-        const keys = sourceRowCopyKeys(row);
-        return `
-            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${layoutClass}" data-source-row data-dictionary-source-row data-source-id="${escapeHtml(row.id)}">
-                <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
-                    <input name="${row.prefix}.enabled" type="checkbox" data-source-enable-toggle ${row.enabled ? 'checked' : ''}>
-                    <span>${index + 1}</span>
-                </label>
-                ${sourceField(sourceRowDisplayName(row, options.showAlias), row.name, row.prefix, 'name', options.sourceLabel, keys?.nameKey)}
-                ${options.showAlias ? (row.readonly
-                    ? sourceField(row.alias, row.alias, row.prefix, 'alias', 'Display name', keys?.nameKey)
-                    : `<input name="${row.prefix}.alias" type="text" value="${escapeHtml(row.alias)}" aria-label="Dictionary display name" placeholder="${escapeHtml(row.name)}">`) : ''}
-                <div class="jpdb-reader-row-tools jpdb-reader-row-order-tools">
-                    <input name="${row.prefix}.priority" type="hidden" value="${index}">
-                    <button type="button" class="jpdb-reader-icon-mini jpdb-reader-drag-handle" data-source-drag-handle tabindex="-1" title="Drag to reorder" aria-label="Drag to reorder">${miniIcon('drag')}</button>
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-up" title="Move up" aria-label="Move up">${miniIcon('up')}</button>
-                    <button type="button" class="jpdb-reader-icon-mini" data-action="dictionary-source-down" title="Move down" aria-label="Move down">${miniIcon('down')}</button>
-                </div>
-                ${showRemove ? `<div class="jpdb-reader-row-tools jpdb-reader-row-remove-tools">
-                    ${row.removable ? `<button type="button" class="jpdb-reader-icon-mini" data-action="delete-yomitan-dictionary" data-dictionary-name="${escapeHtml(row.name)}" title="Remove imported dictionary" aria-label="Remove imported dictionary">${miniIcon('remove')}</button>` : ''}
-                </div>` : ''}
-                ${row.removable ? `<input name="${row.prefix}.type" type="hidden" value="${escapeHtml(row.dictionaryType ?? 'terms')}">` : ''}
-                ${row.help ? `<div class="jpdb-reader-dictionary-row-help" ${keys?.helpKey ? `data-source-help-key="${escapeHtml(keys.helpKey)}"` : ''}>${escapeHtml(row.help)}</div>` : ''}
-            </div>
-        `;
-    }).join('')}
-    `;
-}
-
-function sourceRowDisplayName(row: SettingsSourceRow, showAlias: boolean): string {
-    return !showAlias && !row.readonly && row.alias ? row.alias : row.name;
-}
-
-function sourceField(displayValue: string, formValue: string, prefix: string, field: 'name' | 'alias', label: string, nameKey?: SettingsTextKey): string {
-    return `
-        <span class="jpdb-reader-field-display" aria-label="${escapeHtml(label)}" ${nameKey ? `data-source-name-key="${escapeHtml(nameKey)}"` : ''}>${escapeHtml(displayValue)}</span>
-        <input name="${prefix}.${field}" type="hidden" value="${escapeHtml(formValue)}">
-    `;
-}
-
-function sourceRowCopyKeys(row: SettingsSourceRow): { nameKey?: SettingsTextKey; helpKey?: SettingsTextKey } | undefined {
-    if (row.id === '__jpdb__') return { helpKey: 'sourceHelpJpdb' };
-    if (row.id === '__anki__') return { nameKey: 'sourceNameAnki', helpKey: 'sourceHelpAnki' };
-    if (row.id === '__study_translation__') return { nameKey: 'sourceNameTranslation', helpKey: 'sourceHelpTranslation' };
-    if (row.id === '__study_grammar__') return { nameKey: 'sourceNameGrammar', helpKey: 'sourceHelpGrammar' };
-    if (row.id === '__immersion_kit__') return { nameKey: 'sourceNameImmersionKit', helpKey: 'sourceHelpImmersionKit' };
-    if (row.id === '__kanji_stroke__') return { nameKey: 'sourceNameStrokePractice', helpKey: 'sourceHelpStrokePractice' };
-    if (row.id === '__kanji_jpdb__') return { nameKey: 'readingsComponents', helpKey: 'sourceHelpReadingsComponents' };
-    if (row.id === '__kanji_rtk__') return { helpKey: 'sourceHelpRtk' };
-    if (row.id === '__kanji_uchisen__') return { helpKey: 'sourceHelpUchisen' };
-    if (row.id === '__kanji_dictionaries__') return { nameKey: 'sourceNameImportedKanjiDictionaries', helpKey: 'sourceHelpImportedKanjiDictionaries' };
-    if (row.id === '__kanji_similar_words__') return { nameKey: 'sourceNameWordsUsingKanji', helpKey: 'sourceHelpWordsUsingKanji' };
-    if (row.id === '__kanji_origins__') return { nameKey: 'originStructure', helpKey: 'sourceHelpComponentGraph' };
-    if (row.id.startsWith('__kanji_dictionary__:')) return { helpKey: 'sourceHelpImportedKanjiDictionary' };
-    return undefined;
 }
 
 export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]): string {

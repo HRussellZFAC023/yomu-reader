@@ -165,13 +165,31 @@ function nowMs(): number {
 function sanitizeForConsole(value: unknown): unknown {
     if (typeof value === 'string') return redactString(value);
     if (value === null || value === undefined || typeof value !== 'object') return value;
-    if (value instanceof Error) return { name: value.name, message: value.message, stack: value.stack };
-    if (typeof URL !== 'undefined' && value instanceof URL) return value.href;
-    if (typeof Blob !== 'undefined' && value instanceof Blob) return { type: value.type, size: value.size };
-    if (typeof Event !== 'undefined' && value instanceof Event) return { type: value.type };
+    const sanitized = sanitizeSpecialConsoleValue(value);
+    if (sanitized.handled) return sanitized.value;
     if (Array.isArray(value)) return value.map(sanitizeForConsole);
     return sanitizeRecordForConsole(value as Record<string, unknown>);
 }
+
+interface SanitizedConsoleValue {
+    handled: boolean;
+    value?: unknown;
+}
+
+function sanitizeSpecialConsoleValue(value: object): SanitizedConsoleValue {
+    for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
+        const sanitized = sanitizer(value);
+        if (sanitized.handled) return sanitized;
+    }
+    return { handled: false };
+}
+
+const CONSOLE_VALUE_SANITIZERS: Array<(value: object) => SanitizedConsoleValue> = [
+    value => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
+    value => typeof URL !== 'undefined' && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
+    value => typeof Blob !== 'undefined' && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
+    value => typeof Event !== 'undefined' && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false },
+];
 
 function sanitizeRecordForConsole(record: Record<string, unknown>): Record<string, unknown> {
     return Object.fromEntries(Object.entries(record).map(([key, value]) => [

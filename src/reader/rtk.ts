@@ -78,7 +78,7 @@ export class RtkClient {
     }
 }
 
-export function parseRtkHtml(html: string, kanji: string): RtkInfo | null {
+function parseRtkHtml(html: string, kanji: string): RtkInfo | null {
     const doc = parseHtmlDocument(html);
     const keywordElement = doc.querySelector('h2 code');
     const keyword = rtkKeywordText(keywordElement);

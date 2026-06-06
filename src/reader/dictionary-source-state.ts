@@ -1,4 +1,5 @@
 import { escapeHtml } from './dom';
+import { installDictionarySourceTracking } from './dictionary-source-state-events';
 import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync } from './storage';
 import type { ReaderSettings } from './types';
 
@@ -33,36 +34,14 @@ export class DictionarySourceStateController {
     }
 
     installTracking(popover: HTMLElement): void {
-        if (popover.dataset.jpdbReaderSourceTrackingInstalled === 'true') return;
-        popover.dataset.jpdbReaderSourceTrackingInstalled = 'true';
-
-        popover.addEventListener('click', event => {
-            const target = event.target instanceof Element ? event.target : null;
-            const summary = target?.closest<HTMLElement>('summary.jpdb-reader-local-title');
-            const details = summary?.parentElement instanceof HTMLDetailsElement ? summary.parentElement : null;
-            if (!summary || !details || !popover.contains(summary) || !details.dataset.sourceStateKey) return;
-            if (details.dataset.immersionEmpty !== 'true') return;
-            event.preventDefault();
-            event.stopPropagation();
-        });
-        popover.addEventListener('toggle', event => {
-            const details = event.target instanceof HTMLDetailsElement ? event.target : null;
-            if (!details?.dataset.sourceStateKey) return;
-            if (details.dataset.immersionEmpty === 'true') {
-                if (details.open) details.open = false;
-                return;
-            }
-            this.remember(details);
-        }, true);
+        installDictionarySourceTracking(popover, details => this.remember(details));
     }
 
     private remember(details: HTMLDetailsElement): void {
         const sourceStateKey = details.dataset.sourceStateKey;
         if (!sourceStateKey) return;
-        const rememberedOpen = this.openOverrides.get(sourceStateKey);
-        if (rememberedOpen === details.open) return;
-        const initialOpen = details.dataset.sourceInitialOpen === 'true';
-        if (rememberedOpen === undefined && details.open === initialOpen) return;
+        const persistedOpen = this.openOverrides.get(sourceStateKey) ?? (details.dataset.sourceInitialOpen === 'true');
+        if (persistedOpen === details.open) return;
         this.openOverrides.set(sourceStateKey, details.open);
         saveOpenOverrides(this.openOverrides);
         this.dependencies.onStateChange();

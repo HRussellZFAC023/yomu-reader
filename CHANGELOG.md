@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.21] - 2026-06-06
+
+### Fixed
+
+- Kept Anki fully opt-in on fresh installs and factory resets, including Anki mining, the Anki dictionary section, new-tab Anki reviews, Anki+JPDB dual mining, and mobile Anki handoff.
+- Made the mobile AnkiMobile/AnkiDroid handoff respect the main Anki toggle so turning Anki off removes the send-to-Anki route.
+- Restored the mobile YouTube subtitle sidebar control when compact video controls idle, keeping the panel button visible and tappable.
+- Rendered cached provisional subtitle ruby and pitch styling on the first primary subtitle paint while full JPDB parsing finishes.
+- Tightened JPDB page Immersion Kit spacing so image controls sit with the title row, captions use the same subtitle styling as dictionary cards, and ruby captions are not clipped.
+- Kept JPDB page alternate forms and compounds atomic after Yomu ruby is injected, so forms like `おつかれさま` and `疲れ` stay full-word lookup targets without duplicate furigana loops.
+- Fixed kana-only lookup without a JPDB API key by trying JPDB span candidates before fragment fallbacks, so tapping fragments like `に`, `ほん`, or `ご` resolves the full word `にほんご`.
+
 ## [0.6.19] - 2026-06-05
 
 ### Fixed

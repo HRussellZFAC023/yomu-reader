@@ -22,6 +22,27 @@ const FUNCTION_LIKE_CHECKS = [
     ts.isSetAccessorDeclaration,
     ts.isConstructorDeclaration,
 ];
+const BRANCH_NODE_CHECKS = [
+    ts.isIfStatement,
+    ts.isForStatement,
+    ts.isForInStatement,
+    ts.isForOfStatement,
+    ts.isWhileStatement,
+    ts.isDoStatement,
+    ts.isCatchClause,
+    ts.isConditionalExpression,
+];
+const COMPLEXITY_BINARY_OPERATORS = new Set([
+    ts.SyntaxKind.AmpersandAmpersandToken,
+    ts.SyntaxKind.BarBarToken,
+    ts.SyntaxKind.QuestionQuestionToken,
+]);
+const COMPLEXITY_CONTRIBUTION_CHECKS = [
+    node => BRANCH_NODE_CHECKS.some(check => check(node)),
+    ts.isCaseClause,
+    ts.isDefaultClause,
+    isComplexityBinaryExpression,
+];
 
 const files = [];
 for (const target of TARGETS) {
@@ -140,28 +161,28 @@ function callbackFunctionName(parent) {
 function measureFunctionComplexity(node) {
     let complexity = 1;
     const visit = child => {
-        if (child !== node && isFunctionLike(child)) return;
-        if (
-            ts.isIfStatement(child)
-            || ts.isForStatement(child)
-            || ts.isForInStatement(child)
-            || ts.isForOfStatement(child)
-            || ts.isWhileStatement(child)
-            || ts.isDoStatement(child)
-            || ts.isCatchClause(child)
-            || ts.isConditionalExpression(child)
-        ) {
-            complexity += 1;
-        } else if (ts.isCaseClause(child) || ts.isDefaultClause(child)) {
-            complexity += 1;
-        } else if (ts.isBinaryExpression(child)) {
-            const kind = child.operatorToken.kind;
-            if (kind === ts.SyntaxKind.AmpersandAmpersandToken || kind === ts.SyntaxKind.BarBarToken || kind === ts.SyntaxKind.QuestionQuestionToken) {
-                complexity += 1;
-            }
-        }
-        ts.forEachChild(child, visit);
+        const contribution = visitComplexityChild(node, child, visit);
+        complexity += contribution;
     };
     ts.forEachChild(node, visit);
     return complexity;
+}
+
+function visitComplexityChild(root, child, visit) {
+    if (isNestedFunctionScope(root, child)) return 0;
+    const contribution = complexityContribution(child);
+    ts.forEachChild(child, visit);
+    return contribution;
+}
+
+function isNestedFunctionScope(root, child) {
+    return child !== root && isFunctionLike(child);
+}
+
+function complexityContribution(node) {
+    return Number(COMPLEXITY_CONTRIBUTION_CHECKS.some(check => check(node)));
+}
+
+function isComplexityBinaryExpression(node) {
+    return ts.isBinaryExpression(node) && COMPLEXITY_BINARY_OPERATORS.has(node.operatorToken.kind);
 }

@@ -41,6 +41,14 @@ describe('audio module boundaries', () => {
         expect(DEFAULT_SETTINGS.audioEnableDefaultSources).toBe(true);
     });
 
+    it('keeps Anki opt-in on fresh installs and factory resets', () => {
+        expect(DEFAULT_SETTINGS.ankiEnabled).toBe(false);
+        expect(DEFAULT_SETTINGS.ankiSectionEnabled).toBe(false);
+        expect(DEFAULT_SETTINGS.newTabAnkiEnabled).toBe(false);
+        expect(DEFAULT_SETTINGS.ankiMobileHandoff).toBe(false);
+        expect(DEFAULT_SETTINGS.ankiMineWithJpdb).toBe(false);
+    });
+
     it('extracts Jisho candidates through the userscript path without executing remote HTML', async () => {
         let executed = false;
         (window as typeof window & { __yomuJishoScriptRan?: () => void }).__yomuJishoScriptRan = () => { executed = true; };
@@ -52,11 +60,7 @@ describe('audio module boundaries', () => {
         `);
 
         try {
-            await expect(getAudioCandidates({ type: 'jisho', url: '', voice: '', enabled: true }, card('読む', 'よむ'), 1000, ''))
-                .resolves.toEqual([{
-                    url: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3',
-                    sourceUrl: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3',
-                }]);
+            await expectJishoCandidates('読む', 'よむ', [jishoCandidate('yomu')]);
             expect(requested).toEqual(['https://jisho.org/search/%E8%AA%AD%E3%82%80']);
             expect(executed).toBe(false);
         } finally {
@@ -73,8 +77,7 @@ describe('audio module boundaries', () => {
         `);
 
         try {
-            await expect(getAudioCandidates({ type: 'jisho', url: '', voice: '', enabled: true }, card('読む', 'よむ'), 1000, ''))
-                .resolves.toEqual([]);
+            await expectJishoCandidates('読む', 'よむ', []);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -88,11 +91,7 @@ describe('audio module boundaries', () => {
         `);
 
         try {
-            await expect(getAudioCandidates({ type: 'jisho', url: '', voice: '', enabled: true }, card('よむ', 'よむ'), 1000, ''))
-                .resolves.toEqual([{
-                    url: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3',
-                    sourceUrl: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3',
-                }]);
+            await expectJishoCandidates('よむ', 'よむ', [jishoCandidate('yomu')]);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -109,8 +108,7 @@ describe('audio module boundaries', () => {
         `);
 
         try {
-            await expect(getAudioCandidates({ type: 'jisho', url: '', voice: '', enabled: true }, card('よむ', 'よむ'), 1000, ''))
-                .resolves.toEqual([]);
+            await expectJishoCandidates('よむ', 'よむ', []);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -125,11 +123,7 @@ describe('audio module boundaries', () => {
         `);
 
         try {
-            await expect(getAudioCandidates({ type: 'jisho', url: '', voice: '', enabled: true }, card('読む', 'よむ'), 1000, ''))
-                .resolves.toEqual([{
-                    url: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3',
-                    sourceUrl: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3',
-                }]);
+            await expectJishoCandidates('読む', 'よむ', [jishoCandidate('yomu')]);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -144,11 +138,7 @@ describe('audio module boundaries', () => {
         `);
 
         try {
-            await expect(getAudioCandidates({ type: 'jisho', url: '', voice: '', enabled: true }, card('読む', 'よむ'), 1000, ''))
-                .resolves.toEqual([{
-                    url: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3',
-                    sourceUrl: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3',
-                }]);
+            await expectJishoCandidates('読む', 'よむ', [jishoCandidate('yomu')]);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -207,6 +197,22 @@ function card(spelling: string, reading: string): JPDBCard {
         wordWithReading: null,
         source: 'jpdb',
     };
+}
+
+type AudioCandidate = Awaited<ReturnType<typeof getAudioCandidates>>[number];
+
+function jishoSource(): Parameters<typeof getAudioCandidates>[0] {
+    return { type: 'jisho', url: '', voice: '', enabled: true };
+}
+
+function jishoCandidate(filename: string): AudioCandidate {
+    const url = `https://d1vjc5dkcd3yh2.cloudfront.net/audio/${filename}.mp3`;
+    return { url, sourceUrl: url };
+}
+
+async function expectJishoCandidates(spelling: string, reading: string, candidates: AudioCandidate[]): Promise<void> {
+    await expect(getAudioCandidates(jishoSource(), card(spelling, reading), 1000, ''))
+        .resolves.toEqual(candidates);
 }
 
 function stubJishoHtml(responseText: string): string[] {

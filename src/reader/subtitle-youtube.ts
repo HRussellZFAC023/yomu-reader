@@ -34,6 +34,12 @@ export interface YouTubeCaptionTrackCandidate {
     youtubeIdentity: string;
 }
 
+interface AndroidYouTubeCaptionRequest {
+    url: string;
+    init: RequestInit;
+    videoId: string;
+}
+
 export interface YouTubeTrackLoadOptions<T extends YouTubeSubtitleTrack> {
     requestText: (url: string) => Promise<string>;
     onRequestError?: (track: T, url: string, error: unknown) => void;
@@ -421,34 +427,56 @@ function applyYouTubeCaptionClientName(url: URL, clientName: string): void {
 }
 
 async function getAndroidYouTubeCaptionTracks(): Promise<YouTubeCaptionTrackCandidate[]> {
-    const videoId = getYouTubeVideoId();
-    const apiKey = readYouTubeConfigString('INNERTUBE_API_KEY');
-    if (!videoId || !apiKey) return [];
+    const request = androidYouTubeCaptionRequest();
+    if (!request) return [];
     try {
-        const response = await fetch(`${location.origin}/youtubei/v1/player?key=${encodeURIComponent(apiKey)}`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                context: {
-                    client: {
-                        clientName: 'ANDROID',
-                        clientVersion: '20.10.38',
-                        hl: readYouTubeConfigString('HL') || 'en',
-                    },
-                },
-                videoId,
-            }),
-        });
-        if (!response.ok) return [];
-        const payload = await response.json() as YouTubePlayerResponse;
-        if (!isMatchingYouTubePlayerResponse(payload, videoId)) return [];
-        const renderer = payload.captions?.playerCaptionsTracklistRenderer;
-        const rawTracks = renderer?.captionTracks;
-        return uniqueYouTubeCaptionTracks(Array.isArray(rawTracks) ? rawTracks : [], renderer?.translationLanguages);
+        return await fetchAndroidYouTubeCaptionTracks(request);
     } catch {
         return [];
     }
+}
+
+function androidYouTubeCaptionRequest(): AndroidYouTubeCaptionRequest | null {
+    const videoId = getYouTubeVideoId();
+    const apiKey = readYouTubeConfigString('INNERTUBE_API_KEY');
+    if (!videoId || !apiKey) return null;
+    return {
+        url: `${location.origin}/youtubei/v1/player?key=${encodeURIComponent(apiKey)}`,
+        init: {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: androidYouTubeCaptionRequestBody(videoId),
+        },
+        videoId,
+    };
+}
+
+async function fetchAndroidYouTubeCaptionTracks(request: AndroidYouTubeCaptionRequest): Promise<YouTubeCaptionTrackCandidate[]> {
+    const response = await fetch(request.url, request.init);
+    if (!response.ok) return [];
+    const payload = await response.json() as YouTubePlayerResponse;
+    return androidYouTubeCaptionTracksFromPayload(payload, request.videoId);
+}
+
+function androidYouTubeCaptionRequestBody(videoId: string): string {
+    return JSON.stringify({
+        context: {
+            client: {
+                clientName: 'ANDROID',
+                clientVersion: '20.10.38',
+                hl: readYouTubeConfigString('HL') || 'en',
+            },
+        },
+        videoId,
+    });
+}
+
+function androidYouTubeCaptionTracksFromPayload(payload: YouTubePlayerResponse, videoId: string): YouTubeCaptionTrackCandidate[] {
+    if (!isMatchingYouTubePlayerResponse(payload, videoId)) return [];
+    const renderer = payload.captions?.playerCaptionsTracklistRenderer;
+    const rawTracks = renderer?.captionTracks;
+    return uniqueYouTubeCaptionTracks(Array.isArray(rawTracks) ? rawTracks : [], renderer?.translationLanguages);
 }
 
 function youtubeCaptionTrackLabel(record: {

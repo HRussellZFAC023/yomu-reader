@@ -42,7 +42,7 @@ export function isJpdbHost(): boolean {
     return location.hostname === 'jpdb.io';
 }
 
-export function isReviewPage(): boolean {
+function isReviewPage(): boolean {
     return location.pathname.startsWith('/review');
 }
 
@@ -64,7 +64,7 @@ function hasReviewAnswerContent(): boolean {
     return Boolean(document.querySelector('.review-reveal, .result.kanji .kanji, .answer-box .kanji, a.kanji.plain, .subsection-meanings'));
 }
 
-export function currentReviewCardState(): JpdbReviewCardState {
+function currentReviewCardState(): JpdbReviewCardState {
     if (!isReviewPage()) return { kind: '', kanji: '', isKanji: false, phase: 'none' };
     const response = new URLSearchParams(location.search).get('r');
     const cardValue = new URLSearchParams(location.search).get('c')
@@ -171,13 +171,14 @@ function vocabularyTermQueries(term: string, pageTerm: { term: string; reading: 
 
 export function currentLocalDictionaryTargets(): LocalDictionaryTarget[] {
     if (isDeckPage() || isSearchPage()) {
-        return Array.from(document.querySelectorAll<HTMLElement>('.result.vocabulary, .entry'))
+        return sourceElements(document, '.result.vocabulary, .entry')
             .map(section => {
                 const term = extractTermFromElement(section);
+                const compounds = extractPageCompounds(section);
                 return term ? {
                     ...term,
-                    alternates: uniqueLookupValues([term.reading, ...extractAlternateTerms(section), ...extractPageCompounds(section).flatMap(compound => [compound.term, compound.reading])]),
-                    compounds: extractPageCompounds(section),
+                    alternates: uniqueLookupValues([term.reading, ...extractAlternateTerms(section), ...compounds.flatMap(compound => [compound.term, compound.reading])]),
+                    compounds,
                     examples: extractPageExamples(section),
                     anchor: section.querySelector<HTMLElement>('.subsection-meanings') ?? section,
                 } : null;
@@ -191,7 +192,7 @@ export function currentLocalDictionaryTargets(): LocalDictionaryTarget[] {
     return [{
         term: target.term,
         reading: target.reading,
-        alternates: uniqueLookupValues([...target.queries, ...compounds.flatMap(compound => [compound.term, compound.reading])]),
+        alternates: uniqueLookupValues([...target.queries, ...extractAlternateTerms(document), ...compounds.flatMap(compound => [compound.term, compound.reading])]),
         compounds,
         examples: extractPageExamples(document),
         anchor: target.anchor,
@@ -219,7 +220,7 @@ function mnemonicSiblingAnchor(): HTMLElement | null {
 }
 
 function kanjiComponentTerms(root: ParentNode): string[] {
-    return Array.from(root.querySelectorAll<HTMLElement>('.subsection-composed-of-kanji a.plain, a[href^="/kanji/"]'))
+    return sourceElements(root, '.subsection-composed-of-kanji a.plain, a[href^="/kanji/"]')
         .map(element => cleanText(extractBaseText(element)) || cleanText(element.textContent ?? ''))
         .filter(value => value && JAPANESE_RE.test(value));
 }
@@ -243,7 +244,7 @@ function compoundRows(root: ParentNode): HTMLElement[] {
 }
 
 function compoundSections(root: ParentNode): HTMLElement[] {
-    return Array.from(root.querySelectorAll<HTMLElement>('.subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji'))
+    return sourceElements(root, '.subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji')
         .filter(isComposedOfSection);
 }
 
@@ -255,30 +256,34 @@ function isComposedOfSection(section: HTMLElement): boolean {
 function readPageCompound(row: HTMLElement): JpdbPageCompound | null {
     const link = compoundLink(row);
     const spelling = compoundSpellingElement(row, link);
-    const term = readCompoundTerm(spelling);
+    const term = readCompoundTerm(spelling, link);
     if (!isJapaneseTerm(term)) return null;
     return {
         term,
-        reading: readCompoundReading(spelling, term),
+        reading: readCompoundReading(spelling, link, term),
         meaning: cleanText(row.querySelector<HTMLElement>('.description, .en, .meaning')?.textContent ?? ''),
         url: link?.getAttribute('href') ?? '',
     };
 }
 
 function compoundLink(row: HTMLElement): HTMLAnchorElement | null {
-    return row.querySelector<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href^="/kanji/"]');
+    return sourceElements<HTMLAnchorElement>(row, 'a[href^="/vocabulary/"], a[href^="/kanji/"]')[0] ?? null;
 }
 
 function compoundSpellingElement(row: HTMLElement, link: HTMLAnchorElement | null): HTMLElement | HTMLAnchorElement | null {
     return row.querySelector<HTMLElement>('.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]') ?? link;
 }
 
-function readCompoundTerm(spelling: HTMLElement | HTMLAnchorElement | null): string {
-    return cleanText(spelling ? extractBaseText(spelling) : '') || cleanText(spelling?.textContent ?? '');
+function readCompoundTerm(spelling: HTMLElement | HTMLAnchorElement | null, link: HTMLAnchorElement | null): string {
+    return cleanText(link ? jpdbPathTerm(link.pathname) : '')
+        || cleanText(spelling ? extractBaseText(spelling) : '')
+        || cleanText(sourceTextContent(spelling));
 }
 
-function readCompoundReading(spelling: HTMLElement | HTMLAnchorElement | null, term: string): string {
-    return cleanText(spelling ? extractReadingText(spelling) : '') || term;
+function readCompoundReading(spelling: HTMLElement | HTMLAnchorElement | null, link: HTMLAnchorElement | null, term: string): string {
+    return cleanText(link ? vocabularyPathReading(link.pathname) : '')
+        || cleanText(spelling ? extractReadingText(spelling) : '')
+        || term;
 }
 
 function extractPageExamples(root: ParentNode): JpdbPageExample[] {
@@ -314,6 +319,10 @@ function shouldKeepPageExample(sentence: string, seen: Set<string>): boolean {
 
 export function localDictionaryLookupVariants(target: LocalDictionaryTarget): Array<{ term: string; reading: string }> {
     const variants: Array<{ term: string; reading: string }> = [];
+    const compoundValues = new Set(target.compounds.flatMap(compound => [
+        cleanText(compound.term),
+        cleanText(compound.reading),
+    ]).filter(Boolean));
     const add = (term: string, reading = '') => {
         const cleanTerm = cleanText(term);
         const cleanReading = cleanText(reading);
@@ -323,9 +332,12 @@ export function localDictionaryLookupVariants(target: LocalDictionaryTarget): Ar
     };
     add(target.term, target.reading);
     add(target.reading);
+    for (const compound of target.compounds) {
+        add(compound.term, compound.reading);
+    }
     for (const alternate of target.alternates) {
         add(alternate, alternate === target.term ? target.reading : '');
-        if (target.reading && alternate !== target.reading) add(alternate, target.reading);
+        if (target.reading && alternate !== target.reading && !compoundValues.has(cleanText(alternate))) add(alternate, target.reading);
     }
     return variants;
 }
@@ -340,7 +352,7 @@ export function uniqueLocalDictionaryEntries(entries: YomitanTermEntry[]): Yomit
     });
 }
 
-export function localDictionaryEntryKey(entry: YomitanTermEntry): string {
+function localDictionaryEntryKey(entry: YomitanTermEntry): string {
     const glossaryKey = JSON.stringify(entry.glossary);
     return entry.sequence !== undefined
         ? `${entry.dictionary}\nsequence:${entry.sequence}\n${glossaryKey}`
@@ -414,7 +426,7 @@ function decodePathPart(value: string): string {
 
 function extractTermFromElement(root: ParentNode): { term: string; reading: string } | null {
     for (const selector of TERM_TARGET_SELECTORS) {
-        const element = root.querySelector<HTMLElement>(selector);
+        const element = sourceElements(root, selector)[0];
         if (!element) continue;
         const target = termTargetFromElement(element);
         if (target) return target;
@@ -432,7 +444,7 @@ const TERM_TARGET_SELECTORS = [
 ];
 
 function termTargetFromElement(element: HTMLElement): { term: string; reading: string } | null {
-    const term = cleanText(extractBaseText(element)) || cleanText(element.textContent ?? '');
+    const term = cleanText(extractBaseText(element)) || cleanText(sourceTextContent(element));
     if (!isJapaneseTerm(term)) return null;
     const reading = cleanText(extractReadingText(element)) || term;
     return { term, reading };
@@ -445,7 +457,7 @@ function extractBaseText(root: Node): string {
 }
 
 function extractBaseElementText(element: HTMLElement): string {
-    if (isRubyAnnotation(element)) return '';
+    if (isIgnoredSourceTextElement(element)) return '';
     return Array.from(element.childNodes).map(extractBaseText).join('');
 }
 
@@ -456,7 +468,7 @@ function extractReadingText(root: Node): string {
 }
 
 function extractReadingElementText(element: HTMLElement): string {
-    if (isRubyAnnotation(element)) return '';
+    if (isIgnoredSourceTextElement(element)) return '';
     if (element.tagName === 'RUBY') return rubyReadingText(element, extractBaseText);
     return Array.from(element.childNodes).map(extractReadingText).join('');
 }
@@ -467,6 +479,16 @@ function isJapaneseTerm(value: string): boolean {
 
 function isRubyAnnotation(element: Element): boolean {
     return element.tagName === 'RT' || element.tagName === 'RP';
+}
+
+function isIgnoredSourceTextElement(element: Element): boolean {
+    return isRubyAnnotation(element)
+        || isGeneratedReaderAnnotation(element)
+        || element.matches('[data-jpdb-reader-root], [data-yomu-jpdb-addon]');
+}
+
+function isGeneratedReaderAnnotation(element: Element): boolean {
+    return element.matches('[data-jpdb-reader-surface-ignore="true"], .jpdb-reader-furi, .jpdb-ocr-furi');
 }
 
 function rubyReadingText(element: Element, fallback: (root: Node) => string): string {
@@ -480,7 +502,7 @@ function rubyReadingText(element: Element, fallback: (root: Node) => string): st
         if (child.nodeType !== Node.ELEMENT_NODE) return;
         const childElement = child as Element;
         if (childElement.tagName === 'RT') {
-            text += childElement.textContent || base;
+            text += isGeneratedReaderAnnotation(childElement) ? base : childElement.textContent || base;
             base = '';
             return;
         }
@@ -491,9 +513,9 @@ function rubyReadingText(element: Element, fallback: (root: Node) => string): st
 }
 
 function extractAlternateTerms(root: ParentNode): string[] {
-    return Array.from(root.querySelectorAll<HTMLElement>('.subsection-other-spellings .alt-spelling, .alt-spelling, a[href^="/vocabulary/"]'))
+    return sourceElements(root, '.subsection-other-spellings .alt-spelling, .alt-spelling, a[href^="/vocabulary/"]')
         .flatMap(element => {
-            const fromText = cleanText(extractBaseText(element)) || cleanText(element.textContent ?? '');
+            const fromText = cleanText(extractBaseText(element)) || cleanText(sourceTextContent(element));
             const href = element instanceof HTMLAnchorElement ? element : element.querySelector<HTMLAnchorElement>('a[href^="/vocabulary/"]');
             const fromHref = href ? vocabularyPathTerm(href.pathname) : '';
             return [fromText, fromHref];
@@ -503,7 +525,7 @@ function extractAlternateTerms(root: ParentNode): string[] {
 
 function searchResultTerms(limit: number): Array<{ term: string; reading: string }> {
     if (!isSearchPage()) return [];
-    return Array.from(document.querySelectorAll<HTMLElement>('.result.vocabulary, .entry'))
+    return sourceElements(document, '.result.vocabulary, .entry')
         .map(section => extractTermFromElement(section))
         .filter((item): item is { term: string; reading: string } => item !== null)
         .slice(0, limit);
@@ -512,6 +534,30 @@ function searchResultTerms(limit: number): Array<{ term: string; reading: string
 function vocabularyPathTerm(pathname: string): string {
     const parts = pathname.split('/').filter(Boolean);
     return parts[0] === 'vocabulary' && parts[2] ? decodePathPart(parts[2]) : '';
+}
+
+function vocabularyPathReading(pathname: string): string {
+    const parts = pathname.split('/').filter(Boolean);
+    return parts[0] === 'vocabulary' && parts[3] ? decodePathPart(parts[3]) : '';
+}
+
+function jpdbPathTerm(pathname: string): string {
+    const parts = pathname.split('/').filter(Boolean);
+    if (parts[0] === 'vocabulary' && parts[2]) return decodePathPart(parts[2]);
+    if (parts[0] === 'kanji' && parts[1]) return decodePathPart(parts[1]);
+    return '';
+}
+
+function sourceElements<T extends HTMLElement = HTMLElement>(root: ParentNode, selector: string): T[] {
+    return Array.from(root.querySelectorAll<T>(selector)).filter(isSourceElement);
+}
+
+function isSourceElement(element: HTMLElement): boolean {
+    return !element.closest('[data-jpdb-reader-root], [data-yomu-jpdb-addon]');
+}
+
+function sourceTextContent(element: Element | null | undefined): string {
+    return element && isSourceElement(element as HTMLElement) ? element.textContent ?? '' : '';
 }
 
 function uniqueLookupValues(values: Array<string | undefined | null>): string[] {
