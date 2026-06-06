@@ -111,7 +111,7 @@ export async function saveAnkiStatusIndexCheckedAt(index: AnkiStatusIndex): Prom
 }
 
 export async function saveAnkiStatusIndexDirtyMarker(index: AnkiStatusIndex): Promise<void> {
-    const dirty: AnkiStatusIndex = { ...index, syncedAt: 0, checkedAt: 0 };
+    const dirty: AnkiStatusIndex = { ...index, syncedAt: 0, checkedAt: 0, dirtyAt: index.dirtyAt ?? Date.now() };
     if (dirty.entryStore !== 'indexeddb') {
         gmStorageSetSync(ANKI_STATUS_INDEX_STORAGE_KEY, { ...dirty, entryStore: undefined });
         return;
@@ -141,6 +141,7 @@ export async function loadAnkiStatusIndexFromIndexedDb(): Promise<AnkiStatusInde
             entryStore: 'indexeddb',
             entries: {},
             readingKeys: meta.readingKeys,
+            dirtyAt: meta.dirtyAt,
         };
     } finally {
         db.close();
@@ -196,6 +197,7 @@ export function ankiStatusIndexMeta(index: AnkiStatusIndex): StoredAnkiStatusInd
         entryStore: 'indexeddb',
         entries: {},
         readingKeys: index.readingKeys,
+        dirtyAt: index.dirtyAt,
     };
 }
 
@@ -262,10 +264,15 @@ export function canUseIndexedDb(): boolean {
     return typeof indexedDB !== 'undefined';
 }
 
-export function statusIndexEntriesForNotes(notes: AnkiNoteInfo[], cardData: AnkiStatusIndexCardData, settings: ReaderSettings): StoredAnkiStatusIndexEntry[] {
+export function statusIndexEntriesForNotes(
+    notes: AnkiNoteInfo[],
+    cardData: AnkiStatusIndexCardData,
+    settings: ReaderSettings,
+    updatedAt?: number,
+): StoredAnkiStatusIndexEntry[] {
     const entries = new Map<string, AnkiStatusIndexEntry>();
     for (const note of notes) {
-        const candidate = statusIndexEntryFromStatusData(note, cardData);
+        const candidate = statusIndexEntryFromStatusData(note, cardData, updatedAt);
         for (const key of statusIndexKeysForNote(note, settings)) {
             const current = entries.get(key);
             if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate)) entries.set(key, candidate);
@@ -285,19 +292,39 @@ export function statusIndexEntryForCard(
     card: JPDBCard,
     entries?: Map<string, AnkiStatusIndexEntry> | null,
 ): AnkiStatusIndexEntry | null {
-    return statusIndexKeysForCard(card)
-        .map(key => entries?.get(key) ?? index.entries[key])
-        .find(Boolean) ?? null;
+    for (const key of statusIndexKeysForCard(card)) {
+        const entry = entries?.get(key) ?? index.entries[key];
+        if (entry && isAnkiStatusIndexEntryFreshForIndex(index, entry)) return entry;
+    }
+    return null;
 }
 
-function statusIndexEntryFromStatusData(note: AnkiNoteInfo, cardData: AnkiStatusIndexCardData): AnkiStatusIndexEntry {
+function statusIndexEntryFromStatusData(note: AnkiNoteInfo, cardData: AnkiStatusIndexCardData, updatedAt?: number): AnkiStatusIndexEntry {
     const noteCards = cardData.cardsByNote.get(note.noteId) ?? [];
-    if (noteCards.length) return ankiStatusIndexEntryFromInfo(note, noteCards);
-    return statusIndexEntryFromStatusSets(note, cardData.sets);
+    const entry = noteCards.length
+        ? ankiStatusIndexEntryFromInfo(note, noteCards)
+        : statusIndexEntryFromStatusSets(note, cardData.sets);
+    return updatedAt === undefined ? entry : { ...entry, updatedAt };
 }
 
 export function shouldReplaceAnkiStatusIndexEntry(current: AnkiStatusIndexEntry, candidate: AnkiStatusIndexEntry): boolean {
+    if (sameAnkiStatusIndexEntryIdentity(current, candidate)) {
+        return ankiStatusIndexEntryUpdatedAt(candidate) >= ankiStatusIndexEntryUpdatedAt(current);
+    }
     return ankiCardStateRank(candidate.state) < ankiCardStateRank(current.state);
+}
+
+function sameAnkiStatusIndexEntryIdentity(current: AnkiStatusIndexEntry, candidate: AnkiStatusIndexEntry): boolean {
+    return current.noteId === candidate.noteId
+        || (current.primaryCardId !== null && current.primaryCardId === candidate.primaryCardId);
+}
+
+function isAnkiStatusIndexEntryFreshForIndex(index: AnkiStatusIndex, entry: AnkiStatusIndexEntry): boolean {
+    return !index.dirtyAt || ankiStatusIndexEntryUpdatedAt(entry) > index.dirtyAt;
+}
+
+function ankiStatusIndexEntryUpdatedAt(entry: AnkiStatusIndexEntry): number {
+    return Number(entry.updatedAt) || 0;
 }
 
 function putAnkiStatusIndexEntries(db: IDBDatabase, entries: StoredAnkiStatusIndexEntry[]): Promise<void> {

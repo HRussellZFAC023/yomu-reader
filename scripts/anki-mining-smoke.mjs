@@ -1061,24 +1061,33 @@ async function runNewTabJpdbMixedQueueSmoke(browser, baseUrl) {
 
     await revealNewTabCard(page);
     const lockedRevealed = await readNewTabState(page);
-    assert(lockedRevealed.gradeButtons.length === 0, 'Locked JPDB card exposed grade buttons in built newtab', lockedRevealed);
-    assert(lockedRevealed.controls.join(',') === 'previous,reveal,next', 'Locked JPDB card did not fall back to navigation controls', lockedRevealed);
+    assert(lockedRevealed.gradeButtons.includes('okay'), 'Locked JPDB card did not expose grade buttons after reveal', lockedRevealed);
     assert(!jpdbReviewRequests(requests).length, 'Locked JPDB card submitted a review before any grade action', requests);
 
-    await advanceNewTabCard(page, '復習');
+    const lockedReviewRequests = await submitJpdbGrade(page, requests, 'okay');
+    assert(lockedReviewRequests.length === 1, 'JPDB mixed queue did not submit exactly one locked-card review', { lockedReviewRequests, requests });
+    assert(isExpectedJpdbReview(lockedReviewRequests[0]?.body, 301, 401), 'JPDB mixed queue graded the wrong locked card', { lockedReviewRequests, requests });
+
+    await waitForNewTabPrompt(page, '復習');
     const dueFront = await readNewTabState(page);
-    assertNewTabState(dueFront, { prompt: '復習', status: '2 / 3' }, 'JPDB mixed queue did not preserve the due card as the second deck card', { lockedFront, lockedRevealed, dueFront, requests });
+    assertNewTabState(dueFront, { prompt: '復習', status: '1 / 2' }, 'JPDB mixed queue did not preserve the due card as the second deck card', { lockedFront, lockedRevealed, dueFront, requests });
 
     const dueRevealed = await revealDueJpdbCard(page, dueFront);
     assert(dueRevealed.gradeButtons.includes('okay'), 'Due JPDB card did not expose grade buttons after reveal', dueRevealed);
 
     const reviewRequests = await submitJpdbGrade(page, requests, 'okay');
     assert(reviewRequests.length === 1, 'JPDB mixed queue submitted an unexpected number of review requests', { reviewRequests, requests });
-    assert(isExpectedJpdbReview(reviewRequests[0]?.body), 'JPDB mixed queue graded the wrong card', { reviewRequests, requests });
+    assert(isExpectedJpdbReview(reviewRequests[0]?.body, 302, 402), 'JPDB mixed queue graded the wrong due card', { reviewRequests, requests });
 
     await waitForNewTabPrompt(page, '新語');
     const next = await readNewTabState(page);
-    assertNewTabState(next, { prompt: '新語', status: '2 / 2' }, 'JPDB mixed queue did not advance to the remaining new card after grading the due card', { next, requests });
+    assertNewTabState(
+        next,
+        { prompt: '新語', status: 'JPDB', target: 'dictionary' },
+        'JPDB mixed queue did not advance to the remaining non-review card after grading the review cards',
+        { next, requests },
+    );
+    assert(!next.gradeButtons.length, 'JPDB mixed queue exposed review grading on a remaining non-review card', { next, requests });
 
     assertMixedJpdbLookupOrder(requests);
 
@@ -1128,7 +1137,23 @@ function assertNewTabToggleLatency(elapsedMs, message, details) {
 
 async function revealNewTabCard(page) {
     await page.locator('[data-newtab-action="reveal"]').click();
-    await page.waitForFunction(() => document.querySelector('[data-newtab-controls]')?.textContent?.includes('Hide'), null, { timeout: 12000 });
+    await page.waitForFunction(() => document.querySelector('.jpdb-reader-newtab')?.classList.contains('jpdb-reader-newtab-revealed'), null, { timeout: 12000 }).catch(async error => {
+        const debug = await page.evaluate(() => {
+            const card = document.querySelector('[data-newtab-card]');
+            return {
+                cardClass: card?.className ?? '',
+                prompt: document.querySelector('[data-newtab-prompt]')?.textContent?.trim() ?? '',
+                answer: document.querySelector('[data-newtab-answer]')?.textContent?.trim() ?? '',
+                controls: [...document.querySelectorAll('[data-newtab-controls] [data-newtab-action]')].map(button => ({
+                    action: button.getAttribute('data-newtab-action'),
+                    text: button.textContent?.trim(),
+                    disabled: button.hasAttribute('disabled'),
+                })),
+                body: document.body.textContent?.replace(/\s+/g, ' ').trim().slice(0, 600) ?? '',
+            };
+        });
+        throw new Error(`Newtab card did not reveal: ${JSON.stringify(debug)}: ${error instanceof Error ? error.message : String(error)}`);
+    });
 }
 
 async function advanceNewTabCard(page, expectedPrompt) {
@@ -1146,17 +1171,18 @@ async function revealDueJpdbCard(page, dueFront) {
 }
 
 async function submitJpdbGrade(page, requests, grade) {
+    const requestCountBefore = jpdbReviewRequests(requests).length;
     await page.locator(`[data-newtab-action="grade"][data-grade="${grade}"]`).click();
-    await waitForRequest(requests, item => item.kind === 'jpdb' && item.endpoint === 'review');
-    return jpdbReviewRequests(requests);
+    await waitForRequest(requests, () => jpdbReviewRequests(requests).length > requestCountBefore);
+    return jpdbReviewRequests(requests).slice(requestCountBefore);
 }
 
 function jpdbReviewRequests(requests) {
     return requests.filter(item => item.kind === 'jpdb' && item.endpoint === 'review');
 }
 
-function isExpectedJpdbReview(body) {
-    return body?.vid === 302 && body?.sid === 402;
+function isExpectedJpdbReview(body, vid, sid) {
+    return body?.vid === vid && body?.sid === sid;
 }
 
 function assertMixedJpdbLookupOrder(requests) {

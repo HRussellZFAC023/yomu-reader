@@ -1016,7 +1016,18 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   order: -1;
   align-self: center;
   justify-self: center;
-  margin: 0;
+  margin: 0 0 2px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+}
+
+.jpdb-reader-newtab-prompt-anki-card
+  .jpdb-reader-anki-primary-sound
+  svg {
+  width: 20px !important;
+  height: 20px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
 }
 
 .jpdb-reader-newtab-front {
@@ -2780,15 +2791,19 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
   .jpdb-reader-newtab-mode {
     grid-area: mode;
+    width: 100%;
     min-width: 0;
     max-width: none;
     justify-self: stretch;
     grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: hidden;
   }
 
   .jpdb-reader-newtab-mode button {
     min-width: 0;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .jpdb-reader-newtab.jpdb-reader-newtab-stats-mode

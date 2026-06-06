@@ -490,11 +490,12 @@ describe('settings dialog keyboard dismissal', () => {
 
         url.value = 'http://127.0.0.1:9999';
         url.dispatchEvent(new Event('change', { bubbles: true }));
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Open desktop Anki') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect not reached') ?? false);
 
         expect(isConnected).toHaveBeenCalledTimes(2);
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open desktop Anki');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Desktop: open Anki and the add-on');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Mobile: use your desktop LAN/Tailscale URL or enable handoff');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('webCorsOriginList');
     });
@@ -511,12 +512,13 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Open desktop Anki') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect not reached') ?? false);
 
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open desktop Anki');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Desktop: open Anki and the add-on');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Mobile: use your desktop LAN/Tailscale URL or enable handoff');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect');
-        expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('Open desktop Anki'));
+        expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('AnkiConnect not reached'));
     });
 
     it('keeps a thrown AnkiConnect probe in the setup tone instead of showing a hard error', async () => {
@@ -531,10 +533,11 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Open desktop Anki') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('AnkiConnect not reached') ?? false);
 
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('pending');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Open desktop Anki');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Desktop: open Anki and the add-on');
+        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Mobile: use your desktop LAN/Tailscale URL or enable handoff');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('AnkiConnect');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).not.toContain('request failed');
         expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('AnkiConnect request failed'));
@@ -733,11 +736,11 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Enable the userscript here') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Hosted Anki checks need the Yomu userscript bridge') ?? false);
 
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
         expect(status?.dataset.statusTone).toBe('pending');
-        expect(status?.textContent).toContain('Enable the userscript here');
+        expect(status?.textContent).toContain('Enable it here');
         expect(status?.textContent).toContain('refresh');
         expect(status?.textContent).not.toContain('request bridge');
         expect(toast).not.toHaveBeenCalled();
@@ -756,11 +759,11 @@ describe('settings dialog keyboard dismissal', () => {
             anki: { isConnected },
         });
 
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Enable the userscript here') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Hosted Anki checks need the Yomu userscript bridge') ?? false);
 
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
         expect(status?.dataset.statusTone).toBe('pending');
-        expect(status?.textContent).toContain('Enable the userscript here');
+        expect(status?.textContent).toContain('Enable it here');
         expect(status?.textContent).toContain('refresh');
         expect(status?.textContent).not.toContain('Mobile');
         vi.unstubAllGlobals();

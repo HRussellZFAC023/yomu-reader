@@ -284,10 +284,14 @@ function readLocalDictionaryFormSettings(reader: SettingsFormReader, current: Re
 
 function readAnkiFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, clamped } = reader;
+    const ankiEnabled = has('ankiEnabled');
     const sectionRowPresent = Boolean(get('ankiSection.name') || get('ankiSection.priority') || has('ankiSection.enabled'));
+    const ankiSectionEnabled = sectionRowPresent
+        ? has('ankiSection.enabled') || (ankiEnabled && !current.ankiEnabled && !current.ankiSectionEnabled)
+        : current.ankiSectionEnabled;
     return {
-        ankiEnabled: has('ankiEnabled'),
-        ankiSectionEnabled: sectionRowPresent ? has('ankiSection.enabled') : current.ankiSectionEnabled,
+        ankiEnabled,
+        ankiSectionEnabled,
         ankiSectionPriority: sectionRowPresent ? clamped('ankiSection.priority', 0, 999, current.ankiSectionPriority) : current.ankiSectionPriority,
         ankiConnectUrl: get('ankiConnectUrl').trim() || current.ankiConnectUrl,
         ankiDeck: get('ankiDeck').trim() || current.ankiDeck,

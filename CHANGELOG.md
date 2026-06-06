@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.23] - 2026-06-06
+
+### Fixed
+
+- Fixed rendered kana fragment lookups without a JPDB API key, so tapping split text like `に`, `ほん`, or `ご` in `にほんご` resolves the full JPDB word instead of opening misleading shorter entries.
+- Hydrated Anki card details in the popup when AnkiConnect returns matching notes without a single primary note, and kept Anki status cache entries fresh after card updates or grading.
+- Kept new-tab Anki card audio on the same icon-button pattern as dictionary audio and updated the Anki smoke test to cover the current JPDB locked/due review flow.
+
 ## [0.6.22] - 2026-06-06
 
 ### Fixed

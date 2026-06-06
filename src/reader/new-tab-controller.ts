@@ -3585,6 +3585,7 @@ export class NewTabController {
         if (!firstSound) return;
         firstSound.classList.add('jpdb-reader-anki-primary-sound', 'jpdb-reader-icon-btn');
         firstSound.classList.remove('jpdb-reader-icon-mini');
+        if (firstSound.parentElement !== prompt) prompt.prepend(firstSound);
     }
 
     private ankiRenderedStudyCard(card: JPDBCard): NonNullable<JPDBCard['ankiRenderedCards']>[number] | null {

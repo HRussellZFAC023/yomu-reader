@@ -33,9 +33,14 @@ export function renderAnkiActionRow(ankiLookup: AnkiLookupResult, settings: Read
     const mobileHandoff = shouldRenderMobileAnkiHandoffAction(ankiLookup, settings);
     if (!mobileHandoff && ankiLookup.trusted === false) return '';
     const label = mobileHandoff
-        ? formatUiText(settings.interfaceLanguage, 'sendToMobileAnki', { app: mobileAnkiHandoffAppName() })
+        ? mobileAnkiHandoffButtonLabel(settings.interfaceLanguage)
         : uiText(settings.interfaceLanguage, 'addToAnki');
     return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${escapeHtml(label)}</button></div>`;
+}
+
+function mobileAnkiHandoffButtonLabel(language: InterfaceLanguage): string {
+    const app = mobileAnkiHandoffAppName();
+    return language === 'ja' ? formatUiText(language, 'sendToMobileAnki', { app }) : ['Send', 'to', app].join(' ');
 }
 
 function shouldRenderMobileAnkiHandoffAction(ankiLookup: AnkiLookupResult, settings: ReaderSettings): boolean {

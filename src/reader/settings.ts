@@ -476,8 +476,12 @@ function normalizeKanjiSettings(value: Partial<ReaderSettings> | null): Partial<
 }
 
 function normalizeAnkiAndStudySettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
+    const ankiEnabled = booleanSetting(value, 'ankiEnabled');
+    const ankiSectionEnabled = hasOwn(value, 'ankiSectionEnabled')
+        ? booleanSetting(value, 'ankiSectionEnabled')
+        : ankiEnabled;
     return {
-        ankiSectionEnabled: booleanSetting(value, 'ankiSectionEnabled'),
+        ankiSectionEnabled,
         ankiSectionPriority: clampNumber(value?.ankiSectionPriority, 0, 999, DEFAULT_SETTINGS.ankiSectionPriority),
         ankiConnectUrl: normalizeUrl(value?.ankiConnectUrl, DEFAULT_SETTINGS.ankiConnectUrl),
         ankiDeck: normalizeAnkiName(value?.ankiDeck, DEFAULT_SETTINGS.ankiDeck, 'Yomu'),
