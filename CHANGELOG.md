@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.25] - 2026-06-06
+
+### Fixed
+
+- Keep Send to Anki off after fresh installs and factory resets so Anki stays opt-in and mobile popups do not reserve space for an app the user may not have.
+
 ## [0.6.24] - 2026-06-06
 
 ### Fixed

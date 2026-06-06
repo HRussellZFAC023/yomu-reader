@@ -284,6 +284,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     youtubeShowFilterNotice: true,
     youtubeShowChannelRecommendations: true,
     preferJapaneseSiteLanguage: true,
+    // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
     ankiEnabled: false,
     ankiSectionEnabled: false,
     ankiSectionPriority: 90,
