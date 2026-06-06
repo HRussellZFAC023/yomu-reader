@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AnkiConnectClient, type AnkiLookupResult } from '../../src/reader/anki';
 import { listNewTabAnkiCards } from '../../src/reader/anki-new-tab';
@@ -17,6 +18,7 @@ import { waitForExpect } from './test-utils';
 
 const NEW_TAB_GRADE_QUEUE_KEY = 'jpdb-reader-newtab-grade-queue';
 const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
+const NEW_TAB_CSS = readFileSync('src/reader/styles/new-tab.css', 'utf8');
 
 beforeEach(() => {
     vi.stubGlobal('BroadcastChannel', undefined);
@@ -477,6 +479,26 @@ function stubKanjiDoodleBrowserApis(): () => void {
 }
 
 describe('new tab review helpers', () => {
+    it('keeps mobile new-tab tabs separated from topbar controls', () => {
+        const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss)
+            .toContain('@media (max-width: 860px) { .jpdb-reader-newtab-topbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand controls" "mode mode";');
+        expect(normalizedCss)
+            .toContain('.jpdb-reader-newtab-mode { grid-area: mode; width: 100%; min-width: 0; max-width: none; justify-self: stretch; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }');
+        expect(normalizedCss)
+            .toContain('.jpdb-reader-newtab-mode button { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }');
+    });
+
+    it('styles current Anki card audio as the newtab icon speaker', () => {
+        const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss)
+            .toContain('.jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-primary-sound { order: -1; align-self: center; justify-self: center; margin: 0 0 2px; background: var(--jpdb-reader-surface); color: var(--jpdb-reader-text); }');
+        expect(normalizedCss)
+            .toContain('.jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-primary-sound svg { width: 20px !important; height: 20px !important; max-width: 20px !important; max-height: 20px !important; }');
+    });
+
     it('selects the nearest stats day when coarse-pointer users tap compact chart gaps', () => {
         const originalMatchMedia = Object.getOwnPropertyDescriptor(window, 'matchMedia');
         Object.defineProperty(window, 'matchMedia', {
@@ -5810,6 +5832,8 @@ describe('new tab review helpers', () => {
             expect(audio?.classList.contains('jpdb-reader-anki-primary-sound')).toBe(true);
             expect(audio?.classList.contains('jpdb-reader-icon-btn')).toBe(true);
             expect(audio?.classList.contains('jpdb-reader-icon-mini')).toBe(false);
+            expect(audio?.parentElement).toBe(front);
+            expect(front.firstElementChild).toBe(audio);
             expect(audio?.getAttribute('aria-label')).toBe('Anki audio nihongo-front.mp3');
             expect(root.querySelector('[data-newtab-reading]')?.textContent).toBe('');
             expect(root.querySelector('[data-newtab-meaning]')?.textContent).toBe('');

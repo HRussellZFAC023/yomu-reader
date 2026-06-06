@@ -9,7 +9,7 @@ const {
 } = require('./userscript-build-utils.cjs');
 
 const original = readBuiltUserscript();
-const MAX_COMPACTION_PASSES = 4;
+const MAX_COMPACTION_PASSES = 1;
 const ESBUILD_LINE_LIMIT = 210;
 const MAX_READABLE_LINE_LENGTH = 1_000;
 const MIN_SPLIT_SEGMENT_LENGTH = 160;

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { isYomuHostedAppUrl, isYomuHostedPassivePage } from '../../src/reader/app-pages';
-import { AnkiConnectClient, AnkiDuplicateNoteError, buildYomuAnkiFields, YOMU_MODEL_FIELDS, type AnkiLookupResult } from '../../src/reader/anki';
+import { AnkiConnectClient, AnkiDuplicateNoteError, buildYomuAnkiFields, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki';
 import { resolveAnkiWordAudio } from '../../src/reader/anki-audio';
 import { AudioPlayer, decodeJpdbAudioBlob, findAudioUrl, findAudioUrls, formatAudioUrl, isUnavailableJapanesePod101Audio, jpdbAudioRequest, normalizeJpdbAudioIds, ShuffledAudioDeck } from '../../src/reader/audio';
 import { positionPopover } from '../../src/reader/browser-ui';
@@ -13096,6 +13096,45 @@ describe('reader helpers', () => {
         }
     });
 
+    it('does not show a misleading rendered kana fragment when a larger JPDB candidate is unresolved', async () => {
+        const app = new ReaderApp();
+        const bookCard = testPublicCard({
+            vid: 1000,
+            spelling: '本',
+            reading: 'ほん',
+        });
+        const word = appendRenderedReaderWord(bookCard, { text: 'ほん' });
+        word.dataset.sentence = 'にほんごのじかん';
+        const publicLookupCard = vi.fn(async () => undefined);
+        const showRenderedWordCard = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            publicLookupCard: typeof publicLookupCard;
+            showRenderedWordCard: typeof showRenderedWordCard;
+            showWord(word: HTMLElement, options?: { trigger?: 'click'; userGesture?: boolean }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jpdbDefinitionsEnabled: true,
+            showPitchAccent: true,
+        };
+        internals.parser.cacheCards([bookCard]);
+        internals.publicLookupCard = publicLookupCard;
+        internals.showRenderedWordCard = showRenderedWordCard;
+
+        try {
+            await internals.showWord(word, { trigger: 'click', userGesture: true });
+
+            expect(publicLookupCard).toHaveBeenCalledWith('にほんご', true);
+            expect(showRenderedWordCard).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('does not turn the previous hiragana run into a local pointer term at a kanji boundary', async () => {
         const app = new ReaderApp();
         const sentence = '好きなものを読んで日本語を学ぶ';
@@ -22435,6 +22474,104 @@ describe('reader helpers', () => {
                 popover,
                 lookupCard,
                 '動画を見る。',
+                'modal',
+                expect.objectContaining({
+                    ankiLookup: hydratedLookup,
+                }),
+            );
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('hydrates popup Anki details when the detailed lookup has notes without a primary', async () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772207,
+            sid: 0,
+            spelling: '音声',
+            reading: 'おんせい',
+            source: 'jpdb',
+        };
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const fastMiss: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null, trusted: true };
+        const note: AnkiExistingNote = {
+            noteId: 58,
+            primaryCardId: 7704,
+            cardIds: [7704],
+            state: 'known',
+            deckNames: ['Audio Mining'],
+            modelName: 'Imported Core',
+            fields: {
+                Word: '音声',
+                Audio: '[sound:onsei.mp3]',
+            },
+            renderedCards: [{
+                cardId: 7704,
+                deckName: 'Audio Mining',
+                question: '<div>音声 [sound:onsei.mp3]</div>',
+                answer: '<div>audio</div>',
+            }],
+            tags: ['existing'],
+            reps: 8,
+            lapses: 0,
+        };
+        const hydratedLookup: AnkiLookupResult = {
+            state: 'known',
+            notes: [note],
+            primary: null,
+            trusted: true,
+        };
+        const hydrateAnkiLookup = vi.fn(async () => hydratedLookup);
+        const renderCompletedCardPopover = vi.fn();
+        const data: CardRenderData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: fastMiss,
+            jpdbDecks: [],
+            ankiDecks: ['Audio Mining'],
+            jpdbVocabularyInfo: null,
+        };
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            renderCompletedCardPopover: typeof renderCompletedCardPopover;
+            renderHydratedCardAnkiLookup(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                trigger: 'modal' | 'hover',
+                data: CardRenderData,
+                renderData: { hydrateAnkiLookup?: () => Promise<AnkiLookupResult> },
+                requestId: number,
+                isCurrentHoverCard: () => boolean,
+            ): void;
+        };
+        internals.activePopover = popover;
+        internals.renderCompletedCardPopover = renderCompletedCardPopover;
+
+        try {
+            internals.renderHydratedCardAnkiLookup(
+                popover,
+                lookupCard,
+                '音声を聞く。',
+                'modal',
+                data,
+                { hydrateAnkiLookup },
+                1,
+                () => true,
+            );
+
+            await vi.waitFor(() => expect(renderCompletedCardPopover).toHaveBeenCalled());
+            expect(hydrateAnkiLookup).toHaveBeenCalledTimes(1);
+            expect(renderCompletedCardPopover).toHaveBeenCalledWith(
+                popover,
+                lookupCard,
+                '音声を聞く。',
                 'modal',
                 expect.objectContaining({
                     ankiLookup: hydratedLookup,

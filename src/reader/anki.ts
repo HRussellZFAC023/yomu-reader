@@ -926,7 +926,7 @@ export class AnkiConnectClient {
         const notes = notesByChunk.flat();
         if (this.isDestroyed) return null;
         const entries: Record<string, AnkiStatusIndexEntry> = {};
-        for (const { key, entry } of statusIndexEntriesForNotes(notes, cardData, settings)) entries[key] = entry;
+        for (const { key, entry } of statusIndexEntriesForNotes(notes, cardData, settings, now)) entries[key] = entry;
         const index: AnkiStatusIndex = {
             version: ANKI_STATUS_INDEX_VERSION,
             settingsKey,
@@ -962,7 +962,7 @@ export class AnkiConnectClient {
                 const notes = await this.invokeOrDefault<AnkiNoteInfo[]>('notesInfo', { notes: chunk }, []);
                 if (this.isDestroyed) return;
                 if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-                const entries = statusIndexEntriesForNotes(notes, cardData, settings);
+                const entries = statusIndexEntriesForNotes(notes, cardData, settings, now);
                 if (!entries.length) return;
                 writeQueue = writeQueue.then(() => putBestAnkiStatusIndexEntries(db, entries));
                 await writeQueue;
@@ -1212,9 +1212,9 @@ export class AnkiConnectClient {
         if (!notes.length || this.isDestroyed) return;
         const settings = this.getSettings();
         const settingsKey = this.statusIndexSettingsKey(settings);
-        const entries = this.rememberedStatusIndexEntries(notes, cardsByNote, settings);
-        if (!entries.length || this.isDestroyed) return;
         const now = Date.now();
+        const entries = this.rememberedStatusIndexEntries(notes, cardsByNote, settings, now);
+        if (!entries.length || this.isDestroyed) return;
         const current = this.validStatusIndex(await this.loadStatusIndex());
         const base = await this.baseStatusIndexForRememberedNotes(current, settingsKey, now);
         const checkedAt = Math.max(base.checkedAt, now);
@@ -1229,11 +1229,12 @@ export class AnkiConnectClient {
         notes: AnkiNoteInfo[],
         cardsByNote: Map<number, AnkiCardInfo[]>,
         settings: ReaderSettings,
+        updatedAt: number,
     ): ReturnType<typeof statusIndexEntriesForNotes> {
         return statusIndexEntriesForNotes(notes, {
             cardsByNote,
             sets: emptyAnkiStatusIndexCardSets(),
-        }, settings);
+        }, settings, updatedAt);
     }
 
     private async baseStatusIndexForRememberedNotes(
@@ -1618,7 +1619,7 @@ export class AnkiConnectClient {
         const dirtyLoadedIndex = (index: AnkiStatusIndex | null | undefined): boolean => {
             const valid = this.validStatusIndex(index);
             if (!valid) return false;
-            const dirty: AnkiStatusIndex = { ...valid, syncedAt: 0, checkedAt: 0 };
+            const dirty: AnkiStatusIndex = { ...valid, syncedAt: 0, checkedAt: 0, dirtyAt: Date.now() };
             this.statusIndex = dirty;
             void saveAnkiStatusIndexDirtyMarker(dirty)
                 .catch(error => {

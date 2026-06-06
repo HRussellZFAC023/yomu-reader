@@ -1388,7 +1388,7 @@ export class SettingsDialogController {
     }
 
     private ankiUnreachableMessage(language: InterfaceLanguage): string {
-        return uiText(language, 'ankiUnreachable');
+        return uiText(language, 'ankiSettingsUnreachable');
     }
 
     private ankiSetupUnavailableMessage(settings: ReaderSettings, language: InterfaceLanguage): string {

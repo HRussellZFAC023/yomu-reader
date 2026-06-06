@@ -179,6 +179,7 @@ export interface AnkiStatusIndexEntry {
     reps: number;
     lapses: number;
     modelName: string;
+    updatedAt?: number;
 }
 
 export interface AnkiStatusIndex {
@@ -191,6 +192,7 @@ export interface AnkiStatusIndex {
     entryStore?: 'indexeddb';
     entries: Record<string, AnkiStatusIndexEntry>;
     readingKeys?: boolean;
+    dirtyAt?: number;
 }
 
 export interface AnkiStatusIndexRebuildLease {

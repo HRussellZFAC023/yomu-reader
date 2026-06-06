@@ -317,6 +317,10 @@ function evictOldestStringKeysWhileOverLimit(cache: { size: number; keys(): Iter
     }
 }
 
+function ankiLookupHasDisplayableNotes(lookup: AnkiLookupResult): boolean {
+    return Boolean(lookup.primary || lookup.notes.length);
+}
+
 function shouldPauseVideoForSubtitleHover(word: HTMLElement, settings: ReaderSettings): boolean {
     return settings.subtitleMiningPause && Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
 }
@@ -3261,6 +3265,7 @@ export class ReaderApp {
         if (this.refreshActiveRenderedWordHover(word, context)) return;
         if (this.isStaleRenderedWordHover(word, context, options.hoverLookupGeneration)) return;
         if (await this.showPublicJpdbRenderedWordCandidate(word, card, context, options, stackOverSettings)) return;
+        if (this.shouldSuppressRenderedKanaFragmentFallback(word, card, context)) return;
         if (await this.showOcrKanjiRenderedWord(word, card, context)) return;
         this.preloadHoverWordAudio(word);
         await this.showRenderedWordCard(card, context, options, stackOverSettings);
@@ -3350,6 +3355,14 @@ export class ReaderApp {
             .filter((span) => span.end - span.start > surfaceLength)
             .map((span) => span.term);
         return terms.length ? { sentence, terms } : undefined;
+    }
+
+    private shouldSuppressRenderedKanaFragmentFallback(
+        word: HTMLElement,
+        card: JPDBCard,
+        context: RenderedWordDisplayContext,
+    ): boolean {
+        return Boolean(this.publicJpdbRenderedWordLookup(word, card, context)?.terms.length);
     }
 
     private async resolvePublicJpdbRenderedWordCandidate(terms: string[]): Promise<JPDBCard | undefined> {
@@ -4021,7 +4034,7 @@ export class ReaderApp {
             void hydrateAnkiLookup()
                 .then(ankiLookup => {
                     const resolvesPendingMiss = data.ankiLookup.trusted === false && ankiLookup.trusted !== false;
-                    if (!ankiLookup.primary && !data.ankiLookup.primary && !resolvesPendingMiss) return;
+                    if (!ankiLookupHasDisplayableNotes(ankiLookup) && !ankiLookupHasDisplayableNotes(data.ankiLookup) && !resolvesPendingMiss) return;
                     if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
                     this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup });
                 })

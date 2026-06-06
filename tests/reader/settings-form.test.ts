@@ -52,6 +52,12 @@ function renderJapaneseSettingsTestForm(): HTMLFormElement {
     return form;
 }
 
+let sharedJapaneseSettingsForm: HTMLFormElement | undefined;
+function sharedJapaneseSettingsTestForm(): HTMLFormElement {
+    sharedJapaneseSettingsForm ??= renderJapaneseSettingsTestForm();
+    return sharedJapaneseSettingsForm;
+}
+
 function renderImportedAnkiFieldMappingsForm(): HTMLFormElement {
     return renderSettingsTestForm({
         ...DEFAULT_SETTINGS,
@@ -213,6 +219,8 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.popupMode).toBe('auto');
         expect(normalizeReaderSettings({}).ankiEnabled).toBe(false);
         expect(normalizeReaderSettings({}).ankiSectionEnabled).toBe(false);
+        expect(normalizeReaderSettings({ ankiEnabled: true }).ankiSectionEnabled).toBe(true);
+        expect(normalizeReaderSettings({ ankiEnabled: true, ankiSectionEnabled: false }).ankiSectionEnabled).toBe(false);
         expect(normalizeReaderSettings({}).ankiMobileHandoff).toBe(false);
         expect(normalizeReaderSettings({}).ankiMineWithJpdb).toBe(false);
         expect(normalizeReaderSettings({}).popupMode).toBe('auto');
@@ -668,6 +676,20 @@ describe('settings form localization', () => {
         expect(saved.ankiEnabled).toBe(false);
     });
 
+    it('turns on the Anki popover source when Anki mining is enabled for the first time', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const miningToggle = form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')!;
+        const sourceToggle = form.querySelector<HTMLInputElement>('input[name="ankiSection.enabled"]')!;
+
+        expect(sourceToggle.checked).toBe(false);
+        miningToggle.checked = true;
+
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        expect(saved.ankiEnabled).toBe(true);
+        expect(saved.ankiSectionEnabled).toBe(true);
+    });
+
     it('shows saved Anki new-tab deck skips without adding a second scan action', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm({
@@ -819,7 +841,7 @@ describe('settings form localization', () => {
     });
 
     it('localizes Japanese settings labels and select options added outside the original labels', () => {
-        const form = renderJapaneseSettingsTestForm();
+        const form = sharedJapaneseSettingsTestForm();
 
         expect(form.lang).toBe('ja');
         expect(settingsText(form, 'h2')).toBe('よむ 設定');
@@ -839,7 +861,7 @@ describe('settings form localization', () => {
     });
 
     it('localizes Japanese font family option metadata', () => {
-        const form = renderJapaneseSettingsTestForm();
+        const form = sharedJapaneseSettingsTestForm();
 
         expectFontFamilyOptions(form, 'readerFontFamily', {
             defaultLabel: 'よむ既定',
@@ -862,7 +884,7 @@ describe('settings form localization', () => {
     });
 
     it('localizes Japanese Anki, theme, and template controls', () => {
-        const form = renderJapaneseSettingsTestForm();
+        const form = sharedJapaneseSettingsTestForm();
 
         expect(settingsText(form, '.jpdb-reader-template-preview-title')).toBe('単語を先に表示するプリセット');
         expect(settingsText(form, '.jpdb-reader-template-meaning')).toBe('読む');
@@ -880,7 +902,7 @@ describe('settings form localization', () => {
     });
 
     it('localizes Japanese proxy and help controls added outside the original labels', () => {
-        const form = renderJapaneseSettingsTestForm();
+        const form = sharedJapaneseSettingsTestForm();
 
         expect(settingsText(form, '[data-proxy-guide-show]')).toBe('表示');
         expect(settingsText(form, '[data-proxy-guide-hide]')).toBe('隠す');
@@ -892,7 +914,7 @@ describe('settings form localization', () => {
     });
 
     it('does not leave stale English or fallback copy in Japanese settings', () => {
-        const form = renderJapaneseSettingsTestForm();
+        const form = sharedJapaneseSettingsTestForm();
         const text = form.textContent ?? '';
 
         expect(text).not.toContain('New tab review source');

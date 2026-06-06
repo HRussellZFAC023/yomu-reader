@@ -7,6 +7,7 @@ const {
   assertNoRemoteExecutableMetadata,
   byteLengthUtf8,
   fail,
+  failIfGreasyForkSizeExceeded,
   fileExists,
   formatCount,
   packageJson,
@@ -50,9 +51,17 @@ for (const selector of [
 if (!code.includes('(function ()')) {
   fail('userscript should be bundled as a plain readable IIFE.');
 }
+try {
+  // Parse only. Do not execute the userscript in the verifier.
+  // This catches unsafe readability rewrites that break string/template syntax.
+  new Function(code);
+} catch (error) {
+  fail(`${USERSCRIPT_RELATIVE_PATH} is not parseable JavaScript after readability compaction: ${error instanceof Error ? error.message : String(error)}`);
+}
 if (lines.length < MIN_READABLE_LINE_COUNT || maxLineLength > MAX_READABLE_LINE_LENGTH) {
   fail(`${USERSCRIPT_RELATIVE_PATH} looks minified or unreadable (${formatCount(lines.length)} lines, longest line ${formatCount(maxLineLength)} chars). Greasy Fork requires non-minified code.`);
 }
+failIfGreasyForkSizeExceeded(size);
 warnIfNearGreasyForkSizeLimit(size);
 
 console.log(`Verified ${DIST_USERSCRIPT_PATH} (${formatCount(size)} bytes, ${formatCount(lines.length)} lines)`);

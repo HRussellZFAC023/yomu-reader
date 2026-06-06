@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.22
+// @version      0.6.23
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -55,56 +55,57 @@ Greasy Fork compliance notes:
 
 (function (){"use strict";const CARD_STATES=new Set(["new","learning","known","due","failed","locked","never-forget","blacklisted","suspended","in-deck","not-in-deck","redundant"]),CARD_STATE_ALIASES={never_forget:"\
 never-forget",neverforget:"never-forget","never forget":"never-forget",not_in_deck:"not-in-deck",notindeck:"not-in-deck","not in deck":"not-in-deck",in_deck:"in-deck",indeck:"in-deck","in deck":"in-deck",blacklist:"\
-blacklisted",blacklisted:"blacklisted",ignored:"blacklisted"};function normalizeCardState(value){const keys=normalizedCardStateKeys(value);return keys?aliasedCardState(keys.trimmed,keys.dashed,keys.compact)||knownCardState(
-keys.dashed):null}function normalizedCardStateKeys(value){if(typeof value!="string")return null;const trimmed=value.trim().toLowerCase();return trimmed?{trimmed,dashed:trimmed.replace(/[_\s]+/g,"-"),compact:trimmed.
-replace(/[_\s-]+/g,"")}:null}function aliasedCardState(...keys){return keys.map(key=>CARD_STATE_ALIASES[key]).find(Boolean)}function knownCardState(value){return CARD_STATES.has(value)?value:null}function normalizeCardStates(value,fallback="\
-not-in-deck"){const states=uniqueNormalizedCardStates(Array.isArray(value)?value:[value]);return states.length?states:[fallback]}function uniqueNormalizedCardStates(rawStates){const states=[];for(const rawState of rawStates)
-appendNormalizedCardState(states,rawState);return states}function appendNormalizedCardState(states,rawState){const state=normalizeCardState(rawState);!state||states.includes(state)||states.push(state)}function primaryCardState(value){
-return normalizeCardStates(value)[0]??"not-in-deck"}const CORE_COLOR_TOKENS={black:"#000000",white:"#ffffff",transparentBlack:"rgba(0, 0, 0, 0)"},BRAND_COLOR_TOKENS={accent:"#5ea780",consoleAccent:"#247a58"},READER_THEME_COLOR_TOKENS={
-dark:{bg:"#181b20",surface:"#20242b",surface2:"#282e37",accentText:"#11161d"},light:{bg:"#fbfcfe",surface:"#f4f7fa",surface2:"#e8edf3",accentText:CORE_COLOR_TOKENS.white}},OVERLAY_COLOR_TOKENS={text:CORE_COLOR_TOKENS.
-white,outline:CORE_COLOR_TOKENS.black,background:READER_THEME_COLOR_TOKENS.dark.bg},DEFAULT_WORD_COLOR_TOKENS={new:"#58a6ff",learning:"#ffd166",known:"#7bd88f",due:"#5fb3b3",failed:"#ff6b6b",ignored:"#b8a7ff"},
-DEFAULT_PITCH_COLOR_TOKENS={heiban:"#359eff",atamadaka:"#fe4b74",nakadaka:"#fba840",odaka:"#57ccb7",kifuku:"#9050f6",unknown:"#94a3b8"},LOOKUP_PILL_COLOR_TOKENS={jpdb:{bg:"#2563c7",border:"#4f8ff0",text:CORE_COLOR_TOKENS.
-white},jisho:{bg:"#4f46c7",border:"#7567f0",text:CORE_COLOR_TOKENS.white},copy:{bg:"#7e3fbf",border:"#a064e5",text:CORE_COLOR_TOKENS.white}},DOODLE_COLOR_TOKENS={ink:"#141820"},PAGE_WORD_COLOR_TOKENS={unknownBackgroundShadow:"\
-var(--jpdb-reader-word-unknown-bg-shadow)"},LOGGER_COLOR_TOKENS={debug:"#6b7280",warn:"#a15c00",error:"#b91c1c"},ANKI_CARD_COLOR_TOKENS={text:"#f4f7fb",background:"#15181e",muted:"#bac3d0",sentenceBorder:"#3238\
-43",sentenceBackground:"#1e232b",sentenceText:"#d8dee8",highlight:"#7ad119",sectionBorder:"#303641",sectionBackground:"#1b2028",headingText:"#c2cad7",labelText:"#92a0b3",expressionText:CORE_COLOR_TOKENS.white,readingText:"\
-#aab4c2",chipBorder:"#4b5565",chipText:"#cdd5e1",metaLabelText:"#8f9aaa",tableBorder:"#353c47"},MISSING={missing:!0},FACTORY_RESET_SIGNAL_KEY="yomu:factory-reset-signal",FACTORY_RESET_CHANNEL_NAME="yomu:factory\
--reset",MANAGED_STORAGE_KEY_PREFIXES=["yomu-","yomu:","yomu.","jpdb-reader-","jpdb-popup-reader-"],KNOWN_MANAGED_STORAGE_KEYS=["jpdb-popup-reader-settings","jpdb-reader-settings","yomu-reader-settings","yomu-se\
-ttings","jpdb-reader-newtab-card-cache","jpdb-reader-newtab-grade-queue","jpdb-reader-newtab-current-word","jpdb-reader-newtab-ui","jpdb-reader-newtab-jpdb-stats-history","jpdb-reader-newtab-disabled-anki-decks",
-"jpdb-reader-source-open-state","jpdb-reader-settings-drawer-height-ratio","jpdb-reader-sheet-height-ratio","jpdb-reader-transcript-panel-size","yomu:anki-status-index:v1","yomu:anki-status-index-rebuild:v1","y\
-omu.grammarPreferences.v1","yomu:enable-logs","yomu:prefer-japanese-site-language",FACTORY_RESET_SIGNAL_KEY],MANAGED_INDEXED_DB_NAMES=["yomu-anki-status-index"],EXCLUDED_BACKUP_STORAGE_KEYS=new Set([FACTORY_RESET_SIGNAL_KEY]);
-async function gmStorageGet(key,fallback){const getValue=asyncGmGetValue();if(getValue)try{const value=await getValue(key,MISSING);if(value!==MISSING)return value;const migrated=localStorageGet(key,MISSING);return migrated!==
-MISSING?(await gmStorageSet(key,migrated),migrated):fallback}catch(error){debugStorageError("GM storageread failed",key,error)}return localStorageGet(key,fallback)}function gmStorageGetSync(key,fallback){const getValue=typeof GM_getValue==
-"function"?GM_getValue:null;if(getValue){const read=gmStorageSyncRead(key,getValue);if(read.kind==="found")return read.value}return localStorageGet(key,fallback)}function gmStorageSyncRead(key,getValue){try{const value=getValue(
-key,MISSING);return isPromiseLike$1(value)?{kind:"fallback"}:value!==MISSING?{kind:"found",value}:migratedLocalStorageSyncValue(key)}catch(error){return debugStorageError("GM storage sync read failed",key,error),
-{kind:"fallback"}}}function migratedLocalStorageSyncValue(key){const migrated=localStorageGet(key,MISSING);return migrated===MISSING?{kind:"fallback"}:(gmStorageSet(key,migrated),{kind:"found",value:migrated})}
-async function gmStorageSet(key,value){const setValue=asyncGmSetValue();if(setValue){await setValue(key,value);return}localStorageSet(key,value)}function gmStorageSetSync(key,value){if(typeof GM_setValue=="func\
-tion")try{const result=GM_setValue(key,value);if(!isPromiseLike$1(result))return}catch(error){debugStorageError("GM storage sync write failed",key,error)}localStorageSet(key,value)}async function gmStorageDelete(key){
-const deleteValue=asyncGmDeleteValue();if(deleteValue)try{await deleteValue(key)}catch(error){debugStorageError("GM storage delete failed",key,error)}removeLocalStorageKey(key),removeSessionStorageKey(key)}function gmStorageDeleteSync(key){
-if(typeof GM_deleteValue=="function")try{const result=GM_deleteValue(key);isPromiseLike$1(result)&&result.catch(error=>debugStorageError("GM storage async delete failed",key,error))}catch(error){debugStorageError(
-"GM storage sync delete failed",key,error)}removeLocalStorageKey(key),removeSessionStorageKey(key)}async function exportStoredValues(prefixes){const keys=(await storageKeys(prefixes)).filter(isBackupStorageKey),
-entries=await Promise.all(keys.map(async key=>[key,await gmStorageGet(key,void 0)]));return Object.fromEntries(entries.filter(([,value])=>value!==void 0))}async function exportManagedStoredValues(){return await exportStoredValues(
-MANAGED_STORAGE_KEY_PREFIXES)}async function importStoredValues(values){let count=0;for(const[key,value]of managedStoredValueEntries(values))await gmStorageSet(key,value),localStorageSet(key,value),count++;return count}
-function managedStoredValueEntries(values){return isStorageImportRecord(values)?Object.entries(values).filter(([key])=>isBackupStorageKey(key)):[]}function isStorageImportRecord(values){return!!(values&&typeof values==
-"object"&&!Array.isArray(values))}async function clearManagedStoredValues(){const keys=await allStorageKeys();let count=0;for(const key of keys)await gmStorageDelete(key),removeLocalStorageKey(key),removeSessionStorageKey(
-key),count++;return await clearManagedIndexedDatabases(),count}async function clearFactoryResetSignal(){await gmStorageDelete(FACTORY_RESET_SIGNAL_KEY)}function createFactoryResetSignal(phase,id=createFactoryResetId()){
-return{id,phase,at:Date.now(),href:location.href}}async function publishFactoryResetSignal(signal){const normalized=normalizeFactoryResetSignal(signal);await gmStorageSet(FACTORY_RESET_SIGNAL_KEY,normalized),publishBroadcastFactoryResetSignal(
-normalized)}function subscribeToFactoryResetSignals(onSignal){const cleanups=[],addValueChangeListener=globalThis.GM_addValueChangeListener,removeValueChangeListener=globalThis.GM_removeValueChangeListener;if(typeof addValueChangeListener==
-"function")try{const listenerId=addValueChangeListener(FACTORY_RESET_SIGNAL_KEY,(_key,_oldValue,newValue,remote)=>{const signal=parseFactoryResetSignal(newValue);signal&&onSignal(signal,{remote,transport:"gm-st\
-orage"})});cleanups.push(()=>{typeof removeValueChangeListener=="function"&&removeValueChangeListener(listenerId)})}catch(error){debugStorageError("GM factory reset listener failed",FACTORY_RESET_SIGNAL_KEY,error)}
-if(typeof BroadcastChannel=="function")try{const channel=new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);channel.onmessage=event=>{const signal=parseFactoryResetSignal(event.data);signal&&onSignal(signal,{remote:!0,
-transport:"broadcast-channel"})},cleanups.push(()=>channel.close())}catch(error){debugStorageError("Broadcast factory reset listener failed",FACTORY_RESET_CHANNEL_NAME,error)}const onStorage=event=>{if(event.key!==
-FACTORY_RESET_SIGNAL_KEY)return;const signal=parseFactoryResetSignal(event.newValue);signal&&onSignal(signal,{remote:!0,transport:"web-storage"})};return window.addEventListener("storage",onStorage),cleanups.push(
-()=>window.removeEventListener("storage",onStorage)),()=>{for(;cleanups.length;)try{cleanups.pop()?.()}catch{}}}async function storageKeys(prefixes){const keys=new Set;return await addPrefixedGmStorageKeys(keys,
-prefixes),addLocalStorageKeys(keys,prefixes),await addKnownManagedStorageKeys(keys,prefixes),[...keys].sort()}async function addPrefixedGmStorageKeys(keys,prefixes){const listValues=asyncGmListValues();if(listValues)
-try{addMatchingStorageKeys(keys,await listValues(),prefixes)}catch(error){debugStorageError("GM storage list failed","GM_listValues",error)}}function addLocalStorageKeys(keys,prefixes){try{for(let index=0;index<
-localStorage.length;index++){const key=localStorage.key(index);key&&storageKeyMatchesPrefix(key,prefixes)&&keys.add(key)}}catch{}}async function addKnownManagedStorageKeys(keys,prefixes){for(const key of KNOWN_MANAGED_STORAGE_KEYS)
-storageKeyMatchesPrefix(key,prefixes)&&await storedValueExists(key)&&keys.add(key)}function addMatchingStorageKeys(keys,candidates,prefixes){for(const key of candidates)storageKeyMatchesPrefix(key,prefixes)&&keys.
-add(key)}function storageKeyMatchesPrefix(key,prefixes){return prefixes.some(prefix=>key.startsWith(prefix))}async function allStorageKeys(){const keys=new Set;return await addGmStorageKeys(keys),collectWebStorageKeys(
-localStorage,keys),collectWebStorageKeys(sessionStorage,keys),await addKnownStoredKeys(keys),[...keys].sort()}async function addGmStorageKeys(keys){const listValues=asyncGmListValues();if(listValues)try{for(const key of await listValues())
-keys.add(key)}catch(error){debugStorageError("GM storage list failed","GM_listValues",error)}}async function addKnownStoredKeys(keys){for(const key of KNOWN_MANAGED_STORAGE_KEYS)await storedValueExists(key)&&keys.
-add(key)}function collectWebStorageKeys(storage,keys){try{for(let index=0;index<storage.length;index++){const key=storage.key(index);key&&isManagedStorageKey(key)&&keys.add(key)}}catch{}}function localStorageGet(key,fallback){
-try{const value=localStorage.getItem(key);return value==null?fallback:JSON.parse(value)}catch{return fallback}}function localStorageSet(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch{}}function removeLocalStorageKey(key){
-try{localStorage.removeItem(key)}catch{}}function removeSessionStorageKey(key){try{sessionStorage.removeItem(key)}catch{}}async function storedValueExists(key){const getValue=asyncGmGetValue();if(getValue)try{if(await getValue(
+blacklisted",blacklisted:"blacklisted",ignored:"blacklisted"};function normalizeCardState(value){const keys=normalizedCardStateKeys(value);if(!keys)return null;const aliased=aliasedCardState(keys.trimmed,keys.dashed,
+keys.compact);return aliased||knownCardState(keys.dashed)}function normalizedCardStateKeys(value){if(typeof value!="string")return null;const trimmed=value.trim().toLowerCase();return trimmed?{trimmed,dashed:trimmed.
+replace(/[_\s]+/g,"-"),compact:trimmed.replace(/[_\s-]+/g,"")}:null}function aliasedCardState(...keys){return keys.map(key=>CARD_STATE_ALIASES[key]).find(Boolean)}function knownCardState(value){return CARD_STATES.
+has(value)?value:null}function normalizeCardStates(value,fallback="not-in-deck"){const states=uniqueNormalizedCardStates(Array.isArray(value)?value:[value]);return states.length?states:[fallback]}function uniqueNormalizedCardStates(rawStates){
+const states=[];for(const rawState of rawStates)appendNormalizedCardState(states,rawState);return states}function appendNormalizedCardState(states,rawState){const state=normalizeCardState(rawState);!state||states.
+includes(state)||states.push(state)}function primaryCardState(value){return normalizeCardStates(value)[0]??"not-in-deck"}const CORE_COLOR_TOKENS={black:"#000000",white:"#ffffff",transparentBlack:"rgba(0, 0, 0, \
+0)"},BRAND_COLOR_TOKENS={accent:"#5ea780",consoleAccent:"#247a58"},READER_THEME_COLOR_TOKENS={dark:{bg:"#181b20",surface:"#20242b",surface2:"#282e37",accentText:"#11161d"},light:{bg:"#fbfcfe",surface:"#f4f7fa",
+surface2:"#e8edf3",accentText:CORE_COLOR_TOKENS.white}},OVERLAY_COLOR_TOKENS={text:CORE_COLOR_TOKENS.white,outline:CORE_COLOR_TOKENS.black,background:READER_THEME_COLOR_TOKENS.dark.bg},DEFAULT_WORD_COLOR_TOKENS={
+new:"#58a6ff",learning:"#ffd166",known:"#7bd88f",due:"#5fb3b3",failed:"#ff6b6b",ignored:"#b8a7ff"},DEFAULT_PITCH_COLOR_TOKENS={heiban:"#359eff",atamadaka:"#fe4b74",nakadaka:"#fba840",odaka:"#57ccb7",kifuku:"#90\
+50f6",unknown:"#94a3b8"},LOOKUP_PILL_COLOR_TOKENS={jpdb:{bg:"#2563c7",border:"#4f8ff0",text:CORE_COLOR_TOKENS.white},jisho:{bg:"#4f46c7",border:"#7567f0",text:CORE_COLOR_TOKENS.white},copy:{bg:"#7e3fbf",border:"\
+#a064e5",text:CORE_COLOR_TOKENS.white}},DOODLE_COLOR_TOKENS={ink:"#141820"},PAGE_WORD_COLOR_TOKENS={unknownBackgroundShadow:"var(--jpdb-reader-word-unknown-bg-shadow)"},LOGGER_COLOR_TOKENS={debug:"#6b7280",warn:"\
+#a15c00",error:"#b91c1c"},ANKI_CARD_COLOR_TOKENS={text:"#f4f7fb",background:"#15181e",muted:"#bac3d0",sentenceBorder:"#323843",sentenceBackground:"#1e232b",sentenceText:"#d8dee8",highlight:"#7ad119",sectionBorder:"\
+#303641",sectionBackground:"#1b2028",headingText:"#c2cad7",labelText:"#92a0b3",expressionText:CORE_COLOR_TOKENS.white,readingText:"#aab4c2",chipBorder:"#4b5565",chipText:"#cdd5e1",metaLabelText:"#8f9aaa",tableBorder:"\
+#353c47"},MISSING={missing:!0},FACTORY_RESET_SIGNAL_KEY="yomu:factory-reset-signal",FACTORY_RESET_CHANNEL_NAME="yomu:factory-reset",MANAGED_STORAGE_KEY_PREFIXES=["yomu-","yomu:","yomu.","jpdb-reader-","jpdb-pop\
+up-reader-"],KNOWN_MANAGED_STORAGE_KEYS=["jpdb-popup-reader-settings","jpdb-reader-settings","yomu-reader-settings","yomu-settings","jpdb-reader-newtab-card-cache","jpdb-reader-newtab-grade-queue","jpdb-reader-\
+newtab-current-word","jpdb-reader-newtab-ui","jpdb-reader-newtab-jpdb-stats-history","jpdb-reader-newtab-disabled-anki-decks","jpdb-reader-source-open-state","jpdb-reader-settings-drawer-height-ratio","jpdb-rea\
+der-sheet-height-ratio","jpdb-reader-transcript-panel-size","yomu:anki-status-index:v1","yomu:anki-status-index-rebuild:v1","yomu.grammarPreferences.v1","yomu:enable-logs","yomu:prefer-japanese-site-language",FACTORY_RESET_SIGNAL_KEY],
+MANAGED_INDEXED_DB_NAMES=["yomu-anki-status-index"],EXCLUDED_BACKUP_STORAGE_KEYS=new Set([FACTORY_RESET_SIGNAL_KEY]);async function gmStorageGet(key,fallback){const getValue=asyncGmGetValue();if(getValue)try{const value=await getValue(
+key,MISSING);if(value!==MISSING)return value;const migrated=localStorageGet(key,MISSING);return migrated!==MISSING?(await gmStorageSet(key,migrated),migrated):fallback}catch(error){debugStorageError("GM storage\
+read failed",key,error)}return localStorageGet(key,fallback)}function gmStorageGetSync(key,fallback){const getValue=typeof GM_getValue=="function"?GM_getValue:null;if(getValue){const read=gmStorageSyncRead(key,
+getValue);if(read.kind==="found")return read.value}return localStorageGet(key,fallback)}function gmStorageSyncRead(key,getValue){try{const value=getValue(key,MISSING);return isPromiseLike$1(value)?{kind:"fallba\
+ck"}:value!==MISSING?{kind:"found",value}:migratedLocalStorageSyncValue(key)}catch(error){return debugStorageError("GM storage sync read failed",key,error),{kind:"fallback"}}}function migratedLocalStorageSyncValue(key){
+const migrated=localStorageGet(key,MISSING);return migrated===MISSING?{kind:"fallback"}:(gmStorageSet(key,migrated),{kind:"found",value:migrated})}async function gmStorageSet(key,value){const setValue=asyncGmSetValue();
+if(setValue){await setValue(key,value);return}localStorageSet(key,value)}function gmStorageSetSync(key,value){if(typeof GM_setValue=="function")try{const result=GM_setValue(key,value);if(!isPromiseLike$1(result))
+return}catch(error){debugStorageError("GM storage sync write failed",key,error)}localStorageSet(key,value)}async function gmStorageDelete(key){const deleteValue=asyncGmDeleteValue();if(deleteValue)try{await deleteValue(
+key)}catch(error){debugStorageError("GM storage delete failed",key,error)}removeLocalStorageKey(key),removeSessionStorageKey(key)}function gmStorageDeleteSync(key){if(typeof GM_deleteValue=="function")try{const result=GM_deleteValue(
+key);isPromiseLike$1(result)&&result.catch(error=>debugStorageError("GM storage async delete failed",key,error))}catch(error){debugStorageError("GM storage sync delete failed",key,error)}removeLocalStorageKey(key),
+removeSessionStorageKey(key)}async function exportStoredValues(prefixes){const keys=(await storageKeys(prefixes)).filter(isBackupStorageKey),entries=await Promise.all(keys.map(async key=>[key,await gmStorageGet(
+key,void 0)]));return Object.fromEntries(entries.filter(([,value])=>value!==void 0))}async function exportManagedStoredValues(){return await exportStoredValues(MANAGED_STORAGE_KEY_PREFIXES)}async function importStoredValues(values){
+let count=0;for(const[key,value]of managedStoredValueEntries(values))await gmStorageSet(key,value),localStorageSet(key,value),count++;return count}function managedStoredValueEntries(values){return isStorageImportRecord(
+values)?Object.entries(values).filter(([key])=>isBackupStorageKey(key)):[]}function isStorageImportRecord(values){return!!(values&&typeof values=="object"&&!Array.isArray(values))}async function clearManagedStoredValues(){
+const keys=await allStorageKeys();let count=0;for(const key of keys)await gmStorageDelete(key),removeLocalStorageKey(key),removeSessionStorageKey(key),count++;return await clearManagedIndexedDatabases(),count}async function clearFactoryResetSignal(){
+await gmStorageDelete(FACTORY_RESET_SIGNAL_KEY)}function createFactoryResetSignal(phase,id=createFactoryResetId()){return{id,phase,at:Date.now(),href:location.href}}async function publishFactoryResetSignal(signal){
+const normalized=normalizeFactoryResetSignal(signal);await gmStorageSet(FACTORY_RESET_SIGNAL_KEY,normalized),publishBroadcastFactoryResetSignal(normalized)}function subscribeToFactoryResetSignals(onSignal){const cleanups=[],
+addValueChangeListener=globalThis.GM_addValueChangeListener,removeValueChangeListener=globalThis.GM_removeValueChangeListener;if(typeof addValueChangeListener=="function")try{const listenerId=addValueChangeListener(
+FACTORY_RESET_SIGNAL_KEY,(_key,_oldValue,newValue,remote)=>{const signal=parseFactoryResetSignal(newValue);signal&&onSignal(signal,{remote,transport:"gm-storage"})});cleanups.push(()=>{typeof removeValueChangeListener==
+"function"&&removeValueChangeListener(listenerId)})}catch(error){debugStorageError("GM factory reset listener failed",FACTORY_RESET_SIGNAL_KEY,error)}if(typeof BroadcastChannel=="function")try{const channel=new BroadcastChannel(
+FACTORY_RESET_CHANNEL_NAME);channel.onmessage=event=>{const signal=parseFactoryResetSignal(event.data);signal&&onSignal(signal,{remote:!0,transport:"broadcast-channel"})},cleanups.push(()=>channel.close())}catch(error){
+debugStorageError("Broadcast factory reset listener failed",FACTORY_RESET_CHANNEL_NAME,error)}const onStorage=event=>{if(event.key!==FACTORY_RESET_SIGNAL_KEY)return;const signal=parseFactoryResetSignal(event.newValue);
+signal&&onSignal(signal,{remote:!0,transport:"web-storage"})};return window.addEventListener("storage",onStorage),cleanups.push(()=>window.removeEventListener("storage",onStorage)),()=>{for(;cleanups.length;)try{
+cleanups.pop()?.()}catch{}}}async function storageKeys(prefixes){const keys=new Set;return await addPrefixedGmStorageKeys(keys,prefixes),addLocalStorageKeys(keys,prefixes),await addKnownManagedStorageKeys(keys,
+prefixes),[...keys].sort()}async function addPrefixedGmStorageKeys(keys,prefixes){const listValues=asyncGmListValues();if(listValues)try{addMatchingStorageKeys(keys,await listValues(),prefixes)}catch(error){debugStorageError(
+"GM storage list failed","GM_listValues",error)}}function addLocalStorageKeys(keys,prefixes){try{for(let index=0;index<localStorage.length;index++){const key=localStorage.key(index);key&&storageKeyMatchesPrefix(
+key,prefixes)&&keys.add(key)}}catch{}}async function addKnownManagedStorageKeys(keys,prefixes){for(const key of KNOWN_MANAGED_STORAGE_KEYS)storageKeyMatchesPrefix(key,prefixes)&&await storedValueExists(key)&&keys.
+add(key)}function addMatchingStorageKeys(keys,candidates,prefixes){for(const key of candidates)storageKeyMatchesPrefix(key,prefixes)&&keys.add(key)}function storageKeyMatchesPrefix(key,prefixes){return prefixes.
+some(prefix=>key.startsWith(prefix))}async function allStorageKeys(){const keys=new Set;return await addGmStorageKeys(keys),collectWebStorageKeys(localStorage,keys),collectWebStorageKeys(sessionStorage,keys),await addKnownStoredKeys(
+keys),[...keys].sort()}async function addGmStorageKeys(keys){const listValues=asyncGmListValues();if(listValues)try{for(const key of await listValues())keys.add(key)}catch(error){debugStorageError("GM storage l\
+ist failed","GM_listValues",error)}}async function addKnownStoredKeys(keys){for(const key of KNOWN_MANAGED_STORAGE_KEYS)await storedValueExists(key)&&keys.add(key)}function collectWebStorageKeys(storage,keys){try{
+for(let index=0;index<storage.length;index++){const key=storage.key(index);key&&isManagedStorageKey(key)&&keys.add(key)}}catch{}}function localStorageGet(key,fallback){try{const value=localStorage.getItem(key);
+return value==null?fallback:JSON.parse(value)}catch{return fallback}}function localStorageSet(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch{}}function removeLocalStorageKey(key){try{localStorage.
+removeItem(key)}catch{}}function removeSessionStorageKey(key){try{sessionStorage.removeItem(key)}catch{}}async function storedValueExists(key){const getValue=asyncGmGetValue();if(getValue)try{if(await getValue(
 key,MISSING)!==MISSING)return!0}catch(error){debugStorageError("GM storage existence check failed",key,error)}return webStorageHasKey(localStorage,key)||webStorageHasKey(sessionStorage,key)}function webStorageHasKey(storage,key){
 try{return storage.getItem(key)!==null}catch{return!1}}async function clearManagedIndexedDatabases(){await Promise.all(MANAGED_INDEXED_DB_NAMES.map(deleteIndexedDbDatabase))}function deleteIndexedDbDatabase(name){
 return typeof indexedDB>"u"?Promise.resolve():new Promise(resolve=>{try{const request=indexedDB.deleteDatabase(name);request.onsuccess=()=>resolve(),request.onerror=error=>{debugStorageError("IndexedDB delete f\
@@ -195,11 +196,11 @@ event)?parts.key?shortcutKeyIsPressed(parts.key,event,pressedKeys):parts.modifie
 event.ctrlKey&&modifiers.has("meta")===event.metaKey&&modifiers.has("shift")===event.shiftKey}function shortcutKeyIsPressed(key,event,pressedKeys){const normalized=key.toLowerCase();return pressedKeys.has(normalized)||
 "key"in event&&normalizeEventKey(event.key).toLowerCase()===normalized}function parseShortcut(shortcut){const parts=shortcut.split("+").map(part=>normalizeShortcutPart(part)).filter(Boolean),modifiers=new Set(parts.
 filter(isModifierKey).map(part=>part.toLowerCase()));return{key:([...parts].reverse().find(part=>!isModifierKey(part))??"").toLowerCase(),modifiers}}function normalizeShortcutPart(part){const value=part.trim();
-if(!value)return"";const lower=value.toLowerCase();return shortcutPartAlias(lower)||(value.length===1?value.toUpperCase():value[0]?.toUpperCase()+value.slice(1))}function shortcutPartAlias(lower){return SHORTCUT_PART_ALIASES.
+if(!value)return"";const lower=value.toLowerCase(),alias=shortcutPartAlias(lower);return alias||(value.length===1?value.toUpperCase():value[0]?.toUpperCase()+value.slice(1))}function shortcutPartAlias(lower){return SHORTCUT_PART_ALIASES.
 get(lower)??""}const SHORTCUT_PART_ALIASES=new Map([["control","Ctrl"],["cmd","Meta"],["command","Meta"],["win","Meta"],["windows","Meta"],["option","Alt"],["esc","Escape"],["spacebar","Space"],[" ","Space"]]);
 function normalizeEventKey(key){return key===" "?"Space":normalizeShortcutPart(key)}function isModifierKey(key){return key==="Alt"||key==="Ctrl"||key==="Meta"||key==="Shift"}function dedupeShortcutParts(parts){
-return parts.filter((part,index)=>parts.indexOf(part)===index)}const SETTINGS_STORAGE_KEY="jpdb-popup-reader-settings",SETTINGS_STORAGE_KEYS=[SETTINGS_STORAGE_KEY,"jpdb-reader-settings","yomu-reader-settings","\
-yomu-settings"],log$x=Logger.scope("Settings");let settingsResetInProgress=!1;const DEFAULT_AUDIO_URL="http://localhost:9090/?term={term}&reading={reading}",DEFAULT_ACCENT_COLOR=BRAND_COLOR_TOKENS.accent,DEFAULT_OVERLAY_TEXT_COLOR=OVERLAY_COLOR_TOKENS.
+return parts.filter((part,index)=>parts.indexOf(part)===index)}const SETTINGS_STORAGE_KEY="jpdb-popup-reader-settings",SETTINGS_STORAGE_KEYS=[SETTINGS_STORAGE_KEY,...["jpdb-reader-settings","yomu-reader-setting\
+s","yomu-settings"]],log$x=Logger.scope("Settings");let settingsResetInProgress=!1;const DEFAULT_AUDIO_URL="http://localhost:9090/?term={term}&reading={reading}",DEFAULT_ACCENT_COLOR=BRAND_COLOR_TOKENS.accent,DEFAULT_OVERLAY_TEXT_COLOR=OVERLAY_COLOR_TOKENS.
 text,DEFAULT_OVERLAY_OUTLINE_COLOR=OVERLAY_COLOR_TOKENS.outline,DEFAULT_OVERLAY_BACKGROUND_COLOR=OVERLAY_COLOR_TOKENS.background,DEFAULT_READER_FONT_FAMILY='system-ui, -apple-system, BlinkMacSystemFont, "Segoe \
 UI", sans-serif',DEFAULT_POPUP_FONT_FAMILY='"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif',DEFAULT_SUBTITLE_FONT_FAMILY=DEFAULT_READER_FONT_FAMILY,
 DEFAULT_WORD_COLORS=DEFAULT_WORD_COLOR_TOKENS,DEFAULT_PITCH_COLORS=DEFAULT_PITCH_COLOR_TOKENS,AUDIO_GUIDE_URL="https://yomitan.wiki/advanced/#audio",AUDIO_SOURCE_TYPE_VALUES=["jpod101","language-pod-101","jisho",
@@ -242,7 +243,7 @@ value),supportedSettings=stripUnsupportedSettings(value);return{...DEFAULT_SETTI
 value),...audio,...normalizeMediaSettings(value),...normalizeSubtitleSettings(value),...normalizeKanjiSettings(value),...normalizeAnkiAndStudySettings(value),...normalizePresentationSettings(value),...normalizeMiningSettings(
 value),dictionaryPreferences:normalizeDictionaryPreferences(value?.dictionaryPreferences),dictionaryLookupLinks:normalizeDictionaryLookupLinkSettings(value),shortcuts:normalizeShortcutSettings(value)}}function normalizeReaderSettings(value){
 return mergeSettings(value)}function stripUnsupportedSettings(value){if(!value)return null;const supportedKeys=new Set(Object.keys(DEFAULT_SETTINGS));return Object.fromEntries(Object.entries(value).filter(([key])=>supportedKeys.
-has(key)))}function normalizeAudioSettings(value){const settings=value??{},audioSources=hasOwn(settings,"audioSources")||settings.audioSourceUrl?normalizeAudioSources(settings.audioSources,settings.audioSourceUrl):
+has(key)))}function normalizeAudioSettings(value){const settings=value??{},audioSources=hasOwn(settings,"audioSources")||!!settings.audioSourceUrl?normalizeAudioSources(settings.audioSources,settings.audioSourceUrl):
 DEFAULT_AUDIO_SOURCES.map(source=>({...source})),audioAutoPlayMode=normalizeAudioAutoPlayMode(settings.audioAutoPlayMode);return{autoPlayAudio:audioAutoPlayMode==="off"?!1:booleanSetting(value,"autoPlayAudio"),
 suppressAutoAudioOnVideo:booleanSetting(value,"suppressAutoAudioOnVideo"),audioAutoPlayMode,audioSources,audioSourceUrl:preferredAudioSourceUrl(audioSources,settings.audioSourceUrl),audioTtsMode:normalizeAudioTtsMode(
 settings.audioTtsMode)}}function preferredAudioSourceUrl(audioSources,fallback){return audioSources.find(source=>source.url)?.url??fallback??DEFAULT_AUDIO_URL}function normalizeShortcutSettings(value){const shortcuts={
@@ -263,68 +264,68 @@ settings.pitchColorAtamadaka,DEFAULT_SETTINGS.pitchColorAtamadaka),pitchColorNak
 pitchColorOdaka,DEFAULT_SETTINGS.pitchColorOdaka),pitchColorKifuku:sanitizeAccentColor(settings.pitchColorKifuku,DEFAULT_SETTINGS.pitchColorKifuku),pitchColorUnknown:sanitizeAccentColor(settings.pitchColorUnknown,
 DEFAULT_SETTINGS.pitchColorUnknown),...normalizeReaderColorChannelSettings(value),puckPositionX:normalizeOptionalCoordinate(settings.puckPositionX),puckPositionY:normalizeOptionalCoordinate(settings.puckPositionY),
 showFurigana:booleanSetting(value,"showFurigana"),furiganaMode:normalizeFuriganaMode(settings.furiganaMode,value),hideKnownFurigana:booleanSetting(value,"hideKnownFurigana")}}function normalizeKanjiSettings(value){
-return{...normalizeBooleanSettingGroup(value,KANJI_BOOLEAN_SETTING_KEYS),...normalizeNumberSettingGroup(value,KANJI_NUMBER_SETTING_RANGES)}}function normalizeAnkiAndStudySettings(value){return{ankiSectionEnabled:booleanSetting(
-value,"ankiSectionEnabled"),ankiSectionPriority:clampNumber$3(value?.ankiSectionPriority,0,999,DEFAULT_SETTINGS.ankiSectionPriority),ankiConnectUrl:normalizeUrl(value?.ankiConnectUrl,DEFAULT_SETTINGS.ankiConnectUrl),
-ankiDeck:normalizeAnkiName(value?.ankiDeck,DEFAULT_SETTINGS.ankiDeck,"Yomu"),ankiModel:normalizeAnkiName(value?.ankiModel,DEFAULT_SETTINGS.ankiModel,"Yomu Japanese"),ankiTemplateMode:normalizeAnkiTemplateMode(value?.
-ankiTemplateMode),ankiFrontReading:booleanSetting(value,"ankiFrontReading"),ankiFrontSentence:booleanSetting(value,"ankiFrontSentence"),ankiFrontImage:booleanSetting(value,"ankiFrontImage"),ankiFieldMappings:normalizeAnkiFieldMappings(
-value?.ankiFieldMappings),ankiMobileHandoff:booleanSetting(value,"ankiMobileHandoff"),studyTranslationEnabled:booleanSetting(value,"studyTranslationEnabled"),studyTranslationPriority:clampNumber$3(value?.studyTranslationPriority,
-0,999,DEFAULT_SETTINGS.studyTranslationPriority),studyGrammarEnabled:booleanSetting(value,"studyGrammarEnabled"),studyGrammarPriority:clampNumber$3(value?.studyGrammarPriority,0,999,DEFAULT_SETTINGS.studyGrammarPriority),
-enableLogging:booleanSetting(value,"enableLogging")}}function normalizePresentationSettings(value){return{theme:normalizeTheme(value?.theme),popupMode:normalizePopupMode(value?.popupMode),stickyBottomSheet:booleanSetting(
-value,"stickyBottomSheet"),popoverBackdropEnabled:booleanSetting(value,"popoverBackdropEnabled"),popoverWidth:clampNumber$3(value?.popoverWidth,280,900,DEFAULT_SETTINGS.popoverWidth),popoverHeight:clampNumber$3(
-value?.popoverHeight,220,900,DEFAULT_SETTINGS.popoverHeight),popoverHeightMode:normalizePopoverHeightMode(value?.popoverHeightMode),readerFontFamily:normalizeFontFamily(value?.readerFontFamily,DEFAULT_SETTINGS.
-readerFontFamily),popupFontFamily:normalizeFontFamily(value?.popupFontFamily,DEFAULT_SETTINGS.popupFontFamily),popupFontWeight:clampNumber$3(value?.popupFontWeight,300,900,DEFAULT_SETTINGS.popupFontWeight)}}function normalizeMiningSettings(value){
-return{ankiTags:trimmedStringSetting(value,"ankiTags",DEFAULT_SETTINGS.ankiTags),miningDeck:normalizeDeckIdSetting(value?.miningDeck,DEFAULT_SETTINGS.miningDeck),neverForgetDeck:normalizeDeckIdSetting(value?.neverForgetDeck,
-DEFAULT_SETTINGS.neverForgetDeck),blacklistDeck:normalizeDeckIdSetting(value?.blacklistDeck,DEFAULT_SETTINGS.blacklistDeck),...normalizeBooleanSettingGroup(value,MINING_BOOLEAN_SETTING_KEYS)}}function normalizeMediaSettings(value){
-const settings=value??{};return{audioViaBlob:booleanSetting(value,"audioViaBlob"),audioFallbackChimeEnabled:booleanSetting(value,"audioFallbackChimeEnabled"),immersionKitExampleSource:normalizeImmersionExampleSource(
-settings.immersionKitExampleSource),nadeshikoApiKey:trimmedStringSetting(value,"nadeshikoApiKey",DEFAULT_SETTINGS.nadeshikoApiKey),immersionKitPriority:clampNumber$3(settings.immersionKitPriority,0,999,DEFAULT_SETTINGS.
-immersionKitPriority),immersionKitLimitEnabled:booleanSetting(value,"immersionKitLimitEnabled"),immersionKitLimit:clampNumber$3(settings.immersionKitLimit,1,12,DEFAULT_SETTINGS.immersionKitLimit),immersionKitMinLength:clampNumber$3(
-settings.immersionKitMinLength,0,120,DEFAULT_SETTINGS.immersionKitMinLength),immersionKitMaxLength:clampNumber$3(settings.immersionKitMaxLength,0,240,DEFAULT_SETTINGS.immersionKitMaxLength),immersionKitCategory:normalizeImmersionKitCategory(
-settings.immersionKitCategory),immersionKitSort:normalizeImmersionKitSort(settings.immersionKitSort),immersionKitPlaybackRate:clampNumber$3(settings.immersionKitPlaybackRate,.5,2,DEFAULT_SETTINGS.immersionKitPlaybackRate),
-immersionKitRevealTranslationOnClick:booleanSetting(value,"immersionKitRevealTranslationOnClick"),immersionKitPlayOnHover:booleanSetting(value,"immersionKitPlayOnHover"),immersionKitPlayOnImageClick:booleanSetting(
-value,"immersionKitPlayOnImageClick"),ocrProvider:normalizeOcrProvider(settings.ocrProvider,value),ocrEngine:normalizeOcrEngine(settings.ocrEngine),ocrCloudVisionApiKey:normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
-ocrTextColor:sanitizeAccentColor(settings.ocrTextColor,DEFAULT_SETTINGS.ocrTextColor),ocrOutlineColor:sanitizeAccentColor(settings.ocrOutlineColor,DEFAULT_SETTINGS.ocrOutlineColor),ocrBackgroundColor:sanitizeAccentColor(
-settings.ocrBackgroundColor,DEFAULT_SETTINGS.ocrBackgroundColor),ocrBackgroundOpacity:clampNumber$3(settings.ocrBackgroundOpacity,0,1,DEFAULT_SETTINGS.ocrBackgroundOpacity),ocrFontScale:clampNumber$3(settings.ocrFontScale,
-.7,1.8,DEFAULT_SETTINGS.ocrFontScale)}}function normalizeSubtitleSettings(value){return{...normalizeBooleanSettingGroup(value,SUBTITLE_BOOLEAN_SETTING_KEYS),subtitleControlsMode:normalizeSubtitleControlsMode(value?.
-subtitleControlsMode),subtitleTranscriptPlacement:normalizeSubtitleTranscriptPlacement(value?.subtitleTranscriptPlacement),subtitleTextColor:sanitizeAccentColor(value?.subtitleTextColor,DEFAULT_SETTINGS.subtitleTextColor),
-subtitleOutlineColor:sanitizeAccentColor(value?.subtitleOutlineColor,DEFAULT_SETTINGS.subtitleOutlineColor),subtitleBackgroundColor:sanitizeAccentColor(value?.subtitleBackgroundColor,DEFAULT_SETTINGS.subtitleBackgroundColor),
-subtitleBackgroundOpacity:clampNumber$3(value?.subtitleBackgroundOpacity,0,1,DEFAULT_SETTINGS.subtitleBackgroundOpacity),subtitleFontFamily:normalizeFontFamily(value?.subtitleFontFamily,DEFAULT_SETTINGS.subtitleFontFamily),
-subtitleFontWeight:clampNumber$3(value?.subtitleFontWeight,100,900,DEFAULT_SETTINGS.subtitleFontWeight)}}function normalizeFontFamily(value,fallback){return trimmedText(value)||fallback}function normalizeOptionalCoordinate(value){
-const number=Number(value);return Number.isFinite(number)&&number>=0?number:void 0}function normalizeStringList(value){return Array.isArray(value)?[...new Set(value.map(item=>typeof item=="string"?item.trim():"").
-filter(Boolean))]:[]}const ANKI_FIELD_MAPPING_ROLES$3=["expression","reading","meaning","sentence","audio","image"];function normalizeAnkiFieldMappings(value){if(!value||typeof value!="object"||Array.isArray(value))
-return{};const out={};return Object.entries(value).forEach(([modelName,mapping])=>{const normalizedModelName=modelName.trim();if(!normalizedModelName||!mapping||typeof mapping!="object"||Array.isArray(mapping))
-return;const normalizedMapping={};for(const role of ANKI_FIELD_MAPPING_ROLES$3){const fieldName=mapping[role];if(typeof fieldName!="string")continue;const normalizedFieldName=fieldName.trim();normalizedFieldName&&
-(normalizedMapping[role]=normalizedFieldName)}Object.keys(normalizedMapping).length&&(out[normalizedModelName]=normalizedMapping)}),out}function normalizeAnkiName(value,fallback,oldDefault){if(typeof value!="st\
-ring")return fallback;const trimmed=value.trim();return!trimmed||trimmed===oldDefault?fallback:trimmed}function normalizeAnkiTemplateMode(value){return value==="context"||value==="recognition"?value:DEFAULT_SETTINGS.
-ankiTemplateMode}function normalizeInterfaceLanguage(value){return value==="en"||value==="ja"||value==="auto"?value:DEFAULT_SETTINGS.interfaceLanguage}function normalizeTheme(value){return value==="dark"||value===
-"light"||value==="auto"?value:DEFAULT_SETTINGS.theme}function normalizePopupMode(value){return value==="sheet"||value==="popover"||value==="auto"?value:DEFAULT_SETTINGS.popupMode}function normalizePopoverHeightMode(value){
-return value==="fixed"||value==="available"?value:DEFAULT_SETTINGS.popoverHeightMode}function normalizeAudioAutoPlayMode(value){return value==="off"||value==="all"||value==="hover"||value==="tap"?value:DEFAULT_SETTINGS.
-audioAutoPlayMode}function normalizeAudioTtsMode(value){return value==="source-order"||value==="fallback"?value:DEFAULT_SETTINGS.audioTtsMode}function normalizeImmersionKitCategory(value){return value==="anime"||
-value==="drama"||value==="games"||value==="all"?value:DEFAULT_SETTINGS.immersionKitCategory}function normalizeImmersionKitSort(value){return value==="sentence_length:desc"||value==="sentence_length:asc"?value:DEFAULT_SETTINGS.
-immersionKitSort}function normalizeImmersionExampleSource(value){return value==="nadeshiko"||value==="combined"||value==="immersion-kit"?value:DEFAULT_SETTINGS.immersionKitExampleSource}function normalizeUrl(value,fallback){
-if(typeof value!="string"||!value.trim())return fallback;try{return new URL(value.trim()).toString().replace(/\/$/,"")}catch{return fallback}}function shortcutFromLegacyModifier(value){return value==="alt"?"Alt":
-value==="ctrl"?"Ctrl":value==="meta"?"Meta":value==="shift"?"Shift":""}function clampNumber$3(value,min,max2,fallback){const number=Number(value);return Number.isFinite(number)?Math.max(min,Math.min(max2,number)):
-fallback}function normalizeBooleanSettingGroup(value,keys){const normalized={};for(const key of keys)normalized[key]=booleanSetting(value,key);return normalized}function normalizeNumberSettingGroup(value,ranges){
-const normalized={};for(const key of Object.keys(ranges)){const{min,max:max2}=ranges[key],fallback=DEFAULT_SETTINGS[key];normalized[key]=clampNumber$3(value?.[key],min,max2,typeof fallback=="number"?fallback:0)}
-return normalized}function booleanSetting(value,key){const rawValue=value?.[key],fallback=DEFAULT_SETTINGS[key];return typeof rawValue=="boolean"?rawValue:typeof fallback=="boolean"?fallback:!1}function booleanSettingWithFallback(value,key,fallback){
-const rawValue=value?.[key];return typeof rawValue=="boolean"?rawValue:fallback}function trimmedStringSetting(value,key,fallback){const rawValue=value?.[key];return typeof rawValue=="string"?rawValue.trim():fallback}
-function normalizeSubtitleControlsMode(value){return value==="always"||value==="hidden"||value==="auto"?value:DEFAULT_SETTINGS.subtitleControlsMode}function normalizeSubtitleTranscriptPlacement(value){return value===
-"left"||value==="bottom"||value==="right"?value:DEFAULT_SETTINGS.subtitleTranscriptPlacement}function normalizeNewTabSource(value){return value==="jpdb"||value==="anki"||value==="auto"||value==="dictionary"?value:
-DEFAULT_SETTINGS.newTabSource}function normalizeNewTabJpdbReviewMode(value){return value==="auto"||value==="api-vocabulary"||value==="live-review"?value:DEFAULT_SETTINGS.newTabJpdbReviewMode}function normalizeCorsProxyUrl(value){
-if(value==null)return DEFAULT_SETTINGS.corsProxyUrl;const raw=typeof value=="string"?value.trim():"";if(!raw)return"";try{const url=new URL(raw);return url.protocol==="https:"?url.href.replace(/\/+$/,""):""}catch{
-return""}}function normalizeNewTabKanjiKeywordSource(value){return value==="auto"||value==="rtk"||value==="jpdb"||value==="local"?value:DEFAULT_SETTINGS.newTabKanjiKeywordSource}function normalizeReaderColorChannelSettings(value){
-if(isLegacyDefaultColorChannelSettings(value))return{...DEFAULT_COLOR_CHANNELS};const channels={wordHighlightColorSource:normalizeReaderColorSource(value?.wordHighlightColorSource,DEFAULT_COLOR_CHANNELS.wordHighlightColorSource,
-legacyHighlightColorSourceForAuto(value,DEFAULT_COLOR_CHANNELS.wordHighlightColorSource)),wordUnderlineColorSource:normalizeReaderColorSource(value?.wordUnderlineColorSource,DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource,
-legacyReaderColorSourceForAuto(value,DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource)),wordTextColorSource:normalizeReaderColorSource(value?.wordTextColorSource,DEFAULT_COLOR_CHANNELS.wordTextColorSource,legacyReaderColorSourceForAuto(
-value,DEFAULT_COLOR_CHANNELS.wordTextColorSource)),subtitleHighlightColorSource:normalizeReaderColorSource(value?.subtitleHighlightColorSource,DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource,legacySubtitleHighlightColorSourceForAuto(
-value,DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource)),subtitleUnderlineColorSource:normalizeReaderColorSource(value?.subtitleUnderlineColorSource,DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource,legacySubtitleColorSourceForAuto(
-value,DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource)),subtitleTextColorSource:normalizeReaderColorSource(value?.subtitleTextColorSource,DEFAULT_COLOR_CHANNELS.subtitleTextColorSource,legacySubtitleColorSourceForAuto(
-value,DEFAULT_COLOR_CHANNELS.subtitleTextColorSource))};return normalizeStaleDoublePitchHighlightChannels(value,channels)}function isLegacyDefaultColorChannelSettings(value){return value?Object.keys(LEGACY_COLOR_CHANNEL_DEFAULTS).
-every(key=>hasOwn(value,key)&&value[key]===LEGACY_COLOR_CHANNEL_DEFAULTS[key]):!1}function normalizeReaderColorSource(value,fallback,autoFallback=fallback){const source=value==="auto"?autoFallback:value;return READER_COLOR_SOURCES.
-has(source)?source:fallback}function normalizeStaleDoublePitchHighlightChannels(settings,channels){const staleWordHighlight=hasStaleWordPitchHighlight(settings,channels),staleSubtitleHighlight=hasStaleSubtitlePitchHighlight(
-settings,channels);return!staleWordHighlight&&!staleSubtitleHighlight?channels:{...channels,wordHighlightColorSource:staleWordHighlight?DEFAULT_COLOR_CHANNELS.wordHighlightColorSource:channels.wordHighlightColorSource,
-subtitleHighlightColorSource:staleSubtitleHighlight?DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource:channels.subtitleHighlightColorSource}}function hasStaleWordPitchHighlight(settings,channels){return settings?
-settings.wordHighlightMode==="pitch"?!0:hasStalePitchHighlightPair(settings,channels,"wordHighlightColorSource","wordUnderlineColorSource"):!1}function hasStaleSubtitlePitchHighlight(settings,channels){return settings?
-settings.wordHighlightMode==="pitch"?!0:hasStalePitchHighlightPair(settings,channels,"subtitleHighlightColorSource","subtitleUnderlineColorSource"):!1}function hasStalePitchHighlightPair(settings,channels,highlight,underline){
+return{...normalizeBooleanSettingGroup(value,KANJI_BOOLEAN_SETTING_KEYS),...normalizeNumberSettingGroup(value,KANJI_NUMBER_SETTING_RANGES)}}function normalizeAnkiAndStudySettings(value){const ankiEnabled=booleanSetting(
+value,"ankiEnabled");return{ankiSectionEnabled:hasOwn(value,"ankiSectionEnabled")?booleanSetting(value,"ankiSectionEnabled"):ankiEnabled,ankiSectionPriority:clampNumber$3(value?.ankiSectionPriority,0,999,DEFAULT_SETTINGS.
+ankiSectionPriority),ankiConnectUrl:normalizeUrl(value?.ankiConnectUrl,DEFAULT_SETTINGS.ankiConnectUrl),ankiDeck:normalizeAnkiName(value?.ankiDeck,DEFAULT_SETTINGS.ankiDeck,"Yomu"),ankiModel:normalizeAnkiName(value?.
+ankiModel,DEFAULT_SETTINGS.ankiModel,"Yomu Japanese"),ankiTemplateMode:normalizeAnkiTemplateMode(value?.ankiTemplateMode),ankiFrontReading:booleanSetting(value,"ankiFrontReading"),ankiFrontSentence:booleanSetting(
+value,"ankiFrontSentence"),ankiFrontImage:booleanSetting(value,"ankiFrontImage"),ankiFieldMappings:normalizeAnkiFieldMappings(value?.ankiFieldMappings),ankiMobileHandoff:booleanSetting(value,"ankiMobileHandoff"),
+studyTranslationEnabled:booleanSetting(value,"studyTranslationEnabled"),studyTranslationPriority:clampNumber$3(value?.studyTranslationPriority,0,999,DEFAULT_SETTINGS.studyTranslationPriority),studyGrammarEnabled:booleanSetting(
+value,"studyGrammarEnabled"),studyGrammarPriority:clampNumber$3(value?.studyGrammarPriority,0,999,DEFAULT_SETTINGS.studyGrammarPriority),enableLogging:booleanSetting(value,"enableLogging")}}function normalizePresentationSettings(value){
+return{theme:normalizeTheme(value?.theme),popupMode:normalizePopupMode(value?.popupMode),stickyBottomSheet:booleanSetting(value,"stickyBottomSheet"),popoverBackdropEnabled:booleanSetting(value,"popoverBackdropE\
+nabled"),popoverWidth:clampNumber$3(value?.popoverWidth,280,900,DEFAULT_SETTINGS.popoverWidth),popoverHeight:clampNumber$3(value?.popoverHeight,220,900,DEFAULT_SETTINGS.popoverHeight),popoverHeightMode:normalizePopoverHeightMode(
+value?.popoverHeightMode),readerFontFamily:normalizeFontFamily(value?.readerFontFamily,DEFAULT_SETTINGS.readerFontFamily),popupFontFamily:normalizeFontFamily(value?.popupFontFamily,DEFAULT_SETTINGS.popupFontFamily),
+popupFontWeight:clampNumber$3(value?.popupFontWeight,300,900,DEFAULT_SETTINGS.popupFontWeight)}}function normalizeMiningSettings(value){return{ankiTags:trimmedStringSetting(value,"ankiTags",DEFAULT_SETTINGS.ankiTags),
+miningDeck:normalizeDeckIdSetting(value?.miningDeck,DEFAULT_SETTINGS.miningDeck),neverForgetDeck:normalizeDeckIdSetting(value?.neverForgetDeck,DEFAULT_SETTINGS.neverForgetDeck),blacklistDeck:normalizeDeckIdSetting(
+value?.blacklistDeck,DEFAULT_SETTINGS.blacklistDeck),...normalizeBooleanSettingGroup(value,MINING_BOOLEAN_SETTING_KEYS)}}function normalizeMediaSettings(value){const settings=value??{};return{audioViaBlob:booleanSetting(
+value,"audioViaBlob"),audioFallbackChimeEnabled:booleanSetting(value,"audioFallbackChimeEnabled"),immersionKitExampleSource:normalizeImmersionExampleSource(settings.immersionKitExampleSource),nadeshikoApiKey:trimmedStringSetting(
+value,"nadeshikoApiKey",DEFAULT_SETTINGS.nadeshikoApiKey),immersionKitPriority:clampNumber$3(settings.immersionKitPriority,0,999,DEFAULT_SETTINGS.immersionKitPriority),immersionKitLimitEnabled:booleanSetting(value,
+"immersionKitLimitEnabled"),immersionKitLimit:clampNumber$3(settings.immersionKitLimit,1,12,DEFAULT_SETTINGS.immersionKitLimit),immersionKitMinLength:clampNumber$3(settings.immersionKitMinLength,0,120,DEFAULT_SETTINGS.
+immersionKitMinLength),immersionKitMaxLength:clampNumber$3(settings.immersionKitMaxLength,0,240,DEFAULT_SETTINGS.immersionKitMaxLength),immersionKitCategory:normalizeImmersionKitCategory(settings.immersionKitCategory),
+immersionKitSort:normalizeImmersionKitSort(settings.immersionKitSort),immersionKitPlaybackRate:clampNumber$3(settings.immersionKitPlaybackRate,.5,2,DEFAULT_SETTINGS.immersionKitPlaybackRate),immersionKitRevealTranslationOnClick:booleanSetting(
+value,"immersionKitRevealTranslationOnClick"),immersionKitPlayOnHover:booleanSetting(value,"immersionKitPlayOnHover"),immersionKitPlayOnImageClick:booleanSetting(value,"immersionKitPlayOnImageClick"),ocrProvider:normalizeOcrProvider(
+settings.ocrProvider,value),ocrEngine:normalizeOcrEngine(settings.ocrEngine),ocrCloudVisionApiKey:normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),ocrTextColor:sanitizeAccentColor(settings.ocrTextColor,
+DEFAULT_SETTINGS.ocrTextColor),ocrOutlineColor:sanitizeAccentColor(settings.ocrOutlineColor,DEFAULT_SETTINGS.ocrOutlineColor),ocrBackgroundColor:sanitizeAccentColor(settings.ocrBackgroundColor,DEFAULT_SETTINGS.
+ocrBackgroundColor),ocrBackgroundOpacity:clampNumber$3(settings.ocrBackgroundOpacity,0,1,DEFAULT_SETTINGS.ocrBackgroundOpacity),ocrFontScale:clampNumber$3(settings.ocrFontScale,.7,1.8,DEFAULT_SETTINGS.ocrFontScale)}}
+function normalizeSubtitleSettings(value){return{...normalizeBooleanSettingGroup(value,SUBTITLE_BOOLEAN_SETTING_KEYS),subtitleControlsMode:normalizeSubtitleControlsMode(value?.subtitleControlsMode),subtitleTranscriptPlacement:normalizeSubtitleTranscriptPlacement(
+value?.subtitleTranscriptPlacement),subtitleTextColor:sanitizeAccentColor(value?.subtitleTextColor,DEFAULT_SETTINGS.subtitleTextColor),subtitleOutlineColor:sanitizeAccentColor(value?.subtitleOutlineColor,DEFAULT_SETTINGS.
+subtitleOutlineColor),subtitleBackgroundColor:sanitizeAccentColor(value?.subtitleBackgroundColor,DEFAULT_SETTINGS.subtitleBackgroundColor),subtitleBackgroundOpacity:clampNumber$3(value?.subtitleBackgroundOpacity,
+0,1,DEFAULT_SETTINGS.subtitleBackgroundOpacity),subtitleFontFamily:normalizeFontFamily(value?.subtitleFontFamily,DEFAULT_SETTINGS.subtitleFontFamily),subtitleFontWeight:clampNumber$3(value?.subtitleFontWeight,100,
+900,DEFAULT_SETTINGS.subtitleFontWeight)}}function normalizeFontFamily(value,fallback){return trimmedText(value)||fallback}function normalizeOptionalCoordinate(value){const number=Number(value);return Number.isFinite(
+number)&&number>=0?number:void 0}function normalizeStringList(value){return Array.isArray(value)?[...new Set(value.map(item=>typeof item=="string"?item.trim():"").filter(Boolean))]:[]}const ANKI_FIELD_MAPPING_ROLES$3=[
+"expression","reading","meaning","sentence","audio","image"];function normalizeAnkiFieldMappings(value){if(!value||typeof value!="object"||Array.isArray(value))return{};const out={};return Object.entries(value).
+forEach(([modelName,mapping])=>{const normalizedModelName=modelName.trim();if(!normalizedModelName||!mapping||typeof mapping!="object"||Array.isArray(mapping))return;const normalizedMapping={};for(const role of ANKI_FIELD_MAPPING_ROLES$3){
+const fieldName=mapping[role];if(typeof fieldName!="string")continue;const normalizedFieldName=fieldName.trim();normalizedFieldName&&(normalizedMapping[role]=normalizedFieldName)}Object.keys(normalizedMapping).
+length&&(out[normalizedModelName]=normalizedMapping)}),out}function normalizeAnkiName(value,fallback,oldDefault){if(typeof value!="string")return fallback;const trimmed=value.trim();return!trimmed||trimmed===oldDefault?
+fallback:trimmed}function normalizeAnkiTemplateMode(value){return value==="context"||value==="recognition"?value:DEFAULT_SETTINGS.ankiTemplateMode}function normalizeInterfaceLanguage(value){return value==="en"||
+value==="ja"||value==="auto"?value:DEFAULT_SETTINGS.interfaceLanguage}function normalizeTheme(value){return value==="dark"||value==="light"||value==="auto"?value:DEFAULT_SETTINGS.theme}function normalizePopupMode(value){
+return value==="sheet"||value==="popover"||value==="auto"?value:DEFAULT_SETTINGS.popupMode}function normalizePopoverHeightMode(value){return value==="fixed"||value==="available"?value:DEFAULT_SETTINGS.popoverHeightMode}
+function normalizeAudioAutoPlayMode(value){return value==="off"||value==="all"||value==="hover"||value==="tap"?value:DEFAULT_SETTINGS.audioAutoPlayMode}function normalizeAudioTtsMode(value){return value==="sour\
+ce-order"||value==="fallback"?value:DEFAULT_SETTINGS.audioTtsMode}function normalizeImmersionKitCategory(value){return value==="anime"||value==="drama"||value==="games"||value==="all"?value:DEFAULT_SETTINGS.immersionKitCategory}
+function normalizeImmersionKitSort(value){return value==="sentence_length:desc"||value==="sentence_length:asc"?value:DEFAULT_SETTINGS.immersionKitSort}function normalizeImmersionExampleSource(value){return value===
+"nadeshiko"||value==="combined"||value==="immersion-kit"?value:DEFAULT_SETTINGS.immersionKitExampleSource}function normalizeUrl(value,fallback){if(typeof value!="string"||!value.trim())return fallback;try{return new URL(
+value.trim()).toString().replace(/\/$/,"")}catch{return fallback}}function shortcutFromLegacyModifier(value){return value==="alt"?"Alt":value==="ctrl"?"Ctrl":value==="meta"?"Meta":value==="shift"?"Shift":""}function clampNumber$3(value,min,max2,fallback){
+const number=Number(value);return Number.isFinite(number)?Math.max(min,Math.min(max2,number)):fallback}function normalizeBooleanSettingGroup(value,keys){const normalized={};for(const key of keys)normalized[key]=
+booleanSetting(value,key);return normalized}function normalizeNumberSettingGroup(value,ranges){const normalized={};for(const key of Object.keys(ranges)){const{min,max:max2}=ranges[key],fallback=DEFAULT_SETTINGS[key];
+normalized[key]=clampNumber$3(value?.[key],min,max2,typeof fallback=="number"?fallback:0)}return normalized}function booleanSetting(value,key){const rawValue=value?.[key],fallback=DEFAULT_SETTINGS[key];return typeof rawValue==
+"boolean"?rawValue:typeof fallback=="boolean"?fallback:!1}function booleanSettingWithFallback(value,key,fallback){const rawValue=value?.[key];return typeof rawValue=="boolean"?rawValue:fallback}function trimmedStringSetting(value,key,fallback){
+const rawValue=value?.[key];return typeof rawValue=="string"?rawValue.trim():fallback}function normalizeSubtitleControlsMode(value){return value==="always"||value==="hidden"||value==="auto"?value:DEFAULT_SETTINGS.
+subtitleControlsMode}function normalizeSubtitleTranscriptPlacement(value){return value==="left"||value==="bottom"||value==="right"?value:DEFAULT_SETTINGS.subtitleTranscriptPlacement}function normalizeNewTabSource(value){
+return value==="jpdb"||value==="anki"||value==="auto"||value==="dictionary"?value:DEFAULT_SETTINGS.newTabSource}function normalizeNewTabJpdbReviewMode(value){return value==="auto"||value==="api-vocabulary"||value===
+"live-review"?value:DEFAULT_SETTINGS.newTabJpdbReviewMode}function normalizeCorsProxyUrl(value){if(value==null)return DEFAULT_SETTINGS.corsProxyUrl;const raw=typeof value=="string"?value.trim():"";if(!raw)return"";
+try{const url=new URL(raw);return url.protocol==="https:"?url.href.replace(/\/+$/,""):""}catch{return""}}function normalizeNewTabKanjiKeywordSource(value){return value==="auto"||value==="rtk"||value==="jpdb"||value===
+"local"?value:DEFAULT_SETTINGS.newTabKanjiKeywordSource}function normalizeReaderColorChannelSettings(value){if(isLegacyDefaultColorChannelSettings(value))return{...DEFAULT_COLOR_CHANNELS};const channels={wordHighlightColorSource:normalizeReaderColorSource(
+value?.wordHighlightColorSource,DEFAULT_COLOR_CHANNELS.wordHighlightColorSource,legacyHighlightColorSourceForAuto(value,DEFAULT_COLOR_CHANNELS.wordHighlightColorSource)),wordUnderlineColorSource:normalizeReaderColorSource(
+value?.wordUnderlineColorSource,DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource,legacyReaderColorSourceForAuto(value,DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource)),wordTextColorSource:normalizeReaderColorSource(
+value?.wordTextColorSource,DEFAULT_COLOR_CHANNELS.wordTextColorSource,legacyReaderColorSourceForAuto(value,DEFAULT_COLOR_CHANNELS.wordTextColorSource)),subtitleHighlightColorSource:normalizeReaderColorSource(value?.
+subtitleHighlightColorSource,DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource,legacySubtitleHighlightColorSourceForAuto(value,DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource)),subtitleUnderlineColorSource:normalizeReaderColorSource(
+value?.subtitleUnderlineColorSource,DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource,legacySubtitleColorSourceForAuto(value,DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource)),subtitleTextColorSource:normalizeReaderColorSource(
+value?.subtitleTextColorSource,DEFAULT_COLOR_CHANNELS.subtitleTextColorSource,legacySubtitleColorSourceForAuto(value,DEFAULT_COLOR_CHANNELS.subtitleTextColorSource))};return normalizeStaleDoublePitchHighlightChannels(
+value,channels)}function isLegacyDefaultColorChannelSettings(value){return value?Object.keys(LEGACY_COLOR_CHANNEL_DEFAULTS).every(key=>hasOwn(value,key)&&value[key]===LEGACY_COLOR_CHANNEL_DEFAULTS[key]):!1}function normalizeReaderColorSource(value,fallback,autoFallback=fallback){
+const source=value==="auto"?autoFallback:value;return READER_COLOR_SOURCES.has(source)?source:fallback}function normalizeStaleDoublePitchHighlightChannels(settings,channels){const staleWordHighlight=hasStaleWordPitchHighlight(
+settings,channels),staleSubtitleHighlight=hasStaleSubtitlePitchHighlight(settings,channels);return!staleWordHighlight&&!staleSubtitleHighlight?channels:{...channels,wordHighlightColorSource:staleWordHighlight?DEFAULT_COLOR_CHANNELS.
+wordHighlightColorSource:channels.wordHighlightColorSource,subtitleHighlightColorSource:staleSubtitleHighlight?DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource:channels.subtitleHighlightColorSource}}function hasStaleWordPitchHighlight(settings,channels){
+return settings?settings.wordHighlightMode==="pitch"?!0:hasStalePitchHighlightPair(settings,channels,"wordHighlightColorSource","wordUnderlineColorSource"):!1}function hasStaleSubtitlePitchHighlight(settings,channels){
+return settings?settings.wordHighlightMode==="pitch"?!0:hasStalePitchHighlightPair(settings,channels,"subtitleHighlightColorSource","subtitleUnderlineColorSource"):!1}function hasStalePitchHighlightPair(settings,channels,highlight,underline){
 return isRawPitchPair(settings,highlight,underline)&&channels[highlight]==="pitch"&&channels[underline]==="pitch"}function isRawPitchPair(settings,highlight,underline){return settings[highlight]==="pitch"&&settings[underline]===
 "pitch"}function legacyHighlightColorSourceForAuto(settings,fallback){return legacyEffectiveWordHighlightMode(settings)==="pitch"?fallback:legacyReaderColorSourceForAuto(settings,fallback)}function legacyReaderColorSourceForAuto(settings,fallback){
 const mode=legacyEffectiveWordHighlightMode(settings);return mode==="status"?fallback:mode??fallback}function legacySubtitleHighlightColorSourceForAuto(settings,fallback){return legacyEffectiveWordHighlightMode(
@@ -455,73 +456,73 @@ y,rect.top,bottom,slack))return null;const centerX=rect.left+(right-rect.left)/2
 rect.left&&bottom>rect.top}function coordinateInRange$1(value,start,end,slack){return value>=start-slack&&value<=end+slack}function nearestReadableSentenceForElement(element2,fallback=""){const surface=readerWordSurfaceText(
 element2).trim()||element2.textContent?.trim()||"",cleanFallback=cleanReadableSentence(fallback),ocrLine=element2.closest(".jpdb-ocr-line");return ocrLine?ocrLineSentenceForElement(ocrLine,surface,cleanFallback):
 nearestReadableAncestorSentence(element2,surface,cleanFallback)||fallbackReadableSentence(cleanFallback,surface)}function ocrLineSentenceForElement(ocrLine,surface,cleanFallback){const line=cleanReadableSentence(
-ocrLine.dataset.ocrText||ocrLine.getAttribute("aria-label")||"");if(line&&(!surface||textIncludesSearch(line,surface)))return line;const multi=cleanReadableSentence(ocrLine.dataset.sentence||line||cleanFallback);
-return(surface?sentenceAroundSurface(multi,surface,cleanFallback):"")||cleanReadableSentence(line||multi||surface||cleanFallback)}function nearestReadableAncestorSentence(element2,surface,cleanFallback){let current=element2.
-parentElement;for(;isReadableAncestorCandidate(current);){const sentence=readableAncestorSentence(current,element2,surface,cleanFallback);if(sentence)return sentence;current=current.parentElement}return""}function isReadableAncestorCandidate(element2){
-return element2?element2!==document.body&&element2!==document.documentElement:!1}function readableAncestorSentence(element2,target,surface,cleanFallback){if(!canReadSentenceContextFrom(element2))return"";const text2=readableSurfaceText(
-element2),range=readableSurfaceRange(element2,target),sentence=range?sentenceAroundRange(text2,range.start,range.end,cleanFallback):sentenceAroundSurface(text2,surface,cleanFallback);return isUsefulContextSentence(
-sentence,cleanFallback,surface)?sentence:""}function fallbackReadableSentence(cleanFallback,surface){return sentenceAroundSurface(cleanFallback,surface)||cleanFallback}function canReadSentenceContextFrom(element2){
-return!element2.closest(READER_ROOT_SELECTOR$2)||!!element2.closest(".jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer")}function sentenceAroundSurface(value,surface="",fallback=""){
-const text2=cleanReadableSentence(value);if(!isJapaneseSentenceContext(text2))return"";const search=sentenceSearchText(text2,surface,fallback),index=sentenceSearchIndex(text2,search);if(index<0)return clampContextText(
-text2);const hardBounded=hardBoundedSentence(text2,index,search.length),hardClean=trimSoftSentenceBoundary(hardBounded,search);return hardClean.length<=MAX_CONTEXT_SENTENCE_LENGTH?hardClean:clampLongSentence(hardClean,
-search)}function sentenceAroundRange(value,start,end,fallback=""){if(!isJapaneseSentenceContext(cleanReadableSentence(value)))return"";const range=normalizedSentenceRange(value.length,start,end);if(!range)return sentenceAroundSurface(
-value,fallback,fallback);const hardBounded=hardBoundedSentenceRange(value,range.start,range.end),localStart=range.start-hardBounded.start,localEnd=range.end-hardBounded.start,hardText=cleanReadableSentence(hardBounded.
-text),surface=cleanReadableSentence(hardBounded.text.slice(localStart,localEnd))||fallback,cleanStart=cleanReadableSentence(hardBounded.text.slice(0,localStart)).length,cleanEnd=cleanStart+surface.length,hardClean=trimSoftSentenceBoundaryAroundRange(
-hardText,cleanStart,cleanEnd);return hardClean?hardClean.length<=MAX_CONTEXT_SENTENCE_LENGTH?hardClean:clampLongSentence(hardClean,surface):sentenceAroundSurface(value,fallback,fallback)}function normalizedSentenceRange(length,start,end){
-if(!Number.isFinite(start)||!Number.isFinite(end)||length<=0)return null;const safeStart=Math.max(0,Math.min(length-1,Math.floor(start))),safeEnd=Math.max(safeStart+1,Math.min(length,Math.ceil(end)));return{start:safeStart,
-end:safeEnd}}function sentenceSearchIndex(text2,search){return search?text2.indexOf(search):0}function isJapaneseSentenceContext(text2){return!!(text2&&HAS_JAPANESE$1.test(text2))}function sentenceSearchText(text2,surface,fallback){
-const cleanSurface=cleanReadableSentence(surface),cleanFallback=cleanReadableSentence(fallback);return textIncludesSearch(text2,cleanSurface)?cleanSurface:textIncludesSearch(text2,cleanFallback)?cleanFallback:""}
-function textIncludesSearch(text2,search){return search?text2.includes(search):!1}function clampContextText(text2){return text2.length<=MAX_CONTEXT_SENTENCE_LENGTH?text2:text2.slice(0,MAX_CONTEXT_SENTENCE_LENGTH).
-trim()}function isUsefulContextSentence(sentence,fallback,surface){return!isJapaneseContextSentence(sentence)||!containsSurfaceContext(sentence,surface)?!1:fallback?isRicherThanFallback(sentence,fallback):!0}function isJapaneseContextSentence(sentence){
-return!!(sentence&&HAS_JAPANESE$1.test(sentence))}function containsSurfaceContext(sentence,surface){return!surface||sentence.includes(surface)}function isRicherThanFallback(sentence,fallback){return sentence===
-fallback||sentence.length<=fallback.length+2?!1:sentence.length>=8||/[。！？]/u.test(sentence)}function readableSurfaceText(node){return node.nodeType===Node.TEXT_NODE?nodeTextContent(node):node.nodeType!==Node.
-ELEMENT_NODE?"":readableElementSurfaceText(node)}function readableElementSurfaceText(element2){if(isIgnoredReadableElement(element2))return"";let text2="";return element2.childNodes.forEach(child=>{text2+=readableSurfaceText(
-child)}),text2}function readableSurfaceRange(root,target){let offset=0,range=null;const visit=node=>{if(range)return;if(node===target){const text2=readableSurfaceText(node);range={start:offset,end:offset+text2.
-length},offset+=text2.length;return}if(node.nodeType===Node.TEXT_NODE){offset+=nodeTextContent(node).length;return}if(node.nodeType!==Node.ELEMENT_NODE)return;const element2=node;isIgnoredReadableElement(element2)||
-element2.childNodes.forEach(visit)};return visit(root),range}function isIgnoredReadableElement(element2){return isSurfaceIgnoredElement(element2)||element2.matches('button,svg,use,[aria-hidden="true"],[role="bu\
-tton"]')}function isSurfaceIgnoredElement(element2){return READABLE_IGNORED_TAGS.has(element2.tagName)||element2.matches('[data-jpdb-reader-surface-ignore="true"],.jpdb-reader-furi,.jpdb-ocr-furi')}function cleanReadableSentence(value){
-return value.replace(/\s+/g," ").replace(/([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])\s+([、。！？・])/gu,"$1$2").replace(/([、。！？・])\s+([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])/gu,"$1$2").trim()}
-function hardBoundedSentence(text2,index,length){const start=sentenceStartIndex(text2,index),end=sentenceEndIndex(text2,index+length);return text2.slice(start,end).trim()}function hardBoundedSentenceRange(text2,start,end){
-const sentenceStart=sentenceStartIndex(text2,start),sentenceEnd=sentenceEndIndex(text2,end);return{text:text2.slice(sentenceStart,sentenceEnd),start:sentenceStart}}function sentenceStartIndex(text2,index){for(let i2=index-
-1;i2>=0;i2--)if(/[。！？!?]/u.test(text2[i2]??""))return i2+1;return 0}function sentenceEndIndex(text2,index){for(let i2=index;i2<text2.length;i2++)if(/[。！？!?]/u.test(text2[i2]??""))return i2+1;return text2.
-length}function trimSoftSentenceBoundary(sentence,surface){const clean=sentence.trim();if(!surface)return clean;const index=clean.indexOf(surface);if(index<0)return clean;const start=softBoundaryStart(clean,index),
-end=softBoundaryEnd(clean,index+surface.length),trimmed=clean.slice(start,end).trim(),omitted=`${clean.slice(0,start)}${clean.slice(end)}`;return shouldUseSoftSentenceTrim(clean,trimmed,omitted)?trimmed:clean}function trimSoftSentenceBoundaryAroundRange(sentence,start,end){
-const leadingTrim=sentence.length-sentence.trimStart().length,clean=sentence.trim();if(!clean)return clean;const cleanStart=Math.max(0,Math.min(clean.length,start-leadingTrim)),cleanEnd=Math.max(cleanStart,Math.
-min(clean.length,end-leadingTrim)),trimStart=softBoundaryStart(clean,cleanStart),trimEnd=softBoundaryEnd(clean,cleanEnd),trimmed=clean.slice(trimStart,trimEnd).trim(),omitted=`${clean.slice(0,trimStart)}${clean.
-slice(trimEnd)}`;return shouldUseSoftSentenceTrim(clean,trimmed,omitted)?trimmed:clean}function shouldUseSoftSentenceTrim(clean,trimmed,omitted){return!trimmed||trimmed===clean?!1:clean.length>48||/[。！？!?]/u.
-test(omitted)}function softBoundaryStart(text2,index){for(let i2=index-1;i2>=0;i2--)if(isStrongWhitespaceBoundary(text2,i2))return i2+1;return 0}function softBoundaryEnd(text2,index){for(let i2=index;i2<text2.length;i2++)
-if(isStrongWhitespaceBoundary(text2,i2))return i2;return text2.length}function isStrongWhitespaceBoundary(text2,index){const char=text2[index]??"";if(!/\s/u.test(char))return!1;const before=text2.slice(Math.max(
-0,index-24),index),after=text2.slice(index+1,Math.min(text2.length,index+25));return HAS_JAPANESE$1.test(before)&&HAS_JAPANESE$1.test(after)}function clampLongSentence(sentence,surface){if(sentence.length<=MAX_CONTEXT_SENTENCE_LENGTH)
-return sentence;const index=surface?sentence.indexOf(surface):-1;if(index<0)return sentence.slice(0,MAX_CONTEXT_SENTENCE_LENGTH).trim();const halfWindow=Math.floor((MAX_CONTEXT_SENTENCE_LENGTH-surface.length)/2),
-start=Math.max(0,index-Math.max(0,halfWindow)),end=Math.min(sentence.length,start+MAX_CONTEXT_SENTENCE_LENGTH);return sentence.slice(start,end).trim()}function applyTokensToTextNode(target,tokens,settings){if(!tokens.
-length||!target.node.parentElement)return;const text2=target.text,safeTokens=nonOverlappingTokens(tokens,text2.length);safeTokens.length&&target.node.replaceWith(renderTokenizedTextFragment(target,safeTokens,settings))}
-function renderTokenizedTextFragment(target,tokens,settings){const fragment=document.createDocumentFragment();let offset=0;for(const token of tokens){appendPlainTextBeforeToken(fragment,target.text,offset,token.
-start);const tokenWithSentence=tokenWithReadableSentence(token,target.text,token.sentence);fragment.append(renderToken(target.text.slice(token.start,token.end),tokenWithSentence,settings,{allowRuby:scanTargetAllowsRuby(
-target)&&!target.hasNativeRuby,kanjiNavigation:kanjiNavigationForElement(target.parent),scanWord:!0,passiveInteraction:target.passiveInteraction,preserveTokenRubies:!0})),offset=token.end}return appendPlainTextBeforeToken(
-fragment,target.text,offset,target.text.length),fragment}function appendPlainTextBeforeToken(fragment,text2,start,end){end>start&&fragment.append(document.createTextNode(text2.slice(start,end)))}function applyTokensToFragmentTarget(target,tokens,settings){
-if(!hasFragmentTokenWork(target,tokens))return;const safeTokens=nonOverlappingTokens(tokens,target.text.length);if(!safeTokens.length)return;const sentence=target.text.replace(/\s+/g," ").trim();applyTokensToIndexedFragmentTarget(
-target,safeTokens,settings,sentence)}function hasFragmentTokenWork(target,tokens){return!!(tokens.length&&target.fragments.length)}function applyTokensToIndexedFragmentTarget(target,tokens,settings,sentence){const indexedFragments=indexTextFragments(
-target.fragments),singleFragmentPlans=singleFragmentTokenPlans(target,indexedFragments,tokens,sentence);if(singleFragmentPlans.length&&!tokens.some(token=>shouldSplitLayoutSensitiveFragmentToken(indexedFragments,
-token))){const grouped=groupSingleFragmentTokenPlans(singleFragmentPlans);for(const group of grouped)replaceSingleFragmentTokenNode(target,group.fragment,group.plans,settings);return singleFragmentPlans.length,
-tokens.length,void 0}for(let index=tokens.length-1;index>=0;index--)applyTokenToIndexedFragments(target,indexedFragments,tokens[index],settings,sentence)}function singleFragmentTokenPlans(target,indexedFragments,tokens,sentence){
-const plans=[];for(const token of tokens){const start=findFragmentBoundary(indexedFragments,token.start,"start"),end=findFragmentBoundary(indexedFragments,token.end,"end"),bounds=attachableFragmentRange(start,end);
-!bounds||bounds.start.fragment!==bounds.end.fragment||plans.push({fragment:bounds.start.fragment,localStart:bounds.start.localOffset,localEnd:bounds.end.localOffset,token,tokenWithSentence:tokenWithReadableSentence(
-token,target.text,token.sentence??sentence),layoutSensitive:target.layoutSensitive===!0||fragmentRangeHasLayoutSensitive(indexedFragments,token.start,token.end),passiveInteraction:target.passiveInteraction===!0||
-fragmentRangeHasPassiveInteraction(indexedFragments,token.start,token.end)})}return plans}function groupSingleFragmentTokenPlans(plans){const groups=[];for(const plan of plans){let group=groups.find(candidate=>candidate.
-fragment===plan.fragment);group||(group={fragment:plan.fragment,plans:[]},groups.push(group)),group.plans.push(plan)}return groups.forEach(group=>group.plans.sort((a,b)=>a.localStart-b.localStart)),groups.sort(
-(a,b)=>b.fragment.globalStart-a.fragment.globalStart)}function replaceSingleFragmentTokenNode(target,fragment,plans,settings){if(!fragment.node.parentNode||!plans.length)return;const replacement=document.createDocumentFragment(),
-text2=fragment.node.data;let offset=0;for(const plan of plans)appendPlainTextBeforeToken(replacement,text2,offset,plan.localStart),replacement.append(renderSingleFragmentToken(target,fragment,plan,settings)),offset=
-plan.localEnd;appendPlainTextBeforeToken(replacement,text2,offset,text2.length),fragment.node.replaceWith(replacement)}function renderSingleFragmentToken(target,fragment,plan,settings){const allowRuby=!fragment.
-hasNativeRuby&&!plan.layoutSensitive;return renderToken(fragment.node.data.slice(plan.localStart,plan.localEnd),plan.tokenWithSentence,settings,{allowRuby,kanjiNavigation:kanjiNavigationForElement(target.parent),
-scanWord:!0,passiveInteraction:plan.passiveInteraction,preserveTokenRubies:!0})}function applyTokenToIndexedFragments(target,indexedFragments,token,settings,sentence){const start=findFragmentBoundary(indexedFragments,
-token.start,"start"),end=findFragmentBoundary(indexedFragments,token.end,"end"),bounds=attachableFragmentRange(start,end);if(!bounds)return;const tokenWithSentence=tokenWithReadableSentence(token,target.text,token.
-sentence??sentence),isSingleFragment=bounds.start.fragment===bounds.end.fragment,passiveInteraction=target.passiveInteraction===!0||fragmentRangeHasPassiveInteraction(indexedFragments,token.start,token.end),layoutSensitive=target.
-layoutSensitive===!0||fragmentRangeHasLayoutSensitive(indexedFragments,token.start,token.end);if(isSingleFragment){insertSingleFragmentToken(target,bounds.start.fragment,bounds.start.localOffset,bounds.end.localOffset,
-token,tokenWithSentence,settings,passiveInteraction,layoutSensitive);return}if(layoutSensitive){insertSplitFragmentTokenPieces(target,indexedFragments,token,tokenWithSentence,settings,passiveInteraction);return}
-const range=document.createRange();range.setStart(bounds.start.fragment.node,bounds.start.localOffset),range.setEnd(bounds.end.fragment.node,bounds.end.localOffset),insertMultiFragmentToken(range,target.text.slice(
-token.start,token.end),tokenWithSentence,settings,{scanWord:!0,passiveInteraction,allowRuby:!layoutSensitive&&!fragmentRangeHasNativeRuby(indexedFragments,token.start,token.end),preserveTokenRubies:!0}),range.detach()}
-function shouldSplitLayoutSensitiveFragmentToken(indexedFragments,token){const start=findFragmentBoundary(indexedFragments,token.start,"start"),end=findFragmentBoundary(indexedFragments,token.end,"end"),bounds=attachableFragmentRange(
-start,end);return!!(bounds&&bounds.start.fragment!==bounds.end.fragment&&fragmentRangeHasLayoutSensitive(indexedFragments,token.start,token.end))}function insertSplitFragmentTokenPieces(target,indexedFragments,token,tokenWithSentence,settings,passiveInteraction){
+ocrLine.dataset.ocrText||ocrLine.getAttribute("aria-label")||"");if(line&&(!surface||textIncludesSearch(line,surface)))return line;const multi=cleanReadableSentence(ocrLine.dataset.sentence||line||cleanFallback),
+local=surface?sentenceAroundSurface(multi,surface,cleanFallback):"";return local||cleanReadableSentence(line||multi||surface||cleanFallback)}function nearestReadableAncestorSentence(element2,surface,cleanFallback){
+let current=element2.parentElement;for(;isReadableAncestorCandidate(current);){const sentence=readableAncestorSentence(current,element2,surface,cleanFallback);if(sentence)return sentence;current=current.parentElement}
+return""}function isReadableAncestorCandidate(element2){return element2?element2!==document.body&&element2!==document.documentElement:!1}function readableAncestorSentence(element2,target,surface,cleanFallback){
+if(!canReadSentenceContextFrom(element2))return"";const text2=readableSurfaceText(element2),range=readableSurfaceRange(element2,target),sentence=range?sentenceAroundRange(text2,range.start,range.end,cleanFallback):
+sentenceAroundSurface(text2,surface,cleanFallback);return isUsefulContextSentence(sentence,cleanFallback,surface)?sentence:""}function fallbackReadableSentence(cleanFallback,surface){return sentenceAroundSurface(
+cleanFallback,surface)||cleanFallback}function canReadSentenceContextFrom(element2){return!element2.closest(READER_ROOT_SELECTOR$2)||!!element2.closest(".jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-subtit\
+le-list, .jpdb-ocr-layer")}function sentenceAroundSurface(value,surface="",fallback=""){const text2=cleanReadableSentence(value);if(!isJapaneseSentenceContext(text2))return"";const search=sentenceSearchText(text2,
+surface,fallback),index=sentenceSearchIndex(text2,search);if(index<0)return clampContextText(text2);const hardBounded=hardBoundedSentence(text2,index,search.length),hardClean=trimSoftSentenceBoundary(hardBounded,
+search);return hardClean.length<=MAX_CONTEXT_SENTENCE_LENGTH?hardClean:clampLongSentence(hardClean,search)}function sentenceAroundRange(value,start,end,fallback=""){if(!isJapaneseSentenceContext(cleanReadableSentence(
+value)))return"";const range=normalizedSentenceRange(value.length,start,end);if(!range)return sentenceAroundSurface(value,fallback,fallback);const hardBounded=hardBoundedSentenceRange(value,range.start,range.end),
+localStart=range.start-hardBounded.start,localEnd=range.end-hardBounded.start,hardText=cleanReadableSentence(hardBounded.text),surface=cleanReadableSentence(hardBounded.text.slice(localStart,localEnd))||fallback,
+cleanStart=cleanReadableSentence(hardBounded.text.slice(0,localStart)).length,cleanEnd=cleanStart+surface.length,hardClean=trimSoftSentenceBoundaryAroundRange(hardText,cleanStart,cleanEnd);return hardClean?hardClean.
+length<=MAX_CONTEXT_SENTENCE_LENGTH?hardClean:clampLongSentence(hardClean,surface):sentenceAroundSurface(value,fallback,fallback)}function normalizedSentenceRange(length,start,end){if(!Number.isFinite(start)||!Number.
+isFinite(end)||length<=0)return null;const safeStart=Math.max(0,Math.min(length-1,Math.floor(start))),safeEnd=Math.max(safeStart+1,Math.min(length,Math.ceil(end)));return{start:safeStart,end:safeEnd}}function sentenceSearchIndex(text2,search){
+return search?text2.indexOf(search):0}function isJapaneseSentenceContext(text2){return!!(text2&&HAS_JAPANESE$1.test(text2))}function sentenceSearchText(text2,surface,fallback){const cleanSurface=cleanReadableSentence(
+surface),cleanFallback=cleanReadableSentence(fallback);return textIncludesSearch(text2,cleanSurface)?cleanSurface:textIncludesSearch(text2,cleanFallback)?cleanFallback:""}function textIncludesSearch(text2,search){
+return search?text2.includes(search):!1}function clampContextText(text2){return text2.length<=MAX_CONTEXT_SENTENCE_LENGTH?text2:text2.slice(0,MAX_CONTEXT_SENTENCE_LENGTH).trim()}function isUsefulContextSentence(sentence,fallback,surface){
+return!isJapaneseContextSentence(sentence)||!containsSurfaceContext(sentence,surface)?!1:fallback?isRicherThanFallback(sentence,fallback):!0}function isJapaneseContextSentence(sentence){return!!(sentence&&HAS_JAPANESE$1.
+test(sentence))}function containsSurfaceContext(sentence,surface){return!surface||sentence.includes(surface)}function isRicherThanFallback(sentence,fallback){return sentence===fallback||sentence.length<=fallback.
+length+2?!1:sentence.length>=8||/[。！？]/u.test(sentence)}function readableSurfaceText(node){return node.nodeType===Node.TEXT_NODE?nodeTextContent(node):node.nodeType!==Node.ELEMENT_NODE?"":readableElementSurfaceText(
+node)}function readableElementSurfaceText(element2){if(isIgnoredReadableElement(element2))return"";let text2="";return element2.childNodes.forEach(child=>{text2+=readableSurfaceText(child)}),text2}function readableSurfaceRange(root,target){
+let offset=0,range=null;const visit=node=>{if(range)return;if(node===target){const text2=readableSurfaceText(node);range={start:offset,end:offset+text2.length},offset+=text2.length;return}if(node.nodeType===Node.
+TEXT_NODE){offset+=nodeTextContent(node).length;return}if(node.nodeType!==Node.ELEMENT_NODE)return;const element2=node;isIgnoredReadableElement(element2)||element2.childNodes.forEach(visit)};return visit(root),
+range}function isIgnoredReadableElement(element2){return isSurfaceIgnoredElement(element2)||element2.matches('button,svg,use,[aria-hidden="true"],[role="button"]')}function isSurfaceIgnoredElement(element2){return READABLE_IGNORED_TAGS.
+has(element2.tagName)||element2.matches('[data-jpdb-reader-surface-ignore="true"],.jpdb-reader-furi,.jpdb-ocr-furi')}function cleanReadableSentence(value){return value.replace(/\s+/g," ").replace(/([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])\s+([、。！？・])/gu,
+"$1$2").replace(/([、。！？・])\s+([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])/gu,"$1$2").trim()}function hardBoundedSentence(text2,index,length){const start=sentenceStartIndex(text2,index),end=sentenceEndIndex(
+text2,index+length);return text2.slice(start,end).trim()}function hardBoundedSentenceRange(text2,start,end){const sentenceStart=sentenceStartIndex(text2,start),sentenceEnd=sentenceEndIndex(text2,end);return{text:text2.
+slice(sentenceStart,sentenceEnd),start:sentenceStart}}function sentenceStartIndex(text2,index){for(let i2=index-1;i2>=0;i2--)if(/[。！？!?]/u.test(text2[i2]??""))return i2+1;return 0}function sentenceEndIndex(text2,index){
+for(let i2=index;i2<text2.length;i2++)if(/[。！？!?]/u.test(text2[i2]??""))return i2+1;return text2.length}function trimSoftSentenceBoundary(sentence,surface){const clean=sentence.trim();if(!surface)return clean;
+const index=clean.indexOf(surface);if(index<0)return clean;const start=softBoundaryStart(clean,index),end=softBoundaryEnd(clean,index+surface.length),trimmed=clean.slice(start,end).trim(),omitted=`${clean.slice(
+0,start)}${clean.slice(end)}`;return shouldUseSoftSentenceTrim(clean,trimmed,omitted)?trimmed:clean}function trimSoftSentenceBoundaryAroundRange(sentence,start,end){const leadingTrim=sentence.length-sentence.trimStart().
+length,clean=sentence.trim();if(!clean)return clean;const cleanStart=Math.max(0,Math.min(clean.length,start-leadingTrim)),cleanEnd=Math.max(cleanStart,Math.min(clean.length,end-leadingTrim)),trimStart=softBoundaryStart(
+clean,cleanStart),trimEnd=softBoundaryEnd(clean,cleanEnd),trimmed=clean.slice(trimStart,trimEnd).trim(),omitted=`${clean.slice(0,trimStart)}${clean.slice(trimEnd)}`;return shouldUseSoftSentenceTrim(clean,trimmed,
+omitted)?trimmed:clean}function shouldUseSoftSentenceTrim(clean,trimmed,omitted){return!trimmed||trimmed===clean?!1:clean.length>48||/[。！？!?]/u.test(omitted)}function softBoundaryStart(text2,index){for(let i2=index-
+1;i2>=0;i2--)if(isStrongWhitespaceBoundary(text2,i2))return i2+1;return 0}function softBoundaryEnd(text2,index){for(let i2=index;i2<text2.length;i2++)if(isStrongWhitespaceBoundary(text2,i2))return i2;return text2.
+length}function isStrongWhitespaceBoundary(text2,index){const char=text2[index]??"";if(!/\s/u.test(char))return!1;const before=text2.slice(Math.max(0,index-24),index),after=text2.slice(index+1,Math.min(text2.length,
+index+25));return HAS_JAPANESE$1.test(before)&&HAS_JAPANESE$1.test(after)}function clampLongSentence(sentence,surface){if(sentence.length<=MAX_CONTEXT_SENTENCE_LENGTH)return sentence;const index=surface?sentence.
+indexOf(surface):-1;if(index<0)return sentence.slice(0,MAX_CONTEXT_SENTENCE_LENGTH).trim();const halfWindow=Math.floor((MAX_CONTEXT_SENTENCE_LENGTH-surface.length)/2),start=Math.max(0,index-Math.max(0,halfWindow)),
+end=Math.min(sentence.length,start+MAX_CONTEXT_SENTENCE_LENGTH);return sentence.slice(start,end).trim()}function applyTokensToTextNode(target,tokens,settings){if(!tokens.length||!target.node.parentElement)return;
+const text2=target.text,safeTokens=nonOverlappingTokens(tokens,text2.length);safeTokens.length&&target.node.replaceWith(renderTokenizedTextFragment(target,safeTokens,settings))}function renderTokenizedTextFragment(target,tokens,settings){
+const fragment=document.createDocumentFragment();let offset=0;for(const token of tokens){appendPlainTextBeforeToken(fragment,target.text,offset,token.start);const tokenWithSentence=tokenWithReadableSentence(token,
+target.text,token.sentence);fragment.append(renderToken(target.text.slice(token.start,token.end),tokenWithSentence,settings,{allowRuby:scanTargetAllowsRuby(target)&&!target.hasNativeRuby,kanjiNavigation:kanjiNavigationForElement(
+target.parent),scanWord:!0,passiveInteraction:target.passiveInteraction,preserveTokenRubies:!0})),offset=token.end}return appendPlainTextBeforeToken(fragment,target.text,offset,target.text.length),fragment}function appendPlainTextBeforeToken(fragment,text2,start,end){
+end>start&&fragment.append(document.createTextNode(text2.slice(start,end)))}function applyTokensToFragmentTarget(target,tokens,settings){if(!hasFragmentTokenWork(target,tokens))return;const safeTokens=nonOverlappingTokens(
+tokens,target.text.length);if(!safeTokens.length)return;const sentence=target.text.replace(/\s+/g," ").trim();applyTokensToIndexedFragmentTarget(target,safeTokens,settings,sentence)}function hasFragmentTokenWork(target,tokens){
+return!!(tokens.length&&target.fragments.length)}function applyTokensToIndexedFragmentTarget(target,tokens,settings,sentence){const indexedFragments=indexTextFragments(target.fragments),singleFragmentPlans=singleFragmentTokenPlans(
+target,indexedFragments,tokens,sentence);if(singleFragmentPlans.length&&!tokens.some(token=>shouldSplitLayoutSensitiveFragmentToken(indexedFragments,token))){const grouped=groupSingleFragmentTokenPlans(singleFragmentPlans);
+for(const group of grouped)replaceSingleFragmentTokenNode(target,group.fragment,group.plans,settings);return singleFragmentPlans.length===tokens.length,void 0}for(let index=tokens.length-1;index>=0;index--)applyTokenToIndexedFragments(
+target,indexedFragments,tokens[index],settings,sentence)}function singleFragmentTokenPlans(target,indexedFragments,tokens,sentence){const plans=[];for(const token of tokens){const start=findFragmentBoundary(indexedFragments,
+token.start,"start"),end=findFragmentBoundary(indexedFragments,token.end,"end"),bounds=attachableFragmentRange(start,end);!bounds||bounds.start.fragment!==bounds.end.fragment||plans.push({fragment:bounds.start.
+fragment,localStart:bounds.start.localOffset,localEnd:bounds.end.localOffset,token,tokenWithSentence:tokenWithReadableSentence(token,target.text,token.sentence??sentence),layoutSensitive:target.layoutSensitive===
+!0||fragmentRangeHasLayoutSensitive(indexedFragments,token.start,token.end),passiveInteraction:target.passiveInteraction===!0||fragmentRangeHasPassiveInteraction(indexedFragments,token.start,token.end)})}return plans}
+function groupSingleFragmentTokenPlans(plans){const groups=[];for(const plan of plans){let group=groups.find(candidate=>candidate.fragment===plan.fragment);group||(group={fragment:plan.fragment,plans:[]},groups.
+push(group)),group.plans.push(plan)}return groups.forEach(group=>group.plans.sort((a,b)=>a.localStart-b.localStart)),groups.sort((a,b)=>b.fragment.globalStart-a.fragment.globalStart)}function replaceSingleFragmentTokenNode(target,fragment,plans,settings){
+if(!fragment.node.parentNode||!plans.length)return;const replacement=document.createDocumentFragment(),text2=fragment.node.data;let offset=0;for(const plan of plans)appendPlainTextBeforeToken(replacement,text2,
+offset,plan.localStart),replacement.append(renderSingleFragmentToken(target,fragment,plan,settings)),offset=plan.localEnd;appendPlainTextBeforeToken(replacement,text2,offset,text2.length),fragment.node.replaceWith(
+replacement)}function renderSingleFragmentToken(target,fragment,plan,settings){const allowRuby=!fragment.hasNativeRuby&&!plan.layoutSensitive;return renderToken(fragment.node.data.slice(plan.localStart,plan.localEnd),
+plan.tokenWithSentence,settings,{allowRuby,kanjiNavigation:kanjiNavigationForElement(target.parent),scanWord:!0,passiveInteraction:plan.passiveInteraction,preserveTokenRubies:!0})}function applyTokenToIndexedFragments(target,indexedFragments,token,settings,sentence){
+const start=findFragmentBoundary(indexedFragments,token.start,"start"),end=findFragmentBoundary(indexedFragments,token.end,"end"),bounds=attachableFragmentRange(start,end);if(!bounds)return;const tokenWithSentence=tokenWithReadableSentence(
+token,target.text,token.sentence??sentence),isSingleFragment=bounds.start.fragment===bounds.end.fragment,passiveInteraction=target.passiveInteraction===!0||fragmentRangeHasPassiveInteraction(indexedFragments,token.
+start,token.end),layoutSensitive=target.layoutSensitive===!0||fragmentRangeHasLayoutSensitive(indexedFragments,token.start,token.end);if(isSingleFragment){insertSingleFragmentToken(target,bounds.start.fragment,
+bounds.start.localOffset,bounds.end.localOffset,token,tokenWithSentence,settings,passiveInteraction,layoutSensitive);return}if(layoutSensitive){insertSplitFragmentTokenPieces(target,indexedFragments,token,tokenWithSentence,
+settings,passiveInteraction);return}const range=document.createRange();range.setStart(bounds.start.fragment.node,bounds.start.localOffset),range.setEnd(bounds.end.fragment.node,bounds.end.localOffset),insertMultiFragmentToken(
+range,target.text.slice(token.start,token.end),tokenWithSentence,settings,{scanWord:!0,passiveInteraction,allowRuby:!layoutSensitive&&!fragmentRangeHasNativeRuby(indexedFragments,token.start,token.end),preserveTokenRubies:!0}),
+range.detach()}function shouldSplitLayoutSensitiveFragmentToken(indexedFragments,token){const start=findFragmentBoundary(indexedFragments,token.start,"start"),end=findFragmentBoundary(indexedFragments,token.end,
+"end"),bounds=attachableFragmentRange(start,end);return!!(bounds&&bounds.start.fragment!==bounds.end.fragment&&fragmentRangeHasLayoutSensitive(indexedFragments,token.start,token.end))}function insertSplitFragmentTokenPieces(target,indexedFragments,token,tokenWithSentence,settings,passiveInteraction){
 const pieces=indexedFragments.map(fragment=>splitFragmentTokenPiece(fragment,token.start,token.end)).filter(piece=>piece!==null).reverse();for(const piece of pieces){const surface=piece.fragment.node.data.slice(
 piece.start,piece.end);if(!surface)continue;const rendered=renderToken(surface,tokenWithSentence,settings,{allowRuby:!1,kanjiNavigation:kanjiNavigationForElement(target.parent),scanWord:!0,passiveInteraction,preserveTokenRubies:!0});
 replaceTextNodeRange(piece.fragment.node,piece.start,piece.end,rendered)}}function splitFragmentTokenPiece(fragment,tokenStart,tokenEnd){const start=Math.max(tokenStart,fragment.globalStart),end=Math.min(tokenEnd,
@@ -812,8 +813,8 @@ settingsTitle:`${APP_NAME} Settings`,welcomeLabel:`${APP_NAME} welcome`,onboardi
 Settings language",onboardingImmersionOptions:"Immersion defaults",onboardingAddApiKey:"Add API key",onboardingAddLocalDictionaries:"Add local dictionaries",onboardingUseWithoutApiKey:"Use without API key",closeOnboarding:"\
 Close welcome",featureText:"Text",featureTextBody:"Hover or tap scanned Japanese.",featureImages:"Images",featureImagesBody:"Read image text near the viewport.",featureVideo:"Video",featureVideoBody:"Make subti\
 tle words tappable.",featureControl:"Control",featureControlBody:"Tune features, shortcuts, and color.",scanPage:"Scan page",noUnscannedJapaneseText:"No unscanned Japanese text found.",jpdbScanFailed:"JPDB scan\
-failed.",settings:"Settings",settingsSaved:"Settings saved.",settingsSaveFailed:"Settings save failed.",settingsSections:"Settings sections",settingsSearch:"Search settings",settingsSearchPlaceholder:"Search se\
-ttings",settingsSearchNoResults:"No settings match your search.",selectOptions:"Options",save:"Save",cancel:"Cancel",show:"Show",hide:"Hide",appearance:"Appearance",reading:"Reading",dictionaries:"Dictionaries",
+failed.",settings:"Settings",settingsSaved:"Settings saved.",settingsSaveFailed:"Settings save failed.",settingsSections:"Settings sections",settingsSearch:"Search settings",settingsSearchPlaceholder:"Search s\
+ettings",settingsSearchNoResults:"No settings match your search.",selectOptions:"Options",save:"Save",cancel:"Cancel",show:"Show",hide:"Hide",appearance:"Appearance",reading:"Reading",dictionaries:"Dictionaries",
 media:"Media",mining:"Mining",shortcuts:"Shortcuts",help:"Help",interface:"Interface",reader:"Reader",kanji:"Kanji",audio:"Audio",images:"Image text (OCR)",video:"Video",youTube:"YouTube",anki:"Anki",jpdb:"JPDB",
 apiKey:"API key",jpdbSettings:"JPDB settings",jpdbApiKeyConfigured:"JPDB key set. Reviews: {reviews}. Deck changes: {deckSync}.",jpdbApiKeyMissing:"No JPDB key. Public lookup works; reviews and deck changes do \
 not.",statusEnabled:"enabled",statusDisabled:"disabled",statusReady:"Ready",statusAttention:"Needs setup",statusError:"Error",disabledControlDescription:"Controlled by another setting.",jpdbMiningEnabled:"Allow\
@@ -826,8 +827,8 @@ Grow to available space",popoverHeightFixed:"Use height setting",readerFontFamil
 ese sans",fontPresetHiraginoYuGothic:"Hiragino / Yu Gothic",fontPresetJapaneseSerif:"Japanese serif",fontPresetSystemUi:"System UI",fontPresetCustom:"Custom...",customFontFamily:"Custom font stack",popupFontWeight:"\
 Popup Japanese weight",enableLogging:"Enable diagnostic logging",diagnostics:"Diagnostics",diagnosticsHelp:"Troubleshooting only. Prints diagnostics to the console.",accentColor:"Accent color",newTab:"New tab",
 newTabEnabled:"Enable Yomu new tab study page",newTabAnkiEnabled:"Enable Anki cards on new tab",newTabAnkiReviewDecks:"Anki review decks",newTabAnkiReviewDecksHelp:"New decks are included automatically. Uncheck\
-decks to skip.",newTabSource:"New tab review source",newTabAuto:"Auto: Anki if no JPDB",dictionaryFallback:"Dictionary fallback",newTabJpdbReviewMode:"JPDB review mode",newTabJpdbReviewAuto:"Auto: live kanji +A\
-PI vocabulary",newTabLiveReview:"Live JPDB review session",newTabApiVocabulary:"API vocabulary only",corsProxyUrl:"Cross-origin proxy URL",newTabKanjiKeywordSource:"Kanji keyword source",newTabKanjiKeywordAuto:"\
+decks to skip.",newTabSource:"New tab review source",newTabAuto:"Auto: Anki if no JPDB",dictionaryFallback:"Dictionary fallback",newTabJpdbReviewMode:"JPDB review mode",newTabJpdbReviewAuto:"Auto: live kanji +\
+API vocabulary",newTabLiveReview:"Live JPDB review session",newTabApiVocabulary:"API vocabulary only",corsProxyUrl:"Cross-origin proxy URL",newTabKanjiKeywordSource:"Kanji keyword source",newTabKanjiKeywordAuto:"\
 Auto: RTK, then JPDB, then local",newTabKanjiKeywordRtk:"RTK / Heisig",newTabKanjiKeywordLocal:"Local card meaning",newTabParsingEnabled:"Enable sentence parsing on new tab",newTabFrontSentenceEnabled:"Show sen\
 tence on word fronts",newTabKanjiAutogradeEnabled:"Auto-grade kanji drawing",newTabKanjiAutoSubmit:"Auto-submit kanji grade",newTabOfflineEnabled:"Cache new tab for offline use",newTabOfflineLimit:"Offline revi\
 ew cache limit",newTabUrl:"New tab address",newTabOfflineHelp:"New-tab/iPad use. Caches online; queues grades offline.",newTabJpdbDeck:"New tab JPDB deck",openNewTabPage:"Open new tab page",copyAddress:"Copy ad\
@@ -849,9 +850,9 @@ audioAutoPlayHover:"Hover only",audioAutoPlayTap:"Tap/click only",automaticBrows
 rder",audioSourceNumber:"Audio source {number}",enableAudioSourceNumber:"Enable audio source {number}",enableLookupPillName:"Enable lookup pill: {name}",enableSourceName:"Enable source: {name}",textToSpeechVoiceNumber:"\
 Text-to-speech voice {number}",audioSourceJpod101:"JapanesePod101",audioSourceLanguagePod101:"LanguagePod101",audioSourceJisho:"Jisho.org",audioSourceLinguaLibre:"(Commons) Lingua Libre",audioSourceWiktionary:"\
 (Commons) Wiktionary",audioSourceJpdbTts:"JPDB text-to-speech",audioSourceTextToSpeech:"Text-to-speech",audioSourceTextToSpeechReading:"Text-to-speech (Kana reading)",audioSourceCustom:"Custom direct audio file\
-URL",audioSourceCustomJson:"Custom URL",audioCustomJsonPlaceholder:"Yomitan or Ultimate audio source URL",audioCustomUrlPlaceholder:"Direct audio file URL",audioBuiltInPlaceholder:"Built-in source, no URL neede\
-d",defaultVoiceSuffix:"default",audioGuideLinkLabel:"Yomitan audio guide",audioProxyGuideSummary:"Make your own Cloudflare proxy",audioProxyGuideIntro:"Public proxy works for most users. Use Worker for privatep\
-roxy.",audioProxyGuideCloudflare:"Open Cloudflare Dashboard.",audioProxyGuideWorkers:"Open Workers & Pages, then Create.",audioProxyGuideCreateWorker:"Choose Worker, name it, and deploy.",audioProxyGuideEditCode:"\
+URL",audioSourceCustomJson:"Custom URL",audioCustomJsonPlaceholder:"Yomitan or Ultimate audio source URL",audioCustomUrlPlaceholder:"Direct audio file URL",audioBuiltInPlaceholder:"Built-in source, no URL need\
+ed",defaultVoiceSuffix:"default",audioGuideLinkLabel:"Yomitan audio guide",audioProxyGuideSummary:"Make your own Cloudflare proxy",audioProxyGuideIntro:"Public proxy works for most users. Use Worker for private\
+proxy.",audioProxyGuideCloudflare:"Open Cloudflare Dashboard.",audioProxyGuideWorkers:"Open Workers & Pages, then Create.",audioProxyGuideCreateWorker:"Choose Worker, name it, and deploy.",audioProxyGuideEditCode:"\
 Edit code and paste the Yomu Worker source.",audioProxyGuideDeploy:"Deploy.",audioProxyGuideCopyUrl:"Copy the Worker URL, e.g. https://yomu-proxy.yourname.workers.dev.",audioProxyGuidePasteUrl:"Paste it into Cr\
 oss-origin proxy URL. Do not add ?url=.",audioProxyGuideTest:"Save, then try lookup, import, or external audio.",audioProxyGuideNote:"Worker source is in the repo. Limit hosts before sharing.",audioProxyWorkerSource:"\
 Worker source",audioProxyDeployGuide:"Deploy guide",immersionKit:"Immersion Kit",immersionKitEnabled:"Show Immersion Kit examples",immersionKitExampleSource:"Example provider",immersionKitAndNadeshiko:"Immersio\
@@ -891,11 +892,12 @@ rce, image.",exampleMeaning:"to read",scanAnkiFirst:"Connect Anki first",notMapp
 current note type",ankiFieldMappingSelect:"{role} field",ankiRoleExpression:"Expression",ankiRoleReading:"Reading",ankiRoleMeaning:"Meaning",ankiRoleSentence:"Sentence",ankiRoleAudio:"Audio",ankiRoleImage:"Imag\
 e",testAnki:"Check AnkiConnect",prepareAnki:"Create Yomu note type",ankiCheckingConnection:"Checking AnkiConnect at {url}.",ankiMiningDisabledStatus:"Anki mining disabled.",ankiTesting:"Checking AnkiConnect...",
 ankiPreparing:"Creating or refreshing the Yomu deck and note type...",ankiScanning:"Reading Anki decks, note types, and fields...",ankiScanSummary:"Decks {decks}, note types {models}. Best: {model}. {fields}",ankiScanNoModels:"\
-Found {decks} decks. Note types unavailable.",ankiScanFieldSummary:"Fields: {fields}",ankiUnreachable:"Open desktop Anki, enable AnkiConnect, then check again.",ankiHostedBridgeMissing:"Enable the userscript he\
-re, refresh, then check again.",ankiHostedCorsHint:"Optional advanced setup: direct browser access needs this origin in AnkiConnect webCorsOriginList.",ankiLibraryAdapter:"Existing library adapter",ankiLibraryAdapterStatus:"\
-Scans decks and note types, then suggests mappings.",ankiLibraryChoices:"Deck and note type",ankiLibraryChoicesHelp:"Filled from AnkiConnect. Pick where mining creates or updates notes.",ankiTemplateSettings:"Y\
-omu card template",ankiTemplateSettingsHelp:"For Yomu note types. Imported templates stay in Anki.",ankiMappingConfidenceHelp:"Based on fields and samples. Edit low-confidence mappings.",ankiMappingHighConfidence:"\
-High",ankiMappingMediumConfidence:"Medium",ankiMappingLowConfidence:"Low",ankiHelp:"Full Anki uses LAN/Tailscale. Handoff opens mobile Anki for new notes.",jpdbDefinitionsEnabled:"Show JPDB definitions",localDictionariesEnabled:"\
+Found {decks} decks. Note types unavailable.",ankiScanFieldSummary:"Fields: {fields}",ankiUnreachable:"Open desktop Anki, enable AnkiConnect, then check again.",ankiSettingsUnreachable:"AnkiConnect not reached.\
+Desktop: open Anki and the add-on. Mobile: use your desktop LAN/Tailscale URL or enable handoff.",ankiHostedBridgeMissing:"Hosted Anki checks need the Yomu userscript bridge. Enable it here, refresh, then chec\
+k again.",ankiHostedCorsHint:"Optional advanced setup: direct browser access needs this origin in AnkiConnect webCorsOriginList.",ankiLibraryAdapter:"Existing library adapter",ankiLibraryAdapterStatus:"Scans de\
+cks and note types, then suggests mappings.",ankiLibraryChoices:"Deck and note type",ankiLibraryChoicesHelp:"Filled from AnkiConnect. Pick where mining creates or updates notes.",ankiTemplateSettings:"Yomu card\
+template",ankiTemplateSettingsHelp:"For Yomu note types. Imported templates stay in Anki.",ankiMappingConfidenceHelp:"Based on fields and samples. Edit low-confidence mappings.",ankiMappingHighConfidence:"High",
+ankiMappingMediumConfidence:"Medium",ankiMappingLowConfidence:"Low",ankiHelp:"Full Anki uses LAN/Tailscale. Handoff opens mobile Anki for new notes.",jpdbDefinitionsEnabled:"Show JPDB definitions",localDictionariesEnabled:"\
 Show imported dictionary definitions",dictionarySourcesInitiallyExpanded:"Open popup sources by default",localDictionaryMaxResults:"Dictionary result limit",importSettings:"Import settings JSON",exportSettings:"\
 Export settings JSON",importDictionaries:"Import dictionaries",exportDictionaries:"Export dictionaries",dictionaryImportHelp:"Import Yomitan settings, ZIPs, or backups.",lookupPills:"Lookup pills",lookupPillsHelp:"\
 External dictionary links. Use {query}, {word}, {reading}.",copiesCurrentWord:"Copies the current word",lookupPillLabel:"Lookup pill label",lookupPillLabelNumber:"Lookup pill {number} label",lookupUrlTemplate:"\
@@ -916,14 +918,14 @@ imported.",settingsImportedWithDetails:"Settings imported; {details}.",settingsE
 d {count} dictionary record{plural}",dictionaryNoSupportedBanks:"No supported Yomitan dictionary banks found.",dictionaryUnsupportedJson:"Use Yomitan Dexie, dictionary ZIP, or reader export.",dictionaryZipMissingIndex:"\
 Yomitan dictionary ZIP is missing index.json.",yomitanSettingsInvalid:"This does not look like a Yomitan settings export.",localDictionaryText:"Dictionary text",localSenseSingular:"meaning",localSensePlural:"me\
 anings",localWordSingular:"entry",localWordPlural:"entries",decksLoaded:"Decks are loaded from your JPDB account.",decksUnavailable:"Could not load decks yet; saved IDs are kept.",addApiKeyChooseDecks:"Add your\
-JPDB API key to choose decks.",miningDeck:"Mining deck",neverForgetDeck:"Never forget deck",blacklistDeck:"Blacklist deck",allStudyDecks:"All study decks",savedValue:"Saved: {value}",holdWhileHovering:"Hold whi\
-le hovering",hoverOpenDelayMs:"Hover open delay (ms)",hoverCloseDelayMs:"Hover close delay (ms)",pressKeys:"Press keys",blankPlainHover:"Blank means hover without a key",openSettings:"Open settings",resizeSettings:"\
+JPDB API key to choose decks.",miningDeck:"Mining deck",neverForgetDeck:"Never forget deck",blacklistDeck:"Blacklist deck",allStudyDecks:"All study decks",savedValue:"Saved: {value}",holdWhileHovering:"Hold wh\
+ile hovering",hoverOpenDelayMs:"Hover open delay (ms)",hoverCloseDelayMs:"Hover close delay (ms)",pressKeys:"Press keys",blankPlainHover:"Blank means hover without a key",openSettings:"Open settings",resizeSettings:"\
 Resize settings",playAudio:"Play audio",playingAudioPreview:`Playing ${APP_NAME}...`,audioPreviewFailed:"Audio preview failed.",audioPlaybackDisabled:"Audio playback is disabled",audioPlaybackDisabledToast:"Aud\
 io playback is disabled.",audioPlaybackFailed:"Audio playback failed.",noSentenceToRead:"No sentence to read aloud.",noTextToRead:"No text to read aloud.",jpdbExampleAudioUnavailable:"No JPDB audio is available\
-for this example.",jpdbAudioPlayableFileMissing:"JPDB audio did not return a playable file.",jpdbAudioResponseNotPlayable:"JPDB audio response was not a playable audio file.",audioSourceReturnedNoAudio:"Audio s\
-ource did not return audio.",audioJsonMissingPlayableUrl:"Audio JSON did not include a playable URL.",textToSpeechUnavailable:"Text-to-speech is not available in this browser.",textToSpeechFailed:"Text-to-speec\
-h failed.",audioRequest:"Audio request",audioRequestTimedOut:"Audio request timed out.",audioRequestReturnedNonAudio:"Audio request returned a non-audio response",audioRequestReturnedNonAudioWithType:"Audio req\
-uest returned a non-audio response: {type}.",audioUnknownContentType:"an unknown content type",japanesePod101NoAudio:"JapanesePod101 has no audio for this term.",invalidJpdbAudioId:"Invalid JPDB audio id.",couldNotReadAudio:"\
+for this example.",jpdbAudioPlayableFileMissing:"JPDB audio did not return a playable file.",jpdbAudioResponseNotPlayable:"JPDB audio response was not a playable audio file.",audioSourceReturnedNoAudio:"Audio \
+source did not return audio.",audioJsonMissingPlayableUrl:"Audio JSON did not include a playable URL.",textToSpeechUnavailable:"Text-to-speech is not available in this browser.",textToSpeechFailed:"Text-to-spee\
+ch failed.",audioRequest:"Audio request",audioRequestTimedOut:"Audio request timed out.",audioRequestReturnedNonAudio:"Audio request returned a non-audio response",audioRequestReturnedNonAudioWithType:"Audio re\
+quest returned a non-audio response: {type}.",audioUnknownContentType:"an unknown content type",japanesePod101NoAudio:"JapanesePod101 has no audio for this term.",invalidJpdbAudioId:"Invalid JPDB audio id.",couldNotReadAudio:"\
 Could not read audio.",couldNotReadAudioBlob:"Could not read audio blob.",closeDrawer:"Close drawer",closePopup:"Close popup",previousLookupWord:"Previous word",nextLookupWord:"Next word",previousSubtitle:"Prev\
 ious subtitle",nextSubtitle:"Next subtitle",copySubtitle:"Copy subtitle",subtitleFallbackLabel:"Subtitle",subtitlesTitle:"Subtitles",openSubtitlePanel:"Open subtitle panel",closeSubtitlePanel:"Close subtitle pa\
 nel",closeSubtitleDrawer:"Close subtitle drawer",enableSubtitleAutoHide:"Auto-hide panel while playing",disableSubtitleAutoHide:"Keep panel open while playing",subtitleAutoHideShort:"Auto",loadJapaneseSubtitles:"\
@@ -1177,9 +1179,10 @@ exampleMeaning:"読む",scanAnkiFirst:"先にAnkiConnectに接続",notMapped:"�
 音声",ankiRoleImage:"画像",testAnki:"AnkiConnectを確認",prepareAnki:"よむノートタイプを作成",ankiCheckingConnection:"{url} のAnkiConnectを確認中。",ankiMiningDisabledStatus:"Ankiマイニングは無効\
 です。",ankiTesting:"AnkiConnectを確認中...",ankiPreparing:"よむデッキとノートタイプを作成または更新中...",ankiScanning:"Ankiデッキ、ノートタイプ、フィールドを読み込み中...",
 ankiScanSummary:"デッキ{decks}件、ノート{models}件。候補: {model}。{fields}",ankiScanNoModels:"デッキ{decks}件を検出。ノートタイプは未取得です。",ankiScanFieldSummary:"フィールド: {\
-fields}",ankiUnreachable:"Anki未接続です。デスクトップAnkiとAnkiConnectを確認。",ankiHostedBridgeMissing:"このページでユーザースクリプトを有効化し、再読み込みしてください。",
-ankiLibraryAdapter:"既存ライブラリアダプター",ankiLibraryAdapterStatus:"既存デッキとノートタイプから対応付けを提案します。",ankiLibraryChoices:"デッキとノートタイプ",
-ankiLibraryChoicesHelp:"AnkiConnectから読み込み、作成・更新先を選びます。",ankiTemplateSettings:"よむカードテンプレート",ankiTemplateSettingsHelp:"よむノートタイプ用。既存テンプレートはAnkiに残ります。",
+fields}",ankiUnreachable:"Anki未接続です。デスクトップAnkiとAnkiConnectを確認。",ankiSettingsUnreachable:"AnkiConnectに接続できません。デスクトップではAnkiとアドオンを起動。モバイルではLAN/TailscaleのデスクトップURLか受け渡しを使います。",
+ankiHostedBridgeMissing:"ホスト版のAnki確認にはよむユーザースクリプトのブリッジが必要です。ここで有効化し、再読み込みしてください。",ankiLibraryAdapter:"既存ライブラ\
+リアダプター",ankiLibraryAdapterStatus:"既存デッキとノートタイプから対応付けを提案します。",ankiLibraryChoices:"デッキとノートタイプ",ankiLibraryChoicesHelp:"AnkiConnect\
+から読み込み、作成・更新先を選びます。",ankiTemplateSettings:"よむカードテンプレート",ankiTemplateSettingsHelp:"よむノートタイプ用。既存テンプレートはAnkiに残ります。",
 ankiMappingConfidenceHelp:"フィールド名とサンプルで判断。低信頼度は変更できます。",ankiMappingHighConfidence:"高",ankiMappingMediumConfidence:"中",ankiMappingLowConfidence:"低",ankiHelp:"\
 完全なAnki機能はLAN/Tailscale。受け渡しは新規ノート用。",jpdbDefinitionsEnabled:"JPDB定義を表示",localDictionariesEnabled:"インポート済み辞書の定義を表示",dictionarySourcesInitiallyExpanded:"\
 ポップアップのソースを標準で開く",localDictionaryMaxResults:"辞書結果の上限",importSettings:"設定JSONをインポート",exportSettings:"設定JSONをエクスポート",importDictionaries:"\
@@ -1342,7 +1345,7 @@ attributes,attribute)}return null}async function getJishoAudioUrls(card,timeoutM
 response=await requestAudioUrl(url,"text",timeoutMs,{proxyUrl:jishoLookupProxyUrl(proxyUrl),preferFetch:!1}).catch(()=>"");if(typeof response!="string")return[];const audioHtml=findJishoAudioElement(response,card);
 return audioHtml?extractAudioSourceUrls(audioHtml,url).filter(isLikelyAudioUrl).slice(0,1):[]}function shouldSkipJishoLookup(proxyUrl){return!jishoLookupProxyUrl(proxyUrl)&&!getUserscriptHttpRequest()}function jishoLookupProxyUrl(proxyUrl){
 return isDefaultYomuPublicProxyUrl(proxyUrl)?"":proxyUrl}function isDefaultYomuPublicProxyUrl(proxyUrl){if(!proxyUrl.trim())return!1;try{return new URL(proxyUrl).origin===new URL(DEFAULT_YOMU_PUBLIC_PROXY_URL).
-origin}catch{return!1}}function findJishoAudioElement(html,card){return findHtmlElementById(html,"audio",`audio_${card.spelling}:${card.reading}`)||(canUseKanaJishoAudioFallback(card)?findUniqueJishoReadingAudioElement(
+origin}catch{return!1}}function findJishoAudioElement(html,card){const exact=findHtmlElementById(html,"audio",`audio_${card.spelling}:${card.reading}`);return exact||(canUseKanaJishoAudioFallback(card)?findUniqueJishoReadingAudioElement(
 html,card.reading.trim()):null)}function canUseKanaJishoAudioFallback(card){const spelling=card.spelling.trim(),reading=card.reading.trim();return!!(spelling&&reading&&KANA_ONLY_RE$1.test(spelling))}function findUniqueJishoReadingAudioElement(html,reading){
 const matches=findHtmlElements(html,"audio").filter(element2=>jishoAudioReading(element2).trim()===reading);return matches.length===1?matches[0]:null}function jishoAudioReading(audioHtml){const id=htmlAttributeValue(
 audioHtml,"id")??"",marker=id.startsWith("audio_")?id.slice(6):"",colon=marker.lastIndexOf(":");return colon>=0?marker.slice(colon+1):""}async function getLanguagePod101AudioUrls(card,timeoutMs,proxyUrl=""){const url="\
@@ -1830,7 +1833,7 @@ record.options)??profileOptionsFromProfiles(record.profiles,record)}function pro
 rootOptionRecord.profiles,rootOptionRecord.profileCurrent)??rootOptionRecord}function profileOptionsFromProfiles(profilesValue,fallback){const options=(selectedProfileRecord(profilesValue,fallback.profileCurrent)??
 fallback).options;return options&&typeof options=="object"?options:null}function nestedProfileOptions(profilesValue,profileCurrent){const options=selectedProfileRecord(profilesValue,profileCurrent)?.options;return options&&
 typeof options=="object"?options:null}function selectedProfileRecord(value,profileCurrent){if(!Array.isArray(value))return null;const index=Number(profileCurrent),selected=Number.isInteger(index)&&index>=0&&index<
-value.length?value[index]:null;return(selected&&typeof selected=="object"?selected:value.find(item=>item&&typeof item=="object"))||null}function capitalize(value){return value&&`${value[0].toUpperCase()}${value.
+value.length?value[index]:null,profile=selected&&typeof selected=="object"?selected:value.find(item=>item&&typeof item=="object");return profile||null}function capitalize(value){return value&&`${value[0].toUpperCase()}${value.
 slice(1).toLowerCase()}`}function clampNumber$2(value,min,max2){const number=Number(value);return Number.isFinite(number)?Math.max(min,Math.min(max2,number)):min}const DB_NAME="jpdb-popup-reader-yomitan",DB_VERSION=4,
 DEXIE_IMPORT_BATCH_SIZE=5e3,DICTIONARY_DELETE_BATCH_SIZE=5e3,DEXIE_PROGRESS_INTERVAL=DEXIE_IMPORT_BATCH_SIZE,STORE_WRITE_BATCH_SIZE=1e3,ZIP_IMPORT_FLUSH_ENTRY_LIMIT=1e4,HOT_LOOKUP_CACHE_TTL_MS=2e3,TOP_TERM_EXPRESSION_ENTRY_LIMIT=500,
 TERM_SEARCH_INDEX_BATCH_SIZE=300,TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM=40,TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH=2,TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH=3,TERM_SEARCH_PREFIX_BOUNDARY="",TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS=12e3,
@@ -2071,29 +2074,29 @@ if(entry.mode!=="freq"||!entry.expression||!dictionaryEnabled(entry.dictionary,r
 get(entry.expression)??Number.POSITIVE_INFINITY)))}function addSimilarTermByKanjiCandidate(entries,seen,entry,character,rank){entry.expression?.includes(character)&&dictionaryEnabled(entry.dictionary,rank)&&addUniqueTermEntry(
 entries,seen,entry)}function addUniqueTermEntry(entries,seen,entry){const key=termExpressionReadingKey(entry);seen.has(key)||(seen.add(key),entries.push(entry))}function termExpressionReadingKey(entry){return`${entry.
 expression}
-${entry.reading}`}function formatDexieImportProgress(text2,imported,totalRows){const importedCount=imported.toLocaleString();return totalRows>0?`${text2("dictionaryImported")} ${importedCount} / ${totalRows.toLocaleString()}${text2(
-"dictionaryRecords")}...`:`${text2("dictionaryImported")} ${importedCount} ${text2("dictionaryRecords")}...`}function formatDexieStoreImportProgress(text2,store,imported,tableTotal,totalImported,totalRows){const importedCount=imported.
-toLocaleString();return tableTotal>0&&totalRows>0?`${text2("dictionaryImporting")} ${store}: ${importedCount} / ${tableTotal.toLocaleString()} ${text2("dictionaryEntries")} (${totalImported.toLocaleString()} / ${totalRows.
-toLocaleString()} ${text2("dictionaryTotal")})...`:`${text2("dictionaryImporting")} ${store}: ${importedCount} ${text2("dictionaryEntries")}...`}function glossaryIndexSearchOptions(options){return{maxRows:options.
-glossaryIndexMaxRows??TERM_SEARCH_INDEX_CURSOR_MAX_ROWS,maxMs:options.glossaryIndexMaxMs??TERM_SEARCH_INDEX_CURSOR_MAX_MS}}function glossaryFallbackSearchOptions(options){return{maxRows:options.glossaryFallbackMaxRows??
-TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS,maxMs:options.glossaryFallbackMaxMs??TERM_SEARCH_LEGACY_FALLBACK_MAX_MS}}function hasReadyEmptyGlossarySearchIndex(indexedCount,building){return indexedCount>0&&!building}function shouldSkipGlossaryFallback(building,options){
-return building&&options.fallbackWhileIndexing===!1}function yomitanZipDictionaryName(index,filename){return index.title?.trim()||filename.replace(/\.zip$/i,"")}function yomitanZipVersion(index){return index.format??
-index.version??3}async function yomitanZipDictionaryInfo(zip,index,dictionary,sourceUrl){return{title:dictionary,alias:dictionary,enabled:!0,priority:0,styles:await readOptionalZipText(zip,"styles.css"),revision:typeof index.
-revision=="string"?index.revision:void 0,downloadUrl:sourceUrl||void 0,importDate:Date.now()}}async function readOptionalZipText(zip,name){return readZipText(zip,name).catch(()=>"")}async function readZipText(zip,name){
-return zip.text(name)}function normalizeZipTermRow(row,dictionary){if(!Array.isArray(row))return null;const[expression,reading,definitionTags,rules,score,glossary,sequence,termTags]=row;return typeof expression!=
-"string"?null:{expression,reading:zipTermReading(reading,expression),definitionTags:zipStringField(definitionTags),rules:zipStringField(rules),score:zipNumberField(score,0),glossary:zipGlossaryField(glossary),sequence:zipOptionalNumberField(
-sequence),termTags:zipStringField(termTags),dictionary}}function zipTermReading(value,expression){return typeof value=="string"&&value?value:expression}function zipStringField(value){return typeof value=="strin\
-g"?value:""}function zipNumberField(value,fallback){return typeof value=="number"?value:fallback}function zipOptionalNumberField(value){return typeof value=="number"?value:void 0}function zipGlossaryField(value){
-return Array.isArray(value)?value:[]}function normalizeZipKanjiRow(row,dictionary,version){if(!Array.isArray(row))return null;const[character,onyomi,kunyomi,tags,meaningsOrFirst,stats]=row;if(typeof character!=
-"string")return null;const meanings=version===1?row.slice(4):meaningsOrFirst;return{character,onyomi:splitTags(onyomi),kunyomi:splitTags(kunyomi),tags:splitTags(tags),meanings:Array.isArray(meanings)?meanings.map(
-String):[],stats,dictionary}}function normalizeZipTermMetaRow(row,dictionary){if(!Array.isArray(row))return null;const[expression,mode,data]=row;return typeof expression=="string"&&typeof mode=="string"?{expression,
-mode,data,dictionary}:null}function normalizeZipKanjiMetaRow(row,dictionary){if(!Array.isArray(row))return null;const[character,mode,data]=row;return typeof character=="string"&&typeof mode=="string"?{character,
-mode,data,dictionary}:null}function normalizeDexieTermRow(row){const record=dexieRowRecord(row);return!record||typeof record.expression!="string"||typeof record.dictionary!="string"?null:{expression:record.expression,
-reading:dexieStringField(record,"reading",record.expression),definitionTags:dexieStringField(record,"definitionTags"),rules:dexieStringField(record,"rules"),score:dexieNumberField(record,"score",0),glossary:dexieGlossaryField(
-record),sequence:dexieOptionalNumberField(record,"sequence"),termTags:dexieStringField(record,"termTags"),dictionary:record.dictionary}}function dexieStringField(record,key,fallback=""){const value=record[key];
-return typeof value=="string"&&value?value:fallback}function dexieNumberField(record,key,fallback){const value=record[key];return typeof value=="number"?value:fallback}function dexieOptionalNumberField(record,key){
-const value=record[key];return typeof value=="number"?value:void 0}function dexieGlossaryField(record){return Array.isArray(record.glossary)?record.glossary:[]}function termLookupDedupKey(entry){const glossaryKey=JSON.
-stringify(entry.glossary);return entry.sequence!==void 0?`${entry.dictionary}
+${entry.reading}`}function formatDexieImportProgress(text2,imported,totalRows){const importedCount=imported.toLocaleString();return totalRows>0?`${text2("dictionaryImported")} ${importedCount} / ${totalRows.toLocaleString()}\
+${text2("dictionaryRecords")}...`:`${text2("dictionaryImported")} ${importedCount} ${text2("dictionaryRecords")}...`}function formatDexieStoreImportProgress(text2,store,imported,tableTotal,totalImported,totalRows){
+const importedCount=imported.toLocaleString();return tableTotal>0&&totalRows>0?`${text2("dictionaryImporting")} ${store}: ${importedCount} / ${tableTotal.toLocaleString()} ${text2("dictionaryEntries")} (${totalImported.
+toLocaleString()} / ${totalRows.toLocaleString()} ${text2("dictionaryTotal")})...`:`${text2("dictionaryImporting")} ${store}: ${importedCount} ${text2("dictionaryEntries")}...`}function glossaryIndexSearchOptions(options){
+return{maxRows:options.glossaryIndexMaxRows??TERM_SEARCH_INDEX_CURSOR_MAX_ROWS,maxMs:options.glossaryIndexMaxMs??TERM_SEARCH_INDEX_CURSOR_MAX_MS}}function glossaryFallbackSearchOptions(options){return{maxRows:options.
+glossaryFallbackMaxRows??TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS,maxMs:options.glossaryFallbackMaxMs??TERM_SEARCH_LEGACY_FALLBACK_MAX_MS}}function hasReadyEmptyGlossarySearchIndex(indexedCount,building){return indexedCount>
+0&&!building}function shouldSkipGlossaryFallback(building,options){return building&&options.fallbackWhileIndexing===!1}function yomitanZipDictionaryName(index,filename){return index.title?.trim()||filename.replace(
+/\.zip$/i,"")}function yomitanZipVersion(index){return index.format??index.version??3}async function yomitanZipDictionaryInfo(zip,index,dictionary,sourceUrl){return{title:dictionary,alias:dictionary,enabled:!0,
+priority:0,styles:await readOptionalZipText(zip,"styles.css"),revision:typeof index.revision=="string"?index.revision:void 0,downloadUrl:sourceUrl||void 0,importDate:Date.now()}}async function readOptionalZipText(zip,name){
+return readZipText(zip,name).catch(()=>"")}async function readZipText(zip,name){return zip.text(name)}function normalizeZipTermRow(row,dictionary){if(!Array.isArray(row))return null;const[expression,reading,definitionTags,
+rules,score,glossary,sequence,termTags]=row;return typeof expression!="string"?null:{expression,reading:zipTermReading(reading,expression),definitionTags:zipStringField(definitionTags),rules:zipStringField(rules),
+score:zipNumberField(score,0),glossary:zipGlossaryField(glossary),sequence:zipOptionalNumberField(sequence),termTags:zipStringField(termTags),dictionary}}function zipTermReading(value,expression){return typeof value==
+"string"&&value?value:expression}function zipStringField(value){return typeof value=="string"?value:""}function zipNumberField(value,fallback){return typeof value=="number"?value:fallback}function zipOptionalNumberField(value){
+return typeof value=="number"?value:void 0}function zipGlossaryField(value){return Array.isArray(value)?value:[]}function normalizeZipKanjiRow(row,dictionary,version){if(!Array.isArray(row))return null;const[character,
+onyomi,kunyomi,tags,meaningsOrFirst,stats]=row;if(typeof character!="string")return null;const meanings=version===1?row.slice(4):meaningsOrFirst;return{character,onyomi:splitTags(onyomi),kunyomi:splitTags(kunyomi),
+tags:splitTags(tags),meanings:Array.isArray(meanings)?meanings.map(String):[],stats,dictionary}}function normalizeZipTermMetaRow(row,dictionary){if(!Array.isArray(row))return null;const[expression,mode,data]=row;
+return typeof expression=="string"&&typeof mode=="string"?{expression,mode,data,dictionary}:null}function normalizeZipKanjiMetaRow(row,dictionary){if(!Array.isArray(row))return null;const[character,mode,data]=row;
+return typeof character=="string"&&typeof mode=="string"?{character,mode,data,dictionary}:null}function normalizeDexieTermRow(row){const record=dexieRowRecord(row);return!record||typeof record.expression!="stri\
+ng"||typeof record.dictionary!="string"?null:{expression:record.expression,reading:dexieStringField(record,"reading",record.expression),definitionTags:dexieStringField(record,"definitionTags"),rules:dexieStringField(
+record,"rules"),score:dexieNumberField(record,"score",0),glossary:dexieGlossaryField(record),sequence:dexieOptionalNumberField(record,"sequence"),termTags:dexieStringField(record,"termTags"),dictionary:record.dictionary}}
+function dexieStringField(record,key,fallback=""){const value=record[key];return typeof value=="string"&&value?value:fallback}function dexieNumberField(record,key,fallback){const value=record[key];return typeof value==
+"number"?value:fallback}function dexieOptionalNumberField(record,key){const value=record[key];return typeof value=="number"?value:void 0}function dexieGlossaryField(record){return Array.isArray(record.glossary)?
+record.glossary:[]}function termLookupDedupKey(entry){const glossaryKey=JSON.stringify(entry.glossary);return entry.sequence!==void 0?`${entry.dictionary}
 sequence:${entry.sequence}
 ${glossaryKey}`:`${entry.dictionary}
 ${entry.expression}
@@ -2179,9 +2182,9 @@ word))?words.join(", "):text2}function looksLikeGrammarTag(text2){return/^(?:adj
 test(text2)}const ANKI_FIELD_ROLES=["expression","reading","meaning","sentence","audio","image"];function postAnkiJson(url,body,timeoutMs){const userscriptRequest=getUserscriptHttpRequest();if(userscriptRequest)
 return new Promise((resolve,reject)=>{const handleLoad=response=>{response.status>=200&&response.status<300?resolve(response.response):reject(new Error(`AnkiConnect request failed (${response.status}).`))},result=userscriptRequest(
 {method:"POST",url,headers:{"Content-Type":"application/json"},data:body,responseType:"json",timeout:timeoutMs,onload:handleLoad,onerror:error=>reject(error instanceof Error?error:new Error("AnkiConnect request\
-failed.")),ontimeout:()=>reject(new Error("AnkiConnect timed out."))});result&&typeof result.then=="function"&&result.then(handleLoad,reject)});if(!canFetchAnkiConnect(url))return Promise.reject(new Error("Anki\
-Connect needs the userscript request bridge on content pages."));const controller=new AbortController,timeoutId=window.setTimeout(()=>controller.abort(),timeoutMs);return fetch(url,{method:"POST",headers:{"Cont\
-ent-Type":"application/json"},body,signal:controller.signal}).then(async response=>{if(!response.ok)throw new Error(`AnkiConnect request failed (${response.status}).`);return response.json()}).catch(error=>{throw error instanceof
+failed.")),ontimeout:()=>reject(new Error("AnkiConnect timed out."))});result&&typeof result.then=="function"&&result.then(handleLoad,reject)});if(!canFetchAnkiConnect(url))return Promise.reject(new Error("Ank\
+iConnect needs the userscript request bridge on content pages."));const controller=new AbortController,timeoutId=window.setTimeout(()=>controller.abort(),timeoutMs);return fetch(url,{method:"POST",headers:{"Con\
+tent-Type":"application/json"},body,signal:controller.signal}).then(async response=>{if(!response.ok)throw new Error(`AnkiConnect request failed (${response.status}).`);return response.json()}).catch(error=>{throw error instanceof
 DOMException&&error.name==="AbortError"?new Error("AnkiConnect timed out."):error}).finally(()=>{window.clearTimeout(timeoutId)})}function isAnkiConnectAvailabilityError(error){return error instanceof Error&&error.
 cause&&error.cause!==error?isAnkiConnectAvailabilityError(error.cause):error instanceof Error?/timed out|failed to fetch|networkerror|request bridge/i.test(error.message):!1}function canFetchAnkiConnect(url){return canFetchAnkiConnectFrom(
 url,safeLocationHref$2())}function canFetchAnkiConnectFrom(url,currentHref){const current=readAnkiUrl(currentHref);if(!current)return!1;const target=readAnkiUrl(url,current.href);return target?target.origin===current.
@@ -2215,18 +2218,18 @@ for(const role of ANKI_FIELD_ROLES){const fieldName=mappedFieldName(fieldNames,m
 const fieldName=mapping?.[role]?.trim();if(!fieldName)return"";const exact=fieldNames.find(candidate=>candidate===fieldName);if(exact)return exact;const normalizedFieldName=normalizeAnkiFieldName(fieldName);return fieldNames.
 find(candidate=>normalizeAnkiFieldName(candidate)===normalizedFieldName)??""}function ankiFieldMappingsSettingsKey(mappings){const normalized={};for(const modelName of Object.keys(mappings??{}).sort()){const mapping=mappings?.[modelName];
 if(!mapping)continue;const modelMapping={};for(const role of ANKI_FIELD_ROLES){const fieldName=mapping[role]?.trim();fieldName&&(modelMapping[role]=fieldName)}Object.keys(modelMapping).length&&(normalized[modelName]=
-modelMapping)}return normalized}function fieldNameForRole(fieldNames,role,mapping){return mappedFieldName(fieldNames,mapping,role)||(suggestAnkiField(role,fieldNames,new Set).fieldName??"")}function mappedRoleForField(fieldName,mapping){
-if(!mapping)return null;const normalized=normalizeAnkiFieldName(fieldName);for(const role of ANKI_FIELD_ROLES){const mapped=mapping[role];if(mapped&&normalizeAnkiFieldName(mapped)===normalized)return role}return null}
-function yomuFieldForRole(role){return{expression:"Expression",reading:"Reading",meaning:"Meaning",sentence:"Sentence",audio:"Audio",image:"Image"}[role]}function flattenNoteFields(fields){const out={};return Object.
-entries(fields??{}).forEach(([name,value])=>{out[name]=stripHtml$1(String(value?.value??""))}),out}function noteLooksLikeCard(note,card,settings){const fields=flattenNoteFields(note.fields),mapping=settings?ankiFieldMappingForModel(
-settings,note.modelName,Object.keys(fields)):void 0,expressionTargets=noteCardExpressionTargets(card);return noteHasExactTarget(fields,expressionTargets)||noteExpressionContainsTarget(fields,expressionTargets,mapping)||
-noteReadingContainsTarget(fields,card,mapping,expressionTargets)}function noteCardExpressionTargets(card){return unique$4([card.spelling,...card.fallbackLookupTerms??[]].map(value=>normalizeFieldValue(value??"")).
-filter(Boolean))}function noteFieldValues(fields){return Object.values(fields).map(normalizeFieldValue).filter(Boolean)}function firstNoteReading(fields){return firstNoteField(fields,ANKI_READING_FIELD_NAMES)}function firstNoteExpressionValue(fields,mapping){
-return noteExpressionCandidates(fields,mapping)[0]?.value??""}function mappedNoteField(fields,mapping,role){const fieldName=mappedFieldName(Object.keys(fields),mapping,role);return fieldName?fields[fieldName]??
-"":""}function lookupKeyTermsForCard(card){return unique$4([card.spelling,card.reading,...card.fallbackLookupTerms??[]].map(value=>normalizeFieldValue(value??"")).filter(Boolean))}function isKanaStatusLookupSurface(value){
-return/[\u3040-\u30ff]/u.test(value)&&!/[\u3400-\u9fff]/u.test(value)}function japaneseFieldContainsStandaloneTarget(value,target){const normalizedValue=normalizeFieldValue(value);return normalizedValue===target?
-!0:normalizedValue.split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u).some(part=>part===target)}function japaneseCharacterCount(value){return(value.match(/[\u3040-\u30ff\u3400-\u9fff]/gu)??
-[]).length}function normalizeAnkiFieldName(value){return value.replace(/[_\s-]+/g,"").toLowerCase()}function stripHtml$1(value){return value.replace(/<br\s*\/?>/gi,`
+modelMapping)}return normalized}function fieldNameForRole(fieldNames,role,mapping){const mapped=mappedFieldName(fieldNames,mapping,role);return mapped||(suggestAnkiField(role,fieldNames,new Set).fieldName??"")}
+function mappedRoleForField(fieldName,mapping){if(!mapping)return null;const normalized=normalizeAnkiFieldName(fieldName);for(const role of ANKI_FIELD_ROLES){const mapped=mapping[role];if(mapped&&normalizeAnkiFieldName(
+mapped)===normalized)return role}return null}function yomuFieldForRole(role){return{expression:"Expression",reading:"Reading",meaning:"Meaning",sentence:"Sentence",audio:"Audio",image:"Image"}[role]}function flattenNoteFields(fields){
+const out={};return Object.entries(fields??{}).forEach(([name,value])=>{out[name]=stripHtml$1(String(value?.value??""))}),out}function noteLooksLikeCard(note,card,settings){const fields=flattenNoteFields(note.fields),
+mapping=settings?ankiFieldMappingForModel(settings,note.modelName,Object.keys(fields)):void 0,expressionTargets=noteCardExpressionTargets(card);return noteHasExactTarget(fields,expressionTargets)||noteExpressionContainsTarget(
+fields,expressionTargets,mapping)||noteReadingContainsTarget(fields,card,mapping,expressionTargets)}function noteCardExpressionTargets(card){return unique$4([card.spelling,...card.fallbackLookupTerms??[]].map(value=>normalizeFieldValue(
+value??"")).filter(Boolean))}function noteFieldValues(fields){return Object.values(fields).map(normalizeFieldValue).filter(Boolean)}function firstNoteReading(fields){return firstNoteField(fields,ANKI_READING_FIELD_NAMES)}
+function firstNoteExpressionValue(fields,mapping){return noteExpressionCandidates(fields,mapping)[0]?.value??""}function mappedNoteField(fields,mapping,role){const fieldName=mappedFieldName(Object.keys(fields),
+mapping,role);return fieldName?fields[fieldName]??"":""}function lookupKeyTermsForCard(card){return unique$4([card.spelling,card.reading,...card.fallbackLookupTerms??[]].map(value=>normalizeFieldValue(value??"")).
+filter(Boolean))}function isKanaStatusLookupSurface(value){return/[\u3040-\u30ff]/u.test(value)&&!/[\u3400-\u9fff]/u.test(value)}function japaneseFieldContainsStandaloneTarget(value,target){const normalizedValue=normalizeFieldValue(
+value);return normalizedValue===target?!0:normalizedValue.split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u).some(part=>part===target)}function japaneseCharacterCount(value){return(value.
+match(/[\u3040-\u30ff\u3400-\u9fff]/gu)??[]).length}function normalizeAnkiFieldName(value){return value.replace(/[_\s-]+/g,"").toLowerCase()}function stripHtml$1(value){return value.replace(/<br\s*\/?>/gi,`
 `).replace(/<[^>]+>/g,"").replace(/&nbsp;/g," ").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&amp;/g,"&").replace(/&quot;/g,'"').replace(/&#39;/g,"'").trim()}function suggestAnkiFieldFromContent(role,fields,samples){
 const best=fields.map(fieldName=>({fieldName,score:ankiFieldContentRoleScore(role,samples[fieldName]??[])})).filter(item=>item.score>0).sort((a,b)=>b.score-a.score||fields.indexOf(a.fieldName)-fields.indexOf(b.
 fieldName))[0];return best?{role,fieldName:best.fieldName,confidence:best.score>=50?"high":"medium"}:{role,fieldName:null,confidence:"low"}}function ankiFieldContentRoleScore(role,samples){if(!samples.length)return 0;
@@ -2296,36 +2299,39 @@ lease)&&lease.owner===owner&&gmStorageDeleteSync(ANKI_STATUS_INDEX_REBUILD_LEASE
 ankiStatusIndexMeta(index))}catch(error){log$s.warn("IndexedDB Anki status index save failed; falling back to browser value storage",error),await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY,{...index,entryStore:void 0})}}
 async function saveAnkiStatusIndexCheckedAt(index){if(index.entryStore!=="indexeddb"){await saveAnkiStatusIndex(index);return}const meta=ankiStatusIndexMeta(index);try{await putStoredAnkiStatusIndexMeta(meta),await gmStorageSet(
 ANKI_STATUS_INDEX_STORAGE_KEY,meta)}catch(error){log$s.warn("IndexedDB Anki status index metadata update failed",error),await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY,meta)}}async function saveAnkiStatusIndexDirtyMarker(index){
-const dirty={...index,syncedAt:0,checkedAt:0};if(dirty.entryStore!=="indexeddb"){gmStorageSetSync(ANKI_STATUS_INDEX_STORAGE_KEY,{...dirty,entryStore:void 0});return}const meta=ankiStatusIndexMeta(dirty);gmStorageSetSync(
-ANKI_STATUS_INDEX_STORAGE_KEY,meta),await putStoredAnkiStatusIndexMeta(meta)}async function loadAnkiStatusIndexFromIndexedDb(){if(!canUseIndexedDb())return null;const db=await openAnkiStatusIndexDb();try{const meta=await idbRequest(
-db.transaction(ANKI_STATUS_INDEX_META_STORE,"readonly").objectStore(ANKI_STATUS_INDEX_META_STORE).get("current"));return meta?{version:meta.version,settingsKey:meta.settingsKey,syncedAt:meta.syncedAt,checkedAt:meta.
-checkedAt,cardCount:meta.cardCount,entryCount:meta.entryCount,entryStore:"indexeddb",entries:{},readingKeys:meta.readingKeys}:null}finally{db.close()}}async function loadAnkiStatusIndexEntriesFromIndexedDb(keys){
+const dirty={...index,syncedAt:0,checkedAt:0,dirtyAt:index.dirtyAt??Date.now()};if(dirty.entryStore!=="indexeddb"){gmStorageSetSync(ANKI_STATUS_INDEX_STORAGE_KEY,{...dirty,entryStore:void 0});return}const meta=ankiStatusIndexMeta(
+dirty);gmStorageSetSync(ANKI_STATUS_INDEX_STORAGE_KEY,meta),await putStoredAnkiStatusIndexMeta(meta)}async function loadAnkiStatusIndexFromIndexedDb(){if(!canUseIndexedDb())return null;const db=await openAnkiStatusIndexDb();
+try{const meta=await idbRequest(db.transaction(ANKI_STATUS_INDEX_META_STORE,"readonly").objectStore(ANKI_STATUS_INDEX_META_STORE).get("current"));return meta?{version:meta.version,settingsKey:meta.settingsKey,syncedAt:meta.
+syncedAt,checkedAt:meta.checkedAt,cardCount:meta.cardCount,entryCount:meta.entryCount,entryStore:"indexeddb",entries:{},readingKeys:meta.readingKeys,dirtyAt:meta.dirtyAt}:null}finally{db.close()}}async function loadAnkiStatusIndexEntriesFromIndexedDb(keys){
 if(!canUseIndexedDb())return new Map;const db=await openAnkiStatusIndexDb();try{const records=[];for(const chunk of chunkArray$1(unique$2(keys),ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE)){const tx=db.transaction(
 ANKI_STATUS_INDEX_ENTRY_STORE,"readonly"),store=tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE),chunkRecords=await Promise.all(chunk.map(key=>idbRequest(store.get(key)).then(record=>[key,record])));await idbTransactionDone(
 tx),records.push(...chunkRecords)}return new Map(records.filter(record=>!!record[1]).map(([key,record])=>[key,record.entry]))}finally{db.close()}}async function saveAnkiStatusIndexToIndexedDb(index){if(!canUseIndexedDb())
 throw new Error("IndexedDB is unavailable.");const db=await openAnkiStatusIndexDb();try{await clearAnkiStatusIndexStores(db);const entries=Object.entries(index.entries).map(([key,entry])=>({key,entry}));for(const chunk of chunkArray$1(
 entries,ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE))await putAnkiStatusIndexEntries(db,chunk);await putAnkiStatusIndexMeta(db,ankiStatusIndexMeta(index))}finally{db.close()}}function ankiStatusIndexMeta(index){return{
 id:"current",version:index.version,settingsKey:index.settingsKey,syncedAt:index.syncedAt,checkedAt:index.checkedAt,cardCount:index.cardCount,entryCount:index.entryCount??Object.keys(index.entries).length,entryStore:"\
-indexeddb",entries:{},readingKeys:index.readingKeys}}function clearAnkiStatusIndexStores(db){const tx=db.transaction([ANKI_STATUS_INDEX_META_STORE,ANKI_STATUS_INDEX_ENTRY_STORE],"readwrite");return tx.objectStore(
-ANKI_STATUS_INDEX_META_STORE).clear(),tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE).clear(),idbTransactionDone(tx)}function putAnkiStatusIndexMeta(db,meta){const tx=db.transaction(ANKI_STATUS_INDEX_META_STORE,"\
-readwrite");return tx.objectStore(ANKI_STATUS_INDEX_META_STORE).put(meta),idbTransactionDone(tx)}function putBestAnkiStatusIndexEntries(db,entries){if(!entries.length)return Promise.resolve();const tx=db.transaction(
+indexeddb",entries:{},readingKeys:index.readingKeys,dirtyAt:index.dirtyAt}}function clearAnkiStatusIndexStores(db){const tx=db.transaction([ANKI_STATUS_INDEX_META_STORE,ANKI_STATUS_INDEX_ENTRY_STORE],"readwrite");
+return tx.objectStore(ANKI_STATUS_INDEX_META_STORE).clear(),tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE).clear(),idbTransactionDone(tx)}function putAnkiStatusIndexMeta(db,meta){const tx=db.transaction(ANKI_STATUS_INDEX_META_STORE,
+"readwrite");return tx.objectStore(ANKI_STATUS_INDEX_META_STORE).put(meta),idbTransactionDone(tx)}function putBestAnkiStatusIndexEntries(db,entries){if(!entries.length)return Promise.resolve();const tx=db.transaction(
 ANKI_STATUS_INDEX_ENTRY_STORE,"readwrite"),store=tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);return entries.forEach(candidate=>{const request=store.get(candidate.key);request.onsuccess=()=>{const current=request.
 result?.entry;(!current||shouldReplaceAnkiStatusIndexEntry(current,candidate.entry))&&store.put(candidate)}}),idbTransactionDone(tx)}function countAnkiStatusIndexEntries(db){const tx=db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE,
 "readonly"),done=idbTransactionDone(tx);return idbRequest(tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE).count()).then(async value=>(await done,value))}function openAnkiStatusIndexDb(){return new Promise((resolve,reject)=>{
 const request=indexedDB.open(ANKI_STATUS_INDEX_DB_NAME,ANKI_STATUS_INDEX_DB_VERSION);request.onerror=()=>reject(request.error??new Error("Could not open Anki status index database.")),request.onblocked=()=>reject(
 new Error("Anki status index database upgrade was blocked.")),request.onupgradeneeded=()=>{const db=request.result;db.objectStoreNames.contains(ANKI_STATUS_INDEX_META_STORE)||db.createObjectStore(ANKI_STATUS_INDEX_META_STORE,
 {keyPath:"id"}),db.objectStoreNames.contains(ANKI_STATUS_INDEX_ENTRY_STORE)||db.createObjectStore(ANKI_STATUS_INDEX_ENTRY_STORE,{keyPath:"key"})},request.onsuccess=()=>{const db=request.result;db.onversionchange=
-()=>db.close(),resolve(db)}})}function canUseIndexedDb(){return typeof indexedDB<"u"}function statusIndexEntriesForNotes(notes,cardData,settings){const entries=new Map;for(const note of notes){const candidate=statusIndexEntryFromStatusData(
-note,cardData);for(const key of statusIndexKeysForNote(note,settings)){const current=entries.get(key);(!current||shouldReplaceAnkiStatusIndexEntry(current,candidate))&&entries.set(key,candidate)}}return[...entries].
-map(([key,entry])=>({key,entry}))}function statusIndexKeysForCard(card){const keys=noteCardExpressionTargets(card).map(statusIndexKey);return shouldUseStatusReadingKey(card)&&keys.push(statusIndexReadingKey(card.
-reading||card.spelling)),unique$2(keys)}function statusIndexEntryForCard(index,card,entries){return statusIndexKeysForCard(card).map(key=>entries?.get(key)??index.entries[key]).find(Boolean)??null}function statusIndexEntryFromStatusData(note,cardData){
-const noteCards=cardData.cardsByNote.get(note.noteId)??[];return noteCards.length?ankiStatusIndexEntryFromInfo(note,noteCards):statusIndexEntryFromStatusSets(note,cardData.sets)}function shouldReplaceAnkiStatusIndexEntry(current,candidate){
-return ankiCardStateRank(candidate.state)<ankiCardStateRank(current.state)}function putAnkiStatusIndexEntries(db,entries){const tx=db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE,"readwrite"),store=tx.objectStore(
-ANKI_STATUS_INDEX_ENTRY_STORE);return entries.forEach(entry=>store.put(entry)),idbTransactionDone(tx)}async function putStoredAnkiStatusIndexMeta(meta){if(!canUseIndexedDb())throw new Error("IndexedDB is unavai\
-lable.");const db=await openAnkiStatusIndexDb();try{await putAnkiStatusIndexMeta(db,meta)}finally{db.close()}}function idbRequest(request){return new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.
-result),request.onerror=()=>reject(request.error??new Error("IndexedDB request failed."))})}function idbTransactionDone(tx){return new Promise((resolve,reject)=>{tx.oncomplete=()=>resolve(),tx.onabort=()=>reject(
-tx.error??new Error("IndexedDB transaction aborted.")),tx.onerror=()=>reject(tx.error??new Error("IndexedDB transaction failed."))})}function isAnkiStatusIndexRebuildLease(value){if(!value||typeof value!="objec\
-t")return!1;const lease=value;return typeof lease.owner=="string"&&typeof lease.settingsKey=="string"&&typeof lease.startedAt=="number"&&typeof lease.expiresAt=="number"}function createAnkiStatusIndexRebuildLeaseOwner(){
+()=>db.close(),resolve(db)}})}function canUseIndexedDb(){return typeof indexedDB<"u"}function statusIndexEntriesForNotes(notes,cardData,settings,updatedAt){const entries=new Map;for(const note of notes){const candidate=statusIndexEntryFromStatusData(
+note,cardData,updatedAt);for(const key of statusIndexKeysForNote(note,settings)){const current=entries.get(key);(!current||shouldReplaceAnkiStatusIndexEntry(current,candidate))&&entries.set(key,candidate)}}return[
+...entries].map(([key,entry])=>({key,entry}))}function statusIndexKeysForCard(card){const keys=noteCardExpressionTargets(card).map(statusIndexKey);return shouldUseStatusReadingKey(card)&&keys.push(statusIndexReadingKey(
+card.reading||card.spelling)),unique$2(keys)}function statusIndexEntryForCard(index,card,entries){for(const key of statusIndexKeysForCard(card)){const entry=entries?.get(key)??index.entries[key];if(entry&&isAnkiStatusIndexEntryFreshForIndex(
+index,entry))return entry}return null}function statusIndexEntryFromStatusData(note,cardData,updatedAt){const noteCards=cardData.cardsByNote.get(note.noteId)??[],entry=noteCards.length?ankiStatusIndexEntryFromInfo(
+note,noteCards):statusIndexEntryFromStatusSets(note,cardData.sets);return updatedAt===void 0?entry:{...entry,updatedAt}}function shouldReplaceAnkiStatusIndexEntry(current,candidate){return sameAnkiStatusIndexEntryIdentity(
+current,candidate)?ankiStatusIndexEntryUpdatedAt(candidate)>=ankiStatusIndexEntryUpdatedAt(current):ankiCardStateRank(candidate.state)<ankiCardStateRank(current.state)}function sameAnkiStatusIndexEntryIdentity(current,candidate){
+return current.noteId===candidate.noteId||current.primaryCardId!==null&&current.primaryCardId===candidate.primaryCardId}function isAnkiStatusIndexEntryFreshForIndex(index,entry){return!index.dirtyAt||ankiStatusIndexEntryUpdatedAt(
+entry)>index.dirtyAt}function ankiStatusIndexEntryUpdatedAt(entry){return Number(entry.updatedAt)||0}function putAnkiStatusIndexEntries(db,entries){const tx=db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE,"readwri\
+te"),store=tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);return entries.forEach(entry=>store.put(entry)),idbTransactionDone(tx)}async function putStoredAnkiStatusIndexMeta(meta){if(!canUseIndexedDb())throw new Error(
+"IndexedDB is unavailable.");const db=await openAnkiStatusIndexDb();try{await putAnkiStatusIndexMeta(db,meta)}finally{db.close()}}function idbRequest(request){return new Promise((resolve,reject)=>{request.onsuccess=
+()=>resolve(request.result),request.onerror=()=>reject(request.error??new Error("IndexedDB request failed."))})}function idbTransactionDone(tx){return new Promise((resolve,reject)=>{tx.oncomplete=()=>resolve(),
+tx.onabort=()=>reject(tx.error??new Error("IndexedDB transaction aborted.")),tx.onerror=()=>reject(tx.error??new Error("IndexedDB transaction failed."))})}function isAnkiStatusIndexRebuildLease(value){if(!value||
+typeof value!="object")return!1;const lease=value;return typeof lease.owner=="string"&&typeof lease.settingsKey=="string"&&typeof lease.startedAt=="number"&&typeof lease.expiresAt=="number"}function createAnkiStatusIndexRebuildLeaseOwner(){
 return typeof crypto<"u"&&typeof crypto.randomUUID=="function"?crypto.randomUUID():`${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`}function statusIndexKey(value){return normalizeFieldValue(value).
 toLocaleLowerCase()}function statusIndexReadingKey(value){return`${ANKI_STATUS_INDEX_READING_KEY_PREFIX}${statusIndexKey(value)}`}function statusIndexKeysForNote(note,settings){const fields=flattenNoteFields(note.
 fields),mapping=ankiFieldMappingForModel(settings,note.modelName,Object.keys(fields)),keys=new Set;return addStatusIndexKeys(keys,statusIndexFieldValues(fields,mapping),statusIndexKey,2),addStatusIndexKeys(keys,
@@ -2428,12 +2434,12 @@ noteIds,rebuild.cardData,rebuild.allCardIds.length,rebuild.now,rebuild.settings,
 to value storage",error),null)):null}async rebuildStatusIndexToValueStorage(rebuild){const{allCardIds,cardData,noteIds,now,rebuildLeaseOwner,settings,settingsKey}=rebuild,noteChunks=chunkArray(noteIds,ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE),
 notesByChunk=Array.from({length:noteChunks.length},()=>[]);await runLimited(noteChunks,ANKI_STATUS_INDEX_NOTE_CONCURRENCY,async(chunk,index2)=>{notesByChunk[index2]=await this.invokeOrDefault("notesInfo",{notes:chunk},
 []),this.touchStatusIndexRebuildLease(rebuildLeaseOwner,settingsKey)});const notes=notesByChunk.flat();if(this.isDestroyed)return null;const entries={};for(const{key,entry}of statusIndexEntriesForNotes(notes,cardData,
-settings))entries[key]=entry;const index={version:ANKI_STATUS_INDEX_VERSION,settingsKey,syncedAt:now,checkedAt:now,cardCount:allCardIds.length,entryCount:Object.keys(entries).length,entries,readingKeys:!0};return this.
-statusIndex=index,this.statusLookupCache.clear(),await saveAnkiStatusIndex(index),index}async rebuildStatusIndexToIndexedDb(noteIds,cardData,cardCount,now,settings,settingsKey,rebuildLeaseOwner){if(this.isDestroyed)
-return null;const db=await openAnkiStatusIndexDb();try{await clearAnkiStatusIndexStores(db);const noteChunks=chunkArray(noteIds,ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE);let writeQueue=Promise.resolve();if(await runLimited(
+settings,now))entries[key]=entry;const index={version:ANKI_STATUS_INDEX_VERSION,settingsKey,syncedAt:now,checkedAt:now,cardCount:allCardIds.length,entryCount:Object.keys(entries).length,entries,readingKeys:!0};
+return this.statusIndex=index,this.statusLookupCache.clear(),await saveAnkiStatusIndex(index),index}async rebuildStatusIndexToIndexedDb(noteIds,cardData,cardCount,now,settings,settingsKey,rebuildLeaseOwner){if(this.
+isDestroyed)return null;const db=await openAnkiStatusIndexDb();try{await clearAnkiStatusIndexStores(db);const noteChunks=chunkArray(noteIds,ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE);let writeQueue=Promise.resolve();if(await runLimited(
 noteChunks,ANKI_STATUS_INDEX_NOTE_CONCURRENCY,async chunk=>{const notes=await this.invokeOrDefault("notesInfo",{notes:chunk},[]);if(this.isDestroyed)return;rebuildLeaseOwner&&touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner,
-settingsKey);const entries=statusIndexEntriesForNotes(notes,cardData,settings);entries.length&&(writeQueue=writeQueue.then(()=>putBestAnkiStatusIndexEntries(db,entries)),await writeQueue)}),await writeQueue,this.
-isDestroyed)return null;const entryCount=await countAnkiStatusIndexEntries(db),index={version:ANKI_STATUS_INDEX_VERSION,settingsKey,syncedAt:now,checkedAt:now,cardCount,entryCount,entryStore:"indexeddb",entries:{},
+settingsKey);const entries=statusIndexEntriesForNotes(notes,cardData,settings,now);entries.length&&(writeQueue=writeQueue.then(()=>putBestAnkiStatusIndexEntries(db,entries)),await writeQueue)}),await writeQueue,
+this.isDestroyed)return null;const entryCount=await countAnkiStatusIndexEntries(db),index={version:ANKI_STATUS_INDEX_VERSION,settingsKey,syncedAt:now,checkedAt:now,cardCount,entryCount,entryStore:"indexeddb",entries:{},
 readingKeys:!0};return await putAnkiStatusIndexMeta(db,ankiStatusIndexMeta(index)),await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY,ankiStatusIndexMeta(index)),this.statusIndex=index,this.statusLookupCache.clear(),
 index}finally{db.close()}}async loadStatusIndexCardData(allCardIds,rebuildLeaseOwner,settingsKey){const sets=await this.loadStatusIndexCardSets(allCardIds);return rebuildLeaseOwner&&touchAnkiStatusIndexRebuildLease(
 rebuildLeaseOwner,settingsKey),{sets,cardsByNote:new Map}}async loadStatusIndexCardSets(allCardIds){const all=new Set(unique$1(allCardIds).map(Number).filter(Number.isFinite));if(!all.size)return{all,due:new Set,
@@ -2465,10 +2471,10 @@ this.emptyLookupResultsForGroups(groups,fallback):(await this.rememberStatusInde
 const results=new Map;for(const{cacheKey}of groups){const existing=(matchingNotesByKey.get(cacheKey)??[]).map(note=>this.statusOnlyExistingNote(ankiExistingNoteFromInfo(note,cardsByNote.get(note.noteId)??[])));
 results.set(cacheKey,lookupResultFromExistingNotes(existing,emptyAnkiLookupResult$1()))}return results}statusOnlyExistingNote(note){return{noteId:note.noteId,modelName:note.modelName,deckNames:note.deckNames,cardIds:note.
 cardIds,primaryCardId:note.primaryCardId,state:note.state,fields:{},tags:[],reps:note.reps,lapses:note.lapses}}async rememberStatusIndexNotes(notes,cardsByNote){if(!notes.length||this.isDestroyed)return;const settings=this.
-getSettings(),settingsKey=this.statusIndexSettingsKey(settings),entries=this.rememberedStatusIndexEntries(notes,cardsByNote,settings);if(!entries.length||this.isDestroyed)return;const now=Date.now(),current=this.
+getSettings(),settingsKey=this.statusIndexSettingsKey(settings),now=Date.now(),entries=this.rememberedStatusIndexEntries(notes,cardsByNote,settings,now);if(!entries.length||this.isDestroyed)return;const current=this.
 validStatusIndex(await this.loadStatusIndex()),base=await this.baseStatusIndexForRememberedNotes(current,settingsKey,now),checkedAt=Math.max(base.checkedAt,now);if(this.shouldRememberStatusIndexEntriesInIndexedDb(
-base,current)){await this.rememberIndexedDbStatusIndexEntries({...base,checkedAt,entryStore:"indexeddb",entries:{}},entries);return}await this.rememberValueStatusIndexEntries(base,checkedAt,entries)}rememberedStatusIndexEntries(notes,cardsByNote,settings){
-return statusIndexEntriesForNotes(notes,{cardsByNote,sets:emptyAnkiStatusIndexCardSets()},settings)}async baseStatusIndexForRememberedNotes(current,settingsKey,now){return current||{version:ANKI_STATUS_INDEX_VERSION,
+base,current)){await this.rememberIndexedDbStatusIndexEntries({...base,checkedAt,entryStore:"indexeddb",entries:{}},entries);return}await this.rememberValueStatusIndexEntries(base,checkedAt,entries)}rememberedStatusIndexEntries(notes,cardsByNote,settings,updatedAt){
+return statusIndexEntriesForNotes(notes,{cardsByNote,sets:emptyAnkiStatusIndexCardSets()},settings,updatedAt)}async baseStatusIndexForRememberedNotes(current,settingsKey,now){return current||{version:ANKI_STATUS_INDEX_VERSION,
 settingsKey,syncedAt:0,checkedAt:now,cardCount:await this.collectionCardCountFromDeckStats()??0,entryCount:0,entries:{},readingKeys:!0}}shouldRememberStatusIndexEntriesInIndexedDb(base,current){return base.entryStore===
 "indexeddb"||!current&&canUseIndexedDb()}async rememberValueStatusIndexEntries(base,checkedAt,entries){const mergedEntries={...base.entries};for(const candidate of entries){const currentEntry=mergedEntries[candidate.
 key];(!currentEntry||shouldReplaceAnkiStatusIndexEntry(currentEntry,candidate.entry))&&(mergedEntries[candidate.key]=candidate.entry)}const index={...base,checkedAt,entryCount:Object.keys(mergedEntries).length,
@@ -2519,9 +2525,9 @@ statusLookupCache.delete(cacheKey),!noteId){this.lookupCache.delete(cacheKey);re
 primary:pickPrimaryExistingNote(existing)};this.writeLookupCache(cacheKey,result),this.writeStatusLookupCache(cacheKey,result),this.markStatusIndexDirtyAfterMutation("add")}catch(error){log$r.warn("Anki lookup \
 refresh after add failed",{term:card.spelling,noteId},error),this.lookupCache.delete(cacheKey),this.statusLookupCache.delete(cacheKey),this.markStatusIndexDirtyAfterMutation("add")}}clearLookupCachesForCard(card){
 const cacheKey=this.lookupCacheKey(card);this.lookupCache.delete(cacheKey),this.statusLookupCache.delete(cacheKey)}markStatusIndexDirtyAfterMutation(reason){const dirtyLoadedIndex=index=>{const valid=this.validStatusIndex(
-index);if(!valid)return!1;const dirty={...valid,syncedAt:0,checkedAt:0};return this.statusIndex=dirty,saveAnkiStatusIndexDirtyMarker(dirty).catch(error=>{log$r.warn("Anki status index dirty marker failed",{reason},
-error)}).finally(()=>{this.isDestroyed||this.queueStatusIndexRefresh()}),!0};if(this.statusIndex!==void 0){dirtyLoadedIndex(this.statusIndex);return}this.loadStatusIndex().then(index=>{this.isDestroyed||dirtyLoadedIndex(
-index)}).catch(error=>{log$r.warn("Anki status index dirty marker failed",{reason},error)})}addCardWithFallback(error,settings,note,card){if(!canUseMobileAnkiHandoff(settings)||!isMobileHandoffRecoverableAddError(
+index);if(!valid)return!1;const dirty={...valid,syncedAt:0,checkedAt:0,dirtyAt:Date.now()};return this.statusIndex=dirty,saveAnkiStatusIndexDirtyMarker(dirty).catch(error=>{log$r.warn("Anki status index dirty m\
+arker failed",{reason},error)}).finally(()=>{this.isDestroyed||this.queueStatusIndexRefresh()}),!0};if(this.statusIndex!==void 0){dirtyLoadedIndex(this.statusIndex);return}this.loadStatusIndex().then(index=>{this.
+isDestroyed||dirtyLoadedIndex(index)}).catch(error=>{log$r.warn("Anki status index dirty marker failed",{reason},error)})}addCardWithFallback(error,settings,note,card){if(!canUseMobileAnkiHandoff(settings)||!isMobileHandoffRecoverableAddError(
 error))throw error;if(log$r.warn("AnkiConnect add failed; trying mobile handoff",{term:card.spelling},error),!openMobileAnkiHandoff(retargetAnkiNoteForMobileHandoff(note,settings)))throw new Error(this.text("an\
 kiHandoffCancelled"));return null}async ensureDeckAndModel(deckOverride){const settings=this.getSettings(),deckName=resolvedAnkiDeckName(deckOverride,settings),modelName=resolvedAnkiModelName(settings);await this.
 ensureDeck(deckName);const modelNames=await this.modelNames().catch(()=>[]);await this.ensureYomuModel(modelNames,modelName,settings)}async ensureDeck(deckName){await this.invokeOrDefault("createDeck",{deck:deckName},
@@ -2600,13 +2606,13 @@ return[];const image=imageFromDataUrl(options.imageDataUrl,card);return image?[{
 audioMergeMode==="ours"&&(fields[audio[0].fields[0]]=""),picture.length&&canOwnYomuFields&&(fields[picture[0].fields[0]]="")}function mediaFieldName(fieldNames,preferredNames){const exact=preferredNames.find(name=>fieldNames.
 includes(name));if(exact)return exact;const preferredLower=new Set(preferredNames.map(name=>name.toLowerCase()));return fieldNames.find(name=>preferredLower.has(name.toLowerCase()))??""}function retargetMediaFiles(files,fieldName){
 return files.map(file=>({...file,fields:[fieldName]}))}function audioFilesFromContext(options,card){const files=[audioFromMedia({dataUrl:options.wordAudioDataUrl,url:options.wordAudioUrl,kind:"word"},card),audioFromMedia(
-{dataUrl:options.audioDataUrl,url:options.audioUrl,kind:"context"},card)].filter(file=>!!file);return uniqueAnkiAudioFiles(files)}function audioFromMedia(media,card){return(media.dataUrl?audioFromDataUrl(media.
-dataUrl,card,media.kind):null)||(media.url?audioFromUrl(media.url,card,media.kind):null)}function audioFromDataUrl(dataUrl,card,kind){const parsed=parseAnkiAudioDataUrl(dataUrl);return parsed?{filename:`yomu_${safeAnkiMediaName(
-card)}_${kind}_${Date.now()}.${parsed.extension}`,data:parsed.data,fields:["Audio"]}:null}function audioFromUrl(url,card,kind){const cleanUrl=url.trim();return/^https?:\/\//i.test(cleanUrl)?{filename:`yomu_${safeAnkiMediaName(
-card)}_${kind}_${Date.now()}${audioUrlExtension(cleanUrl)}`,url:cleanUrl,fields:["Audio"]}:null}function uniqueAnkiAudioFiles(files){const seen=new Set;return files.filter(file=>{const key=file.data?`data:${file.
-data}`:`url:${file.url??""}`;return seen.has(key)?!1:(seen.add(key),!0)})}function parseAnkiImageDataUrl(dataUrl){const match=/^data:image\/(png|jpeg|jpg|webp|svg\+xml)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);return match?
-{extension:ankiImageExtension(match[1]),data:match[2]}:null}function parseAnkiAudioDataUrl(dataUrl){const match=/^data:audio\/([a-z0-9.+-]+)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);return match?{extension:ankiAudioExtension(
-match[1]),data:match[2]}:null}const ANKI_IMAGE_EXTENSION_ALIASES={jpeg:"jpg","svg+xml":"svg"};function ankiImageExtension(rawExtension){const extension=rawExtension.toLowerCase();return ANKI_IMAGE_EXTENSION_ALIASES[extension]??
+{dataUrl:options.audioDataUrl,url:options.audioUrl,kind:"context"},card)].filter(file=>!!file);return uniqueAnkiAudioFiles(files)}function audioFromMedia(media,card){const fromData=media.dataUrl?audioFromDataUrl(
+media.dataUrl,card,media.kind):null;return fromData||(media.url?audioFromUrl(media.url,card,media.kind):null)}function audioFromDataUrl(dataUrl,card,kind){const parsed=parseAnkiAudioDataUrl(dataUrl);return parsed?
+{filename:`yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}.${parsed.extension}`,data:parsed.data,fields:["Audio"]}:null}function audioFromUrl(url,card,kind){const cleanUrl=url.trim();return/^https?:\/\//i.
+test(cleanUrl)?{filename:`yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}${audioUrlExtension(cleanUrl)}`,url:cleanUrl,fields:["Audio"]}:null}function uniqueAnkiAudioFiles(files){const seen=new Set;return files.
+filter(file=>{const key=file.data?`data:${file.data}`:`url:${file.url??""}`;return seen.has(key)?!1:(seen.add(key),!0)})}function parseAnkiImageDataUrl(dataUrl){const match=/^data:image\/(png|jpeg|jpg|webp|svg\+xml)(?:;[^,]*)?;base64,(.+)$/i.
+exec(dataUrl);return match?{extension:ankiImageExtension(match[1]),data:match[2]}:null}function parseAnkiAudioDataUrl(dataUrl){const match=/^data:audio\/([a-z0-9.+-]+)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);return match?
+{extension:ankiAudioExtension(match[1]),data:match[2]}:null}const ANKI_IMAGE_EXTENSION_ALIASES={jpeg:"jpg","svg+xml":"svg"};function ankiImageExtension(rawExtension){const extension=rawExtension.toLowerCase();return ANKI_IMAGE_EXTENSION_ALIASES[extension]??
 extension}const ANKI_AUDIO_EXTENSION_ALIASES={mpeg:"mp3",mp3:"mp3",wav:"wav",wave:"wav","x-wav":"wav",ogg:"ogg",oga:"ogg",webm:"webm",mp4:"mp4",aac:"aac",flac:"flac"};function ankiAudioExtension(rawExtension){return ANKI_AUDIO_EXTENSION_ALIASES[rawExtension.
 toLowerCase()]??"mp3"}function audioUrlExtension(url){try{const pathname=new URL(url,location.href).pathname,match=/\.([a-z0-9]+)$/i.exec(pathname);if(match)return`.${ankiAudioExtension(match[1])}`}catch{}return"\
 .mp3"}function safeAnkiMediaName(card){return card.spelling.replace(/[^\p{L}\p{N}-]+/gu,"_").slice(0,24)||"yomu"}function isMobileAnkiHandoffEnvironment(){const userAgent=typeof navigator>"u"?"":navigator.userAgent;
@@ -2738,9 +2744,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
 `}function renderJpdbMeanings(card){return card.meanings.slice(0,8).map(meaning=>{const pos=formatPartOfSpeech(meaning.partOfSpeech);return`<div class="yomu-definition">
 ${pos?`<span class="yomu-pos">${escapeHtml$1(pos)}</span>`:""}
 <div>${escapeHtml$1(meaning.glosses.join("; "))}</div>
-</div>`}).join("")}function renderSentence(sentence,expression){return sentence?!expression||!sentence.includes(expression)?escapeHtml$1(sentence):sentence.split(expression).map(part=>escapeHtml$1(part)).join(`\
-<span class="yomu-highlight">${escapeHtml$1(expression)}</span>`):""}function renderDictionaryDefinitions(entries,preferences){return Array.from(groupTermEntriesByDictionary(entries).entries()).slice(0,6).map(([
-dictionary,items])=>`
+</div>`}).join("")}function renderSentence(sentence,expression){return sentence?!expression||!sentence.includes(expression)?escapeHtml$1(sentence):sentence.split(expression).map(part=>escapeHtml$1(part)).
+join(`<span class="yomu-highlight">${escapeHtml$1(expression)}</span>`):""}function renderDictionaryDefinitions(entries,preferences){return Array.from(groupTermEntriesByDictionary(entries).entries()).slice(0,6).
+map(([dictionary,items])=>`
 <div class="yomu-dict-group">
 <h3 class="yomu-dict-label">${escapeHtml$1(dictionaryLabel(dictionary,preferences))}</h3>
 ${items.slice(0,6).map(entry=>`
@@ -2754,8 +2760,8 @@ ${entry.definitionTags||entry.rules||entry.termTags?`<span class="yomu-tags">${e
 </div>
 `).join("")}
 </div>
-`).join("")}function renderKanjiDefinitions$1(entries,preferences,language){const byCharacter=new Map;for(const entry of entries){const group=byCharacter.get(entry.character)??[];group.push(entry),byCharacter.set(
-entry.character,group)}return Array.from(byCharacter.entries()).slice(0,8).map(([character,items])=>`
+`).join("")}function renderKanjiDefinitions$1(entries,preferences,language){const byCharacter=new Map;for(const entry of entries){const group=byCharacter.get(entry.character)??[];group.push(entry),byCharacter.
+set(entry.character,group)}return Array.from(byCharacter.entries()).slice(0,8).map(([character,items])=>`
 <div class="yomu-kanji-entry">
 <div class="yomu-dict-head">
 <span class="yomu-kanji-char">${escapeHtml$1(character)}</span>
@@ -2794,8 +2800,9 @@ return typeof document>"u"?"":document.title}function externalLinkIcon(){return`
 <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
 </svg>`}const POPOVER_ANKI_SANITIZE={maxFontPx:30,maxFontPt:22,maxFontRelative:1.8},CONTEXT_SOURCE_LABEL_KEYS={video:"contextVideo",image:"contextImage"};function renderAnkiActionRow(ankiLookup,settings){if(!settings.
 ankiEnabled||ankiLookup.primary||ankiLookup.state!=="not-in-deck")return"";const mobileHandoff=shouldRenderMobileAnkiHandoffAction(ankiLookup,settings);if(!mobileHandoff&&ankiLookup.trusted===!1)return"";const label=mobileHandoff?
-formatUiText(settings.interfaceLanguage,"sendToMobileAnki",{app:mobileAnkiHandoffAppName()}):uiText(settings.interfaceLanguage,"addToAnki");return`<div class="jpdb-reader-row" style="--cols: 1"><button class="j\
-pdb-reader-btn anki" data-action="anki">${escapeHtml$1(label)}</button></div>`}function shouldRenderMobileAnkiHandoffAction(ankiLookup,settings){return canUseMobileAnkiHandoff(settings)&&!ankiLookup.primary}function renderAnkiExistingSection(ankiLookup,storedContext,settings){
+mobileAnkiHandoffButtonLabel(settings.interfaceLanguage):uiText(settings.interfaceLanguage,"addToAnki");return`<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="an\
+ki">${escapeHtml$1(label)}</button></div>`}function mobileAnkiHandoffButtonLabel(language){const app=mobileAnkiHandoffAppName();return language==="ja"?formatUiText(language,"sendToMobileAnki",{app}):["Send","to",
+app].join(" ")}function shouldRenderMobileAnkiHandoffAction(ankiLookup,settings){return canUseMobileAnkiHandoff(settings)&&!ankiLookup.primary}function renderAnkiExistingSection(ankiLookup,storedContext,settings){
 if(!settings.ankiSectionEnabled)return"";const notes=orderedExistingAnkiNotes(ankiLookup),primary=notes[0];if(!primary)return"";const language=settings.interfaceLanguage,summary=ankiExistingSectionSummary(primary,
 notes.length,language);return`
 <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" open>
@@ -2806,8 +2813,8 @@ notes.length,language);return`
 ${notes.length>1?renderAnkiCollisionSummary(notes,language):""}
 ${notes.length===1?renderAnkiExistingNote(primary,storedContext,settings,!1,!0):notes.map((note,index)=>renderAnkiExistingNote(note,index===0?storedContext:null,settings,!0,index===0)).join("")}
 </details>
-`}function renderAnkiNewCardPreview(card,sentence,settings,context={}){if(!settings.ankiEnabled||!settings.ankiSectionEnabled)return"";const fields=buildYomuAnkiPreviewFields(card,sentence??card.sentence??"",settings,
-context),fieldPreview=renderAnkiPreviewFields(fields,settings.interfaceLanguage,{renderHtml:!0});return fieldPreview?`
+`}function renderAnkiNewCardPreview(card,sentence,settings,context={}){if(!settings.ankiEnabled||!settings.ankiSectionEnabled)return"";const fields=buildYomuAnkiPreviewFields(card,sentence??card.sentence??"",
+settings,context),fieldPreview=renderAnkiPreviewFields(fields,settings.interfaceLanguage,{renderHtml:!0});return fieldPreview?`
 <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing jpdb-reader-anki-new">
 <summary class="jpdb-reader-local-title">
 <span><span class="jpdb-reader-state-dot anki-not-in-deck"></span>Anki</span>
@@ -2817,17 +2824,17 @@ context),fieldPreview=renderAnkiPreviewFields(fields,settings.interfaceLanguage,
 ${fieldPreview}
 </div>
 </details>
-`:""}function orderedExistingAnkiNotes(ankiLookup){const notes=[],seen=new Set;return appendUniqueAnkiNote(notes,seen,ankiLookup.primary),(ankiLookup.notes??[]).forEach(note=>appendUniqueAnkiNote(notes,seen,note)),
-notes}function appendUniqueAnkiNote(notes,seen,note){if(!note)return;const key=ankiNoteKey(note);seen.has(key)||(seen.add(key),notes.push(note))}function ankiNoteKey(note){return Number.isFinite(note.noteId)&&note.
-noteId>0?`note:${note.noteId}`:`${note.modelName}:${note.primaryCardId||note.cardIds.join(",")}:${note.deckNames.join(",")}`}function ankiExistingSectionSummary(primary,count,language){const summary=ankiExistingSummary(
+`:""}function orderedExistingAnkiNotes(ankiLookup){const notes=[],seen=new Set;return appendUniqueAnkiNote(notes,seen,ankiLookup.primary),(ankiLookup.notes??[]).forEach(note=>appendUniqueAnkiNote(notes,seen,
+note)),notes}function appendUniqueAnkiNote(notes,seen,note){if(!note)return;const key=ankiNoteKey(note);seen.has(key)||(seen.add(key),notes.push(note))}function ankiNoteKey(note){return Number.isFinite(note.noteId)&&
+note.noteId>0?`note:${note.noteId}`:`${note.modelName}:${note.primaryCardId||note.cardIds.join(",")}:${note.deckNames.join(",")}`}function ankiExistingSectionSummary(primary,count,language){const summary=ankiExistingSummary(
 primary,language);return count>1?`${summary} · ${count} matches`:summary}function renderAnkiCollisionSummary(notes,language){return`<div class="jpdb-reader-anki-match-summary" aria-label="${escapeHtml$1(uiText(
 language,"ankiMatches"))}">
 ${notes.map(note=>`<div class="jpdb-reader-anki-match-summary-row">
 <span><span class="jpdb-reader-state-dot anki-${note.state}"></span>${escapeHtml$1(ankiNoteIdentityLabel(note,language))}</span>
 <small>${escapeHtml$1(ankiExistingSummary(note,language))}</small>
 </div>`).join("")}
-</div>`}function renderAnkiExistingNote(note,storedContext,settings,collapsible,open){const language=settings.interfaceLanguage,preview=ankiExistingPreview(note,storedContext,language),content=`<div class="jpdb\
--reader-anki-existing-note-body">
+</div>`}function renderAnkiExistingNote(note,storedContext,settings,collapsible,open){const language=settings.interfaceLanguage,preview=ankiExistingPreview(note,storedContext,language),content=`<div class="\
+jpdb-reader-anki-existing-note-body">
 ${preview.renderedCard}
 ${preview.fields}
 ${preview.pending}
@@ -2842,47 +2849,48 @@ ${settings.enableReviews&&note.primaryCardId?renderReviewButtons(settings,note,{
 ${content}
 </details>`:`<div class="jpdb-reader-local-entry jpdb-reader-anki-card-preview" data-anki-note-id="${note.noteId}">
 ${content}
-</div>`}function ankiNewCardSummary(settings){return[uiText(settings.interfaceLanguage,"ankiNewCard"),settings.ankiDeck.trim()||"よむ",settings.ankiModel.trim()||"よむ Japanese"].filter(Boolean).join(" · ")}
-function ankiExistingPreview(note,storedContext,language){const renderedCard=renderAnkiRenderedCard(note,language),fields=renderedCard?"":renderAnkiStoredFieldsFallback(note,language);return{summary:ankiExistingSummary(
+</div>`}function ankiNewCardSummary(settings){return[uiText(settings.interfaceLanguage,"ankiNewCard"),settings.ankiDeck.trim()||"よむ",settings.ankiModel.trim()||"よむ Japanese"].filter(Boolean).join(" \
+· ")}function ankiExistingPreview(note,storedContext,language){const renderedCard=renderAnkiRenderedCard(note,language),fields=renderedCard?"":renderAnkiStoredFieldsFallback(note,language);return{summary:ankiExistingSummary(
 note,language),renderedCard,fields,pending:renderedCard||fields?"":renderAnkiDetailsStatus(note,language),context:storedContext?renderLastMiningContext(storedContext,language):""}}function renderAnkiDetailsStatus(note,language){
 const key=note.detailsUnavailable?"ankiCardDetailsUnavailable":"ankiCardDetailsPending";return`<div class="jpdb-reader-help jpdb-reader-anki-details-pending" role="status">${escapeHtml$1(uiText(language,key))}<\
 /div>`}function renderAnkiStoredFieldsFallback(note,language){const fields=renderAnkiFields(note,language);return fields?`<details class="jpdb-reader-anki-stored-fields" open>
 <summary>${escapeHtml$1(uiText(language,"ankiStoredFields"))}</summary>
 ${fields}
-</details>`:""}function ankiExistingSummary(note,language){return[ankiStateLabel(note.state,language),note.deckNames.length?note.deckNames.join(", "):"",ankiReviewMetricsLabel(note,language)].filter(Boolean).join(
-" · ")||"Anki"}function ankiNoteIdentityLabel(note,language){return[note.deckNames.length?note.deckNames.join(", "):"",note.modelName,ankiNoteKindLabel(note,language)].filter(Boolean).join(" · ")||"Anki"}function ankiNoteKindLabel(note,language){
-const fields=Object.keys(note.fields).map(name=>name.replace(/[_\s-]+/g,"").toLowerCase()),model=note.modelName.replace(/[_\s-]+/g,"").toLowerCase();return fields.some(name=>/^(?:kanji|keyword|onyomi|kunyomi|on|kun|heisig|frame(?:no|number)?|stroke(?:order|diagram|count)?)$/.
-test(name))||/(?:rtk|heisig|kanji)/.test(model)?uiText(language,"kanji"):fields.some(name=>/^(?:katakana|hiragana|kana|mnemonic)$/.test(name))?language==="ja"?"かな":"Kana":fields.some(name=>/sentence|selectiontext|contextsentence/.
-test(name))?language==="ja"?"文":"Sentence":uiText(language,"word")}function ankiReviewMetricsLabel(note,language){return[note.reps?`${note.reps} ${uiText(language,note.reps===1?"ankiReviewSingular":"ankiRevie\
-wPlural")}`:"",note.lapses?`${note.lapses} ${uiText(language,note.lapses===1?"ankiLapseSingular":"ankiLapsePlural")}`:""].filter(Boolean).join(", ")}function ankiStateLabel(state,language){const key=ANKI_STATE_LABEL_KEYS[state];
-return key?uiText(language,key):state}function renderAnkiRenderedCard(note,language){const cards=orderedRenderedCards(note);return cards.length?cards.map((card,index)=>renderAnkiRenderedCardPreview(note,card,language,
-cards.length>1,index)).join(""):""}function renderAnkiRenderedCardPreview(note,card,language,showHeading,index){const soundFilenames=ankiSoundFilenames(note),sides=renderAnkiRenderedSides(card,soundFilenames,language);
-if(!sides.length)return"";const content=sides.join("");return showHeading?`<details class="jpdb-reader-anki-rendered-card" data-anki-rendered-card-id="${card.cardId}"${index===0?" open":""}>
+</details>`:""}function ankiExistingSummary(note,language){return[ankiStateLabel(note.state,language),note.deckNames.length?note.deckNames.join(", "):"",ankiReviewMetricsLabel(note,language)].filter(Boolean).
+join(" · ")||"Anki"}function ankiNoteIdentityLabel(note,language){return[note.deckNames.length?note.deckNames.join(", "):"",note.modelName,ankiNoteKindLabel(note,language)].filter(Boolean).join(" · ")||"Anki"}
+function ankiNoteKindLabel(note,language){const fields=Object.keys(note.fields).map(name=>name.replace(/[_\s-]+/g,"").toLowerCase()),model=note.modelName.replace(/[_\s-]+/g,"").toLowerCase();return fields.some(
+name=>/^(?:kanji|keyword|onyomi|kunyomi|on|kun|heisig|frame(?:no|number)?|stroke(?:order|diagram|count)?)$/.test(name))||/(?:rtk|heisig|kanji)/.test(model)?uiText(language,"kanji"):fields.some(name=>/^(?:katakana|hiragana|kana|mnemonic)$/.
+test(name))?language==="ja"?"かな":"Kana":fields.some(name=>/sentence|selectiontext|contextsentence/.test(name))?language==="ja"?"文":"Sentence":uiText(language,"word")}function ankiReviewMetricsLabel(note,language){
+return[note.reps?`${note.reps} ${uiText(language,note.reps===1?"ankiReviewSingular":"ankiReviewPlural")}`:"",note.lapses?`${note.lapses} ${uiText(language,note.lapses===1?"ankiLapseSingular":"ankiLapsePlural")}`:
+""].filter(Boolean).join(", ")}function ankiStateLabel(state,language){const key=ANKI_STATE_LABEL_KEYS[state];return key?uiText(language,key):state}function renderAnkiRenderedCard(note,language){const cards=orderedRenderedCards(
+note);return cards.length?cards.map((card,index)=>renderAnkiRenderedCardPreview(note,card,language,cards.length>1,index)).join(""):""}function renderAnkiRenderedCardPreview(note,card,language,showHeading,index){
+const soundFilenames=ankiSoundFilenames(note),sides=renderAnkiRenderedSides(card,soundFilenames,language);if(!sides.length)return"";const content=sides.join("");return showHeading?`<details class="jpdb-reader-a\
+nki-rendered-card" data-anki-rendered-card-id="${card.cardId}"${index===0?" open":""}>
 <summary class="jpdb-reader-anki-rendered-card-title">${escapeHtml$1(renderedCardTitle(card,index))}</summary>
 ${content}
-</details>`:`<div class="jpdb-reader-anki-rendered-card" data-anki-rendered-card-id="${card.cardId}">${content}</div>`}function orderedRenderedCards(note){const cards=note.renderedCards??[],primary=cards.find(card=>card.
-cardId===note.primaryCardId);return primary?[primary,...cards.filter(card=>card.cardId!==primary.cardId)]:cards}function renderedCardTitle(card,index){return[card.deckName,`#${card.cardId||index+1}`].filter(Boolean).
-join(" ")}function renderAnkiRenderedSides(card,soundFilenames,language,options=POPOVER_ANKI_SANITIZE){const questionHtml=sanitizeAnkiCardHtml(card.question,soundFilenames,language,card.mediaDataUrls,options),answerHtml=sanitizeAnkiCardHtml(
-card.answer,soundFilenames,language,card.mediaDataUrls,options),question=renderAnkiRenderedSideBody(questionHtml),answer=renderAnkiRenderedSideBody(answerHtml);return question?answer?renderedAnkiAnswerIncludesQuestion(
-questionHtml,answerHtml)?[answer]:[question,answer]:[question]:answer?[answer]:[]}function renderAnkiRenderedSideBody(html){return!html||!hasRenderableAnkiCardContent(html)?"":`<section class="jpdb-reader-anki-\
-rendered-side">
+</details>`:`<div class="jpdb-reader-anki-rendered-card" data-anki-rendered-card-id="${card.cardId}">${content}</div>`}function orderedRenderedCards(note){const cards=note.renderedCards??[],primary=cards.find(
+card=>card.cardId===note.primaryCardId);return primary?[primary,...cards.filter(card=>card.cardId!==primary.cardId)]:cards}function renderedCardTitle(card,index){return[card.deckName,`#${card.cardId||index+1}`].
+filter(Boolean).join(" ")}function renderAnkiRenderedSides(card,soundFilenames,language,options=POPOVER_ANKI_SANITIZE){const questionHtml=sanitizeAnkiCardHtml(card.question,soundFilenames,language,card.mediaDataUrls,
+options),answerHtml=sanitizeAnkiCardHtml(card.answer,soundFilenames,language,card.mediaDataUrls,options),question=renderAnkiRenderedSideBody(questionHtml),answer=renderAnkiRenderedSideBody(answerHtml);return question?
+answer?renderedAnkiAnswerIncludesQuestion(questionHtml,answerHtml)?[answer]:[question,answer]:[question]:answer?[answer]:[]}function renderAnkiRenderedSideBody(html){return!html||!hasRenderableAnkiCardContent(html)?
+"":`<section class="jpdb-reader-anki-rendered-side">
 <div class="jpdb-reader-anki-rendered-side-body jpdb-reader-parseable">${html}</div>
-</section>`}function renderedAnkiAnswerIncludesQuestion(questionHtml,answerHtml){const question=normalizedAnkiRenderedText(questionHtml),answer=normalizedAnkiRenderedText(answerHtml);return!question||!answer?!1:
-answer===question?!0:answer.startsWith(question)?!!answer.slice(question.length).trim():!1}function normalizedAnkiRenderedText(html){if(typeof document>"u")return html.replace(/\s+/g," ").trim();const template=document.
+</section>`}function renderedAnkiAnswerIncludesQuestion(questionHtml,answerHtml){const question=normalizedAnkiRenderedText(questionHtml),answer=normalizedAnkiRenderedText(answerHtml);return!question||!answer?
+!1:answer===question?!0:answer.startsWith(question)?!!answer.slice(question.length).trim():!1}function normalizedAnkiRenderedText(html){if(typeof document>"u")return html.replace(/\s+/g," ").trim();const template=document.
 createElement("template");return template.innerHTML=html,template.content.textContent?.replace(/\s+/g," ").trim()??""}function hasRenderableAnkiCardContent(html){if(typeof document>"u")return!!html.trim();const template=document.
 createElement("template");return template.innerHTML=html,template.content.textContent?.replace(/\s+/g," ").trim()??""?!0:!!template.content.querySelector(["img[src]","audio[src]","audio source[src]","video[src]",
 "video source[src]","svg","canvas","[data-anki-media-name]",".jpdb-reader-anki-sound"].join(","))}function renderAnkiFields(note,language){return renderAnkiPreviewFields(note.fields,language)}function renderAnkiPreviewFields(fieldsByName,language,options={}){
 const fields=Object.entries(fieldsByName).map(([name,value])=>({name,value:value.trim()})).filter(field=>field.value).slice(0,14);return fields.length?`<div class="jpdb-reader-anki-fields">
 ${fields.map(field=>previewField(field.name,field.value,language,options)).join("")}
-</div>`:""}function previewField(label,value,language,options={}){return`<div class="jpdb-reader-anki-field"><strong title="${escapeHtml$1(label)}">${escapeHtml$1(displayAnkiFieldLabel(label))}</strong><span>${renderFieldText(
-value,language,options)}</span></div>`}function renderFieldText(value,language,options={}){return(options.renderHtml?sanitizeAnkiCardHtml(value,[],language):escapeHtml$1(value)).replace(/\[sound:([^\]]+)]/gi,(_,filename)=>renderAnkiSoundChip(
-filename,language))}function renderAnkiSoundChip(filename,language){const title=ankiAudioLabel(filename,language);return`<button class="jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-audio-control" ty\
-pe="button" data-action="anki-media-audio" data-anki-media-name="${escapeHtml$1(filename)}" title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(title)}">${speakerIcon()}</button>`}function renderAnkiNoteActions(note,language){
-return!Number.isFinite(note.noteId)||note.noteId<=0?"":`<div class="jpdb-reader-anki-note-actions">
+</div>`:""}function previewField(label,value,language,options={}){return`<div class="jpdb-reader-anki-field"><strong title="${escapeHtml$1(label)}">${escapeHtml$1(displayAnkiFieldLabel(label))}</strong><spa\
+n>${renderFieldText(value,language,options)}</span></div>`}function renderFieldText(value,language,options={}){return(options.renderHtml?sanitizeAnkiCardHtml(value,[],language):escapeHtml$1(value)).replace(/\[sound:([^\]]+)]/gi,
+(_,filename)=>renderAnkiSoundChip(filename,language))}function renderAnkiSoundChip(filename,language){const title=ankiAudioLabel(filename,language);return`<button class="jpdb-reader-icon-mini jpdb-reader-anki-s\
+ound jpdb-reader-audio-control" type="button" data-action="anki-media-audio" data-anki-media-name="${escapeHtml$1(filename)}" title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(title)}">${speakerIcon()}<\
+/button>`}function renderAnkiNoteActions(note,language){return!Number.isFinite(note.noteId)||note.noteId<=0?"":`<div class="jpdb-reader-anki-note-actions">
 ${renderAnkiAudioMergeSelect(note,language)}
 <div class="jpdb-reader-anki-note-action-row">
-<button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}" title="${escapeHtml$1(uiText(language,"mergeYomuTitle"))}">${escapeHtml$1(uiText(language,"mergeYomu"))}</butt\
-on>
+<button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}" title="${escapeHtml$1(uiText(language,"mergeYomuTitle"))}">${escapeHtml$1(uiText(language,"mergeYo\
+mu"))}</button>
 <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${note.noteId}">${escapeHtml$1(uiText(language,"editInAnki"))}</button>
 </div>
 </div>`}function renderAnkiAudioMergeSelect(note,language){return noteHasAudio(note)?`<label class="jpdb-reader-anki-audio-merge">
@@ -2912,8 +2920,8 @@ replace(/(\d+(?:\.\d+)?)(\s*)(px|pt|em|rem)\b/gi,(match,amount,_space,unit)=>cap
 px)`:capped}function shouldWrapViewportFontSize(value){const trimmed=value.trim();return/^(?:clamp|min)\(/i.test(trimmed)?!1:/\b\d+(?:\.\d+)?\s*(?:vw|vh|vmin|vmax|cqw|cqh|cqi|cqb|cqmin|cqmax)\b/i.test(trimmed)||
 /^calc\(/i.test(trimmed)||/^max\(/i.test(trimmed)}function installAnkiMediaFallbackButtons(root,language,playbackMarkerFilenames=new Set){root.querySelectorAll("audio, video").forEach(media=>{const filename=ankiMediaFilenameFromElement(
 media);filename&&(media.setAttribute("controls",""),!(media.tagName==="AUDIO"&&playbackMarkerFilenames.has(filename))&&media.insertAdjacentHTML("beforebegin",renderAnkiSoundChip(filename,language)))})}function ankiMediaFilenameFromElement(media){
-return media.getAttribute("data-anki-media-name")||ankiMediaFilenameFromCardUrl(media.getAttribute("src")??"")||(Array.from(media.querySelectorAll("source")).map(source=>source.getAttribute("data-anki-media-nam\
-e")||ankiMediaFilenameFromCardUrl(source.getAttribute("src")??"")).find(Boolean)??"")}function replaceAnkiSoundMarkers(root,language){replaceAnkiTextMarkers(root,/\[sound:[^\]]+]/gi,marker=>{const match=/^\[sound:([^\]]+)]$/i.
+const own=media.getAttribute("data-anki-media-name")||ankiMediaFilenameFromCardUrl(media.getAttribute("src")??"");return own||(Array.from(media.querySelectorAll("source")).map(source=>source.getAttribute("data-\
+anki-media-name")||ankiMediaFilenameFromCardUrl(source.getAttribute("src")??"")).find(Boolean)??"")}function replaceAnkiSoundMarkers(root,language){replaceAnkiTextMarkers(root,/\[sound:[^\]]+]/gi,marker=>{const match=/^\[sound:([^\]]+)]$/i.
 exec(marker);return match?ankiSoundMarkerNode(match[1],language):null})}function replaceAnkiPlaybackMarkers(root,soundFilenames,language){replaceAnkiTextMarkers(root,/\[anki:play:[^\]]+]/gi,marker=>ankiPlaybackMarkerNode(
 marker,soundFilenames,language))}function ankiPlaybackMarkerFilenames(root,soundFilenames){const filenames=new Set,walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);for(;walker.nextNode();){const text2=walker.
 currentNode.textContent??"";for(const match of text2.matchAll(/\[anki:play:[^\]]+]/gi)){const filename=ankiPlaybackMarkerFilename(match[0],soundFilenames);filename&&filenames.add(filename)}}return filenames}function replaceAnkiTextMarkers(root,pattern,markerNode){
@@ -2938,11 +2946,11 @@ sourceKind==="jpdb")return"JPDB";const labelKey=CONTEXT_SOURCE_LABEL_KEYS[contex
 primaryCardId?` data-anki-card-id="${ankiNote.primaryCardId}"`:"",grades=reviewButtonGrades(settings);return`
 ${options.targetLabel?`<div class="jpdb-reader-review-target">${escapeHtml$1(options.targetLabel)}</div>`:""}
 <div class="jpdb-reader-row${grades.length===5?" jpdb-reader-grades":""}" style="--cols: ${grades.length}">
-${grades.map(([grade,label])=>`<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${reviewButtonAttrs(options,label,settings.interfaceLanguage)}>${label}</button>`).join(
-"")}
+${grades.map(([grade,label])=>`<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${reviewButtonAttrs(options,label,settings.interfaceLanguage)}>${label}</\
+button>`).join("")}
 </div>
-`}function reviewButtonAttrs(options,buttonLabel,language){const title=options.title||options.targetLabel||"",disabled=options.disabled?" disabled":"",titleAttr=options.disabled||title?` title="${escapeHtml$1(options.
-disabled?title||uiText(language,"unavailable"):title)}"`:"",aria=title?` aria-label="${escapeHtml$1(`${buttonLabel}: ${title}`)}"`:"";return`${disabled}${titleAttr}${aria}`}function reviewButtonGrades(settings){
+`}function reviewButtonAttrs(options,buttonLabel,language){const title=options.title||options.targetLabel||"",disabled=options.disabled?" disabled":"",titleAttr=options.disabled||title?` title="${escapeHtml$1(
+options.disabled?title||uiText(language,"unavailable"):title)}"`:"",aria=title?` aria-label="${escapeHtml$1(`${buttonLabel}: ${title}`)}"`:"";return`${disabled}${titleAttr}${aria}`}function reviewButtonGrades(settings){
 const language=settings.interfaceLanguage;return settings.twoButtonReviews?[["fail",uiText(language,"gradeFailLabel")],["pass",uiText(language,"gradePassLabel")]]:[["nothing",uiText(language,"gradeNothingLabel")],
 ["something",uiText(language,"gradeSomethingLabel")],["hard",uiText(language,"gradeHardLabel")],["okay",uiText(language,"gradeOkayLabel")],["easy",uiText(language,"gradeEasyLabel")]]}function ankiAudioLabel(filename,language){
 return filename?formatUiText(language,"ankiAudioFilenameLabel",{filename}):uiText(language,"audio")}function ankiCardReviewTargetLabel(note,language){const target=[note.deckNames.join(", ")||note.modelName||"An\
@@ -3097,12 +3105,12 @@ event.target);handle&&drawerDrag.pointerDown(handle,event)}),drawer.addEventList
 drawer.addEventListener("keydown",event=>{getHandleFromEvent(event.target)&&(event.key==="ArrowUp"||event.key==="ArrowDown")&&(event.preventDefault(),event.stopPropagation(),applyDrawerHeight(drawerHeight+(event.
 key==="ArrowUp"?SETTINGS_DRAWER_KEYBOARD_STEP_PX:-SETTINGS_DRAWER_KEYBOARD_STEP_PX),!0),reset())}),addViewportChangeListeners(handleViewportChange,viewportController.signal)}function installMiningDrawerHandle(root,setExpanded){
 if(root.dataset.jpdbReaderMiningDrawerHandleInstalled==="true")return;root.dataset.jpdbReaderMiningDrawerHandleInstalled="true";let suppressNextHandleClick=!1;const getHandleFromEvent=event=>{if(!(event instanceof
-Element))return null;const target=event.closest(".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter");return!target||!root.contains(target)?null:(target.matches(".jpdb-reader-mining-drawer-handle")?
-target:target.querySelector(".jpdb-reader-mining-drawer-handle"))||null},miningDrag=createHandleDragController({tapMovementPx:MINING_DRAWER_TAP_MOVEMENT_PX,updateOnEnd:!0,onBegin:handle=>{handle.closest(".jpdb-\
-reader-actions")?.classList.add("jpdb-reader-mining-drawer-dragging")},onFinish:(state,wasMoved,handle)=>{if(handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging"),!wasMoved||
-!handle)return;suppressNextHandleClick=!0;const expanded=miningDrawerDragExpandedState(handle,state.deltaX,state.deltaY);expanded!==void 0&&setExpanded(handle,expanded)},onCancel:(_state,handle)=>{handle?.closest(
-".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging")}});root.addEventListener("click",event=>{!suppressNextHandleClick||!getHandleFromEvent(event.target)||(suppressNextHandleClick=!1,
-event.preventDefault(),event.stopPropagation())},!0),root.addEventListener("pointerdown",event=>{const handle=getHandleFromEvent(event.target);handle&&miningDrag.pointerDown(handle,event)}),root.addEventListener(
+Element))return null;const target=event.closest(".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter");if(!target||!root.contains(target))return null;const handle=target.matches(".jpdb-reader-mining-\
+drawer-handle")?target:target.querySelector(".jpdb-reader-mining-drawer-handle");return handle||null},miningDrag=createHandleDragController({tapMovementPx:MINING_DRAWER_TAP_MOVEMENT_PX,updateOnEnd:!0,onBegin:handle=>{
+handle.closest(".jpdb-reader-actions")?.classList.add("jpdb-reader-mining-drawer-dragging")},onFinish:(state,wasMoved,handle)=>{if(handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-d\
+rawer-dragging"),!wasMoved||!handle)return;suppressNextHandleClick=!0;const expanded=miningDrawerDragExpandedState(handle,state.deltaX,state.deltaY);expanded!==void 0&&setExpanded(handle,expanded)},onCancel:(_state,handle)=>{
+handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging")}});root.addEventListener("click",event=>{!suppressNextHandleClick||!getHandleFromEvent(event.target)||(suppressNextHandleClick=
+!1,event.preventDefault(),event.stopPropagation())},!0),root.addEventListener("pointerdown",event=>{const handle=getHandleFromEvent(event.target);handle&&miningDrag.pointerDown(handle,event)}),root.addEventListener(
 "touchstart",event=>{const handle=getHandleFromEvent(event.target);handle&&miningDrag.touchStart(handle,event)},{capture:!0,passive:!1})}function shouldUseSheet(settings){if(settings.popupMode==="sheet")return!0;
 if(settings.popupMode==="popover")return!1;const{width,height}=lookupViewportSize(),requiredPopoverWidth=Math.max(0,settings.popoverWidth||0)+AUTO_POPOVER_VIEWPORT_MARGIN_PX;return width<=AUTO_SHEET_COMPACT_WIDTH_PX||
 width<requiredPopoverWidth||height>0&&height<AUTO_POPOVER_MIN_HEIGHT_PX?!0:height>width&&width<=AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX}function lookupViewportSize(){const visual=window.visualViewport,width=Math.round(
@@ -3127,13 +3135,13 @@ nce-block",`
 ${renderStudySentenceAudioButton(language,options)}
 </div>`,attrs)}function renderStudyMeaningBlock(text2,language,resultAttrs=""){return renderStudyBlock("jpdb-reader-study-meaning-block",`
 <div class="jpdb-reader-study-label">${escapeHtml$1(uiText(language,"meaning"))}</div>
-<div class="jpdb-reader-study-translation"${studyAttrs(resultAttrs)}>${escapeHtml$1(text2)}</div>`)}function renderStudyEmpty(text2){return`<div class="jpdb-reader-study-empty">${escapeHtml$1(text2)}</div>`}function renderStudyList(items,attrs=""){
-return`<ol class="jpdb-reader-study-list"${studyAttrs(attrs)}>
+<div class="jpdb-reader-study-translation"${studyAttrs(resultAttrs)}>${escapeHtml$1(text2)}</div>`)}function renderStudyEmpty(text2){return`<div class="jpdb-reader-study-empty">${escapeHtml$1(text2)}</d\
+iv>`}function renderStudyList(items,attrs=""){return`<ol class="jpdb-reader-study-list"${studyAttrs(attrs)}>
 ${items.join("")}
-</ol>`}function renderStudySentenceAudioButton(language,options){const readSentence=uiText(language,options.audioEnabled?"readSentenceAloud":"audioPlaybackDisabled");return`<button class="jpdb-reader-icon-mini"\
-data-action="study-read-sentence"${options.sentence?` data-study-sentence="${escapeHtml$1(options.sentence)}"`:""} type="button" title="${escapeHtml$1(readSentence)}" aria-label="${escapeHtml$1(readSentence)}"${options.
-audioEnabled?"":" disabled"}>${speakerIcon()}</button>`}function studyBlockClassName(className){return["jpdb-reader-study-block",className.trim()].filter(Boolean).join(" ")}function studyAttrs(attrs){const trimmed=attrs.
-trim();return trimmed?` ${trimmed}`:""}const log$q=Logger.scope("StudyTools"),PARTICLE_CHUNK=String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`,FORM_CHUNK=String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`,
+</ol>`}function renderStudySentenceAudioButton(language,options){const readSentence=uiText(language,options.audioEnabled?"readSentenceAloud":"audioPlaybackDisabled");return`<button class="jpdb-reader-ic\
+on-mini" data-action="study-read-sentence"${options.sentence?` data-study-sentence="${escapeHtml$1(options.sentence)}"`:""} type="button" title="${escapeHtml$1(readSentence)}" aria-label="${escapeHtml$1(readSentence)}\
+"${options.audioEnabled?"":" disabled"}>${speakerIcon()}</button>`}function studyBlockClassName(className){return["jpdb-reader-study-block",className.trim()].filter(Boolean).join(" ")}function studyAttrs(attrs){
+const trimmed=attrs.trim();return trimmed?` ${trimmed}`:""}const log$q=Logger.scope("StudyTools"),PARTICLE_CHUNK=String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`,FORM_CHUNK=String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`,
 GRAMMAR_PREFERENCES_KEY="yomu.grammarPreferences.v1",MAX_LOCAL_GRAMMAR_HINTS=12,GRAMMAR_HINT_CACHE_LIMIT=240,TRANSLATION_CACHE_LIMIT=160,TRANSLATION_TIMEOUT_MS=5e3,GRAMMAR_RULE_DATA_TIMEOUT_MS=15e3,EN_GRAMMAR_RULE_DATA_URL=`${DOCS_BASE_URL}\
 data/en-grammar-rule-copy.json`,ENGLISH_TEXT_RE=/[A-Za-z]{3,}/u,JAPANESE_TEXT_RE$1=/[\u3040-\u30ff\u3400-\u9fff]/u;function gp(ruleId,level,name,source,url="",confidence="medium",priority2=30){return{ruleId,level,
 pattern:new RegExp(source,"gu"),name,url,confidence,priority:priority2}}const GRAMMAR_PATTERNS=[gp("potential-koto-ga-dekiru","N4","ことができる",`${FORM_CHUNK}ことができ(?:る|ます|ない|ません|た|ました|なかった|ませんでした)?`,
@@ -3346,15 +3354,15 @@ knownRuleIds),visibleHints=visibleGrammarHints(hints,knownRuleIds,preferences.sh
 audioEnabled??!0;return`
 ${renderGrammarSentence(sentence,language,audioEnabled)}
 ${renderGrammarToolbar(visibleGroups.length,knownCount,preferences.showKnown,language)}
-${await renderGrammarHintList(visibleGroups,knownRuleIds,language,audioEnabled)}`}function visibleGrammarHints(hints,knownRuleIds,showKnown){return showKnown?hints:hints.filter(hint=>!knownRuleIds.has(hint.ruleId))}
-function countKnownGrammarHints(hints,knownRuleIds){return new Set(hints.filter(hint=>knownRuleIds.has(hint.ruleId)).map(hint=>hint.ruleId)).size}function groupGrammarHintsByRule(hints){const groups=new Map;for(const hint of hints){
-const existing=groups.get(hint.ruleId);if(existing){existing.count+=1;continue}groups.set(hint.ruleId,{hint,count:1})}return Array.from(groups.values())}function renderGrammarSentence(sentence,language,audioEnabled){
+${await renderGrammarHintList(visibleGroups,knownRuleIds,language,audioEnabled)}`}function visibleGrammarHints(hints,knownRuleIds,showKnown){return showKnown?hints:hints.filter(hint=>!knownRuleIds.has(hint.
+ruleId))}function countKnownGrammarHints(hints,knownRuleIds){return new Set(hints.filter(hint=>knownRuleIds.has(hint.ruleId)).map(hint=>hint.ruleId)).size}function groupGrammarHintsByRule(hints){const groups=new Map;
+for(const hint of hints){const existing=groups.get(hint.ruleId);if(existing){existing.count+=1;continue}groups.set(hint.ruleId,{hint,count:1})}return Array.from(groups.values())}function renderGrammarSentence(sentence,language,audioEnabled){
 return renderStudySentenceBlock(sentence,language,{audioEnabled},"data-grammar-sentence")}function renderGrammarToolbar(visibleCount,knownCount,showKnown,language){return`
 <div class="jpdb-reader-grammar-toolbar" data-grammar-toolbar>
 <div class="jpdb-reader-grammar-summary">${escapeHtml$1(grammarSummary(visibleCount,showKnown?0:knownCount,language))}</div>
 ${renderGrammarKnownVisibilityButton(knownCount,showKnown,language)}
-</div>`}function renderGrammarKnownVisibilityButton(knownCount,showKnown,language){if(!knownCount)return"";const label=showKnown?uiText(language,"grammarHideKnown"):uiText(language,"grammarShowKnown");return`<b\
-utton class="jpdb-reader-grammar-toggle" type="button" data-action="study-grammar-toggle-known-visibility" aria-pressed="${showKnown?"true":"false"}">${label}</button>`}async function renderGrammarHintList(visibleGroups,knownRuleIds,language,audioEnabled){
+</div>`}function renderGrammarKnownVisibilityButton(knownCount,showKnown,language){if(!knownCount)return"";const label=showKnown?uiText(language,"grammarHideKnown"):uiText(language,"grammarShowKnown");return`\
+<button class="jpdb-reader-grammar-toggle" type="button" data-action="study-grammar-toggle-known-visibility" aria-pressed="${showKnown?"true":"false"}">${label}</button>`}async function renderGrammarHintList(visibleGroups,knownRuleIds,language,audioEnabled){
 if(!visibleGroups.length)return renderStudyEmpty(uiText(language,"allDetectedGrammarKnown"));const items=await Promise.all(visibleGroups.map(group=>renderGrammarHintItem(group,knownRuleIds.has(group.hint.ruleId),
 language,audioEnabled)));return renderStudyList(items,"data-grammar-list")}async function renderGrammarHintItem(group,known,language,audioEnabled){const{hint,count}=group,details=await grammarHintDetails(hint,language),
 displayName=grammarDisplayName(hint,language);return`
@@ -3368,15 +3376,16 @@ displayName=grammarDisplayName(hint,language);return`
 <div class="jpdb-reader-study-kind">${escapeHtml$1(details.kind)}</div>
 <div class="jpdb-reader-grammar-actions">
 ${renderGrammarRepeatCount(count)}
-<button class="jpdb-reader-grammar-known" type="button" data-action="study-grammar-toggle-known" data-grammar-rule-id="${escapeHtml$1(hint.ruleId)}" data-grammar-known="${known?"true":"false"}" aria-pressed="${known?
-"true":"false"}">${known?uiText(language,"grammarReview"):uiText(language,"grammarKnown")}</button>
+<button class="jpdb-reader-grammar-known" type="button" data-action="study-grammar-toggle-known" data-grammar-rule-id="${escapeHtml$1(hint.ruleId)}" data-grammar-known="${known?"true":
+"false"}" aria-pressed="${known?"true":"false"}">${known?uiText(language,"grammarReview"):uiText(language,"grammarKnown")}</button>
 </div>
 </div>
 <div class="jpdb-reader-study-short jpdb-reader-parseable">${escapeHtml$1(details.short)}</div>
 <details class="jpdb-reader-grammar-more">
 <summary>${escapeHtml$1(uiText(language,"grammarDetails"))}</summary>
 <div class="jpdb-reader-study-detail jpdb-reader-parseable">${escapeHtml$1(details.detail)}</div>
-<div class="jpdb-reader-study-match"><span>${escapeHtml$1(uiText(language,"grammarFoundIn"))}</span><span class="jpdb-reader-study-match-text jpdb-reader-parseable">${escapeHtml$1(hint.match)}</span></div>
+<div class="jpdb-reader-study-match"><span>${escapeHtml$1(uiText(language,"grammarFoundIn"))}</span><span class="jpdb-reader-study-match-text jpdb-reader-parseable">${escapeHtml$1(hint.match)}\
+</span></div>
 ${renderGrammarHintExamples(details.examples,language,audioEnabled)}
 ${renderGrammarHintGuide(details.url??"",language)}
 </details>
@@ -3397,8 +3406,8 @@ test(example.note)?"":`<div>${escapeHtml$1(example.note)}</div>`;return`<div cla
 ${renderStudySentenceAudioButton(language,{audioEnabled,sentence:example.japanese})}
 </div>
 ${english}${note}
-</div>`}function renderGrammarHintGuide(url,language){return url?`<a class="jpdb-reader-study-guide" href="${escapeHtml$1(url)}" target="_blank" rel="noopener">${escapeHtml$1(uiText(language,"grammarGuide"))}</\
-a>`:""}const BARE_MITAI_DESIRE_FALSE_POSITIVE_RE=/(?:読み|飲み|住み|休み|頼み|望み|悩み|包み|噛み|組み|編み|摘み|進み|歩み|楽しみ|悲しみ|苦しみ|試み)たい$/u,LEXICAL_DESIRE_TAI_RE=/^(?:いたい|痛い|冷たい|重たい|やたい)(?:です)?$/u,
+</div>`}function renderGrammarHintGuide(url,language){return url?`<a class="jpdb-reader-study-guide" href="${escapeHtml$1(url)}" target="_blank" rel="noopener">${escapeHtml$1(uiText(language,"grammarGuide"))}\
+</a>`:""}const BARE_MITAI_DESIRE_FALSE_POSITIVE_RE=/(?:読み|飲み|住み|休み|頼み|望み|悩み|包み|噛み|組み|編み|摘み|進み|歩み|楽しみ|悲しみ|苦しみ|試み)たい$/u,LEXICAL_DESIRE_TAI_RE=/^(?:いたい|痛い|冷たい|重たい|やたい)(?:です)?$/u,
 LEXICAL_NEGATIVE_NAI_RE=/(?:少ない|危ない|まかない|何気ない|さりげない|なにげない)$/u,LEXICAL_METHOD_KATA_RE=/(?:夕方|地方|親方|行方|方法|の方)$/u,LEXICAL_SUFFIX_GE_RE=/(?:からあげ|おかげ|さりげ|なにげ)$/u,
 LEXICAL_SUFFIX_MEKU_RE=/(?:きめき|きらめく|ひらめき|うごめく)$/u,LEXICAL_POSSIBILITY_ERU_RE=/^(?:得る|得ます|得た|得ました|得ない|得ません|得なかった|得ませんでした)$/u,
 PRONOUN_POSSESSIVE_NOMINALIZER_RE=/(?:私|僕|俺|彼|彼女|誰|何)の$/u,GRAMMAR_MATCH_SKIP_PREDICATES={"appearance-sou":({rawMatch})=>rawMatch==="そう"||/(?:かわいそう|ごちそう)$/u.test(rawMatch),
@@ -3417,16 +3426,16 @@ predicate(grammarMatchContext(sentence,match)):!1}function grammarMatchContext(s
 before.endsWith("の")||/[夕地親行]/u.test(before.slice(-1)))}function shouldSkipPronounPossessiveNominalizerMatch({rawMatch}){return PRONOUN_POSSESSIVE_NOMINALIZER_RE.test(rawMatch)}function grammarMatches(item,sentence){
 return Array.from(sentence.matchAll(item.pattern)).filter(match=>!shouldSkipGrammarMatch(item,sentence,match)).map(match=>{const rawMatch=match[0],learnerFacingMatch=learnerMatch(item.name,rawMatch),learnerOffset=rawMatch.
 lastIndexOf(learnerFacingMatch),indexOffset=learnerOffset>0?learnerOffset:0;return{ruleId:item.ruleId,name:item.name,level:item.level,kind:"Grammar",short:item.name,detail:item.name,url:item.url,match:learnerFacingMatch,
-confidence:item.confidence,index:(match.index??0)+indexOffset,priority:item.priority,examples:[]}}).filter(hint=>hint.match.length>0)}function grammarSummary(visibleCount,hiddenKnownCount,language){const shown=`${visibleCount}${uiText(
-language,"grammarShown")}`;return hiddenKnownCount?`${shown} · ${hiddenKnownCount} ${uiText(language,"grammarKnownHidden")}`:shown}const LEARNER_MATCH_ENDING_NAMES=new Set(["たい","ない","ました","ます",
-"た","よう","そう","方","やすい / にくい","すぎる","れる / られる","させる","させられる","がち","気味","げ","っぽい","めく"]),LEARNER_MATCH_HELPER_NAMES=new Set(["てください",
-"ていただけませんか","ないでください","させてください","てほしい","てくれる / てもらう","てしまう","てみる","ておく","ている","てある","てくる","ていく",
-"てから"]);function learnerMatch(name,rawMatch){let match=rawMatch.replace(/^(?:そして|それで|でも|また|しかし|それに|つまり|ただし|だから)/u,"");if(LEARNER_MATCH_HELPER_NAMES.has(name)){
-const afterClauseBoundary=match.replace(/^.*(?:[、。！？!?]|たら|なら|ので|から)/u,"");afterClauseBoundary&&(match=afterClauseBoundary)}return LEARNER_MATCH_ENDING_NAMES.has(name)&&match.replace(/^.*[はがをにへともやの]/u,
-"")||match}async function loadGrammarRuleData(){return grammarRuleDataPromise??=requestJson$2(EN_GRAMMAR_RULE_DATA_URL,{timeoutMs:GRAMMAR_RULE_DATA_TIMEOUT_MS,failureLabel:"English grammar rule data request",timeoutLabel:"\
-Grammar rule data timed out."}).then(normalizeGrammarRuleData).catch(()=>(grammarRuleDataPromise=void 0,{})),grammarRuleDataPromise}function normalizeGrammarRuleData(value){if(!isObjectRecord(value))return{};const data={};
-for(const[ruleId,item]of Object.entries(value)){const normalized=normalizeGrammarRuleDataItem(item);normalized&&(data[ruleId]=normalized)}return data}function normalizeGrammarRuleDataItem(item){if(!isObjectRecord(
-item))return;const candidate=item;if(hasRequiredGrammarRuleData(candidate))return{kind:candidate.kind,short:candidate.short,detail:candidate.detail,url:grammarRuleDataUrl(candidate.url),examples:normalizeGrammarExamples(
+confidence:item.confidence,index:(match.index??0)+indexOffset,priority:item.priority,examples:[]}}).filter(hint=>hint.match.length>0)}function grammarSummary(visibleCount,hiddenKnownCount,language){const shown=`${visibleCount}\
+${uiText(language,"grammarShown")}`;return hiddenKnownCount?`${shown} · ${hiddenKnownCount} ${uiText(language,"grammarKnownHidden")}`:shown}const LEARNER_MATCH_ENDING_NAMES=new Set(["たい","ない","ました",
+"ます","た","よう","そう","方","やすい / にくい","すぎる","れる / られる","させる","させられる","がち","気味","げ","っぽい","めく"]),LEARNER_MATCH_HELPER_NAMES=new Set(["\
+てください","ていただけませんか","ないでください","させてください","てほしい","てくれる / てもらう","てしまう","てみる","ておく","ている","てある","てくる",
+"ていく","てから"]);function learnerMatch(name,rawMatch){let match=rawMatch.replace(/^(?:そして|それで|でも|また|しかし|それに|つまり|ただし|だから)/u,"");if(LEARNER_MATCH_HELPER_NAMES.
+has(name)){const afterClauseBoundary=match.replace(/^.*(?:[、。！？!?]|たら|なら|ので|から)/u,"");afterClauseBoundary&&(match=afterClauseBoundary)}return LEARNER_MATCH_ENDING_NAMES.has(name)&&match.
+replace(/^.*[はがをにへともやの]/u,"")||match}async function loadGrammarRuleData(){return grammarRuleDataPromise??=requestJson$2(EN_GRAMMAR_RULE_DATA_URL,{timeoutMs:GRAMMAR_RULE_DATA_TIMEOUT_MS,failureLabel:"\
+English grammar rule data request",timeoutLabel:"Grammar rule data timed out."}).then(normalizeGrammarRuleData).catch(()=>(grammarRuleDataPromise=void 0,{})),grammarRuleDataPromise}function normalizeGrammarRuleData(value){
+if(!isObjectRecord(value))return{};const data={};for(const[ruleId,item]of Object.entries(value)){const normalized=normalizeGrammarRuleDataItem(item);normalized&&(data[ruleId]=normalized)}return data}function normalizeGrammarRuleDataItem(item){
+if(!isObjectRecord(item))return;const candidate=item;if(hasRequiredGrammarRuleData(candidate))return{kind:candidate.kind,short:candidate.short,detail:candidate.detail,url:grammarRuleDataUrl(candidate.url),examples:normalizeGrammarExamples(
 candidate.examples)}}function hasRequiredGrammarRuleData(candidate){return typeof candidate.kind=="string"&&typeof candidate.short=="string"&&typeof candidate.detail=="string"}function grammarRuleDataUrl(value){
 return typeof value=="string"&&value?value:void 0}function normalizeGrammarExamples(value){return Array.isArray(value)?value.flatMap(item=>{if(!item||typeof item!="object"||Array.isArray(item))return[];const candidate=item;
 return typeof candidate.japanese!="string"||typeof candidate.english!="string"?[]:[{japanese:candidate.japanese,english:candidate.english,...typeof candidate.note=="string"?{note:candidate.note}:{}}]}):[]}function isObjectRecord(value){
@@ -3512,45 +3521,45 @@ eNoNewData");const parts=[result.updatedFields.length?`${result.updatedFields.le
 language,"ankiMergeAudio"):"",result.imageAdded?uiText(language,"ankiMergeImage"):""].filter(Boolean);return formatUiText(language,"ankiMergeComplete",{parts:uiList(language,parts)})}function selectedAnkiAudioMergeMode(button2){
 const value=button2.closest(".jpdb-reader-anki-card-preview")?.querySelector("[data-anki-audio-merge]")?.value;return value==="theirs"||value==="ours"?value:"both"}function ankiSourceTitle(sourceTitle){return sourceTitle||
 document.title}function ankiSourceUrl(sourceUrl){return sourceUrl||location.href}function selectedDeckChoice(button2,settings){const source=selectedDeckSource(button2);return{source,id:selectedDeckId(button2,settings,
-source)}}function selectedDeckSource(button2){return button2.dataset.deckSource==="anki"?"anki":"jpdb"}function selectedDeckId(button2,settings,source){return button2.dataset.deckId?.trim()||defaultDeckIdForSource(
+source)}}function selectedDeckSource(button2){return button2.dataset.deckSource==="anki"?"anki":"jpdb"}function selectedDeckId(button2,settings,source){const id=button2.dataset.deckId?.trim();return id||defaultDeckIdForSource(
 source,settings)}function defaultDeckIdForSource(source,settings){return source==="anki"?defaultAnkiDeckName(settings):defaultJpdbDeckId(settings)}function defaultAnkiDeckName(settings){return settings.ankiDeck||
-"よむ"}function defaultJpdbDeckId(settings){return settings.miningDeck.trim()||"forq"}function selectedJpdbDeckId(deckId,settings){return deckId.trim()||defaultJpdbDeckId(settings)}function shouldAlsoAddToForq(settings,targetDeck){
-return settings.addToForq?targetDeck!=="forq":!1}function shouldMineAnkiAlongsideJpdb(settings){return settings.ankiEnabled?settings.ankiMineWithJpdb:!1}function renderDeckChoiceOptions(settings,jpdbDecks,ankiDecks,includeJpdb){
-const options=[];return addJpdbDeckChoiceOptions(settings,options,jpdbDecks),settings.ankiEnabled&&addAnkiDeckChoiceOptions(settings,options,ankiDecks),options.length?deckChoicePlaceholderOption(settings)+options.
-map(renderDeckChoiceOption).join(""):""}function jpdbDeckLabel(settings,deckId,decks){return deckId==="forq"?"FORQ":decks.find(candidate=>candidate.id===deckId)?.name||deckId}function addJpdbDeckChoiceOptions(settings,options,jpdbDecks){
-const selected=settings.miningDeck.trim()||"forq";addDeckChoiceOption(options,"jpdb","forq","JPDB: FORQ"),addDeckChoiceOption(options,"jpdb",selected,`JPDB: ${jpdbDeckLabel(settings,selected,jpdbDecks)}`);for(const deck of jpdbDecks)
-isSpecialJpdbDeck(settings,deck)||addDeckChoiceOption(options,"jpdb",deck.id,`JPDB: ${deck.name}`)}function addAnkiDeckChoiceOptions(settings,options,ankiDecks){const configuredDeck=settings.ankiDeck||"よむ";
-addDeckChoiceOption(options,"anki",configuredDeck,`Anki: ${configuredDeck}`);for(const deck of ankiDecks)addDeckChoiceOption(options,"anki",deck,`Anki: ${deck}`)}function addDeckChoiceOption(options,source,value,label){
-const normalizedValue=value.trim(),key=`${source}:${normalizedValue}`;!normalizedValue||options.some(([existing])=>existing===key)||options.push([key,label])}function renderDeckChoiceOption([value,label]){const[
-source,...idParts]=value.split(":"),deckId=idParts.join(":");return`<option value="${escapeHtml$1(value)}" data-deck-source="${escapeHtml$1(source)}" data-deck-id="${escapeHtml$1(deckId)}">${escapeHtml$1(label)}\
-</option>`}function deckChoicePlaceholderOption(settings){return`<option value="" disabled selected>${escapeHtml$1(uiText(settings.interfaceLanguage,"deck"))}</option>`}function isSpecialJpdbDeck(settings,deck){
-const neverForgetDeck=settings.neverForgetDeck.trim(),blacklistDeck=settings.blacklistDeck.trim();return deck.id===neverForgetDeck||deck.id===blacklistDeck?!0:/never\s*-?\s*forget|blacklist|suspend/i.test(`${deck.
-id} ${deck.name}`)}const JAPANESE_TEXT_RE=/[\u3040-\u30ff\u3400-\u9fff々〆]/u;function cardHighlightTargets(card){const spelling=cleanCardHighlightValue(card.spelling),reading=optionalJapaneseCardReading(card);
-return uniqueCardHighlightValues([spelling,reading])}function normalizedJapaneseCardReading(spelling,reading){const cleanSpelling=cleanCardHighlightValue(spelling),cleanReading=cleanCardHighlightValue(reading);
-return cleanReading&&JAPANESE_TEXT_RE.test(cleanReading)?cleanReading:cleanSpelling}function cleanCardHighlightValue(value){return(value??"").replace(/\s+/g," ").trim()}function compactCardHighlightValue(value){
-return cleanCardHighlightValue(value).replace(/\s+/g,"")}function optionalJapaneseCardReading(card){const spelling=cleanCardHighlightValue(card.spelling),reading=normalizedJapaneseCardReading(spelling,card.reading);
-return reading&&reading!==spelling?reading:""}function uniqueCardHighlightValues(values){const seen=new Set;return values.map(cleanCardHighlightValue).filter(value=>!value||seen.has(value)?!1:(seen.add(value),!0))}
-const CARD_HIGHLIGHT_CLASS="jpdb-reader-example-target";function renderCardHighlightedTextHtml(text2,card){return renderHighlightedTextHtml(text2,cardHighlightTargets(card),CARD_HIGHLIGHT_CLASS)}function cardHighlightScopeAttributes(card){
-if(!card)return"";const spelling=cleanCardHighlightValue(card.spelling);return spelling?[`data-card-highlight-spelling="${escapeHtml$1(spelling)}"`,`data-card-highlight-reading="${escapeHtml$1(cleanCardHighlightValue(
-card.reading))}"`,card.vid!==void 0?`data-card-highlight-vid="${escapeHtml$1(String(card.vid))}"`:"",card.sid!==void 0?`data-card-highlight-sid="${escapeHtml$1(String(card.sid))}"`:""].filter(Boolean).join(" "):
-""}function highlightCardTargetWords(root,card){const words=cardHighlightWords(root);for(const word of words)isCardHighlightWord(word,card)&&word.classList.add(CARD_HIGHLIGHT_CLASS)}function highlightCardTargetScopes(root){
-for(const scope of cardHighlightScopes(root)){const card=cardHighlightTargetFromScope(scope);card&&highlightCardTargetWords(scope,card)}}function isCardHighlightWord(word,card){const cardVid=card.vid===void 0?"":
-String(card.vid),cardSid=card.sid===void 0?"":String(card.sid);if(cardVid&&cardSid&&word.dataset.vid===cardVid&&word.dataset.sid===cardSid)return!0;const surface=compactCardHighlightValue(readerWordSurfaceText(
-word));return surface?cardHighlightTargets(card).map(compactCardHighlightValue).filter(Boolean).some(target=>surface.includes(target)):!1}function cardHighlightWords(root){const words=Array.from(root.querySelectorAll(
-".jpdb-reader-word"));return root instanceof HTMLElement&&root.matches(".jpdb-reader-word")?[root,...words]:words}function cardHighlightScopes(root){const selector="[data-card-highlight-spelling]",scopes=Array.
-from(root.querySelectorAll(selector));return root instanceof HTMLElement&&root.matches(selector)?[root,...scopes]:scopes}function cardHighlightTargetFromScope(scope){const spelling=cleanCardHighlightValue(scope.
-dataset.cardHighlightSpelling);if(!spelling)return null;const reading=cleanCardHighlightValue(scope.dataset.cardHighlightReading);return{spelling,reading,vid:scope.dataset.cardHighlightVid,sid:scope.dataset.cardHighlightSid}}
-const KANJI_STROKE_SOURCE_ID="__kanji_stroke__",KANJI_JPDB_SOURCE_ID="__kanji_jpdb__",KANJI_RTK_SOURCE_ID="__kanji_rtk__",KANJI_UCHISEN_SOURCE_ID="__kanji_uchisen__",KANJI_DICTIONARIES_SOURCE_ID="__kanji_dictio\
-naries__",KANJI_SIMILAR_WORDS_SOURCE_ID="__kanji_similar_words__",KANJI_ORIGINS_SOURCE_ID="__kanji_origins__",KANJI_DICTIONARY_SOURCE_PREFIX="__kanji_dictionary__:",BUILT_IN_SOURCE_NAME_KEYS={[ANKI_SOURCE_ID]:"\
+"よむ"}function defaultJpdbDeckId(settings){return settings.miningDeck.trim()||"forq"}function selectedJpdbDeckId(deckId,settings){const selectedDeckId2=deckId.trim();return selectedDeckId2||defaultJpdbDeckId(
+settings)}function shouldAlsoAddToForq(settings,targetDeck){return settings.addToForq?targetDeck!=="forq":!1}function shouldMineAnkiAlongsideJpdb(settings){return settings.ankiEnabled?settings.ankiMineWithJpdb:
+!1}function renderDeckChoiceOptions(settings,jpdbDecks,ankiDecks,includeJpdb){const options=[];return addJpdbDeckChoiceOptions(settings,options,jpdbDecks),settings.ankiEnabled&&addAnkiDeckChoiceOptions(settings,
+options,ankiDecks),options.length?deckChoicePlaceholderOption(settings)+options.map(renderDeckChoiceOption).join(""):""}function jpdbDeckLabel(settings,deckId,decks){return deckId==="forq"?"FORQ":decks.find(candidate=>candidate.
+id===deckId)?.name||deckId}function addJpdbDeckChoiceOptions(settings,options,jpdbDecks){const selected=settings.miningDeck.trim()||"forq";addDeckChoiceOption(options,"jpdb","forq","JPDB: FORQ"),addDeckChoiceOption(
+options,"jpdb",selected,`JPDB: ${jpdbDeckLabel(settings,selected,jpdbDecks)}`);for(const deck of jpdbDecks)isSpecialJpdbDeck(settings,deck)||addDeckChoiceOption(options,"jpdb",deck.id,`JPDB: ${deck.name}`)}function addAnkiDeckChoiceOptions(settings,options,ankiDecks){
+const configuredDeck=settings.ankiDeck||"よむ";addDeckChoiceOption(options,"anki",configuredDeck,`Anki: ${configuredDeck}`);for(const deck of ankiDecks)addDeckChoiceOption(options,"anki",deck,`Anki: ${deck}`)}
+function addDeckChoiceOption(options,source,value,label){const normalizedValue=value.trim(),key=`${source}:${normalizedValue}`;!normalizedValue||options.some(([existing])=>existing===key)||options.push([key,label])}
+function renderDeckChoiceOption([value,label]){const[source,...idParts]=value.split(":"),deckId=idParts.join(":");return`<option value="${escapeHtml$1(value)}" data-deck-source="${escapeHtml$1(source)}" data-de\
+ck-id="${escapeHtml$1(deckId)}">${escapeHtml$1(label)}</option>`}function deckChoicePlaceholderOption(settings){return`<option value="" disabled selected>${escapeHtml$1(uiText(settings.interfaceLanguage,"deck"))}\
+</option>`}function isSpecialJpdbDeck(settings,deck){const neverForgetDeck=settings.neverForgetDeck.trim(),blacklistDeck=settings.blacklistDeck.trim();return deck.id===neverForgetDeck||deck.id===blacklistDeck?!0:
+/never\s*-?\s*forget|blacklist|suspend/i.test(`${deck.id} ${deck.name}`)}const JAPANESE_TEXT_RE=/[\u3040-\u30ff\u3400-\u9fff々〆]/u;function cardHighlightTargets(card){const spelling=cleanCardHighlightValue(card.
+spelling),reading=optionalJapaneseCardReading(card);return uniqueCardHighlightValues([spelling,reading])}function normalizedJapaneseCardReading(spelling,reading){const cleanSpelling=cleanCardHighlightValue(spelling),
+cleanReading=cleanCardHighlightValue(reading);return cleanReading&&JAPANESE_TEXT_RE.test(cleanReading)?cleanReading:cleanSpelling}function cleanCardHighlightValue(value){return(value??"").replace(/\s+/g," ").trim()}
+function compactCardHighlightValue(value){return cleanCardHighlightValue(value).replace(/\s+/g,"")}function optionalJapaneseCardReading(card){const spelling=cleanCardHighlightValue(card.spelling),reading=normalizedJapaneseCardReading(
+spelling,card.reading);return reading&&reading!==spelling?reading:""}function uniqueCardHighlightValues(values){const seen=new Set;return values.map(cleanCardHighlightValue).filter(value=>!value||seen.has(value)?
+!1:(seen.add(value),!0))}const CARD_HIGHLIGHT_CLASS="jpdb-reader-example-target";function renderCardHighlightedTextHtml(text2,card){return renderHighlightedTextHtml(text2,cardHighlightTargets(card),CARD_HIGHLIGHT_CLASS)}
+function cardHighlightScopeAttributes(card){if(!card)return"";const spelling=cleanCardHighlightValue(card.spelling);return spelling?[`data-card-highlight-spelling="${escapeHtml$1(spelling)}"`,`data-card-highlig\
+ht-reading="${escapeHtml$1(cleanCardHighlightValue(card.reading))}"`,card.vid!==void 0?`data-card-highlight-vid="${escapeHtml$1(String(card.vid))}"`:"",card.sid!==void 0?`data-card-highlight-sid="${escapeHtml$1(
+String(card.sid))}"`:""].filter(Boolean).join(" "):""}function highlightCardTargetWords(root,card){const words=cardHighlightWords(root);for(const word of words)isCardHighlightWord(word,card)&&word.classList.add(
+CARD_HIGHLIGHT_CLASS)}function highlightCardTargetScopes(root){for(const scope of cardHighlightScopes(root)){const card=cardHighlightTargetFromScope(scope);card&&highlightCardTargetWords(scope,card)}}function isCardHighlightWord(word,card){
+const cardVid=card.vid===void 0?"":String(card.vid),cardSid=card.sid===void 0?"":String(card.sid);if(cardVid&&cardSid&&word.dataset.vid===cardVid&&word.dataset.sid===cardSid)return!0;const surface=compactCardHighlightValue(
+readerWordSurfaceText(word));return surface?cardHighlightTargets(card).map(compactCardHighlightValue).filter(Boolean).some(target=>surface.includes(target)):!1}function cardHighlightWords(root){const words=Array.
+from(root.querySelectorAll(".jpdb-reader-word"));return root instanceof HTMLElement&&root.matches(".jpdb-reader-word")?[root,...words]:words}function cardHighlightScopes(root){const selector="[data-card-highlig\
+ht-spelling]",scopes=Array.from(root.querySelectorAll(selector));return root instanceof HTMLElement&&root.matches(selector)?[root,...scopes]:scopes}function cardHighlightTargetFromScope(scope){const spelling=cleanCardHighlightValue(
+scope.dataset.cardHighlightSpelling);if(!spelling)return null;const reading=cleanCardHighlightValue(scope.dataset.cardHighlightReading);return{spelling,reading,vid:scope.dataset.cardHighlightVid,sid:scope.dataset.
+cardHighlightSid}}const KANJI_STROKE_SOURCE_ID="__kanji_stroke__",KANJI_JPDB_SOURCE_ID="__kanji_jpdb__",KANJI_RTK_SOURCE_ID="__kanji_rtk__",KANJI_UCHISEN_SOURCE_ID="__kanji_uchisen__",KANJI_DICTIONARIES_SOURCE_ID="\
+__kanji_dictionaries__",KANJI_SIMILAR_WORDS_SOURCE_ID="__kanji_similar_words__",KANJI_ORIGINS_SOURCE_ID="__kanji_origins__",KANJI_DICTIONARY_SOURCE_PREFIX="__kanji_dictionary__:",BUILT_IN_SOURCE_NAME_KEYS={[ANKI_SOURCE_ID]:"\
 sourceNameAnki",[STUDY_TRANSLATION_SOURCE_ID]:"sourceNameTranslation",[STUDY_GRAMMAR_SOURCE_ID]:"sourceNameGrammar",[IMMERSION_KIT_SOURCE_ID]:"sourceNameImmersionKit",[KANJI_STROKE_SOURCE_ID]:"sourceNameStrokeP\
 ractice",[KANJI_JPDB_SOURCE_ID]:"readingsComponents",[KANJI_DICTIONARIES_SOURCE_ID]:"sourceNameImportedKanjiDictionaries",[KANJI_SIMILAR_WORDS_SOURCE_ID]:"sourceNameWordsUsingKanji",[KANJI_ORIGINS_SOURCE_ID]:"o\
-riginStructure"};function definitionSourceRows(settings){const language=settings.interfaceLanguage;return[{id:JPDB_DEFINITION_SOURCE_ID,name:"JPDB",alias:"JPDB",enabled:settings.jpdbDefinitionsEnabled,priority:settings.
+riginStructure"};function definitionSourceRows(settings){const language=settings.interfaceLanguage;return[...[{id:JPDB_DEFINITION_SOURCE_ID,name:"JPDB",alias:"JPDB",enabled:settings.jpdbDefinitionsEnabled,priority:settings.
 jpdbDefinitionsPriority,prefix:"jpdbDefinitions",readonly:!0,help:uiText(language,"sourceHelpJpdb")},{id:STUDY_TRANSLATION_SOURCE_ID,name:uiText(language,"sourceNameTranslation"),alias:uiText(language,"sourceNa\
 meTranslation"),enabled:settings.studyTranslationEnabled,priority:settings.studyTranslationPriority,prefix:"studyTranslation",readonly:!0,help:uiText(language,"sourceHelpTranslation")},{id:ANKI_SOURCE_ID,name:"\
 Anki",alias:"Anki",enabled:settings.ankiSectionEnabled,priority:settings.ankiSectionPriority,prefix:"ankiSection",readonly:!0,help:uiText(language,"sourceHelpAnki")},{id:STUDY_GRAMMAR_SOURCE_ID,name:uiText(language,
 "sourceNameGrammar"),alias:uiText(language,"sourceNameGrammar"),enabled:settings.studyGrammarEnabled,priority:settings.studyGrammarPriority,prefix:"studyGrammar",readonly:!0,help:uiText(language,"sourceHelpGram\
 mar")},{id:IMMERSION_KIT_SOURCE_ID,name:uiText(language,"sourceNameImmersionKit"),alias:uiText(language,"sourceNameImmersionKit"),enabled:settings.immersionKitEnabled,priority:settings.immersionKitPriority,prefix:"\
-immersionKit",readonly:!0,help:uiText(language,"sourceHelpImmersionKit")},...settings.dictionaryPreferences.filter(preference=>{const type=preference.type??"terms";return type==="terms"||type==="kanji"}).map(preference=>({
+immersionKit",readonly:!0,help:uiText(language,"sourceHelpImmersionKit")}],...settings.dictionaryPreferences.filter(preference=>{const type=preference.type??"terms";return type==="terms"||type==="kanji"}).map(preference=>({
 id:preference.name,name:preference.name,alias:preference.alias,enabled:preference.enabled,priority:preference.priority,prefix:`dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,readonly:!1,
 removable:!0,dictionaryType:preference.type==="kanji"?"kanji":"terms",help:""}))].filter(row=>row.id!==IMMERSION_KIT_SOURCE_ID||settings.immersionKitEnabled).sort(compareSourceRows)}function kanjiSourceRows(settings){
 const language=settings.interfaceLanguage,kanjiDictionaryRows=settings.dictionaryPreferences.filter(preference=>preference.type==="kanji").map(preference=>({id:kanjiDictionarySourceId(preference.name),name:preference.
@@ -3642,8 +3651,8 @@ ${entries.map(entry=>`
 <li class="jpdb-reader-jpdb-used-in-row${entry.audioIds?.length?" has-audio":""}">
 ${renderJpdbExampleAudioButton(entry.audioIds,entry.term,language)}
 <span class="jpdb-reader-jpdb-used-in-main">
-<a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.term)}" data-dictionary-reading="${escapeHtml$1(entry.reading)}" data-dicti\
-onary="JPDB" data-external="false"><span class="jpdb-reader-jpdb-compound-head">${renderJpdbUsedInTerm(entry.term,entry.reading,entry.url,entry.termHtml)}</span></a>
+<a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry.term)}" data-dictionary-reading="${escapeHtml$1(
+entry.reading)}" data-dictionary="JPDB" data-external="false"><span class="jpdb-reader-jpdb-compound-head">${renderJpdbUsedInTerm(entry.term,entry.reading,entry.url,entry.termHtml)}</span></a>
 ${entry.meaning?`<small>${escapeHtml$1(entry.meaning)}</small>`:""}
 </span>
 </li>
@@ -3673,9 +3682,9 @@ ${example.translation?`<div class="jpdb-reader-example-translation">${escapeHtml
 </ul>
 </div>
 </details>
-`:""}function renderJpdbExampleAudioButton(audioIds,sentence,language){const audio=audioIds?.join(",")??"",label=uiText(language,"playJpdbExampleAudio");return audio?`<button class="jpdb-reader-icon-mini jpdb-r\
-eader-jpdb-example-audio" type="button" data-action="jpdb-example-audio" data-jpdb-audio="${escapeHtml$1(audio)}" data-jpdb-example-sentence="${escapeHtml$1(sentence)}" title="${escapeHtml$1(label)}" aria-label\
-="${escapeHtml$1(label)}">${speakerIcon()}</button>`:""}function renderJpdbExampleSentence(example,card){return example.sentenceHtml||renderCardHighlightedTextHtml(example.sentence,card)}function renderJpdbRelatedTerm(term,reading,className,extraAttributes="",showReading=!0,termHtml=""){
+`:""}function renderJpdbExampleAudioButton(audioIds,sentence,language){const audio=audioIds?.join(",")??"",label=uiText(language,"playJpdbExampleAudio");return audio?`<button class="jpdb-reader-icon-mini jp\
+db-reader-jpdb-example-audio" type="button" data-action="jpdb-example-audio" data-jpdb-audio="${escapeHtml$1(audio)}" data-jpdb-example-sentence="${escapeHtml$1(sentence)}" title="${escapeHtml$1(label)}" aria-l\
+abel="${escapeHtml$1(label)}">${speakerIcon()}</button>`:""}function renderJpdbExampleSentence(example,card){return example.sentenceHtml||renderCardHighlightedTextHtml(example.sentence,card)}function renderJpdbRelatedTerm(term,reading,className,extraAttributes="",showReading=!0,termHtml=""){
 const readingText2=visibleJpdbRelatedReading(term,reading),base=`<span class="${escapeHtml$1(`${className} jpdb-reader-parseable`)}" data-dictionary="JPDB"${extraAttributes}>${termHtml||escapeHtml$1(term)}</spa\
 n>`;return termHtml||!showReading||!readingText2?base:`<span class="jpdb-reader-jpdb-term-with-reading"><span class="jpdb-reader-furi jpdb-reader-jpdb-term-furi" data-jpdb-reader-surface-ignore="true" aria-hidd\
 en="true">${escapeHtml$1(readingText2)}</span>${base}</span>`}function renderJpdbUsedInTerm(term,reading,url,termHtml=""){return`<span class="jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term" data-d\
@@ -3703,8 +3712,8 @@ lWordPlural")}`].join(" · ");return`
 ${dictionarySections.join("")}
 </div>
 </details>
-`}function renderKanjiDefinitions(entries,sourceAttributes,dictionaryLabel2,sourceId=KANJI_DICTIONARIES_SOURCE_ID,title=void 0,language="en"){if(!entries.length)return"";const heading=title??uiText(language,"ka\
-njiDictionaries");return`
+`}function renderKanjiDefinitions(entries,sourceAttributes,dictionaryLabel2,sourceId=KANJI_DICTIONARIES_SOURCE_ID,title=void 0,language="en"){if(!entries.length)return"";const heading=title??uiText(language,
+"kanjiDictionaries");return`
 <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanji" ${sourceAttributes(kanjiSourceStateKey(sourceId))}>
 <summary class="jpdb-reader-local-title">${escapeHtml$1(heading)}</summary>
 ${entries.map(entry=>`
@@ -3723,20 +3732,20 @@ ${entry.meanings.slice(0,6).map(meaning=>`<div>${escapeHtml$1(meaning)}</div>`).
 </div>
 `).join("")}
 </details>
-`}function renderSimilarKanjiWordsShell(kanji,language,sourceStateKey,sourceOpen,sourceAttributes,title=uiText(language,"wordsUsingKanji").replace("{kanji}",kanji)){const help=uiText(language,sourceOpen?"loadin\
-gSimilarWords":"openToLoadSimilarWords");return`
+`}function renderSimilarKanjiWordsShell(kanji,language,sourceStateKey,sourceOpen,sourceAttributes,title=uiText(language,"wordsUsingKanji").replace("{kanji}",kanji)){const help=uiText(language,sourceOpen?"lo\
+adingSimilarWords":"openToLoadSimilarWords");return`
 <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-similar" data-kanji-similar-words ${sourceAttributes(sourceStateKey)}>
 <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
 <div data-kanji-similar-mount>
 <div class="jpdb-reader-help">${help}</div>
 </div>
 </details>
-`}function renderSimilarKanjiWordsContent(entries,jpdbVocabulary,currentCard,settings,dictionaryLabel2){const words=mergeSimilarKanjiWords(entries,jpdbVocabulary,currentCard,dictionaryLabel2).slice(0,settings.similarKanjiWordLimit);
-return words.length?`
+`}function renderSimilarKanjiWordsContent(entries,jpdbVocabulary,currentCard,settings,dictionaryLabel2){const words=mergeSimilarKanjiWords(entries,jpdbVocabulary,currentCard,dictionaryLabel2).slice(0,settings.
+similarKanjiWordLimit);return words.length?`
 <div class="jpdb-reader-similar-grid">
 ${words.map(entry=>`
-<button class="jpdb-reader-similar-word" type="button" data-action="similar-word" data-expression="${escapeHtml$1(entry.expression)}" title="${escapeHtml$1(entry.source)}${entry.meaning?`: ${escapeHtml$1(entry.
-meaning)}`:""}">
+<button class="jpdb-reader-similar-word" type="button" data-action="similar-word" data-expression="${escapeHtml$1(entry.expression)}" title="${escapeHtml$1(entry.source)}${entry.meaning?`: ${escapeHtml$1(
+entry.meaning)}`:""}">
 <span class="jpdb-reader-similar-word-head">
 <span>${escapeHtml$1(entry.expression)}</span>
 ${entry.frequency?`<em>#${entry.frequency}</em>`:""}
@@ -3746,10 +3755,11 @@ ${entry.meaning?`<small class="jpdb-reader-similar-meaning">${escapeHtml$1(entry
 </button>
 `).join("")}
 </div>
-`:""}function renderFrequencyPills(metaEntries,settings,dictionaryLabel2){return bestFrequencyEntries(metaEntries).filter(entry=>entry.mode==="freq").sort((a,b)=>dictionaryPreferencePriority$1(settings,a.dictionary)-
-dictionaryPreferencePriority$1(settings,b.dictionary)||dictionaryLabel2(a.dictionary).localeCompare(dictionaryLabel2(b.dictionary),"ja")).map(entry=>renderFrequencyPill(entry,dictionaryLabel2)).filter(Boolean).
-slice(0,8)}function definitionSourceStateKey(sourceId){return`definition-source:${sourceId}`}function localDictionaryStateKey(dictionary){return`definition-dictionary:${dictionary}`}function kanjiSourceStateKey(sourceId){
-return`kanji:${sourceId}`}function renderLocalDictionaryGroup(dictionary,groups,sourceAttributes,dictionaryLabel2,language,reference){const entryCount=groups.length;return`
+`:""}function renderFrequencyPills(metaEntries,settings,dictionaryLabel2){return bestFrequencyEntries(metaEntries).filter(entry=>entry.mode==="freq").sort((a,b)=>{const priority2=dictionaryPreferencePriority$1(
+settings,a.dictionary)-dictionaryPreferencePriority$1(settings,b.dictionary);return priority2||dictionaryLabel2(a.dictionary).localeCompare(dictionaryLabel2(b.dictionary),"ja")}).map(entry=>renderFrequencyPill(
+entry,dictionaryLabel2)).filter(Boolean).slice(0,8)}function definitionSourceStateKey(sourceId){return`definition-source:${sourceId}`}function localDictionaryStateKey(dictionary){return`definition-dictionary:${dictionary}`}
+function kanjiSourceStateKey(sourceId){return`kanji:${sourceId}`}function renderLocalDictionaryGroup(dictionary,groups,sourceAttributes,dictionaryLabel2,language,reference){const entryCount=groups.length;return`\
+
 <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml$1(dictionary)}" ${sourceAttributes(localDictionaryStateKey(dictionary))}>
 <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel2(dictionary))}">
 <span>${escapeHtml$1(dictionaryLabel2(dictionary))}</span>
@@ -3781,8 +3791,8 @@ ${group.meanings.length>1?`<span class="jpdb-reader-local-sense-index">${index+1
 <span>${escapeHtml$1(meaning)}</span>
 </div>
 `).join("")}
-</div>`:renderLocalGlossaryEntries(dictionary,group.entries)}function renderLocalTermFrequency(group){return group.frequency!==void 0?`<span class="jpdb-reader-local-frequency">#${escapeHtml$1(String(group.frequency))}\
-</span>`:""}function renderLocalGlossaryEntries(dictionary,entries,options={}){const showIndex=options.showIndex??entries.length>1,entryHtml=entries.map((entry,index)=>{const content=localGlossaryItemsForRender(
+</div>`:renderLocalGlossaryEntries(dictionary,group.entries)}function renderLocalTermFrequency(group){return group.frequency!==void 0?`<span class="jpdb-reader-local-frequency">#${escapeHtml$1(String(group.
+frequency))}</span>`:""}function renderLocalGlossaryEntries(dictionary,entries,options={}){const showIndex=options.showIndex??entries.length>1,entryHtml=entries.map((entry,index)=>{const content=localGlossaryItemsForRender(
 entry.glossary).map(item=>glossaryToHtml(item,entry.dictionary,{internalSearchLinks:!0})).filter(html=>html.replace(/<[^>]+>/g,"").trim()||/<(?:img|table|ruby|a|ul|ol|li)\b/i.test(html)).map(html=>`<div>${html}\
 </div>`).join("");return content?`
 <div class="jpdb-reader-local-glossary-entry ${showIndex?"":"no-index"}">
@@ -3805,25 +3815,25 @@ context.imageUrl),audioUrls:optionalTextArray(context.audioUrls),immersionIndex:
 now()){return createStoredMiningContext(term,context,updatedAt)??{...context,term:term.trim(),sentence:context.sentence.trim()||term.trim(),sourceTitle:context.sourceTitle.trim(),sourceUrl:context.sourceUrl.trim(),
 imageUrl:optionalText(context.imageUrl),audioUrls:optionalTextArray(context.audioUrls),immersionIndex:optionalNumber(context.immersionIndex),immersionTotal:optionalNumber(context.immersionTotal),updatedAt}}async function resolveMiningContext({
 term,sentence,settings,activeContext,storedContext,sourceKind,imageDataUrl,videoImageDataUrl,fetchImageDataUrl,fetchAudioDataUrl:fetchAudioDataUrl2}){const done=log$o.time("Resolve mining context",{term,hasSentence:!!sentence?.
-trim(),activeKind:activeContext?.sourceKind,storedKind:storedContext?.sourceKind,sourceKind,hasImage:!!imageDataUrl,hasVideoImage:!!videoImageDataUrl}),cleanSentence=normalizeMiningSentence(sentence);try{return resolveDirectImageMiningContext(
-term,cleanSentence,imageDataUrl,videoImageDataUrl)||(await resolveStoredImmersionMiningContext({term,settings,activeContext,storedContext,fetchImageDataUrl,fetchAudioDataUrl:fetchAudioDataUrl2})??resolvePageMiningContext(
-term,cleanSentence,sourceKind))}finally{done()}}function resolveDirectImageMiningContext(term,sentence,imageDataUrl,videoImageDataUrl){return imageDataUrl&&sentence?miningContextWithImage(term,sentence,"image",
-imageDataUrl):videoImageDataUrl&&sentence?miningContextWithImage(term,sentence,"video",videoImageDataUrl):null}async function resolveStoredImmersionMiningContext(options){const{term,settings,activeContext,storedContext,
-fetchImageDataUrl,fetchAudioDataUrl:fetchAudioDataUrl2}=options,chosen=activeContext?.term===term?activeContext:storedContext??void 0;if(!chosen||!shouldUseImmersionContext(settings,chosen))return null;const[fetchedImageDataUrl,
-fetchedAudioDataUrl]=await Promise.all([fetchMiningContextImage(chosen,settings,fetchImageDataUrl),fetchMiningContextAudio(chosen,settings,fetchAudioDataUrl2)]);return{...chosen,imageDataUrl:fetchedImageDataUrl,
-audioDataUrl:fetchedAudioDataUrl}}function fetchMiningContextImage(context,settings,fetchImageDataUrl){return!context.imageUrl||!settings.immersionKitShowImages||!fetchImageDataUrl?Promise.resolve(void 0):fetchImageDataUrl(
-context.imageUrl,settings.audioTimeoutMs).catch(()=>{})}function fetchMiningContextAudio(context,settings,fetchAudioDataUrl2){return!context.audioUrls?.length||!fetchAudioDataUrl2?Promise.resolve(void 0):fetchAudioDataUrl2(
-context.audioUrls,settings.audioTimeoutMs).catch(()=>{})}function resolvePageMiningContext(term,sentence,sourceKind){const context=pageMiningContext(sentence||term,sourceKind??inferMiningSourceKind());return saveMiningContext(
-term,context)??createFallbackMiningContext(term,context)}function miningContextWithImage(term,sentence,sourceKind,imageDataUrl){const context=pageMiningContext(sentence,sourceKind);return{...saveMiningContext(term,
-context)??createFallbackMiningContext(term,context),imageDataUrl}}function saveMiningContext(term,context){const stored=createStoredMiningContext(term,context);if(!stored)return null;try{gmStorageSetSync(contextStorageKey(
-stored.term),stored)}catch(error){log$o.warn("Mining context save failed",{term:stored.term,sourceKind:stored.sourceKind,error})}return stored}function loadMiningContext(term){const normalized=term.trim();if(!normalized)
-return null;try{const stored=gmStorageGetSync(contextStorageKey(normalized),null);return stored?parseStoredMiningContext(stored,normalized):null}catch(error){return log$o.warn("Mining context load failed",{term:normalized,
-error}),null}}function immersionContextFromExample(term,example,index,total,imageUrl,audioUrls=[]){return{sentence:example.sentence,sourceKind:"immersion-kit",sourceTitle:example.sourceTitle||"Immersion Kit",sourceUrl:immersionKitUrl(
-term,index),imageUrl:imageUrl||void 0,audioUrls:optionalTextArray(audioUrls),immersionIndex:index,immersionTotal:total}}function immersionContextFromElement(sentence,element2,sourceUrl=location.href){return{sentence,
-sourceKind:"immersion-kit",sourceTitle:element2.dataset.immersionSourceTitle||"Immersion Kit",sourceUrl,imageUrl:optionalText(element2.dataset.immersionImageUrl),audioUrls:immersionAudioUrlsFromElement(element2),
-immersionIndex:optionalNumber(Number(element2.dataset.immersionIndex??0)),immersionTotal:optionalNumber(Number(element2.dataset.immersionTotal??0))}}function pageMiningContext(sentence,sourceKind="page"){return{
-sentence,sourceKind,sourceTitle:document.title||location.hostname,sourceUrl:location.href}}function shouldUseImmersionContext(settings,context){return!!(settings.immersionKitEnabled&&context?.sourceKind==="imme\
-rsion-kit"&&context.sentence.trim())}function contextStorageKey(term){return`${CONTEXT_PREFIX}${term}`}function parseStoredMiningContext(value,expectedTerm,now=Date.now()){const record=storedMiningContextRecord(
+trim(),activeKind:activeContext?.sourceKind,storedKind:storedContext?.sourceKind,sourceKind,hasImage:!!imageDataUrl,hasVideoImage:!!videoImageDataUrl}),cleanSentence=normalizeMiningSentence(sentence);try{const direct=resolveDirectImageMiningContext(
+term,cleanSentence,imageDataUrl,videoImageDataUrl);return direct||(await resolveStoredImmersionMiningContext({term,settings,activeContext,storedContext,fetchImageDataUrl,fetchAudioDataUrl:fetchAudioDataUrl2})??
+resolvePageMiningContext(term,cleanSentence,sourceKind))}finally{done()}}function resolveDirectImageMiningContext(term,sentence,imageDataUrl,videoImageDataUrl){return imageDataUrl&&sentence?miningContextWithImage(
+term,sentence,"image",imageDataUrl):videoImageDataUrl&&sentence?miningContextWithImage(term,sentence,"video",videoImageDataUrl):null}async function resolveStoredImmersionMiningContext(options){const{term,settings,
+activeContext,storedContext,fetchImageDataUrl,fetchAudioDataUrl:fetchAudioDataUrl2}=options,chosen=activeContext?.term===term?activeContext:storedContext??void 0;if(!chosen||!shouldUseImmersionContext(settings,
+chosen))return null;const[fetchedImageDataUrl,fetchedAudioDataUrl]=await Promise.all([fetchMiningContextImage(chosen,settings,fetchImageDataUrl),fetchMiningContextAudio(chosen,settings,fetchAudioDataUrl2)]);return{
+...chosen,imageDataUrl:fetchedImageDataUrl,audioDataUrl:fetchedAudioDataUrl}}function fetchMiningContextImage(context,settings,fetchImageDataUrl){return!context.imageUrl||!settings.immersionKitShowImages||!fetchImageDataUrl?
+Promise.resolve(void 0):fetchImageDataUrl(context.imageUrl,settings.audioTimeoutMs).catch(()=>{})}function fetchMiningContextAudio(context,settings,fetchAudioDataUrl2){return!context.audioUrls?.length||!fetchAudioDataUrl2?
+Promise.resolve(void 0):fetchAudioDataUrl2(context.audioUrls,settings.audioTimeoutMs).catch(()=>{})}function resolvePageMiningContext(term,sentence,sourceKind){const context=pageMiningContext(sentence||term,sourceKind??
+inferMiningSourceKind());return saveMiningContext(term,context)??createFallbackMiningContext(term,context)}function miningContextWithImage(term,sentence,sourceKind,imageDataUrl){const context=pageMiningContext(
+sentence,sourceKind);return{...saveMiningContext(term,context)??createFallbackMiningContext(term,context),imageDataUrl}}function saveMiningContext(term,context){const stored=createStoredMiningContext(term,context);
+if(!stored)return null;try{gmStorageSetSync(contextStorageKey(stored.term),stored)}catch(error){log$o.warn("Mining context save failed",{term:stored.term,sourceKind:stored.sourceKind,error})}return stored}function loadMiningContext(term){
+const normalized=term.trim();if(!normalized)return null;try{const stored=gmStorageGetSync(contextStorageKey(normalized),null);return stored?parseStoredMiningContext(stored,normalized):null}catch(error){return log$o.
+warn("Mining context load failed",{term:normalized,error}),null}}function immersionContextFromExample(term,example,index,total,imageUrl,audioUrls=[]){return{sentence:example.sentence,sourceKind:"immersion-kit",
+sourceTitle:example.sourceTitle||"Immersion Kit",sourceUrl:immersionKitUrl(term,index),imageUrl:imageUrl||void 0,audioUrls:optionalTextArray(audioUrls),immersionIndex:index,immersionTotal:total}}function immersionContextFromElement(sentence,element2,sourceUrl=location.
+href){return{sentence,sourceKind:"immersion-kit",sourceTitle:element2.dataset.immersionSourceTitle||"Immersion Kit",sourceUrl,imageUrl:optionalText(element2.dataset.immersionImageUrl),audioUrls:immersionAudioUrlsFromElement(
+element2),immersionIndex:optionalNumber(Number(element2.dataset.immersionIndex??0)),immersionTotal:optionalNumber(Number(element2.dataset.immersionTotal??0))}}function pageMiningContext(sentence,sourceKind="pag\
+e"){return{sentence,sourceKind,sourceTitle:document.title||location.hostname,sourceUrl:location.href}}function shouldUseImmersionContext(settings,context){return!!(settings.immersionKitEnabled&&context?.sourceKind===
+"immersion-kit"&&context.sentence.trim())}function contextStorageKey(term){return`${CONTEXT_PREFIX}${term}`}function parseStoredMiningContext(value,expectedTerm,now=Date.now()){const record=storedMiningContextRecord(
 value,expectedTerm);if(!record)return null;const sourceKind=storedMiningSourceKind(record.sourceKind);if(!sourceKind)return null;const updatedAt=storedMiningContextUpdatedAt(record.updatedAt,now);return updatedAt===
 null?null:createStoredMiningContext(expectedTerm,{sentence:text$1(record.sentence),sourceKind,sourceTitle:text$1(record.sourceTitle),sourceUrl:text$1(record.sourceUrl),imageUrl:optionalText(record.imageUrl),audioUrls:optionalTextArray(
 record.audioUrls),immersionIndex:optionalNumber(record.immersionIndex),immersionTotal:optionalNumber(record.immersionTotal)},updatedAt)}function storedMiningContextRecord(value,expectedTerm){return isRecord$1(value)&&
@@ -3912,13 +3922,13 @@ ${mnemonicSection}
 </div>
 </details>
 `}function expandedAttribute(initiallyExpanded){return initiallyExpanded?"open":""}function renderJpdbKanjiFactSection(facts){return facts.length?`<div class="jpdb-reader-kanji-facts">
-${facts.map(([label,value])=>`<span title="${escapeHtml$1(`JPDB · ${label}: ${value}`)}"><strong>${escapeHtml$1(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml$1(value)}</span></span>`).
-join("")}
+${facts.map(([label,value])=>`<span title="${escapeHtml$1(`JPDB · ${label}: ${value}`)}"><strong>${escapeHtml$1(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml$1(value)}</span><\
+/span>`).join("")}
 </div>`:""}function renderJpdbKanjiReadings(info){return info.readings.length?`<div class="jpdb-reader-kanji-readings">
 ${info.readings.slice(0,8).map(reading=>`<span>${escapeHtml$1(reading.reading)}${reading.share?` ${escapeHtml$1(reading.share)}`:""}</span>`).join("")}
 </div>`:""}function renderJpdbKanjiComponents(info,language){return info.components.length?`<div class="jpdb-reader-component-grid">
-${info.components.map(component=>`<button class="jpdb-reader-component-card jpdb-reader-component-button" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="${escapeHtml$1(`${uiText(
-language,"showKanji")}: ${component.kanji}`)}">
+${info.components.map(component=>`<button class="jpdb-reader-component-card jpdb-reader-component-button" type="button" data-action="kanji" data-kanji="${escapeHtml$1(component.kanji)}" title="${escapeHtml$1(
+`${uiText(language,"showKanji")}: ${component.kanji}`)}">
 <strong>${escapeHtml$1(component.kanji)}</strong>
 <span>${escapeHtml$1(component.keyword)}</span>
 </button>`).join("")}
@@ -3934,10 +3944,10 @@ data-kanji-action-id="${escapeHtml$1(action.id)}"
 title="${escapeHtml$1(jpdbKanjiActionLabel(action,language))}">${escapeHtml$1(jpdbKanjiActionLabel(action,language))}</button>`).join("")}
 </div>
 </div>
-`:""}function jpdbKanjiActionLabel(action,language){switch(action.role){case"mine":return uiText(language,"jpdbKanjiActionMine");case"known":return uiText(language,"jpdbKanjiActionKnown");case"neverforget":return uiText(
-language,"jpdbKanjiActionNeverForget");case"forget":return uiText(language,"jpdbKanjiActionForget");case"blacklist":return uiText(language,"jpdbKanjiActionBlacklist");case"review":return uiText(language,"jpdbKa\
-njiActionReview");default:return action.label}}function renderKanjiPractice(info,kanji,language,initiallyExpanded=!0,sourceStateKey,title=uiText(language,"strokePractice")){const ghost=`<div class="jpdb-reader-\
-doodle-text-ghost">${escapeHtml$1(kanji)}</div>`;return`
+`:""}function jpdbKanjiActionLabel(action,language){switch(action.role){case"mine":return uiText(language,"jpdbKanjiActionMine");case"known":return uiText(language,"jpdbKanjiActionKnown");case"neverforget":
+return uiText(language,"jpdbKanjiActionNeverForget");case"forget":return uiText(language,"jpdbKanjiActionForget");case"blacklist":return uiText(language,"jpdbKanjiActionBlacklist");case"review":return uiText(language,
+"jpdbKanjiActionReview");default:return action.label}}function renderKanjiPractice(info,kanji,language,initiallyExpanded=!0,sourceStateKey,title=uiText(language,"strokePractice")){const ghost=`<div class="jpdb-\
+reader-doodle-text-ghost">${escapeHtml$1(kanji)}</div>`;return`
 <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceStateAttribute(sourceStateKey,initiallyExpanded)} ${initiallyExpanded?"open":""}>
 <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
 <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml$1(kanji)}">
@@ -3951,8 +3961,8 @@ doodle-text-ghost">${escapeHtml$1(kanji)}</div>`;return`
 </div>
 <div class="jpdb-reader-newtab-doodle-result" data-newtab-doodle-result></div>
 </details>
-`}function graphEllipseOffset(dx,dy,rx,ry){const denominator=Math.sqrt(dx*dx/(rx*rx)+dy*dy/(ry*ry));return denominator>0?Math.min(.48,1/denominator):0}function formatGraphCoordinate(value){return Number(value.toFixed(
-2)).toString()}function graphEdgePath(from,to,targetZone="auto"){const normalizedTargetZone=normalizeGraphAnchorZone(targetZone);if(normalizedTargetZone==="auto"||normalizedTargetZone==="center")return graphAutoEdgePath(
+`}function graphEllipseOffset(dx,dy,rx,ry){const denominator=Math.sqrt(dx*dx/(rx*rx)+dy*dy/(ry*ry));return denominator>0?Math.min(.48,1/denominator):0}function formatGraphCoordinate(value){return Number(value.
+toFixed(2)).toString()}function graphEdgePath(from,to,targetZone="auto"){const normalizedTargetZone=normalizeGraphAnchorZone(targetZone);if(normalizedTargetZone==="auto"||normalizedTargetZone==="center")return graphAutoEdgePath(
 from,to);const target=graphFixedAnchorPoint(to,normalizedTargetZone),source=graphAutoBoundaryPoint(from,target);return{d:`M${formatGraphCoordinate(source.x)} ${formatGraphCoordinate(source.y)} L${formatGraphCoordinate(
 target.x)} ${formatGraphCoordinate(target.y)}`,points:[graphLinePoint(source.x,source.y,target.x,target.y,.38),graphLinePoint(source.x,source.y,target.x,target.y,.66)]}}function graphAutoEdgePath(from,to){const dx=to.
 x-from.x,dy=to.y-from.y,sourceOffset=graphEllipseOffset(dx,dy,from.rx,from.ry),targetOffset=graphEllipseOffset(dx,dy,to.rx,to.ry),x1=from.x+dx*sourceOffset,y1=from.y+dy*sourceOffset,x2=to.x-dx*targetOffset,y2=to.
@@ -3971,7 +3981,8 @@ model);return`
 <marker id="${outboundMarkerId}" class="jpdb-reader-origin-edge-arrow-outbound" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
 <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
 </marker>
-<marker id="${subcomponentMarkerId}" class="jpdb-reader-origin-edge-arrow-subcomponent" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+<marker id="${subcomponentMarkerId}" class="jpdb-reader-origin-edge-arrow-subcomponent" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="6" refY="3" orient="auto" markerUnits="stroke\
+Width">
 <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
 </marker>
 </defs>
@@ -3985,106 +3996,106 @@ renderOriginGraphToggle(uiText(language,"originShowOutbound"),"data-origin-outbo
 function renderOriginGraphToggle(label,attribute){return`<label class="jpdb-reader-origin-graph-toggle" title="${escapeHtml$1(label)}">
 <input type="checkbox" ${attribute} checked>
 <span>${escapeHtml$1(label)}</span>
-</label>`}const SIMPLIFIED_ONLY_COMPONENTS=new Set(["讠","钅","饣","纟","门","车","贝","见","长","马","鸟","鱼"]),KNOWN_COMPONENT_ZONES=[["top",new Set(["亠","宀","冖","艹","⺾","竹","⺮","雨",
-"穴","覀","西","爫","𠂉"])],["bottom",new Set(["心","忄","灬","儿","皿","貝","贝","日","寸","廾"])],["center",new Set(["大","夫","天","失","央","本","末","未"])],["left",new Set(["亻","\
-人","彳","氵","忄","扌","木","言","訁","口","女","糸","纟","土","王","犭","礻","衤","月","火","禾","虫","足","車","车"])],["right",new Set(["阝","刂","卩","頁","页","隹","攵","殳",
-"欠","鳥","鸟"])]],COMPONENT_POSITION_ZONES=[[/へん|left/,"left"],[/つくり|right/,"right"],[/かんむり|top|upper/,"top"],[/あし|した|bottom|lower/,"bottom"],[/かまえ|enclosure|surround/,"cente\
-r"]],OUTBOUND_COMPONENT_PLACEMENT_OVERRIDES=new Map([["夫\0失","upper"],["夫\0替","top"],["夫\0難","left"],["夫\0僕","lower"]]),INBOUND_COMPONENT_PLACEMENT_OVERRIDES=new Map([["友\0ナ",{zone:"upper",x:33,
-y:39}],["友\0又",{zone:"bottom",x:58,y:72}]]);function buildKanjiOriginGraphRenderModel(graph){const base=originGraphBase(graph);if(!base)return null;const selectedEdges=selectedOriginGraphEdges(base),visible=visibleOriginGraph(
-base,selectedEdges);if(!visible)return null;const roles=originGraphNodeRoles(visible.edgeGroups,base.current.id),positioned=forceLayoutOriginGraph(visible.nodes,visible.edgeGroups,base.current.id),markerId=originGraphMarkerId(
-positioned);return{current:base.current,nodeById:base.nodeById,edgeGroups:visible.edgeGroups,positioned,...roles,markerId,outboundMarkerId:`${markerId}-outbound`,subcomponentMarkerId:`${markerId}-subcomponent`,
-hasOutboundEdges:visible.edgeGroups.some(edge=>isOriginOutboundEdge(edge,base.current.id)),hasSubcomponentEdges:visible.edgeGroups.some(isOriginSubcomponentEdge)}}function originGraphBase(graph){const nodes=originGraphRenderableNodes(
-graph),nodeById=new Map(nodes.map(node=>[node.id,node])),edges=originGraphRenderableEdges(graph,nodeById);return shouldSkipOriginGraph(nodes,edges)?null:{nodes,nodeById,edges,current:originGraphCurrentNode(nodes)}}
-function originGraphRenderableNodes(graph){return graph?.nodes.filter(node=>!node.id.startsWith("rtk:"))??[]}function originGraphRenderableEdges(graph,nodeById){const nodeIds=new Set(nodeById.keys());return graph?.
-edges.filter(edge=>nodeIds.has(edge.from)&&nodeIds.has(edge.to))??[]}function shouldSkipOriginGraph(nodes,edges){return nodes.length<=1||!edges.length}function originGraphCurrentNode(nodes){return nodes.find(node=>node.
-kind==="current")??nodes[0]}function selectedOriginGraphEdges(base){const groupedEdges=groupOriginEdges(base.edges);return[...selectOriginEdgeGroups(groupedEdges.filter(edge=>!isOriginOutboundEdge(edge,base.current.
-id)&&!isOriginSubcomponentEdge(edge)),base.nodeById),...selectOriginSubcomponentEdgeGroups(groupedEdges,base.nodeById),...selectOriginOutboundEdgeGroups(groupedEdges,base.nodeById,base.current.id)]}function visibleOriginGraph(base,selectedEdges){
-if(!selectedEdges.length)return null;const connectedIds=connectedOriginNodeIds(base.current.id,selectedEdges),graphNodes=base.nodes.filter(node=>connectedIds.has(node.id)&&!isNoisyOriginNode(node)),visibleNodes=chooseOriginGraphNodes(
-graphNodes,selectedEdges,base.current.id),visibleIds=new Set(visibleNodes.map(node=>node.id)),edgeGroups=selectedEdges.filter(edge=>visibleIds.has(edge.from)&&visibleIds.has(edge.to));return visibleNodes.length<=
-1||!edgeGroups.length?null:{nodes:visibleNodes,edgeGroups}}function connectedOriginNodeIds(currentId,edges){const ids=new Set([currentId]);return edges.forEach(edge=>{ids.add(edge.from),ids.add(edge.to)}),ids}function originGraphNodeRoles(edgeGroups,currentId){
-const primaryIds=new Set([currentId]),outboundIds=new Set,subcomponentIds=new Set;return edgeGroups.forEach(edge=>addOriginGraphNodeRole(edge,currentId,primaryIds,outboundIds,subcomponentIds)),{primaryIds,outboundIds,
-subcomponentIds}}function addOriginGraphNodeRole(edge,currentId,primaryIds,outboundIds,subcomponentIds){if(isOriginOutboundEdge(edge,currentId)){outboundIds.add(edge.to);return}if(isOriginSubcomponentEdge(edge)){
-subcomponentIds.add(edge.from),edge.to!==currentId&&subcomponentIds.add(edge.to);return}primaryIds.add(edge.from),primaryIds.add(edge.to)}function originGraphMarkerId(positioned){return`jpdb-reader-origin-targe\
-t-${hashOriginGraphId(positioned.map(item=>item.node.id).join("|"))}`}function renderOriginGraphLines(model){const coords=new Map(model.positioned.map(item=>[item.node.id,item]));return model.edgeGroups.map(edge=>renderOriginGraphEdgeGroup(
-edge,coords,model)).join("")}function renderOriginGraphEdgeGroup(edge,coords,model){const from=coords.get(edge.from),to=coords.get(edge.to);if(!from||!to)return"";const targetZone=originEdgeTargetZone(edge,model.
-current.id,model.nodeById),edgePath=clippedOriginEdgePath(from,to,targetZone),label=edge.labels.join(" / "),outbound=isOriginOutboundEdge(edge,model.current.id),subcomponent=isOriginSubcomponentEdge(edge),outboundAttrs=outbound?
-' data-origin-outbound="true"':"",subcomponentAttrs=subcomponent?' data-origin-subcomponent="true"':"",markerId=outbound?model.outboundMarkerId:subcomponent?model.subcomponentMarkerId:model.markerId;return`<g c\
-lass="jpdb-reader-origin-edge-group${outbound?" outbound":""}${subcomponent?" subcomponent":""}" data-from="${escapeHtml$1(edge.from)}" data-to="${escapeHtml$1(edge.to)}" data-label="${escapeHtml$1(label)}" dat\
-a-target-zone="${targetZone}"${outboundAttrs}${subcomponentAttrs}>
+</label>`}const SIMPLIFIED_ONLY_COMPONENTS=new Set(["讠","钅","饣","纟","门","车","贝","见","长","马","鸟","鱼"]),KNOWN_COMPONENT_ZONES=[["top",new Set(["亠","宀","冖","艹","⺾","竹","⺮",
+"雨","穴","覀","西","爫","𠂉"])],["bottom",new Set(["心","忄","灬","儿","皿","貝","贝","日","寸","廾"])],["center",new Set(["大","夫","天","失","央","本","末","未"])],["left",new Set(["\
+亻","人","彳","氵","忄","扌","木","言","訁","口","女","糸","纟","土","王","犭","礻","衤","月","火","禾","虫","足","車","车"])],["right",new Set(["阝","刂","卩","頁","页","隹","攵",
+"殳","欠","鳥","鸟"])]],COMPONENT_POSITION_ZONES=[[/へん|left/,"left"],[/つくり|right/,"right"],[/かんむり|top|upper/,"top"],[/あし|した|bottom|lower/,"bottom"],[/かまえ|enclosure|surround/,
+"center"]],OUTBOUND_COMPONENT_PLACEMENT_OVERRIDES=new Map([["夫\0失","upper"],["夫\0替","top"],["夫\0難","left"],["夫\0僕","lower"]]),INBOUND_COMPONENT_PLACEMENT_OVERRIDES=new Map([["友\0ナ",{zone:"up\
+per",x:33,y:39}],["友\0又",{zone:"bottom",x:58,y:72}]]);function buildKanjiOriginGraphRenderModel(graph){const base=originGraphBase(graph);if(!base)return null;const selectedEdges=selectedOriginGraphEdges(base),
+visible=visibleOriginGraph(base,selectedEdges);if(!visible)return null;const roles=originGraphNodeRoles(visible.edgeGroups,base.current.id),positioned=forceLayoutOriginGraph(visible.nodes,visible.edgeGroups,base.
+current.id),markerId=originGraphMarkerId(positioned);return{current:base.current,nodeById:base.nodeById,edgeGroups:visible.edgeGroups,positioned,...roles,markerId,outboundMarkerId:`${markerId}-outbound`,subcomponentMarkerId:`${markerId}\
+-subcomponent`,hasOutboundEdges:visible.edgeGroups.some(edge=>isOriginOutboundEdge(edge,base.current.id)),hasSubcomponentEdges:visible.edgeGroups.some(isOriginSubcomponentEdge)}}function originGraphBase(graph){
+const nodes=originGraphRenderableNodes(graph),nodeById=new Map(nodes.map(node=>[node.id,node])),edges=originGraphRenderableEdges(graph,nodeById);return shouldSkipOriginGraph(nodes,edges)?null:{nodes,nodeById,edges,
+current:originGraphCurrentNode(nodes)}}function originGraphRenderableNodes(graph){return graph?.nodes.filter(node=>!node.id.startsWith("rtk:"))??[]}function originGraphRenderableEdges(graph,nodeById){const nodeIds=new Set(
+nodeById.keys());return graph?.edges.filter(edge=>nodeIds.has(edge.from)&&nodeIds.has(edge.to))??[]}function shouldSkipOriginGraph(nodes,edges){return nodes.length<=1||!edges.length}function originGraphCurrentNode(nodes){
+return nodes.find(node=>node.kind==="current")??nodes[0]}function selectedOriginGraphEdges(base){const groupedEdges=groupOriginEdges(base.edges);return[...selectOriginEdgeGroups(groupedEdges.filter(edge=>!isOriginOutboundEdge(
+edge,base.current.id)&&!isOriginSubcomponentEdge(edge)),base.nodeById),...selectOriginSubcomponentEdgeGroups(groupedEdges,base.nodeById),...selectOriginOutboundEdgeGroups(groupedEdges,base.nodeById,base.current.
+id)]}function visibleOriginGraph(base,selectedEdges){if(!selectedEdges.length)return null;const connectedIds=connectedOriginNodeIds(base.current.id,selectedEdges),graphNodes=base.nodes.filter(node=>connectedIds.
+has(node.id)&&!isNoisyOriginNode(node)),visibleNodes=chooseOriginGraphNodes(graphNodes,selectedEdges,base.current.id),visibleIds=new Set(visibleNodes.map(node=>node.id)),edgeGroups=selectedEdges.filter(edge=>visibleIds.
+has(edge.from)&&visibleIds.has(edge.to));return visibleNodes.length<=1||!edgeGroups.length?null:{nodes:visibleNodes,edgeGroups}}function connectedOriginNodeIds(currentId,edges){const ids=new Set([currentId]);return edges.
+forEach(edge=>{ids.add(edge.from),ids.add(edge.to)}),ids}function originGraphNodeRoles(edgeGroups,currentId){const primaryIds=new Set([currentId]),outboundIds=new Set,subcomponentIds=new Set;return edgeGroups.forEach(
+edge=>addOriginGraphNodeRole(edge,currentId,primaryIds,outboundIds,subcomponentIds)),{primaryIds,outboundIds,subcomponentIds}}function addOriginGraphNodeRole(edge,currentId,primaryIds,outboundIds,subcomponentIds){
+if(isOriginOutboundEdge(edge,currentId)){outboundIds.add(edge.to);return}if(isOriginSubcomponentEdge(edge)){subcomponentIds.add(edge.from),edge.to!==currentId&&subcomponentIds.add(edge.to);return}primaryIds.add(
+edge.from),primaryIds.add(edge.to)}function originGraphMarkerId(positioned){return`jpdb-reader-origin-target-${hashOriginGraphId(positioned.map(item=>item.node.id).join("|"))}`}function renderOriginGraphLines(model){
+const coords=new Map(model.positioned.map(item=>[item.node.id,item]));return model.edgeGroups.map(edge=>renderOriginGraphEdgeGroup(edge,coords,model)).join("")}function renderOriginGraphEdgeGroup(edge,coords,model){
+const from=coords.get(edge.from),to=coords.get(edge.to);if(!from||!to)return"";const targetZone=originEdgeTargetZone(edge,model.current.id,model.nodeById),edgePath=clippedOriginEdgePath(from,to,targetZone),label=edge.
+labels.join(" / "),outbound=isOriginOutboundEdge(edge,model.current.id),subcomponent=isOriginSubcomponentEdge(edge),outboundAttrs=outbound?' data-origin-outbound="true"':"",subcomponentAttrs=subcomponent?' data\
+-origin-subcomponent="true"':"",markerId=outbound?model.outboundMarkerId:subcomponent?model.subcomponentMarkerId:model.markerId;return`<g class="jpdb-reader-origin-edge-group${outbound?" outbound":""}${subcomponent?
+" subcomponent":""}" data-from="${escapeHtml$1(edge.from)}" data-to="${escapeHtml$1(edge.to)}" data-label="${escapeHtml$1(label)}" data-target-zone="${targetZone}"${outboundAttrs}${subcomponentAttrs}>
 <path class="jpdb-reader-origin-edge" d="${edgePath.d}" marker-end="url(#${markerId})"><title>${escapeHtml$1(label)}</title></path>
-</g>`}function renderOriginGraphNodeButtons(model){return model.positioned.map(node=>renderOriginGraphNodeButton(node,model)).join("")}function renderOriginGraphNodeButton(positioned,model){const{node,x:x2,y,rx,
-ry}=positioned,style=`left:${formatGraphNumber(x2)}%;top:${formatGraphNumber(y)}%`,outboundOnly=node.id!==model.current.id&&model.outboundIds.has(node.id)&&!model.primaryIds.has(node.id),subcomponentOnly=node.id!==
-model.current.id&&model.subcomponentIds.has(node.id)&&!model.primaryIds.has(node.id)&&!model.outboundIds.has(node.id),attrs=`data-graph-node="${escapeHtml$1(node.id)}" data-label-length="${originGraphLabelLengthAttribute(
+</g>`}function renderOriginGraphNodeButtons(model){return model.positioned.map(node=>renderOriginGraphNodeButton(node,model)).join("")}function renderOriginGraphNodeButton(positioned,model){const{node,x:x2,
+y,rx,ry}=positioned,style=`left:${formatGraphNumber(x2)}%;top:${formatGraphNumber(y)}%`,outboundOnly=node.id!==model.current.id&&model.outboundIds.has(node.id)&&!model.primaryIds.has(node.id),subcomponentOnly=node.
+id!==model.current.id&&model.subcomponentIds.has(node.id)&&!model.primaryIds.has(node.id)&&!model.outboundIds.has(node.id),attrs=`data-graph-node="${escapeHtml$1(node.id)}" data-label-length="${originGraphLabelLengthAttribute(
 node.label)}" data-x="${formatGraphNumber(x2)}" data-y="${formatGraphNumber(y)}" data-rx="${formatGraphNumber(rx)}" data-ry="${formatGraphNumber(ry)}"${outboundOnly?' data-origin-outbound="true"':""}${subcomponentOnly?
 ' data-origin-subcomponent="true"':""} style="${style}"`;return node.kind==="related"?renderRelatedOriginGraphNode(node,attrs):renderKanjiOriginGraphNode(node,attrs)}function originGraphLabelLengthAttribute(label){
 const length=Array.from(label).length;return length>2?"many":String(length||1)}function renderRelatedOriginGraphNode(node,attrs){return`<span class="jpdb-reader-origin-graph-node ${node.kind}" ${attrs} title="${escapeHtml$1(
 node.detail)}">${escapeHtml$1(node.label)}</span>`}function renderKanjiOriginGraphNode(node,attrs){const title=[node.detail,node.source].filter(Boolean).join(" · ");return`<button class="jpdb-reader-origin-gra\
 ph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml$1(node.id)}" ${attrs} title="${escapeHtml$1(title)}">${escapeHtml$1(node.label)}</button>`}function chooseOriginGraphNodes(nodes,edges,currentId){
 const current=nodes.find(node=>node.id===currentId)??nodes[0],degree=new Map;edges.forEach(edge=>{degree.set(edge.from,(degree.get(edge.from)??0)+1),degree.set(edge.to,(degree.get(edge.to)??0)+1)});const ranked=nodes.
-filter(node=>node.id!==current.id).sort((a,b)=>originNodePriority(a.id,edges,current.id)-originNodePriority(b.id,edges,current.id)||(degree.get(b.id)??0)-(degree.get(a.id)??0)||a.label.localeCompare(b.label,"ja"));
-return[current,...ranked.slice(0,18)]}function originNodePriority(id,edges,currentId){return edges.some(edge=>edge.from===id&&edge.to===currentId)?0:edges.some(edge=>edge.from===currentId&&edge.to===id)?1:edges.
-some(edge=>edge.from===id||edge.to===id)?2:3}function selectOriginEdgeGroups(groups,nodeById){const useful=groups.filter(edge=>{const from=nodeById.get(edge.from),to=nodeById.get(edge.to);return from&&to&&!isNoisyOriginNode(
-from)&&!isNoisyOriginNode(to)}),structural=useful.filter(edge=>edge.labels.some(label=>label==="radical"||label==="structural part"));if(structural.length)return structural;const jpdb=useful.filter(edge=>edge.labels.
-includes("JPDB component"));return jpdb.length?jpdb:useful.filter(edge=>!edge.labels.includes("memory cue"))}function selectOriginOutboundEdgeGroups(groups,nodeById,currentId){return groups.filter(edge=>{if(!isOriginOutboundEdge(
-edge,currentId))return!1;const to=nodeById.get(edge.to);return to&&!isNoisyOriginNode(to)})}function selectOriginSubcomponentEdgeGroups(groups,nodeById){return groups.filter(edge=>{if(!isOriginSubcomponentEdge(
-edge))return!1;const from=nodeById.get(edge.from),to=nodeById.get(edge.to);return from&&to&&!isNoisyOriginNode(from)&&!isNoisyOriginNode(to)})}function isOriginOutboundEdge(edge,currentId){return edge.from===currentId&&
-edge.to!==currentId}function isOriginSubcomponentEdge(edge){return edge.labels.includes("subcomponent")}function originEdgeTargetZone(edge,currentId,nodeById){if(edge.to===currentId){const source=nodeById.get(edge.
-from);return source?inferInboundComponentZone(source,currentId):"auto"}if(edge.from===currentId){const target=nodeById.get(edge.to);return target?inferOutboundComponentZone(currentId,target):"auto"}if(isOriginSubcomponentEdge(
-edge)){const source=nodeById.get(edge.from);return source?inferInboundComponentZone(source,edge.to):"auto"}return"auto"}function isNoisyOriginNode(node){return SIMPLIFIED_ONLY_COMPONENTS.has(node.id)||SIMPLIFIED_ONLY_COMPONENTS.
-has(node.label)}function groupOriginEdges(edges){const groups=new Map;for(const edge of edges){const key=`${edge.from}\0${edge.to}`,group=groups.get(key)??{from:edge.from,to:edge.to,labels:[]};edge.label&&!group.
-labels.includes(edge.label)&&group.labels.push(edge.label),groups.set(key,group)}return Array.from(groups.values())}function forceLayoutOriginGraph(nodes,edges,currentId){const anchors=originGraphAnchors(nodes,
-edges,currentId),states=createOriginNodeStates(nodes,anchors),byId=new Map(states.map(state=>[state.node.id,state]));for(let iteration=0;iteration<240;iteration++){const alpha=Math.pow(1-iteration/240,1.45);applyOriginNodeRepulsion(
-states,alpha),applyOriginEdgePulls(byId,edges,currentId,alpha),applyOriginEdgeNodeAvoidance(states,byId,edges,alpha),applyOriginAnchorPulls(states,currentId,alpha),integrateOriginNodeStates(states,currentId)}return positionOriginNodes(
-states)}function createOriginNodeStates(nodes,anchors){return nodes.map((node,index)=>{const{rx,ry}=originNodeRadii(node),anchor=anchors.get(node.id)??{x:50,y:50},jitter=index===0?0:(index%2===0?1:-1)*(1.2+index%
-3*.45);return{node,x:anchor.x+jitter,y:anchor.y-jitter*.6,rx,ry,vx:0,vy:0,anchorX:anchor.x,anchorY:anchor.y,anchorPinned:anchor.pinned===!0,collision:Math.max(rx*1.35,ry)+5.2}})}function applyOriginNodeRepulsion(states,alpha){
-for(let aIndex=0;aIndex<states.length;aIndex++)for(let bIndex=aIndex+1;bIndex<states.length;bIndex++)repelOriginNodePair(states[aIndex],states[bIndex],aIndex,bIndex,alpha)}function repelOriginNodePair(a,b,aIndex,bIndex,alpha){
-const delta=originNodeDelta(a,b,aIndex,bIndex),distanceSquared=Math.max(8,delta.dx*delta.dx+delta.dy*delta.dy),distance=Math.sqrt(distanceSquared),repel=Math.min(.68,17*alpha/distanceSquared);a.vx-=delta.dx*repel,
-a.vy-=delta.dy*repel,b.vx+=delta.dx*repel,b.vy+=delta.dy*repel;const minimumDistance=a.collision+b.collision;if(distance>=minimumDistance)return;const push=(minimumDistance-distance)/distance*.14*alpha;a.vx-=delta.
-dx*push,a.vy-=delta.dy*push,b.vx+=delta.dx*push,b.vy+=delta.dy*push}function originNodeDelta(a,b,aIndex,bIndex){const dx=b.x-a.x,dy=b.y-a.y;return Math.abs(dx)+Math.abs(dy)<.01?{dx:(bIndex-aIndex)*.13,dy:(aIndex+
-bIndex)*.11}:{dx,dy}}function applyOriginEdgePulls(byId,edges,currentId,alpha){for(const edge of edges){const source=byId.get(edge.from),target=byId.get(edge.to);source&&target&&pullOriginEdge(source,target,edge,
-currentId,alpha)}}function pullOriginEdge(source,target,edge,currentId,alpha){const dx=target.x-source.x,dy=target.y-source.y,distance=Math.sqrt(dx*dx+dy*dy)||1,targetDistance=isOriginSubcomponentEdge(edge)?21:
-source.node.id===currentId||target.node.id===currentId?36:24,pull=(distance-targetDistance)/distance*.06*alpha;source.vx+=dx*pull,source.vy+=dy*pull,target.vx-=dx*pull,target.vy-=dy*pull}function applyOriginEdgeNodeAvoidance(states,byId,edges,alpha){
-for(const edge of edges){const source=byId.get(edge.from),target=byId.get(edge.to);if(!(!source||!target))for(const state of states)state===source||state===target||pushOriginNodeAwayFromEdge(state,source,target,
-alpha)}}function pushOriginNodeAwayFromEdge(node,source,target,alpha){const closest=closestOriginEdgePoint(node.x,node.y,source.x,source.y,target.x,target.y),dx=node.x-closest.x,dy=node.y-closest.y,distance=Math.
-sqrt(dx*dx+dy*dy)||.001,clearance=Math.max(node.rx,node.ry)*.72+2.2;if(distance>=clearance)return;const fallback=originEdgeNormal(source,target),ux=distance>.01?dx/distance:fallback.x,uy=distance>.01?dy/distance:
-fallback.y,push=(clearance-distance)*.045*alpha;node.vx+=ux*push,node.vy+=uy*push}function closestOriginEdgePoint(px,py,x1,y1,x2,y2){const dx=x2-x1,dy=y2-y1,lengthSquared=dx*dx+dy*dy;if(lengthSquared<=.001)return{
-x:x1,y:y1};const t=clampGraphValue(((px-x1)*dx+(py-y1)*dy)/lengthSquared,0,1);return{x:x1+dx*t,y:y1+dy*t}}function originEdgeNormal(source,target){const dx=target.x-source.x,dy=target.y-source.y,length=Math.sqrt(
-dx*dx+dy*dy)||1;return{x:-dy/length,y:dx/length}}function applyOriginAnchorPulls(states,currentId,alpha){for(const state of states){const anchorStrength=state.node.id===currentId?.32:state.anchorPinned?.38:.16;
-state.vx+=(state.anchorX-state.x)*anchorStrength*alpha,state.vy+=(state.anchorY-state.y)*anchorStrength*alpha}}function integrateOriginNodeStates(states,currentId){for(const state of states)integrateOriginNodeState(
-state,currentId),state.x=clampGraphValue(state.x,9+state.rx,91-state.rx),state.y=clampGraphValue(state.y,7+state.ry,93-state.ry)}function integrateOriginNodeState(state,currentId){if(state.node.id===currentId){
-state.x+=(state.anchorX-state.x)*.4,state.y+=(state.anchorY-state.y)*.4,state.vx=0,state.vy=0;return}state.x+=state.vx,state.y+=state.vy,state.vx*=.58,state.vy*=.58}function positionOriginNodes(states){return states.
-map(({node,x:x2,y,rx,ry})=>({node,x:Number(x2.toFixed(2)),y:Number(y.toFixed(2)),rx,ry}))}function originGraphAnchors(nodes,edges,currentId){const anchors=new Map,current=nodes.find(node=>node.id===currentId);current&&
-anchors.set(current.id,{x:50,y:50});const currentReference=current?originNodeGeometryReference(current,{x:50,y:50}):void 0,incoming=nodes.filter(node=>node.id!==currentId&&edges.some(edge=>edge.from===node.id&&
-edge.to===currentId)),outgoing=nodes.filter(node=>node.id!==currentId&&edges.some(edge=>edge.from===currentId&&edge.to===node.id)),attached=new Set([...incoming,...outgoing].map(node=>node.id)),others=nodes.filter(
-node=>node.id!==currentId&&!attached.has(node.id));outgoing.length?(spreadInboundComponents(incoming,currentId,currentReference).forEach(({node,x:x2,y,pinned})=>anchors.set(node.id,{x:x2,y,pinned})),spreadOutboundComponents(
-outgoing,currentId).forEach(({node,x:x2,y})=>anchors.set(node.id,{x:x2,y}))):spreadInboundComponents(incoming,currentId,currentReference).forEach(({node,x:x2,y,pinned})=>anchors.set(node.id,{x:x2,y,pinned})),spreadNestedComponents(
-nodes,edges,anchors);const anchored=new Set(anchors.keys()),remainingOthers=others.filter(node=>!anchored.has(node.id));return remainingOthers.forEach((node,index)=>{const t=(index+1)/(remainingOthers.length+1);
-anchors.set(node.id,{x:26+t*48,y:78+index%2*3})}),anchors}function spreadNestedComponents(nodes,edges,anchors){const nodeById=new Map(nodes.map(node=>[node.id,node])),nestedByParent=nestedEdgesByParent(edges,nodeById);
-for(let pass=0;pass<nodes.length;pass++){let placed=!1;if(nestedByParent.forEach((parentEdges,parentId)=>{const parentAnchor=anchors.get(parentId);if(!parentAnchor)return;const sorted=[...parentEdges].sort((a,b)=>{
-const aNode=nodeById.get(a.from),bNode=nodeById.get(b.from);return componentZoneSort(aNode?inferInboundComponentZone(aNode,parentId):"center")-componentZoneSort(bNode?inferInboundComponentZone(bNode,parentId):"\
-center")||(aNode?.label??a.from).localeCompare(bNode?.label??b.from,"ja")});sorted.forEach((edge,index)=>{if(anchors.has(edge.from))return;const node=nodeById.get(edge.from);if(!node)return;const parentNode=nodeById.
-get(parentId),geometryAnchor=originNodeGeometryAnchor(node,parentNode?originNodeGeometryReference(parentNode,parentAnchor):void 0);if(geometryAnchor){anchors.set(edge.from,{...geometryAnchor,pinned:!0}),placed=
-!0;return}const zone=inferInboundComponentZone(node,parentId);anchors.set(edge.from,{...nestedZoneAnchor(parentAnchor,zone,index,sorted.length),pinned:!0}),placed=!0})}),!placed)return}}function nestedEdgesByParent(edges,nodeById){
-const result=new Map;return edges.filter(isOriginSubcomponentEdge).forEach(edge=>{if(!nodeById.has(edge.from)||!nodeById.has(edge.to))return;const list=result.get(edge.to)??[];list.push(edge),result.set(edge.to,
-list)}),result}function nestedZoneAnchor(parent,zone,index,total){const side=nestedExpansionSide(parent.x),offset=(index-(total-1)/2)*14,base=nestedZoneAnchorBase(parent,zone,side,18,20),withOffset=zone==="top"||
-zone==="upper"||zone==="bottom"||zone==="lower"?{x:base.x+offset,y:base.y}:{x:base.x,y:base.y+offset};return{x:clampGraphValue(withOffset.x,11,89),y:clampGraphValue(withOffset.y,12,88)}}function nestedExpansionSide(parentX){
-return parentX<=34?1:parentX>=66||parentX<50?-1:1}function nestedZoneAnchorBase(parent,zone,side,xStep,yStep){switch(zone){case"top":return{x:parent.x,y:parent.y-yStep};case"upper":return{x:parent.x+side*(xStep*
-.45),y:parent.y-yStep*.72};case"left":return{x:parent.x-xStep,y:parent.y};case"right":return{x:parent.x+xStep,y:parent.y};case"lower":return{x:parent.x+side*(xStep*.45),y:parent.y+yStep*.72};case"bottom":return{
-x:parent.x,y:parent.y+yStep};case"center":return{x:parent.x+side*xStep,y:parent.y}}}function spreadInboundComponents(nodes,currentId="",currentReference){if(!nodes.length)return[];const ordered=[...nodes].sort(
-(a,b)=>componentZoneSort(inferInboundComponentZone(a,currentId))-componentZoneSort(inferInboundComponentZone(b,currentId))||a.label.localeCompare(b.label,"ja")),usedByZone=new Map;return ordered.map((node,index)=>{
-const geometryAnchor=originNodeGeometryAnchor(node,currentReference);if(geometryAnchor)return{node,...geometryAnchor,pinned:!0};const override=inboundPlacementOverride(currentId,node);if(override)return{node,x:override.
-x,y:override.y,pinned:!0};const zone=inferInboundComponentZone(node,currentId),used=usedByZone.get(zone)??0;usedByZone.set(zone,used+1);const anchor=inboundZoneAnchor(zone,used,ordered.filter(item=>inferInboundComponentZone(
-item,currentId)===zone).length),fallback=spreadConstellation(ordered)[index]??{x:30,y:50};return{node,x:anchor?.x??fallback.x,y:anchor?.y??fallback.y,pinned:zone!=="center"}})}function spreadOutboundComponents(nodes,currentId){
-if(!nodes.length)return[];const ordered=[...nodes].sort((a,b)=>componentZoneSort(inferOutboundComponentZone(currentId,a))-componentZoneSort(inferOutboundComponentZone(currentId,b))||a.label.localeCompare(b.label,
-"ja")),usedByZone=new Map;return ordered.map(node=>{const zone=inferOutboundComponentZone(currentId,node),used=usedByZone.get(zone)??0;usedByZone.set(zone,used+1);const anchor=outboundZoneAnchor(zone,used,ordered.
-filter(item=>inferOutboundComponentZone(currentId,item)===zone).length);return{node,x:anchor.x,y:anchor.y}})}function originNodeGeometryAnchor(node,reference){const geometry=node.geometry;if(!geometry||!Number.
-isFinite(geometry.x)||!Number.isFinite(geometry.y))return;const x2=10+clampGraphValue(geometry.x,0,1)*80,y=10+clampGraphValue(geometry.y,0,1)*80,anchor={x:clampGraphValue(x2,10,90),y:clampGraphValue(y,10,90)};return reference?
-separateOriginGeometryAnchor(node,anchor,reference):anchor}function separateOriginGeometryAnchor(node,anchor,reference){const radii=originNodeRadii(node),dx=anchor.x-reference.x,dy=anchor.y-reference.y,distance=Math.
-hypot(dx,dy),direction=distance>.01?{x:dx/distance,y:dy/distance}:originComponentZoneDirection(inferInboundComponentZone(node)),requiredDistance=originEllipseRadius(reference.rx,reference.ry,direction)+originEllipseRadius(
-radii.rx,radii.ry,direction)+4.5;return distance>=requiredDistance?anchor:{x:clampGraphValue(reference.x+direction.x*requiredDistance,9+radii.rx,91-radii.rx),y:clampGraphValue(reference.y+direction.y*requiredDistance,
-7+radii.ry,93-radii.ry)}}function originNodeGeometryReference(node,point){const radii=originNodeRadii(node);return{...point,rx:radii.rx,ry:radii.ry}}function originEllipseRadius(rx,ry,direction){const denominator=Math.
-sqrt(direction.x*direction.x/(rx*rx)+direction.y*direction.y/(ry*ry));return denominator>0?1/denominator:Math.max(rx,ry)}function originComponentZoneDirection(zone){switch(zone){case"top":return{x:0,y:-1};case"\
-upper":return{x:.447,y:-.894};case"left":return{x:-1,y:0};case"right":return{x:1,y:0};case"lower":return{x:.447,y:.894};case"bottom":return{x:0,y:1};case"center":return{x:-1,y:0}}}function inferInboundComponentZone(node,currentId=""){
+filter(node=>node.id!==current.id).sort((a,b)=>{const priority2=originNodePriority(a.id,edges,current.id)-originNodePriority(b.id,edges,current.id);if(priority2)return priority2;const degreeDelta=(degree.get(b.
+id)??0)-(degree.get(a.id)??0);return degreeDelta||a.label.localeCompare(b.label,"ja")});return[current,...ranked.slice(0,18)]}function originNodePriority(id,edges,currentId){return edges.some(edge=>edge.from===
+id&&edge.to===currentId)?0:edges.some(edge=>edge.from===currentId&&edge.to===id)?1:edges.some(edge=>edge.from===id||edge.to===id)?2:3}function selectOriginEdgeGroups(groups,nodeById){const useful=groups.filter(
+edge=>{const from=nodeById.get(edge.from),to=nodeById.get(edge.to);return from&&to&&!isNoisyOriginNode(from)&&!isNoisyOriginNode(to)}),structural=useful.filter(edge=>edge.labels.some(label=>label==="radical"||label===
+"structural part"));if(structural.length)return structural;const jpdb=useful.filter(edge=>edge.labels.includes("JPDB component"));return jpdb.length?jpdb:useful.filter(edge=>!edge.labels.includes("memory cue"))}
+function selectOriginOutboundEdgeGroups(groups,nodeById,currentId){return groups.filter(edge=>{if(!isOriginOutboundEdge(edge,currentId))return!1;const to=nodeById.get(edge.to);return to&&!isNoisyOriginNode(to)})}
+function selectOriginSubcomponentEdgeGroups(groups,nodeById){return groups.filter(edge=>{if(!isOriginSubcomponentEdge(edge))return!1;const from=nodeById.get(edge.from),to=nodeById.get(edge.to);return from&&to&&
+!isNoisyOriginNode(from)&&!isNoisyOriginNode(to)})}function isOriginOutboundEdge(edge,currentId){return edge.from===currentId&&edge.to!==currentId}function isOriginSubcomponentEdge(edge){return edge.labels.includes(
+"subcomponent")}function originEdgeTargetZone(edge,currentId,nodeById){if(edge.to===currentId){const source=nodeById.get(edge.from);return source?inferInboundComponentZone(source,currentId):"auto"}if(edge.from===
+currentId){const target=nodeById.get(edge.to);return target?inferOutboundComponentZone(currentId,target):"auto"}if(isOriginSubcomponentEdge(edge)){const source=nodeById.get(edge.from);return source?inferInboundComponentZone(
+source,edge.to):"auto"}return"auto"}function isNoisyOriginNode(node){return SIMPLIFIED_ONLY_COMPONENTS.has(node.id)||SIMPLIFIED_ONLY_COMPONENTS.has(node.label)}function groupOriginEdges(edges){const groups=new Map;
+for(const edge of edges){const key=`${edge.from}\0${edge.to}`,group=groups.get(key)??{from:edge.from,to:edge.to,labels:[]};edge.label&&!group.labels.includes(edge.label)&&group.labels.push(edge.label),groups.set(
+key,group)}return Array.from(groups.values())}function forceLayoutOriginGraph(nodes,edges,currentId){const anchors=originGraphAnchors(nodes,edges,currentId),states=createOriginNodeStates(nodes,anchors),byId=new Map(
+states.map(state=>[state.node.id,state]));for(let iteration=0;iteration<240;iteration++){const alpha=Math.pow(1-iteration/240,1.45);applyOriginNodeRepulsion(states,alpha),applyOriginEdgePulls(byId,edges,currentId,
+alpha),applyOriginEdgeNodeAvoidance(states,byId,edges,alpha),applyOriginAnchorPulls(states,currentId,alpha),integrateOriginNodeStates(states,currentId)}return positionOriginNodes(states)}function createOriginNodeStates(nodes,anchors){
+return nodes.map((node,index)=>{const{rx,ry}=originNodeRadii(node),anchor=anchors.get(node.id)??{x:50,y:50},jitter=index===0?0:(index%2===0?1:-1)*(1.2+index%3*.45);return{node,x:anchor.x+jitter,y:anchor.y-jitter*
+.6,rx,ry,vx:0,vy:0,anchorX:anchor.x,anchorY:anchor.y,anchorPinned:anchor.pinned===!0,collision:Math.max(rx*1.35,ry)+5.2}})}function applyOriginNodeRepulsion(states,alpha){for(let aIndex=0;aIndex<states.length;aIndex++)
+for(let bIndex=aIndex+1;bIndex<states.length;bIndex++)repelOriginNodePair(states[aIndex],states[bIndex],aIndex,bIndex,alpha)}function repelOriginNodePair(a,b,aIndex,bIndex,alpha){const delta=originNodeDelta(a,b,
+aIndex,bIndex),distanceSquared=Math.max(8,delta.dx*delta.dx+delta.dy*delta.dy),distance=Math.sqrt(distanceSquared),repel=Math.min(.68,17*alpha/distanceSquared);a.vx-=delta.dx*repel,a.vy-=delta.dy*repel,b.vx+=delta.
+dx*repel,b.vy+=delta.dy*repel;const minimumDistance=a.collision+b.collision;if(distance>=minimumDistance)return;const push=(minimumDistance-distance)/distance*.14*alpha;a.vx-=delta.dx*push,a.vy-=delta.dy*push,b.
+vx+=delta.dx*push,b.vy+=delta.dy*push}function originNodeDelta(a,b,aIndex,bIndex){const dx=b.x-a.x,dy=b.y-a.y;return Math.abs(dx)+Math.abs(dy)<.01?{dx:(bIndex-aIndex)*.13,dy:(aIndex+bIndex)*.11}:{dx,dy}}function applyOriginEdgePulls(byId,edges,currentId,alpha){
+for(const edge of edges){const source=byId.get(edge.from),target=byId.get(edge.to);source&&target&&pullOriginEdge(source,target,edge,currentId,alpha)}}function pullOriginEdge(source,target,edge,currentId,alpha){
+const dx=target.x-source.x,dy=target.y-source.y,distance=Math.sqrt(dx*dx+dy*dy)||1,targetDistance=isOriginSubcomponentEdge(edge)?21:source.node.id===currentId||target.node.id===currentId?36:24,pull=(distance-targetDistance)/
+distance*.06*alpha;source.vx+=dx*pull,source.vy+=dy*pull,target.vx-=dx*pull,target.vy-=dy*pull}function applyOriginEdgeNodeAvoidance(states,byId,edges,alpha){for(const edge of edges){const source=byId.get(edge.
+from),target=byId.get(edge.to);if(!(!source||!target))for(const state of states)state===source||state===target||pushOriginNodeAwayFromEdge(state,source,target,alpha)}}function pushOriginNodeAwayFromEdge(node,source,target,alpha){
+const closest=closestOriginEdgePoint(node.x,node.y,source.x,source.y,target.x,target.y),dx=node.x-closest.x,dy=node.y-closest.y,distance=Math.sqrt(dx*dx+dy*dy)||.001,clearance=Math.max(node.rx,node.ry)*.72+2.2;
+if(distance>=clearance)return;const fallback=originEdgeNormal(source,target),ux=distance>.01?dx/distance:fallback.x,uy=distance>.01?dy/distance:fallback.y,push=(clearance-distance)*.045*alpha;node.vx+=ux*push,node.
+vy+=uy*push}function closestOriginEdgePoint(px,py,x1,y1,x2,y2){const dx=x2-x1,dy=y2-y1,lengthSquared=dx*dx+dy*dy;if(lengthSquared<=.001)return{x:x1,y:y1};const t=clampGraphValue(((px-x1)*dx+(py-y1)*dy)/lengthSquared,
+0,1);return{x:x1+dx*t,y:y1+dy*t}}function originEdgeNormal(source,target){const dx=target.x-source.x,dy=target.y-source.y,length=Math.sqrt(dx*dx+dy*dy)||1;return{x:-dy/length,y:dx/length}}function applyOriginAnchorPulls(states,currentId,alpha){
+for(const state of states){const anchorStrength=state.node.id===currentId?.32:state.anchorPinned?.38:.16;state.vx+=(state.anchorX-state.x)*anchorStrength*alpha,state.vy+=(state.anchorY-state.y)*anchorStrength*alpha}}
+function integrateOriginNodeStates(states,currentId){for(const state of states)integrateOriginNodeState(state,currentId),state.x=clampGraphValue(state.x,9+state.rx,91-state.rx),state.y=clampGraphValue(state.y,7+
+state.ry,93-state.ry)}function integrateOriginNodeState(state,currentId){if(state.node.id===currentId){state.x+=(state.anchorX-state.x)*.4,state.y+=(state.anchorY-state.y)*.4,state.vx=0,state.vy=0;return}state.
+x+=state.vx,state.y+=state.vy,state.vx*=.58,state.vy*=.58}function positionOriginNodes(states){return states.map(({node,x:x2,y,rx,ry})=>({node,x:Number(x2.toFixed(2)),y:Number(y.toFixed(2)),rx,ry}))}function originGraphAnchors(nodes,edges,currentId){
+const anchors=new Map,current=nodes.find(node=>node.id===currentId);current&&anchors.set(current.id,{x:50,y:50});const currentReference=current?originNodeGeometryReference(current,{x:50,y:50}):void 0,incoming=nodes.
+filter(node=>node.id!==currentId&&edges.some(edge=>edge.from===node.id&&edge.to===currentId)),outgoing=nodes.filter(node=>node.id!==currentId&&edges.some(edge=>edge.from===currentId&&edge.to===node.id)),attached=new Set(
+[...incoming,...outgoing].map(node=>node.id)),others=nodes.filter(node=>node.id!==currentId&&!attached.has(node.id));outgoing.length?(spreadInboundComponents(incoming,currentId,currentReference).forEach(({node,
+x:x2,y,pinned})=>anchors.set(node.id,{x:x2,y,pinned})),spreadOutboundComponents(outgoing,currentId).forEach(({node,x:x2,y})=>anchors.set(node.id,{x:x2,y}))):spreadInboundComponents(incoming,currentId,currentReference).
+forEach(({node,x:x2,y,pinned})=>anchors.set(node.id,{x:x2,y,pinned})),spreadNestedComponents(nodes,edges,anchors);const anchored=new Set(anchors.keys()),remainingOthers=others.filter(node=>!anchored.has(node.id));
+return remainingOthers.forEach((node,index)=>{const t=(index+1)/(remainingOthers.length+1);anchors.set(node.id,{x:26+t*48,y:78+index%2*3})}),anchors}function spreadNestedComponents(nodes,edges,anchors){const nodeById=new Map(
+nodes.map(node=>[node.id,node])),nestedByParent=nestedEdgesByParent(edges,nodeById);for(let pass=0;pass<nodes.length;pass++){let placed=!1;if(nestedByParent.forEach((parentEdges,parentId)=>{const parentAnchor=anchors.
+get(parentId);if(!parentAnchor)return;const sorted=[...parentEdges].sort((a,b)=>{const aNode=nodeById.get(a.from),bNode=nodeById.get(b.from);return componentZoneSort(aNode?inferInboundComponentZone(aNode,parentId):
+"center")-componentZoneSort(bNode?inferInboundComponentZone(bNode,parentId):"center")||(aNode?.label??a.from).localeCompare(bNode?.label??b.from,"ja")});sorted.forEach((edge,index)=>{if(anchors.has(edge.from))return;
+const node=nodeById.get(edge.from);if(!node)return;const parentNode=nodeById.get(parentId),geometryAnchor=originNodeGeometryAnchor(node,parentNode?originNodeGeometryReference(parentNode,parentAnchor):void 0);if(geometryAnchor){
+anchors.set(edge.from,{...geometryAnchor,pinned:!0}),placed=!0;return}const zone=inferInboundComponentZone(node,parentId);anchors.set(edge.from,{...nestedZoneAnchor(parentAnchor,zone,index,sorted.length),pinned:!0}),
+placed=!0})}),!placed)return}}function nestedEdgesByParent(edges,nodeById){const result=new Map;return edges.filter(isOriginSubcomponentEdge).forEach(edge=>{if(!nodeById.has(edge.from)||!nodeById.has(edge.to))return;
+const list=result.get(edge.to)??[];list.push(edge),result.set(edge.to,list)}),result}function nestedZoneAnchor(parent,zone,index,total){const side=nestedExpansionSide(parent.x),offset=(index-(total-1)/2)*14,base=nestedZoneAnchorBase(
+parent,zone,side,18,20),withOffset=zone==="top"||zone==="upper"||zone==="bottom"||zone==="lower"?{x:base.x+offset,y:base.y}:{x:base.x,y:base.y+offset};return{x:clampGraphValue(withOffset.x,11,89),y:clampGraphValue(
+withOffset.y,12,88)}}function nestedExpansionSide(parentX){return parentX<=34?1:parentX>=66||parentX<50?-1:1}function nestedZoneAnchorBase(parent,zone,side,xStep,yStep){switch(zone){case"top":return{x:parent.x,
+y:parent.y-yStep};case"upper":return{x:parent.x+side*(xStep*.45),y:parent.y-yStep*.72};case"left":return{x:parent.x-xStep,y:parent.y};case"right":return{x:parent.x+xStep,y:parent.y};case"lower":return{x:parent.
+x+side*(xStep*.45),y:parent.y+yStep*.72};case"bottom":return{x:parent.x,y:parent.y+yStep};case"center":return{x:parent.x+side*xStep,y:parent.y}}}function spreadInboundComponents(nodes,currentId="",currentReference){
+if(!nodes.length)return[];const ordered=[...nodes].sort((a,b)=>componentZoneSort(inferInboundComponentZone(a,currentId))-componentZoneSort(inferInboundComponentZone(b,currentId))||a.label.localeCompare(b.label,
+"ja")),usedByZone=new Map;return ordered.map((node,index)=>{const geometryAnchor=originNodeGeometryAnchor(node,currentReference);if(geometryAnchor)return{node,...geometryAnchor,pinned:!0};const override=inboundPlacementOverride(
+currentId,node);if(override)return{node,x:override.x,y:override.y,pinned:!0};const zone=inferInboundComponentZone(node,currentId),used=usedByZone.get(zone)??0;usedByZone.set(zone,used+1);const anchor=inboundZoneAnchor(
+zone,used,ordered.filter(item=>inferInboundComponentZone(item,currentId)===zone).length),fallback=spreadConstellation(ordered)[index]??{x:30,y:50};return{node,x:anchor?.x??fallback.x,y:anchor?.y??fallback.y,pinned:zone!==
+"center"}})}function spreadOutboundComponents(nodes,currentId){if(!nodes.length)return[];const ordered=[...nodes].sort((a,b)=>componentZoneSort(inferOutboundComponentZone(currentId,a))-componentZoneSort(inferOutboundComponentZone(
+currentId,b))||a.label.localeCompare(b.label,"ja")),usedByZone=new Map;return ordered.map(node=>{const zone=inferOutboundComponentZone(currentId,node),used=usedByZone.get(zone)??0;usedByZone.set(zone,used+1);const anchor=outboundZoneAnchor(
+zone,used,ordered.filter(item=>inferOutboundComponentZone(currentId,item)===zone).length);return{node,x:anchor.x,y:anchor.y}})}function originNodeGeometryAnchor(node,reference){const geometry=node.geometry;if(!geometry||
+!Number.isFinite(geometry.x)||!Number.isFinite(geometry.y))return;const x2=10+clampGraphValue(geometry.x,0,1)*80,y=10+clampGraphValue(geometry.y,0,1)*80,anchor={x:clampGraphValue(x2,10,90),y:clampGraphValue(y,10,
+90)};return reference?separateOriginGeometryAnchor(node,anchor,reference):anchor}function separateOriginGeometryAnchor(node,anchor,reference){const radii=originNodeRadii(node),dx=anchor.x-reference.x,dy=anchor.
+y-reference.y,distance=Math.hypot(dx,dy),direction=distance>.01?{x:dx/distance,y:dy/distance}:originComponentZoneDirection(inferInboundComponentZone(node)),requiredDistance=originEllipseRadius(reference.rx,reference.
+ry,direction)+originEllipseRadius(radii.rx,radii.ry,direction)+4.5;return distance>=requiredDistance?anchor:{x:clampGraphValue(reference.x+direction.x*requiredDistance,9+radii.rx,91-radii.rx),y:clampGraphValue(
+reference.y+direction.y*requiredDistance,7+radii.ry,93-radii.ry)}}function originNodeGeometryReference(node,point){const radii=originNodeRadii(node);return{...point,rx:radii.rx,ry:radii.ry}}function originEllipseRadius(rx,ry,direction){
+const denominator=Math.sqrt(direction.x*direction.x/(rx*rx)+direction.y*direction.y/(ry*ry));return denominator>0?1/denominator:Math.max(rx,ry)}function originComponentZoneDirection(zone){switch(zone){case"top":
+return{x:0,y:-1};case"upper":return{x:.447,y:-.894};case"left":return{x:-1,y:0};case"right":return{x:1,y:0};case"lower":return{x:.447,y:.894};case"bottom":return{x:0,y:1};case"center":return{x:-1,y:0}}}function inferInboundComponentZone(node,currentId=""){
 const override=inboundPlacementOverride(currentId,node);if(override)return override.zone;const position=(node.position??"").toLowerCase();return zoneFromComponentPosition(position)??zoneFromKnownComponent(node)??
 "center"}function inboundPlacementOverride(currentId,node){return INBOUND_COMPONENT_PLACEMENT_OVERRIDES.get(`${currentId}\0${node.id}`)??INBOUND_COMPONENT_PLACEMENT_OVERRIDES.get(`${currentId}\0${node.label}`)}
 function zoneFromComponentPosition(position){return COMPONENT_POSITION_ZONES.find(([pattern])=>pattern.test(position))?.[1]??null}function zoneFromKnownComponent(node){return KNOWN_COMPONENT_ZONES.find(([,components2])=>components2.
@@ -4112,8 +4123,8 @@ return"";const excludedFacts=excludeFactLabels?new Set(excludeFactLabels):null,v
 ader-kanji-facts">
 ${visibleFacts.map(fact=>{const label=kanjiFactLabel(fact.label,language),title=[fact.source,`${label}: ${fact.value}`].filter(Boolean).join(" · ");return`<span title="${escapeHtml$1(title)}"><strong>${escapeHtml$1(
 label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml$1(fact.value)}</span></span>`}).join("")}
-</div>`:""}function kanjiFactLabel(label,language){switch(label){case"Meaning":return uiText(language,"factMeaning");case"Type":return uiText(language,"factType");case"Frequency":return uiText(language,"factFre\
-quency");case"Grade":return uiText(language,"factGrade");case"Strokes":return uiText(language,"strokes");case"Radical":return uiText(language,"radical");default:return label}}function renderKanjiOriginDetail(map,settings,language){
+</div>`:""}function kanjiFactLabel(label,language){switch(label){case"Meaning":return uiText(language,"factMeaning");case"Type":return uiText(language,"factType");case"Frequency":return uiText(language,"fac\
+tFrequency");case"Grade":return uiText(language,"factGrade");case"Strokes":return uiText(language,"strokes");case"Radical":return uiText(language,"radical");default:return label}}function renderKanjiOriginDetail(map,settings,language){
 if(!map)return"";const radicalCard=renderKanjiRadicalCard(map,settings,language);return radicalCard?`<div class="jpdb-reader-origin-detail">${radicalCard}</div>`:'<div class="jpdb-reader-origin-detail"></div>'}
 function renderKanjiRadicalCard(map,settings,language){const radical=map.radical;return!radical&&!map.hint?"":`<div class="jpdb-reader-radical-card">
 ${renderKanjiRadicalGlyph(radical,language)}
@@ -4136,17 +4147,17 @@ has(char))||!looksCharacterAlignedPitch(levels,chars))return levels;const normal
 push(levels[index]);return normalized.concat(levels.slice(chars.length))}function looksCharacterAlignedPitch(levels,chars){return levels.length>splitMorae(chars.join("")).length+1?!0:levels.length<chars.length?
 !1:chars.some((char,index)=>index>0&&SMALL_KANA.has(char)&&levels[index]===levels[index-1])}function localPitchPatternFromMeta(reading,entries){for(const entry of entries){if(entry.mode!=="pitch")continue;const position=readPitchPosition(
 entry.data,reading),pattern=position==null?"":pitchPatternFromPosition(reading,position);if(pattern)return pattern}return""}function readPitchPosition(value,reading){const record=objectRecord(value);return record?
-pitchMetadataReadingMatches(record,reading)?pitchPositionFromMetadataRecord(record):null:pitchPositionFromValue(value)}function pitchPositionFromMetadataRecord(record){return pitchPositionFromValue(record.position)??
-firstPitchPositionCandidate(record)}function firstPitchPositionCandidate(record){return pitchPositionCandidates(record).map(candidate=>pitchPositionFromValue(candidate)).find(position=>position!=null)??null}function pitchMetadataReadingMatches(record,reading){
-const metadataReading=typeof record.reading=="string"?record.reading:"";return!metadataReading||!reading||metadataReading===reading}function pitchPositionCandidates(record){return Array.isArray(record.pitches)?
-record.pitches:Array.isArray(record.positions)?record.positions:[]}function pitchPositionFromValue(value){const direct=directPitchPositionValue(value);return direct!==null?direct:!value||typeof value!="object"?
-null:pitchPositionFromValue(value.position)}function directPitchPositionValue(value){return typeof value=="number"?validPitchPosition(value):typeof value=="string"&&value.trim()?validPitchPosition(Number(value)):
-null}function validPitchPosition(value){return Number.isInteger(value)&&value>=0?value:null}function pitchPatternFromPosition(reading,position){const morae=splitMorae(reading);return!morae.length||position>morae.
-length?"":position===0?`L${"H".repeat(morae.length)}`:`${morae.map((_,index)=>{const moraPosition=index+1;return position===1?moraPosition===1?"H":"L":moraPosition===1?"L":moraPosition<=position?"H":"L"}).join(
-"")}L`}function objectRecord(value){return value&&typeof value=="object"?value:null}function renderPitch(card,metaEntries=[]){const reading=cardPronunciationReading(card),pitch=card.pitchAccent[0]||localPitchPatternFromMeta(
-reading||card.reading,metaEntries);if(!pitch||!reading)return"";const morae=splitMorae(reading),normalizedPitch=normalizePitchPatternForReading(pitch,reading),highs=pitchLevelsForDisplay(pitch,reading);if(highs.
-length<2)return"";const width=morae.length*24+18,points=highs.map((level,index)=>`${9+index*24},${level==="H"?10:29}`).join(" "),cls=getPitchClassName(normalizedPitch,morae.length);return`<div class="jpdb-reade\
-r-pitch"><svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
+pitchMetadataReadingMatches(record,reading)?pitchPositionFromMetadataRecord(record):null:pitchPositionFromValue(value)}function pitchPositionFromMetadataRecord(record){const direct=pitchPositionFromValue(record.
+position);return direct??firstPitchPositionCandidate(record)}function firstPitchPositionCandidate(record){return pitchPositionCandidates(record).map(candidate=>pitchPositionFromValue(candidate)).find(position=>position!=
+null)??null}function pitchMetadataReadingMatches(record,reading){const metadataReading=typeof record.reading=="string"?record.reading:"";return!metadataReading||!reading||metadataReading===reading}function pitchPositionCandidates(record){
+return Array.isArray(record.pitches)?record.pitches:Array.isArray(record.positions)?record.positions:[]}function pitchPositionFromValue(value){const direct=directPitchPositionValue(value);return direct!==null?direct:
+!value||typeof value!="object"?null:pitchPositionFromValue(value.position)}function directPitchPositionValue(value){return typeof value=="number"?validPitchPosition(value):typeof value=="string"&&value.trim()?validPitchPosition(
+Number(value)):null}function validPitchPosition(value){return Number.isInteger(value)&&value>=0?value:null}function pitchPatternFromPosition(reading,position){const morae=splitMorae(reading);return!morae.length||
+position>morae.length?"":position===0?`L${"H".repeat(morae.length)}`:`${morae.map((_,index)=>{const moraPosition=index+1;return position===1?moraPosition===1?"H":"L":moraPosition===1?"L":moraPosition<=position?
+"H":"L"}).join("")}L`}function objectRecord(value){return value&&typeof value=="object"?value:null}function renderPitch(card,metaEntries=[]){const reading=cardPronunciationReading(card),pitch=card.pitchAccent[0]||
+localPitchPatternFromMeta(reading||card.reading,metaEntries);if(!pitch||!reading)return"";const morae=splitMorae(reading),normalizedPitch=normalizePitchPatternForReading(pitch,reading),highs=pitchLevelsForDisplay(
+pitch,reading);if(highs.length<2)return"";const width=morae.length*24+18,points=highs.map((level,index)=>`${9+index*24},${level==="H"?10:29}`).join(" "),cls=getPitchClassName(normalizedPitch,morae.length);return`\
+<div class="jpdb-reader-pitch"><svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
 <polyline class="${cls}" points="${points}"></polyline>
 ${highs.map((level,index)=>`<circle class="${cls}" cx="${9+index*24}" cy="${level==="H"?10:29}" r="3"></circle>`).join("")}
 ${morae.map((mora,index)=>`<text x="${9+index*24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
@@ -4222,8 +4233,8 @@ ${this.renderPartOfSpeech(view)}
 ${definitionSources}
 ${fallbackAnkiSection}
 ${view.loadingDetails}
-${renderKanjiDefinitions(data.kanjiEntries,(key,initiallyExpanded)=>this.dependencies.dictionarySourceAttributes(key,initiallyExpanded),name=>this.dependencies.dictionaryLabel(name),void 0,uiText(view.language,
-"kanjiDictionaries"),view.language)}
+${renderKanjiDefinitions(data.kanjiEntries,(key,initiallyExpanded)=>this.dependencies.dictionarySourceAttributes(key,initiallyExpanded),name=>this.dependencies.dictionaryLabel(name),void 0,uiText(
+view.language,"kanjiDictionaries"),view.language)}
 </div>
 ${this.renderActions(view)}
 `}renderView(card,data){const cardStates=normalizeCardStates(card.cardState),state=primaryCardState(cardStates),settings=this.settings(),language=settings.interfaceLanguage,hasJpdb=this.dependencies.isJpdbBackedCard(
@@ -4239,15 +4250,15 @@ ${this.dependencies.renderWordPills(card,view.jpdbUrl,data.metaEntries)}
 </div>
 <div class="jpdb-reader-card-tools">
 ${this.renderPitch(card,data)}
-<button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}"${view.audioButtonDisabled?" disabled":""}>${speakerIcon()}\
-</button>
+<button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}"${view.audioButtonDisabled?
+" disabled":""}>${speakerIcon()}</button>
 </div>
 </div>`}renderTitleRow(card,view){return`<div class="jpdb-reader-title-row">
-<div class="jpdb-reader-spelling jpdb-${view.state}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(uiText(view.language,"showKanji"))}">${renderKanjiNavigationText(card.spelling,{enabled:!0,
-label:uiText(view.language,"showKanji")})}</div>
+<div class="jpdb-reader-spelling jpdb-${view.state}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(uiText(view.language,"showKanji"))}">${renderKanjiNavigationText(card.
+spelling,{enabled:!0,label:uiText(view.language,"showKanji")})}</div>
 ${renderMeta(view.metaItems)}
-</div>`}renderPitch(card,data){return this.settings().showPitchAccent?renderPitch(card,data.metaEntries):""}renderPartOfSpeech(view){return view.cardPos?`<div class="jpdb-reader-pos" title="${escapeHtml$1(view.
-cardPosDetails)}">${escapeHtml$1(view.cardPos)}</div>`:""}renderAnkiExistingSection(data,view){return data.loading?"":renderAnkiExistingSection(data.ankiLookup,view.storedContext,this.settings())}renderAnkiSourceSection(card,sentence,data,view){
+</div>`}renderPitch(card,data){return this.settings().showPitchAccent?renderPitch(card,data.metaEntries):""}renderPartOfSpeech(view){return view.cardPos?`<div class="jpdb-reader-pos" title="${escapeHtml$1(
+view.cardPosDetails)}">${escapeHtml$1(view.cardPos)}</div>`:""}renderAnkiExistingSection(data,view){return data.loading?"":renderAnkiExistingSection(data.ankiLookup,view.storedContext,this.settings())}renderAnkiSourceSection(card,sentence,data,view){
 return this.renderAnkiExistingSection(data,view)||this.renderAnkiNewCardPreview(card,sentence,data,view)}renderAnkiNewCardPreview(card,sentence,data,view){if(data.loading||data.ankiLookup.primary||data.ankiLookup.
 trusted===!1||data.ankiLookup.state!=="not-in-deck")return"";const settings=this.settings();return renderAnkiNewCardPreview(card,sentence,settings,{localEntries:data.localEntries,kanjiEntries:data.kanjiEntries,
 metaEntries:data.metaEntries,dictionaryPreferences:settings.dictionaryPreferences,sourceTitle:view.storedContext?.sourceTitle,sourceUrl:view.storedContext?.sourceUrl})}renderActions(view){const hasMiningPanel=!!view.
@@ -4266,9 +4277,10 @@ const deckOptions=renderDeckChoiceOptions(this.settings(),data.jpdbDecks,data.an
 "deck"))}" hidden>${deckOptions}</select>`:""}renderJpdbMiningActionDetails(language,state,addDeckSelect){const addToDeckLabel=`${uiText(language,"addToDeck")} +`;return`
 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$1(uiText(language,"deckActions"))}">
 <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
-<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" title="${escapeHtml$1(uiText(language,"addToDeckHint"))}" aria-expanded="false">${escapeHtml$1(addToDeckLabel)}</button>
-<button class="jpdb-reader-btn nf${state.isNeverForget?" danger":""}" data-action="neverforget" title="${escapeHtml$1(state.neverForgetTitle)}" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</b\
-utton>
+<button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" title="${escapeHtml$1(uiText(language,"addToDeckHint"))}" aria-expanded="false">${escapeHtml$1(addToDeckLabel)}\
+</button>
+<button class="jpdb-reader-btn nf${state.isNeverForget?" danger":""}" data-action="neverforget" title="${escapeHtml$1(state.neverForgetTitle)}" aria-pressed="${state.isNeverForget}">${state.
+neverForgetLabel}</button>
 <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml$1(state.blacklistTitle)}" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
 </div>
 ${addDeckSelect}
@@ -4461,31 +4473,31 @@ dia?${new URLSearchParams({path})}`)]}function exampleTitleSlug(record,id){retur
 record,["sourceTitle","display_title","displayTitle"])||titleFromSlug(titleSlug)}function exampleCategory(record,id){return text(record.category)||categoryFromId(id)}function firstText(record,keys){for(const key of keys){
 const value=text(record[key]);if(value)return value}return""}function text(value){return typeof value=="string"?value.trim():""}function isRecord(value){return typeof value=="object"&&value!==null&&!Array.isArray(
 value)}function titleSlugFromId(id){const parts=id.split("_");return parts.length<3?"":parts.slice(1,-1).join("_")}function categoryFromId(id){const[category]=id.split("_");return category||"anime"}function titleFromSlug(slug){
-return slug?IMMERSION_KIT_TITLES[slug]||slug.replace(/_+$/g,"").split("_").filter(Boolean).map(part=>part.length<=3?part.toUpperCase():part[0].toUpperCase()+part.slice(1)).join(" "):"Unknown"}function slugFromTitle(title){
-return title.trim().toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]+/gi,"_").replace(/^_+|_+$/g,"")}function mediaTitleCandidates(example,file){const slug=example.titleSlug||titleSlugFromId(example.id);return uniqueTrimmedStrings(
-[titleFromSlug(slug),example.sourceTitle,titleFromMediaFile(file),slug].filter(Boolean))}function titleFromMediaFile(file){const stem=file.replace(/\.[^.]+$/u,""),title=(/^(.+?)(?:_S\d|_\d|_E\d|-\s*\d)/i.exec(stem)?.[1]||
-stem).replace(/^A[_-]/,"").replace(/_/g," ").trim();return title?title.replace(/\bKOn\b/u,"K-On!").replace(/\bDurarara\b/u,"Durarara!!").replace(/\bAngel Beats!?\b/u,"Angel Beats!"):""}function deterministicShuffle(values,seed){
-const result=[...values];let state=stablePositiveHashId(seed);for(let index=result.length-1;index>0;index--){state=nextRandomState(state);const swapIndex=state%(index+1);[result[index],result[swapIndex]]=[result[swapIndex],
-result[index]]}return result}function deterministicMergedExamples(sources,resultSets,seed){const groups=deterministicShuffle(sources.map((source,index)=>({source,examples:deterministicShuffle(resultSets[index]??
-[],`${seed}:${source}`)})),`${seed}:providers`).filter(group=>group.examples.length),result=[];for(;groups.some(group=>group.examples.length);)for(const group of groups){const example=group.examples.shift();example&&
-result.push(example)}return result}function nextRandomState(value){return Math.imul(value,1664525)+1013904223>>>0}function sensitiveFingerprint(value){const trimmed=value.trim();return trimmed?stableHash32(trimmed).
-toString(36):""}function absoluteMediaUrl(value){return value?isAbsoluteMediaUrl(value)?value:value.startsWith("media/")?`${OBJECT_STORE_BASE}/${value.split("/").map(encodeURIComponent).join("/")}`:"":""}function isAbsoluteMediaUrl(value){
-return/^https?:\/\//i.test(value)||value.startsWith("data:")}function sentenceLength(sentence){return Array.from(sentence.replace(/\s+/g,"")).length}function requiresSurfaceMatch(query){return/[0-9０-９]/u.test(
-query)}function sentenceContainsQuery(sentence,query){const normalizedSentence=normalizeForSurfaceMatch(sentence),normalizedQuery=normalizeForSurfaceMatch(query);return!!normalizedQuery&&normalizedSentence.includes(
-normalizedQuery)}function normalizeForSurfaceMatch(value){return value.normalize("NFKC").replace(/\s+/g,"").toLowerCase()}async function requestJson$1(url,timeoutMs,proxyUrl="",signal,language="en"){let lastError;
-for(const candidate of urlCandidates(url))try{return await requestJsonCandidate(candidate,timeoutMs,proxyUrl,signal,language)}catch(error){if(isAbortError$3(error)||isImmersionKitRateLimitError(error))throw error;
-lastError=error}throw requestError(lastError,uiText(language,"immersionKitRequestFailed"))}function urlCandidates(url){return Array.isArray(url)?url:[url]}function requestError(error,fallback){return error instanceof
-Error?error:new Error(fallback)}function requestJsonCandidate(url,timeoutMs,proxyUrl="",signal,language="en"){return requestJson$3(url,{proxyUrl,timeoutMs,allowDirectCrossOrigin:!0,allowPublicProxies:!1,preferFetch:shouldPreferFetchForImmersionKitRequests(),
-signal,failureLabel:uiText(language,"immersionKitRequest"),failureMessage:uiText(language,"immersionKitRequestFailed"),statusFailureMessage:status=>formatUiText(language,"immersionKitRequestFailedWithStatus",{status}),
-timeoutLabel:uiText(language,"immersionKitRequestTimedOut")}).catch(error=>{throw isAbortError$3(error)||isImmersionKitRateLimitError(error)?error:error instanceof Error&&/blocked|cross-origin|cors/i.test(error.
-message)?new Error(uiText(language,"immersionKitSearchBlocked")):requestError(error,uiText(language,"immersionKitRequestFailed"))})}function isAbortError$3(error){return errorName$1(error)==="AbortError"}function errorName$1(error){
-if(!error||typeof error!="object")return"";const name=error.name;return typeof name=="string"?name:""}function isImmersionKitRateLimitError(error){return error instanceof Error&&/\b(?:429|too many requests|rate[- ]?limited)\b/i.
-test(error.message)}function requestBlob$2(url,timeoutMs,proxyUrl="",language="en"){return requestBlob$4(url,{proxyUrl,timeoutMs,allowDirectCrossOrigin:!0,preferFetch:shouldPreferFetchForImmersionKitRequests(),
-failureLabel:uiText(language,"immersionKitMediaRequest"),failureMessage:uiText(language,"immersionKitMediaRequestFailed"),statusFailureMessage:status=>formatUiText(language,"immersionKitMediaRequestFailedWithSt\
-atus",{status}),timeoutLabel:uiText(language,"immersionKitMediaRequestTimedOut"),blobFailureMessage:uiText(language,"immersionKitMediaRequestReturnedNonMedia")}).then(blob=>{if(isErrorDocumentBlob(blob))throw new Error(
-uiText(language,"immersionKitMediaRequestReturnedNonMedia"));return blob})}async function requestFirstBlob(urls,timeoutMs,proxyUrl="",language="en"){const candidates=prioritizeMediaCandidates(urlCandidates(urls)).
-slice(0,MEDIA_CANDIDATE_LIMIT);let lastError;for(const candidate of candidates)try{return await requestBlob$2(candidate,timeoutMs,proxyUrl,language)}catch(error){lastError=error}throw requestError(lastError,uiText(
-language,"immersionKitNoMediaCandidate"))}function prioritizeMediaCandidates(urls){return[...urls].sort((a,b)=>Number(isObjectStoreMediaUrl(b))-Number(isObjectStoreMediaUrl(a)))}function isObjectStoreMediaUrl(url){
+if(!slug)return"Unknown";const override=IMMERSION_KIT_TITLES[slug];return override||slug.replace(/_+$/g,"").split("_").filter(Boolean).map(part=>part.length<=3?part.toUpperCase():part[0].toUpperCase()+part.slice(
+1)).join(" ")}function slugFromTitle(title){return title.trim().toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]+/gi,"_").replace(/^_+|_+$/g,"")}function mediaTitleCandidates(example,file){const slug=example.
+titleSlug||titleSlugFromId(example.id);return uniqueTrimmedStrings([titleFromSlug(slug),example.sourceTitle,titleFromMediaFile(file),slug].filter(Boolean))}function titleFromMediaFile(file){const stem=file.replace(
+/\.[^.]+$/u,""),title=(/^(.+?)(?:_S\d|_\d|_E\d|-\s*\d)/i.exec(stem)?.[1]||stem).replace(/^A[_-]/,"").replace(/_/g," ").trim();return title?title.replace(/\bKOn\b/u,"K-On!").replace(/\bDurarara\b/u,"Durarara!!").
+replace(/\bAngel Beats!?\b/u,"Angel Beats!"):""}function deterministicShuffle(values,seed){const result=[...values];let state=stablePositiveHashId(seed);for(let index=result.length-1;index>0;index--){state=nextRandomState(
+state);const swapIndex=state%(index+1);[result[index],result[swapIndex]]=[result[swapIndex],result[index]]}return result}function deterministicMergedExamples(sources,resultSets,seed){const groups=deterministicShuffle(
+sources.map((source,index)=>({source,examples:deterministicShuffle(resultSets[index]??[],`${seed}:${source}`)})),`${seed}:providers`).filter(group=>group.examples.length),result=[];for(;groups.some(group=>group.
+examples.length);)for(const group of groups){const example=group.examples.shift();example&&result.push(example)}return result}function nextRandomState(value){return Math.imul(value,1664525)+1013904223>>>0}function sensitiveFingerprint(value){
+const trimmed=value.trim();return trimmed?stableHash32(trimmed).toString(36):""}function absoluteMediaUrl(value){return value?isAbsoluteMediaUrl(value)?value:value.startsWith("media/")?`${OBJECT_STORE_BASE}/${value.
+split("/").map(encodeURIComponent).join("/")}`:"":""}function isAbsoluteMediaUrl(value){return/^https?:\/\//i.test(value)||value.startsWith("data:")}function sentenceLength(sentence){return Array.from(sentence.
+replace(/\s+/g,"")).length}function requiresSurfaceMatch(query){return/[0-9０-９]/u.test(query)}function sentenceContainsQuery(sentence,query){const normalizedSentence=normalizeForSurfaceMatch(sentence),normalizedQuery=normalizeForSurfaceMatch(
+query);return!!normalizedQuery&&normalizedSentence.includes(normalizedQuery)}function normalizeForSurfaceMatch(value){return value.normalize("NFKC").replace(/\s+/g,"").toLowerCase()}async function requestJson$1(url,timeoutMs,proxyUrl="",signal,language="\
+en"){let lastError;for(const candidate of urlCandidates(url))try{return await requestJsonCandidate(candidate,timeoutMs,proxyUrl,signal,language)}catch(error){if(isAbortError$3(error)||isImmersionKitRateLimitError(
+error))throw error;lastError=error}throw requestError(lastError,uiText(language,"immersionKitRequestFailed"))}function urlCandidates(url){return Array.isArray(url)?url:[url]}function requestError(error,fallback){
+return error instanceof Error?error:new Error(fallback)}function requestJsonCandidate(url,timeoutMs,proxyUrl="",signal,language="en"){return requestJson$3(url,{proxyUrl,timeoutMs,allowDirectCrossOrigin:!0,allowPublicProxies:!1,
+preferFetch:shouldPreferFetchForImmersionKitRequests(),signal,failureLabel:uiText(language,"immersionKitRequest"),failureMessage:uiText(language,"immersionKitRequestFailed"),statusFailureMessage:status=>formatUiText(
+language,"immersionKitRequestFailedWithStatus",{status}),timeoutLabel:uiText(language,"immersionKitRequestTimedOut")}).catch(error=>{throw isAbortError$3(error)||isImmersionKitRateLimitError(error)?error:error instanceof
+Error&&/blocked|cross-origin|cors/i.test(error.message)?new Error(uiText(language,"immersionKitSearchBlocked")):requestError(error,uiText(language,"immersionKitRequestFailed"))})}function isAbortError$3(error){
+return errorName$1(error)==="AbortError"}function errorName$1(error){if(!error||typeof error!="object")return"";const name=error.name;return typeof name=="string"?name:""}function isImmersionKitRateLimitError(error){
+return error instanceof Error&&/\b(?:429|too many requests|rate[- ]?limited)\b/i.test(error.message)}function requestBlob$2(url,timeoutMs,proxyUrl="",language="en"){return requestBlob$4(url,{proxyUrl,timeoutMs,
+allowDirectCrossOrigin:!0,preferFetch:shouldPreferFetchForImmersionKitRequests(),failureLabel:uiText(language,"immersionKitMediaRequest"),failureMessage:uiText(language,"immersionKitMediaRequestFailed"),statusFailureMessage:status=>formatUiText(
+language,"immersionKitMediaRequestFailedWithStatus",{status}),timeoutLabel:uiText(language,"immersionKitMediaRequestTimedOut"),blobFailureMessage:uiText(language,"immersionKitMediaRequestReturnedNonMedia")}).then(
+blob=>{if(isErrorDocumentBlob(blob))throw new Error(uiText(language,"immersionKitMediaRequestReturnedNonMedia"));return blob})}async function requestFirstBlob(urls,timeoutMs,proxyUrl="",language="en"){const candidates=prioritizeMediaCandidates(
+urlCandidates(urls)).slice(0,MEDIA_CANDIDATE_LIMIT);let lastError;for(const candidate of candidates)try{return await requestBlob$2(candidate,timeoutMs,proxyUrl,language)}catch(error){lastError=error}throw requestError(
+lastError,uiText(language,"immersionKitNoMediaCandidate"))}function prioritizeMediaCandidates(urls){return[...urls].sort((a,b)=>Number(isObjectStoreMediaUrl(b))-Number(isObjectStoreMediaUrl(a)))}function isObjectStoreMediaUrl(url){
 try{return new URL(url,location.href).origin===new URL(OBJECT_STORE_BASE).origin}catch{return!1}}function isErrorDocumentBlob(blob){const type=blob.type.toLowerCase();return isMediaBlobType(type)?!1:ERROR_DOCUMENT_TYPE_MARKERS.
 some(marker=>type.includes(marker))||type.startsWith("text/")}const ERROR_DOCUMENT_TYPE_MARKERS=["xml","html","json"];function isMediaBlobType(type){return["image/","audio/","video/"].some(prefix=>type.startsWith(
 prefix))}function shouldPreferFetchForImmersionKitRequests(){return typeof window<"u"&&window.__YOMU_READER_RUNTIME__==="newtab"}function apiUrls(path){const cleanPath=path.startsWith("/")?path:`/${path}`;return API_BASES.
@@ -4499,8 +4511,8 @@ const seen=new Set,result=[];for(const value of values){const query=normalizeImm
 const fragments=[],runs=normalizeImmersionSearchQuery(value).match(JAPANESE_QUERY_RUN_RE)??[];for(const run of runs)fragments.push(...scriptGroupFallbackFragments(run));return uniqueImmersionQueries(fragments).
 sort(compareImmersionFallbackFragments)}function normalizeImmersionSurface(value){return value.normalize("NFKC").replace(/\s+/g,"").toLowerCase()}function isSameImmersionQuery(query,exactQuery){return queryKey(
 query)===queryKey(exactQuery)}function isUsefulStandaloneImmersionQuery(query){return!query||!HAS_JAPANESE$1.test(query)||COMMON_PARTICLES.has(queryKey(query))?!1:queryLength(query)>=2}function scriptGroupFallbackFragments(run){
-const scriptGroups=run.match(JAPANESE_SCRIPT_GROUP_RE$1)??[];return scriptGroups.length<=1?scriptGroups:[...scriptGroups,...scriptGroups.filter(queryHasKanji)]}function compareImmersionFallbackFragments(a,b){return Number(
-queryHasKanji(b))-Number(queryHasKanji(a))||queryLength(b)-queryLength(a)}const LOW_VALUE_EXAMPLE_PART_RE=/\b(?:particle|conjunction|auxiliary)\b/i,KANA_ONLY_RE=/^[\u3040-\u30ffー]+$/u;function exampleSentenceLookupTokens(tokens,targetCard){
+const scriptGroups=run.match(JAPANESE_SCRIPT_GROUP_RE$1)??[];return scriptGroups.length<=1?scriptGroups:[...scriptGroups,...scriptGroups.filter(queryHasKanji)]}function compareImmersionFallbackFragments(a,b){const kanjiOrder=Number(
+queryHasKanji(b))-Number(queryHasKanji(a));return kanjiOrder||queryLength(b)-queryLength(a)}const LOW_VALUE_EXAMPLE_PART_RE=/\b(?:particle|conjunction|auxiliary)\b/i,KANA_ONLY_RE=/^[\u3040-\u30ffー]+$/u;function exampleSentenceLookupTokens(tokens,targetCard){
 return tokens.filter(token=>shouldKeepExampleSentenceToken(token,targetCard))}function shouldKeepExampleSentenceToken(token,targetCard){return targetCard&&cardKey(token.card)===cardKey(targetCard)?!0:!isLowValueExampleSentenceToken(
 token)}function isLowValueExampleSentenceToken(token){if(token.end-token.start>2)return!1;const spelling=token.card.spelling.trim();return!spelling||!KANA_ONLY_RE.test(spelling)?!1:LOW_VALUE_EXAMPLE_PART_RE.test(
 token.card.partOfSpeech.join(" "))}const IMMERSION_SOURCE_TITLES_JA={"My Neighbor Totoro":"となりのトトロ"};function localizedImmersionProviderLabel(example,language){return example.provider==="nadeshiko"?
@@ -4664,7 +4676,7 @@ throw this.searchResultCache.get(key)?.promise===promise&&this.searchResultCache
 this.searchResultCache,now,IMMERSION_SEARCH_CACHE_LIMIT),promise}rememberSearchResult(key,result){const now=Date.now();this.searchResultCache.set(key,{expiresAt:now+IMMERSION_SEARCH_CACHE_TTL_MS,promise:Promise.
 resolve(result)}),pruneImmersionSearchCache(this.searchResultCache,now,IMMERSION_SEARCH_CACHE_LIMIT)}stopAudio(){this.audioRequestId++,this.clearAudio()}async fetchExamples(card,options){const exactQuery=normalizeImmersionSearchQuery(
 card.spelling),triedQueries=[],exactResult=await this.fetchExamplesForQuery(exactQuery,exactQuery,triedQueries,options.signal);if(exactResult)return exactResult;const queries=await this.immersionFallbackSearchQueries(
-card,options,exactQuery);return await this.fetchFirstFallbackExamples(queries,exactQuery,triedQueries,options.signal)||{examples:[],query:exactQuery,usedFallback:!1,triedQueries}}fetchFirstFallbackExamples(queries,exactQuery,triedQueries,signal){
+card,options,exactQuery),fallbackResult=await this.fetchFirstFallbackExamples(queries,exactQuery,triedQueries,options.signal);return fallbackResult||{examples:[],query:exactQuery,usedFallback:!1,triedQueries}}fetchFirstFallbackExamples(queries,exactQuery,triedQueries,signal){
 if(!queries.length)return Promise.resolve(null);const concurrency=Math.min(IMMERSION_FALLBACK_SEARCH_CONCURRENCY,queries.length);let nextIndex=0,active=0,settled=!1;return new Promise((resolve,reject)=>{const cleanupAbortListener=()=>{
 signal?.removeEventListener("abort",handleAbort)},fail=error=>{settled||(settled=!0,cleanupAbortListener(),reject(error))},finish=result=>{settled||(settled=!0,cleanupAbortListener(),resolve(result))},handleAbort=()=>fail(
 abortErrorForRace());if(signal?.aborted){handleAbort();return}signal?.addEventListener("abort",handleAbort,{once:!0});const launch=()=>{if(signal?.aborted){handleAbort();return}for(;!settled&&active<concurrency&&
@@ -4687,9 +4699,9 @@ candidates,fallbackTokenQueries(card,tokens),exactQuery)}async fallbackParseToke
 <span>${uiText(settings.interfaceLanguage,"immersionKit")}</span>
 <span class="jpdb-reader-source-status">${uiText(settings.interfaceLanguage,"noImmersionExamplesCompact")}</span>
 </summary>
-`),this.options.repositionPopover()}startIndex(card,examples){const context=this.miningContextForStartIndex(card);if(!context||context.sourceKind!=="immersion-kit")return 0;const sentenceIndex=examples.findIndex(
-example=>example.sentence===context.sentence);return sentenceIndex>=0?sentenceIndex:validImmersionExampleIndex(Number(context.immersionIndex),examples.length)}miningContextForStartIndex(card){return this.activeMiningContext?.
-term===card.spelling?this.activeMiningContext:this.contextByCardKey.get(cardKey(card))??loadMiningContext(card.spelling)}renderExample(container,card,examples,index,playAudio,searchQuery,isCurrent=()=>!0,promoteMiningContext=!1){
+`),this.options.repositionPopover()}startIndex(card,examples){const context=this.miningContextForStartIndex(card);if(!context||context.sourceKind!=="immersion-kit")return 0;const sentenceIndex=examples.
+findIndex(example=>example.sentence===context.sentence);return sentenceIndex>=0?sentenceIndex:validImmersionExampleIndex(Number(context.immersionIndex),examples.length)}miningContextForStartIndex(card){return this.
+activeMiningContext?.term===card.spelling?this.activeMiningContext:this.contextByCardKey.get(cardKey(card))??loadMiningContext(card.spelling)}renderExample(container,card,examples,index,playAudio,searchQuery,isCurrent=()=>!0,promoteMiningContext=!1){
 const example=examples[index],settings=this.options.getSettings(),imageUrls=settings.immersionKitShowImages?this.mediaUrls(example,"image"):[],audioUrls=this.mediaUrls(example,"sound"),hasAudio=audioUrls.length>
 0,imageUrl=imageUrls[0]??"",contextImageUrl=immersionMiningImageUrl(imageUrls),cachedTokens=this.cachedParsedExampleSentenceTokens(example.sentence);this.rememberExampleMiningContext(card,example,index,examples.
 length,contextImageUrl,audioUrls,promoteMiningContext),delete container.dataset.immersionEmpty;const scrollFrame=capturePopoverScrollFrame(container);setInnerHtml(container,this.renderExampleHtml(container,card,
@@ -4711,8 +4723,8 @@ sentenceHtml,!!imageUrl),image=renderExampleImageHtml(container,imageUrl,sentenc
 </div>
 ${renderExampleActionsHtml(hasAudio,language)}
 </div>
-<div class="jpdb-reader-example-card ${image?"has-image":""}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml$1(example.sentence)}" data-immersion-source-ti\
-tle="${escapeHtml$1(example.sourceTitle)}" data-immersion-image-url="${escapeHtml$1(contextImageUrl)}" data-immersion-audio-urls="${escapeHtml$1(JSON.stringify(audioUrls))}">
+<div class="jpdb-reader-example-card ${image?"has-image":""}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml$1(example.sentence)}" data-immersi\
+on-source-title="${escapeHtml$1(example.sourceTitle)}" data-immersion-image-url="${escapeHtml$1(contextImageUrl)}" data-immersion-audio-urls="${escapeHtml$1(JSON.stringify(audioUrls))}">
 <div class="jpdb-reader-example-body">
 ${image}
 ${image?"":sentence}
@@ -4779,15 +4791,16 @@ no-referrer">${overlay}</div>`}function renderExampleSentenceHtml(sentenceHtml,p
 join(" ");return primarySubtitle?`<div class="${classes}"><span class="jpdb-subtitle-primary" data-immersion-sentence-render>${sentenceHtml}</span></div>`:`<div class="${classes}" data-immersion-sentence-render\
 >${sentenceHtml}</div>`}function renderExampleActionsHtml(hasAudio,language){return`
 <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml$1(uiText(language,"immersionExampleControls"))}">
-<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${escapeHtml$1(uiText(language,"previousExample"))}" aria-label="${escapeHtml$1(uiText(language,"previousExample"))}">\
-‹</button>
-${hasAudio?`<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${escapeHtml$1(uiText(language,"playExampleAudio"))}" aria-label="${escapeHtml$1(uiText(language,"playExample\
-Audio"))}">${speakerIcon()}</button>`:""}
-<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${escapeHtml$1(uiText(language,"nextExample"))}" aria-label="${escapeHtml$1(uiText(language,"nextExample"))}">›</button>
+<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${escapeHtml$1(uiText(language,"previousExample"))}" aria-label="${escapeHtml$1(uiText(language,"previousE\
+xample"))}">‹</button>
+${hasAudio?`<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${escapeHtml$1(uiText(language,"playExampleAudio"))}" aria-label="${escapeHtml$1(uiText(language,
+"playExampleAudio"))}">${speakerIcon()}</button>`:""}
+<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${escapeHtml$1(uiText(language,"nextExample"))}" aria-label="${escapeHtml$1(uiText(language,"nextExample"))}">\
+›</button>
 </div>
-`}function shouldCacheParsedExampleSentenceTokens(tokens){return!tokens.length||tokens.some(token=>token.card.source!=="fallback")}function heldExampleMediaStyle(image){return image.minHeight>0?` style="min-hei\
-ght:${image.minHeight}px"`:""}function heldExampleImageAttributes(image){return`${heldExampleHoldAttribute(image)}${heldExampleSourceAttribute(image)}`}function heldExampleHoldAttribute(image){return image.holdUntilReady?
-' data-immersion-hold-until-ready="true"':""}function heldExampleSourceAttribute(image){return image.src?` src="${escapeHtml$1(image.src)}"`:""}function heldExampleImage(container){const currentImage=container.
+`}function shouldCacheParsedExampleSentenceTokens(tokens){return!tokens.length||tokens.some(token=>token.card.source!=="fallback")}function heldExampleMediaStyle(image){return image.minHeight>0?` style="min\
+-height:${image.minHeight}px"`:""}function heldExampleImageAttributes(image){return`${heldExampleHoldAttribute(image)}${heldExampleSourceAttribute(image)}`}function heldExampleHoldAttribute(image){return image.
+holdUntilReady?' data-immersion-hold-until-ready="true"':""}function heldExampleSourceAttribute(image){return image.src?` src="${escapeHtml$1(image.src)}"`:""}function heldExampleImage(container){const currentImage=container.
 querySelector("[data-immersion-image]"),src=heldExampleImageSource(currentImage),holdUntilReady=!!(src&&currentImage?.isConnected);return{src:holdUntilReady?src:"",minHeight:holdUntilReady?heldExampleImageHeight(
 currentImage):0,holdUntilReady}}function heldExampleImageSource(image){return image?.currentSrc||image?.src||""}function heldExampleImageHeight(image){const media=image?.closest(".jpdb-reader-example-media")??null;
 return Math.ceil(media?.getBoundingClientRect().height||image?.getBoundingClientRect().height||0)}function hoverAudioExampleKey(example){return example?example.id||`${example.provider??"immersion-kit"}:${example.
@@ -4836,8 +4849,8 @@ return a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top}const API_
 this.getApiKey=getApiKey,this.getProxyUrl=getProxyUrl}retryAfter=0;request(endpoint,body){return this.requestByUrl(`${API_BASE}/${endpoint}`,body)}async requestByUrl(url,body,options={}){const token=this.getApiKey(),
 endpoint=endpointLabel(url);this.assertCanRequest(token,endpoint);const done=log$h.time("request",{endpoint,hasBody:!!body}),response=await postJson(url,token,body,this.getProxyUrl());return done(),this.assertSuccessfulResponse(
 response,endpoint),parseJpdbApiResponse(response,endpoint,options.response)}assertCanRequest(token,endpoint){if(!token)throw log$h.warn("Request blocked; JPDB API key is missing",{endpoint}),new Error("JPDB API\
-key is not set.");if(Date.now()<this.retryAfter)throw log$h.warn("Request blocked by JPDB rate-limit backoff",{endpoint,retryAfterMs:this.retryAfter-Date.now()}),new Error("JPDB is rate limited. Try again in am\
-oment.")}assertSuccessfulResponse(response,endpoint){if(response.status===429)throw this.retryAfter=Date.now()+RATE_LIMIT_BACKOFF_MS,log$h.warn("JPDB rate limit reached",{endpoint,backoffMs:RATE_LIMIT_BACKOFF_MS}),
+key is not set.");if(Date.now()<this.retryAfter)throw log$h.warn("Request blocked by JPDB rate-limit backoff",{endpoint,retryAfterMs:this.retryAfter-Date.now()}),new Error("JPDB is rate limited. Try again in a\
+moment.")}assertSuccessfulResponse(response,endpoint){if(response.status===429)throw this.retryAfter=Date.now()+RATE_LIMIT_BACKOFF_MS,log$h.warn("JPDB rate limit reached",{endpoint,backoffMs:RATE_LIMIT_BACKOFF_MS}),
 new Error("JPDB rate limit reached.");if(response.status===403)throw log$h.warn("JPDB rejected API key",{endpoint}),new Error("JPDB rejected the API key.");if(!response.ok)throw log$h.warn("JPDB request failed",
 {endpoint,status:response.status}),new Error(`JPDB request failed (${response.status}).`)}}function parseJpdbApiResponse(response,endpoint,responseMode){if(responseMode==="none"||!response.text)return;const json=JSON.
 parse(response.text),errorMessage2=jpdbApplicationErrorMessage(json);if(errorMessage2)throw log$h.warn("JPDB returned application error",{endpoint,message:errorMessage2}),new Error(errorMessage2);return json}function jpdbApplicationErrorMessage(value){
@@ -4848,7 +4861,7 @@ url,proxyUrl))try{const response=await fetchWithTimeout(candidate,{method:"POST"
 status}).`);continue}return{status:response.status,ok:response.ok,text:await response.text()}}catch(error){lastError=error}throw lastError instanceof Error?lastError:new Error("JPDB request failed.")}async function fetchWithTimeout(url,init,timeoutMs){
 const controller=new AbortController,timeoutId=window.setTimeout(()=>controller.abort(),timeoutMs);try{return await fetch(url,{...init,signal:controller.signal})}catch(error){throw isAbortError$1(error)?new Error(
 "JPDB request timed out."):error}finally{window.clearTimeout(timeoutId)}}function isAbortError$1(error){return error instanceof DOMException&&error.name==="AbortError"}function jpdbApiFetchCandidates(url,proxyUrl){
-const configuredProxy=configuredProxyFetchUrl(url,proxyUrl),candidates=configuredProxy&&shouldPreferConfiguredProxyForJpdbApi(url)?[configuredProxy,url]:[url,configuredProxy];return[...new Set(candidates.filter(
+const configuredProxy=configuredProxyFetchUrl(url,proxyUrl),candidates=!!configuredProxy&&shouldPreferConfiguredProxyForJpdbApi(url)?[configuredProxy,url]:[url,configuredProxy];return[...new Set(candidates.filter(
 candidate=>!!candidate))]}function configuredProxyFetchUrl(targetUrl,configuredProxyUrl){const proxy=configuredProxyUrl.trim();if(!proxy)return null;try{const url=new URL(proxy);return url.searchParams.set("url",
 targetUrl),url.href}catch{return null}}function shouldPreferConfiguredProxyForJpdbApi(url){return isJpdbApiUrl(url)?isCrossOriginJpdbApiPage()||isHostedGithubPagesApp()||isAppleTouchBrowser():!1}function isJpdbApiUrl(url){
 try{const target=new URL(url);return target.hostname==="jpdb.io"&&target.pathname.startsWith("/api/v1/")}catch{return!1}}function isHostedGithubPagesApp(){if(typeof location>"u")return!1;try{const current=new URL(
@@ -4963,11 +4976,11 @@ return sourceElements(document,".result.vocabulary, .entry").map(section=>{const
 [term.reading,...extractAlternateTerms(section),...compounds2.flatMap(compound=>[compound.term,compound.reading])]),compounds:compounds2,examples:extractPageExamples(section),anchor:section.querySelector(".subs\
 ection-meanings")??section}:null}).filter(item=>item!==null).slice(0,16);const target=currentJpdbTermTarget();if(!target)return[];const compounds=extractPageCompounds(document);return[{term:target.term,reading:target.
 reading,alternates:uniqueLookupValues([...target.queries,...extractAlternateTerms(document),...compounds.flatMap(compound=>[compound.term,compound.reading])]),compounds,examples:extractPageExamples(document),anchor:target.
-anchor}]}function currentKanjiAddonAnchor(){return mnemonicSiblingAnchor()||firstElementForSelectors(KANJI_ADDON_ANCHOR_SELECTORS)}const KANJI_ADDON_ANCHOR_SELECTORS=[".result.kanji .vbox",".result.kanji",".ans\
-wer-box",".bugfix","main"];function mnemonicSiblingAnchor(){const mnemonic=Array.from(document.querySelectorAll("h6.subsection-label")).find(label=>label.textContent?.trim().toLowerCase().startsWith("mnemonic"));
-return mnemonic?.nextElementSibling instanceof HTMLElement?mnemonic.nextElementSibling:null}function kanjiComponentTerms(root){return sourceElements(root,'.subsection-composed-of-kanji a.plain, a[href^="/kanji/\
-"]').map(element2=>cleanText$1(extractBaseText(element2))||cleanText$1(element2.textContent??"")).filter(value=>value&&JAPANESE_RE$1.test(value))}function extractPageCompounds(root){const entries=[],seen=new Set;
-for(const row of compoundRows(root)){const compound=readPageCompound(row);!compound||seen.has(compound.term)||(seen.add(compound.term),entries.push(compound))}return entries.slice(0,8)}function compoundRows(root){
+anchor}]}function currentKanjiAddonAnchor(){const mnemonic=mnemonicSiblingAnchor();return mnemonic||firstElementForSelectors(KANJI_ADDON_ANCHOR_SELECTORS)}const KANJI_ADDON_ANCHOR_SELECTORS=[".result.kanji .vbo\
+x",".result.kanji",".answer-box",".bugfix","main"];function mnemonicSiblingAnchor(){const mnemonic=Array.from(document.querySelectorAll("h6.subsection-label")).find(label=>label.textContent?.trim().toLowerCase().
+startsWith("mnemonic"));return mnemonic?.nextElementSibling instanceof HTMLElement?mnemonic.nextElementSibling:null}function kanjiComponentTerms(root){return sourceElements(root,'.subsection-composed-of-kanji a\
+.plain, a[href^="/kanji/"]').map(element2=>cleanText$1(extractBaseText(element2))||cleanText$1(element2.textContent??"")).filter(value=>value&&JAPANESE_RE$1.test(value))}function extractPageCompounds(root){const entries=[],
+seen=new Set;for(const row of compoundRows(root)){const compound=readPageCompound(row);!compound||seen.has(compound.term)||(seen.add(compound.term),entries.push(compound))}return entries.slice(0,8)}function compoundRows(root){
 return compoundSections(root).flatMap(section=>Array.from(section.querySelectorAll(".subsection > div, .subsection .used-in")))}function compoundSections(root){return sourceElements(root,".subsection-composed-o\
 f, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji").filter(isComposedOfSection$1)}function isComposedOfSection$1(section){const label=cleanText$1(section.querySelector(".subsection-label")?.textContent??
 "").toLowerCase();return!label||label.startsWith("composed of")}function readPageCompound(row){const link=compoundLink(row),spelling=compoundSpellingElement(row,link),term=readCompoundTerm(spelling,link);return isJapaneseTerm$1(
@@ -5015,8 +5028,8 @@ const parts=pathname.split("/").filter(Boolean);return parts[0]==="vocabulary"&&
 return Array.from(root.querySelectorAll(selector)).filter(isSourceElement)}function isSourceElement(element2){return!element2.closest("[data-jpdb-reader-root], [data-yomu-jpdb-addon]")}function sourceTextContent(element2){
 return element2&&isSourceElement(element2)?element2.textContent??"":""}function uniqueLookupValues(values){const seen=new Set,result=[];for(const value of values){const text2=cleanText$1(value??""),key=text2.replace(
 /\s+/g,"").toLowerCase();!text2||seen.has(key)||(seen.add(key),result.push(text2))}return result}function vocabularyRoot(doc,spelling,reading){const roots=jpdbVocabularyResultRoots(doc),matches=roots.filter(root=>jpdbVocabularyRootMatches(
-root,spelling,reading,cleanText$1));return firstVocabularyRoot(matches)||(canUseFallbackVocabularyRoot(doc,roots,spelling,reading)?roots[0]??doc:null)}function firstVocabularyRoot(matches){return matches[0]??null}
-function canUseGenericVocabularyRoot(roots,spelling,reading){return!hasRequestedJpdbVocabularyIdentity(spelling,reading,cleanText$1)&&roots.length<=1}function canUseFallbackVocabularyRoot(doc,roots,spelling,reading){
+root,spelling,reading,cleanText$1)),matched=firstVocabularyRoot(matches);return matched||(canUseFallbackVocabularyRoot(doc,roots,spelling,reading)?roots[0]??doc:null)}function firstVocabularyRoot(matches){return matches[0]??
+null}function canUseGenericVocabularyRoot(roots,spelling,reading){return!hasRequestedJpdbVocabularyIdentity(spelling,reading,cleanText$1)&&roots.length<=1}function canUseFallbackVocabularyRoot(doc,roots,spelling,reading){
 return canUseGenericVocabularyRoot(roots,spelling,reading)||jpdbDocumentMatchesVocabulary(doc,spelling,reading,cleanText$1)}const JPDB_AUDIO_ID_RE=/^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;function jpdbAudioIds(root){
 return unique(Array.from(root.querySelectorAll("[data-audio]")).flatMap(element2=>parseJpdbAudioData(element2.dataset.audio??"")))}function jpdbVocabularyAudioIds(html,spelling,reading){const doc=parseHtmlDocument(
 html),root=vocabularyRoot(doc,spelling,reading);return root?unique(Array.from(root.querySelectorAll("a.vocabulary-audio[data-audio], .subsection-headword [data-audio], .subsection-pitch-accent [data-audio]")).filter(
@@ -5079,53 +5092,55 @@ null),card=>`${card.vid}:${card.spelling}:${card.reading}`).slice(0,limit)}funct
 const identity=searchResultIdentity(root,doc),{spelling,reading}=searchResultText(root,doc,identity);if(!isJapaneseTerm(spelling))return null;const partOfSpeech=extractPartOfSpeech(root),meanings=extractMeanings(
 root,doc,spelling,reading);return{identity,spelling,reading,partOfSpeech,meanings,frequencyRank:extractFrequencyRank(root)}}function searchResultText(root,doc,identity){const headword=searchResultHeadword(root),
 spelling=searchResultSpelling(identity,headword);return{spelling,reading:searchResultReading(doc,spelling,identity,headword)}}function searchResultHeadword(root){return root.querySelector(".subsection-headword \
-.primary-spelling .spelling, .subsection-headword .spelling")}function searchResultSpelling(identity,headword){return cleanText$1(identity?.expression??"")||cleanText$1(headword?baseText(headword):"")}function searchResultReading(doc,spelling,identity,headword){
-return cleanText$1(identity?.reading??"")||cleanText$1(headword?readingText(headword):"")||metaDescriptionReading(doc,spelling)||spelling}function jpdbCardFromSearchResult(root,model){return{vid:model.identity?.
-vid??0,sid:0,rid:0,spelling:model.spelling,reading:model.reading,frequencyRank:model.frequencyRank,partOfSpeech:model.partOfSpeech,meanings:model.meanings.map(meaning=>({glosses:[meaning],partOfSpeech:model.partOfSpeech})),
-cardState:["not-in-deck"],pitchAccent:readJpdbPitchPatterns(root),wordWithReading:null,source:"jpdb",sentence:model.spelling}}function searchResultIdentity(root,doc){const links=Array.from(root.querySelectorAll(
-'a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]')),details=links.find(link=>/more details/i.test(cleanText$1(link.textContent??""))),detailIdentity=details?parseJpdbVocabularyUrl(details.href||details.
-getAttribute("href")||""):null,canonicalIdentity=documentVocabularyEntry(doc),linkIdentities=links.map(link=>parseJpdbVocabularyUrl(link.href||link.getAttribute("href")||"")).filter(entry=>entry!==null);return bestVocabularyIdentity(
-[detailIdentity,canonicalIdentity,...linkIdentities])}function documentVocabularyEntry(doc){return jpdbDocumentVocabularyIdentity(doc)}function bestVocabularyIdentity(entries){const candidates=entries.filter(entry=>entry!==
-null);return candidates.find(entry=>entry.reading)??candidates[0]??null}function metaDescriptionReading(doc,spelling){if(!spelling)return"";const description=doc.querySelector('meta[name="description"]')?.content??
-"",escaped=escapeRegExp$1(spelling),match=new RegExp(`${escaped}\\s*[（(]([^）)]+)[）)]`).exec(description),reading=cleanText$1(match?.[1]??"");return JAPANESE_RE$1.test(reading)?reading:""}function extractPartOfSpeech(root){
-return unique(Array.from(root.querySelectorAll(".subsection-meanings .part-of-speech div")).map(element2=>cleanText$1(element2.textContent??"")).filter(Boolean))}function extractFrequencyRank(root){for(const tag of Array.
-from(root.querySelectorAll(".tags .tag, .tag"))){const match=/\bTop\s+([\d,]+)/i.exec(cleanText$1(tag.textContent??""));if(!match?.[1])continue;const rank=Number.parseInt(match[1].replace(/,/g,""),10);if(Number.
-isFinite(rank))return rank}return null}function extractMeanings(root,doc,spelling,reading){const meanings=Array.from(root.querySelectorAll(".subsection-meanings .description")).map(element2=>cleanMeaning(element2.
-textContent??"")).filter(Boolean);return meanings.length?unique(meanings).slice(0,8):shouldReadMetaMeanings(spelling,reading)?metaDescriptionMeanings(doc):[]}function shouldReadMetaMeanings(spelling,reading){return!!(spelling||
-reading)}function metaDescriptionMeanings(doc){const description=doc.querySelector('meta[name="description"]')?.content??"";return/\s[—-]\s(.+)$/.exec(description)?.[1]?.split(/;\s+/).map(cleanMeaning).filter(
-Boolean).slice(0,8)??[]}function extractCompounds(root){const entries=[];return root.querySelectorAll(".subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji").forEach(section=>addCompoundSectionEntries(
-entries,section)),root.querySelectorAll(".subsection > .composed-of, .subsection .composed-of").forEach(row=>addCompoundEntry(entries,row)),entries.slice(0,JPDB_COMPOUND_LIMIT)}function addCompoundSectionEntries(entries,section){
-isComposedOfSection(section)&&section.querySelectorAll(".subsection > div, .subsection .used-in").forEach(row=>addCompoundEntry(entries,row))}function isComposedOfSection(section){const label=sectionLabel(section);
-return label?label.startsWith("composed of"):!0}function addCompoundEntry(entries,row){const entry=compoundEntryFromRow(row);entry&&(hasCompoundEntry(entries,entry)||entries.push(entry))}function compoundEntryFromRow(row){
-const link=row.querySelector('a[href^="/vocabulary/"], a[href^="/kanji/"]'),spelling=compoundSpelling(row,link),term=compoundTerm(spelling);return isJapaneseTerm(term)?{term,reading:compoundReading(spelling,term),
-meaning:cleanText$1(row.querySelector(".description, .en, .meaning")?.textContent??""),url:link?.getAttribute("href")??"",audioIds:jpdbAudioIds(row),...optionalRichHtml("termHtml",spelling)}:null}function compoundSpelling(row,link){
-return row.querySelector('.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]')??link}function compoundTerm(spelling){return cleanText$1(spelling?baseText(spelling):"")||cleanText$1(spelling?.textContent??
-"")}function compoundReading(spelling,term){return cleanText$1(spelling?readingText(spelling):"")||term}function hasCompoundEntry(entries,candidate){return entries.some(entry=>entry.term===candidate.term)}function extractUsedInVocabulary(root){
-const entries=[];return root.querySelectorAll(".subsection-used-in, .subsection-used-in-vocabulary").forEach(section=>addUsedInVocabularySection(entries,section)),entries.slice(0,JPDB_USED_IN_VOCABULARY_LIMIT)}
-function addUsedInVocabularySection(entries,section){isUsedInVocabularySection(section)&&usedInRows(section).forEach(row=>addUsedInVocabularyEntry(entries,row))}function isUsedInVocabularySection(section){const label=sectionLabel(
-section);return label?label.startsWith("used in"):!0}function addUsedInVocabularyEntry(entries,row){const entry=usedInVocabularyEntryFromRow(row);entry&&(hasUsedInVocabularyEntry(entries,entry)||entries.push(entry))}
-function usedInVocabularyEntryFromRow(row){const link=vocabularyLink(row);if(!link)return null;const identity=parseJpdbVocabularyUrl(link.href||link.getAttribute("href")||""),term=vocabularyTerm(identity,link);
-return isJapaneseTerm(term)?{term,reading:vocabularyReading(identity,link,term),meaning:cleanText$1(row.querySelector(".description, .en, .english, .meaning")?.textContent??""),url:link.getAttribute("href")??"",
-audioIds:jpdbAudioIds(row),...optionalRichHtml("termHtml",link)}:null}function vocabularyTerm(identity,link){return cleanText$1(identity?.expression??"")||cleanText$1(baseText(link))||cleanText$1(link.textContent??
-"")}function vocabularyReading(identity,link,term){return cleanText$1(identity?.reading??"")||cleanText$1(readingText(link))||term}function hasUsedInVocabularyEntry(entries,candidate){return entries.some(entry=>sameVocabularyEntry(
-entry,candidate))}function sameVocabularyEntry(entry,candidate){return entry.term===candidate.term&&entry.reading===candidate.reading}function usedInRows(section){const rows=Array.from(section.querySelectorAll(
-".used-in, .subsection > div")),directLinks=Array.from(section.children).filter(child=>child instanceof HTMLElement&&vocabularyLink(child)!==null);return unique([...rows,...directLinks])}function vocabularyLink(root){
-return root instanceof HTMLAnchorElement&&isVocabularyLink(root)?root:Array.from(root.querySelectorAll('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]')).find(isVocabularyLink)??null}function isVocabularyLink(link){
-return parseJpdbVocabularyUrl(link.href||link.getAttribute("href")||"")!==null}function extractExamples(root){const seen=new Set,examples=[];return exampleSections(root).forEach(section=>{section.querySelectorAll(
-".subsection > div, .example, li, p").forEach(row=>{const sentenceNode=row.querySelector(".sentence, .jp, .japanese, .plain")??row,sentence=cleanText$1(baseText(sentenceNode))||cleanText$1(sentenceNode.textContent??
-"");!sentence||!JAPANESE_RE$1.test(sentence)||seen.has(sentence)||(seen.add(sentence),examples.push({sentence,translation:cleanText$1(row.querySelector(".translation, .en, .english")?.textContent??""),audioIds:jpdbAudioIds(
-row),...optionalRichHtml("sentenceHtml",sentenceNode,{preserveHighlight:!0})}))})}),examples.slice(0,JPDB_EXAMPLE_LIMIT)}function exampleSections(root){const byClass=Array.from(root.querySelectorAll(".subsectio\
-n-examples, .subsection-monolingual-examples")),byLabel=Array.from(root.querySelectorAll(".subsection-label")).filter(label=>cleanText$1(label.textContent??"").toLowerCase().includes("examples")).map(exampleSectionFromLabel).
-filter(section=>section!==null);return unique([...byClass,...byLabel])}function exampleSectionFromLabel(label){let current=label.parentElement;for(;current;){if(current.querySelector(".subsection"))return current;
-current=current.parentElement}return label.parentElement}const KANJI_MAP_KANJI_BASE="https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji",JAPANESE_RE=/[\u3040-\u30ff\u3400-\u9fff]/u,log$d=Logger.
-scope("KanjiOrigin");class KanjiOriginClient{cache=new Map;lookup(kanji,settings){const key=Array.from(kanji)[0]??kanji;if(!key||!settings.kanjiOriginsEnabled)return Promise.resolve(null);const cacheKey=kanjiOriginCacheKey(
-key,settings);let promise=this.cache.get(cacheKey);return promise||(promise=this.fetchInfo(key,settings),this.cache.set(cacheKey,promise)),promise}async fetchInfo(kanji,settings){const done=log$d.time("Kanji or\
-igin lookup",{kanji}),kanjiMap=settings.kanjiOriginKanjiMapEnabled?await fetchKanjiMapInfo(kanji).catch(error=>{log$d.warn("Kanji Map origin lookup failed",{kanji,error})}):void 0,result=kanjiMap?{kanjiMap}:null;
-return done(),result}}function kanjiOriginCacheKey(kanji,settings){return[kanji,settings.kanjiOriginKanjiMapEnabled?"map":""].join(":")}async function fetchKanjiMapInfo(kanji){const done=log$d.time("Fetch Kanji\
-Map info",{kanji}),sourceUrl=`${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`,raw=parseJson(await requestText$3(sourceUrl)),info=raw?parseKanjiMapInfo(raw,kanji,sourceUrl):void 0;return done(),info}function parseKanjiMapInfo(raw,kanji,sourceUrl){
-const record=asRecord$1(raw);if(!record)return;const kanjiAlive=asRecord$1(record.kanjialiveData),jisho=asRecord$1(record.jishoData),radical=readKanjiMapRadical(kanjiAlive,jisho),examples=readKanjiMapExamples(kanjiAlive,
-jisho),references=readKanjiMapReferences(kanjiAlive,jisho),metrics=readKanjiMapMetrics(kanjiAlive,jisho),readings2=readKanjiMapReadings(kanjiAlive,jisho);return{kanji,...metrics,...readings2,parts:readKanjiMapParts(
-jisho,kanji),hint:stripHtml(stringValue(kanjiAlive?.mn_hint)),radical,examples,references,sourceUrl,kanjiAliveUrl:`https://app.kanjialive.com/${encodeURIComponent(kanji)}`,jishoUrl:stringValue(jisho?.uri)}}function readKanjiMapMetrics(kanjiAlive,jisho){
+.primary-spelling .spelling, .subsection-headword .spelling")}function searchResultSpelling(identity,headword){const expression=cleanText$1(identity?.expression??"");return expression||cleanText$1(headword?baseText(
+headword):"")}function searchResultReading(doc,spelling,identity,headword){const identityReading=cleanText$1(identity?.reading??"");if(identityReading)return identityReading;const headwordReading=cleanText$1(headword?
+readingText(headword):"");return headwordReading||metaDescriptionReading(doc,spelling)||spelling}function jpdbCardFromSearchResult(root,model){return{vid:model.identity?.vid??0,sid:0,rid:0,spelling:model.spelling,
+reading:model.reading,frequencyRank:model.frequencyRank,partOfSpeech:model.partOfSpeech,meanings:model.meanings.map(meaning=>({glosses:[meaning],partOfSpeech:model.partOfSpeech})),cardState:["not-in-deck"],pitchAccent:readJpdbPitchPatterns(
+root),wordWithReading:null,source:"jpdb",sentence:model.spelling}}function searchResultIdentity(root,doc){const links=Array.from(root.querySelectorAll('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]')),
+details=links.find(link=>/more details/i.test(cleanText$1(link.textContent??""))),detailIdentity=details?parseJpdbVocabularyUrl(details.href||details.getAttribute("href")||""):null,canonicalIdentity=documentVocabularyEntry(
+doc),linkIdentities=links.map(link=>parseJpdbVocabularyUrl(link.href||link.getAttribute("href")||"")).filter(entry=>entry!==null);return bestVocabularyIdentity([detailIdentity,canonicalIdentity,...linkIdentities])}
+function documentVocabularyEntry(doc){return jpdbDocumentVocabularyIdentity(doc)}function bestVocabularyIdentity(entries){const candidates=entries.filter(entry=>entry!==null);return candidates.find(entry=>entry.
+reading)??candidates[0]??null}function metaDescriptionReading(doc,spelling){if(!spelling)return"";const description=doc.querySelector('meta[name="description"]')?.content??"",escaped=escapeRegExp$1(spelling),match=new RegExp(
+`${escaped}\\s*[（(]([^）)]+)[）)]`).exec(description),reading=cleanText$1(match?.[1]??"");return JAPANESE_RE$1.test(reading)?reading:""}function extractPartOfSpeech(root){return unique(Array.from(root.querySelectorAll(
+".subsection-meanings .part-of-speech div")).map(element2=>cleanText$1(element2.textContent??"")).filter(Boolean))}function extractFrequencyRank(root){for(const tag of Array.from(root.querySelectorAll(".tags .t\
+ag, .tag"))){const match=/\bTop\s+([\d,]+)/i.exec(cleanText$1(tag.textContent??""));if(!match?.[1])continue;const rank=Number.parseInt(match[1].replace(/,/g,""),10);if(Number.isFinite(rank))return rank}return null}
+function extractMeanings(root,doc,spelling,reading){const meanings=Array.from(root.querySelectorAll(".subsection-meanings .description")).map(element2=>cleanMeaning(element2.textContent??"")).filter(Boolean);return meanings.
+length?unique(meanings).slice(0,8):shouldReadMetaMeanings(spelling,reading)?metaDescriptionMeanings(doc):[]}function shouldReadMetaMeanings(spelling,reading){return!!(spelling||reading)}function metaDescriptionMeanings(doc){
+const description=doc.querySelector('meta[name="description"]')?.content??"";return/\s[—-]\s(.+)$/.exec(description)?.[1]?.split(/;\s+/).map(cleanMeaning).filter(Boolean).slice(0,8)??[]}function extractCompounds(root){
+const entries=[];return root.querySelectorAll(".subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji").forEach(section=>addCompoundSectionEntries(entries,section)),root.querySelectorAll(
+".subsection > .composed-of, .subsection .composed-of").forEach(row=>addCompoundEntry(entries,row)),entries.slice(0,JPDB_COMPOUND_LIMIT)}function addCompoundSectionEntries(entries,section){isComposedOfSection(section)&&
+section.querySelectorAll(".subsection > div, .subsection .used-in").forEach(row=>addCompoundEntry(entries,row))}function isComposedOfSection(section){const label=sectionLabel(section);return label?label.startsWith(
+"composed of"):!0}function addCompoundEntry(entries,row){const entry=compoundEntryFromRow(row);entry&&(hasCompoundEntry(entries,entry)||entries.push(entry))}function compoundEntryFromRow(row){const link=row.querySelector(
+'a[href^="/vocabulary/"], a[href^="/kanji/"]'),spelling=compoundSpelling(row,link),term=compoundTerm(spelling);return isJapaneseTerm(term)?{term,reading:compoundReading(spelling,term),meaning:cleanText$1(row.querySelector(
+".description, .en, .meaning")?.textContent??""),url:link?.getAttribute("href")??"",audioIds:jpdbAudioIds(row),...optionalRichHtml("termHtml",spelling)}:null}function compoundSpelling(row,link){return row.querySelector(
+'.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]')??link}function compoundTerm(spelling){const base=cleanText$1(spelling?baseText(spelling):"");return base||cleanText$1(spelling?.textContent??
+"")}function compoundReading(spelling,term){const reading=cleanText$1(spelling?readingText(spelling):"");return reading||term}function hasCompoundEntry(entries,candidate){return entries.some(entry=>entry.term===
+candidate.term)}function extractUsedInVocabulary(root){const entries=[];return root.querySelectorAll(".subsection-used-in, .subsection-used-in-vocabulary").forEach(section=>addUsedInVocabularySection(entries,section)),
+entries.slice(0,JPDB_USED_IN_VOCABULARY_LIMIT)}function addUsedInVocabularySection(entries,section){isUsedInVocabularySection(section)&&usedInRows(section).forEach(row=>addUsedInVocabularyEntry(entries,row))}function isUsedInVocabularySection(section){
+const label=sectionLabel(section);return label?label.startsWith("used in"):!0}function addUsedInVocabularyEntry(entries,row){const entry=usedInVocabularyEntryFromRow(row);entry&&(hasUsedInVocabularyEntry(entries,
+entry)||entries.push(entry))}function usedInVocabularyEntryFromRow(row){const link=vocabularyLink(row);if(!link)return null;const identity=parseJpdbVocabularyUrl(link.href||link.getAttribute("href")||""),term=vocabularyTerm(
+identity,link);return isJapaneseTerm(term)?{term,reading:vocabularyReading(identity,link,term),meaning:cleanText$1(row.querySelector(".description, .en, .english, .meaning")?.textContent??""),url:link.getAttribute(
+"href")??"",audioIds:jpdbAudioIds(row),...optionalRichHtml("termHtml",link)}:null}function vocabularyTerm(identity,link){const expression=cleanText$1(identity?.expression??"");if(expression)return expression;const base=cleanText$1(
+baseText(link));return base||cleanText$1(link.textContent??"")}function vocabularyReading(identity,link,term){const identityReading=cleanText$1(identity?.reading??"");if(identityReading)return identityReading;const linkReading=cleanText$1(
+readingText(link));return linkReading||term}function hasUsedInVocabularyEntry(entries,candidate){return entries.some(entry=>sameVocabularyEntry(entry,candidate))}function sameVocabularyEntry(entry,candidate){return entry.
+term===candidate.term&&entry.reading===candidate.reading}function usedInRows(section){const rows=Array.from(section.querySelectorAll(".used-in, .subsection > div")),directLinks=Array.from(section.children).filter(
+child=>child instanceof HTMLElement&&vocabularyLink(child)!==null);return unique([...rows,...directLinks])}function vocabularyLink(root){return root instanceof HTMLAnchorElement&&isVocabularyLink(root)?root:Array.
+from(root.querySelectorAll('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]')).find(isVocabularyLink)??null}function isVocabularyLink(link){return parseJpdbVocabularyUrl(link.href||link.getAttribute("hr\
+ef")||"")!==null}function extractExamples(root){const seen=new Set,examples=[];return exampleSections(root).forEach(section=>{section.querySelectorAll(".subsection > div, .example, li, p").forEach(row=>{const sentenceNode=row.
+querySelector(".sentence, .jp, .japanese, .plain")??row,sentence=cleanText$1(baseText(sentenceNode))||cleanText$1(sentenceNode.textContent??"");!sentence||!JAPANESE_RE$1.test(sentence)||seen.has(sentence)||(seen.
+add(sentence),examples.push({sentence,translation:cleanText$1(row.querySelector(".translation, .en, .english")?.textContent??""),audioIds:jpdbAudioIds(row),...optionalRichHtml("sentenceHtml",sentenceNode,{preserveHighlight:!0})}))})}),
+examples.slice(0,JPDB_EXAMPLE_LIMIT)}function exampleSections(root){const byClass=Array.from(root.querySelectorAll(".subsection-examples, .subsection-monolingual-examples")),byLabel=Array.from(root.querySelectorAll(
+".subsection-label")).filter(label=>cleanText$1(label.textContent??"").toLowerCase().includes("examples")).map(exampleSectionFromLabel).filter(section=>section!==null);return unique([...byClass,...byLabel])}function exampleSectionFromLabel(label){
+let current=label.parentElement;for(;current;){if(current.querySelector(".subsection"))return current;current=current.parentElement}return label.parentElement}const KANJI_MAP_KANJI_BASE="https://raw.githubuserc\
+ontent.com/gabor-kovacs/the-kanji-map/main/data/kanji",JAPANESE_RE=/[\u3040-\u30ff\u3400-\u9fff]/u,log$d=Logger.scope("KanjiOrigin");class KanjiOriginClient{cache=new Map;lookup(kanji,settings){const key=Array.
+from(kanji)[0]??kanji;if(!key||!settings.kanjiOriginsEnabled)return Promise.resolve(null);const cacheKey=kanjiOriginCacheKey(key,settings);let promise=this.cache.get(cacheKey);return promise||(promise=this.fetchInfo(
+key,settings),this.cache.set(cacheKey,promise)),promise}async fetchInfo(kanji,settings){const done=log$d.time("Kanji origin lookup",{kanji}),kanjiMap=settings.kanjiOriginKanjiMapEnabled?await fetchKanjiMapInfo(
+kanji).catch(error=>{log$d.warn("Kanji Map origin lookup failed",{kanji,error})}):void 0,result=kanjiMap?{kanjiMap}:null;return done(),result}}function kanjiOriginCacheKey(kanji,settings){return[kanji,settings.
+kanjiOriginKanjiMapEnabled?"map":""].join(":")}async function fetchKanjiMapInfo(kanji){const done=log$d.time("Fetch Kanji Map info",{kanji}),sourceUrl=`${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`,
+raw=parseJson(await requestText$3(sourceUrl)),info=raw?parseKanjiMapInfo(raw,kanji,sourceUrl):void 0;return done(),info}function parseKanjiMapInfo(raw,kanji,sourceUrl){const record=asRecord$1(raw);if(!record)return;
+const kanjiAlive=asRecord$1(record.kanjialiveData),jisho=asRecord$1(record.jishoData),radical=readKanjiMapRadical(kanjiAlive,jisho),examples=readKanjiMapExamples(kanjiAlive,jisho),references=readKanjiMapReferences(
+kanjiAlive,jisho),metrics=readKanjiMapMetrics(kanjiAlive,jisho),readings2=readKanjiMapReadings(kanjiAlive,jisho);return{kanji,...metrics,...readings2,parts:readKanjiMapParts(jisho,kanji),hint:stripHtml(stringValue(
+kanjiAlive?.mn_hint)),radical,examples,references,sourceUrl,kanjiAliveUrl:`https://app.kanjialive.com/${encodeURIComponent(kanji)}`,jishoUrl:stringValue(jisho?.uri)}}function readKanjiMapMetrics(kanjiAlive,jisho){
 return{meaning:kanjiMapMeaning(kanjiAlive,jisho),grade:kanjiMapGrade(kanjiAlive,jisho),jlpt:normalizeJlpt(stringValue(jisho?.jlptLevel))??"",strokeCount:kanjiMapStrokeCount(kanjiAlive,jisho),frequencyRank:normalizeFrequency(
 stringValue(jisho?.newspaperFrequencyRank))}}function kanjiMapMeaning(kanjiAlive,jisho){return stringValue(jisho?.meaning)||stringValue(kanjiAlive?.meaning)}function kanjiMapGrade(kanjiAlive,jisho){return normalizeGrade(
 stringValue(jisho?.taughtIn)||numberValue(kanjiAlive?.grade))??""}function kanjiMapStrokeCount(kanjiAlive,jisho){return numberValue(jisho?.strokeCount)??numberValue(kanjiAlive?.kstroke)}function readKanjiMapReadings(kanjiAlive,jisho){
@@ -5773,9 +5788,9 @@ line.text,options).catch(()=>[])))}renderOcrLineElement(state,result,line,tokens
 e"){if(this.unpinLine(element2),word)return;event.preventDefault(),event.stopPropagation();return}element2.focus({preventScroll:!0}),this.pinLine(state,element2),!word&&(event.preventDefault(),event.stopPropagation())}pinLine(state,element2){
 state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach(line=>{line!==element2&&this.unpinLine(line)}),element2.classList.add("jpdb-ocr-line-active"),element2.dataset.pinned="true"}unpinLine(element2){element2.
 classList.remove("jpdb-ocr-line-active"),element2.dataset.pinned="false"}unpinOcrLinesFromDocumentEvent(event){(event.target instanceof Element?event.target:null)?.closest(".jpdb-ocr-line, .jpdb-reader-popover,\
-.jpdb-reader-settings, .jpdb-reader-onboarding, .jpdb-reader-fab")||this.unpinAllLines()}unpinAllLines(){for(const state of this.states.values())state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach(line=>this.
-unpinLine(line))}observePriority(image){const state=this.states.get(image);return state?state.result?1:state.autoSkipped?2:0:0}resetStateIfImageChanged(state){const key=imageCacheKey(state.image);key!==state.key&&
-(state.key=key,state.result=void 0,state.loading=!1,state.overlayRequested=!1,state.manualRequested=!1,state.autoSkipped=!1,state.overlay.querySelectorAll(".jpdb-ocr-line").forEach(node=>node.remove()))}remember(key,result){
+.jpdb-reader-settings, .jpdb-reader-onboarding, .jpdb-reader-fab")||this.unpinAllLines()}unpinAllLines(){for(const state of this.states.values())state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach(
+line=>this.unpinLine(line))}observePriority(image){const state=this.states.get(image);return state?state.result?1:state.autoSkipped?2:0:0}resetStateIfImageChanged(state){const key=imageCacheKey(state.image);key!==
+state.key&&(state.key=key,state.result=void 0,state.loading=!1,state.overlayRequested=!1,state.manualRequested=!1,state.autoSkipped=!1,state.overlay.querySelectorAll(".jpdb-ocr-line").forEach(node=>node.remove()))}remember(key,result){
 for(this.cache.set(key,result);this.cache.size>MAX_CACHE_ITEMS;){const oldest=this.cache.keys().next().value;if(!oldest)break;this.cache.delete(oldest)}}schedulePosition(){this.positionFrame||(this.positionFrame=
 requestAnimationFrame(()=>{this.positionFrame=0;for(const image of this.states.keys())this.positionState(image)}))}scheduleRefresh(delay2){window.clearTimeout(this.refreshTimer),this.refreshTimer=window.setTimeout(
 ()=>this.refresh(),delay2)}positionState(image){const state=this.states.get(image);if(!state)return;const rect=image.getBoundingClientRect(),visible=isImageVisibleForOcr(image,rect);state.overlay.hidden=!visible,
@@ -5902,32 +5917,33 @@ parts)}function protoMessageField(field,value){return concatBytes([protoTag(fiel
 return protoBytesField(field,new TextEncoder().encode(value))}function protoVarintField(field,value){return concatBytes([protoTag(field,0),encodeVarint(value)])}function protoTag(field,wire){return encodeVarint(
 field<<3|wire)}function encodeVarint(value){let item=BigInt(value);const bytes=[];do{let byte=Number(item&0x7fn);item>>=7n,item&&(byte|=128),bytes.push(byte)}while(item);return new Uint8Array(bytes)}function concatBytes(parts){
 const length=parts.reduce((sum,part)=>sum+part.length,0),result=new Uint8Array(length);let offset=0;for(const part of parts)result.set(part,offset),offset+=part.length;return result}function randomBytes(length){
-const bytes=new Uint8Array(length);return crypto.getRandomValues(bytes),bytes}function requestJson(url,data,timeout){return requestViaUserscript({method:"POST",url,headers:{"content-type":"application/json"},data,
-responseType:"json",timeout},response=>response.response??(response.responseText?JSON.parse(response.responseText):null),status=>`OCR endpoint returned ${status}.`,"OCR timed out.")||fetchJsonWithTimeout(url,data,
-timeout).then(response=>response.ok?response.json():Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)))}function fetchJsonWithTimeout(url,data,timeout){if(!timeout)return fetch(url,{method:"\
-POST",headers:{"content-type":"application/json"},body:data});const controller=new AbortController;let timedOut=!1;const timeoutId=window.setTimeout(()=>{timedOut=!0,controller.abort()},timeout);return fetch(url,
-{method:"POST",headers:{"content-type":"application/json"},body:data,signal:controller.signal}).catch(error=>{throw timedOut||isAbortError(error)?new Error("OCR timed out."):error}).finally(()=>window.clearTimeout(
-timeoutId))}function requestArrayBuffer(url,data,timeout){const body=new Uint8Array(data),headers={"content-type":"application/x-protobuf","x-goog-api-key":GOOGLE_LENS_API_KEY,accept:"*/*","accept-language":"ja\
-,en-US;q=0.9,en;q=0.8"};return requestViaUserscript({method:"POST",url,headers,data:body.buffer,responseType:"arraybuffer",timeout},response=>response.response,status=>`GoogleLens returned ${status}.`,"Google L\
-ens timed out.")||fetch(url,{method:"POST",headers,body:body.buffer}).then(response=>response.ok?response.arrayBuffer():Promise.reject(new Error(`Google Lens returned ${response.status}.`)))}function requestTextForm(url,data,timeout){
-return requestViaUserscript({method:"POST",url,data,responseType:"text",timeout},response=>String(response.responseText??response.response??""),status=>`Google Lens upload returned ${status}.`,"Google Lens uplo\
-ad timed out.")||fetch(url,{method:"POST",body:data}).then(response=>response.ok?response.text():Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)))}function requestBlob$1(url){return requestViaUserscript(
-{method:"GET",url,responseType:"blob"},response=>response.response,status=>`Image fetch returned ${status}.`)||fetch(url).then(response=>response.ok?response.blob():Promise.reject(new Error(`Image fetch returne\
-d ${response.status}.`)))}function requestViaUserscript(options,readResponse,statusMessage,timeoutMessage){const userscriptRequest=getUserscriptHttpRequest();return userscriptRequest?new Promise((resolve,reject)=>{
-userscriptRequest({...options,onload:response=>isSuccessfulHttpStatus(response.status)?resolve(readResponse(response)):reject(new Error(statusMessage(response.status))),onerror:reject,...timeoutMessage?{ontimeout:()=>reject(
-new Error(timeoutMessage))}:{}})}):null}function isSuccessfulHttpStatus(status){return status>=200&&status<300}function loadImage(url){return new Promise((resolve,reject)=>{const image=new Image;image.onload=()=>resolve(
-image),image.onerror=()=>reject(new Error("Image decode failed.")),image.src=url})}function canvasToBlob(canvas,type,quality){return new Promise((resolve,reject)=>{canvas.toBlob(result=>result?resolve(result):reject(
-new Error("Image encoding failed.")),type,quality)})}function imageSummary(image){return{host:safeHost$1(image.currentSrc||image.src),width:image.naturalWidth||image.width,height:image.naturalHeight||image.height,
-altLength:image.alt?.length??0}}function inlineProviderLabel(settings){return configuredOcrProviderLabel(settings)??settings.ocrProvider}function configuredOcrProviderLabel(settings){return OCR_PROVIDER_LABELS[settings.
-ocrProvider]?.(settings)??null}function localServiceProviderLabel(settings){return`local-service:${ocrEngineLabel(settings)}`}function ocrEngineLabel(settings){return settings.ocrEngine||"auto"}function localOcrEndpointUrl(settings){
-return settings.ocrEndpointUrl.trim()||DEFAULT_LOCAL_OCR_ENDPOINT_URL}function isLocalOcrConnectionError(error){return isLocalOcrUnavailableError(error)||!(error instanceof Error)?!0:error.name==="TypeError"||error.
-name==="AbortError"||/network|failed to fetch|load failed|cors|blocked|timed out|timeout|request failed/i.test(error.message)}function isLocalOcrUnavailableError(error){return error instanceof LocalOcrUnavailableError}
-function isAbortError(error){return error instanceof Error&&error.name==="AbortError"}function safeHost$1(value){try{return new URL(value,location.href).host}catch{return"inline-or-invalid"}}const JAPANESE_RUN_RE=/[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]/u,
-JPDB_POINTER_CANDIDATE_MAX_LENGTH=18,JPDB_POINTER_CANDIDATE_START_WINDOW=8,JPDB_POINTER_CANDIDATE_LIMIT=24,JPDB_POINTER_BOUNDARY_SEGMENTS=["から","まで","より","だけ","しか","など","には","では",
-"とは","は","が","を","に","へ","と","で","の","や"],READER_ROOT_SELECTOR="[data-jpdb-reader-root]",POINTER_TEXT_SKIP_SELECTOR=["script","style","noscript","textarea","input","select","button","optio\
-n","summary","svg","use","rt","rp",'[contenteditable="true"]','[role="button"]','[role="checkbox"]','[role="radio"]','[role="tab"]',"[onclick]",READER_ROOT_SELECTOR].join(","),READER_ROOT_POINTER_TEXT_LINK_SELECTOR=`${READER_ROOT_SELECTOR}\
-.jpdb-reader-local-glossary a[href]`,SCREEN_READER_ONLY_CLASS_RE=/(^|[-_\s])(sr-only|screen-reader-text|visually-hidden|visuallyhidden)([-_\s]|$)/i,YOUTUBE_METADATA_SELECTOR=["#metadata","#metadata-line","#meta\
-data-text","#video-info","#stats","ytd-video-meta-block","yt-content-metadata-view-model",".inline-metadata-item",".badge-style-type-simple"].join(","),METADATA_TOKEN_RE=/^(?:[\d０-９][\d０-９,.，]*\s*)?(?:万|億)?(?:回視聴|視聴|再生|回再生|件|コメント|高評価|日前|時間前|分前|秒前|か月前|ヶ月前|週間前|年前|ライブ配信中|新着)$/u,
+const bytes=new Uint8Array(length);return crypto.getRandomValues(bytes),bytes}function requestJson(url,data,timeout){const userscriptRequest=requestViaUserscript({method:"POST",url,headers:{"content-type":"appl\
+ication/json"},data,responseType:"json",timeout},response=>response.response??(response.responseText?JSON.parse(response.responseText):null),status=>`OCR endpoint returned ${status}.`,"OCR timed out.");return userscriptRequest||
+fetchJsonWithTimeout(url,data,timeout).then(response=>response.ok?response.json():Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)))}function fetchJsonWithTimeout(url,data,timeout){if(!timeout)
+return fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:data});const controller=new AbortController;let timedOut=!1;const timeoutId=window.setTimeout(()=>{timedOut=!0,controller.abort()},
+timeout);return fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:data,signal:controller.signal}).catch(error=>{throw timedOut||isAbortError(error)?new Error("OCR timed out."):error}).finally(
+()=>window.clearTimeout(timeoutId))}function requestArrayBuffer(url,data,timeout){const body=new Uint8Array(data),headers={"content-type":"application/x-protobuf","x-goog-api-key":GOOGLE_LENS_API_KEY,accept:"*/\
+*","accept-language":"ja,en-US;q=0.9,en;q=0.8"},userscriptRequest=requestViaUserscript({method:"POST",url,headers,data:body.buffer,responseType:"arraybuffer",timeout},response=>response.response,status=>`Google\
+Lens returned ${status}.`,"Google Lens timed out.");return userscriptRequest||fetch(url,{method:"POST",headers,body:body.buffer}).then(response=>response.ok?response.arrayBuffer():Promise.reject(new Error(`Goo\
+gle Lens returned ${response.status}.`)))}function requestTextForm(url,data,timeout){const userscriptRequest=requestViaUserscript({method:"POST",url,data,responseType:"text",timeout},response=>String(response.responseText??
+response.response??""),status=>`Google Lens upload returned ${status}.`,"Google Lens upload timed out.");return userscriptRequest||fetch(url,{method:"POST",body:data}).then(response=>response.ok?response.text():
+Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)))}function requestBlob$1(url){const userscriptRequest=requestViaUserscript({method:"GET",url,responseType:"blob"},response=>response.response,
+status=>`Image fetch returned ${status}.`);return userscriptRequest||fetch(url).then(response=>response.ok?response.blob():Promise.reject(new Error(`Image fetch returned ${response.status}.`)))}function requestViaUserscript(options,readResponse,statusMessage,timeoutMessage){
+const userscriptRequest=getUserscriptHttpRequest();return userscriptRequest?new Promise((resolve,reject)=>{userscriptRequest({...options,onload:response=>isSuccessfulHttpStatus(response.status)?resolve(readResponse(
+response)):reject(new Error(statusMessage(response.status))),onerror:reject,...timeoutMessage?{ontimeout:()=>reject(new Error(timeoutMessage))}:{}})}):null}function isSuccessfulHttpStatus(status){return status>=
+200&&status<300}function loadImage(url){return new Promise((resolve,reject)=>{const image=new Image;image.onload=()=>resolve(image),image.onerror=()=>reject(new Error("Image decode failed.")),image.src=url})}function canvasToBlob(canvas,type,quality){
+return new Promise((resolve,reject)=>{canvas.toBlob(result=>result?resolve(result):reject(new Error("Image encoding failed.")),type,quality)})}function imageSummary(image){return{host:safeHost$1(image.currentSrc||
+image.src),width:image.naturalWidth||image.width,height:image.naturalHeight||image.height,altLength:image.alt?.length??0}}function inlineProviderLabel(settings){return configuredOcrProviderLabel(settings)??settings.
+ocrProvider}function configuredOcrProviderLabel(settings){return OCR_PROVIDER_LABELS[settings.ocrProvider]?.(settings)??null}function localServiceProviderLabel(settings){return`local-service:${ocrEngineLabel(settings)}`}
+function ocrEngineLabel(settings){return settings.ocrEngine||"auto"}function localOcrEndpointUrl(settings){return settings.ocrEndpointUrl.trim()||DEFAULT_LOCAL_OCR_ENDPOINT_URL}function isLocalOcrConnectionError(error){
+return isLocalOcrUnavailableError(error)||!(error instanceof Error)?!0:error.name==="TypeError"||error.name==="AbortError"||/network|failed to fetch|load failed|cors|blocked|timed out|timeout|request failed/i.test(
+error.message)}function isLocalOcrUnavailableError(error){return error instanceof LocalOcrUnavailableError}function isAbortError(error){return error instanceof Error&&error.name==="AbortError"}function safeHost$1(value){
+try{return new URL(value,location.href).host}catch{return"inline-or-invalid"}}const JAPANESE_RUN_RE=/[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]/u,JPDB_POINTER_CANDIDATE_MAX_LENGTH=18,JPDB_POINTER_CANDIDATE_START_WINDOW=8,
+JPDB_POINTER_CANDIDATE_LIMIT=24,JPDB_POINTER_BOUNDARY_SEGMENTS=["から","まで","より","だけ","しか","など","には","では","とは","は","が","を","に","へ","と","で","の","や"],READER_ROOT_SELECTOR="\
+[data-jpdb-reader-root]",POINTER_TEXT_SKIP_SELECTOR=["script","style","noscript","textarea","input","select","button","option","summary","svg","use","rt","rp",'[contenteditable="true"]','[role="button"]','[role\
+="checkbox"]','[role="radio"]','[role="tab"]',"[onclick]",READER_ROOT_SELECTOR].join(","),READER_ROOT_POINTER_TEXT_LINK_SELECTOR=`${READER_ROOT_SELECTOR} .jpdb-reader-local-glossary a[href]`,SCREEN_READER_ONLY_CLASS_RE=/(^|[-_\s])(sr-only|screen-reader-text|visually-hidden|visuallyhidden)([-_\s]|$)/i,
+YOUTUBE_METADATA_SELECTOR=["#metadata","#metadata-line","#metadata-text","#video-info","#stats","ytd-video-meta-block","yt-content-metadata-view-model",".inline-metadata-item",".badge-style-type-simple"].join("\
+,"),METADATA_TOKEN_RE=/^(?:[\d０-９][\d０-９,.，]*\s*)?(?:万|億)?(?:回視聴|視聴|再生|回再生|件|コメント|高評価|日前|時間前|分前|秒前|か月前|ヶ月前|週間前|年前|ライブ配信中|新着)$/u,
 POINTER_TEXT_CONTEXT_ROOT_SELECTOR=["p","li","figcaption","blockquote","h1","h2","h3","h4","h5","h6","a","yt-formatted-string","yt-attributed-string",'[id="content-text"]','[id="video-title"]',"[data-jpdb-reade\
 r-context]"].join(","),POINTER_TEXT_CONTEXT_SKIP_SELECTOR=["script","style","noscript","textarea","input","select","button","option","summary","svg","use","rt","rp",'[aria-hidden="true"]',"[hidden]"].join(","),
 POINTER_TEXT_CONTEXT_MAX_LENGTH=220;function caretTextPositionFromPoint(x2,y){const doc=document,position=doc.caretPositionFromPoint?.(x2,y);if(position?.offsetNode.nodeType===Node.TEXT_NODE)return{node:position.
@@ -5986,7 +6002,8 @@ kind:"word",card:entry.card,sentence:entry.sentence}}kanjiEntry(entry){return{ki
 second.card)}isSameKanji(first2,second){return this.isSameCard(first2,second)&&first2.kanji===second.kanji}isSameEntryAsWord(entry,word){return entry.kind==="word"&&this.isSameCard(entry,word)}isSamePopupEntry(first2,second){
 return first2.kind!==second.kind?!1:first2.kind==="kanji"&&second.kind==="kanji"?this.isSameKanji(first2,second):this.isSameCard(first2,second)}}function renderModalNavigation(options){return`
 <div class="jpdb-reader-modal-nav">
-<button class="jpdb-reader-icon-mini" type="button" data-action="${escapeHtml$1(options.backAction)}" title="${escapeHtml$1(options.backTitle)}" aria-label="${escapeHtml$1(options.backTitle)}">←</button>
+<button class="jpdb-reader-icon-mini" type="button" data-action="${escapeHtml$1(options.backAction)}" title="${escapeHtml$1(options.backTitle)}" aria-label="${escapeHtml$1(options.backTitle)}">←</bu\
+tton>
 <span title="${escapeHtml$1(options.label)}">${escapeHtml$1(options.label)}</span>
 ${options.controlsHtml??""}
 </div>
@@ -6321,75 +6338,75 @@ oSubmit")}}function readReadingDisplayFormSettings(reader,furiganaMode){const{ha
 "known-status"}}function readLocalDictionaryFormSettings(reader,current,kanjiPreferences){const{has,clamped}=reader;return{localDictionariesEnabled:has("localDictionariesEnabled"),localDictionaryShowKanji:has("\
 kanjiDictionaries.enabled")||kanjiPreferences.some(preference=>preference.enabled),kanjiDictionariesPriority:clamped("kanjiDictionaries.priority",0,999,current.kanjiDictionariesPriority),dictionarySourcesInitiallyExpanded:has(
 "dictionarySourcesInitiallyExpanded"),localDictionaryMaxResults:clamped("localDictionaryMaxResults",1,64,current.localDictionaryMaxResults)}}function readAnkiFormSettings(reader,current){const{get,has,clamped}=reader,
-sectionRowPresent=!!(get("ankiSection.name")||get("ankiSection.priority")||has("ankiSection.enabled"));return{ankiEnabled:has("ankiEnabled"),ankiSectionEnabled:sectionRowPresent?has("ankiSection.enabled"):current.
-ankiSectionEnabled,ankiSectionPriority:sectionRowPresent?clamped("ankiSection.priority",0,999,current.ankiSectionPriority):current.ankiSectionPriority,ankiConnectUrl:get("ankiConnectUrl").trim()||current.ankiConnectUrl,
-ankiDeck:get("ankiDeck").trim()||current.ankiDeck,ankiModel:get("ankiModel").trim()||current.ankiModel,ankiTemplateMode:readOption(get("ankiTemplateMode"),["recognition","context"],current.ankiTemplateMode),ankiFrontReading:has(
-"ankiFrontReading"),ankiFrontSentence:has("ankiFrontSentence"),ankiFrontImage:has("ankiFrontImage"),ankiFieldMappings:readAnkiFieldMappings(get("ankiFieldMappings"),current.ankiFieldMappings),ankiTags:get("anki\
-Tags").trim(),ankiMineWithJpdb:has("ankiMineWithJpdb"),ankiCaptureScreenshot:has("ankiCaptureScreenshot"),ankiMobileHandoff:has("ankiMobileHandoff")}}const ANKI_FIELD_MAPPING_ROLES$2=["expression","reading","me\
-aning","sentence","audio","image"];function readAnkiFieldMappings(value,fallback){if(!value.trim())return fallback;try{const parsed=JSON.parse(value);if(!parsed||typeof parsed!="object"||Array.isArray(parsed))return fallback;
-const out={};return Object.entries(parsed).forEach(([modelName,mapping])=>{const normalizedModelName=modelName.trim();if(!normalizedModelName||!mapping||typeof mapping!="object"||Array.isArray(mapping))return;const normalizedMapping={};
-for(const role of ANKI_FIELD_MAPPING_ROLES$2){const fieldName=mapping[role];if(typeof fieldName!="string")continue;const normalizedFieldName=fieldName.trim();normalizedFieldName&&(normalizedMapping[role]=normalizedFieldName)}
-Object.keys(normalizedMapping).length&&(out[normalizedModelName]=normalizedMapping)}),out}catch{return fallback}}function readStudyToolFormSettings(reader,current){const{has,clamped}=reader;return{studyTranslationEnabled:has(
-"studyTranslation.enabled"),studyTranslationPriority:clamped("studyTranslation.priority",0,999,current.studyTranslationPriority),studyGrammarEnabled:has("studyGrammar.enabled"),studyGrammarPriority:clamped("stu\
-dyGrammar.priority",0,999,current.studyGrammarPriority)}}function readPopupFormSettings(reader,current){const{get,has,clamped}=reader,popupMode=readOption(get("popupMode"),["auto","sheet","popover"],current.popupMode);
-return{theme:readOption(get("theme"),["auto","dark","light"],current.theme),popupMode,stickyBottomSheet:has("stickyBottomSheet"),popoverBackdropEnabled:has("popoverBackdropEnabled"),popoverWidth:clamped("popove\
-rWidth",280,900,current.popoverWidth),popoverHeight:clamped("popoverHeight",220,900,current.popoverHeight),popoverHeightMode:readOption(get("popoverHeightMode"),["available","fixed"],current.popoverHeightMode),
-readerFontFamily:readFontFamilySetting(reader,"readerFontFamily",current.readerFontFamily),popupFontFamily:readFontFamilySetting(reader,"popupFontFamily",current.popupFontFamily),popupFontWeight:clamped("popupF\
-ontWeight",300,900,current.popupFontWeight)}}function readFontFamilySetting(reader,name,fallback){const value=reader.get(name).trim();return value===CUSTOM_FONT_FAMILY_VALUE?reader.get(`${name}Custom`).trim()||
-fallback:value||fallback}function readMiningFormSettings(reader){const{get,has}=reader;return{jpdbMiningEnabled:has("jpdbMiningEnabled"),miningDeck:get("miningDeck").trim()||"forq",neverForgetDeck:get("neverFor\
-getDeck").trim()||"never-forget",blacklistDeck:get("blacklistDeck").trim()||"blacklist",addToForq:has("addToForq"),enableReviews:has("enableReviews"),twoButtonReviews:get("twoButtonReviews")==="true"}}function readOcrFormSettings(reader,current){
-const{get,has,clamped}=reader;return{ocrEnabled:has("ocrEnabled"),ocrAutoScanImages:has("ocrAutoScanImages"),ocrShowTextOverlay:has("ocrShowTextOverlay"),ocrProvider:normalizeOcrProvider(get("ocrProvider")),ocrEndpointUrl:get(
-"ocrEndpointUrl").trim(),ocrEngine:get("ocrEngine").trim()||"auto",ocrCloudVisionApiKey:get("ocrCloudVisionApiKey").trim(),ocrLanguage:get("ocrLanguage").trim()||"ja-JP",ocrMaxImagePixels:clamped("ocrMaxImagePi\
-xels",16e4,28e5,current.ocrMaxImagePixels),ocrMinImageArea:clamped("ocrMinImageArea",1e4,8e5,current.ocrMinImageArea),ocrMaxImagesPerPage:clamped("ocrMaxImagesPerPage",1,30,current.ocrMaxImagesPerPage),ocrPrefetchMargin:clamped(
-"ocrPrefetchMargin",0,3e3,current.ocrPrefetchMargin),ocrTextColor:sanitizeAccentColor(get("ocrTextColor"),current.ocrTextColor),ocrOutlineColor:sanitizeAccentColor(get("ocrOutlineColor"),current.ocrOutlineColor),
-ocrBackgroundColor:sanitizeAccentColor(get("ocrBackgroundColor"),current.ocrBackgroundColor),ocrBackgroundOpacity:clamped("ocrBackgroundOpacity",0,1,current.ocrBackgroundOpacity),ocrFontScale:clamped("ocrFontSc\
-ale",.7,1.8,current.ocrFontScale)}}function readSubtitleFormSettings(reader,current){const{get,has,clamped}=reader;return{subtitlePlayerEnabled:has("subtitlePlayerEnabled"),subtitleAutoDetect:has("subtitleAutoD\
-etect"),subtitleOverlayVisible:has("subtitleOverlayVisible"),subtitleSecondaryVisible:has("subtitleSecondaryVisible"),subtitleNativeBlurred:has("subtitleNativeBlurred"),subtitleKaraokeMode:has("subtitleKaraokeM\
-ode"),subtitleTranscriptVisible:has("subtitleTranscriptVisible"),subtitlePausePanel:has("subtitlePausePanel"),subtitleTranscriptPlacement:readOption(get("subtitleTranscriptPlacement"),["right","left","bottom"],
-current.subtitleTranscriptPlacement),subtitleTranscriptAutoScroll:has("subtitleTranscriptAutoScroll"),subtitleAutoCopyLine:has("subtitleAutoCopyLine"),subtitleControlsMode:readOption(get("subtitleControlsMode"),
-["auto","always","hidden"],current.subtitleControlsMode),subtitleFontSize:clamped("subtitleFontSize",16,64,current.subtitleFontSize),subtitleBottomOffset:clamped("subtitleBottomOffset",2,40,current.subtitleBottomOffset),
-subtitleTextColor:sanitizeAccentColor(get("subtitleTextColor"),current.subtitleTextColor),subtitleOutlineColor:sanitizeAccentColor(get("subtitleOutlineColor"),current.subtitleOutlineColor),subtitleBackgroundColor:sanitizeAccentColor(
-get("subtitleBackgroundColor"),current.subtitleBackgroundColor),subtitleBackgroundOpacity:clamped("subtitleBackgroundOpacity",0,1,current.subtitleBackgroundOpacity),subtitleFontFamily:readFontFamilySetting(reader,
-"subtitleFontFamily",current.subtitleFontFamily),subtitleFontWeight:clamped("subtitleFontWeight",100,900,current.subtitleFontWeight),subtitleMiningPause:has("subtitleMiningPause"),subtitleSeekPadding:clamped("s\
-ubtitleSeekPadding",-2,2,current.subtitleSeekPadding)}}function readImmersionKitFormSettings(reader,current){const{get,has,clamped}=reader,mediaEnabled=has("immersionKitEnabled"),sourceEnabled=get("immersionKit\
-.name")||get("immersionKit.priority")?has("immersionKit.enabled"):!0;return{immersionKitEnabled:mediaEnabled&&sourceEnabled,immersionKitExampleSource:readOption(get("immersionKitExampleSource"),["immersion-kit",
-"nadeshiko","combined"],current.immersionKitExampleSource),nadeshikoApiKey:get("nadeshikoApiKey").trim(),immersionKitPriority:clamped("immersionKit.priority",0,999,current.immersionKitPriority),immersionKitLimitEnabled:get(
-"immersionKitLimitEnabled")==="on",immersionKitLimit:clamped("immersionKitLimit",1,12,current.immersionKitLimit),immersionKitMinLength:clamped("immersionKitMinLength",0,120,current.immersionKitMinLength),immersionKitMaxLength:clamped(
-"immersionKitMaxLength",0,240,current.immersionKitMaxLength),immersionKitCategory:readOption(get("immersionKitCategory"),["all","anime","drama","games"],current.immersionKitCategory),immersionKitSort:readOption(
-get("immersionKitSort"),["sentence_length:asc","sentence_length:desc"],current.immersionKitSort),immersionKitExactMatch:has("immersionKitExactMatch"),immersionKitShowTranslation:has("immersionKitShowTranslation"),
-immersionKitRevealTranslationOnClick:has("immersionKitShowTranslation")&&has("immersionKitRevealTranslationOnClick"),immersionKitShowImages:has("immersionKitShowImages"),immersionKitAutoPlayAudio:has("immersion\
-KitAutoPlayAudio"),immersionKitPlayOnHover:has("immersionKitPlayOnHover"),immersionKitPlayOnImageClick:has("immersionKitPlayOnImageClick"),immersionKitPlaybackRate:clamped("immersionKitPlaybackRate",.5,2,current.
-immersionKitPlaybackRate)}}function readYoutubeFormSettings(reader){const{has}=reader;return{youtubeImmersionEnabled:has("youtubeImmersionEnabled"),preferJapaneseSiteLanguage:has("preferJapaneseSiteLanguage"),youtubeShowFilterNotice:has(
-"youtubeShowFilterNotice"),youtubeShowChannelRecommendations:has("youtubeShowChannelRecommendations")}}function readShortcutFormSettings(reader){return Object.fromEntries(SHORTCUT_SETTING_NAMES.map(name=>[name,
-reader.get(`shortcuts.${name}`)]))}function readOption(value,allowed,fallback){return allowed.includes(value)?value:fallback}function readDictionaryPreferences(data,current,reader){const get=key=>String(data.get(
-key)??""),count=Math.max(0,Number(get("dictionaryPreferenceCount"))||0);return count?Array.from({length:count},(_,index)=>({name:get(`dictionaryPreferences.${index}.name`).trim(),alias:get(`dictionaryPreference\
-s.${index}.alias`).trim()||get(`dictionaryPreferences.${index}.name`).trim(),enabled:data.has(`dictionaryPreferences.${index}.enabled`),priority:reader.number(`dictionaryPreferences.${index}.priority`,index),type:readDictionaryType(
-get(`dictionaryPreferences.${index}.type`))})).filter(item=>item.name).sort((a,b)=>a.priority-b.priority||a.name.localeCompare(b.name)):current}function readDictionaryType(value){return value==="kanji"||value===
-"frequency"||value==="metadata"?value:"terms"}function readAudioSources(data){const get=key=>String(data.get(key)??""),count=Math.max(0,Number(get("audioSourceCount"))||0),sources=[],builtInTypes=new Set(DEFAULT_AUDIO_SOURCES.
-map(source=>source.type));for(let index=0;index<count;index++){const source=readAudioSourceRow(data,get,index);!source||shouldSkipAudioSourceRow(source,builtInTypes)||sources.push(source)}return sources}function readAudioSourceRow(data,get,index){
-return normalizeAudioSource({type:get(`audioSources.${index}.type`),url:get(`audioSources.${index}.url`).trim(),voice:get(`audioSources.${index}.voice`).trim(),enabled:data.has(`audioSources.${index}.enabled`)})}
-function shouldSkipAudioSourceRow(source,builtInTypes){return!source.enabled&&!source.url&&!source.voice&&!builtInTypes.has(source.type)}function readDictionaryLookupLinks(data){const get=key=>String(data.get(key)??
-""),count=Math.max(0,Math.min(MAX_DICTIONARY_LOOKUP_LINKS,Number(get("dictionaryLookupLinkCount"))||0)),links=[];for(let index=0;index<count;index++){const link=readDictionaryLookupLinkRow(data,get,index);link&&
-links.push(link)}return normalizeDictionaryLookupLinks(links)}function readDictionaryLookupLinkRow(data,get,index){const label=get(`dictionaryLookupLinks.${index}.label`).trim(),urlTemplate=get(`dictionaryLooku\
-pLinks.${index}.urlTemplate`).trim(),action=dictionaryLookupLinkAction(get(`dictionaryLookupLinks.${index}.action`));return shouldKeepDictionaryLookupLink(label,urlTemplate,action)?{id:get(`dictionaryLookupLink\
-s.${index}.id`).trim()||`custom-${index}`,label:dictionaryLookupLinkLabel(label,action),urlTemplate:dictionaryLookupLinkUrlTemplate(urlTemplate,action),enabled:data.has(`dictionaryLookupLinks.${index}.enabled`),
-action}:null}function dictionaryLookupLinkAction(value){return value==="copy"?"copy":"open"}function shouldKeepDictionaryLookupLink(label,urlTemplate,action){return!!(label||urlTemplate||action==="copy")}function dictionaryLookupLinkLabel(label,action){
-return action==="copy"&&!label?COPY_LOOKUP_LINK.label:label}function dictionaryLookupLinkUrlTemplate(urlTemplate,action){return action==="copy"?"":urlTemplate}const SOURCE_ROW_COPY_KEYS_BY_ID={__jpdb__:{helpKey:"\
-sourceHelpJpdb"},__anki__:{nameKey:"sourceNameAnki",helpKey:"sourceHelpAnki"},__study_translation__:{nameKey:"sourceNameTranslation",helpKey:"sourceHelpTranslation"},__study_grammar__:{nameKey:"sourceNameGramma\
-r",helpKey:"sourceHelpGrammar"},__immersion_kit__:{nameKey:"sourceNameImmersionKit",helpKey:"sourceHelpImmersionKit"},__kanji_stroke__:{nameKey:"sourceNameStrokePractice",helpKey:"sourceHelpStrokePractice"},__kanji_jpdb__:{
-nameKey:"readingsComponents",helpKey:"sourceHelpReadingsComponents"},__kanji_rtk__:{helpKey:"sourceHelpRtk"},__kanji_uchisen__:{helpKey:"sourceHelpUchisen"},__kanji_dictionaries__:{nameKey:"sourceNameImportedKa\
-njiDictionaries",helpKey:"sourceHelpImportedKanjiDictionaries"},__kanji_similar_words__:{nameKey:"sourceNameWordsUsingKanji",helpKey:"sourceHelpWordsUsingKanji"},__kanji_origins__:{nameKey:"originStructure",helpKey:"\
-sourceHelpComponentGraph"}},SOURCE_ROW_ORDER_LABELS={drag:"Drag to reorder",up:"Move up",down:"Move down"};function miniIconButton(icon,label,attributes){return`<button type="button" class="jpdb-reader-icon-min\
-i${icon==="drag"?" jpdb-reader-drag-handle":""}" ${attributes} title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${miniIcon(icon)}</button>`}function renderRowOrderTools(options){return`<div cl\
-ass="jpdb-reader-row-tools jpdb-reader-row-order-tools"${options.label?` aria-label="${escapeHtml$1(options.label)}"`:""}>
+ankiEnabled=has("ankiEnabled"),sectionRowPresent=!!(get("ankiSection.name")||get("ankiSection.priority")||has("ankiSection.enabled")),ankiSectionEnabled=sectionRowPresent?has("ankiSection.enabled")||ankiEnabled&&
+!current.ankiEnabled&&!current.ankiSectionEnabled:current.ankiSectionEnabled;return{ankiEnabled,ankiSectionEnabled,ankiSectionPriority:sectionRowPresent?clamped("ankiSection.priority",0,999,current.ankiSectionPriority):
+current.ankiSectionPriority,ankiConnectUrl:get("ankiConnectUrl").trim()||current.ankiConnectUrl,ankiDeck:get("ankiDeck").trim()||current.ankiDeck,ankiModel:get("ankiModel").trim()||current.ankiModel,ankiTemplateMode:readOption(
+get("ankiTemplateMode"),["recognition","context"],current.ankiTemplateMode),ankiFrontReading:has("ankiFrontReading"),ankiFrontSentence:has("ankiFrontSentence"),ankiFrontImage:has("ankiFrontImage"),ankiFieldMappings:readAnkiFieldMappings(
+get("ankiFieldMappings"),current.ankiFieldMappings),ankiTags:get("ankiTags").trim(),ankiMineWithJpdb:has("ankiMineWithJpdb"),ankiCaptureScreenshot:has("ankiCaptureScreenshot"),ankiMobileHandoff:has("ankiMobileH\
+andoff")}}const ANKI_FIELD_MAPPING_ROLES$2=["expression","reading","meaning","sentence","audio","image"];function readAnkiFieldMappings(value,fallback){if(!value.trim())return fallback;try{const parsed=JSON.parse(
+value);if(!parsed||typeof parsed!="object"||Array.isArray(parsed))return fallback;const out={};return Object.entries(parsed).forEach(([modelName,mapping])=>{const normalizedModelName=modelName.trim();if(!normalizedModelName||
+!mapping||typeof mapping!="object"||Array.isArray(mapping))return;const normalizedMapping={};for(const role of ANKI_FIELD_MAPPING_ROLES$2){const fieldName=mapping[role];if(typeof fieldName!="string")continue;const normalizedFieldName=fieldName.
+trim();normalizedFieldName&&(normalizedMapping[role]=normalizedFieldName)}Object.keys(normalizedMapping).length&&(out[normalizedModelName]=normalizedMapping)}),out}catch{return fallback}}function readStudyToolFormSettings(reader,current){
+const{has,clamped}=reader;return{studyTranslationEnabled:has("studyTranslation.enabled"),studyTranslationPriority:clamped("studyTranslation.priority",0,999,current.studyTranslationPriority),studyGrammarEnabled:has(
+"studyGrammar.enabled"),studyGrammarPriority:clamped("studyGrammar.priority",0,999,current.studyGrammarPriority)}}function readPopupFormSettings(reader,current){const{get,has,clamped}=reader,popupMode=readOption(
+get("popupMode"),["auto","sheet","popover"],current.popupMode);return{theme:readOption(get("theme"),["auto","dark","light"],current.theme),popupMode,stickyBottomSheet:has("stickyBottomSheet"),popoverBackdropEnabled:has(
+"popoverBackdropEnabled"),popoverWidth:clamped("popoverWidth",280,900,current.popoverWidth),popoverHeight:clamped("popoverHeight",220,900,current.popoverHeight),popoverHeightMode:readOption(get("popoverHeightMo\
+de"),["available","fixed"],current.popoverHeightMode),readerFontFamily:readFontFamilySetting(reader,"readerFontFamily",current.readerFontFamily),popupFontFamily:readFontFamilySetting(reader,"popupFontFamily",current.
+popupFontFamily),popupFontWeight:clamped("popupFontWeight",300,900,current.popupFontWeight)}}function readFontFamilySetting(reader,name,fallback){const value=reader.get(name).trim();return value===CUSTOM_FONT_FAMILY_VALUE?
+reader.get(`${name}Custom`).trim()||fallback:value||fallback}function readMiningFormSettings(reader){const{get,has}=reader;return{jpdbMiningEnabled:has("jpdbMiningEnabled"),miningDeck:get("miningDeck").trim()||
+"forq",neverForgetDeck:get("neverForgetDeck").trim()||"never-forget",blacklistDeck:get("blacklistDeck").trim()||"blacklist",addToForq:has("addToForq"),enableReviews:has("enableReviews"),twoButtonReviews:get("tw\
+oButtonReviews")==="true"}}function readOcrFormSettings(reader,current){const{get,has,clamped}=reader;return{ocrEnabled:has("ocrEnabled"),ocrAutoScanImages:has("ocrAutoScanImages"),ocrShowTextOverlay:has("ocrSh\
+owTextOverlay"),ocrProvider:normalizeOcrProvider(get("ocrProvider")),ocrEndpointUrl:get("ocrEndpointUrl").trim(),ocrEngine:get("ocrEngine").trim()||"auto",ocrCloudVisionApiKey:get("ocrCloudVisionApiKey").trim(),
+ocrLanguage:get("ocrLanguage").trim()||"ja-JP",ocrMaxImagePixels:clamped("ocrMaxImagePixels",16e4,28e5,current.ocrMaxImagePixels),ocrMinImageArea:clamped("ocrMinImageArea",1e4,8e5,current.ocrMinImageArea),ocrMaxImagesPerPage:clamped(
+"ocrMaxImagesPerPage",1,30,current.ocrMaxImagesPerPage),ocrPrefetchMargin:clamped("ocrPrefetchMargin",0,3e3,current.ocrPrefetchMargin),ocrTextColor:sanitizeAccentColor(get("ocrTextColor"),current.ocrTextColor),
+ocrOutlineColor:sanitizeAccentColor(get("ocrOutlineColor"),current.ocrOutlineColor),ocrBackgroundColor:sanitizeAccentColor(get("ocrBackgroundColor"),current.ocrBackgroundColor),ocrBackgroundOpacity:clamped("ocr\
+BackgroundOpacity",0,1,current.ocrBackgroundOpacity),ocrFontScale:clamped("ocrFontScale",.7,1.8,current.ocrFontScale)}}function readSubtitleFormSettings(reader,current){const{get,has,clamped}=reader;return{subtitlePlayerEnabled:has(
+"subtitlePlayerEnabled"),subtitleAutoDetect:has("subtitleAutoDetect"),subtitleOverlayVisible:has("subtitleOverlayVisible"),subtitleSecondaryVisible:has("subtitleSecondaryVisible"),subtitleNativeBlurred:has("sub\
+titleNativeBlurred"),subtitleKaraokeMode:has("subtitleKaraokeMode"),subtitleTranscriptVisible:has("subtitleTranscriptVisible"),subtitlePausePanel:has("subtitlePausePanel"),subtitleTranscriptPlacement:readOption(
+get("subtitleTranscriptPlacement"),["right","left","bottom"],current.subtitleTranscriptPlacement),subtitleTranscriptAutoScroll:has("subtitleTranscriptAutoScroll"),subtitleAutoCopyLine:has("subtitleAutoCopyLine"),
+subtitleControlsMode:readOption(get("subtitleControlsMode"),["auto","always","hidden"],current.subtitleControlsMode),subtitleFontSize:clamped("subtitleFontSize",16,64,current.subtitleFontSize),subtitleBottomOffset:clamped(
+"subtitleBottomOffset",2,40,current.subtitleBottomOffset),subtitleTextColor:sanitizeAccentColor(get("subtitleTextColor"),current.subtitleTextColor),subtitleOutlineColor:sanitizeAccentColor(get("subtitleOutlineC\
+olor"),current.subtitleOutlineColor),subtitleBackgroundColor:sanitizeAccentColor(get("subtitleBackgroundColor"),current.subtitleBackgroundColor),subtitleBackgroundOpacity:clamped("subtitleBackgroundOpacity",0,1,
+current.subtitleBackgroundOpacity),subtitleFontFamily:readFontFamilySetting(reader,"subtitleFontFamily",current.subtitleFontFamily),subtitleFontWeight:clamped("subtitleFontWeight",100,900,current.subtitleFontWeight),
+subtitleMiningPause:has("subtitleMiningPause"),subtitleSeekPadding:clamped("subtitleSeekPadding",-2,2,current.subtitleSeekPadding)}}function readImmersionKitFormSettings(reader,current){const{get,has,clamped}=reader,
+mediaEnabled=has("immersionKitEnabled"),sourceEnabled=!!(get("immersionKit.name")||get("immersionKit.priority"))?has("immersionKit.enabled"):!0;return{immersionKitEnabled:mediaEnabled&&sourceEnabled,immersionKitExampleSource:readOption(
+get("immersionKitExampleSource"),["immersion-kit","nadeshiko","combined"],current.immersionKitExampleSource),nadeshikoApiKey:get("nadeshikoApiKey").trim(),immersionKitPriority:clamped("immersionKit.priority",0,
+999,current.immersionKitPriority),immersionKitLimitEnabled:get("immersionKitLimitEnabled")==="on",immersionKitLimit:clamped("immersionKitLimit",1,12,current.immersionKitLimit),immersionKitMinLength:clamped("imm\
+ersionKitMinLength",0,120,current.immersionKitMinLength),immersionKitMaxLength:clamped("immersionKitMaxLength",0,240,current.immersionKitMaxLength),immersionKitCategory:readOption(get("immersionKitCategory"),["\
+all","anime","drama","games"],current.immersionKitCategory),immersionKitSort:readOption(get("immersionKitSort"),["sentence_length:asc","sentence_length:desc"],current.immersionKitSort),immersionKitExactMatch:has(
+"immersionKitExactMatch"),immersionKitShowTranslation:has("immersionKitShowTranslation"),immersionKitRevealTranslationOnClick:has("immersionKitShowTranslation")&&has("immersionKitRevealTranslationOnClick"),immersionKitShowImages:has(
+"immersionKitShowImages"),immersionKitAutoPlayAudio:has("immersionKitAutoPlayAudio"),immersionKitPlayOnHover:has("immersionKitPlayOnHover"),immersionKitPlayOnImageClick:has("immersionKitPlayOnImageClick"),immersionKitPlaybackRate:clamped(
+"immersionKitPlaybackRate",.5,2,current.immersionKitPlaybackRate)}}function readYoutubeFormSettings(reader){const{has}=reader;return{youtubeImmersionEnabled:has("youtubeImmersionEnabled"),preferJapaneseSiteLanguage:has(
+"preferJapaneseSiteLanguage"),youtubeShowFilterNotice:has("youtubeShowFilterNotice"),youtubeShowChannelRecommendations:has("youtubeShowChannelRecommendations")}}function readShortcutFormSettings(reader){return Object.
+fromEntries(SHORTCUT_SETTING_NAMES.map(name=>[name,reader.get(`shortcuts.${name}`)]))}function readOption(value,allowed,fallback){return allowed.includes(value)?value:fallback}function readDictionaryPreferences(data,current,reader){
+const get=key=>String(data.get(key)??""),count=Math.max(0,Number(get("dictionaryPreferenceCount"))||0);return count?Array.from({length:count},(_,index)=>({name:get(`dictionaryPreferences.${index}.name`).trim(),
+alias:get(`dictionaryPreferences.${index}.alias`).trim()||get(`dictionaryPreferences.${index}.name`).trim(),enabled:data.has(`dictionaryPreferences.${index}.enabled`),priority:reader.number(`dictionaryPreferenc\
+es.${index}.priority`,index),type:readDictionaryType(get(`dictionaryPreferences.${index}.type`))})).filter(item=>item.name).sort((a,b)=>a.priority-b.priority||a.name.localeCompare(b.name)):current}function readDictionaryType(value){
+return value==="kanji"||value==="frequency"||value==="metadata"?value:"terms"}function readAudioSources(data){const get=key=>String(data.get(key)??""),count=Math.max(0,Number(get("audioSourceCount"))||0),sources=[],
+builtInTypes=new Set(DEFAULT_AUDIO_SOURCES.map(source=>source.type));for(let index=0;index<count;index++){const source=readAudioSourceRow(data,get,index);!source||shouldSkipAudioSourceRow(source,builtInTypes)||
+sources.push(source)}return sources}function readAudioSourceRow(data,get,index){return normalizeAudioSource({type:get(`audioSources.${index}.type`),url:get(`audioSources.${index}.url`).trim(),voice:get(`audioSo\
+urces.${index}.voice`).trim(),enabled:data.has(`audioSources.${index}.enabled`)})}function shouldSkipAudioSourceRow(source,builtInTypes){return!source.enabled&&!source.url&&!source.voice&&!builtInTypes.has(source.
+type)}function readDictionaryLookupLinks(data){const get=key=>String(data.get(key)??""),count=Math.max(0,Math.min(MAX_DICTIONARY_LOOKUP_LINKS,Number(get("dictionaryLookupLinkCount"))||0)),links=[];for(let index=0;index<
+count;index++){const link=readDictionaryLookupLinkRow(data,get,index);link&&links.push(link)}return normalizeDictionaryLookupLinks(links)}function readDictionaryLookupLinkRow(data,get,index){const label=get(`di\
+ctionaryLookupLinks.${index}.label`).trim(),urlTemplate=get(`dictionaryLookupLinks.${index}.urlTemplate`).trim(),action=dictionaryLookupLinkAction(get(`dictionaryLookupLinks.${index}.action`));return shouldKeepDictionaryLookupLink(
+label,urlTemplate,action)?{id:get(`dictionaryLookupLinks.${index}.id`).trim()||`custom-${index}`,label:dictionaryLookupLinkLabel(label,action),urlTemplate:dictionaryLookupLinkUrlTemplate(urlTemplate,action),enabled:data.
+has(`dictionaryLookupLinks.${index}.enabled`),action}:null}function dictionaryLookupLinkAction(value){return value==="copy"?"copy":"open"}function shouldKeepDictionaryLookupLink(label,urlTemplate,action){return!!(label||
+urlTemplate||action==="copy")}function dictionaryLookupLinkLabel(label,action){return action==="copy"&&!label?COPY_LOOKUP_LINK.label:label}function dictionaryLookupLinkUrlTemplate(urlTemplate,action){return action===
+"copy"?"":urlTemplate}const SOURCE_ROW_COPY_KEYS_BY_ID={__jpdb__:{helpKey:"sourceHelpJpdb"},__anki__:{nameKey:"sourceNameAnki",helpKey:"sourceHelpAnki"},__study_translation__:{nameKey:"sourceNameTranslation",helpKey:"\
+sourceHelpTranslation"},__study_grammar__:{nameKey:"sourceNameGrammar",helpKey:"sourceHelpGrammar"},__immersion_kit__:{nameKey:"sourceNameImmersionKit",helpKey:"sourceHelpImmersionKit"},__kanji_stroke__:{nameKey:"\
+sourceNameStrokePractice",helpKey:"sourceHelpStrokePractice"},__kanji_jpdb__:{nameKey:"readingsComponents",helpKey:"sourceHelpReadingsComponents"},__kanji_rtk__:{helpKey:"sourceHelpRtk"},__kanji_uchisen__:{helpKey:"\
+sourceHelpUchisen"},__kanji_dictionaries__:{nameKey:"sourceNameImportedKanjiDictionaries",helpKey:"sourceHelpImportedKanjiDictionaries"},__kanji_similar_words__:{nameKey:"sourceNameWordsUsingKanji",helpKey:"sou\
+rceHelpWordsUsingKanji"},__kanji_origins__:{nameKey:"originStructure",helpKey:"sourceHelpComponentGraph"}},SOURCE_ROW_ORDER_LABELS={drag:"Drag to reorder",up:"Move up",down:"Move down"};function miniIconButton(icon,label,attributes){
+return`<button type="button" class="jpdb-reader-icon-mini${icon==="drag"?" jpdb-reader-drag-handle":""}" ${attributes} title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${miniIcon(icon)}</butto\
+n>`}function renderRowOrderTools(options){return`<div class="jpdb-reader-row-tools jpdb-reader-row-order-tools"${options.label?` aria-label="${escapeHtml$1(options.label)}"`:""}>
 ${options.leading??""}
 ${miniIconButton("drag",options.labels.drag,'data-source-drag-handle tabindex="-1"')}
 ${miniIconButton("up",options.labels.up,`data-action="${options.upAction}"`)}
 ${miniIconButton("down",options.labels.down,`data-action="${options.downAction}"`)}
 </div>`}function renderRowRemoveTools(control){return`<div class="jpdb-reader-row-tools jpdb-reader-row-remove-tools">
 ${control}
-</div>`}function renderSourceRowsList(rows,options){const removableCount=rows.filter(row=>row.removable).length,showRemove=removableCount>0,context={...options,layoutClass:sourceRowsLayoutClass(options.showAlias,
-showRemove),showRemove};return`
+</div>`}function renderSourceRowsList(rows,options){const removableCount=rows.filter(row=>row.removable).length,showRemove=removableCount>0,context={...options,layoutClass:sourceRowsLayoutClass(
+options.showAlias,showRemove),showRemove};return`
 <div class="jpdb-reader-dictionary-head jpdb-reader-order-head ${context.layoutClass}">
 <span>On</span>
 <span>${escapeHtml$1(options.sourceLabel)}</span>
@@ -6399,9 +6416,9 @@ ${showRemove?"<span>Remove</span>":""}
 </div>
 ${renderSourceRowsCountInput(options,removableCount)}
 ${rows.map((row,index)=>renderSourceRow(row,index,context)).join("")}
-`}function sourceRowsLayoutClass(showAlias,showRemove){return[showAlias?"":"compact",showRemove?"has-remove":"no-remove"].filter(Boolean).join(" ")}function renderSourceRowsCountInput(options,removableCount){return options.
-countName?`<input type="hidden" name="${escapeHtml$1(options.countName)}" value="${options.countValue??removableCount}">`:""}function renderSourceRow(row,index,context){const keys=sourceRowCopyKeys(row);return`\
-
+`}function sourceRowsLayoutClass(showAlias,showRemove){return[showAlias?"":"compact",showRemove?"has-remove":"no-remove"].filter(Boolean).join(" ")}function renderSourceRowsCountInput(options,removableCount){
+return options.countName?`<input type="hidden" name="${escapeHtml$1(options.countName)}" value="${options.countValue??removableCount}">`:""}function renderSourceRow(row,index,context){const keys=sourceRowCopyKeys(
+row);return`
 <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${context.layoutClass}" data-source-row data-dictionary-source-row data-source-id="${escapeHtml$1(row.id)}">
 <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
 <input name="${row.prefix}.enabled" type="checkbox" data-source-enable-toggle ${row.enabled?"checked":""}>
@@ -6409,22 +6426,23 @@ countName?`<input type="hidden" name="${escapeHtml$1(options.countName)}" value=
 </label>
 ${sourceField(sourceRowDisplayName(row,context.showAlias),row.name,row.prefix,"name",context.sourceLabel,keys?.nameKey)}
 ${renderSourceAliasControl(row,context.showAlias,keys)}
-${renderRowOrderTools({upAction:"dictionary-source-up",downAction:"dictionary-source-down",labels:SOURCE_ROW_ORDER_LABELS,leading:`<input name="${row.prefix}.priority" type="hidden" value="${index}">`})}
+${renderRowOrderTools({upAction:"dictionary-source-up",downAction:"dictionary-source-down",labels:SOURCE_ROW_ORDER_LABELS,leading:`<input name="${row.prefix}.priority" type="hidden" value="${index}\
+">`})}
 ${renderSourceRemoveCell(row,context.showRemove)}
 ${renderSourceTypeInput(row)}
 ${renderSourceRowHelp(row,keys)}
 </div>
-`}function renderSourceAliasControl(row,showAlias,keys){return showAlias?row.readonly?sourceField(row.alias,row.alias,row.prefix,"alias","Display name",keys?.nameKey):`<input name="${row.prefix}.alias" type="te\
-xt" value="${escapeHtml$1(row.alias)}" aria-label="Dictionary display name" placeholder="${escapeHtml$1(row.name)}">`:""}function renderSourceRemoveCell(row,showRemove){return showRemove?renderRowRemoveTools(renderSourceRemoveButton(
-row)):""}function renderSourceRemoveButton(row){return row.removable?miniIconButton("remove","Remove imported dictionary",`data-action="delete-yomitan-dictionary" data-dictionary-name="${escapeHtml$1(row.name)}\
-"`):""}function renderSourceTypeInput(row){return row.removable?`<input name="${row.prefix}.type" type="hidden" value="${escapeHtml$1(row.dictionaryType??"terms")}">`:""}function renderSourceRowHelp(row,keys){return row.
-help?`<div class="jpdb-reader-dictionary-row-help" ${keys?.helpKey?`data-source-help-key="${escapeHtml$1(keys.helpKey)}"`:""}>${escapeHtml$1(row.help)}</div>`:""}function sourceRowDisplayName(row,showAlias){return!showAlias&&
-!row.readonly&&row.alias?row.alias:row.name}function sourceField(displayValue,formValue,prefix,field,label,nameKey){return`
+`}function renderSourceAliasControl(row,showAlias,keys){return showAlias?row.readonly?sourceField(row.alias,row.alias,row.prefix,"alias","Display name",keys?.nameKey):`<input name="${row.prefix}.alias" \
+type="text" value="${escapeHtml$1(row.alias)}" aria-label="Dictionary display name" placeholder="${escapeHtml$1(row.name)}">`:""}function renderSourceRemoveCell(row,showRemove){return showRemove?renderRowRemoveTools(
+renderSourceRemoveButton(row)):""}function renderSourceRemoveButton(row){return row.removable?miniIconButton("remove","Remove imported dictionary",`data-action="delete-yomitan-dictionary" data-dictionary-name="${escapeHtml$1(
+row.name)}"`):""}function renderSourceTypeInput(row){return row.removable?`<input name="${row.prefix}.type" type="hidden" value="${escapeHtml$1(row.dictionaryType??"terms")}">`:""}function renderSourceRowHelp(row,keys){
+return row.help?`<div class="jpdb-reader-dictionary-row-help" ${keys?.helpKey?`data-source-help-key="${escapeHtml$1(keys.helpKey)}"`:""}>${escapeHtml$1(row.help)}</div>`:""}function sourceRowDisplayName(row,showAlias){
+return!showAlias&&!row.readonly&&row.alias?row.alias:row.name}function sourceField(displayValue,formValue,prefix,field,label,nameKey){return`
 <span class="jpdb-reader-field-display" aria-label="${escapeHtml$1(label)}" ${nameKey?`data-source-name-key="${escapeHtml$1(nameKey)}"`:""}>${escapeHtml$1(displayValue)}</span>
 <input name="${prefix}.${field}" type="hidden" value="${escapeHtml$1(formValue)}">
-`}function sourceRowCopyKeys(row){return SOURCE_ROW_COPY_KEYS_BY_ID[row.id]??importedKanjiDictionaryCopyKeys(row.id)}function importedKanjiDictionaryCopyKeys(rowId){return rowId.startsWith("__kanji_dictionary__\
-:")?{helpKey:"sourceHelpImportedKanjiDictionary"}:void 0}const AUDIO_URL_PLACEHOLDER_KEYS={"custom-json":"audioCustomJsonPlaceholder",custom:"audioCustomUrlPlaceholder"};function escapedUiText$1(language,key){return escapeHtml$1(
-uiText(language,key))}function renderAudioSourceEditor(sources,language="en"){return`
+`}function sourceRowCopyKeys(row){return SOURCE_ROW_COPY_KEYS_BY_ID[row.id]??importedKanjiDictionaryCopyKeys(row.id)}function importedKanjiDictionaryCopyKeys(rowId){return rowId.startsWith("__kanji_dictiona\
+ry__:")?{helpKey:"sourceHelpImportedKanjiDictionary"}:void 0}const AUDIO_URL_PLACEHOLDER_KEYS={"custom-json":"audioCustomJsonPlaceholder",custom:"audioCustomUrlPlaceholder"};function escapedUiText$1(language,key){
+return escapeHtml$1(uiText(language,key))}function renderAudioSourceEditor(sources,language="en"){return`
 <div class="jpdb-reader-audio-source-head jpdb-reader-order-head">
 <span>${escapedUiText$1(language,"enabledHeader")}</span>
 <span>${escapedUiText$1(language,"audioSource")}</span>
@@ -6441,21 +6459,23 @@ ce-remove"'));return`
 ${rows.map((source,index)=>`
 <div class="jpdb-reader-audio-source-row jpdb-reader-order-row" data-source-row data-audio-source-row data-source-id="audio-${index}">
 <label class="inline jpdb-reader-audio-index jpdb-reader-order-toggle">
-<input name="audioSources.${index}.enabled" type="checkbox" aria-label="${escapeHtml$1(uiText(language,"enableAudioSourceNumber").replace("{number}",String(index+1)))}" ${source.enabled?"checked":""}>
+<input name="audioSources.${index}.enabled" type="checkbox" aria-label="${escapeHtml$1(uiText(language,"enableAudioSourceNumber").replace("{number}",String(index+1)))}" ${source.enabled?"che\
+cked":""}>
 <span>${index+1}</span>
 </label>
 <div class="jpdb-reader-audio-source-choice">
 <select name="audioSources.${index}.type" aria-label="${escapeHtml$1(uiText(language,"audioSourceNumber").replace("{number}",String(index+1)))}">
-${audioSourceSelectOptions(source.type,language).map(([optionValue,text2])=>`<option value="${escapeHtml$1(optionValue)}" ${optionValue===source.type?"selected":""}>${escapeHtml$1(text2)}</option>`).join("")}
+${audioSourceSelectOptions(source.type,language).map(([optionValue,text2])=>`<option value="${escapeHtml$1(optionValue)}" ${optionValue===source.type?"selected":""}>${escapeHtml$1(text2)}\
+</option>`).join("")}
 </select>
-<button type="button" class="jpdb-reader-icon-mini" data-action="preview-audio" title="${escapedUiText$1(language,"previewAudio")}" aria-label="${escapedUiText$1(language,"previewAudio")}">${speakerIcon()}</but\
-ton>
+<button type="button" class="jpdb-reader-icon-mini" data-action="preview-audio" title="${escapedUiText$1(language,"previewAudio")}" aria-label="${escapedUiText$1(language,"previewAudio")}">${speakerIcon()}\
+</button>
 </div>
 <div class="jpdb-reader-audio-source-fields">
-<input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml$1(source.url)}" placeholder="${escapeHtml$1(audioUrlPlaceholder(source.type,language))}" ${audioSourceUsesUrl(source.
-type)?"":"hidden"}>
-<select data-audio-voice-field name="audioSources.${index}.voice" aria-label="${escapeHtml$1(uiText(language,"textToSpeechVoiceNumber").replace("{number}",String(index+1)))}" data-selected-voice="${escapeHtml$1(
-source.voice)}" ${audioSourceUsesVoice(source.type)?"":"hidden"}>
+<input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml$1(source.url)}" placeholder="${escapeHtml$1(audioUrlPlaceholder(source.type,language))}" ${audioSourceUsesUrl(
+source.type)?"":"hidden"}>
+<select data-audio-voice-field name="audioSources.${index}.voice" aria-label="${escapeHtml$1(uiText(language,"textToSpeechVoiceNumber").replace("{number}",String(index+1)))}" data-selected-v\
+oice="${escapeHtml$1(source.voice)}" ${audioSourceUsesVoice(source.type)?"":"hidden"}>
 <option value="${escapeHtml$1(source.voice)}">${escapeHtml$1(source.voice||uiText(language,"automaticBrowserVoice"))}</option>
 </select>
 </div>
@@ -6492,12 +6512,12 @@ ${renderDictionaryLookupLinkRows(rows)}
 <div class="jpdb-reader-lookup-link-actions">
 <button class="jpdb-reader-btn add" type="button" data-action="lookup-link-add">Add</button>
 </div>
-`}function renderDictionaryLookupLinkRows(rows){const orderTools=renderRowOrderTools({label:"Lookup pill order",upAction:"lookup-link-up",downAction:"lookup-link-down",labels:{drag:"Drag to reorder",up:"Move up",
-down:"Move down"}});return`
+`}function renderDictionaryLookupLinkRows(rows){const orderTools=renderRowOrderTools({label:"Lookup pill order",upAction:"lookup-link-up",downAction:"lookup-link-down",labels:{drag:"Drag to reorder",up:"Mov\
+e up",down:"Move down"}});return`
 <input type="hidden" name="dictionaryLookupLinkCount" value="${rows.length}">
-${rows.map((link,index)=>{const isCopyAction=link.action==="copy",urlControl=isCopyAction?`<span class="jpdb-reader-lookup-link-note">Copies the current word</span><input name="dictionaryLookupLinks.${index}.ur\
-lTemplate" type="hidden" value="">`:`<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml$1(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Looku\
-p URL template">`,removeControl=isCopyAction?'<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>':miniIconButton("remove","Remove",'data-action="lookup-link-remove"');return`
+${rows.map((link,index)=>{const isCopyAction=link.action==="copy",urlControl=isCopyAction?`<span class="jpdb-reader-lookup-link-note">Copies the current word</span><input name="dictionaryLookupLinks.${index}\
+.urlTemplate" type="hidden" value="">`:`<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml$1(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lo\
+okup URL template">`,removeControl=isCopyAction?'<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>':miniIconButton("remove","Remove",'data-action="lookup-link-remove"');return`
 <div class="jpdb-reader-lookup-link-row jpdb-reader-order-row" data-source-row data-lookup-link-row data-source-id="lookup-link-${index}" data-index="${index}">
 <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
 <input name="dictionaryLookupLinks.${index}.enabled" type="checkbox" data-lookup-link-enable-toggle ${link.enabled?"checked":""}>
@@ -6511,8 +6531,8 @@ ${orderTools}
 ${renderRowRemoveTools(removeControl)}
 </div>
 `}).join("")}
-`}function updateDictionaryLookupLinkEditor(form,action,control){const container=form.querySelector(".jpdb-reader-lookup-links");if(!container)return;const links=readDictionaryLookupLinks(new FormData(form)),row=control?.
-closest("[data-lookup-link-row]"),index=row?Array.from(container.querySelectorAll("[data-lookup-link-row]")).indexOf(row):-1;updateDictionaryLookupLinks(links,action,index),setInnerHtml(container,renderDictionaryLookupLinkEditor(
+`}function updateDictionaryLookupLinkEditor(form,action,control){const container=form.querySelector(".jpdb-reader-lookup-links");if(!container)return;const links=readDictionaryLookupLinks(new FormData(form)),
+row=control?.closest("[data-lookup-link-row]"),index=row?Array.from(container.querySelectorAll("[data-lookup-link-row]")).indexOf(row):-1;updateDictionaryLookupLinks(links,action,index),setInnerHtml(container,renderDictionaryLookupLinkEditor(
 links))}function updateDictionaryLookupLinks(links,action,index){action==="lookup-link-add"&&addDictionaryLookupLink(links),action==="lookup-link-remove"&&removeDictionaryLookupLink(links,index),action==="looku\
 p-link-up"&&moveDictionaryLookupLink(links,index,index-1),action==="lookup-link-down"&&moveDictionaryLookupLink(links,index,index+1)}function addDictionaryLookupLink(links){links.length>=MAX_DICTIONARY_LOOKUP_LINKS||
 links.push({id:`custom-${Date.now().toString(36)}`,label:"",urlTemplate:"https://takoboto.jp/?q={query}",enabled:!0})}function removeDictionaryLookupLink(links,index){index>=0&&links.length>1&&links[index]?.action!==
@@ -6527,11 +6547,11 @@ const tags=ankiTagList(value);return`
 <button class="jpdb-reader-btn secondary" type="button" data-action="anki-tag-add">${escapeHtml$1(language==="ja"?"追加":"Add")}</button>
 </div>
 </div>
-`}function updateAnkiTagsEditor(form,action,control){const editor=control?.closest("[data-anki-tags-editor]")??form.querySelector("[data-anki-tags-editor]"),hidden=editor?.querySelector('input[name="ankiTags"]');
-if(!editor||!hidden)return;const language=formInterfaceLanguage(form),tags=ankiTagList(hidden.value);if(action==="anki-tag-add"){const input2=editor.querySelector("[data-anki-tag-input]");ankiTagList(input2?.value??
-"").forEach(tag=>{tags.includes(tag)||tags.push(tag)}),input2&&(input2.value="")}else{const tag=control?.dataset.tag?.trim();if(tag){const index=tags.indexOf(tag);index>=0&&tags.splice(index,1)}}hidden.value=tags.
-join(" "),hidden.dispatchEvent(new Event("input",{bubbles:!0})),renderAnkiTagChips(editor,tags,language)}function ankiTagList(value){return uniqueStrings$1(value.split(/[\s,]+/u).map(tag=>tag.trim()).filter(Boolean))}
-function renderAnkiTagChipHtml(tags,language){return tags.map(tag=>`
+`}function updateAnkiTagsEditor(form,action,control){const editor=control?.closest("[data-anki-tags-editor]")??form.querySelector("[data-anki-tags-editor]"),hidden=editor?.querySelector('input[name="ankiTag\
+s"]');if(!editor||!hidden)return;const language=formInterfaceLanguage(form),tags=ankiTagList(hidden.value);if(action==="anki-tag-add"){const input2=editor.querySelector("[data-anki-tag-input]");ankiTagList(input2?.
+value??"").forEach(tag=>{tags.includes(tag)||tags.push(tag)}),input2&&(input2.value="")}else{const tag=control?.dataset.tag?.trim();if(tag){const index=tags.indexOf(tag);index>=0&&tags.splice(index,1)}}hidden.value=
+tags.join(" "),hidden.dispatchEvent(new Event("input",{bubbles:!0})),renderAnkiTagChips(editor,tags,language)}function ankiTagList(value){return uniqueStrings$1(value.split(/[\s,]+/u).map(tag=>tag.trim()).filter(
+Boolean))}function renderAnkiTagChipHtml(tags,language){return tags.map(tag=>`
 <button class="jpdb-reader-tag-chip" type="button" data-action="anki-tag-remove" data-tag="${escapeHtml$1(tag)}" aria-label="${escapeHtml$1(tagRemoveLabel(tag,language))}">
 <span>${escapeHtml$1(tag)}</span>
 <span aria-hidden="true">×</span>
@@ -6636,8 +6656,8 @@ ${checkbox("jpdbPageKanjiEnhancementsEnabled","Add sources to JPDB kanji pages",
 <div class="jpdb-reader-help" data-jpdb-page-enhancements-help>JPDB page additions use the same source order as the Dictionaries and Kanji panels.</div>
 </div>
 </fieldset>
-`}function renderJpdbStatusLine(settings){const{message,tone}=jpdbStatusLineForSettings(settings,settings.interfaceLanguage);return`<div class="jpdb-reader-help jpdb-reader-status-line" data-jpdb-status data-st\
-atus-tone="${tone}" role="status" aria-live="polite">${formatSettingsStatusLine({message,tone},settings.interfaceLanguage)}</div>`}function jpdbStatusLineForSettings(settings,language){return jpdbStatusLineFromValues(
+`}function renderJpdbStatusLine(settings){const{message,tone}=jpdbStatusLineForSettings(settings,settings.interfaceLanguage);return`<div class="jpdb-reader-help jpdb-reader-status-line" data-jpdb-status dat\
+a-status-tone="${tone}" role="status" aria-live="polite">${formatSettingsStatusLine({message,tone},settings.interfaceLanguage)}</div>`}function jpdbStatusLineForSettings(settings,language){return jpdbStatusLineFromValues(
 !!settings.apiKey.trim(),settings.enableReviews,settings.jpdbMiningEnabled,language)}function jpdbStatusLineFromValues(hasApiKey,reviewsEnabled,deckSyncEnabled,language){return hasApiKey?{message:formatStatusTemplate(
 uiText(language,"jpdbApiKeyConfigured"),{reviews:uiText(language,reviewsEnabled?"statusEnabled":"statusDisabled"),deckSync:uiText(language,deckSyncEnabled?"statusEnabled":"statusDisabled")}),tone:reviewsEnabled||
 deckSyncEnabled?"success":"pending"}:{message:uiText(language,"jpdbApiKeyMissing"),tone:"pending"}}function ankiStatusLineForSettings(settings,language){return ankiStatusLineFromValues(settings.ankiEnabled,settings.
@@ -6679,10 +6699,10 @@ ${checkbox("newTabEnabled","Use Yomu new tab study page",settings.newTabEnabled)
 ${checkbox("newTabAnkiEnabled","Use Anki cards on new tab",settings.newTabAnkiEnabled)}
 ${renderNewTabAnkiDeckControls(settings)}
 ${select("newTabSource","New tab review source",settings.newTabSource,[["auto","Auto: Anki if no JPDB"],["jpdb","JPDB"],["anki","Anki"],["dictionary","Dictionary fallback"]])}
-${select("newTabJpdbReviewMode","JPDB review mode",settings.newTabJpdbReviewMode,[["auto","Auto: live kanji + API vocabulary"],["live-review","Live JPDB review session"],["api-vocabulary","API vocabulary only"]])}\
-
-${select("newTabKanjiKeywordSource","Kanji keyword source",settings.newTabKanjiKeywordSource,[["auto","Auto: RTK, then JPDB, then local"],["rtk","RTK / Heisig"],["jpdb","JPDB"],["local","Local card meaning"]])}\
-
+${select("newTabJpdbReviewMode","JPDB review mode",settings.newTabJpdbReviewMode,[["auto","Auto: live kanji + API vocabulary"],["live-review","Live JPDB review session"],["api-vocabulary",
+"API vocabulary only"]])}
+${select("newTabKanjiKeywordSource","Kanji keyword source",settings.newTabKanjiKeywordSource,[["auto","Auto: RTK, then JPDB, then local"],["rtk","RTK / Heisig"],["jpdb","JPDB"],["local",
+"Local card meaning"]])}
 ${checkbox("newTabParsingEnabled","Parse sentences on new tab",settings.newTabParsingEnabled)}
 ${checkbox("newTabFrontSentenceEnabled","Show sentence on word fronts",settings.newTabFrontSentenceEnabled)}
 ${checkbox("newTabKanjiAutogradeEnabled","Autograde kanji drawing",settings.newTabKanjiAutogradeEnabled)}
@@ -6714,17 +6734,18 @@ ${decks.map(deck=>renderNewTabAnkiDeckToggle(deck,!isNewTabAnkiDeckDisabled(deck
 <label class="jpdb-reader-newtab-anki-deck-toggle" data-newtab-anki-deck-row data-active="${checked?"true":"false"}">
 <input type="checkbox" data-newtab-anki-deck-toggle data-newtab-anki-deck="${escapeHtml$1(deck)}" ${checked?"checked":""}>
 <span>${escapeHtml$1(deck)}</span>
-</label>`}function isNewTabAnkiDeckDisabled(deck,disabledDecks){return disabledDecks.some(disabled=>disabled===deck||isAnkiSubdeckOf(deck,disabled))}function renderWordColorSettingsSubsection(settings){return renderColorSettingsSubsection(
-"Word colors",WORD_COLOR_FIELDS,settings)}function canonicalNewTabAnkiDisabledDecks(deckNames){const unique2=[];return deckNames.map(deck=>deck.trim()).filter(Boolean).forEach(deck=>{unique2.includes(deck)||unique2.
-push(deck)}),unique2.filter(deck=>!unique2.some(parent=>parent!==deck&&isAnkiSubdeckOf(deck,parent)))}function isAnkiSubdeckOf(deck,parent){return!!(parent&&deck.startsWith(`${parent}::`))}function renderPitchColorSettingsSubsection(settings){
-return renderColorSettingsSubsection("Pitch accent colors",PITCH_COLOR_FIELDS,settings)}function renderColorChannelSettingsSubsection(settings){return`
+</label>`}function isNewTabAnkiDeckDisabled(deck,disabledDecks){return disabledDecks.some(disabled=>disabled===deck||isAnkiSubdeckOf(deck,disabled))}function renderWordColorSettingsSubsection(settings){
+return renderColorSettingsSubsection("Word colors",WORD_COLOR_FIELDS,settings)}function canonicalNewTabAnkiDisabledDecks(deckNames){const unique2=[];return deckNames.map(deck=>deck.trim()).filter(Boolean).forEach(
+deck=>{unique2.includes(deck)||unique2.push(deck)}),unique2.filter(deck=>!unique2.some(parent=>parent!==deck&&isAnkiSubdeckOf(deck,parent)))}function isAnkiSubdeckOf(deck,parent){return!!(parent&&deck.startsWith(
+`${parent}::`))}function renderPitchColorSettingsSubsection(settings){return renderColorSettingsSubsection("Pitch accent colors",PITCH_COLOR_FIELDS,settings)}function renderColorChannelSettingsSubsection(settings){
+return`
 <div class="jpdb-reader-settings-subsection">
 <div class="jpdb-reader-local-title">Color channels</div>
 <div class="grid">
 ${COLOR_CHANNEL_FIELDS.map(([name,label])=>select(name,label,settingsColorSourceValue(settings,name),COLOR_SOURCE_OPTIONS)).join("")}
 </div>
-<div class="jpdb-reader-help" data-color-channels-help>Each channel uses the source shown here. Defaults keep page text readable, show mining status in highlights, and keep subtitle status and pitch visible.</d\
-iv>
+<div class="jpdb-reader-help" data-color-channels-help>Each channel uses the source shown here. Defaults keep page text readable, show mining status in highlights, and keep subtitle status a\
+nd pitch visible.</div>
 </div>
 `}function renderColorSettingsSubsection(title,fields,settings){return`
 <div class="jpdb-reader-settings-subsection">
@@ -6755,8 +6776,8 @@ ${renderAudioSourceEditor(settings.audioSources,language)}
 </div>
 <div id="settings-help-audio" class="jpdb-reader-help" data-help-key="audioHelp">${audioHelpHtml(language)}</div>
 </fieldset>
-`}function audioAutoPlayModeSelect(language,value,disabled){const options=[["all",uiText(language,"audioAutoPlayAll")],["hover",uiText(language,"audioAutoPlayHover")],["tap",uiText(language,"audioAutoPlayTap")]];
-return`<label>${escapedUiText(language,"audioAutoPlayMode")}<select name="audioAutoPlayMode" ${disabled?"disabled":""}>${options.map(([optionValue,text2])=>`<option value="${escapeHtml$1(optionValue)}" ${optionValue===
+`}function audioAutoPlayModeSelect(language,value,disabled){const options=[["all",uiText(language,"audioAutoPlayAll")],["hover",uiText(language,"audioAutoPlayHover")],["tap",uiText(language,"audioAutoPlayTa\
+p")]];return`<label>${escapedUiText(language,"audioAutoPlayMode")}<select name="audioAutoPlayMode" ${disabled?"disabled":""}>${options.map(([optionValue,text2])=>`<option value="${escapeHtml$1(optionValue)}" ${optionValue===
 value?"selected":""}>${escapeHtml$1(text2)}</option>`).join("")}</select>${disabled?`<input type="hidden" name="audioAutoPlayMode" value="${escapeHtml$1(value)}">`:""}</label>`}function renderProxySetupGuide(language){
 return`
 <details class="jpdb-reader-proxy-guide">
@@ -6791,17 +6812,19 @@ return`
 <legend>${escapedUiText(language,"immersionKit")}</legend>
 <div class="grid">
 ${checkbox("immersionKitEnabled",uiText(language,"immersionKitEnabled"),settings.immersionKitEnabled)}
-${select("immersionKitExampleSource",uiText(language,"immersionKitExampleSource"),settings.immersionKitExampleSource,[["immersion-kit",uiText(language,"immersionKit")],["nadeshiko","Nadeshiko"],["combined",uiText(
-language,"immersionKitAndNadeshiko")]])}
+${select("immersionKitExampleSource",uiText(language,"immersionKitExampleSource"),settings.immersionKitExampleSource,[["immersion-kit",uiText(language,"immersionKit")],["nadeshiko","Nadeshik\
+o"],["combined",uiText(language,"immersionKitAndNadeshiko")]])}
 ${renderNadeshikoApiKeyField(settings)}
 ${checkbox("immersionKitShowTranslation",uiText(language,"immersionKitShowTranslation"),settings.immersionKitShowTranslation)}
-${checkbox("immersionKitRevealTranslationOnClick",uiText(language,"immersionKitRevealTranslationOnClick"),settings.immersionKitRevealTranslationOnClick,{disabled:!settings.immersionKitShowTranslation})}
-${checkbox("immersionKitShowImages",uiText(language,"immersionKitShowImages"),settings.immersionKitShowImages)}
-${select("immersionKitCategory",uiText(language,"immersionKitCategory"),settings.immersionKitCategory,[["all",uiText(language,"allCategories")],["anime",uiText(language,"anime")],["drama",uiText(language,"drama")],
-["games",uiText(language,"games")]])}
-${select("immersionKitSort",uiText(language,"immersionKitSort"),settings.immersionKitSort,[["sentence_length:asc",uiText(language,"shortestFirst")],["sentence_length:desc",uiText(language,"longestFirst")]])}
-${radioGroup("immersionKitLimitEnabled",uiText(language,"immersionKitLimitEnabled"),settings.immersionKitLimitEnabled?"on":"off",[["off",uiText(language,"allExamples")],["on",uiText(language,"limitExamples")]])}\
+${checkbox("immersionKitRevealTranslationOnClick",uiText(language,"immersionKitRevealTranslationOnClick"),settings.immersionKitRevealTranslationOnClick,{disabled:!settings.immersionKitShowTranslation})}\
 
+${checkbox("immersionKitShowImages",uiText(language,"immersionKitShowImages"),settings.immersionKitShowImages)}
+${select("immersionKitCategory",uiText(language,"immersionKitCategory"),settings.immersionKitCategory,[["all",uiText(language,"allCategories")],["anime",uiText(language,"anime")],["drama",uiText(
+language,"drama")],["games",uiText(language,"games")]])}
+${select("immersionKitSort",uiText(language,"immersionKitSort"),settings.immersionKitSort,[["sentence_length:asc",uiText(language,"shortestFirst")],["sentence_length:desc",uiText(language,"l\
+ongestFirst")]])}
+${radioGroup("immersionKitLimitEnabled",uiText(language,"immersionKitLimitEnabled"),settings.immersionKitLimitEnabled?"on":"off",[["off",uiText(language,"allExamples")],["on",uiText(language,
+"limitExamples")]])}
 ${input("immersionKitLimit",uiText(language,"immersionKitLimit"),String(settings.immersionKitLimit),"number",{min:1,max:12,step:1})}
 ${input("immersionKitMinLength",uiText(language,"immersionKitMinLength"),String(settings.immersionKitMinLength),"number",{min:0,max:120,step:1})}
 ${input("immersionKitMaxLength",uiText(language,"immersionKitMaxLength"),String(settings.immersionKitMaxLength),"number",{min:0,max:240,step:1})}
@@ -6820,9 +6843,10 @@ ${checkbox("immersionKitPlayOnImageClick",uiText(language,"immersionKitPlayOnIma
 </fieldset>
 `}function renderNadeshikoApiKeyField(settings){const language=settings.interfaceLanguage;return`
 <div data-nadeshiko-api-key-field ${usesNadeshikoExamples(settings.immersionKitExampleSource)?"":"hidden"}>
-${input("nadeshikoApiKey",`${escapedUiText(language,"nadeshikoApiKey")} <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language,"getNadeshikoKey"))}</a>`,settings.
-nadeshikoApiKey,"password")}
-</div>`}function usesNadeshikoExamples(source){return source==="nadeshiko"||source==="combined"}function renderReaderSettingsPanel(settings){const language=settings.interfaceLanguage;return`
+${input("nadeshikoApiKey",`${escapedUiText(language,"nadeshikoApiKey")} <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language,"getNade\
+shikoKey"))}</a>`,settings.nadeshikoApiKey,"password")}
+</div>`}function usesNadeshikoExamples(source){return source==="nadeshiko"||source==="combined"}function renderReaderSettingsPanel(settings){const language=settings.interfaceLanguage;return`\
+
 <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="reading" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
 <legend>Reader</legend>
 <div class="grid">
@@ -6831,14 +6855,15 @@ ${checkbox("lookupOnClick","Look up on tap or click",settings.lookupOnClick)}
 ${checkbox("lookupOnHover","Look up on hover",settings.lookupOnHover)}
 ${checkbox("lookupOnMiddleMouse","Look up with middle-mouse hold",settings.lookupOnMiddleMouse)}
 ${checkbox("showFloatingButton",uiText(settings.interfaceLanguage,"showFloatingButton"),settings.showFloatingButton)}
-${select("furiganaMode","Furigana",settings.furiganaMode,[["auto","Automatic"],["difficult-kanji","Difficult kanji only"],["known-status","Hide known words"],["all","All parsed words"],["off","Off"]])}
+${select("furiganaMode","Furigana",settings.furiganaMode,[["auto","Automatic"],["difficult-kanji","Difficult kanji only"],["known-status","Hide known words"],["all","All parsed words"],["off",
+"Off"]])}
 ${checkbox("showPitchAccent","Show pitch accent",settings.showPitchAccent)}
 </div>
 <div class="jpdb-reader-help" data-settings-puck-help>${escapedUiText(language,"settingsPuckHelp")}</div>
 ${renderPitchColorSettingsSubsection(settings)}
 ${renderHoverLookupSettingsSubsection(settings)}
-<div id="settings-help-reader" class="jpdb-reader-help" data-help-key="readerHelp">Hover lookup uses the Hold while hovering shortcut in this panel. Leave it blank for plain hover. Middle-buttonscanning blocks \
-browser autoscroll while held, but still leaves normal middle-clicks on links alone.</div>
+<div id="settings-help-reader" class="jpdb-reader-help" data-help-key="readerHelp">Hover lookup uses the Hold while hovering shortcut in this panel. Leave it blank for plain hover. Middle-button\
+scanning blocks browser autoscroll while held, but still leaves normal middle-clicks on links alone.</div>
 </fieldset>
 `}function renderHoverLookupSettingsSubsection(settings){return`
 <div class="jpdb-reader-settings-subsection">
@@ -6861,8 +6886,8 @@ ${checkbox("kanjiOriginGraphEnabled","Show component graph",settings.kanjiOrigin
 ${checkbox("kanjiOriginRadicalImagesEnabled","Show radical images",settings.kanjiOriginRadicalImagesEnabled)}
 ${input("similarKanjiWordLimit","Similar word limit",String(settings.similarKanjiWordLimit),"number",{min:2,max:24,step:1})}
 </div>
-<div id="settings-help-kanji" class="jpdb-reader-help" data-help-key="kanjiHelp">Click a kanji inside a popup word to open its detail view. Toggle and reorder the kanji sources here: stroke practice, readings a\
-nd components, RTK, imported kanji dictionaries, related words, and the component graph.</div>
+<div id="settings-help-kanji" class="jpdb-reader-help" data-help-key="kanjiHelp">Click a kanji inside a popup word to open its detail view. Toggle and reorder the kanji sources here: stroke prac\
+tice, readings and components, RTK, imported kanji dictionaries, related words, and the component graph.</div>
 </fieldset>
 `}function renderImageSettingsPanel(settings){const localOcrHidden=settings.ocrProvider==="local-service"?"":"hidden",cloudOcrHidden=settings.ocrProvider==="cloud-vision"?"":"hidden";return`
 <fieldset id="jpdb-reader-settings-panel-ocr" role="tabpanel" data-settings-panel="media" data-legend-key="images" aria-describedby="settings-help-ocr" hidden>
@@ -6871,24 +6896,27 @@ nd components, RTK, imported kanji dictionaries, related words, and the componen
 ${checkbox("ocrEnabled","Read text in images",settings.ocrEnabled)}
 ${checkbox("ocrAutoScanImages","Read images automatically",settings.ocrAutoScanImages)}
 ${checkbox("ocrShowTextOverlay","Show recognized text on images",settings.ocrShowTextOverlay)}
-${select("ocrProvider","Image reading",settings.ocrProvider,[["google-lens","Google Lens (recommended)"],["cloud-vision","Google Cloud Vision"],["local-service","Local OCR engine"],["off","Off"]])}
+${select("ocrProvider","Image reading",settings.ocrProvider,[["google-lens","Google Lens (recommended)"],["cloud-vision","Google Cloud Vision"],["local-service","Local OCR engine"],["off","O\
+ff"]])}
 ${select("ocrMaxImagesPerPage","Images to read per page",String(settings.ocrMaxImagesPerPage),[["3","Light"],["8","Normal"],["16","More"]])}
 ${select("ocrMinImageArea","Smallest image to read",String(settings.ocrMinImageArea),[["80000","Large images only"],["45000","Normal"],["15000","Include small images"]])}
 ${select("ocrMaxImagePixels","Image detail",String(settings.ocrMaxImagePixels),[["640000","Faster"],["1200000","Balanced"],["2000000","Sharper"]])}
 ${renderColorInputs(OCR_COLOR_FIELDS,settings)}
 ${input("ocrBackgroundOpacity","Image highlight opacity",String(settings.ocrBackgroundOpacity),"number")}
 ${input("ocrFontScale","Image text scale",String(settings.ocrFontScale),"number")}
-<div data-local-ocr ${localOcrHidden}>${select("ocrEngine","Local OCR engine",settings.ocrEngine,[["auto","Automatic"],["MangaOCR","MangaOCR"],["PaddleOCR","PaddleOCR"],["AppleVision","AppleVision"]])}</div>
+<div data-local-ocr ${localOcrHidden}>${select("ocrEngine","Local OCR engine",settings.ocrEngine,[["auto","Automatic"],["MangaOCR","MangaOCR"],["PaddleOCR","PaddleOCR"],["AppleVision","Apple\
+Vision"]])}</div>
 <details data-local-ocr ${localOcrHidden}>
 <summary>Custom local OCR server</summary>
 <label>Custom local OCR URL<input name="ocrEndpointUrl" type="url" value="${escapeHtml$1(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
 </details>
-<label data-cloud-ocr ${cloudOcrHidden}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="password" value="${escapeHtml$1(settings.ocrCloudVisionApiKey)}" autocomplete="off"></label>
+<label data-cloud-ocr ${cloudOcrHidden}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="password" value="${escapeHtml$1(settings.ocrCloudVisionApiKey)}" autocomplete="off"></lab\
+el>
 <input type="hidden" name="ocrLanguage" value="${escapeHtml$1(settings.ocrLanguage)}">
 <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
 </div>
-<div id="settings-help-ocr" class="jpdb-reader-help" data-help-key="ocrHelp">Images are read quietly near the viewport. Google Lens handles normal images by default; Cloud Vision can be used with an API key, an\
-d embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.</div>
+<div id="settings-help-ocr" class="jpdb-reader-help" data-help-key="ocrHelp">Images are read quietly near the viewport. Google Lens handles normal images by default; Cloud Vision can be used wit\
+h an API key, and embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.</div>
 </fieldset>
 `}function renderVideoSettingsPanel(settings){return`
 <fieldset id="jpdb-reader-settings-panel-video" role="tabpanel" data-settings-panel="media" data-legend-key="video" hidden>
@@ -6935,7 +6963,8 @@ ${checkbox("preferJapaneseSiteLanguage","Prefer Japanese site language and locat
 ${checkbox("youtubeShowFilterNotice","Show a temporary hidden-video notice",settings.youtubeShowFilterNotice)}
 ${checkbox("youtubeShowChannelRecommendations","Show Japanese channel suggestions",settings.youtubeShowChannelRecommendations)}
 </div>
-<div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>On by default. The language preference asks sites for Japanese UI and Japan-local content where a userscript can.</div>
+<div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>On by default. The language preference asks sites for Japanese UI and Japan-local content where a userscript can.</div>\
+
 </fieldset>
 `}function renderMiningSettingsPanel(settings){const ankiStatus=ankiStatusLineForSettings(settings,settings.interfaceLanguage);return`
 <fieldset id="jpdb-reader-settings-panel-mining" role="tabpanel" data-settings-panel="mining" data-legend-key="anki" aria-describedby="settings-help-anki" hidden>
@@ -6951,8 +6980,8 @@ ${checkbox("ankiMineWithJpdb","Also add to Anki when adding to JPDB",settings.jp
 ${checkbox("ankiCaptureScreenshot","Attach context image when possible",settings.ankiCaptureScreenshot)}
 <div class="jpdb-reader-settings-wide">${checkbox("ankiMobileHandoff","Mobile Anki add-note fallback",settings.ankiMobileHandoff)}</div>
 ${input("ankiConnectUrl","AnkiConnect URL",settings.ankiConnectUrl)}
-<div class="jpdb-reader-settings-wide jpdb-reader-help jpdb-reader-status-line" data-anki-status data-status-tone="${ankiStatus.tone}" role="status" aria-live="polite">${formatSettingsStatusLine(ankiStatus,settings.
-interfaceLanguage)}</div>
+<div class="jpdb-reader-settings-wide jpdb-reader-help jpdb-reader-status-line" data-anki-status data-status-tone="${ankiStatus.tone}" role="status" aria-live="polite">${formatSettingsStatusLine(
+ankiStatus,settings.interfaceLanguage)}</div>
 </div>
 <div class="jpdb-reader-settings-subsection">
 <div id="settings-help-anki" class="jpdb-reader-help" data-anki-setup-help></div>
@@ -6965,10 +6994,10 @@ interfaceLanguage)}</div>
 <div class="jpdb-reader-local-title" data-anki-library-choices-title>${escapedUiText(settings.interfaceLanguage,"ankiLibraryChoices")}</div>
 <div class="jpdb-reader-help" data-anki-library-choices-help>${escapedUiText(settings.interfaceLanguage,"ankiLibraryChoicesHelp")}</div>
 <div class="jpdb-reader-anki-choice-grid">
-<label><span class="jpdb-reader-settings-label-text">Anki deck</span><select name="ankiDeck" data-anki-deck-options>${renderAnkiDeckLibraryOptions([settings.ankiDeck].filter(Boolean),settings.ankiDeck,settings.
-interfaceLanguage)}</select></label>
-<label><span class="jpdb-reader-settings-label-text">Anki note type</span><select name="ankiModel" data-anki-model-options>${renderAnkiLibraryOptions([settings.ankiModel,...Object.keys(settings.ankiFieldMappings)].
-filter(Boolean),settings.ankiModel,settings.interfaceLanguage)}</select></label>
+<label><span class="jpdb-reader-settings-label-text">Anki deck</span><select name="ankiDeck" data-anki-deck-options>${renderAnkiDeckLibraryOptions([settings.ankiDeck].filter(Boolean),
+settings.ankiDeck,settings.interfaceLanguage)}</select></label>
+<label><span class="jpdb-reader-settings-label-text">Anki note type</span><select name="ankiModel" data-anki-model-options>${renderAnkiLibraryOptions([settings.ankiModel,...Object.
+keys(settings.ankiFieldMappings)].filter(Boolean),settings.ankiModel,settings.interfaceLanguage)}</select></label>
 </div>
 </div>
 <div class="jpdb-reader-settings-subsection jpdb-reader-anki-template-settings">
@@ -6995,8 +7024,8 @@ ${renderAnkiFieldMappingEditor(settings,settings.ankiModel,[],settings.interface
 </div>
 </div>
 </fieldset>
-`}function renderAnkiLibraryOptions(options,value,language="en"){const rows=uniqueStrings$1([value,...options].filter(Boolean)).map(option=>`<option value="${escapeHtml$1(option)}" ${option===value?"selected":""}\
->${escapeHtml$1(option)}</option>`);return rows.length?rows.join(""):`<option value="" selected>${escapedUiText(language,"scanAnkiFirst")}</option>`}function renderAnkiDeckLibraryOptions(options,value,language="\
+`}function renderAnkiLibraryOptions(options,value,language="en"){const rows=uniqueStrings$1([value,...options].filter(Boolean)).map(option=>`<option value="${escapeHtml$1(option)}" ${option===value?"selecte\
+d":""}>${escapeHtml$1(option)}</option>`);return rows.length?rows.join(""):`<option value="" selected>${escapedUiText(language,"scanAnkiFirst")}</option>`}function renderAnkiDeckLibraryOptions(options,value,language="\
 en"){return renderAnkiLibraryOptions([...options,ANKI_MOBILE_FALLBACK_DECK],value,language)}function formatStatusTemplate(template,values){return template.replace(/\{(\w+)\}/g,(_,key)=>values[key]??"")}function renderAnkiFieldMappingEditor(settings,modelName=settings.
 ankiModel,scannedFields=[],language=settings.interfaceLanguage,confidenceByRole={}){const model=modelName.trim(),mapping=model?settings.ankiFieldMappings[model]??{}:{},fields=uniqueStrings$1([...scannedFields,...Object.
 values(mapping).filter(Boolean)]),options=(selected="")=>[`<option value="" ${selected?"":"selected"}>${escapedUiText(language,"notMapped")}</option>`,...fields.map(field=>`<option value="${escapeHtml$1(field)}\
@@ -7020,8 +7049,8 @@ ${rows}
 ${fields.length?`<div class="jpdb-reader-help">${escapedUiText(language,"ankiMappingConfidenceHelp")}</div>`:""}
 ${emptyState}
 </div>
-`}function renderAnkiMappingConfidence(confidence,language){return`<span class="jpdb-reader-anki-confidence" data-confidence="${confidence}">${escapedUiText(language,confidence==="high"?"ankiMappingHighConfiden\
-ce":confidence==="medium"?"ankiMappingMediumConfidence":"ankiMappingLowConfidence")}</span>`}function ankiFieldMappingRoleLabel(role,language){return{expression:uiText(language,"ankiRoleExpression"),reading:uiText(
+`}function renderAnkiMappingConfidence(confidence,language){return`<span class="jpdb-reader-anki-confidence" data-confidence="${confidence}">${escapedUiText(language,confidence==="high"?"ankiMappingHighConf\
+idence":confidence==="medium"?"ankiMappingMediumConfidence":"ankiMappingLowConfidence")}</span>`}function ankiFieldMappingRoleLabel(role,language){return{expression:uiText(language,"ankiRoleExpression"),reading:uiText(
 language,"ankiRoleReading"),meaning:uiText(language,"ankiRoleMeaning"),sentence:uiText(language,"ankiRoleSentence"),audio:uiText(language,"ankiRoleAudio"),image:uiText(language,"ankiRoleImage")}[role]}function renderDictionariesSettingsPanel(settings){
 return`
 <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="dictionaries" hidden>
@@ -7108,8 +7137,8 @@ preset.value,text2?text2(preset.labelKey):preset.fallbackLabel]),[CUSTOM_FONT_FA
 <span class="jpdb-reader-theme-title" id="jpdb-reader-theme-label" data-theme-title>Theme</span>
 <input type="hidden" name="theme" value="${escapeHtml$1(value)}" data-theme-value>
 <div class="VPNavBarAppearance appearance jpdb-reader-theme-appearance">
-<button class="VPSwitch VPSwitchAppearance jpdb-reader-theme-switch" type="button" role="switch" data-theme-switch data-newtab-action="theme" aria-label="${isDark?"Switch to light theme":"Switchto dark theme"}"\
-aria-labelledby="jpdb-reader-theme-label" aria-describedby="jpdb-reader-theme-label" aria-checked="${isDark}" title="${isDark?"Switch to light theme":"Switch to dark theme"}">
+<button class="VPSwitch VPSwitchAppearance jpdb-reader-theme-switch" type="button" role="switch" data-theme-switch data-newtab-action="theme" aria-label="${isDark?"Switch to light theme":"Switch\
+to dark theme"}" aria-labelledby="jpdb-reader-theme-label" aria-describedby="jpdb-reader-theme-label" aria-checked="${isDark}" title="${isDark?"Switch to light theme":"Switch to dark theme"}">
 <span class="check">
 <span class="icon">
 <span class="vpi-sun sun" aria-hidden="true"></span>
@@ -7311,55 +7340,57 @@ ${shortcutInput("shortcuts.gradeEasy","Grade EASY",settings.shortcuts.gradeEasy)
 ${shortcutInput("shortcuts.gradeFail","Pass/fail: FAIL",settings.shortcuts.gradeFail)}
 ${shortcutInput("shortcuts.gradePass","Pass/fail: PASS",settings.shortcuts.gradePass)}
 </div>
-`}function activateSettingsPanel(form,panel){const normalizedPanel=normalizeSettingsPanel(panel),search=form.querySelector("[data-settings-search]");search?.value.trim()&&(search.value="",applySettingsSearch(form,
-"")),form.querySelectorAll("[data-settings-panel]").forEach(section=>{section.hidden=section.dataset.settingsPanel!==normalizedPanel}),form.querySelectorAll('[data-action="settings-panel"]').forEach(button2=>{const active=button2.
-dataset.panel===normalizedPanel;button2.setAttribute("aria-selected",String(active)),button2.tabIndex=active?0:-1})}function applySettingsSearch(form,query){const searchInput=form.querySelector("[data-settings-\
-search]"),empty=form.querySelector("[data-settings-search-empty]"),normalizedQuery=normalizeSettingsSearchText(query);if(searchInput&&searchInput.value!==query&&(searchInput.value=query),form.dataset.settingsSearching=
-normalizedQuery?"true":"false",!normalizedQuery){empty&&(empty.hidden=!0),activateSettingsPanelWithoutClearingSearch(form,activeSettingsPanel(form));return}let visibleCount=0;getSettingsPanelFieldsets(form).forEach(
-fieldset=>{const matches=normalizeSettingsSearchText(fieldset.textContent??"").includes(normalizedQuery);fieldset.hidden=!matches,matches&&(visibleCount+=1)}),empty&&(empty.hidden=visibleCount>0)}function activateSettingsPanelWithoutClearingSearch(form,panel){
-const normalizedPanel=normalizeSettingsPanel(panel);form.querySelectorAll("[data-settings-panel]").forEach(section=>{section.hidden=section.dataset.settingsPanel!==normalizedPanel}),form.querySelectorAll('[data\
--action="settings-panel"]').forEach(button2=>{const active=button2.dataset.panel===normalizedPanel;button2.setAttribute("aria-selected",String(active)),button2.tabIndex=active?0:-1})}function activeSettingsPanel(form){
-return form.querySelector('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel??"jpdb"}function normalizeSettingsPanel(panel){return panel==="basics"?"jpdb":panel}function normalizeSettingsSearchText(value){
-return value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g," ").trim()}function audioHelpHtml(language){const copy=uiText(language,"audioHelp"),linkLabel=uiText(language,"audioGuideLinkLabel"),[before,after=""]=copy.
-split(linkLabel);return`${escapeHtml$1(before)}<a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">${escapeHtml$1(linkLabel)}</a>${escapeHtml$1(after)}`}function ankiSetupHelpHtml(language){const copy=uiText(
-language,"ankiHelp"),linkLabel=language==="ja"?"AnkiConnectアドオンを開く":"Open AnkiConnect add-on";return`${escapeHtml$1(copy)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(
-linkLabel)}</a>`}function installShortcutCapture(root){root.querySelectorAll("[data-shortcut-input]").forEach(inputEl=>{inputEl.addEventListener("keydown",event=>{if(event.preventDefault(),event.stopPropagation(),
-event.key==="Backspace"||event.key==="Delete"){inputEl.value="";return}inputEl.value=formatShortcutEvent(event)}),inputEl.addEventListener("paste",event=>event.preventDefault())})}function syncReviewSettingsVisibility(form){
-const reviewsEnabled=form.querySelector('input[name="enableReviews"]')?.checked??!0,passFail=form.querySelector('select[name="twoButtonReviews"]')?.value==="true";form.querySelectorAll("[data-review-config]").forEach(
-node=>{node.hidden=!reviewsEnabled}),form.querySelectorAll('[data-review-scale="five"]').forEach(node=>{node.hidden=!reviewsEnabled||passFail}),form.querySelectorAll('[data-review-scale="pass-fail"]').forEach(node=>{
-node.hidden=!reviewsEnabled||!passFail})}function syncJpdbMiningDependentSettings(form){const jpdbDeckActionsEnabled=form.querySelector('input[name="jpdbMiningEnabled"]')?.checked??!0;for(const name of["addToFo\
-rq","ankiMineWithJpdb"]){const input2=form.querySelector(`input[name="${name}"]`);input2&&(input2.disabled=!jpdbDeckActionsEnabled,jpdbDeckActionsEnabled||(input2.checked=!1))}}function syncStickyBottomSheetAvailability(form){
-const unavailable=form.querySelector('select[name="popupMode"]')?.value==="popover",input2=form.querySelector('input[name="stickyBottomSheet"]'),field=input2?.closest("[data-sticky-bottom-sheet-field]")??input2?.
-closest("label");field&&(field.hidden=unavailable),input2&&(input2.disabled=unavailable,unavailable&&(input2.checked=!1))}function syncFontFamilyControls(form){form.querySelectorAll("[data-font-family-control]").
-forEach(control=>{const selectElement=control.querySelector("select"),customField=control.querySelector("[data-font-family-custom]");customField&&(customField.hidden=selectElement?.value!==CUSTOM_FONT_FAMILY_VALUE)})}
-function syncSubtitlePreview(form){const preview=form.querySelector("[data-subtitle-preview]");if(!preview)return;const value=(name,fallback)=>getNamedControl(form,name)?.value||fallback,numberValue2=(name,fallback)=>{
-const number=Number(value(name,String(fallback)));return Number.isFinite(number)?number:fallback};preview.style.setProperty("--subtitle-font-size",`${Math.max(16,Math.min(64,numberValue2("subtitleFontSize",28)))}\
-px`),preview.style.setProperty("--subtitle-color",sanitizeAccentColor(value("subtitleTextColor",DEFAULT_OVERLAY_TEXT_COLOR),DEFAULT_OVERLAY_TEXT_COLOR)),preview.style.setProperty("--subtitle-outline",sanitizeAccentColor(
-value("subtitleOutlineColor",DEFAULT_OVERLAY_OUTLINE_COLOR),DEFAULT_OVERLAY_OUTLINE_COLOR)),preview.style.setProperty("--subtitle-background-rgba",accentToRgba(sanitizeAccentColor(value("subtitleBackgroundColor",
-DEFAULT_OVERLAY_BACKGROUND_COLOR),DEFAULT_OVERLAY_BACKGROUND_COLOR),Math.max(0,Math.min(1,numberValue2("subtitleBackgroundOpacity",0))))),preview.style.setProperty("--subtitle-family",formFontFamilyValue(form,"\
-subtitleFontFamily","system-ui")),preview.style.setProperty("--subtitle-weight",String(Math.max(100,Math.min(900,numberValue2("subtitleFontWeight",760))))),syncSubtitlePreviewColorClasses(form,preview)}function formFontFamilyValue(form,name,fallback){
-const value=getNamedControl(form,name)?.value.trim()??"";return value===CUSTOM_FONT_FAMILY_VALUE?getNamedControl(form,`${name}Custom`)?.value.trim()||fallback:value||fallback}function syncSubtitlePreviewColorClasses(form,preview){
-const value=(name,fallback)=>getNamedControl(form,name)?.value||fallback,classes={highlight:readOption(value("subtitleHighlightColorSource","jpdb"),COLOR_SOURCE_VALUES,"jpdb"),underline:readOption(value("subtit\
-leUnderlineColorSource","pitch"),COLOR_SOURCE_VALUES,"pitch"),text:readOption(value("subtitleTextColorSource","jpdb"),COLOR_SOURCE_VALUES,"jpdb")};Object.keys(classes).forEach(channel=>{COLOR_SOURCE_CLASS_VALUES.
-forEach(source=>{preview.classList.toggle(`jpdb-reader-subtitle-${channel}-${source}`,classes[channel]===source)})})}function renderDeckControls(settings,decks,hasApiKey,language=settings.interfaceLanguage){const disabled=!hasApiKey||
-!decks.length,deckOptions=decks.map(deck=>[deck.id,deck.name]),miningOptions=[["forq","FORQ"],...deckOptions],newTabOptions=[["all","All study decks"],["never-forget","Never forget"],...deckOptions];return`
+`}function activateSettingsPanel(form,panel){const normalizedPanel=normalizeSettingsPanel(panel),search=form.querySelector("[data-settings-search]");search?.value.trim()&&(search.value="",applySettingsSearch(
+form,"")),form.querySelectorAll("[data-settings-panel]").forEach(section=>{section.hidden=section.dataset.settingsPanel!==normalizedPanel}),form.querySelectorAll('[data-action="settings-panel"]').forEach(button2=>{
+const active=button2.dataset.panel===normalizedPanel;button2.setAttribute("aria-selected",String(active)),button2.tabIndex=active?0:-1})}function applySettingsSearch(form,query){const searchInput=form.querySelector(
+"[data-settings-search]"),empty=form.querySelector("[data-settings-search-empty]"),normalizedQuery=normalizeSettingsSearchText(query);if(searchInput&&searchInput.value!==query&&(searchInput.value=query),form.dataset.
+settingsSearching=normalizedQuery?"true":"false",!normalizedQuery){empty&&(empty.hidden=!0),activateSettingsPanelWithoutClearingSearch(form,activeSettingsPanel(form));return}let visibleCount=0;getSettingsPanelFieldsets(
+form).forEach(fieldset=>{const matches=normalizeSettingsSearchText(fieldset.textContent??"").includes(normalizedQuery);fieldset.hidden=!matches,matches&&(visibleCount+=1)}),empty&&(empty.hidden=visibleCount>0)}
+function activateSettingsPanelWithoutClearingSearch(form,panel){const normalizedPanel=normalizeSettingsPanel(panel);form.querySelectorAll("[data-settings-panel]").forEach(section=>{section.hidden=section.dataset.
+settingsPanel!==normalizedPanel}),form.querySelectorAll('[data-action="settings-panel"]').forEach(button2=>{const active=button2.dataset.panel===normalizedPanel;button2.setAttribute("aria-selected",String(active)),
+button2.tabIndex=active?0:-1})}function activeSettingsPanel(form){return form.querySelector('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel??"jpdb"}function normalizeSettingsPanel(panel){
+return panel==="basics"?"jpdb":panel}function normalizeSettingsSearchText(value){return value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g," ").trim()}function audioHelpHtml(language){const copy=uiText(
+language,"audioHelp"),linkLabel=uiText(language,"audioGuideLinkLabel"),[before,after=""]=copy.split(linkLabel);return`${escapeHtml$1(before)}<a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">${escapeHtml$1(
+linkLabel)}</a>${escapeHtml$1(after)}`}function ankiSetupHelpHtml(language){const copy=uiText(language,"ankiHelp"),linkLabel=language==="ja"?"AnkiConnectアドオンを開く":"Open AnkiConnect add-on";return`${escapeHtml$1(
+copy)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(linkLabel)}</a>`}function installShortcutCapture(root){root.querySelectorAll("[data-shortcut-input]").forEach(inputEl=>{
+inputEl.addEventListener("keydown",event=>{if(event.preventDefault(),event.stopPropagation(),event.key==="Backspace"||event.key==="Delete"){inputEl.value="";return}inputEl.value=formatShortcutEvent(event)}),inputEl.
+addEventListener("paste",event=>event.preventDefault())})}function syncReviewSettingsVisibility(form){const reviewsEnabled=form.querySelector('input[name="enableReviews"]')?.checked??!0,passFail=form.querySelector(
+'select[name="twoButtonReviews"]')?.value==="true";form.querySelectorAll("[data-review-config]").forEach(node=>{node.hidden=!reviewsEnabled}),form.querySelectorAll('[data-review-scale="five"]').forEach(node=>{node.
+hidden=!reviewsEnabled||passFail}),form.querySelectorAll('[data-review-scale="pass-fail"]').forEach(node=>{node.hidden=!reviewsEnabled||!passFail})}function syncJpdbMiningDependentSettings(form){const jpdbDeckActionsEnabled=form.
+querySelector('input[name="jpdbMiningEnabled"]')?.checked??!0;for(const name of["addToForq","ankiMineWithJpdb"]){const input2=form.querySelector(`input[name="${name}"]`);input2&&(input2.disabled=!jpdbDeckActionsEnabled,
+jpdbDeckActionsEnabled||(input2.checked=!1))}}function syncStickyBottomSheetAvailability(form){const unavailable=form.querySelector('select[name="popupMode"]')?.value==="popover",input2=form.querySelector('inpu\
+t[name="stickyBottomSheet"]'),field=input2?.closest("[data-sticky-bottom-sheet-field]")??input2?.closest("label");field&&(field.hidden=unavailable),input2&&(input2.disabled=unavailable,unavailable&&(input2.checked=
+!1))}function syncFontFamilyControls(form){form.querySelectorAll("[data-font-family-control]").forEach(control=>{const selectElement=control.querySelector("select"),customField=control.querySelector("[data-font\
+-family-custom]");customField&&(customField.hidden=selectElement?.value!==CUSTOM_FONT_FAMILY_VALUE)})}function syncSubtitlePreview(form){const preview=form.querySelector("[data-subtitle-preview]");if(!preview)return;
+const value=(name,fallback)=>getNamedControl(form,name)?.value||fallback,numberValue2=(name,fallback)=>{const number=Number(value(name,String(fallback)));return Number.isFinite(number)?number:fallback};preview.
+style.setProperty("--subtitle-font-size",`${Math.max(16,Math.min(64,numberValue2("subtitleFontSize",28)))}px`),preview.style.setProperty("--subtitle-color",sanitizeAccentColor(value("subtitleTextColor",DEFAULT_OVERLAY_TEXT_COLOR),
+DEFAULT_OVERLAY_TEXT_COLOR)),preview.style.setProperty("--subtitle-outline",sanitizeAccentColor(value("subtitleOutlineColor",DEFAULT_OVERLAY_OUTLINE_COLOR),DEFAULT_OVERLAY_OUTLINE_COLOR)),preview.style.setProperty(
+"--subtitle-background-rgba",accentToRgba(sanitizeAccentColor(value("subtitleBackgroundColor",DEFAULT_OVERLAY_BACKGROUND_COLOR),DEFAULT_OVERLAY_BACKGROUND_COLOR),Math.max(0,Math.min(1,numberValue2("subtitleBack\
+groundOpacity",0))))),preview.style.setProperty("--subtitle-family",formFontFamilyValue(form,"subtitleFontFamily","system-ui")),preview.style.setProperty("--subtitle-weight",String(Math.max(100,Math.min(900,numberValue2(
+"subtitleFontWeight",760))))),syncSubtitlePreviewColorClasses(form,preview)}function formFontFamilyValue(form,name,fallback){const value=getNamedControl(form,name)?.value.trim()??"";return value===CUSTOM_FONT_FAMILY_VALUE?
+getNamedControl(form,`${name}Custom`)?.value.trim()||fallback:value||fallback}function syncSubtitlePreviewColorClasses(form,preview){const value=(name,fallback)=>getNamedControl(form,name)?.value||fallback,classes={
+highlight:readOption(value("subtitleHighlightColorSource","jpdb"),COLOR_SOURCE_VALUES,"jpdb"),underline:readOption(value("subtitleUnderlineColorSource","pitch"),COLOR_SOURCE_VALUES,"pitch"),text:readOption(value(
+"subtitleTextColorSource","jpdb"),COLOR_SOURCE_VALUES,"jpdb")};Object.keys(classes).forEach(channel=>{COLOR_SOURCE_CLASS_VALUES.forEach(source=>{preview.classList.toggle(`jpdb-reader-subtitle-${channel}-${source}`,
+classes[channel]===source)})})}function renderDeckControls(settings,decks,hasApiKey,language=settings.interfaceLanguage){const disabled=!hasApiKey||!decks.length,deckOptions=decks.map(deck=>[deck.id,deck.name]),
+miningOptions=[["forq","FORQ"],...deckOptions],newTabOptions=[["all","All study decks"],["never-forget","Never forget"],...deckOptions];return`
 <div class="grid">
 ${deckSelect("miningDeck","Mining deck",settings.miningDeck,miningOptions,disabled,language)}
 ${deckSelect("newTabJpdbDeck","New tab JPDB deck",settings.newTabJpdbDeck,newTabOptions,disabled,language)}
 ${deckSelect("neverForgetDeck","Never forget deck",settings.neverForgetDeck,deckOptions,disabled,language)}
 ${deckSelect("blacklistDeck","Blacklist deck",settings.blacklistDeck,deckOptions,disabled,language)}
 </div>
-<div class="jpdb-reader-help">${hasApiKey?decks.length?"Decks are loaded from your JPDB account.":"Could not load decks yet; saved deck IDs will be kept.":"Add your JPDB API key to choose decks."}</div>
+<div class="jpdb-reader-help">${hasApiKey?decks.length?"Decks are loaded from your JPDB account.":"Could not load decks yet; saved deck IDs will be kept.":"Add your JPDB API key to choose decks."}</div>\
+
 `}function deckSelect(name,label,value,options,disabled,language){const hasValue=options.some(([optionValue])=>optionValue===value),savedLabel=uiText(language,"savedValue").replace("{value}",value),merged=hasValue||
 !value?options:[[value,savedLabel],...options];return`<label>${label}
 <select name="${name}" ${disabled?"disabled":""}>
 ${merged.map(([optionValue,text2])=>`<option value="${escapeHtml$1(optionValue)}" ${optionValue===value?"selected":""}>${escapeHtml$1(text2)}</option>`).join("")}
 </select>
 ${disabled?`<input type="hidden" name="${name}" value="${escapeHtml$1(value)}">`:""}
-</label>`}function renderAnkiTemplatePreview(settings){const contextMode=settings.ankiTemplateMode==="context",front=contextMode?`${settings.ankiFrontImage?"<small>Image appears above the prompt when available.\
-</small>":""}<div class="jpdb-reader-template-sentence">今日は<span>本を読む</span>。</div><small>Recall the highlighted word from context.</small>`:['<div class="jpdb-reader-template-expression">読む</di\
-v>',settings.ankiFrontReading?'<div class="jpdb-reader-template-reading">よむ</div>':"",settings.ankiFrontSentence?'<div class="jpdb-reader-template-sentence">今日は<span>本を読む</span>。</div>':"",settings.
-ankiFrontImage?"<small>Image appears on the front when available.</small>":"","<small>Recall the meaning first.</small>"].filter(Boolean).join("");return`
+</label>`}function renderAnkiTemplatePreview(settings){const contextMode=settings.ankiTemplateMode==="context",front=contextMode?`${settings.ankiFrontImage?"<small>Image appears above the prompt when availa\
+ble.</small>":""}<div class="jpdb-reader-template-sentence">今日は<span>本を読む</span>。</div><small>Recall the highlighted word from context.</small>`:['<div class="jpdb-reader-template-expression">読む\
+</div>',settings.ankiFrontReading?'<div class="jpdb-reader-template-reading">よむ</div>':"",settings.ankiFrontSentence?'<div class="jpdb-reader-template-sentence">今日は<span>本を読む</span>。</div>':
+"",settings.ankiFrontImage?"<small>Image appears on the front when available.</small>":"","<small>Recall the meaning first.</small>"].filter(Boolean).join("");return`
 <div class="jpdb-reader-template-preview">
 <div class="jpdb-reader-template-preview-title">${contextMode?"Sentence first preset":"Word first preset"}</div>
 <div class="jpdb-reader-template-preview-grid">
@@ -7383,15 +7414,15 @@ dictionaryPreferences.filter(preference=>!visibleNames.has(preference.name)),hid
 ${preference.enabled?`<input type="hidden" name="dictionaryPreferences.${index}.enabled" value="on">`:""}
 <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${escapeHtml$1(String(preference.priority))}">
 <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml$1(preference.type??"terms")}">
-`}).join(""),metadataHelp=hiddenPreferences.length?'<div class="jpdb-reader-help">Frequency, pitch, and kanji metadata dictionaries are detected automatically and shown as popup badges or kanji data instead of \
-definition source cards.</div>':"";return rows.some(row=>row.removable)?`${renderSourceRowsList(rows,{sourceLabel:"Definition source",countName:"dictionaryPreferenceCount",countValue:settings.dictionaryPreferences.
+`}).join(""),metadataHelp=hiddenPreferences.length?'<div class="jpdb-reader-help">Frequency, pitch, and kanji metadata dictionaries are detected automatically and shown as popup badges or kanji data ins\
+tead of definition source cards.</div>':"";return rows.some(row=>row.removable)?`${renderSourceRowsList(rows,{sourceLabel:"Definition source",countName:"dictionaryPreferenceCount",countValue:settings.dictionaryPreferences.
 length,showAlias})}${metadataHelp}${hidden}`:`
 <div class="jpdb-reader-help">Import Yomitan dictionaries to add local or native-language definitions alongside JPDB and Immersion Kit examples.</div>
 ${renderSourceRowsList(rows,{sourceLabel:"Definition source",countName:"dictionaryPreferenceCount",countValue:settings.dictionaryPreferences.length,showAlias})}
 ${metadataHelp}
 ${hidden}
-`}function renderKanjiSourceRows(settings){return renderSourceRowsList(kanjiSourceRows(settings),{sourceLabel:"Kanji section",showAlias:!1})}function renderRecommendedDictionaries(installed){const groups=[["ter\
-ms","Term dictionaries"],["kanji","Kanji dictionaries"],["frequency","Frequency dictionaries"]];return`
+`}function renderKanjiSourceRows(settings){return renderSourceRowsList(kanjiSourceRows(settings),{sourceLabel:"Kanji section",showAlias:!1})}function renderRecommendedDictionaries(installed){const groups=[[
+"terms","Term dictionaries"],["kanji","Kanji dictionaries"],["frequency","Frequency dictionaries"]];return`
 <div class="jpdb-reader-recommended-title">Recommended dictionaries</div>
 <div class="jpdb-reader-help jpdb-reader-recommended-note" data-recommended-dictionary-help>${escapedUiText("en","dictionaryInstallQueueHelp")}</div>
 ${groups.map(([category,label])=>{const dictionaries=RECOMMENDED_JAPANESE_DICTIONARIES.filter(dictionary=>dictionary.category===category);return dictionaries.length?`
@@ -7629,7 +7660,7 @@ const input2=form.querySelector("[data-anki-scan-confidence]");if(!input2?.value
 confidence))}catch{return{}}}ankiScanMessage(scan,language){if(!scan.suggestedModel)return formatUiTemplate(uiText(language,"ankiScanNoModels"),{decks:String(scan.deckNames.length)});const fields=scan.suggestedModel.
 suggestions.filter(suggestion=>suggestion.fieldName).map(suggestion=>`${suggestion.role}: ${suggestion.fieldName}`).join(", ");return formatUiTemplate(uiText(language,"ankiScanSummary"),{decks:String(scan.deckNames.
 length),models:String(scan.models.length),model:scan.suggestedModel.modelName,fields:formatUiTemplate(uiText(language,"ankiScanFieldSummary"),{fields})})}ankiReadyMessage(language){return formatUiTemplate(uiText(
-language,"ankiConnectedReady"),{deck:this.settings.ankiDeck,model:this.settings.ankiModel})}ankiUnreachableMessage(language){return uiText(language,"ankiUnreachable")}ankiSetupUnavailableMessage(settings,language){
+language,"ankiConnectedReady"),{deck:this.settings.ankiDeck,model:this.settings.ankiModel})}ankiUnreachableMessage(language){return uiText(language,"ankiSettingsUnreachable")}ankiSetupUnavailableMessage(settings,language){
 return needsHostedAnkiConnectSetupHint(settings.ankiConnectUrl)?uiText(language,"ankiHostedBridgeMissing"):canUseMobileAnkiHandoff(settings)?uiText(language,"mobileAnkiReady"):this.ankiUnreachableMessage(language)}ankiConnectionErrorMessage(error,language){
 return error instanceof Error?error.message:uiText(language,"ankiUnreachable")}async handleSettingsSupportAction(action,control,setStatus){if(action==="copy-newtab-url")return await copyText(NEW_TAB_PAGE_URL),this.
 dependencies.toast(uiText(this.settings.interfaceLanguage,"newTabAddressCopied")),!0;if(action==="factory-reset"){const button2=settingsActionButton(control);button2?.setAttribute("disabled","true");try{await this.
@@ -7795,9 +7826,9 @@ ${renderStudyMeaningBlock(uiText(language,"openSectionToTranslate"),language,"da
 <div class="jpdb-reader-study-panel" data-study-grammar-panel>
 <div class="jpdb-reader-help">${escapeHtml$1(uiText(language,"findingGrammar"))}</div>
 </div>
-`}installGrammarLoader(popover,sentence){const containers=Array.from(popover.querySelectorAll("[data-study-grammar]"));if(!(!containers.length||!sentence))for(const container of containers){const load=()=>{!isStudyDetailsOpen(
-container)||container.dataset.loaded==="true"||container.dataset.loading==="true"||(container.dataset.loading="true",this.loadGrammar(popover,sentence,container).finally(()=>{container.isConnected&&(delete container.
-dataset.loading,container.dataset.loaded="true")}))};container.addEventListener("toggle",load),container.parentElement?.closest("details")?.addEventListener("toggle",load),load()}}async loadGrammar(popover,sentence,container){
+`}installGrammarLoader(popover,sentence){const containers=Array.from(popover.querySelectorAll("[data-study-grammar]"));if(!(!containers.length||!sentence))for(const container of containers){const load=()=>{
+!isStudyDetailsOpen(container)||container.dataset.loaded==="true"||container.dataset.loading==="true"||(container.dataset.loading="true",this.loadGrammar(popover,sentence,container).finally(()=>{container.isConnected&&
+(delete container.dataset.loading,container.dataset.loaded="true")}))};container.addEventListener("toggle",load),container.parentElement?.closest("details")?.addEventListener("toggle",load),load()}}async loadGrammar(popover,sentence,container){
 const panel=container.querySelector("[data-study-grammar-panel]");if(panel)try{const hints=await this.cachedGrammarHints(sentence);if(!this.canRenderGrammar(popover,container))return;if(!hints.length){container.
 remove();return}const settings=this.settings();setInnerHtml(panel,await renderGrammarHints(hints,sentence,void 0,settings.interfaceLanguage,{audioEnabled:settings.audioEnabled})),delete popover.dataset.jpdbReaderParseKey,
 delete popover.dataset.jpdbReaderParseLoadingKey,this.dependencies.parsePopoverJapanese(popover)}catch(error){log$3.warn("Automatic grammar lookup failed",{sentenceLength:sentence.length},error)}}canRenderGrammar(popover,container){
@@ -7966,8 +7997,8 @@ btitle");return`
 ${subtitleIcon("auto-hide")}
 <span>${escapeHtml$1(uiText(language,"subtitleAutoHideShort"))}</span>
 </button>
-`}function renderPanelCloseButton(language){const label=uiText(language,"closeSubtitlePanel");return`<button class="jpdb-subtitle-close" type="button" data-action="close-panel" title="${escapeHtml$1(label)}" ar\
-ia-label="${escapeHtml$1(label)}">${subtitleIcon("close")}</button>`}function subtitleOverlayLayout(rect){const viewportWidth=Math.max(1,window.innerWidth),viewportHeight=Math.max(1,window.innerHeight),minWidth=Math.
+`}function renderPanelCloseButton(language){const label=uiText(language,"closeSubtitlePanel");return`<button class="jpdb-subtitle-close" type="button" data-action="close-panel" title="${escapeHtml$1(label)}\
+" aria-label="${escapeHtml$1(label)}">${subtitleIcon("close")}</button>`}function subtitleOverlayLayout(rect){const viewportWidth=Math.max(1,window.innerWidth),viewportHeight=Math.max(1,window.innerHeight),minWidth=Math.
 min(260,viewportWidth),minHeight=Math.min(160,viewportHeight),overflowX=rect.left<0||rect.right>viewportWidth,overflowY=rect.top<0||rect.bottom>viewportHeight,left=overlayAxisStart(rect.left,rect.right,viewportWidth,
 minWidth,overflowX),top=overlayAxisStart(rect.top,rect.bottom,viewportHeight,minHeight,overflowY);return{left,top,width:overlayAxisSize(rect.left,rect.right,viewportWidth,minWidth,overflowX,left),height:overlayAxisSize(
 rect.top,rect.bottom,viewportHeight,minHeight,overflowY,top)}}function applyElementLayout(element2,layout){setStylePropertyIfChanged(element2,"left",`${Math.round(layout.left)}px`),setStylePropertyIfChanged(element2,
@@ -7975,11 +8006,11 @@ rect.top,rect.bottom,viewportHeight,minHeight,overflowY,top)}}function applyElem
 px`),setStylePropertyIfChanged(element2,"height",`${Math.round(layout.height)}px`)}function setStylePropertyIfChanged(element2,property,value){element2.style.getPropertyValue(property)!==value&&element2.style.setProperty(
 property,value)}function transcriptPlacementIcon(placement){return placement==="left"?"panel-left":placement==="bottom"?"panel-bottom":"panel-right"}function subtitleIcon(name){return`<svg class="jpdb-subtitle-\
 icon" viewBox="0 0 24 24" aria-hidden="true">${{"auto-hide":'<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/><path d="M8 9v6"/><path d="M11 9v6"/>',close:'<path d="M6 6l12 12"/><path d="M18\
-6 6 18"/>',copy:'<path d="M14 3H6a2 2 0 0 0-2 2v12"/><path d="M10 7h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M14 11v6"/><path d="M11 14h6"/>',eye:'<path d="M2 12s3.5-6 10-61\
-0 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',"eye-off":'<path d="m3 3 18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.2 3.8"/><path d="M6.6 6.8A18 18 0 0 0 212\
-s3.5 6 10 6c1.5 0 2.8-.3 4-.8"/>',menu:'<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/>',"panel-bottom":'<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 14h16"/>',"panel-left":'<rectx="\
-4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/>',"panel-right":'<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/>',play:'<path d="M8 5v14l11-7-11-7Z"/>',tracks:'<path d="M4 6h16\
-"/><path d="M4 12h10"/><path d="M4 18h16"/>',transcript:'<path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>'}[name]}</svg>`}function compareSubtitleVideoCandidates(a,b){return videoElementVisibleArea(
+6 6 18"/>',copy:'<path d="M14 3H6a2 2 0 0 0-2 2v12"/><path d="M10 7h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M14 11v6"/><path d="M11 14h6"/>',eye:'<path d="M2 12s3.5-6 10-6\
+10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',"eye-off":'<path d="m3 3 18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.2 3.8"/><path d="M6.6 6.8A18 18 0 0 0 2\
+12s3.5 6 10 6c1.5 0 2.8-.3 4-.8"/>',menu:'<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/>',"panel-bottom":'<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 14h16"/>',"panel-left":'<rect\
+x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/>',"panel-right":'<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/>',play:'<path d="M8 5v14l11-7-11-7Z"/>',tracks:'<path d="M4 \
+6h16"/><path d="M4 12h10"/><path d="M4 18h16"/>',transcript:'<path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>'}[name]}</svg>`}function compareSubtitleVideoCandidates(a,b){return videoElementVisibleArea(
 b)-videoElementVisibleArea(a)||videoElementArea(b)-videoElementArea(a)}function isSubtitleOverlayVideoVisible(rect){const visible=rectViewportIntersection(rect);if(visible.width<SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH||
 visible.height<SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT)return!1;const area=rectArea$1(rect);return area>0&&rectArea$1(visible)/area>=SUBTITLE_MIN_VISIBLE_VIDEO_RATIO}function overlayAxisStart(start,end,viewportSize,minSize,overflow){
 if(!overflow)return start;const visibleStart=clampNumber(start,0,Math.max(0,viewportSize-1)),visibleEnd=clampNumber(end,visibleStart,viewportSize),size=Math.max(minSize,visibleEnd-visibleStart||viewportSize);return clampNumber(
@@ -8015,10 +8046,10 @@ return openGraphSubtitleTitle(doc)||headingSubtitleTitle(doc)||doc.title||""}fun
 return doc.querySelector("h1")?.textContent??""}function resolveSubtitleSourceUrl(value){try{const url=new URL(value,document.baseURI);return/^(https?|blob|data):$/i.test(url.protocol)?url.href:""}catch{return""}}
 function isSupportedSubtitleSourceUrl(value){try{const url=new URL(value,document.baseURI),haystack=[decodeURIComponent(url.pathname),...Array.from(url.searchParams.values()).map(part=>decodeURIComponent(part))].
 join(" ");return/\.(vtt|srt|ass|ssa)(?:$|[?#\s])/i.test(`${haystack} `)}catch{return/\.(vtt|srt|ass|ssa)(?:$|[?#\s])/i.test(value)}}function subtitleSourceLabel(value,url,options={}){const cleaned=cleanSubtitleTitle(
-value),filename=subtitleSourceFilenameLabel(url);return specificSubtitleLabel(cleaned,filename)||genericSubtitleLabel(cleaned,filename,options)}function genericSubtitleLabel(cleaned,filename,options){return shouldUsePageTitleForGeneric(
-cleaned,options)?options.pageTitle??"":cleaned||filename||"Subtitle file"}function shouldUsePageTitleForGeneric(cleaned,options){return options.pageTitle?!cleaned||!!(options.preferPageTitleForGeneric&&cleaned):
-!1}function specificSubtitleLabel(cleaned,filename){return cleaned&&!isGenericSubtitleLabel(cleaned)?cleaned:filename&&!isGenericSubtitleLabel(filename)?filename:""}function subtitleSourceFilenameLabel(url){try{
-const parsed=new URL(url,document.baseURI),filename=parsed.searchParams.get("filename")||parsed.pathname.split("/").pop()||"";return cleanSubtitleTitle(decodeURIComponent(filename).replace(/[_-]+/g," "))}catch{
+value),filename=subtitleSourceFilenameLabel(url),specific=specificSubtitleLabel(cleaned,filename);return specific||genericSubtitleLabel(cleaned,filename,options)}function genericSubtitleLabel(cleaned,filename,options){
+return shouldUsePageTitleForGeneric(cleaned,options)?options.pageTitle??"":cleaned||filename||"Subtitle file"}function shouldUsePageTitleForGeneric(cleaned,options){return options.pageTitle?!cleaned||!!(options.
+preferPageTitleForGeneric&&cleaned):!1}function specificSubtitleLabel(cleaned,filename){return cleaned&&!isGenericSubtitleLabel(cleaned)?cleaned:filename&&!isGenericSubtitleLabel(filename)?filename:""}function subtitleSourceFilenameLabel(url){
+try{const parsed=new URL(url,document.baseURI),filename=parsed.searchParams.get("filename")||parsed.pathname.split("/").pop()||"";return cleanSubtitleTitle(decodeURIComponent(filename).replace(/[_-]+/g," "))}catch{
 return""}}function cleanSubtitleTitle(value){return value.replace(/\.(vtt|srt|ass|ssa)$/i,"").replace(/\s+/g," ").trim()}function isGenericSubtitleLabel(value){return/^(?:vtt|srt|ass|ssa|subtitles?|captions?|cc|closed captions?|日本語|英語|japanese|english|native|ja(?:panese)?|en(?:glish)?)$/i.
 test(value.trim())}function inferSubtitleLanguage(label,url){const text2=`${label} ${url}`;if(/(^|[\s._/-])(ja|jp|jpn|japanese|日本語)(?=$|[\s._/-])/i.test(text2)||/[\u3040-\u30ff\u3400-\u9fff]/u.test(label))
 return"ja";if(/(^|[\s._/-])(en|eng|english|native)(?=$|[\s._/-])/i.test(text2))return"en"}function normalizeSubtitleLanguage(language){if(language)return/^(ja|jp|jpn)(?:[-_]|$)/i.test(language)?"ja":/^(en|eng)(?:[-_]|$)/i.
@@ -8158,24 +8189,24 @@ name),youtubeCaptionText(record.displayName),youtubeCaptionText(record.languageN
 "string").join(""):""}function youtubeCaptionAutoSuffix(autoGenerated,label){return autoGenerated&&!/asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(label)?" · auto-generated":""}function isAutoGeneratedYouTubeCaptionTrack(track,label=""){
 return youtubeAutoGeneratedSignals(track,label).some(signal=>signal.matches(signal.value))}function youtubeAutoGeneratedSignals(track,label){return[{value:track.kind??"",matches:value=>/asr/i.test(value)},{value:track.
 vssId??"",matches:value=>/^a\./i.test(value)},{value:`${label} ${track.languageCode??""}`,matches:value=>/asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(value)}]}function findMatchingYouTubePlayerTrack(track,player){
-const rawTracks=[...extractYouTubeTrackArray(player.getAudioTrack?.()?.captionTracks),...extractYouTubeTrackArray(player.getOption?.("captions","tracklist"))],targetIdentity=youtubeCaptionTrackIdentity(track);return rawTracks.
-find(raw=>{const parsed=parseYouTubeCaptionTrack(raw);return parsed&&youtubeCaptionTrackIdentity(parsed)===targetIdentity})||(track.sourceType==="translation"?rawTracks.find(raw=>{const parsed=parseYouTubeCaptionTrack(
+const rawTracks=[...extractYouTubeTrackArray(player.getAudioTrack?.()?.captionTracks),...extractYouTubeTrackArray(player.getOption?.("captions","tracklist"))],targetIdentity=youtubeCaptionTrackIdentity(track),exact=rawTracks.
+find(raw=>{const parsed=parseYouTubeCaptionTrack(raw);return parsed&&youtubeCaptionTrackIdentity(parsed)===targetIdentity});return exact||(track.sourceType==="translation"?rawTracks.find(raw=>{const parsed=parseYouTubeCaptionTrack(
 raw);return parsed?.language&&track.sourceLanguage&&normalizedYouTubeLanguageCode(parsed.language)===normalizedYouTubeLanguageCode(track.sourceLanguage)})??null:rawTracks.find(raw=>{const parsed=parseYouTubeCaptionTrack(
 raw);return parsed?.language&&track.language&&normalizedYouTubeLanguageCode(parsed.language)===normalizedYouTubeLanguageCode(track.language)})??null)}function findPreferredYouTubeCaptionCandidate(track){if(track.
 kind!=="youtube")return null;const renderer=getYouTubePlayerResponse()?.captions?.playerCaptionsTracklistRenderer,candidates=uniqueYouTubeCaptionTracks([...getYouTubePlayerCaptionTracks(),...renderer?.captionTracks??
 []],renderer?.translationLanguages),targetIdentity=youtubeCaptionTrackIdentity(track);return candidates.filter(candidate=>youtubeCaptionTrackIdentity(candidate)===targetIdentity).sort((a,b)=>youtubeTrackUrlScore(
 b.url)-youtubeTrackUrlScore(a.url))[0]??null}function extractYouTubeTrackArray(value){if(Array.isArray(value))return value;const record=value;return Array.isArray(record?.captionTracks)?record.captionTracks:[]}
-function getYouTubePlayerResponse(){const videoId=getYouTubeVideoId();if(!videoId)return null;const fromWindow=window.ytInitialPlayerResponse;return isMatchingYouTubePlayerResponse(fromWindow,videoId)?fromWindow:
-readYouTubePlayerResponseFromConfig(videoId)||readYouTubePlayerResponseFromScripts(videoId)}function readYouTubePlayerResponseFromScripts(videoId){for(const script of Array.from(document.scripts)){const parsed=readYouTubePlayerResponseFromScript(
-script.textContent??"",videoId);if(parsed)return parsed}return null}function readYouTubePlayerResponseFromScript(text2,videoId){return readYouTubeInitialPlayerResponse(text2,videoId)??readEscapedYouTubePlayerResponse(
-text2,videoId)}function readYouTubeInitialPlayerResponse(text2,videoId){for(const marker of["ytInitialPlayerResponse = ","ytInitialPlayerResponse=","var ytInitialPlayerResponse = "]){const parsed=parseYouTubePlayerResponseMarker(
-text2,marker,videoId);if(parsed)return parsed}return null}function parseYouTubePlayerResponseMarker(text2,marker,videoId){const start=text2.indexOf(marker);if(start<0)return null;const raw=extractJsonObject(text2,
-start+marker.length);return raw?parseMatchingYouTubePlayerResponse(raw,videoId):null}function readEscapedYouTubePlayerResponse(text2,videoId){const escaped=text2.match(/"playerResponse"\s*:\s*"((?:\\.|[^"\\])+)"/);
-if(!escaped?.[1])return null;try{return parseMatchingYouTubePlayerResponse(JSON.parse(`"${escaped[1]}"`),videoId)}catch{return null}}function parseMatchingYouTubePlayerResponse(raw,videoId){try{const parsed=JSON.
-parse(raw);return isMatchingYouTubePlayerResponse(parsed,videoId)?parsed:null}catch{return null}}function readYouTubePlayerResponseFromConfig(videoId){const ytcfg=window.ytcfg,candidates=[ytcfg?.get?.("PLAYER_R\
-ESPONSE"),ytcfg?.get?.("PLAYER_VARS"),ytcfg?.data_?.PLAYER_RESPONSE,ytcfg?.data_?.PLAYER_VARS];for(const candidate of candidates){const response=readYouTubePlayerResponseCandidate(candidate);if(isMatchingYouTubePlayerResponse(
-response,videoId))return response}return null}function readYouTubePlayerResponseCandidate(candidate){return candidate?typeof candidate=="string"?parseYouTubePlayerResponseJson(candidate):typeof candidate=="obje\
-ct"?readYouTubePlayerResponseObject(candidate):null:null}function parseYouTubePlayerResponseJson(candidate){try{return JSON.parse(candidate)}catch{return null}}function readYouTubePlayerResponseObject(candidate){
+function getYouTubePlayerResponse(){const videoId=getYouTubeVideoId();if(!videoId)return null;const fromWindow=window.ytInitialPlayerResponse;if(isMatchingYouTubePlayerResponse(fromWindow,videoId))return fromWindow;
+const fromConfig=readYouTubePlayerResponseFromConfig(videoId);return fromConfig||readYouTubePlayerResponseFromScripts(videoId)}function readYouTubePlayerResponseFromScripts(videoId){for(const script of Array.from(
+document.scripts)){const parsed=readYouTubePlayerResponseFromScript(script.textContent??"",videoId);if(parsed)return parsed}return null}function readYouTubePlayerResponseFromScript(text2,videoId){return readYouTubeInitialPlayerResponse(
+text2,videoId)??readEscapedYouTubePlayerResponse(text2,videoId)}function readYouTubeInitialPlayerResponse(text2,videoId){for(const marker of["ytInitialPlayerResponse = ","ytInitialPlayerResponse=","var ytInitia\
+lPlayerResponse = "]){const parsed=parseYouTubePlayerResponseMarker(text2,marker,videoId);if(parsed)return parsed}return null}function parseYouTubePlayerResponseMarker(text2,marker,videoId){const start=text2.indexOf(
+marker);if(start<0)return null;const raw=extractJsonObject(text2,start+marker.length);return raw?parseMatchingYouTubePlayerResponse(raw,videoId):null}function readEscapedYouTubePlayerResponse(text2,videoId){const escaped=text2.
+match(/"playerResponse"\s*:\s*"((?:\\.|[^"\\])+)"/);if(!escaped?.[1])return null;try{return parseMatchingYouTubePlayerResponse(JSON.parse(`"${escaped[1]}"`),videoId)}catch{return null}}function parseMatchingYouTubePlayerResponse(raw,videoId){
+try{const parsed=JSON.parse(raw);return isMatchingYouTubePlayerResponse(parsed,videoId)?parsed:null}catch{return null}}function readYouTubePlayerResponseFromConfig(videoId){const ytcfg=window.ytcfg,candidates=[
+ytcfg?.get?.("PLAYER_RESPONSE"),ytcfg?.get?.("PLAYER_VARS"),ytcfg?.data_?.PLAYER_RESPONSE,ytcfg?.data_?.PLAYER_VARS];for(const candidate of candidates){const response=readYouTubePlayerResponseCandidate(candidate);
+if(isMatchingYouTubePlayerResponse(response,videoId))return response}return null}function readYouTubePlayerResponseCandidate(candidate){return candidate?typeof candidate=="string"?parseYouTubePlayerResponseJson(
+candidate):typeof candidate=="object"?readYouTubePlayerResponseObject(candidate):null:null}function parseYouTubePlayerResponseJson(candidate){try{return JSON.parse(candidate)}catch{return null}}function readYouTubePlayerResponseObject(candidate){
 const record=candidate;return readYouTubePlayerResponseCandidate(record.player_response??record.raw_player_response)??candidate}function isMatchingYouTubePlayerResponse(value,videoId){const response=youtubePlayerResponseRecord(
 value);return!!(response&&hasYouTubeCaptionTracks(response)&&youtubePlayerResponseMatchesVideo(response,videoId))}function youtubePlayerResponseRecord(value){return value&&typeof value=="object"?value:null}function hasYouTubeCaptionTracks(response){
 return!!response.captions?.playerCaptionsTracklistRenderer?.captionTracks}function youtubePlayerResponseMatchesVideo(response,videoId){if(!videoId)return!1;const responseVideoId=response.videoDetails?.videoId;return responseVideoId?
@@ -8197,9 +8228,9 @@ track);if(isRemoteSubtitleTrack(track)){const cues=await loadRemoteTrackCues(tra
 track,cues:track.cues??[]}}function isRemoteSubtitleTrack(track){return track.kind==="remote"&&!!track.url}function isYouTubeSubtitleTrack(track){return track.kind==="youtube"&&!!track.url}async function loadNativeTrackCues(track){
 const nativeTrack=track.track;if(!nativeTrack)return{track,cues:[]};ensureTextTrackReadable(nativeTrack);const cues=readTextTrackCues(nativeTrack);return{track,cues:cues.length?cues:await waitForTextTrackCues(nativeTrack)}}
 async function loadYouTubeTrackWithFallback(track,options){const youtubeOptions={requestText:options.requestText,onRequestError:options.onYouTubeRequestError},cues=await loadYouTubeTrackCues(track,youtubeOptions);
-return cues.length?(track.cues=cues,{track,cues}):await loadFirstUsableYouTubeSibling(track,options.tracks,youtubeOptions)||(track.cues=[],{track,cues:[]})}function ensureTextTrackReadable(track){track.mode==="\
-disabled"&&(track.mode="hidden")}function readTextTrackCues(track){return normalizeSubtitleCues(Array.from(track.cues??[]).map(cue=>({start:cue.startTime,end:cue.endTime,text:getTextTrackCueText(cue).trim()})).
-filter(cue=>cue.text).sort((a,b)=>a.start-b.start))}function waitForTextTrackCues(track,timeoutMs=900){const startedAt=performance.now();return new Promise(resolve=>{const poll=()=>{const cues=readTextTrackCues(
+if(cues.length)return track.cues=cues,{track,cues};const fallback=await loadFirstUsableYouTubeSibling(track,options.tracks,youtubeOptions);return fallback||(track.cues=[],{track,cues:[]})}function ensureTextTrackReadable(track){
+track.mode==="disabled"&&(track.mode="hidden")}function readTextTrackCues(track){return normalizeSubtitleCues(Array.from(track.cues??[]).map(cue=>({start:cue.startTime,end:cue.endTime,text:getTextTrackCueText(cue).
+trim()})).filter(cue=>cue.text).sort((a,b)=>a.start-b.start))}function waitForTextTrackCues(track,timeoutMs=900){const startedAt=performance.now();return new Promise(resolve=>{const poll=()=>{const cues=readTextTrackCues(
 track);if(cues.length||performance.now()-startedAt>=timeoutMs){resolve(cues);return}window.setTimeout(poll,50)};poll()})}function getTextTrackCueText(cue){return"text"in cue&&typeof cue.text=="string"?cue.text:
 ""}async function loadRemoteTrackCues(track,options){try{const cues=normalizeSubtitleCues(parseSubtitleText(await options.requestText(track.url??"")),{transcriptEligible:options.transcriptEligible});if(cues.length)
 return cues;options.onRemoteEmpty?.(track)}catch(error){options.onRemoteError?.(track,error)}return[]}function trackStatusText(track,language="en"){return track.loadingState==="loading"?` · ${uiText(language,"\
@@ -8219,8 +8250,8 @@ return isEnglishSubtitleTrack(track)||track.kind==="native"}function renderSubti
 <div class="jpdb-subtitle-drawer-head">
 <div class="jpdb-subtitle-drawer-brand">
 <strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(uiText(language,"subtitlesTitle"))}</strong>
-<span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(subtitleDrawerMetaText({mode:"tracks",count:state.tracks.length,tracks:state.tracks,selectedTrackId:state.selectedTrackId,secondaryTrackId:state.secondaryTrackId,
-language}))}</span>
+<span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(subtitleDrawerMetaText({mode:"tracks",count:state.tracks.length,tracks:state.tracks,selectedTrackId:state.selectedTrackId,secondaryTrackId:state.
+secondaryTrackId,language}))}</span>
 </div>
 <div class="jpdb-subtitle-drawer-actions">
 ${renderPanelModeControls("tracks",state.hasTranscriptSurface,language)}
@@ -8254,9 +8285,9 @@ language;return`
 <button type="button" data-action="secondary-track" aria-pressed="${isSecondary}">${escapeHtml$1(uiText(language,isSecondary?"unsetNativeSubtitles":"nativeSubtitles"))}</button>
 </div>
 </div>
-`}function trackPanelSummaryText(autoDetected,language){return autoDetected?autoDetected===1?uiText(language,"autoDetectedOptionSingular"):`${autoDetected} ${uiText(language,"autoDetectedOptions")}`:uiText(language,
-"autoDetectedTracksWillAppear")}function trackLanguageLabel(track,language){return track.language?track.language.toUpperCase():uiText(language,"detected")}function localizedSubtitleTrackLabel(track,language){return language!==
-"ja"?track.label:track.label==="YouTube subtitles"?uiText(language,"youTubeSubtitles"):track.label.replace(/ \u00b7 auto-generated$/u,` · ${uiText(language,"autoGeneratedSubtitle")}`)}function trackRoleText(isPrimary,isSecondary,language){
+`}function trackPanelSummaryText(autoDetected,language){return autoDetected?autoDetected===1?uiText(language,"autoDetectedOptionSingular"):`${autoDetected} ${uiText(language,"autoDetectedOptions")}`:uiText(
+language,"autoDetectedTracksWillAppear")}function trackLanguageLabel(track,language){return track.language?track.language.toUpperCase():uiText(language,"detected")}function localizedSubtitleTrackLabel(track,language){
+return language!=="ja"?track.label:track.label==="YouTube subtitles"?uiText(language,"youTubeSubtitles"):track.label.replace(/ \u00b7 auto-generated$/u,` · ${uiText(language,"autoGeneratedSubtitle")}`)}function trackRoleText(isPrimary,isSecondary,language){
 return[isPrimary?` · ${uiText(language,"primaryOverlay")}`:"",isSecondary?` · ${uiText(language,"nativeOverlay")}`:""].join("")}function drawerMetaParts(mode,count,primary,secondary,language){return mode==="t\
 racks"?drawerTrackMetaParts(count,primary,secondary,language):drawerLineMetaParts(count,primary,secondary,language)}function drawerTrackMetaParts(count,primary,secondary,language){return[`${count} ${uiText(language,
 count===1?"subtitleOptionSingular":"subtitleOptionPlural")}`,primary?`${uiText(language,"primarySubtitles")}: ${primary}`:uiText(language,"choosePrimarySubtitles"),secondary?`${uiText(language,"nativeSubtitles")}\
@@ -8430,31 +8461,31 @@ interfaceLanguage,"nextSubtitle"),panelLabel=uiText(settings.interfaceLanguage,"
 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml$1(panelLabel)}" aria-label="${escapeHtml$1(panelLabel)}">${subtitleIcon("panel-right")}</button>
 </div>
 <div class="jpdb-subtitle-list" hidden></div>
-`),root.addEventListener("click",event=>this.handleClick(event)),this.subtitleEl=root.querySelector(".jpdb-subtitle-text"),this.transcriptPanel=root.querySelector(".jpdb-subtitle-list"),this.transcriptPanel.dataset.
-jpdbReaderRoot="true",this.transcriptPanel.addEventListener("click",event=>this.handleClick(event),this.eventOptions()),this.transcriptPanel.addEventListener("keydown",event=>this.handleTranscriptPanelKeydown(event),
-this.eventOptions()),document.body.appendChild(root),document.body.appendChild(this.transcriptPanel),this.root=root,this.refresh()}scheduleDiscoverVideo(){this.discoverTimer===void 0&&(this.discoverTimer=window.
-setTimeout(()=>{this.discoverTimer=void 0,!this.destroyed&&this.discoverVideo()},120))}discoverVideo(){if(!this.shouldDiscoverVideo()){this.refresh();return}this.discoverEnabledVideo()}shouldDiscoverVideo(){const settings=this.
-options.getSettings();return settings.subtitlePlayerEnabled&&settings.subtitleAutoDetect}discoverEnabledVideo(){const candidate=this.discoverVideoCandidate();if(!candidate){this.video&&!this.isSubtitleVideoCandidate(
-this.video)&&this.clearDiscoveredVideoCandidate(),this.syncSubtitleSourceContext(void 0),this.refresh();return}candidate&&candidate!==this.video&&this.useDiscoveredVideoCandidate(candidate),this.syncSubtitleSourceContext(
-candidate??this.video),this.discoverPageSubtitleTracks(),this.discoverYouTubeTracksThrottled(!0),this.refresh()}discoverVideoCandidate(){return Array.from(document.querySelectorAll("video")).filter(video=>this.
-isSubtitleVideoCandidate(video)).sort(compareSubtitleVideoCandidates)[0]}isSubtitleVideoCandidate(video){return isYouTubePage()&&!isYouTubeOwnedVideoElement(video)?!1:video.readyState>=1||video.clientWidth>120||
-video.getBoundingClientRect().width>120}clearDiscoveredVideoCandidate(){this.video=void 0,this.subtitleSourceContextKey="",this.youtubeVideoId="",this.youtubeAutoSelectSuppressedVideoId="",this.youtubeDomCaptionFallbackTrackId=
-"",this.clearTransientSubtitleState(),this.removeSubtitleTracks(track=>track.kind!=="file"),this.setNativeTrackModes(),this.render(),this.syncControls()}useDiscoveredVideoCandidate(candidate){this.video=candidate,
-this.clearTransientSubtitleState(),this.removeStaleNativeTracks(candidate),this.attachTextTracks(candidate),this.observeVideoLayout(candidate),log$2.info("Subtitle video detected",videoSummary(candidate))}attachTextTracks(video){
-for(const track of Array.from(video.textTracks))this.addNativeTrack(track);video.textTracks.addEventListener?.("addtrack",event=>{if(video!==this.video)return;const track=event.track;track&&this.addNativeTrack(
-track)},this.eventOptions())}syncSubtitleSourceContext(video=this.video){const key=subtitleSourceContextKey(video);return key?this.subtitleSourceContextKey?this.subtitleSourceContextKey===key?!1:(this.subtitleSourceContextKey=
-key,this.youtubeAutoSelectSuppressedVideoId="",this.lastYouTubeTrackDiscoveryAt=0,this.clearTransientSubtitleState(),this.removeSubtitleTracks(track=>track.kind!=="file"),!0):(this.subtitleSourceContextKey=key,
-!1):!1}clearTransientSubtitleState(){this.currentCue=void 0,this.secondaryCue=void 0,this.pendingDomCaption=void 0,this.lastDomCaption="",this.lastAutoCopiedCueSignature="",this.lastRenderedPrimaryText="",this.
-lastRenderedPrimaryHtml="",this.renderSerial+=1,this.parseWarmupSerial+=1}removeStaleNativeTracks(video){const textTracks=new Set(Array.from(video.textTracks));this.removeSubtitleTracks(track=>track.kind==="nat\
-ive"&&(!track.track||!textTracks.has(track.track)))}removeSubtitleTracks(predicate){const removed=this.tracks.filter(predicate);return removed.length?(this.removeSubtitleTrackIds(new Set(removed.map(track=>track.
-id))),this.lastTranscriptSignature="",this.render(),this.renderOpenSubtitlePanel(),this.syncControls(),removed.length):0}removeSubtitleTrackIds(removedIds){this.tracks=this.tracks.filter(track=>!removedIds.has(
-track.id)),removedIds.has(this.selectedTrackId)&&this.resetPrimarySubtitleState(),removedIds.has(this.secondaryTrackId)&&this.resetSecondarySubtitleState()}renderOpenSubtitlePanel(){!this.transcriptPanel||this.
-transcriptPanel.hidden||this.transcriptPanelClosing||(this.panelMode==="tracks"||!this.hasTranscriptSurface()?this.renderTrackPanel():this.renderTranscriptPanel(!0))}observeVideoLayout(video){this.videoResizeObserver?.
-disconnect(),this.videoResizeObserver=new ResizeObserver(()=>this.scheduleAlignToVideo()),this.videoResizeObserver.observe(video),video.addEventListener("loadedmetadata",()=>this.scheduleAlignToVideo(),this.eventOptions(
-{passive:!0})),video.addEventListener("loadeddata",()=>this.scheduleAlignToVideo(),this.eventOptions({passive:!0})),video.addEventListener("pause",()=>this.syncPauseTranscriptPanel(),this.eventOptions({passive:!0})),
-video.addEventListener("play",()=>{this.closePauseTranscriptPanel(),this.scheduleAlignToVideo()},this.eventOptions({passive:!0})),this.scheduleAlignToVideo()}addNativeTrack(track){if(isYouTubePage()||this.tracks.
-some(item=>item.track===track))return;const id=`native-${this.tracks.length}`,label=track.label||track.language||`${uiText(this.options.getSettings().interfaceLanguage,"subtitleFallbackLabel")} ${this.tracks.length+
-1}`,option={id,label,kind:"native",language:track.language,track};this.tracks.push(option),track.addEventListener("cuechange",()=>this.updateFromNativeTrack(track),this.eventOptions()),this.maybeAutoSelectNativeTrack(
+`),root.addEventListener("click",event=>this.handleClick(event)),this.subtitleEl=root.querySelector(".jpdb-subtitle-text"),this.transcriptPanel=root.querySelector(".jpdb-subtitle-list"),this.transcriptPanel.
+dataset.jpdbReaderRoot="true",this.transcriptPanel.addEventListener("click",event=>this.handleClick(event),this.eventOptions()),this.transcriptPanel.addEventListener("keydown",event=>this.handleTranscriptPanelKeydown(
+event),this.eventOptions()),document.body.appendChild(root),document.body.appendChild(this.transcriptPanel),this.root=root,this.refresh()}scheduleDiscoverVideo(){this.discoverTimer===void 0&&(this.discoverTimer=
+window.setTimeout(()=>{this.discoverTimer=void 0,!this.destroyed&&this.discoverVideo()},120))}discoverVideo(){if(!this.shouldDiscoverVideo()){this.refresh();return}this.discoverEnabledVideo()}shouldDiscoverVideo(){
+const settings=this.options.getSettings();return settings.subtitlePlayerEnabled&&settings.subtitleAutoDetect}discoverEnabledVideo(){const candidate=this.discoverVideoCandidate();if(!candidate){this.video&&!this.
+isSubtitleVideoCandidate(this.video)&&this.clearDiscoveredVideoCandidate(),this.syncSubtitleSourceContext(void 0),this.refresh();return}candidate&&candidate!==this.video&&this.useDiscoveredVideoCandidate(candidate),
+this.syncSubtitleSourceContext(candidate??this.video),this.discoverPageSubtitleTracks(),this.discoverYouTubeTracksThrottled(!0),this.refresh()}discoverVideoCandidate(){return Array.from(document.querySelectorAll(
+"video")).filter(video=>this.isSubtitleVideoCandidate(video)).sort(compareSubtitleVideoCandidates)[0]}isSubtitleVideoCandidate(video){return isYouTubePage()&&!isYouTubeOwnedVideoElement(video)?!1:video.readyState>=
+1||video.clientWidth>120||video.getBoundingClientRect().width>120}clearDiscoveredVideoCandidate(){this.video=void 0,this.subtitleSourceContextKey="",this.youtubeVideoId="",this.youtubeAutoSelectSuppressedVideoId=
+"",this.youtubeDomCaptionFallbackTrackId="",this.clearTransientSubtitleState(),this.removeSubtitleTracks(track=>track.kind!=="file"),this.setNativeTrackModes(),this.render(),this.syncControls()}useDiscoveredVideoCandidate(candidate){
+this.video=candidate,this.clearTransientSubtitleState(),this.removeStaleNativeTracks(candidate),this.attachTextTracks(candidate),this.observeVideoLayout(candidate),log$2.info("Subtitle video detected",videoSummary(
+candidate))}attachTextTracks(video){for(const track of Array.from(video.textTracks))this.addNativeTrack(track);video.textTracks.addEventListener?.("addtrack",event=>{if(video!==this.video)return;const track=event.
+track;track&&this.addNativeTrack(track)},this.eventOptions())}syncSubtitleSourceContext(video=this.video){const key=subtitleSourceContextKey(video);return key?this.subtitleSourceContextKey?this.subtitleSourceContextKey===
+key?!1:(this.subtitleSourceContextKey=key,this.youtubeAutoSelectSuppressedVideoId="",this.lastYouTubeTrackDiscoveryAt=0,this.clearTransientSubtitleState(),this.removeSubtitleTracks(track=>track.kind!=="file"),!0):
+(this.subtitleSourceContextKey=key,!1):!1}clearTransientSubtitleState(){this.currentCue=void 0,this.secondaryCue=void 0,this.pendingDomCaption=void 0,this.lastDomCaption="",this.lastAutoCopiedCueSignature="",this.
+lastRenderedPrimaryText="",this.lastRenderedPrimaryHtml="",this.renderSerial+=1,this.parseWarmupSerial+=1}removeStaleNativeTracks(video){const textTracks=new Set(Array.from(video.textTracks));this.removeSubtitleTracks(
+track=>track.kind==="native"&&(!track.track||!textTracks.has(track.track)))}removeSubtitleTracks(predicate){const removed=this.tracks.filter(predicate);return removed.length?(this.removeSubtitleTrackIds(new Set(
+removed.map(track=>track.id))),this.lastTranscriptSignature="",this.render(),this.renderOpenSubtitlePanel(),this.syncControls(),removed.length):0}removeSubtitleTrackIds(removedIds){this.tracks=this.tracks.filter(
+track=>!removedIds.has(track.id)),removedIds.has(this.selectedTrackId)&&this.resetPrimarySubtitleState(),removedIds.has(this.secondaryTrackId)&&this.resetSecondarySubtitleState()}renderOpenSubtitlePanel(){!this.
+transcriptPanel||this.transcriptPanel.hidden||this.transcriptPanelClosing||(this.panelMode==="tracks"||!this.hasTranscriptSurface()?this.renderTrackPanel():this.renderTranscriptPanel(!0))}observeVideoLayout(video){
+this.videoResizeObserver?.disconnect(),this.videoResizeObserver=new ResizeObserver(()=>this.scheduleAlignToVideo()),this.videoResizeObserver.observe(video),video.addEventListener("loadedmetadata",()=>this.scheduleAlignToVideo(),
+this.eventOptions({passive:!0})),video.addEventListener("loadeddata",()=>this.scheduleAlignToVideo(),this.eventOptions({passive:!0})),video.addEventListener("pause",()=>this.syncPauseTranscriptPanel(),this.eventOptions(
+{passive:!0})),video.addEventListener("play",()=>{this.closePauseTranscriptPanel(),this.scheduleAlignToVideo()},this.eventOptions({passive:!0})),this.scheduleAlignToVideo()}addNativeTrack(track){if(isYouTubePage()||
+this.tracks.some(item=>item.track===track))return;const id=`native-${this.tracks.length}`,label=track.label||track.language||`${uiText(this.options.getSettings().interfaceLanguage,"subtitleFallbackLabel")} ${this.
+tracks.length+1}`,option={id,label,kind:"native",language:track.language,track};this.tracks.push(option),track.addEventListener("cuechange",()=>this.updateFromNativeTrack(track),this.eventOptions()),this.maybeAutoSelectNativeTrack(
 option),window.setTimeout(()=>{this.destroyed||(this.setNativeTrackModes(),this.syncControls())},0),this.syncControls()}discoverPageSubtitleTracks(){const sources=collectPageSubtitleSources(document),removed=this.
 removeStalePageSubtitleTracks(sources);if(!sources.length)return;const changes=this.addOrUpdatePageSubtitleTracks(sources,removed);this.finishPageSubtitleTrackDiscovery(changes)}removeStalePageSubtitleTracks(sources){
 const sourceKeys=new Set(sources.map(source=>source.sourceKey)),sourceUrls=new Set(sources.map(source=>normalizedSubtitleUrl(source.url)));return this.removeSubtitleTracks(track=>isStalePageSubtitleTrack(track,
@@ -8704,8 +8735,8 @@ rows,state.currentRowIndex),!0)}renderTranscriptPanelHtml(state){const settings=
 <div class="jpdb-subtitle-drawer-head">
 <div class="jpdb-subtitle-drawer-brand">
 <strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(uiText(language,"subtitlesTitle"))}</strong>
-<span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(subtitleDrawerMetaText({mode:"lines",count:state.rows.length,tracks:this.tracks,selectedTrackId:this.selectedTrackId,secondaryTrackId:this.secondaryTrackId,
-language}))}</span>
+<span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(subtitleDrawerMetaText({mode:"lines",count:state.rows.length,tracks:this.tracks,selectedTrackId:this.selectedTrackId,secondaryTrackId:this.
+secondaryTrackId,language}))}</span>
 </div>
 <div class="jpdb-subtitle-drawer-actions">
 ${renderPanelModeControls("lines",this.hasTranscriptSurface(),language)}
@@ -8718,31 +8749,31 @@ ${renderPanelCloseButton(language)}
 ${state.rows.length?state.rows.map((row,index)=>this.renderTranscriptRow(row,index,state.currentRowIndex)).join(""):this.renderTranscriptWaitingState()}
 </div>
 <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language,"resizeTranscriptPanel"))}"></div>
-`}afterTranscriptPanelRender(state){this.indexTranscriptTextTargets(),this.bindTranscriptScroller(),this.bindTranscriptResizeHandle(),this.positionTranscriptPanel(),this.scrollTranscriptToActive(),this.scheduleTranscriptHydration(
-state.currentRowIndex),this.scheduleTranscriptCacheWarmup(state.rows,state.currentRowIndex),this.syncPanelState()}renderTranscriptRow(row,index,currentIndex){const cue=row.cue,settings=this.options.getSettings(),
-parsedKey=this.parseCacheKey(cue.text,settings),parsed=this.parsedHtmlCache.get(parsedKey)??this.provisionalParsedHtmlCache.get(parsedKey),parsedKeyAttribute=parsed?` data-parsed-key="${escapeHtml$1(parsedKey)}\
-"`:"",provisionalAttribute=parsed&&!this.parsedHtmlCache.has(parsedKey)?' data-parsed-provisional="true"':"",seekLabel=`${uiText(settings.interfaceLanguage,"seekSubtitleLine")} ${formatSubtitleTime(cue.start)}`;
-return`
-<div class="jpdb-subtitle-list-row ${index===currentIndex?"active":""}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}" role="button" tabindex="0" aria-label="${escapeHtml$1(seekLabel)}\
-">
+`}afterTranscriptPanelRender(state){this.indexTranscriptTextTargets(),this.bindTranscriptScroller(),this.bindTranscriptResizeHandle(),this.positionTranscriptPanel(),this.scrollTranscriptToActive(),this.
+scheduleTranscriptHydration(state.currentRowIndex),this.scheduleTranscriptCacheWarmup(state.rows,state.currentRowIndex),this.syncPanelState()}renderTranscriptRow(row,index,currentIndex){const cue=row.cue,settings=this.
+options.getSettings(),parsedKey=this.parseCacheKey(cue.text,settings),parsed=this.parsedHtmlCache.get(parsedKey)??this.provisionalParsedHtmlCache.get(parsedKey),parsedKeyAttribute=parsed?` data-parsed-key="${escapeHtml$1(
+parsedKey)}"`:"",provisionalAttribute=parsed&&!this.parsedHtmlCache.has(parsedKey)?' data-parsed-provisional="true"':"",seekLabel=`${uiText(settings.interfaceLanguage,"seekSubtitleLine")} ${formatSubtitleTime(cue.
+start)}`;return`
+<div class="jpdb-subtitle-list-row ${index===currentIndex?"active":""}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}" role="button" tabindex="0" aria-label="${escapeHtml$1(
+seekLabel)}">
 <div class="jpdb-subtitle-row-body">
-<strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml$1(parsedKey)}"${parsedKeyAttribute}${provisionalAttribute}>${parsed??escapeWithBreaks(
-cue.text)}</strong>
+<strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml$1(parsedKey)}"${parsedKeyAttribute}${provisionalAttribute}>${parsed??
+escapeWithBreaks(cue.text)}</strong>
 </div>
 <div class="jpdb-subtitle-row-tools">
-<button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}" title="${escapeHtml$1(uiText(settings.interfaceLanguage,"copySubtitleLine"))}" aria-label="${escapeHtml$1(uiText(
-settings.interfaceLanguage,"copySubtitleLine"))}">${subtitleIcon("copy")}</button>
+<button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}" title="${escapeHtml$1(uiText(settings.interfaceLanguage,"copySubtitleLine"))}" aria-labe\
+l="${escapeHtml$1(uiText(settings.interfaceLanguage,"copySubtitleLine"))}">${subtitleIcon("copy")}</button>
 <span class="jpdb-subtitle-row-time">${formatSubtitleTime(cue.start)}</span>
 </div>
 </div>
-`}transcriptRows(){return this.cues.length?this.cues.map((cue,cueIndex)=>({cue,cueIndex})).filter(row=>row.cue.transcriptEligible!==!1):this.currentCue&&this.currentCue.transcriptEligible!==!1?[{cue:this.currentCue,
-cueIndex:-1}]:[]}renderTranscriptWaitingState(){const selected=this.tracks.find(track=>track.id===this.selectedTrackId),language=this.options.getSettings().interfaceLanguage,label=selected?.label?`: ${escapeHtml$1(
+`}transcriptRows(){return this.cues.length?this.cues.map((cue,cueIndex)=>({cue,cueIndex})).filter(row=>row.cue.transcriptEligible!==!1):this.currentCue&&this.currentCue.transcriptEligible!==!1?[{cue:this.
+currentCue,cueIndex:-1}]:[]}renderTranscriptWaitingState(){const selected=this.tracks.find(track=>track.id===this.selectedTrackId),language=this.options.getSettings().interfaceLanguage,label=selected?.label?`: ${escapeHtml$1(
 selected.label)}`:"",status=selected?.loadingState==="loading"?uiText(language,"loadingSubtitleLines"):uiText(language,"waitingForCaptionLines");return`<div class="jpdb-subtitle-list-empty">${escapeHtml$1(status)}${label}\
 . ${escapeHtml$1(uiText(language,"subtitleCurrentLineWillAppear"))}</div>`}updateTranscriptActiveLine(currentIndex){if(!this.transcriptPanel||this.transcriptPanel.hidden||this.transcriptPanelClosing||this.panelMode!==
 "lines")return;this.transcriptPanel.querySelectorAll(".jpdb-subtitle-list-row.active").forEach(row=>row.classList.remove("active"));const active=this.transcriptPanel.querySelector(`.jpdb-subtitle-list-row[data-\
 row-index="${currentIndex}"]`);active&&active.classList.add("active"),this.scrollTranscriptToActive()}scrollTranscriptToActive(){!this.options.getSettings().subtitleTranscriptAutoScroll||!this.transcriptPanel||
-this.transcriptPanel.hidden||this.transcriptPanelClosing||(this.transcriptScrollFrame&&cancelAnimationFrame(this.transcriptScrollFrame),this.transcriptScrollFrame=requestAnimationFrame(()=>{this.transcriptScrollFrame=
-void 0,!this.destroyed&&this.transcriptPanel?.querySelector(".jpdb-subtitle-list-row.active")?.scrollIntoView?.({block:"center",inline:"nearest"})}))}bindTranscriptScroller(){const scroller=this.transcriptPanel?.
+this.transcriptPanel.hidden||this.transcriptPanelClosing||(this.transcriptScrollFrame&&cancelAnimationFrame(this.transcriptScrollFrame),this.transcriptScrollFrame=requestAnimationFrame(()=>{if(this.transcriptScrollFrame=
+void 0,this.destroyed)return;this.transcriptPanel?.querySelector(".jpdb-subtitle-list-row.active")?.scrollIntoView?.({block:"center",inline:"nearest"})}))}bindTranscriptScroller(){const scroller=this.transcriptPanel?.
 querySelector(".jpdb-subtitle-list-scroll");!scroller||scroller.dataset.transcriptHydrationBound==="true"||(scroller.dataset.transcriptHydrationBound="true",scroller.addEventListener("scroll",()=>this.scheduleTranscriptHydration(),
 {passive:!0}))}bindTranscriptResizeHandle(){const handle=this.transcriptPanel?.querySelector("[data-resize-transcript]");!handle||handle.dataset.transcriptResizeBound==="true"||(handle.dataset.transcriptResizeBound=
 "true",handle.addEventListener("pointerdown",event=>this.startTranscriptResize(event)),handle.addEventListener("keydown",event=>this.resizeTranscriptPanelFromKeyboard(event)),this.syncTranscriptResizeHandle())}startTranscriptResize(event){
@@ -8838,7 +8869,7 @@ pan")?.textContent,doc.querySelector("#kanji_keyword_container")?.textContent,do
 const keyword=uchisenKanjiKeyword(candidate??"");if(keyword)return keyword}return null}function parseUchisenKanjiIdFromDocument(doc){const candidates=[doc.querySelector("input#kanji_id")?.value,doc.querySelector(
 "input#showing_kanji_id")?.value,doc.querySelector('input[name="kanji_id"]')?.value];return cleanText$1(candidates.find(Boolean)??"")}function parseUchisenCanGenerateFromDocument(doc){const userId=cleanText$1(doc.
 querySelector("input#user_id")?.value??""),hasAccountNav=!!doc.querySelector('a[href^="/account/"], a[href="/logout"]'),hasStudioGenerateButton=!!doc.querySelector('.generate_image_button, button[data-uchisen-a\
-ction="generate-submit"]'),hasLoginPrompt=!!doc.querySelector('#lo_links a[href*="login"], a[href*="/login"]');return!doc.querySelector("[data-uchisen-generate-unavailable], .generate_image_button[disabled]")&&
+ction="generate-submit"]'),hasLoginPrompt=!!doc.querySelector('#lo_links a[href*="login"], a[href*="/login"]');return!!!doc.querySelector("[data-uchisen-generate-unavailable], .generate_image_button[disabled]")&&
 (hasStudioGenerateButton||!!userId||hasAccountNav||hasLoginPrompt)}function uchisenKanjiKeyword(value){const match=/^(.+?)\s*[-\u2013\u2014]\s*(.+)$/u.exec(cleanText$1(value));if(!match)return null;const kanji=cleanText$1(
 match[1].replace(/[「」]/g,"")),keyword=cleanText$1(match[2]);return!kanji||!keyword?null:{kanji,keyword,url:`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`}}function uchisenComponentGroup(group){const components2=Array.
 from(group.querySelectorAll(".name_combo")).map(uchisenComponent).filter(component=>!!(component?.symbol||component?.name)).slice(0,8);return components2.length?{title:uchisenComponentGroupTitle(group),components:components2}:
@@ -8906,21 +8937,21 @@ ${renderUchisenNavigationControls(model)}
 </div>
 `}function renderUchisenLinkRow(model){return`
 <span class="yomu-jpdb-uchisen-link-row">
-<a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(model.kanji)}" target="_blank" rel="noopener">${escapeHtml$1(uchisenExternalLinkLabel(model.language))}${externalLinkIcon()}\
-</a>
+<a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(model.kanji)}" target="_blank" rel="noopener">${escapeHtml$1(uchisenExternalLinkLabel(model.language))}\
+${externalLinkIcon()}</a>
 ${model.canGenerateImages?renderUchisenGenerateToggle(model):""}
 </span>
-`}function renderUchisenGenerateToggle(model){return`<button class="yomu-jpdb-uchisen-summary-link yomu-jpdb-uchisen-generate-link" type="button" data-uchisen-action="generate-toggle" aria-expanded="${model.generateOpen}\
-" title="${escapeHtml$1(uiText(model.language,"generateUchisenImage"))}">${escapeHtml$1(uiText(model.language,"generateUchisenImageToggle"))}</button>`}function renderUchisenNavigationControls(model){if(!model.
-total)return"";const previousLabel=uiText(model.language,"previousExample"),nextLabel=uiText(model.language,"nextExample");return`<span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="${escapeHtml$1(
-uiText(model.language,"uchisenMnemonicImages"))}">
+`}function renderUchisenGenerateToggle(model){return`<button class="yomu-jpdb-uchisen-summary-link yomu-jpdb-uchisen-generate-link" type="button" data-uchisen-action="generate-toggle" aria-expanded="${model.
+generateOpen}" title="${escapeHtml$1(uiText(model.language,"generateUchisenImage"))}">${escapeHtml$1(uiText(model.language,"generateUchisenImageToggle"))}</button>`}function renderUchisenNavigationControls(model){
+if(!model.total)return"";const previousLabel=uiText(model.language,"previousExample"),nextLabel=uiText(model.language,"nextExample");return`<span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-l\
+abel="${escapeHtml$1(uiText(model.language,"uchisenMnemonicImages"))}">
 <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">&lsaquo;</button>
 <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">&rsaquo;</button>
-</span>`}function renderUchisenImageOrEmpty(model){if(!model.item)return`<div class="jpdb-reader-help">${escapeHtml$1(uiText(model.language,"noUchisenImagesYet"))}</div>`;const story=model.item.story&&model.item.
-story!=="No story available"?model.item.story:uiText(model.language,"noStoryAvailable"),alt=formatUchisenTemplate(uiText(model.language,"uchisenMnemonicFor"),{kanji:model.kanji});return`<div class="yomu-jpdb-im\
-age-shell"><img alt="${escapeHtml$1(alt)}" data-uchisen-image></div>
-<div class="yomu-jpdb-story">${escapeHtml$1(story)}</div>`}function attachRenderedUchisenImage(container,item,index,currentImages,proxyUrl,cleanup,setCurrentImageUrl){const image=container.querySelector("[data-\
-uchisen-image]");if(!image||!item)return;const srcUrl=item.url;requestBlobUrl(srcUrl,9e3,proxyUrl).then(url=>{if(!image.isConnected||currentImages[index]?.url!==srcUrl){revokePageMediaUrl(url);return}cleanup(),
+</span>`}function renderUchisenImageOrEmpty(model){if(!model.item)return`<div class="jpdb-reader-help">${escapeHtml$1(uiText(model.language,"noUchisenImagesYet"))}</div>`;const story=model.item.story&&model.
+item.story!=="No story available"?model.item.story:uiText(model.language,"noStoryAvailable"),alt=formatUchisenTemplate(uiText(model.language,"uchisenMnemonicFor"),{kanji:model.kanji});return`<div class="yomu-jp\
+db-image-shell"><img alt="${escapeHtml$1(alt)}" data-uchisen-image></div>
+<div class="yomu-jpdb-story">${escapeHtml$1(story)}</div>`}function attachRenderedUchisenImage(container,item,index,currentImages,proxyUrl,cleanup,setCurrentImageUrl){const image=container.querySelector(
+"[data-uchisen-image]");if(!image||!item)return;const srcUrl=item.url;requestBlobUrl(srcUrl,9e3,proxyUrl).then(url=>{if(!image.isConnected||currentImages[index]?.url!==srcUrl){revokePageMediaUrl(url);return}cleanup(),
 setCurrentImageUrl(url),image.src=url}).catch(()=>{image.isConnected&&image.remove()})}async function generateAndPublishUchisenMnemonic(kanji,request,proxyUrl=DEFAULT_YOMU_PUBLIC_PROXY_URL,onStatus,language="en"){
 const kanjiId=request.kanjiId.trim(),mnemonic=request.mnemonic.trim(),imagePrompt=request.imagePrompt.trim(),storyBackedPrompt=storyBackedUchisenImagePrompt(mnemonic,imagePrompt),safeImagePrompt=safeUchisenImagePrompt(
 storyBackedPrompt);if(!kanjiId||!mnemonic||!imagePrompt)throw new Error("Missing Uchisen generation fields.");const referrer=`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`;onStatus?.(uiText(language,"\
@@ -8991,12 +9022,12 @@ function uchisenExternalLinkLabel(language){return resolveUiLanguage(language)==
 "")}function renderUchisenComponentChip(component){const label=[component.name,component.symbol].filter(Boolean).join(": "),content=`
 ${component.symbol?`<strong>${escapeHtml$1(component.symbol)}</strong>`:""}
 ${component.name?`<span>${escapeHtml$1(component.name)}</span>`:""}
-`;return component.url?`<a class="yomu-jpdb-component-chip" href="${escapeHtml$1(component.url)}" target="_blank" rel="noopener" title="${escapeHtml$1(label)}">${content}</a>`:`<span class="yomu-jpdb-component-\
-chip" title="${escapeHtml$1(label)}">${content}</span>`}function preferredUchisenIndex(storedIndex,images){if(isValidUchisenIndex(storedIndex,images))return storedIndex;const firstNonPaywall=images.findIndex(item=>!isUchisenPaywallItem(
-item));return firstNonPaywall>=0?firstNonPaywall:storedIndex}function isValidUchisenIndex(index,images){return Number.isInteger(index)&&index>=0&&index<images.length}function isUchisenPaywallItem(item){return!!(item&&
-(isUchisenPaywallImage(item.url)||isUchisenPaywallStory(item.story)))}async function requestUchisenPageText(url,timeout,proxyUrl){try{return await requestText$7(url,{timeoutMs:timeout,failureLabel:"Uchisen requ\
-est",timeoutLabel:"Uchisen request timed out.",credentials:"include",anonymous:!1,withCredentials:!0,allowPublicProxies:!1,allowConfiguredProxy:!1,allowDirectCrossOrigin:!1})}catch{return requestText(url,timeout,
-proxyUrl)}}function requestText(url,timeout,proxyUrl){return requestText$7(url,{proxyUrl,timeoutMs:timeout,failureLabel:"Uchisen request",timeoutLabel:"Uchisen request timed out."})}function postUchisenForm(url,fields,referrer,proxyUrl,failureLabel,timeout){
+`;return component.url?`<a class="yomu-jpdb-component-chip" href="${escapeHtml$1(component.url)}" target="_blank" rel="noopener" title="${escapeHtml$1(label)}">${content}</a>`:`<span class="yomu-jpdb-compon\
+ent-chip" title="${escapeHtml$1(label)}">${content}</span>`}function preferredUchisenIndex(storedIndex,images){if(isValidUchisenIndex(storedIndex,images))return storedIndex;const firstNonPaywall=images.findIndex(
+item=>!isUchisenPaywallItem(item));return firstNonPaywall>=0?firstNonPaywall:storedIndex}function isValidUchisenIndex(index,images){return Number.isInteger(index)&&index>=0&&index<images.length}function isUchisenPaywallItem(item){
+return!!(item&&(isUchisenPaywallImage(item.url)||isUchisenPaywallStory(item.story)))}async function requestUchisenPageText(url,timeout,proxyUrl){try{return await requestText$7(url,{timeoutMs:timeout,failureLabel:"\
+Uchisen request",timeoutLabel:"Uchisen request timed out.",credentials:"include",anonymous:!1,withCredentials:!0,allowPublicProxies:!1,allowConfiguredProxy:!1,allowDirectCrossOrigin:!1})}catch{return requestText(
+url,timeout,proxyUrl)}}function requestText(url,timeout,proxyUrl){return requestText$7(url,{proxyUrl,timeoutMs:timeout,failureLabel:"Uchisen request",timeoutLabel:"Uchisen request timed out."})}function postUchisenForm(url,fields,referrer,proxyUrl,failureLabel,timeout){
 return requestText$7(url,{method:"POST",data:encodedForm(fields),headers:{"Content-Type":"application/x-www-form-urlencoded; charset=UTF-8","X-Requested-With":"XMLHttpRequest",Accept:"text/html, */*; q=0.01",Origin:"\
 https://uchisen.com",Referer:referrer},proxyUrl,timeoutMs:timeout,failureLabel,timeoutLabel:`${failureLabel} timed out.`,credentials:"include",anonymous:!1,withCredentials:!0,allowPublicProxies:!1,allowConfiguredProxy:!1,
 allowDirectCrossOrigin:!0}).then(text2=>{const json=parseJsonObjectFromText(text2),message=firstString(json?.error_message,json?.error);if(message&&!/generateimage$/i.test(url))throw new Error(message);if(isUchisenAuthFailure(
@@ -9277,58 +9308,59 @@ allowsGenericVisibleAutoScan()&&collectVisibleTextTargets(1).length>0}function h
 function isYouTubeHostForAutoScan(hostname=location.hostname){return hostname==="youtu.be"||hostname==="youtube.com"||hostname.endsWith(".youtube.com")}function hasPressLookupEnabled(settings){return settings.lookupOnClick||
 settings.lookupOnHover}function isMousePointerEvent(event){return!("pointerType"in event)||event.pointerType==="mouse"}function eventElement(event){return event.target instanceof Element?event.target:null}function audioPreloadLimits(options){
 return{sourceLimit:options.sourceLimit??1,candidateLimit:options.candidateLimit??1,prepareAudio:options.prepareAudio}}function evictOldestStringKeysWhileOverLimit(cache,limit){for(;cache.size>limit;){const oldest=cache.
-keys().next().value;if(typeof oldest!="string")break;cache.delete(oldest)}}function shouldPauseVideoForSubtitleHover(word,settings){return settings.subtitleMiningPause&&!!word.closest(SUBTITLE_SURFACE_SELECTOR)}
-function cardDisplayTrigger(options){return options.trigger==="hover"?"hover":"modal"}function cardSourceLabel(card){return card.source??"jpdb"}function renderedWordNavigationMode(insideReaderPopup,trigger){return insideReaderPopup&&
-trigger==="modal"?"push-current":"reset"}function renderedWordAnchor(word,insideReaderPopup,activePopoverAnchor){return insideReaderPopup?activePopoverAnchor??void 0:word}function selectionIntersectsElement(selection,element2){
-for(let index=0;index<selection.rangeCount;index+=1)try{if(selection.getRangeAt(index).intersectsNode(element2))return!0}catch{}return!1}function popoverAnchorRect(anchor,fallback){const rect=anchor?.getBoundingClientRect();
-return rect&&(rect.width>0||rect.height>0)?rect:fallback}function shouldLockMountedPopoverPosition(popover,state){return state.mode!=="hover"&&!popover.classList.contains("jpdb-reader-sheet")&&!!state.previousPopoverRect}
-function mountedHoverPointerPosition(state,lastPointerPosition){const hoverPointerPosition=state.previousHoverPointerPosition??lastPointerPosition;return state.mode==="hover"&&hoverPointerPosition?{...hoverPointerPosition}:
-void 0}const HOVER_POINTER_TEXT_LOOKUP_OPTIONS={allowPassiveInteractionText:!0};function canSchedulePointerTextHoverLookup(hoverEnabled,candidate){return hoverEnabled&&!!candidate}function samePointerTextLookupTarget(active,candidate){
-return active.anchor===candidate.anchor&&active.text===candidate.text}function pointerOffsetInsideLiveLookup(active,offset){return active.start<=offset&&offset<active.end}function isRenderDefinitionSourcesOptions(value){
-return"includeJpdbSource"in value||"includeStudySources"in value||"includeImmersionSource"in value}const ANKI_RECOLOR_SCAN_CHUNK_SIZE=600;class ReaderApp{abortController=new AbortController;isDestroyed=!1;settings=DEFAULT_SETTINGS;setImmersionTranslationBlurred=blurred=>{
-this.settings.immersionKitRevealTranslationOnClick!==blurred&&(this.settings={...this.settings,immersionKitRevealTranslationOnClick:blurred},document.querySelectorAll('input[name="immersionKitRevealTranslationO\
-nClick"]').forEach(input2=>{input2.checked=blurred}),saveSettings(this.settings))};jpdb=new JpdbClient(()=>this.settings.apiKey.trim(),()=>this.settings.corsProxyUrl);jpdbKanji=new JpdbKanjiClient(()=>this.settings.
-corsProxyUrl);jpdbPublicPitch=new JpdbPublicPitchClient(()=>this.settings.corsProxyUrl);jpdbVocabulary=new JpdbVocabularyClient(()=>this.settings.corsProxyUrl);kanjiVG=new KanjiVGClient;kanjiOrigin=new KanjiOriginClient;immersionKit=new ImmersionKitClient;audio=new AudioPlayer(
-()=>this.settings);anki=new AnkiConnectClient(()=>this.settings);rtk=new RtkClient;dictionaries=new YomitanDictionaryStore(()=>this.settings.corsProxyUrl,()=>this.settings.interfaceLanguage);cardRenderData=new CardRenderDataLoader(
-{getSettings:()=>this.settings,dictionaries:this.dictionaries,jpdbPublicPitch:this.jpdbPublicPitch,jpdbVocabulary:this.jpdbVocabulary,anki:this.anki,jpdb:this.jpdb,isJpdbBackedCard:card=>this.isJpdbBackedCard(card)});navigation=new PopupNavigationController(
-()=>!!(this.activePopover?.isConnected&&this.activePopover.querySelector(".jpdb-reader-kanji-display")));dictionarySourceState=new DictionarySourceStateController({getSettings:()=>this.settings,onStateChange:()=>this.
-repositionActivePopover()});cardPopoverRenderer=new CardPopoverRenderer({getSettings:()=>this.settings,isJpdbBackedCard:card=>this.isJpdbBackedCard(card),renderWordHistory:(language,trigger)=>this.navigation.renderWordHistory(
-language,trigger),renderWordPills:(card,jpdbUrl,metaEntries,overrideQuery)=>renderWordPills({card,jpdbUrl,settings:this.settings,metaEntries,overrideQuery,isJpdbBackedCard:value=>this.isJpdbBackedCard(value),dictionaryLabel:name=>this.
-dictionaryLabel(name)}),renderDefinitionSources:(card,entries,sentence,jpdbVocabularyInfo,extraSections)=>this.renderDefinitionSources(card,entries,sentence,jpdbVocabularyInfo,extraSections),dictionarySourceAttributes:(key,initiallyExpanded)=>this.
-dictionarySourceState.attributes(key,initiallyExpanded),dictionaryLabel:name=>this.dictionaryLabel(name)});dictionaryStyles=new DictionaryStyleController({loadCss:()=>this.settings.localDictionariesEnabled?this.
-dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences):Promise.resolve(""),onUnavailable:error=>log.warn("Dictionary styles unavailable",error)});studySources=new StudySourceController({getSettings:()=>this.
-settings,dictionarySourceAttributes:key=>this.dictionarySourceState.attributes(key),parseJapanese:(paragraphs,options)=>this.parseJapanese(paragraphs,options),parsePopoverJapanese:popover=>this.parsePopoverJapanese(
-popover),enrichPitchWords:tokens=>this.enrichPitchWords(tokens,{publicLookupLimit:BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT}),enrichAnkiWords:(tokens,roots)=>this.enrichAnkiWords(tokens,roots),isCurrentPopoverRoot:root=>this.
-isCurrentPopoverRoot(root)});cardActions=new CardActionController({getSettings:()=>this.settings,jpdb:this.jpdb,anki:this.anki,dictionaries:this.dictionaries,isJpdbBackedCard:card=>this.isJpdbBackedCard(card),resolveMiningContext:(card,sentence)=>this.
-resolveMiningContext(card,sentence),showCard:(card,sentence,anchor,options)=>this.showCard(card,sentence,anchor,options),getActivePopoverAnchor:()=>this.activePopoverAnchor?.isConnected?this.activePopoverAnchor:
-void 0,getActivePopoverMode:()=>this.activePopoverMode,showSettings:panel=>this.showSettings(panel),playAudio:(card,options)=>this.audioActions.playTermAudio(card,options),playMediaUrl:audioUrl=>this.audioActions.
-playMediaUrl(audioUrl),playSentenceAudio:sentence=>this.audioActions.playSentenceAudio(sentence),playJpdbExampleAudio:(audioIds,fallbackSentence)=>this.audioActions.playJpdbExampleAudio(audioIds,fallbackSentence),
-detectGrammarHints:sentence=>this.studySources.detectGrammarHints(sentence),parsePopoverJapanese:popover=>this.parsePopoverJapanese(popover),toast:message=>this.toast(message),invalidateCardData:()=>this.cardRenderData.
-clear(),onAnkiStatusChanged:card=>this.scheduleRenderedAnkiStatusRefresh(card)});immersionPopover=new ImmersionPopoverController({getSettings:()=>this.settings,client:this.immersionKit,audio:this.audio,parseJapanese:(paragraphs,options)=>this.
-parseJapanese(paragraphs,options),canParseJapanese:()=>this.canParseJapanese(),parsePopoverJapanese:popover=>this.parsePopoverJapanese(popover),enrichPitchWords:tokens=>this.enrichPitchWords(tokens,{publicLookupLimit:BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT}),
-enrichAnkiWords:(tokens,roots)=>this.enrichAnkiWords(tokens,roots),repositionPopover:()=>this.repositionActivePopover(),setImmersionTranslationBlurred:this.setImmersionTranslationBlurred,toast:message=>this.toast(
-message)});audioActions=new ReaderAudioActions({audio:this.audio,getSettings:()=>this.settings,getActivePopover:()=>this.activePopover,getHoverLookupGeneration:()=>this.hoverLookupGeneration,stopImmersionAudio:()=>this.
-immersionPopover.stopAudio(),toast:message=>this.toast(message)});floatingButton=new FloatingButtonController;parser=new ReaderParser({getSettings:()=>this.settings,jpdb:this.jpdb,dictionaries:this.dictionaries});onboarding=new OnboardingController(
-{getSettings:()=>this.settings,setSettings:settings=>{this.settings=settings,this.applyTheme(),this.applyPreferredJapaneseSiteLanguage()},showSettings:panel=>this.showSettings(panel)});subtitles=new SubtitlePlayerController(
-{getSettings:()=>this.settings,parseJapanese:async(text2,options)=>(await this.parseJapanese([text2],options))[0]??[],parseJapaneseBatch:(texts,options)=>this.parseJapanese(texts,options),afterParseTokens:(tokens,roots)=>this.
-afterSubtitleJapaneseParsed(tokens,roots),onSettingsChange:()=>void saveSettings(this.settings)});ocr=new ImageOcrController({getSettings:()=>this.settings,parseJapanese:async(text2,options)=>(await this.parseJapanese(
-[text2],options))[0]??[],onToast:message=>this.toast(message),shouldAutoScan:()=>this.pageHasJapaneseText||documentLooksLikeStandaloneImagePage(),enrichTokensBeforeRender:tokens=>this.enrichOcrTokensBeforeRender(
-tokens),enrichRenderedTokens:(tokens,root)=>this.enrichOcrRenderedTokens(tokens,root),fallbackCardFromText:text2=>this.parser.fallbackCardFromText(text2)});youtube=new YoutubeImmersionFilter({getSettings:()=>this.
-settings,setShowFilterNotice:visible=>void this.setYoutubeFilterNoticeVisible(visible),setShowChannelRecommendations:visible=>void this.setYoutubeChannelRecommendationsVisible(visible)});pageScanner=new VisiblePageScanner(
-{getSettings:()=>this.settings,parseJapanese:(paragraphs,options)=>this.parseJapanese(paragraphs,options),pauseMutationObserver:callback=>this.pauseAutoScanObserver(callback),preloadParsedTokens:tokens=>this.preloadTermAudioForTokens(
-tokens),enrichPitchWords:tokens=>this.enrichPitchWords(tokens,{publicLookupLimit:BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT}),enrichAnkiWords:(tokens,roots)=>this.enrichAnkiWords(tokens,roots),refreshWordContrast:root=>refreshReaderWordContrast(
-root),toast:message=>this.toast(message)});factoryReset=new FactoryResetCoordinator({isDestroyed:()=>this.isDestroyed,getLanguage:()=>this.settings.interfaceLanguage,invalidateRuntimeStores:()=>this.invalidateRuntimeStoresForFactoryReset(),
-resetDictionaryDatabase:()=>this.dictionaries.deleteDatabase({timeoutMs:FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS}).then(()=>({deleted:!0})),toast:message=>this.toast(message),
-reload:()=>location.reload()});settingsDialog;stackedSettingsDialog;activePopover;activeBackdrop;lastCard;lastCardSentence;lastAnkiLookup;selectionTimer;autoScanTimer;
-autoScanDeadline=0;autoScanForced=!1;autoScanObserver;asbScanTimer;hoverLookupTimer;hoverCloseTimer;hoverWatchTimer;hoverPendingWord;hoverPendingLookupKey="";hoverLookupInFlightKey="";
-hoverLookupGeneration=0;activeHoverWord;activeHoverLookupKey="";activePointerTextLookup;suppressedHoverWord;suppressedHoverLookupKey="";activePopoverMode;activePopoverAnchor;
-activePopoverAnchorRect;keyboardActiveWord;activePopoverPositionLocked=!1;activePopoverLockedPosition;activePopoverResizeObserver;nativeTitleGuard=new NativeTitleGuard;
-lastPointerPosition;hoverPopoverPointerPosition;popoverRepositionFrame;settingsPreviewOriginalAccent;settingsPreviewOriginalLanguage;settingsPreviewOriginalTheme;
-lastAutoAudioKey="";lastAutoAudioAt=0;cardRenderRequest=0;dictionaryRescanPending=!1;visiblePageReparseTimer;jpdbPageEnhanceTimer;jpdbPageEnhancementGeneration=0;
-nearbyReaderAudioPreloadTimer;preloadedTermAudioKeys=new Set;nestedParseContentCache=new Map;pitchEnrichmentLocalCache=new Map;resolvedFallbackVocabularyCache=new Map;
-renderedWordIndex=new Map;renderedWordIndexFullyScanned=!1;pitchEnrichmentQueue=[];pitchEnrichmentQueuedKeys=new Set;pitchEnrichmentUrgentKeys=new Set;pitchEnrichmentDrain;
-pressedKeys=new Set;hoverAnchorIds=new WeakMap;nextHoverAnchorId=1;suppressSelectionLookupUntil=0;suppressWordClickUntil=0;suppressPenHoverUntil=0;pageHasJapaneseText=!1;
-embeddedFrame=!1;pressLookup;suppressMiddleAuxClickUntil=0;constructor(){
+keys().next().value;if(typeof oldest!="string")break;cache.delete(oldest)}}function ankiLookupHasDisplayableNotes(lookup){return!!(lookup.primary||lookup.notes.length)}function shouldPauseVideoForSubtitleHover(word,settings){
+return settings.subtitleMiningPause&&!!word.closest(SUBTITLE_SURFACE_SELECTOR)}function cardDisplayTrigger(options){return options.trigger==="hover"?"hover":"modal"}function cardSourceLabel(card){return card.source??
+"jpdb"}function renderedWordNavigationMode(insideReaderPopup,trigger){return insideReaderPopup&&trigger==="modal"?"push-current":"reset"}function renderedWordAnchor(word,insideReaderPopup,activePopoverAnchor){return insideReaderPopup?
+activePopoverAnchor??void 0:word}function selectionIntersectsElement(selection,element2){for(let index=0;index<selection.rangeCount;index+=1)try{if(selection.getRangeAt(index).intersectsNode(element2))return!0}catch{}
+return!1}function popoverAnchorRect(anchor,fallback){const rect=anchor?.getBoundingClientRect();return rect&&(rect.width>0||rect.height>0)?rect:fallback}function shouldLockMountedPopoverPosition(popover,state){
+return state.mode!=="hover"&&!popover.classList.contains("jpdb-reader-sheet")&&!!state.previousPopoverRect}function mountedHoverPointerPosition(state,lastPointerPosition){const hoverPointerPosition=state.previousHoverPointerPosition??
+lastPointerPosition;return state.mode==="hover"&&hoverPointerPosition?{...hoverPointerPosition}:void 0}const HOVER_POINTER_TEXT_LOOKUP_OPTIONS={allowPassiveInteractionText:!0};function canSchedulePointerTextHoverLookup(hoverEnabled,candidate){
+return hoverEnabled&&!!candidate}function samePointerTextLookupTarget(active,candidate){return active.anchor===candidate.anchor&&active.text===candidate.text}function pointerOffsetInsideLiveLookup(active,offset){
+return active.start<=offset&&offset<active.end}function isRenderDefinitionSourcesOptions(value){return"includeJpdbSource"in value||"includeStudySources"in value||"includeImmersionSource"in value}const ANKI_RECOLOR_SCAN_CHUNK_SIZE=600;
+class ReaderApp{abortController=new AbortController;isDestroyed=!1;settings=DEFAULT_SETTINGS;setImmersionTranslationBlurred=blurred=>{this.settings.immersionKitRevealTranslationOnClick!==blurred&&(this.settings=
+{...this.settings,immersionKitRevealTranslationOnClick:blurred},document.querySelectorAll('input[name="immersionKitRevealTranslationOnClick"]').forEach(input2=>{input2.checked=blurred}),saveSettings(this.settings))};jpdb=new JpdbClient(
+()=>this.settings.apiKey.trim(),()=>this.settings.corsProxyUrl);jpdbKanji=new JpdbKanjiClient(()=>this.settings.corsProxyUrl);jpdbPublicPitch=new JpdbPublicPitchClient(()=>this.settings.corsProxyUrl);jpdbVocabulary=new JpdbVocabularyClient(
+()=>this.settings.corsProxyUrl);kanjiVG=new KanjiVGClient;kanjiOrigin=new KanjiOriginClient;immersionKit=new ImmersionKitClient;audio=new AudioPlayer(()=>this.settings);anki=new AnkiConnectClient(()=>this.settings);rtk=new RtkClient;dictionaries=new YomitanDictionaryStore(
+()=>this.settings.corsProxyUrl,()=>this.settings.interfaceLanguage);cardRenderData=new CardRenderDataLoader({getSettings:()=>this.settings,dictionaries:this.dictionaries,jpdbPublicPitch:this.jpdbPublicPitch,jpdbVocabulary:this.
+jpdbVocabulary,anki:this.anki,jpdb:this.jpdb,isJpdbBackedCard:card=>this.isJpdbBackedCard(card)});navigation=new PopupNavigationController(()=>!!(this.activePopover?.isConnected&&this.activePopover.querySelector(
+".jpdb-reader-kanji-display")));dictionarySourceState=new DictionarySourceStateController({getSettings:()=>this.settings,onStateChange:()=>this.repositionActivePopover()});cardPopoverRenderer=new CardPopoverRenderer(
+{getSettings:()=>this.settings,isJpdbBackedCard:card=>this.isJpdbBackedCard(card),renderWordHistory:(language,trigger)=>this.navigation.renderWordHistory(language,trigger),renderWordPills:(card,jpdbUrl,metaEntries,overrideQuery)=>renderWordPills(
+{card,jpdbUrl,settings:this.settings,metaEntries,overrideQuery,isJpdbBackedCard:value=>this.isJpdbBackedCard(value),dictionaryLabel:name=>this.dictionaryLabel(name)}),renderDefinitionSources:(card,entries,sentence,jpdbVocabularyInfo,extraSections)=>this.
+renderDefinitionSources(card,entries,sentence,jpdbVocabularyInfo,extraSections),dictionarySourceAttributes:(key,initiallyExpanded)=>this.dictionarySourceState.attributes(key,initiallyExpanded),dictionaryLabel:name=>this.
+dictionaryLabel(name)});dictionaryStyles=new DictionaryStyleController({loadCss:()=>this.settings.localDictionariesEnabled?this.dictionaries.dictionaryStyleCss(this.settings.dictionaryPreferences):Promise.resolve(
+""),onUnavailable:error=>log.warn("Dictionary styles unavailable",error)});studySources=new StudySourceController({getSettings:()=>this.settings,dictionarySourceAttributes:key=>this.dictionarySourceState.attributes(
+key),parseJapanese:(paragraphs,options)=>this.parseJapanese(paragraphs,options),parsePopoverJapanese:popover=>this.parsePopoverJapanese(popover),enrichPitchWords:tokens=>this.enrichPitchWords(tokens,{publicLookupLimit:BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT}),
+enrichAnkiWords:(tokens,roots)=>this.enrichAnkiWords(tokens,roots),isCurrentPopoverRoot:root=>this.isCurrentPopoverRoot(root)});cardActions=new CardActionController({getSettings:()=>this.settings,jpdb:this.jpdb,
+anki:this.anki,dictionaries:this.dictionaries,isJpdbBackedCard:card=>this.isJpdbBackedCard(card),resolveMiningContext:(card,sentence)=>this.resolveMiningContext(card,sentence),showCard:(card,sentence,anchor,options)=>this.
+showCard(card,sentence,anchor,options),getActivePopoverAnchor:()=>this.activePopoverAnchor?.isConnected?this.activePopoverAnchor:void 0,getActivePopoverMode:()=>this.activePopoverMode,showSettings:panel=>this.showSettings(
+panel),playAudio:(card,options)=>this.audioActions.playTermAudio(card,options),playMediaUrl:audioUrl=>this.audioActions.playMediaUrl(audioUrl),playSentenceAudio:sentence=>this.audioActions.playSentenceAudio(sentence),
+playJpdbExampleAudio:(audioIds,fallbackSentence)=>this.audioActions.playJpdbExampleAudio(audioIds,fallbackSentence),detectGrammarHints:sentence=>this.studySources.detectGrammarHints(sentence),parsePopoverJapanese:popover=>this.
+parsePopoverJapanese(popover),toast:message=>this.toast(message),invalidateCardData:()=>this.cardRenderData.clear(),onAnkiStatusChanged:card=>this.scheduleRenderedAnkiStatusRefresh(card)});immersionPopover=new ImmersionPopoverController(
+{getSettings:()=>this.settings,client:this.immersionKit,audio:this.audio,parseJapanese:(paragraphs,options)=>this.parseJapanese(paragraphs,options),canParseJapanese:()=>this.canParseJapanese(),parsePopoverJapanese:popover=>this.
+parsePopoverJapanese(popover),enrichPitchWords:tokens=>this.enrichPitchWords(tokens,{publicLookupLimit:BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT}),enrichAnkiWords:(tokens,roots)=>this.enrichAnkiWords(tokens,roots),
+repositionPopover:()=>this.repositionActivePopover(),setImmersionTranslationBlurred:this.setImmersionTranslationBlurred,toast:message=>this.toast(message)});audioActions=new ReaderAudioActions({audio:this.audio,
+getSettings:()=>this.settings,getActivePopover:()=>this.activePopover,getHoverLookupGeneration:()=>this.hoverLookupGeneration,stopImmersionAudio:()=>this.immersionPopover.stopAudio(),toast:message=>this.toast(message)});floatingButton=new FloatingButtonController;parser=new ReaderParser(
+{getSettings:()=>this.settings,jpdb:this.jpdb,dictionaries:this.dictionaries});onboarding=new OnboardingController({getSettings:()=>this.settings,setSettings:settings=>{this.settings=settings,this.applyTheme(),
+this.applyPreferredJapaneseSiteLanguage()},showSettings:panel=>this.showSettings(panel)});subtitles=new SubtitlePlayerController({getSettings:()=>this.settings,parseJapanese:async(text2,options)=>(await this.parseJapanese(
+[text2],options))[0]??[],parseJapaneseBatch:(texts,options)=>this.parseJapanese(texts,options),afterParseTokens:(tokens,roots)=>this.afterSubtitleJapaneseParsed(tokens,roots),onSettingsChange:()=>void saveSettings(
+this.settings)});ocr=new ImageOcrController({getSettings:()=>this.settings,parseJapanese:async(text2,options)=>(await this.parseJapanese([text2],options))[0]??[],onToast:message=>this.toast(message),shouldAutoScan:()=>this.
+pageHasJapaneseText||documentLooksLikeStandaloneImagePage(),enrichTokensBeforeRender:tokens=>this.enrichOcrTokensBeforeRender(tokens),enrichRenderedTokens:(tokens,root)=>this.enrichOcrRenderedTokens(tokens,root),
+fallbackCardFromText:text2=>this.parser.fallbackCardFromText(text2)});youtube=new YoutubeImmersionFilter({getSettings:()=>this.settings,setShowFilterNotice:visible=>void this.setYoutubeFilterNoticeVisible(visible),
+setShowChannelRecommendations:visible=>void this.setYoutubeChannelRecommendationsVisible(visible)});pageScanner=new VisiblePageScanner({getSettings:()=>this.settings,parseJapanese:(paragraphs,options)=>this.parseJapanese(
+paragraphs,options),pauseMutationObserver:callback=>this.pauseAutoScanObserver(callback),preloadParsedTokens:tokens=>this.preloadTermAudioForTokens(tokens),enrichPitchWords:tokens=>this.enrichPitchWords(tokens,
+{publicLookupLimit:BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT}),enrichAnkiWords:(tokens,roots)=>this.enrichAnkiWords(tokens,roots),refreshWordContrast:root=>refreshReaderWordContrast(root),toast:message=>this.toast(
+message)});factoryReset=new FactoryResetCoordinator({isDestroyed:()=>this.isDestroyed,getLanguage:()=>this.settings.interfaceLanguage,invalidateRuntimeStores:()=>this.invalidateRuntimeStoresForFactoryReset(),resetDictionaryDatabase:()=>this.
+dictionaries.deleteDatabase({timeoutMs:FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS}).then(()=>({deleted:!0})),toast:message=>this.toast(message),reload:()=>location.reload()});
+settingsDialog;stackedSettingsDialog;activePopover;activeBackdrop;lastCard;lastCardSentence;lastAnkiLookup;selectionTimer;autoScanTimer;autoScanDeadline=0;autoScanForced=!1;
+autoScanObserver;asbScanTimer;hoverLookupTimer;hoverCloseTimer;hoverWatchTimer;hoverPendingWord;hoverPendingLookupKey="";hoverLookupInFlightKey="";hoverLookupGeneration=0;
+activeHoverWord;activeHoverLookupKey="";activePointerTextLookup;suppressedHoverWord;suppressedHoverLookupKey="";activePopoverMode;activePopoverAnchor;activePopoverAnchorRect;
+keyboardActiveWord;activePopoverPositionLocked=!1;activePopoverLockedPosition;activePopoverResizeObserver;nativeTitleGuard=new NativeTitleGuard;lastPointerPosition;
+hoverPopoverPointerPosition;popoverRepositionFrame;settingsPreviewOriginalAccent;settingsPreviewOriginalLanguage;settingsPreviewOriginalTheme;lastAutoAudioKey="";
+lastAutoAudioAt=0;cardRenderRequest=0;dictionaryRescanPending=!1;visiblePageReparseTimer;jpdbPageEnhanceTimer;jpdbPageEnhancementGeneration=0;nearbyReaderAudioPreloadTimer;
+preloadedTermAudioKeys=new Set;nestedParseContentCache=new Map;pitchEnrichmentLocalCache=new Map;resolvedFallbackVocabularyCache=new Map;renderedWordIndex=new Map;
+renderedWordIndexFullyScanned=!1;pitchEnrichmentQueue=[];pitchEnrichmentQueuedKeys=new Set;pitchEnrichmentUrgentKeys=new Set;pitchEnrichmentDrain;pressedKeys=new Set;
+hoverAnchorIds=new WeakMap;nextHoverAnchorId=1;suppressSelectionLookupUntil=0;suppressWordClickUntil=0;suppressPenHoverUntil=0;pageHasJapaneseText=!1;embeddedFrame=!1;
+pressLookup;suppressMiddleAuxClickUntil=0;constructor(){
 configureLogger({settingsProvider:()=>this.settings})}async init(options){const done=log.time("init",{href:location.href,devMode:Logger.isDevMode()});this.embeddedFrame=options?.embeddedFrame===!0;const shouldShowWelcome=await this.
 loadInitialSettings(options);await this.installCoreSurfaces(),await this.initReaderPage(shouldShowWelcome),done()}async loadInitialSettings(options){this.factoryReset.bind();const startup=await loadReaderStartupSettings(
 options);return this.settings=startup.settings,this.applyPreferredJapaneseSiteLanguage(),configureLogger({forceEnabled:this.settings.enableLogging}),this.pageHasJapaneseText=detectReaderStartupJapaneseText(),log.
@@ -9348,7 +9380,7 @@ this.settings.youtubeImmersionEnabled=enabled,await saveSettings(this.settings),
 Tube filter notice visibility changed",{visible})}async setYoutubeChannelRecommendationsVisible(visible){this.settings.youtubeShowChannelRecommendations=visible,await saveSettings(this.settings),this.youtube.refresh(),
 log.info("YouTube channel recommendations visibility changed",{visible})}async setInterfaceLanguage(language){this.settings.interfaceLanguage!==language&&(this.settings.interfaceLanguage=language,await saveSettings(
 this.settings),this.settingsDialog?.refreshLanguage(language),this.clearHostedPageReaderWords(),this.installFab(),this.subtitles.refresh(),this.ocr.refresh(),this.youtube.refresh(),this.scheduleLanguageChangeScan(),
-log.info("Interface language changed",{language}))}clearHostedPageReaderWords(){isYomuHostedAppUrl(location.href)&&unwrapReaderWords(document)>0&&refreshReaderWordContrast(document)}scheduleLanguageChangeScan(){
+log.info("Interface language changed",{language}))}clearHostedPageReaderWords(){if(!isYomuHostedAppUrl(location.href))return;unwrapReaderWords(document)>0&&refreshReaderWordContrast(document)}scheduleLanguageChangeScan(){
 window.setTimeout(()=>{this.isDestroyed||(this.pageHasJapaneseText=documentHasJapaneseText(),this.shouldScanInitialPage()&&this.scheduleVisiblePageReparse(0))},160)}async invalidateRuntimeStoresForFactoryReset(){
 this.dismiss({suppressHoverTarget:!1}),this.jpdb.clear(),this.parser.clearLocalCache(),this.dictionarySourceState.clear(),this.cardRenderData.clear(),this.preloadedTermAudioKeys.clear(),this.nestedParseContentCache.
 clear(),this.pitchEnrichmentLocalCache.clear(),this.resolvedFallbackVocabularyCache.clear(),this.clearPitchEnrichmentQueue(),this.pitchEnrichmentUrgentKeys.clear(),this.pressedKeys.clear(),window.clearTimeout(this.
@@ -9489,8 +9521,8 @@ showWord(word,{trigger:"click",navigation:"reset",userGesture:!0}),word.isConnec
 length)return selected;const scoped=this.scopedLookupNavigationWords();return scoped.length?scoped:this.lookupableReaderWords().filter(word=>this.isKeyboardNavigableWord(word))}selectedLookupNavigationWords(){const selection=window.
 getSelection();return!selection||selection.isCollapsed||!selection.rangeCount?[]:this.lookupableReaderWords().filter(word=>this.isKeyboardNavigableWord(word)&&selectionIntersectsElement(selection,word))}scopedLookupNavigationWords(){
 const scope=(this.activePopoverAnchor?.isConnected?this.activePopoverAnchor:this.keyboardActiveWord?.isConnected?this.keyboardActiveWord:void 0)?.closest(".jpdb-subtitle-primary, .jpdb-subtitle-list-row, p, li,\
-blockquote, article, main");return scope?Array.from(scope.querySelectorAll(".jpdb-reader-word")).filter(word=>this.isKeyboardNavigableWord(word)):[]}isKeyboardNavigableWord(word){return!word.isConnected||word.closest(
-".jpdb-reader-settings")||!this.canLookupReaderWord(word)?!1:Array.from(word.getClientRects()).some(rect=>rect.width>0&&rect.height>0)}setKeyboardActiveWord(word){this.keyboardActiveWord&&this.keyboardActiveWord!==
+blockquote, article, main");return scope?Array.from(scope.querySelectorAll(".jpdb-reader-word")).filter(word=>this.isKeyboardNavigableWord(word)):[]}isKeyboardNavigableWord(word){return!word.isConnected||word.
+closest(".jpdb-reader-settings")||!this.canLookupReaderWord(word)?!1:Array.from(word.getClientRects()).some(rect=>rect.width>0&&rect.height>0)}setKeyboardActiveWord(word){this.keyboardActiveWord&&this.keyboardActiveWord!==
 word&&this.keyboardActiveWord.classList.remove("jpdb-reader-keyboard-active"),this.keyboardActiveWord=word,word.classList.add("jpdb-reader-keyboard-active")}clearKeyboardActiveWord(){this.keyboardActiveWord?.classList.
 remove("jpdb-reader-keyboard-active"),this.keyboardActiveWord=void 0}queueReaderWordAudioPreloads(words,options={}){let queued=0;for(const candidate of words)if(this.preloadReaderWordAudio(candidate,options)&&queued++,
 queued>=NEARBY_TERM_AUDIO_PRELOAD_LIMIT)break;return queued}canLookupReaderWord(word){return canLookupReaderWordElement(word)}canHoverLookupReaderWord(word){return canHoverLookupReaderWordElement(word,this.hasHoverLookupShortcut())}handleHoverPointer(event){
@@ -9501,12 +9533,12 @@ return this.activePopoverMode==="modal"&&!!this.activePopover}suppressHoverAfter
 this.cancelPendingHoverLookup())}shouldSuppressPenHover(event){return event.pointerType==="pen"&&Date.now()<this.suppressPenHoverUntil}handleActivePopoverHover(event){return this.isInsideActivePopover(event.target)?
 (this.cancelPendingHoverLookup(),this.cancelHoverClose(),!this.canHoverLookupActivePopoverWord(event)):!1}canHoverLookupActivePopoverWord(event){if(!this.hasHoverLookupShortcut()||!this.shouldLookupOnHover(event))
 return!1;const word=this.hoverReaderWordForEvent(event);return!!(word&&this.isInsideActivePopover(word))}hoverReaderWordForEvent(event){const word=this.readerWordForPointerEvent(event);return word&&this.canHoverLookupReaderWord(
-word)?word:null}readerWordForPointerEvent(event){const target=event.target instanceof Element?event.target:null;return target?.closest?.(".jpdb-reader-word")||(this.ocrLineWordForPointer(target,event.clientX,event.
-clientY)??this.readerWordFromRenderedGeometry(target,event.clientX,event.clientY))}ocrLineWordForPointer(target,x2,y){const line=target?.closest?.(".jpdb-ocr-line");return line?ocrLineWordAtPoint(line,x2,y):null}readerWordFromRenderedGeometry(target,x2,y){
-const scope=this.readerWordGeometryScope(target);return scope?readerWordAtPointInScope(scope,x2,y,word=>this.canLookupReaderWord(word)):null}readerWordGeometryScope(target){if(!target)return null;const scope=target.
-closest(".textBox,.ocr-line,p,li,blockquote,td,th,article,main,[data-jpdb-reader-root]");return scope&&scope.querySelector(".jpdb-reader-word")?scope:null}handlePointerTextHover(event){const hoverEnabled=this.shouldLookupOnHover(
-event),candidate=hoverEnabled?this.lookupCandidateFromPoint(event.clientX,event.clientY,event.target,HOVER_POINTER_TEXT_LOOKUP_OPTIONS):null;candidate&&this.refreshActivePointerTextHover(candidate,event)||(this.
-cancelMissingPointerTextCandidate(candidate),this.scheduleInactiveHoverClose(),canSchedulePointerTextHoverLookup(hoverEnabled,candidate)&&(this.rememberHoverPopoverPointer(event),this.schedulePointerTextLookup(
+word)?word:null}readerWordForPointerEvent(event){const target=event.target instanceof Element?event.target:null,direct=target?.closest?.(".jpdb-reader-word");return direct||(this.ocrLineWordForPointer(target,event.
+clientX,event.clientY)??this.readerWordFromRenderedGeometry(target,event.clientX,event.clientY))}ocrLineWordForPointer(target,x2,y){const line=target?.closest?.(".jpdb-ocr-line");return line?ocrLineWordAtPoint(
+line,x2,y):null}readerWordFromRenderedGeometry(target,x2,y){const scope=this.readerWordGeometryScope(target);return scope?readerWordAtPointInScope(scope,x2,y,word=>this.canLookupReaderWord(word)):null}readerWordGeometryScope(target){
+if(!target)return null;const scope=target.closest(".textBox,.ocr-line,p,li,blockquote,td,th,article,main,[data-jpdb-reader-root]");return scope&&scope.querySelector(".jpdb-reader-word")?scope:null}handlePointerTextHover(event){
+const hoverEnabled=this.shouldLookupOnHover(event),candidate=hoverEnabled?this.lookupCandidateFromPoint(event.clientX,event.clientY,event.target,HOVER_POINTER_TEXT_LOOKUP_OPTIONS):null;candidate&&this.refreshActivePointerTextHover(
+candidate,event)||(this.cancelMissingPointerTextCandidate(candidate),this.scheduleInactiveHoverClose(),canSchedulePointerTextHoverLookup(hoverEnabled,candidate)&&(this.rememberHoverPopoverPointer(event),this.schedulePointerTextLookup(
 candidate,event)))}refreshActivePointerTextHover(candidate,event){return this.isActivePointerTextLookup(candidate)?(this.cancelHoverClose(),this.refreshActiveHoverAnchor(candidate.anchor),!0):!1}cancelMissingPointerTextCandidate(candidate){
 candidate||this.cancelPendingHoverLookup()}scheduleInactiveHoverClose(){this.activePopoverMode==="hover"&&!this.isHoverContextActive({ignoreCssHover:!0})&&this.scheduleHoverClose(void 0,{ignoreCssHover:!0})}handleReaderWordHover(word,event){
 this.rememberHoverPopoverPointer(event);const hoverLookupKey=this.hoverLookupKeyForWord(word);if(this.isActiveHoverLookup(hoverLookupKey)){this.cancelHoverClose(),this.refreshActiveHoverAnchor(word);return}if(this.
@@ -9675,11 +9707,11 @@ end-range.start,candidateLength=candidate.end-candidate.start;return fallbackLen
 end-candidate.start>1}async showWord(word,options={}){if(this.shouldIgnoreRenderedWordLookup(word,options))return;const insideReaderPopup=!!word.closest(".jpdb-reader-popover"),stackOverSettings=options.stackOverSettings||
 !!word.closest(".jpdb-reader-settings"),card=this.cardForRenderedWord(word);if(!card){await this.handleMissingRenderedWordCard(word,{...options,stackOverSettings},insideReaderPopup);return}this.rememberRenderedWordMiningContext(
 word,card,insideReaderPopup);const context=this.renderedWordDisplayContext(word,options,insideReaderPopup);this.refreshActiveRenderedWordHover(word,context)||this.isStaleRenderedWordHover(word,context,options.hoverLookupGeneration)||
-await this.showPublicJpdbRenderedWordCandidate(word,card,context,options,stackOverSettings)||await this.showOcrKanjiRenderedWord(word,card,context)||(this.preloadHoverWordAudio(word),await this.showRenderedWordCard(
-card,context,options,stackOverSettings))}shouldIgnoreRenderedWordLookup(word,options){return options.trigger==="click"&&this.shouldIgnoreCurrentImmersionExampleTargetClick(word)}refreshActiveRenderedWordHover(word,context){
-return!context.hoverLookupKey||!this.isActiveHoverLookup(context.hoverLookupKey)?!1:(this.refreshActiveHoverAnchor(word),!0)}isStaleRenderedWordHover(word,context,hoverLookupGeneration){return context.trigger===
-"hover"&&!this.isCurrentRenderedWordHover(word,context.hoverLookupKey??"",hoverLookupGeneration)}async showOcrKanjiRenderedWord(word,card,context){const ocrKanji=singleKanjiOcrLookupCharacter(word);return!ocrKanji||
-context.trigger!=="modal"?!1:(await this.showKanjiCard(card,ocrKanji,ocrKanji,context.anchor,{navigation:context.navigation,preservePosition:context.insideReaderPopup}),!0)}showRenderedWordCard(card,context,options,stackOverSettings){
+await this.showPublicJpdbRenderedWordCandidate(word,card,context,options,stackOverSettings)||this.shouldSuppressRenderedKanaFragmentFallback(word,card,context)||await this.showOcrKanjiRenderedWord(word,card,context)||
+(this.preloadHoverWordAudio(word),await this.showRenderedWordCard(card,context,options,stackOverSettings))}shouldIgnoreRenderedWordLookup(word,options){return options.trigger==="click"&&this.shouldIgnoreCurrentImmersionExampleTargetClick(
+word)}refreshActiveRenderedWordHover(word,context){return!context.hoverLookupKey||!this.isActiveHoverLookup(context.hoverLookupKey)?!1:(this.refreshActiveHoverAnchor(word),!0)}isStaleRenderedWordHover(word,context,hoverLookupGeneration){
+return context.trigger==="hover"&&!this.isCurrentRenderedWordHover(word,context.hoverLookupKey??"",hoverLookupGeneration)}async showOcrKanjiRenderedWord(word,card,context){const ocrKanji=singleKanjiOcrLookupCharacter(
+word);return!ocrKanji||context.trigger!=="modal"?!1:(await this.showKanjiCard(card,ocrKanji,ocrKanji,context.anchor,{navigation:context.navigation,preservePosition:context.insideReaderPopup}),!0)}showRenderedWordCard(card,context,options,stackOverSettings){
 return this.showCard(card,context.sentence,context.anchor,{trigger:context.trigger,navigation:context.navigation,preservePosition:context.insideReaderPopup&&context.trigger==="modal",previousNavigationEntry:context.
 previousNavigationEntry,hoverLookupKey:context.hoverLookupKey,hoverLookupGeneration:options.hoverLookupGeneration,insideReaderPopup:context.insideReaderPopup,userGesture:options.userGesture,stackOverSettings})}cardForRenderedWord(word){
 const vid=Number(word.dataset.vid),sid=Number(word.dataset.sid),card=this.getCachedCard(vid,sid);return card&&this.renderedWordCacheMatches(word,card)?card:void 0}renderedWordLookupText(word){return normalizedLookupText(
@@ -9687,27 +9719,27 @@ word.dataset.expression||readerWordSurfaceText(word))}async showPublicJpdbRender
 return!1;const resolved=await this.resolvePublicJpdbRenderedWordCandidate(lookup.terms);return resolved?(this.parser.cacheCards?.([resolved]),await this.showRenderedWordCard(resolved,{...context,sentence:lookup.
 sentence},options,stackOverSettings),!0):!1}publicJpdbRenderedWordLookup(word,card,context){if(!this.canUsePublicJpdbPointerLookup())return;const sentence=normalizedLookupText(word.dataset.sentence||context.sentence||
 ""),offset=this.renderedWordOffsetInSentence(word,card,sentence);if(!this.canCorrectKanaOnlyRenderedWord(sentence,offset))return;const surfaceLength=this.renderedWordSurfaceLength(word,card),terms=jpdbPointerLookupCandidates(
-sentence,offset).filter(span=>span.end-span.start>surfaceLength).map(span=>span.term);return terms.length?{sentence,terms}:void 0}async resolvePublicJpdbRenderedWordCandidate(terms){for(const term of terms){const resolved=await this.
-publicLookupCard(term,!0);if(resolved)return resolved}}canCorrectKanaOnlyRenderedWord(sentence,offset){return offset>=0&&this.isKanaOnlyRenderedWordCorrection(sentence,offset)}renderedWordSurfaceLength(word,card){
-return normalizedLookupText(readerWordSurfaceText(word)||card.reading||card.spelling).length}renderedWordOffsetInSentence(word,card,sentence){if(!sentence)return-1;const candidates=[...new Set([readerWordSurfaceText(
-word),word.dataset.reading??"",word.dataset.expression??"",card.reading,card.spelling].map(normalizedLookupText).filter(Boolean))];for(const candidate of candidates){const offset=sentence.indexOf(candidate);if(offset>=
-0)return offset}return-1}isKanaOnlyRenderedWordCorrection(sentence,offset){const run=japaneseRunAt(sentence,offset);return!!(run&&KANA_ONLY_LOOKUP_RUN_RE.test(sentence.slice(run.start,run.end)))}renderedWordCacheMatches(word,card){
-const expression=normalizedLookupText(word.dataset.expression??""),reading=normalizedLookupText(word.dataset.reading??"");return!(expression&&!this.cardMatchesRenderedLookupValue(card,expression)||reading&&!this.
-cardMatchesRenderedLookupValue(card,reading))}cardMatchesRenderedLookupValue(card,value){return normalizedLookupText(card.spelling)===value||normalizedLookupText(card.reading)===value}async handleMissingRenderedWordCard(word,options,insideReaderPopup){
-const vid=Number(word.dataset.vid),sid=Number(word.dataset.sid);insideReaderPopup&&await this.lookupUncachedPopupWord(word,options)||!insideReaderPopup&&await this.lookupUncachedPageWord(word,options)||options.
-stackOverSettings||(log.warn("Clicked word missing from cache; scheduling page reparse",{vid,sid}),this.scheduleVisiblePageReparse())}async lookupUncachedPageWord(word,options){const expression=this.renderedWordLookupText(
-word);if(!isLookupableJapaneseText(expression))return!1;const trigger=this.renderedWordTrigger(options.trigger,!1),navigation=options.navigation??renderedWordNavigationMode(!1,trigger);return await this.lookupText(
-expression,this.renderedWordSentence(word)??expression,{anchor:renderedWordAnchor(word,!1,this.activePopoverAnchor),navigation,preservePosition:trigger==="hover",previousNavigationEntry:this.renderedWordPreviousNavigationEntryForOptions(
-options,!1,trigger,navigation),userGesture:options.userGesture,trigger,hoverLookupGeneration:options.hoverLookupGeneration,stackOverSettings:options.stackOverSettings}),!0}async lookupUncachedPopupWord(word,options){
-const expression=this.renderedWordLookupText(word);if(!isLookupableJapaneseText(expression))return!1;const trigger=this.renderedWordTrigger(options.trigger,!0),navigation=options.navigation??renderedWordNavigationMode(
-!0,trigger),sentence=this.renderedWordSentence(word)??expression;return word.closest(".jpdb-reader-example-card")&&this.immersionPopover.rememberTermMiningContext(expression,sentence,word),await this.lookupText(
-expression,sentence,{anchor:renderedWordAnchor(word,!0,this.activePopoverAnchor),navigation,preservePosition:!0,previousNavigationEntry:this.renderedWordPreviousNavigationEntryForOptions(options,!0,trigger,navigation),
-insideReaderPopup:!0,userGesture:options.userGesture,trigger,hoverLookupGeneration:options.hoverLookupGeneration}),!0}rememberRenderedWordMiningContext(word,card,insideReaderPopup){!insideReaderPopup||!word.closest(
-".jpdb-reader-example-card")||this.immersionPopover.rememberPageMiningContext(card,this.renderedWordSentence(word),word)}renderedWordDisplayContext(word,options,insideReaderPopup){const trigger=this.renderedWordTrigger(
-options.trigger,insideReaderPopup),navigation=options.navigation??renderedWordNavigationMode(insideReaderPopup,trigger);return{sentence:this.renderedWordSentence(word),anchor:renderedWordAnchor(word,insideReaderPopup,
-this.activePopoverAnchor),trigger,navigation,hoverLookupKey:this.renderedWordHoverLookupKey(word,trigger),previousNavigationEntry:this.renderedWordPreviousNavigationEntryForOptions(options,insideReaderPopup,trigger,
-navigation),insideReaderPopup}}renderedWordSentence(word){const immersionSentence=this.renderedImmersionExampleSentence(word);if(immersionSentence)return immersionSentence;const tokenSentence=word.dataset.sentence||
-"";return tokenSentence&&word.closest(".jpdb-reader-example-sentence")?normalizedLookupText(tokenSentence):preferredRenderedWordSentence(nearestReadableSentenceForElement(word,tokenSentence),tokenSentence)}renderedImmersionExampleSentence(word){
+sentence,offset).filter(span=>span.end-span.start>surfaceLength).map(span=>span.term);return terms.length?{sentence,terms}:void 0}shouldSuppressRenderedKanaFragmentFallback(word,card,context){return!!this.publicJpdbRenderedWordLookup(
+word,card,context)?.terms.length}async resolvePublicJpdbRenderedWordCandidate(terms){for(const term of terms){const resolved=await this.publicLookupCard(term,!0);if(resolved)return resolved}}canCorrectKanaOnlyRenderedWord(sentence,offset){
+return offset>=0&&this.isKanaOnlyRenderedWordCorrection(sentence,offset)}renderedWordSurfaceLength(word,card){return normalizedLookupText(readerWordSurfaceText(word)||card.reading||card.spelling).length}renderedWordOffsetInSentence(word,card,sentence){
+if(!sentence)return-1;const candidates=[...new Set([readerWordSurfaceText(word),word.dataset.reading??"",word.dataset.expression??"",card.reading,card.spelling].map(normalizedLookupText).filter(Boolean))];for(const candidate of candidates){
+const offset=sentence.indexOf(candidate);if(offset>=0)return offset}return-1}isKanaOnlyRenderedWordCorrection(sentence,offset){const run=japaneseRunAt(sentence,offset);return!!(run&&KANA_ONLY_LOOKUP_RUN_RE.test(
+sentence.slice(run.start,run.end)))}renderedWordCacheMatches(word,card){const expression=normalizedLookupText(word.dataset.expression??""),reading=normalizedLookupText(word.dataset.reading??"");return!(expression&&
+!this.cardMatchesRenderedLookupValue(card,expression)||reading&&!this.cardMatchesRenderedLookupValue(card,reading))}cardMatchesRenderedLookupValue(card,value){return normalizedLookupText(card.spelling)===value||
+normalizedLookupText(card.reading)===value}async handleMissingRenderedWordCard(word,options,insideReaderPopup){const vid=Number(word.dataset.vid),sid=Number(word.dataset.sid);insideReaderPopup&&await this.lookupUncachedPopupWord(
+word,options)||!insideReaderPopup&&await this.lookupUncachedPageWord(word,options)||options.stackOverSettings||(log.warn("Clicked word missing from cache; scheduling page reparse",{vid,sid}),this.scheduleVisiblePageReparse())}async lookupUncachedPageWord(word,options){
+const expression=this.renderedWordLookupText(word);if(!isLookupableJapaneseText(expression))return!1;const trigger=this.renderedWordTrigger(options.trigger,!1),navigation=options.navigation??renderedWordNavigationMode(
+!1,trigger);return await this.lookupText(expression,this.renderedWordSentence(word)??expression,{anchor:renderedWordAnchor(word,!1,this.activePopoverAnchor),navigation,preservePosition:trigger==="hover",previousNavigationEntry:this.
+renderedWordPreviousNavigationEntryForOptions(options,!1,trigger,navigation),userGesture:options.userGesture,trigger,hoverLookupGeneration:options.hoverLookupGeneration,stackOverSettings:options.stackOverSettings}),
+!0}async lookupUncachedPopupWord(word,options){const expression=this.renderedWordLookupText(word);if(!isLookupableJapaneseText(expression))return!1;const trigger=this.renderedWordTrigger(options.trigger,!0),navigation=options.
+navigation??renderedWordNavigationMode(!0,trigger),sentence=this.renderedWordSentence(word)??expression;return word.closest(".jpdb-reader-example-card")&&this.immersionPopover.rememberTermMiningContext(expression,
+sentence,word),await this.lookupText(expression,sentence,{anchor:renderedWordAnchor(word,!0,this.activePopoverAnchor),navigation,preservePosition:!0,previousNavigationEntry:this.renderedWordPreviousNavigationEntryForOptions(
+options,!0,trigger,navigation),insideReaderPopup:!0,userGesture:options.userGesture,trigger,hoverLookupGeneration:options.hoverLookupGeneration}),!0}rememberRenderedWordMiningContext(word,card,insideReaderPopup){
+!insideReaderPopup||!word.closest(".jpdb-reader-example-card")||this.immersionPopover.rememberPageMiningContext(card,this.renderedWordSentence(word),word)}renderedWordDisplayContext(word,options,insideReaderPopup){
+const trigger=this.renderedWordTrigger(options.trigger,insideReaderPopup),navigation=options.navigation??renderedWordNavigationMode(insideReaderPopup,trigger);return{sentence:this.renderedWordSentence(word),anchor:renderedWordAnchor(
+word,insideReaderPopup,this.activePopoverAnchor),trigger,navigation,hoverLookupKey:this.renderedWordHoverLookupKey(word,trigger),previousNavigationEntry:this.renderedWordPreviousNavigationEntryForOptions(options,
+insideReaderPopup,trigger,navigation),insideReaderPopup}}renderedWordSentence(word){const immersionSentence=this.renderedImmersionExampleSentence(word);if(immersionSentence)return immersionSentence;const tokenSentence=word.
+dataset.sentence||"";return tokenSentence&&word.closest(".jpdb-reader-example-sentence")?normalizedLookupText(tokenSentence):preferredRenderedWordSentence(nearestReadableSentenceForElement(word,tokenSentence),tokenSentence)}renderedImmersionExampleSentence(word){
 if(!word.closest(".jpdb-reader-example-sentence"))return"";const sentence=word.closest("[data-immersion-sentence]")?.dataset.immersionSentence??"";return normalizedLookupText(sentence)}shouldIgnoreCurrentImmersionExampleTargetClick(word){
 return!this.lastCard||!this.isInsideActivePopover(word)||!word.closest("[data-immersion-kit] .jpdb-reader-example-sentence")||!word.closest(".jpdb-reader-example-target")?!1:this.cardMatchesRenderedLookupValue(
 this.lastCard,this.renderedWordLookupText(word))}renderedWordHoverLookupKey(word,trigger){return trigger==="hover"?this.hoverLookupKeyForWord(word):void 0}renderedWordPreviousNavigationEntryForOptions(options,insideReaderPopup,trigger,navigation){
@@ -9786,36 +9818,36 @@ popover);clearNestedParseState(popover),setInnerHtml(popover,this.cardPopoverRen
 popover,this.settings),this.repositionActivePopover(),this.parsePopoverJapanese(popover),this.settings.immersionKitEnabled&&this.installLazyImmersionExamples(popover,card,{relatedQueries:this.immersionRelatedQueries(
 data.jpdbVocabularyInfo)}),this.studySources.installLoaders(popover,sentence)}renderHydratedCardAnkiLookup(popover,card,sentence,trigger,data,renderData,requestId,isCurrentHoverCard){const hydrateAnkiLookup=renderData.
 hydrateAnkiLookup;if(!hydrateAnkiLookup)return;const hydrate=()=>{this.isCurrentCardRender(popover,requestId,isCurrentHoverCard)&&hydrateAnkiLookup().then(ankiLookup=>{const resolvesPendingMiss=data.ankiLookup.
-trusted===!1&&ankiLookup.trusted!==!1;!ankiLookup.primary&&!data.ankiLookup.primary&&!resolvesPendingMiss||this.isCurrentCardRender(popover,requestId,isCurrentHoverCard)&&this.renderCompletedCardPopover(popover,
-card,sentence,trigger,{...data,ankiLookup})}).catch(error=>{if(log.warn("Anki card detail hydration failed while rendering popup",{term:card.spelling},error),!this.isCurrentCardRender(popover,requestId,isCurrentHoverCard))
-return;const ankiLookup=ankiLookupWithUnavailableDetails(data.ankiLookup);ankiLookup.primary&&this.renderCompletedCardPopover(popover,card,sentence,trigger,{...data,ankiLookup})})};if(trigger==="hover"){window.
-setTimeout(hydrate,HOVER_ANKI_HYDRATION_DELAY_MS);return}hydrate()}preserveImmersionMountForRerender(popover){const mount=popover.querySelector("[data-immersion-kit]");return mount&&this.shouldPreserveImmersionMount(
-mount)?mount:null}shouldPreserveImmersionMount(mount){return!!(mount.dataset.immersionLoadState||mount.dataset.immersionEmpty==="true"||mount.querySelector(".jpdb-reader-example-card")||mount instanceof HTMLDetailsElement&&
-mount.open)}restorePreservedImmersionMount(popover,preserved){if(!preserved)return;const next=popover.querySelector("[data-immersion-kit]");!next||next===preserved||next.replaceWith(preserved)}isCurrentCardRender(popover,_requestId,isCurrentHoverCard){
-return isCurrentHoverCard()&&popover.isConnected&&this.activePopover===popover}immersionRelatedQueries(info){return info?info.compounds.flatMap(compound=>[compound.term,compound.reading]).filter(Boolean):[]}installCardPopoverHandlers(popover,card,sentence,anchor,trigger){
-popover.addEventListener("click",event=>this.handleCardPopoverClick(event,card,sentence,anchor,trigger))}handleCardPopoverClick(event,card,sentence,anchor,trigger){if(this.handleDictionaryLookupLink(event,anchor,
-trigger))return;const target=event.target,kanjiButton=target.closest('[data-action="kanji"]');if(kanjiButton){this.handleCardPopoverKanjiAction(event,kanjiButton,card,sentence,anchor);return}const button2=target.
-closest("[data-action]");button2&&(event.preventDefault(),event.stopPropagation(),this.dispatchCardPopoverAction(button2,card,sentence,anchor,trigger))}handleCardPopoverKanjiAction(event,button2,card,sentence,anchor){
-event.preventDefault(),event.stopPropagation(),this.showKanjiCard(card,button2.dataset.kanji??"",sentence,anchor,{preservePosition:!0})}dispatchCardPopoverAction(button2,card,sentence,anchor,trigger){this.handleCardPopoverNavigationAction(
-button2,anchor,trigger)||this.handleCardPopoverMiningAction(button2)||this.handleCardPopoverDeckPickerAction(button2,card,sentence)||this.handleCardAction(button2,card,sentence)}handleCardPopoverNavigationAction(button2,anchor,trigger){
-return button2.dataset.action!=="word-history-back"?!1:(this.showPreviousWord(anchor,trigger),!0)}handleCardPopoverMiningAction(button2){return button2.dataset.action!=="mining-collapse"?!1:(this.toggleMiningControls(
-button2),!0)}handleCardPopoverDeckPickerAction(button2,card,sentence){return button2.dataset.action==="deck-picker"?this.openDeckPickerForAdd(button2,card,sentence):button2.dataset.action==="add"&&this.openDeckPickerForAdd(
-button2,card,sentence)}toggleMiningControls(button2){toggleMiningControls(button2,expanded=>this.miningControlsToggleLabel(expanded))}setMiningControlsExpanded(button2,expanded){setMiningControlsExpanded(button2,
-expanded,value=>this.miningControlsToggleLabel(value))}miningControlsToggleLabel(expanded){return uiText(this.settings.interfaceLanguage,expanded?"hideMiningActions":"showMiningActions")}openDeckPickerForAdd(button2,card,sentence){
-return openDeckPickerForCardAdd(button2,card,sentence,(actionButton,actionCard,actionSentence)=>this.handleCardAction(actionButton,actionCard,actionSentence))}async showPreviousWord(anchor,trigger="modal"){const previous=this.
-navigation.popPreviousWord();if(previous){if(previous.kind==="kanji"){await this.showKanjiCard(previous.card,previous.kanji,previous.sentence,anchor,{navigation:"preserve",preservePosition:!0});return}await this.
-showCard(previous.card,previous.sentence,anchor,{autoPlay:!1,trigger,navigation:"preserve",preservePosition:!0})}}async showPreviousKanji(anchor){const previous=this.navigation.popPreviousKanji();previous&&await this.
-showKanjiCard(previous.card,previous.kanji,previous.sentence,anchor,{navigation:"preserve",preservePosition:!0})}shouldAutoPlay(card,trigger,userGesture=!1,anchor){if(!canAttemptReaderAutoAudio({anchor,settings:this.
-settings,subtitleSurfaceSelector:SUBTITLE_SURFACE_SELECTOR,trigger,userGesture}))return!1;const key=`${card.vid}:${card.sid}`,now=Date.now();if(!userGesture){if(key===this.lastAutoAudioKey&&now-this.lastAutoAudioAt<
-2500)return!1;this.lastAutoAudioKey=key,this.lastAutoAudioAt=now}return!0}async showKanjiCard(card,kanji,sentence,anchor,options={}){if(!isKanjiCharacter$1(kanji))return;const navigation=options.navigation??"re\
-set";this.navigation.updateKanji(card,kanji,sentence,navigation);const popover=this.createPopover(),language=this.settings.interfaceLanguage,kanjiCharacters=uniqueKanji(card.spelling),jpdbUrl=`https://jpdb.io/k\
-anji/${encodeURIComponent(kanji)}`,detailsPromises=this.kanjiDetailPromises(kanji);this.renderKanjiCardShell(popover,card,kanji,kanjiCharacters,jpdbUrl,language),this.installKanjiCardActions(popover,card,kanji,
-sentence,anchor),this.mountPopover(popover,anchor,{preservePosition:options.preservePosition}),this.startKanjiProgressiveRender(popover,detailsPromises,card,kanji,language)}kanjiDetailPromises(kanji){const needsKanjiVG=this.
-settings.kanjivgEnabled||this.settings.kanjiOriginsEnabled&&this.settings.kanjiOriginGraphEnabled;return{jpdbInfo:this.jpdbKanjiDetailPromise(kanji),kanjiEntries:this.localKanjiEntriesPromise(kanji),rtkInfo:this.
-rtkDetailPromise(kanji),kanjiVGInfo:needsKanjiVG?this.kanjiVG.lookup(kanji).catch(()=>null):Promise.resolve(null)}}jpdbKanjiDetailPromise(kanji){return this.settings.jpdbKanjiEnabled?this.jpdbKanji.lookup(kanji).
-catch(()=>null):Promise.resolve(null)}localKanjiEntriesPromise(kanji){return this.settings.localDictionariesEnabled&&this.settings.localDictionaryShowKanji?this.dictionaries.lookupKanji(kanji,this.settings.localDictionaryMaxResults,
-this.settings.dictionaryPreferences).catch(()=>[]):Promise.resolve([])}rtkDetailPromise(kanji){return this.settings.rtkEnabled?this.rtk.lookup(kanji).catch(()=>null):Promise.resolve(null)}renderKanjiCardShell(popover,card,kanji,kanjiCharacters,jpdbUrl,language){
-setInnerHtml(popover,`
+trusted===!1&&ankiLookup.trusted!==!1;!ankiLookupHasDisplayableNotes(ankiLookup)&&!ankiLookupHasDisplayableNotes(data.ankiLookup)&&!resolvesPendingMiss||this.isCurrentCardRender(popover,requestId,isCurrentHoverCard)&&
+this.renderCompletedCardPopover(popover,card,sentence,trigger,{...data,ankiLookup})}).catch(error=>{if(log.warn("Anki card detail hydration failed while rendering popup",{term:card.spelling},error),!this.isCurrentCardRender(
+popover,requestId,isCurrentHoverCard))return;const ankiLookup=ankiLookupWithUnavailableDetails(data.ankiLookup);ankiLookup.primary&&this.renderCompletedCardPopover(popover,card,sentence,trigger,{...data,ankiLookup})})};
+if(trigger==="hover"){window.setTimeout(hydrate,HOVER_ANKI_HYDRATION_DELAY_MS);return}hydrate()}preserveImmersionMountForRerender(popover){const mount=popover.querySelector("[data-immersion-kit]");return mount&&
+this.shouldPreserveImmersionMount(mount)?mount:null}shouldPreserveImmersionMount(mount){return!!(mount.dataset.immersionLoadState||mount.dataset.immersionEmpty==="true"||mount.querySelector(".jpdb-reader-exampl\
+e-card")||mount instanceof HTMLDetailsElement&&mount.open)}restorePreservedImmersionMount(popover,preserved){if(!preserved)return;const next=popover.querySelector("[data-immersion-kit]");!next||next===preserved||
+next.replaceWith(preserved)}isCurrentCardRender(popover,_requestId,isCurrentHoverCard){return isCurrentHoverCard()&&popover.isConnected&&this.activePopover===popover}immersionRelatedQueries(info){return info?info.
+compounds.flatMap(compound=>[compound.term,compound.reading]).filter(Boolean):[]}installCardPopoverHandlers(popover,card,sentence,anchor,trigger){popover.addEventListener("click",event=>this.handleCardPopoverClick(
+event,card,sentence,anchor,trigger))}handleCardPopoverClick(event,card,sentence,anchor,trigger){if(this.handleDictionaryLookupLink(event,anchor,trigger))return;const target=event.target,kanjiButton=target.closest(
+'[data-action="kanji"]');if(kanjiButton){this.handleCardPopoverKanjiAction(event,kanjiButton,card,sentence,anchor);return}const button2=target.closest("[data-action]");button2&&(event.preventDefault(),event.stopPropagation(),
+this.dispatchCardPopoverAction(button2,card,sentence,anchor,trigger))}handleCardPopoverKanjiAction(event,button2,card,sentence,anchor){event.preventDefault(),event.stopPropagation(),this.showKanjiCard(card,button2.
+dataset.kanji??"",sentence,anchor,{preservePosition:!0})}dispatchCardPopoverAction(button2,card,sentence,anchor,trigger){this.handleCardPopoverNavigationAction(button2,anchor,trigger)||this.handleCardPopoverMiningAction(
+button2)||this.handleCardPopoverDeckPickerAction(button2,card,sentence)||this.handleCardAction(button2,card,sentence)}handleCardPopoverNavigationAction(button2,anchor,trigger){return button2.dataset.action!=="w\
+ord-history-back"?!1:(this.showPreviousWord(anchor,trigger),!0)}handleCardPopoverMiningAction(button2){return button2.dataset.action!=="mining-collapse"?!1:(this.toggleMiningControls(button2),!0)}handleCardPopoverDeckPickerAction(button2,card,sentence){
+return button2.dataset.action==="deck-picker"?this.openDeckPickerForAdd(button2,card,sentence):button2.dataset.action==="add"&&this.openDeckPickerForAdd(button2,card,sentence)}toggleMiningControls(button2){toggleMiningControls(
+button2,expanded=>this.miningControlsToggleLabel(expanded))}setMiningControlsExpanded(button2,expanded){setMiningControlsExpanded(button2,expanded,value=>this.miningControlsToggleLabel(value))}miningControlsToggleLabel(expanded){
+return uiText(this.settings.interfaceLanguage,expanded?"hideMiningActions":"showMiningActions")}openDeckPickerForAdd(button2,card,sentence){return openDeckPickerForCardAdd(button2,card,sentence,(actionButton,actionCard,actionSentence)=>this.
+handleCardAction(actionButton,actionCard,actionSentence))}async showPreviousWord(anchor,trigger="modal"){const previous=this.navigation.popPreviousWord();if(previous){if(previous.kind==="kanji"){await this.showKanjiCard(
+previous.card,previous.kanji,previous.sentence,anchor,{navigation:"preserve",preservePosition:!0});return}await this.showCard(previous.card,previous.sentence,anchor,{autoPlay:!1,trigger,navigation:"preserve",preservePosition:!0})}}async showPreviousKanji(anchor){
+const previous=this.navigation.popPreviousKanji();previous&&await this.showKanjiCard(previous.card,previous.kanji,previous.sentence,anchor,{navigation:"preserve",preservePosition:!0})}shouldAutoPlay(card,trigger,userGesture=!1,anchor){
+if(!canAttemptReaderAutoAudio({anchor,settings:this.settings,subtitleSurfaceSelector:SUBTITLE_SURFACE_SELECTOR,trigger,userGesture}))return!1;const key=`${card.vid}:${card.sid}`,now=Date.now();if(!userGesture){
+if(key===this.lastAutoAudioKey&&now-this.lastAutoAudioAt<2500)return!1;this.lastAutoAudioKey=key,this.lastAutoAudioAt=now}return!0}async showKanjiCard(card,kanji,sentence,anchor,options={}){if(!isKanjiCharacter$1(
+kanji))return;const navigation=options.navigation??"reset";this.navigation.updateKanji(card,kanji,sentence,navigation);const popover=this.createPopover(),language=this.settings.interfaceLanguage,kanjiCharacters=uniqueKanji(
+card.spelling),jpdbUrl=`https://jpdb.io/kanji/${encodeURIComponent(kanji)}`,detailsPromises=this.kanjiDetailPromises(kanji);this.renderKanjiCardShell(popover,card,kanji,kanjiCharacters,jpdbUrl,language),this.installKanjiCardActions(
+popover,card,kanji,sentence,anchor),this.mountPopover(popover,anchor,{preservePosition:options.preservePosition}),this.startKanjiProgressiveRender(popover,detailsPromises,card,kanji,language)}kanjiDetailPromises(kanji){
+const needsKanjiVG=this.settings.kanjivgEnabled||this.settings.kanjiOriginsEnabled&&this.settings.kanjiOriginGraphEnabled;return{jpdbInfo:this.jpdbKanjiDetailPromise(kanji),kanjiEntries:this.localKanjiEntriesPromise(
+kanji),rtkInfo:this.rtkDetailPromise(kanji),kanjiVGInfo:needsKanjiVG?this.kanjiVG.lookup(kanji).catch(()=>null):Promise.resolve(null)}}jpdbKanjiDetailPromise(kanji){return this.settings.jpdbKanjiEnabled?this.jpdbKanji.
+lookup(kanji).catch(()=>null):Promise.resolve(null)}localKanjiEntriesPromise(kanji){return this.settings.localDictionariesEnabled&&this.settings.localDictionaryShowKanji?this.dictionaries.lookupKanji(kanji,this.
+settings.localDictionaryMaxResults,this.settings.dictionaryPreferences).catch(()=>[]):Promise.resolve([])}rtkDetailPromise(kanji){return this.settings.rtkEnabled?this.rtk.lookup(kanji).catch(()=>null):Promise.resolve(
+null)}renderKanjiCardShell(popover,card,kanji,kanjiCharacters,jpdbUrl,language){setInnerHtml(popover,`
 <div class="jpdb-reader-sheet-handle"></div>
 <div class="jpdb-reader-popover-body">
 ${renderModalNavigation({...this.navigation.kanjiModalBack(card,language),controlsHtml:this.renderKanjiNavigationControls(kanjiCharacters,kanji,language)})}
@@ -9824,7 +9856,8 @@ ${renderModalNavigation({...this.navigation.kanjiModalBack(card,language),contro
 <div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
 <div class="jpdb-reader-kanji-display">${escapeHtml$1(kanji)}</div>
 <div data-kanji-keyword-mount><div class="jpdb-reader-help">${escapeHtml$1(uiText(language,"loadingKanjiDetails"))}</div></div>
-${renderWordPills({card,jpdbUrl,settings:this.settings,metaEntries:[],overrideQuery:kanji,isJpdbBackedCard:value=>this.isJpdbBackedCard(value),dictionaryLabel:name=>this.dictionaryLabel(name)})}
+${renderWordPills({card,jpdbUrl,settings:this.settings,metaEntries:[],overrideQuery:kanji,isJpdbBackedCard:value=>this.isJpdbBackedCard(value),dictionaryLabel:name=>this.dictionaryLabel(
+name)})}
 </div>
 </div>
 </div>
@@ -9833,8 +9866,8 @@ ${this.renderKanjiSourceMounts(kanji,language)}
 </div>
 </div>
 ${this.renderKanjiActionBar(card)}
-`)}renderKanjiNavigationControls(kanjiCharacters,kanji,language){if(kanjiCharacters.length<=1)return"";const index=Math.max(0,kanjiCharacters.indexOf(kanji)),previous=kanjiCharacters[(index-1+kanjiCharacters.length)%
-kanjiCharacters.length],next=kanjiCharacters[(index+1)%kanjiCharacters.length];return`
+`)}renderKanjiNavigationControls(kanjiCharacters,kanji,language){if(kanjiCharacters.length<=1)return"";const index=Math.max(0,kanjiCharacters.indexOf(kanji)),previous=kanjiCharacters[(index-1+kanjiCharacters.
+length)%kanjiCharacters.length],next=kanjiCharacters[(index+1)%kanjiCharacters.length];return`
 <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml$1(previous)}" title="${escapeHtml$1(uiText(language,"previousKanji"))}">‹</button>
 <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml$1(next)}" title="${escapeHtml$1(uiText(language,"nextKanji"))}">›</button>
 `}installKanjiCardActions(popover,card,kanji,sentence,anchor){installMiningDrawerHandle(popover,(button2,expanded)=>this.setMiningControlsExpanded(button2,expanded)),popover.addEventListener("click",event=>this.
@@ -9868,8 +9901,8 @@ key,initiallyExpanded),this.kanjiSourceTitle(sourceId))}renderKanjiImmersionKitM
 `}renderKanjiActionBar(card){const reviewButtons=this.renderKanjiReviewButtons(card);return`
 <div class="jpdb-reader-actions" data-kanji-actions data-kanji-has-review="${reviewButtons?"true":"false"}"${reviewButtons?"":" hidden"}>
 <div class="jpdb-reader-actions-gutter" hidden>
-<button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$1(uiText(this.settings.interfaceLanguage,"showM\
-iningActions"))}" aria-label="${escapeHtml$1(uiText(this.settings.interfaceLanguage,"showMiningActions"))}"></button>
+<button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$1(uiText(this.settings.interfaceLanguage,
+"showMiningActions"))}" aria-label="${escapeHtml$1(uiText(this.settings.interfaceLanguage,"showMiningActions"))}"></button>
 </div>
 <div data-kanji-mining-mount hidden></div>
 ${reviewButtons}
@@ -9965,7 +9998,7 @@ root.dataset.jpdbReaderParseLoadingKey!==plan.parseKey||root.dataset.jpdbReaderP
 root),highlightCardTargetScopes(root),refreshReaderWordContrast(root),root.dataset.jpdbReaderParseKey=plan.parseKey,this.afterNestedJapaneseParsed(parsed,root,options.skipJpdb?{publicLookup:!1}:void 0)}catch{}finally{
 clearNestedParseLoadingKey(root,plan.parseKey,parseLoadingId)}}loadParsedNestedJapaneseContent(texts,options={}){const parseOptions={jpdbTimeoutMs:options.jpdbTimeoutMs??1200,allowJpdbTimeoutFallback:options.allowJpdbTimeoutFallback??
 !1,includeLocalPitch:options.includeLocalPitch??!1,skipJpdb:options.skipJpdb??!1,requireJpdb:options.requireJpdb??!options.skipJpdb,allowSegmentedFallback:options.allowSegmentedFallback??!this.settings.apiKey.trim()},
-key=this.nestedParseContentCacheKey(texts,parseOptions),now=Date.now();return this.cachedNestedParseContent(key,now)||this.loadAndCacheNestedParseContent(key,texts,parseOptions,now)}cachedNestedParseContent(key,now){
+key=this.nestedParseContentCacheKey(texts,parseOptions),now=Date.now(),cached=this.cachedNestedParseContent(key,now);return cached||this.loadAndCacheNestedParseContent(key,texts,parseOptions,now)}cachedNestedParseContent(key,now){
 const cached=this.nestedParseContentCache.get(key);return!cached||(this.nestedParseContentCache.delete(key),cached.expiresAt<=now)?null:(this.nestedParseContentCache.set(key,cached),cached.promise)}loadAndCacheNestedParseContent(key,texts,parseOptions,now){
 const promise=this.parseJapanese(texts,parseOptions).catch(error=>{throw this.nestedParseContentCache.get(key)?.promise===promise&&this.nestedParseContentCache.delete(key),error});return this.nestedParseContentCache.
 set(key,{expiresAt:now+NESTED_PARSE_CONTENT_CACHE_TTL_MS,promise}),this.pruneNestedParseContentCache(now),promise}nestedParseContentCacheKey(texts,options){return JSON.stringify({texts,options,settings:{apiKey:!!this.

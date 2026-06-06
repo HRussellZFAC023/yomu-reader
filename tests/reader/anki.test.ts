@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AnkiConnectClient, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, needsHostedAnkiConnectSetupHint, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki';
 import { renderAnkiExistingSection } from '../../src/reader/anki-render';
+import { ANKI_STATUS_INDEX_STORAGE_KEY, shouldReplaceAnkiStatusIndexEntry } from '../../src/reader/anki-status-index';
 import { uiText } from '../../src/reader/i18n';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/types';
@@ -188,6 +189,48 @@ describe('Anki existing-card lookup', () => {
 });
 
 describe('Anki status-only lookup cache', () => {
+    it('lets exact refreshed status entries replace older entries from the same Anki note', () => {
+        expect(shouldReplaceAnkiStatusIndexEntry({
+            state: 'due',
+            noteId: 55,
+            primaryCardId: 7701,
+            deckNames: ['Mining'],
+            reps: 8,
+            lapses: 0,
+            modelName: 'Imported Core',
+            updatedAt: 100,
+        }, {
+            state: 'known',
+            noteId: 55,
+            primaryCardId: 7701,
+            deckNames: ['Mining'],
+            reps: 9,
+            lapses: 0,
+            modelName: 'Imported Core',
+            updatedAt: 200,
+        })).toBe(true);
+
+        expect(shouldReplaceAnkiStatusIndexEntry({
+            state: 'due',
+            noteId: 55,
+            primaryCardId: 7701,
+            deckNames: ['Mining'],
+            reps: 8,
+            lapses: 0,
+            modelName: 'Imported Core',
+            updatedAt: 200,
+        }, {
+            state: 'known',
+            noteId: 55,
+            primaryCardId: 7701,
+            deckNames: ['Mining'],
+            reps: 7,
+            lapses: 0,
+            modelName: 'Imported Core',
+            updatedAt: 100,
+        })).toBe(false);
+    });
+
     it('dedupes duplicate lookup keys before loading status index entries', async () => {
         const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
         const indexEntry = {
@@ -514,6 +557,121 @@ describe('Anki status-only lookup cache', () => {
             expect(actions).not.toContain('findCards');
         } finally {
             client.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('refreshes dirty indexed status hits lazily after Anki reviews without scanning the deck', async () => {
+        localStorage.clear();
+        const actions: string[] = [];
+        const ankiConnectUrl = `${window.location.origin}/anki-dirty-status`;
+        const dirtyAt = Date.now() - 1000;
+        const settingsKey = JSON.stringify({ url: ankiConnectUrl });
+        localStorage.setItem(ANKI_STATUS_INDEX_STORAGE_KEY, JSON.stringify({
+            version: 1,
+            settingsKey,
+            syncedAt: 0,
+            checkedAt: 0,
+            dirtyAt,
+            cardCount: 1,
+            entryCount: 1,
+            readingKeys: true,
+            entries: {
+                [String('動画').toLocaleLowerCase()]: {
+                    state: 'due',
+                    noteId: 55,
+                    primaryCardId: 7701,
+                    deckNames: ['Anime::Mining'],
+                    reps: 14,
+                    lapses: 0,
+                    modelName: 'Imported Core',
+                    updatedAt: dirtyAt - 1,
+                },
+            },
+        }));
+        const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+            const body = JSON.parse(String(init?.body ?? '{}')) as {
+                action: string;
+                params?: { actions?: Array<{ action: string; params?: Record<string, unknown> }>; notes?: number[]; cards?: number[] };
+            };
+            actions.push(body.action);
+            const resultForAction = (): unknown => {
+                if (body.action === 'version') return 6;
+                if (body.action === 'deckNames') return ['Anime::Mining'];
+                if (body.action === 'getDeckStats') return { 1: { name: 'Anime::Mining', total_in_deck: 1 } };
+                if (body.action === 'findCards') throw new Error('dirty status refresh should not scan deck:*');
+                if (body.action === 'multi') {
+                    return (body.params?.actions ?? []).map(action => ({
+                        result: /動画|どうが/.test(String(action.params?.query ?? '')) ? [55] : [],
+                        error: null,
+                    }));
+                }
+                if (body.action === 'notesInfo') {
+                    expect(body.params?.notes).toEqual([55]);
+                    return [{
+                        noteId: 55,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '動画' },
+                            Reading: { value: 'どうが' },
+                        },
+                        cards: [7701],
+                    }];
+                }
+                if (body.action === 'cardsInfo') {
+                    expect(body.params?.cards).toEqual([7701]);
+                    return [{
+                        cardId: 7701,
+                        note: 55,
+                        deckName: 'Anime::Mining',
+                        queue: 2,
+                        type: 2,
+                        reps: 15,
+                        lapses: 0,
+                    }];
+                }
+                if (body.action === 'areDue') return [false];
+                throw new Error(`Unexpected Anki action: ${body.action}`);
+            };
+            return new Response(JSON.stringify({ result: resultForAction(), error: null }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, ankiConnectUrl };
+            const lookupCard = jpdbCard({ vid: 10, sid: 1, spelling: '動画', reading: 'どうが' });
+            const client = new AnkiConnectClient(() => settings);
+            await expect(client.findCachedStatusBatch([lookupCard])).resolves.toMatchObject([{
+                state: 'known',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7701,
+                    reps: 15,
+                },
+            }]);
+            expect(actions).toEqual(expect.arrayContaining(['version', 'multi', 'notesInfo', 'cardsInfo', 'areDue']));
+            expect(actions).not.toContain('findCards');
+            client.destroy();
+
+            vi.unstubAllGlobals();
+            vi.stubGlobal('fetch', vi.fn(async () => {
+                throw new Error('refreshed dirty status hit should be served from storage');
+            }));
+            const persistedClient = new AnkiConnectClient(() => settings);
+            await expect(persistedClient.findCachedStatusBatch([lookupCard])).resolves.toMatchObject([{
+                state: 'known',
+                primary: {
+                    noteId: 55,
+                    reps: 15,
+                },
+            }]);
+            persistedClient.destroy();
+        } finally {
+            localStorage.clear();
             vi.unstubAllGlobals();
         }
     });
